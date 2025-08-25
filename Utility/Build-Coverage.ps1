@@ -97,11 +97,10 @@ if ((Get-Item $coverageFile).Length -lt 400) {
 }
 
 # ReportGenerator
+# ReportGenerator
 if ($ReportGenerator) {
-    # Invoke-Build Build -Configuration $Configuration
     # PowerShell coverage
     if (-not $SkipPowershell) {
-        # Pester coverage
         $pesterCoverageDir = Join-Path -Path $CoverageDir -ChildPath 'pester'
         $pesterCoverageFile = Join-Path -Path $pesterCoverageDir -ChildPath 'coverage.cobertura.xml'
         New-Item -Force -ItemType Directory -Path $pesterCoverageDir | Out-Null
@@ -111,14 +110,18 @@ if ($ReportGenerator) {
         $cfg.Output.Verbosity = 'Detailed'
         $cfg.TestResult.Enabled = $true
         $cfg.Run.Exit = $true
+        # include both ps1 and psm1 sources
         $cfg.CodeCoverage.Enabled = $true
-        $cfg.CodeCoverage.Path = @('src/PowerShell/Kestrun/**/*.ps1')  # ← your module/scripts
+        $cfg.CodeCoverage.Path = @(
+            'src/PowerShell/Kestrun/**/*.ps1',
+            'src/PowerShell/Kestrun/**/*.psm1'
+        )
         $cfg.CodeCoverage.OutputFormat = 'Cobertura'
         $cfg.CodeCoverage.OutputPath = $pesterCoverageFile
 
         Invoke-Pester -Configuration $cfg
         if (-not (Test-Path $pesterCoverageFile)) {
-            throw '⚠️Pester coverage output not found.'
+            throw '⚠️ Pester coverage output not found.'
         } else {
             Write-Host "📊 Pester Coverage (Cobertura) saved: $pesterCoverageFile"
         }
@@ -126,46 +129,45 @@ if ($ReportGenerator) {
 
     $rg = Install-ReportGenerator
     if (-not $rg) { throw "❌ ReportGenerator not found." }
-    if (-not (Test-Path $ReportDir)) {
-        New-Item -ItemType Directory -Force -Path $ReportDir | Out-Null
-    }
-    # Resolve report & history dirs
+
+    if (-not (Test-Path $ReportDir)) { New-Item -ItemType Directory -Force -Path $ReportDir | Out-Null }
     $ReportDir = Resolve-Path -Path $ReportDir
-    $HistoryDir = $HistoryDir
+
     if (-not $HistoryDir -and $env:HISTORY_DIR) { $HistoryDir = $env:HISTORY_DIR }
     if (-not $HistoryDir) { $HistoryDir = Join-Path $CoverageDir 'history' }
-
     New-Item -ItemType Directory -Force -Path $HistoryDir | Out-Null
     $HistoryDir = Resolve-Path -Path $HistoryDir
-    if ($Powershell) {
-        $reportsArg = '"{0};{1}"' -f $coverageFile, $pesterCoverageFile
-        $title = "Kestrun — Combined Coverage"
-    } else {
-        $reportsArg = '"{0}"' -f $coverageFile
-        $title = "Kestrun — C# Coverage"
+
+    # --- build the report list safely ---
+    $reportFiles = @($coverageFile)
+    $includePwsh = (-not $SkipPowershell) -and (Get-Variable pesterCoverageFile -Scope 0 -ErrorAction SilentlyContinue) -and (Test-Path $pesterCoverageFile)
+    if ($includePwsh) { $reportFiles += $pesterCoverageFile }
+
+    # Debug: show exactly what we feed RG
+    Write-Host "🧾 Report inputs:"; $reportFiles | ForEach-Object { Write-Host "  • $_" }
+
+    $reportsArg = '"' + ($reportFiles -join ';') + '"'
+    $title = "Kestrun — " + ($(if ($includePwsh) { "Combined" } else { "C#" })) + " Coverage"
+
+    # --- filters: avoid excluding Pester ---
+    if (-not $PSBoundParameters.ContainsKey('AssemblyFilters')) {
+        # safer default: exclude tests & infra, but don't force +Kestrun*
+        $AssemblyFilters = "-*.Tests;-testhost*;-xunit*"
     }
 
-    # Build a friendly tag that works on Actions AND locally
-    $repo = $env:GITHUB_REPOSITORY
-    $sha = $env:GITHUB_SHA
-
-    if ([string]::IsNullOrWhiteSpace($repo)) {
-        try {
-            $repo = (git config --get remote.origin.url) -replace '^.*[:/]', '' -replace '\.git$', ''
-        } catch {
+    # Build a friendly tag
+    $repo = $env:GITHUB_REPOSITORY; $sha = $env:GITHUB_SHA
+    if ([string]::IsNullOrWhiteSpace($repo)) { 
+        try { $repo = (git config --get remote.origin.url) -replace '^.*[:/]', '' -replace '\.git$', '' }  catch {
             Write-Warning "Could not determine repository name: $_"
         }
     }
     if ([string]::IsNullOrWhiteSpace($sha)) {
-        try {
-            $sha = (git rev-parse --short HEAD)
-        } catch {
+        try { $sha = (git rev-parse --short HEAD) } catch {
             Write-Warning "Could not determine commit SHA: $_"
         }
     }
-
     $tag = if ($repo -and $sha) { "$repo@$sha" } else { "$(Get-Date -Format s)Z" }
-
 
     Write-Host "📈 Generating coverage report → $ReportDir (history: $HistoryDir)"
     & $rg `

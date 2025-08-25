@@ -97,12 +97,11 @@ if ((Get-Item $coverageFile).Length -lt 400) {
 }
 
 # ReportGenerator
-# ReportGenerator
 if ($ReportGenerator) {
     # PowerShell coverage
     if (-not $SkipPowershell) {
         $pesterCoverageDir = Join-Path -Path $CoverageDir -ChildPath 'pester'
-        $pesterCoverageFile = Join-Path -Path $CoverageDir -ChildPath 'powershell.cobertura.xml'
+        $pesterCoverageFile = Join-Path -Path $pesterCoverageDir -ChildPath 'coverage.cobertura.xml'
         New-Item -Force -ItemType Directory -Path $pesterCoverageDir | Out-Null
 
         $cfg = New-PesterConfiguration
@@ -157,13 +156,15 @@ if ($ReportGenerator) {
 
     # Build a friendly tag
     $repo = $env:GITHUB_REPOSITORY; $sha = $env:GITHUB_SHA
-    if ([string]::IsNullOrWhiteSpace($repo)) { 
-        try { $repo = (git config --get remote.origin.url) -replace '^.*[:/]', '' -replace '\.git$', '' }  catch {
+    if ([string]::IsNullOrWhiteSpace($repo)) {
+        try { $repo = (git config --get remote.origin.url) -replace '^.*[:/]', '' -replace '\.git$', '' } catch {
             Write-Warning "Could not determine repository name: $_"
         }
     }
     if ([string]::IsNullOrWhiteSpace($sha)) {
-        try { $sha = (git rev-parse --short HEAD) } catch {
+        try {
+            $sha = (git rev-parse --short HEAD)
+        } catch {
             Write-Warning "Could not determine commit SHA: $_"
         }
     }
@@ -179,6 +180,8 @@ if ($ReportGenerator) {
         -tag:$tag `
         -assemblyfilters:$AssemblyFilters `
         -filefilters:$FileFilters
+
+    # Open report in browser
 
     if ($OpenWhenDone) {
         $index = Join-Path $ReportDir "index.html"

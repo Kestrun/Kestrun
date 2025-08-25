@@ -103,18 +103,23 @@ if ($ReportGenerator) {
         $pesterCoverageDir = Join-Path -Path $CoverageDir -ChildPath 'pester'
         $pesterCoverageFile = Join-Path -Path $pesterCoverageDir -ChildPath 'coverage.cobertura.xml'
         New-Item -Force -ItemType Directory -Path $pesterCoverageDir | Out-Null
+ $cfg = New-PesterConfiguration
+        # Resolve the glob to actual files (absolute paths), so there’s no ambiguity
+        $toCover = @(
+            Get-ChildItem -Path 'src/PowerShell/Kestrun' -Recurse -Include *.ps1, *.psm1 -File -ErrorAction SilentlyContinue
+        ) | ForEach-Object { $_.FullName }
 
-        $cfg = New-PesterConfiguration
+        Write-Host "🧮 Pester will try to analyze $($toCover.Count) files:"
+        $toCover | ForEach-Object { Write-Host "  • $_" }
+
+        $cfg.CodeCoverage.Path = $toCover
+
         $cfg.Run.Path = @($PesterPath)
         $cfg.Output.Verbosity = 'Detailed'
         $cfg.TestResult.Enabled = $true
         $cfg.Run.Exit = $true
         # include both ps1 and psm1 sources
         $cfg.CodeCoverage.Enabled = $true
-        $cfg.CodeCoverage.Path = @(
-            'src/PowerShell/Kestrun/**/*.ps1',
-            'src/PowerShell/Kestrun/**/*.psm1'
-        )
         $cfg.CodeCoverage.OutputFormat = 'Cobertura'
         $cfg.CodeCoverage.OutputPath = $pesterCoverageFile
 

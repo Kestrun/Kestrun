@@ -12,7 +12,7 @@ param(
 # ─── Setup ────────────────────────────────────────────────────────
 $targetBytes = $SizeMB * 1MB
 
-Write-Host "Generating $Mode file: $Path ($SizeMB MB)..."
+Write-Host "🧪 Generating $Mode file: $Path ($SizeMB MB)..."
 
 if (Test-Path $Path) {
     Remove-Item $Path
@@ -40,7 +40,7 @@ if ($Mode -eq 'Binary') {
     } finally {
         $fs.Close()
     }
-    Write-Host ' [Done]' -ForegroundColor Green
+    Write-Host ' ✅' -ForegroundColor Green
 }
 
 # ─── Generate Compressible Text File ──────────────────────────────
@@ -72,6 +72,6 @@ if ($Mode -eq 'Text') {
     } finally {
         $writer.Close()
     }
-    Write-Host ' [Done]' -ForegroundColor Green
+    Write-Host ' ✅' -ForegroundColor Green
 }
 

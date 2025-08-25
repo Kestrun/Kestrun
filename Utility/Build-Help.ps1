@@ -15,31 +15,31 @@ param(
 $ErrorActionPreference = 'Stop'
 
 if ($Clean) {
-    Write-Host 'Cleaning PlatyPS...'
+    Write-Host '🧹 Cleaning PlatyPS...'
     Remove-Item -Path $OutDir -Recurse -Force -ErrorAction SilentlyContinue
     return
 }
 
 New-Item -ItemType Directory -Force -Path $OutDir | Out-Null
 if (Test-Path -Path "$OutDir/about_.md") {
-    Write-Host "Clearing existing help in $OutDir/about_.md"
+    Write-Host "🗑️ Clearing existing help in $OutDir/about_.md"
     Remove-Item -Path "$OutDir/about_.md" -Force
 }
 
-Write-Host "Importing module: $ModulePath"
+Write-Host "📦 Importing module: $ModulePath"
 Import-Module $ModulePath -Force
 New-KrServer -Name 'Docs'
 Remove-KrServer -Name 'Docs' -Force
 Import-Module -Name ./Utility/PlatyPS/platyPS.psm1
 
-Write-Host 'Generating Markdown help...'
+Write-Host '🧾 Generating Markdown help...'
 # Create or update Markdown help
 if (Test-Path $OutDir ) {
-    Write-Host "Clearing existing help in $OutDir"
+    Write-Host "🗑️ Clearing existing help in $OutDir"
     Remove-Item -Path $OutDir -Recurse -Force -ErrorAction SilentlyContinue
 }
 
-Write-Host "Creating markdown help in $OutDir"
+Write-Host "🛠️ Creating markdown help in $OutDir"
 New-MarkdownHelp -Module (Get-Module -Name Kestrun) -OutputFolder $OutDir -Force
 $index_md = @'
 ---
@@ -106,7 +106,7 @@ $($raw.Substring(5))
 if ($EmitXmlHelp) {
     $xmlOut = Join-Path $OutDir $XmlCulture
     New-Item -ItemType Directory -Force -Path $xmlOut | Out-Null
-    Write-Host 'Generating external help XML…'
+    Write-Host '🧬 Generating external help XML…'
     New-ExternalHelp -Path $OutDir -OutputPath $xmlOut -Force
 }
-Write-Host "Done. Markdown at $OutDir"
+Write-Host "✅ Done. Markdown at $OutDir"

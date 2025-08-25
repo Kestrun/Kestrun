@@ -1,0 +1,119 @@
+---
+layout: default
+title: Build & Environment
+parent: Contributing
+nav_order: 1
+---
+
+# Build & Environment
+
+This page explains how to set up your environment and build Kestrun from source.
+
+## 1. Prerequisites
+
+| Component | Required | Notes |
+|-----------|----------|-------|
+| PowerShell | 7.4+ | For build scripts & module dev |
+| .NET SDK 8 | Yes | Multi-target builds include net8.0 |
+| .NET SDK 9 | Yes | Multi-target builds include net9.0 |
+| InvokeBuild | Yes | Task orchestration (`Install-PSResource`) |
+| Pester | Yes | PowerShell tests |
+
+Install tooling:
+
+```powershell
+Install-PSResource -Name 'InvokeBuild','Pester' -Scope CurrentUser
+```
+
+Verify SDKs:
+
+```powershell
+dotnet --list-sdks
+```
+
+## 2. Clone
+
+```powershell
+git clone https://github.com/Kestrun/Kestrun.git
+cd Kestrun
+```
+
+## 3. Restore & Build
+
+```powershell
+Invoke-Build Restore
+Invoke-Build Build
+```
+
+Optional parameters (see `Kestrun.build.ps1`):
+
+| Parameter | Purpose | Example |
+|-----------|---------|---------|
+| `-Configuration` | Debug/Release | `Invoke-Build Build -Configuration Release` |
+| `-Frameworks` | Target TFMs | `Invoke-Build Build -Frameworks net8.0,net9.0` |
+| `-FileVersion` | Version file path | `Invoke-Build Build -FileVersion ./version.json` |
+
+## 4. Run Examples
+
+```powershell
+dotnet run --project .\examples\CSharp\MultiRoutes\MultiRoutes.csproj
+```
+
+## 5. PowerShell Module (From Source)
+
+```powershell
+Import-Module ./src/PowerShell/Kestrun/Kestrun.psm1 -Force
+```
+
+## 6. Build Help & Docs
+
+```powershell
+Invoke-Build BuildHelp
+```
+
+Generated docs land under `docs/` (Just-the-Docs structure).
+
+## 7. Code Formatting
+
+```powershell
+Invoke-Build Format
+```
+
+## 8. Clean Artifacts
+
+```powershell
+Invoke-Build Clean
+```
+
+## 9. Coverage
+
+```powershell
+Invoke-Build Coverage      # Collect
+Invoke-Build Report-Coverage # HTML + badges
+```
+
+HTML report lives under `coverage/report`.
+
+## 10. Packaging
+
+```powershell
+Invoke-Build Package
+```
+
+## 11. Module Install Locally
+
+```powershell
+Invoke-Build Install-Module
+```
+
+## 12. Common Troubleshooting
+
+| Issue | Fix |
+|-------|-----|
+| Missing SDK | Re-run installer; check PATH |
+| Permission errors | `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned` |
+| Pester not found | Reinstall: `Install-PSResource Pester` |
+| Unicode glyphs garbled | Set a font that supports emoji or suppress icons once helper added |
+
+---
+Last updated: {{ site.time | date: '%Y-%m-%d' }}

@@ -79,8 +79,8 @@ param(
 )
 
 if (($null -eq $PSCmdlet.MyInvocation) -or ([string]::IsNullOrEmpty($PSCmdlet.MyInvocation.PSCommandPath)) -or (-not $PSCmdlet.MyInvocation.PSCommandPath.EndsWith('Invoke-Build.ps1'))) {
-    Write-Host 'This script is intended to be run with Invoke-Build. ' -ForegroundColor Yellow
-    Write-Host 'Please use Invoke-Build to execute the tasks defined in this script or Invoke-Build Help for more information.' -ForegroundColor Yellow
+    Write-Host '⚠️ This script is intended to be run with Invoke-Build. ' -ForegroundColor Yellow
+    Write-Host 'ℹ️ Please use Invoke-Build to execute the tasks defined in this script or Invoke-Build Help for more information.' -ForegroundColor Yellow
     return
 }
 
@@ -93,9 +93,9 @@ $SolutionPath = Join-Path -Path $PSScriptRoot -ChildPath "Kestrun.sln"
 Add-BuildTask Default Help
 
 Add-BuildTask Help {
-    Write-Host 'Tasks in the Build Script:' -ForegroundColor DarkMagenta
+    Write-Host '📘 Tasks in the Build Script:' -ForegroundColor DarkMagenta
     Write-Host
-    Write-Host 'Primary Tasks:' -ForegroundColor Green
+    Write-Host '🟩 Primary Tasks:' -ForegroundColor Green
     Write-Host '- Default: Lists all available tasks.'
     Write-Host '- Help: Displays this help message.'
     Write-Host '- Clean: Cleans the solution.'
@@ -104,7 +104,7 @@ Add-BuildTask Help {
     Write-Host '- Test: Runs tests and Pester tests.'
     Write-Host '- All: Runs Clean, Build, and Test tasks in sequence.'
     Write-Host '-----------------------------------------------------'
-    Write-Host 'Additional Tasks:' -ForegroundColor Green
+    Write-Host '🧩 Additional Tasks:' -ForegroundColor Green
     Write-Host '- Nuget-CodeAnalysis: Updates CodeAnalysis packages.'
     Write-Host '- Clean-CodeAnalysis: Cleans the CodeAnalysis packages.'
     Write-Host '- Kestrun.Tests: Runs Kestrun DLL tests.'
@@ -127,18 +127,18 @@ Add-BuildTask Help {
 }
 
 Add-BuildTask 'Clean' 'Clean-CodeAnalysis', 'CleanHelp', {
-    Write-Host 'Cleaning solution...'
+    Write-Host '🧹 Cleaning solution...'
     foreach ($framework in $Frameworks) {
         dotnet clean "$SolutionPath" -c $Configuration -f $framework -v:$DotNetVerbosity
     }
 }
 Add-BuildTask 'Restore' {
-    Write-Host 'Restore Packages'
+    Write-Host '📦 Restoring packages...'
     dotnet restore "$SolutionPath" -v:$DotNetVerbosity
 }, 'Nuget-CodeAnalysis'
 
 Add-BuildTask 'BuildNoPwsh' {
-    Write-Host 'Building solution...'
+    Write-Host '🔨 Building solution...'
 
     if ($PSCmdlet.ParameterSetName -eq 'FileVersion') {
         $Version = Get-Version -FileVersion $FileVersion
@@ -168,12 +168,12 @@ Add-BuildTask 'Build' 'BuildNoPwsh', 'SyncPowerShellDll', {}
 Add-BuildTask 'SyncPowerShellDll' {
     $dest = ".\src\PowerShell\Kestrun\lib"
     $src = ".\src\CSharp\Kestrun\bin\$Configuration"
-    Write-Host "Preparing to copy files from $src to $dest"
+    Write-Host "📁 Preparing to copy files from $src to $dest"
     if (-not (Test-Path -Path $dest)) {
         New-Item -Path $dest -ItemType Directory -Force | Out-Null
     }
     if (-not (Test-Path -Path (Join-Path -Path $dest -ChildPath "Microsoft.CodeAnalysis"))) {
-        Write-Host 'Missing CodeAnalysis...'
+        Write-Host '📦 Missing CodeAnalysis (downloading)...'
         & .\Utility\Download-CodeAnalysis.ps1
     }
     foreach ($framework in $Frameworks) {
@@ -184,7 +184,7 @@ Add-BuildTask 'SyncPowerShellDll' {
         New-Item -Path $destFramework -ItemType Directory -Force | Out-Null
         $destFramework = Resolve-Path -Path $destFramework
         $srcFramework = Resolve-Path (Join-Path -Path $src -ChildPath $framework)
-        Write-Host "Copy dll from $srcFramework to $destFramework"
+        Write-Host "📄 Copying dlls from $srcFramework to $destFramework"
 
         # Copy files except ones starting with Microsoft.CodeAnalysis
         Get-ChildItem -Path $srcFramework -Recurse -File |
@@ -203,23 +203,23 @@ Add-BuildTask 'SyncPowerShellDll' {
 }
 
 Add-BuildTask 'Nuget-CodeAnalysis' {
-    Write-Host 'Update CodeAnalysis...'
+    Write-Host '♻️ Updating CodeAnalysis packages...'
     & .\Utility\Download-CodeAnalysis.ps1
 }
 
 Add-BuildTask 'Clean-CodeAnalysis' {
-    Write-Host 'Cleaning CodeAnalysis...'
+    Write-Host '🧼 Cleaning CodeAnalysis packages...'
     Remove-Item -Path './src/PowerShell/Kestrun/lib/Microsoft.CodeAnalysis/' -Force -Recurse -ErrorAction SilentlyContinue
 }
 
 Add-BuildTask 'Kestrun.Tests' {
-    Write-Host 'Running Kestrun DLL tests...'
+    Write-Host '🧪 Running Kestrun DLL tests...'
     $failures = @()
     foreach ($framework in $Frameworks) {
-        Write-Host "Running tests for $framework"
+        Write-Host "▶️ Running tests for $framework"
         dotnet test "$SolutionPath" -c $Configuration -f $framework -v:$DotNetVerbosity
         if ($LASTEXITCODE -ne 0) {
-            Write-Host "Tests failed for $framework" -ForegroundColor Red
+            Write-Host "❌ Tests failed for $framework" -ForegroundColor Red
             $failures += $framework
         }
     }
@@ -229,7 +229,7 @@ Add-BuildTask 'Kestrun.Tests' {
 }
 
 Add-BuildTask 'Format' {
-    Write-Host 'Formatting code...'
+    Write-Host '✨ Formatting code...'
     dotnet format "$SolutionPath" -v:$DotNetVerbosity
 }
 
@@ -279,7 +279,7 @@ Invoke-Pester -Configuration $cfg
 Add-BuildTask 'Test' 'Kestrun.Tests', 'Test-Pester'
 
 Add-BuildTask 'Package' 'Build', {
-    Write-Host 'Packaging the solution...'
+    Write-Host '📦 Packaging the solution...'
     foreach ($framework in $Frameworks) {
         dotnet pack "$SolutionPath" -c $Configuration -f $framework -v:$DotNetVerbosity -p:Version=$Version -p:InformationalVersion=$InformationalVersion --no-build
     }
@@ -287,12 +287,12 @@ Add-BuildTask 'Package' 'Build', {
 
 
 Add-BuildTask 'Build_Powershell_Help' {
-    Write-Host 'Generate Powershell Help...'
+    Write-Host '📖 Generating PowerShell Help...'
     pwsh -NoProfile -File .\Utility\Build-Help.ps1
 }
 
 Add-BuildTask 'Build_CSharp_Help' {
-    Write-Host 'Generate C# Help...'
+    Write-Host '📘 Generating C# Help...'
     # Check if xmldocmd is in PATH
     if (-not (Get-Command xmldocmd -ErrorAction SilentlyContinue)) {
         Write-Host '📦 Installing xmldocmd...'
@@ -306,60 +306,60 @@ Add-BuildTask 'Build_CSharp_Help' {
 
 # Build Help will call Build_Powershell_Help and Build_CSharp_Help
 Add-BuildTask 'BuildHelp' {
-    Write-Host 'Generate Help...'
+    Write-Host '📚 Generating all Help...'
 }, 'Build_Powershell_Help', 'Build_CSharp_Help'
 
 # Clean Help will call Clean_Powershell_Help and Clean_CSharp_Help
 Add-BuildTask 'CleanHelp' {
-    Write-Host 'Cleaning Help...'
+    Write-Host '🧼 Cleaning all Help artifacts...'
 }, 'Clean_Powershell_Help', 'Clean_CSharp_Help'
 
 # Clean PowerShell Help
 Add-BuildTask 'Clean_Powershell_Help' {
-    Write-Host 'Cleaning Powershell Help...'
+    Write-Host '🧼 Cleaning PowerShell Help...'
     & .\Utility\Build-Help.ps1 -Clean
 }
 
 # Clean CSharp Help
 Add-BuildTask 'Clean_CSharp_Help' {
-    Write-Host 'Cleaning C# Help...'
+    Write-Host '🧼 Cleaning C# Help...'
     & .\Utility\Build-DocRefs.ps1 -Clean
 }
 
 # Code Coverage
 Add-BuildTask 'Coverage' {
-    Write-Host 'Creating coverage report...'
+    Write-Host '📊 Creating coverage report...'
     & .\Utility\Build-Coverage.ps1
     if ($LASTEXITCODE -ne 0) {
-        Write-Host "Coverage generation failed" -ForegroundColor Red
+        Write-Host "❌ Coverage generation failed" -ForegroundColor Red
         throw "Coverage generation failed"
     }
 }
 
 # Report coverage
 Add-BuildTask 'Report-Coverage' {
-    Write-Host 'Creating coverage report webpage...'
+    Write-Host '🌐 Creating coverage report webpage...'
     & .\Utility\Build-Coverage.ps1 -ReportGenerator
     if ($LASTEXITCODE -ne 0) {
-        Write-Host "Coverage Report generation failed" -ForegroundColor Red
+        Write-Host "❌ Coverage Report generation failed" -ForegroundColor Red
         throw "Coverage Report generation failed"
     }
 }
 
 # Clean coverage reports
 Add-BuildTask 'Clean-Coverage' {
-    Write-Host 'Cleaning coverage report...'
+    Write-Host '🗑️ Cleaning coverage reports...'
     & .\Utility\Build-Coverage.ps1 -Clean
 }
 
 # Update the module manifest
 Add-BuildTask 'Manifest' {
-    Write-Host 'Updating Kestrun.psd1 manifest...'
+    Write-Host '📝 Updating Kestrun.psd1 manifest...'
     pwsh -NoProfile -File .\Utility\Update-Manifest.ps1
 }
 
 Add-BuildTask 'New-LargeFile' 'Clean-LargeFile', {
-    Write-Host 'Generating large file...'
+    Write-Host '📄 Generating large files...'
     if (-not (Test-Path -Path '.\examples\files\LargeFiles')) {
         New-Item -ItemType Directory -Path '.\examples\files\LargeFiles' -Force | Out-Null
     }
@@ -370,22 +370,23 @@ Add-BuildTask 'New-LargeFile' 'Clean-LargeFile', {
     }
 }
 Add-BuildTask 'Clean-LargeFile' {
-    Write-Host 'Cleaning large files...'
+    Write-Host '🗑️ Cleaning generated large files...'
     Remove-Item -Path '.\examples\files\LargeFiles\*' -Force
 }
 
 Add-BuildTask 'ThirdPartyNotices' {
+    Write-Host '📄 Updating third-party notices...'
     & .\Utility\Update-ThirdPartyNotices.ps1 -Project '.\src\CSharp\Kestrun\Kestrun.csproj' -Path '.\THIRD-PARTY-NOTICES.md' -Version (Get-Version -FileVersion $FileVersion)
 }
 
 Add-BuildTask All 'Clean', 'Restore', 'Build', 'Test'
 
 Add-BuildTask Install-Module {
-    Write-Host 'Installing Kestrun module...'
+    Write-Host '📥 Installing Kestrun module...'
     & .\Utility\Install-Kestrun.ps1 -FileVersion $FileVersion
 }
 
 Add-BuildTask Remove-Module {
-    Write-Host 'Removing Kestrun module...'
+    Write-Host '🗑️ Removing Kestrun module...'
     & .\Utility\Install-Kestrun.ps1 -FileVersion $FileVersion -Remove
 }

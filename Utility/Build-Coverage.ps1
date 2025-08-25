@@ -82,7 +82,7 @@ dotnet test $TestProject `
     --logger "trx;LogFileName=test-results.trx" `
     --results-directory "$resultsDir" | Out-Host
 
-Write-Host "🗂️  Scanning for Cobertura files in $resultsDir..."
+Write-Host "🗂️ Scanning for Cobertura files in $resultsDir..."
 $found = Get-ChildItem "$resultsDir" -Recurse -Filter 'coverage.cobertura.xml' -File |
     Sort-Object LastWriteTime -Descending | Select-Object -First 1
 
@@ -102,7 +102,7 @@ if ($ReportGenerator) {
     # PowerShell coverage
     if (-not $SkipPowershell) {
         $pesterCoverageDir = Join-Path -Path $CoverageDir -ChildPath 'pester'
-        $pesterCoverageFile = Join-Path -Path $pesterCoverageDir -ChildPath 'coverage.cobertura.xml'
+        $pesterCoverageFile = Join-Path -Path $CoverageDir -ChildPath 'powershell.cobertura.xml'
         New-Item -Force -ItemType Directory -Path $pesterCoverageDir | Out-Null
 
         $cfg = New-PesterConfiguration
@@ -189,5 +189,5 @@ if ($ReportGenerator) {
         }
     }
     $index = Join-Path $ReportDir "index.html"
-    if (Test-Path $index) { Write-Host "`nAll done. Coverage is glowing in $index ✨" -ForegroundColor Magenta }
+    if (Test-Path $index) { Write-Host "`n✅ All done. Coverage is glowing in $index ✨" -ForegroundColor Magenta }
 }

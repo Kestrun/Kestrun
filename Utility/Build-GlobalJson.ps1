@@ -13,7 +13,7 @@ if ($latestSdk) {
         sdk = @{ version = $latestSdk }
     } | ConvertTo-Json -Depth 3
     Set-Content -Path './global.json' -Value $globalJson
-    Write-Output "Created global.json with SDK version $latestSdk"
+    Write-Output "📝 Created global.json with SDK version $latestSdk"
 } else {
-    Write-Output "No $Version.0 SDK found."
+    Write-Output "⚠️ No $Version.0 SDK found."
 }

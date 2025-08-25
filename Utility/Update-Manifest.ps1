@@ -8,7 +8,7 @@ param(
 
 $ModuleRootPath = Resolve-Path -Path $ModuleRootPath
 
-Write-Host "Current directory: $PWD"
+Write-Host "📂 Current directory: $PWD"
 
 $sysfuncs = Get-ChildItem Function:
 
@@ -198,5 +198,5 @@ $module = @"
 "@
 
 $path = Join-Path -Path $ModuleRootPath -ChildPath 'Kestrun.psd1'
-Write-Host "Creating module manifest at $($ModuleRootPath)/Kestrun.psd1"
+Write-Host "📝 Creating module manifest at $($ModuleRootPath)/Kestrun.psd1"
 [System.IO.File]::WriteAllText($path, $module, [System.Text.UTF8Encoding]::new($true))

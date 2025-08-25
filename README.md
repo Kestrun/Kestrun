@@ -46,9 +46,9 @@ Kestrun is a hybrid web framework that combines the speed and scalability of ASP
 flexibility and scripting power of PowerShell. It enables you to build web APIs, automation endpoints, and
 dynamic services using both C# and PowerShell in a single, integrated environment.
 
-## Documentation
+## Rich Documentation and Tutorial
 
-Full documentation for Kestrun is available online at [docs.kestrun.dev](https://docs.kestrun.dev).  
+Full documentation and tutorial for Kestrun is available online at [docs.kestrun.dev](https://docs.kestrun.dev).  
 You can find guides, API references, and usage examples to help you get started and explore advanced features.
 
 ## Core Capabilities
@@ -257,7 +257,7 @@ See [docs/](docs/) for structure.
 
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md).
+See [CONTRIBUTING.md](CONTRIBUTING.md) and the online guide at <https://docs.kestrun.dev/contributing>.
 
 ## License
 

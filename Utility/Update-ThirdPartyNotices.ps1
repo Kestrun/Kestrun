@@ -5,7 +5,7 @@ param(
     [parameter(Mandatory = $true)]
     [string] $Version
 )
-Write-Host 'Generating third-party notices...'
+Write-Host '📄 Generating third-party notices...'
 $nugetLicenses = nuget-license -i $Project -o markdown |
     Where-Object { $_ -notmatch '^\|\s+\|' } | # drop lines like "|    |..." with only whitespace between pipes
     ForEach-Object {
@@ -67,5 +67,5 @@ foreach ($line in $nugetLicenses ) {
 # Combine everything
 $kestrunHeader + "`n" + ($sb.ToString()) | Set-Content -Path $Path -Encoding UTF8
 
-Write-Host "Third-party notices generated at: $Path" -ForegroundColor Green
-Write-Host 'Please review the generated file for compliance with third-party licenses.'
+Write-Host "✅ Third-party notices generated at: $Path" -ForegroundColor Green
+Write-Host '🔍 Please review the generated file for compliance with third-party licenses.'

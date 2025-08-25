@@ -22,7 +22,7 @@ $dest = Join-Path -Path $PSPaths[0] -ChildPath 'Kestrun' -AdditionalChildPath $V
 # Remove the module if requested
 if ($Remove) {
     if (Test-Path -Path $dest) {
-        Write-Host "Deleting module from $dest"
+        Write-Host "🗑️ Deleting module from $dest"
         Remove-Item -Path $dest -Recurse -Force | Out-Null
     } else {
         Write-Warning "Directory $dest doesn't exist"
@@ -47,6 +47,6 @@ $path = './src/PowerShell/Kestrun/*'
 Copy-Item -Path $path -Destination $dest -Force -Recurse | Out-Null
 
 # Confirm the deployment
-Write-Host "Deployed to $dest"
+Write-Host "🚀 Deployed to $dest"
 
 

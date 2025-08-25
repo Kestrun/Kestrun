@@ -37,7 +37,7 @@ foreach ($ver in $Versions) {
     New-Item -ItemType Directory -Path $TargetDir -Force | Out-Null
 
     foreach ($pkg in $Packages) {
-        Write-Host "==> $pkg $ver"
+        Write-Host "📦 Fetching $pkg $ver"
         $pkgFolder = Get-PackageFolder -Id $pkg -Version $ver -WorkRoot $Tmp -Force:$Force
 
         $libFolder = Join-Path $pkgFolder 'lib'

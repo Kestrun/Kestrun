@@ -13,7 +13,7 @@ if (-not (Test-Path $ApiRoot)) {
 # Ensure top index exists
 $topIndex = 'docs/cs/index.md'
 if (-not (Test-Path $topIndex)) {
-    Write-Host "Creating top index at $topIndex"
+    Write-Host "📝 Creating top index at $topIndex"
     @"
 ---
 layout: default
@@ -67,7 +67,7 @@ parent: "C#"
 '@
         Set-Content -Path (Join-Path -Path $_.DirectoryName -ChildPath 'index.md') -Value ($front + "`n" + $content) -NoNewline
         Remove-Item -Path $file -Force
-        Write-Host 'Updated index.md for C# API'
+        Write-Host '🛠️ Updated index.md for C# API'
 
         return
     }

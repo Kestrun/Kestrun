@@ -224,7 +224,7 @@ function Get-PackageFolder {
             New-Item -ItemType Directory -Path $pkgRoot -Force | Out-Null
 
             $nupkgName = "$idLower.$Version.nupkg"
-            $nupkgUrl  = "https://api.nuget.org/v3-flatcontainer/$idLower/$Version/$nupkgName"
+            $nupkgUrl = "https://api.nuget.org/v3-flatcontainer/$idLower/$Version/$nupkgName"
             $nupkgPath = Join-Path $pkgRoot $nupkgName
 
             Write-Host "Downloading $Id $Version (attempt $attempt of $($Retries + 1))..."
@@ -238,14 +238,12 @@ function Get-PackageFolder {
 
             try {
                 Expand-Archive -Path $nupkgPath -DestinationPath $pkgRoot -Force -ErrorAction Stop
-            }
-            finally {
+            } finally {
                 if (Test-Path $nupkgPath) { Remove-Item $nupkgPath -Force -ErrorAction SilentlyContinue }
             }
 
             return (Resolve-Path $pkgRoot).Path
-        }
-        catch {
+        } catch {
             if ($attempt -gt $Retries) { throw }
 
             # Exponential backoff with jitter

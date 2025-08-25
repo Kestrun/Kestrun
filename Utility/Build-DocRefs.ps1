@@ -11,7 +11,7 @@ param(
 . ./Utility/Helper.ps1
 
 if ($Clean) {
-    Write-Host 'Cleaning up...'
+    Write-Host '🧹 Cleaning up...'
     Remove-Item -Path $StageDir -Recurse -Force -ErrorAction SilentlyContinue
     Remove-Item -Path $ApiOut -Recurse -Force -ErrorAction SilentlyContinue
     return
@@ -19,7 +19,7 @@ if ($Clean) {
 $ErrorActionPreference = 'Stop'
 $major = if ($Tfm -like 'net8.*') { '8' } else { '9' }
 
-Write-Host "▶️ Building $Project for $Tfm..."
+Write-Host "🏗️ Building $Project for $Tfm..."
 dotnet build $Project -c Release -f $Tfm | Out-Host
 
 # Prepare folders
@@ -64,7 +64,7 @@ if (-not (Test-Path $smaTarget)) {
 
 # 6) Generate Markdown docs
 $xDll = Join-Path $StageDir 'Kestrun.dll'
-Write-Host "🧠 xmldocmd → $xDll"
+Write-Host "🧠 Generating API docs with xmldocmd → $xDll"
 xmldocmd "$xDll" "$ApiOut" --visibility public --clean `
     --source https://github.com/Kestrun/Kestrun/tree/main/src/CSharp/Kestrun
 

@@ -137,12 +137,12 @@ if ($ReportGenerator) {
 
     New-Item -ItemType Directory -Force -Path $HistoryDir | Out-Null
     $HistoryDir = Resolve-Path -Path $HistoryDir
-    if ($Powershell) {
-        $reportsArg = '"{0};{1}"' -f $coverageFile, $pesterCoverageFile
-        $title = "Kestrun — Combined Coverage"
-    } else {
+    if ($SkipPowershell) {
         $reportsArg = '"{0}"' -f $coverageFile
         $title = "Kestrun — C# Coverage"
+    } else {
+        $reportsArg = '"{0};{1}"' -f $coverageFile, $pesterCoverageFile
+        $title = "Kestrun — Combined Coverage"
     }
 
     # Build a friendly tag that works on Actions AND locally

@@ -116,7 +116,7 @@ jobs:
         run: Invoke-Build Build -DotNetVerbosity minimal
       - name: Run PSScriptAnalyzer with settings
         id: pssa
-        uses: microsoft/psscriptanalyzer-action@v1.0
+        uses: microsoft/psscriptanalyzer-action@v1.1
         with:
           path: .\src\PowerShell\Kestrun
           recurse: true

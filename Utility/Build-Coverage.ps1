@@ -19,7 +19,10 @@ param(
     [string]$ReportTypes = "Html;TextSummary;Cobertura;Badges",
 
     [Parameter(ParameterSetName = 'Report')]
-    [string]$AssemblyFilters = "+Kestrun*;-*.Tests",
+    [string]$AssemblyFilters = "+Kestrun*;+Kestrun.PowerShell*;-*.Tests;-testhost*;-xunit*",
+
+    [Parameter(ParameterSetName = 'Report')]
+    [string]$ClassFilters = "-*.Modules.PSDiagnostics.*",
 
     [Parameter(ParameterSetName = 'Report')]
     [string]$FileFilters = "-**/Generated/**;-**/*.g.cs",
@@ -31,7 +34,10 @@ param(
     [string]$HistoryDir,
 
     [Parameter(ParameterSetName = 'Report')]
-    [switch]$SkipPowershell
+    [switch]$SkipPowershell,
+
+    [Parameter(ParameterSetName = 'Report')]
+    [switch]$ResetHistory
 )
 
 # Add Helper utility
@@ -98,12 +104,17 @@ if ((Get-Item $coverageFile).Length -lt 400) {
 
 # ReportGenerator
 if ($ReportGenerator) {
+    if ($ResetHistory -and (Test-Path $HistoryDir)) {
+        Write-Host "🧹 Resetting history once at $HistoryDir"
+        Remove-Item -Recurse -Force -LiteralPath $HistoryDir
+        New-Item -ItemType Directory -Force -Path $HistoryDir | Out-Null
+    }
     # PowerShell coverage
     if (-not $SkipPowershell) {
         $pesterCoverageDir = Join-Path -Path $CoverageDir -ChildPath 'pester'
         $pesterCoverageFile = Join-Path -Path $pesterCoverageDir -ChildPath 'coverage.cobertura.xml'
         New-Item -Force -ItemType Directory -Path $pesterCoverageDir | Out-Null
- $cfg = New-PesterConfiguration
+        $cfg = New-PesterConfiguration
         # Resolve the glob to actual files (absolute paths), so there’s no ambiguity
         $toCover = @(
             Get-ChildItem -Path 'src/PowerShell/Kestrun' -Recurse -Include *.ps1, *.psm1 -File -ErrorAction SilentlyContinue
@@ -127,7 +138,15 @@ if ($ReportGenerator) {
         if (-not (Test-Path $pesterCoverageFile)) {
             throw '⚠️ Pester coverage output not found.'
         } else {
+            Set-CoberturaPackageName -CoberturaPath $pesterCoverageFile -AssemblyName 'Kestrun.PowerShell'
             Write-Host "📊 Pester Coverage (Cobertura) saved: $pesterCoverageFile"
+            Set-CoberturaGrouping `
+                -CoberturaPath $pesterCoverageFile `
+                -AssemblyRoot 'Kestrun.PowerShell' `
+                -BasePath 'src/PowerShell/Kestrun' `
+                -GroupByFirstFolder `
+                -FolderRenameMap @{ 'ClaimPolicy' = 'Claim' } `
+                -AllowedFirstFolders @('Public', 'Private')    # keep only these roots
         }
     }
 
@@ -184,7 +203,8 @@ if ($ReportGenerator) {
         -reporttypes:$ReportTypes `
         -tag:$tag `
         -assemblyfilters:$AssemblyFilters `
-        -filefilters:$FileFilters
+        -filefilters:$FileFilters `
+        -classfilters:$ClassFilters
 
     # Open report in browser
 

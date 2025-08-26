@@ -70,6 +70,37 @@ function Install-ReportGenerator {
 }
 
 
+<#
+.SYNOPSIS
+    Returns the filesystem path to the ASP.NET "Shared" directory for a specified .NET / ASP.NET framework version.
+.DESCRIPTION
+    Get-AspNetSharedDir accepts a framework version string and resolves the location of the ASP.NET "Shared" directory that corresponds to that framework.
+    The function normalizes common version formats (for example "v4.0", "4.0", "v2.0.50727") and 
+    returns a full path string that can be used to locate shared ASP.NET assemblies or configuration items.
+.PARAMETER framework
+    The framework version to resolve. Accepts typical .NET/ASP.NET version representations such as:
+    - "v4.0"
+    - "4.0"
+    - "v2.0.50727"
+    This parameter is required.
+.OUTPUTS
+    System.String
+    A full path to the ASP.NET Shared directory for the specified framework. 
+    If the directory cannot be found, the function will either return $null or throw an error depending on implementation and error-handling preferences.
+.EXAMPLE
+    # Resolve the shared directory for .NET 4.0 and print it
+    Get-AspNetSharedDir -framework "v4.0"
+.EXAMPLE
+    # Use the returned path to reference a file in the Shared folder
+    $shared = Get-AspNetSharedDir "4.0"
+    Join-Path $shared "SomeSharedFile.dll"
+.EXAMPLE
+    # Handle a missing result gracefully
+    $path = Get-AspNetSharedDir "v9.9"
+    if ($null -eq $path) {
+        Write-Warning "Requested framework shared directory not found."
+    }
+#>
 function Get-AspNetSharedDir([string]$framework) {
     $major = ($framework -replace '^net(\d+)\..+$', '$1')
     $runtimes = & dotnet --list-runtimes | Select-String 'Microsoft.AspNetCore.App'
@@ -297,3 +328,171 @@ function Get-SharedFrameworkPath {
 
     return Join-Path $($rts[0].Root) $($rts[0].Version)
 }
+
+<#
+    .SYNOPSIS
+        Sets the package name for a Cobertura coverage report.
+    .DESCRIPTION
+        Updates the Cobertura XML file to use a consistent assembly name and optional base path for class names.
+    .PARAMETER CoberturaPath
+        The path to the Cobertura XML file.
+    .PARAMETER AssemblyName
+        The logical assembly name to use (e.g. 'Kestrun.PowerShell').
+    .PARAMETER BasePath
+        The base path to use for resolving class names (optional).
+#>
+function Set-CoberturaPackageName {
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseShouldProcessForStateChangingFunctions', '')]
+    param(
+        [Parameter(Mandatory)] [string]$CoberturaPath,
+        [Parameter(Mandatory)] [string]$AssemblyName   # e.g., 'Kestrun.PowerShell'
+    )
+
+    if (-not (Test-Path $CoberturaPath)) { throw "Cobertura not found: $CoberturaPath" }
+
+    [xml]$doc = Get-Content -LiteralPath $CoberturaPath
+    $packages = @($doc.coverage.packages.package)
+    if (-not $packages) { return }  # nothing to tweak
+
+    foreach ($pkg in $packages) {
+        # Unify all PowerShell files under a single logical assembly
+        $pkg.name = $AssemblyName
+
+        # Do NOT change $pkg.classes.class.filename or .name
+        # Leaving filenames intact keeps history stable across runs/OSes.
+    }
+
+    $doc.Save($CoberturaPath)
+}
+
+<#
+    .SYNOPSIS
+        Sets the package name for a Cobertura coverage report.
+    .DESCRIPTION
+        Updates the Cobertura XML file to use a consistent assembly name and optional base path for class names.
+    .PARAMETER CoberturaPath
+        The path to the Cobertura XML file.
+    .PARAMETER AssemblyName
+        The logical assembly name to use (e.g. 'Kestrun.PowerShell').
+    .PARAMETER BasePath
+        The base path to use for resolving class names (optional).
+    .PARAMETER GroupByFirstFolder
+        Whether to group classes by their first folder (Public/Private).
+    .PARAMETER FolderRenameMap
+        A hashtable mapping old folder names to new folder names.
+    .PARAMETER AllowedFirstFolders
+        A list of allowed first folders for grouping.
+    .PARAMETER ExcludePathContains
+        A list of path segments to exclude from grouping.
+#>
+function Set-CoberturaGrouping {
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseShouldProcessForStateChangingFunctions', '')]
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)] [string]$CoberturaPath,
+        [string]$AssemblyRoot = 'Kestrun.PowerShell',
+        [string]$BasePath = 'src/PowerShell/Kestrun',
+        [switch]$GroupByFirstFolder,
+        [hashtable]$FolderRenameMap = @{},
+        [string[]]$AllowedFirstFolders = @('Public', 'Private'),
+        [string[]]$ExcludePathContains = @('/lib/', '/Modules/PSDiagnostics/', 'PSDiagnostics.psm1')  # case-insensitive match
+    )
+
+    if (-not (Test-Path $CoberturaPath)) { throw "Cobertura not found: $CoberturaPath" }
+
+    <#
+    .SYNOPSIS
+        Normalizes a file path by replacing backslashes with forward slashes and trimming whitespace.
+    .DESCRIPTION
+        This function is used to ensure consistent file path formatting across different operating systems.
+    .PARAMETER p
+        The file path to normalize.
+    .OUTPUTS
+        Returns the normalized file path as a string.
+    #>
+    function Normalize([string]$p) { if ($null -eq $p) { return '' }; return ($p -replace '\\', '/').Trim() }
+
+    $baseNorm = Normalize $BasePath
+    if ($baseNorm -and $baseNorm[-1] -ne '/') { $baseNorm += '/' }
+
+    [xml]$doc = Get-Content -LiteralPath $CoberturaPath
+    $packages = @($doc.coverage.packages.package)
+    if (-not $packages) { return }
+
+    $removed = 0
+    foreach ($pkg in $packages) {
+        # collect classes to remove (can’t safely delete while iterating)
+        $toRemove = New-Object System.Collections.Generic.List[System.Xml.XmlElement]
+        foreach ($cls in @($pkg.classes.class)) {
+            $fileNorm = Normalize $cls.filename
+            if ([string]::IsNullOrWhiteSpace($fileNorm)) { continue }
+
+            # quick path-based excludes
+            $excludeHit = $false
+            foreach ($needle in $ExcludePathContains) {
+                if ($needle -and ($fileNorm -like "*$needle*")) { $excludeHit = $true; break }
+            }
+            if ($excludeHit) { $toRemove.Add($cls); continue }
+
+            # cut to region starting at Public/Private if present
+            $rel = $fileNorm
+            $m = [Regex]::Match($rel, '(?i)(?:^|/)(Public|Private)(/|$)')
+            if ($m.Success) {
+                $rel = $rel.Substring($m.Index).TrimStart('/')
+            } else {
+                # try to trim by base path if it’s in the string
+                if ($baseNorm -and $rel.IndexOf($baseNorm, [StringComparison]::OrdinalIgnoreCase) -ge 0) {
+                    $rel = $rel.Substring($rel.IndexOf($baseNorm, [StringComparison]::OrdinalIgnoreCase) + $baseNorm.Length)
+                } else {
+                    # no anchor → treat as relative-ish
+                    $rel = $rel.TrimStart('/')
+                }
+            }
+
+            # split segments
+            $parts = @($rel -split '/+' | Where-Object { $_ -ne '' })
+            if ($parts.Count -eq 0) { $toRemove.Add($cls); continue }
+
+            # root folder (Public/Private/…)
+            $first = $parts[0]
+            if ($FolderRenameMap.ContainsKey($first)) { $first = [string]$FolderRenameMap[$first] }
+
+            # if we’re grouping by root, enforce allowlist (drop 'lib', etc.)
+            if ($GroupByFirstFolder -and $AllowedFirstFolders.Count -gt 0) {
+                if (-not ($AllowedFirstFolders | ForEach-Object { $_.ToLower() } | Where-Object { $_ -eq $first.ToLower() })) {
+                    $toRemove.Add($cls); continue
+                }
+            }
+
+            # build remainder
+            $rest = @()
+            if ($parts.Count -gt 1) { $rest = @($parts[1..($parts.Count - 1)]) }
+            if ($rest.Count -gt 0) { $rest[-1] = [IO.Path]::GetFileNameWithoutExtension($rest[-1]) }
+            elseif ($parts.Count -eq 1) {
+                $nameNoExt = [IO.Path]::GetFileNameWithoutExtension($first)
+                if ($nameNoExt -and $nameNoExt -ne $first) { $rest = @($nameNoExt) }
+            }
+
+            # package and class name shaping
+            $pkg.name = ($GroupByFirstFolder ? "$AssemblyRoot.$first" : $AssemblyRoot)
+
+            $dotted = @()
+            if ($GroupByFirstFolder) { $dotted += $first }
+            if ($rest.Count -gt 0) { $dotted += $rest }
+            $cls.name = ($dotted.Count -gt 0) ? ($dotted -join '.') : $first
+        }
+
+        foreach ($dead in $toRemove) { [void]$dead.ParentNode.RemoveChild($dead); $removed++ }
+
+        # prune empty packages
+        if (-not @($pkg.classes.class)) {
+            [void]$pkg.ParentNode.RemoveChild($pkg)
+        }
+    }
+
+    if ($removed -gt 0) { Write-Host "🧹 Excluded $removed non-project classes from coverage (lib/diagnostics/etc.)" }
+    $doc.Save($CoberturaPath)
+}
+
+
+

@@ -264,7 +264,8 @@ jobs:
       POWERSHELL_DISTRIBUTION_CHANNEL: GitHub-Actions
       DOTNET_VERBOSITY: minimal
       DEST_REPO: Kestrun/coverage
-      DEST_PATH: report
+      DEST_PATH: docs
+      RESET_COVERAGE_HISTORY: "false"
 
     steps:
       # Source repo (no creds persisted)
@@ -348,7 +349,8 @@ jobs:
             -PesterPath ".\tests\PowerShell.Tests\Kestrun.Tests" `
             -ReportGenerator `
             -ReportDir $env:SITE_DIR `
-            -HistoryDir $env:HISTORY_DIR
+            -HistoryDir $env:HISTORY_DIR `
+            -ResetHistory:($env:RESET_COVERAGE_HISTORY  -eq 'true')
 
           New-Item -ItemType File -Path (Join-Path $env:SITE_DIR '.nojekyll') -Force | Out-Null
 

@@ -3,20 +3,61 @@ permissions:
   contents: read
 
 on:
-  push:
-    branches: [ main ]
   pull_request:
     branches: [ main ]
+    types: [ closed ]          # fires when PR closes; we'll check merged==true
+  push:
+    branches: [ main ]         # for direct merges pushed to main
+  merge_group:                 # optional: supports GitHub Merge Queue
+    types: [ checks_requested ]
   workflow_dispatch: {}
+
 
 concurrency:
   group: coverage-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
+  merge-guard:
+    name: "gate: run only on merges to main"
+    runs-on: ubuntu-latest
+    outputs:
+      proceed: ${{ steps.check.outputs.proceed }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - id: check
+        shell: bash
+        run: |
+          set -e
+          echo "proceed=false" >> "$GITHUB_OUTPUT"
+
+          # Merge Queue
+          if [[ "${{ github.event_name }}" == "merge_group" ]]; then
+            echo "proceed=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # PR closed & merged
+          if [[ "${{ github.event_name }}" == "pull_request" && "${{ github.event.pull_request.merged }}" == "true" ]]; then
+            echo "proceed=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # Direct push to main: proceed only if HEAD is a merge commit (>=2 parents)
+          if [[ "${{ github.event_name }}" == "push" && "${{ github.ref }}" == "refs/heads/main" ]]; then
+            parents=$(git rev-list --parents -n 1 "$GITHUB_SHA" | awk '{print NF-1}')
+            if [[ "$parents" -ge 2 ]]; then
+              echo "proceed=true" >> "$GITHUB_OUTPUT"
+            fi
+          fi
+
   # --- C# coverage (one canonical env uploads) ---
   csharp-coverage:
     name: C# coverage (ubuntu-24.04, .NET 8/9)
+    needs: [merge-guard]
+    if: ${{ needs.merge-guard.outputs.proceed == 'true' }}
     runs-on: ubuntu-24.04
     env:
       POWERSHELL_DISTRIBUTION_CHANNEL: GitHub-Actions
@@ -93,6 +134,8 @@ jobs:
   # --- PowerShell coverage (one canonical env uploads) ---
   pwsh-coverage:
     name: PowerShell coverage (ubuntu-24.04)
+    needs: [merge-guard]
+    if: ${{ needs.merge-guard.outputs.proceed == 'true' }}
     runs-on: ubuntu-24.04
     env:
       POWERSHELL_DISTRIBUTION_CHANNEL: GitHub-Actions
@@ -183,6 +226,8 @@ jobs:
 
   codacy-coverage-reporter:
     runs-on: ubuntu-latest
+    needs: [merge-guard]
+    if: ${{ needs.merge-guard.outputs.proceed == 'true' }}
     name: codacy-coverage-reporter
     env:
       POWERSHELL_DISTRIBUTION_CHANNEL: GitHub-Actions
@@ -258,8 +303,10 @@ jobs:
           # coverage-reports: <PATH_TO_REPORT>, <PATH_TO_REPORT>
 
   report-generator:
+    needs: [merge-guard]
+    if: ${{ needs.merge-guard.outputs.proceed == 'true' }}
     runs-on: ubuntu-latest
-    name: report-generator-csharp
+    name: report-generator
     env:
       POWERSHELL_DISTRIBUTION_CHANNEL: GitHub-Actions
       DOTNET_VERBOSITY: minimal

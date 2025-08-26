@@ -19,7 +19,7 @@ concurrency:
 
 jobs:
   merge-guard:
-    name: "gate: run only on merges to main"
+    name: "gate: run only on merges or main pushes"
     runs-on: ubuntu-latest
     outputs:
       proceed: ${{ steps.check.outputs.proceed }}
@@ -45,15 +45,14 @@ jobs:
             exit 0
           fi
 
-          # Direct push to main: proceed only if HEAD is a merge commit (>=2 parents)
+          # Any direct push to main (merge commit OR single-parent commit)
           if [[ "${{ github.event_name }}" == "push" && "${{ github.ref }}" == "refs/heads/main" ]]; then
-            parents=$(git rev-list --parents -n 1 "$GITHUB_SHA" | awk '{print NF-1}')
-            if [[ "$parents" -ge 2 ]]; then
-              echo "proceed=true" >> "$GITHUB_OUTPUT"
-            fi
+            echo "proceed=true" >> "$GITHUB_OUTPUT"
+            exit 0
           fi
 
-  # --- C# coverage (one canonical env uploads) ---
+
+    # --- C# coverage (one canonical env uploads) ---
   csharp-coverage:
     name: C# coverage (ubuntu-24.04, .NET 8/9)
     needs: [merge-guard]
@@ -214,8 +213,8 @@ jobs:
   coveralls-finish:
     name: Finalize Coveralls
     runs-on: ubuntu-24.04
-    needs: [csharp-coverage, pwsh-coverage]
-    if: ${{ always() }}
+    needs: [merge-guard, csharp-coverage, pwsh-coverage]   # include the gate too
+    if: ${{ needs.merge-guard.outputs.proceed == 'true' && always() }}
     steps:
       - name: ✅ Tell Coveralls we're done
         uses: coverallsapp/github-action@v2

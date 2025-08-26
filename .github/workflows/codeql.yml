@@ -1,5 +1,4 @@
-name: Security analysis (CodeQL + PS)
-
+name: CodeQL
 on:
   push:
     branches: [ main ]

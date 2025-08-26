@@ -173,7 +173,7 @@ $module = @"
             ProjectUri = 'https://github.com/Kestrun/Kestrun'
 
             # A URL to an icon representing this module.
-            IconUri = 'https://raw.githubusercontent.com/Kestrun/Kestrun/refs/heads/main/docs/assets/kestrun_favicon.ico'
+            IconUri = 'https://www.kestrun.dev/assets/kestrun_favicon.ico'
 
             # ReleaseNotes of this module
             # ReleaseNotes = ''

@@ -1,7 +1,7 @@
 <#
     Sample Kestrun Server Configuration using MapRouteOptions class.
     These examples demonstrate how to use the MapRouteOptions class to configure routes in a Kestrun server.
-    FileName: 4-Route-Options.ps1
+    FileName: 5-Route-Options.ps1
 #>
 
 # Import the Kestrun module
@@ -22,7 +22,7 @@ Enable-KrConfiguration
 
 # Map the route
 Add-KrMapRoute -Verbs Get -Pattern "/xml/{message}" -ScriptBlock {
-    $message = Get-KrRequestRouteValue -Name 'message'
+    $message = Get-KrRequestRouteParam -Name 'message'
     Write-KrXmlResponse -InputObject @{ message = $message } -StatusCode 200
 }
 
@@ -31,7 +31,7 @@ Add-KrMapRoute -Options (New-MapRouteOption -Property @{
         Pattern = "/yaml"
         HttpVerbs = 'Get'
         Code = {
-            $message = Get-KrRequestRouteValue -Name 'message'
+            $message = Get-KrRequestRouteParam -Name 'message'
             Write-KrYamlResponse -InputObject @{ message = $message } -StatusCode 200
         }
         Language = 'PowerShell'

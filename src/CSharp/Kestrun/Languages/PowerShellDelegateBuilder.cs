@@ -23,7 +23,7 @@ internal static class PowerShellDelegateBuilder
         {
             if (log.IsEnabled(LogEventLevel.Debug))
             {
-                log.Debug("PS delegate invoked for {Path}", context.Request.Path);
+                log.DebugSanitized("PS delegate invoked for {Path}", context.Request.Path);
             }
 
             var ps = GetPowerShellFromContext(context, log);

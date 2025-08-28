@@ -117,8 +117,8 @@
   <ItemGroup>
     <!-- README will show on NuGet.org page -->
     <None Include="../../../README.md" Pack="true" PackagePath="\" />
-    <EmbeddedResource Include="assets\favicon.ico" />
-    <None Include="assets/kestrun_128x128.png" Pack="true" PackagePath="assets\" />
+    <EmbeddedResource Include="Assets\favicon.ico" />
+    <None Include="Assets\kestrun_128x128.png" Pack="true" PackagePath="Assets\" />
     <None Include="../../../LICENSE.txt" Pack="true" PackagePath="\" />
     <None Include="../../../THIRD-PARTY-NOTICES.md" Pack="true" PackagePath="\" />
   </ItemGroup>

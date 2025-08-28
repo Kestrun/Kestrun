@@ -66,19 +66,12 @@ jobs:
       with:
         Version: ${{ matrix.pwsh }}
 
-    - name: 🧰 Setup .NET 8
+    - name: 🧰 Setup .NET 8/9
       uses: actions/setup-dotnet@v4
       with:
-        dotnet-version: '8.0.x'
-        cache: true
-        cache-dependency-path: |
-          **/*.csproj
-          **/packages.lock.json
-
-    - name: 🧰 Setup .NET 9
-      uses: actions/setup-dotnet@v4
-      with:
-        dotnet-version: '9.0.x'
+        dotnet-version: |
+          8.0.x
+          9.0.x
 
     # 🔊 Only enable super-verbose logs in debug runs
     - name: 🔧 Enable debug flags

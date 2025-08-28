@@ -34,32 +34,22 @@ jobs:
       - name: 🧰 Ensure PSResourceGet & PSGallery
         shell: pwsh
         run: |
-          Install-PSResource Microsoft.PowerShell.PSResourceGet -Scope CurrentUser -TrustRepository -Force
+          Install-PSResource Microsoft.PowerShell.PSResourceGet -Scope CurrentUser -TrustRepository
           Import-Module    Microsoft.PowerShell.PSResourceGet -Force
           Register-PSResourceRepository -PSGallery  # ensure default exists
 
-      - name: 🧰 Setup .NET 8
+      - name: 🧰 Setup .NET 8/9
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: '8.0.x'
-
-      - name: 🧰 Setup .NET 9
-        uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: '9.0.x'
+          dotnet-version: |
+            8.0.x
+            9.0.x
 
       - name: 🧰 Install Module Invoke-Build
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
-          Install-PSResource InvokeBuild -Scope CurrentUser -TrustRepository -Force
-      
-      - name: 🧰 Install Module Pester (pin)
-        shell: pwsh
-        run: |
-          $ErrorActionPreference = 'Stop'
-          Install-Module Pester -Force -Scope CurrentUser -RequiredVersion 5.6.1
-          Get-Module Pester -ListAvailable | Select Name,Version,Path
+          Install-PSResource InvokeBuild -Scope CurrentUser -TrustRepository
 
       - name: 🔎 Print runtime context
         shell: pwsh

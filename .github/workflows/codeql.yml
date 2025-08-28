@@ -30,22 +30,15 @@ jobs:
         uses: github/codeql-action/init@v3
         with:
           languages: ${{ matrix.language }}
-          # queries: security-extended  # optional: stricter rules
+      # queries: security-extended  # optional: stricter rules
 
-         # Build C# so your DLLs exist (good for your optional import check)
-      - name: 🧰 Setup .NET 8
+      # Build C# so your DLLs exist (good for your optional import check)
+      - name: 🧰 Setup .NET 8/9
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: '8.0.x'
-          cache: true
-          cache-dependency-path: |
-            **/*.csproj
-            **/packages.lock.json
-
-      - name: 🧰 Setup .NET 9
-        uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: '9.0.x'
+          dotnet-version: |
+            8.0.x
+            9.0.x
 
       - name: 🧰 Install Invoke-Build
         shell: pwsh

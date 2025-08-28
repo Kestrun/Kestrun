@@ -17,24 +17,12 @@ jobs:
       - name: 🛎️ Checkout
         uses: actions/checkout@v5
 
-      - name: 🧰 Install PowerShell
-        uses: ./.github/actions/Install-PowerShell
-        with:
-          Version: 'latest'
-
-      - name: 🧰 Setup .NET 8
+      - name: 🧰 Setup .NET 8/9
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: '8.0.x'
-          cache: true
-          cache-dependency-path: |
-            **/*.csproj
-            **/packages.lock.json
-
-      - name: 🧰 Setup .NET 9
-        uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: '9.0.x'
+          dotnet-version: |
+            8.0.x
+            9.0.x
 
       - name: 🧰 Install Module Invoke-Build
         shell: pwsh

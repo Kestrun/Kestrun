@@ -71,15 +71,6 @@ jobs:
           dotnet-version: |
             8.0.x
             9.0.x
-          cache: true
-          cache-dependency-path: |
-            **/*.csproj
-            **/packages.lock.json
-
-      - name: 🧰 Install PowerShell
-        uses: ./.github/actions/Install-PowerShell
-        with:
-          Version: latest
 
       # Non-interactive PSResource install (trust PSGallery)
       - name: 🧰 Install Invoke-Build & Pester (trusted, non-interactive)
@@ -150,15 +141,6 @@ jobs:
           dotnet-version: |
             8.0.x
             9.0.x
-          cache: true
-          cache-dependency-path: |
-            **/*.csproj
-            **/packages.lock.json
-
-      - name: 🧰 Install PowerShell
-        uses: ./.github/actions/Install-PowerShell
-        with:
-          Version: latest
 
       # Non-interactive PSResource install (trust PSGallery)
       - name: 🧰 Install Invoke-Build & Pester (trusted, non-interactive)
@@ -241,10 +223,6 @@ jobs:
           dotnet-version: |
             8.0.x
             9.0.x
-          cache: true
-          cache-dependency-path: |
-            **/*.csproj
-            **/packages.lock.json
 
       - name: 🧰 Install PowerShell
         uses: ./.github/actions/Install-PowerShell
@@ -326,15 +304,6 @@ jobs:
           dotnet-version: |
             8.0.x
             9.0.x
-          cache: true
-          cache-dependency-path: |
-            **/*.csproj
-            **/packages.lock.json
-
-      - name: 🧰 Install PowerShell
-        uses: ./.github/actions/Install-PowerShell
-        with:
-          Version: latest
 
       # Non-interactive PSResource install (trust PSGallery)
       - name: 🧰 Install Invoke-Build & Pester (trusted, non-interactive)

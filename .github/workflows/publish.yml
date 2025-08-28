@@ -34,9 +34,14 @@ jobs:
       - name: 🧰 Ensure PSResourceGet & PSGallery
         shell: pwsh
         run: |
-          Install-PSResource Microsoft.PowerShell.PSResourceGet -Scope CurrentUser -TrustRepository
-          Import-Module    Microsoft.PowerShell.PSResourceGet -Force
-          Register-PSResourceRepository -PSGallery  # ensure default exists
+          Install-PSResource -Name Microsoft.PowerShell.PSResourceGet -Scope CurrentUser -Reinstall -Quiet
+          Import-Module Microsoft.PowerShell.PSResourceGet -Force
+
+          if (-not (Get-PSResourceRepository -Name PSGallery -ErrorAction SilentlyContinue)) {
+            Register-PSResourceRepository -PSGallery
+          }
+
+          Get-PSResourceRepository PSGallery | Format-List
 
       - name: 🧰 Setup .NET 8/9
         uses: actions/setup-dotnet@v4
@@ -118,7 +123,7 @@ jobs:
   nuget:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: 🧰 Setup .NET 8/9
         uses: actions/setup-dotnet@v4

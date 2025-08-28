@@ -106,6 +106,7 @@ jobs:
       - name: 🔧 Run C# Build
         shell: pwsh
         run: Invoke-Build Build -DotNetVerbosity minimal
+
       - name: Run PSScriptAnalyzer with settings
         id: pssa
         uses: microsoft/psscriptanalyzer-action@v1.1

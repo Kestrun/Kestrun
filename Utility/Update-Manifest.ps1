@@ -43,7 +43,7 @@ if (-not (Test-Path -Path './version.json')) {
 $versionData = Get-Content -Path $FileVersion | ConvertFrom-Json
 $Version = $versionData.Version
 $Release = $versionData.Release
-$ReleaseIteration = ([string]::IsNullOrEmpty($versionData.Iteration))  ? $Release : "$Release.$($versionData.Iteration)"
+$ReleaseIteration = ([string]::IsNullOrEmpty($versionData.Iteration))  ? $Release : "$Release$($versionData.Iteration)"
 
 
 if ($Release -ne 'Stable') {

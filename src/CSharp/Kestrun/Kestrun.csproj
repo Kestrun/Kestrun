@@ -84,15 +84,18 @@
 
     <!-- Package identity -->
     <PackageId>Kestrun</PackageId>
-    <Authors>Max Daneri</Authors>
+    <Authors>Kestrun Team</Authors>
     <Company>Kestrun</Company>
     <Description>Kestrun Web Framework</Description>
     <PackageVersion Condition="'$(Version)' == ''">0.0.1</PackageVersion>
 
     <!-- Licensing and repo info -->
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
-    <RepositoryUrl>https://github.com/mdaneri/Kestrun</RepositoryUrl>
-    <PackageProjectUrl>https://github.com/mdaneri/Kestrun</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/kestrun/Kestrun</RepositoryUrl>
+    <PackageProjectUrl>https://github.com/kestrun/Kestrun</PackageProjectUrl>
+    <PackageIcon>assets\kestrun_128x128.png</PackageIcon>
+    <PackageTags>Kestrun web framework</PackageTags>
+    <Copyright>Copyright © 2025 Kestrun Team</Copyright>
 
     <!-- Include README in NuGet package -->
     <PackageReadmeFile>README.md</PackageReadmeFile>
@@ -100,7 +103,6 @@
   <PropertyGroup>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
-
   </PropertyGroup>
   <!--───────────── Optional Platform Targeting ─────────────-->
 
@@ -115,7 +117,9 @@
   <ItemGroup>
     <!-- README will show on NuGet.org page -->
     <None Include="../../../README.md" Pack="true" PackagePath="\" />
-    <EmbeddedResource Include="Assets\favicon.ico" />
+    <None Include="assets\kestrun_128x128.png" Pack="true" PackagePath="assets\" />
+    <None Include="../../../LICENSE.txt" Pack="true" PackagePath="\" />
+    <None Include="../../../THIRD-PARTY-NOTICES.md" Pack="true" PackagePath="\" />
   </ItemGroup>
   <!--───────────── NuGet Dependencies ─────────────-->
 

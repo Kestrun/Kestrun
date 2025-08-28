@@ -61,7 +61,7 @@ param(
     [ValidateSet('net8.0', 'net9.0', 'net10.0')]
     [string[]]$Frameworks = @('net8.0', 'net9.0'),
     [Parameter(Mandatory = $true, ParameterSetName = 'Version')]
-    [string]$Version,
+    [string]$script:Version,
     [Parameter(Mandatory = $false, ParameterSetName = 'Version')]
     [string]$Iteration = '',
     [Parameter(Mandatory = $false, ParameterSetName = 'FileVersion')]
@@ -139,31 +139,32 @@ Add-BuildTask 'Restore' {
 
 Add-BuildTask 'BuildNoPwsh' {
     Write-Host '🔨 Building solution...'
-
-    if ($PSCmdlet.ParameterSetName -eq 'FileVersion') {
-        $Version = Get-Version -FileVersion $FileVersion
-    } elseif ($PSCmdlet.ParameterSetName -eq 'Version') {
-        if (-not (Test-Path -Path $FileVersion)) {
-            [ordered]@{
-                Version = $Version
-                Release = $Release
-                Iteration = $Iteration
-            } | ConvertTo-Json | Set-Content -Path $FileVersion
+    if (-not $script:Version) {
+        if ($PSCmdlet.ParameterSetName -eq 'FileVersion') {
+            $script:Version = Get-Version -FileVersion $FileVersion
+        } elseif ($PSCmdlet.ParameterSetName -eq 'Version') {
+            if (-not (Test-Path -Path $FileVersion)) {
+                [ordered]@{
+                    Version = $script:Version
+                    Release = $Release
+                    Iteration = $Iteration
+                } | ConvertTo-Json | Set-Content -Path $FileVersion
+            }
+            $script:Version = Get-Version -FileVersion $FileVersion
+        } else {
+            throw "Invalid parameter set. Use either 'FileVersion' or 'Version'."
         }
-        $Version = Get-Version -FileVersion $FileVersion
-    } else {
-        throw "Invalid parameter set. Use either 'FileVersion' or 'Version'."
     }
 
     foreach ($framework in $Frameworks) {
-        dotnet build "$SolutionPath" -c $Configuration -f $framework -v:$DotNetVerbosity -p:Version=$Version -p:InformationalVersion=$InformationalVersion
+        dotnet build "$SolutionPath" -c $Configuration -f $framework -v:$DotNetVerbosity -p:Version=$script:Version -p:InformationalVersion=$InformationalVersion
         if ($LASTEXITCODE -ne 0) {
             throw "dotnet build failed for framework $framework"
         }
     }
 }
 
-Add-BuildTask 'Build' 'BuildNoPwsh', 'SyncPowerShellDll', {}
+Add-BuildTask 'Build' 'BuildNoPwsh', 'SyncPowerShellDll', { Write-Host '🚀 Build completed.' }
 
 Add-BuildTask 'SyncPowerShellDll' {
     $dest = ".\src\PowerShell\Kestrun\lib"
@@ -278,13 +279,37 @@ Invoke-Pester -Configuration $cfg
 
 Add-BuildTask 'Test' 'Kestrun.Tests', 'Test-Pester'
 
-Add-BuildTask 'Package' 'Build', {
-    Write-Host '📦 Packaging the solution...'
-    foreach ($framework in $Frameworks) {
-        dotnet pack "$SolutionPath" -c $Configuration -f $framework -v:$DotNetVerbosity -p:Version=$Version -p:InformationalVersion=$InformationalVersion --no-build
+Add-BuildTask 'Package' "Clean", {
+    Write-Host '🚀 Starting release build...'
+    if ($PSCmdlet.ParameterSetName -eq 'FileVersion') {
+        $script:Version = Get-Version -FileVersion $FileVersion
+    } else {
+        throw "FileVersion parameter is required"
     }
-}
+    $script:Configuration = 'Release'
+}, 'Restore', 'Build', 'Test', {
+    # Retrieve the short commit SHA from Git
+    $commit = (git rev-parse --short HEAD).Trim()
+    $InformationalVersion = "$($script:Version)+$commit"
 
+    $out = Join-Path -Path $PWD -ChildPath "artifacts" -AdditionalChildPath "$script:Configuration"
+    dotnet pack src/CSharp/Kestrun/Kestrun.csproj -c $script:Configuration -o (Join-Path -Path $out -ChildPath "nuget") `
+        -p:Version=$script:Version -p:InformationalVersion=$InformationalVersion `
+        -p:IncludeSymbols=true -p:SymbolPackageFormat=snupkg
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host "❌ Failed to pack Kestrun" -ForegroundColor Red
+        throw "Failed to pack Kestrun"
+    }
+    New-Item -ItemType Directory -Force -Path (Join-Path -Path $out -ChildPath "PowershellGallery") | Out-Null
+    $zip = Join-Path -Path $out -ChildPath("Kestrun-Module-$($script:Version).zip")
+    Compress-Archive -Path "src/PowerShell/Kestrun/*" -DestinationPath $zip -Force
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host "❌ Failed to create $zip" -ForegroundColor Red
+        throw "Failed to create $zip"
+    }
+    Write-Host "Created $zip"
+    Write-Host '🚀 Release build completed.'
+}
 
 Add-BuildTask 'Build_Powershell_Help' {
     Write-Host '📖 Generating PowerShell Help...'

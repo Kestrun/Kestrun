@@ -52,7 +52,7 @@ public static class FaviconMiddlewareExtensions
             }
             // Fallback to embedded .ico
             var asm = typeof(FaviconMiddlewareExtensions).Assembly;
-            const string embedded = "Kestrun.Assets.favicon.ico";
+            const string embedded = "Kestrun.assets.favicon.ico";
             using var stream = asm.GetManifestResourceStream(embedded)
                 ?? throw new InvalidOperationException($"Embedded favicon not found: {embedded}");
             using var ms = new MemoryStream();

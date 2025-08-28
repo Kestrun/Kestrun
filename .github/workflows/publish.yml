@@ -12,9 +12,6 @@ on:
         type: choice
         default: rehearsal
         options: [rehearsal, real]
-  push:
-    branches: [ main ]
-    tags: [ 'v*' ]   # Tag pushes default to real publish
 
 concurrency:
   group: release-${{ github.ref }}
@@ -68,7 +65,7 @@ jobs:
 
       - name: 📦 Restore solution
         shell: pwsh
-        run: Invoke-Build Restore
+        run: Invoke-Build Restore -DotNetVerbosity minimal
 
       - name: 🔎 Verify code style (no diffs)
         run: dotnet format --verify-no-changes
@@ -77,7 +74,7 @@ jobs:
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
-          Invoke-Build Build -Configuration Release
+          Invoke-Build Build -Configuration Release -DotNetVerbosity minimal
 
       - name: 🧪 Run Tests
         shell: pwsh

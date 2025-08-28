@@ -1,0 +1,83 @@
+name: GitHub Release
+
+permissions:
+  contents: write   # create tags & releases
+
+on:
+  workflow_dispatch: {}
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with: { fetch-depth: 0 }
+
+      - name: Compute tag & prerelease from version.json
+        id: semver
+        shell: pwsh
+        run: |
+          $j = Get-Content version.json -Raw | ConvertFrom-Json
+          $version   = [string]$j.Version
+          $release   = [string]$j.Release
+          $iteration = [string]$j.Iteration
+          if ($version -notmatch '^\d+\.\d+\.\d+$') { throw "Version must be x.y.z; got '$version'" }
+          $pre = if ($release -match '^(Alpha|Beta|RC)$') { ($release.ToLower()) + ($(if ($iteration){$iteration}else{'1'})) } else { $null }
+          $tag = if ($pre) { "v$version-$pre" } else { "v$version" }
+          "tag=$tag"           >> $env:GITHUB_OUTPUT
+          "version=$version"   >> $env:GITHUB_OUTPUT
+          "prerelease=$([bool]$pre)" >> $env:GITHUB_OUTPUT
+
+      - name: Create tag (idempotent)
+        shell: bash
+        run: |
+          TAG='${{ steps.semver.outputs.tag }}'
+          if git rev-parse -q --verify "refs/tags/$TAG" >/dev/null; then
+            echo "Tag $TAG exists."
+          else
+            git config user.name  "${GITHUB_ACTOR}"
+            git config user.email "${GITHUB_ACTOR}@users.noreply.github.com"
+            git tag -a "$TAG" -m "Release $TAG"
+            git push origin "$TAG"
+          fi
+
+      - name: Tooling (PSResourceGet + InvokeBuild)
+        shell: pwsh
+        run: |
+          Import-Module Microsoft.PowerShell.PSResourceGet -Force
+          if (-not (Get-PSResourceRepository -Name PSGallery -ErrorAction SilentlyContinue)) {
+            Register-PSResourceRepository -PSGallery
+          }
+          Set-PSResourceRepository -Name PSGallery -Trusted
+          Install-PSResource InvokeBuild -Scope CurrentUser -Quiet
+
+      - name: Setup .NET 8/9
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: |
+            8.0.x
+            9.0.x
+
+      - name: 🧰 Install Module Invoke-Build
+        shell: pwsh
+        run: |
+            $ErrorActionPreference = 'Stop'
+            Install-Module InvokeBuild -Force -Scope CurrentUser
+
+      - name: Package (Invoke-Build)
+        shell: pwsh
+        run: Invoke-Build Package
+
+      - name: Create GitHub Release (auto notes) + upload artifacts
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.semver.outputs.tag }}
+          name: Kestrun ${{ steps.semver.outputs.tag }}
+          generate_release_notes: true
+          prerelease: ${{ steps.semver.outputs.prerelease }}
+          files: |
+            artifacts/Release/nuget/*.nupkg
+            artifacts/Release/nuget/*.snupkg
+            artifacts/Release/Kestrun-Module-*.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

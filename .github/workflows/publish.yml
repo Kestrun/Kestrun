@@ -34,13 +34,11 @@ jobs:
       - name: 🧰 Ensure PSResourceGet & PSGallery
         shell: pwsh
         run: |
-          Install-PSResource -Name Microsoft.PowerShell.PSResourceGet -Scope CurrentUser -Reinstall -Quiet
           Import-Module Microsoft.PowerShell.PSResourceGet -Force
-
           if (-not (Get-PSResourceRepository -Name PSGallery -ErrorAction SilentlyContinue)) {
             Register-PSResourceRepository -PSGallery
           }
-
+          Set-PSResourceRepository -Name PSGallery -Trusted
           Get-PSResourceRepository PSGallery | Format-List
 
       - name: 🧰 Setup .NET 8/9

@@ -27,7 +27,7 @@ Add-KrMapRoute -Verbs Get -Pattern "/input/{value}" -ScriptBlock {
 }
 
 # Query string example
-Add-KrMapRoute -Verbs Get -Pattern "/input" -ScriptBlock {
+Add-KrMapRoute -Verbs Patch Pattern "/input" -ScriptBlock {
     $value = Get-KrRequestQuery -Name 'value'
     Write-KrTextResponse -InputObject "The Query String 'value' was: $value" -StatusCode 200
 }
@@ -39,13 +39,13 @@ Add-KrMapRoute -Verbs Post -Pattern "/input" -ScriptBlock {
 }
 
 # Header parameter example
-Add-KrMapRoute -Verbs Get -Pattern "/input" -ScriptBlock {
+Add-KrMapRoute -Verbs Put -Pattern "/input" -ScriptBlock {
     $value = Get-KrRequestHeader -Name 'value'
     Write-KrTextResponse -InputObject "The Header Parameter 'value' was: $value" -StatusCode 200
 }
 
 # Cookie parameter example
-Add-KrMapRoute -Verbs Get -Pattern "/input" -ScriptBlock {
+Add-KrMapRoute -Verbs Delete -Pattern "/input" -ScriptBlock {
     $value = Get-KrRequestCookie -Name 'value'
     Write-KrTextResponse -InputObject "The Cookie Parameter 'value' was: $value" -StatusCode 200
 }

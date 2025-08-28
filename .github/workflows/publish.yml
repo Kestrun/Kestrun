@@ -1,0 +1,180 @@
+name: Kestrun Release
+
+permissions:
+  contents: write   # needed if we create/push tags elsewhere in this workflow
+
+on:
+  workflow_dispatch:
+    inputs:
+      publish_mode:
+        description: "Publish mode for PSGallery/NuGet"
+        required: true
+        type: choice
+        default: rehearsal
+        options: [rehearsal, real]
+  push:
+    branches: [ main ]
+    tags: [ 'v*' ]   # Tag pushes default to real publish
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # Default: if we're on a tag, use REAL; otherwise use the manual input (or default to rehearsal)
+  PUBLISH_MODE: ${{ github.ref_type == 'tag' && 'real' || inputs.publish_mode }}
+
+jobs:
+  # --- PowerShell Gallery publish using PSResourceGet ---
+  publish_psgallery:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: 🧰 Ensure PSResourceGet & PSGallery
+        shell: pwsh
+        run: |
+          Install-PSResource Microsoft.PowerShell.PSResourceGet -Scope CurrentUser -TrustRepository -Force
+          Import-Module    Microsoft.PowerShell.PSResourceGet -Force
+          Register-PSResourceRepository -PSGallery  # ensure default exists
+
+      - name: 🧰 Setup .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: 🧰 Setup .NET 9
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '9.0.x'
+
+      - name: 🧰 Install Module Invoke-Build
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          Install-PSResource InvokeBuild -Scope CurrentUser -TrustRepository -Force
+      
+      - name: 🧰 Install Module Pester (pin)
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          Install-Module Pester -Force -Scope CurrentUser -RequiredVersion 5.6.1
+          Get-Module Pester -ListAvailable | Select Name,Version,Path
+
+      - name: 🔎 Print runtime context
+        shell: pwsh
+        run: |
+          $PSVersionTable
+          dotnet --info
+          [System.Runtime.InteropServices.RuntimeInformation]::FrameworkDescription
+          [System.Environment]::Version
+
+      - name: 🧱 Build manifest via Invoke-Build (driven by version.json)
+        shell: pwsh
+        run: Invoke-Build Manifest
+
+      - name: 📦 Restore solution
+        shell: pwsh
+        run: Invoke-Build Restore
+
+      - name: 🔎 Verify code style (no diffs)
+        run: dotnet format --verify-no-changes
+
+      - name: 🔧 Run C# Build (normal)
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          Invoke-Build Build -Configuration Release
+
+      - name: 🧪 Run Tests
+        shell: pwsh
+        run: |
+            $ErrorActionPreference = 'Stop'
+            Invoke-Build Test -RunPesterInProcess
+
+      - name: 🔍 Log manifest (read-only)
+        shell: pwsh
+        run: |
+          $manifest = "src/PowerShell/Kestrun/Kestrun.psd1"
+          if (Test-Path $manifest) {
+            try {
+              $m = Test-ModuleManifest $manifest
+              "Manifest: $($m.Name) $($m.Version) (Pre=$($m.PrivateData.PSData.Prerelease))"
+            } catch { "Test-ModuleManifest failed: $_" }
+          } else {
+            "Manifest not found at $manifest"
+          }
+          "Mode: $env:PUBLISH_MODE"
+
+      - name: 🚀 Publish to PSGallery (real or rehearsal)
+        shell: pwsh
+        env:
+          PSGALLERY_API_KEY: ${{ secrets.PSGALLERY_API_KEY }}
+        run: |
+          if ($env:PUBLISH_MODE -eq 'real') {
+            if (-not $env:PSGALLERY_API_KEY) { throw "Missing PSGALLERY_API_KEY" }
+            Publish-PSResource -Path "src/PowerShell/Kestrun" `
+                               -Repository PSGallery `
+                               -ApiKey $env:PSGALLERY_API_KEY
+          } else {
+            # Rehearsal: same command + -WhatIf, API key not required
+            Publish-PSResource -Path "src/PowerShell/Kestrun" `
+                               -Repository PSGallery `
+                               -ApiKey $env:PSGALLERY_API_KEY `
+                               -WhatIf
+          }
+
+  # --- NuGet (.NET library) pack + (optional) publish ---
+  nuget:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 🧰 Setup .NET 8/9
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: |
+            8.0.x
+            9.0.x
+
+      - name: 🔢 Compute NuGet version from tag or version.json
+        id: nver
+        shell: pwsh
+        run: |
+          $tag = "${{ github.ref_name }}"
+          if ($env:GITHUB_REF_TYPE -eq 'tag' -and $tag -match '^v(?<v>\d+\.\d+\.\d+(?:-[0-9A-Za-z\.-]+)?)$') {
+            $nugetVersion = $Matches.v
+          } else {
+            $j = Get-Content version.json -Raw | ConvertFrom-Json
+            $version   = [string]$j.Version
+            $release   = [string]$j.Release
+            $iteration = [string]$j.Iteration
+            $pre = if ($release -match '^(Alpha|Beta|RC)$') { ($release.ToLowerInvariant()) + ($iteration ?? '1') } else { $null }
+            $nugetVersion = if ($pre) { "$version-$pre" } else { $version }
+          }
+          "nugetVersion=$nugetVersion" >> $env:GITHUB_OUTPUT
+          "Mode: $env:PUBLISH_MODE"
+          "NuGet: $nugetVersion"
+
+      - name: 🏗️ Build
+        run: dotnet build src/CSharp/Kestrun/Kestrun.csproj -c Release
+
+      - name: 📦 Pack
+        run: |
+          dotnet pack src/CSharp/Kestrun/Kestrun.csproj -c Release -o ./artifacts/nuget \
+            -p:Version=${{ steps.nver.outputs.nugetVersion }} \
+            -p:IncludeSymbols=true -p:SymbolPackageFormat=snupkg
+
+      - name: 🚀 NuGet publish (real or rehearsal)
+        env:
+          NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
+        run: |
+          if [ "${PUBLISH_MODE}" = "real" ]; then
+            if [ -z "${NUGET_API_KEY:-}" ]; then echo "Missing NUGET_API_KEY"; exit 1; fi
+            find ./artifacts/nuget -maxdepth 1 -name "*.nupkg"  -print -exec dotnet nuget push {} --api-key "$NUGET_API_KEY" --source https://api.nuget.org/v3/index.json --skip-duplicate \;
+            find ./artifacts/nuget -maxdepth 1 -name "*.snupkg" -print -exec dotnet nuget push {} --api-key "$NUGET_API_KEY" --source https://api.nuget.org/v3/index.json --skip-duplicate \;
+          else
+            echo "🧪 Rehearsal: showing packages that WOULD be pushed:"
+            ls -1 ./artifacts/nuget
+            # Optionally try a private feed here if you want a full push/pull rehearsal.
+          fi

@@ -93,7 +93,7 @@
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <RepositoryUrl>https://github.com/kestrun/Kestrun</RepositoryUrl>
     <PackageProjectUrl>https://github.com/kestrun/Kestrun</PackageProjectUrl>
-    <PackageIcon>assets\kestrun_128x128.png</PackageIcon>
+    <PackageIcon>Assets\kestrun_128x128.png</PackageIcon>
     <PackageTags>Kestrun web framework</PackageTags>
     <Copyright>Copyright © 2025 Kestrun Team</Copyright>
 

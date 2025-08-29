@@ -8,8 +8,8 @@
         The Kestrun server instance to which the file server will be added.
     .PARAMETER Options
         The FileServerOptions to configure the file server.
-    .PARAMETER FileProvider
-        An optional file provider to use for serving the files.
+    .PARAMETER RootPath
+        The root path from which to serve files.
     .PARAMETER RequestPath
         The path at which the file server will be registered.
     .PARAMETER EnableDirectoryBrowsing
@@ -39,9 +39,8 @@ function Add-KrFileServer {
         [Parameter(Mandatory = $true, ParameterSetName = 'Options')]
         [Microsoft.AspNetCore.Builder.FileServerOptions]$Options,
 
-
         [Parameter(ParameterSetName = 'Items')]
-        [Microsoft.Extensions.FileProviders.PhysicalFileProvider]$FileProvider,
+        [string]$RootPath,
 
         [Parameter(ParameterSetName = 'Items')]
         [string]$RequestPath,
@@ -62,8 +61,9 @@ function Add-KrFileServer {
             if (-not [string]::IsNullOrEmpty($RequestPath)) {
                 $Options.RequestPath = [Microsoft.AspNetCore.Http.PathString]::new($RequestPath)
             }
-            if ($null -ne $FileProvider) {
-                $Options.FileProvider = $FileProvider
+            if (-not [string]::IsNullOrEmpty($RootPath)) {
+                $resolvedPath = Resolve-KrPath $RootPath -KestrunRoot
+                $Options.FileProvider = [Microsoft.Extensions.FileProviders.PhysicalFileProvider]::new($resolvedPath)      
             }
             if ($EnableDirectoryBrowsing.IsPresent) {
                 $Options.EnableDirectoryBrowsing = $true

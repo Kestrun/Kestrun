@@ -2,7 +2,7 @@
 param (
     [Parameter()]
     [ValidateSet('8', '9', '10')]
-    [string]$Version = '8'
+    [string]$Version = '9'
 )
 $sdks = dotnet --list-sdks | Where-Object { $_ -match "^$Version\.0\." }
 $sortedSdks = @($sdks | Sort-Object { [version]($_.Split()[0]) } -Descending)

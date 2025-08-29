@@ -189,7 +189,8 @@ Add-BuildTask 'SyncPowerShellDll' {
 
         # Copy files except ones starting with Microsoft.CodeAnalysis
         Get-ChildItem -Path $srcFramework -Recurse -File |
-            Where-Object { -not ($_.Name -like 'Microsoft.CodeAnalysis*') } |
+            Where-Object { -not ($_.Name -like 'Microsoft.CodeAnalysis*') -or
+                $_.Name -like 'Microsoft.CodeAnalysis.Razor*' } |
             ForEach-Object {
                 $targetPath = $_.FullName.Replace($srcFramework, $destFramework)
                 $targetDir = Split-Path $targetPath -Parent

@@ -1,3 +1,4 @@
+using System.Reflection;
 using Kestrun.Hosting;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.FileProviders;
@@ -13,7 +14,7 @@ public class KestrunHostStaticFilesExtensionsTests
         var logger = new Mock<Serilog.ILogger>();
         _ = logger.Setup(l => l.IsEnabled(It.IsAny<Serilog.Events.LogEventLevel>())).Returns(false);
         var host = new KestrunHost("TestApp", logger.Object);
-        var field = typeof(KestrunHost).GetField("_middlewareQueue", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+        var field = typeof(KestrunHost).GetField("_middlewareQueue", BindingFlags.NonPublic | BindingFlags.Instance);
         middleware = (List<Action<IApplicationBuilder>>)field!.GetValue(host)!;
         return host;
     }
@@ -164,5 +165,21 @@ public class KestrunHostStaticFilesExtensionsTests
         var host = CreateHost(out var middleware);
         _ = host.AddFileServer((Action<FileServerOptions>)null!);
         Assert.True(middleware.Count > 0);
+    }
+
+    [Fact]
+    [Trait("Category", "Hosting")]
+    public void AddDirectoryBrowser_Method_IsDefined_WithExpectedSignature()
+    {
+        var extType = typeof(KestrunHostStaticFilesExtensions);
+        var method = extType.GetMethod(
+            "AddDirectoryBrowser",
+            BindingFlags.Public | BindingFlags.Static,
+            null,
+            [typeof(KestrunHost), typeof(string)],
+            null);
+
+        Assert.NotNull(method);
+        Assert.True(method.IsStatic);
     }
 }

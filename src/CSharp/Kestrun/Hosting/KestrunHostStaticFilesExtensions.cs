@@ -52,6 +52,20 @@ public static class KestrunHostStaticFilesExtensions
         });
     }
 
+    /// <summary>
+    /// Adds a directory browser middleware to the application.
+    /// This middleware enables directory browsing for a specified request path.
+    /// </summary>
+    /// <param name="host">The KestrunHost instance to configure.</param>
+    /// <param name="requestPath">The request path to enable directory browsing for.</param>
+    /// <returns>The current KestrunHost instance.</returns>
+    public static KestrunHost AddDirectoryBrowser(this KestrunHost host, string requestPath)
+    {
+        return host.Use(app =>
+        {
+            _ = app.UseDirectoryBrowser(requestPath);
+        });
+    }
 
     /// <summary>
     /// Adds a favicon middleware to the application.

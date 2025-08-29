@@ -1,0 +1,30 @@
+body {
+    font-family: sans-serif;
+    margin: 2rem;
+    background-color: #f4f4f4;
+    color: #222;
+}
+
+header {
+    background-color: #007acc;
+    color: white;
+    padding: 1rem;
+    border-radius: 5px;
+}
+
+nav a {
+    color: white;
+    margin-right: 1rem;
+    text-decoration: none;
+}
+
+nav a:hover {
+    text-decoration: underline;
+}
+
+main {
+    background: white;
+    padding: 1rem;
+    margin-top: 1rem;
+    border-radius: 4px;
+}

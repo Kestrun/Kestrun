@@ -57,7 +57,9 @@ $server = New-KrServer -Name 'MyKestrunServer' -PassThru |
         'application/xml',
         'text/html'
     ) -PassThru | Add-KrCorsPolicy -Name 'AllowAll' -AllowAnyOrigin -AllowAnyMethod -AllowAnyHeader -PassThru |
-    Add-KrFileServer -RequestPath '/assets' -EnableDirectoryBrowsing -PassThru | Add-KrPowerShellRuntime -PassThru |
+    Add-KrFileServer -RequestPath '/assets' -EnableDirectoryBrowsing -PassThru |
+    Add-KrStaticFilesService -RequestPath '/static' -PassThru |
+    Add-KrPowerShellRuntime -PassThru |
     Add-KrPowerShellRazorPagesRuntime -PassThru | Enable-KrConfiguration -PassThru
 
 

@@ -8,8 +8,8 @@
     The Kestrun server instance to which the static file service will be added.
 .PARAMETER Options
     The StaticFileOptions to configure the static file service.
-.PARAMETER FileProvider
-    An optional file provider to use for serving the files.
+.PARAMETER RootPath
+    The root path from which to serve static files.
 .PARAMETER RequestPath
     The path at which the static file service will be registered.
 .PARAMETER HttpsCompression
@@ -46,7 +46,7 @@ function Add-KrStaticFilesService {
         [Microsoft.AspNetCore.Builder.StaticFileOptions]$Options,
 
         [Parameter(ParameterSetName = 'Items')]
-        [Microsoft.Extensions.FileProviders.PhysicalFileProvider]$FileProvider,
+        [string]$RootPath,
 
         [Parameter(ParameterSetName = 'Items')]
         [string]$RequestPath,
@@ -69,8 +69,9 @@ function Add-KrStaticFilesService {
     process {
         if ($PSCmdlet.ParameterSetName -eq 'Items') {
             $Options = [Microsoft.AspNetCore.Builder.StaticFileOptions]::new()
-            if ($null -ne $FileProvider) {
-                $Options.FileProvider = $FileProvider
+            if (-not [string]::IsNullOrEmpty($RootPath)) {
+                $resolvedPath = Resolve-KrPath $RootPath -KestrunRoot
+                $Options.FileProvider = [Microsoft.Extensions.FileProviders.PhysicalFileProvider]::new($resolvedPath)
             }
             if (-not [string]::IsNullOrEmpty($RequestPath)) {
                 $Options.RequestPath = [Microsoft.AspNetCore.Http.PathString]::new($RequestPath)

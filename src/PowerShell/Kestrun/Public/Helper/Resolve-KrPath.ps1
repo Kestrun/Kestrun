@@ -53,7 +53,7 @@ function Resolve-KrPath {
 
         if ($KestrunRoot) {
             # Use the Kestrun root as base
-            $RelativeBasePath = $script:KestrunRoot
+            $RelativeBasePath = [Kestrun.KestrunHostManager]::KestrunRoot
         }
 
         if ($RelativeBasePath) {

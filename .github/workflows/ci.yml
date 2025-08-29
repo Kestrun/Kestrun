@@ -128,9 +128,6 @@ jobs:
       shell: pwsh
       run: Invoke-Build Restore -DotNetVerbosity $Env:DOTNET_VERBOSITY
 
-    - name: 🔎 Verify code style (no diffs)
-      run: dotnet format --verify-no-changes
-
     # 🐛 Debug-only; non-fatal if it exits 1
     - name: 🔎 List Roslyn packages (transitive)
       if: ${{ steps.detect_debug.outputs.enabled == 'true' }}

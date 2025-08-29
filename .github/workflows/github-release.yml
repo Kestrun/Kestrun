@@ -66,7 +66,7 @@ jobs:
 
       - name: Package (Invoke-Build)
         shell: pwsh
-        run: Invoke-Build Package
+        run: Invoke-Build Package -DotNetVerbosity quiet
 
       - name: Create GitHub Release (auto notes) + upload artifacts
         uses: softprops/action-gh-release@v2

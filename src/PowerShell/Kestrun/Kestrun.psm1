@@ -92,22 +92,9 @@ try {
     }
 
     if (-not $inRouteRunspace) {
-        # This is the root path for the application
-        $kestrunRoot = $MyInvocation.PSScriptRoot
+        # Set the Kestrun root path for the host manager
+        [Kestrun.KestrunHostManager]::KestrunRoot = $PWD
 
-        if ([string]::IsNullOrEmpty($kestrunRoot)) {
-            Write-Verbose "PSCommandPath: $PSCommandPath"
-            if ($PSCommandPath.EndsWith( 'Kestrun.psm1')) {
-                $kestrunRoot = Split-Path -Parent -Path $global:PSCommandPath
-            } else {
-                $kestrunRoot = $PWD
-            }
-            Write-Verbose "KestrunRoot set to $kestrunRoot"
-        }
-        if ([Kestrun.KestrunHostManager]::KestrunRoot -ne $kestrunRoot) {
-            # Set the Kestrun root path for the host manager
-            [Kestrun.KestrunHostManager]::KestrunRoot = $kestrunRoot
-        }
         [Kestrun.KestrunHostManager]::VariableBaseline = Get-Variable | Select-Object -ExpandProperty Name
         # Ensure that the Kestrun host manager is destroyed to clean up resources.
     }
@@ -115,5 +102,5 @@ try {
     throw ("Failed to import Kestrun module: $_")
 } finally {
     # Cleanup temporary variables
-    Remove-Variable -Name 'assemblyLoadPath', 'moduleRootPath', 'netVersion', 'codeAnalysisVersion', 'inRouteRunspace' , 'sysfuncs', 'sysaliases', 'funcs', 'aliases', 'kestrunRoot' -ErrorAction SilentlyContinue
+    Remove-Variable -Name 'assemblyLoadPath', 'moduleRootPath', 'netVersion', 'codeAnalysisVersion', 'inRouteRunspace' , 'sysfuncs', 'sysaliases', 'funcs', 'aliases' -ErrorAction SilentlyContinue
 }

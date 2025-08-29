@@ -5,11 +5,11 @@
 #>
 
 # Import the Kestrun module
-#Install-PSResource -Name Kestrun
-Import-Module Kestrun
+Install-PSResource -Name Kestrun
 
 # Initialize Kestrun root directory
-# This is required in order to use relative paths
+# the default value is $PWD
+# This is recommended in order to use relative paths without issues
 Initialize-KrRoot -Path $PSScriptRoot
 
 # Create a new Kestrun server

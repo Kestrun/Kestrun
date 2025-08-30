@@ -134,13 +134,13 @@ $Model = [pscustomobject]@{
 
 ### 4.2 What variables are available in the script?
 
-| Name            | Type                     | Purpose                                               |
-|-----------------|--------------------------|-------------------------------------------------------|
+| Name                    | Type                     | Purpose                                               |
+|-------------------------|--------------------------|-------------------------------------------------------|
 | **`$Context.Request`**  | `KestrunRequest`         | Strong-typed wrapper over `HttpRequest` with helpers. |
 | **`$Context.Response`** | `KestrunResponse`        | Convenience builder (status, headers, cookies…).      |
-| **`$Services`** | `IServiceProvider`       | Resolve any DI singleton/scoped service.              |
-| **`$Log`**      | `Serilog.ILogger`        | Logger scoped to the current request.                 |
-| **`$Model`**    | `object` (you create it) | Anything serialisable / anonymous / PSCustomObject.   |
+| **`$Services`**         | `IServiceProvider`       | Resolve any DI singleton/scoped service.              |
+| **`$Log`**              | `Serilog.ILogger`        | Logger scoped to the current request.                 |
+| **`$Model`**            | `object` (you create it) | Anything serialisable / anonymous / PSCustomObject.   |
 
 Return values are ignored; simply assign to `$Model`.
 
@@ -327,7 +327,7 @@ if (-not (Test-Path "data/$($Context.Request.RouteValues.id).json")) {
   `Hello.cshtml` → `/Hello` (not `/hello`) if deploying to Linux containers.
 * **Hot reload** – edit `.ps1` or `.cshtml`, save, refresh; no rebuild required.
 * **Logging** – use `$Log` or the `[Serilog.Log]` static to record diagnostics.
-  (See **Logging.md** for full details.)
+  (See **Logging** for full details.)
 
 ---
 
@@ -337,7 +337,7 @@ if (-not (Test-Path "data/$($Context.Request.RouteValues.id).json")) {
 |---------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------|
 | *Can I share code between scripts?*         | Yes. Using the SharedState feature                                                                                                       |
 | *How do I inject DI services?*              | Resolve them from `$Services` or add them as parameters and decorate the script with `param($mySvc)` — Kestrun binds params from DI too. |
-| *Can the script short-circuit the request?* | Absolutely. Return, or set `$Context.Response.Status() / Redirect()` **and** `return`, and Razor won’t run.                                      |
+| *Can the script short-circuit the request?* | Absolutely. Return, or set `$Context.Response.Status() / Redirect()` **and** `return`, and Razor won’t run.                              |
 | *Layout / partials?*                        | Works exactly as in normal ASP.NET Core Razor; place `_Layout.cshtml`, use `@{ Layout = "_Layout"; }`.                                   |
 | *Why do I get “endpoint not found”?*        | Ensure `UseRouting()` and `MapRazorPages()` are in the pipeline **after** `UsePowerShellRazorPages()`.                                   |
 

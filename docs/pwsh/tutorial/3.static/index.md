@@ -21,12 +21,12 @@ to files relative to the configured root path.
 
 ## Chapters
 
-| Order | Chapter                                                 | Focus                                                               |
-|-------|---------------------------------------------------------|---------------------------------------------------------------------|
-| 1     | [Serving Static Files](./1.Static-Routes.md)            | Basic static file service (`Add-KrStaticFilesService`)              |
-| 2     | [File Server & Directory Browsing](./2.File-Server.md)  | Whole-site directory hosting + listings (`Add-KrFileServer`)        |
-| 3     | [Static Route Overrides](./3.Static-Override-Routes.md) | Dynamic endpoints under a static prefix (`Add-KrStaticMapOverride`) |
-| 4     | [Adding a Favicon](./4.Favicon.md)                      | Register favicon middleware (`Add-KrFavicon`)                       |
+| Order | Chapter                                              | Focus                                                               |
+|-------|------------------------------------------------------|---------------------------------------------------------------------|
+| 1     | [Serving Static Files](./1.Static-Routes)            | Basic static file service (`Add-KrStaticFilesService`)              |
+| 2     | [File Server & Directory Browsing](./2.File-Server)  | Whole-site directory hosting + listings (`Add-KrFileServer`)        |
+| 3     | [Static Route Overrides](./3.Static-Override-Routes) | Dynamic endpoints under a static prefix (`Add-KrStaticMapOverride`) |
+| 4     | [Adding a Favicon](./4.Favicon)                      | Register favicon middleware (`Add-KrFavicon`)                       |
 
 Upcoming chapters (planned):
 
@@ -64,9 +64,9 @@ Stop the server with Ctrl+C.
 ## Next
 
 Start with:
-[Serving Static Files](./1.Static-Routes.md) → [File Server](./2.File-Server.md) →
-[Static Route Overrides](./3.Static-Override-Routes.md).  
-Then continue to [Variable Routes](../4.variable/index.md) to handle dynamic segments.
+[Serving Static Files](./1.Static-Routes) → [File Server](./2.File-Server) →
+[Static Route Overrides](./3.Static-Override-Routes).  
+Then continue to [Variable Routes](../4.variable/index) to handle dynamic segments.
 
 ---
 

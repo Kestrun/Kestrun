@@ -27,7 +27,7 @@ Add-KrMapRoute -Verbs Get -Pattern "/xml/{message}" -ScriptBlock {
 }
 
 # YAML Route using MapRouteOption
-Add-KrMapRoute -Options (New-MapRouteOption -Property @{
+Add-KrMapRoute -Options (New-KrMapRouteOption -Property @{
         Pattern = "/yaml"
         HttpVerbs = 'Get'
         Code = {
@@ -51,7 +51,7 @@ $options.Language = 'PowerShell'
 Add-KrMapRoute -Options $options
 
 # Text Route using MapRouteOption and Pipeline
-New-MapRouteOption -Property @{
+New-KrMapRouteOption -Property @{
     Pattern = "/txt"
     HttpVerbs = 'Get'
     Code = @"

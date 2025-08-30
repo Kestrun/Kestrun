@@ -224,7 +224,7 @@ BeforeAll {
         Write-KrTextResponse -InputObject "Welcome, $user! You are authenticated by PowerShell Code." -ContentType 'text/plain'
     }
 
-    Add-KrMapRoute -Options (New-MapRouteOption -Property @{
+    Add-KrMapRoute -Options (New-KrMapRouteOption -Property @{
             Pattern = '/secure/ps/policy'
             HttpVerbs = 'Get'
             Code = {
@@ -237,7 +237,7 @@ BeforeAll {
         })
 
 
-    Add-KrMapRoute -Options (New-MapRouteOption -Property @{
+    Add-KrMapRoute -Options (New-KrMapRouteOption -Property @{
             Pattern = '/secure/ps/policy'
             HttpVerbs = 'Delete'
             Code = {
@@ -249,7 +249,7 @@ BeforeAll {
             RequireSchemes = @($BasicPowershellScheme)
         })
 
-    Add-KrMapRoute -Options (New-MapRouteOption -Property @{
+    Add-KrMapRoute -Options (New-KrMapRouteOption -Property @{
             Pattern = '/secure/ps/policy'
             HttpVerbs = 'Put'
             Code = {
@@ -261,7 +261,7 @@ BeforeAll {
             RequireSchemes = @($BasicPowershellScheme)
         })
 
-    Add-KrMapRoute -Options (New-MapRouteOption -Property @{
+    Add-KrMapRoute -Options (New-KrMapRouteOption -Property @{
             Pattern = '/secure/ps/policy'
             HttpVerbs = 'Post'
             Code = {
@@ -286,7 +286,7 @@ BeforeAll {
 
 
 
-    Add-KrMapRoute -Options (New-MapRouteOption -Property @{
+    Add-KrMapRoute -Options (New-KrMapRouteOption -Property @{
             Pattern = '/secure/vb/policy'
             HttpVerbs = 'Get'
             Code = {
@@ -299,7 +299,7 @@ BeforeAll {
         })
 
 
-    Add-KrMapRoute -Options (New-MapRouteOption -Property @{
+    Add-KrMapRoute -Options (New-KrMapRouteOption -Property @{
             Pattern = '/secure/vb/policy'
             HttpVerbs = 'Delete'
             Code = {
@@ -311,7 +311,7 @@ BeforeAll {
             RequireSchemes = @($BasicVBNetScheme)
         })
 
-    Add-KrMapRoute -Options (New-MapRouteOption -Property @{
+    Add-KrMapRoute -Options (New-KrMapRouteOption -Property @{
             Pattern = '/secure/vb/policy'
             HttpVerbs = 'Put'
             Code = {
@@ -323,7 +323,7 @@ BeforeAll {
             RequireSchemes = @($BasicVBNetScheme)
         })
 
-    Add-KrMapRoute -Options (New-MapRouteOption -Property @{
+    Add-KrMapRoute -Options (New-KrMapRouteOption -Property @{
             Pattern = '/secure/vb/policy'
             HttpVerbs = 'Post'
             Code = {

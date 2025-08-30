@@ -125,7 +125,7 @@ function Add-KrRouteGroup {
                 $dict = [System.Collections.Generic.Dictionary[string, object]]::new()
                 foreach ($k in $Arguments.Keys) { $dict[$k] = $Arguments[$k] }
             }
-            New-MapRouteOption -Property @{
+            New-KrMapRouteOption -Property @{
                 RequireSchemes = $AuthorizationSchema
                 RequirePolicies = $AuthorizationPolicy
                 ExtraImports = $ExtraImports

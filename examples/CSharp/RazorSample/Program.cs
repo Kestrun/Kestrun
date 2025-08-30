@@ -76,11 +76,11 @@ server.AddResponseCompression(options =>
     opts.Base64Encoded = true;            // default anyway
     opts.RequireHttps = false;           // example
 })
-.AddStaticOverride("/assets/report", async ctx =>
+.AddStaticMapOverride("/assets/report", async ctx =>
 {
     await ctx.Response.WriteJsonResponseAsync(new { ok = true, message = "Static override works!" });
 })
-.AddStaticOverride(
+.AddStaticMapOverride(
    pattern: "/assets/ps-report", code: """
 
   $Payload = @{
@@ -91,7 +91,7 @@ server.AddResponseCompression(options =>
 Write-KrJsonResponse -inputObject $Payload
 """, language: ScriptLanguage.PowerShell, requireSchemes: [BasicPowershellScheme])
 
-.AddStaticOverride(
+.AddStaticMapOverride(
     "/assets/vb-report",
     """
     Dim payload = New With {.ok=True, .lang="VB.NET", .time=DateTime.UtcNow}
@@ -99,7 +99,7 @@ Write-KrJsonResponse -inputObject $Payload
 """,
     ScriptLanguage.VBNet)
 
-.AddStaticOverride(
+.AddStaticMapOverride(
     "/assets/cs-report",
     """  
         var payload = new

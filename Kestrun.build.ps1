@@ -416,3 +416,9 @@ Add-BuildTask Remove-Module {
     Write-Host '🗑️ Removing Kestrun module...'
     & .\Utility\Install-Kestrun.ps1 -FileVersion $FileVersion -Remove
 }
+
+Add-BuildTask Update-Module {
+    Write-Host '🔄 Updating Kestrun module...'
+}, Remove-Module, Install-Module, {
+    Write-Host '🔄 Kestrun module updated.'
+}

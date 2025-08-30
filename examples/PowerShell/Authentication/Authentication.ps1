@@ -276,7 +276,7 @@ Add-KrRouteGroup -Prefix '/secure/ps' -AuthorizationSchema $BasicPowershellSchem
     }
 
     Add-KrRouteGroup -Prefix '/policy' {
-        Add-KrMapRoute -Options (New-MapRouteOption -Property @{
+        Add-KrMapRoute -Options (New-KrMapRouteOption -Property @{
                 HttpVerbs = 'Get'
                 Code = {
                     $user = $Context.User.Identity.Name
@@ -287,7 +287,7 @@ Add-KrRouteGroup -Prefix '/secure/ps' -AuthorizationSchema $BasicPowershellSchem
             })
 
 
-        Add-KrMapRoute -Options (New-MapRouteOption -Property @{
+        Add-KrMapRoute -Options (New-KrMapRouteOption -Property @{
                 HttpVerbs = 'Delete'
                 Code = {
                     $user = $Context.User.Identity.Name
@@ -297,7 +297,7 @@ Add-KrRouteGroup -Prefix '/secure/ps' -AuthorizationSchema $BasicPowershellSchem
                 RequirePolicies = @('CanDelete')
             })
 
-        Add-KrMapRoute -Options (New-MapRouteOption -Property @{
+        Add-KrMapRoute -Options (New-KrMapRouteOption -Property @{
                 HttpVerbs = 'Put'
                 Code = {
                     $user = $Context.User.Identity.Name
@@ -307,7 +307,7 @@ Add-KrRouteGroup -Prefix '/secure/ps' -AuthorizationSchema $BasicPowershellSchem
                 RequirePolicies = @('CanWrite')
             })
 
-        Add-KrMapRoute -Options (New-MapRouteOption -Property @{
+        Add-KrMapRoute -Options (New-KrMapRouteOption -Property @{
                 HttpVerbs = 'Post'
                 Code = {
                     $user = $Context.User.Identity.Name
@@ -331,7 +331,7 @@ Add-KrMapRoute -Verbs Get -Pattern '/secure/vb/hello' -AuthorizationSchema $Basi
 
 
 
-Add-KrMapRoute -Options (New-MapRouteOption -Property @{
+Add-KrMapRoute -Options (New-KrMapRouteOption -Property @{
         Pattern = '/secure/vb/policy'
         HttpVerbs = 'Get'
         Code = {
@@ -344,7 +344,7 @@ Add-KrMapRoute -Options (New-MapRouteOption -Property @{
     })
 
 
-Add-KrMapRoute -Options (New-MapRouteOption -Property @{
+Add-KrMapRoute -Options (New-KrMapRouteOption -Property @{
         Pattern = '/secure/vb/policy'
         HttpVerbs = 'Delete'
         Code = {
@@ -356,7 +356,7 @@ Add-KrMapRoute -Options (New-MapRouteOption -Property @{
         RequireSchemes = @($BasicVBNetScheme)
     })
 
-Add-KrMapRoute -Options (New-MapRouteOption -Property @{
+Add-KrMapRoute -Options (New-KrMapRouteOption -Property @{
         Pattern = '/secure/vb/policy'
         HttpVerbs = 'Put'
         Code = {
@@ -368,7 +368,7 @@ Add-KrMapRoute -Options (New-MapRouteOption -Property @{
         RequireSchemes = @($BasicVBNetScheme)
     })
 
-Add-KrMapRoute -Options (New-MapRouteOption -Property @{
+Add-KrMapRoute -Options (New-KrMapRouteOption -Property @{
         Pattern = '/secure/vb/policy'
         HttpVerbs = 'Post'
         Code = {

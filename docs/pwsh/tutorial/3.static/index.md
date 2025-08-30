@@ -21,9 +21,12 @@ to files relative to the configured root path.
 
 ## Chapters
 
-| Order | Chapter                                      | Focus                                                  |
-|-------|----------------------------------------------|--------------------------------------------------------|
-| 1     | [Serving Static Files](./1.Static-Routes.md) | Basic static file service (`Add-KrStaticFilesService`) |
+| Order | Chapter                                                 | Focus                                                               |
+|-------|---------------------------------------------------------|---------------------------------------------------------------------|
+| 1     | [Serving Static Files](./1.Static-Routes.md)            | Basic static file service (`Add-KrStaticFilesService`)              |
+| 2     | [File Server & Directory Browsing](./2.File-Server.md)  | Whole-site directory hosting + listings (`Add-KrFileServer`)        |
+| 3     | [Static Route Overrides](./3.Static-Override-Routes.md) | Dynamic endpoints under a static prefix (`Add-KrStaticMapOverride`) |
+| 4     | [Adding a Favicon](./4.Favicon.md)                      | Register favicon middleware (`Add-KrFavicon`)                       |
 
 Upcoming chapters (planned):
 
@@ -60,8 +63,10 @@ Stop the server with Ctrl+C.
 
 ## Next
 
-Proceed to the first chapter: [Serving Static Files](./1.Static-Routes.md).  
-After static hosting, continue to [Variable Routes](../4.variable/index.md) to handle dynamic segments.
+Start with:
+[Serving Static Files](./1.Static-Routes.md) → [File Server](./2.File-Server.md) →
+[Static Route Overrides](./3.Static-Override-Routes.md).  
+Then continue to [Variable Routes](../4.variable/index.md) to handle dynamic segments.
 
 ---
 

@@ -63,6 +63,9 @@ function Add-KrStaticFilesService {
         [Parameter(ParameterSetName = 'Items')]
         [switch]$RedirectToAppendTrailingSlash,
 
+        [Parameter(ParameterSetName = 'Items')]
+        [hashtable]$ContentTypeMap,
+
         [Parameter()]
         [switch]$PassThru
     )
@@ -74,7 +77,7 @@ function Add-KrStaticFilesService {
                 $Options.FileProvider = [Microsoft.Extensions.FileProviders.PhysicalFileProvider]::new($resolvedPath)
             }
             if (-not [string]::IsNullOrEmpty($RequestPath)) {
-                $Options.RequestPath = [Microsoft.AspNetCore.Http.PathString]::new($RequestPath)
+                $Options.RequestPath = [Microsoft.AspNetCore.Http.PathString]::new($RequestPath.TrimEnd('/'))
             }
             if ($ServeUnknownFileTypes.IsPresent) {
                 $Options.ServeUnknownFileTypes = $true
@@ -87,6 +90,16 @@ function Add-KrStaticFilesService {
             }
             if ($RedirectToAppendTrailingSlash.IsPresent) {
                 $Options.RedirectToAppendTrailingSlash = $true
+            }
+            if ($ContentTypeMap) {
+                $provider = [Microsoft.AspNetCore.StaticFiles.FileExtensionContentTypeProvider]::new() 
+                foreach ($k in $ContentTypeMap.Keys) {
+                    $ext = if ($k -like ".*") { $k } else { ".$k" }
+                    $mime = [string]$ContentTypeMap[$k]
+                    if ([string]::IsNullOrWhiteSpace($mime)) { continue }
+                    $provider.Mappings[$ext] = $mime
+                }
+                $Options.StaticFileOptions.ContentTypeProvider = $provider
             }
         }
         # Ensure the server instance is resolved

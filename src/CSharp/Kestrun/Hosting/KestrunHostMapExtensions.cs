@@ -164,6 +164,11 @@ public static class KestrunHostMapExtensions
             host.HostLogger.Debug("AddMapRoute called with pattern={Pattern}, language={Language}, method={Methods}", options.Pattern, options.Language, options.HttpVerbs);
         }
 
+        if (host.IsConfigured)
+        {
+            throw new InvalidOperationException("Kestrun host is already configured.");
+        }
+
         // Ensure the WebApplication is initialized
         if (host.App is null)
         {
@@ -534,7 +539,7 @@ public static class KestrunHostMapExtensions
     /// This method allows you to override static file serving with dynamic content by providing a handler
     /// that will be executed for the specified route pattern.
     /// </remarks>
-    public static KestrunHost AddStaticOverride(
+    public static KestrunHost AddStaticMapOverride(
         this KestrunHost host,
         string pattern,
         KestrunHandler handler,
@@ -542,7 +547,7 @@ public static class KestrunHostMapExtensions
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(pattern);
 
-        return host.AddStaticOverride(new MapRouteOptions
+        return host.AddStaticMapOverride(new MapRouteOptions
         {
             Pattern = pattern,
             HttpVerbs = [HttpVerb.Get], // GET-only
@@ -560,7 +565,7 @@ public static class KestrunHostMapExtensions
     /// <param name="options">The MapRouteOptions containing route configuration.</param>
     /// <param name="handler">The handler to execute for the route.</param>
     /// <returns>The KestrunHost instance for method chaining.</returns>
-    public static KestrunHost AddStaticOverride(
+    public static KestrunHost AddStaticMapOverride(
         this KestrunHost host,
         MapRouteOptions options,
         KestrunHandler handler)
@@ -608,7 +613,7 @@ public static class KestrunHostMapExtensions
     /// This method allows you to override static file serving with dynamic content by providing a script
     /// that will be executed for the specified route pattern.
     /// </remarks> 
-    public static KestrunHost AddStaticOverride(
+    public static KestrunHost AddStaticMapOverride(
     this KestrunHost host,
          string pattern,
          string code,
@@ -647,7 +652,7 @@ public static class KestrunHostMapExtensions
     /// <param name="host">The KestrunHost instance.</param>
     /// <param name="options">The MapRouteOptions containing route configuration.</param>
     /// <returns>The KestrunHost instance for method chaining.</returns>
-    public static KestrunHost AddStaticOverride(this KestrunHost host, MapRouteOptions options)
+    public static KestrunHost AddStaticMapOverride(this KestrunHost host, MapRouteOptions options)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(options.Pattern);
         ArgumentException.ThrowIfNullOrWhiteSpace(options.Code);

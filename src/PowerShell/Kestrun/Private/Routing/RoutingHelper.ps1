@@ -98,7 +98,7 @@ function _KrWith-MRO {
         ThrowOnDuplicate = $Base.ThrowOnDuplicate
     }
     foreach ($k in $Override.Keys) { $h[$k] = $Override[$k] }
-    return New-MapRouteOption -Property $h
+    return New-KrMapRouteOption -Property $h
 }
 
 <#
@@ -146,5 +146,5 @@ function _KrMerge-MRO {
         OpenAPI = if ($Child.OpenAPI) { $Child.OpenAPI } else { $Parent.OpenAPI }
         ThrowOnDuplicate = $Child.ThrowOnDuplicate -or $Parent.ThrowOnDuplicate
     }
-    return New-MapRouteOption -Property $merged
+    return New-KrMapRouteOption -Property $merged
 }

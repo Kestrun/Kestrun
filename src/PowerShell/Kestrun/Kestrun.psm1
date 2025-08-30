@@ -1,6 +1,5 @@
 param()
 # Main Kestrun module path
- 
 
 # This is the root path for the Kestrun module
 $moduleRootPath = Split-Path -Parent -Path $MyInvocation.MyCommand.Path

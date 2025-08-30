@@ -42,7 +42,10 @@ public class KestrunHost : IDisposable
     public KestrunOptions Options { get; private set; } = new();
     private readonly List<string> _modulePaths = [];
 
-    private bool _isConfigured;
+    /// <summary>
+    /// Indicates whether the Kestrun host configuration has been applied.
+    /// </summary>
+    public bool IsConfigured { get; private set; }
 
     private KestrunRunspacePoolManager? _runspacePool;
 
@@ -326,7 +329,7 @@ public class KestrunHost : IDisposable
             HostLogger.Debug("EnableConfiguration(options) called");
         }
 
-        if (_isConfigured)
+        if (IsConfigured)
         {
             if (HostLogger.IsEnabled(LogEventLevel.Debug))
             {
@@ -395,7 +398,7 @@ public class KestrunHost : IDisposable
                 }
             }
 
-            _isConfigured = true;
+            IsConfigured = true;
             HostLogger.Information("Configuration applied successfully.");
         }
         catch (Exception ex)
@@ -826,7 +829,7 @@ public class KestrunHost : IDisposable
 
         _runspacePool?.Dispose();
         _runspacePool = null; // Clear the runspace pool reference
-        _isConfigured = false; // Reset configuration state 
+        IsConfigured = false; // Reset configuration state 
         _app = null;
         Scheduler?.Dispose();
         (HostLogger as IDisposable)?.Dispose();

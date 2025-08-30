@@ -1,7 +1,7 @@
 ﻿<#
-    Sample Kestrun Server on how to use static routes.
-    These examples demonstrate how to configure static routes in a Kestrun server.
-    FileName: 6-Static-Routes.ps1
+    Sample Kestrun Server on how to configure a static file server.
+    These examples demonstrate how to configure static routes with directory browsing in a Kestrun server.
+    FileName: 7-File-Server.ps1
 #>
 
 # Import the Kestrun module
@@ -18,8 +18,15 @@ New-KrServer -Name "Simple Server"
 # Add a listener on port 5000 and IP address 127.0.0.1 (localhost)
 Add-KrListener -Port 5000 -IPAddress ([IPAddress]::Loopback)
 
-# Add a static files service
-Add-KrStaticFilesService -RequestPath '/assets' -RootPath '.\Assets\wwwroot' -ServeUnknownFileTypes
+# Define the content type map to add to the default set
+$map = @{
+    ".yaml" = "application/x-yaml"
+    ".yml" = "application/x-yaml"
+    ".ps1" = "text/plain"
+}
+
+# Add a file server with browsing enabled
+Add-KrFileServer -RequestPath '/' -RootPath '.\Assets\wwwroot' -EnableDirectoryBrowsing -ContentTypeMap $map
 
 # Enable Kestrun configuration
 Enable-KrConfiguration

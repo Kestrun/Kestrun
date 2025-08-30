@@ -11,7 +11,7 @@
         [Kestrun.Hosting.Options.MapRouteOptions]
         A new instance of the MapRouteOptions class.
     .EXAMPLE
-        $options = New-MapRouteOption -Property @{
+        $options = New-KrMapRouteOption -Property @{
             Path = "/myroute"
             HttpVerbs = "Get", "Post"
         }
@@ -22,7 +22,7 @@
     .LINK
         https://docs.microsoft.com/en-us/dotnet/api/kestrun.hosting.options.maprouteoptions
 #>
-function New-MapRouteOption {
+function New-KrMapRouteOption {
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseShouldProcessForStateChangingFunctions', '')]
     [KestrunRuntimeApi('Definition')]
     [CmdletBinding()]

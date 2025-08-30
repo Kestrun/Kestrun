@@ -1,7 +1,7 @@
 ﻿<#
-    Sample Kestrun Server on how to use static routes.
-    These examples demonstrate how to configure static routes in a Kestrun server.
-    FileName: 6-Static-Routes.ps1
+    Sample Kestrun Server on how to add a favicon.
+    This example demonstrates how to configure a favicon in a Kestrun server.
+    FileName: 9-Add-FavIcon.ps1
 #>
 
 # Import the Kestrun module
@@ -18,8 +18,11 @@ New-KrServer -Name "Simple Server"
 # Add a listener on port 5000 and IP address 127.0.0.1 (localhost)
 Add-KrListener -Port 5000 -IPAddress ([IPAddress]::Loopback)
 
-# Add a static files service
-Add-KrStaticFilesService -RequestPath '/assets' -RootPath '.\Assets\wwwroot' -ServeUnknownFileTypes
+# Add a file server with browsing enabled
+Add-KrFileServer -RequestPath '/' -RootPath '.\Assets\wwwroot' -EnableDirectoryBrowsing -ServeUnknownFileTypes
+
+# Add a favicon
+Add-KrFavicon -IconPath '.\Assets\favicon.png'
 
 # Enable Kestrun configuration
 Enable-KrConfiguration

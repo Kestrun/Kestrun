@@ -12,10 +12,19 @@
         The root path from which to serve files.
     .PARAMETER RequestPath
         The path at which the file server will be registered.
+    .PARAMETER HttpsCompression
+        If specified, enables HTTPS compression for the static files.
+    .PARAMETER ServeUnknownFileTypes
+        If specified, allows serving files with unknown MIME types.
+    .PARAMETER DefaultContentType
+        The default content type to use for files served by the static file service.
     .PARAMETER EnableDirectoryBrowsing
         If specified, enables directory browsing for the file server.
     .PARAMETER RedirectToAppendTrailingSlash
         If specified, requests to the path will be redirected to append a trailing slash.
+    .PARAMETER ContentTypeMap
+        A hashtable mapping file extensions to MIME types (e.g., @{ ".yaml"="application/x-yaml"; ".yml"="application/x-yaml" }).
+        This allows for serving files with the correct `Content-Type` header.
     .PARAMETER PassThru
         If specified, the cmdlet will return the modified server instance.
     .EXAMPLE
@@ -46,10 +55,22 @@ function Add-KrFileServer {
         [string]$RequestPath,
 
         [Parameter(ParameterSetName = 'Items')]
+        [switch]$HttpsCompression,
+
+        [Parameter(ParameterSetName = 'Items')]
+        [switch]$ServeUnknownFileTypes,
+
+        [Parameter(ParameterSetName = 'Items')]
+        [string]$DefaultContentType,
+
+        [Parameter(ParameterSetName = 'Items')]
         [switch]$EnableDirectoryBrowsing,
 
         [Parameter(ParameterSetName = 'Items')]
         [switch]$RedirectToAppendTrailingSlash,
+
+        [Parameter(ParameterSetName = 'Items')]
+        [hashtable]$ContentTypeMap,
 
         [Parameter()]
         [switch]$PassThru
@@ -59,17 +80,36 @@ function Add-KrFileServer {
             $Options = [Microsoft.AspNetCore.Builder.FileServerOptions]::new()
 
             if (-not [string]::IsNullOrEmpty($RequestPath)) {
-                $Options.RequestPath = [Microsoft.AspNetCore.Http.PathString]::new($RequestPath)
+                $Options.RequestPath = [Microsoft.AspNetCore.Http.PathString]::new($RequestPath.TrimEnd('/'))
             }
             if (-not [string]::IsNullOrEmpty($RootPath)) {
                 $resolvedPath = Resolve-KrPath $RootPath -KestrunRoot
-                $Options.FileProvider = [Microsoft.Extensions.FileProviders.PhysicalFileProvider]::new($resolvedPath)      
+                $Options.FileProvider = [Microsoft.Extensions.FileProviders.PhysicalFileProvider]::new($resolvedPath)
             }
             if ($EnableDirectoryBrowsing.IsPresent) {
                 $Options.EnableDirectoryBrowsing = $true
             }
+            if ($ServeUnknownFileTypes.IsPresent) {
+                $Options.ServeUnknownFileTypes = $true
+            }
+            if ($HttpsCompression.IsPresent) {
+                $Options.HttpsCompression = $true
+            }
+            if (-not [string]::IsNullOrEmpty($DefaultContentType)) {
+                $Options.DefaultContentType = $DefaultContentType
+            }
             if ($RedirectToAppendTrailingSlash.IsPresent) {
                 $Options.RedirectToAppendTrailingSlash = $true
+            }
+            if ($ContentTypeMap) {
+                $provider = [Microsoft.AspNetCore.StaticFiles.FileExtensionContentTypeProvider]::new() 
+                foreach ($k in $ContentTypeMap.Keys) {
+                    $ext = if ($k -like ".*") { $k } else { ".$k" }
+                    $mime = [string]$ContentTypeMap[$k]
+                    if ([string]::IsNullOrWhiteSpace($mime)) { continue }
+                    $provider.Mappings[$ext] = $mime
+                }
+                $Options.StaticFileOptions.ContentTypeProvider = $provider
             }
         }
         # Ensure the server instance is resolved

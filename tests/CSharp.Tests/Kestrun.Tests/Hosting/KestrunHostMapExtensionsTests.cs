@@ -260,7 +260,7 @@ public class KestrunHostMapExtensionsTests
         SanitizeSharedGlobals();
         var host = new KestrunHost("TestApp", AppContext.BaseDirectory);
 
-        _ = host.AddStaticOverride(
+        _ = host.AddStaticMapOverride(
             pattern: "/override",
             code: "Context.Response.StatusCode = 201;",
             language: ScriptLanguage.CSharp);

@@ -301,8 +301,8 @@ Add-BuildTask 'Package' "Clean", {
         Write-Host "❌ Failed to pack Kestrun" -ForegroundColor Red
         throw "Failed to pack Kestrun"
     }
-    New-Item -ItemType Directory -Force -Path (Join-Path -Path $out -ChildPath "PowershellGallery") | Out-Null
-    $zip = Join-Path -Path $out -ChildPath("Kestrun-PSModule-$($script:Version).zip")
+    $powershellGallery = New-Item -ItemType Directory -Force -Path (Join-Path -Path $out -ChildPath "PowershellGallery")
+    $zip = Join-Path -Path $powershellGallery -ChildPath("Kestrun-PSModule-$($script:Version).zip")
     Compress-Archive -Path "src/PowerShell/Kestrun/*" -DestinationPath $zip -Force
     if ($LASTEXITCODE -ne 0) {
         Write-Host "❌ Failed to create $zip" -ForegroundColor Red

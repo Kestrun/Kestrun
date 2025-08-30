@@ -78,6 +78,6 @@ jobs:
           files: |
             artifacts/Release/nuget/*.nupkg
             artifacts/Release/nuget/*.snupkg
-            artifacts/Release/Kestrun-Module-*.zip
+            artifacts/Release/PowershellGallery/*.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

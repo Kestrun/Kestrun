@@ -1,8 +1,8 @@
 <#
-    Sample Kestrun Server Configuration with Multiple Languages
-    This script demonstrates how to set up a simple Kestrun server with multiple routes and multiple languages.
-    Kestrun supports PowerShell, CSharp, and VBNet.
-    FileName: 3-Multiple-Content-Types.ps1
+    Sample Kestrun Server Configuration with Multiple Content Types
+    This script demonstrates how to set up a simple Kestrun server with multiple routes.
+    The server will respond with different content types based on the requested route.
+    FileName: 2-Multiple-Content-Types.ps1
 #>
 
 # Import the Kestrun module
@@ -22,21 +22,24 @@ Add-KrPowerShellRuntime
 Enable-KrConfiguration
 
 # Map the route
-Add-KrMapRoute -Verbs Get -Pattern "/hello" -ScriptBlock {
+Add-KrMapRoute -Verbs Get -Path "/hello" -ScriptBlock {
     Write-KrTextResponse -InputObject "Hello, World!" -StatusCode 200
 }
 
-Add-KrMapRoute -Verbs Get -Pattern "/hello" -Code @"
-    await Context.Response.WriteTextResponseAsync(inputObject: "Hello, World!", statusCode: 200);
-    // Or the synchronous version
-    // Context.Response.WriteTextResponse( "Hello, World!", 200);
-"@ -Language CSharp
+# Map the route for JSON response
+Add-KrMapRoute -Verbs Get -Path "/hello-json" -ScriptBlock {
+    Write-KrJsonResponse -InputObject @{ message = "Hello, World!" } -StatusCode 200
+}
 
-Add-KrMapRoute -Verbs Get -Pattern "/hello" -Code @"
-    Await Context.Response.WriteTextResponseAsync( "Hello, World!", 200)
-    ' Or the synchronous version
-    ' Context.Response.WriteTextResponse( "Hello, World!", 200);
-"@ -Language VBNet
+# Map the route for XML response
+Add-KrMapRoute -Verbs Get -Path "/hello-xml" -ScriptBlock {
+    Write-KrXmlResponse -InputObject @{ message = "Hello, World!" } -StatusCode 200
+}
+
+# Map the route for YAML response
+Add-KrMapRoute -Verbs Get -Path "/hello-yaml" -ScriptBlock {
+    Write-KrYamlResponse -InputObject @{ message = "Hello, World!" } -StatusCode 200
+}
 
 # Start the server asynchronously
 Start-KrServer

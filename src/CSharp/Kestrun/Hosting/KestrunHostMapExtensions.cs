@@ -164,11 +164,6 @@ public static class KestrunHostMapExtensions
             host.HostLogger.Debug("AddMapRoute called with pattern={Pattern}, language={Language}, method={Methods}", options.Pattern, options.Language, options.HttpVerbs);
         }
 
-        if (host.IsConfigured)
-        {
-            throw new InvalidOperationException("Kestrun host is already configured.");
-        }
-
         // Ensure the WebApplication is initialized
         if (host.App is null)
         {
@@ -572,7 +567,13 @@ public static class KestrunHostMapExtensions
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(options.Pattern);
 
-        // defer until WebApplication is being built
+        // Check if the host is already configured
+        if (host.IsConfigured)
+        {
+            throw new InvalidOperationException("Kestrun host is already configured.");
+        }
+
+        // queue before static files – defer until WebApplication is being built
         return host.Use(app =>
         {
             var endpoints = (IEndpointRouteBuilder)app;        // ← key change

@@ -1,7 +1,7 @@
 <#
     Sample Kestrun Server Configuration using MapRouteOptions class.
     These examples demonstrate how to use the MapRouteOptions class to configure routes in a Kestrun server.
-    FileName: 5-Route-Options.ps1
+    FileName: 2.4-Route-Options.ps1
 #>
 
 # Import the Kestrun module

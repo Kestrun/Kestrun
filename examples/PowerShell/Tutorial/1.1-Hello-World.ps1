@@ -2,7 +2,7 @@
     Sample Kestrun Server Configuration
     This script demonstrates how to set up a simple Kestrun server with a single route.
     The server will respond with "Hello, World!" when accessed.
-    FileName: Sample-1.ps1
+    FileName: 1.1-Hello-World.ps1
 #>
 
 # Import the Kestrun module

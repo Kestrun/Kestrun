@@ -1,7 +1,7 @@
 ﻿<#
     Sample Kestrun Server on how to use route parameters.
     These examples demonstrate how to access route parameters and query strings in a Kestrun server.
-    FileName: 4-Route-Parameters.ps1
+    FileName: 2.3-Route-Parameters.ps1
 #>
 
 # Import the Kestrun module
@@ -27,15 +27,15 @@ Add-KrMapRoute -Verbs Get -Pattern "/input/{value}" -ScriptBlock {
 }
 
 # Query string example
-Add-KrMapRoute -Verbs Patch Pattern "/input" -ScriptBlock {
+Add-KrMapRoute -Verbs Patch -Pattern "/input" -ScriptBlock {
     $value = Get-KrRequestQuery -Name 'value'
     Write-KrTextResponse -InputObject "The Query String 'value' was: $value" -StatusCode 200
 }
 
 # Body parameter example
-Add-KrMapRoute -Verbs Post -Pattern "/input" -ScriptBlock {
-    $value = Get-KrRequestBody -Name 'value'
-    Write-KrTextResponse -InputObject "The Body Parameter 'value' was: $value" -StatusCode 200
+Add-KrMapRoute -Verbs Post -ScriptBlock {
+    $body = Get-KrRequestBody
+    Write-KrTextResponse -InputObject "The Body Parameter 'value' was: $($body.value)" -StatusCode 200
 }
 
 # Header parameter example

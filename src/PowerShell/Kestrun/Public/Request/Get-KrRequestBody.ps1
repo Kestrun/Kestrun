@@ -4,9 +4,14 @@
     .DESCRIPTION
         This function accesses the current HTTP request context and retrieves the value
         of the request body.
+    .PARAMETER Raw
+        If specified, retrieves the raw request body without any parsing.
     .EXAMPLE
         $value = Get-KrRequestBody
         Retrieves the value of the request body from the HTTP request.
+    .EXAMPLE
+        $value = Get-KrRequestBody -Raw
+        Retrieves the raw request body from the HTTP request without any parsing.
     .OUTPUTS
         Returns the value of the request body, or $null if not found.
     .NOTES
@@ -15,9 +20,31 @@
 function Get-KrRequestBody {
     [KestrunRuntimeApi('Route')]
     [CmdletBinding()]
-    param()
+    [OutputType([Hashtable])]
+    param(
+        [switch]$Raw
+    )
     if ($null -ne $Context.Request) {
-        # Get the request body value from the request
-        return $Context.Request.Body
+        if ($Raw) {
+            # Get the raw request body value from the request
+            return $Context.Request.Body
+        }
+        switch ($Context.Request.ContentType) {
+            'application/json' {
+                return $Context.Request.Body | ConvertFrom-Json -AsHashtable
+            }
+            'application/yaml' {
+                return [Kestrun.Utilities.YamlHelper]::ToHashtable( $Context.Request.Body)
+            }
+            'application/x-www-form-urlencoded' {
+                return $Context.Request.Form
+            }
+            'application/xml' {
+                return [Kestrun.Utilities.XmlHelper]::ToHashtable( $Context.Request.Body)
+            }
+            default {
+                return $Context.Request.Body
+            }
+        }
     }
 }

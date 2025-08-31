@@ -2,7 +2,7 @@
     Sample Kestrun Server Configuration with Multiple Content Types
     This script demonstrates how to set up a simple Kestrun server with multiple routes.
     The server will respond with different content types based on the requested route.
-    FileName: 2-Multiple-Content-Types.ps1
+    FileName: 2.1-Multiple-Content-Types.ps1
 #>
 
 # Import the Kestrun module

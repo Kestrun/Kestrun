@@ -7,7 +7,7 @@ namespace Kestrun.Utilities;
 /// <summary>
 /// Helpers for converting arbitrary objects into <see cref="XElement"/> instances.
 /// </summary>
-public static class XmlUtil
+public static class XmlHelper
 {
     private static readonly XNamespace xsi = "http://www.w3.org/2001/XMLSchema-instance";
 
@@ -121,5 +121,69 @@ public static class XmlUtil
         }
 
         return objElem;
+    }
+
+    /// <summary>
+    /// Converts an <see cref="XElement"/> into a <see cref="Hashtable"/>.
+    /// Nested elements become nested Hashtables; repeated elements become lists.
+    /// Attributes are stored as keys prefixed with "@", xsi:nil="true" becomes <c>null</c>.
+    /// </summary>
+    /// <param name="element">The XML element to convert.</param>
+    /// <returns>A Hashtable representation of the XML element.</returns>
+    public static Hashtable ToHashtable(XElement element)
+    {
+        var table = new Hashtable();
+
+        // Handle attributes (as @AttributeName)
+        foreach (var attr in element.Attributes())
+        {
+            if (attr.Name.NamespaceName == xsi.NamespaceName && attr.Name.LocalName == "nil" && attr.Value == "true")
+            {
+                return new Hashtable { [element.Name.LocalName] = null! };
+            }
+            table["@" + attr.Name.LocalName] = attr.Value;
+        }
+
+        // If element has no children → treat as value
+        if (!element.HasElements)
+        {
+            if (!string.IsNullOrWhiteSpace(element.Value))
+            {
+                table[element.Name.LocalName] = element.Value;
+            }
+            return table;
+        }
+
+        // Otherwise recurse into children
+        var childMap = new Hashtable();
+        foreach (var child in element.Elements())
+        {
+            var childKey = child.Name.LocalName;
+            var childValue = ToHashtable(child);
+
+            if (childMap.ContainsKey(childKey))
+            {
+                // Already exists → convert to List (allowing null values)
+                if (childMap[childKey] is List<object?> list)
+                {
+                    list.Add(childValue[childKey]);
+                }
+                else
+                {
+                    childMap[childKey] = new List<object?>
+                    {
+                        childMap[childKey],
+                        childValue[childKey]
+                    };
+                }
+            }
+            else
+            {
+                childMap[childKey] = childValue[childKey];
+            }
+        }
+
+        table[element.Name.LocalName] = childMap;
+        return table;
     }
 }

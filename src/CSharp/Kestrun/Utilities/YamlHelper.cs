@@ -34,9 +34,12 @@ public static class YamlHelper
     /// </summary>
     /// <param name="yaml">The YAML string to deserialize.</param>
     /// <returns>A Hashtable containing the deserialized YAML content.</returns>
-    public static Hashtable FromYamlToHashtable(string yaml)
+    public static Hashtable ToHashtable(string yaml)
     {
-        ArgumentNullException.ThrowIfNull(yaml);
+        if (string.IsNullOrEmpty(yaml))
+        {
+            return [];
+        }
         var obj = _deserializer.Deserialize<object>(yaml);
         return (Hashtable)ConvertToPSCompatible(obj);
     }
@@ -46,7 +49,7 @@ public static class YamlHelper
     /// </summary>
     /// <param name="yaml">The YAML string to deserialize.</param>
     /// <returns>A PSObject containing the deserialized YAML content.</returns>
-    public static PSObject FromYamlToPSCustomObject(string yaml)
+    public static PSObject ToPSCustomObject(string yaml)
     {
         ArgumentNullException.ThrowIfNull(yaml);
         var obj = _deserializer.Deserialize<object>(yaml);

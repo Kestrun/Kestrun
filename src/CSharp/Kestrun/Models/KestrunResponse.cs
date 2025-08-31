@@ -519,7 +519,7 @@ public class KestrunResponse(KestrunRequest request, int bodyAsyncThreshold = 81
             Log.Debug("Writing XML response (async), StatusCode={StatusCode}, ContentType={ContentType}", statusCode, contentType);
         }
 
-        var xml = await Task.Run(() => XmlUtil.ToXml("Response", inputObject));
+        var xml = await Task.Run(() => XmlHelper.ToXml("Response", inputObject));
         Body = await Task.Run(() => xml.ToString(SaveOptions.DisableFormatting));
         ContentType = string.IsNullOrEmpty(contentType) ? $"application/xml; charset={Encoding.WebName}" : contentType;
         StatusCode = statusCode;

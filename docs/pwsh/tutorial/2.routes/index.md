@@ -70,4 +70,3 @@ Stop the server with Ctrl+C in the terminal.
 - Explore richer example scripts under `examples/PowerShell` (e.g., `MultiRoutes.ps1`)
 - Browse the PowerShell cmdlet reference under `docs/pwsh/cmdlets`
 - Inspect the PowerShell module source at `src/PowerShell/Kestrun`
-

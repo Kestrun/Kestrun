@@ -20,6 +20,8 @@
     The default content type to use for files served by the static file service.
 .PARAMETER RedirectToAppendTrailingSlash
     If specified, redirects requests to append a trailing slash to the URL.
+.PARAMETER ContentTypeMap
+    A hashtable mapping file extensions to MIME types.
 .PARAMETER PassThru
     If specified, the cmdlet will return the modified server instance after adding the static file service.
 .EXAMPLE
@@ -92,7 +94,7 @@ function Add-KrStaticFilesService {
                 $Options.RedirectToAppendTrailingSlash = $true
             }
             if ($ContentTypeMap) {
-                $provider = [Microsoft.AspNetCore.StaticFiles.FileExtensionContentTypeProvider]::new() 
+                $provider = [Microsoft.AspNetCore.StaticFiles.FileExtensionContentTypeProvider]::new()
                 foreach ($k in $ContentTypeMap.Keys) {
                     $ext = if ($k -like ".*") { $k } else { ".$k" }
                     $mime = [string]$ContentTypeMap[$k]

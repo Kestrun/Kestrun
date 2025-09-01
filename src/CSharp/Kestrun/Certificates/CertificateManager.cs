@@ -330,14 +330,14 @@ public static class CertificateManager
 #if NET9_0_OR_GREATER
         => X509CertificateLoader.LoadPkcs12FromFile(certPath, password, flags, Pkcs12LoaderLimits.Defaults);
 #else
-        => new X509Certificate2(File.ReadAllBytes(certPath), password, flags);
+        => new(File.ReadAllBytes(certPath), password, flags);
 #endif
 
     private static X509Certificate2 ImportDer(string certPath)
 #if NET9_0_OR_GREATER
         => X509CertificateLoader.LoadCertificateFromFile(certPath);
 #else
-        => new X509Certificate2(File.ReadAllBytes(certPath));
+        => new(File.ReadAllBytes(certPath));
 #endif
 
 

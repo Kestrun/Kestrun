@@ -286,200 +286,229 @@ public static class CertificateManager
        string? privateKeyPath = null,
        X509KeyStorageFlags flags = X509KeyStorageFlags.DefaultKeySet | X509KeyStorageFlags.Exportable)
     {
+        ValidateImportInputs(certPath, privateKeyPath);
+
+        var ext = Path.GetExtension(certPath).ToLowerInvariant();
+        return ext switch
+        {
+            ".pfx" or ".p12" => ImportPfx(certPath, password, flags),
+            ".cer" or ".der" => ImportDer(certPath),
+            ".pem" or ".crt" => ImportPem(certPath, password, privateKeyPath),
+            _ => throw new NotSupportedException($"Certificate extension '{ext}' is not supported.")
+        };
+    }
+
+    /// <summary>
+    /// Validates the inputs for importing a certificate.
+    /// </summary>
+    /// <param name="certPath">The path to the certificate file.</param>
+    /// <param name="privateKeyPath">The path to the private key file, if separate.</param>
+    private static void ValidateImportInputs(string certPath, string? privateKeyPath)
+    {
         if (string.IsNullOrEmpty(certPath))
         {
             throw new ArgumentException("Certificate path cannot be null or empty.", nameof(certPath));
         }
-
         if (!File.Exists(certPath))
         {
             throw new FileNotFoundException("Certificate file not found.", certPath);
         }
-
         if (!string.IsNullOrEmpty(privateKeyPath) && !File.Exists(privateKeyPath))
         {
             throw new FileNotFoundException("Private key file not found.", privateKeyPath);
         }
+    }
 
-        var ext = Path.GetExtension(certPath).ToLowerInvariant();
+    /// <summary>
+    /// Imports a PFX certificate from the specified file path.
+    /// </summary>
+    /// <param name="certPath">The path to the certificate file.</param>
+    /// <param name="password">The password for the certificate, if required.</param>
+    /// <param name="flags">Key storage flags for the imported certificate.</param>
+    /// <returns>The imported X509Certificate2 instance.</returns>
+    private static X509Certificate2 ImportPfx(string certPath, ReadOnlySpan<char> password, X509KeyStorageFlags flags)
+#if NET9_0_OR_GREATER
+        => X509CertificateLoader.LoadPkcs12FromFile(certPath, password, flags, Pkcs12LoaderLimits.Defaults);
+#else
+        => new X509Certificate2(File.ReadAllBytes(certPath), password, flags);
+#endif
 
-        switch (ext)
+    private static X509Certificate2 ImportDer(string certPath)
+#if NET9_0_OR_GREATER
+        => X509CertificateLoader.LoadCertificateFromFile(certPath);
+#else
+        => new X509Certificate2(File.ReadAllBytes(certPath));
+#endif
+
+
+    /// <summary>
+    /// Imports a PEM certificate from the specified file path.
+    /// </summary>
+    /// <param name="certPath">The path to the certificate file.</param>
+    /// <param name="password">The password for the certificate, if required.</param>
+    /// <param name="privateKeyPath">The path to the private key file, if separate.</param>
+    /// <returns>The imported X509Certificate2 instance.</returns>
+    private static X509Certificate2 ImportPem(string certPath, ReadOnlySpan<char> password, string? privateKeyPath)
+    {
+        // No separate key file provided
+        if (string.IsNullOrEmpty(privateKeyPath))
         {
-            // — PFX/PKCS#12 with embedded key — 
-            case ".pfx":
-            case ".p12":
-#if NET9_0_OR_GREATER
-                // .NET 9+ path using X509CertificateLoader.LoadPkcs12FromFile
+            return password.IsEmpty
+                ? LoadCertOnlyPem(certPath)
+                : X509Certificate2.CreateFromEncryptedPemFile(certPath, password);
+        }
 
-                return X509CertificateLoader.LoadPkcs12FromFile(certPath, password, flags, Pkcs12LoaderLimits.Defaults);
-#else
-                // legacy .NET 8 or earlier path, using X509Certificate2 ctor
-                return new X509Certificate2(File.ReadAllBytes(certPath), password, flags);
-#endif
+        // Separate key file provided
+        return password.IsEmpty
+            ? ImportPemUnencrypted(certPath, privateKeyPath)
+            : ImportPemEncrypted(certPath, password, privateKeyPath);
+    }
 
-            // — DER-encoded public cert — 
-            case ".cer":
-            case ".der":
-#if NET9_0_OR_GREATER
-                return X509CertificateLoader.LoadCertificateFromFile(certPath);
-#else
-                return new X509Certificate2(File.ReadAllBytes(certPath));
+    /// <summary>
+    /// Imports an unencrypted PEM certificate from the specified file path.
+    /// </summary>
+    /// <param name="certPath">The path to the certificate file.</param>
+    /// <param name="privateKeyPath">The path to the private key file.</param>
+    /// <returns>The imported X509Certificate2 instance.</returns>
+    private static X509Certificate2 ImportPemUnencrypted(string certPath, string privateKeyPath)
+        => X509Certificate2.CreateFromPemFile(certPath, privateKeyPath);
 
-#endif
+    /// <summary>
+    /// Imports a PEM certificate from the specified file path.
+    /// </summary>
+    /// <param name="certPath">The path to the certificate file.</param>
+    /// <param name="password">The password for the certificate, if required.</param>
+    /// <param name="privateKeyPath">The path to the private key file, if separate.</param>
+    /// <returns>The imported X509Certificate2 instance.</returns>
+    private static X509Certificate2 ImportPemEncrypted(string certPath, ReadOnlySpan<char> password, string privateKeyPath)
+    {
+        // Prefer single-file path (combined) first for reliability on some platforms
+        try
+        {
+            var single = X509Certificate2.CreateFromEncryptedPemFile(certPath, password);
+            if (single.HasPrivateKey)
+            {
+                Log.Debug("Imported encrypted PEM using single-file path (combined cert+key) for {CertPath}", certPath);
+                return single;
+            }
+        }
+        catch (Exception exSingle)
+        {
+            Log.Debug(exSingle, "Single-file encrypted PEM import failed, falling back to separate key file {KeyFile}", privateKeyPath);
+        }
 
-            // — PEM (.pem/.crt): cert alone or cert+key, encrypted or not — 
-            case ".pem":
-            case ".crt":
-                if (string.IsNullOrEmpty(privateKeyPath))
+        var loaded = X509Certificate2.CreateFromEncryptedPemFile(certPath, password, privateKeyPath);
+
+        if (loaded.HasPrivateKey)
+        {
+            return loaded;
+        }
+
+        // Fallback manual pairing if platform failed to associate the key
+        TryManualEncryptedPemPairing(certPath, password, privateKeyPath, ref loaded);
+        return loaded;
+    }
+
+    /// <summary>
+    /// Tries to manually pair an encrypted PEM certificate with its private key.
+    /// </summary>
+    /// <param name="certPath">The path to the certificate file.</param>
+    /// <param name="password">The password for the certificate, if required.</param>
+    /// <param name="privateKeyPath">The path to the private key file, if separate.</param>
+    /// <param name="loaded">The loaded X509Certificate2 instance.</param>
+    private static void TryManualEncryptedPemPairing(string certPath, ReadOnlySpan<char> password, string privateKeyPath, ref X509Certificate2 loaded)
+    {
+        try
+        {
+            var certOnly = LoadCertOnlyPem(certPath);
+            const string encBegin = "-----BEGIN ENCRYPTED PRIVATE KEY-----";
+            const string encEnd = "-----END ENCRYPTED PRIVATE KEY-----";
+
+            byte[]? encDer = null;
+            for (var attempt = 0; attempt < 5 && encDer is null; attempt++)
+            {
+                var keyPem = File.ReadAllText(privateKeyPath);
+                var start = keyPem.IndexOf(encBegin, StringComparison.Ordinal);
+                var end = keyPem.IndexOf(encEnd, StringComparison.Ordinal);
+                if (start >= 0 && end > start)
                 {
-                    if (password.IsEmpty)
+                    start += encBegin.Length;
+                    var b64 = keyPem[start..end].Replace("\r", "").Replace("\n", "").Trim();
+                    try { encDer = Convert.FromBase64String(b64); }
+                    catch (FormatException fe)
                     {
-                        return LoadCertOnlyPem(certPath);
-                    }
-                    else
-                    {
-                        // encrypted key is in the same file
-                        return X509Certificate2.CreateFromEncryptedPemFile(certPath, password);
+                        Log.Debug(fe, "Base64 decode failed on attempt {Attempt} reading encrypted key; retrying", attempt + 1);
                     }
                 }
-                else if (!password.IsEmpty)
+                if (encDer is null)
                 {
-                    // Encrypted private key in the PEM (same file or separate). Some platforms are
-                    // more reliable when the encrypted key is embedded in the cert file. Because we
-                    // export both (combined + separate .key), attempt single-file first.
-                    X509Certificate2 loaded;
-                    try
-                    {
-                        loaded = X509Certificate2.CreateFromEncryptedPemFile(certPath, password);
-                        if (loaded.HasPrivateKey)
-                        {
-                            Log.Debug("Imported encrypted PEM using single-file path (combined cert+key) for {CertPath}", certPath);
-                            return loaded;
-                        }
-                    }
-                    catch (Exception exSingle)
-                    {
-                        Log.Debug(exSingle, "Single-file encrypted PEM import failed, falling back to separate key file {KeyFile}", privateKeyPath);
-                    }
-
-                    loaded = X509Certificate2.CreateFromEncryptedPemFile(
-                        certPath,
-                        password,
-                        privateKeyPath
-                    );
-
-                    // Fallback: some platforms (.NET 8 arm64) may return a cert lacking the private key
-                    // when using CreateFromEncryptedPemFile with separate files. If so, manually pair.
-                    if (!loaded.HasPrivateKey)
-                    {
-                        try
-                        {
-                            var certOnly = LoadCertOnlyPem(certPath);
-                            const string encBegin = "-----BEGIN ENCRYPTED PRIVATE KEY-----";
-                            const string encEnd = "-----END ENCRYPTED PRIVATE KEY-----";
-
-                            byte[]? encDer = null;
-                            for (var attempt = 0; attempt < 5 && encDer is null; attempt++)
-                            {
-                                var keyPem = File.ReadAllText(privateKeyPath!);
-                                var start = keyPem.IndexOf(encBegin, StringComparison.Ordinal);
-                                var end = keyPem.IndexOf(encEnd, StringComparison.Ordinal);
-                                if (start >= 0 && end > start)
-                                {
-                                    start += encBegin.Length;
-                                    var b64 = keyPem[start..end].Replace("\r", "").Replace("\n", "").Trim();
-                                    try
-                                    {
-                                        encDer = Convert.FromBase64String(b64);
-                                    }
-                                    catch (FormatException fe)
-                                    {
-                                        Log.Debug(fe, "Base64 decode failed on attempt {Attempt} reading encrypted key; retrying", attempt + 1);
-                                    }
-                                }
-                                if (encDer is null)
-                                {
-                                    Thread.Sleep(40 * (attempt + 1)); // small backoff in case of partial write
-                                }
-                            }
-
-                            if (encDer is null)
-                            {
-                                Log.Debug("Encrypted PEM manual pairing fallback skipped: markers not found in key file {KeyFile}", privateKeyPath);
-                            }
-                            else
-                            {
-                                Exception? lastErr = null;
-                                for (var round = 0; round < 2; round++)
-                                {
-                                    // Try RSA
-                                    try
-                                    {
-                                        using var rsa = RSA.Create();
-                                        rsa.ImportEncryptedPkcs8PrivateKey(password, encDer, out _);
-                                        var withKey = certOnly.CopyWithPrivateKey(rsa);
-                                        if (withKey.HasPrivateKey)
-                                        {
-                                            Log.Debug("Encrypted PEM manual pairing succeeded with RSA private key (round {Round}).", round + 1);
-                                            return withKey;
-                                        }
-                                    }
-                                    catch (Exception exRsa)
-                                    {
-                                        lastErr = lastErr is null ? exRsa : new AggregateException(lastErr, exRsa);
-                                    }
-
-                                    // Try ECDSA
-                                    try
-                                    {
-                                        using var ecdsa = ECDsa.Create();
-                                        ecdsa.ImportEncryptedPkcs8PrivateKey(password, encDer, out _);
-                                        var withKey = certOnly.CopyWithPrivateKey(ecdsa);
-                                        if (withKey.HasPrivateKey)
-                                        {
-                                            Log.Debug("Encrypted PEM manual pairing succeeded with ECDSA private key (round {Round}).", round + 1);
-                                            return withKey;
-                                        }
-                                    }
-                                    catch (Exception exEc)
-                                    {
-                                        lastErr = lastErr is null ? exEc : new AggregateException(lastErr, exEc);
-                                    }
-                                    Thread.Sleep(25 * (round + 1));
-                                }
-                                if (lastErr != null)
-                                {
-                                    Log.Debug(lastErr, "Encrypted PEM manual pairing attempts failed (all rounds); returning original loaded certificate without private key");
-                                }
-                            }
-                        }
-                        catch (Exception ex)
-                        {
-                            Log.Debug(ex, "Encrypted PEM manual pairing fallback failed unexpectedly; returning original loaded certificate without private key");
-                        }
-                    }
-
-                    return loaded;
+                    Thread.Sleep(40 * (attempt + 1));
                 }
-                else
+            }
+
+            if (encDer is null)
+            {
+                Log.Debug("Encrypted PEM manual pairing fallback skipped: markers not found in key file {KeyFile}", privateKeyPath);
+                return;
+            }
+
+            Exception? lastErr = null;
+            for (var round = 0; round < 2; round++)
+            {
+                // Try RSA
+                try
                 {
-                    // Unencrypted: cert alone, or cert + unencrypted key (same file or separate)
-                    return X509Certificate2.CreateFromPemFile(
-                        certPath,
-                        privateKeyPath
-                    );  // :contentReference[oaicite:1]{index=1}
+                    using var rsa = RSA.Create();
+                    rsa.ImportEncryptedPkcs8PrivateKey(password, encDer, out _);
+                    var withKey = certOnly.CopyWithPrivateKey(rsa);
+                    if (withKey.HasPrivateKey)
+                    {
+                        Log.Debug("Encrypted PEM manual pairing succeeded with RSA private key (round {Round}).", round + 1);
+                        loaded = withKey;
+                        return;
+                    }
+                }
+                catch (Exception exRsa)
+                {
+                    lastErr = lastErr is null ? exRsa : new AggregateException(lastErr, exRsa);
                 }
 
-            default:
-                throw new NotSupportedException(
-                    $"Certificate extension '{ext}' is not supported."
-                );
+                // Try ECDSA
+                try
+                {
+                    using var ecdsa = ECDsa.Create();
+                    ecdsa.ImportEncryptedPkcs8PrivateKey(password, encDer, out _);
+                    var withKey = certOnly.CopyWithPrivateKey(ecdsa);
+                    if (withKey.HasPrivateKey)
+                    {
+                        Log.Debug("Encrypted PEM manual pairing succeeded with ECDSA private key (round {Round}).", round + 1);
+                        loaded = withKey;
+                        return;
+                    }
+                }
+                catch (Exception exEc)
+                {
+                    lastErr = lastErr is null ? exEc : new AggregateException(lastErr, exEc);
+                }
+                Thread.Sleep(25 * (round + 1));
+            }
+
+            if (lastErr != null)
+            {
+                Log.Debug(lastErr, "Encrypted PEM manual pairing attempts failed (all rounds); returning original loaded certificate without private key");
+            }
+        }
+        catch (Exception ex)
+        {
+            Log.Debug(ex, "Encrypted PEM manual pairing fallback failed unexpectedly; returning original loaded certificate without private key");
         }
     }
 
     /// <summary>
     /// Loads a certificate from a PEM file that contains *only* a CERTIFICATE block (no key).
     /// </summary>
+    /// <param name="certPath">The path to the certificate file.</param>
+    /// <returns>The loaded X509Certificate2 instance.</returns>
     private static X509Certificate2 LoadCertOnlyPem(string certPath)
     {
         // 1) Read + trim the whole PEM text
@@ -730,16 +759,34 @@ public static class CertificateManager
     /// <param name="includePrivateKey">Whether to include the private key in the export.</param>
     private static void ExportPem(X509Certificate2 cert, string filePath, ReadOnlySpan<char> password, bool includePrivateKey)
     {
-        using var sw = new StreamWriter(filePath, false, Encoding.ASCII);
-        new PemWriter(sw).WriteObject(
-            DotNetUtilities.FromX509Certificate(cert));
-
-        if (!includePrivateKey)
+        // Write certificate first, then dispose writer before optional key append to avoid file locks on Windows
+        using (var sw = new StreamWriter(filePath, false, Encoding.ASCII))
         {
-            return;
+            new PemWriter(sw).WriteObject(DotNetUtilities.FromX509Certificate(cert));
         }
 
-        WritePrivateKey(cert, password, filePath);
+        if (includePrivateKey)
+        {
+            WritePrivateKey(cert, password, filePath);
+            // Fallback safeguard: if append was requested but key block missing, try again
+            try
+            {
+                if (ShouldAppendKeyToPem && !File.ReadAllText(filePath).Contains("PRIVATE KEY", StringComparison.Ordinal))
+                {
+                    var baseName = Path.GetFileNameWithoutExtension(filePath);
+                    var dir = Path.GetDirectoryName(filePath);
+                    var keyFile = string.IsNullOrEmpty(dir) ? baseName + ".key" : Path.Combine(dir!, baseName + ".key");
+                    if (File.Exists(keyFile))
+                    {
+                        File.AppendAllText(filePath, Environment.NewLine + File.ReadAllText(keyFile));
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Debug(ex, "Fallback attempt to append private key to PEM failed");
+            }
+        }
     }
 
     /// <summary>

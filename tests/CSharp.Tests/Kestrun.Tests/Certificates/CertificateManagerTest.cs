@@ -306,6 +306,23 @@ public class CertificateManagerTest
 
     [Fact]
     [Trait("Category", "Certificates")]
+    public void Import_Throws_OnMissingPrivateKeyFile_WhenSpecified()
+    {
+        var dir = Directory.CreateDirectory(Path.Combine(Path.GetTempPath(), "KestrunTests", Guid.NewGuid().ToString("N"))).FullName;
+        var pemPath = Path.Combine(dir, "onlycert.pem");
+        // Write a simple public-only PEM
+        var cert = CertificateManager.NewSelfSigned(DefaultSelfSignedOptions());
+        var certDer = cert.Export(X509ContentType.Cert);
+        var certB64 = Convert.ToBase64String(certDer, Base64FormattingOptions.InsertLineBreaks);
+        File.WriteAllText(pemPath, $"-----BEGIN CERTIFICATE-----\n{certB64}\n-----END CERTIFICATE-----\n");
+
+        var missingKey = Path.Combine(dir, "missing.key");
+        _ = Assert.Throws<FileNotFoundException>(
+            () => CertificateManager.Import(certPath: pemPath, privateKeyPath: missingKey, flags: X509KeyStorageFlags.DefaultKeySet));
+    }
+
+    [Fact]
+    [Trait("Category", "Certificates")]
     public void Import_Pfx_With_SecureString_Password_Succeeds()
     {
         var cert = CertificateManager.NewSelfSigned(DefaultSelfSignedOptions());
@@ -356,6 +373,21 @@ public class CertificateManagerTest
         Assert.True(imported.HasPrivateKey);
         Assert.Contains("CN=localhost", imported.Subject, StringComparison.OrdinalIgnoreCase);
     }
+
+    [Fact]
+    [Trait("Category", "Certificates")]
+    public void Import_Der_PublicOnly_Succeeds()
+    {
+        var cert = CertificateManager.NewSelfSigned(DefaultSelfSignedOptions());
+        var dir = Directory.CreateDirectory(Path.Combine(Path.GetTempPath(), "KestrunTests", Guid.NewGuid().ToString("N"))).FullName;
+        var derPath = Path.Combine(dir, "cert.cer");
+        File.WriteAllBytes(derPath, cert.Export(X509ContentType.Cert));
+
+        var imported = CertificateManager.Import(derPath);
+        Assert.NotNull(imported);
+        Assert.False(imported.HasPrivateKey); // DER export does not include private key
+    }
+
 
     [Fact]
     [Trait("Category", "Certificates")]

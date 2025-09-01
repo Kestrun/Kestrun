@@ -10,16 +10,18 @@ Kestrun — PowerShell brains. Kestrel speed.
 ```
 
 ---
-
+<!-- CI / Quality -->
 ![CI](https://github.com/Kestrun/Kestrun/actions/workflows/ci.yml/badge.svg)
 [![CodeQL](https://github.com/kestrun/kestrun/actions/workflows/codeql.yml/badge.svg)](https://github.com/kestrun/kestrun/actions/workflows/codeql.yml)
 ![ClamAV Scan](https://img.shields.io/github/actions/workflow/status/kestrun/kestrun/clam-av.yml?branch=main&label=ClamAV%20Scan)
 
+<!-- Coverage -->
 [![CodeFactor](https://www.codefactor.io/repository/github/kestrun/kestrun/badge/main)](https://www.codefactor.io/repository/github/kestrun/kestrun/overview/main)
 [![Codacy Badge](https://app.codacy.com/project/badge/Grade/1ea6075b819449a1aff2678f41f890c2)](https://app.codacy.com/gh/Kestrun/Kestrun/dashboard?utm_source=gh&utm_medium=referral&utm_content=&utm_campaign=Badge_grade)
 [![Coveralls Badge](https://coveralls.io/repos/github/Kestrun/Kestrun/badge.svg?branch=main)](https://coveralls.io/github/Kestrun/Kestrun?branch=main)
 [![Coverage Status](https://coverage.kestrun.dev/badge_combined.svg)](https://coverage.kestrun.dev)
 
+<!-- Platforms -->
 [![Linux](https://img.shields.io/badge/Linux-Supported-success?logo=linux)](https://github.com/Kestrun/Kestrun/actions)
 [![macOS](https://img.shields.io/badge/macOS-Supported-success?logo=apple)](https://github.com/Kestrun/Kestrun/actions)
 [![Windows](https://img.shields.io/badge/Windows-Supported-success?logo=windows)](https://github.com/Kestrun/Kestrun/actions)
@@ -159,8 +161,15 @@ Install-PSResource -Name 'InvokeBuild','Pester' -Scope CurrentUser
 
 **For Runtime:**
 
-- [.NET 8 Runtime](https://dotnet.microsoft.com/download) or [.NET 9 Runtime](https://dotnet.microsoft.com/download)
-- **PowerShell 7.4+** (download from [PowerShell GitHub Releases](https://github.com/PowerShell/PowerShell/releases))
+To run applications built with Kestrun, you need a matching pair of .NET Runtime and PowerShell:
+
+- [.NET 8 Runtime](https://dotnet.microsoft.com/download)  
+  → Required for **PowerShell 7.4** and **7.5**
+
+- [.NET 9 Runtime](https://dotnet.microsoft.com/download)  
+  → Required for **PowerShell 7.6 (preview)**
+
+Download PowerShell from [GitHub Releases](https://github.com/PowerShell/PowerShell/releases).
 
 ### Build & Run
 
@@ -177,7 +186,26 @@ Build the solution using Invoke-Build:
 Invoke-Build Restore ; Invoke-Build Build
 ```
 
-Run an example (e.g., MultiRoutes):
+And then, create a new simple server:
+
+```powershell
+# Import the Kestrun module (Dev)
+Import-Module ./src/PowerShell/Kestrun/Kestrun.psm1
+
+# Create a new server
+New-KrServer -Name 'My first server'
+
+# Enable the server configuration
+Enable-KrConfiguration
+
+# Map a route
+Add-KrMapRoute -Path '/hello' -ScriptBlock { Write-KrTextResponse "Hello from PowerShell!" }
+
+# Start the server
+Start-KrServer
+```
+
+Or run a .NET sample (e.g., MultiRoutes):
 
 ```powershell
 dotnet run --project .\examples\CSharp\MultiRoutes\MultiRoutes.csproj
@@ -215,7 +243,7 @@ Invoke-Build Kestrun.Tests
 Invoke-Build Test-Pester
 ```
 
-## Documentation
+## Documentation and Tutorial
 
 Kestrun docs are built with [Just-the-Docs](https://github.com/just-the-docs/just-the-docs).  
 All new documentation **must be compatible** (front matter, `parent`, `nav_order`, etc.).  
@@ -257,8 +285,39 @@ See [docs/](docs/) for structure.
 
 ## Contributing
 
+Contributions of all sizes are welcome — from docs improvements to new feature modules.
 See [CONTRIBUTING.md](CONTRIBUTING.md) and the online guide at <https://docs.kestrun.dev/contributing>.
 
 ## License
 
 Licensed under the MIT License. See [LICENSE](LICENSE).
+
+## Acknowledgements
+
+### Documentation
+
+- [Just-the-Docs](https://github.com/just-the-docs/just-the-docs) for documentation
+
+### Code Quality
+
+- [ReportGenerator](https://github.com/danielpalme/ReportGenerator) for code coverage reporting
+- [codefactor](https://www.codefactor.io/) for code quality analysis
+- [codacy](https://www.codacy.com/) for automated code reviews
+- [coveralls](https://coveralls.io/) for code coverage tracking
+
+### AI Assistance
+
+- [ChatGPT](https://openai.com/chatgpt) for conversational AI support
+- [Copilot](https://github.com/features/copilot) for AI-powered code suggestions
+
+### Collaboration and Version Control
+
+- [GitHub](https://github.com/) for version control and collaboration
+- [NuGet](https://www.nuget.org/) for package management
+- [PowerShell Gallery](https://www.powershellgallery.com/) for PowerShell modules
+
+### Scripting and Automation
+
+- [PowerShell](https://github.com/PowerShell/PowerShell) for scripting and automation
+- [.NET](https://dotnet.microsoft.com/) for the underlying framework
+- [Pester](https://pester.dev/) for PowerShell testing

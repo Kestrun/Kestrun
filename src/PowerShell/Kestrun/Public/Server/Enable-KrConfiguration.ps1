@@ -5,6 +5,8 @@
         This function applies the configuration to the Kestrun server and starts it.
     .PARAMETER Server
         The Kestrun server instance to configure and start. This parameter is mandatory.
+    .PARAMETER ExcludeVariables
+        An array of variable names to exclude from the runspaces.
     .PARAMETER Quiet
         If specified, suppresses output messages during the configuration and startup process.
     .PARAMETER PassThru
@@ -25,6 +27,8 @@ function Enable-KrConfiguration {
         [Parameter(Mandatory = $false, ValueFromPipeline = $true)]
         [Kestrun.Hosting.KestrunHost]$Server,
         [Parameter()]
+        [string[]]$ExcludeVariables,
+        [Parameter()]
         [switch]$Quiet,
         [Parameter()]
         [switch]$PassThru
@@ -33,15 +37,13 @@ function Enable-KrConfiguration {
         # Ensure the server instance is resolved
         $Server = Resolve-KestrunServer -Server $Server
 
-        $psDefaultVars = Get-KrPSDefaultVariable
-        $dict = [System.Collections.Generic.Dictionary[string, System.Object]]::new()
-        # Get the user-defined variables
-        $userVars = Get-Variable -Scope Script
-        $userVars += Get-Variable -Scope Global
+        $Variables = Get-KrAssignedVariable -FromParent -ResolveValues -IncludeSetVariable
 
-        $userVars | Where-Object { $psDefaultVars -notcontains $_.Name -and
-            $_.Name -notmatch '^_' } | ForEach-Object {
-            $dict[$_.Name] = $_.Value
+        $dict = [System.Collections.Generic.Dictionary[string, System.Object]]::new()
+        $Variables | ForEach-Object {
+            if ($ExcludeVariables -notcontains $_.Name) {
+                $dict[$_.Name] = $_.Value.Value
+            }
         }
 
         # Set the user-defined variables in the server configuration

@@ -38,7 +38,6 @@ public class KestrunHostManagerTests
         KestrunHostManager.DestroyAll();
         // Ensure root is set to current directory so Create won't throw
         KestrunHostManager.KestrunRoot = Directory.GetCurrentDirectory();
-        KestrunHostManager.VariableBaseline = null;
     }
 
     [Fact]
@@ -151,16 +150,5 @@ public class KestrunHostManagerTests
         KestrunHostManager.DestroyAll();
         Assert.Null(KestrunHostManager.Default);
         Assert.Empty(KestrunHostManager.InstanceNames);
-    }
-
-    [Fact]
-    [Trait("Category", "Hosting")]
-    public void VariableBaseline_Can_Be_Set_And_Reset()
-    {
-        KestrunHostManager.VariableBaseline = [1, "two"];
-        Assert.NotNull(KestrunHostManager.VariableBaseline);
-        Assert.Equal(2, KestrunHostManager.VariableBaseline!.Length);
-        KestrunHostManager.VariableBaseline = null;
-        Assert.Null(KestrunHostManager.VariableBaseline);
     }
 }

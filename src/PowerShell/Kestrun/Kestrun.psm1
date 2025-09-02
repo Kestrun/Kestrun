@@ -93,19 +93,6 @@ try {
     if (-not $inRouteRunspace) {
         # Set the Kestrun root path for the host manager
         [Kestrun.KestrunHostManager]::KestrunRoot = $PWD
-
-        [Kestrun.KestrunHostManager]::VariableBaseline = (Get-Variable |
-                Where-Object {
-                    $_.Name -notmatch '^PS' -and
-                    $_.Name -notin @(
-                        '__psEditorServices_userInput', '__psEditorServices_CallStack', '__VSCodeState', '?', '^', '$', 'args', 'ConfirmPreference', 'd', 'DebugPreference', 'EnabledExperimentalFeatures',
-                        'Error', 'ErrorActionPreference', 'ErrorView', 'ExecutionContext', 'false', 'FormatEnumerationLimit', 'HOME', 'Host', 'InformationPreference',
-                        'input', 'IsCoreCLR', 'IsLinux', 'IsMacOS', 'IsWindows', 'Matches', 'MaximumHistoryCount', 'MyInvocation', 'NestedPromptLevel', 'null', 'OutputEncoding',
-                        'PID', 'PROFILE', 'ProgressPreference', 'PWD', 'ShellId', 'StackTrace', 'true', 'VerbosePreference', 'WarningPreference', 'WhatIfPreference',
-                        'assemblyLoadPath', 'moduleRootPath', 'netVersion', 'codeAnalysisVersion', 'inRouteRunspace' , 'sysfuncs', 'sysaliases', 'funcs', 'aliases', '_', 'switch'
-                    )
-                }
-        ).Name
     }
 } catch {
     throw ("Failed to import Kestrun module: $_")

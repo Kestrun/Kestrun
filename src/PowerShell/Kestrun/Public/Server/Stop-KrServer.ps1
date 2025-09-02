@@ -9,8 +9,6 @@
         If specified, the function will not wait for the server to start and will return immediately.
     .PARAMETER Quiet
         If specified, suppresses output messages during the startup process.
-    .PARAMETER NoClearVariable
-        If specified, prevents clearing of Kestrun-related variables after the server is stopped.
     .EXAMPLE
         Start-KrServer -Server $server
         Starts the specified Kestrun server instance and listens for incoming requests.
@@ -29,9 +27,7 @@ function Stop-KrServer {
         [Parameter()]
         [switch]$NoWait,
         [Parameter()]
-        [switch]$Quiet,
-        [Parameter()]
-        [switch]$NoClearVariable
+        [switch]$Quiet
     )
     process {
         # Ensure the server instance is resolved
@@ -58,10 +54,6 @@ function Stop-KrServer {
         #$Server.Dispose()
         if (-not $Quiet.IsPresent) {
             Write-Host 'Kestrun server stopped.'
-        }
-        if (-not $NoClearVariable.IsPresent) {
-            # Clear Kestrun variables
-            Clear-KsVariable
         }
     }
 }

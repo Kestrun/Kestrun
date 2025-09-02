@@ -18,11 +18,6 @@ public static class KestrunHostManager
     /// </summary>
     public static IReadOnlyCollection<string> InstanceNames => (IReadOnlyCollection<string>)_instances.Keys;
 
-
-    /// <summary>
-    /// Gets or sets the baseline variables for Kestrun operations.
-    /// </summary>
-    public static object[]? VariableBaseline { get; set; }
     private static string? _kestrunRoot;
     /// <summary>
     /// Gets or sets the root path for Kestrun operations.

@@ -41,7 +41,6 @@ Kestrun — PowerShell brains. Kestrel speed.
 
 [![Docs](https://img.shields.io/badge/docs-online-blue)](https://docs.kestrun.dev)
 [![NuGet](https://img.shields.io/nuget/v/Kestrun)](https://www.nuget.org/packages/Kestrun/)
-[![NuGet Downloads](https://img.shields.io/nuget/dt/Kestrun)](https://www.nuget.org/packages/Kestrun/)
 [![PowerShell Gallery](https://img.shields.io/powershellgallery/v/Kestrun)](https://www.powershellgallery.com/packages/Kestrun)
 
 Kestrun is a hybrid web framework that combines the speed and scalability of ASP.NET Core (Kestrel) with the

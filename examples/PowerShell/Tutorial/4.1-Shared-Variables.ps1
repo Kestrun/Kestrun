@@ -7,11 +7,10 @@
 # Import the Kestrun module
 Install-PSResource -Name Kestrun
 
-
 New-KrLogger |
     Set-KrMinimumLevel -Value Debug |
     Add-KrSinkConsole |
-    Register-KrLogger -Name 'DefaultLogger' -PassThru -SetAsDefault
+    Register-KrLogger -Name 'DefaultLogger' -SetAsDefault
 
 # Initialize Kestrun root directory
 # the default value is $PWD
@@ -33,7 +32,7 @@ $Visits = [System.Collections.Concurrent.ConcurrentDictionary[string, int]]::new
 $Delay = 3
 
 # Enable Kestrun configuration
-Enable-KrConfiguration -Variables @($Visits, $Delay)
+Enable-KrConfiguration
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Route: GET /ps/show

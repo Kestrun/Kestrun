@@ -33,12 +33,13 @@ function Enable-KrConfiguration {
         # Ensure the server instance is resolved
         $Server = Resolve-KestrunServer -Server $Server
 
+        $psDefaultVars = Get-KrPSDefaultVariable
         $dict = [System.Collections.Generic.Dictionary[string, System.Object]]::new()
         # Get the user-defined variables
         $userVars = Get-Variable -Scope Script
         $userVars += Get-Variable -Scope Global
 
-        $userVars | Where-Object { [Kestrun.KestrunHostManager]::VariableBaseline -notcontains $_.Name -and
+        $userVars | Where-Object { $psDefaultVars -notcontains $_.Name -and
             $_.Name -notmatch '^_' } | ForEach-Object {
             $dict[$_.Name] = $_.Value
         }

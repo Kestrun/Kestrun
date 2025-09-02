@@ -1,4 +1,5 @@
 using System.Management.Automation;
+using System.Diagnostics;
 using Kestrun.Hosting;
 using Kestrun.Languages;
 using Kestrun.Models;
@@ -17,6 +18,7 @@ public sealed class PowerShellRunspaceMiddleware(RequestDelegate next, KestrunRu
 {
     private readonly RequestDelegate _next = next ?? throw new ArgumentNullException(nameof(next));
     private readonly KestrunRunspacePoolManager _pool = pool ?? throw new ArgumentNullException(nameof(pool));
+    private static int _inFlight; // diagnostic concurrency counter
 
     /// <summary>
     /// Processes an HTTP request using a PowerShell runspace from the pool.
@@ -24,14 +26,32 @@ public sealed class PowerShellRunspaceMiddleware(RequestDelegate next, KestrunRu
     /// <param name="context">The HTTP context for the current request.</param>
     public async Task InvokeAsync(HttpContext context)
     {
+        // Concurrency diagnostics
+        var start = DateTime.UtcNow;
+        var threadId = Environment.CurrentManagedThreadId;
+        var current = Interlocked.Increment(ref _inFlight);
+        if (Log.IsEnabled(LogEventLevel.Debug))
+        {
+            Log.Debug("ENTER InvokeAsync path={Path} inFlight={InFlight} thread={Thread} time={Start}",
+                context.Request.Path, current, threadId, start.ToString("O"));
+        }
+
         try
         {
             if (Log.IsEnabled(LogEventLevel.Debug))
             {
                 Log.Debug("PowerShellRunspaceMiddleware started for {Path}", context.Request.Path);
             }
-            // Acquire a runspace from the pool and keep it for the whole request
-            var runspace = _pool.Acquire();
+
+            // Acquire a runspace from the pool asynchronously (avoid blocking thread pool while waiting)
+            var acquireStart = Stopwatch.GetTimestamp();
+            var runspace = await _pool.AcquireAsync(context.RequestAborted);
+            var acquireMs = (Stopwatch.GetTimestamp() - acquireStart) * 1000.0 / Stopwatch.Frequency;
+            if (Log.IsEnabled(LogEventLevel.Debug))
+            {
+                Log.Debug("Runspace acquired for {Path} in {AcquireMs} ms (inFlight={InFlight})", context.Request.Path, acquireMs, current);
+            }
+
             using var ps = PowerShell.Create();
             ps.Runspace = runspace;
             var krRequest = await KestrunRequest.NewRequest(context);
@@ -61,7 +81,7 @@ public sealed class PowerShellRunspaceMiddleware(RequestDelegate next, KestrunRu
                     Log.Debug("PowerShellRunspaceMiddleware - Continuing Pipeline  for {Path}", context.Request.Path);
                 }
 
-                await _next(context);                // continue the pipeline
+                await _next(context); // continue the pipeline
                 if (Log.IsEnabled(LogEventLevel.Debug))
                 {
                     Log.Debug("PowerShellRunspaceMiddleware completed for {Path}", context.Request.Path);
@@ -83,13 +103,23 @@ public sealed class PowerShellRunspaceMiddleware(RequestDelegate next, KestrunRu
                     }
                     // Dispose the PowerShell instance
                     ps.Dispose();
-                    _ = context.Items.Remove(PowerShellDelegateBuilder.PS_INSTANCE_KEY);     // just in case someone re-uses the ctx object                                                             // Dispose() returns the runspace to the pool
+                    _ = context.Items.Remove(PowerShellDelegateBuilder.PS_INSTANCE_KEY); // just in case someone re-uses the ctx object
                 }
             }
         }
         catch (Exception ex)
         {
             Log.Error(ex, "Error occurred in PowerShellRunspaceMiddleware");
+        }
+        finally
+        {
+            var remaining = Interlocked.Decrement(ref _inFlight);
+            var durationMs = (DateTime.UtcNow - start).TotalMilliseconds;
+            if (Log.IsEnabled(LogEventLevel.Debug))
+            {
+                Log.Debug("PowerShellRunspaceMiddleware ended for {Path} durationMs={Duration} inFlight={InFlight}",
+                    context.Request.Path, durationMs, remaining);
+            }
         }
     }
 }

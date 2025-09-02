@@ -60,6 +60,7 @@ server.AddMapRoute("/ps/show", HttpVerb.Get,
 
 server.AddMapRoute("/ps/visit", HttpVerb.Get,
 """
+    Start-Sleep -Seconds 5
     # increment the injected variable
     $Visits["Count"]++
     Write-KrTextResponse -inputObject "Runspace: $(([runspace]::DefaultRunspace).Name) - Incremented Visits(type:$($Visits.GetType().Name)) to $($Visits["Count"])" -statusCode 200

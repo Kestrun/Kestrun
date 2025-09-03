@@ -333,7 +333,10 @@ Add-BuildTask 'Build_CSharp_Help' {
 # Build Help will call Build_Powershell_Help and Build_CSharp_Help
 Add-BuildTask 'BuildHelp' {
     Write-Host '📚 Generating all Help...'
-}, 'Build_Powershell_Help', 'Build_CSharp_Help'
+}, 'Build_Powershell_Help', 'Build_CSharp_Help', {
+    Write-Host '📦 Creating tutorial examples zip...'
+    Compress-Archive -Path './docs/pwsh/tutorial/examples' -DestinationPath './docs/pwsh/tutorial/tutorial.zip'
+}
 
 # Clean Help will call Clean_Powershell_Help and Clean_CSharp_Help
 Add-BuildTask 'CleanHelp' {

@@ -8,6 +8,7 @@ using Microsoft.CodeAnalysis;
 using Kestrun.Utilities;
 using System.Security.Claims;
 using Kestrun.Logging;
+using Kestrun.SharedState;
 
 namespace Kestrun.Languages;
 
@@ -157,6 +158,20 @@ internal static class VBNetDelegateBuilder
         extraImports ??= [];
         extraImports = [.. extraImports, "System.Collections.Generic", "System.Linq", "System.Security.Claims"];
 
+        // Discover dynamic namespaces from globals + locals similar to C# path
+        var dynamicImports = CollectDynamicImports(locals);
+        if (dynamicImports.Count > 0)
+        {
+            var mergedImports = extraImports.Concat(dynamicImports)
+                .Distinct(StringComparer.Ordinal)
+                .ToArray();
+            if (log.IsEnabled(LogEventLevel.Debug) && mergedImports.Length != extraImports.Length)
+            {
+                log.Debug("Added {Count} dynamic VB imports from globals/locals.", mergedImports.Length - extraImports.Length);
+            }
+            extraImports = mergedImports;
+        }
+
         // 🔧 1.  Build a real VB file around the user snippet
         var source = BuildWrappedSource(code, extraImports, vbReturnType: GetVbReturnType(typeof(TResult)),
             locals: locals);
@@ -261,7 +276,50 @@ internal static class VBNetDelegateBuilder
             .Append(MetadataReference.CreateFromFile(typeof(HttpContext).Assembly.Location))       // Microsoft.AspNetCore.Http
             .Append(MetadataReference.CreateFromFile(typeof(Console).Assembly.Location))          // System.Console
             .Append(MetadataReference.CreateFromFile(typeof(Serilog.Log).Assembly.Location))       // Serilog
-            .Append(MetadataReference.CreateFromFile(typeof(ClaimsPrincipal).Assembly.Location));   // System.Security.Claims
+            .Append(MetadataReference.CreateFromFile(typeof(ClaimsPrincipal).Assembly.Location))   // System.Security.Claims
+            .Append(MetadataReference.CreateFromFile(typeof(System.Security.Cryptography.X509Certificates.X509Certificate2).Assembly.Location)); // X509
+    }
+
+    private static HashSet<string> CollectDynamicImports(IReadOnlyDictionary<string, object?>? locals)
+    {
+        var imports = new HashSet<string>(StringComparer.Ordinal);
+        // Merge globals + locals (locals override) just for namespace harvesting
+        var globals = SharedStateStore.Snapshot();
+        foreach (var g in globals)
+        {
+            AddTypeNamespaces(g.Value?.GetType(), imports);
+        }
+        if (locals is { Count: > 0 })
+        {
+            foreach (var l in locals)
+            {
+                AddTypeNamespaces(l.Value?.GetType(), imports);
+            }
+        }
+        return imports;
+    }
+
+    private static void AddTypeNamespaces(Type? t, HashSet<string> set)
+    {
+        if (t == null)
+        {
+            return;
+        }
+        if (!string.IsNullOrEmpty(t.Namespace))
+        {
+            _ = set.Add(t.Namespace!);
+        }
+        if (t.IsGenericType)
+        {
+            foreach (var ga in t.GetGenericArguments())
+            {
+                AddTypeNamespaces(ga, set);
+            }
+        }
+        if (t.IsArray)
+        {
+            AddTypeNamespaces(t.GetElementType(), set);
+        }
     }
     private static bool SafeHasLocation(Assembly a)
     {

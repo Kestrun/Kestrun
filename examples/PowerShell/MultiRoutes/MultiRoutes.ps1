@@ -134,7 +134,7 @@ Enable-KrConfiguration
 # Set-KrPythonRuntime
 
 # Add a route with a script block
-Add-KrMapRoute -Verbs Get -Pattern '/ps/json' -Authorization 'BasicAuth' -ScriptBlock {
+Add-KrMapRoute -Verbs Get -Pattern '/ps/json' -AuthorizationSchema 'BasicAuth' -ScriptBlock {
 
     Write-Output 'Hello from PowerShell script! - Json Response'
     # Payload

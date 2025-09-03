@@ -833,6 +833,7 @@ public class KestrunHost : IDisposable
         _app = null;
         Scheduler?.Dispose();
         (HostLogger as IDisposable)?.Dispose();
+        GC.SuppressFinalize(this);
     }
     #endregion
 

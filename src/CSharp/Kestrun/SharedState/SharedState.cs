@@ -18,10 +18,10 @@ public static partial class SharedStateStore
 
     // ── public API ──────────────────────────────────────────────────
     /// <summary>Add or overwrite a value (reference‑types only).</summary>
-    public static bool Set(string name, object? value)
+    public static bool Set(string name, object? value, bool allowsValueType = false)
     {
         ValidateName(name);
-        ValidateValue(name, value);
+        ValidateValue(name, value, allowsValueType);
         _store[name] = value;
         return true;
     }
@@ -65,7 +65,7 @@ public static partial class SharedStateStore
         }
     }
 
-    private static void ValidateValue(string name, object? value)
+    private static void ValidateValue(string name, object? value, bool allowsValueType = false)
     {
         if (value is null)
         {
@@ -73,7 +73,7 @@ public static partial class SharedStateStore
         }
 
         var t = value.GetType();
-        if (t.IsValueType)
+        if (t.IsValueType && !allowsValueType)
         {
             throw new ArgumentException(
                 $"Cannot define global variable '{name}' of value type '{t.FullName}'. " +

@@ -80,7 +80,7 @@ parent: "C#"
 
     # Determine namespace (first directory under api/)
     # Helper: make a path relative to ApiRoot
-    
+
     $p = (Resolve-Path $file).Path
     $relPath = $p.Substring($apiRootFull.Length).TrimStart('\', '/')
     $parts = $relPath -split '[\\/]+'

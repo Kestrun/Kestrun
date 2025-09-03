@@ -27,6 +27,13 @@ public static partial class SharedStateStore
     }
 
     /// <summary>
+    /// Checks if a variable with the specified name exists in the shared state.
+    /// </summary>
+    /// <param name="name">The name of the variable to check.</param>
+    /// <returns> <c>true</c> if the variable exists; otherwise, <c>false</c>.</returns>
+    public static bool Contains(string name) => _store.ContainsKey(name);
+
+    /// <summary>
     /// Strongly‑typed fetch. Returns <c>false</c> if the key is missing
     /// or the stored value can’t be cast to <typeparamref name="T"/>.
     /// </summary>

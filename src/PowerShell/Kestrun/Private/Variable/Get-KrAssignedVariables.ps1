@@ -73,11 +73,16 @@ function Get-KrAssignedVariable {
         throw "No scriptblock provided. Use -FromParent or pass a ScriptBlock."
     }
     $ast = ($ScriptBlock.Ast).ToString()
-    $endstring = $ast.IndexOf("Enable-KrConfiguration", [StringComparison]::OrdinalIgnoreCase) 
+
+    $endstring = $ast.IndexOf("Enable-KrConfiguration", [StringComparison]::OrdinalIgnoreCase)
     if ($endstring -lt 0) {
         throw "The provided scriptblock does not appear to contain 'Enable-KrConfiguration' call."
     }
-    $ScriptBlock = [scriptblock]::Create($ast.Substring(0, $endstring))
+    $ast = $ast.Substring(0, $endstring).Trim()
+    if ($ast.StartsWith('{')) {
+        $ast += "`n}"
+    }
+    $ScriptBlock = [scriptblock]::Create($ast)
 
 
     <#
@@ -111,12 +116,14 @@ function Get-KrAssignedVariable {
 
         $vp = $varAst.VariablePath
         $name = $vp.UnqualifiedPath
+
         if (-not $name) { $name = $vp.UserPath }            # ← fallback
-        if ($name -and $name.StartsWith('{') -and $name.EndsWith('}')) {
+        if (-not $name) { continue }
+        $name = $name -replace '^[^:]*:', ''
+        if ($name.Contains('.') -or $name.Contains('[')) { continue }
+        if ($name.StartsWith('{') -and $name.EndsWith('}')) {
             $name = $name.Substring(1, $name.Length - 2)        # ← ${foo} → foo
         }
-        if (-not $name) { continue }
-
         $val = Get-Variable -Name $name -Scope $scopeUp -ErrorAction SilentlyContinue
 
         [pscustomobject]@{

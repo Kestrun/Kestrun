@@ -97,7 +97,6 @@ internal static class CSharpDelegateBuilder
         };
     }
 
-
     /// <summary>
     /// Compiles the provided C# code into a script.
     /// This method supports additional imports and references, and can inject global variables into the script.
@@ -136,21 +135,79 @@ internal static class CSharpDelegateBuilder
         }
 
         // References and imports
-        var coreRefs = BuildCoreReferences();
+        var coreRefs = BuildBaselineReferences();
         var kestrunAssembly = typeof(Hosting.KestrunHost).Assembly; // Kestrun.dll
         var kestrunRef = MetadataReference.CreateFromFile(kestrunAssembly.Location);
         var kestrunNamespaces = CollectKestrunNamespaces(kestrunAssembly);
-        var platformImports = new[]
-        {
-            "System", "System.Linq", "System.Threading.Tasks", "Microsoft.AspNetCore.Http",
-            "System.Collections.Generic", "System.Security.Claims", "System.Security.Cryptography.X509Certificates"
-        };
-        var opts = CreateScriptOptions(platformImports, kestrunNamespaces, coreRefs, kestrunRef);
+
+        var opts = CreateScriptOptions([], kestrunNamespaces, coreRefs, kestrunRef);
         opts = AddExtraImports(opts, extraImports);
         opts = AddExtraReferences(opts, extraRefs, log);
 
-        // Globals/locals injection
-        code = PrependGlobalsAndLocals(code, locals);
+        // Optionally include all currently loaded assemblies to reduce missing reference issues.
+        // This is a broader net and may include more assemblies than strictly necessary, but
+        // Roslyn will de-duplicate by file path. This helps scenarios where user code touches
+        // framework areas not pre-listed in core references (e.g., cryptography, diagnostics, etc.).
+        var (loadedRefs, loadedCount) = CollectLoadedAssemblyReferences(log);
+        if (loadedCount > 0)
+        {
+            // Avoid re-adding references already present
+            var existingPaths = new HashSet<string>(opts.MetadataReferences
+                .OfType<PortableExecutableReference>()
+                .Select(r => r.FilePath ?? string.Empty)
+                .Where(p => !string.IsNullOrEmpty(p)), StringComparer.OrdinalIgnoreCase);
+            var newLoadedRefs = loadedRefs
+                .Where(r => r is PortableExecutableReference pe && !string.IsNullOrEmpty(pe.FilePath) && !existingPaths.Contains(pe.FilePath))
+                .ToArray();
+            if (newLoadedRefs.Length > 0)
+            {
+                opts = opts.WithReferences(opts.MetadataReferences.Concat(newLoadedRefs));
+                if (log.IsEnabled(LogEventLevel.Debug))
+                {
+                    log.Debug("Added {RefCount} loaded assembly reference(s) (of {TotalLoaded}) for dynamic script compilation.", newLoadedRefs.Length, loadedCount);
+                }
+            }
+        }
+
+        // Globals/locals injection plus dynamic discovery of namespaces & assemblies needed
+        var (CodeWithPreamble, DynamicImports, DynamicReferences) = BuildGlobalsAndLocalsPreamble(code, locals, log);
+        code = CodeWithPreamble;
+
+        if (DynamicImports.Count > 0)
+        {
+            var newImports = DynamicImports.Except(opts.Imports, StringComparer.Ordinal).ToArray();
+            if (newImports.Length > 0)
+            {
+                opts = opts.WithImports(opts.Imports.Concat(newImports));
+                if (log.IsEnabled(LogEventLevel.Debug))
+                {
+                    log.Debug("Added {ImportCount} dynamic imports derived from globals/locals: {Imports}", newImports.Length, string.Join(", ", newImports));
+                }
+            }
+        }
+
+        if (DynamicReferences.Count > 0)
+        {
+            // Avoid duplicates by location
+            var existingRefPaths = new HashSet<string>(opts.MetadataReferences
+                .OfType<PortableExecutableReference>()
+                .Select(r => r.FilePath ?? string.Empty)
+                .Where(p => !string.IsNullOrEmpty(p)), StringComparer.OrdinalIgnoreCase);
+
+            var newRefs = DynamicReferences
+                .Where(r => !string.IsNullOrEmpty(r.Location) && File.Exists(r.Location) && !existingRefPaths.Contains(r.Location))
+                .Select(r => MetadataReference.CreateFromFile(r.Location))
+                .ToArray();
+
+            if (newRefs.Length > 0)
+            {
+                opts = opts.WithReferences(opts.MetadataReferences.Concat(newRefs));
+                if (log.IsEnabled(LogEventLevel.Debug))
+                {
+                    log.Debug("Added {RefCount} dynamic assembly reference(s) derived from globals/locals.", newRefs.Length);
+                }
+            }
+        }
 
         // Compile
         var script = CSharpScript.Create(code, opts, typeof(CsGlobals));
@@ -163,11 +220,53 @@ internal static class CSharpDelegateBuilder
         return script;
     }
 
+    /// <summary>Collects metadata references for all non-dynamic loaded assemblies with a physical location.</summary>
+    /// <param name="log">Logger.</param>
+    /// <returns>Tuple of references and total count considered.</returns>
+    private static (IEnumerable<MetadataReference> Refs, int Total) CollectLoadedAssemblyReferences(Serilog.ILogger log)
+    {
+        try
+        {
+            var loaded = AppDomain.CurrentDomain.GetAssemblies();
+            var refs = new List<MetadataReference>(loaded.Length);
+            var considered = 0;
+            foreach (var a in loaded)
+            {
+                considered++;
+                if (a.IsDynamic)
+                {
+                    continue;
+                }
+                if (string.IsNullOrEmpty(a.Location) || !File.Exists(a.Location))
+                {
+                    continue;
+                }
+                try
+                {
+                    refs.Add(MetadataReference.CreateFromFile(a.Location));
+                }
+                catch (Exception ex)
+                {
+                    if (log.IsEnabled(LogEventLevel.Debug))
+                    {
+                        log.Debug(ex, "Failed to add loaded assembly reference: {Assembly}", a.FullName);
+                    }
+                }
+            }
+            return (refs, considered);
+        }
+        catch (Exception ex)
+        {
+            log.Warning(ex, "Failed to enumerate loaded assemblies for dynamic references.");
+            return (Array.Empty<MetadataReference>(), 0);
+        }
+    }
+
     /// <summary>
     /// Builds the core assembly references for the script.
     /// </summary>
     /// <returns>The core assembly references.</returns>
-    private static MetadataReference[] BuildCoreReferences()
+    private static MetadataReference[] BuildBaselineReferences()
     {
         return
         [
@@ -177,7 +276,8 @@ internal static class CSharpDelegateBuilder
             MetadataReference.CreateFromFile(typeof(Console).Assembly.Location),           // System.Console
             MetadataReference.CreateFromFile(typeof(StringBuilder).Assembly.Location),     // System.Text
             MetadataReference.CreateFromFile(typeof(Serilog.Log).Assembly.Location),       // Serilog
-            MetadataReference.CreateFromFile(typeof(ClaimsPrincipal).Assembly.Location)    // System.Security.Claims
+            MetadataReference.CreateFromFile(typeof(ClaimsPrincipal).Assembly.Location),   // System.Security.Claims
+            MetadataReference.CreateFromFile(typeof(System.Security.Cryptography.X509Certificates.X509Certificate2).Assembly.Location) // System.Security.Cryptography.X509Certificates
         ];
     }
 
@@ -278,11 +378,16 @@ internal static class CSharpDelegateBuilder
     /// <param name="code">The original code to modify.</param>
     /// <param name="locals">The local variables to include.</param>
     /// <returns>The modified code with global and local variable declarations.</returns>
-    private static string PrependGlobalsAndLocals(string? code, IReadOnlyDictionary<string, object?>? locals)
+    /// <summary>Builds the preamble variable declarations for globals &amp; locals and discovers required namespaces and assemblies.</summary>
+    /// <param name="log">Logger instance.</param>
+    /// <returns>Tuple containing code with preamble, dynamic imports, dynamic references.</returns>
+    private static (string CodeWithPreamble, List<string> DynamicImports, List<Assembly> DynamicReferences) BuildGlobalsAndLocalsPreamble(
+        string? code,
+        IReadOnlyDictionary<string, object?>? locals,
+        Serilog.ILogger log)
     {
-        var builder = new StringBuilder();
+        var preambleBuilder = new StringBuilder();
         var allGlobals = SharedStateStore.Snapshot();
-        // Merge names: locals override globals if duplicate
         var merged = new Dictionary<string, (string Dict, object? Value)>(StringComparer.OrdinalIgnoreCase);
         foreach (var g in allGlobals)
         {
@@ -292,16 +397,51 @@ internal static class CSharpDelegateBuilder
         {
             foreach (var l in locals)
             {
-                merged[l.Key] = ("Locals", l.Value); // override if exists
+                merged[l.Key] = ("Locals", l.Value);
             }
         }
+
+        var dynamicImports = new HashSet<string>(StringComparer.Ordinal);
+        var dynamicRefs = new HashSet<Assembly>();
+
         foreach (var kvp in merged)
         {
-            var typeName = FormatTypeName(kvp.Value.Value?.GetType());
-            _ = builder.AppendLine($"var {kvp.Key} = ({typeName}){kvp.Value.Dict}[\"{kvp.Key}\"]; ");
+            var valueType = kvp.Value.Value?.GetType();
+            var typeName = FormatTypeName(valueType);
+            _ = preambleBuilder.AppendLine($"var {kvp.Key} = ({typeName}){kvp.Value.Dict}[\"{kvp.Key}\"]; ");
+
+            if (valueType != null)
+            {
+                if (!string.IsNullOrEmpty(valueType.Namespace))
+                {
+                    _ = dynamicImports.Add(valueType.Namespace!); // capture added namespace
+                }
+                // Include generic argument namespaces as well
+                if (valueType.IsGenericType)
+                {
+                    foreach (var ga in valueType.GetGenericArguments())
+                    {
+                        if (!string.IsNullOrEmpty(ga.Namespace))
+                        {
+                            _ = dynamicImports.Add(ga.Namespace!); // capture generic arg namespace
+                        }
+                        _ = dynamicRefs.Add(ga.Assembly); // capture generic arg assembly
+                    }
+                }
+                _ = dynamicRefs.Add(valueType.Assembly); // capture value type assembly
+            }
         }
 
-        return builder.Length > 0 ? builder + code : code ?? string.Empty;
+        if (log.IsEnabled(LogEventLevel.Debug) && (dynamicImports.Count > 0 || dynamicRefs.Count > 0))
+        {
+            log.Debug("Discovered {ImportCount} dynamic import(s) and {RefCount} reference(s) from globals/locals.", dynamicImports.Count, dynamicRefs.Count);
+        }
+
+        return (
+            preambleBuilder.Length > 0 ? preambleBuilder + (code ?? string.Empty) : code ?? string.Empty,
+            dynamicImports.ToList(),
+            dynamicRefs.Where(r => !string.IsNullOrEmpty(r.Location)).ToList()
+        );
     }
 
     // Produces a C# friendly type name for reflection types (handles generics, arrays, nullable, and fallbacks).

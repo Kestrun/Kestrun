@@ -42,11 +42,13 @@ function Enable-KrConfiguration {
         $dict = [System.Collections.Generic.Dictionary[string, System.Object]]::new()
         $Variables | ForEach-Object {
             if ($ExcludeVariables -notcontains $_.Name) {
-                $null = [Kestrun.SharedState.SharedStateStore]::Set(
-                    $_.Name,
-                    $_.Value.Value,
-                    $true  # Allow value types
-                )
+                if (-not [Kestrun.SharedState.SharedStateStore]::Contains($_.Name)) { 
+                    $null = [Kestrun.SharedState.SharedStateStore]::Set(
+                        $_.Name,
+                        $_.Value.Value,
+                        $true  # Allow value types
+                    )
+                }
             }
         }
 

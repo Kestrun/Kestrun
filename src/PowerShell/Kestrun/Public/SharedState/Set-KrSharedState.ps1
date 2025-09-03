@@ -11,6 +11,8 @@
         Name of the variable to create or update.
     .PARAMETER Value
         Value to assign to the variable.
+    .PARAMETER AllowsValueType
+        If specified, allows the variable to hold value types (e.g., int, bool).
     .EXAMPLE
         Set-KrSharedState -Name "MyVariable" -Value "Hello, World!"
         This creates a global variable "MyVariable" with the value "Hello, World!".
@@ -30,13 +32,17 @@ function Set-KrSharedState {
         [string]$Name,
 
         [Parameter(Mandatory)]
-        [object]$Value
+        [object]$Value,
+
+        [Parameter()]
+        [switch]$AllowsValueType
     )
     process {
         # Define or update the variable; throws if it was already read-only
         $null = [Kestrun.SharedState.SharedStateStore]::Set(
             $Name,
-            $Value
+            $Value,
+            $AllowsValueType.IsPresent  # Allow value types if specified
         )
     }
 }

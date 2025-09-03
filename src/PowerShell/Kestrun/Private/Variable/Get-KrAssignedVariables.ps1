@@ -72,6 +72,13 @@ function Get-KrAssignedVariable {
     if (-not $ScriptBlock) {
         throw "No scriptblock provided. Use -FromParent or pass a ScriptBlock."
     }
+    $ast = ($ScriptBlock.Ast).ToString()
+    $endstring = $ast.IndexOf("Enable-KrConfiguration", [StringComparison]::OrdinalIgnoreCase) 
+    if ($endstring -lt 0) {
+        throw "The provided scriptblock does not appear to contain 'Enable-KrConfiguration' call."
+    }
+    $ScriptBlock = [scriptblock]::Create($ast.Substring(0, $endstring))
+
 
     <#
    .SYNOPSIS

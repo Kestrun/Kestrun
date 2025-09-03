@@ -143,7 +143,7 @@ internal static class CSharpDelegateBuilder
         var platformImports = new[]
         {
             "System", "System.Linq", "System.Threading.Tasks", "Microsoft.AspNetCore.Http",
-            "System.Collections.Generic", "System.Security.Claims"
+            "System.Collections.Generic", "System.Security.Claims", "System.Security.Cryptography.X509Certificates"
         };
         var opts = CreateScriptOptions(platformImports, kestrunNamespaces, coreRefs, kestrunRef);
         opts = AddExtraImports(opts, extraImports);

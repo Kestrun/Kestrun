@@ -37,7 +37,9 @@ function Start-KrServer {
         # Ensure the server instance is resolved
         $Server = Resolve-KestrunServer -Server $Server
         # Start the Kestrel server
-        Write-Host 'Starting Kestrun ...'
+        if ( -not $Quiet.IsPresent ) {
+            Write-Host "Starting Kestrun server '$($Server.ApplicationName)' ..."
+        }
         $Server.StartAsync() | Out-Null
         if (-not $Quiet.IsPresent) {
             Write-Host 'Kestrun server started successfully.'
@@ -68,7 +70,9 @@ function Start-KrServer {
                     if ([Console]::KeyAvailable) {
                         $key = [Console]::ReadKey($true)
                         if (($key.Modifiers -eq 'Control') -and ($key.Key -eq 'C')) {
-                            Write-Host 'Ctrl+C detected. Stopping Kestrun server...'
+                            if (-not $Quiet.IsPresent) {
+                                Write-Host 'Ctrl+C detected. Stopping Kestrun server...'
+                            }
                             $Server.StopAsync().Wait()
                             break
                         }

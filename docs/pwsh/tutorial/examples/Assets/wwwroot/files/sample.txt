@@ -1,0 +1,2 @@
+Sample text file for static file serving.
+Line 2: Unicode ✓.

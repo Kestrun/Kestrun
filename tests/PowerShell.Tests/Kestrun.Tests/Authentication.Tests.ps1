@@ -581,7 +581,7 @@ BeforeAll {
 }
 
 AfterAll {
-    Stop-KrServer -NoClearVariable -Quiet
+    Stop-KrServer -Quiet
 }
 Describe 'Kestrun Authentication' {
 

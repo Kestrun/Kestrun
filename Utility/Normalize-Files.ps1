@@ -32,7 +32,6 @@
 .EXAMPLE
     .\Normalize-Files.ps1 -Root ./src/PowerShell/Kestrun -NoBomEncoding -WhatIf
 #>
-
 param(
     [string]$Root = (Join-Path $PSScriptRoot 'src/PowerShell/Kestrun'),
     [string[]]$Skip = @('bin', 'obj', '.git', '.vs', 'node_modules', 'vendor', 'coverage'),
@@ -69,37 +68,52 @@ function Get-GitMeta {
     }
 }
 
+# returns a match ONLY if the first <# ... #> block looks like our file header
+function Get-ExistingFileHeaderMatch {
+    param([string]$Text)
+    # match the very first block comment at BOF
+    $m = [regex]::Match($Text, '^\s*<#[\s\S]*?#>\s*\n?', 'Singleline')
+    if (-not $m.Success) { return $null }
+
+    $block = $m.Value
+    # Heuristics: treat as our header only if it contains "File:" and "Created:" labels
+    $isOurs =
+    ($block -match '(?m)^\s*File:\s') -and
+    ($block -match '(?m)^\s*Created:\s')
+
+    if ($isOurs) { return $m } else { return $null }
+}
+
 Get-ChildItem -Path $Root -Recurse -File -Include *.ps1, *.psm1, *.psd1 |
     Where-Object { $Skip -notcontains $_.Directory.Name } |
     ForEach-Object {
         $file = $_.FullName
 
-        # Read for precise normalization
+        # Read raw
         $text = Get-Content -LiteralPath $file -Raw -Encoding UTF8
 
-        # --- Normalize to LF ---
-        $fixed = $text -replace "`r`n", "`n"                # CRLF -> LF
-        $fixed = $fixed -replace "`r", "`n"                 # lone CR -> LF
-        $fixed = [regex]::Replace($fixed, '[ \t]+(?=\n)', '')  # strip trailing spaces/tabs before newline
-        $fixed = [regex]::Replace($fixed, '\n*\z', "`n")    # exactly one trailing newline at EOF
+        # --- Normalize to LF & whitespace ---
+        $fixed = $text -replace "`r`n", "`n"
+        $fixed = $fixed -replace "`r", "`n"
+        $fixed = [regex]::Replace($fixed, '[ \t]+(?=\n)', '')
+        $fixed = [regex]::Replace($fixed, '\n*\z', "`n")
 
-        # Relative path for header/footer
         $relPath = [System.IO.Path]::GetRelativePath($Root, $file) -replace '\\', '/'
 
-        # Optional git metadata
         $meta = if ($IncludeGitMeta) { Get-GitMeta -RepoRoot $Root -FilePath $file }
-
         $modifiedLine = if ($meta) {
             "Modified:  $today by $($meta.Author) (commit $($meta.Hash))"
         } else {
             "Modified:  $today"
         }
 
-        # Detect existing header at start: any <# ... #> at file beginning
-        $headerMatch = [regex]::Match($fixed, '^\s*<#[\s\S]*?#>\s*\n?', 'Singleline')
+        # Check if an existing FILE HEADER is present (does NOT match function help)
+        $hdrMatch = Get-ExistingFileHeaderMatch -Text $fixed
+
+        # if header exists, keep its Created date; else initialize it
         $createdDate =
-        if ($headerMatch.Success) {
-            $m = [regex]::Match($headerMatch.Value, '(?m)^\s*Created:\s*(\d{4}-\d{2}-\d{2})')
+        if ($hdrMatch) {
+            $m = [regex]::Match($hdrMatch.Value, '(?m)^\s*Created:\s*(\d{4}-\d{2}-\d{2})')
             if ($m.Success) { $m.Groups[1].Value } else { $today }
         } else { $today }
 
@@ -119,16 +133,22 @@ Get-ChildItem -Path $Root -Recurse -File -Include *.ps1, *.psm1, *.psd1 |
 #>
 "@
 
-        # Remove existing header from start (if present)
-        if ($headerMatch.Success) {
-            $fixed = $fixed.Substring($headerMatch.Length)
+        # Remove ONLY our file header if present; otherwise keep whatever is there (e.g., <# .SYNOPSIS #>)
+        if ($hdrMatch) {
+            $fixed = $fixed.Substring($hdrMatch.Length)
+            # Trim extra blank lines after removing our header
+            $fixed = [regex]::Replace($fixed, '^\n+', '')
+            $body = $fixed
+            $prependHeader = $false
+        } else {
+            # No file header detected → we will prepend our header and leave any existing help intact
+            $body = $fixed
+            $prependHeader = $true
         }
-        # Trim extra blank lines after header
-        $fixed = [regex]::Replace($fixed, '^\n+', '')
 
-        # Remove existing footer from end (if present)
-        $footerPattern = "(?ms)\n?#-+\n#\s*End of\s+.*?\n#-+\s*\n*\z"
-        $fixed = [regex]::Replace($fixed, $footerPattern, "`n")
+        # Remove ONLY our footer variant (be strict: must include "End of ")
+        $footerPattern = "(?ms)\n?#-+\s*\n#\s*End of\s+.+\n#-+\s*\n*\z"
+        $body = [regex]::Replace($body, $footerPattern, "`n")
 
         $footerText = @"
 #------------------------------------------
@@ -137,9 +157,15 @@ Get-ChildItem -Path $Root -Recurse -File -Include *.ps1, *.psm1, *.psd1 |
 "@
 
         # Reassemble
-        $newContent = $headerText.TrimEnd() + "`n`n" + $fixed.TrimEnd() + "`n" + $footerText.TrimEnd() + "`n"
+        $newContent =
+        if ($prependHeader) {
+            $headerText.TrimEnd() + "`n`n" + $body.TrimEnd() + "`n" + $footerText.TrimEnd() + "`n"
+        } else {
+            # we removed an old file header above; replace with the new one
+            $headerText.TrimEnd() + "`n`n" + $body.TrimEnd() + "`n" + $footerText.TrimEnd() + "`n"
+        }
 
-        # Safety: re-normalize and ensure clean EOF
+        # Final safety normalization
         $newContent = $newContent -replace "`r`n", "`n"
         $newContent = $newContent -replace "`r", "`n"
         $newContent = [regex]::Replace($newContent, '[ \t]+(?=\n)', '')

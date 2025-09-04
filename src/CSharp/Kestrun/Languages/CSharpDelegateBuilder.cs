@@ -7,7 +7,6 @@ using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Scripting;
 using Microsoft.CodeAnalysis.Scripting;
 using Serilog.Events;
-using System.Security.Claims;
 using Kestrun.Logging;
 
 namespace Kestrun.Languages;
@@ -135,39 +134,19 @@ internal static class CSharpDelegateBuilder
         }
 
         // References and imports
-        var coreRefs = BuildBaselineReferences();
+        var coreRefs = DelegateBuilder.BuildBaselineReferences();
+        // Core references + Kestrun + extras
+        // Note: Order matters, Kestrun must come after core to avoid conflicts        
         var kestrunAssembly = typeof(Hosting.KestrunHost).Assembly; // Kestrun.dll
         var kestrunRef = MetadataReference.CreateFromFile(kestrunAssembly.Location);
         var kestrunNamespaces = CollectKestrunNamespaces(kestrunAssembly);
-
-        var opts = CreateScriptOptions([], kestrunNamespaces, coreRefs, kestrunRef);
+        // Create script options
+        var opts = CreateScriptOptions(DelegateBuilder.PlatformImports, kestrunNamespaces, coreRefs, kestrunRef);
         opts = AddExtraImports(opts, extraImports);
         opts = AddExtraReferences(opts, extraRefs, log);
 
-        // Optionally include all currently loaded assemblies to reduce missing reference issues.
-        // This is a broader net and may include more assemblies than strictly necessary, but
-        // Roslyn will de-duplicate by file path. This helps scenarios where user code touches
-        // framework areas not pre-listed in core references (e.g., cryptography, diagnostics, etc.).
-        var (loadedRefs, loadedCount) = CollectLoadedAssemblyReferences(log);
-        if (loadedCount > 0)
-        {
-            // Avoid re-adding references already present
-            var existingPaths = new HashSet<string>(opts.MetadataReferences
-                .OfType<PortableExecutableReference>()
-                .Select(r => r.FilePath ?? string.Empty)
-                .Where(p => !string.IsNullOrEmpty(p)), StringComparer.OrdinalIgnoreCase);
-            var newLoadedRefs = loadedRefs
-                .Where(r => r is PortableExecutableReference pe && !string.IsNullOrEmpty(pe.FilePath) && !existingPaths.Contains(pe.FilePath))
-                .ToArray();
-            if (newLoadedRefs.Length > 0)
-            {
-                opts = opts.WithReferences(opts.MetadataReferences.Concat(newLoadedRefs));
-                if (log.IsEnabled(LogEventLevel.Debug))
-                {
-                    log.Debug("Added {RefCount} loaded assembly reference(s) (of {TotalLoaded}) for dynamic script compilation.", newLoadedRefs.Length, loadedCount);
-                }
-            }
-        }
+        // Include currently loaded assemblies (deduplicated) to minimize missing reference issues.
+        opts = AddLoadedAssemblyReferences(opts, log);
 
         // Globals/locals injection plus dynamic discovery of namespaces & assemblies needed
         var (CodeWithPreamble, DynamicImports, DynamicReferences) = BuildGlobalsAndLocalsPreamble(code, locals, log);
@@ -266,20 +245,6 @@ internal static class CSharpDelegateBuilder
     /// Builds the core assembly references for the script.
     /// </summary>
     /// <returns>The core assembly references.</returns>
-    private static MetadataReference[] BuildBaselineReferences()
-    {
-        return
-        [
-            MetadataReference.CreateFromFile(typeof(object).Assembly.Location),            // System.Private.CoreLib
-            MetadataReference.CreateFromFile(typeof(Enumerable).Assembly.Location),        // System.Linq
-            MetadataReference.CreateFromFile(typeof(HttpContext).Assembly.Location),       // Microsoft.AspNetCore.Http
-            MetadataReference.CreateFromFile(typeof(Console).Assembly.Location),           // System.Console
-            MetadataReference.CreateFromFile(typeof(StringBuilder).Assembly.Location),     // System.Text
-            MetadataReference.CreateFromFile(typeof(Serilog.Log).Assembly.Location),       // Serilog
-            MetadataReference.CreateFromFile(typeof(ClaimsPrincipal).Assembly.Location),   // System.Security.Claims
-            MetadataReference.CreateFromFile(typeof(System.Security.Cryptography.X509Certificates.X509Certificate2).Assembly.Location) // System.Security.Cryptography.X509Certificates
-        ];
-    }
 
     /// <summary>
     /// Collects the namespaces from the Kestrun assembly.
@@ -370,6 +335,44 @@ internal static class CSharpDelegateBuilder
             .Select(r => MetadataReference.CreateFromFile(r.Location));
 
         return opts.WithReferences(opts.MetadataReferences.Concat(safeRefs));
+    }
+
+    /// <summary>
+    /// Adds references for all currently loaded (non-duplicate) assemblies to the script options.
+    /// </summary>
+    /// <param name="opts">Current script options.</param>
+    /// <param name="log">Logger.</param>
+    /// <returns>Updated script options.</returns>
+    private static ScriptOptions AddLoadedAssemblyReferences(ScriptOptions opts, Serilog.ILogger log)
+    {
+        // Optionally include all currently loaded assemblies to reduce missing reference issues.
+        // Roslyn will de-duplicate by file path internally but we still filter to avoid redundant work.
+        var (loadedRefs, loadedCount) = CollectLoadedAssemblyReferences(log);
+        if (loadedCount <= 0)
+        {
+            return opts;
+        }
+
+        var existingPaths = new HashSet<string>(opts.MetadataReferences
+            .OfType<PortableExecutableReference>()
+            .Select(r => r.FilePath ?? string.Empty)
+            .Where(p => !string.IsNullOrEmpty(p)), StringComparer.OrdinalIgnoreCase);
+
+        var newLoadedRefs = loadedRefs
+            .Where(r => r is PortableExecutableReference pe && !string.IsNullOrEmpty(pe.FilePath) && !existingPaths.Contains(pe.FilePath))
+            .ToArray();
+
+        if (newLoadedRefs.Length == 0)
+        {
+            return opts;
+        }
+
+        var updated = opts.WithReferences(opts.MetadataReferences.Concat(newLoadedRefs));
+        if (log.IsEnabled(LogEventLevel.Debug))
+        {
+            log.Debug("Added {RefCount} loaded assembly reference(s) (of {TotalLoaded}) for dynamic script compilation.", newLoadedRefs.Length, loadedCount);
+        }
+        return updated;
     }
 
     /// <summary>

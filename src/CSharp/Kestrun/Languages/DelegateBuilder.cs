@@ -1,9 +1,13 @@
+using System.Security.Claims;
+using System.Text;
 using Kestrun.Hosting;
 using Kestrun.Languages;
 using Kestrun.Logging;
 using Kestrun.Models;
 using Kestrun.SharedState;
+using Microsoft.CodeAnalysis;
 using Serilog.Events;
+using System.Reflection;
 
 internal static class DelegateBuilder
 {
@@ -89,4 +93,141 @@ internal static class DelegateBuilder
             log.DebugSanitized("Response applied to Kestrun context for {Path}", ctx.Request.Path);
         }
     }
+
+    /// <summary>
+    /// Common baseline references shared across script compilations.
+    /// </summary>
+    /// <returns> MetadataReference[] </returns>
+    internal static MetadataReference[] BuildBaselineReferences()
+    {
+        // Collect unique assembly locations
+        var locations = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        void Add(Type t)
+        {
+            var loc = t.Assembly.Location;
+            if (!string.IsNullOrWhiteSpace(loc))
+            {
+                _ = locations.Add(loc); // capture return to satisfy analyzer
+            }
+        }
+
+        // Seed core & always-required assemblies
+        Add(typeof(object));                                                              // System.Private.CoreLib
+        Add(typeof(Enumerable));                                                          // System.Linq
+        Add(typeof(HttpContext));                                                         // Microsoft.AspNetCore.Http
+        Add(typeof(Console));                                                             // System.Console
+        Add(typeof(StringBuilder));                                                       // System.Text
+        Add(typeof(Serilog.Log));                                                         // Serilog
+        Add(typeof(ClaimsPrincipal));                                                     // System.Security.Claims
+        Add(typeof(ClaimsIdentity));                                                      // System.Security.Claims
+        Add(typeof(System.Security.Cryptography.X509Certificates.X509Certificate2));      // X509 Certificates
+
+        // Snapshot loaded assemblies once
+        var loadedAssemblies = AppDomain.CurrentDomain
+            .GetAssemblies()
+            .Where(a => !a.IsDynamic && !string.IsNullOrWhiteSpace(a.Location))
+            .ToArray();
+
+        // Attempt to bind each namespace in PlatformImports to a loaded assembly
+        foreach (var ns in PlatformImports)
+        {
+            foreach (var asm in loadedAssemblies)
+            {
+                if (locations.Contains(asm.Location))
+                {
+                    continue; // already referenced
+                }
+                if (NamespaceExistsInAssembly(asm, ns))
+                {
+                    _ = locations.Add(asm.Location); // capture return to satisfy analyzer
+                }
+            }
+        }
+
+        // Explicitly ensure critical assemblies needed for dynamic auth / razor / encodings even if not yet scanned
+        Add(typeof(Microsoft.AspNetCore.Authentication.JwtBearer.JwtBearerDefaults));
+        Add(typeof(Microsoft.AspNetCore.Authentication.Cookies.CookieAuthenticationDefaults));
+        Add(typeof(Microsoft.AspNetCore.Authentication.OpenIdConnect.OpenIdConnectDefaults));
+        Add(typeof(Microsoft.AspNetCore.Authentication.Negotiate.NegotiateDefaults));
+        Add(typeof(Microsoft.AspNetCore.Mvc.Razor.RazorPageBase));
+        Add(typeof(System.Text.Encodings.Web.HtmlEncoder));
+
+        return [.. locations
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Select(loc => MetadataReference.CreateFromFile(loc))];
+    }
+
+    private static bool NamespaceExistsInAssembly(Assembly asm, string @namespace)
+    {
+        try
+        {
+            // Using DefinedTypes to avoid loading reflection-only contexts; guard against type load issues.
+            foreach (var t in asm.DefinedTypes)
+            {
+                var ns = t.Namespace;
+                if (ns == null)
+                {
+                    continue;
+                }
+                if (ns.Equals(@namespace, StringComparison.Ordinal) || ns.StartsWith(@namespace + ".", StringComparison.Ordinal))
+                {
+                    return true;
+                }
+            }
+        }
+        catch (ReflectionTypeLoadException)
+        {
+            // Ignore partially loadable assemblies; namespace absence treated as false.
+        }
+        return false;
+    }
+
+    // Ordered & de-duplicated platform / framework imports used for dynamic script compilation.
+    internal static string[] PlatformImports = [
+        "Kestrun.Languages",
+        "Microsoft.AspNetCore.Authentication",
+        "Microsoft.AspNetCore.Authentication.Cookies",
+        "Microsoft.AspNetCore.Authentication.JwtBearer",
+        "Microsoft.AspNetCore.Authentication.Negotiate",
+        "Microsoft.AspNetCore.Authentication.OpenIdConnect",
+        "Microsoft.AspNetCore.Authorization",
+        "Microsoft.AspNetCore.Http",
+        "Microsoft.AspNetCore.Mvc",
+        "Microsoft.AspNetCore.Mvc.RazorPages",
+        // "Microsoft.AspNetCore.Mvc.Razor.RuntimeCompilation".
+        "Microsoft.AspNetCore.Server.Kestrel.Core",
+        "Microsoft.AspNetCore.SignalR",
+        "Microsoft.CodeAnalysis",
+        "Microsoft.CodeAnalysis.CSharp",
+        "Microsoft.CodeAnalysis.CSharp.Scripting",
+        "Microsoft.CodeAnalysis.Scripting",
+        "Microsoft.Extensions.FileProviders",
+        "Microsoft.Extensions.Logging",
+        "Microsoft.Extensions.Options",
+        "Microsoft.Extensions.Primitives",
+        "Microsoft.IdentityModel.Tokens",
+        "Microsoft.PowerShell",
+        "Microsoft.VisualBasic",
+        "Serilog",
+        "Serilog.Events",
+        "System",
+        "System.Collections",
+        "System.Collections.Generic",
+        "System.Collections.Immutable",
+        "System.IO",
+        "System.Linq",
+        "System.Management.Automation",
+        "System.Management.Automation.Runspaces",
+        "System.Net",
+        "System.Net.Http.Headers",
+        "System.Reflection",
+        "System.Runtime.InteropServices",
+        "System.Security.Claims",
+        "System.Security.Cryptography.X509Certificates",
+        "System.Text",
+        "System.Text.Encodings.Web",
+        "System.Text.RegularExpressions",
+        "System.Threading.Tasks"
+    ];
 }

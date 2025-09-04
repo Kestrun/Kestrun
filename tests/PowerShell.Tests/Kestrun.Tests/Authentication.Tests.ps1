@@ -207,7 +207,7 @@ BeforeAll {
         -ClaimPolicy $claimConfig -Cookie $cookie
 
     # Enable configuration
-    Enable-KrConfiguration
+    Enable-KrConfiguration -Quiet
 
     <#
 ***************************************************************************************

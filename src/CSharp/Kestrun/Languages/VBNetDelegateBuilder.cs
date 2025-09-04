@@ -260,26 +260,24 @@ internal static class VBNetDelegateBuilder
         // non-existent path.  Roslyn's MetadataReference.CreateFromFile will throw FileNotFoundException
         // in that scenario.  We therefore skip any loaded assemblies whose Location no longer exists.
         var baseRefs = AppDomain.CurrentDomain.GetAssemblies()
-            .Where(a =>
-                !a.IsDynamic &&
-                SafeHasLocation(a))
+            .Where(a => !a.IsDynamic && SafeHasLocation(a))
             .Select(a => MetadataReference.CreateFromFile(a.Location));
 
         var extras = extraRefs?.Select(r => MetadataReference.CreateFromFile(r.Location))
-                    ?? Enumerable.Empty<MetadataReference>();
+                     ?? Enumerable.Empty<MetadataReference>();
 
+        // Always include the VB runtime explicitly then add our common baseline references.
         return baseRefs
             .Concat(extras)
             .Append(MetadataReference.CreateFromFile(typeof(Microsoft.VisualBasic.Constants).Assembly.Location))
-            .Append(MetadataReference.CreateFromFile(typeof(object).Assembly.Location))            // System.Private.CoreLib
-            .Append(MetadataReference.CreateFromFile(typeof(Enumerable).Assembly.Location))        // System.Linq
-            .Append(MetadataReference.CreateFromFile(typeof(HttpContext).Assembly.Location))       // Microsoft.AspNetCore.Http
-            .Append(MetadataReference.CreateFromFile(typeof(Console).Assembly.Location))          // System.Console
-            .Append(MetadataReference.CreateFromFile(typeof(Serilog.Log).Assembly.Location))       // Serilog
-            .Append(MetadataReference.CreateFromFile(typeof(ClaimsPrincipal).Assembly.Location))   // System.Security.Claims
-            .Append(MetadataReference.CreateFromFile(typeof(System.Security.Cryptography.X509Certificates.X509Certificate2).Assembly.Location)); // X509
+            .Concat(DelegateBuilder.BuildBaselineReferences());
     }
 
+    /// <summary>
+    /// Collects dynamic imports from the types of the provided locals and shared globals.
+    /// </summary>
+    /// <param name="locals">The local variables to inspect.</param>
+    /// <returns>A set of unique namespace strings.</returns>
     private static HashSet<string> CollectDynamicImports(IReadOnlyDictionary<string, object?>? locals)
     {
         var imports = new HashSet<string>(StringComparer.Ordinal);
@@ -431,8 +429,7 @@ internal static class VBNetDelegateBuilder
         "Kestrun", "Kestrun.Models",
           "Microsoft.VisualBasic",
           "Kestrun.Languages"
-          };
-
+        };
 
         foreach (var ns in builtIns.Concat(extraImports ?? [])
                                    .Distinct(StringComparer.Ordinal))

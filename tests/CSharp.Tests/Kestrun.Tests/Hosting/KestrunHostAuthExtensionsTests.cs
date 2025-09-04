@@ -225,7 +225,7 @@ public class KestrunHostAuthExtensionsTests
             opts.IssueClaimsCodeSettings = new AuthenticationCodeSettings
             {
                 Language = Kestrun.Scripting.ScriptLanguage.CSharp,
-                Code = "new [] { new Claim(ClaimTypes.Name, identity) }"
+                Code = "new [] { new System.Security.Claims.Claim(System.Security.Claims.ClaimTypes.Name, identity) }"
             };
         });
 
@@ -309,7 +309,7 @@ public class KestrunHostAuthExtensionsTests
             opts.IssueClaimsCodeSettings = new AuthenticationCodeSettings
             {
                 Language = Kestrun.Scripting.ScriptLanguage.CSharp,
-                Code = "new [] { new Claim(ClaimTypes.Name, identity) }"
+                Code = "new [] { new System.Security.Claims.Claim(System.Security.Claims.ClaimTypes.Name, identity) }"
             };
         });
 

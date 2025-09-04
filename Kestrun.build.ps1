@@ -61,7 +61,7 @@ param(
     [ValidateSet('net8.0', 'net9.0', 'net10.0')]
     [string[]]$Frameworks = @('net8.0', 'net9.0'),
     [Parameter(Mandatory = $true, ParameterSetName = 'Version')]
-    [string]$script:Version,
+    [string]$Version,
     [Parameter(Mandatory = $false, ParameterSetName = 'Version')]
     [string]$Iteration = '',
     [Parameter(Mandatory = $false, ParameterSetName = 'FileVersion')]
@@ -88,6 +88,40 @@ if (($null -eq $PSCmdlet.MyInvocation) -or ([string]::IsNullOrEmpty($PSCmdlet.My
 . ./Utility/Helper.ps1
 
 $SolutionPath = Join-Path -Path $PSScriptRoot -ChildPath "Kestrun.sln"
+
+Write-Host '---------------------------------------------------' -ForegroundColor DarkCyan
+if (-not $Version) {
+    if ($PSCmdlet.ParameterSetName -eq 'FileVersion') {
+        $Version = Get-Version -FileVersion $FileVersion
+    } elseif ($PSCmdlet.ParameterSetName -eq 'Version') {
+        if (-not (Test-Path -Path $FileVersion)) {
+            [ordered]@{
+                Version = $Version
+                Release = $Release
+                Iteration = $Iteration
+            } | ConvertTo-Json | Set-Content -Path $FileVersion
+        }
+        $Version = Get-Version -FileVersion $FileVersion
+    } else {
+        throw "Invalid parameter set. Use either 'FileVersion' or 'Version'."
+    }
+}
+# Display the Kestrun build version
+if ($Prerelease) {
+    Write-Host "Kestrun Build: v$Version-$Prerelease (Pre-release)" -ForegroundColor DarkCyan
+} else {
+    if ($Version -eq '0.0.0') {
+        Write-Host 'Kestrun Build: [Development Version]' -ForegroundColor DarkCyan
+    } else {
+        Write-Host "Kestrun Build: v$Version" -ForegroundColor DarkCyan
+    }
+}
+
+# Display the current UTC time in a readable format
+$utcTime = (Get-Date).ToUniversalTime().ToString("yyyy-MM-dd HH:mm:ss 'UTC'")
+Write-Host "Start Time: $utcTime" -ForegroundColor DarkCyan
+
+Write-Host '---------------------------------------------------' -ForegroundColor DarkCyan
 
 # Load the InvokeBuild module
 Add-BuildTask Default Help
@@ -139,25 +173,25 @@ Add-BuildTask 'Restore' {
 
 Add-BuildTask 'BuildNoPwsh' {
     Write-Host '🔨 Building solution...'
-    if (-not $script:Version) {
+    <#   if (-not $Version) {
         if ($PSCmdlet.ParameterSetName -eq 'FileVersion') {
-            $script:Version = Get-Version -FileVersion $FileVersion
+            $Version = Get-Version -FileVersion $FileVersion
         } elseif ($PSCmdlet.ParameterSetName -eq 'Version') {
             if (-not (Test-Path -Path $FileVersion)) {
                 [ordered]@{
-                    Version = $script:Version
+                    Version = $Version
                     Release = $Release
                     Iteration = $Iteration
                 } | ConvertTo-Json | Set-Content -Path $FileVersion
             }
-            $script:Version = Get-Version -FileVersion $FileVersion
+            $Version = Get-Version -FileVersion $FileVersion
         } else {
             throw "Invalid parameter set. Use either 'FileVersion' or 'Version'."
         }
-    }
+    }#>
 
     foreach ($framework in $Frameworks) {
-        dotnet build "$SolutionPath" -c $Configuration -f $framework -v:$DotNetVerbosity -p:Version=$script:Version -p:InformationalVersion=$InformationalVersion
+        dotnet build "$SolutionPath" -c $Configuration -f $framework -v:$DotNetVerbosity -p:Version=$Version -p:InformationalVersion=$InformationalVersion
         if ($LASTEXITCODE -ne 0) {
             throw "dotnet build failed for framework $framework"
         }
@@ -232,9 +266,11 @@ Add-BuildTask 'Kestrun.Tests' {
 
 Add-BuildTask 'Format' {
     Write-Host '✨ Formatting code...'
-    dotnet format "$SolutionPath" -v:$DotNetVerbosity
+ #   dotnet format "$SolutionPath" -v:$DotNetVerbosity
 
-    $root = Join-Path $PSScriptRoot 'src/PowerShell/Kestrun'
+    & .\Utility\Normalize-Files.ps1 -Root (Join-Path -Path $PSScriptRoot -ChildPath 'src' -AdditionalChildPath "PowerShell" , "Kestrun")
+
+    <# $root = Join-Path $PSScriptRoot 'src/PowerShell/Kestrun'
     $skip = @('bin', 'obj', '.git', '.vs', 'node_modules', 'vendor', 'coverage')
 
     Get-ChildItem -Path $root -Recurse -File -Include *.ps1, *.psm1, *.psd1 |
@@ -262,7 +298,7 @@ Add-BuildTask 'Format' {
                 [System.IO.File]::WriteAllText($file, $fixed, $utf8NoBom)
                 Write-Host "🔧 Wrote UTF-8 BOM Normalized (LF + trimmed): $file"
             }
-        }
+        }#>
 }
 
 
@@ -315,7 +351,7 @@ Add-BuildTask 'Test' 'Kestrun.Tests', 'Test-Pester'
 Add-BuildTask 'Package' "Clean", {
     Write-Host '🚀 Starting release build...'
     if ($PSCmdlet.ParameterSetName -eq 'FileVersion') {
-        $script:Version = Get-Version -FileVersion $FileVersion
+        $Version = Get-Version -FileVersion $FileVersion
     } else {
         throw "FileVersion parameter is required"
     }
@@ -323,18 +359,18 @@ Add-BuildTask 'Package' "Clean", {
 }, 'Restore', 'Build', 'Test', {
     # Retrieve the short commit SHA from Git
     $commit = (git rev-parse --short HEAD).Trim()
-    $InformationalVersion = "$($script:Version)+$commit"
+    $InformationalVersion = "$($Version)+$commit"
 
     $out = Join-Path -Path $PWD -ChildPath "artifacts" -AdditionalChildPath "$script:Configuration"
     dotnet pack src/CSharp/Kestrun/Kestrun.csproj -c $script:Configuration -o (Join-Path -Path $out -ChildPath "nuget") `
-        -p:Version=$script:Version -p:InformationalVersion=$InformationalVersion `
+        -p:Version=$Version -p:InformationalVersion=$InformationalVersion `
         -p:IncludeSymbols=true -p:SymbolPackageFormat=snupkg
     if ($LASTEXITCODE -ne 0) {
         Write-Host "❌ Failed to pack Kestrun" -ForegroundColor Red
         throw "Failed to pack Kestrun"
     }
     $powershellGallery = New-Item -ItemType Directory -Force -Path (Join-Path -Path $out -ChildPath "PowershellGallery")
-    $zip = Join-Path -Path $powershellGallery -ChildPath("Kestrun-PSModule-$($script:Version).zip")
+    $zip = Join-Path -Path $powershellGallery -ChildPath("Kestrun-PSModule-$($Version).zip")
     Compress-Archive -Path "src/PowerShell/Kestrun/*" -DestinationPath $zip -Force
     if ($LASTEXITCODE -ne 0) {
         Write-Host "❌ Failed to create $zip" -ForegroundColor Red

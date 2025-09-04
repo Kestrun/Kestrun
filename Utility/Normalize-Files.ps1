@@ -68,7 +68,16 @@ function Get-GitMeta {
     }
 }
 
-# returns a match ONLY if the first <# ... #> block looks like our file header
+<#
+    .SYNOPSIS
+        Checks if a given text contains an existing file header match.
+    .DESCRIPTION
+        This function checks if the provided text contains a file header that matches the expected format for Kestrun files.
+    .PARAMETER Text
+        The text content to check for an existing file header.
+    .OUTPUTS
+        Returns a regex match object if a valid file header is found; otherwise, returns $null.
+#>
 function Get-ExistingFileHeaderMatch {
     param([string]$Text)
     # match the very first block comment at BOF
@@ -118,19 +127,19 @@ Get-ChildItem -Path $Root -Recurse -File -Include *.ps1, *.psm1, *.psd1 |
         } else { $today }
 
         $headerText = @"
-<#
-    File:      $relPath
-
-    Created:   $createdDate
-    $modifiedLine
-
-    Notes:
-        This file is part of the Kestrun framework.
-        https://www.kestrun.dev
-
-    License:
-        MIT License - See LICENSE.txt file in the project root for the full license information.
-#>
+#------------------------------------------
+#   File:      $relPath
+#
+#   Created:   $createdDate
+#   $modifiedLine
+#
+#   Notes:
+#       This file is part of the Kestrun framework.
+#       https://www.kestrun.dev
+#
+#   License:
+#       MIT License - See LICENSE.txt file in the project root for more information.
+#------------------------------------------
 "@
 
         # Remove ONLY our file header if present; otherwise keep whatever is there (e.g., <# .SYNOPSIS #>)

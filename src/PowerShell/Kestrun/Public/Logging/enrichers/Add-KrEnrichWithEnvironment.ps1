@@ -1,4 +1,4 @@
-<#
+﻿<#
     .SYNOPSIS
         Adds environment information to the log context.
     .DESCRIPTION

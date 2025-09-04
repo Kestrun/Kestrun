@@ -1,4 +1,4 @@
-<#
+﻿<#
     .SYNOPSIS
         Creates a new instance of the Kestrun.Hosting.Options.MapRouteOptions class.
     .DESCRIPTION

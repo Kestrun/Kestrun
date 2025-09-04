@@ -1,4 +1,4 @@
-<#
+﻿<#
     .SYNOPSIS
         Adds Razor Pages service to the server.
     .DESCRIPTION
@@ -68,3 +68,4 @@ function Add-KrRazorPageService {
         }
     }
 }
+

@@ -1,4 +1,4 @@
-<#
+﻿<#
     .SYNOPSIS
         Starts the Kestrun logger.
     .DESCRIPTION

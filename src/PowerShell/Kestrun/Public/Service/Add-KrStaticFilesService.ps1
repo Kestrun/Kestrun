@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Registers a static file server to serve files from a specified path.
 .DESCRIPTION
@@ -117,3 +117,4 @@ function Add-KrStaticFilesService {
         }
     }
 }
+

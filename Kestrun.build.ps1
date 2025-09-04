@@ -235,9 +235,9 @@ Add-BuildTask 'Format' {
     dotnet format "$SolutionPath" -v:$DotNetVerbosity
 
     $root = Join-Path $PSScriptRoot 'src/PowerShell/Kestrun'
-    $skip = @('bin','obj','.git','.vs','node_modules','vendor','coverage')
+    $skip = @('bin', 'obj', '.git', '.vs', 'node_modules', 'vendor', 'coverage')
 
-    Get-ChildItem -Path $root -Recurse -File -Include *.ps1,*.psm1,*.psd1 |
+    Get-ChildItem -Path $root -Recurse -File -Include *.ps1, *.psm1, *.psd1 |
         Where-Object { $skip -notcontains $_.Directory.Name } |
         ForEach-Object {
             $file = $_.FullName
@@ -258,9 +258,9 @@ Add-BuildTask 'Format' {
             $fixed = [regex]::Replace($fixed, '\n*\z', "`n")
 
             if ($fixed -ne $text) {
-                $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
+                $utf8NoBom = [System.Text.UTF8Encoding]::new($true)
                 [System.IO.File]::WriteAllText($file, $fixed, $utf8NoBom)
-                Write-Host "🔧 Normalized (LF + trimmed): $file"
+                Write-Host "🔧 Wrote UTF-8 BOM Normalized (LF + trimmed): $file"
             }
         }
 }

@@ -1,4 +1,4 @@
-<#
+﻿<#
     .SYNOPSIS
         Adds a favicon to the Kestrun server.
     .DESCRIPTION

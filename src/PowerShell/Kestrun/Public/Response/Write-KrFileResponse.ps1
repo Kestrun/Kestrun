@@ -1,4 +1,4 @@
-<#
+﻿<#
     .SYNOPSIS
         Sends a file as the HTTP response.
 
@@ -69,3 +69,4 @@ function Write-KrFileResponse {
         Write-KrErrorLog -Message 'Error writing file response.' -ErrorRecord $_
     }
 }
+

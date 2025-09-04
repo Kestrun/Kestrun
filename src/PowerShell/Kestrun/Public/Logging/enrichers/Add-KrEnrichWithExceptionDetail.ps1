@@ -1,4 +1,4 @@
-<#
+﻿<#
     .SYNOPSIS
         Adds exception details to the log context.
     .DESCRIPTION
@@ -27,3 +27,4 @@ function Add-KrEnrichWithExceptionDetail {
         return $LoggerConfig
     }
 }
+

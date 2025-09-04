@@ -1,4 +1,4 @@
-
+﻿
 <#
     .SYNOPSIS
         Resolves a file path relative to the Kestrun root or a specified base path.
@@ -81,3 +81,4 @@ function Resolve-KrPath {
         return $full
     }
 }
+

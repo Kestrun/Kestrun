@@ -1,4 +1,4 @@
-<#
+﻿<#
     .SYNOPSIS
         Adds a named scriptblock to the specified scope, allowing retrieval via a getter function.
     .DESCRIPTION

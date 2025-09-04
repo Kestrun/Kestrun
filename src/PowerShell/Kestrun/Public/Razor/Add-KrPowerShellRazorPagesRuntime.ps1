@@ -1,4 +1,4 @@
-<#
+﻿<#
     .SYNOPSIS
     Adds PowerShell support for Razor Pages.
     .DESCRIPTION
@@ -50,3 +50,4 @@ function Add-KrPowerShellRazorPagesRuntime {
         }
     }
 }
+

@@ -1,4 +1,4 @@
-<#
+﻿<#
     .SYNOPSIS
         Gets the logger for the current session.
     .DESCRIPTION
@@ -33,3 +33,4 @@ function Get-KrDefaultLogger {
     }
     return [Kestrun.Logging.LoggerManager]::DefaultLogger
 }
+

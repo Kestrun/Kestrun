@@ -1,4 +1,4 @@
-<#
+﻿<#
     .SYNOPSIS
       Retrieves Kestrun commands based on their context.
     .DESCRIPTION
@@ -102,3 +102,4 @@ function Get-KrCommandsByContext {
         if (& $match $m) { $c }
     }
 }
+

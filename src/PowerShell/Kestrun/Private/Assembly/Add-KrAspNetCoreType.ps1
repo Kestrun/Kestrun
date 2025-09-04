@@ -1,4 +1,4 @@
-<#
+﻿<#
     .SYNOPSIS
         Loads required ASP.NET Core assemblies for PowerShell usage.
     .PARAMETER Version
@@ -63,3 +63,4 @@ function Add-KrAspNetCoreType {
 
     throw "Microsoft.AspNetCore.App version $Version not found in $baseDir."
 }
+

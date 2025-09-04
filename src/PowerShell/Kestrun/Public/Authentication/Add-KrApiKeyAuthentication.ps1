@@ -1,4 +1,4 @@
-<#
+﻿<#
     .SYNOPSIS
         Adds API key authentication to the Kestrun server.
     .DESCRIPTION
@@ -387,3 +387,4 @@ function Add-KrApiKeyAuthentication {
         }
     }
 }
+

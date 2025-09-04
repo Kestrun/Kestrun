@@ -1,4 +1,4 @@
-<#
+﻿<#
     .SYNOPSIS
         Writes CSV data to the HTTP response body.
     .DESCRIPTION
@@ -36,3 +36,4 @@ function Write-KrCsvResponse {
         $Context.Response.WriteCsvResponse($InputObject, $StatusCode, $ContentType, $CsvConfiguration)
     }
 }
+

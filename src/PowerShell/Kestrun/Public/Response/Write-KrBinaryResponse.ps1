@@ -1,4 +1,4 @@
-<#
+﻿<#
     .SYNOPSIS
         Writes binary data directly to the HTTP response body.
     .DESCRIPTION

@@ -1,4 +1,4 @@
-<#
+﻿<#
     .SYNOPSIS
         Creates a new instance of Serilog.LoggerConfiguration.
     .DESCRIPTION
@@ -22,3 +22,4 @@ function New-KrLogger {
     param()
     return [Serilog.LoggerConfiguration]::New()
 }
+

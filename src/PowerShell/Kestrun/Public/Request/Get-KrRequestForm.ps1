@@ -1,4 +1,4 @@
-<#
+﻿<#
     .SYNOPSIS
         Retrieves a request form value from the HTTP request.
     .DESCRIPTION

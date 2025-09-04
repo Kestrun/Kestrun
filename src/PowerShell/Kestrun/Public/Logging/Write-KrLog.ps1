@@ -1,4 +1,4 @@
-<#
+﻿<#
     .SYNOPSIS
         Logs a message with the specified log level and parameters.
     .DESCRIPTION
@@ -125,3 +125,4 @@ function Write-KrLog {
         throw $_
     }
 }
+

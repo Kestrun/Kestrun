@@ -1,4 +1,4 @@
-<#
+﻿<#
     .SYNOPSIS
         Enriches log events with ErrorRecord property if available.
     .DESCRIPTION
@@ -30,3 +30,4 @@ function Add-KrEnrichWithErrorRecord {
         $LoggerConfig
     }
 }
+

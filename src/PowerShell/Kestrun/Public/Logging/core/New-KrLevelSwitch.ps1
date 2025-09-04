@@ -1,4 +1,4 @@
-<#
+﻿<#
     .SYNOPSIS
         Creates a new level switch for controlling the minimum logging level.
     .DESCRIPTION
@@ -40,3 +40,4 @@ function New-KrLevelSwitch {
 
     return $levelSwitch
 }
+

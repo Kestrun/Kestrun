@@ -1,4 +1,4 @@
-<#
+﻿<#
     .SYNOPSIS
         Writes an object serialized as BSON to the HTTP response.
     .DESCRIPTION
@@ -31,3 +31,4 @@ function Write-KrBsonResponse {
         $Context.Response.WriteBsonResponse($InputObject, $StatusCode, $ContentType)
     }
 }
+

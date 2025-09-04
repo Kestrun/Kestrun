@@ -1,4 +1,4 @@
-<#
+﻿<#
     .SYNOPSIS
         Writes an HTML response to the HTTP response body.
     .DESCRIPTION
@@ -59,3 +59,4 @@ function Write-KrHtmlResponse {
         Write-KrErrorLog -Message 'Error writing file response.' -ErrorRecord $_
     }
 }
+

@@ -1,4 +1,4 @@
-<#
+﻿<#
     .SYNOPSIS
         Returns modules imported by the user session.
 
@@ -32,3 +32,4 @@ function Get-KrUserImportedModule {
         -not ($isInbox -or $isVSCode -or $isMSPSSpace)
     }
 }
+

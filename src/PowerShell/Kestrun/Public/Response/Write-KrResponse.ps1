@@ -1,4 +1,4 @@
-<#
+﻿<#
     .SYNOPSIS
         Writes a response to the HTTP client.
     .DESCRIPTION

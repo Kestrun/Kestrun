@@ -1,4 +1,4 @@
-<#
+﻿<#
     .SYNOPSIS
         Configures advanced options and operational limits for a Kestrun server instance.
     .DESCRIPTION
@@ -114,3 +114,4 @@ function Set-KrServerOption {
         }
     }
 }
+

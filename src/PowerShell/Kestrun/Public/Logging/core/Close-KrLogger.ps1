@@ -1,4 +1,4 @@
-<#
+﻿<#
     .SYNOPSIS
         Closes the logger and flushes all logs.
     .DESCRIPTION
@@ -32,3 +32,4 @@ function Close-KrLogger {
         }
     }
 }
+

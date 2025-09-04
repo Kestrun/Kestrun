@@ -1,4 +1,4 @@
-<#
+﻿<#
     .SYNOPSIS
         Adds cookie authentication to the Kestrun server.
     .DESCRIPTION
@@ -94,3 +94,4 @@ function Add-KrCookiesAuthentication {
         }
     }
 }
+

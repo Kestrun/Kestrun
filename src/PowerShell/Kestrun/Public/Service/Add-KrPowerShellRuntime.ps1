@@ -1,4 +1,4 @@
-<#
+﻿<#
     .SYNOPSIS
         Adds PowerShell runtime support to the Kestrun server.
     .DESCRIPTION

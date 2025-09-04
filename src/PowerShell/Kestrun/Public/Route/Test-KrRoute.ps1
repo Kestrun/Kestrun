@@ -1,4 +1,4 @@
-<#
+﻿<#
     .SYNOPSIS
         Tests if a route exists in the Kestrun host.
     .DESCRIPTION
@@ -33,3 +33,4 @@ function Test-KrRoute {
 
     return [Kestrun.Hosting.KestrunHostMapExtensions]::MapExists($Server, $Pattern, $Verbs)
 }
+

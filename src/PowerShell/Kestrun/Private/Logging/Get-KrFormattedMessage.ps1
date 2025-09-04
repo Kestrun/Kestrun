@@ -1,4 +1,4 @@
-<#
+﻿<#
     .SYNOPSIS
         Formats a log message for the specified logger and log level.
     .DESCRIPTION
@@ -57,3 +57,4 @@ function Get-KrFormattedMessage {
         $message
     }
 }
+

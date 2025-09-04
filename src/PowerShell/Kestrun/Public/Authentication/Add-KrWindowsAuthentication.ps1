@@ -1,4 +1,4 @@
-<#
+﻿<#
     .SYNOPSIS
         Adds Windows authentication to the Kestrun server.
     .DESCRIPTION
@@ -41,3 +41,4 @@ function Add-KrWindowsAuthentication {
         }
     }
 }
+

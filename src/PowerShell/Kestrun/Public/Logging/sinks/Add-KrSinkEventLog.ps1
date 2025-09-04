@@ -1,4 +1,4 @@
-<#
+﻿<#
     .SYNOPSIS
         Adds an Event Log sink to the Serilog logger configuration.
     .DESCRIPTION
@@ -77,3 +77,4 @@ function Add-KrSinkEventLog {
         return $LoggerConfig
     }
 }
+

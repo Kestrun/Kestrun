@@ -1,4 +1,4 @@
-<#
+﻿<#
     .SYNOPSIS
         Creates a PEM-encoded CSR (and returns the private key).
 
@@ -70,3 +70,4 @@ function New-KsCertificateRequest {
     )
     return [Kestrun.Certificates.CertificateManager]::NewCertificateRequest($opts)
 }
+

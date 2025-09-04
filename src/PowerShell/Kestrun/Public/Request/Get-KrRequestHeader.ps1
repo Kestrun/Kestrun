@@ -1,4 +1,4 @@
-<#
+﻿<#
     .SYNOPSIS
         Retrieves a request header value from the HTTP request.
     .DESCRIPTION

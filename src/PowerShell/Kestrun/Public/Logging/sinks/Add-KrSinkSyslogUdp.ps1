@@ -1,4 +1,4 @@
-<#
+﻿<#
     .SYNOPSIS
         Adds a Syslog UDP sink to the Serilog logger configuration.
     .DESCRIPTION
@@ -76,3 +76,4 @@ function Add-KrSinkSyslogUdp {
         return $LoggerConfig
     }
 }
+

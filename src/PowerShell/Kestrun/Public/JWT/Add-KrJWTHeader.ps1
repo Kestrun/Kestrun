@@ -1,4 +1,4 @@
-<#
+﻿<#
     .SYNOPSIS
         Adds a header to the JWT token builder.
     .DESCRIPTION

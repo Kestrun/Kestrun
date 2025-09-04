@@ -1,4 +1,4 @@
-<#
+﻿<#
     .SYNOPSIS
         Writes log events to the PowerShell host.
     .DESCRIPTION
@@ -34,3 +34,4 @@ function Write-KrSinkPowerShell {
         }
     }
 }
+

@@ -1,4 +1,4 @@
-<#
+﻿<#
     .SYNOPSIS
       Find variables that are *defined/assigned* in a scriptblock and (optionally) fetch their values.
     .DESCRIPTION

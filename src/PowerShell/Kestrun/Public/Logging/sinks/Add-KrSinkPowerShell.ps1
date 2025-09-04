@@ -1,4 +1,4 @@
-<#
+﻿<#
     .SYNOPSIS
         Adds a PowerShell sink to the logger configuration.
     .DESCRIPTION
@@ -58,3 +58,4 @@ function Add-KrSinkPowerShell {
         return $LoggerConfig
     }
 }
+

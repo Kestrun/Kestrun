@@ -1,4 +1,4 @@
-
+﻿
 <#
     .SYNOPSIS
         Adds a claim to the JWT token builder.
@@ -48,3 +48,4 @@ function Add-KrJWTClaim {
         return $Builder.AddClaim($ClaimType, $Value)
     }
 }
+

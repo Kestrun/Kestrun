@@ -1,4 +1,4 @@
-<#
+﻿<#
     .SYNOPSIS
         Writes Verbose log message
     .DESCRIPTION
@@ -69,3 +69,4 @@ function Write-KrVerboseLog {
         Write-KrLog -LogLevel Verbose -Name $Name -Message $Message -Exception $Exception -ErrorRecord $ErrorRecord -Values $Values -PassThru:$PassThru
     }
 }
+

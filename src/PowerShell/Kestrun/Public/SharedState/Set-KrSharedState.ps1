@@ -1,4 +1,4 @@
-<#
+﻿<#
     .SYNOPSIS
         Defines or updates a global variable accessible across Kestrun scripts.
 
@@ -46,3 +46,4 @@ function Set-KrSharedState {
         )
     }
 }
+

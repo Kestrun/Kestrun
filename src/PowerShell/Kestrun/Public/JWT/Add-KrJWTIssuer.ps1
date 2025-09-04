@@ -1,4 +1,4 @@
-<#
+﻿<#
     .SYNOPSIS
         Adds an issuer to the JWT token builder.
     .DESCRIPTION
@@ -33,3 +33,4 @@ function Add-KrJWTIssuer {
         return $Builder.WithIssuer($Issuer)
     }
 }
+

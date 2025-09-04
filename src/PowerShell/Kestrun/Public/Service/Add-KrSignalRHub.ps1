@@ -1,4 +1,4 @@
-<#
+﻿<#
     .SYNOPSIS
         Maps a SignalR hub class to the given URL path.
     .DESCRIPTION

@@ -1,4 +1,4 @@
-<#
+﻿<#
     .SYNOPSIS
         Selects which CPython runtime pythonnet will embed.
 
@@ -81,3 +81,4 @@ function Set-KrPythonRuntime {
 
     return $Path
 }
+

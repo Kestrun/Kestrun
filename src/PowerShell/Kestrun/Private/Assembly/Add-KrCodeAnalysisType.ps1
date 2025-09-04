@@ -1,4 +1,4 @@
-<#
+﻿<#
     .SYNOPSIS
         Adds the specified version of the Microsoft.CodeAnalysis assemblies to the session.
     .DESCRIPTION

@@ -1,4 +1,4 @@
-<#
+﻿<#
     .SYNOPSIS
         Adds a new HTML template route to the Kestrun server.
 

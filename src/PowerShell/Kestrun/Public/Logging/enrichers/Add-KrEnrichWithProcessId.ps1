@@ -1,4 +1,4 @@
-<#
+﻿<#
     .SYNOPSIS
         Adds the process ID to the log context.
     .DESCRIPTION
@@ -29,3 +29,4 @@ function Add-KrEnrichWithProcessId {
         $loggerConfig
     }
 }
+

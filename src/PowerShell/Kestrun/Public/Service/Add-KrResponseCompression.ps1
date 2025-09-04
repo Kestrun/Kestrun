@@ -1,4 +1,4 @@
-<#
+﻿<#
     .SYNOPSIS
         Adds response compression to the server.
     .DESCRIPTION
@@ -79,3 +79,4 @@ function Add-KrResponseCompression {
         }
     }
 }
+

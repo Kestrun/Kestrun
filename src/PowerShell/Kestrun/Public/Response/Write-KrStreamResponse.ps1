@@ -1,4 +1,4 @@
-<#
+﻿<#
     .SYNOPSIS
         Writes a stream directly to the HTTP response body.
     .DESCRIPTION
@@ -32,3 +32,4 @@ function Write-KrStreamResponse {
         $Context.Response.WriteStreamResponse($InputObject, $StatusCode, $ContentType)
     }
 }
+

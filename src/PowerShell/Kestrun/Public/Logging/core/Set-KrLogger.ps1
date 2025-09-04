@@ -1,4 +1,4 @@
-<#
+﻿<#
     .SYNOPSIS
         Sets the logger for the current session.
     .DESCRIPTION
@@ -30,3 +30,4 @@ function Set-KrDefaultLogger {
         [Kestrun.Logging.LoggerManager]::DefaultLogger = [Kestrun.Logging.LoggerManager]::Get($Name)
     }
 }
+

@@ -1,4 +1,4 @@
-<#
+﻿<#
     .SYNOPSIS
         Retrieves the context mask for a Kestrun function.
     .DESCRIPTION

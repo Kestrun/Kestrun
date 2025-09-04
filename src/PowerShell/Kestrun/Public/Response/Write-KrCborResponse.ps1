@@ -1,4 +1,4 @@
-<#
+﻿<#
     .SYNOPSIS
         Writes an object serialized as CBOR to the HTTP response.
     .DESCRIPTION

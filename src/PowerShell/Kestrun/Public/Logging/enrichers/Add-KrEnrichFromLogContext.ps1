@@ -1,4 +1,4 @@
-<#
+﻿<#
     .SYNOPSIS
         Enriches log events with properties from LogContext
     .DESCRIPTION
@@ -24,3 +24,4 @@ function Add-KrEnrichFromLogContext {
         $LoggerConfig.Enrich.FromLogContext()
     }
 }
+

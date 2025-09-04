@@ -1,4 +1,4 @@
-<#
+﻿<#
     .SYNOPSIS
         Exports an X509Certificate2 to PFX or PEM(+key).
     .DESCRIPTION

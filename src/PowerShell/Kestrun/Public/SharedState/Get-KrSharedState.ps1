@@ -1,4 +1,4 @@
-<#
+﻿<#
     .SYNOPSIS
         Retrieves the value of a previously defined global variable.
     .DESCRIPTION
@@ -26,3 +26,4 @@ function Get-KrSharedState {
         return [Kestrun.SharedState.SharedStateStore]::Get($Name)
     }
 }
+

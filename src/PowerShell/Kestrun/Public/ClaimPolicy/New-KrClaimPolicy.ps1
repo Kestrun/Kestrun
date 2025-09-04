@@ -1,4 +1,4 @@
-<#
+﻿<#
     .SYNOPSIS
         Creates a new claim policy builder instance.
     .DESCRIPTION
@@ -22,3 +22,4 @@ function New-KrClaimPolicy {
     param( )
     return [Kestrun.Claims.ClaimPolicyBuilder]::new()
 }
+

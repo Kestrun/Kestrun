@@ -1,4 +1,4 @@
-<#
+﻿<#
     .SYNOPSIS
         Retrieves the JWT token from the builder result.
     .DESCRIPTION

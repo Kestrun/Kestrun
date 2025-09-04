@@ -1,4 +1,4 @@
-<#
+﻿<#
     .SYNOPSIS
         Adds a new map route to the Kestrun server.
     .DESCRIPTION

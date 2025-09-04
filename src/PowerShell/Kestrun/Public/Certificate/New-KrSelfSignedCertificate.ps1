@@ -1,4 +1,4 @@
-<#
+﻿<#
     .SYNOPSIS
         Creates a new self-signed certificate.
     .DESCRIPTION
@@ -57,3 +57,4 @@ function New-KrSelfSignedCertificate {
 
     return [Kestrun.Certificates.CertificateManager]::NewSelfSigned($opts)
 }
+

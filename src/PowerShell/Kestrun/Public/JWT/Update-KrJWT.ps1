@@ -1,4 +1,4 @@
-<#
+﻿<#
     .SYNOPSIS
         Updates an existing JWT token.
     .DESCRIPTION

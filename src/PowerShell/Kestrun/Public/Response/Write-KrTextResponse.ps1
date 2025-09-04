@@ -1,4 +1,4 @@
-<#
+﻿<#
     .SYNOPSIS
         Writes plain text to the HTTP response body.
 
@@ -40,3 +40,4 @@ function Write-KrTextResponse {
         $Context.Response.WriteTextResponse($InputObject, $StatusCode, $ContentType)
     }
 }
+

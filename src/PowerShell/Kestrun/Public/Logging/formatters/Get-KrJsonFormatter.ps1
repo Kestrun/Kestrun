@@ -1,4 +1,4 @@
-<#
+﻿<#
     .SYNOPSIS
         Returns new instance of Serilog.Formatting.Json.JsonFormatter.
     .DESCRIPTION
@@ -17,3 +17,4 @@ function Get-KrJsonFormatter {
     param()
     [Serilog.Formatting.Json.JsonFormatter]::new()
 }
+

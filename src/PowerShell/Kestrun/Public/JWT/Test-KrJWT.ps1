@@ -1,4 +1,4 @@
-<#
+﻿<#
     .SYNOPSIS
         Validates a JWT token against the builder's parameters.
     .DESCRIPTION
@@ -38,3 +38,4 @@ function Test-KrJWT {
         return $validationResult.IsValid
     }
 }
+

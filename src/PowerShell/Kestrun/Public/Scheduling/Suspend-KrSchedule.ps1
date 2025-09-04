@@ -1,4 +1,4 @@
-<#
+﻿<#
     .SYNOPSIS
         Suspends a schedule, preventing it from running until resumed.
     .DESCRIPTION

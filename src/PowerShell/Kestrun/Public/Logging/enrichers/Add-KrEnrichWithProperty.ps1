@@ -1,4 +1,4 @@
-<#
+﻿<#
     .SYNOPSIS
         Enriches log events with custom property.
     .DESCRIPTION
@@ -38,3 +38,4 @@ function Add-KrEnrichWithProperty {
         $LoggerConfig
     }
 }
+

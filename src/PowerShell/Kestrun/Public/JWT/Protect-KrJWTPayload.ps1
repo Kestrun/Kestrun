@@ -1,4 +1,4 @@
-<#
+﻿<#
     .SYNOPSIS
         Encrypts the JWT payload using a secret, PEM file, or X509 certificate.
 

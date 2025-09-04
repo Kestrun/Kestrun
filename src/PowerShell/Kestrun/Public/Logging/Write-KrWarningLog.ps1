@@ -1,4 +1,4 @@
-<#
+﻿<#
     .SYNOPSIS
         Writes Warning log message
     .DESCRIPTION
@@ -68,3 +68,4 @@ function Write-KrWarningLog {
         Write-KrLog -LogLevel Warning -Name $Name -Message $Message -Exception $Exception -ErrorRecord $ErrorRecord -Values $Values -PassThru:$PassThru
     }
 }
+

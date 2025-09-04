@@ -1,4 +1,4 @@
-
+﻿
 <#
     .SYNOPSIS
         Sets the validity period for the JWT token.

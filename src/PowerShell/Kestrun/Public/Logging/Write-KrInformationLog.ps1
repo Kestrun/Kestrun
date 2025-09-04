@@ -1,4 +1,4 @@
-function Write-KrInformationLog {
+﻿function Write-KrInformationLog {
     <#
     .SYNOPSIS
         Writes Information log message

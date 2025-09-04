@@ -1,4 +1,4 @@
-
+﻿
 <#
     .SYNOPSIS
         Get a set of documentation for Kestrun commands.
@@ -76,3 +76,4 @@ function Get-KrDocSet {
         }
     }
 }
+

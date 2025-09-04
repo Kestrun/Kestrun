@@ -1,4 +1,4 @@
-<#
+﻿<#
     .SYNOPSIS
         Adds the process name to the log context.
     .DESCRIPTION
@@ -26,3 +26,4 @@ function Add-KrEnrichWithProcessName {
         $loggerConfig
     }
 }
+

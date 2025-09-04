@@ -1,4 +1,4 @@
-<#
+﻿<#
     .SYNOPSIS
         Writes a redirect response to the HTTP client.
     .DESCRIPTION
@@ -28,3 +28,4 @@ function Write-KrRedirectResponse {
         $Context.Response.WriteRedirectResponse($Url, $Message)
     }
 }
+

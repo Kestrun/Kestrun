@@ -1,4 +1,4 @@
-
+﻿
 <#
 .SYNOPSIS
     Resolves a Kestrun server instance from the provided input.
@@ -32,3 +32,4 @@ function Resolve-KestrunServer {
     }
     return $Server
 }
+

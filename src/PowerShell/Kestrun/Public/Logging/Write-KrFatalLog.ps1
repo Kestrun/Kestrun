@@ -1,4 +1,4 @@
-<#
+﻿<#
     .SYNOPSIS
         Writes Fatal log message
     .DESCRIPTION
@@ -69,3 +69,4 @@ function Write-KrFatalLog {
         Write-KrLog -LogLevel Fatal -Name $Name -Message $Message -Exception $Exception -ErrorRecord $ErrorRecord -Values $Values -PassThru:$PassThru
     }
 }
+

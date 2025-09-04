@@ -1,4 +1,4 @@
-<#
+﻿<#
     .SYNOPSIS
         Write a debug log message using the Kestrun logging framework.
     .DESCRIPTION
@@ -67,3 +67,4 @@ function Write-KrDebugLog {
         Write-KrLog -LogLevel Debug -Name $Name -Message $Message -Exception $Exception -ErrorRecord $ErrorRecord -Values $Values -PassThru:$PassThru
     }
 }
+

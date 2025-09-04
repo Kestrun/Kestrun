@@ -1,4 +1,4 @@
-<#
+﻿<#
     .SYNOPSIS
         Validates a certificate’s chain, EKU, and cryptographic strength.
     .DESCRIPTION

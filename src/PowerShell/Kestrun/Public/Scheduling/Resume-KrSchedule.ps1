@@ -1,4 +1,4 @@
-<#
+﻿<#
     .SYNOPSIS
         Resumes a previously-paused schedule.
     .DESCRIPTION

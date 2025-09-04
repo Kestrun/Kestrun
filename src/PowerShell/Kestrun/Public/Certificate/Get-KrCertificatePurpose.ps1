@@ -1,4 +1,4 @@
-<#
+﻿<#
     .SYNOPSIS
         Lists the Enhanced Key Usage values on a certificate.
         This function is designed to be used in the context of Kestrun's certificate management.

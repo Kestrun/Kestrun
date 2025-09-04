@@ -1,4 +1,4 @@
-<#
+﻿<#
     .SYNOPSIS
         Adds a Syslog Local sink to the Serilog logger configuration.
     .DESCRIPTION
@@ -55,3 +55,4 @@ function Add-KrSinkSyslogLocal {
         return $LoggerConfig
     }
 }
+

@@ -1,4 +1,4 @@
-param()
+﻿param()
 # Main Kestrun module path
 
 # This is the root path for the Kestrun module
@@ -100,3 +100,4 @@ try {
     # Cleanup temporary variables
     Remove-Variable -Name 'assemblyLoadPath', 'moduleRootPath', 'netVersion', 'codeAnalysisVersion', 'inRouteRunspace' , 'sysfuncs', 'sysaliases', 'funcs', 'aliases' -ErrorAction SilentlyContinue
 }
+

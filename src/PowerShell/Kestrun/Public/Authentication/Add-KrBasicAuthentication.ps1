@@ -1,4 +1,4 @@
-<#
+﻿<#
     .SYNOPSIS
         Adds basic authentication to the Kestrun server.
     .DESCRIPTION
@@ -332,3 +332,4 @@ function Add-KrBasicAuthentication {
         }
     }
 }
+

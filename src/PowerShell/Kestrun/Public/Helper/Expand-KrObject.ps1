@@ -1,4 +1,4 @@
-<#
+﻿<#
     .SYNOPSIS
         Expands an object into a formatted string for display.
     .DESCRIPTION

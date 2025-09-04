@@ -214,7 +214,7 @@ function Set-FunctionHelpPlacement {
 
                 # Force newline after '{', then help, then newline
                 $indent = (' ' * (($f.Extent.StartColumnNumber - 1) + 4))
-                $insertion = "`n{0}{1}`n" -f $indent, $helpText.Replace("#>", "`t#>")
+                $insertion = "`n{0}{1}`n" -f $indent, $helpText.Trim().Replace("#>", "`t#>")
             }
             'AfterFunction' {
                 $insertOffset = $fEnd

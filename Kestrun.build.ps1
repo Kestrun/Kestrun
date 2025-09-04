@@ -268,7 +268,7 @@ Add-BuildTask 'Format' {
     Write-Host '✨ Formatting code...'
  #   dotnet format "$SolutionPath" -v:$DotNetVerbosity
 
-    & .\Utility\Normalize-Files.ps1 -Root (Join-Path -Path $PSScriptRoot -ChildPath 'src' -AdditionalChildPath "PowerShell" , "Kestrun")
+    & .\Utility\Normalize-Files.ps1 -Root (Join-Path -Path $PSScriptRoot -ChildPath 'src' -AdditionalChildPath "PowerShell" , "Kestrun") -ReformatFunctionHelp -FunctionHelpPlacement 'InsideBeforeParam'
 
     <# $root = Join-Path $PSScriptRoot 'src/PowerShell/Kestrun'
     $skip = @('bin', 'obj', '.git', '.vs', 'node_modules', 'vendor', 'coverage')

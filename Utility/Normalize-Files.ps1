@@ -44,6 +44,7 @@ param(
 )
 
 $today = Get-Date -Format 'yyyy-MM-dd'
+
 <#
 .SYNOPSIS
     Repositions comment-based help blocks (< ... >) for each function.
@@ -67,26 +68,16 @@ function Set-FunctionHelpPlacement {
         [string]$Placement
     )
 
-    # Parse the script (in-memory)
     $tokens = $null; $errors = $null
     $ast = [System.Management.Automation.Language.Parser]::ParseInput($Text, [ref]$tokens, [ref]$errors)
+    if ($errors -and $errors.Count) { return $Text } # be safe on parse errors
 
-    if ($errors -and $errors.Count) {
-        # If parse errors occur, bail out safely (don’t mutate).
-        return $Text
-    }
-
-    # Collect block comment tokens: "<# ... #>"
+    # Collect all block-comment tokens: "<# ... #>"
     $blockComments = @($tokens | Where-Object { $_.Kind -eq 'Comment' -and $_.Text -like '<#*#>' })
 
     # Find all functions
     $funcAsts = $ast.FindAll({ param($n) $n -is [System.Management.Automation.Language.FunctionDefinitionAst] }, $true)
-
     if (-not $funcAsts) { return $Text }
-
-    # We'll build edits as remove/insert operations using offsets, then apply from end → start
-    $edits = New-Object System.Collections.Generic.List[object]
-
     <#
     .SYNOPSIS
         Checks if there is only whitespace between two offsets in a string.
@@ -117,63 +108,87 @@ function Set-FunctionHelpPlacement {
         return ([string]::IsNullOrWhiteSpace($s.Substring($from, $to - $from)))
     }
 
-    # Process functions from LAST to FIRST to keep offsets valid
-    foreach ($f in ($funcAsts | Sort-Object { $_.Extent.StartOffset } -Descending)) {
+    <#
+    .SYNOPSIS
+        Computes a score for a help comment based on the presence of key tags and length.
+    .DESCRIPTION
+        This function evaluates a help comment block and assigns a score based on the presence of common help tags
+        such as .SYNOPSIS, .DESCRIPTION, .PARAMETER, .EXAMPLE, and .NOTES. The score is also influenced by the length of the comment.
+    .PARAMETER t
+        The text of the help comment to evaluate.
+    .OUTPUTS
+        [int] Returns a score representing the quality of the help comment. Higher scores indicate more comprehensive help comments.
+    .EXAMPLE
+        Get-HelpScore -t @"
+        .SYNOPSIS
+            This is a sample function.
+        .DESCRIPTION
+            This function does something useful.
+        .PARAMETER Name
+            The name of the item.
+        .EXAMPLE
+            SampleFunction -Name "Test"
+        .NOTES
+            Additional notes about the function.
+        "@
+        Returns a score based on the presence of help tags and length of the comment.
+    #>
+    function Get-HelpScore {
+        param([string]$t)
+        $tags = @('.SYNOPSIS', '.DESCRIPTION', '.PARAMETER', '.EXAMPLE', '.NOTES')
+        $score = 0
+        foreach ($tag in $tags) { if ($t -match [regex]::Escape($tag)) { $score++ } }
+        # length gives minor bias
+        return ($score * 100000 + $t.Length)
+    }
 
+    $edits = New-Object System.Collections.Generic.List[object]
+
+    foreach ($f in ($funcAsts | Sort-Object { $_.Extent.StartOffset } -Descending)) {
         $fStart = $f.Extent.StartOffset
         $fEnd = $f.Extent.EndOffset
+        $brace = $f.Body.Extent.StartOffset  # '{'
 
-        # Function opening brace and body start
-        $bodyStart = $f.Body.Extent.StartOffset
-        $bodyEnd = $f.Body.Extent.EndOffset
-
-        # Determine candidate help comment association:
-        $helpTok = $null
-
-        # 1) Help immediately BEFORE function (no non-whitespace in between)
-        $before = $blockComments |
-            Where-Object { $_.Extent.EndOffset -le $fStart -and (Test-WhitespaceBetween $Text $_.Extent.EndOffset $fStart) } |
-            Sort-Object { $_.Extent.StartOffset } -Descending |
-            Select-Object -First 1
-        if ($before) { $helpTok = $before }
-
-        # 2) If not found: help INSIDE at top (before param/first stmt)
-        if (-not $helpTok) {
-            # Find the earliest non-comment token/statement inside body
-            $inside = $blockComments |
-                Where-Object { $_.Extent.StartOffset -ge $bodyStart -and $_.Extent.EndOffset -le $bodyEnd } |
-                Sort-Object { $_.Extent.StartOffset } |
-                Select-Object -First 1
-
-            # Consider it "top" if it appears before any non-whitespace content in the first ~few lines
-            if ($inside) {
-                # Find first non-whitespace char in body
-                $nextCharIdx = $bodyStart
-                while ($nextCharIdx -lt $Text.Length -and ([char]::IsWhiteSpace($Text[$nextCharIdx]))) { $nextCharIdx++ }
-
-                if ($inside.Extent.StartOffset -le ($nextCharIdx + 2)) {
-                    # (loose heuristic)
-                    $helpTok = $inside
-                }
+        # Gather associated help blocks (always coerce to arrays!)
+        $beforeBlocks = @(
+            $blockComments | Where-Object {
+                $_.Extent.EndOffset -le $fStart -and (Test-WhitespaceBetween $Text $_.Extent.EndOffset $fStart)
             }
+        )
+        # Consider "top-inside" as within first 200 chars after '{'
+        $insideBlocks = @(
+            $blockComments | Where-Object {
+                $_.Extent.StartOffset -ge ($brace + 1) -and $_.Extent.StartOffset -le [Math]::Min($fEnd, $brace + 200)
+            }
+        )
+        $afterBlocks = @(
+            $blockComments | Where-Object {
+                $_.Extent.StartOffset -ge $fEnd -and (Test-WhitespaceBetween $Text $fEnd $_.Extent.StartOffset)
+            }
+        )
+
+        $assoc = @()
+        if ($beforeBlocks) { $assoc += $beforeBlocks }
+        if ($insideBlocks) { $assoc += $insideBlocks }
+        if ($afterBlocks) { $assoc += $afterBlocks }
+
+        if (-not $assoc -or $assoc.Count -eq 0) { continue }
+
+        # Choose canonical help block
+        $best = $assoc | Sort-Object { - (Get-HelpScore $_.Text) } | Select-Object -First 1
+        $helpText = $best.Text
+
+        # Remove ALL associated help blocks (prevent duplicates)
+        foreach ($blk in $assoc) {
+            $edits.Add([pscustomobject]@{
+                    Type = 'Remove'
+                    Start = $blk.Extent.StartOffset
+                    End = $blk.Extent.EndOffset
+                    Text = $null
+                })
         }
 
-        # 3) If not found: help immediately AFTER function (no non-whitespace between)
-        if (-not $helpTok) {
-            $after = $blockComments |
-                Where-Object { $_.Extent.StartOffset -ge $fEnd -and (Test-WhitespaceBetween $Text $fEnd $_.Extent.StartOffset) } |
-                Sort-Object { $_.Extent.StartOffset } |
-                Select-Object -First 1
-            if ($after) { $helpTok = $after }
-        }
-
-        if (-not $helpTok) {
-            continue # no help to move for this function
-        }
-
-        $helpText = $helpTok.Text
-
-        # Compute insertion offset based on desired placement
+        # Compute insertion
         switch ($Placement) {
             'BeforeFunction' {
                 $insertOffset = $fStart
@@ -181,28 +196,25 @@ function Set-FunctionHelpPlacement {
                 $insertion = "{0}{1}`n" -f $indent, $helpText
             }
             'InsideBeforeParam' {
-                # Find the opening brace within the function extent,
-                # then insert *after* it, ensuring a newline exists.
-                $braceOffset = $Text.IndexOf('{', $fStart)
-                if ($braceOffset -lt 0 -or $braceOffset -ge $fEnd) {
-                    # Fallback: if not found for any reason, use body start - 1
-                    $braceOffset = $f.Body.Extent.StartOffset - 1
+                # Insert immediately AFTER '{'
+                $insertOffset = $brace + 1
+
+                # Strip any spaces/tabs immediately after '{' (same line) so our newline lands cleanly
+                $wsStart = $insertOffset
+                $wsEnd = $wsStart
+                while ($wsEnd -lt $Text.Length -and ($Text[$wsEnd] -eq ' ' -or $Text[$wsEnd] -eq "`t")) { $wsEnd++ }
+                if ($insertOffset -lt $Text.Length -and $Text[$insertOffset] -ne "`n" -and $wsEnd -gt $wsStart) {
+                    $edits.Add([pscustomobject]@{
+                            Type = 'Remove'
+                            Start = $wsStart
+                            End = $wsEnd
+                            Text = $null
+                        })
                 }
 
-                $insertOffset = $braceOffset + 1
-
-                # Indentation: function indent + 4 spaces
+                # Force newline after '{', then help, then newline
                 $indent = (' ' * (($f.Extent.StartColumnNumber - 1) + 4))
-
-                # Ensure there's a newline right after '{'
-                $hasNewlineAfterBrace = ($insertOffset -lt $Text.Length) -and ($Text[$insertOffset] -eq "`n")
-                if ($hasNewlineAfterBrace) {
-                    # Already at newline -> place help on the next line
-                    $insertion = "{0}{1}`n" -f $indent, $helpText
-                } else {
-                    # No newline -> add one before the help
-                    $insertion = "`n{0}{1}`n" -f $indent, $helpText
-                }
+                $insertion = "`n{0}{1}`n" -f $indent, $helpText.Replace("#>", "`t#>")
             }
             'AfterFunction' {
                 $insertOffset = $fEnd
@@ -211,13 +223,7 @@ function Set-FunctionHelpPlacement {
             }
         }
 
-        # Queue removal of old help and insertion at new location
-        $edits.Add([pscustomobject]@{
-                Type = 'Remove'
-                Start = $helpTok.Extent.StartOffset
-                End = $helpTok.Extent.EndOffset
-                Text = $null
-            })
+        # Insert the single help block
         $edits.Add([pscustomobject]@{
                 Type = 'Insert'
                 Start = $insertOffset
@@ -228,7 +234,7 @@ function Set-FunctionHelpPlacement {
 
     if ($edits.Count -eq 0) { return $Text }
 
-    # Apply edits from end to start
+    # Apply edits from end → start
     $sb = New-Object System.Text.StringBuilder($Text)
     foreach ($e in ($edits | Sort-Object { $_.Start } -Descending)) {
         if ($e.Type -eq 'Remove') {
@@ -237,6 +243,7 @@ function Set-FunctionHelpPlacement {
             [void]$sb.Insert($e.Start, $e.Text)
         }
     }
+
     return $sb.ToString()
 }
 

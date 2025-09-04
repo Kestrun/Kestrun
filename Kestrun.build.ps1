@@ -367,7 +367,7 @@ Add-BuildTask 'BuildHelp' {
     Write-Host '📚 Generating all Help...'
 }, 'Build_Powershell_Help', 'Build_CSharp_Help', {
     Write-Host '📦 Creating tutorial examples zip...'
-    Compress-Archive -Path './docs/pwsh/tutorial/examples' -DestinationPath './docs/pwsh/tutorial/tutorial.zip'
+    Compress-Archive -Path './docs/_includes/examples/pwsh/' -DestinationPath './docs/pwsh/tutorial/examples.zip'
 }
 
 # Clean Help will call Clean_Powershell_Help and Clean_CSharp_Help

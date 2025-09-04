@@ -33,3 +33,4 @@ function Write-KrBinaryResponse {
         $Context.Response.WriteBinaryResponse($InputObject, $StatusCode, $ContentType)
     }
 }
+

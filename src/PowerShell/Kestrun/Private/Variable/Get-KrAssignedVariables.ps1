@@ -1,4 +1,4 @@
-﻿<#
+<#
     .SYNOPSIS
       Find variables that are *defined/assigned* in a scriptblock and (optionally) fetch their values.
     .DESCRIPTION
@@ -182,3 +182,4 @@ function Get-KrAssignedVariable {
     # keep last occurrence per (ScopeHint, Name)
     $rows | Group-Object ScopeHint, Name | ForEach-Object { $_.Group[-1] }
 }
+

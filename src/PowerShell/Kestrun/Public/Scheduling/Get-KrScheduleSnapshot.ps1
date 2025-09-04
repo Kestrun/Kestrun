@@ -63,3 +63,4 @@ function Get-KrScheduleSnapshot {
         $Server.Scheduler.GetSnapshot($tz, $AsHashtable, $Name)
     }
 }
+

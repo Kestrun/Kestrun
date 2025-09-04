@@ -31,3 +31,4 @@ function Add-KrCodeAnalysisType {
         (Assert-KrAssemblyLoaded -AssemblyPath (Join-Path -Path "$codeAnalysisassemblyLoadPath" -ChildPath 'Microsoft.CodeAnalysis.Scripting.dll') -Verbose:$passVerbose)
     )
 }
+

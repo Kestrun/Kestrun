@@ -41,3 +41,4 @@ function Copy-KrJWTTokenBuilder {
         return $Builder.CloneBuilder()
     }
 }
+

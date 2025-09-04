@@ -1,4 +1,4 @@
-﻿<#
+<#
     .SYNOPSIS
         Resumes a previously-paused schedule.
     .DESCRIPTION
@@ -41,3 +41,4 @@ function Resume-KrSchedule {
         return $Server
     }
 }
+

@@ -30,3 +30,4 @@ function Write-KrCborResponse {
         $Context.Response.WriteCborResponse($InputObject, $StatusCode, $ContentType)
     }
 }
+

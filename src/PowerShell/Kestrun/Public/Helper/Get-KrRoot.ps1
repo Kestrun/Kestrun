@@ -16,3 +16,4 @@ function Get-KrRoot {
     param()
     return [Kestrun.KestrunHostManager]::KestrunRoot
 }
+

@@ -32,3 +32,4 @@ function Import-KsCertificate {
     }
     return [Kestrun.Certificates.CertificateManager]::Import($resolvedPath, $Password, $PrivateKeyPath)
 }
+

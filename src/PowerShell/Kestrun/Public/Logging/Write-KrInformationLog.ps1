@@ -71,3 +71,4 @@ function Write-KrInformationLog {
 }
 
 Set-Alias -Name Write-KrInfoLog -Value Write-KrInformationLog -Force
+

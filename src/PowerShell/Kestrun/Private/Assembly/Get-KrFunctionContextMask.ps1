@@ -41,3 +41,4 @@ function Get-KrFunctionContextMask {
 
     return $mask
 }
+

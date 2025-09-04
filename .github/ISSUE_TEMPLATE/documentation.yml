@@ -1,0 +1,29 @@
+name: 📖 Documentation Issue
+description: Report an error, missing info, or improvement for Kestrun documentation
+labels: [documentation]
+body:
+  - type: textarea
+    id: description
+    attributes:
+      label: Describe the documentation issue
+      description: A clear and concise description of the issue.
+      placeholder: |
+        Example: The example for `Add-KrFileServer` is missing the `-RootPath` parameter.
+    validations:
+      required: true
+
+  - type: textarea
+    id: location
+    attributes:
+      label: Location
+      description: Where did you notice the issue? (docs site URL, README, etc.)
+      placeholder: |
+        - https://docs.kestrun.dev/pwsh/tutorial/file-server/
+        - README.md
+
+  - type: textarea
+    id: improvement
+    attributes:
+      label: Suggested improvement
+      description: How could this documentation be improved?
+      placeholder: Add a full example with `-RootPath` and `-R

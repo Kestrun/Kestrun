@@ -35,3 +35,4 @@ function Write-KrYamlResponse {
         $Context.Response.WriteYamlResponse($InputObject, $StatusCode, $ContentType)
     }
 }
+

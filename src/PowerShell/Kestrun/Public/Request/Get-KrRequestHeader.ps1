@@ -1,4 +1,4 @@
-﻿<#
+<#
     .SYNOPSIS
         Retrieves a request header value from the HTTP request.
     .DESCRIPTION
@@ -26,3 +26,4 @@ function Get-KrRequestHeader {
         return $Context.Request.Headers[$Name]
     }
 }
+

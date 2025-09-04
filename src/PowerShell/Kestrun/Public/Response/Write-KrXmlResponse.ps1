@@ -35,3 +35,4 @@ function Write-KrXmlResponse {
         $Context.Response.WriteXmlResponse($InputObject, $StatusCode, $ContentType)
     }
 }
+

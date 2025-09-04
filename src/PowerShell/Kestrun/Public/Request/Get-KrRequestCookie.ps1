@@ -1,4 +1,4 @@
-﻿<#
+<#
     .SYNOPSIS
         Retrieves a cookie value from the HTTP request.
     .DESCRIPTION
@@ -26,3 +26,4 @@ function Get-KrRequestCookie {
         return $Context.Request.Cookies[$Name]
     }
 }
+

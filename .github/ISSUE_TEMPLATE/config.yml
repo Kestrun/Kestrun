@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 📖 Documentation Website
+    url: https://docs.kestrun.dev
+    about: Check the documentation first to see if your question is already answered.
+  - name: 💬 Discussions
+    url: https://github.com/Kestrun/Kestrun/discussions
+    about: For general questions, troubleshooting, or sharing ideas.
+  - name: 🔐 Security Advisories
+    url: https://github.com/Kestrun/Kestrun/security/advisories
+    about: Report vulnerabilities privately and confidentially.

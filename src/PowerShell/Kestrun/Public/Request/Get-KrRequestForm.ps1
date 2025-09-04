@@ -1,4 +1,4 @@
-﻿<#
+<#
     .SYNOPSIS
         Retrieves a request form value from the HTTP request.
     .DESCRIPTION
@@ -21,3 +21,4 @@ function Get-KrRequestForm {
         return $Context.Request.Form
     }
 }
+

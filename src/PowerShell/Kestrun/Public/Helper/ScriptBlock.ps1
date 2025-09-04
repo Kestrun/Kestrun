@@ -1,4 +1,4 @@
-﻿<#
+<#
     .SYNOPSIS
         Adds a named scriptblock to the specified scope, allowing retrieval via a getter function.
     .DESCRIPTION
@@ -90,3 +90,4 @@ function Add-KrScriptBlock {
     This is equivalent to calling Add-KrScriptBlock -Name 'MyScript' -ScriptBlock { Write-Host "Hello, World!" } with the same parameters.
 #>
 Set-Alias -Name ScriptBlock -Value Add-KrScriptBlock -Scope Global
+

@@ -1,4 +1,4 @@
-﻿<#
+<#
     .SYNOPSIS
         Suspends a schedule, preventing it from running until resumed.
     .DESCRIPTION
@@ -41,3 +41,4 @@ function Suspend-KrSchedule {
         return $Server
     }
 }
+

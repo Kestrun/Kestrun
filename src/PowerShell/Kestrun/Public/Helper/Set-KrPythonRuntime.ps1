@@ -1,4 +1,4 @@
-﻿<#
+<#
     .SYNOPSIS
         Selects which CPython runtime pythonnet will embed.
 

@@ -50,3 +50,4 @@ function Add-KrEnrichWithEnvironment {
         return $loggerConfig
     }
 }
+

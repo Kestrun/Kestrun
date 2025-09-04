@@ -1,4 +1,4 @@
-﻿<#
+<#
     .SYNOPSIS
         Retrieves a query parameter value from the HTTP request.
     .DESCRIPTION
@@ -26,3 +26,4 @@ function Get-KrRequestQuery {
         return $Context.Request.Query[$Name]
     }
 }
+

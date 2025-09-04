@@ -1,4 +1,4 @@
-﻿<#
+<#
     .SYNOPSIS
         Validates a certificate’s chain, EKU, and cryptographic strength.
     .DESCRIPTION
@@ -58,3 +58,4 @@ function Test-KsCertificate {
         $oidColl,
         $StrictPurpose.IsPresent)
 }
+

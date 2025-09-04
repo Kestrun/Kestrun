@@ -41,3 +41,4 @@ function Export-KrCertificate {
     [Kestrun.Certificates.CertificateManager]::Export($Certificate, $resolvedPath, $fmtEnum, $Password,
         $IncludePrivateKey.IsPresent)
 }
+

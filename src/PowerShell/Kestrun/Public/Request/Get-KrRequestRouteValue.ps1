@@ -1,4 +1,4 @@
-﻿<#
+<#
     .SYNOPSIS
         Retrieves a request route value from the HTTP request.
     .DESCRIPTION
@@ -26,3 +26,4 @@ function Get-KrRequestRouteParam {
         return $Context.Request.RouteValues[$Name]
     }
 }
+

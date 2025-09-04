@@ -1,0 +1,42 @@
+name: 🐛 Bug Report
+description: Report a problem or unexpected behavior in Kestrun
+labels: [bug]
+body:
+  - type: textarea
+    id: description
+    attributes:
+      label: Describe the bug
+      description: A clear and concise description of what the bug is.
+      placeholder: |
+        Example: When I run `Start-KrHost`, it crashes with a NullReferenceException.
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: Provide the minimal steps required to reproduce the issue.
+      placeholder: |
+        1. Run command X
+        2. Do Y
+        3. Observe failure
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+      description: What did you expect to happen?
+      placeholder: The server should start and respond to requests.
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Your setup details (OS, PowerShell version, .NET version, etc.)
+      placeholder: |
+        - OS: Windows 11 / Ubuntu 24.04 / macOS 14
+        - PowerShell: 7.4.3
+        - .NET: 8.0.8

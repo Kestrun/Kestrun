@@ -37,3 +37,4 @@ function Add-KrJWTHeader {
         return $Builder.AddHeader($Name, $Value)
     }
 }
+

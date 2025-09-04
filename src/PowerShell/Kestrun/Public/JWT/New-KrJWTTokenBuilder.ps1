@@ -21,3 +21,4 @@ function New-KrJWTBuilder {
     # Create a new JWT token builder instance
     return [Kestrun.Jwt.JwtTokenBuilder]::New()
 }
+

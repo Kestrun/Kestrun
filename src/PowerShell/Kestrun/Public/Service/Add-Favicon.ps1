@@ -46,3 +46,4 @@ function Add-KrFavicon {
         }
     }
 }
+

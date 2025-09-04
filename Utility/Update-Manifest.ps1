@@ -195,6 +195,7 @@ $module = @"
     # Default prefix for commands exported from this module. Override the default prefix using Import-Module -Prefix.
     # DefaultCommandPrefix = ''
 }
+
 "@
 
 $path = Join-Path -Path $ModuleRootPath -ChildPath 'Kestrun.psd1'

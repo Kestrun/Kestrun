@@ -23,3 +23,4 @@ function Get-KrCertificatePurpose {
     )
     return [Kestrun.Certificates.CertificateManager]::GetPurposes($Certificate)
 }
+

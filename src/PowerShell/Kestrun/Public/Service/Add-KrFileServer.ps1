@@ -102,7 +102,7 @@ function Add-KrFileServer {
                 $Options.RedirectToAppendTrailingSlash = $true
             }
             if ($ContentTypeMap) {
-                $provider = [Microsoft.AspNetCore.StaticFiles.FileExtensionContentTypeProvider]::new() 
+                $provider = [Microsoft.AspNetCore.StaticFiles.FileExtensionContentTypeProvider]::new()
                 foreach ($k in $ContentTypeMap.Keys) {
                     $ext = if ($k -like ".*") { $k } else { ".$k" }
                     $mime = [string]$ContentTypeMap[$k]

@@ -44,46 +44,86 @@ param(
 )
 
 $today = Get-Date -Format 'yyyy-MM-dd'
+
+<#
+    .SYNOPSIS
+        Formats a help block comment for a function, ensuring consistent indentation and structure.
+    .DESCRIPTION
+        This function takes a help block comment (enclosed in <... >) and formats it to ensure consistent indentation and structure.
+        It normalizes line endings, trims unnecessary whitespace, and aligns tags such as .SYNOPSIS, .DESCRIPTION, etc.
+        It also allows for specifying the indentation level for the entire block and whether to use tabs or spaces for the content indentation.
+    .PARAMETER Indent
+        The string to use for indenting the entire help block (e.g., spaces or tabs).
+    .PARAMETER Help
+        The raw help block text to format.
+    .PARAMETER UseTabForContent
+        If specified, uses a tab character for indenting the content lines within the help block instead of spaces.
+        This is useful for maintaining consistent indentation style in the formatted output.
+    .OUTPUTS
+        Returns a formatted help block string with consistent indentation and structure.
+    .EXAMPLE
+        Format-HelpBlock -Indent '    ' -Help @"
+        .SYNOPSIS
+            This is a sample function.
+        .DESCRIPTION
+            This function does something useful.
+        "@
+        This formats the provided help block with 4 spaces for indentation.
+#>
 function Format-HelpBlock {
     param(
         [Parameter(Mandatory)][AllowEmptyString()] [string]$Indent,
-        [Parameter(Mandatory)] [string]$Help
+        [Parameter(Mandatory)] [string]$Help,
+        [switch]$UseTabForContent
     )
 
-    # Normalize EOLs (explicitly nested replaces, as requested)
+    # Normalize EOLs
     $raw = (($Help -replace "`r`n", "`n") -replace "`r", "`n")
 
-    # Extract FIRST <# ... #> block; if not found, treat the whole content as inner
+    # Extract first <# ... #> block; if none, treat all as inner
     $m = [regex]::Match($raw, '<#([\s\S]*?)#>')
     $inner = if ($m.Success) { $m.Groups[1].Value } else { $raw }
 
-    # Split preserving empties
-    $lines = $inner -split "`n"#, -1
+    # Split (no -1), then trim ONLY leading/trailing blank lines
+    $lines = $inner -split "`n"
+    $start = 0
+    $end = $lines.Count - 1
+    while ($start -le $end -and [string]::IsNullOrWhiteSpace($lines[$start])) { $start++ }
+    while ($end -ge $start -and [string]::IsNullOrWhiteSpace($lines[$end])) { $end-- }
+    if ($start -le $end) { $lines = $lines[$start..$end] } else { $lines = @() }
+
+    # Trim trailing spaces on each remaining line (keep intentional blanks inside)
+    for ($i = 0; $i -lt $lines.Count; $i++) {
+        $lines[$i] = ($lines[$i] -replace '[ \t]+$', '')
+    }
+
+    $pad = if ($UseTabForContent) { "`t" } else { '    ' }
 
     $out = New-Object System.Collections.Generic.List[string]
     $out.Add("$Indent<#")
 
     foreach ($line in $lines) {
-        $t = $line.Trim()
-
-        if ($t.Length -eq 0) {
-            # blank line aligned to body indent
+        if ([string]::IsNullOrWhiteSpace($line)) {
+            # internal blank line: keep it (aligned to body indent)
             $out.Add($Indent)
             continue
         }
 
+        $t = $line.TrimStart()
+
         if ($t -match '^\.(SYNOPSIS|DESCRIPTION|PARAMETER|EXAMPLE|NOTES|OUTPUTS|LINK)\b') {
-            # tag lines align with <#
+            # tags align with <#
             $out.Add("$Indent$t")
         } else {
-            # content lines: body indent + 4 spaces
-            $out.Add("$Indent    $t")
+            # content lines → body indent + pad + trimmed content
+            $out.Add($Indent + $pad + $t.Trim())
         }
     }
 
     $out.Add("$Indent#>")
     return ($out -join "`n")
 }
+
 
 
 <#
@@ -194,7 +234,7 @@ function Set-FunctionHelpPlacement {
         # Gather associated help blocks (always coerce to arrays!)
         $beforeBlocks = @(
             $blockComments | Where-Object {
-                $_.Extent.EndOffset -le $fStart -and (Test-WhitespaceBetween $Text $_.Extent.EndOffset $fStart)
+                $_.Extent.EndOffset -le $fStart -and (Test-WhitespaceBetween -s $Text -from $_.Extent.EndOffset -to $fStart)
             }
         )
         # Consider "top-inside" as within first 200 chars after '{'
@@ -205,7 +245,7 @@ function Set-FunctionHelpPlacement {
         )
         $afterBlocks = @(
             $blockComments | Where-Object {
-                $_.Extent.StartOffset -ge $fEnd -and (Test-WhitespaceBetween $Text $fEnd $_.Extent.StartOffset)
+                $_.Extent.StartOffset -ge $fEnd -and (Test-WhitespaceBetween -s $Text -from $fEnd -to $_.Extent.StartOffset)
             }
         )
 
@@ -428,10 +468,10 @@ Get-ChildItem -Path $Root -Recurse -File -Include *.ps1, *.psm1, *.psd1 |
         # Reassemble
         $newContent =
         if ($prependHeader) {
-            $headerText.TrimEnd() + "`n`n" + $body.TrimEnd() + "`n" + $footerText.TrimEnd() + "`n"
+            $headerText.TrimEnd() + "`n`n" + $body.Trim() + "`n`n" + $footerText.TrimEnd()
         } else {
             # we removed an old file header above; replace with the new one
-            $headerText.TrimEnd() + "`n`n" + $body.TrimEnd() + "`n" + $footerText.TrimEnd() + "`n"
+            $headerText.TrimEnd() + "`n`n" + $body.Trim() + "`n`n" + $footerText.TrimEnd()
         }
 
         # Final safety normalization

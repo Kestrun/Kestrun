@@ -44,52 +44,46 @@ param(
 )
 
 $today = Get-Date -Format 'yyyy-MM-dd'
-
-
 function Format-HelpBlock {
     param(
         [Parameter(Mandatory)][AllowEmptyString()] [string]$Indent,
         [Parameter(Mandatory)] [string]$Help
     )
 
-    # Normalize endings, strip BOM, trim outer whitespace (not interior)
-    $h = ($Help -replace "`r`n", "`n" -replace "`r", "`n").Trim()
+    # Normalize EOLs (explicitly nested replaces, as requested)
+    $raw = (($Help -replace "`r`n", "`n") -replace "`r", "`n")
 
-    # Ensure it actually looks like a block comment; if not, wrap it
-    if (-not ($h.TrimStart().StartsWith('<#') -and $h.TrimEnd().EndsWith('#>'))) {
-        $h = "<#`n$h`n#>"
-    }
+    # Extract FIRST <# ... #> block; if not found, treat the whole content as inner
+    $m = [regex]::Match($raw, '<#([\s\S]*?)#>')
+    $inner = if ($m.Success) { $m.Groups[1].Value } else { $raw }
 
-    # Extract interior (between <# and #>)
-    $h = $h.Trim()
-    $inner = $h.Substring(2, $h.Length - 4)  # drop leading '<#' and trailing '#>'
-    $lines = $inner -split "`n", -1
+    # Split preserving empties
+    $lines = $inner -split "`n"#, -1
 
     $out = New-Object System.Collections.Generic.List[string]
     $out.Add("$Indent<#")
 
-    foreach ($raw in $lines) {
-        $t = $raw.Trim()
+    foreach ($line in $lines) {
+        $t = $line.Trim()
 
         if ($t.Length -eq 0) {
-            # Blank line aligned with the body indent
+            # blank line aligned to body indent
             $out.Add($Indent)
             continue
         }
 
         if ($t -match '^\.(SYNOPSIS|DESCRIPTION|PARAMETER|EXAMPLE|NOTES|OUTPUTS|LINK)\b') {
-            # Tag lines align with <#
+            # tag lines align with <#
             $out.Add("$Indent$t")
         } else {
-            # Content lines: body indent + TAB (your request)
-            $out.Add("$Indent`t$t")
+            # content lines: body indent + 4 spaces
+            $out.Add("$Indent    $t")
         }
     }
 
     $out.Add("$Indent#>")
     return ($out -join "`n")
 }
-
 
 
 <#
@@ -256,14 +250,13 @@ function Set-FunctionHelpPlacement {
                     $edits.Add([pscustomobject]@{ Type = 'Remove'; Start = $wsStart; End = $wsEnd; Text = $null })
                 }
 
-                # Body indent = function indent + 4 spaces
+                # Function body indent = function indent + 4 spaces
                 $indent = (' ' * (($f.Extent.StartColumnNumber - 1) + 4))
-
-                # 💡 FORCE formatting of the raw token help here
                 $helpFormatted = Format-HelpBlock -Indent $indent -Help $helpText
 
-                # Newline after '{', then formatted help, then newline + TAB for first statement
+                # Newline after '{', the formatted help, then newline + TAB for the next token
                 $insertion = "`n$helpFormatted`n`t"
+
 
                 # Force newline after '{', then help, then newline
                 #   $indent = (' ' * (($f.Extent.StartColumnNumber - 1) + 4))

@@ -45,6 +45,53 @@ param(
 
 $today = Get-Date -Format 'yyyy-MM-dd'
 
+
+function Format-HelpBlock {
+    param(
+        [Parameter(Mandatory)][AllowEmptyString()] [string]$Indent,
+        [Parameter(Mandatory)] [string]$Help
+    )
+
+    # Normalize endings, strip BOM, trim outer whitespace (not interior)
+    $h = ($Help -replace "`r`n", "`n" -replace "`r", "`n").Trim()
+
+    # Ensure it actually looks like a block comment; if not, wrap it
+    if (-not ($h.TrimStart().StartsWith('<#') -and $h.TrimEnd().EndsWith('#>'))) {
+        $h = "<#`n$h`n#>"
+    }
+
+    # Extract interior (between <# and #>)
+    $h = $h.Trim()
+    $inner = $h.Substring(2, $h.Length - 4)  # drop leading '<#' and trailing '#>'
+    $lines = $inner -split "`n", -1
+
+    $out = New-Object System.Collections.Generic.List[string]
+    $out.Add("$Indent<#")
+
+    foreach ($raw in $lines) {
+        $t = $raw.Trim()
+
+        if ($t.Length -eq 0) {
+            # Blank line aligned with the body indent
+            $out.Add($Indent)
+            continue
+        }
+
+        if ($t -match '^\.(SYNOPSIS|DESCRIPTION|PARAMETER|EXAMPLE|NOTES|OUTPUTS|LINK)\b') {
+            # Tag lines align with <#
+            $out.Add("$Indent$t")
+        } else {
+            # Content lines: body indent + TAB (your request)
+            $out.Add("$Indent`t$t")
+        }
+    }
+
+    $out.Add("$Indent#>")
+    return ($out -join "`n")
+}
+
+
+
 <#
 .SYNOPSIS
     Repositions comment-based help blocks (< ... >) for each function.
@@ -59,6 +106,7 @@ $today = Get-Date -Format 'yyyy-MM-dd'
     Idempotent: run multiple times; It will just keep the chosen placement.
 #>
 function Set-FunctionHelpPlacement {
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseShouldProcessForStateChangingFunctions', '')]
     param(
         [Parameter(Mandatory)]
         [string]$Text,
@@ -193,33 +241,39 @@ function Set-FunctionHelpPlacement {
             'BeforeFunction' {
                 $insertOffset = $fStart
                 $indent = (' ' * ($f.Extent.StartColumnNumber - 1))
-                $insertion = "{0}{1}`n" -f $indent, $helpText
+                $insertion = (Format-HelpBlock -Help $helpText -Indent $indent) + "`n"
+                #$insertion = "{0}{1}`n" -f $indent, $helpText
             }
             'InsideBeforeParam' {
                 # Insert immediately AFTER '{'
                 $insertOffset = $brace + 1
 
-                # Strip any spaces/tabs immediately after '{' (same line) so our newline lands cleanly
+                # Strip any spaces/tabs immediately after '{' on the same line
                 $wsStart = $insertOffset
                 $wsEnd = $wsStart
                 while ($wsEnd -lt $Text.Length -and ($Text[$wsEnd] -eq ' ' -or $Text[$wsEnd] -eq "`t")) { $wsEnd++ }
                 if ($insertOffset -lt $Text.Length -and $Text[$insertOffset] -ne "`n" -and $wsEnd -gt $wsStart) {
-                    $edits.Add([pscustomobject]@{
-                            Type = 'Remove'
-                            Start = $wsStart
-                            End = $wsEnd
-                            Text = $null
-                        })
+                    $edits.Add([pscustomobject]@{ Type = 'Remove'; Start = $wsStart; End = $wsEnd; Text = $null })
                 }
 
-                # Force newline after '{', then help, then newline
+                # Body indent = function indent + 4 spaces
                 $indent = (' ' * (($f.Extent.StartColumnNumber - 1) + 4))
-                $insertion = "`n{0}{1}`n" -f $indent, $helpText.Trim().Replace("#>", "`t#>")
+
+                # 💡 FORCE formatting of the raw token help here
+                $helpFormatted = Format-HelpBlock -Indent $indent -Help $helpText
+
+                # Newline after '{', then formatted help, then newline + TAB for first statement
+                $insertion = "`n$helpFormatted`n`t"
+
+                # Force newline after '{', then help, then newline
+                #   $indent = (' ' * (($f.Extent.StartColumnNumber - 1) + 4))
+                #  $insertion = "`n{0}{1}`n" -f $indent, $helpText.Trim().Replace("#>", "`t#>")
             }
             'AfterFunction' {
                 $insertOffset = $fEnd
                 $indent = (' ' * ($f.Extent.StartColumnNumber - 1))
-                $insertion = "`n{0}{1}`n" -f $indent, $helpText
+                #$insertion = "`n{0}{1}`n" -f $indent, $helpText
+                $insertion = "`n" + (Format-HelpBlock -Help $helpText -Indent $indent) + "`n"
             }
         }
 

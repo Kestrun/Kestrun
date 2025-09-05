@@ -8,11 +8,11 @@
         The log level to use for the log event.
     .PARAMETER Message
         The message template describing the event.
-    .PARAMETER Name
+    .PARAMETER LoggerName
         The name of the logger to use. If not specified, the default logger is used.
     .PARAMETER Logger
         The Serilog logger instance to use for logging.
-        If not specified, the logger with the specified Name or the default logger is used.
+        If not specified, the logger with the specified LoggerName or the default logger is used.
     .PARAMETER Exception
         The exception related to the event.
     .PARAMETER ErrorRecord
@@ -40,34 +40,39 @@
 #>
 function Write-KrLog {
     [KestrunRuntimeApi('Everywhere')]
-    [CmdletBinding(DefaultParameterSetName = 'LoggerName')]
+    [CmdletBinding(DefaultParameterSetName = 'LoggerName_MsgTemp')]
     param(
         [Parameter(Mandatory = $true)]
         [Serilog.Events.LogEventLevel]$Level,
 
-        [Parameter(Mandatory = $true)]
+        [Parameter(Mandatory = $true, ParameterSetName = 'LoggerName_MsgTemp')]
+        [Parameter(Mandatory = $false, ParameterSetName = 'LoggerName_ErrRec')]
+        [Parameter(Mandatory = $false, ParameterSetName = 'LoggerName_Exception')]
+        [Parameter(Mandatory = $true, ParameterSetName = 'LoggerManager_MsgTemp')]
+        [Parameter(Mandatory = $false, ParameterSetName = 'LoggerManager_ErrRec')]
+        [Parameter(Mandatory = $false, ParameterSetName = 'LoggerManager_Exception')]
         [AllowEmptyString()]
         [AllowNull()]
         [string]$Message,
-
-        [Parameter(Mandatory = $false, ParameterSetName = 'LoggerName')]
-        [string]$Name,
-
-        [Parameter(Mandatory = $true, ParameterSetName = 'LoggerManager', ValueFromPipeline = $true)]
+        [Parameter(Mandatory = $false, ParameterSetName = 'LoggerName_MsgTemp')]
+        [Parameter(Mandatory = $false, ParameterSetName = 'LoggerName_ErrRec')]
+        [Parameter(Mandatory = $false, ParameterSetName = 'LoggerName_Exception')]
+        [string]$LoggerName,
+        [Parameter(Mandatory = $true, ParameterSetName = 'LoggerManager_MsgTemp')]
+        [Parameter(Mandatory = $true, ParameterSetName = 'LoggerManager_ErrRec')]
+        [Parameter(Mandatory = $true, ParameterSetName = 'LoggerManager_Exception')]
         [Serilog.Core.Logger]$Logger,
-
-        [Parameter(Mandatory = $false)]
+        [Parameter(Mandatory = $true, ParameterSetName = 'LoggerManager_Exception')]
+        [Parameter(Mandatory = $true, ParameterSetName = 'LoggerName_Exception')]
         [AllowNull()]
         [System.Exception]$Exception,
-
-        [Parameter(Mandatory = $false)]
+        [Parameter(Mandatory = $true, ParameterSetName = 'LoggerManager_ErrRec')]
+        [Parameter(Mandatory = $true, ParameterSetName = 'LoggerName_ErrRec')]
         [AllowNull()]
         [System.Management.Automation.ErrorRecord]$ErrorRecord,
-
         [Parameter(Mandatory = $false)]
         [AllowNull()]
         [object[]]$Values,
-
         [Parameter(Mandatory = $false)]
         [switch]$PassThru
     )
@@ -84,18 +89,18 @@ function Write-KrLog {
                 $Exception = [Kestrun.Logging.Exceptions.WrapperException]::new($Exception, $ErrorRecord)
             }
             if ($Null -eq $Logger) {
-                # If Name is not specified, use the default logger
-                # If Name is specified, get the logger with that name
-                if ([string]::IsNullOrEmpty($Name)) {
+                if ([string]::IsNullOrEmpty($LoggerName)) {
+                    # If LoggerName is not specified, use the default logger
                     $Logger = [Kestrun.Logging.LoggerManager]::DefaultLogger
                 } else {
-                    $Logger = [Kestrun.Logging.LoggerManager]::Get($Name)
+                    # If LoggerName is specified, get the logger with that name
+                    $Logger = [Kestrun.Logging.LoggerManager]::Get($LoggerName)
                 }
             }
             # If Logger is not found, throw an error
             # This ensures that the logger is registered before logging
             if ($null -eq $Logger) {
-                throw "Logger with name '$Name' not found. Please ensure it is registered before logging."
+                throw "Logger with name '$LoggerName' not found. Please ensure it is registered before logging."
             }
             # Log the message using the specified log level and parameters
             switch ($Level) {

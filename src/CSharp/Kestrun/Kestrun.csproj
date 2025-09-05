@@ -131,7 +131,7 @@
 
     <!-- Microsoft.AspNetCore -->
     <!-- <PackageReference Include="Microsoft.AspNetCore.Authentication" Version="2.3.0" />
-    <PackageReference Include="Microsoft.AspNetCore.Authentication.Cookies" Version="2.3.0" /> 
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.Cookies" Version="2.3.0" />
     <PackageReference Include="Microsoft.AspNetCore.Authentication.Core" Version="2.3.0" />-->
     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="8.0.18" />
     <PackageReference Include="Microsoft.AspNetCore.Authentication.Certificate" Version="8.0.18" />
@@ -159,9 +159,6 @@
 
 
     <!-- Microsoft.AspNetCore -->
-    <!-- <PackageReference Include="Microsoft.AspNetCore.Authentication" Version="2.3.0" />
-    <PackageReference Include="Microsoft.AspNetCore.Authentication.Cookies" Version="2.3.0" /> 
-    <PackageReference Include="Microsoft.AspNetCore.Authentication.Core" Version="2.3.0" />-->
     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="9.0.7" />
     <PackageReference Include="Microsoft.AspNetCore.Authentication.Certificate" Version="9.0.7" />
     <PackageReference Include="Microsoft.AspNetCore.Authentication.OpenIdConnect" Version="9.0.7" />
@@ -172,9 +169,6 @@
     <PackageReference Include="Serilog.Sinks.Http" Version="9.2.0" />
 
     <!-- Hosting & DI -->
-    <!--<PackageReference Update="Microsoft.Extensions.Configuration.Abstractions" Version="9.0.7" />
-    <PackageReference Update="Microsoft.Extensions.ObjectPool" Version="9.0.7" />
-    <PackageReference Update="Microsoft.Extensions.Primitives" Version="9.0.7" />-->
     <PackageReference Include="Microsoft.Extensions.Hosting" Version="9.0.8" />
     <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" Version="9.0.8" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="9.0.8" />
@@ -200,7 +194,7 @@
     <PackageReference Include="Microsoft.CodeAnalysis.NetAnalyzers" Version="9.0.0">
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
       <PrivateAssets>all</PrivateAssets>
-    </PackageReference>  
+    </PackageReference>
     <!-- Logging -->
     <PackageReference Include="Serilog" Version="4.3.0" />
     <PackageReference Include="Serilog.Enrichers.Environment" Version="3.0.1" />
@@ -222,7 +216,7 @@
 
     <PackageReference Include="Microsoft.CodeAnalysis.Analyzers" Version="4.14.0" />
     <PackageReference Include="pythonnet" Version="3.0.5" />
-    <!-- Not Implemented Yet 
+    <!-- Not Implemented Yet
     <PackageReference Include="FSharp.Compiler.Service" Version="43.9.300" />
     -->
 
@@ -234,10 +228,10 @@
     <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
     <PackageReference Include="YamlDotNet" Version="16.3.0" />
     <PackageReference Include="BouncyCastle.Cryptography" Version="2.6.2" />
-    <!-- Source Link for debugging  
+    <!-- Source Link for debugging
     <PackageReference Include="Microsoft.SourceLink.GitHub" Version="1.1.1" PrivateAssets="All" />-->
 
-    
+
   </ItemGroup>
 <!--
   <Target Name="CopyToPowerShellLib" AfterTargets="Build" Condition="'$(Configuration)' == 'Debug'">

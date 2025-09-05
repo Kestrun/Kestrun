@@ -20,13 +20,15 @@
 function New-KrServer {
     [KestrunRuntimeApi('Definition')]
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseShouldProcessForStateChangingFunctions', '')]
-    [CmdletBinding()]
+    [CmdletBinding(DefaultParameterSetName = 'Logger')]
     [OutputType([Kestrun.Hosting.KestrunHost])]
     param(
         [Parameter(Mandatory = $true, ValueFromPipeline = $true)]
         [string]$Name,
-        [Parameter()]
+        [Parameter(Mandatory = $false, ParameterSetName = 'Logger')]
         [Serilog.ILogger]$Logger = [Serilog.Log]::Logger,
+        [Parameter(Mandatory = $true, ParameterSetName = 'LoggerName')]
+        [string]$LoggerName,
         [Parameter()]
         [switch]$PassThru,
         [Parameter()]
@@ -35,7 +37,7 @@ function New-KrServer {
     process {
         $loadedModules = Get-KrUserImportedModule
         $modulePaths = @($loadedModules | ForEach-Object { $_.Path })
-        if ( [Kestrun.KestrunHostManager]::Contains($Name) ) {
+        if ([Kestrun.KestrunHostManager]::Contains($Name) ) {
             if ($Force) {
                 if ([Kestrun.KestrunHostManager]::IsRunning($Name)) {
                     [Kestrun.KestrunHostManager]::Stop($Name)
@@ -53,6 +55,11 @@ function New-KrServer {
                 [Kestrun.KestrunHostManager]::Destroy($Name)
             }
         }
+        if ($Null -eq $Logger -and (-not [string]::IsNullOrEmpty($LoggerName))) {
+            # If LoggerName is specified, get the logger with that name
+            $Logger = [Kestrun.Logging.LoggerManager]::Get($LoggerName)
+        }
+
         $server = [Kestrun.KestrunHostManager]::Create($Name, $Logger, [string[]] $modulePaths)
         if ($PassThru.IsPresent) {
             # if the PassThru switch is specified, return the server instance
@@ -61,4 +68,3 @@ function New-KrServer {
         }
     }
 }
-

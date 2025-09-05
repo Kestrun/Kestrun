@@ -51,7 +51,7 @@ function Add-KrSignalRHub {
     )
 
     process {
-        Write-KrWarningLog 'Add-KrSignalRHub is an experimental feature and may not work as expected.'
+        Write-KrLog -Level Warning 'Add-KrSignalRHub is an experimental feature and may not work as expected.'
         # Ensure the server instance is resolved
         $Server = Resolve-KestrunServer -Server $Server
 

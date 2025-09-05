@@ -26,7 +26,7 @@ function Import-KsCertificate {
         [string] $PrivateKeyPath
     )
     $resolvedPath = Resolve-KrPath -Path $FilePath -KestrunRoot -Test
-    Write-KrVerboseLog -Message "Resolved file path: $resolvedPath"
+    Write-KrLog -Level Verbose -Message "Resolved file path: $resolvedPath"
     if ($null -eq $Password) {
         return [Kestrun.Certificates.CertificateManager]::Import($resolvedPath, $PrivateKeyPath)
     }

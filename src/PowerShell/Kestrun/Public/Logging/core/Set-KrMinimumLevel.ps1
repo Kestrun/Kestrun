@@ -73,7 +73,7 @@ function Set-KrMinimumLevel {
                 }
 
                 if ($ToPreference) {
-                    Set-KrLogLevelToPreference -LogLevel $Value
+                    Set-KrLogLevelToPreference -Level $Value
                 }
             }
             'Switch' {

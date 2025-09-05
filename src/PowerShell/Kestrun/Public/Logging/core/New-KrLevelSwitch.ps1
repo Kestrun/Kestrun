@@ -35,7 +35,7 @@ function New-KrLevelSwitch {
 
     # If ToPreference is specified, set the minimum level to the user's preference
     if ($ToPreference) {
-        Set-KrLogLevelToPreference -LogLevel $MinimumLevel
+        Set-KrLogLevelToPreference -Level $MinimumLevel
     }
 
     return $levelSwitch

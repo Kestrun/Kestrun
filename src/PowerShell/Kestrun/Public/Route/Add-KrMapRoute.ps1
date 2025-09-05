@@ -132,12 +132,12 @@ function Add-KrMapRoute {
 
         if ($exists) {
             if ($AllowDuplicate -or $DuplicateAction -eq 'Allow') {
-                Write-KrWarningLog -Message "Route '{Path}' ({Verbs}) already exists; adding another." -Values $Pattern, ($Verbs -join ',')
+                Write-KrLog -Level Warning -Message "Route '{Path}' ({Verbs}) already exists; adding another." -Values $Pattern, ($Verbs -join ',')
             } elseif ($DuplicateAction -eq 'Skip') {
-                Write-KrVerboseLog -Message "Route '{Path}' ({Verbs}) exists; skipping." -Values $Pattern, ($Verbs -join ',')
+                Write-KrLog -Level Verbose -Message "Route '{Path}' ({Verbs}) exists; skipping." -Values $Pattern, ($Verbs -join ',')
                 return
             } elseif ($DuplicateAction -eq 'Warn') {
-                Write-KrWarningLog -Message "Route '{Path}' ({Verbs}) already exists." -Values $Pattern, ($Verbs -join ',')
+                Write-KrLog -Level Warning -Message "Route '{Path}' ({Verbs}) already exists." -Values $Pattern, ($Verbs -join ',')
             } else {
                 throw [System.InvalidOperationException]::new(
                     "Route '$Pattern' with method(s) $($Verbs -join ',') already exists.")

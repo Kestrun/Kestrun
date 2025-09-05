@@ -42,7 +42,7 @@ function Write-KrHtmlResponse {
                 'FilePath' {
                     # Resolve the file path relative to the Kestrun root if necessary
                     $resolvedPath = Resolve-KrPath -Path $FilePath -KestrunRoot -Test
-                    Write-KrVerboseLog -Message "Resolved file path: $resolvedPath"
+                    Write-KrLog -Level Verbose -Message "Resolved file path: $resolvedPath"
                     # Call the C# method on the $Context.Response object
                     $Context.Response.WriteHtmlResponseFromFile($resolvedPath, $readOnlyDictionary, $StatusCode)
                     Write-Information "HTML response written for $FilePath"
@@ -56,7 +56,7 @@ function Write-KrHtmlResponse {
         }
     } catch {
         # Handle any errors that occur during the file response writing
-        Write-KrErrorLog -Message 'Error writing file response.' -ErrorRecord $_
+        Write-KrLog -Level Error -Message 'Error writing file response.' -ErrorRecord $_
     }
 }
 

@@ -46,10 +46,10 @@ function Set-KrLevelSwitch {
         $LevelSwitch.MinimumLevel = $MinimumLevel
 
         if ($ToPreference) {
-            Set-KrLogLevelToPreference -LogLevel $MinimumLevel
+            Set-KrLogLevelToPreference -Level $MinimumLevel
         }
         if ($ToPreference) {
-            Set-KrLogLevelToPreference -LogLevel $MinimumLevel
+            Set-KrLogLevelToPreference -Level $MinimumLevel
         }
 
         if ($PassThru) {

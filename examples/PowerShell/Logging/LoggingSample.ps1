@@ -40,7 +40,7 @@ $l0 = New-KrLogger |
     Add-KrSinkConsole -OutputTemplate "[{MachineName} {Timestamp:HH:mm:ss} {Level:u3}] {Message:lj}{NewLine}{Exception}" |
     Register-KrLogger -PassThru -SetAsDefault -Name "DefaultLogger"
 
-Write-KrInformationLog -Message 'Some default log'
+Write-KrLog -Level Information -Message 'Some default log'
 
 Close-KrLogger -Logger $l0
 
@@ -55,27 +55,27 @@ New-KrLogger |
 
 Register-KrLogger -FilePath ".\logs\test2-.log" -Console -MinimumLevel Verbose -Name "Logger2"
 
-# Write-KrVerboseLog "test verbose"
-Write-KrDebugLog -Message "test debug asd" -Name "Logger1"
+# Write-KrLog -Level Verbose "test verbose"
+Write-KrLog -Level Debug -Message "test debug asd" -Name "Logger1"
 Set-KrDefaultLogger -Name "Logger2"
-Write-KrInformationLog -Message $null
-Write-KrInformationLog -Message ''
-Write-KrInformationLog -Message 'asd {0} - {1}' -Values $null, '' -Exception $null
+Write-KrLog -Level Information -Message $null
+Write-KrLog -Level Information -Message ''
+Write-KrLog -Level Information -Message 'asd {0} - {1}' -Values $null, '' -Exception $null
 
-Write-KrDebugLog -Message "test debug asdasdsad"
+Write-KrLog -Level Debug -Message "test debug asdasdsad"
 
-Write-KrWarningLog "test warning" -Name "Logger1"
+Write-KrLog -Level Warning "test warning" -Name "Logger1"
 
 Set-KrDefaultLogger -Name "Logger1"
 
-Write-KrInformationLog "test info"
+Write-KrLog -Level Information "test info"
 
-Write-KrErrorLog -Message "test error {asd}, {num}, {@levelSwitch}" -Values "test1", 123, $levelSwitch -Name "Logger2"
+Write-KrLog -Level Error -Message "test error {asd}, {num}, {@levelSwitch}" -Values "test1", 123, $levelSwitch -Name "Logger2"
 
 try {
     Get-Content -Path 'asd' -ErrorAction Stop
 } catch {
-    Write-KrFatalLog -ErrorRecord $_ -Message 'Error while reading file!'
+    Write-KrLog -Level Fatal -ErrorRecord $_ -Message 'Error while reading file!'
 }
 
 
@@ -86,6 +86,6 @@ New-KrLogger |
     Add-KrSinkConsole -OutputTemplate "[{MachineName} {Timestamp:HH:mm:ss} {Level:u3}] {Message:lj}{NewLine}{Exception}" |
     Add-KrSinkEventLog -Source "MyApp" -ManageEventSource |
     Register-KrLogger -Name "Logger3"
-Write-KrInformationLog -Name "Logger3" -Message "test info"
+Write-KrLog -Level Information -Name "Logger3" -Message "test info"
 
 Close-KrLogger

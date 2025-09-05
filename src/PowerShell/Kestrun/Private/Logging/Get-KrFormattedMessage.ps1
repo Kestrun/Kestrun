@@ -6,7 +6,7 @@
     .PARAMETER Logger
         The Serilog logger instance to use for formatting the message.
         Pass the logger instance that will be used to format the log message.
-    .PARAMETER LogLevel
+    .PARAMETER Level
         The log level to use for the log message.
         Pass the log level that will be used to format the log message.
     .PARAMETER Message
@@ -19,7 +19,7 @@
         The exception to include in the log message, if any.
         Pass the exception that will be included in the log message.
     .EXAMPLE
-        $formattedMessage = Get-KrFormattedMessage -Logger $logger -LogLevel 'Error' -Message 'An error occurred: {ErrorMessage}' -Values @{'ErrorMessage' = $errorMessage} -Exception $exception
+        $formattedMessage = Get-KrFormattedMessage -Logger $logger -Level 'Error' -Message 'An error occurred: {ErrorMessage}' -Values @{'ErrorMessage' = $errorMessage} -Exception $exception
         $formattedMessage | Write-Host
         # Output the formatted message
         Write-Host $formattedMessage
@@ -30,7 +30,7 @@ function Get-KrFormattedMessage {
         [Serilog.ILogger]$Logger,
 
         [Parameter(Mandatory = $true)]
-        [Serilog.Events.LogEventLevel]$LogLevel,
+        [Serilog.Events.LogEventLevel]$Level,
 
         [parameter(Mandatory = $true)]
         [AllowEmptyString()]
@@ -48,7 +48,7 @@ function Get-KrFormattedMessage {
     $parsedTemplate = $null
     $boundProperties = $null
     if ($Logger.BindMessage($Message, $Values, [ref]$parsedTemplate, [ref]$boundProperties)) {
-        $logEvent = [Serilog.Events.LogEvent]::new([System.DateTimeOffset]::Now, $LogLevel, $Exception, $parsedTemplate, $boundProperties)
+        $logEvent = [Serilog.Events.LogEvent]::new([System.DateTimeOffset]::Now, $Level, $Exception, $parsedTemplate, $boundProperties)
         $strWriter = [System.IO.StringWriter]::new()
         # Use the global TextFormatter if available, otherwise use the default formatter from Kestrun.Logging
         [Kestrun.Logging]::TextFormatter.Format($logEvent, $strWriter)

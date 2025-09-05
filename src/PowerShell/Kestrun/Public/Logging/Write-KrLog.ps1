@@ -10,6 +10,9 @@
         The message template describing the event.
     .PARAMETER Name
         The name of the logger to use. If not specified, the default logger is used.
+    .PARAMETER Logger
+        The Serilog logger instance to use for logging.
+        If not specified, the logger with the specified Name or the default logger is used.
     .PARAMETER Exception
         The exception related to the event.
     .PARAMETER ErrorRecord

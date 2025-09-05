@@ -22,7 +22,7 @@
         System.String
         A single string containing the absolute path to the ReportGenerator executable or script. If the tool cannot be located the function may return $null or throw an error depending on implementation.
     .NOTES
-        Callers should validate that the returned path exists and is executable before attempting to run it. 
+        Callers should validate that the returned path exists and is executable before attempting to run it.
         This function is intended to keep tool discovery logic in one place so other scripts can remain simpler and more robust.
 #>
 function Get-ReportGeneratorPath {
@@ -75,7 +75,7 @@ function Install-ReportGenerator {
     Returns the filesystem path to the ASP.NET "Shared" directory for a specified .NET / ASP.NET framework version.
 .DESCRIPTION
     Get-AspNetSharedDir accepts a framework version string and resolves the location of the ASP.NET "Shared" directory that corresponds to that framework.
-    The function normalizes common version formats (for example "v4.0", "4.0", "v2.0.50727") and 
+    The function normalizes common version formats (for example "v4.0", "4.0", "v2.0.50727") and
     returns a full path string that can be used to locate shared ASP.NET assemblies or configuration items.
 .PARAMETER framework
     The framework version to resolve. Accepts typical .NET/ASP.NET version representations such as:
@@ -85,7 +85,7 @@ function Install-ReportGenerator {
     This parameter is required.
 .OUTPUTS
     System.String
-    A full path to the ASP.NET Shared directory for the specified framework. 
+    A full path to the ASP.NET Shared directory for the specified framework.
     If the directory cannot be found, the function will either return $null or throw an error depending on implementation and error-handling preferences.
 .EXAMPLE
     # Resolve the shared directory for .NET 4.0 and print it
@@ -130,6 +130,8 @@ function Get-AspNetSharedDir([string]$framework) {
         The path to the version file.
     .PARAMETER VersionOnly
         If specified, only the version string is returned.
+    .PARAMETER Details
+        If specified, the full version details including release and iteration information are returned.
     .EXAMPLE
         Get-Version -FileVersion './version.json'
         This will return the version string from the specified JSON file.
@@ -146,12 +148,13 @@ function Get-Version {
     param(
         [Parameter(Mandatory = $true)]
         [string]$FileVersion,
-        [switch]$VersionOnly
+        [switch]$VersionOnly,
+        [switch]$Details
     )
     if (-not (Test-Path -Path $FileVersion)) {
         throw "File version file not found: $FileVersion"
     }
-    $versionData = Get-Content -Path $FileVersion | ConvertFrom-Json
+    $versionData = Get-Content -Path $FileVersion | ConvertFrom-Json -AsHashtable
     $Version = $versionData.Version
     if ($VersionOnly) {
         return $Version
@@ -160,6 +163,13 @@ function Get-Version {
     $ReleaseIteration = ([string]::IsNullOrEmpty($versionData.Iteration))? $Release : "$Release.$($versionData.Iteration)"
     if ($Release -ne 'Stable') {
         $Version = "$Version-$ReleaseIteration"
+        $versionData.Prerelease = $true
+    }
+    if ($Details) {
+        $commit = (git rev-parse --short HEAD).Trim()
+        $versionData.InformationalVersion = "$($Version)+$commit"
+        $versionData.FullVersion = $Version
+        return $versionData
     }
     return $Version
 }

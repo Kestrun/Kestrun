@@ -42,7 +42,7 @@
 #>
 param(
     [string]$Root = (Join-Path $PSScriptRoot 'src/PowerShell/Kestrun'),
-    [string[]]$Skip = @('bin', 'obj', '.git', '.vs', 'node_modules', 'vendor', 'coverage'),
+    [string[]]$Skip = @('bin', 'obj', 'lib', '.git', '.vs', 'node_modules', 'vendor', 'coverage'),
     [switch]$IncludeGitMeta,
     [ValidateSet('BeforeFunction', 'InsideBeforeParam', 'AfterFunction')]
     [string]$FunctionHelpPlacement = 'BeforeFunction',
@@ -50,11 +50,200 @@ param(
     [switch]$NoBomEncoding,
     [switch]$NoFooter,
     [switch]$UseGitForCreated,
-    [switch]$WhatIf
+    [switch]$WhatIf,
+    [switch]$Parallel
 )
 
 $today = Get-Date -Format 'yyyy-MM-dd'
+$gitSem = [System.Threading.SemaphoreSlim]::new(2)  # tune to 1 if repo is on HDD/SMB
 
+<#  Language spec so we can reuse your pipeline for PS and C#  #>
+function Get-LangSpec {
+    param(
+        [Parameter(Mandatory)] [string]$Extension,   # like ".ps1" / ".cs"
+        [ValidateSet('Line', 'Block')]
+        [string]$CSharpHeaderStyle = 'Line'          # choose //-line or /* block */ headers for C#
+    )
+
+    $ext = $Extension.ToLowerInvariant()
+
+    switch ($ext) {
+        '.ps1' {
+            return [pscustomobject]@{
+                Name = 'PowerShell'
+                CommentPrefix = '#'
+                Ruler = '#------------------------------------------'
+                HeaderRegex = '^\s*#-+\n(?:#.*\n)*?#-+\n?'            # detects your PS header
+                FooterRegex = '(?ms)\n?#-+\s*\n#\s*End of\s+.+\n#-+\s*\n*\z'
+                IsPowerShell = $true
+            }
+        }
+        '.psm1' { return (Get-LangSpec -Extension '.ps1') }
+        '.psd1' { return (Get-LangSpec -Extension '.ps1') }
+
+        '.cs' {
+            if ($CSharpHeaderStyle -eq 'Block') {
+                return [pscustomobject]@{
+                    Name = 'CSharp'
+                    CommentPrefix = ' *'     # used for middle lines in /* ... */
+                    Ruler = '/*----------------------------------------*/'
+                    HeaderRegex = '^\s*/\*[-]+\*/?\n?(?:\s*/\*.*?\*/\s*\n?)?' # optional, but we’ll also accept our canonical layout below
+                    FooterRegex = '(?ms)\n?/\*-+\*/\s*\n/\*\s*End of\s+.+\*/\s*\n/\*-+\*/\s*\n*\z'
+                    IsPowerShell = $false
+                    Style = 'Block'
+                }
+            } else {
+                return [pscustomobject]@{
+                    Name = 'CSharp'
+                    CommentPrefix = '//'
+                    Ruler = '//------------------------------------------'
+                    HeaderRegex = '^\s*//-+\n(?://.*\n)*?//-+\n?'
+                    FooterRegex = '(?ms)\n?//-+\s*\n//\s*End of\s+.+\n//-+\s*\n*\z'
+                    IsPowerShell = $false
+                    Style = 'Line'
+                }
+            }
+        }
+
+        default {
+            # Fallback to PowerShell style for unknowns
+            return (Get-LangSpec -Extension '.ps1')
+        }
+    }
+}# Compile options once
+$script:RO = [Text.RegularExpressions.RegexOptions]::Compiled `
+    -bor [Text.RegularExpressions.RegexOptions]::CultureInvariant `
+    -bor [Text.RegularExpressions.RegexOptions]::Multiline
+
+# Cache of compiled headers/validators by spec key
+$script:_HeaderCache = @{}
+
+function Get-ExistingFileHeaderMatchByLang {
+    param(
+        [Parameter(Mandatory)] [string]$Text,
+        [Parameter(Mandatory)] $Spec
+    )
+
+    # Build a cache key per language/style
+    $key = '{0}|{1}' -f $Spec.Name, ($Spec.Style ?? 'Line')
+
+    if (-not $script:_HeaderCache.ContainsKey($key)) {
+        switch -Regex ($key) {
+            '^PowerShell\|' {
+                $patHeader = '\A\s*#-+\n(?:#.*\n)*#-+\n?'
+                $patFileLine = '(?m)^\s*#\s*File:\s'
+                $patCreated = '(?m)^\s*#\s*Created:\s'
+            }
+            '^CSharp\|Line$' {
+                $patHeader = '\A\s*//-+\n(?://.*\n)*//-+\n?'
+                $patFileLine = '(?m)^\s*//\s*File:\s'
+                $patCreated = '(?m)^\s*//\s*Created:\s'
+            }
+            '^CSharp\|Block$' {
+                # Block style needs dot-anywhere; anchor to BOF and keep it lazy
+                $patHeader = '(?s)\A/\*[-]+\*/.*?/\*[-]+\*/\s*'
+                $patFileLine = '(?m)^\s*/\*\s*File:\s'   # tolerant; adapt if you change your block layout
+                $patCreated = '(?m)^\s*\*\s*Created:\s'
+            }
+            default {
+                # Fallback to PS style
+                $patHeader = '\A\s*#-+\n(?:#.*\n)*#-+\n?'
+                $patFileLine = '(?m)^\s*#\s*File:\s'
+                $patCreated = '(?m)^\s*#\s*Created:\s'
+            }
+        }
+
+        $script:_HeaderCache[$key] = [pscustomobject]@{
+            HeaderRe = [regex]::new($patHeader, $script:RO)
+            FileLineRe = [regex]::new($patFileLine, $script:RO)
+            CreatedRe = [regex]::new($patCreated, $script:RO)
+        }
+    }
+
+    $rx = $script:_HeaderCache[$key]
+
+    # Only scan the first 16 KB — headers live at the top by definition
+    $sliceLen = [Math]::Min($Text.Length, 16KB)
+    $slice = if ($Text.Length -gt 0) { $Text.Substring(0, $sliceLen) } else { $Text }
+
+    $m = $rx.HeaderRe.Match($slice)
+    if ($m.Success -and $rx.FileLineRe.IsMatch($m.Value) -and $rx.CreatedRe.IsMatch($m.Value)) {
+        return $m
+    }
+    return $null
+}
+
+
+<#  Build a header for PS or C# based on the language spec  #>
+function New-HeaderText {
+    param(
+        [Parameter(Mandatory)] $Spec,
+        [Parameter(Mandatory)] [string]$RelPath,
+        [Parameter(Mandatory)] [string]$CreatedDate,
+        [Parameter(Mandatory)] [string]$ModifiedLine
+    )
+
+    if ($Spec.Name -eq 'CSharp' -and $Spec.Style -eq 'Block') {
+        return @"
+${($Spec.Ruler)}
+/*   File:      $RelPath
+
+ *   Created:   $CreatedDate
+ *   $ModifiedLine
+
+ *   Notes:
+ *       This file is part of the Kestrun framework.
+ *       https://www.kestrun.dev
+
+ *   License:
+ *       MIT License - See LICENSE.txt file in the project root for more information.
+ */
+${($Spec.Ruler)}
+"@
+    } else {
+        $P = $Spec.CommentPrefix
+        $R = $Spec.Ruler
+        return @"
+$R
+$P   File:      $RelPath
+$P
+$P   Created:   $CreatedDate
+$P   $ModifiedLine
+$P
+$P   Notes:
+$P       This file is part of the Kestrun framework.
+$P       https://www.kestrun.dev
+$P
+$P   License:
+$P       MIT License - See LICENSE.txt file in the project root for more information.
+$R
+"@
+    }
+}
+
+<#  Build a footer for PS or C# based on the language spec  #>
+function New-FooterText {
+    param(
+        [Parameter(Mandatory)] $Spec,
+        [Parameter(Mandatory)] [string]$RelPath
+    )
+
+    if ($Spec.Name -eq 'CSharp' -and $Spec.Style -eq 'Block') {
+        return @"
+${($Spec.Ruler)}
+/* End of $RelPath */
+${($Spec.Ruler)}
+"@
+    } else {
+        $P = $Spec.CommentPrefix
+        $R = $Spec.Ruler
+        return @"
+$R
+$P End of $RelPath
+$R
+"@
+    }
+}
 
 <#
 .SYNOPSIS
@@ -71,7 +260,7 @@ $today = Get-Date -Format 'yyyy-MM-dd'
 #>
 function Get-GitCreatedDate {
     param([string]$RepoRoot, [string]$FilePath)
-
+    $null = $gitSem.Wait()
     try {
         $rel = [System.IO.Path]::GetRelativePath($RepoRoot, $FilePath)
 
@@ -90,7 +279,7 @@ function Get-GitCreatedDate {
         }
     } catch {
         Write-Warning "Failed to get git created date for '$FilePath': $_"
-    }
+    }finally { $gitSem.Release() | Out-Null }
 
     return $null
 }
@@ -399,6 +588,7 @@ function Set-FunctionHelpPlacement {
 #>
 function Get-GitMeta {
     param([string]$RepoRoot, [string]$FilePath)
+    $null = $gitSem.Wait()
     try {
         $rel = [System.IO.Path]::GetRelativePath($RepoRoot, $FilePath)
         $log = git -C $RepoRoot log -1 --pretty='%h|%an' -- "$rel" 2>$null
@@ -406,9 +596,7 @@ function Get-GitMeta {
             $parts = $log -split '\|', 2
             [pscustomobject]@{ Hash = $parts[0]; Author = $parts[1] }
         }
-    } catch {
-        Write-Warning "Failed to get git metadata for file '$FilePath': $_"
-    }
+    } finally { $gitSem.Release() | Out-Null }
 }
 
 <#
@@ -443,121 +631,123 @@ function Get-ExistingFileHeaderMatch {
 
     return $null
 }
+# segment-aware skip (bin|obj|lib|… anywhere in the path)
+$skipRegex = '(?i)(?:^|[\\/])(?:' + (($Skip | ForEach-Object { [regex]::Escape($_) }) -join '|') + ')(?:[\\/])'
 
-Get-ChildItem -Path $Root -Recurse -File -Include *.ps1, *.psm1 |
-    Where-Object { $Skip -notcontains $_.Directory.Name } |
-    ForEach-Object {
-        $file = $_.FullName
+# allow-list (case-insensitive)
+$allowed = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
+@('.ps1', '.psm1', '.psd1', '.cs') | ForEach-Object { [void]$allowed.Add($_) }
 
-        # Read raw
-        $text = Get-Content -LiteralPath $file -Raw -Encoding UTF8
+$filesEnum = [System.IO.Directory]::EnumerateFiles($Root, '*', [System.IO.SearchOption]::AllDirectories)
 
-        # --- Normalize to LF & whitespace ---
-        $fixed = $text -replace "`r`n", "`n"
-        $fixed = $fixed -replace "`r", "`n"
-        $fixed = [regex]::Replace($fixed, '[ \t]+(?=\n)', '')
-        $fixed = [regex]::Replace($fixed, '\n*\z', "`n")
+$RO = [Text.RegularExpressions.RegexOptions]::Compiled -bor [Text.RegularExpressions.RegexOptions]::CultureInvariant
 
-        $relPath = [System.IO.Path]::GetRelativePath($Root, $file) -replace '\\', '/'
+$reTrimTrailing = [regex]::new('[ \t]+(?=\n)', $RO)
+$reEndNewlines = [regex]::new('\n*\z', $RO)
 
-        $meta = if ($IncludeGitMeta) { Get-GitMeta -RepoRoot $Root -FilePath $file }
-        $modifiedLine = if ($meta) {
-            "Modified:  $today by $($meta.Author) (commit $($meta.Hash))"
-        } else {
-            "Modified:  $today"
-        }
 
-        # Check if an existing FILE HEADER is present (does NOT match function help)
-        $hdrMatch = Get-ExistingFileHeaderMatch -Text $fixed
+foreach ($path in $filesEnum) {
+    $fi = [System.IO.FileInfo]$path
+    if (-not $allowed.Contains($fi.Extension)) { continue }
 
-        # if header exists, keep its Created date; else initialize it
-        $createdDate =
-        if ($hdrMatch) {
-            $m = [regex]::Match($hdrMatch.Value, '(?m)^\s*#?\s*Created:\s*(\d{4}-\d{2}-\d{2})')
-            if ($m.Success) {
-                $m.Groups[1].Value     # sticky: preserve existing Created
-            } else {
-                # Header present but no Created: optionally seed from Git
-                $gitCreated = if ($UseGitForCreated) { Get-GitCreatedDate -RepoRoot $Root -FilePath $file } else { $null }
-                if ($gitCreated) { $gitCreated } else { $today }
-            }
-        } else {
-            # No header yet: optionally seed from Git
+    # skip any path containing a segment like /bin/, /obj/, /lib/, etc.
+    $rel = [System.IO.Path]::GetRelativePath($Root, $fi.FullName)
+    if ($rel -match $skipRegex) { continue }
+
+    $file = $fi.FullName
+    Write-Host "🔧 Processing file: $file"
+
+    $ext = $fi.Extension
+    $spec = Get-LangSpec -Extension $ext  # or -CSharpHeaderStyle 'Block'
+
+    # Read raw (fast path)
+    $text = [System.IO.File]::ReadAllText($file, [System.Text.Encoding]::UTF8)
+
+    # --- Normalize to LF & whitespace ---
+    $fixed = $text -replace "`r`n", "`n"
+    $fixed = $fixed -replace "`r", "`n"
+    #$fixed = [regex]::Replace($fixed, '[ \t]+(?=\n)', '')
+    #$fixed = [regex]::Replace($fixed, '\n*\z', "`n")
+    $fixed = $reTrimTrailing.Replace($fixed, '')
+    $fixed = $reEndNewlines.Replace($fixed, "`n")
+
+    $relPath = $rel -replace '\\', '/'
+
+    $meta = if ($IncludeGitMeta) { Get-GitMeta -RepoRoot $Root -FilePath $file }
+    $modifiedLine = if ($meta) {
+        "Modified:  $today by $($meta.Author) (commit $($meta.Hash))"
+    } else {
+        "Modified:  $today"
+    }
+
+    # Header detection per-language
+    $hdrMatch = Get-ExistingFileHeaderMatchByLang -Text $fixed -Spec $spec
+
+    # Created date logic
+    $createdDate =
+    if ($hdrMatch) {
+        $m = [regex]::Match($hdrMatch.Value, '(?m)^\s*' + [regex]::Escape($spec.CommentPrefix.Trim()) + '\s*Created:\s*(\d{4}-\d{2}-\d{2})')
+        if ($m.Success) { $m.Groups[1].Value }
+        else {
             $gitCreated = if ($UseGitForCreated) { Get-GitCreatedDate -RepoRoot $Root -FilePath $file } else { $null }
             if ($gitCreated) { $gitCreated } else { $today }
         }
+    } else {
+        $gitCreated = if ($UseGitForCreated) { Get-GitCreatedDate -RepoRoot $Root -FilePath $file } else { $null }
+        if ($gitCreated) { $gitCreated } else { $today }
+    }
 
-        $headerText = @"
-#------------------------------------------
-#   File:      $relPath
-#
-#   Created:   $createdDate
-#   $modifiedLine
-#
-#   Notes:
-#       This file is part of the Kestrun framework.
-#       https://www.kestrun.dev
-#
-#   License:
-#       MIT License - See LICENSE.txt file in the project root for more information.
-#------------------------------------------
-"@
+    # Build header text
+    $headerText = New-HeaderText -Spec $spec -RelPath $relPath -CreatedDate $createdDate -ModifiedLine $modifiedLine
 
-        # Remove ONLY our file header if present; otherwise keep whatever is there (e.g., <# .SYNOPSIS #>)
-        if ($hdrMatch) {
-            $fixed = $fixed.Substring($hdrMatch.Length)
-            # Trim extra blank lines after removing our header
-            $fixed = [regex]::Replace($fixed, '^\n+', '')
-            $body = $fixed
-            $prependHeader = $false
+    # Remove existing header block if found
+    if ($hdrMatch) {
+        $fixed = $fixed.Substring($hdrMatch.Length)
+        $fixed = [regex]::Replace($fixed, '^\n+', '')
+        $body = $fixed
+        $prependHeader = $false
+    } else {
+        $body = $fixed
+        $prependHeader = $true
+    }
+
+    # Remove existing footer per-language
+    $body = [regex]::Replace($body, $spec.FooterRegex, "`n")
+
+    # Optionally reformat function help — PowerShell only
+    if ($ReformatFunctionHelp -and $spec.IsPowerShell) {
+        $body = Set-FunctionHelpPlacement -Text $body -Placement $FunctionHelpPlacement
+        $body = $body -replace "`r`n", "`n"
+        $body = $body -replace "`r", "`n"
+        $body = [regex]::Replace($body, '[ \t]+(?=\n)', '')
+        $body = [regex]::Replace($body, '\n*\z', "`n")
+    }
+
+    # Build footer (or skip if -NoFooter)
+    $footerText = if ($NoFooter) { "`n" } else { "`n`n" + (New-FooterText -Spec $spec -RelPath $relPath).TrimEnd() }
+
+    # Reassemble
+    $newContent =
+    if ($prependHeader) {
+        $headerText.TrimEnd() + "`n`n" + $body.Trim() + $footerText.TrimEnd()
+    } else {
+        $headerText.TrimEnd() + "`n`n" + $body.Trim() + $footerText.TrimEnd()
+    }
+
+    # Final safety normalization
+    $newContent = $newContent -replace "`r`n", "`n"
+    $newContent = $newContent -replace "`r", "`n"
+    $newContent = [regex]::Replace($newContent, '[ \t]+(?=\n)', '')
+    $newContent = [regex]::Replace($newContent, '\n*\z', "`n")
+
+    if ($newContent -ne $text) {
+        if ($WhatIf) {
+            Write-Host "⚠️ Would update: $relPath"
         } else {
-            # No file header detected → we will prepend our header and leave any existing help intact
-            $body = $fixed
-            $prependHeader = $true
-        }
-
-        # Remove ONLY our footer variant (be strict: must include "End of ")
-        $footerPattern = "(?ms)\n?#-+\s*\n#\s*End of\s+.+\n#-+\s*\n*\z"
-        $body = [regex]::Replace($body, $footerPattern, "`n")
-
-        if ($ReformatFunctionHelp) {
-            $body = Set-FunctionHelpPlacement -Text $body -Placement $FunctionHelpPlacement
-            # normalize again after edits
-            $body = $body -replace "`r`n", "`n"
-            $body = $body -replace "`r", "`n"
-            $body = [regex]::Replace($body, '[ \t]+(?=\n)', '')
-            $body = [regex]::Replace($body, '\n*\z', "`n")
-        }
-        $footerText = if ($NoFooter) { "`n" } else {
-            "`n`n" + @"
-#------------------------------------------
-# End of $relPath
-#------------------------------------------
-"@
-        }
-
-        # Reassemble
-        $newContent =
-        if ($prependHeader) {
-            $headerText.TrimEnd() + "`n`n" + $body.Trim() + $footerText.TrimEnd()
-        } else {
-            # we removed an old file header above; replace with the new one
-            $headerText.TrimEnd() + "`n`n" + $body.Trim() + $footerText.TrimEnd()
-        }
-
-        # Final safety normalization
-        $newContent = $newContent -replace "`r`n", "`n"
-        $newContent = $newContent -replace "`r", "`n"
-        $newContent = [regex]::Replace($newContent, '[ \t]+(?=\n)', '')
-        $newContent = [regex]::Replace($newContent, '\n*\z', "`n")
-
-        if ($newContent -ne $text) {
-            if ($WhatIf) {
-                Write-Host "⚠️ Would update: $relPath"
-            } else {
-                $enc = if ($NoBomEncoding) { [System.Text.UTF8Encoding]::new($false) } else { [System.Text.UTF8Encoding]::new($true) }
-                [System.IO.File]::WriteAllText($file, $newContent, $enc)
-                Write-Host "🔧 Updated: $relPath"
-            }
+            # If you added per-language encoding earlier, call Get-TargetEncoding here instead.
+            $enc = if ($NoBomEncoding) { [System.Text.UTF8Encoding]::new($false) } else { [System.Text.UTF8Encoding]::new($true) }
+            [System.IO.File]::WriteAllText($file, $newContent, $enc)
+            Write-Host "🔧 Updated: $relPath"
         }
     }
+}

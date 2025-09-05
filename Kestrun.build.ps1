@@ -92,7 +92,7 @@ $SolutionPath = Join-Path -Path $PSScriptRoot -ChildPath "Kestrun.sln"
 Write-Host '---------------------------------------------------' -ForegroundColor DarkCyan
 if (-not $Version) {
     if ($PSCmdlet.ParameterSetName -eq 'FileVersion') {
-        $Version = Get-Version -FileVersion $FileVersion
+        $VersionDetails = Get-Version -FileVersion $FileVersion -Details
     } elseif ($PSCmdlet.ParameterSetName -eq 'Version') {
         if (-not (Test-Path -Path $FileVersion)) {
             [ordered]@{
@@ -101,14 +101,15 @@ if (-not $Version) {
                 Iteration = $Iteration
             } | ConvertTo-Json | Set-Content -Path $FileVersion
         }
-        $Version = Get-Version -FileVersion $FileVersion
+        $VersionDetails = Get-Version -FileVersion $FileVersion -Details
     } else {
         throw "Invalid parameter set. Use either 'FileVersion' or 'Version'."
     }
+    $Version = $VersionDetails.FullVersion
 }
 # Display the Kestrun build version
-if ($Prerelease) {
-    Write-Host "Kestrun Build: v$Version-$Prerelease (Pre-release)" -ForegroundColor DarkCyan
+if ($VersionDetails.Prerelease) {
+    Write-Host "Kestrun Build: v$Version (Pre-release)" -ForegroundColor DarkCyan
 } else {
     if ($Version -eq '0.0.0') {
         Write-Host 'Kestrun Build: [Development Version]' -ForegroundColor DarkCyan
@@ -189,11 +190,17 @@ Add-BuildTask 'BuildNoPwsh' {
             throw "Invalid parameter set. Use either 'FileVersion' or 'Version'."
         }
     }#>
-
-    foreach ($framework in $Frameworks) {
-        dotnet build "$SolutionPath" -c $Configuration -f $framework -v:$DotNetVerbosity -p:Version=$Version -p:InformationalVersion=$InformationalVersion
+    if ($Frameworks.Count -eq 1) {
+        Write-Host "Building for single framework: $($Frameworks[0])" -ForegroundColor DarkCyan
+        dotnet build "$SolutionPath" -c $Configuration -f $framework -v:$DotNetVerbosity -p:Version=$Version -p:InformationalVersion=$VersionDetails.InformationalVersion
         if ($LASTEXITCODE -ne 0) {
             throw "dotnet build failed for framework $framework"
+        }
+    } else {
+        Write-Host "Building for multiple frameworks: $($Frameworks -join ', ')" -ForegroundColor DarkCyan
+        dotnet build "$SolutionPath" -c $Configuration -v:$DotNetVerbosity -p:Version=$Version -p:InformationalVersion=$VersionDetails.InformationalVersion
+        if ($LASTEXITCODE -ne 0) {
+            throw "dotnet build failed for framework $($Frameworks -join ', ')"
         }
     }
 }
@@ -268,7 +275,7 @@ Add-BuildTask 'Format' {
     Write-Host '✨ Formatting code...'
     dotnet format "$SolutionPath" -v:$DotNetVerbosity
     & .\Utility\Normalize-Files.ps1 `
-        -Root (Join-Path -Path $PSScriptRoot -ChildPath 'src' -AdditionalChildPath "PowerShell" , "Kestrun") `
+        -Root (Join-Path -Path $PSScriptRoot -ChildPath 'src') `
         -ReformatFunctionHelp -FunctionHelpPlacement BeforeFunction -NoFooter -UseGitForCreated
 }
 
@@ -321,20 +328,15 @@ Add-BuildTask 'Test' 'Kestrun.Tests', 'Test-Pester'
 
 Add-BuildTask 'Package' "Clean", {
     Write-Host '🚀 Starting release build...'
-    if ($PSCmdlet.ParameterSetName -eq 'FileVersion') {
-        $Version = Get-Version -FileVersion $FileVersion
-    } else {
-        throw "FileVersion parameter is required"
-    }
     $script:Configuration = 'Release'
 }, 'Restore', 'Build', 'Test', {
     # Retrieve the short commit SHA from Git
-    $commit = (git rev-parse --short HEAD).Trim()
-    $InformationalVersion = "$($Version)+$commit"
+    #$commit = (git rev-parse --short HEAD).Trim()
+    # $InformationalVersion = "$($Version)+$commit"
 
     $out = Join-Path -Path $PWD -ChildPath "artifacts" -AdditionalChildPath "$script:Configuration"
     dotnet pack src/CSharp/Kestrun/Kestrun.csproj -c $script:Configuration -o (Join-Path -Path $out -ChildPath "nuget") `
-        -p:Version=$Version -p:InformationalVersion=$InformationalVersion `
+        -p:Version=$Version -p:InformationalVersion=$VersionDetails.InformationalVersion `
         -p:IncludeSymbols=true -p:SymbolPackageFormat=snupkg
     if ($LASTEXITCODE -ne 0) {
         Write-Host "❌ Failed to pack Kestrun" -ForegroundColor Red

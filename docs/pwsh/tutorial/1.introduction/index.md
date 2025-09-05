@@ -28,5 +28,5 @@ All sample scripts live in [examples/PowerShell/Tutorial][Tutorial].
 
 [Tutorial]: https://github.com/Kestrun/Kestrun/blob/main/examples/PowerShell/Tutorial
 [src/PowerShell/Kestrun]: https://github.com/Kestrun/Kestrun/blob/main/src/PowerShell/Kestrun
-[docs/pwsh/cmdlets]: /docs/pwsh/cmdlets
+[docs/pwsh/cmdlets]: /pwsh/cmdlets
 [examples/PowerShell]: https://github.com/Kestrun/Kestrun/blob/main/examples/PowerShell

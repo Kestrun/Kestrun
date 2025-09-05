@@ -266,39 +266,8 @@ Add-BuildTask 'Kestrun.Tests' {
 
 Add-BuildTask 'Format' {
     Write-Host '✨ Formatting code...'
- #   dotnet format "$SolutionPath" -v:$DotNetVerbosity
-
-    & .\Utility\Normalize-Files.ps1 -Root (Join-Path -Path $PSScriptRoot -ChildPath 'src' -AdditionalChildPath "PowerShell" , "Kestrun") -ReformatFunctionHelp -FunctionHelpPlacement 'InsideBeforeParam'
-
-    <# $root = Join-Path $PSScriptRoot 'src/PowerShell/Kestrun'
-    $skip = @('bin', 'obj', '.git', '.vs', 'node_modules', 'vendor', 'coverage')
-
-    Get-ChildItem -Path $root -Recurse -File -Include *.ps1, *.psm1, *.psd1 |
-        Where-Object { $skip -notcontains $_.Directory.Name } |
-        ForEach-Object {
-            $file = $_.FullName
-
-            # Read whole file so we can precisely normalize
-            $text = Get-Content -LiteralPath $file -Raw -Encoding UTF8
-
-            # --- Normalize to LF ---
-            # 1) CRLF -> LF
-            $fixed = $text -replace "`r`n", "`n"
-            # 2) Lone CR -> LF (rare but let's be thorough)
-            $fixed = $fixed -replace "`r", "`n"
-
-            # Strip trailing spaces/tabs before each newline
-            $fixed = [regex]::Replace($fixed, '[ \t]+(?=\n)', '')
-
-            # Ensure exactly one trailing newline at EOF
-            $fixed = [regex]::Replace($fixed, '\n*\z', "`n")
-
-            if ($fixed -ne $text) {
-                $utf8NoBom = [System.Text.UTF8Encoding]::new($true)
-                [System.IO.File]::WriteAllText($file, $fixed, $utf8NoBom)
-                Write-Host "🔧 Wrote UTF-8 BOM Normalized (LF + trimmed): $file"
-            }
-        }#>
+    dotnet format "$SolutionPath" -v:$DotNetVerbosity
+    & .\Utility\Normalize-Files.ps1 -Root (Join-Path -Path $PSScriptRoot -ChildPath 'src' -AdditionalChildPath "PowerShell" , "Kestrun") -ReformatFunctionHelp -FunctionHelpPlacement BeforeFunction -NoFooter
 }
 
 

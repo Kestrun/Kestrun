@@ -23,6 +23,12 @@
 .PARAMETER NoBomEncoding
     If set, writes files as UTF-8 *without* BOM. By default, files are saved with UTF-8 BOM.
 
+.pARAMETER FunctionHelpPlacement
+    Specifies where to place function help blocks. Options are:
+    - BeforeFunction: Place help block immediately before the function definition.
+    - InsideBeforeParam: Place help block inside the function, before the param block.
+    - AfterFunction: Place help block immediately after the function definition.
+
 .PARAMETER WhatIf
     If set, shows what would change without writing files.
 
@@ -40,6 +46,7 @@ param(
     [string]$FunctionHelpPlacement = 'BeforeFunction',
     [switch]$ReformatFunctionHelp,
     [switch]$NoBomEncoding,
+    [switch]$NoFooter,
     [switch]$WhatIf
 )
 
@@ -288,8 +295,9 @@ function Set-FunctionHelpPlacement {
                 while ($wsEnd -lt $Text.Length -and ($Text[$wsEnd] -eq ' ' -or $Text[$wsEnd] -eq "`t")) { $wsEnd++ }
                 if ($insertOffset -lt $Text.Length -and $Text[$insertOffset] -ne "`n" -and $wsEnd -gt $wsStart) {
                     $edits.Add([pscustomobject]@{ Type = 'Remove'; Start = $wsStart; End = $wsEnd; Text = $null })
+                } else {
+                    $edits.Add([pscustomobject]@{ Type = 'Remove'; Start = $wsStart; End = $wsStart + 1; Text = $null })
                 }
-
                 # Function body indent = function indent + 4 spaces
                 $indent = (' ' * (($f.Extent.StartColumnNumber - 1) + 4))
                 $helpFormatted = Format-HelpBlock -Indent $indent -Help $helpText
@@ -372,20 +380,28 @@ function Get-GitMeta {
 #>
 function Get-ExistingFileHeaderMatch {
     param([string]$Text)
-    # match the very first block comment at BOF
-    $m = [regex]::Match($Text, '^\s*<#[\s\S]*?#>\s*\n?', 'Singleline')
-    if (-not $m.Success) { return $null }
 
-    $block = $m.Value
-    # Heuristics: treat as our header only if it contains "File:" and "Created:" labels
-    $isOurs =
-    ($block -match '(?m)^\s*File:\s') -and
-    ($block -match '(?m)^\s*Created:\s')
+    # We work on $fixed, which you've already normalized to LF.
+    # Match a header that starts at BOF with a ruler line, contains only '#' comment lines,
+    # and ends with another ruler line. Then verify it includes "File:" and "Created:".
+    $rx = '^\s*#-+\n(?:#.*\n)*?#-+\n?'
 
-    if ($isOurs) { return $m } else { return $null }
+    $m = [System.Text.RegularExpressions.Regex]::Match(
+        $Text,
+        $rx,
+        [System.Text.RegularExpressions.RegexOptions]::None
+    )
+
+    if ($m.Success -and
+        $m.Value -match '(?m)^\s*#\s*File:\s' -and
+        $m.Value -match '(?m)^\s*#\s*Created:\s') {
+        return $m
+    }
+
+    return $null
 }
 
-Get-ChildItem -Path $Root -Recurse -File -Include *.ps1, *.psm1, *.psd1 |
+Get-ChildItem -Path $Root -Recurse -File -Include *.ps1, *.psm1 |
     Where-Object { $Skip -notcontains $_.Directory.Name } |
     ForEach-Object {
         $file = $_.FullName
@@ -459,19 +475,21 @@ Get-ChildItem -Path $Root -Recurse -File -Include *.ps1, *.psm1, *.psd1 |
             $body = [regex]::Replace($body, '[ \t]+(?=\n)', '')
             $body = [regex]::Replace($body, '\n*\z', "`n")
         }
-        $footerText = @"
+        $footerText = if ($NoFooter) { "`n" } else {
+            "`n`n" + @"
 #------------------------------------------
 # End of $relPath
 #------------------------------------------
 "@
+        }
 
         # Reassemble
         $newContent =
         if ($prependHeader) {
-            $headerText.TrimEnd() + "`n`n" + $body.Trim() + "`n`n" + $footerText.TrimEnd()
+            $headerText.TrimEnd() + "`n`n" + $body.Trim() + $footerText.TrimEnd()
         } else {
             # we removed an old file header above; replace with the new one
-            $headerText.TrimEnd() + "`n`n" + $body.Trim() + "`n`n" + $footerText.TrimEnd()
+            $headerText.TrimEnd() + "`n`n" + $body.Trim() + $footerText.TrimEnd()
         }
 
         # Final safety normalization

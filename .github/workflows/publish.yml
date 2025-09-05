@@ -2,6 +2,7 @@ name: Publish Release
 
 permissions:
   contents: read   # read release assets
+  packages: write  # allow publishing to GitHub Packages
 
 on:
   workflow_dispatch:
@@ -15,9 +16,9 @@ on:
         options: [rehearsal, real]
         default: rehearsal
       publish_targets:
-        description: "Targets to publish (comma-separated: psgallery, nuget)"
+        description: "Targets to publish (comma-separated: psgallery, nuget, github)"
         required: true
-        default: "psgallery,nuget"
+        default: "psgallery,nuget,github"
 
 jobs:
   promote:
@@ -52,7 +53,6 @@ jobs:
           if (-not $zip) { throw "No Kestrun-PSModule-*.zip found in release assets." }
           New-Item -ItemType Directory -Force -Path ./stage/module | Out-Null
           Expand-Archive -Path $zip.FullName -DestinationPath ./stage/module -Force
-          # If the zip contains the 'Kestrun' folder already, great; if not, publish path still points to that root.
           Get-ChildItem -Recurse ./stage/module | Select-Object -First 10 | Format-Table -Auto
 
       - name: 🚀 Publish to PowerShell Gallery (PSResourceGet)
@@ -71,24 +71,37 @@ jobs:
           if ($env:PUBLISH_MODE -eq 'real') {
             Publish-PSResource -Path $path -Repository PSGallery -ApiKey $env:PSGALLERY_API_KEY
           } else {
-            # Rehearsal: same command with -WhatIf (API key not needed)
             Publish-PSResource -Path $path -Repository PSGallery -ApiKey $env:PSGALLERY_API_KEY -WhatIf
           }
 
       # ---------- NuGet.org ----------
-      - name: 🧪 NuGet rehearsal (list packages)
-        if: contains(env.TARGETS, 'nuget') && env.PUBLISH_MODE != 'real'
-        run: |
-          echo "Rehearsal mode — would push these packages:"
-          ls -1 ./release-assets/*.nupkg || true
-          ls -1 ./release-assets/*.snupkg || true
-
-      - name: 🚀 Push to nuget.org
-        if: contains(env.TARGETS, 'nuget') && env.PUBLISH_MODE == 'real'
+      - name: 🚀 Publish to NuGet.org
+        if: contains(env.TARGETS, 'nuget')
         env:
           NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
         run: |
-          test -n "$NUGET_API_KEY" || (echo "Missing NUGET_API_KEY" && exit 1)
-          # nupkg first, then symbols; skip duplicates so re-runs are safe
-          find ./release-assets -maxdepth 1 -name "*.nupkg"  -print -exec dotnet nuget push {} --api-key "$NUGET_API_KEY" --source https://api.nuget.org/v3/index.json --skip-duplicate \;
-          find ./release-assets -maxdepth 1 -name "*.snupkg" -print -exec dotnet nuget push {} --api-key "$NUGET_API_KEY" --source https://api.nuget.org/v3/index.json --skip-duplicate \;
+          if [ "${PUBLISH_MODE}" = "real" ]; then
+            for pkg in ./release-assets/*.nupkg; do
+              [ -e "$pkg" ] && dotnet nuget push "$pkg" --api-key "$NUGET_API_KEY" --source https://api.nuget.org/v3/index.json --skip-duplicate
+            done
+            for sym in ./release-assets/*.snupkg; do
+              [ -e "$sym" ] && dotnet nuget push "$sym" --api-key "$NUGET_API_KEY" --source https://api.nuget.org/v3/index.json --skip-duplicate
+            done
+          else
+            echo "Rehearsal: Would push nupkg and snupkg to NuGet.org"
+          fi
+
+      # ---------- GitHub Packages (NuGet) ----------
+      - name: 🚀 Publish to GitHub Packages (NuGet)
+        if: contains(env.TARGETS, 'github')
+        run: |
+          if [ "${PUBLISH_MODE}" = "real" ]; then
+            for pkg in ./release-assets/*.nupkg; do
+              [ -e "$pkg" ] && dotnet nuget push "$pkg" --source "https://nuget.pkg.github.com/${GITHUB_REPOSITORY_OWNER}/index.json" --api-key "${{ secrets.GITHUB_TOKEN }}" --skip-duplicate
+            done
+            for sym in ./release-assets/*.snupkg; do
+              [ -e "$sym" ] && dotnet nuget push "$sym" --source "https://nuget.pkg.github.com/${GITHUB_REPOSITORY_OWNER}/index.json" --api-key "${{ secrets.GITHUB_TOKEN }}" --skip-duplicate
+            done
+          else
+            echo "Rehearsal: Would push nupkg and snupkg to GitHub Packages"
+          fi

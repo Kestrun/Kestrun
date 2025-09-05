@@ -4,9 +4,6 @@
     FileName: 4.1-Shared-Variables.ps1
 #>
 
-# Import the Kestrun module
-Install-PSResource -Name Kestrun
-
 # Initialize Kestrun root directory
 # the default value is $PWD
 # This is recommended in order to use relative paths without issues
@@ -40,8 +37,8 @@ Add-KrMapRoute -Server $server -Verbs Get -Pattern '/show' -ScriptBlock {
 # Route: GET /visit
 Add-KrMapRoute -Server $server -Verbs Get -Pattern '/visit' -ScriptBlock {
     # Simulate some delay
- #   Start-Sleep -Seconds $Delay
-    # increment the injected variable 
+    Start-Sleep -Seconds $Delay
+    # increment the injected variable
     $Visits.AddOrUpdate("Count", 1, { param($k, $v) $v + 1 })
     Write-KrTextResponse -InputObject "[Runspace: $([System.Management.Automation.Runspaces.Runspace]::DefaultRunspace.Name)] Incremented to $($Visits.Count)" -StatusCode 200
 }

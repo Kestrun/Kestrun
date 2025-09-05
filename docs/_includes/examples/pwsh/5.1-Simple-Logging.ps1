@@ -4,10 +4,6 @@
     FileName: 5.1-Simple-Logging.ps1
 #>
 
-# Import the Kestrun module
-#Install-PSResource -Name Kestrun
-
-
 $myLogger = New-KrLogger |
     Set-KrMinimumLevel -Value Debug |
     Add-KrSinkFile -Path '.\logs\sample.log' -RollingInterval Hour |

@@ -5,9 +5,6 @@
     FileName: 2.1-Multiple-Content-Types.ps1
 #>
 
-# Import the Kestrun module
-Install-PSResource -Name Kestrun
-
 # Create a new Kestrun server
 New-KrServer -Name "Simple Server"
 

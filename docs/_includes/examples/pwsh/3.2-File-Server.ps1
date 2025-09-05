@@ -4,9 +4,6 @@
     FileName: 3.2-File-Server.ps1
 #>
 
-# Import the Kestrun module
-Install-PSResource -Name Kestrun
-
 # Initialize Kestrun root directory
 # the default value is $PWD
 # This is recommended in order to use relative paths without issues

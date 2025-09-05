@@ -4,9 +4,6 @@
     FileName: 2.3-Route-Parameters.ps1
 #>
 
-# Import the Kestrun module
-Install-PSResource -Name Kestrun
-
 # Create a new Kestrun server
 New-KrServer -Name "Simple Server"
 

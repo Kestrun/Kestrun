@@ -1,14 +1,14 @@
 ---
 title: Certificates
 parent: Tutorials
-nav_order: 6
+nav_order: 7
 ---
 
 # Kestrun Certificates
 
 > 🚧 **Work in Progress**
 >
-> This page is currently under development. Content will be expanded with guides, examples, and best practices soon.  
+> This page is currently under development. Content will be expanded with guides, examples, and best practices soon.
 > Thank you for your patience while we build it out.
 
 ## Overview
@@ -69,7 +69,7 @@ var imported = CertificateManager.Import("./devcert.pfx", "p@ss".AsSpan());
 ```csharp
 CertificateManager.Export(
     imported,
-    filePath: "./devcert", 
+    filePath: "./devcert",
     fmt: CertificateManager.ExportFormat.Pfx,
     password: "p@ss".AsSpan(),
     includePrivateKey: true);

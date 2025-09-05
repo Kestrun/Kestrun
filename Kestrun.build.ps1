@@ -267,7 +267,9 @@ Add-BuildTask 'Kestrun.Tests' {
 Add-BuildTask 'Format' {
     Write-Host '✨ Formatting code...'
     dotnet format "$SolutionPath" -v:$DotNetVerbosity
-    & .\Utility\Normalize-Files.ps1 -Root (Join-Path -Path $PSScriptRoot -ChildPath 'src' -AdditionalChildPath "PowerShell" , "Kestrun") -ReformatFunctionHelp -FunctionHelpPlacement BeforeFunction -NoFooter
+    & .\Utility\Normalize-Files.ps1 `
+        -Root (Join-Path -Path $PSScriptRoot -ChildPath 'src' -AdditionalChildPath "PowerShell" , "Kestrun") `
+        -ReformatFunctionHelp -FunctionHelpPlacement BeforeFunction -NoFooter -UseGitForCreated
 }
 
 

@@ -9,26 +9,28 @@
     - Ensures exactly one newline at EOF
     - Inserts or updates a header block (preserves Created date; updates Modified)
     - Inserts or refreshes a footer block
-    - Optionally includes git author + short commit hash for the Modified line
-
+    - Optionally includes git author + short commit hash for the Modified line in the footer if IncludeGitMeta is specified.
 .PARAMETER Root
     Root directory to scan. Default is "$PSScriptRoot/src/PowerShell/Kestrun".
-
 .PARAMETER Skip
     Folder names to skip (e.g., bin, obj, .git). Default: bin,obj,.git,.vs,node_modules,vendor,coverage.
-
 .PARAMETER IncludeGitMeta
     If set, the Modified line includes latest git author + short commit hash.
-
 .PARAMETER NoBomEncoding
     If set, writes files as UTF-8 *without* BOM. By default, files are saved with UTF-8 BOM.
-
 .pARAMETER FunctionHelpPlacement
     Specifies where to place function help blocks. Options are:
     - BeforeFunction: Place help block immediately before the function definition.
     - InsideBeforeParam: Place help block inside the function, before the param block.
     - AfterFunction: Place help block immediately after the function definition.
-
+.PARAMETER ReformatFunctionHelp
+    If specified, reformats the function help block to ensure consistent indentation and structure.
+    This is useful for maintaining a uniform style across all function help comments.
+.PARAMETER NoFooter
+    If specified, the footer block will not be added or updated in the file.
+.PARAMETER UseGitForCreated
+    If specified, the Created date will be fetched from the git history for the file, rather than using the current date.
+     This is useful for tracking the original creation date of the file in the context of version control.
 .PARAMETER WhatIf
     If set, shows what would change without writing files.
 
@@ -47,10 +49,51 @@ param(
     [switch]$ReformatFunctionHelp,
     [switch]$NoBomEncoding,
     [switch]$NoFooter,
+    [switch]$UseGitForCreated,
     [switch]$WhatIf
 )
 
 $today = Get-Date -Format 'yyyy-MM-dd'
+
+
+<#
+.SYNOPSIS
+    Gets the YYYY-MM-DD date when a file first entered the repo (oldest commit touching it).
+.DESCRIPTION
+    This function uses git commands to determine the date when a file was first added to the repository.
+    It looks for the oldest commit that touched the specified file, which is useful for tracking when a file was created in the context of version control.
+.PARAMETER RepoRoot
+    The root directory of the git repository.
+.PARAMETER FilePath
+    The path to the file within the repository.
+.OUTPUTS
+    Returns the date in YYYY-MM-DD format.
+#>
+function Get-GitCreatedDate {
+    param([string]$RepoRoot, [string]$FilePath)
+
+    try {
+        $rel = [System.IO.Path]::GetRelativePath($RepoRoot, $FilePath)
+
+        # Preferred: commit where the path was added (tracks renames with --follow)
+        $added = git -C $RepoRoot log --follow --diff-filter=A --date=format:%Y-%m-%d --pretty=%ad -- "$rel" 2>$null
+        if ($LASTEXITCODE -eq 0 -and $added) {
+            # if multiple lines (rare), first is the add-commit
+            return ($added -split "`r?`n")[0]
+        }
+
+        # Fallback: oldest commit date touching this path
+        $all = git -C $RepoRoot log --follow --date=format:%Y-%m-%d --pretty=%ad -- "$rel" 2>$null
+        if ($LASTEXITCODE -eq 0 -and $all) {
+            $lines = $all -split "`r?`n"
+            return $lines[-1]  # last = oldest
+        }
+    } catch {
+        Write-Warning "Failed to get git created date for '$FilePath': $_"
+    }
+
+    return $null
+}
 
 <#
     .SYNOPSIS
@@ -430,9 +473,19 @@ Get-ChildItem -Path $Root -Recurse -File -Include *.ps1, *.psm1 |
         # if header exists, keep its Created date; else initialize it
         $createdDate =
         if ($hdrMatch) {
-            $m = [regex]::Match($hdrMatch.Value, '(?m)^\s*Created:\s*(\d{4}-\d{2}-\d{2})')
-            if ($m.Success) { $m.Groups[1].Value } else { $today }
-        } else { $today }
+            $m = [regex]::Match($hdrMatch.Value, '(?m)^\s*#?\s*Created:\s*(\d{4}-\d{2}-\d{2})')
+            if ($m.Success) {
+                $m.Groups[1].Value     # sticky: preserve existing Created
+            } else {
+                # Header present but no Created: optionally seed from Git
+                $gitCreated = if ($UseGitForCreated) { Get-GitCreatedDate -RepoRoot $Root -FilePath $file } else { $null }
+                if ($gitCreated) { $gitCreated } else { $today }
+            }
+        } else {
+            # No header yet: optionally seed from Git
+            $gitCreated = if ($UseGitForCreated) { Get-GitCreatedDate -RepoRoot $Root -FilePath $file } else { $null }
+            if ($gitCreated) { $gitCreated } else { $today }
+        }
 
         $headerText = @"
 #------------------------------------------

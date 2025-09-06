@@ -1,6 +1,7 @@
 <#
     Sample Kestrun Server demonstrating basic logging.
-    Creates a logger with file + console sinks, registers it as default, then maps simple routes.
+    Creates a logger with file + console sinks, registers it by name, then maps simple routes.
+    Use -SetAsDefault on Register-KrLogger or pass -Logger/-LoggerName to New-KrServer to enable framework logs.
     FileName: 5.1-Simple-Logging.ps1
 #>
 

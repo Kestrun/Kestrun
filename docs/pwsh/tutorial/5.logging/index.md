@@ -7,7 +7,7 @@ nav_order: 5
 # Logging (Tutorial Index)
 
 This tutorial section will contain hands-on chapters for configuring logging in step with building a server.
-The in-depth conceptual guide has moved to: [Logging Guide](/docs/guides/logging).
+The in-depth conceptual guide has moved to: [Logging Guide](/guides/logging).
 
 ## Planned Chapters
 
@@ -17,7 +17,7 @@ The in-depth conceptual guide has moved to: [Logging Guide](/docs/guides/logging
 | 2     | Multiple Loggers & Levels     | Separate audit/debug pipelines                  |
 | 3     | Enrichment & Correlation IDs  | Adding static & dynamic properties              |
 | 4     | Sinks (Console/File/Seq/HTTP) | Attaching multiple sinks                        |
-| 5     | Hot Reload / Update-KrLogger  | Reconfiguring without restart                   |
+| 5     | Hot Reload (No Update cmdlet) | Reconfiguring without restart                   |
 | 6     | PowerShell vs C# Interop      | Sharing configuration patterns across languages |
 | 7     | Advanced Filtering            | Level overrides, conditional sinks (future)     |
 
@@ -33,10 +33,10 @@ New-KrLogger -Name 'demo' -Level Information |
 Write-KrLog -Name 'demo' -Level Information -Message 'Hello {Name}' -Arguments 'World'
 ```
 
-More examples: see the [Logging Guide](/docs/guides/logging).
+More examples: see the [Logging Guide](/guides/logging).
 
 ---
 
 ### Next
 
-Continue with: [Shared Variables](../4.variable/index) or return to the main [Tutorial Index](/docs/pwsh/tutorial/index).
+Continue with: [Shared Variables](../4.variable/index) or return to the main [Tutorial Index](/pwsh/tutorial/index).

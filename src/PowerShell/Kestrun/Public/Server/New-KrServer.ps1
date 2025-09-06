@@ -7,6 +7,12 @@
         The name of the Kestrun server instance to create.
     .PARAMETER Logger
         An optional Serilog logger instance to use for logging.
+        It's mutually exclusive with the LoggerName parameter.
+        If not specified, the default logger will be used.
+    .PARAMETER LoggerName
+        An optional name of a registered logger to use for logging.
+        It's mutually exclusive with the Logger parameter.
+        If specified, the logger with this name will be used instead of the default logger.
     .PARAMETER PassThru
         If specified, the cmdlet will return the created server instance.
     .PARAMETER Force

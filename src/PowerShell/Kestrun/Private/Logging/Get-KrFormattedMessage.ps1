@@ -19,7 +19,7 @@
         The exception to include in the log message, if any.
         Pass the exception that will be included in the log message.
     .EXAMPLE
-        $formattedMessage = Get-KrFormattedMessage -Logger $logger -Level 'Error' -Message 'An error occurred: {ErrorMessage}' -Values @{'ErrorMessage' = $errorMessage} -Exception $exception
+        $formattedMessage = Get-KrFormattedMessage -Logger $logger -Level 'Error' -Message 'An error occurred: {ErrorMessage}' -Properties @{'ErrorMessage' = $errorMessage} -Exception $exception
         $formattedMessage | Write-Host
         # Output the formatted message
         Write-Host $formattedMessage

@@ -33,7 +33,7 @@ Add-KrMapRoute -Verbs Get -Path "/level/{level}" -ScriptBlock {
     try {
         $enum = [Serilog.Events.LogEventLevel]::$lvl
         Set-KrLevelSwitch -LevelSwitch $levelSwitch -MinimumLevel $enum | Out-Null
-        Write-KrLog -Logger $app -Level Information -Message "Level switch set to {level}" -Values $lvl
+        Write-KrLog -Logger $app -Level Information -Message "Level switch set to {level}" -Properties $lvl
         Write-KrTextResponse -InputObject "level=$lvl" -StatusCode 200
     } catch {
         Write-KrTextResponse -InputObject "invalid level '$lvl'" -StatusCode 400

@@ -142,7 +142,7 @@ $claimConfig = New-KrClaimPolicy |
 # ── BASIC AUTHENTICATION ────────────────────────────────────────────────
 Add-KrBasicAuthentication -Name $BasicPowershellScheme -Realm 'Power-Kestrun' -AllowInsecureHttp -ScriptBlock {
     param($Username, $Password)
-    Write-KrLog -Level Information -Message 'Basic Authentication: User {0} is trying to authenticate.' -Values $Username
+    Write-KrLog -Level Information -Message 'Basic Authentication: User {0} is trying to authenticate.' -Properties $Username
     if ($Username -eq 'admin' -and $Password -eq 'password') {
         $true
     } else {
@@ -462,7 +462,7 @@ Add-KrRouteGroup -Prefix '/secure/jwt' -AuthorizationSchema $JwtScheme {
 Add-KrMapRoute -Verbs Get -Pattern '/token/renew' -AuthorizationSchema $JwtScheme -ScriptBlock {
     $user = $Context.User.Identity.Name
 
-    Write-KrLog -Level Information -Message 'Generating JWT token for user {0}' -Values $user
+    Write-KrLog -Level Information -Message 'Generating JWT token for user {0}' -Properties $user
     Write-Output "JwtTokenBuilder Type : $($JwtTokenBuilder.GetType().FullName)"
     $accessToken = $JwtTokenBuilder | Update-KrJWT -FromContext
     Write-KrJsonResponse -InputObject @{
@@ -476,8 +476,8 @@ Add-KrMapRoute -Verbs Get -Pattern '/token/renew' -AuthorizationSchema $JwtSchem
 Add-KrMapRoute -Verbs Get -Pattern '/token/new' -AuthorizationSchema $BasicPowershellScheme -ScriptBlock {
     $user = $Context.User.Identity.Name
 
-    Write-KrLog -Level Information -Message 'Regenerating JWT token for user {0}' -Values $user
-    Write-KrLog -Level Information -Message 'JWT Token Builder: {0}' -Values $JwtTokenBuilder
+    Write-KrLog -Level Information -Message 'Regenerating JWT token for user {0}' -Properties $user
+    Write-KrLog -Level Information -Message 'JWT Token Builder: {0}' -Properties $JwtTokenBuilder
     if (-not $JwtTokenBuilder) {
         Write-KrErrorResponse -Message 'JWT Token Builder is not initialized.' -StatusCode 500
         return

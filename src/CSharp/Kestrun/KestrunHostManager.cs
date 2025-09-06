@@ -261,6 +261,10 @@ public static class KestrunHostManager
     /// Destroys the specified KestrunHost instance and disposes its resources.
     /// </summary>
     /// <param name="name">The name of the KestrunHost instance to destroy.</param>
+    /// <param name="disposeLogger">Whether to dispose the Serilog logger if this was the last instance.</param>
+    /// <remarks>
+    /// If this is the last instance, the logger will be disposed to release any resources.
+    /// </remarks>
     public static void Destroy(string name, bool disposeLogger = false)
     {
         if (Log.IsEnabled(LogEventLevel.Debug))

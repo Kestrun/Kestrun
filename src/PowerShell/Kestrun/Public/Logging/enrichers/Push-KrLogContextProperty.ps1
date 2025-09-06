@@ -1,4 +1,4 @@
-﻿<#!
+﻿<#
     .SYNOPSIS
         Push a property into Serilog's LogContext for the current scope.
     .DESCRIPTION

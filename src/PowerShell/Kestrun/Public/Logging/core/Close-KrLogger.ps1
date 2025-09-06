@@ -50,9 +50,11 @@ function Close-KrLogger {
             }
         }
         if ($null -ne $Logger) {
+            # Close the specified logger
             $null = [Kestrun.Logging.LoggerManager]::CloseAndFlush($Logger)
         } else {
-            [Serilog.Log]::CloseAndFlush()
+            # Close all loggers
+            [Kestrun.Logging.LoggerManager]::Clear()
         }
     }
 }

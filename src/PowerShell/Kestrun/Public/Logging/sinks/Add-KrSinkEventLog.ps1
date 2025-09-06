@@ -38,30 +38,34 @@ function Add-KrSinkEventLog {
     [CmdletBinding()]
     [OutputType([Serilog.LoggerConfiguration])]
     param(
-        [Parameter(Mandatory = $true, ValueFromPipeline = $true)]
+        [Parameter(Mandatory, ValueFromPipeline)]
         [Serilog.LoggerConfiguration]$LoggerConfig,
+
         [Parameter(Mandatory = $true)]
         [string]$Source,
-        [Parameter(Mandatory = $false)]
-        [string]$LogName = $null,
-        [Parameter(Mandatory = $false)]
+
+        [string]$LogName = $null,                         # null → sink defaults to 'Application'
         [string]$MachineName = '.',
-        [Parameter(Mandatory = $false)]
         [switch]$ManageEventSource,
-        [Parameter(Mandatory = $false)]
+
         [string]$OutputTemplate = '{Message}{NewLine}{Exception}{ErrorRecord}',
-        [Parameter(Mandatory = $false)]
-        [System.IFormatProvider]$FormatProvider = $null ,
-        [Parameter(Mandatory = $false)]
+        [System.IFormatProvider]$FormatProvider = $null,
         [Serilog.Events.LogEventLevel]$RestrictedToMinimumLevel = [Serilog.Events.LogEventLevel]::Verbose,
-        [Parameter(Mandatory = $false)]
         [Serilog.Sinks.EventLog.IEventIdProvider]$EventIdProvider = $null
     )
 
     process {
-        if (-not [System.Diagnostics.EventLog]::SourceExists('Kestrun')) {
-            [System.Diagnostics.EventLog]::CreateEventSource('Kestrun', 'Application')
+        if ($ManageEventSource.IsPresent) {
+            $ln = if ([string]::IsNullOrWhiteSpace($LogName)) { 'Application' } else { $LogName }
+            try {
+                if (-not [System.Diagnostics.EventLog]::SourceExists($Source)) {
+                    [System.Diagnostics.EventLog]::CreateEventSource($Source, $ln)
+                }
+            } catch {
+                throw "Failed to create EventLog source '$Source' in log '$ln'. Run elevated. $_"
+            }
         }
+
         return [Serilog.LoggerConfigurationEventLogExtensions]::EventLog(
             $LoggerConfig.WriteTo,
             $Source,
@@ -75,4 +79,3 @@ function Add-KrSinkEventLog {
         )
     }
 }
-

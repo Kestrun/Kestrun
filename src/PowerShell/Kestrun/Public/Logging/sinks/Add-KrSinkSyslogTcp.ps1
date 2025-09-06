@@ -1,45 +1,115 @@
 ﻿<#
-    .SYNOPSIS
-        Adds a Syslog TCP sink to the logging system.
-    .DESCRIPTION
-        The Add-KrSinkSyslogTcp function configures a logging sink that sends log events to a Syslog server over TCP.
-        It allows customization of the Syslog server hostname, port, application name, format, facility, output template, and minimum log level.
-    .PARAMETER LoggerConfig
-        The Serilog LoggerConfiguration object to which the Syslog TCP sink will be added.
-    .PARAMETER Hostname
-        The hostname or IP address of the Syslog server to which log events will be sent.
-    .PARAMETER Port
-        The port number on which the Syslog server is listening. Defaults to 1468.
-    .PARAMETER AppName
-        The application name to be included in the Syslog messages. If not specified, defaults to null.
-    .PARAMETER FramingType
-        The framing type to use for the Syslog messages. Defaults to OCTET_COUNTING.
-    .PARAMETER Format
-        The Syslog message format to use. Defaults to RFC5424.
-    .PARAMETER Facility
-        The Syslog facility to use for the log messages. Defaults to Local0.
-    .PARAMETER SecureProtocols
-        The SSL/TLS protocols to use for secure connections. Defaults to Tls12.
-    .PARAMETER CertProvider
-        An optional certificate provider for secure connections.
-    .PARAMETER CertValidationCallback
-        An optional callback for validating server certificates.
-    .PARAMETER OutputTemplate
-        The output template string for formatting log messages. Defaults to '{Message}{NewLine}{Exception}{ErrorRecord}'.
-    .PARAMETER RestrictedToMinimumLevel
-        The minimum log event level required to write to the Syslog sink. Defaults to Verbose.
-    .EXAMPLE
-        Add-KrSinkSyslogTcp -LoggerConfig $config -Hostname "syslog.example.com"
-        Adds a Syslog TCP sink to the logging system that sends log events to "syslog.example.com" on the default port 1468.
-    .EXAMPLE
-        Add-KrSinkSyslogTcp -LoggerConfig $config -Hostname "syslog.example.com" -Port 1468 -AppName "MyApp"
-        Adds a Syslog TCP sink that sends log events to "syslog.example.com" with the application name "MyApp".
-    .EXAMPLE
-        Add-KrSinkSyslogTcp -LoggerConfig $config -Hostname "syslog.example.com" -Port 1468 -Format RFC5424 -Facility Local1
-        Adds a Syslog TCP sink that sends log events to "syslog.example.com" with the RFC5424 format and Local1 facility.
-    .NOTES
-        This function is part of the Kestrun logging infrastructure and should be used to enable Syslog TCP logging.
-    #>
+.SYNOPSIS
+    Adds a Syslog TCP sink to the logging system.
+
+.DESCRIPTION
+    Configures a Serilog sink that sends log events to a Syslog server over TCP.
+    Supports hostname, port, app name, framing, format, facility, TLS, certificate options,
+    output template, minimum level, batching, severity mapping, and advanced syslog parameters.
+
+.PARAMETER LoggerConfig
+    The Serilog LoggerConfiguration object to which the Syslog TCP sink will be added.
+
+.PARAMETER Hostname
+    The hostname or IP address of the Syslog server to which log events will be sent.
+
+.PARAMETER Port
+    The port number on which the Syslog server is listening. Defaults to 514.
+
+.PARAMETER AppName
+    The application name to be included in the Syslog messages. If not specified, defaults to null.
+
+.PARAMETER FramingType
+    The framing type to use for the Syslog messages. Defaults to OCTET_COUNTING.
+
+.PARAMETER Format
+    The Syslog message format to use. Defaults to RFC5424.
+
+.PARAMETER Facility
+    The Syslog facility to use for the log messages. Defaults to Local0.
+
+.PARAMETER UseTls
+    Switch to enable TLS encryption for the TCP connection. Defaults to false.
+
+.PARAMETER CertProvider
+    An optional certificate provider for secure connections.
+
+.PARAMETER CertValidationCallback
+    An optional callback for validating server certificates.
+
+.PARAMETER OutputTemplate
+    The output template string for formatting log messages.
+
+.PARAMETER RestrictedToMinimumLevel
+    The minimum log event level required to write to the Syslog sink. Defaults to Verbose.
+
+.PARAMETER MessageIdPropertyName
+    The property name used for RFC5424 message ID. Defaults to the sink’s built-in constant.
+
+.PARAMETER BatchSizeLimit
+    Maximum number of events per batch (optional).
+
+.PARAMETER PeriodSeconds
+    Flush period for batches in seconds (optional).
+
+.PARAMETER QueueLimit
+    Maximum number of buffered events (optional).
+
+.PARAMETER EagerlyEmitFirstEvent
+    If specified, the first event is sent immediately without waiting for the batch period.
+
+.PARAMETER SourceHost
+    Optional value for the `sourceHost` field in syslog messages.
+
+.PARAMETER SeverityMapping
+    Custom delegate to map Serilog log levels to syslog severities.
+
+.PARAMETER Formatter
+    Optional custom ITextFormatter for full control over message formatting.
+
+.PARAMETER LevelSwitch
+    Optional LoggingLevelSwitch to dynamically control the log level.
+
+.EXAMPLE
+    # simplest: send logs over tcp with defaults
+    Add-KrSinkSyslogTcp -LoggerConfig $config -Hostname "syslog.example.com"
+
+.EXAMPLE
+    # custom port, app name, and TLS enabled
+    Add-KrSinkSyslogTcp -LoggerConfig $config -Hostname "syslog.example.com" -Port 6514 -AppName "MyApp" -UseTls
+
+.EXAMPLE
+    # use RFC3164 format and Local1 facility
+    Add-KrSinkSyslogTcp -LoggerConfig $config -Hostname "syslog.example.com" -Format RFC3164 -Facility Local1
+
+.EXAMPLE
+    # add batching configuration
+    Add-KrSinkSyslogTcp -LoggerConfig $config -Hostname "syslog.example.com" `
+        -BatchSizeLimit 50 -PeriodSeconds 1 -QueueLimit 5000 -EagerlyEmitFirstEvent
+
+.EXAMPLE
+    # apply a custom severity mapping
+    $map = [System.Func[Serilog.Events.LogEventLevel,Serilog.Sinks.Syslog.Severity]]{
+        param($level)
+        switch ($level) {
+            'Information' { [Serilog.Sinks.Syslog.Severity]::Notice }
+            'Fatal'       { [Serilog.Sinks.Syslog.Severity]::Emergency }
+            default       { [Serilog.Sinks.Syslog.Severity]::Informational }
+        }
+    }
+    Add-KrSinkSyslogTcp -LoggerConfig $config -Hostname "syslog.example.com" -SeverityMapping $map
+
+.EXAMPLE
+    # advanced: secure connection with certificate validation
+    $callback = [System.Net.Security.RemoteCertificateValidationCallback]{
+        param($sender, $cert, $chain, $errors) $true
+    }
+    Add-KrSinkSyslogTcp -LoggerConfig $config -Hostname "syslog.example.com" -UseTls `
+        -CertValidationCallback $callback -AppName "SecureApp"
+
+.NOTES
+    This function is part of the Kestrun logging infrastructure and should be used to enable Syslog TCP logging.
+#>
 function Add-KrSinkSyslogTcp {
     [KestrunRuntimeApi('Everywhere')]
     [CmdletBinding()]
@@ -51,51 +121,68 @@ function Add-KrSinkSyslogTcp {
         [Parameter(Mandatory = $true)]
         [string]$Hostname,
 
-        [Parameter(Mandatory = $false)]
-        [int]$Port = 1468,
-
-        [Parameter(Mandatory = $false)]
+        [int]$Port = 514,
         [string]$AppName = $null,
 
-        [Parameter(Mandatory = $false)]
         [Serilog.Sinks.Syslog.FramingType]$FramingType = [Serilog.Sinks.Syslog.FramingType]::OCTET_COUNTING,
-
-        [Parameter(Mandatory = $false)]
         [Serilog.Sinks.Syslog.SyslogFormat]$Format = [Serilog.Sinks.Syslog.SyslogFormat]::RFC5424,
-
-        [Parameter(Mandatory = $false)]
         [Serilog.Sinks.Syslog.Facility]$Facility = [Serilog.Sinks.Syslog.Facility]::Local0,
 
-        [Parameter(Mandatory = $false)]
-        [System.Security.Authentication.SslProtocols]$SecureProtocols = [System.Security.Authentication.SslProtocols]::Tls12,
+        [switch]$UseTls,
 
-        [Parameter(Mandatory = $false)]
         [Serilog.Sinks.Syslog.ICertificateProvider]$CertProvider = $null,
-
-        [Parameter(Mandatory = $false)]
         [System.Net.Security.RemoteCertificateValidationCallback]$CertValidationCallback = $null,
 
-        [Parameter(Mandatory = $false)]
-        [string]$OutputTemplate = '{Message}{NewLine}{Exception}{ErrorRecord}',
+        [string]$OutputTemplate,
+        [Serilog.Events.LogEventLevel]$RestrictedToMinimumLevel = [Serilog.Events.LogEventLevel]::Verbose,
 
-        [Parameter(Mandatory = $false)]
-        [Serilog.Events.LogEventLevel]$RestrictedToMinimumLevel = [Serilog.Events.LogEventLevel]::Verbose
+        [string]$MessageIdPropertyName = [Serilog.Sinks.Syslog.Rfc5424Formatter]::DefaultMessageIdPropertyName,
+
+        [int]$BatchSizeLimit,
+        [int]$PeriodSeconds,
+        [int]$QueueLimit,
+        [switch]$EagerlyEmitFirstEvent,
+
+        [string]$SourceHost = $null,
+        [System.Func``2[Serilog.Events.LogEventLevel, Serilog.Sinks.Syslog.Severity]]$SeverityMapping = $null,
+        [Serilog.Formatting.ITextFormatter]$Formatter = $null,
+        [Serilog.Core.LoggingLevelSwitch]$LevelSwitch = $null
     )
 
     process {
-        return [Serilog.SyslogLoggerConfigurationExtensions]::TcpSyslog($LoggerConfig.WriteTo,
-            $Hostname,
-            $Port,
-            $AppName,
-            $FramingType,
-            $Format,
-            $Facility,
-            $SecureProtocols,
-            $CertProvider,
-            $CertValidationCallback,
-            $OutputTemplate,
-            $RestrictedToMinimumLevel
+        # Build PeriodicBatchingSinkOptions if batching args provided
+        $batchConfig = $null
+        if ($PSBoundParameters.ContainsKey('BatchSizeLimit') -or
+            $PSBoundParameters.ContainsKey('PeriodSeconds') -or
+            $PSBoundParameters.ContainsKey('QueueLimit') -or
+            $EagerlyEmitFirstEvent.IsPresent) {
+
+            $batchConfig = [Serilog.Sinks.PeriodicBatching.PeriodicBatchingSinkOptions]::new()
+            if ($PSBoundParameters.ContainsKey('BatchSizeLimit')) { $batchConfig.BatchSizeLimit = $BatchSizeLimit }
+            if ($PSBoundParameters.ContainsKey('PeriodSeconds')) { $batchConfig.Period = [TimeSpan]::FromSeconds($PeriodSeconds) }
+            if ($PSBoundParameters.ContainsKey('QueueLimit')) { $batchConfig.QueueLimit = $QueueLimit }
+            if ($EagerlyEmitFirstEvent.IsPresent) { $batchConfig.EagerlyEmitFirstEvent = $true }
+        }
+
+        return [Serilog.SyslogLoggerConfigurationExtensions]::TcpSyslog(
+            $LoggerConfig.WriteTo,     # 1 loggerSinkConfig
+            $Hostname,                 # 2 host
+            $Port,                     # 3 port
+            $AppName,                  # 4 appName
+            $FramingType,              # 5 framingType
+            $Format,                   # 6 format
+            $Facility,                 # 7 facility
+            $UseTls.IsPresent,         # 8 useTls (bool)
+            $CertProvider,             # 9 certProvider
+            $CertValidationCallback,   # 10 certValidationCallback
+            $OutputTemplate,           # 11 outputTemplate
+            $RestrictedToMinimumLevel, # 12 restrictedToMinimumLevel
+            $MessageIdPropertyName,    # 13 messageIdPropertyName
+            $batchConfig,              # 14 batchConfig
+            $SourceHost,               # 15 sourceHost
+            $SeverityMapping,          # 16 severityMapping
+            $Formatter,                # 17 formatter
+            $LevelSwitch               # 18 levelSwitch
         )
     }
 }
-

@@ -61,7 +61,7 @@ function Add-KrSinkConsole {
     process {
         switch ($PSCmdlet.ParameterSetName) {
             'Default' {
-                $LoggerConfig = [Serilog.ConsoleLoggerConfigurationExtensions]::Console($LoggerConfig.WriteTo,
+                return [Serilog.ConsoleLoggerConfigurationExtensions]::Console($LoggerConfig.WriteTo,
                     $RestrictedToMinimumLevel,
                     $OutputTemplate,
                     $FormatProvider,
@@ -71,7 +71,7 @@ function Add-KrSinkConsole {
                 )
             }
             'Formatter' {
-                $LoggerConfig = [Serilog.ConsoleLoggerConfigurationExtensions]::Console($LoggerConfig.WriteTo,
+                return [Serilog.ConsoleLoggerConfigurationExtensions]::Console($LoggerConfig.WriteTo,
                     $Formatter,
                     $RestrictedToMinimumLevel,
                     $LevelSwitch,
@@ -79,8 +79,6 @@ function Add-KrSinkConsole {
                 )
             }
         }
-
-        return $LoggerConfig
     }
 }
 

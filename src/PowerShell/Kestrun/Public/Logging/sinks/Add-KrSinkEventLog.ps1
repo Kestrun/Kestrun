@@ -62,7 +62,7 @@ function Add-KrSinkEventLog {
         if (-not [System.Diagnostics.EventLog]::SourceExists('Kestrun')) {
             [System.Diagnostics.EventLog]::CreateEventSource('Kestrun', 'Application')
         }
-        $LoggerConfig = [Serilog.LoggerConfigurationEventLogExtensions]::EventLog(
+        return [Serilog.LoggerConfigurationEventLogExtensions]::EventLog(
             $LoggerConfig.WriteTo,
             $Source,
             $LogName,
@@ -73,8 +73,6 @@ function Add-KrSinkEventLog {
             $RestrictedToMinimumLevel,
             $EventIdProvider
         )
-
-        return $LoggerConfig
     }
 }
 

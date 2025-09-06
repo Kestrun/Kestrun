@@ -42,3 +42,6 @@ Add-KrMapRoute -Verbs Get -Path "/hello-csharp" -Code @"
 
 # Start the server asynchronously
 Start-KrServer
+
+# Clean up and close the logger when the server stops
+Close-KrLogger -Logger $myLogger

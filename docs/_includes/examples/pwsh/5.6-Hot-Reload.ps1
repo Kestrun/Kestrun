@@ -14,7 +14,7 @@ $app = New-KrLogger |
     Register-KrLogger -Name 'app' -PassThru
 
 New-KrServer -Name "Hot Reload"
-Add-KrListener -Port 5005 -IPAddress ([IPAddress]::Loopback)
+Add-KrListener -Port 5000 -IPAddress ([IPAddress]::Loopback)
 Add-KrPowerShellRuntime
 
 Enable-KrConfiguration
@@ -44,7 +44,7 @@ Add-KrMapRoute -Verbs Get -Path "/level/{level}" -ScriptBlock {
 Add-KrMapRoute -Verbs Post -Path "/reconfigure" -ScriptBlock {
     $newConfig = New-KrLogger |
         Set-KrMinimumLevel -Value Warning |
-        Add-KrProperty -Name 'Reconfigured' -Value $true |
+        Add-KrEnrichProperty -Name 'Reconfigured' -Value $true |
         Add-KrSinkConsole |
         Add-KrSinkFile -Path '.\logs\hot-reload.log' -RollingInterval Hour
 
@@ -52,4 +52,9 @@ Add-KrMapRoute -Verbs Post -Path "/reconfigure" -ScriptBlock {
     Write-KrTextResponse -InputObject "reconfigured" -StatusCode 200
 }
 
+# Start the server
 Start-KrServer
+
+# Clean up and close the logger when the server stops
+Close-KrLogger -Logger $app
+

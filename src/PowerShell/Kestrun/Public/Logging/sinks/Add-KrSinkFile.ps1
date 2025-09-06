@@ -106,7 +106,7 @@ function Add-KrSinkFile {
     process {
         switch ($PSCmdlet.ParameterSetName) {
             'Default' {
-                $LoggerConfig = [Serilog.FileLoggerConfigurationExtensions]::File($LoggerConfig.WriteTo,
+                return [Serilog.FileLoggerConfigurationExtensions]::File($LoggerConfig.WriteTo,
                     $Path,
                     $RestrictedToMinimumLevel,
                     $OutputTemplate,
@@ -124,7 +124,7 @@ function Add-KrSinkFile {
                 )
             }
             'Formatter' {
-                $LoggerConfig = [Serilog.FileLoggerConfigurationExtensions]::File($LoggerConfig.WriteTo,
+                return [Serilog.FileLoggerConfigurationExtensions]::File($LoggerConfig.WriteTo,
                     $Formatter,
                     $Path,
                     $RestrictedToMinimumLevel,
@@ -141,8 +141,6 @@ function Add-KrSinkFile {
                 )
             }
         }
-
-        return $LoggerConfig
     }
 }
 

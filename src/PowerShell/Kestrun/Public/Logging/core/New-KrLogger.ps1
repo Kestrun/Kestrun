@@ -11,7 +11,7 @@
         PS> $loggerConfig = New-KrLogger
         Creates a new logger configuration instance that can be used to add sinks and enrichers.
     .EXAMPLE
-        PS> $loggerConfig = New-KrLogger | Add-KrSinkConsole | Add-KrEnrichWithProperty -Name 'ScriptName' -Value 'Test'
+    PS> $loggerConfig = New-KrLogger | Add-KrSinkConsole | Add-KrEnrichProperty -Name 'ScriptName' -Value 'Test'
         Creates a new logger configuration instance, adds a console sink, and enriches logs with a property.
 #>
 function New-KrLogger {

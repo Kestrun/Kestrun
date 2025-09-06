@@ -10,10 +10,11 @@
     .OUTPUTS
         LoggerConfiguration object allowing method chaining
     .EXAMPLE
-        PS> New-KrLogger | Add-KrEnrichWithProcessName | Register-KrLogger
+        PS> New-KrLogger | Add-KrEnrichProcessName | Register-KrLogger
 #>
-function Add-KrEnrichWithProcessName {
+function Add-KrEnrichProcessName {
     [KestrunRuntimeApi('Everywhere')]
+    [OutputType([Serilog.LoggerConfiguration])]
     [CmdletBinding()]
     param(
         [Parameter(Mandatory = $true, ValueFromPipeline = $true)]
@@ -21,9 +22,7 @@ function Add-KrEnrichWithProcessName {
     )
 
     process {
-        $loggerConfig = [Serilog.ProcessLoggerConfigurationExtensions]::WithProcessName($loggerConfig.Enrich)
-
-        $loggerConfig
+        return [Serilog.ProcessLoggerConfigurationExtensions]::WithProcessName($loggerConfig.Enrich)
     }
 }
 

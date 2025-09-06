@@ -63,7 +63,7 @@ function Add-KrSinkSyslogUdp {
     )
 
     process {
-        $LoggerConfig = [Serilog.SyslogLoggerConfigurationExtensions]::UdpSyslog($LoggerConfig.WriteTo,
+        return [Serilog.SyslogLoggerConfigurationExtensions]::UdpSyslog($LoggerConfig.WriteTo,
             $Hostname,
             $Port,
             $AppName,
@@ -72,8 +72,6 @@ function Add-KrSinkSyslogUdp {
             $OutputTemplate,
             $RestrictedToMinimumLevel
         )
-
-        return $LoggerConfig
     }
 }
 

@@ -67,7 +67,7 @@ go to your logger.
 # Create and register a named logger
 New-KrLogger |
   Set-KrMinimumLevel -Value Information |
-  Add-KrEnrichWithProperty -Name 'Subsystem' -Value 'API' |
+  Add-KrEnrichProperty -Name 'Subsystem' -Value 'API' |
   Add-KrSinkConsole |
   Register-KrLogger -Name 'ps-api' -SetAsDefault
 
@@ -84,8 +84,8 @@ Otherwise Kestrun uses Serilog’s default (silent) logger for server logs.
 
 ## 3. Enrichment & sinks
 
-* Enrichers: `Add-KrEnrichWithProperty`, `Add-KrEnrichWithProcessId`, `Add-KrEnrichWithProcessName`,
-  `Add-KrEnrichWithEnvironment`, `Add-KrEnrichFromLogContext`, `Add-KrEnrichWithExceptionDetail`.
+* Enrichers: `Add-KrEnrichProperty`, `Add-KrEnrichProcessId`, `Add-KrEnrichProcessName`,
+  `Add-KrEnrichEnvironment`, `Add-KrEnrichFromLogContext`, `Add-KrEnrichExceptionDetail`.
 * Sinks: `Add-KrSinkConsole`, `Add-KrSinkPowerShell`, `Add-KrSinkFile`, `Add-KrSinkHttp`,
   `Add-KrSinkEventLog`, `Add-KrSinkSyslogUdp|Tcp|Local`.
 * JSON formatting: `Get-KrJsonFormatter` for `Add-KrSinkFile -Formatter`.
@@ -158,8 +158,8 @@ There is no “Update-KrLogger” cmdlet. Use one of these patterns:
 PowerShell
 
 * Builders: `New-KrLogger`, `Set-KrMinimumLevel`, `New-KrLevelSwitch`, `Set-KrLevelSwitch`
-* Enrichers: `Add-KrEnrichWithProperty`, `Add-KrEnrichWithProcessId`, `Add-KrEnrichWithProcessName`,
-  `Add-KrEnrichWithEnvironment`, `Add-KrEnrichFromLogContext`, `Add-KrEnrichWithExceptionDetail`
+* Enrichers: `Add-KrEnrichProperty`, `Add-KrEnrichProcessId`, `Add-KrEnrichProcessName`,
+  `Add-KrEnrichEnvironment`, `Add-KrEnrichFromLogContext`, `Add-KrEnrichExceptionDetail`
 * Sinks: `Add-KrSinkConsole`, `Add-KrSinkPowerShell`, `Add-KrSinkFile`, `Add-KrSinkHttp`,
   `Add-KrSinkEventLog`, `Add-KrSinkSyslogUdp`, `Add-KrSinkSyslogTcp`, `Add-KrSinkSyslogLocal`,
   `Get-KrJsonFormatter`

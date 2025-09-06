@@ -45,14 +45,12 @@ function Add-KrSinkSyslogLocal {
     )
 
     process {
-        $LoggerConfig = [Serilog.SyslogLoggerConfigurationExtensions]::LocalSyslog($LoggerConfig.WriteTo,
+        return [Serilog.SyslogLoggerConfigurationExtensions]::LocalSyslog($LoggerConfig.WriteTo,
             $AppName,
             $Facility,
             $OutputTemplate,
             $RestrictedToMinimumLevel
         )
-
-        return $LoggerConfig
     }
 }
 

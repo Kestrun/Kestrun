@@ -12,10 +12,11 @@
     .OUTPUTS
         Instance of LoggerConfiguration
     .EXAMPLE
-        PS> New-KrLogger | Add-KrEnrichWithErrorRecord | Add-KrSinkPowerShell | Register-KrLogger
+        PS> New-KrLogger | Add-KrEnrichErrorRecord | Add-KrSinkPowerShell | Register-KrLogger
 #>
-function Add-KrEnrichWithErrorRecord {
+function Add-KrEnrichErrorRecord {
     [KestrunRuntimeApi('Everywhere')]
+    [OutputType([Serilog.LoggerConfiguration])]
     [CmdletBinding()]
     param(
         [Parameter(Mandatory = $true, ValueFromPipeline = $true)]
@@ -25,9 +26,7 @@ function Add-KrEnrichWithErrorRecord {
     )
 
     process {
-        $LoggerConfig = [PoShLog.Core.Enrichers.Extensions.ErrorRecordEnricherExtensions]::WithErrorRecord($LoggerConfig.Enrich, $DestructureObjects)
-
-        $LoggerConfig
+        return [PoShLog.Core.Enrichers.Extensions.ErrorRecordEnricherExtensions]::WithErrorRecord($LoggerConfig.Enrich, $DestructureObjects)
     }
 }
 

@@ -14,12 +14,12 @@
     .OUTPUTS
         LoggerConfiguration object allowing method chaining
     .EXAMPLE
-        PS> New-KrLogger | Add-KrEnrichWithEnvironment | Register-KrLogger
+        PS> New-KrLogger | Add-KrEnrichEnvironment | Register-KrLogger
 #>
-function Add-KrEnrichWithEnvironment {
+function Add-KrEnrichEnvironment {
     [KestrunRuntimeApi('Everywhere')]
-    [CmdletBinding()]
     [OutputType([Serilog.LoggerConfiguration])]
+    [CmdletBinding()]
     param(
         [Parameter(Mandatory = $true, ValueFromPipeline = $true)]
         [Serilog.LoggerConfiguration]$loggerConfig,

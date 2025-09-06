@@ -33,7 +33,7 @@ $levelSwitch = New-KrLevelSwitch -MinimumLevel Verbose
 
 $l0 = New-KrLogger |
     Set-KrMinimumLevel -Value Verbose -ToPreference |
-    Add-KrEnrichWithEnvironment |
+    Add-KrEnrichEnvironment |
     Add-EnrichWithExceptionDetail |
     Add-KrEnrichFromLogContext |
     Add-KrSinkPowerShell |
@@ -47,7 +47,7 @@ Close-KrLogger -Logger $l0
 # Setup new logger
 New-KrLogger |
     Set-KrMinimumLevel -Value Verbose |
-    Add-KrEnrichWithEnvironment |
+    Add-KrEnrichEnvironment |
     Add-EnrichWithExceptionDetail |
     Add-KrSinkFile -Path ".\logs\test-.log" -RollingInterval Hour -OutputTemplate '{Timestamp:yyyy-MM-dd HH:mm:ss.fff zzz} [{Level:u3}] {Message:lj}{NewLine}{Exception} {Properties:j}{NewLine}' |
     Add-KrSinkConsole -OutputTemplate "[{MachineName} {Timestamp:HH:mm:ss} {Level:u3}] {Message:lj}{NewLine}{Exception}" |
@@ -81,7 +81,7 @@ try {
 
 New-KrLogger |
     Set-KrMinimumLevel -Value Verbose |
-    Add-KrEnrichWithEnvironment |
+    Add-KrEnrichEnvironment |
     Add-EnrichWithExceptionDetail |
     Add-KrSinkConsole -OutputTemplate "[{MachineName} {Timestamp:HH:mm:ss} {Level:u3}] {Message:lj}{NewLine}{Exception}" |
     Add-KrSinkEventLog -Source "MyApp" -ManageEventSource |

@@ -17,7 +17,7 @@ $json = New-KrLogger |
     Register-KrLogger -Name 'json' -PassThru
 
 New-KrServer -Name "Sinks Demo"
-Add-KrListener -Port 5003 -IPAddress ([IPAddress]::Loopback)
+Add-KrListener -Port 5000 -IPAddress ([IPAddress]::Loopback)
 Add-KrPowerShellRuntime
 
 Enable-KrConfiguration
@@ -32,4 +32,8 @@ Add-KrMapRoute -Verbs Get -Path "/json" -ScriptBlock {
     Write-KrTextResponse -InputObject "json" -StatusCode 200
 }
 
+# Start the server
 Start-KrServer
+
+# Clean up and close all the loggers when the server stops
+Close-KrLogger

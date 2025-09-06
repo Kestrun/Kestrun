@@ -87,7 +87,7 @@ public class LoggerManagerTests
         LoggerManager.Clear();
         var sink = new CaptureSink();
         var logger = LoggerManager.Add("tmp", cfg => cfg.WriteTo.Sink(sink));
-        Assert.True(LoggerManager.Remove("tmp"));
+        Assert.True(LoggerManager.CloseAndFlush("tmp"));
         LoggerManager.Clear();
         Assert.Empty(LoggerManager.List());
     }

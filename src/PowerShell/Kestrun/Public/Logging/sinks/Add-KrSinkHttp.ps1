@@ -68,7 +68,7 @@ function Add-KrSinkHttp {
         [Microsoft.Extensions.Configuration.IConfiguration]$Configuration = $null
     )
     process {
-        $LoggerConfig = [Serilog.LoggerSinkConfigurationExtensions]::Http($LoggerConfig.WriteTo,
+        return [Serilog.LoggerSinkConfigurationExtensions]::Http($LoggerConfig.WriteTo,
             $RequestUri,
             $BatchPostingLimit,
             $QueueLimit,
@@ -79,8 +79,6 @@ function Add-KrSinkHttp {
             $HttpClient,
             $Configuration
         )
-
-        return $LoggerConfig
     }
 }
 

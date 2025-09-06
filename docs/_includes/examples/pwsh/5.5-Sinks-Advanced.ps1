@@ -27,7 +27,7 @@ $base = New-KrLogger |
 $logger = $base | Register-KrLogger -Name 'advanced' -PassThru
 
 New-KrServer -Name "Advanced Sinks"
-Add-KrListener -Port 5004 -IPAddress ([IPAddress]::Loopback)
+Add-KrListener -Port 5000 -IPAddress ([IPAddress]::Loopback)
 Add-KrPowerShellRuntime
 
 Enable-KrConfiguration
@@ -37,4 +37,9 @@ Add-KrMapRoute -Verbs Get -Path "/log" -ScriptBlock {
     Write-KrTextResponse -InputObject "ok" -StatusCode 200
 }
 
+
+# Start the server
 Start-KrServer
+
+# Clean up and close the logger when the server stops
+Close-KrLogger -Logger $base

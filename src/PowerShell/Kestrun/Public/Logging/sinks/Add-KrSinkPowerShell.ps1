@@ -48,14 +48,12 @@ function Add-KrSinkPowerShell {
     )
 
     process {
-        $LoggerConfig = [Kestrun.Logging.Sinks.Extensions.PowerShellSinkExtensions]::PowerShell($LoggerConfig.WriteTo,
+        return [Kestrun.Logging.Sinks.Extensions.PowerShellSinkExtensions]::PowerShell($LoggerConfig.WriteTo,
             { param([Serilog.Events.LogEvent]$logEvent, [string]$renderedMessage) Write-KrSinkPowerShell -LogEvent $logEvent -RenderedMessage $renderedMessage },
             $RestrictedToMinimumLevel,
             $OutputTemplate,
             $LevelSwitch
         )
-
-        return $LoggerConfig
     }
 }
 

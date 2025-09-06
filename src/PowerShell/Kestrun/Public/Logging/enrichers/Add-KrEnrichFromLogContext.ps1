@@ -14,6 +14,7 @@
 #>
 function Add-KrEnrichFromLogContext {
     [KestrunRuntimeApi('Everywhere')]
+    [OutputType([Serilog.LoggerConfiguration])]
     [CmdletBinding()]
     param(
         [Parameter(Mandatory = $true, ValueFromPipeline = $true)]
@@ -21,7 +22,7 @@ function Add-KrEnrichFromLogContext {
     )
 
     process {
-        $LoggerConfig.Enrich.FromLogContext()
+        return $LoggerConfig.Enrich.FromLogContext()
     }
 }
 

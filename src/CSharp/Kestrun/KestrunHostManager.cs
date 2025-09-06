@@ -261,7 +261,7 @@ public static class KestrunHostManager
     /// Destroys the specified KestrunHost instance and disposes its resources.
     /// </summary>
     /// <param name="name">The name of the KestrunHost instance to destroy.</param>
-    public static void Destroy(string name)
+    public static void Destroy(string name, bool disposeLogger = false)
     {
         if (Log.IsEnabled(LogEventLevel.Debug))
         {
@@ -275,6 +275,27 @@ public static class KestrunHostManager
             {
                 _defaultName = _instances.Keys.FirstOrDefault();
             }
+
+
+            if (Log.IsEnabled(LogEventLevel.Debug))
+            {
+                Log.Debug("KestrunHost instance '{Name}' destroyed", name);
+            }
+        }
+        else
+        {
+            if (Log.IsEnabled(LogEventLevel.Warning))
+            {
+                Log.Warning("No KestrunHost instance named '{Name}' exists to destroy", name);
+            }
+        }
+
+        // If no more instances, clear default and close logger
+        if (_instances.IsEmpty)
+        {
+            _defaultName = null;
+            // If no more instances, close logger
+            if (disposeLogger) { Log.CloseAndFlush(); }
         }
     }
 
@@ -292,7 +313,5 @@ public static class KestrunHostManager
         {
             Destroy(name);
         }
-        _defaultName = null;
-        Log.CloseAndFlush();
     }
 }

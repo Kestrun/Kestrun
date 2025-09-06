@@ -10,16 +10,17 @@
     .PARAMETER Value
         The value of the property
     .PARAMETER DestructureObjects
-        If true, and the value is a non-primitive, non-array type, then the value will be converted to a structure; otherwise, unknown types will be converted to scalars, which are generally stored as strings.
+        If present, and the value is a non-primitive, non-array type, then the value will be converted to a structure; otherwise, unknown types will be converted to scalars, which are generally stored as strings.
     .INPUTS
         None
     .OUTPUTS
         LoggerConfiguration object allowing method chaining
     .EXAMPLE
-        PS> New-KrLogger | Add-KrEnrichWithProperty -Name ScriptName -Value 'Test' | Add-KrSinkConsole | Register-KrLogger
+        PS> New-KrLogger | Add-KrEnrichProperty -Name ScriptName -Value 'Test' | Add-KrSinkConsole | Register-KrLogger
     #>
-function Add-KrEnrichWithProperty {
+function Add-KrEnrichProperty {
     [KestrunRuntimeApi('Everywhere')]
+    [OutputType([Serilog.LoggerConfiguration])]
     [CmdletBinding()]
     param(
         [Parameter(Mandatory = $true, ValueFromPipeline = $true)]
@@ -27,15 +28,13 @@ function Add-KrEnrichWithProperty {
         [Parameter(Mandatory = $true)]
         [string]$Name,
         [Parameter(Mandatory = $true)]
-        [string]$Value,
-        [Parameter(Mandatory = $false)]
-        [bool]$DestructureObjects = $false
+        [object]$Value,
+        [Parameter()]
+        [switch]$DestructureObjects
     )
 
     process {
-        $LoggerConfig = $LoggerConfig.Enrich.WithProperty($Name, $Value, $DestructureObjects)
-
-        $LoggerConfig
+        return $LoggerConfig.Enrich.WithProperty($Name, $Value, $DestructureObjects.IsPresent)
     }
 }
 

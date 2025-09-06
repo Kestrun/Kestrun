@@ -83,7 +83,7 @@ function Add-KrSinkSyslogTcp {
     )
 
     process {
-        $LoggerConfig = [Serilog.SyslogLoggerConfigurationExtensions]::TcpSyslog($LoggerConfig.WriteTo,
+        return [Serilog.SyslogLoggerConfigurationExtensions]::TcpSyslog($LoggerConfig.WriteTo,
             $Hostname,
             $Port,
             $AppName,
@@ -96,8 +96,6 @@ function Add-KrSinkSyslogTcp {
             $OutputTemplate,
             $RestrictedToMinimumLevel
         )
-
-        return $LoggerConfig
     }
 }
 

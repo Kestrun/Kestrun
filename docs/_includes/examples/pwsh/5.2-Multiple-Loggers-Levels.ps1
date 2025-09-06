@@ -18,7 +18,7 @@ $auditLogger = New-KrLogger |
 
 # Create server and listener
 New-KrServer -Name "Multiple Loggers Server"
-Add-KrListener -Port 5001 -IPAddress ([IPAddress]::Loopback)
+Add-KrListener -Port 5000 -IPAddress ([IPAddress]::Loopback)
 
 # PowerShell runtime is required for script block routes
 Add-KrPowerShellRuntime
@@ -36,7 +36,7 @@ Add-KrMapRoute -Verbs Get -Path "/info" -ScriptBlock {
 
 Add-KrMapRoute -Verbs Get -Path "/debug" -ScriptBlock {
     # This Debug will be filtered out by 'app' (min Information)
-    Write-KrLog -Logger $appLogger -Level Debug -Message "App debug (filtered)"
+    Write-KrLog -LoggerName 'app' -Level Debug -Message "App debug (filtered)"
     # This Debug will be written by 'audit' (min Debug)
     Write-KrLog -Logger $auditLogger -Level Debug -Message "Audit debug (written)"
     Write-KrTextResponse -InputObject "debug" -StatusCode 200
@@ -47,4 +47,9 @@ Add-KrMapRoute -Verbs Get -Path "/audit" -ScriptBlock {
     Write-KrTextResponse -InputObject "audit" -StatusCode 200
 }
 
+# Start the server
 Start-KrServer
+
+# Clean up and close all the loggers when the server stops
+Close-KrLogger
+

@@ -7,6 +7,8 @@
         The Kestrun server instance to configure and start. This parameter is mandatory.
     .PARAMETER ExcludeVariables
         An array of variable names to exclude from the runspaces.
+    .PARAMETER ExcludeFunctions
+        An array of function name patterns to exclude from the runspaces.
     .PARAMETER Quiet
         If specified, suppresses output messages during the configuration and startup process.
     .PARAMETER PassThru
@@ -29,6 +31,8 @@ function Enable-KrConfiguration {
         [Parameter()]
         [string[]]$ExcludeVariables,
         [Parameter()]
+        [string[]]$ExcludeFunctions,
+        [Parameter()]
         [switch]$Quiet,
         [Parameter()]
         [switch]$PassThru
@@ -39,21 +43,54 @@ function Enable-KrConfiguration {
 
         $Variables = Get-KrAssignedVariable -FromParent -ResolveValues -IncludeSetVariable
 
-        $dict = [System.Collections.Generic.Dictionary[string, System.Object]]::new()
-        $Variables | ForEach-Object {
-            if ($ExcludeVariables -notcontains $_.Name) {
-                if (-not [Kestrun.SharedState.SharedStateStore]::Contains($_.Name)) {
-                    $null = [Kestrun.SharedState.SharedStateStore]::Set(
-                        $_.Name,
-                        $_.Value.Value,
-                        $true  # Allow value types
-                    )
+        # Build user variable map as before
+        $vars = [System.Collections.Generic.Dictionary[string, object]]::new()
+        foreach ($v in $Variables) {
+            if ($ExcludeVariables -notcontains $v.Name) {
+                if (-not [Kestrun.SharedState.SharedStateStore]::Contains($v.Name)) {
+                    [void][Kestrun.SharedState.SharedStateStore]::Set($v.Name, $v.Value.Value, $true)
                 }
             }
         }
 
+        $callerPath = $null
+        $selfPath = $PSCommandPath
+        foreach ($f in Get-PSCallStack) {
+            $p = $f.InvocationInfo.ScriptName
+            if ($p) {
+                $rp = (Resolve-Path -LiteralPath $p -ErrorAction SilentlyContinue)?.ProviderPath
+                if ($rp -and (!$selfPath -or $rp -ne (Resolve-Path -LiteralPath $selfPath).ProviderPath)) {
+                    $callerPath = $rp
+                    break
+                }
+            }
+        }
+        # AUTO: collect session-defined functions present now
+        $fx = Get-Command -CommandType Function | Where-Object { -not $_.Module }
+        if ($OnlyCurrentScript -and $callerPath) {
+            $fx = $fx | Where-Object {
+                $_.ScriptBlock.File -and
+                ((Resolve-Path -LiteralPath $_.ScriptBlock.File -ErrorAction SilentlyContinue)?.ProviderPath) -eq $callerPath
+            }
+        }
+
+        # Exclude functions by name patterns if specified
+        if ($ExcludeFunctions) {
+            $fx = $fx | Where-Object {
+                $n = $_.Name
+                -not ($ExcludeFunctions | Where-Object { $n -like $_ }).Count
+            }
+        }
+
+        # Create a dictionary of function names to their definitions
+        $fxMap = $null
+        if ($fx.Count) {
+            $fxMap = [System.Collections.Generic.Dictionary[string, string]]::new([System.StringComparer]::OrdinalIgnoreCase)
+            foreach ($f in $fx) { $fxMap[$f.Name] = $f.Definition }
+        }
+        # Apply the configuration to the server
         # Set the user-defined variables in the server configuration
-        $Server.EnableConfiguration($dict) | Out-Null
+        $Server.EnableConfiguration($vars, $fxMap) | Out-Null
         if (-not $Quiet.IsPresent) {
             Write-Host 'Kestrun server configuration enabled successfully.'
             Write-Host "Server Name: $($Server.Options.ApplicationName)"
@@ -66,4 +103,3 @@ function Enable-KrConfiguration {
         }
     }
 }
-

@@ -248,7 +248,7 @@ public class KestrunHost : IDisposable
     #endregion
 
 
-    #region ListenerOptions 
+    #region ListenerOptions
 
     /// <summary>
     /// Configures a listener for the Kestrun host with the specified port, optional IP address, certificate, protocols, and connection logging.
@@ -322,7 +322,7 @@ public class KestrunHost : IDisposable
     /// <summary>
     /// Applies the configured options to the Kestrel server and initializes the runspace pool.
     /// </summary>
-    public void EnableConfiguration(Dictionary<string, object>? userVariables = null)
+    public void EnableConfiguration(Dictionary<string, object>? userVariables = null, Dictionary<string, string>? userFunctions = null)
     {
         if (HostLogger.IsEnabled(LogEventLevel.Debug))
         {
@@ -342,7 +342,7 @@ public class KestrunHost : IDisposable
         {
             // This method is called to apply the configured options to the Kestrel server.
             // The actual application of options is done in the Run method.
-            _runspacePool = CreateRunspacePool(Options.MaxRunspaces, userVariables);
+            _runspacePool = CreateRunspacePool(Options.MaxRunspaces, userVariables, userFunctions);
             if (_runspacePool == null)
             {
                 throw new InvalidOperationException("Failed to create runspace pool.");
@@ -463,7 +463,7 @@ public class KestrunHost : IDisposable
         {
             feature(this);
         }
-        // 5️⃣  Terminal endpoint execution 
+        // 5️⃣  Terminal endpoint execution
         return _app;
     }
 
@@ -733,15 +733,14 @@ public class KestrunHost : IDisposable
 
     #region Runspace Pool Management
 
-
-
     /// <summary>
     /// Creates and returns a new <see cref="KestrunRunspacePoolManager"/> instance with the specified maximum number of runspaces.
     /// </summary>
     /// <param name="maxRunspaces">The maximum number of runspaces to create. If not specified or zero, defaults to twice the processor count.</param>
     /// <param name="userVariables">A dictionary of user-defined variables to inject into the runspace pool.</param>
+    /// <param name="userFunctions">A dictionary of user-defined functions to inject into the runspace pool.</param>
     /// <returns>A configured <see cref="KestrunRunspacePoolManager"/> instance.</returns>
-    public KestrunRunspacePoolManager CreateRunspacePool(int? maxRunspaces = 0, Dictionary<string, object>? userVariables = null)
+    public KestrunRunspacePoolManager CreateRunspacePool(int? maxRunspaces = 0, Dictionary<string, object>? userVariables = null, Dictionary<string, string>? userFunctions = null)
     {
         if (HostLogger.IsEnabled(LogEventLevel.Debug))
         {
@@ -803,6 +802,24 @@ public class KestrunHost : IDisposable
                 );
             }
         }
+
+        foreach (var r in userFunctions ?? [])
+        {
+            var name = r.Key;
+            var def = r.Value;
+
+            // Use the string-based ctor available in 7.4 ref/net8.0
+            var entry = new SessionStateFunctionEntry(
+                name,
+                def,
+                ScopedItemOptions.ReadOnly,   // or ScopedItemOptions.None if you want them mutable
+                helpFile: null
+            );
+
+            iss.Commands.Add(entry);
+        }
+
+        // Determine max runspaces
         var maxRs = (maxRunspaces.HasValue && maxRunspaces.Value > 0) ? maxRunspaces.Value : Environment.ProcessorCount * 2;
 
         HostLogger.Information($"Creating runspace pool with max runspaces: {maxRs}");
@@ -829,7 +846,7 @@ public class KestrunHost : IDisposable
 
         _runspacePool?.Dispose();
         _runspacePool = null; // Clear the runspace pool reference
-        IsConfigured = false; // Reset configuration state 
+        IsConfigured = false; // Reset configuration state
         _app = null;
         Scheduler?.Dispose();
         (HostLogger as IDisposable)?.Dispose();

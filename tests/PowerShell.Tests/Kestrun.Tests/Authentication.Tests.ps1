@@ -1,5 +1,4 @@
-﻿
-[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidUsingConvertToSecureStringWithPlainText', '')]
+﻿[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidUsingConvertToSecureStringWithPlainText', '')]
 param()
 <#
     .SYNOPSIS
@@ -48,8 +47,8 @@ BeforeAll {
 
     New-KrServer -Name 'Kestrun Authentication'
 
-    $cert = New-KrSelfSignedCertificate -DnsName 'localhost'
-    if (-not (Test-KsCertificate -Certificate $cert )) {
+    $cert = New-KrSelfSignedCertificate -DnsNames 'localhost'
+    if (-not (Test-KrCertificate -Certificate $cert )) {
         Write-Error 'Certificate validation failed. Ensure the certificate is valid and not self-signed.'
         exit 1
     }

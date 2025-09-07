@@ -5,7 +5,7 @@
     .DESCRIPTION
         Creates a PEM-encoded CSR (Certificate Signing Request) and returns the private key.
         The CSR can be used to request a certificate from a CA (Certificate Authority).
-    .PARAMETER DnsName
+    .PARAMETER DnsNames
         The DNS name(s) for which the certificate is requested.
         This can include multiple names for Subject Alternative Names (SANs).
     .PARAMETER KeyType
@@ -30,23 +30,23 @@
         [Kestrun.Certificates.CertificateManager.CsrResult]
 
     .EXAMPLE
-        $csr, $priv = New-KestrunCertificateRequest -DnsName 'example.com' -Country US
+        $csr, $priv = New-KestrunCertificateRequest -DnsNames 'example.com' -Country US
         $csr | Set-Content -Path 'C:\path\to\csr.pem'
         $priv | Set-Content -Path 'C:\path\to\private.key'
     .EXAMPLE
-        $csr, $priv = New-KestrunCertificateRequest -DnsName 'example.com' -Country US -Org 'Example Corp' -OrgUnit 'IT' -CommonName 'example.com'
+        $csr, $priv = New-KestrunCertificateRequest -DnsNames 'example.com' -Country US -Org 'Example Corp' -OrgUnit 'IT' -CommonName 'example.com'
         $csr | Set-Content -Path 'C:\path\to\csr.pem'
         $priv | Set-Content -Path 'C:\path\to\private.key'
 
 #>
-function New-KsCertificateRequest {
+function New-KrCertificateRequest {
     [KestrunRuntimeApi('Everywhere')]
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseShouldProcessForStateChangingFunctions', '')]
     [CmdletBinding()]
     [OutputType([Kestrun.Certificates.CsrResult])]
     param(
         [Parameter(Mandatory)]
-        [string[]] $DnsName,
+        [string[]] $DnsNames,
 
         [ValidateSet('Rsa', 'Ecdsa')]
         [string]   $KeyType = 'Rsa',
@@ -60,7 +60,7 @@ function New-KsCertificateRequest {
     )
 
     $opts = [Kestrun.Certificates.CertificateManager+CsrOptions]::new(
-        $DnsName,
+        $DnsNames,
         [Kestrun.Certificates.CertificateManager+KeyType]::$KeyType,
         $KeyLength,
         $Country,

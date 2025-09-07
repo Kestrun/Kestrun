@@ -4,7 +4,7 @@
     .DESCRIPTION
         The New-KrSelfSignedCertificate function generates a self-signed certificate for use in development or testing scenarios.
         This certificate can be used for securing communications or authentication purposes.
-    .PARAMETER DnsName
+    .PARAMETER DnsNames
         The DNS name(s) for the certificate.
     .PARAMETER KeyType
         The type of key to use for the certificate (RSA or ECDSA).
@@ -30,7 +30,7 @@ function New-KrSelfSignedCertificate {
     [OutputType([System.Security.Cryptography.X509Certificates.X509Certificate2])]
     param(
         [Parameter(Mandatory)]
-        [string[]]  $DnsName,
+        [string[]]  $DnsNames,
 
         [ValidateSet('Rsa', 'Ecdsa')]
         [string]    $KeyType = 'Rsa',
@@ -46,7 +46,7 @@ function New-KrSelfSignedCertificate {
     )
 
     $opts = [Kestrun.Certificates.CertificateManager+SelfSignedOptions]::new(
-        $DnsName,
+        $DnsNames,
         [Kestrun.Certificates.CertificateManager+KeyType]::$KeyType,
         $KeyLength,
         $null,      # purposes

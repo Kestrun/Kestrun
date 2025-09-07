@@ -42,14 +42,14 @@ New-KrLogger |
 $server = New-KrServer -Name 'Kestrun MultiRoutes'
 
 if (Test-Path "$ScriptPath\devcert.pfx" ) {
-    $cert = Import-KsCertificate -FilePath '.\devcert.pfx' -Password (ConvertTo-SecureString -String 'p@ss' -AsPlainText -Force)
+    $cert = Import-KrCertificate -FilePath '.\devcert.pfx' -Password (ConvertTo-SecureString -String 'p@ss' -AsPlainText -Force)
 } else {
-    $cert = New-KrSelfSignedCertificate -DnsName 'localhost' -Exportable
+    $cert = New-KrSelfSignedCertificate -DnsNames 'localhost' -Exportable
     Export-KrCertificate -Certificate $cert `
         -FilePath "$ScriptPath\devcert" -Format pfx -IncludePrivateKey -Password (ConvertTo-SecureString -String 'p@ss' -AsPlainText -Force)
 }
 
-if (-not (Test-KsCertificate -Certificate $cert )) {
+if (-not (Test-KrCertificate -Certificate $cert )) {
     Write-Error 'Certificate validation failed. Ensure the certificate is valid and not self-signed.'
     exit 1
 }

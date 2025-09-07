@@ -91,6 +91,10 @@ function Write-KrLog {
             if ($Null -eq $Logger) {
                 if ([string]::IsNullOrEmpty($LoggerName)) {
                     # If LoggerName is not specified, use the default logger
+                    if ([Kestrun.Logging.LoggerManager]::DefaultLogger.GetType().FullName -eq 'Serilog.Core.Pipeline.SilentLogger') {
+                        # If the default logger is a SilentLogger, it means no logger is configured
+                        return
+                    }
                     $Logger = [Kestrun.Logging.LoggerManager]::DefaultLogger
                 } else {
                     # If LoggerName is specified, get the logger with that name

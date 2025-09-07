@@ -57,11 +57,11 @@ public class CertificateManagerTest
 
         Assert.NotNull(csr);
         Assert.NotNull(csr.PrivateKey);
-        Assert.Contains("BEGIN CERTIFICATE REQUEST", csr.Pem);
-        Assert.Contains("END CERTIFICATE REQUEST", csr.Pem);
+        Assert.Contains("BEGIN CERTIFICATE REQUEST", csr.CsrPem);
+        Assert.Contains("END CERTIFICATE REQUEST", csr.CsrPem);
 
         // Parse CSR with BouncyCastle to verify SAN
-        using var sr = new StringReader(csr.Pem);
+        using var sr = new StringReader(csr.CsrPem);
         var obj = new PemReader(sr).ReadObject();
         _ = Assert.IsType<Pkcs10CertificationRequest>(obj);
         var req = (Pkcs10CertificationRequest)obj;

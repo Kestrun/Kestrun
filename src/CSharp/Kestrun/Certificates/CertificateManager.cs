@@ -194,20 +194,23 @@ public static class CertificateManager
     #endregion
 
     #region  CSR
+
     /// <summary>
     /// Creates a new Certificate Signing Request (CSR) and returns the PEM-encoded CSR and the private key.
     /// </summary>
-    /// <param name="o">Options for creating the CSR.</param>
-    /// <returns>A tuple containing the PEM-encoded CSR and the private key.</returns>
-    public static CsrResult NewCertificateRequest(CsrOptions o)
+    /// <param name="options">The options for the CSR.</param>
+    /// <param name="encryptionPassword">The password to encrypt the private key, if desired.</param>
+    /// <returns>A <see cref="CsrResult"/> containing the CSR and private key information.</returns>
+    /// <exception cref="ArgumentOutOfRangeException"></exception>
+    public static CsrResult NewCertificateRequest(CsrOptions options, ReadOnlySpan<char> encryptionPassword = default)
     {
-        // 0️⃣ Setup
+        // 0️⃣ Keypair
         var random = new SecureRandom(new CryptoApiRandomGenerator());
-        var keyPair = o.KeyType switch
+        var keyPair = options.KeyType switch
         {
-            KeyType.Rsa => GenRsaKeyPair(o.KeyLength, random),
-            KeyType.Ecdsa => GenEcKeyPair(o.KeyLength, random),
-            _ => throw new ArgumentOutOfRangeException()
+            KeyType.Rsa => GenRsaKeyPair(options.KeyLength, random),
+            KeyType.Ecdsa => GenEcKeyPair(options.KeyLength, random),
+            _ => throw new ArgumentOutOfRangeException(nameof(options.KeyType))
         };
 
         // 1️⃣ Subject DN
@@ -215,20 +218,16 @@ public static class CertificateManager
         var attrs = new Dictionary<DerObjectIdentifier, string>();
         void Add(DerObjectIdentifier oid, string? v)
         {
-            if (!string.IsNullOrWhiteSpace(v))
-            {
-                order.Add(oid);
-                attrs[oid] = v!;
-            }
+            if (!string.IsNullOrWhiteSpace(v)) { order.Add(oid); attrs[oid] = v!; }
         }
-        Add(X509Name.C, o.Country);
-        Add(X509Name.O, o.Org);
-        Add(X509Name.OU, o.OrgUnit);
-        Add(X509Name.CN, o.CommonName ?? o.DnsNames.First());
+        Add(X509Name.C, options.Country);
+        Add(X509Name.O, options.Org);
+        Add(X509Name.OU, options.OrgUnit);
+        Add(X509Name.CN, options.CommonName ?? options.DnsNames.First());
         var subject = new X509Name(order, attrs);
 
-        // 2️⃣ Build the SAN extension
-        var altNames = o.DnsNames
+        // 2️⃣ SAN extension
+        var altNames = options.DnsNames
             .Select(d => new GeneralName(
                 IPAddress.TryParse(d, out _)
                     ? GeneralName.IPAddress
@@ -237,37 +236,80 @@ public static class CertificateManager
         var sanSeq = new DerSequence(altNames);
 
         var extGen = new X509ExtensionsGenerator();
-        extGen.AddExtension(
-            X509Extensions.SubjectAlternativeName,
-            critical: false,
-            sanSeq);
-        // Generate the X509Extensions object
+        extGen.AddExtension(X509Extensions.SubjectAlternativeName, false, sanSeq);
         var extensions = extGen.Generate();
 
-        // Wrap it in the pkcs#9 extensionRequest attribute
         var extensionRequestAttr = new AttributePkcs(
             PkcsObjectIdentifiers.Pkcs9AtExtensionRequest,
             new DerSet(extensions));
         var attrSet = new DerSet(extensionRequestAttr);
 
-        // 3️⃣ Build and sign the CSR
-        var sigAlg = o.KeyType == KeyType.Rsa
-            ? "SHA256WITHRSA"
-            : "SHA384WITHECDSA";
+        // 3️⃣ CSR
+        var sigAlg = options.KeyType == KeyType.Rsa ? "SHA256WITHRSA" : "SHA384WITHECDSA";
+        var csr = new Pkcs10CertificationRequest(sigAlg, subject, keyPair.Public, attrSet, keyPair.Private);
 
-        var csr = new Pkcs10CertificationRequest(
-            sigAlg,
-            subject,
-            keyPair.Public,
-            attrSet,
-            keyPair.Private);
+        // 4️⃣ CSR PEM + DER
+        string csrPem;
+        using (var sw = new StringWriter())
+        {
+            new PemWriter(sw).WriteObject(csr);
+            csrPem = sw.ToString();
+        }
+        var csrDer = csr.GetEncoded();
 
-        // 4️⃣ Output PEM
-        using var sw = new StringWriter();
-        new PemWriter(sw).WriteObject(csr);
+        // 5️⃣ Private key PEM + DER
+        string privateKeyPem;
+        using (var sw = new StringWriter())
+        {
+            new PemWriter(sw).WriteObject(keyPair.Private);
+            privateKeyPem = sw.ToString();
+        }
+        var pkInfo = PrivateKeyInfoFactory.CreatePrivateKeyInfo(keyPair.Private);
+        var privateKeyDer = pkInfo.GetEncoded();
 
-        return new CsrResult(sw.ToString(), keyPair.Private);
+        // 6️⃣ Optional encrypted PEM
+        string? privateKeyPemEncrypted = null;
+        if (!encryptionPassword.IsEmpty)
+        {
+            var pwd = encryptionPassword.ToArray(); // BC requires char[]
+            try
+            {
+                var gen = new Pkcs8Generator(keyPair.Private, Pkcs8Generator.PbeSha1_3DES)
+                {
+                    Password = pwd
+                };
+                using var encSw = new StringWriter();
+                new PemWriter(encSw).WriteObject(gen);
+                privateKeyPemEncrypted = encSw.ToString();
+            }
+            finally
+            {
+                Array.Clear(pwd, 0, pwd.Length); // wipe memory
+            }
+        }
+
+        // 7️⃣ Public key PEM + DER
+        var spki = SubjectPublicKeyInfoFactory.CreateSubjectPublicKeyInfo(keyPair.Public);
+        var publicKeyDer = spki.GetEncoded();
+        string publicKeyPem;
+        using (var sw = new StringWriter())
+        {
+            new PemWriter(sw).WriteObject(spki);
+            publicKeyPem = sw.ToString();
+        }
+
+        return new CsrResult(
+            csrPem,
+            csrDer,
+            keyPair.Private,
+            privateKeyPem,
+            privateKeyDer,
+            privateKeyPemEncrypted,
+            publicKeyPem,
+            publicKeyDer
+        );
     }
+
 
     #endregion
 
@@ -540,7 +582,7 @@ public static class CertificateManager
                        .Trim();
         var der = Convert.FromBase64String(b64);
 
-        // 5) Return the X509Certificate2 
+        // 5) Return the X509Certificate2
 
 #if NET9_0_OR_GREATER
         return X509CertificateLoader.LoadCertificate(der);
@@ -1033,7 +1075,7 @@ public static class CertificateManager
             _ => "P-521"
         };
 
-        // ECNamedCurveTable knows about SEC *and* NIST names   
+        // ECNamedCurveTable knows about SEC *and* NIST names
         var ecParams = ECNamedCurveTable.GetByName(name)
                        ?? throw new InvalidOperationException($"Curve not found: {name}");
 

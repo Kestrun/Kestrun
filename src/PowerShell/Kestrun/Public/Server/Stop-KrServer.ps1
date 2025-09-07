@@ -34,24 +34,26 @@ function Stop-KrServer {
         $Server = Resolve-KestrunServer -Server $Server
 
         # Stop the Kestrel server
-        Write-Host 'Stopping Kestrun ...'
         $Server.StopAsync() | Out-Null
-        if ($NoWait.IsPresent) {
-            return
-        }
         # Ensure the server is stopped on exit
         if (-not $Quiet.IsPresent) {
             Write-Host 'Stopping Kestrun server...' -NoNewline
         }
+
+        # If NoWait is specified, return immediately
+        if ($NoWait.IsPresent) {
+            return
+        }
+
         while ($Server.IsRunning) {
             Start-Sleep -Seconds 1
             if (-not $Quiet.IsPresent) {
                 Write-Host '#' -NoNewline
             }
         }
-        #$Server.StopAsync().Wait()
+
         [Kestrun.KestrunHostManager]::Destroy($Server.ApplicationName)
-        #$Server.Dispose()
+
         if (-not $Quiet.IsPresent) {
             Write-Host 'Kestrun server stopped.'
         }

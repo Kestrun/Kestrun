@@ -47,7 +47,7 @@ internal class Program
         Console.WriteLine("[Export PFX] out/devcert.pfx written");
 
         // ────────────────────────────────────────────────────────────────
-        // 1c) Export PEM **unencrypted** (plain PRIVATE KEY)  
+        // 1c) Export PEM **unencrypted** (plain PRIVATE KEY)
         // ────────────────────────────────────────────────────────────────
         CertificateManager.Export(
             cert: rsaCert,
@@ -56,10 +56,10 @@ internal class Program
             // no password → unencrypted key
             includePrivateKey: true
         );
-        Console.WriteLine("[Export PEM-plain] out/devcert-plain.crt + .key");
+        Console.WriteLine("[Export PEM-plain] out/devcert-plain.pem + .key");
 
         // ────────────────────────────────────────────────────────────────
-        // 1d) Export PEM **encrypted** (ENCRYPTED PRIVATE KEY)  
+        // 1d) Export PEM **encrypted** (ENCRYPTED PRIVATE KEY)
         // ────────────────────────────────────────────────────────────────
         CertificateManager.Export(
             cert: rsaCert,
@@ -68,7 +68,7 @@ internal class Program
             password: pwdSpan,
             includePrivateKey: true
         );
-        Console.WriteLine("[Export PEM-enc]   out/devcert-enc.crt + .key");
+        Console.WriteLine("[Export PEM-enc]   out/devcert-enc.pem + .key");
 
 
         // ────────────────────────────────────────────────────────────────
@@ -79,7 +79,7 @@ internal class Program
             filePath: "out/devcert-certonly",
             fmt: CertificateManager.ExportFormat.Pem,
             includePrivateKey: false);
-        Console.WriteLine("[Export PEM cert-only] out/devcert-certonly.crt written");
+        Console.WriteLine("[Export PEM cert-only] out/devcert-certonly.pem written");
 
         // ────────────────────────────────────────────────────────────────
         // 1f) Export PFX *via* SecureString + ToSecureSpan
@@ -113,7 +113,7 @@ internal class Program
                 CommonName: "example.com"
             ));
 
-        File.WriteAllText("out/example.csr", csrResult.Pem);
+        File.WriteAllText("out/example.csr", csrResult.CsrPem);
         using (var sw = new StreamWriter("out/example.key"))
         {
             new PemWriter(sw).WriteObject(csrResult.PrivateKey);
@@ -140,7 +140,7 @@ internal class Program
 
         // 3d) Import PEM split (cert + key files)  **plain** PEM (no password)
         var impPemPlain = CertificateManager.Import(
-            certPath: "out/devcert-plain.crt",
+            certPath: "out/devcert-plain.pem",
             password: [],
             privateKeyPath: "out/devcert-plain.key"
         );
@@ -148,14 +148,14 @@ internal class Program
 
         // 3e) Import PEM split (cert + key files)   **encrypted** PEM (with password)
         var impPemEnc = CertificateManager.Import(
-            certPath: "out/devcert-enc.crt",
+            certPath: "out/devcert-enc.pem",
             password: pwdSpan,
             privateKeyPath: "out/devcert-enc.key"
         );
         Console.WriteLine($"[Import PEM enc]   Thumbprint: {impPemEnc.Thumbprint}");
 
         // 3f) Import PEM cert-only
-        var impPemCertOnly = CertificateManager.Import("out/devcert-certonly.crt");
+        var impPemCertOnly = CertificateManager.Import("out/devcert-certonly.pem");
         Console.WriteLine($"[Import PEM only]    Subject   : {impPemCertOnly.Subject}");
 
         // ────────────────────────────────────────────────────────────────

@@ -19,11 +19,11 @@ Kestrun’s logging system builds on Serilog to give you:
 * Global fallback — framework + scripts without a named logger write to `Serilog.Log`.
 * PowerShell support — configure and invoke named loggers from PS scripts.
 
-| Component                                | Purpose                                                                                                                                                                                               |
-|------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `Kestrun.Logging.LoggerManager`          | Static manager to add/register/get/clear named Serilog loggers; can set Serilog’s default logger.                                                                                                     |
-| `LoggerConfigurationExtensions.Register` | Extension to create a Serilog logger from a configuration and register it under a name.                                                                                                               |
-| PowerShell cmdlets                       | `New-KrLogger`, `Set-KrMinimumLevel`, `New-KrLevelSwitch`, `Set-KrLevelSwitch`, enrichers, sinks, `Register-KrLogger`, `Write-KrLog`, `Close-KrLogger`, `Get-KrDefaultLogger`, `Set-KrDefaultLogger`. |
+| Component                                | Purpose                                                                                                                                                                                                                                          |
+|------------------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `Kestrun.Logging.LoggerManager`          | Static manager to add/register/get/clear named Serilog loggers; can set Serilog’s default logger.                                                                                                                                                |
+| `LoggerConfigurationExtensions.Register` | Extension to create a Serilog logger from a configuration and register it under a name.                                                                                                                                                          |
+| PowerShell cmdlets                       | `New-KrLogger`, `Set-KrMinimumLevel` (supports `-Dynamic`), `New-KrLevelSwitch`, `Set-KrLevelSwitch`, `Get-KrLevelSwitch`, enrichers, sinks, `Register-KrLogger`, `Write-KrLog`, `Close-KrLogger`, `Get-KrDefaultLogger`, `Set-KrDefaultLogger`. |
 
 ---
 
@@ -157,17 +157,20 @@ New-KrLogger |
 
 There is no “Update-KrLogger” cmdlet. Use one of these patterns:
 
-* Level switches (PowerShell):
+* Dynamic per-logger minimum (PowerShell):
 
   ```powershell
-  $switch = New-KrLevelSwitch -MinimumLevel Information
+  # Create a logger whose minimum level can be changed at runtime
   New-KrLogger |
-    Set-KrMinimumLevel -ControlledBy $switch |
+    Set-KrMinimumLevel -Dynamic Information |
     Add-KrSinkConsole |
     Register-KrLogger -Name 'app'
 
-  # Later, raise/lower the level at runtime
-  Set-KrLevelSwitch -LevelSwitch $switch -MinimumLevel Debug
+  # Later, raise/lower the level at runtime by logger name
+  Set-KrLevelSwitch -LoggerName 'app' -MinimumLevel Debug
+
+  # Read current level switch (for responses or diagnostics)
+  Get-KrLevelSwitch -LoggerName 'app'
   ```
 
 * Level switches (C#):
@@ -238,7 +241,7 @@ Close-KrLogger
 
 PowerShell
 
-* Builders: `New-KrLogger`, `Set-KrMinimumLevel`, `New-KrLevelSwitch`, `Set-KrLevelSwitch`
+* Builders: `New-KrLogger`, `Set-KrMinimumLevel` (supports `-Dynamic`), `New-KrLevelSwitch`, `Set-KrLevelSwitch`, `Get-KrLevelSwitch`
 * Enrichers: `Add-KrEnrichProperty`, `Add-KrEnrichProcessId`, `Add-KrEnrichProcessName`,
   `Add-KrEnrichEnvironment`, `Add-KrEnrichFromLogContext`, `Add-KrEnrichExceptionDetail`
 * Sinks: `Add-KrSinkConsole`, `Add-KrSinkPowerShell`, `Add-KrSinkFile`, `Add-KrSinkHttp`,

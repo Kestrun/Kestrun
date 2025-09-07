@@ -30,7 +30,7 @@ Add-KrMapRoute -Verbs Patch -Pattern "/input" -ScriptBlock {
 }
 
 # Body parameter example
-Add-KrMapRoute -Verbs Post -ScriptBlock {
+Add-KrMapRoute -Verbs Post -Pattern "/input" -ScriptBlock {
     $body = Get-KrRequestBody
     Write-KrTextResponse -InputObject "The Body Parameter 'value' was: $($body.value)" -StatusCode 200
 }

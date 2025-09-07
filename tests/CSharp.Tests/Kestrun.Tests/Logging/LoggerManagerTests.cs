@@ -18,30 +18,6 @@ public class LoggerManagerTests
 
     [Fact]
     [Trait("Category", "Logging")]
-    public void Add_Creates_And_Can_Set_Default()
-    {
-        var previous = Log.Logger;
-        try
-        {
-            LoggerManager.Clear();
-            using var sink = new CaptureSink();
-
-            var logger = LoggerManager.Add("one", cfg => cfg.MinimumLevel.Debug().WriteTo.Sink(sink), setAsDefault: true);
-            Assert.Same(logger, Log.Logger);
-            Assert.Same(logger, LoggerManager.Get("one"));
-
-            logger.Debug("ping");
-            _ = Assert.Single(sink.Events);
-        }
-        finally
-        {
-            Log.Logger = previous;
-            LoggerManager.Clear();
-        }
-    }
-
-    [Fact]
-    [Trait("Category", "Logging")]
     public void Register_Replaces_Existing_And_Disposes_Old()
     {
         var previous = Log.Logger;
@@ -80,15 +56,4 @@ public class LoggerManagerTests
         Assert.NotNull(logger);
     }
 
-    [Fact]
-    [Trait("Category", "Logging")]
-    public void Remove_And_Clear_Dispose_Loggers()
-    {
-        LoggerManager.Clear();
-        var sink = new CaptureSink();
-        var logger = LoggerManager.Add("tmp", cfg => cfg.WriteTo.Sink(sink));
-        Assert.True(LoggerManager.CloseAndFlush("tmp"));
-        LoggerManager.Clear();
-        Assert.Empty(LoggerManager.List());
-    }
 }

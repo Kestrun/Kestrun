@@ -43,23 +43,8 @@ function Register-KrLogger {
         [Parameter(Mandatory = $true)]
         [string]$Name,
 
-        [Parameter(Mandatory = $true, ValueFromPipeline = $true, ParameterSetName = 'Full')]
+        [Parameter(Mandatory = $true, ValueFromPipeline = $true)]
         [Serilog.LoggerConfiguration]$LoggerConfig,
-
-        [Parameter(Mandatory = $false, ParameterSetName = 'Short')]
-        [Serilog.Events.LogEventLevel]$MinimumLevel = [Serilog.Events.LogEventLevel]::Information,
-
-        [Parameter(Mandatory = $false, ParameterSetName = 'Short')]
-        [switch]$Console,
-
-        [Parameter(Mandatory = $false, ParameterSetName = 'Short')]
-        [switch]$PowerShell,
-
-        [Parameter(Mandatory = $false, ParameterSetName = 'Short')]
-        [string]$FilePath,
-
-        [Parameter(Mandatory = $false, ParameterSetName = 'Short')]
-        [Serilog.RollingInterval]$FileRollingInterval = [Serilog.RollingInterval]::Infinite,
 
         [Parameter(Mandatory = $false)]
         [switch]$SetAsDefault,
@@ -69,25 +54,7 @@ function Register-KrLogger {
     )
 
     process {
-        switch ($PsCmdlet.ParameterSetName) {
-            'Short' {
-                $LoggerConfig = New-KrLogger | Set-KrMinimumLevel -Value $MinimumLevel
-
-                # If file path was not passed we setup default console sink
-                if ($PowerShell -or -not $PSBoundParameters.ContainsKey('FilePath')) {
-                    $LoggerConfig = $LoggerConfig | Add-KrSinkPowerShell
-                }
-
-                if ($PSBoundParameters.ContainsKey('Console')) {
-                    $LoggerConfig = $LoggerConfig | Add-KrSinkConsole
-                }
-
-                if ($PSBoundParameters.ContainsKey('FilePath')) {
-                    $LoggerConfig = $LoggerConfig | Add-KrSinkFile -Path $FilePath -RollingInterval $FileRollingInterval
-                }
-            }
-        }
-        $logger = [Kestrun.Logging.LoggerConfigurationExtensions]::Register($LoggerConfig, $Name, $SetAsDefault)
+        $logger = [Kestrun.Logging.LoggerConfigurationExtensions]::Register($LoggerConfig, $Name, $SetAsDefault.IsPresent)
         if ($PassThru) {
             return $logger
         }

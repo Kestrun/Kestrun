@@ -32,7 +32,7 @@ function New-KrServer {
         [Parameter(Mandatory = $true, ValueFromPipeline = $true)]
         [string]$Name,
         [Parameter(Mandatory = $false, ParameterSetName = 'Logger')]
-        [Serilog.ILogger]$Logger = [Serilog.Log]::Logger,
+        [Serilog.ILogger]$Logger,
         [Parameter(Mandatory = $true, ParameterSetName = 'LoggerName')]
         [string]$LoggerName,
         [Parameter()]
@@ -61,9 +61,15 @@ function New-KrServer {
                 [Kestrun.KestrunHostManager]::Destroy($Name)
             }
         }
-        if ($Null -eq $Logger -and (-not [string]::IsNullOrEmpty($LoggerName))) {
-            # If LoggerName is specified, get the logger with that name
-            $Logger = [Kestrun.Logging.LoggerManager]::Get($LoggerName)
+
+        # If Logger is not provided, use the default logger or the named logger
+        if ($Null -eq $Logger) {
+            if ([string]::IsNullOrEmpty($LoggerName)) {
+                $Logger = [Serilog.Log]::Logger
+            } else {
+                # If LoggerName is specified, get the logger with that name
+                $Logger = [Kestrun.Logging.LoggerManager]::Get($LoggerName)
+            }
         }
 
         $server = [Kestrun.KestrunHostManager]::Create($Name, $Logger, [string[]] $modulePaths)

@@ -1,5 +1,7 @@
 using System.Collections.Concurrent;
 using Serilog;
+using Serilog.Core;
+using Serilog.Events;
 
 namespace Kestrun.Logging;
 
@@ -12,41 +14,13 @@ public static class LoggerManager
     private static readonly ConcurrentDictionary<string, LoggerConfiguration> _configs = new(StringComparer.OrdinalIgnoreCase);
 
     /// <summary>
-    /// Add or replace a logger by name and optionally set it as the default logger.
+    /// A collection of named logging level switches for dynamic log level control.
     /// </summary>
-    /// <param name="name">The name of the logger.</param>
-    /// <param name="config">An optional configuration action to customize the logger.</param>
-    /// <param name="setAsDefault">If true, sets the added logger as the Serilog default logger.</param>
-    /// <returns>The created logger instance.</returns>
-    public static Serilog.ILogger Add(string name, Action<LoggerConfiguration>? config = null, bool setAsDefault = false)
-    {
-        if (string.IsNullOrWhiteSpace(name))
-        {
-            throw new ArgumentNullException(nameof(name));
-        }
+    private static readonly ConcurrentDictionary<string, LoggingLevelSwitch> _switches = new(StringComparer.OrdinalIgnoreCase);
 
-        var cfg = new LoggerConfiguration()
-            .Enrich.FromLogContext()
-            .MinimumLevel.Debug();
 
-        config?.Invoke(cfg);
-
-        var logger = cfg.CreateLogger();
-        _configs[name] = cfg;
-
-        if (_loggers.TryGetValue(name, out var oldLogger) && oldLogger is IDisposable d)
-        {
-            d.Dispose();
-        }
-
-        _loggers[name] = logger;
-        if (setAsDefault)
-        {
-            Log.Logger = logger;
-        }
-
-        return logger;
-    }
+    internal static LoggingLevelSwitch EnsureSwitch(string name, LogEventLevel initial = LogEventLevel.Information)
+        => _switches.GetOrAdd(name, _ => new LoggingLevelSwitch(initial));
 
     /// <summary>
     /// Register an existing Serilog logger instance under a name.
@@ -54,8 +28,9 @@ public static class LoggerManager
     /// <param name="name">The name of the logger.</param>
     /// <param name="logger">The logger instance to register.</param>
     /// <param name="setAsDefault">If true, sets the registered logger as the Serilog default logger.</param>
+    /// <param name="levelSwitch">An optional logging level switch to associate with the logger for dynamic level control.</param>
     /// <returns>The registered logger instance.</returns>
-    public static Serilog.ILogger Register(string name, Serilog.ILogger logger, bool setAsDefault = false)
+    public static Serilog.ILogger Register(string name, Serilog.ILogger logger, bool setAsDefault = false, LoggingLevelSwitch? levelSwitch = null)
     {
         if (_loggers.TryGetValue(name, out var oldLogger) && oldLogger is IDisposable d)
         {
@@ -67,9 +42,13 @@ public static class LoggerManager
         {
             Log.Logger = logger;
         }
-
+        if (levelSwitch != null)
+        {
+            _switches[name] = levelSwitch;
+        }
         return logger;
     }
+
     /// <summary>
     /// Create a new <see cref="LoggerConfiguration"/> associated with a name.
     /// </summary>
@@ -82,6 +61,31 @@ public static class LoggerManager
         _configs[name] = cfg;
         return cfg;
     }
+
+
+    /// <summary>Set the minimum level for a named logger’s switch.</summary>
+    /// <param name="name">The name of the logger.</param>
+    /// <param name="level">The new minimum level to set.</param>
+    /// <remarks>
+    /// If the logger or switch does not exist, they will be created.
+    /// </remarks>
+    public static void SetLevelSwitch(string name, LogEventLevel level)
+    {
+        var sw = EnsureSwitch(name, level);
+        sw.MinimumLevel = level;
+    }
+
+    /// <summary>Get the current minimum level for a named logger’s switch.</summary>
+    /// <param name="name">The name of the logger.</param>
+    /// <returns>The current minimum level, or null if the logger or switch is not found.</returns>
+    public static LogEventLevel? GetLevelSwitch(string name)
+        => _switches.TryGetValue(name, out var sw) ? sw.MinimumLevel : null;
+
+    /// <summary>List all switches and their current levels.</summary>
+    /// <returns>A dictionary of logger names and their minimum levels.</returns>
+    public static IReadOnlyDictionary<string, LogEventLevel> ListLevels()
+        => _switches.ToDictionary(kv => kv.Key, kv => kv.Value.MinimumLevel, StringComparer.OrdinalIgnoreCase);
+
 
     /// <summary>CloseAndFlush a logger by name.</summary>
     /// <param name="name">The name of the logger to close and flush.</param>
@@ -96,6 +100,7 @@ public static class LoggerManager
             }
 
             _ = _configs.TryRemove(name, out _);
+            _ = _switches.TryRemove(name, out _);
             return true;
         }
         return false;
@@ -120,12 +125,42 @@ public static class LoggerManager
         {
             _ = _loggers.TryRemove(key, out _);
             _ = _configs.TryRemove(key, out _);
+            _ = _switches.TryRemove(key, out _);
             removed = true;
         }
 
         return removed;
     }
 
+    /// <summary>
+    /// Get the name of a registered logger instance.
+    /// </summary>
+    /// <param name="logger">The logger instance.</param>
+    /// <returns>The name of the logger, or null if not found.</returns>
+    public static string? GetName(Serilog.ILogger logger)
+    {
+        foreach (var kv in _loggers)
+        {
+            if (ReferenceEquals(kv.Value, logger))
+            {
+                return kv.Key;
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// Try to get the name of a registered logger instance.
+    /// </summary>
+    /// <param name="logger">The logger instance.</param>
+    /// <param name="name">The name of the logger, if found.</param>
+    /// <returns>True if the name was found; otherwise, false.</returns>
+    public static bool TryGetName(Serilog.ILogger logger, out string? name)
+    {
+        name = GetName(logger);
+        return name is not null;
+    }
     /// <summary>
     /// Check if a logger, configuration, or name exists.
     /// </summary>

@@ -23,7 +23,7 @@ $base = New-KrLogger |
 # $base = $base | Add-KrSinkSyslogUdp -Hostname '127.0.0.1' -Port 514 -AppName 'KestrunSample'
 # $base = $base | Add-KrSinkSyslogTcp -Hostname '127.0.0.1' -Port 514 -AppName 'KestrunSample' -Format RFC3164
 # Local syslog (Linux/macOS)
- $base = $base | Add-KrSinkSyslogLocal -AppName 'KestrunSample'
+$base = $base | Add-KrSinkSyslogLocal -AppName 'KestrunSample'
 
 $logger = $base | Register-KrLogger -Name 'advanced' -PassThru
 

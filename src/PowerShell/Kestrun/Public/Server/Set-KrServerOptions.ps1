@@ -2,7 +2,7 @@
     .SYNOPSIS
         Configures advanced options and operational limits for a Kestrun server instance.
     .DESCRIPTION
-        The Set-KrServerOption function allows fine-grained configuration of a Kestrun server instance.
+        The Set-KrServerOptions function allows fine-grained configuration of a Kestrun server instance.
         It enables administrators to control server behavior, resource usage, and protocol compliance by
         setting limits on request sizes, connection counts, timeouts, and other operational parameters.
         Each parameter is optional and, if not specified, the server will use its built-in default value.
@@ -38,16 +38,16 @@
     .PARAMETER PassThru
         If specified, the cmdlet will return the modified server instance after applying the limits.
     .EXAMPLE
-        Set-KrServerOption -Server $srv -MaxRequestBodySize 1000000
+        Set-KrServerOptions -Server $srv -MaxRequestBodySize 1000000
         Configures the server instance $srv to limit request body size to 1,000,000 bytes.
     .EXAMPLE
-        Set-KrServerOption -Server $srv -AllowSynchronousIO
+        Set-KrServerOptions -Server $srv -AllowSynchronousIO
         Configures the server instance $srv to allow synchronous IO operations.
     .NOTES
         All parameters are optional except for -Server.
         Defaults are based on typical Kestrun server settings as of the latest release.
 #>
-function Set-KrServerOption {
+function Set-KrServerOptions {
     [KestrunRuntimeApi('Definition')]
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseShouldProcessForStateChangingFunctions', '')]
     [CmdletBinding()]

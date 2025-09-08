@@ -46,7 +46,7 @@ New-KrLogger |
 
 # Create the server
 $server = New-KrServer -Name 'MyKestrunServer' -PassThru |
-    Set-KrServerOption -DenyServerHeader -PassThru |
+    Set-KrServerOptions -DenyServerHeader -PassThru |
     Set-KrServerLimit -MaxConcurrentConnections 100 -MaxRequestBodySize 10485760 -MaxRequestHeaderCount 100 -KeepAliveTimeout 120 -PassThru |
     # Listen on port 5000 (HTTP)
     Add-KrListener -Port 5000 -PassThru | Add-KrResponseCompression -EnableForHttps -MimeTypes @(

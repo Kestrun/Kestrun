@@ -380,32 +380,46 @@ public class KestrunHost : IDisposable
             // Apply Kestrel listeners and HTTPS settings
             _ = Builder.WebHost.ConfigureKestrel(serverOptions =>
             {
-                // Apply HTTPS defaults if needed
-                serverOptions.ConfigureHttpsDefaults(httpsOptions =>
+                if (Options.HttpsConnectionAdapter is not null)
                 {
-                    httpsOptions.SslProtocols = Options.HttpsConnectionAdapter.SslProtocols;
-                    httpsOptions.ClientCertificateMode = Options.HttpsConnectionAdapter.ClientCertificateMode;
-                    httpsOptions.ClientCertificateValidation = Options.HttpsConnectionAdapter.ClientCertificateValidation;
-                    httpsOptions.CheckCertificateRevocation = Options.HttpsConnectionAdapter.CheckCertificateRevocation;
-                    httpsOptions.ServerCertificate = Options.HttpsConnectionAdapter.ServerCertificate;
-                    httpsOptions.ServerCertificateChain = Options.HttpsConnectionAdapter.ServerCertificateChain;
-                    httpsOptions.ServerCertificateSelector = Options.HttpsConnectionAdapter.ServerCertificateSelector;
-                    httpsOptions.HandshakeTimeout = Options.HttpsConnectionAdapter.HandshakeTimeout;
-                    httpsOptions.OnAuthenticate = Options.HttpsConnectionAdapter.OnAuthenticate;
-                });
+                    HostLogger.Verbose("Applying HTTPS connection adapter options from KestrunOptions.");
 
-                if (!string.IsNullOrWhiteSpace(Options.ListenUnixSocket))
-                {
-                    HostLogger.Verbose("Binding Unix socket: {Sock}", Options.ListenUnixSocket);
-                    serverOptions.ListenUnixSocket(Options.ListenUnixSocket);
-                    // NOTE: control access via directory perms/umask; UDS file perms are inherited from process umask
-                    // Prefer placing the socket under a group-owned dir (e.g., /var/run/kestrun) with 0770.
-
+                    // Apply HTTPS defaults if needed
+                    serverOptions.ConfigureHttpsDefaults(httpsOptions =>
+                    {
+                        httpsOptions.SslProtocols = Options.HttpsConnectionAdapter.SslProtocols;
+                        httpsOptions.ClientCertificateMode = Options.HttpsConnectionAdapter.ClientCertificateMode;
+                        httpsOptions.ClientCertificateValidation = Options.HttpsConnectionAdapter.ClientCertificateValidation;
+                        httpsOptions.CheckCertificateRevocation = Options.HttpsConnectionAdapter.CheckCertificateRevocation;
+                        httpsOptions.ServerCertificate = Options.HttpsConnectionAdapter.ServerCertificate;
+                        httpsOptions.ServerCertificateChain = Options.HttpsConnectionAdapter.ServerCertificateChain;
+                        httpsOptions.ServerCertificateSelector = Options.HttpsConnectionAdapter.ServerCertificateSelector;
+                        httpsOptions.HandshakeTimeout = Options.HttpsConnectionAdapter.HandshakeTimeout;
+                        httpsOptions.OnAuthenticate = Options.HttpsConnectionAdapter.OnAuthenticate;
+                    });
                 }
-                else if (!string.IsNullOrWhiteSpace(Options.NamedPipeName) && OperatingSystem.IsWindows())
+                // Unix domain socket listeners
+                if (!OperatingSystem.IsWindows())
                 {
-                    HostLogger.Verbose("Binding Named Pipe: {Pipe}", Options.NamedPipeName);
-                    serverOptions.ListenNamedPipe(Options.NamedPipeName);
+                    foreach (var unixSocket in Options.ListenUnixSockets)
+                    {
+                        if (!string.IsNullOrWhiteSpace(unixSocket))
+                        {
+                            HostLogger.Verbose("Binding Unix socket: {Sock}", unixSocket);
+                            serverOptions.ListenUnixSocket(unixSocket);
+                            // NOTE: control access via directory perms/umask; UDS file perms are inherited from process umask
+                            // Prefer placing the socket under a group-owned dir (e.g., /var/run/kestrun) with 0770.
+                        }
+                    }
+                }
+                // Named pipe listeners
+                foreach (var namedPipeName in Options.NamedPipeNames)
+                {
+                    if (!string.IsNullOrWhiteSpace(namedPipeName))
+                    {
+                        HostLogger.Verbose("Binding Named Pipe: {Pipe}", namedPipeName);
+                        serverOptions.ListenNamedPipe(namedPipeName);
+                    }
                 }
 
                 // TCP listeners

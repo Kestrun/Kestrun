@@ -86,7 +86,7 @@
 
         PSUseSingularNouns = @{
             Enable = $true
-            NounAllowList = @('Data', 'Windows', 'Metadata')
+            NounAllowList = @('Data', 'Windows', 'Metadata', 'Settings', 'Options', 'Parameters', 'Credentials', 'Properties')
         }
 
         # Enforce BOM in Unicode files

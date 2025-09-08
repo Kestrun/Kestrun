@@ -103,7 +103,7 @@ if (-not (Test-KrCertificate -Certificate $cert )) {
 }
 
 # Example usage:
-Set-KrServerOption -DenyServerHeader
+Set-KrServerOptions -DenyServerHeader
 
 Set-KrServerLimit -MaxRequestBodySize 10485760 -MaxConcurrentConnections 100 -MaxRequestHeaderCount 100 -KeepAliveTimeoutSeconds 120
 # Configure the listener (adjust port, cert path, and password)

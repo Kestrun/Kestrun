@@ -48,17 +48,17 @@ public class KestrunOptions
     /// <summary>
     /// Gets the HTTPS connection adapter options.
     /// </summary>
-    public HttpsConnectionAdapterOptions HttpsConnectionAdapter { get; }
+    public HttpsConnectionAdapterOptions? HttpsConnectionAdapter { get; set; }
 
     /// <summary>
     /// Optional path to a Unix domain socket for Kestrel to listen on.
     /// </summary>
-    public string? ListenUnixSocket { get; set; }
+    public string[] ListenUnixSockets { get; }
 
     /// <summary>
     /// Optional name of a Named Pipe for Kestrel to listen on.
     /// </summary>
-    public string? NamedPipeName { get; set; }
+    public string[] NamedPipeNames { get; }
 
     /// <summary>
     /// Gets or sets the Named Pipe transport options.
@@ -75,6 +75,7 @@ public class KestrunOptions
         Listeners = [];
         ServerOptions = new KestrelServerOptions();
         MaxSchedulerRunspaces = 8; // Default max scheduler runspaces
-        HttpsConnectionAdapter = new HttpsConnectionAdapterOptions();
+        ListenUnixSockets = [];
+        NamedPipeNames = [];
     }
 }

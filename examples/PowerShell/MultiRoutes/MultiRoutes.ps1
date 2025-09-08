@@ -106,7 +106,7 @@ $data = @'
 
 Set-KrSharedState -Name 'Orders' -Value $data
 # Example usage:
-Set-KrServerOption -AllowSynchronousIO -DenyServerHeader
+Set-KrServerOptions -AllowSynchronousIO -DenyServerHeader
 
 Set-KrServerLimit -MaxRequestBodySize 10485760 -MaxConcurrentConnections 100 -MaxRequestHeaderCount 100 -KeepAliveTimeoutSeconds 120
 # Configure the listener (adjust port, cert path, and password)

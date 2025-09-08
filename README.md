@@ -17,7 +17,6 @@ Kestrun — PowerShell brains. Kestrel speed.
 
 <!-- Coverage -->
 [![CodeFactor](https://www.codefactor.io/repository/github/kestrun/kestrun/badge/main)](https://www.codefactor.io/repository/github/kestrun/kestrun/overview/main)
-[![Codacy Badge](https://app.codacy.com/project/badge/Grade/1ea6075b819449a1aff2678f41f890c2)](https://app.codacy.com/gh/Kestrun/Kestrun/dashboard?utm_source=gh&utm_medium=referral&utm_content=&utm_campaign=Badge_grade)
 [![Coveralls Badge](https://coveralls.io/repos/github/Kestrun/Kestrun/badge.svg?branch=main)](https://coveralls.io/github/Kestrun/Kestrun?branch=main)
 [![Coverage Status](https://coverage.kestrun.dev/badge_combined.svg)](https://coverage.kestrun.dev)
 
@@ -49,99 +48,99 @@ dynamic services using both C# and PowerShell in a single, integrated environmen
 
 ## Rich Documentation and Tutorial
 
-Full documentation and tutorial for Kestrun is available online at [docs.kestrun.dev](https://docs.kestrun.dev).  
+Full documentation and tutorial for Kestrun is available online at [docs.kestrun.dev](https://docs.kestrun.dev).
 You can find guides, API references, and usage examples to help you get started and explore advanced features.
 
 ## Core Capabilities
 
-- **🚀 Fast, cross-platform web server**  
+- **🚀 Fast, cross-platform web server**
   Powered by **ASP.NET Core (Kestrel)** with full access to advanced HTTP/2, header compression, and TLS options.
 
-- **🐚 Native PowerShell integration**  
-  Routes can be backed by PowerShell scripts with isolated, pooled **runspaces** and dynamic  
+- **🐚 Native PowerShell integration**
+  Routes can be backed by PowerShell scripts with isolated, pooled **runspaces** and dynamic
   `$Context.Request` / `$Context.Response` variables.
 
-- **🧠 Multi-language script routing**  
+- **🧠 Multi-language script routing**
   Register HTTP routes using:
-  - 🐚 PowerShell  
-  - 🧩 C# scripts (Roslyn compiled with typed globals and shared state)  
-  - 📄 VB.NET scripts (full .NET scripting with claims and validation support)  
-  - 🐍 Python (via Python.NET)  
-  - 📜 JavaScript (via ClearScript + V8)  
+  - 🐚 PowerShell
+  - 🧩 C# scripts (Roslyn compiled with typed globals and shared state)
+  - 📄 VB.NET scripts (full .NET scripting with claims and validation support)
+  - 🐍 Python (via Python.NET)
+  - 📜 JavaScript (via ClearScript + V8)
   - 🧪 F# (stubbed for future support)
 
-- **📄 Razor Pages backed by PowerShell**  
+- **📄 Razor Pages backed by PowerShell**
   Use `.cshtml + .cshtml.ps1` pairs with automatic `$Model` injection and dynamic rendering via `HttpContext.Items["PageModel"]`.
 
-- **📦 Modular architecture**  
+- **📦 Modular architecture**
   Combine C# libraries, PowerShell modules, Razor views, static files, and custom handlers into a unified web app.
 
 ## HTTP & Protocol Support
 
-- **🌍 Rich HTTP support**  
-  - Routes with query, headers, body support  
-  - Static files with custom headers, `Content-Disposition`, stream/async send  
-  - Built-in MIME type detection  
+- **🌍 Rich HTTP support**
+  - Routes with query, headers, body support
+  - Static files with custom headers, `Content-Disposition`, stream/async send
+  - Built-in MIME type detection
   - Charset and compression negotiation
 
-- **🔐 TLS/HTTPS & Certificate support**  
-  - Supports `X509Certificate2` objects directly  
-  - Fine-grained listener control: `Protocols`, `UseConnectionLogging`, HTTP/1.1 & HTTP/2  
+- **🔐 TLS/HTTPS & Certificate support**
+  - Supports `X509Certificate2` objects directly
+  - Fine-grained listener control: `Protocols`, `UseConnectionLogging`, HTTP/1.1 & HTTP/2
   - Hot-swap of certificate or listener settings
 
-- **🛡️ Comprehensive Authentication & Authorization**  
+- **🛡️ Comprehensive Authentication & Authorization**
   - **Multiple authentication schemes**: Windows, Basic, API Key, JWT Bearer, Cookie, Certificate, Negotiate, OpenID Connect
-  - **Claims-based authorization**: Rich claim policies with PowerShell and VB.NET claim providers  
-  - **Route-level authorization**: Fine-grained access control per endpoint  
+  - **Claims-based authorization**: Rich claim policies with PowerShell and VB.NET claim providers
+  - **Route-level authorization**: Fine-grained access control per endpoint
   - **Credential validation**: Supports SecureString utilities and custom validation delegates
 
 ## Developer-Focused
 
-- **🧪 Test-friendly architecture**  
-  - **C#**: xUnit + script compilation validation (`ValidateCSharpScript`)  
-  - **PowerShell**: Pester-compatible setup for route and module tests  
+- **🧪 Test-friendly architecture**
+  - **C#**: xUnit + script compilation validation (`ValidateCSharpScript`)
+  - **PowerShell**: Pester-compatible setup for route and module tests
   - Script diagnostics: line-numbered errors, detailed exception formatting
 
-- **🧬 Shared global state**  
+- **🧬 Shared global state**
   A thread-safe, case-insensitive `SharedState` store for global variables, usable across C#, PowerShell, and Razor.
 
-- **🖨️ Flexible response output**  
+- **🖨️ Flexible response output**
   Respond with:
-  - `WriteTextResponse`, `WriteJsonResponse`, `WriteXmlResponse`, `WriteYamlResponse`  
-  - `WriteFileResponse`, `WriteBinaryResponse`, `WriteStreamResponse`  
+  - `WriteTextResponse`, `WriteJsonResponse`, `WriteXmlResponse`, `WriteYamlResponse`
+  - `WriteFileResponse`, `WriteBinaryResponse`, `WriteStreamResponse`
   - Optional `Content-Disposition: inline` / `attachment; filename=…`
 
-- **🧵 Thread-safe runspace pooling**  
+- **🧵 Thread-safe runspace pooling**
   Automatic pooling of PowerShell runspaces with configurable min/max, affinity (`PSThreadOptions`), and module injection.
 
-- **📑 Script validation & compilation error reporting**  
+- **📑 Script validation & compilation error reporting**
   C# route validation returns detailed Roslyn diagnostics without throwing (e.g., for editor integration or CI prechecks).
 
-- **🧾 Logging with Serilog**  
-  - Fluent `KestrunLoggerBuilder` for per-subsystem loggers  
-  - Named logger registration & retrieval  
-  - Reset/Reload/Dispose support for hot-reload or graceful shutdowns  
+- **🧾 Logging with Serilog**
+  - Fluent `KestrunLoggerBuilder` for per-subsystem loggers
+  - Named logger registration & retrieval
+  - Reset/Reload/Dispose support for hot-reload or graceful shutdowns
   - Default rolling file logs (`logs/kestrun.log`)
 
 ## Deployment & Extensibility
 
-- **🛠️ CI/CD ready**  
-  - Build- and run-time configurable  
-  - Works in containerized / headless environments  
+- **🛠️ CI/CD ready**
+  - Build- and run-time configurable
+  - Works in containerized / headless environments
   - Supports Dev/Prod fallback module path detection
 
-- **🛡️ Optional Add-ons**  
+- **🛡️ Optional Add-ons**
   Add via fluent extensions:
-  - `AddAntiforgery()` middleware  
-  - `AddStaticFiles()`, `AddDefaultFiles()`, `AddFileServer()`  
-  - `AddCors(policy)` or `AddCorsAllowAll()`  
-  - `AddSignalR<T>()` for real-time hubs  
-  - `AddAuthentication()` with multiple schemes (Windows, Basic, JWT, Certificate, etc.)  
+  - `AddAntiforgery()` middleware
+  - `AddStaticFiles()`, `AddDefaultFiles()`, `AddFileServer()`
+  - `AddCors(policy)` or `AddCorsAllowAll()`
+  - `AddSignalR<T>()` for real-time hubs
+  - `AddAuthentication()` with multiple schemes (Windows, Basic, JWT, Certificate, etc.)
   - Ready for Swagger, gRPC, custom middleware hooks
 
-- **⚡ Task Scheduling & Background Jobs**  
-  - **Cron-based scheduling**: Full cron expression support via Cronos  
-  - **Multi-language job support**: Schedule PowerShell, C#, and VB.NET scripts as background jobs  
+- **⚡ Task Scheduling & Background Jobs**
+  - **Cron-based scheduling**: Full cron expression support via Cronos
+  - **Multi-language job support**: Schedule PowerShell, C#, and VB.NET scripts as background jobs
   - **Job management**: Start, stop, and monitor scheduled tasks with detailed logging
 
 ## Getting Started
@@ -162,10 +161,10 @@ Install-PSResource -Name 'InvokeBuild','Pester' -Scope CurrentUser
 
 To run applications built with Kestrun, you need a matching pair of .NET Runtime and PowerShell:
 
-- [.NET 8 Runtime](https://dotnet.microsoft.com/download)  
+- [.NET 8 Runtime](https://dotnet.microsoft.com/download)
   → Required for **PowerShell 7.4** and **7.5**
 
-- [.NET 9 Runtime](https://dotnet.microsoft.com/download)  
+- [.NET 9 Runtime](https://dotnet.microsoft.com/download)
   → Required for **PowerShell 7.6 (preview)**
 
 Download PowerShell from [GitHub Releases](https://github.com/PowerShell/PowerShell/releases).
@@ -244,8 +243,8 @@ Invoke-Build Test-Pester
 
 ## Documentation and Tutorial
 
-Kestrun docs are built with [Just-the-Docs](https://github.com/just-the-docs/just-the-docs).  
-All new documentation **must be compatible** (front matter, `parent`, `nav_order`, etc.).  
+Kestrun docs are built with [Just-the-Docs](https://github.com/just-the-docs/just-the-docs).
+All new documentation **must be compatible** (front matter, `parent`, `nav_order`, etc.).
 
 See [docs/](docs/) for structure.
 
@@ -301,7 +300,6 @@ Licensed under the MIT License. See [LICENSE](LICENSE).
 
 - [ReportGenerator](https://github.com/danielpalme/ReportGenerator) for code coverage reporting
 - [codefactor](https://www.codefactor.io/) for code quality analysis
-- [codacy](https://www.codacy.com/) for automated code reviews
 - [coveralls](https://coveralls.io/) for code coverage tracking
 
 ### AI Assistance

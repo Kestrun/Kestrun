@@ -358,31 +358,75 @@ public class KestrunHost : IDisposable
                 opts.CopyFromTemplate(Options.ServerOptions);
             });
 
-            _ = Builder.WebHost.ConfigureKestrel(kestrelOpts =>
+            if (Options.NamedPipeOptions is not null)
             {
-                // Optionally, handle ApplicationName or other properties as needed
-                if (Options.Listeners.Count > 0)
+                if (OperatingSystem.IsWindows())
                 {
-                    Options.Listeners.ForEach(opt =>
+                    _ = Builder.WebHost.UseNamedPipes(opts =>
                     {
-                        kestrelOpts.Listen(opt.IPAddress, opt.Port, listenOptions =>
-                        {
-                            listenOptions.Protocols = opt.Protocols;
-                            if (opt.UseHttps && opt.X509Certificate != null)
-                            {
-                                _ = listenOptions.UseHttps(opt.X509Certificate);
-                            }
+                        opts.ListenerQueueCount = Options.NamedPipeOptions.ListenerQueueCount;
+                        opts.MaxReadBufferSize = Options.NamedPipeOptions.MaxReadBufferSize;
+                        opts.MaxWriteBufferSize = Options.NamedPipeOptions.MaxWriteBufferSize;
+                        opts.CurrentUserOnly = Options.NamedPipeOptions.CurrentUserOnly;
+                        opts.PipeSecurity = Options.NamedPipeOptions.PipeSecurity;
+                    });
+                }
+                else
+                {
+                    HostLogger.Verbose("Named pipe listeners are supported only on Windows; skipping UseNamedPipes configuration.");
+                }
+            }
 
-                            if (opt.UseConnectionLogging)
-                            {
-                                _ = listenOptions.UseConnectionLogging();
-                            }
-                        });
+            // Apply Kestrel listeners and HTTPS settings
+            _ = Builder.WebHost.ConfigureKestrel(serverOptions =>
+            {
+                // Apply HTTPS defaults if needed
+                serverOptions.ConfigureHttpsDefaults(httpsOptions =>
+                {
+                    httpsOptions.SslProtocols = Options.HttpsConnectionAdapter.SslProtocols;
+                    httpsOptions.ClientCertificateMode = Options.HttpsConnectionAdapter.ClientCertificateMode;
+                    httpsOptions.ClientCertificateValidation = Options.HttpsConnectionAdapter.ClientCertificateValidation;
+                    httpsOptions.CheckCertificateRevocation = Options.HttpsConnectionAdapter.CheckCertificateRevocation;
+                    httpsOptions.ServerCertificate = Options.HttpsConnectionAdapter.ServerCertificate;
+                    httpsOptions.ServerCertificateChain = Options.HttpsConnectionAdapter.ServerCertificateChain;
+                    httpsOptions.ServerCertificateSelector = Options.HttpsConnectionAdapter.ServerCertificateSelector;
+                    httpsOptions.HandshakeTimeout = Options.HttpsConnectionAdapter.HandshakeTimeout;
+                    httpsOptions.OnAuthenticate = Options.HttpsConnectionAdapter.OnAuthenticate;
+                });
+
+                if (!string.IsNullOrWhiteSpace(Options.ListenUnixSocket))
+                {
+                    HostLogger.Verbose("Binding Unix socket: {Sock}", Options.ListenUnixSocket);
+                    serverOptions.ListenUnixSocket(Options.ListenUnixSocket);
+                    // NOTE: control access via directory perms/umask; UDS file perms are inherited from process umask
+                    // Prefer placing the socket under a group-owned dir (e.g., /var/run/kestrun) with 0770.
+
+                }
+                else if (!string.IsNullOrWhiteSpace(Options.NamedPipeName) && OperatingSystem.IsWindows())
+                {
+                    HostLogger.Verbose("Binding Named Pipe: {Pipe}", Options.NamedPipeName);
+                    serverOptions.ListenNamedPipe(Options.NamedPipeName);
+                }
+
+                // TCP listeners
+                foreach (var opt in Options.Listeners)
+                {
+                    serverOptions.Listen(opt.IPAddress, opt.Port, listenOptions =>
+                    {
+                        listenOptions.Protocols = opt.Protocols;
+                        if (opt.UseHttps && opt.X509Certificate is not null)
+                        {
+                            _ = listenOptions.UseHttps(opt.X509Certificate);
+                        }
+                        if (opt.UseConnectionLogging)
+                        {
+                            _ = listenOptions.UseConnectionLogging();
+                        }
                     });
                 }
             });
 
-
+            // build the app to validate configuration
             _app = Build();
             var dataSource = _app.Services.GetRequiredService<EndpointDataSource>();
 
@@ -407,6 +451,7 @@ public class KestrunHost : IDisposable
             throw new InvalidOperationException("Failed to apply configuration.", ex);
         }
     }
+
     #endregion
     #region Builder
     /* More information about the KestrunHost class

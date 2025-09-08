@@ -68,5 +68,5 @@ Stop the server with Ctrl+C in the terminal.
 
 - Continue to Static Files tutorial for hosting assets
 - Explore richer example scripts under `examples/PowerShell` (e.g., `MultiRoutes.ps1`)
-- Browse the PowerShell cmdlet reference under `docs/pwsh/cmdlets`
-- Inspect the PowerShell module source at `src/PowerShell/Kestrun`
+- Browse the PowerShell cmdlet reference under `/pwsh/cmdlets`
+- Inspect the PowerShell module source at `https://github.com/Kestrun/Kestrun/tree/main/src/PowerShell/Kestrun`

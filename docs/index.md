@@ -35,9 +35,9 @@ blending scriptable flexibility with modern .NET performance.
 ## Quick links
 
 - 👉 **PowerShell Cmdlets**: [pwsh/cmdlets/](/pwsh/cmdlets/)
-- 👉 **C# API**: [cs/api/](docs/cs/api/)
+- 👉 **C# API**: [cs/api/](/cs/api/)
 - 📚 **Tutorials**: [pwsh/tutorial/](/pwsh/tutorial/)
-- 📘 **Guides**: [Logging](/docs/guides/logging)
+- 📘 **Guides**: [Logging](/guides/)
 
 ## Getting started
 

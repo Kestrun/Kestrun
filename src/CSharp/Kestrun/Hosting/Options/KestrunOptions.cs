@@ -1,4 +1,6 @@
 using Microsoft.AspNetCore.Server.Kestrel.Core;
+using Microsoft.AspNetCore.Server.Kestrel.Https;
+using Microsoft.AspNetCore.Server.Kestrel.Transport.NamedPipes;
 namespace Kestrun.Hosting.Options;
 
 /// <summary>
@@ -26,7 +28,7 @@ public class KestrunOptions
     public int? MaxRunspaces { get; set; }
 
     /// <summary>
-    /// Gets or sets the minimum number of runspaces to use for script execution.   
+    /// Gets or sets the minimum number of runspaces to use for script execution.
     /// Defaults to 1.
     /// </summary>
     public int MinRunspaces { get; set; }
@@ -43,7 +45,25 @@ public class KestrunOptions
     /// </summary>
     public List<ListenerOptions> Listeners { get; }
 
-    // Add more properties as needed for your scenario.
+    /// <summary>
+    /// Gets the HTTPS connection adapter options.
+    /// </summary>
+    public HttpsConnectionAdapterOptions HttpsConnectionAdapter { get; }
+
+    /// <summary>
+    /// Optional path to a Unix domain socket for Kestrel to listen on.
+    /// </summary>
+    public string? ListenUnixSocket { get; set; }
+
+    /// <summary>
+    /// Optional name of a Named Pipe for Kestrel to listen on.
+    /// </summary>
+    public string? NamedPipeName { get; set; }
+
+    /// <summary>
+    /// Gets or sets the Named Pipe transport options.
+    /// </summary>
+    public NamedPipeTransportOptions? NamedPipeOptions { get; set; }
 
     /// <summary>
     /// Initializes a new instance of the <see cref="KestrunOptions"/> class with default values.
@@ -55,5 +75,6 @@ public class KestrunOptions
         Listeners = [];
         ServerOptions = new KestrelServerOptions();
         MaxSchedulerRunspaces = 8; // Default max scheduler runspaces
+        HttpsConnectionAdapter = new HttpsConnectionAdapterOptions();
     }
 }

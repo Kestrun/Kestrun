@@ -63,7 +63,7 @@ jobs:
       DOTNET_VERBOSITY: minimal
     steps:
       - name: 🛎️ Checkout
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8  # v5 pin
+        uses: actions/checkout@ff7abcd0c3c05ccf6adc123a8cd1fd4fb30fb493  # v5 pin
 
       - name: 🧰 Setup .NET 8 & 9
         uses: actions/setup-dotnet@d4c94342e560b34958eacfc5d055d21461ed1c5d  # v4.3.1 pin
@@ -215,7 +215,7 @@ jobs:
       DOTNET_VERBOSITY: minimal
     steps:
       - name: 🛎️ Checkout
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8  # v5 pin
+        uses: actions/checkout@ff7abcd0c3c05ccf6adc123a8cd1fd4fb30fb493  # v5 pin
 
       - name: 🧰 Setup .NET 8 & 9
         uses: actions/setup-dotnet@d4c94342e560b34958eacfc5d055d21461ed1c5d  # v4.3.1 pin
@@ -294,7 +294,7 @@ jobs:
     steps:
       # Source repo (no creds persisted)
       - name: 🛎️ Checkout (source repo)
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
+        uses: actions/checkout@ff7abcd0c3c05ccf6adc123a8cd1fd4fb30fb493
         with:
           persist-credentials: false
 

@@ -33,8 +33,8 @@ Advanced server tuning, lifecycle, and demos have moved:
 |---------|--------------|
 | Server Limits | [Server Configuration](../13.server-configuration/1.Server-Limits) |
 | Server Options | [Server Configuration](../13.server-configuration/2.Server-Options) |
-| Full Demo | [Demos](../14.demos/index) |
-| Start/Stop Patterns | [Lifecycle](../15.lifecycle/1.Start-Stop) |
+| Full Demo | [Demos](../15.demos/index) |
+| Start/Stop Patterns | [Lifecycle](../14.lifecycle/1.Start-Stop) |
 
 ## Quick start
 

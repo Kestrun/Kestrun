@@ -1,7 +1,7 @@
 ---
 title: Lifecycle
 parent: Tutorials
-nav_order: 15
+nav_order: 14
 ---
 
 # Lifecycle
@@ -16,4 +16,4 @@ Chapters:
 
 See also: [Endpoints](../7.endpoints/index) · [Server Configuration](../13.server-configuration/index)
 
-Next: [Demos](../14.demos/index)
+Next: [Demos](../15.demos/index)

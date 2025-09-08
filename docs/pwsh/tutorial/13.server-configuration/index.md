@@ -17,4 +17,4 @@ Chapters:
 
 See also: [Endpoints](../7.endpoints/index) for foundational hosting.
 
-Next: [Demos](../14.demos/index)
+Next: [Lifecycle](../14.lifecycle/index)

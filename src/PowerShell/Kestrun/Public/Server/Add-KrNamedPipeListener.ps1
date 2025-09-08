@@ -30,10 +30,14 @@ function Add-KrNamedPipeListener {
         [Parameter()]
         [switch]$PassThru
     )
-
-    process {
+    begin {
         # Ensure the server instance is resolved
         $Server = Resolve-KestrunServer -Server $Server
+        if ($null -eq $Server) {
+            throw 'Server is not initialized. Please ensure the server is configured before setting options.'
+        }
+    }
+    process {
 
         # Add the named pipe listener to the server options
         $Server.Options.NamedPipeNames += $NamedPipeName

@@ -117,10 +117,14 @@ function Add-KrStaticMapOverride {
         [switch]$PassThru
 
     )
-    process {
+    begin {
         # Ensure the server instance is resolved
         $Server = Resolve-KestrunServer -Server $Server
-
+        if ($null -eq $Server) {
+            throw 'Server is not initialized. Please ensure the server is configured before setting options.'
+        }
+    }
+    process {
         # -- if Options parameter is used, we can skip the rest of the parameters
         if ($PSCmdlet.ParameterSetName -ne 'Options') {
             $Options = [Kestrun.Hosting.Options.MapRouteOptions]::new()

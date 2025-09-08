@@ -30,7 +30,7 @@ function Get-KrScheduleReport {
         [string]$TimeZoneId,
         [switch]$AsHashtable
     )
-    process {
+    begin {
         if (-not $Server) {
             if ($KestrunHost) {
                 Write-KrInfoLog "No server specified, using global KestrunHost variable.($KestrunHost)"
@@ -42,6 +42,11 @@ function Get-KrScheduleReport {
                 $Server = Resolve-KestrunServer -Server $Server
             }
         }
+        if ($null -eq $Server) {
+            throw 'Server is not initialized. Please ensure the server is configured before setting options.'
+        }
+    }
+    process {
         if (-not $Server.Scheduler) {
             throw 'SchedulerService is not enabled.'
         }

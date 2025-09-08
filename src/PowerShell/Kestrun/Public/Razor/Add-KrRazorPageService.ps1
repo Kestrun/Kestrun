@@ -45,6 +45,13 @@ function Add-KrRazorPageService {
         [Parameter()]
         [switch]$PassThru
     )
+    begin {
+        # Ensure the server instance is resolved
+        $Server = Resolve-KestrunServer -Server $Server
+        if ($null -eq $Server) {
+            throw 'Server is not initialized. Please ensure the server is configured before setting options.'
+        }
+    }
     process {
         if ($PSCmdlet.ParameterSetName -eq 'Items') {
             $Options = [Microsoft.AspNetCore.Mvc.RazorPages.RazorPagesOptions]::new()
@@ -56,8 +63,7 @@ function Add-KrRazorPageService {
                     $Options.Conventions.Add($c)
                 }
             }
-        }# Ensure the server instance is resolved
-        $Server = Resolve-KestrunServer -Server $Server
+        }
 
         [Kestrun.Hosting.KestrunHostRazorExtensions]::AddRazorPages($Server, $Options) | Out-Null
 

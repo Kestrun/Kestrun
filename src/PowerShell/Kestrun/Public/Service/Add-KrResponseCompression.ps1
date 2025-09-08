@@ -46,8 +46,14 @@ function Add-KrResponseCompression {
         [Parameter()]
         [switch]$PassThru
     )
+    begin {
+        # Ensure the server instance is resolved
+        $Server = Resolve-KestrunServer -Server $Server
+        if ($null -eq $Server) {
+            throw 'Server is not initialized. Please ensure the server is configured before setting options.'
+        }
+    }
     process {
-
         if ($PSCmdlet.ParameterSetName -eq 'Items') {
             $Options = [Microsoft.AspNetCore.ResponseCompression.ResponseCompressionOptions]::new()
             if ($null -ne $MimeTypes -and $MimeTypes.Count -gt 0) {
@@ -66,9 +72,6 @@ function Add-KrResponseCompression {
                 }
             }#>
         }
-
-        # Ensure the server instance is resolved
-        $Server = Resolve-KestrunServer -Server $Server
 
         [Kestrun.Hosting.KestrunHttpMiddlewareExtensions]::AddResponseCompression($Server, $Options) | Out-Null
 

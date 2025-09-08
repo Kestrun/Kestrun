@@ -55,9 +55,14 @@ function Add-KrHtmlTemplateRoute {
         [Parameter()]
         [switch]$PassThru
     )
-    process {
+    begin {
         # Ensure the server instance is resolved
         $Server = Resolve-KestrunServer -Server $Server
+        if ($null -eq $Server) {
+            throw 'Server is not initialized. Please ensure the server is configured before setting options.'
+        }
+    }
+    process {
 
         $options = [Kestrun.Hosting.Options.MapRouteOptions]::new()
         $options.HttpVerbs = [Kestrun.Utilities.HttpVerb[]]::new([Kestrun.Utilities.HttpVerb]::Get)

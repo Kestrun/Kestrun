@@ -75,6 +75,13 @@ function Add-KrFileServer {
         [Parameter()]
         [switch]$PassThru
     )
+    begin {
+        # Ensure the server instance is resolved
+        $Server = Resolve-KestrunServer -Server $Server
+        if ($null -eq $Server) {
+            throw 'Server is not initialized. Please ensure the server is configured before setting options.'
+        }
+    }
     process {
         if ($PSCmdlet.ParameterSetName -eq 'Items') {
             $Options = [Microsoft.AspNetCore.Builder.FileServerOptions]::new()
@@ -112,8 +119,6 @@ function Add-KrFileServer {
                 $Options.StaticFileOptions.ContentTypeProvider = $provider
             }
         }
-        # Ensure the server instance is resolved
-        $Server = Resolve-KestrunServer -Server $Server
         # Add the file server to the server
         # Use the KestrunHostStaticFilesExtensions to add the file server
         [Kestrun.Hosting.KestrunHostStaticFilesExtensions]::AddFileServer($Server, $Options) | Out-Null

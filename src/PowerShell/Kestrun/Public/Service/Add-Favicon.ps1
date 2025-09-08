@@ -33,10 +33,14 @@ function Add-KrFavicon {
         [Parameter()]
         [switch]$PassThru
     )
-    process {
+    begin {
         # Ensure the server instance is resolved
         $Server = Resolve-KestrunServer -Server $Server
-
+        if ($null -eq $Server) {
+            throw 'Server is not initialized. Please ensure the server is configured before setting options.'
+        }
+    }
+    process {
         [Kestrun.Hosting.KestrunHostStaticFilesExtensions]::AddFavicon($Server, $IconPath) | Out-Null
 
         if ($PassThru.IsPresent) {

@@ -29,10 +29,14 @@ function Stop-KrServer {
         [Parameter()]
         [switch]$Quiet
     )
-    process {
+    begin {
         # Ensure the server instance is resolved
         $Server = Resolve-KestrunServer -Server $Server
-
+        if ($null -eq $Server) {
+            throw 'Server is not initialized. Please ensure the server is configured before setting options.'
+        }
+    }
+    process {
         # Stop the Kestrel server
         $Server.StopAsync() | Out-Null
         # Ensure the server is stopped on exit

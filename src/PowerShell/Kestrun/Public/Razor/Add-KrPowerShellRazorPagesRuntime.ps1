@@ -33,9 +33,14 @@ function Add-KrPowerShellRazorPagesRuntime {
         [Parameter()]
         [switch]$PassThru
     )
-    process {
+    begin {
         # Ensure the server instance is resolved
         $Server = Resolve-KestrunServer -Server $Server
+        if ($null -eq $Server) {
+            throw 'Server is not initialized. Please ensure the server is configured before setting options.'
+        }
+    }
+    process {
 
         if ([string]::IsNullOrWhiteSpace($PathPrefix)) {
             [Kestrun.Hosting.KestrunHostRazorExtensions]::AddPowerShellRazorPages($Server) | Out-Null

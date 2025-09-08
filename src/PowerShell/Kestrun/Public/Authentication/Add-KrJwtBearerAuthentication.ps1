@@ -114,6 +114,13 @@ function Add-KrJWTBearerAuthentication {
         [Parameter()]
         [switch]$PassThru
     )
+    begin {
+        # Ensure the server instance is resolved
+        $Server = Resolve-KestrunServer -Server $Server
+        if ($null -eq $Server) {
+            throw 'Server is not initialized. Please ensure the server is configured before setting options.'
+        }
+    }
     process {
         if ($PSCmdlet.ParameterSetName -ne 'ValParamOption') {
             $ValidationParameter = [Microsoft.IdentityModel.Tokens.TokenValidationParameters]::new()
@@ -135,8 +142,6 @@ function Add-KrJWTBearerAuthentication {
 
             if ($PSBoundParameters.ContainsKey('ClockSkew')) { $ValidationParameter.ClockSkew = $ClockSkew }
         }
-        # Ensure the server instance is resolved
-        $Server = Resolve-KestrunServer -Server $Server
 
         [Kestrun.Hosting.KestrunHostAuthExtensions]::AddJwtBearerAuthentication(
             $Server, $Name, $ValidationParameter, $null, $ClaimPolicy) | Out-Null

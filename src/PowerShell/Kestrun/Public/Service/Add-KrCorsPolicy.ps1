@@ -70,6 +70,13 @@ function Add-KrCorsPolicy {
         [Parameter()]
         [switch]$PassThru
     )
+    begin {
+        # Ensure the server instance is resolved
+        $Server = Resolve-KestrunServer -Server $Server
+        if ($null -eq $Server) {
+            throw 'Server is not initialized. Please ensure the server is configured before setting options.'
+        }
+    }
     process {
         if ($PSCmdlet.ParameterSetName -eq 'Items') {
 
@@ -94,8 +101,6 @@ function Add-KrCorsPolicy {
                 $Builder.DisallowCredentials() | Out-Null
             }
         }
-        # Ensure the server instance is resolved
-        $Server = Resolve-KestrunServer -Server $Server
 
         [Kestrun.Hosting.KestrunHttpMiddlewareExtensions]::AddCors($Server, $Name, $Builder) | Out-Null
         # Add the CORS policy to the server

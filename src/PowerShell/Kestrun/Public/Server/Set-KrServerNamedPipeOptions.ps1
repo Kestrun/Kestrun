@@ -1,48 +1,40 @@
 ﻿<#
 .SYNOPSIS
-    Configures HTTPS options for a Kestrun server instance.
+    Sets the named pipe options for a Kestrun server instance. (Windows Operating Systems only)
 .DESCRIPTION
-    This function allows administrators to set or modify the HTTPS connection adapter options for a Kestrun
-server instance, including SSL protocols, client certificate modes, and server certificates.
+    This function sets the named pipe options for the specified Kestrun server instance, allowing for configuration of various named pipe transport settings.
 .PARAMETER Server
     The Kestrun server instance to configure. This parameter is mandatory and must be a valid server object.
 .PARAMETER Options
-    The HttpsConnectionAdapterOptions object containing the desired HTTPS configuration settings.
-.PARAMETER SslProtocols
-    Specifies the SSL protocols to be used for HTTPS connections. This parameter is optional and can be set to a specific protocol or left unset to use defaults.
-.PARAMETER ClientCertificateMode
-    Specifies the client certificate mode for HTTPS connections. This parameter is optional and can be set to a specific mode or left unset to use defaults.
-.PARAMETER CheckCertificateRevocation
-    If specified, enables certificate revocation checking for HTTPS connections. This parameter is optional and can be left unset to use defaults.
-.PARAMETER ServerCertificate
-    Specifies the server certificate to be used for HTTPS connections. This parameter is optional and can be left unset to use defaults.
-.PARAMETER ServerCertificateChain
-    Specifies the server certificate chain to be used for HTTPS connections. This parameter is optional and can be left unset to use defaults.
-.PARAMETER HandshakeTimeout
-    Specifies the handshake timeout duration in seconds for HTTPS connections. This parameter is optional and can be left unset to use defaults.
+    The NamedPipeTransportOptions object containing the desired named pipe configuration settings.
+    This parameter is mandatory when using the 'Options' parameter set.
+.PARAMETER ListenerQueueCount
+    Specifies the number of named pipe listener queues to create for the server. This parameter is optional and can be set to a specific value or left unset to use defaults.
+.PARAMETER MaxReadBufferSize
+    Specifies the maximum size, in bytes, of the read buffer for named pipe connections. This parameter is optional and can be set to a specific value or left unset to use defaults.
+.PARAMETER CurrentUserOnly
+    If specified, the named pipe will only be accessible by the current user. This parameter is optional and can be left unset to use defaults.
+.PARAMETER MaxWriteBufferSize
+    Specifies the maximum size, in bytes, of the write buffer for named pipe connections. This parameter is optional and can be set to a specific value or left unset to use defaults.
+.PARAMETER PipeSecurity
+    Specifies the PipeSecurity object to apply to the named pipe. This parameter is optional and can be set to a specific value or left unset to use defaults.
 .PARAMETER PassThru
-    If specified, the cmdlet will return the modified server instance after applying the HTTPS options.
+    If specified, the cmdlet will return the modified server instance after applying the named pipe options.
 .OUTPUTS
     [Kestrun.Hosting.KestrunHost]
-    The modified Kestrun server instance with the applied HTTPS options.
+    The modified Kestrun server instance with the updated named pipe options.
 .EXAMPLE
-    Set-KrServerHttpsOptions -Server $server -SslProtocols Tls12
-    This command sets the SSL protocols for the specified Kestrun server instance to use TLS 1.2.
+    Set-KrServerNamedPipeOptions -Server $server -ListenerQueueCount 5 -MaxReadBufferSize 65536
+    This command sets the named pipe options for the specified Kestrun server instance, configuring the listener queue count and maximum read buffer size.
 .EXAMPLE
-    Set-KrServerHttpsOptions -Server $server -ClientCertificateMode RequireCertificate
-    This command sets the client certificate mode for the specified Kestrun server instance to require a client certificate.
-.EXAMPLE
-    Set-KrServerHttpsOptions -Server $server -CheckCertificateRevocation
-    This command enables certificate revocation checking for the specified Kestrun server instance.
-.EXAMPLE
-    Set-KrServerHttpsOptions -Server $server -ServerCertificate $cert
-    This command sets the server certificate for the specified Kestrun server instance.
-.EXAMPLE
-    Set-KrServerHttpsOptions -Server $server -HandshakeTimeout 30
-    This command sets the handshake timeout for the specified Kestrun server instance to 30 seconds.
+    Set-KrServerNamedPipeOptions -Server $server -CurrentUserOnly
+    This command configures the named pipe options for the specified Kestrun server instance to restrict access to the current user only.
 .NOTES
-    This function is designed to be used in the context of a Kestrun server setup and allows for flexible configuration of HTTPS options.
-    $ClientCertificateValidation, $ServerCertificateSelector, and $OnAuthenticate are currently not implemented in this cmdlet but can be added in future versions for more advanced scenarios.
+    This function is for Windows Operating Systems only, as named pipes are not supported on Unix-based systems.
+    The named pipe options will be applied to the server's options and will be used when the server is started to listen for incoming requests on the specified named pipe.
+    The named pipe transport options can be configured to optimize performance and security based on the specific requirements of the Kestrun server deployment.
+    The named pipe transport options can be set either by providing a complete NamedPipeTransportOptions object
+    This function is designed to be used in the context of a Kestrun server setup and allows for flexible configuration of named pipe transport options.
 #>
 function Set-KrServerNamedPipeOptions {
     [KestrunRuntimeApi('Definition')]
@@ -66,15 +58,18 @@ function Set-KrServerNamedPipeOptions {
         [Parameter()]
         [switch]$PassThru
     )
-    process {
+    begin {
+        if (-not $IsWindows) {
+            Write-Warning 'This function is for Windows Operating Systems only, as named pipes are not supported nativelyon Unix-based systems.'
+        }
         # Ensure the server instance is resolved
         $Server = Resolve-KestrunServer -Server $Server
         if ($null -eq $Server) {
             throw 'Server is not initialized. Please ensure the server is configured before setting options.'
         }
-
+    }
+    process {
         if ($PSCmdlet.ParameterSetName -eq 'Items') {
-
             $Options = [Microsoft.AspNetCore.Server.Kestrel.Transport.NamedPipes.NamedPipeTransportOptions]::new()
             if ($null -ne $ListenerQueueCount) {
                 $options.ListenerQueueCount = $ListenerQueueCount

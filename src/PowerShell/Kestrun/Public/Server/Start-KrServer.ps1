@@ -33,9 +33,14 @@ function Start-KrServer {
         [Parameter()]
         [switch]$PassThru
     )
-    process {
+    begin {
         # Ensure the server instance is resolved
         $Server = Resolve-KestrunServer -Server $Server
+        if ($null -eq $Server) {
+            throw 'Server is not initialized. Please ensure the server is configured before setting options.'
+        }
+    }
+    process {
         # Start the Kestrel server
         if ( -not $Quiet.IsPresent ) {
             Write-Host "Starting Kestrun server '$($Server.ApplicationName)' ..."

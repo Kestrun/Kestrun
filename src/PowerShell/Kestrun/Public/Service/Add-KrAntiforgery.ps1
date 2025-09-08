@@ -53,6 +53,13 @@ function Add-KrAntiforgery {
         [Parameter()]
         [switch]$PassThru
     )
+    begin {
+        # Ensure the server instance is resolved
+        $Server = Resolve-KestrunServer -Server $Server
+        if ($null -eq $Server) {
+            throw 'Server is not initialized. Please ensure the server is configured before setting options.'
+        }
+    }
     process {
         if ($PSCmdlet.ParameterSetName -eq 'Items') {
             $Options = [Microsoft.AspNetCore.Antiforgery.AntiforgeryOptions]::new()
@@ -69,8 +76,6 @@ function Add-KrAntiforgery {
                 $Options.SuppressXFrameOptionsHeader = $true
             }
         }
-        # Ensure the server instance is resolved
-        $Server = Resolve-KestrunServer -Server $Server
 
         # Add the Antiforgery service to the server
         [Kestrun.Hosting.KestrunHostStaticFilesExtensions]::AddAntiforgery($Server, $Options) | Out-Null

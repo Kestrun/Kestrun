@@ -71,6 +71,13 @@ function Add-KrStaticFilesService {
         [Parameter()]
         [switch]$PassThru
     )
+    begin {
+        # Ensure the server instance is resolved
+        $Server = Resolve-KestrunServer -Server $Server
+        if ($null -eq $Server) {
+            throw 'Server is not initialized. Please ensure the server is configured before setting options.'
+        }
+    }
     process {
         if ($PSCmdlet.ParameterSetName -eq 'Items') {
             $Options = [Microsoft.AspNetCore.Builder.StaticFileOptions]::new()
@@ -104,8 +111,6 @@ function Add-KrStaticFilesService {
                 $Options.StaticFileOptions.ContentTypeProvider = $provider
             }
         }
-        # Ensure the server instance is resolved
-        $Server = Resolve-KestrunServer -Server $Server
 
         [Kestrun.Hosting.KestrunHostStaticFilesExtensions]::AddStaticFiles($Server, $Options) | Out-Null
         # Add the static file service to the server

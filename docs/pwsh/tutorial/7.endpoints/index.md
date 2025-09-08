@@ -4,47 +4,72 @@ parent: Tutorials
 nav_order: 6
 ---
 
-# Introduction to Endpoints
+# Endpoints & Server Hosting
 
-> 🚧 **Work in Progress**
->
-> This page is currently under development. Content will be expanded with guides, examples, and best practices soon.
-> Thank you for your patience while we build it out.
+Create and host a Kestrun server: listeners (HTTP/HTTPS, pipes, sockets), runtime enablement, and lifecycle.
 
-## Quick start: run the samples
+> Prerequisites: review [Routes](../2.routes/index) for mapping, and [Logging](../5.logging/1.Simple-Logging) if you want structured logs visible.
 
-From the repository root:
+Core cmdlets:
+`New-KrServer`, `Add-KrListener`, `Add-KrNamedPipeListener`, `Add-KrListenUnixSocket`,
+`Add-KrPowerShellRuntime`, `Enable-KrConfiguration`, `Add-KrMapRoute`, `Start-KrServer`,
+`Stop-KrServer`, `Remove-KrServer`.
+
+> Tip: Stage listeners & runtime first, then call `Enable-KrConfiguration`. You can still add routes afterwards.
+
+## Chapters
+
+| # | Chapter | Focus |
+|---|---------|-------|
+| 1 | [Basic Server](./1.Basic-Server) | Minimal loopback listener + hello route |
+| 2 | [Multiple Listeners](./2.Multiple-Listeners) | Same app on several ports / interfaces |
+| 3 | [HTTPS & Certificates](./3.Https) | Add TLS with `-CertPath` / provided cert object |
+| 4 | [Named Pipes (Windows)](./4.Named-Pipes) | Local IPC without a TCP port |
+| 5 | [Unix Sockets (Linux/macOS)](./5.Unix-Sockets) | Domain sockets for reverse proxy fronting |
+
+Advanced server tuning, lifecycle, and demos have moved:
+
+| Chapter | New Location |
+|---------|--------------|
+| Server Limits | [Server Configuration](../13.server-configuration/1.Server-Limits) |
+| Server Options | [Server Configuration](../13.server-configuration/2.Server-Options) |
+| Full Demo | [Demos](../14.demos/index) |
+| Start/Stop Patterns | [Lifecycle](../15.lifecycle/1.Start-Stop) |
+
+## Quick start
 
 ```powershell
-# 1) Multiple content types
-pwsh .\examples\PowerShell\Tutorial\2-Multiple-Content-Types.ps1
-
-# 2) Multi-language routes (PS/C#/VB)
-pwsh .\examples\PowerShell\Tutorial\3-Multi-Language-Routes.ps1
+New-KrServer -Name 'demo'
+Add-KrListener -Port 5000 -IPAddress ([IPAddress]::Loopback)
+Add-KrPowerShellRuntime
+Enable-KrConfiguration
+Add-KrMapRoute -Pattern '/ping' -Verbs Get -ScriptBlock { Write-KrTextResponse 'pong' }
+Start-KrServer
 ```
 
-Then browse the routes (default listener: <http://127.0.0.1:5000>):
+Browse: <http://127.0.0.1:5000/ping>
 
-- 2-Multiple-Content-Types: GET /hello, /hello-json, /hello-xml, /hello-yaml
-- 3-Multi-Language-Routes: GET /hello (defined in PowerShell, C#, and VB.NET examples)
+## Choosing a transport
 
-Stop the server with Ctrl+C in the terminal.
+| Scenario | Recommendation |
+|----------|---------------|
+| Local development | Loopback HTTP listener |
+| Add encryption quickly | Add HTTPS listener with self‑signed PFX |
+| Local automation (Windows) | Named pipe |
+| Reverse proxy (Linux) | Unix socket + nginx/Caddy |
+| Graceful background task | Use `Start-KrServer -NoWait` + `Stop-KrServer` |
 
-## What each sample shows
+## Troubleshooting
 
-### 2-Multi-Language-Routes: Content negotiation made simple
+| Symptom | Cause | Fix |
+|---------|-------|-----|
+| 404 on basic route | Route added before enabling runtime | Add `Add-KrPowerShellRuntime` before `Enable-KrConfiguration` |
+| No output/logs | No default logger registered | Register logger with `-SetAsDefault` |
+| Port in use | Another process bound | Change `-Port` or free port |
 
-- Return JSON, XML, YAML, and plain text using dedicated helpers
-- See how to call `Write-KrJsonResponse`, `Write-KrXmlResponse`, `Write-KrYamlResponse`, and `Write-KrTextResponse`
+See also: [Routes Overview](../2.routes/index) · [Simple Logging](../5.logging/1.Simple-Logging)
 
-### 3-Multiple-Content-Types: Mix languages inline
+---
 
-- Keep your server and plumbing in PowerShell
-- Author individual routes in C# or VB.NET using the `-Language` and `-Code` parameters
-
-## Next steps
-
-- Dive into the other Tutorial chapters (Certificates, Logging, Razor Pages, Scheduling)
-- Explore the richer example scripts under `examples/PowerShell` (e.g., `MultiRoutes.ps1`)
-- Browse the PowerShell cmdlet reference under `docs/pwsh/cmdlets`
-- Explore the PowerShell module source at `src/PowerShell/Kestrun`
+Previous: [Certificates](../6.certificates/index)
+Next: [Server Configuration](../13.server-configuration/index) (advanced) or [Authentication](../8.authentication/index) when available.

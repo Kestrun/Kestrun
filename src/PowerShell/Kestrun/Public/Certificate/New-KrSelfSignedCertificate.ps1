@@ -30,19 +30,19 @@ function New-KrSelfSignedCertificate {
     [OutputType([System.Security.Cryptography.X509Certificates.X509Certificate2])]
     param(
         [Parameter(Mandatory)]
-        [string[]]  $DnsNames,
+        [string[]]$DnsNames,
 
         [ValidateSet('Rsa', 'Ecdsa')]
-        [string]    $KeyType = 'Rsa',
+        [string]$KeyType = 'Rsa',
 
         [ValidateRange(256, 8192)]
-        [int]       $KeyLength = 2048,
+        [int]$KeyLength = 2048,
 
         [ValidateRange(1, 3650)]
-        [int]       $ValidDays = 365,
+        [int]$ValidDays = 365,
 
-        [switch]    $Ephemeral,
-        [switch]    $Exportable
+        [switch]$Ephemeral,
+        [switch]$Exportable
     )
 
     $opts = [Kestrun.Certificates.CertificateManager+SelfSignedOptions]::new(

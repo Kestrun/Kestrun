@@ -399,19 +399,17 @@ public class KestrunHost : IDisposable
                     });
                 }
                 // Unix domain socket listeners
-                if (!OperatingSystem.IsWindows())
+                foreach (var unixSocket in Options.ListenUnixSockets)
                 {
-                    foreach (var unixSocket in Options.ListenUnixSockets)
+                    if (!string.IsNullOrWhiteSpace(unixSocket))
                     {
-                        if (!string.IsNullOrWhiteSpace(unixSocket))
-                        {
-                            HostLogger.Verbose("Binding Unix socket: {Sock}", unixSocket);
-                            serverOptions.ListenUnixSocket(unixSocket);
-                            // NOTE: control access via directory perms/umask; UDS file perms are inherited from process umask
-                            // Prefer placing the socket under a group-owned dir (e.g., /var/run/kestrun) with 0770.
-                        }
+                        HostLogger.Verbose("Binding Unix socket: {Sock}", unixSocket);
+                        serverOptions.ListenUnixSocket(unixSocket);
+                        // NOTE: control access via directory perms/umask; UDS file perms are inherited from process umask
+                        // Prefer placing the socket under a group-owned dir (e.g., /var/run/kestrun) with 0770.
                     }
                 }
+
                 // Named pipe listeners
                 foreach (var namedPipeName in Options.NamedPipeNames)
                 {

@@ -40,7 +40,8 @@ function Add-KrNamedPipeListener {
     process {
 
         # Add the named pipe listener to the server options
-        $Server.Options.NamedPipeNames += $NamedPipeName
+        $Server.Options.NamedPipeNames.Add($NamedPipeName)
+
         if ($PassThru.IsPresent) {
             # Return the modified server instance
             return $Server

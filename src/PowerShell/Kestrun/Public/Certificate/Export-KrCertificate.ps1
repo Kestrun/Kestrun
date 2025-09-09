@@ -25,20 +25,29 @@ function Export-KrCertificate {
     [KestrunRuntimeApi('Everywhere')]
     [CmdletBinding()]
     param(
-        [Parameter(Mandatory)][System.Security.Cryptography.X509Certificates.X509Certificate2] $Certificate,
-        [Parameter(Mandatory)][string]$FilePath,
-
+        [Parameter(Mandatory = $true, ValueFromPipeline = $true)]
+        [System.Security.Cryptography.X509Certificates.X509Certificate2] $Certificate,
+        [Parameter(Mandatory = $true)]
+        [string]$FilePath,
         [ValidateSet('Pfx', 'Pem')]
         [string] $Format = 'Pfx',
-
         [securestring] $Password,
         [switch] $IncludePrivateKey
     )
-    $resolvedPath = Resolve-KrPath -Path $FilePath -KestrunRoot
-    Write-KrLog -Level Verbose -Message "Resolved file path: $resolvedPath"
+    process {
+        if ($null -eq $Certificate) {
+            throw "Certificate parameter is required."
+        }
+        if ([string]::IsNullOrWhiteSpace($FilePath)) {
+            throw "FilePath parameter is required."
+        }
+        $resolvedPath = Resolve-KrPath -Path $FilePath -KestrunRoot
+        Write-KrLog -Level Verbose -Message "Resolved file path: $resolvedPath"
 
-    $fmtEnum = [Kestrun.Certificates.CertificateManager+ExportFormat]::$Format
-    [Kestrun.Certificates.CertificateManager]::Export($Certificate, $resolvedPath, $fmtEnum, $Password,
-        $IncludePrivateKey.IsPresent)
+        $fmtEnum = [Kestrun.Certificates.CertificateManager+ExportFormat]::$Format
+        [Kestrun.Certificates.CertificateManager]::Export($Certificate, $resolvedPath, $fmtEnum, $Password,
+            $IncludePrivateKey.IsPresent)
+        Write-KrLog -Level Verbose -Message "Certificate exported to $resolvedPath with format $Format"
+    }
 }
 

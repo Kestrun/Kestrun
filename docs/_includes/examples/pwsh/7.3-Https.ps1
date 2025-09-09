@@ -5,19 +5,21 @@
     FileName: 7.3-Https.ps1
 #>
 
+[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidUsingConvertToSecureStringWithPlainText', '')]
+param()
+
 # (Optional) Configure console logging
 New-KrLogger |
     Add-KrSinkConsole |
     Register-KrLogger -Name 'console' -SetAsDefault | Out-Null
 
 # Ensure a development certificate exists (self-signed) - dev ONLY
-$certPath = Join-Path $PSScriptRoot 'devcert.pfx'
+$certPath = Join-Path -Path ([System.IO.Path]::GetTempPath()) -ChildPath 'devcert.pfx'
+$pw = ConvertTo-SecureString -String 'P@ssw0rd!' -AsPlainText -Force
 if (-not (Test-Path $certPath)) {
     Write-Host 'Creating development self-signed certificate devcert.pfx'
-    $pw = Read-Host -Prompt 'Enter temporary password for devcert.pfx (dev only)' -AsSecureString
-    New-KrSelfSignedCertificate -DnsName 'localhost' -Path $certPath -Password $pw | Out-Null
-} else {
-    $pw = Read-Host -Prompt 'Enter password for existing devcert.pfx' -AsSecureString
+    New-KrSelfSignedCertificate -DnsName 'localhost' -Exportable -ValidDays 30 |
+        Export-KrCertificate -FilePath $certPath -Format Pfx -IncludePrivateKey -Password $pw | Out-Null
 }
 
 # Create a new Kestrun server

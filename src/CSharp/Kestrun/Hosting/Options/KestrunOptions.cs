@@ -53,12 +53,12 @@ public class KestrunOptions
     /// <summary>
     /// Optional path to a Unix domain socket for Kestrel to listen on.
     /// </summary>
-    public string[] ListenUnixSockets { get; }
+    public List<string> ListenUnixSockets { get; }
 
     /// <summary>
     /// Optional name of a Named Pipe for Kestrel to listen on.
     /// </summary>
-    public string[] NamedPipeNames { get; }
+    public List<string> NamedPipeNames { get; }
 
     /// <summary>
     /// Gets or sets the Named Pipe transport options.

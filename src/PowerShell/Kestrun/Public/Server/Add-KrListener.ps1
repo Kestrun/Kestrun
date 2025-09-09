@@ -6,7 +6,7 @@
     .PARAMETER Server
         The Kestrun server instance to configure. This parameter is mandatory and must be a valid server object.
     .PARAMETER Port
-        The port on which the server will listen for incoming requests. This parameter is mandatory.
+        The port on which the server will listen for incoming requests. The default is 0, which means a random available port will be assigned.
     .PARAMETER IPAddress
         The IP address on which the server will listen. Defaults to [System.Net.IPAddress]::Any, which means it will listen on all available network interfaces.
     .PARAMETER CertPath
@@ -35,8 +35,8 @@ function Add-KrListener {
         [Parameter(Mandatory = $false, ValueFromPipeline = $true)]
         [Kestrun.Hosting.KestrunHost]$Server,
 
-        [Parameter(Mandatory = $true)]
-        [int]$Port,
+        [Parameter()]
+        [int]$Port = 0,
 
         [System.Net.IPAddress]$IPAddress = [System.Net.IPAddress]::Loopback,
         [Parameter(mandatory = $true, ParameterSetName = 'CertFile')]
@@ -72,14 +72,14 @@ function Add-KrListener {
             if ($PSCmdlet.ParameterSetName -eq 'NoCert') {
                 $Protocols = [Microsoft.AspNetCore.Server.Kestrel.Core.HttpProtocols]::Http1
             } else {
-                $Protocols = [Microsoft.AspNetCore.Server.Kestrel.Core.HttpProtocols]::Http1OrHttp2
+                $Protocols = [Microsoft.AspNetCore.Server.Kestrel.Core.HttpProtocols]::Http1AndHttp2
             }
         }
         if ($PSCmdlet.ParameterSetName -eq 'CertFile') {
             if (-not (Test-Path $CertPath)) {
                 throw "Certificate file not found: $CertPath"
             }
-            $X509Certificate = Import-KestrunCertificate -Path $CertPath -Password $CertPassword
+            $X509Certificate = Import-KrCertificate -FilePath $CertPath -Password $CertPassword
         }
 
 

@@ -113,36 +113,47 @@ function Set-KrServerLimit {
             throw 'Server is not initialized.Please ensure the server is configured before setting limits.'
         }
         if ($MaxRequestBodySize -gt 0) {
+            Write-KrLog -Logger $Server.HostLogger -Level Verbose -Message "Setting MaxRequestBodySize to {MaxRequestBodySize} bytes" -Properties $MaxRequestBodySize
             $options.ServerLimits.MaxRequestBodySize = $MaxRequestBodySize
         }
         if ($MaxConcurrentConnections -gt 0) {
+            Write-KrLog -Logger $Server.HostLogger -Level Verbose -Message "Setting MaxConcurrentConnections to {MaxConcurrentConnections}" -Properties $MaxConcurrentConnections
             $options.ServerLimits.MaxConcurrentConnections = $MaxConcurrentConnections
         }
         if ($MaxRequestHeaderCount -gt 0) {
+            Write-KrLog -Logger $Server.HostLogger -Level Verbose -Message "Setting MaxRequestHeaderCount to {MaxRequestHeaderCount}" -Properties $MaxRequestHeaderCount
             $options.ServerLimits.MaxRequestHeaderCount = $MaxRequestHeaderCount
         }
         if ($KeepAliveTimeoutSeconds -gt 0) {
+            Write-KrLog -Logger $Server.HostLogger -Level Verbose -Message "Setting KeepAliveTimeout to {KeepAliveTimeoutSeconds} seconds" -Properties $KeepAliveTimeoutSeconds
             $options.ServerLimits.KeepAliveTimeout = [TimeSpan]::FromSeconds($KeepAliveTimeoutSeconds)
         }
         if ($MaxRequestBufferSize -gt 0) {
+            Write-KrLog -Logger $Server.HostLogger -Level Verbose -Message "Setting MaxRequestBufferSize to {MaxRequestBufferSize} bytes" -Properties $MaxRequestBufferSize
             $options.ServerLimits.MaxRequestBufferSize = $MaxRequestBufferSize
         }
         if ($MaxRequestHeadersTotalSize -gt 0) {
+            Write-KrLog -Logger $Server.HostLogger -Level Verbose -Message "Setting MaxRequestHeadersTotalSize to {MaxRequestHeadersTotalSize} bytes" -Properties $MaxRequestHeadersTotalSize
             $options.ServerLimits.MaxRequestHeadersTotalSize = $MaxRequestHeadersTotalSize
         }
         if ($MaxRequestLineSize -gt 0) {
+            Write-KrLog -Logger $Server.HostLogger -Level Verbose -Message "Setting MaxRequestLineSize to {MaxRequestLineSize} bytes" -Properties $MaxRequestLineSize
             $options.ServerLimits.MaxRequestLineSize = $MaxRequestLineSize
         }
         if ($MaxResponseBufferSize -gt 0) {
+            Write-KrLog -Logger $Server.HostLogger -Level Verbose -Message "Setting MaxResponseBufferSize to {MaxResponseBufferSize} bytes" -Properties $MaxResponseBufferSize
             $options.ServerLimits.MaxResponseBufferSize = $MaxResponseBufferSize
         }
         if ($null -ne $MinRequestBodyDataRate) {
+            Write-KrLog -Logger $Server.HostLogger -Level Verbose -Message "Setting MinRequestBodyDataRate to {MinRequestBodyDataRate} bytes/second" -Properties $MinRequestBodyDataRate
             $options.ServerLimits.MinRequestBodyDataRate = $MinRequestBodyDataRate
         }
         if ($null -ne $MinResponseDataRate) {
+            Write-KrLog -Logger $Server.HostLogger -Level Verbose -Message "Setting MinResponseDataRate to {MinResponseDataRate} bytes/second" -Properties $MinResponseDataRate
             $options.ServerLimits.MinResponseDataRate = $MinResponseDataRate
         }
         if ($null -ne $RequestHeadersTimeout) {
+            Write-KrLog -Logger $Server.HostLogger -Level Verbose -Message "Setting RequestHeadersTimeout to {RequestHeadersTimeout} seconds" -Properties $RequestHeadersTimeout
             $options.ServerLimits.RequestHeadersTimeout = [TimeSpan]::FromSeconds($RequestHeadersTimeoutSeconds)
         }
 

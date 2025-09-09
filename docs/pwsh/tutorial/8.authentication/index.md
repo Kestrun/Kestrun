@@ -4,21 +4,25 @@ parent: Tutorials
 nav_order: 8
 ---
 
-# Introduction to Authentication
+# Authentication
 
-> 🚧 **Work in Progress**
->
-> This page is currently under development. Content will be expanded with guides, examples, and best practices soon.  
-> Thank you for your patience while we build it out.
+Protect routes with multiple authentication schemes: Basic, API Key, JWT, Cookies, plus claims & policies.
 
-## Quick start: run the samples
+> Prerequisites: review [Endpoints](../7.endpoints/index) & [Logging](../5.logging/1.Simple-Logging) for hosting & diagnostics.
 
-From the repository root:
+Chapters:
 
-```powershell
-# 1) Multiple content types
-pwsh .\examples\PowerShell\Tutorial\2-Multiple-Content-Types.ps1
+| #   | Chapter                                    | Focus                                     |
+| --- | ------------------------------------------ | ----------------------------------------- |
+| 1   | [Basic (PowerShell)](./1.Basic-PS)         | Inline credential validation script block |
+| 2   | [Basic (C# / VB.NET)](./2.Basic-MultiLang) | Basic auth with multi-language handlers   |
+| 3   | [API Key](./3.Api-Key)                     | Header key (fixed, script, C#/VB)         |
+| 4   | [JWT Tokens](./4.Jwt)                      | Issue, renew, validate bearer tokens      |
+| 5   | [Cookies](./5.Cookies)                     | Form login + cookie session auth          |
+| 6   | [Claims & Policies](./6.Claims-Policies)   | Claim policy config + route enforcement   |
+| 7   | [Multiple Schemes](./7.Multiple-Schemes)   | Combining schemes & route groups          |
+| 8   | [Full Demo](./8.Full-Demo)                 | Integrated multi-scheme server            |
 
-# 2) Multi-language routes (PS/C#/VB)
-pwsh .\examples\PowerShell\Tutorial\3-Multi-Language-Routes.ps1
-```
+---
+
+Next: [Basic (PowerShell)](./1.Basic-PS)

@@ -28,6 +28,20 @@ public class ListenerOptions
     public X509Certificate2? X509Certificate { get; internal set; }
 
     /// <summary>
+    /// Gets or sets a value that controls whether the "Alt-Svc" header is included with response headers.
+    /// The "Alt-Svc" header is used by clients to upgrade HTTP/1.1 and HTTP/2 connections to HTTP/3.
+    /// <para>
+    /// The "Alt-Svc" header is automatically included with a response if <see cref="Protocols"/> has either
+    /// HTTP/1.1 or HTTP/2 enabled, and HTTP/3 is enabled. If an "Alt-Svc" header value has already been set
+    /// by the app then it isn't changed.
+    /// </para>
+    /// </summary>
+    /// <remarks>
+    /// Defaults to false.
+    /// </remarks>
+    public bool DisableAltSvcHeader { get; set; }
+
+    /// <summary>
     /// Initializes a new instance of the <see cref="ListenerOptions"/> class with default values.
     /// </summary>
     public ListenerOptions()

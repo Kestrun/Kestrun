@@ -426,6 +426,7 @@ public class KestrunHost : IDisposable
                     serverOptions.Listen(opt.IPAddress, opt.Port, listenOptions =>
                     {
                         listenOptions.Protocols = opt.Protocols;
+                        listenOptions.DisableAltSvcHeader = opt.DisableAltSvcHeader;
                         if (opt.UseHttps && opt.X509Certificate is not null)
                         {
                             _ = listenOptions.UseHttps(opt.X509Certificate);

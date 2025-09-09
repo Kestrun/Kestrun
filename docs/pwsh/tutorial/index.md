@@ -34,35 +34,43 @@ Stop the server with Ctrl+C in the terminal.
 
 ## Samples & Chapters Overview
 
-| Order | Topic                         | Chapter                                | Sample Script               | Focus                               |
-| ----- | ----------------------------- | -------------------------------------- | --------------------------- | ----------------------------------- |
-| 1     | Hello World                   | [Hello World][ch-hello]                | [Script][sc-hello]          | Minimal server + 1 text route       |
-| 2     | Content Types                 | [Content Types][ch-content]            | [Script][sc-content]        | JSON / XML / YAML helpers           |
-| 3     | Multi-Language                | [Multi-Language Routes][ch-multilang]  | [Script][sc-multilang]      | C#/VB inline handlers               |
-| 4     | Route Options                 | [Route Options][ch-routeopts]          | [Script][sc-routeopts]      | MapRouteOptions variations          |
-| 5     | Static Files                  | [Static Routes][ch-static]             | [Script][sc-static]         | Host static content / wwwroot       |
-| 6     | File Server                   | [File Server][ch-fileserver]           | [Script][sc-fileserver]     | Directory browsing & file responses |
-| 7     | Override Routes               | [Override Routes][ch-override]         | [Script][sc-override]       | Replace static with dynamic         |
-| 8     | FavIcon                       | [Add FavIcon][ch-favicon]              | [Script][sc-favicon]        | Serve favicon.ico                   |
-| 9     | Shared State                  | [Shared Variables][ch-shared]          | [Script][sc-shared]         | Share state between routes          |
-| 10    | Logging Basics                | [Simple Logging][ch-log-basic]         | [Script][sc-log-basic]      | Console logger, levels              |
-| 11    | Logging Advanced              | [Multiple Loggers][ch-log-adv]         | [Script][sc-log-adv]        | Multiple sinks & levels             |
-| 12    | Logging Enrichment            | [Enrichment & Correlation][ch-log-enr] | [Script][sc-log-enr]        | Correlation IDs                     |
-| 13    | Logging Sinks                 | [Sinks][ch-log-sinks]                  | [Script][sc-log-sinks]      | Built-in sinks overview             |
-| 14    | Logging Sinks Advanced        | [Sinks Advanced][ch-log-sinks-adv]     | [Script][sc-log-sinks-adv]  | Custom/advanced sinks               |
-| 15    | Logging Hot Reload            | [Hot Reload][ch-log-reload]            | [Script][sc-log-reload]     | Reconfigure without restart         |
-| 16    | Certificates: Self-Signed     | [Self-Signed][ch-cert-self]            | [Script][sc-cert-self]      | Dev cert generation                 |
-| 17    | Certificates: CSR             | [CSR][ch-cert-csr]                     | [Script][sc-cert-csr]       | Create signing request              |
-| 18    | Certificates: Import/Export   | [Import / Export][ch-cert-imp-exp]     | [Script][sc-cert-imp-exp]   | Manage PFX lifecycle                |
-| 19    | Endpoints: Basic Server       | [Basic Server][ch-end-basic]           | [Script][sc-end-basic]      | Minimal hosting                     |
-| 20    | Endpoints: Multiple Listeners | [Multiple Listeners][ch-end-multi]     | [Script][sc-end-multi]      | Several ports                       |
-| 21    | Endpoints: HTTPS              | [HTTPS][ch-end-https]                  | [Script][sc-end-https]      | TLS listener                        |
-| 22    | Endpoints: Named Pipes        | [Named Pipes][ch-end-pipes]            | [Script][sc-end-pipes]      | Windows IPC                         |
-| 23    | Endpoints: Unix Sockets       | [Unix Sockets][ch-end-unix]            | [Script][sc-end-unix]       | Unix IPC / proxy                    |
-| 24    | Server Configuration: Limits  | [Server Limits][ch-scfg-limits]        | [Script][sc-scfg-limits]    | Size & rate limits                  |
-| 25    | Server Configuration: Options | [Server Options][ch-scfg-options]      | [Script][sc-scfg-options]   | Headers & runspaces                 |
-| 26    | Lifecycle: Start/Stop         | [Start / Stop][ch-life-startstop]      | [Script][sc-life-startstop] | Non-blocking lifecycle              |
-| 27    | Demo: Full Server             | [Full Server Demo][ch-demo-full]       | [Script][sc-demo-full]      | Integrated scenario                 |
+| Order | Topic                         | Chapter                                   | Sample Script                   | Focus                               |
+| ----- | ----------------------------- | ----------------------------------------- | ------------------------------- | ----------------------------------- |
+| 1     | Hello World                   | [Hello World][ch-hello]                   | [Script][sc-hello]              | Minimal server + 1 text route       |
+| 2     | Content Types                 | [Content Types][ch-content]               | [Script][sc-content]            | JSON / XML / YAML helpers           |
+| 3     | Multi-Language                | [Multi-Language Routes][ch-multilang]     | [Script][sc-multilang]          | C#/VB inline handlers               |
+| 4     | Route Options                 | [Route Options][ch-routeopts]             | [Script][sc-routeopts]          | MapRouteOptions variations          |
+| 5     | Static Files                  | [Static Routes][ch-static]                | [Script][sc-static]             | Host static content / wwwroot       |
+| 6     | File Server                   | [File Server][ch-fileserver]              | [Script][sc-fileserver]         | Directory browsing & file responses |
+| 7     | Override Routes               | [Override Routes][ch-override]            | [Script][sc-override]           | Replace static with dynamic         |
+| 8     | FavIcon                       | [Add FavIcon][ch-favicon]                 | [Script][sc-favicon]            | Serve favicon.ico                   |
+| 9     | Shared State                  | [Shared Variables][ch-shared]             | [Script][sc-shared]             | Share state between routes          |
+| 10    | Logging Basics                | [Simple Logging][ch-log-basic]            | [Script][sc-log-basic]          | Console logger, levels              |
+| 11    | Logging Advanced              | [Multiple Loggers][ch-log-adv]            | [Script][sc-log-adv]            | Multiple sinks & levels             |
+| 12    | Logging Enrichment            | [Enrichment & Correlation][ch-log-enr]    | [Script][sc-log-enr]            | Correlation IDs                     |
+| 13    | Logging Sinks                 | [Sinks][ch-log-sinks]                     | [Script][sc-log-sinks]          | Built-in sinks overview             |
+| 14    | Logging Sinks Advanced        | [Sinks Advanced][ch-log-sinks-adv]        | [Script][sc-log-sinks-adv]      | Custom/advanced sinks               |
+| 15    | Logging Hot Reload            | [Hot Reload][ch-log-reload]               | [Script][sc-log-reload]         | Reconfigure without restart         |
+| 16    | Certificates: Self-Signed     | [Self-Signed][ch-cert-self]               | [Script][sc-cert-self]          | Dev cert generation                 |
+| 17    | Certificates: CSR             | [CSR][ch-cert-csr]                        | [Script][sc-cert-csr]           | Create signing request              |
+| 18    | Certificates: Import/Export   | [Import / Export][ch-cert-imp-exp]        | [Script][sc-cert-imp-exp]       | Manage PFX lifecycle                |
+| 19    | Endpoints: Basic Server       | [Basic Server][ch-end-basic]              | [Script][sc-end-basic]          | Minimal hosting                     |
+| 20    | Endpoints: Multiple Listeners | [Multiple Listeners][ch-end-multi]        | [Script][sc-end-multi]          | Several ports                       |
+| 21    | Endpoints: HTTPS              | [HTTPS][ch-end-https]                     | [Script][sc-end-https]          | TLS listener                        |
+| 22    | Endpoints: Named Pipes        | [Named Pipes][ch-end-pipes]               | [Script][sc-end-pipes]          | Windows IPC                         |
+| 23    | Endpoints: Unix Sockets       | [Unix Sockets][ch-end-unix]               | [Script][sc-end-unix]           | Unix IPC / proxy                    |
+| 24    | Authentication: Basic (PS)    | [Basic (PS)][ch-auth-basic-ps]            | [Script][sc-auth-basic-ps]      | Basic scheme script block           |
+| 25    | Authentication: Basic (C#/VB) | [Basic (C#/VB)][ch-auth-basic-multi]      | [Script][sc-auth-basic-multi]   | Multi-language validation           |
+| 26    | Authentication: API Key       | [API Key][ch-auth-apikey]                 | [Script][sc-auth-apikey]        | Header key variants                 |
+| 27    | Authentication: JWT           | [JWT Tokens][ch-auth-jwt]                 | [Script][sc-auth-jwt]           | Issue & validate bearer             |
+| 28    | Authentication: Cookies       | [Cookies][ch-auth-cookies]                | [Script][sc-auth-cookies]       | Session cookie login                |
+| 29    | Authentication: Claims        | [Claims & Policies][ch-auth-claims]       | [Script][sc-auth-claims]        | Claim policy enforcement            |
+| 30    | Authentication: Multiple      | [Multiple Schemes][ch-auth-multi-schemes] | [Script][sc-auth-multi-schemes] | Combine schemes                     |
+| 31    | Authentication: Full Demo     | [Full Auth Demo][ch-auth-full]            | [Script][sc-auth-full]          | Integrated auth server              |
+| 32    | Server Configuration: Limits  | [Server Limits][ch-scfg-limits]           | [Script][sc-scfg-limits]        | Size & rate limits                  |
+| 33    | Server Configuration: Options | [Server Options][ch-scfg-options]         | [Script][sc-scfg-options]       | Headers & runspaces                 |
+| 34    | Lifecycle: Start/Stop         | [Start / Stop][ch-life-startstop]         | [Script][sc-life-startstop]     | Non-blocking lifecycle              |
+| 35    | Demo: Full Server             | [Full Server Demo][ch-demo-full]          | [Script][sc-demo-full]          | Integrated scenario                 |
 
 Static chapters and scripts are all linked directly above for quick navigation.
 
@@ -89,6 +97,14 @@ Static chapters and scripts are all linked directly above for quick navigation.
 [ch-end-https]: ./7.endpoints/3.Https
 [ch-end-pipes]: ./7.endpoints/4.Named-Pipes
 [ch-end-unix]: ./7.endpoints/5.Unix-Sockets
+[ch-auth-basic-ps]: ./8.authentication/1.Basic-PS
+[ch-auth-basic-multi]: ./8.authentication/2.Basic-MultiLang
+[ch-auth-apikey]: ./8.authentication/3.Api-Key
+[ch-auth-jwt]: ./8.authentication/4.Jwt
+[ch-auth-cookies]: ./8.authentication/5.Cookies
+[ch-auth-claims]: ./8.authentication/6.Claims-Policies
+[ch-auth-multi-schemes]: ./8.authentication/7.Multiple-Schemes
+[ch-auth-full]: ./8.authentication/8.Full-Demo
 [ch-scfg-limits]: ./13.server-configuration/1.Server-Limits
 [ch-scfg-options]: ./13.server-configuration/2.Server-Options
 [ch-life-startstop]: ./14.lifecycle/1.Start-Stop
@@ -116,6 +132,14 @@ Static chapters and scripts are all linked directly above for quick navigation.
 [sc-end-https]: /pwsh/tutorial/examples/pwsh/7.3-Https.ps1
 [sc-end-pipes]: /pwsh/tutorial/examples/pwsh/7.4-Named-Pipes.ps1
 [sc-end-unix]: /pwsh/tutorial/examples/pwsh/7.5-Unix-Sockets.ps1
+[sc-auth-basic-ps]: /pwsh/tutorial/examples/pwsh/8.1-Basic-PS.ps1
+[sc-auth-basic-multi]: /pwsh/tutorial/examples/pwsh/8.2-Basic-MultiLang.ps1
+[sc-auth-apikey]: /pwsh/tutorial/examples/pwsh/8.3-Api-Key.ps1
+[sc-auth-jwt]: /pwsh/tutorial/examples/pwsh/8.4-Jwt.ps1
+[sc-auth-cookies]: /pwsh/tutorial/examples/pwsh/8.5-Cookies.ps1
+[sc-auth-claims]: /pwsh/tutorial/examples/pwsh/8.6-Claims-Policies.ps1
+[sc-auth-multi-schemes]: /pwsh/tutorial/examples/pwsh/8.7-Multiple-Schemes.ps1
+[sc-auth-full]: /examples/PowerShell/Authentication/Authentication.ps1
 [sc-scfg-limits]: /pwsh/tutorial/examples/pwsh/13.1-Server-Limits.ps1
 [sc-scfg-options]: /pwsh/tutorial/examples/pwsh/13.2-Server-Options.ps1
 [sc-life-startstop]: /pwsh/tutorial/examples/pwsh/15.1-Start-Stop.ps1

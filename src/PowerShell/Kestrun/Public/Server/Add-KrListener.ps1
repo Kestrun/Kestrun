@@ -13,6 +13,8 @@
         The path to the SSL certificate file. This parameter is mandatory if using HTTPS.
     .PARAMETER CertPassword
         The password for the SSL certificate, if applicable. This parameter is optional.
+    .PARAMETER SelfSignedCert
+        If specified, a self-signed certificate will be generated and used for HTTPS. This parameter is optional.
     .PARAMETER X509Certificate
         An X509Certificate2 object representing the SSL certificate. This parameter is mandatory if using HTTPS
     .PARAMETER Protocols
@@ -45,11 +47,15 @@ function Add-KrListener {
         [Parameter(mandatory = $false, ParameterSetName = 'CertFile')]
         [SecureString]$CertPassword = $null,
 
+        [Parameter(ParameterSetName = 'SelfSignedCert')]
+        [switch]$SelfSignedCert,
+
         [Parameter(mandatory = $true, ParameterSetName = 'x509Certificate')]
         [System.Security.Cryptography.X509Certificates.X509Certificate2]$X509Certificate = $null,
 
         [Parameter(ParameterSetName = 'x509Certificate')]
         [Parameter(ParameterSetName = 'CertFile')]
+        [Parameter(ParameterSetName = 'SelfSignedCert')]
         [Microsoft.AspNetCore.Server.Kestrel.Core.HttpProtocols]$Protocols,
 
         [Parameter()]
@@ -80,8 +86,9 @@ function Add-KrListener {
                 throw "Certificate file not found: $CertPath"
             }
             $X509Certificate = Import-KrCertificate -FilePath $CertPath -Password $CertPassword
+        } elseif ($SelfSignedCert.IsPresent) {
+            $X509Certificate = New-KrSelfSignedCertificate -DnsNames localhost, 127.0.0.1 -ValidDays 30
         }
-
 
         $Server.ConfigureListener($Port, $IPAddress, $X509Certificate, $Protocols, $UseConnectionLogging.IsPresent) | Out-Null
         if ($PassThru.IsPresent) {

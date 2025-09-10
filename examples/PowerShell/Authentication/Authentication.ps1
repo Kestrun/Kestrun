@@ -90,7 +90,7 @@ $logger = New-KrLogger |
 New-KrServer -Name 'Kestrun Authentication'
 
 if (Test-Path "$ScriptPath\devcert.pfx" ) {
-    $cert = Import-KrCertificate -FilePath '.\devcert.pfx' -Password (ConvertTo-SecureString -String 'p@ss' -AsPlainText -Force)
+    $cert = Import-KrCertificate -FilePath "$ScriptPath\devcert.pfx" -Password (ConvertTo-SecureString -String 'p@ss' -AsPlainText -Force)
 } else {
     $cert = New-KrSelfSignedCertificate -DnsNames 'localhost' -Exportable
     Export-KrCertificate -Certificate $cert `
@@ -563,7 +563,7 @@ Add-KrMapRoute -Verbs Post -Pattern '/cookies/login' -ScriptBlock {
 Add-KrMapRoute -Verbs Get -Pattern '/cookies/logout' -ScriptBlock {
 
     [Microsoft.AspNetCore.Authentication.AuthenticationHttpContextExtensions]::SignOutAsync($Context.HttpContext, 'Cookies').Wait()
-    Write-KrRedirectResponse -Location '/cookies/login'
+    Write-KrRedirectResponse -Url '/cookies/login'
 } -AuthorizationSchema $CookieScheme
 
 

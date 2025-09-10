@@ -101,7 +101,7 @@ public static class KestrunHostAuthExtensions
                 opts.RequireHttps = configure.RequireHttps;
                 opts.SuppressWwwAuthenticate = configure.SuppressWwwAuthenticate;
                 // Logger configuration
-                opts.Logger = configure.Logger == Serilog.Log.ForContext<BasicAuthenticationOptions>() ?
+                opts.Logger = configure.Logger == Log.ForContext<BasicAuthenticationOptions>() ?
                             host.HostLogger.ForContext<BasicAuthenticationOptions>() : configure.Logger;
 
                 // Copy properties from the provided configure object

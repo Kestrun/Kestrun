@@ -1,17 +1,13 @@
 version: 2
 updates:
   - package-ecosystem: "nuget"
-    directory: "/"                # or "/src" if csproj lives deeper
+    directory: "/src/CSharp/Kestrun/"                # or "/src" if csproj lives deeper
     schedule:
       interval: "daily"
     commit-message:
       prefix: "🔼 NuGet"
     open-pull-requests-limit: 10
-    ignore:
-      - dependency-name: "Microsoft.NET.Test.Sdk"
-        versions: [">= 20.0.0"]
-      - dependency-name: "Microsoft.Extensions.Hosting.Abstractions"
-        versions: ["8.x"] # Ignore updates from 8.x to 9.x
+    versioning-strategy: increase
   - package-ecosystem: "github-actions"
     directory: "/"                # updates GitHub Actions versions
     schedule:

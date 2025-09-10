@@ -1,9 +1,9 @@
-<##
+<#
     Sample: Mixed HTTP Protocol Versions
     Purpose: Demonstrate configuring multiple listeners each with a different HTTP protocol set (HTTP/1.1, HTTP/2, HTTP/3*).
     File:    7.6-Mixed-Protocols.ps1
     Notes:   HTTP/3 requires platform & runtime support + QUIC enabled (Windows Server 2022 / recent Linux + .NET 8+). If HTTP/3 is not available, that listener will fall back or fail to start.
-##>
+#>
 
 # 1. Logging (console)
 New-KrLogger | Add-KrSinkConsole | Register-KrLogger -Name 'console' -SetAsDefault | Out-Null

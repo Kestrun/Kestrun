@@ -11,6 +11,7 @@ using Serilog.Events;
 using Kestrun.Scripting;
 using Microsoft.AspNetCore.Authentication.Negotiate;
 using Kestrun.Claims;
+using Serilog;
 
 
 namespace Kestrun.Hosting;
@@ -88,7 +89,7 @@ public static class KestrunHostAuthExtensions
             scheme: scheme,
             configure: opts =>
             {
-                // Copy properties from the provided configure object                
+                // Copy properties from the provided configure object
                 opts.HeaderName = configure.HeaderName;
                 opts.Base64Encoded = configure.Base64Encoded;
                 if (configure.SeparatorRegex is not null)
@@ -191,7 +192,7 @@ public static class KestrunHostAuthExtensions
     /// <para>Use this for browser-based authentication using cookies.</para>
     /// </summary>
     /// <param name="host">The Kestrun host instance.</param>
-    /// <param name="scheme">The authentication scheme name (default is CookieAuthenticationDefaults.AuthenticationScheme).</param>    
+    /// <param name="scheme">The authentication scheme name (default is CookieAuthenticationDefaults.AuthenticationScheme).</param>
     /// <param name="configure">Optional configuration for CookieAuthenticationOptions.</param>
     /// <param name="claimPolicy">Optional authorization policy configuration.</param>
     /// <returns>The configured KestrunHost instance.</returns>
@@ -209,7 +210,9 @@ public static class KestrunHostAuthExtensions
                     authenticationScheme: scheme,
                     configureOptions: opts =>
                     {
+                        // let caller mutate everything first
                         configure?.Invoke(opts);
+                        Log.Debug("Configured Cookie Authentication with LoginPath: {LoginPath}", opts.LoginPath);
                     });
             },
              configureAuthz: claimPolicy?.ToAuthzDelegate()
@@ -231,13 +234,20 @@ public static class KestrunHostAuthExtensions
           CookieAuthenticationOptions? configure = null,
        ClaimPolicyConfig? claimPolicy = null)
     {
-        return host.AddCookieAuthentication(
+        // If no object provided just delegate to action overload without extra config
+        return configure is null
+            ? host.AddCookieAuthentication(
+                scheme: scheme,
+                configure: (Action<CookieAuthenticationOptions>?)null,
+                claimPolicy: claimPolicy)
+            : host.AddCookieAuthentication(
             scheme: scheme,
             configure: opts =>
             {
-                opts = configure ?? new CookieAuthenticationOptions();
+                // Copy relevant properties from provided options instance to the framework-created one
+                CopyCookieAuthenticationOptions(configure, opts);
             },
-             claimPolicy: claimPolicy
+            claimPolicy: claimPolicy
         );
     }
 
@@ -520,7 +530,7 @@ public static class KestrunHostAuthExtensions
     /// </summary>
     /// <param name="host">The Kestrun host instance.</param>
     /// <param name="scheme">The authentication scheme name.</param>
-    /// <param name="configure">The ApiKeyAuthenticationOptions object to configure the authentication.</param> 
+    /// <param name="configure">The ApiKeyAuthenticationOptions object to configure the authentication.</param>
     /// <returns>The configured KestrunHost instance.</returns>
     public static KestrunHost AddApiKeyAuthentication(
     this KestrunHost host,
@@ -545,7 +555,7 @@ public static class KestrunHostAuthExtensions
                 opts.AdditionalHeaderNames = configure.AdditionalHeaderNames;
                 opts.AllowQueryStringFallback = configure.AllowQueryStringFallback;
                 // Logger configuration
-                opts.Logger = configure.Logger == Serilog.Log.ForContext<ApiKeyAuthenticationOptions>() ?
+                opts.Logger = configure.Logger == Log.ForContext<ApiKeyAuthenticationOptions>() ?
                         host.HostLogger.ForContext<ApiKeyAuthenticationOptions>() : configure.Logger;
 
                 opts.RequireHttps = configure.RequireHttps;
@@ -554,7 +564,7 @@ public static class KestrunHostAuthExtensions
                 opts.ValidateCodeSettings = configure.ValidateCodeSettings;
                 // IssueClaimsCodeSettings
                 opts.IssueClaimsCodeSettings = configure.IssueClaimsCodeSettings;
-                // Claims policy configuration 
+                // Claims policy configuration
                 opts.ClaimPolicyConfig = configure.ClaimPolicyConfig;
             }
         );
@@ -658,6 +668,55 @@ public static class KestrunHostAuthExtensions
         var schemeProvider = host.App.Services.GetRequiredService<IAuthenticationSchemeProvider>();
         var scheme = schemeProvider.GetSchemeAsync(schemeName).GetAwaiter().GetResult();
         return scheme != null;
+    }
+
+    // Helper to copy values from a user-supplied CookieAuthenticationOptions instance to the instance
+    // created by the framework inside AddCookie(). Reassigning the local variable (opts = source) would
+    // not work because only the local reference changes – the framework keeps the original instance.
+    private static void CopyCookieAuthenticationOptions(CookieAuthenticationOptions source, CookieAuthenticationOptions target)
+    {
+        // Paths & return URL
+        target.LoginPath = source.LoginPath;
+        target.LogoutPath = source.LogoutPath;
+        target.AccessDeniedPath = source.AccessDeniedPath;
+        target.ReturnUrlParameter = source.ReturnUrlParameter;
+
+        // Expiration & sliding behavior
+        target.ExpireTimeSpan = source.ExpireTimeSpan;
+        target.SlidingExpiration = source.SlidingExpiration;
+
+        // Cookie builder settings
+        // (Cookie is always non-null; copy primitive settings)
+        target.Cookie.Name = source.Cookie.Name;
+        target.Cookie.Path = source.Cookie.Path;
+        target.Cookie.Domain = source.Cookie.Domain;
+        target.Cookie.HttpOnly = source.Cookie.HttpOnly;
+        target.Cookie.SameSite = source.Cookie.SameSite;
+        target.Cookie.SecurePolicy = source.Cookie.SecurePolicy;
+        target.Cookie.IsEssential = source.Cookie.IsEssential;
+        target.Cookie.MaxAge = source.Cookie.MaxAge;
+
+        // Forwarding
+        target.ForwardAuthenticate = source.ForwardAuthenticate;
+        target.ForwardChallenge = source.ForwardChallenge;
+        target.ForwardDefault = source.ForwardDefault;
+        target.ForwardDefaultSelector = source.ForwardDefaultSelector;
+        target.ForwardForbid = source.ForwardForbid;
+        target.ForwardSignIn = source.ForwardSignIn;
+        target.ForwardSignOut = source.ForwardSignOut;
+
+        // Data protection / ticket / session
+        target.TicketDataFormat = source.TicketDataFormat;
+        target.DataProtectionProvider = source.DataProtectionProvider;
+        target.SessionStore = source.SessionStore;
+
+        // Events & issuer
+        if (source.Events is not null)
+        {
+            target.Events = source.Events;
+        }
+        target.EventsType = source.EventsType;
+        target.ClaimsIssuer = source.ClaimsIssuer;
     }
 
     /// <summary>

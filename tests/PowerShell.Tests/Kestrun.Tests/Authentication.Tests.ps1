@@ -516,7 +516,7 @@ BeforeAll {
     Add-KrMapRoute -Verbs Get -Pattern '/cookies/logout' -Scriptblock {
 
         [Microsoft.AspNetCore.Authentication.AuthenticationHttpContextExtensions]::SignOutAsync($Context.HttpContext, 'Cookies').Wait()
-        Write-KrRedirectResponse -Location '/cookies/login'
+        Write-KrRedirectResponse -Url '/cookies/login'
     } -AuthorizationSchema $CookieScheme
 
 

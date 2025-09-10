@@ -8,31 +8,31 @@
 @{
 
     # Script module or binary module file associated with this manifest.
-    RootModule             = 'Kestrun.psm1'
+    RootModule = 'Kestrun.psm1'
 
     # Version number of this module.
-    ModuleVersion          = '1.0.0'
+    ModuleVersion = '1.0.0'
 
     # Supported PSEditions
     CompatiblePSEditions = @('Core')
 
     # ID used to uniquely identify this module
-    GUID                   = 'fc7d511c-8ecc-4ed6-9480-3bba629bf5ff'
+    GUID = 'fc7d511c-8ecc-4ed6-9480-3bba629bf5ff'
 
     # Author of this module
-    Author                 = 'Kestrun Contributors'
+    Author = 'Kestrun Contributors'
 
     # Company or vendor of this module
-    CompanyName            = 'Kestrun'
+    CompanyName = 'Kestrun'
 
     # Copyright statement for this module
-    Copyright              = 'Copyright © 2025 Kestrun Contributors. All rights reserved.'
+    Copyright = 'Copyright © 2025 Kestrun Contributors. All rights reserved.'
 
     # Description of the functionality provided by this module
-    Description            = 'Kestrun is a cross-platform web server for ASP.NET Core. It is designed to be fast and lightweight, making it suitable for serving dynamic web applications and APIs.'
+    Description = 'Kestrun is a cross-platform web server for ASP.NET Core. It is designed to be fast and lightweight, making it suitable for serving dynamic web applications and APIs.'
 
     # Minimum version of the PowerShell engine required by this module
-    PowerShellVersion      = '7.4'
+    PowerShellVersion = '7.4'
 
     # Name of the PowerShell host required by this module
     # PowerShellHostName = ''
@@ -53,7 +53,7 @@
     # RequiredModules = @()
 
     # Assemblies that must be loaded prior to importing this module
-    RequiredAssemblies     = @()
+    RequiredAssemblies = @()
 
     # Script files (.ps1) that are run in the caller's environment prior to importing this module.
     # ScriptsToProcess = @()
@@ -68,7 +68,7 @@
     # NestedModules = @()
 
     # Functions to export from this module, for best performance, do not use wildcards and do not delete the entry, use an empty array if there are no functions to export.
-    FunctionsToExport      = @(
+    FunctionsToExport = @(
         'Add-KrAntiforgery', 'Add-KrApiKeyAuthentication', 'Add-KrBasicAuthentication',
         'Add-KrClaimPolicy', 'Add-KrCookiesAuthentication', 'Add-KrCorsPolicy',
         'Add-KrEnrichEnvironment', 'Add-KrEnrichErrorRecord', 'Add-KrEnrichExceptionDetail',
@@ -95,7 +95,7 @@
         'Get-KrSharedState', 'Import-KrCertificate', 'Initialize-KrRoot',
         'Invoke-KrWebRequest', 'Limit-KrJWTNotBefore', 'Limit-KrJWTValidity',
         'New-KrCertificateRequest', 'New-KrClaimPolicy', 'New-KrJWTBuilder',
-        'New-KrLogger', 'New-KrMapRouteOption', 'New-KrSelfSignedCertificate',
+    'New-KrLogger', 'New-KrMapRouteOption', 'New-KrSelfSignedCertificate', 'New-KrCookieBuilder', 'Invoke-KrCookieSignIn',
         'New-KrServer', 'Protect-KrJWT', 'Protect-KrJWTPayload',
         'Push-KrLogContextProperty', 'Register-KrLogger', 'Register-KrSchedule',
         'Remove-KrServer', 'Resolve-KrPath', 'Resume-KrSchedule',
@@ -113,13 +113,13 @@
     )
 
     # Cmdlets to export from this module, for best performance, do not use wildcards and do not delete the entry, use an empty array if there are no cmdlets to export.
-    CmdletsToExport        = @()
+    CmdletsToExport = @()
 
     # Variables to export from this module
-    VariablesToExport      = @()
+    VariablesToExport = @()
 
     # Aliases to export from this module, for best performance, do not use wildcards and do not delete the entry, use an empty array if there are no aliases to export.
-    AliasesToExport        = @(
+    AliasesToExport = @(
         'ScriptBlock'
     )
 
@@ -133,12 +133,12 @@
     # FileList = @()
 
     # Private data to pass to the module specified in RootModule/ModuleToProcess. This may also contain a PSData hashtable with additional module metadata used by PowerShell.
-    PrivateData            = @{
+    PrivateData = @{
 
         PSData = @{
 
             # Tags applied to this module. These help with module discovery in online galleries.
-            Tags       = @(
+            Tags = @(
                 'powershell', 'web', 'server', 'http', 'https', 'listener', 'rest', 'api',
                 'websites', 'powershell-core', 'windows', 'unix', 'linux', 'macos', 'cross-platform',
                 'cross-platform', 'file-monitoring', 'multithreaded', 'schedule', 'middleware', 'session',

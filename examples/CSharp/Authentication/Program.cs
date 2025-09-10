@@ -58,10 +58,10 @@ Invoke-RestMethod -Uri https://localhost:5001/secure/jwt/policy -Method POST -Sk
 Invoke-RestMethod -Uri https://localhost:5001/secure/jwt/policy -Method PUT -SkipCertificateCheck -Headers @{ Authorization = "Bearer $token" }
 
 $token2 = (Invoke-RestMethod -Uri https://localhost:5001/token/renew -SkipCertificateCheck -Headers @{ Authorization = "Bearer $token" }).access_token
-Invoke-RestMethod -Uri https://localhost:5001/secure/jwt/hello -SkipCertificateCheck -Headers @{ Authorization = "Bearer $token2" } 
+Invoke-RestMethod -Uri https://localhost:5001/secure/jwt/hello -SkipCertificateCheck -Headers @{ Authorization = "Bearer $token2" }
 #Form
 Invoke-WebRequest -Uri https://localhost:5001/cookies/login -SkipCertificateCheck -Method Post -Body @{ username = 'admin'; password = 'secret' } -SessionVariable authSession
-Invoke-WebRequest -Uri https://localhost:5001/secure/cookies -SkipCertificateCheck -WebSession $authSession 
+Invoke-WebRequest -Uri https://localhost:5001/secure/cookies -SkipCertificateCheck -WebSession $authSession
 Invoke-RestMethod -Uri https://localhost:5001/secure/cookies/policy -Method GET -SkipCertificateCheck -WebSession $authSession
 Invoke-RestMethod -Uri https://localhost:5001/secure/cookies/policy -Method DELETE -SkipCertificateCheck -WebSession $authSession
 Invoke-RestMethod -Uri https://localhost:5001/secure/cookies/policy -Method POST -SkipCertificateCheck -WebSession $authSession
@@ -175,7 +175,7 @@ server.AddResponseCompression(options =>
     opts.IssueClaimsCodeSettings = new AuthenticationCodeSettings
     {
         Language = ScriptLanguage.PowerShell,
-        Code = """                
+        Code = """
                 param([string]$Identity)
                 if ($Identity -eq 'admin') {
                     return  (Add-KrUserClaim -UserClaimType Role -Value "admin" |
@@ -209,7 +209,7 @@ server.AddResponseCompression(options =>
           // everyone else gets no extra claims
           return Enumerable.Empty<Claim>();
       };   */
-    /*   /// Issue claims code settings for C# 
+    /*   /// Issue claims code settings for C#
        /// This code will be executed to issue claims based on the username
        /// It can return an array of System.Security.Claims.Claim objects
        /// or an empty array if no claims are issued.
@@ -265,7 +265,7 @@ server.AddResponseCompression(options =>
                return
                [
                    new Claim("can_read", "true"),        // custom claim
-                   new Claim("can_delete", "true")     
+                   new Claim("can_delete", "true")
                    // or, if you really want it as a role:
                    // new Claim(ClaimTypes.Role, "can_read")
                ];
@@ -285,7 +285,7 @@ server.AddResponseCompression(options =>
        {
            Language = ScriptLanguage.CSharp,
 
-           Code = """      
+           Code = """
            return username == "admin" && password == "password";
        """
        };
@@ -298,12 +298,12 @@ server.AddResponseCompression(options =>
        {
            Language = ScriptLanguage.VBNet,
 
-           Code = """      
+           Code = """
            Return username = "admin" AndAlso password = "password"
        """
        };
 
-       /// Issue claims code settings for C# 
+       /// Issue claims code settings for C#
        /// This code will be executed to issue claims based on the username
        /// It can return an array of System.Security.Claims.Claim objects
        /// or an empty array if no claims are issued.
@@ -354,7 +354,7 @@ server.AddResponseCompression(options =>
        }
        """
        };
-       /// Issue claims code settings for C# 
+       /// Issue claims code settings for C#
        /// This code will be executed to issue claims based on the username
        /// It can return an array of System.Security.Claims.Claim objects
        /// or an empty array if no claims are issued.
@@ -389,7 +389,7 @@ server.AddResponseCompression(options =>
            Language = ScriptLanguage.CSharp,
            Code = """
        return FixedTimeEquals.Test(providedKeyBytes, "my-secret-api-key");
-       // or use a simple string comparison: // or use a simple string comparison:  
+       // or use a simple string comparison: // or use a simple string comparison:
        // return providedKey == "my-secret-api-key";
        """,
            ExtraImports = ["System.Text"]
@@ -548,7 +548,7 @@ server.AddMapRoute(new()
 {
     Pattern = "/secure/ps/policy",
     HttpVerbs = [HttpVerb.Get],
-    Code = """ 
+    Code = """
 
            $user = $Context.User.Identity.Name
            Write-KrTextResponse -InputObject "Welcome, $user! You are authenticated by PowerShell Code because you have the 'can_read' permission." -ContentType "text/plain"
@@ -562,7 +562,7 @@ server.AddMapRoute(new()
 {
     Pattern = "/secure/ps/policy",
     HttpVerbs = [HttpVerb.Delete],
-    Code = """ 
+    Code = """
 
            $user = $Context.User.Identity.Name
            Write-KrTextResponse -InputObject "Welcome, $user! You are authenticated by PowerShell Code because you have the 'can_delete' permission." -ContentType "text/plain"
@@ -577,7 +577,7 @@ server.AddMapRoute(new()
 {
     Pattern = "/secure/ps/policy",
     HttpVerbs = [HttpVerb.Put],
-    Code = """ 
+    Code = """
 
            $user = $Context.User.Identity.Name
            Write-KrTextResponse -InputObject "Welcome, $user! You are authenticated by PowerShell Code because you have the 'can_write' permission." -ContentType "text/plain"
@@ -590,7 +590,7 @@ server.AddMapRoute(new()
 {
     Pattern = "/secure/ps/policy",
     HttpVerbs = [HttpVerb.Post],
-    Code = """ 
+    Code = """
 
            $user = $Context.User.Identity.Name
            Write-KrTextResponse -InputObject "Welcome, $user! You are authenticated by PowerShell Code because you have the 'can_create' permission." -ContentType "text/plain"
@@ -618,7 +618,7 @@ server.AddMapRoute(new()
 {
     Pattern = "/secure/vb/policy",
     HttpVerbs = [HttpVerb.Get],
-    Code = """ 
+    Code = """
 
            $user = $Context.User.Identity.Name
            Write-KrTextResponse -InputObject "Welcome, $user! You are authenticated by VB.NET code because you have the 'can_read' permission." -ContentType "text/plain"
@@ -632,7 +632,7 @@ server.AddMapRoute(new()
 {
     Pattern = "/secure/vb/policy",
     HttpVerbs = [HttpVerb.Delete],
-    Code = """ 
+    Code = """
 
            $user = $Context.User.Identity.Name
            Write-KrTextResponse -InputObject "Welcome, $user! You are authenticated by VB.NET code because you have the 'can_delete' permission." -ContentType "text/plain"
@@ -647,7 +647,7 @@ server.AddMapRoute(new()
 {
     Pattern = "/secure/vb/policy",
     HttpVerbs = [HttpVerb.Put],
-    Code = """ 
+    Code = """
 
            $user = $Context.User.Identity.Name
            Write-KrTextResponse -InputObject "Welcome, $user! You are authenticated by VB.NET code because you have the 'can_write' permission." -ContentType "text/plain"
@@ -661,7 +661,7 @@ server.AddMapRoute(new()
 {
     Pattern = "/secure/vb/policy",
     HttpVerbs = [HttpVerb.Post],
-    Code = """ 
+    Code = """
 
            $user = $Context.User.Identity.Name
            Write-KrTextResponse -InputObject "Welcome, $user! You are authenticated by VB.NET code because you have the 'can_create' permission." -ContentType "text/plain"
@@ -686,7 +686,7 @@ server.AddMapRoute(new()
 {
     Pattern = "/secure/native/policy",
     HttpVerbs = [HttpVerb.Get],
-    Code = """ 
+    Code = """
 
            $user = $Context.User.Identity.Name
            Write-KrTextResponse -InputObject "Welcome, $user! You are authenticated by Native C# code because you have the 'can_read' permission." -ContentType "text/plain"
@@ -700,7 +700,7 @@ server.AddMapRoute(new()
 {
     Pattern = "/secure/native/policy",
     HttpVerbs = [HttpVerb.Delete],
-    Code = """ 
+    Code = """
 
            $user = $Context.User.Identity.Name
            Write-KrTextResponse -InputObject "Welcome, $user! You are authenticated by Native C# code because you have the 'can_delete' permission." -ContentType "text/plain"
@@ -715,7 +715,7 @@ server.AddMapRoute(new()
 {
     Pattern = "/secure/native/policy",
     HttpVerbs = [HttpVerb.Put],
-    Code = """ 
+    Code = """
 
            $user = $Context.User.Identity.Name
            Write-KrTextResponse -InputObject "Welcome, $user! You are authenticated by Native C# code because you have the 'can_write' permission." -ContentType "text/plain"
@@ -729,7 +729,7 @@ server.AddMapRoute(new()
 {
     Pattern = "/secure/native/policy",
     HttpVerbs = [HttpVerb.Post],
-    Code = """ 
+    Code = """
 
            $user = $Context.User.Identity.Name
            Write-KrTextResponse -InputObject "Welcome, $user! You are authenticated by Native C# code because you have the 'can_create' permission." -ContentType "text/plain"
@@ -760,7 +760,7 @@ server.AddMapRoute("/secure/key/ps/hello", HttpVerb.Get, """
 
     $user = $Context.User.Identity.Name
     Write-KrTextResponse -InputObject "Welcome, $user! You are authenticated by PowerShell Code."
-    
+
 """, ScriptLanguage.PowerShell, [ApiKeyPowerShell]);
 
 
@@ -809,7 +809,7 @@ server.AddMapRoute(new()
 {
     Pattern = "/secure/jwt/policy",
     HttpVerbs = [HttpVerb.Get],
-    Code = """ 
+    Code = """
 
            $user = $Context.User.Identity.Name
            Write-KrTextResponse -InputObject "Welcome, $user! You are authenticated by Native JWT checker because you have the 'can_read' permission." -ContentType "text/plain"
@@ -823,7 +823,7 @@ server.AddMapRoute(new()
 {
     Pattern = "/secure/jwt/policy",
     HttpVerbs = [HttpVerb.Delete],
-    Code = """ 
+    Code = """
 
            $user = $Context.User.Identity.Name
            Write-KrTextResponse -InputObject "Welcome, $user! You are authenticated by Native JWT checker because you have the 'can_delete' permission." -ContentType "text/plain"
@@ -838,7 +838,7 @@ server.AddMapRoute(new()
 {
     Pattern = "/secure/jwt/policy",
     HttpVerbs = [HttpVerb.Put],
-    Code = """ 
+    Code = """
 
            $user = $Context.User.Identity.Name
            Write-KrTextResponse -InputObject "Welcome, $user! You are authenticated by Native JWT checker because you have the 'can_write' permission." -ContentType "text/plain"
@@ -852,7 +852,7 @@ server.AddMapRoute(new()
 {
     Pattern = "/secure/jwt/policy",
     HttpVerbs = [HttpVerb.Post],
-    Code = """ 
+    Code = """
 
            $user = $Context.User.Identity.Name
            Write-KrTextResponse -InputObject "Welcome, $user! You are authenticated by Native JWT checker because you have the 'can_create' permission." -ContentType "text/plain"
@@ -976,7 +976,7 @@ server.AddMapRoute("/cookies/login2", HttpVerb.Post, """
         $principal = [System.Security.Claims.ClaimsPrincipal]::new($identity)
         # Issue the cookie
         $Context.Request.HttpContext.SignInAsync('Cookies',$principal).Wait()
-        Write-KrTextResponse -InputObject 'Logged in successfully!' -ContentType 'text/plain' 
+        Write-KrTextResponse -InputObject 'Logged in successfully!' -ContentType 'text/plain'
     } else {
         Write-KrErrorResponse -Message 'Unauthorized' -StatusCode 401
     }
@@ -1020,7 +1020,7 @@ server.AddMapRoute(new()
 {
     Pattern = "/secure/cookies/policy",
     HttpVerbs = [HttpVerb.Get],
-    Code = """ 
+    Code = """
 
            $user = $Context.User.Identity.Name
            Write-KrTextResponse -InputObject "Welcome, $user! You are authenticated by Cookie checker because you have the 'can_read' permission." -ContentType "text/plain"
@@ -1034,7 +1034,7 @@ server.AddMapRoute(new()
 {
     Pattern = "/secure/cookies/policy",
     HttpVerbs = [HttpVerb.Delete],
-    Code = """ 
+    Code = """
 
            $user = $Context.User.Identity.Name
            Write-KrTextResponse -InputObject "Welcome, $user! You are authenticated by Cookie checker because you have the 'can_delete' permission." -ContentType "text/plain"
@@ -1049,7 +1049,7 @@ server.AddMapRoute(new()
 {
     Pattern = "/secure/cookies/policy",
     HttpVerbs = [HttpVerb.Put],
-    Code = """ 
+    Code = """
 
            $user = $Context.User.Identity.Name
            Write-KrTextResponse -InputObject "Welcome, $user! You are authenticated by Cookie checker because you have the 'can_write' permission." -ContentType "text/plain"
@@ -1063,7 +1063,7 @@ server.AddMapRoute(new()
 {
     Pattern = "/secure/cookies/policy",
     HttpVerbs = [HttpVerb.Post],
-    Code = """ 
+    Code = """
 
            $user = $Context.User.Identity.Name
            Write-KrTextResponse -InputObject "Welcome, $user! You are authenticated by Cookie checker because you have the 'can_create' permission." -ContentType "text/plain"

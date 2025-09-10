@@ -1,9 +1,9 @@
-﻿<##
+﻿<#
     Sample: Basic Authentication (C# and VB.NET)
     Purpose: Shows how to implement Basic authentication credential validation using inline C# and VB.NET code.
     File:    8.2-Basic-MultiLang.ps1
     Notes:   Demonstrates multi-language support for auth handlers.
-##>
+#>
 
 # 1. Logging pipeline
 New-KrLogger | Add-KrSinkConsole | Register-KrLogger -Name 'console' -SetAsDefault | Out-Null

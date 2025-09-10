@@ -1,9 +1,9 @@
-﻿<##
+﻿<#
     Sample: API Key Authentication Variants
     Purpose: Demonstrates fixed key, PowerShell script, and inline C# validation for API key auth.
     File:    8.3-Api-Key.ps1
     Notes:   Keys are static for illustration. Rotate & store securely in production.
-##>
+#>
 
 # 1. Logging
 New-KrLogger | Add-KrSinkConsole | Register-KrLogger -Name 'console' -SetAsDefault | Out-Null

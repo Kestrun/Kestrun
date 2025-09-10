@@ -1,9 +1,9 @@
-﻿<##
+﻿<#
     Sample: Basic Authentication (PowerShell)
     Purpose: Demonstrates creating a Basic authentication scheme using a PowerShell script block for credential validation.
     File:    8.1-Basic-PS.ps1
     Notes:   Plain-text password comparison for tutorial purposes only. Use secure storage in production.
-##>
+#>
 
 # 1. (Optional) Logging pipeline
 New-KrLogger |

@@ -23,13 +23,12 @@ Add-KrPowerShellRuntime
 # 5. Define cookie builder
 
 # 6. Register cookie auth scheme
-New-KrCookieBuilder -Name 'KestrunAuth' -HttpOnly -SecurePolicy Always |
+New-KrCookieBuilder -Name 'KestrunAuth' -HttpOnly -SecurePolicy Always -SameSite Strict |
     Add-KrCookiesAuthentication -Name 'Cookies' -LoginPath '/cookies/login' -LogoutPath '/cookies/logout' -AccessDeniedPath '/cookies/denied' `
         -SlidingExpiration -ExpireTimeSpan (New-TimeSpan -Minutes 30)
 
 # 7. Finalize configuration
 Enable-KrConfiguration
-
 
 # 8. Login form route
 Add-KrMapRoute -Verbs Get -Pattern '/cookies/login' -ScriptBlock {
@@ -62,7 +61,8 @@ Add-KrMapRoute -Verbs Get -Pattern '/cookies/login' -ScriptBlock {
 Add-KrMapRoute -Verbs Post -Pattern '/cookies/login' -ScriptBlock {
     $form = $Context.Request.Form
     if ($form['username'] -eq 'admin' -and $form['password'] -eq 'secret') {
-        Invoke-KrCookieSignIn -Scheme 'Cookies' -Name $form['username'] -AllowRefresh
+        $principal = Invoke-KrCookieSignIn -Scheme 'Cookies' -Name $form['username'] -AllowRefresh -PassThru
+        Write-KrLog -Level Information -Message 'User {user} signed {principal} in with Cookies authentication.' -Properties $form['username'], $principal
         Write-KrJsonResponse @{ success = $true }
     } else {
         Write-KrJsonResponse @{ success = $false } -StatusCode 401
@@ -72,8 +72,12 @@ Add-KrMapRoute -Verbs Post -Pattern '/cookies/login' -ScriptBlock {
 # 10. Protected route group requiring cookie auth
 Add-KrRouteGroup -Prefix '/cookies' -AuthorizationSchema 'Cookies' {
     Add-KrMapRoute -Verbs Get -Pattern '/logout' -ScriptBlock {
-        [Microsoft.AspNetCore.Authentication.AuthenticationHttpContextExtensions]::SignOutAsync($Context.HttpContext, 'Cookies').Wait()
-        Write-KrRedirectResponse -Url '/cookies/login'
+        Invoke-KrCookieSignOut -Scheme 'Cookies'
+        $options = Get-KrAuthOptions -Scheme "Cookies"
+        $LogoutUrl = if ($options.LogoutPath) { $options.LogoutPath }
+        Write-KrLog -Level Information -Message '{logoutUrl}' -Properties $LogoutUrl
+        Write-KrRedirectResponse -Url $LogoutUrl
+        # Write-KrRedirectResponse -Url '/cookies/login'
     }
     # 9. Protected route requiring cookie
     Add-KrMapRoute -Verbs Get -Pattern '/hello' -ScriptBlock {
@@ -84,4 +88,3 @@ Add-KrRouteGroup -Prefix '/cookies' -AuthorizationSchema 'Cookies' {
 
 # 11. Start server
 Start-KrServer
-

@@ -32,8 +32,11 @@ function Write-KrCsvResponse {
         [Parameter()]
         [CsvHelper.Configuration.CsvConfiguration] $CsvConfiguration = $null
     )
+    # Only works inside a route script block where $Context is available
     if ($null -ne $Context.Response) {
         $Context.Response.WriteCsvResponse($InputObject, $StatusCode, $ContentType, $CsvConfiguration)
+    } else {
+        Write-KrOutsideRouteWarning
     }
 }
 

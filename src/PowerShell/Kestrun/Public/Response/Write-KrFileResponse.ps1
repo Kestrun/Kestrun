@@ -44,29 +44,33 @@ function Write-KrFileResponse {
         [Parameter()]
         [Kestrun.Models.ContentDispositionType]$ContentDisposition = [Kestrun.Models.ContentDispositionType]::NoContentDisposition
     )
+    # Only works inside a route script block where $Context is available
+    if ($null -ne $Context.Response) {
+        try {
+            # Check if the Context.Response is available
+            if ($null -ne $Context.Response) {
+                # Resolve the file path relative to the Kestrun root if necessary
+                $resolvedPath = Resolve-KrPath -Path $FilePath -KestrunRoot -Test
+                Write-KrLog -Level Verbose -Message "Resolved file path: $resolvedPath"
+                # Set the content disposition type if specified
+                if ($ContentDisposition -ne [Kestrun.Models.ContentDispositionType]::NoContentDisposition) {
+                    $Context.Response.ContentDisposition.Type = $ContentDisposition.ToString()
+                }
+                # Set the file download name if specified
+                if (!([string]::IsNullOrEmpty($FileDownloadName))) {
+                    $Context.Response.ContentDisposition.FileName = $FileDownloadName
+                }
 
-    try {
-        # Check if the Context.Response is available
-        if ($null -ne $Context.Response) {
-            # Resolve the file path relative to the Kestrun root if necessary
-            $resolvedPath = Resolve-KrPath -Path $FilePath -KestrunRoot -Test
-            Write-KrLog -Level Verbose -Message "Resolved file path: $resolvedPath"
-            # Set the content disposition type if specified
-            if ($ContentDisposition -ne [Kestrun.Models.ContentDispositionType]::NoContentDisposition) {
-                $Context.Response.ContentDisposition.Type = $ContentDisposition.ToString()
+                # Call the C# method on the $Context.Response object
+                $Context.Response.WriteFileResponse($resolvedPath, $ContentType, $StatusCode)
+                Write-Information "File response written for $FilePath with download name $FileDownloadName"
             }
-            # Set the file download name if specified
-            if (!([string]::IsNullOrEmpty($FileDownloadName))) {
-                $Context.Response.ContentDisposition.FileName = $FileDownloadName
-            }
-
-            # Call the C# method on the $Context.Response object
-            $Context.Response.WriteFileResponse($resolvedPath, $ContentType, $StatusCode)
-            Write-Information "File response written for $FilePath with download name $FileDownloadName"
+        } catch {
+            # Handle any errors that occur during the file response writing
+            Write-KrLog -Level Error -Message 'Error writing file response.' -ErrorRecord $_
         }
-    } catch {
-        # Handle any errors that occur during the file response writing
-        Write-KrLog -Level Error -Message 'Error writing file response.' -ErrorRecord $_
+    } else {
+        Write-KrOutsideRouteWarning
     }
 }
 

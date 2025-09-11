@@ -38,7 +38,7 @@ public class PowerShellRunspaceMiddlewareTests
             Assert.NotNull(ps.Runspace);
             Assert.True(ps.Runspace.RunspaceStateInfo.State is System.Management.Automation.Runspaces.RunspaceState.Opened);
 
-            var kr = Assert.IsType<Kestrun.Hosting.KestrunContext>(ctx.Items[PowerShellDelegateBuilder.KR_CONTEXT_KEY]!);
+            var kr = Assert.IsType<Kestrun.Models.KestrunContext>(ctx.Items[PowerShellDelegateBuilder.KR_CONTEXT_KEY]!);
             Assert.Equal(ctx, kr.HttpContext);
 
             // Verify session state variable set

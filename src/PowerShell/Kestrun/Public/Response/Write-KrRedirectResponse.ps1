@@ -23,9 +23,12 @@ function Write-KrRedirectResponse {
         [Parameter()]
         [string]$Message
     )
+    # Only works inside a route script block where $Context is available
     if ($null -ne $Context.Response) {
         # Call the C# method on the $Context.Response object
         $Context.Response.WriteRedirectResponse($Url, $Message)
+    } else {
+        Write-KrOutsideRouteWarning
     }
 }
 

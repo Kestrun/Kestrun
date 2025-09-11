@@ -55,7 +55,7 @@ public class VBNetAndPowerShellDelegateBuilderTests
         ps.Streams.Error.Add(new ErrorRecord(new Exception("boom"), "BoomId", ErrorCategory.InvalidOperation, targetObject: null));
 
         ctx.Items[PowerShellDelegateBuilder.PS_INSTANCE_KEY] = ps;
-        ctx.Items[PowerShellDelegateBuilder.KR_CONTEXT_KEY] = new Kestrun.Hosting.KestrunContext(
+        ctx.Items[PowerShellDelegateBuilder.KR_CONTEXT_KEY] = new Kestrun.Models.KestrunContext(
             await Kestrun.Models.KestrunRequest.NewRequest(ctx),
             new Kestrun.Models.KestrunResponse(await Kestrun.Models.KestrunRequest.NewRequest(ctx)),
             ctx);

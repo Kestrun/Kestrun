@@ -1,10 +1,9 @@
 
 
 using System.Security.Claims;
-using Kestrun.Models;
 using Microsoft.AspNetCore.Http.Features;
 
-namespace Kestrun.Hosting;
+namespace Kestrun.Models;
 
 /// <summary>
 /// Represents the context for a Kestrun request, including the request, response, HTTP context, and host.

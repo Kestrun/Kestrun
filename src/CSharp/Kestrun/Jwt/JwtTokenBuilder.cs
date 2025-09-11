@@ -8,7 +8,7 @@ using Serilog.Events;
 using System.Text;
 using System.Security;
 using System.Runtime.InteropServices;
-using Kestrun.Hosting;  // For Base64UrlEncoder
+using Kestrun.Models;  // For Base64UrlEncoder
 
 namespace Kestrun.Jwt;
 

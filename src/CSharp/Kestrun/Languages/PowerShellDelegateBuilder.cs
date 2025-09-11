@@ -1,6 +1,6 @@
 using System.Management.Automation;
-using Kestrun.Hosting;
 using Kestrun.Logging;
+using Kestrun.Models;
 using Kestrun.Utilities;
 using Serilog.Events;
 
@@ -27,7 +27,7 @@ internal static class PowerShellDelegateBuilder
             }
 
             var ps = GetPowerShellFromContext(context, log);
-            // Ensure the runspace pool is open before executing the script 
+            // Ensure the runspace pool is open before executing the script
             try
             {
                 SetArgumentsAsVariables(ps, arguments, log);

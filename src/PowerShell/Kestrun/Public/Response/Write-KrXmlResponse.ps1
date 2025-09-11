@@ -30,9 +30,12 @@ function Write-KrXmlResponse {
         [Parameter()]
         [string]$ContentType
     )
+    # Only works inside a route script block where $Context is available
     if ($null -ne $Context.Response) {
         # Call the C# method on the $Context.Response object
         $Context.Response.WriteXmlResponse($InputObject, $StatusCode, $ContentType)
+    } else {
+        Write-KrOutsideRouteWarning
     }
 }
 

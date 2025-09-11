@@ -32,10 +32,9 @@ function Write-KrHtmlResponse {
         [Parameter()]
         [hashtable]$Variables
     )
-    try {
-        # Check if the Context.Response is available
-        if ($null -ne $Context.Response) {
-
+    # Only works inside a route script block where $Context is available
+    if ($null -ne $Context.Response) {
+        try {
             $readOnlyDictionary = [Kestrun.Utilities.ReadOnlyDictionaryAdapter]::new($Variables)
 
             switch ($PSCmdlet.ParameterSetName) {
@@ -53,10 +52,11 @@ function Write-KrHtmlResponse {
                     Write-Information 'HTML response written from template'
                 }
             }
+        } catch {
+            # Handle any errors that occur during the file response writing
+            Write-KrLog -Level Error -Message 'Error writing file response.' -ErrorRecord $_
         }
-    } catch {
-        # Handle any errors that occur during the file response writing
-        Write-KrLog -Level Error -Message 'Error writing file response.' -ErrorRecord $_
+    } else {
+        Write-KrOutsideRouteWarning
     }
 }
-

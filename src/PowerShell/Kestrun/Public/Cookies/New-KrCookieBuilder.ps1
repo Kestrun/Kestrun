@@ -55,6 +55,7 @@
     If -Name is omitted a framework default may be used by the consumer.
 #>
 function New-KrCookieBuilder {
+    [KestrunRuntimeApi('Definition')]
     [CmdletBinding(SupportsShouldProcess = $true, ConfirmImpact = 'Low')]
     [OutputType([Microsoft.AspNetCore.Http.CookieBuilder])]
     param(
@@ -69,7 +70,6 @@ function New-KrCookieBuilder {
         [Parameter()] [Microsoft.AspNetCore.Http.SameSiteMode]$SameSite,
         [Parameter()] [string[]]$Extensions
     )
-
     $builder = [Microsoft.AspNetCore.Http.CookieBuilder]::new()
 
     if ($PSBoundParameters.ContainsKey('Name')) {

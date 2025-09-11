@@ -25,9 +25,12 @@ function Write-KrCborResponse {
         [Parameter()]
         [string]$ContentType
     )
+    # Only works inside a route script block where $Context is available
     if ($null -ne $Context.Response) {
         # Call the C# method on the $Context.Response object
         $Context.Response.WriteCborResponse($InputObject, $StatusCode, $ContentType)
+    } else {
+        Write-KrOutsideRouteWarning
     }
 }
 

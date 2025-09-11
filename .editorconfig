@@ -1,12 +1,28 @@
 # Top of file
 root = true
 
-# C# files
-[*.{cs,vb}]
+# --- Global defaults (apply to all files unless overridden) ---
+[*]
+charset = utf-8-bom
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
 
-# default namespace style
+# Indentation: spaces, 4 wide (change to 2 if you prefer)
+indent_style = space
+indent_size = 4
+
+# If anyone uses literal TAB chars, make them "visual width" of 4 too
+tab_width = 4
+
+# --- C# / VB specifics ---
+[*.{cs,vb}]
+indent_style = space
+indent_size = 4
+tab_width = 4
+
+# Your existing Roslyn/IDE rules (kept as-is)
 csharp_style_namespace_declarations = file_scoped
-# 
 csharp_style_var_for_built_in_types = true
 csharp_style_var_when_type_is_apparent = true
 csharp_style_var_elsewhere = true
@@ -15,23 +31,16 @@ csharp_style_expression_bodied_constructors = when_on_single_line
 
 dotnet_diagnostic.IDE0072.severity = none
 dotnet_diagnostic.IDE0010.severity = none
-
-# Require braces on all control blocks (if/else/for/foreach/while/do/using/lock)
 dotnet_style_require_braces = always:warning
-
-# Make the specific diagnostic explicit (IDE0011 = Add braces)
 dotnet_diagnostic.IDE0011.severity = warning
-
-# (Optional) Turn the warning into an error locally/CI to keep things tight
-# dotnet_diagnostic.IDE0011.severity = error
-# Remove unnecessary using directives
 dotnet_diagnostic.IDE0005.severity = warning
-
-# Prefer named arguments where Roslyn can flag them (mostly literals/booleans/etc.)
-# Note: This is a suggestion-level rule in Roslyn; for strict "always named", see Section 3.
 dotnet_style_prefer_named_arguments = true:warning
-
-# Good hygiene
 dotnet_analyzer_diagnostic.category-Style.severity = warning
 dotnet_analyzer_diagnostic.category-Design.severity = warning
 dotnet_analyzer_diagnostic.category-Maintainability.severity = warning
+
+# --- PowerShell specifics (optional, if you want 4-space PS) ---
+[*.{ps1,psm1,psd1}]
+indent_style = space
+indent_size = 4
+tab_width = 4

@@ -50,21 +50,25 @@ function Write-KrErrorResponse {
         [Parameter()]
         [switch]$IncludeStack
     )
-
-    if ($PSCmdlet.ParameterSetName -eq 'Message') {
-        $Context.Response.WriteErrorResponse(
-            $Message,
-            $StatusCode,
-            $ContentType,
-            $Details
-        )
+    # Only works inside a route script block where $Context is available
+    if ($null -ne $Context.Response) {
+        if ($PSCmdlet.ParameterSetName -eq 'Message') {
+            $Context.Response.WriteErrorResponse(
+                $Message,
+                $StatusCode,
+                $ContentType,
+                $Details
+            )
+        } else {
+            $Context.Response.WriteErrorResponse(
+                $Exception,
+                $StatusCode,
+                $ContentType,
+                $IncludeStack.IsPresent
+            )
+        }
     } else {
-        $Context.Response.WriteErrorResponse(
-            $Exception,
-            $StatusCode,
-            $ContentType,
-            $IncludeStack.IsPresent
-        )
+        Write-KrOutsideRouteWarning
     }
 }
 

@@ -46,6 +46,7 @@ function Write-KrJsonResponse {
         [string]$ContentType
     )
     process {
+        # Only works inside a route script block where $Context is available
         if ($null -ne $Context.Response) {
             $ContentType = [string]::IsNullOrEmpty($ContentType) ? 'application/json' : $ContentType
             $Context.Response.WriteTextResponse((ConvertTo-Json -InputObject $InputObject -Depth $Depth -Compress:$Compress), $StatusCode, $ContentType)
@@ -62,6 +63,8 @@ function Write-KrJsonResponse {
         $serializerSettings.DateFormatHandling = [Newtonsoft.Json.DateFormatHandling]::IsoDateFormat
         # Call the C# method on the $Context.Response object
         $Context.Response.WriteJsonResponse($InputObject, $serializerSettings, $StatusCode, $ContentType)#>
+        } else {
+            Write-KrOutsideRouteWarning
         }
     }
 }

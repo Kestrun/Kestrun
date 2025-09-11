@@ -192,18 +192,10 @@ BeforeAll {
 
     Add-KrJWTBearerAuthentication -Name $JwtScheme -ValidationParameter $jwtOptions -ClaimPolicy $claimConfig
 
-
-    $cookie = [Microsoft.AspNetCore.Http.CookieBuilder]::new()
-
-    $cookie.Name = 'KestrunAuth'
-    $cookie.HttpOnly = $true
-    $cookie.SecurePolicy = [Microsoft.AspNetCore.Http.CookieSecurePolicy]::Always
-    $cookie.SameSite = [Microsoft.AspNetCore.Http.SameSiteMode]::Strict
-
-    # ---- Cookies Authentication ----
-    Add-KrCookiesAuthentication -Name $CookieScheme -LoginPath '/cookies/login' -LogoutPath '/cookies/logout' `
-        -AccessDeniedPath '/cookies/access-denied' -SlidingExpiration -ExpireTimeSpan (New-TimeSpan -Minutes 60) `
-        -ClaimPolicy $claimConfig -Cookie $cookie
+    # Register cookie auth scheme
+    New-KrCookieBuilder -Name 'KestrunAuth' -HttpOnly -SecurePolicy Always -SameSite Strict |
+        Add-KrCookiesAuthentication -Name 'Cookies' -LoginPath '/cookies/login' -LogoutPath '/cookies/logout' -AccessDeniedPath '/cookies/denied' `
+            -SlidingExpiration -ExpireTimeSpan (New-TimeSpan -Minutes 30)
 
     # Enable configuration
     Enable-KrConfiguration -Quiet
@@ -500,12 +492,15 @@ BeforeAll {
                     Add-KrUserClaim -ClaimType 'can_read' -Value 'true' |
                     Add-KrUserClaim -ClaimType 'can_write' -Value 'true' |
                     Add-KrUserClaim -ClaimType 'can_create' -Value 'true')
+
+            $principal = Invoke-KrCookieSignIn -Scheme 'Cookies' -Claims $claims -PassThru
+            Write-KrLog -Level Information -Message 'User {user} signed {principal} in with Cookies authentication.' -Properties $username, $principal
             #Expand-KrObject $claims -Label "User Claims"
-            $identity = [System.Security.Claims.ClaimsIdentity]::new( $claims, 'Cookies')
+            #$identity = [System.Security.Claims.ClaimsIdentity]::new( $claims, 'Cookies')
             #    [System.Security.Claims.ClaimTypes]::Name,
             #   [System.Security.Claims.ClaimTypes]::Role)
-            $principal = [System.Security.Claims.ClaimsPrincipal]::new($identity)
-            [Microsoft.AspNetCore.Authentication.AuthenticationHttpContextExtensions]::SignInAsync($Context.HttpContext, 'Cookies', $principal).GetAwaiter().GetResult()
+            # $principal = [System.Security.Claims.ClaimsPrincipal]::new($identity)
+            #            [Microsoft.AspNetCore.Authentication.AuthenticationHttpContextExtensions]::SignInAsync($Context.HttpContext, 'Cookies', $principal).GetAwaiter().GetResult()
             Write-KrJsonResponse -InputObject @{ success = $true; message = 'Login successful' }
         } else {
             Write-KrJsonResponse -InputObject @{ success = $false; message = 'Invalid credentials.' } -StatusCode 401
@@ -514,9 +509,8 @@ BeforeAll {
 
 
     Add-KrMapRoute -Verbs Get -Pattern '/cookies/logout' -Scriptblock {
-
-        [Microsoft.AspNetCore.Authentication.AuthenticationHttpContextExtensions]::SignOutAsync($Context.HttpContext, 'Cookies').Wait()
-        Write-KrRedirectResponse -Url '/cookies/login'
+        Invoke-KrCookieSignOut -Scheme 'Cookies'
+        # Write-KrRedirectResponse -Url '/cookies/login'
     } -AuthorizationSchema $CookieScheme
 
 

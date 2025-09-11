@@ -7,9 +7,9 @@
 
 # 1. Logging
 New-KrLogger |
-  Set-KrMinimumLevel -Value Debug |
-  Add-KrSinkConsole |
-  Register-KrLogger -Name 'console' -SetAsDefault | Out-Null
+    Set-KrMinimumLevel -Value Debug |
+    Add-KrSinkConsole |
+    Register-KrLogger -Name 'console' -SetAsDefault | Out-Null
 
 # 2. Server
 New-KrServer -Name 'Auth Cookies'
@@ -24,8 +24,8 @@ Add-KrPowerShellRuntime
 
 # 6. Register cookie auth scheme
 New-KrCookieBuilder -Name 'KestrunAuth' -HttpOnly -SecurePolicy Always |
-  Add-KrCookiesAuthentication -Name 'Cookies' -LoginPath '/cookies/login' -LogoutPath '/cookies/logout' -AccessDeniedPath '/cookies/denied' `
-    -SlidingExpiration -ExpireTimeSpan (New-TimeSpan -Minutes 30)
+    Add-KrCookiesAuthentication -Name 'Cookies' -LoginPath '/cookies/login' -LogoutPath '/cookies/logout' -AccessDeniedPath '/cookies/denied' `
+        -SlidingExpiration -ExpireTimeSpan (New-TimeSpan -Minutes 30)
 
 # 7. Finalize configuration
 Enable-KrConfiguration
@@ -33,7 +33,7 @@ Enable-KrConfiguration
 
 # 8. Login form route
 Add-KrMapRoute -Verbs Get -Pattern '/cookies/login' -ScriptBlock {
-  Write-KrTextResponse -InputObject @'
+    Write-KrTextResponse -InputObject @'
        <!DOCTYPE html>
 <html>
   <head>
@@ -60,26 +60,26 @@ Add-KrMapRoute -Verbs Get -Pattern '/cookies/login' -ScriptBlock {
 
 # 9. Login route (issues cookie)
 Add-KrMapRoute -Verbs Post -Pattern '/cookies/login' -ScriptBlock {
-  $form = $Context.Request.Form
-  if ($form['username'] -eq 'admin' -and $form['password'] -eq 'secret') {
-    Invoke-KrCookieSignIn -Scheme 'Cookies' -Name $form['username'] -AllowRefresh
-    Write-KrJsonResponse @{ success = $true }
-  } else {
-    Write-KrJsonResponse @{ success = $false } -StatusCode 401
-  }
+    $form = $Context.Request.Form
+    if ($form['username'] -eq 'admin' -and $form['password'] -eq 'secret') {
+        Invoke-KrCookieSignIn -Scheme 'Cookies' -Name $form['username'] -AllowRefresh
+        Write-KrJsonResponse @{ success = $true }
+    } else {
+        Write-KrJsonResponse @{ success = $false } -StatusCode 401
+    }
 }
 
 # 10. Protected route group requiring cookie auth
 Add-KrRouteGroup -Prefix '/cookies' -AuthorizationSchema 'Cookies' {
-  Add-KrMapRoute -Verbs Get -Pattern '/logout' -ScriptBlock {
-    [Microsoft.AspNetCore.Authentication.AuthenticationHttpContextExtensions]::SignOutAsync($Context.HttpContext, 'Cookies').Wait()
-    Write-KrRedirectResponse -Url '/cookies/login'
-  }
-  # 9. Protected route requiring cookie
-  Add-KrMapRoute -Verbs Get -Pattern '/hello' -ScriptBlock {
-    $user = $Context.User.Identity.Name
-    Write-KrTextResponse -InputObject "Welcome, $user! You are authenticated by Cookies Authentication." -ContentType 'text/plain'
-  }
+    Add-KrMapRoute -Verbs Get -Pattern '/logout' -ScriptBlock {
+        [Microsoft.AspNetCore.Authentication.AuthenticationHttpContextExtensions]::SignOutAsync($Context.HttpContext, 'Cookies').Wait()
+        Write-KrRedirectResponse -Url '/cookies/login'
+    }
+    # 9. Protected route requiring cookie
+    Add-KrMapRoute -Verbs Get -Pattern '/hello' -ScriptBlock {
+        $user = $Context.User.Identity.Name
+        Write-KrTextResponse -InputObject "Welcome, $user! You are authenticated by Cookies Authentication." -ContentType 'text/plain'
+    }
 }
 
 # 11. Start server

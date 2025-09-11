@@ -36,6 +36,10 @@
     - Strict: Indicates the client should only send the cookie with "same-site" requests.
 .PARAMETER Extensions
     Additional cookie attributes to append to the Set-Cookie header. Accepts an array of strings
+.PARAMETER WhatIf
+    Shows what would happen if the command runs. The command is not run.
+.PARAMETER Confirm
+    Prompts you for confirmation before running the command. The command is not run unless you respond affirmatively.
 .EXAMPLE
     # Basic cookie
     $cookie = New-KrCookieBuilder -Name 'AuthCookie' -HttpOnly -SameSite Lax
@@ -43,23 +47,16 @@
     # Full configuration
     $cookie = New-KrCookieBuilder -Name 'AuthCookie' -Domain 'example.local' -Path '/' -SecurePolicy Always \
         -IsEssential -MaxAge (New-TimeSpan -Hours 1) -Expires (Get-Date).AddHours(1) -SameSite Strict -HttpOnly
-
 .OUTPUTS
     Microsoft.AspNetCore.Http.CookieBuilder
 
 .NOTES
     Setting both -MaxAge and -Expires is allowed; ASP.NET Core will honour both where applicable.
     If -Name is omitted a framework default may be used by the consumer.
-
-    SameSiteMode enum values:
-        Unspecified = -1 : No SameSite field will be set, the client should follow its default cookie policy.
-        None = 0        : Indicates the client should disable same-site restrictions.
-        Lax             : Indicates the client should send the cookie with "same-site" requests, and with "cross-site" top-level navigations.
-        Strict          : Indicates the client should only send the cookie with "same-site" requests.
 #>
 function New-KrCookieBuilder {
     [CmdletBinding(SupportsShouldProcess = $true, ConfirmImpact = 'Low')]
-    [OutputType('Microsoft.AspNetCore.Http.CookieBuilder')]
+    [OutputType([Microsoft.AspNetCore.Http.CookieBuilder])]
     param(
         [Parameter()] [string]$Name,
         [Parameter()] [string]$Domain,

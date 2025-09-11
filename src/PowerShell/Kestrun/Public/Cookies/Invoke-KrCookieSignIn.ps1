@@ -5,9 +5,7 @@
     Wraps SignInAsync on the current HTTP context to create a cookie-based session.
     You can supply an existing ClaimsIdentity or provide claims via -Name, -Claim, or -ClaimTable.
     Optionally sets authentication properties like persistence and expiration.
-
     Designed for use inside Kestrun route script blocks where $Context is available.
-
 .PARAMETER Scheme
     Authentication scheme to use (default 'Cookies').
 .PARAMETER Name
@@ -26,22 +24,28 @@
     Marks the cookie as persistent (survives browser session) if supported.
 .PARAMETER AllowRefresh
     Allows the authentication session to be refreshed (sliding expiration scenarios).
-.PARAMETER Force
-    Signs out any existing principal for the scheme before signing in.
+.PARAMETER RedirectUri
+    Sets the RedirectUri property on AuthenticationProperties.
+.PARAMETER Items
+    Hashtable of string key-value pairs to add to the Items collection on AuthenticationProperties.
+.PARAMETER Parameters
+    Hashtable of string key-value pairs to add to the Parameters collection on AuthenticationProperties.
 .PARAMETER PassThru
     Returns the created ClaimsPrincipal instead of no output.
-
+.PARAMETER WhatIf
+    Shows what would happen if the command runs. The command is not run.
+.PARAMETER Confirm
+    Prompts you for confirmation before running the command. The command is not run unless you respond affirmatively.
 .EXAMPLE
     Invoke-KrCookieSignIn -Name 'admin'
-
 .EXAMPLE
     Invoke-KrCookieSignIn -Scheme 'Cookies' -ClaimTable @{ role = 'admin'; dept = 'it' } -IsPersistent -ExpiresUtc (Get-Date).AddMinutes(30)
-
 .OUTPUTS
     System.Security.Claims.ClaimsPrincipal (when -PassThru specified)
 #>
 function Invoke-KrCookieSignIn {
     [CmdletBinding(SupportsShouldProcess = $true, ConfirmImpact = 'Low', DefaultParameterSetName = 'BuildIdentity')]
+    [OutputType([System.Security.Claims.ClaimsPrincipal])]
     param(
         [Parameter()]
         [string]$Scheme = 'Cookies',
@@ -93,8 +97,6 @@ function Invoke-KrCookieSignIn {
         [Parameter(ParameterSetName = 'Identity')]
         [hashtable]$Parameters,
 
-        [Parameter()]
-        [switch]$Force,
         [Parameter()]
         [switch]$PassThru
     )

@@ -18,18 +18,25 @@ Add-KrListener -Port 5000 -IPAddress ([IPAddress]::Loopback)
 Add-KrPowerShellRuntime
 
 # 5. Build policy set
-$policy = New-KrClaimPolicy |
-  Add-KrClaimPolicy -PolicyName 'CanRead' -ClaimType 'can_read' -AllowedValues 'true' |
-  Add-KrClaimPolicy -PolicyName 'CanWrite' -ClaimType 'can_write' -AllowedValues 'true' |
-  Build-KrClaimPolicy
+$claimConfig = New-KrClaimPolicy |
+    Add-KrClaimPolicy -PolicyName 'CanRead' -ClaimType 'can_read' -AllowedValues 'true' |
+    Add-KrClaimPolicy -PolicyName 'CanWrite' -ClaimType 'can_write' -AllowedValues 'true' |
+    Build-KrClaimPolicy
 
 # 6. Basic auth + issue claims for admin
-Add-KrBasicAuthentication -Name 'PolicyBasic' -Realm 'Claims' -AllowInsecureHttp -ScriptBlock { param($Username,$Password) if($Username -eq 'admin' -and $Password -eq 'password'){ $true } else { $false } } -IssueClaimsScriptBlock {
+Add-KrBasicAuthentication -Name 'PolicyBasic' -Realm 'Claims' -AllowInsecureHttp -ScriptBlock {
+    param($Username, $Password)
+    if ($Username -eq 'admin' -and $Password -eq 'password') {
+        $true
+    } else {
+        $false
+    }
+} -IssueClaimsScriptBlock {
     param($Identity)
-    if($Identity -eq 'admin') {
+    if ($Identity -eq 'admin') {
         Add-KrUserClaim -ClaimType 'can_read' -Value 'true' | Add-KrUserClaim -ClaimType 'can_write' -Value 'true'
     }
-}
+} -ClaimPolicyConfig $claimConfig
 
 # 7. Finalize configuration
 Enable-KrConfiguration

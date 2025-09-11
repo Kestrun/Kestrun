@@ -2,7 +2,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\..\src\CSharp\Kestrun\Kestrun.csproj" />
-    <PackageReference Include="Microsoft.PowerShell.SDK" Version="7.4.11" />
+    <PackageReference Include="Microsoft.PowerShell.SDK" Version="7.4.12" />
   </ItemGroup>
 
   <PropertyGroup>

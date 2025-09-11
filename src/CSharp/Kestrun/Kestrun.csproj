@@ -209,7 +209,7 @@
     <PackageReference Include="Microsoft.IdentityModel.Tokens" Version="8.14.0" />
 
     <!-- Scripting Engines -->
-    <PackageReference Include="Microsoft.PowerShell.SDK" Version="7.4.11" />
+    <PackageReference Include="Microsoft.PowerShell.SDK" Version="7.4.12" />
     <PackageReference Include="Microsoft.ClearScript.V8" Version="7.5.0" />
 
     <PackageReference Include="Microsoft.CodeAnalysis.Analyzers" Version="4.14.0" />

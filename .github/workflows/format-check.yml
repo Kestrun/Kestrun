@@ -107,7 +107,7 @@ jobs:
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Continue'
-            $results = Invoke-ScriptAnalyzer -Path ./src/Powershell/Kestrun -Recurse -Severity Error,Warning -ExcludeRule PSAvoidUsingWriteHost -ErrorAction Continue
+            $results = Invoke-ScriptAnalyzer -Path ./src/PowerShell/Kestrun -Recurse -Severity Error,Warning -ExcludeRule PSAvoidUsingWriteHost -ErrorAction Continue
             if ($results) {
               $results | Format-Table -Auto | Out-String | Write-Host
               $results | ConvertTo-Json -Depth 5 | Out-File psa-results.json

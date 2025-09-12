@@ -147,7 +147,7 @@ public static class KestrunHostMapExtensions
             HttpVerbs = [.. httpVerbs],
             Code = scriptBlock,
             Language = language,
-            RequireSchemes = requireSchemes ?? [], // No authorization by default            
+            RequireSchemes = requireSchemes ?? [], // No authorization by default
             Arguments = arguments ?? [] // No additional arguments by default
         });
     }
@@ -387,7 +387,7 @@ public static class KestrunHostMapExtensions
         {
             foreach (var policy in options.RequirePolicies)
             {
-                if (!host.HasAuthPolicy(policy))
+                if (!host.HasAuthzPolicy(policy))
                 {
                     throw new ArgumentException($"Authorization policy '{policy}' is not registered.", nameof(options.RequirePolicies));
                 }
@@ -613,7 +613,7 @@ public static class KestrunHostMapExtensions
     /// <remarks>
     /// This method allows you to override static file serving with dynamic content by providing a script
     /// that will be executed for the specified route pattern.
-    /// </remarks> 
+    /// </remarks>
     public static KestrunHost AddStaticMapOverride(
     this KestrunHost host,
          string pattern,

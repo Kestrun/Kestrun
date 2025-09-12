@@ -347,18 +347,6 @@ public class KestrunHost : IDisposable
         }
         try
         {
-            /*    _ = Use(app =>
-                {
-                const string Key = "__kr.authmw";
-                    if (!app.Properties.ContainsKey(Key))
-                    {
-                        _ = app.UseRouting();
-                        _ = app.UseAuthentication();
-                        _ = app.UseAuthorization();
-                        app.Properties[Key] = true;
-                    }
-                });*/
-
             // This method is called to apply the configured options to the Kestrel server.
             // The actual application of options is done in the Run method.
             _runspacePool = CreateRunspacePool(Options.MaxRunspaces, userVariables, userFunctions);

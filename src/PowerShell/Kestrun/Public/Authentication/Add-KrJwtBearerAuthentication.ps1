@@ -64,7 +64,7 @@
         https://learn.microsoft.com/en-us/dotnet/api/microsoft.aspnetcore.authentication.jwtbearer.jwtbearerauthenticationextensions.addjwtbearerauthentication?view=aspnetcore-8.0
     .NOTES
         This function is part of the Kestrun.Authentication module and is used to configure JWT Bearer authentication for Kestrun servers.
-        Maps to Kestrun.Hosting.KestrunHostAuthExtensions.AddJwtBearerAuthentication
+        Maps to Kestrun.Hosting.KestrunHostAuthnExtensions.AddJwtBearerAuthentication
 #>
 function Add-KrJWTBearerAuthentication {
     [KestrunRuntimeApi('Definition')]
@@ -143,7 +143,7 @@ function Add-KrJWTBearerAuthentication {
             if ($PSBoundParameters.ContainsKey('ClockSkew')) { $ValidationParameter.ClockSkew = $ClockSkew }
         }
 
-        [Kestrun.Hosting.KestrunHostAuthExtensions]::AddJwtBearerAuthentication(
+        [Kestrun.Hosting.KestrunHostAuthnExtensions]::AddJwtBearerAuthentication(
             $Server, $Name, $ValidationParameter, $null, $ClaimPolicy) | Out-Null
         if ($PassThru.IsPresent) {
             # if the PassThru switch is specified, return the server instance

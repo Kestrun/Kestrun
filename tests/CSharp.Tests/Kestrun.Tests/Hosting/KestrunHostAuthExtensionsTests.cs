@@ -56,7 +56,7 @@ public class KestrunHostAuthExtensionsTests
         var app = host.Build();
 
         Assert.True(host.HasAuthScheme("BearerX"));
-        Assert.True(host.HasAuthPolicy("JwtUsersOnly"));
+        Assert.True(host.HasAuthzPolicy("JwtUsersOnly"));
 
         var policyProvider = app.Services.GetRequiredService<IAuthorizationPolicyProvider>();
         var policy = await policyProvider.GetPolicyAsync("JwtUsersOnly");
@@ -84,7 +84,7 @@ public class KestrunHostAuthExtensionsTests
         _ = host.Build();
 
         Assert.True(host.HasAuthScheme("BearerNoPolicy"));
-        Assert.False(host.HasAuthPolicy("SomeMissingPolicy"));
+        Assert.False(host.HasAuthzPolicy("SomeMissingPolicy"));
     }
 
     [Fact]
@@ -106,7 +106,7 @@ public class KestrunHostAuthExtensionsTests
         var app = host.Build();
 
         Assert.True(host.HasAuthScheme("CookieX"));
-        Assert.True(host.HasAuthPolicy("CookieMustBeAdmin"));
+        Assert.True(host.HasAuthzPolicy("CookieMustBeAdmin"));
 
         var policyProvider = app.Services.GetRequiredService<IAuthorizationPolicyProvider>();
         var policy = await policyProvider.GetPolicyAsync("CookieMustBeAdmin");
@@ -122,7 +122,7 @@ public class KestrunHostAuthExtensionsTests
         _ = host.Build();
 
         Assert.True(host.HasAuthScheme("CookieNoPolicy"));
-        Assert.False(host.HasAuthPolicy("NonExistentCookiePolicy"));
+        Assert.False(host.HasAuthzPolicy("NonExistentCookiePolicy"));
     }
 
     [Fact]
@@ -156,7 +156,7 @@ public class KestrunHostAuthExtensionsTests
         _ = host.Build();
 
         Assert.True(host.HasAuthScheme("OidcNoPolicy"));
-        Assert.False(host.HasAuthPolicy("NonExistentOidcPolicy"));
+        Assert.False(host.HasAuthzPolicy("NonExistentOidcPolicy"));
     }
 
     [Fact]
@@ -187,7 +187,7 @@ public class KestrunHostAuthExtensionsTests
         var app = host.Build();
 
         Assert.True(host.HasAuthScheme("BasicY"));
-        Assert.True(host.HasAuthPolicy("MustBeUserCharlie"));
+        Assert.True(host.HasAuthzPolicy("MustBeUserCharlie"));
 
         var policyProvider = app.Services.GetRequiredService<IAuthorizationPolicyProvider>();
         var policy = await policyProvider.GetPolicyAsync("MustBeUserCharlie");
@@ -204,7 +204,7 @@ public class KestrunHostAuthExtensionsTests
         _ = host.Build();
 
         Assert.True(host.HasAuthScheme("BasicNoPolicy"));
-        Assert.False(host.HasAuthPolicy("NonExistentBasicPolicy"));
+        Assert.False(host.HasAuthzPolicy("NonExistentBasicPolicy"));
     }
 
     [Fact]
@@ -271,7 +271,7 @@ public class KestrunHostAuthExtensionsTests
         var app = host.Build();
 
         Assert.True(host.HasAuthScheme("ApiKeyY"));
-        Assert.True(host.HasAuthPolicy("ApiKeyNamedDana"));
+        Assert.True(host.HasAuthzPolicy("ApiKeyNamedDana"));
 
         var policyProvider = app.Services.GetRequiredService<IAuthorizationPolicyProvider>();
         var policy = await policyProvider.GetPolicyAsync("ApiKeyNamedDana");
@@ -288,7 +288,7 @@ public class KestrunHostAuthExtensionsTests
         _ = host.Build();
 
         Assert.True(host.HasAuthScheme("ApiKeyNoPolicy"));
-        Assert.False(host.HasAuthPolicy("NonExistentApiKeyPolicy"));
+        Assert.False(host.HasAuthzPolicy("NonExistentApiKeyPolicy"));
     }
 
     [Fact]

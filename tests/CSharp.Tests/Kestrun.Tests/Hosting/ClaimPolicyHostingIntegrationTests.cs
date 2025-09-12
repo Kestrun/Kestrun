@@ -36,8 +36,8 @@ public class ClaimPolicyHostingIntegrationTests
         var app = host.Build();
 
         Assert.True(host.HasAuthScheme("BasicX"));
-        Assert.True(host.HasAuthPolicy("MustBeAdmin"));
-        Assert.True(host.HasAuthPolicy("NamedAlice"));
+        Assert.True(host.HasAuthzPolicy("MustBeAdmin"));
+        Assert.True(host.HasAuthzPolicy("NamedAlice"));
 
         var policyProvider = app.Services.GetRequiredService<IAuthorizationPolicyProvider>();
         var policy = await policyProvider.GetPolicyAsync("MustBeAdmin");
@@ -75,7 +75,7 @@ public class ClaimPolicyHostingIntegrationTests
         var app = host.Build();
 
         Assert.True(host.HasAuthScheme("ApiKeyX"));
-        Assert.True(host.HasAuthPolicy("AllowUserBob"));
+        Assert.True(host.HasAuthzPolicy("AllowUserBob"));
 
         var policyProvider = app.Services.GetRequiredService<IAuthorizationPolicyProvider>();
         var policy = await policyProvider.GetPolicyAsync("AllowUserBob");

@@ -37,7 +37,7 @@ function Add-KrWindowsAuthentication {
     }
     process {
         # Add Windows authentication to the server instance ---
-        [Kestrun.Hosting.KestrunHostAuthExtensions]::AddWindowsAuthentication($Server) | Out-Null
+        [Kestrun.Hosting.KestrunHostAuthnExtensions]::AddWindowsAuthentication($Server) | Out-Null
         if ($PassThru.IsPresent) {
             # if the PassThru switch is specified, return the server instance
             # Return the modified server instance

@@ -54,7 +54,7 @@
         Configure Kestrun server to use basic authentication with the specified code file.
     .NOTES
         This function is part of the Kestrun.Authentication module and is used to configure basic authentication for Kestrun servers.
-        Maps to Kestrun.Hosting.KestrunHostAuthExtensions.AddBasicAuthentication
+        Maps to Kestrun.Hosting.KestrunHostAuthnExtensions.AddBasicAuthentication
 #>
 function Add-KrBasicAuthentication {
     [KestrunRuntimeApi('Definition')]
@@ -320,7 +320,7 @@ function Add-KrBasicAuthentication {
         # Ensure the server instance is resolved
         $Server = Resolve-KestrunServer -Server $Server
 
-        [Kestrun.Hosting.KestrunHostAuthExtensions]::AddBasicAuthentication(
+        [Kestrun.Hosting.KestrunHostAuthnExtensions]::AddBasicAuthentication(
             $Server,
             $Name,
             $Options

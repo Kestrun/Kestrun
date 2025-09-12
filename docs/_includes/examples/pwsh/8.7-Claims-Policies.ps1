@@ -12,7 +12,7 @@ New-KrLogger | Add-KrSinkConsole | Register-KrLogger -Name 'console' -SetAsDefau
 New-KrServer -Name 'Auth Claims'
 
 # 3. Listener
-Add-KrListener -Port 5000 -IPAddress ([IPAddress]::Loopback)
+Add-KrListener -Port 5000 -IPAddress ([IPAddress]::Loopback) -SelfSignedCert
 
 # 4. Runtime
 Add-KrPowerShellRuntime
@@ -21,11 +21,13 @@ Add-KrPowerShellRuntime
 $claimConfig = New-KrClaimPolicy |
     Add-KrClaimPolicy -PolicyName 'CanRead' -ClaimType 'can_read' -AllowedValues 'true' |
     Add-KrClaimPolicy -PolicyName 'CanWrite' -ClaimType 'can_write' -AllowedValues 'true' |
+    Add-KrClaimPolicy -PolicyName 'CanDelete' -ClaimType 'can_delete' -AllowedValues 'true' |
     Build-KrClaimPolicy
 
 # 6. Basic auth + issue claims for admin
 Add-KrBasicAuthentication -Name 'PolicyBasic' -Realm 'Claims' -AllowInsecureHttp -ScriptBlock {
     param($Username, $Password)
+    Write-KrLog -Level Information -Message 'Basic Authentication: User {user} is trying to authenticate.' -Properties $Username
     if ($Username -eq 'admin' -and $Password -eq 'password') {
         $true
     } else {
@@ -34,7 +36,10 @@ Add-KrBasicAuthentication -Name 'PolicyBasic' -Realm 'Claims' -AllowInsecureHttp
 } -IssueClaimsScriptBlock {
     param($Identity)
     if ($Identity -eq 'admin') {
-        Add-KrUserClaim -ClaimType 'can_read' -Value 'true' | Add-KrUserClaim -ClaimType 'can_write' -Value 'true'
+        return (
+            Add-KrUserClaim -ClaimType 'can_read' -Value 'true' |
+                Add-KrUserClaim -ClaimType 'can_write' -Value 'true'
+        )
     }
 } -ClaimPolicyConfig $claimConfig
 
@@ -42,9 +47,10 @@ Add-KrBasicAuthentication -Name 'PolicyBasic' -Realm 'Claims' -AllowInsecureHttp
 Enable-KrConfiguration
 
 # 8. Map policy-protected routes
-Add-KrRouteGroup -Prefix '/secure/policy' -AuthorizationSchema 'PolicyBasic' {
+Add-KrRouteGroup -Prefix '/policy' -AuthorizationSchema 'PolicyBasic' {
     Add-KrMapRoute -Verbs Get -Pattern '/read' -AuthorizationPolicy 'CanRead' -ScriptBlock { Write-KrTextResponse 'Read OK' }
     Add-KrMapRoute -Verbs Get -Pattern '/write' -AuthorizationPolicy 'CanWrite' -ScriptBlock { Write-KrTextResponse 'Write OK' }
+    Add-KrMapRoute -Verbs Get -Pattern '/delete' -AuthorizationPolicy 'CanDelete' -ScriptBlock { Write-KrTextResponse 'Delete OK' }
 }
 
 # 9. Start server

@@ -167,7 +167,7 @@ public class KestrunHostMapExtensionsTests
     {
         SanitizeSharedGlobals();
         var host = new KestrunHost("TestApp", AppContext.BaseDirectory);
-        // Ensure authorization services exist so HasAuthPolicy can resolve provider
+        // Ensure authorization services exist so HasAuthzPolicy can resolve provider
         _ = host.AddAuthorization();
         host.EnableConfiguration();
 

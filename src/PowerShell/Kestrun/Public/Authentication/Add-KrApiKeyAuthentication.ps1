@@ -375,11 +375,12 @@ function Add-KrApiKeyAuthentication {
         # Ensure the server instance is resolved
         $Server = Resolve-KestrunServer -Server $Server
 
-        [Kestrun.Hosting.KestrunHostAuthExtensions]::AddApiKeyAuthentication(
+        [Kestrun.Hosting.KestrunHostAuthnExtensions]::AddApiKeyAuthentication(
             $Server,
             $Name,
             $Options
         ) | Out-Null
+
         if ($PassThru.IsPresent) {
             # if the PassThru switch is specified, return the server instance
             # Return the modified server instance

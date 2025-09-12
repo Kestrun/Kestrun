@@ -142,7 +142,7 @@ $claimConfig = New-KrClaimPolicy |
 # ── BASIC AUTHENTICATION ────────────────────────────────────────────────
 Add-KrBasicAuthentication -Name $BasicPowershellScheme -Realm 'Power-Kestrun' -AllowInsecureHttp -ScriptBlock {
     param($Username, $Password)
-    Write-KrLog -Level Information -Message 'Basic Authentication: User {0} is trying to authenticate.' -Properties $Username
+    Write-KrLog -Level Information -Message 'Basic Authentication: User {user} is trying to authenticate.' -Properties $Username
     if ($Username -eq 'admin' -and $Password -eq 'password') {
         $true
     } else {

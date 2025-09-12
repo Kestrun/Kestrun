@@ -39,7 +39,7 @@ function Invoke-KrCookieSignOut {
             }
 
             if ($Redirect) {
-                $cookiesAuth = [Kestrun.Hosting.KestrunHostAuthExtensions]::GetAuthenticationOptions($KestrunHost, 'Cookies')
+                $cookiesAuth = [Kestrun.Hosting.KestrunHostAuthnExtensions]::GetAuthenticationOptions($KestrunHost, 'Cookies')
                 if ($cookiesAuth -and $cookiesAuth.LoginPath -and $cookiesAuth.LoginPath.ToString().Trim()) {
                     $url = $cookiesAuth.LoginPath
                 } else {

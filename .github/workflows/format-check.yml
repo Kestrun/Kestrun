@@ -93,13 +93,14 @@ jobs:
             format.log
           if-no-files-found: ignore
 
-      - name: 🧪 Install PSScriptAnalyzer
+      - name: 🧪 PSScriptAnalyzer version
         if: github.event_name != 'pull_request' || steps.changed.outputs.need_ps != '0'
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
-          Install-Module PSScriptAnalyzer -Scope CurrentUser -Force
-          Get-Module PSScriptAnalyzer -ListAvailable | Select Name,Version
+          $mod = Get-Module PSScriptAnalyzer -ListAvailable | Sort-Object Version -Descending | Select-Object -First 1
+          if (-not $mod) { Write-Error 'PSScriptAnalyzer is not available on this runner.' }
+          else { Write-Host "PSScriptAnalyzer version: $($mod.Version)" }
 
       - name: 🧪 Run PSScriptAnalyzer
         id: psa

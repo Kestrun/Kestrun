@@ -89,11 +89,14 @@ public static class CacheRevalidation
         }
 
         // ---------- Conditional check: ETag precedence ----------
-        if (isSafe && normalizedETag is not null &&
+        if (isSafe && normalizedETag is string etagValue &&
             req.Headers.TryGetValue(HeaderNames.IfNoneMatch, out var inm) &&
-            inm.Any(v => v.Split(',').Select(t => t.Trim()).Any(tok => tok == normalizedETag || tok == "*")))
+            inm.Any(v => !string.IsNullOrEmpty(v) &&
+                         v.Split(',', StringSplitOptions.RemoveEmptyEntries)
+                          .Select(t => t.Trim())
+                          .Any(tok => tok == etagValue || tok == "*")))
         {
-            WriteValidators(resp, normalizedETag, lastModified);
+            WriteValidators(resp, etagValue, lastModified);
             resp.StatusCode = StatusCodes.Status304NotModified;
             return true;
         }
@@ -176,16 +179,19 @@ public static class CacheRevalidation
     private static Encoding ChooseEncodingFromAcceptCharset(Microsoft.Extensions.Primitives.StringValues acceptCharset)
     {
         // Supported shortlist (extend as you wish)
-        static Encoding? Map(string name) => name.ToLowerInvariant() switch
+        static Encoding? Map(string name)
         {
-            "utf-8" or "utf8" => Encoding.UTF8,
-            "utf-16" => Encoding.Unicode,
-            "utf-16le" => Encoding.Unicode,
-            "utf-16be" => Encoding.BigEndianUnicode,
-            "iso-8859-1" => Encoding.GetEncoding("iso-8859-1"),
-            "us-ascii" or "ascii" => Encoding.ASCII,
-            _ => null
-        };
+            return name.ToLowerInvariant() switch
+            {
+                "utf-8" or "utf8" => Encoding.UTF8,
+                "utf-16" => Encoding.Unicode,
+                "utf-16le" => Encoding.Unicode,
+                "utf-16be" => Encoding.BigEndianUnicode,
+                "iso-8859-1" => Encoding.GetEncoding("iso-8859-1"),
+                "us-ascii" or "ascii" => Encoding.ASCII,
+                _ => null
+            };
+        }
 
         if (acceptCharset.Count == 0)
         {

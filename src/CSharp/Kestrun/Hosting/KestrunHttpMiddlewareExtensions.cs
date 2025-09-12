@@ -321,6 +321,14 @@ public static class KestrunHttpMiddlewareExtensions
         });
     }
 
+    /// <summary>
+    /// Adds response caching to the application.
+    /// This overload allows you to specify a configuration delegate.
+    /// </summary>
+    /// <param name="host">The KestrunHost instance to configure.</param>
+    /// <param name="cfg">Optional configuration for response caching.</param>
+    /// <param name="cacheControl">Optional default Cache-Control to apply (only if the response didn't set one).</param>
+    /// <returns> The updated KestrunHost instance. </returns>
     public static KestrunHost AddResponseCaching(this KestrunHost host, Action<ResponseCachingOptions>? cfg = null,
         CacheControlHeaderValue? cacheControl = null)
     {

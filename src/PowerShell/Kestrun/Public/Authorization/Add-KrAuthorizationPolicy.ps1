@@ -14,6 +14,8 @@
     An array of roles that are required for the policy.
 .PARAMETER AuthenticationSchemes
     An array of authentication schemes to use for the policy. Default is 'Negotiate'.
+.PARAMETER PassThru
+    If specified, the cmdlet returns the modified Kestrun host instance.
 .EXAMPLE
     Add-KrAuthorizationPolicy -Name "AdminPolicy" -RequireRoles "Admin" -RequireClaims (New-Object System.Security.Claims.Claim("Department", "IT"))
     Adds an authorization policy named "AdminPolicy" that requires the "Admin" role and a claim of type "Department" with value "IT".

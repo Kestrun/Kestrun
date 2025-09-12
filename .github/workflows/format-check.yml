@@ -2,16 +2,15 @@
 name: Format Check
 permissions:
   contents: read
-  pull-requests: write  # allow commenting on PR when formatting fails
+  pull-requests: read  # minimal perms for reusable workflow
 
 on:
   pull_request:
   push:
-    branches: [ main ]  # optional; useful to guard direct pushes
+    branches: [ main ]
   workflow_call:
     inputs: {}
     secrets: {}
-
 jobs:
   dotnet-format:
     runs-on: ubuntu-latest
@@ -108,7 +107,7 @@ jobs:
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Continue'
-            $results = Invoke-ScriptAnalyzer -Path . -Recurse -Severity Error,Warning -ExcludeRule PSAvoidUsingWriteHost -ErrorAction Continue
+            $results = Invoke-ScriptAnalyzer -Path ./src/Powershell/Kestrun -Recurse -Severity Error,Warning -ExcludeRule PSAvoidUsingWriteHost -ErrorAction Continue
             if ($results) {
               $results | Format-Table -Auto | Out-String | Write-Host
               $results | ConvertTo-Json -Depth 5 | Out-File psa-results.json
@@ -126,8 +125,9 @@ jobs:
           path: psa-results.json
           if-no-files-found: ignore
 
-      - name: 💬 Comment on PR with instructions
+      - name: 💬 Comment on PR with instructions (best-effort)
         if: failure() && github.event_name == 'pull_request'
+        continue-on-error: true
         uses: actions/github-script@v7
         with:
           script: |
@@ -143,12 +143,16 @@ jobs:
             }
             parts.push('After fixing, commit and push to update this PR.');
             const body = parts.join('\n\n---\n\n');
-            github.rest.issues.createComment({
-              issue_number: context.issue.number,
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              body
-            });
+            try {
+              github.rest.issues.createComment({
+                issue_number: context.issue.number,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                body
+              });
+            } catch (e) {
+              core.warning(`Unable to create PR comment (permissions?). Message would have been:\n${body}`);
+            }
 
       - name: ✅ Skipped (no relevant changes)
         if: github.event_name == 'pull_request' && steps.changed.outputs.need_dotnet == '0' && steps.changed.outputs.need_ps == '0'

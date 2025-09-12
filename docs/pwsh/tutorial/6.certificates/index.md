@@ -11,6 +11,6 @@ For background and C#/PowerShell API details, see the [Certificates guide](/topi
 
 ## Chapters
 
-- [Create a Self‑Signed Certificate](./1.Self-Signed)
-- [Generate a CSR (Certificate Signing Request)](./2.CSR)
-- [Import, Export, Validate & EKU](./3.Import-Export-Validate)
+-   [Create a Self‑Signed Certificate](./1.Self-Signed)
+-   [Generate a CSR (Certificate Signing Request)](./2.CSR)
+-   [Import, Export, Validate & EKU](./3.Import-Export-Validate)

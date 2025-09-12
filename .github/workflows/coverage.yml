@@ -1,6 +1,7 @@
 name: Coverage
 permissions:
   contents: read
+  pull-requests: read
 
 on:
   pull_request:
@@ -18,9 +19,14 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  format:
+    name: Formatting
+    uses: ./.github/workflows/format-check.yml
+
   merge-guard:
     name: "gate: run only on merges or main pushes"
     runs-on: ubuntu-latest
+    needs: format
     outputs:
       proceed: ${{ steps.check.outputs.proceed }}
     steps:
@@ -55,7 +61,7 @@ jobs:
     # --- C# coverage (one canonical env uploads) ---
   csharp-coverage:
     name: C# coverage (ubuntu-24.04, .NET 8/9)
-    needs: [merge-guard]
+    needs: [format, merge-guard]
     if: ${{ needs.merge-guard.outputs.proceed == 'true' }}
     runs-on: ubuntu-24.04
     env:
@@ -124,7 +130,7 @@ jobs:
   # --- PowerShell coverage (one canonical env uploads) ---
   pwsh-coverage:
     name: PowerShell coverage (ubuntu-24.04)
-    needs: [merge-guard]
+    needs: [format, merge-guard]
     if: ${{ needs.merge-guard.outputs.proceed == 'true' }}
     runs-on: ubuntu-24.04
     env:
@@ -195,7 +201,7 @@ jobs:
   coveralls-finish:
     name: Finalize Coveralls
     runs-on: ubuntu-24.04
-    needs: [merge-guard, csharp-coverage, pwsh-coverage]   # include the gate too
+    needs: [format, merge-guard, csharp-coverage, pwsh-coverage]   # include the gate too
     if: ${{ needs.merge-guard.outputs.proceed == 'true' && always() }}
     steps:
       - name: ✅ Tell Coveralls we're done
@@ -207,7 +213,7 @@ jobs:
 
   # --- Report generation (one canonical env uploads) ---
   report-generator:
-    needs: [merge-guard]
+    needs: [format, merge-guard]
     if: ${{ needs.merge-guard.outputs.proceed == 'true' }}
     runs-on: ubuntu-latest
     name: report-generator

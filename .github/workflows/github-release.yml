@@ -2,13 +2,30 @@ name: GitHub Release
 
 permissions:
   contents: write   # create tags & releases
+  pull-requests: read
 
 on:
   workflow_dispatch: {}
+  workflow_call:
+    inputs: {}
+    secrets: {}
 
 jobs:
+  format:
+    name: Formatting
+    uses: ./.github/workflows/format-check.yml
+
+  codeql:
+    name: Security (CodeQL + PSSA)
+    uses: ./.github/workflows/codeql.yml
+
+  clamav:
+    name: AV Scan
+    uses: ./.github/workflows/clam-av.yml
+
   release:
     runs-on: ubuntu-latest
+    needs: [format, codeql, clamav]
     steps:
       - uses: actions/checkout@v5
         with: { fetch-depth: 0 }

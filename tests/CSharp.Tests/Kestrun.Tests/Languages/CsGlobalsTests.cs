@@ -1,9 +1,4 @@
-﻿
-<<<<<<< TODO: Unmerged change from project 'KestrunTests(net9.0)', Before:
-using Kestrun.Languages;
-=======
-using Kestrun.Languages;
->>>>>>> After
+﻿using Kestrun.Languages;
 using Kestrun.Models;
 using Microsoft.AspNetCore.Http;
 using Xunit;

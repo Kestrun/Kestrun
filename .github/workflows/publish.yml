@@ -1,8 +1,9 @@
 name: Publish Release
 
 permissions:
-  contents: read   # read release assets
+  contents: read   # read release assets & release metadata
   packages: write  # allow publishing to GitHub Packages
+  pull-requests: read
 
 on:
   workflow_dispatch:
@@ -21,8 +22,13 @@ on:
         default: "psgallery,nuget,github"
 
 jobs:
+  release-gate:
+    name: GitHub Release (gate)
+    uses: ./.github/workflows/github-release.yml
+
   promote:
     runs-on: ubuntu-latest
+    needs: release-gate
     env:
       TAG: ${{ inputs.tag }}
       PUBLISH_MODE: ${{ inputs.publish_mode }}

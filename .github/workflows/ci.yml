@@ -33,7 +33,12 @@ on:
         description: Enable debug logging
 
 jobs:
+  format:
+    name: Formatting
+    uses: ./.github/workflows/format-check.yml
+
   build:
+    needs: format
     strategy:
       fail-fast: false
       matrix:
@@ -48,7 +53,7 @@ jobs:
     env:
       POWERSHELL_DISTRIBUTION_CHANNEL: GitHub-Actions
 
-    
+
     steps:
     # Detect if GH "Enable debug logging" is ON
     - name: 🔎 Detect GH debug flag
@@ -86,7 +91,7 @@ jobs:
           echo "DOTNET_HOST_TRACE=1"
           echo "DOTNET_HOST_TRACE_VERBOSITY=3"
         } >> "$GITHUB_ENV"
-    
+
     - name: 🔧 Echo debug flag
       run: echo "debug=${{ steps.detect_debug.outputs.enabled }}  event=${{ github.event_name }}"
       if: ${{ always() && github.event_name != '' }}

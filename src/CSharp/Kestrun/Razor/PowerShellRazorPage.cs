@@ -1,4 +1,4 @@
-using System.Management.Automation;
+﻿using System.Management.Automation;
 using Kestrun.Scripting;
 using Kestrun.Utilities;
 using Serilog;

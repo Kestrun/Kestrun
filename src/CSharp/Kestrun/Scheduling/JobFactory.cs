@@ -1,4 +1,4 @@
-using System.Management.Automation;
+﻿using System.Management.Automation;
 using System.Reflection;
 using Kestrun.Scripting;
 using Kestrun.Utilities;

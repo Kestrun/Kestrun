@@ -1,4 +1,4 @@
-namespace Kestrun.Scripting;
+﻿namespace Kestrun.Scripting;
 
 /// <summary>
 /// Extension methods for <see cref="RouteHandlerBuilder"/> to support script language metadata.

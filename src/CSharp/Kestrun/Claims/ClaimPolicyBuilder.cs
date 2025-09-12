@@ -1,4 +1,4 @@
-namespace Kestrun.Claims;
+﻿namespace Kestrun.Claims;
 
 
 /// <summary>

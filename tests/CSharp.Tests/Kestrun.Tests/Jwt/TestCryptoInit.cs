@@ -1,4 +1,4 @@
-using System.Runtime.CompilerServices;
+﻿using System.Runtime.CompilerServices;
 using Microsoft.IdentityModel.Tokens;
 
 namespace KestrunTests.Jwt;

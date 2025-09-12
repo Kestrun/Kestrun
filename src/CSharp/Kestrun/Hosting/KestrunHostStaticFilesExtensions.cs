@@ -1,4 +1,4 @@
-
+﻿
 using Kestrun.Middleware;
 using Serilog.Events;
 

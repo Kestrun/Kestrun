@@ -1,6 +1,5 @@
 ﻿using System.Security;
 using System.Security.Cryptography;
-using Kestrun.Hosting;
 using Kestrun.Jwt;
 using Kestrun.Models;
 using Microsoft.AspNetCore.Http;

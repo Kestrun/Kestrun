@@ -1,4 +1,4 @@
-using System.Reflection;
+﻿using System.Reflection;
 using Kestrun.Scripting;
 
 namespace Kestrun.Authentication;

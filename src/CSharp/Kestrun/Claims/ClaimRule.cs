@@ -1,4 +1,4 @@
-namespace Kestrun.Claims;
+﻿namespace Kestrun.Claims;
 
 
 /// <summary>Represents one claim must equal rule.</summary>

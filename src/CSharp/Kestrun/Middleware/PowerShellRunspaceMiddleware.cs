@@ -1,4 +1,4 @@
-using System.Management.Automation;
+﻿using System.Management.Automation;
 using System.Diagnostics;
 using Kestrun.Languages;
 using Kestrun.Models;

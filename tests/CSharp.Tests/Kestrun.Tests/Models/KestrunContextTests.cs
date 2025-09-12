@@ -1,11 +1,10 @@
 ﻿using System.Security.Claims;
-using Kestrun.Hosting;
 using Kestrun.Models;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Features;
 using Xunit;
 
-namespace KestrunTests.Hosting;
+namespace KestrunTests.Models;
 
 public class KestrunContextTests
 {

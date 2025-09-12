@@ -1,4 +1,4 @@
-using System.Collections;
+﻿using System.Collections;
 using System.Management.Automation;
 using System.Reflection;
 using YamlDotNet.Serialization;

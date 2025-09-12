@@ -1,4 +1,4 @@
-using System.Security.Cryptography.X509Certificates;
+﻿using System.Security.Cryptography.X509Certificates;
 using Microsoft.IdentityModel.Tokens;
 
 namespace KestrunTests.Jwt;

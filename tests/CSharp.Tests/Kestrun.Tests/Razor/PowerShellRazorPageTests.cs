@@ -1,4 +1,4 @@
-using Kestrun.Razor;
+﻿using Kestrun.Razor;
 using Kestrun.Scripting;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;

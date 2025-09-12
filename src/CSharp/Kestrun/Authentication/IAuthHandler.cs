@@ -4,7 +4,6 @@
 using System.Collections;
 using System.Management.Automation;
 using System.Security.Claims;
-using Kestrun.Hosting;
 using Kestrun.Languages;
 using Kestrun.Models;
 using Kestrun.SharedState;

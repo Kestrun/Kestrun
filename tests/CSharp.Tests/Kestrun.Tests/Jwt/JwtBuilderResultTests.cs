@@ -1,4 +1,4 @@
-using Kestrun.Jwt;
+﻿using Kestrun.Jwt;
 using Microsoft.IdentityModel.Tokens;
 using Xunit;
 

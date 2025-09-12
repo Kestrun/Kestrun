@@ -1,4 +1,4 @@
-using System.Management.Automation;
+﻿using System.Management.Automation;
 using Microsoft.AspNetCore.Http;
 using Xunit;
 using Kestrun.Utilities;

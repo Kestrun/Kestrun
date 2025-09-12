@@ -1,4 +1,4 @@
-using System.Collections;
+﻿using System.Collections;
 using Kestrun.Scheduling;
 using Kestrun.Scripting;
 using Serilog;

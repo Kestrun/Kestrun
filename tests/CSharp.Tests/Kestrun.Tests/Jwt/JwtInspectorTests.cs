@@ -1,4 +1,4 @@
-using Kestrun.Jwt;
+﻿using Kestrun.Jwt;
 using Xunit;
 
 namespace KestrunTests.Jwt;

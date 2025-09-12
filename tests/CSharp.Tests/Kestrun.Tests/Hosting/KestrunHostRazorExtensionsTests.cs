@@ -1,4 +1,4 @@
-using Kestrun.Hosting;
+﻿using Kestrun.Hosting;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.Extensions.DependencyInjection;
 using Xunit;

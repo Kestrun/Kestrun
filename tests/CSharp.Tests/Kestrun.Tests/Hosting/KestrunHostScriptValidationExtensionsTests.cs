@@ -1,4 +1,4 @@
-using System.Reflection;
+﻿using System.Reflection;
 using Kestrun.Hosting;
 using Microsoft.CodeAnalysis;
 using Xunit;

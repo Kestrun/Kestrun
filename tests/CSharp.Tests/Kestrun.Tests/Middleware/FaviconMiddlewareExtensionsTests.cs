@@ -1,4 +1,4 @@
-using Kestrun.Middleware;
+﻿using Kestrun.Middleware;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;

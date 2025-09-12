@@ -1,4 +1,4 @@
-using Kestrun.Middleware;
+﻿using Kestrun.Middleware;
 using Kestrun.Scripting;
 using Kestrun.Languages;
 using Microsoft.AspNetCore.Builder;

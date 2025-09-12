@@ -1,6 +1,5 @@
 using System.Management.Automation;
 using System.Diagnostics;
-using Kestrun.Hosting;
 using Kestrun.Languages;
 using Kestrun.Models;
 using Kestrun.Scripting;

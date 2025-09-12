@@ -1,6 +1,5 @@
 using System.Security.Claims;
 using System.Text;
-using Kestrun.Hosting;
 using Kestrun.Languages;
 using Kestrun.Logging;
 using Kestrun.Models;

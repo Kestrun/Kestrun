@@ -1,4 +1,4 @@
-// csharp
+﻿// csharp
 using System.Security.Claims;
 using Kestrun.Claims;
 using Xunit;

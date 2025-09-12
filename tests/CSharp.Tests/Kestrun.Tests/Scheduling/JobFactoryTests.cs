@@ -1,4 +1,4 @@
-using Kestrun.Scheduling;
+﻿using Kestrun.Scheduling;
 using Kestrun.Scripting;
 using Serilog;
 using Serilog.Core;

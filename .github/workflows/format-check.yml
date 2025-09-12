@@ -107,15 +107,21 @@ jobs:
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Continue'
-            $results = Invoke-ScriptAnalyzer -Path ./src/PowerShell/Kestrun -Recurse -Severity Error,Warning -ExcludeRule PSAvoidUsingWriteHost -ErrorAction Continue
-            if ($results) {
-              $results | Format-Table -Auto | Out-String | Write-Host
-              $results | ConvertTo-Json -Depth 5 | Out-File psa-results.json
-              "has_ps_issues=true" | Out-File -FilePath $Env:GITHUB_OUTPUT -Append
-              exit 1
-            } else {
-              "has_ps_issues=false" | Out-File -FilePath $Env:GITHUB_OUTPUT -Append
-            }
+          $settingsPath = Join-Path $PSScriptRoot 'PSScriptAnalyzerSettings.psd1'
+          if (-not (Test-Path $settingsPath)) {
+            # Fallback: repository root relative path
+            $settingsPath = 'PSScriptAnalyzerSettings.psd1'
+          }
+          Write-Host "Using PSScriptAnalyzer settings: $settingsPath"
+          $results = Invoke-ScriptAnalyzer -Path ./src/PowerShell/Kestrun -Recurse -Settings $settingsPath -ErrorAction Continue
+          if ($results) {
+            $results | Format-Table -Auto | Out-String | Write-Host
+            $results | ConvertTo-Json -Depth 5 | Out-File psa-results.json
+            "has_ps_issues=true" | Out-File -FilePath $Env:GITHUB_OUTPUT -Append
+            exit 1
+          } else {
+            "has_ps_issues=false" | Out-File -FilePath $Env:GITHUB_OUTPUT -Append
+          }
 
       - name: 📦 Upload PSScriptAnalyzer results
         if: failure() && steps.psa.outputs.has_ps_issues == 'true'

@@ -45,7 +45,7 @@
 #>
 function Invoke-KrCookieSignIn {
     [KestrunRuntimeApi('Route')]
-    [CmdletBinding(SupportsShouldProcess = $true, ConfirmImpact = 'Low', DefaultParameterSetName = 'SimpleIdentity')]
+    [CmdletBinding(SupportsShouldProcess = $true, ConfirmImpact = 'Low', DefaultParameterSetName = 'Claims')]
     [OutputType([System.Security.Claims.ClaimsPrincipal])]
     param(
         [Parameter()]
@@ -53,12 +53,12 @@ function Invoke-KrCookieSignIn {
 
         # Identity construction helpers
         [Parameter(ParameterSetName = 'SimpleIdentity')]
-        [Parameter(ParameterSetName = 'SimpleIdentity_BuildIdentity')]
         [string]$Name,
 
         [Parameter(ParameterSetName = 'BuildIdentity')]
         [Parameter(ParameterSetName = 'AuthenticationPropertiesItems_BuildIdentity')]
         [Parameter(ParameterSetName = 'AuthenticationProperties_Claim')]
+        [Parameter(ParameterSetName = 'Claims')]
         [System.Security.Claims.Claim[]]$Claims,
 
 

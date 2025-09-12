@@ -110,12 +110,11 @@ var keyBytes = Convert.FromHexString(JwtKeyHex);
 var keyB64u = Base64UrlEncoder.Encode(keyBytes);   // <-- supply this
 var textKey = Encoding.UTF8.GetString(keyBytes);
 var tokenBuilder = JwtTokenBuilder.New()
-              //          .WithSubject("admin")
-              .WithIssuer(issuer)
-              .WithAudience(audience)
-              .SignWithSecret(keyB64u, JwtAlgorithm.HS256)   // GCM enc
-
-              .ValidFor(TimeSpan.FromHours(1));
+                .WithSubject("admin")
+                .WithIssuer(issuer)
+                .WithAudience(audience)
+                .SignWithSecret(keyB64u, JwtAlgorithm.HS256)   // GCM enc
+                .ValidFor(TimeSpan.FromHours(1));
 
 
 var builderResult = tokenBuilder.Build();
@@ -238,10 +237,9 @@ server.AddResponseCompression(options =>
     opts.RequireHttps = false;           // example
     opts.ClaimPolicyConfig = claimConfig;
 }
-//, configureAuthz: claimConfig.ToAuthzDelegate())
 )
 
-   /// ── BASIC AUTHENTICATION – NATIVE C# CODE ──────────────────────────────
+/// ── BASIC AUTHENTICATION – NATIVE C# CODE ──────────────────────────────
    .AddBasicAuthentication(BasicNativeScheme, opts =>
    {
        opts.Realm = "Native-Kestrun";
@@ -277,7 +275,7 @@ server.AddResponseCompression(options =>
        opts.ClaimPolicyConfig = claimConfig;
    })
 
-   /// ── BASIC AUTHENTICATION – C# CODE ────────────────────────────────────
+/// ── BASIC AUTHENTICATION – C# CODE ────────────────────────────────────
    .AddBasicAuthentication(BasicCSharpScheme, opts =>
    {
        opts.Realm = "CSharp-Kestrun";
@@ -289,8 +287,9 @@ server.AddResponseCompression(options =>
            return username == "admin" && password == "password";
        """
        };
-   })
-   /// ── BASIC AUTHENTICATION – C# CODE ────────────────────────────────────
+   }
+   )
+/// ── BASIC AUTHENTICATION – C# CODE ────────────────────────────────────
    .AddBasicAuthentication(BasicVBNetScheme, opts =>
    {
        opts.Realm = "VBNet-Kestrun";
@@ -325,18 +324,17 @@ server.AddResponseCompression(options =>
        };
        opts.ClaimPolicyConfig = claimConfig;
    })
-
-   /// ── WINDOWS AUTHENTICATION ────────────────────────────────────────────
+/// ── WINDOWS AUTHENTICATION ────────────────────────────────────────────
    .AddWindowsAuthentication()
 
-   /// ── API KEY AUTHENTICATION – SIMPLE STRING MATCHING ────────────────────
+/// ── API KEY AUTHENTICATION – SIMPLE STRING MATCHING ────────────────────
    .AddApiKeyAuthentication(ApiKeySimple, opts =>
    {
        opts.HeaderName = "X-Api-Key";
        opts.ExpectedKey = "my-secret-api-key";
    })
 
-   /// ── API KEY AUTHENTICATION – POWERSHELL CODE ───────────────────────────
+/// ── API KEY AUTHENTICATION – POWERSHELL CODE ───────────────────────────
    .AddApiKeyAuthentication(ApiKeyPowerShell, opts =>
    {
        opts.HeaderName = "X-Api-Key";
@@ -379,8 +377,7 @@ server.AddResponseCompression(options =>
        };
        opts.ClaimPolicyConfig = claimConfig;
    })
-
-   /// ── API KEY AUTHENTICATION – C# CODE ───────────────────────────────────
+/// ── API KEY AUTHENTICATION – C# CODE ───────────────────────────────────
    .AddApiKeyAuthentication(ApiKeyCSharp, opts =>
    {
        opts.HeaderName = "X-Api-Key";
@@ -409,8 +406,7 @@ server.AddResponseCompression(options =>
            ExtraImports = ["System.Text"]
        };
    })
-
-   /// ── JWT AUTHENTICATION – C# CODE ───────────────────────────────────────
+/// ── JWT AUTHENTICATION – C# CODE ───────────────────────────────────────
    .AddJwtBearerAuthentication(
        scheme: JwtScheme,
         validationParameters: builderResult.GetValidationParameters(),

@@ -16,6 +16,7 @@ using Kestrun.Scripting;
 using Kestrun.Hosting.Options;
 using System.Runtime.InteropServices;
 using Microsoft.PowerShell;
+using Microsoft.AspNetCore.Authentication;
 
 namespace Kestrun.Hosting;
 
@@ -50,6 +51,21 @@ public class KestrunHost : IDisposable
     private KestrunRunspacePoolManager? _runspacePool;
 
     internal KestrunRunspacePoolManager RunspacePool => _runspacePool ?? throw new InvalidOperationException("Runspace pool is not initialized. Call EnableConfiguration first.");
+
+    // ── ✦ QUEUE #1 : SERVICE REGISTRATION ✦ ─────────────────────────────
+    private readonly List<Action<IServiceCollection>> _serviceQueue = [];
+
+    // ── ✦ QUEUE #2 : MIDDLEWARE STAGES ✦ ────────────────────────────────
+    private readonly List<Action<IApplicationBuilder>> _middlewareQueue = [];
+
+    internal List<Action<KestrunHost>> FeatureQueue { get; } = [];
+
+    internal readonly Dictionary<(string Pattern, string Method), MapRouteOptions> _registeredRoutes =
+    new(new RouteKeyComparer());
+
+    internal readonly Dictionary<(string Scheme, string Type), AuthenticationSchemeOptions> _registeredAuthentications =
+        new(new RouteKeyComparer());
+
     /// <summary>
     /// Gets the root directory path for the Kestrun application.
     /// </summary>
@@ -65,27 +81,18 @@ public class KestrunHost : IDisposable
     /// </summary>
     public SchedulerService Scheduler { get; internal set; } = null!; // Initialized in ConfigureServices
 
-
     /// <summary>
     /// Gets the stack used for managing route groups in the Kestrun host.
     /// </summary>
     public System.Collections.Stack RouteGroupStack { get; } = new();
 
-    // ── ✦ QUEUE #1 : SERVICE REGISTRATION ✦ ─────────────────────────────
-    private readonly List<Action<IServiceCollection>> _serviceQueue = [];
 
-    // ── ✦ QUEUE #2 : MIDDLEWARE STAGES ✦ ────────────────────────────────
-    private readonly List<Action<IApplicationBuilder>> _middlewareQueue = [];
-
-    internal List<Action<KestrunHost>> FeatureQueue { get; } = [];
-
-    internal readonly Dictionary<(string Pattern, string Method), MapRouteOptions> _registeredRoutes =
-    new(
-        new RouteKeyComparer());
-
+    /// <summary>
+    /// Gets the registered routes in the Kestrun host.
+    /// </summary>
+    public IReadOnlyDictionary<(string Pattern, string Method), MapRouteOptions> RegisteredRoutes => _registeredRoutes;
 
     #endregion
-
 
     // Accepts optional module paths (from PowerShell)
     #region Constructor
@@ -340,6 +347,18 @@ public class KestrunHost : IDisposable
         }
         try
         {
+            /*    _ = Use(app =>
+                {
+                const string Key = "__kr.authmw";
+                    if (!app.Properties.ContainsKey(Key))
+                    {
+                        _ = app.UseRouting();
+                        _ = app.UseAuthentication();
+                        _ = app.UseAuthorization();
+                        app.Properties[Key] = true;
+                    }
+                });*/
+
             // This method is called to apply the configured options to the Kestrel server.
             // The actual application of options is done in the Run method.
             _runspacePool = CreateRunspacePool(Options.MaxRunspaces, userVariables, userFunctions);
@@ -441,6 +460,7 @@ public class KestrunHost : IDisposable
 
             // build the app to validate configuration
             _app = Build();
+            // Log configured endpoints
             var dataSource = _app.Services.GetRequiredService<EndpointDataSource>();
 
             if (dataSource.Endpoints.Count == 0)
@@ -783,7 +803,6 @@ public class KestrunHost : IDisposable
             return appField?.GetValue(this) is WebApplication app && !app.Lifetime.ApplicationStopping.IsCancellationRequested;
         }
     }
-
 
     #endregion
 

@@ -72,12 +72,7 @@ Add-KrMapRoute -Verbs Post -Pattern '/cookies/login' -ScriptBlock {
 # 10. Protected route group requiring cookie auth
 Add-KrRouteGroup -Prefix '/cookies' -AuthorizationSchema 'Cookies' {
     Add-KrMapRoute -Verbs Get -Pattern '/logout' -ScriptBlock {
-        Invoke-KrCookieSignOut -Scheme 'Cookies'
-        $options = Get-KrAuthOptions -Scheme "Cookies"
-        $LogoutUrl = if ($options.LogoutPath) { $options.LogoutPath }
-        Write-KrLog -Level Information -Message '{logoutUrl}' -Properties $LogoutUrl
-        Write-KrRedirectResponse -Url $LogoutUrl
-        # Write-KrRedirectResponse -Url '/cookies/login'
+        Invoke-KrCookieSignOut -Scheme 'Cookies' -Redirect
     }
     # 9. Protected route requiring cookie
     Add-KrMapRoute -Verbs Get -Pattern '/hello' -ScriptBlock {

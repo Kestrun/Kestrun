@@ -46,6 +46,8 @@ public static class KestrunHostAuthExtensions
                    displayName: "Basic Authentication",
                     configureOptions: opts =>
                    {
+                       // register in host for introspection
+                       host._registeredAuthentications[(scheme, "Basic")] = opts;
                        // let caller mutate everything first
                        configure?.Invoke(opts);
                        ConfigureBasicAuthValidators(opts);
@@ -178,6 +180,8 @@ public static class KestrunHostAuthExtensions
             {
                 _ = ab.AddJwtBearer(scheme, opts =>
                 {
+                    // register in host for introspection
+                    host._registeredAuthentications[(scheme, "JwtBearer")] = opts;
                     opts.TokenValidationParameters = validationParameters;
                     opts.MapInboundClaims = true;
                     configureJwt?.Invoke(opts);
@@ -210,6 +214,8 @@ public static class KestrunHostAuthExtensions
                     authenticationScheme: scheme,
                     configureOptions: opts =>
                     {
+                        // register in host for introspection
+                        host._registeredAuthentications[(scheme, "Cookie")] = opts;
                         // let caller mutate everything first
                         configure?.Invoke(opts);
                         Log.Debug("Configured Cookie Authentication with LoginPath: {LoginPath}", opts.LoginPath);
@@ -286,6 +292,8 @@ public static class KestrunHostAuthExtensions
             defaultScheme: NegotiateDefaults.AuthenticationScheme,
             buildSchemes: ab =>
             {
+                // register in host for introspection
+                host._registeredAuthentications[("Windows", "WindowsAuth")] = new AuthenticationSchemeOptions();
                 _ = ab.AddNegotiate();
             }
         );
@@ -314,6 +322,8 @@ public static class KestrunHostAuthExtensions
                    displayName: "API Key",
                    configureOptions: opts =>
                    {
+                       // register in host for introspection
+                       host._registeredAuthentications[(scheme, "ApiKey")] = opts;
                        // let caller mutate everything first
                        configure?.Invoke(opts);
                        ConfigureApiKeyValidators(opts);
@@ -637,8 +647,14 @@ public static class KestrunHostAuthExtensions
 
         return host.Use(app =>
         {
-            _ = app.UseAuthentication();
-            _ = app.UseAuthorization();
+            const string Key = "__kr.authmw";
+            if (!app.Properties.ContainsKey(Key))
+            {
+                _ = app.UseAuthentication();
+                _ = app.UseAuthorization();
+                app.Properties[Key] = true;
+                Log.Information("Kestrun: Authentication & Authorization middleware added.");
+            }
         });
     }
 
@@ -670,9 +686,17 @@ public static class KestrunHostAuthExtensions
         return scheme != null;
     }
 
-    // Helper to copy values from a user-supplied CookieAuthenticationOptions instance to the instance
-    // created by the framework inside AddCookie(). Reassigning the local variable (opts = source) would
-    // not work because only the local reference changes – the framework keeps the original instance.
+    /// <summary>
+    /// Helper to copy values from a user-supplied CookieAuthenticationOptions instance to the instance
+    /// created by the framework inside AddCookie(). Reassigning the local variable (opts = source) would
+    /// not work because only the local reference changes – the framework keeps the original instance.
+    /// </summary>
+    /// <param name="source">The source options to copy from.</param>
+    /// <param name="target">The target options to copy to.</param>
+    /// <exception cref="ArgumentNullException">Thrown when source or target is null.</exception>
+    /// <remarks>
+    /// Only copies primitive properties and references. Does not clone complex objects like CookieBuilder.
+    /// </remarks>
     private static void CopyCookieAuthenticationOptions(CookieAuthenticationOptions source, CookieAuthenticationOptions target)
     {
         // Paths & return URL

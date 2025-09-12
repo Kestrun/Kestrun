@@ -2,7 +2,10 @@
 using Microsoft.AspNetCore.Antiforgery;
 using Microsoft.AspNetCore.Cors.Infrastructure;
 using Microsoft.AspNetCore.RateLimiting;
+using Microsoft.AspNetCore.ResponseCaching;
 using Microsoft.AspNetCore.ResponseCompression;
+using Microsoft.Net.Http.Headers;
+using Serilog;
 using Serilog.Events;
 
 namespace Kestrun.Hosting;
@@ -249,5 +252,144 @@ public static class KestrunHttpMiddlewareExtensions
 
         // apply only that policy
         return host.Use(app => app.UseCors(policyName));
+    }
+
+    /// <summary>
+    /// Adds response caching to the application.
+    /// This overload allows you to specify configuration options.
+    /// </summary>
+    /// <param name="host">The KestrunHost instance to configure.</param>
+    /// <param name="options">The configuration options for response caching.</param>
+    /// <param name="cacheControl">
+    /// Optional default Cache-Control to apply (only if the response didn't set one).
+    /// </param>
+    public static KestrunHost AddResponseCaching(this KestrunHost host, ResponseCachingOptions? options, CacheControlHeaderValue? cacheControl = null)
+    {
+        if (host.HostLogger.IsEnabled(LogEventLevel.Debug))
+        {
+            host.HostLogger.Debug("Adding response caching with options: {@Options}", options);
+        }
+
+        if (options == null)
+        {
+            return host.AddResponseCaching(); // no options, use defaults
+        }
+        // delegate shim – re‑use the existing pipeline
+        return host.AddResponseCaching(o =>
+        {
+            o.SizeLimit = options.SizeLimit;
+            o.MaximumBodySize = options.MaximumBodySize;
+            o.UseCaseSensitivePaths = options.UseCaseSensitivePaths;
+        }, cacheControl);
+    }
+
+    /// <summary>
+    /// Adds response caching to the application.
+    /// This overload allows you to specify a configuration delegate.
+    /// </summary>
+    /// <param name="host">The KestrunHost instance to configure.</param>
+    /// <param name="cfg">Optional configuration for response caching.</param>
+    /// <param name="cacheControl">
+    /// Optional default Cache-Control to apply (only if the response didn't set one).
+    /// </param>
+    public static KestrunHost AddResponseCaching2(this KestrunHost host, Action<ResponseCachingOptions>? cfg = null,
+     CacheControlHeaderValue? cacheControl = null)
+    {
+        if (host.HostLogger.IsEnabled(LogEventLevel.Debug))
+        {
+            host.HostLogger.Debug("Adding response caching with configuration: {Config}", cfg);
+        }
+        // Service side
+        _ = host.AddService(services =>
+        {
+            _ = cfg == null ? services.AddResponseCaching() : services.AddResponseCaching(cfg);
+        });
+
+        // Middleware side
+        return host.Use(app =>
+        {
+            _ = app.UseResponseCaching();
+            _ = app.Use(async (context, next) =>
+            {
+                await next(context);
+                context.Response.GetTypedHeaders().CacheControl = cacheControl;
+
+                context.Response.Headers[HeaderNames.Vary] = new string[] { "Accept-Encoding" };
+                Log.Information("Response caching headers set on response.");
+                await next(context);
+            });
+        });
+    }
+
+    public static KestrunHost AddResponseCaching(this KestrunHost host, Action<ResponseCachingOptions>? cfg = null,
+        CacheControlHeaderValue? cacheControl = null)
+    {
+        if (host.HostLogger.IsEnabled(LogEventLevel.Debug))
+        {
+            host.HostLogger.Debug("Adding response caching with configuration: {Config}", cfg);
+        }
+        // Service side
+        _ = host.AddService(services =>
+        {
+            _ = cfg == null ? services.AddResponseCaching() : services.AddResponseCaching(cfg);
+        });
+
+        // Middleware side
+        return host.Use(app =>
+        {
+            _ = app.UseResponseCaching();
+            _ = app.Use(async (context, next) =>
+            {
+
+                try
+                {
+                    // Gate: only for successful cacheable responses on GET/HEAD
+                    var method = context.Request.Method;
+                    if (!(HttpMethods.IsGet(method) || HttpMethods.IsHead(method)))
+                    {
+                        return;
+                    }
+
+                    var status = context.Response.StatusCode;
+                    if (status is < 200 or >= 300)
+                    {
+                        return;
+                    }
+
+                    // ResponseCaching won't cache if Set-Cookie is present; don't add headers in that case
+                    if (context.Response.Headers.ContainsKey(HeaderNames.SetCookie))
+                    {
+                        return;
+                    }
+
+                    var typed = context.Response.GetTypedHeaders();
+
+                    // Only apply default Cache-Control if none was set and caller provided one
+                    if (cacheControl is not null && typed.CacheControl is null)
+                    {
+                        typed.CacheControl = cacheControl;
+                        // If you expect compression variability elsewhere, add Vary only if absent
+                        if (!context.Response.Headers.ContainsKey(HeaderNames.Vary))
+                        {
+                            context.Response.Headers.Append(HeaderNames.Vary, "Accept-Encoding");
+                        }
+
+                        if (host.HostLogger.IsEnabled(LogEventLevel.Debug))
+                        {
+                            host.HostLogger.Debug("Applied default Cache-Control: {CacheControl}", cacheControl.ToString());
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    // Never let caching decoration break the response
+                    host.HostLogger.Warning(ex, "Failed to apply default cache headers.");
+                }
+                finally
+                {
+                    await next(context);
+                }
+            });
+        });
     }
 }

@@ -64,13 +64,14 @@ Stop the server with Ctrl+C in the terminal.
 | 26    | Authentication: API Key       | [API Key][ch-auth-apikey]                 | [Script][sc-auth-apikey]        | Header key variants                 |
 | 27    | Authentication: JWT           | [JWT Tokens][ch-auth-jwt]                 | [Script][sc-auth-jwt]           | Issue & validate bearer             |
 | 28    | Authentication: Cookies       | [Cookies][ch-auth-cookies]                | [Script][sc-auth-cookies]       | Session cookie login                |
-| 29    | Authentication: Claims        | [Claims & Policies][ch-auth-claims]       | [Script][sc-auth-claims]        | Claim policy enforcement            |
-| 30    | Authentication: Multiple      | [Multiple Schemes][ch-auth-multi-schemes] | [Script][sc-auth-multi-schemes] | Combine schemes                     |
-| 31    | Authentication: Full Demo     | [Full Auth Demo][ch-auth-full]            | [Script][sc-auth-full]          | Integrated auth server              |
-| 32    | Server Configuration: Limits  | [Server Limits][ch-scfg-limits]           | [Script][sc-scfg-limits]        | Size & rate limits                  |
-| 33    | Server Configuration: Options | [Server Options][ch-scfg-options]         | [Script][sc-scfg-options]       | Headers & runspaces                 |
-| 34    | Lifecycle: Start/Stop         | [Start / Stop][ch-life-startstop]         | [Script][sc-life-startstop]     | Non-blocking lifecycle              |
-| 35    | Demo: Full Server             | [Full Server Demo][ch-demo-full]          | [Script][sc-demo-full]          | Integrated scenario                 |
+| 29    | Authentication: Windows       | [Windows Authentication][ch-auth-windows] | [Script][sc-auth-windows]       | Integrated Windows auth             |
+| 30    | Authentication: Claims        | [Claims & Policies][ch-auth-claims]       | [Script][sc-auth-claims]        | Claim policy enforcement            |
+| 31    | Authentication: Multiple      | [Multiple Schemes][ch-auth-multi-schemes] | [Script][sc-auth-multi-schemes] | Combine schemes                     |
+| 32    | Authentication: Full Demo     | [Full Auth Demo][ch-auth-full]            | [Script][sc-auth-full]          | Integrated auth server              |
+| 33    | Server Configuration: Limits  | [Server Limits][ch-scfg-limits]           | [Script][sc-scfg-limits]        | Size & rate limits                  |
+| 34    | Server Configuration: Options | [Server Options][ch-scfg-options]         | [Script][sc-scfg-options]       | Headers & runspaces                 |
+| 35    | Lifecycle: Start/Stop         | [Start / Stop][ch-life-startstop]         | [Script][sc-life-startstop]     | Non-blocking lifecycle              |
+| 36    | Demo: Full Server             | [Full Server Demo][ch-demo-full]          | [Script][sc-demo-full]          | Integrated scenario                 |
 
 Static chapters and scripts are all linked directly above for quick navigation.
 
@@ -102,9 +103,10 @@ Static chapters and scripts are all linked directly above for quick navigation.
 [ch-auth-apikey]: ./8.authentication/3.Api-Key
 [ch-auth-jwt]: ./8.authentication/4.Jwt
 [ch-auth-cookies]: ./8.authentication/5.Cookies
-[ch-auth-claims]: ./8.authentication/6.Claims-Policies
-[ch-auth-multi-schemes]: ./8.authentication/7.Multiple-Schemes
-[ch-auth-full]: ./8.authentication/8.Full-Demo
+[ch-auth-windows]: ./8.authentication/6.Windows-Authentication
+[ch-auth-claims]: ./8.authentication/7.Claims-Policies
+[ch-auth-multi-schemes]: ./8.authentication/8.Multiple-Schemes
+[ch-auth-full]: ./8.authentication/9.Full-Demo
 [ch-scfg-limits]: ./13.server-configuration/1.Server-Limits
 [ch-scfg-options]: ./13.server-configuration/2.Server-Options
 [ch-life-startstop]: ./14.lifecycle/1.Start-Stop
@@ -137,9 +139,10 @@ Static chapters and scripts are all linked directly above for quick navigation.
 [sc-auth-apikey]: /pwsh/tutorial/examples/8.3-Api-Key.ps1
 [sc-auth-jwt]: /pwsh/tutorial/examples/8.4-Jwt.ps1
 [sc-auth-cookies]: /pwsh/tutorial/examples/8.5-Cookies.ps1
-[sc-auth-claims]: /pwsh/tutorial/examples/8.6-Claims-Policies.ps1
-[sc-auth-multi-schemes]: /pwsh/tutorial/examples/8.7-Multiple-Schemes.ps1
-[sc-auth-full]: [https://github.com/Kestrun/Kestrun/blob/main/examples/PowerShell/Authentication/Authentication.ps1]
+[sc-auth-windows]: /pwsh/tutorial/examples/8.6-Windows-Authentication.ps1
+[sc-auth-claims]: /pwsh/tutorial/examples/8.7-Claims-Policies.ps1
+[sc-auth-multi-schemes]: /pwsh/tutorial/examples/8.8-Multiple-Schemes.ps1
+[sc-auth-full]: /pwsh/tutorial/examples/8.9-Full-Demo.ps1
 [sc-scfg-limits]: /pwsh/tutorial/examples/13.1-Server-Limits.ps1
 [sc-scfg-options]: /pwsh/tutorial/examples/13.2-Server-Options.ps1
 [sc-life-startstop]: /pwsh/tutorial/examples/15.1-Start-Stop.ps1

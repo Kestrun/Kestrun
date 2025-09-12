@@ -1,7 +1,7 @@
 ﻿<#
     Sample: Claims & Policies Authorization
     Purpose: Build claim-based policies and enforce them on routes after Basic auth.
-    File:    8.6-Claims-Policies.ps1
+    File:    8.7-Claims-Policies.ps1
     Notes:   Demonstrates issuing claims during authentication.
 #>
 

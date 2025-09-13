@@ -11,16 +11,16 @@
     .PARAMETER PassThru
         If specified, returns the modified server instance after adding the favicon.
     .EXAMPLE
-        $server | Add-KrFavicon -IconPath 'C:\path\to\favicon.ico'
+        $server | Add-KrFaviconMiddleware -IconPath 'C:\path\to\favicon.ico'
         This example adds a custom favicon to the server from the specified path.
     .EXAMPLE
-        $server | Add-KrFavicon
+        $server | Add-KrFaviconMiddleware
         This example adds the default embedded favicon to the server.
     .NOTES
         This cmdlet is used to register a favicon for the Kestrun server, allowing you to set a custom favicon for the server's web interface.
         If no icon path is specified, the default embedded favicon will be used.
 #>
-function Add-KrFavicon {
+function Add-KrFaviconMiddleware {
     [KestrunRuntimeApi('Definition')]
     [CmdletBinding()]
     [OutputType([Kestrun.Hosting.KestrunHost])]

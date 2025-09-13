@@ -39,7 +39,7 @@ try {
 }
 
 $logger = New-KrLogger |
-    Set-KrMinimumLevel -Value Debug |
+    Set-KrLoggerMinimumLevel -Value Debug |
     Add-KrSinkFile -Path '.\logs\sharedState.log' -RollingInterval Hour |
     Add-KrSinkConsole |
     Register-KrLogger -Name 'DefaultLogger' -PassThru -SetAsDefault

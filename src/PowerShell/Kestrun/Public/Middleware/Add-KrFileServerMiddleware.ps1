@@ -28,16 +28,16 @@
     .PARAMETER PassThru
         If specified, the cmdlet will return the modified server instance.
     .EXAMPLE
-        $server | Add-KrFileServer -RequestPath '/files' -EnableDirectoryBrowsing
+        $server | Add-KrFileServerMiddleware -RequestPath '/files' -EnableDirectoryBrowsing
         This example adds a file server to the server for the path '/files', enabling directory browsing.
         The file server will use the default options for serving static files.
     .EXAMPLE
-        $server | Add-KrFileServer -Options $options
+        $server | Add-KrFileServerMiddleware -Options $options
         This example adds a file server to the server using the specified FileServerOptions.
     .LINK
         https://learn.microsoft.com/en-us/dotnet/api/microsoft.aspnetcore.builder.fileserveroptions?view=aspnetcore-8.0
 #>
-function Add-KrFileServer {
+function Add-KrFileServerMiddleware {
     [KestrunRuntimeApi('Definition')]
     [CmdletBinding(defaultParameterSetName = 'Items')]
     [OutputType([Kestrun.Hosting.KestrunHost])]

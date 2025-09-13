@@ -19,15 +19,15 @@
     .PARAMETER PassThru
         If specified, the cmdlet will return the modified server instance after adding the Antiforgery service.
     .EXAMPLE
-        $server | Add-KrAntiforgery -Cookie $cookieBuilder -FormField '__RequestVerificationToken' -HeaderName 'X-CSRF-Token' -SuppressXFrameOptionsHeader
+        $server | Add-KrAntiforgeryMiddleware -Cookie $cookieBuilder -FormField '__RequestVerificationToken' -HeaderName 'X-CSRF-Token' -SuppressXFrameOptionsHeader
         This example adds an Antiforgery service to the server with a custom cookie builder, form field name, and header name.
     .EXAMPLE
-        $server | Add-KrAntiforgery -Options $options
+        $server | Add-KrAntiforgeryMiddleware -Options $options
         This example adds an Antiforgery service to the server using the specified Antiforgery options.
     .LINK
         https://learn.microsoft.com/en-us/dotnet/api/microsoft.aspnetcore.antiforgery.antiforgeryoptions?view=aspnetcore-8.0
 #>
-function Add-KrAntiforgery {
+function Add-KrAntiforgeryMiddleware {
     [KestrunRuntimeApi('Definition')]
     [CmdletBinding(defaultParameterSetName = 'Items')]
     [OutputType([Kestrun.Hosting.KestrunHost])]

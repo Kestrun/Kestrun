@@ -20,7 +20,7 @@ Add-KrListener -Port 5000 -IPAddress ([IPAddress]::Loopback)
 Add-KrPowerShellRuntime
 
 # Add a static files service
-Add-KrStaticFilesService -RequestPath '/assets' -RootPath '.\Assets\wwwroot'
+Add-KrStaticFilesMiddleware -RequestPath '/assets' -RootPath '.\Assets\wwwroot'
 
 # Add a static map override
 Add-KrStaticMapOverride -Path '/assets/override/pwsh' -ScriptBlock {

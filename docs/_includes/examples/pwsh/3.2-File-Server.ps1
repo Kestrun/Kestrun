@@ -23,7 +23,7 @@ $map = @{
 }
 
 # Add a file server with browsing enabled
-Add-KrFileServer -RequestPath '/' -RootPath '.\Assets\wwwroot' -EnableDirectoryBrowsing -ContentTypeMap $map
+Add-KrFileServerMiddleware -RequestPath '/' -RootPath '.\Assets\wwwroot' -EnableDirectoryBrowsing -ContentTypeMap $map
 
 # Enable Kestrun configuration
 Enable-KrConfiguration

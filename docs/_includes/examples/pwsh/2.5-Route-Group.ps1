@@ -5,7 +5,7 @@
 #>
 
 New-KrLogger |
-    Set-KrMinimumLevel -Value Debug |
+    Set-KrLoggerMinimumLevel -Value Debug |
     Add-KrSinkConsole |
     Register-KrLogger -Name 'DefaultLogger' -SetAsDefault
 

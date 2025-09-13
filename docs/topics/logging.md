@@ -14,10 +14,10 @@ from both C# and PowerShell. PowerShell cmdlets wrap the same builder APIs used 
 
 Kestrun’s logging system builds on Serilog to give you:
 
-- Multiple named loggers — each with its own minimum level, enrichers, and sinks.
-- Full Serilog flexibility — use any sink (console, file, Seq, HTTP, syslog…), any enricher, any output template.
-- Global fallback — framework + scripts without a named logger write to `Serilog.Log`.
-- PowerShell support — configure and invoke named loggers from PS scripts.
+* Multiple named loggers — each with its own minimum level, enrichers, and sinks.
+* Full Serilog flexibility — use any sink (console, file, Seq, HTTP, syslog…), any enricher, any output template.
+* Global fallback — framework + scripts without a named logger write to `Serilog.Log`.
+* PowerShell support — configure and invoke named loggers from PS scripts.
 
 | Component                                | Purpose                                                                                                                                                                                                                                          |
 |------------------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
@@ -77,25 +77,25 @@ Write-KrLog -Name 'ps-api' -Level Information -Message 'Started' -Properties @{ 
 
 Framework logs vs your logs:
 
-- Use `-SetAsDefault` on `Register-KrLogger`, or
-- Pass `-LoggerName 'ps-api'` (or `-Logger`) to `New-KrServer`.
+* Use `-SetAsDefault` on `Register-KrLogger`, or
+* Pass `-LoggerName 'ps-api'` (or `-Logger`) to `New-KrServer`.
 
 Otherwise Kestrun uses Serilog’s default (silent) logger for server logs.
 
 ## 3. Enrichment & sinks
 
-- Enrichers: `Add-KrEnrichProperty`, `Add-KrEnrichProcessId`, `Add-KrEnrichProcessName`,
+* Enrichers: `Add-KrEnrichProperty`, `Add-KrEnrichProcessId`, `Add-KrEnrichProcessName`,
   `Add-KrEnrichEnvironment`, `Add-KrEnrichFromLogContext`, `Add-KrEnrichExceptionDetail`.
-- Sinks: `Add-KrSinkConsole`, `Add-KrSinkPowerShell`, `Add-KrSinkFile`, `Add-KrSinkHttp`,
+* Sinks: `Add-KrSinkConsole`, `Add-KrSinkPowerShell`, `Add-KrSinkFile`, `Add-KrSinkHttp`,
   `Add-KrSinkEventLog`, `Add-KrSinkSyslogUdp|Tcp|Local`.
-- JSON formatting: `Get-KrJsonFormatter` for `Add-KrSinkFile -Formatter`.
+* JSON formatting: `Get-KrJsonFormatter` for `Add-KrSinkFile -Formatter`.
 
 Any Serilog sink/enricher you reference via packages can be used in C#; PowerShell exposes common ones.
 
 Notes:
 
-- Local syslog is best on Linux/macOS and writes to the system logger; on Windows use UDP/TCP instead.
-- EventLog typically requires elevation; use `-ManageEventSource` to let the cmdlet create the source when needed.
+* Local syslog is best on Linux/macOS and writes to the system logger; on Windows use UDP/TCP instead.
+* EventLog typically requires elevation; use `-ManageEventSource` to let the cmdlet create the source when needed.
 
 ### Syslog sinks (UDP/TCP/Local)
 
@@ -107,10 +107,10 @@ New-KrLogger |
   Register-KrLogger -Name 'udp'
 ```
 
-- Required: `-Hostname`
-- Defaults: `-Port 514`, `-Format RFC3164`, `-Facility Local0`
-- Options: `-OutputTemplate` or `-Formatter`, `-RestrictedToMinimumLevel`, `-LevelSwitch`
-- Extra: `-BatchSizeLimit`, `-PeriodSeconds`, `-QueueLimit`, `-EagerlyEmitFirstEvent`,
+* Required: `-Hostname`
+* Defaults: `-Port 514`, `-Format RFC3164`, `-Facility Local0`
+* Options: `-OutputTemplate` or `-Formatter`, `-RestrictedToMinimumLevel`, `-LevelSwitch`
+* Extra: `-BatchSizeLimit`, `-PeriodSeconds`, `-QueueLimit`, `-EagerlyEmitFirstEvent`,
   `-MessageIdPropertyName` (RFC5424), `-SourceHost`, `-SeverityMapping`
 
 Syslog TCP
@@ -121,11 +121,11 @@ New-KrLogger |
   Register-KrLogger -Name 'tcp'
 ```
 
-- Required: `-Hostname`
-- Defaults: `-Port 514`, `-FramingType OCTET_COUNTING`, `-Format RFC5424`, `-Facility Local0`
-- TLS: `-UseTls`, optional `-CertProvider`, `-CertValidationCallback`
-- Options: `-OutputTemplate`, `-RestrictedToMinimumLevel`, `-LevelSwitch`, `-MessageIdPropertyName`
-- Extra: batching knobs `-BatchSizeLimit`, `-PeriodSeconds`, `-QueueLimit`, `-EagerlyEmitFirstEvent`, and `-SeverityMapping`, `-Formatter`, `-SourceHost`
+* Required: `-Hostname`
+* Defaults: `-Port 514`, `-FramingType OCTET_COUNTING`, `-Format RFC5424`, `-Facility Local0`
+* TLS: `-UseTls`, optional `-CertProvider`, `-CertValidationCallback`
+* Options: `-OutputTemplate`, `-RestrictedToMinimumLevel`, `-LevelSwitch`, `-MessageIdPropertyName`
+* Extra: batching knobs `-BatchSizeLimit`, `-PeriodSeconds`, `-QueueLimit`, `-EagerlyEmitFirstEvent`, and `-SeverityMapping`, `-Formatter`, `-SourceHost`
 
 Syslog Local (Linux/macOS)
 
@@ -135,9 +135,9 @@ New-KrLogger |
   Register-KrLogger -Name 'local'
 ```
 
-- No remote host/port; writes to the local system logger
-- Options: `-AppName`, `-Facility`, `-OutputTemplate`/`-Formatter`, `-RestrictedToMinimumLevel`, `-SeverityMapping`, `-LevelSwitch`
-- Prefer UDP/TCP on Windows
+* No remote host/port; writes to the local system logger
+* Options: `-AppName`, `-Facility`, `-OutputTemplate`/`-Formatter`, `-RestrictedToMinimumLevel`, `-SeverityMapping`, `-LevelSwitch`
+* Prefer UDP/TCP on Windows
 
 ### EventLog sink (Windows)
 
@@ -147,17 +147,17 @@ New-KrLogger |
   Register-KrLogger -Name 'eventlog'
 ```
 
-- Required: `-Source`
-- Defaults: `-LogName 'Application'`, `-MachineName '.'`
-- Options: `-OutputTemplate` (default: `{Message}{NewLine}{Exception}{ErrorRecord}`),
+* Required: `-Source`
+* Defaults: `-LogName 'Application'`, `-MachineName '.'`
+* Options: `-OutputTemplate` (default: `{Message}{NewLine}{Exception}{ErrorRecord}`),
   `-RestrictedToMinimumLevel`, `-FormatProvider`, `-EventIdProvider`
-- Creation: `-ManageEventSource` to create the source (requires elevation)
+* Creation: `-ManageEventSource` to create the source (requires elevation)
 
 ## 4. Updating / hot reload (supported patterns)
 
 There is no “Update-KrLogger” cmdlet. Use one of these patterns:
 
-- Dynamic per-logger minimum (PowerShell):
+* Dynamic per-logger minimum (PowerShell):
 
   ```powershell
   # Create a logger whose minimum level can be changed at runtime
@@ -173,7 +173,7 @@ There is no “Update-KrLogger” cmdlet. Use one of these patterns:
   Get-KrLevelSwitch -LoggerName 'app'
   ```
 
-- Level switches (C#):
+* Level switches (C#):
 
   ```csharp
   using Serilog.Core;
@@ -190,9 +190,9 @@ There is no “Update-KrLogger” cmdlet. Use one of these patterns:
   sw.MinimumLevel = LogEventLevel.Debug;
   ```
 
-- Re-register the same name (replace logger):
+* Re-register the same name (replace logger):
 
-  - PowerShell:
+  * PowerShell:
 
     ```powershell
     Register-KrLogger -Name 'app' -SetAsDefault -LoggerConfig (
@@ -200,7 +200,7 @@ There is no “Update-KrLogger” cmdlet. Use one of these patterns:
     )
     ```
 
-  - C#:
+  * C#:
 
     ```csharp
     LoggerManager.Add("app", cfg => cfg.MinimumLevel.Debug().WriteTo.Console(), setAsDefault: true);
@@ -210,12 +210,12 @@ There is no “Update-KrLogger” cmdlet. Use one of these patterns:
 
 ## 5. Defaults and cleanup
 
-- C#:
-  - `LoggerManager.DefaultLogger` / `LoggerManager.DefaultLoggerName`
-  - `LoggerManager.Clear()` — remove and dispose all registered loggers
-- PowerShell:
-  - `Get-KrDefaultLogger`, `Set-KrDefaultLogger`
-  - `Close-KrLogger` — close a specific logger or `Serilog.Log.Logger`
+* C#:
+  * `LoggerManager.DefaultLogger` / `LoggerManager.DefaultLoggerName`
+  * `LoggerManager.Clear()` — remove and dispose all registered loggers
+* PowerShell:
+  * `Get-KrDefaultLogger`, `Set-KrDefaultLogger`
+  * `Close-KrLogger` — close a specific logger or `Serilog.Log.Logger`
 
 Closing loggers and file handles
 
@@ -241,20 +241,20 @@ Close-KrLogger
 
 PowerShell
 
-- Builders: `New-KrLogger`, `Set-KrMinimumLevel` (supports `-Dynamic`), `New-KrLevelSwitch`, `Set-KrLevelSwitch`, `Get-KrLevelSwitch`
-- Enrichers: `Add-KrEnrichProperty`, `Add-KrEnrichProcessId`, `Add-KrEnrichProcessName`,
+* Builders: `New-KrLogger`, `Set-KrMinimumLevel` (supports `-Dynamic`), `New-KrLevelSwitch`, `Set-KrLevelSwitch`, `Get-KrLevelSwitch`
+* Enrichers: `Add-KrEnrichProperty`, `Add-KrEnrichProcessId`, `Add-KrEnrichProcessName`,
   `Add-KrEnrichEnvironment`, `Add-KrEnrichFromLogContext`, `Add-KrEnrichExceptionDetail`
-- Sinks: `Add-KrSinkConsole`, `Add-KrSinkPowerShell`, `Add-KrSinkFile`, `Add-KrSinkHttp`,
+* Sinks: `Add-KrSinkConsole`, `Add-KrSinkPowerShell`, `Add-KrSinkFile`, `Add-KrSinkHttp`,
   `Add-KrSinkEventLog`, `Add-KrSinkSyslogUdp`, `Add-KrSinkSyslogTcp`, `Add-KrSinkSyslogLocal`,
   `Get-KrJsonFormatter`
-- Register/use: `Register-KrLogger`, `Write-KrLog`, `Get-KrDefaultLogger`, `Set-KrDefaultLogger`,
+* Register/use: `Register-KrLogger`, `Write-KrLog`, `Get-KrDefaultLogger`, `Set-KrDefaultLogger`,
   `Close-KrLogger`
 
 C#
 
-- `Kestrun.Logging.LoggerManager` — `Add()`, `Register()`, `Get()`, `List()`, `Remove()`,
+* `Kestrun.Logging.LoggerManager` — `Add()`, `Register()`, `Get()`, `List()`, `Remove()`,
   `Clear()`, `DefaultLogger`, `DefaultLoggerName`
-- `LoggerConfigurationExtensions.Register()` — register a created logger under a name
+* `LoggerConfigurationExtensions.Register()` — register a created logger under a name
 
 ---
 

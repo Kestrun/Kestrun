@@ -16,7 +16,7 @@ New-KrServer -Name "Simple Server"
 Add-KrListener -Port 5000 -IPAddress ([IPAddress]::Loopback)
 
 # Add a static files service
-Add-KrStaticFilesService -RequestPath '/assets' -RootPath '.\Assets\wwwroot' -ServeUnknownFileTypes
+Add-KrStaticFilesMiddleware -RequestPath '/assets' -RootPath '.\Assets\wwwroot' -ServeUnknownFileTypes
 
 # Enable Kestrun configuration
 Enable-KrConfiguration

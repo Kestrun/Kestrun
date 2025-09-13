@@ -25,20 +25,20 @@
     .PARAMETER PassThru
         If specified, returns the modified server instance after adding the CORS policy.
     .EXAMPLE
-        $server | Add-KrCorsPolicy -Name 'AllowAll' -AllowAnyOrigin -AllowAnyMethod -AllowAnyHeader
+        $server | Add-KrCorsPolicyMiddleware -Name 'AllowAll' -AllowAnyOrigin -AllowAnyMethod -AllowAnyHeader
         This example adds a CORS policy named 'AllowAll' to the server, allowing any origin, method, and header.
     .EXAMPLE
-        $server | Add-KrCorsPolicy -Name 'CustomPolicy' -Builder $builder
+        $server | Add-KrCorsPolicyMiddleware -Name 'CustomPolicy' -Builder $builder
         This example adds a CORS policy named 'CustomPolicy' to the server using the specified CORS policy builder.
     .EXAMPLE
-        $server | Add-KrCorsPolicy -Server $server -Name 'CustomPolicy' -AllowAnyOrigin -AllowAnyMethod -AllowAnyHeader
+        $server | Add-KrCorsPolicyMiddleware -Server $server -Name 'CustomPolicy' -AllowAnyOrigin -AllowAnyMethod -AllowAnyHeader
         This example adds a CORS policy named 'CustomPolicy' to the server, allowing any origin, method, and header.
     .NOTES
         This cmdlet is used to configure CORS policies for the Kestrun server, allowing you to control cross-origin requests and specify which origins, methods, and headers are allowed.
     .LINK
         https://learn.microsoft.com/en-us/dotnet/api/microsoft.aspnetcore.cors.infrastructure.corspolicybuilder?view=aspnetcore-8.0
 #>
-function Add-KrCorsPolicy {
+function Add-KrCorsPolicyMiddleware {
     [KestrunRuntimeApi('Definition')]
     [CmdletBinding(defaultParameterSetName = 'Items')]
     [OutputType([Kestrun.Hosting.KestrunHost])]

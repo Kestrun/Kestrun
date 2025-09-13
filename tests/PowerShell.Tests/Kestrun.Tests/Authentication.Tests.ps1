@@ -41,7 +41,7 @@ BeforeAll {
     # . "$PWD$TestPath/helper.ps1"
     $Script:Url = 'https://localhost:5001'
     $logger = New-KrLogger |
-        Set-KrMinimumLevel -Value Debug |
+        Set-KrLoggerMinimumLevel -Value Debug |
         Add-KrSinkFile -Path '.\logs\Authentication.log' -RollingInterval Hour |
         Register-KrLogger -Name 'DefaultLogger' -PassThru -SetAsDefault
 
@@ -61,9 +61,9 @@ BeforeAll {
     Add-KrListener -Port 5001 -IPAddress ([IPAddress]::Loopback) -X509Certificate $cert -Protocols Http1AndHttp2AndHttp3
     Add-KrListener -Port 5000 -IPAddress ([IPAddress]::Loopback)
 
-    Add-KrResponseCompression -EnableForHttps -MimeTypes @('text/plain', 'text/html', 'application/json', 'application/xml', 'application/x-www-form-urlencoded')
+    Add-KrCompressionMiddleware -EnableForHttps -MimeTypes @('text/plain', 'text/html', 'application/json', 'application/xml', 'application/x-www-form-urlencoded')
     Add-KrPowerShellRuntime
-    Add-KrFavicon
+    Add-KrFaviconMiddleware
 
     # Authentication Schemes Names definitions
     $BasicPowershellScheme = 'PowershellBasic'

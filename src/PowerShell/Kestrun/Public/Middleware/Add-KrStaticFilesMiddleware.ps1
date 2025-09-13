@@ -25,18 +25,18 @@
 .PARAMETER PassThru
     If specified, the cmdlet will return the modified server instance after adding the static file service.
 .EXAMPLE
-    $server | Add-KrStaticFilesService -RequestPath '/static' -HttpsCompression -ServeUnknownFileTypes -DefaultContentType 'application/octet-stream' -RedirectToAppendTrailingSlash
+    $server | Add-KrStaticFilesMiddleware -RequestPath '/static' -HttpsCompression -ServeUnknownFileTypes -DefaultContentType 'application/octet-stream' -RedirectToAppendTrailingSlash
     This example adds a static file service to the server for the path '/static', enabling HTTPS compression, allowing serving unknown file types,
     setting the default content type to 'application/octet-stream', and redirecting requests to append a trailing slash.
 .EXAMPLE
-    $server | Add-KrStaticFilesService -Options $options
+    $server | Add-KrStaticFilesMiddleware -Options $options
     This example adds a static file service to the server using the specified StaticFileOptions.
 .LINK
     https://learn.microsoft.com/en-us/dotnet/api/microsoft.aspnetcore.builder.staticfileoptions?view=aspnetcore-8.0
 .NOTES
     ContentTypeProvider and ContentTypeProviderOptions are not supported yet.
 #>
-function Add-KrStaticFilesService {
+function Add-KrStaticFilesMiddleware {
     [KestrunRuntimeApi('Definition')]
     [CmdletBinding(defaultParameterSetName = 'Items')]
     [OutputType([Kestrun.Hosting.KestrunHost])]

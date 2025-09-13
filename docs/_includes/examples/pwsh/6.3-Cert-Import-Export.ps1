@@ -18,7 +18,7 @@ function Convert-ToSecureStringOrNull {
 Initialize-KrRoot -Path $PSScriptRoot
 
 New-KrLogger |
-    Set-KrMinimumLevel -Value Debug |
+    Set-KrLoggerMinimumLevel -Value Debug |
     Add-KrSinkConsole |
     Register-KrLogger -Name 'myLogger'
 

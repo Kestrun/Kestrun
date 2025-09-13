@@ -40,13 +40,19 @@ function Test-KrCacheRevalidation {
         [DateTimeOffset]$LastModified
     )
 
-    $handled = [Kestrun.Utilities.CacheRevalidation]::TryWrite304(
-        $Context.HttpContext,
-        $Payload,
-        $ETag,
-        $Weak.IsPresent,
-        $LastModified
-    )
+    # Only works inside a route script block where $Context is available
+    if ($null -ne $Context.Response) {
+        # Call the C# method on the $Context.Response object
+        $handled = [Kestrun.Utilities.CacheRevalidation]::TryWrite304(
+            $Context.HttpContext,
+            $Payload,
+            $ETag,
+            $Weak.IsPresent,
+            $LastModified
+        )
 
-    return $handled
+        return $handled
+    } else {
+        Write-KrOutsideRouteWarning
+    }
 }

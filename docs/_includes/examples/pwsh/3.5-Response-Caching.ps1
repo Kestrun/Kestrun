@@ -9,7 +9,7 @@
 # This is recommended in order to use relative paths without issues
 Initialize-KrRoot -Path $PSScriptRoot
 New-KrLogger |
-    Set-KrMinimumLevel -Value Debug |
+    Set-KrLoggerMinimumLevel -Value Debug |
     Add-KrSinkConsole |
     Register-KrLogger -Name 'console' -SetAsDefault | Out-Null
 # Create a new Kestrun server
@@ -20,10 +20,10 @@ Add-KrPowerShellRuntime
 Add-KrListener -Port 5000 -IPAddress ([IPAddress]::Loopback)
 
 # Add a file server with browsing enabled
-Add-KrFileServer -RequestPath '/' -RootPath '.\Assets\wwwroot' -EnableDirectoryBrowsing -ContentTypeMap $map
+Add-KrFileServerMiddleware -RequestPath '/' -RootPath '.\Assets\wwwroot' -EnableDirectoryBrowsing -ContentTypeMap $map
 # Add response caching with a 10MB size limit, 64KB max body size, case-sensitive paths,
 # a shared max age of 100 seconds, and public cacheability.
-Add-KrResponseCaching -SizeLimit 10485760 -MaximumBodySize 65536 -UseCaseSensitivePaths -SharedMaxAge 100 -Public -MaxAge 100
+Add-KrCacheMiddleware -SizeLimit 10485760 -MaximumBodySize 65536 -UseCaseSensitivePaths -SharedMaxAge 100 -Public -MaxAge 100
 
 # Enable Kestrun configuration
 Enable-KrConfiguration

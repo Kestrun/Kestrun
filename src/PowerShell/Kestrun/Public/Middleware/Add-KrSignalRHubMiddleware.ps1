@@ -12,10 +12,10 @@
     .PARAMETER PassThru
         If specified, the cmdlet will return the modified server instance after adding the SignalR hub.
     .EXAMPLE
-        $server | Add-KrSignalRHub -HubType ([ChatHub]) -Path "/chat"
+        $server | Add-KrSignalRHubMiddleware -HubType ([ChatHub]) -Path "/chat"
         This example maps the ChatHub class to the "/chat" URL path on the specified Kestrun server.
     .EXAMPLE
-        Get-KrServer | Add-KrSignalRHub -HubType ([ChatHub]) -Path "/chat"
+        Get-KrServer | Add-KrSignalRHubMiddleware -HubType ([ChatHub]) -Path "/chat"
         This example retrieves the current Kestrun server and maps the ChatHub class to the "/chat" URL path.
     .NOTES
         This function is part of the Kestrun PowerShell module and is used to manage SignalR hubs on the Kestrun server.
@@ -33,7 +33,7 @@
         The function is designed to be used in a modular way, allowing for easy addition of SignalR hubs to the Kestrun server.
         The function is intended for use in scenarios where SignalR hubs need to be dynamically mapped to specific URL paths at runtime.
 #>
-function Add-KrSignalRHub {
+function Add-KrSignalRHubMiddleware {
     [KestrunRuntimeApi('Definition')]
     [CmdletBinding()]
     param(
@@ -57,7 +57,7 @@ function Add-KrSignalRHub {
         }
     }
     process {
-        Write-KrLog -Level Warning 'Add-KrSignalRHub is an experimental feature and may not work as expected.'
+        Write-KrLog -Level Warning 'Add-KrSignalRHubMiddleware is an experimental feature and may not work as expected.'
 
         # 1.  Find the generic method definition on KestrunHost
         $method = $Server.GetType().GetMethods() |

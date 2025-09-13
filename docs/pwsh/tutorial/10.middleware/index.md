@@ -1,14 +1,14 @@
 ---
-title: OpenApi
+title: Middleware
 parent: Tutorials
-nav_order: 12
+nav_order: 10
 ---
 
-# Introduction to OpenApi
+# Introduction to Middleware
 
 > 🚧 **Work in Progress**
 >
-> This page is currently under development. Content will be expanded with guides, examples, and best practices soon.  
+> This page is currently under development. Content will be expanded with guides, examples, and best practices soon.
 > Thank you for your patience while we build it out.
 
 ## Quick start: run the samples

@@ -16,10 +16,10 @@ New-KrServer -Name "Simple Server"
 Add-KrListener -Port 5000 -IPAddress ([IPAddress]::Loopback)
 
 # Add a file server with browsing enabled
-Add-KrFileServer -RequestPath '/' -RootPath '.\Assets\wwwroot' -EnableDirectoryBrowsing -ServeUnknownFileTypes
+Add-KrFileServerMiddleware -RequestPath '/' -RootPath '.\Assets\wwwroot' -EnableDirectoryBrowsing -ServeUnknownFileTypes
 
 # Add a favicon
-Add-KrFavicon -IconPath '.\Assets\favicon.png'
+Add-KrFaviconMiddleware -IconPath '.\Assets\favicon.png'
 
 # Enable Kestrun configuration
 Enable-KrConfiguration

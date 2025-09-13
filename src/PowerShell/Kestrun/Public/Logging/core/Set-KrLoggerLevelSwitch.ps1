@@ -1,32 +1,35 @@
 ﻿<#
     .SYNOPSIS
-        Gets the current logging level for a level switch.
+        Sets the minimum logging level for a level switch.
     .DESCRIPTION
-        Retrieves the current logging level for a specified level switch. If the LoggerName is not provided,
-        it will be derived from the provided Logger instance.
+        Sets the minimum logging level for a specified level switch. If ToPreference is specified,
+        the logging level will be set to the user's preference.
     .PARAMETER Logger
         An instance of Serilog.Core.Logger to set the level switch for.
         It's mutually exclusive with the LoggerName parameter.
     .PARAMETER LoggerName
         The name of a registered logger to set the level switch for.
         It's mutually exclusive with the Logger parameter.
+    .PARAMETER MinimumLevel
+        The minimum logging level to set for the switch.
     .EXAMPLE
-        PS> Get-KrLevelSwitch -LoggerName "MyLogger"
-        Retrieves the current logging level of the level switch for the logger named "MyLogger".
+        PS> Set-KrLoggerLevelSwitch -LoggerName "MyLogger" -MinimumLevel Warning
+        Sets the minimum logging level of the level switch for the logger named "MyLogger" to Warning.
     .EXAMPLE
-        PS> Get-KrLevelSwitch -Logger $myLogger
-        Retrieves the current logging level of the level switch for the specified logger instance.
+        PS> Set-KrLoggerLevelSwitch -Logger $myLogger -MinimumLevel Error
+        Sets the minimum logging level of the level switch for the specified logger instance to Error.
 #>
-function Get-KrLevelSwitch {
+function Set-KrLoggerLevelSwitch {
     [KestrunRuntimeApi('Everywhere')]
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseShouldProcessForStateChangingFunctions', '')]
     [CmdletBinding(DefaultParameterSetName = 'LoggerName')]
-    [OutputType([Serilog.Events.LogEventLevel])]
     param(
         [Parameter(Mandatory = $false, ParameterSetName = 'LoggerName')]
         [string]$LoggerName,
         [Parameter(Mandatory = $true, ParameterSetName = 'Logger')]
-        [Serilog.Core.Logger]$Logger
+        [Serilog.Core.Logger]$Logger,
+        [Parameter(Mandatory = $true)]
+        [Serilog.Events.LogEventLevel]$MinimumLevel
     )
 
     if ([string]::IsNullOrEmpty($LoggerName)) {
@@ -35,11 +38,6 @@ function Get-KrLevelSwitch {
     if ([string]::IsNullOrEmpty($LoggerName)) {
         throw [System.ArgumentException]::new("LoggerName cannot be null or empty.")
     }
-
-    $levelSwitch = [Kestrun.Logging.LoggerManager]::GetLevelSwitch($LoggerName)
-    if ($null -eq $levelSwitch) {
-        throw [System.InvalidOperationException]::new("Level switch not found for logger '$LoggerName'. Ensure that the logger is configured with a level switch.")
-    }
-    return $levelSwitch.MinimumLevel
+    [Kestrun.Logging.LoggerManager]::SetLevelSwitch($LoggerName, $MinimumLevel)
 }
 

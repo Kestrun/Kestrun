@@ -8,9 +8,9 @@
     .OUTPUTS
         Instance of Serilog.Formatting.Json.JsonFormatter
     .EXAMPLE
-        PS> New-KrLogger | Add-KrSinkFile -Path 'C:\Data\Log\test.log' -Formatter (Get-KrJsonFormatter) | Register-KrLogger
+        PS> New-KrLogger | Add-KrSinkFile -Path 'C:\Data\Log\test.log' -Formatter (Get-KrSinkJsonFormatter) | Register-KrLogger
 #>
-function Get-KrJsonFormatter {
+function Get-KrSinkJsonFormatter {
     [KestrunRuntimeApi('Everywhere')]
     [CmdletBinding()]
     [OutputType([Serilog.Formatting.Json.JsonFormatter])]

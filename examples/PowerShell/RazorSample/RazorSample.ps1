@@ -39,7 +39,7 @@ try {
 }
 
 New-KrLogger |
-    Set-KrMinimumLevel -Value Debug |
+    Set-KrLoggerMinimumLevel -Value Debug |
     Add-KrSinkFile -Path '.\logs\razor.log' -RollingInterval Hour |
     Add-KrSinkConsole |
     Register-KrLogger -SetAsDefault -Name 'DefaultLogger'
@@ -49,16 +49,16 @@ $server = New-KrServer -Name 'MyKestrunServer' -PassThru |
     Set-KrServerOptions -DenyServerHeader -PassThru |
     Set-KrServerLimit -MaxConcurrentConnections 100 -MaxRequestBodySize 10485760 -MaxRequestHeaderCount 100 -KeepAliveTimeout 120 -PassThru |
     # Listen on port 5000 (HTTP)
-    Add-KrListener -Port 5000 -PassThru | Add-KrResponseCompression -EnableForHttps -MimeTypes @(
+    Add-KrListener -Port 5000 -PassThru | Add-KrCompressionMiddleware -EnableForHttps -MimeTypes @(
         'text/plain',
         'text/css',
         'application/javascript',
         'application/json',
         'application/xml',
         'text/html'
-    ) -PassThru | Add-KrCorsPolicy -Name 'AllowAll' -AllowAnyOrigin -AllowAnyMethod -AllowAnyHeader -PassThru |
-    Add-KrFileServer -RequestPath '/assets' -EnableDirectoryBrowsing -PassThru |
-    Add-KrStaticFilesService -RequestPath '/static' -PassThru |
+    ) -PassThru | Add-KrCorsPolicyMiddleware -Name 'AllowAll' -AllowAnyOrigin -AllowAnyMethod -AllowAnyHeader -PassThru |
+    Add-KrFileServerMiddleware -RequestPath '/assets' -EnableDirectoryBrowsing -PassThru |
+    Add-KrStaticFilesMiddleware -RequestPath '/static' -PassThru |
     Add-KrPowerShellRuntime -PassThru |
     Add-KrPowerShellRazorPagesRuntime -PassThru | Enable-KrConfiguration -PassThru
 

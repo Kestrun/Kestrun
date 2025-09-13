@@ -8,7 +8,7 @@ body:
       label: Describe the documentation issue
       description: A clear and concise description of the issue.
       placeholder: |
-        Example: The example for `Add-KrFileServer` is missing the `-RootPath` parameter.
+        Example: The example for `Add-KrFileServerMiddleware` is missing the `-RootPath` parameter.
     validations:
       required: true
 

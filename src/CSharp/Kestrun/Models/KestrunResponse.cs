@@ -17,6 +17,8 @@ using CsvHelper.Configuration;
 using System.Globalization;
 using CsvHelper;
 using System.Reflection;
+using Microsoft.AspNetCore.ResponseCaching;
+using Microsoft.Net.Http.Headers;
 
 namespace Kestrun.Models;
 
@@ -593,6 +595,81 @@ public class KestrunResponse(KestrunRequest request, int bodyAsyncThreshold = 81
         }
     }
 
+
+    /// <summary>
+    /// Adds caching headers to the response based on the provided CacheControlHeaderValue options.
+    /// </summary>
+    /// <param name="options">The caching options to apply.</param>
+    /// <exception cref="ArgumentNullException">Thrown when options is null.</exception>
+    public void AddCachingHeaders(CacheControlHeaderValue options)
+    {
+        if (options is null)
+        {
+            throw new ArgumentNullException(nameof(options));
+        }
+
+        if (options.NoStore)
+        {
+            Headers["No-Store"] = "true";
+        }
+        if (options.NoCache)
+        {
+            Headers["No-Cache"] = "true";
+        }
+        if (options.MaxAge.HasValue)
+        {
+            Headers["Max-Age"] = ((int)options.MaxAge.Value.TotalSeconds).ToString();
+        }
+        if (options.MustRevalidate)
+        {
+            Headers["Must-Revalidate"] = "true";
+        }
+        if (options.ProxyRevalidate)
+        {
+            Headers["Proxy-Revalidate"] = "true";
+        }
+        if (options.Public)
+        {
+            Headers["Public"] = "true";
+        }
+        if (options.Private)
+        {
+            Headers["Private"] = "true";
+        }
+        if (options.SharedMaxAge.HasValue)
+        {
+            Headers["S-MaxAge"] = ((int)options.SharedMaxAge.Value.TotalSeconds).ToString();
+        }
+        if (options.MaxStale)
+        {
+            Headers["Max-Stale"] = "true";
+        }
+        if (options.MaxStaleLimit.HasValue)
+        {
+            Headers["Max-Stale-Limit"] = ((int)options.MaxStaleLimit.Value.TotalSeconds).ToString();
+        }
+        if (options.MinFresh.HasValue)
+        {
+            Headers["Min-Fresh"] = ((int)options.MinFresh.Value.TotalSeconds).ToString();
+        }
+        if (options.OnlyIfCached)
+        {
+            Headers["Only-If-Cached"] = "true";
+        }
+        if (options.NoTransform)
+        {
+            Headers["No-Transform"] = "true";
+        }
+        if (options.ProxyRevalidate)
+        {
+            Headers["Proxy-Revalidate"] = "true";
+        }
+        if (options.MustRevalidate)
+        {
+            Headers["Must-Revalidate"] = "true";
+        }
+    }
+
     /// <summary>
     /// Writes a binary response with the specified data, status code, and content type.
     /// </summary>
@@ -812,7 +889,7 @@ public class KestrunResponse(KestrunRequest request, int bodyAsyncThreshold = 81
     }
 
     #endregion
-    #region HTML Response Helpers 
+    #region HTML Response Helpers
 
     /// <summary>
     /// Renders a template string by replacing placeholders in the format {{key}} with corresponding values from the provided dictionary.

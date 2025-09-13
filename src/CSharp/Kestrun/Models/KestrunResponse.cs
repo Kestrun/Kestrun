@@ -603,10 +603,7 @@ public class KestrunResponse(KestrunRequest request, int bodyAsyncThreshold = 81
     /// <exception cref="ArgumentNullException">Thrown when options is null.</exception>
     public void AddCachingHeaders(CacheControlHeaderValue options)
     {
-        if (options is null)
-        {
-            throw new ArgumentNullException(nameof(options));
-        }
+        ArgumentNullException.ThrowIfNull(options);
 
         if (options.NoStore)
         {

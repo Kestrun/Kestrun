@@ -17,7 +17,6 @@ using CsvHelper.Configuration;
 using System.Globalization;
 using CsvHelper;
 using System.Reflection;
-using Microsoft.AspNetCore.ResponseCaching;
 using Microsoft.Net.Http.Headers;
 
 namespace Kestrun.Models;

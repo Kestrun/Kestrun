@@ -7,18 +7,18 @@ you’re in the right place. 💫
 
 ## ✨ Ways to Contribute
 
-* **Code**: features, bug fixes, performance improvements.
-* **Docs**: tutorials, cmdlet help, architecture notes (must follow Just-the-Docs).
-* **Tests**: increase coverage, add regression tests with Pester.
-* **Issues/Discussion**: report bugs, propose ideas, share feedback.
+- **Code**: features, bug fixes, performance improvements.
+- **Docs**: tutorials, cmdlet help, architecture notes (must follow Just-the-Docs).
+- **Tests**: increase coverage, add regression tests with Pester.
+- **Issues/Discussion**: report bugs, propose ideas, share feedback.
 
 ---
 
 ## 🧰 Prerequisites
 
-* **PowerShell 7.4 or greater**
-* **.NET SDK** (8 or 9 recommended)
-* **Invoke-Build** and **Pester** (installed via `Install-PSResource`)
+- **PowerShell 7.4 or greater**
+- **.NET SDK** (8 or 9 recommended)
+- **Invoke-Build** and **Pester** (installed via `Install-PSResource`)
 
 Install the PowerShell build/test tooling:
 
@@ -81,22 +81,22 @@ That’s the canonical pipeline used locally and by CI—keep it consistent.
 
 ### C\#
 
-* Follow Microsoft C# conventions.
-* Prefer explicit types for public APIs; keep internals tidy.
-* Use nullable reference types and `ConfigureAwait(false)` in library code where relevant.
+- Follow Microsoft C# conventions.
+- Prefer explicit types for public APIs; keep internals tidy.
+- Use nullable reference types and `ConfigureAwait(false)` in library code where relevant.
 
 ### PowerShell
 
-* Approved verbs (`Get-`, `New-`, `Add-`, `Set-`, `Remove-`, `Test-`, etc.).
-* Include comment-based help for all public functions.
-* Avoid global state; design for pipeline-friendliness.
-* Keep cmdlets fast and predictable—pure where possible.
+- Approved verbs (`Get-`, `New-`, `Add-`, `Set-`, `Remove-`, `Test-`, etc.).
+- Include comment-based help for all public functions.
+- Avoid global state; design for pipeline-friendliness.
+- Keep cmdlets fast and predictable—pure where possible.
 
 ### Testing
 
-* Prefer **Pester v5** tests colocated under `tests/`.
-* One behavioral concern per test; name tests descriptively.
-* When fixing a bug, add a failing test first.
+- Prefer **Pester v5** tests colocated under `tests/`.
+- One behavioral concern per test; name tests descriptively.
+- When fixing a bug, add a failing test first.
 
 ---
 
@@ -105,9 +105,9 @@ That’s the canonical pipeline used locally and by CI—keep it consistent.
 All docs must render cleanly with **[Just-the-Docs](https://github.com/just-the-docs/just-the-docs)** (as used by the Kestrun site).
 Key rules:
 
-* Every page requires a **front matter** block.
-* Use **`parent`**, **`nav_order`**, and **`has_children`** to control navigation.
-* Keep cmdlets under the **“PowerShell Cmdlets”** section; tutorials under **“Tutorials.”**
+- Every page requires a **front matter** block.
+- Use **`parent`**, **`nav_order`**, and **`has_children`** to control navigation.
+- Keep cmdlets under the **“PowerShell Cmdlets”** section; tutorials under **“Tutorials.”**
 
 ### Front Matter Templates
 
@@ -149,8 +149,8 @@ Get-KrScheduleReport -AsHashtable
 
 ## PARAMETERS
 
-* **Server** — …
-* **TimeZoneId** — …
+- **Server** — …
+- **TimeZoneId** — …
 
 ````text
 
@@ -195,24 +195,24 @@ Browse the Kestrun command surface…
 
 ### Content Conventions
 
-* **Headings**: Use `#`, `##`, `###` sensibly; keep titles short.
-* **Callouts**: Use Markdown blockquotes:
+- **Headings**: Use `#`, `##`, `###` sensibly; keep titles short.
+- **Callouts**: Use Markdown blockquotes:
 
   > **Note:** This behavior requires PowerShell 7.4+
   > **Warning:** Rotating secrets? Update appsettings too.
-* **Code fences**: Use language hints (` ```powershell`, ` ```csharp`).
-* **Links**: Relative links within the docs; absolute links for external sites.
+- **Code fences**: Use language hints (` ```powershell`, ` ```csharp`).
+- **Links**: Relative links within the docs; absolute links for external sites.
 
 ---
 
 ## ✅ Pull Request Checklist
 
-* [ ] Built successfully: `Invoke-Build Restore ; Invoke-Build Build`
-* [ ] Tests pass: `Invoke-Build Test`
-* [ ] New/changed behavior covered by Pester tests
-* [ ] Public APIs documented (XML docs for C#, comment-based help for PowerShell)
-* [ ] Docs are **Just-the-Docs** compliant and correctly placed (Cmdlets/Tutorials)
-* [ ] Changelog entry if user-facing
+- [ ] Built successfully: `Invoke-Build Restore ; Invoke-Build Build`
+- [ ] Tests pass: `Invoke-Build Test`
+- [ ] New/changed behavior covered by Pester tests
+- [ ] Public APIs documented (XML docs for C#, comment-based help for PowerShell)
+- [ ] Docs are **Just-the-Docs** compliant and correctly placed (Cmdlets/Tutorials)
+- [ ] Changelog entry if user-facing
 
 ---
 
@@ -220,9 +220,9 @@ Browse the Kestrun command surface…
 
 Please include:
 
-* Repro steps and expected vs. actual behavior
-* Versions: OS, PowerShell (must be 7.4+), .NET SDK
-* Logs, stack traces, and minimal code samples
+- Repro steps and expected vs. actual behavior
+- Versions: OS, PowerShell (must be 7.4+), .NET SDK
+- Logs, stack traces, and minimal code samples
 
 ---
 

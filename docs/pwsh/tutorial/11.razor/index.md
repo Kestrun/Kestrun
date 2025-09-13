@@ -8,7 +8,7 @@ nav_order: 11
 
 > 🚧 **Work in Progress**
 >
-> This page is currently under development. Content will be expanded with guides, examples, and best practices soon.  
+> This page is currently under development. Content will be expanded with guides, examples, and best practices soon.
 > Thank you for your patience while we build it out.
 > *Dynamic ASP.NET Core UI powered by PowerShell scripts — all inside **Kestrun***
 > Plus: how to collect form data both from PowerShell and C# Razor Pages
@@ -42,9 +42,9 @@ During a single HTTP request the pipeline looks like this:
 
 ### Advantages
 
-* **Zero compile step** — change the `.ps1` file, hit *F5*, refresh.
-* **Full access to Kestrun abstractions** (`$Context.Request`, `$Context.Response`, loggers, DI).
-* **Razor tooling** — syntax highlighting, IntelliSense, TagHelpers, layout views, etc.
+- **Zero compile step** — change the `.ps1` file, hit *F5*, refresh.
+- **Full access to Kestrun abstractions** (`$Context.Request`, `$Context.Response`, loggers, DI).
+- **Razor tooling** — syntax highlighting, IntelliSense, TagHelpers, layout views, etc.
 
 ---
 
@@ -64,8 +64,8 @@ MyApp/
    └─ _Layout.cshtml       ← optional shared layout
 ```
 
-* URL rule: `/Pages/Hello.cshtml` → **`/Hello`**
-* Sub-folders map to path segments (`/ps/Form` → `/ps/Form`, `/cs/Form` → `/cs/Form`).
+- URL rule: `/Pages/Hello.cshtml` → **`/Hello`**
+- Sub-folders map to path segments (`/ps/Form` → `/ps/Form`, `/cs/Form` → `/cs/Form`).
 
 ---
 
@@ -159,9 +159,9 @@ Create **`Pages/_ViewImports.cshtml`** (alongside `ps/` and `cs/`):
 @namespace RazorSample.Pages
 ```
 
-* **`@addTagHelper *, Microsoft.AspNetCore.Mvc.TagHelpers`** enables `<form asp-for>` and auto-injects antiforgery tokens.
-* **`@using`** brings your PageModels and `PowerShellPageModel` into scope.
-* **`@namespace`** sets the default C# namespace for views.
+- **`@addTagHelper *, Microsoft.AspNetCore.Mvc.TagHelpers`** enables `<form asp-for>` and auto-injects antiforgery tokens.
+- **`@using`** brings your PageModels and `PowerShellPageModel` into scope.
+- **`@namespace`** sets the default C# namespace for views.
 
 ### 5.2 PowerShell-backed form example
 
@@ -320,13 +320,13 @@ if (-not (Test-Path "data/$($Context.Request.RouteValues.id).json")) {
 
 ## 7. Tips & best practices
 
-* **Strong typing helps** – cast `$Model` to a real .NET class for IntelliSense in Razor (`@model Person`).
-* **Keep business logic out of `.ps1`** – call C# services from DI instead.
-* **One script = one request** – avoid long-running background work; offload to hosted services.
-* **Case matters on Linux** – name files and hit URLs with matching case.
+- **Strong typing helps** – cast `$Model` to a real .NET class for IntelliSense in Razor (`@model Person`).
+- **Keep business logic out of `.ps1`** – call C# services from DI instead.
+- **One script = one request** – avoid long-running background work; offload to hosted services.
+- **Case matters on Linux** – name files and hit URLs with matching case.
   `Hello.cshtml` → `/Hello` (not `/hello`) if deploying to Linux containers.
-* **Hot reload** – edit `.ps1` or `.cshtml`, save, refresh; no rebuild required.
-* **Logging** – use `$Log` or the `[Serilog.Log]` static to record diagnostics.
+- **Hot reload** – edit `.ps1` or `.cshtml`, save, refresh; no rebuild required.
+- **Logging** – use `$Log` or the `[Serilog.Log]` static to record diagnostics.
   (See **Logging** for full details.)
 
 ---

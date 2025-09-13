@@ -8,7 +8,7 @@ nav_order: 10
 
 > 🚧 **Work in Progress**
 >
-> This page is currently under development. Content will be expanded with guides, examples, and best practices soon.  
+> This page is currently under development. Content will be expanded with guides, examples, and best practices soon.
 > Thank you for your patience while we build it out.
 
 ## Overview
@@ -16,14 +16,14 @@ nav_order: 10
 Kestrun’s built-in **SchedulerService** lets your server run background jobs on fixed intervals or CRON expressions, in either **C#** or **PowerShell**.
 Out-of-the-box you can:
 
-* **Register jobs** — interval or 6-field cron (seconds precision).
-* **Run work in-process**:
+- **Register jobs** — interval or 6-field cron (seconds precision).
+- **Run work in-process**:
 
-  * *C#*: any `Func<CancellationToken,Task>` delegate.
-  * *PowerShell*: inline `ScriptBlock` **or** a script file.
-* **Pause / resume / cancel** individual jobs at runtime.
-* **Query live status** (UTC or any time-zone) as a strongly-typed *report* or a plain `Hashtable`.
-* **Drive everything from PowerShell** via a small set of cmdlets.
+  - *C#*: any `Func<CancellationToken,Task>` delegate.
+  - *PowerShell*: inline `ScriptBlock` **or** a script file.
+- **Pause / resume / cancel** individual jobs at runtime.
+- **Query live status** (UTC or any time-zone) as a strongly-typed *report* or a plain `Hashtable`.
+- **Drive everything from PowerShell** via a small set of cmdlets.
 
 | C# Type / PS Cmdlet    | Purpose                                                                                                            |
 | ---------------------- | ------------------------------------------------------------------------------------------------------------------ |

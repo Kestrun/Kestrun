@@ -1,4 +1,4 @@
-﻿<#
+p<#
     .SYNOPSIS
         Creates a new Kestrun server instance with specified options and listeners.
     .DESCRIPTION
@@ -62,9 +62,7 @@ function Add-KrListener {
         [Parameter(ParameterSetName = 'SelfSignedCert')]
         [switch]$SelfSignedCert,
 
-        [Parameter(Mandatory = $true, ParameterSetName = 'x509Certificate_Default')]
-        [Parameter(Mandatory = $true, ParameterSetName = 'x509Certificate_HostName')]
-        [Parameter(Mandatory = $true, ParameterSetName = 'x509Certificate_Uri')]
+        [Parameter(Mandatory = $true, ParameterSetName = 'x509Certificate')]
         [System.Security.Cryptography.X509Certificates.X509Certificate2]$X509Certificate = $null,
 
         [Parameter(ParameterSetName = 'x509Certificate')]

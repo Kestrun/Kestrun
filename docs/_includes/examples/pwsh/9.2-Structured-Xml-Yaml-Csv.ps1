@@ -1,25 +1,41 @@
-﻿# 9.2 Structured Formats (XML / YAML / CSV)
+﻿
+<#
+    Sample: Structured Formats (XML / YAML / CSV)
+    Purpose: Demonstrate XML, YAML, and CSV responses in a Kestrun server.
+    File:    9.2-Structured-Xml-Yaml-Csv.ps1
+    Notes:   Shows alternative serialization formats for objects.
+#>
 
-New-KrServer -Name 'Responses 9.2' | Out-Null
-Add-KrListener -Url 'http://127.0.0.1:5092' | Out-Null
-Add-KrRuntimePowerShell | Out-Null
+# 1. Logging
+New-KrLogger | Add-KrSinkConsole | Register-KrLogger -Name 'console' -SetAsDefault
 
-# XML
-Add-KrMapRoute -Path '/xml' -Method GET -ScriptBlock {
-    [pscustomobject]@{ Id = 1; Name = 'Alpha' } | Write-KrXmlResponse -ContentType 'application/xml'
+# 2. Server
+New-KrServer -Name 'Responses 9.2'
+
+# 3. Listener
+Add-KrListener -IPAddress '127.0.0.1' -Port 5000
+
+# 4. Runtime
+Add-KrPowerShellRuntime
+
+# Finalize configuration and start server
+Enable-KrConfiguration
+
+# XML route
+Add-KrMapRoute -Pattern '/xml' -Verbs GET -ScriptBlock {
+    @{ Id = 1; Name = 'Alpha'; Nested = @{ X = 10; Y = 20 } } | Write-KrXmlResponse -ContentType 'application/xml'
 }
 
-# YAML
-Add-KrMapRoute -Path '/yaml' -Method GET -ScriptBlock {
-    [pscustomobject]@{ env = 'dev'; enabled = $true } | Write-KrYamlResponse -ContentType 'application/x-yaml'
+# YAML route
+Add-KrMapRoute -Pattern '/yaml' -Verbs GET -ScriptBlock {
+    @{ env = 'dev'; enabled = $true; tags = @('one', 'two') } | Write-KrYamlResponse -ContentType 'application/x-yaml'
 }
 
-# CSV
-Add-KrMapRoute -Path '/csv' -Method GET -ScriptBlock {
-    $data = 1..5 | ForEach-Object { [pscustomobject]@{ Id = $_; Square = ($_ * $_) } }
+# CSV route
+Add-KrMapRoute -Pattern '/csv' -Verbs GET -ScriptBlock {
+    $data = 1..5 | ForEach-Object { @{ Id = $_; Square = ($_ * $_) } }
     $data | Write-KrCsvResponse -ContentType 'text/csv'
 }
 
-Enable-KrConfiguration
-Start-KrServer | Out-Null
-Write-Host '9.2 server running on http://127.0.0.1:5092'
+# Start the server
+Start-KrServer

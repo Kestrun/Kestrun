@@ -17,6 +17,7 @@ using Kestrun.Hosting.Options;
 using System.Runtime.InteropServices;
 using Microsoft.PowerShell;
 using Microsoft.AspNetCore.Authentication;
+using System.Net.Sockets;
 
 namespace Kestrun.Hosting;
 
@@ -266,7 +267,12 @@ public class KestrunHost : IDisposable
     /// <param name="protocols">The HTTP protocols to use.</param>
     /// <param name="useConnectionLogging">Specifies whether to enable connection logging.</param>
     /// <returns>The current KestrunHost instance.</returns>
-    public KestrunHost ConfigureListener(int port, IPAddress? ipAddress = null, X509Certificate2? x509Certificate = null, HttpProtocols protocols = HttpProtocols.Http1, bool useConnectionLogging = false)
+    public KestrunHost ConfigureListener(
+    int port,
+    IPAddress? ipAddress = null,
+    X509Certificate2? x509Certificate = null,
+    HttpProtocols protocols = HttpProtocols.Http1,
+    bool useConnectionLogging = false)
     {
         if (HostLogger.IsEnabled(LogEventLevel.Debug))
         {
@@ -297,14 +303,114 @@ public class KestrunHost : IDisposable
     /// <param name="port">The port number to listen on.</param>
     /// <param name="ipAddress">The IP address to bind to. If null, binds to any address.</param>
     /// <param name="useConnectionLogging">Specifies whether to enable connection logging.</param>
-    public void ConfigureListener(int port, IPAddress? ipAddress = null, bool useConnectionLogging = false) => _ = ConfigureListener(port: port, ipAddress: ipAddress, x509Certificate: null, protocols: HttpProtocols.Http1, useConnectionLogging: useConnectionLogging);
+    public void ConfigureListener(
+    int port,
+    IPAddress? ipAddress = null,
+    bool useConnectionLogging = false) => _ = ConfigureListener(port: port, ipAddress: ipAddress, x509Certificate: null, protocols: HttpProtocols.Http1, useConnectionLogging: useConnectionLogging);
 
     /// <summary>
     /// Configures a listener for the Kestrun host with the specified port and connection logging option.
     /// </summary>
     /// <param name="port">The port number to listen on.</param>
     /// <param name="useConnectionLogging">Specifies whether to enable connection logging.</param>
-    public void ConfigureListener(int port, bool useConnectionLogging = false) => _ = ConfigureListener(port: port, ipAddress: null, x509Certificate: null, protocols: HttpProtocols.Http1, useConnectionLogging: useConnectionLogging);
+    public void ConfigureListener(
+    int port,
+    bool useConnectionLogging = false) => _ = ConfigureListener(port: port, ipAddress: null, x509Certificate: null, protocols: HttpProtocols.Http1, useConnectionLogging: useConnectionLogging);
+
+
+    /// <summary>
+    /// Configures listeners for the Kestrun host by resolving the specified host name to IP addresses and binding to each address.
+    /// </summary>
+    /// <param name="hostName">The host name to resolve and bind to.</param>
+    /// <param name="port">The port number to listen on.</param>
+    /// <param name="x509Certificate">The X509 certificate for HTTPS. If null, HTTPS is not used.</param>
+    /// <param name="protocols">The HTTP protocols to use.</param>
+    /// <param name="useConnectionLogging">Specifies whether to enable connection logging.</param>
+    /// <param name="families">Optional array of address families to filter resolved addresses (e.g., IPv4-only).</param>
+    /// <returns>The current KestrunHost instance.</returns>
+    /// <exception cref="ArgumentException">Thrown when the host name is null or whitespace.</exception>
+    /// <exception cref="InvalidOperationException">Thrown when no valid IP addresses are resolved.</exception>
+    public KestrunHost ConfigureListener(
+    string hostName,
+    int port,
+    X509Certificate2? x509Certificate = null,
+    HttpProtocols protocols = HttpProtocols.Http1,
+    bool useConnectionLogging = false,
+    AddressFamily[]? families = null) // e.g. new[] { AddressFamily.InterNetwork } for IPv4-only
+    {
+        if (string.IsNullOrWhiteSpace(hostName))
+        {
+            throw new ArgumentException("Host name must be provided.", nameof(hostName));
+        }
+
+        // If caller passed an IP literal, just bind once.
+        if (IPAddress.TryParse(hostName, out var parsedIp))
+        {
+            _ = ConfigureListener(port, parsedIp, x509Certificate, protocols, useConnectionLogging);
+            return this;
+        }
+
+        // Resolve and bind to ALL matching addresses (IPv4/IPv6)
+        var addrs = Dns.GetHostAddresses(hostName)
+                       .Where(a => families is null || families.Length == 0 || families.Contains(a.AddressFamily))
+                       .Where(a => a.AddressFamily is AddressFamily.InterNetwork or AddressFamily.InterNetworkV6)
+                       .ToArray();
+
+        if (addrs.Length == 0)
+        {
+            throw new InvalidOperationException($"No IPv4/IPv6 addresses resolved for host '{hostName}'.");
+        }
+
+        foreach (var addr in addrs)
+        {
+            _ = ConfigureListener(port, addr, x509Certificate, protocols, useConnectionLogging);
+        }
+
+        return this;
+    }
+
+    /// <summary>
+    /// Configures listeners for the Kestrun host based on the provided absolute URI, resolving the host to IP addresses and binding to each address.
+    /// </summary>
+    /// <param name="uri">The absolute URI to configure the listener for.</param>
+    /// <param name="x509Certificate">The X509 certificate for HTTPS. If null, HTTPS is not used.</param>
+    /// <param name="protocols">The HTTP protocols to use.</param>
+    /// <param name="useConnectionLogging">Specifies whether to enable connection logging.</param>
+    /// <param name="families">Optional array of address families to filter resolved addresses (e.g., IPv4-only).</param>
+    /// <returns>The current KestrunHost instance.</returns>
+    /// <exception cref="ArgumentException">Thrown when the provided URI is not absolute.</exception>
+    /// <exception cref="InvalidOperationException">Thrown when no valid IP addresses are resolved.</exception>
+    public KestrunHost ConfigureListener(
+    Uri uri,
+    X509Certificate2? x509Certificate = null,
+    HttpProtocols? protocols = null,
+    bool useConnectionLogging = false,
+    AddressFamily[]? families = null)
+    {
+        ArgumentNullException.ThrowIfNull(uri);
+
+        if (!uri.IsAbsoluteUri)
+        {
+            throw new ArgumentException("URL must be absolute.", nameof(uri));
+        }
+
+        var isHttps = uri.Scheme.Equals(Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase);
+        var port = uri.IsDefaultPort ? (isHttps ? 443 : 80) : uri.Port;
+
+        // Default: HTTPS → H1+H2, HTTP → H1
+        var chosenProtocols = protocols ?? (isHttps ? HttpProtocols.Http1AndHttp2 : HttpProtocols.Http1);
+
+        // Delegate to hostname overload (which will resolve or handle IP literal)
+        return ConfigureListener(
+            hostName: uri.Host,
+            port: port,
+            x509Certificate: x509Certificate,
+            protocols: chosenProtocols,
+            useConnectionLogging: useConnectionLogging,
+            families: families
+        );
+    }
+
 
     #endregion
 

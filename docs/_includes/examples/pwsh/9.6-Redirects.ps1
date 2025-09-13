@@ -1,13 +1,30 @@
-﻿# 9.6 Redirects
+﻿
+<#
+    Sample: Redirects
+    Purpose: Demonstrate HTTP redirects in a Kestrun server.
+    File:    9.6-Redirects.ps1
+    Notes:   Shows 3xx Location header response.
+#>
 
-New-KrServer -Name 'Responses 9.6' | Out-Null
-Add-KrListener -Url 'http://127.0.0.1:5096' | Out-Null
-Add-KrRuntimePowerShell | Out-Null
+# 1. Logging
+New-KrLogger | Add-KrSinkConsole | Register-KrLogger -Name 'console' -SetAsDefault
 
-Add-KrMapRoute -Path '/old' -Method GET -ScriptBlock {
+# 2. Server
+New-KrServer -Name 'Responses 9.6'
+
+# 3. Listener
+Add-KrListener -IPAddress '127.0.0.1' -Port 5000
+
+# 4. Runtime
+Add-KrPowerShellRuntime
+
+# Finalize configuration and start server
+Enable-KrConfiguration
+
+# Redirect route
+Add-KrMapRoute -Pattern '/old' -Verbs GET -ScriptBlock {
     Write-KrRedirectResponse -Url 'https://example.com/new' -Message 'Resource moved to /new'
 }
 
-Enable-KrConfiguration
-Start-KrServer | Out-Null
-Write-Host '9.6 server running on http://127.0.0.1:5096'
+# Start the server
+Start-KrServer

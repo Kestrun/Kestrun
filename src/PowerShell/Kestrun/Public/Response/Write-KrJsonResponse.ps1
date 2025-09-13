@@ -40,7 +40,7 @@ function Write-KrJsonResponse {
         [int]$Depth = 10,
 
         [Parameter()]
-        [bool]$Compress = $false,
+        [switch]$Compress,
 
         [Parameter()]
         [string]$ContentType

@@ -1,17 +1,35 @@
-﻿# 9.5 BSON & CBOR
+﻿
+<#
+    Sample: BSON & CBOR
+    Purpose: Demonstrate BSON and CBOR binary responses in a Kestrun server.
+    File:    9.5-Bson-Cbor.ps1
+    Notes:   Shows compact binary object encoding routes.
+#>
 
-New-KrServer -Name 'Responses 9.5' | Out-Null
-Add-KrListener -Url 'http://127.0.0.1:5095' | Out-Null
-Add-KrRuntimePowerShell | Out-Null
+# 1. Logging
+New-KrLogger | Add-KrSinkConsole | Register-KrLogger -Name 'console' -SetAsDefault
 
-Add-KrMapRoute -Path '/bson' -Method GET -ScriptBlock {
-    [pscustomobject]@{ kind = 'bson'; ts = (Get-Date).ToUniversalTime(); values = 1..3 } | Write-KrBsonResponse -ContentType 'application/bson'
-}
+# 2. Server
+New-KrServer -Name 'Responses 9.5'
 
-Add-KrMapRoute -Path '/cbor' -Method GET -ScriptBlock {
-    [pscustomobject]@{ kind = 'cbor'; ts = (Get-Date).ToUniversalTime(); values = 4..6 } | Write-KrCborResponse -ContentType 'application/cbor'
-}
+# 3. Listener
+Add-KrListener -IPAddress '127.0.0.1' -Port 5000
 
+# 4. Runtime
+Add-KrPowerShellRuntime
+
+# Finalize configuration and start server
 Enable-KrConfiguration
-Start-KrServer | Out-Null
-Write-Host '9.5 server running on http://127.0.0.1:5095'
+
+# BSON route
+Add-KrMapRoute -Pattern '/bson' -Verbs GET -ScriptBlock {
+    @{ kind = 'bson'; ts = (Get-Date).ToUniversalTime(); values = 1..3 } | Write-KrBsonResponse -ContentType 'application/bson'
+}
+
+# CBOR route
+Add-KrMapRoute -Pattern '/cbor' -Verbs GET -ScriptBlock {
+    @{ kind = 'cbor'; ts = (Get-Date).ToUniversalTime(); values = 4..6 } | Write-KrCborResponse -ContentType 'application/cbor'
+}
+
+# Start the server
+Start-KrServer

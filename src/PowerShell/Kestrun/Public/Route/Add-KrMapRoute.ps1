@@ -10,8 +10,10 @@
         An instance of `Kestrun.Hosting.Options.MapRouteOptions` that contains the configuration for the route.
         This parameter is used to specify various options for the route, such as HTTP verbs, path, authorization schemes, and more.
     .PARAMETER Verbs
-        The HTTP verbs (GET, POST, etc.) that the route should respond to.
+        Alias: Method
+        The HTTP verbs (GET, POST, etc.) that the route should respond to. Defaults to GET.
     .PARAMETER Pattern
+        Alias: Path
         The URL path for the new route.
     .PARAMETER ScriptBlock
         The script block to be executed when the route is accessed.
@@ -67,19 +69,21 @@ function Add-KrMapRoute {
         [Parameter(ParameterSetName = 'ScriptBlock')]
         [Parameter(ParameterSetName = 'Code')]
         [Parameter(ParameterSetName = 'CodeFilePath')]
+        [Alias('Method')]
         [Kestrun.Utilities.HttpVerb[]]$Verbs = @([Kestrun.Utilities.HttpVerb]::Get),
 
         [Parameter(ParameterSetName = 'ScriptBlock')]
         [Parameter(ParameterSetName = 'Code')]
         [Parameter(ParameterSetName = 'CodeFilePath')]
         [ValidatePattern('^/')]
-        [alias('Path')]
+        [Alias('Path')]
         [string]$Pattern = '/',
 
         [Parameter(Mandatory = $true, Position = 0, ParameterSetName = 'ScriptBlock')]
         [scriptblock]$ScriptBlock,
 
         [Parameter(Mandatory = $true, ParameterSetName = 'Code')]
+        [Alias('CodeBlock')]
         [string]$Code,
 
         [Parameter(Mandatory = $true, ParameterSetName = 'Code')]

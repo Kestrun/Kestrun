@@ -1,4 +1,4 @@
-﻿<#
+<#
     .SYNOPSIS
         Adds caching headers to the HTTP response.
     .DESCRIPTION
@@ -96,7 +96,6 @@ function Add-KrCacheResponse {
 
         # Apply the cache control headers to the response
         $Context.Response.CacheControl = $cacheControl
-
     } else {
         Write-KrOutsideRouteWarning
     }

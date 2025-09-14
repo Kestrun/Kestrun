@@ -95,7 +95,8 @@ function Add-KrCacheResponse {
         if ($PSBoundParameters.ContainsKey('ProxyRevalidate')) { $cacheControl.ProxyRevalidate = $ProxyRevalidate.IsPresent }
 
         # Apply the cache control headers to the response
-        $Context.Response.AddCachingHeaders($cacheControl)
+        $Context.Response.CacheControl = $cacheControl
+
     } else {
         Write-KrOutsideRouteWarning
     }

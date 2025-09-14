@@ -199,14 +199,14 @@ public sealed class KestrunRunspacePoolManager : IDisposable
 
         if (Log.IsEnabled(LogEventLevel.Debug))
         {
-            Log.Debug("Creating new runspace with InitialSessionState: {Iss}", _iss);
+            Log.Debug("Creating new runspace with InitialSessionState");
         }
 
         var rs = RunspaceFactory.CreateRunspace(_iss);
 
         // Apply the chosen thread‑affinity strategy **before** opening.
         rs.ThreadOptions = ThreadOptions;
-        rs.ApartmentState = ApartmentState.MTA;     // always MTA 
+        rs.ApartmentState = ApartmentState.MTA;     // always MTA
 
         rs.Open();
         Log.Information("Opened new Runspace with ThreadOptions={ThreadOptions}", ThreadOptions);

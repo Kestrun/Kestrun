@@ -45,22 +45,33 @@ New-KrLogger |
     Register-KrLogger -SetAsDefault -Name 'DefaultLogger'
 
 # Create the server
-$server = New-KrServer -Name 'MyKestrunServer' -PassThru |
-    Set-KrServerOptions -DenyServerHeader -PassThru |
-    Set-KrServerLimit -MaxConcurrentConnections 100 -MaxRequestBodySize 10485760 -MaxRequestHeaderCount 100 -KeepAliveTimeout 120 -PassThru |
-    # Listen on port 5000 (HTTP)
-    Add-KrListener -Port 5000 -PassThru | Add-KrCompressionMiddleware -EnableForHttps -MimeTypes @(
-        'text/plain',
-        'text/css',
-        'application/javascript',
-        'application/json',
-        'application/xml',
-        'text/html'
-    ) -PassThru | Add-KrCorsPolicyMiddleware -Name 'AllowAll' -AllowAnyOrigin -AllowAnyMethod -AllowAnyHeader -PassThru |
-    Add-KrFileServerMiddleware -RequestPath '/assets' -EnableDirectoryBrowsing -PassThru |
-    Add-KrStaticFilesMiddleware -RequestPath '/static' -PassThru |
-    Add-KrPowerShellRuntime -PassThru |
-    Add-KrPowerShellRazorPagesRuntime -PassThru | Enable-KrConfiguration -PassThru
+New-KrServer -Name 'MyKestrunServer'
+
+Set-KrServerOptions -DenyServerHeader
+
+#|
+Set-KrServerLimit -MaxConcurrentConnections 100 -MaxRequestBodySize 10485760 -MaxRequestHeaderCount 100 -KeepAliveTimeout 120
+# Listen on port 5000 (HTTP)
+Add-KrListener -Port 5000
+Add-KrCompressionMiddleware -EnableForHttps -MimeTypes @(
+    'text/plain',
+    'text/css',
+    'application/javascript',
+    'application/json',
+    'application/xml',
+    'text/html'
+)
+
+Add-KrPowerShellRuntime
+Add-KrPowerShellRazorPagesRuntime
+
+Add-KrCorsPolicyMiddleware -Name 'AllowAll' -AllowAnyOrigin -AllowAnyMethod -AllowAnyHeader
+Add-KrFileServerMiddleware -RequestPath '/assets' -EnableDirectoryBrowsing
+
+Add-KrStaticFilesMiddleware -RequestPath '/static'
+
+
+Enable-KrConfiguration
 
 
 Add-KrMapRoute -Server $server -Verbs Get -Pattern '/ps/json' -ScriptBlock {

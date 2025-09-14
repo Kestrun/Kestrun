@@ -138,11 +138,18 @@
                 "-ExecutionPolicy",
                 "Bypass",
                 "-File",
-                "${workspaceFolder}/examples/PowerShell/Authentication/Authentication.ps1"
+                "${file}"
             ],
             "cwd": "${workspaceFolder}",
             "justMyCode": true,
             "console": "integratedTerminal"
+        },
+        {
+            "name": "PowerShell Launch Current File",
+            "type": "PowerShell",
+            "request": "launch",
+            "script": "${file}",
+            "cwd": "${cwd}"
         }
     ]
 }

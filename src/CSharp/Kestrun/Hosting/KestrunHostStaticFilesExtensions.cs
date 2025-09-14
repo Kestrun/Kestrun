@@ -1,5 +1,6 @@
 ﻿
 using Kestrun.Middleware;
+using Microsoft.Net.Http.Headers;
 using Serilog.Events;
 
 namespace Kestrun.Hosting;
@@ -115,7 +116,7 @@ public static class KestrunHostStaticFilesExtensions
     /// <param name="src">The source default files options.</param>
     /// <param name="dest">The destination default files options.</param>
     /// <remarks>
-    /// This method copies properties from the source default files options to the destination default files options.   
+    /// This method copies properties from the source default files options to the destination default files options.
     /// </remarks>
     private static void CopyDefaultFilesOptions(DefaultFilesOptions? src, DefaultFilesOptions dest)
     {
@@ -124,7 +125,7 @@ public static class KestrunHostStaticFilesExtensions
         {
             return;
         }
-        // Copy properties from source to destination 
+        // Copy properties from source to destination
         dest.DefaultFileNames.Clear();
         foreach (var name in src.DefaultFileNames)
         {
@@ -141,12 +142,13 @@ public static class KestrunHostStaticFilesExtensions
     /// </summary>
     /// <param name="host">The KestrunHost instance to configure.</param>
     /// <param name="cfg">Configuration options for the file server middleware.</param>
+    /// <param name="cacheControl">Optional cache control headers to apply to static file responses.</param>
     /// <returns>The current KestrunHost instance.</returns>
     /// <remarks>
     /// This middleware serves static files and default files from a specified file provider.
     /// If no configuration is provided, it uses default settings.
     /// </remarks>
-    public static KestrunHost AddFileServer(this KestrunHost host, FileServerOptions? cfg)
+    public static KestrunHost AddFileServer(this KestrunHost host, FileServerOptions? cfg, CacheControlHeaderValue? cacheControl = null)
     {
         if (host.HostLogger.IsEnabled(LogEventLevel.Debug))
         {
@@ -175,6 +177,30 @@ public static class KestrunHostStaticFilesExtensions
             }
 
             CopyStaticFileOptions(cfg.StaticFileOptions, options.StaticFileOptions);
+            if (cacheControl != null)
+            {
+                options.StaticFileOptions.OnPrepareResponse = ctx =>
+                {
+                    // Apply the provided cache control if one was given
+                    if (host.HostLogger.IsEnabled(LogEventLevel.Debug))
+                    {
+                        host.HostLogger.Debug("Setting Cache-Control header to: {@CacheControl}", cacheControl);
+                    }
+                    ctx.Context.Response.Headers.CacheControl = cacheControl.ToString();
+                };
+            }
+            else if (host.DefaultCacheControl != null)
+            {
+                options.StaticFileOptions.OnPrepareResponse = ctx =>
+                {
+                    // Apply the host-wide default cache control if no specific one was provided
+                    if (host.HostLogger.IsEnabled(LogEventLevel.Debug))
+                    {
+                        host.HostLogger.Debug("Setting host-wide default cache Cache-Control: {@DefaultCacheControl}", host.DefaultCacheControl);
+                    }
+                    ctx.Context.Response.Headers.CacheControl = host.DefaultCacheControl.ToString();
+                };
+            }
         });
     }
 
@@ -189,7 +215,7 @@ public static class KestrunHostStaticFilesExtensions
     {
         if (host.HostLogger.IsEnabled(LogEventLevel.Debug))
         {
-            host.HostLogger.Debug("Adding File Server with configuration: {@Config}", cfg);
+            host.HostLogger.Debug("Adding File Server with Action<configuration>");
         }
 
         return host.Use(app =>
@@ -199,8 +225,6 @@ public static class KestrunHostStaticFilesExtensions
             _ = app.UseFileServer(options);
         });
     }
-
-
 
     /// <summary>
     /// Adds static files to the application.
@@ -238,12 +262,13 @@ public static class KestrunHostStaticFilesExtensions
     /// </summary>
     /// <param name="host">The KestrunHost instance to configure.</param>
     /// <param name="options">The static file options to configure.</param>
+    /// <param name="cacheControl">Optional cache control headers to apply to static file responses.</param>
     /// <returns>The current KestrunHost instance.</returns>
-    public static KestrunHost AddStaticFiles(this KestrunHost host, StaticFileOptions options)
+    public static KestrunHost AddStaticFiles(this KestrunHost host, StaticFileOptions options, CacheControlHeaderValue? cacheControl = null)
     {
         if (host.HostLogger.IsEnabled(LogEventLevel.Debug))
         {
-            host.HostLogger.Debug("Adding static files with options: {@Options}", options);
+            host.HostLogger.Debug("Adding static files with options: {@Options} and cache control: {@CacheControl}", options, cacheControl);
         }
 
         if (options == null)
@@ -254,8 +279,32 @@ public static class KestrunHostStaticFilesExtensions
         // reuse the delegate overload so the pipeline logic stays in one place
         return host.AddStaticFiles(o =>
         {
-            // copy only the properties callers are likely to set 
+            // copy only the properties callers are likely to set
             CopyStaticFileOptions(options, o);
+            if (cacheControl != null)
+            {
+                o.OnPrepareResponse = ctx =>
+                {
+                    // Apply the provided cache control if one was given
+                    if (host.HostLogger.IsEnabled(LogEventLevel.Debug))
+                    {
+                        host.HostLogger.Debug("Setting Cache-Control header to: {@CacheControl}", cacheControl);
+                    }
+                    ctx.Context.Response.Headers.CacheControl = cacheControl.ToString();
+                };
+            }
+            else if (host.DefaultCacheControl != null)
+            {
+                o.OnPrepareResponse = ctx =>
+                {
+                    // Apply the host-wide default cache control if no specific one was provided
+                    if (host.HostLogger.IsEnabled(LogEventLevel.Debug))
+                    {
+                        host.HostLogger.Debug("Setting host-wide default cache Cache-Control: {@DefaultCacheControl}", host.DefaultCacheControl);
+                    }
+                    ctx.Context.Response.Headers.CacheControl = host.DefaultCacheControl.ToString();
+                };
+            }
         });
     }
 }

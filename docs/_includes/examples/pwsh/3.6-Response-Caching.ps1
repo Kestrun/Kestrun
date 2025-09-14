@@ -19,8 +19,9 @@ Add-KrPowerShellRuntime
 # Add a listener on port 5000 and IP address 127.0.0.1 (localhost)
 Add-KrListener -Port 5000 -IPAddress ([IPAddress]::Loopback)
 
-# Add a file server with browsing enabled
+# Add a file server with browsing enabled use the default Cache-Control headers
 Add-KrFileServerMiddleware -RequestPath '/' -RootPath '.\Assets\wwwroot' -EnableDirectoryBrowsing -ContentTypeMap $map
+
 # Add response caching with a 10MB size limit, 64KB max body size, case-sensitive paths,
 # a shared max age of 100 seconds, and public cacheability.
 Add-KrCacheMiddleware -SizeLimit 10485760 -MaximumBodySize 65536 -UseCaseSensitivePaths -SharedMaxAge 100 -Public -MaxAge 100
@@ -36,6 +37,24 @@ Add-KrMapRoute -Verbs Get -Pattern '/cachetest' -ScriptBlock {
     if ((Test-KrCacheRevalidation -Payload $payload -ETag $etag -LastModified (Get-Date '2023-01-01'))) {
         return
     }
+    # Fresh response
+    Write-KrTextResponse -InputObject $payload -StatusCode 200
+}
+
+
+# Map another route that demonstrates response caching with ETag and Last-Modified support
+# but also adds Cache-Control headers to make it private and must-revalidate (so browsers will revalidate)
+# overrides the middleware defaults
+Add-KrMapRoute -Verbs Get -Pattern '/custom_cachetest' -ScriptBlock {
+    Add-KrCacheResponse -Private -MaxAge 120 -MustRevalidate
+    $payload = "This is a cached response."  # keep it stable if you want 304s
+    $etag = '"' + ([Convert]::ToHexString([System.Security.Cryptography.SHA256]::HashData([Text.Encoding]::UTF8.GetBytes($payload))).ToLower()) + '"'
+    # Check for conditional request; if a 304 was sent, just return
+    if ((Test-KrCacheRevalidation -Payload $payload -ETag $etag -LastModified (Get-Date '2023-01-01'))) {
+        Write-KrLog -Level Debug -Message "Returning 304 Not Modified"
+        return
+    }
+    Write-KrLog -Level Debug -Message "Returning 200 OK with payload: {Payload}" -Properties $payload
     # Fresh response
     Write-KrTextResponse -InputObject $payload -StatusCode 200
 }

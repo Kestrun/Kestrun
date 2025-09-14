@@ -154,7 +154,7 @@ public class KestrunHostStaticFilesExtensionsTests
     public void AddStaticFiles_WithNullAction_DoesNotThrow()
     {
         var host = CreateHost(out var middleware);
-        _ = host.AddStaticFiles((Action<StaticFileOptions>)null!);
+        _ = host.AddStaticFiles(null!);
         Assert.True(middleware.Count > 0);
     }
 
@@ -163,7 +163,7 @@ public class KestrunHostStaticFilesExtensionsTests
     public void AddFileServer_WithNullAction_DoesNotThrow()
     {
         var host = CreateHost(out var middleware);
-        _ = host.AddFileServer((Action<FileServerOptions>)null!);
+        _ = host.AddFileServer(null!);
         Assert.True(middleware.Count > 0);
     }
 

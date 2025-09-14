@@ -18,6 +18,7 @@ using System.Runtime.InteropServices;
 using Microsoft.PowerShell;
 using Microsoft.AspNetCore.Authentication;
 using System.Net.Sockets;
+using Microsoft.Net.Http.Headers;
 
 namespace Kestrun.Hosting;
 
@@ -92,6 +93,11 @@ public class KestrunHost : IDisposable
     /// Gets the registered routes in the Kestrun host.
     /// </summary>
     public IReadOnlyDictionary<(string Pattern, string Method), MapRouteOptions> RegisteredRoutes => _registeredRoutes;
+
+    /// <summary>
+    /// Gets or sets the default cache control settings for HTTP responses.
+    /// </summary>
+    public CacheControlHeaderValue? DefaultCacheControl { get; internal set; }
 
     #endregion
 
@@ -411,24 +417,8 @@ public class KestrunHost : IDisposable
         );
     }
 
-
     #endregion
 
-
-
-
-    #region C#
-
-
-    #endregion
-
-
-
-    #region Route
-
-
-
-    #endregion
     #region Configuration
 
 
@@ -897,6 +887,7 @@ public class KestrunHost : IDisposable
             return appField?.GetValue(this) is WebApplication app && !app.Lifetime.ApplicationStopping.IsCancellationRequested;
         }
     }
+
 
     #endregion
 

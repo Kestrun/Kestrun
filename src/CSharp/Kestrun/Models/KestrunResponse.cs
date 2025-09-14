@@ -47,6 +47,10 @@ public class KestrunResponse(KestrunRequest request, int bodyAsyncThreshold = 81
     };
 
     /// <summary>
+    /// Gets the <see cref="HttpContext"/> associated with the response.
+    /// </summary>
+    public HttpContext Context => Request.Context;
+    /// <summary>
     /// Gets or sets the HTTP status code for the response.
     /// </summary>
     public int StatusCode { get; set; } = 200;
@@ -95,6 +99,11 @@ public class KestrunResponse(KestrunRequest request, int bodyAsyncThreshold = 81
     /// If the response body is larger than this threshold (in bytes), async write will be used.
     /// </summary>
     public int BodyAsyncThreshold { get; set; } = bodyAsyncThreshold;
+
+    /// <summary>
+    /// Cache-Control header value for the response.
+    /// </summary>
+    public CacheControlHeaderValue? CacheControl { get; set; }
 
     #region Constructors
     #endregion
@@ -595,76 +604,6 @@ public class KestrunResponse(KestrunRequest request, int bodyAsyncThreshold = 81
     }
 
 
-    /// <summary>
-    /// Adds caching headers to the response based on the provided CacheControlHeaderValue options.
-    /// </summary>
-    /// <param name="options">The caching options to apply.</param>
-    /// <exception cref="ArgumentNullException">Thrown when options is null.</exception>
-    public void AddCachingHeaders(CacheControlHeaderValue options)
-    {
-        ArgumentNullException.ThrowIfNull(options);
-
-        if (options.NoStore)
-        {
-            Headers["No-Store"] = "true";
-        }
-        if (options.NoCache)
-        {
-            Headers["No-Cache"] = "true";
-        }
-        if (options.MaxAge.HasValue)
-        {
-            Headers["Max-Age"] = ((int)options.MaxAge.Value.TotalSeconds).ToString();
-        }
-        if (options.MustRevalidate)
-        {
-            Headers["Must-Revalidate"] = "true";
-        }
-        if (options.ProxyRevalidate)
-        {
-            Headers["Proxy-Revalidate"] = "true";
-        }
-        if (options.Public)
-        {
-            Headers["Public"] = "true";
-        }
-        if (options.Private)
-        {
-            Headers["Private"] = "true";
-        }
-        if (options.SharedMaxAge.HasValue)
-        {
-            Headers["S-MaxAge"] = ((int)options.SharedMaxAge.Value.TotalSeconds).ToString();
-        }
-        if (options.MaxStale)
-        {
-            Headers["Max-Stale"] = "true";
-        }
-        if (options.MaxStaleLimit.HasValue)
-        {
-            Headers["Max-Stale-Limit"] = ((int)options.MaxStaleLimit.Value.TotalSeconds).ToString();
-        }
-        if (options.MinFresh.HasValue)
-        {
-            Headers["Min-Fresh"] = ((int)options.MinFresh.Value.TotalSeconds).ToString();
-        }
-        if (options.OnlyIfCached)
-        {
-            Headers["Only-If-Cached"] = "true";
-        }
-        if (options.NoTransform)
-        {
-            Headers["No-Transform"] = "true";
-        }
-        if (options.ProxyRevalidate)
-        {
-            Headers["Proxy-Revalidate"] = "true";
-        }
-        if (options.MustRevalidate)
-        {
-            Headers["Must-Revalidate"] = "true";
-        }
-    }
 
     /// <summary>
     /// Writes a binary response with the specified data, status code, and content type.
@@ -1033,6 +972,20 @@ public class KestrunResponse(KestrunRequest request, int bodyAsyncThreshold = 81
         return true;
     }
 
+    /// <summary>
+    /// Attempts to revalidate the cache based on ETag and Last-Modified headers.
+    /// If the resource is unchanged, sets the response status to 304 Not Modified.
+    /// Returns true if a 304 response was written, false otherwise.
+    /// </summary>
+    /// <param name="payload">The payload to validate.</param>
+    /// <param name="etag">The ETag header value.</param>
+    /// <param name="weakETag">Indicates if the ETag is a weak ETag.</param>
+    /// <param name="lastModified">The Last-Modified header value.</param>
+    /// <returns>True if a 304 response was written, false otherwise.</returns>
+    public bool RevalidateCache(object? payload,
+       string? etag = null,
+       bool weakETag = false,
+       DateTimeOffset? lastModified = null) => CacheRevalidation.TryWrite304(Context, payload, etag, weakETag, lastModified);
 
     /// <summary>
     /// Asynchronously writes an HTML response, rendering the provided template string and replacing placeholders with values from the given dictionary.
@@ -1122,6 +1075,14 @@ public class KestrunResponse(KestrunRequest request, int bodyAsyncThreshold = 81
                 StatusCode, ContentType, Body?.GetType().Name ?? "null");
         }
 
+        if (response.StatusCode == StatusCodes.Status304NotModified)
+        {
+            if (Log.IsEnabled(LogEventLevel.Debug))
+            {
+                Log.Debug("Response already has status code 304 Not Modified, skipping ApplyTo");
+            }
+            return;
+        }
         if (!string.IsNullOrEmpty(RedirectUrl))
         {
             response.Redirect(RedirectUrl);
@@ -1133,6 +1094,7 @@ public class KestrunResponse(KestrunRequest request, int bodyAsyncThreshold = 81
             EnsureStatusAndContentType(response);
             ApplyContentDispositionHeader(response);
             ApplyHeadersAndCookies(response);
+            ApplyCachingHeaders(response);
             if (Body is not null)
             {
                 await WriteBodyAsync(response).ConfigureAwait(false);
@@ -1160,6 +1122,19 @@ public class KestrunResponse(KestrunRequest request, int bodyAsyncThreshold = 81
             ContentType = ContentType.TrimEnd(';') + $"; charset={AcceptCharset.WebName}";
         }
         response.ContentType = ContentType;
+    }
+
+    /// <summary>
+    /// Adds caching headers to the response based on the provided CacheControlHeaderValue options.
+    /// </summary>
+    /// <param name="response">The HTTP response to apply caching headers to.</param>
+    /// <exception cref="ArgumentNullException">Thrown when options is null.</exception>
+    public void ApplyCachingHeaders(HttpResponse response)
+    {
+        if (CacheControl is not null)
+        {
+            response.Headers.CacheControl = CacheControl.ToString();
+        }
     }
 
     /// <summary>

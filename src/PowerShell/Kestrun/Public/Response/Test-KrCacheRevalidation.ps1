@@ -43,8 +43,7 @@ function Test-KrCacheRevalidation {
     # Only works inside a route script block where $Context is available
     if ($null -ne $Context.Response) {
         # Call the C# method on the $Context.Response object
-        $handled = [Kestrun.Utilities.CacheRevalidation]::TryWrite304(
-            $Context.HttpContext,
+        $handled = $Context.Response.RevalidateCache(
             $Payload,
             $ETag,
             $Weak.IsPresent,

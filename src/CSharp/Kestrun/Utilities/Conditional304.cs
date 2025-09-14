@@ -7,7 +7,7 @@ namespace Kestrun.Utilities;
 /// <summary>
 /// Helper for writing conditional 304 Not Modified responses based on ETag and Last-Modified headers.
 /// </summary>
-public static class CacheRevalidation
+internal static class CacheRevalidation
 {
     /// <summary>
     /// Returns true if a 304 Not Modified was written. Otherwise sets validators on the response and returns false.

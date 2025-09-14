@@ -12,6 +12,7 @@ Deeper, cross-cutting subjects (logging, deployment, performance, etc.).
 | Guide                | Description                                    |
 |----------------------|------------------------------------------------|
 | [Logging](./logging) | Configure structured logging (C# & PowerShell) |
+| [HTTP Caching](./caching) | Layered cache headers, middleware, validators |
 
 ## Planned
 

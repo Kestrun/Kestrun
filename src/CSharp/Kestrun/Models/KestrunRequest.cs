@@ -8,22 +8,31 @@ namespace Kestrun.Models;
 /// </summary>
 public partial class KestrunRequest
 {
-    private KestrunRequest(HttpRequest request, Dictionary<string, string>? formDict, string body)
+    private KestrunRequest(HttpContext context, Dictionary<string, string>? formDict, string body)
     {
-        Request = request;
-        Query = request.Query
+        Context = context ?? throw new ArgumentNullException(nameof(context));
+        Request = context.Request;
+        Query = Request.Query
                             .ToDictionary(x => x.Key, x => x.Value.ToString() ?? string.Empty);
-        Headers = request.Headers
+        Headers = Request.Headers
                             .ToDictionary(x => x.Key, x => x.Value.ToString() ?? string.Empty);
-        Cookies = request.Cookies
+        Cookies = Request.Cookies
                             .ToDictionary(x => x.Key, x => x.Value.ToString() ?? string.Empty);
         Form = formDict;
         Body = body;
-        RouteValues = request.RouteValues
+        RouteValues = Request.RouteValues
                             .ToDictionary(x => x.Key, x => x.Value?.ToString() ?? string.Empty);
     }
 
-    private HttpRequest Request { get; init; }
+    /// <summary>
+    /// Gets the <see cref="HttpContext"/> associated with the request.
+    /// </summary>
+    public HttpContext Context { get; init; }
+
+    /// <summary>
+    /// Gets the <see cref="HttpRequest"/> associated with the request.
+    /// </summary>
+    public HttpRequest Request { get; init; }
     /// <summary>
     /// Gets the HTTP method for the request (e.g., GET, POST).
     /// </summary>
@@ -149,7 +158,7 @@ public partial class KestrunRequest
             }
         }
 
-        return new KestrunRequest(request: context.Request, formDict: formDict, body: body);
+        return new KestrunRequest(context: context, formDict: formDict, body: body);
     }
 
     /// <summary>

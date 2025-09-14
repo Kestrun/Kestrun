@@ -1,41 +1,68 @@
 ﻿<#
-    .SYNOPSIS
-        Registers a file server to serve static files from a specified path.
-    .DESCRIPTION
-        This cmdlet allows you to serve static files from a specified path using the Kestrun server.
-        It can be used to serve files like images, stylesheets, and scripts.
-    .PARAMETER Server
-        The Kestrun server instance to which the file server will be added.
-    .PARAMETER Options
-        The FileServerOptions to configure the file server.
-    .PARAMETER RootPath
-        The root path from which to serve files.
-    .PARAMETER RequestPath
-        The path at which the file server will be registered.
-    .PARAMETER HttpsCompression
-        If specified, enables HTTPS compression for the static files.
-    .PARAMETER ServeUnknownFileTypes
-        If specified, allows serving files with unknown MIME types.
-    .PARAMETER DefaultContentType
-        The default content type to use for files served by the static file service.
-    .PARAMETER EnableDirectoryBrowsing
-        If specified, enables directory browsing for the file server.
-    .PARAMETER RedirectToAppendTrailingSlash
-        If specified, requests to the path will be redirected to append a trailing slash.
-    .PARAMETER ContentTypeMap
-        A hashtable mapping file extensions to MIME types (e.g., @{ ".yaml"="application/x-yaml"; ".yml"="application/x-yaml" }).
-        This allows for serving files with the correct `Content-Type` header.
-    .PARAMETER PassThru
-        If specified, the cmdlet will return the modified server instance.
-    .EXAMPLE
-        $server | Add-KrFileServerMiddleware -RequestPath '/files' -EnableDirectoryBrowsing
-        This example adds a file server to the server for the path '/files', enabling directory browsing.
-        The file server will use the default options for serving static files.
-    .EXAMPLE
-        $server | Add-KrFileServerMiddleware -Options $options
-        This example adds a file server to the server using the specified FileServerOptions.
-    .LINK
-        https://learn.microsoft.com/en-us/dotnet/api/microsoft.aspnetcore.builder.fileserveroptions?view=aspnetcore-8.0
+.SYNOPSIS
+    Registers a file server to serve static files from a specified path.
+.DESCRIPTION
+    This cmdlet allows you to serve static files from a specified path using the Kestrun server.
+    It can be used to serve files like images, stylesheets, and scripts.
+.PARAMETER Server
+    The Kestrun server instance to which the file server will be added.
+.PARAMETER Options
+    The FileServerOptions to configure the file server.
+.PARAMETER RootPath
+    The root path from which to serve files.
+.PARAMETER RequestPath
+    The path at which the file server will be registered.
+.PARAMETER HttpsCompression
+    If specified, enables HTTPS compression for the static files.
+.PARAMETER ServeUnknownFileTypes
+    If specified, allows serving files with unknown MIME types.
+.PARAMETER DefaultContentType
+    The default content type to use for files served by the static file service.
+.PARAMETER EnableDirectoryBrowsing
+    If specified, enables directory browsing for the file server.
+.PARAMETER RedirectToAppendTrailingSlash
+    If specified, requests to the path will be redirected to append a trailing slash.
+.PARAMETER ContentTypeMap
+    A hashtable mapping file extensions to MIME types (e.g., @{ ".yaml"="application/x-yaml"; ".yml"="application/x-yaml" }).
+    This allows for serving files with the correct `Content-Type` header.
+.PARAMETER NoCache
+    If specified, adds a 'no-cache' directive to the Cache-Control header.
+.PARAMETER NoStore
+    If specified, adds a 'no-store' directive to the Cache-Control header.
+.PARAMETER MaxAge
+    If specified, sets the 'max-age' directive in seconds for the Cache-Control header.
+.PARAMETER SharedMaxAge
+    If specified, sets the 's-maxage' directive in seconds for the Cache-Control header
+    (used by shared caches).
+.PARAMETER MaxStale
+    If specified, adds a 'max-stale' directive to the Cache-Control header.
+.PARAMETER MaxStaleLimit
+    If specified, sets the limit in seconds for the 'max-stale' directive in the Cache-Control header.
+.PARAMETER MinFresh
+    If specified, sets the 'min-fresh' directive in seconds for the Cache-Control header.
+.PARAMETER NoTransform
+    If specified, adds a 'no-transform' directive to the Cache-Control header.
+.PARAMETER OnlyIfCached
+    If specified, adds an 'only-if-cached' directive to the Cache-Control header.
+.PARAMETER Public
+    If specified, adds a 'public' directive to the Cache-Control header.
+.PARAMETER Private
+    If specified, adds a 'private' directive to the Cache-Control header.
+.PARAMETER MustRevalidate
+    If specified, adds a 'must-revalidate' directive to the Cache-Control header.
+.PARAMETER ProxyRevalidate
+    If specified, adds a 'proxy-revalidate' directive to the Cache-Control header.
+.PARAMETER PassThru
+    If specified, the cmdlet will return the modified server instance.
+.EXAMPLE
+    $server | Add-KrFileServerMiddleware -RequestPath '/files' -EnableDirectoryBrowsing
+    This example adds a file server to the server for the path '/files', enabling directory browsing.
+    The file server will use the default options for serving static files.
+.EXAMPLE
+    $server | Add-KrFileServerMiddleware -Options $options
+    This example adds a file server to the server using the specified FileServerOptions.
+.LINK
+    https://learn.microsoft.com/en-us/dotnet/api/microsoft.aspnetcore.builder.fileserveroptions?view=aspnetcore-8.0
 #>
 function Add-KrFileServerMiddleware {
     [KestrunRuntimeApi('Definition')]
@@ -71,6 +98,32 @@ function Add-KrFileServerMiddleware {
 
         [Parameter(ParameterSetName = 'Items')]
         [hashtable]$ContentTypeMap,
+        [Parameter()]
+        [switch]$NoCache,
+        [Parameter()]
+        [switch]$NoStore,
+        [Parameter()]
+        [int]$MaxAge,
+        [Parameter()]
+        [int]$SharedMaxAge,
+        [Parameter()]
+        [switch]$MaxStale,
+        [Parameter()]
+        [int]$MaxStaleLimit,
+        [Parameter()]
+        [int]$MinFresh,
+        [Parameter()]
+        [switch]$NoTransform,
+        [Parameter()]
+        [switch]$OnlyIfCached,
+        [Parameter()]
+        [switch]$Public,
+        [Parameter()]
+        [switch]$Private,
+        [Parameter()]
+        [switch]$MustRevalidate,
+        [Parameter()]
+        [switch]$ProxyRevalidate,
 
         [Parameter()]
         [switch]$PassThru
@@ -119,9 +172,34 @@ function Add-KrFileServerMiddleware {
                 $Options.StaticFileOptions.ContentTypeProvider = $provider
             }
         }
-        # Add the file server to the server
-        # Use the KestrunHostStaticFilesExtensions to add the file server
-        [Kestrun.Hosting.KestrunHostStaticFilesExtensions]::AddFileServer($Server, $Options) | Out-Null
+
+        if ($PSBoundParameters.ContainsKey('NoCache') -or ($PSBoundParameters.ContainsKey('NoStore')) -or ($PSBoundParameters.ContainsKey('MaxAge')) -or
+            ($PSBoundParameters.ContainsKey('SharedMaxAge')) -or ($PSBoundParameters.ContainsKey('MaxStale')) -or
+            ($PSBoundParameters.ContainsKey('MaxStaleLimit')) -or ($PSBoundParameters.ContainsKey('MinFresh')) -or
+            ($PSBoundParameters.ContainsKey('NoTransform')) -or ($PSBoundParameters.ContainsKey('OnlyIfCached')) -or
+            ($PSBoundParameters.ContainsKey('Public')) -or ($PSBoundParameters.ContainsKey('Private')) -or
+            ($PSBoundParameters.ContainsKey('MustRevalidate')) -or ($PSBoundParameters.ContainsKey('ProxyRevalidate'))
+        ) {
+            $cacheControl = [Microsoft.Net.Http.Headers.CacheControlHeaderValue]::new();
+            if ($PSBoundParameters.ContainsKey('NoCache')) { $cacheControl.NoCache = $NoCache.IsPresent }
+            if ($PSBoundParameters.ContainsKey('NoStore')) { $cacheControl.NoStore = $NoStore.IsPresent }
+            if ($PSBoundParameters.ContainsKey('MaxAge')) { $cacheControl.MaxAge = [TimeSpan]::FromSeconds($MaxAge) }
+            if ($PSBoundParameters.ContainsKey('SharedMaxAge')) { $cacheControl.SharedMaxAge = [TimeSpan]::FromSeconds($SharedMaxAge) }
+            if ($PSBoundParameters.ContainsKey('MaxStale')) { $cacheControl.MaxStale = $MaxStale.IsPresent }
+            if ($PSBoundParameters.ContainsKey('MaxStaleLimit')) { $cacheControl.MaxStaleLimit = [TimeSpan]::FromSeconds($MaxStaleLimit) }
+            if ($PSBoundParameters.ContainsKey('MinFresh')) { $cacheControl.MinFresh = [TimeSpan]::FromSeconds($MinFresh) }
+            if ($PSBoundParameters.ContainsKey('NoTransform')) { $cacheControl.NoTransform = $NoTransform.IsPresent }
+            if ($PSBoundParameters.ContainsKey('OnlyIfCached')) { $cacheControl.OnlyIfCached = $OnlyIfCached.IsPresent }
+            if ($PSBoundParameters.ContainsKey('Public')) { $cacheControl.Public = $Public.IsPresent }
+            if ($PSBoundParameters.ContainsKey('Private')) { $cacheControl.Private = $Private.IsPresent }
+            if ($PSBoundParameters.ContainsKey('MustRevalidate')) { $cacheControl.MustRevalidate = $MustRevalidate.IsPresent }
+            if ($PSBoundParameters.ContainsKey('ProxyRevalidate')) { $cacheControl.ProxyRevalidate = $ProxyRevalidate.IsPresent }
+            # Add the file server to the server with caching options
+            [Kestrun.Hosting.KestrunHostStaticFilesExtensions]::AddFileServer($Server, $Options, $cacheControl) | Out-Null
+        } else {
+            # Add the file server to the server without caching options
+            [Kestrun.Hosting.KestrunHostStaticFilesExtensions]::AddFileServer($Server, $Options) | Out-Null
+        }
 
         if ($PassThru.IsPresent) {
             # if the PassThru switch is specified, return the server instance

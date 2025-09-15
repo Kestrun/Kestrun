@@ -1,0 +1,12 @@
+<Project>
+  <PropertyGroup>
+    <!-- Disable the use of platform-specific runtime identifiers for regular builds -->
+    <!-- This prevents the SDK from trying to use ubuntu.24.04-x64 which isn't available -->
+    <PublishSingleFile>false</PublishSingleFile>
+    <SelfContained>false</SelfContained>
+    
+    <!-- Clear the runtime identifier to use framework-dependent deployment -->
+    <RuntimeIdentifier></RuntimeIdentifier>
+    <UseAppHost>false</UseAppHost>
+  </PropertyGroup>
+</Project>

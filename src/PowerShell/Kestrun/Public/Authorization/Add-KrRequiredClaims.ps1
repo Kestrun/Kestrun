@@ -14,7 +14,7 @@
     An array of System.Security.Claims.Claim objects, including the newly added required claims.
 .EXAMPLE
     $claims = @()
-    $requiredClaims = Add-KrRequiredClaims -Claims $claims -ClaimType UserIdentityClaim -AllowedValues "user1", "user2"
+    $requiredClaims = Add-KrRequiredClaim -Claims $claims -ClaimType UserIdentityClaim -AllowedValues "user1", "user2"
     This example creates an empty array of claims and adds a required claim of type UserIdentityClaim with allowed values "user1" and "user2".
     The resulting $requiredClaims array will contain the new claim.
 .NOTES

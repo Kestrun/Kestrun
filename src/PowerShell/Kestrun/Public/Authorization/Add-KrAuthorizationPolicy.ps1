@@ -46,7 +46,7 @@ function Add-KrAuthorizationPolicy {
         if ($null -ne $RequireRoles) { $newConfig.RequiredRoles = $RequireRoles }
         if ($null -ne $AuthenticationSchemes) { $newConfig.AuthenticationSchemes = $AuthenticationSchemes }
 
-        [Kestrun.Hosting.KestrunHostAuthnExtensions]::AddAuthorization($Server, $newConfig ) | Out-Null
+        [Kestrun.Hosting.KestrunHostAuthorizationExtensions]::AddAuthorization($Server, $newConfig ) | Out-Null
 
         if ($PassThru.IsPresent) {
             # if the PassThru switch is specified, return the server instance

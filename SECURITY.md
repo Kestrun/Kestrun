@@ -8,7 +8,7 @@ Older alpha builds are not maintained or patched.
 
 | Version         | Supported          |
 | --------------- | ------------------ |
-| 1.0.0-alpha.2   | :white_check_mark: |
+| 1.0.0-alpha.3   | :white_check_mark: |
 | < 1.0.0-alpha.2 | :x:                |
 
 ## Reporting a Vulnerability

@@ -20,6 +20,7 @@
     "powershell.codeFormatting.alignPropertyValuePairs": false,
     "files.trimTrailingWhitespace": true,
     "files.insertFinalNewline": true,
+    "files.eol": "\n",
     // Save PS files as UTF-8 with BOM to satisfy PSUseBOMForUnicodeEncodedFile
     "[powershell]": {
         "files.encoding": "utf8bom"

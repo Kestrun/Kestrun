@@ -18,13 +18,12 @@ public static class KestrunHostManager
     /// </summary>
     public static IReadOnlyCollection<string> InstanceNames => (IReadOnlyCollection<string>)_instances.Keys;
 
-    private static string? _kestrunRoot;
     /// <summary>
     /// Gets or sets the root path for Kestrun operations.
     /// </summary>
     public static string? KestrunRoot
     {
-        get => _kestrunRoot;
+        get;
         set
         {
             if (string.IsNullOrWhiteSpace(value))
@@ -36,7 +35,7 @@ public static class KestrunHostManager
             {
                 Directory.SetCurrentDirectory(value);
             }
-            _kestrunRoot = value;
+            field = value;
         }
     }
 
@@ -79,8 +78,7 @@ public static class KestrunHostManager
     /// <returns>The created KestrunHost instance.</returns>
     public static KestrunHost Create(string name,
          string[]? modulePathsObj = null, bool setAsDefault = false) =>
-        // Call the overload with a default logger (null or a default instance as appropriate)
-        Create(name, Log.Logger, modulePathsObj, setAsDefault);
+         Create(name, Log.Logger, modulePathsObj, setAsDefault); // Call the overload with a default logger (null or a default instance as appropriate)
 
     /// <summary>
     /// Creates a new KestrunHost instance with the specified name, logger, root path, and optional module paths.

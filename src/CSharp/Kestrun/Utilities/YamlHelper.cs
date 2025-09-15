@@ -167,7 +167,6 @@ public static class YamlHelper
                 {
                     ht[entry.Key] = entry.Value is not null ? ConvertToPSCompatible(entry.Value) : null;
                 }
-
                 return ht;
 
             case IList list:
@@ -176,7 +175,6 @@ public static class YamlHelper
                 {
                     _ = array.Add(ConvertToPSCompatible(item));
                 }
-
                 return array;
 
             default:

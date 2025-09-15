@@ -902,9 +902,9 @@ public static class CertificateManager
         bool includePrivateKey = false)
     {
         password.ToSecureSpan(span =>
-            // this will run your span‐based implementation,
-            // then immediately zero & free the unmanaged buffer
             Export(cert, filePath, fmt, span, includePrivateKey)
+        // this will run your span‐based implementation,
+        // then immediately zero & free the unmanaged buffer
         );
     }
 

@@ -466,3 +466,17 @@ Add-BuildTask Update-Module {
 }, Remove-Module, Install-Module, {
     Write-Host '🔄 Kestrun module updated.'
 }
+
+Add-BuildTask 'Normalize-LineEndings' {
+    Write-Host '🔄 Normalizing line endings to LF in .ps1, .psm1, and .cs files...'
+
+    Get-ChildItem -Recurse -Include *.ps1, *.psm1, *.cs, *.psd1, *.md |
+        ForEach-Object {
+            $text = Get-Content -Raw -Path $_.FullName
+            # Replace CRLF with LF
+            $text = $text -replace "`r`n", "`n"
+            # Write back with UTF-8 (no BOM, recommended for cross-platform)
+            [System.IO.File]::WriteAllText($_.FullName, $text, (New-Object System.Text.UTF8Encoding($false)))
+            Write-Host "Normalized line endings in $($_.FullName)"
+        }
+}

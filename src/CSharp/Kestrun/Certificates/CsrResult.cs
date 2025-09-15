@@ -14,17 +14,17 @@ namespace Kestrun.Certificates;
 /// <param name="PublicKeyPem">The PEM-encoded public key string.</param>
 /// <param name="PublicKeyDer">The DER-encoded public key bytes.</param>
 public record CsrResult(
-    // CSR
+// CSR
     string CsrPem,
     byte[] CsrDer,
 
-    // Private key
+// Private key
     AsymmetricKeyParameter PrivateKey, // for programmatic use
     string PrivateKeyPem,              // -----BEGIN PRIVATE KEY-----
     byte[] PrivateKeyDer,              // PKCS#8 DER
     string? PrivateKeyPemEncrypted,    // -----BEGIN ENCRYPTED PRIVATE KEY----- (if password provided)
 
-    // Public key
+// Public key
     string PublicKeyPem,               // -----BEGIN PUBLIC KEY-----
     byte[] PublicKeyDer
 );

@@ -174,7 +174,7 @@ public static class AssemblyAutoLoader
     /// when the application no longer needs dynamic resolution.
     /// </summary>
     /// <param name="clearSearchDirs">
-    /// <see langword="true"/> ⇒ also forget the registered folders.  
+    /// <see langword="true"/> ⇒ also forget the registered folders.
     /// Leave it <see langword="false"/> if you want to keep the list so a
     /// later <c>PreloadAll()</c> call can reuse it without re-scanning.
     /// </param>

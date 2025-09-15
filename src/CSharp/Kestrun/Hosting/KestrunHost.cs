@@ -16,7 +16,6 @@ using Kestrun.Scripting;
 using Kestrun.Hosting.Options;
 using System.Runtime.InteropServices;
 using Microsoft.PowerShell;
-using Microsoft.AspNetCore.Authentication;
 using System.Net.Sockets;
 using Microsoft.Net.Http.Headers;
 using Kestrun.Authentication;

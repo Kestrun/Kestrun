@@ -1,4 +1,4 @@
-namespace Kestrun.Jwt;
+﻿namespace Kestrun.Jwt;
 
 /// <summary>
 /// Represents all parameters extracted from a JWT, including header fields, standard properties, and claims.

@@ -1,7 +1,4 @@
-
-
-
-using System.Security.Claims;
+﻿using System.Security.Claims;
 using Kestrun.Claims;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;

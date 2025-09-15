@@ -1,4 +1,4 @@
-// src/CSharp/Kestrun.Net/KrHttp.cs
+﻿// src/CSharp/Kestrun.Net/KrHttp.cs
 using System.IO.Pipes;
 using System.Net;
 using System.Net.Security;

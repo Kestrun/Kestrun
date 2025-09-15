@@ -1,4 +1,4 @@
-namespace Kestrun.Scheduling;
+﻿namespace Kestrun.Scheduling;
 
 /// <summary>
 /// Represents a scheduled task with its configuration and state.

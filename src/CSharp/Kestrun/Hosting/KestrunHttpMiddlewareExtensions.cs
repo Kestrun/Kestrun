@@ -1,4 +1,4 @@
-using Kestrun.Utilities;
+﻿using Kestrun.Utilities;
 using Microsoft.AspNetCore.Antiforgery;
 using Microsoft.AspNetCore.Cors.Infrastructure;
 using Microsoft.AspNetCore.RateLimiting;

@@ -1,4 +1,4 @@
-namespace Kestrun.Hosting.Options;
+﻿namespace Kestrun.Hosting.Options;
 
 
 internal class AuthKeyComparer : IEqualityComparer<(string Scheme, string Type)>

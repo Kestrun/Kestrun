@@ -1,4 +1,4 @@
-using Kestrun.Models;
+﻿using Kestrun.Models;
 using Microsoft.ClearScript.V8;
 using Serilog.Events;
 

@@ -1,4 +1,4 @@
-namespace Kestrun.Scripting;
+﻿namespace Kestrun.Scripting;
 
 
 /// <summary>

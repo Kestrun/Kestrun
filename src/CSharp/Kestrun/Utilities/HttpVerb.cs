@@ -1,4 +1,4 @@
-namespace Kestrun.Utilities;
+﻿namespace Kestrun.Utilities;
 
 /// <summary>
 /// Common HTTP verbs recognized by the framework.

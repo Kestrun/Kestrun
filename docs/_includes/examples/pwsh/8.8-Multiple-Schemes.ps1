@@ -12,7 +12,7 @@ New-KrLogger | Add-KrSinkConsole | Register-KrLogger -Name 'console' -SetAsDefau
 New-KrServer -Name 'Auth Multi'
 
 # 3. Listener
-Add-KrListener -Port 5000 -IPAddress ([IPAddress]::Loopback)
+Add-KrListener -Port 5000 -IPAddress ([IPAddress]::Loopback) -SelfSignedCert
 
 # 4. Runtime
 Add-KrPowerShellRuntime
@@ -40,11 +40,34 @@ Enable-KrConfiguration
 
 # 9. Map routes with different schemes
 Add-KrRouteGroup -Prefix '/secure' {
-    Add-KrMapRoute -Verbs Get -Pattern '/basic' -AuthorizationSchema 'BasicPS' -ScriptBlock { Write-KrTextResponse 'Basic OK' }
-    Add-KrMapRoute -Verbs Get -Pattern '/key' -AuthorizationSchema 'KeySimple' -ScriptBlock { Write-KrTextResponse 'Key OK' }
-    Add-KrMapRoute -Verbs Get -Pattern '/jwt' -AuthorizationSchema 'Bearer' -ScriptBlock { Write-KrTextResponse 'JWT OK' }
+    # Pure Basic route
+    Add-KrMapRoute -Verbs Get -Pattern '/basic' -AuthorizationSchema 'BasicPS' -ScriptBlock {
+        Write-KrTextResponse 'Basic OK'
+    }
+
+    # API Key OR Basic (either accepted: order matters only for challenge response)
+    Add-KrMapRoute -Verbs Get -Pattern '/key' -AuthorizationSchema 'KeySimple', 'BasicPS' -ScriptBlock {
+        Write-KrTextResponse 'Key OK'
+    }
+
+    # JWT OR Basic
+    Add-KrMapRoute -Verbs Get -Pattern '/jwt' -AuthorizationSchema 'Bearer', 'BasicPS' -ScriptBlock {
+        Write-KrTextResponse 'JWT OK'
+    }
+
+    # Issue a JWT using Basic (to demonstrate acquiring a token for /secure/jwt)
+    Add-KrMapRoute -Verbs Get -Pattern '/token/new' -AuthorizationSchema 'BasicPS' -ScriptBlock {
+        $user = $Context.User.Identity.Name
+        $build = Copy-KrJWTTokenBuilder -Builder $builder |
+            Add-KrJWTSubject -Subject $user |
+            Add-KrJWTClaim -UserClaimType Name -Value $user |
+            Add-KrJWTClaim -UserClaimType Role -Value 'admin' |
+            Build-KrJWT
+        $token = $build | Get-KrJWTToken
+        Write-KrJsonResponse @{ access_token = $token; expires = $build.Expires }
+    }
 }
 
 # 10. Start server
-Start-KrServer
+Start-KrServer -CloseLogsOnExit
 

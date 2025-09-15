@@ -61,7 +61,7 @@ Add-KrMapRoute -Verbs Get -Pattern '/cookies/login' -ScriptBlock {
 Add-KrMapRoute -Verbs Post -Pattern '/cookies/login' -ScriptBlock {
     $form = $Context.Request.Form
     if ($form['username'] -eq 'admin' -and $form['password'] -eq 'secret') {
-        $principal = Invoke-KrCookieSignIn -Scheme 'Cookies' -Name $form['username'] -AllowRefresh -PassThru
+        $principal = Invoke-KrCookieSignIn -Scheme 'Cookies' -Name $form['username'] -PassThru
         Write-KrLog -Level Information -Message 'User {user} signed {principal} in with Cookies authentication.' -Properties $form['username'], $principal
         Write-KrJsonResponse @{ success = $true }
     } else {
@@ -82,4 +82,4 @@ Add-KrRouteGroup -Prefix '/cookies' -AuthorizationSchema 'Cookies' {
 }
 
 # 11. Start server
-Start-KrServer
+Start-KrServer -CloseLogsOnExit

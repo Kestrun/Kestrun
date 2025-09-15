@@ -54,5 +54,5 @@ Add-KrRouteGroup -Prefix '/policy' -AuthorizationSchema 'PolicyBasic' {
 }
 
 # 9. Start server
-Start-KrServer
+Start-KrServer -CloseLogsOnExit
 

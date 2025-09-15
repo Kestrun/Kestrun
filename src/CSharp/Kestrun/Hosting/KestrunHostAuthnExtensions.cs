@@ -35,6 +35,8 @@ public static class KestrunHostAuthnExtensions
     Action<BasicAuthenticationOptions>? configure = null
     )
     {
+        // register in host for introspection
+        _ = host.RegisteredAuthentications.Register(scheme, "Basic", configure);
         var h = host.AddAuthentication(
            defaultScheme: scheme,
            buildSchemes: ab =>
@@ -46,8 +48,6 @@ public static class KestrunHostAuthnExtensions
                    displayName: "Basic Authentication",
                     configureOptions: opts =>
                    {
-                       // register in host for introspection
-                       host._registeredAuthentications[(scheme, "Basic")] = opts;
                        // let caller mutate everything first
                        configure?.Invoke(opts);
                        ConfigureBasicAuthValidators(opts);
@@ -174,14 +174,14 @@ public static class KestrunHostAuthnExtensions
       Action<JwtBearerOptions>? configureJwt = null,
       ClaimPolicyConfig? claimPolicy = null)
     {
+        // register in host for introspection
+        _ = host.RegisteredAuthentications.Register(scheme, "JwtBearer", configureJwt);
         return host.AddAuthentication(
             defaultScheme: scheme,
             buildSchemes: ab =>
             {
                 _ = ab.AddJwtBearer(scheme, opts =>
                 {
-                    // register in host for introspection
-                    host._registeredAuthentications[(scheme, "JwtBearer")] = opts;
                     opts.TokenValidationParameters = validationParameters;
                     opts.MapInboundClaims = true;
                     configureJwt?.Invoke(opts);
@@ -206,6 +206,8 @@ public static class KestrunHostAuthnExtensions
         Action<CookieAuthenticationOptions>? configure = null,
      ClaimPolicyConfig? claimPolicy = null)
     {
+        _ = host.RegisteredAuthentications.Register(scheme, "Cookie", configure);
+
         return host.AddAuthentication(
             defaultScheme: scheme,
             buildSchemes: ab =>
@@ -214,8 +216,6 @@ public static class KestrunHostAuthnExtensions
                     authenticationScheme: scheme,
                     configureOptions: opts =>
                     {
-                        // register in host for introspection
-                        host._registeredAuthentications[(scheme, "Cookie")] = opts;
                         // let caller mutate everything first
                         configure?.Invoke(opts);
                         Log.Debug("Configured Cookie Authentication with LoginPath: {LoginPath}", opts.LoginPath);
@@ -288,12 +288,13 @@ public static class KestrunHostAuthnExtensions
     /// <returns>The configured KestrunHost instance.</returns>
     public static KestrunHost AddWindowsAuthentication(this KestrunHost host)
     {
+        var options = new AuthenticationSchemeOptions();
+
+        _ = host.RegisteredAuthentications.Register("Windows", "WindowsAuth", options);
         return host.AddAuthentication(
             defaultScheme: NegotiateDefaults.AuthenticationScheme,
             buildSchemes: ab =>
             {
-                // register in host for introspection
-                host._registeredAuthentications[("Windows", "WindowsAuth")] = new AuthenticationSchemeOptions();
                 _ = ab.AddNegotiate();
             }
         );
@@ -312,6 +313,9 @@ public static class KestrunHostAuthnExtensions
     string scheme = "ApiKey",
     Action<ApiKeyAuthenticationOptions>? configure = null)
     {
+
+        // register in host for introspection
+        _ = host.RegisteredAuthentications.Register(scheme, "ApiKey", configure);
         var h = host.AddAuthentication(
            defaultScheme: scheme,
            buildSchemes: ab =>
@@ -323,8 +327,6 @@ public static class KestrunHostAuthnExtensions
                    displayName: "API Key",
                    configureOptions: opts =>
                    {
-                       // register in host for introspection
-                       host._registeredAuthentications[(scheme, "ApiKey")] = opts;
                        // let caller mutate everything first
                        configure?.Invoke(opts);
                        ConfigureApiKeyValidators(opts);
@@ -700,6 +702,7 @@ public static class KestrunHostAuthnExtensions
         var policy = policyProvider.GetPolicyAsync(policyName).GetAwaiter().GetResult();
         return policy != null;
     }
+
     /// <summary>
     /// Helper to copy values from a user-supplied CookieAuthenticationOptions instance to the instance
     /// created by the framework inside AddCookie(). Reassigning the local variable (opts = source) would

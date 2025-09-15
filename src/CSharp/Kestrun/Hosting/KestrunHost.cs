@@ -19,6 +19,7 @@ using Microsoft.PowerShell;
 using Microsoft.AspNetCore.Authentication;
 using System.Net.Sockets;
 using Microsoft.Net.Http.Headers;
+using Kestrun.Authentication;
 
 namespace Kestrun.Hosting;
 
@@ -65,8 +66,8 @@ public class KestrunHost : IDisposable
     internal readonly Dictionary<(string Pattern, string Method), MapRouteOptions> _registeredRoutes =
     new(new RouteKeyComparer());
 
-    internal readonly Dictionary<(string Scheme, string Type), AuthenticationSchemeOptions> _registeredAuthentications =
-        new(new RouteKeyComparer());
+    //internal readonly Dictionary<(string Scheme, string Type), AuthenticationSchemeOptions> _registeredAuthentications =
+    //  new(new AuthKeyComparer());
 
     /// <summary>
     /// Gets the root directory path for the Kestrun application.
@@ -92,7 +93,12 @@ public class KestrunHost : IDisposable
     /// <summary>
     /// Gets the registered routes in the Kestrun host.
     /// </summary>
-    public IReadOnlyDictionary<(string Pattern, string Method), MapRouteOptions> RegisteredRoutes => _registeredRoutes;
+    public Dictionary<(string, string), MapRouteOptions> RegisteredRoutes => _registeredRoutes;
+
+    /// <summary>
+    /// Gets the registered authentication schemes in the Kestrun host.
+    /// </summary>
+    public AuthenticationRegistry RegisteredAuthentications { get; } = new();
 
     /// <summary>
     /// Gets or sets the default cache control settings for HTTP responses.
@@ -476,7 +482,7 @@ public class KestrunHost : IDisposable
                 }
                 else
                 {
-                    HostLogger.Verbose("Named pipe listeners are supported only on Windows; skipping UseNamedPipes configuration.");
+                    HostLogger.Verbose("Named pipe listeners configuration is supported only on Windows; skipping UseNamedPipes configuration.");
                 }
             }
 

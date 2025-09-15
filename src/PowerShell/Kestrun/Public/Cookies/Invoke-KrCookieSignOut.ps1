@@ -39,8 +39,18 @@ function Invoke-KrCookieSignOut {
             }
 
             if ($Redirect) {
-                $cookiesAuth = [Kestrun.Hosting.KestrunHostAuthnExtensions]::GetAuthenticationOptions($KestrunHost, 'Cookies')
-                if ($cookiesAuth -and $cookiesAuth.LoginPath -and $cookiesAuth.LoginPath.ToString().Trim()) {
+                $cookiesAuth = $null
+                if ($KestrunHost.RegisteredAuthentications.Exists($Scheme, "Cookie")) {
+                    $cookiesAuth = $KestrunHost.RegisteredAuthentications.Get($Scheme, "Cookie")
+                } else {
+                    Write-KrLog -Level Warning -Message 'Authentication scheme {scheme} not found in registered authentications.' -Properties $Scheme
+                    Write-KrErrorResponse -Message "Authentication scheme '$Scheme' not found." -StatusCode 400
+                    return
+                }
+                Write-KrLog -Level Information -Message 'User {@user} signed out from {scheme} authentication.' -Properties $Context.User, $Scheme
+                # Redirect to login path or root
+
+                if ($null -ne $cookiesAuth -and $cookiesAuth.LoginPath -and $cookiesAuth.LoginPath.ToString().Trim()) {
                     $url = $cookiesAuth.LoginPath
                 } else {
                     $url = '/'

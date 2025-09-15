@@ -1,4 +1,4 @@
-﻿using System.Collections.ObjectModel;
+using System.Collections.ObjectModel;
 using System.Management.Automation;
 using Kestrun.Logging.Enrichers.Extensions;
 

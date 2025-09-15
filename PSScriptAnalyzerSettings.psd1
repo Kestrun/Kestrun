@@ -89,10 +89,7 @@
             NounAllowList = @('Data', 'Windows', 'Metadata', 'Settings', 'Options', 'Parameters', 'Credentials', 'Properties')
         }
 
-        # Enforce BOM in Unicode files
-        UseBOMForUnicodeEncodedFile = @{
-            Enable = $true
-        }
+       
 
         # Opinionated toggles
         PSAvoidUsingWriteHost = @{ Enable = $false }

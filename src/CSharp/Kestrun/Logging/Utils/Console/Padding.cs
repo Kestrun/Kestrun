@@ -1,4 +1,4 @@
-﻿namespace Kestrun.Logging.Utils.Console;
+namespace Kestrun.Logging.Utils.Console;
 
 /// <summary>
 /// Represents padding values for left and right sides, and provides methods to generate padding strings.

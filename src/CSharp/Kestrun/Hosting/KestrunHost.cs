@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Server.Kestrel.Core;
+using Microsoft.AspNetCore.Server.Kestrel.Core;
 using System.Net;
 using System.Management.Automation;
 using System.Management.Automation.Runspaces;

@@ -1,4 +1,4 @@
-﻿using System.Reflection;
+using System.Reflection;
 using Microsoft.AspNetCore.Server.Kestrel.Core;
 namespace Kestrun.Hosting.Options;
 

@@ -1,4 +1,4 @@
-﻿namespace Kestrun.Hosting;
+namespace Kestrun.Hosting;
 
 /// <summary>
 /// Minimal <see cref="IHostLifetime"/> that performs no blocking operations.

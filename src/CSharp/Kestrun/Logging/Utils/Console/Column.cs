@@ -1,4 +1,4 @@
-﻿namespace Kestrun.Logging.Utils.Console;
+namespace Kestrun.Logging.Utils.Console;
 
 internal class Column
 {

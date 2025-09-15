@@ -1,4 +1,4 @@
-﻿using Kestrun.Authentication;
+using Kestrun.Authentication;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.Extensions.Options;
 

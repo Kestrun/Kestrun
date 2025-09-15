@@ -1,4 +1,4 @@
-﻿#pragma warning disable CA1050
+#pragma warning disable CA1050
 /// <summary>
 /// Specifies the API context in which a Kestrun route or schedule can be executed.
 /// </summary>

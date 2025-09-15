@@ -1,4 +1,4 @@
-﻿using Kestrun.Models;
+using Kestrun.Models;
 using Python.Runtime;
 using Serilog.Events;
 

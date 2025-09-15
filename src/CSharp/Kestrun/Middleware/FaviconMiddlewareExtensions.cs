@@ -1,4 +1,4 @@
-﻿// File: Middleware/FaviconMiddlewareExtensions.cs
+// File: Middleware/FaviconMiddlewareExtensions.cs
 using Microsoft.AspNetCore.StaticFiles;
 using Serilog;
 

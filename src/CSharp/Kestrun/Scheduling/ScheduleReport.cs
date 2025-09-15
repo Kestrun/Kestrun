@@ -1,4 +1,4 @@
-﻿namespace Kestrun.Scheduling;
+namespace Kestrun.Scheduling;
 
 /// <summary>
 /// Represents a report of scheduled jobs at a specific time.

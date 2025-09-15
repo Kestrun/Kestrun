@@ -1,4 +1,4 @@
-﻿namespace Kestrun.Claims;
+namespace Kestrun.Claims;
 
 
 /// <summary>A bag of named policies, each backed by a ClaimRule.</summary>

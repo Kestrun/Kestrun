@@ -13,6 +13,7 @@ Deeper, cross-cutting subjects (logging, deployment, performance, etc.).
 |----------------------|------------------------------------------------|
 | [Logging](./logging) | Configure structured logging (C# & PowerShell) |
 | [HTTP Caching](./caching) | Layered cache headers, middleware, validators |
+| [JWT Tokens](./jwt) | Build, issue, validate, and renew JSON Web Tokens |
 
 ## Planned
 

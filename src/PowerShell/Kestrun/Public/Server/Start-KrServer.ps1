@@ -9,6 +9,8 @@
         If specified, the function will not wait for the server to start and will return immediately.
     .PARAMETER Quiet
         If specified, suppresses output messages during the startup process.
+    .PARAMETER CloseLogsOnExit
+        If specified, closes all loggers when the server stops.
     .PARAMETER PassThru
         If specified, the cmdlet will return the modified server instance after starting it.
     .EXAMPLE
@@ -31,7 +33,9 @@ function Start-KrServer {
         [Parameter()]
         [switch]$Quiet,
         [Parameter()]
-        [switch]$PassThru
+        [switch]$PassThru,
+        [Parameter()]
+        [switch]$CloseLogsOnExit
     )
     begin {
         # Ensure the server instance is resolved
@@ -92,7 +96,12 @@ function Start-KrServer {
                 [Kestrun.KestrunHostManager]::StopAsync($Server.ApplicationName).Wait()
                 #$Server.StopAsync().Wait()
                 [Kestrun.KestrunHostManager]::Destroy($Server.ApplicationName)
-                #$Server.Dispose()
+
+                if ($CloseLogsOnExit.IsPresent) {
+                    # Close the Kestrel loggers
+                    Close-KrLogger
+                }
+
                 if (-not $Quiet.IsPresent) {
                     Write-Host 'Kestrun server stopped.'
                 }

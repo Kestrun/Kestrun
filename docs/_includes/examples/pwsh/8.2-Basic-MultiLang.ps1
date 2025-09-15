@@ -39,5 +39,5 @@ Add-KrMapRoute -Verbs Get -Pattern '/secure/vb/hello' -AuthorizationSchema 'VBNe
 }
 
 # 9. Start server
-Start-KrServer
+Start-KrServer -CloseLogsOnExit
 

@@ -31,4 +31,4 @@ Add-KrMapRoute -Verbs Get -Pattern '/ux' -ScriptBlock {
 Write-KrLog -Level Information -Message 'Unix socket listener active.'
 
 # 8. Start server (Ctrl+C to stop)
-Start-KrServer
+Start-KrServer -CloseLogsOnExit

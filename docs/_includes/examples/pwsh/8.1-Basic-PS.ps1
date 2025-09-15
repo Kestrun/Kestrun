@@ -36,5 +36,5 @@ Add-KrRouteGroup -Prefix '/secure/ps' -AuthorizationSchema 'PowershellBasic' {
 }
 
 # 8. Start server (Ctrl+C to stop)
-Start-KrServer
+Start-KrServer -CloseLogsOnExit
 

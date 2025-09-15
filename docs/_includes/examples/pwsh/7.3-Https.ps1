@@ -46,4 +46,4 @@ Add-KrMapRoute -Verbs Get -Pattern '/secure' -ScriptBlock {
 Write-KrLog -Level Information -Message 'HTTPS listener active on 5443'
 
 # Start the server
-Start-KrServer
+Start-KrServer -CloseLogsOnExit

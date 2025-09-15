@@ -27,6 +27,7 @@ Core cmdlets:
 | 4   | [Named Pipes (Windows)](./4.Named-Pipes)        | Local IPC without a TCP port                    |
 | 5   | [Unix Sockets (Linux/macOS)](./5.Unix-Sockets)  | Domain sockets for reverse proxy fronting       |
 | 6   | [Mixed HTTP Protocols](./6.Mixed-HttpProtocols) | Separate listeners: HTTP/1.1, 2, 3              |
+| 7   | [URI Endpoint](./7.Uri-Endpoint)                | Single listener from full URI                   |
 
 Advanced server tuning, lifecycle, and demos have moved:
 

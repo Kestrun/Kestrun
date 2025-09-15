@@ -5,10 +5,22 @@
     FileName: 6.3-Cert-Import-Export.ps1
 #>
 
-
+<#
+.SYNOPSIS
+    Converts a plain text password to a SecureString or returns $null if the input is null or empty.
+.DESCRIPTION
+    This function takes a plain text password as input and converts it to a SecureString.
+    If the input is null or empty, it returns $null.
+.PARAMETER Password
+    The plain text password to convert.
+.EXAMPLE
+    $securePassword = Convert-ToSecureStringOrNull -Password "myP@ssword"
+    Converts the plain text password "myP@ssword" to a SecureString.
+#>
 function Convert-ToSecureStringOrNull {
     [CmdletBinding()]
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidUsingConvertToSecureStringWithPlainText', '')]
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidUsingPlainTextForPassword', '')]
     param([string]$Password)
     if ([string]::IsNullOrWhiteSpace($Password)) { return $null }
     return (ConvertTo-SecureString $Password -AsPlainText -Force)
@@ -20,7 +32,7 @@ Initialize-KrRoot -Path $PSScriptRoot
 New-KrLogger |
     Set-KrLoggerMinimumLevel -Value Debug |
     Add-KrSinkConsole |
-    Register-KrLogger -Name 'myLogger'
+    Register-KrLogger -Name 'myLogger' -SetAsDefault
 
 New-KrServer -Name "Cert Ops API"
 Add-KrListener -Port 5000 -IPAddress ([IPAddress]::Loopback)
@@ -67,12 +79,12 @@ Add-KrMapRoute -Verbs Post -Pattern "/certs/export" -ScriptBlock {
         Write-KrLog -Level Debug -LoggerName 'myLogger' -Message "Password provided: {hasPassword}" -Properties ($null -ne $password)
         $cert = New-KrSelfSignedCertificate -DnsNames "temp.example.com" -Exportable -ValidDays 1
         Write-KrLog -Level Debug -LoggerName 'myLogger' -Message "Temporary self-signed certificate created: {subject}" -Properties $cert.Subject
-        $args = @{ Certificate = $cert; FilePath = ([string]$body.outPath); Format = ([string]$body.outFormat) }
-        if ($body.includePrivateKey) { $args.IncludePrivateKey = [bool]$body.includePrivateKey }
-        if ($password) { $args.Password = $password }
+        $params = @{ Certificate = $cert; FilePath = ([string]$body.outPath); Format = ([string]$body.outFormat) }
+        if ($body.includePrivateKey) { $params.IncludePrivateKey = [bool]$body.includePrivateKey }
+        if ($password) { $params.Password = $password }
         Write-KrLog -Level Debug -LoggerName 'myLogger' -Message "Exporting certificate to {outPath} with format {format}" -Properties $body.outPath, $body.outFormat
 
-        Export-KrCertificate @args | Out-Null
+        Export-KrCertificate @params | Out-Null
         Write-KrLog -Level Debug -LoggerName 'myLogger' -Message "Certificate exported successfully to {outPath} with format {format}" -Properties $body.outPath, $body.outFormat
         Write-KrJsonResponse -StatusCode 200 -InputObject @{ exported = $true; path = $body.outPath; format = $body.outFormat }
     } catch {
@@ -81,7 +93,5 @@ Add-KrMapRoute -Verbs Post -Pattern "/certs/export" -ScriptBlock {
     }
 }
 
-Start-KrServer
-
+Start-KrServer -CloseLogsOnExit
 # Clean up and close all the loggers when the server stops
-Close-KrLogger

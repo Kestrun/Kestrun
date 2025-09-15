@@ -39,5 +39,4 @@ Add-KrRouteGroup -Prefix '/secure/key' {
 }
 
 # 10. Start server
-Start-KrServer
-
+Start-KrServer -CloseLogsOnExit

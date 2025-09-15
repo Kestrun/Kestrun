@@ -45,13 +45,6 @@ jobs:
           if [[ $NEED_DOTNET -eq 0 ]]; then echo "No C# project-related changes detected; dotnet format will be skipped."; fi
           if [[ $NEED_PS -eq 0 ]]; then echo "No PowerShell script/module changes detected; PS lint will be skipped."; fi
 
-      - name: 🧰 Setup PowerShell (for lint)
-        if: github.event_name != 'pull_request' || steps.changed.outputs.need_ps != '0'
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.x'
-        # (Using system pwsh already available on ubuntu-latest; Python setup just placeholder for potential future tooling.)
-
       - name: 🧰 Setup .NET 8 & 9
         if: steps.changed.outputs.need_dotnet != '0' || github.event_name != 'pull_request'
         uses: actions/setup-dotnet@v5

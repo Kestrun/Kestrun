@@ -34,5 +34,5 @@ Add-KrMapRoute -Verbs Get -Pattern '/pipe' -ScriptBlock {
 # 7. Informational log so the console shows readiness
 Write-KrLog -Level Information -Message 'Named pipe listener active.'
 
-# 8. Start the server (runs asynchronously; press Ctrl+C to stop)
-Start-KrServer
+# 8. Start server (Ctrl+C to stop)
+Start-KrServer -CloseLogsOnExit

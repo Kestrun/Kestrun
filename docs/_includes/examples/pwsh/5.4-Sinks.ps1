@@ -32,8 +32,6 @@ Add-KrMapRoute -Verbs Get -Path "/json" -ScriptBlock {
     Write-KrTextResponse -InputObject "json" -StatusCode 200
 }
 
-# Start the server
-Start-KrServer
-
-# Clean up and close all the loggers when the server stops
-Close-KrLogger
+# Start the server and close all the loggers when the server stops
+# This is equivalent to calling Close-KrLogger after Start-KrServer
+Start-KrServer -CloseLogsOnExit

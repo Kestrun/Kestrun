@@ -33,4 +33,4 @@ Add-KrMapRoute -Verbs Get -Pattern '/ping' -ScriptBlock {
 Write-KrLog -Level Information -Message 'Multiple listeners configured (5000, 6000)'
 
 # Start the server asynchronously
-Start-KrServer
+Start-KrServer -CloseLogsOnExit

@@ -12,7 +12,7 @@ New-KrLogger | Add-KrSinkConsole | Register-KrLogger -Name 'console' -SetAsDefau
 New-KrServer -Name 'Auth JWT'
 
 # 3. Listener
-Add-KrListener -Port 5000 -IPAddress ([IPAddress]::Loopback)
+Add-KrListener -Port 5000 -IPAddress ([IPAddress]::Loopback) -SelfSignedCert
 
 # 4. Runtime
 Add-KrPowerShellRuntime
@@ -21,11 +21,11 @@ Add-KrPowerShellRuntime
 Add-KrBasicAuthentication -Name 'BasicInit' -Realm 'Init' -AllowInsecureHttp -ScriptBlock { param($Username, $Password) $Username -eq 'admin' -and $Password -eq 'password' }
 
 # 6. Build JWT configuration
-$builder = New-KrJWTBuilder |
+$jwtBuilder = New-KrJWTBuilder |
     Add-KrJWTIssuer -Issuer 'KestrunApi' |
     Add-KrJWTAudience -Audience 'KestrunClients' |
     Protect-KrJWT -HexadecimalKey '6f1a1ce2e8cc4a5685ad0e1d1f0b8c092b6dce4f7a08b1c2d3e4f5a6b7c8d9e0' -Algorithm HS256
-$result = Build-KrJWT -Builder $builder
+$result = Build-KrJWT -Builder $jwtBuilder
 $validation = $result | Get-KrJWTValidationParameter
 
 # 7. Register bearer scheme
@@ -36,9 +36,31 @@ Enable-KrConfiguration
 
 # 9. Route: issue token (requires Basic)
 Add-KrMapRoute -Verbs Get -Pattern '/token/new' -AuthorizationSchema 'BasicInit' -ScriptBlock {
-    $b = Copy-KrJWTTokenBuilder -Builder $builder | Add-KrJWTClaim -ClaimType 'can_read' -Value 'true' | Build-KrJWT
-    $token = $b | Get-KrJWTToken
-    Write-KrJsonResponse @{ access_token = $token; expires = $b.Expires }
+    $user = $Context.User.Identity.Name
+    Write-KrLog -Level Information -Message 'Generating JWT token for user {User}' -Properties $user
+    Write-KrLog -Level Information -Message "Issuer : {Issuer} " -Properties $JwtTokenBuilder.Issuer
+    Write-KrLog -Level Information -Message "Audience : {Audience} " -Properties $JwtTokenBuilder.Audience
+    Write-KrLog -Level Information -Message "Algorithm: {Algorithm} " -Properties $JwtTokenBuilder.Algorithm
+
+    $build = Copy-KrJWTTokenBuilder -Builder $jwtBuilder |
+        Add-KrJWTSubject -Subject $user |
+        Add-KrJWTClaim -UserClaimType Name -Value $user |
+        Add-KrJWTClaim -UserClaimType Role -Value 'admin' |
+        Build-KrJWT
+    $token = $build | Get-KrJWTToken
+    Write-KrJsonResponse @{ access_token = $token; expires = $build.Expires }
+}
+
+Add-KrMapRoute -Verbs Get -Pattern '/token/renew' -AuthorizationSchema $JwtScheme -ScriptBlock {
+    $user = $Context.User.Identity.Name
+
+    Write-KrLog -Level Information -Message 'Generating JWT token for user {0}' -Properties $user
+    $accessToken = $jwtBuilder | Update-KrJWT -FromContext
+    Write-KrJsonResponse -InputObject @{
+        access_token = $accessToken
+        token_type = 'Bearer'
+        expires_in = $build.Expires
+    } -ContentType 'application/json'
 }
 
 # 10. Route: protected with bearer token
@@ -47,5 +69,5 @@ Add-KrMapRoute -Verbs Get -Pattern '/secure/jwt/hello' -AuthorizationSchema 'Bea
 }
 
 # 11. Start server
-Start-KrServer
+Start-KrServer -CloseLogsOnExit
 

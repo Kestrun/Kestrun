@@ -1,4 +1,4 @@
-﻿<#
+<#
     Sample Kestrun Server on how to use shared variables.
     This example demonstrates how to use shared variables in a Kestrun server.
     FileName: 4.1-Shared-Variables.ps1

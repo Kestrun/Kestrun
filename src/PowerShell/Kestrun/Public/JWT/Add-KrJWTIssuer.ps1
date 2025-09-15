@@ -1,4 +1,4 @@
-﻿<#
+<#
     .SYNOPSIS
         Adds an issuer to the JWT token builder.
     .DESCRIPTION

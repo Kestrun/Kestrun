@@ -1,4 +1,4 @@
-﻿
+
 using Kestrun.Hosting.Options;
 using Kestrun.Languages;
 using Kestrun.Scripting;

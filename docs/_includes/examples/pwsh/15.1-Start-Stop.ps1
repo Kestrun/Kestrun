@@ -1,4 +1,4 @@
-﻿<#
+<#
     15.1 Start / Stop Patterns (moved from 7.8)
 #>
 New-KrLogger | Add-KrSinkConsole | Register-KrLogger -Name 'console' -SetAsDefault | Out-Null

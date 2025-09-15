@@ -1,4 +1,4 @@
-﻿<#
+<#
     .SYNOPSIS
         Protects a JWT token using a specified secret or certificate.
     .DESCRIPTION

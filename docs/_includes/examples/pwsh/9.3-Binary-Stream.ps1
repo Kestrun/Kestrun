@@ -1,4 +1,4 @@
-﻿
+
 <#
     Sample: Binary & Stream Responses
     Purpose: Demonstrate binary and streaming responses in a Kestrun server.

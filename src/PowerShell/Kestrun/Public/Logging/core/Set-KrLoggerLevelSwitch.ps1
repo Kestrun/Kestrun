@@ -1,4 +1,4 @@
-﻿<#
+<#
     .SYNOPSIS
         Sets the minimum logging level for a level switch.
     .DESCRIPTION

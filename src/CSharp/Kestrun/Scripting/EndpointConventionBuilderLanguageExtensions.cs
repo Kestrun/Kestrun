@@ -1,4 +1,4 @@
-﻿namespace Kestrun.Scripting;
+namespace Kestrun.Scripting;
 
 /// <summary>
 /// Extension methods for <see cref="IEndpointConventionBuilder"/> to support script language metadata.

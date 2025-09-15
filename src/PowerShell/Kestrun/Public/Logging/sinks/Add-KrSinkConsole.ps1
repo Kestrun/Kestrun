@@ -1,4 +1,4 @@
-﻿<#
+<#
     .SYNOPSIS
         Adds a console logging sink to the Kestrun logging system.
     .DESCRIPTION

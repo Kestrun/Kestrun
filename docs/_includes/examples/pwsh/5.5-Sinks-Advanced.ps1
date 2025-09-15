@@ -1,4 +1,4 @@
-﻿<#
+<#
     Sample demonstrating advanced sinks: HTTP, EventLog, and Syslog.
     Notes:
       - HTTP requires a reachable endpoint; left commented by default.

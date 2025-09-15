@@ -1,4 +1,4 @@
-﻿using Kestrun.Utilities;
+using Kestrun.Utilities;
 using System.Collections;
 using System.Xml.Linq;
 using Xunit;

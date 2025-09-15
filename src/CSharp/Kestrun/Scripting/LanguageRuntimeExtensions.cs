@@ -1,4 +1,4 @@
-﻿namespace Kestrun.Scripting;
+namespace Kestrun.Scripting;
 
 /// <summary>
 /// Extension methods for <see cref="IApplicationBuilder"/> to support language-based runtime configuration.

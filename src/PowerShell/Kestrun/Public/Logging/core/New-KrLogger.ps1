@@ -1,4 +1,4 @@
-﻿<#
+<#
     .SYNOPSIS
         Creates a new instance of Serilog.LoggerConfiguration.
     .DESCRIPTION

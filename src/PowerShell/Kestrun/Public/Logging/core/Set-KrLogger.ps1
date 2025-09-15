@@ -1,4 +1,4 @@
-﻿<#
+<#
     .SYNOPSIS
         Sets the logger for the current session.
     .DESCRIPTION

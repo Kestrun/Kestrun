@@ -1,4 +1,4 @@
-﻿<#
+<#
     .SYNOPSIS
         Returns a snapshot of the current schedule.
     .DESCRIPTION

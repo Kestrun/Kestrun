@@ -1,4 +1,4 @@
-﻿#requires -Module InvokeBuild
+#requires -Module InvokeBuild
 <#
     .SYNOPSIS
     Build script for Kestrun
@@ -159,6 +159,8 @@ Add-BuildTask Help {
     Write-Host '- Coverage: Generates code coverage reports.'
     Write-Host '- Report-Coverage: Generates code coverage report webpage.'
     Write-Host '- Clean-Coverage: Cleans the code coverage reports.'
+    Write-Host '- Normalize-LineEndings: Normalizes line endings to LF in .ps1, .psm1, and .cs files.'
+    Write-Host '-----------------------------------------------------'
 }
 
 Add-BuildTask 'Clean' 'Clean-CodeAnalysis', 'CleanHelp', {
@@ -470,12 +472,13 @@ Add-BuildTask Update-Module {
 Add-BuildTask 'Normalize-LineEndings' {
     Write-Host '🔄 Normalizing line endings to LF in .ps1, .psm1, and .cs files...'
 
-    Get-ChildItem -Recurse -Include *.ps1, *.psm1, *.cs, *.psd1, *.md |
+    Get-ChildItem -Recurse -Include *.ps1, *.psm1, *.cs |
+        Where-Object { $_.FullName -notmatch '\\(bin|obj)\\' } |
         ForEach-Object {
             $text = Get-Content -Raw -Path $_.FullName
             # Replace CRLF with LF
             $text = $text -replace "`r`n", "`n"
-            # Write back with UTF-8 (no BOM, recommended for cross-platform)
+            # Write back with UTF-8 (no BOM, cross-platform friendly)
             [System.IO.File]::WriteAllText($_.FullName, $text, (New-Object System.Text.UTF8Encoding($false)))
             Write-Host "Normalized line endings in $($_.FullName)"
         }

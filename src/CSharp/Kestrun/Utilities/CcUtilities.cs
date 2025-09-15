@@ -1,4 +1,4 @@
-﻿namespace Kestrun.Utilities;
+namespace Kestrun.Utilities;
 /// <summary>
 /// Provides utility methods for Kestrun.
 /// </summary>

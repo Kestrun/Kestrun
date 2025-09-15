@@ -1,4 +1,4 @@
-﻿<#
+<#
     .SYNOPSIS
       Retrieves Kestrun commands based on their context.
     .DESCRIPTION

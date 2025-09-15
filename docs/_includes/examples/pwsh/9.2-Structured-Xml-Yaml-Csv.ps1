@@ -1,4 +1,4 @@
-﻿
+
 <#
     Sample: Structured Formats (XML / YAML / CSV)
     Purpose: Demonstrate XML, YAML, and CSV responses in a Kestrun server.

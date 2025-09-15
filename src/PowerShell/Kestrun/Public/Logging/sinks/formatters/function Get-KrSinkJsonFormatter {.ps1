@@ -1,4 +1,4 @@
-﻿<#
+<#
     .SYNOPSIS
         Returns new instance of Serilog.Formatting.Json.JsonFormatter.
     .DESCRIPTION

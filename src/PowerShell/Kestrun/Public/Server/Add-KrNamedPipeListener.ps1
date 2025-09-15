@@ -1,4 +1,4 @@
-﻿<#
+<#
 .SYNOPSIS
     Adds a named pipe listener to a Kestrun server instance.
 .DESCRIPTION

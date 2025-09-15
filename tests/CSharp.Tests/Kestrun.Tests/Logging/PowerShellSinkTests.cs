@@ -1,4 +1,4 @@
-﻿using Kestrun.Logging.Sinks;
+using Kestrun.Logging.Sinks;
 using Kestrun.Logging.Sinks.Extensions;
 using Kestrun.Logging.Utils.Console;
 using Kestrun.Logging.Utils.Console.Extensions;

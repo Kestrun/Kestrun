@@ -1,4 +1,4 @@
-﻿
+
 <#
     .SYNOPSIS
         Adds a claim to the JWT token builder.

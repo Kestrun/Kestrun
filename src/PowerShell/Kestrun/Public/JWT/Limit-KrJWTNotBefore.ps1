@@ -1,4 +1,4 @@
-﻿<#
+<#
     .SYNOPSIS
         Sets the NotBefore time for the JWT token builder.
     .DESCRIPTION

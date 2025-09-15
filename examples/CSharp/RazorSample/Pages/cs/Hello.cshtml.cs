@@ -1,4 +1,4 @@
-﻿
+
 using Microsoft.AspNetCore.Mvc.RazorPages;
 #pragma warning disable IDE0130
 namespace RazorSample.Pages;

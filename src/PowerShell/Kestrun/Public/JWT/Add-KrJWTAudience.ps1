@@ -1,4 +1,4 @@
-﻿<#
+<#
     .SYNOPSIS
         Adds an audience to the JWT token builder.
     .LINK

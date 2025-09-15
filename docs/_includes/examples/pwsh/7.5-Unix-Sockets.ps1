@@ -1,4 +1,4 @@
-﻿<#
+<#
         Sample: Kestrun Server over a Unix Domain Socket
         Demonstrates binding to a Unix domain socket for local IPC instead of a TCP port.
         File:    7.5-Unix-Sockets.ps1

@@ -1,4 +1,4 @@
-﻿<#
+<#
     .SYNOPSIS
         Adds an HTTP sink to the Serilog logger configuration.
     .DESCRIPTION

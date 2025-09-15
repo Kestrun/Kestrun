@@ -1,4 +1,4 @@
-﻿using System.Management.Automation;
+using System.Management.Automation;
 using Kestrun.Logging.Data;
 
 namespace Kestrun.Logging.Exceptions;

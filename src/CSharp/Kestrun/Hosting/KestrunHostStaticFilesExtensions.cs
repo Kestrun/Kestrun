@@ -1,4 +1,4 @@
-﻿
+
 using Kestrun.Middleware;
 using Microsoft.Net.Http.Headers;
 using Serilog.Events;

@@ -1,4 +1,4 @@
-﻿<#
+<#
     13.1 Server Limits Example
     Demonstrates setting server limits for request body size, concurrent connections, and other limits.
     File:    13.1-Server-Limits.ps1

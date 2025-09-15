@@ -1,4 +1,4 @@
-﻿<#
+<#
     .SYNOPSIS
         Starts the Kestrun server and listens for incoming requests.
     .DESCRIPTION

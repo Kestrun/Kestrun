@@ -1,4 +1,4 @@
-﻿<#
+<#
     .SYNOPSIS
        Creates a new cloned JWT token builder instance.
     .DESCRIPTION

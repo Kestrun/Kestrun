@@ -1,4 +1,4 @@
-﻿<#
+<#
     .SYNOPSIS
         Adds an Antiforgery service to the server.
     .DESCRIPTION

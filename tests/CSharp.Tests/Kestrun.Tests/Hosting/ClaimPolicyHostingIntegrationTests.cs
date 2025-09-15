@@ -1,4 +1,4 @@
-﻿using System.Security.Claims;
+using System.Security.Claims;
 using Kestrun.Claims;
 using Kestrun.Hosting;
 using Microsoft.AspNetCore.Authorization;

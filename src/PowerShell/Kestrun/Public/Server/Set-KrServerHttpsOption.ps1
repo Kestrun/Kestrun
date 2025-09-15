@@ -1,4 +1,4 @@
-﻿<#
+<#
 .SYNOPSIS
     Configures HTTPS options for a Kestrun server instance.
 .DESCRIPTION

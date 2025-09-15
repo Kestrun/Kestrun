@@ -1,4 +1,4 @@
-﻿using System.Security;
+using System.Security;
 using System.Security.Cryptography;
 using Kestrun.Jwt;
 using Kestrun.Models;

@@ -1,4 +1,4 @@
-﻿// src/CSharp/Kestrun.Net/KrHttp.Downloads.cs
+// src/CSharp/Kestrun.Net/KrHttp.Downloads.cs
 using System.Net.Http.Headers;
 
 namespace Kestrun.Client;

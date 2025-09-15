@@ -1,4 +1,4 @@
-﻿<#
+<#
     .SYNOPSIS
         Imports a PFX/PEM certificate file and returns X509Certificate2.
     .DESCRIPTION

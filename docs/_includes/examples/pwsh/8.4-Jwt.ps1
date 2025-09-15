@@ -1,4 +1,4 @@
-﻿<#
+<#
     Sample: JWT Token Issuance & Validation
     Purpose: Show issuing a JWT after Basic auth and protecting routes with a bearer scheme.
     File:    8.4-Jwt.ps1

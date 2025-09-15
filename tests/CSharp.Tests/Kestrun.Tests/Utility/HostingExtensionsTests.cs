@@ -1,4 +1,4 @@
-﻿// Intentionally left blank: HostingExtensions requires integration-style testing with a running host.
+// Intentionally left blank: HostingExtensions requires integration-style testing with a running host.
 using Xunit;
 
 namespace KestrunTests.Utility;

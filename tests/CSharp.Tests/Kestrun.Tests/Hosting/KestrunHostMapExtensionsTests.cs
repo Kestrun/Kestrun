@@ -1,4 +1,4 @@
-﻿using Kestrun.Hosting;
+using Kestrun.Hosting;
 using Kestrun.Hosting.Options;
 using Kestrun.Scripting;
 using Kestrun.Claims;

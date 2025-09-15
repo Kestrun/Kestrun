@@ -1,4 +1,4 @@
-﻿
+
 <#
     Sample: Caching & Revalidation
     Purpose: Demonstrate cache-control and ETag/Last-Modified revalidation in a Kestrun server.

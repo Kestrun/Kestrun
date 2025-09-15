@@ -1,4 +1,4 @@
-﻿<#
+<#
     Sample: Basic Authentication (PowerShell)
     Purpose: Demonstrates creating a Basic authentication scheme using a PowerShell script block for credential validation.
     File:    8.1-Basic-PS.ps1

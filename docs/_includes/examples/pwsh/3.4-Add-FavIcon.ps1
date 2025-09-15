@@ -1,4 +1,4 @@
-﻿<#
+<#
     Sample Kestrun Server on how to add a favicon.
     This example demonstrates how to configure a favicon in a Kestrun server.
     FileName: 3.4-Add-FavIcon.ps1

@@ -1,4 +1,4 @@
-﻿<#
+<#
 .SYNOPSIS
     Adds a Syslog UDP sink to the Serilog logger configuration.
 

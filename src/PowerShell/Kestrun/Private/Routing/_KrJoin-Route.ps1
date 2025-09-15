@@ -1,4 +1,4 @@
-﻿<#
+<#
     .SYNOPSIS
         Joins two route paths.
     .DESCRIPTION

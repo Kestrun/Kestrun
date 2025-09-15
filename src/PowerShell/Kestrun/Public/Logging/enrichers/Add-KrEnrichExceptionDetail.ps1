@@ -1,4 +1,4 @@
-﻿<#
+<#
     .SYNOPSIS
         Adds exception details to the log context.
     .DESCRIPTION

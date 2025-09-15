@@ -1,4 +1,4 @@
-﻿<#
+<#
     .SYNOPSIS
         Retrieves information from a JWT token.
     .DESCRIPTION

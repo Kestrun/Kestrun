@@ -1,4 +1,4 @@
-﻿<#
+<#
     .SYNOPSIS
         Writes an object serialized as BSON to the HTTP response.
     .DESCRIPTION

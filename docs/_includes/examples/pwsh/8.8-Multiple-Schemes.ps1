@@ -1,4 +1,4 @@
-﻿<#
+<#
         Sample: Multiple Authentication Schemes
         Purpose: Combine Basic, API Key, and JWT Bearer schemes in one server.
         File:    8.8-Multiple-Schemes.ps1

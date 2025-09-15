@@ -1,4 +1,4 @@
-﻿<#
+<#
     .SYNOPSIS
         Retrieves a query parameter value from the HTTP request.
     .DESCRIPTION

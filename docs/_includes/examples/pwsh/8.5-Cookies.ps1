@@ -1,4 +1,4 @@
-﻿<#
+<#
     Sample: Cookies Authentication
     Purpose: Demonstrates form login + cookie session for subsequent authorized requests.
     File:    8.5-Cookies.ps1

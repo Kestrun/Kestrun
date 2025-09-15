@@ -1,4 +1,4 @@
-﻿<#
+<#
     Sample: Basic Authentication (C# and VB.NET)
     Purpose: Shows how to implement Basic authentication credential validation using inline C# and VB.NET code.
     File:    8.2-Basic-MultiLang.ps1

@@ -1,4 +1,4 @@
-﻿<#
+<#
     Sample: Windows Authentication
     Purpose: Leverage Windows credentials for seamless authentication.
     File:    8.6-Windows-Authentication.ps1

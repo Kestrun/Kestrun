@@ -1,4 +1,4 @@
-﻿<#
+<#
     .SYNOPSIS
         Writes CSV data to the HTTP response body.
     .DESCRIPTION

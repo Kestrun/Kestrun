@@ -1,4 +1,4 @@
-﻿<#
+<#
     .SYNOPSIS
         Writes an object serialized as XML to the HTTP response.
 

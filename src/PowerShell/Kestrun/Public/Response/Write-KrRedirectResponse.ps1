@@ -1,4 +1,4 @@
-﻿<#
+<#
     .SYNOPSIS
         Writes a redirect response to the HTTP client.
     .DESCRIPTION

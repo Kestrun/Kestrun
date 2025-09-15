@@ -1,4 +1,4 @@
-﻿<#
+<#
     .SYNOPSIS
         Gets the current logging level for a level switch.
     .DESCRIPTION

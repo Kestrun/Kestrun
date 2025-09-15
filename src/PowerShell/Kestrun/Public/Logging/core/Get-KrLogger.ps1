@@ -1,4 +1,4 @@
-﻿<#
+<#
     .SYNOPSIS
         Gets the logger for the current session.
     .DESCRIPTION

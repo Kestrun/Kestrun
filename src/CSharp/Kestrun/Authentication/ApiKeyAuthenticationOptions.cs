@@ -1,4 +1,4 @@
-﻿using System.Security.Claims;
+using System.Security.Claims;
 using System.Text;
 using Kestrun.Claims;
 using Microsoft.AspNetCore.Authentication;

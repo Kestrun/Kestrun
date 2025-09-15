@@ -1,4 +1,4 @@
-﻿<#
+<#
     .SYNOPSIS
         Retrieves the value of a previously defined global variable.
     .DESCRIPTION

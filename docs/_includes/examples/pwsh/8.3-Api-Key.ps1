@@ -1,4 +1,4 @@
-﻿<#
+<#
     Sample: API Key Authentication Variants
     Purpose: Demonstrates fixed key, PowerShell script, and inline C# validation for API key auth.
     File:    8.3-Api-Key.ps1

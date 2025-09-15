@@ -1,4 +1,4 @@
-﻿<#
+<#
     Sample Kestrun Server demonstrating response caching and conditional requests (ETag / Last-Modified).
     Shows how to configure response caching limits and a simple route that returns 304 when unchanged.
     FileName: 3.5-Response-Caching.ps1

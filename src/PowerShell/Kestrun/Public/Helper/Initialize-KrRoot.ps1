@@ -1,4 +1,4 @@
-﻿<#
+<#
     .SYNOPSIS
         Initializes the Kestrun root directory for path resolution.
     .DESCRIPTION

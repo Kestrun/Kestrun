@@ -1,4 +1,4 @@
-﻿<#
+<#
     .SYNOPSIS
         Returns modules imported by the user session.
 

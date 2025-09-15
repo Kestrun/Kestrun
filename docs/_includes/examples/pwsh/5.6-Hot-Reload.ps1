@@ -1,4 +1,4 @@
-﻿<#
+<#
     Sample demonstrating hot reload:
     - Dynamically change minimum level with a LoggingLevelSwitch
     - Re-register a logger with the same name to change sinks/properties

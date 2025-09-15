@@ -1,4 +1,4 @@
-﻿# Kestrun.Build.psm1
+# Kestrun.Build.psm1
 #requires -Version 7.4
 
 # ---- Public functions ------------------------------------------------------

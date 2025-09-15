@@ -1,4 +1,4 @@
-﻿<#
+<#
     14.1 Full Demo (moved from 7.9)
 #>
 New-KrLogger | Add-KrSinkConsole | Register-KrLogger -Name 'console' -SetAsDefault | Out-Null

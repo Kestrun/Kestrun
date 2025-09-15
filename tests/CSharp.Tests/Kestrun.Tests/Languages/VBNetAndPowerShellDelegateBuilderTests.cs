@@ -1,4 +1,4 @@
-﻿using Kestrun.Languages;
+using Kestrun.Languages;
 using Microsoft.AspNetCore.Http;
 using Serilog;
 using Xunit;

@@ -1,4 +1,4 @@
-﻿<#
+<#
     .SYNOPSIS
         Sets the minimum log level for the logger configuration.
     .DESCRIPTION

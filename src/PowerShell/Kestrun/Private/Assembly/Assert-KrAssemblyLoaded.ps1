@@ -1,4 +1,4 @@
-﻿<#
+<#
     .SYNOPSIS
         Ensures that a .NET assembly is loaded only once.
 

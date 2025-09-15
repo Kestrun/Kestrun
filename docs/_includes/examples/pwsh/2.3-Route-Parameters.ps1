@@ -1,4 +1,4 @@
-﻿<#
+<#
     Sample Kestrun Server on how to use route parameters.
     These examples demonstrate how to access route parameters and query strings in a Kestrun server.
     FileName: 2.3-Route-Parameters.ps1

@@ -1,4 +1,4 @@
-﻿<#
+<#
     .SYNOPSIS
         Adds response caching to the Kestrun server.
     .DESCRIPTION

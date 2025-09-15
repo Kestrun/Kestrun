@@ -1,4 +1,4 @@
-﻿using System.Reflection;
+using System.Reflection;
 using Kestrun.Razor;
 using Microsoft.AspNetCore.Mvc.Razor.RuntimeCompilation;
 using Microsoft.AspNetCore.Mvc.RazorPages;

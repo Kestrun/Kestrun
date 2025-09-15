@@ -1,4 +1,4 @@
-﻿namespace Kestrun.Authentication;
+namespace Kestrun.Authentication;
 
 /// <summary>
 /// Specifies the format for API key authentication challenges.

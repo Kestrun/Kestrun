@@ -1,4 +1,4 @@
-﻿<#
+<#
     .SYNOPSIS
         Adds response compression to the server.
     .DESCRIPTION

@@ -1,4 +1,4 @@
-﻿<#
+<#
 .SYNOPSIS
     Adds a Syslog TCP sink to the logging system.
 

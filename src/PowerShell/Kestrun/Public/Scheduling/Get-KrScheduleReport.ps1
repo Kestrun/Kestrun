@@ -1,4 +1,4 @@
-﻿<#
+<#
     .SYNOPSIS
         Returns the full schedule report.
     .DESCRIPTION

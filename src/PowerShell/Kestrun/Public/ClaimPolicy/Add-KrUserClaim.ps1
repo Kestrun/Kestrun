@@ -1,4 +1,4 @@
-﻿<#
+<#
     .SYNOPSIS
         Adds a claim to the current user.
         This function allows you to add a new claim to the current user's identity.

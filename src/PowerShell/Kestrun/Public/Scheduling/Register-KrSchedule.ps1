@@ -1,4 +1,4 @@
-﻿<#
+<#
     .SYNOPSIS
         Creates a new scheduled job in the active Kestrun host.
     .DESCRIPTION

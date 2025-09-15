@@ -1,4 +1,4 @@
-﻿namespace Kestrun.Scripting;
+namespace Kestrun.Scripting;
 
 /// <summary>
 /// Attribute to specify the script language for a method or delegate.

@@ -1,4 +1,4 @@
-﻿<#
+<#
     Sample: Text and JSON Responses
     Purpose: Demonstrate the use of text and JSON responses in a Kestrun server.
     File:    9.1-Text-Json.ps1

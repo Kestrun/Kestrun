@@ -1,4 +1,4 @@
-﻿using Kestrun.Hosting;
+using Kestrun.Hosting;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Cors.Infrastructure;
 using Microsoft.AspNetCore.RateLimiting;

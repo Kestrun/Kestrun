@@ -1,4 +1,4 @@
-﻿<#
+<#
     .SYNOPSIS
         Enriches log events with ErrorRecord property if available.
     .DESCRIPTION

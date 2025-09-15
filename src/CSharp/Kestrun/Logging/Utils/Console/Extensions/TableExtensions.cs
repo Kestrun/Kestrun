@@ -1,4 +1,4 @@
-﻿
+
 namespace Kestrun.Logging.Utils.Console.Extensions;
 
 /// <summary>

@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Server.Kestrel.Core;
+using Microsoft.AspNetCore.Server.Kestrel.Core;
 using Xunit;
 using Kestrun.Hosting.Options;
 

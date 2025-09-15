@@ -1,4 +1,4 @@
-﻿<#
+<#
         Sample: Kestrun Server over a Windows Named Pipe
         Demonstrates binding to a Windows named pipe for local IPC instead of a TCP port.
         File:   7.4-Named-Pipes.ps1

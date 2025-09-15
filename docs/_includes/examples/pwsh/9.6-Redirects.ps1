@@ -1,4 +1,4 @@
-﻿
+
 <#
     Sample: Redirects
     Purpose: Demonstrate HTTP redirects in a Kestrun server.

@@ -1,4 +1,4 @@
-﻿using Kestrun;
+using Kestrun;
 using Kestrun.Hosting;
 using Microsoft.AspNetCore.Server.Kestrel.Core;
 using Serilog;

@@ -1,4 +1,4 @@
-﻿<#
+<#
 .SYNOPSIS
     Normalizes PowerShell source files (LF, no trailing spaces, single EOF newline),
     and enforces a consistent header/footer with Created/Modified tracking.

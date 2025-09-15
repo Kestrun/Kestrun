@@ -1,4 +1,4 @@
-﻿<#
+<#
     .SYNOPSIS
         Builds the claim policy configuration from the builder.
     .DESCRIPTION

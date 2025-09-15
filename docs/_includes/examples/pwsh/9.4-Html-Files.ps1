@@ -1,4 +1,4 @@
-﻿
+
 <#
     Sample: HTML Templates & File Downloads
     Purpose: Demonstrate HTML templating and file download in a Kestrun server.

@@ -1,4 +1,4 @@
-﻿<#
+<#
     Sample Kestrun Server on how to use static routes.
     These examples demonstrate how to configure static routes in a Kestrun server.
     FileName: 3.3-Static-OverrideRoutes.ps1

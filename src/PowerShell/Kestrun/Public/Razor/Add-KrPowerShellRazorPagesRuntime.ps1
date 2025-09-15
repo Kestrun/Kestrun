@@ -1,4 +1,4 @@
-﻿<#
+<#
     .SYNOPSIS
     Adds PowerShell support for Razor Pages.
     .DESCRIPTION

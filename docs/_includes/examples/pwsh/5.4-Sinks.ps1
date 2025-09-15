@@ -1,4 +1,4 @@
-﻿<#
+<#
     Sample demonstrating sinks: console, text file, and JSON file.
     - 'text' logger: writes to console + logs/sinks-text.log
     - 'json' logger: writes to logs/sinks-json.log with JSON formatter

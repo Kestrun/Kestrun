@@ -1,4 +1,4 @@
-﻿<#
+<#
     .SYNOPSIS
         Loads required ASP.NET Core assemblies for PowerShell usage.
     .PARAMETER Version

@@ -1,4 +1,4 @@
-﻿<#
+<#
     .SYNOPSIS
         Adds scheduling support to the Kestrun server.
     .DESCRIPTION

@@ -1,4 +1,4 @@
-﻿using System.Security;
+using System.Security;
 using Kestrun.Certificates;
 using Org.BouncyCastle.OpenSsl;
 using Org.BouncyCastle.Pkcs;

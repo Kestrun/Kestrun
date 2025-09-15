@@ -1,4 +1,4 @@
-﻿<#
+<#
     .SYNOPSIS
         Retrieves the validation parameters for a JWT token builder result.
     .DESCRIPTION

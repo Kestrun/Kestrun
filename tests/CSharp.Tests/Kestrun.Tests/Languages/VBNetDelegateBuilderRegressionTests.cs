@@ -1,4 +1,4 @@
-﻿using Kestrun.Languages;
+using Kestrun.Languages;
 using Xunit;
 
 namespace KestrunTests.Languages;

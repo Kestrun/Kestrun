@@ -1,4 +1,4 @@
-﻿<#
+<#
     .SYNOPSIS
         Writes an object to the HTTP response body as JSON.
     .DESCRIPTION

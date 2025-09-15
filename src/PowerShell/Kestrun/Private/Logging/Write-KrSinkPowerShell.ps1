@@ -1,4 +1,4 @@
-﻿<#
+<#
     .SYNOPSIS
         Writes log events to the PowerShell host.
     .DESCRIPTION

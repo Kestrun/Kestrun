@@ -1,4 +1,4 @@
-﻿using Kestrun;
+using Kestrun;
 using System.Reflection;
 using Xunit;
 

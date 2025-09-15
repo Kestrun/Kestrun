@@ -1,4 +1,4 @@
-﻿using Kestrun;
+using Kestrun;
 using Kestrun.Hosting;
 using Serilog;
 using Xunit;

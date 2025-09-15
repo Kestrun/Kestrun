@@ -1,4 +1,4 @@
-﻿<#
+<#
     Sample demonstrating multiple named loggers with different minimum levels.
     'app' logger: Minimum Information, writes to console + app.log
     'audit' logger: Minimum Debug, writes to audit.log

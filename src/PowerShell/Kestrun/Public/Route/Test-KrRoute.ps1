@@ -1,4 +1,4 @@
-﻿<#
+<#
     .SYNOPSIS
         Tests if a route exists in the Kestrun host.
     .DESCRIPTION

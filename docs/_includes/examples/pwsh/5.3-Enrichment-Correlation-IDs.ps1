@@ -1,4 +1,4 @@
-﻿<#
+<#
     Sample demonstrating enrichment and correlation IDs.
     - Adds a global property 'App' to the logger
     - For each request, generates a CorrelationId and attaches it to log events

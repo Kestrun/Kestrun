@@ -1,4 +1,4 @@
-﻿<#
+<#
     .SYNOPSIS
         Adds an Event Log sink to the Serilog logger configuration.
     .DESCRIPTION

@@ -1,4 +1,4 @@
-﻿<#
+<#
     .SYNOPSIS
         Sends an HTTP request to a Kestrun server over various transport mechanisms (TCP, Named Pipe, Unix Socket).
     .DESCRIPTION

@@ -1,4 +1,4 @@
-﻿<#
+<#
     .SYNOPSIS
         Creates a PEM-encoded CSR (and returns the private key).
 

@@ -1,4 +1,4 @@
-﻿using Kestrun.Authentication;
+using Kestrun.Authentication;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;

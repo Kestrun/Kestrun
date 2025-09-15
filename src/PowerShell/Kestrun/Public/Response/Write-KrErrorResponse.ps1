@@ -1,4 +1,4 @@
-﻿<#
+<#
     .SYNOPSIS
         Writes an error response to the HTTP client.
     .DESCRIPTION

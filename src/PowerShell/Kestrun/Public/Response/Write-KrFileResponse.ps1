@@ -1,4 +1,4 @@
-﻿<#
+<#
     .SYNOPSIS
         Sends a file as the HTTP response.
 

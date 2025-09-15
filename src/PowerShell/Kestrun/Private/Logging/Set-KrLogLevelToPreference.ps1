@@ -1,4 +1,4 @@
-﻿<#
+<#
     .SYNOPSIS
         Sets the PowerShell script log level preferences based on the specified Serilog log level.
     .DESCRIPTION

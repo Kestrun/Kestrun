@@ -1,4 +1,4 @@
-﻿//  File: AssemblyAutoLoader.cs
+//  File: AssemblyAutoLoader.cs
 //  Namespace: Kestrun.Utilities   (choose any namespace that suits you)
 
 using System.Reflection;

@@ -1,4 +1,4 @@
-﻿<#
+<#
     13.2 Server Options Example
     Demonstrates setting server options for denying server header, disabling response header compression, and configuring runspaces.
     File:    13.2-Server-Options.ps1

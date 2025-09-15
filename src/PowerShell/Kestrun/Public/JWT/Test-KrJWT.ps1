@@ -1,4 +1,4 @@
-﻿<#
+<#
     .SYNOPSIS
         Validates a JWT token against the builder's parameters.
     .DESCRIPTION

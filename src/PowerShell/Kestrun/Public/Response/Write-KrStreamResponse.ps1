@@ -1,4 +1,4 @@
-﻿<#
+<#
     .SYNOPSIS
         Writes a stream directly to the HTTP response body.
     .DESCRIPTION

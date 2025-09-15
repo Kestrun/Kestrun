@@ -1,4 +1,4 @@
-﻿<#
+<#
     .SYNOPSIS
         Tests if a logger exists or returns the current default logger for the session.
     .DESCRIPTION

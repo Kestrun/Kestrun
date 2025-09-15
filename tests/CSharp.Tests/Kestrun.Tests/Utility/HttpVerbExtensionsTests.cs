@@ -1,4 +1,4 @@
-﻿using Kestrun.Utilities;
+using Kestrun.Utilities;
 using Xunit;
 
 namespace KestrunTests.Utility;

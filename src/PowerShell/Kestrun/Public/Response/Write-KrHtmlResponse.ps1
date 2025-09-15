@@ -1,4 +1,4 @@
-﻿<#
+<#
     .SYNOPSIS
         Writes an HTML response to the HTTP response body.
     .DESCRIPTION

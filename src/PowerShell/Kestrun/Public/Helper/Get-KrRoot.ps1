@@ -1,4 +1,4 @@
-﻿<#
+<#
     .SYNOPSIS
         Retrieves the Kestrun root directory.
     .DESCRIPTION

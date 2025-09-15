@@ -1,4 +1,4 @@
-﻿<#
+<#
 .SYNOPSIS
     Converts various input types to a [TimeSpan] instance.
 .DESCRIPTION

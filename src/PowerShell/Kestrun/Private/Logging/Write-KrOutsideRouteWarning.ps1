@@ -1,4 +1,4 @@
-﻿<#
+<#
 .SYNOPSIS
     Logs a warning that a function must be called inside a route script block.
 .DESCRIPTION

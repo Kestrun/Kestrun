@@ -1,4 +1,4 @@
-﻿<#
+<#
     .SYNOPSIS
         Writes plain text to the HTTP response body.
 

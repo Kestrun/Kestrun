@@ -1,4 +1,4 @@
-﻿<#
+<#
     .SYNOPSIS
         Retrieves a cookie value from the HTTP request.
     .DESCRIPTION

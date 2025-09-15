@@ -1,4 +1,4 @@
-﻿using Xunit;
+using Xunit;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Kestrun.Scripting;

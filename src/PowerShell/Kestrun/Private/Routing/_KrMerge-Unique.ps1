@@ -1,4 +1,4 @@
-﻿<#
+<#
     .SYNOPSIS
         Merges two arrays, preserving unique values.
     .DESCRIPTION

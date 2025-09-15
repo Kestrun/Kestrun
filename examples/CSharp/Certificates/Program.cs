@@ -1,4 +1,4 @@
-﻿using System.Security;
+using System.Security;
 using System.Security.Cryptography.X509Certificates;
 using Org.BouncyCastle.OpenSsl;   // Only for writing the CSR key
 using Kestrun.Certificates;

@@ -1,4 +1,4 @@
-﻿<#
+<#
     .SYNOPSIS
         Merges two MapRouteOptions objects.
     .DESCRIPTION

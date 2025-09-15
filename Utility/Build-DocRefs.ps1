@@ -1,4 +1,4 @@
-﻿[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidUsingWriteHost', '')]
+[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidUsingWriteHost', '')]
 param(
     [ValidateSet('net8.0', 'net9.0')] [string]$Tfm = 'net8.0',
     [string]$Project = 'src/CSharp/Kestrun/Kestrun.csproj',

@@ -1,4 +1,4 @@
-﻿<#
+<#
     Sample Kestrun Server on how to configure a static file server.
     These examples demonstrate how to configure static routes with directory browsing in a Kestrun server.
     FileName: 3.2-File-Server.ps1

@@ -1,4 +1,4 @@
-﻿<#
+<#
 .SYNOPSIS
     Sets the named pipe options for a Kestrun server instance. (Windows Operating Systems only)
 .DESCRIPTION

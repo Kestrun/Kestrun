@@ -1,4 +1,4 @@
-﻿<#
+<#
     .SYNOPSIS
         Adds a subject to the JWT token builder.
     .DESCRIPTION

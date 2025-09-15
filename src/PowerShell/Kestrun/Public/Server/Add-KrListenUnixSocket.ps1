@@ -1,4 +1,4 @@
-﻿<#
+<#
 .SYNOPSIS
     Adds a Unix socket listener to a Kestrun server instance.
 .DESCRIPTION

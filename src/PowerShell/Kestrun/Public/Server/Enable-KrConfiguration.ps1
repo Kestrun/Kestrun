@@ -1,4 +1,4 @@
-﻿<#
+<#
     .SYNOPSIS
         Enables Kestrun server configuration and starts the server.
     .DESCRIPTION

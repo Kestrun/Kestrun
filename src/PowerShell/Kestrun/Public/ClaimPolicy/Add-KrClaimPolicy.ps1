@@ -1,4 +1,4 @@
-﻿<#
+<#
     .SYNOPSIS
         Adds a new claim policy to the KestrunClaims system.
     .DESCRIPTION

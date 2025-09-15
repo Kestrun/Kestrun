@@ -1,4 +1,4 @@
-﻿using System.Net;
+using System.Net;
 using Microsoft.AspNetCore.ResponseCompression;
 using Kestrun.Utilities;
 // Add the namespace that contains HttpVerb

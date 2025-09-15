@@ -1,4 +1,4 @@
-﻿using Kestrun.Scripting;
+using Kestrun.Scripting;
 using Xunit;
 
 

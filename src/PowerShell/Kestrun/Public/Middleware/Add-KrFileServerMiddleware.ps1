@@ -1,4 +1,4 @@
-﻿<#
+<#
 .SYNOPSIS
     Registers a file server to serve static files from a specified path.
 .DESCRIPTION

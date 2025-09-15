@@ -1,4 +1,4 @@
-﻿<#
+<#
     .SYNOPSIS
         Adds a CORS policy to the server.
     .DESCRIPTION

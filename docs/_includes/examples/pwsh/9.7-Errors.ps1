@@ -1,4 +1,4 @@
-﻿
+
 <#
     Sample: Errors
     Purpose: Demonstrate error responses in a Kestrun server.

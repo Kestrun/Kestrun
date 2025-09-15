@@ -1,4 +1,4 @@
-﻿
+
 <#
     Sample: Low-Level Response
     Purpose: Demonstrate raw stream response in a Kestrun server.

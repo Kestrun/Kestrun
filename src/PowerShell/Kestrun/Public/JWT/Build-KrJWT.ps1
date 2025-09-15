@@ -1,4 +1,4 @@
-﻿<#
+<#
     .SYNOPSIS
         Builds the JWT token from the builder.
     .DESCRIPTION

@@ -1,4 +1,4 @@
-﻿
+
 <#
     Sample: BSON & CBOR
     Purpose: Demonstrate BSON and CBOR binary responses in a Kestrun server.

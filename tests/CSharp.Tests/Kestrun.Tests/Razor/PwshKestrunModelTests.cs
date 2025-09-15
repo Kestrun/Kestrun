@@ -1,4 +1,4 @@
-﻿using Kestrun.Razor;
+using Kestrun.Razor;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.Extensions.Configuration;

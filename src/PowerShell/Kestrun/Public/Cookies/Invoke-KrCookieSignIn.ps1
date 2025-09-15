@@ -1,4 +1,4 @@
-﻿<#
+<#
 .SYNOPSIS
     Signs in a user issuing an authentication cookie for the given scheme.
 .DESCRIPTION

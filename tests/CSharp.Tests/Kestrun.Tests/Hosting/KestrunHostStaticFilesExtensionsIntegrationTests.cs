@@ -1,4 +1,4 @@
-﻿using System.Net;
+using System.Net;
 using Kestrun.Hosting;
 using Microsoft.AspNetCore.StaticFiles;
 using Serilog;

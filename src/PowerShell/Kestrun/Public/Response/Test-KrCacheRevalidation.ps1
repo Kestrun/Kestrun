@@ -1,4 +1,4 @@
-﻿
+
 <#
 .SYNOPSIS
     Checks request validators and writes 304 if appropriate; otherwise sets ETag/Last-Modified.

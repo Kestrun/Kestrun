@@ -1,4 +1,4 @@
-﻿
+
 <#
     .SYNOPSIS
         Creates a new MapRouteOptions object with the specified base and overrides.

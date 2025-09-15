@@ -1,4 +1,4 @@
-﻿<#
+<#
 .SYNOPSIS
     Signs out the current user by removing their authentication cookie for the given scheme.
 .DESCRIPTION

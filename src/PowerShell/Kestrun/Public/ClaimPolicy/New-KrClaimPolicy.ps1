@@ -1,4 +1,4 @@
-﻿<#
+<#
     .SYNOPSIS
         Creates a new claim policy builder instance.
     .DESCRIPTION

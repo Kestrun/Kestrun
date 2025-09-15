@@ -1,4 +1,4 @@
-﻿<#
+<#
     .SYNOPSIS
         Creates a grouped route context (prefix + shared options) for nested Add-KrMapRoute calls.
     .DESCRIPTION

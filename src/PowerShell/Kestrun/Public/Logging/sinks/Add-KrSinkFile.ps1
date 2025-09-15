@@ -1,4 +1,4 @@
-﻿<#
+<#
     .SYNOPSIS
      Adds a file-based logging sink to the logging system.
     .DESCRIPTION

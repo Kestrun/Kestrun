@@ -47,7 +47,7 @@ jobs:
 
       - name: 🧰 Setup PowerShell (for lint)
         if: github.event_name != 'pull_request' || steps.changed.outputs.need_ps != '0'
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: '3.x'
         # (Using system pwsh already available on ubuntu-latest; Python setup just placeholder for potential future tooling.)

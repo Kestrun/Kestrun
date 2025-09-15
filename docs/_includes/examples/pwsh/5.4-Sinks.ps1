@@ -6,14 +6,14 @@
 #>
 
 $text = New-KrLogger |
-    Set-KrMinimumLevel -Value Information |
+    Set-KrLoggerMinimumLevel -Value Information |
     Add-KrSinkConsole |
     Add-KrSinkFile -Path '.\logs\sinks-text.log' -RollingInterval Hour |
     Register-KrLogger -Name 'text' -PassThru
 
 $json = New-KrLogger |
-    Set-KrMinimumLevel -Value Debug |
-    Add-KrSinkFile -Path '.\logs\sinks-json.log' -Formatter (Get-KrJsonFormatter) -RollingInterval Hour |
+    Set-KrLoggerMinimumLevel -Value Debug |
+    Add-KrSinkFile -Path '.\logs\sinks-json.log' -Formatter (Get-KrSinkJsonFormatter) -RollingInterval Hour |
     Register-KrLogger -Name 'json' -PassThru
 
 New-KrServer -Name "Sinks Demo"

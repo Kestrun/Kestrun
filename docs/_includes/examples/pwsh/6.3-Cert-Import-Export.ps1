@@ -82,3 +82,6 @@ Add-KrMapRoute -Verbs Post -Pattern "/certs/export" -ScriptBlock {
 }
 
 Start-KrServer
+
+# Clean up and close all the loggers when the server stops
+Close-KrLogger

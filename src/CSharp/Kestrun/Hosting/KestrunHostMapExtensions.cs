@@ -387,7 +387,7 @@ public static class KestrunHostMapExtensions
         {
             foreach (var policy in options.RequirePolicies)
             {
-                if (!host.HasAuthzPolicy(policy))
+                if (!host.HasAuthPolicy(policy))
                 {
                     throw new ArgumentException($"Authorization policy '{policy}' is not registered.", nameof(options.RequirePolicies));
                 }

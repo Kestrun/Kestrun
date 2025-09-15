@@ -124,7 +124,8 @@ function Get-KrAssignedVariable {
         if ($name.StartsWith('{') -and $name.EndsWith('}')) {
             $name = $name.Substring(1, $name.Length - 2)        # ← ${foo} → foo
         }
-        $val = Get-Variable -Name $name -Scope $scopeUp -ErrorAction SilentlyContinue
+        $val = Get-Variable -Name $name -Scope $scopeUp -ValueOnly -ErrorAction SilentlyContinue
+        $type = if ($null -ne $val) { $val.GetType().FullName } else { $null }
 
         [pscustomobject]@{
             Name = $name

@@ -54,3 +54,6 @@ Add-KrMapRoute -Verbs Post -Pattern "/certs/csr" -ScriptBlock {
 }
 
 Start-KrServer
+
+# Clean up and close all the loggers when the server stops
+Close-KrLogger

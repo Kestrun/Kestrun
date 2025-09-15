@@ -52,7 +52,7 @@ function Enable-KrConfiguration {
         foreach ($v in $Variables) {
             if ($ExcludeVariables -notcontains $v.Name) {
                 if (-not [Kestrun.SharedState.SharedStateStore]::Contains($v.Name)) {
-                    [void][Kestrun.SharedState.SharedStateStore]::Set($v.Name, $v.Value.Value, $true)
+                    [void][Kestrun.SharedState.SharedStateStore]::Set($v.Name, $v.Value, $true)
                 }
             }
         }

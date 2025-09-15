@@ -1,7 +1,7 @@
 ---
 title: Endpoints
 parent: Tutorials
-nav_order: 6
+nav_order: 7
 ---
 
 # Endpoints & Server Hosting

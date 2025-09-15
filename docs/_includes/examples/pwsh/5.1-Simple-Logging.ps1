@@ -6,7 +6,7 @@
 #>
 
 $myLogger = New-KrLogger |
-    Set-KrMinimumLevel -Value Debug |
+    Set-KrLoggerMinimumLevel -Value Debug |
     Add-KrSinkFile -Path '.\logs\sample.log' -RollingInterval Hour |
     Add-KrSinkConsole |
     Register-KrLogger -Name 'myLogger' -PassThru

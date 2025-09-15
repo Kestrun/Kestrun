@@ -27,3 +27,6 @@ Enable-KrConfiguration
 Add-KrMapRoute -Verbs Get -Pattern "/hello" -ScriptBlock { Write-KrTextResponse "hello https" }
 
 Start-KrServer
+
+# Clean up and close all the loggers when the server stops
+Close-KrLogger

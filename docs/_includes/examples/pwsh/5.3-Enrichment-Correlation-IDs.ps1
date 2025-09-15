@@ -6,7 +6,7 @@
 #>
 
 $appLogger = New-KrLogger |
-    Set-KrMinimumLevel -Value Debug |
+    Set-KrLoggerMinimumLevel -Value Debug |
     Add-KrEnrichProperty -Name 'App' -Value 'LoggingSamples' |
     Add-KrEnrichFromLogContext |
     Add-KrSinkConsole -OutputTemplate "[{App} {Timestamp:HH:mm:ss} {Level:u3} {CorrelationId}] {Message:lj}{NewLine}{Exception}" |

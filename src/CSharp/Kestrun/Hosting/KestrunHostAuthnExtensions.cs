@@ -298,6 +298,7 @@ public static class KestrunHostAuthnExtensions
             }
         );
     }
+
     /// <summary>
     /// Adds API Key Authentication to the Kestrun host.
     /// <para>Use this for endpoints that require an API key for access.</para>
@@ -671,6 +672,34 @@ public static class KestrunHostAuthnExtensions
         return scheme != null;
     }
 
+    /// <summary>
+    /// Adds authorization services to the Kestrun host.
+    /// </summary>
+    /// <param name="host">The Kestrun host instance.</param>
+    /// <param name="cfg">Optional configuration for authorization options.</param>
+    /// <returns>The configured KestrunHost instance.</returns>
+    public static KestrunHost AddAuthorization(this KestrunHost host, Action<AuthorizationOptions>? cfg = null)
+    {
+        return host.AddService(services =>
+        {
+            _ = cfg == null ? services.AddAuthorization() : services.AddAuthorization(cfg);
+        });
+    }
+
+
+
+    /// <summary>
+    /// Checks if the specified authorization policy is registered in the Kestrun host.
+    /// </summary>
+    /// <param name="host">The Kestrun host instance.</param>
+    /// <param name="policyName">The name of the authorization policy to check.</param>
+    /// <returns>True if the policy is registered; otherwise, false.</returns>
+    public static bool HasAuthPolicy(this KestrunHost host, string policyName)
+    {
+        var policyProvider = host.App.Services.GetRequiredService<IAuthorizationPolicyProvider>();
+        var policy = policyProvider.GetPolicyAsync(policyName).GetAwaiter().GetResult();
+        return policy != null;
+    }
     /// <summary>
     /// Helper to copy values from a user-supplied CookieAuthenticationOptions instance to the instance
     /// created by the framework inside AddCookie(). Reassigning the local variable (opts = source) would

@@ -4,12 +4,10 @@ permissions:
   contents: write   # create tags & releases
   pull-requests: read
   security-events: write
+  actions: read
 
 on:
   workflow_dispatch: {}
-  workflow_call:
-    inputs: {}
-    secrets: {}
 
 jobs:
   format:

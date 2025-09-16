@@ -1,9 +1,11 @@
 name: Publish Release
 
 permissions:
-  contents: read   # read release assets & release metadata
-  packages: write  # allow publishing to GitHub Packages
+  contents: write        # to allow inner workflow to tag & create releases
+  packages: write        # to push to GitHub Packages
   pull-requests: read
+  actions: read          # required by inner CodeQL reusable workflow
+  security-events: write # required if inner workflow uploads CodeQL results
 
 on:
   workflow_dispatch:

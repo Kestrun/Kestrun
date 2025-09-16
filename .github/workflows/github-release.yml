@@ -19,6 +19,7 @@ jobs:
   codeql:
     name: Security (CodeQL + PSSA)
     uses: ./.github/workflows/codeql.yml
+    secrets: inherit
 
   clamav:
     name: AV Scan

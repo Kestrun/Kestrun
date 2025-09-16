@@ -31,5 +31,11 @@ Add-KrMapRoute -Pattern '/cbor' -Verbs GET -ScriptBlock {
     @{ kind = 'cbor'; ts = (Get-Date).ToUniversalTime(); values = 4..6 } | Write-KrCborResponse -ContentType 'application/cbor'
 }
 
+# Plain text route (for comparison)
+Add-KrMapRoute -Pattern '/plain' -Verbs GET -ScriptBlock {
+    @{ kind = 'json'; ts = (Get-Date).ToUniversalTime(); values = 4..6 } | Write-KrJsonResponse
+}
+
+
 # Start the server
-Start-KrServer
+Start-KrServer -CloseLogsOnExit

@@ -45,27 +45,28 @@ function Write-KrJsonResponse {
         [Parameter()]
         [string]$ContentType
     )
+    begin {
+        # Collect all piped items
+        $items = [System.Collections.Generic.List[object]]::new()
+        $ContentType = [string]::IsNullOrEmpty($ContentType) ? 'application/json' : $ContentType
+    }
     process {
+        # Accumulate; no output yet
+        $items.Add($InputObject)
+    }
+    end {
         # Only works inside a route script block where $Context is available
-        if ($null -ne $Context.Response) {
-            $ContentType = [string]::IsNullOrEmpty($ContentType) ? 'application/json' : $ContentType
-            $Context.Response.WriteTextResponse((ConvertTo-Json -InputObject $InputObject -Depth $Depth -Compress:$Compress), $StatusCode, $ContentType)
-
-            <# To use the C# method directly, uncomment the following lines:
-        # Create a new JsonSerializerSettings object with the specified options
-        $serializerSettings = [Newtonsoft.Json.JsonSerializerSettings]::new()
-        $serializerSettings.Formatting = if ($Compress) { [Newtonsoft.Json.Formatting]::None } else { [Newtonsoft.Json.Formatting]::Indented }
-        $serializerSettings.ContractResolver = [Newtonsoft.Json.Serialization.CamelCasePropertyNamesContractResolver]::new()
-        $serializerSettings.ReferenceLoopHandling = [Newtonsoft.Json.ReferenceLoopHandling]::Ignore
-        $serializerSettings.NullValueHandling = [Newtonsoft.Json.NullValueHandling]::Ignore
-        $serializerSettings.DefaultValueHandling = [Newtonsoft.Json.DefaultValueHandling]::Ignore
-        $serializerSettings.MaxDepth = $Depth
-        $serializerSettings.DateFormatHandling = [Newtonsoft.Json.DateFormatHandling]::IsoDateFormat
-        # Call the C# method on the $Context.Response object
-        $Context.Response.WriteJsonResponse($InputObject, $serializerSettings, $StatusCode, $ContentType)#>
-        } else {
+        if ($null -eq $Context -or $null -eq $Context.Response) {
             Write-KrOutsideRouteWarning
+            return
         }
+        #  - single item by default when only one was piped
+        #  - array if multiple items were piped
+        $payload = if ($items.Count -eq 1) { $items[0] } else { $items.ToArray() }
+
+        $json = ConvertTo-Json -InputObject $payload -Depth $Depth -Compress:$Compress
+        # Write the JSON response
+        $Context.Response.WriteTextResponse($json, $StatusCode, $ContentType)
     }
 }
 

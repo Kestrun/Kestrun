@@ -53,7 +53,6 @@ internal class Program
             cert: rsaCert,
             filePath: "out/devcert-plain",
             fmt: CertificateManager.ExportFormat.Pem,
-            // no password → unencrypted key
             includePrivateKey: true
         );
         Console.WriteLine("[Export PEM-plain] out/devcert-plain.pem + .key");

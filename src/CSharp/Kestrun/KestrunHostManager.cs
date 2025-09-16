@@ -12,6 +12,9 @@ public static class KestrunHostManager
 {
     private static readonly ConcurrentDictionary<string, KestrunHost> _instances = new(StringComparer.OrdinalIgnoreCase);
     private static string? _defaultName;
+#pragma warning disable IDE0032 // Use auto property
+    private static string? _kestrunRoot;
+#pragma warning restore IDE0032 // Use auto property
 
     /// <summary>
     /// Gets the collection of names for all KestrunHost instances.
@@ -23,7 +26,7 @@ public static class KestrunHostManager
     /// </summary>
     public static string? KestrunRoot
     {
-        get;
+        get => _kestrunRoot;
         set
         {
             if (string.IsNullOrWhiteSpace(value))
@@ -35,7 +38,7 @@ public static class KestrunHostManager
             {
                 Directory.SetCurrentDirectory(value);
             }
-            field = value;
+            _kestrunRoot = value;
         }
     }
 

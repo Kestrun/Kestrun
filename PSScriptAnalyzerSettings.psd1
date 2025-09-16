@@ -93,8 +93,6 @@
             NounAllowList = @('Data', 'Windows', 'Metadata', 'Settings', 'Options', 'Parameters', 'Credentials', 'Properties')
         }
 
-
-
         # Opinionated toggles
         PSAvoidUsingWriteHost = @{ Enable = $false }
         PSUseApprovedVerbs = @{ Enable = $true }

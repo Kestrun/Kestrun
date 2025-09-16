@@ -28,7 +28,7 @@ param(
 
 begin {
     $extensions = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
-    '.ps1', '.psm1', '.psd1', '.pssc', '.psrc','.cs' | ForEach-Object { [void] $extensions.Add($_) }
+    '.ps1', '.psm1', '.psd1', '.pssc', '.psrc', '.cs' | ForEach-Object { [void] $extensions.Add($_) }
     # propagate WhatIf decision to helper without extra parameter (avoids duplicate ShouldProcess warnings)
     $script:InvokeWhatIf = $WhatIf.IsPresent
 

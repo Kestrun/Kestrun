@@ -47,14 +47,28 @@ param(
     [switch]$ReformatFunctionHelp,
     [switch]$NoFooter,
     [switch]$UseGitForCreated,
-    [switch]$WhatIf,
-    [switch]$Parallel
+    [switch]$WhatIf
 )
 
 $today = Get-Date -Format 'yyyy-MM-dd'
 $gitSem = [System.Threading.SemaphoreSlim]::new(2)  # tune to 1 if repo is on HDD/SMB
 
-<#  Language spec so we can reuse your pipeline for PS and C#  #>
+<#
+   .SYNOPSIS
+    Returns a per-language specification object for code formatting and processing.
+    This allows us to reuse your pipeline for PS and C#.
+    .PARAMETER Extension
+    The file extension to get the spec for (e.g., .ps1, .cs).
+    .PARAMETER CSharpHeaderStyle
+    The header style to use for CSharp files (e.g., Line, Block).
+    .OUTPUTS
+    Returns a per-language specification object for code formatting and processing.
+    .EXAMPLE
+    Get-LangSpec -Extension '.ps1' -CSharpHeaderStyle 'Line'
+    This example retrieves the language specification for PowerShell files.
+    .NOTES
+    The function uses a cache to store compiled regular expressions for performance.
+#>
 function Get-LangSpec {
     param(
         [Parameter(Mandatory)] [string]$Extension,   # like ".ps1" / ".cs"
@@ -115,6 +129,21 @@ $script:RO = [Text.RegularExpressions.RegexOptions]::Compiled `
 # Cache of compiled headers/validators by spec key
 $script:_HeaderCache = @{}
 
+<#
+.SYNOPSIS
+    Checks if the given text contains a valid existing header matching the specified language spec.
+.DESCRIPTION
+    This function uses regular expressions to determine if the provided text contains a header block
+    that matches the expected format for the specified programming language.
+.PARAMETER Text
+    The text content of the file to check.
+.PARAMETER Spec
+    The language specification to use for header validation.
+.OUTPUTS
+    Returns the Match object if a valid header is found; otherwise, returns $null.
+.NOTES
+    The function uses a cache to store compiled regular expressions for performance.
+#>
 function Get-ExistingFileHeaderMatchByLang {
     param(
         [Parameter(Mandatory)] [string]$Text,
@@ -171,8 +200,30 @@ function Get-ExistingFileHeaderMatchByLang {
 }
 
 
-<#  Build a header for PS or C# based on the language spec  #>
+<#
+    .SYNOPSIS
+    Build a header for PS or C# based on the language spec
+    .DESCRIPTION
+    Creates a standardized header block for source files, including file path, creation date, and modification details.
+    .PARAMETER Spec
+    The language specification to use for the header.
+    .PARAMETER RelPath
+    The relative path of the file being processed.
+    .PARAMETER CreatedDate
+    The creation date to include in the header.
+    .PARAMETER ModifiedLine
+    The line to include for the last modified information.
+    .OUTPUTS
+    Returns a standardized header block as a string.
+    .EXAMPLE
+    $spec = Get-LangSpec -Extension '.ps1'
+    $header = New-HeaderText -Spec $spec -RelPath 'Scripts/MyScript.ps1' -CreatedDate '2023-10-01' -ModifiedLine 'Modified: 2024-06-15 by user (abc1234)'
+    This example generates a header for a PowerShell script with the specified details.
+    .NOTES
+    The function supports both PowerShell and C# styles, adapting the comment format accordingly.
+#>
 function New-HeaderText {
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseShouldProcessForStateChangingFunctions', '')]
     param(
         [Parameter(Mandatory)] $Spec,
         [Parameter(Mandatory)] [string]$RelPath,
@@ -218,8 +269,25 @@ $R
     }
 }
 
-<#  Build a footer for PS or C# based on the language spec  #>
+<#  .SYNOPSIS
+    Build a footer for PS or C# based on the language spec
+    .DESCRIPTION
+    Creates a standardized footer block for source files, indicating the end of the file.
+    .PARAMETER Spec
+    The language specification to use for the footer.
+    .PARAMETER RelPath
+    The relative path of the file being processed.
+    .OUTPUTS
+    Returns a standardized footer block as a string.
+    .EXAMPLE
+    $spec = Get-LangSpec -Extension '.ps1'
+    $footer = New-FooterText -Spec $spec -RelPath 'Scripts/MyScript.ps1'
+    This example generates a footer for a PowerShell script with the specified details.
+    .NOTES
+    The function supports both PowerShell and C# styles, adapting the comment format accordingly.
+#>
 function New-FooterText {
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseShouldProcessForStateChangingFunctions', '')]
     param(
         [Parameter(Mandatory)] $Spec,
         [Parameter(Mandatory)] [string]$RelPath

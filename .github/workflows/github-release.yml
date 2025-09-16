@@ -3,6 +3,7 @@ name: GitHub Release
 permissions:
   contents: write   # create tags & releases
   pull-requests: read
+  security-events: write
 
 on:
   workflow_dispatch: {}

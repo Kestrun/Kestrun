@@ -1,4 +1,3 @@
-
 <#
 .SYNOPSIS
     Converts various input types to [DateTimeOffset].

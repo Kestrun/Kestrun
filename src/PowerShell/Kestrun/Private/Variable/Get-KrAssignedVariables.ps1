@@ -15,7 +15,7 @@
       Resolve current values from variable:<scope>:<name> and include Type/Value.
     .PARAMETER DefaultScope
       Scope to assume when the LHS had no explicit scope (default: Local).
-  #>
+#>
 function Get-KrAssignedVariable {
     [CmdletBinding(DefaultParameterSetName = 'Given')]
     param(

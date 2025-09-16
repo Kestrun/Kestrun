@@ -16,8 +16,6 @@
     Folder names to skip (e.g., bin, obj, .git). Default: bin,obj,.git,.vs,node_modules,vendor,coverage.
 .PARAMETER IncludeGitMeta
     If set, the Modified line includes latest git author + short commit hash.
-.PARAMETER NoBomEncoding
-    If set, writes files as UTF-8 *without* BOM. By default, files are saved with UTF-8 BOM.
 .pARAMETER FunctionHelpPlacement
     Specifies where to place function help blocks. Options are:
     - BeforeFunction: Place help block immediately before the function definition.
@@ -47,7 +45,6 @@ param(
     [ValidateSet('BeforeFunction', 'InsideBeforeParam', 'AfterFunction')]
     [string]$FunctionHelpPlacement = 'BeforeFunction',
     [switch]$ReformatFunctionHelp,
-    [switch]$NoBomEncoding,
     [switch]$NoFooter,
     [switch]$UseGitForCreated,
     [switch]$WhatIf,
@@ -279,7 +276,7 @@ function Get-GitCreatedDate {
         }
     } catch {
         Write-Warning "Failed to get git created date for '$FilePath': $_"
-    }finally { $gitSem.Release() | Out-Null }
+    } finally { $gitSem.Release() | Out-Null }
 
     return $null
 }
@@ -744,9 +741,8 @@ foreach ($path in $filesEnum) {
         if ($WhatIf) {
             Write-Host "⚠️ Would update: $relPath"
         } else {
-            # If you added per-language encoding earlier, call Get-TargetEncoding here instead.
-            $enc = if ($NoBomEncoding) { [System.Text.UTF8Encoding]::new($false) } else { [System.Text.UTF8Encoding]::new($true) }
-            [System.IO.File]::WriteAllText($file, $newContent, $enc)
+            # If you added per-language encoding earlier, call Get-TargetEncoding here instead. Default is UTF8 with no BOM.
+            [System.IO.File]::WriteAllText($file, $newContent, [System.Text.UTF8Encoding]::new($false)) # no BOM
             Write-Host "🔧 Updated: $relPath"
         }
     }

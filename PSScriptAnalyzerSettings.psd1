@@ -4,7 +4,11 @@
 
     # Drop PSAvoidUsingWriteHost at the top and keep the per-rule disable below, or uncomment here:
     # ExcludeRules = @()
-    ExcludeRules = @('PSAvoidUsingWriteHost')
+    ExcludeRules = @(
+        'PSAvoidUsingWriteHost'
+        # PowerShell 7+ only: prefer UTF-8 without BOM for cross-platform tooling friendliness
+        'PSUseBOMForUnicodeEncodedFile'
+    )
 
     # Where your custom rules live (folder or file). Uncomment if you have custom rules.
     # CustomRulePath = @('./Lint')
@@ -89,7 +93,7 @@
             NounAllowList = @('Data', 'Windows', 'Metadata', 'Settings', 'Options', 'Parameters', 'Credentials', 'Properties')
         }
 
-       
+
 
         # Opinionated toggles
         PSAvoidUsingWriteHost = @{ Enable = $false }

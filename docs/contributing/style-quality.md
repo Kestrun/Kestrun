@@ -33,6 +33,31 @@ Prefer small, composable classes. Avoid static mutable state.
 
 Prefer idempotent operations and fast fail semantics.
 
+### Encoding Policy
+
+All PowerShell source files (.ps1/.psm1/.psd1) SHOULD be saved as UTF-8 *without* BOM.
+
+Rationale:
+
+- PowerShell 7+ defaults to UTF-8 (no BOM) on all platforms.
+- Avoids noisy diffs and issues with tooling that interprets BOM differently.
+- Keeps repository consistent with cross-platform editors (VS Code, JetBrains, vim, etc.).
+
+Implementation details:
+
+- ScriptAnalyzer rule `PSUseBOMForUnicodeEncodedFile` is excluded in `PSScriptAnalyzerSettings.psd1`.
+- Use `Utility/Remove-BomFromScripts.ps1` to strip BOMs from legacy files if needed.
+- The normalization script (`Utility/Normalize-Files.ps1`) writes with a noBOM encoding by default.
+
+Example:
+
+```powershell
+pwsh ./Utility/Normalize-Files.ps1 -Root ./src/PowerShell/Kestrun 
+pwsh ./Utility/Remove-BomFromScripts.ps1 -Path ./src/PowerShell/Kestrun -Recurse -WhatIf
+```
+
+If you contribute from Windows and your editor adds a BOM automatically, please disable that setting for this repository.
+
 ## Testing Principles
 
 | Topic       | Guidance                               |

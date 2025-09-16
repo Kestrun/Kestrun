@@ -63,66 +63,63 @@ You can find guides, API references, and usage examples to help you get started 
 - **🧠 Multi-language script routing**
   Register HTTP routes using:
   - 🐚 PowerShell
-  - 🧩 C# scripts (Roslyn compiled with typed globals and shared state)
-  - 📄 VB.NET scripts (full .NET scripting with claims and validation support)
-  - 🐍 Python (via Python.NET)
-  - 📜 JavaScript (via ClearScript + V8)
-  - 🧪 F# (stubbed for future support)
+  **For Building:**
 
-- **📄 Razor Pages backed by PowerShell**
-  Use `.cshtml + .cshtml.ps1` pairs with automatic `$Model` injection and dynamic rendering via `HttpContext.Items["PageModel"]`.
+  - [.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8.0) **AND**
+    [.NET 9 SDK](https://dotnet.microsoft.com/download/dotnet/9.0)
+    (solution multi-targets net8.0 + net9.0)
+  - **PowerShell 7.4+** (7.4 / 7.5 run on .NET 8; 7.6 preview runs on .NET 9)
+  - **Invoke-Build** and **Pester** PowerShell modules:
 
-- **📦 Modular architecture**
-  Combine C# libraries, PowerShell modules, Razor views, static files, and custom handlers into a unified web app.
+  ```powershell
+  Install-PSResource -Name 'InvokeBuild','Pester' -Scope CurrentUser
+  ```
 
-## HTTP & Protocol Support
+  **For Runtime (Run Only):**
 
-- **🌍 Rich HTTP support**
-  - Routes with query, headers, body support
-  - Static files with custom headers, `Content-Disposition`, stream/async send
-  - Built-in MIME type detection
-  - Charset and compression negotiation
+  If you're only *running* Kestrun apps (not building from source), install the ASP.NET Core Runtime
+  matching the PowerShell version you are using:
 
-- **🔐 TLS/HTTPS & Certificate support**
-  - Supports `X509Certificate2` objects directly
-  - Fine-grained listener control: `Protocols`, `UseConnectionLogging`, HTTP/1.1 & HTTP/2
-  - Hot-swap of certificate or listener settings
+  | PowerShell Version | Install (Run-only) | Rationale |
+  |--------------------|--------------------|-----------|
+  | 7.4 / 7.5 | [.NET 8 ASP.NET Core Runtime](https://dotnet.microsoft.com/download/dotnet/8.0) | Bundles Microsoft.NETCore.App + Microsoft.AspNetCore.App 8.x |
+  | 7.6 (preview) | [.NET 9 ASP.NET Core Runtime](https://dotnet.microsoft.com/download/dotnet/9.0) | Preview runtime aligning with PS 7.6 build |
 
-- **🛡️ Comprehensive Authentication & Authorization**
-  - **Multiple authentication schemes**: Windows, Basic, API Key, JWT Bearer, Cookie, Certificate, Negotiate, OpenID Connect
-  - **Claims-based authorization**: Rich claim policies with PowerShell and VB.NET claim providers
-  - **Route-level authorization**: Fine-grained access control per endpoint
-  - **Credential validation**: Supports SecureString utilities and custom validation delegates
+  Installing the **.NET SDK** already gives you the corresponding runtimes. For run-only scenarios the
+  **ASP.NET Core Runtime** alone is sufficient (it includes the base .NET runtime).
 
-## Developer-Focused
+  Download PowerShell from the official
+  [PowerShell Releases](https://github.com/PowerShell/PowerShell/releases).
 
-- **🧪 Test-friendly architecture**
-  - **C#**: xUnit + script compilation validation (`ValidateCSharpScript`)
-  - **PowerShell**: Pester-compatible setup for route and module tests
-  - Script diagnostics: line-numbered errors, detailed exception formatting
+  ### Verify installation
 
-- **🧬 Shared global state**
-  A thread-safe, case-insensitive `SharedState` store for global variables, usable across C#, PowerShell, and Razor.
+  ```powershell
+  # List SDKs (expect 8.x and 9.x if building from source)
+  dotnet --list-sdks
 
-- **🖨️ Flexible response output**
-  Respond with:
-  - `WriteTextResponse`, `WriteJsonResponse`, `WriteXmlResponse`, `WriteYamlResponse`
-  - `WriteFileResponse`, `WriteBinaryResponse`, `WriteStreamResponse`
-  - Optional `Content-Disposition: inline` / `attachment; filename=…`
+  # List runtimes (look for Microsoft.NETCore.App and Microsoft.AspNetCore.App)
+  dotnet --list-runtimes | Where-Object { $_ -match 'Microsoft.(AspNetCore|NETCore).App' }
+  ```
 
-- **🧵 Thread-safe runspace pooling**
-  Automatic pooling of PowerShell runspaces with configurable min/max, affinity (`PSThreadOptions`), and module injection.
+  Expected (abbreviated):
 
-- **📑 Script validation & compilation error reporting**
-  C# route validation returns detailed Roslyn diagnostics without throwing (e.g., for editor integration or CI prechecks).
+  ```text
+  Microsoft.NETCore.App 8.0.x
+  Microsoft.AspNetCore.App 8.0.x
+  Microsoft.NETCore.App 9.0.x
+  Microsoft.AspNetCore.App 9.0.x
+  ```
 
-- **🧾 Logging with Serilog**
-  - Fluent `KestrunLoggerBuilder` for per-subsystem loggers
-  - Named logger registration & retrieval
-  - Reset/Reload/Dispose support for hot-reload or graceful shutdowns
-  - Default rolling file logs (`logs/kestrun.log`)
+  If something is missing, install the matching ASP.NET Core Runtime from the download links above.
 
-## Deployment & Extensibility
+  ### Build & Run
+
+  Clone the repository:
+
+  ```powershell
+  git clone https://github.com/Kestrun/Kestrun.git
+  cd Kestrun
+  ```
 
 - **🛠️ CI/CD ready**
   - Build- and run-time configurable
@@ -143,71 +140,10 @@ You can find guides, API references, and usage examples to help you get started 
   - **Multi-language job support**: Schedule PowerShell, C#, and VB.NET scripts as background jobs
   - **Job management**: Start, stop, and monitor scheduled tasks with detailed logging
 
-## Getting Started
+## Deployment & Extensibility
 
-### Prerequisites
-
-**For Building:**
-
-- [.NET 8 SDK](https://dotnet.microsoft.com/download) AND [.NET 9 SDK](https://dotnet.microsoft.com/download) (both required)
-- **PowerShell 7.4+**
-- **Invoke-Build** and **Pester** PowerShell modules:
-
-```powershell
-Install-PSResource -Name 'InvokeBuild','Pester' -Scope CurrentUser
-```
-
-**For Runtime:**
-
-To run applications built with Kestrun, you need a matching pair of .NET Runtime and PowerShell:
-
-- [.NET 8 Runtime](https://dotnet.microsoft.com/download)
-  → Required for **PowerShell 7.4** and **7.5**
-
-- [.NET 9 Runtime](https://dotnet.microsoft.com/download)
-  → Required for **PowerShell 7.6 (preview)**
-
-Download PowerShell from [GitHub Releases](https://github.com/PowerShell/PowerShell/releases).
-
-### Build & Run
-
-Clone the repository:
-
-```powershell
-git clone https://github.com/Kestrun/Kestrun.git
-cd Kestrun
-```
-
-Build the solution using Invoke-Build:
-
-```powershell
-Invoke-Build Restore ; Invoke-Build Build
-```
-
-And then, create a new simple server:
-
-```powershell
-# Import the Kestrun module (Dev)
-Import-Module ./src/PowerShell/Kestrun/Kestrun.psm1
-
-# Create a new server
-New-KrServer -Name 'My first server'
-
-# Enable the server configuration
-Enable-KrConfiguration
-
-# Map a route
-Add-KrMapRoute -Path '/hello' -ScriptBlock { Write-KrTextResponse "Hello from PowerShell!" }
-
-# Start the server
-Start-KrServer
-```
-
-Or run a .NET sample (e.g., MultiRoutes):
-
-```powershell
-dotnet run --project .\examples\CSharp\MultiRoutes\MultiRoutes.csproj
-```
+<!-- Deployment & Extensibility content intentionally follows earlier build section -->
+This section summarizes extension capabilities (see earlier sections for build & run instructions).
 
 ### Using the PowerShell Module
 

@@ -13,11 +13,22 @@ This page explains how to set up your environment and build Kestrun from source.
 
 | Component | Required | Notes |
 |-----------|----------|-------|
-| PowerShell | 7.4+ | For build scripts & module dev |
-| .NET SDK 8 | Yes | Multi-target builds include net8.0 |
-| .NET SDK 9 | Yes | Multi-target builds include net9.0 |
+| PowerShell | 7.4 / 7.5 / 7.6 (preview) | 7.4/7.5 run on .NET 8; 7.6 preview runs on .NET 9 |
+| .NET 8 SDK | Yes (build) | Provides SDK + runtimes (net8.0) |
+| .NET 9 SDK | Yes (build) | Provides SDK + runtimes (net9.0 preview) |
+| ASP.NET Core Runtime 8 | Run-only (optional) | If not building; matches PS 7.4 / 7.5 |
+| ASP.NET Core Runtime 9 | Run-only (optional) | If not building; matches PS 7.6 preview |
 | InvokeBuild | Yes | Task orchestration (`Install-PSResource`) |
 | Pester | Yes | PowerShell tests |
+
+Official download landing pages (always use these for latest secure patches):
+
+| Purpose | .NET 8 | .NET 9 |
+|---------|--------|--------|
+| SDK | [.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8.0) | [.NET 9 SDK](https://dotnet.microsoft.com/download/dotnet/9.0) |
+| ASP.NET Core Runtime | [.NET 8 ASP.NET Core](https://dotnet.microsoft.com/download/dotnet/8.0) | [.NET 9 ASP.NET Core](https://dotnet.microsoft.com/download/dotnet/9.0) |
+
+PowerShell releases: [GitHub PowerShell Releases](https://github.com/PowerShell/PowerShell/releases)
 
 Install tooling:
 
@@ -29,6 +40,16 @@ Verify SDKs:
 
 ```powershell
 dotnet --list-sdks
+dotnet --list-runtimes | Where-Object { $_ -match 'Microsoft.(AspNetCore|NETCore).App' }
+```
+
+Expected (abbreviated):
+
+```text
+Microsoft.NETCore.App 8.0.x
+Microsoft.AspNetCore.App 8.0.x
+Microsoft.NETCore.App 9.0.x (if installed)
+Microsoft.AspNetCore.App 9.0.x (if installed)
 ```
 
 ## 2. Clone

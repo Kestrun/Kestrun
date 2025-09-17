@@ -23,19 +23,33 @@ function Write-KrYamlResponse {
     [KestrunRuntimeApi('Route')]
     [CmdletBinding()]
     param(
-        [Parameter(Mandatory = $true)]
+        [Parameter(Mandatory = $true, ValueFromPipeline = $true)]
         [object]$InputObject,
         [Parameter()]
         [int]$StatusCode = 200,
         [Parameter()]
         [string]$ContentType
     )
-    # Only works inside a route script block where $Context is available
-    if ($null -ne $Context.Response) {
-        # Call the C# method on the $Context.Response object
-        $Context.Response.WriteYamlResponse($InputObject, $StatusCode, $ContentType)
-    } else {
-        Write-KrOutsideRouteWarning
+    begin {
+        # Collect all piped items
+        $items = [System.Collections.Generic.List[object]]::new()
+    }
+    process {
+        # Accumulate; no output yet
+        $items.Add($InputObject)
+    }
+    end {
+        # Only works inside a route script block where $Context is available
+        if ($null -eq $Context -or $null -eq $Context.Response) {
+            Write-KrOutsideRouteWarning
+            return
+        }
+        #  - single item by default when only one was piped
+        #  - array if multiple items were piped
+        $payload = if ($items.Count -eq 1) { $items[0] } else { $items.ToArray() }
+
+        # Write the YAML response
+        $Context.Response.WriteYamlResponse($payload, $StatusCode, $ContentType)
     }
 }
 

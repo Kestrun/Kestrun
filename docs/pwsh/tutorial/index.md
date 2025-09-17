@@ -81,7 +81,8 @@ Stop the server with Ctrl+C in the terminal.
 | 29    | Responses: Redirects          | [Redirects][ch-resp-redirects]            | [Script][sc-resp-6]             | 3xx location responses              |
 | 30    | Responses: Errors             | [Errors][ch-resp-errors]                  | [Script][sc-resp-7]             | Consistent error payloads           |
 | 31    | Responses: Caching            | [Caching & Revalidation][ch-resp-caching] | [Script][sc-resp-8]             | Cache-Control & ETag handling       |
-| 32    | Responses: Low-Level Stream   | [Low-Level Response][ch-resp-lowlevel]    | [Script][sc-resp-9]             | Raw stream writing                  |
+| 32    | Responses: Content Negotiation| [Content Negotiation][ch-resp-negotiation]| [Script][sc-resp-9]             | Auto format selection via Accept   |
+| 33    | Responses: Low-Level Stream   | [Low-Level Response][ch-resp-lowlevel]    | [Script][sc-resp-10]            | Raw stream writing                  |
 | 33    | Authentication: Basic (PS)    | [Basic (PS)][ch-auth-basic-ps]            | [Script][sc-auth-basic-ps]      | Basic scheme script block           |
 | 34    | Authentication: Basic (C#/VB) | [Basic (C#/VB)][ch-auth-basic-multi]      | [Script][sc-auth-basic-multi]   | Multi-language validation           |
 | 35    | Authentication: API Key       | [API Key][ch-auth-apikey]                 | [Script][sc-auth-apikey]        | Header key variants                 |
@@ -138,7 +139,8 @@ Static chapters and scripts are all linked directly above for quick navigation.
 [ch-resp-redirects]: ./9.Responses/6.Redirects
 [ch-resp-errors]: ./9.Responses/7.Errors
 [ch-resp-caching]: ./9.Responses/8.Caching
-[ch-resp-lowlevel]: ./9.Responses/9.Low-Level-Response
+[ch-resp-negotiation]: ./9.Responses/9.Content-Negotiation
+[ch-resp-lowlevel]: ./9.Responses/10.Low-Level-Response
 [ch-scfg-limits]: ./13.server-configuration/1.Server-Limits
 [ch-scfg-options]: ./13.server-configuration/2.Server-Options
 [ch-life-startstop]: ./14.lifecycle/1.Start-Stop
@@ -183,7 +185,8 @@ Static chapters and scripts are all linked directly above for quick navigation.
 [sc-resp-6]: /pwsh/tutorial/examples/9.6-Redirects.ps1
 [sc-resp-7]: /pwsh/tutorial/examples/9.7-Errors.ps1
 [sc-resp-8]: /pwsh/tutorial/examples/9.8-Caching.ps1
-[sc-resp-9]: /pwsh/tutorial/examples/9.9-Low-Level-Response.ps1
+[sc-resp-9]: /pwsh/tutorial/examples/9.9-Content-Negotiation.ps1
+[sc-resp-10]: /pwsh/tutorial/examples/9.10-Low-Level-Response.ps1
 [sc-scfg-limits]: /pwsh/tutorial/examples/13.1-Server-Limits.ps1
 [sc-scfg-options]: /pwsh/tutorial/examples/13.2-Server-Options.ps1
 [sc-life-startstop]: /pwsh/tutorial/examples/15.1-Start-Stop.ps1

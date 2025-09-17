@@ -368,7 +368,10 @@ public class KestrunResponse(KestrunRequest request, int bodyAsyncThreshold = 81
 
         Body = inputObject;
         ContentType = DetermineContentType(contentType: string.Empty); // Ensure ContentType is set based on Accept header
-
+        if (Log.IsEnabled(LogEventLevel.Verbose))
+        {
+            Log.Verbose("Determined ContentType={ContentType}", ContentType);
+        }
         if (ContentType.Contains("json"))
         {
             await WriteJsonResponseAsync(inputObject: inputObject, statusCode: statusCode);
@@ -383,7 +386,7 @@ public class KestrunResponse(KestrunRequest request, int bodyAsyncThreshold = 81
         }
         else
         {
-            await WriteTextResponseAsync(inputObject: inputObject, statusCode: statusCode);
+            await WriteTextResponseAsync(inputObject: inputObject?.ToString() ?? string.Empty, statusCode: statusCode);
         }
     }
 

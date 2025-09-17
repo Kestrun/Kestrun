@@ -1,4 +1,4 @@
-using Kestrun.Utilities;
+﻿using Kestrun.Utilities;
 using Microsoft.AspNetCore.Antiforgery;
 using Microsoft.AspNetCore.Cors.Infrastructure;
 using Microsoft.AspNetCore.RateLimiting;
@@ -156,6 +156,9 @@ public static class KestrunHttpMiddlewareExtensions
             cfg.FormFieldName = options.FormFieldName;
             cfg.HeaderName = options.HeaderName;
             cfg.SuppressXFrameOptionsHeader = options.SuppressXFrameOptionsHeader;
+#if NET9_0_OR_GREATER
+            cfg.SuppressReadingTokenFromFormBody = options.SuppressReadingTokenFromFormBody;
+#endif
         });
     }
 
@@ -169,7 +172,7 @@ public static class KestrunHttpMiddlewareExtensions
     {
         if (host.HostLogger.IsEnabled(LogEventLevel.Debug))
         {
-            host.HostLogger.Debug("Adding Antiforgery with configuration: {@Config}", setupAction);
+            host.HostLogger.Debug("Adding Antiforgery with configuration: Action<AntiforgeryOptions>");
         }
         // Service side
         _ = host.AddService(services =>

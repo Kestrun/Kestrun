@@ -6,6 +6,8 @@ using Kestrun.Utilities;
 using Microsoft.AspNetCore.Authorization;
 using Serilog.Events;
 using Kestrun.Models;
+using Microsoft.AspNetCore.Antiforgery;
+using Microsoft.Extensions.Options;
 
 namespace Kestrun.Hosting;
 
@@ -80,6 +82,14 @@ public static class KestrunHostMapExtensions
         string[] methods = [.. options.HttpVerbs.Select(v => v.ToMethodString())];
         var map = host.App.MapMethods(options.Pattern, methods, async context =>
            {
+               // 🔒 CSRF validation for unsafe verbs (unless disabled)
+               if (ShouldValidateCsrf(options))
+               {
+                   if (!await TryValidateAntiforgeryAsync(context))
+                   {
+                       return; // already responded 400
+                   }
+               }
                var req = await KestrunRequest.NewRequest(context);
                var res = new KestrunResponse(req);
                KestrunContext kestrunContext = new(req, res, context);
@@ -204,7 +214,7 @@ public static class KestrunHostMapExtensions
 
             var logger = host.HostLogger.ForContext("Route", routeOptions.Pattern);
             // compile once – return an HttpContext->Task delegate
-            var handler = options.Language switch
+            var compiled = options.Language switch
             {
 
                 ScriptLanguage.PowerShell => PowerShellDelegateBuilder.Build(options.Code, logger, options.Arguments),
@@ -216,6 +226,19 @@ public static class KestrunHostMapExtensions
 
                 _ => throw new NotSupportedException(options.Language.ToString())
             };
+
+            // Wrap with CSRF validation
+            async Task handler(HttpContext ctx)
+            {
+                if (ShouldValidateCsrf(options))
+                {
+                    if (!await TryValidateAntiforgeryAsync(ctx))
+                    {
+                        return; // already responded 400
+                    }
+                }
+                await compiled(ctx);
+            }
             string[] methods = [.. routeOptions.HttpVerbs.Select(v => v.ToMethodString())];
             var map = host.App.MapMethods(routeOptions.Pattern, methods, handler).WithLanguage(options.Language);
             if (host.HostLogger.IsEnabled(LogEventLevel.Debug))
@@ -263,7 +286,7 @@ public static class KestrunHostMapExtensions
     {
         ApplyShortCircuit(host, map, options);
         ApplyAnonymous(host, map, options);
-        ApplyAntiforgery(host, map, options);
+        DisableAntiforgery(host, map, options);
         ApplyRateLimiting(host, map, options);
         ApplyAuthSchemes(host, map, options);
         ApplyPolicies(host, map, options);
@@ -313,12 +336,12 @@ public static class KestrunHostMapExtensions
     }
 
     /// <summary>
-    /// Applies anti-forgery behavior to the route.
+    /// Disables anti-forgery behavior to the route.
     /// </summary>
     /// <param name="host">The Kestrun host.</param>
     /// <param name="map">The endpoint convention builder.</param>
     /// <param name="options">The mapping options.</param>
-    private static void ApplyAntiforgery(KestrunHost host, IEndpointConventionBuilder map, MapRouteOptions options)
+    private static void DisableAntiforgery(KestrunHost host, IEndpointConventionBuilder map, MapRouteOptions options)
     {
         if (!options.DisableAntiforgery)
         {
@@ -719,4 +742,98 @@ public static class KestrunHostMapExtensions
             ? options
             : null;
     }
+
+    /// <summary>
+    /// Adds a GET endpoint that issues the antiforgery cookie and returns a JSON payload:
+    /// { token: "...", headerName: "X-CSRF-TOKEN" }.
+    /// The endpoint itself is exempt from antiforgery validation.
+    /// </summary>
+    /// <param name="host">The KestrunHost instance.</param>
+    /// <param name="pattern">The route path to expose (default "/csrf-token").</param>
+    /// <returns>IEndpointConventionBuilder for further configuration.</returns>
+    public static IEndpointConventionBuilder AddAntiforgeryTokenRoute(
+    this KestrunHost host,
+    string pattern = "/csrf-token")
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(pattern);
+        if (host.App is null)
+        {
+            throw new InvalidOperationException("WebApplication is not initialized. Call EnableConfiguration first.");
+        }
+        var options = new MapRouteOptions
+        {
+            Pattern = pattern,
+            HttpVerbs = [HttpVerb.Get],
+            Language = ScriptLanguage.Native,
+            DisableAntiforgery = true,
+            AllowAnonymous = true,                 // ← token endpoint should be public
+                                                   // OpenAPI = new() { Summary = "Get CSRF token", Description = "Returns antiforgery request token and header name." }
+        };
+
+        // Map directly and write directly (no KestrunResponse.ApplyTo)
+        var map = host.App.MapMethods(options.Pattern, [HttpMethods.Get], async context =>
+        {
+            var af = context.RequestServices.GetRequiredService<IAntiforgery>();
+            var opts = context.RequestServices.GetRequiredService<IOptions<AntiforgeryOptions>>();
+
+            var tokens = af.GetAndStoreTokens(context);
+
+            // Strongly discourage caches (proxies/browsers) from storing this payload
+            context.Response.Headers.CacheControl = "no-store, no-cache, must-revalidate";
+            context.Response.Headers.Pragma = "no-cache";
+            context.Response.Headers.Expires = "0";
+
+            context.Response.ContentType = "application/json";
+            await context.Response.WriteAsJsonAsync(new
+            {
+                token = tokens.RequestToken,
+                headerName = opts.Value.HeaderName // may be null if not configured
+            });
+        });
+
+        // Apply your pipeline metadata (this adds DisableAntiforgery, CORS, rate limiting, OpenAPI, etc.)
+        host.AddMapOptions(map, options);
+
+        // (Optional) track in your registry for consistency / duplicate checks
+        host._registeredRoutes[(options.Pattern, HttpMethods.Get)] = options;
+
+        host.HostLogger.Information("Added token endpoint: {Pattern} (GET)", options.Pattern);
+        return map;
+    }
+
+    private static bool IsUnsafeVerb(HttpVerb v)
+    => v is HttpVerb.Post or HttpVerb.Put or HttpVerb.Patch or HttpVerb.Delete;
+
+    private static bool ShouldValidateCsrf(MapRouteOptions o)
+        => !o.DisableAntiforgery && o.HttpVerbs.Any(IsUnsafeVerb);
+
+    private static async Task<bool> TryValidateAntiforgeryAsync(HttpContext ctx)
+    {
+        var af = ctx.RequestServices.GetService<IAntiforgery>();
+        if (af is null)
+        {
+            return true; // antiforgery not configured → do nothing
+        }
+
+        try
+        {
+            await af.ValidateRequestAsync(ctx);
+            return true;
+        }
+        catch (AntiforgeryValidationException ex)
+        {
+            // short-circuit with RFC 9110 problem+json
+            ctx.Response.StatusCode = StatusCodes.Status400BadRequest;
+            ctx.Response.ContentType = "application/problem+json";
+            await ctx.Response.WriteAsJsonAsync(new
+            {
+                type = "https://tools.ietf.org/html/rfc9110#section-15.5.1",
+                title = "Antiforgery validation failed",
+                status = 400,
+                detail = ex.Message
+            });
+            return false;
+        }
+    }
 }
+

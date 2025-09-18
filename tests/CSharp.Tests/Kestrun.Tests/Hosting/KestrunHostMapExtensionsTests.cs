@@ -3,6 +3,7 @@ using Kestrun.Hosting.Options;
 using Kestrun.Scripting;
 using Kestrun.Claims;
 using Kestrun.SharedState;
+using Microsoft.AspNetCore.Http;
 using Microsoft.IdentityModel.Tokens;
 using Xunit;
 using Kestrun.Utilities;
@@ -273,4 +274,372 @@ public class KestrunHostMapExtensionsTests
         Assert.NotNull(opts);
         Assert.Equal(ScriptLanguage.CSharp, opts!.Language);
     }
+
+    #region ValidateRouteOptions Tests
+
+    [Fact]
+    [Trait("Category", "Hosting")]
+    public void ValidateRouteOptions_WithNullApp_ThrowsInvalidOperationException()
+    {
+        var host = new KestrunHost("TestApp", AppContext.BaseDirectory);
+        // Don't call EnableConfiguration() so App remains null
+
+        var options = new MapRouteOptions
+        {
+            Pattern = "/test",
+            Code = "Context.Response.StatusCode = 200;",
+            Language = ScriptLanguage.CSharp
+        };
+
+        var ex = Assert.Throws<InvalidOperationException>(() => KestrunHostMapExtensions.ValidateRouteOptions(host, options, out _));
+        
+        Assert.Contains("WebApplication is not", ex.Message);
+    }
+
+    [Fact]
+    [Trait("Category", "Hosting")]
+    public void ValidateRouteOptions_WithNullPattern_ThrowsArgumentException()
+    {
+        SanitizeSharedGlobals();
+        var host = new KestrunHost("TestApp", AppContext.BaseDirectory);
+        host.EnableConfiguration();
+
+        var options = new MapRouteOptions
+        {
+            Pattern = null!,
+            Code = "Context.Response.StatusCode = 200;",
+            Language = ScriptLanguage.CSharp
+        };
+
+        var ex = Assert.Throws<ArgumentException>(() => KestrunHostMapExtensions.ValidateRouteOptions(host, options, out _));
+        
+        Assert.Contains("Pattern cannot be null or empty", ex.Message);
+    }
+
+    [Fact]
+    [Trait("Category", "Hosting")]
+    public void ValidateRouteOptions_WithEmptyPattern_ThrowsArgumentException()
+    {
+        SanitizeSharedGlobals();
+        var host = new KestrunHost("TestApp", AppContext.BaseDirectory);
+        host.EnableConfiguration();
+
+        var options = new MapRouteOptions
+        {
+            Pattern = "",
+            Code = "Context.Response.StatusCode = 200;",
+            Language = ScriptLanguage.CSharp
+        };
+
+        var ex = Assert.Throws<ArgumentException>(() => KestrunHostMapExtensions.ValidateRouteOptions(host, options, out _));
+        
+        Assert.Contains("Pattern cannot be null or empty", ex.Message);
+    }
+
+    [Fact]
+    [Trait("Category", "Hosting")]
+    public void ValidateRouteOptions_WithNullCode_ThrowsArgumentException()
+    {
+        SanitizeSharedGlobals();
+        var host = new KestrunHost("TestApp", AppContext.BaseDirectory);
+        host.EnableConfiguration();
+
+        var options = new MapRouteOptions
+        {
+            Pattern = "/test",
+            Code = null!,
+            Language = ScriptLanguage.CSharp
+        };
+
+        var ex = Assert.Throws<ArgumentException>(() => KestrunHostMapExtensions.ValidateRouteOptions(host, options, out _));
+        
+        Assert.Contains("ScriptBlock cannot be null or empty", ex.Message);
+    }
+
+    [Fact]
+    [Trait("Category", "Hosting")]
+    public void ValidateRouteOptions_WithEmptyCode_ThrowsArgumentException()
+    {
+        SanitizeSharedGlobals();
+        var host = new KestrunHost("TestApp", AppContext.BaseDirectory);
+        host.EnableConfiguration();
+
+        var options = new MapRouteOptions
+        {
+            Pattern = "/test",
+            Code = "",
+            Language = ScriptLanguage.CSharp
+        };
+
+        var ex = Assert.Throws<ArgumentException>(() => KestrunHostMapExtensions.ValidateRouteOptions(host, options, out _));
+        
+        Assert.Contains("ScriptBlock cannot be null or empty", ex.Message);
+    }
+
+    [Fact]
+    [Trait("Category", "Hosting")]
+    public void ValidateRouteOptions_WithEmptyHttpVerbs_DefaultsToGet()
+    {
+        SanitizeSharedGlobals();
+        var host = new KestrunHost("TestApp", AppContext.BaseDirectory);
+        host.EnableConfiguration();
+
+        var options = new MapRouteOptions
+        {
+            Pattern = "/test",
+            Code = "Context.Response.StatusCode = 200;",
+            Language = ScriptLanguage.CSharp,
+            HttpVerbs = []
+        };
+
+        var result = KestrunHostMapExtensions.ValidateRouteOptions(host, options, out var routeOptions);
+        
+        Assert.True(result);
+        _ = Assert.Single(routeOptions.HttpVerbs);
+        Assert.Equal(HttpVerb.Get, routeOptions.HttpVerbs[0]);
+    }
+
+    [Fact]
+    [Trait("Category", "Hosting")]
+    public void ValidateRouteOptions_WithValidOptions_ReturnsTrue()
+    {
+        SanitizeSharedGlobals();
+        var host = new KestrunHost("TestApp", AppContext.BaseDirectory);
+        host.EnableConfiguration();
+
+        var options = new MapRouteOptions
+        {
+            Pattern = "/test-valid",
+            Code = "Context.Response.StatusCode = 200;",
+            Language = ScriptLanguage.CSharp,
+            HttpVerbs = [HttpVerb.Post]
+        };
+
+        var result = KestrunHostMapExtensions.ValidateRouteOptions(host, options, out var routeOptions);
+        
+        Assert.True(result);
+        Assert.Equal(options.Pattern, routeOptions.Pattern);
+        Assert.Equal(options.Code, routeOptions.Code);
+        Assert.Equal(options.Language, routeOptions.Language);
+        Assert.Equal(options.HttpVerbs, routeOptions.HttpVerbs);
+    }
+
+    [Fact]
+    [Trait("Category", "Hosting")]
+    public void ValidateRouteOptions_WithDuplicateRoute_ThrowOnDuplicate_ThrowsInvalidOperationException()
+    {
+        SanitizeSharedGlobals();
+        var host = new KestrunHost("TestApp", AppContext.BaseDirectory);
+        host.EnableConfiguration();
+
+        // Add a route first
+        var firstOptions = new MapRouteOptions
+        {
+            Pattern = "/duplicate-test",
+            Code = "Context.Response.StatusCode = 200;",
+            Language = ScriptLanguage.CSharp,
+            HttpVerbs = [HttpVerb.Get]
+        };
+        _ = host.AddMapRoute(firstOptions);
+
+        // Try to add the same route with ThrowOnDuplicate = true
+        var duplicateOptions = new MapRouteOptions
+        {
+            Pattern = "/duplicate-test",
+            Code = "Context.Response.StatusCode = 201;",
+            Language = ScriptLanguage.CSharp,
+            HttpVerbs = [HttpVerb.Get],
+            ThrowOnDuplicate = true
+        };
+
+        var ex = Assert.Throws<InvalidOperationException>(() => KestrunHostMapExtensions.ValidateRouteOptions(host, duplicateOptions, out _));
+        
+        Assert.Contains("already exists", ex.Message);
+    }
+
+    [Fact]
+    [Trait("Category", "Hosting")]
+    public void ValidateRouteOptions_WithDuplicateRoute_NoThrow_ReturnsFalse()
+    {
+        SanitizeSharedGlobals();
+        var host = new KestrunHost("TestApp", AppContext.BaseDirectory);
+        host.EnableConfiguration();
+
+        // Add a route first
+        var firstOptions = new MapRouteOptions
+        {
+            Pattern = "/duplicate-no-throw",
+            Code = "Context.Response.StatusCode = 200;",
+            Language = ScriptLanguage.CSharp,
+            HttpVerbs = [HttpVerb.Get]
+        };
+        _ = host.AddMapRoute(firstOptions);
+
+        // Try to add the same route with ThrowOnDuplicate = false (default)
+        var duplicateOptions = new MapRouteOptions
+        {
+            Pattern = "/duplicate-no-throw",
+            Code = "Context.Response.StatusCode = 201;",
+            Language = ScriptLanguage.CSharp,
+            HttpVerbs = [HttpVerb.Get],
+            ThrowOnDuplicate = false
+        };
+
+        var result = KestrunHostMapExtensions.ValidateRouteOptions(host, duplicateOptions, out _);
+        
+        Assert.False(result);
+    }
+
+    #endregion
+
+    #region CompileScript Tests
+
+    [Fact]
+    [Trait("Category", "Hosting")]
+    public void CompileScript_WithCSharp_ReturnsRequestDelegate()
+    {
+        var options = new MapRouteOptions
+        {
+            Pattern = "/test",
+            Code = "Context.Response.StatusCode = 200;",
+            Language = ScriptLanguage.CSharp,
+            Arguments = []
+        };
+
+        var logger = Serilog.Log.Logger;
+        var compiled = KestrunHostMapExtensions.CompileScript(options, logger);
+        
+        Assert.NotNull(compiled);
+        _ = Assert.IsType<RequestDelegate>(compiled);
+    }
+
+    [Fact]
+    [Trait("Category", "Hosting")]
+    public void CompileScript_WithPowerShell_ReturnsRequestDelegate()
+    {
+        var options = new MapRouteOptions
+        {
+            Pattern = "/test",
+            Code = "$Context.Response.StatusCode = 200",
+            Language = ScriptLanguage.PowerShell,
+            Arguments = []
+        };
+
+        var logger = Serilog.Log.Logger;
+        var compiled = KestrunHostMapExtensions.CompileScript(options, logger);
+        
+        Assert.NotNull(compiled);
+        _ = Assert.IsType<RequestDelegate>(compiled);
+    }
+
+    [Fact]
+    [Trait("Category", "Hosting")]
+    public void CompileScript_WithUnsupportedLanguage_ThrowsNotSupportedException()
+    {
+        var options = new MapRouteOptions
+        {
+            Pattern = "/test",
+            Code = "Context.Response.StatusCode = 200;",
+            Language = (ScriptLanguage)999, // Invalid language
+            Arguments = []
+        };
+
+        var logger = Serilog.Log.Logger;
+        
+        var ex = Assert.Throws<NotSupportedException>(() => KestrunHostMapExtensions.CompileScript(options, logger));
+        
+        Assert.Contains("999", ex.Message);
+    }
+
+    [Fact]
+    [Trait("Category", "Hosting")]
+    public void CompileScript_WithVBNet_ReturnsRequestDelegate()
+    {
+        var options = new MapRouteOptions
+        {
+            Pattern = "/test",
+            Code = "Context.Response.StatusCode = 200",
+            Language = ScriptLanguage.VBNet,
+            Arguments = [],
+            ExtraImports = [],
+            ExtraRefs = []
+        };
+
+        var logger = Serilog.Log.Logger;
+        var compiled = KestrunHostMapExtensions.CompileScript(options, logger);
+        
+        Assert.NotNull(compiled);
+        _ = Assert.IsType<RequestDelegate>(compiled);
+    }
+
+    #endregion
+
+    #region CreateAndRegisterRoute Tests
+
+    [Fact]
+    [Trait("Category", "Hosting")]
+    public void CreateAndRegisterRoute_WithValidInputs_ReturnsEndpointBuilder()
+    {
+        SanitizeSharedGlobals();
+        var host = new KestrunHost("TestApp", AppContext.BaseDirectory);
+        host.EnableConfiguration();
+
+        var routeOptions = new MapRouteOptions
+        {
+            Pattern = "/test-create-register",
+            Code = "Context.Response.StatusCode = 200;",
+            Language = ScriptLanguage.CSharp,
+            HttpVerbs = [HttpVerb.Get]
+        };
+
+        // Create a simple RequestDelegate
+        RequestDelegate compiled = context =>
+        {
+            context.Response.StatusCode = 200;
+            return Task.CompletedTask;
+        };
+
+        var result = KestrunHostMapExtensions.CreateAndRegisterRoute(host, routeOptions, compiled);
+        
+        Assert.NotNull(result);
+        Assert.True(host.MapExists("/test-create-register", HttpVerb.Get));
+        
+        var savedOptions = host.GetMapRouteOptions("/test-create-register", HttpVerb.Get);
+        Assert.NotNull(savedOptions);
+        Assert.Equal(routeOptions.Pattern, savedOptions!.Pattern);
+        Assert.Equal(routeOptions.Language, savedOptions.Language);
+    }
+
+    [Fact]
+    [Trait("Category", "Hosting")]
+    public void CreateAndRegisterRoute_WithMultipleVerbs_RegistersAllMethods()
+    {
+        SanitizeSharedGlobals();
+        var host = new KestrunHost("TestApp", AppContext.BaseDirectory);
+        host.EnableConfiguration();
+
+        var routeOptions = new MapRouteOptions
+        {
+            Pattern = "/test-multi-verbs",
+            Code = "Context.Response.StatusCode = 200;",
+            Language = ScriptLanguage.CSharp,
+            HttpVerbs = [HttpVerb.Get, HttpVerb.Post, HttpVerb.Put]
+        };
+
+        RequestDelegate compiled = context =>
+        {
+            context.Response.StatusCode = 200;
+            return Task.CompletedTask;
+        };
+
+        var result = KestrunHostMapExtensions.CreateAndRegisterRoute(host, routeOptions, compiled);
+        
+        Assert.NotNull(result);
+        Assert.True(host.MapExists("/test-multi-verbs", HttpVerb.Get));
+        Assert.True(host.MapExists("/test-multi-verbs", HttpVerb.Post));
+        Assert.True(host.MapExists("/test-multi-verbs", HttpVerb.Put));
+        Assert.False(host.MapExists("/test-multi-verbs", HttpVerb.Delete));
+    }
+
+    #endregion
 }

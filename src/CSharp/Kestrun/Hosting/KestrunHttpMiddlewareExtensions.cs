@@ -314,7 +314,6 @@ public static class KestrunHttpMiddlewareExtensions
             _ = app.UseResponseCaching();
             _ = app.Use(async (context, next) =>
             {
-
                 try
                 {
                     // Gate: only for successful cacheable responses on GET/HEAD

@@ -1,0 +1,26 @@
+permissions:
+    contents: read
+    pull-requests: read
+
+name: Format Check (main)
+
+on:
+    push:
+        branches: [main]
+        paths:
+            - "**/*.cs"
+            - "**/*.csproj"
+            - "**/*.sln"
+            - "**/*.ps1"
+            - "**/*.psm1"
+            - "**/*.psd1"
+            - "**/*.yml"
+            - "**/*.yaml"
+            - tests/**
+    workflow_dispatch: {}
+
+jobs:
+    format-check:
+        uses: ./.github/workflows/format-check-core.yml
+        with:
+            is_pr: false

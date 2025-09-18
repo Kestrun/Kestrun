@@ -1,0 +1,30 @@
+name: CodeQL (main)
+
+on:
+    push:
+        branches: [main]
+        paths:
+            - "**/*.cs"
+            - "**/*.csproj"
+            - "**/*.sln"
+            - "**/*.ps1"
+            - "**/*.psm1"
+            - "**/*.psd1"
+            - "**/*.yml"
+            - "**/*.yaml"
+            - tests/**
+    schedule:
+        - cron: "15 5 * * 3"
+    workflow_dispatch: {}
+
+permissions:
+    contents: read
+    pull-requests: read
+    actions: read
+    security-events: write
+
+jobs:
+    codeql:
+        uses: ./.github/workflows/codeql-core.yml
+        with:
+            is_pr: false

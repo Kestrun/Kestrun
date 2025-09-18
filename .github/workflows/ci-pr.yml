@@ -1,0 +1,24 @@
+permissions:
+    contents: read
+    pull-requests: read
+
+name: CI (PR)
+
+on:
+    pull_request:
+        paths:
+            - "**/*.cs"
+            - "**/*.csproj"
+            - "**/*.sln"
+            - "**/*.ps1"
+            - "**/*.psm1"
+            - "**/*.psd1"
+            - "**/*.yml"
+            - "**/*.yaml"
+            - tests/**
+
+jobs:
+    ci:
+        uses: ./.github/workflows/ci-core.yml
+        with:
+            is_pr: true

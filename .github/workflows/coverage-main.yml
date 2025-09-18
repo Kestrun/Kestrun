@@ -1,0 +1,28 @@
+permissions:
+    contents: read
+    pull-requests: read
+
+name: Coverage (main)
+
+on:
+    push:
+        branches: [main]
+        paths:
+            - "**/*.cs"
+            - "**/*.csproj"
+            - "**/*.sln"
+            - "**/*.ps1"
+            - "**/*.psm1"
+            - "**/*.psd1"
+            - "**/*.yml"
+            - "**/*.yaml"
+            - tests/**
+    merge_group:
+        types: [checks_requested]
+    workflow_dispatch: {}
+
+jobs:
+    coverage:
+        uses: ./.github/workflows/coverage-core.yml
+        with:
+            is_pr: false

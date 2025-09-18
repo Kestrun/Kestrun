@@ -1,0 +1,137 @@
+name: CodeQL (core)
+
+on:
+    workflow_call:
+        inputs:
+            is_pr:
+                description: Whether the workflow runs for a pull request context.
+                required: true
+                type: boolean
+
+permissions:
+    contents: read
+    pull-requests: read
+
+concurrency:
+    group: codeql-${{ github.repository }}-${{ inputs.is_pr && github.event.pull_request.number || github.ref }}
+    cancel-in-progress: true
+
+jobs:
+    format:
+        name: Formatting
+        uses: ./.github/workflows/format-check-core.yml
+        with:
+            is_pr: ${{ inputs.is_pr }}
+
+    # --- CodeQL for C# and GitHub Actions ---
+    codeql:
+        name: CodeQL (${{ matrix.language }})
+        runs-on: ubuntu-latest
+        needs: format
+        permissions:
+            contents: read
+            actions: read
+            security-events: write
+        strategy:
+            fail-fast: false
+            matrix:
+                language: [csharp, actions]
+        steps:
+            - uses: actions/checkout@v5
+
+            - name: Initialize CodeQL
+              uses: github/codeql-action/init@v3
+              with:
+                  languages: ${{ matrix.language }}
+            # queries: security-extended  # optional: stricter rules
+
+            # Build C# so your DLLs exist (good for your optional import check)
+            - name: 🧰 Setup .NET 8/9
+              uses: actions/setup-dotnet@v5
+              with:
+                  dotnet-version: |
+                      8.0.x
+                      9.0.x
+
+            - name: 🧰 Install Invoke-Build
+              shell: pwsh
+              run: Install-Module InvokeBuild -Force -Scope CurrentUser
+
+            - name: 📦 Restore solution
+              shell: pwsh
+              run: Invoke-Build Restore -DotNetVerbosity minimal
+
+            - name: 🔧 Run C# Build
+              shell: pwsh
+              run: Invoke-Build Build -DotNetVerbosity minimal
+
+            - name: Analyze
+              uses: github/codeql-action/analyze@v3
+              with:
+                  category: "/language:${{ matrix.language }}"
+
+    # --- PowerShell via PSScriptAnalyzer -> SARIF upload ---
+    powershell-analysis:
+        runs-on: ubuntu-latest
+        needs: format
+        permissions:
+            contents: read
+            security-events: write
+        steps:
+            - uses: actions/checkout@v5
+            - name: 🧪 Show pwsh + repo layout
+              shell: pwsh
+              run: |
+                  $PSVersionTable.PSVersion
+                  Get-ChildItem -Force -Recurse -Depth 2 | Select-Object -First 40 | Format-Table -Auto
+                  if (-not (Test-Path ./PSScriptAnalyzerSettings.psd1)) {
+                    Write-Error "Settings file not found at ./PSScriptAnalyzerSettings.psd1"
+                  }
+
+            - name: 🧰 Setup .NET 8
+              uses: actions/setup-dotnet@v5
+              with:
+                  dotnet-version: "8.0.x"
+                  cache: true
+                  cache-dependency-path: |
+                      **/*.csproj
+                      **/packages.lock.json
+
+            - name: 🧰 Setup .NET 9
+              uses: actions/setup-dotnet@v5
+              with:
+                  dotnet-version: "9.0.x"
+
+            - name: 🧰 Install Invoke-Build
+              shell: pwsh
+              run: Install-Module InvokeBuild -Force -Scope CurrentUser
+
+            - name: 📦 Restore solution
+              shell: pwsh
+              run: Invoke-Build Restore -DotNetVerbosity minimal
+
+            - name: 🔧 Run C# Build
+              shell: pwsh
+              run: Invoke-Build Build -DotNetVerbosity minimal
+
+            - name: Run PSScriptAnalyzer with settings
+              id: pssa
+              uses: microsoft/psscriptanalyzer-action@v1.1
+              with:
+                  path: .\src\PowerShell\Kestrun
+                  recurse: true
+                  settings: ./PSScriptAnalyzerSettings.psd1
+                  output: pssa.sarif
+
+            - name: ⬆️ Upload PSSA SARIF
+              uses: github/codeql-action/upload-sarif@v3
+              with:
+                  sarif_file: pssa.sarif
+                  category: powershell
+
+            - name: ❗Fail on PSSA errors
+              shell: pwsh
+              run: |
+                  $sarif = Get-Content pssa.sarif -Raw | ConvertFrom-Json
+                  $errors = @($sarif.runs.results | Where-Object { $_.level -eq 'error' })
+                  if ($errors.Count) { Write-Error "PSScriptAnalyzer found $($errors.Count) error-level issues." }

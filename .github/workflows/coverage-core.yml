@@ -301,7 +301,7 @@ jobs:
 
               # ✅ Commit & push from the coverage repo itself (skip on PRs from forks)
             - name: ✅ Commit & push if changed
-              if: ${{ not inputs.is_pr }}
+              if: ${{ ! inputs.is_pr }}
               run: |
                   set -euo pipefail
                   cd coverage-site

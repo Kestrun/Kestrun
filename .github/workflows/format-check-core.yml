@@ -51,7 +51,7 @@ jobs:
                   if [[ $NEED_PS -eq 0 ]]; then echo "No PowerShell script/module changes detected; PS lint will be skipped."; fi
 
             - name: 🧰 Setup .NET 8 & 9
-              if: ${{ steps.changed.outputs.need_dotnet != '0' || not inputs.is_pr }}
+              if: ${{ steps.changed.outputs.need_dotnet != '0' || !inputs.is_pr }}
               uses: actions/setup-dotnet@v5
               with:
                   dotnet-version: |
@@ -64,7 +64,7 @@ jobs:
 
             - name: ✅ Verify no C# formatting changes
               id: verify
-              if: ${{ not inputs.is_pr || steps.changed.outputs.need_dotnet != '0' }}
+              if: ${{ !inputs.is_pr || steps.changed.outputs.need_dotnet != '0' }}
               run: |
                   echo "Running dotnet format (verify)..."
                   set -e
@@ -92,7 +92,7 @@ jobs:
                   if-no-files-found: ignore
 
             - name: 🧪 PSScriptAnalyzer version
-              if: ${{ not inputs.is_pr || steps.changed.outputs.need_ps != '0' }}
+              if: ${{ !inputs.is_pr || steps.changed.outputs.need_ps != '0' }}
               shell: pwsh
               run: |
                   $ErrorActionPreference = 'Stop'
@@ -102,7 +102,7 @@ jobs:
 
             - name: 🧪 Run PSScriptAnalyzer
               id: psa
-              if: ${{ not inputs.is_pr || steps.changed.outputs.need_ps != '0' }}
+              if: ${{ !inputs.is_pr || steps.changed.outputs.need_ps != '0' }}
               shell: pwsh
               run: |
                   $ErrorActionPreference = 'Continue'

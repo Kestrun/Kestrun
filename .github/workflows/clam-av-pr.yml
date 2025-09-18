@@ -1,0 +1,25 @@
+permissions:
+    contents: read
+    pull-requests: read
+
+name: AV Scan (PR)
+
+on:
+    pull_request:
+        branches: [main]
+        paths:
+            - "**/*.cs"
+            - "**/*.csproj"
+            - "**/*.sln"
+            - "**/*.ps1"
+            - "**/*.psm1"
+            - "**/*.psd1"
+            - "**/*.yml"
+            - "**/*.yaml"
+            - tests/**
+
+jobs:
+    clamav:
+        uses: ./.github/workflows/clam-av-core.yml
+        with:
+            is_pr: true

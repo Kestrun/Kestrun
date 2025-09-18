@@ -432,164 +432,146 @@ public class KestrunHost : IDisposable
     /// </summary>
     public void EnableConfiguration(Dictionary<string, object>? userVariables = null, Dictionary<string, string>? userFunctions = null)
     {
-        LogEnableConfigurationCalled();
+        if (HostLogger.IsEnabled(LogEventLevel.Debug))
+        {
+            HostLogger.Debug("EnableConfiguration(options) called");
+        }
+
         if (IsConfigured)
         {
-            LogConfigurationAlreadyApplied();
-            return;
+            if (HostLogger.IsEnabled(LogEventLevel.Debug))
+            {
+                HostLogger.Debug("Configuration already applied, skipping");
+            }
+
+            return; // Already configured
         }
         try
         {
-            _runspacePool = CreateAndValidateRunspacePool(Options.MaxRunspaces, userVariables, userFunctions);
-            ConfigureKestrelServer();
-            ConfigureNamedPipesIfNeeded();
-            ConfigureKestrelListenersAndHttps();
+            // This method is called to apply the configured options to the Kestrel server.
+            // The actual application of options is done in the Run method.
+            _runspacePool = CreateRunspacePool(Options.MaxRunspaces, userVariables, userFunctions);
+            if (_runspacePool == null)
+            {
+                throw new InvalidOperationException("Failed to create runspace pool.");
+            }
+
+            if (HostLogger.IsEnabled(LogEventLevel.Verbose))
+            {
+                HostLogger.Verbose("Runspace pool created with max runspaces: {MaxRunspaces}", Options.MaxRunspaces);
+            }
+            // Configure Kestrel
+            _ = Builder.WebHost.UseKestrel(opts =>
+            {
+                opts.CopyFromTemplate(Options.ServerOptions);
+            });
+
+            if (Options.NamedPipeOptions is not null)
+            {
+                if (OperatingSystem.IsWindows())
+                {
+                    _ = Builder.WebHost.UseNamedPipes(opts =>
+                    {
+                        opts.ListenerQueueCount = Options.NamedPipeOptions.ListenerQueueCount;
+                        opts.MaxReadBufferSize = Options.NamedPipeOptions.MaxReadBufferSize;
+                        opts.MaxWriteBufferSize = Options.NamedPipeOptions.MaxWriteBufferSize;
+                        opts.CurrentUserOnly = Options.NamedPipeOptions.CurrentUserOnly;
+                        opts.PipeSecurity = Options.NamedPipeOptions.PipeSecurity;
+                    });
+                }
+                else
+                {
+                    HostLogger.Verbose("Named pipe listeners configuration is supported only on Windows; skipping UseNamedPipes configuration.");
+                }
+            }
+
+            // Apply Kestrel listeners and HTTPS settings
+            _ = Builder.WebHost.ConfigureKestrel(serverOptions =>
+            {
+                if (Options.HttpsConnectionAdapter is not null)
+                {
+                    HostLogger.Verbose("Applying HTTPS connection adapter options from KestrunOptions.");
+
+                    // Apply HTTPS defaults if needed
+                    serverOptions.ConfigureHttpsDefaults(httpsOptions =>
+                    {
+                        httpsOptions.SslProtocols = Options.HttpsConnectionAdapter.SslProtocols;
+                        httpsOptions.ClientCertificateMode = Options.HttpsConnectionAdapter.ClientCertificateMode;
+                        httpsOptions.ClientCertificateValidation = Options.HttpsConnectionAdapter.ClientCertificateValidation;
+                        httpsOptions.CheckCertificateRevocation = Options.HttpsConnectionAdapter.CheckCertificateRevocation;
+                        httpsOptions.ServerCertificate = Options.HttpsConnectionAdapter.ServerCertificate;
+                        httpsOptions.ServerCertificateChain = Options.HttpsConnectionAdapter.ServerCertificateChain;
+                        httpsOptions.ServerCertificateSelector = Options.HttpsConnectionAdapter.ServerCertificateSelector;
+                        httpsOptions.HandshakeTimeout = Options.HttpsConnectionAdapter.HandshakeTimeout;
+                        httpsOptions.OnAuthenticate = Options.HttpsConnectionAdapter.OnAuthenticate;
+                    });
+                }
+                // Unix domain socket listeners
+                foreach (var unixSocket in Options.ListenUnixSockets)
+                {
+                    if (!string.IsNullOrWhiteSpace(unixSocket))
+                    {
+                        HostLogger.Verbose("Binding Unix socket: {Sock}", unixSocket);
+                        serverOptions.ListenUnixSocket(unixSocket);
+                        // NOTE: control access via directory perms/umask; UDS file perms are inherited from process umask
+                        // Prefer placing the socket under a group-owned dir (e.g., /var/run/kestrun) with 0770.
+                    }
+                }
+
+                // Named pipe listeners
+                foreach (var namedPipeName in Options.NamedPipeNames)
+                {
+                    if (!string.IsNullOrWhiteSpace(namedPipeName))
+                    {
+                        HostLogger.Verbose("Binding Named Pipe: {Pipe}", namedPipeName);
+                        serverOptions.ListenNamedPipe(namedPipeName);
+                    }
+                }
+
+                // TCP listeners
+                foreach (var opt in Options.Listeners)
+                {
+                    serverOptions.Listen(opt.IPAddress, opt.Port, listenOptions =>
+                    {
+                        listenOptions.Protocols = opt.Protocols;
+                        listenOptions.DisableAltSvcHeader = opt.DisableAltSvcHeader;
+                        if (opt.UseHttps && opt.X509Certificate is not null)
+                        {
+                            _ = listenOptions.UseHttps(opt.X509Certificate);
+                        }
+                        if (opt.UseConnectionLogging)
+                        {
+                            _ = listenOptions.UseConnectionLogging();
+                        }
+                    });
+                }
+            });
+
+            // build the app to validate configuration
             _app = Build();
-            LogConfiguredEndpoints(_app);
+            // Log configured endpoints
+            var dataSource = _app.Services.GetRequiredService<EndpointDataSource>();
+
+            if (dataSource.Endpoints.Count == 0)
+            {
+                HostLogger.Warning("EndpointDataSource is empty. No endpoints configured.");
+            }
+            else
+            {
+                foreach (var ep in dataSource.Endpoints)
+                {
+                    HostLogger.Information("➡️  Endpoint: {DisplayName}", ep.DisplayName);
+                }
+            }
+
             IsConfigured = true;
             HostLogger.Information("Configuration applied successfully.");
         }
         catch (Exception ex)
         {
-            HandleConfigurationException(ex);
+            HostLogger.Error(ex, "Error applying configuration: {Message}", ex.Message);
+            throw new InvalidOperationException("Failed to apply configuration.", ex);
         }
-    }
-    // ────────────── Internal Helper Methods for EnableConfiguration ──────────────
-    internal void LogEnableConfigurationCalled()
-    {
-        if (HostLogger.IsEnabled(LogEventLevel.Debug))
-        {
-            HostLogger.Debug("EnableConfiguration(options) called");
-        }
-    }
-
-    internal void LogConfigurationAlreadyApplied()
-    {
-        if (HostLogger.IsEnabled(LogEventLevel.Debug))
-        {
-            HostLogger.Debug("Configuration already applied, skipping");
-        }
-    }
-
-    internal KestrunRunspacePoolManager CreateAndValidateRunspacePool(int? maxRunspaces, Dictionary<string, object>? userVariables, Dictionary<string, string>? userFunctions)
-    {
-        var pool = CreateRunspacePool(maxRunspaces, userVariables, userFunctions);
-        if (pool is null)
-        {
-            throw new InvalidOperationException("Failed to create runspace pool.");
-        }
-        if (HostLogger.IsEnabled(LogEventLevel.Verbose))
-        {
-            HostLogger.Verbose("Runspace pool created with max runspaces: {MaxRunspaces}", Options.MaxRunspaces);
-        }
-        return pool;
-    }
-
-    internal void ConfigureKestrelServer()
-    {
-        _ = Builder.WebHost.UseKestrel(opts =>
-        {
-            opts.CopyFromTemplate(Options.ServerOptions);
-        });
-    }
-
-    internal void ConfigureNamedPipesIfNeeded()
-    {
-        if (Options.NamedPipeOptions is not null)
-        {
-            if (OperatingSystem.IsWindows())
-            {
-                _ = Builder.WebHost.UseNamedPipes(opts =>
-                {
-                    opts.ListenerQueueCount = Options.NamedPipeOptions.ListenerQueueCount;
-                    opts.MaxReadBufferSize = Options.NamedPipeOptions.MaxReadBufferSize;
-                    opts.MaxWriteBufferSize = Options.NamedPipeOptions.MaxWriteBufferSize;
-                    opts.CurrentUserOnly = Options.NamedPipeOptions.CurrentUserOnly;
-                    opts.PipeSecurity = Options.NamedPipeOptions.PipeSecurity;
-                });
-            }
-            else
-            {
-                HostLogger.Verbose("Named pipe listeners configuration is supported only on Windows; skipping UseNamedPipes configuration.");
-            }
-        }
-    }
-
-    internal void ConfigureKestrelListenersAndHttps()
-    {
-        _ = Builder.WebHost.ConfigureKestrel(serverOptions =>
-        {
-            if (Options.HttpsConnectionAdapter is not null)
-            {
-                HostLogger.Verbose("Applying HTTPS connection adapter options from KestrunOptions.");
-                serverOptions.ConfigureHttpsDefaults(httpsOptions =>
-                {
-                    httpsOptions.SslProtocols = Options.HttpsConnectionAdapter.SslProtocols;
-                    httpsOptions.ClientCertificateMode = Options.HttpsConnectionAdapter.ClientCertificateMode;
-                    httpsOptions.ClientCertificateValidation = Options.HttpsConnectionAdapter.ClientCertificateValidation;
-                    httpsOptions.CheckCertificateRevocation = Options.HttpsConnectionAdapter.CheckCertificateRevocation;
-                    httpsOptions.ServerCertificate = Options.HttpsConnectionAdapter.ServerCertificate;
-                    httpsOptions.ServerCertificateChain = Options.HttpsConnectionAdapter.ServerCertificateChain;
-                    httpsOptions.ServerCertificateSelector = Options.HttpsConnectionAdapter.ServerCertificateSelector;
-                    httpsOptions.HandshakeTimeout = Options.HttpsConnectionAdapter.HandshakeTimeout;
-                    httpsOptions.OnAuthenticate = Options.HttpsConnectionAdapter.OnAuthenticate;
-                });
-            }
-            foreach (var unixSocket in Options.ListenUnixSockets)
-            {
-                if (!string.IsNullOrWhiteSpace(unixSocket))
-                {
-                    HostLogger.Verbose("Binding Unix socket: {Sock}", unixSocket);
-                    serverOptions.ListenUnixSocket(unixSocket);
-                }
-            }
-            foreach (var namedPipeName in Options.NamedPipeNames)
-            {
-                if (!string.IsNullOrWhiteSpace(namedPipeName))
-                {
-                    HostLogger.Verbose("Binding Named Pipe: {Pipe}", namedPipeName);
-                    serverOptions.ListenNamedPipe(namedPipeName);
-                }
-            }
-            foreach (var opt in Options.Listeners)
-            {
-                serverOptions.Listen(opt.IPAddress, opt.Port, listenOptions =>
-                {
-                    listenOptions.Protocols = opt.Protocols;
-                    listenOptions.DisableAltSvcHeader = opt.DisableAltSvcHeader;
-                    if (opt.UseHttps && opt.X509Certificate is not null)
-                    {
-                        _ = listenOptions.UseHttps(opt.X509Certificate);
-                    }
-                    if (opt.UseConnectionLogging)
-                    {
-                        _ = listenOptions.UseConnectionLogging();
-                    }
-                });
-            }
-        });
-    }
-
-    internal void LogConfiguredEndpoints(WebApplication app)
-    {
-        var dataSource = app.Services.GetRequiredService<EndpointDataSource>();
-        if (dataSource.Endpoints.Count == 0)
-        {
-            HostLogger.Warning("EndpointDataSource is empty. No endpoints configured.");
-        }
-        else
-        {
-            foreach (var ep in dataSource.Endpoints)
-            {
-                HostLogger.Information("➡️  Endpoint: {DisplayName}", ep.DisplayName);
-            }
-        }
-    }
-
-    internal void HandleConfigurationException(Exception ex)
-    {
-        HostLogger.Error(ex, "Error applying configuration: {Message}", ex.Message);
-        throw new InvalidOperationException("Failed to apply configuration.", ex);
     }
 
     #endregion

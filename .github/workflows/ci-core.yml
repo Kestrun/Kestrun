@@ -1,0 +1,212 @@
+permissions:
+    contents: read
+    pull-requests: read
+
+name: CI (core)
+
+on:
+    workflow_call:
+        inputs:
+            is_pr:
+                description: Whether the workflow runs for a pull request context.
+                required: true
+                type: boolean
+            debug:
+                description: Enable debug logging when invoked manually.
+                required: false
+                default: false
+                type: boolean
+
+concurrency:
+    group: ci-${{ github.repository }}-${{ inputs.is_pr && github.event.pull_request.number || github.ref }}
+    cancel-in-progress: true
+
+jobs:
+    format:
+        name: Formatting
+        uses: ./.github/workflows/format-check-core.yml
+        with:
+            is_pr: ${{ inputs.is_pr }}
+
+    build:
+        needs: format
+        strategy:
+            fail-fast: false
+            matrix:
+                os:
+                    [
+                        ubuntu-24.04,
+                        ubuntu-22.04,
+                        macos-15,
+                        macos-14,
+                        windows-2022,
+                        windows-2025,
+                        ubuntu-24.04-arm,
+                        windows-11-arm,
+                    ]
+                pwsh: ["7.4.11", "latest", "preview"]
+        runs-on: ${{ matrix.os }}
+
+        defaults:
+            run:
+                working-directory: ${{ github.workspace }}
+
+        env:
+            POWERSHELL_DISTRIBUTION_CHANNEL: GitHub-Actions
+            ACTIONS_STEP_DEBUG: ${{ inputs.debug && 'true' || '' }}
+
+        steps:
+            # Detect if GH "Enable debug logging" is ON
+            - name: 🔎 Detect GH debug flag
+              id: detect_debug
+              shell: bash
+              run: |
+                  # ACTIONS_STEP_DEBUG is set to 'true' when GH debug logging is enabled
+                  echo "gh_debug=${ACTIONS_STEP_DEBUG:-false}" >> "$GITHUB_OUTPUT"
+
+            - name: 🛎️ Checkout
+              uses: actions/checkout@v5
+
+            - name: 🧰 Install PowerShell
+              uses: ./.github/actions/Install-PowerShell
+              with:
+                  Version: ${{ matrix.pwsh }}
+
+            - name: 🧰 Setup .NET 8/9
+              uses: actions/setup-dotnet@v5
+              with:
+                  dotnet-version: |
+                      8.0.x
+                      9.0.x
+
+            # 🔊 Only enable super-verbose logs in debug runs
+            - name: 🔧 Enable debug flags
+              if: ${{ steps.detect_debug.outputs.enabled == 'true' }}
+              shell: bash
+              run: |
+                  {
+                    echo "ACTIONS_STEP_DEBUG=true"
+                    echo "ACTIONS_RUNNER_DEBUG=true"
+                    echo "COREHOST_TRACE=1"
+                    echo "COREHOST_TRACE_VERBOSITY=3"
+                    echo "DOTNET_HOST_TRACE=1"
+                    echo "DOTNET_HOST_TRACE_VERBOSITY=3"
+                  } >> "$GITHUB_ENV"
+
+            - name: 🔧 Echo debug flag
+              run: echo "debug=${{ steps.detect_debug.outputs.enabled }}  event=${{ github.event_name }}"
+              if: ${{ always() && github.event_name != '' }}
+
+            # 🔊 decide verbosity once, early
+            - name: 🔧 Set build verbosity
+              shell: bash
+              run: |
+                  if [[ "${{ steps.detect_debug.outputs.enabled == 'true' }}" == "true" ]]; then
+                    echo "DOTNET_VERBOSITY=diag" >> "$GITHUB_ENV"
+                    echo "PESTER_VERBOSITY=Detailed" >> "$GITHUB_ENV"
+                  else
+                    echo "DOTNET_VERBOSITY=minimal" >> "$GITHUB_ENV"
+                    echo "PESTER_VERBOSITY=Normal" >> "$GITHUB_ENV"
+                  fi
+
+            - name: 🧰 Install Module Invoke-Build
+              shell: pwsh
+              run: |
+                  $ErrorActionPreference = 'Stop'
+                  Install-Module InvokeBuild -Force -Scope CurrentUser
+
+            - name: 🧰 Install Module Pester (pin)
+              shell: pwsh
+              run: |
+                  $ErrorActionPreference = 'Stop'
+                  Install-Module Pester -Force -Scope CurrentUser -RequiredVersion 5.6.1
+                  Get-Module Pester -ListAvailable | Select Name,Version,Path
+
+            - name: 🔎 Print runtime context
+              shell: pwsh
+              run: |
+                  $PSVersionTable
+                  dotnet --info
+                  [System.Runtime.InteropServices.RuntimeInformation]::FrameworkDescription
+                  [System.Environment]::Version
+
+            - name: 📦 Restore solution
+              shell: pwsh
+              run: Invoke-Build Restore -DotNetVerbosity $Env:DOTNET_VERBOSITY
+
+            # 🐛 Debug-only; non-fatal if it exits 1
+            - name: 🔎 List Roslyn packages (transitive)
+              if: ${{ steps.detect_debug.outputs.enabled == 'true' }}
+              continue-on-error: true
+              shell: pwsh
+              run: |
+                  dotnet list ./Kestrun.sln package --include-transitive -v $Env:DOTNET_VERBOSITY |
+                    Select-String -SimpleMatch "Microsoft.CodeAnalysis"
+                  Write-Host "Exit code was $LASTEXITCODE (ignored in debug)"
+
+            # 🐛 Debug-only; non-fatal inventory
+            - name: 📂 List Roslyn candidates in repo
+              if: ${{ steps.detect_debug.outputs.enabled == 'true' }}
+              continue-on-error: true
+              shell: pwsh
+              run: |
+                  Get-ChildItem -Recurse -File -Include Microsoft.CodeAnalysis*.dll,System.Collections.Immutable*.dll,System.Reflection.Metadata*.dll |
+                    Sort-Object FullName |
+                    Select-Object FullName, Length |
+                    Format-Table -Auto
+
+            - name: 🔧 Run C# Build (normal)
+              shell: pwsh
+              run: |
+                  $ErrorActionPreference = 'Stop'
+                  Invoke-Build Build -DotNetVerbosity $Env:DOTNET_VERBOSITY
+
+            # 🐛 Optional deep-dive build with binlog in debug (non-fatal)
+            - name: 🧰 Debug build with binlog
+              if: ${{ steps.detect_debug.outputs.enabled == 'true' }}
+              continue-on-error: true
+              shell: pwsh
+              run: |
+                  dotnet build ./Kestrun.sln -c Debug -bl:msbuild.binlog -v $Env:DOTNET_VERBOSITY || $true
+
+            # 🐛 Debug-only; force Roslyn load (non-fatal)
+            - name: 🧪 Mini Roslyn sanity check (before Pester)
+              if: ${{ steps.detect_debug.outputs.enabled == 'true' }}
+              continue-on-error: true
+              shell: pwsh
+              run: |
+                  $ErrorActionPreference = 'Continue'
+                  Import-Module ./src/PowerShell/Kestrun/Kestrun.psd1 -Force
+                  [AppDomain]::CurrentDomain.GetAssemblies() |
+                    Where-Object { $_.GetName().Name -like 'Microsoft.CodeAnalysis*' -or $_.GetName().Name -in 'System.Collections.Immutable','System.Reflection.Metadata' } |
+                    Select FullName, Location | Format-Table -Auto
+
+                  if ([type]::GetType('Kestrun.Scripting.CSharpDelegateBuilder')) {
+                    try { [Kestrun.Scripting.CSharpDelegateBuilder]::Compile('int x=1;') } catch { $_ | Out-String | Write-Host }
+                  }
+
+            - name: 🧪 Run Tests
+              shell: pwsh
+              run: |
+                  $ErrorActionPreference = 'Stop'
+                  Invoke-Build Test -DotNetVerbosity $Env:DOTNET_VERBOSITY -PesterVerbosity $Env:PESTER_VERBOSITY -RunPesterInProcess
+
+            - name: 📤 Upload diagnostics on failure
+              if: failure()
+              uses: actions/upload-artifact@v4
+              with:
+                  name: diagnostics-${{ matrix.os }}-pwsh-${{ matrix.pwsh }}-${{ strategy.job-index }}
+                  path: |
+                      **/TestResults/**
+                      **/bin/**
+                      **/obj/project.assets.json
+                      src/PowerShell/Kestrun/**/*
+                      ./*.log
+                      ./msbuild.binlog
+
+            # 🔐 Only open an interactive shell when YOU asked for debug and it failed
+            - name: 🧑‍💻 Live SSH (only if failed and debug enabled)
+              if: ${{ failure() && steps.detect_debug.outputs.gh_debug == 'true' }}
+              uses: mxschmitt/action-tmate@v3
+              with:
+                  limit-access-to-actor: true

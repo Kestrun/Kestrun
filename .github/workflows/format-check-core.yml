@@ -1,0 +1,165 @@
+permissions:
+    contents: read
+    pull-requests: read # minimal perms for reusable workflow
+
+name: Format Check (core)
+
+on:
+    workflow_call:
+        inputs:
+            is_pr:
+                description: Whether the workflow runs for a pull request context.
+                required: true
+                type: boolean
+
+concurrency:
+    group: format-check-${{ github.repository }}-${{ inputs.is_pr && github.event.pull_request.number || github.ref }}
+    cancel-in-progress: true
+
+jobs:
+    dotnet-format:
+        runs-on: ubuntu-latest
+        steps:
+            - name: 🛎️ Checkout
+              uses: actions/checkout@v5
+              with:
+                  fetch-depth: 0
+
+            - name: 🔍 Determine changed relevant files (PR only)
+              id: changed
+              if: ${{ inputs.is_pr }}
+              run: |
+                  echo "Checking for relevant file changes..."
+                  git fetch origin "$GITHUB_BASE_REF" --depth=1 || true
+                  # List changed files between PR base and HEAD
+                  CHANGED=$(git diff --name-only origin/$GITHUB_BASE_REF...HEAD || git diff --name-only)
+                  echo -e "Changed files:\n$CHANGED"
+                  # Flags for what we need to run
+                  NEED_DOTNET=0
+                  NEED_PS=0
+                  while IFS= read -r f; do
+                    if [[ $f =~ \\.cs$|\\.csproj$|\\.sln$ ]]; then
+                      NEED_DOTNET=1
+                    fi
+                    if [[ $f =~ \\.ps1$|\\.psm1$|\\.psd1$ ]]; then
+                      NEED_PS=1
+                    fi
+                  done <<< "$CHANGED"
+                  echo "need_dotnet=$NEED_DOTNET" >> $GITHUB_OUTPUT
+                  echo "need_ps=$NEED_PS" >> $GITHUB_OUTPUT
+                  if [[ $NEED_DOTNET -eq 0 ]]; then echo "No C# project-related changes detected; dotnet format will be skipped."; fi
+                  if [[ $NEED_PS -eq 0 ]]; then echo "No PowerShell script/module changes detected; PS lint will be skipped."; fi
+
+            - name: 🧰 Setup .NET 8 & 9
+              if: ${{ steps.changed.outputs.need_dotnet != '0' || not inputs.is_pr }}
+              uses: actions/setup-dotnet@v5
+              with:
+                  dotnet-version: |
+                      8.0.x
+                      9.0.x
+
+            - name: 🔄 Restore
+              if: github.event_name != 'pull_request' || steps.changed.outputs.need_dotnet != '0'
+              run: dotnet restore
+
+            - name: ✅ Verify no C# formatting changes
+              id: verify
+              if: ${{ not inputs.is_pr || steps.changed.outputs.need_dotnet != '0' }}
+              run: |
+                  echo "Running dotnet format (verify)..."
+                  set -e
+                  if ! dotnet format --verify-no-changes --no-restore > format.log 2>&1; then
+                    echo "has_changes=true" >> $GITHUB_OUTPUT
+                    echo "Formatting differences detected." >&2
+                    # Generate patch file with suggested changes
+                    echo "Generating patch..."
+                    dotnet format --no-restore || true
+                    git diff > formatting.patch || true
+                    exit 1
+                  else
+                    echo "has_changes=false" >> $GITHUB_OUTPUT
+                    echo "No formatting differences.";
+                  fi
+
+            - name: 📦 Upload formatting patch artifact
+              if: ${{ failure() && steps.verify.outputs.has_changes == 'true' }}
+              uses: actions/upload-artifact@v4
+              with:
+                  name: formatting-diff
+                  path: |
+                      formatting.patch
+                      format.log
+                  if-no-files-found: ignore
+
+            - name: 🧪 PSScriptAnalyzer version
+              if: ${{ not inputs.is_pr || steps.changed.outputs.need_ps != '0' }}
+              shell: pwsh
+              run: |
+                  $ErrorActionPreference = 'Stop'
+                  $mod = Get-Module PSScriptAnalyzer -ListAvailable | Sort-Object Version -Descending | Select-Object -First 1
+                  if (-not $mod) { Write-Error 'PSScriptAnalyzer is not available on this runner.' }
+                  else { Write-Host "PSScriptAnalyzer version: $($mod.Version)" }
+
+            - name: 🧪 Run PSScriptAnalyzer
+              id: psa
+              if: ${{ not inputs.is_pr || steps.changed.outputs.need_ps != '0' }}
+              shell: pwsh
+              run: |
+                  $ErrorActionPreference = 'Continue'
+                  $settingsPath = Join-Path $PSScriptRoot 'PSScriptAnalyzerSettings.psd1'
+                  if (-not (Test-Path $settingsPath)) {
+                    # Fallback: repository root relative path
+                    $settingsPath = 'PSScriptAnalyzerSettings.psd1'
+                  }
+                  Write-Host "Using PSScriptAnalyzer settings: $settingsPath"
+                  $results = Invoke-ScriptAnalyzer -Path ./src/PowerShell/Kestrun -Recurse -Settings $settingsPath -ErrorAction Continue
+                  if ($results) {
+                    $results | Format-Table -Auto | Out-String | Write-Host
+                    $results | ConvertTo-Json -Depth 5 | Out-File psa-results.json
+                    "has_ps_issues=true" | Out-File -FilePath $Env:GITHUB_OUTPUT -Append
+                    exit 1
+                  } else {
+                    "has_ps_issues=false" | Out-File -FilePath $Env:GITHUB_OUTPUT -Append
+                  }
+
+            - name: 📦 Upload PSScriptAnalyzer results
+              if: ${{ failure() && steps.psa.outputs.has_ps_issues == 'true' }}
+              uses: actions/upload-artifact@v4
+              with:
+                  name: psa-results
+                  path: psa-results.json
+                  if-no-files-found: ignore
+
+            - name: 💬 Comment on PR with instructions (best-effort)
+              if: ${{ failure() && inputs.is_pr }}
+              continue-on-error: true
+              uses: actions/github-script@v8
+              with:
+                  script: |
+                      const parts = [];
+                      if ("${{ steps.verify.outputs.has_changes }}" === 'true') {
+                        parts.push(`? C# formatting issues detected.\nDownload 'formatting-diff' artifact and apply:\n\n\`git apply formatting.patch\`\n\nOr run locally:\n\n\`dotnet format\``);
+                      }
+                      if ("${{ steps.psa.outputs.has_ps_issues }}" === 'true') {
+                        parts.push(`? PowerShell lint issues detected by PSScriptAnalyzer.\nDownload 'psa-results' artifact (JSON) for full details.`);
+                      }
+                      if (parts.length === 0) {
+                        parts.push('Workflow failed for another reason; no formatter/lint outputs flagged.');
+                      }
+                      parts.push('After fixing, commit and push to update this PR.');
+                      const body = parts.join('\n\n---\n\n');
+                      try {
+                        github.rest.issues.createComment({
+                          issue_number: context.issue.number,
+                          owner: context.repo.owner,
+                          repo: context.repo.repo,
+                          body
+                        });
+                      } catch (e) {
+                        core.warning(`Unable to create PR comment (permissions?). Message would have been:\n${body}`);
+                      }
+
+            - name: ✅ Skipped (no relevant changes)
+              if: ${{ inputs.is_pr && steps.changed.outputs.need_dotnet == '0' && steps.changed.outputs.need_ps == '0' }}
+              run: |
+                  echo "Formatting / lint check skipped: no C# or PowerShell changes."

@@ -161,6 +161,7 @@ public static class KestrunHostMapExtensions
             Arguments = arguments ?? [] // No additional arguments by default
         });
     }
+
     /// <summary>
     /// Adds a route to the KestrunHost using the specified MapRouteOptions.
     /// </summary>
@@ -174,88 +175,21 @@ public static class KestrunHostMapExtensions
             host.HostLogger.Debug("AddMapRoute called with pattern={Pattern}, language={Language}, method={Methods}", options.Pattern, options.Language, options.HttpVerbs);
         }
 
-        // Ensure the WebApplication is initialized
-        if (host.App is null)
-        {
-            throw new InvalidOperationException("WebApplication is not initialized. Call EnableConfiguration first.");
-        }
-
-        // Validate options
-        if (string.IsNullOrWhiteSpace(options.Pattern))
-        {
-            throw new ArgumentException("Pattern cannot be null or empty.", nameof(options.Pattern));
-        }
-
-        // Validate code
-        if (string.IsNullOrWhiteSpace(options.Code))
-        {
-            throw new ArgumentException("ScriptBlock cannot be null or empty.", nameof(options.Code));
-        }
-
-        var routeOptions = options;
-        if (options.HttpVerbs.Count == 0)
-        {
-            // Create a new RouteOptions with HttpVerbs set to [HttpVerb.Get]
-            routeOptions = options with { HttpVerbs = [HttpVerb.Get] };
-        }
         try
         {
-            if (MapExists(host, routeOptions.Pattern, routeOptions.HttpVerbs))
+            // Validate options and get normalized route options
+            if (!ValidateRouteOptions(host, options, out var routeOptions))
             {
-                var msg = $"Route '{routeOptions.Pattern}' with method(s) {string.Join(", ", routeOptions.HttpVerbs)} already exists.";
-                if (options.ThrowOnDuplicate)
-                {
-                    throw new InvalidOperationException(msg);
-                }
-
-                host.HostLogger.Warning(msg);
-                return null!;
+                return null!; // Route already exists and should be skipped
             }
 
             var logger = host.HostLogger.ForContext("Route", routeOptions.Pattern);
-            // compile once – return an HttpContext->Task delegate
-            var compiled = options.Language switch
-            {
 
-                ScriptLanguage.PowerShell => PowerShellDelegateBuilder.Build(options.Code, logger, options.Arguments),
-                ScriptLanguage.CSharp => CSharpDelegateBuilder.Build(options.Code, logger, options.Arguments, options.ExtraImports, options.ExtraRefs),
-                ScriptLanguage.VBNet => VBNetDelegateBuilder.Build(options.Code, logger, options.Arguments, options.ExtraImports, options.ExtraRefs),
-                ScriptLanguage.FSharp => FSharpDelegateBuilder.Build(options.Code, logger), // F# scripting not implemented
-                ScriptLanguage.Python => PyDelegateBuilder.Build(options.Code, logger),
-                ScriptLanguage.JavaScript => JScriptDelegateBuilder.Build(options.Code, logger),
+            // Compile the script once – return a RequestDelegate
+            var compiled = CompileScript(routeOptions, logger);
 
-                _ => throw new NotSupportedException(options.Language.ToString())
-            };
-
-            // Wrap with CSRF validation
-            async Task handler(HttpContext ctx)
-            {
-                if (ShouldValidateCsrf(options))
-                {
-                    if (!await TryValidateAntiforgeryAsync(ctx))
-                    {
-                        return; // already responded 400
-                    }
-                }
-                await compiled(ctx);
-            }
-            string[] methods = [.. routeOptions.HttpVerbs.Select(v => v.ToMethodString())];
-            var map = host.App.MapMethods(routeOptions.Pattern, methods, handler).WithLanguage(options.Language);
-            if (host.HostLogger.IsEnabled(LogEventLevel.Debug))
-            {
-                host.HostLogger.Debug("Mapped route: {Pattern} with methods: {Methods}", routeOptions.Pattern, string.Join(", ", methods));
-            }
-
-            host.AddMapOptions(map, options);
-
-            foreach (var method in routeOptions.HttpVerbs.Select(v => v.ToMethodString()))
-            {
-                host._registeredRoutes[(routeOptions.Pattern, method)] = routeOptions;
-            }
-
-            host.HostLogger.Information("Added route: {Pattern} with methods: {Methods}", routeOptions.Pattern, string.Join(", ", methods));
-            return map;
-            // Add to the feature queue for later processing
+            // Create and register the route
+            return CreateAndRegisterRoute(host, routeOptions, compiled);
         }
         catch (CompilationErrorException ex)
         {
@@ -274,6 +208,119 @@ public static class KestrunHostMapExtensions
                 $"Failed to add route '{options.Pattern}' with method '{string.Join(", ", options.HttpVerbs)}' using {options.Language}: {ex.Message}",
                 ex);
         }
+    }
+
+    /// <summary>
+    /// Validates the host and options for adding a map route.
+    /// </summary>
+    /// <param name="host">The KestrunHost instance.</param>
+    /// <param name="options">The MapRouteOptions to validate.</param>
+    /// <param name="routeOptions">The validated route options with defaults applied.</param>
+    /// <returns>True if validation passes and route should be added; false if duplicate route should be skipped.</returns>
+    /// <exception cref="InvalidOperationException">Thrown when WebApplication is not initialized or route already exists and ThrowOnDuplicate is true.</exception>
+    /// <exception cref="ArgumentException">Thrown when required options are invalid.</exception>
+    internal static bool ValidateRouteOptions(KestrunHost host, MapRouteOptions options, out MapRouteOptions routeOptions)
+    {
+        // Ensure the WebApplication is initialized
+        if (host.App is null)
+        {
+            throw new InvalidOperationException("WebApplication is not initialized. Call EnableConfiguration first.");
+        }
+
+        // Validate options
+        if (string.IsNullOrWhiteSpace(options.Pattern))
+        {
+            throw new ArgumentException("Pattern cannot be null or empty.", nameof(options.Pattern));
+        }
+
+        // Validate code
+        if (string.IsNullOrWhiteSpace(options.Code))
+        {
+            throw new ArgumentException("ScriptBlock cannot be null or empty.", nameof(options.Code));
+        }
+
+        routeOptions = options;
+        if (options.HttpVerbs.Count == 0)
+        {
+            // Create a new RouteOptions with HttpVerbs set to [HttpVerb.Get]
+            routeOptions = options with { HttpVerbs = [HttpVerb.Get] };
+        }
+
+        if (MapExists(host, routeOptions.Pattern, routeOptions.HttpVerbs))
+        {
+            var msg = $"Route '{routeOptions.Pattern}' with method(s) {string.Join(", ", routeOptions.HttpVerbs)} already exists.";
+            if (options.ThrowOnDuplicate)
+            {
+                throw new InvalidOperationException(msg);
+            }
+
+            host.HostLogger.Warning(msg);
+            return false; // Skip this route
+        }
+
+        return true; // Continue with route creation
+    }
+
+    /// <summary>
+    /// Compiles the script code for the specified language.
+    /// </summary>
+    /// <param name="options">The MapRouteOptions containing the script and language.</param>
+    /// <param name="logger">The Serilog logger to use for compilation.</param>
+    /// <returns>A compiled RequestDelegate that can handle HTTP requests.</returns>
+    /// <exception cref="NotSupportedException">Thrown when the script language is not supported.</exception>
+    internal static RequestDelegate CompileScript(MapRouteOptions options, Serilog.ILogger logger)
+    {
+        return options.Language switch
+        {
+            ScriptLanguage.PowerShell => PowerShellDelegateBuilder.Build(options.Code!, logger, options.Arguments),
+            ScriptLanguage.CSharp => CSharpDelegateBuilder.Build(options.Code!, logger, options.Arguments, options.ExtraImports, options.ExtraRefs),
+            ScriptLanguage.VBNet => VBNetDelegateBuilder.Build(options.Code!, logger, options.Arguments, options.ExtraImports, options.ExtraRefs),
+            ScriptLanguage.FSharp => FSharpDelegateBuilder.Build(options.Code!, logger), // F# scripting not implemented
+            ScriptLanguage.Python => PyDelegateBuilder.Build(options.Code!, logger),
+            ScriptLanguage.JavaScript => JScriptDelegateBuilder.Build(options.Code!, logger),
+            _ => throw new NotSupportedException(options.Language.ToString())
+        };
+    }
+
+    /// <summary>
+    /// Creates and registers a route with the specified options and compiled handler.
+    /// </summary>
+    /// <param name="host">The KestrunHost instance.</param>
+    /// <param name="routeOptions">The validated route options.</param>
+    /// <param name="compiled">The compiled script delegate.</param>
+    /// <returns>An IEndpointConventionBuilder for further configuration.</returns>
+    internal static IEndpointConventionBuilder CreateAndRegisterRoute(KestrunHost host, MapRouteOptions routeOptions, RequestDelegate compiled)
+    {
+        // Wrap with CSRF validation
+        async Task handler(HttpContext ctx)
+        {
+            if (ShouldValidateCsrf(routeOptions))
+            {
+                if (!await TryValidateAntiforgeryAsync(ctx))
+                {
+                    return; // already responded 400
+                }
+            }
+            await compiled(ctx);
+        }
+
+        string[] methods = [.. routeOptions.HttpVerbs.Select(v => v.ToMethodString())];
+        var map = host.App!.MapMethods(routeOptions.Pattern!, methods, handler).WithLanguage(routeOptions.Language);
+
+        if (host.HostLogger.IsEnabled(LogEventLevel.Debug))
+        {
+            host.HostLogger.Debug("Mapped route: {Pattern} with methods: {Methods}", routeOptions.Pattern, string.Join(", ", methods));
+        }
+
+        host.AddMapOptions(map, routeOptions);
+
+        foreach (var method in routeOptions.HttpVerbs.Select(v => v.ToMethodString()))
+        {
+            host._registeredRoutes[(routeOptions.Pattern!, method)] = routeOptions;
+        }
+
+        host.HostLogger.Information("Added route: {Pattern} with methods: {Methods}", routeOptions.Pattern, string.Join(", ", methods));
+        return map;
     }
 
     /// <summary>

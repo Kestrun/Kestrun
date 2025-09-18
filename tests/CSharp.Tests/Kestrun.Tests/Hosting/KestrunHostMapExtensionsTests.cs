@@ -292,7 +292,7 @@ public class KestrunHostMapExtensionsTests
         };
 
         var ex = Assert.Throws<InvalidOperationException>(() => KestrunHostMapExtensions.ValidateRouteOptions(host, options, out _));
-        
+
         Assert.Contains("WebApplication is not", ex.Message);
     }
 
@@ -312,7 +312,7 @@ public class KestrunHostMapExtensionsTests
         };
 
         var ex = Assert.Throws<ArgumentException>(() => KestrunHostMapExtensions.ValidateRouteOptions(host, options, out _));
-        
+
         Assert.Contains("Pattern cannot be null or empty", ex.Message);
     }
 
@@ -332,7 +332,7 @@ public class KestrunHostMapExtensionsTests
         };
 
         var ex = Assert.Throws<ArgumentException>(() => KestrunHostMapExtensions.ValidateRouteOptions(host, options, out _));
-        
+
         Assert.Contains("Pattern cannot be null or empty", ex.Message);
     }
 
@@ -352,7 +352,7 @@ public class KestrunHostMapExtensionsTests
         };
 
         var ex = Assert.Throws<ArgumentException>(() => KestrunHostMapExtensions.ValidateRouteOptions(host, options, out _));
-        
+
         Assert.Contains("ScriptBlock cannot be null or empty", ex.Message);
     }
 
@@ -372,7 +372,7 @@ public class KestrunHostMapExtensionsTests
         };
 
         var ex = Assert.Throws<ArgumentException>(() => KestrunHostMapExtensions.ValidateRouteOptions(host, options, out _));
-        
+
         Assert.Contains("ScriptBlock cannot be null or empty", ex.Message);
     }
 
@@ -393,7 +393,7 @@ public class KestrunHostMapExtensionsTests
         };
 
         var result = KestrunHostMapExtensions.ValidateRouteOptions(host, options, out var routeOptions);
-        
+
         Assert.True(result);
         _ = Assert.Single(routeOptions.HttpVerbs);
         Assert.Equal(HttpVerb.Get, routeOptions.HttpVerbs[0]);
@@ -416,7 +416,7 @@ public class KestrunHostMapExtensionsTests
         };
 
         var result = KestrunHostMapExtensions.ValidateRouteOptions(host, options, out var routeOptions);
-        
+
         Assert.True(result);
         Assert.Equal(options.Pattern, routeOptions.Pattern);
         Assert.Equal(options.Code, routeOptions.Code);
@@ -453,7 +453,7 @@ public class KestrunHostMapExtensionsTests
         };
 
         var ex = Assert.Throws<InvalidOperationException>(() => KestrunHostMapExtensions.ValidateRouteOptions(host, duplicateOptions, out _));
-        
+
         Assert.Contains("already exists", ex.Message);
     }
 
@@ -486,7 +486,7 @@ public class KestrunHostMapExtensionsTests
         };
 
         var result = KestrunHostMapExtensions.ValidateRouteOptions(host, duplicateOptions, out _);
-        
+
         Assert.False(result);
     }
 
@@ -508,7 +508,7 @@ public class KestrunHostMapExtensionsTests
 
         var logger = Serilog.Log.Logger;
         var compiled = KestrunHostMapExtensions.CompileScript(options, logger);
-        
+
         Assert.NotNull(compiled);
         _ = Assert.IsType<RequestDelegate>(compiled);
     }
@@ -527,7 +527,7 @@ public class KestrunHostMapExtensionsTests
 
         var logger = Serilog.Log.Logger;
         var compiled = KestrunHostMapExtensions.CompileScript(options, logger);
-        
+
         Assert.NotNull(compiled);
         _ = Assert.IsType<RequestDelegate>(compiled);
     }
@@ -545,9 +545,9 @@ public class KestrunHostMapExtensionsTests
         };
 
         var logger = Serilog.Log.Logger;
-        
+
         var ex = Assert.Throws<NotSupportedException>(() => KestrunHostMapExtensions.CompileScript(options, logger));
-        
+
         Assert.Contains("999", ex.Message);
     }
 
@@ -567,7 +567,7 @@ public class KestrunHostMapExtensionsTests
 
         var logger = Serilog.Log.Logger;
         var compiled = KestrunHostMapExtensions.CompileScript(options, logger);
-        
+
         Assert.NotNull(compiled);
         _ = Assert.IsType<RequestDelegate>(compiled);
     }
@@ -593,17 +593,17 @@ public class KestrunHostMapExtensionsTests
         };
 
         // Create a simple RequestDelegate
-        RequestDelegate compiled = context =>
+        static Task compiled(HttpContext context)
         {
             context.Response.StatusCode = 200;
             return Task.CompletedTask;
-        };
+        }
 
         var result = KestrunHostMapExtensions.CreateAndRegisterRoute(host, routeOptions, compiled);
-        
+
         Assert.NotNull(result);
         Assert.True(host.MapExists("/test-create-register", HttpVerb.Get));
-        
+
         var savedOptions = host.GetMapRouteOptions("/test-create-register", HttpVerb.Get);
         Assert.NotNull(savedOptions);
         Assert.Equal(routeOptions.Pattern, savedOptions!.Pattern);
@@ -626,14 +626,14 @@ public class KestrunHostMapExtensionsTests
             HttpVerbs = [HttpVerb.Get, HttpVerb.Post, HttpVerb.Put]
         };
 
-        RequestDelegate compiled = context =>
+        static Task compiled(HttpContext context)
         {
             context.Response.StatusCode = 200;
             return Task.CompletedTask;
-        };
+        }
 
         var result = KestrunHostMapExtensions.CreateAndRegisterRoute(host, routeOptions, compiled);
-        
+
         Assert.NotNull(result);
         Assert.True(host.MapExists("/test-multi-verbs", HttpVerb.Get));
         Assert.True(host.MapExists("/test-multi-verbs", HttpVerb.Post));

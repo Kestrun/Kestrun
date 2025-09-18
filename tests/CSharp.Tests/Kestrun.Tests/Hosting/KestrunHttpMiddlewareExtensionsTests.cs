@@ -4,6 +4,8 @@ using Microsoft.AspNetCore.Cors.Infrastructure;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.ResponseCompression;
 using Microsoft.AspNetCore.Antiforgery;
+using Microsoft.AspNetCore.Http;
+using Microsoft.Net.Http.Headers;
 using Moq;
 using Xunit;
 
@@ -191,4 +193,202 @@ public class KestrunHttpMiddlewareExtensionsTests
         _ = host.AddAntiforgery(o => o.FormFieldName = "csrf");
         Assert.True(middleware.Count > 0);
     }
+
+    #region Response Caching Helper Method Tests
+
+    [Fact]
+    [Trait("Category", "Hosting")]
+    public void ValidateCachingInput_WithValidParameters_LogsCorrectly()
+    {
+        var mockLogger = new Mock<Serilog.ILogger>();
+        _ = mockLogger.Setup(l => l.IsEnabled(Serilog.Events.LogEventLevel.Debug)).Returns(true);
+        _ = mockLogger.Setup(l => l.IsEnabled(Serilog.Events.LogEventLevel.Information)).Returns(true);
+        
+        var host = new KestrunHost("TestApp", mockLogger.Object);
+        var cacheControl = new CacheControlHeaderValue { MaxAge = TimeSpan.FromMinutes(10) };
+
+        KestrunHttpMiddlewareExtensions.ValidateCachingInput(host, null, cacheControl);
+
+        mockLogger.Verify(l => l.Debug(It.IsAny<string>(), It.IsAny<object[]>()), Times.Once);
+        // Verify the specific Information call for cache control
+        mockLogger.Verify(l => l.Information(It.Is<string>(s => s.Contains("Cache-Control")), It.IsAny<string>()), Times.Once);
+        Assert.Equal(cacheControl, host.DefaultCacheControl);
+    }
+
+    [Fact]
+    [Trait("Category", "Hosting")]
+    public void ValidateCachingInput_WithNullCacheControl_DoesNotSetDefault()
+    {
+        var mockLogger = new Mock<Serilog.ILogger>();
+        _ = mockLogger.Setup(l => l.IsEnabled(It.IsAny<Serilog.Events.LogEventLevel>())).Returns(false);
+        
+        var host = new KestrunHost("TestApp", mockLogger.Object);
+        var originalCacheControl = host.DefaultCacheControl;
+
+        KestrunHttpMiddlewareExtensions.ValidateCachingInput(host, null, null);
+
+        Assert.Equal(originalCacheControl, host.DefaultCacheControl);
+    }
+
+    [Fact]
+    [Trait("Category", "Hosting")]
+    public void RegisterCachingServices_WithNullConfig_RegistersDefaults()
+    {
+        var mockLogger = new Mock<Serilog.ILogger>();
+        _ = mockLogger.Setup(l => l.IsEnabled(It.IsAny<Serilog.Events.LogEventLevel>())).Returns(false);
+        
+        var host = new KestrunHost("TestApp", mockLogger.Object);
+        
+        // This should not throw and should register the service
+        KestrunHttpMiddlewareExtensions.RegisterCachingServices(host, null);
+        
+        // Verify service was added by checking the service collection has entries
+        var serviceField = typeof(KestrunHost).GetField("_serviceQueue", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+        var services = (List<Action<Microsoft.Extensions.DependencyInjection.IServiceCollection>>)serviceField!.GetValue(host)!;
+        Assert.True(services.Count > 0);
+    }
+
+    [Fact]
+    [Trait("Category", "Hosting")]
+    public void RegisterCachingServices_WithConfig_RegistersWithConfig()
+    {
+        var mockLogger = new Mock<Serilog.ILogger>();
+        _ = mockLogger.Setup(l => l.IsEnabled(It.IsAny<Serilog.Events.LogEventLevel>())).Returns(false);
+        
+        var host = new KestrunHost("TestApp", mockLogger.Object);
+        
+        KestrunHttpMiddlewareExtensions.RegisterCachingServices(host, opts => opts.MaximumBodySize = 1024);
+        
+        var serviceField = typeof(KestrunHost).GetField("_serviceQueue", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+        var services = (List<Action<Microsoft.Extensions.DependencyInjection.IServiceCollection>>)serviceField!.GetValue(host)!;
+        Assert.True(services.Count > 0);
+    }
+
+    [Fact]
+    [Trait("Category", "Hosting")]
+    public void ApplyCacheHeaders_WithGetRequest_ReturnsTrueWhenApplied()
+    {
+        var mockLogger = new Mock<Serilog.ILogger>();
+        _ = mockLogger.Setup(l => l.IsEnabled(It.IsAny<Serilog.Events.LogEventLevel>())).Returns(false);
+        
+        var context = new DefaultHttpContext();
+        context.Request.Method = "GET";
+        context.Response.StatusCode = 200;
+        
+        var cacheControl = new CacheControlHeaderValue { MaxAge = TimeSpan.FromMinutes(10) };
+        
+        var result = KestrunHttpMiddlewareExtensions.ApplyCacheHeaders(context, cacheControl, mockLogger.Object);
+        
+        Assert.True(result);
+        Assert.Equal(cacheControl.ToString(), context.Response.Headers.CacheControl.ToString());
+        Assert.Contains("Accept-Encoding", context.Response.Headers.Vary.ToString());
+    }
+
+    [Fact]
+    [Trait("Category", "Hosting")]
+    public void ApplyCacheHeaders_WithPostRequest_ReturnsFalse()
+    {
+        var mockLogger = new Mock<Serilog.ILogger>();
+        var context = new DefaultHttpContext();
+        context.Request.Method = "POST";
+        context.Response.StatusCode = 200;
+        
+        var cacheControl = new CacheControlHeaderValue { MaxAge = TimeSpan.FromMinutes(10) };
+        
+        var result = KestrunHttpMiddlewareExtensions.ApplyCacheHeaders(context, cacheControl, mockLogger.Object);
+        
+        Assert.False(result);
+        Assert.False(context.Response.Headers.ContainsKey(HeaderNames.CacheControl));
+    }
+
+    [Fact]
+    [Trait("Category", "Hosting")]
+    public void ApplyCacheHeaders_WithErrorStatus_ReturnsFalse()
+    {
+        var mockLogger = new Mock<Serilog.ILogger>();
+        var context = new DefaultHttpContext();
+        context.Request.Method = "GET";
+        context.Response.StatusCode = 404;
+        
+        var cacheControl = new CacheControlHeaderValue { MaxAge = TimeSpan.FromMinutes(10) };
+        
+        var result = KestrunHttpMiddlewareExtensions.ApplyCacheHeaders(context, cacheControl, mockLogger.Object);
+        
+        Assert.False(result);
+        Assert.False(context.Response.Headers.ContainsKey(HeaderNames.CacheControl));
+    }
+
+    [Fact]
+    [Trait("Category", "Hosting")]
+    public void ApplyCacheHeaders_WithSetCookieHeader_ReturnsFalse()
+    {
+        var mockLogger = new Mock<Serilog.ILogger>();
+        var context = new DefaultHttpContext();
+        context.Request.Method = "GET";
+        context.Response.StatusCode = 200;
+        context.Response.Headers.Append(HeaderNames.SetCookie, "test=value");
+        
+        var cacheControl = new CacheControlHeaderValue { MaxAge = TimeSpan.FromMinutes(10) };
+        
+        var result = KestrunHttpMiddlewareExtensions.ApplyCacheHeaders(context, cacheControl, mockLogger.Object);
+        
+        Assert.False(result);
+        Assert.False(context.Response.Headers.ContainsKey(HeaderNames.CacheControl));
+    }
+
+    [Fact]
+    [Trait("Category", "Hosting")]
+    public void ApplyCacheHeaders_WithNullCacheControl_ReturnsFalse()
+    {
+        var mockLogger = new Mock<Serilog.ILogger>();
+        _ = mockLogger.Setup(l => l.IsEnabled(It.IsAny<Serilog.Events.LogEventLevel>())).Returns(false);
+        
+        var context = new DefaultHttpContext();
+        context.Request.Method = "GET";
+        context.Response.StatusCode = 200;
+        
+        var result = KestrunHttpMiddlewareExtensions.ApplyCacheHeaders(context, null, mockLogger.Object);
+        
+        Assert.False(result);
+        Assert.False(context.Response.Headers.ContainsKey(HeaderNames.CacheControl));
+    }
+
+    [Fact]
+    [Trait("Category", "Hosting")]
+    public void ApplyCacheHeaders_WithHeadRequest_ReturnsTrueWhenApplied()
+    {
+        var mockLogger = new Mock<Serilog.ILogger>();
+        _ = mockLogger.Setup(l => l.IsEnabled(It.IsAny<Serilog.Events.LogEventLevel>())).Returns(false);
+        
+        var context = new DefaultHttpContext();
+        context.Request.Method = "HEAD";
+        context.Response.StatusCode = 200;
+        
+        var cacheControl = new CacheControlHeaderValue { MaxAge = TimeSpan.FromMinutes(10) };
+        
+        var result = KestrunHttpMiddlewareExtensions.ApplyCacheHeaders(context, cacheControl, mockLogger.Object);
+        
+        Assert.True(result);
+        Assert.Equal(cacheControl.ToString(), context.Response.Headers.CacheControl.ToString());
+    }
+
+    [Fact]
+    [Trait("Category", "Hosting")]
+    public void CreateCachingMiddleware_ReturnsValidAction()
+    {
+        var mockLogger = new Mock<Serilog.ILogger>();
+        _ = mockLogger.Setup(l => l.IsEnabled(It.IsAny<Serilog.Events.LogEventLevel>())).Returns(false);
+        
+        var host = new KestrunHost("TestApp", mockLogger.Object);
+        var cacheControl = new CacheControlHeaderValue { MaxAge = TimeSpan.FromMinutes(10) };
+        
+        var middlewareAction = KestrunHttpMiddlewareExtensions.CreateCachingMiddleware(host, cacheControl);
+        
+        Assert.NotNull(middlewareAction);
+        
+        // Since we can't easily mock extension methods, we'll just verify the method returns a valid action
+        _ = Assert.IsType<Action<IApplicationBuilder>>(middlewareAction);
+    }
+
+    #endregion
 }

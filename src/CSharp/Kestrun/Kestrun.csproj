@@ -5,7 +5,7 @@
   <!--───────────── Global Build Configuration ─────────────-->
   <PropertyGroup>
     <!-- Target .NET version -->
-    <TargetFrameworks>net8.0;net9.0</TargetFrameworks>
+    <TargetFrameworks>net8.0</TargetFrameworks>
 
     <LangVersion>latest</LangVersion>    <!-- or 12.0 / latest -->
 

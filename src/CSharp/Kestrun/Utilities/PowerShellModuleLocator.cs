@@ -48,7 +48,7 @@ public static class PowerShellModuleLocator
             }
 
             return output
-                .Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+                .Split(new char[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
         }
         catch (Exception ex)
         {

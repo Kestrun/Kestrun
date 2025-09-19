@@ -119,12 +119,6 @@ public static class KestrunRuntimeInfo
     public static bool TryGetMinVersion(string featureName, out Version minVersion)
         => FeatureMinByName.TryGetValue(featureName, out minVersion!);
 
-    /// <summary>
-    /// Allows advanced callers to override or register features at runtime (e.g., previews).
-    /// </summary>
-    public static void RegisterOrUpdateFeature(string featureName, Version minVersion)
-        => FeatureMinByName[featureName] = minVersion ?? throw new ArgumentNullException(nameof(minVersion));
-
     private static bool IsAtLeast(Version min)
     {
         var built = GetBuiltTargetFrameworkVersion();
@@ -156,7 +150,6 @@ public static class KestrunRuntimeInfo
                     return false;
                 }
             }
-            // (Removed unreachable else block: value is always bool if we reach here)
         }
         // If no IsSupported property, presence of the type usually implies support.
 

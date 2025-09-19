@@ -889,7 +889,7 @@ public static class KestrunHostMapExtensions
             ctx.Response.ContentType = "application/problem+json";
             await ctx.Response.WriteAsJsonAsync(new
             {
-                type = "https://tools.ietf.org/html/rfc9110#section-15.5.1",
+                type = "https://datatracker.ietf.org/doc/html/rfc9110#section-15.5.1",
                 title = "Antiforgery validation failed",
                 status = 400,
                 detail = ex.Message

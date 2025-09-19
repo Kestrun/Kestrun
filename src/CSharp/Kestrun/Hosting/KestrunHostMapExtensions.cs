@@ -82,8 +82,8 @@ public static class KestrunHostMapExtensions
         string[] methods = [.. options.HttpVerbs.Select(v => v.ToMethodString())];
         var map = host.App.MapMethods(options.Pattern, methods, async context =>
            {
-               // 🔒 CSRF validation for unsafe verbs (unless disabled)
-               if (ShouldValidateCsrf(options))
+               // 🔒 CSRF validation only for the current request when that verb is unsafe (unless disabled)
+               if (ShouldValidateCsrf(options, context))
                {
                    if (!await TryValidateAntiforgeryAsync(context))
                    {
@@ -294,7 +294,7 @@ public static class KestrunHostMapExtensions
         // Wrap with CSRF validation
         async Task handler(HttpContext ctx)
         {
-            if (ShouldValidateCsrf(routeOptions))
+            if (ShouldValidateCsrf(routeOptions, ctx))
             {
                 if (!await TryValidateAntiforgeryAsync(ctx))
                 {
@@ -849,10 +849,25 @@ public static class KestrunHostMapExtensions
     }
 
     private static bool IsUnsafeVerb(HttpVerb v)
-    => v is HttpVerb.Post or HttpVerb.Put or HttpVerb.Patch or HttpVerb.Delete;
+        => v is HttpVerb.Post or HttpVerb.Put or HttpVerb.Patch or HttpVerb.Delete;
 
-    private static bool ShouldValidateCsrf(MapRouteOptions o)
-        => !o.DisableAntiforgery && o.HttpVerbs.Any(IsUnsafeVerb);
+    private static bool IsUnsafeMethod(string method)
+        => HttpMethods.IsPost(method) || HttpMethods.IsPut(method) || HttpMethods.IsPatch(method) || HttpMethods.IsDelete(method);
+
+    // New precise helper: only validate for the actual incoming request method when that method is unsafe and antiforgery is enabled.
+    private static bool ShouldValidateCsrf(MapRouteOptions o, HttpContext ctx)
+    {
+        if (o.DisableAntiforgery)
+        {
+            return false;
+        }
+        if (!IsUnsafeMethod(ctx.Request.Method))
+        {
+            return false; // Safe verb (GET/HEAD/OPTIONS) -> skip
+        }
+        // Ensure the route was actually configured for this unsafe verb (defensive; normally true inside mapped delegate)
+        return o.HttpVerbs.Any(v => string.Equals(v.ToMethodString(), ctx.Request.Method, StringComparison.OrdinalIgnoreCase) && IsUnsafeVerb(v));
+    }
 
     private static async Task<bool> TryValidateAntiforgeryAsync(HttpContext ctx)
     {

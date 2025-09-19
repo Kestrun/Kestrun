@@ -131,6 +131,62 @@ When validation fails the middleware returns an error (status 400/403 depending 
 | Over-broad Opt-out | Limit `DisableAntiforgery` to true GET-only diagnostics endpoints |
 | Token Replay Across Users | Token cryptographically bound to cookie; do not share cookies |
 
+### 8.1 Multi-Verb Routes Behavior (New)
+
+When you map a single route to multiple HTTP verbs (for example `GET` + `POST`) the antiforgery
+validation now only runs for the **actual incoming unsafe verb** of the request.
+
+Unsafe verbs (state changing): `POST`, `PUT`, `PATCH`, `DELETE`
+
+Safe verbs (never force a CSRF token by default): `GET`, `HEAD`, `OPTIONS`, `TRACE`
+
+Implications:
+
+1. A combined `GET/POST` endpoint will not 400 a plain GET request just because POST is also configured.
+2. If the route supports `POST` but the request is `GET`, no token is required. This is helpful for form
+  bootstrap endpoints that also handle their own submission.
+3. If you disable antiforgery (`DisableAntiforgery = true`) the route skips validation for all verbs.
+  Use sparingly; prefer restricting to read-only endpoints.
+4. If a client sends an unsafe verb that was **not** configured for the route, normal 404 / 405 semantics
+  apply before antiforgery logic runs.
+
+Rationale:
+
+This reduces unnecessary 400 responses on mixed routes and aligns validation strictly with
+state‑changing operations. It mirrors the browser threat model: CSRF risk exists when the browser can be
+coerced into a write action.
+
+Testing Tip:
+
+If you previously had a test expecting a 400 on a GET to a mixed route, update it to expect `200 OK`
+(or whatever the route returns) unless you explicitly forced validation.
+
+Migration Checklist:
+
+- [ ] Remove client token header injections on pure GET requests to mixed routes (no longer required).
+- [ ] Confirm POST / PUT / PATCH / DELETE still include both cookie + header.
+- [ ] Audit custom middleware that assumed per-route unconditional validation; make it method-aware.
+
+Example (PowerShell):
+
+```powershell
+$opts = [Kestrun.Hosting.Options.MapRouteOptions]::new()
+$opts.Pattern = '/profile'
+$opts.HttpVerbs = [Kestrun.Utilities.HttpVerb[]] @('get','post')
+$opts.Code = {
+  param($Context)
+  if($Context.Request.Method -eq 'GET') { Write-KrTextResponse 'PROFILE FORM' } else { Write-KrJsonResponse @{ saved = $true } }
+}
+Add-KrMapRoute -Options $opts
+```
+
+Now:
+
+- `GET /profile` → does NOT require token
+- `POST /profile` → MUST send token header + cookie
+
+This behavior is automatic; no extra configuration needed.
+
 ## 9. Troubleshooting
 
 | Symptom | Likely Cause | Resolution |
@@ -140,6 +196,75 @@ When validation fails the middleware returns an error (status 400/403 depending 
 | Works in local, fails in prod | Domain / path mismatch | Inspect cookie attributes in browser dev tools |
 | Token endpoint 404 | Route not added | Call `Add-KrAntiforgeryTokenRoute` prior to start |
 | Form posts failing | Using header but middleware configured for form field only | Supply form field or configure header name |
+
+## 9.1 Optional Form Body Suppression (NET 9+)
+
+Starting with .NET 9, ASP.NET Core's antiforgery system added an option to skip reading the
+antiforgery token from the request form body (`SuppressReadingTokenFromFormBody`). Kestrun
+surfaces this via the same underlying `AntiforgeryOptions` and gates it by target framework.
+
+Why suppress form body reading?
+
+- Performance: Avoid buffering / parsing large multipart or form bodies when you only use the header token path.
+- Clarity: Enforces a single token transport (header) for SPAs.
+- Security Hygiene: Reduces accidental acceptance of stale hidden fields in mixed clients.
+
+How to detect support at runtime:
+
+```powershell
+Test-KrCapability -Feature 'SuppressReadingTokenFromFormBody'
+```
+
+Or enumerate all features:
+
+```powershell
+Get-KrFeatureSupport -Capabilities | Where-Object Supported
+```
+
+Enabling (PowerShell):
+
+```powershell
+if (Test-KrCapability -Feature 'SuppressReadingTokenFromFormBody') {
+  Add-KrAntiforgeryMiddleware -HeaderName 'X-CSRF-TOKEN' -SuppressReadingTokenFromFormBody | Out-Null
+} else {
+  Add-KrAntiforgeryMiddleware -HeaderName 'X-CSRF-TOKEN' | Out-Null
+}
+```
+
+Enabling (C# host builder):
+
+```csharp
+host.AddAntiforgery(o =>
+{
+    o.HeaderName = "X-CSRF-TOKEN";
+#if NET9_0_OR_GREATER
+    o.SuppressReadingTokenFromFormBody = true;
+#endif
+});
+```
+
+Behavioral change when enabled:
+
+- Hidden form field values (e.g. `__RequestVerificationToken`) are ignored.
+- Only the header token path is evaluated.
+- Token endpoint exposure still returns the token; client must always echo it in the header for unsafe verbs.
+
+Migration guidance:
+
+| Scenario | Keep Form Field? | Suggested Setting |
+|----------|------------------|-------------------|
+| SPA / Fetch only | No | Suppress (set true) |
+| Mixed (Razor + JS) | Maybe | Leave false (default) |
+| Legacy pure forms | Yes | Leave false |
+
+If you turn this on in an app that previously relied on form posts, ensure the JavaScript layer injects the header.
+
+Capability Gate Reference:
+
+- Feature name: `SuppressReadingTokenFromFormBody`
+- Minimum TFM: .NET 9.0
+- API surface: `AntiforgeryOptions.SuppressReadingTokenFromFormBody` (when compiled for net9+)
+- Kestrun detection: `Test-KrCapability -Feature 'SuppressReadingTokenFromFormBody'`
 
 ## 10. Related Docs
 

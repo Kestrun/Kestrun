@@ -14,6 +14,7 @@
     This example checks if a feature named "SomeOtherFeature" is supported, using a raw string.
 #>
 function Test-KrCapability {
+    [KestrunRuntimeApi('Everywhere')]
     [CmdletBinding()]
     [OutputType([bool])]
     param(

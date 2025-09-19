@@ -172,7 +172,11 @@ public static class KestrunHttpMiddlewareExtensions
     {
         if (host.HostLogger.IsEnabled(LogEventLevel.Debug))
         {
-            host.HostLogger.Debug("Adding Antiforgery with configuration: Action<AntiforgeryOptions>");
+            host.HostLogger.Debug(
+                setupAction == null
+                    ? "Adding Antiforgery with default configuration (no custom options provided)."
+                    : "Adding Antiforgery with custom configuration via setupAction."
+            );
         }
         // Service side
         _ = host.AddService(services =>

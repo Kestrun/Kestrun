@@ -12,6 +12,7 @@
     The output will be a Version object representing the target framework version.
 #>
 function Get-KrBuiltTargetFrameworkVersion {
+    [KestrunRuntimeApi('Everywhere')]
     [CmdletBinding()]
     [OutputType([Version])]
     param()

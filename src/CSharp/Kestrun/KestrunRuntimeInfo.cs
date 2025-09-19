@@ -159,9 +159,10 @@ public static class KestrunRuntimeInfo
     private static readonly FieldInfo? _http3Field = _httpProtocolsType?.GetField("Http3", BindingFlags.Public | BindingFlags.Static);
 
     /// <summary>
-    /// Convenience, if you ever want a string like ".NETCoreApp,Version=v9.0"
+    /// Returns the full target framework name this assembly was built against,
+    /// e.g., ".NETCoreApp,Version=v9.0".
     /// </summary>
-    public static string GetBuiltTargetFrameworkMoniker()
+    public static string GetBuiltTargetFrameworkName()
     {
         var tfm = typeof(KestrunRuntimeInfo).Assembly
             .GetCustomAttribute<TargetFrameworkAttribute>()?.FrameworkName;

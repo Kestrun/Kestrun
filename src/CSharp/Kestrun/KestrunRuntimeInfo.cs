@@ -136,11 +136,7 @@ public static class KestrunRuntimeInfo
                     return false;
                 }
             }
-            else
-            {
-                // If the property value is null or not a bool, treat as unsupported
-                return false;
-            }
+            // (Removed unreachable else block: value is always bool if we reach here)
         }
         // If no IsSupported property, presence of the type usually implies support.
 

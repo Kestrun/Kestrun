@@ -128,9 +128,17 @@ public static class KestrunRuntimeInfo
         var isSupportedProp = quicListenerType.GetProperty("IsSupported", BindingFlags.Public | BindingFlags.Static);
         if (isSupportedProp != null && isSupportedProp.PropertyType == typeof(bool))
         {
-            var supported = (bool)isSupportedProp.GetValue(null)!;
-            if (!supported)
+            var value = isSupportedProp.GetValue(null);
+            if (value is bool supported)
             {
+                if (!supported)
+                {
+                    return false;
+                }
+            }
+            else
+            {
+                // If the property value is null or not a bool, treat as unsupported
                 return false;
             }
         }

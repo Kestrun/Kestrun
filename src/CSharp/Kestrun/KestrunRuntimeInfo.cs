@@ -84,14 +84,34 @@ public static class KestrunRuntimeInfo
     /// </summary>
     public static bool Supports(string featureName)
     {
-        if (!TryGetMinVersion(featureName, out var min) || !IsAtLeast(min))
+        if (string.IsNullOrWhiteSpace(featureName))
         {
             return false;
         }
 
-        // Handle runtime-sensitive features by name
-        return !string.Equals(featureName, nameof(KnownFeature.Http3), StringComparison.OrdinalIgnoreCase) || CheckHttp3Runtime();
+        if (!TryGetMinVersion(featureName, out var min) || !IsAtLeast(min))
+        {
+            return false; // compile-time/TFM gate failed or unknown
+        }
+
+        // Central runtime-sensitive feature dispatch (mirrors enum switch in Supports(KnownFeature))
+        // Extend this map when adding new runtime-validated features.
+        // For features with no runtime conditions, omission implies success.
+        var runtimeChecks = RuntimeFeatureChecks;
+        if (runtimeChecks.TryGetValue(featureName, out var checker))
+        {
+            return checker();
+        }
+        return true; // Known (by TFM table) & no runtime check required
     }
+
+    // Provides a single place to register runtime-sensitive checks by feature name.
+    // Note: Uses StringComparer.OrdinalIgnoreCase to keep behavior consistent with FeatureMinByName.
+    private static readonly Dictionary<string, Func<bool>> RuntimeFeatureChecks =
+        new(StringComparer.OrdinalIgnoreCase)
+        {
+            [nameof(KnownFeature.Http3)] = CheckHttp3Runtime,
+        };
 
     /// <summary>
     /// Returns the minimum TFM required for a feature, if known.

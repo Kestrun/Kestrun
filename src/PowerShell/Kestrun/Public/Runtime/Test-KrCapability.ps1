@@ -23,7 +23,7 @@ function Test-KrCapability {
     try {
         $enum = [Kestrun.KestrunRuntimeInfo+KnownFeature]::$Feature
         return [Kestrun.KestrunRuntimeInfo]::Supports($enum)
-    } catch {
+    } catch [System.ArgumentException] {
         return [Kestrun.KestrunRuntimeInfo]::Supports($Feature)
     }
 }

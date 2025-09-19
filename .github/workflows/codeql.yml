@@ -8,41 +8,41 @@ name: CodeQL (compat)
 # this file can be removed.
 
 on:
-  workflow_call:
-  push:
-    branches: [main]
-    paths:
-      - '**/*.cs'
-      - '**/*.csproj'
-      - '**/*.sln'
-      - '**/*.ps1'
-      - '**/*.psm1'
-      - '**/*.psd1'
-      - '**/*.yml'
-      - '**/*.yaml'
-      - tests/**
-  pull_request:
-    branches: [main]
-    paths:
-      - '**/*.cs'
-      - '**/*.csproj'
-      - '**/*.sln'
-      - '**/*.ps1'
-      - '**/*.psm1'
-      - '**/*.psd1'
-      - '**/*.yml'
-      - '**/*.yaml'
-      - tests/**
+    workflow_call:
+    push:
+        branches: [main]
+        paths:
+            - "**/*.cs"
+            - "**/*.csproj"
+            - "**/*.sln"
+            - "**/*.ps1"
+            - "**/*.psm1"
+            - "**/*.psd1"
+            - "**/*.yml"
+            - "**/*.yaml"
+            - tests/**
+    pull_request:
+        branches: [main]
+        paths:
+            - "**/*.cs"
+            - "**/*.csproj"
+            - "**/*.sln"
+            - "**/*.ps1"
+            - "**/*.psm1"
+            - "**/*.psd1"
+            - "**/*.yml"
+            - "**/*.yaml"
+            - tests/**
 
 permissions:
-  contents: read
-  pull-requests: read
-  actions: read
-  security-events: write
+    contents: read
+    pull-requests: read
+    actions: read
+    security-events: write
 
 jobs:
-  analyze:
-    name: CodeQL (compat analyze)
-    uses: ./.github/workflows/codeql-core.yml
-    with:
-      is_pr: ${{ github.event_name == 'pull_request' }}
+    analyze:
+        name: CodeQL (compat analyze)
+        uses: ./.github/workflows/codeql-core.yml
+        with:
+            is_pr: ${{ github.event_name == 'pull_request' }}

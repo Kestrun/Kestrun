@@ -132,38 +132,31 @@ public static class KestrunRuntimeInfo
     /// </summary>
     private static bool CheckHttp3Runtime()
     {
-        // Check presence of System.Net.Quic and whether it says it's supported.
-        var quicListenerType = Type.GetType("System.Net.Quic.QuicListener, System.Net.Quic");
-        if (quicListenerType == null)
+        // Use cached reflection metadata to avoid repeated lookups on hot paths.
+        if (_quicListenerType == null)
         {
             return false;
         }
 
-        var isSupportedProp = quicListenerType.GetProperty("IsSupported", BindingFlags.Public | BindingFlags.Static);
-        if (isSupportedProp != null && isSupportedProp.PropertyType == typeof(bool))
+        if (_quicIsSupportedProperty != null)
         {
-            var value = isSupportedProp.GetValue(null);
-            if (value is bool supported)
+            var value = _quicIsSupportedProperty.GetValue(null);
+            if (value is bool supported && !supported)
             {
-                if (!supported)
-                {
-                    return false;
-                }
+                return false;
             }
         }
-        // If no IsSupported property, presence of the type usually implies support.
 
-        // Also confirm Kestrel has Http3 enum value available
-        var httpProtocolsType = Type.GetType("Microsoft.AspNetCore.Server.Kestrel.Core.HttpProtocols, Microsoft.AspNetCore.Server.Kestrel.Core");
-        if (httpProtocolsType == null)
-        {
-            return false;
-        }
-
-        var http3Field = httpProtocolsType.GetField("Http3", BindingFlags.Public | BindingFlags.Static);
-        return http3Field != null;
+        // Kestrel HTTP/3 enum field presence check
+        return _httpProtocolsType != null && _http3Field != null;
     }
     #endregion
+
+    // Cached reflection metadata for runtime checks (initialized once).
+    private static readonly Type? _quicListenerType = Type.GetType("System.Net.Quic.QuicListener, System.Net.Quic");
+    private static readonly PropertyInfo? _quicIsSupportedProperty = _quicListenerType?.GetProperty("IsSupported", BindingFlags.Public | BindingFlags.Static);
+    private static readonly Type? _httpProtocolsType = Type.GetType("Microsoft.AspNetCore.Server.Kestrel.Core.HttpProtocols, Microsoft.AspNetCore.Server.Kestrel.Core");
+    private static readonly FieldInfo? _http3Field = _httpProtocolsType?.GetField("Http3", BindingFlags.Public | BindingFlags.Static);
 
     /// <summary>
     /// Convenience, if you ever want a string like ".NETCoreApp,Version=v9.0"

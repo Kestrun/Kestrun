@@ -1,4 +1,3 @@
-using System;
 using Xunit;
 
 namespace KestrunTests.Utility;
@@ -16,11 +15,11 @@ public class KestrunRuntimeInfoTests
 
     [Fact]
     [Trait("Category", "Utility")]
-    public void BuiltTargetFrameworkMoniker_IsNotUnknown()
+    public void BuiltTargetFrameworkName_IsNotUnknown()
     {
-        var moniker = Kestrun.KestrunRuntimeInfo.GetBuiltTargetFrameworkMoniker();
-        Assert.False(string.Equals(moniker, "Unknown", StringComparison.OrdinalIgnoreCase));
-        Assert.Contains(".NETCoreApp", moniker);
+        var name = Kestrun.KestrunRuntimeInfo.GetBuiltTargetFrameworkName();
+        Assert.False(string.Equals(name, "Unknown", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(".NETCoreApp", name, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -33,9 +32,6 @@ public class KestrunRuntimeInfoTests
 
     [Fact]
     [Trait("Category", "Utility")]
-    public void Supports_UnknownFeature_False()
-    {
-        Assert.False(Kestrun.KestrunRuntimeInfo.Supports("TotallyUnknownFeatureName"));
-    }
+    public void Supports_UnknownFeature_False() => Assert.False(Kestrun.KestrunRuntimeInfo.Supports("TotallyUnknownFeatureName"));
 
 }

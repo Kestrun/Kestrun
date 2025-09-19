@@ -1,5 +1,6 @@
 using System.Reflection;
 using System.Runtime.Versioning;
+using System.Diagnostics.CodeAnalysis;
 
 namespace Kestrun;
 
@@ -116,8 +117,24 @@ public static class KestrunRuntimeInfo
     /// <summary>
     /// Returns the minimum TFM required for a feature, if known.
     /// </summary>
-    public static bool TryGetMinVersion(string featureName, out Version minVersion)
-        => FeatureMinByName.TryGetValue(featureName, out minVersion!);
+    /// <param name="featureName">Feature identifier (case-insensitive).</param>
+    /// <param name="minVersion">
+    /// When this method returns true, contains the minimum target framework version required for the feature.
+    /// When it returns false, the value is set to <c>0.0</c> as a harmless placeholder.
+    /// </param>
+    /// <returns>True if the feature is known; otherwise false.</returns>
+    public static bool TryGetMinVersion(string featureName, [NotNullWhen(true)] out Version minVersion)
+    {
+        if (FeatureMinByName.TryGetValue(featureName, out var value))
+        {
+            minVersion = value; // non-null by construction
+            return true;
+        }
+
+        // Provide a non-null sentinel to satisfy non-nullable contract while indicating absence.
+        minVersion = new Version(0, 0);
+        return false;
+    }
 
     private static bool IsAtLeast(Version min)
     {

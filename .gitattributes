@@ -1,2 +1,12 @@
 # Auto detect text files and perform LF normalization
 * text eol=LF
+
+# Explicitly mark binaries
+*.dll binary
+*.exe binary
+*.png binary
+*.jpg binary
+*.gif binary
+*.ico binary
+*.bin binary
+*.pdf binary

@@ -15,6 +15,7 @@
 #>
 function Test-KrCapability {
     [CmdletBinding()]
+    [OutputType([bool])]
     param(
         [Parameter(Mandatory)]
         [string]$Feature

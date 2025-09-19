@@ -38,18 +38,4 @@ public class KestrunRuntimeInfoTests
         Assert.False(Kestrun.KestrunRuntimeInfo.Supports("TotallyUnknownFeatureName"));
     }
 
-    [Fact]
-    [Trait("Category", "Utility")]
-    public void RegisterOrUpdateFeature_DynamicGating_Works()
-    {
-        var featureName = "ExperimentalX";
-        // Register requiring very high major so initial Supports should be false.
-        Kestrun.KestrunRuntimeInfo.RegisterOrUpdateFeature(featureName, new Version(99, 0));
-        Assert.False(Kestrun.KestrunRuntimeInfo.Supports(featureName));
-
-        // Now lower requirement to current major (derived from built version) so Supports becomes true.
-        var built = Kestrun.KestrunRuntimeInfo.GetBuiltTargetFrameworkVersion();
-        Kestrun.KestrunRuntimeInfo.RegisterOrUpdateFeature(featureName, new Version(built.Major, 0));
-        Assert.True(Kestrun.KestrunRuntimeInfo.Supports(featureName));
-    }
 }

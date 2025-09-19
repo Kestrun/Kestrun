@@ -89,8 +89,6 @@ function Add-KrAntiforgeryMiddleware {
                 $Options.SuppressXFrameOptionsHeader = $true
             }
             if (Test-KrCapability -Feature "SuppressReadingTokenFromFormBody") {
-                #if (Get-KrBuiltTargetFrameworkVersion -ge [Version]"9.0") {
-                # Only available in .NET 9.0+ / PowerShell 7.6+
                 if ($SuppressReadingTokenFromFormBody.IsPresent) {
                     $Options.SuppressReadingTokenFromFormBody = $true
                 }

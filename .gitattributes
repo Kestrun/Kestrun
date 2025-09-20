@@ -1,2 +1,55 @@
 # Auto detect text files and perform LF normalization
-* text=auto
+* text eol=LF
+
+# Explicitly mark binaries
+*.dll binary
+*.exe binary
+*.png binary
+*.jpg binary
+*.gif binary
+*.ico binary
+*.bin binary
+*.pdf binary
+*.zip binary
+*.tar binary
+*.gz binary
+*.mp3 binary
+*.mp4 binary
+*.mov binary
+*.avi binary
+*.wmv binary
+*.flv binary
+*.mkv binary
+*.webm binary
+*.ogg binary
+*.wav binary
+*.flac binary
+*.7z binary
+*.rar binary
+*.class binary
+*.jar binary
+*.so binary
+*.dylib binary
+*.lib binary
+*.o binary
+*.a binary
+*.obj binary
+*.pdb binary
+*.iso binary
+*.vmdk binary
+*.qcow2 binary
+*.vdi binary
+*.vhd binary
+*.vhdx binary
+*.psd binary
+*.ai binary
+*.eps binary
+*.svg binary
+*.ttf binary
+*.otf binary
+*.woff binary
+*.woff2 binary
+*.eot binary
+*.db binary
+*.sqlite binary
+*.sqlite3 binary

@@ -22,14 +22,14 @@ concurrency:
     cancel-in-progress: true
 
 jobs:
-    format:
-        name: Formatting
-        uses: ./.github/workflows/format-check-core.yml
+    lint:
+        name: Linting
+        uses: ./.github/workflows/lint-core.yml
         with:
             is_pr: ${{ inputs.is_pr }}
 
     build:
-        needs: format
+        needs: lint
         strategy:
             fail-fast: false
             matrix:

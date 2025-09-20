@@ -2,7 +2,7 @@ permissions:
     contents: read
     pull-requests: read
 
-name: Format Check (PR)
+name: Lint (PR)
 
 on:
     pull_request:
@@ -18,7 +18,7 @@ on:
             - tests/**
 
 jobs:
-    format-check:
-        uses: ./.github/workflows/format-check-core.yml
+    lint:
+        uses: ./.github/workflows/lint-core.yml
         with:
             is_pr: true

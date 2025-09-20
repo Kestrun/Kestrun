@@ -175,30 +175,46 @@ internal static class CacheRevalidation
         return bytes;
     }
 
+    /// <summary>
+    /// Chooses an encoding from the Accept-Charset header value. Defaults to UTF-8 if no match found or header missing.
+    /// Supports a small set of common charsets; extend the Map function as needed.
+    /// Supports q-values and wildcard. E.g., "utf-8;q=0.9, iso-8859-1;q=0.5, *;q=0.1"
+    /// </summary>
+    /// <param name="acceptCharset">The Accept-Charset header value.</param>
+    /// <returns>The chosen encoding.</returns>
     private static Encoding ChooseEncodingFromAcceptCharset(Microsoft.Extensions.Primitives.StringValues acceptCharset)
     {
-        // Supported shortlist (extend as you wish)
-        static Encoding? Map(string name)
-        {
-            return name.ToLowerInvariant() switch
-            {
-                "utf-8" or "utf8" => Encoding.UTF8,
-                "utf-16" => Encoding.Unicode,
-                "utf-16le" => Encoding.Unicode,
-                "utf-16be" => Encoding.BigEndianUnicode,
-                "iso-8859-1" => Encoding.GetEncoding("iso-8859-1"),
-                "us-ascii" or "ascii" => Encoding.ASCII,
-                _ => null
-            };
-        }
-
         if (acceptCharset.Count == 0)
         {
-            return Encoding.UTF8;
+            return Encoding.UTF8; // Fast path: header missing
         }
 
-        // Parse q-values: e.g., "utf-8;q=0.9, iso-8859-1;q=0.5, *;q=0.1"
-        var candidates = acceptCharset
+        var candidates = ParseAcceptCharsetHeader(acceptCharset);
+        var (best, _) = SelectBestEncodingCandidate(candidates, static n => MapEncodingName(n));
+        return best ?? Encoding.UTF8;
+    }
+
+    /// <summary>
+    /// Maps a charset token to an <see cref="Encoding"/> instance if it is recognized, otherwise null.
+    /// </summary>
+    private static Encoding? MapEncodingName(string name) => name.ToLowerInvariant() switch
+    {
+        "utf-8" or "utf8" => Encoding.UTF8,
+        "utf-16" => Encoding.Unicode,
+        "utf-16le" => Encoding.Unicode,
+        "utf-16be" => Encoding.BigEndianUnicode,
+        "iso-8859-1" => Encoding.GetEncoding("iso-8859-1"),
+        "us-ascii" or "ascii" => Encoding.ASCII,
+        _ => null
+    };
+
+    /// <summary>
+    /// Parses an Accept-Charset header (possibly multi-valued) into a sequence of (name,q) tuples.
+    /// Assumes implicit q=1.0 when missing; ignores empty tokens.
+    /// </summary>
+    private static IEnumerable<(string name, double q)> ParseAcceptCharsetHeader(Microsoft.Extensions.Primitives.StringValues values)
+    {
+        return values
             .SelectMany(static line => line?.Split(',') ?? [])
             .Select(static tok =>
             {
@@ -216,28 +232,40 @@ internal static class CacheRevalidation
                 {
                     q = qv;
                 }
-
                 return (name, q);
             })
             .Where(static x => x.name.Length > 0);
+    }
 
+    /// <summary>
+    /// Selects the highest q-valued encoding candidate from the provided sequence.
+    /// Wildcard (*) yields UTF-8 at the given q if no prior candidate chosen.
+    /// </summary>
+    /// <param name="candidates">Sequence of (name,q) pairs.</param>
+    /// <param name="resolver">Function mapping charset name to Encoding (may return null).</param>
+    /// <returns>Tuple of best encoding (or null) and its q value.</returns>
+    private static (Encoding? best, double q) SelectBestEncodingCandidate(
+        IEnumerable<(string name, double q)> candidates,
+        Func<string, Encoding?> resolver)
+    {
         Encoding? best = null;
         double bestQ = -1;
-
         foreach (var (name, q) in candidates)
         {
             if (name == "*")
             {
-                if (best is null) { best = Encoding.UTF8; bestQ = q; }
+                if (best is null)
+                {
+                    best = Encoding.UTF8; bestQ = q;
+                }
                 continue;
             }
-            var enc = Map(name!);
+            var enc = resolver(name);
             if (enc is not null && q > bestQ)
             {
                 best = enc; bestQ = q;
             }
         }
-
-        return best ?? Encoding.UTF8;
+        return (best, bestQ);
     }
 }

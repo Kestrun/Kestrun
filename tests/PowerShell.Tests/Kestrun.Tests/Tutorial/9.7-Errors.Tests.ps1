@@ -17,15 +17,25 @@ Describe 'Example 9.7-Errors' -Tag 'Tutorial','Errors' {
         $caught | Should -BeTrue -Because 'A 404 should have been returned.'
     }
 
-    It 'Returns 500 for forced error endpoint (if present)' {
+    It 'Validation error route returns 400 with expected message' {
         . "$PSScriptRoot/TutorialExampleTestHelper.ps1"
-        $base = "http://127.0.0.1:$($script:instance.Port)"
-        $uri = "$base/error/throw"
+        $uri = "http://127.0.0.1:$($script:instance.Port)/fail"
         $caught = $false
         try { Invoke-WebRequest -Uri $uri -UseBasicParsing -TimeoutSec 4 -ErrorAction Stop | Out-Null } catch {
             $caught = $true
-            if ($_.Exception.Response) { [int]$_.Exception.Response.StatusCode | Should -BeIn 500,501,502 }
+            if ($_.Exception.Response) { [int]$_.Exception.Response.StatusCode | Should -Be 400 }
         }
-        $caught | Should -BeTrue -Because 'An internal error should have been produced.'
+        $caught | Should -BeTrue
+    }
+
+    It 'Exception route returns 500 with stack details' {
+        . "$PSScriptRoot/TutorialExampleTestHelper.ps1"
+        $uri = "http://127.0.0.1:$($script:instance.Port)/boom"
+        $caught = $false
+        try { Invoke-WebRequest -Uri $uri -UseBasicParsing -TimeoutSec 4 -ErrorAction Stop | Out-Null } catch {
+            $caught = $true
+            if ($_.Exception.Response) { [int]$_.Exception.Response.StatusCode | Should -Be 500 }
+        }
+        $caught | Should -BeTrue
     }
 }

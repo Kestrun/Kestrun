@@ -7,7 +7,8 @@ Describe 'Example 3.6-Response-Caching' -Tag 'Tutorial','Caching' {
     It 'Second request served faster and reuses cache headers (if present)' {
         . "$PSScriptRoot/TutorialExampleTestHelper.ps1"
         $base = "http://127.0.0.1:$($script:instance.Port)"
-        $target = "$base/time"  # assuming example exposes something like /time or /cached
+        # Use actual cached route from example script
+        $target = "$base/cachetest"
         $first = Measure-Command { $r1 = Invoke-ExampleRequest -Uri $target -ReturnRaw -RetryCount 2 }
         Start-Sleep -Milliseconds 150
         $second = Measure-Command { $r2 = Invoke-ExampleRequest -Uri $target -ReturnRaw -RetryCount 2 }

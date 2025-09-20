@@ -6,6 +6,8 @@ using Kestrun.Utilities;
 using Microsoft.AspNetCore.Authorization;
 using Serilog.Events;
 using Kestrun.Models;
+using Microsoft.AspNetCore.Antiforgery;
+using Microsoft.Extensions.Options;
 
 namespace Kestrun.Hosting;
 
@@ -80,6 +82,14 @@ public static class KestrunHostMapExtensions
         string[] methods = [.. options.HttpVerbs.Select(v => v.ToMethodString())];
         var map = host.App.MapMethods(options.Pattern, methods, async context =>
            {
+               // 🔒 CSRF validation only for the current request when that verb is unsafe (unless disabled)
+               if (ShouldValidateCsrf(options, context))
+               {
+                   if (!await TryValidateAntiforgeryAsync(context))
+                   {
+                       return; // already responded 400
+                   }
+               }
                var req = await KestrunRequest.NewRequest(context);
                var res = new KestrunResponse(req);
                KestrunContext kestrunContext = new(req, res, context);
@@ -151,6 +161,7 @@ public static class KestrunHostMapExtensions
             Arguments = arguments ?? [] // No additional arguments by default
         });
     }
+
     /// <summary>
     /// Adds a route to the KestrunHost using the specified MapRouteOptions.
     /// </summary>
@@ -164,75 +175,21 @@ public static class KestrunHostMapExtensions
             host.HostLogger.Debug("AddMapRoute called with pattern={Pattern}, language={Language}, method={Methods}", options.Pattern, options.Language, options.HttpVerbs);
         }
 
-        // Ensure the WebApplication is initialized
-        if (host.App is null)
-        {
-            throw new InvalidOperationException("WebApplication is not initialized. Call EnableConfiguration first.");
-        }
-
-        // Validate options
-        if (string.IsNullOrWhiteSpace(options.Pattern))
-        {
-            throw new ArgumentException("Pattern cannot be null or empty.", nameof(options.Pattern));
-        }
-
-        // Validate code
-        if (string.IsNullOrWhiteSpace(options.Code))
-        {
-            throw new ArgumentException("ScriptBlock cannot be null or empty.", nameof(options.Code));
-        }
-
-        var routeOptions = options;
-        if (options.HttpVerbs.Count == 0)
-        {
-            // Create a new RouteOptions with HttpVerbs set to [HttpVerb.Get]
-            routeOptions = options with { HttpVerbs = [HttpVerb.Get] };
-        }
         try
         {
-            if (MapExists(host, routeOptions.Pattern, routeOptions.HttpVerbs))
+            // Validate options and get normalized route options
+            if (!ValidateRouteOptions(host, options, out var routeOptions))
             {
-                var msg = $"Route '{routeOptions.Pattern}' with method(s) {string.Join(", ", routeOptions.HttpVerbs)} already exists.";
-                if (options.ThrowOnDuplicate)
-                {
-                    throw new InvalidOperationException(msg);
-                }
-
-                host.HostLogger.Warning(msg);
-                return null!;
+                return null!; // Route already exists and should be skipped
             }
 
             var logger = host.HostLogger.ForContext("Route", routeOptions.Pattern);
-            // compile once – return an HttpContext->Task delegate
-            var handler = options.Language switch
-            {
 
-                ScriptLanguage.PowerShell => PowerShellDelegateBuilder.Build(options.Code, logger, options.Arguments),
-                ScriptLanguage.CSharp => CSharpDelegateBuilder.Build(options.Code, logger, options.Arguments, options.ExtraImports, options.ExtraRefs),
-                ScriptLanguage.VBNet => VBNetDelegateBuilder.Build(options.Code, logger, options.Arguments, options.ExtraImports, options.ExtraRefs),
-                ScriptLanguage.FSharp => FSharpDelegateBuilder.Build(options.Code, logger), // F# scripting not implemented
-                ScriptLanguage.Python => PyDelegateBuilder.Build(options.Code, logger),
-                ScriptLanguage.JavaScript => JScriptDelegateBuilder.Build(options.Code, logger),
+            // Compile the script once – return a RequestDelegate
+            var compiled = CompileScript(routeOptions, logger);
 
-                _ => throw new NotSupportedException(options.Language.ToString())
-            };
-            string[] methods = [.. routeOptions.HttpVerbs.Select(v => v.ToMethodString())];
-            var map = host.App.MapMethods(routeOptions.Pattern, methods, handler).WithLanguage(options.Language);
-            if (host.HostLogger.IsEnabled(LogEventLevel.Debug))
-            {
-                host.HostLogger.Debug("Mapped route: {Pattern} with methods: {Methods}", routeOptions.Pattern, string.Join(", ", methods));
-            }
-
-            host.AddMapOptions(map, options);
-
-            foreach (var method in routeOptions.HttpVerbs.Select(v => v.ToMethodString()))
-            {
-                host._registeredRoutes[(routeOptions.Pattern, method)] = routeOptions;
-            }
-
-            host.HostLogger.Information("Added route: {Pattern} with methods: {Methods}", routeOptions.Pattern, string.Join(", ", methods));
-            return map;
-            // Add to the feature queue for later processing
+            // Create and register the route
+            return CreateAndRegisterRoute(host, routeOptions, compiled);
         }
         catch (CompilationErrorException ex)
         {
@@ -254,6 +211,119 @@ public static class KestrunHostMapExtensions
     }
 
     /// <summary>
+    /// Validates the host and options for adding a map route.
+    /// </summary>
+    /// <param name="host">The KestrunHost instance.</param>
+    /// <param name="options">The MapRouteOptions to validate.</param>
+    /// <param name="routeOptions">The validated route options with defaults applied.</param>
+    /// <returns>True if validation passes and route should be added; false if duplicate route should be skipped.</returns>
+    /// <exception cref="InvalidOperationException">Thrown when WebApplication is not initialized or route already exists and ThrowOnDuplicate is true.</exception>
+    /// <exception cref="ArgumentException">Thrown when required options are invalid.</exception>
+    internal static bool ValidateRouteOptions(KestrunHost host, MapRouteOptions options, out MapRouteOptions routeOptions)
+    {
+        // Ensure the WebApplication is initialized
+        if (host.App is null)
+        {
+            throw new InvalidOperationException("WebApplication is not initialized. Call EnableConfiguration first.");
+        }
+
+        // Validate options
+        if (string.IsNullOrWhiteSpace(options.Pattern))
+        {
+            throw new ArgumentException("Pattern cannot be null or empty.", nameof(options.Pattern));
+        }
+
+        // Validate code
+        if (string.IsNullOrWhiteSpace(options.Code))
+        {
+            throw new ArgumentException("ScriptBlock cannot be null or empty.", nameof(options.Code));
+        }
+
+        routeOptions = options;
+        if (options.HttpVerbs.Count == 0)
+        {
+            // Create a new RouteOptions with HttpVerbs set to [HttpVerb.Get]
+            routeOptions = options with { HttpVerbs = [HttpVerb.Get] };
+        }
+
+        if (MapExists(host, routeOptions.Pattern, routeOptions.HttpVerbs))
+        {
+            var msg = $"Route '{routeOptions.Pattern}' with method(s) {string.Join(", ", routeOptions.HttpVerbs)} already exists.";
+            if (options.ThrowOnDuplicate)
+            {
+                throw new InvalidOperationException(msg);
+            }
+
+            host.HostLogger.Warning(msg);
+            return false; // Skip this route
+        }
+
+        return true; // Continue with route creation
+    }
+
+    /// <summary>
+    /// Compiles the script code for the specified language.
+    /// </summary>
+    /// <param name="options">The MapRouteOptions containing the script and language.</param>
+    /// <param name="logger">The Serilog logger to use for compilation.</param>
+    /// <returns>A compiled RequestDelegate that can handle HTTP requests.</returns>
+    /// <exception cref="NotSupportedException">Thrown when the script language is not supported.</exception>
+    internal static RequestDelegate CompileScript(MapRouteOptions options, Serilog.ILogger logger)
+    {
+        return options.Language switch
+        {
+            ScriptLanguage.PowerShell => PowerShellDelegateBuilder.Build(options.Code!, logger, options.Arguments),
+            ScriptLanguage.CSharp => CSharpDelegateBuilder.Build(options.Code!, logger, options.Arguments, options.ExtraImports, options.ExtraRefs),
+            ScriptLanguage.VBNet => VBNetDelegateBuilder.Build(options.Code!, logger, options.Arguments, options.ExtraImports, options.ExtraRefs),
+            ScriptLanguage.FSharp => FSharpDelegateBuilder.Build(options.Code!, logger), // F# scripting not implemented
+            ScriptLanguage.Python => PyDelegateBuilder.Build(options.Code!, logger),
+            ScriptLanguage.JavaScript => JScriptDelegateBuilder.Build(options.Code!, logger),
+            _ => throw new NotSupportedException(options.Language.ToString())
+        };
+    }
+
+    /// <summary>
+    /// Creates and registers a route with the specified options and compiled handler.
+    /// </summary>
+    /// <param name="host">The KestrunHost instance.</param>
+    /// <param name="routeOptions">The validated route options.</param>
+    /// <param name="compiled">The compiled script delegate.</param>
+    /// <returns>An IEndpointConventionBuilder for further configuration.</returns>
+    internal static IEndpointConventionBuilder CreateAndRegisterRoute(KestrunHost host, MapRouteOptions routeOptions, RequestDelegate compiled)
+    {
+        // Wrap with CSRF validation
+        async Task handler(HttpContext ctx)
+        {
+            if (ShouldValidateCsrf(routeOptions, ctx))
+            {
+                if (!await TryValidateAntiforgeryAsync(ctx))
+                {
+                    return; // already responded 400
+                }
+            }
+            await compiled(ctx);
+        }
+
+        string[] methods = [.. routeOptions.HttpVerbs.Select(v => v.ToMethodString())];
+        var map = host.App!.MapMethods(routeOptions.Pattern!, methods, handler).WithLanguage(routeOptions.Language);
+
+        if (host.HostLogger.IsEnabled(LogEventLevel.Debug))
+        {
+            host.HostLogger.Debug("Mapped route: {Pattern} with methods: {Methods}", routeOptions.Pattern, string.Join(", ", methods));
+        }
+
+        host.AddMapOptions(map, routeOptions);
+
+        foreach (var method in routeOptions.HttpVerbs.Select(v => v.ToMethodString()))
+        {
+            host._registeredRoutes[(routeOptions.Pattern!, method)] = routeOptions;
+        }
+
+        host.HostLogger.Information("Added route: {Pattern} with methods: {Methods}", routeOptions.Pattern, string.Join(", ", methods));
+        return map;
+    }
+
+    /// <summary>
     /// Adds additional mapping options to the route.
     /// </summary>
     /// <param name="host">The Kestrun host.</param>
@@ -263,7 +333,7 @@ public static class KestrunHostMapExtensions
     {
         ApplyShortCircuit(host, map, options);
         ApplyAnonymous(host, map, options);
-        ApplyAntiforgery(host, map, options);
+        DisableAntiforgery(host, map, options);
         ApplyRateLimiting(host, map, options);
         ApplyAuthSchemes(host, map, options);
         ApplyPolicies(host, map, options);
@@ -313,12 +383,12 @@ public static class KestrunHostMapExtensions
     }
 
     /// <summary>
-    /// Applies anti-forgery behavior to the route.
+    /// Disables anti-forgery behavior to the route.
     /// </summary>
     /// <param name="host">The Kestrun host.</param>
     /// <param name="map">The endpoint convention builder.</param>
     /// <param name="options">The mapping options.</param>
-    private static void ApplyAntiforgery(KestrunHost host, IEndpointConventionBuilder map, MapRouteOptions options)
+    private static void DisableAntiforgery(KestrunHost host, IEndpointConventionBuilder map, MapRouteOptions options)
     {
         if (!options.DisableAntiforgery)
         {
@@ -719,4 +789,113 @@ public static class KestrunHostMapExtensions
             ? options
             : null;
     }
+
+    /// <summary>
+    /// Adds a GET endpoint that issues the antiforgery cookie and returns a JSON payload:
+    /// { token: "...", headerName: "X-CSRF-TOKEN" }.
+    /// The endpoint itself is exempt from antiforgery validation.
+    /// </summary>
+    /// <param name="host">The KestrunHost instance.</param>
+    /// <param name="pattern">The route path to expose (default "/csrf-token").</param>
+    /// <returns>IEndpointConventionBuilder for further configuration.</returns>
+    public static IEndpointConventionBuilder AddAntiforgeryTokenRoute(
+    this KestrunHost host,
+    string pattern = "/csrf-token")
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(pattern);
+        if (host.App is null)
+        {
+            throw new InvalidOperationException("WebApplication is not initialized. Call EnableConfiguration first.");
+        }
+        var options = new MapRouteOptions
+        {
+            Pattern = pattern,
+            HttpVerbs = [HttpVerb.Get],
+            Language = ScriptLanguage.Native,
+            DisableAntiforgery = true,
+            AllowAnonymous = true,                 // ← token endpoint should be public
+                                                   // OpenAPI = new() { Summary = "Get CSRF token", Description = "Returns antiforgery request token and header name." }
+        };
+
+        // Map directly and write directly (no KestrunResponse.ApplyTo)
+        var map = host.App.MapMethods(options.Pattern, [HttpMethods.Get], async context =>
+        {
+            var af = context.RequestServices.GetRequiredService<IAntiforgery>();
+            var opts = context.RequestServices.GetRequiredService<IOptions<AntiforgeryOptions>>();
+
+            var tokens = af.GetAndStoreTokens(context);
+
+            // Strongly discourage caches (proxies/browsers) from storing this payload
+            context.Response.Headers.CacheControl = "no-store, no-cache, must-revalidate";
+            context.Response.Headers.Pragma = "no-cache";
+            context.Response.Headers.Expires = "0";
+
+            context.Response.ContentType = "application/json";
+            await context.Response.WriteAsJsonAsync(new
+            {
+                token = tokens.RequestToken,
+                headerName = opts.Value.HeaderName // may be null if not configured
+            });
+        });
+
+        // Apply your pipeline metadata (this adds DisableAntiforgery, CORS, rate limiting, OpenAPI, etc.)
+        host.AddMapOptions(map, options);
+
+        // (Optional) track in your registry for consistency / duplicate checks
+        host._registeredRoutes[(options.Pattern, HttpMethods.Get)] = options;
+
+        host.HostLogger.Information("Added token endpoint: {Pattern} (GET)", options.Pattern);
+        return map;
+    }
+
+    private static bool IsUnsafeVerb(HttpVerb v)
+        => v is HttpVerb.Post or HttpVerb.Put or HttpVerb.Patch or HttpVerb.Delete;
+
+    private static bool IsUnsafeMethod(string method)
+        => HttpMethods.IsPost(method) || HttpMethods.IsPut(method) || HttpMethods.IsPatch(method) || HttpMethods.IsDelete(method);
+
+    // New precise helper: only validate for the actual incoming request method when that method is unsafe and antiforgery is enabled.
+    private static bool ShouldValidateCsrf(MapRouteOptions o, HttpContext ctx)
+    {
+        if (o.DisableAntiforgery)
+        {
+            return false;
+        }
+        if (!IsUnsafeMethod(ctx.Request.Method))
+        {
+            return false; // Safe verb (GET/HEAD/OPTIONS) -> skip
+        }
+        // Ensure the route was actually configured for this unsafe verb (defensive; normally true inside mapped delegate)
+        return o.HttpVerbs.Any(v => string.Equals(v.ToMethodString(), ctx.Request.Method, StringComparison.OrdinalIgnoreCase) && IsUnsafeVerb(v));
+    }
+
+    private static async Task<bool> TryValidateAntiforgeryAsync(HttpContext ctx)
+    {
+        var af = ctx.RequestServices.GetService<IAntiforgery>();
+        if (af is null)
+        {
+            return true; // antiforgery not configured → do nothing
+        }
+
+        try
+        {
+            await af.ValidateRequestAsync(ctx);
+            return true;
+        }
+        catch (AntiforgeryValidationException ex)
+        {
+            // short-circuit with RFC 9110 problem+json
+            ctx.Response.StatusCode = StatusCodes.Status400BadRequest;
+            ctx.Response.ContentType = "application/problem+json";
+            await ctx.Response.WriteAsJsonAsync(new
+            {
+                type = "https://datatracker.ietf.org/doc/html/rfc9110#section-15.5.1",
+                title = "Antiforgery validation failed",
+                status = 400,
+                detail = ex.Message
+            });
+            return false;
+        }
+    }
 }
+

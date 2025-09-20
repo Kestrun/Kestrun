@@ -17,15 +17,15 @@ concurrency:
     cancel-in-progress: true
 
 jobs:
-    format:
-        name: Formatting
+    lint:
+        name: Linting
         uses: ./.github/workflows/lint-core.yml
         with:
             is_pr: ${{ inputs.is_pr }}
 
     clamav:
         runs-on: ubuntu-24.04
-        needs: format
+        needs: lint
         steps:
             - name: 🛎️ Checkout
               uses: actions/checkout@v5

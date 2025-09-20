@@ -75,7 +75,7 @@ function Start-KrServer {
             # Intercept Ctrl+C and gracefully stop the Kestrun server
             try {
                 [Console]::TreatControlCAsInput = $true
-                while ($true) {
+                while ($Server.IsRunning) {
                     if ([Console]::KeyAvailable) {
                         $key = [Console]::ReadKey($true)
                         if (($key.Modifiers -eq 'Control') -and ($key.Key -eq 'C')) {
@@ -93,7 +93,9 @@ function Start-KrServer {
                 if (-not $Quiet.IsPresent) {
                     Write-Host 'Stopping Kestrun server...'
                 }
-                [Kestrun.KestrunHostManager]::StopAsync($Server.ApplicationName).Wait()
+                if ( $Server.IsRunning ) {
+                    [Kestrun.KestrunHostManager]::StopAsync($Server.ApplicationName).Wait()
+                }
                 #$Server.StopAsync().Wait()
                 [Kestrun.KestrunHostManager]::Destroy($Server.ApplicationName)
 

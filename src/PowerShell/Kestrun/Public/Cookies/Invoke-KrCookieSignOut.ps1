@@ -31,7 +31,7 @@ function Invoke-KrCookieSignOut {
         [switch]$Redirect
     )
     # Only works inside a route script block where $Context is available
-    if ($null -ne $Context) {
+    if ($null -ne $Context -and $null -ne $KrServer) {
         if ($PSCmdlet.ShouldProcess($Scheme, 'SignOut')) {
             # Sign out the user
             if ($Context.User -and $Context.User.Identity.IsAuthenticated) {
@@ -40,8 +40,8 @@ function Invoke-KrCookieSignOut {
 
             if ($Redirect) {
                 $cookiesAuth = $null
-                if ($KestrunHost.RegisteredAuthentications.Exists($Scheme, "Cookie")) {
-                    $cookiesAuth = $KestrunHost.RegisteredAuthentications.Get($Scheme, "Cookie")
+                if ($KrServer.RegisteredAuthentications.Exists($Scheme, "Cookie")) {
+                    $cookiesAuth = $KrServer.RegisteredAuthentications.Get($Scheme, "Cookie")
                 } else {
                     Write-KrLog -Level Warning -Message 'Authentication scheme {scheme} not found in registered authentications.' -Properties $Scheme
                     Write-KrErrorResponse -Message "Authentication scheme '$Scheme' not found." -StatusCode 400

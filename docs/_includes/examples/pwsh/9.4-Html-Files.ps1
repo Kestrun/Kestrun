@@ -38,4 +38,4 @@ Add-KrMapRoute -Pattern '/download' -Verbs GET -ScriptBlock {
 }
 
 # Start the server
-Start-KrServer  -CloseLogsOnExit
+Start-KrServer -CloseLogsOnExit

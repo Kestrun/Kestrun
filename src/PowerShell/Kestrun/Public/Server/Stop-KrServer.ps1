@@ -17,7 +17,7 @@
         It will block the console until the server is stopped or Ctrl+C is pressed.
 #>
 function Stop-KrServer {
-    [KestrunRuntimeApi('Definition')]
+    [KestrunRuntimeApi('Everywhere')]
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseShouldProcessForStateChangingFunctions', '')]
     [CmdletBinding()]
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidUsingWriteHost', '')]
@@ -32,11 +32,15 @@ function Stop-KrServer {
     begin {
         # Ensure the server instance is resolved
         $Server = Resolve-KestrunServer -Server $Server
-        if ($null -eq $Server) {
-            throw 'Server is not initialized. Please ensure the server is configured before setting options.'
-        }
     }
     process {
+        if ($null -ne $Context -and $null -ne $Context.Response) {
+            # If called within a route, send a response before stopping
+            Write-KrTextResponse -InputObject 'Server is stopping...' -StatusCode 202
+            Start-Sleep -Seconds 2
+             $Server.StopAsync() 
+            return
+        }
         # Stop the Kestrel server
         $Server.StopAsync() | Out-Null
         # Ensure the server is stopped on exit

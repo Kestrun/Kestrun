@@ -2,7 +2,7 @@ permissions:
     contents: read
     pull-requests: read # minimal perms for reusable workflow
 
-name: Format Check (core)
+name: Lint (core)
 
 on:
     workflow_call:
@@ -13,7 +13,7 @@ on:
                 type: boolean
 
 concurrency:
-    group: ${{ format('format-check-{0}-{1}-{2}', github.repository, github.workflow, inputs.is_pr && github.event.pull_request.number || github.ref) }}
+    group: ${{ format('lint-{0}-{1}-{2}', github.repository, github.workflow, inputs.is_pr && github.event.pull_request.number || github.ref) }}
     cancel-in-progress: true
 
 jobs:

@@ -11,9 +11,10 @@ Kestrun — PowerShell brains. Kestrel speed.
 
 ---
 <!-- CI / Quality -->
-![CI](https://github.com/Kestrun/Kestrun/actions/workflows/ci.yml/badge.svg)
-[![CodeQL](https://github.com/kestrun/kestrun/actions/workflows/codeql.yml/badge.svg)](https://github.com/kestrun/kestrun/actions/workflows/codeql.yml)
-![ClamAV Scan](https://img.shields.io/github/actions/workflow/status/kestrun/kestrun/clam-av.yml?branch=main&label=ClamAV%20Scan)
+[![CI](https://github.com/Kestrun/Kestrun/actions/workflows/ci-main.yml/badge.svg)](https://github.com/Kestrun/Kestrun/actions/workflows/ci-main.yml)
+[![CodeQL](https://github.com/kestrun/kestrun/actions/workflows/codeql-main.yml/badge.svg)](https://github.com/kestrun/kestrun/actions/workflows/codeql-main.yml)
+[![ClamAV Scan](https://img.shields.io/github/actions/workflow/status/kestrun/kestrun/clam-av-main.yml?branch=main&label=ClamAV%20Scan)](https://github.com/kestrun/kestrun/actions/workflows/clam-av-main.yml)
+[![Lint](https://img.shields.io/github/actions/workflow/status/kestrun/kestrun/lint-main.yml?branch=main&label=Lint)](https://github.com/kestrun/kestrun/actions/workflows/lint-main.yml)
 
 <!-- Coverage -->
 [![CodeFactor](https://www.codefactor.io/repository/github/kestrun/kestrun/badge/main)](https://www.codefactor.io/repository/github/kestrun/kestrun/overview/main)

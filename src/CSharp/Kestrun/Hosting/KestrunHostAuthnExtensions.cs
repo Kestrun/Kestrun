@@ -313,7 +313,6 @@ public static class KestrunHostAuthnExtensions
     string scheme = "ApiKey",
     Action<ApiKeyAuthenticationOptions>? configure = null)
     {
-
         // register in host for introspection
         _ = host.RegisteredAuthentications.Register(scheme, "ApiKey", configure);
         var h = host.AddAuthentication(
@@ -759,5 +758,4 @@ public static class KestrunHostAuthnExtensions
         target.EventsType = source.EventsType;
         target.ClaimsIssuer = source.ClaimsIssuer;
     }
-
 }

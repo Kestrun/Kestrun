@@ -428,64 +428,52 @@ public class KestrunHost : IDisposable
 
 
     /// <summary>
-    /// Applies the configured options to the Kestrel server and initializes the runspace pool.
+    /// Validates if configuration can be applied and returns early if already configured.
     /// </summary>
-    public void EnableConfiguration(Dictionary<string, object>? userVariables = null, Dictionary<string, string>? userFunctions = null)
-    {
-        LogEnableConfigurationCalled();
-        if (IsConfigured)
-        {
-            LogConfigurationAlreadyApplied();
-            return;
-        }
-        try
-        {
-            _runspacePool = CreateAndValidateRunspacePool(Options.MaxRunspaces, userVariables, userFunctions);
-            ConfigureKestrelServer();
-            ConfigureNamedPipesIfNeeded();
-            ConfigureKestrelListenersAndHttps();
-            _app = Build();
-            LogConfiguredEndpoints(_app);
-            IsConfigured = true;
-            HostLogger.Information("Configuration applied successfully.");
-        }
-        catch (Exception ex)
-        {
-            HandleConfigurationException(ex);
-        }
-    }
-    // ────────────── Internal Helper Methods for EnableConfiguration ──────────────
-    internal void LogEnableConfigurationCalled()
+    /// <returns>True if configuration should proceed, false if it should be skipped.</returns>
+    internal bool ValidateConfiguration()
     {
         if (HostLogger.IsEnabled(LogEventLevel.Debug))
         {
             HostLogger.Debug("EnableConfiguration(options) called");
         }
-    }
 
-    internal void LogConfigurationAlreadyApplied()
-    {
-        if (HostLogger.IsEnabled(LogEventLevel.Debug))
+        if (IsConfigured)
         {
-            HostLogger.Debug("Configuration already applied, skipping");
+            if (HostLogger.IsEnabled(LogEventLevel.Debug))
+            {
+                HostLogger.Debug("Configuration already applied, skipping");
+            }
+            return false; // Already configured
         }
+
+        return true;
     }
 
-    internal KestrunRunspacePoolManager CreateAndValidateRunspacePool(int? maxRunspaces, Dictionary<string, object>? userVariables, Dictionary<string, string>? userFunctions)
+    /// <summary>
+    /// Creates and initializes the runspace pool for PowerShell execution.
+    /// </summary>
+    /// <param name="userVariables">User-defined variables to inject into the runspace pool.</param>
+    /// <param name="userFunctions">User-defined functions to inject into the runspace pool.</param>
+    /// <exception cref="InvalidOperationException">Thrown when runspace pool creation fails.</exception>
+    internal void InitializeRunspacePool(Dictionary<string, object>? userVariables, Dictionary<string, string>? userFunctions)
     {
-        var pool = CreateRunspacePool(maxRunspaces, userVariables, userFunctions);
-        if (pool is null)
+        _runspacePool = CreateRunspacePool(Options.MaxRunspaces, userVariables, userFunctions);
+        if (_runspacePool == null)
         {
             throw new InvalidOperationException("Failed to create runspace pool.");
         }
+
         if (HostLogger.IsEnabled(LogEventLevel.Verbose))
         {
             HostLogger.Verbose("Runspace pool created with max runspaces: {MaxRunspaces}", Options.MaxRunspaces);
         }
-        return pool;
     }
 
-    internal void ConfigureKestrelServer()
+    /// <summary>
+    /// Configures the Kestrel web server with basic options.
+    /// </summary>
+    internal void ConfigureKestrelBase()
     {
         _ = Builder.WebHost.UseKestrel(opts =>
         {
@@ -493,7 +481,10 @@ public class KestrunHost : IDisposable
         });
     }
 
-    internal void ConfigureNamedPipesIfNeeded()
+    /// <summary>
+    /// Configures named pipe listeners if supported on the current platform.
+    /// </summary>
+    internal void ConfigureNamedPipes()
     {
         if (Options.NamedPipeOptions is not null)
         {
@@ -515,64 +506,89 @@ public class KestrunHost : IDisposable
         }
     }
 
-    internal void ConfigureKestrelListenersAndHttps()
+    /// <summary>
+    /// Configures HTTPS connection adapter defaults.
+    /// </summary>
+    /// <param name="serverOptions">The Kestrel server options to configure.</param>
+    internal void ConfigureHttpsAdapter(Microsoft.AspNetCore.Server.Kestrel.Core.KestrelServerOptions serverOptions)
     {
-        _ = Builder.WebHost.ConfigureKestrel(serverOptions =>
+        if (Options.HttpsConnectionAdapter is not null)
         {
-            if (Options.HttpsConnectionAdapter is not null)
+            HostLogger.Verbose("Applying HTTPS connection adapter options from KestrunOptions.");
+
+            // Apply HTTPS defaults if needed
+            serverOptions.ConfigureHttpsDefaults(httpsOptions =>
             {
-                HostLogger.Verbose("Applying HTTPS connection adapter options from KestrunOptions.");
-                serverOptions.ConfigureHttpsDefaults(httpsOptions =>
-                {
-                    httpsOptions.SslProtocols = Options.HttpsConnectionAdapter.SslProtocols;
-                    httpsOptions.ClientCertificateMode = Options.HttpsConnectionAdapter.ClientCertificateMode;
-                    httpsOptions.ClientCertificateValidation = Options.HttpsConnectionAdapter.ClientCertificateValidation;
-                    httpsOptions.CheckCertificateRevocation = Options.HttpsConnectionAdapter.CheckCertificateRevocation;
-                    httpsOptions.ServerCertificate = Options.HttpsConnectionAdapter.ServerCertificate;
-                    httpsOptions.ServerCertificateChain = Options.HttpsConnectionAdapter.ServerCertificateChain;
-                    httpsOptions.ServerCertificateSelector = Options.HttpsConnectionAdapter.ServerCertificateSelector;
-                    httpsOptions.HandshakeTimeout = Options.HttpsConnectionAdapter.HandshakeTimeout;
-                    httpsOptions.OnAuthenticate = Options.HttpsConnectionAdapter.OnAuthenticate;
-                });
-            }
-            foreach (var unixSocket in Options.ListenUnixSockets)
-            {
-                if (!string.IsNullOrWhiteSpace(unixSocket))
-                {
-                    HostLogger.Verbose("Binding Unix socket: {Sock}", unixSocket);
-                    serverOptions.ListenUnixSocket(unixSocket);
-                }
-            }
-            foreach (var namedPipeName in Options.NamedPipeNames)
-            {
-                if (!string.IsNullOrWhiteSpace(namedPipeName))
-                {
-                    HostLogger.Verbose("Binding Named Pipe: {Pipe}", namedPipeName);
-                    serverOptions.ListenNamedPipe(namedPipeName);
-                }
-            }
-            foreach (var opt in Options.Listeners)
-            {
-                serverOptions.Listen(opt.IPAddress, opt.Port, listenOptions =>
-                {
-                    listenOptions.Protocols = opt.Protocols;
-                    listenOptions.DisableAltSvcHeader = opt.DisableAltSvcHeader;
-                    if (opt.UseHttps && opt.X509Certificate is not null)
-                    {
-                        _ = listenOptions.UseHttps(opt.X509Certificate);
-                    }
-                    if (opt.UseConnectionLogging)
-                    {
-                        _ = listenOptions.UseConnectionLogging();
-                    }
-                });
-            }
-        });
+                httpsOptions.SslProtocols = Options.HttpsConnectionAdapter.SslProtocols;
+                httpsOptions.ClientCertificateMode = Options.HttpsConnectionAdapter.ClientCertificateMode;
+                httpsOptions.ClientCertificateValidation = Options.HttpsConnectionAdapter.ClientCertificateValidation;
+                httpsOptions.CheckCertificateRevocation = Options.HttpsConnectionAdapter.CheckCertificateRevocation;
+                httpsOptions.ServerCertificate = Options.HttpsConnectionAdapter.ServerCertificate;
+                httpsOptions.ServerCertificateChain = Options.HttpsConnectionAdapter.ServerCertificateChain;
+                httpsOptions.ServerCertificateSelector = Options.HttpsConnectionAdapter.ServerCertificateSelector;
+                httpsOptions.HandshakeTimeout = Options.HttpsConnectionAdapter.HandshakeTimeout;
+                httpsOptions.OnAuthenticate = Options.HttpsConnectionAdapter.OnAuthenticate;
+            });
+        }
     }
 
-    internal void LogConfiguredEndpoints(WebApplication app)
+    /// <summary>
+    /// Binds all configured listeners (Unix sockets, named pipes, TCP) to the server.
+    /// </summary>
+    /// <param name="serverOptions">The Kestrel server options to configure.</param>
+    internal void BindListeners(Microsoft.AspNetCore.Server.Kestrel.Core.KestrelServerOptions serverOptions)
     {
-        var dataSource = app.Services.GetRequiredService<EndpointDataSource>();
+        // Unix domain socket listeners
+        foreach (var unixSocket in Options.ListenUnixSockets)
+        {
+            if (!string.IsNullOrWhiteSpace(unixSocket))
+            {
+                HostLogger.Verbose("Binding Unix socket: {Sock}", unixSocket);
+                serverOptions.ListenUnixSocket(unixSocket);
+                // NOTE: control access via directory perms/umask; UDS file perms are inherited from process umask
+                // Prefer placing the socket under a group-owned dir (e.g., /var/run/kestrun) with 0770.
+            }
+        }
+
+        // Named pipe listeners
+        foreach (var namedPipeName in Options.NamedPipeNames)
+        {
+            if (!string.IsNullOrWhiteSpace(namedPipeName))
+            {
+                HostLogger.Verbose("Binding Named Pipe: {Pipe}", namedPipeName);
+                serverOptions.ListenNamedPipe(namedPipeName);
+            }
+        }
+
+        // TCP listeners
+        foreach (var opt in Options.Listeners)
+        {
+            serverOptions.Listen(opt.IPAddress, opt.Port, listenOptions =>
+            {
+                listenOptions.Protocols = opt.Protocols;
+                listenOptions.DisableAltSvcHeader = opt.DisableAltSvcHeader;
+                if (opt.UseHttps && opt.X509Certificate is not null)
+                {
+                    _ = listenOptions.UseHttps(opt.X509Certificate);
+                }
+                if (opt.UseConnectionLogging)
+                {
+                    _ = listenOptions.UseConnectionLogging();
+                }
+            });
+        }
+    }
+
+    /// <summary>
+    /// Logs the configured endpoints after building the application.
+    /// </summary>
+    internal void LogConfiguredEndpoints()
+    {
+        // build the app to validate configuration
+        _app = Build();
+        // Log configured endpoints
+        var dataSource = _app.Services.GetRequiredService<EndpointDataSource>();
+
         if (dataSource.Endpoints.Count == 0)
         {
             HostLogger.Warning("EndpointDataSource is empty. No endpoints configured.");
@@ -586,10 +602,49 @@ public class KestrunHost : IDisposable
         }
     }
 
-    internal void HandleConfigurationException(Exception ex)
+    /// <summary>
+    /// Handles configuration errors and wraps them with meaningful messages.
+    /// </summary>
+    /// <param name="ex">The exception that occurred during configuration.</param>
+    /// <exception cref="InvalidOperationException">Always thrown with wrapped exception.</exception>
+    internal void HandleConfigurationError(Exception ex)
     {
         HostLogger.Error(ex, "Error applying configuration: {Message}", ex.Message);
         throw new InvalidOperationException("Failed to apply configuration.", ex);
+    }
+
+    /// <summary>
+    /// Applies the configured options to the Kestrel server and initializes the runspace pool.
+    /// </summary>
+    public void EnableConfiguration(Dictionary<string, object>? userVariables = null, Dictionary<string, string>? userFunctions = null)
+    {
+        if (!ValidateConfiguration())
+        {
+            return;
+        }
+
+        try
+        {
+            InitializeRunspacePool(userVariables, userFunctions);
+            ConfigureKestrelBase();
+            ConfigureNamedPipes();
+
+            // Apply Kestrel listeners and HTTPS settings
+            _ = Builder.WebHost.ConfigureKestrel(serverOptions =>
+            {
+                ConfigureHttpsAdapter(serverOptions);
+                BindListeners(serverOptions);
+            });
+
+            LogConfiguredEndpoints();
+
+            IsConfigured = true;
+            HostLogger.Information("Configuration applied successfully.");
+        }
+        catch (Exception ex)
+        {
+            HandleConfigurationError(ex);
+        }
     }
 
     #endregion

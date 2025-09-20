@@ -156,6 +156,9 @@ public static class KestrunHttpMiddlewareExtensions
             cfg.FormFieldName = options.FormFieldName;
             cfg.HeaderName = options.HeaderName;
             cfg.SuppressXFrameOptionsHeader = options.SuppressXFrameOptionsHeader;
+#if NET9_0_OR_GREATER
+            cfg.SuppressReadingTokenFromFormBody = options.SuppressReadingTokenFromFormBody;
+#endif
         });
     }
 
@@ -169,7 +172,11 @@ public static class KestrunHttpMiddlewareExtensions
     {
         if (host.HostLogger.IsEnabled(LogEventLevel.Debug))
         {
-            host.HostLogger.Debug("Adding Antiforgery with configuration: {@Config}", setupAction);
+            host.HostLogger.Debug(
+                setupAction == null
+                    ? "Adding Antiforgery with default configuration (no custom options provided)."
+                    : "Adding Antiforgery with custom configuration via setupAction."
+            );
         }
         // Service side
         _ = host.AddService(services =>
@@ -279,15 +286,12 @@ public static class KestrunHttpMiddlewareExtensions
     }
 
     /// <summary>
-    /// Adds response caching to the application.
-    /// This overload allows you to specify a configuration delegate.
+    /// Validates inputs and performs initial logging for response caching configuration.
     /// </summary>
     /// <param name="host">The KestrunHost instance to configure.</param>
     /// <param name="cfg">Optional configuration for response caching.</param>
-    /// <param name="cacheControl">Optional default Cache-Control to apply (only if the response didn't set one).</param>
-    /// <returns> The updated KestrunHost instance. </returns>
-    public static KestrunHost AddResponseCaching(this KestrunHost host, Action<ResponseCachingOptions>? cfg = null,
-        CacheControlHeaderValue? cacheControl = null)
+    /// <param name="cacheControl">Optional default Cache-Control to apply.</param>
+    internal static void ValidateCachingInput(KestrunHost host, Action<ResponseCachingOptions>? cfg, CacheControlHeaderValue? cacheControl)
     {
         if (host.HostLogger.IsEnabled(LogEventLevel.Debug))
         {
@@ -301,64 +305,92 @@ public static class KestrunHttpMiddlewareExtensions
             // Save for reference
             host.DefaultCacheControl = cacheControl;
         }
+    }
 
-        // Service side
+    /// <summary>
+    /// Registers response caching services with the dependency injection container.
+    /// </summary>
+    /// <param name="host">The KestrunHost instance to configure.</param>
+    /// <param name="cfg">Optional configuration for response caching.</param>
+    internal static void RegisterCachingServices(KestrunHost host, Action<ResponseCachingOptions>? cfg)
+    {
         _ = host.AddService(services =>
         {
             _ = cfg == null ? services.AddResponseCaching() : services.AddResponseCaching(cfg);
         });
+    }
 
-        // Middleware side
-        return host.Use(app =>
+    /// <summary>
+    /// Applies cache control headers to the HTTP response if conditions are met.
+    /// </summary>
+    /// <param name="context">The HTTP context.</param>
+    /// <param name="cacheControl">The cache control header value to apply.</param>
+    /// <param name="logger">The Serilog logger instance for debugging.</param>
+    /// <returns>True if headers were applied, false otherwise.</returns>
+    internal static bool ApplyCacheHeaders(HttpContext context, CacheControlHeaderValue? cacheControl, Serilog.ILogger logger)
+    {
+        // Gate: only for successful cacheable responses on GET/HEAD
+        var method = context.Request.Method;
+        if (!(HttpMethods.IsGet(method) || HttpMethods.IsHead(method)))
+        {
+            return false;
+        }
+
+        var status = context.Response.StatusCode;
+        if (status is < 200 or >= 300)
+        {
+            return false;
+        }
+
+        // ResponseCaching won't cache if Set-Cookie is present; don't add headers in that case
+        if (context.Response.Headers.ContainsKey(HeaderNames.SetCookie))
+        {
+            return false;
+        }
+
+        // Only apply default Cache-Control if none was set and caller provided one
+        if (cacheControl is not null)
+        {
+            context.Response.Headers.CacheControl = cacheControl.ToString();
+
+            // If you expect compression variability elsewhere, add Vary only if absent
+            if (!context.Response.Headers.ContainsKey(HeaderNames.Vary))
+            {
+                context.Response.Headers.Append(HeaderNames.Vary, "Accept-Encoding");
+            }
+
+            if (logger.IsEnabled(LogEventLevel.Debug))
+            {
+                logger.Debug("Applied default Cache-Control: {CacheControl}", cacheControl.ToString());
+            }
+            return true;
+        }
+        else
+        {
+            if (logger.IsEnabled(LogEventLevel.Debug))
+            {
+                logger.Debug("No default cache Control provided; skipping.");
+            }
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Creates the caching middleware that applies cache headers.
+    /// </summary>
+    /// <param name="host">The KestrunHost instance.</param>
+    /// <param name="cacheControl">Optional cache control header value.</param>
+    /// <returns>The configured middleware action.</returns>
+    internal static Action<IApplicationBuilder> CreateCachingMiddleware(KestrunHost host, CacheControlHeaderValue? cacheControl)
+    {
+        return app =>
         {
             _ = app.UseResponseCaching();
             _ = app.Use(async (context, next) =>
             {
-
                 try
                 {
-                    // Gate: only for successful cacheable responses on GET/HEAD
-                    var method = context.Request.Method;
-                    if (!(HttpMethods.IsGet(method) || HttpMethods.IsHead(method)))
-                    {
-                        return;
-                    }
-
-                    var status = context.Response.StatusCode;
-                    if (status is < 200 or >= 300)
-                    {
-                        return;
-                    }
-
-                    // ResponseCaching won't cache if Set-Cookie is present; don't add headers in that case
-                    if (context.Response.Headers.ContainsKey(HeaderNames.SetCookie))
-                    {
-                        return;
-                    }
-
-                    // Only apply default Cache-Control if none was set and caller provided one
-                    if (cacheControl is not null)
-                    {
-                        context.Response.Headers.CacheControl = cacheControl.ToString();
-
-                        // If you expect compression variability elsewhere, add Vary only if absent
-                        if (!context.Response.Headers.ContainsKey(HeaderNames.Vary))
-                        {
-                            context.Response.Headers.Append(HeaderNames.Vary, "Accept-Encoding");
-                        }
-
-                        if (host.HostLogger.IsEnabled(LogEventLevel.Debug))
-                        {
-                            host.HostLogger.Debug("Applied default Cache-Control: {CacheControl}", cacheControl.ToString());
-                        }
-                    }
-                    else
-                    {
-                        if (host.HostLogger.IsEnabled(LogEventLevel.Debug))
-                        {
-                            host.HostLogger.Debug("No default cache Control provided; skipping.");
-                        }
-                    }
+                    _ = ApplyCacheHeaders(context, cacheControl, host.HostLogger);
                 }
                 catch (Exception ex)
                 {
@@ -370,6 +402,22 @@ public static class KestrunHttpMiddlewareExtensions
                     await next(context);
                 }
             });
-        });
+        };
+    }
+
+    /// <summary>
+    /// Adds response caching to the application.
+    /// This overload allows you to specify a configuration delegate.
+    /// </summary>
+    /// <param name="host">The KestrunHost instance to configure.</param>
+    /// <param name="cfg">Optional configuration for response caching.</param>
+    /// <param name="cacheControl">Optional default Cache-Control to apply (only if the response didn't set one).</param>
+    /// <returns> The updated KestrunHost instance. </returns>
+    public static KestrunHost AddResponseCaching(this KestrunHost host, Action<ResponseCachingOptions>? cfg = null,
+        CacheControlHeaderValue? cacheControl = null)
+    {
+        ValidateCachingInput(host, cfg, cacheControl);
+        RegisterCachingServices(host, cfg);
+        return host.Use(CreateCachingMiddleware(host, cacheControl));
     }
 }

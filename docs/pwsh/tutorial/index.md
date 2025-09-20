@@ -83,19 +83,20 @@ Stop the server with Ctrl+C in the terminal.
 | 31    | Responses: Caching            | [Caching & Revalidation][ch-resp-caching] | [Script][sc-resp-8]             | Cache-Control & ETag handling       |
 | 32    | Responses: Content Negotiation| [Content Negotiation][ch-resp-negotiation]| [Script][sc-resp-9]             | Auto format selection via Accept   |
 | 33    | Responses: Low-Level Stream   | [Low-Level Response][ch-resp-lowlevel]    | [Script][sc-resp-10]            | Raw stream writing                  |
-| 33    | Authentication: Basic (PS)    | [Basic (PS)][ch-auth-basic-ps]            | [Script][sc-auth-basic-ps]      | Basic scheme script block           |
-| 34    | Authentication: Basic (C#/VB) | [Basic (C#/VB)][ch-auth-basic-multi]      | [Script][sc-auth-basic-multi]   | Multi-language validation           |
-| 35    | Authentication: API Key       | [API Key][ch-auth-apikey]                 | [Script][sc-auth-apikey]        | Header key variants                 |
-| 36    | Authentication: JWT           | [JWT Tokens][ch-auth-jwt]                 | [Script][sc-auth-jwt]           | Issue & validate bearer             |
-| 37    | Authentication: Cookies       | [Cookies][ch-auth-cookies]                | [Script][sc-auth-cookies]       | Session cookie login                |
-| 38    | Authentication: Windows       | [Windows Authentication][ch-auth-windows] | [Script][sc-auth-windows]       | Integrated Windows auth             |
-| 39    | Authentication: Claims        | [Claims & Policies][ch-auth-claims]       | [Script][sc-auth-claims]        | Claim policy enforcement            |
-| 40    | Authentication: Multiple      | [Multiple Schemes][ch-auth-multi-schemes] | [Script][sc-auth-multi-schemes] | Combine schemes                     |
-| 41    | Authentication: Full Demo     | [Full Auth Demo][ch-auth-full]            | [Script][sc-auth-full]          | Integrated auth server              |
-| 42    | Server Configuration: Limits  | [Server Limits][ch-scfg-limits]           | [Script][sc-scfg-limits]        | Size & rate limits                  |
-| 43    | Server Configuration: Options | [Server Options][ch-scfg-options]         | [Script][sc-scfg-options]       | Headers & runspaces                 |
-| 44    | Lifecycle: Start/Stop         | [Start / Stop][ch-life-startstop]         | [Script][sc-life-startstop]     | Non-blocking lifecycle              |
-| 45    | Demo: Full Server             | [Full Server Demo][ch-demo-full]          | [Script][sc-demo-full]          | Integrated scenario                 |
+| 34    | Middleware: Antiforgery       | [Antiforgery Protection][ch-mw-antiforgery] | [Script][sc-mw-antiforgery]   | CSRF token + cookie validation      |
+| 35    | Authentication: Basic (PS)    | [Basic (PS)][ch-auth-basic-ps]            | [Script][sc-auth-basic-ps]      | Basic scheme script block           |
+| 36    | Authentication: Basic (C#/VB) | [Basic (C#/VB)][ch-auth-basic-multi]      | [Script][sc-auth-basic-multi]   | Multi-language validation           |
+| 37    | Authentication: API Key       | [API Key][ch-auth-apikey]                 | [Script][sc-auth-apikey]        | Header key variants                 |
+| 38    | Authentication: JWT           | [JWT Tokens][ch-auth-jwt]                 | [Script][sc-auth-jwt]           | Issue & validate bearer             |
+| 39    | Authentication: Cookies       | [Cookies][ch-auth-cookies]                | [Script][sc-auth-cookies]       | Session cookie login                |
+| 40    | Authentication: Windows       | [Windows Authentication][ch-auth-windows] | [Script][sc-auth-windows]       | Integrated Windows auth             |
+| 41    | Authentication: Claims        | [Claims & Policies][ch-auth-claims]       | [Script][sc-auth-claims]        | Claim policy enforcement            |
+| 42    | Authentication: Multiple      | [Multiple Schemes][ch-auth-multi-schemes] | [Script][sc-auth-multi-schemes] | Combine schemes                     |
+| 43    | Authentication: Full Demo     | [Full Auth Demo][ch-auth-full]            | [Script][sc-auth-full]          | Integrated auth server              |
+| 44    | Server Configuration: Limits  | [Server Limits][ch-scfg-limits]           | [Script][sc-scfg-limits]        | Size & rate limits                  |
+| 45    | Server Configuration: Options | [Server Options][ch-scfg-options]         | [Script][sc-scfg-options]       | Headers & runspaces                 |
+| 46    | Lifecycle: Start/Stop         | [Start / Stop][ch-life-startstop]         | [Script][sc-life-startstop]     | Non-blocking lifecycle              |
+| 47    | Demo: Full Server             | [Full Server Demo][ch-demo-full]          | [Script][sc-demo-full]          | Integrated scenario                 |
 
 Static chapters and scripts are all linked directly above for quick navigation.
 
@@ -141,6 +142,7 @@ Static chapters and scripts are all linked directly above for quick navigation.
 [ch-resp-caching]: ./9.Responses/8.Caching
 [ch-resp-negotiation]: ./9.Responses/9.Content-Negotiation
 [ch-resp-lowlevel]: ./9.Responses/10.Low-Level-Response
+[ch-mw-antiforgery]: ./10.middleware/1.Antiforgery
 [ch-scfg-limits]: ./13.server-configuration/1.Server-Limits
 [ch-scfg-options]: ./13.server-configuration/2.Server-Options
 [ch-life-startstop]: ./14.lifecycle/1.Start-Stop
@@ -187,6 +189,7 @@ Static chapters and scripts are all linked directly above for quick navigation.
 [sc-resp-8]: /pwsh/tutorial/examples/9.8-Caching.ps1
 [sc-resp-9]: /pwsh/tutorial/examples/9.9-Content-Negotiation.ps1
 [sc-resp-10]: /pwsh/tutorial/examples/9.10-Low-Level-Response.ps1
+[sc-mw-antiforgery]: /pwsh/tutorial/examples/10.1-Antiforgery.ps1
 [sc-scfg-limits]: /pwsh/tutorial/examples/13.1-Server-Limits.ps1
 [sc-scfg-options]: /pwsh/tutorial/examples/13.2-Server-Options.ps1
 [sc-life-startstop]: /pwsh/tutorial/examples/15.1-Start-Stop.ps1

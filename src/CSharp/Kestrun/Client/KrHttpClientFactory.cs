@@ -73,7 +73,6 @@ public static class KrHttpClientFactory
                     ? CredentialCache.DefaultCredentials
                     : opts.Credentials
         };
-
     }
 
     /// <summary>

@@ -48,6 +48,10 @@ public static class KestrunRuntimeInfo
         /// Kestrel HTTP/3 listener support (requires QUIC at runtime)
         /// </summary>
         Http3 = 0,
+        /// <summary>
+        /// Suppresses reading the antiforgery token from the form body
+        /// </summary>
+        SuppressReadingTokenFromFormBody = 1
     }
 
     // Minimal TFM required for each feature.
@@ -56,7 +60,17 @@ public static class KestrunRuntimeInfo
         new(StringComparer.OrdinalIgnoreCase)
         {
             [nameof(KnownFeature.Http3)] = new Version(8, 0),
+            // New in .NET 9+: Antiforgery option to suppress reading token from request form body.
+            [nameof(KnownFeature.SuppressReadingTokenFromFormBody)] = new Version(9, 0),
         };
+
+    /// <summary>
+    /// Returns the set of known feature identifiers (enum names) that have a
+    /// compile-time (TFM) gate registered. This does not guarantee that
+    /// <see cref="Supports(string)"/> will return true, only that the feature
+    /// is recognized and has a minimum version entry.
+    /// </summary>
+    public static IEnumerable<string> GetKnownFeatures() => FeatureMinByName.Keys;
 
     /// <summary>
     /// True if the loaded Kestrun assembly supports the feature,

@@ -4,6 +4,8 @@
 .DESCRIPTION
     This cmdlet retrieves the support status of all known features defined in the Kestrun runtime.
     It provides information about whether each feature is supported based on the runtime version and configuration.
+.PARAMETER Capabilities
+    If specified, only the feature name and support status will be returned, omitting the built TFM.
 .OUTPUTS
     A custom object with the following properties:
     - Feature: The name of the feature.
@@ -15,19 +17,31 @@
     The output will be a collection of objects, each representing a feature and its support status.
 #>
 function Get-KrFeatureSupport {
-    [CmdletBinding()]
+    [KestrunRuntimeApi('Everywhere')]
+    [CmdletBinding(DefaultParameterSetName = 'Full')]
     [OutputType([pscustomobject])]
-    param()
+    param(
+        [Parameter(ParameterSetName = 'Capabilities')]
+        [switch] $Capabilities
+    )
 
     $built = [Kestrun.KestrunRuntimeInfo]::GetBuiltTargetFrameworkVersion()
     $features = [enum]::GetNames([Kestrun.KestrunRuntimeInfo+KnownFeature])
 
     foreach ($name in $features) {
         $enum = [Kestrun.KestrunRuntimeInfo+KnownFeature]::$name
-        [pscustomobject]@{
-            Feature = $name
-            BuiltTFM = $built
-            Supported = [Kestrun.KestrunRuntimeInfo]::Supports($enum)
+        $supported = [Kestrun.KestrunRuntimeInfo]::Supports($enum)
+        if ($Capabilities) {
+            [pscustomobject]@{
+                Feature = $name
+                Supported = $supported
+            }
+        } else {
+            [pscustomobject]@{
+                Feature = $name
+                BuiltTFM = $built
+                Supported = $supported
+            }
         }
     }
 }

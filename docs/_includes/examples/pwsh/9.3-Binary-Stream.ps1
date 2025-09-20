@@ -5,7 +5,7 @@
     File:    9.3-Binary-Stream.ps1
     Notes:   Shows file download and streaming with error handling.
 #>
-
+Initialize-KrRoot -Path $PSScriptRoot
 # 1. Logging
 New-KrLogger | Add-KrSinkConsole | Register-KrLogger -Name 'console' -SetAsDefault
 
@@ -23,18 +23,20 @@ Enable-KrConfiguration
 
 # Binary route: download file
 Add-KrMapRoute -Pattern '/logo' -Verbs GET -ScriptBlock {
-    $path = Resolve-KrPath -Pattern 'Assets/wwwroot/files/sample.bin' -KestrunRoot -Test
+    $path = Resolve-KrPath -Path './Assets/wwwroot/files/kestrun.png' -KestrunRoot
+    Write-KrLog -Level Information -Message "Resolved path: {path}" -Properties $path
     if (Test-Path $path) {
         $bytes = [System.IO.File]::ReadAllBytes($path)
-        Write-KrBinaryResponse -InputObject $bytes -ContentType 'application/octet-stream'
+        Write-KrBinaryResponse -InputObject $bytes -ContentType 'image/png'
     } else {
-        Write-KrErrorResponse -Message 'sample.bin not found' -StatusCode 404
+        Write-KrErrorResponse -Message 'kestrun.png not found' -StatusCode 404
     }
 }
 
 # Stream route: stream text file
 Add-KrMapRoute -Pattern '/stream' -Verbs GET -ScriptBlock {
-    $path = Resolve-KrPath -Pattern 'Assets/wwwroot/files/sample.txt' -KestrunRoot -Test
+    $path = Resolve-KrPath -Path './Assets/wwwroot/files/sample.txt' -KestrunRoot
+    Write-KrLog -Level Information -Message "Resolved path: {path}" -Properties $path
     if (Test-Path $path) {
         $fs = [System.IO.File]::OpenRead($path)
         Write-KrStreamResponse -InputObject $fs -ContentType 'text/plain'
@@ -44,4 +46,4 @@ Add-KrMapRoute -Pattern '/stream' -Verbs GET -ScriptBlock {
 }
 
 # Start the server
-Start-KrServer
+Start-KrServer -CloseLogsOnExit

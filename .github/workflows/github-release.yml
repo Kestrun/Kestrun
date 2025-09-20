@@ -1,31 +1,39 @@
 name: GitHub Release
 
-permissions:
-  contents: write   # create tags & releases
-  pull-requests: read
-
 on:
   workflow_dispatch: {}
   workflow_call:
     inputs: {}
     secrets: {}
+permissions:
+  contents: write
+  pull-requests: read
+  security-events: write
+  actions: read
 
 jobs:
-  format:
-    name: Formatting
-    uses: ./.github/workflows/format-check.yml
+  lint:
+    name: Linting
+    uses: ./.github/workflows/lint-core.yml
+    with:
+      is_pr: false
 
   codeql:
     name: Security (CodeQL + PSSA)
-    uses: ./.github/workflows/codeql.yml
+    uses: ./.github/workflows/codeql-core.yml
+    with:
+      is_pr: false
+    secrets: inherit
 
   clamav:
     name: AV Scan
-    uses: ./.github/workflows/clam-av.yml
+    uses: ./.github/workflows/clam-av-core.yml
+    with:
+      is_pr: false
 
   release:
     runs-on: ubuntu-latest
-    needs: [format, codeql, clamav]
+    needs: [lint, codeql, clamav]
     steps:
       - uses: actions/checkout@v5
         with: { fetch-depth: 0 }

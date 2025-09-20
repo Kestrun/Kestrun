@@ -6,7 +6,8 @@ namespace KestrunTests.Jwt;
 internal static class TestCryptoInit
 {
     [ModuleInitializer]
+    // Enable ECDSA signing even on hosts where the default factory reports unsupported
     public static void Init() =>
-        // Enable ECDSA signing even on hosts where the default factory reports unsupported
         CryptoProviderFactory.Default = new EcdsaEnablingCryptoProviderFactory();
+
 }

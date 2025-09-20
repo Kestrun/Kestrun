@@ -35,7 +35,7 @@ Add-KrMapRoute -Pattern '/cache-private' -Verbs GET -ScriptBlock {
 
 # ETag negotiation route
 Add-KrMapRoute -Pattern '/etag' -Verbs GET -ScriptBlock {
-    $payload = (Get-Date).ToUniversalTime().ToString('O')
+    $payload = 'stable content for ETag demo'
     if (-not (Test-KrCacheRevalidation -Payload $payload)) {
         Write-KrTextResponse $payload
     }
@@ -43,8 +43,9 @@ Add-KrMapRoute -Pattern '/etag' -Verbs GET -ScriptBlock {
 
 # Explicit versioned resource route
 Add-KrMapRoute -Pattern '/versioned' -Verbs GET -ScriptBlock {
-    if (-not (Test-KrCacheRevalidation -ETag 'v1' -LastModified (Get-Date '2024-01-01'))) {
-        Write-KrTextResponse 'v1 payload'
+    $payload = 'v1 payload'
+    if (-not (Test-KrCacheRevalidation -Payload $payload -ETag 'v1' -LastModified (Get-Date '2024-01-01'))) {
+        Write-KrTextResponse $payload
     }
 }
 

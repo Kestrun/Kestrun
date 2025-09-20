@@ -56,10 +56,13 @@ That’s the canonical pipeline used locally and by CI—keep it consistent.
 1. **Fork & branch**
 
    ```bash
-   git checkout -b feature/my-delicious-change
+   git checkout -b refactor/57-reduce-complexity
    ```
 
+   > See **Branch & Commit Naming Rules** below for exact conventions.
+
 2. **Code** (follow style guides below).
+
 3. **Build & test**
 
    ```powershell
@@ -67,15 +70,110 @@ That’s the canonical pipeline used locally and by CI—keep it consistent.
    Invoke-Build Test
    ```
 
-4. **Commit clearly**
-
-   ```bash
-   git commit -m "Add: KestrunHostManager supports multi-instance selection"
-   ```
+4. **Commit clearly** (see rules below).
 
 5. **Open a Pull Request** and fill out the PR template.
 
 ---
+
+## 🌿 Branch & Commit Naming Rules
+
+### Branch Naming Convention
+
+```text
+<type>/<issue-number>-<short-kebab-case-description>
+```
+
+- **type**:
+
+  - `feat` → new feature
+  - `fix` → bug fix
+  - `refactor` → restructuring/cleanup
+  - `docs` → documentation changes
+  - `test` → test-only changes
+  - `chore` → build, CI, tooling, infra
+  - `techdebt` → explicit technical debt
+
+- **issue-number**: GitHub issue or PR number (if applicable).
+
+- **short-description**: brief, lowercase, hyphenated summary.
+
+**Examples:**
+
+- `feat/42-add-jwt-auth`
+- `fix/103-csrf-validation`
+- `refactor/57-reduce-complexity`
+- `docs/88-update-readme-badges`
+
+---
+
+### Commit Message Convention (Conventional Commits)
+
+Use the format:
+
+```text
+<type>(scope?): <short summary>
+```
+
+- **type**: same as branch types (`feat`, `fix`, `refactor`, `docs`, `test`, `chore`, `techdebt`)
+- **scope** (optional): module, cmdlet, or subsystem (e.g., `auth`, `host`, `ci`).
+- **summary**: imperative, ≤ 72 chars, no period at end.
+
+**Examples:**
+
+- `feat(auth): add cookie authentication support`
+- `fix(host): correct IPv6 URI parsing`
+- `refactor(core): split large ConfigureListener function`
+- `docs(ci): update workflow badges in README`
+
+---
+
+### PR Titles
+
+- Mirror commit style for consistency.
+- Reference the issue number with `Fixes #NN` or `Refs #NN`.
+
+**Examples:**
+
+- `refactor(core): reduce function complexity (Fixes #57)`
+- `feat(auth): add support for JWT bearer tokens (Refs #42)`
+
+## ✅ Pull Request Checklist
+
+Before submitting your PR, please confirm you’ve covered the essentials:
+
+- [ ] **Branch name** follows convention:
+  `<type>/<issue-number>-<short-description>`
+  *(e.g., `refactor/57-reduce-complexity`)*
+
+- [ ] **Commit messages** follow [Conventional Commits](https://www.conventionalcommits.org/) (`type(scope): summary`).
+
+- [ ] **Build passes locally**:
+
+  ```powershell
+  Invoke-Build Restore ; Invoke-Build Build
+  ```
+
+- [ ] **Tests pass locally**:
+
+  ```powershell
+  Invoke-Build Test
+  ```
+
+- [ ] **New/changed behavior covered by tests** (xUnit for C#, Pester for PowerShell).
+
+- [ ] **Public APIs documented**:
+
+  - C#: XML doc comments
+  - PowerShell: Comment-based help
+
+- [ ] **Docs updated** (if user-facing):
+
+  - Just-the-Docs compatible (front matter, nav order, sections correct).
+
+- [ ] **Changelog entry added** (if user-facing change).
+
+- [ ] **Linked to issue** with `Fixes #NN` or `Refs #NN`.
 
 ## 📝 Style & Quality
 

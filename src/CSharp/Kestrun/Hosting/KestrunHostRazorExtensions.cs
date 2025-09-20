@@ -213,7 +213,6 @@ public static class KestrunHostRazorExtensions
             //  —OR—
             // services.Configure(cfg);                 // also works
         })
-         // optional: automatically map Razor endpoints after Build()
-         .Use(app => ((IEndpointRouteBuilder)app).MapRazorPages());
+         .Use(app => ((IEndpointRouteBuilder)app).MapRazorPages());// optional: automatically map Razor endpoints after Build()
     }
 }

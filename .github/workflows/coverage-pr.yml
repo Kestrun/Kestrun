@@ -1,0 +1,26 @@
+permissions:
+    contents: read
+    pull-requests: read
+
+name: Coverage (PR)
+
+on:
+    pull_request:
+        branches: [main]
+        types: [closed]
+        paths:
+            - "**/*.cs"
+            - "**/*.csproj"
+            - "**/*.sln"
+            - "**/*.ps1"
+            - "**/*.psm1"
+            - "**/*.psd1"
+            - "**/*.yml"
+            - "**/*.yaml"
+            - tests/**
+
+jobs:
+    coverage:
+        uses: ./.github/workflows/coverage-core.yml
+        with:
+            is_pr: true

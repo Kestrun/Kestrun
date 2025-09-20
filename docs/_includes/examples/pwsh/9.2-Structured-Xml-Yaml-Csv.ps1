@@ -23,19 +23,20 @@ Enable-KrConfiguration
 
 # XML route
 Add-KrMapRoute -Pattern '/xml' -Verbs GET -ScriptBlock {
-    @{ Id = 1; Name = 'Alpha'; Nested = @{ X = 10; Y = 20 } } | Write-KrXmlResponse -ContentType 'application/xml'
+    Write-KrXmlResponse -InputObject @{ Id = 1; Name = 'Alpha'; Nested = @{ X = 10; Y = 20 } }
 }
 
 # YAML route
 Add-KrMapRoute -Pattern '/yaml' -Verbs GET -ScriptBlock {
-    @{ env = 'dev'; enabled = $true; tags = @('one', 'two') } | Write-KrYamlResponse -ContentType 'application/x-yaml'
+    @{ env = 'dev'; enabled = $true; tags = @('one', 'two') },
+    @{ Id = 1; Name = 'Alpha'; Nested = @{ X = 10; Y = 20 } } | Write-KrYamlResponse -ContentType 'application/x-yaml'
 }
 
 # CSV route
 Add-KrMapRoute -Pattern '/csv' -Verbs GET -ScriptBlock {
     $data = 1..5 | ForEach-Object { @{ Id = $_; Square = ($_ * $_) } }
-    $data | Write-KrCsvResponse -ContentType 'text/csv'
+    Write-KrCsvResponse -InputObject $data
 }
 
 # Start the server
-Start-KrServer
+Start-KrServer -CloseLogsOnExit

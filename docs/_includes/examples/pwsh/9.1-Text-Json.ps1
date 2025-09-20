@@ -42,4 +42,4 @@ Add-KrMapRoute -Pattern '/config' -Verbs GET -ScriptBlock {
 }
 
 # Start the server
-Start-KrServer
+Start-KrServer -CloseLogsOnExit

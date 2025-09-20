@@ -1,4 +1,4 @@
-﻿<#!
+<#!
 .SYNOPSIS
     Removes a UTF-8 BOM from PowerShell and related script files.
 .DESCRIPTION

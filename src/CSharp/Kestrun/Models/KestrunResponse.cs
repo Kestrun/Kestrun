@@ -368,7 +368,10 @@ public class KestrunResponse(KestrunRequest request, int bodyAsyncThreshold = 81
 
         Body = inputObject;
         ContentType = DetermineContentType(contentType: string.Empty); // Ensure ContentType is set based on Accept header
-
+        if (Log.IsEnabled(LogEventLevel.Verbose))
+        {
+            Log.Verbose("Determined ContentType={ContentType}", ContentType);
+        }
         if (ContentType.Contains("json"))
         {
             await WriteJsonResponseAsync(inputObject: inputObject, statusCode: statusCode);
@@ -383,7 +386,7 @@ public class KestrunResponse(KestrunRequest request, int bodyAsyncThreshold = 81
         }
         else
         {
-            await WriteTextResponseAsync(inputObject: inputObject, statusCode: statusCode);
+            await WriteTextResponseAsync(inputObject: inputObject?.ToString() ?? string.Empty, statusCode: statusCode);
         }
     }
 
@@ -1114,14 +1117,24 @@ public class KestrunResponse(KestrunRequest request, int bodyAsyncThreshold = 81
     /// <param name="response">The HTTP response to apply the status and content type to.</param>
     private void EnsureStatusAndContentType(HttpResponse response)
     {
-        response.StatusCode = StatusCode;
-        if (!string.IsNullOrEmpty(ContentType) &&
-            IsTextBasedContentType(ContentType) &&
-            !ContentType.Contains("charset=", StringComparison.OrdinalIgnoreCase))
+        if (Log.IsEnabled(LogEventLevel.Debug))
         {
-            ContentType = ContentType.TrimEnd(';') + $"; charset={AcceptCharset.WebName}";
+            Log.Debug("Ensuring status and content type, StatusCode={StatusCode}, ContentType={ContentType}", StatusCode, ContentType);
         }
-        response.ContentType = ContentType;
+        if (StatusCode != response.StatusCode)
+        {
+            response.StatusCode = StatusCode;
+        }
+        if (ContentType != response.ContentType)
+        {
+            if (!string.IsNullOrEmpty(ContentType) &&
+                IsTextBasedContentType(ContentType) &&
+                !ContentType.Contains("charset=", StringComparison.OrdinalIgnoreCase))
+            {
+                ContentType = ContentType.TrimEnd(';') + $"; charset={AcceptCharset.WebName}";
+            }
+            response.ContentType = ContentType;
+        }
     }
 
     /// <summary>

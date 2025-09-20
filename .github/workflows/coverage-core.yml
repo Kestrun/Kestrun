@@ -18,7 +18,7 @@ concurrency:
 jobs:
     format:
         name: Formatting
-        uses: ./.github/workflows/format-check-core.yml
+        uses: ./.github/workflows/lint-core.yml
         with:
             is_pr: ${{ inputs.is_pr }}
 

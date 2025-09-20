@@ -26,7 +26,7 @@ internal static class CSharpDelegateBuilder
     /// <returns>A delegate that handles HTTP requests.</returns>
     /// <exception cref="ArgumentNullException">Thrown if the code is null or whitespace.</exception>
     /// <exception cref="CompilationErrorException">Thrown if the C# code compilation fails.</exception>
-    /// <remarks>   
+    /// <remarks>
     /// This method compiles the provided C# code into a script and returns a delegate that can be used to handle HTTP requests.
     /// It supports additional imports and references, and can inject global variables into the script.
     /// The delegate will execute the provided C# code within the context of an HTTP request, allowing access to the request and response objects.
@@ -52,7 +52,7 @@ internal static class CSharpDelegateBuilder
         //    - Inject the provided arguments into the globals
         var script = Compile(code, log, extraImports, extraRefs, null, languageVersion);
 
-        // 2. Return a delegate that executes the script 
+        // 2. Return a delegate that executes the script
         //    - The delegate takes an HttpContext and returns a Task
         //    - It creates a KestrunContext and KestrunResponse from the HttpContext
         //    - It executes the script with the provided globals and locals
@@ -136,7 +136,7 @@ internal static class CSharpDelegateBuilder
         // References and imports
         var coreRefs = DelegateBuilder.BuildBaselineReferences();
         // Core references + Kestrun + extras
-        // Note: Order matters, Kestrun must come after core to avoid conflicts        
+        // Note: Order matters, Kestrun must come after core to avoid conflicts
         var kestrunAssembly = typeof(Hosting.KestrunHost).Assembly; // Kestrun.dll
         var kestrunRef = MetadataReference.CreateFromFile(kestrunAssembly.Location);
         var kestrunNamespaces = CollectKestrunNamespaces(kestrunAssembly);
@@ -389,9 +389,33 @@ internal static class CSharpDelegateBuilder
         IReadOnlyDictionary<string, object?>? locals,
         Serilog.ILogger log)
     {
-        var preambleBuilder = new StringBuilder();
-        var allGlobals = SharedStateStore.Snapshot();
+        // Merge globals + locals
+        var merged = MergeGlobalsAndLocals(locals);
+
+        // Build preamble & discover dynamic imports/refs
+        var (preamble, imports, refs) = GeneratePreambleAndDiscover(merged);
+
+        // Append original code
+        var finalCode = preamble.Length > 0 ? preamble + (code ?? string.Empty) : code ?? string.Empty;
+
+        // Filter references to only those with locations
+        var filteredRefs = refs.Where(r => !string.IsNullOrEmpty(r.Location)).ToList();
+
+        LogDynamicDiscovery(imports, filteredRefs, log);
+
+        return (finalCode, imports.ToList(), filteredRefs);
+    }
+
+    /// <summary>
+    /// Creates a merged dictionary of global shared state and the supplied <paramref name="locals"/>.
+    /// Local values override globals when a key collision occurs (case-insensitive).
+    /// </summary>
+    /// <param name="locals">Optional locals dictionary passed in at compile time.</param>
+    /// <returns>A mutable dictionary keyed by variable name mapping to its source store name and value.</returns>
+    private static Dictionary<string, (string Dict, object? Value)> MergeGlobalsAndLocals(IReadOnlyDictionary<string, object?>? locals)
+    {
         var merged = new Dictionary<string, (string Dict, object? Value)>(StringComparer.OrdinalIgnoreCase);
+        var allGlobals = SharedStateStore.Snapshot();
         foreach (var g in allGlobals)
         {
             merged[g.Key] = ("Globals", g.Value);
@@ -403,48 +427,101 @@ internal static class CSharpDelegateBuilder
                 merged[l.Key] = ("Locals", l.Value);
             }
         }
+        return merged;
+    }
 
+    /// <summary>
+    /// Iterates all merged global + local variables and builds a textual preamble of variable declarations.
+    /// While building, collects the required namespace imports and assembly references inferred from the runtime value types.
+    /// </summary>
+    /// <param name="merged">Merged globals + locals produced by <see cref="MergeGlobalsAndLocals"/>.</param>
+    /// <returns>Tuple containing the preamble text builder, discovered namespace import set, and assembly reference set.</returns>
+    private static (StringBuilder Preamble, HashSet<string> Imports, HashSet<Assembly> Refs) GeneratePreambleAndDiscover(
+        Dictionary<string, (string Dict, object? Value)> merged)
+    {
+        var preambleBuilder = new StringBuilder();
         var dynamicImports = new HashSet<string>(StringComparer.Ordinal);
         var dynamicRefs = new HashSet<Assembly>();
 
         foreach (var kvp in merged)
         {
-            var valueType = kvp.Value.Value?.GetType();
-            var typeName = FormatTypeName(valueType);
-            _ = preambleBuilder.AppendLine($"var {kvp.Key} = ({typeName}){kvp.Value.Dict}[\"{kvp.Key}\"]; ");
-
-            if (valueType != null)
-            {
-                if (!string.IsNullOrEmpty(valueType.Namespace))
-                {
-                    _ = dynamicImports.Add(valueType.Namespace!); // capture added namespace
-                }
-                // Include generic argument namespaces as well
-                if (valueType.IsGenericType)
-                {
-                    foreach (var ga in valueType.GetGenericArguments())
-                    {
-                        if (!string.IsNullOrEmpty(ga.Namespace))
-                        {
-                            _ = dynamicImports.Add(ga.Namespace!); // capture generic arg namespace
-                        }
-                        _ = dynamicRefs.Add(ga.Assembly); // capture generic arg assembly
-                    }
-                }
-                _ = dynamicRefs.Add(valueType.Assembly); // capture value type assembly
-            }
+            AppendVariableDeclarationAndCollect(kvp, preambleBuilder, dynamicImports, dynamicRefs);
         }
 
-        if (log.IsEnabled(LogEventLevel.Debug) && (dynamicImports.Count > 0 || dynamicRefs.Count > 0))
+        return (preambleBuilder, dynamicImports, dynamicRefs);
+    }
+
+    /// <summary>
+    /// Appends a single variable declaration for the provided key/value and gathers any dynamic imports &amp; references.
+    /// </summary>
+    /// <param name="kvp">The merged key and its (source dictionary name, value).</param>
+    /// <param name="preambleBuilder">Builder accumulating declaration lines.</param>
+    /// <param name="dynamicImports">Set capturing namespaces to import.</param>
+    /// <param name="dynamicRefs">Set capturing assemblies that must be referenced.</param>
+    private static void AppendVariableDeclarationAndCollect(
+        KeyValuePair<string, (string Dict, object? Value)> kvp,
+        StringBuilder preambleBuilder,
+        HashSet<string> dynamicImports,
+        HashSet<Assembly> dynamicRefs)
+    {
+        var valueType = kvp.Value.Value?.GetType();
+        var typeName = FormatTypeName(valueType);
+        _ = preambleBuilder.AppendLine($"var {kvp.Key} = ({typeName}){kvp.Value.Dict}[\"{kvp.Key}\"]; ");
+
+        if (valueType == null)
         {
-            log.Debug("Discovered {ImportCount} dynamic import(s) and {RefCount} reference(s) from globals/locals.", dynamicImports.Count, dynamicRefs.Count);
+            return;
         }
 
-        return (
-            preambleBuilder.Length > 0 ? preambleBuilder + (code ?? string.Empty) : code ?? string.Empty,
-            dynamicImports.ToList(),
-            dynamicRefs.Where(r => !string.IsNullOrEmpty(r.Location)).ToList()
-        );
+        TryAddNamespace(dynamicImports, valueType.Namespace);
+        CollectGenericArguments(valueType, dynamicImports, dynamicRefs);
+        _ = dynamicRefs.Add(valueType.Assembly);
+    }
+
+    /// <summary>
+    /// Adds a namespace string to the imports set if it is non-empty.
+    /// </summary>
+    /// <param name="imports">Namespace accumulator set.</param>
+    /// <param name="ns">Namespace candidate.</param>
+    private static void TryAddNamespace(HashSet<string> imports, string? ns)
+    {
+        if (!string.IsNullOrEmpty(ns))
+        {
+            _ = imports.Add(ns!);
+        }
+    }
+
+    /// <summary>
+    /// For a generic type, collects namespaces and assemblies for each generic argument.
+    /// </summary>
+    /// <param name="valueType">The possibly generic value type.</param>
+    /// <param name="imports">Namespace accumulator set.</param>
+    /// <param name="refs">Assembly reference accumulator set.</param>
+    private static void CollectGenericArguments(Type valueType, HashSet<string> imports, HashSet<Assembly> refs)
+    {
+        if (!valueType.IsGenericType)
+        {
+            return;
+        }
+        foreach (var ga in valueType.GetGenericArguments())
+        {
+            TryAddNamespace(imports, ga.Namespace);
+            _ = refs.Add(ga.Assembly);
+        }
+    }
+
+    /// <summary>
+    /// Emits a debug log summarizing the dynamic imports and assembly references that were discovered.
+    /// </summary>
+    /// <param name="imports">Collected imports.</param>
+    /// <param name="refs">Collected assembly references (filtered to those with physical locations).</param>
+    /// <param name="log">Logger.</param>
+    private static void LogDynamicDiscovery(HashSet<string> imports, List<Assembly> refs, Serilog.ILogger log)
+    {
+        if (log.IsEnabled(LogEventLevel.Debug) && (imports.Count > 0 || refs.Count > 0))
+        {
+            log.Debug("Discovered {ImportCount} dynamic import(s) and {RefCount} reference(s) from globals/locals.", imports.Count, refs.Count);
+        }
     }
 
     // Produces a C# friendly type name for reflection types (handles generics, arrays, nullable, and fallbacks).

@@ -123,8 +123,7 @@ internal static class CacheRevalidation
 
     private static string ComputeETagFromBytes(ReadOnlySpan<byte> data, bool weakETag)
     {
-        using var sha = SHA256.Create();
-        var hash = sha.ComputeHash(data.ToArray());
+        var hash = SHA256.HashData(data.ToArray());
         var tag = $"\"{Convert.ToHexString(hash).ToLowerInvariant()}\"";
         return weakETag ? "W/" + tag : tag;
     }

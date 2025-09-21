@@ -1,8 +1,4 @@
 using Kestrun.Hosting;
-using Kestrun.Hosting.Options;
-using Microsoft.AspNetCore.Routing;
-using Microsoft.Extensions.DependencyInjection;
-using Moq;
 using Serilog;
 using Serilog.Events;
 using Xunit;
@@ -152,7 +148,7 @@ public class KestrunHostEnableConfigurationTests
         // Arrange
         using var host = CreateTestHost();
         host.Options.HttpsConnectionAdapter = null;
-        
+
         // Create a mock server options (we can't easily instantiate the real one)
         var serverOptions = new Microsoft.AspNetCore.Server.Kestrel.Core.KestrelServerOptions();
 
@@ -179,7 +175,7 @@ public class KestrunHostEnableConfigurationTests
         // Arrange
         using var host = CreateTestHost();
         var serverOptions = new Microsoft.AspNetCore.Server.Kestrel.Core.KestrelServerOptions();
-        
+
         host.ConfigureListener(port: 0, ipAddress: null, useConnectionLogging: false); // Port 0 for dynamic assignment
 
         // Act & Assert (no exception means success)
@@ -196,7 +192,7 @@ public class KestrunHostEnableConfigurationTests
 
         // Act & Assert (no exception means success)
         host.LogConfiguredEndpoints();
-        
+
         // Verify app was built
         Assert.NotNull(host.App);
     }
@@ -266,7 +262,7 @@ public class KestrunHostEnableConfigurationTests
         using var host = new KestrunHost("TestHost", testLogger, root, [module]);
 
         // Act
-        host.ValidateConfiguration();
+        _ = host.ValidateConfiguration();
 
         // Assert
         Assert.Contains(logEvents, e => e.MessageTemplate.Text.Contains("EnableConfiguration(options) called"));
@@ -275,14 +271,9 @@ public class KestrunHostEnableConfigurationTests
     /// <summary>
     /// Test sink to capture log events for verification
     /// </summary>
-    private class TestLogSink : Serilog.Core.ILogEventSink
+    private class TestLogSink(List<LogEvent> events) : Serilog.Core.ILogEventSink
     {
-        private readonly List<LogEvent> _events;
-
-        public TestLogSink(List<LogEvent> events)
-        {
-            _events = events;
-        }
+        private readonly List<LogEvent> _events = events;
 
         public void Emit(LogEvent logEvent)
         {

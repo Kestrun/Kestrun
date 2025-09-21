@@ -519,7 +519,7 @@ public class KestrunHost : IDisposable
     /// Configures HTTPS connection adapter defaults.
     /// </summary>
     /// <param name="serverOptions">The Kestrel server options to configure.</param>
-    internal void ConfigureHttpsAdapter(Microsoft.AspNetCore.Server.Kestrel.Core.KestrelServerOptions serverOptions)
+    internal void ConfigureHttpsAdapter(KestrelServerOptions serverOptions)
     {
         if (Options.HttpsConnectionAdapter is not null)
         {
@@ -545,7 +545,7 @@ public class KestrunHost : IDisposable
     /// Binds all configured listeners (Unix sockets, named pipes, TCP) to the server.
     /// </summary>
     /// <param name="serverOptions">The Kestrel server options to configure.</param>
-    internal void BindListeners(Microsoft.AspNetCore.Server.Kestrel.Core.KestrelServerOptions serverOptions)
+    internal void BindListeners(KestrelServerOptions serverOptions)
     {
         // Unix domain socket listeners
         foreach (var unixSocket in Options.ListenUnixSockets)

@@ -14,30 +14,7 @@ public static class KrHttpClientFactory
     // ---- Internal helper ----------------------------------------------------
     private static SocketsHttpHandler CreateHandler(KrHttpClientOptions opts)
     {
-        var effectiveTimeout = (opts.Timeout <= TimeSpan.Zero) ? TimeSpan.FromSeconds(100) : opts.Timeout;
-
-        var handler = new SocketsHttpHandler
-        {
-            AutomaticDecompression = opts.Decompression,
-            ConnectTimeout = effectiveTimeout,
-
-            // Redirects
-            AllowAutoRedirect = opts.AllowAutoRedirect,
-            MaxAutomaticRedirections = Math.Max(1, opts.MaxAutomaticRedirections),
-
-            // Cookies/session
-            UseCookies = opts.Cookies is not null,
-            CookieContainer = opts.Cookies ?? new CookieContainer(),
-
-            // Proxy
-            UseProxy = opts.UseProxy && opts.Proxy is not null,
-            Proxy = opts.Proxy,
-
-            // Server auth
-            Credentials = opts.UseDefaultCredentials
-                ? CredentialCache.DefaultCredentials
-                : opts.Credentials
-        };
+        var handler = CreateBasicHandler(opts);
 
         // Proxy auth wiring if provided
         if (opts.Proxy is not null)
@@ -65,6 +42,46 @@ public static class KrHttpClientFactory
         return handler;
     }
 
+    /// <summary>
+    /// Creates a basic SocketsHttpHandler with common options applied.
+    /// </summary>
+    /// <param name="opts">The HTTP client options.</param>
+    /// <returns>A configured SocketsHttpHandler instance.</returns>
+    private static SocketsHttpHandler CreateBasicHandler(KrHttpClientOptions opts)
+    {
+        var effectiveTimeout = (opts.Timeout <= TimeSpan.Zero) ? TimeSpan.FromSeconds(100) : opts.Timeout;
+
+        return new SocketsHttpHandler
+        {
+            AutomaticDecompression = opts.Decompression,
+            ConnectTimeout = effectiveTimeout,
+
+            // Redirects
+            AllowAutoRedirect = opts.AllowAutoRedirect,
+            MaxAutomaticRedirections = Math.Max(1, opts.MaxAutomaticRedirections),
+
+            // Cookies/session
+            UseCookies = opts.Cookies is not null,
+            CookieContainer = opts.Cookies ?? new CookieContainer(),
+
+            // Proxy
+            UseProxy = opts.UseProxy && opts.Proxy is not null,
+            Proxy = opts.Proxy,
+
+            // Server auth
+            Credentials = opts.UseDefaultCredentials
+                    ? CredentialCache.DefaultCredentials
+                    : opts.Credentials
+        };
+    }
+
+    /// <summary>
+    /// Creates an HttpClient with the specified handler, base address, and timeout.
+    /// </summary>
+    /// <param name="handler">The HTTP message handler.</param>
+    /// <param name="baseAddress">The base address for the HTTP client.</param>
+    /// <param name="timeout">The timeout for HTTP requests.</param>
+    /// <returns>A configured HttpClient instance.</returns>
     private static HttpClient MakeClient(HttpMessageHandler handler, Uri baseAddress, TimeSpan timeout)
         => new(handler)
         {

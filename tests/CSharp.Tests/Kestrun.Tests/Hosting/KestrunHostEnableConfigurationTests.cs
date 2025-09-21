@@ -275,9 +275,6 @@ public class KestrunHostEnableConfigurationTests
     {
         private readonly List<LogEvent> _events = events;
 
-        public void Emit(LogEvent logEvent)
-        {
-            _events.Add(logEvent);
-        }
+        public void Emit(LogEvent logEvent) => _events.Add(logEvent);
     }
 }

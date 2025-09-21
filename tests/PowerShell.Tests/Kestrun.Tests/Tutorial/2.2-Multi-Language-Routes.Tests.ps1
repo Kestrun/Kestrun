@@ -2,5 +2,20 @@
 Describe 'Example 2.2-Multi-Language-Routes' -Tag 'Tutorial' {
     BeforeAll { . "$PSScriptRoot/TutorialExampleTestHelper.ps1"; $script:instance = Start-ExampleScript -Name '2.2-Multi-Language-Routes.ps1' }
     AfterAll { . "$PSScriptRoot/TutorialExampleTestHelper.ps1"; if ($script:instance) { Stop-ExampleScript -Instance $script:instance } }
-    It 'Routes respond with 200' { . "$PSScriptRoot/TutorialExampleTestHelper.ps1"; Test-ExampleRouteSet -Instance $script:instance }
+
+    It 'hello-powershell returns Hello, World!' {
+        $resp = Invoke-WebRequest -Uri "$($script:instance.Url)/hello-powershell" -UseBasicParsing -TimeoutSec 6 -Method Get
+        $resp.StatusCode | Should -Be 200
+        $resp.Content | Should -Be 'Hello, World!'
+    }
+    It 'hello-csharp returns Hello, World!' {
+        $resp = Invoke-WebRequest -Uri "$($script:instance.Url)/hello-csharp" -UseBasicParsing -TimeoutSec 6 -Method Get
+        $resp.StatusCode | Should -Be 200
+        $resp.Content | Should -Be 'Hello, World!'
+    }
+    It 'hello-vbnet returns Hello, World!' {
+        $resp = Invoke-WebRequest -Uri "$($script:instance.Url)/hello-vbnet" -UseBasicParsing -TimeoutSec 6 -Method Get
+        $resp.StatusCode | Should -Be 200
+        $resp.Content | Should -Be 'Hello, World!'
+    }
 }

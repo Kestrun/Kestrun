@@ -2,19 +2,31 @@
 Describe 'Example 2.5-Route-Group' -Tag 'Tutorial' {
     BeforeAll { . "$PSScriptRoot/TutorialExampleTestHelper.ps1"; $script:instance = Start-ExampleScript -Name '2.5-Route-Group.ps1' }
     AfterAll { . "$PSScriptRoot/TutorialExampleTestHelper.ps1"; if ($script:instance) { Stop-ExampleScript -Instance $script:instance } }
-    It 'Grouped parameter routes respond with 200 for all verbs' {
-        . "$PSScriptRoot/TutorialExampleTestHelper.ps1"
-        $p = $script:instance.Port
+    It 'Grouped parameter routes return expected content for all verbs' {
         # Path (GET)
-        (Invoke-WebRequest -Uri "http://127.0.0.1:$p/input/demoPath" -UseBasicParsing -TimeoutSec 5 -Method Get).StatusCode | Should -Be 200
+        $resp = Invoke-WebRequest -Uri "$($script:instance.Url)/input/demoPath" -UseBasicParsing -TimeoutSec 6 -Method Get
+        $resp.StatusCode | Should -Be 200
+        $resp.Content | Should -Be "The Path Parameter 'value' was: demoPath"
+
         # Query (PATCH)
-        (Invoke-WebRequest -Uri "http://127.0.0.1:$p/input?value=demoQuery" -UseBasicParsing -TimeoutSec 5 -Method Patch).StatusCode | Should -Be 200
+        $resp = Invoke-WebRequest -Uri "$($script:instance.Url)/input?value=demoQuery" -UseBasicParsing -TimeoutSec 6 -Method Patch
+        $resp.StatusCode | Should -Be 200
+        $resp.Content | Should -Be "The Query String 'value' was: demoQuery"
+
         # Body (POST)
         $body = @{ value = 'demoBody' } | ConvertTo-Json
-        (Invoke-WebRequest -Uri "http://127.0.0.1:$p/input" -UseBasicParsing -TimeoutSec 5 -Method Post -Body $body -ContentType 'application/json').StatusCode | Should -Be 200
+        $resp = Invoke-WebRequest -Uri "$($script:instance.Url)/input" -UseBasicParsing -TimeoutSec 6 -Method Post -Body $body -ContentType 'application/json'
+        $resp.StatusCode | Should -Be 200
+        $resp.Content | Should -Be "The Body Parameter 'value' was: demoBody"
+
         # Header (PUT)
-        (Invoke-WebRequest -Uri "http://127.0.0.1:$p/input" -UseBasicParsing -TimeoutSec 5 -Method Put -Headers @{ value = 'demoHeader' }).StatusCode | Should -Be 200
+        $resp = Invoke-WebRequest -Uri "$($script:instance.Url)/input" -UseBasicParsing -TimeoutSec 6 -Method Put -Headers @{ value = 'demoHeader' }
+        $resp.StatusCode | Should -Be 200
+        $resp.Content | Should -Be "The Header Parameter 'value' was: demoHeader"
+
         # Cookie (DELETE)
-        (Invoke-WebRequest -Uri "http://127.0.0.1:$p/input" -UseBasicParsing -TimeoutSec 5 -Method Delete -Headers @{ Cookie = 'value=demoCookie' }).StatusCode | Should -Be 200
+        $resp = Invoke-WebRequest -Uri "$($script:instance.Url)/input" -UseBasicParsing -TimeoutSec 6 -Method Delete -Headers @{ Cookie = 'value=demoCookie' }
+        $resp.StatusCode | Should -Be 200
+        $resp.Content | Should -Be "The Cookie Parameter 'value' was: demoCookie"
     }
 }

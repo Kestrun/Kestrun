@@ -26,7 +26,12 @@ public static class YamlHelper
     public static string ToYaml(object? input)
     {
         var normalized = NormalizePSObject(input);
-        return _serializer.Serialize(normalized);
+
+        using var sw = new StringWriter();
+        sw.NewLine = "\n"; // force LF regardless of OS
+
+        _serializer.Serialize(sw, normalized);
+        return sw.ToString();
     }
 
     /// <summary>

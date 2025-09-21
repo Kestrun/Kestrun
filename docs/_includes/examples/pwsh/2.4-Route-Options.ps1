@@ -28,7 +28,7 @@ Add-KrMapRoute -Options (New-KrMapRouteOption -Property @{
         Pattern = "/yaml"
         HttpVerbs = 'Get'
         Code = {
-            $message = Get-KrRequestRouteParam -Name 'message'
+            $message = Get-KrRequestCookie -Name 'message'
             Write-KrYamlResponse -InputObject @{ message = $message } -StatusCode 200
         }
         Language = 'PowerShell'

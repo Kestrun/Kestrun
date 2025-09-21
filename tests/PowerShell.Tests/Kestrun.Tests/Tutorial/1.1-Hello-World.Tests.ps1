@@ -5,8 +5,7 @@ Describe 'Example 1.1-Hello-World' -Tag 'Tutorial' {
 
     It 'Hello World route returns expected response' {
         . "$PSScriptRoot/TutorialExampleTestHelper.ps1"
-        $port = $script:instance.Port
-        $resp = Invoke-WebRequest -Uri "http://127.0.0.1:$port/hello" -UseBasicParsing -TimeoutSec 8
+        $resp = Invoke-WebRequest -Uri "$($script:instance.Url)/hello" -UseBasicParsing -TimeoutSec 8
         $resp.StatusCode | Should -Be 200
         $resp.Content | Should -Be 'Hello, World!'
     }

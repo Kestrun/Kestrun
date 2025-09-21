@@ -6,15 +6,15 @@ Describe 'Example 9.4-Html-Files' {
         . "$PSScriptRoot/TutorialExampleTestHelper.ps1"
         $p = $script:instance.Port
     # /page -> must succeed and contain expected static about page heading
-        $page = Invoke-WebRequest -Uri "http://127.0.0.1:$p/page" -UseBasicParsing -TimeoutSec 8
+        $page = Invoke-WebRequest -Uri "$($script:instance.Url)/page" -UseBasicParsing -TimeoutSec 8
         $page.StatusCode | Should -Be 200
     ($page.Content -like '*About This Site*') | Should -BeTrue -Because 'Static about page should be served'
         # /inline -> must succeed and render template
-        $inline = Invoke-WebRequest -Uri "http://127.0.0.1:$p/inline" -UseBasicParsing -TimeoutSec 8
+        $inline = Invoke-WebRequest -Uri "$($script:instance.Url)/inline" -UseBasicParsing -TimeoutSec 8
         $inline.StatusCode | Should -Be 200
         ($inline.Content -like '*<h1>Inline</h1>*') | Should -BeTrue
         # /download -> must succeed and include attachment header
-        $dl = Invoke-WebRequest -Uri "http://127.0.0.1:$p/download" -UseBasicParsing -TimeoutSec 8
+        $dl = Invoke-WebRequest -Uri "$($script:instance.Url)/download" -UseBasicParsing -TimeoutSec 8
         $dl.StatusCode | Should -Be 200
         (($dl.Headers.Keys | Where-Object { $_ -match 'Content-Disposition' } | ForEach-Object { $dl.Headers[$_] }) -join ';') | Should -Match 'attachment;'
     }

@@ -2,7 +2,11 @@
 Describe 'Example 3.6-Response-Caching' -Tag 'Tutorial','Caching' {
     BeforeAll { . "$PSScriptRoot/TutorialExampleTestHelper.ps1"; $script:instance = Start-ExampleScript -Name '3.6-Response-Caching.ps1' }
     AfterAll { . "$PSScriptRoot/TutorialExampleTestHelper.ps1"; if ($script:instance) { Stop-ExampleScript -Instance $script:instance } }
-    It 'Cached responses return 200' { . "$PSScriptRoot/TutorialExampleTestHelper.ps1"; Test-ExampleRouteSet -Instance $script:instance }
+    It 'cachetest route returns timestamp content' {
+        $resp = Invoke-WebRequest -Uri "$($script:instance.Url)/cachetest" -UseBasicParsing -TimeoutSec 6 -Method Get
+        $resp.StatusCode | Should -Be 200
+        ($resp.Content.Trim().Length -gt 0) | Should -BeTrue -Because 'cached route should produce non-empty content'
+    }
 
     It 'Second request served faster and reuses cache headers (if present)' {
         . "$PSScriptRoot/TutorialExampleTestHelper.ps1"

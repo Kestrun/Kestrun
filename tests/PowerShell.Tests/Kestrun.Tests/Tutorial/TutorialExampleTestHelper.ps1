@@ -184,12 +184,21 @@ Start-KrServer
         if ($ready) { break }
 
         if ($portOpen) {
-            # Optional lightweight HTTP probe of '/'
+            # Optional lightweight HTTP/HTTPS probe of '/'
             try {
-                $probe = Invoke-WebRequest -Uri "http://127.0.0.1:$Port/" -UseBasicParsing -Method Get -TimeoutSec 2 -ErrorAction Stop
+                # Decide scheme based on provisional HTTPS detection (scan original content once here if not already)
+                if (-not $script:__kestrunHttpsHintChecked) {
+                    $script:__kestrunHttpsHintChecked = $true
+                    $script:__kestrunHttpsHint = ($content -match 'Add-KrListener[^\n]*-SelfSignedCert' -or $content -match 'Add-KrListener[^\n]*-CertPath' -or $content -match 'Add-KrListener[^\n]*-X509Certificate')
+                }
+                $scheme = ($script:__kestrunHttpsHint ? 'https' : 'http')
+                $probeUri = "$($scheme)://127.0.0.1:$Port/"
+                $probeParams = @{ Uri = $probeUri; UseBasicParsing = $true; Method = 'Get'; TimeoutSec = 3; ErrorAction = 'Stop' }
+                if ($scheme -eq 'https') { $probeParams.SkipCertificateCheck = $true }
+                $probe = Invoke-WebRequest @probeParams
                 if ($probe.StatusCode -ge 200 -and $probe.StatusCode -lt 600) { $ready = $true; break }
             } catch {
-                Write-Debug "HTTP probe failed (route initialization likely incomplete): $($_.Exception.Message)"
+                Write-Debug "HTTP(S) probe failed (route initialization likely incomplete): $($_.Exception.Message)"
             }
         }
         Start-Sleep -Milliseconds $HttpProbeDelayMs
@@ -204,8 +213,15 @@ Start-KrServer
         if (Test-Path $stdOut) { Write-Verbose ("stdout: " + (Get-Content $stdOut -Raw)) -Verbose }
     }
 
+    # Heuristic: detect HTTPS usage if listener line includes cert/self-signed flags
+    $usesHttps = $false
+    if ($content -match 'Add-KrListener[^\n]*-SelfSignedCert' -or $content -match 'Add-KrListener[^\n]*-CertPath' -or $content -match 'Add-KrListener[^\n]*-X509Certificate') {
+        $usesHttps = $true
+    }
+
     return [pscustomobject]@{
         Name = $Name
+        Url = ("{0}://127.0.0.1:{1}" -f ($usesHttps ? 'https' : 'http'), $Port)
         Port = $Port
         TempPath = $tmp
         Process = $proc
@@ -217,6 +233,7 @@ Start-KrServer
         ScriptDirectory = $scriptDir
         OriginalLocation = $originalLocation
         PushedLocation = $true
+        Https = $usesHttps
     }
 }
 
@@ -244,7 +261,8 @@ function Stop-ExampleScript {
 function Get-ExampleRoutePattern {
     [CmdletBinding()] param([Parameter(Mandatory)][string]$ScriptContent)
     $routes = @()
-    $pattern = 'Add-KrMapRoute\b[^\n\r]*?-Pattern\s+"([^"]+)"'
+    # Support both -Pattern and -Path parameters for route definitions
+    $pattern = 'Add-KrMapRoute\b[^\n\r]*?-(?:Pattern|Path)\s+"([^"]+)"'
     foreach ($m in [regex]::Matches($ScriptContent, $pattern)) { $routes += $m.Groups[1].Value }
     $routes | Where-Object { $_ -and $_ -ne '/shutdown' } | Sort-Object -Unique
 }
@@ -256,6 +274,32 @@ function Convert-RouteToUrl {
     "http://127.0.0.1:$Port$r"
 }
 
+<#
+.SYNOPSIS
+    Test all routes defined in an example script for 200 response.
+.DESCRIPTION
+    Extracts route patterns from the provided script content, converts them to URLs using the instance's port,
+    and issues GET requests to each. Skips routes matching any of the provided skip patterns.
+    Optionally allows custom invokers per route, content expectations, and body non-empty assertion.
+.PARAMETER Instance
+    The object returned by Start-ExampleScript representing the running instance to test.
+.PARAMETER SkipPatterns
+    Array of regex patterns; any route matching one will be skipped. Default skips common non-content routes.
+.PARAMETER CustomInvokers
+    Hashtable mapping route patterns to scriptblocks that take parameters (Url, Port, Route, Instance)
+    and perform custom request logic. If provided, the scriptblock is invoked instead of the default
+    GET request for that route.
+.PARAMETER ContentExpectations
+    Hashtable mapping route patterns to expected content checks. Each value can be:
+    - A string: asserts the response body contains that substring.
+    - A scriptblock: invoked with parameters (Response, Route, Instance) for custom assertions.
+    - A hashtable with keys 'Contains', 'Regex', or 'Exact' for specific assertions.
+.PARAMETER AssertBodyNotEmpty
+    If set, asserts that the response body is not empty for routes without specific content expectations.
+    This helps catch cases where a route might return a 200 status but no content.
+.OUTPUTS
+    None. Uses Pester assertions to validate each route.
+#>
 function Test-ExampleRouteSet {
     [CmdletBinding()] param(
         [Parameter(Mandatory)]$Instance,
@@ -280,7 +324,10 @@ function Test-ExampleRouteSet {
         }
 
         Write-Host "Testing $($Instance.Name): $r -> $url ($method)" -ForegroundColor Cyan
-        $resp = Invoke-WebRequest -Uri $url -UseBasicParsing -TimeoutSec 8 -Method $method -Headers $headers -Body $body
+        if ($Instance.Https) { $url = $url -replace '^http:', 'https:' }
+        $invokeParams = @{ Uri = $url; UseBasicParsing = $true; TimeoutSec = 8; Method = $method; Headers = $headers; Body = $body }
+        if ($Instance.Https) { $invokeParams.SkipCertificateCheck = $true }
+        $resp = Invoke-WebRequest @invokeParams
         if ($resp.StatusCode -ne 200) { throw "Route $r returned status $($resp.StatusCode)" }
 
         # Content assertions
@@ -322,6 +369,7 @@ function Invoke-ExampleRequest {
     for ($i = 0; $i -le $RetryCount; $i++) {
         try {
             $invokeParams = @{ Uri = $Uri; Method = $Method; UseBasicParsing = $true; TimeoutSec = 8 }
+            if ($Uri -like 'https://*') { $invokeParams.SkipCertificateCheck = $true }
             if ($Headers) { $invokeParams.Headers = $Headers }
             if ($Body) { $invokeParams.Body = $Body }
             if ($ContentType) { $invokeParams.ContentType = $ContentType }
@@ -367,38 +415,38 @@ function Assert-YamlContainsKeyValue {
     $pattern = "^\s*${Key}:\s*${Expected}\s*$"
     ($text -split "`n") | Where-Object { $_ -match $pattern } | Should -Not -BeNullOrEmpty -Because "YAML should contain '${Key}: ${Expected}'"
 }
-
+<#
+.SYNOPSIS
+    Unified content assertion for a route.
+.DESCRIPTION
+    Issues a request and validates status plus one of: Exact, Contains, Regex,
+    Json (field/value), or Yaml (key/value). Fails if none of the expectation
+    parameters are provided.
+.PARAMETER Uri
+    Fully qualified URL.
+.PARAMETER Method
+    HTTP verb (default GET).
+.PARAMETER ExpectStatus
+    Expected status (default 200).
+.PARAMETER Exact
+    Exact body match string.
+.PARAMETER Contains
+    Substring expected anywhere in body.
+.PARAMETER Regex
+    Regex pattern expected to match body.
+.PARAMETER JsonField
+    JSON field name (when body is JSON) whose value must equal JsonValue.
+.PARAMETER JsonValue
+    Expected JSON field value (string compare Post-ConvertFromJson).
+.PARAMETER YamlKey
+    YAML key to search (with simple 'key: value' line search or numeric normalization fallback).
+.PARAMETER YamlValue
+    Expected YAML value for YamlKey.
+.PARAMETER ReturnResponse
+    Return the underlying Invoke-WebRequest result (for chaining) instead of nothing.
+#>
 function Assert-RouteContent {
-    <#
-        .SYNOPSIS
-            Unified content assertion for a route.
-        .DESCRIPTION
-            Issues a request and validates status plus one of: Exact, Contains, Regex,
-            Json (field/value), or Yaml (key/value). Fails if none of the expectation
-            parameters are provided.
-        .PARAMETER Uri
-            Fully qualified URL.
-        .PARAMETER Method
-            HTTP verb (default GET).
-        .PARAMETER ExpectStatus
-            Expected status (default 200).
-        .PARAMETER Exact
-            Exact body match string.
-        .PARAMETER Contains
-            Substring expected anywhere in body.
-        .PARAMETER Regex
-            Regex pattern expected to match body.
-        .PARAMETER JsonField
-            JSON field name (when body is JSON) whose value must equal JsonValue.
-        .PARAMETER JsonValue
-            Expected JSON field value (string compare Post-ConvertFromJson).
-        .PARAMETER YamlKey
-            YAML key to search (with simple 'key: value' line search or numeric normalization fallback).
-        .PARAMETER YamlValue
-            Expected YAML value for YamlKey.
-        .PARAMETER ReturnResponse
-            Return the underlying Invoke-WebRequest result (for chaining) instead of nothing.
-    #>
+
     [CmdletBinding()] param(
         [Parameter(Mandatory)][string]$Uri,
         [ValidateSet('Get', 'Post', 'Put', 'Patch', 'Delete', 'Head')][string]$Method = 'Get',
@@ -419,6 +467,7 @@ function Assert-RouteContent {
         throw 'Assert-RouteContent: Provide one of Exact/Contains/Regex or JsonField+JsonValue or YamlKey+YamlValue.'
     }
     $invokeParams = @{ Uri = $Uri; Method = $Method; UseBasicParsing = $true; TimeoutSec = 10 }
+    if ($Uri -like 'https://*') { $invokeParams.SkipCertificateCheck = $true }
     if ($Headers) { $invokeParams.Headers = $Headers }
     if ($Body) { $invokeParams.Body = $Body }
     if ($ContentType) { $invokeParams.ContentType = $ContentType }

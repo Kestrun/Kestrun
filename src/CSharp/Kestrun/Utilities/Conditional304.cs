@@ -84,12 +84,20 @@ internal static class CacheRevalidation
             ArraySegment<byte> seg => seg.Array is null ? [] : seg.Array.AsSpan(seg.Offset, seg.Count).ToArray(),
             string text => ChooseEncodingFromAcceptCharset(req.Headers[HeaderNames.AcceptCharset]).GetBytes(text),
             Stream s => ReadAllBytesPreservePosition(s),
-            IFormFile formFile => ReadAllBytesPreservePosition(formFile.OpenReadStream()),
+            IFormFile formFile => ReadAllBytesFromFormFile(formFile),
             _ => throw new ArgumentException(
                 $"Cannot derive bytes from payload of type '{payload.GetType().FullName}'. Provide an explicit ETag or pass a byte-like payload (byte[], ReadOnlyMemory<byte>, Memory<byte>, ArraySegment<byte>, Stream, IFormFile, or string).")
         };
     }
 
+    /// <summary>
+    /// Reads all bytes from an IFormFile, disposing the stream after reading.
+    /// </summary>
+    private static byte[] ReadAllBytesFromFormFile(IFormFile formFile)
+    {
+        using var stream = formFile.OpenReadStream();
+        return ReadAllBytesPreservePosition(stream);
+    }
     /// <summary>Determines whether client's If-None-Match header matches the normalized ETag (or *).</summary>
     private static bool ETagMatchesClient(HttpRequest req, string? normalizedETag)
     {

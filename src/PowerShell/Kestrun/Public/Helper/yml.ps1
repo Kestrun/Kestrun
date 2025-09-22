@@ -11,211 +11,10 @@ enum SerializationOptions {
     UseFlowStyle = 128
     UseSequenceFlowStyle = 256
 }
-$infinityRegex = [regex]::new('^[-+]?(\.inf|\.Inf|\.INF)$', "Compiled, CultureInvariant");
 
 
-function Get-YamlDocuments {
-    [CmdletBinding()]
-    param(
-        [Parameter(Mandatory = $true, ValueFromPipeline = $true)]
-        [string]$Yaml,
-        [switch]$UseMergingParser = $false
-    )
-    process {
-        $stringReader = New-Object System.IO.StringReader($Yaml)
-        $parserType = $yamlDotNetAssembly.GetType("YamlDotNet.Core.Parser")
-        $parser = $parserType::new($stringReader)
-        if ($UseMergingParser) {
-            $parserType = $yamlDotNetAssembly.GetType("YamlDotNet.Core.MergingParser")
-            $parser = $parserType::new($parser)
-        }
 
-        $yamlStream = $yamlDotNetAssembly.GetType("YamlDotNet.RepresentationModel.YamlStream")::new()
-        $yamlStream.Load($parser)
 
-        $stringReader.Close()
-
-        return $yamlStream
-    }
-}
-
-function Convert-ValueToProperType {
-    [CmdletBinding()]
-    param(
-        [Parameter(Mandatory = $true, ValueFromPipeline = $true)]
-        [System.Object]$Node
-    )
-    process {
-        if (!($Node.Value -is [string])) {
-            return $Node
-        }
-        $intTypes = @([int], [long])
-        if ([string]::IsNullOrEmpty($Node.Tag) -eq $false) {
-            switch ($Node.Tag) {
-                "tag:yaml.org,2002:str" {
-                    return $Node.Value
-                }
-                "tag:yaml.org,2002:null" {
-                    return $null
-                }
-                "tag:yaml.org,2002:bool" {
-                    $parsedValue = $false
-                    if (![boolean]::TryParse($Node.Value, [ref]$parsedValue)) {
-                        throw ("failed to parse scalar {0} as boolean" -f $Node)
-                    }
-                    return $parsedValue
-                }
-                "tag:yaml.org,2002:int" {
-                    $parsedValue = 0
-                    if ($node.Value.Length -gt 2) {
-                        switch ($node.Value.Substring(0, 2)) {
-                            "0o" {
-                                $parsedValue = [Convert]::ToInt64($Node.Value.Substring(2), 8)
-                            }
-                            "0x" {
-                                $parsedValue = [Convert]::ToInt64($Node.Value.Substring(2), 16)
-                            }
-                            default {
-                                if (![System.Numerics.BigInteger]::TryParse($Node.Value, @([Globalization.NumberStyles]::Float, [Globalization.NumberStyles]::Integer), [Globalization.CultureInfo]::InvariantCulture, [ref]$parsedValue)) {
-                                    throw ("failed to parse scalar {0} as long" -f $Node)
-                                }
-                            }
-                        }
-                    } else {
-                        if (![System.Numerics.BigInteger]::TryParse($Node.Value, @([Globalization.NumberStyles]::Float, [Globalization.NumberStyles]::Integer), [Globalization.CultureInfo]::InvariantCulture, [ref]$parsedValue)) {
-                            throw ("failed to parse scalar {0} as long" -f $Node)
-                        }
-                    }
-                    foreach ($i in $intTypes) {
-                        $asIntType = $parsedValue -as $i
-                        if ($null -ne $asIntType) {
-                            return $asIntType
-                        }
-                    }
-                    return $parsedValue
-                }
-                "tag:yaml.org,2002:float" {
-                    $parsedValue = 0.0
-                    if ($infinityRegex.Matches($Node.Value).Count -gt 0) {
-                        $prefix = $Node.Value.Substring(0, 1)
-                        switch ($prefix) {
-                            "-" {
-                                return [double]::NegativeInfinity
-                            }
-                            default {
-                                # Prefix is either missing or is a +
-                                return [double]::PositiveInfinity
-                            }
-                        }
-                    }
-                    if (![decimal]::TryParse($Node.Value, [Globalization.NumberStyles]::Float, [Globalization.CultureInfo]::InvariantCulture, [ref]$parsedValue)) {
-                        throw ("failed to parse scalar {0} as decimal" -f $Node)
-                    }
-                    return $parsedValue
-                }
-                "tag:yaml.org,2002:timestamp" {
-                    # From the YAML spec: http://yaml.org/type/timestamp.html
-                    [DateTime]$parsedValue = [DateTime]::MinValue
-                    $ts = [DateTime]::SpecifyKind($Node.Value, [System.DateTimeKind]::Utc)
-                    $tss = $ts.ToString("o")
-                    if (![datetime]::TryParse($tss, $null, [System.Globalization.DateTimeStyles]::RoundtripKind, [ref] $parsedValue)) {
-                        throw ("failed to parse scalar {0} as DateTime" -f $Node)
-                    }
-                    return $parsedValue
-                }
-            }
-        }
-
-        if ($Node.Style -eq 'Plain') {
-            $parsedValue = New-Object -TypeName ([Boolean].FullName)
-            $result = [boolean]::TryParse($Node, [ref]$parsedValue)
-            if ( $result ) {
-                return $parsedValue
-            }
-
-            $parsedValue = New-Object -TypeName ([System.Numerics.BigInteger].FullName)
-            $result = [System.Numerics.BigInteger]::TryParse($Node, @([Globalization.NumberStyles]::Float, [Globalization.NumberStyles]::Integer), [Globalization.CultureInfo]::InvariantCulture, [ref]$parsedValue)
-            if ($result) {
-                $types = @([int], [long])
-                foreach ($i in $types) {
-                    $asType = $parsedValue -as $i
-                    if ($null -ne $asType) {
-                        return $asType
-                    }
-                }
-                return $parsedValue
-            }
-            $types = @([decimal], [double])
-            foreach ($i in $types) {
-                $parsedValue = New-Object -TypeName $i.FullName
-                $result = $i::TryParse($Node, [Globalization.NumberStyles]::Float, [Globalization.CultureInfo]::InvariantCulture, [ref]$parsedValue)
-                if ( $result ) {
-                    return $parsedValue
-                }
-            }
-        }
-
-        if ($Node.Style -eq 'Plain' -and $Node.Value -in '', '~', 'null', 'Null', 'NULL') {
-            return $null
-        }
-
-        return $Node.Value
-    }
-}
-
-function Convert-YamlMappingToHashtable {
-    [CmdletBinding()]
-    param(
-        [Parameter(Mandatory = $true, ValueFromPipeline = $true)]
-        $Node,
-        [switch] $Ordered
-    )
-    process {
-        if ($Ordered) { $ret = [ordered]@{} } else { $ret = @{} }
-        foreach ($i in $Node.Children.Keys) {
-            $ret[$i.Value] = Convert-YamlDocumentToPSObject $Node.Children[$i] -Ordered:$Ordered
-        }
-        return $ret
-    }
-}
-
-function Convert-YamlSequenceToArray {
-    [CmdletBinding()]
-    param(
-        [Parameter(Mandatory = $true, ValueFromPipeline = $true)]
-        $Node,
-        [switch]$Ordered
-    )
-    process {
-        $ret = [System.Collections.Generic.List[object]](New-Object "System.Collections.Generic.List[object]")
-        foreach ($i in $Node.Children) {
-            $ret.Add((Convert-YamlDocumentToPSObject $i -Ordered:$Ordered))
-        }
-        return , $ret
-    }
-}
-
-function Convert-YamlDocumentToPSObject {
-    [CmdletBinding()]
-    param(
-        [Parameter(Mandatory = $true, ValueFromPipeline = $true)]
-        [System.Object]$Node,
-        [switch]$Ordered
-    )
-    process {
-        switch ($Node.GetType().FullName) {
-            "YamlDotNet.RepresentationModel.YamlMappingNode" {
-                return Convert-YamlMappingToHashtable $Node -Ordered:$Ordered
-            }
-            "YamlDotNet.RepresentationModel.YamlSequenceNode" {
-                return Convert-YamlSequenceToArray $Node -Ordered:$Ordered
-            }
-            "YamlDotNet.RepresentationModel.YamlScalarNode" {
-                return (Convert-ValueToProperType $Node)
-            }
-        }
-    }
-}
 
 function Convert-HashtableToDictionary {
     param(
@@ -273,6 +72,7 @@ function Convert-PSObjectToGenericObject {
 }
 
 function ConvertFrom-Yaml {
+    [KestrunRuntimeApi('Everywhere')]
     [CmdletBinding()]
     param(
         [Parameter(Mandatory = $false, ValueFromPipeline = $true, Position = 0)]
@@ -295,19 +95,19 @@ function ConvertFrom-Yaml {
         if ($d -eq "") {
             return
         }
-        $documents = Get-YamlDocuments -Yaml $d -UseMergingParser:$UseMergingParser
+        $documents = [Kestrun.Utilities.Yaml.YamlLoader]::GetYamlDocuments($d, $UseMergingParser)
         if (!$documents.Count) {
             return
         }
         if ($documents.Count -eq 1) {
-            return Convert-YamlDocumentToPSObject $documents[0].RootNode -Ordered:$Ordered
+            return [Kestrun.Utilities.Yaml.YamlTypeConverter]::ConvertYamlDocumentToPSObject($documents[0].RootNode, $Ordered) # single document
         }
         if (!$AllDocuments) {
-            return Convert-YamlDocumentToPSObject $documents[0].RootNode -Ordered:$Ordered
+            return [Kestrun.Utilities.Yaml.YamlTypeConverter]::ConvertYamlDocumentToPSObject($documents[0].RootNode, $Ordered)
         }
         $ret = @()
         foreach ($i in $documents) {
-            $ret += Convert-YamlDocumentToPSObject $i.RootNode -Ordered:$Ordered
+            $ret += [Kestrun.Utilities.Yaml.YamlTypeConverter]::ConvertYamlDocumentToPSObject($i.RootNode, $Ordered)
         }
         return $ret
     }
@@ -352,6 +152,7 @@ function Get-Serializer {
 }
 
 function ConvertTo-Yaml {
+    [KestrunRuntimeApi('Everywhere')]
     [CmdletBinding(DefaultParameterSetName = 'NoOptions')]
     param(
         [Parameter(ValueFromPipeline = $true, Position = 0)]

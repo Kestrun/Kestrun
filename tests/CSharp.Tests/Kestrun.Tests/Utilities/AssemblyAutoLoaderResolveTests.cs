@@ -3,14 +3,14 @@ using Microsoft.CodeAnalysis.CSharp;
 using Kestrun.Utilities;
 using Xunit;
 
-namespace KestrunTests.Utility;
+namespace KestrunTests.Utilities;
 
 public class AssemblyAutoLoaderResolveTests
 {
     private static readonly string SourceCode = "public class AutoLoaderTempType { public string Echo(string s)=>s; }";
 
     [Fact]
-    [Trait("Category", "Utility")]
+    [Trait("Category", "Utilities")]
     public void Resolve_From_Secondary_Directory_Loads_OnDemand()
     {
         // Clean initial state
@@ -51,7 +51,7 @@ public class AssemblyAutoLoaderResolveTests
     }
 
     [Fact]
-    [Trait("Category", "Utility")]
+    [Trait("Category", "Utilities")]
     public void PreloadAll_Skips_Duplicate_Load()
     {
         AssemblyAutoLoader.Clear(clearSearchDirs: true);

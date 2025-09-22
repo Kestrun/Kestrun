@@ -2,12 +2,12 @@ using Kestrun.Utilities;
 using System.Reflection;
 using Xunit;
 
-namespace KestrunTests.Utility;
+namespace KestrunTests.Utilities;
 
 public class PowerShellModuleLocatorTests
 {
     [Fact]
-    [Trait("Category", "Utility")]
+    [Trait("Category", "Utilities")]
     public void FindFileUpwards_FindsFile()
     {
         var root = Directory.CreateTempSubdirectory();

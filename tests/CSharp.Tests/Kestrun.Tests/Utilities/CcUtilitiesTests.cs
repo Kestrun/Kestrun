@@ -1,7 +1,7 @@
 using Kestrun.Utilities;
 using Xunit;
 
-namespace KestrunTests.Utility;
+namespace KestrunTests.Utilities;
 
 public class CcUtilitiesTests
 {
@@ -27,7 +27,7 @@ public class CcUtilitiesTests
     }
 
     [Fact]
-    [Trait("Category", "Utility")]
+    [Trait("Category", "Utilities")]
     public void PreviewFeaturesEnabled_ReflectsAppContextSwitch()
     {
         // Ensure default is false when switch not set

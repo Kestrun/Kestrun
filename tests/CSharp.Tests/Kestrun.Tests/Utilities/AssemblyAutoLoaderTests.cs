@@ -1,12 +1,12 @@
 using Kestrun.Utilities;
 using Xunit;
 
-namespace KestrunTests.Utility;
+namespace KestrunTests.Utilities;
 
 public class AssemblyAutoLoaderTests
 {
     [Fact]
-    [Trait("Category", "Utility")]
+    [Trait("Category", "Utilities")]
     public void PreloadAll_IgnoresMissingDirs_AndCanClear()
     {
         // Create a temporary empty directory to register

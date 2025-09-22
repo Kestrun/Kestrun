@@ -2,13 +2,13 @@ using System.Security;
 using Kestrun.Utilities;
 using Xunit;
 
-namespace KestrunTests.Utility;
+namespace KestrunTests.Utilities;
 
 public class SecureStringUtilsTests
 {
 
     [Fact]
-    [Trait("Category", "Utility")]
+    [Trait("Category", "Utilities")]
     public void ToSecureString_RoundTrip_Works()
     {
         var text = "s3cr3t!".AsSpan();
@@ -19,7 +19,7 @@ public class SecureStringUtilsTests
     }
 
     [Fact]
-    [Trait("Category", "Utility")]
+    [Trait("Category", "Utilities")]
     public void ToSecureSpan_ThrowsOnEmpty()
     {
         var empty = new SecureString();
@@ -28,6 +28,6 @@ public class SecureStringUtilsTests
     }
 
     [Fact]
-    [Trait("Category", "Utility")]
+    [Trait("Category", "Utilities")]
     public void ToSecureString_ThrowsOnEmpty() => _ = Assert.Throws<ArgumentException>(() => ReadOnlySpan<char>.Empty.ToSecureString());
 }

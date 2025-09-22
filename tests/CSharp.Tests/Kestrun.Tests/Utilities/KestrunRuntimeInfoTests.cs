@@ -1,11 +1,11 @@
 using Xunit;
 
-namespace KestrunTests.Utility;
+namespace KestrunTests.Utilities;
 
 public class KestrunRuntimeInfoTests
 {
     [Fact]
-    [Trait("Category", "Utility")]
+    [Trait("Category", "Utilities")]
     public void BuiltTargetFrameworkVersion_IsNonZero()
     {
         var ver = Kestrun.KestrunRuntimeInfo.GetBuiltTargetFrameworkVersion();
@@ -14,7 +14,7 @@ public class KestrunRuntimeInfoTests
     }
 
     [Fact]
-    [Trait("Category", "Utility")]
+    [Trait("Category", "Utilities")]
     public void BuiltTargetFrameworkName_IsNotUnknown()
     {
         var name = Kestrun.KestrunRuntimeInfo.GetBuiltTargetFrameworkName();
@@ -23,7 +23,7 @@ public class KestrunRuntimeInfoTests
     }
 
     [Fact]
-    [Trait("Category", "Utility")]
+    [Trait("Category", "Utilities")]
     public void TryGetMinVersion_KnownFeature_Http3()
     {
         Assert.True(Kestrun.KestrunRuntimeInfo.TryGetMinVersion(nameof(Kestrun.KestrunRuntimeInfo.KnownFeature.Http3), out var min));
@@ -31,7 +31,7 @@ public class KestrunRuntimeInfoTests
     }
 
     [Fact]
-    [Trait("Category", "Utility")]
+    [Trait("Category", "Utilities")]
     public void TryGetMinVersion_KnownFeature_SuppressReadingTokenFromFormBody()
     {
         var featureName = nameof(Kestrun.KestrunRuntimeInfo.KnownFeature.SuppressReadingTokenFromFormBody);
@@ -42,7 +42,7 @@ public class KestrunRuntimeInfoTests
     }
 
     [Fact]
-    [Trait("Category", "Utility")]
+    [Trait("Category", "Utilities")]
     public void Supports_SuppressReadingTokenFromFormBody_FeatureGate()
     {
         var feature = Kestrun.KestrunRuntimeInfo.KnownFeature.SuppressReadingTokenFromFormBody;
@@ -54,7 +54,7 @@ public class KestrunRuntimeInfoTests
     }
 
     [Fact]
-    [Trait("Category", "Utility")]
+    [Trait("Category", "Utilities")]
     public void Supports_StringOverload_SuppressReadingTokenFromFormBody_FeatureGate()
     {
         var featureName = nameof(Kestrun.KestrunRuntimeInfo.KnownFeature.SuppressReadingTokenFromFormBody);
@@ -66,11 +66,11 @@ public class KestrunRuntimeInfoTests
     }
 
     [Fact]
-    [Trait("Category", "Utility")]
+    [Trait("Category", "Utilities")]
     public void Supports_UnknownFeature_False() => Assert.False(Kestrun.KestrunRuntimeInfo.Supports("TotallyUnknownFeatureName"));
 
     [Fact]
-    [Trait("Category", "Utility")]
+    [Trait("Category", "Utilities")]
     public void GetKnownFeatures_IncludesExpected()
     {
         var features = Kestrun.KestrunRuntimeInfo.GetKnownFeatures().ToList();

@@ -3,12 +3,12 @@ using Microsoft.AspNetCore.Http;
 using Xunit;
 using Kestrun.Utilities;
 
-namespace KestrunTests.Utility;
+namespace KestrunTests.Utilities;
 
 public class BuildErrorTests
 {
     [Fact]
-    [Trait("Category", "Utility")]
+    [Trait("Category", "Utilities")]
     public void Text_ReturnsFormattedErrors()
     {
         using var ps = PowerShell.Create();
@@ -19,7 +19,7 @@ public class BuildErrorTests
     }
 
     [Fact]
-    [Trait("Category", "Utility")]
+    [Trait("Category", "Utilities")]
     public async Task ResponseAsync_WritesToContext()
     {
         using var ps = PowerShell.Create();
@@ -34,7 +34,7 @@ public class BuildErrorTests
     }
 
     [Fact]
-    [Trait("Category", "Utility")]
+    [Trait("Category", "Utilities")]
     public void Result_ReturnsIResult()
     {
         using var ps = PowerShell.Create();

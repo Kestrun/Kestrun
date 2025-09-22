@@ -1,11 +1,11 @@
 using Xunit;
 
-namespace KestrunTests.Utility;
+namespace KestrunTests.Utilities;
 
 public class KestrunRuntimeApiAttributeTests
 {
     [Fact]
-    [Trait("Category", "Utility")]
+    [Trait("Category", "Utilities")]
     public void Attribute_StoresContexts_And_Properties()
     {
         var attr = new KestrunRuntimeApiAttribute(KestrunApiContext.Definition | KestrunApiContext.Route)
@@ -21,7 +21,7 @@ public class KestrunRuntimeApiAttributeTests
     }
 
     [Fact]
-    [Trait("Category", "Utility")]
+    [Trait("Category", "Utilities")]
     public void ApiContext_ComposedFlags_Work()
     {
         Assert.Equal(KestrunApiContext.Schedule | KestrunApiContext.Definition, KestrunApiContext.ScheduleAndDefinition);

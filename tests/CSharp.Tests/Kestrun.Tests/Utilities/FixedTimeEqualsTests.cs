@@ -2,12 +2,12 @@ using System.Text;
 using Kestrun;
 using Xunit;
 
-namespace KestrunTests.Utility;
+namespace KestrunTests.Utilities;
 
 public class FixedTimeEqualsTests
 {
     [Fact]
-    [Trait("Category", "Utility")]
+    [Trait("Category", "Utilities")]
     public void Bytes_vs_Bytes_Match_ReturnsTrue()
     {
         var a = Encoding.UTF8.GetBytes("my-secret-api-key");
@@ -16,7 +16,7 @@ public class FixedTimeEqualsTests
     }
 
     [Fact]
-    [Trait("Category", "Utility")]
+    [Trait("Category", "Utilities")]
     public void Bytes_vs_Bytes_Mismatch_ReturnsFalse()
     {
         var a = Encoding.UTF8.GetBytes("my-secret-api-key");
@@ -25,15 +25,15 @@ public class FixedTimeEqualsTests
     }
 
     [Fact]
-    [Trait("Category", "Utility")]
+    [Trait("Category", "Utilities")]
     public void String_vs_String_Match_ReturnsTrue() => Assert.True(FixedTimeEquals.Test("my-secret-api-key", "my-secret-api-key"));
 
     [Fact]
-    [Trait("Category", "Utility")]
+    [Trait("Category", "Utilities")]
     public void String_vs_String_Mismatch_ReturnsFalse() => Assert.False(FixedTimeEquals.Test("my-secret-api-key", "my-secret-api-key-"));
 
     [Fact]
-    [Trait("Category", "Utility")]
+    [Trait("Category", "Utilities")]
     public void Bytes_vs_String_Match_ReturnsTrue()
     {
         var bytes = Encoding.UTF8.GetBytes("my-secret-api-key");
@@ -41,7 +41,7 @@ public class FixedTimeEqualsTests
     }
 
     [Fact]
-    [Trait("Category", "Utility")]
+    [Trait("Category", "Utilities")]
     public void Bytes_vs_String_Mismatch_ReturnsFalse()
     {
         var bytes = Encoding.UTF8.GetBytes("my-secret-api-key");
@@ -49,7 +49,7 @@ public class FixedTimeEqualsTests
     }
 
     [Fact]
-    [Trait("Category", "Utility")]
+    [Trait("Category", "Utilities")]
     public void String_vs_Bytes_Match_ReturnsTrue()
     {
         var bytes = Encoding.UTF8.GetBytes("pässwörd");
@@ -57,7 +57,7 @@ public class FixedTimeEqualsTests
     }
 
     [Fact]
-    [Trait("Category", "Utility")]
+    [Trait("Category", "Utilities")]
     public void String_vs_Bytes_Mismatch_ReturnsFalse()
     {
         var bytes = Encoding.UTF8.GetBytes("pässwörd");
@@ -65,7 +65,7 @@ public class FixedTimeEqualsTests
     }
 
     [Fact]
-    [Trait("Category", "Utility")]
+    [Trait("Category", "Utilities")]
     public void Null_Strings_ReturnFalse()
     {
         Assert.False(FixedTimeEquals.Test((string?)null, "x"));
@@ -73,6 +73,6 @@ public class FixedTimeEqualsTests
     }
 
     [Fact]
-    [Trait("Category", "Utility")]
+    [Trait("Category", "Utilities")]
     public void Empty_Strings_Match_ReturnsTrue() => Assert.True(FixedTimeEquals.Test("", ""));
 }

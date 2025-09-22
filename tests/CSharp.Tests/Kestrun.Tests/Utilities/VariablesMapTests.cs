@@ -4,7 +4,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Features;
 using Xunit;
 
-namespace KestrunTests.Utility;
+namespace KestrunTests.Utilities;
 
 public class VariablesMapTests
 {
@@ -31,7 +31,7 @@ public class VariablesMapTests
     }
 
     [Fact]
-    [Trait("Category", "Utility")]
+    [Trait("Category", "Utilities")]
     public void GetCommonProperties_PopulatesExpectedKeys()
     {
         var (ctx, _) = MakeContext();
@@ -46,7 +46,7 @@ public class VariablesMapTests
     }
 
     [Fact]
-    [Trait("Category", "Utility")]
+    [Trait("Category", "Utilities")]
     public void GetVariablesMap_AddsSharedState_And_Common()
     {
         var (ctx, _) = MakeContext();

@@ -2,7 +2,7 @@ using Kestrun;
 using System.Reflection;
 using Xunit;
 
-namespace KestrunTests.Utility;
+namespace KestrunTests.Utilities;
 
 public class RegexUtilsTests
 {
@@ -22,7 +22,7 @@ public class RegexUtilsTests
     public void IsGlobMatch_Works(string input, string pattern, bool expected) => Assert.Equal(expected, InvokeIsGlobMatch(input, pattern));
 
     [Fact]
-    [Trait("Category", "Utility")]
+    [Trait("Category", "Utilities")]
     public void IsGlobMatch_CaseSensitive_Works()
     {
         Assert.True(InvokeIsGlobMatch(input: "abc", pattern: "ABC"));

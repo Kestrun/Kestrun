@@ -1,7 +1,7 @@
 using Kestrun.Utilities;
 using Xunit;
 
-namespace KestrunTests.Utility;
+namespace KestrunTests.Utilities;
 
 public class HttpVerbParsingTests
 {
@@ -23,7 +23,7 @@ public class HttpVerbParsingTests
     }
 
     [Fact]
-    [Trait("Category", "Utility")]
+    [Trait("Category", "Utilities")]
     public void FromMethodString_ThrowsOnUnknown()
     {
         _ = Assert.Throws<ArgumentException>(() => HttpVerbExtensions.FromMethodString("NOPE"));

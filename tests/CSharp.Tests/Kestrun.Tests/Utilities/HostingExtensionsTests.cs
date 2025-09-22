@@ -1,12 +1,12 @@
 // Intentionally left blank: HostingExtensions requires integration-style testing with a running host.
 using Xunit;
 
-namespace KestrunTests.Utility;
+namespace KestrunTests.Utilities;
 
 // Placeholder to document that HostingExtensions requires integration testing with a running host.
 public class HostingExtensionsTests
 {
     [Fact]
-    [Trait("Category", "Utility")]
+    [Trait("Category", "Utilities")]
     public void Placeholder() => Assert.True(true);
 }

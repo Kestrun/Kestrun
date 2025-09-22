@@ -2,12 +2,12 @@ using System.Collections;
 using Kestrun.Utilities;
 using Xunit;
 
-namespace KestrunTests.Utility;
+namespace KestrunTests.Utilities;
 
 public class ReadOnlyDictionaryAdapterTests
 {
     [Fact]
-    [Trait("Category", "Utility")]
+    [Trait("Category", "Utilities")]
     public void Indexer_ReturnsValueOrNull()
     {
         IDictionary inner = new Hashtable
@@ -23,7 +23,7 @@ public class ReadOnlyDictionaryAdapterTests
     }
 
     [Fact]
-    [Trait("Category", "Utility")]
+    [Trait("Category", "Utilities")]
     public void Keys_And_Values_Enumerate()
     {
         IDictionary inner = new Hashtable
@@ -40,7 +40,7 @@ public class ReadOnlyDictionaryAdapterTests
     }
 
     [Fact]
-    [Trait("Category", "Utility")]
+    [Trait("Category", "Utilities")]
     public void Contains_TryGet_And_Count_Work()
     {
         IDictionary inner = new Hashtable
@@ -58,7 +58,7 @@ public class ReadOnlyDictionaryAdapterTests
     }
 
     [Fact]
-    [Trait("Category", "Utility")]
+    [Trait("Category", "Utilities")]
     public void GetEnumerator_YieldsStringKeys()
     {
         IDictionary inner = new Hashtable

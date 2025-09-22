@@ -2,12 +2,12 @@ using Kestrun.Utilities;
 using System.Collections;
 using Xunit;
 
-namespace KestrunTests.Utility;
+namespace KestrunTests.Utilities;
 
 public class YamlHelperTests
 {
     [Fact]
-    [Trait("Category", "Utility")]
+    [Trait("Category", "Utilities")]
     public void ToYaml_SerializesObject()
     {
         var ht = new Hashtable { { "name", "foo" }, { "value", 1 } };
@@ -17,7 +17,7 @@ public class YamlHelperTests
     }
 
     [Fact]
-    [Trait("Category", "Utility")]
+    [Trait("Category", "Utilities")]
     public void FromYamlToHashtable_RoundTrip()
     {
         var yaml = "name: foo\nvalue: 1";
@@ -28,7 +28,7 @@ public class YamlHelperTests
     }
 
     [Fact]
-    [Trait("Category", "Utility")]
+    [Trait("Category", "Utilities")]
     public void FromYamlToPSCustomObject_RoundTrip()
     {
         var yaml = "name: foo\nvalue: 1";
@@ -38,7 +38,7 @@ public class YamlHelperTests
     }
 
     [Fact]
-    [Trait("Category", "Utility")]
+    [Trait("Category", "Utilities")]
     public void ToYaml_SerializesHashtableAndList()
     {
         var ht = new Hashtable
@@ -52,7 +52,7 @@ public class YamlHelperTests
     }
 
     [Fact]
-    [Trait("Category", "Utility")]
+    [Trait("Category", "Utilities")]
     public void FromYaml_Deserializes_ToHashtable_And_PSCustomObject()
     {
         var yaml = "a: 1\nb:\n - x\n - 2\n";

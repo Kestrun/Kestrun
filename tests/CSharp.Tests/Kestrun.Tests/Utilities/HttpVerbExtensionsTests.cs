@@ -1,7 +1,7 @@
 using Kestrun.Utilities;
 using Xunit;
 
-namespace KestrunTests.Utility;
+namespace KestrunTests.Utilities;
 
 public class HttpVerbExtensionsTests
 {

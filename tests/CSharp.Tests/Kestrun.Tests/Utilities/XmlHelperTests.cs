@@ -3,12 +3,12 @@ using System.Collections;
 using System.Xml.Linq;
 using Xunit;
 
-namespace KestrunTests.Utility;
+namespace KestrunTests.Utilities;
 
 public class XmlHelperTests
 {
     [Fact]
-    [Trait("Category", "Utility")]
+    [Trait("Category", "Utilities")]
     public void ToXml_Null_ReturnsNilElement()
     {
         var elem = XmlHelper.ToXml("Value", null);
@@ -17,7 +17,7 @@ public class XmlHelperTests
     }
 
     [Fact]
-    [Trait("Category", "Utility")]
+    [Trait("Category", "Utilities")]
     public void ToXml_Primitive_ReturnsElementWithValue()
     {
         var elem = XmlHelper.ToXml("Number", 42);
@@ -25,7 +25,7 @@ public class XmlHelperTests
     }
 
     [Fact]
-    [Trait("Category", "Utility")]
+    [Trait("Category", "Utilities")]
     public void ToXml_Dictionary_ReturnsNestedElements()
     {
         var dict = new Hashtable { { "A", 1 }, { "B", 2 } };
@@ -35,7 +35,7 @@ public class XmlHelperTests
     }
 
     [Fact]
-    [Trait("Category", "Utility")]
+    [Trait("Category", "Utilities")]
     public void ToXml_List_ReturnsItemElements()
     {
         var list = new List<int> { 1, 2 };
@@ -49,7 +49,7 @@ public class XmlHelperTests
     }
 
     [Fact]
-    [Trait("Category", "Utility")]
+    [Trait("Category", "Utilities")]
     public void ToXml_Object_UsesProperties()
     {
         var sample = new Sample();
@@ -59,7 +59,7 @@ public class XmlHelperTests
 
 
     [Fact]
-    [Trait("Category", "Utility")]
+    [Trait("Category", "Utilities")]
     public void NullElement_WithXsiNil_ReturnsNullValue()
     {
         XNamespace xsi = "http://www.w3.org/2001/XMLSchema-instance";
@@ -70,7 +70,7 @@ public class XmlHelperTests
     }
 
     [Fact]
-    [Trait("Category", "Utility")]
+    [Trait("Category", "Utilities")]
     public void SimpleValueElement_ReturnsScalar()
     {
         var xml = new XElement("Age", "42");
@@ -79,7 +79,7 @@ public class XmlHelperTests
     }
 
     [Fact]
-    [Trait("Category", "Utility")]
+    [Trait("Category", "Utilities")]
     public void ElementWithWhitespaceOnlyValue_HasNoKey()
     {
         var xml = new XElement("Empty", "   ");
@@ -89,7 +89,7 @@ public class XmlHelperTests
     }
 
     [Fact]
-    [Trait("Category", "Utility")]
+    [Trait("Category", "Utilities")]
     public void ElementWithAttributeAndValue_HasAttributeAndValue()
     {
         var xml = new XElement("Node", new XAttribute("attr", "x"), "text");
@@ -99,7 +99,7 @@ public class XmlHelperTests
     }
 
     [Fact]
-    [Trait("Category", "Utility")]
+    [Trait("Category", "Utilities")]
     public void ElementWithAttributesAndChildren_BuildsNestedHashtable()
     {
         var xml = new XElement("Person",
@@ -116,7 +116,7 @@ public class XmlHelperTests
     }
 
     [Fact]
-    [Trait("Category", "Utility")]
+    [Trait("Category", "Utilities")]
     public void RepeatedChildElements_BecomesList()
     {
         var xml = new XElement("Items",
@@ -131,7 +131,7 @@ public class XmlHelperTests
     }
 
     [Fact]
-    [Trait("Category", "Utility")]
+    [Trait("Category", "Utilities")]
     public void RepeatedChildElements_WithMiddleNil_IncludesNullInList()
     {
         XNamespace xsi = "http://www.w3.org/2001/XMLSchema-instance";
@@ -150,7 +150,7 @@ public class XmlHelperTests
     }
 
     [Fact]
-    [Trait("Category", "Utility")]
+    [Trait("Category", "Utilities")]
     public void NestedStructure_ParsedRecursively()
     {
         var xml = new XElement("Outer",

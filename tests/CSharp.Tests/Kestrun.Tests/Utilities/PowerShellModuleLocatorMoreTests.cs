@@ -2,12 +2,12 @@ using System.Reflection;
 using Kestrun.Utilities;
 using Xunit;
 
-namespace KestrunTests.Utility;
+namespace KestrunTests.Utilities;
 
 public class PowerShellModuleLocatorMoreTests
 {
     [Fact]
-    [Trait("Category", "Utility")]
+    [Trait("Category", "Utilities")]
     public void LocateKestrunModule_Finds_Dev_Module_In_Repo()
     {
         // In this repo the dev module exists under src/PowerShell/Kestrun/Kestrun.psm1
@@ -26,7 +26,7 @@ public class PowerShellModuleLocatorMoreTests
     }
 
     [Fact]
-    [Trait("Category", "Utility")]
+    [Trait("Category", "Utilities")]
     public void FindFileUpwards_Returns_Null_When_Not_Found()
     {
         // Invoke private FindFileUpwards via reflection with a path that won't contain the file

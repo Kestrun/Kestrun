@@ -2,12 +2,12 @@ using System.Text;
 using Kestrun.Utilities;
 using Xunit;
 
-namespace KestrunTests.Utility;
+namespace KestrunTests.Utilities;
 
 public class AssemblyAutoLoaderMoreTests
 {
     [Fact]
-    [Trait("Category", "Utility")]
+    [Trait("Category", "Utilities")]
     public void PreloadAll_Throws_When_NoDirectories_Provided()
     {
         // Ensure a clean state
@@ -18,7 +18,7 @@ public class AssemblyAutoLoaderMoreTests
     }
 
     [Fact]
-    [Trait("Category", "Utility")]
+    [Trait("Category", "Utilities")]
     public void PreloadAll_Ignores_NonExisting_Directories()
     {
         AssemblyAutoLoader.Clear(clearSearchDirs: true);
@@ -32,7 +32,7 @@ public class AssemblyAutoLoaderMoreTests
     }
 
     [Fact]
-    [Trait("Category", "Utility")]
+    [Trait("Category", "Utilities")]
     public void PreloadAll_Verbose_Writes_To_Console()
     {
         AssemblyAutoLoader.Clear(clearSearchDirs: true);
@@ -65,7 +65,7 @@ public class AssemblyAutoLoaderMoreTests
     }
 
     [Fact]
-    [Trait("Category", "Utility")]
+    [Trait("Category", "Utilities")]
     public void PreloadAll_Merges_Directories_And_Is_Idempotent()
     {
         AssemblyAutoLoader.Clear(clearSearchDirs: true);

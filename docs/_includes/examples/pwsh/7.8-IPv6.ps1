@@ -1,7 +1,7 @@
 <#
     Sample Kestrun Server - Basic Server
     This script demonstrates the minimal steps to run a Kestrun server
-    with a single HTTP listener and one PowerShell route.
+    with a single HTTP listener using IPv6 and one PowerShell route.
     FileName: 7.1-Basic-Server.ps1
 #>
 
@@ -14,7 +14,7 @@ New-KrLogger |
 New-KrServer -Name 'Endpoints Basic'
 
 # Add a listener on port 5000 and IP address 127.0.0.1 (localhost)
-Add-KrListener -Uri ([uri]::new('http://localhost:5000'))
+Add-KrListener -IPAddress ([IPAddress]::IPv6Loopback) -Port 5000 -AddressFamily InterNetworkV6
 
 # Add the PowerShell runtime
 # !!!!Important!!!! this step is required to process PowerShell routes and middlewares

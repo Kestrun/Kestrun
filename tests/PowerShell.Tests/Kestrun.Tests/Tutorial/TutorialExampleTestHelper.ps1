@@ -124,12 +124,20 @@ function Start-ExampleScript {
     # Push current location so relative file references (Assets/...) resolve inside example
     Push-Location -Path $scriptDir
     $content = Get-Content -Path $path -Raw
-
+    $serverIp = 'localhost' # Use loopback for safety
     # Normalize explicit port 5000 to dynamic port (safer line-based replace) and fix Initialize-KrRoot absolute path
     $content = ($content -split "`n") | ForEach-Object {
         $line = $_
         if ($line -match '^\s*Add-KrListener\b' -and $line -match '-Port 5000') {
             $line = $line -replace '-Port 5000', ("-Port $Port")
+        }
+        # Also rewrite common -Uri forms that embed :5000 inside the URI instead of using -Port
+        if ($line -match '^\s*Add-KrListener\b' -and $line -match "http(s)?://(localhost|127\.0\.0\.1):5000") {
+            # Replace only the :5000 portion, preserving scheme and host
+            $line = $line -replace 'http://localhost:5000', "http://localhost:$Port"
+            $line = $line -replace 'http://127.0.0.1:5000', "http://127.0.0.1:$Port"
+            $line = $line -replace 'https://localhost:5000', "https://localhost:$Port"
+            $line = $line -replace 'https://127.0.0.1:5000', "https://127.0.0.1:$Port"
         }
         if ($line -match 'Initialize-KrRoot\s+-Path\s+\$PSScriptRoot') {
             # Replace Initialize-KrRoot -Path $PSScriptRoot with absolute path of original example directory
@@ -161,7 +169,7 @@ Start-KrServer
         $portOpen = $false
         try {
             $client = [System.Net.Sockets.TcpClient]::new()
-            $ar = $client.BeginConnect('127.0.0.1', $Port, $null, $null)
+            $ar = $client.BeginConnect($serverIp, $Port, $null, $null)
             $wait = $ar.AsyncWaitHandle.WaitOne(200)
             if ($wait -and $client.Connected) { $portOpen = $true }
             $client.Close()
@@ -192,7 +200,7 @@ Start-KrServer
                     $script:__kestrunHttpsHint = ($content -match 'Add-KrListener[^\n]*-SelfSignedCert' -or $content -match 'Add-KrListener[^\n]*-CertPath' -or $content -match 'Add-KrListener[^\n]*-X509Certificate')
                 }
                 $scheme = ($script:__kestrunHttpsHint ? 'https' : 'http')
-                $probeUri = "$($scheme)://127.0.0.1:$Port/"
+                $probeUri = ("{0}://{1}:{2}" -f $scheme, $serverIp, $Port)
                 $probeParams = @{ Uri = $probeUri; UseBasicParsing = $true; Method = 'Get'; TimeoutSec = 3; ErrorAction = 'Stop' }
                 if ($scheme -eq 'https') { $probeParams.SkipCertificateCheck = $true }
                 $probe = Invoke-WebRequest @probeParams
@@ -221,7 +229,7 @@ Start-KrServer
 
     return [pscustomobject]@{
         Name = $Name
-        Url = ("{0}://127.0.0.1:{1}" -f ($usesHttps ? 'https' : 'http'), $Port)
+        Url = ("{0}://{1}:{2}" -f ($usesHttps ? 'https' : 'http'), $serverIp, $Port)
         Port = $Port
         TempPath = $tmp
         Process = $proc

@@ -13,7 +13,7 @@
 .PARAMETER RequestPath
     The path at which the file server will be registered.
 .PARAMETER HttpsCompression
-    If specified, enables HTTPS compression for the static files.
+    The HTTPS compression mode to use for the static files.
 .PARAMETER ServeUnknownFileTypes
     If specified, allows serving files with unknown MIME types.
 .PARAMETER DefaultContentType
@@ -82,7 +82,7 @@ function Add-KrFileServerMiddleware {
         [string]$RequestPath,
 
         [Parameter(ParameterSetName = 'Items')]
-        [switch]$HttpsCompression,
+        [Microsoft.AspNetCore.Http.Features.HttpsCompressionMode]$HttpsCompression,
 
         [Parameter(ParameterSetName = 'Items')]
         [switch]$ServeUnknownFileTypes,
@@ -150,13 +150,13 @@ function Add-KrFileServerMiddleware {
                 $Options.EnableDirectoryBrowsing = $true
             }
             if ($ServeUnknownFileTypes.IsPresent) {
-                $Options.ServeUnknownFileTypes = $true
+                $Options.StaticFileOptions.ServeUnknownFileTypes = $true
             }
-            if ($HttpsCompression.IsPresent) {
-                $Options.HttpsCompression = $true
+            if ($PSBoundParameters.ContainsKey('HttpsCompression')) {
+                $Options.StaticFileOptions.HttpsCompression = $HttpsCompression
             }
             if (-not [string]::IsNullOrEmpty($DefaultContentType)) {
-                $Options.DefaultContentType = $DefaultContentType
+                $Options.StaticFileOptions.DefaultContentType = $DefaultContentType
             }
             if ($RedirectToAppendTrailingSlash.IsPresent) {
                 $Options.RedirectToAppendTrailingSlash = $true

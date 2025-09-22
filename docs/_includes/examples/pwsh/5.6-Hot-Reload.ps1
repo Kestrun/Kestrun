@@ -60,8 +60,8 @@ Add-KrMapRoute -Verbs Post -Path "/reconfigure" -ScriptBlock {
 }
 
 # Start the server
-Start-KrServer -
+Start-KrServer
 
 # Clean up and close the logger when the server stops
-Close-KrLogger -Logger 
+Close-KrLogger
 

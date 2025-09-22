@@ -10,7 +10,7 @@ Describe 'Example 3.4-Add-FavIcon' {
     }
 
     It 'Serves favicon.png with image content type (heuristic)' {
-        $resp = Invoke-WebRequest -Uri "$($script:instance.Url)/favicon.png" -UseBasicParsing -TimeoutSec 6 -Method Get
+        $resp = Invoke-WebRequest -Uri "$($script:instance.Url)/favicon.ico" -UseBasicParsing -TimeoutSec 6 -Method Get
         $resp.StatusCode | Should -Be 200
         ($resp.RawContentLength -gt 0) | Should -BeTrue -Because 'favicon should not be empty'
     }

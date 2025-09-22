@@ -5,6 +5,11 @@
     FileName: 5.4-Sinks.ps1
 #>
 
+param(
+    [int]$Port = 5000,
+    [IPAddress]$IPAddress = [IPAddress]::Loopback
+)
+
 $text = New-KrLogger |
     Set-KrLoggerMinimumLevel -Value Information |
     Add-KrSinkConsole |
@@ -17,7 +22,7 @@ $json = New-KrLogger |
     Register-KrLogger -Name 'json' -PassThru
 
 New-KrServer -Name "Sinks Demo"
-Add-KrListener -Port 5000 -IPAddress ([IPAddress]::Loopback)
+Add-KrListener -Port $Port -IPAddress $IPAddress
 Add-KrPowerShellRuntime
 
 Enable-KrConfiguration
@@ -34,4 +39,8 @@ Add-KrMapRoute -Verbs Get -Path "/json" -ScriptBlock {
 
 # Start the server and close all the loggers when the server stops
 # This is equivalent to calling Close-KrLogger after Start-KrServer
+if ($EnableTestRoutes) {
+    Add-KrMapRoute -Verbs Get -Path '/shutdown' -ScriptBlock { Stop-KrServer }
+}
+
 Start-KrServer -CloseLogsOnExit

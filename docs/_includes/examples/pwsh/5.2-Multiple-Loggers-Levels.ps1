@@ -5,6 +5,11 @@
     FileName: 5.2-Multiple-Loggers-Levels.ps1
 #>
 
+param(
+    [int]$Port = 5000,
+    [IPAddress]$IPAddress = [IPAddress]::Loopback
+)
+
 $appLogger = New-KrLogger |
     Set-KrLoggerMinimumLevel -Value Information |
     Add-KrSinkConsole |
@@ -18,7 +23,7 @@ $auditLogger = New-KrLogger |
 
 # Create server and listener
 New-KrServer -Name "Multiple Loggers Server"
-Add-KrListener -Port 5000 -IPAddress ([IPAddress]::Loopback)
+Add-KrListener -Port $Port -IPAddress $IPAddress
 
 # PowerShell runtime is required for script block routes
 Add-KrPowerShellRuntime
@@ -45,6 +50,11 @@ Add-KrMapRoute -Verbs Get -Path "/debug" -ScriptBlock {
 Add-KrMapRoute -Verbs Get -Path "/audit" -ScriptBlock {
     Write-KrLog -Logger $auditLogger -Level Information -Message "Audit event recorded"
     Write-KrTextResponse -InputObject "audit" -StatusCode 200
+}
+
+# Test-only routes
+if ($EnableTestRoutes) {
+    Add-KrMapRoute -Verbs Get -Path '/shutdown' -ScriptBlock { Stop-KrServer }
 }
 
 # Start the server

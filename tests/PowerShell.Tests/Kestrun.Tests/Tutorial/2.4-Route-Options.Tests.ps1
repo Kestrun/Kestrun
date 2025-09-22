@@ -10,10 +10,10 @@ Describe 'Example 2.4-Route-Options' -Tag 'Tutorial' {
     }
     It 'Yaml routes respond with expected content' {
         $session = [Microsoft.PowerShell.Commands.WebRequestSession]::new()
-        $session.Cookies.Add((New-Object System.Net.Cookie("message", "fromYaml", "/", "127.0.0.1")))
-        $response = (Invoke-WebRequest -Uri "$($script:instance.Url)/yaml?message=fromYaml" -UseBasicParsing -TimeoutSec 5 -Method Get -WebSession $session )
+        $session.Cookies.Add((New-Object System.Net.Cookie("message", "fromYaml", "/", $script:instance.host)))
+        $response = (Invoke-WebRequest -Uri "$($script:instance.Url)/yaml" -UseBasicParsing -TimeoutSec 5 -Method Get -WebSession $session )
         $response.StatusCode | Should -Be 200
-        [string]::new($response.Content) | Should -BeLike "*message: fromYaml*"
+        ([string]::new($response.Content) | ConvertFrom-KrYaml).message | Should -Be 'fromYaml'
     }
     It 'Json routes respond with expected content' {
         $response = (Invoke-WebRequest -Uri "$($script:instance.Url)/json" -UseBasicParsing -TimeoutSec 5 -Method Get -Headers @{ message = 'fromHeader' })

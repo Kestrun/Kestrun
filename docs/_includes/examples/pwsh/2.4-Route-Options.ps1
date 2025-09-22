@@ -4,11 +4,16 @@
     FileName: 2.4-Route-Options.ps1
 #>
 
+param(
+    [int]$Port = 5000,
+    [IPAddress]$IPAddress = [IPAddress]::Loopback
+)
+
 # Create a new Kestrun server
 New-KrServer -Name "Simple Server"
 
-# Add a listener on port 5000 and IP address 127.0.0.1 (localhost)
-Add-KrListener -Port 5000 -IPAddress ([IPAddress]::Loopback)
+# Add a listener on the configured port and IP address
+Add-KrListener -Port $Port -IPAddress $IPAddress
 
 # Add the PowerShell runtime
 # !!!!Important!!!! this step is required to process PowerShell routes and middlewares
@@ -57,6 +62,7 @@ New-KrMapRouteOption -Property @{
 "@
     Language = 'CSharp'
 } | Add-KrMapRoute
+
 
 # Start the server asynchronously
 Start-KrServer

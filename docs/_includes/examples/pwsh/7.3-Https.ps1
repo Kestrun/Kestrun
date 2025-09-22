@@ -6,7 +6,11 @@
 #>
 
 [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidUsingConvertToSecureStringWithPlainText', '')]
-param()
+param(
+    [int]$HttpPort = 5000,
+    [int]$HttpsPort = 5443,
+    [IPAddress]$IPAddress = [IPAddress]::Loopback
+)
 
 # (Optional) Configure console logging
 New-KrLogger |
@@ -26,10 +30,10 @@ if (-not (Test-Path $certPath)) {
 New-KrServer -Name 'Endpoints Https'
 
 # HTTP listener (optional)
-Add-KrListener -Port 5000 -IPAddress ([IPAddress]::Loopback)
+Add-KrListener -Port $HttpPort -IPAddress $IPAddress
 
-# HTTPS listener on port 5443
-Add-KrListener -Port 5443 -IPAddress ([IPAddress]::Loopback) -CertPath $certPath -CertPassword $pw
+# HTTPS listener
+Add-KrListener -Port $HttpsPort -IPAddress $IPAddress -CertPath $certPath -CertPassword $pw
 
 # Add PowerShell runtime
 Add-KrPowerShellRuntime
@@ -43,7 +47,8 @@ Add-KrMapRoute -Verbs Get -Pattern '/secure' -ScriptBlock {
     Write-KrTextResponse -InputObject 'Secure hello' -StatusCode 200
 }
 
-Write-KrLog -Level Information -Message 'HTTPS listener active on 5443'
+Write-KrLog -Level Information -Message 'HTTPS listener active on {HttpsPort}' -Properties $HttpsPort
+
 
 # Start the server
 Start-KrServer -CloseLogsOnExit

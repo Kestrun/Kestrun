@@ -39,6 +39,14 @@ public static class YamlHelper
     /// </summary>
     /// <param name="yaml">The YAML string to deserialize.</param>
     /// <returns>A Hashtable containing the deserialized YAML content.</returns>
+    /// <remarks>
+    /// Historically this method assumed the YAML root node was always a mapping. If a top-level sequence
+    /// (YAML list) or scalar is provided, casting would throw an InvalidCastException. We now preserve the
+    /// return contract (Hashtable) by wrapping:
+    ///  - Root sequence → Hashtable with key "Items" whose value is an ArrayList.
+    ///  - Root scalar   → Hashtable with key "Value" whose value is the scalar.
+    /// Existing callers that expect specific keys should account for these wrapper keys for non-mapping roots.
+    /// </remarks>
     public static Hashtable ToHashtable(string yaml)
     {
         if (string.IsNullOrEmpty(yaml))
@@ -46,7 +54,22 @@ public static class YamlHelper
             return [];
         }
         var obj = _deserializer.Deserialize<object>(yaml);
-        return (Hashtable)ConvertToPSCompatible(obj);
+        var converted = ConvertToPSCompatible(obj);
+
+        // If already a Hashtable root, return as-is.
+        if (converted is Hashtable ht)
+        {
+            return ht;
+        }
+
+        // If the root is a list, wrap it with a conventional key to preserve return type contract.
+        if (converted is ArrayList list)
+        {
+            return new Hashtable { ["Items"] = list };
+        }
+
+        // Scalar root: wrap in a Hashtable with a conventional key.
+        return new Hashtable { ["Value"] = converted };
     }
 
     /// <summary>
@@ -58,8 +81,9 @@ public static class YamlHelper
     {
         ArgumentNullException.ThrowIfNull(yaml);
         var obj = _deserializer.Deserialize<object>(yaml);
-        var hash = (Hashtable)ConvertToPSCompatible(obj);
-        return ConvertToPSCustomObject(hash);
+        var converted = ConvertToPSCompatible(obj);
+        // Root may be Hashtable, ArrayList, or scalar. ConvertToPSCustomObject handles all.
+        return ConvertToPSCustomObject(converted);
     }
 
     /// <summary>

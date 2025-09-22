@@ -63,4 +63,21 @@ public class YamlHelperTests
         var aval = obj.Properties["a"].Value;
         Assert.Equal(1, Convert.ToInt32(aval));
     }
+
+    [Fact]
+    [Trait("Category", "Utilities")]
+    public void FromYaml_TopLevelSequence_Supported()
+    {
+        var yaml = "- name: foo\n  value: 1\n- name: bar\n  value: 2\n";
+        // Hashtable wrapper should expose Items key containing an ArrayList with two PSCustomObjects (after caller conversion)
+        var ht = YamlHelper.ToHashtable(yaml);
+        Assert.True(ht.ContainsKey("Items"));
+        var list = Assert.IsType<ArrayList>(ht["Items"]);
+        Assert.Equal(2, list.Count);
+
+        var obj = YamlHelper.ToPSCustomObject(yaml);
+        // Root list becomes an array wrapped in a PSObject
+        var array = Assert.IsType<object[]>(obj.BaseObject);
+        Assert.Equal(2, array.Length);
+    }
 }

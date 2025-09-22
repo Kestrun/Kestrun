@@ -1,5 +1,5 @@
 ﻿param()
-Describe 'Example 3.6-Response-Caching' -Tag 'Tutorial','Caching' {
+Describe 'Example 3.6-Response-Caching' -Tag 'Tutorial', 'Caching' {
     BeforeAll { . "$PSScriptRoot/TutorialExampleTestHelper.ps1"; $script:instance = Start-ExampleScript -Name '3.6-Response-Caching.ps1' }
     AfterAll { . "$PSScriptRoot/TutorialExampleTestHelper.ps1"; if ($script:instance) { Stop-ExampleScript -Instance $script:instance } }
     It 'cachetest route returns timestamp content' {
@@ -21,7 +21,7 @@ Describe 'Example 3.6-Response-Caching' -Tag 'Tutorial','Caching' {
         # Compare duration (allow some jitter); second should not be slower by more than 50%
         ($second.TotalMilliseconds -le ($first.TotalMilliseconds * 1.5)) | Should -BeTrue
         # If caching headers exist, validate stability
-        $cacheHeaders = @('Cache-Control','ETag','Last-Modified') | Where-Object { $r1.Headers[$_] }
+        $cacheHeaders = @('Cache-Control', 'ETag', 'Last-Modified') | Where-Object { $r1.Headers[$_] }
         foreach ($h in $cacheHeaders) { $r1.Headers[$h] | Should -Be $r2.Headers[$h] }
     }
 }

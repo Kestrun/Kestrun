@@ -4,6 +4,11 @@
     FileName: 3.3-Static-OverrideRoutes.ps1
 #>
 
+param(
+    [int]$Port = 5000,
+    [IPAddress]$IPAddress = [IPAddress]::Loopback
+)
+
 # Initialize Kestrun root directory
 # the default value is $PWD
 # This is recommended in order to use relative paths without issues
@@ -12,8 +17,8 @@ Initialize-KrRoot -Path $PSScriptRoot
 # Create a new Kestrun server
 New-KrServer -Name "Simple Server"
 
-# Add a listener on port 5000 and IP address 127.0.0.1 (localhost)
-Add-KrListener -Port 5000 -IPAddress ([IPAddress]::Loopback)
+# Add a listener on the configured port and IP address
+Add-KrListener -Port $Port -IPAddress $IPAddress
 
 # Add the PowerShell runtime
 # !!!!Important!!!! this step is required to process PowerShell routes and middlewares
@@ -35,6 +40,7 @@ Add-KrStaticMapOverride -Path '/assets/override/pwsh' -ScriptBlock {
 
 # Enable Kestrun configuration
 Enable-KrConfiguration
+
 
 # Start the server asynchronously
 Start-KrServer

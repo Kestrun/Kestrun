@@ -8,6 +8,12 @@
     FileName: 5.5-Sinks-Advanced.ps1
 #>
 
+param(
+        [int]$Port = 5000,
+        [IPAddress]$IPAddress = [IPAddress]::Loopback,
+        [switch]$EnableTestRoutes
+)
+
 $base = New-KrLogger |
     Set-KrLoggerMinimumLevel -Value Information |
     Add-KrSinkConsole |
@@ -28,7 +34,7 @@ $base = $base | Add-KrSinkSyslogLocal -AppName 'KestrunSample'
 $logger = $base | Register-KrLogger -Name 'advanced' -PassThru
 
 New-KrServer -Name "Advanced Sinks"
-Add-KrListener -Port 5000 -IPAddress ([IPAddress]::Loopback)
+Add-KrListener -Port $Port -IPAddress $IPAddress
 Add-KrPowerShellRuntime
 
 Enable-KrConfiguration
@@ -36,6 +42,11 @@ Enable-KrConfiguration
 Add-KrMapRoute -Verbs Get -Path "/log" -ScriptBlock {
     Write-KrLog -Logger $logger -Level Information -Message "Advanced sinks example"
     Write-KrTextResponse -InputObject "ok" -StatusCode 200
+}
+
+# Test-only routes
+if ($EnableTestRoutes) {
+    Add-KrMapRoute -Verbs Get -Path '/shutdown' -ScriptBlock { Stop-KrServer }
 }
 
 # Start the server

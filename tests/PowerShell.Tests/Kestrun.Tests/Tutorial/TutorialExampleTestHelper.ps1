@@ -123,42 +123,66 @@ function Start-ExampleScript {
     $originalLocation = Get-Location
     # Push current location so relative file references (Assets/...) resolve inside example
     Push-Location -Path $scriptDir
-    $content = Get-Content -Path $path -Raw
+    $original = Get-Content -Path $path -Raw
     $serverIp = 'localhost' # Use loopback for safety
-    # Normalize explicit port 5000 to dynamic port (safer line-based replace) and fix Initialize-KrRoot absolute path
-    $content = ($content -split "`n") | ForEach-Object {
-        $line = $_
-        if ($line -match '^\s*Add-KrListener\b' -and $line -match '-Port 5000') {
-            $line = $line -replace '-Port 5000', ("-Port $Port")
-        }
-        # Also rewrite common -Uri forms that embed :5000 inside the URI instead of using -Port
-        if ($line -match '^\s*Add-KrListener\b' -and $line -match "http(s)?://(localhost|127\.0\.0\.1):5000") {
-            # Replace only the :5000 portion, preserving scheme and host
-            $line = $line -replace 'http://localhost:5000', "http://localhost:$Port"
-            $line = $line -replace 'http://127.0.0.1:5000', "http://127.0.0.1:$Port"
-            $line = $line -replace 'https://localhost:5000', "https://localhost:$Port"
-            $line = $line -replace 'https://127.0.0.1:5000', "https://127.0.0.1:$Port"
-        }
-        if ($line -match 'Initialize-KrRoot\s+-Path\s+\$PSScriptRoot') {
-            # Replace Initialize-KrRoot -Path $PSScriptRoot with absolute path of original example directory
-            $line = "Initialize-KrRoot -Path '$scriptDir'"
-        }
-        $line
-    } | Out-String
+    $hasParamPort = $false
+    $hasEnableTestRoutes = $false
+    if ($original -match '(?im)^param\s*\(') {
+        if ($original -match '(?im)\[int\]\s*\$Port') { $hasParamPort = $true }
+        if ($original -match '(?im)\$EnableTestRoutes') { $hasEnableTestRoutes = $true }
+    }
 
-    # Inject shutdown endpoint (first occurrence of Start-KrServer)
-    $content = $content -replace 'Start-KrServer', @"
+    $content = $original
+    if (-not $hasParamPort) {
+        # Legacy rewriting path (will be removed once all examples adopt param)
+        $content = ($content -split "`n") | ForEach-Object {
+            $line = $_
+            if ($line -match '^\s*Add-KrListener\b' -and $line -match '-Port 5000') {
+                $line = $line -replace '-Port 5000', ("-Port $Port")
+            }
+            if ($line -match '^\s*Add-KrListener\b' -and $line -match "http(s)?://(localhost|127\\.0\\.0\\.1):5000") {
+                $line = $line -replace 'http://localhost:5000', "http://localhost:$Port"
+                $line = $line -replace 'http://127.0.0.1:5000', "http://127.0.0.1:$Port"
+                $line = $line -replace 'https://localhost:5000', "https://localhost:$Port"
+                $line = $line -replace 'https://127.0.0.1:5000', "https://127.0.0.1:$Port"
+                $line = $line -replace 'http://\[::1\]:5000', "http://[::1]:$Port"
+                $line = $line -replace 'https://\[::1\]:5000', "https://[::1]:$Port"
+            }
+            if ($line -match 'Initialize-KrRoot\s+-Path\s+\$PSScriptRoot') {
+                $line = "Initialize-KrRoot -Path '$scriptDir'"
+            }
+            $line
+        } | Out-String
+    }
+
+    if (-not $content.Contains('-Pattern "/shutdown"')) {
+        # Inject shutdown endpoint for legacy scripts (first occurrence of Start-KrServer)
+
+        $content = $content -replace 'Start-KrServer', @"
 Add-KrMapRoute -Verbs Get -Pattern "/shutdown" -ScriptBlock { Stop-KrServer }
 
 Start-KrServer
 "@
+    }
 
+    if( $content.Contains('Initialize-KrRoot -Path $PSScriptRoot')) {
+        $content = $content.Replace('Initialize-KrRoot -Path $PSScriptRoot', "Initialize-KrRoot -Path '$path'")
+    }
+    # Write modified legacy content to temp file
     $tmp = Join-Path $env:TEMP ("kestrun-example-" + [System.IO.Path]::GetRandomFileName() + '.ps1')
     Set-Content -Path $tmp -Value $content -Encoding UTF8
 
+
     $stdOut = Join-Path $env:TEMP ("kestrun-example-" + [System.IO.Path]::GetRandomFileName() + '.out.log')
     $stdErr = Join-Path $env:TEMP ("kestrun-example-" + [System.IO.Path]::GetRandomFileName() + '.err.log')
-    $proc = Start-Process -FilePath 'pwsh' -WorkingDirectory $scriptDir -ArgumentList '-NoLogo', '-NoProfile', '-File', $tmp -PassThru -WindowStyle Hidden -RedirectStandardOutput $stdOut -RedirectStandardError $stdErr
+    $argList = @('-NoLogo', '-NoProfile', '-File', $tmp)
+    if ($hasParamPort) { $argList += @('-Port', $Port) }
+    if ($hasParamPort -and -not $hasEnableTestRoutes) {
+        # If script didn't define EnableTestRoutes param but has param block, still need shutdown; inject via wrapper
+        # (Fallback minimal injection keeping original file untouched)
+    }
+    if ($hasEnableTestRoutes) { $argList += @('-EnableTestRoutes', $true) }
+    $proc = Start-Process -FilePath 'pwsh' -WorkingDirectory $scriptDir -ArgumentList $argList -PassThru -WindowStyle Hidden -RedirectStandardOutput $stdOut -RedirectStandardError $stdErr
 
     $deadline = [DateTime]::UtcNow.AddSeconds($StartupTimeoutSeconds)
     $ready = $false
@@ -230,6 +254,7 @@ Start-KrServer
     return [pscustomobject]@{
         Name = $Name
         Url = ("{0}://{1}:{2}" -f ($usesHttps ? 'https' : 'http'), $serverIp, $Port)
+        Host = $serverIp
         Port = $Port
         TempPath = $tmp
         Process = $proc
@@ -242,6 +267,8 @@ Start-KrServer
         OriginalLocation = $originalLocation
         PushedLocation = $true
         Https = $usesHttps
+        ParamPort = $hasParamPort
+        ParamEnableTestRoutes = $hasEnableTestRoutes
     }
 }
 

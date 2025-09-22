@@ -4,6 +4,11 @@
     FileName: 2.3-Route-Parameters.ps1
 #>
 
+param(
+    [int]$Port = 5000,
+    [IPAddress]$IPAddress = [IPAddress]::Loopback
+)
+
 New-KrLogger |
     Set-KrLoggerMinimumLevel -Value Debug |
     Add-KrSinkConsole |
@@ -12,8 +17,8 @@ New-KrLogger |
 # Create a new Kestrun server
 New-KrServer -Name "Simple Server"
 
-# Add a listener on port 5000 and IP address 127.0.0.1 (localhost)
-Add-KrListener -Port 5000 -IPAddress ([IPAddress]::Loopback)
+# Add a listener on the configured port and IP address
+Add-KrListener -Port $Port -IPAddress $IPAddress
 
 # Add the PowerShell runtime
 # !!!!Important!!!! this step is required to process PowerShell routes and middlewares
@@ -55,6 +60,7 @@ Add-KrRouteGroup -Prefix "/input" -ScriptBlock {
         Write-KrTextResponse -InputObject "The Cookie Parameter 'value' was: $value" -StatusCode 200
     }
 }
+
 
 # Start the server asynchronously
 Start-KrServer

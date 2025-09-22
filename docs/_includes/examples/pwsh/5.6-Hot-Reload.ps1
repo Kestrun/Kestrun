@@ -5,6 +5,11 @@
     FileName: 5.6-Hot-Reload.ps1
 #>
 
+param(
+    [int]$Port = 5000,
+    [IPAddress]$IPAddress = [IPAddress]::Loopback
+)
+
 # Dynamic level switch logger
 $app = New-KrLogger |
     Set-KrLoggerMinimumLevel -Dynamic Debug |
@@ -19,7 +24,7 @@ New-KrLogger |
     Register-KrLogger -Name 'Default'
 
 New-KrServer -Name "Hot Reload" -LoggerName 'Default'
-Add-KrListener -Port 5000 -IPAddress ([IPAddress]::Loopback)
+Add-KrListener -Port $Port -IPAddress $IPAddress
 Add-KrPowerShellRuntime
 
 Enable-KrConfiguration

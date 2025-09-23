@@ -175,7 +175,7 @@ public static partial class YamlTypeConverter
 
     /// <summary>Determines if a plain scalar is an explicit YAML null token.</summary>
     private static bool IsExplicitNullToken(string value)
-        => value == string.Empty || value == "~" || value == "$null" ||
+        => value == string.Empty || value == "~" || value == "$null" || value == "''" ||
            string.Equals(value, "null", StringComparison.Ordinal) ||
            string.Equals(value, "Null", StringComparison.Ordinal) ||
            string.Equals(value, "NULL", StringComparison.Ordinal);

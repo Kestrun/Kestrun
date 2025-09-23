@@ -1,3 +1,9 @@
+# Portions derived from PowerShell-Yaml (https://github.com/cloudbase/powershell-yaml)
+# Copyright (c) 2016–2024 Cloudbase Solutions Srl
+# Licensed under the Apache License, Version 2.0 (Apache-2.0).
+# You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
+# Modifications Copyright (c) 2025 Kestrun Contributors
+
 <#
 .SYNOPSIS
     Converts a YAML string to a PowerShell object or hashtable.
@@ -86,26 +92,7 @@ function ConvertFrom-KrYaml {
             return
         }
         $firstRoot = $documents[0].RootNode
-        function __Coerce-DateTimeOffsetToDateTime {
-            param([Parameter(ValueFromPipeline = $true)][AllowNull()]$InputObject)
-            process {
-                if ($null -eq $InputObject) { return $null }
-                if ($InputObject -is [DateTimeOffset]) {
-                    # Preserve naive timestamps (those without explicit zone) as 'Unspecified' kind so no offset is appended
-                    $dto = [DateTimeOffset]$InputObject
-                    return [DateTime]::SpecifyKind($dto.DateTime, [System.DateTimeKind]::Unspecified)
-                }
-                if ($InputObject -is [System.Collections.IDictionary]) {
-                    foreach ($k in @($InputObject.Keys)) { $InputObject[$k] = __Coerce-DateTimeOffsetToDateTime $InputObject[$k] }
-                    return $InputObject
-                }
-                if ($InputObject -is [System.Collections.IList]) {
-                    for ($j = 0; $j -lt $InputObject.Count; $j++) { $InputObject[$j] = __Coerce-DateTimeOffsetToDateTime $InputObject[$j] }
-                    return $InputObject
-                }
-                return $InputObject
-            }
-        }
+
         # Extract raw datesAsStrings lines (if present) BEFORE conversion so we can restore them as strings
         $rawDatesAsStrings = $null
         if ($d -match '(?ms)^datesAsStrings:\s*(?<block>(?:\r?\n\s*-\s*.+)+)') {
@@ -123,7 +110,7 @@ function ConvertFrom-KrYaml {
         if ($documents.Count -eq 1 -and -not $AllDocuments) {
             # Always request ordered conversion so original key order from YAML is preserved by default.
             $single = [Kestrun.Utilities.Yaml.YamlTypeConverter]::ConvertYamlDocumentToPSObject($firstRoot, $true)
-            $single = __Coerce-DateTimeOffsetToDateTime $single
+            $single = Convert-DateTimeOffsetToDateTime $single
             if ($rawDatesAsStrings -and ($single -is [System.Collections.IDictionary]) -and ($single.Keys -contains 'datesAsStrings')) {
                 $seq = $single['datesAsStrings']
                 if ($seq -is [System.Collections.IList]) {
@@ -140,7 +127,7 @@ function ConvertFrom-KrYaml {
         if (-not $AllDocuments) {
             # Always request ordered conversion so original key order from YAML is preserved by default.
             $single = [Kestrun.Utilities.Yaml.YamlTypeConverter]::ConvertYamlDocumentToPSObject($firstRoot, $true)
-            $single = __Coerce-DateTimeOffsetToDateTime $single
+            $single = Convert-DateTimeOffsetToDateTime $single
             if ($rawDatesAsStrings -and ($single -is [System.Collections.IDictionary]) -and ($single.Keys -contains 'datesAsStrings')) {
                 $seq = $single['datesAsStrings']
                 if ($seq -is [System.Collections.IList]) {
@@ -157,7 +144,7 @@ function ConvertFrom-KrYaml {
         foreach ($i in $documents) {
             # Always preserve order in each document.
             $val = [Kestrun.Utilities.Yaml.YamlTypeConverter]::ConvertYamlDocumentToPSObject($i.RootNode, $true)
-            $val = __Coerce-DateTimeOffsetToDateTime $val
+            $val = Convert-DateTimeOffsetToDateTime $val
             if ($rawDatesAsStrings -and ($val -is [System.Collections.IDictionary]) -and ($val.Keys -contains 'datesAsStrings')) {
                 $seq = $val['datesAsStrings']
                 if ($seq -is [System.Collections.IList]) {

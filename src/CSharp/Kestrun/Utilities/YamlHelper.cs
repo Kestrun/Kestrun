@@ -21,5 +21,4 @@ public static class YamlHelper
         serializer.Serialize(wrt, input);
         return wrt.ToString();
     }
-     
 }

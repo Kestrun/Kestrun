@@ -13,7 +13,6 @@ namespace Kestrun.Utilities.Yaml;
 /// <param name="useFlowStyle">If true, the mapping will be emitted in flow style</param>
 public class PSObjectTypeConverter(bool omitNullValues = false, bool useFlowStyle = false) : IYamlTypeConverter
 {
-
     private readonly bool omitNullValues = omitNullValues;
     private readonly bool useFlowStyle = useFlowStyle;
 

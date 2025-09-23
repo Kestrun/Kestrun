@@ -80,7 +80,7 @@ public static partial class YamlTypeConverter
                     // ±.inf / inf / infinity
                     if (InfinityRegex.IsMatch(value))
                     {
-                        return value.StartsWith("-", StringComparison.Ordinal) ? double.NegativeInfinity : double.PositiveInfinity;
+                        return value.StartsWith('-') ? double.NegativeInfinity : double.PositiveInfinity;
                     }
 
                     if (decimal.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out var dec))
@@ -179,11 +179,11 @@ public static partial class YamlTypeConverter
                     throw new FormatException($"Failed to parse scalar '{value}' as integer (negative exponent not integral).");
                 }
                 var sign = 1;
-                if (mantissaStr.StartsWith("+", StringComparison.Ordinal))
+                if (mantissaStr.StartsWith('+'))
                 {
                     mantissaStr = mantissaStr[1..];
                 }
-                else if (mantissaStr.StartsWith("-", StringComparison.Ordinal))
+                else if (mantissaStr.StartsWith('-'))
                 {
                     sign = -1;
                     mantissaStr = mantissaStr[1..];
@@ -273,11 +273,11 @@ public static partial class YamlTypeConverter
                     return false; // would be fractional
                 }
                 var sign = 1;
-                if (mantissaStr.StartsWith("+", StringComparison.Ordinal))
+                if (mantissaStr.StartsWith('+'))
                 {
                     mantissaStr = mantissaStr[1..];
                 }
-                else if (mantissaStr.StartsWith("-", StringComparison.Ordinal))
+                else if (mantissaStr.StartsWith('-'))
                 {
                     sign = -1;
                     mantissaStr = mantissaStr[1..];

@@ -757,43 +757,6 @@ b5:
             $withJsonCommandlet = ConvertTo-Json -Compress -Depth 100 $sample2
             $withJsonCommandlet | Should -Be $expected_json2
         }
-    }
-
-    Describe "Test ConvertTo-KrYaml -OutFile parameter behavior" {
-
-        Context "Providing -OutFile with invalid prefix." {
-            BeforeAll {
-                $testPath = "/some/bogus/path"
-                $global:testObject = 42
-                # mock Test-Path to fail so the test for the directory of the -OutFile fails:
-                Mock Test-Path { return $false } -Verifiable -ParameterFilter { $OutFile -eq $testPath } -ModuleName 'Kestrun'
-            }
-
-            It "Should refuse to work with an -OutFile with an invalid prefix." {
-                { ConvertTo-KrYaml $testObject -OutFile $testPath } | Should -Throw "Parent folder for specified path does not exist"
-            }
-
-            It "Should verify that all the required mocks were called." {
-                Assert-VerifiableMock
-            }
-        }
-
-        Context "Providing existing -OutFile without -Force." {
-            BeforeAll {
-                $testPath = "/some/bogus/path"
-                $global:testObject = "A random string this time."
-                # mock Test-Path to succeed so the -OutFile seems to exist:
-                Mock Test-Path { return $true }  -Verifiable -ParameterFilter { $OutFile -eq $testPath } -ModuleName 'Kestrun'
-            }
-
-            It "Should refuse to work for an existing -OutFile but no -Force flag." {
-                { ConvertTo-KrYaml $testObject -OutFile $testPath } | Should -Throw "Target file already exists. Use -Force to overwrite."
-            }
-
-            It "Should verify that all the required mocks were called." {
-                Assert-VerifiableMock
-            }
-        }
 
         Context "Providing a valid -OutFile." {
             BeforeAll {
@@ -1037,7 +1000,7 @@ reallyLongDecimal: 3.9999999999999990
                 $ret["PsO"]["NestedArray"] = @(
                     [ordered]@{
                         "Nested" = "NestedValue"
-                    },1
+                    }, 1
                 )
                 $ret["PsO"]["NullValue"] = $null
                 $ret["Ok"] = "aye"

@@ -75,10 +75,6 @@ function ConvertTo-KrYaml {
         }
         $norm = Convert-PSObjectToGenericObject $d
         if ($OutFile) {
-            # Provide a global-scoped variable so Pester tests can reference $OutFile inside their ParameterFilter script blocks.
-            #    $global:OutFile = $OutFile
-            Set-Variable -Name OutFile -Value $OutFile -Scope Global -Force
-            try { $PSCmdlet.SessionState.PSVariable.Set('OutFile', $OutFile) } catch { }
             $targetExists = Test-Path -Path $OutFile
             if ($targetExists) {
                 if (-not $Force) { throw "Target file already exists. Use -Force to overwrite." }

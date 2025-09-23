@@ -95,10 +95,7 @@ public static partial class YamlTypeConverter
                     // If it was a 'naive' timestamp (no Z / offset) keep as an unspecified DateTime so string formatting matches expected test output.
                     // Detect explicit timezone only if a 'Z' or a trailing +HH[:mm] or -HH[:mm] (optionally preceded by space) is present.
                     var hasTime = value.Contains(':');
-                    var hasExplicitZone = hasTime && (value.EndsWith("Z", StringComparison.OrdinalIgnoreCase) || System.Text.RegularExpressions.Regex.IsMatch(
-                        value,
-                        @"[\+\-]\d{1,2}(:?\d{2})?$",
-                        System.Text.RegularExpressions.RegexOptions.CultureInvariant | System.Text.RegularExpressions.RegexOptions.IgnoreCase));
+                    var hasExplicitZone = hasTime && (value.EndsWith("Z", StringComparison.OrdinalIgnoreCase) || MyRegex1().IsMatch(value));
                     if (hasExplicitZone && DateTimeOffset.TryParse(value, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out var dto))
                     {
                         return dto.LocalDateTime;
@@ -205,6 +202,7 @@ public static partial class YamlTypeConverter
                 // 10^exp
                 var pow = Pow10(exp);
                 var bigVal = mantissa * pow * sign;
+#pragma warning disable IDE0078
                 // Downcast if possible
                 if (bigVal >= int.MinValue && bigVal <= int.MaxValue)
                 {
@@ -214,6 +212,7 @@ public static partial class YamlTypeConverter
                 {
                     return (long)bigVal;
                 }
+#pragma warning restore IDE0078
                 return bigVal;
             }
             catch (Exception ex)
@@ -305,10 +304,7 @@ public static partial class YamlTypeConverter
         );
     }
 
-    private static object DowncastInteger(long v)
-    {
-        return v is >= int.MinValue and <= int.MaxValue ? (int)v : (object)v;
-    }
+    private static object DowncastInteger(long v) => v is >= int.MinValue and <= int.MaxValue ? (int)v : (object)v;
 
     /// <summary>
     /// Convert a YamlMappingNode to a dictionary. If <paramref name="ordered"/> is true,
@@ -415,24 +411,6 @@ public static partial class YamlTypeConverter
         return result;
     }
 
-    // Very permissive timestamp pattern (subset) matching forms used in tests
-    private static bool TryParseTimestamp(string s, out DateTime dt)
-    {
-        // Accept if it contains 'T' or '-' and ':' and either 'Z' or timezone offset part
-        if ((s.Contains('T', StringComparison.OrdinalIgnoreCase) || s.Contains(' ', StringComparison.Ordinal)) && s.Contains(':'))
-        {
-            if (DateTimeOffset.TryParse(s, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out var dto))
-            {
-                dt = dto.DateTime;
-                return true;
-            }
-            if (DateTime.TryParse(s, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out var dt2))
-            {
-                dt = dt2;
-                return true;
-            }
-        }
-        dt = default;
-        return false;
-    }
+    [GeneratedRegex(@"[\+\-]\d{1,2}(:?\d{2})?$", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
+    private static partial Regex MyRegex1();
 }

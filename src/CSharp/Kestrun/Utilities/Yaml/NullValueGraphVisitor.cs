@@ -17,10 +17,7 @@ public sealed class NullValueGraphVisitor(IObjectGraphVisitor<IEmitter> nextVisi
     /// <param name="context">The emitter context</param>
     /// <param name="serializer">The object serializer</param>
     /// <returns></returns>
-    public override bool EnterMapping(IPropertyDescriptor key, IObjectDescriptor value, IEmitter context, ObjectSerializer serializer)
-    {
-        return value.Value != null && base.EnterMapping(key, value, context, serializer);
-    }
+    public override bool EnterMapping(IPropertyDescriptor key, IObjectDescriptor value, IEmitter context, ObjectSerializer serializer) => value.Value != null && base.EnterMapping(key, value, context, serializer);
 
     /// <summary>
     /// YAML object graph visitor that omits null values in mappings
@@ -30,8 +27,5 @@ public sealed class NullValueGraphVisitor(IObjectGraphVisitor<IEmitter> nextVisi
     /// <param name="context">The emitter context</param>
     /// <param name="serializer">The object serializer</param>
     /// <returns></returns>
-    public override bool EnterMapping(IObjectDescriptor key, IObjectDescriptor value, IEmitter context, ObjectSerializer serializer)
-    {
-        return value.Value != null && base.EnterMapping(key, value, context, serializer);
-    }
+    public override bool EnterMapping(IObjectDescriptor key, IObjectDescriptor value, IEmitter context, ObjectSerializer serializer) => value.Value != null && base.EnterMapping(key, value, context, serializer);
 }

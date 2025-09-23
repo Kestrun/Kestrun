@@ -25,10 +25,7 @@ public class IDictionaryTypeConverter(bool omitNullValues = false, bool useFlowS
     /// </summary>
     /// <param name="type">The type to check</param>
     /// <returns>true if the type is IDictionary; otherwise, false.</returns>
-    public bool Accepts(Type type)
-    {
-        return typeof(IDictionary).IsAssignableFrom(type);
-    }
+    public bool Accepts(Type type) => typeof(IDictionary).IsAssignableFrom(type);
 
     /// <summary>
     /// Read an IDictionary from YAML

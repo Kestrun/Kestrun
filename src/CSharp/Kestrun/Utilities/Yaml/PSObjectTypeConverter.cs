@@ -22,10 +22,7 @@ public class PSObjectTypeConverter(bool omitNullValues = false, bool useFlowStyl
     /// </summary>
     /// <param name="type">The type to check</param>
     /// <returns>true if the type is PSObject; otherwise, false.</returns>
-    public bool Accepts(Type type)
-    {
-        return typeof(PSObject).IsAssignableFrom(type);
-    }
+    public bool Accepts(Type type) => typeof(PSObject).IsAssignableFrom(type);
 
     /// <summary>
     /// Read a PSObject from YAML

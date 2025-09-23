@@ -16,10 +16,7 @@ public class BigIntegerTypeConverter : IYamlTypeConverter
     /// </summary>
     /// <param name="type">The type to check</param>
     /// <returns>true if the type is BigInteger; otherwise, false.</returns>
-    public bool Accepts(Type type)
-    {
-        return typeof(BigInteger).IsAssignableFrom(type);
-    }
+    public bool Accepts(Type type) => typeof(BigInteger).IsAssignableFrom(type);
 
     /// <summary>
     /// Read a BigInteger from YAML

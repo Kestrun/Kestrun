@@ -19,7 +19,7 @@ public class PSObjectYamlSerializationTests
     public void Root_Null_PSObject_EmitsYamlDocumentMarkerOrNull()
     {
         // Passing null PSObject reference: YamlDotNet emits just document start marker for null root
-        string yaml = Serialize(null).Trim();
+        var yaml = Serialize(null).Trim();
         Assert.True(yaml == "---" || yaml.Contains("null", StringComparison.OrdinalIgnoreCase), $"Unexpected null representation: '{yaml}'");
     }
 
@@ -28,7 +28,7 @@ public class PSObjectYamlSerializationTests
     {
         var ps = new PSObject("hello");
         var yaml = Serialize(ps);
-        Assert.Equal($"hello{System.Environment.NewLine}", yaml); // account for platform newline
+        Assert.Equal($"hello{Environment.NewLine}", yaml); // account for platform newline
     }
 
     [Fact]

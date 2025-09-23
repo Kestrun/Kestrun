@@ -1,22 +1,14 @@
 using System.Collections;
-using System.Globalization;
 using System.Numerics;
 using System.Management.Automation;
 using Kestrun.Utilities.Yaml;
 using Xunit;
-using YamlDotNet.Serialization;
-using YamlDotNet.Core;
-using YamlDotNet.Core.Events;
-using YamlDotNet.Serialization.EventEmitters;
 
 namespace KestrunTests.YamlUtilities;
 
 public class YamlEmittersAndConvertersTests
 {
-    private static string Serialize(object? obj, SerializationOptions? opts = null)
-    {
-        return YamlHelper.ToYaml(obj, opts);
-    }
+    private static string Serialize(object? obj, SerializationOptions? opts = null) => YamlHelper.ToYaml(obj, opts);
 
     [Fact]
     public void BigIntegerTypeConverter_Writes_And_Reads()
@@ -58,10 +50,10 @@ public class YamlEmittersAndConvertersTests
         Assert.Contains("Age: 30", yaml);
 
         var flow = Serialize(o, SerializationOptions.EmitDefaults | SerializationOptions.UseFlowStyle);
-    var flat = flow.Replace("\r\n", "");
-    // Flow style output is fully compact (e.g., {Name:alice,Age:30})
-    var compact = flat.Replace(" ", "");
-    Assert.Contains("{Name:alice,Age:30}", compact);
+        var flat = flow.Replace("\r\n", "");
+        // Flow style output is fully compact (e.g., {Name:alice,Age:30})
+        var compact = flat.Replace(" ", "");
+        Assert.Contains("{Name:alice,Age:30}", compact);
     }
 
     [Fact]
@@ -77,9 +69,9 @@ public class YamlEmittersAndConvertersTests
     {
         var obj = new { a = new[] { 1, 2 }, b = 5 };
         var yaml = Serialize(obj, SerializationOptions.EmitDefaults | SerializationOptions.UseFlowStyle);
-    var flat = yaml.Replace("\r\n", "");
-    var compact = flat.Replace(" ", "");
-    Assert.Contains("{a:[1,2],b:5}", compact);
+        var flat = yaml.Replace("\r\n", "");
+        var compact = flat.Replace(" ", "");
+        Assert.Contains(/*lang=json*/ "{a:[1,2],b:5}", compact);
     }
 
     [Theory]

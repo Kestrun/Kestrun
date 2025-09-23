@@ -1,6 +1,5 @@
 using Kestrun.Utilities.Yaml;
 using Xunit;
-using YamlDotNet.Serialization;
 
 namespace KestrunTests.YamlUtilities;
 
@@ -39,18 +38,18 @@ public class YamlSerializerFactoryTests
     [Fact]
     public void UseFlowStyle_Flattens_Output()
     {
-    var yaml = Serialize(new { a = 1, b = 2 }, SerializationOptions.EmitDefaults | SerializationOptions.UseFlowStyle);
-    var compact = yaml.Replace(" ", string.Empty).Replace("\r\n", "");
-    Assert.Contains("{a:1,b:2}", compact);
+        var yaml = Serialize(new { a = 1, b = 2 }, SerializationOptions.EmitDefaults | SerializationOptions.UseFlowStyle);
+        var compact = yaml.Replace(" ", string.Empty).Replace("\r\n", "");
+        Assert.Contains(/*lang=json*/ "{a:1,b:2}", compact);
     }
 
     [Fact]
     public void UseSequenceFlowStyle_Flattens_Sequences_Only()
     {
-    var yaml = Serialize(new { list = new[] { 1, 2, 3 } }, SerializationOptions.EmitDefaults | SerializationOptions.UseSequenceFlowStyle);
-    var flat = yaml.Replace("\r\n", " ");
-    Assert.Contains("list: [1, 2, 3]", flat);
-    Assert.DoesNotContain("{a:", flat); // mapping not forced to flow
+        var yaml = Serialize(new { list = new[] { 1, 2, 3 } }, SerializationOptions.EmitDefaults | SerializationOptions.UseSequenceFlowStyle);
+        var flat = yaml.Replace("\r\n", " ");
+        Assert.Contains("list: [1, 2, 3]", flat);
+        Assert.DoesNotContain("{a:", flat); // mapping not forced to flow
     }
 
     [Fact]

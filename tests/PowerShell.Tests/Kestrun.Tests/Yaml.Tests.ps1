@@ -52,14 +52,12 @@ BeforeAll {
             [Parameter()][AllowNull()]$Expected,
             [Parameter()][AllowNull()]$Actual
         )
-        $expectedJson = ($Expected | ConvertTo-Json -Depth 100 -Compress) -replace "`r`n", "`n"
-        $actualJson = ($Actual | ConvertTo-Json -Depth 100 -Compress) -replace "`r`n", "`n"
+        $expectedJson = ($Expected | ConvertTo-Json -Depth 99 -Compress) -replace "`r`n", "`n"
+        $actualJson = ($Actual | ConvertTo-Json -Depth 99 -Compress) -replace "`r`n", "`n"
         $actualJson | Should -Be $expectedJson
     }
 }
 Describe 'Yaml PowerShell Functions' {
-    # Compare-Deep available globally (defined at top) replacing external Assert-Equivalent dependency.
-    $compareStrictly = $null
 
     Describe "Test flow styles" {
         Context "Mappings, sequences and PSCustomObjects" {
@@ -302,8 +300,8 @@ yamlList:
 
         Context "Nulls and strings" {
             BeforeAll {
-                $global:nullAndString = [ordered]@{"iAmNull" = $null; "iAmEmptyString" = "" }
-                $global:yaml = @"
+                $script:nullAndString = [ordered]@{"iAmNull" = $null; "iAmEmptyString" = "" }
+                $script:yaml = @"
 iAmNull:
 iAmEmptyString: ""
 
@@ -361,7 +359,7 @@ iAmEmptyString: ""
 
         Context "Test merging parser" {
             BeforeAll {
-                $global:mergingYaml = @"
+                $script:mergingYaml = @"
 ---
 default: &default
   value1: 1
@@ -372,7 +370,7 @@ hoge:
   value3: 3
 "@
 
-                $global:mergingYamlOverwriteCase = @"
+                $script:mergingYamlOverwriteCase = @"
 ---
 default: &default
   value1: 1
@@ -405,7 +403,6 @@ hoge:
                 { ConvertFrom-KrYaml -Yaml $mergingYamlOverwriteCase -UseMergingParser } | Should -Throw -PassThru | Select-Object -ExpandProperty Exception |
                     Should -BeLike "*Duplicate key*"
             }
-
         }
 
         Context "Test hash handling under various circumstances." {
@@ -445,7 +442,6 @@ hoge:
                 Compare-Deep -Actual $piped -Expected $arged
             }
         }
-
     }
 
     Describe "Being able to decode an externally provided string." {
@@ -507,7 +503,7 @@ bools:
     - False
 "@
 
-                $global:expected = [ordered]@{
+                $script:expected = [ordered]@{
                     wishlist = @(
                         @("coats", "hats", "and", "scarves"),
                         [ordered]@{
@@ -554,7 +550,7 @@ bools:
                     bools = @( $true, $false, $true, $false, $true, $false );
                 }
 
-                $global:res = ConvertFrom-KrYaml $testYaml
+                $script:res = ConvertFrom-KrYaml $testYaml
             }
 
             It "Should decode the YAML string as expected." {
@@ -637,7 +633,7 @@ bools:
 
     Describe "Test ConvertTo-KrYaml can serialize more complex nesting" {
         BeforeAll {
-            $global:sample = [PSCustomObject]@{
+            $script:sample = [PSCustomObject]@{
                 a1 = "a"
                 a2 = [PSCustomObject]@{
                     "a1" = "a"
@@ -662,7 +658,7 @@ bools:
                 }
             }
 
-            $global:sample2 = [PSCustomObject]@{
+            $script:sample2 = [PSCustomObject]@{
                 b1 = "b"
                 b2 = [PSCustomObject]@{
                     b1 = "b"
@@ -679,12 +675,12 @@ bools:
                 }
             }
 
-            $global:expected_json = '{"a1":"a","a2":{"a1":"a","a2":{"a1":{"a1":"a","a2":{"a1":"a"},"a3":{"a1":["a","b"]},"a4":["a","b"]}},"a3":[{"a1":"a","a2":false}]}}'
-            $global:expected_json_ln = $global:expected_json + "`n"
+            $script:expected_json = '{"a1":"a","a2":{"a1":"a","a2":{"a1":{"a1":"a","a2":{"a1":"a"},"a3":{"a1":["a","b"]},"a4":["a","b"]}},"a3":[{"a1":"a","a2":false}]}}'
+            $script:expected_json_ln = $script:expected_json + "`n"
 
-            $global:expected_json2 = '{"b1":"b","b2":{"b1":"b","b2":{"b":"b"}},"b3":{"b1":["b1","b2"]},"b4":true,"b5":{"b":"b"}}'
-            $global:expected_json2_ln = $global:expected_json2 + "`n"
-            $global:expected_block_yaml = @"
+            $script:expected_json2 = '{"b1":"b","b2":{"b1":"b","b2":{"b":"b"}},"b3":{"b1":["b1","b2"]},"b4":true,"b5":{"b":"b"}}'
+            $script:expected_json2_ln = $script:expected_json2 + "`n"
+            $script:expected_block_yaml = @"
 a1: a
 a2:
   a1: a
@@ -706,8 +702,8 @@ a2:
 
 "@
 
-            $global:expected_flow_yaml = "{a1: a, a2: {a1: a, a2: {a1: {a1: a, a2: {a1: a}, a3: {a1: [a, b]}, a4: [a, b]}}, a3: [{a1: a, a2: false}]}}`n"
-            $global:expected_block_yaml2 = @"
+            $script:expected_flow_yaml = "{a1: a, a2: {a1: a, a2: {a1: {a1: a, a2: {a1: a}, a3: {a1: [a, b]}, a4: [a, b]}}, a3: [{a1: a, a2: false}]}}`n"
+            $script:expected_block_yaml2 = @"
 b1: b
 b2:
   b1: b
@@ -722,7 +718,7 @@ b5:
   b: b
 
 "@
-            $global:expected_flow_yaml2 = "{b1: b, b2: {b1: b, b2: {b: b}}, b3: {b1: [b1, b2]}, b4: true, b5: {b: b}}`n"
+            $script:expected_flow_yaml2 = "{b1: b, b2: {b1: b, b2: {b: b}}, b3: {b1: [b1, b2]}, b4: true, b5: {b: b}}`n"
         }
 
         It "Should serialize nested PSCustomObjects to YAML" {
@@ -747,7 +743,7 @@ b5:
             $json -replace ' ', '' | Should -Be $expected_json_ln
 
             # Converted with ConvertTo-Json
-            $withJsonCommandlet = ConvertTo-Json -Compress -Depth 100 $sample
+            $withJsonCommandlet = ConvertTo-Json -Compress -Depth 99 $sample
             $withJsonCommandlet | Should -Be $expected_json
 
             # Converted with powershell-yaml
@@ -755,16 +751,15 @@ b5:
             $json -replace ' ', '' | Should -Be $expected_json2_ln
 
             # Converted with ConvertTo-Json
-            $withJsonCommandlet = ConvertTo-Json -Compress -Depth 100 $sample2
+            $withJsonCommandlet = ConvertTo-Json -Compress -Depth 99 $sample2
             $withJsonCommandlet | Should -Be $expected_json2
         }
-
     }
 
     Describe "Generic Casting Behaviour" {
         Context "Node Style is 'Plain'" {
             BeforeAll {
-                $global:value = @'
+                $script:value = @'
  T1: 001
 '@
             }
@@ -787,7 +782,7 @@ b5:
 
         Context "Node Style is 'SingleQuoted'" {
             BeforeAll {
-                $global:value = @'
+                $script:value = @'
  T1: '001'
 '@
             }
@@ -810,7 +805,7 @@ b5:
 
         Context "Node Style is 'DoubleQuoted'" {
             BeforeAll {
-                $global:value = @'
+                $script:value = @'
  T1: "001"
 '@
             }
@@ -835,16 +830,16 @@ b5:
     Describe 'Strings containing other primitives' {
         Context 'String contains an int' {
             BeforeAll {
-                $global:value = @{key = "1" }
+                $script:value = @{key = "1" }
             }
             It 'Should serialise with double quotes' {
                 $result = ConvertTo-KrYaml $value
-                $result |  Should -BeExactly "key: ""1""`n"
+                $result | Should -BeExactly "key: ""1""`n"
             }
         }
         Context 'String contains a float' {
             BeforeAll {
-                $global:value = @{key = "0.25" }
+                $script:value = @{key = "0.25" }
             }
             It 'Should serialise with double quotes' {
                 $result = ConvertTo-KrYaml $value
@@ -853,7 +848,7 @@ b5:
         }
         Context 'String is "true"' {
             BeforeAll {
-                $global:value = @{key = "true" }
+                $script:value = @{key = "true" }
             }
             It 'Should serialise with double quotes' {
                 $result = ConvertTo-KrYaml $value
@@ -862,7 +857,7 @@ b5:
         }
         Context 'String is "false"' {
             BeforeAll {
-                $global:value = @{key = "false" }
+                $script:value = @{key = "false" }
             }
             It 'Should serialise with double quotes' {
                 $result = ConvertTo-KrYaml $value
@@ -871,7 +866,7 @@ b5:
         }
         Context 'String is "null"' {
             BeforeAll {
-                $global:value = @{key = "null" }
+                $script:value = @{key = "null" }
             }
             It 'Should serialise with double quotes' {
                 $result = ConvertTo-KrYaml $value
@@ -880,7 +875,7 @@ b5:
         }
         Context 'String is "~" (alternative syntax for null)' {
             BeforeAll {
-                $global:value = @{key = "~" }
+                $script:value = @{key = "~" }
             }
             It 'Should serialise with double quotes' {
                 $result = ConvertTo-KrYaml $value
@@ -889,7 +884,7 @@ b5:
         }
         Context 'String is empty' {
             BeforeAll {
-                $global:value = @{key = "" }
+                $script:value = @{key = "" }
             }
             It 'Should serialise with double quotes' {
                 $result = ConvertTo-KrYaml $value
@@ -900,7 +895,7 @@ b5:
 
     Describe 'Numbers are parsed as the smallest type possible' {
         BeforeAll {
-            $global:value = @'
+            $script:value = @'
 bigInt: 99999999999999999999999999999999999
 int32: 2147483647
 int64: 9223372036854775807
@@ -985,7 +980,7 @@ reallyLongDecimal: 3.9999999999999990
 
         Context 'PSObject with null value is skipped when -Options OmitNullValues' {
             BeforeAll {
-                $global:value = [PSCustomObject]@{
+                $script:value = [PSCustomObject]@{
                     key1 = "value1"
                     key2 = $null
                 }
@@ -998,7 +993,7 @@ reallyLongDecimal: 3.9999999999999990
 
         Context 'PSObject with null value is included when -Options OmitNullValues is not set' {
             BeforeAll {
-                $global:value = [PSCustomObject]@{
+                $script:value = [PSCustomObject]@{
                     key1 = "value1"
                     key2 = $null
                 }
@@ -1011,7 +1006,7 @@ reallyLongDecimal: 3.9999999999999990
 
         Context 'PSCustomObject with a single property' {
             BeforeAll {
-                $global:value = [PSCustomObject]@{key = "value" }
+                $script:value = [PSCustomObject]@{key = "value" }
             }
             It 'Should serialise as a hash' {
                 $result = ConvertTo-KrYaml $value
@@ -1020,7 +1015,7 @@ reallyLongDecimal: 3.9999999999999990
         }
         Context 'PSCustomObject with multiple properties' {
             BeforeAll {
-                $global:value = [PSCustomObject]@{key1 = "value1"; key2 = "value2" }
+                $script:value = [PSCustomObject]@{key1 = "value1"; key2 = "value2" }
             }
             It 'Should serialise as a hash' {
                 $result = ConvertTo-KrYaml $value
@@ -1033,5 +1028,4 @@ reallyLongDecimal: 3.9999999999999990
             }
         }
     }
-
 }

@@ -95,6 +95,15 @@ function ConvertFrom-KrYaml {
 
         # Extract raw datesAsStrings lines (if present) BEFORE conversion so we can restore them as strings
         $rawDatesAsStrings = $null
+        # Regex explanation:
+        # (?ms) - Multiline and Singleline flags: ^ and $ match line boundaries, . matches newlines.
+        # ^datesAsStrings: - Match the start of a line with 'datesAsStrings:'.
+        # \s* - Allow optional whitespace after the colon.
+        # (?<block>(?:\r?\n\s*-\s*.+)+) - Named group 'block' capturing one or more lines starting with '- ', possibly indented.
+        # This matches a YAML sequence block for 'datesAsStrings', e.g.:
+        # datesAsStrings:
+        #   - "2024-06-01"
+        #   - "2024-06-02"
         if ($d -match '(?ms)^datesAsStrings:\s*(?<block>(?:\r?\n\s*-\s*.+)+)') {
             $rawDatesAsStrings = @()
             $block = $Matches['block']

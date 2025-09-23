@@ -26,8 +26,8 @@ public class YamlHelperAndLoaderTests
     public void YamlLoader_Gets_Root_Nodes_Single_Doc()
     {
         var nodes = YamlLoader.GetRootNodes("a: 1\n");
-        Assert.Single(nodes);
-        Assert.IsType<YamlMappingNode>(nodes[0]);
+        _ = Assert.Single(nodes);
+        _ = Assert.IsType<YamlMappingNode>(nodes[0]);
     }
 
     [Fact]
@@ -36,8 +36,8 @@ public class YamlHelperAndLoaderTests
         var text = "---\na: 1\n---\n- 1\n- 2\n";
         var nodes = YamlLoader.GetRootNodes(text);
         Assert.Equal(2, nodes.Count);
-        Assert.IsType<YamlMappingNode>(nodes[0]);
-        Assert.IsType<YamlSequenceNode>(nodes[1]);
+        _ = Assert.IsType<YamlMappingNode>(nodes[0]);
+        _ = Assert.IsType<YamlSequenceNode>(nodes[1]);
     }
 
     [Fact]

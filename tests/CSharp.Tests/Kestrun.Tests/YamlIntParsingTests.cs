@@ -19,7 +19,7 @@ public class YamlIntParsingTests
     public void Scientific_PositiveExponent_Downcasts()
     {
         var v = InvokeParse("12e2"); // 12 * 10^2 = 1200
-        Assert.IsType<int>(v);
+        _ = Assert.IsType<int>(v);
         Assert.Equal(1200, v);
     }
 
@@ -27,7 +27,7 @@ public class YamlIntParsingTests
     public void Scientific_BigInteger_Result()
     {
         var v = InvokeParse("12345678901234567890e3");
-        Assert.IsType<BigInteger>(v);
+        _ = Assert.IsType<BigInteger>(v);
     }
 
     [Fact]
@@ -47,9 +47,9 @@ public class YamlIntParsingTests
     [Fact]
     public void Generic_BigInteger_Downcasts_Long()
     {
-        var bigLongStr = ((long)int.MaxValue + 10L).ToString();
+        var bigLongStr = (int.MaxValue + 10L).ToString();
         var v = InvokeParse(bigLongStr);
-        Assert.IsType<long>(v);
+        _ = Assert.IsType<long>(v);
     }
 
     [Fact]
@@ -57,6 +57,6 @@ public class YamlIntParsingTests
     {
         var huge = new string('9', 60); // large number
         var v = InvokeParse(huge);
-        Assert.IsType<BigInteger>(v);
+        _ = Assert.IsType<BigInteger>(v);
     }
 }

@@ -13,7 +13,7 @@ public class YamlScalarConversionTests
         var node = new YamlScalarNode(text) { Style = style };
         if (tag != null)
         {
-            node.Tag = new YamlDotNet.Core.TagName(tag);
+            node.Tag = new TagName(tag);
         }
         return YamlTypeConverter.ConvertValueToProperType(node);
     }
@@ -57,7 +57,7 @@ public class YamlScalarConversionTests
     public void Tagged_Float_Decimal()
     {
         var v = Convert("1.25", "tag:yaml.org,2002:float");
-        Assert.IsType<decimal>(v);
+        _ = Assert.IsType<decimal>(v);
         Assert.Equal(1.25m, v);
     }
 
@@ -66,7 +66,7 @@ public class YamlScalarConversionTests
     {
         var iso = DateTimeOffset.UtcNow.ToString("o");
         var v = Convert(iso, "tag:yaml.org,2002:timestamp");
-        Assert.IsType<DateTime>(v);
+        _ = Assert.IsType<DateTime>(v);
     }
 
     [Fact]
@@ -88,14 +88,14 @@ public class YamlScalarConversionTests
     {
         var big = new string('9', 50);
         var v = Convert(big);
-        Assert.IsType<BigInteger>(v);
+        _ = Assert.IsType<BigInteger>(v);
     }
 
     [Fact]
     public void Plain_Decimal()
     {
         var v = Convert("3.14");
-        Assert.IsType<decimal>(v);
+        _ = Assert.IsType<decimal>(v);
     }
 
     [Fact]

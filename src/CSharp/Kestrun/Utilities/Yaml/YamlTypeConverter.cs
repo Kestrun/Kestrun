@@ -114,31 +114,26 @@ public static partial class YamlTypeConverter
     /// <summary>Parses a YAML float (tagged) honoring infinity tokens, else decimal.</summary>
     private static object ParseTaggedFloat(string value)
     {
-        if (InfinityRegex.IsMatch(value))
-        {
-            return value.StartsWith('-') ? double.NegativeInfinity : double.PositiveInfinity;
-        }
-        if (decimal.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out var dec))
-        {
-            return dec;
-        }
-        throw new FormatException($"Failed to parse scalar '{value}' as decimal.");
+        return InfinityRegex.IsMatch(value)
+            ? value.StartsWith('-') ? double.NegativeInfinity : double.PositiveInfinity
+            : decimal.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out var dec)
+            ? (object)dec
+            : throw new FormatException($"Failed to parse scalar '{value}' as decimal.");
     }
 
-    /// <summary>Parses a YAML timestamp preserving unspecified semantics or converting to local DateTime for zone-aware values.</summary>
+    /// <summary>
+    /// Parses a YAML timestamp preserving unspecified semantics or converting to local DateTime for zone-aware values.
+    /// </summary>
+    /// <param name="value">The YAML timestamp value to parse.</param>
     private static object ParseTaggedTimestamp(string value)
     {
         var hasTime = value.Contains(':');
         var hasExplicitZone = hasTime && (value.EndsWith("Z", StringComparison.OrdinalIgnoreCase) || MyRegex1().IsMatch(value));
-        if (hasExplicitZone && DateTimeOffset.TryParse(value, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out var dto))
-        {
-            return dto.LocalDateTime;
-        }
-        if (DateTime.TryParse(value, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out var naive))
-        {
-            return DateTime.SpecifyKind(naive, DateTimeKind.Unspecified);
-        }
-        throw new FormatException($"Failed to parse scalar '{value}' as DateTime.");
+        return hasExplicitZone && DateTimeOffset.TryParse(value, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out var dto)
+            ? dto.LocalDateTime
+            : DateTime.TryParse(value, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out var naive)
+            ? (object)DateTime.SpecifyKind(naive, DateTimeKind.Unspecified)
+            : throw new FormatException($"Failed to parse scalar '{value}' as DateTime.");
     }
 
     /// <summary>Attempts plain-style heuristic parsing for bool/int/float. Returns (parsed=false) if none match.</summary>

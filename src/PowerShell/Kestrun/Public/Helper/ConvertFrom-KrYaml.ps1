@@ -93,21 +93,16 @@ function ConvertFrom-KrYaml {
         }
         $firstRoot = $documents[0].RootNode
 
-        # Extract raw datesAsStrings values (if present) from the parsed YAML AST BEFORE conversion so we can restore them as strings
+        # Extract raw datesAsStrings lines (if present) BEFORE conversion so we can restore them as strings
         $rawDatesAsStrings = $null
-        if ($firstRoot -is [Kestrun.Utilities.Yaml.YamlMappingNode] -and $firstRoot.Children.ContainsKey('datesAsStrings')) {
-            $datesNode = $firstRoot.Children['datesAsStrings']
-            if ($datesNode -is [Kestrun.Utilities.Yaml.YamlSequenceNode]) {
-                $rawDatesAsStrings = @()
-                foreach ($item in $datesNode.Children) {
-                    # Extract the original scalar value as string, preserving quotes if present
-                    if ($item -is [Kestrun.Utilities.Yaml.YamlScalarNode]) {
-                        $rawVal = $item.Value
-                        $rawDatesAsStrings += $rawVal
-                    } else {
-                        # For non-scalar nodes, fallback to string conversion
-                        $rawDatesAsStrings += $item.ToString()
-                    }
+        if ($d -match '(?ms)^datesAsStrings:\s*(?<block>(?:\r?\n\s*-\s*.+)+)') {
+            $rawDatesAsStrings = @()
+            $block = $Matches['block']
+            foreach ($line in ($block -split "`n")) {
+                if ($line -match '^\s*-\s*(.+)$') {
+                    $rawVal = $Matches[1].TrimEnd()
+                    # Preserve original lexical form; strip surrounding quotes if any were part of raw YAML? Keep as-is.
+                    $rawDatesAsStrings += $rawVal
                 }
             }
         }

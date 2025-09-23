@@ -10,8 +10,12 @@ public static class YamlLoader
 {
     /// <summary>
     /// Parses one or more YAML documents from a string and returns a YamlStream.
-    /// Set <paramref name="useMergingParser"/> to true to enable YAML anchors/aliases merge (<<) handling.
+    /// Set <paramref name="useMergingParser"/> to true to enable YAML anchors/aliases mergehandling.
     /// </summary>
+    /// <param name="yaml">The YAML string to parse.</param>
+    /// <param name="useMergingParser">Whether to use a merging parser to handle anchors and aliases.</param>
+    /// <returns>A YamlStream containing the parsed documents.</returns>
+    /// <exception cref="ArgumentNullException">Thrown if the input YAML string is null.</exception>
     public static YamlStream GetYamlDocuments(string yaml, bool useMergingParser = false)
     {
         ArgumentNullException.ThrowIfNull(yaml);

@@ -72,8 +72,9 @@ public class IDictionaryTypeConverter(bool omitNullValues = false, bool useFlowS
                 {
                     continue;
                 }
+                // Emit blank value without $null literal
                 serializer(entry.Key, entry.Key.GetType());
-                emitter.Emit(new Scalar(AnchorName.Empty, "tag:yaml.org,2002:null", "", ScalarStyle.Plain, true, false));
+                emitter.Emit(new Scalar(AnchorName.Empty, TagName.Empty, string.Empty, ScalarStyle.Plain, true, false));
                 continue;
             }
             serializer(entry.Key, entry.Key.GetType());

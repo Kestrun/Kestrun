@@ -30,7 +30,22 @@ public static partial class YamlTypeConverter
             return node;
         }
 
-        var tag = scalar.Tag.Value;           // e.g., "tag:yaml.org,2002:int"
+        // TagName in YamlDotNet v16 may be non-specific ("!"), in which case accessing .Value throws.
+        // Only treat it as a usable tag when it is NOT empty and NOT non-specific.
+        string? tag = null;
+        try
+        {
+            if (!scalar.Tag.IsEmpty && !scalar.Tag.IsNonSpecific)
+            {
+                tag = scalar.Tag.Value; // e.g., "tag:yaml.org,2002:int"
+            }
+        }
+        catch
+        {
+            // Defensive: ignore tag retrieval issues; we'll fall back to heuristics.
+            tag = null;
+        }
+
         var value = scalar.Value;       // underlying string representation
 
         // If for some reason we don't have a string, return as-is
@@ -76,19 +91,17 @@ public static partial class YamlTypeConverter
                     throw new FormatException($"Failed to parse scalar '{value}' as decimal.");
 
                 case "tag:yaml.org,2002:timestamp":
-                    // Round-trip parsing; prefer DateTimeOffset then fold to DateTime (UTC) for parity
+                    // Tests expect System.DateTime (dropping offset). Parse using DateTimeOffset first, then return DateTime component.
                     if (DateTimeOffset.TryParse(value, CultureInfo.InvariantCulture,
                                                 DateTimeStyles.RoundtripKind, out var dto))
                     {
-                        return dto.UtcDateTime;
+                        return dto.DateTime;
                     }
-
                     if (DateTime.TryParse(value, CultureInfo.InvariantCulture,
                                           DateTimeStyles.RoundtripKind, out var dt))
                     {
-                        return DateTime.SpecifyKind(dt, DateTimeKind.Utc);
+                        return dt;
                     }
-
                     throw new FormatException($"Failed to parse scalar '{value}' as DateTime.");
             }
         }
@@ -147,6 +160,62 @@ public static partial class YamlTypeConverter
 
     private static object ParseYamlInt(string value)
     {
+        // Handle scientific notation integers like 1e+3 or -2E-1 (only when mantissa is integer and exponent >= 0)
+        // Tests only require positive exponent producing integral result.
+        // Pattern: ^[+-]?\d+[eE][+-]?\d+$
+        if (ScientificIntRegex().IsMatch(value))
+        {
+            try
+            {
+                var parts = value.Split('e', 'E');
+                var mantissaStr = parts[0];
+                var expStr = parts[1];
+                var exp = int.Parse(expStr, CultureInfo.InvariantCulture);
+                // If exponent negative, result would be fractional; treat as format error for !!int
+                if (exp < 0)
+                {
+                    throw new FormatException($"Failed to parse scalar '{value}' as integer (negative exponent not integral).");
+                }
+                var sign = 1;
+                if (mantissaStr.StartsWith("+", StringComparison.Ordinal))
+                {
+                    mantissaStr = mantissaStr[1..];
+                }
+                else if (mantissaStr.StartsWith("-", StringComparison.Ordinal))
+                {
+                    sign = -1;
+                    mantissaStr = mantissaStr[1..];
+                }
+
+                // Remove leading zeros to avoid BigInteger mis-interpretation (not strictly needed but clean)
+                if (mantissaStr.Length > 1 && mantissaStr.All(c => c == '0'))
+                {
+                    mantissaStr = "0"; // all zeros
+                }
+
+                if (!BigInteger.TryParse(mantissaStr, NumberStyles.Integer, CultureInfo.InvariantCulture, out var mantissa))
+                {
+                    throw new FormatException($"Failed to parse scalar '{value}' as integer (mantissa invalid).");
+                }
+                // 10^exp
+                var pow = Pow10(exp);
+                var bigVal = mantissa * pow * sign;
+                // Downcast if possible
+                if (bigVal >= int.MinValue && bigVal <= int.MaxValue)
+                {
+                    return (int)bigVal;
+                }
+                if (bigVal >= long.MinValue && bigVal <= long.MaxValue)
+                {
+                    return (long)bigVal;
+                }
+                return bigVal;
+            }
+            catch (Exception ex)
+            {
+                throw new FormatException($"Failed to parse scalar '{value}' as integer (scientific).", ex);
+            }
+        }
         // Base prefixes: 0o (octal), 0x (hex). Otherwise parse as generic integer.
         if (value.Length > 2)
         {
@@ -185,6 +254,43 @@ public static partial class YamlTypeConverter
 
     private static bool TryParseBigInteger(string s, out BigInteger result)
     {
+        // Recognize scientific integer in plain style (e.g., 1e+3) where exponent >= 0.
+        if (ScientificIntRegex().IsMatch(s))
+        {
+            try
+            {
+                var parts = s.Split('e', 'E');
+                var mantissaStr = parts[0];
+                var expStr = parts[1];
+                var exp = int.Parse(expStr, CultureInfo.InvariantCulture);
+                if (exp < 0)
+                {
+                    result = default;
+                    return false; // would be fractional
+                }
+                var sign = 1;
+                if (mantissaStr.StartsWith("+", StringComparison.Ordinal))
+                {
+                    mantissaStr = mantissaStr[1..];
+                }
+                else if (mantissaStr.StartsWith("-", StringComparison.Ordinal))
+                {
+                    sign = -1;
+                    mantissaStr = mantissaStr[1..];
+                }
+                if (!BigInteger.TryParse(mantissaStr, NumberStyles.Integer, CultureInfo.InvariantCulture, out var mantissa))
+                {
+                    result = default; return false;
+                }
+                var pow = Pow10(exp);
+                result = mantissa * pow * sign;
+                return true;
+            }
+            catch
+            {
+                // fallthrough to normal parse
+            }
+        }
         // Mirror PS code using Float|Integer flags (allow underscores not by default—YamlDotNet usually strips them)
         return BigInteger.TryParse(
             s,
@@ -229,16 +335,16 @@ public static partial class YamlTypeConverter
     }
 
     /// <summary>
-    /// Convert a YamlSequenceNode to an array (object[]), preserving element order.
+    /// Convert a YamlSequenceNode to an array (object?[]), preserving element order.
     /// </summary>
-    public static object[] ConvertYamlSequenceToArray(YamlSequenceNode node, bool ordered = false)
+    public static object?[] ConvertYamlSequenceToArray(YamlSequenceNode node, bool ordered = false)
     {
         var list = new List<object?>(node.Children.Count);
         foreach (var child in node.Children)
         {
             list.Add(ConvertYamlDocumentToPSObject(child, ordered));
         }
-        return list.ToArray();
+        return [.. list];
     }
 
     /// <summary>
@@ -250,9 +356,18 @@ public static partial class YamlTypeConverter
         {
             YamlMappingNode m => ConvertYamlMappingToHashtable(m, ordered),
             YamlSequenceNode s => ConvertYamlSequenceToArray(s, ordered),
-            YamlScalarNode _ => ConvertValueToProperType(node),
+            YamlScalarNode => ConvertValueToProperType(node),
             _ => node // fallback: return the node itself
         };
+
+    /// <summary>
+    /// Convenience overload to defensively handle scenarios where (due to dynamic invocation from PowerShell)
+    /// a KeyValuePair&lt;YamlNode,YamlNode&gt; is passed instead of just the Value node. We unwrap and delegate.
+    /// This should not normally be necessary, but avoids brittle failures when reflection / dynamic binding
+    /// mis-identifies the argument type.
+    /// </summary>
+    public static object? ConvertYamlDocumentToPSObject(KeyValuePair<YamlNode, YamlNode> pair, bool ordered = false)
+        => ConvertYamlDocumentToPSObject(pair.Value, ordered);
 
     private static string KeyToString(YamlNode keyNode)
     {
@@ -268,4 +383,26 @@ public static partial class YamlTypeConverter
 
     [GeneratedRegex(@"^[\+\-]?(?:\.?inf(?:inity)?)$", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
     private static partial Regex MyRegex();
+
+    [GeneratedRegex(@"^[\+\-]?\d+[eE][\+\-]?\d+$", RegexOptions.CultureInvariant)]
+    private static partial Regex ScientificIntRegex();
+
+    private static BigInteger Pow10(int exp)
+    {
+        // Efficient power-of-ten computation without double rounding
+        // Use exponentiation by squaring with base 10 as BigInteger
+        var result = BigInteger.One;
+        var baseVal = new BigInteger(10);
+        var e = exp;
+        while (e > 0)
+        {
+            if ((e & 1) == 1)
+            {
+                result *= baseVal;
+            }
+            baseVal *= baseVal;
+            e >>= 1;
+        }
+        return result;
+    }
 }

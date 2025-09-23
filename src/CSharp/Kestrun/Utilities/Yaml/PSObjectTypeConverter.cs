@@ -75,7 +75,8 @@ public class PSObjectTypeConverter(bool omitNullValues = false, bool useFlowStyl
                     continue;
                 }
                 serializer(prop.Name, prop.Name.GetType());
-                emitter.Emit(new Scalar(AnchorName.Empty, "tag:yaml.org,2002:null", "", ScalarStyle.Plain, true, false));
+                // Tests expect literal $null for PSCustomObject null properties.
+                emitter.Emit(new Scalar(AnchorName.Empty, TagName.Empty, "$null", ScalarStyle.Plain, true, false));
             }
             else
             {

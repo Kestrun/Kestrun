@@ -35,7 +35,8 @@ public partial class StringQuotingEmitter(IEventEmitter next) : ChainedEventEmit
                 break;
             case TypeCode.String:
                 var val = eventInfo.Source.Value?.ToString() ?? string.Empty;
-                if (quotedRegex.IsMatch(val))
+                // Do NOT quote empty string; leave it blank so downstream null detection (blank value) works.
+                if (val.Length > 0 && quotedRegex.IsMatch(val))
                 {
                     eventInfo.Style = ScalarStyle.DoubleQuoted;
                 }

@@ -91,18 +91,18 @@ public static partial class YamlTypeConverter
                     throw new FormatException($"Failed to parse scalar '{value}' as decimal.");
 
                 case "tag:yaml.org,2002:timestamp":
-                    // Tests expect System.DateTime (dropping offset). Parse using DateTimeOffset first, then return DateTime component.
+                    // Preserve offset information by returning DateTimeOffset when possible.
                     if (DateTimeOffset.TryParse(value, CultureInfo.InvariantCulture,
                                                 DateTimeStyles.RoundtripKind, out var dto))
                     {
-                        return dto.DateTime;
+                        return dto;
                     }
                     if (DateTime.TryParse(value, CultureInfo.InvariantCulture,
-                                          DateTimeStyles.RoundtripKind, out var dt))
+                                          DateTimeStyles.RoundtripKind, out var dtNoOffset))
                     {
-                        return dt;
+                        return new DateTimeOffset(dtNoOffset);
                     }
-                    throw new FormatException($"Failed to parse scalar '{value}' as DateTime.");
+                    throw new FormatException($"Failed to parse scalar '{value}' as DateTimeOffset.");
             }
         }
 

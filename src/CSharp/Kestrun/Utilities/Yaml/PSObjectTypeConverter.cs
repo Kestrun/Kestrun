@@ -74,27 +74,25 @@ public class PSObjectTypeConverter(bool omitNullValues = false, bool useFlowStyl
                 {
                     continue;
                 }
+                // Emit key with plain scalar 'null' per updated test expectation
                 serializer(prop.Name, prop.Name.GetType());
-                // Tests expect literal $null for PSCustomObject null properties.
-                emitter.Emit(new Scalar(AnchorName.Empty, TagName.Empty, "$null", ScalarStyle.Plain, true, false));
+                emitter.Emit(new Scalar(AnchorName.Empty, TagName.Empty, "null", ScalarStyle.Plain, true, false));
+                continue;
             }
-            else
-            {
-                serializer(prop.Name, prop.Name.GetType());
-                var objType = prop.Value.GetType();
-                var val = prop.Value;
-                if (prop.Value is PSObject nestedPsObj)
-                {
-                    var nestedType = nestedPsObj.BaseObject?.GetType();
-                    if (nestedType != null && nestedType != typeof(PSCustomObject))
-                    {
-                        objType = nestedType!;
-                        val = nestedPsObj.BaseObject!;
-                    }
-                }
-                serializer(val, objType);
 
+            serializer(prop.Name, prop.Name.GetType());
+            var objType = prop.Value.GetType();
+            var val = prop.Value;
+            if (prop.Value is PSObject nestedPsObj)
+            {
+                var nestedType = nestedPsObj.BaseObject?.GetType();
+                if (nestedType != null && nestedType != typeof(PSCustomObject))
+                {
+                    objType = nestedType!;
+                    val = nestedPsObj.BaseObject!;
+                }
             }
+            serializer(val, objType);
         }
         emitter.Emit(new MappingEnd());
     }

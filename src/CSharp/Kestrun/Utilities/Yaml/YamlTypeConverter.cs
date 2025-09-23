@@ -351,9 +351,10 @@ public static partial class YamlTypeConverter
                     sign = -1;
                     mantissaStr = mantissaStr[1..];
                 }
-                if (!BigInteger.TryParse(mantissaStr, NumberStyles.Integer, CultureInfo.InvariantCulture, out var mantissa))
+                if (!BigInteger.TryParse(mantissaStr, NumberStyles.Integer | NumberStyles.AllowLeadingSign, CultureInfo.InvariantCulture, out var mantissa))
                 {
-                    result = default; return false;
+                    result = default;
+                    return false;
                 }
                 var pow = Pow10(exp);
                 result = mantissa * pow * sign;

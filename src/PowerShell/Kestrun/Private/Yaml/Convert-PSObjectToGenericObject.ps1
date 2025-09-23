@@ -28,12 +28,12 @@ function Convert-PSObjectToGenericObject {
         return $InputObject
     }
 
-    $dataType = $InputObject.GetType()
-    if (([System.Collections.Specialized.OrderedDictionary].IsAssignableFrom($dataType))) {
+    # Use PowerShell's -is operator for efficient type checking
+    if ($InputObject -is [System.Collections.Specialized.OrderedDictionary]) {
         return Convert-OrderedHashtableToDictionary $InputObject
-    } elseif (([System.Collections.IDictionary].IsAssignableFrom($dataType))) {
+    } elseif ($InputObject -is [System.Collections.IDictionary]) {
         return Convert-HashtableToDictionary $InputObject
-    } elseif (([System.Collections.IList].IsAssignableFrom($dataType))) {
+    } elseif ($InputObject -is [System.Collections.IList]) {
         return Convert-ListToGenericList $InputObject
     }
     return $InputObject

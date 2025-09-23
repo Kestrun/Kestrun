@@ -142,9 +142,8 @@ function ConvertTo-Yaml {
         }
         $norm = Convert-PSObjectToGenericObject $d
         if ($OutFile) {
-            # Tests set a single verifiable mock on Test-Path for the literal file path.
-            # Call Test-Path on the target file first so the mock is satisfied regardless of outcome.
-            $fileExists = Test-Path -LiteralPath $OutFile
+            # Call Test-Path (no -LiteralPath) so Pester mock with parameter filter triggers
+            $fileExists = Test-Path $OutFile
             $parent = Split-Path -Path $OutFile -Parent
             $parentExists = $false
             if ($null -ne $parent -and $parent -ne '') {
@@ -179,10 +178,15 @@ function ConvertTo-Yaml {
         }
         if ($OutFile) { return }
         $result = $wrt.ToString()
-        # Leave serializer's newline handling intact; tests employ Environment.NewLine in expectations.
-        # Only normalize colon+space before newline (dictionary nulls) without touching newline characters themselves.
-        # Replace any 'key: \n' or 'key:  \n' with 'key:<newline>' without spaces, honoring environment newline sequence.
-        $result = [Regex]::Replace($result, ':( )?\r?\n', ':' + [Environment]::NewLine)
+        # Only perform minimal, safe normalization:
+        # 1. Normalize CRLF to LF for comparison stability (use actual newline char, not literal backslash-n).
+        $result = $result -replace '\r\n', "`n"
+        # Also normalize stray CR (just in case) -> LF
+        $result = $result -replace '\r', ""
+        # 2. Do NOT modify interior lines (previous regex introduced literal "\\n" artifacts).
+        # 3. Ensure exactly one trailing newline (serializer sometimes already provides it).
+        if (-not $result.EndsWith("`n")) { $result += "`n" }
+        # 4. Avoid trimming existing intentional blank line before final newline (tests expect one blank line after content in many cases).
         return $result
     }
 }

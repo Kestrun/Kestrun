@@ -146,7 +146,7 @@ public static partial class YamlTypeConverter
 
         // Explicit YAML null tokens in plain style
         if (scalar.Style == ScalarStyle.Plain &&
-            (value == string.Empty || value == "~" ||
+            (value == string.Empty || value == "~" || value == "$null" ||
              string.Equals(value, "null", StringComparison.Ordinal) ||
              string.Equals(value, "Null", StringComparison.Ordinal) ||
              string.Equals(value, "NULL", StringComparison.Ordinal)))

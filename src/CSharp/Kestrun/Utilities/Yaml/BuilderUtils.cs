@@ -23,7 +23,6 @@ public class BuilderUtils
         bool useSequenceFlowStyle = false,
         bool jsonCompatible = false)
     {
-
         if (jsonCompatible)
         {
             useFlowStyle = true;

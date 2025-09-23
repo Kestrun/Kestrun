@@ -15,7 +15,12 @@ public static partial class YamlTypeConverter
     // YAML 1.2: .inf, +.inf, -.inf, and permissive "inf" / "infinity"
     private static readonly Regex InfinityRegex =
         MyRegex();
-
+    // Integers (promote via BigInteger, then downcast if safe)
+    // Uses cached BigInteger boundary constants (declare once at class scope):
+    private static readonly BigInteger IntMinBig = new(int.MinValue);
+    private static readonly BigInteger IntMaxBig = new(int.MaxValue);
+    private static readonly BigInteger LongMinBig = new(long.MinValue);
+    private static readonly BigInteger LongMaxBig = new(long.MaxValue);
     /// <summary>
     ///     Convert a YamlNode to the most appropriate .NET type based on its tag and content
     /// </summary>
@@ -117,16 +122,15 @@ public static partial class YamlTypeConverter
                 return bPlain;
             }
 
-            // Integers (promote via BigInteger, then downcast if safe)
             if (TryParseBigInteger(value, out var bigInt))
             {
 #pragma warning disable IDE0078
-                if (bigInt >= int.MinValue && bigInt <= int.MaxValue)
+                if (bigInt >= IntMinBig && bigInt <= IntMaxBig)
                 {
                     return (int)bigInt;
                 }
 
-                if (bigInt >= long.MinValue && bigInt <= long.MaxValue)
+                if (bigInt >= LongMinBig && bigInt <= LongMaxBig)
                 {
                     return (long)bigInt;
                 }

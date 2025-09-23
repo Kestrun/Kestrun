@@ -99,7 +99,7 @@ function ConvertTo-KrYaml {
             $serializer = [Kestrun.Utilities.Yaml.YamlSerializerFactory]::GetSerializer($Options)
             $serializer.Serialize($wrt, $norm)
         } catch {
-            $_
+            throw $_
         } finally {
             $wrt.Close()
         }

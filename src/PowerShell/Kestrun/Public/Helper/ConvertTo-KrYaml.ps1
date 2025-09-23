@@ -55,7 +55,7 @@ function ConvertTo-KrYaml {
         $d = [System.Collections.Generic.List[object]]::new()
     }
     process {
-        if ($InputObject -is [System.Object]) {
+        if ($null -ne $InputObject) {
             $d.Add($InputObject)
         }
     }
@@ -74,10 +74,6 @@ function ConvertTo-KrYaml {
         }
 
         $out = [Kestrun.Utilities.Yaml.YamlHelper]::ToYaml($norm, $Options)
-
-        # Post-process: convert null dictionary entries serialized as '' into blank null form (key: \n)
-        # Safe regex: only targets single-quoted empty string immediately after colon with optional space.
-        # $out = [Regex]::Replace($out, '(?m)^(?<k>[^:\r\n]+):\s*''''\s*$', '${k}:')
         return $out
     }
 }

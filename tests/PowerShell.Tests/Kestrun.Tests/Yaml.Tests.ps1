@@ -76,12 +76,12 @@ anArrayKey:
 - 3
 
 "@
-                ConvertTo-Yaml $obj
-                $serialized = ConvertTo-Yaml $obj
+                ConvertTo-KrYaml $obj
+                $serialized = ConvertTo-KrYaml $obj
                 Compare-Deep -Options $compareStrictly -Expected $expected -Actual $serialized
 
                 $pso = [pscustomobject]$obj
-                $serialized = ConvertTo-Yaml $pso
+                $serialized = ConvertTo-KrYaml $pso
                 Compare-Deep -Options $compareStrictly -Expected $expected -Actual $serialized
             }
 
@@ -95,11 +95,11 @@ anArrayKey:
 {aStringKey: test, anIntKey: 1, anArrayKey: [1, 2, 3]}
 
 "@
-                $serialized = ConvertTo-Yaml -Options UseFlowStyle $obj
+                $serialized = ConvertTo-KrYaml -Options UseFlowStyle $obj
                 Compare-Deep -Options $compareStrictly -Expected $expected -Actual $serialized
 
                 $pso = [pscustomobject]$obj
-                $serialized = ConvertTo-Yaml -Options UseFlowStyle $pso
+                $serialized = ConvertTo-KrYaml -Options UseFlowStyle $pso
                 Compare-Deep -Options $compareStrictly -Expected $expected -Actual $serialized
             }
 
@@ -115,11 +115,11 @@ anIntKey: 1
 anArrayKey: [1, 2, 3]
 
 "@
-                $serialized = ConvertTo-Yaml -Options UseSequenceFlowStyle $obj
+                $serialized = ConvertTo-KrYaml -Options UseSequenceFlowStyle $obj
                 Compare-Deep -Options $compareStrictly -Expected $expected -Actual $serialized
 
                 $pso = [pscustomobject]$obj
-                $serialized = ConvertTo-Yaml -Options UseSequenceFlowStyle $pso
+                $serialized = ConvertTo-KrYaml -Options UseSequenceFlowStyle $pso
                 Compare-Deep -Options $compareStrictly -Expected $expected -Actual $serialized
             }
 
@@ -133,7 +133,7 @@ anArrayKey: [1, 2, 3]
 {"aStringKey": "test", "anIntKey": 1, "anArrayKey": [1, 2, 3]}
 
 "@
-                $serialized = ConvertTo-Yaml -Options JsonCompatible $obj
+                $serialized = ConvertTo-KrYaml -Options JsonCompatible $obj
                 Compare-Deep -Options $compareStrictly -Expected $expected -Actual $serialized
 
                 if ($PSVersionTable['PSEdition'] -eq 'Core') {
@@ -142,7 +142,7 @@ anArrayKey: [1, 2, 3]
                 }
 
                 $pso = [pscustomobject]$obj
-                $serialized = ConvertTo-Yaml -Options JsonCompatible $pso
+                $serialized = ConvertTo-KrYaml -Options JsonCompatible $pso
                 Compare-Deep -Options $compareStrictly -Expected $expected -Actual $serialized
 
                 if ($PSVersionTable['PSEdition'] -eq 'Core') {
@@ -156,7 +156,7 @@ anArrayKey: [1, 2, 3]
     Describe "Test serialized depth" {
         Context "Deeply nested objects are serialized correctly" {
             It "Should deserialize the entire object" {
-                $data = @"
+                $inputObject = @"
 children:
   appliance:
     bla:
@@ -215,8 +215,8 @@ children:
                                                                                                         - 192.168.0.3
 
 "@
-                $result = ConvertFrom-Yaml $data | ConvertTo-Yaml
-                Compare-Deep -Options $compareStrictly -Expected $data -Actual $result
+                $result = ConvertFrom-KrYaml $inputObject | ConvertTo-KrYaml
+                Compare-Deep -Options $compareStrictly -Expected $inputObject -Actual $result
             }
         }
     }
@@ -230,11 +230,11 @@ yamlList:
 - item2
 
 "@
-                $data = ConvertFrom-Yaml "yamlList: []" | ConvertTo-Json -Depth 3 | ConvertFrom-Json
+                $inputObject = ConvertFrom-KrYaml "yamlList: []" | ConvertTo-Json -Depth 3 | ConvertFrom-Json
                 $jsData = '["item1", "item2"]'
-                $data.yamlList = $jsData | ConvertFrom-Json
+                $inputObject.yamlList = $jsData | ConvertFrom-Json
 
-                $asYaml = ConvertTo-Yaml $data
+                $asYaml = ConvertTo-KrYaml $inputObject
                 Compare-Deep -Options $compareStrictly -Expected $expected -Actual $asYaml
             }
         }
@@ -242,8 +242,8 @@ yamlList:
             It "Should serialize correctly" {
                 $expectBigInt = [System.Numerics.BigInteger]::Parse("9999999999999999999999999999999999999999999999999")
                 $obj = [PSCustomObject]@{a = Write-Output 'string'; b = Write-Output 1; c = Write-Output @{nested = $true }; d = [pscustomobject]$expectBigInt }
-                $asYaml = ConvertTo-Yaml $obj
-                $fromYaml = ConvertFrom-Yaml $asYaml
+                $asYaml = ConvertTo-KrYaml $obj
+                $fromYaml = ConvertFrom-KrYaml $asYaml
 
                 Compare-Deep -Options $compareStrictly -Expected "string" -Actual $fromYaml["a"]
                 Compare-Deep -Options $compareStrictly -Expected 1 -Actual $fromYaml["b"]
@@ -255,8 +255,8 @@ yamlList:
             It "Should serialize correctly" {
                 $expectBigInt = [System.Numerics.BigInteger]::Parse("9999999999999999999999999999999999999999999999999")
                 $obj = @{a = Write-Output 'string'; b = Write-Output 1; c = Write-Output @{nested = $true }; d = [pscustomobject]$expectBigInt }
-                $asYaml = ConvertTo-Yaml $obj
-                $fromYaml = ConvertFrom-Yaml $asYaml
+                $asYaml = ConvertTo-KrYaml $obj
+                $fromYaml = ConvertFrom-KrYaml $asYaml
 
                 Compare-Deep -Options $compareStrictly -Expected "string" -Actual $fromYaml["a"]
                 Compare-Deep -Options $compareStrictly -Expected 1 -Actual $fromYaml["b"]
@@ -273,8 +273,8 @@ yamlList:
                 $obj["c"] = Write-Output @{nested = $true }
                 $obj["d"] = [pscustomobject]$expectBigInt
 
-                $asYaml = ConvertTo-Yaml $obj
-                $fromYaml = ConvertFrom-Yaml $asYaml
+                $asYaml = ConvertTo-KrYaml $obj
+                $fromYaml = ConvertFrom-KrYaml $asYaml
 
                 Compare-Deep -Options $compareStrictly -Expected "string" -Actual $fromYaml["a"]
                 Compare-Deep -Options $compareStrictly -Expected 1 -Actual $fromYaml["b"]
@@ -293,7 +293,7 @@ yamlList:
                 @{ Expected = $null }
             ) {
                 param ($Expected)
-                $actual = ConvertFrom-Yaml (ConvertTo-Yaml $Expected)
+                $actual = ConvertFrom-KrYaml (ConvertTo-KrYaml $Expected)
 
                 Compare-Deep -Options $compareStrictly -Expected $Expected -Actual $actual
             }
@@ -310,13 +310,13 @@ iAmEmptyString: ""
             }
 
             It "should not serialize null value when -Options OmitNullValues is set" {
-                $toYaml = ConvertTo-Yaml $nullAndString -Options OmitNullValues
-                $toYaml | Should -Be "iAmEmptyString: """"$([Environment]::NewLine)"
+                $toYaml = ConvertTo-KrYaml $nullAndString -Options OmitNullValues
+                $toYaml | Should -Be "iAmEmptyString: """"`n"
             }
 
             It "should preserve nulls and empty strings from PowerShell" {
-                $toYaml = ConvertTo-Yaml $nullAndString
-                $backFromYaml = ConvertFrom-Yaml $toYaml
+                $toYaml = ConvertTo-KrYaml $nullAndString
+                $backFromYaml = ConvertFrom-KrYaml $toYaml
 
                 ($null -eq $backFromYaml.iAmNull) | Should -Be $true
                 $backFromYaml.iAmEmptyString | Should -Be ""
@@ -324,8 +324,8 @@ iAmEmptyString: ""
             }
 
             It "should preserve nulls and empty strings from Yaml" {
-                $fromYaml = ConvertFrom-Yaml -Ordered $yaml
-                $backToYaml = ConvertTo-Yaml $fromYaml
+                $fromYaml = ConvertFrom-KrYaml $yaml
+                $backToYaml = ConvertTo-KrYaml $fromYaml
 
                 $backToYaml | Should -Be $yaml
                 ($null -eq $fromYaml.iAmNull) | Should -Be $true
@@ -337,22 +337,22 @@ iAmEmptyString: ""
             $arr = 1, 2, "yes", @{ key = "value" }, 5, (1, "no", 3)
 
             It "Should represent identity to encode/decode arrays as arguments." {
-                $yaml = ConvertTo-Yaml $arr
-                $a = ConvertFrom-Yaml $yaml
+                $yaml = ConvertTo-KrYaml $arr
+                $a = ConvertFrom-KrYaml $yaml
 
                 Compare-Deep -Options $compareStrictly -Actual $a -Expected $arr
             }
 
             It "Should represent identity to encode/decode arrays by piping them in." {
-                $yaml = $arr | ConvertTo-Yaml
-                $a = ConvertFrom-Yaml $yaml
+                $yaml = $arr | ConvertTo-KrYaml
+                $a = ConvertFrom-KrYaml $yaml
 
                 Compare-Deep -Options $compareStrictly -Actual $a -Expected $arr
             }
 
             It "Should be irrelevant whether we convert an array by piping it, or referencing them as an argument." {
-                $arged = ConvertTo-Yaml $arr
-                $piped = $arr | ConvertTo-Yaml
+                $arged = ConvertTo-KrYaml $arr
+                $piped = $arr | ConvertTo-KrYaml
 
                 Compare-Deep -Options $compareStrictly -Actual $piped -Expected $arged
             }
@@ -385,14 +385,14 @@ hoge:
             }
 
             It "Should expand merging key with appropriate referenced keys" {
-                $result = ConvertFrom-Yaml -Yaml $mergingYaml -UseMergingParser
+                $result = ConvertFrom-KrYaml -Yaml $mergingYaml -UseMergingParser
                 [array]$values = $result.hoge.keys
                 [array]::sort($values)
                 Compare-Deep -Options $compareStrictly -Actual $values -Expected @("value1", "value2", "value3")
             }
 
             It "Should retain literal key name in the absence or -UseMergingParser" {
-                $result = ConvertFrom-Yaml -Yaml $mergingYaml
+                $result = ConvertFrom-KrYaml -Yaml $mergingYaml
                 [array]$values = $result.hoge.keys
                 [array]::sort($values)
                 Compare-Deep -Options $compareStrictly -Actual $values -Expected @("<<", "value3")
@@ -401,7 +401,7 @@ hoge:
             It "Shoud Throw duplicate key exception when merging keys" {
                 # This case does not seem to be treated by YamlDotNet and currently throws
                 # a duplicate key exception
-                { ConvertFrom-Yaml -Yaml $mergingYamlOverwriteCase -UseMergingParser } | Should -Throw -PassThru | Select-Object -ExpandProperty Exception |
+                { ConvertFrom-KrYaml -Yaml $mergingYamlOverwriteCase -UseMergingParser } | Should -Throw -PassThru | Select-Object -ExpandProperty Exception |
                     Should -BeLike "*Duplicate key*"
             }
 
@@ -424,22 +424,22 @@ hoge:
             }
 
             It "Should be symmetrical to encode and then decode the hash as an argument." {
-                $yaml = ConvertTo-Yaml $hash
-                $h = ConvertFrom-Yaml $yaml
+                $yaml = ConvertTo-KrYaml $hash
+                $h = ConvertFrom-KrYaml $yaml
 
                 Compare-Deep -Options $compareStrictly -Actual $h -Expected $hash
             }
 
             It "Should be symmetrical to endocode and then decode a hash by piping it." {
-                $yaml = $hash | ConvertTo-Yaml
-                $h = ConvertFrom-Yaml $yaml
+                $yaml = $hash | ConvertTo-KrYaml
+                $h = ConvertFrom-KrYaml $yaml
 
                 Compare-Deep -Options $compareStrictly -Actual $h -Expected $hash
             }
 
             It "Shouldn't matter whether we reference or pipe our hashes in to the YAML functions." {
-                $arged = ConvertTo-Yaml $hash
-                $piped = $hash | ConvertTo-Yaml
+                $arged = ConvertTo-KrYaml $hash
+                $piped = $hash | ConvertTo-KrYaml
 
                 Compare-Deep -Options $compareStrictly -Actual $piped -Expected $arged
             }
@@ -506,17 +506,20 @@ bools:
     - False
 "@
 
-                $global:expected = @{
+                $global:expected = [ordered]@{
                     wishlist = @(
                         @("coats", "hats", "and", "scarves"),
-                        @{
+                        [ordered]@{
                             product = "A Cool Book.";
                             quantity = 1;
                             description = "I love that Cool Book.";
                             price = 55.34;
                         }
                     );
-                    intsAndDecimals = @{
+                    total = 4443.52;
+                    int64 = ([int64]::MaxValue);
+                    note = ("I can't wait. To get that Cool Book.`n");
+                    intsAndDecimals = [ordered]@{
                         aStringTatLooksLikeAFloat = "55,34";
                         aStringThatLooksLikeAnInt = "2018+"
                         scientificNotationInt = [int32]1000
@@ -530,9 +533,7 @@ bools:
                         decimalInfinity = [double]::PositiveInfinity
                         decimalNegativeInfinity = [double]::NegativeInfinity
                     }
-                    total = 4443.52;
-                    int64 = ([int64]::MaxValue);
-                    note = ("I can't wait. To get that Cool Book.`n");
+
                     dates = @(
                         [DateTime]::Parse('2001-12-15T02:59:43.1Z'),
                         [DateTime]::Parse('2001-12-14t21:59:43.10-05:00'),
@@ -552,7 +553,7 @@ bools:
                     bools = @( $true, $false, $true, $false, $true, $false );
                 }
 
-                $global:res = ConvertFrom-Yaml $testYaml
+                $global:res = ConvertFrom-KrYaml $testYaml
             }
 
             It "Should decode the YAML string as expected." {
@@ -633,7 +634,7 @@ bools:
         }
     }
 
-    Describe "Test ConvertTo-Yaml can serialize more complex nesting" {
+    Describe "Test ConvertTo-KrYaml can serialize more complex nesting" {
         BeforeAll {
             $global:sample = [PSCustomObject]@{
                 a1 = "a"
@@ -724,24 +725,24 @@ b5:
         }
 
         It "Should serialize nested PSCustomObjects to YAML" {
-            $yaml = ConvertTo-Yaml $sample
+            $yaml = ConvertTo-KrYaml $sample
             $yaml | Should -Be $expected_block_yaml
 
-            $yaml = ConvertTo-Yaml $sample2
+            $yaml = ConvertTo-KrYaml $sample2
             $yaml | Should -Be $expected_block_yaml2
         }
 
         It "Should serialize nested PSCustomObjects to YAML flow format" {
-            $yaml = ConvertTo-Yaml $sample -Options UseFlowStyle
+            $yaml = ConvertTo-KrYaml $sample -Options UseFlowStyle
             $yaml | Should -Be $expected_flow_yaml
 
-            $yaml = ConvertTo-Yaml $sample2 -Options UseFlowStyle
+            $yaml = ConvertTo-KrYaml $sample2 -Options UseFlowStyle
             $yaml | Should -Be $expected_flow_yaml2
         }
 
         It "Should serialize nested PSCustomObjects to JSON" {
             # Converted with powershell-yaml
-            $json = ConvertTo-Yaml $sample -Options JsonCompatible
+            $json = ConvertTo-KrYaml $sample -Options JsonCompatible
             $json -replace ' ', '' | Should -Be $expected_json_ln
 
             # Converted with ConvertTo-Json
@@ -749,7 +750,7 @@ b5:
             $withJsonCommandlet | Should -Be $expected_json
 
             # Converted with powershell-yaml
-            $json = ConvertTo-Yaml $sample2 -Options JsonCompatible
+            $json = ConvertTo-KrYaml $sample2 -Options JsonCompatible
             $json -replace ' ', '' | Should -Be $expected_json2_ln
 
             # Converted with ConvertTo-Json
@@ -758,18 +759,18 @@ b5:
         }
     }
 
-    Describe "Test ConvertTo-Yaml -OutFile parameter behavior" {
+    Describe "Test ConvertTo-KrYaml -OutFile parameter behavior" {
 
         Context "Providing -OutFile with invalid prefix." {
             BeforeAll {
                 $testPath = "/some/bogus/path"
                 $global:testObject = 42
                 # mock Test-Path to fail so the test for the directory of the -OutFile fails:
-                Mock Test-Path { return $false } -Verifiable -ParameterFilter { $OutFile -eq $testPath }
+                Mock Test-Path { return $false } -Verifiable -ParameterFilter { $OutFile -eq $testPath } -ModuleName 'Kestrun'
             }
 
             It "Should refuse to work with an -OutFile with an invalid prefix." {
-                { ConvertTo-Yaml $testObject -OutFile $testPath } | Should -Throw "Parent folder for specified path does not exist"
+                { ConvertTo-KrYaml $testObject -OutFile $testPath } | Should -Throw "Parent folder for specified path does not exist"
             }
 
             It "Should verify that all the required mocks were called." {
@@ -782,11 +783,11 @@ b5:
                 $testPath = "/some/bogus/path"
                 $global:testObject = "A random string this time."
                 # mock Test-Path to succeed so the -OutFile seems to exist:
-                Mock Test-Path { return $true }# -Verifiable -ParameterFilter { $OutFile -eq $testPath }
+                Mock Test-Path { return $true }  -Verifiable -ParameterFilter { $OutFile -eq $testPath } -ModuleName 'Kestrun'
             }
 
             It "Should refuse to work for an existing -OutFile but no -Force flag." {
-                { ConvertTo-Yaml $testObject -OutFile $testPath } | Should -Throw "Target file already exists. Use -Force to overwrite."
+                { ConvertTo-KrYaml $testObject -OutFile $testPath } | Should -Throw "Target file already exists. Use -Force to overwrite."
             }
 
             It "Should verify that all the required mocks were called." {
@@ -802,8 +803,8 @@ b5:
             }
 
             It "Should succesfully write the expected content to the specified -OutFile." {
-                $yaml = ConvertTo-Yaml $testObject
-                ConvertTo-Yaml $testObject -OutFile $testPath
+                $yaml = ConvertTo-KrYaml $testObject
+                ConvertTo-KrYaml $testObject -OutFile $testPath
 
                 Compare-Object $yaml (Get-Content -Raw $testPath) | Should -Be $null
 
@@ -813,8 +814,8 @@ b5:
             It "Should succesfully write the expected content to the specified -OutFile with -Force even if it exists." {
                 $newTestObject = @(1, "two", @("arr", "ay"), @{ yes = "no"; answer = 42 })
 
-                $yaml = ConvertTo-Yaml $newTestObject
-                ConvertTo-Yaml $newTestObject -OutFile $testPath -Force
+                $yaml = ConvertTo-KrYaml $newTestObject
+                ConvertTo-KrYaml $newTestObject -OutFile $testPath -Force
 
                 Compare-Object $yaml (Get-Content -Raw $testPath) | Should -Be $null
             }
@@ -831,17 +832,17 @@ b5:
             }
 
             It 'Should be an int' {
-                $result = ConvertFrom-Yaml -Yaml $value
+                $result = ConvertFrom-KrYaml -Yaml $value
                 $result.T1 | Should -BeOfType System.Int32
             }
 
             It 'Should be value of 1' {
-                $result = ConvertFrom-Yaml -Yaml $value
+                $result = ConvertFrom-KrYaml -Yaml $value
                 $result.T1 | Should -Be 1
             }
 
             It 'Should not be value of 001' {
-                $result = ConvertFrom-Yaml -Yaml $value
+                $result = ConvertFrom-KrYaml -Yaml $value
                 $result.T1 | Should -Not -Be '001'
             }
         }
@@ -854,17 +855,17 @@ b5:
             }
 
             It 'Should be a string' {
-                $result = ConvertFrom-Yaml -Yaml $value
+                $result = ConvertFrom-KrYaml -Yaml $value
                 $result.T1 | Should -BeOfType System.String
             }
 
             It 'Should be value of 001' {
-                $result = ConvertFrom-Yaml -Yaml $value
+                $result = ConvertFrom-KrYaml -Yaml $value
                 $result.T1 | Should -Be '001'
             }
 
             It 'Should not be value of 1' {
-                $result = ConvertFrom-Yaml -Yaml $value
+                $result = ConvertFrom-KrYaml -Yaml $value
                 $result.T1 | Should -Not -Be '1'
             }
         }
@@ -877,17 +878,17 @@ b5:
             }
 
             It 'Should be a string' {
-                $result = ConvertFrom-Yaml -Yaml $value
+                $result = ConvertFrom-KrYaml -Yaml $value
                 $result.T1 | Should -BeOfType System.String
             }
 
             It 'Should be value of 001' {
-                $result = ConvertFrom-Yaml -Yaml $value
+                $result = ConvertFrom-KrYaml -Yaml $value
                 $result.T1 | Should -Be '001'
             }
 
             It 'Should not be value of 1' {
-                $result = ConvertFrom-Yaml -Yaml $value
+                $result = ConvertFrom-KrYaml -Yaml $value
                 $result.T1 | Should -Not -Be '1'
             }
         }
@@ -899,7 +900,7 @@ b5:
                 $global:value = @{key = "1" }
             }
             It 'Should serialise with double quotes' {
-                $result = ConvertTo-Yaml $value
+                $result = ConvertTo-KrYaml $value
                 $result |  Should -BeExactly "key: ""1""`n"
             }
         }
@@ -908,7 +909,7 @@ b5:
                 $global:value = @{key = "0.25" }
             }
             It 'Should serialise with double quotes' {
-                $result = ConvertTo-Yaml $value
+                $result = ConvertTo-KrYaml $value
                 $result | Should -BeExactly "key: ""0.25""`n"
             }
         }
@@ -917,7 +918,7 @@ b5:
                 $global:value = @{key = "true" }
             }
             It 'Should serialise with double quotes' {
-                $result = ConvertTo-Yaml $value
+                $result = ConvertTo-KrYaml $value
                 $result | Should -Be "key: ""true""`n"
             }
         }
@@ -926,7 +927,7 @@ b5:
                 $global:value = @{key = "false" }
             }
             It 'Should serialise with double quotes' {
-                $result = ConvertTo-Yaml $value
+                $result = ConvertTo-KrYaml $value
                 $result | Should -Be "key: ""false""`n"
             }
         }
@@ -935,7 +936,7 @@ b5:
                 $global:value = @{key = "null" }
             }
             It 'Should serialise with double quotes' {
-                $result = ConvertTo-Yaml $value
+                $result = ConvertTo-KrYaml $value
                 $result | Should -Be "key: ""null""`n"
             }
         }
@@ -944,7 +945,7 @@ b5:
                 $global:value = @{key = "~" }
             }
             It 'Should serialise with double quotes' {
-                $result = ConvertTo-Yaml $value
+                $result = ConvertTo-KrYaml $value
                 $result | Should -Be "key: ""~""`n"
             }
         }
@@ -953,7 +954,7 @@ b5:
                 $global:value = @{key = "" }
             }
             It 'Should serialise with double quotes' {
-                $result = ConvertTo-Yaml $value
+                $result = ConvertTo-KrYaml $value
                 $result | Should -Be "key: """"`n"
             }
         }
@@ -971,21 +972,21 @@ reallyLongDecimal: 3.9999999999999990
         }
 
         It 'Should be a BigInt' {
-            $result = ConvertFrom-Yaml -Yaml $value
+            $result = ConvertFrom-KrYaml -Yaml $value
             $result.bigInt | Should -BeOfType System.Numerics.BigInteger
         }
 
         It "Should round-trip decimals with trailing 0" {
-            $result = ConvertFrom-Yaml -Yaml $value
+            $result = ConvertFrom-KrYaml -Yaml $value
             $result.decimal | Should -Be ([decimal]3.10)
             $result.reallyLongDecimal | Should -Be ([decimal]::Parse("3.9999999999999990", [cultureinfo]::InvariantCulture))
 
-            ConvertTo-Yaml $result["decimal"] | Should -Be "3.10`n"
-            ConvertTo-Yaml $result["reallyLongDecimal"] | Should -Be "3.9999999999999990`n"
+            ConvertTo-KrYaml $result["decimal"] | Should -Be "3.10`n"
+            ConvertTo-KrYaml $result["reallyLongDecimal"] | Should -Be "3.9999999999999990`n"
         }
 
         It 'Should be of proper type and value' {
-            $result = ConvertFrom-Yaml -Yaml $value
+            $result = ConvertFrom-KrYaml -Yaml $value
             $result.bigInt | Should -Be ([System.Numerics.BigInteger]::Parse("99999999999999999999999999999999999"))
             $result.int32 | Should -Be ([int32]2147483647)
             $result.int64 | Should -Be ([int64]9223372036854775807)
@@ -1003,7 +1004,7 @@ reallyLongDecimal: 3.9999999999999990
                     "aKey" = $nestedPsO
                 }
                 $nestedArray = @(
-                    $nestedPsO
+                    $nestedPsO, 1
                 )
                 $PsO = [PSCustomObject]@{
                     Name = 'Value'
@@ -1021,8 +1022,8 @@ reallyLongDecimal: 3.9999999999999990
                     PsO = $PsO
                     Ok = 'aye'
                 }
-                $asYaml = ConvertTo-Yaml $Class
-                $result = ConvertFrom-Yaml -Yaml $asYaml -Ordered
+                $asYaml = ConvertTo-KrYaml $Class
+                $result = ConvertFrom-KrYaml -Yaml $asYaml
                 [System.Collections.Specialized.OrderedDictionary]$ret = [System.Collections.Specialized.OrderedDictionary]::new()
                 $ret["PsO"] = [System.Collections.Specialized.OrderedDictionary]::new()
                 $ret["PsO"]["Name"] = "Value"
@@ -1036,7 +1037,7 @@ reallyLongDecimal: 3.9999999999999990
                 $ret["PsO"]["NestedArray"] = @(
                     [ordered]@{
                         "Nested" = "NestedValue"
-                    }
+                    },1
                 )
                 $ret["PsO"]["NullValue"] = $null
                 $ret["Ok"] = "aye"
@@ -1052,7 +1053,7 @@ reallyLongDecimal: 3.9999999999999990
                 }
             }
             It 'Should serialise as a hash with only the non-null value' {
-                $result = ConvertTo-Yaml $value -Options OmitNullValues
+                $result = ConvertTo-KrYaml $value -Options OmitNullValues
                 $result | Should -Be "key1: value1`n"
             }
         }
@@ -1065,7 +1066,7 @@ reallyLongDecimal: 3.9999999999999990
                 }
             }
             It 'Should serialise as a hash with the null value' {
-                $result = ConvertTo-Yaml $value
+                $result = ConvertTo-KrYaml $value
                 $result | Should -Be "key1: value1`nkey2: null`n"
             }
         }
@@ -1075,7 +1076,7 @@ reallyLongDecimal: 3.9999999999999990
                 $global:value = [PSCustomObject]@{key = "value" }
             }
             It 'Should serialise as a hash' {
-                $result = ConvertTo-Yaml $value
+                $result = ConvertTo-KrYaml $value
                 $result | Should -Be "key: value`n"
             }
         }
@@ -1084,12 +1085,12 @@ reallyLongDecimal: 3.9999999999999990
                 $global:value = [PSCustomObject]@{key1 = "value1"; key2 = "value2" }
             }
             It 'Should serialise as a hash' {
-                $result = ConvertTo-Yaml $value
+                $result = ConvertTo-KrYaml $value
                 $result | Should -Be "key1: value1`nkey2: value2`n"
             }
             It 'Should deserialise as a hash' {
-                $asYaml = ConvertTo-Yaml $value
-                $result = ConvertFrom-Yaml -Yaml $asYaml -Ordered
+                $asYaml = ConvertTo-KrYaml $value
+                $result = ConvertFrom-KrYaml -Yaml $asYaml
                 Compare-Deep -Options $compareStrictly -Expected ([ordered]@{key1 = "value1"; key2 = "value2" }) -Actual $result
             }
         }

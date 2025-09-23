@@ -35,7 +35,15 @@ public partial class StringQuotingEmitter(IEventEmitter next) : ChainedEventEmit
                 break;
             case TypeCode.String:
                 var val = eventInfo.Source.Value?.ToString() ?? string.Empty;
-                // Do NOT quote empty string; leave it blank so downstream null detection (blank value) works.
+                var tagVal = eventInfo.Tag.IsEmpty ? null : eventInfo.Tag.Value;
+                // Standard YAML null tag with empty value -> leave blank plain scalar (no quotes or 'null' literal)
+                if (string.Equals(tagVal, "tag:yaml.org,2002:null", StringComparison.Ordinal) && val.Length == 0)
+                {
+                    eventInfo.Style = ScalarStyle.Plain;
+                    // Remove tag to avoid explicit tag output; blank value implies null
+                    eventInfo.Tag = TagName.Empty;
+                    break;
+                }
                 if (val.Length > 0 && quotedRegex.IsMatch(val))
                 {
                     eventInfo.Style = ScalarStyle.DoubleQuoted;

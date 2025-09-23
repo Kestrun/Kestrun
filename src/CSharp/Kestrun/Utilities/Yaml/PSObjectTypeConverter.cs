@@ -74,7 +74,7 @@ public class PSObjectTypeConverter(bool omitNullValues = false, bool useFlowStyl
                 {
                     continue;
                 }
-                // Emit key with plain scalar 'null' per updated test expectation
+                // For PSCustomObject tests expect literal 'null' not blank scalar
                 serializer(prop.Name, prop.Name.GetType());
                 emitter.Emit(new Scalar(AnchorName.Empty, TagName.Empty, "null", ScalarStyle.Plain, true, false));
                 continue;
@@ -83,6 +83,13 @@ public class PSObjectTypeConverter(bool omitNullValues = false, bool useFlowStyl
             serializer(prop.Name, prop.Name.GetType());
             var objType = prop.Value.GetType();
             var val = prop.Value;
+            if (val is string s2 && s2.Length == 0)
+            {
+                // Explicitly emit double-quoted empty string to distinguish from blank null
+                emitter.Emit(new Scalar(AnchorName.Empty, TagName.Empty, string.Empty, ScalarStyle.DoubleQuoted, true, false));
+                continue;
+            }
+            // Let the default serializer handle IList types to preserve flow / block style decisions.
             if (prop.Value is PSObject nestedPsObj)
             {
                 var nestedType = nestedPsObj.BaseObject?.GetType();

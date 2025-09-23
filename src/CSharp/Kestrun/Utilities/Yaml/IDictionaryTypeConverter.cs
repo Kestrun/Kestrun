@@ -72,14 +72,21 @@ public class IDictionaryTypeConverter(bool omitNullValues = false, bool useFlowS
                 {
                     continue;
                 }
-                // Emit blank value without $null literal
+                // Emit a blank plain scalar (no quotes) to represent YAML null for dictionary entries (implicit null, no tag).
                 serializer(entry.Key, entry.Key.GetType());
+                // Must set at least one implicit flag to true when tag is empty; plain implicit=true allows empty scalar as implicit null.
                 emitter.Emit(new Scalar(AnchorName.Empty, TagName.Empty, string.Empty, ScalarStyle.Plain, true, false));
                 continue;
             }
             serializer(entry.Key, entry.Key.GetType());
             var objType = entry.Value.GetType();
             var val = entry.Value;
+            // If empty string, emit explicitly as double-quoted to satisfy tests distinguishing from null blank.
+            if (val is string s && s.Length == 0)
+            {
+                emitter.Emit(new Scalar(AnchorName.Empty, TagName.Empty, string.Empty, ScalarStyle.DoubleQuoted, true, false));
+                continue;
+            }
             if (entry.Value is PSObject nestedObj)
             {
                 var nestedType = nestedObj.BaseObject.GetType();

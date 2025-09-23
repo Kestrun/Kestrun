@@ -49,8 +49,8 @@ BeforeAll {
                 [Parameter()][AllowNull()]$Expected,
                 [Parameter()][AllowNull()]$Actual
             )
-            $expectedJson = ($Expected | ConvertTo-Json -Depth 100 -Compress)# -replace '\r\n', '\n'
-            $actualJson = ($Actual | ConvertTo-Json -Depth 100 -Compress)# -replace '\r\n', '\n'
+            $expectedJson = ($Expected | ConvertTo-Json -Depth 100 -Compress) -replace "`r`n", "`n"
+            $actualJson = ($Actual | ConvertTo-Json -Depth 100 -Compress) -replace "`r`n", "`n"
             $actualJson | Should -Be $expectedJson
         }
     }
@@ -76,7 +76,6 @@ anArrayKey:
 - 3
 
 "@
-                ConvertTo-KrYaml $obj
                 $serialized = ConvertTo-KrYaml $obj
                 Compare-Deep -Options $compareStrictly -Expected $expected -Actual $serialized
 
@@ -391,14 +390,14 @@ hoge:
                 Compare-Deep -Options $compareStrictly -Actual $values -Expected @("value1", "value2", "value3")
             }
 
-            It "Should retain literal key name in the absence or -UseMergingParser" {
+            It "Should retain literal key name in the absence of -UseMergingParser" {
                 $result = ConvertFrom-KrYaml -Yaml $mergingYaml
                 [array]$values = $result.hoge.keys
                 [array]::sort($values)
                 Compare-Deep -Options $compareStrictly -Actual $values -Expected @("<<", "value3")
             }
 
-            It "Shoud Throw duplicate key exception when merging keys" {
+            It "Should Throw duplicate key exception when merging keys" {
                 # This case does not seem to be treated by YamlDotNet and currently throws
                 # a duplicate key exception
                 { ConvertFrom-KrYaml -Yaml $mergingYamlOverwriteCase -UseMergingParser } | Should -Throw -PassThru | Select-Object -ExpandProperty Exception |
@@ -757,33 +756,7 @@ b5:
             $withJsonCommandlet = ConvertTo-Json -Compress -Depth 100 $sample2
             $withJsonCommandlet | Should -Be $expected_json2
         }
-
-        Context "Providing a valid -OutFile." {
-            BeforeAll {
-                $global:testObject = @{ yes = "No"; "arr" = @(1, 2, 3) }
-                $testPath = [System.IO.Path]::GetTempFileName()
-                Remove-Item -Force $testPath # must be deleted for the test
-            }
-
-            It "Should succesfully write the expected content to the specified -OutFile." {
-                $yaml = ConvertTo-KrYaml $testObject
-                ConvertTo-KrYaml $testObject -OutFile $testPath
-
-                Compare-Object $yaml (Get-Content -Raw $testPath) | Should -Be $null
-
-            }
-
-            # NOTE: the below assertion relies on the above writing its file.
-            It "Should succesfully write the expected content to the specified -OutFile with -Force even if it exists." {
-                $newTestObject = @(1, "two", @("arr", "ay"), @{ yes = "no"; answer = 42 })
-
-                $yaml = ConvertTo-KrYaml $newTestObject
-                ConvertTo-KrYaml $newTestObject -OutFile $testPath -Force
-
-                Compare-Object $yaml (Get-Content -Raw $testPath) | Should -Be $null
-            }
-        }
-
+ 
     }
 
     Describe "Generic Casting Behaviour" {

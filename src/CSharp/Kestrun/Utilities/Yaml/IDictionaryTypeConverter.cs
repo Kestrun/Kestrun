@@ -85,6 +85,17 @@ public class IDictionaryTypeConverter(bool omitNullValues = false, bool useFlowS
             }
             if (entry.Value is PSObject nestedObj)
             {
+                if (nestedObj.BaseObject == null)
+                {
+                    if (omitNullValues)
+                    {
+                        continue;
+                    }
+                    // Emit a blank plain scalar (no quotes) to represent YAML null for dictionary entries (implicit null, no tag).
+                    serializer(entry.Key, entry.Key.GetType());
+                    emitter.Emit(new Scalar(AnchorName.Empty, TagName.Empty, string.Empty, ScalarStyle.Plain, true, false));
+                    continue;
+                }
                 var nestedType = nestedObj.BaseObject.GetType();
                 if (nestedType != typeof(PSCustomObject))
                 {

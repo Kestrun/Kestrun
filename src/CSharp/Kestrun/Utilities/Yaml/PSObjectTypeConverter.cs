@@ -89,7 +89,7 @@ public class PSObjectTypeConverter(bool omitNullValues = false, bool useFlowStyl
             if (prop.Value is PSObject nestedPsObj)
             {
                 var nestedType = nestedPsObj.BaseObject?.GetType();
-                if (nestedType != null && nestedType != typeof(PSCustomObject))
+                if (nestedType != null && nestedType != typeof(PSCustomObject) && nestedPsObj.BaseObject != null)
                 {
                     objType = nestedType!;
                     val = nestedPsObj.BaseObject!;

@@ -27,6 +27,9 @@ public static partial class YamlHelper
         return MyRegex().Replace(wrt.ToString(), "${k}:");
     }
 
+    // This regex matches dictionary entries in YAML that have a key followed by a colon and a single-quoted empty string (e.g., key: '').
+    // It captures the key name in the named group 'k'. The replacement string "${k}:" rewrites such entries to the blank null form (e.g., key:),
+    // which is the preferred YAML representation for null values. This post-processing step ensures that null dictionary values ar
     [GeneratedRegex(@"^(?<k>[^:\r\n]+):\s*''\s*$", RegexOptions.Multiline)]
     private static partial Regex MyRegex();
 }

@@ -58,7 +58,7 @@ public static class YamlSerializerFactory
         var useFlowStyle = options.HasFlag(SerializationOptions.UseFlowStyle);
         var useSequenceFlowStyle = options.HasFlag(SerializationOptions.UseSequenceFlowStyle);
 
-        // Assuming this is a static helper as implied by the call pattern.
+        // Apply the common settings via your shared utility method
         builder = BuilderUtils.BuildSerializer(
             builder,
             omitNullValues,

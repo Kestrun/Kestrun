@@ -52,9 +52,9 @@ BeforeAll {
             [Parameter()][AllowNull()]$Expected,
             [Parameter()][AllowNull()]$Actual
         )
-        $expectedJson = ($Expected | ConvertTo-Json -Depth 99 -Compress) -replace "`r`n", "`n"
-        $actualJson = ($Actual | ConvertTo-Json -Depth 99 -Compress) -replace "`r`n", "`n"
-        $actualJson | Should -Be $expectedJson
+        $expectedJson = (($Expected | ConvertTo-Json -Depth 99 -Compress) -replace "`r`n", "`n") -replace "\r\n", "\n"
+        $actualJson = (($Actual | ConvertTo-Json -Depth 99 -Compress) -replace "`r`n", "`n") -replace "\r\n", "\n"
+        $actualJson | Should -BeExactly $expectedJson
     }
 }
 Describe 'Yaml PowerShell Functions' {
@@ -613,7 +613,7 @@ bools:
                 $res['datesAsStrings'].Count | Should -Be $expected['datesAsStrings'].Count
                 for ( $idx = 0; $idx -lt $expected['datesAsStrings'].Count; ++$idx ) {
                     $res['datesAsStrings'][$idx] | Should -BeOfType ([string])
-                    $res['datesAsStrings'][$idx] | Should -Be $expected['dates'][$idx]
+                    $res['datesAsStrings'][$idx] | Should -Be $expected['datesAsStrings'][$idx]
                 }
 
                 $res['version'] | Should -BeOfType ([string])

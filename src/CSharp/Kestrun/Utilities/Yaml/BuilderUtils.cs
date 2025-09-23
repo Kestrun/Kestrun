@@ -36,7 +36,7 @@ public class BuilderUtils
             .WithTypeConverter(new IDictionaryTypeConverter(omitNullValues, useFlowStyle))
             .WithTypeConverter(new PSObjectTypeConverter(omitNullValues, useFlowStyle))
             // Use platform newline; tests explicitly reference [Environment]::NewLine for single-line cases and replace it for flow/json cases
-            .WithNewLine(Environment.NewLine);
+            .WithNewLine("\n");
         if (omitNullValues)
         {
             builder = builder

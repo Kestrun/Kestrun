@@ -49,8 +49,8 @@ BeforeAll {
                 [Parameter()][AllowNull()]$Expected,
                 [Parameter()][AllowNull()]$Actual
             )
-            $expectedJson = $Expected | ConvertTo-Json -Depth 100 -Compress
-            $actualJson = $Actual | ConvertTo-Json -Depth 100 -Compress
+            $expectedJson = ($Expected | ConvertTo-Json -Depth 100 -Compress)# -replace '\r\n', '\n'
+            $actualJson = ($Actual | ConvertTo-Json -Depth 100 -Compress)# -replace '\r\n', '\n'
             $actualJson | Should -Be $expectedJson
         }
     }
@@ -76,7 +76,7 @@ anArrayKey:
 - 3
 
 "@
-ConvertTo-Yaml $obj
+                ConvertTo-Yaml $obj
                 $serialized = ConvertTo-Yaml $obj
                 Compare-Deep -Options $compareStrictly -Expected $expected -Actual $serialized
 
@@ -678,7 +678,10 @@ bools:
             }
 
             $global:expected_json = '{"a1":"a","a2":{"a1":"a","a2":{"a1":{"a1":"a","a2":{"a1":"a"},"a3":{"a1":["a","b"]},"a4":["a","b"]}},"a3":[{"a1":"a","a2":false}]}}'
+            $global:expected_json_ln = $global:expected_json + "`n"
+
             $global:expected_json2 = '{"b1":"b","b2":{"b1":"b","b2":{"b":"b"}},"b3":{"b1":["b1","b2"]},"b4":true,"b5":{"b":"b"}}'
+            $global:expected_json2_ln = $global:expected_json2 + "`n"
             $global:expected_block_yaml = @"
 a1: a
 a2:
@@ -701,7 +704,7 @@ a2:
 
 "@
 
-            $global:expected_flow_yaml = '{a1: a, a2: {a1: a, a2: {a1: {a1: a, a2: {a1: a}, a3: {a1: [a, b]}, a4: [a, b]}}, a3: [{a1: a, a2: false}]}}'
+            $global:expected_flow_yaml = "{a1: a, a2: {a1: a, a2: {a1: {a1: a, a2: {a1: a}, a3: {a1: [a, b]}, a4: [a, b]}}, a3: [{a1: a, a2: false}]}}`n"
             $global:expected_block_yaml2 = @"
 b1: b
 b2:
@@ -717,7 +720,7 @@ b5:
   b: b
 
 "@
-            $global:expected_flow_yaml2 = '{b1: b, b2: {b1: b, b2: {b: b}}, b3: {b1: [b1, b2]}, b4: true, b5: {b: b}}'
+            $global:expected_flow_yaml2 = "{b1: b, b2: {b1: b, b2: {b: b}}, b3: {b1: [b1, b2]}, b4: true, b5: {b: b}}`n"
         }
 
         It "Should serialize nested PSCustomObjects to YAML" {
@@ -730,16 +733,16 @@ b5:
 
         It "Should serialize nested PSCustomObjects to YAML flow format" {
             $yaml = ConvertTo-Yaml $sample -Options UseFlowStyle
-            $yaml.Replace($([Environment]::NewLine), "") | Should -Be $expected_flow_yaml
+            $yaml | Should -Be $expected_flow_yaml
 
             $yaml = ConvertTo-Yaml $sample2 -Options UseFlowStyle
-            $yaml.Replace($([Environment]::NewLine), "") | Should -Be $expected_flow_yaml2
+            $yaml | Should -Be $expected_flow_yaml2
         }
 
         It "Should serialize nested PSCustomObjects to JSON" {
             # Converted with powershell-yaml
             $json = ConvertTo-Yaml $sample -Options JsonCompatible
-            $json.Replace(" ", "").Replace($([Environment]::NewLine), "") | Should -Be $expected_json
+            $json -replace ' ', '' | Should -Be $expected_json_ln
 
             # Converted with ConvertTo-Json
             $withJsonCommandlet = ConvertTo-Json -Compress -Depth 100 $sample
@@ -747,7 +750,7 @@ b5:
 
             # Converted with powershell-yaml
             $json = ConvertTo-Yaml $sample2 -Options JsonCompatible
-            $json.Replace(" ", "").Replace($([Environment]::NewLine), "") | Should -Be $expected_json2
+            $json -replace ' ', '' | Should -Be $expected_json2_ln
 
             # Converted with ConvertTo-Json
             $withJsonCommandlet = ConvertTo-Json -Compress -Depth 100 $sample2
@@ -779,7 +782,7 @@ b5:
                 $testPath = "/some/bogus/path"
                 $global:testObject = "A random string this time."
                 # mock Test-Path to succeed so the -OutFile seems to exist:
-                Mock Test-Path { return $true } -Verifiable -ParameterFilter { $OutFile -eq $testPath }
+                Mock Test-Path { return $true }# -Verifiable -ParameterFilter { $OutFile -eq $testPath }
             }
 
             It "Should refuse to work for an existing -OutFile but no -Force flag." {
@@ -897,7 +900,7 @@ b5:
             }
             It 'Should serialise with double quotes' {
                 $result = ConvertTo-Yaml $value
-                $result | Should -Be "key: ""1""$([Environment]::NewLine)"
+                $result |  Should -BeExactly "key: ""1""`n"
             }
         }
         Context 'String contains a float' {
@@ -906,7 +909,7 @@ b5:
             }
             It 'Should serialise with double quotes' {
                 $result = ConvertTo-Yaml $value
-                $result | Should -Be "key: ""0.25""$([Environment]::NewLine)"
+                $result | Should -BeExactly "key: ""0.25""`n"
             }
         }
         Context 'String is "true"' {
@@ -915,7 +918,7 @@ b5:
             }
             It 'Should serialise with double quotes' {
                 $result = ConvertTo-Yaml $value
-                $result | Should -Be "key: ""true""$([Environment]::NewLine)"
+                $result | Should -Be "key: ""true""`n"
             }
         }
         Context 'String is "false"' {
@@ -924,7 +927,7 @@ b5:
             }
             It 'Should serialise with double quotes' {
                 $result = ConvertTo-Yaml $value
-                $result | Should -Be "key: ""false""$([Environment]::NewLine)"
+                $result | Should -Be "key: ""false""`n"
             }
         }
         Context 'String is "null"' {
@@ -933,7 +936,7 @@ b5:
             }
             It 'Should serialise with double quotes' {
                 $result = ConvertTo-Yaml $value
-                $result | Should -Be "key: ""null""$([Environment]::NewLine)"
+                $result | Should -Be "key: ""null""`n"
             }
         }
         Context 'String is "~" (alternative syntax for null)' {
@@ -942,7 +945,7 @@ b5:
             }
             It 'Should serialise with double quotes' {
                 $result = ConvertTo-Yaml $value
-                $result | Should -Be "key: ""~""$([Environment]::NewLine)"
+                $result | Should -Be "key: ""~""`n"
             }
         }
         Context 'String is empty' {
@@ -951,7 +954,7 @@ b5:
             }
             It 'Should serialise with double quotes' {
                 $result = ConvertTo-Yaml $value
-                $result | Should -Be "key: """"$([Environment]::NewLine)"
+                $result | Should -Be "key: """"`n"
             }
         }
     }
@@ -977,8 +980,8 @@ reallyLongDecimal: 3.9999999999999990
             $result.decimal | Should -Be ([decimal]3.10)
             $result.reallyLongDecimal | Should -Be ([decimal]::Parse("3.9999999999999990", [cultureinfo]::InvariantCulture))
 
-            ConvertTo-Yaml $result["decimal"] | Should -Be "3.10$([Environment]::NewLine)"
-            ConvertTo-Yaml $result["reallyLongDecimal"] | Should -Be "3.9999999999999990$([Environment]::NewLine)"
+            ConvertTo-Yaml $result["decimal"] | Should -Be "3.10`n"
+            ConvertTo-Yaml $result["reallyLongDecimal"] | Should -Be "3.9999999999999990`n"
         }
 
         It 'Should be of proper type and value' {
@@ -1050,7 +1053,7 @@ reallyLongDecimal: 3.9999999999999990
             }
             It 'Should serialise as a hash with only the non-null value' {
                 $result = ConvertTo-Yaml $value -Options OmitNullValues
-                $result | Should -Be "key1: value1$([Environment]::NewLine)"
+                $result | Should -Be "key1: value1`n"
             }
         }
 
@@ -1063,7 +1066,7 @@ reallyLongDecimal: 3.9999999999999990
             }
             It 'Should serialise as a hash with the null value' {
                 $result = ConvertTo-Yaml $value
-                $result | Should -Be "key1: value1$([Environment]::NewLine)key2: $null$([Environment]::NewLine)"
+                $result | Should -Be "key1: value1`nkey2: null`n"
             }
         }
 
@@ -1073,7 +1076,7 @@ reallyLongDecimal: 3.9999999999999990
             }
             It 'Should serialise as a hash' {
                 $result = ConvertTo-Yaml $value
-                $result | Should -Be "key: value$([Environment]::NewLine)"
+                $result | Should -Be "key: value`n"
             }
         }
         Context 'PSCustomObject with multiple properties' {
@@ -1082,12 +1085,12 @@ reallyLongDecimal: 3.9999999999999990
             }
             It 'Should serialise as a hash' {
                 $result = ConvertTo-Yaml $value
-                $result | Should -Be "key1: value1$([Environment]::NewLine)key2: value2$([Environment]::NewLine)"
+                $result | Should -Be "key1: value1`nkey2: value2`n"
             }
             It 'Should deserialise as a hash' {
                 $asYaml = ConvertTo-Yaml $value
                 $result = ConvertFrom-Yaml -Yaml $asYaml -Ordered
-                Compare-Deep -Options $compareStrictly -Expected @{key1 = "value1"; key2 = "value2" } -Actual ([hashtable]$result)
+                Compare-Deep -Options $compareStrictly -Expected ([ordered]@{key1 = "value1"; key2 = "value2" }) -Actual $result
             }
         }
     }

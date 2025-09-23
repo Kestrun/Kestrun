@@ -108,7 +108,9 @@ function ConvertFrom-Yaml {
 
 function ConvertTo-Yaml {
     [KestrunRuntimeApi('Everywhere')]
+    [OutputType([string])]
     [CmdletBinding(DefaultParameterSetName = 'NoOptions')]
+
     param(
         [Parameter(ValueFromPipeline = $true, Position = 0)]
         [System.Object]$Data,
@@ -143,7 +145,7 @@ function ConvertTo-Yaml {
         $norm = Convert-PSObjectToGenericObject $d
         if ($OutFile) {
             # Call Test-Path (no -LiteralPath) so Pester mock with parameter filter triggers
-            $fileExists = Test-Path $OutFile
+            $fileExists = Test-Path -Path $OutFile
             $parent = Split-Path -Path $OutFile -Parent
             $parentExists = $false
             if ($null -ne $parent -and $parent -ne '') {
@@ -177,16 +179,6 @@ function ConvertTo-Yaml {
             $wrt.Close()
         }
         if ($OutFile) { return }
-        $result = $wrt.ToString()
-        # Only perform minimal, safe normalization:
-        # 1. Normalize CRLF to LF for comparison stability (use actual newline char, not literal backslash-n).
-        $result = $result -replace '\r\n', "`n"
-        # Also normalize stray CR (just in case) -> LF
-        $result = $result -replace '\r', ""
-        # 2. Do NOT modify interior lines (previous regex introduced literal "\\n" artifacts).
-        # 3. Ensure exactly one trailing newline (serializer sometimes already provides it).
-        if (-not $result.EndsWith("`n")) { $result += "`n" }
-        # 4. Avoid trimming existing intentional blank line before final newline (tests expect one blank line after content in many cases).
-        return $result
+        return  $wrt.ToString()
     }
 }

@@ -248,21 +248,9 @@ public static partial class YamlTypeConverter
             sign = -1;
             mantissaStr = mantissaStr[1..];
         }
-        if (mantissaStr.Length > 1)
+        if (mantissaStr.Length > 1 && mantissaStr.All(c => c == '0'))
         {
-            bool allZeros = true;
-            for (int i = 0; i < mantissaStr.Length; i++)
-            {
-                if (mantissaStr[i] != '0')
-                {
-                    allZeros = false;
-                    break;
-                }
-            }
-            if (allZeros)
-            {
-                mantissaStr = "0"; // normalize all-zero mantissa
-            }
+            mantissaStr = "0"; // normalize all-zero mantissa
         }
         return !BigInteger.TryParse(mantissaStr, NumberStyles.Integer, CultureInfo.InvariantCulture, out var mantissa)
             ? throw new FormatException($"Failed to parse scalar '{value}' as integer (mantissa invalid).")

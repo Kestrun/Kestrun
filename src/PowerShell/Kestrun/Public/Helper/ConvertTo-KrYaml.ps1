@@ -66,8 +66,7 @@ function ConvertTo-KrYaml {
         if ($d.Count -eq 1 -and !($KeepArray)) {
             $d = $d[0]
         }
-        $norm = [Kestrun.Utilities.Yaml.PsObjectConverter]::ConvertPSObjectToGenericObject($d)
-        #Convert-PSObjectToGenericObject $d
+        $norm = Convert-PSObjectToGenericObject -InputObject $d
 
         if ( $JsonCompatible.IsPresent) {
             # No indent options :~(

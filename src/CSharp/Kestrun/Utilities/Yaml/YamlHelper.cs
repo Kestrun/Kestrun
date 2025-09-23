@@ -7,7 +7,6 @@ namespace Kestrun.Utilities.Yaml;
 /// </summary>
 public static partial class YamlHelper
 {
-
     /// <summary>
     /// Serializes any PowerShell object to YAML format, with specified serialization options.
     /// </summary>
@@ -17,7 +16,9 @@ public static partial class YamlHelper
     public static string ToYaml(object? input, SerializationOptions? options = null)
     {
         var wrt = new StringWriter();
-        options ??= SerializationOptions.DisableAliases | SerializationOptions.EmitDefaults | SerializationOptions.WithIndentedSequences | SerializationOptions.Roundtrip;
+        // Default options intentionally omit Roundtrip to allow serialization of anonymous types
+        // without requiring default constructors (Roundtrip enforces reconstructable object graphs).
+        options ??= SerializationOptions.DisableAliases | SerializationOptions.EmitDefaults | SerializationOptions.WithIndentedSequences;
         var serializer = YamlSerializerFactory.GetSerializer(options.Value);
 
         serializer.Serialize(wrt, input);

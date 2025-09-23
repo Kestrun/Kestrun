@@ -9,7 +9,7 @@
     Convert a PSObject to a generic object, converting any nested hashtables or lists as well.
 .DESCRIPTION
     This function takes a PSObject as input and converts it to a generic object. It ensures that any nested hashtables or lists are also converted to generic objects or generic lists, respectively.
-.PARAMETER Data
+.PARAMETER InputObject
     The PSObject to convert.
 .EXAMPLE
     $psObj = [PSCustomObject]@{ Key1 = "Value1"; Key2 = @( "Val2a", "Val2b" ); Key3 = @{ SubKey = "SubVal" } }
@@ -21,20 +21,20 @@
 function Convert-PSObjectToGenericObject {
     param(
         [Parameter(Mandatory = $false)]
-        [System.Object]$Data
+        [System.Object]$InputObject
     )
 
-    if ($null -eq $data) {
-        return $data
+    if ($null -eq $InputObject) {
+        return $InputObject
     }
 
-    $dataType = $data.GetType()
+    $dataType = $InputObject.GetType()
     if (([System.Collections.Specialized.OrderedDictionary].IsAssignableFrom($dataType))) {
-        return Convert-OrderedHashtableToDictionary $data
+        return Convert-OrderedHashtableToDictionary $InputObject
     } elseif (([System.Collections.IDictionary].IsAssignableFrom($dataType))) {
-        return Convert-HashtableToDictionary $data
+        return Convert-HashtableToDictionary $InputObject
     } elseif (([System.Collections.IList].IsAssignableFrom($dataType))) {
-        return Convert-ListToGenericList $data
+        return Convert-ListToGenericList $InputObject
     }
-    return $data
+    return $InputObject
 }

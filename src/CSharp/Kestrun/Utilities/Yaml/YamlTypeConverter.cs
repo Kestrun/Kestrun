@@ -21,245 +21,310 @@ public static partial class YamlTypeConverter
     private static readonly BigInteger IntMaxBig = new(int.MaxValue);
     private static readonly BigInteger LongMinBig = new(long.MinValue);
     private static readonly BigInteger LongMaxBig = new(long.MaxValue);
+
     /// <summary>
-    ///     Convert a YamlNode to the most appropriate .NET type based on its tag and content
+    /// Convert a YamlNode to the most appropriate .NET type based on its tag and content
     /// </summary>
     /// <param name="node">The YAML node to convert.</param>
     /// <returns>The converted .NET object, or null if the node is null.</returns>
     /// <exception cref="FormatException">Thrown when the node's value cannot be converted to the appropriate type.</exception>
     public static object? ConvertValueToProperType(YamlNode node)
     {
-        // Only scalars are in scope; return other node types unchanged
         if (node is not YamlScalarNode scalar)
         {
-            return node;
+            return node; // non-scalar passthrough
         }
 
-        // TagName in YamlDotNet v16 may be non-specific ("!"), in which case accessing .Value throws.
-        // Only treat it as a usable tag when it is NOT empty and NOT non-specific.
-        string? tag = null;
+        var tag = GetSafeTagValue(scalar);
+        var value = scalar.Value;
+        if (value is null)
+        {
+            return scalar; // null scalar value
+        }
+
+        if (!string.IsNullOrEmpty(tag))
+        {
+            var tagged = TryParseTaggedScalar(tag, value);
+            if (tagged.parsed)
+            {
+                return tagged.value;
+            }
+        }
+
+        if (scalar.Style == ScalarStyle.Plain)
+        {
+            var plain = TryParsePlainScalar(value);
+            if (plain.parsed)
+            {
+                return plain.value;
+            }
+
+            if (IsExplicitNullToken(value))
+            {
+                return null;
+            }
+        }
+
+        return value; // fallback string
+    }
+
+    /// <summary>Safely obtains a scalar tag string or null when non-specific/unavailable.</summary>
+    private static string? GetSafeTagValue(YamlScalarNode scalar)
+    {
         try
         {
             if (!scalar.Tag.IsEmpty && !scalar.Tag.IsNonSpecific)
             {
-                tag = scalar.Tag.Value; // e.g., "tag:yaml.org,2002:int"
+                return scalar.Tag.Value;
             }
         }
         catch
         {
-            // Defensive: ignore tag retrieval issues; we'll fall back to heuristics.
-            tag = null;
+            // ignore and return null
         }
-
-        var value = scalar.Value;       // underlying string representation
-
-        // If for some reason we don't have a string, return as-is
-        if (value is null)
-        {
-            return scalar;
-        }
-
-        // If a well-known tag is present, honor it first
-        if (!string.IsNullOrEmpty(tag))
-        {
-            switch (tag)
-            {
-                case "tag:yaml.org,2002:str":
-                    return value;
-
-                case "tag:yaml.org,2002:null":
-                    return null;
-
-                case "tag:yaml.org,2002:bool":
-                    if (bool.TryParse(value, out var b))
-                    {
-                        return b;
-                    }
-
-                    throw new FormatException($"Failed to parse scalar '{value}' as boolean.");
-
-                case "tag:yaml.org,2002:int":
-                    return ParseYamlInt(value);
-
-                case "tag:yaml.org,2002:float":
-                    // ±.inf / inf / infinity
-                    if (InfinityRegex.IsMatch(value))
-                    {
-                        return value.StartsWith('-') ? double.NegativeInfinity : double.PositiveInfinity;
-                    }
-
-                    if (decimal.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out var dec))
-                    {
-                        return dec;
-                    }
-
-                    throw new FormatException($"Failed to parse scalar '{value}' as decimal.");
-
-                case "tag:yaml.org,2002:timestamp":
-                    // Preserve original semantic: if the timestamp contained an explicit offset or Z, normalize to that instant in local time.
-                    // If it was a 'naive' timestamp (no Z / offset) keep as an unspecified DateTime so string formatting matches expected test output.
-                    // Detect explicit timezone only if a 'Z' or a trailing +HH[:mm] or -HH[:mm] (optionally preceded by space) is present.
-                    var hasTime = value.Contains(':');
-                    var hasExplicitZone = hasTime && (value.EndsWith("Z", StringComparison.OrdinalIgnoreCase) || MyRegex1().IsMatch(value));
-                    if (hasExplicitZone && DateTimeOffset.TryParse(value, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out var dto))
-                    {
-                        return dto.LocalDateTime;
-                    }
-                    if (DateTime.TryParse(value, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out var naive))
-                    {
-                        return DateTime.SpecifyKind(naive, DateTimeKind.Unspecified);
-                    }
-                    throw new FormatException($"Failed to parse scalar '{value}' as DateTime.");
-            }
-        }
-
-        // No (or unknown) tag — apply plain-style heuristics like your PowerShell version
-        if (scalar.Style == ScalarStyle.Plain)
-        {
-            // Booleans
-            if (bool.TryParse(value, out var bPlain))
-            {
-                return bPlain;
-            }
-
-            if (TryParseBigInteger(value, out var bigInt))
-            {
-#pragma warning disable IDE0078
-                if (bigInt >= IntMinBig && bigInt <= IntMaxBig)
-                {
-                    return (int)bigInt;
-                }
-
-                if (bigInt >= LongMinBig && bigInt <= LongMaxBig)
-                {
-                    return (long)bigInt;
-                }
-#pragma warning restore IDE0078
-                return bigInt; // keep as BigInteger
-            }
-
-            // Floats (try decimal, then double)
-            if (decimal.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out var dPlain))
-            {
-                return dPlain;
-            }
-
-            if (double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out var dblPlain))
-            {
-                return dblPlain;
-            }
-        }
-
-        // Explicit YAML null tokens in plain style
-        if (scalar.Style == ScalarStyle.Plain &&
-            (value == string.Empty || value == "~" || value == "$null" ||
-             string.Equals(value, "null", StringComparison.Ordinal) ||
-             string.Equals(value, "Null", StringComparison.Ordinal) ||
-             string.Equals(value, "NULL", StringComparison.Ordinal)))
-        {
-            return null;
-        }
-
-        // Fallback: leave it as a string
-        return value;
+        return null;
     }
 
+    /// <summary>Attempts to parse a tagged scalar. Returns (parsed=false) if tag unrecognized.</summary>
+    private static (bool parsed, object? value) TryParseTaggedScalar(string tag, string value)
+    {
+        switch (tag)
+        {
+            case "tag:yaml.org,2002:str":
+                return (true, value);
+            case "tag:yaml.org,2002:null":
+                return (true, null);
+            case "tag:yaml.org,2002:bool":
+                if (bool.TryParse(value, out var b))
+                {
+                    return (true, b);
+                }
+                throw new FormatException($"Failed to parse scalar '{value}' as boolean.");
+            case "tag:yaml.org,2002:int":
+                return (true, ParseYamlInt(value));
+            case "tag:yaml.org,2002:float":
+                return (true, ParseTaggedFloat(value));
+            case "tag:yaml.org,2002:timestamp":
+                return (true, ParseTaggedTimestamp(value));
+            default:
+                return (false, null);
+        }
+    }
+
+    /// <summary>Parses a YAML float (tagged) honoring infinity tokens, else decimal.</summary>
+    private static object ParseTaggedFloat(string value)
+    {
+        if (InfinityRegex.IsMatch(value))
+        {
+            return value.StartsWith('-') ? double.NegativeInfinity : double.PositiveInfinity;
+        }
+        if (decimal.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out var dec))
+        {
+            return dec;
+        }
+        throw new FormatException($"Failed to parse scalar '{value}' as decimal.");
+    }
+
+    /// <summary>Parses a YAML timestamp preserving unspecified semantics or converting to local DateTime for zone-aware values.</summary>
+    private static object ParseTaggedTimestamp(string value)
+    {
+        var hasTime = value.Contains(':');
+        var hasExplicitZone = hasTime && (value.EndsWith("Z", StringComparison.OrdinalIgnoreCase) || MyRegex1().IsMatch(value));
+        if (hasExplicitZone && DateTimeOffset.TryParse(value, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out var dto))
+        {
+            return dto.LocalDateTime;
+        }
+        if (DateTime.TryParse(value, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out var naive))
+        {
+            return DateTime.SpecifyKind(naive, DateTimeKind.Unspecified);
+        }
+        throw new FormatException($"Failed to parse scalar '{value}' as DateTime.");
+    }
+
+    /// <summary>Attempts plain-style heuristic parsing for bool/int/float. Returns (parsed=false) if none match.</summary>
+    private static (bool parsed, object? value) TryParsePlainScalar(string value)
+    {
+        if (bool.TryParse(value, out var bPlain))
+        {
+            return (true, bPlain);
+        }
+        if (TryParseBigInteger(value, out var bigInt))
+        {
+#pragma warning disable IDE0078
+            if (bigInt >= IntMinBig && bigInt <= IntMaxBig)
+            {
+                return (true, (int)bigInt);
+            }
+            if (bigInt >= LongMinBig && bigInt <= LongMaxBig)
+            {
+                return (true, (long)bigInt);
+            }
+#pragma warning restore IDE0078
+            return (true, bigInt);
+        }
+        if (decimal.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out var dPlain))
+        {
+            return (true, dPlain);
+        }
+        if (double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out var dblPlain))
+        {
+            return (true, dblPlain);
+        }
+        return (false, null);
+    }
+
+    /// <summary>Determines if a plain scalar is an explicit YAML null token.</summary>
+    private static bool IsExplicitNullToken(string value)
+        => value == string.Empty || value == "~" || value == "$null" ||
+           string.Equals(value, "null", StringComparison.Ordinal) ||
+           string.Equals(value, "Null", StringComparison.Ordinal) ||
+           string.Equals(value, "NULL", StringComparison.Ordinal);
+
+    /// <summary>
+    /// Parse a YAML integer scalar, handling base prefixes (0o, 0x) and scientific notation (e.g., 1e3).
+    /// </summary>
+    /// <param name="value">The YAML integer scalar to parse.</param>
+    /// <returns>The parsed integer value.</returns>
+    /// <exception cref="FormatException">Thrown when the input is not a valid YAML integer.</exception>
     private static object ParseYamlInt(string value)
     {
-        // Handle scientific notation integers like 1e+3 or -2E-1 (only when mantissa is integer and exponent >= 0)
-        // Tests only require positive exponent producing integral result.
-        // Pattern: ^[+-]?\d+[eE][+-]?\d+$
+        // 1. Scientific notation branch
         if (ScientificIntRegex().IsMatch(value))
         {
-            try
-            {
-                var parts = value.Split('e', 'E');
-                var mantissaStr = parts[0];
-                var expStr = parts[1];
-                var exp = int.Parse(expStr, CultureInfo.InvariantCulture);
-                // If exponent negative, result would be fractional; treat as format error for !!int
-                if (exp < 0)
-                {
-                    throw new FormatException($"Failed to parse scalar '{value}' as integer (negative exponent not integral).");
-                }
-                var sign = 1;
-                if (mantissaStr.StartsWith('+'))
-                {
-                    mantissaStr = mantissaStr[1..];
-                }
-                else if (mantissaStr.StartsWith('-'))
-                {
-                    sign = -1;
-                    mantissaStr = mantissaStr[1..];
-                }
-
-                // Remove leading zeros to avoid BigInteger mis-interpretation (not strictly needed but clean)
-                if (mantissaStr.Length > 1 && mantissaStr.All(c => c == '0'))
-                {
-                    mantissaStr = "0"; // all zeros
-                }
-
-                if (!BigInteger.TryParse(mantissaStr, NumberStyles.Integer, CultureInfo.InvariantCulture, out var mantissa))
-                {
-                    throw new FormatException($"Failed to parse scalar '{value}' as integer (mantissa invalid).");
-                }
-                // 10^exp
-                var pow = Pow10(exp);
-                var bigVal = mantissa * pow * sign;
-#pragma warning disable IDE0078
-                // Downcast if possible
-                if (bigVal >= int.MinValue && bigVal <= int.MaxValue)
-                {
-                    return (int)bigVal;
-                }
-                if (bigVal >= long.MinValue && bigVal <= long.MaxValue)
-                {
-                    return (long)bigVal;
-                }
-#pragma warning restore IDE0078
-                return bigVal;
-            }
-            catch (Exception ex)
-            {
-                throw new FormatException($"Failed to parse scalar '{value}' as integer (scientific).", ex);
-            }
+            return ParseScientificInteger(value);
         }
-        // Base prefixes: 0o (octal), 0x (hex). Otherwise parse as generic integer.
-        if (value.Length > 2)
+
+        // 2. Base-prefixed branch (octal / hex)
+        if (TryParseBasePrefixedInteger(value, out var basePrefixed))
         {
-            var prefix = value[..2];
-            if (prefix.Equals("0o", StringComparison.OrdinalIgnoreCase))
-            {
-                var asLong = Convert.ToInt64(value[2..], 8);
-                return DowncastInteger(asLong);
-            }
-            if (prefix.Equals("0x", StringComparison.OrdinalIgnoreCase))
-            {
-                var asLong = Convert.ToInt64(value[2..], 16);
-                return DowncastInteger(asLong);
-            }
+            return basePrefixed;
         }
 
-        if (!TryParseBigInteger(value, out var big))
-        {
-            throw new FormatException($"Failed to parse scalar '{value}' as integer.");
-        }
-#pragma warning disable IDE0078
-        // Try to downcast
-        if ((big >= int.MinValue) && (big <= int.MaxValue))
-        {
-            return (int)big;
-        }
-
-        if (big >= long.MinValue && big <= long.MaxValue)
-        {
-            return (long)big;
-        }
-#pragma warning restore IDE0078
-
-        return big; // keep BigInteger if it doesn't fit
+        // 3. Generic integer (BigInteger + downcast)
+        return ParseGenericInteger(value);
     }
 
+    /// <summary>
+    /// Parse a scientific-notation integer (mantissa * 10^exp) ensuring exponent is non-negative and result integral.
+    /// Mirrors previous behavior including exception wrapping.
+    /// </summary>
+    private static object ParseScientificInteger(string value)
+    {
+        try
+        {
+            var (mantissa, sign, exp) = SplitScientificParts(value);
+            if (exp < 0)
+            {
+                throw new FormatException($"Failed to parse scalar '{value}' as integer (negative exponent not integral).");
+            }
+            var pow = Pow10(exp);
+            var bigVal = mantissa * pow * sign;
+            return DowncastBigInteger(bigVal);
+        }
+        catch (Exception ex)
+        {
+            throw new FormatException($"Failed to parse scalar '{value}' as integer (scientific).", ex);
+        }
+    }
+
+    /// <summary>
+    /// Splits a scientific notation string into mantissa BigInteger, sign (+/-1), and exponent.
+    /// </summary>
+    /// <param name="value">The scientific notation string (e.g., "1.23e+3").</param>
+    /// <returns>A tuple containing the mantissa as BigInteger, the sign as int, and the exponent as int.</returns>
+    private static (BigInteger mantissa, int sign, int exp) SplitScientificParts(string value)
+    {
+        var parts = value.Split('e', 'E');
+        var mantissaStr = parts[0];
+        var expStr = parts[1];
+        var exp = int.Parse(expStr, CultureInfo.InvariantCulture);
+        var sign = 1;
+        if (mantissaStr.StartsWith('+'))
+        {
+            mantissaStr = mantissaStr[1..];
+        }
+        else if (mantissaStr.StartsWith('-'))
+        {
+            sign = -1;
+            mantissaStr = mantissaStr[1..];
+        }
+        if (mantissaStr.Length > 1 && mantissaStr.All(c => c == '0'))
+        {
+            mantissaStr = "0"; // normalize all-zero mantissa
+        }
+        return !BigInteger.TryParse(mantissaStr, NumberStyles.Integer, CultureInfo.InvariantCulture, out var mantissa)
+            ? throw new FormatException($"Failed to parse scalar '{value}' as integer (mantissa invalid).")
+            : (mantissa, sign, exp);
+    }
+
+    /// <summary>
+    /// Attempts to parse octal (0o) or hexadecimal (0x) integer representations, returning true if handled.
+    /// </summary>
+    /// <param name="value">The input string to parse.</param>
+    /// <param name="result">The parsed integer value.</param>
+    /// <returns>True if the input was successfully parsed as a base-prefixed integer; otherwise, false.</returns>
+    private static bool TryParseBasePrefixedInteger(string value, out object result)
+    {
+        result = default!;
+        if (value.Length <= 2)
+        {
+            return false;
+        }
+        var prefix = value[..2];
+        if (prefix.Equals("0o", StringComparison.OrdinalIgnoreCase))
+        {
+            var asLong = Convert.ToInt64(value[2..], 8);
+            result = DowncastInteger(asLong);
+            return true;
+        }
+        if (prefix.Equals("0x", StringComparison.OrdinalIgnoreCase))
+        {
+            var asLong = Convert.ToInt64(value[2..], 16);
+            result = DowncastInteger(asLong);
+            return true;
+        }
+        return false;
+    }
+
+    /// <summary>
+    /// Generic integer parsing path using BigInteger with downcasting. Throws FormatException on failure.
+    /// </summary>
+    /// <param name="value">The input string to parse.</param>
+    /// <returns>The parsed integer value.</returns>
+    /// <exception cref="FormatException">Thrown when the input is not a valid integer.</exception>
+    private static object ParseGenericInteger(string value)
+    {
+        return !TryParseBigInteger(value, out var big)
+            ? throw new FormatException($"Failed to parse scalar '{value}' as integer.")
+            : DowncastBigInteger(big);
+    }
+
+    /// <summary>
+    /// Downcasts a BigInteger to int or long when within range; otherwise returns the original BigInteger.
+    /// </summary>
+    /// <param name="bigVal">The BigInteger value to downcast.</param>
+    /// <returns>The downcasted integer value or the original BigInteger if out of range.</returns>
+    private static object DowncastBigInteger(BigInteger bigVal)
+    {
+#pragma warning disable IDE0078
+        if (bigVal >= int.MinValue && bigVal <= int.MaxValue)
+        {
+            return (int)bigVal;
+        }
+        if (bigVal >= long.MinValue && bigVal <= long.MaxValue)
+        {
+            return (long)bigVal;
+        }
+#pragma warning restore IDE0078
+        return bigVal;
+    }
+
+    /// <summary>
+    /// Attempts to parse a string as a BigInteger, including support for scientific notation with non-negative exponents.
+    /// </summary>
+    /// <param name="s">The input string to parse.</param>
+    /// <param name="result">The parsed BigInteger value.</param>
+    /// <returns>True if the parsing was successful; otherwise, false.</returns>
     private static bool TryParseBigInteger(string s, out BigInteger result)
     {
         // Recognize scientific integer in plain style (e.g., 1e+3) where exponent >= 0.

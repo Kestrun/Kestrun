@@ -47,56 +47,92 @@ public class PSObjectTypeConverter(bool omitNullValues = false, bool useFlowStyl
     /// <param name="serializer">The object serializer</param>
     public void WriteYaml(IEmitter emitter, object? value, Type type, ObjectSerializer serializer)
     {
-        if (value == null)
+        if (value is null)
         {
-            // Emit YAML null via the serializer
-            serializer(null, typeof(object));
+            EmitNull(serializer);
             return;
         }
 
         var psObj = (PSObject)value;
-        if (psObj.BaseObject == null || (!typeof(IDictionary).IsAssignableFrom(psObj.BaseObject.GetType()) && !typeof(PSCustomObject).IsAssignableFrom(psObj.BaseObject.GetType())))
+        if (!IsDictionaryLike(psObj))
         {
-            serializer(psObj.BaseObject, psObj.BaseObject?.GetType() ?? typeof(object));
+            SerializeNonDictionary(psObj, serializer);
             return;
         }
-        var mappingStyle = useFlowStyle ? MappingStyle.Flow : MappingStyle.Block;
-        emitter.Emit(new MappingStart(AnchorName.Empty, TagName.Empty, true, mappingStyle));
+
+        BeginMapping(emitter);
         foreach (var prop in psObj.Properties)
         {
-            if (prop.Value == null)
-            {
-                if (omitNullValues)
-                {
-                    continue;
-                }
-                // For PSCustomObject tests expect literal 'null' not blank scalar
-                serializer(prop.Name, prop.Name.GetType());
-                emitter.Emit(new Scalar(AnchorName.Empty, TagName.Empty, "null", ScalarStyle.Plain, true, false));
-                continue;
-            }
-
-            serializer(prop.Name, prop.Name.GetType());
-            var objType = prop.Value.GetType();
-            var val = prop.Value;
-            if (val is string s2 && s2.Length == 0)
-            {
-                // Explicitly emit double-quoted empty string to distinguish from blank null
-                emitter.Emit(new Scalar(AnchorName.Empty, TagName.Empty, string.Empty, ScalarStyle.DoubleQuoted, true, false));
-                continue;
-            }
-            // Let the default serializer handle IList types to preserve flow / block style decisions.
-            if (prop.Value is PSObject nestedPsObj)
-            {
-                var nestedType = nestedPsObj.BaseObject?.GetType();
-                if (nestedType != null && nestedType != typeof(PSCustomObject) && nestedPsObj.BaseObject != null)
-                {
-                    objType = nestedType!;
-                    val = nestedPsObj.BaseObject!;
-                }
-            }
-            serializer(val, objType);
+            WriteProperty(emitter, prop, serializer);
         }
-        emitter.Emit(new MappingEnd());
+        EndMapping(emitter);
+    }
+
+    // ----------------- Helper Methods -----------------
+    private static void EmitNull(ObjectSerializer serializer) => serializer(null, typeof(object));
+
+    private static bool IsDictionaryLike(PSObject psObj)
+    {
+        var baseObj = psObj.BaseObject;
+        if (baseObj is null) return false;
+        var t = baseObj.GetType();
+        return typeof(IDictionary).IsAssignableFrom(t) || typeof(PSCustomObject).IsAssignableFrom(t);
+    }
+
+    private static void SerializeNonDictionary(PSObject psObj, ObjectSerializer serializer)
+        => serializer(psObj.BaseObject, psObj.BaseObject?.GetType() ?? typeof(object));
+
+    private void BeginMapping(IEmitter emitter)
+    {
+        var mappingStyle = useFlowStyle ? MappingStyle.Flow : MappingStyle.Block;
+        emitter.Emit(new MappingStart(AnchorName.Empty, TagName.Empty, true, mappingStyle));
+    }
+
+    private static void EndMapping(IEmitter emitter) => emitter.Emit(new MappingEnd());
+
+    private void WriteProperty(IEmitter emitter, PSPropertyInfo prop, ObjectSerializer serializer)
+    {
+        if (prop.Value is null)
+        {
+            if (omitNullValues)
+            {
+                return; // skip entirely
+            }
+            EmitNullProperty(emitter, prop, serializer);
+            return;
+        }
+
+        // Emit key
+        serializer(prop.Name, prop.Name.GetType());
+
+        var (val, type) = UnwrapValue(prop.Value);
+
+        if (val is string s && s.Length == 0)
+        {
+            // Double-quoted explicit empty string
+            emitter.Emit(new Scalar(AnchorName.Empty, TagName.Empty, string.Empty, ScalarStyle.DoubleQuoted, true, false));
+            return;
+        }
+
+        serializer(val, type);
+    }
+
+    private void EmitNullProperty(IEmitter emitter, PSPropertyInfo prop, ObjectSerializer serializer)
+    {
+        serializer(prop.Name, prop.Name.GetType());
+        emitter.Emit(new Scalar(AnchorName.Empty, TagName.Empty, "null", ScalarStyle.Plain, true, false));
+    }
+
+    private static (object value, Type type) UnwrapValue(object raw)
+    {
+        if (raw is PSObject nested)
+        {
+            var nestedType = nested.BaseObject?.GetType();
+            if (nestedType != null && nestedType != typeof(PSCustomObject) && nested.BaseObject != null)
+            {
+                return (nested.BaseObject, nestedType);
+            }
+        }
+        return (raw, raw.GetType());
     }
 }

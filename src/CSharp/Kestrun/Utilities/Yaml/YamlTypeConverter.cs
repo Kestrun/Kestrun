@@ -367,7 +367,7 @@ public static partial class YamlTypeConverter
         // Mirror PS code using Float|Integer flags (allow underscores not by default—YamlDotNet usually strips them)
         return BigInteger.TryParse(
             s,
-            NumberStyles.Integer | NumberStyles.AllowLeadingSign | NumberStyles.AllowDecimalPoint, // keep parity with original
+            NumberStyles.Integer | NumberStyles.AllowLeadingSign,
             CultureInfo.InvariantCulture,
             out result
         );

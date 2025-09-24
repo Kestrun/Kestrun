@@ -53,7 +53,9 @@ This document lists third-party software components used by Kestrun, along with 
 
 ---
 "@
-[System.Text.StringBuilder]$sb = [System.Text.StringBuilder]::new()
+
+# $sb is a [System.Text.StringBuilder] used to accumulate the markdown output
+$sb = [System.Text.StringBuilder]::new()
 # Add a note about the generation of this file
 foreach ($line in $nugetLicenses ) {
     $null = $sb.AppendLine()
@@ -64,8 +66,42 @@ foreach ($line in $nugetLicenses ) {
     )
 }
 
+
+# --- Manual additions for source-included components (e.g., Cloudbase) ---
+$manualSection = @'
+
+---
+
+## Manually Added Notices
+
+The following components are not distributed via NuGet but are included in the Kestrun source tree:
+
+### PowerShell-Yaml (derived)
+
+- **Origin:** https://github.com/cloudbase/powershell-yaml
+- **License:** [Apache-2.0](https://licenses.nuget.org/Apache-2.0)
+- **Files:**
+  - Adapted Pester test(s) under `tests/`
+  - Portions of object conversion / serialization logic integrated into Kestrun
+- **Notes:** Portions of code were directly adapted and translated into Kestrun.
+  The original Apache-2.0 headers are preserved in relevant files.
+  Additional inspiration was taken from the project’s handling of PowerShell objects.
+
+'@
+
+$manualSection += @'
+
+### PoShLog (derived)
+
+- **Origin:** https://github.com/PoShLog/PoShLog
+- **License:** [MIT](https://licenses.nuget.org/MIT)
+- **Files:** Modified logging components under `src/.../Logging`
+- **Notes:** Heavily modified; original MIT copyright and license
+  notices are preserved in derived files.
+'@
+
 # Combine everything
-$kestrunHeader + "`n" + ($sb.ToString()) | Set-Content -Path $Path -Encoding UTF8
+$kestrunHeader + "`n" + ($sb.ToString()) + "`n" + $manualSection | Set-Content -Path $Path -Encoding UTF8
 
 Write-Host "✅ Third-party notices generated at: $Path" -ForegroundColor Green
 Write-Host '🔍 Please review the generated file for compliance with third-party licenses.'

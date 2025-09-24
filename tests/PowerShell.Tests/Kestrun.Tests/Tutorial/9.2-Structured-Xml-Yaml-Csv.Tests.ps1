@@ -12,9 +12,15 @@ Describe 'Example 9.2-Structured-Xml-Yaml-Csv' {
         # YAML env key (normalization logic in helper tested indirectly)
         $yaml = Invoke-WebRequest -Uri "$($script:instance.Url)/yaml" -UseBasicParsing -TimeoutSec 8
         $yaml.StatusCode | Should -Be 200
-        $yamlContent = [string]::new($yaml.Content) | ConvertFrom-KrYaml -AsHashtable
+        $yamlContent = [string]::new($yaml.Content) | ConvertFrom-KrYaml
         $yamlContent | Should -Not -BeNullOrEmpty
-        $yamlContent['env'] | Should -Be 'dev'
+        $yamlContent.Count | Should -Be 2
+        $yamlContent[0].tags.Count | Should -Be 2
+        $yamlContent[0].enabled | Should -BeTrue
+        $yamlContent[0].env | Should -Be 'dev'
+        $yamlContent[1].Id | Should -Be 1
+        $yamlContent[1].Name | Should -Be 'Alpha'
+        $yamlContent[1].Nested.Count | Should -Be 2
     }
     It 'CSV route exposes structured data' {
         # CSV header validation

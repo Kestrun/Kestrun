@@ -243,7 +243,7 @@ public static partial class YamlTypeConverter
             sign = -1;
             mantissaStr = mantissaStr[1..];
         }
-        if (mantissaStr.All(c => c == '0'))
+        if (mantissaStr.Trim('0').Length == 0)
         {
             mantissaStr = "0"; // normalize all-zero mantissa
         }

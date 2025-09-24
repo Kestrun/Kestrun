@@ -53,6 +53,8 @@ This document lists third-party software components used by Kestrun, along with 
 
 ---
 "@
+
+# $sb is a [System.Text.StringBuilder] used to accumulate the markdown output
 $sb = [System.Text.StringBuilder]::new()
 # Add a note about the generation of this file
 foreach ($line in $nugetLicenses ) {

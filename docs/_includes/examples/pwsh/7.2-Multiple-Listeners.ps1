@@ -5,8 +5,7 @@
 #>
 
 param(
-    [int]$PrimaryPort = 5000,
-    [int]$SecondaryPort = 6000,
+    [int]$Port = 5000,
     [IPAddress]$IPAddress = [IPAddress]::Loopback
 )
 
@@ -15,14 +14,15 @@ New-KrLogger |
     Add-KrSinkConsole |
     Register-KrLogger -Name 'console' -SetAsDefault | Out-Null
 
+$Port2 = $Port + 433
 # Create a new Kestrun server
 New-KrServer -Name 'Endpoints Multi'
 
 # Loopback listener on primary port
-Add-KrListener -Port $PrimaryPort -IPAddress $IPAddress
+Add-KrListener -Port $Port -IPAddress $IPAddress
 
 # Second loopback listener on secondary port
-Add-KrListener -Port $SecondaryPort -IPAddress $IPAddress
+Add-KrListener -Port $Port2 -IPAddress $IPAddress
 
 # Add the PowerShell runtime
 Add-KrPowerShellRuntime
@@ -36,12 +36,7 @@ Add-KrMapRoute -Verbs Get -Pattern '/ping' -ScriptBlock {
     Write-KrTextResponse -InputObject 'pong' -StatusCode 200
 }
 
-Write-KrLog -Level Information -Message 'Multiple listeners configured ({PrimaryPort}, {SecondaryPort})' -Properties $PrimaryPort, $SecondaryPort
-
-# Optional test-only routes
-if ($EnableTestRoutes) {
-    Add-KrMapRoute -Verbs Get -Pattern '/shutdown' -ScriptBlock { Stop-KrServer }
-}
+Write-KrLog -Level Information -Message 'Multiple listeners configured ({Port}, {Port2})' -Properties $Port, $Port2
 
 # Start the server asynchronously
 Start-KrServer -CloseLogsOnExit

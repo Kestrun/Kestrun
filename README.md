@@ -255,3 +255,8 @@ Licensed under the MIT License. See [LICENSE](LICENSE).
 - [PowerShell](https://github.com/PowerShell/PowerShell) for scripting and automation
 - [.NET](https://dotnet.microsoft.com/) for the underlying framework
 - [Pester](https://pester.dev/) for PowerShell testing
+
+### Logging and Serialization
+
+- [PoShLog](https://github.com/PoShLog/PoShLog) — inspiration and portions of code for logging (MIT License)
+- [powershell-yaml](https://github.com/cloudbase/powershell-yaml) — adapted tests and implementation code for YAML serialization (Apache-2.0 License)

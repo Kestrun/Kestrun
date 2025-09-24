@@ -17,7 +17,7 @@ Describe 'Example 7.2-Multiple-Listeners' {
         ($resp.Content.Trim()) | Should -Be 'pong'
     }
 
-    It 'Notes second listener presence (not directly tested due to dynamic port rewrite)' {
+    It 'GET /ping returns pong on secondary listener' {
         $uri = ($script:instance.Https ? 'https' : 'http') + "://$($script:instance.Host):$($script:instance.Port+433)/ping"
 
         $resp = Invoke-WebRequest -Uri $uri -UseBasicParsing -TimeoutSec 5 -ErrorAction Stop

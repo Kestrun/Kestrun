@@ -52,8 +52,8 @@ BeforeAll {
             [Parameter()][AllowNull()]$Expected,
             [Parameter()][AllowNull()]$Actual
         )
-        $expectedJson = (($Expected | ConvertTo-Json -Depth 99 -Compress) -replace "`r`n", "`n") -replace "\r\n", "\n"
-        $actualJson = (($Actual | ConvertTo-Json -Depth 99 -Compress) -replace "`r`n", "`n") -replace "\r\n", "\n"
+        $expectedJson = ($Expected | ConvertTo-Json -Depth 99 -Compress).Replace("`r`n", "`n").Replace('\r\n', '\n')
+        $actualJson = ($Actual | ConvertTo-Json -Depth 99 -Compress).Replace("`r`n", "`n").Replace('\r\n', '\n')
         $actualJson | Should -BeExactly $expectedJson
     }
 }
@@ -310,7 +310,7 @@ iAmEmptyString: ""
 
             It "should not serialize null value when -Options OmitNullValues is set" {
                 $toYaml = ConvertTo-KrYaml $nullAndString -Options OmitNullValues
-                $toYaml | Should -Be "iAmEmptyString: """"`n"
+                $toYaml | Should -Be "iAmEmptyString: """"$([Environment]::NewLine)"
             }
 
             It "should preserve nulls and empty strings from PowerShell" {
@@ -319,14 +319,14 @@ iAmEmptyString: ""
 
                 ($null -eq $backFromYaml.iAmNull) | Should -Be $true
                 $backFromYaml.iAmEmptyString | Should -Be ""
-                $toYaml | Should -Be $yaml
+                $toYaml.Replace("`r`n", "`n").Replace('\r\n', '\n') | Should -Be $yaml.Replace("`r`n", "`n").Replace('\r\n', '\n')
             }
 
             It "should preserve nulls and empty strings from Yaml" {
                 $fromYaml = ConvertFrom-KrYaml $yaml
                 $backToYaml = ConvertTo-KrYaml $fromYaml
 
-                $backToYaml | Should -Be $yaml
+                $backToYaml.Replace("`r`n", "`n").Replace('\r\n', '\n') | Should -Be $yaml.Replace("`r`n", "`n").Replace('\r\n', '\n')
                 ($null -eq $fromYaml.iAmNull) | Should -Be $true
                 $fromYaml.iAmEmptyString | Should -Be ""
             }
@@ -676,10 +676,10 @@ bools:
             }
 
             $script:expected_json = '{"a1":"a","a2":{"a1":"a","a2":{"a1":{"a1":"a","a2":{"a1":"a"},"a3":{"a1":["a","b"]},"a4":["a","b"]}},"a3":[{"a1":"a","a2":false}]}}'
-            $script:expected_json_ln = $script:expected_json + "`n"
+            $script:expected_json_ln = $script:expected_json + "$([Environment]::NewLine)"
 
             $script:expected_json2 = '{"b1":"b","b2":{"b1":"b","b2":{"b":"b"}},"b3":{"b1":["b1","b2"]},"b4":true,"b5":{"b":"b"}}'
-            $script:expected_json2_ln = $script:expected_json2 + "`n"
+            $script:expected_json2_ln = $script:expected_json2 + "$([Environment]::NewLine)"
             $script:expected_block_yaml = @"
 a1: a
 a2:
@@ -702,7 +702,7 @@ a2:
 
 "@
 
-            $script:expected_flow_yaml = "{a1: a, a2: {a1: a, a2: {a1: {a1: a, a2: {a1: a}, a3: {a1: [a, b]}, a4: [a, b]}}, a3: [{a1: a, a2: false}]}}`n"
+            $script:expected_flow_yaml = "{a1: a, a2: {a1: a, a2: {a1: {a1: a, a2: {a1: a}, a3: {a1: [a, b]}, a4: [a, b]}}, a3: [{a1: a, a2: false}]}}$([Environment]::NewLine)"
             $script:expected_block_yaml2 = @"
 b1: b
 b2:
@@ -718,29 +718,29 @@ b5:
   b: b
 
 "@
-            $script:expected_flow_yaml2 = "{b1: b, b2: {b1: b, b2: {b: b}}, b3: {b1: [b1, b2]}, b4: true, b5: {b: b}}`n"
+            $script:expected_flow_yaml2 = "{b1: b, b2: {b1: b, b2: {b: b}}, b3: {b1: [b1, b2]}, b4: true, b5: {b: b}}$([Environment]::NewLine)"
         }
 
         It "Should serialize nested PSCustomObjects to YAML" {
             $yaml = ConvertTo-KrYaml $sample
-            $yaml | Should -Be $expected_block_yaml
+            Compare-Deep -Expected $expected_block_yaml -Actual $yaml
 
             $yaml = ConvertTo-KrYaml $sample2
-            $yaml | Should -Be $expected_block_yaml2
+            Compare-Deep -Expected $expected_block_yaml2 -Actual $yaml
         }
 
         It "Should serialize nested PSCustomObjects to YAML flow format" {
             $yaml = ConvertTo-KrYaml $sample -Options UseFlowStyle
-            $yaml | Should -Be $expected_flow_yaml
+            Compare-Deep -Expected $expected_flow_yaml -Actual $yaml
 
             $yaml = ConvertTo-KrYaml $sample2 -Options UseFlowStyle
-            $yaml | Should -Be $expected_flow_yaml2
+            Compare-Deep -Expected $expected_flow_yaml2 -Actual $yaml
         }
 
         It "Should serialize nested PSCustomObjects to JSON" {
             # Converted with powershell-yaml
             $json = ConvertTo-KrYaml $sample -Options JsonCompatible
-            $json -replace ' ', '' | Should -Be $expected_json_ln
+            $json.Replace(' ', '').Replace("`r`n", "`n").Replace('\r\n', '\n') | Should -Be $expected_json_ln.Replace("`r`n", "`n").Replace('\r\n', '\n')
 
             # Converted with ConvertTo-Json
             $withJsonCommandlet = ConvertTo-Json -Compress -Depth 99 $sample
@@ -834,7 +834,7 @@ b5:
             }
             It 'Should serialise with double quotes' {
                 $result = ConvertTo-KrYaml $value
-                $result | Should -BeExactly "key: ""1""`n"
+                $result | Should -BeExactly "key: ""1""$([Environment]::NewLine)"
             }
         }
         Context 'String contains a float' {
@@ -843,7 +843,7 @@ b5:
             }
             It 'Should serialise with double quotes' {
                 $result = ConvertTo-KrYaml $value
-                $result | Should -BeExactly "key: ""0.25""`n"
+                $result | Should -BeExactly "key: ""0.25""$([Environment]::NewLine)"
             }
         }
         Context 'String is "true"' {
@@ -852,7 +852,7 @@ b5:
             }
             It 'Should serialise with double quotes' {
                 $result = ConvertTo-KrYaml $value
-                $result | Should -Be "key: ""true""`n"
+                $result | Should -Be "key: ""true""$([Environment]::NewLine)"
             }
         }
         Context 'String is "false"' {
@@ -861,7 +861,7 @@ b5:
             }
             It 'Should serialise with double quotes' {
                 $result = ConvertTo-KrYaml $value
-                $result | Should -Be "key: ""false""`n"
+                $result | Should -Be "key: ""false""$([Environment]::NewLine)"
             }
         }
         Context 'String is "null"' {
@@ -870,7 +870,7 @@ b5:
             }
             It 'Should serialise with double quotes' {
                 $result = ConvertTo-KrYaml $value
-                $result | Should -Be "key: ""null""`n"
+                $result | Should -Be "key: ""null""$([Environment]::NewLine)"
             }
         }
         Context 'String is "~" (alternative syntax for null)' {
@@ -879,7 +879,7 @@ b5:
             }
             It 'Should serialise with double quotes' {
                 $result = ConvertTo-KrYaml $value
-                $result | Should -Be "key: ""~""`n"
+                $result | Should -Be "key: ""~""$([Environment]::NewLine)"
             }
         }
         Context 'String is empty' {
@@ -888,7 +888,7 @@ b5:
             }
             It 'Should serialise with double quotes' {
                 $result = ConvertTo-KrYaml $value
-                $result | Should -Be "key: """"`n"
+                $result | Should -Be "key: """"$([Environment]::NewLine)"
             }
         }
     }
@@ -914,8 +914,8 @@ reallyLongDecimal: 3.9999999999999990
             $result.decimal | Should -Be ([decimal]3.10)
             $result.reallyLongDecimal | Should -Be ([decimal]::Parse("3.9999999999999990", [cultureinfo]::InvariantCulture))
 
-            ConvertTo-KrYaml $result["decimal"] | Should -Be "3.10`n"
-            ConvertTo-KrYaml $result["reallyLongDecimal"] | Should -Be "3.9999999999999990`n"
+            ConvertTo-KrYaml $result["decimal"] | Should -Be "3.10$([Environment]::NewLine)"
+            ConvertTo-KrYaml $result["reallyLongDecimal"] | Should -Be "3.9999999999999990$([Environment]::NewLine)"
         }
 
         It 'Should be of proper type and value' {
@@ -987,7 +987,7 @@ reallyLongDecimal: 3.9999999999999990
             }
             It 'Should serialise as a hash with only the non-null value' {
                 $result = ConvertTo-KrYaml $value -Options OmitNullValues
-                $result | Should -Be "key1: value1`n"
+                $result | Should -Be "key1: value1$([Environment]::NewLine)"
             }
         }
 
@@ -1000,7 +1000,7 @@ reallyLongDecimal: 3.9999999999999990
             }
             It 'Should serialise as a hash with the null value' {
                 $result = ConvertTo-KrYaml $value
-                $result | Should -Be "key1: value1`nkey2: null`n"
+                $result | Should -Be "key1: value1$([Environment]::NewLine)key2: null$([Environment]::NewLine)"
             }
         }
 
@@ -1010,7 +1010,7 @@ reallyLongDecimal: 3.9999999999999990
             }
             It 'Should serialise as a hash' {
                 $result = ConvertTo-KrYaml $value
-                $result | Should -Be "key: value`n"
+                $result | Should -Be "key: value$([Environment]::NewLine)"
             }
         }
         Context 'PSCustomObject with multiple properties' {
@@ -1019,7 +1019,7 @@ reallyLongDecimal: 3.9999999999999990
             }
             It 'Should serialise as a hash' {
                 $result = ConvertTo-KrYaml $value
-                $result | Should -Be "key1: value1`nkey2: value2`n"
+                $result | Should -Be "key1: value1$([Environment]::NewLine)key2: value2$([Environment]::NewLine)"
             }
             It 'Should deserialise as a hash' {
                 $asYaml = ConvertTo-KrYaml $value

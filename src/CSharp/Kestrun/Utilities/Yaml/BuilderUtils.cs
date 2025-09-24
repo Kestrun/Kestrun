@@ -33,9 +33,10 @@ public class BuilderUtils
             .WithEventEmitter(next => new StringQuotingEmitter(next))
             .WithTypeConverter(new BigIntegerTypeConverter())
             .WithTypeConverter(new IDictionaryTypeConverter(omitNullValues, useFlowStyle))
-            .WithTypeConverter(new PSObjectTypeConverter(omitNullValues, useFlowStyle))
-            // Use platform newline; tests explicitly reference [Environment]::NewLine for single-line cases and replace it for flow/json cases
-            .WithNewLine("\n");
+            .WithTypeConverter(new PSObjectTypeConverter(omitNullValues, useFlowStyle));
+        // Use platform newline; tests explicitly reference [Environment]::NewLine for single-line cases and replace it for flow/json cases
+        //.WithNewLine("\n");
+
         if (omitNullValues)
         {
             builder = builder

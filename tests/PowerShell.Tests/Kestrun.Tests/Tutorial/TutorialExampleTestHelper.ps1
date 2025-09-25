@@ -3,7 +3,7 @@
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
-Write-Verbose '[TutorialHelper] Loading helper script' -Verbose
+Write-Debug '[TutorialHelper] Loading helper script' -Verbose
 
 if (-not (Get-Module -Name Kestrun)) {
     $rootSeek = Split-Path -Parent $PSCommandPath
@@ -138,7 +138,7 @@ function Start-ExampleScript {
     [CmdletBinding(SupportsShouldProcess)] param(
         [Parameter(Mandatory)][string]$Name,
         [int]$Port,
-        [int]$StartupTimeoutSeconds = 15,
+        [int]$StartupTimeoutSeconds = 30,
         [int]$HttpProbeDelayMs = 150,
         [string[]]$StartupSentinels = @('Start-KrServer', 'Listening', 'Server started', 'Ready')
     )
@@ -150,7 +150,7 @@ function Start-ExampleScript {
     Push-Location -Path $scriptDir
     $original = Get-Content -Path $path -Raw
     $serverIp = 'localhost' # Use loopback for safety
-    
+
     $content = $original
     $kestrunModulePath = Get-KestrunModulePath
     $importKestrunModule = @"
@@ -248,11 +248,11 @@ Start-KrServer
             # Optional lightweight HTTP/HTTPS probe of '/'
             try {
                 # Decide scheme based on provisional HTTPS detection (scan original content once here if not already)
-                if (-not $script:__kestrunHttpsHintChecked) {
-                    $script:__kestrunHttpsHintChecked = $true
-                    $script:__kestrunHttpsHint = ($content -match 'Add-KrEndpoint[^\n]*-SelfSignedCert' -or $content -match 'Add-KrEndpoint[^\n]*-CertPath' -or $content -match 'Add-KrEndpoint[^\n]*-X509Certificate')
-                }
-                $scheme = ($script:__kestrunHttpsHint ? 'https' : 'http')
+                $scheme = ($content -match 'Add-KrEndpoint[^\n]*-SelfSignedCert' -or
+                    $content -match 'Add-KrEndpoint[^\n]*-CertPath' -or
+                    $content -match 'Add-KrEndpoint[^\n]*-X509Certificate'
+                )? 'https' : 'http'
+
                 $probeUri = ("{0}://{1}:{2}" -f $scheme, $serverIp, $Port)
                 $probeParams = @{ Uri = $probeUri; UseBasicParsing = $true; Method = 'Get'; TimeoutSec = 3; ErrorAction = 'Stop' }
                 if ($scheme -eq 'https') { $probeParams.SkipCertificateCheck = $true }

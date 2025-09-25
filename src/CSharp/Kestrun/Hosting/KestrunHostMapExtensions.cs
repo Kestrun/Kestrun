@@ -1,4 +1,3 @@
-
 using Kestrun.Hosting.Options;
 using Kestrun.Languages;
 using Kestrun.Scripting;
@@ -18,6 +17,23 @@ namespace Kestrun.Hosting;
 /// </summary>
 public static class KestrunHostMapExtensions
 {
+    /// <summary>
+    /// Public utility facade for endpoint specification parsing. This provides a stable API surface
+    /// over the internal helper logic used by host route constraint processing.
+    /// </summary>
+    public static class EndpointSpecParser
+    {
+        /// <summary>
+        /// Parses an endpoint specification into host, port and optional HTTPS flag.
+        /// </summary>
+        /// <param name="spec">Specification string. See <see cref="TryParseEndpointSpec"/> for accepted formats.</param>
+        /// <param name="host">Resolved host when successful, otherwise empty string.</param>
+        /// <param name="port">Resolved port when successful, otherwise 0.</param>
+        /// <param name="https">True for https, false for http, null when unspecified (host:port form).</param>
+        /// <returns><c>true</c> if parsing succeeds; otherwise <c>false</c>.</returns>
+        public static bool TryParse(string spec, out string host, out int port, out bool? https)
+            => TryParseEndpointSpec(spec, out host, out port, out https);
+    }
     /// <summary>
     /// Represents a delegate that handles a Kestrun request with the provided context.
     /// </summary>
@@ -350,8 +366,22 @@ public static class KestrunHostMapExtensions
     /// <param name="spec">The endpoint specification string.</param>
     /// <param name="host">The host component.</param>
     /// <param name="port">The port component.</param>
-    /// <param name="https">The HTTPS flag.</param>
-    /// <returns>True if the parsing was successful; otherwise, false.</returns>
+    /// <param name="https">
+    /// Indicates HTTPS (<c>true</c>) or HTTP (<c>false</c>) when the scheme is explicitly specified via a full URL.
+    /// For host:port forms where no scheme information is available the value is <c>null</c>.
+    /// </param>
+    /// <returns>
+    /// <c>true</c> if parsing succeeds; otherwise <c>false</c> and <paramref name="host"/> will be <c>string.Empty</c> and <paramref name="port"/> <c>0</c>.
+    /// </returns>
+    /// <remarks>
+    /// Accepted formats (in priority order):
+    /// <list type="bullet">
+    /// <item><description>Full URL: <c>https://host:port</c>, <c>http://host:port</c>, IPv6 literal allowed in brackets; if the port is omitted the default (80/443) is inferred.</description></item>
+    /// <item><description>Bracketed IPv6 host &amp; port: <c>[::1]:5000</c>, <c>[2001:db8::1]:8080</c>.</description></item>
+    /// <item><description>Host or IPv4 with port: <c>localhost:5000</c>, <c>127.0.0.1:8080</c>, <c>example.com:443</c>.</description></item>
+    /// </list>
+    /// Unsupported / rejected examples: non http(s) schemes (e.g. <c>ftp://</c>), missing port in host:port form, empty port (<c>https://localhost:</c>), malformed IPv6 without brackets.
+    /// </remarks>
     internal static bool TryParseEndpointSpec(string spec, out string host, out int port, out bool? https)
     {
         host = ""; port = 0; https = null;
@@ -361,63 +391,115 @@ public static class KestrunHostMapExtensions
             return false;
         }
 
-        // Full URL?
-        if (Uri.TryCreate(spec, UriKind.Absolute, out var uri))
+        // 1. Try full URL form first
+        if (TryParseUrlSpec(spec, out host, out port, out https))
         {
-            // Only allow http/https schemes and ensure we have a valid host and port
-            if (uri.Scheme.Equals("https", StringComparison.OrdinalIgnoreCase) ||
-                uri.Scheme.Equals("http", StringComparison.OrdinalIgnoreCase))
-            {
-                // For URLs, accept default ports (80 for http, 443 for https)
-                // But reject empty port specifications like "https://localhost:"
-                if (spec.EndsWith(":"))
-                {
-                    // Fall through to regex parsing - this will fail as expected
-                }
-                else
-                {
-                    host = uri.Host;
-                    port = uri.Port;
-                    https = uri.Scheme.Equals("https", StringComparison.OrdinalIgnoreCase) ? true
-                          : uri.Scheme.Equals("http", StringComparison.OrdinalIgnoreCase) ? false
-                          : null;
-                    return !string.IsNullOrWhiteSpace(host) && port > 0;
-                }
-            }
-            // If Uri.TryCreate succeeded but it's not http/https, fall through to regex parsing
+            return true;
         }
 
-        // host:port (IPv6 "[::1]:5000" or plain "127.0.0.1:5000")
-        // First try IPv6 format with brackets
-        var ipv6Match = Regex.Match(spec, @"^\[([^\]]+)\]:(\d+)$");
-        if (ipv6Match.Success)
+        // 2. Bracketed IPv6 literal with port: [::1]:5000
+        if (TryParseBracketedIpv6Spec(spec, out host, out port))
         {
-            host = ipv6Match.Groups[1].Value;
-            if (!int.TryParse(ipv6Match.Groups[2].Value, out var ipv6Port) || ipv6Port <= 0 || ipv6Port > 65535)
-            {
-                return false;
-            }
-            port = ipv6Port;
-            return !string.IsNullOrWhiteSpace(host);
+            return true; // https stays null (not specified)
         }
 
-        // Try regular host:port format
-        var regularMatch = Regex.Match(spec, @"^([^:]+):(\d+)$");
-        if (!regularMatch.Success)
+        // 3. Regular host:port (hostname, IPv4, or raw IPv6 w/out brackets not supported here)
+        if (TryParseHostPortSpec(spec, out host, out port))
+        {
+            return true; // https stays null (not specified)
+        }
+
+        // No match
+        host = ""; port = 0; https = null;
+        return false;
+    }
+
+    /// <summary>
+    /// Tries to parse a full URL endpoint specification.
+    /// </summary>
+    /// <param name="spec">The endpoint specification string.</param>
+    /// <param name="host">The parsed host component.</param>
+    /// <param name="port">The parsed port component.</param>
+    /// <param name="https">The parsed HTTPS flag.</param>
+    /// <returns><c>true</c> if parsing succeeded; otherwise <c>false</c>.</returns>
+    private static bool TryParseUrlSpec(string spec, out string host, out int port, out bool? https)
+    {
+        host = ""; port = 0; https = null;
+        if (!Uri.TryCreate(spec, UriKind.Absolute, out var uri))
         {
             return false;
         }
-
-        host = regularMatch.Groups[1].Value;
-        if (!int.TryParse(regularMatch.Groups[2].Value, out var regularPort) || regularPort <= 0 || regularPort > 65535)
+        if (!(uri.Scheme.Equals("https", StringComparison.OrdinalIgnoreCase) ||
+              uri.Scheme.Equals("http", StringComparison.OrdinalIgnoreCase)))
         {
-            host = ""; port = 0; https = null;
+            return false; // Not http/https → let other parsers try
+        }
+        if (spec.EndsWith(':'))
+        {
+            return false; // reject empty port like https://localhost:
+        }
+        host = uri.Host;
+        port = uri.Port;
+        https = uri.Scheme.Equals("https", StringComparison.OrdinalIgnoreCase)
+            ? true
+            : uri.Scheme.Equals("http", StringComparison.OrdinalIgnoreCase)
+                ? false
+                : null;
+        return !string.IsNullOrWhiteSpace(host) && IsValidPort(port);
+    }
+
+    /// <summary>
+    /// Tries to parse a bracketed IPv6 endpoint specification.
+    /// </summary>
+    /// <param name="spec">The endpoint specification string.</param>
+    /// <param name="host">The parsed host component.</param>
+    /// <param name="port">The parsed port component.</param>
+    /// <returns><c>true</c> if parsing succeeded; otherwise <c>false</c>.</returns>
+    private static bool TryParseBracketedIpv6Spec(string spec, out string host, out int port)
+    {
+        host = ""; port = 0;
+        var m = Regex.Match(spec, @"^\[([^\]]+)\]:(\d+)$");
+        if (!m.Success)
+        {
             return false;
         }
-
-        port = regularPort;
+        host = m.Groups[1].Value;
+        if (!int.TryParse(m.Groups[2].Value, out port) || !IsValidPort(port))
+        {
+            host = ""; port = 0; return false;
+        }
         return !string.IsNullOrWhiteSpace(host);
     }
+
+    /// <summary>
+    /// Tries to parse a host:port endpoint specification.
+    /// </summary>
+    /// <param name="spec">The endpoint specification string.</param>
+    /// <param name="host">The parsed host component.</param>
+    /// <param name="port">The parsed port component.</param>
+    /// <returns><c>true</c> if parsing succeeded; otherwise <c>false</c>.</returns>
+    private static bool TryParseHostPortSpec(string spec, out string host, out int port)
+    {
+        host = ""; port = 0;
+        var m = Regex.Match(spec, @"^([^:]+):(\d+)$");
+        if (!m.Success)
+        {
+            return false;
+        }
+        host = m.Groups[1].Value;
+        if (!int.TryParse(m.Groups[2].Value, out port) || !IsValidPort(port))
+        {
+            host = ""; port = 0; return false;
+        }
+        return !string.IsNullOrWhiteSpace(host);
+    }
+
+    /// <summary>
+    /// Validates that the port number is within the acceptable range (1-65535).
+    /// </summary>
+    /// <param name="port">The port number to validate.</param>
+    /// <returns><c>true</c> if the port number is valid; otherwise, <c>false</c>.</returns>
+    private static bool IsValidPort(int port) => port is > 0 and <= 65535;
 
     /// <summary>
     /// Formats the host and port for use in RequireHost, adding brackets for IPv6 literals.

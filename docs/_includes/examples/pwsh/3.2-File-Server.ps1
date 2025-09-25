@@ -28,7 +28,7 @@ $map = @{
 }
 
 # Add a file server with browsing enabled
-Add-KrFileServerMiddleware -RequestPath '/' -RootPath '.\Assets\wwwroot' -EnableDirectoryBrowsing -ContentTypeMap $map   -Public -MaxAge 300 -mustRevalidate
+Add-KrFileServerMiddleware -RequestPath '/' -RootPath '.\Assets\wwwroot' -EnableDirectoryBrowsing -ContentTypeMap $map -Public -MaxAge 300 -mustRevalidate
 
 # Enable Kestrun configuration
 Enable-KrConfiguration

@@ -393,10 +393,12 @@ function Get-ExampleRoutePattern {
     String full URL (e.g. 'http://127.0.0.1:5000/items/sample').
 #>
 function Convert-RouteToUrl {
-    [CmdletBinding()] param([string] $Route, [int] $Port)
+    [CmdletBinding()]
+    [outputtype([string])]
+    param([string] $Route, [int] $Port)
     $r = [regex]::Replace($Route, '{\*?[^}]+}', 'sample')
     if (-not $r.StartsWith('/')) { $r = '/' + $r }
-    "http://127.0.0.1:$Port$r"
+    return "http://127.0.0.1:$Port$r"
 }
 
 <#

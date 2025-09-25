@@ -120,7 +120,7 @@ Add-KrPowerShellRuntime
 
 Add-KrBasicAuthentication -Name 'BasicAuth' -ScriptBlock {
     param($username, $password)
-    Write-KrLog -Level Information -Message 'Basic Authentication: User {0} is trying to authenticate.' -PropertyValues $username
+    Write-KrLog -Level Information -Message 'Basic Authentication: User {0} is trying to authenticate.' -Values $username
     if ($username -eq 'admin' -and $password -eq 'password') {
         $true
     } else {

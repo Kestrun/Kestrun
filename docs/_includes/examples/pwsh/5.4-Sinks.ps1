@@ -33,7 +33,7 @@ Add-KrMapRoute -Verbs Get -Path "/text" -ScriptBlock {
 }
 
 Add-KrMapRoute -Verbs Get -Path "/json" -ScriptBlock {
-    Write-KrLog -Logger $json -Level Debug -Message "Json sink example" -PropertyValues @{ Example = $true }
+    Write-KrLog -Logger $json -Level Debug -Message "Json sink example" -Values @{ Example = $true }
     Write-KrTextResponse -InputObject "json" -StatusCode 200
 }
 

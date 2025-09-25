@@ -72,7 +72,7 @@ New-KrLogger |
   Register-KrLogger -Name 'ps-api' -SetAsDefault
 
 # Write a log event
-Write-KrLog -Name 'ps-api' -Level Information -Message 'Started' -PropertyValues @{ Host = $env:COMPUTERNAME }
+Write-KrLog -Name 'ps-api' -Level Information -Message 'Started' -Values @{ Host = $env:COMPUTERNAME }
 ```
 
 Framework logs vs your logs:

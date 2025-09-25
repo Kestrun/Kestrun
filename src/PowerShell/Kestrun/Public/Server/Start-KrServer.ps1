@@ -47,7 +47,7 @@ function Start-KrServer {
             $hasConsole = $true
             $writeConsole = -not $Quiet.IsPresent
         } catch {
-            Write-KrLog -Level Information "No console available; running in non-interactive mode."
+            Write-KrLog -Level Information -Message "No console available; running in non-interactive mode."
         }
     }
     process {

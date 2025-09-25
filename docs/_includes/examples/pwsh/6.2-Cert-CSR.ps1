@@ -48,9 +48,9 @@ Add-KrMapRoute -Verbs Post -Pattern "/certs/csr" -ScriptBlock {
     if ($body.CommonName) { $params.CommonName = [string]$body.CommonName }
 
     try {
-        Write-KrLog -Level Debug -Message "Creating CSR with params: {params}" -PropertyValues $params
+        Write-KrLog -Level Debug -Message "Creating CSR with params: {params}" -Values $params
         $csr = New-KrCertificateRequest @params
-        Write-KrLog -Level Debug -Message "CSR created successfully: {csr}" -PropertyValues $csr
+        Write-KrLog -Level Debug -Message "CSR created successfully: {csr}" -Values $csr
         Write-KrJsonResponse -StatusCode 200 -InputObject @{ csrPem = $csr.CsrPem; privateKeyPem = $csr.PrivateKeyPem ; publicKeyPem = $csr.PublicKeyPem }
     } catch {
         Write-KrJsonResponse -StatusCode 400 -InputObject @{ error = $_.Exception.Message }

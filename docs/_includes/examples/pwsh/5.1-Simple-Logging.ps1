@@ -33,7 +33,7 @@ Enable-KrConfiguration
 # Map the route with PowerShell
 Add-KrMapRoute -Verbs Get -Path "/hello-powershell" -ScriptBlock {
     $response = "Hello, World!"
-    Write-KrLog -Logger $myLogger -Level Debug -Message "Handling /hello-powershell response {response}" -PropertyValues $response
+    Write-KrLog -Logger $myLogger -Level Debug -Message "Handling /hello-powershell response {response}" -Values $response
     Write-KrTextResponse -InputObject $response -StatusCode 200
 }
 

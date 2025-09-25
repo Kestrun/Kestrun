@@ -43,11 +43,11 @@ function Invoke-KrCookieSignOut {
                 if ($KrServer.RegisteredAuthentications.Exists($Scheme, "Cookie")) {
                     $cookiesAuth = $KrServer.RegisteredAuthentications.Get($Scheme, "Cookie")
                 } else {
-                    Write-KrLog -Level Warning -Message 'Authentication scheme {scheme} not found in registered authentications.' -PropertyValues $Scheme
+                    Write-KrLog -Level Warning -Message 'Authentication scheme {scheme} not found in registered authentications.' -Values $Scheme
                     Write-KrErrorResponse -Message "Authentication scheme '$Scheme' not found." -StatusCode 400
                     return
                 }
-                Write-KrLog -Level Information -Message 'User {@user} signed out from {scheme} authentication.' -PropertyValues $Context.User, $Scheme
+                Write-KrLog -Level Information -Message 'User {@user} signed out from {scheme} authentication.' -Values $Context.User, $Scheme
                 # Redirect to login path or root
 
                 if ($null -ne $cookiesAuth -and $cookiesAuth.LoginPath -and $cookiesAuth.LoginPath.ToString().Trim()) {
@@ -55,7 +55,7 @@ function Invoke-KrCookieSignOut {
                 } else {
                     $url = '/'
                 }
-                Write-KrLog -Level Information -Message 'Redirecting {user} after logout to {path}' -PropertyValues $Context.User, $url
+                Write-KrLog -Level Information -Message 'Redirecting {user} after logout to {path}' -Values $Context.User, $url
                 Write-KrRedirectResponse -Url $url
             }
         }

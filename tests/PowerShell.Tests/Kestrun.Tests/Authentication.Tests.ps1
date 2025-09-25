@@ -92,7 +92,7 @@ BeforeAll {
 
     Add-KrBasicAuthentication -Name $BasicPowershellScheme -Realm 'Power-Kestrun' -AllowInsecureHttp -Scriptblock {
         param([string]$Username, [string]$Password)
-        Write-KrLog -Level Information -Message 'Basic Authentication: User {0} is trying to authenticate.' -PropertyValues $Username
+        Write-KrLog -Level Information -Message 'Basic Authentication: User {0} is trying to authenticate.' -Values $Username
         if ($Username -eq 'admin' -and $Password -eq 'password') {
             $true
         } else {
@@ -408,7 +408,7 @@ BeforeAll {
     Add-KrMapRoute -Verbs Get -Pattern '/token/renew' -AuthorizationSchema $JwtScheme -Scriptblock {
         $user = $Context.User.Identity.Name
 
-        Write-KrLog -Level Information -Message 'Generating JWT token for user {0}' -PropertyValues $user
+        Write-KrLog -Level Information -Message 'Generating JWT token for user {0}' -Values $user
         Write-Output "JwtTokenBuilder Type : $($JwtTokenBuilder.GetType().FullName)"
         $accessToken = $JwtTokenBuilder | Update-KrJWT -FromContext
         Write-KrJsonResponse -InputObject @{
@@ -421,8 +421,8 @@ BeforeAll {
     Add-KrMapRoute -Verbs Get -Pattern '/token/new' -AuthorizationSchema $BasicPowershellScheme -Scriptblock {
         $user = $Context.User.Identity.Name
 
-        Write-KrLog -Level Information -Message 'Regenerating JWT token for user {0}' -PropertyValues $user
-        Write-KrLog -Level Information -Message 'JWT Token Builder: {0}' -PropertyValues $JwtTokenBuilder
+        Write-KrLog -Level Information -Message 'Regenerating JWT token for user {0}' -Values $user
+        Write-KrLog -Level Information -Message 'JWT Token Builder: {0}' -Values $JwtTokenBuilder
         if (-not $JwtTokenBuilder) {
             Write-KrErrorResponse -Message 'JWT Token Builder is not initialized.' -StatusCode 500
             return
@@ -494,7 +494,7 @@ BeforeAll {
                     Add-KrUserClaim -ClaimType 'can_create' -Value 'true')
 
             $principal = Invoke-KrCookieSignIn -Scheme 'Cookies' -Claims $claims -PassThru
-            Write-KrLog -Level Information -Message 'User {user} signed in with Cookies authentication.' -PropertyValues $username
+            Write-KrLog -Level Information -Message 'User {user} signed in with Cookies authentication.' -Values $username
             Expand-KrObject -InputObject $principal -Label 'Principal'
             Write-KrJsonResponse -InputObject @{ success = $true; message = 'Login successful' }
         } else {

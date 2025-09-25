@@ -43,12 +43,12 @@ Add-KrMapRoute -Verbs Get -Path "/level/{level}" -ScriptBlock {
     $lvl = Get-KrRequestRouteParam -Name 'level'
     $parsed = [Serilog.Events.LogEventLevel]::Information
     if ([Enum]::TryParse([Serilog.Events.LogEventLevel], $lvl, $true, [ref]$parsed)) {
-        Write-KrLog -Level Debug -LoggerName 'Default' -Message "Changing level to {lvl}" -PropertyValues $lvl
+        Write-KrLog -Level Debug -LoggerName 'Default' -Message "Changing level to {lvl}" -Values $lvl
         Set-KrLoggerLevelSwitch -LoggerName 'app' -MinimumLevel $parsed | Out-Null
-        Write-KrLog -LoggerName 'app' -Level Information -Message "Level switch set to {level}" -PropertyValues $lvl
+        Write-KrLog -LoggerName 'app' -Level Information -Message "Level switch set to {level}" -Values $lvl
         Write-KrTextResponse -InputObject "level=$lvl" -StatusCode 200
     } else {
-        Write-KrLog -LoggerName 'app' -Level Warning -Message "Invalid level value {level}" -PropertyValues $lvl
+        Write-KrLog -LoggerName 'app' -Level Warning -Message "Invalid level value {level}" -Values $lvl
         Write-KrTextResponse -InputObject "invalid level '$lvl'" -StatusCode 400
     }
 }

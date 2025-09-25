@@ -150,35 +150,8 @@ function Start-ExampleScript {
     Push-Location -Path $scriptDir
     $original = Get-Content -Path $path -Raw
     $serverIp = 'localhost' # Use loopback for safety
-    $hasParamPort = $false
-    $hasEnableTestRoutes = $false
-    if ($original -match '(?im)^param\s*\(') {
-        if ($original -match '(?im)\[int\]\s*\$Port') { $hasParamPort = $true }
-        if ($original -match '(?im)\$EnableTestRoutes') { $hasEnableTestRoutes = $true }
-    }
-
+    
     $content = $original
-    if (-not $hasParamPort) {
-        # Legacy rewriting path (will be removed once all examples adopt param)
-        $content = ($content -split "`n") | ForEach-Object {
-            $line = $_
-            if ($line -match '^\s*Add-KrEndpoint\b' -and $line -match '-Port 5000') {
-                $line = $line -replace '-Port 5000', ("-Port $Port")
-            }
-            if ($line -match '^\s*Add-KrEndpoint\b' -and $line -match "http(s)?://(localhost|127\\.0\\.0\\.1):5000") {
-                $line = $line -replace 'http://localhost:5000', "http://localhost:$Port"
-                $line = $line -replace 'http://127.0.0.1:5000', "http://127.0.0.1:$Port"
-                $line = $line -replace 'https://localhost:5000', "https://localhost:$Port"
-                $line = $line -replace 'https://127.0.0.1:5000', "https://127.0.0.1:$Port"
-                $line = $line -replace 'http://\[::1\]:5000', "http://[::1]:$Port"
-                $line = $line -replace 'https://\[::1\]:5000', "https://[::1]:$Port"
-            }
-            if ($line -match 'Initialize-KrRoot\s+-Path\s+\$PSScriptRoot') {
-                $line = "Initialize-KrRoot -Path '$scriptDir'"
-            }
-            $line
-        } | Out-String
-    }
     $kestrunModulePath = Get-KestrunModulePath
     $importKestrunModule = @"
 if (-not (Get-Module -Name Kestrun)) {
@@ -227,13 +200,8 @@ Start-KrServer
 
     $stdOut = Join-Path $tempDir ("kestrun-example-" + [System.IO.Path]::GetRandomFileName() + '.out.log')
     $stdErr = Join-Path $tempDir ("kestrun-example-" + [System.IO.Path]::GetRandomFileName() + '.err.log')
-    $argList = @('-NoLogo', '-NoProfile', '-File', $tmp)
-    if ($hasParamPort) { $argList += @('-Port', $Port) }
-    if ($hasParamPort -and -not $hasEnableTestRoutes) {
-        # If script didn't define EnableTestRoutes param but has param block, still need shutdown; inject via wrapper
-        # (Fallback minimal injection keeping original file untouched)
-    }
-    if ($hasEnableTestRoutes) { $argList += @('-EnableTestRoutes', $true) }
+    $argList = @('-NoLogo', '-NoProfile', '-File', $tmp, '-Port', $Port)
+
     $param = @{
         FilePath = 'pwsh'
         WorkingDirectory = $scriptDir
@@ -330,8 +298,6 @@ Start-KrServer
         OriginalLocation = $originalLocation
         PushedLocation = $true
         Https = $usesHttps
-        ParamPort = $hasParamPort
-        ParamEnableTestRoutes = $hasEnableTestRoutes
     }
 }
 

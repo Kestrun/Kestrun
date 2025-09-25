@@ -7,8 +7,7 @@
 
 [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidUsingConvertToSecureStringWithPlainText', '')]
 param(
-    [int]$HttpPort = 5000,
-    [int]$HttpsPort = 5443,
+    [int]$Port = 5000,
     [IPAddress]$IPAddress = [IPAddress]::Loopback
 )
 
@@ -30,10 +29,10 @@ if (-not (Test-Path $certPath)) {
 New-KrServer -Name 'Endpoints Https'
 
 # HTTP listener (optional)
-Add-KrListener -Port $HttpPort -IPAddress $IPAddress
+Add-KrListener -Port $Port -IPAddress $IPAddress
 
 # HTTPS listener
-Add-KrListener -Port $HttpsPort -IPAddress $IPAddress -CertPath $certPath -CertPassword $pw
+Add-KrListener -Port ($Port + 443) -IPAddress $IPAddress -CertPath $certPath -CertPassword $pw
 
 # Add PowerShell runtime
 Add-KrPowerShellRuntime
@@ -45,6 +44,11 @@ Enable-KrConfiguration
 Add-KrMapRoute -Verbs Get -Pattern '/secure' -ScriptBlock {
     Write-KrLog -Level Information -Message 'Secure endpoint invoked'
     Write-KrTextResponse -InputObject 'Secure hello' -StatusCode 200
+}
+
+Add-KrMapRoute -Verbs Get -Pattern '/unsecured' -ScriptBlock {
+    Write-KrLog -Level Information -Message 'Unsecured endpoint invoked'
+    Write-KrTextResponse -InputObject 'Unsecured hello' -StatusCode 200
 }
 
 Write-KrLog -Level Information -Message 'HTTPS listener active on {HttpsPort}' -Properties $HttpsPort

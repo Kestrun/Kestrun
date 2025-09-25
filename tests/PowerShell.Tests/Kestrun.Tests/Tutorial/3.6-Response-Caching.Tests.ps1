@@ -1,7 +1,8 @@
 ﻿param()
 Describe 'Example 3.6-Response-Caching' -Tag 'Tutorial', 'Caching' {
     BeforeAll { . "$PSScriptRoot/TutorialExampleTestHelper.ps1"; $script:instance = Start-ExampleScript -Name '3.6-Response-Caching.ps1' }
-    AfterAll { . "$PSScriptRoot/TutorialExampleTestHelper.ps1"; if ($script:instance) { Stop-ExampleScript -Instance $script:instance } }
+    AfterAll { if ($script:instance) { Stop-ExampleScript -Instance $script:instance } }
+
     It 'cachetest route returns timestamp content' {
         $resp = Invoke-WebRequest -Uri "$($script:instance.Url)/cachetest" -UseBasicParsing -TimeoutSec 6 -Method Get
         $resp.StatusCode | Should -Be 200
@@ -9,7 +10,6 @@ Describe 'Example 3.6-Response-Caching' -Tag 'Tutorial', 'Caching' {
     }
 
     It 'Second request served faster and reuses cache headers (if present)' {
-        . "$PSScriptRoot/TutorialExampleTestHelper.ps1"
         $base = "http://127.0.0.1:$($script:instance.Port)"
         # Use actual cached route from example script
         $target = "$base/cachetest"

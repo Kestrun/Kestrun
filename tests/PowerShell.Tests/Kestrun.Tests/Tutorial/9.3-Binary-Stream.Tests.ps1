@@ -1,7 +1,7 @@
 ﻿param()
 Describe 'Example 9.3-Binary-Stream' {
     BeforeAll { . "$PSScriptRoot/TutorialExampleTestHelper.ps1"; $script:instance = Start-ExampleScript -Name '9.3-Binary-Stream.ps1' }
-    AfterAll { . "$PSScriptRoot/TutorialExampleTestHelper.ps1"; if ($script:instance) { Stop-ExampleScript -Instance $script:instance } }
+    AfterAll {if ($script:instance) { Stop-ExampleScript -Instance $script:instance } }
     It 'Binary and stream routes return data or 404 gracefully' {
         . "$PSScriptRoot/TutorialExampleTestHelper.ps1"
         $p = $script:instance.Port

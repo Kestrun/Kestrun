@@ -10,7 +10,6 @@ Describe 'Example 7.1-Basic-Server' {
     }
 
     It 'GET /hello returns expected greeting' {
-        . "$PSScriptRoot/TutorialExampleTestHelper.ps1"
         $uri = "$($script:instance.Url)/hello"
         $resp = Invoke-WebRequest -Uri $uri -UseBasicParsing -TimeoutSec 5 -ErrorAction Stop
         $resp.StatusCode | Should -Be 200

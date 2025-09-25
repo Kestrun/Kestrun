@@ -9,7 +9,6 @@ Describe 'Example 7.7-Uri-Endpoint' -Tag 'Tutorial', 'Slow' {
         if ($script:instance) { Stop-ExampleScript -Instance $script:instance }
     }
     It 'GET /hello returns expected greeting (example currently mirrors basic server)' {
-        . "$PSScriptRoot/TutorialExampleTestHelper.ps1"
         $uri = "$($script:instance.Url)/hello"
         $resp = Invoke-WebRequest -Uri $uri -UseBasicParsing -TimeoutSec 5 -ErrorAction Stop
         $resp.StatusCode | Should -Be 200

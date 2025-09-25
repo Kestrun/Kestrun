@@ -1,7 +1,7 @@
 ﻿param()
 Describe 'Example 9.4-Html-Files' {
     BeforeAll { . "$PSScriptRoot/TutorialExampleTestHelper.ps1"; $script:instance = Start-ExampleScript -Name '9.4-Html-Files.ps1' }
-    AfterAll { . "$PSScriptRoot/TutorialExampleTestHelper.ps1"; if ($script:instance) { Stop-ExampleScript -Instance $script:instance } }
+    AfterAll {if ($script:instance) { Stop-ExampleScript -Instance $script:instance } }
     It 'HTML routes behave as expected' {
         # /page -> must succeed and contain expected static about page heading
         $page = Invoke-WebRequest -Uri "$($script:instance.Url)/page" -UseBasicParsing -TimeoutSec 8

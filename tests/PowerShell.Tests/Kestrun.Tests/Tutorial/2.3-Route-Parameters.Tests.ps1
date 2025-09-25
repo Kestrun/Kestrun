@@ -1,9 +1,8 @@
 ﻿param()
 Describe 'Example 2.3-Route-Parameters' -Tag 'Tutorial' {
     BeforeAll { . "$PSScriptRoot/TutorialExampleTestHelper.ps1"; $script:instance = Start-ExampleScript -Name '2.3-Route-Parameters.ps1' }
-    AfterAll { . "$PSScriptRoot/TutorialExampleTestHelper.ps1"; if ($script:instance) { Stop-ExampleScript -Instance $script:instance } }
+    AfterAll { if ($script:instance) { Stop-ExampleScript -Instance $script:instance } }
     It 'Parameter routes return expected content (path/query/body/header/cookie)' {
-        . "$PSScriptRoot/TutorialExampleTestHelper.ps1"
         # Path parameter (GET)
         Assert-RouteContent -Uri "$($script:instance.Url)/input/demoPath" -Contains "The Path Parameter 'value' was: demoPath"
         # Query string (PATCH)

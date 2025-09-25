@@ -1,4 +1,4 @@
-# Shared helper functions for tutorial example tests
+﻿# Shared helper functions for tutorial example tests
 # Provides utilities to locate example scripts, start them on random port, collect routes, and stop.
 
 Set-StrictMode -Version Latest
@@ -307,6 +307,8 @@ Start-KrServer
     if ($content -match 'Add-KrEndpoint[^\n]*-SelfSignedCert' -or $content -match 'Add-KrEndpoint[^\n]*-CertPath' -or $content -match 'Add-KrEndpoint[^\n]*-X509Certificate') {
         $usesHttps = $true
     }
+
+    Start-Sleep -Seconds 2 # Allow some time for server to stabilize
 
     return [pscustomobject]@{
         Name = $Name

@@ -1,7 +1,7 @@
 ﻿param()
 Describe 'Example 5.6-Hot-Reload' -Tag 'Tutorial', 'Logging', 'HotReload' {
     BeforeAll { . "$PSScriptRoot/TutorialExampleTestHelper.ps1"; $script:instance = Start-ExampleScript -Name '5.6-Hot-Reload.ps1' }
-    AfterAll { . "$PSScriptRoot/TutorialExampleTestHelper.ps1"; if ($script:instance) { Stop-ExampleScript -Instance $script:instance } }
+    AfterAll {if ($script:instance) { Stop-ExampleScript -Instance $script:instance } }
 
     It 'GET /log emits ok with current level' {
         try {

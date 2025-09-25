@@ -1,12 +1,13 @@
 ﻿param()
-Describe 'Example 9.7-Errors' -Tag 'Tutorial','Errors' {
+Describe 'Example 9.7-Errors' -Tag 'Tutorial', 'Errors' {
     BeforeAll { . "$PSScriptRoot/TutorialExampleTestHelper.ps1"; $script:instance = Start-ExampleScript -Name '9.7-Errors.ps1' }
-    AfterAll { . "$PSScriptRoot/TutorialExampleTestHelper.ps1"; if ($script:instance) { Stop-ExampleScript -Instance $script:instance } }
+    AfterAll { if ($script:instance) { Stop-ExampleScript -Instance $script:instance } }
 
-    It 'Error handling routes basic smoke' { . "$PSScriptRoot/TutorialExampleTestHelper.ps1"; Test-ExampleRouteSet -Instance $script:instance }
+    It 'Error handling routes basic smoke' {
+        Test-ExampleRouteSet -Instance $script:instance
+    }
 
     It 'Returns 404 for missing resource' {
-        . "$PSScriptRoot/TutorialExampleTestHelper.ps1"
         $base = "http://127.0.0.1:$($script:instance.Port)"
         $uri = "$base/not-found-test"
         $caught = $false
@@ -18,7 +19,6 @@ Describe 'Example 9.7-Errors' -Tag 'Tutorial','Errors' {
     }
 
     It 'Validation error route returns 400 with expected message' {
-        . "$PSScriptRoot/TutorialExampleTestHelper.ps1"
         $uri = "http://127.0.0.1:$($script:instance.Port)/fail"
         $caught = $false
         try { Invoke-WebRequest -Uri $uri -UseBasicParsing -TimeoutSec 4 -ErrorAction Stop | Out-Null } catch {
@@ -29,7 +29,6 @@ Describe 'Example 9.7-Errors' -Tag 'Tutorial','Errors' {
     }
 
     It 'Exception route returns 500 with stack details' {
-        . "$PSScriptRoot/TutorialExampleTestHelper.ps1"
         $uri = "http://127.0.0.1:$($script:instance.Port)/boom"
         $caught = $false
         try { Invoke-WebRequest -Uri $uri -UseBasicParsing -TimeoutSec 4 -ErrorAction Stop | Out-Null } catch {

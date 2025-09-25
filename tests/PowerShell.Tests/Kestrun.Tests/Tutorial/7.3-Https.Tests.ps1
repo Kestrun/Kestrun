@@ -1,7 +1,7 @@
 ﻿param()
 Describe 'Example 7.3-Https' {
     BeforeAll { . "$PSScriptRoot/TutorialExampleTestHelper.ps1"; $script:instance = Start-ExampleScript -Name '7.3-Https.ps1' }
-    AfterAll { . "$PSScriptRoot/TutorialExampleTestHelper.ps1"; if ($script:instance) { Stop-ExampleScript -Instance $script:instance } }
+    AfterAll {if ($script:instance) { Stop-ExampleScript -Instance $script:instance } }
 
 
     It 'GET /unsecure returns hello on primary listener (HTTP)' {

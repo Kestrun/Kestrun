@@ -1,9 +1,8 @@
 ﻿param()
 Describe 'Example 9.1-Text-Json' {
     BeforeAll { . "$PSScriptRoot/TutorialExampleTestHelper.ps1"; $script:instance = Start-ExampleScript -Name '9.1-Text-Json.ps1' }
-    AfterAll { . "$PSScriptRoot/TutorialExampleTestHelper.ps1"; if ($script:instance) { Stop-ExampleScript -Instance $script:instance } }
+    AfterAll { if ($script:instance) { Stop-ExampleScript -Instance $script:instance } }
     It 'Text and JSON routes return expected payloads' {
-        . "$PSScriptRoot/TutorialExampleTestHelper.ps1"
         # /ping -> pong (text)
         Assert-RouteContent -Uri "$($script:instance.Url)/ping" -Contains 'pong'
         # /created -> 201 + body substring

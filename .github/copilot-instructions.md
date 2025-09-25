@@ -57,6 +57,7 @@ Invoke-Build Test-xUnit
 # PowerShell tests via Pester
 Invoke-Build Test-Pester
 ```
+If the test only involves C# code, you can use `dotnet test` for faster execution.
 
 ## Project-Specific Conventions
 

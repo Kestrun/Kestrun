@@ -344,38 +344,88 @@ public static class KestrunHostMapExtensions
         ApplyRequiredHost(host, map, options);
     }
 
-
-
-
-
-    private static bool TryParseEndpointSpec(string spec, out string host, out int port, out bool? https)
+    /// <summary>
+    /// Tries to parse an endpoint specification string into its components: host, port, and HTTPS flag.
+    /// </summary>
+    /// <param name="spec">The endpoint specification string.</param>
+    /// <param name="host">The host component.</param>
+    /// <param name="port">The port component.</param>
+    /// <param name="https">The HTTPS flag.</param>
+    /// <returns>True if the parsing was successful; otherwise, false.</returns>
+    internal static bool TryParseEndpointSpec(string spec, out string host, out int port, out bool? https)
     {
         host = ""; port = 0; https = null;
 
-        // Full URL?
-        if (Uri.TryCreate(spec, UriKind.Absolute, out var uri))
-        {
-            host = uri.Host;
-            port = uri.Port;
-            https = uri.Scheme.Equals("https", StringComparison.OrdinalIgnoreCase) ? true
-                  : uri.Scheme.Equals("http", StringComparison.OrdinalIgnoreCase) ? false
-                  : null;
-            return !string.IsNullOrWhiteSpace(host) && port > 0;
-        }
-
-        // host:port (IPv6 "[::1]:5000" or plain "127.0.0.1:5000")
-        var m = Regex.Match(spec, @"^\[?(?<host>[^]]+?)\]?: (?<port>\d+)$".Replace(" ", ""));
-        if (!m.Success)
+        if (string.IsNullOrWhiteSpace(spec))
         {
             return false;
         }
 
-        host = m.Groups["host"].Value;
-        port = int.Parse(m.Groups["port"].Value);
-        return !string.IsNullOrWhiteSpace(host) && port > 0;
+        // Full URL?
+        if (Uri.TryCreate(spec, UriKind.Absolute, out var uri))
+        {
+            // Only allow http/https schemes and ensure we have a valid host and port
+            if (uri.Scheme.Equals("https", StringComparison.OrdinalIgnoreCase) ||
+                uri.Scheme.Equals("http", StringComparison.OrdinalIgnoreCase))
+            {
+                // For URLs, accept default ports (80 for http, 443 for https)
+                // But reject empty port specifications like "https://localhost:"
+                if (spec.EndsWith(":"))
+                {
+                    // Fall through to regex parsing - this will fail as expected
+                }
+                else
+                {
+                    host = uri.Host;
+                    port = uri.Port;
+                    https = uri.Scheme.Equals("https", StringComparison.OrdinalIgnoreCase) ? true
+                          : uri.Scheme.Equals("http", StringComparison.OrdinalIgnoreCase) ? false
+                          : null;
+                    return !string.IsNullOrWhiteSpace(host) && port > 0;
+                }
+            }
+            // If Uri.TryCreate succeeded but it's not http/https, fall through to regex parsing
+        }
+
+        // host:port (IPv6 "[::1]:5000" or plain "127.0.0.1:5000")
+        // First try IPv6 format with brackets
+        var ipv6Match = Regex.Match(spec, @"^\[([^\]]+)\]:(\d+)$");
+        if (ipv6Match.Success)
+        {
+            host = ipv6Match.Groups[1].Value;
+            if (!int.TryParse(ipv6Match.Groups[2].Value, out var ipv6Port) || ipv6Port <= 0 || ipv6Port > 65535)
+            {
+                return false;
+            }
+            port = ipv6Port;
+            return !string.IsNullOrWhiteSpace(host);
+        }
+
+        // Try regular host:port format
+        var regularMatch = Regex.Match(spec, @"^([^:]+):(\d+)$");
+        if (!regularMatch.Success)
+        {
+            return false;
+        }
+
+        host = regularMatch.Groups[1].Value;
+        if (!int.TryParse(regularMatch.Groups[2].Value, out var regularPort) || regularPort <= 0 || regularPort > 65535)
+        {
+            host = ""; port = 0; https = null;
+            return false;
+        }
+
+        port = regularPort;
+        return !string.IsNullOrWhiteSpace(host);
     }
 
-    private static string ToRequireHost(string host, int port)
+    /// <summary>
+    /// Formats the host and port for use in RequireHost, adding brackets for IPv6 literals.
+    /// </summary>
+    /// <param name="host">The host component.</param>
+    /// <param name="port">The port component.</param>
+    /// <returns>The formatted host and port string.</returns>
+    internal static string ToRequireHost(string host, int port)
     {
         // Bracket IPv6 literals for Host header matching
         return (IPAddress.TryParse(host, out var ip) && ip.AddressFamily == System.Net.Sockets.AddressFamily.InterNetworkV6)
@@ -383,7 +433,14 @@ public static class KestrunHostMapExtensions
             : $"{host}:{port}";
     }
 
-    private static void ApplyRequiredHost(this KestrunHost host, IEndpointConventionBuilder map, MapRouteOptions options)
+    /// <summary>
+    /// Applies required hosts to the route based on the specified endpoints in the options.
+    /// </summary>
+    /// <param name="host">The Kestrun host.</param>
+    /// <param name="map">The endpoint convention builder.</param>
+    /// <param name="options">The mapping options.</param>
+    /// <exception cref="ArgumentException">Thrown when the specified endpoints are invalid.</exception>
+    internal static void ApplyRequiredHost(this KestrunHost host, IEndpointConventionBuilder map, MapRouteOptions options)
     {
         if (options.Endpoints is not { Length: > 0 })
         {
@@ -434,22 +491,6 @@ public static class KestrunHostMapExtensions
             host.HostLogger.Verbose("Applying required hosts: {Endpoints} to route: {Pattern}",
                 string.Join(", ", require), options.Pattern);
             _ = map.RequireHost([.. require]);
-        }
-    }
-
-    /// <summary>
-    /// Applies required hosts to the route.
-    /// </summary>
-    /// <param name="host">The Kestrun host.</param>
-    /// <param name="map">The endpoint convention builder.</param>
-    /// <param name="options">The mapping options.</param>
-    private static void ApplyRequiredHost2(this KestrunHost host, IEndpointConventionBuilder map, MapRouteOptions options)
-    {
-        if (options.Endpoints is { Length: > 0 })
-        {
-
-            host.HostLogger.Verbose("Applying required hosts: {Endpoints} to route: {Pattern}", string.Join(", ", options.Endpoints), options.Pattern);
-            _ = map.RequireHost(options.Endpoints);
         }
     }
 

@@ -1055,9 +1055,9 @@ public static class KestrunHostMapExtensions
             HttpVerbs = [HttpVerb.Get],
             Language = ScriptLanguage.Native,
             DisableAntiforgery = true,
-            AllowAnonymous = true,                 // ← token endpoint should be public
-                                                   // OpenAPI = new() { Summary = "Get CSRF token", Description = "Returns antiforgery request token and header name." }
+            AllowAnonymous = true,
         };
+        // OpenAPI = new() { Summary = "Get CSRF token", Description = "Returns antiforgery request token and header name." }
 
         // Map directly and write directly (no KestrunResponse.ApplyTo)
         var map = host.App.MapMethods(options.Pattern, [HttpMethods.Get], async context =>

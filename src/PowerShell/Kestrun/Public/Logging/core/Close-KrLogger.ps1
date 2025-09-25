@@ -43,7 +43,7 @@ function Close-KrLogger {
     process {
         switch ($PSCmdlet.ParameterSetName) {
             'Logger' {
-                $Logger = @([Kestrun.Logging.LoggerManager]::GetDefault())
+                # If a specific logger instance is provided, use it
             }
             'LoggerName' {
                 if ($LoggerName.Count -gt 1) {

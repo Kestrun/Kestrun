@@ -202,11 +202,15 @@ if (-not (Get-Module -Name Kestrun)) {
     if (-not $content.Contains('-Pattern "/shutdown"')) {
         # Inject shutdown endpoint for legacy scripts (first occurrence of Start-KrServer)
 
-        $content = $content -replace 'Start-KrServer', @"
+        $content = [System.Text.RegularExpressions.Regex]::Replace(
+            $content,
+            '\bStart-KrServer\b', @"
 Add-KrMapRoute -Verbs Get -Pattern "/shutdown" -ScriptBlock { Stop-KrServer }
 
 Start-KrServer
 "@
+            , 1 # only first occurrence
+        )
     }
 
 
@@ -386,7 +390,11 @@ function Get-ExampleRoutePattern {
     Convert a route pattern to a full URL using the provided port.
 .DESCRIPTION
     Replaces route parameters (e.g. {id}, {*path}) with 'sample', ensures leading slash,
-    and constructs a full URL with http://127.0.0.1 and the specified port.
+    and constructs a full URL with "$($Scheme)://$($Server):$Port" prefix.
+.PARAMETER Scheme
+    The URL scheme to use (http or https). Default is 'http'.
+.PARAMETER Server
+    The server address to use. Default is '127.0.0.1'.
 .PARAMETER Route
     The route pattern string (e.g. '/items/{id}').
 .PARAMETER Port
@@ -397,10 +405,14 @@ function Get-ExampleRoutePattern {
 function Convert-RouteToUrl {
     [CmdletBinding()]
     [outputtype([string])]
-    param([string] $Route, [int] $Port)
+    param(
+        [string]$Scheme = 'http',
+        [string]$Server = '127.0.0.1',
+        [string]$Route,
+        [int]$Port)
     $r = [regex]::Replace($Route, '{\*?[^}]+}', 'sample')
     if (-not $r.StartsWith('/')) { $r = '/' + $r }
-    return "http://127.0.0.1:$Port$r"
+    return "$($Scheme)://$($Server):$Port$r"
 }
 
 <#

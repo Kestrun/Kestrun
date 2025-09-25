@@ -565,12 +565,11 @@ public static class KestrunHostMapExtensions
 
         if (errs.Count > 0)
         {
-            throw new ArgumentException("Invalid Endpoints:\n  - " + string.Join("\n  - ", errs), nameof(options.Endpoints));
+            throw new InvalidOperationException("Invalid Endpoints:\n  - " + string.Join("\n  - ", errs));
         }
-
         if (require.Count > 0)
         {
-            host.HostLogger.Verbose("Applying required hosts: {Endpoints} to route: {Pattern}",
+            host.HostLogger.Verbose("Applying required hosts: {RequiredHosts} to route: {Pattern}",
                 string.Join(", ", require), options.Pattern);
             _ = map.RequireHost([.. require]);
         }

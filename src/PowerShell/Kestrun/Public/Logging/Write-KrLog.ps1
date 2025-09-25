@@ -72,7 +72,6 @@ function Write-KrLog {
         [System.Management.Automation.ErrorRecord]$ErrorRecord,
         [Parameter(Mandatory = $false)]
         [AllowNull()]
-        [Alias('PropertyValues')]
         [object[]]$PropertyValues,
         [Parameter(Mandatory = $false)]
         [switch]$PassThru

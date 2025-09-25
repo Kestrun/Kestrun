@@ -29,7 +29,7 @@ Enable-KrConfiguration
 Add-KrMapRoute -Pattern '/logo' -Verbs GET -ScriptBlock {
     $path = Resolve-KrPath -Path './Assets/wwwroot/files/kestrun.png' -KestrunRoot
     Write-KrLog -Level Information -Message "Resolved path: {path}" -PropertyValues $path
-    if (Test-Path $path) {
+    if (Test-Path -Path $path) {
         $bytes = [System.IO.File]::ReadAllBytes($path)
         Write-KrBinaryResponse -InputObject $bytes -ContentType 'image/png'
     } else {

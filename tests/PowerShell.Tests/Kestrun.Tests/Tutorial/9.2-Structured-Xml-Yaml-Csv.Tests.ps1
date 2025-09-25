@@ -1,7 +1,7 @@
 ﻿param()
 Describe 'Example 9.2-Structured-Xml-Yaml-Csv' {
     BeforeAll { . "$PSScriptRoot/TutorialExampleTestHelper.ps1"; $script:instance = Start-ExampleScript -Name '9.2-Structured-Xml-Yaml-Csv.ps1' }
-    AfterAll {if ($script:instance) { Stop-ExampleScript -Instance $script:instance } }
+    AfterAll { if ($script:instance) { Stop-ExampleScript -Instance $script:instance } }
     It 'XML routes expose structured data' {
         # XML root element presence
         $xml = Invoke-WebRequest -Uri "$($script:instance.Url)/xml" -UseBasicParsing -TimeoutSec 8

@@ -210,7 +210,7 @@ Start-KrServer
     }
 
 
-    # Adjust Initialize-KrRoot if present
+    # Adjust Initialize-KrRoot if present to the example script directory
     if ( $content.Contains('Initialize-KrRoot -Path $PSScriptRoot')) {
         $content = $content.Replace('Initialize-KrRoot -Path $PSScriptRoot', "Initialize-KrRoot -Path '$path'")
     }
@@ -386,7 +386,7 @@ function Get-ExampleRoutePattern {
     Convert a route pattern to a full URL using the provided port.
 .DESCRIPTION
     Replaces route parameters (e.g. {id}, {*path}) with 'sample', ensures leading slash,
-    and constructs a full URL with http://127.0.0.  1 and the specified port.
+    and constructs a full URL with http://127.0.0.1 and the specified port.
 .PARAMETER Route
     The route pattern string (e.g. '/items/{id}').
 .PARAMETER Port
@@ -577,7 +577,7 @@ function Assert-JsonFieldValue {
 .SYNOPSIS
     Assert that a YAML string contains a key with the expected value.
 .DESCRIPTION
-    Searches the provided YAML string for a line matching 'key: value' (with optional whitespace    ).
+    Searches the provided YAML string for a line matching 'key: value' (with optional whitespace).
     If the YAML appears to be numeric-per-line (e.g. ASCII codes), attempts to normalize it to characters first.
 .PARAMETER Yaml
     The YAML string or object to search.
@@ -673,7 +673,3 @@ function Assert-RouteContent {
 
     if ($ReturnResponse) { return $resp }
 }
-
-
-# Marker variable (scope local to script to avoid global pollution)
-$script:TutorialHelperLoaded = $true

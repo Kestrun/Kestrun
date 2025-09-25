@@ -1,7 +1,7 @@
 ﻿param()
 Describe 'Example 9.6-Redirects' -Tag 'Tutorial', 'Redirects', 'Slow' {
     BeforeAll { . "$PSScriptRoot/TutorialExampleTestHelper.ps1"; $script:instance = Start-ExampleScript -Name '9.6-Redirects.ps1' }
-    AfterAll {if ($script:instance) { Stop-ExampleScript -Instance $script:instance } }
+    AfterAll { if ($script:instance) { Stop-ExampleScript -Instance $script:instance } }
 
     It 'Route /old issues redirect with expected Location header' {
         $url = "http://127.0.0.1:$($script:instance.Port)/old"

@@ -66,7 +66,7 @@ function Resolve-KrPath {
                 $full = [IO.Path]::GetFullPath($p3)
             } else {
                 $combined = [IO.Path]::Combine($baseFull, $p3)
-                $full = [IO.Path]::GetFullPath($combined)
+                $full = (Resolve-Path -Path ([IO.Path]::GetFullPath($combined))).Path
             }
         } else {
             # No base supplied: just make absolute against current directory

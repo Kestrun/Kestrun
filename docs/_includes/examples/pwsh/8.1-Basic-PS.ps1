@@ -4,7 +4,10 @@
     File:    8.1-Basic-PS.ps1
     Notes:   Plain-text password comparison for tutorial purposes only. Use secure storage in production.
 #>
-
+param(
+    [int]$Port = 5000,
+    [IPAddress]$IPAddress = [IPAddress]::Loopback
+)
 # 1. (Optional) Logging pipeline
 New-KrLogger |
     Add-KrSinkConsole |
@@ -13,8 +16,8 @@ New-KrLogger |
 # 2. Create server host
 New-KrServer -Name 'Auth Basic PS'
 
-# 3. Add HTTP listener (loopback 5000)
-Add-KrEndpoint -Port 5000 -IPAddress ([IPAddress]::Loopback)
+# 3. Add HTTP listener on specified port and IP address
+Add-KrEndpoint -Port $Port -IPAddress $IPAddress
 
 # 4. Enable PowerShell runtime for route script blocks
 Add-KrPowerShellRuntime

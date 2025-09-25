@@ -4,7 +4,10 @@
     File:    8.7-Claims-Policies.ps1
     Notes:   Demonstrates issuing claims during authentication.
 #>
-
+param(
+    [int]$Port = 5000,
+    [IPAddress]$IPAddress = [IPAddress]::Loopback
+)
 # 1. Logging
 New-KrLogger | Add-KrSinkConsole | Register-KrLogger -Name 'console' -SetAsDefault | Out-Null
 
@@ -12,7 +15,7 @@ New-KrLogger | Add-KrSinkConsole | Register-KrLogger -Name 'console' -SetAsDefau
 New-KrServer -Name 'Auth Claims'
 
 # 3. Listener
-Add-KrEndpoint -Port 5000 -IPAddress ([IPAddress]::Loopback) -SelfSignedCert
+Add-KrEndpoint -Port $Port -IPAddress $IPAddress -SelfSignedCert
 
 # 4. Runtime
 Add-KrPowerShellRuntime

@@ -5,7 +5,10 @@
     File:    9.4-Html-Files.ps1
     Notes:   Shows HTML file, inline template, and file download routes.
 #>
-
+param(
+    [int]$Port = 5000,
+    [IPAddress]$IPAddress = [IPAddress]::Loopback
+)
 # 1. Logging
 New-KrLogger | Add-KrSinkConsole | Register-KrLogger -Name 'console' -SetAsDefault
 
@@ -13,7 +16,7 @@ New-KrLogger | Add-KrSinkConsole | Register-KrLogger -Name 'console' -SetAsDefau
 New-KrServer -Name 'Responses 9.4'
 
 # 3. Listener
-Add-KrEndpoint -IPAddress '127.0.0.1' -Port 5000
+Add-KrEndpoint -IPAddress $IPAddress -Port $Port
 
 # 4. Runtime
 Add-KrPowerShellRuntime

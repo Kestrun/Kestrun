@@ -3,7 +3,10 @@
     Demonstrates setting server limits for request body size, concurrent connections, and other limits.
     File:    13.1-Server-Limits.ps1
 #>
-
+param(
+    [int]$Port = 5000,
+    [IPAddress]$IPAddress = [IPAddress]::Loopback
+)
 # 1. (Optional) Logging pipeline so we see events
 New-KrLogger |
     Set-KrLoggerMinimumLevel -Value Debug |
@@ -15,7 +18,7 @@ New-KrServer -Name 'Server Limits'
 
 # 3. Add loopback listener on port 5000 (auto unlinks existing file if present)
 # This listener will be used to demonstrate server limits configuration.
-Add-KrEndpoint -Port 5000 -IPAddress ([IPAddress]::Loopback)
+Add-KrEndpoint -Port $Port -IPAddress $IPAddress
 
 # 4. Add PowerShell runtime for script routes and middlewares
 Add-KrPowerShellRuntime

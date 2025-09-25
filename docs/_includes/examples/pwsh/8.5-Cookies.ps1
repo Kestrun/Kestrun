@@ -4,7 +4,10 @@
     File:    8.5-Cookies.ps1
     Notes:   Uses HTTP (not HTTPS) for simplicity; secure cookie flags recommended with TLS.
 #>
-
+param(
+    [int]$Port = 5000,
+    [IPAddress]$IPAddress = [IPAddress]::Loopback
+)
 # 1. Logging
 New-KrLogger |
     Set-KrLoggerMinimumLevel -Value Debug |
@@ -15,7 +18,7 @@ New-KrLogger |
 New-KrServer -Name 'Auth Cookies'
 
 # 3. Listener
-Add-KrEndpoint -Port 5000 -IPAddress ([IPAddress]::Loopback) -SelfSignedCert
+Add-KrEndpoint -Port $Port -IPAddress $IPAddress -SelfSignedCert
 
 # 4. Runtime
 Add-KrPowerShellRuntime

@@ -4,7 +4,11 @@
     with a single HTTP listener and one PowerShell route.
     FileName: 7.1-Basic-Server.ps1
 #>
-
+param(
+    [int]$Port = 5000,
+    [IPAddress]$IPAddress = [IPAddress]::Loopback
+)
+$uri = [uri]::new("http://$($IPAddress.ToString()):$Port")
 # (Optional) Configure console logging so we can see events
 New-KrLogger |
     Add-KrSinkConsole |
@@ -13,8 +17,8 @@ New-KrLogger |
 # Create a new Kestrun server
 New-KrServer -Name 'Endpoints Basic'
 
-# Add a listener on port 5000 and IP address 127.0.0.1 (localhost)
-Add-KrEndpoint -Uri ([uri]::new('http://localhost:5000'))
+# Add a listener on the specified port and IP address
+Add-KrEndpoint -Uri $uri
 
 # Add the PowerShell runtime
 # !!!!Important!!!! this step is required to process PowerShell routes and middlewares

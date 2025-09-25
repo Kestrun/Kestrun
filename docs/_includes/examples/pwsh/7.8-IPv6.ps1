@@ -4,7 +4,10 @@
     with a single HTTP listener using IPv6 and one PowerShell route.
     FileName: 7.1-Basic-Server.ps1
 #>
-
+param(
+    [int]$Port = 5000,
+    [IPAddress]$IPv6Address = [IPAddress]::IPv6loopback
+)
 # (Optional) Configure console logging so we can see events
 New-KrLogger |
     Add-KrSinkConsole |
@@ -14,7 +17,7 @@ New-KrLogger |
 New-KrServer -Name 'Endpoints Basic'
 
 # Add a listener on port 5000 and IP address 127.0.0.1 (localhost)
-Add-KrEndpoint -IPAddress ([IPAddress]::IPv6Loopback) -Port 5000 -AddressFamily InterNetworkV6
+Add-KrEndpoint -IPAddress $IPv6Address -Port $Port -AddressFamily InterNetworkV6
 
 # Add the PowerShell runtime
 # !!!!Important!!!! this step is required to process PowerShell routes and middlewares

@@ -1,9 +1,13 @@
 <#
-    15.1 Start / Stop Patterns (moved from 7.8)
+    15.1 Start / Stop Patterns
 #>
+param(
+    [int]$Port = 5000,
+    [IPAddress]$IPAddress = [IPAddress]::Loopback
+)
 New-KrLogger | Add-KrSinkConsole | Register-KrLogger -Name 'console' -SetAsDefault | Out-Null
 $srv = New-KrServer -Name 'Lifecycle Demo' -PassThru
-Add-KrEndpoint -Port 5003 -IPAddress ([IPAddress]::Loopback)
+Add-KrEndpoint -Port $Port -IPAddress $IPAddress
 Add-KrPowerShellRuntime
 Enable-KrConfiguration
 Add-KrMapRoute -Verbs Get -Pattern '/health' -ScriptBlock {

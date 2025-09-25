@@ -4,6 +4,10 @@
     - POST /certs/export { filePath, format, outPath, includePrivateKey?, password? }
     FileName: 6.3-Cert-Import-Export.ps1
 #>
+param(
+    [int]$Port = 5000,
+    [IPAddress]$IPAddress = [IPAddress]::Loopback
+)
 
 <#
 .SYNOPSIS
@@ -35,7 +39,7 @@ New-KrLogger |
     Register-KrLogger -Name 'myLogger' -SetAsDefault
 
 New-KrServer -Name "Cert Ops API"
-Add-KrEndpoint -Port 5000 -IPAddress ([IPAddress]::Loopback)
+Add-KrEndpoint -Port $Port -IPAddress $IPAddress
 Add-KrPowerShellRuntime
 
 Enable-KrConfiguration

@@ -3,7 +3,10 @@
     Demonstrates setting server options for denying server header, disabling response header compression, and configuring runspaces.
     File:    13.2-Server-Options.ps1
 #>
-
+param(
+    [int]$Port = 5000,
+    [IPAddress]$IPAddress = [IPAddress]::Loopback
+)
 # 1. (Optional) Logging pipeline so we see events
 New-KrLogger |
     Set-KrLoggerMinimumLevel -Value Debug |
@@ -15,7 +18,7 @@ New-KrServer -Name 'Server Limits'
 
 # 3. Add loopback listener on port 5000 (auto unlinks existing file if present)
 # This listener will be used to demonstrate server limits configuration.
-Add-KrEndpoint -Port 5000 -IPAddress ([IPAddress]::Loopback)
+Add-KrEndpoint -Port $Port -IPAddress $IPAddress
 
 # 4. Add PowerShell runtime for script routes and middlewares
 Add-KrPowerShellRuntime

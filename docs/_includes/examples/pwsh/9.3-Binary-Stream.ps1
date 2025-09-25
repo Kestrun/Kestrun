@@ -5,6 +5,10 @@
     File:    9.3-Binary-Stream.ps1
     Notes:   Shows file download and streaming with error handling.
 #>
+param(
+    [int]$Port = 5000,
+    [IPAddress]$IPAddress = [IPAddress]::Loopback
+)
 Initialize-KrRoot -Path $PSScriptRoot
 # 1. Logging
 New-KrLogger | Add-KrSinkConsole | Register-KrLogger -Name 'console' -SetAsDefault
@@ -13,7 +17,7 @@ New-KrLogger | Add-KrSinkConsole | Register-KrLogger -Name 'console' -SetAsDefau
 New-KrServer -Name 'Responses 9.3'
 
 # 3. Listener
-Add-KrEndpoint -IPAddress '127.0.0.1' -Port 5000
+Add-KrEndpoint -IPAddress $IPAddress -Port $Port
 
 # 4. Runtime
 Add-KrPowerShellRuntime

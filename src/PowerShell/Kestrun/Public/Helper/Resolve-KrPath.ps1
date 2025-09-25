@@ -61,16 +61,31 @@ function Resolve-KrPath {
             $base3 = & $expand $RelativeBasePath
             $baseFull = [IO.Path]::GetFullPath($base3)
 
-            # If $Path is rooted, ignore the base; else combine
             if ([IO.Path]::IsPathRooted($p3)) {
                 $full = [IO.Path]::GetFullPath($p3)
             } else {
+                # Combine and normalize WITHOUT requiring the target to exist
                 $combined = [IO.Path]::Combine($baseFull, $p3)
-                $full = (Resolve-Path -Path ([IO.Path]::GetFullPath($combined))).Path
+                $full = [IO.Path]::GetFullPath($combined)
             }
         } else {
             # No base supplied: just make absolute against current directory
             $full = [IO.Path]::GetFullPath($p3)
+        }
+
+        # --- 3. Normalize directory separators to the current platform & remove '\.' segments ---
+        if ([IO.Path]::DirectorySeparatorChar -eq '\\') {
+            # Windows: favor backslashes
+            $full = $full -replace '/', '\\'
+        } else {
+            # *nix: favor forward slashes
+            $full = $full -replace '\\', '/'
+        }
+        # Remove any /./ or \./ style segments (keep UNC // at start intact)
+        $full = $full -replace '([\\/])\.(?=[\\/])', '$1'
+        # Collapse any accidental duplicate separators except a leading UNC //
+        if ($full -notmatch '^[\\/]{2}[^\\/]') {
+            $full = $full -replace '([\\/]){2,}', '$1'
         }
 
         # --- 4. If -Test was used and file doesn't exist, return the original input Path ---

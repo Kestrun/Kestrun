@@ -214,13 +214,15 @@ Start-KrServer
     if ( $content.Contains('Initialize-KrRoot -Path $PSScriptRoot')) {
         $content = $content.Replace('Initialize-KrRoot -Path $PSScriptRoot', "Initialize-KrRoot -Path '$path'")
     }
+    $tempDir = [System.IO.Path]::GetTempPath()
+
     # Write modified legacy content to temp file
-    $tmp = Join-Path $env:TEMP ("kestrun-example-" + [System.IO.Path]::GetRandomFileName() + '.ps1')
+    $tmp = Join-Path $tempDir ("kestrun-example-" + [System.IO.Path]::GetRandomFileName() + '.ps1')
     Set-Content -Path $tmp -Value $content -Encoding UTF8
 
 
-    $stdOut = Join-Path $env:TEMP ("kestrun-example-" + [System.IO.Path]::GetRandomFileName() + '.out.log')
-    $stdErr = Join-Path $env:TEMP ("kestrun-example-" + [System.IO.Path]::GetRandomFileName() + '.err.log')
+    $stdOut = Join-Path $tempDir ("kestrun-example-" + [System.IO.Path]::GetRandomFileName() + '.out.log')
+    $stdErr = Join-Path $tempDir ("kestrun-example-" + [System.IO.Path]::GetRandomFileName() + '.err.log')
     $argList = @('-NoLogo', '-NoProfile', '-File', $tmp)
     if ($hasParamPort) { $argList += @('-Port', $Port) }
     if ($hasParamPort -and -not $hasEnableTestRoutes) {
@@ -228,7 +230,16 @@ Start-KrServer
         # (Fallback minimal injection keeping original file untouched)
     }
     if ($hasEnableTestRoutes) { $argList += @('-EnableTestRoutes', $true) }
-    $proc = Start-Process -FilePath 'pwsh' -WorkingDirectory $scriptDir -ArgumentList $argList -PassThru -WindowStyle Hidden -RedirectStandardOutput $stdOut -RedirectStandardError $stdErr
+    $param = @{
+        FilePath = 'pwsh'
+        WorkingDirectory = $scriptDir
+        ArgumentList = $argList
+        PassThru = $true
+        RedirectStandardOutput = $stdOut
+        RedirectStandardError = $stdErr
+    }
+    if ($IsWindows) { $param.WindowStyle = 'Hidden' } # Avoid inheriting test runner env on Windows
+    $proc = Start-Process @param
 
     $deadline = [DateTime]::UtcNow.AddSeconds($StartupTimeoutSeconds)
     $ready = $false
@@ -368,6 +379,19 @@ function Get-ExampleRoutePattern {
     $routes | Where-Object { $_ -and $_ -ne '/shutdown' } | Sort-Object -Unique
 }
 
+<#
+.SYNOPSIS
+    Convert a route pattern to a full URL using the provided port.
+.DESCRIPTION
+    Replaces route parameters (e.g. {id}, {*path}) with 'sample', ensures leading slash,
+    and constructs a full URL with http://127.0.0.  1 and the specified port.
+.PARAMETER Route
+    The route pattern string (e.g. '/items/{id}').
+.PARAMETER Port
+    The TCP port number to use in the URL.
+.OUTPUTS
+    String full URL (e.g. 'http://127.0.0.1:5000/items/sample').
+#>
 function Convert-RouteToUrl {
     [CmdletBinding()] param([string] $Route, [int] $Port)
     $r = [regex]::Replace($Route, '{\*?[^}]+}', 'sample')
@@ -451,6 +475,41 @@ function Test-ExampleRouteSet {
     }
 }
 
+<#
+.SYNOPSIS
+    Issue an HTTP request and validate status and optional content expectations.
+.DESCRIPTION
+    Issues a request to the specified URI with the given method, headers, body, and content type.
+    Validates that the response status matches ExpectStatus (default 200).
+    Optionally checks that the Content-Type header contains a specified substring,
+    and/or that the response body contains a specified substring.
+    Retries the request up to RetryCount times with a delay if it fails.
+.PARAMETER Uri
+    Fully qualified URL.
+.PARAMETER Method
+    HTTP verb (default GET).
+.PARAMETER ExpectStatus
+    Expected status (default 200).
+.PARAMETER ContentTypeContains
+    Substring expected to be present in the Content-Type header.
+.PARAMETER BodyContains
+    Substring expected to be present in the response body.
+.PARAMETER Body
+    Request body content (for POST, PUT, etc.).
+.PARAMETER ContentType
+    Content-Type header value for the request body.
+.PARAMETER Headers
+    Hashtable of additional headers to include in the request.
+.PARAMETER ReturnRaw
+    If set, returns the full Invoke-WebRequest response object; otherwise returns nothing on success.
+.PARAMETER RetryCount
+    Number of times to retry the request on failure (default 1).
+.PARAMETER RetryDelayMs
+    Delay in milliseconds between retries (default 250ms).
+.OUTPUTS
+    If ReturnRaw is set, returns the Invoke-WebRequest response object; otherwise returns nothing on
+    success. Throws on failure.
+#>
 # Region: Assertion utilities
 function Invoke-ExampleRequest {
     [CmdletBinding()] param(
@@ -486,6 +545,19 @@ function Invoke-ExampleRequest {
     }
 }
 
+<#
+.SYNOPSIS
+    Assert that a JSON field has the expected value.
+.DESCRIPTION
+    Parses the provided JSON string, extracts the specified field, and asserts that its value
+    matches the expected value using string comparison.
+.PARAMETER Json
+    The JSON string to parse.
+.PARAMETER Field
+    The name of the field to extract.
+.PARAMETER Expected
+    The expected value of the field (string comparison).
+#>
 function Assert-JsonFieldValue {
     [CmdletBinding()] param(
         [Parameter(Mandatory)][string]$Json,
@@ -497,6 +569,19 @@ function Assert-JsonFieldValue {
     $actual | Should -Be $Expected
 }
 
+<#
+.SYNOPSIS
+    Assert that a YAML string contains a key with the expected value.
+.DESCRIPTION
+    Searches the provided YAML string for a line matching 'key: value' (with optional whitespace    ).
+    If the YAML appears to be numeric-per-line (e.g. ASCII codes), attempts to normalize it to characters first.
+.PARAMETER Yaml
+    The YAML string or object to search.
+.PARAMETER Key
+    The key to look for.
+.PARAMETER Expected
+    The expected value for the key.
+#>
 function Assert-YamlContainsKeyValue {
     [CmdletBinding()] param(
         [Parameter(Mandatory)][object]$Yaml,

@@ -40,9 +40,6 @@ function Enable-KrConfiguration {
     begin {
         # Ensure the server instance is resolved
         $Server = Resolve-KestrunServer -Server $Server
-        if ($null -eq $Server) {
-            throw 'Server is not initialized. Please ensure the server is configured before setting options.'
-        }
     }
     process {
         $Variables = Get-KrAssignedVariable -FromParent -ResolveValues -IncludeSetVariable

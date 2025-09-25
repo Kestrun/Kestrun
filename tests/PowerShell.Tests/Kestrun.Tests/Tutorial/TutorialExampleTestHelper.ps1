@@ -1,4 +1,4 @@
-﻿# Shared helper functions for tutorial example tests
+# Shared helper functions for tutorial example tests
 # Provides utilities to locate example scripts, start them on random port, collect routes, and stop.
 
 Set-StrictMode -Version Latest

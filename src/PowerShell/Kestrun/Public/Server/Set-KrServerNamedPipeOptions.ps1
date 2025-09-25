@@ -64,9 +64,6 @@ function Set-KrServerNamedPipeOptions {
         }
         # Ensure the server instance is resolved
         $Server = Resolve-KestrunServer -Server $Server
-        if ($null -eq $Server) {
-            throw 'Server is not initialized. Please ensure the server is configured before setting options.'
-        }
     }
     process {
         if ($PSCmdlet.ParameterSetName -eq 'Items') {

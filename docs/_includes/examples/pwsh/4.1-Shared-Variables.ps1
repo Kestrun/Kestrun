@@ -48,10 +48,7 @@ Add-KrMapRoute -Server $server -Verbs Get -Pattern '/visit' -ScriptBlock {
     Write-KrTextResponse -InputObject "[Runspace: $([System.Management.Automation.Runspaces.Runspace]::DefaultRunspace.Name)] Incremented to $($Visits.Count)" -StatusCode 200
 }
 
-# Test-only routes
-if ($EnableTestRoutes) {
-    Add-KrMapRoute -Verbs Get -Pattern '/shutdown' -ScriptBlock { Stop-KrServer }
-}
+
 
 # Start the server asynchronously
 Start-KrServer

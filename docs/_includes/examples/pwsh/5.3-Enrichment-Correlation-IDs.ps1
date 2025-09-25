@@ -46,10 +46,7 @@ Add-KrMapRoute -Verbs Get -Path "/csharp-correlation" -Code @"
     Context.Response.WriteTextResponse($"csharp-correlation: {correlationId}", 200);
 "@ -Language CSharp
 
-# Test-only routes
-if ($EnableTestRoutes) {
-    Add-KrMapRoute -Verbs Get -Path '/shutdown' -ScriptBlock { Stop-KrServer }
-}
+
 
 # Start the server
 Start-KrServer

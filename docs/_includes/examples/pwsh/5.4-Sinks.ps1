@@ -39,8 +39,4 @@ Add-KrMapRoute -Verbs Get -Path "/json" -ScriptBlock {
 
 # Start the server and close all the loggers when the server stops
 # This is equivalent to calling Close-KrLogger after Start-KrServer
-if ($EnableTestRoutes) {
-    Add-KrMapRoute -Verbs Get -Path '/shutdown' -ScriptBlock { Stop-KrServer }
-}
-
 Start-KrServer -CloseLogsOnExit

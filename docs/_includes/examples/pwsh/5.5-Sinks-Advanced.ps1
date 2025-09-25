@@ -9,9 +9,8 @@
 #>
 
 param(
-        [int]$Port = 5000,
-        [IPAddress]$IPAddress = [IPAddress]::Loopback,
-        [switch]$EnableTestRoutes
+    [int]$Port = 5000,
+    [IPAddress]$IPAddress = [IPAddress]::Loopback
 )
 
 $base = New-KrLogger |
@@ -42,11 +41,6 @@ Enable-KrConfiguration
 Add-KrMapRoute -Verbs Get -Path "/log" -ScriptBlock {
     Write-KrLog -Logger $logger -Level Information -Message "Advanced sinks example"
     Write-KrTextResponse -InputObject "ok" -StatusCode 200
-}
-
-# Test-only routes
-if ($EnableTestRoutes) {
-    Add-KrMapRoute -Verbs Get -Path '/shutdown' -ScriptBlock { Stop-KrServer }
 }
 
 # Start the server

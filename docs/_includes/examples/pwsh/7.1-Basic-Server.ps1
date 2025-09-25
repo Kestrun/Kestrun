@@ -37,10 +37,6 @@ Add-KrMapRoute -Verbs Get -Pattern '/hello' -ScriptBlock {
 # Initial informational log
 Write-KrLog -Level Information -Message 'Server {Name} configured.' -Properties 'Endpoints Basic'
 
-# Optional test-only routes
-if ($EnableTestRoutes) {
-    Add-KrMapRoute -Verbs Get -Pattern '/shutdown' -ScriptBlock { Stop-KrServer }
-}
-
-# Start the server asynchronously
+# Start the server and close all the loggers when the server stops
+# This is equivalent to calling Close-KrLogger after Start-KrServer
 Start-KrServer -CloseLogsOnExit

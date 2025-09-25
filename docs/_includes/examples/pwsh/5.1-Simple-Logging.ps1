@@ -45,10 +45,7 @@ Add-KrMapRoute -Verbs Get -Path "/hello-csharp" -Code @"
     Context.Response.WriteTextResponse( response, 200);
 "@ -Language CSharp
 
-# Test-only routes
-if ($EnableTestRoutes) {
-    Add-KrMapRoute -Verbs Get -Path '/shutdown' -ScriptBlock { Stop-KrServer }
-}
+
 
 # Start the server asynchronously
 Start-KrServer

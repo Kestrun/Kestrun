@@ -1,5 +1,5 @@
 ﻿param()
-Describe 'Example 5.5-Sinks-Advanced' -Tag 'Tutorial','Logging','Sinks' {
+Describe 'Example 5.5-Sinks-Advanced' -Tag 'Tutorial', 'Logging', 'Sinks' {
     BeforeAll { . "$PSScriptRoot/TutorialExampleTestHelper.ps1"; $script:instance = Start-ExampleScript -Name '5.5-Sinks-Advanced.ps1' }
     AfterAll { . "$PSScriptRoot/TutorialExampleTestHelper.ps1"; if ($script:instance) { Stop-ExampleScript -Instance $script:instance } }
 

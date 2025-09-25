@@ -52,10 +52,7 @@ Add-KrMapRoute -Verbs Get -Path "/audit" -ScriptBlock {
     Write-KrTextResponse -InputObject "audit" -StatusCode 200
 }
 
-# Test-only routes
-if ($EnableTestRoutes) {
-    Add-KrMapRoute -Verbs Get -Path '/shutdown' -ScriptBlock { Stop-KrServer }
-}
+
 
 # Start the server
 Start-KrServer

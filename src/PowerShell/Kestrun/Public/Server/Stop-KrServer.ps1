@@ -37,6 +37,7 @@ function Stop-KrServer {
             $null = [Console]::KeyAvailable
             $writeConsole = -not $Quiet.IsPresent
         } catch {
+            Write-KrLog -Level Information "No console available; running in non-interactive mode."
             $writeConsole = $false
         }
     }

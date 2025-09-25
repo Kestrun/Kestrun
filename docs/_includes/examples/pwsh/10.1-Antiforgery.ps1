@@ -10,7 +10,7 @@ New-KrLogger |
 # 2. Server
 New-KrServer -Name "Simple Server"
 # 3. Listener
-Add-KrListener -Port 5000 -IPAddress ([IPAddress]::Loopback) -SelfSignedCert
+Add-KrEndpoint -Port 5000 -IPAddress ([IPAddress]::Loopback) -SelfSignedCert
 
 # Required to run PowerShell routes/middleware
 Add-KrPowerShellRuntime

@@ -10,8 +10,8 @@ if (-not (Test-Path $certPath)) {
     $demoPwd = Read-Host -Prompt 'Enter existing fulldemo.pfx password' -AsSecureString
 }
 $srv = New-KrServer -Name 'Full Demo Server' -PassThru
-Add-KrListener -Port 5000 -IPAddress ([IPAddress]::Loopback)
-Add-KrListener -Port 5443 -IPAddress ([IPAddress]::Loopback) -CertPath $certPath -CertPassword $demoPwd
+Add-KrEndpoint -Port 5000 -IPAddress ([IPAddress]::Loopback)
+Add-KrEndpoint -Port 5443 -IPAddress ([IPAddress]::Loopback) -CertPath $certPath -CertPassword $demoPwd
 if ($IsWindows) { Add-KrNamedPipeListener -PipeName 'kestrun.full.pipe' }
 Add-KrPowerShellRuntime
 Enable-KrConfiguration

@@ -46,7 +46,7 @@ Set-KrSharedState -Name 'Visits' -Value @{Count = 0 }
 New-KrServer -Name 'MyKestrunServer' -Logger $logger
 
 # Listen on port 5000 (HTTP)
-Add-KrListener -Port 5000 -PassThru |
+Add-KrEndpoint -Port 5000 -PassThru |
     # Add run-space runtime & scheduler (8 RS for jobs)
     Add-KrPowerShellRuntime -PassThru | Add-KrScheduling -MaxRunspaces 8 -PassThru |
     # Seed a global counter (Visits) — injected as $Visits in every runspace

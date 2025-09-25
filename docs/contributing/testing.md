@@ -116,7 +116,7 @@ Some YAML responses may surface as numeric code-point lines (implementation deta
 | Symptom | Suggested Action |
 |---------|------------------|
 | Process exits early | Re-run with `$VerbosePreference='Continue'`; check captured stderr via helper warning output. |
-| Port refused | Increase readiness polling or verify `Add-KrListener` was rewritten correctly (dynamic port). |
+| Port refused | Increase readiness polling or verify `Add-KrEndpoint` was rewritten correctly (dynamic port). |
 | YAML assertion fails | Confirm normalization; dump raw content with a one-off diagnostic script. |
 
 #### Fast Local Run

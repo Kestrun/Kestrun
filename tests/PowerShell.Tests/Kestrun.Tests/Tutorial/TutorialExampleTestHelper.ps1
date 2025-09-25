@@ -137,10 +137,10 @@ function Start-ExampleScript {
         # Legacy rewriting path (will be removed once all examples adopt param)
         $content = ($content -split "`n") | ForEach-Object {
             $line = $_
-            if ($line -match '^\s*Add-KrListener\b' -and $line -match '-Port 5000') {
+            if ($line -match '^\s*Add-KrEndpoint\b' -and $line -match '-Port 5000') {
                 $line = $line -replace '-Port 5000', ("-Port $Port")
             }
-            if ($line -match '^\s*Add-KrListener\b' -and $line -match "http(s)?://(localhost|127\\.0\\.0\\.1):5000") {
+            if ($line -match '^\s*Add-KrEndpoint\b' -and $line -match "http(s)?://(localhost|127\\.0\\.0\\.1):5000") {
                 $line = $line -replace 'http://localhost:5000', "http://localhost:$Port"
                 $line = $line -replace 'http://127.0.0.1:5000', "http://127.0.0.1:$Port"
                 $line = $line -replace 'https://localhost:5000', "https://localhost:$Port"
@@ -221,7 +221,7 @@ Start-KrServer
                 # Decide scheme based on provisional HTTPS detection (scan original content once here if not already)
                 if (-not $script:__kestrunHttpsHintChecked) {
                     $script:__kestrunHttpsHintChecked = $true
-                    $script:__kestrunHttpsHint = ($content -match 'Add-KrListener[^\n]*-SelfSignedCert' -or $content -match 'Add-KrListener[^\n]*-CertPath' -or $content -match 'Add-KrListener[^\n]*-X509Certificate')
+                    $script:__kestrunHttpsHint = ($content -match 'Add-KrEndpoint[^\n]*-SelfSignedCert' -or $content -match 'Add-KrEndpoint[^\n]*-CertPath' -or $content -match 'Add-KrEndpoint[^\n]*-X509Certificate')
                 }
                 $scheme = ($script:__kestrunHttpsHint ? 'https' : 'http')
                 $probeUri = ("{0}://{1}:{2}" -f $scheme, $serverIp, $Port)
@@ -247,7 +247,7 @@ Start-KrServer
 
     # Heuristic: detect HTTPS usage if listener line includes cert/self-signed flags
     $usesHttps = $false
-    if ($content -match 'Add-KrListener[^\n]*-SelfSignedCert' -or $content -match 'Add-KrListener[^\n]*-CertPath' -or $content -match 'Add-KrListener[^\n]*-X509Certificate') {
+    if ($content -match 'Add-KrEndpoint[^\n]*-SelfSignedCert' -or $content -match 'Add-KrEndpoint[^\n]*-CertPath' -or $content -match 'Add-KrEndpoint[^\n]*-X509Certificate') {
         $usesHttps = $true
     }
 

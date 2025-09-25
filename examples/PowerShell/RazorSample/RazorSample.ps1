@@ -52,7 +52,7 @@ Set-KrServerOptions -DenyServerHeader
 #|
 Set-KrServerLimit -MaxConcurrentConnections 100 -MaxRequestBodySize 10485760 -MaxRequestHeaderCount 100 -KeepAliveTimeout 120
 # Listen on port 5000 (HTTP)
-Add-KrListener -Port 5000
+Add-KrEndpoint -Port 5000
 Add-KrCompressionMiddleware -EnableForHttps -MimeTypes @(
     'text/plain',
     'text/css',

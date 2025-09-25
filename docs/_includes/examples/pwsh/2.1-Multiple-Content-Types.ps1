@@ -14,7 +14,7 @@ param(
 New-KrServer -Name "Simple Server"
 
 # Add a listener on the configured port and IP address
-Add-KrListener -Port $Port -IPAddress $IPAddress
+Add-KrEndpoint -Port $Port -IPAddress $IPAddress
 
 # Add the PowerShell runtime
 # !!!!Important!!!! this step is required to process PowerShell routes and middlewares

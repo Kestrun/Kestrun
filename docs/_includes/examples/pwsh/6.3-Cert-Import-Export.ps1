@@ -35,7 +35,7 @@ New-KrLogger |
     Register-KrLogger -Name 'myLogger' -SetAsDefault
 
 New-KrServer -Name "Cert Ops API"
-Add-KrListener -Port 5000 -IPAddress ([IPAddress]::Loopback)
+Add-KrEndpoint -Port 5000 -IPAddress ([IPAddress]::Loopback)
 Add-KrPowerShellRuntime
 
 Enable-KrConfiguration

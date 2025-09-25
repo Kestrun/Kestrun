@@ -14,7 +14,7 @@ New-KrLogger |
 New-KrServer -Name 'Endpoints Basic'
 
 # Add a listener on port 5000 and IP address 127.0.0.1 (localhost)
-Add-KrListener -Uri ([uri]::new('http://localhost:5000'))
+Add-KrEndpoint -Uri ([uri]::new('http://localhost:5000'))
 
 # Add the PowerShell runtime
 # !!!!Important!!!! this step is required to process PowerShell routes and middlewares

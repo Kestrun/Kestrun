@@ -14,7 +14,7 @@ New-KrLogger |
 New-KrServer -Name 'Auth Basic PS'
 
 # 3. Add HTTP listener (loopback 5000)
-Add-KrListener -Port 5000 -IPAddress ([IPAddress]::Loopback)
+Add-KrEndpoint -Port 5000 -IPAddress ([IPAddress]::Loopback)
 
 # 4. Enable PowerShell runtime for route script blocks
 Add-KrPowerShellRuntime

@@ -33,7 +33,7 @@ $base = $base | Add-KrSinkSyslogLocal -AppName 'KestrunSample'
 $logger = $base | Register-KrLogger -Name 'advanced' -PassThru
 
 New-KrServer -Name "Advanced Sinks"
-Add-KrListener -Port $Port -IPAddress $IPAddress
+Add-KrEndpoint -Port $Port -IPAddress $IPAddress
 Add-KrPowerShellRuntime
 
 Enable-KrConfiguration

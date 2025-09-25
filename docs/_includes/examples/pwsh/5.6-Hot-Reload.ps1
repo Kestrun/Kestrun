@@ -24,7 +24,7 @@ New-KrLogger |
     Register-KrLogger -Name 'Default'
 
 New-KrServer -Name "Hot Reload" -LoggerName 'Default'
-Add-KrListener -Port $Port -IPAddress $IPAddress
+Add-KrEndpoint -Port $Port -IPAddress $IPAddress
 Add-KrPowerShellRuntime
 
 Enable-KrConfiguration

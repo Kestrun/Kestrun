@@ -23,7 +23,7 @@ $auditLogger = New-KrLogger |
 
 # Create server and listener
 New-KrServer -Name "Multiple Loggers Server"
-Add-KrListener -Port $Port -IPAddress $IPAddress
+Add-KrEndpoint -Port $Port -IPAddress $IPAddress
 
 # PowerShell runtime is required for script block routes
 Add-KrPowerShellRuntime

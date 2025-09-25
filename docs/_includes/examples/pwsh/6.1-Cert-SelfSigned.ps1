@@ -19,7 +19,7 @@ Get-KrCertificatePurpose -Certificate $cert | Out-Host
 
 # Configure HTTPS listener with the certificate
 New-KrServer -Name "HTTPS Demo"
-Add-KrListener -Port 5001 -IPAddress ([IPAddress]::Loopback) -X509Certificate $cert -Protocols Http1
+Add-KrEndpoint -Port 5001 -IPAddress ([IPAddress]::Loopback) -X509Certificate $cert -Protocols Http1
 
 # Minimal route to verify HTTPS works
 Add-KrPowerShellRuntime

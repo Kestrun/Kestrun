@@ -35,7 +35,7 @@
     .NOTES
         This function is designed to be used after the server has been configured with routes and listeners.
 #>
-function Add-KrListener {
+function Add-KrEndpoint {
     [KestrunRuntimeApi('Definition')]
     [CmdletBinding(defaultParameterSetName = 'NoCert')]
     [OutputType([Kestrun.Hosting.KestrunHost])]

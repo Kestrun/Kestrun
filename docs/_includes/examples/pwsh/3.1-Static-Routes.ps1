@@ -18,7 +18,7 @@ Initialize-KrRoot -Path $PSScriptRoot
 New-KrServer -Name "Simple Server"
 
 # Add a listener on the configured port and IP address
-Add-KrListener -Port $Port -IPAddress $IPAddress
+Add-KrEndpoint -Port $Port -IPAddress $IPAddress
 
 # Add a static files service
 Add-KrStaticFilesMiddleware -RequestPath '/assets' -RootPath '.\Assets\wwwroot' -ServeUnknownFileTypes

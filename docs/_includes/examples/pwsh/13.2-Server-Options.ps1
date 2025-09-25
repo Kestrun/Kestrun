@@ -15,7 +15,7 @@ New-KrServer -Name 'Server Limits'
 
 # 3. Add loopback listener on port 5000 (auto unlinks existing file if present)
 # This listener will be used to demonstrate server limits configuration.
-Add-KrListener -Port 5000 -IPAddress ([IPAddress]::Loopback)
+Add-KrEndpoint -Port 5000 -IPAddress ([IPAddress]::Loopback)
 
 # 4. Add PowerShell runtime for script routes and middlewares
 Add-KrPowerShellRuntime

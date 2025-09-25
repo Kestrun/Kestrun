@@ -19,7 +19,7 @@ $appLogger = New-KrLogger |
     Register-KrLogger -Name 'app' -PassThru
 
 New-KrServer -Name "Enrichment & Correlation IDs"
-Add-KrListener -Port $Port -IPAddress $IPAddress
+Add-KrEndpoint -Port $Port -IPAddress $IPAddress
 Add-KrPowerShellRuntime
 
 Enable-KrConfiguration

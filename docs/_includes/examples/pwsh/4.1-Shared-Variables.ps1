@@ -18,7 +18,7 @@ Initialize-KrRoot -Path $PSScriptRoot
 New-KrServer -Name "Simple Server"
 
 # Add a listener using provided parameters
-Add-KrListener -Port $Port -IPAddress $IPAddress
+Add-KrEndpoint -Port $Port -IPAddress $IPAddress
 
 # Add the PowerShell runtime
 # !!!!Important!!!! this step is required to process PowerShell routes and middlewares

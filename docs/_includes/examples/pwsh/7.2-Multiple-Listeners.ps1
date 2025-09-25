@@ -19,10 +19,10 @@ $Port2 = $Port + 433
 New-KrServer -Name 'Endpoints Multi'
 
 # Loopback listener on primary port
-Add-KrListener -Port $Port -IPAddress $IPAddress
+Add-KrEndpoint -Port $Port -IPAddress $IPAddress
 
 # Second loopback listener on secondary port
-Add-KrListener -Port $Port2 -IPAddress $IPAddress
+Add-KrEndpoint -Port $Port2 -IPAddress $IPAddress
 
 # Add the PowerShell runtime
 Add-KrPowerShellRuntime

@@ -22,7 +22,7 @@ New-KrServer -Name "Simple Server"
 # PowerShell runtime
 Add-KrPowerShellRuntime
 # Add a listener on configured port and IP
-Add-KrListener -Port $Port -IPAddress $IPAddress
+Add-KrEndpoint -Port $Port -IPAddress $IPAddress
 
 # Add a file server with browsing enabled use the default Cache-Control headers
 Add-KrFileServerMiddleware -RequestPath '/' -RootPath '.\Assets\wwwroot' -EnableDirectoryBrowsing -ContentTypeMap $map

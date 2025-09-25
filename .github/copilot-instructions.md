@@ -64,7 +64,7 @@ Invoke-Build Test-Pester
 All cmdlets use `Kr` prefix with fluent chaining:
 ```powershell
 New-KrServer -Name 'MyServer' |
-    Add-KrListener -Port 5000 |
+    Add-KrEndpoint -Port 5000 |
     Add-KrPowerShellRuntime |
     Enable-KrConfiguration
 ```

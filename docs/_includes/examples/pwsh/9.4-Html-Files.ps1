@@ -13,7 +13,7 @@ New-KrLogger | Add-KrSinkConsole | Register-KrLogger -Name 'console' -SetAsDefau
 New-KrServer -Name 'Responses 9.4'
 
 # 3. Listener
-Add-KrListener -IPAddress '127.0.0.1' -Port 5000
+Add-KrEndpoint -IPAddress '127.0.0.1' -Port 5000
 
 # 4. Runtime
 Add-KrPowerShellRuntime

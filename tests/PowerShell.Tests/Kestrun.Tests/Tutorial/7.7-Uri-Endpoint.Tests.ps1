@@ -17,7 +17,7 @@ Describe 'Example 7.7-Uri-Endpoint' -Tag 'Tutorial', 'Slow' {
     }
     It 'Example script content should include URI specific concepts (placeholder check)' {
         # The 7.7 example currently appears identical to 7.1 (Basic Server).
-        # This test guards future divergence: expecting some form of Uri endpoint usage (e.g., Add-KrListener -Uri ...)
-        $script:instance.Content | Should -Match 'Add-KrListener -Uri'
+        # This test guards future divergence: expecting some form of Uri endpoint usage (e.g., Add-KrEndpoint -Uri ...)
+        $script:instance.Content | Should -Match 'Add-KrEndpoint -Uri'
     }
 }

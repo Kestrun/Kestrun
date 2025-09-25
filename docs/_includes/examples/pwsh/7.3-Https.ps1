@@ -29,10 +29,10 @@ if (-not (Test-Path $certPath)) {
 New-KrServer -Name 'Endpoints Https'
 
 # HTTP listener (optional)
-Add-KrListener -Port $Port -IPAddress $IPAddress
+Add-KrEndpoint -Port $Port -IPAddress $IPAddress
 
 # HTTPS listener
-Add-KrListener -Port ($Port + 443) -IPAddress $IPAddress -CertPath $certPath -CertPassword $pw
+Add-KrEndpoint -Port ($Port + 443) -IPAddress $IPAddress -CertPath $certPath -CertPassword $pw
 
 # Add PowerShell runtime
 Add-KrPowerShellRuntime

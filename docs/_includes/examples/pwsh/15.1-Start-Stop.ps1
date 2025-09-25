@@ -3,7 +3,7 @@
 #>
 New-KrLogger | Add-KrSinkConsole | Register-KrLogger -Name 'console' -SetAsDefault | Out-Null
 $srv = New-KrServer -Name 'Lifecycle Demo' -PassThru
-Add-KrListener -Port 5003 -IPAddress ([IPAddress]::Loopback)
+Add-KrEndpoint -Port 5003 -IPAddress ([IPAddress]::Loopback)
 Add-KrPowerShellRuntime
 Enable-KrConfiguration
 Add-KrMapRoute -Verbs Get -Pattern '/health' -ScriptBlock {

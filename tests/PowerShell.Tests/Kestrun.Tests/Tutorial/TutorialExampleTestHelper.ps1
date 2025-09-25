@@ -165,7 +165,7 @@ Start-KrServer
 "@
     }
 
-    if( $content.Contains('Initialize-KrRoot -Path $PSScriptRoot')) {
+    if ( $content.Contains('Initialize-KrRoot -Path $PSScriptRoot')) {
         $content = $content.Replace('Initialize-KrRoot -Path $PSScriptRoot', "Initialize-KrRoot -Path '$path'")
     }
     # Write modified legacy content to temp file
@@ -284,7 +284,15 @@ Start-KrServer
 function Stop-ExampleScript {
     [CmdletBinding(SupportsShouldProcess)] param([Parameter(Mandatory)]$Instance)
     $shutdown = "http://127.0.0.1:$($Instance.Port)/shutdown"
-    try { Invoke-WebRequest -Uri $shutdown -UseBasicParsing -TimeoutSec 3 -ErrorAction Stop | Out-Null } catch { Write-Debug "Shutdown failed: $($_.Exception.Message)" }
+    try { Invoke-WebRequest -Uri $shutdown -UseBasicParsing -TimeoutSec 3 -ErrorAction Stop | Out-Null } catch {
+        try {
+            Write-Debug "Initial shutdown failed, retrying with HTTPS: $($_.Exception.Message)"
+            $shutdown = "https://127.0.0.1:$($Instance.Port)/shutdown"
+            Invoke-WebRequest -Uri $shutdown -UseBasicParsing -TimeoutSec 3 -ErrorAction Stop -SkipCertificateCheck | Out-Null
+        } catch {
+            Write-Debug "Shutdown failed: $($_.Exception.Message)"
+        }
+    }
     if (-not $Instance.Process.HasExited) { $Instance.Process | Stop-Process -Force }
     $Instance.Process.Dispose()
     Remove-Item -Path $Instance.TempPath -Force -ErrorAction SilentlyContinue
@@ -293,6 +301,17 @@ function Stop-ExampleScript {
     }
 }
 
+<#
+.SYNOPSIS
+    Extract route patterns from example script content.
+.DESCRIPTION
+    Uses regex to find all occurrences of Add-KrMapRoute with -Pattern or -Path parameters,
+    returning a unique sorted list of route patterns (excluding /shutdown).
+.PARAMETER ScriptContent
+    The full text content of the example script.
+.OUTPUTS
+    Array of unique route pattern strings.
+#>
 function Get-ExampleRoutePattern {
     [CmdletBinding()] param([Parameter(Mandatory)][string]$ScriptContent)
     $routes = @()

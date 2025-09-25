@@ -35,6 +35,9 @@
         If specified, allows the addition of duplicate routes with the same path and HTTP verb.
     .PARAMETER Arguments
         An optional hashtable of arguments to pass to the script block or code.
+    .PARAMETER Endpoints
+        An optional array of endpoint names to which the route should be bound.
+        If not specified, the route will be bound to all endpoints.
     .PARAMETER DuplicateAction
         Specifies the action to take if a duplicate route is detected. Options are 'Throw', 'Skip', 'Allow', or 'Warn'.
         Default is 'Throw', which will raise an error if a duplicate route is found.
@@ -117,6 +120,11 @@ function Add-KrMapRoute {
         [Parameter(ParameterSetName = 'CodeFilePath')]
         [hashtable]$Arguments,
 
+        [Parameter(ParameterSetName = 'ScriptBlock')]
+        [Parameter(ParameterSetName = 'Code')]
+        [Parameter(ParameterSetName = 'CodeFilePath')]
+        [string[]]$Endpoints,
+
         [Parameter()]
         [switch]$AllowDuplicate,
 
@@ -164,6 +172,11 @@ function Add-KrMapRoute {
             }
             if ($null -ne $AuthorizationPolicy) {
                 $Options.RequirePolicies = $AuthorizationPolicy
+            }
+
+            # Endpoints
+            if ($null -ne $Endpoints -and $Endpoints.Count -gt 0) {
+                $Options.Endpoints = $Endpoints
             }
 
             if ($null -ne $Arguments) {

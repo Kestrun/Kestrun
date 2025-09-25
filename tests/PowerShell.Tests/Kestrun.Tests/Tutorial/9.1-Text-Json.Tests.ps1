@@ -1,4 +1,4 @@
-﻿param()
+param()
 Describe 'Example 9.1-Text-Json' {
     BeforeAll { . "$PSScriptRoot/TutorialExampleTestHelper.ps1"; $script:instance = Start-ExampleScript -Name '9.1-Text-Json.ps1' }
     AfterAll { if ($script:instance) { Stop-ExampleScript -Instance $script:instance } }

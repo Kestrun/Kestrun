@@ -1,4 +1,4 @@
-﻿param()
+param()
 Describe 'Example 5.6-Hot-Reload' -Tag 'Tutorial', 'Logging', 'HotReload' {
     BeforeAll { . "$PSScriptRoot/TutorialExampleTestHelper.ps1"; $script:instance = Start-ExampleScript -Name '5.6-Hot-Reload.ps1' }
     AfterAll { if ($script:instance) { Stop-ExampleScript -Instance $script:instance } }

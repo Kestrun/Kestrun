@@ -1,4 +1,4 @@
-﻿param()
+param()
 . "$PSScriptRoot/TutorialExampleTestHelper.ps1"
 
 Describe 'Example 7.5-Unix-Sockets' {

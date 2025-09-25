@@ -1,4 +1,4 @@
-﻿param()
+param()
 Describe 'Example 15.1-Start-Stop' -Tag 'Tutorial', 'Slow' {
     BeforeAll { . "$PSScriptRoot/TutorialExampleTestHelper.ps1"; $script:instance = Start-ExampleScript -Name '15.1-Start-Stop.ps1' }
     AfterAll { if ($script:instance) { Stop-ExampleScript -Instance $script:instance } }

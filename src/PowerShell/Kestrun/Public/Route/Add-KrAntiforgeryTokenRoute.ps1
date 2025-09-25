@@ -1,4 +1,4 @@
-﻿<#
+<#
 .SYNOPSIS
     Adds a GET endpoint that issues the antiforgery cookie and returns a JSON token payload.
 .DESCRIPTION

@@ -1,4 +1,4 @@
-﻿param()
+param()
 Describe 'Example 7.7-Uri-Endpoint' -Tag 'Tutorial', 'Slow' {
     BeforeAll {
         . "$PSScriptRoot/TutorialExampleTestHelper.ps1"

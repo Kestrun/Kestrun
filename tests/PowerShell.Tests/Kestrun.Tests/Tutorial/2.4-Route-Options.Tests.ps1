@@ -1,4 +1,4 @@
-﻿param()
+param()
 Describe 'Example 2.4-Route-Options' -Tag 'Tutorial' {
     BeforeAll { . "$PSScriptRoot/TutorialExampleTestHelper.ps1"; $script:instance = Start-ExampleScript -Name '2.4-Route-Options.ps1' }
     AfterAll { if ($script:instance) { Stop-ExampleScript -Instance $script:instance } }

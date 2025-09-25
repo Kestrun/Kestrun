@@ -1,4 +1,4 @@
-﻿param()
+param()
 Describe 'Example 3.6-Response-Caching' -Tag 'Tutorial', 'Caching' {
     BeforeAll { . "$PSScriptRoot/TutorialExampleTestHelper.ps1"; $script:instance = Start-ExampleScript -Name '3.6-Response-Caching.ps1' }
     AfterAll { if ($script:instance) { Stop-ExampleScript -Instance $script:instance } }

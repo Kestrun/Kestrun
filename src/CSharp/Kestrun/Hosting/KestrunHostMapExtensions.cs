@@ -1,3 +1,5 @@
+using System.Text.RegularExpressions;
+using System.Net;
 using Kestrun.Hosting.Options;
 using Kestrun.Languages;
 using Kestrun.Scripting;
@@ -7,15 +9,13 @@ using Serilog.Events;
 using Kestrun.Models;
 using Microsoft.AspNetCore.Antiforgery;
 using Microsoft.Extensions.Options;
-using System.Text.RegularExpressions;
-using System.Net;
 
 namespace Kestrun.Hosting;
 
 /// <summary>
 /// Provides extension methods for mapping routes and handlers to the KestrunHost.
 /// </summary>
-public static class KestrunHostMapExtensions
+public static partial class KestrunHostMapExtensions
 {
     /// <summary>
     /// Public utility facade for endpoint specification parsing. This provides a stable API surface
@@ -458,7 +458,7 @@ public static class KestrunHostMapExtensions
     private static bool TryParseBracketedIpv6Spec(string spec, out string host, out int port)
     {
         host = ""; port = 0;
-        var m = Regex.Match(spec, @"^\[([^\]]+)\]:(\d+)$");
+        var m = BracketedIpv6SpecMatcher().Match(spec);
         if (!m.Success)
         {
             return false;
@@ -481,7 +481,7 @@ public static class KestrunHostMapExtensions
     private static bool TryParseHostPortSpec(string spec, out string host, out int port)
     {
         host = ""; port = 0;
-        var m = Regex.Match(spec, @"^([^:]+):(\d+)$");
+        var m = HostPortSpecMatcher().Match(spec);
         if (!m.Success)
         {
             return false;
@@ -1139,5 +1139,11 @@ public static class KestrunHostMapExtensions
             return false;
         }
     }
+
+    [GeneratedRegex(@"^\[([^\]]+)\]:(\d+)$")]
+    private static partial Regex BracketedIpv6SpecMatcher();
+
+    [GeneratedRegex(@"^([^:]+):(\d+)$")]
+    private static partial Regex HostPortSpecMatcher();
 }
 

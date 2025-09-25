@@ -1,4 +1,4 @@
-﻿# Shared helper functions for tutorial example tests
+# Shared helper functions for tutorial example tests
 # Provides utilities to locate example scripts, start them on random port, collect routes, and stop.
 
 Set-StrictMode -Version Latest
@@ -216,7 +216,7 @@ Start-KrServer
 
     # Adjust Initialize-KrRoot if present to the example script directory
     if ( $content.Contains('Initialize-KrRoot -Path $PSScriptRoot')) {
-        $content = $content.Replace('Initialize-KrRoot -Path $PSScriptRoot', "Initialize-KrRoot -Path '$path'")
+        $content = $content.Replace('Initialize-KrRoot -Path $PSScriptRoot', "Initialize-KrRoot -Path '$scriptDir'")
     }
     $tempDir = [System.IO.Path]::GetTempPath()
 

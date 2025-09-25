@@ -1,4 +1,4 @@
-﻿param()
+param()
 Describe 'Example 7.2-Multiple-Listeners' {
     BeforeAll {
         . "$PSScriptRoot/TutorialExampleTestHelper.ps1"

@@ -1,4 +1,4 @@
-﻿param()
+param()
 Describe 'Example 5.3-Enrichment-Correlation-IDs' -Tag 'Tutorial', 'Logging', 'Correlation' {
     BeforeAll { . "$PSScriptRoot/TutorialExampleTestHelper.ps1"; $script:instance = Start-ExampleScript -Name '5.3-Enrichment-Correlation-IDs.ps1' }
     AfterAll { if ($script:instance) { Stop-ExampleScript -Instance $script:instance } }

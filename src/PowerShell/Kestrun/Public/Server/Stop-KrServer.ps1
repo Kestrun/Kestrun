@@ -32,26 +32,26 @@ function Stop-KrServer {
     begin {
         # Ensure the server instance is resolved
         $Server = Resolve-KestrunServer -Server $Server
-        $hasConsole = $false
+        $writeConsole = $false
         try {
             $null = [Console]::KeyAvailable
-            $hasConsole = $true
+            $writeConsole = -not $Quiet.IsPresent
         } catch {
-            $hasConsole = $false
+            $writeConsole = $false
         }
     }
     process {
         if ($null -ne $Context -and $null -ne $Context.Response) {
             # If called within a route, send a response before stopping
             Write-KrTextResponse -InputObject 'Server is stopping...' -StatusCode 202
-            Start-Sleep -Seconds 2
+            Start-Sleep -Seconds 1
             $Server.StopAsync() | Out-Null
             return
         }
         # Stop the Kestrel server
         $Server.StopAsync() | Out-Null
         # Ensure the server is stopped on exit
-        if (-not $Quiet.IsPresent -or -not $hasConsole) {
+        if ($writeConsole) {
             Write-Host 'Stopping Kestrun server...' -NoNewline
         }
 
@@ -62,14 +62,14 @@ function Stop-KrServer {
 
         while ($Server.IsRunning) {
             Start-Sleep -Seconds 1
-            if (-not $Quiet.IsPresent -or -not $hasConsole) {
+            if ($writeConsole) {
                 Write-Host '#' -NoNewline
             }
         }
 
         [Kestrun.KestrunHostManager]::Destroy($Server.ApplicationName)
 
-        if (-not $Quiet.IsPresent -or -not $hasConsole) {
+        if ($writeConsole) {
             Write-Host 'Kestrun server stopped.'
         }
     }

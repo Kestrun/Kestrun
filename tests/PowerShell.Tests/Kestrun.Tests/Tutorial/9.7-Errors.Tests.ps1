@@ -1,4 +1,4 @@
-﻿param()
+param()
 Describe 'Example 9.7-Errors' -Tag 'Tutorial', 'Errors' {
     BeforeAll { . "$PSScriptRoot/TutorialExampleTestHelper.ps1"; $script:instance = Start-ExampleScript -Name '9.7-Errors.ps1' }
     AfterAll { if ($script:instance) { Stop-ExampleScript -Instance $script:instance } }

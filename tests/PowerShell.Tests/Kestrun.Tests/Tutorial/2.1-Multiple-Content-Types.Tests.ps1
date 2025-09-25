@@ -1,4 +1,4 @@
-﻿param()
+param()
 
 Describe 'Example 2.1-Multiple-Content-Types' -Tag 'Tutorial' {
     BeforeAll {

@@ -1,4 +1,4 @@
-﻿param()
+param()
 Describe 'Example 9.4-Html-Files' {
     BeforeAll { . "$PSScriptRoot/TutorialExampleTestHelper.ps1"; $script:instance = Start-ExampleScript -Name '9.4-Html-Files.ps1' }
     AfterAll { if ($script:instance) { Stop-ExampleScript -Instance $script:instance } }

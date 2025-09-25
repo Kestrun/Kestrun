@@ -41,11 +41,13 @@ function Start-KrServer {
         # Ensure the server instance is resolved
         $Server = Resolve-KestrunServer -Server $Server
         $hasConsole = $false
+        $writeConsole = $false
         try {
             $null = [Console]::KeyAvailable
             $hasConsole = $true
+            $writeConsole = -not $Quiet.IsPresent
         } catch {
-            $hasConsole = $false
+            Write-KrLog -Information "No console available; running in non-interactive mode."
         }
     }
     process {
@@ -54,7 +56,7 @@ function Start-KrServer {
             Write-Host "Starting Kestrun server '$($Server.ApplicationName)' ..."
         }
         $Server.StartAsync() | Out-Null
-        if (-not $Quiet.IsPresent -or -not $hasConsole) {
+        if ($writeConsole) {
             Write-Host 'Kestrun server started successfully.'
             foreach ($listener in $Server.Options.Listeners) {
                 if ($listener.X509Certificate) {
@@ -84,7 +86,7 @@ function Start-KrServer {
                         if ([Console]::KeyAvailable) {
                             $key = [Console]::ReadKey($true)
                             if (($key.Modifiers -eq 'Control') -and ($key.Key -eq 'C')) {
-                                if (-not $Quiet.IsPresent) {
+                                if ($writeConsole) {
                                     Write-Host 'Ctrl+C detected. Stopping Kestrun server...'
                                 }
                                 $Server.StopAsync().Wait()
@@ -101,7 +103,7 @@ function Start-KrServer {
                 }
             } finally {
                 # Ensure the server is stopped on exit
-                if (-not $Quiet.IsPresent -or -not $hasConsole) {
+                if ($writeConsole) {
                     Write-Host 'Stopping Kestrun server...'
                 }
                 if ( $Server.IsRunning ) {
@@ -115,7 +117,7 @@ function Start-KrServer {
                     Close-KrLogger
                 }
 
-                if (-not $Quiet.IsPresent -or -not $hasConsole) {
+                if ($writeConsole) {
                     Write-Host 'Kestrun server stopped.'
                 }
             }

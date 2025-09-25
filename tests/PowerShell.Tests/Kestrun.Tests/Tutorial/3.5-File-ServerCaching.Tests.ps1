@@ -1,4 +1,4 @@
-﻿param()
+param()
 Describe 'Example 3.5-File-ServerCaching' {
     BeforeAll { . "$PSScriptRoot/TutorialExampleTestHelper.ps1"; $script:instance = Start-ExampleScript -Name '3.5-File-ServerCaching.ps1' }
     AfterAll { if ($script:instance) { Stop-ExampleScript -Instance $script:instance } }

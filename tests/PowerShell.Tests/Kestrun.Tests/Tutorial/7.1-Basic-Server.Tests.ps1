@@ -1,4 +1,4 @@
-﻿param()
+param()
 Describe 'Example 7.1-Basic-Server' {
     BeforeAll {
         . "$PSScriptRoot/TutorialExampleTestHelper.ps1"

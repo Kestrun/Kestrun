@@ -1,4 +1,4 @@
-﻿param()
+param()
 . "$PSScriptRoot/TutorialExampleTestHelper.ps1"
 
 Describe 'Example 7.4-Named-Pipes' {

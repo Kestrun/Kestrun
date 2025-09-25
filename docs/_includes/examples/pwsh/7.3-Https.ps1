@@ -53,7 +53,7 @@ Add-KrMapRoute -Verbs Get -Pattern '/unsecure' -Endpoints "$($IPAddress.ToString
     Write-KrTextResponse -InputObject 'Unsecure hello' -StatusCode 200
 }
 
-Write-KrLog -Level Information -Message 'HTTPS listener active on {HttpsPort}' -Properties $HttpsPort
+Write-KrLog -Level Information -Message 'HTTPS listener active on {HttpsPort}' -PropertyValues $HttpsPort
 
 
 # Start the server

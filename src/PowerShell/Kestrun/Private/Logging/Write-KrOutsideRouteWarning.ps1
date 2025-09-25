@@ -18,7 +18,7 @@ function Write-KrOutsideRouteWarning {
         [string]$FunctionName = $PSCmdlet.MyInvocation.InvocationName
     )
     if (Test-KrLogger) {
-        Write-KrLog -Level Warning -Message '{function} must be called inside a route script block where $Context is available.' -Properties $FunctionName
+        Write-KrLog -Level Warning -Message '{function} must be called inside a route script block where $Context is available.' -PropertyValues $FunctionName
     } else {
         Write-Warning -Message "$FunctionName must be called inside a route script block where `$Context is available."
     }

@@ -40,10 +40,10 @@ Enable-KrConfiguration
 # 9. Route: issue token (requires Basic)
 Add-KrMapRoute -Verbs Get -Pattern '/token/new' -AuthorizationSchema 'BasicInit' -ScriptBlock {
     $user = $Context.User.Identity.Name
-    Write-KrLog -Level Information -Message 'Generating JWT token for user {User}' -Properties $user
-    Write-KrLog -Level Information -Message "Issuer : {Issuer} " -Properties $JwtTokenBuilder.Issuer
-    Write-KrLog -Level Information -Message "Audience : {Audience} " -Properties $JwtTokenBuilder.Audience
-    Write-KrLog -Level Information -Message "Algorithm: {Algorithm} " -Properties $JwtTokenBuilder.Algorithm
+    Write-KrLog -Level Information -Message 'Generating JWT token for user {User}' -PropertyValues $user
+    Write-KrLog -Level Information -Message "Issuer : {Issuer} " -PropertyValues $JwtTokenBuilder.Issuer
+    Write-KrLog -Level Information -Message "Audience : {Audience} " -PropertyValues $JwtTokenBuilder.Audience
+    Write-KrLog -Level Information -Message "Algorithm: {Algorithm} " -PropertyValues $JwtTokenBuilder.Algorithm
 
     $build = Copy-KrJWTTokenBuilder -Builder $jwtBuilder |
         Add-KrJWTSubject -Subject $user |
@@ -57,7 +57,7 @@ Add-KrMapRoute -Verbs Get -Pattern '/token/new' -AuthorizationSchema 'BasicInit'
 Add-KrMapRoute -Verbs Get -Pattern '/token/renew' -AuthorizationSchema $JwtScheme -ScriptBlock {
     $user = $Context.User.Identity.Name
 
-    Write-KrLog -Level Information -Message 'Generating JWT token for user {0}' -Properties $user
+    Write-KrLog -Level Information -Message 'Generating JWT token for user {0}' -PropertyValues $user
     $accessToken = $jwtBuilder | Update-KrJWT -FromContext
     Write-KrJsonResponse -InputObject @{
         access_token = $accessToken

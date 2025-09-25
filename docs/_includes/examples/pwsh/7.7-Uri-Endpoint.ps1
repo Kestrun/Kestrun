@@ -34,7 +34,7 @@ Add-KrMapRoute -Verbs Get -Pattern '/hello' -ScriptBlock {
 }
 
 # Initial informational log
-Write-KrLog -Level Information -Message 'Server {Name} configured.' -Properties 'Endpoints Basic'
+Write-KrLog -Level Information -Message 'Server {Name} configured.' -PropertyValues 'Endpoints Basic'
 
 # Start the server asynchronously
 Start-KrServer -CloseLogsOnExit

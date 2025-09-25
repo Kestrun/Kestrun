@@ -30,7 +30,7 @@ $claimConfig = New-KrClaimPolicy |
 # 6. Basic auth + issue claims for admin
 Add-KrBasicAuthentication -Name 'PolicyBasic' -Realm 'Claims' -AllowInsecureHttp -ScriptBlock {
     param($Username, $Password)
-    Write-KrLog -Level Information -Message 'Basic Authentication: User {user} is trying to authenticate.' -Properties $Username
+    Write-KrLog -Level Information -Message 'Basic Authentication: User {user} is trying to authenticate.' -PropertyValues $Username
     if ($Username -eq 'admin' -and $Password -eq 'password') {
         $true
     } else {

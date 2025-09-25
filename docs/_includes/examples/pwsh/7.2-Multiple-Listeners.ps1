@@ -36,7 +36,7 @@ Add-KrMapRoute -Verbs Get -Pattern '/ping' -ScriptBlock {
     Write-KrTextResponse -InputObject 'pong' -StatusCode 200
 }
 
-Write-KrLog -Level Information -Message 'Multiple listeners configured ({Port}, {Port2})' -Properties $Port, $Port2
+Write-KrLog -Level Information -Message 'Multiple listeners configured ({Port}, {Port2})' -PropertyValues $Port, $Port2
 
 # Start the server asynchronously
 Start-KrServer -CloseLogsOnExit

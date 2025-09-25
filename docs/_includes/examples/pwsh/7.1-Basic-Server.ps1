@@ -35,7 +35,7 @@ Add-KrMapRoute -Verbs Get -Pattern '/hello' -ScriptBlock {
 }
 
 # Initial informational log
-Write-KrLog -Level Information -Message 'Server {Name} configured.' -Properties 'Endpoints Basic'
+Write-KrLog -Level Information -Message 'Server {Name} configured.' -PropertyValues 'Endpoints Basic'
 
 # Start the server and close all the loggers when the server stops
 # This is equivalent to calling Close-KrLogger after Start-KrServer

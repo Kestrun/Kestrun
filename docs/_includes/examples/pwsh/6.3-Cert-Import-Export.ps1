@@ -49,20 +49,20 @@ Enable-KrConfiguration
 Add-KrMapRoute -Verbs Post -Pattern "/certs/import" -ScriptBlock {
     $body = Get-KrRequestBody
     try {
-        Write-KrLog -Level Debug -LoggerName 'myLogger' -Message "Importing certificate from {filePath}" -Properties $body.filePath
+        Write-KrLog -Level Debug -LoggerName 'myLogger' -Message "Importing certificate from {filePath}" -PropertyValues $body.filePath
         $password = Convert-ToSecureStringOrNull -Password ([string]$body.password)
-        Write-KrLog -Level Debug -LoggerName 'myLogger' -Message "Password provided: {hasPassword}" -Properties ($null -ne $password)
+        Write-KrLog -Level Debug -LoggerName 'myLogger' -Message "Password provided: {hasPassword}" -PropertyValues ($null -ne $password)
         $cert = Import-KrCertificate -FilePath ([string]$body.filePath) -Password $password
         if ( $null -eq $cert) {
             throw "Certificate import failed."
         } else {
             Write-KrLog -Level Debug -LoggerName 'myLogger' -Message "Certificate imported successfully"
         }
-        Write-KrLog -Level Debug -LoggerName 'myLogger' -Message "Certificate imported successfully: {subject}" -Properties $cert.Subject
+        Write-KrLog -Level Debug -LoggerName 'myLogger' -Message "Certificate imported successfully: {subject}" -PropertyValues $cert.Subject
         $purposes = Get-KrCertificatePurpose -Certificate $cert
-        Write-KrLog -Level Debug -LoggerName 'myLogger' -Message "Certificate purposes: {purposes}" -Properties $purposes
+        Write-KrLog -Level Debug -LoggerName 'myLogger' -Message "Certificate purposes: {purposes}" -PropertyValues $purposes
         $valid = Test-KrCertificate -Certificate $cert -DenySelfSigned:$false -AllowWeakAlgorithms:$false
-        Write-KrLog -Level Debug -LoggerName 'myLogger' -Message "Certificate validity: {valid}" -Properties $valid
+        Write-KrLog -Level Debug -LoggerName 'myLogger' -Message "Certificate validity: {valid}" -PropertyValues $valid
         Write-KrJsonResponse -StatusCode 200 -InputObject @{ subject = $cert.Subject; notAfter = $cert.NotAfter; valid = $valid; purposes = $purposes }
     } catch {
         Write-KrLog -Level Error -LoggerName 'myLogger' -Message "Certificate import failed" -ErrorRecord $_
@@ -75,21 +75,21 @@ Add-KrMapRoute -Verbs Post -Pattern "/certs/import" -ScriptBlock {
 Add-KrMapRoute -Verbs Post -Pattern "/certs/export" -ScriptBlock {
     $body = Get-KrRequestBody
     try {
-        Write-KrLog -Level Debug -LoggerName 'myLogger' -Message "Exporting certificate from {filePath} with format {format} to {outPath}" -Properties $body.filePath, $body.format, $body.outPath
+        Write-KrLog -Level Debug -LoggerName 'myLogger' -Message "Exporting certificate from {filePath} with format {format} to {outPath}" -PropertyValues $body.filePath, $body.format, $body.outPath
         if (-not $body.outPath) {
             throw "Output path (outPath) is required for export."
         }
         $password = Convert-ToSecureStringOrNull -Password ([string]$body.password)
-        Write-KrLog -Level Debug -LoggerName 'myLogger' -Message "Password provided: {hasPassword}" -Properties ($null -ne $password)
+        Write-KrLog -Level Debug -LoggerName 'myLogger' -Message "Password provided: {hasPassword}" -PropertyValues ($null -ne $password)
         $cert = New-KrSelfSignedCertificate -DnsNames "temp.example.com" -Exportable -ValidDays 1
-        Write-KrLog -Level Debug -LoggerName 'myLogger' -Message "Temporary self-signed certificate created: {subject}" -Properties $cert.Subject
+        Write-KrLog -Level Debug -LoggerName 'myLogger' -Message "Temporary self-signed certificate created: {subject}" -PropertyValues $cert.Subject
         $params = @{ Certificate = $cert; FilePath = ([string]$body.outPath); Format = ([string]$body.outFormat) }
         if ($body.includePrivateKey) { $params.IncludePrivateKey = [bool]$body.includePrivateKey }
         if ($password) { $params.Password = $password }
-        Write-KrLog -Level Debug -LoggerName 'myLogger' -Message "Exporting certificate to {outPath} with format {format}" -Properties $body.outPath, $body.outFormat
+        Write-KrLog -Level Debug -LoggerName 'myLogger' -Message "Exporting certificate to {outPath} with format {format}" -PropertyValues $body.outPath, $body.outFormat
 
         Export-KrCertificate @params | Out-Null
-        Write-KrLog -Level Debug -LoggerName 'myLogger' -Message "Certificate exported successfully to {outPath} with format {format}" -Properties $body.outPath, $body.outFormat
+        Write-KrLog -Level Debug -LoggerName 'myLogger' -Message "Certificate exported successfully to {outPath} with format {format}" -PropertyValues $body.outPath, $body.outFormat
         Write-KrJsonResponse -StatusCode 200 -InputObject @{ exported = $true; path = $body.outPath; format = $body.outFormat }
     } catch {
         Write-KrLog -Level Error -LoggerName 'myLogger' -Message "Certificate export failed" -ErrorRecord $_

@@ -59,7 +59,7 @@ Add-KrMapRoute -Verbs Get -Pattern '/custom_cachetest' -ScriptBlock {
         Write-KrLog -Level Debug -Message "Returning 304 Not Modified"
         return
     }
-    Write-KrLog -Level Debug -Message "Returning 200 OK with payload: {Payload}" -Properties $payload
+    Write-KrLog -Level Debug -Message "Returning 200 OK with payload: {Payload}" -PropertyValues $payload
     # Fresh response
     Write-KrTextResponse -InputObject $payload -StatusCode 200
 }

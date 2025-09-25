@@ -60,7 +60,7 @@ Write-KrLog -Level Debug -Message "test debug asd" -Name "Logger1"
 Set-KrDefaultLogger -Name "Logger2"
 Write-KrLog -Level Information -Message $null
 Write-KrLog -Level Information -Message ''
-Write-KrLog -Level Information -Message 'asd {0} - {1}' -Properties $null, '' -Exception $null
+Write-KrLog -Level Information -Message 'asd {0} - {1}' -PropertyValues $null, '' -Exception $null
 
 Write-KrLog -Level Debug -Message "test debug asdasdsad"
 
@@ -70,7 +70,7 @@ Set-KrDefaultLogger -Name "Logger1"
 
 Write-KrLog -Level Information "test info"
 
-Write-KrLog -Level Error -Message "test error {asd}, {num}, {@levelSwitch}" -Properties "test1", 123, $levelSwitch -Name "Logger2"
+Write-KrLog -Level Error -Message "test error {asd}, {num}, {@levelSwitch}" -PropertyValues "test1", 123, $levelSwitch -Name "Logger2"
 
 try {
     Get-Content -Path 'asd' -ErrorAction Stop

@@ -17,7 +17,7 @@
         The exception related to the event.
     .PARAMETER ErrorRecord
         The error record related to the event.
-    .PARAMETER Properties
+    .PARAMETER PropertyValues
         Objects positionally formatted into the message template.
     .PARAMETER PassThru
         If specified, outputs the formatted message into the pipeline.
@@ -29,7 +29,7 @@
         PS> Write-KrLog -Level Information -Message 'Info log message
         This example logs a simple information message.
     .EXAMPLE
-        PS> Write-KrLog -Level Warning -Message 'Processed {@Position} in {Elapsed:000} ms.' -Properties $position, $elapsedMs
+        PS> Write-KrLog -Level Warning -Message 'Processed {@Position} in {Elapsed:000} ms.' -PropertyValues $position, $elapsedMs
         This example logs a warning message with formatted properties.
     .EXAMPLE
         PS> Write-KrLog -Level Error -Message 'Error occurred' -Exception ([System.Exception]::new('Some exception'))
@@ -72,7 +72,8 @@ function Write-KrLog {
         [System.Management.Automation.ErrorRecord]$ErrorRecord,
         [Parameter(Mandatory = $false)]
         [AllowNull()]
-        [object[]]$Properties,
+        [Alias('PropertyValues')]
+        [object[]]$PropertyValues,
         [Parameter(Mandatory = $false)]
         [switch]$PassThru
     )
@@ -109,28 +110,28 @@ function Write-KrLog {
             # Log the message using the specified log level and parameters
             switch ($Level) {
                 Verbose {
-                    $Logger.Verbose($Exception, $Message, $Properties)
+                    $Logger.Verbose($Exception, $Message, $PropertyValues)
                 }
                 Debug {
-                    $Logger.Debug($Exception, $Message, $Properties)
+                    $Logger.Debug($Exception, $Message, $PropertyValues)
                 }
                 Information {
-                    $Logger.Information($Exception, $Message, $Properties)
+                    $Logger.Information($Exception, $Message, $PropertyValues)
                 }
                 Warning {
-                    $Logger.Warning($Exception, $Message, $Properties)
+                    $Logger.Warning($Exception, $Message, $PropertyValues)
                 }
                 Error {
-                    $Logger.Error($Exception, $Message, $Properties)
+                    $Logger.Error($Exception, $Message, $PropertyValues)
                 }
                 Fatal {
-                    $Logger.Fatal($Exception, $Message, $Properties)
+                    $Logger.Fatal($Exception, $Message, $PropertyValues)
                 }
             }
             # If PassThru is specified, output the formatted message into the pipeline
             # This allows the caller to capture the formatted message if needed
             if ($PassThru) {
-                Get-KrFormattedMessage -Logger $Logger -Level $Level -Message $Message -Properties $Properties -Exception $Exception
+                Get-KrFormattedMessage -Logger $Logger -Level $Level -Message $Message -PropertyValues $PropertyValues -Exception $Exception
             }
         } catch {
             # If an error occurs while logging, write to the default logger

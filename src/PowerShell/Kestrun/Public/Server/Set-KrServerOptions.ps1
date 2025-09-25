@@ -84,36 +84,36 @@ function Set-KrServerOptions {
         }
 
         if ($AllowSynchronousIO.IsPresent) {
-            Write-KrLog -Logger $Server.HostLogger -Level Verbose -Message "Setting ServerOptions.AllowSynchronousIO to {AllowSynchronousIO}" -Properties $AllowSynchronousIO.IsPresent
+            Write-KrLog -Logger $Server.HostLogger -Level Verbose -Message "Setting ServerOptions.AllowSynchronousIO to {AllowSynchronousIO}" -PropertyValues $AllowSynchronousIO.IsPresent
             $options.ServerOptions.AllowSynchronousIO = $AllowSynchronousIO.IsPresent
         }
         if ($DisableResponseHeaderCompression.IsPresent) {
             Write-KrLog -Logger $Server.HostLogger -Level Verbose -Message "Setting ServerOptions.AllowResponseHeaderCompression to {AllowResponseHeaderCompression}" `
-                -Properties $false
+                -PropertyValues $false
             $options.ServerOptions.AllowResponseHeaderCompression = $false
         }
         if ($DenyServerHeader.IsPresent) {
-            Write-KrLog -Logger $Server.HostLogger -Level Verbose -Message "Setting ServerOptions.AddServerHeader to {AddServerHeader}" -Properties $false
+            Write-KrLog -Logger $Server.HostLogger -Level Verbose -Message "Setting ServerOptions.AddServerHeader to {AddServerHeader}" -PropertyValues $false
             $options.ServerOptions.AddServerHeader = $false
         }
         if ($AllowAlternateSchemes.IsPresent) {
-            Write-KrLog -Logger $Server.HostLogger -Level Verbose -Message "Setting ServerOptions.AllowAlternateSchemes to {AllowAlternateSchemes}" -Properties $true
+            Write-KrLog -Logger $Server.HostLogger -Level Verbose -Message "Setting ServerOptions.AllowAlternateSchemes to {AllowAlternateSchemes}" -PropertyValues $true
             $options.ServerOptions.AllowAlternateSchemes = $true
         }
         if ($AllowHostHeaderOverride.IsPresent) {
-            Write-KrLog -Logger $Server.HostLogger -Level Verbose -Message "Setting ServerOptions.AllowHostHeaderOverride to {AllowHostHeaderOverride}" -Properties $true
+            Write-KrLog -Logger $Server.HostLogger -Level Verbose -Message "Setting ServerOptions.AllowHostHeaderOverride to {AllowHostHeaderOverride}" -PropertyValues $true
             $options.ServerOptions.AllowHostHeaderOverride = $true
         }
         if ($DisableStringReuse.IsPresent) {
-            Write-KrLog -Logger $Server.HostLogger -Level Verbose -Message "Setting ServerOptions.DisableStringReuse to {DisableStringReuse}" -Properties $true
+            Write-KrLog -Logger $Server.HostLogger -Level Verbose -Message "Setting ServerOptions.DisableStringReuse to {DisableStringReuse}" -PropertyValues $true
             $options.ServerOptions.DisableStringReuse = $true
         }
         if ($MaxRunspaces -gt 0) {
-            Write-KrLog -Logger $Server.HostLogger -Level Verbose -Message "Setting MaxRunspaces to {MaxRunspaces}" -Properties $MaxRunspaces
+            Write-KrLog -Logger $Server.HostLogger -Level Verbose -Message "Setting MaxRunspaces to {MaxRunspaces}" -PropertyValues $MaxRunspaces
             $options.MaxRunspaces = $MaxRunspaces
         }
         if ($MinRunspaces -gt 0) {
-            Write-KrLog -Logger $Server.HostLogger -Level Verbose -Message "Setting MinRunspaces to {MinRunspaces}" -Properties $MinRunspaces
+            Write-KrLog -Logger $Server.HostLogger -Level Verbose -Message "Setting MinRunspaces to {MinRunspaces}" -PropertyValues $MinRunspaces
             $options.MinRunspaces = $MinRunspaces
         }
 

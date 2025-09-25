@@ -453,9 +453,12 @@ function Test-ExampleRouteSet {
         }
 
         Write-Host "Testing $($Instance.Name): $r -> $url ($method)" -ForegroundColor Cyan
-        if ($Instance.Https) { $url = $url -replace '^http:', 'https:' }
-        $invokeParams = @{ Uri = $url; UseBasicParsing = $true; TimeoutSec = 8; Method = $method; Headers = $headers; Body = $body }
-        if ($Instance.Https) { $invokeParams.SkipCertificateCheck = $true }
+        if ($Instance.Https) {
+            $url = $url -replace '^http:', 'https:'
+            $invokeParams = @{ Uri = $url; UseBasicParsing = $true; TimeoutSec = 8; Method = $method; Headers = $headers; Body = $body; SkipCertificateCheck = $true }
+        } else {
+            $invokeParams = @{ Uri = $url; UseBasicParsing = $true; TimeoutSec = 8; Method = $method; Headers = $headers; Body = $body }
+        }
         $resp = Invoke-WebRequest @invokeParams
         if ($resp.StatusCode -ne 200) { throw "Route $r returned status $($resp.StatusCode)" }
 

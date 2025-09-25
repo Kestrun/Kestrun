@@ -41,7 +41,7 @@ $sysfuncs = Get-ChildItem Function:
 # only import public alias
 $sysaliases = Get-ChildItem Alias:
 
-$inRouteRunspace = $null -ne $ExecutionContext.SessionState.PSVariable.GetValue('KestrunHost')
+$inRouteRunspace = $null -ne $ExecutionContext.SessionState.PSVariable.GetValue('KrServer')
 
 if (-not $inRouteRunspace) {
     # Usage

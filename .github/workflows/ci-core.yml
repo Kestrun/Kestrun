@@ -44,7 +44,7 @@ jobs:
                         ubuntu-24.04-arm,
                         windows-11-arm,
                     ]
-                pwsh: ["7.4.11", "latest", "preview"]
+                pwsh: ["7.4.12", "latest", "preview"]
         runs-on: ${{ matrix.os }}
 
         defaults:

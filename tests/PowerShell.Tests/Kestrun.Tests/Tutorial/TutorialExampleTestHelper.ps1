@@ -138,9 +138,8 @@ function Start-ExampleScript {
     [CmdletBinding(SupportsShouldProcess)] param(
         [Parameter(Mandatory)][string]$Name,
         [int]$Port,
-        [int]$StartupTimeoutSeconds = 30,
-        [int]$HttpProbeDelayMs = 150,
-        [string[]]$StartupSentinels = @('Start-KrServer', 'Listening', 'Server started', 'Ready')
+        [int]$StartupTimeoutSeconds = 40,
+        [int]$HttpProbeDelayMs = 150
     )
     if (-not $Port) { $Port = Get-FreeTcpPort }
     $path = Get-ExampleScriptPath -Name $Name
@@ -155,8 +154,8 @@ function Start-ExampleScript {
     $kestrunModulePath = Get-KestrunModulePath
     $importKestrunModule = @"
 if (-not (Get-Module -Name Kestrun)) {
-     if (Test-Path -Path "$kestrunModulePath" -PathType Leaf) {
-        Import-Module "$kestrunModulePath" -Force -ErrorAction Stop
+     if (Test-Path -Path '$kestrunModulePath' -PathType Leaf) {
+        Import-Module '$kestrunModulePath' -Force -ErrorAction Stop
     } else {
         throw "Kestrun module not found at $kestrunModulePath"
     }
@@ -219,48 +218,21 @@ Start-KrServer
     while ([DateTime]::UtcNow -lt $deadline) {
         if ($proc.HasExited) { break }
         $attempt++
-        $portOpen = $false
+        # Optional lightweight HTTP/HTTPS probe of '/'
         try {
-            $client = [System.Net.Sockets.TcpClient]::new()
-            $ar = $client.BeginConnect($serverIp, $Port, $null, $null)
-            $wait = $ar.AsyncWaitHandle.WaitOne(200)
-            if ($wait -and $client.Connected) { $portOpen = $true }
-            $client.Close()
-        } catch { Write-Debug "Port probe failed: $($_.Exception.Message)" }
+            # Decide scheme based on provisional HTTPS detection (scan original content once here if not already)
+            $scheme = ($content -match 'Add-KrEndpoint[^\n]*-SelfSignedCert' -or
+                $content -match 'Add-KrEndpoint[^\n]*-CertPath' -or
+                $content -match 'Add-KrEndpoint[^\n]*-X509Certificate'
+            )? 'https' : 'http'
 
-        # Sentinel scan (cheap read tail of stdout file if exists)
-        if (-not $ready -and (Test-Path $stdOut)) {
-            try {
-                $tail = Get-Content -Path $stdOut -Tail 40 -ErrorAction SilentlyContinue
-                if ($tail) {
-                    foreach ($s in $StartupSentinels) {
-                        if ($tail -match [regex]::Escape($s)) { $ready = $true; break }
-                    }
-                }
-            } catch {
-                Write-Debug "Sentinel scan read failed: $($_.Exception.Message)"
-            }
-        }
-
-        if ($ready) { break }
-
-        if ($portOpen) {
-            # Optional lightweight HTTP/HTTPS probe of '/'
-            try {
-                # Decide scheme based on provisional HTTPS detection (scan original content once here if not already)
-                $scheme = ($content -match 'Add-KrEndpoint[^\n]*-SelfSignedCert' -or
-                    $content -match 'Add-KrEndpoint[^\n]*-CertPath' -or
-                    $content -match 'Add-KrEndpoint[^\n]*-X509Certificate'
-                )? 'https' : 'http'
-
-                $probeUri = ("{0}://{1}:{2}" -f $scheme, $serverIp, $Port)
-                $probeParams = @{ Uri = $probeUri; UseBasicParsing = $true; Method = 'Get'; TimeoutSec = 3; ErrorAction = 'Stop' }
-                if ($scheme -eq 'https') { $probeParams.SkipCertificateCheck = $true }
-                $probe = Invoke-WebRequest @probeParams
-                if ($probe.StatusCode -ge 200 -and $probe.StatusCode -lt 600) { $ready = $true; break }
-            } catch {
-                Write-Debug "HTTP(S) probe failed (route initialization likely incomplete): $($_.Exception.Message)"
-            }
+            $probeUri = ("{0}://{1}:{2}" -f $scheme, $serverIp, $Port)
+            $probeParams = @{ Uri = $probeUri; UseBasicParsing = $true; Method = 'Get'; TimeoutSec = 3; ErrorAction = 'Stop' }
+            if ($scheme -eq 'https') { $probeParams.SkipCertificateCheck = $true }
+            $probe = Invoke-WebRequest @probeParams
+            if ($probe.StatusCode -ge 200 -and $probe.StatusCode -lt 600) { $ready = $true; break }
+        } catch {
+            Write-Debug "HTTP(S) probe failed (route initialization likely incomplete): $($_.Exception.Message)"
         }
         Start-Sleep -Milliseconds $HttpProbeDelayMs
     }

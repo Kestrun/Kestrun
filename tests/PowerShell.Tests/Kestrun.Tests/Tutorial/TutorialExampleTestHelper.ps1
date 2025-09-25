@@ -45,6 +45,31 @@ function Get-TutorialExamplesDirectory {
 
 <#
 .SYNOPSIS
+    Get the full path to the Kestrun PowerShell module.
+.DESCRIPTION
+    Walks up the directory tree from the current script location to find the repository root
+    (identified by presence of Kestrun.sln), then appends 'src/PowerShell/Kestrun/Kestrun.psm1'.
+    Throws if the root or module file cannot be found.
+.OUTPUTS
+    String full path to Kestrun.psm1.
+#>
+function Get-KestrunModulePath {
+    [CmdletBinding()]
+    param()
+    $root = (Get-Item (Split-Path -Parent $PSCommandPath))
+    while ($root -and -not (Test-Path (Join-Path $root.FullName 'Kestrun.sln'))) {
+        $parent = Get-Item (Split-Path -Parent $root.FullName) -ErrorAction SilentlyContinue
+        if (-not $parent -or $parent.FullName -eq $root.FullName) { break }
+        $root = $parent
+    }
+    if (-not $root) { throw 'Cannot find repository root.' }
+    $kestrun = Join-Path -Path $root.FullName -ChildPath 'src' -AdditionalChildPath 'PowerShell', 'Kestrun', 'Kestrun.psm1'
+    if (-not (Test-Path $kestrun)) { throw "Kestrun module not found: $kestrun" }
+    return $kestrun
+}
+
+<#
+.SYNOPSIS
     Get a free TCP port on localhost.
 .DESCRIPTION
     Opens a TcpListener on port 0 to have the OS assign a free port, then closes it and returns the port number.
@@ -154,6 +179,25 @@ function Start-ExampleScript {
             $line
         } | Out-String
     }
+    $kestrunModulePath = Get-KestrunModulePath
+    $importKestrunModule = @"
+if (-not (Get-Module -Name Kestrun)) {
+     if (Test-Path -Path "$kestrunModulePath" -PathType Leaf) {
+        Import-Module "$kestrunModulePath" -Force -ErrorAction Stop
+    } else {
+        throw "Kestrun module not found at $kestrunModulePath"
+    }
+}
+"@
+
+    $pattern = '(?ms)^\s*param\s*\(.*?\)'
+
+    $content = [System.Text.RegularExpressions.Regex]::Replace(
+        $content,
+        $pattern,
+        { param($m) $m.Value + "`n`n" + $importKestrunModule },
+        1  # replace only first occurrence
+    )
 
     if (-not $content.Contains('-Pattern "/shutdown"')) {
         # Inject shutdown endpoint for legacy scripts (first occurrence of Start-KrServer)
@@ -165,6 +209,8 @@ Start-KrServer
 "@
     }
 
+
+    # Adjust Initialize-KrRoot if present
     if ( $content.Contains('Initialize-KrRoot -Path $PSScriptRoot')) {
         $content = $content.Replace('Initialize-KrRoot -Path $PSScriptRoot', "Initialize-KrRoot -Path '$path'")
     }
@@ -292,12 +338,13 @@ function Stop-ExampleScript {
         } catch {
             Write-Debug "Shutdown failed: $($_.Exception.Message)"
         }
-    }
-    if (-not $Instance.Process.HasExited) { $Instance.Process | Stop-Process -Force }
-    $Instance.Process.Dispose()
-    Remove-Item -Path $Instance.TempPath -Force -ErrorAction SilentlyContinue
-    if ($Instance.PushedLocation) {
-        try { Pop-Location -ErrorAction Stop } catch { Write-Warning "Pop-Location failed: $($_.Exception.Message)" }
+    } finally {
+        if (-not $Instance.Process.HasExited) { $Instance.Process | Stop-Process -Force }
+        $Instance.Process.Dispose()
+        Remove-Item -Path $Instance.TempPath -Force -ErrorAction SilentlyContinue
+        if ($Instance.PushedLocation) {
+            try { Pop-Location -ErrorAction Stop } catch { Write-Warning "Pop-Location failed: $($_.Exception.Message)" }
+        }
     }
 }
 

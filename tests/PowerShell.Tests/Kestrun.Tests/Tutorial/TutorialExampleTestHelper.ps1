@@ -178,7 +178,7 @@ if (-not (Get-Module -Name Kestrun)) {
             $content,
             '\bStart-KrServer\b', @"
 Add-KrMapRoute -Verbs Get -Pattern "/shutdown" -ScriptBlock { Stop-KrServer }
-
+Add-KrMapRoute -Verbs Get -Pattern "/health" -ScriptBlock { write-KrTextResponse -InputObject 'OK' -StatusCode 200 }
 Start-KrServer
 "@
             , 1 # only first occurrence
@@ -220,19 +220,21 @@ Start-KrServer
         $attempt++
         # Optional lightweight HTTP/HTTPS probe of '/'
         try {
-            # Decide scheme based on provisional HTTPS detection (scan original content once here if not already)
-            $scheme = ($content -match 'Add-KrEndpoint[^\n]*-SelfSignedCert' -or
-                $content -match 'Add-KrEndpoint[^\n]*-CertPath' -or
-                $content -match 'Add-KrEndpoint[^\n]*-X509Certificate'
-            )? 'https' : 'http'
-
-            $probeUri = ("{0}://{1}:{2}" -f $scheme, $serverIp, $Port)
+            $probeUri = ("http://{0}:{1}/health" -f $serverIp, $Port)
             $probeParams = @{ Uri = $probeUri; UseBasicParsing = $true; Method = 'Get'; TimeoutSec = 3; ErrorAction = 'Stop' }
-            if ($scheme -eq 'https') { $probeParams.SkipCertificateCheck = $true }
             $probe = Invoke-WebRequest @probeParams
             if ($probe.StatusCode -ge 200 -and $probe.StatusCode -lt 600) { $ready = $true; break }
         } catch {
-            Write-Debug "HTTP(S) probe failed (route initialization likely incomplete): $($_.Exception.Message)"
+            Write-Debug "HTTP probe failed (route initialization likely incomplete): $($_.Exception.Message)"
+        }
+
+        try {
+            $probeUri = ("https://{0}:{1}/health" -f $serverIp, $Port)
+            $probeParams = @{ Uri = $probeUri; UseBasicParsing = $true; Method = 'Get'; TimeoutSec = 3; ErrorAction = 'Stop' ; SkipCertificateCheck = $true }
+            $probe = Invoke-WebRequest @probeParams
+            if ($probe.StatusCode -ge 200 -and $probe.StatusCode -lt 600) { $ready = $true; break }
+        } catch {
+            Write-Debug "HTTPS probe failed (route initialization likely incomplete): $($_.Exception.Message)"
         }
         Start-Sleep -Milliseconds $HttpProbeDelayMs
     }

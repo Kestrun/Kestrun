@@ -2,7 +2,6 @@ using Kestrun.Health;
 using Kestrun.Hosting.Options;
 using Kestrun.Scripting;
 using Kestrun.Utilities;
-using Microsoft.AspNetCore.Authorization;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
@@ -93,87 +92,7 @@ public static class KestrunHostHealthExtensions
         return host.AddHealthEndpoint(dest => CopyHealthEndpointOptions(options, dest));
     }
 
-    private static void ApplyConventions(KestrunHost host, IEndpointConventionBuilder map, MapRouteOptions options)
-    {
-        if (options.AllowAnonymous)
-        {
-            _ = map.AllowAnonymous();
-        }
-
-        if (options.DisableAntiforgery)
-        {
-            _ = map.DisableAntiforgery();
-        }
-
-        if (!string.IsNullOrWhiteSpace(options.CorsPolicyName))
-        {
-            _ = map.RequireCors(options.CorsPolicyName);
-        }
-
-        if (!string.IsNullOrWhiteSpace(options.RateLimitPolicyName))
-        {
-            _ = map.RequireRateLimiting(options.RateLimitPolicyName);
-        }
-
-        if (options.RequireSchemes is { Length: > 0 })
-        {
-            foreach (var scheme in options.RequireSchemes)
-            {
-                if (!host.HasAuthScheme(scheme))
-                {
-                    throw new ArgumentException($"Authentication scheme '{scheme}' is not registered.", nameof(options.RequireSchemes));
-                }
-            }
-
-            _ = map.RequireAuthorization(new AuthorizeAttribute
-            {
-                AuthenticationSchemes = string.Join(',', options.RequireSchemes)
-            });
-        }
-
-        if (options.RequirePolicies is { Length: > 0 })
-        {
-            foreach (var policy in options.RequirePolicies)
-            {
-                if (!host.HasAuthPolicy(policy))
-                {
-                    throw new ArgumentException($"Authorization policy '{policy}' is not registered.", nameof(options.RequirePolicies));
-                }
-            }
-
-            _ = map.RequireAuthorization(options.RequirePolicies);
-        }
-
-        if (options.ShortCircuit)
-        {
-            _ = map.ShortCircuit(options.ShortCircuitStatusCode ?? StatusCodes.Status200OK);
-        }
-
-        if (!string.IsNullOrWhiteSpace(options.OpenAPI.OperationId))
-        {
-            _ = map.WithName(options.OpenAPI.OperationId);
-        }
-
-        if (!string.IsNullOrWhiteSpace(options.OpenAPI.Summary))
-        {
-            _ = map.WithSummary(options.OpenAPI.Summary);
-        }
-
-        if (!string.IsNullOrWhiteSpace(options.OpenAPI.Description))
-        {
-            _ = map.WithDescription(options.OpenAPI.Description);
-        }
-
-        if (options.OpenAPI.Tags is { Length: > 0 })
-        {
-            _ = map.WithTags(options.OpenAPI.Tags);
-        }
-
-        if (!string.IsNullOrWhiteSpace(options.OpenAPI.GroupName))
-        {
-            _ = map.WithGroupName(options.OpenAPI.GroupName);
-        }
-    }
+    // ApplyConventions removed; unified with KestrunHostMapExtensions.AddMapOptions
 
     private static string[] ExtractTags(HttpRequest request)
     {
@@ -263,12 +182,7 @@ public static class KestrunHostHealthExtensions
         }
 
         // When immediate mapping after build ensure underlying WebApplication is available
-        var endpoints = host.IsConfigured ? host.App : null;
-        if (endpoints is null)
-        {
-            // We are in a deferred Use callback (app passed later)
-            throw new InvalidOperationException("Endpoint mapping requires a WebApplication when executed immediately.");
-        }
+        var endpoints = (host.IsConfigured ? host.App : null) ?? throw new InvalidOperationException("Endpoint mapping requires a WebApplication when executed immediately.");
         var endpointLogger = host.HostLogger.ForContext("HealthEndpoint", merged.Pattern);
 
         var map = endpoints.MapMethods(merged.Pattern, [HttpMethods.Get], async context =>
@@ -294,7 +208,7 @@ public static class KestrunHostHealthExtensions
             await context.Response.WriteAsJsonAsync(report, JsonOptions, context.RequestAborted).ConfigureAwait(false);
         }).WithMetadata(new ScriptLanguageAttribute(ScriptLanguage.Native));
 
-        ApplyConventions(host, map, mapOptions);
+        host.AddMapOptions(map, mapOptions);
         host._registeredRoutes[(mapOptions.Pattern!, HttpMethods.Get)] = mapOptions;
         host.HostLogger.Information("Registered health endpoint at {Pattern}", mapOptions.Pattern);
     }

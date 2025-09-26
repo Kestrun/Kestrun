@@ -1,5 +1,4 @@
 using System.Globalization;
-using System.IO;
 using Serilog;
 
 namespace Kestrun.Health;
@@ -130,11 +129,7 @@ public sealed class DiskSpaceProbe : IProbe
                 return null;
             }
             var root = Path.GetPathRoot(path);
-            if (string.IsNullOrEmpty(root))
-            {
-                return null;
-            }
-            return new DriveInfo(root);
+            return string.IsNullOrEmpty(root) ? null : new DriveInfo(root);
         }
         catch
         {

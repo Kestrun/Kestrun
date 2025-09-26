@@ -3,7 +3,6 @@
     This script demonstrates how to expose the health endpoint and register script/http probes.
     FileName: 9.11-Health-Checks.ps1
 #>
-Import-Module ./src/PowerShell/Kestrun/Kestrun.psm1
 New-KrLogger | Add-KrSinkConsole | Register-KrLogger -Name 'console' -SetAsDefault
 
 # Create a new Kestrun server

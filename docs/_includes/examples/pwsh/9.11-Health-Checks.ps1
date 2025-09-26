@@ -1,4 +1,4 @@
-﻿<#
+<#
     Sample Kestrun Server Configuration
     This script demonstrates how to expose the health endpoint and register script/http probes.
     FileName: 9.11-Health-Checks.ps1

@@ -1,4 +1,4 @@
-﻿<#
+<#
 .SYNOPSIS
     Registers a health probe that executes an external process.
 .DESCRIPTION

@@ -1,4 +1,4 @@
-﻿<#
+<#
  HTTP Probe Example
  Demonstrates adding an HTTP health probe calling a local route.
 #>

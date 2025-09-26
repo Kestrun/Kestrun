@@ -1,4 +1,4 @@
-﻿<#
+<#
     .SYNOPSIS
         Registers the built-in aggregated health endpoint for the active Kestrun server.
     .DESCRIPTION

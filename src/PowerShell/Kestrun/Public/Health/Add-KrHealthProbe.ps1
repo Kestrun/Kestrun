@@ -1,4 +1,4 @@
-﻿<#
+<#
     .SYNOPSIS
         Registers a script-based health probe with the active Kestrun server.
     .DESCRIPTION

@@ -1,4 +1,4 @@
-﻿<#
+<#
  Disk Probe Example
  Shows the auto-registered disk probe and how to override with custom thresholds.
 #>

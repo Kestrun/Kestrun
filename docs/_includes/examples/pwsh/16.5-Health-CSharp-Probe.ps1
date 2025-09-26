@@ -1,4 +1,4 @@
-﻿<#
+<#
  C# Inline Probe Example
  Demonstrates an inline C# probe computing a random success/failure.
 #>

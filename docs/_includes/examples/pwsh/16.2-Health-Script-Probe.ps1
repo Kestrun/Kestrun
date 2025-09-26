@@ -1,4 +1,4 @@
-﻿<#
+<#
  Script Probe Example
  Demonstrates adding a custom PowerShell script probe with additional data.
 #>

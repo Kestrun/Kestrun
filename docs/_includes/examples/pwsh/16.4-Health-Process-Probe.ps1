@@ -1,4 +1,4 @@
-﻿<#
+<#
  Process Probe Example
  Demonstrates using a process probe to execute a lightweight external command.
 #>

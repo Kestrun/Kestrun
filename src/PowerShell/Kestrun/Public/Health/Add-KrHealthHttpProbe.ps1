@@ -1,4 +1,4 @@
-﻿<#
+<#
     .SYNOPSIS
         Registers an HTTP-based health probe that polls a remote endpoint.
     .DESCRIPTION

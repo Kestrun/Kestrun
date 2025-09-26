@@ -1,4 +1,4 @@
-﻿<#
+<#
     Health Quickstart Script
     Migrated from 9.11-Health-Checks.ps1
     Demonstrates basic health endpoint with script + HTTP probes.

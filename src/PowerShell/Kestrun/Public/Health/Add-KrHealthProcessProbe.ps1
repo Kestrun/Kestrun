@@ -1,27 +1,27 @@
 ﻿<#
-    .SYNOPSIS
-        Registers a health probe that executes an external process.
-    .DESCRIPTION
-        Creates a Kestrun ProcessProbe that launches the specified command, waits for completion, and
-        interprets the exit code or JSON payload to determine health. Provide tags to support filtering
-        and optionally adjust the timeout enforced on the subprocess.
-    .PARAMETER Server
-        The Kestrun host instance to configure. If omitted, the current server context is resolved automatically.
-    .PARAMETER Name
-        Unique name for the probe.
-    .PARAMETER FilePath
-        The executable or script to launch.
-    .PARAMETER Arguments
-        Command-line arguments passed to the process. Defaults to an empty string.
-    .PARAMETER Tags
-        Optional set of tags used to include or exclude the probe when requests filter by tag.
-    .PARAMETER Timeout
-        Optional timeout applied to the process execution. Defaults to 10 seconds.
-    .PARAMETER PassThru
-        Emits the configured server instance so the call can be chained.
-    .EXAMPLE
-        Add-KrHealthProcessProbe -Name DiskSpace -FilePath 'pwsh' -Arguments '-File ./Scripts/Check-Disk.ps1' -Tags 'infra'
-        Registers a process probe that runs a PowerShell script to evaluate disk capacity.
+.SYNOPSIS
+    Registers a health probe that executes an external process.
+.DESCRIPTION
+    Creates a Kestrun ProcessProbe that launches the specified command, waits for completion, and
+    interprets the exit code or JSON payload to determine health. Provide tags to support filtering
+    and optionally adjust the timeout enforced on the subprocess.
+.PARAMETER Server
+    The Kestrun host instance to configure. If omitted, the current server context is resolved automatically.
+.PARAMETER Name
+    Unique name for the probe.
+.PARAMETER FilePath
+    The executable or script to launch.
+.PARAMETER Arguments
+    Command-line arguments passed to the process. Defaults to an empty string.
+.PARAMETER Tags
+    Optional set of tags used to include or exclude the probe when requests filter by tag.
+.PARAMETER Timeout
+    Optional timeout applied to the process execution. Defaults to 10 seconds.
+.PARAMETER PassThru
+    Emits the configured server instance so the call can be chained.
+.EXAMPLE
+    Add-KrHealthProcessProbe -Name DiskSpace -FilePath 'pwsh' -Arguments '-File ./Scripts/Check-Disk.ps1' -Tags 'infra'
+    Registers a process probe that runs a PowerShell script to evaluate disk capacity.
 #>
 function Add-KrHealthProcessProbe {
     [KestrunRuntimeApi('Definition')]

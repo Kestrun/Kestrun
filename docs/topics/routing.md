@@ -91,7 +91,6 @@ host.ApplyKestrunConventions(route, opts =>
 
 Notes:
 
-
 ### Why no Pattern-Only Overload?
 
 Once a route is built and added to the endpoint data source, its `IEndpointConventionBuilder` is not retrievable

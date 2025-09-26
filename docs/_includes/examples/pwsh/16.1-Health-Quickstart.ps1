@@ -28,7 +28,7 @@ Add-KrHealthEndpoint -Pattern '/healthz' -DefaultTags 'self' -TreatDegradedAsUnh
 
 ## 8. Script probe (constant healthy)
 Add-KrHealthProbe -Name 'Self' -Tags 'self' -ScriptBlock {
-    return [Kestrun.Health.ProbeResult]::new([Kestrun.Health.ProbeStatus]::Healthy, 'Main pipeline ready')
+    return New-KrProbeResult Healthy 'Main pipeline ready'
 }
 
 ## 9. HTTP probe (calls /ping)

@@ -26,7 +26,7 @@ Add-KrHealthProbe -Name 'LatencyCheck' -Tags 'self', 'perf' -ScriptBlock {
     $status = if ($elapsed -ge 170) { 'Unhealthy' } elseif ($elapsed -ge 130) { 'Degraded' } else { 'Healthy' }
     $data = [Collections.Generic.Dictionary[string, object]]::new()
     $data['elapsedMs'] = $elapsed
-    [Kestrun.Health.ProbeResult]::new([Kestrun.Health.ProbeStatus]::$status, "Latency ${elapsed}ms", $data)
+    New-KrProbeResult $status "Latency ${elapsed}ms" -Data $data
 }
 
 ## 7. Health endpoint

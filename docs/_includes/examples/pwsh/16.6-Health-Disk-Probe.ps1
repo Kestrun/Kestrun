@@ -19,14 +19,14 @@ Add-KrPowerShellRuntime
 Add-KrHealthProbe -Name 'disk' -Tags 'self', 'infra' -ScriptBlock {
     # Simulated values for clarity in documentation (replace with real drive stats if desired)
     $total = 100GB
-    $free  = 12GB
+    $free = 12GB
     $percent = [math]::Round(($free / $total) * 100, 2)
     $status = if ($percent -lt 5) { 'Unhealthy' } elseif ($percent -lt 15) { 'Degraded' } else { 'Healthy' }
     $data = [Collections.Generic.Dictionary[string, object]]::new()
     $data['freePercent'] = $percent
     $data['totalBytes'] = $total
     $data['freeBytes'] = $free
-    [Kestrun.Health.ProbeResult]::new([Kestrun.Health.ProbeStatus]::$status, "Free=$percent%", $data)
+    New-KrProbeResult $status "Free=$percent%" -Data $data
 }
 
 ## 6. Enable configuration

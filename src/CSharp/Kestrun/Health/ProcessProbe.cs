@@ -19,9 +19,10 @@ public sealed class ProcessProbe(string name, string[] tags, string fileName, st
     /// <summary>
     /// The name of the probe.
     /// </summary>
-    public string Name { get; } = name;     /// <summary>
-                                            /// The tags associated with the probe.
-                                            /// </summary>
+    public string Name { get; } = name;
+    /// <summary>
+    /// The tags associated with the probe.
+    /// </summary>
     public string[] Tags { get; } = tags;
     /// <summary>
     /// The file name of the process to run.

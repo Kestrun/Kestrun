@@ -168,7 +168,7 @@ Example combining all layers:
 ```powershell
 Initialize-KrRoot -Path $PSScriptRoot
 New-KrServer -Name 'cache-demo'
-Add-KrListener -Port 5000 -IPAddress ([IPAddress]::Loopback)
+Add-KrEndpoint -Port 5000 -IPAddress ([IPAddress]::Loopback)
 Add-KrFileServerMiddleware -RequestPath '/' -RootPath '.\Assets\wwwroot' -Public -MaxAge 600 -MustRevalidate
 Add-KrCacheMiddleware -SizeLimit 8388608 -MaximumBodySize 65536 -Public -MaxAge 60
 Add-KrPowerShellRuntime

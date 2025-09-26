@@ -3,6 +3,10 @@
     POST /certs/csr with JSON body providing subject and key parameters.
     FileName: 6.2-Cert-CSR.ps1
 #>
+param(
+    [int]$Port = 5000,
+    [IPAddress]$IPAddress = [IPAddress]::Loopback
+)
 
 Initialize-KrRoot -Path $PSScriptRoot
 
@@ -13,7 +17,7 @@ New-KrLogger |
     Register-KrLogger -Name 'myLogger' -SetAsDefault
 
 New-KrServer -Name "CSR API"
-Add-KrListener -Port 5000 -IPAddress ([IPAddress]::Loopback)
+Add-KrEndpoint -Port $Port -IPAddress $IPAddress
 Add-KrPowerShellRuntime
 
 Enable-KrConfiguration
@@ -44,9 +48,9 @@ Add-KrMapRoute -Verbs Post -Pattern "/certs/csr" -ScriptBlock {
     if ($body.CommonName) { $params.CommonName = [string]$body.CommonName }
 
     try {
-        Write-KrLog -Level Debug -Message "Creating CSR with params: {params}" -Properties $params
+        Write-KrLog -Level Debug -Message "Creating CSR with params: {params}" -Values $params
         $csr = New-KrCertificateRequest @params
-        Write-KrLog -Level Debug -Message "CSR created successfully: {csr}" -Properties $csr
+        Write-KrLog -Level Debug -Message "CSR created successfully: {csr}" -Values $csr
         Write-KrJsonResponse -StatusCode 200 -InputObject @{ csrPem = $csr.CsrPem; privateKeyPem = $csr.PrivateKeyPem ; publicKeyPem = $csr.PublicKeyPem }
     } catch {
         Write-KrJsonResponse -StatusCode 400 -InputObject @{ error = $_.Exception.Message }

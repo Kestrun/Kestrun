@@ -34,7 +34,7 @@ Minimal server returning JSON & text:
 
 ```powershell
 New-KrServer -Name 'Responses Demo' | Out-Null
-Add-KrListener -Url 'http://127.0.0.1:5055' | Out-Null
+Add-KrEndpoint -Url 'http://127.0.0.1:5055' | Out-Null
 Add-KrPowerShellRuntime | Out-Null
 
 Add-KrMapRoute -Path '/hello' -Method GET -ScriptBlock {

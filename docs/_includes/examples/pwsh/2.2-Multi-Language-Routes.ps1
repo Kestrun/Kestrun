@@ -5,11 +5,16 @@
     FileName: 2.2-Multi-Language-Routes.ps1
 #>
 
+param(
+    [int]$Port = 5000,
+    [IPAddress]$IPAddress = [IPAddress]::Loopback
+)
+
 # Create a new Kestrun server
 New-KrServer -Name "Simple Server"
 
-# Add a listener on port 5000 and IP address 127.0.0.1 (localhost)
-Add-KrListener -Port 5000 -IPAddress ([IPAddress]::Loopback)
+# Add a listener on the configured port and IP address
+Add-KrEndpoint -Port $Port -IPAddress $IPAddress
 
 # Add the PowerShell runtime
 # !!!!Important!!!! this step is required to process PowerShell routes and middlewares
@@ -36,6 +41,7 @@ Add-KrMapRoute -Verbs Get -Path "/hello-vbnet" -Code @"
     ' Or the synchronous version
     ' Context.Response.WriteTextResponse( "Hello, World!", 200);
 "@ -Language VBNet
+
 
 # Start the server asynchronously
 Start-KrServer

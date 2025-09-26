@@ -109,7 +109,7 @@ Test-KrCertificate -Certificate $cert -DenySelfSigned:$false
 
 # 4. Configure listener
 $server = New-KrServer -Name 'example'
-Add-KrListener -Server $server -Port 5001 -X509Certificate $cert -Protocols Http1
+Add-KrEndpoint -Server $server -Port 5001 -X509Certificate $cert -Protocols Http1
 ```
 
 ---

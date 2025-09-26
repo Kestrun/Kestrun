@@ -4,7 +4,10 @@
         File:    8.8-Multiple-Schemes.ps1
         Notes:   Shows grouping routes and applying distinct schemes per endpoint.
 #>
-
+param(
+    [int]$Port = 5000,
+    [IPAddress]$IPAddress = [IPAddress]::Loopback
+)
 # 1. Logging
 New-KrLogger | Add-KrSinkConsole | Register-KrLogger -Name 'console' -SetAsDefault | Out-Null
 
@@ -12,7 +15,7 @@ New-KrLogger | Add-KrSinkConsole | Register-KrLogger -Name 'console' -SetAsDefau
 New-KrServer -Name 'Auth Multi'
 
 # 3. Listener
-Add-KrListener -Port 5000 -IPAddress ([IPAddress]::Loopback) -SelfSignedCert
+Add-KrEndpoint -Port $Port -IPAddress $IPAddress -SelfSignedCert
 
 # 4. Runtime
 Add-KrPowerShellRuntime

@@ -55,7 +55,7 @@ Stop the server with Ctrl+C.
 
 - `Initialize-KrRoot` — lock working root so relative asset paths resolve reliably.
 - `Add-KrStaticFilesService` — register a static file mount (`-RequestPath` + `-RootPath`).
-- `Add-KrListener` / `New-KrServer` / `Enable-KrConfiguration` / `Start-KrServer` — standard server lifecycle.
+- `Add-KrEndpoint` / `New-KrServer` / `Enable-KrConfiguration` / `Start-KrServer` — standard server lifecycle.
 
 ---
 

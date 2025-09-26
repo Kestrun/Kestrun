@@ -4,6 +4,11 @@
     FileName: 4.1-Shared-Variables.ps1
 #>
 
+param(
+    [int]$Port = 5000,
+    [IPAddress]$IPAddress = [IPAddress]::Loopback
+)
+
 # Initialize Kestrun root directory
 # the default value is $PWD
 # This is recommended in order to use relative paths without issues
@@ -12,8 +17,8 @@ Initialize-KrRoot -Path $PSScriptRoot
 # Create a new Kestrun server
 New-KrServer -Name "Simple Server"
 
-# Add a listener on port 5000 and IP address 127.0.0.1 (localhost)
-Add-KrListener -Port 5000 -IPAddress ([IPAddress]::Loopback)
+# Add a listener using provided parameters
+Add-KrEndpoint -Port $Port -IPAddress $IPAddress
 
 # Add the PowerShell runtime
 # !!!!Important!!!! this step is required to process PowerShell routes and middlewares
@@ -42,6 +47,8 @@ Add-KrMapRoute -Server $server -Verbs Get -Pattern '/visit' -ScriptBlock {
     $Visits.AddOrUpdate("Count", 1, { param($k, $v) $v + 1 })
     Write-KrTextResponse -InputObject "[Runspace: $([System.Management.Automation.Runspaces.Runspace]::DefaultRunspace.Name)] Incremented to $($Visits.Count)" -StatusCode 200
 }
+
+
 
 # Start the server asynchronously
 Start-KrServer

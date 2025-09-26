@@ -35,7 +35,7 @@
     .NOTES
         This function is designed to be used after the server has been configured with routes and listeners.
 #>
-function Add-KrListener {
+function Add-KrEndpoint {
     [KestrunRuntimeApi('Definition')]
     [CmdletBinding(defaultParameterSetName = 'NoCert')]
     [OutputType([Kestrun.Hosting.KestrunHost])]
@@ -79,9 +79,6 @@ function Add-KrListener {
     begin {
         # Ensure the server instance is resolved
         $Server = Resolve-KestrunServer -Server $Server
-        if ($null -eq $Server) {
-            throw 'Server is not initialized. Please ensure the server is configured before setting options.'
-        }
         if ($null -ne $IPAddress) {
             if (-not [string]::IsNullOrEmpty($HostName)) {
                 throw "Cannot specify both IPAddress and HostName. Please choose one."

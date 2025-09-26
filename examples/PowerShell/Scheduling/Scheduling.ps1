@@ -46,7 +46,7 @@ Set-KrSharedState -Name 'Visits' -Value @{Count = 0 }
 New-KrServer -Name 'MyKestrunServer' -Logger $logger
 
 # Listen on port 5000 (HTTP)
-Add-KrListener -Port 5000 -PassThru |
+Add-KrEndpoint -Port 5000 -PassThru |
     # Add run-space runtime & scheduler (8 RS for jobs)
     Add-KrPowerShellRuntime -PassThru | Add-KrScheduling -MaxRunspaces 8 -PassThru |
     # Seed a global counter (Visits) — injected as $Visits in every runspace
@@ -55,7 +55,7 @@ Add-KrListener -Port 5000 -PassThru |
 
 # (A) pure-C# heartbeat every 10 s (through ScriptBlock)
 Register-KrSchedule -Name Heartbeat -Interval '00:00:10' -RunImmediately -ScriptBlock {
-    Write-KrLog -Level Information -Message '💓  Heartbeat (PowerShell) at {0:O}' -Properties $([DateTimeOffset]::UtcNow)
+    Write-KrLog -Level Information -Message '💓  Heartbeat (PowerShell) at {0:O}' -Values $([DateTimeOffset]::UtcNow)
 }
 
 

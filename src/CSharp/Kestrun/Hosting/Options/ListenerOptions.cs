@@ -51,4 +51,9 @@ public class ListenerOptions
         Protocols = HttpProtocols.Http1;
         UseConnectionLogging = false;
     }
+    /// <summary>
+    /// Returns a string representation of the listener in the format "http(s)://{IPAddress}:{Port}".
+    /// </summary>
+    /// <returns>A string representation of the listener.</returns>
+    public override string ToString() { return $"{(UseHttps ? "https" : "http")}://{IPAddress}:{Port}"; }
 }

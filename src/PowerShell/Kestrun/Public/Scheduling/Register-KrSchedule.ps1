@@ -37,7 +37,7 @@
         Register a job that runs nightly at 3 AM, executing the script at 'Scripts/Cleanup.ps1'.
     .EXAMPLE
         Register-KrSchedule -Name Heartbeat -Cron '*/10 * * * * *' -ScriptBlock {
-            Write-KrLog -Level Information -Message "💓 Heartbeat at {0:O}" -Properties $([DateTimeOffset]::UtcNow)
+            Write-KrLog -Level Information -Message "💓 Heartbeat at {0:O}" -Values $([DateTimeOffset]::UtcNow)
         }
         Register a job that runs every 10 seconds, logging a heartbeat message.
     .EXAMPLE
@@ -55,7 +55,7 @@
         Register a job that runs daily at 1 AM, executing the C# script at 'Scripts/Backup.cs'.
     .EXAMPLE
         Register-KrSchedule -Server $server -Name 'RunOnce' -Interval '00:01:00' -ScriptBlock {
-            Write-KrLog -Level Information -Message "Running once at {0:O}" -Properties $([DateTimeOffset]::UtcNow)
+            Write-KrLog -Level Information -Message "Running once at {0:O}" -Values $([DateTimeOffset]::UtcNow)
         } -RunImmediately
         Register a job that runs once immediately after registration, then every minute.
     .EXAMPLE
@@ -117,9 +117,6 @@ function Register-KrSchedule {
     begin {
         # Ensure the server instance is resolved
         $Server = Resolve-KestrunServer -Server $Server
-        if ($null -eq $Server) {
-            throw 'Server is not initialized. Please ensure the server is configured before setting options.'
-        }
     }
     process {
         # Ensure the scheduler service is enabled
@@ -161,12 +158,12 @@ function Register-KrSchedule {
             if ($PassThru.IsPresent) {
                 # if the PassThru switch is specified, return the job info
                 # Return the newly registered job info
-                Write-KrLog -Level Information -Message "Schedule '{0}' registered successfully." -Properties $Name
+                Write-KrLog -Level Information -Message "Schedule '{0}' registered successfully." -Values $Name
 
                 # return the freshly-registered JobInfo
                 return $sched.GetSnapshot() | Where-Object Name -EQ $Name
             } else {
-                Write-KrLog -Level Information -Message "Schedule '{0}' registered successfully. Use -PassThru to return the job info." -Properties $Name
+                Write-KrLog -Level Information -Message "Schedule '{0}' registered successfully. Use -PassThru to return the job info." -Values $Name
             }
         } catch {
             Write-KrLog -Level Error -Message 'Failed to register schedule' -ErrorRecord $_

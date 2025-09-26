@@ -5,6 +5,11 @@
     FileName: 5.3-Enrichment-Correlation-IDs.ps1
 #>
 
+param(
+    [int]$Port = 5000,
+    [IPAddress]$IPAddress = [IPAddress]::Loopback
+)
+
 $appLogger = New-KrLogger |
     Set-KrLoggerMinimumLevel -Value Debug |
     Add-KrEnrichProperty -Name 'App' -Value 'LoggingSamples' |
@@ -14,7 +19,7 @@ $appLogger = New-KrLogger |
     Register-KrLogger -Name 'app' -PassThru
 
 New-KrServer -Name "Enrichment & Correlation IDs"
-Add-KrListener -Port 5000 -IPAddress ([IPAddress]::Loopback)
+Add-KrEndpoint -Port $Port -IPAddress $IPAddress
 Add-KrPowerShellRuntime
 
 Enable-KrConfiguration
@@ -40,6 +45,8 @@ Add-KrMapRoute -Verbs Get -Path "/csharp-correlation" -Code @"
     log.Debug("Processing details");
     Context.Response.WriteTextResponse($"csharp-correlation: {correlationId}", 200);
 "@ -Language CSharp
+
+
 
 # Start the server
 Start-KrServer

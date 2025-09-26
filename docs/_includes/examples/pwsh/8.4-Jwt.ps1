@@ -4,7 +4,10 @@
     File:    8.4-Jwt.ps1
     Notes:   Uses symmetric HMAC key; store securely (e.g., KeyVault, env var) in production.
 #>
-
+param(
+    [int]$Port = 5000,
+    [IPAddress]$IPAddress = [IPAddress]::Loopback
+)
 # 1. Logging
 New-KrLogger | Add-KrSinkConsole | Register-KrLogger -Name 'console' -SetAsDefault | Out-Null
 
@@ -12,7 +15,7 @@ New-KrLogger | Add-KrSinkConsole | Register-KrLogger -Name 'console' -SetAsDefau
 New-KrServer -Name 'Auth JWT'
 
 # 3. Listener
-Add-KrListener -Port 5000 -IPAddress ([IPAddress]::Loopback) -SelfSignedCert
+Add-KrEndpoint -Port $Port -IPAddress $IPAddress -SelfSignedCert
 
 # 4. Runtime
 Add-KrPowerShellRuntime
@@ -37,10 +40,10 @@ Enable-KrConfiguration
 # 9. Route: issue token (requires Basic)
 Add-KrMapRoute -Verbs Get -Pattern '/token/new' -AuthorizationSchema 'BasicInit' -ScriptBlock {
     $user = $Context.User.Identity.Name
-    Write-KrLog -Level Information -Message 'Generating JWT token for user {User}' -Properties $user
-    Write-KrLog -Level Information -Message "Issuer : {Issuer} " -Properties $JwtTokenBuilder.Issuer
-    Write-KrLog -Level Information -Message "Audience : {Audience} " -Properties $JwtTokenBuilder.Audience
-    Write-KrLog -Level Information -Message "Algorithm: {Algorithm} " -Properties $JwtTokenBuilder.Algorithm
+    Write-KrLog -Level Information -Message 'Generating JWT token for user {User}' -Values $user
+    Write-KrLog -Level Information -Message "Issuer : {Issuer} " -Values $JwtTokenBuilder.Issuer
+    Write-KrLog -Level Information -Message "Audience : {Audience} " -Values $JwtTokenBuilder.Audience
+    Write-KrLog -Level Information -Message "Algorithm: {Algorithm} " -Values $JwtTokenBuilder.Algorithm
 
     $build = Copy-KrJWTTokenBuilder -Builder $jwtBuilder |
         Add-KrJWTSubject -Subject $user |
@@ -54,7 +57,7 @@ Add-KrMapRoute -Verbs Get -Pattern '/token/new' -AuthorizationSchema 'BasicInit'
 Add-KrMapRoute -Verbs Get -Pattern '/token/renew' -AuthorizationSchema $JwtScheme -ScriptBlock {
     $user = $Context.User.Identity.Name
 
-    Write-KrLog -Level Information -Message 'Generating JWT token for user {0}' -Properties $user
+    Write-KrLog -Level Information -Message 'Generating JWT token for user {0}' -Values $user
     $accessToken = $jwtBuilder | Update-KrJWT -FromContext
     Write-KrJsonResponse -InputObject @{
         access_token = $accessToken

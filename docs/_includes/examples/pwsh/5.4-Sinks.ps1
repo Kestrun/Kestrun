@@ -5,6 +5,11 @@
     FileName: 5.4-Sinks.ps1
 #>
 
+param(
+    [int]$Port = 5000,
+    [IPAddress]$IPAddress = [IPAddress]::Loopback
+)
+
 $text = New-KrLogger |
     Set-KrLoggerMinimumLevel -Value Information |
     Add-KrSinkConsole |
@@ -17,7 +22,7 @@ $json = New-KrLogger |
     Register-KrLogger -Name 'json' -PassThru
 
 New-KrServer -Name "Sinks Demo"
-Add-KrListener -Port 5000 -IPAddress ([IPAddress]::Loopback)
+Add-KrEndpoint -Port $Port -IPAddress $IPAddress
 Add-KrPowerShellRuntime
 
 Enable-KrConfiguration
@@ -28,7 +33,7 @@ Add-KrMapRoute -Verbs Get -Path "/text" -ScriptBlock {
 }
 
 Add-KrMapRoute -Verbs Get -Path "/json" -ScriptBlock {
-    Write-KrLog -Logger $json -Level Debug -Message "Json sink example" -Properties @{ Example = $true }
+    Write-KrLog -Logger $json -Level Debug -Message "Json sink example" -Values @{ Example = $true }
     Write-KrTextResponse -InputObject "json" -StatusCode 200
 }
 

@@ -45,7 +45,7 @@ blending scriptable flexibility with modern .NET performance.
 # spin up Kestrun
 Import-Module Kestrun
 New-KrServer -Name 'MyKestrunServer'
-Add-KrListener -Port 5000
+Add-KrEndpoint -Port 5000
 Add-KrPowerShellRuntime
 Enable-KrConfiguration
 

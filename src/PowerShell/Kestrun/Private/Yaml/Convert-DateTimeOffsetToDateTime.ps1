@@ -1,4 +1,4 @@
-﻿<#
+<#
 .SYNOPSIS
     Recursively converts DateTimeOffset instances to DateTime in a given object.
 .DESCRIPTION

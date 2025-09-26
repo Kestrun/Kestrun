@@ -5,6 +5,11 @@
     FileName: 7.1-Basic-Server.ps1
 #>
 
+param(
+    [int]$Port = 5000,
+    [IPAddress]$IPAddress = [IPAddress]::Loopback
+)
+
 # (Optional) Configure console logging so we can see events
 New-KrLogger |
     Add-KrSinkConsole |
@@ -13,8 +18,8 @@ New-KrLogger |
 # Create a new Kestrun server
 New-KrServer -Name 'Endpoints Basic'
 
-# Add a listener on port 5000 and IP address 127.0.0.1 (localhost)
-Add-KrListener -Port 5000 -IPAddress ([IPAddress]::Loopback)
+# Add a listener on the configured port and IP address
+Add-KrEndpoint -Port $Port -IPAddress $IPAddress
 
 # Add the PowerShell runtime
 # !!!!Important!!!! this step is required to process PowerShell routes and middlewares
@@ -30,7 +35,8 @@ Add-KrMapRoute -Verbs Get -Pattern '/hello' -ScriptBlock {
 }
 
 # Initial informational log
-Write-KrLog -Level Information -Message 'Server {Name} configured.' -Properties 'Endpoints Basic'
+Write-KrLog -Level Information -Message 'Server {Name} configured.' -Values 'Endpoints Basic'
 
-# Start the server asynchronously
+# Start the server and close all the loggers when the server stops
+# This is equivalent to calling Close-KrLogger after Start-KrServer
 Start-KrServer -CloseLogsOnExit

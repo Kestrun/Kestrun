@@ -4,6 +4,11 @@
     FileName: 3.5-Response-Caching.ps1
 #>
 
+param(
+    [int]$Port = 5000,
+    [IPAddress]$IPAddress = [IPAddress]::Loopback
+)
+
 # Initialize Kestrun root directory
 # the default value is $PWD
 # This is recommended in order to use relative paths without issues
@@ -14,10 +19,10 @@ New-KrLogger |
     Register-KrLogger -Name 'console' -SetAsDefault | Out-Null
 # Create a new Kestrun server
 New-KrServer -Name "Simple Server"
-# 4. PowerShell runtime
+# PowerShell runtime
 Add-KrPowerShellRuntime
-# Add a listener on port 5000 and IP address 127.0.0.1 (localhost)
-Add-KrListener -Port 5000 -IPAddress ([IPAddress]::Loopback)
+# Add a listener on configured port and IP
+Add-KrEndpoint -Port $Port -IPAddress $IPAddress
 
 # Add a file server with browsing enabled use the default Cache-Control headers
 Add-KrFileServerMiddleware -RequestPath '/' -RootPath '.\Assets\wwwroot' -EnableDirectoryBrowsing -ContentTypeMap $map
@@ -54,9 +59,10 @@ Add-KrMapRoute -Verbs Get -Pattern '/custom_cachetest' -ScriptBlock {
         Write-KrLog -Level Debug -Message "Returning 304 Not Modified"
         return
     }
-    Write-KrLog -Level Debug -Message "Returning 200 OK with payload: {Payload}" -Properties $payload
+    Write-KrLog -Level Debug -Message "Returning 200 OK with payload: {Payload}" -Values $payload
     # Fresh response
     Write-KrTextResponse -InputObject $payload -StatusCode 200
 }
+
 # Start the server asynchronously
 Start-KrServer

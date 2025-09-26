@@ -4,7 +4,10 @@
     File:    8.3-Api-Key.ps1
     Notes:   Keys are static for illustration. Rotate & store securely in production.
 #>
-
+param(
+    [int]$Port = 5000,
+    [IPAddress]$IPAddress = [IPAddress]::Loopback
+)
 # 1. Logging
 New-KrLogger | Add-KrSinkConsole | Register-KrLogger -Name 'console' -SetAsDefault | Out-Null
 
@@ -12,7 +15,7 @@ New-KrLogger | Add-KrSinkConsole | Register-KrLogger -Name 'console' -SetAsDefau
 New-KrServer -Name 'Auth API Key'
 
 # 3. Listener
-Add-KrListener -Port 5000 -IPAddress ([IPAddress]::Loopback)
+Add-KrEndpoint -Port $Port -IPAddress $IPAddress
 
 # 4. Runtime
 Add-KrPowerShellRuntime

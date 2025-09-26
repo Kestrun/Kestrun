@@ -37,6 +37,22 @@ Describe 'Kestrun PowerShell Functions' {
         [System.IO.Path]::IsPathRooted($result) | Should -BeTrue
     }
 
+    It 'Resolve-KrPath -Test returns original when file missing' {
+        $missing = 'DefinitelyMissing_KrTestFile_12345.ps1'
+        (Test-Path $missing) | Should -BeFalse
+        $result = Resolve-KrPath -Path $missing -KestrunRoot -Test
+        $result | Should -Be $missing
+    }
+
+    It 'Resolve-KrPath normalizes mixed separators and dot segments' {
+        $sampleRelative = './subdir/..'  # should collapse to base root when combined
+        $base = (Resolve-KrPath -Path '.' -KestrunRoot)
+        $result = Resolve-KrPath -Path $sampleRelative -RelativeBasePath $base
+        [System.IO.Path]::IsPathRooted($result) | Should -BeTrue
+        # Should not contain '/./' or '\\.' sequences
+        $result -match '/\./|\\\.' | Should -BeFalse
+    }
+
     <# It 'Write-KrTextResponse calls method on Response object' {
         $called = $null
         $Context.Response = [pscustomobject]@{

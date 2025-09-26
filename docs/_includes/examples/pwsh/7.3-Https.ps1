@@ -6,7 +6,10 @@
 #>
 
 [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidUsingConvertToSecureStringWithPlainText', '')]
-param()
+param(
+    [int]$Port = 5000,
+    [IPAddress]$IPAddress = [IPAddress]::Loopback
+)
 
 # (Optional) Configure console logging
 New-KrLogger |
@@ -22,14 +25,15 @@ if (-not (Test-Path $certPath)) {
         Export-KrCertificate -FilePath $certPath -Format Pfx -IncludePrivateKey -Password $pw | Out-Null
 }
 
+$port2 = $Port + 443
 # Create a new Kestrun server
 New-KrServer -Name 'Endpoints Https'
 
 # HTTP listener (optional)
-Add-KrListener -Port 5000 -IPAddress ([IPAddress]::Loopback)
+Add-KrEndpoint -Port $Port -IPAddress $IPAddress
 
-# HTTPS listener on port 5443
-Add-KrListener -Port 5443 -IPAddress ([IPAddress]::Loopback) -CertPath $certPath -CertPassword $pw
+# HTTPS listener
+Add-KrEndpoint -Port $port2 -IPAddress $IPAddress -CertPath $certPath -CertPassword $pw
 
 # Add PowerShell runtime
 Add-KrPowerShellRuntime
@@ -38,12 +42,19 @@ Add-KrPowerShellRuntime
 Enable-KrConfiguration
 
 # Secure route
-Add-KrMapRoute -Verbs Get -Pattern '/secure' -ScriptBlock {
+Add-KrMapRoute -Verbs Get -Pattern '/secure' -Endpoints "$($IPAddress.ToString()):$port2" -ScriptBlock {
     Write-KrLog -Level Information -Message 'Secure endpoint invoked'
     Write-KrTextResponse -InputObject 'Secure hello' -StatusCode 200
 }
 
-Write-KrLog -Level Information -Message 'HTTPS listener active on 5443'
+# Unsecure route (available on HTTP listener)
+Add-KrMapRoute -Verbs Get -Pattern '/unsecure' -Endpoints "$($IPAddress.ToString()):$Port" -ScriptBlock {
+    Write-KrLog -Level Information -Message 'Unsecure endpoint invoked'
+    Write-KrTextResponse -InputObject 'Unsecure hello' -StatusCode 200
+}
+
+Write-KrLog -Level Information -Message 'HTTP listener active on {Port}' -Values $Port
+Write-KrLog -Level Information -Message 'HTTPS listener active on {Port2}' -Values $port2
 
 # Start the server
 Start-KrServer -CloseLogsOnExit

@@ -642,4 +642,362 @@ public class KestrunHostMapExtensionsTests
     }
 
     #endregion
+
+    #region TryParseEndpointSpec Tests
+
+    [Theory]
+    [Trait("Category", "Hosting")]
+    [InlineData("https://localhost:5000", "localhost", 5000, true)]
+    [InlineData("http://localhost:5000", "localhost", 5000, false)]
+    [InlineData("https://127.0.0.1:8080", "127.0.0.1", 8080, true)]
+    [InlineData("http://127.0.0.1:8080", "127.0.0.1", 8080, false)]
+    [InlineData("https://[::1]:5000", "[::1]", 5000, true)]
+    [InlineData("http://[::1]:5000", "[::1]", 5000, false)]
+    [InlineData("https://example.com:443", "example.com", 443, true)]
+    [InlineData("http://example.com:80", "example.com", 80, false)]
+    [InlineData("https://localhost", "localhost", 443, true)]
+    [InlineData("http://localhost", "localhost", 80, false)]
+    public void TryParseEndpointSpec_WithValidUrls_ReturnsTrue(string spec, string expectedHost, int expectedPort, bool expectedHttps)
+    {
+        var result = KestrunHostMapExtensions.TryParseEndpointSpec(spec, out var host, out var port, out var https);
+
+        Assert.True(result);
+        Assert.Equal(expectedHost, host);
+        Assert.Equal(expectedPort, port);
+        Assert.Equal(expectedHttps, https);
+    }
+
+    [Theory]
+    [Trait("Category", "Hosting")]
+    [InlineData("localhost:5000", "localhost", 5000, null)]
+    [InlineData("127.0.0.1:8080", "127.0.0.1", 8080, null)]
+    [InlineData("[::1]:5000", "::1", 5000, null)]
+    [InlineData("[2001:db8::1]:8080", "2001:db8::1", 8080, null)]
+    [InlineData("example.com:443", "example.com", 443, null)]
+    [InlineData("192.168.1.1:3000", "192.168.1.1", 3000, null)]
+    public void TryParseEndpointSpec_WithHostPort_ReturnsTrue(string spec, string expectedHost, int expectedPort, bool? expectedHttps)
+    {
+        var result = KestrunHostMapExtensions.TryParseEndpointSpec(spec, out var host, out var port, out var https);
+
+        Assert.True(result);
+        Assert.Equal(expectedHost, host);
+        Assert.Equal(expectedPort, port);
+        Assert.Equal(expectedHttps, https);
+    }
+
+    [Theory]
+    [Trait("Category", "Hosting")]
+    [InlineData("")]
+    [InlineData("   ")]
+    [InlineData("localhost")] // Missing port
+    [InlineData(":5000")] // Missing host
+    [InlineData("localhost:abc")] // Invalid port
+    [InlineData("localhost:-1")] // Negative port
+    [InlineData("localhost:0")] // Zero port
+    [InlineData("ftp://localhost:5000")] // Unsupported scheme
+    [InlineData("localhost:5000:extra")] // Extra parts
+    [InlineData("[::1:5000")] // Malformed IPv6
+    [InlineData("::1]:5000")] // Malformed IPv6
+    [InlineData("https://")] // Incomplete URL
+    [InlineData("https://localhost:")] // URL with empty port
+    public void TryParseEndpointSpec_WithInvalidSpecs_ReturnsFalse(string spec)
+    {
+        var result = KestrunHostMapExtensions.TryParseEndpointSpec(spec, out var host, out var port, out var https);
+
+        Assert.False(result);
+        Assert.Equal("", host);
+        Assert.Equal(0, port);
+        Assert.Null(https);
+    }
+
+    [Fact]
+    [Trait("Category", "Hosting")]
+    public void TryParseEndpointSpec_WithNullSpec_ReturnsFalse()
+    {
+        var result = KestrunHostMapExtensions.TryParseEndpointSpec(null!, out var host, out var port, out var https);
+
+        Assert.False(result);
+        Assert.Equal("", host);
+        Assert.Equal(0, port);
+        Assert.Null(https);
+    }
+
+    #endregion
+
+    #region ToRequireHost Tests
+
+    [Theory]
+    [Trait("Category", "Hosting")]
+    [InlineData("localhost", 5000, "localhost:5000")]
+    [InlineData("example.com", 8080, "example.com:8080")]
+    [InlineData("127.0.0.1", 3000, "127.0.0.1:3000")]
+    [InlineData("192.168.1.1", 443, "192.168.1.1:443")]
+    public void ToRequireHost_WithIPv4AndHostnames_FormatsCorrectly(string host, int port, string expected)
+    {
+        var result = KestrunHostMapExtensions.ToRequireHost(host, port);
+
+        Assert.Equal(expected, result);
+    }
+
+    [Theory]
+    [Trait("Category", "Hosting")]
+    [InlineData("::1", 5000, "[::1]:5000")]
+    [InlineData("2001:db8::1", 8080, "[2001:db8::1]:8080")]
+    [InlineData("fe80::1", 443, "[fe80::1]:443")]
+    [InlineData("::ffff:192.0.2.1", 3000, "[::ffff:192.0.2.1]:3000")]
+    public void ToRequireHost_WithIPv6Addresses_AddsSquareBrackets(string host, int port, string expected)
+    {
+        var result = KestrunHostMapExtensions.ToRequireHost(host, port);
+
+        Assert.Equal(expected, result);
+    }
+
+    [Theory]
+    [Trait("Category", "Hosting")]
+    [InlineData("not-an-ip", 5000, "not-an-ip:5000")]
+    [InlineData("invalid.ip.address", 8080, "invalid.ip.address:8080")]
+    [InlineData("", 3000, ":3000")]
+    public void ToRequireHost_WithNonIPAddresses_FormatsWithoutBrackets(string host, int port, string expected)
+    {
+        var result = KestrunHostMapExtensions.ToRequireHost(host, port);
+
+        Assert.Equal(expected, result);
+    }
+
+    #endregion
+
+    #region ApplyRequiredHost Tests
+
+    [Fact]
+    [Trait("Category", "Hosting")]
+    public void ApplyRequiredHost_WithNoEndpoints_DoesNotThrow()
+    {
+        SanitizeSharedGlobals();
+        var host = new KestrunHost("TestApp", AppContext.BaseDirectory);
+        _ = host.ConfigureListener(5000, System.Net.IPAddress.Parse("127.0.0.1"), null, Microsoft.AspNetCore.Server.Kestrel.Core.HttpProtocols.Http1, false);
+        host.EnableConfiguration();
+
+        var map = host.AddMapRoute("/test", HttpVerb.Get, "Context.Response.StatusCode = 200;", ScriptLanguage.CSharp);
+
+        // Should not throw
+        Assert.NotNull(map);
+    }
+
+    [Fact]
+    [Trait("Category", "Hosting")]
+    public void ApplyRequiredHost_WithEmptyEndpoints_DoesNotThrow()
+    {
+        SanitizeSharedGlobals();
+        var host = new KestrunHost("TestApp", AppContext.BaseDirectory);
+        _ = host.ConfigureListener(5000, System.Net.IPAddress.Parse("127.0.0.1"), null, Microsoft.AspNetCore.Server.Kestrel.Core.HttpProtocols.Http1, false);
+        host.EnableConfiguration();
+
+        var map = host.AddMapRoute("/test", HttpVerb.Get, "Context.Response.StatusCode = 200;", ScriptLanguage.CSharp);
+
+        // Should not throw
+        Assert.NotNull(map);
+    }
+
+    [Fact]
+    [Trait("Category", "Hosting")]
+    public void ApplyRequiredHost_WithValidEndpoint_DoesNotThrow()
+    {
+        SanitizeSharedGlobals();
+        var host = new KestrunHost("TestApp", AppContext.BaseDirectory);
+        _ = host.ConfigureListener(5000, System.Net.IPAddress.Parse("127.0.0.1"), null, Microsoft.AspNetCore.Server.Kestrel.Core.HttpProtocols.Http1, false);
+        host.EnableConfiguration();
+
+        var options = new MapRouteOptions
+        {
+            Pattern = "/test",
+            HttpVerbs = [HttpVerb.Get],
+            Code = "Context.Response.StatusCode = 200;",
+            Language = ScriptLanguage.CSharp,
+            Endpoints = ["127.0.0.1:5000"]
+        };
+
+        var map = host.AddMapRoute(options);
+
+        Assert.NotNull(map);
+    }
+
+    [Fact]
+    [Trait("Category", "Hosting")]
+    public void ApplyRequiredHost_WithValidHttpsEndpoint_DoesNotThrow()
+    {
+        SanitizeSharedGlobals();
+        var host = new KestrunHost("TestApp", AppContext.BaseDirectory);
+
+        // Create a self-signed certificate for testing
+        using var ecdsa = System.Security.Cryptography.ECDsa.Create();
+        var req = new System.Security.Cryptography.X509Certificates.CertificateRequest("CN=localhost", ecdsa, System.Security.Cryptography.HashAlgorithmName.SHA256);
+        using var cert = req.CreateSelfSigned(DateTimeOffset.UtcNow.AddDays(-1), DateTimeOffset.UtcNow.AddDays(1));
+
+        _ = host.ConfigureListener(5001, System.Net.IPAddress.Parse("127.0.0.1"), cert);
+        host.EnableConfiguration();
+
+        var options = new MapRouteOptions
+        {
+            Pattern = "/test-https",
+            HttpVerbs = [HttpVerb.Get],
+            Code = "Context.Response.StatusCode = 200;",
+            Language = ScriptLanguage.CSharp,
+            Endpoints = ["https://127.0.0.1:5001"]
+        };
+
+        var map = host.AddMapRoute(options);
+
+        Assert.NotNull(map);
+    }
+
+    [Fact]
+    [Trait("Category", "Hosting")]
+    public void ApplyRequiredHost_WithMatchingAnyListener_DoesNotThrow()
+    {
+        SanitizeSharedGlobals();
+        var host = new KestrunHost("TestApp", AppContext.BaseDirectory);
+        _ = host.ConfigureListener(5000, System.Net.IPAddress.Any, null, Microsoft.AspNetCore.Server.Kestrel.Core.HttpProtocols.Http1, false); // Listen on Any
+        host.EnableConfiguration();
+
+        var options = new MapRouteOptions
+        {
+            Pattern = "/test-any",
+            HttpVerbs = [HttpVerb.Get],
+            Code = "Context.Response.StatusCode = 200;",
+            Language = ScriptLanguage.CSharp,
+            Endpoints = ["127.0.0.1:5000"] // Request specific IP
+        };
+
+        var map = host.AddMapRoute(options);
+
+        Assert.NotNull(map);
+    }
+
+    [Fact]
+    [Trait("Category", "Hosting")]
+    public void ApplyRequiredHost_WithInvalidEndpointFormat_ThrowsArgumentException()
+    {
+        SanitizeSharedGlobals();
+        var host = new KestrunHost("TestApp", AppContext.BaseDirectory);
+        _ = host.ConfigureListener(5000, System.Net.IPAddress.Parse("127.0.0.1"), null, Microsoft.AspNetCore.Server.Kestrel.Core.HttpProtocols.Http1, false);
+        host.EnableConfiguration();
+
+        var options = new MapRouteOptions
+        {
+            Pattern = "/test-invalid",
+            HttpVerbs = [HttpVerb.Get],
+            Code = "Context.Response.StatusCode = 200;",
+            Language = ScriptLanguage.CSharp,
+            Endpoints = ["invalid-format"]
+        };
+
+        var ex = Assert.Throws<InvalidOperationException>(() => host.AddMapRoute(options));
+
+        Assert.Contains("must be 'host:port' or 'http(s)://host:port'", ex.Message);
+        Assert.Contains("invalid-format", ex.Message);
+    }
+
+    [Fact]
+    [Trait("Category", "Hosting")]
+    public void ApplyRequiredHost_WithNonMatchingListener_ThrowsArgumentException()
+    {
+        SanitizeSharedGlobals();
+        var host = new KestrunHost("TestApp", AppContext.BaseDirectory);
+        _ = host.ConfigureListener(5000, System.Net.IPAddress.Parse("127.0.0.1"), null, Microsoft.AspNetCore.Server.Kestrel.Core.HttpProtocols.Http1, false);
+        host.EnableConfiguration();
+
+        var options = new MapRouteOptions
+        {
+            Pattern = "/test-no-match",
+            HttpVerbs = [HttpVerb.Get],
+            Code = "Context.Response.StatusCode = 200;",
+            Language = ScriptLanguage.CSharp,
+            Endpoints = ["127.0.0.1:8080"] // Different port
+        };
+
+        var ex = Assert.Throws<InvalidOperationException>(() => host.AddMapRoute(options));
+
+        Assert.Contains("doesn't match any configured listener", ex.Message);
+        Assert.Contains("127.0.0.1:8080", ex.Message);
+    }
+
+    [Fact]
+    [Trait("Category", "Hosting")]
+    public void ApplyRequiredHost_WithMultipleValidEndpoints_DoesNotThrow()
+    {
+        SanitizeSharedGlobals();
+        var host = new KestrunHost("TestApp", AppContext.BaseDirectory);
+        _ = host.ConfigureListener(5000, System.Net.IPAddress.Parse("127.0.0.1"), null, Microsoft.AspNetCore.Server.Kestrel.Core.HttpProtocols.Http1, false);
+
+        // Create a self-signed certificate for HTTPS testing
+        using var ecdsa = System.Security.Cryptography.ECDsa.Create();
+        var req = new System.Security.Cryptography.X509Certificates.CertificateRequest("CN=localhost", ecdsa, System.Security.Cryptography.HashAlgorithmName.SHA256);
+        using var cert = req.CreateSelfSigned(DateTimeOffset.UtcNow.AddDays(-1), DateTimeOffset.UtcNow.AddDays(1));
+
+        _ = host.ConfigureListener(5001, System.Net.IPAddress.Parse("127.0.0.1"), cert);
+        host.EnableConfiguration();
+
+        var options = new MapRouteOptions
+        {
+            Pattern = "/test-multiple",
+            HttpVerbs = [HttpVerb.Get],
+            Code = "Context.Response.StatusCode = 200;",
+            Language = ScriptLanguage.CSharp,
+            Endpoints = ["127.0.0.1:5000", "https://127.0.0.1:5001"]
+        };
+
+        var map = host.AddMapRoute(options);
+
+        Assert.NotNull(map);
+    }
+
+    [Fact]
+    [Trait("Category", "Hosting")]
+    public void ApplyRequiredHost_WithMixedValidAndInvalidEndpoints_ThrowsArgumentException()
+    {
+        SanitizeSharedGlobals();
+        var host = new KestrunHost("TestApp", AppContext.BaseDirectory);
+        _ = host.ConfigureListener(5000, System.Net.IPAddress.Parse("127.0.0.1"), null, Microsoft.AspNetCore.Server.Kestrel.Core.HttpProtocols.Http1, false);
+        host.EnableConfiguration();
+
+        var options = new MapRouteOptions
+        {
+            Pattern = "/test-mixed",
+            HttpVerbs = [HttpVerb.Get],
+            Code = "Context.Response.StatusCode = 200;",
+            Language = ScriptLanguage.CSharp,
+            Endpoints = ["127.0.0.1:5000", "invalid-endpoint", "127.0.0.1:9999"]
+        };
+
+        var ex = Assert.Throws<InvalidOperationException>(() => host.AddMapRoute(options));
+
+        Assert.Contains("Invalid Endpoints:", ex.Message);
+        Assert.Contains("invalid-endpoint", ex.Message);
+        Assert.Contains("127.0.0.1:9999", ex.Message);
+    }
+
+    [Fact]
+    [Trait("Category", "Hosting")]
+    public void ApplyRequiredHost_WithIPv6Endpoint_DoesNotThrow()
+    {
+        SanitizeSharedGlobals();
+        var host = new KestrunHost("TestApp", AppContext.BaseDirectory);
+        _ = host.ConfigureListener(5000, System.Net.IPAddress.IPv6Loopback, null, Microsoft.AspNetCore.Server.Kestrel.Core.HttpProtocols.Http1, false);
+        host.EnableConfiguration();
+
+        var options = new MapRouteOptions
+        {
+            Pattern = "/test-ipv6",
+            HttpVerbs = [HttpVerb.Get],
+            Code = "Context.Response.StatusCode = 200;",
+            Language = ScriptLanguage.CSharp,
+            Endpoints = ["[::1]:5000"]
+        };
+
+        var map = host.AddMapRoute(options);
+
+        Assert.NotNull(map);
+    }
+
+    #endregion
 }

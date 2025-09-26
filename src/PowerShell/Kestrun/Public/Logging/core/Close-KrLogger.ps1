@@ -31,24 +31,43 @@ function Close-KrLogger {
     [CmdletBinding(DefaultParameterSetName = 'AllLogs')]
     param(
         [Parameter(Mandatory = $false, ValueFromPipeline = $true, ParameterSetName = 'Logger')]
-        [Serilog.ILogger]$Logger,
+        [Serilog.ILogger[]]$Logger,
 
         [Parameter(Mandatory = $false, ParameterSetName = 'LoggerName')]
-        [string]$LoggerName,
+        [string[]]$LoggerName,
 
         [Parameter(Mandatory = $false, ParameterSetName = 'Default')]
         [switch]$DefaultLogger
     )
 
     process {
-        if ($DefaultLogger) {
-            $Logger = [Kestrun.Logging.LoggerManager]::GetDefault()
-        } elseif ($Null -eq $Logger) {
-            if (-not [string]::IsNullOrEmpty($LoggerName)) {
-                # If LoggerName is specified, get the logger with that name
-                $Logger = [Kestrun.Logging.LoggerManager]::Get($LoggerName)
+        switch ($PSCmdlet.ParameterSetName) {
+            'Logger' {
+                # If a specific logger instance is provided, use it
+            }
+            'LoggerName' {
+                if ($LoggerName.Count -gt 1) {
+                    # If LoggerName is specified, get the logger with that name
+                    $Logger = @()
+                    foreach ($name in $LoggerName) {
+                        $log = [Kestrun.Logging.LoggerManager]::Get($name)
+                        if ($null -ne $log) {
+                            $Logger += $log
+                        }
+                    }
+                }
+            }
+            'Default' {
+                if ($DefaultLogger) {
+                    $Logger = @([Kestrun.Logging.LoggerManager]::GetDefault())
+                }
+            }
+            'AllLogs' {
+                # No specific logger provided, close all loggers
+                $Logger = $null # Indicate to close all loggers
             }
         }
+
         if ($null -ne $Logger) {
             # Close the specified logger
             $null = [Kestrun.Logging.LoggerManager]::CloseAndFlush($Logger)

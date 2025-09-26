@@ -1,4 +1,4 @@
-﻿# Portions derived from PowerShell-Yaml (https://github.com/cloudbase/powershell-yaml)
+# Portions derived from PowerShell-Yaml (https://github.com/cloudbase/powershell-yaml)
 # Copyright (c) 2016–2024 Cloudbase Solutions Srl
 # Licensed under the Apache License, Version 2.0 (Apache-2.0).
 # You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0

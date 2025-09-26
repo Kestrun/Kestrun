@@ -4,7 +4,10 @@
     File:    8.7-Claims-Policies.ps1
     Notes:   Demonstrates issuing claims during authentication.
 #>
-
+param(
+    [int]$Port = 5000,
+    [IPAddress]$IPAddress = [IPAddress]::Loopback
+)
 # 1. Logging
 New-KrLogger | Add-KrSinkConsole | Register-KrLogger -Name 'console' -SetAsDefault | Out-Null
 
@@ -12,7 +15,7 @@ New-KrLogger | Add-KrSinkConsole | Register-KrLogger -Name 'console' -SetAsDefau
 New-KrServer -Name 'Auth Claims'
 
 # 3. Listener
-Add-KrListener -Port 5000 -IPAddress ([IPAddress]::Loopback) -SelfSignedCert
+Add-KrEndpoint -Port $Port -IPAddress $IPAddress -SelfSignedCert
 
 # 4. Runtime
 Add-KrPowerShellRuntime
@@ -27,7 +30,7 @@ $claimConfig = New-KrClaimPolicy |
 # 6. Basic auth + issue claims for admin
 Add-KrBasicAuthentication -Name 'PolicyBasic' -Realm 'Claims' -AllowInsecureHttp -ScriptBlock {
     param($Username, $Password)
-    Write-KrLog -Level Information -Message 'Basic Authentication: User {user} is trying to authenticate.' -Properties $Username
+    Write-KrLog -Level Information -Message 'Basic Authentication: User {user} is trying to authenticate.' -Values $Username
     if ($Username -eq 'admin' -and $Password -eq 'password') {
         $true
     } else {

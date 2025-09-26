@@ -142,9 +142,8 @@ Add-BuildTask Help {
     Write-Host '🧩 Additional Tasks:' -ForegroundColor Green
     Write-Host '- Nuget-CodeAnalysis: Updates CodeAnalysis packages.'
     Write-Host '- Clean-CodeAnalysis: Cleans the CodeAnalysis packages.'
-    Write-Host '- Kestrun.Tests: Runs Kestrun DLL tests.'
+    Write-Host '- Test-xUnit: Runs Kestrun DLL tests.'
     Write-Host '- Test-Pester: Runs Pester tests.'
-    Write-Host '- Kestrun.Tests: Runs Kestrun DLL tests.'
     Write-Host '- Package: Packages the solution.'
     Write-Host '- Manifest: Updates the Kestrun.psd1 manifest.'
     Write-Host '- New-LargeFile: Generates a large test file.'
@@ -257,7 +256,7 @@ Add-BuildTask 'Clean-CodeAnalysis' {
     Remove-Item -Path './src/PowerShell/Kestrun/lib/Microsoft.CodeAnalysis/' -Force -Recurse -ErrorAction SilentlyContinue
 }
 
-Add-BuildTask 'Kestrun.Tests' {
+Add-BuildTask 'Test-xUnit' {
     Write-Host '🧪 Running Kestrun DLL tests...'
     $failures = @()
     foreach ($framework in $Frameworks) {
@@ -269,7 +268,7 @@ Add-BuildTask 'Kestrun.Tests' {
         }
     }
     if ($failures.Count -gt 0) {
-        throw "Kestrun.Tests failed for frameworks: $($failures -join ', ')"
+        throw "Test-xUnit failed for frameworks: $($failures -join ', ')"
     }
 }
 
@@ -326,7 +325,7 @@ Invoke-Pester -Configuration $cfg
     }
 }
 
-Add-BuildTask 'Test' 'Kestrun.Tests', 'Test-Pester'
+Add-BuildTask 'Test' 'Test-xUnit', 'Test-Pester'
 
 Add-BuildTask 'Package' "Clean", {
     Write-Host '🚀 Starting release build...'

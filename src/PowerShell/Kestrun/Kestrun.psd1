@@ -77,7 +77,7 @@
         'Add-KrEnrichProcessName', 'Add-KrEnrichProperty', 'Add-KrFaviconMiddleware',
         'Add-KrFileServerMiddleware', 'Add-KrHtmlTemplateRoute', 'Add-KrJWTAudience',
         'Add-KrJWTBearerAuthentication', 'Add-KrJWTClaim', 'Add-KrJWTHeader',
-        'Add-KrJWTIssuer', 'Add-KrJWTSubject', 'Add-KrListener',
+        'Add-KrJWTIssuer', 'Add-KrJWTSubject', 'Add-KrEndpoint',
         'Add-KrListenUnixSocket', 'Add-KrMapRoute', 'Add-KrNamedPipeListener',
         'Add-KrPowerShellRazorPagesRuntime', 'Add-KrPowerShellRuntime', 'Add-KrRazorPageService',
         'Add-KrRouteGroup', 'Add-KrScheduling', 'Add-KrScriptBlock',

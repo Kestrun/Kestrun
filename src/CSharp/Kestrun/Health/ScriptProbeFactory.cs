@@ -1,0 +1,388 @@
+using System.Collections;
+using System.Management.Automation;
+using System.Management.Automation.Runspaces;
+using System.Reflection;
+using Kestrun.Languages;
+using Kestrun.SharedState;
+using Kestrun.Scripting;
+using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp.Scripting;
+using Microsoft.CodeAnalysis.Scripting;
+using Microsoft.CodeAnalysis.VisualBasic;
+using KestrunCompilationErrorException = Kestrun.Scripting.CompilationErrorException;
+using RoslynCompilationErrorException = Microsoft.CodeAnalysis.Scripting.CompilationErrorException;
+using SerilogLogger = Serilog.ILogger;
+
+namespace Kestrun.Health;
+
+/// <summary>
+/// Creates <see cref="IProbe"/> implementations backed by dynamic scripts.
+/// </summary>
+internal static class ScriptProbeFactory
+{
+    internal static IProbe Create(
+        string name,
+        IEnumerable<string>? tags,
+        ScriptLanguage language,
+        string code,
+        SerilogLogger logger,
+        Func<KestrunRunspacePoolManager>? runspaceAccessor,
+        IReadOnlyDictionary<string, object?>? arguments,
+        string[]? extraImports,
+        Assembly[]? extraRefs)
+    {
+        ArgumentNullException.ThrowIfNull(logger);
+        ArgumentException.ThrowIfNullOrWhiteSpace(code);
+
+        return language switch
+        {
+            ScriptLanguage.PowerShell => CreatePowerShellProbe(name, tags, code, logger, runspaceAccessor, arguments),
+            ScriptLanguage.CSharp => CreateCSharpProbe(name, tags, code, logger, arguments, extraImports, extraRefs),
+            ScriptLanguage.VBNet => CreateVbProbe(name, tags, code, logger, arguments, extraImports, extraRefs),
+            ScriptLanguage.Native => throw new NotSupportedException("Use AddProbe(Func<...>) for native probes."),
+            ScriptLanguage.FSharp => throw new NotImplementedException("F# health probes are not yet supported."),
+            ScriptLanguage.Python => throw new NotImplementedException("Python health probes are not yet supported."),
+            ScriptLanguage.JavaScript => throw new NotImplementedException("JavaScript health probes are not yet supported."),
+            _ => throw new ArgumentOutOfRangeException(nameof(language), language, null)
+        };
+    }
+
+    private static IProbe CreatePowerShellProbe(
+        string name,
+        IEnumerable<string>? tags,
+        string code,
+        SerilogLogger logger,
+        Func<KestrunRunspacePoolManager>? runspaceAccessor,
+        IReadOnlyDictionary<string, object?>? arguments)
+    {
+        ArgumentNullException.ThrowIfNull(runspaceAccessor);
+        return new PowerShellScriptProbe(name, tags, code, logger, runspaceAccessor, arguments);
+    }
+
+    private static IProbe CreateCSharpProbe(
+        string name,
+        IEnumerable<string>? tags,
+        string code,
+        SerilogLogger logger,
+        IReadOnlyDictionary<string, object?>? arguments,
+        string[]? extraImports,
+        Assembly[]? extraRefs)
+    {
+        try
+        {
+            var runner = BuildCSharpRunner(code, extraImports, extraRefs);
+            return new CSharpScriptProbe(name, tags, runner, arguments, logger);
+        }
+        catch (RoslynCompilationErrorException ex)
+        {
+            logger.Error(ex, "Failed to compile C# health probe {Probe}.", name);
+            throw;
+        }
+    }
+
+    private static IProbe CreateVbProbe(
+        string name,
+        IEnumerable<string>? tags,
+        string code,
+        SerilogLogger logger,
+        IReadOnlyDictionary<string, object?>? arguments,
+        string[]? extraImports,
+        Assembly[]? extraRefs)
+    {
+        try
+        {
+            var runner = VBNetDelegateBuilder.Compile<ProbeResult>(code, logger, extraImports, extraRefs, arguments, LanguageVersion.VisualBasic16_9);
+            return new VbScriptProbe(name, tags, runner, arguments, logger);
+        }
+        catch (KestrunCompilationErrorException ex)
+        {
+            logger.Error(ex, "Failed to compile VB.NET health probe {Probe}.", name);
+            throw;
+        }
+    }
+
+    private static ScriptRunner<ProbeResult> BuildCSharpRunner(string code, string[]? extraImports, Assembly[]? extraRefs)
+    {
+        var options = ScriptOptions.Default
+            .AddReferences(DelegateBuilder.BuildBaselineReferences())
+            .AddReferences(typeof(ProbeResult).Assembly, typeof(ScriptProbeFactory).Assembly)
+            .WithImports(DelegateBuilder.PlatformImports)
+            .AddImports("Kestrun", "Kestrun.Health", "Kestrun.SharedState");
+
+        if (extraImports is { Length: > 0 })
+        {
+            options = options.WithImports(options.Imports.Concat(extraImports).Distinct(StringComparer.Ordinal));
+        }
+
+        if (extraRefs is { Length: > 0 })
+        {
+            var additional = extraRefs
+                .Where(static r => !string.IsNullOrEmpty(r.Location) && File.Exists(r.Location))
+                .Select(static r => MetadataReference.CreateFromFile(r.Location));
+            options = options.AddReferences(additional);
+        }
+
+        var script = CSharpScript.Create<ProbeResult>(code, options, typeof(CsGlobals));
+        var diagnostics = script.Compile();
+        return diagnostics.Any(static d => d.Severity == DiagnosticSeverity.Error)
+            ? throw new RoslynCompilationErrorException("C# health probe compilation failed.", diagnostics)
+            : script.CreateDelegate();
+    }
+
+    private sealed class PowerShellScriptProbe(
+        string name,
+        IEnumerable<string>? tags,
+        string script,
+        SerilogLogger logger,
+        Func<KestrunRunspacePoolManager> poolAccessor,
+        IReadOnlyDictionary<string, object?>? arguments) : IProbe
+    {
+        private readonly SerilogLogger _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        private readonly Func<KestrunRunspacePoolManager> _poolAccessor = poolAccessor ?? throw new ArgumentNullException(nameof(poolAccessor));
+        private readonly IReadOnlyDictionary<string, object?>? _arguments = arguments;
+        private readonly string _script = string.IsNullOrWhiteSpace(script)
+            ? throw new ArgumentException("Probe script cannot be null or whitespace.", nameof(script))
+            : script;
+
+        public string Name { get; } = string.IsNullOrWhiteSpace(name)
+            ? throw new ArgumentException("Probe name cannot be null or empty.", nameof(name))
+            : name;
+
+        public string[] Tags { get; } = tags is null
+            ? []
+            : [.. tags.Where(static t => !string.IsNullOrWhiteSpace(t))
+                      .Select(static t => t.Trim())
+                      .Distinct(StringComparer.OrdinalIgnoreCase)];
+
+        public async Task<ProbeResult> CheckAsync(CancellationToken ct = default)
+        {
+            var pool = _poolAccessor();
+            Runspace? runspace = null;
+            try
+            {
+                runspace = await pool.AcquireAsync(ct).ConfigureAwait(false);
+                using var ps = PowerShell.Create();
+                ps.Runspace = runspace;
+
+                if (_arguments is { Count: > 0 })
+                {
+                    var proxy = ps.Runspace.SessionStateProxy;
+                    foreach (var kv in _arguments)
+                    {
+                        proxy.SetVariable(kv.Key, kv.Value);
+                    }
+                }
+
+                using var registration = ct.Register(() =>
+                {
+                    try
+                    {
+                        ps.Stop();
+                    }
+                    catch
+                    {
+                        // ignored
+                    }
+                });
+
+                _ = ps.AddScript(_script);
+                var output = await ps.InvokeAsync().ConfigureAwait(false);
+
+                if (ps.HadErrors || ps.Streams.Error.Count > 0)
+                {
+                    var errors = string.Join("; ", ps.Streams.Error.Select(static e => e.ToString()));
+                    ps.Streams.Error.Clear();
+                    return new ProbeResult(ProbeStatus.Unhealthy, errors);
+                }
+
+                for (var i = output.Count - 1; i >= 0; i--)
+                {
+                    if (TryConvert(output[i], out var result))
+                    {
+                        return result;
+                    }
+                }
+
+                return new ProbeResult(ProbeStatus.Unhealthy, "PowerShell probe produced no recognizable result.");
+            }
+            catch (OperationCanceledException) when (ct.IsCancellationRequested)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                _logger.Error(ex, "PowerShell health probe {Probe} failed.", Name);
+                return new ProbeResult(ProbeStatus.Unhealthy, $"Exception: {ex.Message}");
+            }
+            finally
+            {
+                if (runspace is not null)
+                {
+                    try
+                    {
+                        pool.Release(runspace);
+                    }
+                    catch
+                    {
+                        runspace.Dispose();
+                    }
+                }
+            }
+        }
+
+        private static bool TryConvert(PSObject obj, out ProbeResult result)
+        {
+            if (obj.BaseObject is ProbeResult pr)
+            {
+                result = pr;
+                return true;
+            }
+
+            var statusValue = obj.Properties["status"]?.Value ?? obj.Properties["Status"]?.Value;
+            if (statusValue is null)
+            {
+                if (obj.BaseObject is string statusText && TryParseStatus(statusText, out var statusFromText))
+                {
+                    result = new ProbeResult(statusFromText, statusText);
+                    return true;
+                }
+
+                result = default!;
+                return false;
+            }
+
+            var status = TryParseStatus(statusValue.ToString(), out var parsed)
+                ? parsed
+                : ProbeStatus.Unhealthy;
+            var description = obj.Properties["description"]?.Value?.ToString() ?? obj.Properties["Description"]?.Value?.ToString();
+            var dataProperty = obj.Properties["data"] ?? obj.Properties["Data"];
+            IReadOnlyDictionary<string, object>? data = null;
+            if (dataProperty?.Value is IDictionary dictionary && dictionary.Count > 0)
+            {
+                var dict = new Dictionary<string, object>(dictionary.Count);
+                foreach (DictionaryEntry entry in dictionary)
+                {
+                    if (entry.Key is null)
+                    {
+                        continue;
+                    }
+
+                    dict[entry.Key.ToString()!] = entry.Value!;
+                }
+
+                data = dict;
+            }
+
+            result = new ProbeResult(status, description, data);
+            return true;
+        }
+
+        private static bool TryParseStatus(string? value, out ProbeStatus status)
+        {
+            if (Enum.TryParse(value, ignoreCase: true, out status))
+            {
+                return true;
+            }
+
+            status = value?.ToLowerInvariant() switch
+            {
+                "ok" or "healthy" => ProbeStatus.Healthy,
+                "warn" or "warning" or "degraded" => ProbeStatus.Degraded,
+                "fail" or "failed" or "unhealthy" => ProbeStatus.Unhealthy,
+                _ => ProbeStatus.Unhealthy
+            };
+            return true;
+        }
+    }
+
+    private sealed class CSharpScriptProbe(
+        string name,
+        IEnumerable<string>? tags,
+        ScriptRunner<ProbeResult> runner,
+        IReadOnlyDictionary<string, object?>? locals,
+        SerilogLogger logger) : IProbe
+    {
+        private readonly ScriptRunner<ProbeResult> _runner = runner ?? throw new ArgumentNullException(nameof(runner));
+        private readonly IReadOnlyDictionary<string, object?>? _locals = locals;
+        private readonly SerilogLogger _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+
+        public string Name { get; } = string.IsNullOrWhiteSpace(name)
+            ? throw new ArgumentException("Probe name cannot be null or empty.", nameof(name))
+            : name;
+
+        public string[] Tags { get; } = tags is null
+            ? []
+            : [.. tags.Where(static t => !string.IsNullOrWhiteSpace(t))
+                      .Select(static t => t.Trim())
+                      .Distinct(StringComparer.OrdinalIgnoreCase)];
+
+        public async Task<ProbeResult> CheckAsync(CancellationToken ct = default)
+        {
+            var globals = _locals is { Count: > 0 }
+                ? new CsGlobals(SharedStateStore.Snapshot(), _locals)
+                : new CsGlobals(SharedStateStore.Snapshot());
+            try
+            {
+                return await _runner(globals, ct).ConfigureAwait(false)
+                    ?? new ProbeResult(ProbeStatus.Unhealthy, "Script returned null result");
+            }
+            catch (OperationCanceledException) when (ct.IsCancellationRequested)
+            {
+                throw;
+            }
+            catch (RoslynCompilationErrorException ex)
+            {
+                _logger.Error(ex, "C# health probe {Probe} failed to execute.", Name);
+                return new ProbeResult(ProbeStatus.Unhealthy, string.Join("; ", ex.Diagnostics.Select(static d => d.GetMessage())));
+            }
+            catch (Exception ex)
+            {
+                _logger.Error(ex, "C# health probe {Probe} threw an exception.", Name);
+                return new ProbeResult(ProbeStatus.Unhealthy, $"Exception: {ex.Message}");
+            }
+        }
+    }
+
+    private sealed class VbScriptProbe(
+        string name,
+        IEnumerable<string>? tags,
+        Func<CsGlobals, Task<ProbeResult>> runner,
+        IReadOnlyDictionary<string, object?>? locals,
+        SerilogLogger logger) : IProbe
+    {
+        private readonly Func<CsGlobals, Task<ProbeResult>> _runner = runner ?? throw new ArgumentNullException(nameof(runner));
+        private readonly IReadOnlyDictionary<string, object?>? _locals = locals;
+        private readonly SerilogLogger _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+
+        public string Name { get; } = string.IsNullOrWhiteSpace(name)
+            ? throw new ArgumentException("Probe name cannot be null or empty.", nameof(name))
+            : name;
+
+        public string[] Tags { get; } = tags is null
+            ? []
+            : [.. tags.Where(static t => !string.IsNullOrWhiteSpace(t))
+                      .Select(static t => t.Trim())
+                      .Distinct(StringComparer.OrdinalIgnoreCase)];
+
+        public async Task<ProbeResult> CheckAsync(CancellationToken ct = default)
+        {
+            var globals = _locals is { Count: > 0 }
+                ? new CsGlobals(SharedStateStore.Snapshot(), _locals)
+                : new CsGlobals(SharedStateStore.Snapshot());
+            try
+            {
+                return await _runner(globals).WaitAsync(ct).ConfigureAwait(false)
+                    ?? new ProbeResult(ProbeStatus.Unhealthy, "Script returned null result");
+            }
+            catch (OperationCanceledException) when (ct.IsCancellationRequested)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                _logger.Error(ex, "VB.NET health probe {Probe} failed.", Name);
+                return new ProbeResult(ProbeStatus.Unhealthy, $"Exception: {ex.Message}");
+            }
+        }
+    }
+}

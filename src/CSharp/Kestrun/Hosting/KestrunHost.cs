@@ -19,6 +19,7 @@ using Microsoft.PowerShell;
 using System.Net.Sockets;
 using Microsoft.Net.Http.Headers;
 using Kestrun.Authentication;
+using Kestrun.Health;
 
 namespace Kestrun.Hosting;
 
@@ -61,6 +62,13 @@ public class KestrunHost : IDisposable
     private readonly List<Action<IApplicationBuilder>> _middlewareQueue = [];
 
     internal List<Action<KestrunHost>> FeatureQueue { get; } = [];
+
+    internal List<IProbe> HealthProbes { get; } = [];
+#if NET9_0_OR_GREATER
+    private readonly Lock _healthProbeLock = new();
+#else
+    private readonly object _healthProbeLock = new();
+#endif
 
     internal readonly Dictionary<(string Pattern, string Method), MapRouteOptions> _registeredRoutes =
     new(new RouteKeyComparer());
@@ -264,6 +272,109 @@ public class KestrunHost : IDisposable
             }
         }
     }
+    #endregion
+
+
+    #region Health Probes
+
+    /// <summary>
+    /// Registers the provided <see cref="IProbe"/> instance with the host.
+    /// </summary>
+    /// <param name="probe">The probe to register.</param>
+    /// <returns>The current <see cref="KestrunHost"/> instance.</returns>
+    public KestrunHost AddProbe(IProbe probe)
+    {
+        ArgumentNullException.ThrowIfNull(probe);
+        RegisterProbeInternal(probe);
+        return this;
+    }
+
+    /// <summary>
+    /// Registers a delegate-based probe.
+    /// </summary>
+    /// <param name="name">Probe name.</param>
+    /// <param name="tags">Optional tag list used for filtering.</param>
+    /// <param name="callback">Delegate executed when the probe runs.</param>
+    /// <returns>The current <see cref="KestrunHost"/> instance.</returns>
+    public KestrunHost AddProbe(string name, string[]? tags, Func<CancellationToken, Task<ProbeResult>> callback)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(name);
+        ArgumentNullException.ThrowIfNull(callback);
+
+        var probe = new DelegateProbe(name, tags, callback);
+        RegisterProbeInternal(probe);
+        return this;
+    }
+
+    /// <summary>
+    /// Registers a script-based probe written in any supported language.
+    /// </summary>
+    /// <param name="name">Probe name.</param>
+    /// <param name="tags">Optional tag list used for filtering.</param>
+    /// <param name="code">Script contents.</param>
+    /// <param name="language">Optional language override. When null, <see cref="KestrunOptions.Health"/> defaults are used.</param>
+    /// <param name="arguments">Optional argument dictionary exposed to the script.</param>
+    /// <param name="extraImports">Optional language-specific imports.</param>
+    /// <param name="extraRefs">Optional additional assembly references.</param>
+    /// <returns>The current <see cref="KestrunHost"/> instance.</returns>
+    public KestrunHost AddProbe(
+        string name,
+        string[]? tags,
+        string code,
+        ScriptLanguage? language = null,
+        IReadOnlyDictionary<string, object?>? arguments = null,
+        string[]? extraImports = null,
+        Assembly[]? extraRefs = null)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(name);
+        ArgumentException.ThrowIfNullOrEmpty(code);
+
+        var effectiveLanguage = language ?? Options.Health.DefaultScriptLanguage;
+        var logger = HostLogger.ForContext("HealthProbe", name);
+        var probe = ScriptProbeFactory.Create(
+            name,
+            tags,
+            effectiveLanguage,
+            code,
+            logger,
+            effectiveLanguage == ScriptLanguage.PowerShell ? () => RunspacePool : null,
+            arguments,
+            extraImports,
+            extraRefs);
+
+        RegisterProbeInternal(probe);
+        return this;
+    }
+
+    /// <summary>
+    /// Returns a snapshot of the currently registered probes.
+    /// </summary>
+    internal IReadOnlyList<IProbe> GetHealthProbesSnapshot()
+    {
+        lock (_healthProbeLock)
+        {
+            return [.. HealthProbes];
+        }
+    }
+
+    private void RegisterProbeInternal(IProbe probe)
+    {
+        lock (_healthProbeLock)
+        {
+            var index = HealthProbes.FindIndex(p => string.Equals(p.Name, probe.Name, StringComparison.OrdinalIgnoreCase));
+            if (index >= 0)
+            {
+                HealthProbes[index] = probe;
+                HostLogger.Information("Replaced health probe {ProbeName}.", probe.Name);
+            }
+            else
+            {
+                HealthProbes.Add(probe);
+                HostLogger.Information("Registered health probe {ProbeName}.", probe.Name);
+            }
+        }
+    }
+
     #endregion
 
 

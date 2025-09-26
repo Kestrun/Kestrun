@@ -9,7 +9,7 @@ public class ProbeResultTests
     public void Constructor_SetsPropertiesCorrectly()
     {
         var data = new Dictionary<string, object> { { "key", 42 } };
-        var result = new ProbeResult(ProbeStatus.Healthy, "desc", data); // No change needed, keeping for context
+        var result = new ProbeResult(ProbeStatus.Healthy, "desc", data);
         Assert.Equal(ProbeStatus.Healthy, result.Status);
         Assert.Equal("desc", result.Description);
         Assert.Equal(data, result.Data);

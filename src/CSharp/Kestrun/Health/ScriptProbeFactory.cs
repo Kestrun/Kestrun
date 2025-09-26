@@ -205,12 +205,25 @@ internal static class ScriptProbeFactory
 
                 return new ProbeResult(ProbeStatus.Unhealthy, "PowerShell probe produced no recognizable result.");
             }
+            catch (PipelineStoppedException) when (ct.IsCancellationRequested)
+            {
+                // Request/host shutdown cancellation – treat as degraded rather than unhealthy and do not log as error.
+                _logger.Information("PowerShell health probe {Probe} canceled (PipelineStopped).", Name);
+                return new ProbeResult(ProbeStatus.Degraded, "Canceled");
+            }
             catch (OperationCanceledException) when (ct.IsCancellationRequested)
             {
+                // Propagate request cancellation for the runner to decide (typically results in 499)
                 throw;
             }
             catch (Exception ex)
             {
+                if (ex is PipelineStoppedException)
+                {
+                    // Non-request related pipeline stop (rare) – degrade but log at warning
+                    _logger.Warning(ex, "PowerShell health probe {Probe} pipeline stopped.", Name);
+                    return new ProbeResult(ProbeStatus.Degraded, "Canceled");
+                }
                 _logger.Error(ex, "PowerShell health probe {Probe} failed.", Name);
                 return new ProbeResult(ProbeStatus.Unhealthy, $"Exception: {ex.Message}");
             }

@@ -62,52 +62,21 @@ public static class KestrunHostHealthExtensions
             }
         };
 
-        // Defer actual route mapping until pipeline construction (similar to AddStaticMapOverride)
-        return host.Use(app =>
+        // Auto-register endpoint only when enabled
+        if (!merged.AutoRegisterEndpoint)
         {
-            // Prevent duplicate registration if another deferred block added it earlier
-            if (host.MapExists(mapOptions.Pattern!, HttpVerb.Get))
-            {
-                var message = $"Route '{mapOptions.Pattern}' (GET) already exists. Skipping health endpoint registration.";
-                if (merged.ThrowOnDuplicate)
-                {
-                    throw new InvalidOperationException(message);
-                }
-                host.HostLogger.Warning(message);
-                return; // skip
-            }
+            host.HostLogger.Debug("Health endpoint AutoRegisterEndpoint=false; skipping automatic mapping for pattern {Pattern}", merged.Pattern);
+            return host;
+        }
 
-            var endpoints = (IEndpointRouteBuilder)app;
-            var endpointLogger = host.HostLogger.ForContext("HealthEndpoint", merged.Pattern);
+        // If the app pipeline is already built/configured, map immediately; otherwise defer until build
+        if (host.IsConfigured)
+        {
+            MapHealthEndpointImmediate(host, merged, mapOptions);
+            return host;
+        }
 
-            var map = endpoints.MapMethods(merged.Pattern, [HttpMethods.Get], async context =>
-            {
-                var requestTags = ExtractTags(context.Request);
-                var tags = requestTags.Length > 0 ? requestTags : merged.DefaultTags;
-                var snapshot = host.GetHealthProbesSnapshot();
-
-                var report = await HealthProbeRunner.RunAsync(
-                    probes: snapshot,
-                    tagFilter: tags,
-                    perProbeTimeout: merged.ProbeTimeout,
-                    maxDegreeOfParallelism: merged.MaxDegreeOfParallelism,
-                    logger: endpointLogger,
-                    ct: context.RequestAborted).ConfigureAwait(false);
-
-                var statusCode = DetermineStatusCode(report.Status, merged.TreatDegradedAsUnhealthy);
-                context.Response.StatusCode = statusCode;
-                context.Response.Headers.CacheControl = "no-store, no-cache, must-revalidate, max-age=0";
-                context.Response.Headers.Pragma = "no-cache";
-                context.Response.Headers.Expires = "0";
-
-                await context.Response.WriteAsJsonAsync(report, JsonOptions, context.RequestAborted).ConfigureAwait(false);
-            }).WithMetadata(new ScriptLanguageAttribute(ScriptLanguage.Native));
-
-            ApplyConventions(host, map, mapOptions);
-
-            host._registeredRoutes[(mapOptions.Pattern!, HttpMethods.Get)] = mapOptions;
-            host.HostLogger.Information("Registered health endpoint at {Pattern}", mapOptions.Pattern);
-        });
+        return host.Use(app => MapHealthEndpointImmediate(host, merged, mapOptions));
     }
 
     /// <summary>
@@ -279,4 +248,54 @@ public static class KestrunHostHealthExtensions
         ProbeStatus.Degraded when !treatDegradedAsUnhealthy => StatusCodes.Status200OK,
         _ => StatusCodes.Status503ServiceUnavailable
     };
+
+    private static void MapHealthEndpointImmediate(KestrunHost host, HealthEndpointOptions merged, MapRouteOptions mapOptions)
+    {
+        if (host.MapExists(mapOptions.Pattern!, HttpVerb.Get))
+        {
+            var message = $"Route '{mapOptions.Pattern}' (GET) already exists. Skipping health endpoint registration.";
+            if (merged.ThrowOnDuplicate)
+            {
+                throw new InvalidOperationException(message);
+            }
+            host.HostLogger.Warning(message);
+            return;
+        }
+
+        // When immediate mapping after build ensure underlying WebApplication is available
+        var endpoints = host.IsConfigured ? host.App : null;
+        if (endpoints is null)
+        {
+            // We are in a deferred Use callback (app passed later)
+            throw new InvalidOperationException("Endpoint mapping requires a WebApplication when executed immediately.");
+        }
+        var endpointLogger = host.HostLogger.ForContext("HealthEndpoint", merged.Pattern);
+
+        var map = endpoints.MapMethods(merged.Pattern, [HttpMethods.Get], async context =>
+        {
+            var requestTags = ExtractTags(context.Request);
+            var tags = requestTags.Length > 0 ? requestTags : merged.DefaultTags;
+            var snapshot = host.GetHealthProbesSnapshot();
+
+            var report = await HealthProbeRunner.RunAsync(
+                probes: snapshot,
+                tagFilter: tags,
+                perProbeTimeout: merged.ProbeTimeout,
+                maxDegreeOfParallelism: merged.MaxDegreeOfParallelism,
+                logger: endpointLogger,
+                ct: context.RequestAborted).ConfigureAwait(false);
+
+            var statusCode = DetermineStatusCode(report.Status, merged.TreatDegradedAsUnhealthy);
+            context.Response.StatusCode = statusCode;
+            context.Response.Headers.CacheControl = "no-store, no-cache, must-revalidate, max-age=0";
+            context.Response.Headers.Pragma = "no-cache";
+            context.Response.Headers.Expires = "0";
+
+            await context.Response.WriteAsJsonAsync(report, JsonOptions, context.RequestAborted).ConfigureAwait(false);
+        }).WithMetadata(new ScriptLanguageAttribute(ScriptLanguage.Native));
+
+        ApplyConventions(host, map, mapOptions);
+        host._registeredRoutes[(mapOptions.Pattern!, HttpMethods.Get)] = mapOptions;
+        host.HostLogger.Information("Registered health endpoint at {Pattern}", mapOptions.Pattern);
+    }
 }

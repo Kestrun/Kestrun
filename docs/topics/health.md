@@ -17,7 +17,7 @@ operational patterns for reliable diagnostics in production.
 | `KestrunHostHealthExtensions.AddHealthEndpoint` | Adds the HTTP endpoint (default `/health`) | Converts `HealthEndpointOptions` into an ASP.NET Core route. |
 | `KestrunHost.AddProbe(...)` | Registers probes (script, delegate, custom `IProbe`) | Stored in an internal list guarded by a lock for thread safety. |
 | `HealthProbeRunner` | Executes probes concurrently, enforces timeouts, aggregates results | Returns a JSON-ready `HealthProbeReport`. |
-| Probes (`ScriptProbeFactory`, `HttpProbe`, `ProcessProbe`, custom `IProbe`) | Provide actual liveness checks | Each probe returns `ProbeResult` (Status, Description, Data). |
+| Probes (`ScriptProbeFactory`, `HttpProbe`, `ProcessProbe`, `DiskSpaceProbe`, custom `IProbe`) | Provide actual liveness checks | Each probe returns `ProbeResult` (Status, Description, Data). |
 | Query string tag filters | Allows clients to pick subsets (e.g. `/health?tag=ready`) | Accepts `tag=` or `tags=` query params. |
 
 The endpoint serializes the report using System.Text.Json and honours `TreatDegradedAsUnhealthy`, caching
@@ -75,6 +75,7 @@ app.Run();
 | Custom class | Register `IProbe` implementation | `AddProbe(IProbe probe)` | Advanced scenarios needing state retention. |
 | HTTP | `Add-KrHealthHttpProbe` | `AddProbe(new HttpProbe(...))` | Call downstream service health endpoints. |
 | Process | `Add-KrHealthProcessProbe` | `AddProbe(new ProcessProbe(...))` | Shell out to existing CLI diagnostics. |
+| Disk (default) | (auto) | `DiskSpaceProbe` auto-registered | Monitors free space of host drive (Healthy ≥10%, Degraded 5–10%, Unhealthy <5%). |
 
 All probes ultimately return a `ProbeResult`:
 
@@ -197,6 +198,33 @@ public sealed class DiskProbe : IProbe
 
 host.AddProbe(new DiskProbe());
 ```
+
+### Default Disk Space Probe
+
+Kestrun automatically registers a `disk` probe (name: `disk`, tags: `self`) during configuration. It inspects the
+drive containing the application base directory. Thresholds:
+
+| Free % | Status |
+|--------|--------|
+| ≥ 10%  | Healthy |
+| ≥ 5% and < 10% | Degraded |
+| < 5% | Unhealthy |
+
+Returned data keys:
+
+```json
+{
+  "path": ".../app/base/",
+  "driveName": "C:\\",
+  "totalBytes": 512000000000,
+  "freeBytes": 73400320000,
+  "freePercent": 14.34,
+  "criticalPercent": 5.0,
+  "warnPercent": 10.0
+}
+```
+
+Disable or override by registering your own probe with the same name before `Enable-KrConfiguration` / `EnableConfiguration`.
 
 ### Process Probe Guidance
 

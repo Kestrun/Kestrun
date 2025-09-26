@@ -749,12 +749,41 @@ public class KestrunHost : IDisposable
 
             LogConfiguredEndpoints();
 
+            // Register default probes after endpoints are logged but before marking configured
+            RegisterDefaultHealthProbes();
+
             IsConfigured = true;
             HostLogger.Information("Configuration applied successfully.");
         }
         catch (Exception ex)
         {
             HandleConfigurationError(ex);
+        }
+    }
+
+    /// <summary>
+    /// Registers built-in default health probes (idempotent). Currently includes disk space probe.
+    /// </summary>
+    private void RegisterDefaultHealthProbes()
+    {
+        try
+        {
+            // Avoid duplicate registration if user already added a probe named "disk".
+            lock (_healthProbeLock)
+            {
+                if (HealthProbes.Any(p => string.Equals(p.Name, "disk", StringComparison.OrdinalIgnoreCase)))
+                {
+                    return; // already present
+                }
+            }
+
+            var tags = new[] { "self" }; // neutral tag; user can filter by name if needed
+            var diskProbe = new DiskSpaceProbe("disk", tags);
+            RegisterProbeInternal(diskProbe);
+        }
+        catch (Exception ex)
+        {
+            HostLogger.Warning(ex, "Failed to register default disk space probe.");
         }
     }
 

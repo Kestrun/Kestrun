@@ -106,103 +106,98 @@ function Add-KrHealthEndpoint {
     )
     begin {
         $Server = Resolve-KestrunServer -Server $Server
-        if ($null -eq $Server) {
-            throw 'Server is not initialized. Call New-KrServer first or pipe an existing host instance.'
-        }
     }
     process {
-        $optionKeys = $PSBoundParameters.Keys | Where-Object { $_ -notin @('Server', 'PassThru') }
-        $configure = $null
-
-        if ($optionKeys.Count -gt 0) {
-            $configure = [System.Action[Kestrun.Health.HealthEndpointOptions]] {
-                param($options)
-
-                if ($PSBoundParameters.ContainsKey('Pattern')) {
-                    $options.Pattern = $Pattern
-                }
-
-                if ($PSBoundParameters.ContainsKey('DefaultTags')) {
-                    $options.DefaultTags = $DefaultTags | Where-Object { -not [string]::IsNullOrWhiteSpace($_) }
-                }
-
-                if ($PSBoundParameters.ContainsKey('AllowAnonymous')) {
-                    $options.AllowAnonymous = $AllowAnonymous
-                }
-
-                if ($PSBoundParameters.ContainsKey('TreatDegradedAsUnhealthy')) {
-                    $options.TreatDegradedAsUnhealthy = $TreatDegradedAsUnhealthy
-                }
-
-                if ($PSBoundParameters.ContainsKey('ThrowOnDuplicate')) {
-                    $options.ThrowOnDuplicate = $ThrowOnDuplicate
-                }
-
-                if ($PSBoundParameters.ContainsKey('RequireSchemes')) {
-                    $options.RequireSchemes = $RequireSchemes
-                }
-
-                if ($PSBoundParameters.ContainsKey('RequirePolicies')) {
-                    $options.RequirePolicies = $RequirePolicies
-                }
-
-                if ($PSBoundParameters.ContainsKey('CorsPolicyName')) {
-                    $options.CorsPolicyName = $CorsPolicyName
-                }
-
-                if ($PSBoundParameters.ContainsKey('RateLimitPolicyName')) {
-                    $options.RateLimitPolicyName = $RateLimitPolicyName
-                }
-
-                if ($PSBoundParameters.ContainsKey('ShortCircuit')) {
-                    $options.ShortCircuit = $ShortCircuit
-                }
-
-                if ($PSBoundParameters.ContainsKey('ShortCircuitStatusCode')) {
-                    $options.ShortCircuitStatusCode = $ShortCircuitStatusCode
-                }
-
-                if ($PSBoundParameters.ContainsKey('OpenApiSummary')) {
-                    $options.OpenApiSummary = $OpenApiSummary
-                }
-
-                if ($PSBoundParameters.ContainsKey('OpenApiDescription')) {
-                    $options.OpenApiDescription = $OpenApiDescription
-                }
-
-                if ($PSBoundParameters.ContainsKey('OpenApiOperationId')) {
-                    $options.OpenApiOperationId = $OpenApiOperationId
-                }
-
-                if ($PSBoundParameters.ContainsKey('OpenApiTags')) {
-                    $options.OpenApiTags = $OpenApiTags
-                }
-
-                if ($PSBoundParameters.ContainsKey('OpenApiGroupName')) {
-                    $options.OpenApiGroupName = $OpenApiGroupName
-                }
-
-                if ($PSBoundParameters.ContainsKey('MaxDegreeOfParallelism')) {
-                    if ($MaxDegreeOfParallelism -lt 1) {
-                        throw 'MaxDegreeOfParallelism must be greater than 0.'
-                    }
-                    $options.MaxDegreeOfParallelism = $MaxDegreeOfParallelism
-                }
-
-                if ($PSBoundParameters.ContainsKey('ProbeTimeout')) {
-                    if ($ProbeTimeout -le [timespan]::Zero) {
-                        throw 'ProbeTimeout must be greater than zero.'
-                    }
-                    $options.ProbeTimeout = $ProbeTimeout
-                }
-
-                if ($PSBoundParameters.ContainsKey('DefaultScriptLanguage')) {
-                    $options.DefaultScriptLanguage = $DefaultScriptLanguage
-                }
-            }
+        $options = $Server.Options.Health
+        if ($null -ne $options) {
+            $options = $options.Clone()
+        } else {
+            $options = [Kestrun.Health.HealthEndpointOptions]::new()
         }
 
-        $result = [Kestrun.Hosting.KestrunHostHealthExtensions]::AddHealthEndpoint($Server, $configure)
+        if ($PSBoundParameters.ContainsKey('Pattern')) {
+            $options.Pattern = $Pattern
+        }
+
+        if ($PSBoundParameters.ContainsKey('DefaultTags')) {
+            $options.DefaultTags = @($DefaultTags | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
+        }
+
+        if ($PSBoundParameters.ContainsKey('AllowAnonymous')) {
+            $options.AllowAnonymous = $AllowAnonymous
+        }
+
+        if ($PSBoundParameters.ContainsKey('TreatDegradedAsUnhealthy')) {
+            $options.TreatDegradedAsUnhealthy = $TreatDegradedAsUnhealthy
+        }
+
+        if ($PSBoundParameters.ContainsKey('ThrowOnDuplicate')) {
+            $options.ThrowOnDuplicate = $ThrowOnDuplicate
+        }
+
+        if ($PSBoundParameters.ContainsKey('RequireSchemes')) {
+            $options.RequireSchemes = @($RequireSchemes)
+        }
+
+        if ($PSBoundParameters.ContainsKey('RequirePolicies')) {
+            $options.RequirePolicies = @($RequirePolicies)
+        }
+
+        if ($PSBoundParameters.ContainsKey('CorsPolicyName')) {
+            $options.CorsPolicyName = $CorsPolicyName
+        }
+
+        if ($PSBoundParameters.ContainsKey('RateLimitPolicyName')) {
+            $options.RateLimitPolicyName = $RateLimitPolicyName
+        }
+
+        if ($PSBoundParameters.ContainsKey('ShortCircuit')) {
+            $options.ShortCircuit = $ShortCircuit
+        }
+
+        if ($PSBoundParameters.ContainsKey('ShortCircuitStatusCode')) {
+            $options.ShortCircuitStatusCode = $ShortCircuitStatusCode
+        }
+
+        if ($PSBoundParameters.ContainsKey('OpenApiSummary')) {
+            $options.OpenApiSummary = $OpenApiSummary
+        }
+
+        if ($PSBoundParameters.ContainsKey('OpenApiDescription')) {
+            $options.OpenApiDescription = $OpenApiDescription
+        }
+
+        if ($PSBoundParameters.ContainsKey('OpenApiOperationId')) {
+            $options.OpenApiOperationId = $OpenApiOperationId
+        }
+
+        if ($PSBoundParameters.ContainsKey('OpenApiTags')) {
+            $options.OpenApiTags = @($OpenApiTags)
+        }
+
+        if ($PSBoundParameters.ContainsKey('OpenApiGroupName')) {
+            $options.OpenApiGroupName = $OpenApiGroupName
+        }
+
+        if ($PSBoundParameters.ContainsKey('MaxDegreeOfParallelism')) {
+            if ($MaxDegreeOfParallelism -lt 1) {
+                throw 'MaxDegreeOfParallelism must be greater than 0.'
+            }
+            $options.MaxDegreeOfParallelism = $MaxDegreeOfParallelism
+        }
+
+        if ($PSBoundParameters.ContainsKey('ProbeTimeout')) {
+            if ($ProbeTimeout -le [timespan]::Zero) {
+                throw 'ProbeTimeout must be greater than zero.'
+            }
+            $options.ProbeTimeout = $ProbeTimeout
+        }
+
+        if ($PSBoundParameters.ContainsKey('DefaultScriptLanguage')) {
+            $options.DefaultScriptLanguage = $DefaultScriptLanguage
+        }
+
+        $result = [Kestrun.Hosting.KestrunHostHealthExtensions]::AddHealthEndpoint($Server, $options)
 
         if ($PassThru.IsPresent) {
             return $result

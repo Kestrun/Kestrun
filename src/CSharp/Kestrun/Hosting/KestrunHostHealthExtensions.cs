@@ -62,20 +62,21 @@ public static class KestrunHostHealthExtensions
             }
         };
 
-        if (host.MapExists(mapOptions.Pattern!, HttpVerb.Get))
-        {
-            var message = $"Route '{mapOptions.Pattern}' (GET) already exists. Skipping health endpoint registration.";
-            if (merged.ThrowOnDuplicate)
-            {
-                throw new InvalidOperationException(message);
-            }
-
-            host.HostLogger.Warning(message);
-            return host;
-        }
-
+        // Defer actual route mapping until pipeline construction (similar to AddStaticMapOverride)
         return host.Use(app =>
         {
+            // Prevent duplicate registration if another deferred block added it earlier
+            if (host.MapExists(mapOptions.Pattern!, HttpVerb.Get))
+            {
+                var message = $"Route '{mapOptions.Pattern}' (GET) already exists. Skipping health endpoint registration.";
+                if (merged.ThrowOnDuplicate)
+                {
+                    throw new InvalidOperationException(message);
+                }
+                host.HostLogger.Warning(message);
+                return; // skip
+            }
+
             var endpoints = (IEndpointRouteBuilder)app;
             var endpointLogger = host.HostLogger.ForContext("HealthEndpoint", merged.Pattern);
 
@@ -107,6 +108,20 @@ public static class KestrunHostHealthExtensions
             host._registeredRoutes[(mapOptions.Pattern!, HttpMethods.Get)] = mapOptions;
             host.HostLogger.Information("Registered health endpoint at {Pattern}", mapOptions.Pattern);
         });
+    }
+
+    /// <summary>
+    /// Registers a GET endpoint (default <c>/health</c>) using a pre-configured <see cref="HealthEndpointOptions"/> instance.
+    /// </summary>
+    /// <param name="host">The host to configure.</param>
+    /// <param name="options">A fully configured options object.</param>
+    /// <returns>The <see cref="KestrunHost"/> instance for fluent chaining.</returns>
+    public static KestrunHost AddHealthEndpoint(this KestrunHost host, HealthEndpointOptions options)
+    {
+        ArgumentNullException.ThrowIfNull(host);
+        ArgumentNullException.ThrowIfNull(options);
+
+        return host.AddHealthEndpoint(dest => CopyHealthEndpointOptions(options, dest));
     }
 
     private static void ApplyConventions(KestrunHost host, IEndpointConventionBuilder map, MapRouteOptions options)
@@ -221,6 +236,41 @@ public static class KestrunHostHealthExtensions
             : [.. collected.Where(static t => !string.IsNullOrWhiteSpace(t))
                            .Select(static t => t.Trim())
                            .Distinct(StringComparer.OrdinalIgnoreCase)];
+    }
+
+    private static void CopyHealthEndpointOptions(HealthEndpointOptions source, HealthEndpointOptions target)
+    {
+        ArgumentNullException.ThrowIfNull(source);
+        ArgumentNullException.ThrowIfNull(target);
+
+        target.Pattern = source.Pattern;
+        target.DefaultTags = source.DefaultTags is { Length: > 0 } tags
+            ? [.. tags]
+            : Array.Empty<string>();
+        target.AllowAnonymous = source.AllowAnonymous;
+        target.TreatDegradedAsUnhealthy = source.TreatDegradedAsUnhealthy;
+        target.ThrowOnDuplicate = source.ThrowOnDuplicate;
+        target.RequireSchemes = source.RequireSchemes is { Length: > 0 } schemes
+            ? [.. schemes]
+            : Array.Empty<string>();
+        target.RequirePolicies = source.RequirePolicies is { Length: > 0 } policies
+            ? [.. policies]
+            : Array.Empty<string>();
+        target.CorsPolicyName = source.CorsPolicyName;
+        target.RateLimitPolicyName = source.RateLimitPolicyName;
+        target.ShortCircuit = source.ShortCircuit;
+        target.ShortCircuitStatusCode = source.ShortCircuitStatusCode;
+        target.OpenApiSummary = source.OpenApiSummary;
+        target.OpenApiDescription = source.OpenApiDescription;
+        target.OpenApiOperationId = source.OpenApiOperationId;
+        target.OpenApiTags = source.OpenApiTags is { Length: > 0 } openApiTags
+            ? [.. openApiTags]
+            : Array.Empty<string>();
+        target.OpenApiGroupName = source.OpenApiGroupName;
+        target.MaxDegreeOfParallelism = source.MaxDegreeOfParallelism;
+        target.ProbeTimeout = source.ProbeTimeout;
+        target.AutoRegisterEndpoint = source.AutoRegisterEndpoint;
+        target.DefaultScriptLanguage = source.DefaultScriptLanguage;
     }
 
     private static int DetermineStatusCode(ProbeStatus status, bool treatDegradedAsUnhealthy) => status switch

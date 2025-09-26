@@ -23,8 +23,8 @@ internal static class HealthProbeRunner
         IReadOnlyList<IProbe> probes,
         IReadOnlyList<string> tagFilter,
         TimeSpan perProbeTimeout,
-    int maxDegreeOfParallelism,
-    SerilogLogger logger,
+        int maxDegreeOfParallelism,
+        SerilogLogger logger,
         CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(probes);
@@ -80,8 +80,8 @@ internal static class HealthProbeRunner
     private static async Task ExecuteProbeAsync(
         IProbe probe,
         TimeSpan perProbeTimeout,
-    SemaphoreSlim? throttle,
-    SerilogLogger logger,
+        SemaphoreSlim? throttle,
+        SerilogLogger logger,
         ConcurrentBag<HealthProbeEntry> sink,
         CancellationToken ct)
     {

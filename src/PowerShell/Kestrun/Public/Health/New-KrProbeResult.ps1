@@ -20,8 +20,9 @@
     Intended for use inside -ScriptBlock probes: `return New-KrProbeResult Healthy 'Ready'`.
 #>
 function New-KrProbeResult {
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseShouldProcessForStateChangingFunctions', '')]
     [KestrunRuntimeApi('Runtime')]
-    [CmdletBinding(PositionalBinding = $true, SupportsShouldProcess = $true)]
+    [CmdletBinding(PositionalBinding = $true)]
     [OutputType([Kestrun.Health.ProbeResult])]
     param(
         [Parameter(Mandatory, Position = 0)]
@@ -46,9 +47,6 @@ function New-KrProbeResult {
         }
     }
 
-    if ($PSCmdlet.ShouldProcess("New-KrProbeResult", "Create probe result")) {
-        return [Kestrun.Health.ProbeResult]::new($enumStatus, $Description, $dict)
-    } else {
-        return $null
-    }
+    # Create and return the ProbeResult
+    return [Kestrun.Health.ProbeResult]::new($enumStatus, $Description, $dict)
 }

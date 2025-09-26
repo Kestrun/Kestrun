@@ -78,7 +78,8 @@ public class HealthProbeRunnerTests
         var report = await HealthProbeRunner.RunAsync(
             probes,
             [],
-            TimeSpan.FromMilliseconds(50),
+            // Use a slightly larger timeout window to avoid timing granularity issues on CI runners.
+            TimeSpan.FromMilliseconds(100),
             0,
             Serilog.Log.Logger,
             CancellationToken.None);
@@ -92,8 +93,10 @@ public class HealthProbeRunnerTests
         public string[] Tags => ["core"];
         public async Task<ProbeResult> CheckAsync(CancellationToken ct = default)
         {
-            await Task.Delay(500, ct); // ensure we exceed the 50ms timeout reliably
-            return new ProbeResult(ProbeStatus.Healthy);
+            // Intentionally wait forever (until cancelled) to deterministically trigger the per-probe timeout.
+            await Task.Delay(Timeout.InfiniteTimeSpan, ct);
+            // We should never get here because the token is expected to cancel first.
+            return new ProbeResult(ProbeStatus.Healthy, "Completed unexpectedly");
         }
     }
 

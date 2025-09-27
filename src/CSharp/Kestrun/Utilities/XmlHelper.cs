@@ -12,11 +12,16 @@ public static class XmlHelper
 {
     private static readonly XNamespace xsi = "http://www.w3.org/2001/XMLSchema-instance";
     /// <summary>
-    /// Maximum recursion depth for object-to-XML conversion. Default value of 32 chosen to balance performance and stack safety for typical object graphs.
-    /// This value can be adjusted if deeper object graphs need to be serialized.
+    /// Default maximum recursion depth for object-to-XML conversion.
+    /// Chosen to balance performance and stack safety for typical object graphs.
+    /// Adjust if deeper object graphs need to be serialized.
     /// </summary>
-    public static int MaxDepth { get; set; } = 32;
+    public const int DefaultMaxDepth = 32;
 
+    /// <summary>
+    /// Maximum recursion depth for object-to-XML conversion. This value can be adjusted if deeper object graphs need to be serialized.
+    /// </summary>
+    public static int MaxDepth { get; set; } = DefaultMaxDepth;
     // Per-call cycle detection now passed explicitly (was ThreadStatic). Avoids potential thread reuse memory retention.
     // Rationale:
     //   * ThreadStatic HashSet could retain large object graphs across requests in thread pool threads causing memory bloat.

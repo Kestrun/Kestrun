@@ -64,8 +64,8 @@ public sealed class ProcessProbe(string name, string[] tags, string fileName, st
             using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
             cts.CancelAfter(_timeout);
 
-            var stdOutTask = proc.StandardOutput.ReadToEndAsync();
-            var stdErrTask = proc.StandardError.ReadToEndAsync();
+            var stdOutTask = proc.StandardOutput.ReadToEndAsync(ct);
+            var stdErrTask = proc.StandardError.ReadToEndAsync(ct);
 
             // Wait for exit or timeout
             using var reg = cts.Token.Register(() => { try { if (!proc.HasExited) { proc.Kill(true); } } catch { } });

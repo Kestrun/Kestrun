@@ -164,29 +164,9 @@ internal static class ScriptProbeFactory
                 using var ps = PowerShell.Create();
                 ps.Runspace = runspace;
 
-                if (_arguments is { Count: > 0 })
-                {
-                    var proxy = ps.Runspace.SessionStateProxy;
-                    foreach (var kv in _arguments)
-                    {
-                        proxy.SetVariable(kv.Key, kv.Value);
-                    }
-                }
-
-                using var registration = ct.Register(() =>
-                {
-                    try
-                    {
-                        ps.Stop();
-                    }
-                    catch
-                    {
-                        // ignored
-                    }
-                });
-
-                _ = ps.AddScript(_script);
-                var output = await ps.InvokeAsync().ConfigureAwait(false);
+                PowerShellExecutionHelpers.SetVariables(ps, _arguments, _logger);
+                PowerShellExecutionHelpers.AddScript(ps, _script);
+                var output = await PowerShellExecutionHelpers.InvokeAsync(ps, _logger, ct).ConfigureAwait(false);
 
                 if (ps.HadErrors || ps.Streams.Error.Count > 0)
                 {

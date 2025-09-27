@@ -30,13 +30,13 @@ internal static class PowerShellDelegateBuilder
             // Ensure the runspace pool is open before executing the script
             try
             {
-                SetArgumentsAsVariables(ps, arguments, log);
+                PowerShellExecutionHelpers.SetVariables(ps, arguments, log);
 
                 log.Verbose("Setting PowerShell variables for Request and Response in the runspace.");
                 var krContext = GetKestrunContext(context);
 
-                AddScript(ps, code);
-                var psResults = await InvokeScriptAsync(ps, log).ConfigureAwait(false);
+                PowerShellExecutionHelpers.AddScript(ps, code);
+                var psResults = await PowerShellExecutionHelpers.InvokeAsync(ps, log, context.RequestAborted).ConfigureAwait(false);
                 LogTopResults(log, psResults);
 
                 if (await HandleErrorsIfAnyAsync(context, ps).ConfigureAwait(false))
@@ -93,30 +93,7 @@ internal static class PowerShellDelegateBuilder
         => context.Items[KR_CONTEXT_KEY] as KestrunContext
            ?? throw new InvalidOperationException($"{KR_CONTEXT_KEY} key not found in context items.");
 
-    private static void SetArgumentsAsVariables(PowerShell ps, Dictionary<string, object?>? arguments, Serilog.ILogger log)
-    {
-        if (arguments is null || arguments.Count == 0)
-        {
-            return;
-        }
-
-        log.Verbose("Setting PowerShell variables from arguments: {Count}", arguments.Count);
-        var ss = ps.Runspace!.SessionStateProxy;
-        foreach (var arg in arguments)
-        {
-            ss.SetVariable(arg.Key, arg.Value);
-        }
-    }
-
-    private static void AddScript(PowerShell ps, string code) => _ = ps.AddScript(code);
-
-    private static async Task<PSDataCollection<PSObject>> InvokeScriptAsync(PowerShell ps, Serilog.ILogger log)
-    {
-        log.Verbose("Executing PowerShell script...");
-        var results = await ps.InvokeAsync().ConfigureAwait(false);
-        log.Verbose($"PowerShell script executed with {results.Count} results.");
-        return results;
-    }
+    // Removed duplicated SetArguments/AddScript/Invoke methods (now in PowerShellExecutionHelpers)
 
     private static void LogTopResults(Serilog.ILogger log, PSDataCollection<PSObject> psResults)
     {

@@ -18,9 +18,10 @@ public class ProcessProbeTests
         {
             return ("cmd.exe", $"/c exit {code}");
         }
-        // NOTE: Using /usr/bin/env with true/false avoids shell quoting issues when invoking /bin/sh -c 'exit X'
-        // directly via ProcessStartInfo (quotes are not stripped, leading to command-not-found and exit 127 on Unix).
-        // true exits 0; false exits 1. For other codes (not used currently), still fall back to /bin/sh form.
+        // NOTE: On Unix-like systems, ProcessStartInfo does not strip quotes from arguments, so invoking /bin/sh -c 'exit X'
+        // will pass the quotes literally, causing command-not-found errors and exit 127. Windows handles quoting differently.
+        // To avoid this, we use /usr/bin/env true (exit 0) and /usr/bin/env false (exit 1), which do not require quoting.
+        // For other exit codes (not currently used), we still fall back to the /bin/sh form with careful quoting.
         if (code == 0)
         {
             return ("/usr/bin/env", "true");

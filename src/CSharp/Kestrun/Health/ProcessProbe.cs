@@ -60,7 +60,19 @@ public sealed class ProcessProbe(string name, string[] tags, string fileName, st
             {
                 Logger.Debug("ProcessProbe {Probe} started process {File} {Args} (PID={Pid}) with timeout {Timeout}", Name, _fileName, _args, proc.Id, _timeout);
             }
-            var (outText, errText) = await RunProcessAsync(proc, ct).ConfigureAwait(false);
+            var (outText, errText, timedOut) = await RunProcessAsync(proc, ct).ConfigureAwait(false);
+            if (timedOut)
+            {
+                sw.Stop();
+                if (Logger.IsEnabled(LogEventLevel.Debug))
+                {
+                    Logger.Debug("ProcessProbe {Probe} internal timeout after {Timeout} (duration={Duration}ms)", Name, _timeout, sw.ElapsedMilliseconds);
+                }
+                var data = string.IsNullOrWhiteSpace(outText)
+                    ? null
+                    : new Dictionary<string, object> { ["stdout"] = outText.Length > 500 ? outText[..500] : outText };
+                return new ProbeResult(ProbeStatus.Degraded, $"Timed out after {_timeout.TotalMilliseconds}ms", data);
+            }
             sw.Stop();
             if (TryParseJsonContract(outText, out var contractResult))
             {
@@ -120,7 +132,7 @@ public sealed class ProcessProbe(string name, string[] tags, string fileName, st
     /// <param name="proc">The process to run.</param>
     /// <param name="ct">The cancellation token.</param>
     /// <returns>A task representing the asynchronous operation, with the standard output and error as the result.</returns>
-    private async Task<(string StdOut, string StdErr)> RunProcessAsync(Process proc, CancellationToken ct)
+    private async Task<(string StdOut, string StdErr, bool TimedOut)> RunProcessAsync(Process proc, CancellationToken ct)
     {
         using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
         cts.CancelAfter(_timeout);
@@ -150,11 +162,44 @@ public sealed class ProcessProbe(string name, string[] tags, string fileName, st
                 Logger.Warning(ex, "ProcessProbe {Probe} exception while attempting to kill PID {Pid}", Name, proc.Id);
             }
         });
-        _ = await Task.WhenAny(Task.Run(proc.WaitForExit, cts.Token), Task.Delay(Timeout.Infinite, cts.Token)).ConfigureAwait(false);
+        var timedOut = false;
+        try
+        {
+            await proc.WaitForExitAsync(cts.Token).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (!ct.IsCancellationRequested)
+        {
+            // Internal timeout fired; process kill requested via registration. Mark and wait for real exit to drain streams.
+            timedOut = true;
+            try
+            {
+                proc.WaitForExit(); // ensure fully exited so streams close
+            }
+            catch (Exception ex) when (ex is InvalidOperationException)
+            {
+                // ignore - already exited
+            }
+        }
 
-        var outText = await stdOutTask.ConfigureAwait(false);
-        var errText = await stdErrTask.ConfigureAwait(false);
-        return (outText, errText);
+        var outText = string.Empty;
+        var errText = string.Empty;
+        try
+        {
+            outText = await stdOutTask.ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (timedOut && !ct.IsCancellationRequested)
+        {
+            // stdout read was canceled by caller token? (should not happen since we only passed caller token)
+        }
+        try
+        {
+            errText = await stdErrTask.ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (timedOut && !ct.IsCancellationRequested)
+        {
+            // ignore similar to above
+        }
+        return (outText, errText, timedOut);
     }
 
     /// <summary>

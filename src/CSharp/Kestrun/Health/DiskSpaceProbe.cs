@@ -17,6 +17,10 @@ namespace Kestrun.Health;
 /// </remarks>
 public sealed class DiskSpaceProbe : IProbe
 {
+    /// <summary>
+    /// Number of bytes per kilobyte (1024).
+    /// </summary>
+    private const double BytesPerKilobyte = 1024.0;
     private readonly string _path;
     private readonly double _criticalPercent;
     private readonly double _warnPercent;
@@ -140,6 +144,11 @@ public sealed class DiskSpaceProbe : IProbe
         }
     }
 
+    /// <summary>
+    /// Resolves the <see cref="DriveInfo"/> for the given path.
+    /// </summary>
+    /// <param name="path">The path to resolve.</param>
+    /// <returns>The <see cref="DriveInfo"/> if found; otherwise, null.</returns>
     private static DriveInfo? ResolveDrive(string path)
     {
         try
@@ -157,16 +166,21 @@ public sealed class DiskSpaceProbe : IProbe
         }
     }
 
+    /// <summary>
+    /// Formats a byte count into a human-readable string using binary (1024) units.
+    /// </summary>
+    /// <param name="bytes">The number of bytes.</param>
+    /// <returns>A human-readable string representation of the byte count.</returns>
     private static string FormatBytes(long bytes)
     {
         string[] sizes = ["B", "KB", "MB", "GB", "TB", "PB"]; // improbable > PB
         double len = bytes;
         var order = 0;
-        while (len >= 1024 && order < sizes.Length - 1)
+        while (len >= BytesPerKilobyte && order < sizes.Length - 1)
         {
             order++;
-            len /= 1024;
+            len /= BytesPerKilobyte;
         }
-        return string.Format(CultureInfo.InvariantCulture, "{0:0.##} {1}", len, sizes[order]);
+        return string.Create(CultureInfo.InvariantCulture, $"{len:0.##} {sizes[order]}");
     }
 }

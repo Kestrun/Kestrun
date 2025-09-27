@@ -291,10 +291,10 @@ internal sealed class ConcurrencyTracker
     public void Enter()
     {
         var cur = Interlocked.Increment(ref _current);
-        int prevMax = Volatile.Read(ref _max);
+        var prevMax = Volatile.Read(ref _max);
         if (cur > prevMax)
         {
-            Interlocked.CompareExchange(ref _max, cur, prevMax);
+            _ = Interlocked.CompareExchange(ref _max, cur, prevMax);
         }
     }
     public void Exit() => Interlocked.Decrement(ref _current);

@@ -46,4 +46,37 @@ public class ProcessProbeTests
 
     // NOTE: JSON contract parsing path already covered indirectly by HttpProbe tests; process variant omitted due to
     // platform-specific echo / quoting inconsistencies that made test flaky across shells.
+
+    [Fact]
+    public async Task ProcessProbe_InternalTimeout_DegradedWithStdoutPreserved()
+    {
+        // We craft a command that emits some output and then sleeps longer than the timeout.
+        string file;
+        string args;
+        if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+        {
+            // cmd: echo then timeout for 5 seconds; we set probe timeout to 500ms
+            file = "cmd.exe";
+            args = "/c echo starting && ping -n 6 127.0.0.1 >NUL"; // approx 5s
+        }
+        else
+        {
+            // sh: echo then sleep 5s; probe timeout 500ms
+            file = "/bin/sh";
+            args = "-c 'echo starting; sleep 5'";
+        }
+
+        var probe = new ProcessProbe("proctimeout", ["live"], file, args, TimeSpan.FromMilliseconds(500));
+        var result = await probe.CheckAsync();
+        Assert.Equal(ProbeStatus.Degraded, result.Status);
+        if (result.Data is { } data && data.TryGetValue("stdout", out var captured) && captured is string s)
+        {
+            Assert.Contains("starting", s);
+        }
+        else
+        {
+            // Fallback: we still expect description to mention timeout, but stdout capture should ideally exist.
+            Assert.Fail("Expected stdout data to be captured on timeout");
+        }
+    }
 }

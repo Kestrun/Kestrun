@@ -7,9 +7,7 @@ namespace Kestrun.Health;
 /// </summary>
 public sealed class HealthEndpointOptions
 {
-#pragma warning disable IDE0032 // Use auto property
     private string _pattern = "/health";
-#pragma warning restore IDE0032 // Use auto property
 
     /// <summary>
     /// Gets or sets the relative route path the endpoint is exposed on. Defaults to <c>/health</c>.
@@ -17,7 +15,9 @@ public sealed class HealthEndpointOptions
     public string Pattern
     {
         get => _pattern;
-        set => _pattern = string.IsNullOrWhiteSpace(value) ? "/health" : (value.StartsWith('/') ? value : "/" + value);
+        set => _pattern = string.IsNullOrWhiteSpace(value)
+            ? "/health"
+            : (value.StartsWith('/') ? value : "/" + value);
     }
 
     /// <summary>

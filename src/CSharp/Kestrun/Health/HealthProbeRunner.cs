@@ -121,7 +121,7 @@ internal static class HealthProbeRunner
             catch (OperationCanceledException) when (!ct.IsCancellationRequested && linkedCts.IsCancellationRequested)
             {
                 logger.Warning("Health probe {Probe} timed out after {Timeout}.", probe.Name, perProbeTimeout);
-                result = new ProbeResult(ProbeStatus.Unhealthy, $"Timed out after {perProbeTimeout.TotalSeconds:N1}s");
+                result = new ProbeResult(ProbeStatus.Degraded, $"Timed out after {perProbeTimeout.TotalSeconds:N1}s");
             }
             catch (OperationCanceledException) when (ct.IsCancellationRequested)
             {

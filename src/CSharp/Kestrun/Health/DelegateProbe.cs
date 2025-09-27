@@ -21,7 +21,7 @@ internal sealed class DelegateProbe(string name, IEnumerable<string>? tags, Func
                                        .ToArray() ?? [];
 
     /// <inheritdoc />
-    public Serilog.ILogger Logger { get; init; } = logger ?? Serilog.Log.ForContext("HealthProbe", name).ForContext("Probe", name);
+    public Serilog.ILogger Logger { get; init; } = logger ?? Serilog.Log.ForContext("Probe", name);
 
     /// <inheritdoc />
     public async Task<ProbeResult> CheckAsync(CancellationToken ct = default)

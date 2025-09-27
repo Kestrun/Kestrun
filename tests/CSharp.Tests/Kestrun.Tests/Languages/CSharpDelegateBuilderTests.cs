@@ -1,4 +1,5 @@
 using System.Text;
+using Kestrun.Health;
 using Kestrun.Languages;
 using Microsoft.AspNetCore.Http;
 using Serilog;
@@ -36,7 +37,7 @@ public class CSharpDelegateBuilderTests
         ctx.Response.Body.Position = 0;
         using var sr = new StreamReader(ctx.Response.Body, Encoding.UTF8);
         var body = await sr.ReadToEndAsync();
-        Assert.Equal("ok", body);
+        Assert.Equal(ScriptProbeFactory.STATUS_OK, body);
         Assert.Equal("text/plain; charset=utf-8", ctx.Response.ContentType);
     }
 

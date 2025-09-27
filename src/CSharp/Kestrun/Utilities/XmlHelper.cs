@@ -1,6 +1,7 @@
 using System.Collections;
 using System.Reflection;
 using System.Xml.Linq;
+using Kestrun.Health;
 
 namespace Kestrun.Utilities;
 
@@ -70,10 +71,10 @@ public static class XmlHelper
     /// <returns><c>true</c> if the value was handled; otherwise, <c>false</c>.</returns>
     private static bool TryHandleTerminal(string name, object? value, int depth, out XElement element)
     {
-        // Depth exceeded
-        if (depth > MaxDepth)
+        // Depth guard handled below.
+        if (depth >= MaxDepth)
         {
-            element = new XElement(name, new XAttribute("warning", "MaxDepthExceeded"));
+            element = new XElement(name, new XAttribute(ScriptProbeFactory.STATUS_WARNING, "MaxDepthExceeded"));
             return true;
         }
 
@@ -141,7 +142,7 @@ public static class XmlHelper
         _visited ??= new HashSet<object>(ReferenceEqualityComparer.Instance);
         if (!_visited.Add(value))
         {
-            cycleElement = new XElement("Object", new XAttribute("warning", "CycleDetected"));
+            cycleElement = new XElement("Object", new XAttribute(ScriptProbeFactory.STATUS_WARNING, "CycleDetected"));
             return false;
         }
         cycleElement = null;

@@ -1,4 +1,4 @@
-﻿<#
+<#
     Sample:  Health Response Format
     Purpose: Shows how to configure the health endpoint to return YAML, XML, or JSON responses.
     File:    16.7-Health-Response-Format.ps1

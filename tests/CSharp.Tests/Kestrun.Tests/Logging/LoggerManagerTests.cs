@@ -1,3 +1,4 @@
+using Kestrun.Health;
 using Kestrun.Logging;
 using Serilog;
 using Serilog.Core;
@@ -36,7 +37,7 @@ public class LoggerManagerTests
             Assert.Same(@new, LoggerManager.Get("svc"));
             Assert.Same(@new, Log.Logger);
 
-            @new.Information("ok");
+            @new.Information(ScriptProbeFactory.STATUS_OK);
             _ = Assert.Single(newSink.Events);
         }
         finally

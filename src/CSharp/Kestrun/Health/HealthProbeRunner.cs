@@ -45,7 +45,7 @@ internal static class HealthProbeRunner
         {
             return new HealthReport(
                 ProbeStatus.Healthy,
-                "healthy",
+                ScriptProbeFactory.STATUS_HEALTHY,
                 DateTimeOffset.UtcNow,
                 [],
                 new HealthSummary(0, 0, 0, 0),
@@ -120,6 +120,17 @@ internal static class HealthProbeRunner
             }
             catch (OperationCanceledException) when (!ct.IsCancellationRequested && linkedCts.IsCancellationRequested)
             {
+                // Timeout Policy:
+                // A per-probe timeout is considered a transient performance issue rather than a hard failure.
+                // We classify these as Degraded to signal slowness / partial impairment while allowing
+                // other Healthy probes to keep the overall status from immediately flipping to Unhealthy.
+                // Rationale:
+                //   * Many probes (HTTP, process, IO) may occasionally exceed a strict SLA due to load.
+                //   * Treating every timeout as Unhealthy causes noisy flapping and obscures true faults.
+                //   * Aggregation precedence still ensures multiple Degraded probes can surface an overall
+                //     Degraded status, while a single critical failure (explicit Unhealthy) dominates.
+                // If future scenarios require elevating timeouts to Unhealthy, this mapping can be made
+                // configurable (e.g., via HealthProbeOptions). For now we keep policy simple & conservative.
                 logger.Warning("Health probe {Probe} timed out after {Timeout}.", probe.Name, perProbeTimeout);
                 result = new ProbeResult(ProbeStatus.Degraded, $"Timed out after {perProbeTimeout.TotalSeconds:N1}s");
             }

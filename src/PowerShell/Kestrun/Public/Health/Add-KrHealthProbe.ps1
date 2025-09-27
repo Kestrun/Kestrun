@@ -97,7 +97,7 @@ function Add-KrHealthProbe {
             }
             'File' {
                 if (-not (Test-Path -LiteralPath $CodePath)) {
-                    throw "The specified code path '$CodePath' does not exist."
+                    throw "The specified code path '$CodePath' does not exist. Ensure the file exists and the path is correct."
                 }
                 $codeToRegister = Get-Content -LiteralPath $CodePath -Raw
                 if ($PSBoundParameters.ContainsKey('Language')) {

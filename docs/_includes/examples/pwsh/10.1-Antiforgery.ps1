@@ -1,4 +1,4 @@
-﻿<#
+<#
   FileName: 10.1-Antiforgery.ps1 (with antiforgery)
 #>
 

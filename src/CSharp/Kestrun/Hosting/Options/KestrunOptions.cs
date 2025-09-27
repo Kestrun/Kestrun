@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Server.Kestrel.Core;
 using Microsoft.AspNetCore.Server.Kestrel.Https;
 using Microsoft.AspNetCore.Server.Kestrel.Transport.NamedPipes;
+using Kestrun.Health;
 namespace Kestrun.Hosting.Options;
 
 /// <summary>
@@ -40,6 +41,11 @@ public class KestrunOptions
     public int MaxSchedulerRunspaces { get; set; }
 
     /// <summary>
+    /// Gets or sets the health endpoint configuration.
+    /// </summary>
+    public HealthEndpointOptions Health { get; set; } = new();
+
+    /// <summary>
     /// List of configured listeners for the Kestrel server.
     /// Each listener can be configured with its own IP address, port, protocols, and other options.
     /// </summary>
@@ -77,5 +83,6 @@ public class KestrunOptions
         MaxSchedulerRunspaces = 8; // Default max scheduler runspaces
         ListenUnixSockets = [];
         NamedPipeNames = [];
+        Health = new HealthEndpointOptions();
     }
 }

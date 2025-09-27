@@ -27,6 +27,7 @@ headers and serialization.
 | 7 | [Errors](./7.Errors) | Consistent error payloads, exceptions & stack traces |
 | 8 | [Caching & Revalidation](./8.Caching) | Cache-Control, ETag, Last-Modified, 304 handling |
 | 9 | [Low-Level Response Stream](./9.Low-Level-Response) | Direct stream writing when you need full control |
+| 10 | [Health Checks](./11.Health-Checks) | Aggregate endpoint, script/HTTP/process probes |
 
 ## Quick Start
 

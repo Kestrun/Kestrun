@@ -149,6 +149,112 @@ public partial class KestrunResponseTests
 
     [Fact]
     [Trait("Category", "Models")]
+    public void WriteXmlResponse_CustomRoot_Works()
+    {
+        var res = NewRes();
+        res.WriteXmlResponse(new { a = 1 }, rootElementName: "HealthStatus");
+        var body = Assert.IsType<string>(res.Body);
+        Assert.Contains("<HealthStatus>", body);
+        Assert.Contains("<a>1</a>", body);
+    }
+
+    private sealed class Node
+    {
+        public string Name { get; set; } = string.Empty;
+        public Node? Next { get; set; }
+    }
+
+    [Fact]
+    [Trait("Category", "Models")]
+    public void WriteXmlResponse_CycleDetection_Emits_Warning()
+    {
+        var n1 = new Node { Name = "one" };
+        var n2 = new Node { Name = "two" };
+        n1.Next = n2;
+        n2.Next = n1; // cycle
+
+        var res = NewRes();
+        res.WriteXmlResponse(n1, rootElementName: "Graph");
+        var body = Assert.IsType<string>(res.Body);
+        Assert.Contains("CycleDetected", body);
+    }
+
+    [Fact]
+    [Trait("Category", "Models")]
+    public void WriteXmlResponse_DepthLimit_Emits_Warning()
+    {
+        // Build a deep linked list exceeding 32 levels
+        Node head = new() { Name = "0" };
+        var current = head;
+        for (var i = 1; i < 32; i++)
+        {
+            var next = new Node { Name = i.ToString() };
+            current.Next = next;
+            current = next;
+        }
+
+        var res = NewRes();
+        res.WriteXmlResponse(head, rootElementName: "Deep");
+        var body = Assert.IsType<string>(res.Body);
+        Assert.Contains("MaxDepthExceeded", body);
+    }
+
+    [Fact]
+    [Trait("Category", "Models")]
+    public void WriteXmlResponse_Default_Is_HumanReadable()
+    {
+        var res = NewRes();
+        res.WriteXmlResponse(new { a = 1, b = new { c = 2 } }); // default compress=false -> readable
+        var body = Assert.IsType<string>(res.Body);
+        // Pretty print should introduce newlines and indentation
+        Assert.Contains("\n", body);
+        // Look for an indented child element (at least two spaces before <a>)
+        var hasIndentedA = body.Split('\n').Any(l => l.StartsWith("  <a>"));
+        Assert.True(hasIndentedA, "Expected pretty-printed indentation for <a> element");
+    }
+
+    [Fact]
+    [Trait("Category", "Models")]
+    public void WriteXmlResponse_Compress_Produces_Compact()
+    {
+        var res = NewRes();
+        res.WriteXmlResponse(new { a = 1, b = new { c = 2 } }, compress: true);
+        var body = Assert.IsType<string>(res.Body);
+        Assert.DoesNotContain("\n", body);
+        Assert.Contains("<a>1</a>", body);
+    }
+
+    [Fact]
+    [Trait("Category", "Models")]
+    public void WriteJsonResponse_Default_Is_HumanReadable()
+    {
+        var res = NewRes();
+        // Default call -> compress=false -> indented JSON
+        res.WriteJsonResponse(new { a = 1, b = new { c = 2 } });
+        var body = Assert.IsType<string>(res.Body);
+        // Expect pretty printed structure with newlines and indentation
+        Assert.Contains("\n", body);
+        Assert.Contains("\n  \"a\"", body); // line with indentation for first property
+        Assert.Contains("\"b\": {", body);
+        // Ensure nested property appears on its own indented line
+        Assert.True(body.Split('\n').Any(l => l.TrimStart().StartsWith("\"c\"")), "Expected nested property 'c' in pretty-printed output");
+    }
+
+    [Fact]
+    [Trait("Category", "Models")]
+    public void WriteJsonResponse_Compress_Produces_Compact()
+    {
+        var res = NewRes();
+        res.WriteJsonResponse(new { a = 1, b = new { c = 2 } }, depth: 10, compress: true);
+        var body = Assert.IsType<string>(res.Body);
+        // Compact JSON should have no newline characters (aside from possibly platform specific, but None formatting yields single line)
+        Assert.DoesNotContain("\n", body);
+        Assert.DoesNotContain("  \"a\"", body); // no indentation spaces
+        Assert.Contains(/*lang=json,strict*/ "{\"a\":1,\"b\":{\"c\":2}}", body);
+    }
+
+    [Fact]
+    [Trait("Category", "Models")]
     public void WriteBinaryResponse_SetsFields()
     {
         var res = NewRes();
@@ -283,6 +389,20 @@ public partial class KestrunResponseTests
         var body = Assert.IsType<string>(res.Body);
         Assert.Contains("\"details\": \"xyz\"", body);
         Assert.Contains("application/json", res.ContentType);
+    }
+
+    [Fact]
+    [Trait("Category", "Models")]
+    public async Task WriteErrorResponse_Json_Default_Is_HumanReadable()
+    {
+        var req = MakeReq("application/json");
+        var res = new KestrunResponse(req);
+        await res.WriteErrorResponseAsync("error happened", details: "more");
+        var body = Assert.IsType<string>(res.Body);
+        // Human readable JSON should contain newlines and indentation for properties
+        Assert.Contains("\n", body);
+        Assert.Contains("  \"status\"", body);
+        Assert.Contains("\"details\": \"more\"", body);
     }
 
     [Fact]

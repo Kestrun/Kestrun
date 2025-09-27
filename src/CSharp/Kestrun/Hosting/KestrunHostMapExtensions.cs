@@ -329,7 +329,7 @@ public static class KestrunHostMapExtensions
     /// <param name="host">The Kestrun host.</param>
     /// <param name="map">The endpoint convention builder.</param>
     /// <param name="options">The mapping options.</param>
-    private static void AddMapOptions(this KestrunHost host, IEndpointConventionBuilder map, MapRouteOptions options)
+    internal static void AddMapOptions(this KestrunHost host, IEndpointConventionBuilder map, MapRouteOptions options)
     {
         ApplyShortCircuit(host, map, options);
         ApplyAnonymous(host, map, options);
@@ -339,6 +339,42 @@ public static class KestrunHostMapExtensions
         ApplyPolicies(host, map, options);
         ApplyCors(host, map, options);
         ApplyOpenApiMetadata(host, map, options);
+    }
+
+    /// <summary>
+    /// Applies the same route conventions used by the AddMapRoute helpers to an arbitrary endpoint.
+    /// </summary>
+    /// <param name="host">The Kestrun host used for validation (auth schemes/policies).</param>
+    /// <param name="builder">The endpoint convention builder to decorate.</param>
+    /// <param name="configure">Delegate to configure a fresh <see cref="MapRouteOptions"/> instance. Only applicable properties are honored.</param>
+    /// <remarks>
+    /// This is useful when you map endpoints manually via <c>app.MapGet</c>/<c>MapPost</c> and still want consistent behavior
+    /// (auth, CORS, rate limiting, antiforgery disable, OpenAPI metadata, short-circuiting) without re-implementing logic.
+    /// Validation notes:
+    ///  - Pattern, Code are ignored if not relevant.
+    ///  - Authentication schemes and policies are validated against the host registry.
+    ///  - OpenAPI metadata is applied only when non-empty.
+    /// </remarks>
+    /// <returns>The original <paramref name="builder"/> for fluent chaining.</returns>
+    public static IEndpointConventionBuilder ApplyKestrunConventions(this KestrunHost host, IEndpointConventionBuilder builder, Action<MapRouteOptions> configure)
+    {
+        ArgumentNullException.ThrowIfNull(host);
+        ArgumentNullException.ThrowIfNull(builder);
+        ArgumentNullException.ThrowIfNull(configure);
+
+        // Start with an empty options record (only convention-related fields will matter)
+        var options = new MapRouteOptions
+        {
+            Pattern = string.Empty,
+            HttpVerbs = [],
+            Language = ScriptLanguage.Native,
+            Code = string.Empty
+        };
+        configure(options);
+
+        // Reuse internal helper (kept internal to avoid accidental misuse) for actual application
+        host.AddMapOptions(builder, options);
+        return builder;
     }
 
     /// <summary>

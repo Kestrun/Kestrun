@@ -97,6 +97,12 @@ Stop the server with Ctrl+C in the terminal.
 | 45    | Server Configuration: Options | [Server Options][ch-scfg-options]         | [Script][sc-scfg-options]       | Headers & runspaces                 |
 | 46    | Lifecycle: Start/Stop         | [Start / Stop][ch-life-startstop]         | [Script][sc-life-startstop]     | Non-blocking lifecycle              |
 | 47    | Demo: Full Server             | [Full Server Demo][ch-demo-full]          | [Script][sc-demo-full]          | Integrated scenario                 |
+| 48    | Health: Quickstart            | [Health Quickstart][ch-health-quick]      | [Script][sc-health-1]           | Endpoint + basic probes             |
+| 49    | Health: Script Probe          | [Script Probe][ch-health-script]          | [Script][sc-health-2]           | Custom latency script               |
+| 50    | Health: HTTP Probe            | [HTTP Probe][ch-health-http]              | [Script][sc-health-3]           | Internal route check                |
+| 51    | Health: Process Probe         | [Process Probe][ch-health-process]        | [Script][sc-health-4]           | External tool validation            |
+| 52    | Health: C# Inline Probe       | [C# Inline Probe][ch-health-csharp]       | [Script][sc-health-5]           | Inline .NET logic                   |
+| 53    | Health: Disk Probe            | [Disk Probe][ch-health-disk]              | [Script][sc-health-6]           | Disk space thresholds               |
 
 Static chapters and scripts are all linked directly above for quick navigation.
 
@@ -146,7 +152,13 @@ Static chapters and scripts are all linked directly above for quick navigation.
 [ch-scfg-limits]: ./13.server-configuration/1.Server-Limits
 [ch-scfg-options]: ./13.server-configuration/2.Server-Options
 [ch-life-startstop]: ./14.lifecycle/1.Start-Stop
-[ch-demo-full]: ./15.demos/1.Full-Demo
+[ch-demo-full]: ./17.demos/1.Full-Demo
+[ch-health-quick]: ./16.health/1.Health-Quickstart
+[ch-health-script]: ./16.health/2.Health-Script-Probe
+[ch-health-http]: ./16.health/3.Health-Http-Probe
+[ch-health-process]: ./16.health/4.Health-Process-Probe
+[ch-health-csharp]: ./16.health/5.Health-CSharp-Probe
+[ch-health-disk]: ./16.health/6.Health-Disk-Probe
 [sc-hello]: /pwsh/tutorial/examples/1.1-Hello-World.ps1
 [sc-content]: /pwsh/tutorial/examples/2.1-Multiple-Content-Types.ps1
 [sc-multilang]: /pwsh/tutorial/examples/2.2-Multi-Language-Routes.ps1
@@ -194,3 +206,9 @@ Static chapters and scripts are all linked directly above for quick navigation.
 [sc-scfg-options]: /pwsh/tutorial/examples/13.2-Server-Options.ps1
 [sc-life-startstop]: /pwsh/tutorial/examples/15.1-Start-Stop.ps1
 [sc-demo-full]: /pwsh/tutorial/examples/14.1-Full-Demo.ps1
+[sc-health-1]: /pwsh/tutorial/examples/16.1-Health-Quickstart.ps1
+[sc-health-2]: /pwsh/tutorial/examples/16.2-Health-Script-Probe.ps1
+[sc-health-3]: /pwsh/tutorial/examples/16.3-Health-Http-Probe.ps1
+[sc-health-4]: /pwsh/tutorial/examples/16.4-Health-Process-Probe.ps1
+[sc-health-5]: /pwsh/tutorial/examples/16.5-Health-CSharp-Probe.ps1
+[sc-health-6]: /pwsh/tutorial/examples/16.6-Health-Disk-Probe.ps1

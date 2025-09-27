@@ -35,12 +35,14 @@ Add-KrPowerShellRuntime
 Add-KrHealthEndpoint -Pattern '/healthz' -DefaultTags 'core' -ProbeTimeout '00:00:05' -TreatDegradedAsUnhealthy $true -OpenApiSummary 'Aggregated health'
 
 Enable-KrConfiguration
-Start-KrServer | Out-Null
-```
-
-### C# (minimal hosting)
-
 ```csharp
+### Alternate Response Formats
+
+Dashboards or downstream tooling may require YAML or XML instead of JSON. Set
+`HealthEndpointOptions.ResponseContentType` (C#) or pass `-ResponseContentType` to
+`Add-KrHealthEndpoint` (PowerShell) with `Json`, `Yaml`, `Xml`, or `Auto` to control the response
+serializer while keeping the same aggregated data contract.
+
 using Kestrun.Hosting;
 using Kestrun.Health;
 
@@ -106,6 +108,7 @@ public record ProbeResult(
 | `ProbeTimeout` | 15 seconds | Per probe cancellation window. |
 | `AutoRegisterEndpoint` | `true` | Automatically register on host creation. |
 | `DefaultScriptLanguage` | PowerShell | Used by `AddProbe` overload when `ScriptLanguage` not specified. |
+| `ResponseContentType` | JSON | Force JSON, YAML, XML, or auto negotiation for the aggregate payload. |
 
 Set these via `Add-KrHealthEndpoint` parameters (PowerShell) or the configuration lambda (C#).
 

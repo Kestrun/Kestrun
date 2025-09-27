@@ -143,7 +143,7 @@ public sealed class ProcessProbe(string name, string[] tags, string fileName, st
         using var reg = SetupProcessKillRegistration(proc, cts.Token);
         var timedOut = await WaitForProcessWithTimeout(proc, cts.Token, ct);
         var (outText, errText) = await ReadProcessStreams(stdOutTask, stdErrTask, timedOut, ct);
-        
+
         return (outText, errText, timedOut);
     }
 
@@ -224,7 +224,7 @@ public sealed class ProcessProbe(string name, string[] tags, string fileName, st
     {
         var outText = string.Empty;
         var errText = string.Empty;
-        
+
         try
         {
             outText = await stdOutTask.ConfigureAwait(false);
@@ -233,7 +233,7 @@ public sealed class ProcessProbe(string name, string[] tags, string fileName, st
         {
             // stdout read was canceled by caller token? (should not happen since we only passed caller token)
         }
-        
+
         try
         {
             errText = await stdErrTask.ConfigureAwait(false);
@@ -242,7 +242,7 @@ public sealed class ProcessProbe(string name, string[] tags, string fileName, st
         {
             // ignore similar to above
         }
-        
+
         return (outText, errText);
     }
 

@@ -235,7 +235,8 @@ public class KestrunResponse(KestrunRequest request, int bodyAsyncThreshold = 81
     /// </summary>
     /// <param name="inputObject">The object to be converted to JSON.</param>
     /// <param name="statusCode">The HTTP status code for the response.</param>
-    public async Task WriteJsonResponseAsync(object? inputObject, int statusCode = StatusCodes.Status200OK) => await WriteJsonResponseAsync(inputObject, depth: 10, compress: false, statusCode: statusCode);
+    /// <param name="contentType">The MIME type of the response content.</param>
+    public async Task WriteJsonResponseAsync(object? inputObject, int statusCode = StatusCodes.Status200OK, string? contentType = null) => await WriteJsonResponseAsync(inputObject, depth: 10, compress: false, statusCode: statusCode, contentType: contentType);
 
     /// <summary>
     /// Writes a JSON response using the specified input object and serializer settings.
@@ -375,15 +376,15 @@ public class KestrunResponse(KestrunRequest request, int bodyAsyncThreshold = 81
         }
         if (ContentType.Contains("json"))
         {
-            await WriteJsonResponseAsync(inputObject: inputObject, statusCode: statusCode);
+            await WriteJsonResponseAsync(inputObject: inputObject, statusCode: statusCode, contentType: ContentType);
         }
         else if (ContentType.Contains("yaml") || ContentType.Contains("yml"))
         {
-            await WriteYamlResponseAsync(inputObject: inputObject, statusCode: statusCode);
+            await WriteYamlResponseAsync(inputObject: inputObject, statusCode: statusCode, contentType: ContentType);
         }
         else if (ContentType.Contains("xml"))
         {
-            await WriteXmlResponseAsync(inputObject: inputObject, statusCode: statusCode);
+            await WriteXmlResponseAsync(inputObject: inputObject, statusCode: statusCode, contentType: ContentType);
         }
         else
         {

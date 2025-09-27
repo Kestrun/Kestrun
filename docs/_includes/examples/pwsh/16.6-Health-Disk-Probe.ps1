@@ -1,7 +1,10 @@
 <#
- Disk Probe Example
- Shows the auto-registered disk probe and how to override with custom thresholds.
+    Sample:  Disk Probe
+    Purpose: Shows the auto-registered disk probe and how to override with custom thresholds.
+    File:    16.6-Health-Disk-Probe.ps1
+    Notes:   Demonstrates the use of a custom disk probe with specific health thresholds.
 #>
+
 ## 1. Logging
 New-KrLogger | Add-KrSinkConsole | Register-KrLogger -Name 'console' -SetAsDefault
 

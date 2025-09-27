@@ -1,7 +1,9 @@
 using Kestrun.Health;
 using Kestrun.Hosting.Options;
+using Kestrun.Models;
 using Kestrun.Scripting;
 using Kestrun.Utilities;
+using Microsoft.Net.Http.Headers;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
@@ -159,6 +161,11 @@ public static class KestrunHostHealthExtensions
         target.ProbeTimeout = source.ProbeTimeout;
         target.AutoRegisterEndpoint = source.AutoRegisterEndpoint;
         target.DefaultScriptLanguage = source.DefaultScriptLanguage;
+        // BUGFIX: Ensure the response content type preference is propagated when using the overload
+        // that accepts a pre-configured HealthEndpointOptions instance. Without this line the
+        // ResponseContentType would always fall back to Json for PowerShell Add-KrHealthEndpoint
+        // which calls AddHealthEndpoint(host, options) internally.
+        target.ResponseContentType = source.ResponseContentType;
     }
 
     private static int DetermineStatusCode(ProbeStatus status, bool treatDegradedAsUnhealthy) => status switch
@@ -199,13 +206,39 @@ public static class KestrunHostHealthExtensions
                 logger: endpointLogger,
                 ct: context.RequestAborted).ConfigureAwait(false);
 
-            var statusCode = DetermineStatusCode(report.Status, merged.TreatDegradedAsUnhealthy);
-            context.Response.StatusCode = statusCode;
-            context.Response.Headers.CacheControl = "no-store, no-cache, must-revalidate, max-age=0";
+            var request = await KestrunRequest.NewRequest(context).ConfigureAwait(false);
+            var response = new KestrunResponse(request)
+            {
+                CacheControl = new CacheControlHeaderValue
+                {
+                    NoCache = true,
+                    NoStore = true,
+                    MustRevalidate = true,
+                    MaxAge = TimeSpan.Zero
+                }
+            };
             context.Response.Headers.Pragma = "no-cache";
             context.Response.Headers.Expires = "0";
 
-            await context.Response.WriteAsJsonAsync(report, JsonOptions, context.RequestAborted).ConfigureAwait(false);
+            var statusCode = DetermineStatusCode(report.Status, merged.TreatDegradedAsUnhealthy);
+            switch (merged.ResponseContentType)
+            {
+                case HealthEndpointContentType.Json:
+                    await response.WriteJsonResponseAsync(report, statusCode).ConfigureAwait(false);
+                    break;
+                case HealthEndpointContentType.Yaml:
+                    await response.WriteYamlResponseAsync(report, statusCode).ConfigureAwait(false);
+                    break;
+                case HealthEndpointContentType.Xml:
+                    await response.WriteXmlResponseAsync(report, statusCode).ConfigureAwait(false);
+                    break;
+                case HealthEndpointContentType.Auto:
+                default:
+                    await response.WriteResponseAsync(report, statusCode).ConfigureAwait(false);
+                    break;
+            }
+
+            await response.ApplyTo(context.Response).ConfigureAwait(false);
         }).WithMetadata(new ScriptLanguageAttribute(ScriptLanguage.Native));
 
         host.AddMapOptions(map, mapOptions);

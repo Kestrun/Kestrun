@@ -46,6 +46,8 @@
     Adjusts the timeout enforced for each probe during a health request.
 .PARAMETER DefaultScriptLanguage
     Overrides the default script language used when registering script-based probes.
+.PARAMETER ResponseContentType
+    Controls the response payload format returned by the endpoint (Json, Yaml, Xml, or Auto for content negotiation).
 .PARAMETER PassThru
     Emits the configured server instance so the call can be chained.
 .EXAMPLE
@@ -102,6 +104,8 @@ function Add-KrHealthEndpoint {
         [timespan]$ProbeTimeout,
 
         [Kestrun.Scripting.ScriptLanguage]$DefaultScriptLanguage,
+
+        [Kestrun.Health.HealthEndpointContentType]$ResponseContentType,
 
         [switch]$PassThru
     )
@@ -193,6 +197,10 @@ function Add-KrHealthEndpoint {
 
         if ($PSBoundParameters.ContainsKey('DefaultScriptLanguage')) {
             $options.DefaultScriptLanguage = $DefaultScriptLanguage
+        }
+
+        if ($PSBoundParameters.ContainsKey('ResponseContentType')) {
+            $options.ResponseContentType = $ResponseContentType
         }
 
         $result = [Kestrun.Hosting.KestrunHostHealthExtensions]::AddHealthEndpoint($Server, $options)

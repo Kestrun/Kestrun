@@ -3,6 +3,29 @@ using Kestrun.Scripting;
 namespace Kestrun.Health;
 
 /// <summary>
+/// Supported response content types for the built-in health endpoint.
+/// </summary>
+public enum HealthEndpointContentType
+{
+    /// <summary>
+    /// Emits JSON output (default).
+    /// </summary>
+    Json,
+    /// <summary>
+    /// Emits YAML output.
+    /// </summary>
+    Yaml,
+    /// <summary>
+    /// Emits XML output.
+    /// </summary>
+    Xml,
+    /// <summary>
+    /// Automatically negotiates based on the Accept header.
+    /// </summary>
+    Auto
+}
+
+/// <summary>
 /// Options controlling the built-in health endpoint exposed by <see cref="Hosting.KestrunHost"/>.
 /// </summary>
 public sealed class HealthEndpointOptions
@@ -116,6 +139,11 @@ public sealed class HealthEndpointOptions
     public ScriptLanguage DefaultScriptLanguage { get; set; } = ScriptLanguage.PowerShell;
 
     /// <summary>
+    /// Gets or sets the response content type produced by the endpoint.
+    /// </summary>
+    public HealthEndpointContentType ResponseContentType { get; set; } = HealthEndpointContentType.Json;
+
+    /// <summary>
     /// Creates a deep copy of the current instance.
     /// </summary>
     /// <returns>A cloned <see cref="HealthEndpointOptions"/> instance.</returns>
@@ -140,6 +168,7 @@ public sealed class HealthEndpointOptions
         MaxDegreeOfParallelism = MaxDegreeOfParallelism,
         ProbeTimeout = ProbeTimeout,
         AutoRegisterEndpoint = AutoRegisterEndpoint,
-        DefaultScriptLanguage = DefaultScriptLanguage
+        DefaultScriptLanguage = DefaultScriptLanguage,
+        ResponseContentType = ResponseContentType
     };
 }

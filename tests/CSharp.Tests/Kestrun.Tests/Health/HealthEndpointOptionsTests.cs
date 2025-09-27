@@ -30,7 +30,8 @@ public class HealthEndpointOptionsTests
             MaxDegreeOfParallelism = 4,
             ProbeTimeout = TimeSpan.FromMilliseconds(123),
             AutoRegisterEndpoint = false,
-            DefaultScriptLanguage = ScriptLanguage.PowerShell
+            DefaultScriptLanguage = ScriptLanguage.PowerShell,
+            ResponseContentType = HealthEndpointContentType.Auto
         };
         var clone = options.Clone();
         Assert.Equal(options.Pattern, clone.Pattern);
@@ -53,5 +54,6 @@ public class HealthEndpointOptionsTests
         Assert.Equal(options.ProbeTimeout, clone.ProbeTimeout);
         Assert.Equal(options.AutoRegisterEndpoint, clone.AutoRegisterEndpoint);
         Assert.Equal(options.DefaultScriptLanguage, clone.DefaultScriptLanguage);
+        Assert.Equal(options.ResponseContentType, clone.ResponseContentType);
     }
 }

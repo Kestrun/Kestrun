@@ -29,7 +29,6 @@ public sealed class DiskSpaceProbe : IProbe
     private readonly string _path;
     private readonly double _criticalPercent;
     private readonly double _warnPercent;
-    private readonly Serilog.ILogger _logger;
 
     /// <summary>
     /// Creates a new <see cref="DiskSpaceProbe"/>.
@@ -59,8 +58,7 @@ public sealed class DiskSpaceProbe : IProbe
         _path = string.IsNullOrWhiteSpace(path) ? AppContext.BaseDirectory : path!;
         _criticalPercent = criticalPercent;
         _warnPercent = warnPercent;
-        _logger = logger ?? Log.ForContext("HealthProbe", name).ForContext("Probe", name);
-        Logger = _logger; // expose via interface
+        Logger = logger ?? Log.ForContext("HealthProbe", name).ForContext("Probe", name);
     }
 
     /// <summary>

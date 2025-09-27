@@ -52,6 +52,16 @@ public sealed class ProcessProbe(string name, string[] tags, string fileName, st
 
             return TryParseJsonContract(outText, out var contractResult) ? contractResult : MapExitCode(proc.ExitCode, errText);
         }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            // Surface caller/request cancellation without converting to a health status; runner decides final response.
+            throw;
+        }
+        catch (TaskCanceledException ex)
+        {
+            // Internal timeout (cts.CancelAfter) -> degrade instead of unhealthy so transient slowness isn't reported as outright failure.
+            return new ProbeResult(ProbeStatus.Degraded, $"Timed out: {ex.Message}");
+        }
         catch (Exception ex)
         {
             return new ProbeResult(ProbeStatus.Unhealthy, $"Exception: {ex.Message}");
@@ -89,12 +99,26 @@ public sealed class ProcessProbe(string name, string[] tags, string fileName, st
         var stdOutTask = proc.StandardOutput.ReadToEndAsync(ct);
         var stdErrTask = proc.StandardError.ReadToEndAsync(ct);
 
+        //   using var reg = cts.Token.Register(() =>
+        // {
+        //   try { if (!proc.HasExited) { proc.Kill(true); } }
+        // catch { /* ignored */ }
+        //});
         using var reg = cts.Token.Register(() =>
-        {
-            try { if (!proc.HasExited) { proc.Kill(true); } }
-            catch { /* ignored */ }
-        });
-
+                    {
+                        try
+                        {
+                            if (!proc.HasExited) { proc.Kill(true); }
+                        }
+                        catch (InvalidOperationException)
+                        {
+                            // Process already exited, safe to ignore.
+                        }
+                        catch (Exception ex)
+                        {
+                            Console.Error.WriteLine($"Exception when killing process: {ex}");
+                        }
+                    });
         _ = await Task.WhenAny(Task.Run(proc.WaitForExit, cts.Token), Task.Delay(Timeout.Infinite, cts.Token)).ConfigureAwait(false);
 
         var outText = await stdOutTask.ConfigureAwait(false);

@@ -96,6 +96,8 @@ function Add-KrHealthEndpoint {
 
         [string]$OpenApiGroupName,
 
+        [parameter()]
+        [ValidateRange(1, [int]::MaxValue)]
         [int]$MaxDegreeOfParallelism,
 
         [timespan]$ProbeTimeout,
@@ -179,10 +181,7 @@ function Add-KrHealthEndpoint {
             $options.OpenApiGroupName = $OpenApiGroupName
         }
 
-        if ($PSBoundParameters.ContainsKey('MaxDegreeOfParallelism')) {
-            if ($MaxDegreeOfParallelism -lt 1) {
-                throw 'MaxDegreeOfParallelism must be greater than 0.'
-            }
+        if ($PSBoundParameters.ContainsKey('MaxDegreeOfParallelism')) { 
             $options.MaxDegreeOfParallelism = $MaxDegreeOfParallelism
         }
 

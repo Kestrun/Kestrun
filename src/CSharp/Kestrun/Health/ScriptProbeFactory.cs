@@ -341,11 +341,17 @@ internal static class ScriptProbeFactory
             var dict = new Dictionary<string, object>(dictionary.Count);
             foreach (DictionaryEntry entry in dictionary)
             {
-                if (entry.Key is null)
+                if (entry.Key is null || entry.Value is null)
                 {
                     continue;
                 }
-                dict[entry.Key.ToString()!] = entry.Value!;
+                var key = entry.Key.ToString();
+                if (string.IsNullOrWhiteSpace(key))
+                {
+                    continue;
+                }
+                dict[key] = entry.Value;
+
             }
             return dict;
         }

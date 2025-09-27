@@ -11,11 +11,18 @@ namespace Kestrun.Utilities;
 public static class XmlHelper
 {
     private static readonly XNamespace xsi = "http://www.w3.org/2001/XMLSchema-instance";
-    private const int MaxDepth = 32;
+    /// <summary>
+    /// Maximum recursion depth for object-to-XML conversion. Default value of 32 chosen to balance performance and stack safety for typical object graphs.
+    /// This value can be adjusted if deeper object graphs need to be serialized.
+    /// </summary>
+    public static int MaxDepth { get; set; } = 32;
 
-    // Used for cycle detection
-    [ThreadStatic]
-    private static HashSet<object>? _visited;
+    // Per-call cycle detection now passed explicitly (was ThreadStatic). Avoids potential thread reuse memory retention.
+    // Rationale:
+    //   * ThreadStatic HashSet could retain large object graphs across requests in thread pool threads causing memory bloat.
+    //   * A per-call HashSet has a short lifetime and becomes eligible for GC immediately after serialization completes.
+    //   * Passing the set by reference keeps allocation to a single HashSet per root ToXml call (lazy created on first reference type).
+    //   * No synchronization needed: the set is confined to the call stack; recursive calls share it by reference.
 
     /// <summary>
     /// Converts an object to an <see cref="XElement"/> with the specified name, handling nulls, primitives, dictionaries, enumerables, and complex types.
@@ -23,7 +30,7 @@ public static class XmlHelper
     /// <param name="name">The name of the XML element.</param>
     /// <param name="value">The object to convert to XML.</param>
     /// <returns>An <see cref="XElement"/> representing the object.</returns>
-    public static XElement ToXml(string name, object? value) => ToXmlInternal(SanitizeName(name), value, 0);
+    public static XElement ToXml(string name, object? value) => ToXmlInternal(SanitizeName(name), value, 0, visited: null);
 
     /// <summary>
     /// Internal recursive method to convert an object to XML, with depth tracking and cycle detection.
@@ -32,10 +39,11 @@ public static class XmlHelper
     /// <param name="value">The object to convert to XML.</param>
     /// <param name="depth">The current recursion depth.</param>
     /// <returns>An <see cref="XElement"/> representing the object.</returns>
-    private static XElement ToXmlInternal(string name, object? value, int depth)
+    /// <param name="visited">Per-call set of already visited reference objects for cycle detection.</param>
+    private static XElement ToXmlInternal(string name, object? value, int depth, HashSet<object>? visited)
     {
         // Fast path & terminal cases extracted to helpers for reduced branching complexity.
-        if (TryHandleTerminal(name, value, depth, out var terminal))
+        if (TryHandleTerminal(name, value, depth, ref visited, out var terminal))
         {
             return terminal;
         }
@@ -43,20 +51,20 @@ public static class XmlHelper
         // At this point value is non-null complex/reference or value-type object requiring reflection.
         var type = value!.GetType();
         var needsCycleTracking = !type.IsValueType;
-        if (needsCycleTracking && !EnterCycle(value, out var cycleElem))
+        if (needsCycleTracking && !EnterCycle(value, ref visited, out var cycleElem))
         {
             return cycleElem!; // Cycle detected
         }
 
         try
         {
-            return ObjectToXml(name, value, depth);
+            return ObjectToXml(name, value, depth, visited);
         }
         finally
         {
-            if (needsCycleTracking)
+            if (needsCycleTracking && visited is not null)
             {
-                ExitCycle(value);
+                _ = visited.Remove(value);
             }
         }
     }
@@ -68,8 +76,9 @@ public static class XmlHelper
     /// <param name="value">The object to convert to XML.</param>
     /// <param name="depth">The current recursion depth.</param>
     /// <param name="element">The resulting XML element if handled; otherwise, null.</param>
+    /// <param name="visited">Per-call set used for cycle detection (reference types only).</param>
     /// <returns><c>true</c> if the value was handled; otherwise, <c>false</c>.</returns>
-    private static bool TryHandleTerminal(string name, object? value, int depth, out XElement element)
+    private static bool TryHandleTerminal(string name, object? value, int depth, ref HashSet<object>? visited, out XElement element)
     {
         // Depth guard handled below.
         if (depth >= MaxDepth)
@@ -116,14 +125,14 @@ public static class XmlHelper
         // IDictionary
         if (value is IDictionary dict)
         {
-            element = DictionaryToXml(name, dict, depth);
+            element = DictionaryToXml(name, dict, depth, visited);
             return true;
         }
 
         // IEnumerable
         if (value is IEnumerable enumerable)
         {
-            element = EnumerableToXml(name, enumerable, depth);
+            element = EnumerableToXml(name, enumerable, depth, visited);
             return true;
         }
 
@@ -137,29 +146,17 @@ public static class XmlHelper
     /// <param name="value">The object to track.</param>
     /// <param name="cycleElement">The resulting XML element if a cycle is detected; otherwise, null.</param>
     /// <returns><c>true</c> if the object is successfully tracked; otherwise, <c>false</c>.</returns>
-    private static bool EnterCycle(object value, out XElement? cycleElement)
+    /// <param name="visited">Per-call set of visited objects (created lazily).</param>
+    private static bool EnterCycle(object value, ref HashSet<object>? visited, out XElement? cycleElement)
     {
-        _visited ??= new HashSet<object>(ReferenceEqualityComparer.Instance);
-        if (!_visited.Add(value))
+        visited ??= new HashSet<object>(ReferenceEqualityComparer.Instance);
+        if (!visited.Add(value))
         {
             cycleElement = new XElement("Object", new XAttribute(ScriptProbeFactory.STATUS_WARNING, "CycleDetected"));
             return false;
         }
         cycleElement = null;
         return true;
-    }
-
-    private static void ExitCycle(object value)
-    {
-        if (_visited is null)
-        {
-            return;
-        }
-        _ = _visited.Remove(value);
-        if (_visited.Count == 0)
-        {
-            _visited = null; // reset for thread reuse
-        }
     }
 
     /// <summary>
@@ -182,13 +179,14 @@ public static class XmlHelper
     /// <param name="name">Element name for the dictionary.</param>
     /// <param name="dict">Dictionary to serialize.</param>
     /// <param name="depth">Current recursion depth (guarded).</param>
-    private static XElement DictionaryToXml(string name, IDictionary dict, int depth)
+    /// <param name="visited">Per-call set used for cycle detection.</param>
+    private static XElement DictionaryToXml(string name, IDictionary dict, int depth, HashSet<object>? visited)
     {
         var elem = new XElement(name);
         foreach (DictionaryEntry entry in dict)
         {
             var key = SanitizeName(entry.Key?.ToString() ?? "Key");
-            elem.Add(ToXmlInternal(key, entry.Value, depth + 1));
+            elem.Add(ToXmlInternal(key, entry.Value, depth + 1, visited));
         }
         return elem;
     }
@@ -196,12 +194,13 @@ public static class XmlHelper
     /// <param name="name">Element name for the collection.</param>
     /// <param name="enumerable">Sequence to serialize.</param>
     /// <param name="depth">Current recursion depth (guarded).</param>
-    private static XElement EnumerableToXml(string name, IEnumerable enumerable, int depth)
+    /// <param name="visited">Per-call set used for cycle detection.</param>
+    private static XElement EnumerableToXml(string name, IEnumerable enumerable, int depth, HashSet<object>? visited)
     {
         var elem = new XElement(name);
         foreach (var item in enumerable)
         {
-            elem.Add(ToXmlInternal("Item", item, depth + 1));
+            elem.Add(ToXmlInternal("Item", item, depth + 1, visited));
         }
         return elem;
     }
@@ -210,7 +209,8 @@ public static class XmlHelper
     /// <param name="name">Element name for the object.</param>
     /// <param name="value">Object instance to serialize.</param>
     /// <param name="depth">Current recursion depth (guarded).</param>
-    private static XElement ObjectToXml(string name, object value, int depth)
+    /// <param name="visited">Per-call set used for cycle detection.</param>
+    private static XElement ObjectToXml(string name, object value, int depth, HashSet<object>? visited)
     {
         var objElem = new XElement(name);
         var type = value.GetType();
@@ -230,7 +230,7 @@ public static class XmlHelper
                 continue; // skip unreadable props
             }
             var childName = SanitizeName(prop.Name);
-            objElem.Add(ToXmlInternal(childName, propVal, depth + 1));
+            objElem.Add(ToXmlInternal(childName, propVal, depth + 1, visited));
         }
         return objElem;
     }

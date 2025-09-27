@@ -6,6 +6,10 @@ namespace Kestrun.Health;
 public interface IProbe
 {
     /// <summary>
+    /// Tag indicating the probe is a self-check of the health system itself.
+    /// </summary>
+    const string TAG_SELF = "self";   // internal use only, not for user-defined probes
+    /// <summary>
     /// The name of the probe.
     /// </summary>
     string Name { get; }        // e.g., "disk", "sql", "extApi"

@@ -777,7 +777,7 @@ public class KestrunHost : IDisposable
                 }
             }
 
-            var tags = new[] { "self" }; // neutral tag; user can filter by name if needed
+            var tags = new[] { IProbe.TAG_SELF }; // neutral tag; user can filter by name if needed
             var diskProbe = new DiskSpaceProbe("disk", tags);
             RegisterProbeInternal(diskProbe);
         }

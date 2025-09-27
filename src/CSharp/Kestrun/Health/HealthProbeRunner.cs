@@ -174,30 +174,23 @@ internal static class HealthProbeRunner
     /// <returns>The highest precedence status found.</returns>
     private static ProbeStatus DetermineOverallStatus(IEnumerable<ProbeStatus> statuses)
     {
-        var hasAny = false;
+        var foundAny = false;
+        var foundDegraded = false;
+
         foreach (var status in statuses)
         {
-            hasAny = true;
+            foundAny = true;
             if (status == ProbeStatus.Unhealthy)
             {
-                return ProbeStatus.Unhealthy; // Highest precedence, short-circuit
+                return ProbeStatus.Unhealthy;
             }
-        }
 
-        if (!hasAny)
-        {
-            return ProbeStatus.Healthy; // No probes executed
-        }
-
-        // Check for Degraded in a second pass (could optimize to single pass, but clarity preferred)
-        foreach (var status in statuses)
-        {
             if (status == ProbeStatus.Degraded)
             {
-                return ProbeStatus.Degraded;
+                foundDegraded = true;
             }
         }
 
-        return ProbeStatus.Healthy; // All remaining must be Healthy
+        return !foundAny ? ProbeStatus.Healthy : foundDegraded ? ProbeStatus.Degraded : ProbeStatus.Healthy;
     }
 }

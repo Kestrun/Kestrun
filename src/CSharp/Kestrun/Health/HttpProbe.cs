@@ -29,7 +29,7 @@ public sealed class HttpProbe(string name, string[] tags, HttpClient http, strin
     /// <summary>
     /// Logger used for diagnostics.
     /// </summary>
-    public Serilog.ILogger Logger { get; init; } = logger ?? Serilog.Log.ForContext("HealthProbe", name).ForContext("Probe", name);
+    public Serilog.ILogger Logger { get; init; } = logger ?? Serilog.Log.ForContext("HealthProbe", name);
     /// <summary>
     /// The HTTP client to use.
     /// </summary>

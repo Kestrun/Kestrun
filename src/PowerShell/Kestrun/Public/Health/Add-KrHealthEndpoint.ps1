@@ -96,7 +96,6 @@ function Add-KrHealthEndpoint {
 
         [string]$OpenApiGroupName,
 
-        [parameter()]
         [ValidateRange(1, [int]::MaxValue)]
         [int]$MaxDegreeOfParallelism,
 

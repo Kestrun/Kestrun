@@ -137,8 +137,8 @@ public sealed class ProcessProbe(string name, string[] tags, string fileName, st
         using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
         cts.CancelAfter(_timeout);
 
-        var stdOutTask = proc.StandardOutput.ReadToEndAsync(ct);
-        var stdErrTask = proc.StandardError.ReadToEndAsync(ct);
+        var stdOutTask = proc.StandardOutput.ReadToEndAsync(cts.Token);
+        var stdErrTask = proc.StandardError.ReadToEndAsync(cts.Token);
 
         using var reg = cts.Token.Register(() =>
         {

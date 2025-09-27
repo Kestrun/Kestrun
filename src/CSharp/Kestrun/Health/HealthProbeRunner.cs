@@ -67,7 +67,8 @@ internal static class HealthProbeRunner
             ordered.Count(static e => e.Status == ProbeStatus.Degraded),
             ordered.Count(static e => e.Status == ProbeStatus.Unhealthy));
 
-        var overall = ordered.Select(static e => e.Status).DefaultIfEmpty(ProbeStatus.Healthy).Max();
+        // Determine overall status using explicit precedence: Unhealthy > Degraded > Healthy
+        var overall = DetermineOverallStatus(ordered.Select(static e => e.Status));
         return new HealthReport(
             overall,
             overall.ToString().ToLowerInvariant(),
@@ -77,6 +78,16 @@ internal static class HealthProbeRunner
             normalizedTags);
     }
 
+    /// <summary>
+    /// Executes a single probe with timeout and error handling, adding the result to the provided sink.
+    /// </summary>
+    /// <param name="probe">The probe to execute.</param>
+    /// <param name="perProbeTimeout">Maximum execution time for the probe. Specify <see cref="TimeSpan.Zero"/> to disable the timeout.</param>
+    /// <param name="throttle">Optional semaphore used to limit concurrency. May be null to disable throttling.</param>
+    /// <param name="logger">Logger used for diagnostics.</param>
+    /// <param name="sink">Concurrent sink to which the result is added.</param>
+    /// <param name="ct">Cancellation token tied to the HTTP request.</param>
+    /// <returns>A task representing the asynchronous operation.</returns>
     private static async Task ExecuteProbeAsync(
         IProbe probe,
         TimeSpan perProbeTimeout,
@@ -141,5 +152,41 @@ internal static class HealthProbeRunner
         {
             _ = throttle?.Release();
         }
+    }
+
+    /// <summary>
+    /// Determines the overall health status using explicit precedence rules.
+    /// Unhealthy takes precedence over all others, Degraded over Healthy.
+    /// Returns Healthy if no statuses are provided.
+    /// </summary>
+    /// <param name="statuses">Collection of probe statuses.</param>
+    /// <returns>The highest precedence status found.</returns>
+    private static ProbeStatus DetermineOverallStatus(IEnumerable<ProbeStatus> statuses)
+    {
+        var hasAny = false;
+        foreach (var status in statuses)
+        {
+            hasAny = true;
+            if (status == ProbeStatus.Unhealthy)
+            {
+                return ProbeStatus.Unhealthy; // Highest precedence, short-circuit
+            }
+        }
+
+        if (!hasAny)
+        {
+            return ProbeStatus.Healthy; // No probes executed
+        }
+
+        // Check for Degraded in a second pass (could optimize to single pass, but clarity preferred)
+        foreach (var status in statuses)
+        {
+            if (status == ProbeStatus.Degraded)
+            {
+                return ProbeStatus.Degraded;
+            }
+        }
+
+        return ProbeStatus.Healthy; // All remaining must be Healthy
     }
 }

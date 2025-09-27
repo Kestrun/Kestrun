@@ -1,6 +1,7 @@
 using Kestrun.Health;
 using Xunit;
 using System.Runtime.InteropServices;
+using System.Globalization;
 
 namespace KestrunTests.Health;
 
@@ -8,6 +9,11 @@ public class ProcessProbeTests
 {
     private static (string file, string args) CommandForExitCode(int code)
     {
+        // Security / safety: ensure exit code is within normal POSIX/Win range (0-255) and not user-injected text.
+        if (code is < 0 or > 255)
+        {
+            throw new ArgumentOutOfRangeException(nameof(code), "Exit code must be between 0 and 255.");
+        }
         if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
         {
             return ("cmd.exe", $"/c exit {code}");
@@ -23,7 +29,10 @@ public class ProcessProbeTests
         {
             return ("/usr/bin/env", "false");
         }
-        return ("/bin/sh", $"-c exit {code}");
+        // Build the argument string using invariant formatting to avoid localization surprises.
+        var codeText = code.ToString(CultureInfo.InvariantCulture);
+        // Quote the shell fragment to prevent interpretation if future changes introduce special chars.
+        return ("/bin/sh", $"-c 'exit {codeText}'");
     }
 
     [Fact]

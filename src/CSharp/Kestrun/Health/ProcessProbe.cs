@@ -30,7 +30,7 @@ public sealed class ProcessProbe(string name, string[] tags, string fileName, st
     /// <summary>
     /// Logger used for diagnostics.
     /// </summary>
-    public Serilog.ILogger Logger { get; init; } = logger ?? Log.ForContext("HealthProbe", name).ForContext("Probe", name);
+    public Serilog.ILogger Logger { get; init; } = logger ?? Log.ForContext("HealthProbe", name);
     /// <summary>
     /// The file name of the process to run.
     /// </summary>

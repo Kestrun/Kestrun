@@ -21,6 +21,11 @@ public sealed class DiskSpaceProbe : IProbe
     /// Number of bytes per kilobyte (1024).
     /// </summary>
     private const double BytesPerKilobyte = 1024.0;
+    /// <summary>
+    /// Units for formatting byte sizes.
+    /// </summary>
+    private static readonly string[] sizes = ["B", "KB", "MB", "GB", "TB", "PB"];
+
     private readonly string _path;
     private readonly double _criticalPercent;
     private readonly double _warnPercent;
@@ -173,7 +178,6 @@ public sealed class DiskSpaceProbe : IProbe
     /// <returns>A human-readable string representation of the byte count.</returns>
     private static string FormatBytes(long bytes)
     {
-        string[] sizes = ["B", "KB", "MB", "GB", "TB", "PB"]; // improbable > PB
         double len = bytes;
         var order = 0;
         while (len >= BytesPerKilobyte && order < sizes.Length - 1)

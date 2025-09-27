@@ -137,10 +137,25 @@ public sealed class ProcessProbe(string name, string[] tags, string fileName, st
         using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
         cts.CancelAfter(_timeout);
 
-        var stdOutTask = proc.StandardOutput.ReadToEndAsync(cts.Token);
-        var stdErrTask = proc.StandardError.ReadToEndAsync(cts.Token);
+        var stdOutTask = proc.StandardOutput.ReadToEndAsync(ct);
+        var stdErrTask = proc.StandardError.ReadToEndAsync(ct);
 
-        using var reg = cts.Token.Register(() =>
+        using var reg = SetupProcessKillRegistration(proc, cts.Token);
+        var timedOut = await WaitForProcessWithTimeout(proc, cts.Token, ct);
+        var (outText, errText) = await ReadProcessStreams(stdOutTask, stdErrTask, timedOut, ct);
+        
+        return (outText, errText, timedOut);
+    }
+
+    /// <summary>
+    /// Sets up a cancellation token registration to kill the process when timeout or cancellation occurs.
+    /// </summary>
+    /// <param name="proc">The process to potentially kill.</param>
+    /// <param name="cancellationToken">The token that triggers the kill operation.</param>
+    /// <returns>The cancellation token registration.</returns>
+    private CancellationTokenRegistration SetupProcessKillRegistration(Process proc, CancellationToken cancellationToken)
+    {
+        return cancellationToken.Register(() =>
         {
             try
             {
@@ -162,15 +177,25 @@ public sealed class ProcessProbe(string name, string[] tags, string fileName, st
                 Logger.Warning(ex, "ProcessProbe {Probe} exception while attempting to kill PID {Pid}", Name, proc.Id);
             }
         });
-        var timedOut = false;
+    }
+
+    /// <summary>
+    /// Waits for the process to exit, handling timeout scenarios.
+    /// </summary>
+    /// <param name="proc">The process to wait for.</param>
+    /// <param name="timeoutToken">Token that fires on timeout.</param>
+    /// <param name="callerToken">The original caller's cancellation token.</param>
+    /// <returns>True if the process timed out, false if it completed normally.</returns>
+    private static async Task<bool> WaitForProcessWithTimeout(Process proc, CancellationToken timeoutToken, CancellationToken callerToken)
+    {
         try
         {
-            await proc.WaitForExitAsync(cts.Token).ConfigureAwait(false);
+            await proc.WaitForExitAsync(timeoutToken).ConfigureAwait(false);
+            return false; // No timeout
         }
-        catch (OperationCanceledException) when (!ct.IsCancellationRequested)
+        catch (OperationCanceledException) when (!callerToken.IsCancellationRequested)
         {
             // Internal timeout fired; process kill requested via registration. Mark and wait for real exit to drain streams.
-            timedOut = true;
             try
             {
                 proc.WaitForExit(); // ensure fully exited so streams close
@@ -179,27 +204,46 @@ public sealed class ProcessProbe(string name, string[] tags, string fileName, st
             {
                 // ignore - already exited
             }
+            return true; // Timed out
         }
+    }
 
+    /// <summary>
+    /// Reads the process stdout and stderr streams with error handling.
+    /// </summary>
+    /// <param name="stdOutTask">Task reading standard output.</param>
+    /// <param name="stdErrTask">Task reading standard error.</param>
+    /// <param name="timedOut">Whether the process timed out.</param>
+    /// <param name="callerToken">The original caller's cancellation token.</param>
+    /// <returns>The stdout and stderr text.</returns>
+    private static async Task<(string StdOut, string StdErr)> ReadProcessStreams(
+        Task<string> stdOutTask,
+        Task<string> stdErrTask,
+        bool timedOut,
+        CancellationToken callerToken)
+    {
         var outText = string.Empty;
         var errText = string.Empty;
+        
         try
         {
             outText = await stdOutTask.ConfigureAwait(false);
         }
-        catch (OperationCanceledException) when (timedOut && !ct.IsCancellationRequested)
+        catch (OperationCanceledException) when (timedOut && !callerToken.IsCancellationRequested)
         {
             // stdout read was canceled by caller token? (should not happen since we only passed caller token)
         }
+        
         try
         {
             errText = await stdErrTask.ConfigureAwait(false);
         }
-        catch (OperationCanceledException) when (timedOut && !ct.IsCancellationRequested)
+        catch (OperationCanceledException) when (timedOut && !callerToken.IsCancellationRequested)
         {
             // ignore similar to above
         }
-        return (outText, errText, timedOut);
+        
+        return (outText, errText);
     }
 
     /// <summary>

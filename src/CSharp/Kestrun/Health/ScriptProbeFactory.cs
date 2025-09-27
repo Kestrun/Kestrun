@@ -291,26 +291,54 @@ internal static class ScriptProbeFactory
                 return true;
             }
 
-            // Extract status (case-insensitive property lookup or string fallback)
-            if (!TryGetStatus(obj, out var status, out var descriptionWhenString, out var statusTextIsRaw))
+            // Try string-based conversion
+            if (TryConvertFromString(obj, out result))
             {
-                result = default!;
-                return false;
-            }
-
-            if (statusTextIsRaw)
-            {
-                // We interpreted the entire string object as both status + description
-                result = new ProbeResult(status, descriptionWhenString);
                 return true;
             }
 
-            var description = descriptionWhenString ?? GetDescription(obj);
-            var data = GetDataDictionary(obj);
-            result = new ProbeResult(status, description, data);
-            return true;
+            // Try property-based conversion
+            if (TryConvertFromProperties(obj, out result))
+            {
+                return true;
+            }
+
+            result = default!;
+            return false;
         }
 
+        // Handles string-based conversion scenario
+        private static bool TryConvertFromString(PSObject obj, out ProbeResult result)
+        {
+            if (TryGetStatus(obj, out var status, out var descriptionWhenString, out var statusTextIsRaw))
+            {
+                if (statusTextIsRaw)
+                {
+                    // We interpreted the entire string object as both status + description
+                    result = new ProbeResult(status, descriptionWhenString);
+                    return true;
+                }
+            }
+            result = default!;
+            return false;
+        }
+
+        // Handles property-based conversion scenario
+        private static bool TryConvertFromProperties(PSObject obj, out ProbeResult result)
+        {
+            if (TryGetStatus(obj, out var status, out var descriptionWhenString, out var statusTextIsRaw))
+            {
+                if (!statusTextIsRaw)
+                {
+                    var description = descriptionWhenString ?? GetDescription(obj);
+                    var data = GetDataDictionary(obj);
+                    result = new ProbeResult(status, description, data);
+                    return true;
+                }
+            }
+            result = default!;
+            return false;
+        }
         /// <summary>
         /// Tries to unwrap a PSObject that directly wraps a ProbeResult.
         /// </summary>

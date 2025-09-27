@@ -61,7 +61,7 @@ public static class XmlHelper
     }
 
     /// <summary>
-    /// Handles depth guard, null, enums, primitives, simple temporal types, dictionaries & enumerables.
+    /// Handles depth guard, null, enums, primitives, simple temporal types, dictionaries &amp; enumerables.
     /// </summary>
     /// <param name="name">The name of the XML element.</param>
     /// <param name="value">The object to convert to XML.</param>

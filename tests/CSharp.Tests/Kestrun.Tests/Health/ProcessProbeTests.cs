@@ -71,11 +71,11 @@ public class ProcessProbeTests
         }
         else
         {
-            // On Unix we avoid relying on shell builtins with buffering that might delay stdout capture.
-            // Use 'sh -c "echo starting; sleep 5"'. Add 'stdbuf -o0' if available to flush immediately.
-            // We keep it simple: many distros have /bin/sh (dash or bash) which flushes after newline for 'echo'.
+            // On Unix avoid wrapping the command in single quotes which are not stripped (ProcessStartInfo passes raw args),
+            // leading to the shell receiving a literal quote and exiting with 127. Use double quotes for clarity.
+            // This reliably prints and then sleeps beyond the internal 500ms timeout causing a Degraded status.
             file = "/bin/sh";
-            args = "-c 'echo starting; sleep 5'"; // 5s > 500ms timeout
+            args = "-c \"echo starting; sleep 5\""; // 5s > 500ms timeout
         }
 
         var probe = new ProcessProbe("proctimeout", ["live"], file, args, TimeSpan.FromMilliseconds(500));

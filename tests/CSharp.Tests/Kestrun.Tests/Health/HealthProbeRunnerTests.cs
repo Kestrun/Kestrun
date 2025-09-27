@@ -70,7 +70,7 @@ public class HealthProbeRunnerTests
     }
 
     [Fact]
-    public async Task RunAsync_TimeoutProducesUnhealthy()
+    public async Task RunAsync_TimeoutProducesDegraded()
     {
         var probes = new List<IProbe>
         {
@@ -84,8 +84,9 @@ public class HealthProbeRunnerTests
             0,
             Serilog.Log.Logger,
             CancellationToken.None);
-        Assert.Equal(ProbeStatus.Unhealthy, report.Status);
-        Assert.Contains(report.Probes, r => r.Status == ProbeStatus.Unhealthy && r.Description?.Contains("Timed out") == true);
+        // Design decision: individual probe timeouts are considered Degraded (transient) not outright Unhealthy.
+        Assert.Equal(ProbeStatus.Degraded, report.Status);
+        Assert.Contains(report.Probes, r => r.Status == ProbeStatus.Degraded && r.Description?.Contains("Timed out") == true);
     }
 
     private class TimeoutProbe : IProbe

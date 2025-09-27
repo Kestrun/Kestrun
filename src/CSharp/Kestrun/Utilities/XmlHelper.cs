@@ -24,79 +24,140 @@ public static class XmlHelper
     /// <returns>An <see cref="XElement"/> representing the object.</returns>
     public static XElement ToXml(string name, object? value) => ToXmlInternal(SanitizeName(name), value, 0);
 
+    /// <summary>
+    /// Internal recursive method to convert an object to XML, with depth tracking and cycle detection.
+    /// </summary>
+    /// <param name="name">The name of the XML element.</param>
+    /// <param name="value">The object to convert to XML.</param>
+    /// <param name="depth">The current recursion depth.</param>
+    /// <returns>An <see cref="XElement"/> representing the object.</returns>
     private static XElement ToXmlInternal(string name, object? value, int depth)
     {
-        if (depth > MaxDepth)
+        // Fast path & terminal cases extracted to helpers for reduced branching complexity.
+        if (TryHandleTerminal(name, value, depth, out var terminal))
         {
-            return new XElement(name, new XAttribute("warning", "MaxDepthExceeded"));
+            return terminal;
         }
 
-        // null  → <name xsi:nil="true"/>
-        if (value is null)
+        // At this point value is non-null complex/reference or value-type object requiring reflection.
+        var type = value!.GetType();
+        var needsCycleTracking = !type.IsValueType;
+        if (needsCycleTracking && !EnterCycle(value, out var cycleElem))
         {
-            return new XElement(name, new XAttribute(xsi + "nil", true));
-        }
-
-        // Treat enums as their string name
-        var type = value.GetType();
-        if (type.IsEnum)
-        {
-            return new XElement(name, value.ToString());
-        }
-
-        // Primitive-like (extended) types
-        if (IsSimple(value))
-        {
-            return new XElement(name, value);
-        }
-
-        // DateTimeOffset / TimeSpan explicit handling
-        if (value is DateTimeOffset dto)
-        {
-            return new XElement(name, dto.ToString("O"));
-        }
-        if (value is TimeSpan ts)
-        {
-            return new XElement(name, ts.ToString());
-        }
-
-        // IDictionary (generic or non-generic)
-        if (value is IDictionary dict)
-        {
-            return DictionaryToXml(name, dict, depth);
-        }
-
-        // IEnumerable (lists, arrays, StringValues, etc.)
-        if (value is IEnumerable enumerable)
-        {
-            return EnumerableToXml(name, enumerable, depth);
-        }
-
-        // Cycle detection for reference types
-        if (!type.IsValueType)
-        {
-            _visited ??= new HashSet<object>(ReferenceEqualityComparer.Instance);
-            if (!_visited.Add(value))
-            {
-                return new XElement(name, new XAttribute("warning", "CycleDetected"));
-            }
+            return cycleElem!; // Cycle detected
         }
 
         try
         {
-            var result = ObjectToXml(name, value, depth);
-            return result;
+            return ObjectToXml(name, value, depth);
         }
         finally
         {
-            if (!type.IsValueType && _visited is not null)
+            if (needsCycleTracking)
             {
-                _ = _visited.Remove(value);
-                if (_visited.Count == 0)
-                {
-                    _visited = null; // reset for thread reuse
-                }
+                ExitCycle(value);
             }
+        }
+    }
+
+    /// <summary>
+    /// Handles depth guard, null, enums, primitives, simple temporal types, dictionaries & enumerables.
+    /// </summary>
+    /// <param name="name">The name of the XML element.</param>
+    /// <param name="value">The object to convert to XML.</param>
+    /// <param name="depth">The current recursion depth.</param>
+    /// <param name="element">The resulting XML element if handled; otherwise, null.</param>
+    /// <returns><c>true</c> if the value was handled; otherwise, <c>false</c>.</returns>
+    private static bool TryHandleTerminal(string name, object? value, int depth, out XElement element)
+    {
+        // Depth exceeded
+        if (depth > MaxDepth)
+        {
+            element = new XElement(name, new XAttribute("warning", "MaxDepthExceeded"));
+            return true;
+        }
+
+        // Null
+        if (value is null)
+        {
+            element = new XElement(name, new XAttribute(xsi + "nil", true));
+            return true;
+        }
+
+        var type = value.GetType();
+
+        // Enum
+        if (type.IsEnum)
+        {
+            element = new XElement(name, value.ToString());
+            return true;
+        }
+
+        // Primitive / simple
+        if (IsSimple(value))
+        {
+            element = new XElement(name, value);
+            return true;
+        }
+
+        // DateTimeOffset / TimeSpan (already covered by IsSimple for DateTimeOffset/TimeSpan? DateTimeOffset yes, TimeSpan yes) but keep explicit for clarity / format control
+        if (value is DateTimeOffset dto)
+        {
+            element = new XElement(name, dto.ToString("O"));
+            return true;
+        }
+        if (value is TimeSpan ts)
+        {
+            element = new XElement(name, ts.ToString());
+            return true;
+        }
+
+        // IDictionary
+        if (value is IDictionary dict)
+        {
+            element = DictionaryToXml(name, dict, depth);
+            return true;
+        }
+
+        // IEnumerable
+        if (value is IEnumerable enumerable)
+        {
+            element = EnumerableToXml(name, enumerable, depth);
+            return true;
+        }
+
+        element = null!;
+        return false;
+    }
+
+    /// <summary>
+    /// Enters cycle tracking for the specified object. Returns false if a cycle is detected.
+    /// </summary>
+    /// <param name="value">The object to track.</param>
+    /// <param name="cycleElement">The resulting XML element if a cycle is detected; otherwise, null.</param>
+    /// <returns><c>true</c> if the object is successfully tracked; otherwise, <c>false</c>.</returns>
+    private static bool EnterCycle(object value, out XElement? cycleElement)
+    {
+        _visited ??= new HashSet<object>(ReferenceEqualityComparer.Instance);
+        if (!_visited.Add(value))
+        {
+            cycleElement = new XElement("Object", new XAttribute("warning", "CycleDetected"));
+            return false;
+        }
+        cycleElement = null;
+        return true;
+    }
+
+    private static void ExitCycle(object value)
+    {
+        if (_visited is null)
+        {
+            return;
+        }
+        _ = _visited.Remove(value);
+        if (_visited.Count == 0)
+        {
+            _visited = null; // reset for thread reuse
         }
     }
 

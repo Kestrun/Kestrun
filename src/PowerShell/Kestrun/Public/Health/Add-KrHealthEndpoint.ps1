@@ -216,7 +216,7 @@ function Add-KrHealthEndpoint {
         }
 
         if ($PSBoundParameters.ContainsKey('Compress')) {
-            $options.Compress = [bool]$Compress
+            $options.Compress = $Compress.IsPresent
         }
 
         $result = [Kestrun.Hosting.KestrunHostHealthExtensions]::AddHealthEndpoint($Server, $options)

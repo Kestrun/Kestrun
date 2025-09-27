@@ -1,5 +1,6 @@
 using System.Globalization;
 using Serilog;
+using Serilog.Events;
 
 namespace Kestrun.Health;
 
@@ -49,8 +50,8 @@ public sealed class DiskSpaceProbe : IProbe
         _path = string.IsNullOrWhiteSpace(path) ? AppContext.BaseDirectory : path!;
         _criticalPercent = criticalPercent;
         _warnPercent = warnPercent;
-    _logger = logger ?? Log.ForContext("HealthProbe", name).ForContext("Probe", name);
-    Logger = _logger; // expose via interface
+        _logger = logger ?? Log.ForContext("HealthProbe", name).ForContext("Probe", name);
+        Logger = _logger; // expose via interface
     }
 
     /// <summary>
@@ -76,12 +77,22 @@ public sealed class DiskSpaceProbe : IProbe
             var drive = ResolveDrive(_path);
             if (drive is null)
             {
+                if (Logger.IsEnabled(LogEventLevel.Debug))
+                {
+                    Logger.Debug("DiskSpaceProbe {Probe} drive not found for path {Path}", Name, _path);
+                }
                 return Task.FromResult(new ProbeResult(ProbeStatus.Unhealthy, $"Drive not found for path '{_path}'."));
             }
 
             if (!drive.IsReady)
             {
                 return Task.FromResult(new ProbeResult(ProbeStatus.Unhealthy, $"Drive '{drive.Name}' is not ready."));
+            }
+
+            if (Logger.IsEnabled(LogEventLevel.Debug))
+            {
+                Logger.Debug("DiskSpaceProbe {Probe} checking drive {Drive}", Name, drive.Name);
+                Logger.Debug("DiskSpaceProbe {Probe} drive is ready {Drive}", Name, drive.Name);
             }
 
             var total = drive.TotalSize; // bytes
@@ -97,6 +108,11 @@ public sealed class DiskSpaceProbe : IProbe
                 : freePercent < _warnPercent
                     ? ProbeStatus.Degraded
                     : ProbeStatus.Healthy;
+
+            if (Logger.IsEnabled(LogEventLevel.Debug))
+            {
+                Logger.Debug("DiskSpaceProbe {Probe} free percent={Percent:F1}", Name, freePercent);
+            }
 
             var data = new Dictionary<string, object>
             {
@@ -119,6 +135,7 @@ public sealed class DiskSpaceProbe : IProbe
         }
         catch (Exception ex)
         {
+            Logger.Error(ex, "DiskSpaceProbe {Probe} failed", Name);
             _logger.Warning(ex, "Disk space probe failed for path {Path}", _path);
             return Task.FromResult(new ProbeResult(ProbeStatus.Unhealthy, ex.Message));
         }

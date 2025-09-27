@@ -1,5 +1,7 @@
 using System.Diagnostics;
 using System.Text.Json;
+using Serilog.Events;
+using Serilog;
 
 namespace Kestrun.Health;
 
@@ -28,7 +30,7 @@ public sealed class ProcessProbe(string name, string[] tags, string fileName, st
     /// <summary>
     /// Logger used for diagnostics.
     /// </summary>
-    public Serilog.ILogger Logger { get; init; } = logger ?? Serilog.Log.ForContext("HealthProbe", name).ForContext("Probe", name);
+    public Serilog.ILogger Logger { get; init; } = logger ?? Log.ForContext("HealthProbe", name).ForContext("Probe", name);
     /// <summary>
     /// The file name of the process to run.
     /// </summary>
@@ -49,13 +51,31 @@ public sealed class ProcessProbe(string name, string[] tags, string fileName, st
     /// <returns>A task representing the asynchronous operation, with a <see cref="ProbeResult"/> as the result.</returns>
     public async Task<ProbeResult> CheckAsync(CancellationToken ct = default)
     {
+        var sw = Stopwatch.StartNew();
         try
         {
             using var proc = CreateProcess();
             _ = proc.Start();
+            if (Logger.IsEnabled(LogEventLevel.Debug))
+            {
+                Logger.Debug("ProcessProbe {Probe} started process {File} {Args} (PID={Pid}) with timeout {Timeout}", Name, _fileName, _args, proc.Id, _timeout);
+            }
             var (outText, errText) = await RunProcessAsync(proc, ct).ConfigureAwait(false);
-
-            return TryParseJsonContract(outText, out var contractResult) ? contractResult : MapExitCode(proc.ExitCode, errText);
+            sw.Stop();
+            if (TryParseJsonContract(outText, out var contractResult))
+            {
+                if (Logger.IsEnabled(LogEventLevel.Debug))
+                {
+                    Logger.Debug("ProcessProbe {Probe} parsed JSON contract (exit={ExitCode}, duration={Duration}ms)", Name, proc.ExitCode, sw.ElapsedMilliseconds);
+                }
+                return contractResult;
+            }
+            var mapped = MapExitCode(proc.ExitCode, errText);
+            if (Logger.IsEnabled(LogEventLevel.Debug))
+            {
+                Logger.Debug("ProcessProbe {Probe} completed (exit={ExitCode}, status={Status}, duration={Duration}ms)", Name, proc.ExitCode, mapped.Status, sw.ElapsedMilliseconds);
+            }
+            return mapped;
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested)
         {
@@ -65,10 +85,14 @@ public sealed class ProcessProbe(string name, string[] tags, string fileName, st
         catch (TaskCanceledException ex)
         {
             // Internal timeout (cts.CancelAfter) -> degrade instead of unhealthy so transient slowness isn't reported as outright failure.
+            sw.Stop();
+            Logger.Warning(ex, "ProcessProbe {Probe} timed out after {Timeout} (duration={Duration}ms)", Name, _timeout, sw.ElapsedMilliseconds);
             return new ProbeResult(ProbeStatus.Degraded, $"Timed out: {ex.Message}");
         }
         catch (Exception ex)
         {
+            sw.Stop();
+            Logger.Error(ex, "ProcessProbe {Probe} failed after {Duration}ms", Name, sw.ElapsedMilliseconds);
             return new ProbeResult(ProbeStatus.Unhealthy, $"Exception: {ex.Message}");
         }
     }
@@ -110,20 +134,27 @@ public sealed class ProcessProbe(string name, string[] tags, string fileName, st
         // catch { /* ignored */ }
         //});
         using var reg = cts.Token.Register(() =>
+        {
+            try
+            {
+                if (!proc.HasExited)
+                {
+                    if (Logger.IsEnabled(LogEventLevel.Debug))
                     {
-                        try
-                        {
-                            if (!proc.HasExited) { proc.Kill(true); }
-                        }
-                        catch (InvalidOperationException)
-                        {
-                            // Process already exited, safe to ignore.
-                        }
-                        catch (Exception ex)
-                        {
-                            Console.Error.WriteLine($"Exception when killing process: {ex}");
-                        }
-                    });
+                        Logger.Debug("ProcessProbe {Probe} cancel/timeout -> killing PID {Pid}", Name, proc.Id);
+                    }
+                    proc.Kill(entireProcessTree: true);
+                }
+            }
+            catch (InvalidOperationException)
+            {
+                // Process already exited, safe to ignore.
+            }
+            catch (Exception ex)
+            {
+                Logger.Warning(ex, "ProcessProbe {Probe} exception while attempting to kill PID {Pid}", Name, proc.Id);
+            }
+        });
         _ = await Task.WhenAny(Task.Run(proc.WaitForExit, cts.Token), Task.Delay(Timeout.Infinite, cts.Token)).ConfigureAwait(false);
 
         var outText = await stdOutTask.ConfigureAwait(false);
@@ -137,7 +168,7 @@ public sealed class ProcessProbe(string name, string[] tags, string fileName, st
     /// <param name="outText">The standard output text from the process.</param>
     /// <param name="result">The parsed probe result.</param>
     /// <returns>True if the JSON contract was successfully parsed; otherwise, false.</returns>
-    private static bool TryParseJsonContract(string? outText, out ProbeResult result)
+    private bool TryParseJsonContract(string? outText, out ProbeResult result)
     {
         if (string.IsNullOrWhiteSpace(outText))
         {
@@ -167,8 +198,12 @@ public sealed class ProcessProbe(string name, string[] tags, string fileName, st
             result = new ProbeResult(status, desc, data);
             return true;
         }
-        catch
+        catch (Exception ex)
         {
+            if (Logger.IsEnabled(LogEventLevel.Debug))
+            {
+                Logger.Debug(ex, "ProcessProbe {Probe} output not valid contract JSON", Name);
+            }
             result = default!;
             return false;
         }

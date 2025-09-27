@@ -12,6 +12,7 @@ using Microsoft.CodeAnalysis.VisualBasic;
 using KestrunCompilationErrorException = Kestrun.Scripting.CompilationErrorException;
 using RoslynCompilationErrorException = Microsoft.CodeAnalysis.Scripting.CompilationErrorException;
 using SerilogLogger = Serilog.ILogger;
+using Serilog.Events;
 
 namespace Kestrun.Health;
 
@@ -174,13 +175,26 @@ internal static class ScriptProbeFactory
             Runspace? runspace = null;
             try
             {
+                if (Logger.IsEnabled(LogEventLevel.Debug))
+                {
+                    Logger.Debug("PowerShellScriptProbe {Probe} acquiring runspace", Name);
+                }
                 runspace = await pool.AcquireAsync(ct).ConfigureAwait(false);
                 using var ps = PowerShell.Create();
                 ps.Runspace = runspace;
 
                 PowerShellExecutionHelpers.SetVariables(ps, _arguments, _logger);
                 PowerShellExecutionHelpers.AddScript(ps, _script);
+                if (Logger.IsEnabled(LogEventLevel.Debug))
+                {
+                    Logger.Debug("PowerShellScriptProbe {Probe} invoking script length={Length}", Name, _script.Length);
+                }
                 var output = await PowerShellExecutionHelpers.InvokeAsync(ps, _logger, ct).ConfigureAwait(false);
+
+                if (Logger.IsEnabled(LogEventLevel.Debug))
+                {
+                    Logger.Debug("PowerShellScriptProbe {Probe} received {Count} output objects", Name, output.Count);
+                }
 
                 if (ps.HadErrors || ps.Streams.Error.Count > 0)
                 {
@@ -193,6 +207,10 @@ internal static class ScriptProbeFactory
                 {
                     if (TryConvert(output[i], out var result))
                     {
+                        if (Logger.IsEnabled(LogEventLevel.Debug))
+                        {
+                            Logger.Debug("PowerShellScriptProbe {Probe} converted output index={Index} status={Status}", Name, i, result.Status);
+                        }
                         return result;
                     }
                 }
@@ -435,8 +453,17 @@ internal static class ScriptProbeFactory
                 : new CsGlobals(SharedStateStore.Snapshot());
             try
             {
-                return await _runner(globals, ct).ConfigureAwait(false)
+                if (Logger.IsEnabled(LogEventLevel.Debug))
+                {
+                    Logger.Debug("CSharpScriptProbe {Probe} executing", Name);
+                }
+                var result = await _runner(globals, ct).ConfigureAwait(false)
                     ?? new ProbeResult(ProbeStatus.Unhealthy, "Script returned null result");
+                if (Logger.IsEnabled(LogEventLevel.Debug))
+                {
+                    Logger.Debug("CSharpScriptProbe {Probe} completed status={Status}", Name, result.Status);
+                }
+                return result;
             }
             catch (OperationCanceledException) when (ct.IsCancellationRequested)
             {
@@ -510,8 +537,17 @@ internal static class ScriptProbeFactory
                 : new CsGlobals(SharedStateStore.Snapshot());
             try
             {
-                return await _runner(globals).WaitAsync(ct).ConfigureAwait(false)
+                if (Logger.IsEnabled(LogEventLevel.Debug))
+                {
+                    Logger.Debug("VbScriptProbe {Probe} executing", Name);
+                }
+                var result = await _runner(globals).WaitAsync(ct).ConfigureAwait(false)
                     ?? new ProbeResult(ProbeStatus.Unhealthy, "Script returned null result");
+                if (Logger.IsEnabled(LogEventLevel.Debug))
+                {
+                    Logger.Debug("VbScriptProbe {Probe} completed status={Status}", Name, result.Status);
+                }
+                return result;
             }
             catch (OperationCanceledException) when (ct.IsCancellationRequested)
             {

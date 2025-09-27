@@ -1,3 +1,5 @@
+using Serilog.Events;
+
 namespace Kestrun.Health;
 
 /// <summary>
@@ -22,15 +24,29 @@ internal sealed class DelegateProbe(string name, IEnumerable<string>? tags, Func
     public Serilog.ILogger Logger { get; init; } = logger ?? Serilog.Log.ForContext("HealthProbe", name).ForContext("Probe", name);
 
     /// <inheritdoc />
-    public Task<ProbeResult> CheckAsync(CancellationToken ct = default)
+    public async Task<ProbeResult> CheckAsync(CancellationToken ct = default)
     {
         try
         {
-            return _callback(ct);
+            if (Logger.IsEnabled(LogEventLevel.Debug))
+            {
+                Logger.Debug("DelegateProbe {Probe} starting", Name);
+            }
+            var result = await _callback(ct).ConfigureAwait(false);
+            if (Logger.IsEnabled(LogEventLevel.Debug))
+            {
+                Logger.Debug("DelegateProbe {Probe} completed status={Status}", Name, result.Status);
+            }
+            return result;
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            return new ProbeResult(ProbeStatus.Degraded, "Canceled");
         }
         catch (Exception ex)
         {
-            return Task.FromResult(new ProbeResult(ProbeStatus.Unhealthy, $"Exception: {ex.Message}"));
+            Logger.Error(ex, "DelegateProbe {Probe} failed", Name);
+            return new ProbeResult(ProbeStatus.Unhealthy, $"Exception: {ex.Message}");
         }
     }
 }

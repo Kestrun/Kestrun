@@ -1,4 +1,5 @@
 using System.Text.Json;
+using Serilog.Events;
 
 namespace Kestrun.Health;
 
@@ -47,12 +48,20 @@ public sealed class HttpProbe(string name, string[] tags, HttpClient http, strin
         cts.CancelAfter(_timeout);
         try
         {
+            if (Logger.IsEnabled(LogEventLevel.Debug))
+            {
+                Logger.Debug("HttpProbe {Probe} sending GET {Url} (timeout={Timeout})", Name, _url, _timeout);
+            }
             var rsp = await _http.GetAsync(_url, cts.Token);
             var body = await rsp.Content.ReadAsStringAsync(cts.Token);
+            if (Logger.IsEnabled(LogEventLevel.Debug))
+            {
+                Logger.Debug("HttpProbe {Probe} received {StatusCode} length={Length}", Name, (int)rsp.StatusCode, body?.Length ?? 0);
+            }
 
             try
             {
-                var doc = JsonDocument.Parse(body);
+                var doc = JsonDocument.Parse(body ?? string.Empty);
                 var statusStr = doc.RootElement.GetProperty("status").GetString();
                 var status = statusStr?.ToLowerInvariant() switch
                 {
@@ -62,18 +71,28 @@ public sealed class HttpProbe(string name, string[] tags, HttpClient http, strin
                     _ => ProbeStatus.Unhealthy
                 };
                 var desc = doc.RootElement.TryGetProperty("description", out var d) ? d.GetString() : null;
+                if (Logger.IsEnabled(LogEventLevel.Debug))
+                {
+                    Logger.Debug("HttpProbe {Probe} parsed contract status={Status}", Name, status);
+                }
                 return new ProbeResult(status, desc, null);
             }
             catch
             {
                 // Non-contract response: degrade on 200, unhealthy otherwise
-                return rsp.IsSuccessStatusCode
+                var result = rsp.IsSuccessStatusCode
                     ? new ProbeResult(ProbeStatus.Degraded, "No contract JSON")
                     : new ProbeResult(ProbeStatus.Unhealthy, $"HTTP {(int)rsp.StatusCode}");
+                if (Logger.IsEnabled(LogEventLevel.Debug))
+                {
+                    Logger.Debug("HttpProbe {Probe} non-contract response mapped to {Status}", Name, result.Status);
+                }
+                return result;
             }
         }
         catch (Exception ex)
         {
+            Logger.Error(ex, "HttpProbe {Probe} failed", Name);
             return new ProbeResult(ProbeStatus.Unhealthy, $"Exception: {ex.Message}");
         }
     }

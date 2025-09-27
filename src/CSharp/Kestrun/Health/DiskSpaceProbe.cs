@@ -37,7 +37,7 @@ public sealed class DiskSpaceProbe : IProbe
         string? path = null,
         double criticalPercent = 5,
         double warnPercent = 10,
-    Serilog.ILogger? logger = null)
+        Serilog.ILogger? logger = null)
     {
         if (criticalPercent <= 0 || warnPercent <= 0 || warnPercent <= criticalPercent || warnPercent > 100)
         {

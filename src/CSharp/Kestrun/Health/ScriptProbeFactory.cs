@@ -351,7 +351,6 @@ internal static class ScriptProbeFactory
                     continue;
                 }
                 dict[key] = entry.Value;
-
             }
             return dict;
         }

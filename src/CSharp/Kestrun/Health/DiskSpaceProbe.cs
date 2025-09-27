@@ -167,6 +167,6 @@ public sealed class DiskSpaceProbe : IProbe
             order++;
             len /= 1024;
         }
-        return string.Create(CultureInfo.InvariantCulture, $"{len:0.##} {sizes[order]}");
+        return string.Format(CultureInfo.InvariantCulture, "{0:0.##} {1}", len, sizes[order]);
     }
 }

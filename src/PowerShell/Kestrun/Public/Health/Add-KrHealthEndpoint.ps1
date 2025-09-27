@@ -48,6 +48,10 @@
     Overrides the default script language used when registering script-based probes.
 .PARAMETER ResponseContentType
     Controls the response payload format returned by the endpoint (Json, Yaml, Xml, or Auto for content negotiation).
+.PARAMETER XmlRootElementName
+    When emitting XML output, overrides the root element name (defaults to 'Response'). Ignored for non-XML formats.
+.PARAMETER Compress
+    When set, JSON and XML output are compact (no indentation). By default output is human readable.
 .PARAMETER PassThru
     Emits the configured server instance so the call can be chained.
 .EXAMPLE
@@ -106,6 +110,10 @@ function Add-KrHealthEndpoint {
         [Kestrun.Scripting.ScriptLanguage]$DefaultScriptLanguage,
 
         [Kestrun.Health.HealthEndpointContentType]$ResponseContentType,
+
+        [string]$XmlRootElementName,
+
+        [switch]$Compress,
 
         [switch]$PassThru
     )
@@ -201,6 +209,14 @@ function Add-KrHealthEndpoint {
 
         if ($PSBoundParameters.ContainsKey('ResponseContentType')) {
             $options.ResponseContentType = $ResponseContentType
+        }
+
+        if ($PSBoundParameters.ContainsKey('XmlRootElementName')) {
+            $options.XmlRootElementName = $XmlRootElementName
+        }
+
+        if ($PSBoundParameters.ContainsKey('Compress')) {
+            $options.Compress = [bool]$Compress
         }
 
         $result = [Kestrun.Hosting.KestrunHostHealthExtensions]::AddHealthEndpoint($Server, $options)

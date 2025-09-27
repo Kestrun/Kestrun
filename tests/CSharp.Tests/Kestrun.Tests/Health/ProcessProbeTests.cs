@@ -70,9 +70,11 @@ public class ProcessProbeTests
         }
         else
         {
-            // sh: echo then sleep 5s; probe timeout 500ms
+            // On Unix we avoid relying on shell builtins with buffering that might delay stdout capture.
+            // Use 'sh -c "echo starting; sleep 5"'. Add 'stdbuf -o0' if available to flush immediately.
+            // We keep it simple: many distros have /bin/sh (dash or bash) which flushes after newline for 'echo'.
             file = "/bin/sh";
-            args = "-c 'echo starting; sleep 5'";
+            args = "-c 'echo starting; sleep 5'"; // 5s > 500ms timeout
         }
 
         var probe = new ProcessProbe("proctimeout", ["live"], file, args, TimeSpan.FromMilliseconds(500));

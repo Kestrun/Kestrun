@@ -121,7 +121,7 @@ public sealed class HealthEndpointOptions
     /// <summary>
     /// Gets or sets the maximum degree of parallelism used when executing probes.
     /// </summary>
-    public int MaxDegreeOfParallelism { get; set; } = Environment.ProcessorCount;
+    public int MaxDegreeOfParallelism { get; set; } = Math.Min(Environment.ProcessorCount, 4);
 
     /// <summary>
     /// Gets or sets the timeout applied to each individual probe execution.
@@ -142,6 +142,19 @@ public sealed class HealthEndpointOptions
     /// Gets or sets the response content type produced by the endpoint.
     /// </summary>
     public HealthEndpointContentType ResponseContentType { get; set; } = HealthEndpointContentType.Json;
+
+    /// <summary>
+    /// Gets or sets the root element name used when emitting XML output. Defaults to <c>Response</c>.
+    /// Ignored for non-XML output types. If null or whitespace a default of <c>Response</c> is used.
+    /// </summary>
+    public string? XmlRootElementName { get; set; } = "Response";
+
+    /// <summary>
+    /// Gets or sets a value indicating whether the health response should be compressed/compact when using JSON or XML.
+    /// When <c>false</c> (default) the output is human readable (indented / pretty). When <c>true</c> the output is
+    /// compact (no unnecessary whitespace) which can reduce payload size for large probe data sets.
+    /// </summary>
+    public bool Compress { get; set; }
 
     /// <summary>
     /// Creates a deep copy of the current instance.
@@ -169,6 +182,8 @@ public sealed class HealthEndpointOptions
         ProbeTimeout = ProbeTimeout,
         AutoRegisterEndpoint = AutoRegisterEndpoint,
         DefaultScriptLanguage = DefaultScriptLanguage,
-        ResponseContentType = ResponseContentType
+        ResponseContentType = ResponseContentType,
+        XmlRootElementName = XmlRootElementName,
+        Compress = Compress
     };
 }

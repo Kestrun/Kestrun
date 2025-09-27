@@ -519,7 +519,10 @@ public class KestrunResponse(KestrunRequest request, int bodyAsyncThreshold = 81
     /// <param name="inputObject">The object to be converted to XML.</param>
     /// <param name="statusCode">The HTTP status code for the response.</param>
     /// <param name="contentType">The MIME type of the response content.</param>
-    public void WriteXmlResponse(object? inputObject, int statusCode = StatusCodes.Status200OK, string? contentType = null) => WriteXmlResponseAsync(inputObject, statusCode, contentType).GetAwaiter().GetResult();
+    /// <param name="rootElementName">Optional custom XML root element name. Defaults to <c>Response</c>.</param>
+    /// <param name="compress">If true, emits compact XML (no indentation); if false (default) output is human readable.</param>
+    public void WriteXmlResponse(object? inputObject, int statusCode = StatusCodes.Status200OK, string? contentType = null, string? rootElementName = null, bool compress = false)
+        => WriteXmlResponseAsync(inputObject, statusCode, contentType, rootElementName, compress).GetAwaiter().GetResult();
 
     /// <summary>
     /// Asynchronously writes an XML response with the specified input object, status code, and content type.
@@ -527,15 +530,19 @@ public class KestrunResponse(KestrunRequest request, int bodyAsyncThreshold = 81
     /// <param name="inputObject">The object to be converted to XML.</param>
     /// <param name="statusCode">The HTTP status code for the response.</param>
     /// <param name="contentType">The MIME type of the response content.</param>
-    public async Task WriteXmlResponseAsync(object? inputObject, int statusCode = StatusCodes.Status200OK, string? contentType = null)
+    /// <param name="rootElementName">Optional custom XML root element name. Defaults to <c>Response</c>.</param>
+    /// <param name="compress">If true, emits compact XML (no indentation); if false (default) output is human readable.</param>
+    public async Task WriteXmlResponseAsync(object? inputObject, int statusCode = StatusCodes.Status200OK, string? contentType = null, string? rootElementName = null, bool compress = false)
     {
         if (Log.IsEnabled(LogEventLevel.Debug))
         {
             Log.Debug("Writing XML response (async), StatusCode={StatusCode}, ContentType={ContentType}", statusCode, contentType);
         }
 
-        var xml = await Task.Run(() => XmlHelper.ToXml("Response", inputObject));
-        Body = await Task.Run(() => xml.ToString(SaveOptions.DisableFormatting));
+        var root = string.IsNullOrWhiteSpace(rootElementName) ? "Response" : rootElementName!.Trim();
+        var xml = await Task.Run(() => XmlHelper.ToXml(root, inputObject));
+        var saveOptions = compress ? SaveOptions.DisableFormatting : SaveOptions.None;
+        Body = await Task.Run(() => xml.ToString(saveOptions));
         ContentType = string.IsNullOrEmpty(contentType) ? $"application/xml; charset={Encoding.WebName}" : contentType;
         StatusCode = statusCode;
     }

@@ -43,6 +43,11 @@ Dashboards or downstream tooling may require YAML or XML instead of JSON. Set
 `Add-KrHealthEndpoint` (PowerShell) with `Json`, `Yaml`, `Xml`, or `Auto` to control the response
 serializer while keeping the same aggregated data contract.
 
+When emitting XML you can optionally override the root node name (defaults to `Response`) via
+`HealthEndpointOptions.XmlRootElementName` or PowerShell `-XmlRootElementName`. Output is human‑readable
+(indented) by default for JSON and XML. Set `HealthEndpointOptions.Compress` / `-Compress` to emit
+compact payloads (no indentation) to reduce size.
+
 using Kestrun.Hosting;
 using Kestrun.Health;
 
@@ -109,6 +114,8 @@ public record ProbeResult(
 | `AutoRegisterEndpoint` | `true` | Automatically register on host creation. |
 | `DefaultScriptLanguage` | PowerShell | Used by `AddProbe` overload when `ScriptLanguage` not specified. |
 | `ResponseContentType` | JSON | Force JSON, YAML, XML, or auto negotiation for the aggregate payload. |
+| `XmlRootElementName` | `Response` | Root element name used when `ResponseContentType` = XML (or negotiated to XML). |
+| `Compress` | `false` | If true, compact JSON/XML output (no indentation). Default false emits human‑readable output. |
 
 Set these via `Add-KrHealthEndpoint` parameters (PowerShell) or the configuration lambda (C#).
 

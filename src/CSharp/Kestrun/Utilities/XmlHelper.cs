@@ -10,6 +10,11 @@ namespace Kestrun.Utilities;
 public static class XmlHelper
 {
     private static readonly XNamespace xsi = "http://www.w3.org/2001/XMLSchema-instance";
+    private const int MaxDepth = 32;
+
+    // Used for cycle detection
+    [ThreadStatic]
+    private static HashSet<object>? _visited;
 
     /// <summary>
     /// Converts an object to an <see cref="XElement"/> with the specified name, handling nulls, primitives, dictionaries, enumerables, and complex types.
@@ -17,34 +22,82 @@ public static class XmlHelper
     /// <param name="name">The name of the XML element.</param>
     /// <param name="value">The object to convert to XML.</param>
     /// <returns>An <see cref="XElement"/> representing the object.</returns>
-    public static XElement ToXml(string name, object? value)
+    public static XElement ToXml(string name, object? value) => ToXmlInternal(SanitizeName(name), value, 0);
+
+    private static XElement ToXmlInternal(string name, object? value, int depth)
     {
-        // 1️⃣ null  → <name xsi:nil="true"/>
+        if (depth > MaxDepth)
+        {
+            return new XElement(name, new XAttribute("warning", "MaxDepthExceeded"));
+        }
+
+        // null  → <name xsi:nil="true"/>
         if (value is null)
         {
             return new XElement(name, new XAttribute(xsi + "nil", true));
         }
 
-        // 2️⃣ Primitive or string → <name>42</name>
+        // Treat enums as their string name
+        var type = value.GetType();
+        if (type.IsEnum)
+        {
+            return new XElement(name, value.ToString());
+        }
+
+        // Primitive-like (extended) types
         if (IsSimple(value))
         {
             return new XElement(name, value);
         }
 
-        // 3️⃣ IDictionary (generic or non-generic)
+        // DateTimeOffset / TimeSpan explicit handling
+        if (value is DateTimeOffset dto)
+        {
+            return new XElement(name, dto.ToString("O"));
+        }
+        if (value is TimeSpan ts)
+        {
+            return new XElement(name, ts.ToString());
+        }
+
+        // IDictionary (generic or non-generic)
         if (value is IDictionary dict)
         {
-            return DictionaryToXml(name, dict);
+            return DictionaryToXml(name, dict, depth);
         }
 
-        // 4️⃣ IEnumerable (lists, arrays, StringValues, etc.)
+        // IEnumerable (lists, arrays, StringValues, etc.)
         if (value is IEnumerable enumerable)
         {
-            return EnumerableToXml(name, enumerable);
+            return EnumerableToXml(name, enumerable, depth);
         }
 
-        // 5️⃣ Fallback: reflect public instance properties (skip indexers)
-        return ObjectToXml(name, value);
+        // Cycle detection for reference types
+        if (!type.IsValueType)
+        {
+            _visited ??= new HashSet<object>(ReferenceEqualityComparer.Instance);
+            if (!_visited.Add(value))
+            {
+                return new XElement(name, new XAttribute("warning", "CycleDetected"));
+            }
+        }
+
+        try
+        {
+            var result = ObjectToXml(name, value, depth);
+            return result;
+        }
+        finally
+        {
+            if (!type.IsValueType && _visited is not null)
+            {
+                _ = _visited.Remove(value);
+                if (_visited.Count == 0)
+                {
+                    _visited = null; // reset for thread reuse
+                }
+            }
+        }
     }
 
     /// <summary>
@@ -55,58 +108,56 @@ public static class XmlHelper
     private static bool IsSimple(object value)
     {
         var type = value.GetType();
-        return type.IsPrimitive || value is string || value is DateTime || value is Guid || value is decimal;
+        return type.IsPrimitive
+            || value is string
+            || value is DateTime or DateTimeOffset
+            || value is Guid
+            || value is decimal
+            || value is TimeSpan;
     }
 
-    /// <summary>
-    /// Converts a dictionary to an XML element.
-    /// </summary>
-    /// <param name="name">The name of the XML element.</param>
-    /// <param name="dict">The dictionary to convert.</param>
-    /// <returns>An <see cref="XElement"/> representing the dictionary.</returns>
-    private static XElement DictionaryToXml(string name, IDictionary dict)
+    /// <summary>Converts a dictionary to an XML element (recursive).</summary>
+    /// <param name="name">Element name for the dictionary.</param>
+    /// <param name="dict">Dictionary to serialize.</param>
+    /// <param name="depth">Current recursion depth (guarded).</param>
+    private static XElement DictionaryToXml(string name, IDictionary dict, int depth)
     {
         var elem = new XElement(name);
         foreach (DictionaryEntry entry in dict)
         {
-            var key = entry.Key?.ToString() ?? "Key";
-            elem.Add(ToXml(key, entry.Value));
+            var key = SanitizeName(entry.Key?.ToString() ?? "Key");
+            elem.Add(ToXmlInternal(key, entry.Value, depth + 1));
         }
         return elem;
     }
-    /// <summary>
-    /// Converts an enumerable collection to an XML element.
-    /// </summary>
-    /// <param name="name">The name of the XML element.</param>
-    /// <param name="enumerable">The enumerable collection to convert.</param>
-    /// <returns>An <see cref="XElement"/> representing the collection.</returns>
-    private static XElement EnumerableToXml(string name, IEnumerable enumerable)
+    /// <summary>Converts an enumerable to an XML element; each item becomes &lt;Item/&gt;.</summary>
+    /// <param name="name">Element name for the collection.</param>
+    /// <param name="enumerable">Sequence to serialize.</param>
+    /// <param name="depth">Current recursion depth (guarded).</param>
+    private static XElement EnumerableToXml(string name, IEnumerable enumerable, int depth)
     {
         var elem = new XElement(name);
         foreach (var item in enumerable)
         {
-            elem.Add(ToXml("Item", item));
+            elem.Add(ToXmlInternal("Item", item, depth + 1));
         }
         return elem;
     }
 
-    /// <summary>
-    /// Converts an object to an XML element.
-    /// </summary>
-    /// <param name="name">The name of the XML element.</param>
-    /// <param name="value">The object to convert.</param>
-    /// <returns>An <see cref="XElement"/> representing the object.</returns>
-    private static XElement ObjectToXml(string name, object value)
+    /// <summary>Reflects an object's public instance properties into XML.</summary>
+    /// <param name="name">Element name for the object.</param>
+    /// <param name="value">Object instance to serialize.</param>
+    /// <param name="depth">Current recursion depth (guarded).</param>
+    private static XElement ObjectToXml(string name, object value, int depth)
     {
         var objElem = new XElement(name);
         var type = value.GetType();
         foreach (var prop in type.GetProperties(BindingFlags.Public | BindingFlags.Instance))
         {
-            if (prop.GetIndexParameters().Length > 0)   // <<—— SKIP INDEXERS
+            if (prop.GetIndexParameters().Length > 0)
             {
-                continue;
+                continue; // skip indexers
             }
-
             object? propVal;
             try
             {
@@ -116,11 +167,36 @@ public static class XmlHelper
             {
                 continue; // skip unreadable props
             }
-
-            objElem.Add(ToXml(prop.Name, propVal));
+            var childName = SanitizeName(prop.Name);
+            objElem.Add(ToXmlInternal(childName, propVal, depth + 1));
         }
-
         return objElem;
+    }
+
+    private static string SanitizeName(string raw)
+    {
+        if (string.IsNullOrWhiteSpace(raw))
+        {
+            return "Element";
+        }
+        // XML element names must start with letter or underscore; replace invalid chars with '_'
+        var sb = new System.Text.StringBuilder(raw.Length);
+        for (var i = 0; i < raw.Length; i++)
+        {
+            var ch = raw[i];
+            var valid = i == 0
+                ? (char.IsLetter(ch) || ch == '_')
+                : (char.IsLetterOrDigit(ch) || ch == '_' || ch == '-' || ch == '.');
+            _ = sb.Append(valid ? ch : '_');
+        }
+        return sb.ToString();
+    }
+
+    private sealed class ReferenceEqualityComparer : IEqualityComparer<object>
+    {
+        public static readonly ReferenceEqualityComparer Instance = new();
+        public new bool Equals(object? x, object? y) => ReferenceEquals(x, y);
+        public int GetHashCode(object obj) => System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(obj);
     }
 
     /// <summary>

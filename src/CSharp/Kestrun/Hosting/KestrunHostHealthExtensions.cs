@@ -166,8 +166,9 @@ public static class KestrunHostHealthExtensions
         // ResponseContentType would always fall back to Json for PowerShell Add-KrHealthEndpoint
         // which calls AddHealthEndpoint(host, options) internally.
         target.ResponseContentType = source.ResponseContentType;
+        target.XmlRootElementName = source.XmlRootElementName;
+        target.Compress = source.Compress;
     }
-
     private static int DetermineStatusCode(ProbeStatus status, bool treatDegradedAsUnhealthy) => status switch
     {
         ProbeStatus.Healthy => StatusCodes.Status200OK,
@@ -224,13 +225,17 @@ public static class KestrunHostHealthExtensions
             switch (merged.ResponseContentType)
             {
                 case HealthEndpointContentType.Json:
-                    await response.WriteJsonResponseAsync(report, statusCode).ConfigureAwait(false);
+                    await response.WriteJsonResponseAsync(report, depth: 10, compress: merged.Compress, statusCode: statusCode).ConfigureAwait(false);
                     break;
                 case HealthEndpointContentType.Yaml:
                     await response.WriteYamlResponseAsync(report, statusCode).ConfigureAwait(false);
                     break;
                 case HealthEndpointContentType.Xml:
-                    await response.WriteXmlResponseAsync(report, statusCode).ConfigureAwait(false);
+                    await response.WriteXmlResponseAsync(
+                        report,
+                        statusCode,
+                        rootElementName: merged.XmlRootElementName ?? "Response",
+                        compress: merged.Compress).ConfigureAwait(false);
                     break;
                 case HealthEndpointContentType.Auto:
                 default:

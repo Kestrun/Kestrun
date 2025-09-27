@@ -440,14 +440,26 @@ internal static class ScriptProbeFactory
                 return true;
             }
 
-            status = value?.ToLowerInvariant() switch
+            switch (value?.ToLowerInvariant())
             {
-                "ok" or "healthy" => ProbeStatus.Healthy,
-                "warn" or "warning" or "degraded" => ProbeStatus.Degraded,
-                "fail" or "failed" or "unhealthy" => ProbeStatus.Unhealthy,
-                _ => ProbeStatus.Unhealthy
-            };
-            return true;
+                case "ok":
+                case "healthy":
+                    status = ProbeStatus.Healthy;
+                    return true;
+                case "warn":
+                case "warning":
+                case "degraded":
+                    status = ProbeStatus.Degraded;
+                    return true;
+                case "fail":
+                case "failed":
+                case "unhealthy":
+                    status = ProbeStatus.Unhealthy;
+                    return true;
+                default:
+                    status = ProbeStatus.Unhealthy;
+                    return false;
+            }
         }
     }
 

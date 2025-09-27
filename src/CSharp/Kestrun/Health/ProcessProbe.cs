@@ -128,11 +128,6 @@ public sealed class ProcessProbe(string name, string[] tags, string fileName, st
         var stdOutTask = proc.StandardOutput.ReadToEndAsync(ct);
         var stdErrTask = proc.StandardError.ReadToEndAsync(ct);
 
-        //   using var reg = cts.Token.Register(() =>
-        // {
-        //   try { if (!proc.HasExited) { proc.Kill(true); } }
-        // catch { /* ignored */ }
-        //});
         using var reg = cts.Token.Register(() =>
         {
             try

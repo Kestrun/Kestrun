@@ -17,7 +17,7 @@ Add-KrListener -IPAddress '127.0.0.1' -Port 5000
 # 4. Runtime
 Add-KrPowerShellRuntime
 
-# 5. Finalize configuration and start server
+# 5. Finalize configuration
 Enable-KrConfiguration
 
 # 6. Add routes demonstrating text responses

@@ -180,59 +180,23 @@ internal static class ScriptProbeFactory
                     Logger.Debug("PowerShellScriptProbe {Probe} acquiring runspace", Name);
                 }
                 runspace = await pool.AcquireAsync(ct).ConfigureAwait(false);
-                using var ps = PowerShell.Create();
-                ps.Runspace = runspace;
-
-                PowerShellExecutionHelpers.SetVariables(ps, _arguments, _logger);
-                PowerShellExecutionHelpers.AddScript(ps, _script);
-                if (Logger.IsEnabled(LogEventLevel.Debug))
-                {
-                    Logger.Debug("PowerShellScriptProbe {Probe} invoking script length={Length}", Name, _script.Length);
-                }
-                var output = await PowerShellExecutionHelpers.InvokeAsync(ps, _logger, ct).ConfigureAwait(false);
-
-                if (Logger.IsEnabled(LogEventLevel.Debug))
-                {
-                    Logger.Debug("PowerShellScriptProbe {Probe} received {Count} output objects", Name, output.Count);
-                }
-
-                if (ps.HadErrors || ps.Streams.Error.Count > 0)
-                {
-                    var errors = string.Join("; ", ps.Streams.Error.Select(static e => e.ToString()));
-                    ps.Streams.Error.Clear();
-                    return new ProbeResult(ProbeStatus.Unhealthy, errors);
-                }
-
-                for (var i = output.Count - 1; i >= 0; i--)
-                {
-                    if (TryConvert(output[i], out var result))
-                    {
-                        if (Logger.IsEnabled(LogEventLevel.Debug))
-                        {
-                            Logger.Debug("PowerShellScriptProbe {Probe} converted output index={Index} status={Status}", Name, i, result.Status);
-                        }
-                        return result;
-                    }
-                }
-
-                return new ProbeResult(ProbeStatus.Unhealthy, "PowerShell probe produced no recognizable result.");
+                using var ps = CreateConfiguredPowerShell(runspace);
+                var output = await InvokeScriptAsync(ps, ct).ConfigureAwait(false);
+                return ProcessOutput(ps, output);
             }
             catch (PipelineStoppedException) when (ct.IsCancellationRequested)
             {
-                // Request/host shutdown cancellation – treat as degraded rather than unhealthy and do not log as error.
                 _logger.Information("PowerShell health probe {Probe} canceled (PipelineStopped).", Name);
                 return new ProbeResult(ProbeStatus.Degraded, "Canceled");
             }
             catch (OperationCanceledException) when (ct.IsCancellationRequested)
             {
-                // Propagate request cancellation for the runner to decide (typically results in 499)
                 throw;
             }
             catch (Exception ex)
             {
                 if (ex is PipelineStoppedException)
                 {
-                    // Non-request related pipeline stop (rare) – degrade but log at warning
                     _logger.Warning(ex, "PowerShell health probe {Probe} pipeline stopped.", Name);
                     return new ProbeResult(ProbeStatus.Degraded, "Canceled");
                 }
@@ -243,16 +207,75 @@ internal static class ScriptProbeFactory
             {
                 if (runspace is not null)
                 {
-                    try
-                    {
-                        pool.Release(runspace);
-                    }
-                    catch
-                    {
-                        runspace.Dispose();
-                    }
+                    try { pool.Release(runspace); }
+                    catch { runspace.Dispose(); }
                 }
             }
+        }
+
+        /// <summary>
+        /// Creates and configures a PowerShell instance with the provided runspace and script.
+        /// </summary>
+        /// <param name="runspace">The runspace to use for the PowerShell instance.</param>
+        /// <returns>A configured PowerShell instance.</returns>
+        private PowerShell CreateConfiguredPowerShell(Runspace runspace)
+        {
+            var ps = PowerShell.Create();
+            ps.Runspace = runspace;
+            PowerShellExecutionHelpers.SetVariables(ps, _arguments, _logger);
+            PowerShellExecutionHelpers.AddScript(ps, _script);
+            if (Logger.IsEnabled(LogEventLevel.Debug))
+            {
+                Logger.Debug("PowerShellScriptProbe {Probe} invoking script length={Length}", Name, _script.Length);
+            }
+            return ps;
+        }
+
+        /// <summary>
+        /// Invokes the PowerShell script asynchronously.
+        /// </summary>
+        /// <param name="ps">The PowerShell instance to use.</param>
+        /// <param name="ct">The cancellation token.</param>
+        /// <returns>A task representing the asynchronous operation, with a list of PSObject as the result.</returns>
+        private Task<IReadOnlyList<PSObject>> InvokeScriptAsync(PowerShell ps, CancellationToken ct)
+        {
+            return PowerShellExecutionHelpers.InvokeAsync(ps, _logger, ct).ContinueWith(t =>
+            {
+                if (t.IsCompletedSuccessfully && Logger.IsEnabled(LogEventLevel.Debug))
+                {
+                    Logger.Debug("PowerShellScriptProbe {Probe} received {Count} output objects", Name, t.Result.Count);
+                }
+                return (IReadOnlyList<PSObject>)t.Result;
+            }, ct, TaskContinuationOptions.ExecuteSynchronously, TaskScheduler.Default);
+        }
+
+        /// <summary>
+        /// Processes the output from the PowerShell script.
+        /// </summary>
+        /// <param name="ps">The PowerShell instance used to invoke the script.</param>
+        /// <param name="output">The output objects returned by the script.</param>
+        /// <returns>A ProbeResult representing the outcome of the script execution.</returns>
+        private ProbeResult ProcessOutput(PowerShell ps, IReadOnlyList<PSObject> output)
+        {
+            if (ps.HadErrors || ps.Streams.Error.Count > 0)
+            {
+                var errors = string.Join("; ", ps.Streams.Error.Select(static e => e.ToString()));
+                ps.Streams.Error.Clear();
+                return new ProbeResult(ProbeStatus.Unhealthy, errors);
+            }
+
+            for (var i = output.Count - 1; i >= 0; i--)
+            {
+                if (TryConvert(output[i], out var result))
+                {
+                    if (Logger.IsEnabled(LogEventLevel.Debug))
+                    {
+                        Logger.Debug("PowerShellScriptProbe {Probe} converted output index={Index} status={Status}", Name, i, result.Status);
+                    }
+                    return result;
+                }
+            }
+            return new ProbeResult(ProbeStatus.Unhealthy, "PowerShell probe produced no recognizable result.");
         }
 
         /// <summary>
@@ -305,6 +328,7 @@ internal static class ScriptProbeFactory
             result = default!;
             return false;
         }
+
         /// <summary>
         /// Parses the status from a PSObject.
         /// </summary>

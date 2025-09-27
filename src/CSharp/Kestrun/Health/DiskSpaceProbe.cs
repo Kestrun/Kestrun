@@ -136,7 +136,6 @@ public sealed class DiskSpaceProbe : IProbe
         catch (Exception ex)
         {
             Logger.Error(ex, "DiskSpaceProbe {Probe} failed", Name);
-            _logger.Warning(ex, "Disk space probe failed for path {Path}", _path);
             return Task.FromResult(new ProbeResult(ProbeStatus.Unhealthy, ex.Message));
         }
     }

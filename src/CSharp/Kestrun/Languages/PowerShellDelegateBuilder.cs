@@ -74,6 +74,13 @@ internal static class PowerShellDelegateBuilder
         };
     }
 
+    /// <summary>
+    /// Retrieves the PowerShell instance from the HttpContext items.
+    /// </summary>
+    /// <param name="context">The HttpContext from which to retrieve the PowerShell instance.</param>
+    /// <param name="log">The logger to use for logging.</param>
+    /// <returns>The PowerShell instance associated with the current request.</returns>
+    /// <exception cref="InvalidOperationException">Thrown if the PowerShell instance is not found in the context items.</exception>
     private static PowerShell GetPowerShellFromContext(HttpContext context, Serilog.ILogger log)
     {
         if (!context.Items.ContainsKey(PS_INSTANCE_KEY))
@@ -89,12 +96,23 @@ internal static class PowerShellDelegateBuilder
             : ps;
     }
 
+    /// <summary>
+    /// Retrieves the KestrunContext from the HttpContext items.
+    /// </summary>
+    /// <param name="context">The HttpContext from which to retrieve the KestrunContext.</param>
+    /// <returns>The KestrunContext associated with the current request.</returns>
+    /// <exception cref="InvalidOperationException">Thrown if the KestrunContext is not found in the context items.</exception>
     private static KestrunContext GetKestrunContext(HttpContext context)
         => context.Items[KR_CONTEXT_KEY] as KestrunContext
            ?? throw new InvalidOperationException($"{KR_CONTEXT_KEY} key not found in context items.");
 
-    // Removed duplicated SetArguments/AddScript/Invoke methods (now in PowerShellExecutionHelpers)
 
+    ///<summary>
+    /// Logs the top results from the PowerShell script output for debugging purposes.
+    /// Only logs if the log level is set to Debug.
+    /// </summary>
+    /// <param name="log">The logger to use for logging.</param>
+    /// <param name="psResults">The collection of PSObject results from the PowerShell script.</param>
     private static void LogTopResults(Serilog.ILogger log, PSDataCollection<PSObject> psResults)
     {
         if (!log.IsEnabled(LogEventLevel.Debug))
@@ -113,6 +131,12 @@ internal static class PowerShellDelegateBuilder
         }
     }
 
+    /// <summary>
+    /// Handles any errors that occurred during the PowerShell script execution.
+    /// </summary>
+    /// <param name="context">The HttpContext for the current request.</param>
+    /// <param name="ps">The PowerShell instance used for script execution.</param>
+    /// <returns>True if errors were handled, false otherwise.</returns>
     private static async Task<bool> HandleErrorsIfAnyAsync(HttpContext context, PowerShell ps)
     {
         if (ps.HadErrors || ps.Streams.Error.Count != 0)
@@ -123,6 +147,11 @@ internal static class PowerShellDelegateBuilder
         return false;
     }
 
+    /// <summary>
+    /// Logs any side-channel messages (Verbose, Debug, Warning, Information) produced by the PowerShell script.
+    /// </summary>
+    /// <param name="log">The logger to use for logging.</param>
+    /// <param name="ps">The PowerShell instance used to invoke the script.</param>
     private static void LogSideChannelMessagesIfAny(Serilog.ILogger log, PowerShell ps)
     {
         if (ps.Streams.Verbose.Count > 0 || ps.Streams.Debug.Count > 0 || ps.Streams.Warning.Count > 0 || ps.Streams.Information.Count > 0)

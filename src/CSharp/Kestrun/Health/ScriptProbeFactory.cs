@@ -144,16 +144,27 @@ internal static class ScriptProbeFactory
             ? throw new ArgumentException("Probe script cannot be null or whitespace.", nameof(script))
             : script;
 
+        /// <summary>
+        /// Gets the name of the probe.
+        /// </summary>
         public string Name { get; } = string.IsNullOrWhiteSpace(name)
             ? throw new ArgumentException("Probe name cannot be null or empty.", nameof(name))
             : name;
 
+        /// <summary>
+        /// The tags associated with the probe.
+        /// </summary>
         public string[] Tags { get; } = tags is null
             ? []
             : [.. tags.Where(static t => !string.IsNullOrWhiteSpace(t))
                       .Select(static t => t.Trim())
                       .Distinct(StringComparer.OrdinalIgnoreCase)];
 
+        /// <summary>
+        /// Executes the PowerShell script and converts the output to a <see cref="ProbeResult"/>.
+        /// </summary>
+        /// <param name="ct">The cancellation token.</param>
+        /// <returns>A task representing the asynchronous operation, with a <see cref="ProbeResult"/> as the result.</returns>
         public async Task<ProbeResult> CheckAsync(CancellationToken ct = default)
         {
             var pool = _poolAccessor();
@@ -223,53 +234,128 @@ internal static class ScriptProbeFactory
             }
         }
 
+        /// <summary>
+        /// Tries to convert a PSObject to a ProbeResult.
+        /// </summary>
+        /// <param name="obj">The PSObject to convert.</param>
+        /// <param name="result">The resulting ProbeResult.</param>
+        /// <returns>True if the conversion was successful, false otherwise.</returns>
         private static bool TryConvert(PSObject obj, out ProbeResult result)
+        {
+            // Direct pass-through if already a ProbeResult
+            if (TryUnwrapProbeResult(obj, out result))
+            {
+                return true;
+            }
+
+            // Extract status (case-insensitive property lookup or string fallback)
+            if (!TryGetStatus(obj, out var status, out var descriptionWhenString, out var statusTextIsRaw))
+            {
+                result = default!;
+                return false;
+            }
+
+            if (statusTextIsRaw)
+            {
+                // We interpreted the entire string object as both status + description
+                result = new ProbeResult(status, descriptionWhenString);
+                return true;
+            }
+
+            var description = descriptionWhenString ?? GetDescription(obj);
+            var data = GetDataDictionary(obj);
+            result = new ProbeResult(status, description, data);
+            return true;
+        }
+
+        /// <summary>
+        /// Tries to unwrap a PSObject that directly wraps a ProbeResult.
+        /// </summary>
+        /// <param name="obj">The PSObject to unwrap.</param>
+        /// <param name="result">The unwrapped ProbeResult.</param>
+        /// <returns>True if the unwrapping was successful, false otherwise.</returns>
+        private static bool TryUnwrapProbeResult(PSObject obj, out ProbeResult result)
         {
             if (obj.BaseObject is ProbeResult pr)
             {
                 result = pr;
                 return true;
             }
-
+            result = default!;
+            return false;
+        }
+        /// <summary>
+        /// Parses the status from a PSObject.
+        /// </summary>
+        /// <param name="obj">The PSObject to parse.</param>
+        /// <param name="status">The parsed ProbeStatus.</param>
+        /// <param name="descriptionOrRaw">The description or raw status string.</param>
+        /// <param name="isRawString">True if the status was a raw string, false otherwise.</param>
+        /// <returns>True if the parsing was successful, false otherwise.</returns>
+        private static bool TryGetStatus(PSObject obj, out ProbeStatus status, out string? descriptionOrRaw, out bool isRawString)
+        {
             var statusValue = obj.Properties["status"]?.Value ?? obj.Properties["Status"]?.Value;
             if (statusValue is null)
             {
-                if (obj.BaseObject is string statusText && TryParseStatus(statusText, out var statusFromText))
+                if (obj.BaseObject is string statusText && TryParseStatus(statusText, out var parsedFromText))
                 {
-                    result = new ProbeResult(statusFromText, statusText);
+                    status = parsedFromText;
+                    descriptionOrRaw = statusText;
+                    isRawString = true;
                     return true;
                 }
-
-                result = default!;
+                status = default;
+                descriptionOrRaw = null;
+                isRawString = false;
                 return false;
             }
 
-            var status = TryParseStatus(statusValue.ToString(), out var parsed)
+            status = TryParseStatus(statusValue.ToString(), out var parsed)
                 ? parsed
                 : ProbeStatus.Unhealthy;
-            var description = obj.Properties["description"]?.Value?.ToString() ?? obj.Properties["Description"]?.Value?.ToString();
-            var dataProperty = obj.Properties["data"] ?? obj.Properties["Data"];
-            IReadOnlyDictionary<string, object>? data = null;
-            if (dataProperty?.Value is IDictionary dictionary && dictionary.Count > 0)
-            {
-                var dict = new Dictionary<string, object>(dictionary.Count);
-                foreach (DictionaryEntry entry in dictionary)
-                {
-                    if (entry.Key is null)
-                    {
-                        continue;
-                    }
-
-                    dict[entry.Key.ToString()!] = entry.Value!;
-                }
-
-                data = dict;
-            }
-
-            result = new ProbeResult(status, description, data);
+            descriptionOrRaw = null; // description will be resolved separately
+            isRawString = false;
             return true;
         }
+        /// <summary>
+        /// Gets the description from a PSObject.
+        /// </summary>
+        /// <param name="obj">The PSObject to extract the description from.</param>
+        /// <returns>The description string, or null if not found.</returns>
+        private static string? GetDescription(PSObject obj)
+            => obj.Properties["description"]?.Value?.ToString() ?? obj.Properties["Description"]?.Value?.ToString();
 
+        /// <summary>
+        /// Gets the data dictionary from a PSObject.
+        /// </summary>
+        /// <param name="obj">The PSObject to extract the data from.</param>
+        /// <returns>The data dictionary, or null if not found or empty.</returns>
+        private static IReadOnlyDictionary<string, object>? GetDataDictionary(PSObject obj)
+        {
+            var dataProperty = obj.Properties["data"] ?? obj.Properties["Data"];
+            if (dataProperty?.Value is not IDictionary dictionary || dictionary.Count == 0)
+            {
+                return null;
+            }
+
+            var dict = new Dictionary<string, object>(dictionary.Count);
+            foreach (DictionaryEntry entry in dictionary)
+            {
+                if (entry.Key is null)
+                {
+                    continue;
+                }
+                dict[entry.Key.ToString()!] = entry.Value!;
+            }
+            return dict;
+        }
+
+        /// <summary>
+        /// Parses a status string into a ProbeStatus enum.
+        /// </summary>
+        /// <param name="value">The status string to parse.</param>
+        /// <param name="status">The resulting ProbeStatus enum.</param>
+        /// <returns>True if the parsing was successful, false otherwise.</returns>
         private static bool TryParseStatus(string? value, out ProbeStatus status)
         {
             if (Enum.TryParse(value, ignoreCase: true, out status))
@@ -288,6 +374,14 @@ internal static class ScriptProbeFactory
         }
     }
 
+    /// <summary>
+    /// A health probe implemented via a C# script.
+    /// </summary>
+    /// <param name="name">The name of the probe.</param>
+    /// <param name="tags">The tags associated with the probe.</param>
+    /// <param name="runner">The script runner to execute the probe.</param>
+    /// <param name="locals">The local variables for the script.</param>
+    /// <param name="logger">The logger to use for logging.</param>
     private sealed class CSharpScriptProbe(
         string name,
         IEnumerable<string>? tags,
@@ -295,20 +389,40 @@ internal static class ScriptProbeFactory
         IReadOnlyDictionary<string, object?>? locals,
         SerilogLogger logger) : IProbe
     {
+        /// <summary>
+        /// The script runner to execute the probe.
+        /// </summary>
         private readonly ScriptRunner<ProbeResult> _runner = runner ?? throw new ArgumentNullException(nameof(runner));
+        /// <summary>
+        /// The local variables for the script.
+        /// </summary>
         private readonly IReadOnlyDictionary<string, object?>? _locals = locals;
+
+        /// <summary>
+        /// The logger to use for logging.
+        /// </summary>
         private readonly SerilogLogger _logger = logger ?? throw new ArgumentNullException(nameof(logger));
 
+        /// <summary>
+        /// Gets the name of the probe.
+        /// </summary>
         public string Name { get; } = string.IsNullOrWhiteSpace(name)
             ? throw new ArgumentException("Probe name cannot be null or empty.", nameof(name))
             : name;
-
+        /// <summary>
+        /// Gets the tags associated with the probe.
+        /// </summary>
         public string[] Tags { get; } = tags is null
             ? []
             : [.. tags.Where(static t => !string.IsNullOrWhiteSpace(t))
                       .Select(static t => t.Trim())
                       .Distinct(StringComparer.OrdinalIgnoreCase)];
 
+        /// <summary>
+        /// Executes the C# script and returns the resulting ProbeResult.
+        /// </summary>
+        /// <param name="ct">The cancellation token.</param>
+        /// <returns>A task representing the asynchronous operation, with a ProbeResult as the result.</returns>
         public async Task<ProbeResult> CheckAsync(CancellationToken ct = default)
         {
             var globals = _locals is { Count: > 0 }
@@ -336,6 +450,14 @@ internal static class ScriptProbeFactory
         }
     }
 
+    /// <summary>
+    /// A health probe implemented via a VB.NET script.
+    /// </summary>
+    /// <param name="name">The name of the probe.</param>
+    /// <param name="tags">The tags associated with the probe.</param>
+    /// <param name="runner">The script runner to execute the probe.</param>
+    /// <param name="locals">The local variables for the script.</param>
+    /// <param name="logger">The logger to use for logging.</param>
     private sealed class VbScriptProbe(
         string name,
         IEnumerable<string>? tags,
@@ -343,20 +465,36 @@ internal static class ScriptProbeFactory
         IReadOnlyDictionary<string, object?>? locals,
         SerilogLogger logger) : IProbe
     {
+        /// <summary>
+        /// The script runner to execute the probe.
+        /// </summary>
         private readonly Func<CsGlobals, Task<ProbeResult>> _runner = runner ?? throw new ArgumentNullException(nameof(runner));
         private readonly IReadOnlyDictionary<string, object?>? _locals = locals;
+        /// <summary>
+        /// The logger to use for logging.
+        /// </summary>
         private readonly SerilogLogger _logger = logger ?? throw new ArgumentNullException(nameof(logger));
-
+        /// <summary>
+        /// Gets the name of the probe.
+        /// </summary>
         public string Name { get; } = string.IsNullOrWhiteSpace(name)
             ? throw new ArgumentException("Probe name cannot be null or empty.", nameof(name))
             : name;
 
+        /// <summary>
+        /// Gets the tags associated with the probe.
+        /// </summary>
         public string[] Tags { get; } = tags is null
             ? []
             : [.. tags.Where(static t => !string.IsNullOrWhiteSpace(t))
                       .Select(static t => t.Trim())
                       .Distinct(StringComparer.OrdinalIgnoreCase)];
 
+        /// <summary>
+        /// Executes the VB.NET script and returns the resulting ProbeResult.
+        /// </summary>
+        /// <param name="ct">The cancellation token.</param>
+        /// <returns>A task representing the asynchronous operation, with a ProbeResult as the result.</returns>
         public async Task<ProbeResult> CheckAsync(CancellationToken ct = default)
         {
             var globals = _locals is { Count: > 0 }

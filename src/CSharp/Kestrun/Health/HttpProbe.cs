@@ -14,7 +14,8 @@ namespace Kestrun.Health;
 /// <param name="http">The HTTP client to use.</param>
 /// <param name="url">The URL to probe.</param>
 /// <param name="timeout">The timeout for the probe.</param>
-public sealed class HttpProbe(string name, string[] tags, HttpClient http, string url, TimeSpan? timeout = null) : IProbe
+/// <param name="logger">Optional logger; if null a contextual logger is created.</param>
+public sealed class HttpProbe(string name, string[] tags, HttpClient http, string url, TimeSpan? timeout = null, Serilog.ILogger? logger = null) : IProbe
 {
     /// <summary>
     /// The name of the probe.
@@ -24,6 +25,10 @@ public sealed class HttpProbe(string name, string[] tags, HttpClient http, strin
     /// The tags associated with the probe.
     /// </summary>
     public string[] Tags { get; } = tags;
+    /// <summary>
+    /// Logger used for diagnostics.
+    /// </summary>
+    public Serilog.ILogger Logger { get; init; } = logger ?? Serilog.Log.ForContext("HealthProbe", name).ForContext("Probe", name);
     /// <summary>
     /// The HTTP client to use.
     /// </summary>

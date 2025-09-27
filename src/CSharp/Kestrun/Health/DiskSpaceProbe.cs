@@ -49,7 +49,8 @@ public sealed class DiskSpaceProbe : IProbe
         _path = string.IsNullOrWhiteSpace(path) ? AppContext.BaseDirectory : path!;
         _criticalPercent = criticalPercent;
         _warnPercent = warnPercent;
-        _logger = logger ?? Log.ForContext("HealthProbe", name).ForContext("Probe", name);
+    _logger = logger ?? Log.ForContext("HealthProbe", name).ForContext("Probe", name);
+    Logger = _logger; // expose via interface
     }
 
     /// <summary>
@@ -60,6 +61,9 @@ public sealed class DiskSpaceProbe : IProbe
     /// Probe tags used for filtering.
     /// </summary>
     public string[] Tags { get; }
+
+    /// <inheritdoc />
+    public Serilog.ILogger Logger { get; init; }
 
     /// <summary>
     /// Executes the disk space check.

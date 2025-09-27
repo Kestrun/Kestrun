@@ -14,7 +14,8 @@ namespace Kestrun.Health;
 /// <param name="fileName">The file name of the process to run.</param>
 /// <param name="args">The arguments to pass to the process.</param>
 /// <param name="timeout">The timeout for the process to complete.</param>
-public sealed class ProcessProbe(string name, string[] tags, string fileName, string args = "", TimeSpan? timeout = null) : IProbe
+/// <param name="logger">Optional logger; if null a contextual logger is created.</param>
+public sealed class ProcessProbe(string name, string[] tags, string fileName, string args = "", TimeSpan? timeout = null, Serilog.ILogger? logger = null) : IProbe
 {
     /// <summary>
     /// The name of the probe.
@@ -24,6 +25,10 @@ public sealed class ProcessProbe(string name, string[] tags, string fileName, st
     /// The tags associated with the probe.
     /// </summary>
     public string[] Tags { get; } = tags;
+    /// <summary>
+    /// Logger used for diagnostics.
+    /// </summary>
+    public Serilog.ILogger Logger { get; init; } = logger ?? Serilog.Log.ForContext("HealthProbe", name).ForContext("Probe", name);
     /// <summary>
     /// The file name of the process to run.
     /// </summary>

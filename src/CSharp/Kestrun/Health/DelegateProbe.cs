@@ -3,7 +3,7 @@ namespace Kestrun.Health;
 /// <summary>
 /// Simple <see cref="IProbe"/> implementation that delegates execution to a user-supplied asynchronous function.
 /// </summary>
-internal sealed class DelegateProbe(string name, IEnumerable<string>? tags, Func<CancellationToken, Task<ProbeResult>> callback) : IProbe
+internal sealed class DelegateProbe(string name, IEnumerable<string>? tags, Func<CancellationToken, Task<ProbeResult>> callback, Serilog.ILogger? logger = null) : IProbe
 {
     private readonly Func<CancellationToken, Task<ProbeResult>> _callback = callback ?? throw new ArgumentNullException(nameof(callback));
 
@@ -17,6 +17,9 @@ internal sealed class DelegateProbe(string name, IEnumerable<string>? tags, Func
                                        .Select(static t => t.Trim())
                                        .Distinct(StringComparer.OrdinalIgnoreCase)
                                        .ToArray() ?? [];
+
+    /// <inheritdoc />
+    public Serilog.ILogger Logger { get; init; } = logger ?? Serilog.Log.ForContext("HealthProbe", name).ForContext("Probe", name);
 
     /// <inheritdoc />
     public Task<ProbeResult> CheckAsync(CancellationToken ct = default)

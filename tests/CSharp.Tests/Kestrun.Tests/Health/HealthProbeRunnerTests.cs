@@ -10,6 +10,7 @@ public class HealthProbeRunnerTests
         public string Name { get; } = name;
         public string[] Tags { get; } = tags ?? ["core", "test"];
         private readonly ProbeResult _result = result;
+        public Serilog.ILogger Logger { get; init; } = Serilog.Log.ForContext("HealthProbe", name).ForContext("Probe", name);
 
         public Task<ProbeResult> CheckAsync(CancellationToken ct = default) => Task.FromResult(_result);
     }
@@ -91,6 +92,7 @@ public class HealthProbeRunnerTests
     {
         public string Name => "timeout";
         public string[] Tags => ["core"];
+        public Serilog.ILogger Logger { get; init; } = Serilog.Log.ForContext("HealthProbe", "timeout").ForContext("Probe", "timeout");
         public async Task<ProbeResult> CheckAsync(CancellationToken ct = default)
         {
             // Intentionally wait forever (until cancelled) to deterministically trigger the per-probe timeout.
@@ -107,6 +109,7 @@ public class HealthProbeRunnerTests
         private readonly ProbeResult _result = result;
         private readonly TimeSpan _delay = delay ?? TimeSpan.Zero;
         private readonly Exception? _throw = ex;
+        public Serilog.ILogger Logger { get; init; } = Serilog.Log.ForContext("HealthProbe", name).ForContext("Probe", name);
 
         public async Task<ProbeResult> CheckAsync(CancellationToken ct = default)
         {
@@ -309,6 +312,7 @@ internal sealed class CountingProbe(string name, ConcurrencyTracker tracker, Tim
 
     public string Name { get; } = name;
     public string[] Tags { get; } = tags ?? [];
+    public Serilog.ILogger Logger { get; init; } = Serilog.Log.ForContext("HealthProbe", name).ForContext("Probe", name);
     public async Task<ProbeResult> CheckAsync(CancellationToken ct = default)
     {
         _tracker.Enter();

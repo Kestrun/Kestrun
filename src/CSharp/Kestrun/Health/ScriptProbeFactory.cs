@@ -160,6 +160,9 @@ internal static class ScriptProbeFactory
                       .Select(static t => t.Trim())
                       .Distinct(StringComparer.OrdinalIgnoreCase)];
 
+        /// <inheritdoc />
+        public SerilogLogger Logger { get; init; } = logger;
+
         /// <summary>
         /// Executes the PowerShell script and converts the output to a <see cref="ProbeResult"/>.
         /// </summary>
@@ -402,12 +405,6 @@ internal static class ScriptProbeFactory
         /// The local variables for the script.
         /// </summary>
         private readonly IReadOnlyDictionary<string, object?>? _locals = locals;
-
-        /// <summary>
-        /// The logger to use for logging.
-        /// </summary>
-        private readonly SerilogLogger _logger = logger ?? throw new ArgumentNullException(nameof(logger));
-
         /// <summary>
         /// Gets the name of the probe.
         /// </summary>
@@ -422,6 +419,9 @@ internal static class ScriptProbeFactory
             : [.. tags.Where(static t => !string.IsNullOrWhiteSpace(t))
                       .Select(static t => t.Trim())
                       .Distinct(StringComparer.OrdinalIgnoreCase)];
+
+        /// <inheritdoc />
+        public SerilogLogger Logger { get; init; } = logger;
 
         /// <summary>
         /// Executes the C# script and returns the resulting ProbeResult.
@@ -444,12 +444,12 @@ internal static class ScriptProbeFactory
             }
             catch (RoslynCompilationErrorException ex)
             {
-                _logger.Error(ex, "C# health probe {Probe} failed to execute.", Name);
+                Logger.Error(ex, "C# health probe {Probe} failed to execute.", Name);
                 return new ProbeResult(ProbeStatus.Unhealthy, string.Join("; ", ex.Diagnostics.Select(static d => d.GetMessage())));
             }
             catch (Exception ex)
             {
-                _logger.Error(ex, "C# health probe {Probe} threw an exception.", Name);
+                Logger.Error(ex, "C# health probe {Probe} threw an exception.", Name);
                 return new ProbeResult(ProbeStatus.Unhealthy, $"Exception: {ex.Message}");
             }
         }
@@ -494,6 +494,9 @@ internal static class ScriptProbeFactory
             : [.. tags.Where(static t => !string.IsNullOrWhiteSpace(t))
                       .Select(static t => t.Trim())
                       .Distinct(StringComparer.OrdinalIgnoreCase)];
+
+        /// <inheritdoc />
+        public SerilogLogger Logger { get; init; } = logger;
 
         /// <summary>
         /// Executes the VB.NET script and returns the resulting ProbeResult.

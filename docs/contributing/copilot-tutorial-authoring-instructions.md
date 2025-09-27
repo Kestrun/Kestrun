@@ -102,8 +102,7 @@ curl -i http://127.0.0.1:5000/route
 Previous: [PREV_TITLE](./PREV_FILE)
 Next: [NEXT_TITLE](./NEXT_FILE)
 
-
-```
+```markdown
 
 ## Checklist (Automatable)
 

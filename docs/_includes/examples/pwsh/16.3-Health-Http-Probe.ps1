@@ -8,8 +8,8 @@ New-KrLogger | Add-KrSinkConsole | Register-KrLogger -Name 'console' -SetAsDefau
 ## 2. Server
 New-KrServer -Name 'Health HTTP Probe'
 
-## 3. Listener (port 5002)
-Add-KrListener -Port 5002 -IPAddress ([IPAddress]::Loopback)
+## 3. Listener (port 5000)
+Add-KrListener -Port 5000 -IPAddress ([IPAddress]::Loopback)
 
 ## 4. Runtime
 Add-KrPowerShellRuntime
@@ -23,7 +23,8 @@ Add-KrMapRoute -Verbs Get -Pattern '/status' -ScriptBlock {
 }
 
 ## 7. HTTP probe referencing /status
-Add-KrHealthHttpProbe -Name 'ComponentStatus' -Url 'http://127.0.0.1:5002/status' -Tags 'remote', 'self' -Timeout '00:00:02'
+# The listener above is on port 5000, so target that; adjust if you intentionally host /status elsewhere.
+Add-KrHealthHttpProbe -Name 'ComponentStatus' -Url 'http://127.0.0.1:5000/status' -Tags 'remote', 'self' -Timeout '00:00:02'
 
 ## 8. Health endpoint
 Add-KrHealthEndpoint -Pattern '/healthz' -DefaultTags 'self', 'remote'

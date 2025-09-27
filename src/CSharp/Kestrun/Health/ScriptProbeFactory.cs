@@ -237,16 +237,15 @@ internal static class ScriptProbeFactory
         /// <param name="ps">The PowerShell instance to use.</param>
         /// <param name="ct">The cancellation token.</param>
         /// <returns>A task representing the asynchronous operation, with a list of PSObject as the result.</returns>
-        private Task<IReadOnlyList<PSObject>> InvokeScriptAsync(PowerShell ps, CancellationToken ct)
+        private async Task<IReadOnlyList<PSObject>> InvokeScriptAsync(PowerShell ps, CancellationToken ct)
         {
-            return PowerShellExecutionHelpers.InvokeAsync(ps, _logger, ct).ContinueWith(t =>
+            var output = await PowerShellExecutionHelpers.InvokeAsync(ps, _logger, ct).ConfigureAwait(false);
+            if (Logger.IsEnabled(LogEventLevel.Debug))
             {
-                if (t.IsCompletedSuccessfully && Logger.IsEnabled(LogEventLevel.Debug))
-                {
-                    Logger.Debug("PowerShellScriptProbe {Probe} received {Count} output objects", Name, t.Result.Count);
-                }
-                return (IReadOnlyList<PSObject>)t.Result;
-            }, ct, TaskContinuationOptions.ExecuteSynchronously, TaskScheduler.Default);
+                Logger.Debug("PowerShellScriptProbe {Probe} received {Count} output objects", Name, output.Count);
+            }
+            // Materialize to a List to satisfy IReadOnlyList contract and avoid invalid casts.
+            return output.Count == 0 ? Array.Empty<PSObject>() : new List<PSObject>(output);
         }
 
         /// <summary>

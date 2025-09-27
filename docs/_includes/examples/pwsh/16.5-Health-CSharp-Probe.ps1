@@ -8,8 +8,8 @@ New-KrLogger | Add-KrSinkConsole | Register-KrLogger -Name 'console' -SetAsDefau
 ## 2. Server
 New-KrServer -Name 'Health CSharp Probe'
 
-## 3. Listener (port 5004)
-Add-KrListener -Port 5004 -IPAddress ([IPAddress]::Loopback)
+## 3. Listener (port 5000)
+Add-KrListener -Port 5000 -IPAddress ([IPAddress]::Loopback)
 
 ## 4. Runtime
 Add-KrPowerShellRuntime

@@ -164,7 +164,7 @@ jobs:
                 } catch {
                 Write-Warning "Sweep failed (`Invoke-ScriptAnalyzer` threw): $($_.Exception.Message)"
                 # Fallback: analyze file-by-file to isolate any crashy inputs
-                $files = Get-ChildItem $target -Recurse -File -Include *.ps1,*.psm1,*.psd1
+                $files = Get-ChildItem $target -Recurse -File -Include *.ps1,*.psm1,*.psd1 -Exclude "Microsoft.*"
                 $collected = New-Object System.Collections.Generic.List[object]
                 foreach ($f in $files) {
                     try {

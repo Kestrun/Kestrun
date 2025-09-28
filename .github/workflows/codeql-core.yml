@@ -114,20 +114,51 @@ jobs:
               shell: pwsh
               run: Invoke-Build Build -DotNetVerbosity minimal
 
-            - name: Run PSScriptAnalyzer with settings
+            - name: 🔎 Install tools (pinned)
+              shell: pwsh
+              run: |
+                Set-PSRepository -Name PSGallery -InstallationPolicy Trusted
+                # Pin to deterministic versions
+                Install-Module PSScriptAnalyzer -RequiredVersion 1.24.0 -Scope CurrentUser -Force
+                Install-Module ConvertToSARIF   -RequiredVersion 1.0.0  -Scope CurrentUser -Force
+
+            - name: 🧪 Run PSScriptAnalyzer → SARIF (deflake)
               id: pssa
-              uses: microsoft/psscriptanalyzer-action@v1.1
-              with:
-                  path: .\src\PowerShell\Kestrun
-                  recurse: true
-                  settings: ./PSScriptAnalyzerSettings.psd1
-                  output: pssa.sarif
+              shell: pwsh
+              run: |
+                $ErrorActionPreference = 'Stop'
+                $path      = Join-Path $env:GITHUB_WORKSPACE 'src/PowerShell/Kestrun'
+                $settings  = Join-Path $env:GITHUB_WORKSPACE 'PSScriptAnalyzerSettings.psd1'
+                $sarifOut  = Join-Path $env:GITHUB_WORKSPACE 'pssa.sarif'
+
+                $htPSA = [ordered]@{
+                Path     = $path
+                Recurse  = $true
+                Settings = $settings
+                }
+
+                # 1) Run analyzer
+                $results = Invoke-ScriptAnalyzer @htPSA
+
+                # 2) Guard against sporadic nulls that crash ConvertTo-SARIF
+                $safe = $results | Where-Object {
+                $_ -and $_.RuleName -and $_.Severity -and $_.Extent -and $_.Extent.File
+                }
+                $skipped = ($results | Measure-Object).Count - ($safe | Measure-Object).Count
+                if ($skipped -gt 0) {
+                Write-Warning "Skipping $skipped diagnostics with null fields to avoid ConvertTo-SARIF crash."
+                }
+
+                # 3) Convert to SARIF (pinned module)
+                $safe | ConvertTo-SARIF -FilePath $sarifOut
+
+                Write-Host "SARIF written to $sarifOut"
 
             - name: ⬆️ Upload PSSA SARIF
               uses: github/codeql-action/upload-sarif@v3
               with:
-                  sarif_file: pssa.sarif
-                  category: powershell
+                sarif_file: pssa.sarif
+                category: powershell
 
             - name: ❗Fail on PSSA errors
               shell: pwsh

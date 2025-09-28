@@ -315,7 +315,12 @@ internal static class ScriptProbeFactory
             return false;
         }
 
-        // Handles string-based conversion scenario
+        /// <summary>
+        /// Handles string-based conversion scenario
+        /// </summary>
+        /// <param name="obj">The PSObject to convert.</param>
+        /// <param name="result">The resulting ProbeResult.</param>
+        /// <returns>True if the conversion was successful, false otherwise.</returns>
         private static bool TryConvertFromString(PSObject obj, out ProbeResult result)
         {
             if (TryGetStatus(obj, out var status, out var descriptionWhenString, out var statusTextIsRaw))
@@ -331,7 +336,12 @@ internal static class ScriptProbeFactory
             return false;
         }
 
-        // Handles property-based conversion scenario
+        /// <summary>
+        /// Handles property-based conversion scenario
+        /// </summary>
+        /// <param name="obj">The PSObject to convert.</param>
+        /// <param name="result">The resulting ProbeResult.</param>
+        /// <returns>True if the conversion was successful, false otherwise.</returns>
         private static bool TryConvertFromProperties(PSObject obj, out ProbeResult result)
         {
             if (TryGetStatus(obj, out var status, out var descriptionWhenString, out var statusTextIsRaw))
@@ -410,14 +420,40 @@ internal static class ScriptProbeFactory
         /// </summary>
         /// <param name="obj">The PSObject to extract the data from.</param>
         /// <returns>The data dictionary, or null if not found or empty.</returns>
-        private static IReadOnlyDictionary<string, object>? GetDataDictionary(PSObject obj)
+        private static Dictionary<string, object>? GetDataDictionary(PSObject obj)
         {
-            var dataProperty = obj.Properties["data"] ?? obj.Properties["Data"];
-            if (dataProperty?.Value is not IDictionary dictionary || dictionary.Count == 0)
+            // Extract underlying dictionary (case-insensitive property name handling already done)
+            var dictionary = TryExtractDataDictionary(obj);
+            if (dictionary is null)
             {
                 return null;
             }
-            // Normalize values and filter out nulls to satisfy ProbeResult Data (non-null object values)
+
+            // Build normalized temporary dictionary (allows null filtering before final allocation)
+            var temp = BuildNormalizedData(dictionary);
+            if (temp.Count == 0)
+            {
+                return null; // No meaningful data left after normalization
+            }
+
+            return PromoteData(temp);
+        }
+
+        private static IDictionary? TryExtractDataDictionary(PSObject obj)
+        {
+            var dataProperty = obj.Properties["data"] ?? obj.Properties["Data"];
+            return dataProperty?.Value is IDictionary dict && dict.Count > 0 ? dict : null;
+        }
+
+        private static bool IsValidDataKey(string? key) => !string.IsNullOrWhiteSpace(key);
+
+        /// <summary>
+        /// Builds a normalized data dictionary from the original dictionary.
+        /// </summary>
+        /// <param name="dictionary">The original dictionary to normalize.</param>
+        /// <returns>A new dictionary with normalized data.</returns>
+        private static Dictionary<string, object?> BuildNormalizedData(IDictionary dictionary)
+        {
             var temp = new Dictionary<string, object?>(dictionary.Count, StringComparer.OrdinalIgnoreCase);
             foreach (DictionaryEntry entry in dictionary)
             {
@@ -426,100 +462,139 @@ internal static class ScriptProbeFactory
                     continue;
                 }
                 var key = entry.Key.ToString();
-                if (string.IsNullOrWhiteSpace(key))
+                if (!IsValidDataKey(key))
                 {
                     continue;
                 }
                 var normalized = NormalizePsValue(entry.Value);
                 if (normalized is not null)
                 {
-                    temp[key] = normalized;
+                    temp[key!] = normalized; // key validated
                 }
             }
-            if (temp.Count == 0)
-            {
-                return null;
-            }
+            return temp;
+        }
+
+        /// <summary>
+        /// Promotes the data from a temporary dictionary to a final dictionary.
+        /// </summary>
+        /// <param name="temp">The temporary dictionary to promote.</param>
+        /// <returns>The promoted dictionary.</returns>
+        private static Dictionary<string, object> PromoteData(Dictionary<string, object?> temp)
+        {
             var final = new Dictionary<string, object>(temp.Count, StringComparer.OrdinalIgnoreCase);
-            foreach (var kv in temp)
+            foreach (var kvp in temp)
             {
-                final[kv.Key] = kv.Value!; // safe due to null filter
+                // Value cannot be null due to earlier filter
+                final[kvp.Key] = kvp.Value!;
             }
             return final;
         }
 
         /// <summary>
         /// Normalizes a value that may originate from PowerShell so JSON serialization stays lean.
-        /// Strategy:
-        /// 1. Unwrap <c>PSObject</c> instances to their <c>BaseObject</c> (recursively).
-        /// 2. Preserve primitives directly.
-        /// 3. For dictionaries (<c>IDictionary</c>) create a new <c>Dictionary&lt;string, object?&gt;</c> with normalized children.
-        /// 4. For enumerables (<c>IEnumerable</c>) that are not <c>string</c>, return a <c>List&lt;object?&gt;</c> of normalized items.
-        /// 5. Fallback: return the original object (POCOs are handled by the default serializer).
-        /// A small max recursion depth (8) prevents pathological graphs from ballooning.
+        /// (Delegates to smaller helpers to keep cyclomatic complexity low.)
         /// </summary>
+        /// <param name="value">The value to normalize.</param>
+        /// <param name="depth">The current recursion depth.</param>
+        /// <returns>The normalized value.</returns>
         private static object? NormalizePsValue(object? value, int depth = 0)
         {
             if (value is null)
             {
                 return null;
             }
-
-            // Hard depth stop to avoid pathological/custom objects exploding recursively
             if (depth > 8)
             {
-                return value is PSObject pso ? pso.ToString() : value.ToString();
+                return CollapseAtDepth(value);
             }
-
-            // Unwrap PSObject layers
             if (value is PSObject psObj)
             {
-                // Direct scalar unwrap
-                var baseObj = psObj.BaseObject;
-                return baseObj is null || ReferenceEquals(baseObj, psObj)
-                    ? psObj.ToString()
-                    : NormalizePsValue(baseObj, depth + 1);
+                return NormalizePsPsObject(psObj, depth);
             }
-
-            // Treat PSPrimitive-like wrappers (PowerShell sometimes wraps ints/doubles)
-            if (value is IFormattable && value.GetType().IsPrimitive)
+            if (IsPrimitive(value))
             {
-                return value; // JSON serializer handles primitives directly
+                return value;
             }
-
-            // IDictionary → normalize each entry
-            if (value is IDictionary rawDict)
+            if (value is IDictionary dict)
             {
-                var result = new Dictionary<string, object?>(rawDict.Count);
-                foreach (DictionaryEntry de in rawDict)
+                return NormalizeDictionary(dict, depth);
+            }
+            // Avoid treating strings as IEnumerable<char>
+            return value switch
+            {
+                string s => s,
+                IEnumerable seq => NormalizeEnumerable(seq, depth),
+                _ => value
+            };
+        }
+
+        /// <summary>
+        /// Determines if a value is a primitive type that can be directly serialized.
+        /// </summary>
+        /// <param name="value">The value to check.</param>
+        /// <returns>True if the value is a primitive type, false otherwise.</returns>
+        private static bool IsPrimitive(object value) => value is IFormattable && value.GetType().IsPrimitive;
+
+        /// <summary>
+        /// Collapses a value to its string representation when maximum depth is reached.
+        /// </summary>
+        /// <param name="value">The value to collapse.</param>
+        /// <returns>The string representation of the value.</returns>
+        private static string CollapseAtDepth(object value) => value is PSObject pso ? pso.ToString() : value.ToString() ?? string.Empty;
+
+        /// <summary>
+        /// Normalizes a PowerShell PSObject by extracting its base object and normalizing it.
+        /// </summary>
+        /// <param name="psObj">The PSObject to normalize.</param>
+        /// <param name="depth">The current recursion depth.</param>
+        private static object? NormalizePsPsObject(PSObject psObj, int depth)
+        {
+            var baseObj = psObj.BaseObject;
+            return baseObj is null || ReferenceEquals(baseObj, psObj)
+                ? psObj.ToString()
+                : NormalizePsValue(baseObj, depth + 1);
+        }
+
+        /// <summary>
+        /// Normalizes a dictionary by converting its keys to strings and recursively normalizing its values.
+        /// </summary>
+        /// <param name="rawDict">The raw dictionary to normalize.</param>
+        /// <param name="depth">The current recursion depth.</param>
+        /// <returns>A normalized dictionary with string keys and normalized values.</returns>
+        private static Dictionary<string, object?> NormalizeDictionary(IDictionary rawDict, int depth)
+        {
+            var result = new Dictionary<string, object?>(rawDict.Count);
+            foreach (DictionaryEntry de in rawDict)
+            {
+                if (de.Key is null)
                 {
-                    if (de.Key is null)
-                    {
-                        continue;
-                    }
-                    var k = de.Key.ToString();
-                    if (string.IsNullOrWhiteSpace(k))
-                    {
-                        continue;
-                    }
-                    result[k] = NormalizePsValue(de.Value, depth + 1);
+                    continue;
                 }
-                return result;
-            }
-
-            // IEnumerable (but not string) → list of normalized children
-            if (value is IEnumerable enumerable and not string)
-            {
-                var list = new List<object?>();
-                foreach (var item in enumerable)
+                var k = de.Key.ToString();
+                if (string.IsNullOrWhiteSpace(k))
                 {
-                    list.Add(NormalizePsValue(item, depth + 1));
+                    continue;
                 }
-                return list;
+                result[k] = NormalizePsValue(de.Value, depth + 1);
             }
+            return result;
+        }
 
-            // Leave everything else untouched (e.g., plain POCOs / numbers / DateTimes)
-            return value;
+        /// <summary>
+        /// Normalizes an enumerable by recursively normalizing its items.
+        /// </summary>
+        /// <param name="enumerable">The enumerable to normalize.</param>
+        /// <param name="depth">The current recursion depth.</param>
+        /// <returns>A list of normalized items.</returns>
+        private static List<object?> NormalizeEnumerable(IEnumerable enumerable, int depth)
+        {
+            var list = new List<object?>();
+            foreach (var item in enumerable)
+            {
+                list.Add(NormalizePsValue(item, depth + 1));
+            }
+            return list;
         }
 
         /// <summary>

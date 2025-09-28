@@ -114,13 +114,26 @@ jobs:
               shell: pwsh
               run: Invoke-Build Build -DotNetVerbosity minimal
 
-            - name: 🔎 Install tools (pinned)
+            - name: 🔎 Prepare analyzer modules (pinned, hermetic)
               shell: pwsh
               run: |
-                Set-PSRepository -Name PSGallery -InstallationPolicy Trusted
-                # Pin to deterministic versions
-                Install-Module PSScriptAnalyzer -RequiredVersion 1.24.0 -Scope CurrentUser -Force
-                Install-Module ConvertToSARIF   -RequiredVersion 1.0.0  -Scope CurrentUser -Force
+                $ErrorActionPreference = 'Stop'
+                $modRoot = Join-Path $env:GITHUB_WORKSPACE '.cache/psmodules'
+                New-Item -Force -ItemType Directory -Path $modRoot | Out-Null
+
+                function Ensure-Module($Name, $Version) {
+                $have = Get-Module -ListAvailable -Name $Name | Where-Object { $_.Version -eq [version]$Version }
+                if (-not $have) {
+                    # Save into our private cache to avoid scope/path surprises
+                    Save-Module -Name $Name -RequiredVersion $Version -Path $modRoot -ErrorAction Stop
+                }
+                $env:PSModulePath = "$modRoot" + [IO.Path]::PathSeparator + $env:PSModulePath
+                Import-Module $Name -RequiredVersion $Version -Force -ErrorAction Stop
+                }
+
+                # Pin exact versions
+                Ensure-Module -Name PSScriptAnalyzer -Version 1.24.0
+                Ensure-Module -Name ConvertToSARIF   -Version 1.0.0
 
             - name: 🧪 Run PSScriptAnalyzer → SARIF (deflake)
               id: pssa
@@ -140,17 +153,18 @@ jobs:
                 # 1) Run analyzer
                 $results = Invoke-ScriptAnalyzer @htPSA
 
-                # 2) Guard against sporadic nulls that crash ConvertTo-SARIF
-                $safe = $results | Where-Object {
-                $_ -and $_.RuleName -and $_.Severity -and $_.Extent -and $_.Extent.File
-                }
+                # 2) Filter any null-ish diagnostics that can crash the converter
+                $safe = $results | Where-Object { $_ -and $_.RuleName -and $_.Severity -and $_.Extent -and $_.Extent.File }
                 $skipped = ($results | Measure-Object).Count - ($safe | Measure-Object).Count
-                if ($skipped -gt 0) {
-                Write-Warning "Skipping $skipped diagnostics with null fields to avoid ConvertTo-SARIF crash."
-                }
+                if ($skipped -gt 0) { Write-Warning "Skipping $skipped diagnostics with null fields to avoid ConvertTo-SARIF crash." }
 
-                # 3) Convert to SARIF (pinned module)
+                # 3) Convert to SARIF (module already imported in prior step)
+                if ($safe) {
                 $safe | ConvertTo-SARIF -FilePath $sarifOut
+                } else {
+                # create an empty file so upload step doesn't fail
+                New-Item -ItemType File -Path $sarifOut -Force | Out-Null
+                }
 
                 Write-Host "SARIF written to $sarifOut"
 

@@ -160,18 +160,19 @@ jobs:
                 $results = $null
                 $toolErrors = @()
                 try {
-                $results = Invoke-ScriptAnalyzer -Path $target -Recurse -Settings $settings -ErrorAction Stop
+                    $results = Invoke-ScriptAnalyzer -Path $target -Recurse -Settings $settings -ErrorAction Stop
                 } catch {
                 Write-Warning "Sweep failed (`Invoke-ScriptAnalyzer` threw): $($_.Exception.Message)"
                 # Fallback: analyze file-by-file to isolate any crashy inputs
-                $files = Get-ChildItem $target -Recurse -File -Include *.ps1,*.psm1,*.psd1 -Exclude "Microsoft.*"
+                $files = Get-ChildItem $target -Recurse -File -Include *.ps1,*.psm1,*.psd1 -Exclude "Microsoft.*","PSDiagnostics*","CimCmdlets.*"
                 $collected = New-Object System.Collections.Generic.List[object]
                 foreach ($f in $files) {
                     try {
-                    $r = Invoke-ScriptAnalyzer -Path $f.FullName -Settings $settings -ErrorAction Stop
-                    if ($r) { [void]$collected.AddRange($r) }
+                        Write-Output "Analyzing $($f.FullName)"
+                        $r = Invoke-ScriptAnalyzer -Path $f.FullName -Settings $settings -ErrorAction Stop
+                        if ($r) { [void]$collected.AddRange($r) }
                     } catch {
-                    $toolErrors += [pscustomobject]@{ file=$f.FullName; error=$_.Exception.Message }
+                        $toolErrors += [pscustomobject]@{ file=$f.FullName; error=$_.Exception.Message }
                     }
                 }
                 $results = $collected

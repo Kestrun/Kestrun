@@ -114,6 +114,17 @@ jobs:
               shell: pwsh
               run: Invoke-Build Build -DotNetVerbosity minimal
 
+            - name: 🔍 Load Kestrun Module
+              shell: pwsh
+              run: |
+                $ErrorActionPreference = 'Stop'
+                $dllPath = Join-Path -Path $env:GITHUB_WORKSPACE -ChildPath 'src/PowerShell/Kestrun/Kestrun.psm1'
+                if (-not (Test-Path -Path $dllPath)) {
+                    Write-Error "DLL not found at expected path: $dllPath"
+                }
+                Import-Module $dllPath -Force
+                Get-Command -Module Kestrun | Select-Object -First 10 | Format-Table -Auto
+
             - name: 🔎 Prepare PSSA (pinned & hermetic)
               shell: pwsh
               run: |

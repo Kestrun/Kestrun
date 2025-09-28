@@ -37,17 +37,49 @@ Add-KrHealthEndpoint -Pattern '/healthz' -DefaultTags 'core' -ProbeTimeout '00:0
 Enable-KrConfiguration
 ```
 
-### Alternate Response Formats
+### Alternate Response Formats & Negotiation
 
-Dashboards or downstream tooling may require YAML or XML instead of JSON. Set
-`HealthEndpointOptions.ResponseContentType` (C#) or pass `-ResponseContentType` to
-`Add-KrHealthEndpoint` (PowerShell) with `Json`, `Yaml`, `Xml`, or `Auto` to control the response
-serializer while keeping the same aggregated data contract.
+Dashboards or downstream tooling may require formats beyond JSON. You can force or negotiate among:
 
-When emitting XML you can optionally override the root node name (defaults to `Response`) via
-`HealthEndpointOptions.XmlRootElementName` or PowerShell `-XmlRootElementName`. Output is human‑readable
-(indented) by default for JSON and XML. Set `HealthEndpointOptions.Compress` / `-Compress` to emit
-compact payloads (no indentation) to reduce size.
+| Enum Value | Content Type Emitted | Notes |
+|------------|----------------------|-------|
+| `Json` | `application/json` | Default unless overridden. |
+| `Yaml` | `application/yaml` | Useful for human diffing. |
+| `Xml`  | `application/xml`  | Supports custom root element. |
+| `Text` | `text/plain`       | Human-friendly summary (status + probes) – no strict schema. |
+| `Auto` | Negotiated         | Examines `Accept` header (JSON > YAML > XML > Text). Fallback = JSON. |
+
+Set `HealthEndpointOptions.ResponseContentType` (C#) or `-ResponseContentType` (PowerShell). `Auto`
+performs lightweight negotiation against the first matching media type the client prefers:
+
+1. `application/json`
+2. `application/yaml` / `text/yaml`
+3. `application/xml` / `text/xml`
+4. `text/plain`
+
+If none match, JSON is used. All structured formats (JSON/YAML/XML) share identical field semantics.
+Plain text is for dashboards, CLIs, or curl-based quick checks.
+
+When emitting XML you can override the root node name (default `Response`) via
+`HealthEndpointOptions.XmlRootElementName` / `-XmlRootElementName`.
+
+Formatting & size:
+
+- Pretty (indented) by default for JSON/XML.
+- Use `HealthEndpointOptions.Compress = true` or `-Compress` to compact JSON/XML (YAML & Text are already minimal).
+
+Ordering flexibility: `Add-KrHealthEndpoint` may be invoked before or after `Enable-KrConfiguration`; deferred
+mapping ensures the route is finalized during build.
+
+Example plain text output snippet:
+
+```text
+Status: Healthy
+Summary: 3 probes (3 healthy)
+Probes:
+  - name=Disk status=Healthy freePercent=42
+  - name=Cache status=Healthy hitRatio=0.97
+```
 
 ```csharp
 using Kestrun.Hosting;
@@ -115,7 +147,7 @@ public record ProbeResult(
 | `ProbeTimeout` | 15 seconds | Per probe cancellation window. |
 | `AutoRegisterEndpoint` | `true` | Automatically register on host creation. |
 | `DefaultScriptLanguage` | PowerShell | Used by `AddProbe` overload when `ScriptLanguage` not specified. |
-| `ResponseContentType` | JSON | Force JSON, YAML, XML, or auto negotiation for the aggregate payload. |
+| `ResponseContentType` | JSON | Force JSON, YAML, XML, Text, or Auto negotiation for the aggregate payload. |
 | `XmlRootElementName` | `Response` | Root element name used when `ResponseContentType` = XML (or negotiated to XML). |
 | `Compress` | `false` | If true, compact JSON/XML output (no indentation). Default false emits human‑readable output. |
 
@@ -141,7 +173,7 @@ Clients can request `/healthz?tag=ready` for readiness and `/healthz?tags=remote
 
 ## Response Shape
 
-Sample JSON payload:
+Sample JSON payload (note: `Degraded` still returns HTTP 200 unless `TreatDegradedAsUnhealthy=true`):
 
 ```json
 {

@@ -42,11 +42,11 @@ Add-KrHealthProbe -Name 'Disk Space' -Tags 'infra' -ScriptBlock {
 }
 
 ## 6. Enable configuration
-Enable-KrConfiguration
+#Enable-KrConfiguration
 
 ## 7. Health endpoint with different response formats (uncomment one at a time to test)
 # JSON (default)
 Add-KrHealthEndpoint -Pattern '/healthz' -DefaultTags 'core' -ResponseContentType Auto
-
+Enable-KrConfiguration
 ## 8. Start server
 Start-KrServer

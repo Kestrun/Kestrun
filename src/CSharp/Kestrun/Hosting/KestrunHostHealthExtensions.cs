@@ -189,8 +189,9 @@ public static class KestrunHostHealthExtensions
             return;
         }
 
-        // When immediate mapping after build ensure underlying WebApplication is available
-        var endpoints = (host.IsConfigured ? host.App : null) ?? throw new InvalidOperationException("Endpoint mapping requires a WebApplication when executed immediately.");
+        // Acquire WebApplication (throws if Build() truly has not executed yet). Using host.App here allows
+        // early AddHealthEndpoint calls before EnableConfiguration via deferred middleware.
+        var endpoints = host.App;
         var endpointLogger = host.HostLogger.ForContext("HealthEndpoint", merged.Pattern);
 
         var map = endpoints.MapMethods(merged.Pattern, [HttpMethods.Get], async context =>

@@ -1,7 +1,4 @@
 using Kestrun.Health;
-using Kestrun.Hosting;
-using Kestrun.Models;
-using Kestrun.Scripting;
 using Xunit;
 
 namespace KestrunTests.Health;

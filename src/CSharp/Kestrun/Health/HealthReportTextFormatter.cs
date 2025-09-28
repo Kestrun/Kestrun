@@ -54,11 +54,9 @@ public static class HealthReportTextFormatter
 
     private static string RenderValue(object? value)
     {
-        if (value is null)
-        {
-            return "<null>";
-        }
-        return value switch
+        return value is null
+            ? "<null>"
+            : value switch
         {
             string s => '"' + Escape(s) + '"',
             DateTime dt => dt.ToString("O"),
@@ -80,10 +78,6 @@ public static class HealthReportTextFormatter
         {
             return ((int)duration.TotalMilliseconds) + "ms";
         }
-        if (duration.TotalSeconds < 60)
-        {
-            return duration.TotalSeconds.ToString("0.###") + "s";
-        }
-        return duration.ToString();
+        return duration.TotalSeconds < 60 ? duration.TotalSeconds.ToString("0.###") + "s" : duration.ToString();
     }
 }

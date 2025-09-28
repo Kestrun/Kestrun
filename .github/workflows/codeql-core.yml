@@ -146,66 +146,77 @@ jobs:
               env:
                 PSSA_FAIL_ON_ERROR: 'false'   # set to 'true' if you want CI to fail when the tool crashes
                 PSSA_FAIL_ON_ISSUES: 'true'   # set to 'false' to make findings non-fatal
+
               run: |
                 $ErrorActionPreference = 'Stop'
-                $root      = $env:GITHUB_WORKSPACE
-                $target    = Join-Path $root 'src/PowerShell/Kestrun'
-                $settings  = Join-Path $root 'PSScriptAnalyzerSettings.psd1'
-                $jsonOut   = Join-Path $root 'psa-results.json'
-                $errOut    = Join-Path $root 'psa-errors.json'
+                $root     = $env:GITHUB_WORKSPACE
+                $target   = Join-Path $root 'src/PowerShell/Kestrun'
+                $settings = Join-Path $root 'PSScriptAnalyzerSettings.psd1'
+                $jsonOut  = Join-Path $root 'psa-results.json'
+                $errOut   = Join-Path $root 'psa-errors.json'
 
                 Write-Host "Using PSScriptAnalyzer settings: $settings"
 
-                # try a full-tree sweep first
+                # 1) Always build the candidate file list (wildcard in -Path for Linux Include/Exclude semantics)
+                $files = Get-ChildItem -Path (Join-Path $target '*') -Recurse -File |
+                        Where-Object {
+                            # pick which file types you actually want to lint
+                            $_.Extension -in '.ps1','.psm1' -and               # <- drop '.psd1' if it's noisy
+                            # robust name excludes (regex, case-insensitive)
+                            $_.Name -notmatch '^(?i:(Microsoft\..*|PSDiagnostics.*|CimCmdlets\..*))$'
+                        }
+
+                "Selected $($files.Count) files to analyze"
+                $files | Select-Object -First 8 -ExpandProperty FullName | ForEach-Object { "• $_" } | Write-Host
+
+                if ($files.Count -eq 0) {
+                    # nothing to analyze — create empty outputs so downstream steps are happy
+                    '' | Set-Content -NoNewline $jsonOut
+                    '' | Set-Content -NoNewline $errOut
+                    "has_ps_issues=false"      | Out-File -FilePath $Env:GITHUB_OUTPUT -Append
+                    "has_psa_errors=false"     | Out-File -FilePath $Env:GITHUB_OUTPUT -Append
+                    return
+                }
+
+                # 2) Try one shot with the filtered file list
                 $results = $null
                 $toolErrors = @()
                 try {
-                    $results = Invoke-ScriptAnalyzer -Path $target -Recurse -Settings $settings -ErrorAction Stop
+                    $results = Invoke-ScriptAnalyzer -Path ($files.FullName) -Settings $settings -ErrorAction Stop
                 } catch {
-                Write-Warning "Sweep failed (`Invoke-ScriptAnalyzer` threw): $($_.Exception.Message)"
-                # Fallback: analyze file-by-file to isolate any crashy inputs
-                $files = Get-ChildItem $target -Recurse -File -Include *.ps1,*.psm1,*.psd1  |
-                            Where-Object {
-                                $_.Extension -in '.ps1','.psm1','.psd1' -and
-                                $_.Name -notlike 'Microsoft.*' -and
-                                $_.Name -notlike 'PSDiagnostics*' -and
-                                $_.Name -notlike 'CimCmdlets.*'
-                                }
-                "Selected: $($files.Count) files"
-                $files | Select -First 5 | ForEach-Object { "• $($_.Name)" } | Write-Host
-                $collected = New-Object System.Collections.Generic.List[object]
-                foreach ($f in $files) {
-                    try {
+                    Write-Warning "Batch analyze threw: $($_.Exception.Message)"
+                    # 3) Fallback: per-file (still using the same filtered list)
+                    $collected = New-Object System.Collections.Generic.List[object]
+                    foreach ($f in $files) {
+                        try {
                         Write-Output "Analyzing $($f.FullName)"
                         $r = Invoke-ScriptAnalyzer -Path $f.FullName -Settings $settings -ErrorAction Stop
                         if ($r) { [void]$collected.AddRange($r) }
-                    } catch {
+                        } catch {
                         $toolErrors += [pscustomobject]@{ file=$f.FullName; error=$_.Exception.Message }
+                        }
                     }
-                }
-                $results = $collected
+                    $results = $collected
                 }
 
-                # Write outputs
-                $results | ConvertTo-Json -Depth 6 | Set-Content -NoNewline $jsonOut
+                # 4) Write outputs
+                $results    | ConvertTo-Json -Depth 6 | Set-Content -NoNewline $jsonOut
                 $toolErrors | ConvertTo-Json -Depth 4 | Set-Content -NoNewline $errOut
 
-                $hasIssues = [bool]($results | Select-Object -First 1)
+                $hasIssues     = [bool]($results | Select-Object -First 1)
                 $hasToolErrors = [bool]($toolErrors | Select-Object -First 1)
 
-                "has_ps_issues=$hasIssues"     | Out-File -FilePath $Env:GITHUB_OUTPUT -Append
-                "has_psa_errors=$hasToolErrors"| Out-File -FilePath $Env:GITHUB_OUTPUT -Append
+                "has_ps_issues=$hasIssues"      | Out-File -FilePath $Env:GITHUB_OUTPUT -Append
+                "has_psa_errors=$hasToolErrors" | Out-File -FilePath $Env:GITHUB_OUTPUT -Append
 
-                # pretty table for logs (won’t crash build)
                 if ($results) {
-                $results | Select RuleName,Severity,ScriptName,Line,Message |
+                    $results | Select RuleName,Severity,ScriptName,Line,Message |
                     Format-Table -Auto | Out-String | Write-Host
                 }
                 if ($hasToolErrors) {
-                Write-Warning "PSSA threw on $($toolErrors.Count) file(s). See psa-errors.json."
+                    Write-Warning "PSSA threw on $($toolErrors.Count) file(s). See psa-errors.json."
                 }
 
-                # decide the job’s fate
                 if ($env:PSSA_FAIL_ON_ERROR -eq 'true' -and $hasToolErrors) { exit 2 }
                 if ($env:PSSA_FAIL_ON_ISSUES -eq 'true' -and $hasIssues)     { exit 1 }
 

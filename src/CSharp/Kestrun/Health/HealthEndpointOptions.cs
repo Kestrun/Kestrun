@@ -20,6 +20,10 @@ public enum HealthEndpointContentType
     /// </summary>
     Xml,
     /// <summary>
+    /// Emits a concise human-readable plain text summary.
+    /// </summary>
+    Text,
+    /// <summary>
     /// Automatically negotiates based on the Accept header.
     /// </summary>
     Auto

@@ -237,6 +237,10 @@ public static class KestrunHostHealthExtensions
                         rootElementName: merged.XmlRootElementName ?? "Response",
                         compress: merged.Compress).ConfigureAwait(false);
                     break;
+                case HealthEndpointContentType.Text:
+                    var text = HealthReportTextFormatter.Format(report);
+                    await response.WriteTextResponseAsync(text, statusCode, contentType: $"text/plain; charset={response.Encoding.WebName}").ConfigureAwait(false);
+                    break;
                 case HealthEndpointContentType.Auto:
                 default:
                     await response.WriteResponseAsync(report, statusCode).ConfigureAwait(false);

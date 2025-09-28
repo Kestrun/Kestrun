@@ -44,7 +44,7 @@ Add-KrHealthProbe -Name 'Disk Space' -Tags 'infra' -ScriptBlock {
 ## 6. Enable configuration
 Enable-KrConfiguration
 
-## 7. Health endpoint with json response format
+## 7. Health endpoint with Auto response format
 Add-KrHealthEndpoint -Pattern '/healthz' -DefaultTags 'core' -ResponseContentType Auto
 
 ## 8. Start server

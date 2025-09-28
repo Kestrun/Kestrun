@@ -153,8 +153,10 @@ public class KestrunResponse(KestrunRequest request, int bodyAsyncThreshold = 81
         }
 
         // Include structured types using XML or JSON suffixes
-        if (type.EndsWith("+xml", StringComparison.OrdinalIgnoreCase) ||
-            type.EndsWith("+json", StringComparison.OrdinalIgnoreCase))
+        if (type.EndsWith("xml", StringComparison.OrdinalIgnoreCase) ||
+            type.EndsWith("json", StringComparison.OrdinalIgnoreCase) ||
+            type.EndsWith("yaml", StringComparison.OrdinalIgnoreCase) ||
+            type.EndsWith("csv", StringComparison.OrdinalIgnoreCase))
         {
             return true;
         }
@@ -370,6 +372,23 @@ public class KestrunResponse(KestrunRequest request, int bodyAsyncThreshold = 81
 
         Body = inputObject;
         ContentType = DetermineContentType(contentType: string.Empty); // Ensure ContentType is set based on Accept header
+        if (ContentType.Contains(','))
+        {
+            var ContentTypes = ContentType.Split(','); // Take the first type only
+            ContentType = "application/json"; // fallback
+            foreach (var ct in ContentTypes)
+            {
+                if (ct.Contains("json") || ct.Contains("xml") || ct.Contains("yaml") || ct.Contains("yml"))
+                {
+                    if (Log.IsEnabled(LogEventLevel.Verbose))
+                    {
+                        Log.Verbose("Multiple content types in Accept header, selecting {ContentType}", ct);
+                    }
+                    ContentType = ct;
+                    break;
+                }
+            }
+        }
         if (Log.IsEnabled(LogEventLevel.Verbose))
         {
             Log.Verbose("Determined ContentType={ContentType}", ContentType);

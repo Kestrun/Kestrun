@@ -172,9 +172,9 @@ jobs:
                 Set-Content -LiteralPath $errOut  -Value '[]' -Encoding UTF8NoBOM
 
                 if ($files.Count -eq 0) {
-                "has_ps_issues=false"  | Out-File -FilePath $Env:GITHUB_OUTPUT -Append
-                "has_psa_errors=false" | Out-File -FilePath $Env:GITHUB_OUTPUT -Append
-                return
+                    "has_ps_issues=false"  | Out-File -FilePath $Env:GITHUB_OUTPUT -Append
+                    "has_psa_errors=false" | Out-File -FilePath $Env:GITHUB_OUTPUT -Append
+                    return
                 }
 
                 # 3) Per-file analysis (stable, noisy-proof)
@@ -220,13 +220,13 @@ jobs:
                     Format-Table -Auto | Out-String | Write-Host
                 }
                 if ($hasToolErrors) {
-                Write-Warning "PSSA threw on $($toolErrors.Count) file(s). See psa-errors.json."
+                    Write-Warning "PSSA threw on $($toolErrors.Count) file(s). See psa-errors.json."
                 }
 
                 # 6) Fail policy
                 if ($env:PSSA_FAIL_ON_ERROR -eq 'true' -and $hasToolErrors) { exit 2 }
                 if ($env:PSSA_FAIL_ON_ISSUES -eq 'true' -and $hasIssues)     { exit 1 }
-                
+
             - name: 🧾 List analyzer outputs
               if: always()
               run: |

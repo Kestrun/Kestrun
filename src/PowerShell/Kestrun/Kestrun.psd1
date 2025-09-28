@@ -70,7 +70,7 @@
     # Functions to export from this module, for best performance, do not use wildcards and do not delete the entry, use an empty array if there are no functions to export.
     FunctionsToExport      = @(
         'Add-KrAntiforgeryMiddleware', 'Add-KrAntiforgeryTokenRoute', 'Add-KrApiKeyAuthentication',
-        'Add-KrBasicAuthentication', 'Add-KrCacheMiddleware', 'Add-KrCacheResponse',
+        'Add-KrBasicAuthentication', 'Add-KrCacheMiddleware', 'Add-KrCommonAccessLogMiddleware', 'Add-KrCacheResponse',
         'Add-KrClaimPolicy', 'Add-KrCompressionMiddleware', 'Add-KrCookiesAuthentication',
         'Add-KrCorsPolicyMiddleware', 'Add-KrEnrichEnvironment', 'Add-KrEnrichErrorRecord',
         'Add-KrEnrichExceptionDetail', 'Add-KrEnrichFromLogContext', 'Add-KrEnrichProcessId',

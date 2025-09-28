@@ -1,10 +1,11 @@
-using Kestrun.Utilities;
+using Kestrun.Middleware;
 using Microsoft.AspNetCore.Antiforgery;
 using Microsoft.AspNetCore.Cors.Infrastructure;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.ResponseCaching;
 using Microsoft.AspNetCore.ResponseCompression;
 using Microsoft.Net.Http.Headers;
+using Microsoft.Extensions.DependencyInjection;
 using Serilog.Events;
 
 namespace Kestrun.Hosting;
@@ -14,6 +15,33 @@ namespace Kestrun.Hosting;
 /// </summary>
 public static class KestrunHttpMiddlewareExtensions
 {
+    /// <summary>
+    /// Adds Apache-style common access logging using <see cref="CommonAccessLogMiddleware"/>.
+    /// </summary>
+    /// <param name="host">The <see cref="KestrunHost"/> instance to configure.</param>
+    /// <param name="configure">Optional delegate to configure <see cref="CommonAccessLogOptions"/>.</param>
+    /// <returns>The configured <see cref="KestrunHost"/> instance.</returns>
+    public static KestrunHost AddCommonAccessLog(this KestrunHost host, Action<CommonAccessLogOptions>? configure = null)
+    {
+        if (host.HostLogger.IsEnabled(LogEventLevel.Debug))
+        {
+            host.HostLogger.Debug(
+                "Adding common access log middleware (custom configuration supplied: {HasConfig})",
+                configure != null);
+        }
+
+        _ = host.AddService(services =>
+        {
+            var builder = services.AddOptions<CommonAccessLogOptions>();
+            if (configure != null)
+            {
+                _ = builder.Configure(configure);
+            }
+        });
+
+        return host.Use(app => app.UseMiddleware<CommonAccessLogMiddleware>());
+    }
+
     /// <summary>
     /// Adds response compression to the application.
     /// This overload allows you to specify configuration options.

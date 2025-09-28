@@ -25,6 +25,24 @@ public class KestrunHttpMiddlewareExtensionsTests
 
     [Fact]
     [Trait("Category", "Hosting")]
+    public void AddCommonAccessLog_RegistersMiddleware()
+    {
+        var host = CreateHost(out var middleware);
+        _ = host.AddCommonAccessLog();
+        Assert.True(middleware.Count > 0);
+    }
+
+    [Fact]
+    [Trait("Category", "Hosting")]
+    public void AddCommonAccessLog_WithConfiguration_RegistersMiddleware()
+    {
+        var host = CreateHost(out var middleware);
+        _ = host.AddCommonAccessLog(o => o.IncludeQueryString = false);
+        Assert.True(middleware.Count > 0);
+    }
+
+    [Fact]
+    [Trait("Category", "Hosting")]
     public void AddResponseCompression_WithNullOptions_UsesDefaults()
     {
         var host = CreateHost(out var middleware);

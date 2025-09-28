@@ -1,0 +1,325 @@
+using System.Diagnostics;
+using System.Globalization;
+using System.Net;
+using System.Text;
+using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Options;
+using Microsoft.Extensions.Primitives;
+using Microsoft.Net.Http.Headers;
+using Serilog;
+using Serilog.Events;
+
+namespace Kestrun.Middleware;
+
+/// <summary>
+/// ASP.NET Core middleware that emits Apache style common access log entries using Serilog.
+/// </summary>
+public sealed class CommonAccessLogMiddleware
+{
+    private readonly RequestDelegate _next;
+    private readonly IOptionsMonitor<CommonAccessLogOptions> _optionsMonitor;
+    private readonly Serilog.ILogger _logger;
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="CommonAccessLogMiddleware"/> class.
+    /// </summary>
+    /// <param name="next">The next middleware in the pipeline.</param>
+    /// <param name="optionsMonitor">The options monitor for <see cref="CommonAccessLogOptions"/>.</param>
+    /// <param name="logger">The Serilog logger instance.</param>
+    public CommonAccessLogMiddleware(
+        RequestDelegate next,
+        IOptionsMonitor<CommonAccessLogOptions> optionsMonitor,
+        Serilog.ILogger logger)
+    {
+        _next = next ?? throw new ArgumentNullException(nameof(next));
+        _optionsMonitor = optionsMonitor ?? throw new ArgumentNullException(nameof(optionsMonitor));
+        _ = logger ?? throw new ArgumentNullException(nameof(logger));
+        _logger = logger.ForContext("LogFormat", "CommonAccessLog")
+                        .ForContext<CommonAccessLogMiddleware>();
+    }
+
+    /// <summary>
+    /// Invokes the middleware for the specified HTTP context.
+    /// </summary>
+    /// <param name="context">The HTTP context.</param>
+    public async Task InvokeAsync(HttpContext context)
+    {
+        ArgumentNullException.ThrowIfNull(context);
+
+        var stopwatch = Stopwatch.StartNew();
+        try
+        {
+            await _next(context);
+        }
+        finally
+        {
+            stopwatch.Stop();
+            WriteAccessLog(context, stopwatch.Elapsed);
+        }
+    }
+
+    private void WriteAccessLog(HttpContext context, TimeSpan elapsed)
+    {
+        CommonAccessLogOptions options;
+        try
+        {
+            options = _optionsMonitor.CurrentValue ?? new CommonAccessLogOptions();
+        }
+        catch
+        {
+            options = new CommonAccessLogOptions();
+        }
+
+        var logger = _logger;
+        if (!logger.IsEnabled(options.Level))
+        {
+            return;
+        }
+
+        try
+        {
+            var logLine = BuildLogLine(context, options, elapsed);
+            logger.Write(options.Level, "{CommonAccessLogLine}", logLine);
+        }
+        catch (Exception ex)
+        {
+            // Access logging should never take down the pipeline – swallow and trace.
+            Log.Logger.Debug(ex, "Failed to emit common access log entry.");
+        }
+    }
+
+    private static string BuildLogLine(HttpContext context, CommonAccessLogOptions options, TimeSpan elapsed)
+    {
+        var request = context.Request;
+        var response = context.Response;
+
+        var remoteHost = SanitizeToken(ResolveClientAddress(context, options));
+        var remoteIdent = "-"; // identd is rarely used – emit dash per the spec.
+        var remoteUser = SanitizeToken(ResolveRemoteUser(context));
+
+        var timestamp = ResolveTimestamp(options);
+        var requestLine = SanitizeQuoted(BuildRequestLine(request, options));
+        var statusCode = context.Response.StatusCode;
+        var responseBytes = ResolveContentLength(response);
+        var referer = SanitizeQuoted(GetHeaderValue(request.Headers, HeaderNames.Referer));
+        var userAgent = SanitizeQuoted(GetHeaderValue(request.Headers, HeaderNames.UserAgent));
+
+        var builder = new StringBuilder(remoteHost.Length
+                                        + remoteUser.Length
+                                        + requestLine.Length
+                                        + referer.Length
+                                        + userAgent.Length
+                                        + 96);
+
+        _ = builder.Append(remoteHost).Append(' ')
+                   .Append(remoteIdent).Append(' ')
+                   .Append(remoteUser).Append(" [")
+                   .Append(timestamp).Append("] \"")
+                   .Append(requestLine).Append("\" ")
+                   .Append(statusCode.ToString(CultureInfo.InvariantCulture)).Append(' ')
+                   .Append(responseBytes);
+
+        _ = builder.Append(' ')
+                   .Append('"').Append(referer).Append('"')
+                   .Append(' ')
+                   .Append('"').Append(userAgent).Append('"');
+
+        if (options.IncludeElapsedMilliseconds)
+        {
+            var elapsedMs = elapsed.TotalMilliseconds.ToString("0.####", CultureInfo.InvariantCulture);
+            _ = builder.Append(' ').Append(elapsedMs);
+        }
+
+        return builder.ToString();
+    }
+
+    private static string ResolveTimestamp(CommonAccessLogOptions options)
+    {
+        var provider = options.TimeProvider ?? TimeProvider.System;
+        var timestamp = options.UseUtcTimestamp
+            ? provider.GetUtcNow()
+            : provider.GetLocalNow();
+
+        var format = string.IsNullOrWhiteSpace(options.TimestampFormat)
+            ? CommonAccessLogOptions.DefaultTimestampFormat
+            : options.TimestampFormat;
+
+        var rendered = timestamp.ToString(format, CultureInfo.InvariantCulture);
+
+        if (string.Equals(format, CommonAccessLogOptions.DefaultTimestampFormat, StringComparison.Ordinal))
+        {
+            var lastColon = rendered.LastIndexOf(':');
+            if (lastColon >= 0 && lastColon >= rendered.Length - 5)
+            {
+                rendered = rendered.Remove(lastColon, 1);
+            }
+        }
+
+        return rendered;
+    }
+
+    private static string ResolveClientAddress(HttpContext context, CommonAccessLogOptions options)
+    {
+        if (!string.IsNullOrWhiteSpace(options.ClientAddressHeader)
+            && context.Request.Headers.TryGetValue(options.ClientAddressHeader, out var forwarded))
+        {
+            var first = ExtractFirstHeaderValue(forwarded);
+            if (!string.IsNullOrWhiteSpace(first))
+            {
+                return first!;
+            }
+        }
+
+        var address = context.Connection.RemoteIpAddress;
+        if (address is null)
+        {
+            return "-";
+        }
+
+        // Format IPv6 addresses without scope ID to match Apache behaviour.
+        return address.AddressFamily == System.Net.Sockets.AddressFamily.InterNetworkV6
+            ? address.ScopeId == 0 ? address.ToString() : new IPAddress(address.GetAddressBytes()).ToString()
+            : address.ToString();
+    }
+
+    private static string ExtractFirstHeaderValue(StringValues values)
+    {
+        if (StringValues.IsNullOrEmpty(values))
+        {
+            return "";
+        }
+
+        var span = values.ToString().AsSpan();
+        var commaIndex = span.IndexOf(',');
+        var first = commaIndex >= 0 ? span[..commaIndex] : span;
+        return first.Trim().ToString();
+    }
+
+    private static string ResolveRemoteUser(HttpContext context)
+    {
+        var identity = context.User?.Identity;
+        if (identity is { IsAuthenticated: true, Name.Length: > 0 })
+        {
+            return identity.Name!;
+        }
+
+        return "-";
+    }
+
+    private static string BuildRequestLine(HttpRequest request, CommonAccessLogOptions options)
+    {
+        var method = string.IsNullOrWhiteSpace(request.Method) ? "-" : request.Method;
+        var path = request.Path.HasValue ? request.Path.Value : "/";
+        if (string.IsNullOrEmpty(path))
+        {
+            path = "/";
+        }
+
+        if (options.IncludeQueryString && request.QueryString.HasValue)
+        {
+            path += request.QueryString.Value;
+        }
+
+        if (options.IncludeProtocol && !string.IsNullOrWhiteSpace(request.Protocol))
+        {
+            return string.Concat(method, " ", path, " ", request.Protocol);
+        }
+
+        return string.Concat(method, " ", path);
+    }
+
+    private static string ResolveContentLength(HttpResponse? response)
+    {
+        if (response is null)
+        {
+            return "-";
+        }
+
+        if (response.ContentLength.HasValue)
+        {
+            return response.ContentLength.Value.ToString(CultureInfo.InvariantCulture);
+        }
+
+        if (response.Headers.ContentLength.HasValue)
+        {
+            return response.Headers.ContentLength.Value.ToString(CultureInfo.InvariantCulture);
+        }
+
+        return "-";
+    }
+
+    private static string GetHeaderValue(IHeaderDictionary headers, string headerName)
+    {
+        if (!headers.TryGetValue(headerName, out var value))
+        {
+            return "-";
+        }
+
+        return value.Count switch
+        {
+            0 => "-",
+            1 => value[0] ?? "-",
+            _ => value[0] ?? "-",
+        };
+    }
+
+    private static string SanitizeToken(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value) || value == "-")
+        {
+            return "-";
+        }
+
+        var span = value.AsSpan();
+        var builder = new StringBuilder(span.Length);
+        foreach (var ch in span)
+        {
+            if (char.IsControl(ch))
+            {
+                continue;
+            }
+
+            if (char.IsWhiteSpace(ch))
+            {
+                _ = builder.Append('_');
+            }
+            else if (ch == '"')
+            {
+                _ = builder.Append('_');
+            }
+            else
+            {
+                _ = builder.Append(ch);
+            }
+        }
+
+        return builder.Length == 0 ? "-" : builder.ToString();
+    }
+
+    private static string SanitizeQuoted(string? value)
+    {
+        if (string.IsNullOrEmpty(value) || value == "-")
+        {
+            return "-";
+        }
+
+        var builder = new StringBuilder(value.Length + 8);
+        foreach (var ch in value)
+        {
+            if (ch == '\\' || ch == '"')
+            {
+                _ = builder.Append('\\').Append(ch);
+            }
+            else if (ch is '\r' or '\n' || char.IsControl(ch))
+            {
+                continue;
+            }
+            else
+            {
+                _ = builder.Append(ch);
+            }
+        }
+
+        return builder.Length == 0 ? "-" : builder.ToString();
+    }
+}

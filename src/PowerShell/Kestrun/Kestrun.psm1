@@ -14,32 +14,25 @@ switch ($PSVersionTable.PSVersion.Minor) {
     1 { throw 'Unsupported PowerShell version. Please use PowerShell 7.4.' }
     2 { throw 'Unsupported PowerShell version. Please use PowerShell 7.4.' }
     3 { throw 'Unsupported PowerShell version. Please use PowerShell 7.4.' }
-    4 {
-        $netVersion = 'net8.0'
-        $codeAnalysisVersion = '4.9.2'
-    }
-    5 {
-        $netVersion = 'net8.0'
-        $codeAnalysisVersion = '4.11.0'
-    }
-    6 {
-        $netVersion = 'net9.0'
-        $codeAnalysisVersion = '4.13.0'
-    }
-    default {
-        $netVersion = 'net9.0'
-        $codeAnalysisVersion = '4.13.0'
-    }
+    4 { $netVersion = 'net8.0'; $codeAnalysisVersion = '4.9.2' }
+    5 { $netVersion = 'net8.0'; $codeAnalysisVersion = '4.11.0' }
+    6 { $netVersion = 'net9.0'; $codeAnalysisVersion = '4.13.0' }
+    default { $netVersion = 'net9.0'; $codeAnalysisVersion = '4.13.0' }
 }
 
 # Load private functions
-Get-ChildItem "$($moduleRootPath)/Private/*.ps1" -Recurse | ForEach-Object { . ([System.IO.Path]::GetFullPath($_)) }
+$privateDir = Join-Path -Path $moduleRootPath -ChildPath 'Private'
+Get-ChildItem -Path $privateDir -Filter *.ps1 -Recurse -File |
+    ForEach-Object { . ([System.IO.Path]::GetFullPath($_)) }
 
 # only import public functions
 $sysfuncs = Get-ChildItem Function:
 
 # only import public alias
 $sysaliases = Get-ChildItem Alias:
+
+# Compute assembly load path ONCE so both branches see it
+$assemblyLoadPath = Join-Path -Path (Join-Path -Path $moduleRootPath -ChildPath 'lib') -ChildPath $netVersion
 
 $inRouteRunspace = $null -ne $ExecutionContext.SessionState.PSVariable.GetValue('KestrunHost')
 

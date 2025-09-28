@@ -19,7 +19,7 @@ concurrency:
 jobs:
     lint:
         name: Linting
-        uses: ./.github/workflows/lint-core.yml
+        uses: Kestrun/Kestrun/.github/workflows/lint-core.yml@main
         with:
             is_pr: ${{ inputs.is_pr }}
 
@@ -164,7 +164,15 @@ jobs:
                 } catch {
                 Write-Warning "Sweep failed (`Invoke-ScriptAnalyzer` threw): $($_.Exception.Message)"
                 # Fallback: analyze file-by-file to isolate any crashy inputs
-                $files = Get-ChildItem $target -Recurse -File -Include *.ps1,*.psm1,*.psd1 -Exclude "Microsoft.*","PSDiagnostics*","CimCmdlets.*"
+                $files = Get-ChildItem $target -Recurse -File -Include *.ps1,*.psm1,*.psd1  |
+                            Where-Object {
+                                $_.Extension -in '.ps1','.psm1','.psd1' -and
+                                $_.Name -notlike 'Microsoft.*' -and
+                                $_.Name -notlike 'PSDiagnostics*' -and
+                                $_.Name -notlike 'CimCmdlets.*'
+                                }
+                "Selected: $($files.Count) files"
+                $files | Select -First 5 | ForEach-Object { "• $($_.Name)" } | Write-Host
                 $collected = New-Object System.Collections.Generic.List[object]
                 foreach ($f in $files) {
                     try {

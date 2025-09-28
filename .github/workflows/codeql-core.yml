@@ -157,49 +157,58 @@ jobs:
 
                 Write-Host "Using PSScriptAnalyzer settings: $settings"
 
-                # 1) Always build the candidate file list (wildcard in -Path for Linux Include/Exclude semantics)
+                # 1) Build filtered file list (Linux-safe)
                 $files = Get-ChildItem -Path (Join-Path $target '*') -Recurse -File |
-                        Where-Object {
-                            # pick which file types you actually want to lint
-                            $_.Extension -in '.ps1','.psm1' -and               # <- drop '.psd1' if it's noisy
-                            # robust name excludes (regex, case-insensitive)
-                            $_.Name -notmatch '^(?i:(Microsoft\..*|PSDiagnostics.*|CimCmdlets\..*))$'
-                        }
+                Where-Object {
+                    $_.Extension -in '.ps1','.psm1' -and
+                    $_.Name -notmatch '^(?i:(Microsoft\..*|PSDiagnostics.*|CimCmdlets\..*))$'
+                }
 
                 "Selected $($files.Count) files to analyze"
                 $files | Select-Object -First 8 -ExpandProperty FullName | ForEach-Object { "• $_" } | Write-Host
 
+                # 2) Always create outputs up front (prevents 'file not found')
+                Set-Content -LiteralPath $jsonOut -Value '[]' -Encoding UTF8NoBOM
+                Set-Content -LiteralPath $errOut  -Value '[]' -Encoding UTF8NoBOM
+
                 if ($files.Count -eq 0) {
-                    # nothing to analyze — create empty outputs so downstream steps are happy
-                    '' | Set-Content -NoNewline $jsonOut
-                    '' | Set-Content -NoNewline $errOut
-                    "has_ps_issues=false"      | Out-File -FilePath $Env:GITHUB_OUTPUT -Append
-                    "has_psa_errors=false"     | Out-File -FilePath $Env:GITHUB_OUTPUT -Append
-                    return
+                "has_ps_issues=false"  | Out-File -FilePath $Env:GITHUB_OUTPUT -Append
+                "has_psa_errors=false" | Out-File -FilePath $Env:GITHUB_OUTPUT -Append
+                return
                 }
 
-                # 2) Try one shot with the filtered file list
-                $results = $null
+                # 3) Per-file analysis (stable, noisy-proof)
                 $toolErrors = @()
-                [string[]]$filePaths = $files | ForEach-Object { $_.FullName }
-                Write-Warning "Batch analyze threw: $($_.Exception.Message)"
-                # 3) Fallback: per-file (still using the same filtered list)
                 $collected = New-Object System.Collections.Generic.List[object]
                 foreach ($f in $files) {
-                    try {
-                        Write-Output "Analyzing $($f.FullName)"
-                        $r = Invoke-ScriptAnalyzer -Path $f.FullName -Settings $settings -ErrorAction Stop
-                        if ($r) { [void]$collected.AddRange($r) }
-                    } catch {
-                        $toolErrors += [pscustomobject]@{ file=$f.FullName; error=$_.Exception.Message }
-                    }
+                try {
+                    Write-Output "Analyzing $($f.FullName)"
+                    $r = Invoke-ScriptAnalyzer -Path $f.FullName -Settings $settings -ErrorAction Stop
+                    if ($r) { [void]$collected.AddRange($r) }
+                } catch {
+                    $toolErrors += [pscustomobject]@{ file=$f.FullName; error=$_.Exception.Message }
+                }
                 }
                 $results = $collected
 
-                # 4) Write outputs
-                $results    | ConvertTo-Json -Depth 6 | Set-Content -NoNewline $jsonOut
-                $toolErrors | ConvertTo-Json -Depth 4 | Set-Content -NoNewline $errOut
+                # 4) Write outputs once (if we have content)
+                try {
+                if ($results -and $results.Count) {
+                    $results | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath $jsonOut -Encoding UTF8NoBOM
+                }
+                } catch {
+                Write-Warning "Failed to write $jsonOut: $($_.Exception.Message)"
+                }
 
+                try {
+                if ($toolErrors -and $toolErrors.Count) {
+                    $toolErrors | ConvertTo-Json -Depth 4 | Set-Content -LiteralPath $errOut -Encoding UTF8NoBOM
+                }
+                } catch {
+                Write-Warning "Failed to write $errOut: $($_.Exception.Message)"
+                }
+
+                # 5) Outcome flags + pretty log
                 $hasIssues     = [bool]($results | Select-Object -First 1)
                 $hasToolErrors = [bool]($toolErrors | Select-Object -First 1)
 
@@ -207,16 +216,17 @@ jobs:
                 "has_psa_errors=$hasToolErrors" | Out-File -FilePath $Env:GITHUB_OUTPUT -Append
 
                 if ($results) {
-                    $results | Select RuleName,Severity,ScriptName,Line,Message |
+                $results | Select RuleName,Severity,ScriptName,Line,Message |
                     Format-Table -Auto | Out-String | Write-Host
                 }
                 if ($hasToolErrors) {
-                    Write-Warning "PSSA threw on $($toolErrors.Count) file(s). See psa-errors.json."
+                Write-Warning "PSSA threw on $($toolErrors.Count) file(s). See psa-errors.json."
                 }
 
+                # 6) Fail policy
                 if ($env:PSSA_FAIL_ON_ERROR -eq 'true' -and $hasToolErrors) { exit 2 }
                 if ($env:PSSA_FAIL_ON_ISSUES -eq 'true' -and $hasIssues)     { exit 1 }
-
+                
             - name: 🧾 List analyzer outputs
               if: always()
               run: |

@@ -25,6 +25,6 @@ permissions:
 
 jobs:
     codeql:
-        uses: ./.github/workflows/codeql-core.yml
+        uses: Kestrun/Kestrun/.github/workflows/codeql-core.yml@main
         with:
             is_pr: false

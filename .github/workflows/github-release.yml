@@ -14,20 +14,20 @@ permissions:
 jobs:
   lint:
     name: Linting
-    uses: ./.github/workflows/lint-core.yml
+    uses: Kestrun/Kestrun/.github/workflows/lint-core.yml@main
     with:
       is_pr: false
 
   codeql:
     name: Security (CodeQL + PSSA)
-    uses: ./.github/workflows/codeql-core.yml
+    uses: Kestrun/Kestrun/.github/workflows/codeql-core.yml@main
     with:
       is_pr: false
     secrets: inherit
 
   clamav:
     name: AV Scan
-    uses: ./.github/workflows/clam-av-core.yml
+    uses: Kestrun/Kestrun/.github/workflows/clam-av-core.yml@main
     with:
       is_pr: false
 

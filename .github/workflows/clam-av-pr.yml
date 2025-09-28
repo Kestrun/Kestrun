@@ -20,6 +20,6 @@ on:
 
 jobs:
     clamav:
-        uses: ./.github/workflows/clam-av-core.yml
+        uses: Kestrun/Kestrun/.github/workflows/clam-av-core.yml@main
         with:
             is_pr: true

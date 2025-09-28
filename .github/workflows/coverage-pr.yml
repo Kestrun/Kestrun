@@ -21,6 +21,6 @@ on:
 
 jobs:
     coverage:
-        uses: ./.github/workflows/coverage-core.yml
+        uses: Kestrun/Kestrun/.github/workflows/coverage-core.yml@main
         with:
             is_pr: true

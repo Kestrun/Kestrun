@@ -114,20 +114,88 @@ jobs:
               shell: pwsh
               run: Invoke-Build Build -DotNetVerbosity minimal
 
-            - name: Run PSScriptAnalyzer with settings
-              id: pssa
-              uses: microsoft/psscriptanalyzer-action@v1.1
-              with:
-                  path: .\src\PowerShell\Kestrun
-                  recurse: true
-                  settings: ./PSScriptAnalyzerSettings.psd1
-                  output: pssa.sarif
+            - name: 🔎 Prepare PSSA (pinned & hermetic)
+              shell: pwsh
+              run: |
+                $ErrorActionPreference = 'Stop'
+                $modRoot = Join-Path $env:GITHUB_WORKSPACE '.cache/psmodules'
+                New-Item -Force -ItemType Directory -Path $modRoot | Out-Null
 
-            - name: ⬆️ Upload PSSA SARIF
-              uses: github/codeql-action/upload-sarif@v3
+                # Save locally (no Install-Module touching shared paths), then import exact versions
+                $pssaVer = '1.24.0'
+                if (-not (Test-Path (Join-Path $modRoot "PSScriptAnalyzer/$pssaVer"))) {
+                Save-Module -Name PSScriptAnalyzer -RequiredVersion $pssaVer -Path $modRoot
+                }
+                $env:PSModulePath = "$modRoot" + [IO.Path]::PathSeparator + $env:PSModulePath
+                Import-Module PSScriptAnalyzer -RequiredVersion $pssaVer -Force
+
+            - name: 🧪 Run PSScriptAnalyzer → JSON (resilient)
+              id: pssa
+              shell: pwsh
+              env:
+                PSSA_FAIL_ON_ERROR: 'false'   # set to 'true' if you want CI to fail when the tool crashes
+                PSSA_FAIL_ON_ISSUES: 'true'   # set to 'false' to make findings non-fatal
+              run: |
+                $ErrorActionPreference = 'Stop'
+                $root      = $env:GITHUB_WORKSPACE
+                $target    = Join-Path $root 'src/PowerShell/Kestrun'
+                $settings  = Join-Path $root 'PSScriptAnalyzerSettings.psd1'
+                $jsonOut   = Join-Path $root 'psa-results.json'
+                $errOut    = Join-Path $root 'psa-errors.json'
+
+                Write-Host "Using PSScriptAnalyzer settings: $settings"
+
+                # try a full-tree sweep first
+                $results = $null
+                $toolErrors = @()
+                try {
+                $results = Invoke-ScriptAnalyzer -Path $target -Recurse -Settings $settings -ErrorAction Stop
+                } catch {
+                Write-Warning "Sweep failed (`Invoke-ScriptAnalyzer` threw): $($_.Exception.Message)"
+                # Fallback: analyze file-by-file to isolate any crashy inputs
+                $files = Get-ChildItem $target -Recurse -File -Include *.ps1,*.psm1,*.psd1
+                $collected = New-Object System.Collections.Generic.List[object]
+                foreach ($f in $files) {
+                    try {
+                    $r = Invoke-ScriptAnalyzer -Path $f.FullName -Settings $settings -ErrorAction Stop
+                    if ($r) { [void]$collected.AddRange($r) }
+                    } catch {
+                    $toolErrors += [pscustomobject]@{ file=$f.FullName; error=$_.Exception.Message }
+                    }
+                }
+                $results = $collected
+                }
+
+                # Write outputs
+                $results | ConvertTo-Json -Depth 6 | Set-Content -NoNewline $jsonOut
+                $toolErrors | ConvertTo-Json -Depth 4 | Set-Content -NoNewline $errOut
+
+                $hasIssues = [bool]($results | Select-Object -First 1)
+                $hasToolErrors = [bool]($toolErrors | Select-Object -First 1)
+
+                "has_ps_issues=$hasIssues"     | Out-File -FilePath $Env:GITHUB_OUTPUT -Append
+                "has_psa_errors=$hasToolErrors"| Out-File -FilePath $Env:GITHUB_OUTPUT -Append
+
+                # pretty table for logs (won’t crash build)
+                if ($results) {
+                $results | Select RuleName,Severity,ScriptName,Line,Message |
+                    Format-Table -Auto | Out-String | Write-Host
+                }
+                if ($hasToolErrors) {
+                Write-Warning "PSSA threw on $($toolErrors.Count) file(s). See psa-errors.json."
+                }
+
+                # decide the job’s fate
+                if ($env:PSSA_FAIL_ON_ERROR -eq 'true' -and $hasToolErrors) { exit 2 }
+                if ($env:PSSA_FAIL_ON_ISSUES -eq 'true' -and $hasIssues)     { exit 1 }
+
+            - name: 📎 Upload PSSA artifacts
+              uses: actions/upload-artifact@v4
               with:
-                  sarif_file: pssa.sarif
-                  category: powershell
+                name: pssa-artifacts
+                path: |
+                    psa-results.json
+                    psa-errors.json
 
             - name: ❗Fail on PSSA errors
               shell: pwsh

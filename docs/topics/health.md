@@ -35,7 +35,8 @@ Add-KrPowerShellRuntime
 Add-KrHealthEndpoint -Pattern '/healthz' -DefaultTags 'core' -ProbeTimeout '00:00:05' -TreatDegradedAsUnhealthy $true -OpenApiSummary 'Aggregated health'
 
 Enable-KrConfiguration
-```csharp
+```
+
 ### Alternate Response Formats
 
 Dashboards or downstream tooling may require YAML or XML instead of JSON. Set
@@ -48,6 +49,7 @@ When emitting XML you can optionally override the root node name (defaults to `R
 (indented) by default for JSON and XML. Set `HealthEndpointOptions.Compress` / `-Compress` to emit
 compact payloads (no indentation) to reduce size.
 
+```csharp
 using Kestrun.Hosting;
 using Kestrun.Health;
 

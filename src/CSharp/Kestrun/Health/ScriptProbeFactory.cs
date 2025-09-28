@@ -417,8 +417,8 @@ internal static class ScriptProbeFactory
             {
                 return null;
             }
-
-            var dict = new Dictionary<string, object>(dictionary.Count);
+            // Normalize values and filter out nulls to satisfy ProbeResult Data (non-null object values)
+            var temp = new Dictionary<string, object?>(dictionary.Count, StringComparer.OrdinalIgnoreCase);
             foreach (DictionaryEntry entry in dictionary)
             {
                 if (entry.Key is null || entry.Value is null)
@@ -430,9 +430,96 @@ internal static class ScriptProbeFactory
                 {
                     continue;
                 }
-                dict[key] = entry.Value;
+                var normalized = NormalizePsValue(entry.Value);
+                if (normalized is not null)
+                {
+                    temp[key] = normalized;
+                }
             }
-            return dict;
+            if (temp.Count == 0)
+            {
+                return null;
+            }
+            var final = new Dictionary<string, object>(temp.Count, StringComparer.OrdinalIgnoreCase);
+            foreach (var kv in temp)
+            {
+                final[kv.Key] = kv.Value!; // safe due to null filter
+            }
+            return final;
+        }
+
+        /// <summary>
+        /// Normalizes a value that may originate from PowerShell so JSON serialization stays lean.
+        /// Strategy:
+        /// 1. Unwrap <c>PSObject</c> instances to their <c>BaseObject</c> (recursively).
+        /// 2. Preserve primitives directly.
+        /// 3. For dictionaries (<c>IDictionary</c>) create a new <c>Dictionary&lt;string, object?&gt;</c> with normalized children.
+        /// 4. For enumerables (<c>IEnumerable</c>) that are not <c>string</c>, return a <c>List&lt;object?&gt;</c> of normalized items.
+        /// 5. Fallback: return the original object (POCOs are handled by the default serializer).
+        /// A small max recursion depth (8) prevents pathological graphs from ballooning.
+        /// </summary>
+        private static object? NormalizePsValue(object? value, int depth = 0)
+        {
+            if (value is null)
+            {
+                return null;
+            }
+
+            // Hard depth stop to avoid pathological/custom objects exploding recursively
+            if (depth > 8)
+            {
+                return value is PSObject pso ? pso.ToString() : value.ToString();
+            }
+
+            // Unwrap PSObject layers
+            if (value is PSObject psObj)
+            {
+                // Direct scalar unwrap
+                var baseObj = psObj.BaseObject;
+                return baseObj is null || ReferenceEquals(baseObj, psObj)
+                    ? psObj.ToString()
+                    : NormalizePsValue(baseObj, depth + 1);
+            }
+
+            // Treat PSPrimitive-like wrappers (PowerShell sometimes wraps ints/doubles)
+            if (value is IFormattable && value.GetType().IsPrimitive)
+            {
+                return value; // JSON serializer handles primitives directly
+            }
+
+            // IDictionary → normalize each entry
+            if (value is IDictionary rawDict)
+            {
+                var result = new Dictionary<string, object?>(rawDict.Count);
+                foreach (DictionaryEntry de in rawDict)
+                {
+                    if (de.Key is null)
+                    {
+                        continue;
+                    }
+                    var k = de.Key.ToString();
+                    if (string.IsNullOrWhiteSpace(k))
+                    {
+                        continue;
+                    }
+                    result[k] = NormalizePsValue(de.Value, depth + 1);
+                }
+                return result;
+            }
+
+            // IEnumerable (but not string) → list of normalized children
+            if (value is IEnumerable enumerable and not string)
+            {
+                var list = new List<object?>();
+                foreach (var item in enumerable)
+                {
+                    list.Add(NormalizePsValue(item, depth + 1));
+                }
+                return list;
+            }
+
+            // Leave everything else untouched (e.g., plain POCOs / numbers / DateTimes)
+            return value;
         }
 
         /// <summary>

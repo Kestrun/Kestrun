@@ -27,7 +27,7 @@ Add-KrMapRoute -Verbs Get -Pattern '/status' -ScriptBlock {
 Add-KrHealthHttpProbe -Name 'ComponentStatus' -Url 'http://127.0.0.1:5000/status' -Tags 'remote', 'self' -Timeout '00:00:02'
 
 ## 8. Health endpoint
-Add-KrHealthEndpoint -Pattern '/healthz' -DefaultTags 'self', 'remote'
+Add-KrHealthEndpoint -Pattern '/healthz' -DefaultTags 'self', 'remote' -ResponseContentType Xml
 
 ## 9. Start server
 Start-KrServer

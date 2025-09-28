@@ -88,7 +88,7 @@ public static class XmlHelper
         // Depth guard handled below.
         if (depth >= MaxDepth)
         {
-            element = new XElement(name, new XAttribute(ScriptProbeFactory.STATUS_WARNING, "MaxDepthExceeded"));
+            element = new XElement(name, new XAttribute("warning", "MaxDepthExceeded"));
             return true;
         }
 

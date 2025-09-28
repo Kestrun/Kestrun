@@ -21,8 +21,7 @@ switch ($PSVersionTable.PSVersion.Minor) {
 }
 
 # Load private functions
-$privateDir = Join-Path -Path $moduleRootPath -ChildPath 'Private'
-Get-ChildItem -Path $privateDir -Filter *.ps1 -Recurse -File |
+Get-ChildItem -Path (Join-Path -Path $moduleRootPath -ChildPath 'Private') -Filter *.ps1 -Recurse -File |
     ForEach-Object { . ([System.IO.Path]::GetFullPath($_)) }
 
 # only import public functions
@@ -40,7 +39,6 @@ if (-not $inRouteRunspace) {
     # Usage
     if ((Add-KrAspNetCoreType -Version $netVersion ) -and
         (Add-KrCodeAnalysisType -ModuleRootPath $moduleRootPath -Version $codeAnalysisVersion )) {
-        $assemblyLoadPath = Join-Path -Path $moduleRootPath -ChildPath 'lib' -AdditionalChildPath $netVersion
 
         # Assert that the assembly is loaded and load it if not
         if ( Assert-KrAssemblyLoaded -AssemblyPath (Join-Path -Path $assemblyLoadPath -ChildPath 'Kestrun.dll')) {

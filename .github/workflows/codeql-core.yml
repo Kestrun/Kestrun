@@ -182,23 +182,19 @@ jobs:
                 $results = $null
                 $toolErrors = @()
                 [string[]]$filePaths = $files | ForEach-Object { $_.FullName }
-                try {
-                    $results = Invoke-ScriptAnalyzer -Path $filePaths -Settings $settings -ErrorAction Stop
-                } catch {
-                    Write-Warning "Batch analyze threw: $($_.Exception.Message)"
-                    # 3) Fallback: per-file (still using the same filtered list)
-                    $collected = New-Object System.Collections.Generic.List[object]
-                    foreach ($f in $files) {
-                        try {
-                            Write-Output "Analyzing $($f.FullName)"
-                            $r = Invoke-ScriptAnalyzer -Path $f.FullName -Settings $settings -ErrorAction Stop
-                            if ($r) { [void]$collected.AddRange($r) }
-                        } catch {
-                            $toolErrors += [pscustomobject]@{ file=$f.FullName; error=$_.Exception.Message }
-                        }
+                Write-Warning "Batch analyze threw: $($_.Exception.Message)"
+                # 3) Fallback: per-file (still using the same filtered list)
+                $collected = New-Object System.Collections.Generic.List[object]
+                foreach ($f in $files) {
+                    try {
+                        Write-Output "Analyzing $($f.FullName)"
+                        $r = Invoke-ScriptAnalyzer -Path $f.FullName -Settings $settings -ErrorAction Stop
+                        if ($r) { [void]$collected.AddRange($r) }
+                    } catch {
+                        $toolErrors += [pscustomobject]@{ file=$f.FullName; error=$_.Exception.Message }
                     }
-                    $results = $collected
                 }
+                $results = $collected
 
                 # 4) Write outputs
                 $results    | ConvertTo-Json -Depth 6 | Set-Content -NoNewline $jsonOut
@@ -221,17 +217,53 @@ jobs:
                 if ($env:PSSA_FAIL_ON_ERROR -eq 'true' -and $hasToolErrors) { exit 2 }
                 if ($env:PSSA_FAIL_ON_ISSUES -eq 'true' -and $hasIssues)     { exit 1 }
 
+            - name: 🧾 List analyzer outputs
+              if: always()
+              run: |
+                ls -al $GITHUB_WORKSPACE/psa-results.json || true
+                ls -al $GITHUB_WORKSPACE/psa-errors.json  || true
+
             - name: 📎 Upload PSSA artifacts
               uses: actions/upload-artifact@v4
               with:
                 name: pssa-artifacts
-                path: |
-                    psa-results.json
-                    psa-errors.json
+                path: |               # ← proper multiline scalar
+                  ${{ github.workspace }}/psa-results.json
+                  ${{ github.workspace }}/psa-errors.json
+                if-no-files-found: warn
+                compression-level: 6
+                overwrite: false
 
             - name: ❗Fail on PSSA errors
+              if: always()   # run even if previous step set a non-zero exit
               shell: pwsh
               run: |
-                  $sarif = Get-Content pssa.errors -Raw | ConvertFrom-Json
-                  $errors = @($sarif.runs.results | Where-Object { $_.level -eq 'error' })
-                  if ($errors.Count) { Write-Error "PSScriptAnalyzer found $($errors.Count) error-level issues." }
+                $ErrorActionPreference = 'Stop'
+                $resultsPath = Join-Path $env:GITHUB_WORKSPACE 'psa-results.json'
+                $errorsPath  = Join-Path $env:GITHUB_WORKSPACE 'psa-errors.json'
+
+                function Read-JsonArray($path) {
+                if (-not (Test-Path -LiteralPath $path)) { return @() }
+                $raw = Get-Content -LiteralPath $path -Raw
+                if (-not $raw -or -not $raw.Trim()) { return @() }
+                $obj = ConvertFrom-Json -InputObject $raw
+                if ($null -eq $obj) { return @() }
+                if ($obj -is [System.Collections.IEnumerable]) { return @($obj) }
+                    return @($obj)
+                }
+
+                $findings   = Read-JsonArray $resultsPath      # array of PSSA records (RuleName, Severity, ScriptName, Line, Message, ...)
+                $toolErrors = Read-JsonArray $errorsPath       # array of @{ file; error } from the fallback loop
+
+                $errFindings  = @($findings | Where-Object { $_.Severity -match '^(?i)Error$' })
+                $warnFindings = @($findings | Where-Object { $_.Severity -match '^(?i)Warning$' })
+
+                Write-Host ("PSSA summary → errors: {0}, warnings: {1}, toolErrors: {2}" -f $errFindings.Count, $warnFindings.Count, $toolErrors.Count)
+
+                if ($toolErrors.Count -gt 0) {
+                    Write-Error "PSScriptAnalyzer engine crashed on $($toolErrors.Count) file(s). See psa-errors.json."
+                }
+
+                if ($errFindings.Count -gt 0) {
+                    Write-Error "PSScriptAnalyzer found $($errFindings.Count) error-level issues. See psa-results.json."
+                }

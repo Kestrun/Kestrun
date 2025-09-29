@@ -76,7 +76,7 @@ function Add-KrCommonAccessLogMiddleware {
     }
 
     process {
-        $configure = [System.Action[Kestrun.Middleware.CommonAccessLogOptions]]{
+        $configure = [System.Action[Kestrun.Middleware.CommonAccessLogOptions]] {
             param($options)
             $options.Level = $Level
             $options.IncludeQueryString = $IncludeQueryString

@@ -55,4 +55,9 @@ public sealed class CommonAccessLogOptions
     /// Gets or sets the time provider used when rendering timestamps.
     /// </summary>
     public TimeProvider TimeProvider { get; set; } = TimeProvider.System;
+
+    /// <summary>
+    /// Gets or sets the logger instance used to write access log entries. If not set, the logger passed to the middleware is used.
+    /// </summary>
+    public ILogger? Logger { get; set; }
 }

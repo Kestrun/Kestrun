@@ -2,12 +2,10 @@ using System.Diagnostics;
 using System.Globalization;
 using System.Net;
 using System.Text;
-using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Primitives;
 using Microsoft.Net.Http.Headers;
 using Serilog;
-using Serilog.Events;
 
 namespace Kestrun.Middleware;
 
@@ -198,12 +196,7 @@ public sealed class CommonAccessLogMiddleware
     private static string ResolveRemoteUser(HttpContext context)
     {
         var identity = context.User?.Identity;
-        if (identity is { IsAuthenticated: true, Name.Length: > 0 })
-        {
-            return identity.Name!;
-        }
-
-        return "-";
+        return identity is { IsAuthenticated: true, Name.Length: > 0 } ? identity.Name! : "-";
     }
 
     private static string BuildRequestLine(HttpRequest request, CommonAccessLogOptions options)
@@ -220,47 +213,30 @@ public sealed class CommonAccessLogMiddleware
             path += request.QueryString.Value;
         }
 
-        if (options.IncludeProtocol && !string.IsNullOrWhiteSpace(request.Protocol))
-        {
-            return string.Concat(method, " ", path, " ", request.Protocol);
-        }
-
-        return string.Concat(method, " ", path);
+        return options.IncludeProtocol && !string.IsNullOrWhiteSpace(request.Protocol)
+            ? string.Concat(method, " ", path, " ", request.Protocol)
+            : string.Concat(method, " ", path);
     }
 
     private static string ResolveContentLength(HttpResponse? response)
     {
-        if (response is null)
-        {
-            return "-";
-        }
-
-        if (response.ContentLength.HasValue)
-        {
-            return response.ContentLength.Value.ToString(CultureInfo.InvariantCulture);
-        }
-
-        if (response.Headers.ContentLength.HasValue)
-        {
-            return response.Headers.ContentLength.Value.ToString(CultureInfo.InvariantCulture);
-        }
-
-        return "-";
+        return response is null
+            ? "-"
+            : response.ContentLength.HasValue
+            ? response.ContentLength.Value.ToString(CultureInfo.InvariantCulture)
+            : response.Headers.ContentLength.HasValue ? response.Headers.ContentLength.Value.ToString(CultureInfo.InvariantCulture) : "-";
     }
 
     private static string GetHeaderValue(IHeaderDictionary headers, string headerName)
     {
-        if (!headers.TryGetValue(headerName, out var value))
-        {
-            return "-";
-        }
-
-        return value.Count switch
-        {
-            0 => "-",
-            1 => value[0] ?? "-",
-            _ => value[0] ?? "-",
-        };
+        return !headers.TryGetValue(headerName, out var value)
+            ? "-"
+            : value.Count switch
+            {
+                0 => "-",
+                1 => value[0] ?? "-",
+                _ => value[0] ?? "-",
+            };
     }
 
     private static string SanitizeToken(string? value)
@@ -279,18 +255,7 @@ public sealed class CommonAccessLogMiddleware
                 continue;
             }
 
-            if (char.IsWhiteSpace(ch))
-            {
-                _ = builder.Append('_');
-            }
-            else if (ch == '"')
-            {
-                _ = builder.Append('_');
-            }
-            else
-            {
-                _ = builder.Append(ch);
-            }
+            _ = char.IsWhiteSpace(ch) ? builder.Append('_') : ch == '"' ? builder.Append('_') : builder.Append(ch);
         }
 
         return builder.Length == 0 ? "-" : builder.ToString();
@@ -306,7 +271,7 @@ public sealed class CommonAccessLogMiddleware
         var builder = new StringBuilder(value.Length + 8);
         foreach (var ch in value)
         {
-            if (ch == '\\' || ch == '"')
+            if (ch is '\\' or '"')
             {
                 _ = builder.Append('\\').Append(ch);
             }

@@ -1,11 +1,11 @@
 using Kestrun.Middleware;
+using Kestrun.Utilities;
 using Microsoft.AspNetCore.Antiforgery;
 using Microsoft.AspNetCore.Cors.Infrastructure;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.ResponseCaching;
 using Microsoft.AspNetCore.ResponseCompression;
 using Microsoft.Net.Http.Headers;
-using Microsoft.Extensions.DependencyInjection;
 using Serilog.Events;
 
 namespace Kestrun.Hosting;

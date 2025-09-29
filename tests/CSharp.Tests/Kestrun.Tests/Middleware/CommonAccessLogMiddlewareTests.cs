@@ -11,20 +11,14 @@ namespace KestrunTests.Middleware;
 
 public class CommonAccessLogMiddlewareTests
 {
-    private sealed class FixedTimeProvider : TimeProvider
+    private sealed class FixedTimeProvider(DateTimeOffset local) : TimeProvider
     {
-        private readonly DateTimeOffset _local;
-        private readonly DateTimeOffset _utc;
+        private readonly DateTimeOffset _local = local;
+        private readonly DateTimeOffset _utc = local.ToUniversalTime();
 
-        public FixedTimeProvider(DateTimeOffset local)
-        {
-            _local = local;
-            _utc = local.ToUniversalTime();
-        }
+        public new DateTimeOffset GetLocalNow() => _local;
 
-        public override DateTimeOffset GetLocalNow() => _local;
-
-        public override DateTimeOffset GetUtcNow() => _utc;
+        public new DateTimeOffset GetUtcNow() => _utc;
     }
 
     [Fact]
@@ -68,10 +62,10 @@ public class CommonAccessLogMiddlewareTests
         context.Request.Headers["Referer"] = "https://example.org/start";
         context.Response.StatusCode = StatusCodes.Status200OK;
         context.Response.ContentLength = 512;
-        context.User = new ClaimsPrincipal(new ClaimsIdentity(new[]
-        {
+        context.User = new ClaimsPrincipal(new ClaimsIdentity(
+        [
             new Claim(ClaimTypes.Name, "alice")
-        }, authenticationType: "Test"));
+        ], authenticationType: "Test"));
 
         await middleware.InvokeAsync(context);
 

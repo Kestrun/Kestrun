@@ -26,7 +26,7 @@ function _NormalizeValueToDictionary([object]$Value, [int]$Depth, [int]$MaxRecur
     if ($Value -is [System.Management.Automation.PSObject]) {
         $base = $Value.BaseObject
         if ($null -eq $base -or $base -eq $Value) { return $Value.ToString() }
-        return _NormalizeValue $base ($Depth + 1)
+        return _NormalizeValueToDictionary $base ($Depth + 1)
     }
 
     # Hashtable / IDictionary → new Dictionary[string, object]
@@ -43,7 +43,7 @@ function _NormalizeValueToDictionary([object]$Value, [int]$Depth, [int]$MaxRecur
     # Enumerable (but not string) → List<object>
     if ($Value -is [System.Collections.IEnumerable] -and -not ($Value -is [string])) {
         $list = New-Object System.Collections.Generic.List[object]
-        foreach ($item in $Value) { $list.Add((_NormalizeValue $item ($depth + 1))) }
+        foreach ($item in $Value) { $list.Add((_NormalizeValueToDictionary $item ($depth + 1))) }
         return $list
     }
 

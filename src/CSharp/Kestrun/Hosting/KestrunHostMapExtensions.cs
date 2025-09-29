@@ -1,14 +1,14 @@
-using System.Text.RegularExpressions;
 using System.Net;
+using System.Text.RegularExpressions;
 using Kestrun.Hosting.Options;
 using Kestrun.Languages;
+using Kestrun.Models;
 using Kestrun.Scripting;
 using Kestrun.Utilities;
-using Microsoft.AspNetCore.Authorization;
-using Serilog.Events;
-using Kestrun.Models;
 using Microsoft.AspNetCore.Antiforgery;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.Extensions.Options;
+using Serilog.Events;
 
 namespace Kestrun.Hosting;
 
@@ -434,7 +434,7 @@ public static partial class KestrunHostMapExtensions
         {
             return false; // Not http/https → let other parsers try
         }
-        if (spec.EndsWith(':'))
+        if (uri.Authority.EndsWith(":") || Regex.IsMatch(uri.Authority, @":$"))
         {
             return false; // reject empty port like https://localhost:
         }
@@ -573,7 +573,7 @@ public static partial class KestrunHostMapExtensions
 
         if (errs.Count > 0)
         {
-            throw new InvalidOperationException("Invalid Endpoints:\n  - " + string.Join("\n  - ", errs));
+            throw new InvalidOperationException("Invalid Endpoints:" + Environment.NewLine + "  - " + string.Join(Environment.NewLine + "  - ", errs));
         }
         if (require.Count > 0)
         {

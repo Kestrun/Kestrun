@@ -15,6 +15,9 @@
     .NOTES
         This function is designed to be used after the server has been configured and routes have been added.
         It will block the console until the server is stopped or Ctrl+C is pressed.
+        NOTE: The KestrunRuntimeApi attribute scope for this function was changed from 'Definition' to 'Everywhere'.
+        This expands the availability of the API, making Stop-KrServer accessible in all contexts where KestrunRuntimeApi('Everywhere') applies.
+        Ensure that this broader exposure is intended and review any security or operational implications.
 #>
 function Stop-KrServer {
     [KestrunRuntimeApi('Everywhere')]
@@ -37,7 +40,7 @@ function Stop-KrServer {
             $null = [Console]::KeyAvailable
             $writeConsole = -not $Quiet.IsPresent
         } catch {
-            Write-KrLog -Level Information -Message "No console available; running in non-interactive mode."
+            Write-KrLog -Level Information -Message 'No console available; running in non-interactive mode.'
             $writeConsole = $false
         }
     }

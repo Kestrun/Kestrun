@@ -1,8 +1,7 @@
 <#
-    Sample Kestrun Server Configuration
-    This script demonstrates how to set up a simple Kestrun server with a single route.
-    The server will respond with "Hello, World!" when accessed.
-    FileName: 1.1-Hello-World.ps1
+    Sample PowerShell script to create a simple Kestrun server with Apache Common Log Format logging
+    This script sets up a Kestrun server that responds with "Hello, World!" and logs requests in Apache common log format.
+    FileName: 5.6-ApacheLog.ps1
 #>
 
 New-KrLogger |

@@ -118,14 +118,16 @@ function Get-ExampleScriptPath {
     Returns an object with details about the running instance.
 .PARAMETER Name
     The name of the example script file (e.g. '3.2-File-Server.ps1').
+.PARAMETER ScriptBlock
+    Alternatively to Name, provide a script block containing the example script code to run.
 .PARAMETER Port
     Optional explicit port number to use. If not provided, a free port will be selected.
 .PARAMETER StartupTimeoutSeconds
     Maximum time to wait for the example to start accepting connections. Default is 15 seconds.
 .PARAMETER HttpProbeDelayMs
     Delay between HTTP probes of the root URL when waiting for startup. Default is 150ms.
-.PARAMETER StartupSentinels
-    Array of strings to look for in stdout as indicators of successful startup. Default includes common phrases.
+.PARAMETER FromRootDirectory
+    If specified, resolves example script paths relative to the repository root instead of the module directory.
 .OUTPUTS
     A custom object with properties:
     - Name: The name of the example script.
@@ -139,29 +141,40 @@ function Get-ExampleScriptPath {
     - Ready: Boolean indicating if the example is ready to accept connections.
 #>
 function Start-ExampleScript {
-    [CmdletBinding(SupportsShouldProcess)] param(
-        [Parameter(Mandatory)][string]$Name,
+    [CmdletBinding(SupportsShouldProcess, defaultParameterSetName = 'Name')]
+    param(
+        [Parameter(Mandatory = $true, ParameterSetName = "Name")]
+        [string]$Name,
+        [Parameter(Mandatory = $true, ParameterSetName = "ScriptBlock")]
+        [scriptblock]$ScriptBlock,
         [int]$Port,
         [int]$StartupTimeoutSeconds = 40,
         [int]$HttpProbeDelayMs = 150,
         [switch]$FromRootDirectory
     )
     if (-not $Port) { $Port = Get-FreeTcpPort }
-    if ( $FromRootDirectory ) {
-        $root = Resolve-Path "$PSScriptRoot\..\..\.."
-        $path = Join-Path $root $Name
-        if (-not (Test-Path $path)) { throw "Example script not found: $Name" }
+    if ($PSCmdlet.ParameterSetName -eq 'Name') {
+        if ( $FromRootDirectory ) {
+            $root = Resolve-Path "$PSScriptRoot\..\..\.."
+            $path = Join-Path $root $Name
+            if (-not (Test-Path $path)) { throw "Example script not found: $Name" }
+        } else {
+            $path = Get-ExampleScriptPath -Name $Name
+        }
+        $scriptDir = Split-Path -Parent $path
+        $originalLocation = Get-Location
+        # Push current location so relative file references (Assets/...) resolve inside example
+        Push-Location -Path $scriptDir
+        $content = Get-Content -Path $path -Raw
+        $pushedLocation = $true
     } else {
-        $path = Get-ExampleScriptPath -Name $Name
+        $content = $ScriptBlock.ToString()
+        $pushedLocation = $false
+        $scriptDir = $PSScriptRoot
+        $originalLocation = $scriptDir
     }
-    $scriptDir = Split-Path -Parent $path
-    $originalLocation = Get-Location
-    # Push current location so relative file references (Assets/...) resolve inside example
-    Push-Location -Path $scriptDir
-    $original = Get-Content -Path $path -Raw
     $serverIp = 'localhost' # Use loopback for safety
 
-    $content = $original
     $kestrunModulePath = Get-KestrunModulePath
     $importKestrunModule = @"
 if (-not (Get-Module -Name Kestrun)) {
@@ -284,7 +297,7 @@ Start-KrServer
         Ready = $ready
         ScriptDirectory = $scriptDir
         OriginalLocation = $originalLocation
-        PushedLocation = $true
+        PushedLocation = $pushedLocation
         Https = $usesHttps
     }
 }

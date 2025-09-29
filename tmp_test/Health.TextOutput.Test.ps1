@@ -11,7 +11,7 @@ Add-KrHealthProbe -Name 'QuickProbe' -ScriptBlock {
 
 Enable-KrConfiguration
 Add-KrHealthEndpoint -Pattern '/healthz' -ResponseContentType Text
-Start-KrServer -NoWait
+Start-KrServer -CloseLogsOnExit
 
 
 Start-Sleep -Milliseconds 250

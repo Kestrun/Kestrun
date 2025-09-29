@@ -162,7 +162,7 @@ One sentence purpose statement.
 File: [`pwsh/tutorial/examples/SECTION.NUMBER-slug.ps1`][EXAMPLE_REF.ps1]
 
 ```powershell
-{% include examples/pwsh/SECTION.NUMBER-slug.ps1 %}
+{% raw %}{% include examples/pwsh/SECTION.NUMBER-slug.ps1 %}{% endraw %}
 ```
 
 ## Step-by-step

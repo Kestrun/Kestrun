@@ -31,10 +31,7 @@ public sealed class CommonAccessLogMiddleware
     {
         _next = next ?? throw new ArgumentNullException(nameof(next));
         _optionsMonitor = optionsMonitor ?? throw new ArgumentNullException(nameof(optionsMonitor));
-        if (logger is null)
-        {
-            throw new ArgumentNullException(nameof(logger));
-        }
+        ArgumentNullException.ThrowIfNull(logger);
 
         _defaultLogger = CreateScopedLogger(logger);
     }

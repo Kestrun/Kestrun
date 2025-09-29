@@ -1,10 +1,12 @@
 using Kestrun.Hosting;
+using Kestrun.Middleware;
+using Microsoft.AspNetCore.Antiforgery;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Cors.Infrastructure;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.ResponseCompression;
-using Microsoft.AspNetCore.Antiforgery;
-using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Net.Http.Headers;
 using Moq;
 using Xunit;
@@ -39,6 +41,32 @@ public class KestrunHttpMiddlewareExtensionsTests
         var host = CreateHost(out var middleware);
         _ = host.AddCommonAccessLog(o => o.IncludeQueryString = false);
         Assert.True(middleware.Count > 0);
+    }
+
+    [Fact]
+    [Trait("Category", "Hosting")]
+    public void AddCommonAccessLog_WithLogger_SetsOptionsLogger()
+    {
+        var host = CreateHost(out var middleware);
+        var logger = new Mock<Serilog.ILogger>();
+
+        _ = host.AddCommonAccessLog(logger.Object);
+
+        Assert.True(middleware.Count > 0);
+
+        var serviceField = typeof(KestrunHost).GetField("_serviceQueue", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+        var serviceQueue = (List<Action<IServiceCollection>>)serviceField!.GetValue(host)!;
+
+        var services = new ServiceCollection();
+        foreach (var configure in serviceQueue)
+        {
+            configure(services);
+        }
+
+        using var provider = services.BuildServiceProvider();
+        var options = provider.GetRequiredService<Microsoft.Extensions.Options.IOptions<CommonAccessLogOptions>>();
+
+        Assert.Same(logger.Object, options.Value.Logger);
     }
 
     [Fact]

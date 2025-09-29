@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.ResponseCaching;
 using Microsoft.AspNetCore.ResponseCompression;
 using Microsoft.Net.Http.Headers;
 using Microsoft.Extensions.DependencyInjection;
+using Serilog;
 using Serilog.Events;
 
 namespace Kestrun.Hosting;
@@ -41,6 +42,31 @@ public static class KestrunHttpMiddlewareExtensions
         });
 
         return host.Use(app => app.UseMiddleware<CommonAccessLogMiddleware>());
+    }
+
+    /// <summary>
+    /// Adds Apache-style common access logging using <see cref="CommonAccessLogMiddleware"/> and a
+    /// specific <see cref="ILogger"/> instance.
+    /// </summary>
+    /// <param name="host">The <see cref="KestrunHost"/> instance to configure.</param>
+    /// <param name="logger">The Serilog logger that should receive access log entries.</param>
+    /// <param name="configure">Optional delegate to further configure <see cref="CommonAccessLogOptions"/>.</param>
+    /// <returns>The configured <see cref="KestrunHost"/> instance.</returns>
+    public static KestrunHost AddCommonAccessLog(
+        this KestrunHost host,
+        ILogger logger,
+        Action<CommonAccessLogOptions>? configure = null)
+    {
+        if (logger is null)
+        {
+            throw new ArgumentNullException(nameof(logger));
+        }
+
+        return host.AddCommonAccessLog(options =>
+        {
+            options.Logger = logger;
+            configure?.Invoke(options);
+        });
     }
 
     /// <summary>

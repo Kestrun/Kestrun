@@ -18,7 +18,7 @@ public sealed class CommonAccessLogMiddleware
 {
     private readonly RequestDelegate _next;
     private readonly IOptionsMonitor<CommonAccessLogOptions> _optionsMonitor;
-    private readonly Serilog.ILogger _logger;
+    private readonly Serilog.ILogger _defaultLogger;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="CommonAccessLogMiddleware"/> class.
@@ -33,9 +33,12 @@ public sealed class CommonAccessLogMiddleware
     {
         _next = next ?? throw new ArgumentNullException(nameof(next));
         _optionsMonitor = optionsMonitor ?? throw new ArgumentNullException(nameof(optionsMonitor));
-        _ = logger ?? throw new ArgumentNullException(nameof(logger));
-        _logger = logger.ForContext("LogFormat", "CommonAccessLog")
-                        .ForContext<CommonAccessLogMiddleware>();
+        if (logger is null)
+        {
+            throw new ArgumentNullException(nameof(logger));
+        }
+
+        _defaultLogger = CreateScopedLogger(logger);
     }
 
     /// <summary>
@@ -70,7 +73,7 @@ public sealed class CommonAccessLogMiddleware
             options = new CommonAccessLogOptions();
         }
 
-        var logger = _logger;
+        var logger = ResolveLogger(options);
         if (!logger.IsEnabled(options.Level))
         {
             return;
@@ -86,6 +89,26 @@ public sealed class CommonAccessLogMiddleware
             // Access logging should never take down the pipeline – swallow and trace.
             Log.Logger.Debug(ex, "Failed to emit common access log entry.");
         }
+    }
+
+    private Serilog.ILogger ResolveLogger(CommonAccessLogOptions options)
+    {
+        ArgumentNullException.ThrowIfNull(options);
+
+        if (options.Logger is { } customLogger)
+        {
+            return CreateScopedLogger(customLogger);
+        }
+
+        return _defaultLogger;
+    }
+
+    private static Serilog.ILogger CreateScopedLogger(Serilog.ILogger logger)
+    {
+        ArgumentNullException.ThrowIfNull(logger);
+
+        return logger.ForContext("LogFormat", "CommonAccessLog")
+                     .ForContext<CommonAccessLogMiddleware>();
     }
 
     private static string BuildLogLine(HttpContext context, CommonAccessLogOptions options, TimeSpan elapsed)

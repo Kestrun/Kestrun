@@ -123,4 +123,54 @@ public class CommonAccessLogMiddlewareTests
 
         Assert.Equal("203.0.113.5 - - [02/Jan/2024:18:30:00 +0100] \"POST /submit\" 201 1024 \"https://example.org/start\\\"<script>\" \"BadAgentTest\"", captured);
     }
+
+    [Fact]
+    [Trait("Category", "Middleware")]
+    public async Task InvokeAsync_Uses_Custom_Logger_From_Options()
+    {
+        var customLogger = new Mock<Serilog.ILogger>();
+        _ = customLogger.Setup(l => l.ForContext(It.IsAny<string>(), It.IsAny<object?>(), It.IsAny<bool>()))
+                        .Returns(customLogger.Object);
+        _ = customLogger.Setup(l => l.ForContext<CommonAccessLogMiddleware>())
+                        .Returns(customLogger.Object);
+        _ = customLogger.Setup(l => l.IsEnabled(LogEventLevel.Warning)).Returns(true);
+
+        var defaultLogger = new Mock<Serilog.ILogger>();
+        _ = defaultLogger.Setup(l => l.ForContext(It.IsAny<string>(), It.IsAny<object?>(), It.IsAny<bool>()))
+                         .Returns(defaultLogger.Object);
+        _ = defaultLogger.Setup(l => l.ForContext<CommonAccessLogMiddleware>())
+                         .Returns(defaultLogger.Object);
+        _ = defaultLogger.Setup(l => l.IsEnabled(It.IsAny<LogEventLevel>())).Returns(false);
+
+        var options = new CommonAccessLogOptions
+        {
+            Level = LogEventLevel.Warning,
+            Logger = customLogger.Object,
+            IncludeProtocol = false,
+            IncludeQueryString = false,
+            TimeProvider = new FixedTimeProvider(new DateTimeOffset(2024, 4, 5, 10, 0, 0, TimeSpan.Zero))
+        };
+
+        var optionsMonitor = Mock.Of<IOptionsMonitor<CommonAccessLogOptions>>(m => m.CurrentValue == options);
+
+        string? captured = null;
+        _ = customLogger.Setup(l => l.Write(LogEventLevel.Warning, "{CommonAccessLogLine}", It.IsAny<object?[]>()))
+                        .Callback<LogEventLevel, string, object?[]>((_, _, values) =>
+                        {
+                            captured = values.Length > 0 ? values[0]?.ToString() : null;
+                        });
+
+        var middleware = new CommonAccessLogMiddleware(_ => Task.CompletedTask, optionsMonitor, defaultLogger.Object);
+
+        var context = new DefaultHttpContext();
+        context.Connection.RemoteIpAddress = IPAddress.Parse("203.0.113.10");
+        context.Request.Method = "HEAD";
+        context.Request.Path = "/status";
+        context.Response.StatusCode = StatusCodes.Status204NoContent;
+
+        await middleware.InvokeAsync(context);
+
+        Assert.Equal("203.0.113.10 - - [05/Apr/2024:10:00:00 +0000] \"HEAD /status\" 204 - \"-\" \"-\"", captured);
+        defaultLogger.Verify(l => l.Write(It.IsAny<LogEventLevel>(), It.IsAny<string>(), It.IsAny<object?[]>()), Times.Never);
+    }
 }

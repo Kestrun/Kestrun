@@ -1,3 +1,4 @@
+using Serilog;
 using Serilog.Events;
 
 namespace Kestrun.Middleware;
@@ -55,4 +56,10 @@ public sealed class CommonAccessLogOptions
     /// Gets or sets the time provider used when rendering timestamps.
     /// </summary>
     public TimeProvider TimeProvider { get; set; } = TimeProvider.System;
+
+    /// <summary>
+    /// Gets or sets the Serilog logger used to emit access log entries. When not specified the
+    /// middleware will use the application logger registered in dependency injection.
+    /// </summary>
+    public ILogger? Logger { get; set; }
 }

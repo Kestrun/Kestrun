@@ -9,6 +9,9 @@
         The target Kestrun server instance. When omitted the current server is resolved automatically.
     .PARAMETER Level
         The Serilog log level used when emitting access log entries. Defaults to Information.
+    .PARAMETER Logger
+        The Serilog logger instance that should receive the access log entries. When not supplied the
+        middleware uses the application's default logger from dependency injection.
     .PARAMETER IncludeQueryString
         Indicates whether the request query string should be included in the logged request line. Defaults to $true.
     .PARAMETER IncludeProtocol
@@ -44,6 +47,9 @@ function Add-KrCommonAccessLogMiddleware {
         [Serilog.Events.LogEventLevel]$Level = [Serilog.Events.LogEventLevel]::Information,
 
         [Parameter()]
+        [Serilog.ILogger]$Logger,
+
+        [Parameter()]
         [bool]$IncludeQueryString = $true,
 
         [Parameter()]
@@ -73,6 +79,7 @@ function Add-KrCommonAccessLogMiddleware {
 
         $timestampFormatSet = $PSBoundParameters.ContainsKey('TimestampFormat')
         $clientHeaderSet = $PSBoundParameters.ContainsKey('ClientAddressHeader')
+        $loggerSet = $PSBoundParameters.ContainsKey('Logger')
     }
 
     process {
@@ -90,6 +97,10 @@ function Add-KrCommonAccessLogMiddleware {
 
             if ($clientHeaderSet -and -not [string]::IsNullOrWhiteSpace($ClientAddressHeader)) {
                 $options.ClientAddressHeader = $ClientAddressHeader
+            }
+
+            if ($loggerSet -and $null -ne $Logger) {
+                $options.Logger = $Logger
             }
         }
 

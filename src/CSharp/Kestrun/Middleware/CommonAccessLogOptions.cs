@@ -57,7 +57,8 @@ public sealed class CommonAccessLogOptions
     public TimeProvider TimeProvider { get; set; } = TimeProvider.System;
 
     /// <summary>
-    /// Gets or sets the logger instance used to write access log entries. If not set, the logger passed to the middleware is used.
+    /// Gets or sets the Serilog logger used to emit access log entries. When not specified the
+    /// middleware will use the application logger registered in dependency injection.
     /// </summary>
-    public ILogger? Logger { get; set; }
+    public Serilog.ILogger? Logger { get; set; }
 }

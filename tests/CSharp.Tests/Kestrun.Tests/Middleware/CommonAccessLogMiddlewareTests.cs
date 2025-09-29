@@ -15,7 +15,7 @@ public class CommonAccessLogMiddlewareTests
 {
     private sealed class CapturingSink : ILogEventSink
     {
-        public List<LogEvent> Events { get; } = new();
+        public List<LogEvent> Events { get; } = [];
         public void Emit(LogEvent logEvent)
         {
             Events.Add(logEvent);
@@ -74,7 +74,7 @@ public class CommonAccessLogMiddlewareTests
         var (logger, _) = CreateLogger(LogEventLevel.Debug);
         var host = new KestrunHost("TestApp", logger, AppContext.BaseDirectory);
 
-        host.AddCommonAccessLog(o =>
+        _ = host.AddCommonAccessLog(o =>
         {
             o.IncludeProtocol = true;
             o.IncludeQueryString = true;
@@ -151,7 +151,10 @@ public class CommonAccessLogMiddlewareTests
         // Access log line is stored as the single property value for the template {CommonAccessLogLine}
         var raw = evt.Properties.TryGetValue("CommonAccessLogLine", out var sv) ? sv.ToString() : evt.RenderMessage();
         // Remove surrounding quotes if Serilog scalar formatting added them
-        if (raw.Length >= 2 && raw[0] == '"' && raw[^1] == '"') raw = raw.Substring(1, raw.Length - 2);
+        if (raw.Length >= 2 && raw[0] == '"' && raw[^1] == '"')
+        {
+            raw = raw[1..^1];
+        }
         // Split and inspect last segment for milliseconds (allow integer or decimal)
         var lastSegment = raw.Split(' ').Last();
         Assert.Matches(@"^\d+(\.\d+)?$", lastSegment);

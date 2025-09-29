@@ -17,10 +17,10 @@
         The name of a registered logger that should receive the access log entries. When supplied
         the logger with this name is used instead of the default application logger.
         This parameter is mutually exclusive with Logger.
-    .PARAMETER IncludeQueryString
-        Indicates whether the request query string should be included in the logged request line. Defaults to $true.
-    .PARAMETER IncludeProtocol
-        Indicates whether the HTTP protocol (for example HTTP/1.1) should be appended to the request line. Defaults to $true.
+    .PARAMETER ExcludeQueryString
+        Indicates whether the request query string should be excluded from the logged request line. Defaults to $true.
+    .PARAMETER ExcludeProtocol
+        Indicates whether the request protocol (for example HTTP/1.1) should be excluded from the logged request line. Defaults to $false.
     .PARAMETER IncludeElapsedMilliseconds
         Appends the total request duration in milliseconds to the access log entry when set to $true. Defaults to $false.
     .PARAMETER UseUtcTimestamp
@@ -33,11 +33,19 @@
     .PARAMETER PassThru
         Returns the server instance to enable fluent pipelines when specified.
     .EXAMPLE
-        $server | Add-KrCommonAccessLogMiddleware -ClientAddressHeader 'X-Forwarded-For'
-        Adds the middleware and prefers the X-Forwarded-For header when reporting client addresses.
+        Add-KrCommonAccessLogMiddleware -LoggerName 'myLogger' -UseUtcTimestamp
+
+        Adds the Common Access Log middleware to the current Kestrun server using the named logger 'myLogger'
+        and configures it to log timestamps in UTC.
     .EXAMPLE
-        $server | Add-KrCommonAccessLogMiddleware -IncludeElapsedMilliseconds -UseUtcTimestamp
-        Emits access logs with execution time in milliseconds and timestamps written in UTC.
+        $server = New-KrServer -Name "My Server" |
+            Add-KrListener -Port 8080 -IPAddress ([IPAddress]::Any) |
+            Add-KrPowerShellRuntime |
+            Add-KrCommonAccessLogMiddleware -LoggerName 'myLogger' -PassThru
+
+        Creates a new Kestrun server instance, adds a listener on port 8080 and the PowerShell runtime,
+        then adds the Common Access Log middleware using the named logger 'myLogger' and returns the
+        server instance in the $server variable.
 #>
 function Add-KrCommonAccessLogMiddleware {
     [KestrunRuntimeApi('Definition')]
@@ -118,5 +126,4 @@ function Add-KrCommonAccessLogMiddleware {
             return $Server
         }
     }
-
 }

@@ -143,10 +143,17 @@ function Start-ExampleScript {
         [Parameter(Mandatory)][string]$Name,
         [int]$Port,
         [int]$StartupTimeoutSeconds = 40,
-        [int]$HttpProbeDelayMs = 150
+        [int]$HttpProbeDelayMs = 150,
+        [switch]$FromRootDirectory
     )
     if (-not $Port) { $Port = Get-FreeTcpPort }
-    $path = Get-ExampleScriptPath -Name $Name
+    if ( $FromRootDirectory ) {
+        $root = Resolve-Path "$PSScriptRoot\..\..\.."
+        $path = Join-Path $root $Name
+        if (-not (Test-Path $path)) { throw "Example script not found: $Name" }
+    } else {
+        $path = Get-ExampleScriptPath -Name $Name
+    }
     $scriptDir = Split-Path -Parent $path
     $originalLocation = Get-Location
     # Push current location so relative file references (Assets/...) resolve inside example

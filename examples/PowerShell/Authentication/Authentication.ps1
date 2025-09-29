@@ -1,6 +1,9 @@
 
 [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidUsingConvertToSecureStringWithPlainText', '')]
-param()
+ param(
+    [int]$Port = 5000,
+    [IPAddress]$IPAddress = [IPAddress]::Loopback
+)
 <#
     .SYNOPSIS
         Kestrun PowerShell Example: Multi Routes
@@ -57,30 +60,6 @@ param()
         Invoke-RestMethod -Uri https://localhost:5001/secure/cookies/policy -Method PUT -SkipCertificateCheck -WebSession $authSession
 #>
 
-try {
-    # Get the path of the current script
-    # This allows the script to be run from any location
-    $ScriptPath = (Split-Path -Parent -Path $MyInvocation.MyCommand.Path)
-    # Determine the script path and Kestrun module path
-    $powerShellExamplesPath = (Split-Path -Parent ($ScriptPath))
-    # Determine the script path and Kestrun module path
-    $examplesPath = (Split-Path -Parent ($powerShellExamplesPath))
-    # Get the parent directory of the examples path
-    # This is useful for locating the Kestrun module
-    $kestrunPath = Split-Path -Parent -Path $examplesPath
-    # Construct the path to the Kestrun module
-    # This assumes the Kestrun module is located in the src/PowerShell/Kestr
-    $kestrunModulePath = "$kestrunPath/src/PowerShell/Kestrun/Kestrun.psm1"
-    # Import the Kestrun module from the source path if it exists, otherwise from installed modules
-    if (Test-Path -Path $kestrunModulePath -PathType Leaf) {
-        Import-Module $kestrunModulePath -Force -ErrorAction Stop
-    } else {
-        Import-Module -Name 'Kestrun' -MaximumVersion 2.99 -ErrorAction Stop
-    }
-} catch {
-    Write-Error "Failed to import Kestrun module: $_"
-    exit 1
-}
 $logger = New-KrLogger |
     Set-KrLoggerMinimumLevel -Value Debug |
     Add-KrSinkFile -Path '.\logs\Authentication.log' -RollingInterval Hour |
@@ -107,8 +86,8 @@ Set-KrServerOptions -DenyServerHeader
 
 Set-KrServerLimit -MaxRequestBodySize 10485760 -MaxConcurrentConnections 100 -MaxRequestHeaderCount 100 -KeepAliveTimeoutSeconds 120
 # Configure the listener (adjust port, cert path, and password)
-Add-KrEndpoint -Port 5001 -IPAddress ([IPAddress]::Loopback) -X509Certificate $cert -Protocols Http1AndHttp2AndHttp3
-Add-KrEndpoint -Port 5000 -IPAddress ([IPAddress]::Loopback)
+Add-KrEndpoint -Port $Port -IPAddress $IPAddress -X509Certificate $cert -Protocols Http1AndHttp2AndHttp3
+#Add-KrEndpoint -Port $Port -IPAddress $IPAddress
 
 Add-KrCompressionMiddleware -EnableForHttps -MimeTypes @('text/plain', 'text/html', 'application/json', 'application/xml', 'application/x-www-form-urlencoded')
 Add-KrPowerShellRuntime

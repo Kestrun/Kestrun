@@ -62,7 +62,8 @@ function Enable-KrConfiguration {
         foreach ($f in Get-PSCallStack) {
             $p = $f.InvocationInfo.ScriptName
             if ($p) {
-                $rp = (Resolve-Path -LiteralPath $p -ErrorAction SilentlyContinue)?.ProviderPath
+                $rp = $null
+                try { $tmp = Resolve-Path -LiteralPath $p -ErrorAction Stop; $rp = $tmp.ProviderPath } catch { Write-Debug "Failed to resolve path '$p': $_" }
                 if ($rp -and (!$selfPath -or $rp -ne (Resolve-Path -LiteralPath $selfPath).ProviderPath)) {
                     $callerPath = $rp
                     break
@@ -70,12 +71,14 @@ function Enable-KrConfiguration {
             }
         }
         # AUTO: collect session-defined functions present now
-        $fx = Get-Command -CommandType Function | Where-Object { -not $_.Module }
-        if ($OnlyCurrentScript -and $callerPath) {
+        $fx = @( Get-Command -CommandType Function | Where-Object { -not $_.Module } )
+
+        if ($callerPath) {
             $fx = $fx | Where-Object {
                 $_.ScriptBlock.File -and
                 ((Resolve-Path -LiteralPath $_.ScriptBlock.File -ErrorAction SilentlyContinue)?.ProviderPath) -eq $callerPath
             }
+            $fx = @($fx)  # normalize again
         }
 
         # Exclude functions by name patterns if specified
@@ -84,17 +87,19 @@ function Enable-KrConfiguration {
                 $n = $_.Name
                 -not ($ExcludeFunctions | Where-Object { $n -like $_ }).Count
             }
+            $fx = @($fx)  # normalize again
         }
 
         # Create a dictionary of function names to their definitions
         $fxMap = $null
-        if ($fx.Count) {
+        if ($fx -and $fx.Count -gt 0) {
             $fxMap = [System.Collections.Generic.Dictionary[string, string]]::new([System.StringComparer]::OrdinalIgnoreCase)
             foreach ($f in $fx) { $fxMap[$f.Name] = $f.Definition }
         }
         # Apply the configuration to the server
         # Set the user-defined variables in the server configuration
         $Server.EnableConfiguration($vars, $fxMap) | Out-Null
+
         if (-not $Quiet.IsPresent) {
             Write-Host 'Kestrun server configuration enabled successfully.'
             Write-Host "Server Name: $($Server.Options.ApplicationName)"

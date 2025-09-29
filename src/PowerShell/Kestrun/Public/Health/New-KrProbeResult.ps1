@@ -41,42 +41,12 @@ function New-KrProbeResult {
 
     $dict = $null
     if ($PSBoundParameters.ContainsKey('Data') -and $Data) {
-        function _NormalizeValue([object]$v, [int]$depth) {
-            if ($null -eq $v) { return $null }
-            if ($depth -gt 8) { return ($v.ToString()) }
 
-            # Unwrap PSObject shell
-            if ($v -is [System.Management.Automation.PSObject]) {
-                $base = $v.BaseObject
-                if ($null -eq $base -or $base -eq $v) { return $v.ToString() }
-                return _NormalizeValue $base ($depth + 1)
-            }
-
-            # Hashtable / IDictionary → new Dictionary[string, object]
-            if ($v -is [System.Collections.IDictionary]) {
-                $out = [System.Collections.Generic.Dictionary[string, object]]::new()
-                foreach ($key in $v.Keys) {
-                    if ([string]::IsNullOrWhiteSpace([string]$key)) { continue }
-                    $nv = _NormalizeValue $v[$key] ($depth + 1)
-                    if ($null -ne $nv) { $out[[string]$key] = $nv }
-                }
-                return $out
-            }
-
-            # Enumerable (but not string) → List<object>
-            if ($v -is [System.Collections.IEnumerable] -and -not ($v -is [string])) {
-                $list = New-Object System.Collections.Generic.List[object]
-                foreach ($item in $v) { $list.Add((_NormalizeValue $item ($depth + 1))) }
-                return $list
-            }
-
-            return $v  # primitive / POCO
-        }
 
         $dict = [System.Collections.Generic.Dictionary[string, object]]::new()
         foreach ($k in $Data.Keys) {
             if ([string]::IsNullOrWhiteSpace([string]$k)) { continue }
-            $nv = _NormalizeValue $Data[$k] 0
+            $nv = _NormalizeValueToDictionary -Value $Data[$k] -Depth 0
             if ($null -ne $nv) { $dict[$k] = $nv }
         }
     }

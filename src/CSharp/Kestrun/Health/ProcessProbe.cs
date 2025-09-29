@@ -271,9 +271,9 @@ public sealed class ProcessProbe(string name, string[] tags, string fileName, st
 
             var status = statusProp.GetString()?.ToLowerInvariant() switch
             {
-                ScriptProbeFactory.STATUS_HEALTHY => ProbeStatus.Healthy,
-                ScriptProbeFactory.STATUS_DEGRADED => ProbeStatus.Degraded,
-                ScriptProbeFactory.STATUS_UNHEALTHY => ProbeStatus.Unhealthy,
+                ProbeStatusLabels.STATUS_HEALTHY => ProbeStatus.Healthy,
+                ProbeStatusLabels.STATUS_DEGRADED => ProbeStatus.Degraded,
+                ProbeStatusLabels.STATUS_UNHEALTHY => ProbeStatus.Unhealthy,
                 _ => ProbeStatus.Unhealthy
             };
 

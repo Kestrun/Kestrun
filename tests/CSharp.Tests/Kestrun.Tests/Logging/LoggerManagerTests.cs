@@ -37,7 +37,7 @@ public class LoggerManagerTests
             Assert.Same(@new, LoggerManager.Get("svc"));
             Assert.Same(@new, Log.Logger);
 
-            @new.Information(ScriptProbeFactory.STATUS_OK);
+            @new.Information(ProbeStatusLabels.STATUS_OK);
             _ = Assert.Single(newSink.Events);
         }
         finally

@@ -65,9 +65,9 @@ public sealed class HttpProbe(string name, string[] tags, HttpClient http, strin
                 var statusStr = doc.RootElement.GetProperty("status").GetString();
                 var status = statusStr?.ToLowerInvariant() switch
                 {
-                    ScriptProbeFactory.STATUS_HEALTHY => ProbeStatus.Healthy,
-                    ScriptProbeFactory.STATUS_DEGRADED => ProbeStatus.Degraded,
-                    ScriptProbeFactory.STATUS_UNHEALTHY => ProbeStatus.Unhealthy,
+                    ProbeStatusLabels.STATUS_HEALTHY => ProbeStatus.Healthy,
+                    ProbeStatusLabels.STATUS_DEGRADED => ProbeStatus.Degraded,
+                    ProbeStatusLabels.STATUS_UNHEALTHY => ProbeStatus.Unhealthy,
                     _ => ProbeStatus.Unhealthy
                 };
                 var desc = doc.RootElement.TryGetProperty("description", out var d) ? d.GetString() : null;

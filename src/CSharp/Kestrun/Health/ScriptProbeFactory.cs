@@ -21,14 +21,6 @@ namespace Kestrun.Health;
 /// </summary>
 internal static class ScriptProbeFactory
 {
-    public const string STATUS_OK = "ok";
-    public const string STATUS_HEALTHY = "healthy";
-    public const string STATUS_WARN = "warn";
-    public const string STATUS_WARNING = "warning";
-    public const string STATUS_DEGRADED = "degraded";
-    public const string STATUS_FAIL = "fail";
-    public const string STATUS_FAILED = "failed";
-    public const string STATUS_UNHEALTHY = "unhealthy";
     internal static IProbe Create(
         string name,
         IEnumerable<string>? tags,
@@ -613,18 +605,18 @@ internal static class ScriptProbeFactory
 
             switch (value?.ToLowerInvariant())
             {
-                case STATUS_OK:
-                case STATUS_HEALTHY:
+                case ProbeStatusLabels.STATUS_OK:
+                case ProbeStatusLabels.STATUS_HEALTHY:
                     status = ProbeStatus.Healthy;
                     return true;
-                case STATUS_WARN:
-                case STATUS_WARNING:
-                case STATUS_DEGRADED:
+                case ProbeStatusLabels.STATUS_WARN:
+                case ProbeStatusLabels.STATUS_WARNING:
+                case ProbeStatusLabels.STATUS_DEGRADED:
                     status = ProbeStatus.Degraded;
                     return true;
-                case STATUS_FAIL:
-                case STATUS_FAILED:
-                case STATUS_UNHEALTHY:
+                case ProbeStatusLabels.STATUS_FAIL:
+                case ProbeStatusLabels.STATUS_FAILED:
+                case ProbeStatusLabels.STATUS_UNHEALTHY:
                     status = ProbeStatus.Unhealthy;
                     return true;
                 default:

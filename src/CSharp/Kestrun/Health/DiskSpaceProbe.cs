@@ -26,8 +26,8 @@ public sealed class DiskSpaceProbe : IProbe
     /// </summary>
     private static readonly string[] sizes = ["B", "KB", "MB", "GB", "TB", "PB"];
 
-    private const double criticalThresholdDefault = 5.0;
-    private const double warnThresholdDefault = 10.0;
+    private const double CriticalThresholdDefault = 5.0;
+    private const double WarnThresholdDefault = 10.0;
 
     private readonly string _path;
     private readonly double _criticalPercent;
@@ -47,8 +47,8 @@ public sealed class DiskSpaceProbe : IProbe
         string name,
         string[] tags,
         string? path = null,
-        double criticalPercent = criticalThresholdDefault,
-        double warnPercent = warnThresholdDefault,
+        double criticalPercent = CriticalThresholdDefault,
+        double warnPercent = WarnThresholdDefault,
         Serilog.ILogger? logger = null)
     {
         if (criticalPercent <= 0 || warnPercent <= 0 || warnPercent <= criticalPercent || warnPercent > 100)

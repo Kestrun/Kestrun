@@ -157,7 +157,7 @@ public static class XmlHelper
         visited ??= new HashSet<object>(ReferenceEqualityComparer.Instance);
         if (!visited.Add(value))
         {
-            cycleElement = new XElement("Object", new XAttribute(ScriptProbeFactory.STATUS_WARNING, "CycleDetected"));
+            cycleElement = new XElement("Object", new XAttribute("warning", "CycleDetected"));
             return false;
         }
         cycleElement = null;

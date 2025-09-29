@@ -13,15 +13,12 @@ Enable-KrConfiguration
 Add-KrHealthEndpoint -Pattern '/healthz' -ResponseContentType Text
 Start-KrServer -NoWait
 
-try {
-    Start-Sleep -Milliseconds 250
-    $resp = Invoke-WebRequest -Uri 'http://localhost:5020/healthz' -Headers @{ Accept = 'text/plain' }
-    if (-not $resp.Content) { throw 'No text content received.' }
-    $content = $resp.Content -split "`n"
-    if (-not ($content | Where-Object { $_ -match '^Status: ' })) { throw 'Missing Status line' }
-    if (-not ($content | Where-Object { $_ -match '^Probes:' })) { throw 'Missing Probes header' }
-    if (-not ($content | Where-Object { $_ -match 'name=QuickProbe' })) { throw 'Missing probe line' }
-    if (-not ($content | Where-Object { $_ -match 'latencyMs=5' })) { throw 'Missing probe data key/value' }
-} finally {
-    #  Stop-KrServer
-}
+ 
+Start-Sleep -Milliseconds 250
+$resp = Invoke-WebRequest -Uri 'http://localhost:5020/healthz' -Headers @{ Accept = 'text/plain' }
+if (-not $resp.Content) { throw 'No text content received.' }
+$content = $resp.Content -split "`n"
+if (-not ($content | Where-Object { $_ -match '^Status: ' })) { throw 'Missing Status line' }
+if (-not ($content | Where-Object { $_ -match '^Probes:' })) { throw 'Missing Probes header' }
+if (-not ($content | Where-Object { $_ -match 'name=QuickProbe' })) { throw 'Missing probe line' }
+if (-not ($content | Where-Object { $_ -match 'latencyMs=5' })) { throw 'Missing probe data key/value' }

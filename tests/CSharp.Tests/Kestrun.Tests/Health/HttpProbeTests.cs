@@ -24,7 +24,7 @@ public class HttpProbeTests
         var probe = new HttpProbe("http-h", ["live"], http, "http://unit-test/health");
         var result = await probe.CheckAsync();
         Assert.Equal(ProbeStatus.Healthy, result.Status);
-        Assert.Equal(ScriptProbeFactory.STATUS_OK, result.Description);
+        Assert.Equal(ProbeStatusLabels.STATUS_OK, result.Description);
     }
 
     [Fact]

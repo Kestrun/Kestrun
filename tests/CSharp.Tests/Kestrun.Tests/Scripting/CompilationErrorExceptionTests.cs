@@ -20,7 +20,7 @@ public class CompilationErrorExceptionTests
     {
         var diags = ImmutableArray.Create(
             MakeDiag("err", DiagnosticSeverity.Error),
-            MakeDiag(ScriptProbeFactory.STATUS_WARN, DiagnosticSeverity.Warning));
+            MakeDiag(ProbeStatusLabels.STATUS_WARN, DiagnosticSeverity.Warning));
         var ex = new CompilationErrorException("bad", diags);
         _ = Assert.Single(ex.GetErrors());
         _ = Assert.Single(ex.GetWarnings());

@@ -45,7 +45,7 @@ internal static class HealthProbeRunner
         {
             return new HealthReport(
                 ProbeStatus.Healthy,
-                ScriptProbeFactory.STATUS_HEALTHY,
+                ProbeStatusLabels.STATUS_HEALTHY,
                 DateTimeOffset.UtcNow,
                 [],
                 new HealthSummary(0, 0, 0, 0),

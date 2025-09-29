@@ -21,7 +21,7 @@ Add-KrEndpoint -IPAddress $IPAddress -Port $Port
 # 4. Runtime
 Add-KrPowerShellRuntime
 
-# Finalize configuration and start server
+# Finalize configuration
 Enable-KrConfiguration
 
 # HTML file route

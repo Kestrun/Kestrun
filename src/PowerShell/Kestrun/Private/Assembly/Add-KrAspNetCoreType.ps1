@@ -16,8 +16,8 @@ function Add-KrAspNetCoreType {
     $dotnetPath = (Get-Command -Name 'dotnet' -ErrorAction Stop).Source
     $realDotnetPath = (Get-Item $dotnetPath).Target
     if (-not $realDotnetPath) { $realDotnetPath = $dotnetPath }elseif ($realDotnetPath -notmatch '^/') {
-        # If the target is a relative path, resolve it from the parent of $dotnetPath
-        $realDotnetPath = Join-Path -Path (Split-Path -Parent $dotnetPath) -ChildPath $realDotnetPath
+        # If the target is a relative path, resolve it from the parent of $dotnetPath (e.g. symlink in same folder)
+        $realDotnetPath = Join-Path -Path (Split-Path -Path $dotnetPath -Parent) -ChildPath $realDotnetPath
         $realDotnetPath = [System.IO.Path]::GetFullPath($realDotnetPath)
     }
     $dotnetDir = Split-Path -Path $realDotnetPath -Parent

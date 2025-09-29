@@ -19,7 +19,7 @@ concurrency:
 jobs:
     lint:
         name: Linting
-        uses: ./.github/workflows/lint-core.yml
+        uses: Kestrun/Kestrun/.github/workflows/lint-core.yml@main
         with:
             is_pr: ${{ inputs.is_pr }}
 
@@ -114,24 +114,166 @@ jobs:
               shell: pwsh
               run: Invoke-Build Build -DotNetVerbosity minimal
 
-            - name: Run PSScriptAnalyzer with settings
-              id: pssa
-              uses: microsoft/psscriptanalyzer-action@v1.1
-              with:
-                  path: .\src\PowerShell\Kestrun
-                  recurse: true
-                  settings: ./PSScriptAnalyzerSettings.psd1
-                  output: pssa.sarif
-
-            - name: ⬆️ Upload PSSA SARIF
-              uses: github/codeql-action/upload-sarif@v3
-              with:
-                  sarif_file: pssa.sarif
-                  category: powershell
-
-            - name: ❗Fail on PSSA errors
+            - name: 🔍 Load Kestrun Module
               shell: pwsh
               run: |
-                  $sarif = Get-Content pssa.sarif -Raw | ConvertFrom-Json
-                  $errors = @($sarif.runs.results | Where-Object { $_.level -eq 'error' })
-                  if ($errors.Count) { Write-Error "PSScriptAnalyzer found $($errors.Count) error-level issues." }
+                  $ErrorActionPreference = 'Stop'
+                  $dllPath = Join-Path -Path $env:GITHUB_WORKSPACE -ChildPath 'src/PowerShell/Kestrun/Kestrun.psm1'
+                  if (-not (Test-Path -Path $dllPath)) {
+                      Write-Error "DLL not found at expected path: $dllPath"
+                  }
+                  Import-Module $dllPath -Force
+                  Get-Command -Module Kestrun | Select-Object -First 10 | Format-Table -Auto
+
+            - name: 🔎 Prepare PSSA (pinned & hermetic)
+              shell: pwsh
+              run: |
+                  $ErrorActionPreference = 'Stop'
+                  $modRoot = Join-Path $env:GITHUB_WORKSPACE '.cache/psmodules'
+                  New-Item -Force -ItemType Directory -Path $modRoot | Out-Null
+
+                  # Save locally (no Install-Module touching shared paths), then import exact versions
+                  $pssaVer = '1.24.0'
+                  if (-not (Test-Path (Join-Path $modRoot "PSScriptAnalyzer/$pssaVer"))) {
+                  Save-Module -Name PSScriptAnalyzer -RequiredVersion $pssaVer -Path $modRoot
+                  }
+                  $env:PSModulePath = "$modRoot" + [IO.Path]::PathSeparator + $env:PSModulePath
+                  Import-Module PSScriptAnalyzer -RequiredVersion $pssaVer -Force
+
+            - name: 🧪 Run PSScriptAnalyzer → JSON (resilient)
+              id: pssa
+              shell: pwsh
+              env:
+                  PSSA_FAIL_ON_ERROR: "false" # set to 'true' if you want CI to fail when the tool crashes
+                  PSSA_FAIL_ON_ISSUES: "true" # set to 'false' to make findings non-fatal
+
+              run: |
+                  $ErrorActionPreference = 'Stop'
+                  $root     = $env:GITHUB_WORKSPACE
+                  $target   = Join-Path $root 'src/PowerShell/Kestrun'
+                  $settings = Join-Path $root 'PSScriptAnalyzerSettings.psd1'
+                  $jsonOut  = Join-Path $root 'psa-results.json'
+                  $errOut   = Join-Path $root 'psa-errors.json'
+
+                  Write-Host "Using PSScriptAnalyzer settings: $settings"
+
+                  # 1) Build filtered file list (Linux-safe)
+                  $files = Get-ChildItem -Path (Join-Path $target '*') -Recurse -File |
+                  Where-Object {
+                      $_.Extension -in '.ps1','.psm1' -and
+                      $_.Name -notmatch '^(?i:(Microsoft\..*|PSDiagnostics.*|CimCmdlets\..*))$'
+                  }
+
+                  "Selected $($files.Count) files to analyze"
+                  $files | Select-Object -First 8 -ExpandProperty FullName | ForEach-Object { "• $_" } | Write-Host
+
+                  # 2) Always create outputs up front (prevents 'file not found')
+                  Set-Content -LiteralPath $jsonOut -Value '[]' -Encoding UTF8NoBOM
+                  Set-Content -LiteralPath $errOut  -Value '[]' -Encoding UTF8NoBOM
+
+                  if ($files.Count -eq 0) {
+                      "has_ps_issues=false"  | Out-File -FilePath $Env:GITHUB_OUTPUT -Append
+                      "has_psa_errors=false" | Out-File -FilePath $Env:GITHUB_OUTPUT -Append
+                      return
+                  }
+
+                  # 3) Per-file analysis (stable, noisy-proof)
+                  $toolErrors = @()
+                  $collected = New-Object System.Collections.Generic.List[object]
+                  foreach ($f in $files) {
+                  try {
+                      Write-Output "Analyzing $($f.FullName)"
+                      $r = Invoke-ScriptAnalyzer -Path $f.FullName -Settings $settings -ErrorAction Stop
+                      foreach ($item in @($r)) { $null = $collected.Add($item) }
+                  } catch {
+                      $toolErrors += [pscustomobject]@{ file=$f.FullName; error=$_.Exception.Message }
+                  }
+                  }
+                  $results = $collected
+
+                  # 4) Write outputs once (if we have content)
+                  try {
+                  if ($results -and $results.Count) {
+                      $results | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath $jsonOut -Encoding UTF8
+                  }
+                  } catch {
+                  Write-Warning "Failed to write $($jsonOut): $($_.Exception.Message)"
+                  }
+
+                  try {
+                  if ($toolErrors -and $toolErrors.Count) {
+                      $toolErrors | ConvertTo-Json -Depth 4 | Set-Content -LiteralPath $errOut -Encoding UTF8
+                  }
+                  } catch {
+                  Write-Warning "Failed to write $($errOut): $($_.Exception.Message)"
+                  }
+
+                  # 5) Outcome flags + pretty log
+                  $hasIssues     = [bool]($results | Select-Object -First 1)
+                  $hasToolErrors = [bool]($toolErrors | Select-Object -First 1)
+
+                  "has_ps_issues=$hasIssues"      | Out-File -FilePath $Env:GITHUB_OUTPUT -Append
+                  "has_psa_errors=$hasToolErrors" | Out-File -FilePath $Env:GITHUB_OUTPUT -Append
+
+                  if ($results) {
+                  $results | Select RuleName,Severity,ScriptName,Line,Message |
+                      Format-Table -Auto | Out-String | Write-Host
+                  }
+                  if ($hasToolErrors) {
+                      Write-Warning "PSSA threw on $($toolErrors.Count) file(s). See psa-errors.json."
+                  }
+
+                  # 6) Fail policy
+                  if ($env:PSSA_FAIL_ON_ERROR -eq 'true' -and $hasToolErrors) { exit 2 }
+                  if ($env:PSSA_FAIL_ON_ISSUES -eq 'true' -and $hasIssues)     { exit 1 }
+
+            - name: 🧾 List analyzer outputs
+              if: always()
+              run: |
+                  ls -al $GITHUB_WORKSPACE/psa-results.json || true
+                  ls -al $GITHUB_WORKSPACE/psa-errors.json  || true
+
+            - name: 📎 Upload PSSA artifacts
+              uses: actions/upload-artifact@v4
+              with:
+                  name: pssa-artifacts
+                  path: | # ← proper multiline scalar
+                      ${{ github.workspace }}/psa-results.json
+                      ${{ github.workspace }}/psa-errors.json
+                  if-no-files-found: warn
+                  compression-level: 6
+                  overwrite: false
+
+            - name: ❗Fail on PSSA errors
+              if: always() # run even if previous step set a non-zero exit
+              shell: pwsh
+              run: |
+                  $ErrorActionPreference = 'Stop'
+                  $resultsPath = Join-Path $env:GITHUB_WORKSPACE 'psa-results.json'
+                  $errorsPath  = Join-Path $env:GITHUB_WORKSPACE 'psa-errors.json'
+
+                  function Read-JsonArray($path) {
+                  if (-not (Test-Path -LiteralPath $path)) { return @() }
+                  $raw = Get-Content -LiteralPath $path -Raw
+                  if (-not $raw -or -not $raw.Trim()) { return @() }
+                  $obj = ConvertFrom-Json -InputObject $raw
+                  if ($null -eq $obj) { return @() }
+                  if ($obj -is [System.Collections.IEnumerable]) { return @($obj) }
+                      return @($obj)
+                  }
+
+                  $findings   = Read-JsonArray $resultsPath      # array of PSSA records (RuleName, Severity, ScriptName, Line, Message, ...)
+                  $toolErrors = Read-JsonArray $errorsPath       # array of @{ file; error } from the fallback loop
+
+                  $errFindings  = @($findings | Where-Object { $_.Severity -match '^(?i)Error$' })
+                  $warnFindings = @($findings | Where-Object { $_.Severity -match '^(?i)Warning$' })
+
+                  Write-Host ("PSSA summary → errors: {0}, warnings: {1}, toolErrors: {2}" -f $errFindings.Count, $warnFindings.Count, $toolErrors.Count)
+
+                  if ($toolErrors.Count -gt 0) {
+                      Write-Error "PSScriptAnalyzer engine crashed on $($toolErrors.Count) file(s). See psa-errors.json."
+                  }
+
+                  if ($errFindings.Count -gt 0) {
+                      Write-Error "PSScriptAnalyzer found $($errFindings.Count) error-level issues. See psa-results.json."
+                  }

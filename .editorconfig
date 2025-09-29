@@ -38,6 +38,8 @@ dotnet_style_prefer_named_arguments = true:warning
 dotnet_analyzer_diagnostic.category-Style.severity = warning
 dotnet_analyzer_diagnostic.category-Design.severity = warning
 dotnet_analyzer_diagnostic.category-Maintainability.severity = warning
+dotnet_diagnostic.IDE0032.severity = none
+
 
 # --- PowerShell specifics (optional, if you want 4-space PS) ---
 [*.{ps1,psm1,psd1}]

@@ -153,8 +153,10 @@ public class KestrunResponse(KestrunRequest request, int bodyAsyncThreshold = 81
         }
 
         // Include structured types using XML or JSON suffixes
-        if (type.EndsWith("+xml", StringComparison.OrdinalIgnoreCase) ||
-            type.EndsWith("+json", StringComparison.OrdinalIgnoreCase))
+        if (type.EndsWith("xml", StringComparison.OrdinalIgnoreCase) ||
+            type.EndsWith("json", StringComparison.OrdinalIgnoreCase) ||
+            type.EndsWith("yaml", StringComparison.OrdinalIgnoreCase) ||
+            type.EndsWith("csv", StringComparison.OrdinalIgnoreCase))
         {
             return true;
         }
@@ -235,7 +237,8 @@ public class KestrunResponse(KestrunRequest request, int bodyAsyncThreshold = 81
     /// </summary>
     /// <param name="inputObject">The object to be converted to JSON.</param>
     /// <param name="statusCode">The HTTP status code for the response.</param>
-    public async Task WriteJsonResponseAsync(object? inputObject, int statusCode = StatusCodes.Status200OK) => await WriteJsonResponseAsync(inputObject, depth: 10, compress: false, statusCode: statusCode);
+    /// <param name="contentType">The MIME type of the response content.</param>
+    public async Task WriteJsonResponseAsync(object? inputObject, int statusCode = StatusCodes.Status200OK, string? contentType = null) => await WriteJsonResponseAsync(inputObject, depth: 10, compress: false, statusCode: statusCode, contentType: contentType);
 
     /// <summary>
     /// Writes a JSON response using the specified input object and serializer settings.
@@ -369,21 +372,38 @@ public class KestrunResponse(KestrunRequest request, int bodyAsyncThreshold = 81
 
         Body = inputObject;
         ContentType = DetermineContentType(contentType: string.Empty); // Ensure ContentType is set based on Accept header
+        if (ContentType.Contains(','))
+        {
+            var ContentTypes = ContentType.Split(','); // Take the first type only
+            ContentType = "application/json"; // fallback
+            foreach (var ct in ContentTypes)
+            {
+                if (ct.Contains("json") || ct.Contains("xml") || ct.Contains("yaml") || ct.Contains("yml"))
+                {
+                    if (Log.IsEnabled(LogEventLevel.Verbose))
+                    {
+                        Log.Verbose("Multiple content types in Accept header, selecting {ContentType}", ct);
+                    }
+                    ContentType = ct;
+                    break;
+                }
+            }
+        }
         if (Log.IsEnabled(LogEventLevel.Verbose))
         {
             Log.Verbose("Determined ContentType={ContentType}", ContentType);
         }
         if (ContentType.Contains("json"))
         {
-            await WriteJsonResponseAsync(inputObject: inputObject, statusCode: statusCode);
+            await WriteJsonResponseAsync(inputObject: inputObject, statusCode: statusCode, contentType: ContentType);
         }
         else if (ContentType.Contains("yaml") || ContentType.Contains("yml"))
         {
-            await WriteYamlResponseAsync(inputObject: inputObject, statusCode: statusCode);
+            await WriteYamlResponseAsync(inputObject: inputObject, statusCode: statusCode, contentType: ContentType);
         }
         else if (ContentType.Contains("xml"))
         {
-            await WriteXmlResponseAsync(inputObject: inputObject, statusCode: statusCode);
+            await WriteXmlResponseAsync(inputObject: inputObject, statusCode: statusCode, contentType: ContentType);
         }
         else
         {
@@ -518,7 +538,10 @@ public class KestrunResponse(KestrunRequest request, int bodyAsyncThreshold = 81
     /// <param name="inputObject">The object to be converted to XML.</param>
     /// <param name="statusCode">The HTTP status code for the response.</param>
     /// <param name="contentType">The MIME type of the response content.</param>
-    public void WriteXmlResponse(object? inputObject, int statusCode = StatusCodes.Status200OK, string? contentType = null) => WriteXmlResponseAsync(inputObject, statusCode, contentType).GetAwaiter().GetResult();
+    /// <param name="rootElementName">Optional custom XML root element name. Defaults to <c>Response</c>.</param>
+    /// <param name="compress">If true, emits compact XML (no indentation); if false (default) output is human readable.</param>
+    public void WriteXmlResponse(object? inputObject, int statusCode = StatusCodes.Status200OK, string? contentType = null, string? rootElementName = null, bool compress = false)
+        => WriteXmlResponseAsync(inputObject, statusCode, contentType, rootElementName, compress).GetAwaiter().GetResult();
 
     /// <summary>
     /// Asynchronously writes an XML response with the specified input object, status code, and content type.
@@ -526,15 +549,19 @@ public class KestrunResponse(KestrunRequest request, int bodyAsyncThreshold = 81
     /// <param name="inputObject">The object to be converted to XML.</param>
     /// <param name="statusCode">The HTTP status code for the response.</param>
     /// <param name="contentType">The MIME type of the response content.</param>
-    public async Task WriteXmlResponseAsync(object? inputObject, int statusCode = StatusCodes.Status200OK, string? contentType = null)
+    /// <param name="rootElementName">Optional custom XML root element name. Defaults to <c>Response</c>.</param>
+    /// <param name="compress">If true, emits compact XML (no indentation); if false (default) output is human readable.</param>
+    public async Task WriteXmlResponseAsync(object? inputObject, int statusCode = StatusCodes.Status200OK, string? contentType = null, string? rootElementName = null, bool compress = false)
     {
         if (Log.IsEnabled(LogEventLevel.Debug))
         {
             Log.Debug("Writing XML response (async), StatusCode={StatusCode}, ContentType={ContentType}", statusCode, contentType);
         }
 
-        var xml = await Task.Run(() => XmlHelper.ToXml("Response", inputObject));
-        Body = await Task.Run(() => xml.ToString(SaveOptions.DisableFormatting));
+        var root = string.IsNullOrWhiteSpace(rootElementName) ? "Response" : rootElementName!.Trim();
+        var xml = await Task.Run(() => XmlHelper.ToXml(root, inputObject));
+        var saveOptions = compress ? SaveOptions.DisableFormatting : SaveOptions.None;
+        Body = await Task.Run(() => xml.ToString(saveOptions));
         ContentType = string.IsNullOrEmpty(contentType) ? $"application/xml; charset={Encoding.WebName}" : contentType;
         StatusCode = statusCode;
     }

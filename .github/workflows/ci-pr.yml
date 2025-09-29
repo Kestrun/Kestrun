@@ -19,6 +19,6 @@ on:
 
 jobs:
     ci:
-        uses: ./.github/workflows/ci-core.yml
+        uses: Kestrun/Kestrun/.github/workflows/ci-core.yml@main
         with:
             is_pr: true

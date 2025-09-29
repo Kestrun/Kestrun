@@ -57,7 +57,7 @@ public static class KestrunHttpMiddlewareExtensions
         {
             // Ensure a Serilog.ILogger is available for middleware constructor injection.
             // We don't overwrite a user-provided registration.
-            services.TryAddSingleton<Serilog.ILogger>(_ => host.HostLogger);
+            services.TryAddSingleton(_ => host.HostLogger);
 
             var builder = services.AddOptions<CommonAccessLogOptions>();
             if (configure != null)

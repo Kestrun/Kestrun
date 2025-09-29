@@ -434,7 +434,7 @@ public static partial class KestrunHostMapExtensions
         {
             return false; // Not http/https → let other parsers try
         }
-        if (uri.Authority.EndsWith(":") || Regex.IsMatch(uri.Authority, @":$"))
+        if (uri.Authority.EndsWith(':'))
         {
             return false; // reject empty port like https://localhost:
         }

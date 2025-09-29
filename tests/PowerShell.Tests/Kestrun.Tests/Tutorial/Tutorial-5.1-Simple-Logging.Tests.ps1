@@ -1,6 +1,6 @@
 param()
 Describe 'Example 5.1-Simple-Logging' {
-    BeforeAll {. (Join-Path $PSScriptRoot '..\PesterHelpers.ps1'); $script:instance = Start-ExampleScript -Name '5.1-Simple-Logging.ps1' }
+    BeforeAll { . (Join-Path $PSScriptRoot '..\PesterHelpers.ps1'); $script:instance = Start-ExampleScript -Name '5.1-Simple-Logging.ps1' }
     AfterAll { if ($script:instance) { Stop-ExampleScript -Instance $script:instance } }
 
     It 'hello-powershell returns Hello, World!' {

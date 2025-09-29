@@ -6,7 +6,7 @@ Validates numeric probe data representation in XML health response.
 Import-Module "$PSScriptRoot/../../src/PowerShell/Kestrun/Kestrun.psd1" -Force
 
 New-KrServer -Name 'XmlParity'
-Add-KrListener -Port 5017 -IPAddress ([IPAddress]::Loopback)
+Add-KrEndpoint -Port 5017 -IPAddress ([IPAddress]::Loopback)
 Add-KrPowerShellRuntime
 
 Add-KrHealthProbe -Name 'NumProbe' -ScriptBlock {
@@ -43,7 +43,6 @@ try {
 
     if (-not ([int]::TryParse($intVal, [ref]([int]0)))) { throw "intVal not integer parseable: $intVal" }
     if (-not ([double]::TryParse($floatVal, [ref]([double]0)))) { throw "floatVal not floating parseable: $floatVal" }
-}
-finally {
+} finally {
     Stop-KrServer -Name 'XmlParity' -Force -ErrorAction SilentlyContinue | Out-Null
 }

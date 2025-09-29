@@ -29,7 +29,7 @@ headers (`no-store`), and short-circuit options so it can live alongside your AP
 
 ```powershell
 New-KrServer -Name 'health-demo'
-Add-KrListener -Port 5000 -IPAddress ([IPAddress]::Loopback)
+Add-KrEndpoint -Port 5000 -IPAddress ([IPAddress]::Loopback)
 Add-KrPowerShellRuntime
 
 Add-KrHealthEndpoint -Pattern '/healthz' -DefaultTags 'core' -ProbeTimeout '00:00:05' -TreatDegradedAsUnhealthy $true -OpenApiSummary 'Aggregated health'

@@ -1,6 +1,6 @@
 param()
 Describe 'Example 9.7-Errors' -Tag 'Tutorial', 'Errors' {
-    BeforeAll {. (Join-Path $PSScriptRoot '..\PesterHelpers.ps1'); $script:instance = Start-ExampleScript -Name '9.7-Errors.ps1' }
+    BeforeAll { . (Join-Path $PSScriptRoot '..\PesterHelpers.ps1'); $script:instance = Start-ExampleScript -Name '9.7-Errors.ps1' }
     AfterAll { if ($script:instance) { Stop-ExampleScript -Instance $script:instance } }
 
     It 'Error handling routes basic smoke' {

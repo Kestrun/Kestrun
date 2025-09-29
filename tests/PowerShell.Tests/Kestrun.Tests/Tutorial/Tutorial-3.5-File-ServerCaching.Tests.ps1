@@ -1,6 +1,6 @@
 param()
 Describe 'Example 3.5-File-ServerCaching' {
-    BeforeAll {. (Join-Path $PSScriptRoot '..\PesterHelpers.ps1'); $script:instance = Start-ExampleScript -Name '3.5-File-ServerCaching.ps1' }
+    BeforeAll { . (Join-Path $PSScriptRoot '..\PesterHelpers.ps1'); $script:instance = Start-ExampleScript -Name '3.5-File-ServerCaching.ps1' }
     AfterAll { if ($script:instance) { Stop-ExampleScript -Instance $script:instance } }
 
     It 'Returns index.html with caching headers' {

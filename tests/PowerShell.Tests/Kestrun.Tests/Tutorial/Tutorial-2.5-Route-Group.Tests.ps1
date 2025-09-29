@@ -1,6 +1,6 @@
 param()
 Describe 'Example 2.5-Route-Group' -Tag 'Tutorial' {
-    BeforeAll {. (Join-Path $PSScriptRoot '..\PesterHelpers.ps1'); $script:instance = Start-ExampleScript -Name '2.5-Route-Group.ps1' }
+    BeforeAll { . (Join-Path $PSScriptRoot '..\PesterHelpers.ps1'); $script:instance = Start-ExampleScript -Name '2.5-Route-Group.ps1' }
     AfterAll { if ($script:instance) { Stop-ExampleScript -Instance $script:instance } }
     It 'Grouped parameter routes return expected content for Get' {
         # Path (GET)

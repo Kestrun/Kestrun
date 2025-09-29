@@ -5,7 +5,7 @@ Import-Module "$PSScriptRoot/../../src/PowerShell/Kestrun/Kestrun.psd1" -Force
 
 New-KrLogger | Add-KrSinkConsole | Register-KrLogger -Name 'console' -SetAsDefault
 New-KrServer -Name 'NumericTest'
-Add-KrListener -Port 5015 -IPAddress ([IPAddress]::Loopback)
+Add-KrEndpoint -Port 5015 -IPAddress ([IPAddress]::Loopback)
 Add-KrPowerShellRuntime
 
 Add-KrHealthProbe -Name 'NumProbe' -ScriptBlock {

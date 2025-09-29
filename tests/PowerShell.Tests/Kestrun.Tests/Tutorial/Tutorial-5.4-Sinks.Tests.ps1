@@ -1,6 +1,6 @@
 param()
 Describe 'Example 5.4-Sinks' -Tag 'Tutorial', 'Logging', 'Sinks' {
-    BeforeAll {. (Join-Path $PSScriptRoot '..\PesterHelpers.ps1'); $script:instance = Start-ExampleScript -Name '5.4-Sinks.ps1' }
+    BeforeAll { . (Join-Path $PSScriptRoot '..\PesterHelpers.ps1'); $script:instance = Start-ExampleScript -Name '5.4-Sinks.ps1' }
     AfterAll { if ($script:instance) { Stop-ExampleScript -Instance $script:instance } }
 
     It 'GET /text returns text' {

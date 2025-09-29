@@ -1,6 +1,6 @@
 param()
 Describe 'Example 3.3-Static-OverrideRoutes' {
-    BeforeAll {. (Join-Path $PSScriptRoot '..\PesterHelpers.ps1'); $script:instance = Start-ExampleScript -Name '3.3-Static-OverrideRoutes.ps1' }
+    BeforeAll { . (Join-Path $PSScriptRoot '..\PesterHelpers.ps1'); $script:instance = Start-ExampleScript -Name '3.3-Static-OverrideRoutes.ps1' }
     AfterAll { if ($script:instance) { Stop-ExampleScript -Instance $script:instance } }
 
     It 'Serves static asset index.html under /assets' {

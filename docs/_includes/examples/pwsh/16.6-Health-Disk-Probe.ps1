@@ -4,6 +4,10 @@
     File:    16.6-Health-Disk-Probe.ps1
     Notes:   Demonstrates the use of a custom disk probe with specific health thresholds.
 #>
+param(
+    [int]$Port = 5000,
+    [IPAddress]$IPAddress = [IPAddress]::Loopback
+)
 
 ## 1. Logging
 New-KrLogger | Add-KrSinkConsole | Register-KrLogger -Name 'console' -SetAsDefault
@@ -12,7 +16,7 @@ New-KrLogger | Add-KrSinkConsole | Register-KrLogger -Name 'console' -SetAsDefau
 New-KrServer -Name 'Health Disk Probe'
 
 ## 3. Listener (port 5000)
-Add-KrListener -Port 5000 -IPAddress ([IPAddress]::Loopback)
+Add-KrEndpoint -Port $Port -IPAddress $IPAddress
 
 ## 4. Runtime
 Add-KrPowerShellRuntime

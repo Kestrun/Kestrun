@@ -10,7 +10,7 @@ Strategy:
 Import-Module "$PSScriptRoot/../../src/PowerShell/Kestrun/Kestrun.psd1" -Force
 
 New-KrServer -Name 'YamlParity'
-Add-KrListener -Port 5016 -IPAddress ([IPAddress]::Loopback)
+Add-KrEndpoint -Port 5016 -IPAddress ([IPAddress]::Loopback)
 Add-KrPowerShellRuntime
 
 Add-KrHealthProbe -Name 'NumProbe' -ScriptBlock {
@@ -37,7 +37,6 @@ try {
 
     if (-not ($intVal -is [int] -or $intVal -is [long])) { throw "intVal not numeric integer: $($intVal.GetType().FullName) value=$intVal" }
     if (-not ($floatVal -is [double] -or $floatVal -is [float])) { throw "floatVal not floating numeric: $($floatVal.GetType().FullName) value=$floatVal" }
-}
-finally {
+} finally {
     Stop-KrServer -Name 'YamlParity' -Force -ErrorAction SilentlyContinue | Out-Null
 }

@@ -1,6 +1,6 @@
 param()
 Describe 'Example 9.4-Html-Files' {
-    BeforeAll {. (Join-Path $PSScriptRoot '..\PesterHelpers.ps1'); $script:instance = Start-ExampleScript -Name '9.4-Html-Files.ps1' }
+    BeforeAll { . (Join-Path $PSScriptRoot '..\PesterHelpers.ps1'); $script:instance = Start-ExampleScript -Name '9.4-Html-Files.ps1' }
     AfterAll { if ($script:instance) { Stop-ExampleScript -Instance $script:instance } }
     It 'HTML routes behave as expected' {
         # /page -> must succeed and contain expected static about page heading

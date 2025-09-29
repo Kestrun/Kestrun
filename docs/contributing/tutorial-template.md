@@ -2,6 +2,7 @@
 title: Tutorial Page Authoring Template
 parent: Contributing
 nav_order: 99
+render_with_liquid: false
 ---
 
 # Tutorial Documentation Authoring Guide
@@ -162,7 +163,7 @@ One sentence purpose statement.
 File: [`pwsh/tutorial/examples/SECTION.NUMBER-slug.ps1`][EXAMPLE_REF.ps1]
 
 ```powershell
-{% raw %}{% include examples/pwsh/SECTION.NUMBER-slug.ps1 %}{% endraw %}
+{% include examples/pwsh/SECTION.NUMBER-slug.ps1 %}
 ```
 
 ## Step-by-step

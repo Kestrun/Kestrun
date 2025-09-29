@@ -1,6 +1,6 @@
 param()
 Describe 'Example 9.2-Structured-Xml-Yaml-Csv' {
-    BeforeAll {. (Join-Path $PSScriptRoot '..\PesterHelpers.ps1'); $script:instance = Start-ExampleScript -Name '9.2-Structured-Xml-Yaml-Csv.ps1' }
+    BeforeAll { . (Join-Path $PSScriptRoot '..\PesterHelpers.ps1'); $script:instance = Start-ExampleScript -Name '9.2-Structured-Xml-Yaml-Csv.ps1' }
     AfterAll { if ($script:instance) { Stop-ExampleScript -Instance $script:instance } }
     It 'XML routes expose structured data' {
         # XML root element presence

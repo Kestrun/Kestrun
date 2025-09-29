@@ -1,6 +1,6 @@
 param()
 Describe 'Example 9.3-Binary-Stream' {
-    BeforeAll {. (Join-Path $PSScriptRoot '..\PesterHelpers.ps1'); $script:instance = Start-ExampleScript -Name '9.3-Binary-Stream.ps1' }
+    BeforeAll { . (Join-Path $PSScriptRoot '..\PesterHelpers.ps1'); $script:instance = Start-ExampleScript -Name '9.3-Binary-Stream.ps1' }
     AfterAll { if ($script:instance) { Stop-ExampleScript -Instance $script:instance } }
     It 'Binary and stream routes return data or 404 gracefully' {
         $logo = Invoke-WebRequest -Uri "$($script:instance.Url)/logo" -UseBasicParsing -TimeoutSec 8 -ErrorAction SilentlyContinue

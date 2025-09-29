@@ -2,7 +2,7 @@
 Import-Module "$PSScriptRoot/../../src/PowerShell/Kestrun/Kestrun.psd1" -Force
 
 New-KrServer -Name 'TxtHealth'
-Add-KrListener -Port 5020 -IPAddress ([IPAddress]::Loopback)
+Add-KrEndpoint -Port 5020 -IPAddress ([IPAddress]::Loopback)
 Add-KrPowerShellRuntime
 
 Add-KrHealthProbe -Name 'QuickProbe' -ScriptBlock {

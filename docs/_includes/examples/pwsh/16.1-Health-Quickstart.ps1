@@ -3,14 +3,19 @@
     Migrated from 9.11-Health-Checks.ps1
     Demonstrates basic health endpoint with script + HTTP probes.
 #>
+param(
+    [int]$Port = 5000,
+    [IPAddress]$IPAddress = [IPAddress]::Loopback
+)
+
 ## 1. Logging (console sink for visibility)
 New-KrLogger | Add-KrSinkConsole | Register-KrLogger -Name 'console' -SetAsDefault
 
 ## 2. Server
-New-KrServer -Name "Health Demo"
+New-KrServer -Name 'Health Demo'
 
 ## 3. Listener (loopback port 5000)
-Add-KrListener -Port 5000 -IPAddress ([IPAddress]::Loopback)
+Add-KrEndpoint -Port $Port -IPAddress $IPAddress
 
 ## 4. Runtime (PowerShell execution engine)
 Add-KrPowerShellRuntime
@@ -19,7 +24,7 @@ Add-KrPowerShellRuntime
 Enable-KrConfiguration
 
 ## 6. Supporting route used by HTTP probe
-Add-KrMapRoute -Verbs Get -Pattern "/ping" -ScriptBlock {
+Add-KrMapRoute -Verbs Get -Pattern '/ping' -ScriptBlock {
     Write-KrJsonResponse @{ status = 'Healthy'; description = 'Self ping successful' }
 }
 
@@ -32,7 +37,7 @@ Add-KrHealthProbe -Name 'Self' -Tags 'self' -ScriptBlock {
 }
 
 ## 9. HTTP probe (calls /ping)
-Add-KrHealthHttpProbe -Name 'Ping' -Url 'http://127.0.0.1:5000/ping' -Tags 'remote', 'self' -Timeout '00:00:02'
+Add-KrHealthHttpProbe -Name 'Ping' -Url "http://127.0.0.1:$Port/ping" -Tags 'remote', 'self' -Timeout '00:00:02'
 
 ## 10. Start server
-Start-KrServer
+Start-KrServer -CloseLogsOnExit

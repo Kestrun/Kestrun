@@ -50,6 +50,13 @@ public static class LoggerManager
     }
 
     /// <summary>
+    /// Returns the current Serilog default logger (Log.Logger).
+    /// </summary>
+    public static Serilog.ILogger GetDefault() => Log.Logger;
+
+    private static Serilog.ILogger CreateBaselineLogger() => new LoggerConfiguration().CreateLogger();
+
+    /// <summary>
     /// Create a new <see cref="LoggerConfiguration"/> associated with a name.
     /// </summary>
     /// <param name="name">The name of the logger configuration.</param>
@@ -94,13 +101,17 @@ public static class LoggerManager
     {
         if (_loggers.TryRemove(name, out var logger))
         {
+            var wasDefault = ReferenceEquals(Log.Logger, logger);
             if (logger is IDisposable d)
             {
                 d.Dispose();
             }
-
             _ = _configs.TryRemove(name, out _);
             _ = _switches.TryRemove(name, out _);
+            if (wasDefault)
+            {
+                Log.Logger = CreateBaselineLogger();
+            }
             return true;
         }
         return false;
@@ -113,14 +124,13 @@ public static class LoggerManager
     /// <returns>True if the logger was found and closed; otherwise, false.</returns>
     public static bool CloseAndFlush(Serilog.ILogger logger)
     {
+        var wasDefault = ReferenceEquals(Log.Logger, logger);
         if (logger is IDisposable d)
         {
             d.Dispose();
         }
-
         var removed = false;
-        // Find all registered names that reference this logger and remove them.
-        var keys = _loggers.Where(kv => kv.Value == logger).Select(kv => kv.Key).ToList();
+        var keys = _loggers.Where(kv => ReferenceEquals(kv.Value, logger)).Select(kv => kv.Key).ToList();
         foreach (var key in keys)
         {
             _ = _loggers.TryRemove(key, out _);
@@ -128,7 +138,10 @@ public static class LoggerManager
             _ = _switches.TryRemove(key, out _);
             removed = true;
         }
-
+        if (wasDefault)
+        {
+            Log.Logger = CreateBaselineLogger();
+        }
         return removed;
     }
 
@@ -219,8 +232,10 @@ public static class LoggerManager
                 d.Dispose();
             }
         }
-
         _loggers.Clear();
         _configs.Clear();
+        _switches.Clear();
+        // Reset Serilog global logger to a baseline empty logger
+        Log.Logger = CreateBaselineLogger();
     }
 }

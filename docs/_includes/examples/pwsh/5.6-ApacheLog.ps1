@@ -7,7 +7,7 @@
 New-KrLogger |
     Set-KrLoggerMinimumLevel -Value Debug |
     Add-KrSinkConsole |
-    Register-KrLogger -Name 'myLogger' -SetAsDefault
+    Register-KrLogger -Name 'myApacheLogger'
 
 # Create a new Kestrun server
 New-KrServer -Name "Simple Server"
@@ -18,7 +18,7 @@ Add-KrListener -Port 5000 -IPAddress ([IPAddress]::Loopback)
 # Add the PowerShell runtime
 # !!!!Important!!!! this step is required to process PowerShell routes and middlewares
 Add-KrPowerShellRuntime
-Add-KrCommonAccessLogMiddleware -LoggerName 'myLogger' -UseUtcTimestamp
+Add-KrCommonAccessLogMiddleware -LoggerName 'myApacheLogger' -UseUtcTimestamp
 # Enable Kestrun configuration
 Enable-KrConfiguration
 

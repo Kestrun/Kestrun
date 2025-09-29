@@ -184,7 +184,7 @@ jobs:
                   try {
                       Write-Output "Analyzing $($f.FullName)"
                       $r = Invoke-ScriptAnalyzer -Path $f.FullName -Settings $settings -ErrorAction Stop
-                      if ($r) { [void]$collected.AddRange($r) }
+                      foreach ($item in @($r)) { $null = $collected.Add($item) }
                   } catch {
                       $toolErrors += [pscustomobject]@{ file=$f.FullName; error=$_.Exception.Message }
                   }

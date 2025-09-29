@@ -126,6 +126,47 @@ public class CommonAccessLogMiddlewareTests
 
     [Fact]
     [Trait("Category", "Middleware")]
+    public async Task InvokeAsync_Invalid_Timestamp_Format_Falls_Back_To_Default()
+    {
+        var options = new CommonAccessLogOptions
+        {
+            IncludeProtocol = false,
+            IncludeQueryString = false,
+            TimestampFormat = "invalid {{{", // invalid format triggers fallback
+            TimeProvider = new FixedTimeProvider(new DateTimeOffset(2024, 6, 10, 9, 30, 0, TimeSpan.FromHours(2)))
+        };
+
+        var optionsMonitor = Mock.Of<IOptionsMonitor<CommonAccessLogOptions>>(m => m.CurrentValue == options);
+
+        var logger = new Mock<Serilog.ILogger>();
+        _ = logger.Setup(l => l.ForContext(It.IsAny<string>(), It.IsAny<object?>(), It.IsAny<bool>()))
+                   .Returns(logger.Object);
+        _ = logger.Setup(l => l.ForContext<CommonAccessLogMiddleware>())
+                   .Returns(logger.Object);
+        _ = logger.Setup(l => l.IsEnabled(LogEventLevel.Information)).Returns(true);
+
+        string? captured = null;
+        _ = logger.Setup(l => l.Write(LogEventLevel.Information, "{CommonAccessLogLine}", It.IsAny<object?[]>()))
+                   .Callback<LogEventLevel, string, object?[]>((_, _, values) =>
+                   {
+                       captured = values.Length > 0 ? values[0]?.ToString() : null;
+                   });
+
+        var middleware = new CommonAccessLogMiddleware(_ => Task.CompletedTask, optionsMonitor, logger.Object);
+
+        var context = new DefaultHttpContext();
+        context.Connection.RemoteIpAddress = IPAddress.Parse("198.51.100.11");
+        context.Request.Method = "GET";
+        context.Request.Path = "/health";
+        context.Response.StatusCode = StatusCodes.Status200OK;
+
+        await middleware.InvokeAsync(context);
+
+        Assert.Equal("198.51.100.11 - - [10/Jun/2024:09:30:00 +0200] \"GET /health\" 200 - \"-\" \"-\"", captured);
+    }
+
+    [Fact]
+    [Trait("Category", "Middleware")]
     public async Task InvokeAsync_Uses_Custom_Logger_From_Options()
     {
         var customLogger = new Mock<Serilog.ILogger>();

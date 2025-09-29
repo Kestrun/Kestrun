@@ -79,15 +79,23 @@ public sealed class CommonAccessLogMiddleware
             return;
         }
 
+        var (timestamp, usedFallbackFormat) = ResolveTimestamp(options);
+        if (usedFallbackFormat)
+        {
+            _defaultLogger.Debug(
+                "Invalid common access log timestamp format '{TimestampFormat}' supplied – falling back to default.",
+                options.TimestampFormat);
+        }
+
         try
         {
-            var logLine = BuildLogLine(context, options, elapsed);
+            var logLine = BuildLogLine(context, options, elapsed, timestamp);
             logger.Write(options.Level, "{CommonAccessLogLine}", logLine);
         }
         catch (Exception ex)
         {
             // Access logging should never take down the pipeline – swallow and trace.
-            Log.Logger.Debug(ex, "Failed to emit common access log entry.");
+            _defaultLogger.Debug(ex, "Failed to emit common access log entry.");
         }
     }
 
@@ -111,7 +119,7 @@ public sealed class CommonAccessLogMiddleware
                      .ForContext<CommonAccessLogMiddleware>();
     }
 
-    private static string BuildLogLine(HttpContext context, CommonAccessLogOptions options, TimeSpan elapsed)
+    private static string BuildLogLine(HttpContext context, CommonAccessLogOptions options, TimeSpan elapsed, string timestamp)
     {
         var request = context.Request;
         var response = context.Response;
@@ -120,7 +128,6 @@ public sealed class CommonAccessLogMiddleware
         var remoteIdent = "-"; // identd is rarely used – emit dash per the spec.
         var remoteUser = SanitizeToken(ResolveRemoteUser(context));
 
-        var timestamp = ResolveTimestamp(options);
         var requestLine = SanitizeQuoted(BuildRequestLine(request, options));
         var statusCode = context.Response.StatusCode;
         var responseBytes = ResolveContentLength(response);
@@ -156,7 +163,7 @@ public sealed class CommonAccessLogMiddleware
         return builder.ToString();
     }
 
-    private static string ResolveTimestamp(CommonAccessLogOptions options)
+    private static (string Timestamp, bool UsedFallbackFormat) ResolveTimestamp(CommonAccessLogOptions options)
     {
         var provider = options.TimeProvider ?? TimeProvider.System;
         var timestamp = options.UseUtcTimestamp
@@ -167,6 +174,18 @@ public sealed class CommonAccessLogMiddleware
             ? CommonAccessLogOptions.DefaultTimestampFormat
             : options.TimestampFormat;
 
+        try
+        {
+            return (RenderTimestamp(timestamp, format), false);
+        }
+        catch (FormatException)
+        {
+            return (RenderTimestamp(timestamp, CommonAccessLogOptions.DefaultTimestampFormat), true);
+        }
+    }
+
+    private static string RenderTimestamp(DateTimeOffset timestamp, string format)
+    {
         var rendered = timestamp.ToString(format, CultureInfo.InvariantCulture);
 
         if (string.Equals(format, CommonAccessLogOptions.DefaultTimestampFormat, StringComparison.Ordinal))

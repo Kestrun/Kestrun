@@ -50,7 +50,7 @@ public class KestrunHttpMiddlewareExtensionsTests
         var host = CreateHost(out var middleware);
         var logger = new Mock<Serilog.ILogger>();
 
-        _ = host.AddCommonAccessLog(logger.Object);
+        _ = host.AddCommonAccessLog(new CommonAccessLogOptions { Logger = logger.Object });
 
         Assert.True(middleware.Count > 0);
 
@@ -290,7 +290,7 @@ public class KestrunHttpMiddlewareExtensionsTests
 
         // Verify service was added by checking the service collection has entries
         var serviceField = typeof(KestrunHost).GetField("_serviceQueue", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-        var services = (List<Action<Microsoft.Extensions.DependencyInjection.IServiceCollection>>)serviceField!.GetValue(host)!;
+        var services = (List<Action<IServiceCollection>>)serviceField!.GetValue(host)!;
         Assert.True(services.Count > 0);
     }
 
@@ -306,7 +306,7 @@ public class KestrunHttpMiddlewareExtensionsTests
         KestrunHttpMiddlewareExtensions.RegisterCachingServices(host, opts => opts.MaximumBodySize = 1024);
 
         var serviceField = typeof(KestrunHost).GetField("_serviceQueue", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-        var services = (List<Action<Microsoft.Extensions.DependencyInjection.IServiceCollection>>)serviceField!.GetValue(host)!;
+        var services = (List<Action<IServiceCollection>>)serviceField!.GetValue(host)!;
         Assert.True(services.Count > 0);
     }
 

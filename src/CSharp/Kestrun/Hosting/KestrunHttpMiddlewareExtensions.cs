@@ -16,6 +16,28 @@ namespace Kestrun.Hosting;
 public static class KestrunHttpMiddlewareExtensions
 {
     /// <summary>
+    /// Adds Apache-style common access logging using a configured <see cref="CommonAccessLogOptions"/> instance.
+    /// </summary>
+    /// <param name="host">The <see cref="KestrunHost"/> instance to configure.</param>
+    /// <param name="configure">Optional pre-configured <see cref="CommonAccessLogOptions"/> instance.</param>
+    /// <returns>The configured <see cref="KestrunHost"/> instance.</returns>
+    public static KestrunHost AddCommonAccessLog(this KestrunHost host, CommonAccessLogOptions configure)
+    {
+        return host.AddCommonAccessLog(opts =>
+        {
+            opts.Level = configure.Level;
+            opts.IncludeQueryString = configure.IncludeQueryString;
+            opts.IncludeProtocol = configure.IncludeProtocol;
+            opts.IncludeElapsedMilliseconds = configure.IncludeElapsedMilliseconds;
+            opts.UseUtcTimestamp = configure.UseUtcTimestamp;
+            opts.TimestampFormat = configure.TimestampFormat;
+            opts.ClientAddressHeader = configure.ClientAddressHeader;
+            opts.TimeProvider = configure.TimeProvider;
+            opts.Logger = configure.Logger;
+        });
+    }
+
+    /// <summary>
     /// Adds Apache-style common access logging using <see cref="CommonAccessLogMiddleware"/>.
     /// </summary>
     /// <param name="host">The <see cref="KestrunHost"/> instance to configure.</param>
@@ -42,26 +64,7 @@ public static class KestrunHttpMiddlewareExtensions
         return host.Use(app => app.UseMiddleware<CommonAccessLogMiddleware>());
     }
 
-    /// <summary>
-    /// Adds Apache-style common access logging using <see cref="CommonAccessLogMiddleware"/> and the specified Serilog logger.
-    /// </summary>
-    /// <param name="host">The <see cref="KestrunHost"/> instance to configure.</param>
-    /// <param name="logger">The Serilog logger that should receive access log entries.</param>
-    /// <param name="configure">Optional delegate to further configure <see cref="CommonAccessLogOptions"/>.</param>
-    /// <returns>The configured <see cref="KestrunHost"/> instance.</returns>
-    public static KestrunHost AddCommonAccessLog(
-        this KestrunHost host,
-        Serilog.ILogger logger,
-        Action<CommonAccessLogOptions>? configure = null)
-    {
-        ArgumentNullException.ThrowIfNull(logger);
 
-        return host.AddCommonAccessLog(options =>
-        {
-            options.Logger = logger;
-            configure?.Invoke(options);
-        });
-    }
 
     /// <summary>
     /// Adds response compression to the application.

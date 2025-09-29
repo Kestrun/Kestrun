@@ -77,24 +77,25 @@ function Add-KrCommonAccessLogMiddleware {
         [Parameter()]
         [switch]$PassThru
     )
+    begin {
+        $Server = Resolve-KestrunServer -Server $Server
 
-    $Server = Resolve-KestrunServer -Server $Server
-
-    # If Logger is not provided, use the default logger or the named logger
-    if ($Null -eq $Logger) {
-        if ([string]::IsNullOrEmpty($LoggerName)) {
-            $Logger = [Serilog.Log]::Logger
-        } else {
-            # If LoggerName is specified, get the logger with that name
-            $Logger = [Kestrun.Logging.LoggerManager]::Get($LoggerName)
+        # If Logger is not provided, use the default logger or the named logger
+        if ($Null -eq $Logger) {
+            if ([string]::IsNullOrEmpty($LoggerName)) {
+                $Logger = [Serilog.Log]::Logger
+            } else {
+                # If LoggerName is specified, get the logger with that name
+                $Logger = [Kestrun.Logging.LoggerManager]::Get($LoggerName)
+            }
         }
     }
+    process {
 
-    $timestampFormatSet = $PSBoundParameters.ContainsKey('TimestampFormat')
-    $clientHeaderSet = $PSBoundParameters.ContainsKey('ClientAddressHeader')
+        $timestampFormatSet = $PSBoundParameters.ContainsKey('TimestampFormat')
+        $clientHeaderSet = $PSBoundParameters.ContainsKey('ClientAddressHeader')
 
-    $configure = [System.Action[Kestrun.Middleware.CommonAccessLogOptions]] {
-        param($options)
+        $options = [Kestrun.Middleware.CommonAccessLogOptions]::new()
         $options.Level = $Level
         $options.IncludeQueryString = $ExcludeQueryString.IsPresent
         $options.IncludeProtocol = $ExcludeProtocol.IsPresent
@@ -110,12 +111,12 @@ function Add-KrCommonAccessLogMiddleware {
         }
 
         $options.Logger = $Logger
-    }
 
-    [Kestrun.Hosting.KestrunHttpMiddlewareExtensions]::AddCommonAccessLog($Server, $configure) | Out-Null
+        [Kestrun.Hosting.KestrunHttpMiddlewareExtensions]::AddCommonAccessLog($Server, $options) | Out-Null
 
-    if ($PassThru.IsPresent) {
-        return $Server
+        if ($PassThru.IsPresent) {
+            return $Server
+        }
     }
 
 }

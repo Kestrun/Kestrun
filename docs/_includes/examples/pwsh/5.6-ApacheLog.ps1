@@ -30,4 +30,5 @@ Add-KrMapRoute -Verbs Get -Pattern "/hello" -ScriptBlock {
 }
 
 # Start the server asynchronously
-Start-KrServer
+Start-KrServer -CloseLogsOnExit
+

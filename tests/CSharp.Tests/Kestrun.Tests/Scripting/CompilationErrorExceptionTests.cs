@@ -1,3 +1,4 @@
+using Kestrun.Health;
 using Kestrun.Scripting;
 using Microsoft.CodeAnalysis;
 using System.Collections.Immutable;
@@ -19,7 +20,7 @@ public class CompilationErrorExceptionTests
     {
         var diags = ImmutableArray.Create(
             MakeDiag("err", DiagnosticSeverity.Error),
-            MakeDiag("warn", DiagnosticSeverity.Warning));
+            MakeDiag(ProbeStatusLabels.STATUS_WARN, DiagnosticSeverity.Warning));
         var ex = new CompilationErrorException("bad", diags);
         _ = Assert.Single(ex.GetErrors());
         _ = Assert.Single(ex.GetWarnings());

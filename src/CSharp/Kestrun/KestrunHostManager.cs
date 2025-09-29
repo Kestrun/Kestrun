@@ -10,11 +10,20 @@ namespace Kestrun;
 /// </summary>
 public static class KestrunHostManager
 {
+    /// <summary>
+    /// Holds the collection of KestrunHost instances, keyed by their names.
+    /// </summary>
     private static readonly ConcurrentDictionary<string, KestrunHost> _instances = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// The name of the default KestrunHost instance, if one has been set.
+    /// </summary>
     private static string? _defaultName;
-#pragma warning disable IDE0032 // Use auto property
+
+    /// <summary>
+    /// The root path for Kestrun operations.
+    /// </summary>
     private static string? _kestrunRoot;
-#pragma warning restore IDE0032 // Use auto property
 
     /// <summary>
     /// Gets the collection of names for all KestrunHost instances.

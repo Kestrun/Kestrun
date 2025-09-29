@@ -425,6 +425,15 @@ public static partial class KestrunHostMapExtensions
     private static bool TryParseUrlSpec(string spec, out string host, out int port, out bool? https)
     {
         host = ""; port = 0; https = null;
+        // Fast rejection for an explicitly empty port (e.g. "https://localhost:" or "http://[::1]:")
+        // Uri.TryCreate will happily parse these and supply the default scheme port (80/443),
+        // which would make us treat an intentionally empty port as a valid implicit port.
+        // The accepted formats require either no colon at all (implicit default) OR a colon followed by digits.
+        // Therefore pattern: scheme:// host-part : end-of-string (no digits after colon) should be rejected.
+        if (UrlValidationRegex().IsMatch(spec))
+        {
+            return false;
+        }
         if (!Uri.TryCreate(spec, UriKind.Absolute, out var uri))
         {
             return false;
@@ -1181,5 +1190,7 @@ public static partial class KestrunHostMapExtensions
 
     [GeneratedRegex(@"^([^:]+):(\d+)$")]
     private static partial Regex HostPortSpecMatcher();
+    [GeneratedRegex(@"^https?://[^/\?#]+:$", RegexOptions.IgnoreCase, "en-US")]
+    private static partial Regex UrlValidationRegex();
 }
 

@@ -12,6 +12,11 @@
     .PARAMETER Logger
         The Serilog logger instance that should receive the access log entries. When not supplied the
         middleware uses the application's default logger from dependency injection.
+        This parameter is mutually exclusive with LoggerName.
+    .PARAMETER LoggerName
+        The name of a registered logger that should receive the access log entries. When supplied
+        the logger with this name is used instead of the default application logger.
+        This parameter is mutually exclusive with Logger.
     .PARAMETER IncludeQueryString
         Indicates whether the request query string should be included in the logged request line. Defaults to $true.
     .PARAMETER IncludeProtocol
@@ -36,8 +41,7 @@
 #>
 function Add-KrCommonAccessLogMiddleware {
     [KestrunRuntimeApi('Definition')]
-    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseShouldProcessForStateChangingFunctions', '')]
-    [CmdletBinding()]
+    [CmdletBinding(DefaultParameterSetName = 'Logger')]
     [OutputType([Kestrun.Hosting.KestrunHost])]
     param(
         [Parameter(ValueFromPipeline = $true)]
@@ -46,20 +50,23 @@ function Add-KrCommonAccessLogMiddleware {
         [Parameter()]
         [Serilog.Events.LogEventLevel]$Level = [Serilog.Events.LogEventLevel]::Information,
 
-        [Parameter()]
+        [Parameter(Mandatory = $false, ParameterSetName = 'Logger')]
         [Serilog.ILogger]$Logger,
 
-        [Parameter()]
-        [bool]$IncludeQueryString = $true,
+        [Parameter(Mandatory = $true, ParameterSetName = 'LoggerName')]
+        [string]$LoggerName,
 
         [Parameter()]
-        [bool]$IncludeProtocol = $true,
+        [switch]$ExcludeQueryString,
 
         [Parameter()]
-        [bool]$IncludeElapsedMilliseconds = $false,
+        [switch]$ExcludeProtocol,
 
         [Parameter()]
-        [bool]$UseUtcTimestamp = $false,
+        [switch]$IncludeElapsedMilliseconds,
+
+        [Parameter()]
+        [switch]$UseUtcTimestamp,
 
         [Parameter()]
         [string]$TimestampFormat,
@@ -71,43 +78,44 @@ function Add-KrCommonAccessLogMiddleware {
         [switch]$PassThru
     )
 
-    begin {
-        $Server = Resolve-KestrunServer -Server $Server
-        if ($null -eq $Server) {
-            throw 'Server is not initialized. Please ensure the server is configured before setting options.'
-        }
+    $Server = Resolve-KestrunServer -Server $Server
 
-        $timestampFormatSet = $PSBoundParameters.ContainsKey('TimestampFormat')
-        $clientHeaderSet = $PSBoundParameters.ContainsKey('ClientAddressHeader')
-        $loggerSet = $PSBoundParameters.ContainsKey('Logger')
-    }
-
-    process {
-        $configure = [System.Action[Kestrun.Middleware.CommonAccessLogOptions]] {
-            param($options)
-            $options.Level = $Level
-            $options.IncludeQueryString = $IncludeQueryString
-            $options.IncludeProtocol = $IncludeProtocol
-            $options.IncludeElapsedMilliseconds = $IncludeElapsedMilliseconds
-            $options.UseUtcTimestamp = $UseUtcTimestamp
-
-            if ($timestampFormatSet) {
-                $options.TimestampFormat = $TimestampFormat
-            }
-
-            if ($clientHeaderSet -and -not [string]::IsNullOrWhiteSpace($ClientAddressHeader)) {
-                $options.ClientAddressHeader = $ClientAddressHeader
-            }
-
-            if ($loggerSet -and $null -ne $Logger) {
-                $options.Logger = $Logger
-            }
-        }
-
-        [Kestrun.Hosting.KestrunHttpMiddlewareExtensions]::AddCommonAccessLog($Server, $configure) | Out-Null
-
-        if ($PassThru.IsPresent) {
-            return $Server
+    # If Logger is not provided, use the default logger or the named logger
+    if ($Null -eq $Logger) {
+        if ([string]::IsNullOrEmpty($LoggerName)) {
+            $Logger = [Serilog.Log]::Logger
+        } else {
+            # If LoggerName is specified, get the logger with that name
+            $Logger = [Kestrun.Logging.LoggerManager]::Get($LoggerName)
         }
     }
+
+    $timestampFormatSet = $PSBoundParameters.ContainsKey('TimestampFormat')
+    $clientHeaderSet = $PSBoundParameters.ContainsKey('ClientAddressHeader')
+
+    $configure = [System.Action[Kestrun.Middleware.CommonAccessLogOptions]] {
+        param($options)
+        $options.Level = $Level
+        $options.IncludeQueryString = $ExcludeQueryString.IsPresent
+        $options.IncludeProtocol = $ExcludeProtocol.IsPresent
+        $options.IncludeElapsedMilliseconds = $IncludeElapsedMilliseconds.IsPresent
+        $options.UseUtcTimestamp = $UseUtcTimestamp.IsPresent
+
+        if ($timestampFormatSet) {
+            $options.TimestampFormat = $TimestampFormat
+        }
+
+        if ($clientHeaderSet -and -not [string]::IsNullOrWhiteSpace($ClientAddressHeader)) {
+            $options.ClientAddressHeader = $ClientAddressHeader
+        }
+
+        $options.Logger = $Logger
+    }
+
+    [Kestrun.Hosting.KestrunHttpMiddlewareExtensions]::AddCommonAccessLog($Server, $configure) | Out-Null
+
+    if ($PassThru.IsPresent) {
+        return $Server
+    }
+
 }

@@ -6,7 +6,6 @@ using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.ResponseCaching;
 using Microsoft.AspNetCore.ResponseCompression;
 using Microsoft.Net.Http.Headers;
-using Serilog;
 using Serilog.Events;
 
 namespace Kestrun.Hosting;

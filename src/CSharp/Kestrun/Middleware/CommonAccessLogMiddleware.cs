@@ -5,7 +5,6 @@ using System.Text;
 using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Primitives;
 using Microsoft.Net.Http.Headers;
-using Serilog;
 
 namespace Kestrun.Middleware;
 
@@ -98,12 +97,7 @@ public sealed class CommonAccessLogMiddleware
     {
         ArgumentNullException.ThrowIfNull(options);
 
-        if (options.Logger is { } customLogger)
-        {
-            return CreateScopedLogger(customLogger);
-        }
-
-        return _defaultLogger;
+        return options.Logger is { } customLogger ? CreateScopedLogger(customLogger) : _defaultLogger;
     }
 
     private static Serilog.ILogger CreateScopedLogger(Serilog.ILogger logger)

@@ -1,4 +1,4 @@
-﻿# Validates that numeric probe data remains numeric in JSON health response
+# Validates that numeric probe data remains numeric in JSON health response
 # Arrange: start a minimal server with a single script probe
 
 Import-Module "$PSScriptRoot/../../src/PowerShell/Kestrun/Kestrun.psd1" -Force

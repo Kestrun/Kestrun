@@ -1,4 +1,4 @@
-﻿<#
+<#
 Validates numeric probe data representation in XML health response.
 * Ensures <intVal>42</intVal> and <floatVal>12.5</floatVal> appear and when parsed values can be cast to numeric.
 * Mirrors JSON & YAML parity tests.

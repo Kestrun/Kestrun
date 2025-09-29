@@ -1,4 +1,4 @@
-﻿<#
+<#
 Validates that numeric probe data remains numeric in YAML health response.
 Strategy:
   * Spin up server with YAML response preference.

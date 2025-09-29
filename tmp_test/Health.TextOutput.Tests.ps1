@@ -1,4 +1,4 @@
-﻿# Validates plain text health output option
+# Validates plain text health output option
 Import-Module "$PSScriptRoot/../../src/PowerShell/Kestrun/Kestrun.psd1" -Force
 
 New-KrServer -Name 'TxtHealth'

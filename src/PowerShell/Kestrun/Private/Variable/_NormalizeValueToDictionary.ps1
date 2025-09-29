@@ -1,4 +1,4 @@
-﻿<#
+<#
 .SYNOPSIS
     Recursively normalizes a value into a form suitable for Dictionary[string, object].
 .DESCRIPTION

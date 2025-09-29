@@ -57,27 +57,23 @@ public static class HealthReportTextFormatter
         return value is null
             ? "<null>"
             : value switch
-        {
-            string s => '"' + Escape(s) + '"',
-            DateTime dt => dt.ToString("O"),
-            DateTimeOffset dto => dto.ToString("O"),
-            TimeSpan ts => ts.ToString(),
-            _ => value.ToString() ?? string.Empty
-        };
+            {
+                string s => '"' + Escape(s) + '"',
+                DateTime dt => dt.ToString("O"),
+                DateTimeOffset dto => dto.ToString("O"),
+                TimeSpan ts => ts.ToString(),
+                _ => value.ToString() ?? string.Empty
+            };
     }
 
     private static string Escape(string input) => input.Replace("\"", "\\\"").Replace("\n", "\\n").Replace("\r", "\\r");
 
     private static string FormatDuration(TimeSpan duration)
     {
-        if (duration.TotalMilliseconds < 1)
-        {
-            return "<1ms";
-        }
-        if (duration.TotalMilliseconds < 1000)
-        {
-            return ((int)duration.TotalMilliseconds) + "ms";
-        }
-        return duration.TotalSeconds < 60 ? duration.TotalSeconds.ToString("0.###") + "s" : duration.ToString();
+        return duration.TotalMilliseconds < 1
+            ? "<1ms"
+            : duration.TotalMilliseconds < 1000
+            ? ((int)duration.TotalMilliseconds) + "ms"
+            : duration.TotalSeconds < 60 ? duration.TotalSeconds.ToString("0.###") + "s" : duration.ToString();
     }
 }

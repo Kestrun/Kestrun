@@ -19,7 +19,7 @@ $app = New-KrLogger |
 
 # Default logger for server events
 New-KrLogger |
-    Set-KrLoggerMinimumLevel -Value Debug |
+    Set-KrLoggerMinimumLevel -Values Debug |
     Add-KrSinkConsole |
     Register-KrLogger -Name 'Default'
 
@@ -56,8 +56,8 @@ Add-KrMapRoute -Verbs Get -Path "/level/{level}" -ScriptBlock {
 # Reconfigure 'app' logger at runtime: add a property and tighten minimum level
 Add-KrMapRoute -Verbs Post -Path "/reconfigure" -ScriptBlock {
     New-KrLogger |
-        Set-KrLoggerMinimumLevel -Value Warning |
-        Add-KrEnrichProperty -Name 'Reconfigured' -Value $true |
+        Set-KrLoggerMinimumLevel -Values Warning |
+        Add-KrEnrichProperty -Name 'Reconfigured' -Values $true |
         Add-KrSinkConsole |
         Add-KrSinkFile -Path '.\logs\hot-reload.log' -RollingInterval Hour |
         Register-KrLogger -Name 'app'

@@ -7,7 +7,7 @@ param(
 )
 # 1. Logging
 New-KrLogger |
-    Set-KrLoggerMinimumLevel -Value Debug |
+    Set-KrLoggerMinimumLevel -Values Debug |
     Add-KrSinkConsole |
     Register-KrLogger -Name 'console' -SetAsDefault
 # 2. Server

@@ -34,7 +34,7 @@ try {
     exit 1
 }
 New-KrLogger |
-    Set-KrLoggerMinimumLevel -Value Debug |
+    Set-KrLoggerMinimumLevel -Values Debug |
     Add-KrSinkFile -Path '.\logs\MultiRoutes.log' -RollingInterval Hour |
     Add-KrSinkConsole |
     Register-KrLogger -Name 'DefaultLogger' -SetAsDefault
@@ -104,7 +104,7 @@ $data = @'
 ]
 '@| ConvertFrom-Json
 
-Set-KrSharedState -Name 'Orders' -Value $data
+Set-KrSharedState -Name 'Orders' -Values $data
 # Example usage:
 Set-KrServerOptions -AllowSynchronousIO -DenyServerHeader
 

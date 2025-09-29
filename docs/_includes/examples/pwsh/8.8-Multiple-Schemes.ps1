@@ -63,8 +63,8 @@ Add-KrRouteGroup -Prefix '/secure' {
         $user = $Context.User.Identity.Name
         $build = Copy-KrJWTTokenBuilder -Builder $builder |
             Add-KrJWTSubject -Subject $user |
-            Add-KrJWTClaim -UserClaimType Name -Value $user |
-            Add-KrJWTClaim -UserClaimType Role -Value 'admin' |
+            Add-KrJWTClaim -UserClaimType Name -Values $user |
+            Add-KrJWTClaim -UserClaimType Role -Values 'admin' |
             Build-KrJWT
         $token = $build | Get-KrJWTToken
         Write-KrJsonResponse @{ access_token = $token; expires = $build.Expires }

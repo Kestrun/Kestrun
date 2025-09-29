@@ -65,7 +65,7 @@ nav_order: 1
 parent: "C#"
 ---
 '@
-        Set-Content -Path (Join-Path -Path $_.DirectoryName -ChildPath 'index.md') -Value ($front + "`n" + $content) -NoNewline
+        Set-Content -Path (Join-Path -Path $_.DirectoryName -ChildPath 'index.md') -Values ($front + "`n" + $content) -NoNewline
         Remove-Item -Path $file -Force
         Write-Host '🛠️ Updated index.md for C# API'
 
@@ -118,7 +118,7 @@ parent: "$TopParent"
 ---
 "@
     }
-    Set-Content -Path $file -Value ($front + "`n" + ($content -replace '.md' , '')) -NoNewline
+    Set-Content -Path $file -Values ($front + "`n" + ($content -replace '.md' , '')) -NoNewline
 }
 
 Write-Host "✅ Docs prepared in $ApiOut"

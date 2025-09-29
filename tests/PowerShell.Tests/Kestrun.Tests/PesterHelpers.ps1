@@ -205,7 +205,7 @@ Start-KrServer
 
     # Write modified legacy content to temp file
     $tmp = Join-Path $tempDir ('kestrun-example-' + [System.IO.Path]::GetRandomFileName() + '.ps1')
-    Set-Content -Path $tmp -Value $content -Encoding UTF8
+    Set-Content -Path $tmp -Values $content -Encoding UTF8
 
 
     $stdOut = Join-Path $tempDir ('kestrun-example-' + [System.IO.Path]::GetRandomFileName() + '.out.log')

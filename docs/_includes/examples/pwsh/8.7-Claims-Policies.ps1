@@ -40,8 +40,8 @@ Add-KrBasicAuthentication -Name 'PolicyBasic' -Realm 'Claims' -AllowInsecureHttp
     param($Identity)
     if ($Identity -eq 'admin') {
         return (
-            Add-KrUserClaim -ClaimType 'can_read' -Value 'true' |
-                Add-KrUserClaim -ClaimType 'can_write' -Value 'true'
+            Add-KrUserClaim -ClaimType 'can_read' -Values 'true' |
+                Add-KrUserClaim -ClaimType 'can_write' -Values 'true'
         )
     }
 } -ClaimPolicyConfig $claimConfig

@@ -28,11 +28,11 @@
     .EXAMPLE
         Adds a claim to the current user's identity.
         This example demonstrates how to add a claim using the ClaimType and Value parameters.
-        Add-KrUserClaim -ClaimType "customClaimType" -Value "customClaimValue"
+        Add-KrUserClaim -ClaimType "customClaimType" -Values "customClaimValue"
     .EXAMPLE
         Adds a claim to the current user's identity.
         This example demonstrates how to add a claim using the UserClaimType and Value parameters.
-        Add-KrUserClaim -UserClaimType "Email" -Value "user@example.com"
+        Add-KrUserClaim -UserClaimType "Email" -Values "user@example.com"
     .NOTES
         This function is part of the Kestrun.Claims module and is used to manage user claims.
         It maps to ClaimCollection.Add method.

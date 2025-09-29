@@ -15,7 +15,7 @@
     .OUTPUTS
         System.IDisposable
     .EXAMPLE
-        PS> $d = Push-KrLogContextProperty -Name CorrelationId -Value $corr
+        PS> $d = Push-KrLogContextProperty -Name CorrelationId -Values $corr
         PS> try { Write-KrLog -Level Information -Message 'Hello' } finally { $d.Dispose() }
 #>
 function Push-KrLogContextProperty {

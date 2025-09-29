@@ -14,10 +14,10 @@
     .PARAMETER AllowsValueType
         If specified, allows the variable to hold value types (e.g., int, bool).
     .EXAMPLE
-        Set-KrSharedState -Name "MyVariable" -Value "Hello, World!"
+        Set-KrSharedState -Name "MyVariable" -Values "Hello, World!"
         This creates a global variable "MyVariable" with the value "Hello, World!".
     .EXAMPLE
-        Set-KrSharedState -Name "MyNamespace.MyVariable" -Value @{item=42}
+        Set-KrSharedState -Name "MyNamespace.MyVariable" -Values @{item=42}
         This creates a global variable "MyNamespace.MyVariable" with the value @{item=42}.
     .NOTES
         This function is part of the Kestrun.SharedState module and is used to define or update global variables.

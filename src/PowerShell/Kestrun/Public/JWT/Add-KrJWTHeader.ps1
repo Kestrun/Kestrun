@@ -13,7 +13,7 @@
         [Kestrun.Jwt.JwtTokenBuilder]
         The modified JWT token builder.
     .EXAMPLE
-        $builder = New-KrJWTTokenBuilder | Add-KrJWTHeader -Name "customHeader" -Value "headerValue"
+        $builder = New-KrJWTTokenBuilder | Add-KrJWTHeader -Name "customHeader" -Values "headerValue"
         This example creates a new JWT token builder and adds a custom header to it.
     .NOTES
         This function is part of the Kestrun.Jwt module and is used to build JWT tokens.

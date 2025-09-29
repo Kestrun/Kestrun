@@ -227,7 +227,7 @@ function Invoke-KrWebRequest {
     if ($SessionVariable) {
         if (-not $cookieContainer) { $cookieContainer = [System.Net.CookieContainer]::new() }
         # (Cookies are already in handler; we just hand the container out)
-        Set-Variable -Name $SessionVariable -Scope 1 -Value @{ CookieContainer = $cookieContainer }
+        Set-Variable -Name $SessionVariable -Scope 1 -Values @{ CookieContainer = $cookieContainer }
     }
 
     # ---- Send (streaming if -OutFile) ----
@@ -252,7 +252,7 @@ function Invoke-KrWebRequest {
             # hand back the session cookie container if requested
             if ($SessionVariable) {
                 if (-not $cookieContainer) { $cookieContainer = [System.Net.CookieContainer]::new() }
-                Set-Variable -Name $SessionVariable -Scope 1 -Value @{ CookieContainer = $cookieContainer }
+                Set-Variable -Name $SessionVariable -Scope 1 -Values @{ CookieContainer = $cookieContainer }
             }
 
             return [pscustomobject]@{
@@ -287,7 +287,7 @@ function Invoke-KrWebRequest {
     # session handoff after request completes
     if ($SessionVariable) {
         if (-not $cookieContainer) { $cookieContainer = [System.Net.CookieContainer]::new() }
-        Set-Variable -Name $SessionVariable -Scope 1 -Value @{ CookieContainer = $cookieContainer }
+        Set-Variable -Name $SessionVariable -Scope 1 -Values @{ CookieContainer = $cookieContainer }
     }
 
     [pscustomobject]@{

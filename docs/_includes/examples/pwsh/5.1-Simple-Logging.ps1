@@ -11,7 +11,7 @@ param(
 )
 
 $myLogger = New-KrLogger |
-    Set-KrLoggerMinimumLevel -Value Debug |
+    Set-KrLoggerMinimumLevel -Values Debug |
     Add-KrSinkFile -Path '.\logs\sample.log' -RollingInterval Hour |
     Add-KrSinkConsole |
     Register-KrLogger -Name 'myLogger' -PassThru

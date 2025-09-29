@@ -61,7 +61,7 @@
 #>
 
 $logger = New-KrLogger |
-    Set-KrLoggerMinimumLevel -Value Debug |
+    Set-KrLoggerMinimumLevel -Values Debug |
     Add-KrSinkFile -Path '.\logs\Authentication.log' -RollingInterval Hour |
     Add-KrSinkConsole |
     Register-KrLogger -Name 'DefaultLogger' -PassThru -SetAsDefault
@@ -131,11 +131,11 @@ Add-KrBasicAuthentication -Name $BasicPowershellScheme -Realm 'Power-Kestrun' -A
     param([string]$Identity)
     if ($Identity -eq 'admin') {
         # Return claims for the admin user
-        return (Add-KrUserClaim -UserClaimType Role -Value 'admin' |
-                Add-KrUserClaim -ClaimType 'can_read' -Value 'true' |
-                Add-KrUserClaim -ClaimType 'can_write' -Value 'true' |
-                Add-KrUserClaim -ClaimType 'can_delete' -Value 'false' |
-                Add-KrUserClaim -ClaimType 'can_create' -Value 'true')
+        return (Add-KrUserClaim -UserClaimType Role -Values 'admin' |
+                Add-KrUserClaim -ClaimType 'can_read' -Values 'true' |
+                Add-KrUserClaim -ClaimType 'can_write' -Values 'true' |
+                Add-KrUserClaim -ClaimType 'can_delete' -Values 'false' |
+                Add-KrUserClaim -ClaimType 'can_create' -Values 'true')
     } else {
         return [System.Security.Claims.Claim[]]@()
     }
@@ -468,9 +468,9 @@ Add-KrMapRoute -Verbs Get -Pattern '/token/new' -AuthorizationSchema $BasicPower
 
     $build = Copy-KrJWTTokenBuilder -Builder $JwtTokenBuilder |
         Add-KrJWTSubject -Subject $user |
-        Add-KrJWTClaim -UserClaimType Name -Value $user |
-        Add-KrJWTClaim -UserClaimType Role -Value 'admin' |
-        Add-KrJWTClaim -ClaimType 'can_read' -Value 'true' | Build-KrJWT
+        Add-KrJWTClaim -UserClaimType Name -Values $user |
+        Add-KrJWTClaim -UserClaimType Role -Values 'admin' |
+        Add-KrJWTClaim -ClaimType 'can_read' -Values 'true' | Build-KrJWT
     $accessToken = $build | Get-KrJWTToken
     Write-KrJsonResponse -InputObject @{
         access_token = $accessToken
@@ -521,11 +521,11 @@ Add-KrMapRoute -Verbs Post -Pattern '/cookies/login' -ScriptBlock {
 
     if ($username -eq 'admin' -and $password -eq 'secret') {
 
-        $claims = (Add-KrUserClaim -UserClaimType Name -Value $username |
-                Add-KrUserClaim -UserClaimType Role -Value 'admin' |
-                Add-KrUserClaim -ClaimType 'can_read' -Value 'true' |
-                Add-KrUserClaim -ClaimType 'can_write' -Value 'true' |
-                Add-KrUserClaim -ClaimType 'can_create' -Value 'true')
+        $claims = (Add-KrUserClaim -UserClaimType Name -Values $username |
+                Add-KrUserClaim -UserClaimType Role -Values 'admin' |
+                Add-KrUserClaim -ClaimType 'can_read' -Values 'true' |
+                Add-KrUserClaim -ClaimType 'can_write' -Values 'true' |
+                Add-KrUserClaim -ClaimType 'can_create' -Values 'true')
         $principal = Invoke-KrCookieSignIn -Scheme 'Cookies' -Claims $claims -PassThru
         Write-KrLog -Level Information -Message 'User {user} signed in with Cookies authentication.' -Values $username
         Expand-KrObject -InputObject $principal -Label 'Principal'

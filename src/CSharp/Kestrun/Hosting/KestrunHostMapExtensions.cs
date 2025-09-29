@@ -502,13 +502,15 @@ public static partial class KestrunHostMapExtensions
         }
         return !string.IsNullOrWhiteSpace(host);
     }
+    private const int MIN_PORT = 1;
+    private const int MAX_PORT = 65535;
 
     /// <summary>
     /// Validates that the port number is within the acceptable range (1-65535).
     /// </summary>
     /// <param name="port">The port number to validate.</param>
     /// <returns><c>true</c> if the port number is valid; otherwise, <c>false</c>.</returns>
-    private static bool IsValidPort(int port) => port is > 0 and <= 65535;
+    private static bool IsValidPort(int port) => port is >= MIN_PORT and <= MAX_PORT;
 
     /// <summary>
     /// Formats the host and port for use in RequireHost, adding brackets for IPv6 literals.

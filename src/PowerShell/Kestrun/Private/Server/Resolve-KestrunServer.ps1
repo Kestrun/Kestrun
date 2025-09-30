@@ -26,7 +26,7 @@ function Resolve-KestrunServer {
     )
     if ($null -eq $Server) {
         if ($null -ne $KrServer) {
-            Write-KrLog -Level Information -Message "No server specified, using global KrServer variable.{KrServer}" -Values $KrServer
+            Write-KrLog -Level Information -Message "No server specified, using global KrServer variable. {KrServer}" -Values $KrServer
             # If no server is specified, use the global $KrServer variable
             # This is useful for scripts that run in the context of a Kestrun server
             $Server = $KrServer

@@ -37,7 +37,6 @@ Describe 'Validates numeric probe data representation in XML health response' -T
     }
     AfterAll { if ($script:instance) { Stop-ExampleScript -Instance $script:instance } }
 
-
     It 'GET /healthz returns numeric probe data as numbers in XML' {
         $resp = Invoke-WebRequest -Uri "$($script:instance.Url)/healthz" -Headers @{ Accept = 'application/xml' }
         $resp | Should -Not -BeNullOrEmpty

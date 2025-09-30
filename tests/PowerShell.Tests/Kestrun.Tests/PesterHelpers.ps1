@@ -143,9 +143,9 @@ function Get-ExampleScriptPath {
 function Start-ExampleScript {
     [CmdletBinding(SupportsShouldProcess, defaultParameterSetName = 'Name')]
     param(
-        [Parameter(Mandatory = $true, ParameterSetName = "Name")]
+        [Parameter(Mandatory = $true, ParameterSetName = 'Name')]
         [string]$Name,
-        [Parameter(Mandatory = $true, ParameterSetName = "ScriptBlock")]
+        [Parameter(Mandatory = $true, ParameterSetName = 'ScriptBlock')]
         [scriptblock]$ScriptBlock,
         [int]$Port,
         [int]$StartupTimeoutSeconds = 40,
@@ -202,7 +202,7 @@ if (-not (Get-Module -Name Kestrun)) {
             $content,
             '\bStart-KrServer\b', @'
 Add-KrMapRoute -Verbs Get -Pattern "/shutdown" -ScriptBlock { Stop-KrServer }
-Add-KrMapRoute -Verbs Get -Pattern "/health" -ScriptBlock { write-KrTextResponse -InputObject 'OK' -StatusCode 200 }
+Add-KrMapRoute -Verbs Get -Pattern "/online" -ScriptBlock { write-KrTextResponse -InputObject 'OK' -StatusCode 200 }
 Start-KrServer
 '@
             , 1 # only first occurrence
@@ -239,33 +239,38 @@ Start-KrServer
     $deadline = [DateTime]::UtcNow.AddSeconds($StartupTimeoutSeconds)
     $ready = $false
     $attempt = 0
+    Start-Sleep -Seconds 1 # Initial delay before probing
     while ([DateTime]::UtcNow -lt $deadline) {
         if ($proc.HasExited) { break }
         $attempt++
         # Optional lightweight HTTP/HTTPS probe of '/'
         try {
-            $probeUri = ('http://{0}:{1}/health' -f $serverIp, $Port)
+            $probeUri = ('http://{0}:{1}/online' -f $serverIp, $Port)
             $probeParams = @{ Uri = $probeUri; UseBasicParsing = $true; Method = 'Get'; TimeoutSec = 3; ErrorAction = 'Stop' }
             $probe = Invoke-WebRequest @probeParams
             if ($probe.StatusCode -ge 200 -and $probe.StatusCode -lt 600) { $ready = $true; break }
         } catch {
-            Write-Debug "HTTP probe failed (route initialization likely incomplete): $($_.Exception.Message)"
-        }
-
-        try {
-            $probeUri = ('https://{0}:{1}/health' -f $serverIp, $Port)
-            $probeParams = @{ Uri = $probeUri; UseBasicParsing = $true; Method = 'Get'; TimeoutSec = 3; ErrorAction = 'Stop' ; SkipCertificateCheck = $true }
-            $probe = Invoke-WebRequest @probeParams
-            if ($probe.StatusCode -ge 200 -and $probe.StatusCode -lt 600) { $ready = $true; break }
-        } catch {
-            Write-Debug "HTTPS probe failed (route initialization likely incomplete): $($_.Exception.Message)"
+            $errorMessage = $_.Exception.Message
+            try {
+                $probeUri = ('https://{0}:{1}/online' -f $serverIp, $Port)
+                $probeParams = @{ Uri = $probeUri; UseBasicParsing = $true; Method = 'Get'; TimeoutSec = 3; ErrorAction = 'Stop' ; SkipCertificateCheck = $true }
+                $probe = Invoke-WebRequest @probeParams
+                if ($probe.StatusCode -ge 200 -and $probe.StatusCode -lt 600) { $ready = $true; break }
+            } catch {
+                $errorMessage = $_.Exception.Message
+            }
         }
         Start-Sleep -Milliseconds $HttpProbeDelayMs
     }
     $exited = $proc.HasExited
     if (-not $ready -and -not $exited) {
-        Write-Warning "Example $Name not accepting connections on port $Port after timeout. Continuing; requests may fail."
+        if($errorMessage) {
+            Write-Warning "Example $Name not accepting connections on port $Port after timeout. Last probe error: $errorMessage. Continuing; requests may fail."
+        } else {
+            Write-Warning "Example $Name not accepting connections on port $Port after timeout. Continuing; requests may fail."
+        }
     }
+
     if ($exited) {
         Write-Warning "Example $Name process exited early with code $($proc.ExitCode). Capturing logs."
         if (Test-Path $stdErr) { Write-Warning ('stderr: ' + (Get-Content $stdErr -Raw)) }

@@ -19,7 +19,8 @@
 
 # Runtime feature / version tests for Kestrun PowerShell surface
 # Mirrors C# unit tests for KestrunRuntimeInfo
-
+[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseDeclaredVarsMoreThanAssignments', '')]
+param()
 BeforeAll {
     # Ensure module is imported (_.Tests.ps1 normally does this too, but be defensive)
     if (-not (Get-Module -Name Kestrun)) {
@@ -59,15 +60,15 @@ BeforeAll {
 }
 Describe 'Yaml PowerShell Functions' {
 
-    Describe "Test flow styles" {
-        Context "Mappings, sequences and PSCustomObjects" {
-            It "Should serialize Block flow (default) correctly" {
+    Describe 'Test flow styles' {
+        Context 'Mappings, sequences and PSCustomObjects' {
+            It 'Should serialize Block flow (default) correctly' {
                 $obj = [ordered]@{
-                    aStringKey = "test"
+                    aStringKey = 'test'
                     anIntKey = 1
                     anArrayKey = @(1, 2, 3)
                 }
-                $expected = @"
+                $expected = @'
 aStringKey: test
 anIntKey: 1
 anArrayKey:
@@ -75,7 +76,7 @@ anArrayKey:
 - 2
 - 3
 
-"@
+'@
                 $serialized = ConvertTo-KrYaml $obj
                 Compare-Deep -Expected $expected -Actual $serialized
 
@@ -84,16 +85,16 @@ anArrayKey:
                 Compare-Deep -Expected $expected -Actual $serialized
             }
 
-            It "Should serialize Flow flow correctly" {
+            It 'Should serialize Flow flow correctly' {
                 $obj = [ordered]@{
-                    aStringKey = "test"
+                    aStringKey = 'test'
                     anIntKey = 1
                     anArrayKey = @(1, 2, 3)
                 }
-                $expected = @"
+                $expected = @'
 {aStringKey: test, anIntKey: 1, anArrayKey: [1, 2, 3]}
 
-"@
+'@
                 $serialized = ConvertTo-KrYaml -Options UseFlowStyle $obj
                 Compare-Deep -Expected $expected -Actual $serialized
 
@@ -102,18 +103,18 @@ anArrayKey:
                 Compare-Deep -Expected $expected -Actual $serialized
             }
 
-            It "Should serialize SequenceFlowStyle correctly" {
+            It 'Should serialize SequenceFlowStyle correctly' {
                 $obj = [ordered]@{
-                    aStringKey = "test"
+                    aStringKey = 'test'
                     anIntKey = 1
                     anArrayKey = @(1, 2, 3)
                 }
-                $expected = @"
+                $expected = @'
 aStringKey: test
 anIntKey: 1
 anArrayKey: [1, 2, 3]
 
-"@
+'@
                 $serialized = ConvertTo-KrYaml -Options UseSequenceFlowStyle $obj
                 Compare-Deep -Expected $expected -Actual $serialized
 
@@ -122,16 +123,16 @@ anArrayKey: [1, 2, 3]
                 Compare-Deep -Expected $expected -Actual $serialized
             }
 
-            It "Should serialize JsonCompatible correctly" {
+            It 'Should serialize JsonCompatible correctly' {
                 $obj = [ordered]@{
-                    aStringKey = "test"
+                    aStringKey = 'test'
                     anIntKey = 1
                     anArrayKey = @(1, 2, 3)
                 }
-                $expected = @"
+                $expected = @'
 {"aStringKey": "test", "anIntKey": 1, "anArrayKey": [1, 2, 3]}
 
-"@
+'@
                 $serialized = ConvertTo-KrYaml -Options JsonCompatible $obj
                 Compare-Deep -Expected $expected -Actual $serialized
 
@@ -152,10 +153,10 @@ anArrayKey: [1, 2, 3]
         }
     }
 
-    Describe "Test serialized depth" {
-        Context "Deeply nested objects are serialized correctly" {
-            It "Should deserialize the entire object" {
-                $inputObject = @"
+    Describe 'Test serialized depth' {
+        Context 'Deeply nested objects are serialized correctly' {
+            It 'Should deserialize the entire object' {
+                $inputObject = @'
 children:
   appliance:
     bla:
@@ -213,23 +214,23 @@ children:
                                                                                                         - 192.168.0.2
                                                                                                         - 192.168.0.3
 
-"@
+'@
                 $result = ConvertFrom-KrYaml $inputObject | ConvertTo-KrYaml
                 Compare-Deep -Expected $inputObject -Actual $result
             }
         }
     }
 
-    Describe "Test PSCustomObject wrapped values are serialized correctly" {
-        Context "A PSCustomObject that contains an array of PSObjects" {
-            It "Should serialize correctly" {
-                $expected = @"
+    Describe 'Test PSCustomObject wrapped values are serialized correctly' {
+        Context 'A PSCustomObject that contains an array of PSObjects' {
+            It 'Should serialize correctly' {
+                $expected = @'
 yamlList:
 - item1
 - item2
 
-"@
-                $inputObject = ConvertFrom-KrYaml "yamlList: []" | ConvertTo-Json -Depth 3 | ConvertFrom-Json
+'@
+                $inputObject = ConvertFrom-KrYaml 'yamlList: []' | ConvertTo-Json -Depth 3 | ConvertFrom-Json
                 $jsData = '["item1", "item2"]'
                 $inputObject.yamlList = $jsData | ConvertFrom-Json
 
@@ -237,57 +238,57 @@ yamlList:
                 Compare-Deep -Expected $expected -Actual $asYaml
             }
         }
-        Context "A PSCustomObject containing nested PSCustomObjects" {
-            It "Should serialize correctly" {
-                $expectBigInt = [System.Numerics.BigInteger]::Parse("9999999999999999999999999999999999999999999999999")
+        Context 'A PSCustomObject containing nested PSCustomObjects' {
+            It 'Should serialize correctly' {
+                $expectBigInt = [System.Numerics.BigInteger]::Parse('9999999999999999999999999999999999999999999999999')
                 $obj = [PSCustomObject]@{a = 'string'; b = 1; c = @{nested = $true }; d = [pscustomobject]$expectBigInt }
                 $asYaml = ConvertTo-KrYaml $obj
                 $fromYaml = ConvertFrom-KrYaml $asYaml
 
-                Compare-Deep -Expected "string" -Actual $fromYaml["a"]
-                Compare-Deep -Expected 1 -Actual $fromYaml["b"]
-                Compare-Deep -Expected $expectBigInt -Actual $fromYaml["d"]
+                Compare-Deep -Expected 'string' -Actual $fromYaml['a']
+                Compare-Deep -Expected 1 -Actual $fromYaml['b']
+                Compare-Deep -Expected $expectBigInt -Actual $fromYaml['d']
             }
         }
 
-        Context "A hashtable containing nested PSCustomObjects" {
-            It "Should serialize correctly" {
-                $expectBigInt = [System.Numerics.BigInteger]::Parse("9999999999999999999999999999999999999999999999999")
+        Context 'A hashtable containing nested PSCustomObjects' {
+            It 'Should serialize correctly' {
+                $expectBigInt = [System.Numerics.BigInteger]::Parse('9999999999999999999999999999999999999999999999999')
                 $obj = @{a = Write-Output 'string'; b = Write-Output 1; c = Write-Output @{nested = $true }; d = [pscustomobject]$expectBigInt }
                 $asYaml = ConvertTo-KrYaml $obj
                 $fromYaml = ConvertFrom-KrYaml $asYaml
 
-                Compare-Deep -Expected "string" -Actual $fromYaml["a"]
-                Compare-Deep -Expected 1 -Actual $fromYaml["b"]
-                Compare-Deep -Expected $expectBigInt -Actual $fromYaml["d"]
+                Compare-Deep -Expected 'string' -Actual $fromYaml['a']
+                Compare-Deep -Expected 1 -Actual $fromYaml['b']
+                Compare-Deep -Expected $expectBigInt -Actual $fromYaml['d']
             }
         }
 
-        Context "A generic dictionary containing nested PSCustomObjects" {
-            It "Should serialize correctly" {
-                $expectBigInt = [System.Numerics.BigInteger]::Parse("9999999999999999999999999999999999999999999999999")
+        Context 'A generic dictionary containing nested PSCustomObjects' {
+            It 'Should serialize correctly' {
+                $expectBigInt = [System.Numerics.BigInteger]::Parse('9999999999999999999999999999999999999999999999999')
                 $obj = [System.Collections.Generic.Dictionary[string, object]]::new()
-                $obj["a"] = Write-Output 'string'
-                $obj["b"] = Write-Output 1
-                $obj["c"] = Write-Output @{nested = $true }
-                $obj["d"] = [pscustomobject]$expectBigInt
+                $obj['a'] = Write-Output 'string'
+                $obj['b'] = Write-Output 1
+                $obj['c'] = Write-Output @{nested = $true }
+                $obj['d'] = [pscustomobject]$expectBigInt
 
                 $asYaml = ConvertTo-KrYaml $obj
                 $fromYaml = ConvertFrom-KrYaml $asYaml
 
-                Compare-Deep -Expected "string" -Actual $fromYaml["a"]
-                Compare-Deep -Expected 1 -Actual $fromYaml["b"]
-                Compare-Deep -Expected $expectBigInt -Actual $fromYaml["d"]
+                Compare-Deep -Expected 'string' -Actual $fromYaml['a']
+                Compare-Deep -Expected 1 -Actual $fromYaml['b']
+                Compare-Deep -Expected $expectBigInt -Actual $fromYaml['d']
             }
         }
     }
 
-    Describe "Test encode-decode symmetry." {
+    Describe 'Test encode-decode symmetry.' {
 
-        Context "Simple-Items" {
-            It "Should represent identity to encode and decode." -TestCases @(
+        Context 'Simple-Items' {
+            It 'Should represent identity to encode and decode.' -TestCases @(
                 @{ Expected = 1 }
-                @{ Expected = "yes" }
+                @{ Expected = 'yes' }
                 @{ Expected = 56 }
                 @{ Expected = $null }
             ) {
@@ -298,58 +299,60 @@ yamlList:
             }
         }
 
-        Context "Nulls and strings" {
+        Context 'Nulls and strings' {
             BeforeAll {
-                $script:nullAndString = [ordered]@{"iAmNull" = $null; "iAmEmptyString" = "" }
-                $script:yaml = @"
+                $script:nullAndString = [ordered]@{'iAmNull' = $null; 'iAmEmptyString' = '' }
+                $script:yaml = @'
 iAmNull:
 iAmEmptyString: ""
 
-"@
+'@
             }
 
-            It "should not serialize null value when -Options OmitNullValues is set" {
+            It 'should not serialize null value when -Options OmitNullValues is set' {
                 $toYaml = ConvertTo-KrYaml $nullAndString -Options OmitNullValues
                 $toYaml | Should -Be "iAmEmptyString: """"$([Environment]::NewLine)"
             }
 
-            It "should preserve nulls and empty strings from PowerShell" {
+            It 'should preserve nulls and empty strings from PowerShell' {
                 $toYaml = ConvertTo-KrYaml $nullAndString
                 $backFromYaml = ConvertFrom-KrYaml $toYaml
 
                 ($null -eq $backFromYaml.iAmNull) | Should -Be $true
-                $backFromYaml.iAmEmptyString | Should -Be ""
+                $backFromYaml.iAmEmptyString | Should -Be ''
                 $toYaml.Replace("`r`n", "`n").Replace('\r\n', '\n') | Should -Be $yaml.Replace("`r`n", "`n").Replace('\r\n', '\n')
             }
 
-            It "should preserve nulls and empty strings from Yaml" {
+            It 'should preserve nulls and empty strings from Yaml' {
                 $fromYaml = ConvertFrom-KrYaml $yaml
                 $backToYaml = ConvertTo-KrYaml $fromYaml
 
                 $backToYaml.Replace("`r`n", "`n").Replace('\r\n', '\n') | Should -Be $yaml.Replace("`r`n", "`n").Replace('\r\n', '\n')
                 ($null -eq $fromYaml.iAmNull) | Should -Be $true
-                $fromYaml.iAmEmptyString | Should -Be ""
+                $fromYaml.iAmEmptyString | Should -Be ''
             }
         }
 
-        Context "Test array handling under various circumstances." {
-            $arr = 1, 2, "yes", @{ key = "value" }, 5, (1, "no", 3)
-
-            It "Should represent identity to encode/decode arrays as arguments." {
+        Context 'Test array handling under various circumstances.' {
+            BeforeAll {
+                # An array with various types of elements
+                $arr = 1, 2, 'yes', @{ key = 'value' }, 5, (1, 'no', 3)
+            }
+            It 'Should represent identity to encode/decode arrays as arguments.' {
                 $yaml = ConvertTo-KrYaml $arr
                 $a = ConvertFrom-KrYaml $yaml
 
                 Compare-Deep -Actual $a -Expected $arr
             }
 
-            It "Should represent identity to encode/decode arrays by piping them in." {
+            It 'Should represent identity to encode/decode arrays by piping them in.' {
                 $yaml = $arr | ConvertTo-KrYaml
                 $a = ConvertFrom-KrYaml $yaml
 
                 Compare-Deep -Actual $a -Expected $arr
             }
 
-            It "Should be irrelevant whether we convert an array by piping it, or referencing them as an argument." {
+            It 'Should be irrelevant whether we convert an array by piping it, or referencing them as an argument.' {
                 $arged = ConvertTo-KrYaml $arr
                 $piped = $arr | ConvertTo-KrYaml
 
@@ -357,9 +360,9 @@ iAmEmptyString: ""
             }
         }
 
-        Context "Test merging parser" {
+        Context 'Test merging parser' {
             BeforeAll {
-                $script:mergingYaml = @"
+                $script:mergingYaml = @'
 ---
 default: &default
   value1: 1
@@ -368,9 +371,9 @@ default: &default
 hoge:
   <<: *default
   value3: 3
-"@
+'@
 
-                $script:mergingYamlOverwriteCase = @"
+                $script:mergingYamlOverwriteCase = @'
 ---
 default: &default
   value1: 1
@@ -380,55 +383,57 @@ hoge:
   <<: *default
   value1: 33
   value3: 3
-"@
+'@
             }
 
-            It "Should expand merging key with appropriate referenced keys" {
+            It 'Should expand merging key with appropriate referenced keys' {
                 $result = ConvertFrom-KrYaml -Yaml $mergingYaml -UseMergingParser
                 [array]$values = $result.hoge.keys
                 [array]::sort($values)
-                Compare-Deep -Actual $values -Expected @("value1", "value2", "value3")
+                Compare-Deep -Actual $values -Expected @('value1', 'value2', 'value3')
             }
 
-            It "Should retain literal key name in the absence of -UseMergingParser" {
+            It 'Should retain literal key name in the absence of -UseMergingParser' {
                 $result = ConvertFrom-KrYaml -Yaml $mergingYaml
                 [array]$values = $result.hoge.keys
                 [array]::sort($values)
-                Compare-Deep -Actual $values -Expected @("<<", "value3")
+                Compare-Deep -Actual $values -Expected @('<<', 'value3')
             }
 
-            It "Should Throw duplicate key exception when merging keys" {
+            It 'Should Throw duplicate key exception when merging keys' {
                 # This case does not seem to be treated by YamlDotNet and currently throws
                 # a duplicate key exception
                 { ConvertFrom-KrYaml -Yaml $mergingYamlOverwriteCase -UseMergingParser } | Should -Throw -PassThru | Select-Object -ExpandProperty Exception |
-                    Should -BeLike "*Duplicate key*"
+                    Should -BeLike '*Duplicate key*'
             }
         }
 
-        Context "Test hash handling under various circumstances." {
-            $hash = @{
-                # NOTE: intentionally not considered as YAML requires dict keys
-                # be strings. As such; decoding the encoding of this would result
-                # in a hash with the string key of "1", as below:
-                # 1 = 42;
-                "1" = 42;
-                today = @{
-                    month = "January";
-                    year = "2016";
-                    timestamp = Get-Date
-                };
-                arr = 1, 2, 3, "yes", @{ yes = "yes" };
-                yes = "no"
+        Context 'Test hash handling under various circumstances.' {
+            BeforeAll {
+                $hash = @{
+                    # NOTE: intentionally not considered as YAML requires dict keys
+                    # be strings. As such; decoding the encoding of this would result
+                    # in a hash with the string key of "1", as below:
+                    # 1 = 42;
+                    '1' = 42;
+                    today = @{
+                        month = 'January';
+                        year = '2016';
+                        timestamp = Get-Date
+                    };
+                    arr = 1, 2, 3, 'yes', @{ yes = 'yes' };
+                    yes = 'no'
+                }
             }
 
-            It "Should be symmetrical to encode and then decode the hash as an argument." {
+            It 'Should be symmetrical to encode and then decode the hash as an argument.' {
                 $yaml = ConvertTo-KrYaml $hash
                 $h = ConvertFrom-KrYaml $yaml
 
                 Compare-Deep -Actual $h -Expected $hash
             }
 
-            It "Should be symmetrical to endocode and then decode a hash by piping it." {
+            It 'Should be symmetrical to endocode and then decode a hash by piping it.' {
                 $yaml = $hash | ConvertTo-KrYaml
                 $h = ConvertFrom-KrYaml $yaml
 
@@ -444,9 +449,9 @@ hoge:
         }
     }
 
-    Describe "Being able to decode an externally provided string." {
+    Describe 'Being able to decode an externally provided string.' {
 
-        Context "Decoding an arbitrary YAML string correctly." {
+        Context 'Decoding an arbitrary YAML string correctly.' {
             BeforeAll {
                 # testYaml is just a string containing some yaml to be tested below:
                 $testYaml = @"
@@ -505,11 +510,11 @@ bools:
 
                 $script:expected = [ordered]@{
                     wishlist = @(
-                        @("coats", "hats", "and", "scarves"),
+                        @('coats', 'hats', 'and', 'scarves'),
                         [ordered]@{
-                            product = "A Cool Book.";
+                            product = 'A Cool Book.';
                             quantity = 1;
-                            description = "I love that Cool Book.";
+                            description = 'I love that Cool Book.';
                             price = 55.34;
                         }
                     );
@@ -517,16 +522,16 @@ bools:
                     int64 = ([int64]::MaxValue);
                     note = ("I can't wait. To get that Cool Book.`n");
                     intsAndDecimals = [ordered]@{
-                        aStringTatLooksLikeAFloat = "55,34";
-                        aStringThatLooksLikeAnInt = "2018+"
+                        aStringTatLooksLikeAFloat = '55,34';
+                        aStringThatLooksLikeAnInt = '2018+'
                         scientificNotationInt = [int32]1000
-                        scientificNotationBigInt = [System.Numerics.BigInteger]::Parse("10000000000000000000000000000000000000000")
+                        scientificNotationBigInt = [System.Numerics.BigInteger]::Parse('10000000000000000000000000000000000000000')
                         intWithTag = 42
                         zeroIntWithTag = 0
                         zeroIntWithoutTag = 0
                         scientificNotationIntWithTag = 1000
-                        aDecimalWithATag = [decimal]::Parse("3.9999999999999990", [System.Globalization.CultureInfo]::InvariantCulture)
-                        aDecimalWithoutATag = [decimal]::Parse("3.9999999999999990", [System.Globalization.CultureInfo]::InvariantCulture)
+                        aDecimalWithATag = [decimal]::Parse('3.9999999999999990', [System.Globalization.CultureInfo]::InvariantCulture)
+                        aDecimalWithoutATag = [decimal]::Parse('3.9999999999999990', [System.Globalization.CultureInfo]::InvariantCulture)
                         decimalInfinity = [double]::PositiveInfinity
                         decimalNegativeInfinity = [double]::NegativeInfinity
                     }
@@ -539,13 +544,13 @@ bools:
                         [DateTime]::Parse('2002-12-14')
                     );
                     datesAsStrings = @(
-                        "2001-12-15T02:59:43.1Z",
-                        "2001-12-14t21:59:43.10-05:00",
-                        "2001-12-14 21:59:43.10 -5",
-                        "2001-12-15 2:59:43.10",
-                        "2002-12-14"
+                        '2001-12-15T02:59:43.1Z',
+                        '2001-12-14t21:59:43.10-05:00',
+                        '2001-12-14 21:59:43.10 -5',
+                        '2001-12-15 2:59:43.10',
+                        '2002-12-14'
                     );
-                    version = "1.2.3";
+                    version = '1.2.3';
                     noniso8601dates = @( '5/4/2017', '1.2.3' );
                     bools = @( $true, $false, $true, $false, $true, $false );
                 }
@@ -553,7 +558,7 @@ bools:
                 $script:res = ConvertFrom-KrYaml $testYaml
             }
 
-            It "Should decode the YAML string as expected." {
+            It 'Should decode the YAML string as expected.' {
                 $wishlist = $res['wishlist']
                 $wishlist | Should -Not -BeNullOrEmpty
                 $wishlist.Count | Should -Be 2
@@ -631,27 +636,27 @@ bools:
         }
     }
 
-    Describe "Test ConvertTo-KrYaml can serialize more complex nesting" {
+    Describe 'Test ConvertTo-KrYaml can serialize more complex nesting' {
         BeforeAll {
             $script:sample = [PSCustomObject]@{
-                a1 = "a"
+                a1 = 'a'
                 a2 = [PSCustomObject]@{
-                    "a1" = "a"
+                    'a1' = 'a'
                     a2 = [PSCustomObject]@{
                         a1 = [PSCustomObject]@{
-                            "a1" = "a"
+                            'a1' = 'a'
                             a2 = [PSCustomObject]@{
-                                a1 = "a"
+                                a1 = 'a'
                             }
                             a3 = [ordered]@{
-                                a1 = @("a", "b")
+                                a1 = @('a', 'b')
                             }
-                            a4 = @("a", "b")
+                            a4 = @('a', 'b')
                         }
                     }
                     a3 = @(
                         [PSCustomObject]@{
-                            a1 = "a"
+                            a1 = 'a'
                             a2 = $False
                         }
                     )
@@ -659,19 +664,19 @@ bools:
             }
 
             $script:sample2 = [PSCustomObject]@{
-                b1 = "b"
+                b1 = 'b'
                 b2 = [PSCustomObject]@{
-                    b1 = "b"
+                    b1 = 'b'
                     b2 = [PSCustomObject]@{
-                        "b" = "b"
+                        'b' = 'b'
                     }
                 }
                 b3 = [ordered]@{
-                    b1 = @("b1", "b2")
+                    b1 = @('b1', 'b2')
                 }
                 b4 = $True
                 b5 = [PSCustomObject]@{
-                    b = "b"
+                    b = 'b'
                 }
             }
 
@@ -680,7 +685,7 @@ bools:
 
             $script:expected_json2 = '{"b1":"b","b2":{"b1":"b","b2":{"b":"b"}},"b3":{"b1":["b1","b2"]},"b4":true,"b5":{"b":"b"}}'
             $script:expected_json2_ln = $script:expected_json2 + "$([Environment]::NewLine)"
-            $script:expected_block_yaml = @"
+            $script:expected_block_yaml = @'
 a1: a
 a2:
   a1: a
@@ -700,10 +705,10 @@ a2:
   - a1: a
     a2: false
 
-"@
+'@
 
             $script:expected_flow_yaml = "{a1: a, a2: {a1: a, a2: {a1: {a1: a, a2: {a1: a}, a3: {a1: [a, b]}, a4: [a, b]}}, a3: [{a1: a, a2: false}]}}$([Environment]::NewLine)"
-            $script:expected_block_yaml2 = @"
+            $script:expected_block_yaml2 = @'
 b1: b
 b2:
   b1: b
@@ -717,11 +722,11 @@ b4: true
 b5:
   b: b
 
-"@
+'@
             $script:expected_flow_yaml2 = "{b1: b, b2: {b1: b, b2: {b: b}}, b3: {b1: [b1, b2]}, b4: true, b5: {b: b}}$([Environment]::NewLine)"
         }
 
-        It "Should serialize nested PSCustomObjects to YAML" {
+        It 'Should serialize nested PSCustomObjects to YAML' {
             $yaml = ConvertTo-KrYaml $sample
             Compare-Deep -Expected $expected_block_yaml -Actual $yaml
 
@@ -729,7 +734,7 @@ b5:
             Compare-Deep -Expected $expected_block_yaml2 -Actual $yaml
         }
 
-        It "Should serialize nested PSCustomObjects to YAML flow format" {
+        It 'Should serialize nested PSCustomObjects to YAML flow format' {
             $yaml = ConvertTo-KrYaml $sample -Options UseFlowStyle
             Compare-Deep -Expected $expected_flow_yaml -Actual $yaml
 
@@ -737,7 +742,7 @@ b5:
             Compare-Deep -Expected $expected_flow_yaml2 -Actual $yaml
         }
 
-        It "Should serialize nested PSCustomObjects to JSON" {
+        It 'Should serialize nested PSCustomObjects to JSON' {
             # Converted with powershell-yaml
             $json = ConvertTo-KrYaml $sample -Options JsonCompatible
             $json.Replace(' ', '').Replace("`r`n", "`n").Replace('\r\n', '\n') | Should -Be $expected_json_ln.Replace("`r`n", "`n").Replace('\r\n', '\n')
@@ -756,7 +761,7 @@ b5:
         }
     }
 
-    Describe "Generic Casting Behaviour" {
+    Describe 'Generic Casting Behaviour' {
         Context "Node Style is 'Plain'" {
             BeforeAll {
                 $script:value = @'
@@ -830,7 +835,7 @@ b5:
     Describe 'Strings containing other primitives' {
         Context 'String contains an int' {
             BeforeAll {
-                $script:value = @{key = "1" }
+                $script:value = @{key = '1' }
             }
             It 'Should serialise with double quotes' {
                 $result = ConvertTo-KrYaml $value
@@ -839,7 +844,7 @@ b5:
         }
         Context 'String contains a float' {
             BeforeAll {
-                $script:value = @{key = "0.25" }
+                $script:value = @{key = '0.25' }
             }
             It 'Should serialise with double quotes' {
                 $result = ConvertTo-KrYaml $value
@@ -848,7 +853,7 @@ b5:
         }
         Context 'String is "true"' {
             BeforeAll {
-                $script:value = @{key = "true" }
+                $script:value = @{key = 'true' }
             }
             It 'Should serialise with double quotes' {
                 $result = ConvertTo-KrYaml $value
@@ -857,7 +862,7 @@ b5:
         }
         Context 'String is "false"' {
             BeforeAll {
-                $script:value = @{key = "false" }
+                $script:value = @{key = 'false' }
             }
             It 'Should serialise with double quotes' {
                 $result = ConvertTo-KrYaml $value
@@ -866,7 +871,7 @@ b5:
         }
         Context 'String is "null"' {
             BeforeAll {
-                $script:value = @{key = "null" }
+                $script:value = @{key = 'null' }
             }
             It 'Should serialise with double quotes' {
                 $result = ConvertTo-KrYaml $value
@@ -875,7 +880,7 @@ b5:
         }
         Context 'String is "~" (alternative syntax for null)' {
             BeforeAll {
-                $script:value = @{key = "~" }
+                $script:value = @{key = '~' }
             }
             It 'Should serialise with double quotes' {
                 $result = ConvertTo-KrYaml $value
@@ -884,7 +889,7 @@ b5:
         }
         Context 'String is empty' {
             BeforeAll {
-                $script:value = @{key = "" }
+                $script:value = @{key = '' }
             }
             It 'Should serialise with double quotes' {
                 $result = ConvertTo-KrYaml $value
@@ -909,18 +914,18 @@ reallyLongDecimal: 3.9999999999999990
             $result.bigInt | Should -BeOfType System.Numerics.BigInteger
         }
 
-        It "Should round-trip decimals with trailing 0" {
+        It 'Should round-trip decimals with trailing 0' {
             $result = ConvertFrom-KrYaml -Yaml $value
             $result.decimal | Should -Be ([decimal]3.10)
-            $result.reallyLongDecimal | Should -Be ([decimal]::Parse("3.9999999999999990", [cultureinfo]::InvariantCulture))
+            $result.reallyLongDecimal | Should -Be ([decimal]::Parse('3.9999999999999990', [cultureinfo]::InvariantCulture))
 
-            ConvertTo-KrYaml $result["decimal"] | Should -Be "3.10$([Environment]::NewLine)"
-            ConvertTo-KrYaml $result["reallyLongDecimal"] | Should -Be "3.9999999999999990$([Environment]::NewLine)"
+            ConvertTo-KrYaml $result['decimal'] | Should -Be "3.10$([Environment]::NewLine)"
+            ConvertTo-KrYaml $result['reallyLongDecimal'] | Should -Be "3.9999999999999990$([Environment]::NewLine)"
         }
 
         It 'Should be of proper type and value' {
             $result = ConvertFrom-KrYaml -Yaml $value
-            $result.bigInt | Should -Be ([System.Numerics.BigInteger]::Parse("99999999999999999999999999999999999"))
+            $result.bigInt | Should -Be ([System.Numerics.BigInteger]::Parse('99999999999999999999999999999999999'))
             $result.int32 | Should -Be ([int32]2147483647)
             $result.int64 | Should -Be ([int64]9223372036854775807)
             $result.decimal | Should -Be ([decimal]3.10)
@@ -934,7 +939,7 @@ reallyLongDecimal: 3.9999999999999990
                     Nested = 'NestedValue'
                 }
                 $nestedHashTable = @{
-                    "aKey" = $nestedPsO
+                    'aKey' = $nestedPsO
                 }
                 $nestedArray = @(
                     $nestedPsO, 1
@@ -958,22 +963,22 @@ reallyLongDecimal: 3.9999999999999990
                 $asYaml = ConvertTo-KrYaml $Class
                 $result = ConvertFrom-KrYaml -Yaml $asYaml
                 [System.Collections.Specialized.OrderedDictionary]$ret = [System.Collections.Specialized.OrderedDictionary]::new()
-                $ret["PsO"] = [System.Collections.Specialized.OrderedDictionary]::new()
-                $ret["PsO"]["Name"] = "Value"
-                $ret["PsO"]["Nested"] = [System.Collections.Specialized.OrderedDictionary]::new()
-                $ret["PsO"]["Nested"]["Nested"] = "NestedValue"
-                $ret["PsO"]["NestedHashTable"] = [ordered]@{
-                    "aKey" = [ordered]@{
-                        "Nested" = "NestedValue"
+                $ret['PsO'] = [System.Collections.Specialized.OrderedDictionary]::new()
+                $ret['PsO']['Name'] = 'Value'
+                $ret['PsO']['Nested'] = [System.Collections.Specialized.OrderedDictionary]::new()
+                $ret['PsO']['Nested']['Nested'] = 'NestedValue'
+                $ret['PsO']['NestedHashTable'] = [ordered]@{
+                    'aKey' = [ordered]@{
+                        'Nested' = 'NestedValue'
                     }
                 }
-                $ret["PsO"]["NestedArray"] = @(
+                $ret['PsO']['NestedArray'] = @(
                     [ordered]@{
-                        "Nested" = "NestedValue"
+                        'Nested' = 'NestedValue'
                     }, 1
                 )
-                $ret["PsO"]["NullValue"] = $null
-                $ret["Ok"] = "aye"
+                $ret['PsO']['NullValue'] = $null
+                $ret['Ok'] = 'aye'
                 Compare-Deep -Expected $ret -Actual $result
             }
         }
@@ -981,7 +986,7 @@ reallyLongDecimal: 3.9999999999999990
         Context 'PSObject with null value is skipped when -Options OmitNullValues' {
             BeforeAll {
                 $script:value = [PSCustomObject]@{
-                    key1 = "value1"
+                    key1 = 'value1'
                     key2 = $null
                 }
             }
@@ -994,7 +999,7 @@ reallyLongDecimal: 3.9999999999999990
         Context 'PSObject with null value is included when -Options OmitNullValues is not set' {
             BeforeAll {
                 $script:value = [PSCustomObject]@{
-                    key1 = "value1"
+                    key1 = 'value1'
                     key2 = $null
                 }
             }
@@ -1006,7 +1011,7 @@ reallyLongDecimal: 3.9999999999999990
 
         Context 'PSCustomObject with a single property' {
             BeforeAll {
-                $script:value = [PSCustomObject]@{key = "value" }
+                $script:value = [PSCustomObject]@{key = 'value' }
             }
             It 'Should serialise as a hash' {
                 $result = ConvertTo-KrYaml $value
@@ -1015,7 +1020,7 @@ reallyLongDecimal: 3.9999999999999990
         }
         Context 'PSCustomObject with multiple properties' {
             BeforeAll {
-                $script:value = [PSCustomObject]@{key1 = "value1"; key2 = "value2" }
+                $script:value = [PSCustomObject]@{key1 = 'value1'; key2 = 'value2' }
             }
             It 'Should serialise as a hash' {
                 $result = ConvertTo-KrYaml $value
@@ -1024,7 +1029,7 @@ reallyLongDecimal: 3.9999999999999990
             It 'Should deserialise as a hash' {
                 $asYaml = ConvertTo-KrYaml $value
                 $result = ConvertFrom-KrYaml -Yaml $asYaml
-                Compare-Deep -Expected ([ordered]@{key1 = "value1"; key2 = "value2" }) -Actual $result
+                Compare-Deep -Expected ([ordered]@{key1 = 'value1'; key2 = 'value2' }) -Actual $result
             }
         }
     }

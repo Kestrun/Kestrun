@@ -3,16 +3,7 @@ param()
 # Mirrors C# unit tests for KestrunRuntimeInfo
 
 BeforeAll {
-    # Ensure module is imported (_.Tests.ps1 normally does this too, but be defensive)
-    if (-not (Get-Module -Name Kestrun)) {
-        $path = $PSCommandPath
-        $kestrunPath = Join-Path -Path (Split-Path -Parent (Split-Path -Parent (Split-Path -Parent (Split-Path -Parent $path)))) -ChildPath 'src' -AdditionalChildPath 'PowerShell', 'Kestrun'
-        if (Test-Path -Path "$kestrunPath/Kestrun.psm1" -PathType Leaf) {
-            Import-Module "$kestrunPath/Kestrun.psm1" -Force -ErrorAction Stop
-        } else {
-            throw "Kestrun module not found at $kestrunPath"
-        }
-    }
+    . (Join-Path $PSScriptRoot '.\PesterHelpers.ps1')
 }
 
 Describe 'Runtime Version Information' {

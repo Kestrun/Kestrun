@@ -22,42 +22,9 @@
 [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseDeclaredVarsMoreThanAssignments', '')]
 param()
 BeforeAll {
-    # Ensure module is imported (_.Tests.ps1 normally does this too, but be defensive)
-    if (-not (Get-Module -Name Kestrun)) {
-        $path = $PSCommandPath
-        $kestrunPath = Join-Path -Path (Split-Path -Parent (Split-Path -Parent (Split-Path -Parent (Split-Path -Parent $path)))) -ChildPath 'src' -AdditionalChildPath 'PowerShell', 'Kestrun'
-        if (Test-Path -Path "$kestrunPath/Kestrun.psm1" -PathType Leaf) {
-            Import-Module "$kestrunPath/Kestrun.psm1" -Force -ErrorAction Stop
-        } else {
-            throw "Kestrun module not found at $kestrunPath"
-        }
-    }
-    <#
-    .SYNOPSIS
-        Compare two objects deeply by converting them to JSON and comparing the strings.
-    .DESCRIPTION
-        This function takes two objects, converts them to JSON with a depth of 100, and compares the resulting JSON strings.
-        It is useful for deep comparison of complex objects in tests.
-    .PARAMETER Expected
-        The expected object.
-    .PARAMETER Actual
-        The actual object to compare against the expected.
-    .EXAMPLE
-        $obj1 = @{ Key1 = "Value1"; Key2 = @{ SubKey = "SubValue" } }
-        $obj2 = @{ Key1 = "Value1"; Key2 = @{ SubKey = "SubValue" } }
-        Compare-Deep -Expected $obj1 -Actual $obj2
-        # This will pass as the objects are deeply equivalent.
-    #>
-    function Compare-Deep {
-        param(
-            [Parameter()][AllowNull()]$Expected,
-            [Parameter()][AllowNull()]$Actual
-        )
-        $expectedJson = ($Expected | ConvertTo-Json -Depth 99 -Compress).Replace("`r`n", "`n").Replace('\r\n', '\n')
-        $actualJson = ($Actual | ConvertTo-Json -Depth 99 -Compress).Replace("`r`n", "`n").Replace('\r\n', '\n')
-        $actualJson | Should -BeExactly $expectedJson
-    }
+    . (Join-Path $PSScriptRoot '.\PesterHelpers.ps1')
 }
+
 Describe 'Yaml PowerShell Functions' {
 
     Describe 'Test flow styles' {

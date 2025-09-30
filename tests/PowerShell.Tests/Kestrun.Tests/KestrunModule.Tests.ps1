@@ -1,25 +1,7 @@
 [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseDeclaredVarsMoreThanAssignments', '')]
 param()
 BeforeAll {
-    if (-not (Get-Module -Name Kestrun -ListAvailable)) {
-        try {
-            $path = $PSCommandPath
-            $kestrunPath = Join-Path -Path (Split-Path -Parent (Split-Path -Parent (Split-Path -Parent (Split-Path -Parent $path)))) -ChildPath 'src' -AdditionalChildPath 'PowerShell', 'Kestrun'
-
-            # Import the Kestrun module from the source path if it exists, otherwise from installed modules
-            if (Test-Path -Path "$($kestrunPath)/Kestrun.psm1" -PathType Leaf) {
-                Import-Module "$($kestrunPath)/Kestrun.psm1" -Force -ErrorAction Stop
-            } else {
-                throw "Kestrun module not found in source path: $kestrunPath"
-            }
-        } catch {
-            Write-Error "Failed to import Kestrun module: $_"
-            Write-Error 'Ensure the Kestrun module is installed or the path is correct.'
-            exit 1
-        }
-    } else {
-        Import-Module -Name Kestrun
-    }
+    . (Join-Path $PSScriptRoot '.\PesterHelpers.ps1')
 }
 
 Describe 'Kestrun PowerShell Functions' {

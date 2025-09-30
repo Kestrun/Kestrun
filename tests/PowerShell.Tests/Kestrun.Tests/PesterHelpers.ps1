@@ -233,7 +233,7 @@ Start-KrServer
         RedirectStandardOutput = $stdOut
         RedirectStandardError = $stdErr
     }
-    if ($IsWindows) { $param.WindowStyle = 'Hidden' } # Avoid inheriting test runner env on Windows
+    if ($IsWindows) { $param.WindowStyle = 'Hidden' } # Prevent spawned process from inheriting the test runner's console window on Windows (avoids unwanted UI popups during automated tests)
     $proc = Start-Process @param
 
     $deadline = [DateTime]::UtcNow.AddSeconds($StartupTimeoutSeconds)

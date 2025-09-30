@@ -258,13 +258,29 @@ Start-KrServer
                 if ($probe.StatusCode -ge 200 -and $probe.StatusCode -lt 600) { $ready = $true; break }
             } catch {
                 $errorMessage = $_.Exception.Message
+                try {
+                    $probeUri = ('http://{0}:{1}' -f $serverIp, $Port)
+                    $probeParams = @{ Uri = $probeUri; UseBasicParsing = $true; Method = 'Get'; TimeoutSec = 3; ErrorAction = 'Stop' }
+                    $probe = Invoke-WebRequest @probeParams
+                    if ($probe.StatusCode -ge 200 -and $probe.StatusCode -lt 600) { $ready = $true; break }
+                } catch {
+                    $errorMessage = $_.Exception.Message
+                    try {
+                        $probeUri = ('https://{0}:{1}' -f $serverIp, $Port)
+                        $probeParams = @{ Uri = $probeUri; UseBasicParsing = $true; Method = 'Get'; TimeoutSec = 3; ErrorAction = 'Stop' ; SkipCertificateCheck = $true }
+                        $probe = Invoke-WebRequest @probeParams
+                        if ($probe.StatusCode -ge 200 -and $probe.StatusCode -lt 600) { $ready = $true; break }
+                    } catch {
+                        $errorMessage = $_.Exception.Message
+                    }
+                }
             }
         }
         Start-Sleep -Milliseconds $HttpProbeDelayMs
     }
     $exited = $proc.HasExited
     if (-not $ready -and -not $exited) {
-        if($errorMessage) {
+        if ($errorMessage) {
             Write-Warning "Example $Name not accepting connections on port $Port after timeout. Last probe error: $errorMessage. Continuing; requests may fail."
         } else {
             Write-Warning "Example $Name not accepting connections on port $Port after timeout. Continuing; requests may fail."

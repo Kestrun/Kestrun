@@ -7,8 +7,13 @@ updates:
     commit-message:
       prefix: "🔼 NuGet"
     open-pull-requests-limit: 10
-    versioning-strategy: increase
   - package-ecosystem: "github-actions"
     directory: "/"                # updates GitHub Actions versions
     schedule:
       interval: "weekly"
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    labels:
+      - dependencies

@@ -106,7 +106,7 @@ function Start-KrServer {
                 if ($writeConsole) {
                     Write-Host 'Stopping Kestrun server...'
                 }
-                if ( $Server.IsRunning ) {
+                if ($Server.IsRunning) {
                     [Kestrun.KestrunHostManager]::StopAsync($Server.ApplicationName).Wait()
                 }
                 #$Server.StopAsync().Wait()

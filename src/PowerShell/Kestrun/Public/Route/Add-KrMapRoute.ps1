@@ -35,6 +35,9 @@
         If specified, allows the addition of duplicate routes with the same path and HTTP verb.
     .PARAMETER Arguments
         An optional hashtable of arguments to pass to the script block or code.
+    .PARAMETER Endpoints
+        An optional array of endpoint names to which the route should be bound.
+        If not specified, the route will be bound to all endpoints.
     .PARAMETER DuplicateAction
         Specifies the action to take if a duplicate route is detected. Options are 'Throw', 'Skip', 'Allow', or 'Warn'.
         Default is 'Throw', which will raise an error if a duplicate route is found.
@@ -117,6 +120,11 @@ function Add-KrMapRoute {
         [Parameter(ParameterSetName = 'CodeFilePath')]
         [hashtable]$Arguments,
 
+        [Parameter(ParameterSetName = 'ScriptBlock')]
+        [Parameter(ParameterSetName = 'Code')]
+        [Parameter(ParameterSetName = 'CodeFilePath')]
+        [string[]]$Endpoints,
+
         [Parameter()]
         [switch]$AllowDuplicate,
 
@@ -130,9 +138,6 @@ function Add-KrMapRoute {
     begin {
         # Ensure the server instance is resolved
         $Server = Resolve-KestrunServer -Server $Server
-        if ($null -eq $Server) {
-            throw 'Server is not initialized. Please ensure the server is configured before setting options.'
-        }
     }
     process {
 
@@ -140,12 +145,12 @@ function Add-KrMapRoute {
 
         if ($exists) {
             if ($AllowDuplicate -or $DuplicateAction -eq 'Allow') {
-                Write-KrLog -Level Warning -Message "Route '{Path}' ({Verbs}) already exists; adding another." -Properties $Pattern, ($Verbs -join ',')
+                Write-KrLog -Level Warning -Message "Route '{Path}' ({Verbs}) already exists; adding another." -Values $Pattern, ($Verbs -join ',')
             } elseif ($DuplicateAction -eq 'Skip') {
-                Write-KrLog -Level Verbose -Message "Route '{Path}' ({Verbs}) exists; skipping." -Properties $Pattern, ($Verbs -join ',')
+                Write-KrLog -Level Verbose -Message "Route '{Path}' ({Verbs}) exists; skipping." -Values $Pattern, ($Verbs -join ',')
                 return
             } elseif ($DuplicateAction -eq 'Warn') {
-                Write-KrLog -Level Warning -Message "Route '{Path}' ({Verbs}) already exists." -Properties $Pattern, ($Verbs -join ',')
+                Write-KrLog -Level Warning -Message "Route '{Path}' ({Verbs}) already exists." -Values $Pattern, ($Verbs -join ',')
             } else {
                 throw [System.InvalidOperationException]::new(
                     "Route '$Pattern' with method(s) $($Verbs -join ',') already exists.")
@@ -164,6 +169,11 @@ function Add-KrMapRoute {
             }
             if ($null -ne $AuthorizationPolicy) {
                 $Options.RequirePolicies = $AuthorizationPolicy
+            }
+
+            # Endpoints
+            if ($null -ne $Endpoints -and $Endpoints.Count -gt 0) {
+                $Options.Endpoints = $Endpoints
             }
 
             if ($null -ne $Arguments) {

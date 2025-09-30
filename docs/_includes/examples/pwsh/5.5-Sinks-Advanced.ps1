@@ -8,6 +8,11 @@
     FileName: 5.5-Sinks-Advanced.ps1
 #>
 
+param(
+    [int]$Port = 5000,
+    [IPAddress]$IPAddress = [IPAddress]::Loopback
+)
+
 $base = New-KrLogger |
     Set-KrLoggerMinimumLevel -Value Information |
     Add-KrSinkConsole |
@@ -28,7 +33,7 @@ $base = $base | Add-KrSinkSyslogLocal -AppName 'KestrunSample'
 $logger = $base | Register-KrLogger -Name 'advanced' -PassThru
 
 New-KrServer -Name "Advanced Sinks"
-Add-KrListener -Port 5000 -IPAddress ([IPAddress]::Loopback)
+Add-KrEndpoint -Port $Port -IPAddress $IPAddress
 Add-KrPowerShellRuntime
 
 Enable-KrConfiguration

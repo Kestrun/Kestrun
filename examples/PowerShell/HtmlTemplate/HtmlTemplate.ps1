@@ -49,7 +49,7 @@ Set-KrSharedState -Name 'Visits' -Value @{Count = 0 }
 $server = New-KrServer -Name 'Kestrun HtmlTemplate' -Logger $logger -PassThru
 
 # Listen on port 5000 (HTTP)
-Add-KrListener -Port 5000 -PassThru | Add-KrPowerShellRuntime -PassThru |
+Add-KrEndpoint -Port 5000 -PassThru | Add-KrPowerShellRuntime -PassThru |
 
     Enable-KrConfiguration -PassThru
 

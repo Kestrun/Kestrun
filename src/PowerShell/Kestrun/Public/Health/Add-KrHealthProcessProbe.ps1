@@ -73,12 +73,12 @@ function Add-KrHealthProcessProbe {
 
         try {
             $hostResult = $Server.AddProbe($probe)
-            Write-KrLog -Level Information -Message "Process health probe '{0}' registered." -Properties $Name
+            Write-KrLog -Level Information -Message "Process health probe '{0}' registered." -Values $Name
             if ($PassThru.IsPresent) {
                 return $hostResult
             }
         } catch {
-            Write-KrLog -Level Error -Message "Failed to register process health probe '{0}'." -Properties $Name -ErrorRecord $_
+            Write-KrLog -Level Error -Message "Failed to register process health probe '{0}'." -Values $Name -ErrorRecord $_
             throw
         }
     }

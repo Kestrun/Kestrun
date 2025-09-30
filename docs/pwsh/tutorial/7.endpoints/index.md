@@ -11,7 +11,7 @@ Create and host a Kestrun server: listeners (HTTP/HTTPS, pipes, sockets), runtim
 > Prerequisites: review [Routes](../2.routes/index) for mapping, and [Logging](../5.logging/1.Simple-Logging) if you want structured logs visible.
 
 Core cmdlets:
-`New-KrServer`, `Add-KrListener`, `Add-KrNamedPipeListener`, `Add-KrListenUnixSocket`,
+`New-KrServer`, `Add-KrEndpoint`, `Add-KrNamedPipeListener`, `Add-KrListenUnixSocket`,
 `Add-KrPowerShellRuntime`, `Enable-KrConfiguration`, `Add-KrMapRoute`, `Start-KrServer`,
 `Stop-KrServer`, `Remove-KrServer`.
 
@@ -42,7 +42,7 @@ Advanced server tuning, lifecycle, and demos have moved:
 
 ```powershell
 New-KrServer -Name 'demo'
-Add-KrListener -Port 5000 -IPAddress ([IPAddress]::Loopback)
+Add-KrEndpoint -Port 5000 -IPAddress ([IPAddress]::Loopback)
 Add-KrPowerShellRuntime
 Enable-KrConfiguration
 Add-KrMapRoute -Pattern '/ping' -Verbs Get -ScriptBlock { Write-KrTextResponse 'pong' }

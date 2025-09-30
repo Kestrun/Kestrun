@@ -64,31 +64,28 @@ function Set-KrServerNamedPipeOptions {
         }
         # Ensure the server instance is resolved
         $Server = Resolve-KestrunServer -Server $Server
-        if ($null -eq $Server) {
-            throw 'Server is not initialized. Please ensure the server is configured before setting options.'
-        }
     }
     process {
         if ($PSCmdlet.ParameterSetName -eq 'Items') {
             $Options = [Microsoft.AspNetCore.Server.Kestrel.Transport.NamedPipes.NamedPipeTransportOptions]::new()
             if ($null -ne $ListenerQueueCount) {
-                Write-KrLog -Logger $Server.HostLogger -Level Verbose -Message "Setting NamedPipeOptions.ListenerQueueCount to {ListenerQueueCount}" -Properties $ListenerQueueCount
+                Write-KrLog -Logger $Server.HostLogger -Level Verbose -Message "Setting NamedPipeOptions.ListenerQueueCount to {ListenerQueueCount}" -Values $ListenerQueueCount
                 $options.ListenerQueueCount = $ListenerQueueCount
             }
             if ($null -ne $MaxReadBufferSize) {
-                Write-KrLog -Logger $Server.HostLogger -Level Verbose -Message "Setting NamedPipeOptions.MaxReadBufferSize to {MaxReadBufferSize}" -Properties $MaxReadBufferSize
+                Write-KrLog -Logger $Server.HostLogger -Level Verbose -Message "Setting NamedPipeOptions.MaxReadBufferSize to {MaxReadBufferSize}" -Values $MaxReadBufferSize
                 $options.MaxReadBufferSize = $MaxReadBufferSize
             }
             if ($CurrentUserOnly.IsPresent) {
-                Write-KrLog -Logger $Server.HostLogger -Level Verbose -Message "Setting NamedPipeOptions.CurrentUserOnly to {CurrentUserOnly}" -Properties $CurrentUserOnly
+                Write-KrLog -Logger $Server.HostLogger -Level Verbose -Message "Setting NamedPipeOptions.CurrentUserOnly to {CurrentUserOnly}" -Values $CurrentUserOnly
                 $Options.CurrentUserOnly = $true
             }
             if ($null -ne $MaxWriteBufferSize) {
-                Write-KrLog -Logger $Server.HostLogger -Level Verbose -Message "Setting NamedPipeOptions.MaxWriteBufferSize to {MaxWriteBufferSize}" -Properties $MaxWriteBufferSize
+                Write-KrLog -Logger $Server.HostLogger -Level Verbose -Message "Setting NamedPipeOptions.MaxWriteBufferSize to {MaxWriteBufferSize}" -Values $MaxWriteBufferSize
                 $Options.MaxWriteBufferSize = $MaxWriteBufferSize
             }
             if ($null -ne $PipeSecurity) {
-                Write-KrLog -Logger $Server.HostLogger -Level Verbose -Message "Setting NamedPipeOptions.PipeSecurity to {PipeSecurity}" -Properties $PipeSecurity
+                Write-KrLog -Logger $Server.HostLogger -Level Verbose -Message "Setting NamedPipeOptions.PipeSecurity to {PipeSecurity}" -Values $PipeSecurity
                 $Options.PipeSecurity = $PipeSecurity
             }
         }

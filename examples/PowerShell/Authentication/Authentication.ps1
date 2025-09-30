@@ -1,6 +1,9 @@
 
 [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidUsingConvertToSecureStringWithPlainText', '')]
-param()
+param(
+    [int]$Port = 5000,
+    [IPAddress]$IPAddress = [IPAddress]::Loopback
+)
 <#
     .SYNOPSIS
         Kestrun PowerShell Example: Multi Routes
@@ -57,30 +60,6 @@ param()
         Invoke-RestMethod -Uri https://localhost:5001/secure/cookies/policy -Method PUT -SkipCertificateCheck -WebSession $authSession
 #>
 
-try {
-    # Get the path of the current script
-    # This allows the script to be run from any location
-    $ScriptPath = (Split-Path -Parent -Path $MyInvocation.MyCommand.Path)
-    # Determine the script path and Kestrun module path
-    $powerShellExamplesPath = (Split-Path -Parent ($ScriptPath))
-    # Determine the script path and Kestrun module path
-    $examplesPath = (Split-Path -Parent ($powerShellExamplesPath))
-    # Get the parent directory of the examples path
-    # This is useful for locating the Kestrun module
-    $kestrunPath = Split-Path -Parent -Path $examplesPath
-    # Construct the path to the Kestrun module
-    # This assumes the Kestrun module is located in the src/PowerShell/Kestr
-    $kestrunModulePath = "$kestrunPath/src/PowerShell/Kestrun/Kestrun.psm1"
-    # Import the Kestrun module from the source path if it exists, otherwise from installed modules
-    if (Test-Path -Path $kestrunModulePath -PathType Leaf) {
-        Import-Module $kestrunModulePath -Force -ErrorAction Stop
-    } else {
-        Import-Module -Name 'Kestrun' -MaximumVersion 2.99 -ErrorAction Stop
-    }
-} catch {
-    Write-Error "Failed to import Kestrun module: $_"
-    exit 1
-}
 $logger = New-KrLogger |
     Set-KrLoggerMinimumLevel -Value Debug |
     Add-KrSinkFile -Path '.\logs\Authentication.log' -RollingInterval Hour |
@@ -107,8 +86,8 @@ Set-KrServerOptions -DenyServerHeader
 
 Set-KrServerLimit -MaxRequestBodySize 10485760 -MaxConcurrentConnections 100 -MaxRequestHeaderCount 100 -KeepAliveTimeoutSeconds 120
 # Configure the listener (adjust port, cert path, and password)
-Add-KrListener -Port 5001 -IPAddress ([IPAddress]::Loopback) -X509Certificate $cert -Protocols Http1AndHttp2AndHttp3
-Add-KrListener -Port 5000 -IPAddress ([IPAddress]::Loopback)
+Add-KrEndpoint -Port $Port -IPAddress $IPAddress -X509Certificate $cert -Protocols Http1AndHttp2AndHttp3
+#Add-KrEndpoint -Port $Port -IPAddress $IPAddress
 
 Add-KrCompressionMiddleware -EnableForHttps -MimeTypes @('text/plain', 'text/html', 'application/json', 'application/xml', 'application/x-www-form-urlencoded')
 Add-KrPowerShellRuntime
@@ -142,7 +121,7 @@ $claimConfig = New-KrClaimPolicy |
 # ── BASIC AUTHENTICATION ────────────────────────────────────────────────
 Add-KrBasicAuthentication -Name $BasicPowershellScheme -Realm 'Power-Kestrun' -AllowInsecureHttp -ScriptBlock {
     param($Username, $Password)
-    Write-KrLog -Level Information -Message 'Basic Authentication: User {user} is trying to authenticate.' -Properties $Username
+    Write-KrLog -Level Information -Message 'Basic Authentication: User {user} is trying to authenticate.' -Values $Username
     if ($Username -eq 'admin' -and $Password -eq 'password') {
         $true
     } else {
@@ -462,7 +441,7 @@ Add-KrRouteGroup -Prefix '/secure/jwt' -AuthorizationSchema $JwtScheme {
 Add-KrMapRoute -Verbs Get -Pattern '/token/renew' -AuthorizationSchema $JwtScheme -ScriptBlock {
     $user = $Context.User.Identity.Name
 
-    Write-KrLog -Level Information -Message 'Generating JWT token for user {0}' -Properties $user
+    Write-KrLog -Level Information -Message 'Generating JWT token for user {0}' -Values $user
     Write-Output "JwtTokenBuilder Type : $($JwtTokenBuilder.GetType().FullName)"
     $accessToken = $JwtTokenBuilder | Update-KrJWT -FromContext
     Write-KrJsonResponse -InputObject @{
@@ -476,8 +455,8 @@ Add-KrMapRoute -Verbs Get -Pattern '/token/renew' -AuthorizationSchema $JwtSchem
 Add-KrMapRoute -Verbs Get -Pattern '/token/new' -AuthorizationSchema $BasicPowershellScheme -ScriptBlock {
     $user = $Context.User.Identity.Name
 
-    Write-KrLog -Level Information -Message 'Regenerating JWT token for user {0}' -Properties $user
-    Write-KrLog -Level Information -Message 'JWT Token Builder: {0}' -Properties $JwtTokenBuilder
+    Write-KrLog -Level Information -Message 'Regenerating JWT token for user {0}' -Values $user
+    Write-KrLog -Level Information -Message 'JWT Token Builder: {0}' -Values $JwtTokenBuilder
     if (-not $JwtTokenBuilder) {
         Write-KrErrorResponse -Message 'JWT Token Builder is not initialized.' -StatusCode 500
         return
@@ -548,7 +527,7 @@ Add-KrMapRoute -Verbs Post -Pattern '/cookies/login' -ScriptBlock {
                 Add-KrUserClaim -ClaimType 'can_write' -Value 'true' |
                 Add-KrUserClaim -ClaimType 'can_create' -Value 'true')
         $principal = Invoke-KrCookieSignIn -Scheme 'Cookies' -Claims $claims -PassThru
-        Write-KrLog -Level Information -Message 'User {user} signed in with Cookies authentication.' -Properties $username
+        Write-KrLog -Level Information -Message 'User {user} signed in with Cookies authentication.' -Values $username
         Expand-KrObject -InputObject $principal -Label 'Principal'
         Write-KrJsonResponse -InputObject @{ success = $true; message = 'Login successful' }
     } else {

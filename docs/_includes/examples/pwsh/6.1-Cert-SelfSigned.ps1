@@ -2,7 +2,12 @@
     Create a self-signed development certificate and start HTTPS listener.
     FileName: 6.1-Cert-SelfSigned.ps1
 #>
+param(
+    [int]$Port = 5000,
+    [IPAddress]$IPAddress = [IPAddress]::Loopback
+)
 
+# Initialize Kestrun root directory
 Initialize-KrRoot -Path $PSScriptRoot
 
 # Configure default logging
@@ -19,7 +24,7 @@ Get-KrCertificatePurpose -Certificate $cert | Out-Host
 
 # Configure HTTPS listener with the certificate
 New-KrServer -Name "HTTPS Demo"
-Add-KrListener -Port 5001 -IPAddress ([IPAddress]::Loopback) -X509Certificate $cert -Protocols Http1
+Add-KrEndpoint -Port $Port -IPAddress $IPAddress -X509Certificate $cert -Protocols Http1
 
 # Minimal route to verify HTTPS works
 Add-KrPowerShellRuntime

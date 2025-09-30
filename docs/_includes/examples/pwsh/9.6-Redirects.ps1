@@ -5,7 +5,10 @@
     File:    9.6-Redirects.ps1
     Notes:   Shows 3xx Location header response.
 #>
-
+param(
+    [int]$Port = 5000,
+    [IPAddress]$IPAddress = [IPAddress]::Loopback
+)
 # 1. Logging
 New-KrLogger | Add-KrSinkConsole | Register-KrLogger -Name 'console' -SetAsDefault
 
@@ -13,7 +16,7 @@ New-KrLogger | Add-KrSinkConsole | Register-KrLogger -Name 'console' -SetAsDefau
 New-KrServer -Name 'Responses 9.6'
 
 # 3. Listener
-Add-KrListener -IPAddress '127.0.0.1' -Port 5000
+Add-KrEndpoint -IPAddress $IPAddress -Port $Port
 
 # 4. Runtime
 Add-KrPowerShellRuntime

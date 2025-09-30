@@ -5,6 +5,11 @@
     FileName: 5.1-Simple-Logging.ps1
 #>
 
+param(
+    [int]$Port = 5000,
+    [IPAddress]$IPAddress = [IPAddress]::Loopback
+)
+
 $myLogger = New-KrLogger |
     Set-KrLoggerMinimumLevel -Value Debug |
     Add-KrSinkFile -Path '.\logs\sample.log' -RollingInterval Hour |
@@ -14,8 +19,8 @@ $myLogger = New-KrLogger |
 # Create a new Kestrun server
 New-KrServer -Name "Simple Server"
 
-# Add a listener on port 5000 and IP address 127.0.0.1 (localhost)
-Add-KrListener -Port 5000 -IPAddress ([IPAddress]::Loopback)
+# Add a listener using provided parameters
+Add-KrEndpoint -Port $Port -IPAddress $IPAddress
 
 # Add the PowerShell runtime
 # !!!!Important!!!! this step is required to process PowerShell routes and middlewares
@@ -28,7 +33,7 @@ Enable-KrConfiguration
 # Map the route with PowerShell
 Add-KrMapRoute -Verbs Get -Path "/hello-powershell" -ScriptBlock {
     $response = "Hello, World!"
-    Write-KrLog -Logger $myLogger -Level Debug -Message "Handling /hello-powershell response {response}" -Properties $response
+    Write-KrLog -Logger $myLogger -Level Debug -Message "Handling /hello-powershell response {response}" -Values $response
     Write-KrTextResponse -InputObject $response -StatusCode 200
 }
 
@@ -39,6 +44,8 @@ Add-KrMapRoute -Verbs Get -Path "/hello-csharp" -Code @"
     myLogger.Debug("Handling /hello-csharp response {response}", response);
     Context.Response.WriteTextResponse( response, 200);
 "@ -Language CSharp
+
+
 
 # Start the server asynchronously
 Start-KrServer

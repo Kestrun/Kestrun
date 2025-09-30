@@ -4,7 +4,10 @@
     File:    8.2-Basic-MultiLang.ps1
     Notes:   Demonstrates multi-language support for auth handlers.
 #>
-
+param(
+    [int]$Port = 5000,
+    [IPAddress]$IPAddress = [IPAddress]::Loopback
+)
 # 1. Logging pipeline
 New-KrLogger | Add-KrSinkConsole | Register-KrLogger -Name 'console' -SetAsDefault | Out-Null
 
@@ -12,7 +15,7 @@ New-KrLogger | Add-KrSinkConsole | Register-KrLogger -Name 'console' -SetAsDefau
 New-KrServer -Name 'Auth Basic Multi'
 
 # 3. Listener
-Add-KrListener -Port 5000 -IPAddress ([IPAddress]::Loopback)
+Add-KrEndpoint -Port $Port -IPAddress $IPAddress
 
 # 4. PowerShell runtime
 Add-KrPowerShellRuntime
@@ -32,10 +35,11 @@ Enable-KrConfiguration
 
 # 8. Map language-specific routes
 Add-KrMapRoute -Verbs Get -Pattern '/secure/cs/hello' -AuthorizationSchema 'CSharpBasic' -ScriptBlock {
-    Write-KrTextResponse -InputObject "CS Hello $( $Context.User.Identity.Name )"
+    Write-KrTextResponse -InputObject "CS Hello, $( $Context.User.Identity.Name )!" -ContentType 'text/plain'
 }
+
 Add-KrMapRoute -Verbs Get -Pattern '/secure/vb/hello' -AuthorizationSchema 'VBNetBasic' -ScriptBlock {
-    Write-KrTextResponse -InputObject "VB Hello $( $Context.User.Identity.Name )"
+    Write-KrTextResponse -InputObject "VB Hello, $( $Context.User.Identity.Name )!" -ContentType 'text/plain'
 }
 
 # 9. Start server

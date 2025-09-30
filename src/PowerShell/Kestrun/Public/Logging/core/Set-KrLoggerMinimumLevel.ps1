@@ -15,7 +15,7 @@
     .OUTPUTS
         Instance of Serilog.LoggerConfiguration if the PassThru parameter is specified.
     .EXAMPLE
-        PS> Set-KrLoggerMinimumLevel -LoggerConfig $myLoggerConfig -Value Warning
+        PS> Set-KrLoggerMinimumLevel -LoggerConfig $myLoggerConfig -Values Warning
         Sets the minimum log level of the specified logger configuration to Warning.
         .EXAMPLE
         PS> Set-KrLoggerMinimumLevel -LoggerConfig $myLoggerConfig -ControlledBy $myLevelSwitch

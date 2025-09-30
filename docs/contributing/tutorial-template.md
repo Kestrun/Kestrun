@@ -2,6 +2,7 @@
 title: Tutorial Page Authoring Template
 parent: Contributing
 nav_order: 99
+render_with_liquid: false
 ---
 
 # Tutorial Documentation Authoring Guide

@@ -25,7 +25,15 @@ function Resolve-KestrunServer {
         [Kestrun.Hosting.KestrunHost]$Server
     )
     if ($null -eq $Server) {
-        $Server = [Kestrun.KestrunHostManager]::Default
+        if ($null -ne $KrServer) {
+            Write-KrLog -Level Information -Message "No server specified, using global KrServer variable. {KrServer}" -Values $KrServer
+            # If no server is specified, use the global $KrServer variable
+            # This is useful for scripts that run in the context of a Kestrun server
+            $Server = $KrServer
+        } else {
+            # Try to get the default Kestrun server instance
+            $Server = [Kestrun.KestrunHostManager]::Default
+        }
         if ($null -eq $Server) {
             throw 'No Kestrun server instance found. Please create a Kestrun server instance.'
         }

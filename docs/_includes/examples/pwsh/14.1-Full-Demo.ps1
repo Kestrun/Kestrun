@@ -1,6 +1,10 @@
 <#
     14.1 Full Demo (moved from 7.9)
 #>
+param(
+    [int]$Port = 5000,
+    [IPAddress]$IPAddress = [IPAddress]::Loopback
+)
 New-KrLogger | Add-KrSinkConsole | Register-KrLogger -Name 'console' -SetAsDefault | Out-Null
 $certPath = Join-Path $PSScriptRoot 'fulldemo.pfx'
 if (-not (Test-Path $certPath)) {
@@ -10,8 +14,8 @@ if (-not (Test-Path $certPath)) {
     $demoPwd = Read-Host -Prompt 'Enter existing fulldemo.pfx password' -AsSecureString
 }
 $srv = New-KrServer -Name 'Full Demo Server' -PassThru
-Add-KrListener -Port 5000 -IPAddress ([IPAddress]::Loopback)
-Add-KrListener -Port 5443 -IPAddress ([IPAddress]::Loopback) -CertPath $certPath -CertPassword $demoPwd
+Add-KrEndpoint -Port $Port -IPAddress $IPAddress
+Add-KrEndpoint -Port ($Port + 433) -IPAddress $IPAddress -CertPath $certPath -CertPassword $demoPwd
 if ($IsWindows) { Add-KrNamedPipeListener -PipeName 'kestrun.full.pipe' }
 Add-KrPowerShellRuntime
 Enable-KrConfiguration

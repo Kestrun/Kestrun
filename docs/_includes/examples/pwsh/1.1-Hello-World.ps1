@@ -4,12 +4,16 @@
     The server will respond with "Hello, World!" when accessed.
     FileName: 1.1-Hello-World.ps1
 #>
+param(
+    [int]$Port = 5000,
+    [IPAddress]$IPAddress = [IPAddress]::Loopback # Use 'Loopback' for safety in tests/examples
+)
 
 # Create a new Kestrun server
 New-KrServer -Name "Simple Server"
 
 # Add a listener on port 5000 and IP address 127.0.0.1 (localhost)
-Add-KrListener -Port 5000 -IPAddress ([IPAddress]::Loopback)
+Add-KrEndpoint -Port $Port -IPAddress $IPAddress
 
 # Add the PowerShell runtime
 # !!!!Important!!!! this step is required to process PowerShell routes and middlewares

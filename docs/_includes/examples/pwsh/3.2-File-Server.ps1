@@ -4,6 +4,11 @@
     FileName: 3.2-File-Server.ps1
 #>
 
+param(
+    [int]$Port = 5000,
+    [IPAddress]$IPAddress = [IPAddress]::Loopback
+)
+
 # Initialize Kestrun root directory
 # the default value is $PWD
 # This is recommended in order to use relative paths without issues
@@ -12,8 +17,8 @@ Initialize-KrRoot -Path $PSScriptRoot
 # Create a new Kestrun server
 New-KrServer -Name "Simple Server"
 
-# Add a listener on port 5000 and IP address 127.0.0.1 (localhost)
-Add-KrListener -Port 5000 -IPAddress ([IPAddress]::Loopback)
+# Add a listener on the configured port and IP address
+Add-KrEndpoint -Port $Port -IPAddress $IPAddress
 
 # Define the content type map to add to the default set
 $map = @{
@@ -23,11 +28,11 @@ $map = @{
 }
 
 # Add a file server with browsing enabled
-Add-KrFileServerMiddleware -RequestPath '/' -RootPath '.\Assets\wwwroot' -EnableDirectoryBrowsing -ContentTypeMap $map   -Public -MaxAge 300 -mustRevalidate
+Add-KrFileServerMiddleware -RequestPath '/' -RootPath '.\Assets\wwwroot' -EnableDirectoryBrowsing -ContentTypeMap $map -Public -MaxAge 300 -mustRevalidate
 
 # Enable Kestrun configuration
 Enable-KrConfiguration
 
+
 # Start the server asynchronously
 Start-KrServer
-    

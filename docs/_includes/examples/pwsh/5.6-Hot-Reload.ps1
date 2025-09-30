@@ -5,14 +5,26 @@
     FileName: 5.6-Hot-Reload.ps1
 #>
 
+param(
+    [int]$Port = 5000,
+    [IPAddress]$IPAddress = [IPAddress]::Loopback
+)
+
+# Dynamic level switch logger
 New-KrLogger |
     Set-KrLoggerMinimumLevel -Dynamic Debug |
     Add-KrSinkConsole |
     Add-KrSinkFile -Path '.\logs\hot-reload.log' -RollingInterval Hour |
     Register-KrLogger -Name 'app' -PassThru
 
-New-KrServer -Name "Hot Reload"
-Add-KrListener -Port 5000 -IPAddress ([IPAddress]::Loopback)
+# Default logger for server events
+New-KrLogger |
+    Set-KrLoggerMinimumLevel -Value Debug |
+    Add-KrSinkConsole |
+    Register-KrLogger -Name 'Default'
+
+New-KrServer -Name "Hot Reload" -LoggerName 'Default'
+Add-KrEndpoint -Port $Port -IPAddress $IPAddress
 Add-KrPowerShellRuntime
 
 Enable-KrConfiguration
@@ -23,18 +35,20 @@ Add-KrMapRoute -Verbs Get -Path "/log" -ScriptBlock {
     Write-KrLog -LoggerName 'app' -Level Warning -Message "Warning event"
     Write-KrLog -LoggerName 'app' -Level Error -Message "Error event"
     Write-KrLog -LoggerName 'app' -Level Fatal -Message "Fatal event"
-    Write-KrTextResponse -InputObject "ok - $(Get-KrLevelSwitch -LoggerName 'app')" -StatusCode 200
+    Write-KrTextResponse -InputObject "ok - $(Get-KrLoggerLevelSwitch -LoggerName 'app')" -StatusCode 200
 }
 
 # Change minimum level via route: /level/{level} e.g., /level/Debug or /level/Warning
 Add-KrMapRoute -Verbs Get -Path "/level/{level}" -ScriptBlock {
     $lvl = Get-KrRequestRouteParam -Name 'level'
-    try {
-        $enum = [Serilog.Events.LogEventLevel]::$lvl
-        Set-KrLevelSwitch -LoggerName 'app' -MinimumLevel $enum | Out-Null
-        Write-KrLog -LoggerName 'app' -Level Information -Message "Level switch set to {level}" -Properties $lvl
+    $parsed = [Serilog.Events.LogEventLevel]::Information
+    if ([Enum]::TryParse([Serilog.Events.LogEventLevel], $lvl, $true, [ref]$parsed)) {
+        Write-KrLog -Level Debug -LoggerName 'Default' -Message "Changing level to {lvl}" -Values $lvl
+        Set-KrLoggerLevelSwitch -LoggerName 'app' -MinimumLevel $parsed | Out-Null
+        Write-KrLog -LoggerName 'app' -Level Information -Message "Level switch set to {level}" -Values $lvl
         Write-KrTextResponse -InputObject "level=$lvl" -StatusCode 200
-    } catch {
+    } else {
+        Write-KrLog -LoggerName 'app' -Level Warning -Message "Invalid level value {level}" -Values $lvl
         Write-KrTextResponse -InputObject "invalid level '$lvl'" -StatusCode 400
     }
 }
@@ -54,5 +68,5 @@ Add-KrMapRoute -Verbs Post -Path "/reconfigure" -ScriptBlock {
 Start-KrServer
 
 # Clean up and close the logger when the server stops
-Close-KrLogger -Logger $app
+Close-KrLogger
 

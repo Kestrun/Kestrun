@@ -59,7 +59,7 @@ PowerShell equivalent:
 
 ```powershell
 New-KrServer -Name demo
-Add-KrListener -Port 5000 -IPAddress ([IPAddress]::Loopback)
+Add-KrEndpoint -Port 5000 -IPAddress ([IPAddress]::Loopback)
 Add-KrPowerShellRuntime
 
 Add-KrMapRoute -Pattern '/time' -HttpVerb GET -Code '[DateTime]::UtcNow' -OpenApiSummary 'UTC time' -AllowAnonymous -DisableAntiforgery

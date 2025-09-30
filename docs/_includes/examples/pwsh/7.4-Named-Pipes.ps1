@@ -4,9 +4,9 @@
         File:   7.4-Named-Pipes.ps1
 #>
 
-if (-not $isWindows) {
-    throw 'Named pipes example requires Windows.'
-}
+param(
+    [string]$NamedPipeName = 'kestrun.demo.pipe'
+)
 
 # 1. Configure logging (console sink so we can see events)
 New-KrLogger |
@@ -17,7 +17,7 @@ New-KrLogger |
 New-KrServer -Name 'Endpoints Pipes'
 
 # 3. Add a named pipe listener. DO NOT prepend \\./pipe/. Provide only the short name.
-Add-KrNamedPipeListener -NamedPipeName 'kestrun.demo.pipe'
+Add-KrNamedPipeListener -NamedPipeName $NamedPipeName
 
 # 4. Add the PowerShell runtime so script routes can execute
 Add-KrPowerShellRuntime
@@ -32,7 +32,8 @@ Add-KrMapRoute -Verbs Get -Pattern '/pipe' -ScriptBlock {
 }
 
 # 7. Informational log so the console shows readiness
-Write-KrLog -Level Information -Message 'Named pipe listener active.'
+Write-KrLog -Level Information -Message 'Named pipe listener active {Pipe}' -Values $NamedPipeName
 
-# 8. Start server (Ctrl+C to stop)
+# 8. Start the server and close all the loggers when the server stops
+# This is equivalent to calling Close-KrLogger after Start-KrServer
 Start-KrServer -CloseLogsOnExit

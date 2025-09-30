@@ -6,10 +6,10 @@
 New-KrLogger | Add-KrSinkConsole | Register-KrLogger -Name 'console' -SetAsDefault
 
 # Create a new Kestrun server
-New-KrServer -Name "Health Demo"
+New-KrServer -Name 'Health Demo'
 
 # Add a listener on port 5000 and IP address 127.0.0.1 (localhost)
-Add-KrListener -Port 5000 -IPAddress ([IPAddress]::Loopback)
+Add-KrEndpoint -Port $Port -IPAddress $IPAddress
 
 # Add the PowerShell runtime
 Add-KrPowerShellRuntime
@@ -18,7 +18,7 @@ Add-KrPowerShellRuntime
 Enable-KrConfiguration
 
 # Add a simple route the HTTP probe can call
-Add-KrMapRoute -Verbs Get -Pattern "/ping" -ScriptBlock {
+Add-KrMapRoute -Verbs Get -Pattern '/ping' -ScriptBlock {
     Write-KrJsonResponse @{ status = 'Healthy'; description = 'Self ping successful' }
 }
 

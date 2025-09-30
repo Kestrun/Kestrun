@@ -4,7 +4,10 @@
     File:    9.1-Text-Json.ps1
     Notes:   Shows basic text responses and structured JSON responses.
 #>
-
+param(
+    [int]$Port = 5000,
+    [IPAddress]$IPAddress = [IPAddress]::Loopback
+)
 # 1. Logging
 New-KrLogger | Add-KrSinkConsole | Register-KrLogger -Name 'console' -SetAsDefault
 
@@ -12,7 +15,7 @@ New-KrLogger | Add-KrSinkConsole | Register-KrLogger -Name 'console' -SetAsDefau
 New-KrServer -Name 'Responses 9.1'
 
 # 3. Listener
-Add-KrListener -IPAddress '127.0.0.1' -Port 5000
+Add-KrEndpoint -IPAddress $IPAddress -Port $Port -SelfSignedCert
 
 # 4. Runtime
 Add-KrPowerShellRuntime

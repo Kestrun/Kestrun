@@ -44,7 +44,16 @@ public class KestrunHost : IDisposable
     /// Gets the configuration options for the Kestrun host.
     /// </summary>
     public KestrunOptions Options { get; private set; } = new();
+
+    /// <summary>
+    /// List of PowerShell module paths to be loaded.
+    /// </summary>
     private readonly List<string> _modulePaths = [];
+
+    /// <summary>
+    /// Indicates whether the Kestrun host is stopping.
+    /// </summary>
+    private int _stopping; // 0 = running, 1 = stopping
 
     /// <summary>
     /// Indicates whether the Kestrun host configuration has been applied.
@@ -1083,6 +1092,10 @@ public class KestrunHost : IDisposable
     /// </summary>
     public void Stop()
     {
+        if (Interlocked.Exchange(ref _stopping, 1) == 1)
+        {
+            return; // already stopping
+        }
         if (HostLogger.IsEnabled(LogEventLevel.Debug))
         {
             HostLogger.Debug("Stop() called");
@@ -1132,18 +1145,20 @@ public class KestrunHost : IDisposable
 
         if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
         {
+            // On Windows, we can use the full .NET Framework modules
             iss.ExecutionPolicy = ExecutionPolicy.Unrestricted;
         }
-
         foreach (var p in _modulePaths)
         {
             iss.ImportPSModule([p]);
         }
+
+        // Inject 'KrServer' variable to provide access to the host instance
         iss.Variables.Add(
             new SessionStateVariableEntry(
-                "KestrunHost",
+                "KrServer",
                 this,
-                "The KestrunHost instance"
+                "The Kestrun Server Host (KestrunHost) instance"
             )
         );
         // Inject global variables into all runspaces

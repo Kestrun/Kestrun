@@ -69,7 +69,12 @@ public record MapRouteOptions
     /// <summary>
     /// Additional metadata for the route, represented as key-value pairs.
     /// </summary>
-    public Dictionary<string, object?>? Arguments { get; set; } = []; // Additional metadata for the route
+    public Dictionary<string, object?>? Arguments { get; set; } = [];
+
+    /// <summary>
+    /// Endpoints to bind the route to, if any.
+    /// </summary>
+    public string[]? Endpoints { get; set; } = [];
 
     /// <summary>
     /// Metadata for OpenAPI documentation related to the route.
@@ -95,7 +100,7 @@ public record MapRouteOptions
         /// <summary>
         /// Group name for OpenAPI documentation.
         /// </summary>
-        public string? GroupName { get; set; } // Group name for OpenAPI documentation 
+        public string? GroupName { get; set; } // Group name for OpenAPI documentation
     }
 
     /// <summary>

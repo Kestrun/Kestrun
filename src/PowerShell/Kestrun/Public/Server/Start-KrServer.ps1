@@ -40,8 +40,14 @@ function Start-KrServer {
     begin {
         # Ensure the server instance is resolved
         $Server = Resolve-KestrunServer -Server $Server
-        if ($null -eq $Server) {
-            throw 'Server is not initialized. Please ensure the server is configured before setting options.'
+        $hasConsole = $false
+        $writeConsole = $false
+        try {
+            $null = [Console]::KeyAvailable
+            $hasConsole = $true
+            $writeConsole = -not $Quiet.IsPresent
+        } catch {
+            Write-KrLog -Level Information -Message "No console available; running in non-interactive mode."
         }
     }
     process {
@@ -50,7 +56,7 @@ function Start-KrServer {
             Write-Host "Starting Kestrun server '$($Server.ApplicationName)' ..."
         }
         $Server.StartAsync() | Out-Null
-        if (-not $Quiet.IsPresent) {
+        if ($writeConsole) {
             Write-Host 'Kestrun server started successfully.'
             foreach ($listener in $Server.Options.Listeners) {
                 if ($listener.X509Certificate) {
@@ -74,26 +80,35 @@ function Start-KrServer {
         if (-not $NoWait.IsPresent) {
             # Intercept Ctrl+C and gracefully stop the Kestrun server
             try {
-                [Console]::TreatControlCAsInput = $true
-                while ($true) {
-                    if ([Console]::KeyAvailable) {
-                        $key = [Console]::ReadKey($true)
-                        if (($key.Modifiers -eq 'Control') -and ($key.Key -eq 'C')) {
-                            if (-not $Quiet.IsPresent) {
-                                Write-Host 'Ctrl+C detected. Stopping Kestrun server...'
+                if ($hasConsole) {
+                    [Console]::TreatControlCAsInput = $true
+                    while ($Server.IsRunning) {
+                        if ([Console]::KeyAvailable) {
+                            $key = [Console]::ReadKey($true)
+                            if (($key.Modifiers -eq 'Control') -and ($key.Key -eq 'C')) {
+                                if ($writeConsole) {
+                                    Write-Host 'Ctrl+C detected. Stopping Kestrun server...'
+                                }
+                                $Server.StopAsync().Wait()
+                                break
                             }
-                            $Server.StopAsync().Wait()
-                            break
                         }
+                        Start-Sleep -Milliseconds 100
                     }
-                    Start-Sleep -Milliseconds 100
+                } else {
+                    # Just wait for the server to stop (block until externally stopped)
+                    while ($Server.IsRunning) {
+                        Start-Sleep -Seconds 1
+                    }
                 }
             } finally {
                 # Ensure the server is stopped on exit
-                if (-not $Quiet.IsPresent) {
+                if ($writeConsole) {
                     Write-Host 'Stopping Kestrun server...'
                 }
-                [Kestrun.KestrunHostManager]::StopAsync($Server.ApplicationName).Wait()
+                if ($Server.IsRunning) {
+                    [Kestrun.KestrunHostManager]::StopAsync($Server.ApplicationName).Wait()
+                }
                 #$Server.StopAsync().Wait()
                 [Kestrun.KestrunHostManager]::Destroy($Server.ApplicationName)
 
@@ -102,7 +117,7 @@ function Start-KrServer {
                     Close-KrLogger
                 }
 
-                if (-not $Quiet.IsPresent) {
+                if ($writeConsole) {
                     Write-Host 'Kestrun server stopped.'
                 }
             }

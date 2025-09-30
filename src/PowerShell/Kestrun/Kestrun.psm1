@@ -33,7 +33,8 @@ $sysaliases = Get-ChildItem Alias:
 # Compute assembly load path ONCE so both branches see it
 $assemblyLoadPath = Join-Path -Path (Join-Path -Path $moduleRootPath -ChildPath 'lib') -ChildPath $netVersion
 
-$inRouteRunspace = $null -ne $ExecutionContext.SessionState.PSVariable.GetValue('KestrunHost')
+# Determine if we are in a route runspace by checking for the KrServer variable
+$inRouteRunspace = $null -ne $ExecutionContext.SessionState.PSVariable.GetValue('KrServer')
 
 if (-not $inRouteRunspace) {
     # Usage

@@ -2,6 +2,10 @@
  C# Inline Probe Example
  Demonstrates an inline C# probe computing a random success/failure.
 #>
+param(
+    [int]$Port = 5000,
+    [IPAddress]$IPAddress = [IPAddress]::Loopback
+)
 ## 1. Logging
 New-KrLogger | Add-KrSinkConsole | Register-KrLogger -Name 'console' -SetAsDefault
 
@@ -9,7 +13,7 @@ New-KrLogger | Add-KrSinkConsole | Register-KrLogger -Name 'console' -SetAsDefau
 New-KrServer -Name 'Health CSharp Probe'
 
 ## 3. Listener (port 5000)
-Add-KrListener -Port 5000 -IPAddress ([IPAddress]::Loopback)
+Add-KrEndpoint -Port $Port -IPAddress $IPAddress
 
 ## 4. Runtime
 Add-KrPowerShellRuntime
@@ -17,7 +21,7 @@ Add-KrPowerShellRuntime
 ## 5. Enable configuration
 Enable-KrConfiguration
 
-$csharp = @"
+$csharp = @'
 using System;
 using System.Collections.Generic;
 using Kestrun.Health;
@@ -30,7 +34,7 @@ public static class ProbeImpl {
     }
 }
 ProbeImpl.Run();
-"@
+'@
 
 ## 6. C# inline code compiled/executed at runtime
 Add-KrHealthProbe -Name 'RandomCSharp' -Tags 'self', 'random' -Code $csharp -Language CSharp

@@ -35,10 +35,11 @@ Enable-KrConfiguration
 
 # 8. Map language-specific routes
 Add-KrMapRoute -Verbs Get -Pattern '/secure/cs/hello' -AuthorizationSchema 'CSharpBasic' -ScriptBlock {
-    Write-KrTextResponse -InputObject "CS Hello $( $Context.User.Identity.Name )"
+    Write-KrTextResponse -InputObject "CS Hello, $( $Context.User.Identity.Name )!" -ContentType 'text/plain'
 }
+
 Add-KrMapRoute -Verbs Get -Pattern '/secure/vb/hello' -AuthorizationSchema 'VBNetBasic' -ScriptBlock {
-    Write-KrTextResponse -InputObject "VB Hello $( $Context.User.Identity.Name )"
+    Write-KrTextResponse -InputObject "VB Hello, $( $Context.User.Identity.Name )!" -ContentType 'text/plain'
 }
 
 # 9. Start server

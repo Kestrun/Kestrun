@@ -34,7 +34,7 @@ Enable-KrConfiguration
 # 7. Map secured route group using the scheme
 Add-KrRouteGroup -Prefix '/secure/ps' -AuthorizationSchema 'PowershellBasic' {
     Add-KrMapRoute -Verbs Get -Pattern '/hello' -ScriptBlock {
-        Write-KrTextResponse -InputObject "Hello $( $Context.User.Identity.Name )" -ContentType 'text/plain'
+        Write-KrTextResponse -InputObject "Hello, $( $Context.User.Identity.Name )!" -ContentType 'text/plain'
     }
 }
 

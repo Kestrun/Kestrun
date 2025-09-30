@@ -215,13 +215,13 @@ Start-KrServer
         $content = $content.Replace('Initialize-KrRoot -Path $PSScriptRoot', "Initialize-KrRoot -Path '$scriptDir'")
     }
     $tempDir = [System.IO.Path]::GetTempPath()
-
+    $fileNameWithoutExtension = [IO.Path]::GetFileNameWithoutExtension( (Split-Path -Leaf $Name) )
     # Write modified legacy content to temp file
-    $tmp = Join-Path $tempDir ('kestrun-example-' + $Name + '-' + [System.IO.Path]::GetRandomFileName() + '.ps1')
+    $tmp = Join-Path $tempDir ('kestrun-example-' + $fileNameWithoutExtension + '-' + [System.IO.Path]::GetRandomFileName() + '.ps1')
     Set-Content -Path $tmp -Value $content -Encoding UTF8
 
-    $stdOut = Join-Path $tempDir ('kestrun-example-' + $Name + '-' + [System.IO.Path]::GetRandomFileName() + '.out.log')
-    $stdErr = Join-Path $tempDir ('kestrun-example-' + $Name + '-' + [System.IO.Path]::GetRandomFileName() + '.err.log')
+    $stdOut = Join-Path $tempDir ('kestrun-example-' + $fileNameWithoutExtension + '-' + [System.IO.Path]::GetRandomFileName() + '.out.log')
+    $stdErr = Join-Path $tempDir ('kestrun-example-' + $fileNameWithoutExtension + '-' + [System.IO.Path]::GetRandomFileName() + '.err.log')
     $argList = @('-NoLogo', '-NoProfile', '-File', $tmp, '-Port', $Port)
 
     $param = @{

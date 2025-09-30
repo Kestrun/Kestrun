@@ -16,7 +16,7 @@
     .OUTPUTS
         LoggerConfiguration object allowing method chaining
     .EXAMPLE
-        PS> New-KrLogger | Add-KrEnrichProperty -Name ScriptName -Values 'Test' | Add-KrSinkConsole | Register-KrLogger
+        PS> New-KrLogger | Add-KrEnrichProperty -Name ScriptName -Value 'Test' | Add-KrSinkConsole | Register-KrLogger
     #>
 function Add-KrEnrichProperty {
     [KestrunRuntimeApi('Everywhere')]

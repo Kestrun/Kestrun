@@ -73,7 +73,7 @@ function Add-KrScriptBlock {
     }
     if (-not $Scope) { $Scope = 'Script' }
 
-    Set-Item -Path function:$($Scope):Get-KrScriptBlock_$CleanName -Values "return {$($ScriptBlock.ToString())}"
+    Set-Item -Path function:$($Scope):Get-KrScriptBlock_$CleanName -Value "return {$($ScriptBlock.ToString())}"
 
     # Alias: ScriptBlock:<name> → getter
     Set-Alias -Name "ScriptBlock:$CleanName" -Value "Get-KrScriptBlock_$CleanName" -Scope $Scope

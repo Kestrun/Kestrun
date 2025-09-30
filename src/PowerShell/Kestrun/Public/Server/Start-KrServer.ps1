@@ -80,7 +80,7 @@ function Start-KrServer {
         if (-not $NoWait.IsPresent) {
             # Intercept Ctrl+C and gracefully stop the Kestrun server
             try {
-                if ( $hasConsole) {
+                if ($hasConsole) {
                     [Console]::TreatControlCAsInput = $true
                     while ($Server.IsRunning) {
                         if ([Console]::KeyAvailable) {

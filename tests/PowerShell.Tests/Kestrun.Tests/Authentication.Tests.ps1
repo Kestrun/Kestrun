@@ -1,7 +1,7 @@
 param()
 BeforeAll { . (Join-Path $PSScriptRoot '.\PesterHelpers.ps1');
     $scriptPath = (Join-Path -Path 'examples' -ChildPath 'PowerShell' -AdditionalChildPath 'Authentication', 'Authentication.ps1')
-    $script:instance = Start-ExampleScript -Name $scriptPath -FromRootDirectory -Port 5001 -StartupTimeoutSeconds 60 }
+    $script:instance = Start-ExampleScript -Name $scriptPath -FromRootDirectory }
 AfterAll { if ($script:instance) { Stop-ExampleScript -Instance $script:instance } }
 
 Describe 'Kestrun Authentication' {

@@ -108,6 +108,7 @@ function Get-ExampleScriptPath {
     return $full
 }
 
+
 <#
 .SYNOPSIS
     Start a tutorial example script in a background process on a free TCP port.
@@ -215,7 +216,9 @@ Start-KrServer
         $content = $content.Replace('Initialize-KrRoot -Path $PSScriptRoot', "Initialize-KrRoot -Path '$scriptDir'")
     }
     $tempDir = [System.IO.Path]::GetTempPath()
-    $fileNameWithoutExtension = [IO.Path]::GetFileNameWithoutExtension( (Split-Path -Leaf $Name) )
+    # Generate a unique file name for the temp script
+    $fileNameWithoutExtension = ([string]::IsNullOrEmpty($Name)) ? 'ScriptBlockExample' : [IO.Path]::GetFileNameWithoutExtension((Split-Path -Leaf $Name))
+
     # Write modified legacy content to temp file
     $tmp = Join-Path $tempDir ('kestrun-example-' + $fileNameWithoutExtension + '-' + [System.IO.Path]::GetRandomFileName() + '.ps1')
     Set-Content -Path $tmp -Value $content -Encoding UTF8
@@ -239,40 +242,25 @@ Start-KrServer
     $ready = $false
     $attempt = 0
     Start-Sleep -Seconds 1 # Initial delay before probing
-    while ([DateTime]::UtcNow -lt $deadline) {
+    while ([DateTime]::UtcNow -lt $deadline -and -not $ready) {
         if ($proc.HasExited) { break }
         $attempt++
-        # Optional lightweight HTTP/HTTPS probe of '/'
-        try {
-            $probeUri = ('http://{0}:{1}/online' -f $serverIp, $Port)
-            $probeParams = @{ Uri = $probeUri; UseBasicParsing = $true; Method = 'Get'; TimeoutSec = 3; ErrorAction = 'Stop' }
-            $probe = Invoke-WebRequest @probeParams
-            if ($probe.StatusCode -ge 200 -and $probe.StatusCode -lt 600) { $ready = $true; break }
-        } catch {
-            $errorMessage = $_.Exception.Message
+        # Optional lightweight HTTP/HTTPS probe of '/' and '/online' endpoints to detect readiness
+        $probeConfigs = @(
+            @{ Uri = "http://$serverIp`:$Port/online"; UseBasicParsing = $true; Method = 'Get'; TimeoutSec = 3; ErrorAction = 'Stop' },
+            @{ Uri = "https://$serverIp`:$Port/online"; UseBasicParsing = $true; Method = 'Get'; TimeoutSec = 3; ErrorAction = 'Stop'; SkipCertificateCheck = $true },
+            @{ Uri = "http://$serverIp`:$Port"; UseBasicParsing = $true; Method = 'Get'; TimeoutSec = 3; ErrorAction = 'Stop' },
+            @{ Uri = "https://$serverIp`:$Port"; UseBasicParsing = $true; Method = 'Get'; TimeoutSec = 3; ErrorAction = 'Stop'; SkipCertificateCheck = $true }
+        )
+        foreach ($config in $probeConfigs) {
             try {
-                $probeUri = ('https://{0}:{1}/online' -f $serverIp, $Port)
-                $probeParams = @{ Uri = $probeUri; UseBasicParsing = $true; Method = 'Get'; TimeoutSec = 3; ErrorAction = 'Stop' ; SkipCertificateCheck = $true }
-                $probe = Invoke-WebRequest @probeParams
-                if ($probe.StatusCode -ge 200 -and $probe.StatusCode -lt 600) { $ready = $true; break }
-            } catch {
-                $errorMessage = $_.Exception.Message
-                try {
-                    $probeUri = ('http://{0}:{1}' -f $serverIp, $Port)
-                    $probeParams = @{ Uri = $probeUri; UseBasicParsing = $true; Method = 'Get'; TimeoutSec = 3; ErrorAction = 'Stop' }
-                    $probe = Invoke-WebRequest @probeParams
-                    if ($probe.StatusCode -ge 200 -and $probe.StatusCode -lt 600) { $ready = $true; break }
-                } catch {
-                    $errorMessage = $_.Exception.Message
-                    try {
-                        $probeUri = ('https://{0}:{1}' -f $serverIp, $Port)
-                        $probeParams = @{ Uri = $probeUri; UseBasicParsing = $true; Method = 'Get'; TimeoutSec = 3; ErrorAction = 'Stop' ; SkipCertificateCheck = $true }
-                        $probe = Invoke-WebRequest @probeParams
-                        if ($probe.StatusCode -ge 200 -and $probe.StatusCode -lt 600) { $ready = $true; break }
-                    } catch {
-                        $errorMessage = $_.Exception.Message
-                    }
+                $probe = Invoke-WebRequest @config
+                if ($probe.StatusCode -ge 200 -and $probe.StatusCode -lt 600) {
+                    $ready = $true
+                    break
                 }
+            } catch {
+                $script:errorMessage = $_.Exception.Message
             }
         }
         Start-Sleep -Milliseconds $HttpProbeDelayMs

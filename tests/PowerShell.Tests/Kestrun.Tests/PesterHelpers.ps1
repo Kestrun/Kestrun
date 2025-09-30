@@ -217,12 +217,11 @@ Start-KrServer
     $tempDir = [System.IO.Path]::GetTempPath()
 
     # Write modified legacy content to temp file
-    $tmp = Join-Path $tempDir ('kestrun-example-' + [System.IO.Path]::GetRandomFileName() + '.ps1')
+    $tmp = Join-Path $tempDir ('kestrun-example-' + $Name + '-' + [System.IO.Path]::GetRandomFileName() + '.ps1')
     Set-Content -Path $tmp -Value $content -Encoding UTF8
 
-
-    $stdOut = Join-Path $tempDir ('kestrun-example-' + [System.IO.Path]::GetRandomFileName() + '.out.log')
-    $stdErr = Join-Path $tempDir ('kestrun-example-' + [System.IO.Path]::GetRandomFileName() + '.err.log')
+    $stdOut = Join-Path $tempDir ('kestrun-example-' + $Name + '-' + [System.IO.Path]::GetRandomFileName() + '.out.log')
+    $stdErr = Join-Path $tempDir ('kestrun-example-' + $Name + '-' + [System.IO.Path]::GetRandomFileName() + '.err.log')
     $argList = @('-NoLogo', '-NoProfile', '-File', $tmp, '-Port', $Port)
 
     $param = @{
@@ -452,7 +451,7 @@ function Test-ExampleRouteSet {
             continue
         }
 
-        Write-Verbose "Testing $($Instance.Name): $r -> $url ($method)" -ForegroundColor Cyan
+        Write-Verbose "Testing $($Instance.Name): $r -> $url ($method)"
         if ($Instance.Https) {
             $url = $url -replace '^http:', 'https:'
             $invokeParams = @{ Uri = $url; UseBasicParsing = $true; TimeoutSec = 8; Method = $method; Headers = $headers; Body = $body; SkipCertificateCheck = $true }

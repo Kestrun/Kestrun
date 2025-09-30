@@ -24,7 +24,7 @@ Describe 'Validates numeric probe data representation in YAML health response' -
             Add-KrPowerShellRuntime
 
             # Add a simple health probe that returns numeric data
-            Add-KrHealthProbe -Name 'NumProbe' -ScriptBlock {
+            Add-KrHealthProbe -Name 'NumProbe' -Scriptblock {
                 New-KrProbeResult Healthy 'OK' -Data @{ intVal = 42; floatVal = 12.5 }
             }
 
@@ -36,7 +36,7 @@ Describe 'Validates numeric probe data representation in YAML health response' -
             # Start the server asynchronously
             Start-KrServer -CloseLogsOnExit
         }
-        $script:instance = Start-ExampleScript -ScriptBlock $scriptBlock
+        $script:instance = Start-ExampleScript -Scriptblock $scriptBlock
     }
     AfterAll { if ($script:instance) { Stop-ExampleScript -Instance $script:instance } }
 
@@ -55,6 +55,6 @@ Describe 'Validates numeric probe data representation in YAML health response' -
         $probe.Data.floatVal | Should -Not -BeNullOrEmpty
 
         ( ($probe.Data.intVal -is [int] -or $probe.Data.intVal -is [long])) | Should -BeTrue
-        ( ($probe.Data.floatVal -is [double] -or $probe.Data.floatVal -is [float] -or $probe.Data.floatVal -is [decimal]) ) | Should -BeTrue
+        @('double', 'float', 'decimal') -contains $probe.Data.floatVal.GetType().Name | Should -BeTrue
     }
 }

@@ -1187,12 +1187,30 @@ public static partial class KestrunHostMapExtensions
         }
     }
 
+    /// <summary>
+    /// Matches a bracketed IPv6 host:port specification in the format "[ipv6]:port", where:
+    /// - ipv6 is a valid IPv6 address (e.g. "::1", "2001:0db8:85a3:0000:0000:8a2e:0370:7334")
+    /// - port is a numeric value between 1 and 65535
+    /// Examples of valid inputs:
+    ///   "[::1]:80"
+    ///   "[2001:0db8:85a3:0000:0000:8a2e:0370:7334]:443"
+    /// </summary>
     [GeneratedRegex(@"^\[([^\]]+)\]:(\d+)$")]
     private static partial Regex BracketedIpv6SpecMatcher();
 
+    /// <summary>
+    /// Matches a host:port specification in the format "host:port", where:
+    /// - host can be any string excluding ':' (to avoid confusion with IPv6 addresses)
+    /// - port is a numeric value between 1 and 65535
+    /// Examples of valid inputs:
+    ///   "example.com:80"
+    ///   "localhost:443"
+    ///   "[::1]:8080"  (IPv6 address in brackets)
+    /// </summary>
     [GeneratedRegex(@"^([^:]+):(\d+)$")]
     private static partial Regex HostPortSpecMatcher();
-    [GeneratedRegex(@"^https?://[^/\?#]+:$", RegexOptions.IgnoreCase, "en-US")]
+
+
     /// <summary>
     /// Matches a URL that starts with "http://" or "https://", followed by a host (excluding '/', '?', or '#'), and ends with a colon.
     /// Examples of valid inputs:
@@ -1200,6 +1218,7 @@ public static partial class KestrunHostMapExtensions
     ///   "https://localhost:"
     ///   "https://my-server:8080:"
     /// </summary>
+    [GeneratedRegex(@"^https?://[^/\?#]+:$", RegexOptions.IgnoreCase, "en-US")]
     private static partial Regex EmptyPortDetectionRegex();
 }
 

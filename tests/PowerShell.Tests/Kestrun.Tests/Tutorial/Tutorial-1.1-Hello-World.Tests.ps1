@@ -1,6 +1,6 @@
 param()
 Describe 'Example 1.1-Hello-World' -Tag 'Tutorial' {
-    BeforeAll { . (Join-Path $PSScriptRoot '..\PesterHelpers.ps1'); ; $script:instance = Start-ExampleScript -Name '1.1-Hello-World.ps1' }
+    BeforeAll { . (Join-Path $PSScriptRoot '..\PesterHelpers.ps1'); $script:instance = Start-ExampleScript -Name '1.1-Hello-World.ps1' }
     AfterAll { if ($script:instance) { Stop-ExampleScript -Instance $script:instance } }
 
     It 'Hello World route returns expected response' {

@@ -1193,6 +1193,6 @@ public static partial class KestrunHostMapExtensions
     [GeneratedRegex(@"^([^:]+):(\d+)$")]
     private static partial Regex HostPortSpecMatcher();
     [GeneratedRegex(@"^https?://[^/\?#]+:$", RegexOptions.IgnoreCase, "en-US")]
-    private static partial Regex UrlValidationRegex();
+    private static partial Regex EmptyPortDetectionRegex();
 }
 

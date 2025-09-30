@@ -1193,6 +1193,13 @@ public static partial class KestrunHostMapExtensions
     [GeneratedRegex(@"^([^:]+):(\d+)$")]
     private static partial Regex HostPortSpecMatcher();
     [GeneratedRegex(@"^https?://[^/\?#]+:$", RegexOptions.IgnoreCase, "en-US")]
+    /// <summary>
+    /// Matches a URL that starts with "http://" or "https://", followed by a host (excluding '/', '?', or '#'), and ends with a colon.
+    /// Examples of valid inputs:
+    ///   "http://example.com:"
+    ///   "https://localhost:"
+    ///   "https://my-server:8080:"
+    /// </summary>
     private static partial Regex EmptyPortDetectionRegex();
 }
 

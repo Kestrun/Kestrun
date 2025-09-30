@@ -55,7 +55,7 @@ Browse the cmdlet reference in the sidebar.
 This documentation is generated from the Kestrun PowerShell module and provides detailed information on available cmdlets, their parameters, and usage examples.
 '@
 
-Set-Content -Path (Join-Path $OutDir 'index.md') -Values $index_md -Encoding UTF8
+Set-Content -Path (Join-Path $OutDir 'index.md') -Value $index_md -Encoding UTF8
 
 # Normalize cmdlet pages for Just the Docs
 $files = Get-ChildItem $OutDir -Recurse -Filter *.md | Sort-Object Name

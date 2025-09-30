@@ -11,13 +11,13 @@ param(
 )
 
 $text = New-KrLogger |
-    Set-KrLoggerMinimumLevel -Values Information |
+    Set-KrLoggerMinimumLevel -Value Information |
     Add-KrSinkConsole |
     Add-KrSinkFile -Path '.\logs\sinks-text.log' -RollingInterval Hour |
     Register-KrLogger -Name 'text' -PassThru
 
 $json = New-KrLogger |
-    Set-KrLoggerMinimumLevel -Values Debug |
+    Set-KrLoggerMinimumLevel -Value Debug |
     Add-KrSinkFile -Path '.\logs\sinks-json.log' -Formatter (Get-KrSinkJsonFormatter) -RollingInterval Hour |
     Register-KrLogger -Name 'json' -PassThru
 

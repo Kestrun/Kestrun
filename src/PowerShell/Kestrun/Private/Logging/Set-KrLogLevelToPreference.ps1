@@ -20,27 +20,27 @@ function Set-KrLogLevelToPreference {
 
     if ($PSCmdlet.ShouldProcess('Set log level preferences')) {
         if ([int]$Level -le [int]([Serilog.Events.LogEventLevel]::Verbose)) {
-            Set-Variable VerbosePreference -Values 'Continue' -Scope Global
+            Set-Variable VerbosePreference -Value 'Continue' -Scope Global
         } else {
-            Set-Variable VerbosePreference -Values 'SilentlyContinue' -Scope Global
+            Set-Variable VerbosePreference -Value 'SilentlyContinue' -Scope Global
         }
 
         if ([int]$Level -le [int]([Serilog.Events.LogEventLevel]::Debug)) {
-            Set-Variable DebugPreference -Values 'Continue' -Scope Global
+            Set-Variable DebugPreference -Value 'Continue' -Scope Global
         } else {
-            Set-Variable DebugPreference -Values 'SilentlyContinue' -Scope Global
+            Set-Variable DebugPreference -Value 'SilentlyContinue' -Scope Global
         }
 
         if ([int]$Level -le [int]([Serilog.Events.LogEventLevel]::Information)) {
-            Set-Variable InformationPreference -Values 'Continue' -Scope Global
+            Set-Variable InformationPreference -Value 'Continue' -Scope Global
         } else {
-            Set-Variable InformationPreference -Values 'SilentlyContinue' -Scope Global
+            Set-Variable InformationPreference -Value 'SilentlyContinue' -Scope Global
         }
 
         if ([int]$Level -le [int]([Serilog.Events.LogEventLevel]::Warning)) {
-            Set-Variable WarningPreference -Values 'Continue' -Scope Global
+            Set-Variable WarningPreference -Value 'Continue' -Scope Global
         } else {
-            Set-Variable WarningPreference -Values 'SilentlyContinue' -Scope Global
+            Set-Variable WarningPreference -Value 'SilentlyContinue' -Scope Global
         }
     }
 }

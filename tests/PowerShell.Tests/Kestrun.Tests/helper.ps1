@@ -202,7 +202,7 @@ function Compare-Hashtable {
             for ($i = 0; $i -lt $value1.Count; $i++) {
                 $found = $false
                 for ($j = 0; $j -lt $value2.Count; $j++) {
-                    if ( Compare-Values $value1[$i] $value2[$j]) {
+                    if ( Compare-Value $value1[$i] $value2[$j]) {
                         $found = $true
                     }
                 }
@@ -237,7 +237,7 @@ function Compare-Hashtable {
             if (! (Compare-Hashtable -Hashtable1 $Hashtable1[$key] -Hashtable2 $Hashtable2[$key])) {
                 return $false
             }
-        } elseif (!(Compare-Values $Hashtable1[$key] $Hashtable2[$key])) {
+        } elseif (!(Compare-Value $Hashtable1[$key] $Hashtable2[$key])) {
             return $false
         }
     }

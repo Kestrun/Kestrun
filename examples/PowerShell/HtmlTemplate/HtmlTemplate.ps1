@@ -39,12 +39,12 @@ try {
 }
 
 $logger = New-KrLogger |
-    Set-KrLoggerMinimumLevel -Values Debug |
+    Set-KrLoggerMinimumLevel -Value Debug |
     Add-KrSinkFile -Path '.\logs\HtmlTemplate.log' -RollingInterval Hour |
     Add-KrSinkConsole |
     Register-KrLogger -Name 'DefaultLogger' -PassThru -SetAsDefault
 # Seed a global counter (Visits) — injected as $Visits in every runspace
-Set-KrSharedState -Name 'Visits' -Values @{Count = 0 }
+Set-KrSharedState -Name 'Visits' -Value @{Count = 0 }
 # Create the server
 $server = New-KrServer -Name 'Kestrun HtmlTemplate' -Logger $logger -PassThru
 

@@ -36,11 +36,11 @@ try {
 
 
 $logger = New-KrLogger |
-    Set-KrLoggerMinimumLevel -Values Debug |
+    Set-KrLoggerMinimumLevel -Value Debug |
     Add-KrSinkFile -Path '.\logs\scheduling.log' -RollingInterval Hour |
     Register-KrLogger -SetAsDefault -Name 'DefaultLogger' -PassThru
 
-Set-KrSharedState -Name 'Visits' -Values @{Count = 0 }
+Set-KrSharedState -Name 'Visits' -Value @{Count = 0 }
 
 # 2.  ─── Host & core services ─────────────────────────────────
 New-KrServer -Name 'MyKestrunServer' -Logger $logger

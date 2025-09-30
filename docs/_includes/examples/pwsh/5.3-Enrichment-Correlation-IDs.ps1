@@ -11,8 +11,8 @@ param(
 )
 
 $appLogger = New-KrLogger |
-    Set-KrLoggerMinimumLevel -Values Debug |
-    Add-KrEnrichProperty -Name 'App' -Values 'LoggingSamples' |
+    Set-KrLoggerMinimumLevel -Value Debug |
+    Add-KrEnrichProperty -Name 'App' -Value 'LoggingSamples' |
     Add-KrEnrichFromLogContext |
     Add-KrSinkConsole -OutputTemplate "[{App} {Timestamp:HH:mm:ss} {Level:u3} {CorrelationId}] {Message:lj}{NewLine}{Exception}" |
     Add-KrSinkFile -Path '.\logs\enrichment.log' -RollingInterval Hour -OutputTemplate "{Timestamp:yyyy-MM-dd HH:mm:ss.fff zzz} [{Level:u3}] ({App}) {CorrelationId} {Message:lj}{NewLine}{Exception}" |
@@ -27,7 +27,7 @@ Enable-KrConfiguration
 # PowerShell route that adds a correlation id to each log event as a property
 Add-KrMapRoute -Verbs Get -Path "/ps-correlation" -ScriptBlock {
     $corr = [guid]::NewGuid().ToString('N')
-    $scope = Push-KrLogContextProperty -Name CorrelationId -Values $corr
+    $scope = Push-KrLogContextProperty -Name CorrelationId -Value $corr
     try {
         Write-KrLog -Logger $appLogger -Level Information -Message "Handling /ps-correlation"
         Write-KrLog -Logger $appLogger -Level Debug -Message "Processing details"

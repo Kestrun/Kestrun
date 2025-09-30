@@ -27,9 +27,9 @@
 .PARAMETER RedirectUri
     Sets the RedirectUri property on AuthenticationProperties.
 .PARAMETER Items
-    Hashtable of string key-Values pairs to add to the Items collection on AuthenticationProperties.
+    Hashtable of string key-Value pairs to add to the Items collection on AuthenticationProperties.
 .PARAMETER Parameters
-    Hashtable of string key-Values pairs to add to the Parameters collection on AuthenticationProperties.
+    Hashtable of string key-Value pairs to add to the Parameters collection on AuthenticationProperties.
 .PARAMETER PassThru
     Returns the created ClaimsPrincipal instead of no output.
 .PARAMETER WhatIf

@@ -10,7 +10,7 @@ param(
 )
 
 New-KrLogger |
-    Set-KrLoggerMinimumLevel -Values Debug |
+    Set-KrLoggerMinimumLevel -Value Debug |
     Add-KrSinkConsole |
     Register-KrLogger -Name 'DefaultLogger' -SetAsDefault
 

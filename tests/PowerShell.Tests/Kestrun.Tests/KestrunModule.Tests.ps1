@@ -28,7 +28,7 @@ Describe 'Kestrun PowerShell Functions' {
     }
 
     It 'Set-KrSharedState defines and retrieves values' {
-        Set-KrSharedState -Name 'psTestVar' -Values @(1, 2, 3)
+        Set-KrSharedState -Name 'psTestVar' -Value @(1, 2, 3)
         (Get-KrSharedState -Name 'psTestVar').Count | Should -Be 3
     }
 

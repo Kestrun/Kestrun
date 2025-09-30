@@ -47,8 +47,8 @@ Add-KrMapRoute -Verbs Get -Pattern '/token/new' -AuthorizationSchema 'BasicInit'
 
     $build = Copy-KrJWTTokenBuilder -Builder $jwtBuilder |
         Add-KrJWTSubject -Subject $user |
-        Add-KrJWTClaim -UserClaimType Name -Values $user |
-        Add-KrJWTClaim -UserClaimType Role -Values 'admin' |
+        Add-KrJWTClaim -UserClaimType Name -Value $user |
+        Add-KrJWTClaim -UserClaimType Role -Value 'admin' |
         Build-KrJWT
     $token = $build | Get-KrJWTToken
     Write-KrJsonResponse @{ access_token = $token; expires = $build.Expires }

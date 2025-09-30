@@ -14,7 +14,7 @@ param(
 # This is recommended in order to use relative paths without issues
 Initialize-KrRoot -Path $PSScriptRoot
 New-KrLogger |
-    Set-KrLoggerMinimumLevel -Values Debug |
+    Set-KrLoggerMinimumLevel -Value Debug |
     Add-KrSinkConsole |
     Register-KrLogger -Name 'console' -SetAsDefault | Out-Null
 # Create a new Kestrun server

@@ -12,7 +12,7 @@ Initialize-KrRoot -Path $PSScriptRoot
 
 # Configure default logging
 New-KrLogger |
-    Set-KrLoggerMinimumLevel -Values Debug |
+    Set-KrLoggerMinimumLevel -Value Debug |
     Add-KrSinkConsole |
     Register-KrLogger -Name 'myLogger' -SetAsDefault
 

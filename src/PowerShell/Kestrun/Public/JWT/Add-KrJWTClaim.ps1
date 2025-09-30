@@ -17,7 +17,7 @@
         [Kestrun.Jwt.JwtTokenBuilder]
         The modified JWT token builder.
     .EXAMPLE
-        $builder = New-KrJWTTokenBuilder | Add-KrJWTClaim -Type "role" -Values "admin"
+        $builder = New-KrJWTTokenBuilder | Add-KrJWTClaim -Type "role" -Value "admin"
         This example creates a new JWT token builder and adds a claim to it.
     .NOTES
         This function is part of the Kestrun.Jwt module and is used to build JWT tokens

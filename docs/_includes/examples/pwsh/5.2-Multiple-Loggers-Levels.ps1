@@ -11,13 +11,13 @@ param(
 )
 
 $appLogger = New-KrLogger |
-    Set-KrLoggerMinimumLevel -Values Information |
+    Set-KrLoggerMinimumLevel -Value Information |
     Add-KrSinkConsole |
     Add-KrSinkFile -Path '.\logs\app.log' -RollingInterval Hour |
     Register-KrLogger -Name 'app' -PassThru
 
 $auditLogger = New-KrLogger |
-    Set-KrLoggerMinimumLevel -Values Debug |
+    Set-KrLoggerMinimumLevel -Value Debug |
     Add-KrSinkFile -Path '.\logs\audit.log' -RollingInterval Hour |
     Register-KrLogger -Name 'audit' -PassThru
 

@@ -33,7 +33,9 @@ Describe 'Kestrun Authentication' {
         }
 
         It 'ps/policy (CanDelete)' {
-            { Invoke-WebRequest -Uri "$($script:instance.Url)/secure/ps/policy" -Method DELETE -SkipCertificateCheck -Headers @{Authorization = $script:basic } -ErrorAction SilentlyContinue } | Should -Throw -ExpectedMessage '*403*'
+            { Invoke-WebRequest -Uri "$($script:instance.Url)/secure/ps/policy" -Method DELETE `
+                    -SkipCertificateCheck -Headers @{Authorization = $script:basic } -ErrorAction SilentlyContinue } |
+                Should -Throw -ExpectedMessage '*403*'
         }
 
         It 'ps/policy (CanCreate)' {
@@ -51,7 +53,9 @@ Describe 'Kestrun Authentication' {
         }
 
         It 'ps/policy (CanPatch)' {
-            { Invoke-WebRequest -Uri "$($script:instance.Url)/secure/ps/policy" -Method PATCH -SkipCertificateCheck -Headers @{Authorization = $script:basic } -ErrorAction SilentlyContinue } | Should -Throw -ExpectedMessage '*405*'
+            { Invoke-WebRequest -Uri "$($script:instance.Url)/secure/ps/policy" -Method PATCH `
+                    -SkipCertificateCheck -Headers @{Authorization = $script:basic } -ErrorAction SilentlyContinue } |
+                Should -Throw -ExpectedMessage '*405*'
         }
 
 
@@ -63,11 +67,15 @@ Describe 'Kestrun Authentication' {
         }
 
         It 'vb/policy (CanRead)' {
-            { Invoke-WebRequest -Uri "$($script:instance.Url)/secure/vb/policy" -Method GET -SkipCertificateCheck -Headers @{Authorization = $script:basic } -ErrorAction SilentlyContinue } | Should -Throw -ExpectedMessage '*403*'
+            { Invoke-WebRequest -Uri "$($script:instance.Url)/secure/vb/policy" -Method GET `
+                    -SkipCertificateCheck -Headers @{Authorization = $script:basic } -ErrorAction SilentlyContinue } |
+                Should -Throw -ExpectedMessage '*403*'
         }
 
         It 'vb/policy (CanDelete)' {
-            { Invoke-WebRequest -Uri "$($script:instance.Url)/secure/vb/policy" -Method DELETE -SkipCertificateCheck -Headers @{Authorization = $script:basic } -ErrorAction SilentlyContinue } | Should -Throw -ExpectedMessage '*403*'
+            { Invoke-WebRequest -Uri "$($script:instance.Url)/secure/vb/policy" -Method DELETE `
+                    -SkipCertificateCheck -Headers @{Authorization = $script:basic } -ErrorAction SilentlyContinue } |
+                Should -Throw -ExpectedMessage '*403*'
         }
 
         It 'vb/policy (CanCreate)' {
@@ -85,7 +93,9 @@ Describe 'Kestrun Authentication' {
         }
 
         It 'vb/policy (CanPatch)' {
-            { Invoke-WebRequest -Uri "$($script:instance.Url)/secure/vb/policy" -Method PATCH -SkipCertificateCheck -Headers @{Authorization = $script:basic } -ErrorAction SilentlyContinue } | Should -Throw -ExpectedMessage '*405*'
+            { Invoke-WebRequest -Uri "$($script:instance.Url)/secure/vb/policy" -Method PATCH `
+                    -SkipCertificateCheck -Headers @{Authorization = $script:basic } -ErrorAction SilentlyContinue } |
+                Should -Throw -ExpectedMessage '*405*'
         }
     }
 
@@ -116,7 +126,9 @@ Describe 'Kestrun Authentication' {
 
 
         It 'key/policy (CanRead)' {
-            { Invoke-WebRequest -Uri "$($script:instance.Url)/secure/key/ps/policy" -Method GET -SkipCertificateCheck -Headers @{ 'X-Api-Key' = 'my-secret-api-key' } -ErrorAction SilentlyContinue } | Should -Throw -ExpectedMessage '*403*'
+            { Invoke-WebRequest -Uri "$($script:instance.Url)/secure/key/ps/policy" -Method GET `
+                    -SkipCertificateCheck -Headers @{ 'X-Api-Key' = 'my-secret-api-key' } -ErrorAction SilentlyContinue } |
+                Should -Throw -ExpectedMessage '*403*'
         }
 
         It 'key/policy (CanDelete)' {
@@ -132,7 +144,9 @@ Describe 'Kestrun Authentication' {
         }
 
         It 'key/policy (CanUpdate)' {
-            { Invoke-WebRequest -Uri "$($script:instance.Url)/secure/key/ps/policy" -Method Put -SkipCertificateCheck -Headers @{ 'X-Api-Key' = 'my-secret-api-key' } -ErrorAction SilentlyContinue } | Should -Throw -ExpectedMessage '*403*'
+            { Invoke-WebRequest -Uri "$($script:instance.Url)/secure/key/ps/policy" -Method Put `
+                    -SkipCertificateCheck -Headers @{ 'X-Api-Key' = 'my-secret-api-key' } -ErrorAction SilentlyContinue } |
+                Should -Throw -ExpectedMessage '*403*'
         }
 
         It 'key/policy (CanPatch)' {
@@ -179,7 +193,9 @@ Describe 'Kestrun Authentication' {
         }
 
         It 'jwt/policy (CanPatch)' {
-            { Invoke-WebRequest -Uri "$($script:instance.Url)/secure/jwt/policy" -Method PATCH -SkipCertificateCheck -Headers @{ Authorization = "Bearer $token" } -ErrorAction SilentlyContinue } | Should -Throw -ExpectedMessage '*405*'
+            { Invoke-WebRequest -Uri "$($script:instance.Url)/secure/jwt/policy" -Method PATCH `
+                    -SkipCertificateCheck -Headers @{ Authorization = "Bearer $token" } -ErrorAction SilentlyContinue } |
+                Should -Throw -ExpectedMessage '*405*'
         }
 
         It 'Renew Token' {

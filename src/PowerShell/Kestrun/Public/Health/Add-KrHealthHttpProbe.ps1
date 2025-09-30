@@ -87,12 +87,12 @@ function Add-KrHealthHttpProbe {
 
         try {
             $hostResult = $Server.AddProbe($probe)
-            Write-KrLog -Level Information -Message "HTTP health probe '{0}' registered." -Value $Name
+            Write-KrLog -Level Information -Message "HTTP health probe '{0}' registered." -Values $Name
             if ($PassThru.IsPresent) {
                 return $hostResult
             }
         } catch {
-            Write-KrLog -Level Error -Message "Failed to register HTTP health probe '{0}'." -Value $Name -ErrorRecord $_
+            Write-KrLog -Level Error -Message "Failed to register HTTP health probe '{0}'." -Values $Name -ErrorRecord $_
             throw
         }
     }

@@ -21,7 +21,7 @@ Describe 'Validates numeric probe data representation in XML health response' -T
             Add-KrPowerShellRuntime
 
             # Add a simple health probe that returns numeric data
-            Add-KrHealthProbe -Name 'NumProbe' -Scriptblock {
+            Add-KrHealthProbe -Name 'NumProbe' -ScriptBlock {
                 New-KrProbeResult Healthy 'OK' -Data @{ intVal = 42; floatVal = 12.5 }
             }
 
@@ -62,6 +62,5 @@ Describe 'Validates numeric probe data representation in XML health response' -T
 
         (  ([int]::TryParse($intVal, [ref]([int]0)))) | Should -BeTrue
         (  ([double]::TryParse($floatVal, [ref]([double]0)))) | Should -BeTrue
-
     }
 }

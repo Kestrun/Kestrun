@@ -430,7 +430,7 @@ public static partial class KestrunHostMapExtensions
         // which would make us treat an intentionally empty port as a valid implicit port.
         // The accepted formats require either no colon at all (implicit default) OR a colon followed by digits.
         // Therefore pattern: scheme:// host-part : end-of-string (no digits after colon) should be rejected.
-        if (UrlValidationRegex().IsMatch(spec))
+        if (EmptyPortDetectionRegex().IsMatch(spec))
         {
             return false;
         }

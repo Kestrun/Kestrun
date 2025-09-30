@@ -1145,13 +1145,15 @@ public class KestrunHost : IDisposable
 
         if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
         {
+            // On Windows, we can use the full .NET Framework modules
             iss.ExecutionPolicy = ExecutionPolicy.Unrestricted;
         }
-
         foreach (var p in _modulePaths)
         {
             iss.ImportPSModule([p]);
         }
+
+        // Inject 'KrServer' variable to provide access to the host instance
         iss.Variables.Add(
             new SessionStateVariableEntry(
                 "KrServer",

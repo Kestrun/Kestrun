@@ -46,7 +46,7 @@ function New-KrProbeResult {
         $dict = [System.Collections.Generic.Dictionary[string, object]]::new()
         foreach ($k in $Data.Keys) {
             if ([string]::IsNullOrWhiteSpace([string]$k)) { continue }
-            $nv = _NormalizeValueToDictionary -Values $Data[$k] -Depth 0
+            $nv = _NormalizeValueToDictionary -Value $Data[$k] -Depth 0
             if ($null -ne $nv) { $dict[$k] = $nv }
         }
     }

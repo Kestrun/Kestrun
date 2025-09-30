@@ -76,7 +76,7 @@ function Add-KrScriptBlock {
     Set-Item -Path function:$($Scope):Get-KrScriptBlock_$CleanName -Values "return {$($ScriptBlock.ToString())}"
 
     # Alias: ScriptBlock:<name> → getter
-    Set-Alias -Name "ScriptBlock:$CleanName" -Values "Get-KrScriptBlock_$CleanName" -Scope $Scope
+    Set-Alias -Name "ScriptBlock:$CleanName" -Value "Get-KrScriptBlock_$CleanName" -Scope $Scope
 }
 
 # Convenience alias
@@ -89,5 +89,5 @@ function Add-KrScriptBlock {
     ScriptBlock MyScript = { Write-Host "Hello, World!" }
     This is equivalent to calling Add-KrScriptBlock -Name 'MyScript' -ScriptBlock { Write-Host "Hello, World!" } with the same parameters.
 #>
-Set-Alias -Name ScriptBlock -Values Add-KrScriptBlock -Scope Global
+Set-Alias -Name ScriptBlock -Value Add-KrScriptBlock -Scope Global
 

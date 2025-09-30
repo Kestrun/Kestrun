@@ -21,7 +21,7 @@ Describe 'Example 16.3-Health-Http-Probe' -Tag 'Tutorial', 'Health' {
             Add-KrPowerShellRuntime
 
             # Add a simple health probe that returns numeric data
-            Add-KrHealthProbe -Name 'QuickProbe' -Scriptblock {
+            Add-KrHealthProbe -Name 'QuickProbe' -ScriptBlock {
                 New-KrProbeResult Healthy 'All good' -Data @{ latencyMs = 5 }
             }
 
@@ -33,7 +33,7 @@ Describe 'Example 16.3-Health-Http-Probe' -Tag 'Tutorial', 'Health' {
             # Start the server asynchronously
             Start-KrServer -CloseLogsOnExit
         }
-        $script:instance = Start-ExampleScript -Scriptblock $scriptBlock
+        $script:instance = Start-ExampleScript -ScriptBlock $scriptBlock
     }
     AfterAll { if ($script:instance) { Stop-ExampleScript -Instance $script:instance } }
 

@@ -149,12 +149,12 @@ function Add-KrHealthProbe {
 
         try {
             $hostResult = $Server.AddProbe($Name, $normalizedTags, $codeToRegister, $effectiveLanguage, $argDictionary, $imports, $ExtraRefs)
-            Write-KrLog -Level Information -Message "Health probe '{0}' registered." -Value $Name
+            Write-KrLog -Level Information -Message "Health probe '{0}' registered." -Values $Name
             if ($PassThru.IsPresent) {
                 return $hostResult
             }
         } catch {
-            Write-KrLog -Level Error -Message "Failed to register health probe '{0}'." -Value $Name -ErrorRecord $_
+            Write-KrLog -Level Error -Message "Failed to register health probe '{0}'." -Values $Name -ErrorRecord $_
             throw
         }
     }

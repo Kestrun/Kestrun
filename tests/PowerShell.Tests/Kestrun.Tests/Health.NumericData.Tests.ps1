@@ -4,7 +4,7 @@
 # Assert: numeric data fields are numbers, not strings
 #>
 param()
-Describe 'Example 16.3-Health-Http-Probe' -Tag 'Tutorial', 'Health' {
+Describe 'Health Checks numeric data' -Tag 'Health' {
     BeforeAll { . (Join-Path $PSScriptRoot '.\PesterHelpers.ps1')
 
         $scriptBlock = {

@@ -11,7 +11,7 @@ param(
 )
 
 # Dynamic level switch logger
-$app = New-KrLogger |
+New-KrLogger |
     Set-KrLoggerMinimumLevel -Dynamic Debug |
     Add-KrSinkConsole |
     Add-KrSinkFile -Path '.\logs\hot-reload.log' -RollingInterval Hour |

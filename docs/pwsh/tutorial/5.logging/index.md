@@ -9,17 +9,17 @@ nav_order: 5
 This tutorial section will contain hands-on chapters for configuring logging in step with building a server.
 The in-depth conceptual guide has moved to: [Logging Guide](/guides/logging).
 
-## Planned Chapters
+## Chapters
 
-| Order | Chapter (planned)             | Focus                                           |
-|-------|-------------------------------|-------------------------------------------------|
-| 1     | Basic Logger Setup            | Create a single named logger & write events     |
-| 2     | Multiple Loggers & Levels     | Separate audit/debug pipelines                  |
-| 3     | Enrichment & Correlation IDs  | Adding static & dynamic properties              |
-| 4     | Sinks (Console/File/Seq/HTTP) | Attaching multiple sinks                        |
-| 5     | Hot Reload (No Update cmdlet) | Reconfiguring without restart                   |
-| 6     | PowerShell vs C# Interop      | Sharing configuration patterns across languages |
-| 7     | Advanced Filtering            | Level overrides, conditional sinks (future)     |
+Order | Chapter | Focus
+----- | ------- | -----
+1 | [Simple Logging](./1.Simple-Logging) | Create a single named logger & write events
+2 | [Multiple Loggers & Levels](./2.Multiple-Loggers-Levels) | Separate audit/debug pipelines
+3 | [Enrichment & Correlation IDs](./3.Enrichment-Correlation-IDs) | Add static & dynamic properties
+4 | [Sinks](./4.Sinks) | Console/File/Seq/HTTP sinks
+5 | [Sinks (Advanced)](./5.Sinks-Advanced) | Additional sink options & patterns
+6 | [Hot Reload](./6.Hot-Reload) | Reconfigure log levels without restart
+7 | [Apache Common Access Log](./7.Apache-Common-Access-Log) | Classic Apache CLF request middleware
 
 ---
 

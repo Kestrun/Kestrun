@@ -105,6 +105,7 @@ function Add-KrSinkFile {
 
     begin {
         $Path = $Path -replace '[\\/]', [IO.Path]::DirectorySeparatorChar
+        $Path = Resolve-KrPath -Path $Path -KestrunRoot
     }
     process {
         switch ($PSCmdlet.ParameterSetName) {

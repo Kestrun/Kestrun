@@ -25,6 +25,7 @@
 function Resolve-KrPath {
     [CmdletBinding()]
     [KestrunRuntimeApi('Everywhere')]
+    [CmdletBinding(DefaultParameterSetName = 'RelativeBasePath')]
     [OutputType([string])]
     param(
         [Parameter(Mandatory = $true, Position = 0, ValueFromPipeline)]

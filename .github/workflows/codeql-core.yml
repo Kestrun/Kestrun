@@ -81,6 +81,31 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
+      # Create a sanitized copy so we don't mutate the repo
+      - name: Prepare sanitized PowerShell source
+        shell: pwsh
+        run: |
+          $San = "$(Resolve-Path .)/_pwsh_sanitized"
+          Remove-Item -Recurse -Force $San -ErrorAction SilentlyContinue
+          New-Item -ItemType Directory -Path $San | Out-Null
+          # Copy everything (adjust excludes as you like)
+          robocopy . $San /E /NFL /NDL /NJH /NJS /NP /XD .git _pwsh_sanitized | Out-Null
+
+          # Strip [KestrunRuntimeApi('...')] attributes from .ps1/.psm1/.psd1
+          $files = Get-ChildItem -Path $San/src/PowerShell/Kestrun -Recurse -Include *.ps1,*.psm1,*.psd1
+          $attrPatternInline = '\[\s*KestrunRuntimeApi\s*\(\s*''[^'']*''\s*\)\s*\]'
+          foreach ($f in $files) {
+            $text = Get-Content -LiteralPath $f.FullName -Raw
+            # Remove attributes whether on their own line or inline with others
+            $text = $text -replace "^\s*$attrPatternInline\s*\r?\n", ""    # attribute on its own line
+            $text = $text -replace "$attrPatternInline\s*,?\s*", ""       # attribute inline (and possible trailing comma)
+            # Tidy excessive blank lines
+            $text = $text -replace "(\r?\n){3,}", "`r`n`r`n"
+            Set-Content -LiteralPath $f.FullName -Value $text -NoNewline
+          }
+
+          Write-Host "Sanitized tree at: $San"
+
        # Build C# so DLLs exist (if applicable)
       - name: 🧰 Setup .NET 8/9
         uses: actions/setup-dotnet@v5
@@ -112,7 +137,7 @@ jobs:
       - name: Run PSScriptAnalyzer
         uses: microsoft/psscriptanalyzer-action@v1.0
         with:
-          path: ./src/PowerShell/Kestrun  # adjust to where your .ps1/.psm1 live
+          path: _pwsh_sanitized/src/PowerShell/Kestrun
           recurse: true
           output: pwsh-results.sarif
           settings: ./PSScriptAnalyzerSettings.psd1

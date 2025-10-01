@@ -101,7 +101,8 @@ public static class LoggerManager
     {
         if (_loggers.TryRemove(name, out var logger))
         {
-            var wasDefault = ReferenceEquals(Log.Logger, logger);
+            var currentDefault = Log.Logger;
+            var wasDefault = ReferenceEquals(currentDefault, logger);
             if (logger is IDisposable d)
             {
                 d.Dispose();

@@ -105,8 +105,8 @@ function Add-KrCommonAccessLogMiddleware {
 
         $options = [Kestrun.Middleware.CommonAccessLogOptions]::new()
         $options.Level = $Level
-        $options.IncludeQueryString = $ExcludeQueryString.IsPresent
-        $options.IncludeProtocol = $ExcludeProtocol.IsPresent
+        $options.IncludeQueryString = -not $ExcludeQueryString.IsPresent
+        $options.IncludeProtocol = -not $ExcludeProtocol.IsPresent
         $options.IncludeElapsedMilliseconds = $IncludeElapsedMilliseconds.IsPresent
         $options.UseUtcTimestamp = $UseUtcTimestamp.IsPresent
 

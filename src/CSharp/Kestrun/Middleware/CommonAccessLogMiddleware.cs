@@ -123,6 +123,7 @@ public sealed class CommonAccessLogMiddleware
         var referer = SanitizeQuoted(GetHeaderValue(request.Headers, HeaderNames.Referer));
         var userAgent = SanitizeQuoted(GetHeaderValue(request.Headers, HeaderNames.UserAgent));
 
+        // Pre-size the StringBuilder to avoid unnecessary allocations.
         var builder = new StringBuilder(remoteHost.Length
                                         + remoteUser.Length
                                         + requestLine.Length

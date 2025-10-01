@@ -73,7 +73,7 @@ jobs:
   # --- PowerShell via PSScriptAnalyzer -> SARIF upload ---
   pssa:
     name: PowerShell (PSScriptAnalyzer)
-    runs-on: ubuntu-latest
+    runs-on: windows-latest
     needs: lint
     permissions:
       contents: read
@@ -81,13 +81,76 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
+      # Create a sanitized copy so we don't mutate the repo
+      - name: Prepare sanitized PowerShell source
+        shell: pwsh
+        run: |
+          $San = Join-Path -Path $PWD -ChildPath "_pwsh_sanitized"
+          if (Test-Path $San) { Remove-Item -Recurse -Force $San }
+          New-Item -ItemType Directory -Path $San | Out-Null
+
+          # Copy everything (except .git and the sanitized folder itself)
+          $excludes = @('.git', '_pwsh_sanitized')
+          Get-ChildItem -Path $PWD -Force |
+            Where-Object { $_.Name -notin $excludes } |
+            ForEach-Object {
+              $dest = Join-Path $San $_.Name
+              if ($_.PSIsContainer) {
+                Copy-Item -Path $_.FullName -Destination $dest -Recurse -Force
+              } else {
+                Copy-Item -Path $_.FullName -Destination $dest -Force
+              }
+            }
+
+          # Now strip the KestrunRuntimeApi attributes
+          $files = Get-ChildItem -Path (Join-Path $San "src/PowerShell/Kestrun") -Recurse -Include *.ps1,*.psm1,*.psd1
+          $attrPatternInline = '\[\s*KestrunRuntimeApi\s*\(\s*''[^'']*''\s*\)\s*\]'
+          foreach ($f in $files) {
+            $text = Get-Content -LiteralPath $f.FullName -Raw
+            $text = $text -replace "^\s*$attrPatternInline\s*\r?\n", ""
+            $text = $text -replace "$attrPatternInline\s*,?\s*", ""
+            $text = $text -replace "(\r?\n){3,}", "`r`n`r`n"
+            Set-Content -LiteralPath $f.FullName -Value $text -NoNewline
+          }
+
+          Write-Host "Sanitized tree at: $San"
+
+       # Build C# so DLLs exist (if applicable)
+      - name: 🧰 Setup .NET 8/9
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: |
+            8.0.x
+            9.0.x
+
+      - name: 🧰 Install Invoke-Build
+        shell: pwsh
+        run: Install-Module InvokeBuild -Force -Scope CurrentUser
+
+      - name: 📦 Restore solution
+        shell: pwsh
+        run: Invoke-Build Restore -DotNetVerbosity minimal
+
+      - name: 🔧 Run C# Build
+        shell: pwsh
+        run: Invoke-Build Build -DotNetVerbosity minimal
+
+      - name: 🧰 Install Kestrun Module
+        shell: pwsh
+        run: |
+          Invoke-Build Install-Module
+          # Initialize the library
+          Get-KrFeatureSupport
+
       # Run PSScriptAnalyzer and produce SARIF
       - name: Run PSScriptAnalyzer
         uses: microsoft/psscriptanalyzer-action@v1.0
         with:
-          path: ./src/PowerShell   # adjust to where your .ps1/.psm1 live
+          path: _pwsh_sanitized/src/PowerShell/Kestrun
           recurse: true
           output: pwsh-results.sarif
+          settings: ./PSScriptAnalyzerSettings.psd1
+          ignorePattern: 'lib'
 
       # Upload SARIF to GitHub code scanning
       - name: Upload SARIF

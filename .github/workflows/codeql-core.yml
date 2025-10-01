@@ -85,9 +85,10 @@ jobs:
       - name: Run PSScriptAnalyzer
         uses: microsoft/psscriptanalyzer-action@v1.0
         with:
-          path: ./src/PowerShell   # adjust to where your .ps1/.psm1 live
+          path: ./src/PowerShell/Kestrun  # adjust to where your .ps1/.psm1 live
           recurse: true
           output: pwsh-results.sarif
+          settings: ./PSScriptAnalyzerSettings.psd1
 
       # Upload SARIF to GitHub code scanning
       - name: Upload SARIF

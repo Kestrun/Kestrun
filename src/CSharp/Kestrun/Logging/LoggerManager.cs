@@ -13,7 +13,7 @@ public static class LoggerManager
     private static readonly ConcurrentDictionary<string, Serilog.ILogger> _loggers = new(StringComparer.OrdinalIgnoreCase);
     private static readonly ConcurrentDictionary<string, LoggerConfiguration> _configs = new(StringComparer.OrdinalIgnoreCase);
     // Synchronization object to guard global default logger transitions and coordinated disposal
-    private static readonly object _sync = new();
+    private static readonly Lock _sync = new();
 
     /// <summary>
     /// A collection of named logging level switches for dynamic log level control.

@@ -103,6 +103,9 @@ function Add-KrSinkFile {
         [Serilog.Sinks.File.FileLifecycleHooks]$Hooks = $null
     )
 
+    begin {
+        $Path = $Path -replace '[\\/]', [IO.Path]::DirectorySeparatorChar
+    }
     process {
         switch ($PSCmdlet.ParameterSetName) {
             'Default' {

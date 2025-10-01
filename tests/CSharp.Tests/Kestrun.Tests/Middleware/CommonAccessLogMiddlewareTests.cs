@@ -16,10 +16,7 @@ public class CommonAccessLogMiddlewareTests
     private sealed class CapturingSink : ILogEventSink
     {
         public List<LogEvent> Events { get; } = [];
-        public void Emit(LogEvent logEvent)
-        {
-            Events.Add(logEvent);
-        }
+        public void Emit(LogEvent logEvent) => Events.Add(logEvent);
     }
 
     private static (ILogger Logger, CapturingSink Sink) CreateLogger(LogEventLevel level = LogEventLevel.Information)

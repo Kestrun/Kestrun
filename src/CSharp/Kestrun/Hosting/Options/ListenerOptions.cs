@@ -55,5 +55,5 @@ public class ListenerOptions
     /// Returns a string representation of the listener in the format "http(s)://{IPAddress}:{Port}".
     /// </summary>
     /// <returns>A string representation of the listener.</returns>
-    public override string ToString() { return $"{(UseHttps ? "https" : "http")}://{IPAddress}:{Port}"; }
+    public override string ToString() => $"{(UseHttps ? "https" : "http")}://{IPAddress}:{Port}";
 }

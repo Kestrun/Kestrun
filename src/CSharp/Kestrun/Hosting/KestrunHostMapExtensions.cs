@@ -518,21 +518,16 @@ public static partial class KestrunHostMapExtensions
     /// <param name="host">The host component.</param>
     /// <param name="port">The port component.</param>
     /// <returns>The formatted host and port string.</returns>
-    internal static string ToRequireHost(string host, int port)
-    {
+    internal static string ToRequireHost(string host, int port) =>
         // IPv6 literals must be bracketed in RequireHost
-        return IsIPv6Address(host) ? $"[{host}]:{port}" : $"{host}:{port}";
-    }
+        IsIPv6Address(host) ? $"[{host}]:{port}" : $"{host}:{port}";
 
     /// <summary>
     /// Determines if the given host string is an IPv6 address.
     /// </summary>
     /// <param name="host">The host string to check.</param>
     /// <returns>True if the host is an IPv6 address; otherwise, false.</returns>
-    private static bool IsIPv6Address(string host)
-    {
-        return IPAddress.TryParse(host, out var ip) && ip.AddressFamily == System.Net.Sockets.AddressFamily.InterNetworkV6;
-    }
+    private static bool IsIPv6Address(string host) => IPAddress.TryParse(host, out var ip) && ip.AddressFamily == System.Net.Sockets.AddressFamily.InterNetworkV6;
 
     /// <summary>
     /// Applies required hosts to the route based on the specified endpoints in the options.

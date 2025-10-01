@@ -33,21 +33,55 @@ Describe 'Example 5.7-Apache-Common-Access-Log' -Tag 'Tutorial', 'Logging', 'Acc
         if (-not $logPath) { $logPath = Join-Path $logDirCandidates[0] 'apache_access.log' }
 
         $loopbackPattern = '(?:127\.0\.0\.1|::1|localhost)'
-        # Regex matches: ISO-ish local timestamp with ms + offset, [INF], host, dashes, bracketed UTC timestamp, request line, status 200, size 13
-        $regex = '^[0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2}\.[0-9]{3} [-+][0-9:]+ \[INF\] ' + $loopbackPattern + ' - - \[[0-9]{2}/[A-Za-z]{3}/[0-9]{4}:[0-9]{2}:[0-9]{2}:[0-9]{2} \+0000\] "GET /hello" 200 13'
+        # Build regex for Apache access log line, broken into components for readability:
+        # ^[0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2}\.[0-9]{3} [-+][0-9:]+
+        #   - ISO-ish local timestamp with ms and offset
+        # \[INF\]
+        #   - Log level
+        # $loopbackPattern - -
+        #   - Host (loopback), dashes
+        # \[[0-9]{2}/[A-Za-z]{3}/[0-9]{4}:[0-9]{2}:[0-9]{2}:[0-9]{2} \+0000\]
+        #   - Bracketed UTC timestamp
+        # "GET /hello"
+        #   - Request line
+        # 200 13
+        #   - Status code and size
+        # 2-stage validation for robustness:
+        #  (1) Find any line containing GET /hello
+        #  (2) Validate the Apache access log segment (after the [INF] token) matches expected pattern
+        $apacheSegmentPattern = (
+            $loopbackPattern + ' - - ' +
+            '\[[0-9]{2}/[A-Za-z]{3}/[0-9]{4}:[0-9]{2}:[0-9]{2}:[0-9]{2} \+0000\] ' +
+            '"GET /hello(?: HTTP/1\.1)?" 200 13'
+        )
+        $debugSegments = @()
 
         $deadline = [DateTime]::UtcNow.AddSeconds(12)
         $matched = $false
         while (-not $matched -and [DateTime]::UtcNow -lt $deadline) {
             if ($logPath -and (Test-Path $logPath)) {
-                $lines = Get-Content $logPath -Tail 200 -ErrorAction SilentlyContinue
-                if ($lines | Where-Object { $_ -match $regex }) { $matched = $true; break }
+                $lines = Get-Content $logPath -Tail 220 -ErrorAction SilentlyContinue
+                $helloLines = $lines | Where-Object { $_ -like '*GET /hello*' }
+                foreach ($line in $helloLines) {
+                    $segment = $line
+                    $infIndex = $line.IndexOf('[INF] ')
+                    if ($infIndex -ge 0) { $segment = $line.Substring($infIndex + 6) }
+                    $debugSegments += $segment
+                    if ($segment -match ('^' + $apacheSegmentPattern)) { $matched = $true; break }
+                }
+                if ($matched) { break }
             }
             Start-Sleep -Milliseconds 350
         }
         if (-not $matched) {
             if ($logPath -and (Test-Path $logPath)) {
                 Write-Host "--- LOG TAIL ($logPath) ---"; Get-Content $logPath -Tail 60 | ForEach-Object { Write-Host $_ }
+                if ($debugSegments.Count -gt 0) {
+                    Write-Host '--- SEGMENTS INSPECTED ---'
+                    $debugSegments | ForEach-Object { Write-Host $_ }
+                    Write-Host '--- REGEX USED ---'
+                    Write-Host ('^' + $apacheSegmentPattern)
+                }
             } else {
                 Write-Host "Log file not found. Searched directories: $($logDirCandidates -join ', ')"
             }

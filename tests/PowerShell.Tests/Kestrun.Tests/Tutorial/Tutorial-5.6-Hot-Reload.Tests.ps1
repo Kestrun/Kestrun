@@ -41,8 +41,9 @@ Describe 'Example 5.6-Hot-Reload' -Tag 'Tutorial', 'Logging', 'HotReload' {
         $baselineDebug = 0; $baselineWarning = 0
         if ($hotLog -and (Test-Path $hotLog.FullName)) {
             $baselineTail = Get-Content $hotLog.FullName -Tail 400 -ErrorAction SilentlyContinue
-            $baselineDebug = ($baselineTail | Where-Object { $_ -match 'Debug event' }).Count
-            $baselineWarning = ($baselineTail | Where-Object { $_ -match 'Warning event' }).Count
+            # Use array subexpression to ensure single-line matches still produce a collection with .Count
+            $baselineDebug = @($baselineTail | Where-Object { $_ -match 'Debug event' }).Count
+            $baselineWarning = @($baselineTail | Where-Object { $_ -match 'Warning event' }).Count
         }
 
         # 2. Raise level to Warning
@@ -59,8 +60,8 @@ Describe 'Example 5.6-Hot-Reload' -Tag 'Tutorial', 'Logging', 'HotReload' {
             $hotLog = Get-ChildItem -Path $logDir -Filter 'hot-reload*.log' -ErrorAction SilentlyContinue | Sort-Object LastWriteTime -Descending | Select-Object -First 1
             if ($hotLog -and (Test-Path $hotLog.FullName)) {
                 $tail = Get-Content $hotLog.FullName -Tail 260 -ErrorAction SilentlyContinue
-                $newDebug = ($tail | Where-Object { $_ -match 'Debug event' }).Count
-                $newWarning = ($tail | Where-Object { $_ -match 'Warning event' }).Count
+                $newDebug = @($tail | Where-Object { $_ -match 'Debug event' }).Count
+                $newWarning = @($tail | Where-Object { $_ -match 'Warning event' }).Count
                 # Conditions: we have at least one new Warning AND no increase in Debug count beyond baseline
                 if ( ($newWarning -gt $baselineWarning) -and ($newDebug -le $baselineDebug) ) {
                     $satisfied = $true

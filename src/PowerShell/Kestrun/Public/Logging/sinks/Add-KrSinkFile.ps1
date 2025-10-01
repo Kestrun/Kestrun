@@ -106,6 +106,15 @@ function Add-KrSinkFile {
     begin {
         $Path = $Path -replace '[\\/]', [IO.Path]::DirectorySeparatorChar
         $Path = Resolve-KrPath -Path $Path -KestrunRoot
+        # Ensure directory exists before Serilog attempts to create/append the file
+        try {
+            $directory = [System.IO.Path]::GetDirectoryName($Path)
+            if ($directory -and -not [string]::IsNullOrWhiteSpace($directory) -and -not (Test-Path -LiteralPath $directory)) {
+                [System.IO.Directory]::CreateDirectory($directory) | Out-Null
+            }
+        } catch {
+            Write-Warning "Add-KrSinkFile: Failed to ensure log directory '$directory' exists. $_"
+        }
     }
     process {
         switch ($PSCmdlet.ParameterSetName) {

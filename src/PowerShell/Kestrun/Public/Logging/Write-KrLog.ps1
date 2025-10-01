@@ -9,10 +9,14 @@
     .PARAMETER Message
         The message template describing the event.
     .PARAMETER LoggerName
-        The name of the logger to use. If not specified, the default logger is used.
+        The name of the logger to use.
+        If both LoggerName and Logger are not specified, the default logger is used.
+        If neither is available, the message is broadcast to all known loggers (best-effort).
     .PARAMETER Logger
         The Serilog logger instance to use for logging.
         If not specified, the logger with the specified LoggerName or the default logger is used.
+        if both Logger and LoggerName are not specified, the default logger is used.
+        If neither is available, the message is broadcast to all known loggers (best-effort).
     .PARAMETER Exception
         The exception related to the event.
     .PARAMETER ErrorRecord
@@ -61,7 +65,7 @@ function Write-KrLog {
         [Parameter(Mandatory = $true, ParameterSetName = 'LoggerManager_MsgTemp')]
         [Parameter(Mandatory = $true, ParameterSetName = 'LoggerManager_ErrRec')]
         [Parameter(Mandatory = $true, ParameterSetName = 'LoggerManager_Exception')]
-        [Serilog.Core.Logger]$Logger,
+        [Serilog.ILogger]$Logger,
         [Parameter(Mandatory = $true, ParameterSetName = 'LoggerManager_Exception')]
         [Parameter(Mandatory = $true, ParameterSetName = 'LoggerName_Exception')]
         [AllowNull()]
@@ -101,10 +105,24 @@ function Write-KrLog {
                     $Logger = [Kestrun.Logging.LoggerManager]::Get($LoggerName)
                 }
             }
-            # If Logger is not found, throw an error
-            # This ensures that the logger is registered before logging
+            # If still no concrete logger resolve: broadcast to all known loggers (best-effort)
             if ($null -eq $Logger) {
-                throw "Logger with name '$LoggerName' not found. Please ensure it is registered before logging."
+                $all = [Kestrun.Logging.LoggerManager]::ListLoggers()
+                if ($all.Length -eq 0) { return }
+                foreach ($l in $all) {
+                    if ($null -ne $l) {
+                        switch ($Level) {
+                            Verbose { $l.Verbose($Exception, $Message, $Values) }
+                            Debug { $l.Debug($Exception, $Message, $Values) }
+                            Information { $l.Information($Exception, $Message, $Values) }
+                            Warning { $l.Warning($Exception, $Message, $Values) }
+                            Error { $l.Error($Exception, $Message, $Values) }
+                            Fatal { $l.Fatal($Exception, $Message, $Values) }
+                        }
+                    }
+                }
+                if ($PassThru) { Get-KrFormattedMessage -Logger ([Kestrun.Logging.LoggerManager]::DefaultLogger) -Level $Level -Message $Message -Values $Values -Exception $Exception }
+                return
             }
             # Log the message using the specified log level and parameters
             switch ($Level) {

@@ -12,6 +12,8 @@ public static class LoggerManager
 {
     private static readonly ConcurrentDictionary<string, Serilog.ILogger> _loggers = new(StringComparer.OrdinalIgnoreCase);
     private static readonly ConcurrentDictionary<string, LoggerConfiguration> _configs = new(StringComparer.OrdinalIgnoreCase);
+    // Synchronization object to guard global default logger transitions and coordinated disposal
+    private static readonly object _sync = new();
 
     /// <summary>
     /// A collection of named logging level switches for dynamic log level control.
@@ -99,23 +101,38 @@ public static class LoggerManager
     /// <returns> True if the logger was found and closed; otherwise, false.</returns>
     public static bool CloseAndFlush(string name)
     {
-        if (_loggers.TryRemove(name, out var logger))
+        if (!_loggers.TryRemove(name, out var logger))
         {
-            var currentDefault = Log.Logger;
-            var wasDefault = ReferenceEquals(currentDefault, logger);
-            if (logger is IDisposable d)
-            {
-                d.Dispose();
-            }
-            _ = _configs.TryRemove(name, out _);
-            _ = _switches.TryRemove(name, out _);
-            if (wasDefault)
-            {
-                Log.Logger = CreateBaselineLogger();
-            }
-            return true;
+            return false;
         }
-        return false;
+
+        bool wasDefault;
+        // Capture & decide inside lock to avoid race with other threads mutating Log.Logger
+        lock (_sync)
+        {
+            wasDefault = ReferenceEquals(Log.Logger, logger);
+        }
+
+        if (logger is IDisposable d)
+        {
+            // Dispose outside lock (Serilog flush/dispose can perform I/O)
+            d.Dispose();
+        }
+        _ = _configs.TryRemove(name, out _);
+        _ = _switches.TryRemove(name, out _);
+
+        if (wasDefault)
+        {
+            lock (_sync)
+            {
+                // Re-check in case default changed while disposing
+                if (ReferenceEquals(Log.Logger, logger))
+                {
+                    Log.Logger = CreateBaselineLogger();
+                }
+            }
+        }
+        return true;
     }
 
     /// <summary>
@@ -125,11 +142,17 @@ public static class LoggerManager
     /// <returns>True if the logger was found and closed; otherwise, false.</returns>
     public static bool CloseAndFlush(Serilog.ILogger logger)
     {
-        var wasDefault = ReferenceEquals(Log.Logger, logger);
+        bool wasDefault;
+        lock (_sync)
+        {
+            wasDefault = ReferenceEquals(Log.Logger, logger);
+        }
+
         if (logger is IDisposable d)
         {
             d.Dispose();
         }
+
         var removed = false;
         var keys = _loggers.Where(kv => ReferenceEquals(kv.Value, logger)).Select(kv => kv.Key).ToList();
         foreach (var key in keys)
@@ -139,9 +162,16 @@ public static class LoggerManager
             _ = _switches.TryRemove(key, out _);
             removed = true;
         }
+
         if (wasDefault)
         {
-            Log.Logger = CreateBaselineLogger();
+            lock (_sync)
+            {
+                if (ReferenceEquals(Log.Logger, logger))
+                {
+                    Log.Logger = CreateBaselineLogger();
+                }
+            }
         }
         return removed;
     }
@@ -222,21 +252,33 @@ public static class LoggerManager
     /// <summary>List all registered logger names.</summary>
     public static string[] List() => [.. _loggers.Keys];
 
+    /// <summary>
+    /// List all registered logger instances.
+    /// </summary>
+    /// <remarks>
+    /// The returned array is a snapshot; subsequent registrations or disposals will not affect it.
+    /// </remarks>
+    public static Serilog.ILogger[] ListLoggers() => [.. _loggers.Values];
+
     /// <summary>Remove and dispose all registered loggers.</summary>
     /// <remarks>Also clears the default logger.</remarks>
     public static void Clear()
     {
-        foreach (var (_, logger) in _loggers)
+        // Snapshot keys to minimize time under lock and avoid enumerating while mutated
+        var snapshot = _loggers.ToArray();
+        foreach (var (_, logger) in snapshot)
         {
             if (logger is IDisposable d)
             {
-                d.Dispose();
+                try { d.Dispose(); } catch { /* swallow to ensure all loggers attempt disposal */ }
             }
         }
         _loggers.Clear();
         _configs.Clear();
         _switches.Clear();
-        // Reset Serilog global logger to a baseline empty logger
-        Log.Logger = CreateBaselineLogger();
+        lock (_sync)
+        {
+            Log.Logger = CreateBaselineLogger();
+        }
     }
 }

@@ -49,7 +49,6 @@ public sealed class CommonAccessLogOptions
     /// (for example <c>X-Forwarded-For</c>). When the header is missing the connection remote address is used.
     /// </summary>
     public string? ClientAddressHeader { get; set; }
-        = null;
 
     /// <summary>
     /// Gets or sets the time provider used when rendering timestamps.

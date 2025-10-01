@@ -85,21 +85,30 @@ jobs:
       - name: Prepare sanitized PowerShell source
         shell: pwsh
         run: |
-          $San = "$(Resolve-Path .)/_pwsh_sanitized"
-          Remove-Item -Recurse -Force $San -ErrorAction SilentlyContinue
+          $San = Join-Path -Path $PWD -ChildPath "_pwsh_sanitized"
+          if (Test-Path $San) { Remove-Item -Recurse -Force $San }
           New-Item -ItemType Directory -Path $San | Out-Null
-          # Copy everything (adjust excludes as you like)
-          robocopy . $San /E /NFL /NDL /NJH /NJS /NP /XD .git _pwsh_sanitized | Out-Null
 
-          # Strip [KestrunRuntimeApi('...')] attributes from .ps1/.psm1/.psd1
-          $files = Get-ChildItem -Path $San/src/PowerShell/Kestrun -Recurse -Include *.ps1,*.psm1,*.psd1
+          # Copy everything (except .git and the sanitized folder itself)
+          $excludes = @('.git', '_pwsh_sanitized')
+          Get-ChildItem -Path $PWD -Force |
+            Where-Object { $_.Name -notin $excludes } |
+            ForEach-Object {
+              $dest = Join-Path $San $_.Name
+              if ($_.PSIsContainer) {
+                Copy-Item -Path $_.FullName -Destination $dest -Recurse -Force
+              } else {
+                Copy-Item -Path $_.FullName -Destination $dest -Force
+              }
+            }
+
+          # Now strip the KestrunRuntimeApi attributes
+          $files = Get-ChildItem -Path (Join-Path $San "src/PowerShell/Kestrun") -Recurse -Include *.ps1,*.psm1,*.psd1
           $attrPatternInline = '\[\s*KestrunRuntimeApi\s*\(\s*''[^'']*''\s*\)\s*\]'
           foreach ($f in $files) {
             $text = Get-Content -LiteralPath $f.FullName -Raw
-            # Remove attributes whether on their own line or inline with others
-            $text = $text -replace "^\s*$attrPatternInline\s*\r?\n", ""    # attribute on its own line
-            $text = $text -replace "$attrPatternInline\s*,?\s*", ""       # attribute inline (and possible trailing comma)
-            # Tidy excessive blank lines
+            $text = $text -replace "^\s*$attrPatternInline\s*\r?\n", ""
+            $text = $text -replace "$attrPatternInline\s*,?\s*", ""
             $text = $text -replace "(\r?\n){3,}", "`r`n`r`n"
             Set-Content -LiteralPath $f.FullName -Value $text -NoNewline
           }

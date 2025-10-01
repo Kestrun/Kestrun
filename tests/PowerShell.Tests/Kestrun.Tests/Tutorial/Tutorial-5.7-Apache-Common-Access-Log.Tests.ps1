@@ -1,4 +1,4 @@
-﻿param()
+param()
 
 Describe 'Example 5.7-Apache-Common-Access-Log' -Tag 'Tutorial', 'Logging', 'AccessLog' {
     BeforeAll { . (Join-Path $PSScriptRoot '..\PesterHelpers.ps1'); $script:instance = Start-ExampleScript -Name '5.7-ApacheLog.ps1' }

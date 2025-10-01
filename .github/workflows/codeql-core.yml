@@ -116,31 +116,31 @@ jobs:
           Write-Host "Sanitized tree at: $San"
 
        # Build C# so DLLs exist (if applicable)
-      - name: 🧰 Setup .NET 8/9
-        uses: actions/setup-dotnet@v5
-        with:
-          dotnet-version: |
-            8.0.x
-            9.0.x
+      #- name: 🧰 Setup .NET 8/9
+      #  uses: actions/setup-dotnet@v5
+      #  with:
+      #    dotnet-version: |
+      #      8.0.x
+      #      9.0.x
 
-      - name: 🧰 Install Invoke-Build
-        shell: pwsh
-        run: Install-Module InvokeBuild -Force -Scope CurrentUser
+      # - name: 🧰 Install Invoke-Build
+      #  shell: pwsh
+      #  run: Install-Module InvokeBuild -Force -Scope CurrentUser
 
-      - name: 📦 Restore solution
-        shell: pwsh
-        run: Invoke-Build Restore -DotNetVerbosity minimal
+      #- name: 📦 Restore solution
+      #  shell: pwsh
+      #  run: Invoke-Build Restore -DotNetVerbosity minimal
 
-      - name: 🔧 Run C# Build
-        shell: pwsh
-        run: Invoke-Build Build -DotNetVerbosity minimal
+      #- name: 🔧 Run C# Build
+      #  shell: pwsh
+      #  run: Invoke-Build Build -DotNetVerbosity minimal
 
-      - name: 🧰 Install Kestrun Module
-        shell: pwsh
-        run: |
-          Invoke-Build Install-Module
-          # Initialize the library
-          Get-KrFeatureSupport
+      #- name: 🧰 Install Kestrun Module
+      #  shell: pwsh
+      #  run: |
+      #    Invoke-Build Install-Module
+      #    # Initialize the library
+      #    Get-KrFeatureSupport
 
       # Run PSScriptAnalyzer and produce SARIF
       - name: Run PSScriptAnalyzer

@@ -23,7 +23,6 @@
         This function is designed to be used in the context of a Kestrun server to resolve file paths correctly.
 #>
 function Resolve-KrPath {
-    [CmdletBinding()]
     [KestrunRuntimeApi('Everywhere')]
     [CmdletBinding(DefaultParameterSetName = 'RelativeBasePath')]
     [OutputType([string])]

@@ -22,7 +22,7 @@ Describe 'Example 5.1-Simple-Logging' {
         $dir = $script:instance.ScriptDirectory
         $logDir = Join-Path $dir 'logs'
         $logPath = Join-Path $logDir 'sample.log'
-        # Rolling hourly means file may have timestamp appended earlier examples use pattern sample*.log; adapt
+        # Rolling hourly means file may have timestamp appended. Earlier examples use pattern sample*.log; adapt.
         if (-not (Test-Path $logPath)) {
             $candidate = Get-ChildItem -Path $logDir -Filter 'sample*.log' -ErrorAction SilentlyContinue | Sort-Object LastWriteTime -Descending | Select-Object -First 1
             if ($candidate) { $logPath = $candidate.FullName }

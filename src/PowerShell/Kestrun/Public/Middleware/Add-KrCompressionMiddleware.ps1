@@ -48,9 +48,9 @@ function Add-KrCompressionMiddleware {
         [Parameter(ParameterSetName = 'Items')]
         [string[]]$ExcludedMimeTypes,
         [Parameter(ParameterSetName = 'Items')]
-        [switch[]]$DisableGzip,
+        [switch]$DisableGzip,
         [Parameter(ParameterSetName = 'Items')]
-        [switch[]]$DisableBrotli,
+        [switch]$DisableBrotli,
         [Parameter()]
         [switch]$PassThru
     )

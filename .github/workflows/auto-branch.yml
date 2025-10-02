@@ -106,6 +106,16 @@ jobs:
                   owner, repo, issue_number: number,
                   body: `✨ Branch created: **\`${branchName}\`** → ${url}`
                 });
+                // 9) Update issue body to include the branch link if not present
+                let body = issue.body || '';
+                const marker = `**Development Branch:** [\`${branchName}\`](https://github.com/${owner}/${repo}/tree/${encodeURIComponent(branchName)})`;
+                if (!body.includes(branchName)) {
+                body = `${marker}\n\n${body}`;
+                await github.rest.issues.update({
+                    owner, repo, issue_number: number,
+                    body
+                });
+                }
               } else {
                 throw e;
               }

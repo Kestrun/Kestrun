@@ -14,7 +14,7 @@ public static class EndpointDisablingCompressionExtensions
     /// <summary>
     ///  Metadata key to indicate that compression should be disabled for this endpoint.
     ///  Used by compression middleware to skip compression for this endpoint.
-    /// </summary>
+/// </summary>
     /// <param name="builder">The endpoint convention builder.</param>
     /// <returns>The endpoint convention builder, for fluent chaining.</returns>
     public static TBuilder DisableResponseCompression<TBuilder>(this TBuilder builder)

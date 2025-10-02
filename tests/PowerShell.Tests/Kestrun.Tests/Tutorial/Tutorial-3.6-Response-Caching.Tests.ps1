@@ -18,7 +18,8 @@ Describe 'Example 3.6-Response-Caching' -Tag 'Tutorial', 'Caching' {
         Invoke-ExampleRequest -Uri $target -ReturnRaw -RetryCount 2 | Out-Null
         Start-Sleep -Milliseconds 120
 
-        $r1 = $null; $r2 = $null
+        $r1 = $null
+        $r2 = $null
         $first = Measure-Command { $r1 = Invoke-ExampleRequest -Uri $target -ReturnRaw -RetryCount 2 }
         Start-Sleep -Milliseconds 80
         $second = Measure-Command { $r2 = Invoke-ExampleRequest -Uri $target -ReturnRaw -RetryCount 2 }

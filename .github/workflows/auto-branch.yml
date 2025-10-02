@@ -1,133 +1,77 @@
-name: Auto-create & link issue branch
+name: Create linked branch on assignment
 
 on:
   issues:
-    types: [assigned, labeled, edited]
+    types: [assigned]
 
 permissions:
-  contents: write
-  issues: write
+  contents: write       # to create the branch
+  issues: write         # to read/write issue metadata (linkage)
+  # actions' GITHUB_TOKEN gets these; if your org has restrictions, ensure they're enabled
 
 jobs:
-  create-and-link:
+  create-linked-branch:
     runs-on: ubuntu-latest
     steps:
-      - name: Create & link branch to the issue
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const allowed = ['feat','fix','refactor','docs','test','chore','techdebt'];
+      - name: Build branch name from labels + title
+        id: name
+        env:
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          ISSUE_TITLE:  ${{ github.event.issue.title }}
+          ISSUE_LABELS: ${{ toJson(github.event.issue.labels) }}
+        run: |
+          # Decide <type> from labels (feat, fix, refactor, docs, test, chore, techdebt)
+          TYPE="chore"
+          for l in $(echo "$ISSUE_LABELS" | jq -r '.[].name' | tr '[:upper:]' '[:lower:]'); do
+            case "$l" in
+              feat|feature)     TYPE="feat" ;;
+              fix|bug)          TYPE="fix" ;;
+              refactor)         TYPE="refactor" ;;
+              docs|documentation) TYPE="docs" ;;
+              test|tests)       TYPE="test" ;;
+              chore|ci|build|tooling|infra) TYPE="chore" ;;
+              techdebt|tech-debt) TYPE="techdebt" ;;
+            esac
+          done
 
-            const issue    = context.payload.issue;
-            const {owner, repo} = context.repo;
-            const number   = issue.number;
-            const titleRaw = issue.title || '';
-            const labels   = (issue.labels || []).map(l => (typeof l === 'string' ? l : l.name)).filter(Boolean);
+          # kebab-case the title
+          DESC=$(echo "$ISSUE_TITLE" | tr '[:upper:]' '[:lower:]' | tr -cd '[:alnum:] \n-' | tr ' ' '-' | tr -s '-')
+          BRANCH="${TYPE}/${ISSUE_NUMBER}-${DESC}"
 
-            const labelToType = (name) => {
-              const n = name.toLowerCase();
-              if (allowed.includes(n)) return n;
-              if (['feature','enhancement'].includes(n)) return 'feat';
-              if (['bug','bugfix','hotfix'].includes(n)) return 'fix';
-              if (['documentation','docs-update'].includes(n)) return 'docs';
-              if (['tests','testing'].includes(n)) return 'test';
-              if (['ci','build','infra','infrastructure','tooling'].includes(n)) return 'chore';
-              if (['tech-debt','tech_debt','debt'].includes(n)) return 'techdebt';
-              if (['refactoring','cleanup'].includes(n)) return 'refactor';
-              return null;
-            };
+          echo "branch=$BRANCH" >> $GITHUB_OUTPUT
 
-            let type = null;
-            for (const lbl of labels) { const t = labelToType(lbl); if (t) { type = t; break; } }
-            if (!type) {
-              const m = titleRaw.toLowerCase().match(/^\s*(?:\[(\w+)\]|(\w+)\s*[:|-])/);
-              const candidate = m ? (m[1] || m[2]) : null;
-              if (candidate && allowed.includes(candidate)) type = candidate;
-            }
-            if (!type) {
-              core.info('No recognizable type found; skipping.');
-              return;
-            }
-
-            const cleanTitle = titleRaw
-              .replace(/^\s*\[(?:feat|fix|refactor|docs|test|chore|techdebt)\]\s*/i, '')
-              .replace(/^\s*(?:feat|fix|refactor|docs|test|chore|techdebt)\s*[:|-]\s*/i, '');
-            const slug = cleanTitle.toLowerCase()
-              .normalize('NFKD').replace(/[\u0300-\u036f]/g, '')
-              .replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')
-              .slice(0, 60) || `issue-${number}`;
-
-            const branchName = `${type}/${number}-${slug}`;
-
-            // Get IDs & base OID for GraphQL createLinkedBranch
-            const q = await github.graphql(`
-              query($owner:String!, $repo:String!, $num:Int!) {
-                repository(owner:$owner, name:$repo) {
-                  id
-                  defaultBranchRef { target { ... on Commit { oid } } }
-                  issue(number:$num) { id }
-                }
+      - name: Create linked branch via GraphQL
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          ISSUE_NODE_ID: ${{ github.event.issue.node_id }}
+          BRANCH_NAME: ${{ steps.name.outputs.branch }}
+        run: |
+          # 1) Get repository node ID and base OID from default branch
+          read -r REPO_ID DEFAULT_REF OID <<EOF
+          $(gh api graphql -f query='
+            query($owner:String!, $name:String!){
+              repository(owner:$owner, name:$name){
+                id
+                defaultBranchRef { name target { oid } }
               }
-            `, { owner, repo, num: number });
+            }' -F owner="${REPO%/*}" -F name="${REPO#*/}" \
+            --jq '.data.repository | "\(.id) \(.defaultBranchRef.name) \(.defaultBranchRef.target.oid)"')
+          EOF
 
-            const repositoryId = q.repository.id;
-            const issueId      = q.repository.issue.id;
-            const baseOid      = q.repository.defaultBranchRef.target.oid;
+          # 2) Call createLinkedBranch (this both creates the ref and links it to the issue)
+          gh api graphql -f query='
+            mutation($input:CreateLinkedBranchInput!) {
+              createLinkedBranch(input:$input) {
+                issue { number }
+                linkedBranch { ref { name } }
+              }
+            }' -F input="$(jq -n \
+              --arg issueId "$ISSUE_NODE_ID" \
+              --arg oid "$OID" \
+              --arg name "$BRANCH_NAME" \
+              --arg repoId "$REPO_ID" \
+              '{issueId:$issueId, oid:$oid, name:$name, repositoryId:$repoId}')" 
 
-            // Idempotency: if ref already exists, we still link it
-            let refExists = false;
-            try {
-              await github.rest.git.getRef({ owner, repo, ref: `heads/${branchName}` });
-              refExists = true;
-            } catch (e) {
-              if (e.status !== 404) throw e;
-            }
-
-            if (!refExists) {
-              // Create the branch & link it to the issue in one go
-              const mutation = `
-                mutation($input: CreateLinkedBranchInput!) {
-                  createLinkedBranch(input: $input) {
-                    linkedBranch { id ref { name } }
-                  }
-                }
-              `;
-              await github.graphql(mutation, {
-                input: {
-                  issueId,
-                  repositoryId,
-                  name: branchName,          // branch name (no "refs/heads/")
-                  oid: baseOid               // base commit SHA (OID) to branch from
-                }
-              });
-            } else {
-              // If branch already exists, just link it via the same mutation
-              const mutation = `
-                mutation($input: CreateLinkedBranchInput!) {
-                  createLinkedBranch(input: $input) {
-                    linkedBranch { id ref { name } }
-                  }
-                }
-              `;
-              await github.graphql(mutation, {
-                input: {
-                  issueId,
-                  repositoryId,
-                  name: branchName
-                  // When name exists, GitHub links the existing branch to the issue
-                }
-              });
-            }
-
-            // Nice comment + issue body marker
-            const url = `https://github.com/${owner}/${repo}/tree/${encodeURIComponent(branchName)}`;
-            await github.rest.issues.createComment({
-              owner, repo, issue_number: number,
-              body: `✨ Branch created & linked: **\`${branchName}\`** → ${url}`
-            });
-
-            const marker = `**Development Branch:** [\`${branchName}\`](${url})`;
-            if (!((issue.body||'').includes(branchName))) {
-              await github.rest.issues.update({ owner, repo, issue_number: number, body: `${marker}\n\n${issue.body||''}` });
-            }
+          echo "Created and linked branch: $BRANCH_NAME (from $DEFAULT_REF@$OID)"
 

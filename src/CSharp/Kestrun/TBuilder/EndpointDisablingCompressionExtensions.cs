@@ -5,7 +5,6 @@ namespace Kestrun.TBuilder;
 /// </summary>
 public static class EndpointDisablingCompressionExtensions
 {
-
     /// <summary>
     /// Metadata key to indicate that compression should be disabled for this endpoint.
     /// Used by compression middleware to skip compression for this endpoint.

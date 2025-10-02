@@ -1468,8 +1468,8 @@ function Invoke-CurlRequest {
     if ($SkipCertificateCheck) {
         $arguments += '--insecure'  # skip TLS cert validation
     }
-    # If Accept-Encoding is specified, add it to the request.
-    # curl will automatically handle decompression if --compressed is used.
+    # If Accept-Encoding is specified, add it to the request and use --compressed.
+    # curl will automatically handle decompression only if --compressed is used (which happens when Accept-Encoding is set).
     if ($AcceptEncoding) {
         if ($null -eq $Headers) {
             $Headers = @{}

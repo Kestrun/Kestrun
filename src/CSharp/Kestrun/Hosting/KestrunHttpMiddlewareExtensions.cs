@@ -478,6 +478,5 @@ public static class KestrunHttpMiddlewareExtensions
         ValidateCachingInput(host, cfg, cacheControl);
         RegisterCachingServices(host, cfg);
         return host.Use(CreateCachingMiddleware(host, cacheControl));
-    }
 
 }

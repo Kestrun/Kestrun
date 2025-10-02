@@ -1,4 +1,4 @@
-﻿<#
+<#
     Compression Demo Script
     Demonstrates response compression for multiple content types.
     Routes return sufficiently large payloads so you can observe the

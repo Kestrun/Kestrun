@@ -46,7 +46,7 @@ internal sealed class CSharpScriptProbe(
                       .Distinct(StringComparer.OrdinalIgnoreCase)];
 
     /// <inheritdoc />
-    public SerilogLogger Logger { get; init; } = logger;
+    public SerilogLogger Logger { get; init; } = logger ?? throw new ArgumentNullException(nameof(logger));
 
     /// <summary>
     /// Executes the C# script and returns the resulting ProbeResult.

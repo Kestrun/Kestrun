@@ -25,10 +25,7 @@ internal sealed class VbScriptProbe(
     /// </summary>
     private readonly Func<CsGlobals, Task<ProbeResult>> _runner = runner ?? throw new ArgumentNullException(nameof(runner));
     private readonly IReadOnlyDictionary<string, object?>? _locals = locals;
-    /// <summary>
-    /// The logger to use for logging.
-    /// </summary>
-    private readonly SerilogLogger _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+
     /// <summary>
     /// Gets the name of the probe.
     /// </summary>
@@ -46,7 +43,7 @@ internal sealed class VbScriptProbe(
                       .Distinct(StringComparer.OrdinalIgnoreCase)];
 
     /// <inheritdoc />
-    public SerilogLogger Logger { get; init; } = logger;
+    public SerilogLogger Logger { get; init; } = logger ?? throw new ArgumentNullException(nameof(logger));
 
     /// <summary>
     /// Executes the VB.NET script and returns the resulting ProbeResult.
@@ -78,7 +75,7 @@ internal sealed class VbScriptProbe(
         }
         catch (Exception ex)
         {
-            _logger.Error(ex, "VB.NET health probe {Probe} failed.", Name);
+            Logger.Error(ex, "VB.NET health probe {Probe} failed.", Name);
             return new ProbeResult(ProbeStatus.Unhealthy, $"Exception: {ex.Message}");
         }
     }

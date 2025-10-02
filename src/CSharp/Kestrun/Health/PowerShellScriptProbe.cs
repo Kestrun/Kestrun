@@ -3,7 +3,6 @@ using System.Management.Automation;
 using System.Management.Automation.Runspaces;
 using Kestrun.Languages;
 using Kestrun.Scripting;
-using Microsoft.CodeAnalysis;
 using SerilogLogger = Serilog.ILogger;
 using Serilog.Events;
 
@@ -26,7 +25,6 @@ internal sealed class PowerShellScriptProbe(
         Func<KestrunRunspacePoolManager> poolAccessor,
         IReadOnlyDictionary<string, object?>? arguments) : IProbe
 {
-    private readonly SerilogLogger _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     private readonly Func<KestrunRunspacePoolManager> _poolAccessor = poolAccessor ?? throw new ArgumentNullException(nameof(poolAccessor));
     private readonly IReadOnlyDictionary<string, object?>? _arguments = arguments;
     private readonly string _script = string.IsNullOrWhiteSpace(script)
@@ -50,7 +48,7 @@ internal sealed class PowerShellScriptProbe(
                       .Distinct(StringComparer.OrdinalIgnoreCase)];
 
     /// <inheritdoc />
-    public SerilogLogger Logger { get; init; } = logger;
+    public SerilogLogger Logger { get; init; } = logger ?? throw new ArgumentNullException(nameof(logger));
 
     /// <summary>
     /// Executes the PowerShell script and converts the output to a <see cref="ProbeResult"/>.
@@ -74,7 +72,7 @@ internal sealed class PowerShellScriptProbe(
         }
         catch (PipelineStoppedException) when (ct.IsCancellationRequested)
         {
-            _logger.Information("PowerShell health probe {Probe} canceled (PipelineStopped).", Name);
+            Logger.Information("PowerShell health probe {Probe} canceled (PipelineStopped).", Name);
             return new ProbeResult(ProbeStatus.Degraded, "Canceled");
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested)
@@ -85,10 +83,10 @@ internal sealed class PowerShellScriptProbe(
         {
             if (ex is PipelineStoppedException)
             {
-                _logger.Warning(ex, "PowerShell health probe {Probe} pipeline stopped.", Name);
+                Logger.Warning(ex, "PowerShell health probe {Probe} pipeline stopped.", Name);
                 return new ProbeResult(ProbeStatus.Degraded, "Canceled");
             }
-            _logger.Error(ex, "PowerShell health probe {Probe} failed.", Name);
+            Logger.Error(ex, "PowerShell health probe {Probe} failed.", Name);
             return new ProbeResult(ProbeStatus.Unhealthy, $"Exception: {ex.Message}");
         }
         finally
@@ -110,7 +108,7 @@ internal sealed class PowerShellScriptProbe(
     {
         var ps = PowerShell.Create();
         ps.Runspace = runspace;
-        PowerShellExecutionHelpers.SetVariables(ps, _arguments, _logger);
+        PowerShellExecutionHelpers.SetVariables(ps, _arguments, Logger);
         PowerShellExecutionHelpers.AddScript(ps, _script);
         if (Logger.IsEnabled(LogEventLevel.Debug))
         {
@@ -127,7 +125,7 @@ internal sealed class PowerShellScriptProbe(
     /// <returns>A task representing the asynchronous operation, with a list of PSObject as the result.</returns>
     private async Task<IReadOnlyList<PSObject>> InvokeScriptAsync(PowerShell ps, CancellationToken ct)
     {
-        var output = await PowerShellExecutionHelpers.InvokeAsync(ps, _logger, ct).ConfigureAwait(false);
+        var output = await PowerShellExecutionHelpers.InvokeAsync(ps, Logger, ct).ConfigureAwait(false);
         if (Logger.IsEnabled(LogEventLevel.Debug))
         {
             Logger.Debug("PowerShellScriptProbe {Probe} received {Count} output objects", Name, output.Count);

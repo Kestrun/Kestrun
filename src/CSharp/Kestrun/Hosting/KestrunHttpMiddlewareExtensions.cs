@@ -479,3 +479,4 @@ public static class KestrunHttpMiddlewareExtensions
         RegisterCachingServices(host, cfg);
         return host.Use(CreateCachingMiddleware(host, cacheControl));
     }
+}

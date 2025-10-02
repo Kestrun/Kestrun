@@ -15,9 +15,7 @@ public static class KestrunCompressionServiceCollectionExtensions
     /// </summary>
     /// <param name="services">The service collection.</param>
     /// <returns>The service collection.</returns>
-    public static IServiceCollection AddKestrunCompressionOptOut(this IServiceCollection services)
-    {
+    public static IServiceCollection AddKestrunCompressionOptOut(this IServiceCollection services) =>
         // Replace the default provider with our decorator
-        return services.AddSingleton<IResponseCompressionProvider, KestrunResponseCompressionProvider>();
-    }
+        services.AddSingleton<IResponseCompressionProvider, KestrunResponseCompressionProvider>();
 }

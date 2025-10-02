@@ -41,9 +41,12 @@ Describe 'Example 3.6-Response-Caching' -Tag 'Tutorial', 'Caching' {
             }
         }
 
-        # Timing heuristic (relaxed). Disable strict timing on CI or if first request extremely fast (<15ms).
+        # Timing heuristic (relaxed).
+        # Disable strict timing on CI or if first request extremely fast (<$TimingThresholdMs ms).
+        # Threshold chosen to avoid timing flakiness for extremely fast responses, which may not be representative of real-world caching behavior.
+        $TimingThresholdMs = 15
         $ci = [bool]$env:CI
-        $timingApplicable = -not $ci -and $first.TotalMilliseconds -ge 15
+        $timingApplicable = -not $ci -and $first.TotalMilliseconds -ge $TimingThresholdMs
         $ratio = if ($first.TotalMilliseconds -gt 0) { [double]($second.TotalMilliseconds / $first.TotalMilliseconds) } else { 0 }
         $timingOk = $true
         if ($timingApplicable) {

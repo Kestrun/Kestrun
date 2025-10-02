@@ -14,6 +14,10 @@
         An array of MIME types to compress. If not specified, defaults to common text-based MIME types.
     .PARAMETER ExcludedMimeTypes
         An array of MIME types to exclude from compression.
+    .PARAMETER DisableGzip
+        If specified, disables Gzip compression.
+    .PARAMETER DisableBrotli
+        If specified, disables Brotli compression.
     .PARAMETER PassThru
         If specified, the cmdlet will return the modified server instance.
     .EXAMPLE
@@ -43,6 +47,10 @@ function Add-KrCompressionMiddleware {
         [string[]]$MimeTypes,
         [Parameter(ParameterSetName = 'Items')]
         [string[]]$ExcludedMimeTypes,
+        [Parameter(ParameterSetName = 'Items')]
+        [switch[]]$DisableGzip,
+        [Parameter(ParameterSetName = 'Items')]
+        [switch[]]$DisableBrotli,
         [Parameter()]
         [switch]$PassThru
     )
@@ -62,12 +70,14 @@ function Add-KrCompressionMiddleware {
             if ($EnableForHttps.IsPresent) {
                 $Options.EnableForHttps = $true
             }
-            # Providers are not supported yet
-            <# if ($null -ne $Providers -and $Providers.Count -gt 0) {
-                foreach ($Provider in $Providers) {
-                    $Options.Providers.Add($Provider)
-                }
-            }#>
+            if (-not $DisableGzip.IsPresent) {
+                $gzipCompressionProviderOptions = [Microsoft.AspNetCore.ResponseCompression.GzipCompressionProviderOptions]::new()
+                $Options.Providers.Add([Microsoft.AspNetCore.ResponseCompression.GzipCompressionProvider]::new($gzipCompressionProviderOptions))
+            }
+            if (-not $DisableBrotli.IsPresent) {
+                $brotliCompressionProviderOptions = [Microsoft.AspNetCore.ResponseCompression.BrotliCompressionProviderOptions]::new()
+                $Options.Providers.Add([Microsoft.AspNetCore.ResponseCompression.BrotliCompressionProvider]::new($brotliCompressionProviderOptions))
+            }
         }
 
         [Kestrun.Hosting.KestrunHttpMiddlewareExtensions]::AddResponseCompression($Server, $Options) | Out-Null

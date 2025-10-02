@@ -1255,6 +1255,36 @@ function New-TestFile {
 .PARAMETER IfModifiedSince
   DateTime value for the `If-Modified-Since` header.
   If provided, the request will include this header to check for modifications.
+.PARAMETER AcceptEncoding
+  Accept-Encoding header value (e.g., 'gzip', 'deflate', 'br').
+  If specified, adds an `Accept-Encoding` header to the request.
+.PARAMETER SkipCertificateCheck
+  Skip TLS certificate validation (useful for self-signed certs in tests).
+.EXAMPLE
+  # Simple GET with response body returned
+  $resp = Invoke-CurlRequest -Url 'https://httpbin.org/get' -PassThru
+  $resp.StatusCode  # 200
+  $resp.Headers    # Response headers
+  $resp.Content    # Response body
+.EXAMPLE
+  # Download a file to disk
+  Invoke-CurlRequest -Url 'https://example.com/largefile.zip' -OutFile 'largefile.zip'
+.EXAMPLE
+  # Download a file using range requests (for very large files)
+  Invoke-CurlRequest -Url 'https://example.com/verylargefile.iso' -OutFile 'verylargefile.iso' -UseRangeDownload -RangeSize 512MB
+.EXAMPLE
+  # Conditional GET using ETag  (returns 304 if not modified)
+    $resp = Invoke-CurlRequest -Url 'https://example.com/resource' -ETag 'W/"123456789"' -PassThru
+    $resp.StatusCode  # 200 or 304
+.EXAMPLE
+  # Conditional GET using If-Modified-Since
+    $resp = Invoke-CurlRequest -Url 'https://example.com/resource' -IfModifiedSince (Get-Date '2024-01-01T00:00:00Z') -PassThru
+    $resp.StatusCode  # 200 or 304
+.NOTES
+  This function requires curl to be installed and available in the system PATH.
+  It is designed to work cross-platform (Windows, Linux, macOS).
+  For very large file downloads, use the -UseRangeDownload parameter to avoid
+  memory issues and improve reliability.
 #>
 function Invoke-CurlRequest {
 
@@ -1301,7 +1331,12 @@ function Invoke-CurlRequest {
 
         [Parameter(Mandatory = $true, ParameterSetName = 'IfModifiedSince')]
         [datetime]
-        $IfModifiedSince
+        $IfModifiedSince,
+
+        [Parameter()]
+        [switch]
+        $SkipCertificateCheck
+
     )
 
     # ------------------------------------------------------------
@@ -1430,6 +1465,11 @@ function Invoke-CurlRequest {
         '--write-out', '%{http_code}'    # print status at the end
     )
 
+    if ($SkipCertificateCheck) {
+        $arguments += '--insecure'  # skip TLS cert validation
+    }
+    # If Accept-Encoding is specified, add it to the request.
+    # curl will automatically handle decompression if --compressed is used.
     if ($AcceptEncoding) {
         if ($null -eq $Headers) {
             $Headers = @{}
@@ -1510,3 +1550,235 @@ function Invoke-CurlRequest {
         Remove-Item $tmpBody -Force
     }
 }
+
+<#
+.SYNOPSIS
+    Probe a route with and without gzip to capture size and encoding differences.
+.DESCRIPTION
+    Issues two requests to the provided relative path (one normal, one with 'Accept-Encoding: gzip')
+    and returns an object containing raw/gzip Content-Encoding headers, lengths, and responses.
+.PARAMETER Instance
+    The running example instance object from Start-ExampleScript.
+.PARAMETER Path
+    The relative path (begin with '/') to probe.
+.OUTPUTS
+    PSCustomObject with properties: Path, RawEncoding, GzipEncoding, RawLength, GzipLength, Raw, Gz
+#>
+function Get-CompressionProbe {
+    [CmdletBinding()] param(
+        [Parameter(Mandatory)][object]$Instance,
+        [Parameter(Mandatory)][string]$Path,
+        [int]$TimeoutSec = 15,
+        [switch]$UseCurlFallback
+    )
+    if (-not $Path.StartsWith('/')) { $Path = '/' + $Path }
+    $base = $Instance.Url
+    $rawParams = @{ Uri = "$base$Path"; UseBasicParsing = $true; TimeoutSec = $TimeoutSec }
+    $gzParams = @{ Uri = "$base$Path"; UseBasicParsing = $true; TimeoutSec = $TimeoutSec; Headers = @{ 'Accept-Encoding' = 'gzip' } }
+    if ($base -like 'https://*') { $rawParams.SkipCertificateCheck = $true; $gzParams.SkipCertificateCheck = $true }
+    $raw = $null; $gz = $null
+    try { $raw = Invoke-WebRequest @rawParams } catch { throw }
+    try { $gz = Invoke-WebRequest @gzParams } catch { throw }
+
+    $rawEncoding = $raw.Headers['Content-Encoding']
+    $gzEncoding = $gz.Headers['Content-Encoding']
+    $rawLen = $raw.RawContentLength
+    $gzLen = $gz.RawContentLength
+
+    # If Invoke-WebRequest auto-decompressed (header removed) OR user explicitly wants curl, fallback to curl for accurate header capture
+    if ($UseCurlFallback -or -not $gzEncoding) {
+        try {
+            $curlRaw = Invoke-CurlRequest -Url "$base$Path" -PassThru -SkipCertificateCheck:$rawParams.SkipCertificateCheck
+            $curlGz = Invoke-CurlRequest -Url "$base$Path" -AcceptEncoding gzip -PassThru -SkipCertificateCheck:$gzParams.SkipCertificateCheck
+            if ($curlRaw.Headers.ContainsKey('Content-Encoding')) { $rawEncoding = $curlRaw.Headers['Content-Encoding'] }
+            if ($curlGz.Headers.ContainsKey('Content-Encoding')) { $gzEncoding = $curlGz.Headers['Content-Encoding'] }
+            # Prefer Content-Length header if present for compressed size; else use body length
+            if ($curlRaw.Headers.ContainsKey('Content-Length')) { $rawLen = [int]$curlRaw.Headers['Content-Length'] } elseif ($curlRaw.RawContent) { $rawLen = $curlRaw.RawContent.Length }
+            if ($curlGz.Headers.ContainsKey('Content-Length')) { $gzLen = [int]$curlGz.Headers['Content-Length'] } elseif ($curlGz.RawContent) { $gzLen = $curlGz.RawContent.Length }
+        } catch {
+            Write-Verbose "Curl fallback failed: $($_.Exception.Message)" -Verbose
+        }
+    }
+    [pscustomobject]@{
+        Path = $Path
+        RawEncoding = $rawEncoding
+        GzipEncoding = $gzEncoding
+        RawLength = $rawLen
+        GzipLength = $gzLen
+        Raw = $raw
+        Gz = $gz
+    }
+}
+
+
+
+<#
+.SYNOPSIS
+    Fetches raw HTTP headers from a specified URI using low-level sockets.
+.DESCRIPTION
+    This function connects to the specified URI using TCP sockets and retrieves the raw HTTP headers.
+    It supports both HTTP and HTTPS schemes, with an option to skip TLS certificate validation.
+.PARAMETER Uri
+    The full URI to fetch headers from (e.g., "http://example.com/path").
+.PARAMETER HostOverride
+    Optional host header override (useful for virtual hosting scenarios).
+.PARAMETER Insecure
+    If specified, skips TLS certificate validation (useful for self-signed certificates).
+.PARAMETER AsHashtable
+    If specified, returns headers as an ordered hashtable instead of a raw string.
+.OUTPUTS
+    [string] or [hashtable]
+    Returns the raw HTTP headers as a string or an ordered hashtable if AsHashtable is specified.
+.NOTES
+    This function uses low-level socket programming to fetch headers and does not rely on higher-level HTTP libraries.
+#>
+function Get-HttpHeadersRaw {
+    [CmdletBinding()]
+    [OutputType([string], [hashtable], [System.Collections.Specialized.OrderedDictionary])]
+    param(
+        [Parameter(Mandatory)]
+        [string]$Uri,
+        [string]$HostOverride,
+        [switch]$Insecure,
+        [switch]$AsHashtable,
+        [switch]$IncludeBody
+    )
+
+    $u = [Uri]$Uri
+    if ($u.Scheme -notin @('http', 'https')) {
+        throw "Unsupported scheme '$($u.Scheme)'. Use http or https."
+    }
+
+    $targetHost = if ($HostOverride) { $HostOverride } else { $u.Host }
+    $port = if ($u.IsDefaultPort) { if ($u.Scheme -eq 'https') { 443 } else { 80 } } else { $u.Port }
+    $path = if ([string]::IsNullOrEmpty($u.PathAndQuery)) { '/' } else { $u.PathAndQuery }
+    $crlf = "`r`n"
+
+    $client = [System.Net.Sockets.TcpClient]::new()
+    $client.Connect($u.Host, $port)   # connect to endpoint (IP or host)
+    $netStream = $client.GetStream()
+    $stream = $null
+
+    try {
+        if ($u.Scheme -eq 'https') {
+            $cb = if ($Insecure) {
+                [System.Net.Security.RemoteCertificateValidationCallback] { param($s, $c, $ch, $e) $true }
+            } else { $null }
+
+            $ssl = [System.Net.Security.SslStream]::new($netStream, $false, $cb)
+            $proto = [System.Security.Authentication.SslProtocols]::Tls12 -bor `
+                [System.Security.Authentication.SslProtocols]::Tls13
+            # SNI uses targetHost (can be different from the IP/endpoint you connect to)
+            $ssl.AuthenticateAsClient($targetHost, $null, $proto, $false)
+            $stream = $ssl
+        } else {
+            $stream = $netStream
+        }
+
+        # Ask for compression; we won't auto-decompress
+        $request =
+        "GET $path HTTP/1.1$crlf" +
+        "Host: $targetHost$crlf" +
+        "Accept-Encoding: gzip, deflate, br$crlf" +
+        "Connection: close$crlf" +
+        $crlf
+
+        $latin1 = [Text.Encoding]::GetEncoding('ISO-8859-1')
+        $reqBytes = [Text.Encoding]::ASCII.GetBytes($request)
+        $stream.Write($reqBytes, 0, $reqBytes.Length)
+
+        # Read entire response into memory (connection: close => server will close)
+        $buf = New-Object byte[] 8192
+        $ms = New-Object System.IO.MemoryStream
+        while (($n = $stream.Read($buf, 0, $buf.Length)) -gt 0) {
+            $ms.Write($buf, 0, $n)
+        }
+        $all = $ms.ToArray()
+
+        # Locate CRLFCRLF separator between headers and body
+        $sep = -1
+        for ($i = 0; $i -le $all.Length - 4; $i++) {
+            if (($all[$i] -eq 13) -and ($all[$i + 1] -eq 10) -and ($all[$i + 2] -eq 13) -and ($all[$i + 3] -eq 10)) {
+                $sep = $i; break
+            }
+        }
+
+        if ($sep -lt 0) {
+            # No header terminator found; return raw text or a simple bag
+            $rawText = $latin1.GetString($all)
+            if ($AsHashtable -or $IncludeBody) {
+                return [ordered]@{ 'Status-Line' = '(unknown)'; 'Raw' = $rawText }
+            } else {
+                return $rawText
+            }
+        }
+
+        $headerBytes = $all[0..($sep + 3)]
+        $bodyBytes = if ($sep + 4 -lt $all.Length) { $all[($sep + 4)..($all.Length - 1)] } else { [byte[]]@() }
+        $headerText = $latin1.GetString($headerBytes)
+
+        if ($IncludeBody) {
+            # Structured return: ordered Headers + raw Body bytes
+            $headersOrdered = [ordered]@{}
+            $lines = $headerText -split "`r`n"
+            if ($lines.Length -gt 0) { $headersOrdered['Status-Line'] = $lines[0] }
+            for ($j = 1; $j -lt $lines.Length; $j++) {
+                $line = $lines[$j]
+                if ([string]::IsNullOrWhiteSpace($line)) { continue }
+                $idx = $line.IndexOf(':')
+                if ($idx -ge 0) {
+                    $k = $line.Substring(0, $idx)
+                    $v = $line.Substring($idx + 1).TrimStart()
+                    if ($headersOrdered.Contains($k)) {
+                        # Preserve duplicates (e.g., Set-Cookie) as array
+                        $existing = $headersOrdered[$k]
+                        if ($existing -is [System.Collections.IList]) {
+                            $existing.Add($v) | Out-Null
+                        } else {
+                            $headersOrdered[$k] = [System.Collections.ArrayList]@($existing, $v)
+                        }
+                    } else {
+                        $headersOrdered[$k] = $v
+                    }
+                }
+            }
+            return [pscustomobject]@{
+                Headers = $headersOrdered
+                Body = $bodyBytes
+            }
+        }
+
+        if ($AsHashtable) {
+            $ht = [ordered]@{}
+            $lines = $headerText -split "`r`n"
+            if ($lines.Length -gt 0) { $ht['Status-Line'] = $lines[0] }
+            for ($j = 1; $j -lt $lines.Length; $j++) {
+                $line = $lines[$j]
+                if ([string]::IsNullOrWhiteSpace($line)) { continue }
+                $idx = $line.IndexOf(':')
+                if ($idx -ge 0) {
+                    $k = $line.Substring(0, $idx)
+                    $v = $line.Substring($idx + 1).TrimStart()
+                    if ($ht.Contains($k)) {
+                        $existing = $ht[$k]
+                        if ($existing -is [System.Collections.IList]) {
+                            $existing.Add($v) | Out-Null
+                        } else {
+                            $ht[$k] = [System.Collections.ArrayList]@($existing, $v)
+                        }
+                    } else {
+                        $ht[$k] = $v
+                    }
+                }
+            }
+            return $ht
+        } else {
+            return $headerText
+        }
+    } finally {
+        if ($stream) { $stream.Dispose() }
+        if ($netStream) { $netStream.Dispose() }
+        if ($client) { $client.Dispose() }
+    }
+}
+

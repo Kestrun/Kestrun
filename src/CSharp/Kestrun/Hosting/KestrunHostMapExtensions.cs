@@ -4,6 +4,7 @@ using Kestrun.Hosting.Options;
 using Kestrun.Languages;
 using Kestrun.Models;
 using Kestrun.Scripting;
+using Kestrun.TBuilder;
 using Kestrun.Utilities;
 using Microsoft.AspNetCore.Antiforgery;
 using Microsoft.AspNetCore.Authorization;
@@ -352,6 +353,7 @@ public static partial class KestrunHostMapExtensions
         ApplyShortCircuit(host, map, options);
         ApplyAnonymous(host, map, options);
         DisableAntiforgery(host, map, options);
+        DisableResponseCompression(host, map, options);
         ApplyRateLimiting(host, map, options);
         ApplyAuthSchemes(host, map, options);
         ApplyPolicies(host, map, options);
@@ -683,6 +685,22 @@ public static partial class KestrunHostMapExtensions
         host.HostLogger.Verbose("CSRF protection disabled for route: {Pattern}", options.Pattern);
     }
 
+    /// <summary>
+    /// Disables response compression for the route.
+    /// </summary>
+    /// <param name="host">The Kestrun host.</param>
+    /// <param name="map">The endpoint convention builder.</param>
+    /// <param name="options">The mapping options.</param>
+    private static void DisableResponseCompression(KestrunHost host, IEndpointConventionBuilder map, MapRouteOptions options)
+    {
+        if (!options.DisableResponseCompression)
+        {
+            return;
+        }
+
+        _ = map.DisableResponseCompression();
+        host.HostLogger.Verbose("Response compression disabled for route: {Pattern}", options.Pattern);
+    }
     /// <summary>
     /// Applies rate limiting behavior to the route.
     /// </summary>

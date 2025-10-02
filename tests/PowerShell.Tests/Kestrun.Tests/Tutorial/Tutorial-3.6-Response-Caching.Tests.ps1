@@ -55,7 +55,7 @@ Describe 'Example 3.6-Response-Caching' -Tag 'Tutorial', 'Caching' {
             Write-Host '---- Diagnostics (Response Caching) ----'
             Write-Host "First Duration : $([int]$first.TotalMilliseconds) ms"
             Write-Host "Second Duration: $([int]$second.TotalMilliseconds) ms"
-            Write-Host 'Ratio          : {0:n2}x' -f $ratio
+            Write-Host "Ratio          : $($ratio.ToString('n2'))x"
             Write-Host "Content1 (len=$($content1.Length)):`n$content1"
             Write-Host "Content2 (len=$($content2.Length)):`n$content2"
             if ($validators | Where-Object { $r1.Headers[$_] -or $r2.Headers[$_] }) {

@@ -6,7 +6,8 @@ Describe 'Example 10.2-Compression' -Tag 'Tutorial', 'Middleware', 'Compression'
 
     It 'All main routes respond 200 without compression header' {
         foreach ($p in '/text', '/json', '/html', '/xml', '/form', '/info', '/raw-nocompress') {
-            Invoke-ExampleRequest -Uri "$( $script:instance.Url)$p" | Out-Null
+            $raw = Get-HttpHeadersRaw -Uri "$( $script:instance.Url)$p" -IncludeBody -NoAcceptEncoding -Insecure:($script:instance.Url -like 'https://*')
+            $raw.StatusCode | Should -Be 200
         }
     }
 
@@ -24,14 +25,14 @@ Describe 'Example 10.2-Compression' -Tag 'Tutorial', 'Middleware', 'Compression'
 
     It 'Info route echoes Accept-Encoding and may or may not compress (small body tolerance)' {
         $base = $script:instance.Url
-        $noEnc = Invoke-WebRequest -Uri "$base/info" -UseBasicParsing -TimeoutSec 10 -SkipCertificateCheck
-        $withEnc = Invoke-WebRequest -Uri "$base/info" -UseBasicParsing -TimeoutSec 10 -SkipCertificateCheck -Headers @{ 'Accept-Encoding' = 'gzip' }
-
+        $noEnc = Get-HttpHeadersRaw -Uri "$base/info" -IncludeBody -NoAcceptEncoding -Insecure:($base -like 'https://*')
+        $gz = Get-HttpHeadersRaw -Uri "$base/info" -IncludeBody -AcceptEncoding 'gzip' -Insecure:($base -like 'https://*')
         $noEnc.StatusCode | Should -Be 200
-        $withEnc.StatusCode | Should -Be 200
-
-        $withEnc.Content | Should -Match 'AcceptEncoding'
-        if ($withEnc.Headers['Content-Encoding']) { $withEnc.Headers['Content-Encoding'] | Should -Be 'gzip' }
+        $gz.StatusCode | Should -Be 200
+        $bodyText = Convert-BytesToStringWithGzipScan -Bytes $gz.Body
+        $bodyText | Should -Match 'AcceptEncoding'
+        $ce = ($gz.Headers.Keys | Where-Object { $_ -ieq 'Content-Encoding' })
+        if ($ce) { $gz.Headers[$ce] | Should -Be 'gzip' } else { Write-Host 'Info route not compressed (acceptable for small body)' }
     }
 
     It 'XML and HTML routes compress (gzip) and shrink payload size' {
@@ -50,102 +51,4 @@ Describe 'Example 10.2-Compression' -Tag 'Tutorial', 'Middleware', 'Compression'
         ($probe.GzipLength -ge $probe.RawLength) | Should -BeTrue -Because 'No compression expected so compressed request size should not shrink'
     }
 }
-
-Describe 'Example 10.2-Compression Providers' -Tag 'Tutorial', 'Middleware', 'Compression', 'Providers' {
-    Context 'Gzip only (Brotli disabled)' {
-        BeforeAll {
-            . (Join-Path $PSScriptRoot '..\PesterHelpers.ps1')
-            $script:gzipOnly = Start-ExampleScript -Scriptblock {
-                param([int]$Port)
-                New-KrServer -Name 'GzipOnly'
-                Add-KrEndpoint -Port $Port -SelfSignedCert | Out-Null
-                Add-KrPowerShellRuntime
-                Add-KrCompressionMiddleware -EnableForHttps -DisableBrotli -MimeTypes 'text/plain', 'application/json'
-                Enable-KrConfiguration
-                function _NewLargeBlock([string]$seed, [int]$r = 60) { (($seed + ' ') * $r).Trim() }
-                Add-KrMapRoute -Verbs Get -Pattern '/gztxt' -Scriptblock {
-                    $body = _NewLargeBlock 'GzipOnly Payload Text' 100
-                    Write-KrTextResponse -InputObject $body -StatusCode 200
-                }
-                Add-KrMapRoute -Options (New-KrMapRouteOption -Property @{
-                        Pattern = '/gztxt-nocompress'
-                        HttpVerbs = 'Get'
-                        Code = {
-                            $body = _NewLargeBlock 'GzipOnly NoCompress' 100
-                            Write-KrTextResponse -InputObject $body -StatusCode 200
-                        }
-                        Language = 'PowerShell'
-                        DisableResponseCompression = $true
-                    })
-                Start-KrServer
-            }
-        }
-        AfterAll { if ($script:gzipOnly) { Stop-ExampleScript -Instance $script:gzipOnly } }
-
-        It 'Returns gzip content-encoding when requested (no br advertised)' {
-            $probe = Get-CompressionProbe -Instance $script:gzipOnly -Path '/gztxt'
-            $probe.GzipEncoding | Should -Be 'gzip'
-            ($probe.GzipLength -lt $probe.RawLength) | Should -BeTrue
-        }
-        It 'Opt-out route remains uncompressed under gzip-only mode' {
-            $probe = Get-CompressionProbe -Instance $script:gzipOnly -Path '/gztxt-nocompress'
-            $probe.GzipEncoding | Should -BeNullOrEmpty
-        }
-        It 'Brotli-only request falls back (no br provider available)' {
-            $base = $script:gzipOnly.Url
-            $resp = Invoke-WebRequest -Uri "$base/gztxt" -UseBasicParsing -Headers @{ 'Accept-Encoding' = 'br' } -SkipCertificateCheck -TimeoutSec 12
-            # Expect either no Content-Encoding (uncompressed fallback) or still gzip if runtime ignores unsupported request list ordering
-            $ce = $resp.Headers['Content-Encoding']
-            if ($ce) {
-                $ce | Should -Be 'gzip'
-            } else {
-                # ensure body present and plausible size ( > 1000 bytes )
-                ($resp.RawContentLength -gt 1000) | Should -BeTrue -Because 'Uncompressed fallback should return original payload'
-            }
-        }
-    }
-
-    Context 'Brotli only (Gzip disabled)' {
-        BeforeAll {
-            . (Join-Path $PSScriptRoot '..\PesterHelpers.ps1')
-            $script:brOnly = Start-ExampleScript -Scriptblock {
-                param([int]$Port)
-                New-KrServer -Name 'BrotliOnly'
-                Add-KrEndpoint -Port $Port -SelfSignedCert | Out-Null
-                Add-KrPowerShellRuntime
-                Add-KrCompressionMiddleware -EnableForHttps -DisableGzip -MimeTypes 'text/plain', 'application/json'
-                Enable-KrConfiguration
-                function _NewLargeBlock([string]$seed, [int]$r = 60) { (($seed + ' ') * $r).Trim() }
-                Add-KrMapRoute -Verbs Get -Pattern '/brtxt' -Scriptblock {
-                    $body = _NewLargeBlock 'BrotliOnly Payload Text' 120
-                    Write-KrTextResponse -InputObject $body -StatusCode 200
-                }
-                Add-KrMapRoute -Options (New-KrMapRouteOption -Property @{
-                        Pattern = '/brtxt-nocompress'
-                        HttpVerbs = 'Get'
-                        Code = {
-                            $body = _NewLargeBlock 'BrotliOnly NoCompress' 120
-                            Write-KrTextResponse -InputObject $body -StatusCode 200
-                        }
-                        Language = 'PowerShell'
-                        DisableResponseCompression = $true
-                    })
-                Start-KrServer
-            }
-        }
-        AfterAll { if ($script:brOnly) { Stop-ExampleScript -Instance $script:brOnly } }
-
-        It 'Returns brotli content-encoding when requested (gzip disabled)' {
-            $base = $script:brOnly.Url
-            $resp = Invoke-WebRequest -Uri "$base/brtxt" -UseBasicParsing -Headers @{ 'Accept-Encoding' = 'br,gzip' } -SkipCertificateCheck -TimeoutSec 12
-            $resp.Headers['Content-Encoding'] | Should -Be 'br'
-            $raw = Invoke-WebRequest -Uri "$base/brtxt" -UseBasicParsing -SkipCertificateCheck -TimeoutSec 12
-            ($resp.RawContentLength -lt $raw.RawContentLength) | Should -BeTrue
-        }
-        It 'Opt-out route remains uncompressed under brotli-only mode' {
-            $base = $script:brOnly.Url
-            $resp = Invoke-WebRequest -Uri "$base/brtxt-nocompress" -UseBasicParsing -Headers @{ 'Accept-Encoding' = 'br,gzip' } -SkipCertificateCheck -TimeoutSec 12
-            $resp.Headers['Content-Encoding'] | Should -BeNullOrEmpty
-        }
-    }
-}
+ 

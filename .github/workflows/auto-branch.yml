@@ -1,33 +1,29 @@
-name: Auto-create branch on issue assign
+name: Auto-create & link issue branch
 
 on:
   issues:
-    types: [assigned]
+    types: [assigned, labeled, edited]
 
 permissions:
-  contents: write   # create refs
-  issues: write     # post a comment
-  pull-requests: read
+  contents: write
+  issues: write
 
 jobs:
-  create-branch:
+  create-and-link:
     runs-on: ubuntu-latest
     steps:
-      - name: Determine and create branch
+      - name: Create & link branch to the issue
         uses: actions/github-script@v7
         with:
           script: |
             const allowed = ['feat','fix','refactor','docs','test','chore','techdebt'];
 
-            // 1) Gather context
             const issue    = context.payload.issue;
-            const repo     = context.repo.repo;
-            const owner    = context.repo.owner;
+            const {owner, repo} = context.repo;
             const number   = issue.number;
             const titleRaw = issue.title || '';
             const labels   = (issue.labels || []).map(l => (typeof l === 'string' ? l : l.name)).filter(Boolean);
 
-            // 2) Map labels -> type (preferred), with a few friendly synonyms
             const labelToType = (name) => {
               const n = name.toLowerCase();
               if (allowed.includes(n)) return n;
@@ -37,86 +33,101 @@ jobs:
               if (['tests','testing'].includes(n)) return 'test';
               if (['ci','build','infra','infrastructure','tooling'].includes(n)) return 'chore';
               if (['tech-debt','tech_debt','debt'].includes(n)) return 'techdebt';
-              if (['refactoring','cleanup','code-cleaning'].includes(n)) return 'refactor';
+              if (['refactoring','cleanup'].includes(n)) return 'refactor';
               return null;
             };
 
             let type = null;
-            for (const lbl of labels) {
-              const t = labelToType(lbl);
-              if (t) { type = t; break; }
-            }
-
-            // 3) If no label-based type, try parsing the title prefix like "feat:", "[feat]" etc.
+            for (const lbl of labels) { const t = labelToType(lbl); if (t) { type = t; break; } }
             if (!type) {
               const m = titleRaw.toLowerCase().match(/^\s*(?:\[(\w+)\]|(\w+)\s*[:|-])/);
               const candidate = m ? (m[1] || m[2]) : null;
-              if (candidate && allowed.includes(candidate)) {
-                type = candidate;
-              }
+              if (candidate && allowed.includes(candidate)) type = candidate;
             }
-
-            // If still no type, bail gracefully (no spammy branches)
             if (!type) {
-              core.info('No recognizable type (feat|fix|refactor|docs|test|chore|techdebt) found in labels or title. Skipping.');
-              core.setOutput('skipped', true);
+              core.info('No recognizable type found; skipping.');
               return;
             }
 
-            // 4) Build the short-kebab-case description from the title (strip common prefixes)
             const cleanTitle = titleRaw
               .replace(/^\s*\[(?:feat|fix|refactor|docs|test|chore|techdebt)\]\s*/i, '')
               .replace(/^\s*(?:feat|fix|refactor|docs|test|chore|techdebt)\s*[:|-]\s*/i, '');
-
-            const slug = cleanTitle
-              .toLowerCase()
+            const slug = cleanTitle.toLowerCase()
               .normalize('NFKD').replace(/[\u0300-\u036f]/g, '')
-              .replace(/[^a-z0-9]+/g, '-')
-              .replace(/^-+|-+$/g, '')
+              .replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')
               .slice(0, 60) || `issue-${number}`;
 
             const branchName = `${type}/${number}-${slug}`;
 
-            // 5) Figure out default branch SHA
-            const { data: repoData } = await github.rest.repos.get({ owner, repo });
-            const baseBranch = repoData.default_branch;
+            // Get IDs & base OID for GraphQL createLinkedBranch
+            const q = await github.graphql(`
+              query($owner:String!, $repo:String!, $num:Int!) {
+                repository(owner:$owner, name:$repo) {
+                  id
+                  defaultBranchRef { target { ... on Commit { oid } } }
+                  issue(number:$num) { id }
+                }
+              }
+            `, { owner, repo, num: number });
 
-            const baseRef = await github.rest.git.getRef({
-              owner, repo, ref: `heads/${baseBranch}`
-            });
-            const baseSha = baseRef.data.object.sha;
+            const repositoryId = q.repository.id;
+            const issueId      = q.repository.issue.id;
+            const baseOid      = q.repository.defaultBranchRef.target.oid;
 
-            // 6) If branch already exists, stop (idempotent)
+            // Idempotency: if ref already exists, we still link it
+            let refExists = false;
             try {
               await github.rest.git.getRef({ owner, repo, ref: `heads/${branchName}` });
-              core.info(`Branch ${branchName} already exists. Nothing to do.`);
+              refExists = true;
             } catch (e) {
-              if (e.status === 404) {
-                // 7) Create the branch
-                await github.rest.git.createRef({
-                  owner, repo,
-                  ref: `refs/heads/${branchName}`,
-                  sha: baseSha
-                });
-                core.info(`Created ${branchName} from ${baseBranch} (${baseSha}).`);
-
-                // 8) Comment back on the issue with a pretty link
-                const url = `https://github.com/${owner}/${repo}/tree/${encodeURIComponent(branchName)}`;
-                await github.rest.issues.createComment({
-                  owner, repo, issue_number: number,
-                  body: `✨ Branch created: **\`${branchName}\`** → ${url}`
-                });
-                // 9) Update issue body to include the branch link if not present
-                let body = issue.body || '';
-                const marker = `**Development Branch:** [\`${branchName}\`](https://github.com/${owner}/${repo}/tree/${encodeURIComponent(branchName)})`;
-                if (!body.includes(branchName)) {
-                body = `${marker}\n\n${body}`;
-                await github.rest.issues.update({
-                    owner, repo, issue_number: number,
-                    body
-                });
-                }
-              } else {
-                throw e;
-              }
+              if (e.status !== 404) throw e;
             }
+
+            if (!refExists) {
+              // Create the branch & link it to the issue in one go
+              const mutation = `
+                mutation($input: CreateLinkedBranchInput!) {
+                  createLinkedBranch(input: $input) {
+                    linkedBranch { id ref { name } }
+                  }
+                }
+              `;
+              await github.graphql(mutation, {
+                input: {
+                  issueId,
+                  repositoryId,
+                  name: branchName,          // branch name (no "refs/heads/")
+                  oid: baseOid               // base commit SHA (OID) to branch from
+                }
+              });
+            } else {
+              // If branch already exists, just link it via the same mutation
+              const mutation = `
+                mutation($input: CreateLinkedBranchInput!) {
+                  createLinkedBranch(input: $input) {
+                    linkedBranch { id ref { name } }
+                  }
+                }
+              `;
+              await github.graphql(mutation, {
+                input: {
+                  issueId,
+                  repositoryId,
+                  name: branchName
+                  // When name exists, GitHub links the existing branch to the issue
+                }
+              });
+            }
+
+            // Nice comment + issue body marker
+            const url = `https://github.com/${owner}/${repo}/tree/${encodeURIComponent(branchName)}`;
+            await github.rest.issues.createComment({
+              owner, repo, issue_number: number,
+              body: `✨ Branch created & linked: **\`${branchName}\`** → ${url}`
+            });
+
+            const marker = `**Development Branch:** [\`${branchName}\`](${url})`;
+            if (!((issue.body||'').includes(branchName))) {
+              await github.rest.issues.update({ owner, repo, issue_number: number, body: `${marker}\n\n${issue.body||''}` });
+            }
+

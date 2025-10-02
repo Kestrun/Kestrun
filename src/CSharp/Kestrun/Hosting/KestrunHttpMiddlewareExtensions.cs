@@ -123,7 +123,6 @@ public static class KestrunHttpMiddlewareExtensions
             _ = cfg == null ? services.AddResponseCompression() : services.AddResponseCompression(cfg);
             // replace the default provider with our opt-out decorator
             _ = services.AddSingleton<IResponseCompressionProvider, Compression.KestrunResponseCompressionProvider>();
-
         });
 
         // Middleware side

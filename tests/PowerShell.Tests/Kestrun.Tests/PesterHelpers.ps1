@@ -1848,9 +1848,9 @@ function Convert-BytesToStringWithGzipScan {
                 if ($lineBytes.Count -eq 0) { return $data }
                 $sizeHex = [Text.Encoding]::ASCII.GetString($lineBytes.ToArray())
                 if ([string]::IsNullOrWhiteSpace($sizeHex)) { return $data }
-                $nullRef = [ref]0
-                if (-not [int]::TryParse($sizeHex, [System.Globalization.NumberStyles]::HexNumber, $null, $nullRef)) { return $data }
-                $chunkSize = $nullRef.Value
+                $sizeRef = [ref]0
+                if (-not [int]::TryParse($sizeHex, [System.Globalization.NumberStyles]::HexNumber, $null, $sizeRef)) { return $data }
+                $chunkSize = $sizeRef.Value
                 if ($chunkSize -eq 0) {
                     # Optionally skip any trailing headers (CRLF sequences) but we stop here
                     return $decoded.ToArray()

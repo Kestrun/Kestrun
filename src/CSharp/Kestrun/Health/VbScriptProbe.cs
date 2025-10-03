@@ -1,6 +1,5 @@
 using Kestrun.Languages;
 using Kestrun.SharedState;
-using Microsoft.CodeAnalysis;
 using SerilogLogger = Serilog.ILogger;
 using Serilog.Events;
 
@@ -18,7 +17,7 @@ internal sealed class VbScriptProbe(
     IEnumerable<string>? tags,
     Func<CsGlobals, Task<ProbeResult>> runner,
     IReadOnlyDictionary<string, object?>? locals,
-    SerilogLogger logger) : IProbe
+    SerilogLogger logger) : Probe(name, tags, logger), IProbe
 {
     /// <summary>
     /// The script runner to execute the probe.
@@ -26,31 +25,8 @@ internal sealed class VbScriptProbe(
     private readonly Func<CsGlobals, Task<ProbeResult>> _runner = runner ?? throw new ArgumentNullException(nameof(runner));
     private readonly IReadOnlyDictionary<string, object?>? _locals = locals;
 
-    /// <summary>
-    /// Gets the name of the probe.
-    /// </summary>
-    public string Name { get; } = string.IsNullOrWhiteSpace(name)
-        ? throw new ArgumentException("Probe name cannot be null or empty.", nameof(name))
-        : name;
-
-    /// <summary>
-    /// Gets the tags associated with the probe.
-    /// </summary>
-    public string[] Tags { get; } = tags is null
-        ? []
-        : [.. tags.Where(static t => !string.IsNullOrWhiteSpace(t))
-                      .Select(static t => t.Trim())
-                      .Distinct(StringComparer.OrdinalIgnoreCase)];
-
-    /// <inheritdoc />
-    public SerilogLogger Logger { get; init; } = logger ?? throw new ArgumentNullException(nameof(logger));
-
-    /// <summary>
-    /// Executes the VB.NET script and returns the resulting ProbeResult.
-    /// </summary>
-    /// <param name="ct">The cancellation token.</param>
-    /// <returns>A task representing the asynchronous operation, with a ProbeResult as the result.</returns>
-    public async Task<ProbeResult> CheckAsync(CancellationToken ct = default)
+    /// <inheritdoc/>
+    public override async Task<ProbeResult> CheckAsync(CancellationToken ct = default)
     {
         var globals = _locals is { Count: > 0 }
             ? new CsGlobals(SharedStateStore.Snapshot(), _locals)

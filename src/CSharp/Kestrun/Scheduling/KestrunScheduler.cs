@@ -309,8 +309,9 @@ public sealed class SchedulerService(KestrunRunspacePoolManager pool, Serilog.IL
             .Select(t =>
             {
                 // store timestamps internally in UTC; convert only for the report
-                var last = t.LastRunAt?.ToOffset(timezone.GetUtcOffset(t.LastRunAt.Value));
-                var next = t.NextRunAt.ToOffset(timezone.GetUtcOffset(t.NextRunAt));
+                var (lastRunAt, nextRunAt) = t.GetTimestamps();
+                var last = lastRunAt?.ToOffset(timezone.GetUtcOffset(lastRunAt.Value));
+                var next = nextRunAt.ToOffset(timezone.GetUtcOffset(nextRunAt));
 
                 return new JobInfo(t.Name, last, next, t.IsSuspended);
             })
@@ -353,7 +354,11 @@ public sealed class SchedulerService(KestrunRunspacePoolManager pool, Serilog.IL
     /// </summary>
     /// <returns>An <see cref="IReadOnlyCollection{JobInfo}"/> containing job information for all scheduled jobs.</returns>
     public IReadOnlyCollection<JobInfo> GetSnapshot()
-        => [.. _tasks.Values.Select(t => new JobInfo(t.Name, t.LastRunAt, t.NextRunAt, t.IsSuspended, t.IsCompleted))];
+        => [.. _tasks.Values.Select(t =>
+        {
+            var (lastRunAt, nextRunAt) = t.GetTimestamps();
+            return new JobInfo(t.Name, lastRunAt, nextRunAt, t.IsSuspended, t.IsCompleted);
+        })];
 
 
     /// <summary>
@@ -394,15 +399,20 @@ public sealed class SchedulerService(KestrunRunspacePoolManager pool, Serilog.IL
         // fast path: no filter, utc, typed objects
         if (nameFilter.Length == 0 && tz.Equals(TimeZoneInfo.Utc) && !asHashtable)
         {
-            return [.. _tasks.Values.Select(t => (object)new JobInfo(t.Name, t.LastRunAt, t.NextRunAt, t.IsSuspended, t.IsCompleted))];
+            return [.. _tasks.Values.Select(t =>
+            {
+                var (lastRunAt, nextRunAt) = t.GetTimestamps();
+                return (object)new JobInfo(t.Name, lastRunAt, nextRunAt, t.IsSuspended, t.IsCompleted);
+            })];
         }
 
         var jobs = _tasks.Values
                          .Where(t => Matches(t.Name))
                          .Select(t =>
                          {
-                             var last = t.LastRunAt?.ToOffset(tz.GetUtcOffset(t.LastRunAt ?? DateTimeOffset.UtcNow));
-                             var next = t.NextRunAt.ToOffset(tz.GetUtcOffset(t.NextRunAt));
+                             var (lastRunAt, nextRunAt) = t.GetTimestamps();
+                             var last = lastRunAt?.ToOffset(tz.GetUtcOffset(lastRunAt ?? DateTimeOffset.UtcNow));
+                             var next = nextRunAt.ToOffset(tz.GetUtcOffset(nextRunAt));
                              return new JobInfo(t.Name, last, next, t.IsSuspended, t.IsCompleted);
                          })
                          .OrderBy(j => j.NextRunAt)
@@ -645,10 +655,9 @@ public sealed class SchedulerService(KestrunRunspacePoolManager pool, Serilog.IL
                 nextRun = task.Cron is not null ? task.Cron.GetNextOccurrence(runStartedAt, _tz) ?? DateTimeOffset.MaxValue : DateTimeOffset.MaxValue;
             }
 
-            // Publish timestamps together to avoid inconsistent snapshot (race seen in CI where
+            // Publish timestamps atomically to avoid inconsistent snapshot (race seen in CI where
             // LastRunAt advanced but NextRunAt still pointed to prior slot).
-            task.LastRunAt = runStartedAt;
-            task.NextRunAt = nextRun;
+            task.SetTimestamps(runStartedAt, nextRun);
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested) { /* ignore */ }
         catch (Exception ex)

@@ -72,11 +72,13 @@ function Add-KrCompressionMiddleware {
             }
             if (-not $DisableGzip.IsPresent) {
                 $gzipCompressionProviderOptions = [Microsoft.AspNetCore.ResponseCompression.GzipCompressionProviderOptions]::new()
-                $Options.Providers.Add([Microsoft.AspNetCore.ResponseCompression.GzipCompressionProvider]::new($gzipCompressionProviderOptions))
-            }
+                $gzipOptionsWrapper = [Microsoft.Extensions.Options.Options]::Create($gzipCompressionProviderOptions)
+                $Options.Providers.Add([Microsoft.AspNetCore.ResponseCompression.GzipCompressionProvider]::new($gzipOptionsWrapper))
             if (-not $DisableBrotli.IsPresent) {
                 $brotliCompressionProviderOptions = [Microsoft.AspNetCore.ResponseCompression.BrotliCompressionProviderOptions]::new()
-                $Options.Providers.Add([Microsoft.AspNetCore.ResponseCompression.BrotliCompressionProvider]::new($brotliCompressionProviderOptions))
+                $brotliOptionsWrapper = [Microsoft.Extensions.Options.Options]::Create($brotliCompressionProviderOptions)
+                $Options.Providers.Add([Microsoft.AspNetCore.ResponseCompression.BrotliCompressionProvider]::new($brotliOptionsWrapper))
+            }
             }
         }
 

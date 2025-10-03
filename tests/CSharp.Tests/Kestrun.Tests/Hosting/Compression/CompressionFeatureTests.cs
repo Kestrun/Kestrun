@@ -12,7 +12,6 @@ using Microsoft.Extensions.Options;
 using Xunit;
 using Kestrun.Hosting;
 using Moq;
-using System.Linq;
 
 namespace KestrunTests.Hosting.Compression;
 

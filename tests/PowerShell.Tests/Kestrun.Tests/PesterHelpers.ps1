@@ -1230,28 +1230,21 @@ function New-TestFile {
   Path where the response body should be written.
   If omitted the body is buffered into the returned object
   (fine for your text tests, but skip this for multi-GB payloads).
-
 .PARAMETER Headers
   Hashtable of request headers.
-
 .PARAMETER PassThru
   Return a response object instead of being silent.
-
 .PARAMETER UseRangeDownload
   Use range-based downloading for large files. Automatically detects file size
   and downloads in chunks, then joins them together.
-
 .PARAMETER RangeSize
   Size of each range chunk when UseRangeDownload is enabled. Default is 1GB.
-
 .PARAMETER DownloadDir
   Directory for temporary part files when using range downloads.
   If not specified, uses the OutFile directory or a temporary directory.
-
 .PARAMETER ETag
   ETag value to use for conditional requests. If provided, the request will include
   an `If-None-Match` header with this value.
-
 .PARAMETER IfModifiedSince
   DateTime value for the `If-Modified-Since` header.
   If provided, the request will include this header to check for modifications.

@@ -36,8 +36,13 @@ Add-KrMapRoute -Verbs Get -Pattern '/schedule/report' -ScriptBlock {
     Write-KrLog -Level Information -Message "Requested timezone: $tz"
 
     if ($tz) {
-        [void][TimeZoneInfo]::FindSystemTimeZoneById($tz)
-        $report = Get-KrScheduleReport -TimeZoneId $tz
+        try {
+            [void][TimeZoneInfo]::FindSystemTimeZoneById($tz)
+            $report = Get-KrScheduleReport -TimeZoneId $tz
+        } catch {
+            Write-KrLog -Level Warning -Message "Invalid timezone ID '$tz' provided. Falling back to UTC."
+            $report = Get-KrScheduleReport
+        }
     } else {
         $report = Get-KrScheduleReport
     }

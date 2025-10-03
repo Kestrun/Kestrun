@@ -5,6 +5,7 @@ using Xunit;
 
 namespace KestrunTests.Utilities;
 
+[Collection("SharedStateSerial")]
 public class AssemblyAutoLoaderResolveTests
 {
     private static readonly string SourceCode = "public class AutoLoaderTempType { public string Echo(string s)=>s; }";

@@ -13,14 +13,11 @@ namespace Kestrun.Hosting.Compression;
 /// </remarks>
 /// <param name="services">The service provider.</param>
 /// <param name="options">The response compression options.</param>
-/// <param name="log">The logger.</param>
 public sealed class KestrunResponseCompressionProvider(
     IServiceProvider services,
-    IOptions<ResponseCompressionOptions> options,
-    ILogger<KestrunResponseCompressionProvider> log) : IResponseCompressionProvider
+    IOptions<ResponseCompressionOptions> options) : IResponseCompressionProvider
 {
     private readonly ResponseCompressionProvider _inner = ActivatorUtilities.CreateInstance<ResponseCompressionProvider>(services, options);
-    private readonly ILogger<KestrunResponseCompressionProvider> _log = log;
 
     private static bool DisabledFor(HttpContext ctx) =>
         ctx.GetEndpoint()?.Metadata.Contains(EndpointDisablingCompressionExtensions.DisableResponseCompressionKey) == true;

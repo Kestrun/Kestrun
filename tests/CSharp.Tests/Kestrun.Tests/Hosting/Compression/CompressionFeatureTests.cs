@@ -7,7 +7,6 @@ using Microsoft.AspNetCore.ResponseCompression;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.AspNetCore.Routing.Patterns;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Xunit;
 using Kestrun.Hosting;
@@ -33,8 +32,7 @@ public class CompressionFeatureTests
         });
         sp = services.BuildServiceProvider();
         var options = sp.GetRequiredService<IOptions<ResponseCompressionOptions>>();
-        var logger = sp.GetRequiredService<ILogger<KestrunResponseCompressionProvider>>();
-        return new KestrunResponseCompressionProvider(sp, options, logger);
+        return new KestrunResponseCompressionProvider(sp, options);
     }
 
     [Fact]

@@ -10,7 +10,7 @@ Describe 'Example 10.3-Https-Redirection' -Tag 'Tutorial', 'Middleware', 'Https'
         $probe.Location | Should -Be "https://$($script:instance.Host):$($script:instance.Port + 443)/"
     }
 
-    It 'Serves content over HTTP is redirected to HTTPS' {
+    It 'Serves content over HTTPS after HTTP redirect' {
         $uri = "http://$($script:instance.Host):$($script:instance.Port)/"
         $resp = Invoke-WebRequest -Uri $uri -UseBasicParsing -TimeoutSec 15 -SkipCertificateCheck
         $resp.StatusCode | Should -Be 200

@@ -1,5 +1,3 @@
-
-
 namespace Kestrun.Health;
 
 /// <summary>

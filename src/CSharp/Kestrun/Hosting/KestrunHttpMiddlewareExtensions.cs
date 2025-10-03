@@ -7,7 +7,8 @@ using Microsoft.AspNetCore.ResponseCaching;
 using Microsoft.AspNetCore.ResponseCompression;
 using Microsoft.Net.Http.Headers;
 using Serilog.Events;
-using Microsoft.Extensions.DependencyInjection.Extensions; // Added for TryAddSingleton
+using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.AspNetCore.HttpsPolicy; // Added for TryAddSingleton
 
 namespace Kestrun.Hosting;
 
@@ -478,5 +479,59 @@ public static class KestrunHttpMiddlewareExtensions
         ValidateCachingInput(host, cfg, cacheControl);
         RegisterCachingServices(host, cfg);
         return host.Use(CreateCachingMiddleware(host, cacheControl));
+    }
+
+
+    /// <summary>
+    /// Adds HTTPS redirection to the application using the specified <see cref="HttpsRedirectionOptions"/>.
+    /// </summary>
+    /// <param name="host">The KestrunHost instance to configure.</param>
+    /// <param name="cfg">The HTTPS redirection options.</param>
+    /// <returns>The updated KestrunHost instance.</returns>
+    public static KestrunHost AddHttpsRedirection(this KestrunHost host, HttpsRedirectionOptions cfg)
+    {
+        if (host.HostLogger.IsEnabled(LogEventLevel.Debug))
+        {
+            host.HostLogger.Debug("Adding HTTPS redirection with configuration: {@Config}", cfg);
+        }
+
+        if (cfg == null)
+        {
+            return host.AddHttpsRedirection();   // fallback to parameterless overload
+        }
+
+        _ = host.AddService(services =>
+        {
+            _ = services.AddHttpsRedirection(opts =>
+            {
+                opts.RedirectStatusCode = cfg.RedirectStatusCode;
+                opts.HttpsPort = cfg.HttpsPort;
+            });
+        });
+
+        return host.Use(app => app.UseHttpsRedirection());
+    }
+
+    /// <summary>
+    /// Adds HTTPS redirection to the application using the specified configuration delegate.
+    /// </summary>
+    /// <param name="host">The KestrunHost instance to configure.</param>
+    /// <param name="cfg">The configuration delegate for HTTPS redirection options.</param>
+    /// <returns>The updated KestrunHost instance.</returns>
+    public static KestrunHost AddHttpsRedirection(this KestrunHost host, Action<HttpsRedirectionOptions>? cfg = null)
+    {
+        if (host.HostLogger.IsEnabled(LogEventLevel.Debug))
+        {
+            host.HostLogger.Debug("Adding HTTPS redirection with configuration: {HasConfig}", cfg != null);
+        }
+
+        // Register the HTTPS redirection service
+        _ = host.AddService(services =>
+            {
+                _ = services.AddHttpsRedirection(cfg ?? (_ => { })); // Always pass a delegate
+            });
+
+        // Apply the middleware
+        return host.Use(app => app.UseHttpsRedirection());
     }
 }

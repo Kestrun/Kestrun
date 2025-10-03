@@ -35,6 +35,8 @@ function Write-KrHtmlResponse {
     # Only works inside a route script block where $Context is available
     if ($null -ne $Context.Response) {
         try {
+            if ($null -eq $Variables) { $Variables = @{} }
+            # Wrap the hashtable in a read-only dictionary for safety
             $readOnlyDictionary = [Kestrun.Utilities.ReadOnlyDictionaryAdapter]::new($Variables)
 
             switch ($PSCmdlet.ParameterSetName) {

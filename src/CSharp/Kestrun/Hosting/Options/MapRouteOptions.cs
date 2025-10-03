@@ -62,6 +62,10 @@ public record MapRouteOptions
     /// </summary>
     public bool DisableAntiforgery { get; set; }
     /// <summary>
+    /// If true, disables response compression for this route.
+    /// </summary>
+    public bool DisableResponseCompression { get; set; }
+    /// <summary>
     /// The name of the rate limit policy to apply to this route, if any.
     /// </summary>
     public string? RateLimitPolicyName { get; set; }

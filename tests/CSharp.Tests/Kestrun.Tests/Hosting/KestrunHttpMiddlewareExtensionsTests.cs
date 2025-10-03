@@ -6,6 +6,8 @@ using Microsoft.AspNetCore.ResponseCompression;
 using Microsoft.AspNetCore.Antiforgery;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Net.Http.Headers;
+using Microsoft.Extensions.DependencyInjection;
+using Kestrun.Hosting.Compression;
 using Moq;
 using Xunit;
 
@@ -178,6 +180,30 @@ public class KestrunHttpMiddlewareExtensionsTests
 
     [Fact]
     [Trait("Category", "Hosting")]
+    public void AddResponseCompression_RegistersKestrunResponseCompressionProvider()
+    {
+        var host = CreateHost(out _);
+        _ = host.AddResponseCompression(o => o.EnableForHttps = true);
+
+        // Extract queued service registrations
+        var serviceField = typeof(KestrunHost).GetField("_serviceQueue", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+        var actions = (List<Action<IServiceCollection>>)serviceField!.GetValue(host)!;
+
+        var services = new ServiceCollection();
+        var sc = services.AddLogging(); // required for provider logger injection
+        Assert.NotNull(sc); // use variable to satisfy analyzer
+        foreach (var a in actions)
+        {
+            a(services);
+        }
+        using var sp = services.BuildServiceProvider();
+        var provider = sp.GetRequiredService<IResponseCompressionProvider>();
+        var typed = Assert.IsType<KestrunResponseCompressionProvider>(provider);
+        Assert.Same(provider, typed);
+    }
+
+    [Fact]
+    [Trait("Category", "Hosting")]
     public void AddRateLimiter_WithCustomDelegate_Registers()
     {
         var host = CreateHost(out var middleware);
@@ -244,7 +270,7 @@ public class KestrunHttpMiddlewareExtensionsTests
 
         // Verify service was added by checking the service collection has entries
         var serviceField = typeof(KestrunHost).GetField("_serviceQueue", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-        var services = (List<Action<Microsoft.Extensions.DependencyInjection.IServiceCollection>>)serviceField!.GetValue(host)!;
+        var services = (List<Action<IServiceCollection>>)serviceField!.GetValue(host)!;
         Assert.True(services.Count > 0);
     }
 
@@ -260,7 +286,7 @@ public class KestrunHttpMiddlewareExtensionsTests
         KestrunHttpMiddlewareExtensions.RegisterCachingServices(host, opts => opts.MaximumBodySize = 1024);
 
         var serviceField = typeof(KestrunHost).GetField("_serviceQueue", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-        var services = (List<Action<Microsoft.Extensions.DependencyInjection.IServiceCollection>>)serviceField!.GetValue(host)!;
+        var services = (List<Action<IServiceCollection>>)serviceField!.GetValue(host)!;
         Assert.True(services.Count > 0);
     }
 

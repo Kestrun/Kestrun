@@ -15,6 +15,7 @@ Deeper, cross-cutting subjects (logging, deployment, performance, etc.).
 | [HTTP Caching](./caching) | Layered cache headers, middleware, validators |
 | [Health Monitoring](./health) | Health endpoints, probes, and operational guidance |
 | [JWT Tokens](./jwt) | Build, issue, validate, and renew JSON Web Tokens |
+| [Scheduling](./scheduling) | Background jobs via intervals and CRON (PS & C#) |
 
 ## Planned
 

@@ -463,30 +463,7 @@ public static class CertificateManager
         try
         {
             var certOnly = LoadCertOnlyPem(certPath);
-            const string encBegin = "-----BEGIN ENCRYPTED PRIVATE KEY-----";
-            const string encEnd = "-----END ENCRYPTED PRIVATE KEY-----";
-
-            byte[]? encDer = null;
-            for (var attempt = 0; attempt < 5 && encDer is null; attempt++)
-            {
-                var keyPem = File.ReadAllText(privateKeyPath);
-                var start = keyPem.IndexOf(encBegin, StringComparison.Ordinal);
-                var end = keyPem.IndexOf(encEnd, StringComparison.Ordinal);
-                if (start >= 0 && end > start)
-                {
-                    start += encBegin.Length;
-                    var b64 = keyPem[start..end].Replace("\r", "").Replace("\n", "").Trim();
-                    try { encDer = Convert.FromBase64String(b64); }
-                    catch (FormatException fe)
-                    {
-                        Log.Debug(fe, "Base64 decode failed on attempt {Attempt} reading encrypted key; retrying", attempt + 1);
-                    }
-                }
-                if (encDer is null)
-                {
-                    Thread.Sleep(40 * (attempt + 1));
-                }
-            }
+            var encDer = ExtractEncryptedPemDer(privateKeyPath);
 
             if (encDer is null)
             {
@@ -494,46 +471,7 @@ public static class CertificateManager
                 return;
             }
 
-            Exception? lastErr = null;
-            for (var round = 0; round < 2; round++)
-            {
-                // Try RSA
-                try
-                {
-                    using var rsa = RSA.Create();
-                    rsa.ImportEncryptedPkcs8PrivateKey(password, encDer, out _);
-                    var withKey = certOnly.CopyWithPrivateKey(rsa);
-                    if (withKey.HasPrivateKey)
-                    {
-                        Log.Debug("Encrypted PEM manual pairing succeeded with RSA private key (round {Round}).", round + 1);
-                        loaded = withKey;
-                        return;
-                    }
-                }
-                catch (Exception exRsa)
-                {
-                    lastErr = lastErr is null ? exRsa : new AggregateException(lastErr, exRsa);
-                }
-
-                // Try ECDSA
-                try
-                {
-                    using var ecdsa = ECDsa.Create();
-                    ecdsa.ImportEncryptedPkcs8PrivateKey(password, encDer, out _);
-                    var withKey = certOnly.CopyWithPrivateKey(ecdsa);
-                    if (withKey.HasPrivateKey)
-                    {
-                        Log.Debug("Encrypted PEM manual pairing succeeded with ECDSA private key (round {Round}).", round + 1);
-                        loaded = withKey;
-                        return;
-                    }
-                }
-                catch (Exception exEc)
-                {
-                    lastErr = lastErr is null ? exEc : new AggregateException(lastErr, exEc);
-                }
-                Thread.Sleep(25 * (round + 1));
-            }
+            var lastErr = TryPairCertificateWithKey(certOnly, password, encDer, ref loaded);
 
             if (lastErr != null)
             {
@@ -544,6 +482,131 @@ public static class CertificateManager
         {
             Log.Debug(ex, "Encrypted PEM manual pairing fallback failed unexpectedly; returning original loaded certificate without private key");
         }
+    }
+
+    /// <summary>
+    /// Extracts the encrypted PEM DER bytes from a private key file.
+    /// </summary>
+    /// <param name="privateKeyPath">The path to the private key file.</param>
+    /// <returns>The DER bytes if successful, null otherwise.</returns>
+    private static byte[]? ExtractEncryptedPemDer(string privateKeyPath)
+    {
+        const string encBegin = "-----BEGIN ENCRYPTED PRIVATE KEY-----";
+        const string encEnd = "-----END ENCRYPTED PRIVATE KEY-----";
+
+        byte[]? encDer = null;
+        for (var attempt = 0; attempt < 5 && encDer is null; attempt++)
+        {
+            var keyPem = File.ReadAllText(privateKeyPath);
+            var start = keyPem.IndexOf(encBegin, StringComparison.Ordinal);
+            var end = keyPem.IndexOf(encEnd, StringComparison.Ordinal);
+            if (start >= 0 && end > start)
+            {
+                start += encBegin.Length;
+                var b64 = keyPem[start..end].Replace("\r", "").Replace("\n", "").Trim();
+                try { encDer = Convert.FromBase64String(b64); }
+                catch (FormatException fe)
+                {
+                    Log.Debug(fe, "Base64 decode failed on attempt {Attempt} reading encrypted key; retrying", attempt + 1);
+                }
+            }
+            if (encDer is null)
+            {
+                Thread.Sleep(40 * (attempt + 1));
+            }
+        }
+
+        return encDer;
+    }
+
+    /// <summary>
+    /// Attempts to pair a certificate with an encrypted private key using RSA and ECDSA.
+    /// </summary>
+    /// <param name="certOnly">The certificate without a private key.</param>
+    /// <param name="password">The password for the encrypted key.</param>
+    /// <param name="encDer">The encrypted DER bytes.</param>
+    /// <param name="loaded">The loaded certificate (updated if pairing succeeds).</param>
+    /// <returns>The last exception encountered, or null if pairing succeeded.</returns>
+    private static Exception? TryPairCertificateWithKey(X509Certificate2 certOnly, ReadOnlySpan<char> password, byte[] encDer, ref X509Certificate2 loaded)
+    {
+        Exception? lastErr = null;
+        for (var round = 0; round < 2; round++)
+        {
+            if (TryPairWithRsa(certOnly, password, encDer, round, ref loaded, ref lastErr))
+            {
+                return null;
+            }
+
+            if (TryPairWithEcdsa(certOnly, password, encDer, round, ref loaded, ref lastErr))
+            {
+                return null;
+            }
+
+            Thread.Sleep(25 * (round + 1));
+        }
+        return lastErr;
+    }
+
+    /// <summary>
+    /// Tries to pair a certificate with an RSA private key.
+    /// </summary>
+    /// <param name="certOnly">The certificate without a private key.</param>
+    /// <param name="password">The password for the encrypted key.</param>
+    /// <param name="encDer">The encrypted DER bytes.</param>
+    /// <param name="round">The attempt round number.</param>
+    /// <param name="loaded">The loaded certificate (updated if pairing succeeds).</param>
+    /// <param name="lastErr">The last exception encountered (updated on failure).</param>
+    /// <returns>True if pairing succeeded, false otherwise.</returns>
+    private static bool TryPairWithRsa(X509Certificate2 certOnly, ReadOnlySpan<char> password, byte[] encDer, int round, ref X509Certificate2 loaded, ref Exception? lastErr)
+    {
+        try
+        {
+            using var rsa = RSA.Create();
+            rsa.ImportEncryptedPkcs8PrivateKey(password, encDer, out _);
+            var withKey = certOnly.CopyWithPrivateKey(rsa);
+            if (withKey.HasPrivateKey)
+            {
+                Log.Debug("Encrypted PEM manual pairing succeeded with RSA private key (round {Round}).", round + 1);
+                loaded = withKey;
+                return true;
+            }
+        }
+        catch (Exception exRsa)
+        {
+            lastErr = lastErr is null ? exRsa : new AggregateException(lastErr, exRsa);
+        }
+        return false;
+    }
+
+    /// <summary>
+    /// Tries to pair a certificate with an ECDSA private key.
+    /// </summary>
+    /// <param name="certOnly">The certificate without a private key.</param>
+    /// <param name="password">The password for the encrypted key.</param>
+    /// <param name="encDer">The encrypted DER bytes.</param>
+    /// <param name="round">The attempt round number.</param>
+    /// <param name="loaded">The loaded certificate (updated if pairing succeeds).</param>
+    /// <param name="lastErr">The last exception encountered (updated on failure).</param>
+    /// <returns>True if pairing succeeded, false otherwise.</returns>
+    private static bool TryPairWithEcdsa(X509Certificate2 certOnly, ReadOnlySpan<char> password, byte[] encDer, int round, ref X509Certificate2 loaded, ref Exception? lastErr)
+    {
+        try
+        {
+            using var ecdsa = ECDsa.Create();
+            ecdsa.ImportEncryptedPkcs8PrivateKey(password, encDer, out _);
+            var withKey = certOnly.CopyWithPrivateKey(ecdsa);
+            if (withKey.HasPrivateKey)
+            {
+                Log.Debug("Encrypted PEM manual pairing succeeded with ECDSA private key (round {Round}).", round + 1);
+                loaded = withKey;
+                return true;
+            }
+        }
+        catch (Exception exEc)
+        {
+            lastErr = lastErr is null ? exEc : new AggregateException(lastErr, exEc);
+        }
+        return false;
     }
 
     /// <summary>

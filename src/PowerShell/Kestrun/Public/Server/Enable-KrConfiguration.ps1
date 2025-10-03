@@ -103,8 +103,7 @@ function Enable-KrConfiguration {
         }
 
         if ($PassThru.IsPresent) {
-            # if the PassThru switch is specified, return the server instance
-            # Return the modified server instance
+            # if the PassThru switch is specified, return the modified server instance
             return $Server
         }
     }

@@ -81,7 +81,7 @@ That’s the canonical pipeline used locally and by CI—keep it consistent.
 ### Branch Naming Convention
 
 ```text
-<type>/<issue-number>-<short-kebab-case-description>
+<type>-<issue-number>-<short-kebab-case-description>
 ```
 
 - **type**:
@@ -100,10 +100,10 @@ That’s the canonical pipeline used locally and by CI—keep it consistent.
 
 **Examples:**
 
-- `feat/42-add-jwt-auth`
-- `fix/103-csrf-validation`
-- `refactor/57-reduce-complexity`
-- `docs/88-update-readme-badges`
+- `feat-42-add-jwt-auth`
+- `fix-103-csrf-validation`
+- `refactor-57-reduce-complexity`
+- `docs-88-update-readme-badges`
 
 ---
 

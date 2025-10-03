@@ -246,15 +246,15 @@ Start-KrServer
         if ($proc.HasExited) { break }
         $attempt++
         # Optional lightweight HTTP/HTTPS probe of '/' and '/online' endpoints to detect readiness
-        $probeConfigs = @(
-            @{ Uri = "http://$serverIp`:$Port/online"; UseBasicParsing = $true; Method = 'Get'; TimeoutSec = 3; ErrorAction = 'Stop' },
-            @{ Uri = "https://$serverIp`:$Port/online"; UseBasicParsing = $true; Method = 'Get'; TimeoutSec = 3; ErrorAction = 'Stop'; SkipCertificateCheck = $true },
-            @{ Uri = "http://$serverIp`:$Port"; UseBasicParsing = $true; Method = 'Get'; TimeoutSec = 3; ErrorAction = 'Stop' },
-            @{ Uri = "https://$serverIp`:$Port"; UseBasicParsing = $true; Method = 'Get'; TimeoutSec = 3; ErrorAction = 'Stop'; SkipCertificateCheck = $true }
+        $probeUrls = @(
+            "http://$serverIp`:$Port/online",
+            "https://$serverIp`:$Port/online",
+            "http://$serverIp`:$Port/",
+            "https://$serverIp`:$Port/"
         )
-        foreach ($config in $probeConfigs) {
+        foreach ($url in $probeUrls) {
             try {
-                $probe = Invoke-WebRequest @config
+                $probe = Get-HttpHeadersRaw -Uri $url -Insecure -AsHashtable
                 if ($probe.StatusCode -ge 200 -and $probe.StatusCode -lt 600) {
                     $ready = $true
                     break
@@ -1699,8 +1699,8 @@ function Get-HttpHeadersRaw {
         $stream.Write($reqBytes, 0, $reqBytes.Length)
 
         # Read entire response into memory (connection: close => server will close)
-        $buf = New-Object byte[] 8192
-        $ms = New-Object System.IO.MemoryStream
+        $buf = [byte[]]::new(8192)
+        $ms = [System.IO.MemoryStream]::new()
         while (($n = $stream.Read($buf, 0, $buf.Length)) -gt 0) {
             $ms.Write($buf, 0, $n)
         }
@@ -1765,7 +1765,11 @@ function Get-HttpHeadersRaw {
         if ($AsHashtable) {
             $ht = [ordered]@{}
             $lines = $headerText -split "`r`n"
-            if ($lines.Length -gt 0) { $ht['Status-Line'] = $lines[0] }
+            if ($lines.Length -gt 0) {
+                $ht['Status-Line'] = $lines[0]
+                $ht['StatusCode'] = if ($lines[0] -match 'HTTP/\d\.\d\s+(\d{3})') { [int]$matches[1] } else { $null }
+                $ht['Version'] = if ($lines[0] -match 'HTTP/(\d\.\d)') { $matches[1] } else { $null }
+            }
             for ($j = 1; $j -lt $lines.Length; $j++) {
                 $line = $lines[$j]
                 if ([string]::IsNullOrWhiteSpace($line)) { continue }
@@ -1796,25 +1800,22 @@ function Get-HttpHeadersRaw {
     }
 }
 
-#
-# Gzip / chunked decoding utility used by compression tests
-#
+<#
+.SYNOPSIS
+    Decode raw HTTP response body bytes that may be chunked and/or compressed.
+.DESCRIPTION
+    Handles these cases heuristically without relying on higher-level HTTP stacks:
+        1. HTTP/1.1 chunked transfer encoding (hex-size CRLF ... 0 CRLF CRLF)
+        2. Gzip-compressed payloads (magic 1F 8B)
+        3. Brotli-compressed payloads (magic 0xCE B2 CF 81 or common first byte 0x8B w/ fallback) if System.IO.Compression.BrotliStream available
+        4. Falls back gracefully to UTF8/Latin1 decoding if decompression fails
+    Returns decoded string best-effort; never throws.
+.PARAMETER Bytes
+    Raw body bytes as captured from socket.
+.OUTPUTS
+    [string] decoded textual representation (UTF8 preferred; Latin1 fallback)
+#>
 function Convert-BytesToStringWithGzipScan {
-    <#
-    .SYNOPSIS
-        Decode raw HTTP response body bytes that may be chunked and/or compressed.
-    .DESCRIPTION
-        Handles these cases heuristically without relying on higher-level HTTP stacks:
-          1. HTTP/1.1 chunked transfer encoding (hex-size CRLF ... 0 CRLF CRLF)
-          2. Gzip-compressed payloads (magic 1F 8B)
-          3. Brotli-compressed payloads (magic 0xCE B2 CF 81 or common first byte 0x8B w/ fallback) if System.IO.Compression.BrotliStream available
-          4. Falls back gracefully to UTF8/Latin1 decoding if decompression fails
-        Returns decoded string best-effort; never throws.
-    .PARAMETER Bytes
-        Raw body bytes as captured from socket.
-    .OUTPUTS
-        [string] decoded textual representation (UTF8 preferred; Latin1 fallback)
-    #>
     param(
         [byte[]]$Bytes,
         [switch]$ReturnDiagnostics

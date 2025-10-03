@@ -1231,31 +1231,54 @@ function New-TestFile {
   Path where the response body should be written.
   If omitted the body is buffered into the returned object
   (fine for your text tests, but skip this for multi-GB payloads).
-
 .PARAMETER Headers
   Hashtable of request headers.
-
 .PARAMETER PassThru
   Return a response object instead of being silent.
-
 .PARAMETER UseRangeDownload
   Use range-based downloading for large files. Automatically detects file size
   and downloads in chunks, then joins them together.
-
 .PARAMETER RangeSize
   Size of each range chunk when UseRangeDownload is enabled. Default is 1GB.
-
 .PARAMETER DownloadDir
   Directory for temporary part files when using range downloads.
   If not specified, uses the OutFile directory or a temporary directory.
-
 .PARAMETER ETag
   ETag value to use for conditional requests. If provided, the request will include
   an `If-None-Match` header with this value.
-
 .PARAMETER IfModifiedSince
   DateTime value for the `If-Modified-Since` header.
   If provided, the request will include this header to check for modifications.
+.PARAMETER AcceptEncoding
+  Accept-Encoding header value (e.g., 'gzip', 'deflate', 'br').
+  If specified, adds an `Accept-Encoding` header to the request.
+.PARAMETER SkipCertificateCheck
+  Skip TLS certificate validation (useful for self-signed certs in tests).
+.EXAMPLE
+  # Simple GET with response body returned
+  $resp = Invoke-CurlRequest -Url 'https://httpbin.org/get' -PassThru
+  $resp.StatusCode  # 200
+  $resp.Headers    # Response headers
+  $resp.Content    # Response body
+.EXAMPLE
+  # Download a file to disk
+  Invoke-CurlRequest -Url 'https://example.com/largefile.zip' -OutFile 'largefile.zip'
+.EXAMPLE
+  # Download a file using range requests (for very large files)
+  Invoke-CurlRequest -Url 'https://example.com/verylargefile.iso' -OutFile 'verylargefile.iso' -UseRangeDownload -RangeSize 512MB
+.EXAMPLE
+  # Conditional GET using ETag  (returns 304 if not modified)
+    $resp = Invoke-CurlRequest -Url 'https://example.com/resource' -ETag 'W/"123456789"' -PassThru
+    $resp.StatusCode  # 200 or 304
+.EXAMPLE
+  # Conditional GET using If-Modified-Since
+    $resp = Invoke-CurlRequest -Url 'https://example.com/resource' -IfModifiedSince (Get-Date '2024-01-01T00:00:00Z') -PassThru
+    $resp.StatusCode  # 200 or 304
+.NOTES
+  This function requires curl to be installed and available in the system PATH.
+  It is designed to work cross-platform (Windows, Linux, macOS).
+  For very large file downloads, use the -UseRangeDownload parameter to avoid
+  memory issues and improve reliability.
 #>
 function Invoke-CurlRequest {
 
@@ -1302,7 +1325,12 @@ function Invoke-CurlRequest {
 
         [Parameter(Mandatory = $true, ParameterSetName = 'IfModifiedSince')]
         [datetime]
-        $IfModifiedSince
+        $IfModifiedSince,
+
+        [Parameter()]
+        [switch]
+        $SkipCertificateCheck
+
     )
 
     # ------------------------------------------------------------
@@ -1431,6 +1459,11 @@ function Invoke-CurlRequest {
         '--write-out', '%{http_code}'    # print status at the end
     )
 
+    if ($SkipCertificateCheck) {
+        $arguments += '--insecure'  # skip TLS cert validation
+    }
+    # If Accept-Encoding is specified, add it to the request and use --compressed.
+    # curl will automatically handle decompression only if --compressed is used (which happens when Accept-Encoding is set).
     if ($AcceptEncoding) {
         if ($null -eq $Headers) {
             $Headers = @{}
@@ -1511,3 +1544,376 @@ function Invoke-CurlRequest {
         Remove-Item $tmpBody -Force
     }
 }
+
+<#
+.SYNOPSIS
+    Probe a route with and without gzip to capture size and encoding differences.
+.DESCRIPTION
+    Issues two requests to the provided relative path (one normal, one with 'Accept-Encoding: gzip')
+    and returns an object containing raw/gzip Content-Encoding headers, lengths, and responses.
+.PARAMETER Instance
+    The running example instance object from Start-ExampleScript.
+.PARAMETER Path
+    The relative path (begin with '/') to probe.
+.OUTPUTS
+    PSCustomObject with properties: Path, RawEncoding, GzipEncoding, RawLength, GzipLength, Raw, Gz
+#>
+function Get-CompressionProbe {
+    [CmdletBinding()] param(
+        [Parameter(Mandatory)][object]$Instance,
+        [Parameter(Mandatory)][string]$Path,
+        [int]$TimeoutSec = 30,
+        [switch]$UseCurlFallback
+    )
+    if (-not $Path.StartsWith('/')) { $Path = '/' + $Path }
+    $base = $Instance.Url
+    $insecure = $base -like 'https://*'
+    # Raw (no Accept-Encoding header)
+    $raw = Get-HttpHeadersRaw -Uri "$base$Path" -IncludeBody -Insecure:$insecure -NoAcceptEncoding
+    # Gzip
+    $gz = Get-HttpHeadersRaw -Uri "$base$Path" -IncludeBody -Insecure:$insecure -AcceptEncoding 'gzip'
+
+    # Case-insensitive header lookup
+    function _findHeader($hdrs, [string]$name) {
+        foreach ($k in $hdrs.Keys) { if ($k -ieq $name) { return $hdrs[$k] } }
+        return $null
+    }
+    $rawEncoding = _findHeader $raw.Headers 'Content-Encoding'
+    $gzEncoding = _findHeader $gz.Headers 'Content-Encoding'
+    $rawLen = if (_findHeader $raw.Headers 'Content-Length') { [int](_findHeader $raw.Headers 'Content-Length') } else { $raw.BodyLength }
+    $gzLen = if (_findHeader $gz.Headers 'Content-Length') { [int](_findHeader $gz.Headers 'Content-Length') } else { $gz.BodyLength }
+
+    # Optional curl fallback for edge cases
+    if ($UseCurlFallback -and -not $gzEncoding) {
+        try {
+            $curlGz = Invoke-CurlRequest -Url "$base$Path" -AcceptEncoding gzip -PassThru -SkipCertificateCheck:$insecure
+            if ($curlGz.Headers.ContainsKey('Content-Encoding')) { $gzEncoding = $curlGz.Headers['Content-Encoding'] }
+            if ($curlGz.Headers.ContainsKey('Content-Length')) { $gzLen = [int]$curlGz.Headers['Content-Length'] } elseif ($curlGz.RawContent) { $gzLen = $curlGz.RawContent.Length }
+        } catch { Write-Verbose "Curl fallback (gzip) failed: $($_.Exception.Message)" -Verbose }
+    }
+
+    [pscustomobject]@{
+        Path = $Path
+        RawEncoding = $rawEncoding
+        GzipEncoding = $gzEncoding
+        RawLength = $rawLen
+        GzipLength = $gzLen
+        Raw = $raw
+        Gz = $gz
+    }
+}
+
+
+
+<#
+.SYNOPSIS
+    Fetches raw HTTP headers from a specified URI using low-level sockets.
+.DESCRIPTION
+    This function connects to the specified URI using TCP sockets and retrieves the raw HTTP headers.
+    It supports both HTTP and HTTPS schemes, with an option to skip TLS certificate validation.
+.PARAMETER Uri
+    The full URI to fetch headers from (e.g., "http://example.com/path").
+.PARAMETER HostOverride
+    Optional host header override (useful for virtual hosting scenarios).
+.PARAMETER Insecure
+    If specified, skips TLS certificate validation (useful for self-signed certificates).
+.PARAMETER AsHashtable
+    If specified, returns headers as an ordered hashtable instead of a raw string.
+.OUTPUTS
+    [string] or [hashtable]
+    Returns the raw HTTP headers as a string or an ordered hashtable if AsHashtable is specified.
+.NOTES
+    This function uses low-level socket programming to fetch headers and does not rely on higher-level HTTP libraries.
+#>
+function Get-HttpHeadersRaw {
+    [CmdletBinding()]
+    [OutputType([string], [hashtable], [System.Collections.Specialized.OrderedDictionary])]
+    param(
+        [Parameter(Mandatory)]
+        [string]$Uri,
+        [string]$HostOverride,
+        [switch]$Insecure,
+        [switch]$AsHashtable,
+        [switch]$IncludeBody,
+        [string]$AcceptEncoding,
+        [switch]$NoAcceptEncoding
+    )
+
+    $u = [Uri]$Uri
+    if ($u.Scheme -notin @('http', 'https')) {
+        throw "Unsupported scheme '$($u.Scheme)'. Use http or https."
+    }
+
+    $targetHost = if ($HostOverride) { $HostOverride } else { $u.Host }
+    $port = if ($u.IsDefaultPort) { if ($u.Scheme -eq 'https') { 443 } else { 80 } } else { $u.Port }
+    $path = if ([string]::IsNullOrEmpty($u.PathAndQuery)) { '/' } else { $u.PathAndQuery }
+    $crlf = "`r`n"
+
+    $client = [System.Net.Sockets.TcpClient]::new()
+    $client.Connect($u.Host, $port)   # connect to endpoint (IP or host)
+    $netStream = $client.GetStream()
+    $stream = $null
+
+    try {
+        if ($u.Scheme -eq 'https') {
+            $cb = if ($Insecure) {
+                [System.Net.Security.RemoteCertificateValidationCallback] { param($s, $c, $ch, $e) $true }
+            } else { $null }
+
+            $ssl = [System.Net.Security.SslStream]::new($netStream, $false, $cb)
+            $proto = [System.Security.Authentication.SslProtocols]::Tls12 -bor `
+                [System.Security.Authentication.SslProtocols]::Tls13
+            # SNI uses targetHost (can be different from the IP/endpoint you connect to)
+            $ssl.AuthenticateAsClient($targetHost, $null, $proto, $false)
+            $stream = $ssl
+        } else {
+            $stream = $netStream
+        }
+
+        # Determine Accept-Encoding header logic
+        $aeHeader = $null
+        if (-not $NoAcceptEncoding) {
+            if ($PSBoundParameters.ContainsKey('AcceptEncoding')) {
+                if ($AcceptEncoding -and $AcceptEncoding.Trim().Length -gt 0) {
+                    $aeHeader = "Accept-Encoding: $AcceptEncoding$crlf"
+                } else {
+                    # Explicit empty string means omit header
+                    $aeHeader = ''
+                }
+            } else {
+                # default list (broad) if not overridden
+                $aeHeader = "Accept-Encoding: gzip, deflate, br$crlf"
+            }
+        } else {
+            $aeHeader = ''
+        }
+
+        $request = "GET $path HTTP/1.1$crlf" +
+        "Host: $targetHost$crlf" +
+        ($aeHeader) +
+        "Connection: close$crlf" +
+        $crlf
+
+        $utf8 = [Text.Encoding]::UTF8
+        $reqBytes = [Text.Encoding]::ASCII.GetBytes($request)
+        $stream.Write($reqBytes, 0, $reqBytes.Length)
+
+        # Read entire response into memory (connection: close => server will close)
+        $buf = New-Object byte[] 8192
+        $ms = New-Object System.IO.MemoryStream
+        while (($n = $stream.Read($buf, 0, $buf.Length)) -gt 0) {
+            $ms.Write($buf, 0, $n)
+        }
+        $all = $ms.ToArray()
+
+        # Locate CRLFCRLF separator between headers and body
+        $sep = -1
+        for ($i = 0; $i -le $all.Length - 4; $i++) {
+            if (($all[$i] -eq 13) -and ($all[$i + 1] -eq 10) -and ($all[$i + 2] -eq 13) -and ($all[$i + 3] -eq 10)) {
+                $sep = $i; break
+            }
+        }
+
+        if ($sep -lt 0) {
+            # No header terminator found; return raw text or a simple bag
+            $rawText = $utf8.GetString($all)
+            if ($AsHashtable -or $IncludeBody) {
+                return [ordered]@{ 'Status-Line' = '(unknown)'; 'Raw' = $rawText }
+            } else {
+                return $rawText
+            }
+        }
+
+        $headerBytes = $all[0..($sep + 3)]
+        $bodyBytes = if ($sep + 4 -lt $all.Length) { $all[($sep + 4)..($all.Length - 1)] } else { [byte[]]@() }
+        $headerText = $utf8.GetString($headerBytes)
+
+        if ($IncludeBody) {
+            # Structured return: ordered Headers + raw Body bytes + StatusCode + BodyLength
+            $headersOrdered = [ordered]@{}
+            $lines = $headerText -split "`r`n"
+            if ($lines.Length -gt 0) { $headersOrdered['Status-Line'] = $lines[0] }
+            for ($j = 1; $j -lt $lines.Length; $j++) {
+                $line = $lines[$j]
+                if ([string]::IsNullOrWhiteSpace($line)) { continue }
+                $idx = $line.IndexOf(':')
+                if ($idx -ge 0) {
+                    $k = $line.Substring(0, $idx)
+                    $v = $line.Substring($idx + 1).TrimStart()
+                    if ($headersOrdered.Contains($k)) {
+                        $existing = $headersOrdered[$k]
+                        if ($existing -is [System.Collections.IList]) {
+                            $existing.Add($v) | Out-Null
+                        } else {
+                            $headersOrdered[$k] = [System.Collections.ArrayList]@($existing, $v)
+                        }
+                    } else {
+                        $headersOrdered[$k] = $v
+                    }
+                }
+            }
+            $statusCode = $null
+            if ($headersOrdered['Status-Line'] -match 'HTTP/\d\.\d\s+(\d{3})') { $statusCode = [int]$matches[1] }
+            return [pscustomobject]@{
+                Headers = $headersOrdered
+                Body = $bodyBytes
+                StatusCode = $statusCode
+                BodyLength = $bodyBytes.Length
+            }
+        }
+
+        if ($AsHashtable) {
+            $ht = [ordered]@{}
+            $lines = $headerText -split "`r`n"
+            if ($lines.Length -gt 0) { $ht['Status-Line'] = $lines[0] }
+            for ($j = 1; $j -lt $lines.Length; $j++) {
+                $line = $lines[$j]
+                if ([string]::IsNullOrWhiteSpace($line)) { continue }
+                $idx = $line.IndexOf(':')
+                if ($idx -ge 0) {
+                    $k = $line.Substring(0, $idx)
+                    $v = $line.Substring($idx + 1).TrimStart()
+                    if ($ht.Contains($k)) {
+                        $existing = $ht[$k]
+                        if ($existing -is [System.Collections.IList]) {
+                            $existing.Add($v) | Out-Null
+                        } else {
+                            $ht[$k] = [System.Collections.ArrayList]@($existing, $v)
+                        }
+                    } else {
+                        $ht[$k] = $v
+                    }
+                }
+            }
+            return $ht
+        } else {
+            return $headerText
+        }
+    } finally {
+        if ($stream) { $stream.Dispose() }
+        if ($netStream) { $netStream.Dispose() }
+        if ($client) { $client.Dispose() }
+    }
+}
+
+#
+# Gzip / chunked decoding utility used by compression tests
+#
+function Convert-BytesToStringWithGzipScan {
+    <#
+    .SYNOPSIS
+        Decode raw HTTP response body bytes that may be chunked and/or compressed.
+    .DESCRIPTION
+        Handles these cases heuristically without relying on higher-level HTTP stacks:
+          1. HTTP/1.1 chunked transfer encoding (hex-size CRLF ... 0 CRLF CRLF)
+          2. Gzip-compressed payloads (magic 1F 8B)
+          3. Brotli-compressed payloads (magic 0xCE B2 CF 81 or common first byte 0x8B w/ fallback) if System.IO.Compression.BrotliStream available
+          4. Falls back gracefully to UTF8/Latin1 decoding if decompression fails
+        Returns decoded string best-effort; never throws.
+    .PARAMETER Bytes
+        Raw body bytes as captured from socket.
+    .OUTPUTS
+        [string] decoded textual representation (UTF8 preferred; Latin1 fallback)
+    #>
+    param(
+        [byte[]]$Bytes,
+        [switch]$ReturnDiagnostics
+    )
+    if (-not $Bytes) { return '' }
+
+    $originalLen = $Bytes.Length
+    $diagnostics = [ordered]@{ OriginalLength = $originalLen }
+
+    function Decode-Chunked([byte[]]$data) {
+        try {
+            $asciiSample = [Text.Encoding]::ASCII.GetString($data, 0, [Math]::Min(64, $data.Length))
+            if ($asciiSample -notmatch '^[0-9A-Fa-f]{1,6}\r\n') { return $data } # fast reject
+            # Walk the structure; abort if anything inconsistent
+            $pos = 0
+            $decoded = [IO.MemoryStream]::new()
+            while ($pos -lt $data.Length) {
+                # read size line
+                $lineBytes = New-Object System.Collections.Generic.List[byte]
+                while ($pos -lt $data.Length) {
+                    if ($data[$pos] -eq 13 -and ($pos + 1) -lt $data.Length -and $data[$pos + 1] -eq 10) { $pos += 2; break }
+                    $lineBytes.Add($data[$pos]); $pos++
+                    if ($lineBytes.Count -gt 8) { return $data } # unlikely a valid size line if too long
+                }
+                if ($lineBytes.Count -eq 0) { return $data }
+                $sizeHex = [Text.Encoding]::ASCII.GetString($lineBytes.ToArray())
+                if ([string]::IsNullOrWhiteSpace($sizeHex)) { return $data }
+                $sizeRef = [ref]0
+                if (-not [int]::TryParse($sizeHex, [System.Globalization.NumberStyles]::HexNumber, $null, $sizeRef)) { return $data }
+                $chunkSize = $sizeRef.Value
+                if ($chunkSize -eq 0) {
+                    # Optionally skip any trailing headers (CRLF sequences) but we stop here
+                    return $decoded.ToArray()
+                }
+                if ($pos + $chunkSize -gt $data.Length) { return $data }
+                $decoded.Write($data, $pos, $chunkSize)
+                $pos += $chunkSize
+                # Skip trailing CRLF after each chunk
+                if ($pos + 1 -lt $data.Length -and $data[$pos] -eq 13 -and $data[$pos + 1] -eq 10) { $pos += 2 }
+            }
+            $dec = $decoded.ToArray(); $decoded.Dispose(); return $dec
+        } catch { return $data }
+    }
+
+    $maybeChunked = Decode-Chunked $Bytes
+    if ($maybeChunked -ne $Bytes) { $diagnostics['ChunkedDecoded'] = $true; $diagnostics['AfterChunkLength'] = $maybeChunked.Length } else { $diagnostics['ChunkedDecoded'] = $false }
+    $Bytes = $maybeChunked
+
+    # Helper: Attempt Gzip
+    function Try-Gzip([byte[]]$data) {
+        try {
+            if ($data.Length -lt 2) { return $null }
+            if ($data[0] -ne 0x1F -or $data[1] -ne 0x8B) { return $null }
+            $ms = [IO.MemoryStream]::new($data)
+            $gz = [IO.Compression.GZipStream]::new($ms, [IO.Compression.CompressionMode]::Decompress)
+            $out = [IO.MemoryStream]::new(); $buf = New-Object byte[] 4096
+            while (($n = $gz.Read($buf, 0, $buf.Length)) -gt 0) { $out.Write($buf, 0, $n) }
+            $gz.Dispose(); $ms.Dispose()
+            $res = $out.ToArray(); $out.Dispose(); return $res
+        } catch { return $null }
+    }
+
+    # Helper: Attempt Brotli (if available)
+    function Try-Brotli([byte[]]$data) {
+        try {
+            $brotliType = [type]::GetType('System.IO.Compression.BrotliStream, System.IO.Compression.Brotli')
+            if (-not $brotliType) { return $null }
+            # Brotli magic isn't fixed like gzip; quick attempt only if not gzip
+            if ($data.Length -lt 3) { return $null }
+            # Heuristic: if gzip test fails and size > 20, try brotli
+            $ms = [IO.MemoryStream]::new($data)
+            $br = [System.IO.Compression.BrotliStream]::new($ms, [IO.Compression.CompressionMode]::Decompress)
+            $out = [IO.MemoryStream]::new(); $buf = New-Object byte[] 4096
+            while (($n = $br.Read($buf, 0, $buf.Length)) -gt 0) { $out.Write($buf, 0, $n) }
+            $br.Dispose(); $ms.Dispose()
+            $res = $out.ToArray(); $out.Dispose(); return $res
+        } catch { return $null }
+    }
+
+    $decodedBytes = $null
+    $gzipBytes = Try-Gzip $Bytes
+    if ($gzipBytes) { $decodedBytes = $gzipBytes; $diagnostics['GzipDecoded'] = $true }
+    else {
+        $brotliBytes = Try-Brotli $Bytes
+        if ($brotliBytes) { $decodedBytes = $brotliBytes; $diagnostics['BrotliDecoded'] = $true }
+        else { $decodedBytes = $Bytes; $diagnostics['GzipDecoded'] = $false; $diagnostics['BrotliDecoded'] = $false }
+    }
+
+    # Choose encoding: prefer UTF8, fallback Latin1 if invalid
+    $text = $null
+    try {
+        $text = [Text.Encoding]::UTF8.GetString($decodedBytes)
+        # Validate by re-encoding (detect replacement char  or � not reliably) but assume fine
+    } catch {
+        $text = [Text.Encoding]::GetEncoding('ISO-8859-1').GetString($decodedBytes)
+        $diagnostics['Latin1Fallback'] = $true
+    }
+
+    if ($ReturnDiagnostics) { return [pscustomobject]@{ Text = $text; Meta = $diagnostics } }
+    return $text
+}
+

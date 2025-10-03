@@ -115,12 +115,14 @@ public static class KestrunHttpMiddlewareExtensions
     {
         if (host.HostLogger.IsEnabled(LogEventLevel.Debug))
         {
-            host.HostLogger.Debug("Adding response compression with configuration: {Config}", cfg);
+            host.HostLogger.Debug("Adding response compression with configuration: {HasConfig}", cfg != null);
         }
         // Service side
         _ = host.AddService(services =>
         {
             _ = cfg == null ? services.AddResponseCompression() : services.AddResponseCompression(cfg);
+            // replace the default provider with our opt-out decorator
+            _ = services.AddSingleton<IResponseCompressionProvider, Compression.KestrunResponseCompressionProvider>();
         });
 
         // Middleware side

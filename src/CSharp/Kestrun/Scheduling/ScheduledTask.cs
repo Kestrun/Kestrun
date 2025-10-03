@@ -25,7 +25,11 @@ internal sealed record ScheduledTask(
     /// Lock object for synchronizing timestamp updates to prevent reading inconsistent state
     /// where LastRunAt is newer than NextRunAt.
     /// </summary>
+#if NET9_0_OR_GREATER
+    private readonly Lock _timestampLock = new();
+#else
     private readonly object _timestampLock = new();
+#endif
 
     private DateTimeOffset? _lastRunAt;
     private DateTimeOffset _nextRunAt;

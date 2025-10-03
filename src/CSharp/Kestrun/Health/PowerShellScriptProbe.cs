@@ -23,7 +23,7 @@ internal sealed class PowerShellScriptProbe(
         string script,
         SerilogLogger logger,
         Func<KestrunRunspacePoolManager> poolAccessor,
-        IReadOnlyDictionary<string, object?>? arguments) : IProbe
+        IReadOnlyDictionary<string, object?>? arguments) : Probe(name, tags, logger), IProbe
 {
     private readonly Func<KestrunRunspacePoolManager> _poolAccessor = poolAccessor ?? throw new ArgumentNullException(nameof(poolAccessor));
     private readonly IReadOnlyDictionary<string, object?>? _arguments = arguments;
@@ -31,31 +31,8 @@ internal sealed class PowerShellScriptProbe(
         ? throw new ArgumentException("Probe script cannot be null or whitespace.", nameof(script))
         : script;
 
-    /// <summary>
-    /// Gets the name of the probe.
-    /// </summary>
-    public string Name { get; } = string.IsNullOrWhiteSpace(name)
-        ? throw new ArgumentException("Probe name cannot be null or empty.", nameof(name))
-        : name;
-
-    /// <summary>
-    /// The tags associated with the probe.
-    /// </summary>
-    public string[] Tags { get; } = tags is null
-        ? []
-        : [.. tags.Where(static t => !string.IsNullOrWhiteSpace(t))
-                      .Select(static t => t.Trim())
-                      .Distinct(StringComparer.OrdinalIgnoreCase)];
-
-    /// <inheritdoc />
-    public SerilogLogger Logger { get; init; } = logger ?? throw new ArgumentNullException(nameof(logger));
-
-    /// <summary>
-    /// Executes the PowerShell script and converts the output to a <see cref="ProbeResult"/>.
-    /// </summary>
-    /// <param name="ct">The cancellation token.</param>
-    /// <returns>A task representing the asynchronous operation, with a <see cref="ProbeResult"/> as the result.</returns>
-    public async Task<ProbeResult> CheckAsync(CancellationToken ct = default)
+    /// <inheritdoc/>
+    public override async Task<ProbeResult> CheckAsync(CancellationToken ct = default)
     {
         var pool = _poolAccessor();
         Runspace? runspace = null;

@@ -30,7 +30,9 @@ Describe 'Tutorial 12.3 Scheduling Report' -Tag 'Tutorial' {
                     $json.generatedAt | Should -Not -BeNullOrEmpty
                     $ok = $true; break
                 }
-            } catch { }
+            } catch { 
+                # Exception intentionally ignored to allow trying other timezone candidates.
+            }
         }
         $ok | Should -BeTrue -Because 'At least one timezone id must be accepted by the server'
     }

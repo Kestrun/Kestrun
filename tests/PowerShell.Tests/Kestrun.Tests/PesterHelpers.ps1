@@ -247,10 +247,10 @@ Start-KrServer
         $attempt++
         # Optional lightweight HTTP/HTTPS probe of '/' and '/online' endpoints to detect readiness
         $probeConfigs = @(
-            @{ Uri = "http://$serverIp`:$Port/online"; UseBasicParsing = $true; Method = 'Get'; TimeoutSec = 3; ErrorAction = 'Stop' },
-            @{ Uri = "https://$serverIp`:$Port/online"; UseBasicParsing = $true; Method = 'Get'; TimeoutSec = 3; ErrorAction = 'Stop'; SkipCertificateCheck = $true },
-            @{ Uri = "http://$serverIp`:$Port"; UseBasicParsing = $true; Method = 'Get'; TimeoutSec = 3; ErrorAction = 'Stop' },
-            @{ Uri = "https://$serverIp`:$Port"; UseBasicParsing = $true; Method = 'Get'; TimeoutSec = 3; ErrorAction = 'Stop'; SkipCertificateCheck = $true }
+            @{ Uri = "http://$serverIp`:$Port/online"; UseBasicParsing = $true; Method = 'Get'; TimeoutSec = 3; ErrorAction = 'Stop' ; MaximumRedirection = 0 ; SkipHttpErrorCheck = $true },
+            @{ Uri = "https://$serverIp`:$Port/online"; UseBasicParsing = $true; Method = 'Get'; TimeoutSec = 3; ErrorAction = 'Stop'; SkipCertificateCheck = $true ; MaximumRedirection = 0 ; SkipHttpErrorCheck = $true },
+            @{ Uri = "http://$serverIp`:$Port"; UseBasicParsing = $true; Method = 'Get'; TimeoutSec = 3; ErrorAction = 'Stop' ; MaximumRedirection = 0 ; SkipHttpErrorCheck = $true },
+            @{ Uri = "https://$serverIp`:$Port"; UseBasicParsing = $true; Method = 'Get'; TimeoutSec = 3; ErrorAction = 'Stop'; SkipCertificateCheck = $true ; MaximumRedirection = 0 ; SkipHttpErrorCheck = $true }
         )
         foreach ($config in $probeConfigs) {
             try {

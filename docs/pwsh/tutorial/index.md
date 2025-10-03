@@ -103,6 +103,9 @@ Stop the server with Ctrl+C in the terminal.
 | 51    | Health: Process Probe         | [Process Probe][ch-health-process]        | [Script][sc-health-4]           | External tool validation            |
 | 52    | Health: C# Inline Probe       | [C# Inline Probe][ch-health-csharp]       | [Script][sc-health-5]           | Inline .NET logic                   |
 | 53    | Health: Disk Probe            | [Disk Probe][ch-health-disk]              | [Script][sc-health-6]           | Disk space thresholds               |
+| 54    | Scheduler: Quickstart         | [Scheduling Quickstart][ch-sched-quick]   | [Script][sc-sched-quick]        | Enable scheduler, jobs, report      |
+| 55    | Scheduler: CRON               | [Scheduling with CRON][ch-sched-cron]     | [Script][sc-sched-cron]         | CRON expressions with seconds       |
+| 56    | Scheduler: Report             | [Scheduling Report][ch-sched-report]      | [Script][sc-sched-report]       | Report endpoint and timezone        |
 
 Static chapters and scripts are all linked directly above for quick navigation.
 
@@ -159,6 +162,9 @@ Static chapters and scripts are all linked directly above for quick navigation.
 [ch-health-process]: ./16.health/4.Health-Process-Probe
 [ch-health-csharp]: ./16.health/5.Health-CSharp-Probe
 [ch-health-disk]: ./16.health/6.Health-Disk-Probe
+[ch-sched-quick]: ./12.scheduling/1.Scheduling-Quickstart
+[ch-sched-cron]: ./12.scheduling/2.Scheduling-Cron
+[ch-sched-report]: ./12.scheduling/3.Scheduling-Report
 [sc-hello]: /pwsh/tutorial/examples/1.1-Hello-World.ps1
 [sc-content]: /pwsh/tutorial/examples/2.1-Multiple-Content-Types.ps1
 [sc-multilang]: /pwsh/tutorial/examples/2.2-Multi-Language-Routes.ps1
@@ -212,3 +218,6 @@ Static chapters and scripts are all linked directly above for quick navigation.
 [sc-health-4]: /pwsh/tutorial/examples/16.4-Health-Process-Probe.ps1
 [sc-health-5]: /pwsh/tutorial/examples/16.5-Health-CSharp-Probe.ps1
 [sc-health-6]: /pwsh/tutorial/examples/16.6-Health-Disk-Probe.ps1
+[sc-sched-quick]: /pwsh/tutorial/examples/12.1-Scheduling-Quickstart.ps1
+[sc-sched-cron]: /pwsh/tutorial/examples/12.2-Scheduling-Cron.ps1
+[sc-sched-report]: /pwsh/tutorial/examples/12.3-Scheduling-Report.ps1

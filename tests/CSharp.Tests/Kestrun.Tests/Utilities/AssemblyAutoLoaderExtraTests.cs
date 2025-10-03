@@ -3,6 +3,7 @@ using Xunit;
 
 namespace KestrunTests.Utilities;
 
+[Collection("SharedStateSerial")]
 public class AssemblyAutoLoaderExtraTests
 {
     [Fact]

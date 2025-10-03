@@ -19,6 +19,7 @@ public abstract class Probe(string name, IEnumerable<string>? tags, Serilog.ILog
         : [.. tags.Where(static t => !string.IsNullOrWhiteSpace(t))
                       .Select(static t => t.Trim())
                       .Distinct(StringComparer.OrdinalIgnoreCase)];
+
     /// <inheritdoc/>
     public Serilog.ILogger Logger { get; init; } = logger ?? throw new ArgumentNullException(nameof(logger));
 

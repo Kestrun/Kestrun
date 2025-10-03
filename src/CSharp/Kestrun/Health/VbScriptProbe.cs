@@ -1,6 +1,5 @@
 using Kestrun.Languages;
 using Kestrun.SharedState;
-using Microsoft.CodeAnalysis;
 using SerilogLogger = Serilog.ILogger;
 using Serilog.Events;
 

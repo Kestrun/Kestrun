@@ -497,7 +497,7 @@ public static class KestrunHttpMiddlewareExtensions
 
         if (cfg == null)
         {
-            return host.AddHttpsRedirection();   // fall back to your “blank” overload
+            return host.AddHttpsRedirection();   // fallback to parameterless overload
         }
 
         _ = host.AddService(services =>

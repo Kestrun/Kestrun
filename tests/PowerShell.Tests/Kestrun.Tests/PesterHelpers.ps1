@@ -680,7 +680,7 @@ function Assert-RouteContent {
 .OUTPUTS
     The input string with normalized ISO 8601 instant strings.
 #>
-function Normalize-IsoInstant {
+function Format-IsoInstant {
     param([string]$StringToNormalize)
 
     # Match ISO 8601 instants with optional fractional seconds and a TZ
@@ -725,8 +725,8 @@ function Compare-Deep {
     $expectedJson = ($Expected | ConvertTo-Json -Depth 99 -Compress).Replace("`r`n", "`n").Replace('\r\n', '\n')
     $actualJson = ($Actual | ConvertTo-Json -Depth 99 -Compress).Replace("`r`n", "`n").Replace('\r\n', '\n')
 
-    $actualJson = Normalize-IsoInstant $actualJson
-    $expectedJson = Normalize-IsoInstant $expectedJson
+    $actualJson = Format-IsoInstant $actualJson
+    $expectedJson = Format-IsoInstant $expectedJson
 
     $actualJson | Should -BeExactly $expectedJson
 }
@@ -1179,6 +1179,7 @@ function Get-SseEvent {
     The size of the file in bytes.
 #>
 function New-TestFile {
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseShouldProcessForStateChangingFunctions', '')]
     param(
         [string]$Path,
         [long]  $SizeBytes,

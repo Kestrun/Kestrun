@@ -28,5 +28,5 @@ public record LanguageOptions
     /// <summary>
     /// Additional metadata for the route, represented as key-value pairs.
     /// </summary>
-    public Dictionary<string, object?>? Arguments { get; set; } = [];
+    public Dictionary<string, object?>? Arguments { get; set; } = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase);
 }

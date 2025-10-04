@@ -1,4 +1,3 @@
-using System.CodeDom.Compiler;
 using Microsoft.AspNetCore.Diagnostics;
 
 namespace Kestrun.Hosting;
@@ -58,18 +57,13 @@ public static class KestrunHostStatusCodePagesExtensions
     {
         var compiled = KestrunHostMapExtensions.CompileScript(options, host.HostLogger);
 
-        async Task handler(HttpContext ctx)
+        async Task Handler(StatusCodeContext context)
         {
-            await compiled(ctx);
+            await compiled(context.HttpContext);
         }
 
-        return host.Use(app => app.UseStatusCodePages(handler));
+        return host.Use(app => app.UseStatusCodePages(Handler));
     }
-
-
-
-
-
 
     /// <summary>
     /// Adds a StatusCodePages middleware with the specified response body to send. This may include a '{0}' placeholder for the status code.

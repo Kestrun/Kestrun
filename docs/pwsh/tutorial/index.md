@@ -106,6 +106,13 @@ Stop the server with Ctrl+C in the terminal.
 | 54    | Scheduler: Quickstart         | [Scheduling Quickstart][ch-sched-quick]   | [Script][sc-sched-quick]        | Enable scheduler, jobs, report      |
 | 55    | Scheduler: CRON               | [Scheduling with CRON][ch-sched-cron]     | [Script][sc-sched-cron]         | CRON expressions with seconds       |
 | 56    | Scheduler: Report             | [Scheduling Report][ch-sched-report]      | [Script][sc-sched-report]       | Report endpoint and timezone        |
+| 57    | Status Code Pages: Default    | [Default Status Pages][ch-status-default] | [Script][sc-status-1]           | Basic error page middleware         |
+| 58    | Status Code Pages: Options    | [Custom Options][ch-status-options]       | [Script][sc-status-2]           | StatusCodePagesOptions config       |
+| 59    | Status Code Pages: Handler    | [Custom Handler][ch-status-handler]       | [Script][sc-status-3]           | Delegate function handling          |
+| 60    | Status Code Pages: Script     | [PowerShell Script][ch-status-script]     | [Script][sc-status-4]           | PowerShell error page generation    |
+| 61    | Status Code Pages: Format     | [Content Format][ch-status-format]        | [Script][sc-status-5]           | Custom content type & body format   |
+| 62    | Status Code Pages: Redirects  | [Redirect Pages][ch-status-redirects]     | [Script][sc-status-6]           | Redirect to error page URLs         |
+| 63    | Status Code Pages: Re-execute | [Re-execute Pipeline][ch-status-reexec]   | [Script][sc-status-7]           | Re-execute with alternate paths     |
 
 Static chapters and scripts are all linked directly above for quick navigation.
 
@@ -165,6 +172,13 @@ Static chapters and scripts are all linked directly above for quick navigation.
 [ch-sched-quick]: ./12.scheduling/1.Scheduling-Quickstart
 [ch-sched-cron]: ./12.scheduling/2.Scheduling-Cron
 [ch-sched-report]: ./12.scheduling/3.Scheduling-Report
+[ch-status-default]: /topics/statuscodepages
+[ch-status-options]: /topics/statuscodepages
+[ch-status-handler]: /topics/statuscodepages
+[ch-status-script]: /topics/statuscodepages
+[ch-status-format]: /topics/statuscodepages
+[ch-status-redirects]: /topics/statuscodepages
+[ch-status-reexec]: /topics/statuscodepages
 [sc-hello]: /pwsh/tutorial/examples/1.1-Hello-World.ps1
 [sc-content]: /pwsh/tutorial/examples/2.1-Multiple-Content-Types.ps1
 [sc-multilang]: /pwsh/tutorial/examples/2.2-Multi-Language-Routes.ps1
@@ -221,3 +235,10 @@ Static chapters and scripts are all linked directly above for quick navigation.
 [sc-sched-quick]: /pwsh/tutorial/examples/12.1-Scheduling-Quickstart.ps1
 [sc-sched-cron]: /pwsh/tutorial/examples/12.2-Scheduling-Cron.ps1
 [sc-sched-report]: /pwsh/tutorial/examples/12.3-Scheduling-Report.ps1
+[sc-status-1]: /pwsh/tutorial/examples/17.1-StatusCodePages-Default.ps1
+[sc-status-2]: /pwsh/tutorial/examples/17.2-StatusCodePages-Options.ps1
+[sc-status-3]: /pwsh/tutorial/examples/17.3-StatusCodePages-Handler.ps1
+[sc-status-4]: /pwsh/tutorial/examples/17.4-StatusCodePages-Script.ps1
+[sc-status-5]: /pwsh/tutorial/examples/17.5-StatusCodePages-ContentFormat.ps1
+[sc-status-6]: /pwsh/tutorial/examples/17.6-StatusCodePages-Redirects.ps1
+[sc-status-7]: /pwsh/tutorial/examples/17.7-StatusCodePages-ReExecute.ps1

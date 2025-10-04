@@ -43,4 +43,4 @@ Enable-KrConfiguration
 Add-KrHealthEndpoint -Pattern '/healthz' -DefaultTags 'self', 'infra'
 
 ## 8. Start server
-Start-KrServer
+Start-KrServer -CloseLogsOnExit

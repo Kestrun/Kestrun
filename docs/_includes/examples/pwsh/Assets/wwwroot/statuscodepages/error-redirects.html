@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Error {STATUS_CODE} - Redirected</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: linear-gradient(135deg, #ff9a9e 0%, #fecfef 50%, #fecfef 100%);
+            margin: 0;
+            padding: 0;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .error-container {
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.1);
+            padding: 50px;
+            text-align: center;
+            max-width: 600px;
+            width: 90%;
+            border: 3px solid #ff6b6b;
+        }
+        .error-icon {
+            font-size: 64px;
+            margin-bottom: 20px;
+        }
+        .error-code {
+            font-size: 48px;
+            font-weight: bold;
+            color: #ff6b6b;
+            margin: 0;
+        }
+        .error-title {
+            font-size: 24px;
+            color: #2c3e50;
+            margin: 20px 0;
+        }
+        .error-description {
+            color: #7f8c8d;
+            font-size: 16px;
+            margin-bottom: 30px;
+        }
+        .redirect-notice {
+            background: #e8f5e8;
+            border: 1px solid #4caf50;
+            border-radius: 5px;
+            padding: 15px;
+            margin: 20px 0;
+            color: #2e7d32;
+        }
+        .home-link {
+            background: #ff6b6b;
+            color: white;
+            text-decoration: none;
+            padding: 15px 30px;
+            border-radius: 25px;
+            display: inline-block;
+            transition: all 0.3s ease;
+        }
+        .home-link:hover {
+            background: #ff5252;
+            transform: translateY(-2px);
+        }
+    </style>
+</head>
+<body>
+    <div class="error-container">
+        <div class="error-icon">{ERROR_ICON}</div>
+        <div class="error-code">{STATUS_CODE}</div>
+        <h1 class="error-title">{ERROR_TITLE}</h1>
+        <p class="error-description">{ERROR_DESCRIPTION}</p>
+        <div class="redirect-notice">
+            🔄 You were automatically redirected to this error page
+        </div>
+        <a href="/hello" class="home-link">← Return to Home</a>
+    </div>
+</body>
+</html>

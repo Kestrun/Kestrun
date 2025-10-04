@@ -17,8 +17,6 @@
     The content type for Template mode (e.g. "text/plain" or "application/json").
 .PARAMETER BodyFormat
     The body format string for Template mode (e.g. "Oops {0}").
-.PARAMETER Options
-    A pre-configured StatusCodePagesOptions object.
 .PARAMETER LanguageOptions
     A pre-configured LanguageOptions object for custom scripted handling.
 .PARAMETER ScriptBlock
@@ -91,9 +89,6 @@ function Enable-KrStatusCodePage {
         [Parameter(ValueFromPipeline = $true)]
         [Kestrun.Hosting.KestrunHost] $Server,
 
-        # [ValidateSet('Default', 'Redirect', 'ReExecute', 'Template', 'Options', 'Custom')]
-        # [string] $Mode = 'Default',
-
         # Redirect
         [Parameter(Mandatory = $true, ParameterSetName = 'Redirect')]
         [string] $Location,
@@ -109,10 +104,6 @@ function Enable-KrStatusCodePage {
         [string] $ContentType,
         [Parameter(Mandatory = $true, ParameterSetName = 'Template')]
         [string] $BodyFormat,
-
-        # Options object
-        [Parameter(Mandatory = $true, ParameterSetName = 'Options')]
-        [Microsoft.AspNetCore.Diagnostics.StatusCodePagesOptions] $Options,
 
         # Custom via LanguageOptions or ScriptBlock
         [Parameter(ParameterSetName = 'LanguageOptions')]
@@ -151,9 +142,6 @@ function Enable-KrStatusCodePage {
             'Default' {
                 [Kestrun.Hosting.KestrunHostStatusCodePagesExtensions]::UseStatusCodePages($Server) | Out-Null
             }
-            'Options' {
-                [Kestrun.Hosting.KestrunHostStatusCodePagesExtensions]::UseStatusCodePages($Server, $Options) | Out-Null
-            }
             'Template' {
                 if ([string]::IsNullOrWhiteSpace($ContentType)) { throw '-ContentType is required for Mode=Template.' }
                 if ([string]::IsNullOrWhiteSpace($BodyFormat)) { throw '-BodyFormat is required for Mode=Template.' }
@@ -172,6 +160,7 @@ function Enable-KrStatusCodePage {
                 }
             }
             'LanguageOptions' {
+                # Custom via LanguageOptions
                 [Kestrun.Hosting.KestrunHostStatusCodePagesExtensions]::UseStatusCodePages($Server, $LanguageOptions) | Out-Null
             }
             default {
@@ -220,10 +209,14 @@ function Enable-KrStatusCodePage {
                         throw "Unrecognized ParameterSetName: $($PSCmdlet.ParameterSetName)"
                     }
                 }
+                # Register the status code pages middleware
                 [Kestrun.Hosting.KestrunHostStatusCodePagesExtensions]::UseStatusCodePages($Server, $lo) | Out-Null
             }
         }
 
-        if ($PassThru) { return $Server }
+        if ($PassThru.IsPresent) {
+            # if the PassThru switch is specified, return the modified server instance
+            return $Server
+        }
     }
 }

@@ -53,7 +53,7 @@ public static class KestrunHostHealthExtensions
             ShortCircuit = merged.ShortCircuit,
             ShortCircuitStatusCode = merged.ShortCircuitStatusCode,
             ThrowOnDuplicate = merged.ThrowOnDuplicate,
-            OpenAPI = new MapRouteOptions.OpenAPIMetadata
+            OpenAPI = new OpenAPIMetadata
             {
                 Summary = merged.OpenApiSummary,
                 Description = merged.OpenApiDescription,

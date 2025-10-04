@@ -47,16 +47,26 @@ public static class KestrunHostStatusCodePagesExtensions
         return host.Use(app => app.UseStatusCodePages(handler));
     }
 
- /*   public static KestrunHost UseStatusCodePages(this KestrunHost host, LanguageOptions options)
+    /// <summary>
+    /// Adds a StatusCodePages middleware with the specified script options that checks for responses with status codes
+    /// between 400 and 599 that do not have a body.
+    /// </summary>
+    /// <param name="host">The <see cref="KestrunHost"/> instance to configure.</param>
+    /// <param name="options">The script options to configure the status code pages middleware.</param>
+    /// <returns>The configured <see cref="KestrunHost"/> instance.</returns>
+    public static KestrunHost UseStatusCodePages(this KestrunHost host, Options.LanguageOptions options)
     {
-         var compiled = KestrunHostMapExtensions.CompileScript(options, host.HostLogger);
+        var compiled = KestrunHostMapExtensions.CompileScript(options, host.HostLogger);
 
+        async Task handler(HttpContext ctx)
+        {
+            await compiled(ctx);
+        }
 
-
-        return host.Use(app => app.UseStatusCodePages(options));
+        return host.Use(app => app.UseStatusCodePages(handler));
     }
 
-*/
+
 
 
 

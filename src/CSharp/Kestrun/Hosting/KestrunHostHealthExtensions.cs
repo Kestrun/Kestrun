@@ -43,7 +43,10 @@ public static class KestrunHostHealthExtensions
         {
             Pattern = merged.Pattern,
             HttpVerbs = [HttpVerb.Get],
-            Language = ScriptLanguage.Native,
+            ScriptCode = new LanguageOptions
+            {
+                Language = ScriptLanguage.Native,
+            },
             AllowAnonymous = merged.AllowAnonymous,
             DisableAntiforgery = true,
             RequireSchemes = merged.RequireSchemes,
@@ -62,6 +65,7 @@ public static class KestrunHostHealthExtensions
                 GroupName = merged.OpenApiGroupName
             }
         };
+
 
         // Auto-register endpoint only when enabled
         if (!merged.AutoRegisterEndpoint)

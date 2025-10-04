@@ -68,7 +68,10 @@ public static partial class KestrunHostMapExtensions
         {
             Pattern = pattern,
             HttpVerbs = [.. httpVerbs],
-            Language = ScriptLanguage.Native,
+            ScriptCode = new LanguageOptions
+            {
+                Language = ScriptLanguage.Native,
+            },
             RequireSchemes = requireSchemes ?? [] // No authorization by default
         }, handler);
     }
@@ -145,10 +148,13 @@ public static partial class KestrunHostMapExtensions
         {
             Pattern = pattern,
             HttpVerbs = [httpVerbs],
-            Code = scriptBlock,
-            Language = language,
+            ScriptCode = new LanguageOptions
+            {
+                Code = scriptBlock,
+                Language = language,
+                Arguments = arguments ?? [] // No additional arguments by default
+            },
             RequireSchemes = requireSchemes ?? [], // No authorization by default
-            Arguments = arguments ?? [] // No additional arguments by default
         });
     }
 
@@ -174,10 +180,13 @@ public static partial class KestrunHostMapExtensions
         {
             Pattern = pattern,
             HttpVerbs = [.. httpVerbs],
-            Code = scriptBlock,
-            Language = language,
+            ScriptCode = new LanguageOptions
+            {
+                Code = scriptBlock,
+                Language = language,
+                Arguments = arguments ?? [] // No additional arguments by default
+            },
             RequireSchemes = requireSchemes ?? [], // No authorization by default
-            Arguments = arguments ?? [] // No additional arguments by default
         });
     }
 
@@ -191,7 +200,7 @@ public static partial class KestrunHostMapExtensions
     {
         if (host.HostLogger.IsEnabled(LogEventLevel.Debug))
         {
-            host.HostLogger.Debug("AddMapRoute called with pattern={Pattern}, language={Language}, method={Methods}", options.Pattern, options.Language, options.HttpVerbs);
+            host.HostLogger.Debug("AddMapRoute called with pattern={Pattern}, language={Language}, method={Methods}", options.Pattern, options.ScriptCode.Language, options.HttpVerbs);
         }
 
         try
@@ -205,7 +214,7 @@ public static partial class KestrunHostMapExtensions
             var logger = host.HostLogger.ForContext("Route", routeOptions.Pattern);
 
             // Compile the script once – return a RequestDelegate
-            var compiled = CompileScript(routeOptions, logger);
+            var compiled = CompileScript(options.ScriptCode, logger);
 
             // Create and register the route
             return CreateAndRegisterRoute(host, routeOptions, compiled);
@@ -218,13 +227,13 @@ public static partial class KestrunHostMapExtensions
 
             // Re-throw with additional context
             throw new InvalidOperationException(
-                $"Failed to compile {options.Language} script for route '{options.Pattern}'. {ex.GetErrors().Count()} error(s) found.",
+                $"Failed to compile {options.ScriptCode.Language} script for route '{options.Pattern}'. {ex.GetErrors().Count()} error(s) found.",
                 ex);
         }
         catch (Exception ex)
         {
             throw new InvalidOperationException(
-                $"Failed to add route '{options.Pattern}' with method '{string.Join(", ", options.HttpVerbs)}' using {options.Language}: {ex.Message}",
+                $"Failed to add route '{options.Pattern}' with method '{string.Join(", ", options.HttpVerbs)}' using {options.ScriptCode.Language}: {ex.Message}",
                 ex);
         }
     }
@@ -253,9 +262,9 @@ public static partial class KestrunHostMapExtensions
         }
 
         // Validate code
-        if (string.IsNullOrWhiteSpace(options.Code))
+        if (string.IsNullOrWhiteSpace(options.ScriptCode.Code))
         {
-            throw new ArgumentException("ScriptBlock cannot be null or empty.", nameof(options.Code));
+            throw new ArgumentException("ScriptBlock cannot be null or empty.", nameof(options.ScriptCode.Code));
         }
 
         routeOptions = options;
@@ -283,11 +292,11 @@ public static partial class KestrunHostMapExtensions
     /// <summary>
     /// Compiles the script code for the specified language.
     /// </summary>
-    /// <param name="options">The MapRouteOptions containing the script and language.</param>
+    /// <param name="options">The language options containing the script code and language.</param>
     /// <param name="logger">The Serilog logger to use for compilation.</param>
     /// <returns>A compiled RequestDelegate that can handle HTTP requests.</returns>
     /// <exception cref="NotSupportedException">Thrown when the script language is not supported.</exception>
-    internal static RequestDelegate CompileScript(MapRouteOptions options, Serilog.ILogger logger)
+    internal static RequestDelegate CompileScript(LanguageOptions options, Serilog.ILogger logger)
     {
         return options.Language switch
         {
@@ -324,7 +333,7 @@ public static partial class KestrunHostMapExtensions
         }
 
         string[] methods = [.. routeOptions.HttpVerbs.Select(v => v.ToMethodString())];
-        var map = host.App!.MapMethods(routeOptions.Pattern!, methods, handler).WithLanguage(routeOptions.Language);
+        var map = host.App!.MapMethods(routeOptions.Pattern!, methods, handler).WithLanguage(routeOptions.ScriptCode.Language);
 
         if (host.HostLogger.IsEnabled(LogEventLevel.Debug))
         {
@@ -617,8 +626,11 @@ public static partial class KestrunHostMapExtensions
         {
             Pattern = string.Empty,
             HttpVerbs = [],
-            Language = ScriptLanguage.Native,
-            Code = string.Empty
+            ScriptCode = new LanguageOptions
+            {
+                Language = ScriptLanguage.Native,
+                Code = string.Empty
+            }
         };
         configure(options);
 
@@ -918,7 +930,10 @@ public static partial class KestrunHostMapExtensions
         {
             Pattern = pattern,
             HttpVerbs = [HttpVerb.Get], // GET-only
-            Language = ScriptLanguage.Native,
+            ScriptCode = new LanguageOptions
+            {
+                Language = ScriptLanguage.Native
+            },
             RequireSchemes = requireSchemes ?? [] // No authorization by default
         }, handler);
     }
@@ -1003,10 +1018,13 @@ public static partial class KestrunHostMapExtensions
             {
                 Pattern = pattern,
                 HttpVerbs = [HttpVerb.Get], // GET-only
-                Code = code,
-                Language = language,
+                ScriptCode = new LanguageOptions
+                {
+                    Language = language,
+                    Code = code,
+                    Arguments = arguments ?? [], // No additional arguments by default
+                },
                 RequireSchemes = requireSchemes ?? [], // No authorization by default
-                Arguments = arguments ?? [], // No additional arguments by default
             };
             // queue before static files
             return host.Use(app =>
@@ -1028,7 +1046,7 @@ public static partial class KestrunHostMapExtensions
     public static KestrunHost AddStaticMapOverride(this KestrunHost host, MapRouteOptions options)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(options.Pattern);
-        ArgumentException.ThrowIfNullOrWhiteSpace(options.Code);
+        ArgumentException.ThrowIfNullOrWhiteSpace(options.ScriptCode.Code);
         // queue before static files
         return host.Use(app =>
         {
@@ -1113,7 +1131,10 @@ public static partial class KestrunHostMapExtensions
         {
             Pattern = pattern,
             HttpVerbs = [HttpVerb.Get],
-            Language = ScriptLanguage.Native,
+            ScriptCode = new LanguageOptions
+            {
+                Language = ScriptLanguage.Native
+            },
             DisableAntiforgery = true,
             AllowAnonymous = true,
         };

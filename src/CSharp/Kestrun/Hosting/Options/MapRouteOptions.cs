@@ -4,7 +4,7 @@ namespace Kestrun.Hosting.Options;
 /// <summary>
 /// Options for mapping a route, including pattern, HTTP verbs, script code, authorization, and metadata.
 /// </summary>
-public record MapRouteOptions : LanguageOptions
+public record MapRouteOptions
 {
     /// <summary>
     /// The route pattern to match for this option.
@@ -50,11 +50,6 @@ public record MapRouteOptions : LanguageOptions
     /// The name of the rate limit policy to apply to this route, if any.
     /// </summary>
     public string? RateLimitPolicyName { get; set; }
-
-    /// <summary>
-    /// Additional metadata for the route, represented as key-value pairs.
-    /// </summary>
-    public Dictionary<string, object?>? Arguments { get; set; } = [];
 
     /// <summary>
     /// Endpoints to bind the route to, if any.

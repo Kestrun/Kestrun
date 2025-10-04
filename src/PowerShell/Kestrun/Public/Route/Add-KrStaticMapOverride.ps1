@@ -127,30 +127,31 @@ function Add-KrStaticMapOverride {
             $Options = [Kestrun.Hosting.Options.MapRouteOptions]::new()
             $Options.HttpVerbs = $Verbs
             $Options.Pattern = $Pattern
-            $Options.ExtraImports = $ExtraImports
-            $Options.ExtraRefs = $ExtraRefs
             if ($null -ne $AuthorizationSchema) {
                 $Options.RequireSchemes = $AuthorizationSchema
             }
             if ($null -ne $AuthorizationPolicy) {
                 $Options.RequirePolicies = $AuthorizationPolicy
             }
-
+            # ScriptCode property must be initialized
+            $Options.ScriptCode = [Kestrun.Scripting.LanguageOptions]::new()
             if ($null -ne $Arguments) {
                 $dict = [System.Collections.Generic.Dictionary[string, object]]::new()
                 foreach ($key in $Arguments.Keys) {
                     $dict[$key] = $Arguments[$key]
                 }
-                $Options.Arguments = $dict
+                $Options.ScriptCode.Arguments = $dict
             }
+            $Options.ScriptCode.ExtraImports = $ExtraImports
+            $Options.ScriptCode.ExtraRefs = $ExtraRefs
             switch ($PSCmdlet.ParameterSetName) {
                 'ScriptBlock' {
-                    $Options.Language = [Kestrun.Scripting.ScriptLanguage]::PowerShell
-                    $Options.Code = $ScriptBlock.ToString()
+                    $Options.ScriptCode.Language = [Kestrun.Scripting.ScriptLanguage]::PowerShell
+                    $Options.ScriptCode.Code = $ScriptBlock.ToString()
                 }
                 'Code' {
-                    $Options.Language = $Language
-                    $Options.Code = $Code
+                    $Options.ScriptCode.Language = $Language
+                    $Options.ScriptCode.Code = $Code
                 }
                 'CodeFilePath' {
                     if (-not (Test-Path -Path $CodeFilePath)) {
@@ -159,19 +160,19 @@ function Add-KrStaticMapOverride {
                     $extension = Split-Path -Path $CodeFilePath -Extension
                     switch ($extension) {
                         '.ps1' {
-                            $Options.ValidateCodeSettings.Language = [Kestrun.Scripting.ScriptLanguage]::PowerShell
+                            $Options.ScriptCode.Language = [Kestrun.Scripting.ScriptLanguage]::PowerShell
                         }
                         '.cs' {
-                            $Options.ValidateCodeSettings.Language = [Kestrun.Scripting.ScriptLanguage]::CSharp
+                            $Options.ScriptCode.Language = [Kestrun.Scripting.ScriptLanguage]::CSharp
                         }
                         '.vb' {
-                            $Options.ValidateCodeSettings.Language = [Kestrun.Scripting.ScriptLanguage]::VisualBasic
+                            $Options.ScriptCode.Language = [Kestrun.Scripting.ScriptLanguage]::VisualBasic
                         }
                         default {
                             throw "Unsupported '$extension' code file extension."
                         }
                     }
-                    $Options.ValidateCodeSettings.Code = Get-Content -Path $CodeFilePath -Raw
+                    $Options.ScriptCode.Code = Get-Content -Path $CodeFilePath -Raw
                 }
             }
         } else {

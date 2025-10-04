@@ -24,4 +24,9 @@ public record LanguageOptions
     /// Additional assembly references required for the script code.
     /// </summary>
     public Assembly[]? ExtraRefs { get; set; }
+
+    /// <summary>
+    /// Additional metadata for the route, represented as key-value pairs.
+    /// </summary>
+    public Dictionary<string, object?>? Arguments { get; set; } = [];
 }

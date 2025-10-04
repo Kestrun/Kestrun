@@ -75,7 +75,7 @@ jobs:
               .replace(/^-+|-+$/g, '')
               .slice(0, 60) || `issue-${number}`;
 
-            const branchName = `${type}/${number}-${slug}`;
+            const branchName = `${type}-${number}-${slug}`;
 
             // 5) Figure out default branch SHA
             const { data: repoData } = await github.rest.repos.get({ owner, repo });

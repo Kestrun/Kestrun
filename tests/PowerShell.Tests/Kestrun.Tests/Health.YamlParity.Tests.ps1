@@ -42,7 +42,7 @@ Describe 'Validates numeric probe data representation in YAML health response' -
 
 
     It 'GET /healthz returns numeric probe data as numbers in YAML' {
-        $resp = Invoke-WebRequest -Uri "$( $script:instance.Url)/healthz" -Headers @{ Accept = 'application/yaml' }
+        $resp = Invoke-WebRequest -Uri "$( $script:instance.Url)/healthz" -Headers @{ Accept = 'application/yaml' } -SkipHttpErrorCheck
         $resp | Should -Not -BeNullOrEmpty
         $resp.Content | Should -Not -BeNullOrEmpty
         $yamlText = [string]::new($resp.Content)

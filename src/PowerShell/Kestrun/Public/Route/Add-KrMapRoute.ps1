@@ -174,8 +174,7 @@ function Add-KrMapRoute {
             if ($null -ne $Endpoints -and $Endpoints.Count -gt 0) {
                 $Options.Endpoints = $Endpoints
             }
-            # ScriptCode property must be initialized
-            $Options.ScriptCode = [Kestrun.Scripting.LanguageOptions]::new()
+            # ScriptCode configuration
             $Options.ScriptCode.ExtraImports = $ExtraImports
             $Options.ScriptCode.ExtraRefs = $ExtraRefs
             if ($null -ne $Arguments) {

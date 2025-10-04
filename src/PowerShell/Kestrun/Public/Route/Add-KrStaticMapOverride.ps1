@@ -133,8 +133,7 @@ function Add-KrStaticMapOverride {
             if ($null -ne $AuthorizationPolicy) {
                 $Options.RequirePolicies = $AuthorizationPolicy
             }
-            # ScriptCode property must be initialized
-            $Options.ScriptCode = [Kestrun.Scripting.LanguageOptions]::new()
+            # ScriptCode configuration
             if ($null -ne $Arguments) {
                 $dict = [System.Collections.Generic.Dictionary[string, object]]::new()
                 foreach ($key in $Arguments.Keys) {

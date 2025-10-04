@@ -130,10 +130,12 @@ function Add-KrRouteGroup {
             New-KrMapRouteOption -Property @{
                 RequireSchemes = $AuthorizationSchema
                 RequirePolicies = $AuthorizationPolicy
-                ExtraImports = $ExtraImports
-                ExtraRefs = $ExtraRefs
-                Arguments = $dict
                 Pattern = $Prefix
+                ScriptCode = @{
+                    ExtraImports = $ExtraImports
+                    ExtraRefs = $ExtraRefs
+                    Arguments = $dict
+                }
             }
         }
         # Merge with parent (parent first, then current overrides)

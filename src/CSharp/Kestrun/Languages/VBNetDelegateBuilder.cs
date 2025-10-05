@@ -99,7 +99,8 @@ internal static class VBNetDelegateBuilder
             }
             finally
             {
-                await ctx.Response.CompleteAsync().ConfigureAwait(false);
+                // Do not complete the response here; allow downstream middleware (e.g., StatusCodePages)
+                // to produce a body for status-only responses when needed.
             }
         };
     }

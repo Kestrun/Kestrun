@@ -5,10 +5,11 @@
 # FileName: 17.7-StatusCodePages-ReExecute.ps1
 #
 param(
-    [int]$Port = 5007,
+    [int]$Port = 5000,
     [IPAddress]$IPAddress = [IPAddress]::Loopback # Use 'Loopback' for safety in tests/examples
 )
 
+Initialize-KrRoot -Path $PSScriptRoot
 New-KrLogger | Set-KrLoggerLevel -Level Debug |
     Add-KrSinkConsole | Register-KrLogger -Name 'console' -SetAsDefault
 
@@ -20,7 +21,7 @@ Add-KrEndpoint -Port $Port -IPAddress $IPAddress
 
 # Add the PowerShell runtime
 # !!!!Important!!!! this step is required to process PowerShell routes and middlewares
-Add-KrPowerShellRuntime
+#Add-KrPowerShellRuntime
 
 # Enable status code pages with re-execution
 # This will re-execute the request pipeline with the specified path and query format
@@ -30,34 +31,38 @@ Enable-KrStatusCodePage -PathFormat '/errors/{0}' -QueryFormat 'originalPath={0}
 # Enable Kestrun configuration
 Enable-KrConfiguration
 
-# Map a normal route
 Add-KrMapRoute -Verbs Get -Pattern '/hello' -ScriptBlock {
     # Read HTML template from file
-    $htmlPath = Join-Path $PSScriptRoot 'Assets\wwwroot\statuscodepages\welcome-reexecute.html'
-    $html = Get-Content -Path $htmlPath -Raw
-    Write-KrHtmlResponse -InputObject $html -StatusCode 200
+    $htmlPath = '.\Assets\wwwroot\statuscodepages\welcome-reexecute.html'
+    Write-KrHtmlResponse -FilePath $htmlPath -StatusCode 200
 }
 
-# Map routes that trigger different status codes (these will re-execute)
+# Map routes that trigger different status codes
 Add-KrMapRoute -Verbs Get -Pattern '/notfound' -ScriptBlock {
-    # Return empty response with 404 status to trigger re-execution
-    $Context.Response.StatusCode = 404
+    # Return empty response with 404 status to trigger custom error page
+    Write-KrStatusResponse -StatusCode 404
 }
 
 Add-KrMapRoute -Verbs Get -Pattern '/error' -ScriptBlock {
-    # Return empty response with 500 status to trigger re-execution
-    $Context.Response.StatusCode = 500
+    # Return empty response with 500 status to trigger custom error page
+    Write-KrStatusResponse -StatusCode 500
 }
 
 Add-KrMapRoute -Verbs Get -Pattern '/forbidden' -ScriptBlock {
-    # Return empty response with 403 status to trigger re-execution
-    $Context.Response.StatusCode = 403
+    # Return empty response with 403 status to trigger custom error page
+    Write-KrStatusResponse -StatusCode 403
+}
+
+Add-KrMapRoute -Verbs Get -Pattern '/unauthorized' -ScriptBlock {
+    # Return empty response with 401 status to trigger custom error page
+    Write-KrStatusResponse -StatusCode 401
 }
 
 # Map the error handling routes that re-execution will target
 Add-KrMapRoute -Verbs Get -Pattern '/errors/{statusCode}' -ScriptBlock {
     $statusCode = Get-KrRequestRouteParam -Name 'statusCode'
-    $originalPath = $Context.Request.Query['originalPath']
+    $originalPath = Get-KrRequestQuery -Name 'originalPath'
+
     $currentPath = $Context.Request.Path
     $method = $Context.Request.Method
 
@@ -97,21 +102,16 @@ Add-KrMapRoute -Verbs Get -Pattern '/errors/{statusCode}' -ScriptBlock {
     }
 
     # Read HTML template from file
-    $htmlTemplatePath = Join-Path $PSScriptRoot 'Assets\wwwroot\statuscodepages\error-reexecute.html'
-    $htmlTemplate = Get-Content -Path $htmlTemplatePath -Raw
-
-    # Replace placeholders with actual values
-    $html = $htmlTemplate -replace '\{STATUS_CODE\}', $statusCode
-    $html = $html -replace '\{ERROR_ICON\}', $errorInfo.icon
-    $html = $html -replace '\{ERROR_TITLE\}', $errorInfo.title
-    $html = $html -replace '\{ERROR_DESCRIPTION\}', $errorInfo.description
-    $html = $html -replace '\{ERROR_COLOR\}', $errorInfo.color
-    $html = $html -replace '\{METHOD\}', $method
-    $html = $html -replace '\{ORIGINAL_PATH\}', $originalPath
-    $html = $html -replace '\{CURRENT_PATH\}', $currentPath
-    $html = $html -replace '\{TIMESTAMP\}', (Get-Date -Format 'yyyy-MM-dd HH:mm:ss')
-
-    Write-KrHtmlResponse -InputObject $html -StatusCode 200
+    $htmlTemplate = 'Assets\wwwroot\statuscodepages\error-reexecute.html'
+    Write-KrTextResponse -InputObject 'ciao'
+    <#    Write-KrHtmlResponse -FilePath $htmlTemplate -StatusCode 200 -Variables @{
+        statusCode   = $statusCode
+        errorInfo    = $errorInfo
+        method       = $method
+        originalPath = $originalPath
+        currentPath  = $currentPath
+        timestamp    = (Get-Date -Format 'yyyy-MM-dd HH:mm:ss')
+    }#>
 }
 
 Write-Host "Server starting on http://$($IPAddress):$Port" -ForegroundColor Green

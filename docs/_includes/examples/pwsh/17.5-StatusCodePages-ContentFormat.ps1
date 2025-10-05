@@ -5,14 +5,14 @@
 # FileName: 17.5-StatusCodePages-ContentFormat.ps1
 #
 param(
-    [int]$Port = 5005,
+    [int]$Port = 5000,
     [IPAddress]$IPAddress = [IPAddress]::Loopback # Use 'Loopback' for safety in tests/examples
 )
 
 
 Initialize-KrRoot -Path $PSScriptRoot
 
-New-KrLogger | Set-KrLoggerLevel -Level Debug |
+New-KrLogger | Set-KrLoggerLevel -Level Information |
     Add-KrSinkConsole | Register-KrLogger -Name 'console' -SetAsDefault
 
 # Create a new Kestrun server
@@ -77,4 +77,4 @@ Write-Host "  http://$($IPAddress):$Port/unauthorized - Styled 401 error page" -
 Write-Host "  http://$($IPAddress):$Port/missing      - Styled 404 for unmapped route" -ForegroundColor Cyan
 
 # Start the server asynchronously
-Start-KrServer
+Start-KrServer -CloseLogsOnExit

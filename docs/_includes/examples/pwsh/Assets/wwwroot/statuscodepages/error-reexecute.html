@@ -79,17 +79,17 @@
 </head>
 <body>
     <div class="error-container">
-        <div class="error-icon">{ERROR_ICON}</div>
-        <div class="error-code">{STATUS_CODE}</div>
-        <h1 class="error-title">{ERROR_TITLE}</h1>
-        <p class="error-description">{ERROR_DESCRIPTION}</p>
+        <div class="error-icon">{{errorInfo.icon}}</div>
+        <div class="error-code">{{statusCode}}</div>
+        <h1 class="error-title">{{errorInfo.title}}</h1>
+        <p class="error-description">{{errorInfo.description}}</p>
 
         <div class="reexec-info">
             <h4>🔄 Re-execution Details</h4>
-            <p><strong>Original Request:</strong> <code>{METHOD} {ORIGINAL_PATH}</code></p>
-            <p><strong>Re-executed Path:</strong> <code>{CURRENT_PATH}</code></p>
-            <p><strong>Status Code:</strong> <code>{STATUS_CODE}</code></p>
-            <p><strong>Timestamp:</strong> <code>{TIMESTAMP}</code></p>
+            <p><strong>Original Request:</strong> <code>{{method}} {{originalPath}}</code></p>
+            <p><strong>Re-executed Path:</strong> <code>{{currentPath}}</code></p>
+            <p><strong>Status Code:</strong> <code>{{statusCode}}</code></p>
+            <p><strong>Timestamp:</strong> <code>{{timestamp}}</code></p>
         </div>
 
         <a href="/hello" class="home-link">← Return to Home</a>

@@ -9,9 +9,9 @@
     The Kestrun server instance (resolved if omitted via Resolve-KestrunServer).
 .PARAMETER LocationFormat
     The location URL for Redirect mode (e.g. "/error/{0}").
-.PARAMETER Path
+.PARAMETER PathFormat
     The path to re-execute for ReExecute mode (e.g. "/error/{0}").
-.PARAMETER Query
+.PARAMETER QueryFormat
     The query string to append for ReExecute mode (e.g. "?code={0}").
 .PARAMETER ContentType
     The content type for Template mode (e.g. "text/plain" or "application/json").
@@ -95,9 +95,9 @@ function Enable-KrStatusCodePage {
 
         # Re-execute
         [Parameter(Mandatory = $true, ParameterSetName = 'ReExecute')]
-        [string] $Path,
+        [string] $PathFormat,
         [Parameter(ParameterSetName = 'ReExecute')]
-        [string] $Query,
+        [string] $QueryFormat,
 
         # Template body
         [Parameter(Mandatory = $true, ParameterSetName = 'Template')]
@@ -155,13 +155,13 @@ function Enable-KrStatusCodePage {
                 #  [Kestrun.Hosting.KestrunHostStatusCodePagesExtensions]::UseStatusCodePagesWithRedirects($Server, $Location) | Out-Null
             }
             'ReExecute' {
-                if ([string]::IsNullOrWhiteSpace($Path)) { throw '-Path is required for Mode=ReExecute.' }
-                $statusCodeOptions.PathFormat = $Path
-                $statusCodeOptions.QueryFormat = $Query
-                #    if ($PSBoundParameters.ContainsKey('Query')) {
-                #       [Kestrun.Hosting.KestrunHostStatusCodePagesExtensions]::UseStatusCodePagesWithReExecute($Server, $Path, $Query) | Out-Null
+                if ([string]::IsNullOrWhiteSpace($PathFormat)) { throw '-Path is required for Mode=ReExecute.' }
+                $statusCodeOptions.PathFormat = $PathFormat
+                $statusCodeOptions.QueryFormat = $QueryFormat
+                #    if ($PSBoundParameters.ContainsKey('QueryFormat')) {
+                #       [Kestrun.Hosting.KestrunHostStatusCodePagesExtensions]::UseStatusCodePagesWithReExecute($Server, $PathFormat, $QueryFormat) | Out-Null
                 #    } else {
-                #        [Kestrun.Hosting.KestrunHostStatusCodePagesExtensions]::UseStatusCodePagesWithReExecute($Server, $Path) | Out-Null
+                #        [Kestrun.Hosting.KestrunHostStatusCodePagesExtensions]::UseStatusCodePagesWithReExecute($Server, $PathFormat) | Out-Null
                 #   }
             }
             'LanguageOptions' {

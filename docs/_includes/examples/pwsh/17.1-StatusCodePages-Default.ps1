@@ -55,5 +55,15 @@ Add-KrMapRoute -Verbs Get -Pattern '/unauthorized' -ScriptBlock {
     Write-KrStatusResponse -StatusCode 401
 }
 
+Write-Host "Server starting on http://$($IPAddress):$Port" -ForegroundColor Green
+Write-Host 'Try these URLs:' -ForegroundColor Yellow
+Write-Host "  http://$($IPAddress):$Port/hello        - Styled welcome page with test links" -ForegroundColor Cyan
+Write-Host "  http://$($IPAddress):$Port/notfound     - Styled 404 error page" -ForegroundColor Cyan
+Write-Host "  http://$($IPAddress):$Port/error        - Styled 500 error page" -ForegroundColor Cyan
+Write-Host "  http://$($IPAddress):$Port/forbidden    - Styled 403 error page" -ForegroundColor Cyan
+Write-Host "  http://$($IPAddress):$Port/unauthorized - Styled 401 error page" -ForegroundColor Cyan
+Write-Host "  http://$($IPAddress):$Port/missing      - Styled 404 for unmapped route" -ForegroundColor Cyan
+
+
 # Step 8: Start the server
 Start-KrServer -CloseLogsOnExit

@@ -842,6 +842,17 @@ public class KestrunHost : IDisposable
 
         HostLogger.Information("Application built successfully.");
 
+        // Register StatusCodePages BEFORE language runtimes so that re-executed requests
+        // pass through language middleware again (and get fresh RouteValues/context).
+        if (StatusCodeOptions is not null)
+        {
+            if (HostLogger.IsEnabled(LogEventLevel.Debug))
+            {
+                HostLogger.Debug("Status code pages middleware is enabled.");
+            }
+            _ = _app.UseStatusCodePages(StatusCodeOptions);
+        }
+
         if (PowershellMiddlewareEnabled)
         {
             if (HostLogger.IsEnabled(LogEventLevel.Debug))
@@ -857,15 +868,6 @@ public class KestrunHost : IDisposable
             _ = _app.UseLanguageRuntime(
                     ScriptLanguage.PowerShell,
                     b => b.UsePowerShellRunspace(_runspacePool));
-        }
-
-        if (StatusCodeOptions is not null)
-        {
-            if (HostLogger.IsEnabled(LogEventLevel.Debug))
-            {
-                HostLogger.Debug("Status code pages middleware is enabled.");
-            }
-            _ = _app.UseStatusCodePages(StatusCodeOptions);
         }
 
         HostLogger.Information("CWD: {CWD}", Directory.GetCurrentDirectory());

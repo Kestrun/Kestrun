@@ -62,7 +62,7 @@ Add-KrMapRoute -Verbs Get -Pattern '/unauthorized' -ScriptBlock {
 Add-KrMapRoute -Verbs Get -Pattern '/errors/{statusCode}' -ScriptBlock {
     $statusCode = Get-KrRequestRouteParam -Name 'statusCode'
     $originalPath = Get-KrRequestQuery -Name 'originalPath'
-
+    Expand-KrObject $Context.Request.RouteValues 
     $currentPath = $Context.Request.Path
     $method = $Context.Request.Method
 
@@ -104,7 +104,7 @@ Add-KrMapRoute -Verbs Get -Pattern '/errors/{statusCode}' -ScriptBlock {
     # Read HTML template from file
     $htmlTemplate = 'Assets\wwwroot\statuscodepages\error-reexecute.html'
 
-    Write-KrHtmlResponse -FilePath $htmlTemplate -StatusCode 200 -Variables @{
+    $variables = @{
         statusCode = $statusCode
         errorInfo = $errorInfo
         method = $method
@@ -112,6 +112,9 @@ Add-KrMapRoute -Verbs Get -Pattern '/errors/{statusCode}' -ScriptBlock {
         currentPath = $currentPath
         timestamp = (Get-Date -Format 'yyyy-MM-dd HH:mm:ss')
     }
+
+    Expand-KrObject -InputObject $variables
+    Write-KrHtmlResponse -FilePath $htmlTemplate -StatusCode 200 -Variables $variables
 }
 
 Write-Host "Server starting on http://$($IPAddress):$Port" -ForegroundColor Green

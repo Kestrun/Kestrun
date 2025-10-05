@@ -68,10 +68,10 @@
 </head>
 <body>
     <div class="error-container">
-        <div class="error-icon">{ERROR_ICON}</div>
-        <div class="error-code">{STATUS_CODE}</div>
-        <h1 class="error-title">{ERROR_TITLE}</h1>
-        <p class="error-description">{ERROR_DESCRIPTION}</p>
+        <div class="error-icon">{{errorInfo.icon}}</div>
+        <div class="error-code">{{statusCode}}</div>
+        <h1 class="error-title">{{errorInfo.title}}</h1>
+        <p class="error-description">{{errorInfo.description}}</p>
         <div class="redirect-notice">
             🔄 You were automatically redirected to this error page
         </div>

@@ -62,7 +62,7 @@ public class KestrunResponse(KestrunRequest request, int bodyAsyncThreshold = 81
     /// <summary>
     /// Gets or sets the MIME content type of the response.
     /// </summary>
-    public string ContentType { get; set; } = "text/plain";
+    public string? ContentType { get; set; } = "text/plain";
     /// <summary>
     /// Gets or sets the body of the response, which can be a string, byte array, stream, or file info.
     /// </summary>
@@ -1090,6 +1090,17 @@ public class KestrunResponse(KestrunRequest request, int bodyAsyncThreshold = 81
         IReadOnlyDictionary<string, object?> vars,
         int statusCode = 200) => WriteHtmlResponseFromFileAsync(filePath, vars, statusCode).GetAwaiter().GetResult();
 
+    /// <summary>
+    /// Writes only the specified HTTP status code, clearing any body or content type.
+    /// </summary>
+    /// <param name="statusCode">The HTTP status code to write.</param>
+    public void WriteStatusOnly(int statusCode)
+    {
+        // Clear any body indicators so StatusCodePages can run
+        ContentType = null;
+        StatusCode = statusCode;
+        Body = null;
+    }
     #endregion
 
     #region Apply to HttpResponse
@@ -1129,6 +1140,16 @@ public class KestrunResponse(KestrunRequest request, int bodyAsyncThreshold = 81
             if (Body is not null)
             {
                 await WriteBodyAsync(response).ConfigureAwait(false);
+            }
+            else
+            {
+                response.ContentType = null;
+                response.ContentLength = null;
+                if (Log.IsEnabled(LogEventLevel.Debug))
+                {
+                    Log.Debug("Status-only: HasStarted={HasStarted} CL={CL} CT='{CT}'",
+                        response.HasStarted, response.ContentLength, response.ContentType);
+                }
             }
         }
         catch (Exception ex)

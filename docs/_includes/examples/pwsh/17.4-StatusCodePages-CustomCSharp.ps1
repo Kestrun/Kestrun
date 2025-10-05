@@ -9,7 +9,8 @@ param(
     [IPAddress]$IPAddress = [IPAddress]::Loopback # Use 'Loopback' for safety in tests/examples
 )
 
-New-KrLogger | Add-KrSinkConsole | Register-KrLogger -Name 'console' -SetAsDefault
+New-KrLogger | Set-KrLoggerLevel -Level Debug |
+    Add-KrSinkConsole | Register-KrLogger -Name 'console' -SetAsDefault
 
 # Create a new Kestrun server
 New-KrServer -Name 'Status Code Pages with Script Server'

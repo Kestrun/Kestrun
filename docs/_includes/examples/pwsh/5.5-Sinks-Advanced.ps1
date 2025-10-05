@@ -14,7 +14,7 @@ param(
 )
 
 $base = New-KrLogger |
-    Set-KrLoggerMinimumLevel -Value Information |
+    Set-KrLoggerLevel -Value Information |
     Add-KrSinkConsole |
     Add-KrSinkFile -Path './logs/advanced-sinks.log' -RollingInterval Hour
 

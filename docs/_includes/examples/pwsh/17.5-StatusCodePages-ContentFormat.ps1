@@ -9,6 +9,12 @@ param(
     [IPAddress]$IPAddress = [IPAddress]::Loopback # Use 'Loopback' for safety in tests/examples
 )
 
+
+Initialize-KrRoot -Path $PSScriptRoot
+
+New-KrLogger | Set-KrLoggerLevel -Level Debug |
+    Add-KrSinkConsole | Register-KrLogger -Name 'console' -SetAsDefault
+
 # Create a new Kestrun server
 New-KrServer -Name 'Status Code Pages with Content Format Server'
 
@@ -17,7 +23,7 @@ Add-KrEndpoint -Port $Port -IPAddress $IPAddress
 
 # Add the PowerShell runtime
 # !!!!Important!!!! this step is required to process PowerShell routes and middlewares
-Add-KrPowerShellRuntime
+#Add-KrPowerShellRuntime
 
 # Define custom HTML template with placeholder for status code
 $htmlTemplatePath = Join-Path $PSScriptRoot 'Assets\wwwroot\statuscodepages\error-contentformat.html'
@@ -36,9 +42,8 @@ Enable-KrConfiguration
 # Map a normal route with some styling
 Add-KrMapRoute -Verbs Get -Pattern '/hello' -ScriptBlock {
     # Read HTML template from file
-    $htmlPath = Join-Path $PSScriptRoot 'Assets\wwwroot\statuscodepages\welcome-contentformat.html'
-    $html = Get-Content -Path $htmlPath -Raw
-    Write-KrHtmlResponse -InputObject $html -StatusCode 200
+    $htmlPath = '.\Assets\wwwroot\statuscodepages\welcome-contentformat.html'
+    Write-KrHtmlResponse -FilePath $htmlPath -StatusCode 200
 }
 
 # Map routes that trigger different status codes

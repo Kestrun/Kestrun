@@ -9,7 +9,7 @@ param(
 )
 
 New-KrLogger |
-    Set-KrLoggerMinimumLevel -Value Debug |
+    Set-KrLoggerLevel -Value Debug |
     Add-KrSinkConsole |
     Add-KrSinkFile -Path '.\logs\apache_access.log' -RollingInterval Day |
     Register-KrLogger -Name 'myApacheLogger'

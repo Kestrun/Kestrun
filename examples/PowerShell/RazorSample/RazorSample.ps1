@@ -39,7 +39,7 @@ try {
 }
 
 New-KrLogger |
-    Set-KrLoggerMinimumLevel -Value Debug |
+    Set-KrLoggerLevel -Value Debug |
     Add-KrSinkFile -Path '.\logs\razor.log' -RollingInterval Hour |
     Add-KrSinkConsole |
     Register-KrLogger -SetAsDefault -Name 'DefaultLogger'

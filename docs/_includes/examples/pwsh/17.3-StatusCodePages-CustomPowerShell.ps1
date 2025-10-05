@@ -10,7 +10,7 @@ param(
 )
 
 # Step 1: Set up logging
-New-KrLogger | Add-KrSinkConsole | Register-KrLogger -Name 'console' -SetAsDefault
+New-KrLogger | Set-KrLoggerLevel -Level Debug | Add-KrSinkConsole | Register-KrLogger -Name 'console' -SetAsDefault
 
 # Create a new Kestrun server
 New-KrServer -Name 'Status Code Pages with Handler Server'
@@ -57,6 +57,27 @@ Enable-KrConfiguration
 # Map a normal route
 Add-KrMapRoute -Verbs Get -Pattern '/hello' -ScriptBlock {
     Write-KrJsonResponse -InputObject @{ message = 'Hello, World!'; timestamp = (Get-Date -Format 'o') } -StatusCode 200
+}
+
+# Map routes that trigger different status codes
+Add-KrMapRoute -Verbs Get -Pattern '/notfound' -ScriptBlock {
+    # Return empty response with 404 status to trigger custom error page
+    Write-KrStatusResponse -StatusCode 404
+}
+
+Add-KrMapRoute -Verbs Get -Pattern '/error' -ScriptBlock {
+    # Return empty response with 500 status to trigger custom error page
+    Write-KrStatusResponse -StatusCode 500
+}
+
+Add-KrMapRoute -Verbs Get -Pattern '/forbidden' -ScriptBlock {
+    # Return empty response with 403 status to trigger custom error page
+    Write-KrStatusResponse -StatusCode 403
+}
+
+Add-KrMapRoute -Verbs Get -Pattern '/unauthorized' -ScriptBlock {
+    # Return empty response with 401 status to trigger custom error page
+    Write-KrStatusResponse -StatusCode 401
 }
 
 # Start the server

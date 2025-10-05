@@ -131,6 +131,11 @@ public class KestrunHost : IDisposable
     /// </summary>
     public bool DefaultHost { get; internal set; }
 
+    /// <summary>
+    /// Gets or sets the status code options for configuring status code pages.
+    /// </summary>
+    public StatusCodeOptions? StatusCodeOptions { get; set; }
+
     #endregion
 
     // Accepts optional module paths (from PowerShell)
@@ -770,7 +775,6 @@ public class KestrunHost : IDisposable
 
             // Register default probes after endpoints are logged but before marking configured
             RegisterDefaultHealthProbes();
-
             IsConfigured = true;
             HostLogger.Information("Configuration applied successfully.");
         }
@@ -854,6 +858,16 @@ public class KestrunHost : IDisposable
                     ScriptLanguage.PowerShell,
                     b => b.UsePowerShellRunspace(_runspacePool));
         }
+
+        if (StatusCodeOptions is not null)
+        {
+            if (HostLogger.IsEnabled(LogEventLevel.Debug))
+            {
+                HostLogger.Debug("Status code pages middleware is enabled.");
+            }
+            _ = _app.UseStatusCodePages(StatusCodeOptions);
+        }
+
         HostLogger.Information("CWD: {CWD}", Directory.GetCurrentDirectory());
         HostLogger.Information("ContentRoot: {Root}", _app.Environment.ContentRootPath);
         var pagesDir = Path.Combine(_app.Environment.ContentRootPath, "Pages");

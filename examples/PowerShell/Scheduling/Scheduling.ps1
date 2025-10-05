@@ -36,7 +36,7 @@ try {
 
 
 $logger = New-KrLogger |
-    Set-KrLoggerMinimumLevel -Value Debug |
+    Set-KrLoggerLevel -Value Debug |
     Add-KrSinkFile -Path '.\logs\scheduling.log' -RollingInterval Hour |
     Register-KrLogger -SetAsDefault -Name 'DefaultLogger' -PassThru
 

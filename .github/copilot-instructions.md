@@ -88,7 +88,7 @@ server.AddMapRoute("/api/{id}", HttpVerb.Get, "Context.Response.WriteJsonRespons
 Kestrun uses Serilog with structured logging patterns:
 ```powershell
 $logger = New-KrLogger |
-    Set-KrLoggerMinimumLevel -Value Debug |
+    Set-KrLoggerLevel -Value Debug |
     Add-KrSinkFile -Path './logs/app.log' -RollingInterval Hour |
     Add-KrSinkConsole |
     Register-KrLogger -Name 'DefaultLogger' -PassThru -SetAsDefault

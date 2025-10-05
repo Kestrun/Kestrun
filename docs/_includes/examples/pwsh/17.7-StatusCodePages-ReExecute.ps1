@@ -9,6 +9,9 @@ param(
     [IPAddress]$IPAddress = [IPAddress]::Loopback # Use 'Loopback' for safety in tests/examples
 )
 
+New-KrLogger | Set-KrLoggerLevel -Level Debug |
+    Add-KrSinkConsole | Register-KrLogger -Name 'console' -SetAsDefault
+
 # Create a new Kestrun server
 New-KrServer -Name 'Status Code Pages with Re-execution Server'
 
@@ -65,7 +68,7 @@ Add-KrMapRoute -Verbs Get -Pattern '/errors/{statusCode}' -ScriptBlock {
                 description = 'The requested page could not be found.'
                 icon = '🔍'
                 color = '#ff9800'
-            } 
+            }
         }
         '500' {
             @{
@@ -73,7 +76,7 @@ Add-KrMapRoute -Verbs Get -Pattern '/errors/{statusCode}' -ScriptBlock {
                 description = 'An internal error occurred while processing your request.'
                 icon = '⚠️'
                 color = '#f44336'
-            } 
+            }
         }
         '403' {
             @{
@@ -81,7 +84,7 @@ Add-KrMapRoute -Verbs Get -Pattern '/errors/{statusCode}' -ScriptBlock {
                 description = "You don't have permission to access this resource."
                 icon = '🚫'
                 color = '#e91e63'
-            } 
+            }
         }
         default {
             @{
@@ -89,7 +92,7 @@ Add-KrMapRoute -Verbs Get -Pattern '/errors/{statusCode}' -ScriptBlock {
                 description = 'An error occurred while processing your request.'
                 icon = '❌'
                 color = '#9c27b0'
-            } 
+            }
         }
     }
 

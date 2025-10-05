@@ -7,7 +7,7 @@
     or a scripted handler via LanguageOptions (PowerShell/C#).
 .PARAMETER Server
     The Kestrun server instance (resolved if omitted via Resolve-KestrunServer).
-.PARAMETER Location
+.PARAMETER LocationFormat
     The location URL for Redirect mode (e.g. "/error/{0}").
 .PARAMETER Path
     The path to re-execute for ReExecute mode (e.g. "/error/{0}").
@@ -91,7 +91,7 @@ function Enable-KrStatusCodePage {
 
         # Redirect
         [Parameter(Mandatory = $true, ParameterSetName = 'Redirect')]
-        [string] $Location,
+        [string] $LocationFormat,
 
         # Re-execute
         [Parameter(Mandatory = $true, ParameterSetName = 'ReExecute')]
@@ -135,33 +135,39 @@ function Enable-KrStatusCodePage {
     )
     begin {
         $Server = Resolve-KestrunServer -Server $Server
-        if (-not $Server) { throw 'Kestrun server instance could not be resolved.' }
     }
     process {
+        $statusCodeOptions = [Kestrun.Hosting.Options.StatusCodeOptions]::new($Server)
         switch ($PSCmdlet.ParameterSetName) {
             'Default' {
-                [Kestrun.Hosting.KestrunHostStatusCodePagesExtensions]::UseStatusCodePages($Server) | Out-Null
+                # [Kestrun.Hosting.KestrunHostStatusCodePagesExtensions]::UseStatusCodePages($Server) | Out-Null
             }
             'Template' {
                 if ([string]::IsNullOrWhiteSpace($ContentType)) { throw '-ContentType is required for Mode=Template.' }
                 if ([string]::IsNullOrWhiteSpace($BodyFormat)) { throw '-BodyFormat is required for Mode=Template.' }
-                [Kestrun.Hosting.KestrunHostStatusCodePagesExtensions]::UseStatusCodePages($Server, $ContentType, $BodyFormat) | Out-Null
+                $statusCodeOptions.ContentType = $ContentType
+                $statusCodeOptions.BodyFormat = $BodyFormat
+                # [Kestrun.Hosting.KestrunHostStatusCodePagesExtensions]::UseStatusCodePages($Server, $statusCodeOptions) | Out-Null
             }
             'Redirect' {
-                if ([string]::IsNullOrWhiteSpace($Location)) { throw '-Location is required for Mode=Redirect.' }
-                [Kestrun.Hosting.KestrunHostStatusCodePagesExtensions]::UseStatusCodePagesWithRedirects($Server, $Location) | Out-Null
+                if ([string]::IsNullOrWhiteSpace($LocationFormat)) { throw '-LocationFormat is required for Mode=Redirect.' }
+                $statusCodeOptions.LocationFormat = $LocationFormat
+                #  [Kestrun.Hosting.KestrunHostStatusCodePagesExtensions]::UseStatusCodePagesWithRedirects($Server, $Location) | Out-Null
             }
             'ReExecute' {
                 if ([string]::IsNullOrWhiteSpace($Path)) { throw '-Path is required for Mode=ReExecute.' }
-                if ($PSBoundParameters.ContainsKey('Query')) {
-                    [Kestrun.Hosting.KestrunHostStatusCodePagesExtensions]::UseStatusCodePagesWithReExecute($Server, $Path, $Query) | Out-Null
-                } else {
-                    [Kestrun.Hosting.KestrunHostStatusCodePagesExtensions]::UseStatusCodePagesWithReExecute($Server, $Path) | Out-Null
-                }
+                $statusCodeOptions.PathFormat = $Path
+                $statusCodeOptions.QueryFormat = $Query
+                #    if ($PSBoundParameters.ContainsKey('Query')) {
+                #       [Kestrun.Hosting.KestrunHostStatusCodePagesExtensions]::UseStatusCodePagesWithReExecute($Server, $Path, $Query) | Out-Null
+                #    } else {
+                #        [Kestrun.Hosting.KestrunHostStatusCodePagesExtensions]::UseStatusCodePagesWithReExecute($Server, $Path) | Out-Null
+                #   }
             }
             'LanguageOptions' {
+                $statusCodeOptions.LanguageOptions = $LanguageOptions
                 # Custom via LanguageOptions
-                [Kestrun.Hosting.KestrunHostStatusCodePagesExtensions]::UseStatusCodePages($Server, $LanguageOptions) | Out-Null
+                # [Kestrun.Hosting.KestrunHostStatusCodePagesExtensions]::UseStatusCodePages($Server, $LanguageOptions) | Out-Null
             }
             default {
                 $lo = [Kestrun.Hosting.Options.LanguageOptions]::new()
@@ -209,10 +215,13 @@ function Enable-KrStatusCodePage {
                         throw "Unrecognized ParameterSetName: $($PSCmdlet.ParameterSetName)"
                     }
                 }
+                $statusCodeOptions.LanguageOptions = $lo
                 # Register the status code pages middleware
-                [Kestrun.Hosting.KestrunHostStatusCodePagesExtensions]::UseStatusCodePages($Server, $lo) | Out-Null
+                #[Kestrun.Hosting.KestrunHostStatusCodePagesExtensions]::UseStatusCodePages($Server, $lo) | Out-Null
             }
         }
+        # Assign the configured options to the server instance
+        $Server.StatusCodeOptions = $statusCodeOptions
 
         if ($PassThru.IsPresent) {
             # if the PassThru switch is specified, return the modified server instance

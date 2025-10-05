@@ -5,9 +5,13 @@
 # FileName: 17.6-StatusCodePages-Redirects.ps1
 #
 param(
-    [int]$Port = 5006,
+    [int]$Port = 5000,
     [IPAddress]$IPAddress = [IPAddress]::Loopback # Use 'Loopback' for safety in tests/examples
 )
+Initialize-KrRoot -Path $PSScriptRoot
+
+New-KrLogger | #Set-KrLoggerLevel -Level Debug |
+    Add-KrSinkConsole | Register-KrLogger -Name 'console' -SetAsDefault
 
 # Create a new Kestrun server
 New-KrServer -Name 'Status Code Pages with Redirects Server'
@@ -17,7 +21,7 @@ Add-KrEndpoint -Port $Port -IPAddress $IPAddress
 
 # Add the PowerShell runtime
 # !!!!Important!!!! this step is required to process PowerShell routes and middlewares
-Add-KrPowerShellRuntime
+#Add-KrPowerShellRuntime
 
 # Enable status code pages with redirects
 # The {0} placeholder will be replaced with the actual status code
@@ -30,25 +34,29 @@ Enable-KrConfiguration
 # Map a normal route
 Add-KrMapRoute -Verbs Get -Pattern '/hello' -ScriptBlock {
     # Read HTML template from file
-    $htmlPath = Join-Path $PSScriptRoot 'Assets\wwwroot\statuscodepages\welcome-redirects.html'
-    $html = Get-Content -Path $htmlPath -Raw
-    Write-KrHtmlResponse -InputObject $html -StatusCode 200
+    $htmlPath = '.\Assets\wwwroot\statuscodepages\welcome-contentformat.html'
+    Write-KrHtmlResponse -FilePath $htmlPath -StatusCode 200
 }
 
-# Map routes that trigger different status codes (these will redirect)
+# Map routes that trigger different status codes
 Add-KrMapRoute -Verbs Get -Pattern '/notfound' -ScriptBlock {
-    # Return empty response with 404 status to trigger redirect
-    $Context.Response.StatusCode = 404
+    # Return empty response with 404 status to trigger custom error page
+    Write-KrStatusResponse -StatusCode 404
 }
 
 Add-KrMapRoute -Verbs Get -Pattern '/error' -ScriptBlock {
-    # Return empty response with 500 status to trigger redirect
-    $Context.Response.StatusCode = 500
+    # Return empty response with 500 status to trigger custom error page
+    Write-KrStatusResponse -StatusCode 500
 }
 
 Add-KrMapRoute -Verbs Get -Pattern '/forbidden' -ScriptBlock {
-    # Return empty response with 403 status to trigger redirect
-    $Context.Response.StatusCode = 403
+    # Return empty response with 403 status to trigger custom error page
+    Write-KrStatusResponse -StatusCode 403
+}
+
+Add-KrMapRoute -Verbs Get -Pattern '/unauthorized' -ScriptBlock {
+    # Return empty response with 401 status to trigger custom error page
+    Write-KrStatusResponse -StatusCode 401
 }
 
 # Map the error pages that redirects will target
@@ -63,16 +71,19 @@ Add-KrMapRoute -Verbs Get -Pattern '/error/{statusCode}' -ScriptBlock {
     }
 
     # Read HTML template from file
-    $htmlTemplatePath = Join-Path $PSScriptRoot 'Assets\wwwroot\statuscodepages\error-redirects.html'
-    $htmlTemplate = Get-Content -Path $htmlTemplatePath -Raw
+    $htmlTemplatePath = 'Assets\wwwroot\statuscodepages\error-redirects.html'
+    #   $htmlTemplate = Get-Content -Path $htmlTemplatePath -Raw
 
     # Replace placeholders with actual values
-    $html = $htmlTemplate -replace '\{STATUS_CODE\}', $statusCode
-    $html = $html -replace '\{ERROR_ICON\}', $errorInfo.icon
-    $html = $html -replace '\{ERROR_TITLE\}', $errorInfo.title
-    $html = $html -replace '\{ERROR_DESCRIPTION\}', $errorInfo.description
+    #  $html = $htmlTemplate -replace '\{STATUS_CODE\}', $statusCode
+    #   $html = $html -replace '\{ERROR_ICON\}', $errorInfo.icon
+    # $html = $html -replace '\{ERROR_TITLE\}', $errorInfo.title
+    # $html = $html -replace '\{ERROR_DESCRIPTION\}', $errorInfo.description
 
-    Write-KrHtmlResponse -InputObject $html -StatusCode 200
+    Write-KrHtmlResponse -FilePath $htmlTemplatePath -StatusCode 200 -Variables @{
+        statusCode = $statusCode
+        errorInfo = $errorInfo
+    }
 }
 
 Write-Host "Server starting on http://$($IPAddress):$Port" -ForegroundColor Green
@@ -86,4 +97,4 @@ Write-Host '' -ForegroundColor White
 Write-Host 'Note: Watch the browser URL change during redirects!' -ForegroundColor Magenta
 
 # Start the server asynchronously
-Start-KrServer
+Start-KrServer -CloseLogsOnExit

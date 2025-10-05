@@ -21,7 +21,7 @@ Add-KrEndpoint -Port $Port -IPAddress $IPAddress
 
 # Step 4: Add the PowerShell runtime
 # !!!!Important!!!! this step is required to process PowerShell routes and middlewares
-Add-KrPowerShellRuntime
+#Add-KrPowerShellRuntime
 
 # Step 5: Enable default status code pages middleware
 Enable-KrStatusCodePage
@@ -32,6 +32,27 @@ Enable-KrConfiguration
 # Step 7: Map a normal route
 Add-KrMapRoute -Verbs Get -Pattern '/hello' -ScriptBlock {
     Write-KrTextResponse -InputObject 'Hello, World!' -StatusCode 200
+}
+
+# Map routes that trigger different status codes
+Add-KrMapRoute -Verbs Get -Pattern '/notfound' -ScriptBlock {
+    # Return empty response with 404 status to trigger custom error page
+    Write-KrStatusResponse -StatusCode 404
+}
+
+Add-KrMapRoute -Verbs Get -Pattern '/error' -ScriptBlock {
+    # Return empty response with 500 status to trigger custom error page
+    Write-KrStatusResponse -StatusCode 500
+}
+
+Add-KrMapRoute -Verbs Get -Pattern '/forbidden' -ScriptBlock {
+    # Return empty response with 403 status to trigger custom error page
+    Write-KrStatusResponse -StatusCode 403
+}
+
+Add-KrMapRoute -Verbs Get -Pattern '/unauthorized' -ScriptBlock {
+    # Return empty response with 401 status to trigger custom error page
+    Write-KrStatusResponse -StatusCode 401
 }
 
 # Step 8: Start the server

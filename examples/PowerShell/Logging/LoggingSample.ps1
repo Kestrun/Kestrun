@@ -32,7 +32,7 @@ New-KrServer -Name "MyKestrunServer"
 $levelSwitch = New-KrLevelSwitch -MinimumLevel Verbose
 
 $l0 = New-KrLogger |
-    Set-KrLoggerMinimumLevel -Value Verbose -ToPreference |
+    Set-KrLoggerLevel -Value Verbose -ToPreference |
     Add-KrEnrichEnvironment |
     Add-EnrichWithExceptionDetail |
     Add-KrEnrichFromLogContext |
@@ -46,7 +46,7 @@ Close-KrLogger -Logger $l0
 
 # Setup new logger
 New-KrLogger |
-    Set-KrLoggerMinimumLevel -Value Verbose |
+    Set-KrLoggerLevel -Value Verbose |
     Add-KrEnrichEnvironment |
     Add-EnrichWithExceptionDetail |
     Add-KrSinkFile -Path ".\logs\test-.log" -RollingInterval Hour -OutputTemplate '{Timestamp:yyyy-MM-dd HH:mm:ss.fff zzz} [{Level:u3}] {Message:lj}{NewLine}{Exception} {Properties:j}{NewLine}' |
@@ -80,7 +80,7 @@ try {
 
 
 New-KrLogger |
-    Set-KrLoggerMinimumLevel -Value Verbose |
+    Set-KrLoggerLevel -Value Verbose |
     Add-KrEnrichEnvironment |
     Add-EnrichWithExceptionDetail |
     Add-KrSinkConsole -OutputTemplate "[{MachineName} {Timestamp:HH:mm:ss} {Level:u3}] {Message:lj}{NewLine}{Exception}" |

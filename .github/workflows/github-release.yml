@@ -20,7 +20,7 @@ jobs:
 
   codeql:
     name: Security (CodeQL + PSSA)
-    uses: Kestrun/Kestrun/.github/workflows/codeql-core.yml@main
+    uses: Kestrun/Kestrun/.github/workflows/codeql.yml@main
     with:
       is_pr: false
     secrets: inherit

@@ -37,7 +37,17 @@ public static class StatusCodePageExtensions
         // If PathFormat is set, use re-execute
         if (!string.IsNullOrWhiteSpace(options.PathFormat))
         {
-            return app.UseStatusCodePagesWithReExecute(options.PathFormat, options.QueryFormat);
+            // Normalize query format: ASP.NET Core expects leading '?' for non-empty query
+            var query = options.QueryFormat;
+            if (!string.IsNullOrWhiteSpace(query))
+            {
+                query = query.Trim();
+                if (!query.StartsWith("?", StringComparison.Ordinal))
+                {
+                    query = "?" + query;
+                }
+            }
+            return app.UseStatusCodePagesWithReExecute(options.PathFormat, query);
         }
 
         if (!string.IsNullOrWhiteSpace(options.ContentType) && !string.IsNullOrWhiteSpace(options.BodyFormat))

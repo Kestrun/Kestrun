@@ -53,7 +53,7 @@ internal static class VBNetDelegateBuilder
         {
             throw new ArgumentNullException(nameof(code), "VB.NET code cannot be null or whitespace.");
         }
-        // 1. Compile the VB.NET code into a script 
+        // 1. Compile the VB.NET code into a script
         //    - Use VisualBasicScript.Create() to create a script with the provided code
         //    - Use ScriptOptions to specify imports, references, and language version
         //    - Inject the provided arguments into the globals
@@ -451,8 +451,8 @@ internal static class VBNetDelegateBuilder
         if (locals?.ContainsKey("username") ?? false)
         {
             _ = sb.AppendLine("""
-        ' only bind creds if someone passed them in 
-                        Dim username As String = CStr(g.Locals("username"))                
+        ' only bind creds if someone passed them in
+                        Dim username As String = CStr(g.Locals("username"))
         """);
         }
 
@@ -497,7 +497,7 @@ internal static class VBNetDelegateBuilder
                 code.Split('\n').Select(l => "        " + l.TrimEnd('\r'))));
         }
         _ = sb.AppendLine("""
-                     
+
                 End Function
             End Module
     """);

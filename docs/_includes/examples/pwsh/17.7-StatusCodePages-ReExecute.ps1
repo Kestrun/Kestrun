@@ -103,15 +103,15 @@ Add-KrMapRoute -Verbs Get -Pattern '/errors/{statusCode}' -ScriptBlock {
 
     # Read HTML template from file
     $htmlTemplate = 'Assets\wwwroot\statuscodepages\error-reexecute.html'
-    Write-KrTextResponse -InputObject 'ciao'
-    <#    Write-KrHtmlResponse -FilePath $htmlTemplate -StatusCode 200 -Variables @{
-        statusCode   = $statusCode
-        errorInfo    = $errorInfo
-        method       = $method
+
+    Write-KrHtmlResponse -FilePath $htmlTemplate -StatusCode 200 -Variables @{
+        statusCode = $statusCode
+        errorInfo = $errorInfo
+        method = $method
         originalPath = $originalPath
-        currentPath  = $currentPath
-        timestamp    = (Get-Date -Format 'yyyy-MM-dd HH:mm:ss')
-    }#>
+        currentPath = $currentPath
+        timestamp = (Get-Date -Format 'yyyy-MM-dd HH:mm:ss')
+    }
 }
 
 Write-Host "Server starting on http://$($IPAddress):$Port" -ForegroundColor Green

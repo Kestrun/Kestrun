@@ -121,6 +121,16 @@ public class KestrunHost : IDisposable
     /// </summary>
     public CacheControlHeaderValue? DefaultCacheControl { get; internal set; }
 
+    /// <summary>
+    /// Gets the shared state manager for managing shared data across requests and sessions.
+    /// </summary>
+    public bool PowershellMiddlewareEnabled { get; set; } = false;
+
+    /// <summary>
+    /// Gets or sets a value indicating whether this instance is the default Kestrun host.
+    /// </summary>
+    public bool DefaultHost { get; internal set; }
+
     #endregion
 
     // Accepts optional module paths (from PowerShell)
@@ -828,17 +838,22 @@ public class KestrunHost : IDisposable
 
         HostLogger.Information("Application built successfully.");
 
-        if (_runspacePool is null)
+        if (PowershellMiddlewareEnabled)
         {
-            throw new InvalidOperationException("Runspace pool is not initialized. Call EnableConfiguration first.");
+            if (HostLogger.IsEnabled(LogEventLevel.Debug))
+            {
+                HostLogger.Debug("PowerShell middleware is enabled.");
+            }
+
+            if (_runspacePool is null)
+            {
+                throw new InvalidOperationException("Runspace pool is not initialized. Call EnableConfiguration first.");
+            }
+            HostLogger.Information("Adding PowerShell runtime");
+            _ = _app.UseLanguageRuntime(
+                    ScriptLanguage.PowerShell,
+                    b => b.UsePowerShellRunspace(_runspacePool));
         }
-        _ = _app.UseLanguageRuntime(
-                ScriptLanguage.PowerShell,
-                b => b.UsePowerShellRunspace(_runspacePool));
-
-        //_ = _app.UseRouting();
-       // _ = _app.MapControllers();
-
         HostLogger.Information("CWD: {CWD}", Directory.GetCurrentDirectory());
         HostLogger.Information("ContentRoot: {Root}", _app.Environment.ContentRootPath);
         var pagesDir = Path.Combine(_app.Environment.ContentRootPath, "Pages");
@@ -1131,7 +1146,6 @@ public class KestrunHost : IDisposable
             return appField?.GetValue(this) is WebApplication app && !app.Lifetime.ApplicationStopping.IsCancellationRequested;
         }
     }
-
 
     #endregion
 

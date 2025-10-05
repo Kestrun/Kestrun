@@ -18,19 +18,15 @@ New-KrServer -Name 'Status Code Pages with Handler Server'
 # Add a listener on the specified port and IP address
 Add-KrEndpoint -Port $Port -IPAddress $IPAddress
 
-# Add the PowerShell runtime
-# !!!!Important!!!! this step is required to process PowerShell routes and middlewares
-#Add-KrPowerShellRuntime
 
 # Create a custom handler function
 $scriptBlock = {
-
-    $statusCode = $KrContext.Response.StatusCode
-    $response = $KrContext.Response
-    $request = $KrContext.Request
+    $statusCode = $Context.Response.StatusCode
+    $response = $Context.Response
+    $request = $Context.Request
 
     # Log the error
-    Write-Host "Status Code $statusCode triggered for path: $($request.Path)" -ForegroundColor Red
+    Write-KrLog -Level Information -Message 'Status Code {StatusCode} triggered for path {Path}:' -Values $statusCode, $request.Path
 
     $response.ContentType = 'application/json'
 
@@ -47,7 +43,7 @@ $scriptBlock = {
         timestamp = (Get-Date -Format 'o')
         path = $request.Path.Value
         method = $request.Method
-    } | ConvertTo-Json
+    }
 
     Write-KrJsonResponse -InputObject $errorResponse -StatusCode $statusCode
 }

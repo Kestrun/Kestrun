@@ -17,10 +17,6 @@ New-KrServer -Name 'Status Code Pages with Script Server'
 # Add a listener on the specified port and IP address
 Add-KrEndpoint -Port $Port -IPAddress $IPAddress
 
-# Add the PowerShell runtime
-# !!!!Important!!!! this step is required to process PowerShell routes and middlewares
-Add-KrPowerShellRuntime
-
 # Create C# script options for status code handling
 $code = @'
     var __resp = Context.Response;
@@ -86,6 +82,27 @@ Add-KrMapRoute -Verbs Get -Pattern '/hello' -ScriptBlock {
         timestamp = Get-Date -Format 'yyyy-MM-dd HH:mm:ss'
         status = 'success'
     } -StatusCode 200
+}
+
+# Map routes that trigger different status codes
+Add-KrMapRoute -Verbs Get -Pattern '/notfound' -ScriptBlock {
+    # Return empty response with 404 status to trigger custom error page
+    $Context.Response.StatusCode = 404
+}
+
+Add-KrMapRoute -Verbs Get -Pattern '/error' -ScriptBlock {
+    # Return empty response with 500 status to trigger custom error page
+    $Context.Response.StatusCode = 500
+}
+
+Add-KrMapRoute -Verbs Get -Pattern '/forbidden' -ScriptBlock {
+    # Return empty response with 403 status to trigger custom error page
+    $Context.Response.StatusCode = 403
+}
+
+Add-KrMapRoute -Verbs Get -Pattern '/unauthorized' -ScriptBlock {
+    # Return empty response with 401 status to trigger custom error page
+    $Context.Response.StatusCode = 401
 }
 
 # Start the server asynchronously

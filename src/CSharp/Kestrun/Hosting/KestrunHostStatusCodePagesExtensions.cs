@@ -1,4 +1,7 @@
 using Microsoft.AspNetCore.Diagnostics;
+using System.Management.Automation;
+using Kestrun.Languages;
+using Kestrun.Models;
 
 namespace Kestrun.Hosting;
 
@@ -59,7 +62,48 @@ public static class KestrunHostStatusCodePagesExtensions
 
         async Task Handler(StatusCodeContext context)
         {
-            await compiled(context.HttpContext);
+            var httpContext = context.HttpContext;
+
+            // If we're running a PowerShell script but the runspace middleware did not execute
+            // (e.g., no matched endpoint so UseWhen predicate failed), bootstrap a temporary
+            // runspace and KestrunContext so the compiled delegate can run safely.
+            if (options.Language == Scripting.ScriptLanguage.PowerShell &&
+                !httpContext.Items.ContainsKey(PowerShellDelegateBuilder.PS_INSTANCE_KEY))
+            {
+                var pool = host.RunspacePool; // throws if not initialized
+                var runspace = await pool.AcquireAsync(httpContext.RequestAborted);
+                using var ps = PowerShell.Create();
+                ps.Runspace = runspace;
+
+                // Build Kestrun abstractions and inject into context for PS delegate to use
+                var req = await KestrunRequest.NewRequest(httpContext);
+                var res = new KestrunResponse(req)
+                {
+                    StatusCode = httpContext.Response.StatusCode
+                };
+                var kr = new KestrunContext(req, res, httpContext);
+
+                httpContext.Items[PowerShellDelegateBuilder.PS_INSTANCE_KEY] = ps;
+                httpContext.Items[PowerShellDelegateBuilder.KR_CONTEXT_KEY] = kr;
+                var ss = ps.Runspace.SessionStateProxy;
+                ss.SetVariable("Context", kr);
+
+                try
+                {
+                    await compiled(httpContext);
+                }
+                finally
+                {
+                    pool.Release(ps.Runspace);
+                    ps.Dispose();
+                    _ = httpContext.Items.Remove(PowerShellDelegateBuilder.PS_INSTANCE_KEY);
+                    _ = httpContext.Items.Remove(PowerShellDelegateBuilder.KR_CONTEXT_KEY);
+                }
+            }
+            else
+            {
+                await compiled(httpContext);
+            }
         }
 
         return host.Use(app => app.UseStatusCodePages(Handler));

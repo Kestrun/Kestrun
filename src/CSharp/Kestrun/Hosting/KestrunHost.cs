@@ -826,6 +826,19 @@ public class KestrunHost : IDisposable
         // 2️⃣  Build the WebApplication
         _app = Builder.Build();
 
+        HostLogger.Information("Application built successfully.");
+
+        if (_runspacePool is null)
+        {
+            throw new InvalidOperationException("Runspace pool is not initialized. Call EnableConfiguration first.");
+        }
+        _ = _app.UseLanguageRuntime(
+                ScriptLanguage.PowerShell,
+                b => b.UsePowerShellRunspace(_runspacePool));
+
+        //_ = _app.UseRouting();
+       // _ = _app.MapControllers();
+
         HostLogger.Information("CWD: {CWD}", Directory.GetCurrentDirectory());
         HostLogger.Information("ContentRoot: {Root}", _app.Environment.ContentRootPath);
         var pagesDir = Path.Combine(_app.Environment.ContentRootPath, "Pages");

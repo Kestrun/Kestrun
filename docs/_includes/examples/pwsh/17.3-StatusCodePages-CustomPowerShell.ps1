@@ -20,7 +20,7 @@ Add-KrEndpoint -Port $Port -IPAddress $IPAddress
 
 # Add the PowerShell runtime
 # !!!!Important!!!! this step is required to process PowerShell routes and middlewares
-Add-KrPowerShellRuntime
+#Add-KrPowerShellRuntime
 
 # Create a custom handler function
 $scriptBlock = {

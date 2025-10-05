@@ -140,34 +140,25 @@ function Enable-KrStatusCodePage {
         $statusCodeOptions = [Kestrun.Hosting.Options.StatusCodeOptions]::new($Server)
         switch ($PSCmdlet.ParameterSetName) {
             'Default' {
-                # [Kestrun.Hosting.KestrunHostStatusCodePagesExtensions]::UseStatusCodePages($Server) | Out-Null
+                # Nothing to configure; use default plain text handler
             }
             'Template' {
                 if ([string]::IsNullOrWhiteSpace($ContentType)) { throw '-ContentType is required for Mode=Template.' }
                 if ([string]::IsNullOrWhiteSpace($BodyFormat)) { throw '-BodyFormat is required for Mode=Template.' }
                 $statusCodeOptions.ContentType = $ContentType
                 $statusCodeOptions.BodyFormat = $BodyFormat
-                # [Kestrun.Hosting.KestrunHostStatusCodePagesExtensions]::UseStatusCodePages($Server, $statusCodeOptions) | Out-Null
             }
             'Redirect' {
                 if ([string]::IsNullOrWhiteSpace($LocationFormat)) { throw '-LocationFormat is required for Mode=Redirect.' }
                 $statusCodeOptions.LocationFormat = $LocationFormat
-                #  [Kestrun.Hosting.KestrunHostStatusCodePagesExtensions]::UseStatusCodePagesWithRedirects($Server, $Location) | Out-Null
             }
             'ReExecute' {
                 if ([string]::IsNullOrWhiteSpace($PathFormat)) { throw '-Path is required for Mode=ReExecute.' }
                 $statusCodeOptions.PathFormat = $PathFormat
                 $statusCodeOptions.QueryFormat = $QueryFormat
-                #    if ($PSBoundParameters.ContainsKey('QueryFormat')) {
-                #       [Kestrun.Hosting.KestrunHostStatusCodePagesExtensions]::UseStatusCodePagesWithReExecute($Server, $PathFormat, $QueryFormat) | Out-Null
-                #    } else {
-                #        [Kestrun.Hosting.KestrunHostStatusCodePagesExtensions]::UseStatusCodePagesWithReExecute($Server, $PathFormat) | Out-Null
-                #   }
             }
             'LanguageOptions' {
                 $statusCodeOptions.LanguageOptions = $LanguageOptions
-                # Custom via LanguageOptions
-                # [Kestrun.Hosting.KestrunHostStatusCodePagesExtensions]::UseStatusCodePages($Server, $LanguageOptions) | Out-Null
             }
             default {
                 $lo = [Kestrun.Hosting.Options.LanguageOptions]::new()
@@ -216,8 +207,6 @@ function Enable-KrStatusCodePage {
                     }
                 }
                 $statusCodeOptions.LanguageOptions = $lo
-                # Register the status code pages middleware
-                #[Kestrun.Hosting.KestrunHostStatusCodePagesExtensions]::UseStatusCodePages($Server, $lo) | Out-Null
             }
         }
         # Assign the configured options to the server instance

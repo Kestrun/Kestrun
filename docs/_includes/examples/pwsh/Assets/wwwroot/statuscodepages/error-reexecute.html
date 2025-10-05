@@ -1,7 +1,10 @@
 <!DOCTYPE html>
 <html>
+
 <head>
-    <title>Error {STATUS_CODE} - Re-executed</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Error {{statusCode}} - Re-executed</title>
     <style>
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -13,6 +16,7 @@
             align-items: center;
             justify-content: center;
         }
+
         .error-container {
             background: white;
             border-radius: 15px;
@@ -21,28 +25,33 @@
             text-align: center;
             max-width: 700px;
             width: 90%;
-            border-top: 5px solid {ERROR_COLOR};
+
+            border-top: 5px solid {{errorInfo.color}};
         }
+
         .error-icon {
             font-size: 72px;
             margin-bottom: 20px;
         }
+
         .error-code {
             font-size: 54px;
             font-weight: bold;
-            color: {ERROR_COLOR};
-            margin: 0;
-        }
-        .error-title {
+
+            color: {{errorInfo.color}};
+
+            color: {{errorInfo.color}};
             font-size: 28px;
             color: #2c3e50;
             margin: 20px 0;
         }
+
         .error-description {
             color: #7f8c8d;
             font-size: 18px;
             margin-bottom: 30px;
         }
+
         .reexec-info {
             background: #e3f2fd;
             border: 1px solid #2196f3;
@@ -51,32 +60,35 @@
             margin: 25px 0;
             text-align: left;
         }
+
         .reexec-info h4 {
             color: #1976d2;
             margin-top: 0;
         }
+
         .reexec-info code {
             background: #f5f5f5;
             padding: 2px 6px;
             border-radius: 3px;
             font-family: 'Courier New', monospace;
         }
+
         .home-link {
-            background: {ERROR_COLOR};
+            background: {{errorInfo.color}};
+
+            ;
             color: white;
             text-decoration: none;
             padding: 15px 30px;
-            border-radius: 25px;
-            display: inline-block;
-            transition: all 0.3s ease;
-            margin-top: 10px;
-        }
+            background: {{errorInfo.color}};
+
         .home-link:hover {
             transform: translateY(-2px);
             box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
         }
     </style>
 </head>
+
 <body>
     <div class="error-container">
         <div class="error-icon">{{errorInfo.icon}}</div>
@@ -95,4 +107,5 @@
         <a href="/hello" class="home-link">← Return to Home</a>
     </div>
 </body>
+
 </html>

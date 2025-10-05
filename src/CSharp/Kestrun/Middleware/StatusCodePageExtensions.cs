@@ -52,8 +52,24 @@ public static class StatusCodePageExtensions
 
         if (!string.IsNullOrWhiteSpace(options.ContentType) && !string.IsNullOrWhiteSpace(options.BodyFormat))
         {
-            // If both ContentType and BodyFormat are set, use them
-            return app.UseStatusCodePages(options.ContentType, options.BodyFormat);
+            // If both ContentType and BodyFormat are set, use them.
+            // Escape curly braces for String.Format safety, but preserve the {0} placeholder used for status code.
+            // If the template already contains escaped braces ({{ or }}), assume it is pre-escaped and skip.
+            static string EscapeTemplate(string bodyFormat)
+            {
+                if (bodyFormat.Contains("{{", StringComparison.Ordinal) || bodyFormat.Contains("}}", StringComparison.Ordinal))
+                {
+                    return bodyFormat; // already escaped
+                }
+
+                var escaped = bodyFormat.Replace("{", "{{").Replace("}", "}}");
+                // restore the status-code placeholder
+                escaped = escaped.Replace("{{0}}", "{0}");
+                return escaped;
+            }
+
+            var safeBody = EscapeTemplate(options.BodyFormat);
+            return app.UseStatusCodePages(options.ContentType, safeBody);
         }
 
         // If ScriptOptions is set, use a custom handler to execute the script

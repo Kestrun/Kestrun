@@ -62,7 +62,7 @@ Add-KrMapRoute -Verbs Get -Pattern '/unauthorized' -ScriptBlock {
 Add-KrMapRoute -Verbs Get -Pattern '/errors/{statusCode}' -ScriptBlock {
     $statusCode = Get-KrRequestRouteParam -Name 'statusCode'
     $originalPath = Get-KrRequestQuery -Name 'originalPath'
-    Expand-KrObject $Context.Request.RouteValues 
+    Expand-KrObject $Context.Request.RouteValues
     $currentPath = $Context.Request.Path
     $method = $Context.Request.Method
 

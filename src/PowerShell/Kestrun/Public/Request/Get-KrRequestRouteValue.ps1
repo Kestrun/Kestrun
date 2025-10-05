@@ -22,15 +22,6 @@ function Get-KrRequestRouteParam {
         [string]$Name
     )
     if ($null -ne $Context) {
-        # Prefer live HttpContext route values so re-executed requests (StatusCodePagesWithReExecute)
-        # see the updated route data. Fall back to snapshot on KestrunRequest.
-        $live = $Context.HttpContext?.Request?.RouteValues
-        if ($null -ne $live) {
-            $val = $live[$Name]
-            if ($null -ne $val) { return $val }
-        }
-
-        # Fallback to KestrunRequest snapshot
         if ($null -ne $Context.Request -and $null -ne $Context.Request.RouteValues) {
             return $Context.Request.RouteValues[$Name]
         }

@@ -47,7 +47,7 @@ jobs:
       # Build C# so your DLLs exist (good for your optional import check)
       - name: 🧰 Setup .NET 8/9
         if: matrix.language == 'csharp'
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@v5
         with:
           dotnet-version: |
             8.0.x

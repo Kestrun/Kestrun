@@ -70,7 +70,7 @@ jobs:
               uses: actions/checkout@ff7abcd0c3c05ccf6adc123a8cd1fd4fb30fb493 # v5 pin
 
             - name: 🧰 Setup .NET 8 & 9
-              uses: actions/setup-dotnet@d4c94342e560b34958eacfc5d055d21461ed1c5d # v4.3.1 pin
+              uses: actions/setup-dotnet@740310365d5065c44c30d213e7963107ebfd22d5 # v4.3.1 pin
               with:
                   dotnet-version: |
                       8.0.x
@@ -139,7 +139,7 @@ jobs:
               uses: actions/checkout@v5
 
             - name: 🧰 Setup .NET 8 & 9
-              uses: actions/setup-dotnet@d4c94342e560b34958eacfc5d055d21461ed1c5d # v4.3.1 pin
+              uses: actions/setup-dotnet@740310365d5065c44c30d213e7963107ebfd22d5 # v4.3.1 pin
               with:
                   dotnet-version: |
                       8.0.x
@@ -229,7 +229,7 @@ jobs:
                   persist-credentials: false
 
             - name: 🧰 Setup .NET 8 & 9
-              uses: actions/setup-dotnet@d4c94342e560b34958eacfc5d055d21461ed1c5d
+              uses: actions/setup-dotnet@740310365d5065c44c30d213e7963107ebfd22d5
               with:
                   dotnet-version: |
                       8.0.x

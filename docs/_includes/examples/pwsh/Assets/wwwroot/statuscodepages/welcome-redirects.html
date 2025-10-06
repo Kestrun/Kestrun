@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Welcome - Redirect Demo</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            margin-top: 50px;
+            background: #f0f8ff;
+        }
+
+        .container {
+            background: white;
+            display: inline-block;
+            padding: 40px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .test-links {
+            margin-top: 30px;
+        }
+
+        .test-links a {
+            display: inline-block;
+            margin: 5px 10px;
+            padding: 10px 20px;
+            background: #dc3545;
+            color: white;
+            text-decoration: none;
+            border-radius: 5px;
+        }
+
+        .test-links a:hover {
+            background: #c82333;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h1>Hello, World!</h1>
+        <p>Welcome to the Status Code Pages Redirect demo!</p>
+        <p>When you click these links, you'll be redirected to custom error pages.</p>
+        <div class="test-links">
+            <a href="/notfound">Trigger 404 Redirect</a>
+            <a href="/error">Trigger 500 Redirect</a>
+            <a href="/forbidden">Trigger 403 Redirect</a>
+            <a href="/missing">Trigger Missing Page Redirect</a>
+        </div>
+    </div>
+</body>
+
+</html>

@@ -22,27 +22,29 @@ function _KrMerge-MRO {
         if ($Parent.Pattern) { "$($Parent.Pattern)/$($Child.Pattern)" } else { $Child.Pattern }
     } else { $Parent.Pattern }
 
-    $extraRefs = if ($null -ne $Child.ExtraRefs) {
-        if ($Parent.ExtraRefs) {
-            $Parent.ExtraRefs + $Child.ExtraRefs
+    $extraRefs = if ($null -ne $Child.ScriptCode.ExtraRefs) {
+        if ($Parent.ScriptCode.ExtraRefs) {
+            $Parent.ScriptCode.ExtraRefs + $Child.ScriptCode.ExtraRefs
         } else {
-            $Child.ExtraRefs
+            $Child.ScriptCode.ExtraRefs
         }
-    } else { $Parent.ExtraRefs }
+    } else { $Parent.ScriptCode.ExtraRefs }
 
     $merged = @{
         Pattern = $pattern.Replace('//', '/')
         HttpVerbs = if ($null -ne $Child.HttpVerbs -and ($Child.HttpVerbs.Count -gt 0)) { $Child.HttpVerbs } else { $Parent.HttpVerbs }
-        Code = if ($Child.Code) { $Child.Code } else { $Parent.Code }
-        Language = if ($null -ne $Child.Language) { $Child.Language } else { $Parent.Language }
-        ExtraImports = _KrMerge-Unique $Parent.ExtraImports $Child.ExtraImports
-        ExtraRefs = $extraRefs
         RequireSchemes = _KrMerge-Unique $Parent.RequireSchemes $Child.RequireSchemes
         RequirePolicies = _KrMerge-Unique $Parent.RequirePolicies $Child.RequirePolicies
         CorsPolicyName = if ($Child.CorsPolicyName) { $Child.CorsPolicyName } else { $Parent.CorsPolicyName }
-        Arguments = _KrMerge-Args $Parent.Arguments $Child.Arguments
         OpenAPI = if ($Child.OpenAPI) { $Child.OpenAPI } else { $Parent.OpenAPI }
         ThrowOnDuplicate = $Child.ThrowOnDuplicate -or $Parent.ThrowOnDuplicate
+        ScriptCode = @{
+            Code = if ($Child.ScriptCode.Code) { $Child.ScriptCode.Code } else { $Parent.ScriptCode.Code }
+            Language = if ($null -ne $Child.ScriptCode.Language) { $Child.ScriptCode.Language } else { $Parent.ScriptCode.Language }
+            ExtraImports = _KrMerge-Unique $Parent.ScriptCode.ExtraImports $Child.ScriptCode.ExtraImports
+            ExtraRefs = $extraRefs
+            Arguments = _KrMerge-Args $Parent.ScriptCode.Arguments $Child.ScriptCode.Arguments
+        }
     }
     return New-KrMapRouteOption -Property $merged
 }

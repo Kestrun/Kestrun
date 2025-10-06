@@ -13,6 +13,10 @@
         An optional name of a registered logger to use for logging.
         It's mutually exclusive with the Logger parameter.
         If specified, the logger with this name will be used instead of the default logger.
+    .PARAMETER DisablePowershellMiddleware
+        If specified, the PowerShell middleware will be disabled for this server instance.
+    .PARAMETER Default
+        If specified, this server instance will be set as the default instance.
     .PARAMETER PassThru
         If specified, the cmdlet will return the created server instance.
     .PARAMETER Force
@@ -37,6 +41,10 @@ function New-KrServer {
         [string]$LoggerName,
         [Parameter()]
         [switch]$PassThru,
+        [Parameter()]
+        [switch]$DisablePowershellMiddleware,
+        [Parameter()]
+        [switch]$Default,
         [Parameter()]
         [switch]$Force
     )
@@ -71,8 +79,9 @@ function New-KrServer {
                 $Logger = [Kestrun.Logging.LoggerManager]::Get($LoggerName)
             }
         }
+        $enablePowershellMiddleware = -not $DisablePowershellMiddleware.IsPresent
 
-        $server = [Kestrun.KestrunHostManager]::Create($Name, $Logger, [string[]] $modulePaths)
+        $server = [Kestrun.KestrunHostManager]::Create($Name, $Logger, [string[]] $modulePaths, $Default.IsPresent, $enablePowershellMiddleware)
         if ($PassThru.IsPresent) {
             # if the PassThru switch is specified, return the modified server instance
             return $Server

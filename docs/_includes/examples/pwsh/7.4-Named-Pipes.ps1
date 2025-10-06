@@ -19,9 +19,6 @@ New-KrServer -Name 'Endpoints Pipes'
 # 3. Add a named pipe listener. DO NOT prepend \\./pipe/. Provide only the short name.
 Add-KrNamedPipeListener -NamedPipeName $NamedPipeName
 
-# 4. Add the PowerShell runtime so script routes can execute
-Add-KrPowerShellRuntime
-
 # 5. Finalize configuration (after this, mappings are locked in)
 Enable-KrConfiguration
 

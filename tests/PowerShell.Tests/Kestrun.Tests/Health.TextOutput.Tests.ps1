@@ -18,8 +18,6 @@ Describe 'Example 16.3-Health-Http-Probe' -Tag 'Tutorial', 'Health' {
             # Add a listener on the configured port and IP address
             Add-KrEndpoint -Port $Port -IPAddress $IPAddress
 
-            Add-KrPowerShellRuntime
-
             # Add a simple health probe that returns numeric data
             Add-KrHealthProbe -Name 'QuickProbe' -ScriptBlock {
                 New-KrProbeResult Healthy 'All good' -Data @{ latencyMs = 5 }

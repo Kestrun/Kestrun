@@ -9,7 +9,7 @@ param(
 )
 # 1. (Optional) Logging pipeline so we see events
 New-KrLogger |
-    Set-KrLoggerMinimumLevel -Value Debug |
+    Set-KrLoggerLevel -Value Debug |
     Add-KrSinkConsole |
     Register-KrLogger -Name 'console' -SetAsDefault | Out-Null
 
@@ -20,8 +20,6 @@ New-KrServer -Name 'Server Limits'
 # This listener will be used to demonstrate server limits configuration.
 Add-KrEndpoint -Port $Port -IPAddress $IPAddress
 
-# 4. Add PowerShell runtime for script routes and middlewares
-Add-KrPowerShellRuntime
 
 # 5. Set server limits for request body size, concurrent connections, and other limits
 Set-KrServerLimit -MaxRequestBodySize 1048576 -MaxConcurrentConnections 1 -KeepAliveTimeoutSeconds 60 -MaxRequestHeadersTotalSize 16384

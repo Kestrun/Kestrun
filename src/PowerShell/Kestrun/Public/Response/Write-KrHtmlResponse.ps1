@@ -46,12 +46,10 @@ function Write-KrHtmlResponse {
                     Write-KrLog -Level Verbose -Message "Resolved file path: $resolvedPath"
                     # Call the C# method on the $Context.Response object
                     $Context.Response.WriteHtmlResponseFromFile($resolvedPath, $readOnlyDictionary, $StatusCode)
-                    Write-Information "HTML response written for $FilePath"
                 }
                 'Template' {
                     # Call the C# method on the $Context.Response object
                     $Context.Response.WriteHtmlResponse($Template, $readOnlyDictionary, $StatusCode)
-                    Write-Information 'HTML response written from template'
                 }
             }
         } catch {

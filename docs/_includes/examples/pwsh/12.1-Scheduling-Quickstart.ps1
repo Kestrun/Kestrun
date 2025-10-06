@@ -22,7 +22,7 @@ New-KrServer -Name 'Scheduling Demo'
 Add-KrEndpoint -Port $Port -IPAddress $IPAddress
 
 ## 4. Runtime + Scheduler
-Add-KrPowerShellRuntime
+
 Add-KrScheduling -MaxRunspaces 4
 
 ## 5. Shared state (for demo route)

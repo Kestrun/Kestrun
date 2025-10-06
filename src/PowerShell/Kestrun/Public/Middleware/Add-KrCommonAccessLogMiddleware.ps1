@@ -40,7 +40,6 @@
     .EXAMPLE
         $server = New-KrServer -Name "My Server" |
             Add-KrListener -Port 8080 -IPAddress ([IPAddress]::Any) |
-            Add-KrPowerShellRuntime |
             Add-KrCommonAccessLogMiddleware -LoggerName 'myLogger' -PassThru
 
         Creates a new Kestrun server instance, adds a listener on port 8080 and the PowerShell runtime,

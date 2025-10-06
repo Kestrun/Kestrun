@@ -35,9 +35,6 @@ Add-KrEndpoint -Port $Port -IPAddress $IPAddress
 # HTTPS listener
 Add-KrEndpoint -Port $port2 -IPAddress $IPAddress -CertPath $certPath -CertPassword $pw
 
-# Add PowerShell runtime
-Add-KrPowerShellRuntime
-
 # Enable configuration
 Enable-KrConfiguration
 

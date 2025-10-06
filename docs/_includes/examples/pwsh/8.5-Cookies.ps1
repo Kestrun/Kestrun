@@ -10,7 +10,7 @@ param(
 )
 # 1. Logging
 New-KrLogger |
-    Set-KrLoggerMinimumLevel -Value Debug |
+    Set-KrLoggerLevel -Value Debug |
     Add-KrSinkConsole |
     Register-KrLogger -Name 'console' -SetAsDefault | Out-Null
 
@@ -20,8 +20,6 @@ New-KrServer -Name 'Auth Cookies'
 # 3. Listener
 Add-KrEndpoint -Port $Port -IPAddress $IPAddress -SelfSignedCert
 
-# 4. Runtime
-Add-KrPowerShellRuntime
 
 # 5. Define cookie builder
 

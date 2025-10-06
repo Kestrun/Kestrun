@@ -39,7 +39,7 @@ try {
 }
 
 $logger = New-KrLogger |
-    Set-KrLoggerMinimumLevel -Value Debug |
+    Set-KrLoggerLevel -Value Debug |
     Add-KrSinkFile -Path '.\logs\sharedState.log' -RollingInterval Hour |
     Add-KrSinkConsole |
     Register-KrLogger -Name 'DefaultLogger' -PassThru -SetAsDefault
@@ -49,9 +49,9 @@ Set-KrSharedState -Name 'Visits' -Value @{Count = 0 }
 $server = New-KrServer -Name 'MyKestrunServer' -Logger $logger -PassThru
 
 # Listen on port 5000 (HTTP)
-Add-KrEndpoint -Port 5000 -PassThru | Add-KrPowerShellRuntime -PassThru |
+Add-KrEndpoint -Port 5000
 
-    Enable-KrConfiguration -PassThru
+Enable-KrConfiguration
 
 
 # ─────────────────────────────────────────────────────────────────────────────

@@ -54,7 +54,7 @@ public class KestrunResponse(KestrunRequest request, int bodyAsyncThreshold = 81
     /// <summary>
     /// Gets or sets the HTTP status code for the response.
     /// </summary>
-    public int StatusCode { get; set; } = 200;
+    public int StatusCode { get; set; } = request.Context.Response.StatusCode;
     /// <summary>
     /// Gets or sets the collection of HTTP headers for the response.
     /// </summary>
@@ -62,7 +62,7 @@ public class KestrunResponse(KestrunRequest request, int bodyAsyncThreshold = 81
     /// <summary>
     /// Gets or sets the MIME content type of the response.
     /// </summary>
-    public string ContentType { get; set; } = "text/plain";
+    public string? ContentType { get; set; } = "text/plain";
     /// <summary>
     /// Gets or sets the body of the response, which can be a string, byte array, stream, or file info.
     /// </summary>
@@ -1090,6 +1090,17 @@ public class KestrunResponse(KestrunRequest request, int bodyAsyncThreshold = 81
         IReadOnlyDictionary<string, object?> vars,
         int statusCode = 200) => WriteHtmlResponseFromFileAsync(filePath, vars, statusCode).GetAwaiter().GetResult();
 
+    /// <summary>
+    /// Writes only the specified HTTP status code, clearing any body or content type.
+    /// </summary>
+    /// <param name="statusCode">The HTTP status code to write.</param>
+    public void WriteStatusOnly(int statusCode)
+    {
+        // Clear any body indicators so StatusCodePages can run
+        ContentType = null;
+        StatusCode = statusCode;
+        Body = null;
+    }
     #endregion
 
     #region Apply to HttpResponse
@@ -1122,13 +1133,24 @@ public class KestrunResponse(KestrunRequest request, int bodyAsyncThreshold = 81
 
         try
         {
-            EnsureStatusAndContentType(response);
-            ApplyContentDispositionHeader(response);
+            EnsureStatus(response);
             ApplyHeadersAndCookies(response);
             ApplyCachingHeaders(response);
             if (Body is not null)
             {
+                EnsureContentType(response);
+                ApplyContentDispositionHeader(response);
                 await WriteBodyAsync(response).ConfigureAwait(false);
+            }
+            else
+            {
+                response.ContentType = null;
+                response.ContentLength = null;
+                if (Log.IsEnabled(LogEventLevel.Debug))
+                {
+                    Log.Debug("Status-only: HasStarted={HasStarted} CL={CL} CT='{CT}'",
+                        response.HasStarted, response.ContentLength, response.ContentType);
+                }
             }
         }
         catch (Exception ex)
@@ -1143,16 +1165,8 @@ public class KestrunResponse(KestrunRequest request, int bodyAsyncThreshold = 81
     /// Ensures the HTTP response has the correct status code and content type.
     /// </summary>
     /// <param name="response">The HTTP response to apply the status and content type to.</param>
-    private void EnsureStatusAndContentType(HttpResponse response)
+    private void EnsureContentType(HttpResponse response)
     {
-        if (Log.IsEnabled(LogEventLevel.Debug))
-        {
-            Log.Debug("Ensuring status and content type, StatusCode={StatusCode}, ContentType={ContentType}", StatusCode, ContentType);
-        }
-        if (StatusCode != response.StatusCode)
-        {
-            response.StatusCode = StatusCode;
-        }
         if (ContentType != response.ContentType)
         {
             if (!string.IsNullOrEmpty(ContentType) &&
@@ -1162,6 +1176,18 @@ public class KestrunResponse(KestrunRequest request, int bodyAsyncThreshold = 81
                 ContentType = ContentType.TrimEnd(';') + $"; charset={AcceptCharset.WebName}";
             }
             response.ContentType = ContentType;
+        }
+    }
+
+    /// <summary>
+    /// Ensures the HTTP response has the correct status code.
+    /// </summary>
+    /// <param name="response">The HTTP response to apply the status code to.</param>
+    private void EnsureStatus(HttpResponse response)
+    {
+        if (StatusCode != response.StatusCode)
+        {
+            response.StatusCode = StatusCode;
         }
     }
 

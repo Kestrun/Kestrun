@@ -1,0 +1,39 @@
+name: Validate Tutorial Docs
+permissions:
+    contents: read
+
+on:
+    pull_request:
+        paths:
+            - "docs/pwsh/tutorial/**"
+            - ".github/copilot-tutorial-authoring-instructions.md"
+            - ".markdownlint.json"
+            - "Utility/Test-TutorialDocs.ps1"
+
+jobs:
+    lint-and-validate:
+        runs-on: windows-latest
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v4
+
+            - name: Setup Node for markdownlint-cli2
+              uses: actions/setup-node@v4
+              with:
+                  node-version: "20"
+
+            - name: Install markdownlint-cli2
+              run: npm install -g markdownlint-cli2
+
+            - name: Run markdownlint
+              run: markdownlint-cli2 "docs/**/*.md" "!docs/_includes/**"
+
+            - name: Setup PowerShell
+              uses: actions/setup-python@v5
+              with:
+                  python-version: "3.11"
+
+            - name: Validate tutorial pages structure
+              shell: pwsh
+              run: |
+                  pwsh -NoLogo -NoProfile -File ./Utility/Test-TutorialDocs.ps1

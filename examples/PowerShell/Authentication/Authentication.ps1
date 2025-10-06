@@ -61,19 +61,21 @@ param(
 #>
 
 $logger = New-KrLogger |
-    Set-KrLoggerMinimumLevel -Value Debug |
+    Set-KrLoggerLevel -Value Debug |
     Add-KrSinkFile -Path '.\logs\Authentication.log' -RollingInterval Hour |
     Add-KrSinkConsole |
     Register-KrLogger -Name 'DefaultLogger' -PassThru -SetAsDefault
 
 New-KrServer -Name 'Kestrun Authentication'
 
-if (Test-Path "$ScriptPath\devcert.pfx" ) {
-    $cert = Import-KrCertificate -FilePath "$ScriptPath\devcert.pfx" -Password (ConvertTo-SecureString -String 'p@ss' -AsPlainText -Force)
+Initialize-KrRoot -Path $PSScriptRoot
+
+if (Test-Path 'devcert.pfx' ) {
+    $cert = Import-KrCertificate -FilePath 'devcert.pfx' -Password (ConvertTo-SecureString -String 'p@ss' -AsPlainText -Force)
 } else {
     $cert = New-KrSelfSignedCertificate -DnsNames 'localhost' -Exportable
     Export-KrCertificate -Certificate $cert `
-        -FilePath "$ScriptPath\devcert" -Format pfx -IncludePrivateKey -Password (ConvertTo-SecureString -String 'p@ss' -AsPlainText -Force)
+        -FilePath 'devcert' -Format pfx -IncludePrivateKey -Password (ConvertTo-SecureString -String 'p@ss' -AsPlainText -Force)
 }
 
 if (-not (Test-KrCertificate -Certificate $cert )) {
@@ -90,7 +92,7 @@ Add-KrEndpoint -Port $Port -IPAddress $IPAddress -X509Certificate $cert -Protoco
 #Add-KrEndpoint -Port $Port -IPAddress $IPAddress
 
 Add-KrCompressionMiddleware -EnableForHttps -MimeTypes @('text/plain', 'text/html', 'application/json', 'application/xml', 'application/x-www-form-urlencoded')
-Add-KrPowerShellRuntime
+
 Add-KrFaviconMiddleware
 
 # Authentication Schemes Names definitions
@@ -257,42 +259,50 @@ Add-KrRouteGroup -Prefix '/secure/ps' -AuthorizationSchema $BasicPowershellSchem
     Add-KrRouteGroup -Prefix '/policy' {
         Add-KrMapRoute -Options (New-KrMapRouteOption -Property @{
                 HttpVerbs = 'Get'
-                Code = {
-                    $user = $Context.User.Identity.Name
-                    Write-KrTextResponse -InputObject "Welcome, $user! You are authenticated by PowerShell Code because you have the 'can_read' permission." -ContentType 'text/plain'
+                ScriptCode = @{
+                    Code = {
+                        $user = $Context.User.Identity.Name
+                        Write-KrTextResponse -InputObject "Welcome, $user! You are authenticated by PowerShell Code because you have the 'can_read' permission." -ContentType 'text/plain'
+                    }
+                    Language = 'PowerShell'
                 }
-                Language = 'PowerShell'
                 RequirePolicies = @('CanRead')
             })
 
 
         Add-KrMapRoute -Options (New-KrMapRouteOption -Property @{
                 HttpVerbs = 'Delete'
-                Code = {
-                    $user = $Context.User.Identity.Name
-                    Write-KrTextResponse -InputObject "Welcome, $user! You are authenticated by PowerShell Code because you have the 'can_delete' permission." -ContentType 'text/plain'
+                ScriptCode = @{
+                    Code = {
+                        $user = $Context.User.Identity.Name
+                        Write-KrTextResponse -InputObject "Welcome, $user! You are authenticated by PowerShell Code because you have the 'can_delete' permission." -ContentType 'text/plain'
+                    }
+                    Language = 'PowerShell'
                 }
-                Language = 'PowerShell'
                 RequirePolicies = @('CanDelete')
             })
 
         Add-KrMapRoute -Options (New-KrMapRouteOption -Property @{
                 HttpVerbs = 'Put'
-                Code = {
-                    $user = $Context.User.Identity.Name
-                    Write-KrTextResponse -InputObject "Welcome, $user! You are authenticated by PowerShell Code because you have the 'can_write' permission." -ContentType 'text/plain'
+                ScriptCode = @{
+                    Code = {
+                        $user = $Context.User.Identity.Name
+                        Write-KrTextResponse -InputObject "Welcome, $user! You are authenticated by PowerShell Code because you have the 'can_write' permission." -ContentType 'text/plain'
+                    }
+                    Language = 'PowerShell'
                 }
-                Language = 'PowerShell'
                 RequirePolicies = @('CanWrite')
             })
 
         Add-KrMapRoute -Options (New-KrMapRouteOption -Property @{
                 HttpVerbs = 'Post'
-                Code = {
-                    $user = $Context.User.Identity.Name
-                    Write-KrTextResponse -InputObject "Welcome, $user! You are authenticated by PowerShell Code because you have the 'can_create' permission." -ContentType 'text/plain'
+                ScriptCode = @{
+                    Code = {
+                        $user = $Context.User.Identity.Name
+                        Write-KrTextResponse -InputObject "Welcome, $user! You are authenticated by PowerShell Code because you have the 'can_create' permission." -ContentType 'text/plain'
+                    }
+                    Language = 'PowerShell'
                 }
-                Language = 'PowerShell'
                 RequirePolicies = @('CanCreate')
             })
     }
@@ -313,11 +323,13 @@ Add-KrMapRoute -Verbs Get -Pattern '/secure/vb/hello' -AuthorizationSchema $Basi
 Add-KrMapRoute -Options (New-KrMapRouteOption -Property @{
         Pattern = '/secure/vb/policy'
         HttpVerbs = 'Get'
-        Code = {
-            $user = $Context.User.Identity.Name
-            Write-KrTextResponse -InputObject "Welcome, $user! You are authenticated by VB.NET Code because you have the 'can_read' permission." -ContentType 'text/plain'
+        ScriptCode = @{
+            Code = {
+                $user = $Context.User.Identity.Name
+                Write-KrTextResponse -InputObject "Welcome, $user! You are authenticated by VB.NET Code because you have the 'can_read' permission." -ContentType 'text/plain'
+            }
+            Language = 'PowerShell'
         }
-        Language = 'PowerShell'
         RequirePolicies = @('CanRead')
         RequireSchemes = @($BasicVBNetScheme)
     })
@@ -326,11 +338,13 @@ Add-KrMapRoute -Options (New-KrMapRouteOption -Property @{
 Add-KrMapRoute -Options (New-KrMapRouteOption -Property @{
         Pattern = '/secure/vb/policy'
         HttpVerbs = 'Delete'
-        Code = {
-            $user = $Context.User.Identity.Name
-            Write-KrTextResponse -InputObject "Welcome, $user! You are authenticated by VB.NET Code because you have the 'can_delete' permission." -ContentType 'text/plain'
+        ScriptCode = @{
+            Code = {
+                $user = $Context.User.Identity.Name
+                Write-KrTextResponse -InputObject "Welcome, $user! You are authenticated by VB.NET Code because you have the 'can_delete' permission." -ContentType 'text/plain'
+            }
+            Language = 'PowerShell'
         }
-        Language = 'PowerShell'
         RequirePolicies = @('CanDelete')
         RequireSchemes = @($BasicVBNetScheme)
     })
@@ -338,11 +352,13 @@ Add-KrMapRoute -Options (New-KrMapRouteOption -Property @{
 Add-KrMapRoute -Options (New-KrMapRouteOption -Property @{
         Pattern = '/secure/vb/policy'
         HttpVerbs = 'Put'
-        Code = {
-            $user = $Context.User.Identity.Name
-            Write-KrTextResponse -InputObject "Welcome, $user! You are authenticated by VB.NET Code because you have the 'can_write' permission." -ContentType 'text/plain'
+        ScriptCode = @{
+            Code = {
+                $user = $Context.User.Identity.Name
+                Write-KrTextResponse -InputObject "Welcome, $user! You are authenticated by VB.NET Code because you have the 'can_write' permission." -ContentType 'text/plain'
+            }
+            Language = 'PowerShell'
         }
-        Language = 'PowerShell'
         RequirePolicies = @('CanWrite')
         RequireSchemes = @($BasicVBNetScheme)
     })
@@ -350,11 +366,13 @@ Add-KrMapRoute -Options (New-KrMapRouteOption -Property @{
 Add-KrMapRoute -Options (New-KrMapRouteOption -Property @{
         Pattern = '/secure/vb/policy'
         HttpVerbs = 'Post'
-        Code = {
-            $user = $Context.User.Identity.Name
-            Write-KrTextResponse -InputObject "Welcome, $user! You are authenticated by VB.NET Code because you have the 'can_create' permission." -ContentType 'text/plain'
+        ScriptCode = @{
+            Code = {
+                $user = $Context.User.Identity.Name
+                Write-KrTextResponse -InputObject "Welcome, $user! You are authenticated by VB.NET Code because you have the 'can_create' permission." -ContentType 'text/plain'
+            }
+            Language = 'PowerShell'
         }
-        Language = 'PowerShell'
         RequirePolicies = @('CanCreate')
         RequireSchemes = @($BasicVBNetScheme)
     })

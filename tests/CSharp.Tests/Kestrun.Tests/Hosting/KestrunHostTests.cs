@@ -93,8 +93,11 @@ public class KestrunHostTest
         {
             Pattern = "/test",
             HttpVerbs = [HttpVerb.Get],
-            Code = "Write-Output 'Hello'",
-            Language = ScriptLanguage.PowerShell
+            ScriptCode = new LanguageOptions
+            {
+                Code = "Write-Output 'Hello'",
+                Language = ScriptLanguage.PowerShell
+            }
         };
 
         _ = Assert.Throws<InvalidOperationException>(() =>
@@ -246,8 +249,11 @@ public class KestrunHostTest
         {
             Pattern = "/hello",
             HttpVerbs = [HttpVerb.Get],
-            Code = "Context.Response.StatusCode = 204;",
-            Language = ScriptLanguage.CSharp
+            ScriptCode = new LanguageOptions
+            {
+                Code = "Context.Response.StatusCode = 204;",
+                Language = ScriptLanguage.CSharp
+            }
         };
 
         var map = host.AddMapRoute(options);
@@ -255,9 +261,9 @@ public class KestrunHostTest
 
         var saved = host.GetMapRouteOptions("/hello", HttpVerb.Get);
         Assert.NotNull(saved);
-        Assert.Equal(ScriptLanguage.CSharp, saved!.Language);
+        Assert.Equal(ScriptLanguage.CSharp, saved!.ScriptCode.Language);
         Assert.Contains(HttpVerb.Get, saved.HttpVerbs);
-        Assert.Equal("Context.Response.StatusCode = 204;", saved.Code);
+        Assert.Equal("Context.Response.StatusCode = 204;", saved.ScriptCode.Code);
     }
 
     [Fact]

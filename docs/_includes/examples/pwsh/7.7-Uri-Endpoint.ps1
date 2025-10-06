@@ -20,10 +20,6 @@ New-KrServer -Name 'Endpoints Basic'
 # Add a listener on the specified port and IP address
 Add-KrEndpoint -Uri $uri
 
-# Add the PowerShell runtime
-# !!!!Important!!!! this step is required to process PowerShell routes and middlewares
-Add-KrPowerShellRuntime
-
 # Enable Kestrun configuration
 Enable-KrConfiguration
 

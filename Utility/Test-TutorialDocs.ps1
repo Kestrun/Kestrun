@@ -1,17 +1,25 @@
-﻿param()
+﻿param(
+    [string]$SubPath
+)
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
 # Validates tutorial docs under docs/pwsh/tutorial according to the authoring guide
 $root = Join-Path $PSScriptRoot '..'
 $docs = Join-Path $root 'docs/pwsh/tutorial'
+$scan = if ($SubPath) {
+    if ([System.IO.Path]::IsPathRooted($SubPath)) { $SubPath } else { Join-Path $docs $SubPath }
+} else { $docs }
 
 $failures = @()
-Get-ChildItem -Path $docs -Recurse -Filter *.md | ForEach-Object {
+Get-ChildItem -Path $scan -Recurse -Filter *.md | ForEach-Object {
     $path = $_.FullName
     $rel = $path.Substring($root.Length).TrimStart('\/')
     $name = $_.Name
     $text = Get-Content -Path $path -Raw
+
+    # Skip index pages from strict checks
+    if ($name -ieq 'index.md') { return }
 
     # 1) Filename pattern N.Title.md
     if ($name -notmatch '^[0-9]+\.[^\\/]+\.md$') {
@@ -23,9 +31,9 @@ Get-ChildItem -Path $docs -Recurse -Filter *.md | ForEach-Object {
         $failures += "[FrontMatter] $rel missing YAML front matter"
     } else {
         $fm = [regex]::Match($text, '(?s)^---\s*\n(.*?)\n---\s*').Groups[1].Value
-        $title = ($fm | Select-String -Pattern '^title:\s*(.+)$' -AllMatches).Matches.Value -replace '^title:\s*', ''
-        $parent = ($fm | Select-String -Pattern '^parent:\s*(.+)$' -AllMatches).Matches.Value -replace '^parent:\s*', ''
-        $nav = ($fm | Select-String -Pattern '^nav_order:\s*(.+)$' -AllMatches).Matches.Value -replace '^nav_order:\s*', ''
+        $title = ([regex]::Match($fm, '(?m)^title:\s*(.+)$')).Groups[1].Value
+        $parent = ([regex]::Match($fm, '(?m)^parent:\s*(.+)$')).Groups[1].Value
+        $nav = ([regex]::Match($fm, '(?m)^nav_order:\s*(.+)$')).Groups[1].Value
         if (-not $title) { $failures += "[FrontMatter] $rel missing title" }
         if (-not $parent) { $failures += "[FrontMatter] $rel missing parent" }
         if (-not $nav) { $failures += "[FrontMatter] $rel missing nav_order" }
@@ -36,7 +44,7 @@ Get-ChildItem -Path $docs -Recurse -Filter *.md | ForEach-Object {
     }
 
     # Ensure required sections exist
-    foreach ($hdr in '## Full source', '## Step-by-step', '## Try it', '## References', '### Previous / Next') {
+    foreach ($hdr in '## Full source', '## Step-by-step', '## Try it', '## Troubleshooting', '## References', '### Previous / Next') {
         if ($text -notmatch [regex]::Escape($hdr)) { $failures += "[Section] $rel missing '$hdr'" }
     }
 
@@ -45,8 +53,35 @@ Get-ChildItem -Path $docs -Recurse -Filter *.md | ForEach-Object {
         $failures += "[Include] $rel missing include directive"
     }
 
-    # Code fences have language
-    if ($text -match "```\n") { $failures += "[Fence] $rel has code fence without language" }
+    # Code fences language check skipped here; enforced by markdownlint config
+
+    # References section must use reference-style links and have definitions
+    $refMatch = [regex]::Match($text, '(?s)##\s+References\s*\r?\n(.*?)(?:\r?\n##\s+|\r?\n---\s*\r?\n|$)')
+    if ($refMatch.Success) {
+        $refBlock = $refMatch.Groups[1].Value
+        $lines = $refBlock -split '\r?\n'
+        $refs = @()
+        foreach ($ln in $lines) {
+            if ($ln -match '^\s*-\s*\[(?<text>[^\]]+)\]\[(?<key>[^\]]+)\]\s*$') {
+                if ($Matches['text'] -ne $Matches['key']) {
+                    $failures += "[Links] $rel reference text and key must match in References: '$ln'"
+                } else {
+                    $refs += $Matches['key']
+                }
+            } elseif ($ln -match '^\s*-\s*\[[^\]]+\]\([^\)]+\)') {
+                $failures += "[Links] $rel References must use reference-style links: '[Name][Name]' not inline: '$ln'"
+            }
+        }
+
+        foreach ($r in ($refs | Sort-Object -Unique)) {
+            $pattern = '(?m)^\[' + [regex]::Escape($r) + '\]:\s+\S+'
+            if ($text -notmatch $pattern) {
+                $failures += "[Links] $rel missing reference definition for '[$r]'"
+            }
+        }
+    } else {
+        $failures += "[Section] $rel missing '## References' content"
+    }
 
     # Step-by-step is numbered starting at 1
     if ($text -notmatch '## Step-by-step\s*\r?\n1\.') { $failures += "[Steps] $rel list must start at 1." }

@@ -11,7 +11,6 @@ namespace Kestrun.Middleware;
 /// </summary>
 public static class StatusCodePageExtensions
 {
-
     /// <summary>
     /// Applies the configured status code pages middleware to the specified application builder.
     /// </summary>
@@ -42,7 +41,7 @@ public static class StatusCodePageExtensions
             if (!string.IsNullOrWhiteSpace(query))
             {
                 query = query.Trim();
-                if (!query.StartsWith("?", StringComparison.Ordinal))
+                if (!query.StartsWith('?'))
                 {
                     query = "?" + query;
                 }

@@ -1,8 +1,3 @@
-using System.Management.Automation;
-using Kestrun.Languages;
-using Kestrun.Models;
-using Microsoft.AspNetCore.Diagnostics;
-
 namespace Kestrun.Hosting.Options;
 
 /// <summary>
@@ -68,5 +63,4 @@ public class StatusCodeOptions
     /// This is only used if PathFormat is also set.
     /// </summary>
     public string? QueryFormat { get; init; }
-
 }

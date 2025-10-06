@@ -130,7 +130,7 @@ public sealed class PowerShellRunspaceMiddleware(RequestDelegate next, KestrunRu
             var durationMs = (DateTime.UtcNow - start).TotalMilliseconds;
             if (Log.IsEnabled(LogEventLevel.Debug))
             {
-                Log.Debug("PowerShellRunspaceMiddleware ended for {Path} durationMs={DurationMs} inFlight={remaining}",
+                Log.Debug("PowerShellRunspaceMiddleware ended for {Path} durationMs={durationMs} inFlight={remaining}",
                     context.Request.Path, durationMs, remaining);
             }
         }

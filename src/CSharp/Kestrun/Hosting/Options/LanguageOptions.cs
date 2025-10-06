@@ -31,10 +31,7 @@ public record LanguageOptions
     /// </summary>
     public ScriptBlock? ScriptBlock
     {
-        get
-        {
-            return string.IsNullOrWhiteSpace(Code) ? null : ScriptBlock.Create(Code);
-        }
+        get => string.IsNullOrWhiteSpace(Code) ? null : ScriptBlock.Create(Code);
         set
         {
             if (value is null)

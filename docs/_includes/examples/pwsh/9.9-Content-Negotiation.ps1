@@ -17,8 +17,6 @@ New-KrServer -Name 'Responses 9.9'
 # 3. Listener
 Add-KrEndpoint -IPAddress $IPAddress -Port $Port
 
-# 4. Runtime
-Add-KrPowerShellRuntime
 
 # Finalize configuration
 Enable-KrConfiguration

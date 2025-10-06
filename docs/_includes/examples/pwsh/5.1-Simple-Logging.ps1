@@ -11,7 +11,7 @@ param(
 )
 
 $myLogger = New-KrLogger |
-    Set-KrLoggerMinimumLevel -Value Debug |
+    Set-KrLoggerLevel -Value Debug |
     Add-KrSinkFile -Path '.\logs\sample.log' -RollingInterval Hour |
     Add-KrSinkConsole |
     Register-KrLogger -Name 'myLogger' -PassThru
@@ -23,8 +23,7 @@ New-KrServer -Name "Simple Server"
 Add-KrEndpoint -Port $Port -IPAddress $IPAddress
 
 # Add the PowerShell runtime
-# !!!!Important!!!! this step is required to process PowerShell routes and middlewares
-Add-KrPowerShellRuntime
+
 
 Write-KrLog -Level Information -Logger $myLogger -Message "Kestrun server created and listener added."
 # Enable Kestrun configuration

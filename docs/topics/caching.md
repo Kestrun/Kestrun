@@ -171,7 +171,6 @@ New-KrServer -Name 'cache-demo'
 Add-KrEndpoint -Port 5000 -IPAddress ([IPAddress]::Loopback)
 Add-KrFileServerMiddleware -RequestPath '/' -RootPath '.\Assets\wwwroot' -Public -MaxAge 600 -MustRevalidate
 Add-KrCacheMiddleware -SizeLimit 8388608 -MaximumBodySize 65536 -Public -MaxAge 60
-Add-KrPowerShellRuntime
 Enable-KrConfiguration
 
 Add-KrMapRoute -Pattern '/profile' -Verbs GET -ScriptBlock {

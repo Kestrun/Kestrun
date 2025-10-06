@@ -14,13 +14,12 @@ param(
 # This is recommended in order to use relative paths without issues
 Initialize-KrRoot -Path $PSScriptRoot
 New-KrLogger |
-    Set-KrLoggerMinimumLevel -Value Debug |
+    Set-KrLoggerLevel -Value Debug |
     Add-KrSinkConsole |
     Register-KrLogger -Name 'console' -SetAsDefault | Out-Null
 # Create a new Kestrun server
 New-KrServer -Name "Simple Server"
-# PowerShell runtime
-Add-KrPowerShellRuntime
+
 # Add a listener on configured port and IP
 Add-KrEndpoint -Port $Port -IPAddress $IPAddress
 

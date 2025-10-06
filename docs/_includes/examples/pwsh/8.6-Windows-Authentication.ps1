@@ -17,8 +17,6 @@ New-KrServer -Name 'Auth Claims'
 # 3. Listener
 Add-KrEndpoint -Port $Port -IPAddress $IPAddress -SelfSignedCert
 
-# 4. Runtime
-Add-KrPowerShellRuntime
 
 # 5. Windows authentication
 Add-KrWindowsAuthentication

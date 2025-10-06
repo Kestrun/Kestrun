@@ -69,7 +69,8 @@ internal static class PowerShellDelegateBuilder
             }
             finally
             {
-                await CompleteResponseSafelyAsync(context, log).ConfigureAwait(false);
+                // Do not call Response.CompleteAsync here; leaving the response open allows
+                // downstream middleware like StatusCodePages to generate a body for status-only responses.
             }
         };
     }
@@ -176,25 +177,5 @@ internal static class PowerShellDelegateBuilder
     private static Task ApplyResponseAsync(HttpContext context, KestrunContext krContext)
         => krContext.Response.ApplyTo(context.Response);
 
-    private static async Task CompleteResponseSafelyAsync(HttpContext context, Serilog.ILogger log)
-    {
-        // CompleteAsync is idempotent – safe to call once more
-        try
-        {
-            log.Verbose("Completing response for " + context.Request.Path);
-            await context.Response.CompleteAsync().ConfigureAwait(false);
-        }
-        catch (ObjectDisposedException odex)
-        {
-            // This can happen if the response has already been completed
-            // or the client has disconnected
-            log.DebugSanitized(odex, "Response already completed for {Path}", context.Request.Path);
-        }
-        catch (InvalidOperationException ioex)
-        {
-            // This can happen if the response has already been completed
-            log.DebugSanitized(ioex, "Response already completed for {Path}", context.Request.Path);
-            // No action needed, as the response is already completed
-        }
-    }
+    // Removed explicit Response.CompleteAsync to allow StatusCodePages to run after endpoints when appropriate.
 }

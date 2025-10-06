@@ -47,7 +47,6 @@ It combines the performance of C# with the flexibility of PowerShell, making it 
 Import-Module Kestrun
 New-KrServer -Name 'MyKestrunServer'
 Add-KrEndpoint -Port 5000
-Add-KrPowerShellRuntime
 Enable-KrConfiguration
 
 Add-KrMapRoute -Verbs Get -Path '/ps/hello' -ScriptBlock {

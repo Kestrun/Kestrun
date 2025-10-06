@@ -66,7 +66,7 @@ function Add-KrMapRoute {
         [Parameter(Mandatory = $false, ValueFromPipeline = $true)]
         [Kestrun.Hosting.KestrunHost]$Server,
 
-        [Parameter(Mandatory = $true, ParameterSetName = 'Options', ValueFromPipeline = $true)]
+        [Parameter(Mandatory = $true, ParameterSetName = 'Options')]
         [Kestrun.Hosting.Options.MapRouteOptions]$Options,
 
         [Parameter(ParameterSetName = 'ScriptBlock')]
@@ -162,8 +162,7 @@ function Add-KrMapRoute {
             $Options = [Kestrun.Hosting.Options.MapRouteOptions]::new()
             $Options.HttpVerbs = $Verbs
             $Options.Pattern = $Pattern
-            $Options.ExtraImports = $ExtraImports
-            $Options.ExtraRefs = $ExtraRefs
+
             if ($null -ne $AuthorizationSchema) {
                 $Options.RequireSchemes = $AuthorizationSchema
             }
@@ -175,22 +174,24 @@ function Add-KrMapRoute {
             if ($null -ne $Endpoints -and $Endpoints.Count -gt 0) {
                 $Options.Endpoints = $Endpoints
             }
-
+            # ScriptCode configuration
+            $Options.ScriptCode.ExtraImports = $ExtraImports
+            $Options.ScriptCode.ExtraRefs = $ExtraRefs
             if ($null -ne $Arguments) {
                 $dict = [System.Collections.Generic.Dictionary[string, object]]::new()
                 foreach ($key in $Arguments.Keys) {
                     $dict[$key] = $Arguments[$key]
                 }
-                $Options.Arguments = $dict
+                $Options.ScriptCode.Arguments = $dict
             }
             switch ($PSCmdlet.ParameterSetName) {
                 'ScriptBlock' {
-                    $Options.Language = [Kestrun.Scripting.ScriptLanguage]::PowerShell
-                    $Options.Code = $ScriptBlock.ToString()
+                    $Options.ScriptCode.Language = [Kestrun.Scripting.ScriptLanguage]::PowerShell
+                    $Options.ScriptCode.Code = $ScriptBlock.ToString()
                 }
                 'Code' {
-                    $Options.Language = $Language
-                    $Options.Code = $Code
+                    $Options.ScriptCode.Language = $Language
+                    $Options.ScriptCode.Code = $Code
                 }
                 'CodeFilePath' {
                     if (-not (Test-Path -Path $CodeFilePath)) {
@@ -199,19 +200,19 @@ function Add-KrMapRoute {
                     $extension = Split-Path -Path $CodeFilePath -Extension
                     switch ($extension) {
                         '.ps1' {
-                            $Options.ValidateCodeSettings.Language = [Kestrun.Scripting.ScriptLanguage]::PowerShell
+                            $Options.ScriptCode.Language = [Kestrun.Scripting.ScriptLanguage]::PowerShell
                         }
                         '.cs' {
-                            $Options.ValidateCodeSettings.Language = [Kestrun.Scripting.ScriptLanguage]::CSharp
+                            $Options.ScriptCode.Language = [Kestrun.Scripting.ScriptLanguage]::CSharp
                         }
                         '.vb' {
-                            $Options.ValidateCodeSettings.Language = [Kestrun.Scripting.ScriptLanguage]::VisualBasic
+                            $Options.ScriptCode.Language = [Kestrun.Scripting.ScriptLanguage]::VisualBasic
                         }
                         default {
                             throw "Unsupported '$extension' code file extension."
                         }
                     }
-                    $Options.ValidateCodeSettings.Code = Get-Content -Path $CodeFilePath -Raw
+                    $Options.ScriptCode.Code = Get-Content -Path $CodeFilePath -Raw
                 }
             }
         } else {

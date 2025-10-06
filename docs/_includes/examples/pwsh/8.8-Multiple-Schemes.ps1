@@ -17,8 +17,6 @@ New-KrServer -Name 'Auth Multi'
 # 3. Listener
 Add-KrEndpoint -Port $Port -IPAddress $IPAddress -SelfSignedCert
 
-# 4. Runtime
-Add-KrPowerShellRuntime
 
 # 5. Basic auth scheme
 Add-KrBasicAuthentication -Name 'BasicPS' -Realm 'Multi' -AllowInsecureHttp -ScriptBlock {

@@ -33,8 +33,11 @@ public class KestrunHostMapExtensionsTests
         {
             Pattern = "/t-code-default",
             HttpVerbs = [],
-            Code = "Context.Response.StatusCode = 204;",
-            Language = ScriptLanguage.CSharp
+            ScriptCode = new LanguageOptions
+            {
+                Code = "Context.Response.StatusCode = 204;",
+                Language = ScriptLanguage.CSharp
+            }
         };
 
         var map = host.AddMapRoute(options);
@@ -43,7 +46,7 @@ public class KestrunHostMapExtensionsTests
         Assert.True(host.MapExists("/t-code-default", HttpVerb.Get));
         var saved = host.GetMapRouteOptions("/t-code-default", HttpVerb.Get);
         Assert.NotNull(saved);
-        Assert.Equal(ScriptLanguage.CSharp, saved!.Language);
+        Assert.Equal(ScriptLanguage.CSharp, saved!.ScriptCode.Language);
     }
 
     [Fact]
@@ -58,8 +61,11 @@ public class KestrunHostMapExtensionsTests
         {
             Pattern = "/dup",
             HttpVerbs = [HttpVerb.Get],
-            Code = "Context.Response.StatusCode = 200;",
-            Language = ScriptLanguage.CSharp,
+            ScriptCode = new LanguageOptions
+            {
+                Code = "Context.Response.StatusCode = 200;",
+                Language = ScriptLanguage.CSharp
+            },
             ThrowOnDuplicate = true
         };
 
@@ -79,8 +85,11 @@ public class KestrunHostMapExtensionsTests
         {
             Pattern = "/dup2",
             HttpVerbs = [HttpVerb.Get],
-            Code = "Context.Response.StatusCode = 200;",
-            Language = ScriptLanguage.CSharp,
+            ScriptCode = new LanguageOptions
+            {
+                Code = "Context.Response.StatusCode = 200;",
+                Language = ScriptLanguage.CSharp
+            },
             ThrowOnDuplicate = false
         };
 
@@ -102,8 +111,11 @@ public class KestrunHostMapExtensionsTests
         {
             Pattern = "/multi",
             HttpVerbs = [HttpVerb.Get, HttpVerb.Post],
-            Code = "Context.Response.StatusCode = 200;",
-            Language = ScriptLanguage.CSharp
+            ScriptCode = new LanguageOptions
+            {
+                Code = "Context.Response.StatusCode = 200;",
+                Language = ScriptLanguage.CSharp
+            }
         };
 
         Assert.NotNull(host.AddMapRoute(options));
@@ -129,8 +141,11 @@ public class KestrunHostMapExtensionsTests
         {
             Pattern = "/auth-needed",
             HttpVerbs = [HttpVerb.Get],
-            Code = "Context.Response.StatusCode = 200;",
-            Language = ScriptLanguage.CSharp,
+            ScriptCode = new LanguageOptions
+            {
+                Code = "Context.Response.StatusCode = 200;",
+                Language = ScriptLanguage.CSharp
+            },
             RequireSchemes = ["NotRegisteredScheme"]
         };
 
@@ -152,8 +167,11 @@ public class KestrunHostMapExtensionsTests
         {
             Pattern = "/auth-ok",
             HttpVerbs = [HttpVerb.Get],
-            Code = "Context.Response.StatusCode = 200;",
-            Language = ScriptLanguage.CSharp,
+            ScriptCode = new LanguageOptions
+            {
+                Code = "Context.Response.StatusCode = 200;",
+                Language = ScriptLanguage.CSharp
+            },
             RequireSchemes = ["BasicX"]
         };
 
@@ -176,8 +194,11 @@ public class KestrunHostMapExtensionsTests
         {
             Pattern = "/policy-needed",
             HttpVerbs = [HttpVerb.Get],
-            Code = "Context.Response.StatusCode = 200;",
-            Language = ScriptLanguage.CSharp,
+            ScriptCode = new LanguageOptions
+            {
+                Code = "Context.Response.StatusCode = 200;",
+                Language = ScriptLanguage.CSharp
+            },
             RequirePolicies = ["NonExistingPolicy"]
         };
 
@@ -218,8 +239,11 @@ public class KestrunHostMapExtensionsTests
         {
             Pattern = "/policy-ok",
             HttpVerbs = [HttpVerb.Get],
-            Code = "Context.Response.StatusCode = 200;",
-            Language = ScriptLanguage.CSharp,
+            ScriptCode = new LanguageOptions
+            {
+                Code = "Context.Response.StatusCode = 200;",
+                Language = ScriptLanguage.CSharp
+            },
             RequirePolicies = ["MustBeAlice"]
         };
 
@@ -272,7 +296,7 @@ public class KestrunHostMapExtensionsTests
         Assert.True(host.MapExists("/override", HttpVerb.Get));
         var opts = host.GetMapRouteOptions("/override", HttpVerb.Get);
         Assert.NotNull(opts);
-        Assert.Equal(ScriptLanguage.CSharp, opts!.Language);
+        Assert.Equal(ScriptLanguage.CSharp, opts!.ScriptCode.Language);
     }
 
     #region ValidateRouteOptions Tests
@@ -287,8 +311,11 @@ public class KestrunHostMapExtensionsTests
         var options = new MapRouteOptions
         {
             Pattern = "/test",
-            Code = "Context.Response.StatusCode = 200;",
-            Language = ScriptLanguage.CSharp
+            ScriptCode = new LanguageOptions
+            {
+                Code = "Context.Response.StatusCode = 200;",
+                Language = ScriptLanguage.CSharp
+            }
         };
 
         var ex = Assert.Throws<InvalidOperationException>(() => KestrunHostMapExtensions.ValidateRouteOptions(host, options, out _));
@@ -307,8 +334,11 @@ public class KestrunHostMapExtensionsTests
         var options = new MapRouteOptions
         {
             Pattern = null!,
-            Code = "Context.Response.StatusCode = 200;",
-            Language = ScriptLanguage.CSharp
+            ScriptCode = new LanguageOptions
+            {
+                Code = "Context.Response.StatusCode = 200;",
+                Language = ScriptLanguage.CSharp
+            }
         };
 
         var ex = Assert.Throws<ArgumentException>(() => KestrunHostMapExtensions.ValidateRouteOptions(host, options, out _));
@@ -327,8 +357,11 @@ public class KestrunHostMapExtensionsTests
         var options = new MapRouteOptions
         {
             Pattern = "",
-            Code = "Context.Response.StatusCode = 200;",
-            Language = ScriptLanguage.CSharp
+            ScriptCode = new LanguageOptions
+            {
+                Code = "Context.Response.StatusCode = 200;",
+                Language = ScriptLanguage.CSharp
+            }
         };
 
         var ex = Assert.Throws<ArgumentException>(() => KestrunHostMapExtensions.ValidateRouteOptions(host, options, out _));
@@ -347,8 +380,11 @@ public class KestrunHostMapExtensionsTests
         var options = new MapRouteOptions
         {
             Pattern = "/test",
-            Code = null!,
-            Language = ScriptLanguage.CSharp
+            ScriptCode = new LanguageOptions
+            {
+                Code = null!,
+                Language = ScriptLanguage.CSharp
+            }
         };
 
         var ex = Assert.Throws<ArgumentException>(() => KestrunHostMapExtensions.ValidateRouteOptions(host, options, out _));
@@ -367,8 +403,11 @@ public class KestrunHostMapExtensionsTests
         var options = new MapRouteOptions
         {
             Pattern = "/test",
-            Code = "",
-            Language = ScriptLanguage.CSharp
+            ScriptCode = new LanguageOptions
+            {
+                Code = "",
+                Language = ScriptLanguage.CSharp
+            }
         };
 
         var ex = Assert.Throws<ArgumentException>(() => KestrunHostMapExtensions.ValidateRouteOptions(host, options, out _));
@@ -387,8 +426,11 @@ public class KestrunHostMapExtensionsTests
         var options = new MapRouteOptions
         {
             Pattern = "/test",
-            Code = "Context.Response.StatusCode = 200;",
-            Language = ScriptLanguage.CSharp,
+            ScriptCode = new LanguageOptions
+            {
+                Code = "Context.Response.StatusCode = 200;",
+                Language = ScriptLanguage.CSharp
+            },
             HttpVerbs = []
         };
 
@@ -410,8 +452,11 @@ public class KestrunHostMapExtensionsTests
         var options = new MapRouteOptions
         {
             Pattern = "/test-valid",
-            Code = "Context.Response.StatusCode = 200;",
-            Language = ScriptLanguage.CSharp,
+            ScriptCode = new LanguageOptions
+            {
+                Code = "Context.Response.StatusCode = 200;",
+                Language = ScriptLanguage.CSharp
+            },
             HttpVerbs = [HttpVerb.Post]
         };
 
@@ -419,8 +464,8 @@ public class KestrunHostMapExtensionsTests
 
         Assert.True(result);
         Assert.Equal(options.Pattern, routeOptions.Pattern);
-        Assert.Equal(options.Code, routeOptions.Code);
-        Assert.Equal(options.Language, routeOptions.Language);
+        Assert.Equal(options.ScriptCode.Code, routeOptions.ScriptCode.Code);
+        Assert.Equal(options.ScriptCode.Language, routeOptions.ScriptCode.Language);
         Assert.Equal(options.HttpVerbs, routeOptions.HttpVerbs);
     }
 
@@ -436,8 +481,11 @@ public class KestrunHostMapExtensionsTests
         var firstOptions = new MapRouteOptions
         {
             Pattern = "/duplicate-test",
-            Code = "Context.Response.StatusCode = 200;",
-            Language = ScriptLanguage.CSharp,
+            ScriptCode = new LanguageOptions
+            {
+                Code = "Context.Response.StatusCode = 200;",
+                Language = ScriptLanguage.CSharp
+            },
             HttpVerbs = [HttpVerb.Get]
         };
         _ = host.AddMapRoute(firstOptions);
@@ -446,8 +494,11 @@ public class KestrunHostMapExtensionsTests
         var duplicateOptions = new MapRouteOptions
         {
             Pattern = "/duplicate-test",
-            Code = "Context.Response.StatusCode = 201;",
-            Language = ScriptLanguage.CSharp,
+            ScriptCode = new LanguageOptions
+            {
+                Code = "Context.Response.StatusCode = 201;",
+                Language = ScriptLanguage.CSharp
+            },
             HttpVerbs = [HttpVerb.Get],
             ThrowOnDuplicate = true
         };
@@ -469,8 +520,11 @@ public class KestrunHostMapExtensionsTests
         var firstOptions = new MapRouteOptions
         {
             Pattern = "/duplicate-no-throw",
-            Code = "Context.Response.StatusCode = 200;",
-            Language = ScriptLanguage.CSharp,
+            ScriptCode = new LanguageOptions
+            {
+                Code = "Context.Response.StatusCode = 200;",
+                Language = ScriptLanguage.CSharp
+            },
             HttpVerbs = [HttpVerb.Get]
         };
         _ = host.AddMapRoute(firstOptions);
@@ -479,8 +533,11 @@ public class KestrunHostMapExtensionsTests
         var duplicateOptions = new MapRouteOptions
         {
             Pattern = "/duplicate-no-throw",
-            Code = "Context.Response.StatusCode = 201;",
-            Language = ScriptLanguage.CSharp,
+            ScriptCode = new LanguageOptions
+            {
+                Code = "Context.Response.StatusCode = 201;",
+                Language = ScriptLanguage.CSharp
+            },
             HttpVerbs = [HttpVerb.Get],
             ThrowOnDuplicate = false
         };
@@ -501,13 +558,16 @@ public class KestrunHostMapExtensionsTests
         var options = new MapRouteOptions
         {
             Pattern = "/test",
-            Code = "Context.Response.StatusCode = 200;",
-            Language = ScriptLanguage.CSharp,
-            Arguments = []
+            ScriptCode = new LanguageOptions
+            {
+                Code = "Context.Response.StatusCode = 200;",
+                Language = ScriptLanguage.CSharp,
+                Arguments = []
+            }
         };
 
         var logger = Serilog.Log.Logger;
-        var compiled = KestrunHostMapExtensions.CompileScript(options, logger);
+        var compiled = KestrunHostMapExtensions.CompileScript(options.ScriptCode, logger);
 
         Assert.NotNull(compiled);
         _ = Assert.IsType<RequestDelegate>(compiled);
@@ -520,13 +580,16 @@ public class KestrunHostMapExtensionsTests
         var options = new MapRouteOptions
         {
             Pattern = "/test",
-            Code = "$Context.Response.StatusCode = 200",
-            Language = ScriptLanguage.PowerShell,
-            Arguments = []
+            ScriptCode = new LanguageOptions
+            {
+                Code = "$Context.Response.StatusCode = 200",
+                Language = ScriptLanguage.PowerShell,
+                Arguments = []
+            }
         };
 
         var logger = Serilog.Log.Logger;
-        var compiled = KestrunHostMapExtensions.CompileScript(options, logger);
+        var compiled = KestrunHostMapExtensions.CompileScript(options.ScriptCode, logger);
 
         Assert.NotNull(compiled);
         _ = Assert.IsType<RequestDelegate>(compiled);
@@ -539,14 +602,17 @@ public class KestrunHostMapExtensionsTests
         var options = new MapRouteOptions
         {
             Pattern = "/test",
-            Code = "Context.Response.StatusCode = 200;",
-            Language = (ScriptLanguage)999, // Invalid language
-            Arguments = []
+            ScriptCode = new LanguageOptions
+            {
+                Code = "Context.Response.StatusCode = 200;",
+                Language = (ScriptLanguage)999, // Invalid language
+                Arguments = []
+            }
         };
 
         var logger = Serilog.Log.Logger;
 
-        var ex = Assert.Throws<NotSupportedException>(() => KestrunHostMapExtensions.CompileScript(options, logger));
+        var ex = Assert.Throws<NotSupportedException>(() => KestrunHostMapExtensions.CompileScript(options.ScriptCode, logger));
 
         Assert.Contains("999", ex.Message);
     }
@@ -558,15 +624,18 @@ public class KestrunHostMapExtensionsTests
         var options = new MapRouteOptions
         {
             Pattern = "/test",
-            Code = "Context.Response.StatusCode = 200",
-            Language = ScriptLanguage.VBNet,
-            Arguments = [],
-            ExtraImports = [],
-            ExtraRefs = []
+            ScriptCode = new LanguageOptions
+            {
+                Code = "Context.Response.StatusCode = 200",
+                Language = ScriptLanguage.VBNet,
+                Arguments = [],
+                ExtraImports = [],
+                ExtraRefs = []
+            }
         };
 
         var logger = Serilog.Log.Logger;
-        var compiled = KestrunHostMapExtensions.CompileScript(options, logger);
+        var compiled = KestrunHostMapExtensions.CompileScript(options.ScriptCode, logger);
 
         Assert.NotNull(compiled);
         _ = Assert.IsType<RequestDelegate>(compiled);
@@ -587,8 +656,11 @@ public class KestrunHostMapExtensionsTests
         var routeOptions = new MapRouteOptions
         {
             Pattern = "/test-create-register",
-            Code = "Context.Response.StatusCode = 200;",
-            Language = ScriptLanguage.CSharp,
+            ScriptCode = new LanguageOptions
+            {
+                Code = "Context.Response.StatusCode = 200;",
+                Language = ScriptLanguage.CSharp
+            },
             HttpVerbs = [HttpVerb.Get]
         };
 
@@ -607,7 +679,7 @@ public class KestrunHostMapExtensionsTests
         var savedOptions = host.GetMapRouteOptions("/test-create-register", HttpVerb.Get);
         Assert.NotNull(savedOptions);
         Assert.Equal(routeOptions.Pattern, savedOptions!.Pattern);
-        Assert.Equal(routeOptions.Language, savedOptions.Language);
+        Assert.Equal(routeOptions.ScriptCode.Language, savedOptions.ScriptCode.Language);
     }
 
     [Fact]
@@ -621,8 +693,11 @@ public class KestrunHostMapExtensionsTests
         var routeOptions = new MapRouteOptions
         {
             Pattern = "/test-multi-verbs",
-            Code = "Context.Response.StatusCode = 200;",
-            Language = ScriptLanguage.CSharp,
+            ScriptCode = new LanguageOptions
+            {
+                Code = "Context.Response.StatusCode = 200;",
+                Language = ScriptLanguage.CSharp
+            },
             HttpVerbs = [HttpVerb.Get, HttpVerb.Post, HttpVerb.Put]
         };
 
@@ -811,8 +886,11 @@ public class KestrunHostMapExtensionsTests
         {
             Pattern = "/test",
             HttpVerbs = [HttpVerb.Get],
-            Code = "Context.Response.StatusCode = 200;",
-            Language = ScriptLanguage.CSharp,
+            ScriptCode = new LanguageOptions
+            {
+                Code = "Context.Response.StatusCode = 200;",
+                Language = ScriptLanguage.CSharp
+            },
             Endpoints = ["127.0.0.1:5000"]
         };
 
@@ -840,8 +918,11 @@ public class KestrunHostMapExtensionsTests
         {
             Pattern = "/test-https",
             HttpVerbs = [HttpVerb.Get],
-            Code = "Context.Response.StatusCode = 200;",
-            Language = ScriptLanguage.CSharp,
+            ScriptCode = new LanguageOptions
+            {
+                Code = "Context.Response.StatusCode = 200;",
+                Language = ScriptLanguage.CSharp
+            },
             Endpoints = ["https://127.0.0.1:5001"]
         };
 
@@ -863,8 +944,11 @@ public class KestrunHostMapExtensionsTests
         {
             Pattern = "/test-any",
             HttpVerbs = [HttpVerb.Get],
-            Code = "Context.Response.StatusCode = 200;",
-            Language = ScriptLanguage.CSharp,
+            ScriptCode = new LanguageOptions
+            {
+                Code = "Context.Response.StatusCode = 200;",
+                Language = ScriptLanguage.CSharp
+            },
             Endpoints = ["127.0.0.1:5000"] // Request specific IP
         };
 
@@ -886,8 +970,11 @@ public class KestrunHostMapExtensionsTests
         {
             Pattern = "/test-invalid",
             HttpVerbs = [HttpVerb.Get],
-            Code = "Context.Response.StatusCode = 200;",
-            Language = ScriptLanguage.CSharp,
+            ScriptCode = new LanguageOptions
+            {
+                Code = "Context.Response.StatusCode = 200;",
+                Language = ScriptLanguage.CSharp
+            },
             Endpoints = ["invalid-format"]
         };
 
@@ -910,8 +997,11 @@ public class KestrunHostMapExtensionsTests
         {
             Pattern = "/test-no-match",
             HttpVerbs = [HttpVerb.Get],
-            Code = "Context.Response.StatusCode = 200;",
-            Language = ScriptLanguage.CSharp,
+            ScriptCode = new LanguageOptions
+            {
+                Code = "Context.Response.StatusCode = 200;",
+                Language = ScriptLanguage.CSharp
+            },
             Endpoints = ["127.0.0.1:8080"] // Different port
         };
 
@@ -941,8 +1031,11 @@ public class KestrunHostMapExtensionsTests
         {
             Pattern = "/test-multiple",
             HttpVerbs = [HttpVerb.Get],
-            Code = "Context.Response.StatusCode = 200;",
-            Language = ScriptLanguage.CSharp,
+            ScriptCode = new LanguageOptions
+            {
+                Code = "Context.Response.StatusCode = 200;",
+                Language = ScriptLanguage.CSharp
+            },
             Endpoints = ["127.0.0.1:5000", "https://127.0.0.1:5001"]
         };
 
@@ -964,8 +1057,11 @@ public class KestrunHostMapExtensionsTests
         {
             Pattern = "/test-mixed",
             HttpVerbs = [HttpVerb.Get],
-            Code = "Context.Response.StatusCode = 200;",
-            Language = ScriptLanguage.CSharp,
+            ScriptCode = new LanguageOptions
+            {
+                Code = "Context.Response.StatusCode = 200;",
+                Language = ScriptLanguage.CSharp
+            },
             Endpoints = ["127.0.0.1:5000", "invalid-endpoint", "127.0.0.1:9999"]
         };
 
@@ -989,8 +1085,11 @@ public class KestrunHostMapExtensionsTests
         {
             Pattern = "/test-ipv6",
             HttpVerbs = [HttpVerb.Get],
-            Code = "Context.Response.StatusCode = 200;",
-            Language = ScriptLanguage.CSharp,
+            ScriptCode = new LanguageOptions
+            {
+                Code = "Context.Response.StatusCode = 200;",
+                Language = ScriptLanguage.CSharp
+            },
             Endpoints = ["[::1]:5000"]
         };
 

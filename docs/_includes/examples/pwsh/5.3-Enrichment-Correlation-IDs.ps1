@@ -11,7 +11,7 @@ param(
 )
 
 $appLogger = New-KrLogger |
-    Set-KrLoggerMinimumLevel -Value Debug |
+    Set-KrLoggerLevel -Value Debug |
     Add-KrEnrichProperty -Name 'App' -Value 'LoggingSamples' |
     Add-KrEnrichFromLogContext |
     Add-KrSinkConsole -OutputTemplate "[{App} {Timestamp:HH:mm:ss} {Level:u3} {CorrelationId}] {Message:lj}{NewLine}{Exception}" |
@@ -20,7 +20,7 @@ $appLogger = New-KrLogger |
 
 New-KrServer -Name "Enrichment & Correlation IDs"
 Add-KrEndpoint -Port $Port -IPAddress $IPAddress
-Add-KrPowerShellRuntime
+
 
 Enable-KrConfiguration
 

@@ -10,8 +10,10 @@ Describe 'Example 10.1-Antiforgery' -Tag 'Tutorial', 'Middleware', 'Antiforgery'
         Assert-RouteContent -Uri "$base/hello-json" -JsonField 'message' -JsonValue 'Hello, World!'
         Assert-RouteContent -Uri "$base/hello-xml" -Regex '<message>\s*Hello, World!\s*</message>'
         Assert-RouteContent -Uri "$base/hello-yaml" -YamlKey 'message' -YamlValue 'Hello, World!'
+    }
 
-        Assert-RouteContent -Uri "$base/json" -Headers @{ message = 'Ping' } -JsonField 'message' -JsonValue 'Ping'
+    It 'Allows marked safe POST routes without antiforgery token' {
+        Assert-RouteContent -Uri "$($script:instance.Url)/json" -Method 'Post' -Headers @{ message = 'Ping' } -JsonField 'message' -JsonValue 'Ping'
     }
 
     It 'Issues antiforgery token and cookie via /csrf-token' {

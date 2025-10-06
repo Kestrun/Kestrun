@@ -21,9 +21,9 @@ function Get-KrRequestRouteParam {
         [Parameter(Mandatory = $true)]
         [string]$Name
     )
-    if ($null -ne $Context.Request) {
-        # Get the request route value from the request
-        return $Context.Request.RouteValues[$Name]
+    if ($null -ne $Context) {
+        if ($null -ne $Context.Request -and $null -ne $Context.Request.RouteValues) {
+            return $Context.Request.RouteValues[$Name]
+        }
     }
 }
-

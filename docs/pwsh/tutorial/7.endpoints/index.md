@@ -12,7 +12,7 @@ Create and host a Kestrun server: listeners (HTTP/HTTPS, pipes, sockets), runtim
 
 Core cmdlets:
 `New-KrServer`, `Add-KrEndpoint`, `Add-KrNamedPipeListener`, `Add-KrListenUnixSocket`,
-`Add-KrPowerShellRuntime`, `Enable-KrConfiguration`, `Add-KrMapRoute`, `Start-KrServer`,
+`Enable-KrConfiguration`, `Add-KrMapRoute`, `Start-KrServer`,
 `Stop-KrServer`, `Remove-KrServer`.
 
 > Tip: Stage listeners & runtime first, then call `Enable-KrConfiguration`. You can still add routes afterwards.
@@ -43,7 +43,7 @@ Advanced server tuning, lifecycle, and demos have moved:
 ```powershell
 New-KrServer -Name 'demo'
 Add-KrEndpoint -Port 5000 -IPAddress ([IPAddress]::Loopback)
-Add-KrPowerShellRuntime
+
 Enable-KrConfiguration
 Add-KrMapRoute -Pattern '/ping' -Verbs Get -ScriptBlock { Write-KrTextResponse 'pong' }
 Start-KrServer
@@ -65,7 +65,7 @@ Browse: <http://127.0.0.1:5000/ping>
 
 | Symptom            | Cause                               | Fix                                                           |
 | ------------------ | ----------------------------------- | ------------------------------------------------------------- |
-| 404 on basic route | Route added before enabling runtime | Add `Add-KrPowerShellRuntime` before `Enable-KrConfiguration` |
+| 404 on basic route | Route added before enabling configuration | Call `Enable-KrConfiguration` before adding routes |
 | No output/logs     | No default logger registered        | Register logger with `-SetAsDefault`                          |
 | Port in use        | Another process bound               | Change `-Port` or free port                                   |
 

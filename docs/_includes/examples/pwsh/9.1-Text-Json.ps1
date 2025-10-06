@@ -17,32 +17,29 @@ New-KrServer -Name 'Responses 9.1'
 # 3. Listener
 Add-KrEndpoint -IPAddress $IPAddress -Port $Port -SelfSignedCert
 
-# 4. Runtime
-Add-KrPowerShellRuntime
-
-# 5. Finalize configuration
+# 4. Finalize configuration
 Enable-KrConfiguration
 
-# 6. Add routes demonstrating text responses
+# 5. Add routes demonstrating text responses
 Add-KrMapRoute -Pattern '/ping' -Verbs GET -ScriptBlock {
     Write-KrTextResponse 'pong'
 }
 
-# 7. Created text with custom content type
+# 6. Created text with custom content type
 Add-KrMapRoute -Pattern '/created' -Verbs POST -ScriptBlock {
     Write-KrTextResponse -InputObject 'resource created' -StatusCode 201 -ContentType 'text/plain; charset=utf-8'
 }
 
-# 8. JSON basic
+# 7. JSON basic
 Add-KrMapRoute -Pattern '/time' -Verbs GET -ScriptBlock {
     @{ utc = (Get-Date).ToUniversalTime(); version = 1 } | Write-KrJsonResponse -Compress
 }
 
-# 9. JSON depth + pretty (no -Compress)
+# 8. JSON depth + pretty (no -Compress)
 Add-KrMapRoute -Pattern '/config' -Verbs GET -ScriptBlock {
     $cfg = @{ name = 'demo'; nested = @{ a = 1; b = 2; c = @(1, 2, 3) } }
     $cfg | Write-KrJsonResponse -Depth 5
 }
 
-# 10. Start the server
+# 9. Start the server
 Start-KrServer -CloseLogsOnExit

@@ -58,8 +58,9 @@ public static class KestrunHostManager
     /// <param name="name">The name of the KestrunHost instance to create.</param>
     /// <param name="factory">A factory function that returns a new KestrunHost instance.</param>
     /// <param name="setAsDefault">Whether to set this instance as the default.</param>
+    /// <param name="enablePowershellMiddleware">Whether to enable PowerShell middleware for this instance.</param>
     /// <returns>The created KestrunHost instance.</returns>
-    public static KestrunHost Create(string name, Func<KestrunHost> factory, bool setAsDefault = false)
+    public static KestrunHost Create(string name, Func<KestrunHost> factory, bool setAsDefault = false, bool enablePowershellMiddleware = false)
     {
         if (string.IsNullOrWhiteSpace(name))
         {
@@ -72,6 +73,7 @@ public static class KestrunHostManager
         }
 
         var host = factory();
+        host.PowershellMiddlewareEnabled = enablePowershellMiddleware;
         _instances[name] = host;
 
         if (setAsDefault || _defaultName == null)
@@ -81,16 +83,18 @@ public static class KestrunHostManager
 
         return host;
     }
+
     /// <summary>
     /// Creates a new KestrunHost instance with the specified name and optional module paths, using the default logger.
     /// </summary>
     /// <param name="name">The name of the KestrunHost instance to create.</param>
     /// <param name="modulePathsObj">Optional array of module paths to load.</param>
     /// <param name="setAsDefault">Whether to set this instance as the default.</param>
+    /// <param name="enablePowershellMiddleware">Whether to enable PowerShell middleware for this instance.</param>
     /// <returns>The created KestrunHost instance.</returns>
     public static KestrunHost Create(string name,
-         string[]? modulePathsObj = null, bool setAsDefault = false) =>
-         Create(name, Log.Logger, modulePathsObj, setAsDefault); // Call the overload with a default logger (null or a default instance as appropriate)
+         string[]? modulePathsObj = null, bool setAsDefault = false, bool enablePowershellMiddleware = false) =>
+         Create(name, Log.Logger, modulePathsObj, setAsDefault, enablePowershellMiddleware);
 
     /// <summary>
     /// Creates a new KestrunHost instance with the specified name, logger, root path, and optional module paths.
@@ -99,9 +103,10 @@ public static class KestrunHostManager
     /// <param name="logger">The Serilog logger to use for the host.</param>
     /// <param name="modulePathsObj">Optional array of module paths to load.</param>
     /// <param name="setAsDefault">Whether to set this instance as the default.</param>
+    /// <param name="enablePowershellMiddleware">Whether to enable PowerShell middleware for this instance.</param>
     /// <returns>The created KestrunHost instance.</returns>
     public static KestrunHost Create(string name, Serilog.ILogger logger,
-         string[]? modulePathsObj = null, bool setAsDefault = false)
+         string[]? modulePathsObj = null, bool setAsDefault = false, bool enablePowershellMiddleware = false)
     {
         if (string.IsNullOrWhiteSpace(name))
         {
@@ -118,7 +123,12 @@ public static class KestrunHostManager
             throw new InvalidOperationException("Kestrun root path must be set before creating a KestrunHost instance.");
         }
 
-        var host = new KestrunHost(name, logger, KestrunRoot, modulePathsObj);
+        var host = new KestrunHost(name, logger, KestrunRoot, modulePathsObj)
+        {
+            PowershellMiddlewareEnabled = enablePowershellMiddleware,
+            DefaultHost = setAsDefault
+        };
+
         _instances[name] = host;
 
         if (setAsDefault || _defaultName == null)

@@ -39,7 +39,7 @@ try {
 }
 
 $logger = New-KrLogger |
-    Set-KrLoggerMinimumLevel -Value Debug |
+    Set-KrLoggerLevel -Value Debug |
     Add-KrSinkFile -Path '.\logs\HtmlTemplate.log' -RollingInterval Hour |
     Add-KrSinkConsole |
     Register-KrLogger -Name 'DefaultLogger' -PassThru -SetAsDefault
@@ -49,11 +49,10 @@ Set-KrSharedState -Name 'Visits' -Value @{Count = 0 }
 $server = New-KrServer -Name 'Kestrun HtmlTemplate' -Logger $logger -PassThru
 
 # Listen on port 5000 (HTTP)
-Add-KrEndpoint -Port 5000 -PassThru | Add-KrPowerShellRuntime -PassThru |
-
+Add-KrEndpoint -Port 5000 -PassThru |
     Enable-KrConfiguration -PassThru
 
-
+# Add HTML Template route
 Add-KrHtmlTemplateRoute -Pattern '/status' -HtmlTemplatePath './Pages/status.html'
 
 # Inject the global variable into the route

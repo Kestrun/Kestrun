@@ -17,8 +17,6 @@ New-KrServer -Name 'Auth JWT'
 # 3. Listener
 Add-KrEndpoint -Port $Port -IPAddress $IPAddress -SelfSignedCert
 
-# 4. Runtime
-Add-KrPowerShellRuntime
 
 # 5. Initial Basic scheme for token issuance
 Add-KrBasicAuthentication -Name 'BasicInit' -Realm 'Init' -AllowInsecureHttp -ScriptBlock { param($Username, $Password) $Username -eq 'admin' -and $Password -eq 'password' }
@@ -41,9 +39,9 @@ Enable-KrConfiguration
 Add-KrMapRoute -Verbs Get -Pattern '/token/new' -AuthorizationSchema 'BasicInit' -ScriptBlock {
     $user = $Context.User.Identity.Name
     Write-KrLog -Level Information -Message 'Generating JWT token for user {User}' -Values $user
-    Write-KrLog -Level Information -Message "Issuer : {Issuer} " -Values $JwtTokenBuilder.Issuer
-    Write-KrLog -Level Information -Message "Audience : {Audience} " -Values $JwtTokenBuilder.Audience
-    Write-KrLog -Level Information -Message "Algorithm: {Algorithm} " -Values $JwtTokenBuilder.Algorithm
+    Write-KrLog -Level Information -Message 'Issuer : {Issuer} ' -Values $JwtTokenBuilder.Issuer
+    Write-KrLog -Level Information -Message 'Audience : {Audience} ' -Values $JwtTokenBuilder.Audience
+    Write-KrLog -Level Information -Message 'Algorithm: {Algorithm} ' -Values $JwtTokenBuilder.Algorithm
 
     $build = Copy-KrJWTTokenBuilder -Builder $jwtBuilder |
         Add-KrJWTSubject -Subject $user |

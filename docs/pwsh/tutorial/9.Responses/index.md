@@ -34,9 +34,8 @@ headers and serialization.
 Minimal server returning JSON & text:
 
 ```powershell
-New-KrServer -Name 'Responses Demo' | Out-Null
-Add-KrEndpoint -Url 'http://127.0.0.1:5055' | Out-Null
-Add-KrPowerShellRuntime | Out-Null
+New-KrServer -Name 'Responses Demo'
+Add-KrEndpoint -Url 'http://127.0.0.1:5055'
 
 Add-KrMapRoute -Path '/hello' -Method GET -ScriptBlock {
   Write-KrTextResponse 'Hello world from text'

@@ -25,6 +25,7 @@
 function New-KrMapRouteOption {
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseShouldProcessForStateChangingFunctions', '')]
     [KestrunRuntimeApi('Definition')]
+    [OutputType([Kestrun.Hosting.Options.MapRouteOptions])]
     [CmdletBinding()]
     param(
         [Parameter(Mandatory, ValueFromPipeline)]

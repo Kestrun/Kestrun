@@ -1,6 +1,3 @@
-
-using System.Reflection;
-using Kestrun.Scripting;
 using Kestrun.Utilities;
 
 namespace Kestrun.Hosting.Options;
@@ -17,22 +14,6 @@ public record MapRouteOptions
     /// The HTTP verbs (methods) that this route responds to.
     /// </summary>
     public List<HttpVerb> HttpVerbs { get; set; } = [];
-    /// <summary>
-    /// The script code to execute for this route.
-    /// </summary>
-    public string? Code { get; set; }
-    /// <summary>
-    /// The scripting language used for the route's code.
-    /// </summary>
-    public ScriptLanguage Language { get; set; } = ScriptLanguage.PowerShell;
-    /// <summary>
-    /// Additional import namespaces required for the script code.
-    /// </summary>
-    public string[]? ExtraImports { get; set; }
-    /// <summary>
-    /// Additional assembly references required for the script code.
-    /// </summary>
-    public Assembly[]? ExtraRefs { get; set; }
     /// <summary>
     /// Authorization Scheme names required for this route.
     /// </summary>
@@ -71,47 +52,19 @@ public record MapRouteOptions
     public string? RateLimitPolicyName { get; set; }
 
     /// <summary>
-    /// Additional metadata for the route, represented as key-value pairs.
-    /// </summary>
-    public Dictionary<string, object?>? Arguments { get; set; } = [];
-
-    /// <summary>
     /// Endpoints to bind the route to, if any.
     /// </summary>
     public string[]? Endpoints { get; set; } = [];
-
-    /// <summary>
-    /// Metadata for OpenAPI documentation related to the route.
-    /// </summary>
-    public record OpenAPIMetadata
-    {
-        /// <summary>
-        /// A brief summary of the route for OpenAPI documentation.
-        /// </summary>
-        public string? Summary { get; set; }
-        /// <summary>
-        /// A detailed description of the route for OpenAPI documentation.
-        /// </summary>
-        public string? Description { get; set; }
-        /// <summary>
-        /// The unique operation ID for the route in OpenAPI documentation.
-        /// </summary>
-        public string? OperationId { get; set; }
-        /// <summary>
-        /// Comma-separated tags for OpenAPI documentation.
-        /// </summary>
-        public string[] Tags { get; set; } = []; // Comma-separated tags
-        /// <summary>
-        /// Group name for OpenAPI documentation.
-        /// </summary>
-        public string? GroupName { get; set; } // Group name for OpenAPI documentation
-    }
 
     /// <summary>
     /// OpenAPI metadata for this route.
     /// </summary>
     public OpenAPIMetadata OpenAPI { get; set; } = new OpenAPIMetadata(); // OpenAPI metadata for this route
 
+    /// <summary>
+    /// Script code and language options for this route.
+    /// </summary>
+    public LanguageOptions ScriptCode { get; init; } = new LanguageOptions();
     /// <summary>
     /// If true, throws an exception on duplicate routes.
     /// </summary>

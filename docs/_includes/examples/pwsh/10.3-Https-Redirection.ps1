@@ -12,7 +12,7 @@ Initialize-KrRoot -Path $PSScriptRoot
 
 # Configure default logging
 New-KrLogger |
-    Set-KrLoggerMinimumLevel -Value Debug |
+    Set-KrLoggerLevel -Value Debug |
     Add-KrSinkConsole |
     Register-KrLogger -Name 'myLogger' -SetAsDefault
 
@@ -27,8 +27,7 @@ Add-KrEndpoint -Port ($Port + 443) -IPAddress $IPAddress -X509Certificate $cert
 
 Add-KrHttpsRedirection -RedirectStatusCode 301 -HttpsPort ($Port + 443)
 
-Add-KrPowerShellRuntime
-
+# Enable Kestrun configuration
 Enable-KrConfiguration
 
 # Minimal route to verify HTTPS redirect works

@@ -30,7 +30,6 @@ headers (`no-store`), and short-circuit options so it can live alongside your AP
 ```powershell
 New-KrServer -Name 'health-demo'
 Add-KrEndpoint -Port 5000 -IPAddress ([IPAddress]::Loopback)
-Add-KrPowerShellRuntime
 
 Add-KrHealthEndpoint -Pattern '/healthz' -DefaultTags 'core' -ProbeTimeout '00:00:05' -TreatDegradedAsUnhealthy $true -OpenApiSummary 'Aggregated health'
 
@@ -306,7 +305,7 @@ Disable or override by registering your own probe with the same name before `Ena
 | Endpoint missing | `AutoRegisterEndpoint` disabled and `AddHealthEndpoint` not invoked | Call `Add-KrHealthEndpoint` / `AddHealthEndpoint`. |
 | HTTP 503 even though probes healthy | `-TreatDegradedAsUnhealthy` set and a probe returning `Degraded` | Inspect probe descriptions; lower severity or disable flag. |
 | Tags filter ignored | Tags contain whitespace or mismatched case | Cmdlets trim automatically; ensure you pass `-Tags 'ready','db'` or `?tags=ready,db`. |
-| Script probe throws "Runspace not initialized" | PowerShell runtime not added (`Add-KrPowerShellRuntime`) | Add runtime before registering script probes. |
+| Script probe throws "Runspace not initialized" | PowerShell runtime excluded from configuration | Add runtime before registering script probes. |
 | HTTP probe socket exhaustion | Creating new `HttpClient` per probe | Provide shared `HttpClient` via `-HttpClient`. |
 | Process probe stuck | Hanging external process | Lower timeout or improve script to honor cancellation token. |
 | JSON payload missing data | Probe returned string instead of `ProbeResult` | Ensure script returns `[Kestrun.Health.ProbeResult]` or has `status/description/data` properties. |

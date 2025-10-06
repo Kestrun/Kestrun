@@ -34,13 +34,12 @@ function Convert-ToSecureStringOrNull {
 Initialize-KrRoot -Path $PSScriptRoot
 
 New-KrLogger |
-    Set-KrLoggerMinimumLevel -Value Debug |
+    Set-KrLoggerLevel -Value Debug |
     Add-KrSinkConsole |
     Register-KrLogger -Name 'myLogger' -SetAsDefault
 
 New-KrServer -Name "Cert Ops API"
 Add-KrEndpoint -Port $Port -IPAddress $IPAddress
-Add-KrPowerShellRuntime
 
 Enable-KrConfiguration
 

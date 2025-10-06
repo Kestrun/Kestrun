@@ -34,7 +34,7 @@ try {
     exit 1
 }
 New-KrLogger |
-    Set-KrLoggerMinimumLevel -Value Debug |
+    Set-KrLoggerLevel -Value Debug |
     Add-KrSinkFile -Path '.\logs\MultiRoutes.log' -RollingInterval Hour |
     Add-KrSinkConsole |
     Register-KrLogger -Name 'DefaultLogger' -SetAsDefault
@@ -114,7 +114,7 @@ Add-KrEndpoint -Port 5001 -IPAddress ([IPAddress]::Loopback) -X509Certificate $c
 Add-KrEndpoint -Port 5000 -IPAddress ([IPAddress]::Loopback)
 
 Add-KrCompressionMiddleware -EnableForHttps -MimeTypes @('text/plain', 'text/html', 'application/json', 'application/xml', 'application/x-www-form-urlencoded')
-Add-KrPowerShellRuntime
+
 
 
 

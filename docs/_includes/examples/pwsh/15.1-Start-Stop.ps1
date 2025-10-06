@@ -15,8 +15,6 @@ $srv = New-KrServer -Name 'Lifecycle Demo' -PassThru
 # This listener will be used to demonstrate server limits configuration.
 Add-KrEndpoint -Port $Port -IPAddress $IPAddress
 
-# 4. Add PowerShell runtime for script routes and middlewares
-Add-KrPowerShellRuntime
 
 # 6. Finalize configuration and set server limits
 Enable-KrConfiguration

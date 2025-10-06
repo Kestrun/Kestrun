@@ -159,6 +159,7 @@ Add-BuildTask Help {
     Write-Host '- Report-Coverage: Generates code coverage report webpage.'
     Write-Host '- Clean-Coverage: Cleans the code coverage reports.'
     Write-Host '- Normalize-LineEndings: Normalizes line endings to LF in .ps1, .psm1, and .cs files.'
+    Write-Host '- Test-Tutorials: Runs tests on tutorial documentation.'
     Write-Host '-----------------------------------------------------'
 }
 
@@ -326,6 +327,11 @@ Invoke-Pester -Configuration $cfg
 }
 
 Add-BuildTask 'Test' 'Test-xUnit', 'Test-Pester'
+
+Add-BuildTask 'Test-Tutorials' {
+    Write-Host '🧪 Running Kestrun Tutorial tests...'
+    & .\Utility\Test-TutorialDocs.ps1
+}
 
 Add-BuildTask 'Package' "Clean", {
     Write-Host '🚀 Starting release build...'

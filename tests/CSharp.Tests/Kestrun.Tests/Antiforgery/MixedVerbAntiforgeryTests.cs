@@ -31,8 +31,11 @@ public class MixedVerbAntiforgeryTests
     {
         Pattern = "/form",
         HttpVerbs = [HttpVerb.Get, HttpVerb.Post],
-        Code = "Write-Host 'noop'", // minimal placeholder
-        Language = ScriptLanguage.PowerShell,
+        ScriptCode = new LanguageOptions
+        {
+            Code = "Write-Host 'noop'", // minimal placeholder
+            Language = ScriptLanguage.PowerShell
+        },
         DisableAntiforgery = disable
     };
 

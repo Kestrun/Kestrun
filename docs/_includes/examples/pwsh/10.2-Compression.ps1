@@ -92,12 +92,14 @@ Add-KrMapRoute -Verbs Get -Pattern '/form' -ScriptBlock {
 Add-KrMapRoute -Options (New-KrMapRouteOption -Property @{
         Pattern = '/raw-nocompress'
         HttpVerbs = 'Get'
-        Code = {
-            $body = _NewLargeBlock 'This route intentionally disables response compression.' 150
-            Write-Verbose "[/raw-nocompress] length=$($body.Length)" -Verbose
-            Write-KrTextResponse -InputObject $body -StatusCode 200 -ContentType 'text/plain'
+        ScriptCode = @{
+            Code = {
+                $body = _NewLargeBlock 'This route intentionally disables response compression.' 150
+                Write-Verbose "[/raw-nocompress] length=$($body.Length)" -Verbose
+                Write-KrTextResponse -InputObject $body -StatusCode 200 -ContentType 'text/plain'
+            }
+            Language = 'PowerShell'
         }
-        Language = 'PowerShell'
         DisableResponseCompression = $true
     })
 

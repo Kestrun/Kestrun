@@ -1557,7 +1557,7 @@ function Invoke-CurlRequest {
 .OUTPUTS
     The value of the header if found, otherwise $null.
 #>
-function _findHeader($hdrs, [string]$name) {
+function Find-Header($hdrs, [string]$name) {
     foreach ($k in $hdrs.Keys) { if ($k -ieq $name) { return $hdrs[$k] } }
     return $null
 }
@@ -1590,10 +1590,10 @@ function Get-CompressionProbe {
     $gz = Get-HttpHeadersRaw -Uri "$base$Path" -IncludeBody -Insecure:$insecure -AcceptEncoding 'gzip'
 
 
-    $rawEncoding = _findHeader $raw.Headers 'Content-Encoding'
-    $gzEncoding = _findHeader $gz.Headers 'Content-Encoding'
-    $rawLen = if (_findHeader $raw.Headers 'Content-Length') { [int](_findHeader $raw.Headers 'Content-Length') } else { $raw.BodyLength }
-    $gzLen = if (_findHeader $gz.Headers 'Content-Length') { [int](_findHeader $gz.Headers 'Content-Length') } else { $gz.BodyLength }
+    $rawEncoding = Find-Header $raw.Headers 'Content-Encoding'
+    $gzEncoding = Find-Header $gz.Headers 'Content-Encoding'
+    $rawLen = if (Find-Header $raw.Headers 'Content-Length') { [int](Find-Header $raw.Headers 'Content-Length') } else { $raw.BodyLength }
+    $gzLen = if (Find-Header $gz.Headers 'Content-Length') { [int](Find-Header $gz.Headers 'Content-Length') } else { $gz.BodyLength }
 
     # Optional curl fallback for edge cases
     if ($UseCurlFallback -and -not $gzEncoding) {
@@ -1826,7 +1826,7 @@ function Get-HttpHeadersRaw {
 .NOTES
     This function will not throw; it returns $null on failure.
 #>
-function TryBrotli([byte[]]$data) {
+function ConvertFrom-BrotliCompression([byte[]]$data) {
     try {
         $brotliType = [type]::GetType('System.IO.Compression.BrotliStream, System.IO.Compression.Brotli')
         if (-not $brotliType) { return $null }
@@ -1855,7 +1855,7 @@ function TryBrotli([byte[]]$data) {
 .NOTES
     This function will not throw; it returns $null on failure.
 #>
-function TryGzip([byte[]]$data) {
+function ConvertFrom-GzipCompression([byte[]]$data) {
     try {
         if ($data.Length -lt 2) { return $null }
         if ($data[0] -ne 0x1F -or $data[1] -ne 0x8B) { return $null }
@@ -1881,7 +1881,7 @@ function TryGzip([byte[]]$data) {
 .NOTES
     This function will not throw; it returns the original data on failure or if not chunked
 #>
-function DecodeChunked([byte[]]$data) {
+function ConvertFrom-ChunkedEncoding([byte[]]$data) {
     try {
         $asciiSample = [Text.Encoding]::ASCII.GetString($data, 0, [Math]::Min(64, $data.Length))
         if ($asciiSample -notmatch '^[0-9A-Fa-f]{1,6}\r\n') { return $data } # fast reject
@@ -1943,15 +1943,15 @@ function Convert-BytesToStringWithGzipScan {
 
 
 
-    $maybeChunked = DecodeChunked $Bytes
+    $maybeChunked = ConvertFrom-ChunkedEncoding $Bytes
     if ($maybeChunked -ne $Bytes) { $diagnostics['ChunkedDecoded'] = $true; $diagnostics['AfterChunkLength'] = $maybeChunked.Length } else { $diagnostics['ChunkedDecoded'] = $false }
     $Bytes = $maybeChunked
 
     $decodedBytes = $null
-    $gzipBytes = TryGzip $Bytes
+    $gzipBytes = ConvertFrom-GzipCompression $Bytes
     if ($gzipBytes) { $decodedBytes = $gzipBytes; $diagnostics['GzipDecoded'] = $true }
     else {
-        $brotliBytes = TryBrotli $Bytes
+        $brotliBytes = ConvertFrom-BrotliCompression $Bytes
         if ($brotliBytes) { $decodedBytes = $brotliBytes; $diagnostics['BrotliDecoded'] = $true }
         else { $decodedBytes = $Bytes; $diagnostics['GzipDecoded'] = $false; $diagnostics['BrotliDecoded'] = $false }
     }

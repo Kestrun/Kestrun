@@ -61,12 +61,14 @@ inside route options:
 New-KrMapRouteOption -Property @{
   Pattern = '/metrics/raw'
   HttpVerbs = 'Get'
-  Code = {
-    # Prometheus style metrics text
-    $lines = 1..500 | ForEach-Object { "metric_name{label='$_'} $_" }
-    Write-KrTextResponse -InputObject ($lines -join "`n") -ContentType 'text/plain' -StatusCode 200
+  ScriptCode = @{
+    Code = {
+        # Prometheus style metrics text
+        $lines = 1..500 | ForEach-Object { "metric_name{label='$_'} $_" }
+        Write-KrTextResponse -InputObject ($lines -join "`n") -ContentType 'text/plain' -StatusCode 200
+    }
+    Language = 'PowerShell'
   }
-  Language = 'PowerShell'
   DisableResponseCompression = $true
 } | Add-KrMapRoute
 ```

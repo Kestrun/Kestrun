@@ -28,8 +28,16 @@ New-KrServer -Name 'Compression Demo'
 # 3. Listener (HTTP + self-signed HTTPS)
 Add-KrEndpoint -Port $Port -IPAddress $IPAddress -SelfSignedCert | Out-Null
 
-# IMPORTANT: Define helper functions BEFORE adding the PowerShell runtime so that
-# they are available inside the isolated runspaces used for route execution.
+<#
+.SYNOPSIS
+    Generate a large block of text by repeating a seed string.
+.PARAMETER seed
+    The seed string to repeat.
+.PARAMETER repeat
+    The number of times to repeat the seed string (default: 80).
+.RETURNS
+    A large string composed of the seed repeated.
+#>
 function _NewLargeBlock([string]$seed, [int]$repeat = 80) {
     return (($seed + ' ') * $repeat).Trim()
 }

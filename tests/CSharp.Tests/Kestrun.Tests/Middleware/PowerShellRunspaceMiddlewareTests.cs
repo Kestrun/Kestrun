@@ -9,6 +9,7 @@ using Xunit;
 using Serilog;
 using Serilog.Core;
 using Serilog.Events;
+using Microsoft.AspNetCore.Http.Features;
 
 namespace KestrunTests.Middleware;
 
@@ -51,13 +52,24 @@ public class PowerShellRunspaceMiddlewareTests
         });
 
         var pipeline = app.Build();
+
+        // Use a custom response feature to capture OnCompleted and trigger it manually in test
         var http = new DefaultHttpContext();
+        var responseFeature = new TestHttpResponseFeature();
+        http.Features.Set<IHttpResponseFeature>(responseFeature);
         http.Request.Path = "/test";
         await pipeline(http);
 
-        // After pipeline, PS instance should be removed (disposed and returned to pool)
-        Assert.False(http.Items.ContainsKey(PowerShellDelegateBuilder.PS_INSTANCE_KEY));
+        // With deferred cleanup (OnCompleted), items are still present until the response completes
+        Assert.True(http.Items.ContainsKey(PowerShellDelegateBuilder.PS_INSTANCE_KEY));
         Assert.True(http.Items.ContainsKey(PowerShellDelegateBuilder.KR_CONTEXT_KEY));
+
+        // Trigger response completion to execute OnCompleted callbacks and perform cleanup
+        await responseFeature.TriggerOnCompletedAsync();
+
+        // After completion, both items should be removed
+        Assert.False(http.Items.ContainsKey(PowerShellDelegateBuilder.PS_INSTANCE_KEY));
+        Assert.False(http.Items.ContainsKey(PowerShellDelegateBuilder.KR_CONTEXT_KEY));
     }
 
     [Fact]
@@ -179,5 +191,42 @@ public class PowerShellRunspaceMiddlewareTests
     {
         public List<LogEvent> Events { get; } = [];
         public void Emit(LogEvent logEvent) => Events.Add(logEvent);
+    }
+
+    // Minimal IHttpResponseFeature implementation to capture and trigger OnCompleted callbacks
+    private sealed class TestHttpResponseFeature : IHttpResponseFeature
+    {
+        private readonly List<(Func<object, Task> callback, object state)> _onCompleted = [];
+        private readonly List<(Func<object, Task> callback, object state)> _onStarting = [];
+
+        public int StatusCode { get; set; } = 200;
+        public string? ReasonPhrase { get; set; } = string.Empty;
+        public IHeaderDictionary Headers { get; set; } = new HeaderDictionary();
+        public Stream Body { get; set; } = new MemoryStream();
+        public bool HasStarted { get; private set; }
+
+        public void OnCompleted(Func<object, Task> callback, object state) => _onCompleted.Add((callback, state));
+
+        public void OnStarting(Func<object, Task> callback, object state) => _onStarting.Add((callback, state));
+
+        public void DisableBuffering() { }
+
+        public async Task TriggerOnCompletedAsync()
+        {
+            // Mark as started to mirror pipeline behavior
+            HasStarted = true;
+            // Fire OnStarting first (reverse order per ASP.NET Core semantics)
+            for (var i = _onStarting.Count - 1; i >= 0; i--)
+            {
+                var (cb, st) = _onStarting[i];
+                await cb(st);
+            }
+            // Fire OnCompleted (reverse order)
+            for (var i = _onCompleted.Count - 1; i >= 0; i--)
+            {
+                var (cb, st) = _onCompleted[i];
+                await cb(st);
+            }
+        }
     }
 }

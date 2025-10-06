@@ -11,7 +11,7 @@ param(
 )
 
 # (Optional) Configure console logging so we can see events
-New-KrLogger |
+New-KrLogger |    Set-KrLoggerLevel -Value Debug |
     Add-KrSinkConsole |
     Register-KrLogger -Name 'console' -SetAsDefault | Out-Null
 

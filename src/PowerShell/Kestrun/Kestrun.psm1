@@ -56,7 +56,7 @@ if (-not $inRouteRunspace) {
 }
 
 try {
-    # Check if Kestrun assembly is loaded
+    # Check if Kestrun assembly is already loaded
     if (-not ([AppDomain]::CurrentDomain.GetAssemblies() | Where-Object { $_.GetName().Name -eq 'Kestrun' } )) {
         throw 'Kestrun assembly is not loaded.'
     }

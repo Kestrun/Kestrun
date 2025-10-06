@@ -120,7 +120,7 @@ public static class StatusCodePageExtensions
 
     private static Func<StatusCodeContext, Task> BuildScriptHandler(StatusCodeOptions options, RequestDelegate compiled)
     {
-        return async (StatusCodeContext context) =>
+        return async context =>
         {
             var httpContext = context.HttpContext;
 

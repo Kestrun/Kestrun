@@ -121,7 +121,7 @@ public sealed class HttpProbe(string name, string[] tags, HttpClient http, strin
     /// </summary>
     /// <param name="body">The response body.</param>
     /// <returns>The probe result if parsing succeeds, null otherwise.</returns>
-    private static ProbeResult? TryParseHealthContract(string? body)
+    private ProbeResult? TryParseHealthContract(string? body)
     {
         try
         {
@@ -139,6 +139,10 @@ public sealed class HttpProbe(string name, string[] tags, HttpClient http, strin
         }
         catch
         {
+            if (Logger.IsEnabled(LogEventLevel.Debug))
+            {
+                Logger.Debug("HttpProbe {Probe} response body is not valid contract JSON", Name);
+            }
             return null;
         }
     }

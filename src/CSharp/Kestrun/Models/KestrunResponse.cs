@@ -1133,12 +1133,13 @@ public class KestrunResponse(KestrunRequest request, int bodyAsyncThreshold = 81
 
         try
         {
-            EnsureStatusAndContentType(response);
-            ApplyContentDispositionHeader(response);
+            EnsureStatus(response);
             ApplyHeadersAndCookies(response);
             ApplyCachingHeaders(response);
             if (Body is not null)
             {
+                EnsureContentType(response);
+                ApplyContentDispositionHeader(response);
                 await WriteBodyAsync(response).ConfigureAwait(false);
             }
             else
@@ -1164,16 +1165,8 @@ public class KestrunResponse(KestrunRequest request, int bodyAsyncThreshold = 81
     /// Ensures the HTTP response has the correct status code and content type.
     /// </summary>
     /// <param name="response">The HTTP response to apply the status and content type to.</param>
-    private void EnsureStatusAndContentType(HttpResponse response)
+    private void EnsureContentType(HttpResponse response)
     {
-        if (Log.IsEnabled(LogEventLevel.Debug))
-        {
-            Log.Debug("Ensuring status and content type, StatusCode={StatusCode}, ContentType={ContentType}", StatusCode, ContentType);
-        }
-        if (StatusCode != response.StatusCode)
-        {
-            response.StatusCode = StatusCode;
-        }
         if (ContentType != response.ContentType)
         {
             if (!string.IsNullOrEmpty(ContentType) &&
@@ -1183,6 +1176,18 @@ public class KestrunResponse(KestrunRequest request, int bodyAsyncThreshold = 81
                 ContentType = ContentType.TrimEnd(';') + $"; charset={AcceptCharset.WebName}";
             }
             response.ContentType = ContentType;
+        }
+    }
+
+    /// <summary>
+    /// Ensures the HTTP response has the correct status code.
+    /// </summary>
+    /// <param name="response">The HTTP response to apply the status code to.</param>
+    private void EnsureStatus(HttpResponse response)
+    {
+        if (StatusCode != response.StatusCode)
+        {
+            response.StatusCode = StatusCode;
         }
     }
 

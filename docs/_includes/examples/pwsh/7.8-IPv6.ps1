@@ -19,10 +19,6 @@ New-KrServer -Name 'Endpoints Basic'
 # Add a listener on port 5000 and IP address 127.0.0.1 (localhost)
 Add-KrEndpoint -IPAddress $IPv6Address -Port $Port -AddressFamily InterNetworkV6
 
-# Add the PowerShell runtime
-# !!!!Important!!!! this step is required to process PowerShell routes and middlewares
-Add-KrPowerShellRuntime
-
 # Enable Kestrun configuration
 Enable-KrConfiguration
 

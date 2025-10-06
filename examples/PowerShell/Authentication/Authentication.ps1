@@ -90,7 +90,7 @@ Add-KrEndpoint -Port $Port -IPAddress $IPAddress -X509Certificate $cert -Protoco
 #Add-KrEndpoint -Port $Port -IPAddress $IPAddress
 
 Add-KrCompressionMiddleware -EnableForHttps -MimeTypes @('text/plain', 'text/html', 'application/json', 'application/xml', 'application/x-www-form-urlencoded')
-Add-KrPowerShellRuntime
+
 Add-KrFaviconMiddleware
 
 # Authentication Schemes Names definitions

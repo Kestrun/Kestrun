@@ -18,8 +18,6 @@ Describe 'Validates numeric probe data representation in XML health response' -T
             # Add a listener on the configured port and IP address
             Add-KrEndpoint -Port $Port -IPAddress $IPAddress
 
-            Add-KrPowerShellRuntime
-
             # Add a simple health probe that returns numeric data
             Add-KrHealthProbe -Name 'NumProbe' -ScriptBlock {
                 New-KrProbeResult Healthy 'OK' -Data @{ intVal = 42; floatVal = 12.5 }

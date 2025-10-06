@@ -21,8 +21,6 @@ Describe 'Validates numeric probe data representation in YAML health response' -
             # Add a listener on the configured port and IP address
             Add-KrEndpoint -Port $Port -IPAddress $IPAddress
 
-            Add-KrPowerShellRuntime
-
             # Add a simple health probe that returns numeric data
             Add-KrHealthProbe -Name 'NumProbe' -Scriptblock {
                 New-KrProbeResult Healthy 'OK' -Data @{ intVal = 42; floatVal = 12.5 }

@@ -17,8 +17,6 @@ New-KrServer -Name 'Health Demo'
 ## 3. Listener (loopback port 5000)
 Add-KrEndpoint -Port $Port -IPAddress $IPAddress
 
-## 4. Runtime (PowerShell execution engine)
-Add-KrPowerShellRuntime
 
 ## 5. Enable configuration (locks in components)
 Enable-KrConfiguration

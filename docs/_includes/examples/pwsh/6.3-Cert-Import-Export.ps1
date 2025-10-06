@@ -40,7 +40,6 @@ New-KrLogger |
 
 New-KrServer -Name "Cert Ops API"
 Add-KrEndpoint -Port $Port -IPAddress $IPAddress
-Add-KrPowerShellRuntime
 
 Enable-KrConfiguration
 

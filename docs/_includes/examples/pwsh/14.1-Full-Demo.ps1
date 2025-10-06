@@ -17,7 +17,7 @@ $srv = New-KrServer -Name 'Full Demo Server' -PassThru
 Add-KrEndpoint -Port $Port -IPAddress $IPAddress
 Add-KrEndpoint -Port ($Port + 433) -IPAddress $IPAddress -CertPath $certPath -CertPassword $demoPwd
 if ($IsWindows) { Add-KrNamedPipeListener -PipeName 'kestrun.full.pipe' }
-Add-KrPowerShellRuntime
+
 Enable-KrConfiguration
 Set-KrServerLimit -MaxRequestBodySize 2097152 -MaxConcurrentConnections 100 | Out-Null
 Set-KrServerOptions -DenyServerHeader -MaxRunspaces 8 -MinRunspaces 2 | Out-Null

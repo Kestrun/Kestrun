@@ -18,9 +18,7 @@ New-KrServer -Name 'Health Disk Probe'
 ## 3. Listener (port 5000)
 Add-KrEndpoint -Port $Port -IPAddress $IPAddress
 
-## 4. Runtime
-Add-KrPowerShellRuntime
-
+#
 # Override disk probe by registering a custom one with same name
 ## 5. Override auto disk probe with custom logic
 Add-KrHealthProbe -Name 'disk' -Tags 'self', 'infra' -ScriptBlock {

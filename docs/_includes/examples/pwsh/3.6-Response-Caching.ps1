@@ -19,8 +19,7 @@ New-KrLogger |
     Register-KrLogger -Name 'console' -SetAsDefault | Out-Null
 # Create a new Kestrun server
 New-KrServer -Name "Simple Server"
-# PowerShell runtime
-Add-KrPowerShellRuntime
+
 # Add a listener on configured port and IP
 Add-KrEndpoint -Port $Port -IPAddress $IPAddress
 

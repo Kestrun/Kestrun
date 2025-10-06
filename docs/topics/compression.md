@@ -25,7 +25,6 @@ to reduce bandwidth and improve client perceived latency. Avoid compressing:
 ```powershell
 New-KrServer -Name 'ApiServer' |
   Add-KrEndpoint -Port 5001 -SelfSignedCert |
-  Add-KrPowerShellRuntime |
   Add-KrCompressionMiddleware -EnableForHttps -MimeTypes 'text/plain','application/json','text/html' |
   Enable-KrConfiguration
 ```

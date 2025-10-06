@@ -18,9 +18,6 @@ New-KrServer -Name 'Endpoints Unix'
 # 3. Add Unix socket listener (auto unlinks existing file if present)
 Add-KrListenUnixSocket -SocketPath (Join-Path -Path $([System.IO.Path]::GetTempPath()) -ChildPath $SocketPath)
 
-# 4. Add PowerShell runtime for script routes
-Add-KrPowerShellRuntime
-
 # 5. Finalize configuration
 Enable-KrConfiguration
 

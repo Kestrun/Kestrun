@@ -34,8 +34,6 @@ function _NewLargeBlock([string]$seed, [int]$repeat = 80) {
     return (($seed + ' ') * $repeat).Trim()
 }
 
-# 4. Runtime
-Add-KrPowerShellRuntime
 
 # 5. Compression middleware (cover common textual MIME types)
 Add-KrCompressionMiddleware -EnableForHttps -MimeTypes @('text/plain', 'text/html', 'application/json', 'application/xml', 'application/x-www-form-urlencoded')

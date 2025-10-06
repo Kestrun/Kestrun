@@ -66,7 +66,6 @@ All cmdlets use `Kr` prefix with fluent chaining:
 ```powershell
 New-KrServer -Name 'MyServer' |
     Add-KrEndpoint -Port 5000 |
-    Add-KrPowerShellRuntime |
     Enable-KrConfiguration
 ```
 

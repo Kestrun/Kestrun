@@ -62,7 +62,6 @@ Add-KrCompressionMiddleware -EnableForHttps -MimeTypes @(
     'text/html'
 )
 
-Add-KrPowerShellRuntime
 Add-KrPowerShellRazorPagesRuntime
 
 Add-KrCorsPolicyMiddleware -Name 'AllowAll' -AllowAnyOrigin -AllowAnyMethod -AllowAnyHeader

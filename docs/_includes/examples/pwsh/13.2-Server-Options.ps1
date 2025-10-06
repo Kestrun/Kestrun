@@ -20,8 +20,6 @@ New-KrServer -Name 'Server Limits'
 # This listener will be used to demonstrate server limits configuration.
 Add-KrEndpoint -Port $Port -IPAddress $IPAddress
 
-# 4. Add PowerShell runtime for script routes and middlewares
-Add-KrPowerShellRuntime
 
 # 5. Set server options for denying server header, disabling response header compression, and configuring runspaces
 Set-KrServerOptions -DenyServerHeader -MaxRunspaces 8 -MinRunspaces 2

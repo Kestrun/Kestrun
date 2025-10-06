@@ -17,8 +17,7 @@ New-KrServer -Name 'Scheduling Report Demo'
 ## 3. Listener
 Add-KrEndpoint -Port $Port -IPAddress $IPAddress
 
-## 4. Runtime + Scheduler
-Add-KrPowerShellRuntime
+## 4. Scheduler
 Add-KrScheduling
 
 ## 5. Apply configuration

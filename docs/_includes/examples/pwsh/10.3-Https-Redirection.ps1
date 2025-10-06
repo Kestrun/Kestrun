@@ -27,6 +27,9 @@ Add-KrEndpoint -Port ($Port + 443) -IPAddress $IPAddress -X509Certificate $cert
 
 Add-KrHttpsRedirection -RedirectStatusCode 301 -HttpsPort ($Port + 443)
 
+# Enable Kestrun configuration
+Enable-KrConfiguration
+
 # Minimal route to verify HTTPS redirect works
 Add-KrMapRoute -Verbs Get -Pattern "/" -ScriptBlock { Write-KrTextResponse "hello https" }
 

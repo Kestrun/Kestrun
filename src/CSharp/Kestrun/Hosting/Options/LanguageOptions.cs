@@ -1,4 +1,5 @@
 
+using System.Management.Automation;
 using System.Reflection;
 using Kestrun.Scripting;
 
@@ -24,6 +25,27 @@ public record LanguageOptions
     /// Additional assembly references required for the script code.
     /// </summary>
     public Assembly[]? ExtraRefs { get; set; }
+
+    /// <summary>
+    /// The script block created from the <see cref="Code"/> property, or null if no code is set.
+    /// </summary>
+    public ScriptBlock? ScriptBlock
+    {
+        get
+        {
+            return string.IsNullOrWhiteSpace(Code) ? null : ScriptBlock.Create(Code);
+        }
+        set
+        {
+            if (value is null)
+            {
+                Code = null;
+                return;
+            }
+            Code = value.ToString();
+            Language = ScriptLanguage.PowerShell;
+        }
+    }
 
     /// <summary>
     /// Additional metadata for the route, represented as key-value pairs.

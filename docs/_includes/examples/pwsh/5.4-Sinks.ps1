@@ -23,7 +23,7 @@ $json = New-KrLogger |
 
 New-KrServer -Name "Sinks Demo"
 Add-KrEndpoint -Port $Port -IPAddress $IPAddress
-Add-KrPowerShellRuntime
+
 
 Enable-KrConfiguration
 

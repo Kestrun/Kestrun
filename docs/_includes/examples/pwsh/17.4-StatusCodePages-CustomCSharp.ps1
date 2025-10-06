@@ -64,7 +64,6 @@ $code = @'
     // Write JSON response
     __resp.ContentType = "application/json; charset=utf-8";
     __resp.Headers["Cache-Control"] = "no-store, must-revalidate, no-cache, max-age=0";
-    //__resp.ContentLength = null; // let the server compute if needed
 
     await __resp.WriteJsonResponseAsync(__payload,__resp.StatusCode);
 

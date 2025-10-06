@@ -19,9 +19,6 @@ New-KrServer -Name 'Status Code Pages with Re-execution Server'
 # Add a listener on the specified port and IP address
 Add-KrEndpoint -Port $Port -IPAddress $IPAddress
 
-# Add the PowerShell runtime
-# !!!!Important!!!! this step is required to process PowerShell routes and middlewares
-#Add-KrPowerShellRuntime
 
 # Enable status code pages with re-execution
 # This will re-execute the request pipeline with the specified path and query format

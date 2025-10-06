@@ -26,7 +26,7 @@ New-KrServer -Name 'Multiple Loggers Server'
 Add-KrEndpoint -Port $Port -IPAddress $IPAddress
 
 # PowerShell runtime is required for script block routes
-Add-KrPowerShellRuntime
+
 
 Write-KrLog -LoggerName 'app' -Level Information -Message 'Server created'
 Write-KrLog -LoggerName 'audit' -Level Debug -Message 'Audit logger active'

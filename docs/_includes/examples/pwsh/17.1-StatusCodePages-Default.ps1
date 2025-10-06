@@ -19,17 +19,13 @@ New-KrServer -Name 'Default Status Code Pages Server'
 # Step 3: Add a listener on the specified port and IP address
 Add-KrEndpoint -Port $Port -IPAddress $IPAddress
 
-# Step 4: Add the PowerShell runtime
-# !!!!Important!!!! this step is required to process PowerShell routes and middlewares
-#Add-KrPowerShellRuntime
-
-# Step 5: Enable default status code pages middleware
+# Step 4: Enable default status code pages middleware
 Enable-KrStatusCodePage
 
-# Step 6: Enable Kestrun configuration
+# Step 5: Enable Kestrun configuration
 Enable-KrConfiguration
 
-# Step 7: Map a normal route
+# Step 6: Map a normal route
 Add-KrMapRoute -Verbs Get -Pattern '/hello' -ScriptBlock {
     Write-KrTextResponse -InputObject 'Hello, World!' -StatusCode 200
 }
@@ -65,5 +61,5 @@ Write-Host "  http://$($IPAddress):$Port/unauthorized - Styled 401 error page" -
 Write-Host "  http://$($IPAddress):$Port/missing      - Styled 404 for unmapped route" -ForegroundColor Cyan
 
 
-# Step 8: Start the server
+# Step 7: Start the server
 Start-KrServer -CloseLogsOnExit

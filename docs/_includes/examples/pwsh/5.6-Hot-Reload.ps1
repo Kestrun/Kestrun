@@ -25,7 +25,7 @@ New-KrLogger |
 
 New-KrServer -Name "Hot Reload" -LoggerName 'Default'
 Add-KrEndpoint -Port $Port -IPAddress $IPAddress
-Add-KrPowerShellRuntime
+
 
 Enable-KrConfiguration
 # Writes both Debug and Information; visibility depends on level switch

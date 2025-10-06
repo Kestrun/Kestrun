@@ -21,8 +21,7 @@ New-KrServer -Name "Simple Server"
 Add-KrEndpoint -Port $Port -IPAddress $IPAddress
 
 # Add the PowerShell runtime
-# !!!!Important!!!! this step is required to process PowerShell routes and middlewares
-Add-KrPowerShellRuntime
+
 
 # Add Apache Common Log Format middleware
 Add-KrCommonAccessLogMiddleware -LoggerName 'myApacheLogger' -UseUtcTimestamp

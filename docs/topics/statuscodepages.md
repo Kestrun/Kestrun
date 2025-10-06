@@ -7,7 +7,9 @@ nav_order: 8
 
 # Status Code Pages
 
-Status Code Pages middleware provides custom error pages for HTTP status codes between 400 and 599 that don't have a response body. This is essential for providing user-friendly error pages instead of default browser error messages.
+Status Code Pages middleware provides custom error pages for HTTP status codes
+between 400 and 599 that don't have a response body. This is essential for
+providing user-friendly error pages instead of default browser error messages.
 
 ## Overview
 
@@ -36,15 +38,23 @@ Use `Enable-KrStatusCodePage` to configure status code pages middleware with var
 # Default status code pages
 Enable-KrStatusCodePage
 
-# With custom options
-$options = [Microsoft.AspNetCore.Diagnostics.StatusCodePagesOptions]::new()
-Enable-KrStatusCodePage -Options $options
+# With PowerShell script handler (custom body)
+Enable-KrStatusCodePage -ScriptBlock {
+    param($Context)
+    $status = $Context.Response.StatusCode
+    $Context.Response.ContentType = 'text/plain'
+    $Context.Response.WriteAsync("Custom handler status: $status") | Out-Null
+}
 
-# With custom handler
-Enable-KrStatusCodePage -Handler $handlerScriptBlock
-
-# With PowerShell script
-Enable-KrStatusCodePage -LanguageOptions $scriptOptions
+# With LanguageOptions (advanced: cross-language code)
+$lo = [Kestrun.Hosting.Options.LanguageOptions]::new()
+$lo.Language = [Kestrun.Scripting.ScriptLanguage]::PowerShell
+$lo.Code = @'
+param($Context)
+$Context.Response.ContentType = "text/plain"
+$Context.Response.WriteAsync("Handled by LanguageOptions") | Out-Null
+'@
+Enable-KrStatusCodePage -LanguageOptions $lo
 
 # With content format
 Enable-KrStatusCodePage -ContentType "text/html" -BodyFormat $htmlTemplate
@@ -60,13 +70,13 @@ Enable-KrStatusCodePage -PathFormat "/errors/{0}" -QueryFormat "originalPath={0}
 
 The following examples demonstrate different approaches to handling status codes:
 
-- **[17.1-StatusCodePages-Default.ps1](/pwsh/tutorial/examples/17.1-StatusCodePages-Default.ps1)** - Default status code pages
-- **[17.2-StatusCodePages-Options.ps1](/pwsh/tutorial/examples/17.2-StatusCodePages-Options.ps1)** - Using StatusCodePagesOptions
-- **[17.3-StatusCodePages-Handler.ps1](/pwsh/tutorial/examples/17.3-StatusCodePages-Handler.ps1)** - Custom handler function
-- **[17.4-StatusCodePages-Script.ps1](/pwsh/tutorial/examples/17.4-StatusCodePages-Script.ps1)** - PowerShell script handler
-- **[17.5-StatusCodePages-ContentFormat.ps1](/pwsh/tutorial/examples/17.5-StatusCodePages-ContentFormat.ps1)** - Content type and body format
-- **[17.6-StatusCodePages-Redirects.ps1](/pwsh/tutorial/examples/17.6-StatusCodePages-Redirects.ps1)** - Redirect to error pages
-- **[17.7-StatusCodePages-ReExecute.ps1](/pwsh/tutorial/examples/17.7-StatusCodePages-ReExecute.ps1)** - Re-execute with different paths
+- **[17.1-StatusCodePages-Default.ps1](/pwsh/tutorial/examples/17.1-StatusCodePages-Default.ps1)** — Default status code pages
+- **[17.2-StatusCodePages-Options.ps1](/pwsh/tutorial/examples/17.2-StatusCodePages-Options.ps1)** — Options-style configuration (template/redirect/re-exec)
+- **[17.3-StatusCodePages-CustomPowerShell.ps1](/pwsh/tutorial/examples/17.3-StatusCodePages-CustomPowerShell.ps1)** — Custom handler with PowerShell script block
+- **[17.4-StatusCodePages-CustomCSharp.ps1](/pwsh/tutorial/examples/17.4-StatusCodePages-CustomCSharp.ps1)** — Custom handler with inline C#
+- **[17.5-StatusCodePages-ContentFormat.ps1](/pwsh/tutorial/examples/17.5-StatusCodePages-ContentFormat.ps1)** — Content type and body format
+- **[17.6-StatusCodePages-Redirects.ps1](/pwsh/tutorial/examples/17.6-StatusCodePages-Redirects.ps1)** — Redirect to error pages
+- **[17.7-StatusCodePages-ReExecute.ps1](/pwsh/tutorial/examples/17.7-StatusCodePages-ReExecute.ps1)** — Re-execute with different paths
 
 Each example builds on the hello-world template and shows how to trigger and handle different status codes.
 
@@ -120,5 +130,5 @@ $handler = {
     # ... error page logic
 }
 
-Enable-KrStatusCodePage -Handler $handler
+Enable-KrStatusCodePage -ScriptBlock $handler
 ```

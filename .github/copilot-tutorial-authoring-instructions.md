@@ -99,14 +99,13 @@ curl -i http://127.0.0.1:5000/route
 Previous: [PREV_TITLE](./PREV_FILE)
 Next: [NEXT_TITLE](./NEXT_FILE)
 
-
 ```markdown
 
 ## Checklist (Automatable)
 
 Copilot must verify before completing generation:
 
-- [ ] Filename matches `N.Title.md` pattern.
+- [ ] Filename matches `N.Title.md` pattern.    
 - [ ] Front matter present and valid.
 - [ ] H1 matches title.
 - [ ] Intro sentence present.

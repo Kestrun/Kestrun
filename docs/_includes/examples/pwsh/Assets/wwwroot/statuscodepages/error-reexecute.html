@@ -1,11 +1,18 @@
 <!DOCTYPE html>
-<html>
+<html lang="en" data-accent="{{errorInfo.color}}">
 
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Error {{statusCode}} - Re-executed</title>
+
+    <!-- Internal stylesheet: allowed, not "inline" -->
     <style>
+        :root {
+            --accent: #e74c3c;
+            /* fallback color */
+        }
+
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
@@ -25,8 +32,7 @@
             text-align: center;
             max-width: 700px;
             width: 90%;
-
-            border-top: 5px solid {{errorInfo.color}};
+            border-top: 5px solid var(--accent);
         }
 
         .error-icon {
@@ -37,10 +43,10 @@
         .error-code {
             font-size: 54px;
             font-weight: bold;
+            color: var(--accent);
+        }
 
-            color: {{errorInfo.color}};
-
-            color: {{errorInfo.color}};
+        .error-title {
             font-size: 28px;
             color: #2c3e50;
             margin: 20px 0;
@@ -74,19 +80,30 @@
         }
 
         .home-link {
-            background: {{errorInfo.color}};
-
-            ;
-            color: white;
+            display: inline-block;
             text-decoration: none;
             padding: 15px 30px;
-            background: {{errorInfo.color}};
+            background: var(--accent);
+            color: #fff;
+            border-radius: 8px;
+            transition: transform 0.15s ease, box-shadow 0.15s ease;
+        }
 
         .home-link:hover {
             transform: translateY(-2px);
             box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
         }
     </style>
+
+    <script>
+        // Apply template color dynamically without inline styles
+        document.addEventListener("DOMContentLoaded", () => {
+            const accent = document.documentElement.dataset.accent;
+            if (accent) {
+                document.documentElement.style.setProperty("--accent", accent);
+            }
+        });
+    </script>
 </head>
 
 <body>

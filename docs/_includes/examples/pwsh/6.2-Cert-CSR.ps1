@@ -18,7 +18,7 @@ New-KrLogger |
 
 New-KrServer -Name "CSR API"
 Add-KrEndpoint -Port $Port -IPAddress $IPAddress
-Add-KrPowerShellRuntime
+
 
 Enable-KrConfiguration
 

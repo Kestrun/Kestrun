@@ -34,7 +34,7 @@ $logger = $base | Register-KrLogger -Name 'advanced' -PassThru
 
 New-KrServer -Name "Advanced Sinks"
 Add-KrEndpoint -Port $Port -IPAddress $IPAddress
-Add-KrPowerShellRuntime
+
 
 Enable-KrConfiguration
 

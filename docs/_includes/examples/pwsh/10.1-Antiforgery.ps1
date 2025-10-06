@@ -16,7 +16,7 @@ New-KrServer -Name "Simple Server"
 Add-KrEndpoint -Port $Port -IPAddress $IPAddress -SelfSignedCert
 
 # Required to run PowerShell routes/middleware
-Add-KrPowerShellRuntime
+
 
 # --- Antiforgery: modern SPA preset ---
 # Cookie: .Kestrun.AntiXSRF (HttpOnly, Secure, SameSite=Lax)

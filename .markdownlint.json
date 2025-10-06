@@ -1,23 +1,18 @@
 {
-  "MD025": {
-    "front_matter_title": ""
-  },
+  "default": true,
   "MD013": {
-    "line_length": 150,
+    "line_length": 160,
     "code_blocks": false,
     "tables": false,
     "strict": false
   },
-  "MD030": {
-    "ul_single": 1,
-    "ul_multi": 1,
-    "ol_single": 1,
-    "ol_multi": 1
-  },
-  "MD004": {
-    "style": "dash"
-  },
-  "MD007": {
-    "indent": 2
-  }
+  "MD022": true,
+  "MD025": { "front_matter_title": "" },
+  "MD031": true,
+  "MD040": true,
+  "MD041": true,
+  "MD003": false,
+  "MD004": { "style": "dash" },
+  "MD007": { "indent": 2 },
+  "MD030": { "ul_single": 1, "ul_multi": 1, "ol_single": 1, "ol_multi": 1 }
 }

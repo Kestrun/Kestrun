@@ -21,10 +21,6 @@ New-KrServer -Name 'Status Code Pages with Content Format Server'
 # Add a listener on the specified port and IP address
 Add-KrEndpoint -Port $Port -IPAddress $IPAddress
 
-# Add the PowerShell runtime
-# !!!!Important!!!! this step is required to process PowerShell routes and middlewares
-#Add-KrPowerShellRuntime
-
 # Define custom HTML template with placeholder for status code
 $htmlTemplatePath = Join-Path $PSScriptRoot 'Assets\wwwroot\statuscodepages\error-contentformat.html'
 $htmlTemplate = Get-Content -Path $htmlTemplatePath -Raw

@@ -19,10 +19,6 @@ New-KrServer -Name 'Status Code Pages with Redirects Server'
 # Add a listener on the specified port and IP address
 Add-KrEndpoint -Port $Port -IPAddress $IPAddress
 
-# Add the PowerShell runtime
-# !!!!Important!!!! this step is required to process PowerShell routes and middlewares
-#Add-KrPowerShellRuntime
-
 # Enable status code pages with redirects
 # The {0} placeholder will be replaced with the actual status code
 # URLs starting with '~' will have PathBase prepended

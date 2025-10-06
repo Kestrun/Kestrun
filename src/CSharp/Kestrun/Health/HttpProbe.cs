@@ -95,7 +95,7 @@ public sealed class HttpProbe(string name, string[] tags, HttpClient http, strin
             // Upstream/request cancellation -> propagate so the runner can handle overall request abort semantics.
             throw;
         }
-        catch (TaskCanceledException) // timeout from our internal cts
+        catch (TaskCanceledException) when (cts.Token.IsCancellationRequested) // timeout from our internal cts
         {
             if (Logger.IsEnabled(LogEventLevel.Debug))
             {
@@ -103,7 +103,7 @@ public sealed class HttpProbe(string name, string[] tags, HttpClient http, strin
             }
             return new ProbeResult(ProbeStatus.Degraded, $"Timeout after {_timeout}");
         }
-        catch (OperationCanceledException) // internal timeout (already handled TaskCanceled, but just in case)
+        catch (OperationCanceledException) when (cts.Token.IsCancellationRequested) // internal timeout (already handled TaskCanceled, but just in case)
         {
             if (Logger.IsEnabled(LogEventLevel.Debug))
             {

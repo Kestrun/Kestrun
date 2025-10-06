@@ -63,9 +63,28 @@ public class HttpProbeTests
         Assert.Contains("Exception:", result.Description);
     }
 
+    [Fact]
+    public async Task HttpProbe_Timeout_IsDegraded()
+    {
+        var http = new HttpClient(new SlowHandler());
+        var probe = new HttpProbe("http-t", ["live"], http, "http://unit-test/health", TimeSpan.FromMilliseconds(50));
+        var result = await probe.CheckAsync();
+        Assert.Equal(ProbeStatus.Degraded, result.Status);
+        Assert.Contains("Timeout", result.Description);
+    }
+
     private sealed class FaultHandler : HttpMessageHandler
     {
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
             => throw new HttpRequestException("boom");
+    }
+
+    private sealed class SlowHandler : HttpMessageHandler
+    {
+        protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            await Task.Delay(TimeSpan.FromSeconds(10), cancellationToken);
+            return new HttpResponseMessage(HttpStatusCode.OK);
+        }
     }
 }

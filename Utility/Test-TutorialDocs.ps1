@@ -1,22 +1,22 @@
 ﻿param(
+    [string]$Path='docs/pwsh/tutorial',
     [string]$SubPath
 )
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
 # Validates tutorial docs under docs/pwsh/tutorial according to the authoring guide
-$root = Join-Path $PSScriptRoot '..'
-$docs = Join-Path $root 'docs/pwsh/tutorial'
+$docs = (Resolve-Path -Path $Path).Path
 $scan = if ($SubPath) {
     if ([System.IO.Path]::IsPathRooted($SubPath)) { $SubPath } else { Join-Path $docs $SubPath }
 } else { $docs }
 
 $failures = @()
 Get-ChildItem -Path $scan -Recurse -Filter *.md | ForEach-Object {
-    $path = $_.FullName
-    $rel = $path.Substring($root.Length).TrimStart('\/')
+    $itemPath = $_.FullName
+    $rel = $itemPath.Substring($docs.Length).TrimStart('\/')
     $name = $_.Name
-    $text = Get-Content -Path $path -Raw
+    $text = Get-Content -Path $itemPath -Raw
 
     # Skip index pages from strict checks
     if ($name -ieq 'index.md') { return }

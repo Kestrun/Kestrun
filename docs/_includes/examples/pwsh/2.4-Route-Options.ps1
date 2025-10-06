@@ -47,16 +47,15 @@ $options = [Kestrun.Hosting.Options.MapRouteOptions]::new()
 $options.Pattern = '/json'
 $options.HttpVerbs = [Kestrun.Utilities.HttpVerb[]] @('get')
 $options.ScriptCode = @{
-    Code = {
+    ScriptBlock = {
         $message = Get-KrRequestHeader -Name 'message'
         Write-KrJsonResponse -InputObject @{ message = $message } -StatusCode 200
     }
-    Language = 'PowerShell'
 }
 Add-KrMapRoute -Options $options
 
 # Text Route using MapRouteOption and Pipeline
-New-KrMapRouteOption -Property @{
+$txtOption = New-KrMapRouteOption -Property @{
     Pattern = '/txt'
     HttpVerbs = 'Get'
     ScriptCode = @{
@@ -66,7 +65,8 @@ New-KrMapRouteOption -Property @{
 '@
         Language = 'CSharp'
     }
-} | Add-KrMapRoute
+}
+ Add-KrMapRoute -Options $txtOption
 
 
 # Start the server asynchronously

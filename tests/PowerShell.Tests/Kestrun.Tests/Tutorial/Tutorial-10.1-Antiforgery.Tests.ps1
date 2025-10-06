@@ -13,7 +13,7 @@ Describe 'Example 10.1-Antiforgery' -Tag 'Tutorial', 'Middleware', 'Antiforgery'
     }
 
     It 'Allows marked safe POST routes without antiforgery token' {
-        Assert-RouteContent -Uri "$base/json" -Method 'Post' -Headers @{ message = 'Ping' } -JsonField 'message' -JsonValue 'Ping'
+        Assert-RouteContent -Uri "$($script:instance.Url)/json" -Method 'Post' -Headers @{ message = 'Ping' } -JsonField 'message' -JsonValue 'Ping'
     }
 
     It 'Issues antiforgery token and cookie via /csrf-token' {

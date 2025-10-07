@@ -45,7 +45,7 @@ Describe 'Example 10.4-Https-Hsts' -Tag 'Tutorial', 'Middleware', 'Https', 'Hsts
         $hstsHeader | Should -Match 'max-age=\d+'
 
         # Should contain includeSubDomains directive (from sample configuration)
-        $hstsHeader | Should -Match 'includeSubDomains'
+        $hstsHeader | Should -Match 'includeSubdomains'
 
         # Should contain preload directive (from sample configuration)
         $hstsHeader | Should -Match 'preload'

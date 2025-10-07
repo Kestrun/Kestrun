@@ -60,7 +60,7 @@ Add-KrHsts [-MaxAgeDays <int>] [-IncludeSubDomains] [-Preload] [-ExcludedHosts <
 Add-KrHsts -Options <HstsOptions> [-PassThru]
 ```
 
-#### Parameters
+#### HSTS Parameters
 
 - **MaxAgeDays**: Duration browsers should enforce HSTS (default: 30 days)
 - **IncludeSubDomains**: Apply policy to all subdomains
@@ -70,7 +70,7 @@ Add-KrHsts -Options <HstsOptions> [-PassThru]
 - **Options**: Pre-configured `HstsOptions` object
 - **PassThru**: Returns the server instance for chaining
 
-#### Examples
+#### HSTS Examples
 
 ```powershell
 # Basic HSTS (30 days)

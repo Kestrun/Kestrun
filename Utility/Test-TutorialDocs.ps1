@@ -1,9 +1,41 @@
 param(
-    [string]$Path='docs/pwsh/tutorial',
+    [string]$Path = 'docs/pwsh/tutorial',
     [string]$SubPath
 )
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
+
+<#
+.SYNOPSIS
+Validates tutorial docs under docs/pwsh/tutorial according to the authoring guide.
+
+.DESCRIPTION
+This script enforces tutorial documentation standards including:
+- Required front matter and section structure
+- Reference-style link format with matching text/key
+- Absolute path usage in reference definitions for consistency
+- Proper cmdlet, topic, and example script reference formats
+
+The validator checks for:
+- Cmdlet references: Should use '/pwsh/cmdlets/' or '/topics/' with anchors
+- Topic references: Should use '/topics/' instead of relative paths like '../../../../topics/'
+- Example scripts: Should use '/pwsh/tutorial/examples/' instead of relative paths
+- Complex relative paths: Flags references with multiple '../' traversals
+
+.PARAMETER Path
+Base path to scan for tutorial documentation. Defaults to 'docs/pwsh/tutorial'.
+
+.PARAMETER SubPath
+Optional sub-path within the base path to scan.
+
+.EXAMPLE
+.\Test-TutorialDocs.ps1
+Validates all tutorials under docs/pwsh/tutorial
+
+.EXAMPLE
+.\Test-TutorialDocs.ps1 -Path "docs/pwsh/tutorial/10.middleware/4.Https-Hsts.md"
+Validates a specific tutorial file
+#>
 
 # Validates tutorial docs under docs/pwsh/tutorial according to the authoring guide
 $docs = (Resolve-Path -Path $Path).Path
@@ -77,6 +109,42 @@ Get-ChildItem -Path $scan -Recurse -Filter *.md | ForEach-Object {
             $pattern = '(?m)^\[' + [regex]::Escape($r) + '\]:\s+\S+'
             if ($text -notmatch $pattern) {
                 $failures += "[Links] $rel missing reference definition for '[$r]'"
+            }
+        }
+
+        # Check reference definitions for absolute vs relative paths
+        $refDefPattern = '(?m)^\[([^\]]+)\]:\s+(.+)$'
+        $refDefs = [regex]::Matches($text, $refDefPattern)
+        foreach ($refDef in $refDefs) {
+            $refKey = $refDef.Groups[1].Value
+            $refUrl = $refDef.Groups[2].Value.Trim()
+
+            # Skip external URLs (http/https) and anchors (#)
+            if ($refUrl -match '^https?://' -or $refUrl -match '^#') {
+                continue
+            }
+
+            # Check for cmdlet references - should use absolute paths (but allow topic references with anchors)
+            if ($refKey -match '^(Add|Remove|Set|Get|New|Test|Start|Stop|Enable|Disable|Write|Read|Import|Export)-Kr' -and
+                $refUrl -notmatch '^/pwsh/cmdlets/' -and
+                $refUrl -notmatch '^/topics/.*#' -and
+                $refUrl -match '\.\./') {
+                $failures += "[Links] $rel cmdlet reference '$refKey' uses relative path '$refUrl' - consider absolute path"
+            }
+
+            # Check for topic references - should use absolute paths when relative
+            if ($refUrl -match '\.\./.*topics/' -and $refUrl -notmatch '^/topics/') {
+                $failures += "[Links] $rel topic reference '$refKey' uses relative path '$refUrl' - should use absolute path '/topics/'"
+            }
+
+            # Check for example script references - should use absolute paths when relative
+            if ($refKey -match '\.ps1$' -and $refUrl -match '\.\./.*examples/' -and $refUrl -notmatch '^/pwsh/tutorial/examples/') {
+                $failures += "[Links] $rel example script reference '$refKey' uses relative path '$refUrl' - should use absolute path '/pwsh/tutorial/examples/'"
+            }
+
+            # Check for relative paths that traverse directories (../)
+            if ($refUrl -match '\.\./.*\.\./') {
+                $failures += "[Links] $rel reference '$refKey' uses complex relative path '$refUrl' - consider absolute path"
             }
         }
     } else {

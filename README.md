@@ -12,7 +12,7 @@ Kestrun — PowerShell brains. Kestrel speed.
 ---
 <!-- CI / Quality -->
 [![CI](https://github.com/Kestrun/Kestrun/actions/workflows/ci-main.yml/badge.svg)](https://github.com/Kestrun/Kestrun/actions/workflows/ci-main.yml)
-[![CodeQL](https://github.com/kestrun/kestrun/actions/workflows/codeql-main.yml/badge.svg)](https://github.com/kestrun/kestrun/actions/workflows/codeql-main.yml)
+[![CodeQL](https://github.com/kestrun/kestrun/actions/workflows/codeql-main.yml/badge.svg)](https://github.com/kestrun/kestrun/actions/workflows/codeql.yml)
 [![ClamAV Scan](https://img.shields.io/github/actions/workflow/status/kestrun/kestrun/clam-av-main.yml?branch=main&label=ClamAV%20Scan)](https://github.com/kestrun/kestrun/actions/workflows/clam-av-main.yml)
 [![Lint](https://img.shields.io/github/actions/workflow/status/kestrun/kestrun/lint-main.yml?branch=main&label=Lint)](https://github.com/kestrun/kestrun/actions/workflows/lint-main.yml)
 

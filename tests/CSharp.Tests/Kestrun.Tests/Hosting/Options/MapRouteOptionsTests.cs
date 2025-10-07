@@ -11,7 +11,7 @@ public class MapRouteOptionsTests
     public void DefaultConstructor_InitializesCollections()
     {
         var options = new MapRouteOptions();
-        
+
         Assert.NotNull(options.HttpVerbs);
         Assert.Empty(options.HttpVerbs);
         Assert.NotNull(options.RequireSchemes);
@@ -29,7 +29,7 @@ public class MapRouteOptionsTests
     public void Pattern_CanBeSet()
     {
         var options = new MapRouteOptions { Pattern = "/api/users" };
-        
+
         Assert.Equal("/api/users", options.Pattern);
     }
 
@@ -37,11 +37,11 @@ public class MapRouteOptionsTests
     [Trait("Category", "Hosting")]
     public void HttpVerbs_CanBeSet()
     {
-        var options = new MapRouteOptions 
-        { 
-            HttpVerbs = [HttpVerb.Get, HttpVerb.Post] 
+        var options = new MapRouteOptions
+        {
+            HttpVerbs = [HttpVerb.Get, HttpVerb.Post]
         };
-        
+
         Assert.Equal(2, options.HttpVerbs.Count);
         Assert.Contains(HttpVerb.Get, options.HttpVerbs);
         Assert.Contains(HttpVerb.Post, options.HttpVerbs);
@@ -51,11 +51,11 @@ public class MapRouteOptionsTests
     [Trait("Category", "Hosting")]
     public void RequireSchemes_CanBeSet()
     {
-        var options = new MapRouteOptions 
-        { 
-            RequireSchemes = ["Bearer", "ApiKey"] 
+        var options = new MapRouteOptions
+        {
+            RequireSchemes = ["Bearer", "ApiKey"]
         };
-        
+
         Assert.Equal(2, options.RequireSchemes.Length);
         Assert.Contains("Bearer", options.RequireSchemes);
     }
@@ -64,11 +64,11 @@ public class MapRouteOptionsTests
     [Trait("Category", "Hosting")]
     public void RequirePolicies_CanBeSet()
     {
-        var options = new MapRouteOptions 
-        { 
-            RequirePolicies = ["Admin", "User"] 
+        var options = new MapRouteOptions
+        {
+            RequirePolicies = ["Admin", "User"]
         };
-        
+
         Assert.NotNull(options.RequirePolicies);
         Assert.Equal(2, options.RequirePolicies.Length);
         Assert.Contains("Admin", options.RequirePolicies);
@@ -79,7 +79,7 @@ public class MapRouteOptionsTests
     public void CorsPolicyName_CanBeSet()
     {
         var options = new MapRouteOptions { CorsPolicyName = "AllowAll" };
-        
+
         Assert.Equal("AllowAll", options.CorsPolicyName);
     }
 
@@ -88,7 +88,7 @@ public class MapRouteOptionsTests
     public void ShortCircuit_DefaultsToFalse()
     {
         var options = new MapRouteOptions();
-        
+
         Assert.False(options.ShortCircuit);
     }
 
@@ -97,7 +97,7 @@ public class MapRouteOptionsTests
     public void ShortCircuit_CanBeSet()
     {
         var options = new MapRouteOptions { ShortCircuit = true };
-        
+
         Assert.True(options.ShortCircuit);
     }
 
@@ -106,7 +106,7 @@ public class MapRouteOptionsTests
     public void ShortCircuitStatusCode_DefaultsToNull()
     {
         var options = new MapRouteOptions();
-        
+
         Assert.Null(options.ShortCircuitStatusCode);
     }
 
@@ -115,7 +115,7 @@ public class MapRouteOptionsTests
     public void ShortCircuitStatusCode_CanBeSet()
     {
         var options = new MapRouteOptions { ShortCircuitStatusCode = 204 };
-        
+
         Assert.Equal(204, options.ShortCircuitStatusCode);
     }
 
@@ -124,7 +124,7 @@ public class MapRouteOptionsTests
     public void AllowAnonymous_DefaultsToFalse()
     {
         var options = new MapRouteOptions();
-        
+
         Assert.False(options.AllowAnonymous);
     }
 
@@ -133,7 +133,7 @@ public class MapRouteOptionsTests
     public void DisableAntiforgery_DefaultsToFalse()
     {
         var options = new MapRouteOptions();
-        
+
         Assert.False(options.DisableAntiforgery);
     }
 
@@ -142,7 +142,7 @@ public class MapRouteOptionsTests
     public void DisableResponseCompression_DefaultsToFalse()
     {
         var options = new MapRouteOptions();
-        
+
         Assert.False(options.DisableResponseCompression);
     }
 
@@ -151,7 +151,7 @@ public class MapRouteOptionsTests
     public void RateLimitPolicyName_CanBeSet()
     {
         var options = new MapRouteOptions { RateLimitPolicyName = "Standard" };
-        
+
         Assert.Equal("Standard", options.RateLimitPolicyName);
     }
 
@@ -160,7 +160,7 @@ public class MapRouteOptionsTests
     public void ThrowOnDuplicate_DefaultsToFalse()
     {
         var options = new MapRouteOptions();
-        
+
         Assert.False(options.ThrowOnDuplicate);
     }
 
@@ -169,7 +169,7 @@ public class MapRouteOptionsTests
     public void Pattern_RoundTrip_Works()
     {
         var options = new MapRouteOptions { Pattern = "/api/test" };
-        
+
         Assert.Equal("/api/test", options.Pattern);
     }
 }

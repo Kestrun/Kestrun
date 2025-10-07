@@ -24,7 +24,7 @@ public class StatusCodePageExtensionsTests
         var services = new ServiceCollection().BuildServiceProvider();
         var app = new ApplicationBuilder(services);
 
-        Assert.Throws<ArgumentNullException>(() => 
+        _ = Assert.Throws<ArgumentNullException>(() =>
             StatusCodePageExtensions.UseStatusCodePages(app, null!));
     }
 
@@ -81,8 +81,8 @@ public class StatusCodePageExtensionsTests
         var services = new ServiceCollection().BuildServiceProvider();
         var app = new ApplicationBuilder(services);
         var host = CreateMockHost();
-        var options = new StatusCodeOptions(host) 
-        { 
+        var options = new StatusCodeOptions(host)
+        {
             PathFormat = "/errors/{0}",
             QueryFormat = "code={0}"
         };
@@ -100,8 +100,8 @@ public class StatusCodePageExtensionsTests
         var services = new ServiceCollection().BuildServiceProvider();
         var app = new ApplicationBuilder(services);
         var host = CreateMockHost();
-        var options = new StatusCodeOptions(host) 
-        { 
+        var options = new StatusCodeOptions(host)
+        {
             ContentType = "text/plain",
             BodyFormat = "Error: {0}"
         };
@@ -134,9 +134,9 @@ public class StatusCodePageExtensionsTests
         var services = new ServiceCollection().BuildServiceProvider();
         var app = new ApplicationBuilder(services);
         var host = CreateMockHost();
-        var langOpts = new LanguageOptions 
-        { 
-            Code = "Context.Response.StatusCode = 404;" ,
+        var langOpts = new LanguageOptions
+        {
+            Code = "Context.Response.StatusCode = 404;",
             Language = Kestrun.Scripting.ScriptLanguage.CSharp
         };
         var options = new StatusCodeOptions(host) { LanguageOptions = langOpts };
@@ -155,8 +155,8 @@ public class StatusCodePageExtensionsTests
         var app = new ApplicationBuilder(services);
         var host = CreateMockHost();
         var statusCodeOptions = new StatusCodePagesOptions();
-        var options = new StatusCodeOptions(host) 
-        { 
+        var options = new StatusCodeOptions(host)
+        {
             Options = statusCodeOptions,
             LocationFormat = "/error/{0}", // Should be ignored
             PathFormat = "/errors/{0}", // Should be ignored
@@ -177,8 +177,8 @@ public class StatusCodePageExtensionsTests
         var services = new ServiceCollection().BuildServiceProvider();
         var app = new ApplicationBuilder(services);
         var host = CreateMockHost();
-        var options = new StatusCodeOptions(host) 
-        { 
+        var options = new StatusCodeOptions(host)
+        {
             LocationFormat = "/error/{0}",
             PathFormat = "/errors/{0}" // Should be ignored
         };

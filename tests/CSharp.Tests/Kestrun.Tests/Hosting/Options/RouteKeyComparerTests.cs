@@ -12,7 +12,7 @@ public class RouteKeyComparerTests
         var comparer = new RouteKeyComparer();
         var x = ("/api/users", "GET");
         var y = ("/api/users", "GET");
-        
+
         Assert.True(comparer.Equals(x, y));
     }
 
@@ -23,7 +23,7 @@ public class RouteKeyComparerTests
         var comparer = new RouteKeyComparer();
         var x = ("/api/users", "GET");
         var y = ("/api/posts", "GET");
-        
+
         Assert.False(comparer.Equals(x, y));
     }
 
@@ -34,7 +34,7 @@ public class RouteKeyComparerTests
         var comparer = new RouteKeyComparer();
         var x = ("/api/users", "GET");
         var y = ("/api/users", "POST");
-        
+
         Assert.False(comparer.Equals(x, y));
     }
 
@@ -45,7 +45,7 @@ public class RouteKeyComparerTests
         var comparer = new RouteKeyComparer();
         var x = ("/api/users", "GET");
         var y = ("/API/USERS", "get");
-        
+
         Assert.True(comparer.Equals(x, y));
     }
 
@@ -56,7 +56,7 @@ public class RouteKeyComparerTests
         var comparer = new RouteKeyComparer();
         var x = ("/api/users", "GET");
         var y = ("/api/users", "GET");
-        
+
         Assert.Equal(comparer.GetHashCode(x), comparer.GetHashCode(y));
     }
 
@@ -67,7 +67,7 @@ public class RouteKeyComparerTests
         var comparer = new RouteKeyComparer();
         var x = ("/api/users", "GET");
         var y = ("/API/USERS", "get");
-        
+
         Assert.Equal(comparer.GetHashCode(x), comparer.GetHashCode(y));
     }
 
@@ -78,7 +78,7 @@ public class RouteKeyComparerTests
         var comparer = new RouteKeyComparer();
         var x = ("/api/users", "GET");
         var y = ("/api/posts", "POST");
-        
+
         Assert.NotEqual(comparer.GetHashCode(x), comparer.GetHashCode(y));
     }
 }

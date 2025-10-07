@@ -11,7 +11,7 @@ public class CommonAccessLogOptionsTests
     public void DefaultLevel_IsInformation()
     {
         var options = new CommonAccessLogOptions();
-        
+
         Assert.Equal(LogEventLevel.Information, options.Level);
     }
 
@@ -20,7 +20,7 @@ public class CommonAccessLogOptionsTests
     public void DefaultIncludeQueryString_IsTrue()
     {
         var options = new CommonAccessLogOptions();
-        
+
         Assert.True(options.IncludeQueryString);
     }
 
@@ -29,7 +29,7 @@ public class CommonAccessLogOptionsTests
     public void DefaultIncludeProtocol_IsTrue()
     {
         var options = new CommonAccessLogOptions();
-        
+
         Assert.True(options.IncludeProtocol);
     }
 
@@ -38,7 +38,7 @@ public class CommonAccessLogOptionsTests
     public void DefaultIncludeElapsedMilliseconds_IsFalse()
     {
         var options = new CommonAccessLogOptions();
-        
+
         Assert.False(options.IncludeElapsedMilliseconds);
     }
 
@@ -47,7 +47,7 @@ public class CommonAccessLogOptionsTests
     public void DefaultUseUtcTimestamp_IsFalse()
     {
         var options = new CommonAccessLogOptions();
-        
+
         Assert.False(options.UseUtcTimestamp);
     }
 
@@ -56,7 +56,7 @@ public class CommonAccessLogOptionsTests
     public void DefaultTimestampFormat_IsApacheCommonFormat()
     {
         var options = new CommonAccessLogOptions();
-        
+
         Assert.Equal("dd/MMM/yyyy:HH:mm:ss zzz", options.TimestampFormat);
     }
 
@@ -65,7 +65,7 @@ public class CommonAccessLogOptionsTests
     public void DefaultTimestampFormat_MatchesConstant()
     {
         var options = new CommonAccessLogOptions();
-        
+
         Assert.Equal(CommonAccessLogOptions.DefaultTimestampFormat, options.TimestampFormat);
     }
 
@@ -74,7 +74,7 @@ public class CommonAccessLogOptionsTests
     public void DefaultTimeProvider_IsSystem()
     {
         var options = new CommonAccessLogOptions();
-        
+
         Assert.Same(TimeProvider.System, options.TimeProvider);
     }
 
@@ -83,7 +83,7 @@ public class CommonAccessLogOptionsTests
     public void Level_CanBeSet()
     {
         var options = new CommonAccessLogOptions { Level = LogEventLevel.Debug };
-        
+
         Assert.Equal(LogEventLevel.Debug, options.Level);
     }
 
@@ -92,7 +92,7 @@ public class CommonAccessLogOptionsTests
     public void IncludeQueryString_CanBeSet()
     {
         var options = new CommonAccessLogOptions { IncludeQueryString = false };
-        
+
         Assert.False(options.IncludeQueryString);
     }
 
@@ -101,7 +101,7 @@ public class CommonAccessLogOptionsTests
     public void IncludeProtocol_CanBeSet()
     {
         var options = new CommonAccessLogOptions { IncludeProtocol = false };
-        
+
         Assert.False(options.IncludeProtocol);
     }
 
@@ -110,7 +110,7 @@ public class CommonAccessLogOptionsTests
     public void IncludeElapsedMilliseconds_CanBeSet()
     {
         var options = new CommonAccessLogOptions { IncludeElapsedMilliseconds = true };
-        
+
         Assert.True(options.IncludeElapsedMilliseconds);
     }
 
@@ -119,7 +119,7 @@ public class CommonAccessLogOptionsTests
     public void UseUtcTimestamp_CanBeSet()
     {
         var options = new CommonAccessLogOptions { UseUtcTimestamp = true };
-        
+
         Assert.True(options.UseUtcTimestamp);
     }
 
@@ -128,7 +128,7 @@ public class CommonAccessLogOptionsTests
     public void TimestampFormat_CanBeSet()
     {
         var options = new CommonAccessLogOptions { TimestampFormat = "yyyy-MM-dd HH:mm:ss" };
-        
+
         Assert.Equal("yyyy-MM-dd HH:mm:ss", options.TimestampFormat);
     }
 
@@ -137,7 +137,7 @@ public class CommonAccessLogOptionsTests
     public void ClientAddressHeader_CanBeSet()
     {
         var options = new CommonAccessLogOptions { ClientAddressHeader = "X-Forwarded-For" };
-        
+
         Assert.Equal("X-Forwarded-For", options.ClientAddressHeader);
     }
 
@@ -146,7 +146,7 @@ public class CommonAccessLogOptionsTests
     public void ClientAddressHeader_DefaultsToNull()
     {
         var options = new CommonAccessLogOptions();
-        
+
         Assert.Null(options.ClientAddressHeader);
     }
 
@@ -156,7 +156,7 @@ public class CommonAccessLogOptionsTests
     {
         var logger = new Moq.Mock<Serilog.ILogger>().Object;
         var options = new CommonAccessLogOptions { Logger = logger };
-        
+
         Assert.Same(logger, options.Logger);
     }
 
@@ -165,7 +165,7 @@ public class CommonAccessLogOptionsTests
     public void Logger_DefaultsToNull()
     {
         var options = new CommonAccessLogOptions();
-        
+
         Assert.Null(options.Logger);
     }
 }

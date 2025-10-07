@@ -20,16 +20,13 @@ public class StatusCodeOptionsTests
     {
         var host = CreateMockHost();
         var options = new StatusCodeOptions(host);
-        
+
         Assert.Same(host, options.Host);
     }
 
     [Fact]
     [Trait("Category", "Hosting")]
-    public void Constructor_WithNullHost_ThrowsArgumentNullException()
-    {
-        Assert.Throws<ArgumentNullException>(() => new StatusCodeOptions(null!));
-    }
+    public void Constructor_WithNullHost_ThrowsArgumentNullException() => Assert.Throws<ArgumentNullException>(() => new StatusCodeOptions(null!));
 
     [Fact]
     [Trait("Category", "Hosting")]
@@ -37,7 +34,7 @@ public class StatusCodeOptionsTests
     {
         var host = CreateMockHost();
         var options = new StatusCodeOptions(host) { ContentType = "text/html" };
-        
+
         Assert.Equal("text/html", options.ContentType);
     }
 
@@ -47,7 +44,7 @@ public class StatusCodeOptionsTests
     {
         var host = CreateMockHost();
         var options = new StatusCodeOptions(host) { BodyFormat = "Error: {0}" };
-        
+
         Assert.Equal("Error: {0}", options.BodyFormat);
     }
 
@@ -57,7 +54,7 @@ public class StatusCodeOptionsTests
     {
         var host = CreateMockHost();
         var options = new StatusCodeOptions(host) { LocationFormat = "/error/{0}" };
-        
+
         Assert.Equal("/error/{0}", options.LocationFormat);
     }
 
@@ -67,7 +64,7 @@ public class StatusCodeOptionsTests
     {
         var host = CreateMockHost();
         var options = new StatusCodeOptions(host) { PathFormat = "/errors/{0}" };
-        
+
         Assert.Equal("/errors/{0}", options.PathFormat);
     }
 
@@ -77,7 +74,7 @@ public class StatusCodeOptionsTests
     {
         var host = CreateMockHost();
         var options = new StatusCodeOptions(host) { QueryFormat = "code={0}" };
-        
+
         Assert.Equal("code={0}", options.QueryFormat);
     }
 
@@ -88,7 +85,7 @@ public class StatusCodeOptionsTests
         var host = CreateMockHost();
         var langOpts = new LanguageOptions();
         var options = new StatusCodeOptions(host) { LanguageOptions = langOpts };
-        
+
         Assert.Same(langOpts, options.LanguageOptions);
     }
 }

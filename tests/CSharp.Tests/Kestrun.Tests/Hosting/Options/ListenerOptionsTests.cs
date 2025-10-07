@@ -12,7 +12,7 @@ public class ListenerOptionsTests
     public void DefaultConstructor_InitializesDefaults()
     {
         var options = new ListenerOptions();
-        
+
         Assert.Equal(IPAddress.Any, options.IPAddress);
         Assert.Equal(0, options.Port);
         Assert.False(options.UseHttps);
@@ -27,7 +27,7 @@ public class ListenerOptionsTests
     public void IPAddress_CanBeSet()
     {
         var options = new ListenerOptions { IPAddress = IPAddress.Loopback };
-        
+
         Assert.Equal(IPAddress.Loopback, options.IPAddress);
     }
 
@@ -36,7 +36,7 @@ public class ListenerOptionsTests
     public void Port_CanBeSet()
     {
         var options = new ListenerOptions { Port = 8080 };
-        
+
         Assert.Equal(8080, options.Port);
     }
 
@@ -45,7 +45,7 @@ public class ListenerOptionsTests
     public void UseHttps_CanBeSet()
     {
         var options = new ListenerOptions { UseHttps = true };
-        
+
         Assert.True(options.UseHttps);
     }
 
@@ -54,7 +54,7 @@ public class ListenerOptionsTests
     public void Protocols_CanBeSet()
     {
         var options = new ListenerOptions { Protocols = HttpProtocols.Http2 };
-        
+
         Assert.Equal(HttpProtocols.Http2, options.Protocols);
     }
 
@@ -63,7 +63,7 @@ public class ListenerOptionsTests
     public void UseConnectionLogging_CanBeSet()
     {
         var options = new ListenerOptions { UseConnectionLogging = true };
-        
+
         Assert.True(options.UseConnectionLogging);
     }
 
@@ -72,7 +72,7 @@ public class ListenerOptionsTests
     public void DisableAltSvcHeader_CanBeSet()
     {
         var options = new ListenerOptions { DisableAltSvcHeader = true };
-        
+
         Assert.True(options.DisableAltSvcHeader);
     }
 
@@ -80,12 +80,12 @@ public class ListenerOptionsTests
     [Trait("Category", "Hosting")]
     public void ToString_Http_ReturnsCorrectFormat()
     {
-        var options = new ListenerOptions 
-        { 
-            IPAddress = IPAddress.Loopback, 
-            Port = 8080 
+        var options = new ListenerOptions
+        {
+            IPAddress = IPAddress.Loopback,
+            Port = 8080
         };
-        
+
         Assert.Equal("http://127.0.0.1:8080", options.ToString());
     }
 
@@ -93,13 +93,13 @@ public class ListenerOptionsTests
     [Trait("Category", "Hosting")]
     public void ToString_Https_ReturnsCorrectFormat()
     {
-        var options = new ListenerOptions 
-        { 
-            IPAddress = IPAddress.Loopback, 
-            Port = 443, 
-            UseHttps = true 
+        var options = new ListenerOptions
+        {
+            IPAddress = IPAddress.Loopback,
+            Port = 443,
+            UseHttps = true
         };
-        
+
         Assert.Equal("https://127.0.0.1:443", options.ToString());
     }
 
@@ -107,12 +107,12 @@ public class ListenerOptionsTests
     [Trait("Category", "Hosting")]
     public void ToString_IPv6_ReturnsCorrectFormat()
     {
-        var options = new ListenerOptions 
-        { 
-            IPAddress = IPAddress.IPv6Loopback, 
-            Port = 5000 
+        var options = new ListenerOptions
+        {
+            IPAddress = IPAddress.IPv6Loopback,
+            Port = 5000
         };
-        
+
         Assert.Equal("http://::1:5000", options.ToString());
     }
 
@@ -121,7 +121,7 @@ public class ListenerOptionsTests
     public void ToString_AnyAddress_ReturnsCorrectFormat()
     {
         var options = new ListenerOptions { Port = 5000 };
-        
+
         Assert.Equal("http://0.0.0.0:5000", options.ToString());
     }
 }

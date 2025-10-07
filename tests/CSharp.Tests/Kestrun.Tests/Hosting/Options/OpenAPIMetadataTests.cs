@@ -10,7 +10,7 @@ public class OpenAPIMetadataTests
     public void DefaultConstructor_InitializesProperties()
     {
         var metadata = new OpenAPIMetadata();
-        
+
         Assert.Null(metadata.Summary);
         Assert.Null(metadata.Description);
         Assert.Null(metadata.OperationId);
@@ -24,7 +24,7 @@ public class OpenAPIMetadataTests
     public void Summary_CanBeSet()
     {
         var metadata = new OpenAPIMetadata { Summary = "Test summary" };
-        
+
         Assert.Equal("Test summary", metadata.Summary);
     }
 
@@ -33,7 +33,7 @@ public class OpenAPIMetadataTests
     public void Description_CanBeSet()
     {
         var metadata = new OpenAPIMetadata { Description = "Test description" };
-        
+
         Assert.Equal("Test description", metadata.Description);
     }
 
@@ -42,7 +42,7 @@ public class OpenAPIMetadataTests
     public void OperationId_CanBeSet()
     {
         var metadata = new OpenAPIMetadata { OperationId = "GetUsers" };
-        
+
         Assert.Equal("GetUsers", metadata.OperationId);
     }
 
@@ -51,7 +51,7 @@ public class OpenAPIMetadataTests
     public void Tags_CanBeSet()
     {
         var metadata = new OpenAPIMetadata { Tags = ["users", "api"] };
-        
+
         Assert.Equal(2, metadata.Tags.Length);
         Assert.Contains("users", metadata.Tags);
         Assert.Contains("api", metadata.Tags);
@@ -62,7 +62,7 @@ public class OpenAPIMetadataTests
     public void GroupName_CanBeSet()
     {
         var metadata = new OpenAPIMetadata { GroupName = "v1" };
-        
+
         Assert.Equal("v1", metadata.GroupName);
     }
 
@@ -72,7 +72,7 @@ public class OpenAPIMetadataTests
     {
         var metadata1 = new OpenAPIMetadata { Summary = "Test", OperationId = "Op1" };
         var metadata2 = new OpenAPIMetadata { Summary = "Test", OperationId = "Op1" };
-        
+
         Assert.Equal(metadata1, metadata2);
     }
 
@@ -82,7 +82,7 @@ public class OpenAPIMetadataTests
     {
         var metadata1 = new OpenAPIMetadata { Summary = "Test1" };
         var metadata2 = new OpenAPIMetadata { Summary = "Test2" };
-        
+
         Assert.NotEqual(metadata1, metadata2);
     }
 }

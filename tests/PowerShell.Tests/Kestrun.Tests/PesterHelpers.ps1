@@ -81,11 +81,17 @@ function Get-KestrunModulePath {
     Integer port number.
 #>
 function Get-FreeTcpPort {
-    [CmdletBinding()] param()
-    $listener = [System.Net.Sockets.TcpListener]::new([System.Net.IPAddress]::Loopback, 0)
-    $listener.Start()
-    $port = ($listener.LocalEndpoint).Port
-    $listener.Stop()
+    [CmdletBinding()]
+    param()
+    try {
+        $listener = [System.Net.Sockets.TcpListener]::new([System.Net.IPAddress]::Loopback, 0)
+        $listener.Start()
+        $port = ($listener.LocalEndpoint).Port
+        $listener.Stop()
+    } catch {
+        Write-Warning "Failed to get free TCP port: $_"
+        $port = 5000 # fallback
+    }
     return $port
 }
 

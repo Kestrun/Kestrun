@@ -46,49 +46,11 @@ public sealed class HttpProbe(string name, string[] tags, HttpClient http, strin
     {
         using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
         cts.CancelAfter(_timeout);
+
         try
         {
-            if (Logger.IsEnabled(LogEventLevel.Debug))
-            {
-                Logger.Debug("HttpProbe {Probe} sending GET {Url} (timeout={Timeout})", Name, _url, _timeout);
-            }
-            var rsp = await _http.GetAsync(_url, cts.Token);
-            var body = await rsp.Content.ReadAsStringAsync(cts.Token);
-            if (Logger.IsEnabled(LogEventLevel.Debug))
-            {
-                Logger.Debug("HttpProbe {Probe} received {StatusCode} length={Length}", Name, (int)rsp.StatusCode, body?.Length ?? 0);
-            }
-
-            try
-            {
-                var doc = JsonDocument.Parse(body ?? string.Empty);
-                var statusStr = doc.RootElement.GetProperty("status").GetString();
-                var status = statusStr?.ToLowerInvariant() switch
-                {
-                    ProbeStatusLabels.STATUS_HEALTHY => ProbeStatus.Healthy,
-                    ProbeStatusLabels.STATUS_DEGRADED => ProbeStatus.Degraded,
-                    ProbeStatusLabels.STATUS_UNHEALTHY => ProbeStatus.Unhealthy,
-                    _ => ProbeStatus.Unhealthy
-                };
-                var desc = doc.RootElement.TryGetProperty("description", out var d) ? d.GetString() : null;
-                if (Logger.IsEnabled(LogEventLevel.Debug))
-                {
-                    Logger.Debug("HttpProbe {Probe} parsed contract status={Status}", Name, status);
-                }
-                return new ProbeResult(status, desc, null);
-            }
-            catch
-            {
-                // Non-contract response: degrade on 200, unhealthy otherwise
-                var result = rsp.IsSuccessStatusCode
-                    ? new ProbeResult(ProbeStatus.Degraded, "No contract JSON")
-                    : new ProbeResult(ProbeStatus.Unhealthy, $"HTTP {(int)rsp.StatusCode}");
-                if (Logger.IsEnabled(LogEventLevel.Debug))
-                {
-                    Logger.Debug("HttpProbe {Probe} non-contract response mapped to {Status}", Name, result.Status);
-                }
-                return result;
-            }
+            var (response, body) = await ExecuteHttpRequestAsync(cts.Token).ConfigureAwait(false);
+            return ParseHealthResponse(response, body);
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested)
         {
@@ -97,24 +59,123 @@ public sealed class HttpProbe(string name, string[] tags, HttpClient http, strin
         }
         catch (TaskCanceledException) when (cts.Token.IsCancellationRequested) // timeout from our internal cts
         {
-            if (Logger.IsEnabled(LogEventLevel.Debug))
-            {
-                Logger.Debug("HttpProbe {Probe} timed out after {Timeout}", Name, _timeout);
-            }
-            return new ProbeResult(ProbeStatus.Degraded, $"Timeout after {_timeout}");
+            return HandleTimeout();
         }
         catch (OperationCanceledException) when (cts.Token.IsCancellationRequested) // internal timeout (already handled TaskCanceled, but just in case)
         {
-            if (Logger.IsEnabled(LogEventLevel.Debug))
-            {
-                Logger.Debug("HttpProbe {Probe} operation canceled (internal timeout {Timeout})", Name, _timeout);
-            }
-            return new ProbeResult(ProbeStatus.Degraded, $"Canceled after {_timeout}");
+            return HandleTimeout();
         }
         catch (Exception ex)
         {
             Logger.Error(ex, "HttpProbe {Probe} failed", Name);
             return new ProbeResult(ProbeStatus.Unhealthy, $"Exception: {ex.Message}");
         }
+    }
+
+    /// <summary>
+    /// Executes the HTTP GET request and returns the response and body.
+    /// </summary>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>A tuple containing the HTTP response and response body.</returns>
+    private async Task<(HttpResponseMessage Response, string? Body)> ExecuteHttpRequestAsync(CancellationToken cancellationToken)
+    {
+        if (Logger.IsEnabled(LogEventLevel.Debug))
+        {
+            Logger.Debug("HttpProbe {Probe} sending GET {Url} (timeout={Timeout})", Name, _url, _timeout);
+        }
+
+        var response = await _http.GetAsync(_url, cancellationToken).ConfigureAwait(false);
+        var body = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+
+        if (Logger.IsEnabled(LogEventLevel.Debug))
+        {
+            Logger.Debug("HttpProbe {Probe} received {StatusCode} length={Length}", Name, (int)response.StatusCode, body?.Length ?? 0);
+        }
+
+        return (response, body);
+    }
+
+    /// <summary>
+    /// Parses the HTTP response and determines the health status.
+    /// </summary>
+    /// <param name="response">The HTTP response.</param>
+    /// <param name="body">The response body.</param>
+    /// <returns>The probe result.</returns>
+    private ProbeResult ParseHealthResponse(HttpResponseMessage response, string? body)
+    {
+        var contractResult = TryParseHealthContract(body);
+        if (contractResult != null)
+        {
+            if (Logger.IsEnabled(LogEventLevel.Debug))
+            {
+                Logger.Debug("HttpProbe {Probe} parsed contract status={Status}", Name, contractResult.Status);
+            }
+            return contractResult;
+        }
+
+        return HandleNonContractResponse(response);
+    }
+
+    /// <summary>
+    /// Attempts to parse the response body as a health contract JSON.
+    /// </summary>
+    /// <param name="body">The response body.</param>
+    /// <returns>The probe result if parsing succeeds, null otherwise.</returns>
+    private ProbeResult? TryParseHealthContract(string? body)
+    {
+        try
+        {
+            var doc = JsonDocument.Parse(body ?? string.Empty);
+            var statusStr = doc.RootElement.GetProperty("status").GetString();
+            var status = statusStr?.ToLowerInvariant() switch
+            {
+                ProbeStatusLabels.STATUS_HEALTHY => ProbeStatus.Healthy,
+                ProbeStatusLabels.STATUS_DEGRADED => ProbeStatus.Degraded,
+                ProbeStatusLabels.STATUS_UNHEALTHY => ProbeStatus.Unhealthy,
+                _ => ProbeStatus.Unhealthy
+            };
+            var desc = doc.RootElement.TryGetProperty("description", out var d) ? d.GetString() : null;
+            return new ProbeResult(status, desc, null);
+        }
+        catch
+        {
+            if (Logger.IsEnabled(LogEventLevel.Debug))
+            {
+                Logger.Debug("HttpProbe {Probe} response body is not valid contract JSON", Name);
+            }
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Handles responses that don't conform to the health contract.
+    /// </summary>
+    /// <param name="response">The HTTP response.</param>
+    /// <returns>The probe result.</returns>
+    private ProbeResult HandleNonContractResponse(HttpResponseMessage response)
+    {
+        var result = response.IsSuccessStatusCode
+            ? new ProbeResult(ProbeStatus.Degraded, "No contract JSON")
+            : new ProbeResult(ProbeStatus.Unhealthy, $"HTTP {(int)response.StatusCode}");
+
+        if (Logger.IsEnabled(LogEventLevel.Debug))
+        {
+            Logger.Debug("HttpProbe {Probe} non-contract response mapped to {Status}", Name, result.Status);
+        }
+
+        return result;
+    }
+
+    /// <summary>
+    /// Handles timeout scenarios.
+    /// </summary>
+    /// <returns>The probe result for timeout.</returns>
+    private ProbeResult HandleTimeout()
+    {
+        if (Logger.IsEnabled(LogEventLevel.Debug))
+        {
+            Logger.Debug("HttpProbe {Probe} timed out after {Timeout}", Name, _timeout);
+        }
+        return new ProbeResult(ProbeStatus.Degraded, $"Timeout after {_timeout}");
     }
 }

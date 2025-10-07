@@ -534,4 +534,64 @@ public static class KestrunHttpMiddlewareExtensions
         // Apply the middleware
         return host.Use(app => app.UseHttpsRedirection());
     }
+
+
+    /// <summary>
+    /// Adds HSTS to the application using the specified <see cref="HstsOptions"/>.
+    /// </summary>
+    /// <param name="host">The KestrunHost instance to configure.</param>
+    /// <param name="cfg">The delegate for configuring HSTS options.</param>
+    /// <returns>The updated KestrunHost instance.</returns>
+    public static KestrunHost AddHsts(this KestrunHost host, Action<HstsOptions>? cfg = null)
+    {
+        if (host.HostLogger.IsEnabled(LogEventLevel.Debug))
+        {
+            host.HostLogger.Debug("Adding HSTS with configuration: {HasConfig}", cfg != null);
+        }
+
+        // Register the HSTS service
+        _ = host.AddService(services =>
+            {
+                _ = services.AddHsts(cfg ?? (_ => { })); // Always pass a delegate
+            });
+
+        // Apply the middleware
+        return host.Use(app => app.UseHsts());
+    }
+
+    /// <summary>
+    /// Adds HSTS to the application using the specified <see cref="HstsOptions"/>.
+    /// </summary>
+    /// <param name="host">The KestrunHost instance to configure.</param>
+    /// <param name="cfg">The HSTS options.</param>
+    /// <returns>The updated KestrunHost instance.</returns>
+    public static KestrunHost AddHsts(this KestrunHost host, HstsOptions cfg)
+    {
+        if (host.HostLogger.IsEnabled(LogEventLevel.Debug))
+        {
+            host.HostLogger.Debug("Adding HSTS with configuration: {@Config}", cfg);
+        }
+
+        if (cfg == null)
+        {
+            return host.AddHsts();   // fallback to parameterless overload
+        }
+
+        _ = host.AddService(services =>
+        {
+            _ = services.AddHsts(opts =>
+            {
+                opts.Preload = cfg.Preload;
+                opts.IncludeSubDomains = cfg.IncludeSubDomains;
+                opts.MaxAge = cfg.MaxAge;
+                opts.ExcludedHosts.Clear();
+                foreach (var h in cfg.ExcludedHosts)
+                {
+                    opts.ExcludedHosts.Add(h);
+                }
+            });
+        });
+
+        return host.Use(app => app.UseHsts());
+    }
 }

@@ -1,4 +1,4 @@
-﻿<#
+<#
     Scheduling Quickstart Script
     Demonstrates enabling the SchedulerService and registering jobs
     with both PowerShell and C# code. Also exposes a small route to

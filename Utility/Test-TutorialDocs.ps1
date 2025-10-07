@@ -1,4 +1,4 @@
-﻿param(
+param(
     [string]$Path='docs/pwsh/tutorial',
     [string]$SubPath
 )

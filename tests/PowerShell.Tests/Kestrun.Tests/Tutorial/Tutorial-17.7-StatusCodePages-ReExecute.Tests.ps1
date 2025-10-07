@@ -1,4 +1,4 @@
-﻿param()
+param()
 Describe 'Tutorial 17.7-StatusCodePages-ReExecute' -Tag 'Tutorial' {
     BeforeAll { . (Join-Path $PSScriptRoot '..\\PesterHelpers.ps1'); $script:instance = Start-ExampleScript -Name '17.7-StatusCodePages-ReExecute.ps1' }
     AfterAll { if ($script:instance) { Stop-ExampleScript -Instance $script:instance } }

@@ -1,4 +1,4 @@
-﻿#
+#
 # Sample: Status Code Pages with Content Format
 # This script demonstrates how to set up a Kestrun server with custom content type and body format.
 # The server will show formatted error pages with placeholders for status codes.

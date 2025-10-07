@@ -1,4 +1,4 @@
-﻿#
+#
 # Sample: Status Code Pages with Options
 # Demonstrates configuring StatusCodePages using options-like switches (template/redirect/re-exec)
 # FileName: 17.2-StatusCodePages-Options.ps1

@@ -1,4 +1,4 @@
-﻿<#
+<#
 .SYNOPSIS
     Enables Status Code Pages for a Kestrun server.
 .DESCRIPTION

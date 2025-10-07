@@ -1,4 +1,4 @@
-﻿#
+#
 # Sample: Status Code Pages with Redirects
 # This script demonstrates how to set up a Kestrun server with redirect-based error handling.
 # The server will redirect error responses to specific error pages.

@@ -1,4 +1,4 @@
-﻿#
+#
 # Sample: Status Code Pages with Re-execution
 # This script demonstrates how to set up a Kestrun server with re-execution error handling.
 # The server will re-execute the request pipeline using alternate paths for error handling.

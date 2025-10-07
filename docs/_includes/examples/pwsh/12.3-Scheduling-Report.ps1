@@ -1,4 +1,4 @@
-﻿<#
+<#
     Scheduling Report Example
     Demonstrates exposing a report endpoint with optional timezone.
     FileName: 12.3-Scheduling-Report.ps1

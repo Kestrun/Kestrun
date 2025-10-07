@@ -1,102 +1,102 @@
 name: Build & Publish PowerShell Cmdlet Docs
 
 on:
-  workflow_dispatch: {}
+    workflow_dispatch: {}
 
 permissions:
-  contents: read    # only needed for this repo
+    contents: read # only needed for this repo
 
 concurrency:
-  group: "pages"
-  cancel-in-progress: false
+    group: "pages"
+    cancel-in-progress: false
 
 jobs:
-  docs:
-    runs-on: ubuntu-latest
-    steps:
-      - name: 🛎️ Checkout
-        uses: actions/checkout@v5
+    docs:
+        runs-on: ubuntu-latest
+        steps:
+            - name: 🛎️ Checkout
+              uses: actions/checkout@v5
 
-      - name: 🧰 Setup .NET 8/9
-        uses: actions/setup-dotnet@v5
-        with:
-          dotnet-version: |
-            8.0.x
-            9.0.x
+            - name: 🧰 Setup .NET 8/9
+              uses: actions/setup-dotnet@v5
+              with:
+                  dotnet-version: |
+                      8.0.x
+                      9.0.x
 
-      - name: 🧰 Install Module Invoke-Build
-        shell: pwsh
-        run: |
-          $ErrorActionPreference = 'Stop'
-          Install-Module InvokeBuild -Force -Scope CurrentUser
+            - name: 🧰 Install Module Invoke-Build
+              shell: pwsh
+              run: |
+                  $ErrorActionPreference = 'Stop'
+                  Install-Module InvokeBuild -Force -Scope CurrentUser
 
-      - name: 🔎 Print runtime context
-        shell: pwsh
-        run: |
-          $PSVersionTable
-          dotnet --info
-          [System.Runtime.InteropServices.RuntimeInformation]::FrameworkDescription
-          [System.Environment]::Version
+            - name: 🔎 Print runtime context
+              shell: pwsh
+              run: |
+                  $PSVersionTable
+                  dotnet --info
+                  [System.Runtime.InteropServices.RuntimeInformation]::FrameworkDescription
+                  [System.Environment]::Version
 
-      - name: 📦 Restore solution
-        shell: pwsh
-        run: Invoke-Build Restore
+            - name: 📦 Restore solution
+              shell: pwsh
+              run: Invoke-Build Restore
 
-      - name: 🔧 Run C# Build (normal)
-        shell: pwsh
-        run: |
-          $ErrorActionPreference = 'Stop'
-          Invoke-Build Build
+            - name: 🔧 Run C# Build (normal)
+              shell: pwsh
+              run: |
+                  $ErrorActionPreference = 'Stop'
+                  Invoke-Build Build
 
-      - name: 🧾 Build Cmdlet Docs
-        shell: pwsh
-        run: Invoke-Build BuildHelp   # outputs into ./docs
+            - name: 🧾 Build Cmdlet Docs
+              shell: pwsh
+              run: Invoke-Build Build-Help # outputs into ./docs
 
-      - name: ⬆️ Upload site artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: site
-          path: ./docs
+            - name: ⬆️ Upload site artifact
+              uses: actions/upload-artifact@v4
+              with:
+                  name: site
+                  path: ./docs
 
-  deploy:
-    needs: docs
-    runs-on: ubuntu-latest
-    env:
-      TARGET_REPO: "Kestrun/kestrun.github.io"   # org/user site repo
-      DEST_DIR: "docs"               # folder on site; use "." to publish at root
-      COMMIT_AUTHOR_NAME: "github-actions[bot]"
-      COMMIT_AUTHOR_EMAIL: "41898282+github-actions[bot]@users.noreply.github.com"
-    steps:
-      - name: ⬇️ Download site artifact
-        uses: actions/download-artifact@v5
-        with:
-          name: site
-          path: site
+    deploy:
+        needs: docs
+        runs-on: ubuntu-latest
+        env:
+            TARGET_REPO: "Kestrun/kestrun.github.io" # org/user site repo
+            DEST_DIR: "docs" # folder on site; use "." to publish at root
+            COMMIT_AUTHOR_NAME: "github-actions[bot]"
+            COMMIT_AUTHOR_EMAIL: "41898282+github-actions[bot]@users.noreply.github.com"
+        steps:
+            - name: ⬇️ Download site artifact
+              uses: actions/download-artifact@v5
+              with:
+                  name: site
+                  path: site
 
-      - name: 🔁 Checkout target site repo
-        uses: actions/checkout@v5
-        with:
-          repository: ${{ env.TARGET_REPO }}
-          token: ${{ secrets.PAGES_DEPLOY_TOKEN }}   # PAT with write access to target repo
-          path: site-repo
+            - name: 🔁 Checkout target site repo
+              uses: actions/checkout@v5
+              with:
+                  repository: ${{ env.TARGET_REPO }}
+                  token: ${{ secrets.PAGES_DEPLOY_TOKEN }} # PAT with write access to target repo
+                  path: site-repo
 
-      - name: 🧹 Replace destination folder
-        run: |
-          set -e
-          mkdir -p "site-repo/${DEST_DIR}"
-          rm -rf "site-repo/${DEST_DIR:?}/"* "site-repo/${DEST_DIR}/.*" 2>/dev/null || true
-          rsync -a --delete site/ "site-repo/${DEST_DIR}/"
+            - name: 🧹 Replace destination folder
+              run: |
+                  set -e
+                  mkdir -p "site-repo/${DEST_DIR}"
+                  rm -rf "site-repo/${DEST_DIR:?}/"* "site-repo/${DEST_DIR}/.*" 2>/dev/null || true
+                  rsync -a --delete site/ "site-repo/${DEST_DIR}/"
 
-      - name: 📝 Commit & push if changed
-        working-directory: site-repo
-        run: |
-          set -e
-          git config user.name  "${COMMIT_AUTHOR_NAME}"
-          git config user.email "${COMMIT_AUTHOR_EMAIL}"
-          if git status --porcelain | grep .; then
-            git add -A
-            git commit -m "Update cmdlet docs from $GITHUB_REPOSITORY@${GITHUB_SHA::7}"
-            git push
-          else
-            echo "No changes to commit."
-          fi
+            - name: 📝 Commit & push if changed
+              working-directory: site-repo
+              run: |
+                  set -e
+                  git config user.name  "${COMMIT_AUTHOR_NAME}"
+                  git config user.email "${COMMIT_AUTHOR_EMAIL}"
+                  if git status --porcelain | grep .; then
+                    git add -A
+                    git commit -m "Update cmdlet docs from $GITHUB_REPOSITORY@${GITHUB_SHA::7}"
+                    git push
+                  else
+                    echo "No changes to commit."
+                  fi

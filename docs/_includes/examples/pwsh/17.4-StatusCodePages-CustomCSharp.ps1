@@ -1,4 +1,4 @@
-﻿#
+#
 # Sample: Status Code Pages with PowerShell Script
 # This script demonstrates how to set up a Kestrun server with PowerShell script options.
 # The server will use PowerShell scripts to generate custom error responses.

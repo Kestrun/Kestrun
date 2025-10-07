@@ -1,4 +1,4 @@
-﻿#
+#
 # Sample: Status Code Pages with Custom Handler
 # This script demonstrates how to set up a Kestrun server with a custom handler function.
 # The server will use a delegate function to handle status codes programmatically.

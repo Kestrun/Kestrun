@@ -89,7 +89,7 @@ Import-Module ./src/PowerShell/Kestrun/Kestrun.psm1 -Force
 ## 6. Build Help & Docs
 
 ```powershell
-Invoke-Build BuildHelp
+Invoke-Build Build-Help
 ```
 
 Generated docs land under `docs/` (Just-the-Docs structure).

@@ -1,4 +1,4 @@
-﻿<#
+<#
     Scheduling Cron Example
     Demonstrates CRON-based jobs (seconds precision) with PowerShell and C#.
     FileName: 12.2-Scheduling-Cron.ps1

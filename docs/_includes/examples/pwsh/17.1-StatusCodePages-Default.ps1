@@ -1,4 +1,4 @@
-﻿#
+#
 # Sample: Default Status Code Pages
 # This script demonstrates how to set up a Kestrun server with default status code pages.
 # The server will show default error pages for 404, 500, and other HTTP error status codes.

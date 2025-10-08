@@ -4,7 +4,18 @@ namespace Kestrun.Hosting.Options;
 /// </summary>
 public sealed class ExceptionOptions
 {
-    /// <summary>Inline handler to run inside the exception pipeline (wins over path).</summary>
+    /// <summary>
+    /// Initializes a new instance of the <see cref="ExceptionOptions"/> class.
+    /// </summary>
+    /// <param name="host">The KestrunHost instance associated with these options.</param>
+    public ExceptionOptions(KestrunHost host)
+    {
+        ArgumentNullException.ThrowIfNull(host);
+        Host = host;
+    }
+    /// <summary>
+    /// Inline handler to run inside the exception pipeline (wins over path).
+    /// </summary>
     public RequestDelegate? Handler { get; init; }
 
     /// <summary>Re-execute path (e.g. "/error") if no inline handler/script is supplied.</summary>

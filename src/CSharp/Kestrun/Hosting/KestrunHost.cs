@@ -136,6 +136,11 @@ public class KestrunHost : IDisposable
     /// </summary>
     public StatusCodeOptions? StatusCodeOptions { get; set; }
 
+    /// <summary>
+    /// Gets or sets the exception options for configuring exception handling.
+    /// </summary>
+    public ExceptionOptions? ExceptionOptions { get; set; }
+
     #endregion
 
     // Accepts optional module paths (from PowerShell)
@@ -841,6 +846,16 @@ public class KestrunHost : IDisposable
         _app = Builder.Build();
 
         HostLogger.Information("Application built successfully.");
+
+        // Exception handling middleware
+        if (ExceptionOptions is not null)
+        {
+            if (HostLogger.IsEnabled(LogEventLevel.Debug))
+            {
+                HostLogger.Debug("Exception handling middleware is enabled.");
+            }
+            _ = _app.UseException(ExceptionOptions);
+        }
 
         // Register StatusCodePages BEFORE language runtimes so that re-executed requests
         // pass through language middleware again (and get fresh RouteValues/context).

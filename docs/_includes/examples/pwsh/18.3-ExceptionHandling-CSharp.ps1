@@ -4,7 +4,7 @@
 # FileName: 18.3-ExceptionHandling-CSharp.ps1
 #
 param(
-    [int]$Port = 5053,
+    [int]$Port = 5000,
     [IPAddress]$IPAddress = [IPAddress]::Loopback
 )
 

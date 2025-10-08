@@ -4,7 +4,7 @@
 # FileName: 18.4-ExceptionHandling-ProblemDetails.ps1
 #
 param(
-    [int]$Port = 5054,
+    [int]$Port = 5000,
     [IPAddress]$IPAddress = [IPAddress]::Loopback
 )
 

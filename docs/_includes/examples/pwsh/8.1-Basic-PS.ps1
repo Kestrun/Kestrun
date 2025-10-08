@@ -19,25 +19,22 @@ New-KrServer -Name 'Auth Basic PS'
 # 3. Add HTTP listener on specified port and IP address
 Add-KrEndpoint -Port $Port -IPAddress $IPAddress
 
-# 4. Enable PowerShell runtime for route script blocks
-Add-KrPowerShellRuntime
-
-# 5. Define Basic auth scheme with inline validation script
+# 4. Define Basic auth scheme with inline validation script
 Add-KrBasicAuthentication -Name 'PowershellBasic' -Realm 'Demo' -AllowInsecureHttp -ScriptBlock {
     param($Username, $Password)
     $Username -eq 'admin' -and $Password -eq 'password'
 }
 
-# 6. Finalize configuration (build internal pipeline)
+# 5. Finalize configuration (build internal pipeline)
 Enable-KrConfiguration
 
-# 7. Map secured route group using the scheme
+# 6. Map secured route group using the scheme
 Add-KrRouteGroup -Prefix '/secure/ps' -AuthorizationSchema 'PowershellBasic' {
     Add-KrMapRoute -Verbs Get -Pattern '/hello' -ScriptBlock {
         Write-KrTextResponse -InputObject "Hello, $( $Context.User.Identity.Name )!" -ContentType 'text/plain'
     }
 }
 
-# 8. Start server (Ctrl+C to stop)
+# 7. Start server (Ctrl+C to stop)
 Start-KrServer -CloseLogsOnExit
 

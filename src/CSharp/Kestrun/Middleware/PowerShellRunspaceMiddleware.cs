@@ -51,7 +51,7 @@ public sealed class PowerShellRunspaceMiddleware(RequestDelegate next, KestrunRu
                 Log.Debug("Runspace acquired for {Path} in {AcquireMs} ms (inFlight={InFlight})", context.Request.Path, acquireMs, current);
             }
 
-            using var ps = PowerShell.Create();
+            var ps = PowerShell.Create();
             ps.Runspace = runspace;
             var krRequest = await KestrunRequest.NewRequest(context);
             var krResponse = new KestrunResponse(krRequest);
@@ -73,37 +73,51 @@ public sealed class PowerShellRunspaceMiddleware(RequestDelegate next, KestrunRu
             var ss = ps.Runspace.SessionStateProxy;
             ss.SetVariable("Context", kestrunContext);
 
-            try
+            // Defer cleanup until the response is fully completed. This ensures
+            // post-endpoint middleware (e.g., StatusCodePages) can still access the runspace.
+            context.Response.OnCompleted(() =>
             {
-                if (Log.IsEnabled(LogEventLevel.Debug))
+                try
                 {
-                    Log.Debug("PowerShellRunspaceMiddleware - Continuing Pipeline  for {Path}", context.Request.Path);
+                    if (Log.IsEnabled(LogEventLevel.Debug))
+                    {
+                        Log.Debug("OnCompleted: Returning runspace to pool: {RunspaceId}", ps.Runspace.InstanceId);
+                    }
+                    _pool.Release(ps.Runspace);
                 }
+                catch (Exception ex)
+                {
+                    Log.Debug(ex, "OnCompleted: Error returning runspace to pool");
+                }
+                finally
+                {
+                    try
+                    {
+                        if (Log.IsEnabled(LogEventLevel.Debug))
+                        {
+                            Log.Debug("OnCompleted: Disposing PowerShell instance: {InstanceId}", ps.InstanceId);
+                        }
+                        ps.Dispose();
+                    }
+                    catch (Exception ex)
+                    {
+                        Log.Debug(ex, "OnCompleted: Error disposing PowerShell instance");
+                    }
+                    _ = context.Items.Remove(PowerShellDelegateBuilder.PS_INSTANCE_KEY);
+                    _ = context.Items.Remove(PowerShellDelegateBuilder.KR_CONTEXT_KEY);
+                }
+                return Task.CompletedTask;
+            });
 
-                await _next(context); // continue the pipeline
-                if (Log.IsEnabled(LogEventLevel.Debug))
-                {
-                    Log.Debug("PowerShellRunspaceMiddleware completed for {Path}", context.Request.Path);
-                }
+            if (Log.IsEnabled(LogEventLevel.Debug))
+            {
+                Log.Debug("PowerShellRunspaceMiddleware - Continuing Pipeline  for {Path}", context.Request.Path);
             }
-            finally
-            {
-                if (ps != null)
-                {
-                    if (Log.IsEnabled(LogEventLevel.Debug))
-                    {
-                        Log.Debug("Returning runspace to pool: {RunspaceId}", ps.Runspace.InstanceId);
-                    }
 
-                    _pool.Release(ps.Runspace); // return the runspace to the pool
-                    if (Log.IsEnabled(LogEventLevel.Debug))
-                    {
-                        Log.Debug("Disposing PowerShell instance: {InstanceId}", ps.InstanceId);
-                    }
-                    // Dispose the PowerShell instance
-                    ps.Dispose();
-                    _ = context.Items.Remove(PowerShellDelegateBuilder.PS_INSTANCE_KEY); // just in case someone re-uses the ctx object
-                }
+            await _next(context); // continue the pipeline
+            if (Log.IsEnabled(LogEventLevel.Debug))
+            {
+                Log.Debug("PowerShellRunspaceMiddleware completed for {Path}", context.Request.Path);
             }
         }
         catch (Exception ex)
@@ -116,7 +130,7 @@ public sealed class PowerShellRunspaceMiddleware(RequestDelegate next, KestrunRu
             var durationMs = (DateTime.UtcNow - start).TotalMilliseconds;
             if (Log.IsEnabled(LogEventLevel.Debug))
             {
-                Log.Debug("PowerShellRunspaceMiddleware ended for {Path} durationMs={Duration} inFlight={InFlight}",
+                Log.Debug("PowerShellRunspaceMiddleware ended for {Path} durationMs={durationMs} inFlight={remaining}",
                     context.Request.Path, durationMs, remaining);
             }
         }

@@ -1,4 +1,4 @@
-﻿param()
+param()
 Describe 'Tutorial 12.1 Scheduling Quickstart' -Tag 'Tutorial' {
     BeforeAll {
         . (Join-Path $PSScriptRoot '..\PesterHelpers.ps1')

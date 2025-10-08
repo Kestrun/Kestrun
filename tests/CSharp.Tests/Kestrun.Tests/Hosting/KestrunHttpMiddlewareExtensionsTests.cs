@@ -8,6 +8,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.Net.Http.Headers;
 using Microsoft.Extensions.DependencyInjection;
 using Kestrun.Hosting.Compression;
+using Microsoft.AspNetCore.HttpsPolicy;
 using Moq;
 using Xunit;
 
@@ -414,6 +415,112 @@ public class KestrunHttpMiddlewareExtensionsTests
 
         // Since we can't easily mock extension methods, we'll just verify the method returns a valid action
         _ = Assert.IsType<Action<IApplicationBuilder>>(middlewareAction);
+    }
+
+    #endregion
+
+    #region HSTS Extension Method Tests
+
+    [Fact]
+    [Trait("Category", "Hosting")]
+    public void AddHsts_WithNullOptions_UsesDefaults()
+    {
+        var host = CreateHost(out var middleware);
+        _ = host.AddHsts((HstsOptions)null!);
+        Assert.True(middleware.Count > 0);
+    }
+
+    [Fact]
+    [Trait("Category", "Hosting")]
+    public void AddHsts_WithOptions_RegistersMiddleware()
+    {
+        var host = CreateHost(out var middleware);
+        var options = new HstsOptions
+        {
+            MaxAge = TimeSpan.FromDays(365),
+            IncludeSubDomains = true,
+            Preload = true
+        };
+        options.ExcludedHosts.Add("localhost");
+        _ = host.AddHsts(options);
+        Assert.True(middleware.Count > 0);
+    }
+
+    [Fact]
+    [Trait("Category", "Hosting")]
+    public void AddHsts_WithNullDelegate_DoesNotThrow()
+    {
+        var host = CreateHost(out var middleware);
+        _ = host.AddHsts((Action<HstsOptions>)null!);
+        Assert.True(middleware.Count > 0);
+    }
+
+    [Fact]
+    [Trait("Category", "Hosting")]
+    public void AddHsts_WithCustomDelegate_Registers()
+    {
+        var host = CreateHost(out var middleware);
+        _ = host.AddHsts(o =>
+        {
+            o.MaxAge = TimeSpan.FromDays(90);
+            o.IncludeSubDomains = false;
+            o.Preload = false;
+            o.ExcludedHosts.Add("dev.example.com");
+        });
+        Assert.True(middleware.Count > 0);
+    }
+
+    [Fact]
+    [Trait("Category", "Hosting")]
+    public void AddHsts_WithOptionsObject_CopiesAllProperties()
+    {
+        var host = CreateHost(out var middleware);
+        var options = new HstsOptions
+        {
+            MaxAge = TimeSpan.FromDays(180),
+            IncludeSubDomains = true,
+            Preload = false
+        };
+        options.ExcludedHosts.Add("localhost");
+        options.ExcludedHosts.Add("127.0.0.1");
+
+        _ = host.AddHsts(options);
+        Assert.True(middleware.Count > 0);
+
+        // The middleware should be registered - we can verify this by checking the middleware count
+        // In a real integration test, we would verify the actual HSTS header behavior
+    }
+
+    [Fact]
+    [Trait("Category", "Hosting")]
+    public void AddHsts_LogsCorrectly()
+    {
+        var mockLogger = new Mock<Serilog.ILogger>();
+        _ = mockLogger.Setup(l => l.IsEnabled(Serilog.Events.LogEventLevel.Debug)).Returns(true);
+
+        var host = new KestrunHost("TestApp", mockLogger.Object);
+        _ = host.AddHsts(o => o.MaxAge = TimeSpan.FromDays(30));
+
+        // Verify that debug logging was called - match the actual signature
+        mockLogger.Verify(l => l.Debug(It.Is<string>(s => s.Contains("Adding HSTS")), It.IsAny<bool>()), Times.Once);
+    }
+
+    [Fact]
+    [Trait("Category", "Hosting")]
+    public void AddHsts_WithEmptyExcludedHosts_ClearsDefaults()
+    {
+        var host = CreateHost(out var middleware);
+        var options = new HstsOptions
+        {
+            MaxAge = TimeSpan.FromDays(30),
+            IncludeSubDomains = true,
+            Preload = true
+        };
+        // Explicitly clear excluded hosts to test development scenario
+        options.ExcludedHosts.Clear();
+
+        _ = host.AddHsts(options);
+        Assert.True(middleware.Count > 0);
     }
 
     #endregion

@@ -121,6 +121,21 @@ public class KestrunHost : IDisposable
     /// </summary>
     public CacheControlHeaderValue? DefaultCacheControl { get; internal set; }
 
+    /// <summary>
+    /// Gets the shared state manager for managing shared data across requests and sessions.
+    /// </summary>
+    public bool PowershellMiddlewareEnabled { get; set; } = false;
+
+    /// <summary>
+    /// Gets or sets a value indicating whether this instance is the default Kestrun host.
+    /// </summary>
+    public bool DefaultHost { get; internal set; }
+
+    /// <summary>
+    /// Gets or sets the status code options for configuring status code pages.
+    /// </summary>
+    public StatusCodeOptions? StatusCodeOptions { get; set; }
+
     #endregion
 
     // Accepts optional module paths (from PowerShell)
@@ -760,7 +775,6 @@ public class KestrunHost : IDisposable
 
             // Register default probes after endpoints are logged but before marking configured
             RegisterDefaultHealthProbes();
-
             IsConfigured = true;
             HostLogger.Information("Configuration applied successfully.");
         }
@@ -825,6 +839,36 @@ public class KestrunHost : IDisposable
 
         // 2️⃣  Build the WebApplication
         _app = Builder.Build();
+
+        HostLogger.Information("Application built successfully.");
+
+        // Register StatusCodePages BEFORE language runtimes so that re-executed requests
+        // pass through language middleware again (and get fresh RouteValues/context).
+        if (StatusCodeOptions is not null)
+        {
+            if (HostLogger.IsEnabled(LogEventLevel.Debug))
+            {
+                HostLogger.Debug("Status code pages middleware is enabled.");
+            }
+            _ = _app.UseStatusCodePages(StatusCodeOptions);
+        }
+
+        if (PowershellMiddlewareEnabled)
+        {
+            if (HostLogger.IsEnabled(LogEventLevel.Debug))
+            {
+                HostLogger.Debug("PowerShell middleware is enabled.");
+            }
+
+            if (_runspacePool is null)
+            {
+                throw new InvalidOperationException("Runspace pool is not initialized. Call EnableConfiguration first.");
+            }
+            HostLogger.Information("Adding PowerShell runtime");
+            _ = _app.UseLanguageRuntime(
+                    ScriptLanguage.PowerShell,
+                    b => b.UsePowerShellRunspace(_runspacePool));
+        }
 
         HostLogger.Information("CWD: {CWD}", Directory.GetCurrentDirectory());
         HostLogger.Information("ContentRoot: {Root}", _app.Environment.ContentRootPath);
@@ -1118,7 +1162,6 @@ public class KestrunHost : IDisposable
             return appField?.GetValue(this) is WebApplication app && !app.Lifetime.ApplicationStopping.IsCancellationRequested;
         }
     }
-
 
     #endregion
 

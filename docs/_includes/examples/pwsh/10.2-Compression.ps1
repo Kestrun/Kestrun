@@ -28,14 +28,20 @@ New-KrServer -Name 'Compression Demo'
 # 3. Listener (HTTP + self-signed HTTPS)
 Add-KrEndpoint -Port $Port -IPAddress $IPAddress -SelfSignedCert | Out-Null
 
-# IMPORTANT: Define helper functions BEFORE adding the PowerShell runtime so that
-# they are available inside the isolated runspaces used for route execution.
+<#
+.SYNOPSIS
+    Generate a large block of text by repeating a seed string.
+.PARAMETER seed
+    The seed string to repeat.
+.PARAMETER repeat
+    The number of times to repeat the seed string (default: 80).
+.RETURNS
+    A large string composed of the seed repeated.
+#>
 function _NewLargeBlock([string]$seed, [int]$repeat = 80) {
     return (($seed + ' ') * $repeat).Trim()
 }
 
-# 4. Runtime
-Add-KrPowerShellRuntime
 
 # 5. Compression middleware (cover common textual MIME types)
 Add-KrCompressionMiddleware -EnableForHttps -MimeTypes @('text/plain', 'text/html', 'application/json', 'application/xml', 'application/x-www-form-urlencoded')
@@ -94,12 +100,14 @@ Add-KrMapRoute -Verbs Get -Pattern '/form' -ScriptBlock {
 Add-KrMapRoute -Options (New-KrMapRouteOption -Property @{
         Pattern = '/raw-nocompress'
         HttpVerbs = 'Get'
-        Code = {
-            $body = _NewLargeBlock 'This route intentionally disables response compression.' 150
-            Write-Verbose "[/raw-nocompress] length=$($body.Length)" -Verbose
-            Write-KrTextResponse -InputObject $body -StatusCode 200 -ContentType 'text/plain'
+        ScriptCode = @{
+            Code = {
+                $body = _NewLargeBlock 'This route intentionally disables response compression.' 150
+                Write-Verbose "[/raw-nocompress] length=$($body.Length)" -Verbose
+                Write-KrTextResponse -InputObject $body -StatusCode 200 -ContentType 'text/plain'
+            }
+            Language = 'PowerShell'
         }
-        Language = 'PowerShell'
         DisableResponseCompression = $true
     })
 

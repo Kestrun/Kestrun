@@ -17,15 +17,8 @@ concurrency:
     cancel-in-progress: true
 
 jobs:
-    lint:
-        name: Linting
-        uses: Kestrun/Kestrun/.github/workflows/lint-core.yml@main
-        with:
-            is_pr: ${{ inputs.is_pr }}
-
     clamav:
         runs-on: ubuntu-24.04
-        needs: lint
         steps:
             - name: 🛎️ Checkout
               uses: actions/checkout@v5

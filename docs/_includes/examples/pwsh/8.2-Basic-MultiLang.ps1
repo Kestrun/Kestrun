@@ -18,7 +18,7 @@ New-KrServer -Name 'Auth Basic Multi'
 Add-KrEndpoint -Port $Port -IPAddress $IPAddress
 
 # 4. PowerShell runtime
-Add-KrPowerShellRuntime
+
 
 # 5. C# validation logic
 Add-KrBasicAuthentication -Name 'CSharpBasic' -Realm 'CS' -AllowInsecureHttp -Code @'

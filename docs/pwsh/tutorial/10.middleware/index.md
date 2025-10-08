@@ -19,7 +19,7 @@ Core goals:
 
 | Area | Middleware Available | Notes |
 |------|----------------------|-------|
-| Security | Antiforgery (CSRF) | Production ready |
+| Security | Antiforgery (CSRF), HSTS, HTTPS Redirection | Production ready |
 | Static Content | File Server | Directory browse + headers |
 | Responses | Caching helpers | Per‑route directives (see Caching chapter) |
 | Logging | Sinks / enrichment | See Logging section |
@@ -59,6 +59,7 @@ Planned middleware will appear here as they are implemented. Contributions welco
 | Feature | Status | Tracking |
 |---------|--------|----------|
 | Antiforgery | ✅ Implemented | Tutorial + Topic Deep Dive (coming) |
+| HSTS & HTTPS Redirection | ✅ Implemented | [Tutorial](./4.Https-Hsts) + [Topic](../../../topics/hsts) |
 | Rate Limiting | ⏳ Planned | TBD |
 | Compression | ⏳ Planned | TBD |
 | CORS | ⏳ Planned | TBD |
@@ -67,6 +68,7 @@ Planned middleware will appear here as they are implemented. Contributions welco
 ## Next Steps
 
 - Read the [Antiforgery Protection](./1.Antiforgery) chapter
+- Learn about [HTTPS and HSTS Security](./4.Https-Hsts)
 - Explore caching in [Responses: Caching & Revalidation](/pwsh/tutorial/9.Responses/8.Caching)
 - Review logging enrichment for cross‑request correlation
 

@@ -1,4 +1,4 @@
-﻿<#
+<#
     Scheduling Cron Example
     Demonstrates CRON-based jobs (seconds precision) with PowerShell and C#.
     FileName: 12.2-Scheduling-Cron.ps1
@@ -18,7 +18,6 @@ New-KrServer -Name 'Scheduling Cron Demo'
 Add-KrEndpoint -Port $Port -IPAddress $IPAddress
 
 ## 4. Runtime + Scheduler
-Add-KrPowerShellRuntime
 Add-KrScheduling -MaxRunspaces 2
 
 ## 5. Apply configuration

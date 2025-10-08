@@ -14,6 +14,7 @@ Deeper, cross-cutting subjects (logging, deployment, performance, etc.).
 | [Logging](./logging) | Configure structured logging (C# & PowerShell) |
 | [HTTP Caching](./caching) | Layered cache headers, middleware, validators |
 | [Health Monitoring](./health) | Health endpoints, probes, and operational guidance |
+| [HSTS & HTTPS Redirection](./hsts) | Secure transport policies and automatic redirection |
 | [JWT Tokens](./jwt) | Build, issue, validate, and renew JSON Web Tokens |
 | [Scheduling](./scheduling) | Background jobs via intervals and CRON (PS & C#) |
 

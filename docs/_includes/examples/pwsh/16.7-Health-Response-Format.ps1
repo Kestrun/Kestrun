@@ -18,9 +18,7 @@ New-KrServer -Name 'Health Response Format Demo'
 ## 3. Listener (port 5000)
 Add-KrEndpoint -Port $Port -IPAddress $IPAddress
 
-## 4. Runtime
-Add-KrPowerShellRuntime
-
+#
 ## 5. Add some diverse probes for demonstration
 Add-KrHealthProbe -Name 'Database' -Tags 'core', 'data' -ScriptBlock {
     # Simulate database connectivity check

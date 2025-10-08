@@ -12,20 +12,20 @@ param(
 
 # Dynamic level switch logger
 New-KrLogger |
-    Set-KrLoggerMinimumLevel -Dynamic Debug |
+    Set-KrLoggerLevel -Dynamic Debug |
     Add-KrSinkConsole |
     Add-KrSinkFile -Path '.\logs\hot-reload.log' -RollingInterval Hour |
     Register-KrLogger -Name 'app' -PassThru
 
 # Default logger for server events
 New-KrLogger |
-    Set-KrLoggerMinimumLevel -Value Debug |
+    Set-KrLoggerLevel -Value Debug |
     Add-KrSinkConsole |
     Register-KrLogger -Name 'Default'
 
 New-KrServer -Name "Hot Reload" -LoggerName 'Default'
 Add-KrEndpoint -Port $Port -IPAddress $IPAddress
-Add-KrPowerShellRuntime
+
 
 Enable-KrConfiguration
 # Writes both Debug and Information; visibility depends on level switch
@@ -56,7 +56,7 @@ Add-KrMapRoute -Verbs Get -Path "/level/{level}" -ScriptBlock {
 # Reconfigure 'app' logger at runtime: add a property and tighten minimum level
 Add-KrMapRoute -Verbs Post -Path "/reconfigure" -ScriptBlock {
     New-KrLogger |
-        Set-KrLoggerMinimumLevel -Value Warning |
+        Set-KrLoggerLevel -Value Warning |
         Add-KrEnrichProperty -Name 'Reconfigured' -Value $true |
         Add-KrSinkConsole |
         Add-KrSinkFile -Path '.\logs\hot-reload.log' -RollingInterval Hour |

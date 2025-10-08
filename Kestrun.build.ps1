@@ -87,7 +87,7 @@ if (($null -eq $PSCmdlet.MyInvocation) -or ([string]::IsNullOrEmpty($PSCmdlet.My
 # Add Helper utility
 . ./Utility/Helper.ps1
 
-$SolutionPath = Join-Path -Path $PSScriptRoot -ChildPath "Kestrun.sln"
+$SolutionPath = Join-Path -Path $PSScriptRoot -ChildPath 'Kestrun.sln'
 
 Write-Host '---------------------------------------------------' -ForegroundColor DarkCyan
 if (-not $Version) {
@@ -149,8 +149,8 @@ Add-BuildTask Help {
     Write-Host '- New-LargeFile: Generates a large test file.'
     Write-Host '- Clean-LargeFile: Cleans the generated large test files.'
     Write-Host '- ThirdPartyNotices: Generates third-party notices.'
-    Write-Host '- BuildHelp: Generates PowerShell help documentation.'
-    Write-Host '- CleanHelp: Cleans the PowerShell help documentation.'
+    Write-Host '- Build-Help: Generates PowerShell help documentation.'
+    Write-Host '- Clean-Help: Cleans the PowerShell help documentation.'
     Write-Host '- Install-Module: Installs the Kestrun module.'
     Write-Host '- Remove-Module: Removes the Kestrun module.'
     Write-Host '- Update-Module: Updates the Kestrun module.'
@@ -159,10 +159,11 @@ Add-BuildTask Help {
     Write-Host '- Report-Coverage: Generates code coverage report webpage.'
     Write-Host '- Clean-Coverage: Cleans the code coverage reports.'
     Write-Host '- Normalize-LineEndings: Normalizes line endings to LF in .ps1, .psm1, and .cs files.'
+    Write-Host '- Test-Tutorials: Runs tests on tutorial documentation.'
     Write-Host '-----------------------------------------------------'
 }
 
-Add-BuildTask 'Clean' 'Clean-CodeAnalysis', 'CleanHelp', {
+Add-BuildTask 'Clean' 'Clean-CodeAnalysis', 'Clean-Help', {
     Write-Host '🧹 Cleaning solution...'
     foreach ($framework in $Frameworks) {
         dotnet clean "$SolutionPath" -c $Configuration -f $framework -v:$DotNetVerbosity
@@ -209,13 +210,13 @@ Add-BuildTask 'BuildNoPwsh' {
 Add-BuildTask 'Build' 'BuildNoPwsh', 'SyncPowerShellDll', { Write-Host '🚀 Build completed.' }
 
 Add-BuildTask 'SyncPowerShellDll' {
-    $dest = ".\src\PowerShell\Kestrun\lib"
+    $dest = '.\src\PowerShell\Kestrun\lib'
     $src = ".\src\CSharp\Kestrun\bin\$Configuration"
     Write-Host "📁 Preparing to copy files from $src to $dest"
     if (-not (Test-Path -Path $dest)) {
         New-Item -Path $dest -ItemType Directory -Force | Out-Null
     }
-    if (-not (Test-Path -Path (Join-Path -Path $dest -ChildPath "Microsoft.CodeAnalysis"))) {
+    if (-not (Test-Path -Path (Join-Path -Path $dest -ChildPath 'Microsoft.CodeAnalysis'))) {
         Write-Host '📦 Missing CodeAnalysis (downloading)...'
         & .\Utility\Download-CodeAnalysis.ps1
     }
@@ -301,10 +302,10 @@ Add-BuildTask 'Test-Pester' {
         Invoke-Pester -Configuration $cfg
         # Check exit code
         if ($LASTEXITCODE -ne 0) {
-            Write-Host "❌ Some tests failed"
+            Write-Host '❌ Some tests failed'
             exit $LASTEXITCODE
         } else {
-            Write-Host "✅ All tests passed"
+            Write-Host '✅ All tests passed'
         }
     } else {
         $json = $cfg | ConvertTo-Json -Depth 10
@@ -327,7 +328,12 @@ Invoke-Pester -Configuration $cfg
 
 Add-BuildTask 'Test' 'Test-xUnit', 'Test-Pester'
 
-Add-BuildTask 'Package' "Clean", {
+Add-BuildTask 'Test-Tutorials' {
+    Write-Host '🧪 Running Kestrun Tutorial tests...'
+    & .\Utility\Test-TutorialDocs.ps1
+}
+
+Add-BuildTask 'Package' 'Clean', {
     Write-Host '🚀 Starting release build...'
     $script:Configuration = 'Release'
 }, 'Restore', 'Build', 'Test', {
@@ -335,17 +341,17 @@ Add-BuildTask 'Package' "Clean", {
     #$commit = (git rev-parse --short HEAD).Trim()
     # $InformationalVersion = "$($Version)+$commit"
 
-    $out = Join-Path -Path $PWD -ChildPath "artifacts" -AdditionalChildPath "$script:Configuration"
-    dotnet pack src/CSharp/Kestrun/Kestrun.csproj -c $script:Configuration -o (Join-Path -Path $out -ChildPath "nuget") `
+    $out = Join-Path -Path $PWD -ChildPath 'artifacts' -AdditionalChildPath "$script:Configuration"
+    dotnet pack src/CSharp/Kestrun/Kestrun.csproj -c $script:Configuration -o (Join-Path -Path $out -ChildPath 'nuget') `
         -p:Version=$Version -p:InformationalVersion=$VersionDetails.InformationalVersion `
         -p:IncludeSymbols=true -p:SymbolPackageFormat=snupkg
     if ($LASTEXITCODE -ne 0) {
-        Write-Host "❌ Failed to pack Kestrun" -ForegroundColor Red
-        throw "Failed to pack Kestrun"
+        Write-Host '❌ Failed to pack Kestrun' -ForegroundColor Red
+        throw 'Failed to pack Kestrun'
     }
-    $powershellGallery = New-Item -ItemType Directory -Force -Path (Join-Path -Path $out -ChildPath "PowershellGallery")
+    $powershellGallery = New-Item -ItemType Directory -Force -Path (Join-Path -Path $out -ChildPath 'PowershellGallery')
     $zip = Join-Path -Path $powershellGallery -ChildPath("Kestrun-PSModule-$($Version).zip")
-    Compress-Archive -Path "src/PowerShell/Kestrun/*" -DestinationPath $zip -Force
+    Compress-Archive -Path 'src/PowerShell/Kestrun/*' -DestinationPath $zip -Force
     if ($LASTEXITCODE -ne 0) {
         Write-Host "❌ Failed to create $zip" -ForegroundColor Red
         throw "Failed to create $zip"
@@ -373,7 +379,7 @@ Add-BuildTask 'Build_CSharp_Help' {
 }
 
 # Build Help will call Build_Powershell_Help and Build_CSharp_Help
-Add-BuildTask 'BuildHelp' {
+Add-BuildTask 'Build-Help' {
     Write-Host '📚 Generating all Help...'
 }, 'Build_Powershell_Help', 'Build_CSharp_Help', {
     Write-Host '📦 Creating tutorial examples zip...'
@@ -381,7 +387,7 @@ Add-BuildTask 'BuildHelp' {
 }
 
 # Clean Help will call Clean_Powershell_Help and Clean_CSharp_Help
-Add-BuildTask 'CleanHelp' {
+Add-BuildTask 'Clean-Help' {
     Write-Host '🧼 Cleaning all Help artifacts...'
 }, 'Clean_Powershell_Help', 'Clean_CSharp_Help'
 
@@ -402,8 +408,8 @@ Add-BuildTask 'Coverage' {
     Write-Host '📊 Creating coverage report...'
     & .\Utility\Build-Coverage.ps1
     if ($LASTEXITCODE -ne 0) {
-        Write-Host "❌ Coverage generation failed" -ForegroundColor Red
-        throw "Coverage generation failed"
+        Write-Host '❌ Coverage generation failed' -ForegroundColor Red
+        throw 'Coverage generation failed'
     }
 }
 
@@ -412,8 +418,8 @@ Add-BuildTask 'Report-Coverage' {
     Write-Host '🌐 Creating coverage report webpage...'
     & .\Utility\Build-Coverage.ps1 -ReportGenerator
     if ($LASTEXITCODE -ne 0) {
-        Write-Host "❌ Coverage Report generation failed" -ForegroundColor Red
-        throw "Coverage Report generation failed"
+        Write-Host '❌ Coverage Report generation failed' -ForegroundColor Red
+        throw 'Coverage Report generation failed'
     }
 }
 

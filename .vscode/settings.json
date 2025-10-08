@@ -42,5 +42,25 @@
     },
     "[github-actions-workflow]": {
         "editor.defaultFormatter": "esbenp.prettier-vscode"
+    },
+    "[html]": {
+        "editor.defaultFormatter": "vscode.html-language-features"
+    },
+    "markdownlint.config": {
+        "MD013": { "line_length": 160, "strict": false },
+        "MD041": true,
+        "MD022": true,
+        "MD031": true,
+        "MD040": true,
+        "MD003": false,
+        "MD025": { "front_matter_title": "" },
+        "MD004": { "style": "dash" },
+        "MD007": { "indent": 2 },
+        "MD030": {
+            "ul_single": 1,
+            "ul_multi": 1,
+            "ol_single": 1,
+            "ol_multi": 1
+        }
     }
 }

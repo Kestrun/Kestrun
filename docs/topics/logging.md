@@ -23,7 +23,7 @@ Kestrun’s logging system builds on Serilog to give you:
 |------------------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | `Kestrun.Logging.LoggerManager`          | Static manager to add/register/get/clear named Serilog loggers; can set Serilog’s default logger.                                                                                                                                                |
 | `LoggerConfigurationExtensions.Register` | Extension to create a Serilog logger from a configuration and register it under a name.                                                                                                                                                          |
-| PowerShell cmdlets                       | `New-KrLogger`, `Set-KrLoggerMinimumLevel` (supports `-Dynamic`), `New-KrLevelSwitch`, `Set-KrLevelSwitch`, `Get-KrLevelSwitch`, enrichers, sinks, `Register-KrLogger`, `Write-KrLog`, `Close-KrLogger`, `Get-KrDefaultLogger`, `Set-KrDefaultLogger`. |
+| PowerShell cmdlets                       | `New-KrLogger`, `Set-KrLoggerLevel` (supports `-Dynamic`), `New-KrLevelSwitch`, `Set-KrLevelSwitch`, `Get-KrLevelSwitch`, enrichers, sinks, `Register-KrLogger`, `Write-KrLog`, `Close-KrLogger`, `Get-KrDefaultLogger`, `Set-KrDefaultLogger`. |
 
 ---
 
@@ -66,7 +66,7 @@ go to your logger.
 ```powershell
 # Create and register a named logger
 New-KrLogger |
-  Set-KrLoggerMinimumLevel -Value Information |
+  Set-KrLoggerLevel -Value Information |
   Add-KrEnrichProperty -Name 'Subsystem' -Value 'API' |
   Add-KrSinkConsole |
   Register-KrLogger -Name 'ps-api' -SetAsDefault
@@ -162,7 +162,7 @@ There is no “Update-KrLogger” cmdlet. Use one of these patterns:
   ```powershell
   # Create a logger whose minimum level can be changed at runtime
   New-KrLogger |
-    Set-KrLoggerMinimumLevel -Dynamic Information |
+    Set-KrLoggerLevel -Dynamic Information |
     Add-KrSinkConsole |
     Register-KrLogger -Name 'app'
 
@@ -196,7 +196,7 @@ There is no “Update-KrLogger” cmdlet. Use one of these patterns:
 
     ```powershell
     Register-KrLogger -Name 'app' -SetAsDefault -LoggerConfig (
-      New-KrLogger | Set-KrLoggerMinimumLevel -Value Debug | Add-KrSinkConsole
+      New-KrLogger | Set-KrLoggerLevel -Value Debug | Add-KrSinkConsole
     )
     ```
 
@@ -241,7 +241,7 @@ Close-KrLogger
 
 PowerShell
 
-- Builders: `New-KrLogger`, `Set-KrLoggerMinimumLevel` (supports `-Dynamic`), `New-KrLevelSwitch`, `Set-KrLevelSwitch`, `Get-KrLevelSwitch`
+- Builders: `New-KrLogger`, `Set-KrLoggerLevel` (supports `-Dynamic`), `New-KrLevelSwitch`, `Set-KrLevelSwitch`, `Get-KrLevelSwitch`
 - Enrichers: `Add-KrEnrichProperty`, `Add-KrEnrichProcessId`, `Add-KrEnrichProcessName`,
   `Add-KrEnrichEnvironment`, `Add-KrEnrichFromLogContext`, `Add-KrEnrichExceptionDetail`
 - Sinks: `Add-KrSinkConsole`, `Add-KrSinkPowerShell`, `Add-KrSinkFile`, `Add-KrSinkHttp`,

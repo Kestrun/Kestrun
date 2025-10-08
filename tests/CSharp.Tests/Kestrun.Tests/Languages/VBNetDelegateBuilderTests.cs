@@ -25,6 +25,6 @@ public class VBNetDelegateBuilderTests
         await del(http);
 
         Assert.Equal(200, http.Response.StatusCode);
-        Assert.Equal("text/plain; charset=utf-8", http.Response.ContentType);
+        Assert.Null(http.Response.ContentType);
     }
 }

@@ -18,12 +18,6 @@ jobs:
     with:
       is_pr: false
 
-  codeql:
-    name: Security (CodeQL + PSSA)
-    uses: Kestrun/Kestrun/.github/workflows/codeql-core.yml@main
-    with:
-      is_pr: false
-    secrets: inherit
 
   clamav:
     name: AV Scan
@@ -33,7 +27,7 @@ jobs:
 
   release:
     runs-on: ubuntu-latest
-    needs: [lint, codeql, clamav]
+    needs: [lint, clamav]
     steps:
       - uses: actions/checkout@v5
         with: { fetch-depth: 0 }

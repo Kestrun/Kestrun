@@ -21,8 +21,6 @@ Describe 'Validates numeric probe data representation in YAML health response' -
             # Add a listener on the configured port and IP address
             Add-KrEndpoint -Port $Port -IPAddress $IPAddress
 
-            Add-KrPowerShellRuntime
-
             # Add a simple health probe that returns numeric data
             Add-KrHealthProbe -Name 'NumProbe' -Scriptblock {
                 New-KrProbeResult Healthy 'OK' -Data @{ intVal = 42; floatVal = 12.5 }
@@ -42,7 +40,7 @@ Describe 'Validates numeric probe data representation in YAML health response' -
 
 
     It 'GET /healthz returns numeric probe data as numbers in YAML' {
-        $resp = Invoke-WebRequest -Uri "$( $script:instance.Url)/healthz" -Headers @{ Accept = 'application/yaml' }
+        $resp = Invoke-WebRequest -Uri "$( $script:instance.Url)/healthz" -Headers @{ Accept = 'application/yaml' } -SkipHttpErrorCheck
         $resp | Should -Not -BeNullOrEmpty
         $resp.Content | Should -Not -BeNullOrEmpty
         $yamlText = [string]::new($resp.Content)

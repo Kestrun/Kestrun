@@ -11,13 +11,13 @@ param(
 )
 
 $appLogger = New-KrLogger |
-    Set-KrLoggerMinimumLevel -Value Information |
+    Set-KrLoggerLevel -Value Information |
     Add-KrSinkConsole |
     Add-KrSinkFile -Path '.\logs\app.log' -RollingInterval Hour |
     Register-KrLogger -Name 'app' -PassThru
 
 $auditLogger = New-KrLogger |
-    Set-KrLoggerMinimumLevel -Value Debug |
+    Set-KrLoggerLevel -Value Debug |
     Add-KrSinkFile -Path '.\logs\audit.log' -RollingInterval Hour |
     Register-KrLogger -Name 'audit' -PassThru
 
@@ -26,7 +26,7 @@ New-KrServer -Name 'Multiple Loggers Server'
 Add-KrEndpoint -Port $Port -IPAddress $IPAddress
 
 # PowerShell runtime is required for script block routes
-Add-KrPowerShellRuntime
+
 
 Write-KrLog -LoggerName 'app' -Level Information -Message 'Server created'
 Write-KrLog -LoggerName 'audit' -Level Debug -Message 'Audit logger active'

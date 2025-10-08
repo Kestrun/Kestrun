@@ -18,8 +18,6 @@ Describe 'Health Checks numeric data' -Tag 'Health' {
             # Add a listener on the configured port and IP address
             Add-KrEndpoint -Port $Port -IPAddress $IPAddress
 
-            Add-KrPowerShellRuntime
-
             # Add a simple health probe that returns numeric data
             Add-KrHealthProbe -Name 'NumProbe' -ScriptBlock {
                 $data = @{ connectionTimeMs = 42; latencyMs = 12.5 }

@@ -40,12 +40,12 @@ public class PowerShellDelegateBuilderTests
         http.Items[PowerShellDelegateBuilder.PS_INSTANCE_KEY] = ps;
 
         // trivial script
-        var code = "$x = 1; $x | Out-Null";
+        var code = "$x = 1; $x | Out-Null;";
         var del = PowerShellDelegateBuilder.Build(code, log, arguments: null);
 
         await del(http);
 
         Assert.Equal(200, http.Response.StatusCode);
-        Assert.Equal("text/plain; charset=utf-8", http.Response.ContentType);
+        Assert.Null(http.Response.ContentType);
     }
 }

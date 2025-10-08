@@ -11,7 +11,7 @@ param(
 )
 
 # (Optional) Configure console logging so we can see events
-New-KrLogger |
+New-KrLogger |    Set-KrLoggerLevel -Value Debug |
     Add-KrSinkConsole |
     Register-KrLogger -Name 'console' -SetAsDefault | Out-Null
 
@@ -20,10 +20,6 @@ New-KrServer -Name 'Endpoints Basic'
 
 # Add a listener on the configured port and IP address
 Add-KrEndpoint -Port $Port -IPAddress $IPAddress
-
-# Add the PowerShell runtime
-# !!!!Important!!!! this step is required to process PowerShell routes and middlewares
-Add-KrPowerShellRuntime
 
 # Enable Kestrun configuration
 Enable-KrConfiguration

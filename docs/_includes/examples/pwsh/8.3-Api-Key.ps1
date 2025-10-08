@@ -17,8 +17,6 @@ New-KrServer -Name 'Auth API Key'
 # 3. Listener
 Add-KrEndpoint -Port $Port -IPAddress $IPAddress
 
-# 4. Runtime
-Add-KrPowerShellRuntime
 
 # 5. Fixed key scheme
 Add-KrApiKeyAuthentication -Name 'ApiKeySimple' -AllowInsecureHttp -HeaderName 'X-Api-Key' -ExpectedKey 'my-secret-api-key'

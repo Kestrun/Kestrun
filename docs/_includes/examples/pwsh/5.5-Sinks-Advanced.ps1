@@ -14,7 +14,7 @@ param(
 )
 
 $base = New-KrLogger |
-    Set-KrLoggerMinimumLevel -Value Information |
+    Set-KrLoggerLevel -Value Information |
     Add-KrSinkConsole |
     Add-KrSinkFile -Path './logs/advanced-sinks.log' -RollingInterval Hour
 
@@ -34,7 +34,7 @@ $logger = $base | Register-KrLogger -Name 'advanced' -PassThru
 
 New-KrServer -Name "Advanced Sinks"
 Add-KrEndpoint -Port $Port -IPAddress $IPAddress
-Add-KrPowerShellRuntime
+
 
 Enable-KrConfiguration
 

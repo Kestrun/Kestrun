@@ -25,7 +25,7 @@ Add-KrEndpoint -Port $Port -IPAddress $IPAddress
 Add-KrEndpoint -Port $Port2 -IPAddress $IPAddress
 
 # Add the PowerShell runtime
-Add-KrPowerShellRuntime
+
 
 # Enable Kestrun configuration
 Enable-KrConfiguration

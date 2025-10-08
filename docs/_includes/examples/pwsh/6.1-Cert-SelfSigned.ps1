@@ -12,7 +12,7 @@ Initialize-KrRoot -Path $PSScriptRoot
 
 # Configure default logging
 New-KrLogger |
-    Set-KrLoggerMinimumLevel -Value Debug |
+    Set-KrLoggerLevel -Value Debug |
     Add-KrSinkConsole |
     Register-KrLogger -Name 'myLogger' -SetAsDefault
 
@@ -27,7 +27,7 @@ New-KrServer -Name "HTTPS Demo"
 Add-KrEndpoint -Port $Port -IPAddress $IPAddress -X509Certificate $cert -Protocols Http1
 
 # Minimal route to verify HTTPS works
-Add-KrPowerShellRuntime
+
 Enable-KrConfiguration
 Add-KrMapRoute -Verbs Get -Pattern "/hello" -ScriptBlock { Write-KrTextResponse "hello https" }
 

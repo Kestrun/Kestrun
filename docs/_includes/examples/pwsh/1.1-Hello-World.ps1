@@ -10,21 +10,17 @@ param(
 )
 
 # Create a new Kestrun server
-New-KrServer -Name "Simple Server"
+New-KrServer -Name 'Simple Server'
 
 # Add a listener on port 5000 and IP address 127.0.0.1 (localhost)
 Add-KrEndpoint -Port $Port -IPAddress $IPAddress
-
-# Add the PowerShell runtime
-# !!!!Important!!!! this step is required to process PowerShell routes and middlewares
-Add-KrPowerShellRuntime
 
 # Enable Kestrun configuration
 Enable-KrConfiguration
 
 # Map the route
-Add-KrMapRoute -Verbs Get -Pattern "/hello" -ScriptBlock {
-    Write-KrTextResponse -InputObject "Hello, World!" -StatusCode 200
+Add-KrMapRoute -Verbs Get -Pattern '/hello' -ScriptBlock {
+    Write-KrTextResponse -InputObject 'Hello, World!' -StatusCode 200
     # Or the shorter version
     # Write-KrTextResponse "Hello, World!"
 }

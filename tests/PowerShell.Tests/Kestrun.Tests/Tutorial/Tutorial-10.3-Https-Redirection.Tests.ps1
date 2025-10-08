@@ -1,4 +1,4 @@
-﻿param()
+param()
 Describe 'Example 10.3-Https-Redirection' -Tag 'Tutorial', 'Middleware', 'Https' {
     BeforeAll { . (Join-Path $PSScriptRoot '..\PesterHelpers.ps1'); $script:instance = Start-ExampleScript -Name '10.3-Https-Redirection.ps1' }
     AfterAll { if ($script:instance) { Stop-ExampleScript -Instance $script:instance } }

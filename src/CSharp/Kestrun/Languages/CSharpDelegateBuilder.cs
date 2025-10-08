@@ -91,7 +91,8 @@ internal static class CSharpDelegateBuilder
             }
             finally
             {
-                await ctx.Response.CompleteAsync().ConfigureAwait(false);
+                // Intentionally do not call Response.CompleteAsync here to keep the pipeline open
+                // for middleware like StatusCodePages to generate bodies for status-only responses.
             }
         };
     }

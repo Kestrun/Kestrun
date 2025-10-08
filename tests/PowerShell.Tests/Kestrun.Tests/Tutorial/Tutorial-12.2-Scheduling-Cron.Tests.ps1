@@ -1,4 +1,4 @@
-﻿param()
+param()
 Describe 'Tutorial 12.2 Scheduling Cron' -Tag 'Tutorial' {
     BeforeAll {
         . (Join-Path $PSScriptRoot '..\PesterHelpers.ps1')

@@ -11,36 +11,34 @@ param(
 )
 
 # Create a new Kestrun server
-New-KrServer -Name "Simple Server"
+New-KrServer -Name 'Simple Server'
 
 # Add a listener on the configured port and IP address
 Add-KrEndpoint -Port $Port -IPAddress $IPAddress
 
-# Add the PowerShell runtime
-# !!!!Important!!!! this step is required to process PowerShell routes and middlewares
-Add-KrPowerShellRuntime
+
 
 # Enable Kestrun configuration
 Enable-KrConfiguration
 
 # Map the route
-Add-KrMapRoute -Verbs Get -Path "/hello" -ScriptBlock {
-    Write-KrTextResponse -InputObject "Hello, World!" -StatusCode 200
+Add-KrMapRoute -Verbs Get -Path '/hello' -ScriptBlock {
+    Write-KrTextResponse -InputObject 'Hello, World!' -StatusCode 200
 }
 
 # Map the route for JSON response
-Add-KrMapRoute -Verbs Get -Path "/hello-json" -ScriptBlock {
-    Write-KrJsonResponse -InputObject @{ message = "Hello, World!" } -StatusCode 200
+Add-KrMapRoute -Verbs Get -Path '/hello-json' -ScriptBlock {
+    Write-KrJsonResponse -InputObject @{ message = 'Hello, World!' } -StatusCode 200
 }
 
 # Map the route for XML response
-Add-KrMapRoute -Verbs Get -Path "/hello-xml" -ScriptBlock {
-    Write-KrXmlResponse -InputObject @{ message = "Hello, World!" } -StatusCode 200
+Add-KrMapRoute -Verbs Get -Path '/hello-xml' -ScriptBlock {
+    Write-KrXmlResponse -InputObject @{ message = 'Hello, World!' } -StatusCode 200
 }
 
 # Map the route for YAML response
-Add-KrMapRoute -Verbs Get -Path "/hello-yaml" -ScriptBlock {
-    Write-KrYamlResponse -InputObject @{ message = "Hello, World!" } -StatusCode 200
+Add-KrMapRoute -Verbs Get -Path '/hello-yaml' -ScriptBlock {
+    Write-KrYamlResponse -InputObject @{ message = 'Hello, World!' } -StatusCode 200
 }
 
 

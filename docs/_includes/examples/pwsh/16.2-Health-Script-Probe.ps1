@@ -16,9 +16,7 @@ New-KrServer -Name 'Health Script Probe'
 ## 3. Listener (port 5000)
 Add-KrEndpoint -Port $Port -IPAddress $IPAddress
 
-## 4. Runtime
-Add-KrPowerShellRuntime
-
+#
 ## 5. Enable configuration
 Enable-KrConfiguration
 

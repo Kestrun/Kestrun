@@ -9,6 +9,7 @@ using Kestrun.Utilities;
 using System.Security.Claims;
 using Kestrun.Logging;
 using Kestrun.SharedState;
+using Kestrun.Hosting;
 
 namespace Kestrun.Languages;
 
@@ -27,8 +28,8 @@ internal static class VBNetDelegateBuilder
     /// <remarks>
     /// This method uses the Roslyn compiler to compile the provided VB.NET code into a delegate.
     /// </remarks>
+    /// <param name="host">The Kestrun host instance.</param>
     /// <param name="code">The VB.NET code to compile.</param>
-    /// <param name="log">The logger to use for logging compilation errors and warnings.</param>
     /// <param name="args">The arguments to pass to the script.</param>
     /// <param name="extraImports">Optional additional namespaces to import in the script.</param>
     /// <param name="extraRefs">Optional additional assemblies to reference in the script.</param>
@@ -38,10 +39,11 @@ internal static class VBNetDelegateBuilder
     /// <remarks>
     /// This method uses the Roslyn compiler to compile the provided VB.NET code into a delegate.
     /// </remarks>
-    internal static RequestDelegate Build(
-        string code, Serilog.ILogger log, Dictionary<string, object?>? args, string[]? extraImports,
+    internal static RequestDelegate Build(KestrunHost host,
+        string code, Dictionary<string, object?>? args, string[]? extraImports,
         Assembly[]? extraRefs, LanguageVersion languageVersion = LanguageVersion.VisualBasic16_9)
     {
+        var log = host.Logger;
         if (log.IsEnabled(LogEventLevel.Debug))
         {
             log.Debug("Building VB.NET delegate, script length={Length}, imports={ImportsCount}, refs={RefsCount}, lang={Lang}",
@@ -78,7 +80,7 @@ internal static class VBNetDelegateBuilder
                     log.Debug("Preparing execution for C# script at {Path}", ctx.Request.Path);
                 }
 
-                var (Globals, Response, Context) = await DelegateBuilder.PrepareExecutionAsync(ctx, log, args).ConfigureAwait(false);
+                var (Globals, Response, Context) = await DelegateBuilder.PrepareExecutionAsync(host, ctx, args).ConfigureAwait(false);
 
 
 

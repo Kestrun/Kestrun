@@ -22,9 +22,9 @@ public static class KestrunHostRazorExtensions
     /// <returns>The current KestrunHost instance.</returns>
     public static KestrunHost AddPowerShellRazorPages(this KestrunHost host, PathString? routePrefix, RazorPagesOptions? cfg)
     {
-        if (host.HostLogger.IsEnabled(LogEventLevel.Debug))
+        if (host.Logger.IsEnabled(LogEventLevel.Debug))
         {
-            host.HostLogger.Debug("Adding PowerShell Razor Pages with route prefix: {RoutePrefix}, config: {@Config}", routePrefix, cfg);
+            host.Logger.Debug("Adding PowerShell Razor Pages with route prefix: {RoutePrefix}, config: {@Config}", routePrefix, cfg);
         }
 
         return AddPowerShellRazorPages(host, routePrefix, dest =>
@@ -77,17 +77,17 @@ public static class KestrunHostRazorExtensions
     /// <returns>The current KestrunHost instance.</returns>
     public static KestrunHost AddPowerShellRazorPages(this KestrunHost host, PathString? routePrefix, Action<RazorPagesOptions>? cfg = null)
     {
-        if (host.HostLogger.IsEnabled(LogEventLevel.Debug))
+        if (host.Logger.IsEnabled(LogEventLevel.Debug))
         {
-            host.HostLogger.Debug("Adding PowerShell Razor Pages with route prefix: {RoutePrefix}, config: {@Config}", routePrefix, cfg);
+            host.Logger.Debug("Adding PowerShell Razor Pages with route prefix: {RoutePrefix}, config: {@Config}", routePrefix, cfg);
         }
 
         _ = host.AddService(services =>
         {
             var env = host.Builder.Environment;
-            if (host.HostLogger.IsEnabled(LogEventLevel.Debug))
+            if (host.Logger.IsEnabled(LogEventLevel.Debug))
             {
-                host.HostLogger.Debug("Adding PowerShell Razor Pages to the service with route prefix: {RoutePrefix}", routePrefix);
+                host.Logger.Debug("Adding PowerShell Razor Pages to the service with route prefix: {RoutePrefix}", routePrefix);
             }
 
             _ = services.AddRazorPages().AddRazorRuntimeCompilation();
@@ -125,9 +125,9 @@ public static class KestrunHostRazorExtensions
         return host.Use(app =>
         {
             ArgumentNullException.ThrowIfNull(host.RunspacePool);
-            if (host.HostLogger.IsEnabled(LogEventLevel.Debug))
+            if (host.Logger.IsEnabled(LogEventLevel.Debug))
             {
-                host.HostLogger.Debug("Adding PowerShell Razor Pages middleware with route prefix: {RoutePrefix}", routePrefix);
+                host.Logger.Debug("Adding PowerShell Razor Pages middleware with route prefix: {RoutePrefix}", routePrefix);
             }
 
             if (routePrefix.HasValue)
@@ -148,9 +148,9 @@ public static class KestrunHostRazorExtensions
                 _ = app.UseEndpoints(e => e.MapRazorPages());            // map pages
             }
 
-            if (host.HostLogger.IsEnabled(LogEventLevel.Debug))
+            if (host.Logger.IsEnabled(LogEventLevel.Debug))
             {
-                host.HostLogger.Debug("PowerShell Razor Pages middleware added with route prefix: {RoutePrefix}", routePrefix);
+                host.Logger.Debug("PowerShell Razor Pages middleware added with route prefix: {RoutePrefix}", routePrefix);
             }
         });
     }
@@ -164,9 +164,9 @@ public static class KestrunHostRazorExtensions
     /// <returns>The current KestrunHost instance.</returns>
     public static KestrunHost AddRazorPages(this KestrunHost host, RazorPagesOptions? cfg)
     {
-        if (host.HostLogger.IsEnabled(LogEventLevel.Debug))
+        if (host.Logger.IsEnabled(LogEventLevel.Debug))
         {
-            host.HostLogger.Debug("Adding Razor Pages from source: {Source}", cfg);
+            host.Logger.Debug("Adding Razor Pages from source: {Source}", cfg);
         }
 
         if (cfg == null)
@@ -197,9 +197,9 @@ public static class KestrunHostRazorExtensions
     /// <returns>The current KestrunHost instance.</returns>
     public static KestrunHost AddRazorPages(this KestrunHost host, Action<RazorPagesOptions>? cfg = null)
     {
-        if (host.HostLogger.IsEnabled(LogEventLevel.Debug))
+        if (host.Logger.IsEnabled(LogEventLevel.Debug))
         {
-            host.HostLogger.Debug("Adding Razor Pages with configuration: {Config}", cfg);
+            host.Logger.Debug("Adding Razor Pages with configuration: {Config}", cfg);
         }
 
         return host.AddService(services =>

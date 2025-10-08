@@ -7,6 +7,8 @@ using Moq;
 using Serilog;
 using Xunit;
 using Kestrun.Scripting;
+using Kestrun.Hosting;
+using System.Text.Encodings.Web;
 
 namespace KestrunTests.Authentication;
 
@@ -40,9 +42,9 @@ public class ApiKeyAuthHandlerTest
         _ = optionsMonitorMock.Setup(m => m.Get(It.IsAny<string>())).Returns(options);
         var optionsMonitor = optionsMonitorMock.Object;
         var loggerFactory = new Microsoft.Extensions.Logging.LoggerFactory();
-        var encoder = System.Text.Encodings.Web.UrlEncoder.Default;
-
-        var handler = new ApiKeyAuthHandler(optionsMonitor, loggerFactory, encoder);
+        var encoder = UrlEncoder.Default;
+        var host = new KestrunHost("Tests", Log.Logger);
+        var handler = new ApiKeyAuthHandler(host, optionsMonitor, loggerFactory, encoder);
         handler.InitializeAsync(
             new AuthenticationScheme("ApiKey", null, typeof(ApiKeyAuthHandler)),
             context
@@ -161,8 +163,9 @@ public class ApiKeyAuthHandlerTest
     public void BuildPsValidator_ReturnsDelegate()
     {
         var logger = new LoggerConfiguration().MinimumLevel.Debug().WriteTo.Console().CreateLogger();
+        var host = new Kestrun.Hosting.KestrunHost("Tests", logger);
         var settings = new AuthenticationCodeSettings { Code = "param($providedKey) return $providedKey -eq 'abc'", Language = ScriptLanguage.PowerShell };
-        var validator = ApiKeyAuthHandler.BuildPsValidator(settings, logger);
+        var validator = ApiKeyAuthHandler.BuildPsValidator(host, settings);
 
         Assert.NotNull(validator);
     }
@@ -186,8 +189,9 @@ public class ApiKeyAuthHandlerTest
     public void BuildVBNetValidator_ReturnsDelegate()
     {
         var logger = new LoggerConfiguration().CreateLogger();
+        var host = new Kestrun.Hosting.KestrunHost("Tests", logger);
         var settings = new AuthenticationCodeSettings { Code = "providedKey = \"abc\"", Language = ScriptLanguage.VBNet };
-        var validator = ApiKeyAuthHandler.BuildVBNetValidator(settings, logger);
+        var validator = ApiKeyAuthHandler.BuildVBNetValidator(host, settings);
 
         Assert.NotNull(validator);
     }

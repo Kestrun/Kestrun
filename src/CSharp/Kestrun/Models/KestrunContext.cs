@@ -8,10 +8,11 @@ namespace Kestrun.Models;
 /// <summary>
 /// Represents the context for a Kestrun request, including the request, response, HTTP context, and host.
 /// </summary>
+/// <param name="Host">The Kestrun host.</param>
 /// <param name="Request">The Kestrun request.</param>
 /// <param name="Response">The Kestrun response.</param>
 /// <param name="HttpContext">The associated HTTP context.</param>
-public sealed record KestrunContext(KestrunRequest Request, KestrunResponse Response, HttpContext HttpContext)
+public sealed record KestrunContext(Hosting.KestrunHost Host, KestrunRequest Request, KestrunResponse Response, HttpContext HttpContext)
 {
     /// <summary>
     /// Returns the ASP.NET Core session if the Session middleware is active; otherwise null.
@@ -50,5 +51,5 @@ public sealed record KestrunContext(KestrunRequest Request, KestrunResponse Resp
     /// Returns a string representation of the KestrunContext, including path, user, and session status.
     /// </summary>
     public override string ToString()
-        => $"KestrunContext{{ Path={HttpContext.Request.Path}, User={User?.Identity?.Name ?? "<anon>"}, HasSession={HasSession} }}";
+        => $"KestrunContext{{ Host={Host}, Path={HttpContext.Request.Path}, User={User?.Identity?.Name ?? "<anon>"}, HasSession={HasSession} }}";
 }

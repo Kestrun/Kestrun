@@ -35,9 +35,9 @@ public static class KestrunHostScriptValidationExtensions
         Assembly[]? extraRefs = null,
         LanguageVersion languageVersion = LanguageVersion.CSharp12)
     {
-        if (host.HostLogger.IsEnabled(LogEventLevel.Debug))
+        if (host.Logger.IsEnabled(LogEventLevel.Debug))
         {
-            host.HostLogger.Debug("ValidateCSharpScript() called: {@CodeLength}, imports={ImportsCount}, refs={RefsCount}, lang={Lang}",
+            host.Logger.Debug("ValidateCSharpScript() called: {@CodeLength}, imports={ImportsCount}, refs={RefsCount}, lang={Lang}",
                 code?.Length, extraImports?.Length ?? 0, extraRefs?.Length ?? 0, languageVersion);
         }
 
@@ -116,9 +116,9 @@ public static class KestrunHostScriptValidationExtensions
         Assembly[]? extraRefs = null,
         LanguageVersion languageVersion = LanguageVersion.CSharp12)
     {
-        if (host.HostLogger.IsEnabled(LogEventLevel.Debug))
+        if (host.Logger.IsEnabled(LogEventLevel.Debug))
         {
-            host.HostLogger.Debug("GetCSharpScriptErrors() called: {@CodeLength}, imports={ImportsCount}, refs={RefsCount}, lang={Lang}",
+            host.Logger.Debug("GetCSharpScriptErrors() called: {@CodeLength}, imports={ImportsCount}, refs={RefsCount}, lang={Lang}",
                 code?.Length, extraImports?.Length ?? 0, extraRefs?.Length ?? 0, languageVersion);
         }
 

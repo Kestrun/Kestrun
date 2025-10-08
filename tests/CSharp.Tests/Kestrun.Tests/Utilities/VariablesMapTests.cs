@@ -26,7 +26,8 @@ public class VariablesMapTests
             body: string.Empty
         );
         var resp = new KestrunResponse(req);
-        var ctx = new KestrunContext(req, resp, http);
+        var host = new Kestrun.Hosting.KestrunHost("Tests", Serilog.Log.Logger);
+        var ctx = new KestrunContext(host, req, resp, http);
         return (ctx, http);
     }
 

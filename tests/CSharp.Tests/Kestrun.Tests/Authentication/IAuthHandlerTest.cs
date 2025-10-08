@@ -95,9 +95,10 @@ public class IAuthHandlerTest
             ExtraImports = ["System", "System.Linq", "System.Collections.Generic", "System.Security.Claims", "Kestrun", "Microsoft.AspNetCore.Http"]
         };
         var logger = new LoggerConfiguration().MinimumLevel.Debug().WriteTo.Console().CreateLogger();
+        var host = new Kestrun.Hosting.KestrunHost("Tests", logger);
 
         // Act
-        var func = IAuthHandler.BuildCsIssueClaims(settings, logger);
+        var func = IAuthHandler.BuildCsIssueClaims(host, settings);
 
         // Assert
         Assert.NotNull(func);
@@ -113,9 +114,10 @@ public class IAuthHandlerTest
             VisualBasicVersion = Microsoft.CodeAnalysis.VisualBasic.LanguageVersion.Latest
         };
         var loggerMock = new Mock<ILogger>();
+        var host = new Kestrun.Hosting.KestrunHost("Tests", loggerMock.Object);
 
         // Act
-        var func = IAuthHandler.BuildVBNetIssueClaims(settings, loggerMock.Object);
+        var func = IAuthHandler.BuildVBNetIssueClaims(host, settings);
 
         // Assert
         Assert.NotNull(func);

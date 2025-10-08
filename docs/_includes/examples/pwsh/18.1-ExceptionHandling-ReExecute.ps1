@@ -4,7 +4,7 @@
 # FileName: 18.1-ExceptionHandling-ReExecute.ps1
 #
 param(
-    [int]$Port = 5051,
+    [int]$Port = 5000,
     [IPAddress]$IPAddress = [IPAddress]::Loopback
 )
 

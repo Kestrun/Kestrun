@@ -9,6 +9,7 @@ using Serilog.Core;
 using Serilog.Events;
 using System.Collections.Concurrent;
 using Xunit;
+using Kestrun.Hosting;
 
 namespace KestrunTests.Authentication;
 
@@ -32,7 +33,9 @@ public class ApiKeyAuthHandlerWhitespaceTests
     {
         IOptionsMonitor<ApiKeyAuthenticationOptions> monitor = new StaticOptionsMonitor<ApiKeyAuthenticationOptions>(opts);
         var loggerFactory = LoggerFactory.Create(_ => { });
-        var handler = new TestApiKeyHandler(monitor, loggerFactory, UrlEncoder.Default);
+        var hostLogger = opts.Logger ?? new LoggerConfiguration().CreateLogger();
+        var host = new KestrunHost("Tests", hostLogger);
+        var handler = new TestApiKeyHandler(host, monitor, loggerFactory, UrlEncoder.Default);
         var scheme = new AuthenticationScheme("ApiKey", null, typeof(ApiKeyAuthHandler));
         await handler.InitializeAsync(scheme, ctx);
         return handler;
@@ -142,7 +145,7 @@ public class ApiKeyAuthHandlerWhitespaceTests
         Assert.Equal("Invalid API Key: not-the-key", reasonText);
     }
 
-    private sealed class TestApiKeyHandler(IOptionsMonitor<ApiKeyAuthenticationOptions> options, ILoggerFactory logger, UrlEncoder encoder) : ApiKeyAuthHandler(options, logger, encoder)
+    private sealed class TestApiKeyHandler(KestrunHost host, IOptionsMonitor<ApiKeyAuthenticationOptions> options, ILoggerFactory logger, UrlEncoder encoder) : ApiKeyAuthHandler(host, options, logger, encoder)
     {
         public Task<AuthenticateResult> PublicHandleAuthenticateAsync() => HandleAuthenticateAsync();
     }

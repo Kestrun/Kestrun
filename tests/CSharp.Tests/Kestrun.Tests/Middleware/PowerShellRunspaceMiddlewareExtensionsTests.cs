@@ -1,5 +1,6 @@
 using Kestrun.Middleware;
 using Kestrun.Scripting;
+using Kestrun.Hosting;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.DependencyInjection;
 using Xunit;
@@ -14,7 +15,8 @@ public class PowerShellRunspaceMiddlewareExtensionsTests
     {
         var services = new ServiceCollection().BuildServiceProvider();
         var app = new ApplicationBuilder(services);
-        var pool = new KestrunRunspacePoolManager(minRunspaces: 1, maxRunspaces: 1);
+        using var host = new KestrunHost("Tests", Serilog.Log.Logger);
+        var pool = new KestrunRunspacePoolManager(host, minRunspaces: 1, maxRunspaces: 1);
 
         var result = app.UsePowerShellRunspace(pool);
 
@@ -28,7 +30,8 @@ public class PowerShellRunspaceMiddlewareExtensionsTests
     {
         var services = new ServiceCollection().BuildServiceProvider();
         var app = new ApplicationBuilder(services);
-        var pool = new KestrunRunspacePoolManager(minRunspaces: 1, maxRunspaces: 2);
+        using var host = new KestrunHost("Tests", Serilog.Log.Logger);
+        var pool = new KestrunRunspacePoolManager(host, minRunspaces: 1, maxRunspaces: 2);
 
         var result = app.UsePowerShellRunspace(pool);
 

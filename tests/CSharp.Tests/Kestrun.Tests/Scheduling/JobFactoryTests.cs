@@ -1,5 +1,6 @@
 using Kestrun.Scheduling;
 using Kestrun.Scripting;
+using Kestrun.Hosting;
 using Serilog;
 using Serilog.Core;
 using Xunit;
@@ -29,7 +30,8 @@ public class JobFactoryTests
     [Trait("Category", "Scheduling")]
     public async Task PowerShell_Job_Executes_Successfully()
     {
-        using var pool = new KestrunRunspacePoolManager(1, 1);
+        using var host = new KestrunHost("Tests", Log.Logger);
+        using var pool = new KestrunRunspacePoolManager(host, 1, 1);
         var cfg = new JobFactory.JobConfig(
             ScriptLanguage.PowerShell,
             Code: "$x = 1; $x",
@@ -45,7 +47,8 @@ public class JobFactoryTests
     [Trait("Category", "Scheduling")]
     public async Task PowerShell_Job_Honors_Cancellation()
     {
-        using var pool = new KestrunRunspacePoolManager(1, 1);
+        using var host = new KestrunHost("Tests", Log.Logger);
+        using var pool = new KestrunRunspacePoolManager(host, 1, 1);
         var cfg = new JobFactory.JobConfig(
             ScriptLanguage.PowerShell,
             Code: "Start-Sleep -Seconds 5",
@@ -62,7 +65,8 @@ public class JobFactoryTests
     [Trait("Category", "Scheduling")]
     public async Task CreateAsync_Reads_Code_From_File()
     {
-        using var pool = new KestrunRunspacePoolManager(1, 1);
+        using var host = new KestrunHost("Tests", Log.Logger);
+        using var pool = new KestrunRunspacePoolManager(host, 1, 1);
         var cfg = new JobFactory.JobConfig(
             ScriptLanguage.PowerShell,
             Code: string.Empty,

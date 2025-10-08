@@ -24,7 +24,8 @@ public class DelegateBuilderTests
         var (http, log) = MakeCtx();
         var args = new Dictionary<string, object?> { ["foo"] = "bar" };
 
-        var (globals, response, context) = await DelegateBuilder.PrepareExecutionAsync(http, log, args);
+        var host = new Kestrun.Hosting.KestrunHost("Tests", log);
+        var (globals, response, context) = await DelegateBuilder.PrepareExecutionAsync(host, http, args);
 
         Assert.NotNull(globals);
         Assert.NotNull(response);

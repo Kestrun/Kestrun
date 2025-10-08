@@ -1,5 +1,6 @@
 using Kestrun.Languages;
 using Kestrun.SharedState;
+using Kestrun.Hosting;
 using Microsoft.AspNetCore.Http;
 using Serilog;
 using Xunit;
@@ -51,7 +52,8 @@ public class CSharpDelegateBuilderPreambleTests
         // Arrange
         _ = SharedStateStore.Set("answer", 42, true);
         var code = "await Context.Response.WriteTextResponseAsync(answer.ToString());";
-        var del = CSharpDelegateBuilder.Build(code, Log.Logger, null, null, null);
+        var host = new KestrunHost("Tests", Log.Logger);
+        var del = CSharpDelegateBuilder.Build(host, code, null, null, null);
         var ctx = new DefaultHttpContext();
         using var ms = new MemoryStream();
         ctx.Response.Body = ms;

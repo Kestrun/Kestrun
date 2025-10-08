@@ -1,9 +1,9 @@
 using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Encodings.Web;
+using Kestrun.Hosting;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.Extensions.Options;
-using Serilog;
 
 namespace Kestrun.Authentication;
 
@@ -13,8 +13,14 @@ namespace Kestrun.Authentication;
 public class BasicAuthHandler : AuthenticationHandler<BasicAuthenticationOptions>, IAuthHandler
 {
     /// <summary>
+    /// The Kestrun host instance.
+    /// </summary>
+    public KestrunHost Host { get; private set; }
+
+    /// <summary>
     /// Initializes a new instance of the <see cref="BasicAuthHandler"/> class.
     /// </summary>
+    /// <param name="host">The Kestrun host instance.</param>
     /// <param name="options">The options for Basic Authentication.</param>
     /// <param name="loggerFactory">The logger factory.</param>
     /// <param name="encoder">The URL encoder.</param>
@@ -22,14 +28,17 @@ public class BasicAuthHandler : AuthenticationHandler<BasicAuthenticationOptions
     /// This constructor is used to set up the Basic Authentication handler with the provided options, logger factory, and URL encoder.
     /// </remarks>
     public BasicAuthHandler(
+        KestrunHost host,
         IOptionsMonitor<BasicAuthenticationOptions> options,
         ILoggerFactory loggerFactory,
         UrlEncoder encoder)
         : base(options, loggerFactory, encoder)
     {
-        if (options.CurrentValue.Logger.IsEnabled(Serilog.Events.LogEventLevel.Debug))
+        ArgumentNullException.ThrowIfNull(host);
+        Host = host;
+        if (Host.Logger.IsEnabled(Serilog.Events.LogEventLevel.Debug))
         {
-            options.CurrentValue.Logger.Debug("BasicAuthHandler initialized");
+            Host.Logger.Debug("BasicAuthHandler initialized");
         }
     }
 
@@ -72,7 +81,7 @@ public class BasicAuthHandler : AuthenticationHandler<BasicAuthenticationOptions
                 return schemeFail;
             }
 
-            Log.Information("Processing Basic Authentication for header: {Context}", Context);
+            Host.Logger.Information("Processing Basic Authentication for header: {Context}", Context);
 
             // Extract user/pass
             if (!TryGetUserPass(authHeader, out var user, out var pass, out var err))
@@ -86,16 +95,16 @@ public class BasicAuthHandler : AuthenticationHandler<BasicAuthenticationOptions
                 return Fail("Invalid credentials");
             }
 
-            Options.Logger.Information("Basic auth succeeded for user: {User}", user);
+            Host.Logger.Information("Basic auth succeeded for user: {User}", user);
 
             var ticket = await IAuthHandler.GetAuthenticationTicketAsync(Context, user, Options, Scheme);
-            Options.Logger.Information("Basic auth ticket created for user: {User}", user);
+            Host.Logger.Information("Basic auth ticket created for user: {User}", user);
             return AuthenticateResult.Success(ticket);
         }
         catch (Exception ex)
         {
             // Log the exception and return a failure result
-            Options.Logger.Error(ex, "Error processing Authentication");
+            Host.Logger.Error(ex, "Error processing Authentication");
             return Fail("Exception during authentication");
         }
     }
@@ -208,7 +217,7 @@ public class BasicAuthHandler : AuthenticationHandler<BasicAuthenticationOptions
         }
         catch (FormatException)
         {
-            Options.Logger.Warning("Invalid Base64 in Authorization header");
+            Host.Logger.Warning("Invalid Base64 in Authorization header");
             return (false, null, "Malformed credentials");
         }
     }
@@ -233,7 +242,7 @@ public class BasicAuthHandler : AuthenticationHandler<BasicAuthenticationOptions
 
     private AuthenticateResult Fail(string reason)
     {
-        Options.Logger.Warning("Basic auth failed: {Reason}", reason);
+        Host.Logger.Warning("Basic auth failed: {Reason}", reason);
         return AuthenticateResult.Fail(reason);
     }
 
@@ -243,14 +252,14 @@ public class BasicAuthHandler : AuthenticationHandler<BasicAuthenticationOptions
     /// <param name="properties">The authentication properties.</param>
     /// <remarks>
     /// This method is called to challenge the client for credentials if authentication fails.
-    /// If the request is not secure, it does not challenge with WWW-Authenticate.     
-    /// If the SuppressWwwAuthenticate option is set, it does not add the WWW-Authenticate header.   
-    /// If the Realm is set, it includes it in the WWW-Authenticate header. 
-    /// If the request is secure, it adds the WWW-Authenticate header with the Basic scheme.    
+    /// If the request is not secure, it does not challenge with WWW-Authenticate.
+    /// If the SuppressWwwAuthenticate option is set, it does not add the WWW-Authenticate header.
+    /// If the Realm is set, it includes it in the WWW-Authenticate header.
+    /// If the request is secure, it adds the WWW-Authenticate header with the Basic scheme.
     /// The response status code is set to 401 Unauthorized.
     /// </remarks>
     /// <returns>A task representing the asynchronous operation.</returns>
-    /// <exception cref="InvalidOperationException">Thrown if the Realm is not set and SuppressWwwAuthenticate is false.</exception>    
+    /// <exception cref="InvalidOperationException">Thrown if the Realm is not set and SuppressWwwAuthenticate is false.</exception>
     protected override Task HandleChallengeAsync(AuthenticationProperties properties)
     {
         if (!Options.SuppressWwwAuthenticate)
@@ -265,7 +274,7 @@ public class BasicAuthHandler : AuthenticationHandler<BasicAuthenticationOptions
     }
 
     /// <summary>
-    /// Handles the forbidden response for Basic Authentication.    
+    /// Handles the forbidden response for Basic Authentication.
     /// </summary>
     /// <param name="properties">The authentication properties.</param>
     /// <remarks>
@@ -280,17 +289,19 @@ public class BasicAuthHandler : AuthenticationHandler<BasicAuthenticationOptions
     /// <summary>
     /// Builds a PowerShell-based validator function for authenticating users.
     /// </summary>
+    /// <param name="host">The Kestrun host instance.</param>
     /// <param name="settings">The authentication code settings containing the PowerShell script.</param>
-    /// <param name="logger">The logger instance.</param>
     /// <returns>A function that validates credentials using the provided PowerShell script.</returns>
     /// <remarks>
     /// This method compiles the PowerShell script and returns a delegate that can be used to validate user credentials.
     /// </remarks>
-    public static Func<HttpContext, string, string, Task<bool>> BuildPsValidator(AuthenticationCodeSettings settings, Serilog.ILogger logger)
+    public static Func<HttpContext, string, string, Task<bool>> BuildPsValidator(
+        KestrunHost host,
+        AuthenticationCodeSettings settings)
     {
-        if (logger.IsEnabled(Serilog.Events.LogEventLevel.Debug))
+        if (host.Logger.IsEnabled(Serilog.Events.LogEventLevel.Debug))
         {
-            logger.Debug("BuildPsValidator  settings: {Settings}", settings);
+            host.Logger.Debug("BuildPsValidator  settings: {Settings}", settings);
         }
 
         return async (ctx, user, pass) =>
@@ -299,26 +310,28 @@ public class BasicAuthHandler : AuthenticationHandler<BasicAuthenticationOptions
             {
                 { "username", user },
                 { "password", pass }
-            }, logger);
+            }, host.Logger);
         };
     }
     /// <summary>
     /// Builds a C#-based validator function for authenticating users.
     /// </summary>
+    /// <param name="host">The Kestrun host instance.</param>
     /// <param name="settings">The authentication code settings containing the C# script.</param>
-    /// <param name="logger">The logger instance.</param>
     /// <returns>A function that validates credentials using the provided C# script.</returns>
-    public static Func<HttpContext, string, string, Task<bool>> BuildCsValidator(AuthenticationCodeSettings settings, Serilog.ILogger logger)
+    public static Func<HttpContext, string, string, Task<bool>> BuildCsValidator(
+        KestrunHost host,
+        AuthenticationCodeSettings settings)
     {
-        if (logger.IsEnabled(Serilog.Events.LogEventLevel.Debug))
+        if (host.Logger.IsEnabled(Serilog.Events.LogEventLevel.Debug))
         {
-            logger.Debug("BuildCsValidator  settings: {Settings}", settings);
+            host.Logger.Debug("BuildCsValidator  settings: {Settings}", settings);
         }
 
         // pass the settings to the core C# validator
         var core = IAuthHandler.BuildCsValidator(
+            host,
             settings,
-            logger.ForContext<BasicAuthHandler>(),
             ("username", string.Empty), ("password", string.Empty)
             ) ?? throw new InvalidOperationException("Failed to build C# validator delegate from provided settings.");
         return (ctx, username, password) =>
@@ -332,19 +345,21 @@ public class BasicAuthHandler : AuthenticationHandler<BasicAuthenticationOptions
     /// <summary>
     /// Builds a VB.NET-based validator function for authenticating users.
     /// </summary>
+    /// <param name="host">The Kestrun host instance.</param>
     /// <param name="settings">The authentication code settings containing the VB.NET script.</param>
-    /// <param name="logger">The logger instance.</param>
     /// <returns>A function that validates credentials using the provided VB.NET script.</returns>
-    public static Func<HttpContext, string, string, Task<bool>> BuildVBNetValidator(AuthenticationCodeSettings settings, Serilog.ILogger logger)
+    public static Func<HttpContext, string, string, Task<bool>> BuildVBNetValidator(
+        KestrunHost host,
+        AuthenticationCodeSettings settings)
     {
-        if (logger.IsEnabled(Serilog.Events.LogEventLevel.Debug))
+        if (host.Logger.IsEnabled(Serilog.Events.LogEventLevel.Debug))
         {
-            logger.Debug("BuildCsValidator  settings: {Settings}", settings);
+            host.Logger.Debug("BuildCsValidator  settings: {Settings}", settings);
         }
         // pass the settings to the core VB.NET validator
         var core = IAuthHandler.BuildVBNetValidator(
+            host,
             settings,
-            logger.ForContext<BasicAuthHandler>(),
             ("username", string.Empty), ("password", string.Empty)) ?? throw new InvalidOperationException("Failed to build VB.NET validator delegate from provided settings.");
         return (ctx, username, password) =>
             core(ctx, new Dictionary<string, object?>

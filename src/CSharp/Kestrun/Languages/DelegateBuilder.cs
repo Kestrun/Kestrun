@@ -7,6 +7,7 @@ using Kestrun.SharedState;
 using Microsoft.CodeAnalysis;
 using Serilog.Events;
 using System.Reflection;
+using Kestrun.Hosting;
 
 internal static class DelegateBuilder
 {
@@ -14,18 +15,19 @@ internal static class DelegateBuilder
     /// Prepares the Kestrun context, response, and script globals for execution.
     /// Encapsulates request parsing, shared state snapshot, arg injection, and logging.
     /// </summary>
+    /// <param name="host">The Kestrun host instance.</param>
     /// <param name="ctx">The current HTTP context.</param>
-    /// <param name="log">Logger for diagnostics.</param>
     /// <param name="args">Optional variables to inject into the globals.</param>
     /// <returns>Tuple containing the prepared CsGlobals, KestrunResponse, and KestrunContext.</returns>
     internal static async Task<(CsGlobals Globals, KestrunResponse Response, KestrunContext Context)> PrepareExecutionAsync(
+        KestrunHost host,
         HttpContext ctx,
-        Serilog.ILogger log,
         Dictionary<string, object?>? args)
     {
+        var log = host.Logger;
         var krRequest = await KestrunRequest.NewRequest(ctx).ConfigureAwait(false);
         var krResponse = new KestrunResponse(krRequest);
-        var Context = new KestrunContext(krRequest, krResponse, ctx);
+        var Context = new KestrunContext(host, krRequest, krResponse, ctx);
         if (log.IsEnabled(LogEventLevel.Debug))
         {
             log.DebugSanitized("Kestrun context created for {Path}", ctx.Request.Path);

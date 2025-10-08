@@ -5,6 +5,7 @@ using Kestrun.Models;
 using Kestrun.Scripting;
 using Serilog;
 using Serilog.Events;
+using Kestrun.Hosting;
 
 namespace Kestrun.Middleware;
 
@@ -19,6 +20,8 @@ public sealed class PowerShellRunspaceMiddleware(RequestDelegate next, KestrunRu
     private readonly KestrunRunspacePoolManager _pool = pool ?? throw new ArgumentNullException(nameof(pool));
     private static int _inFlight; // diagnostic concurrency counter
 
+    private KestrunHost Host => _pool.Host;
+    private Serilog.ILogger Log => Host.Logger;
     /// <summary>
     /// Processes an HTTP request using a PowerShell runspace from the pool.
     /// </summary>
@@ -59,7 +62,7 @@ public sealed class PowerShellRunspaceMiddleware(RequestDelegate next, KestrunRu
             // Store the PowerShell instance in the context for later use
             context.Items[PowerShellDelegateBuilder.PS_INSTANCE_KEY] = ps;
 
-            KestrunContext kestrunContext = new(krRequest, krResponse, context);
+            KestrunContext kestrunContext = new(Host, krRequest, krResponse, context);
             // Set the KestrunContext in the HttpContext.Items for later use
             context.Items[PowerShellDelegateBuilder.KR_CONTEXT_KEY] = kestrunContext;
 
@@ -123,6 +126,7 @@ public sealed class PowerShellRunspaceMiddleware(RequestDelegate next, KestrunRu
         catch (Exception ex)
         {
             Log.Error(ex, "Error occurred in PowerShellRunspaceMiddleware");
+            throw; // allow ExceptionHandler to catch and handle (re-exec or JSON)
         }
         finally
         {

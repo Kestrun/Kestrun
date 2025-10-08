@@ -1,6 +1,6 @@
 using System.Collections.Concurrent;
 using System.Management.Automation.Runspaces;
-using Serilog;
+using Kestrun.Hosting;
 using Serilog.Events;
 
 namespace Kestrun.Scripting;
@@ -14,6 +14,11 @@ public sealed class KestrunRunspacePoolManager : IDisposable
     private readonly InitialSessionState _iss;
     private int _count;        // total live runspaces
     private bool _disposed;
+
+    /// <summary>
+    /// KestrunHost is needed for logging, config, etc.
+    /// </summary>
+    public KestrunHost Host { get; private set; }
 
     /// <summary>
     /// Gets the minimum number of runspaces maintained in the pool.
@@ -34,27 +39,33 @@ public sealed class KestrunRunspacePoolManager : IDisposable
     /// <summary>
     /// Initializes a new instance of the <see cref="KestrunRunspacePoolManager"/> class with the specified minimum and maximum runspaces, initial session state, and thread options.
     /// </summary>
+    /// <param name="host">The Kestrun host instance.</param>
     /// <param name="minRunspaces">The minimum number of runspaces to maintain in the pool.</param>
     /// <param name="maxRunspaces">The maximum number of runspaces allowed in the pool.</param>
     /// <param name="initialSessionState">The initial session state for each runspace (optional).</param>
     /// <param name="threadOptions">The thread affinity strategy for runspaces (optional).</param>
     public KestrunRunspacePoolManager(
+        KestrunHost host,
         int minRunspaces,
         int maxRunspaces,
         InitialSessionState? initialSessionState = null,
         PSThreadOptions threadOptions = PSThreadOptions.ReuseThread)
     {
-        if (Log.IsEnabled(LogEventLevel.Debug))
+        if (host.Logger.IsEnabled(LogEventLevel.Debug))
         {
-            Log.Debug("Initializing RunspacePoolManager: Min={Min}, Max={Max}", minRunspaces, maxRunspaces);
+            host.Logger.Debug("Initializing RunspacePoolManager: Min={Min}, Max={Max}", minRunspaces, maxRunspaces);
         }
 
         ArgumentOutOfRangeException.ThrowIfNegative(minRunspaces);
+        ArgumentNullException.ThrowIfNull(host);
+        ArgumentOutOfRangeException.ThrowIfNegative(maxRunspaces);
+        // sanity check
         if (maxRunspaces < 1 || maxRunspaces < minRunspaces)
         {
             throw new ArgumentOutOfRangeException(nameof(maxRunspaces));
         }
 
+        Host = host;
         MinRunspaces = minRunspaces;
         MaxRunspaces = maxRunspaces;
         _iss = initialSessionState ?? InitialSessionState.CreateDefault();
@@ -67,9 +78,9 @@ public sealed class KestrunRunspacePoolManager : IDisposable
         }
 
         _count = minRunspaces;
-        if (Log.IsEnabled(LogEventLevel.Debug))
+        if (Host.Logger.IsEnabled(LogEventLevel.Debug))
         {
-            Log.Debug("Warm-started pool with {Count} runspaces", _count);
+            Host.Logger.Debug("Warm-started pool with {Count} runspaces", _count);
         }
     }
 
@@ -77,9 +88,9 @@ public sealed class KestrunRunspacePoolManager : IDisposable
     /// <summary>Borrow a runspace (creates one if under the cap).</summary>
     public Runspace Acquire()
     {
-        if (Log.IsEnabled(LogEventLevel.Debug))
+        if (Host.Logger.IsEnabled(LogEventLevel.Debug))
         {
-            Log.Debug("Acquiring runspace from pool: CurrentCount={Count}, Max={Max}", _count, MaxRunspaces);
+            Host.Logger.Debug("Acquiring runspace from pool: CurrentCount={Count}, Max={Max}", _count, MaxRunspaces);
         }
 
         ObjectDisposedException.ThrowIf(_disposed, nameof(KestrunRunspacePoolManager));
@@ -88,16 +99,16 @@ public sealed class KestrunRunspacePoolManager : IDisposable
         {
             if (rs.RunspaceStateInfo.State != RunspaceState.Opened)
             {
-                Log.Warning("Runspace from stash is not opened: {State}. Discarding and acquiring a new one.", rs.RunspaceStateInfo.State);
+                Host.Logger.Warning("Runspace from stash is not opened: {State}. Discarding and acquiring a new one.", rs.RunspaceStateInfo.State);
                 // If the runspace is not open, we cannot use it.
                 // Discard and try again
                 rs.Dispose();
                 _ = Interlocked.Decrement(ref _count);
                 return Acquire();
             }
-            if (Log.IsEnabled(LogEventLevel.Debug))
+            if (Host.Logger.IsEnabled(LogEventLevel.Debug))
             {
-                Log.Debug("Reusing runspace from stash: StashCount={Count}", _stash.Count);
+                Host.Logger.Debug("Reusing runspace from stash: StashCount={Count}", _stash.Count);
             }
 
             return rs;
@@ -105,13 +116,13 @@ public sealed class KestrunRunspacePoolManager : IDisposable
         // Need a new one?—but only if we haven’t reached max.
         if (Interlocked.Increment(ref _count) <= MaxRunspaces)
         {
-            Log.Debug("Creating new runspace: TotalCount={Count}", _count);
+            Host.Logger.Debug("Creating new runspace: TotalCount={Count}", _count);
             return CreateRunspace();
         }
         // Overshot: roll back and complain.
         _ = Interlocked.Decrement(ref _count);
 
-        Log.Warning("Runspace limit reached: Max={Max}", MaxRunspaces);
+        Host.Logger.Warning("Runspace limit reached: Max={Max}", MaxRunspaces);
         throw new InvalidOperationException("Run-space limit reached.");
     }
 
@@ -122,9 +133,9 @@ public sealed class KestrunRunspacePoolManager : IDisposable
     /// <returns>A task that represents the asynchronous operation, containing the acquired <see cref="Runspace"/>.</returns>
     public async Task<Runspace> AcquireAsync(CancellationToken cancellationToken = default)
     {
-        if (Log.IsEnabled(LogEventLevel.Debug))
+        if (Host.Logger.IsEnabled(LogEventLevel.Debug))
         {
-            Log.Debug("Acquiring runspace (async) from pool: CurrentCount={Count}, Max={Max}", _count, MaxRunspaces);
+            Host.Logger.Debug("Acquiring runspace (async) from pool: CurrentCount={Count}, Max={Max}", _count, MaxRunspaces);
         }
 
         while (true)
@@ -133,9 +144,9 @@ public sealed class KestrunRunspacePoolManager : IDisposable
 
             if (_stash.TryTake(out var rs))
             {
-                if (Log.IsEnabled(LogEventLevel.Debug))
+                if (Host.Logger.IsEnabled(LogEventLevel.Debug))
                 {
-                    Log.Debug("Reusing runspace from stash (async): StashCount={Count}", _stash.Count);
+                    Host.Logger.Debug("Reusing runspace from stash (async): StashCount={Count}", _stash.Count);
                 }
 
                 return rs;
@@ -143,16 +154,16 @@ public sealed class KestrunRunspacePoolManager : IDisposable
 
             if (Interlocked.Increment(ref _count) <= MaxRunspaces)
             {
-                Log.Debug("Creating new runspace (async): TotalCount={Count}", _count);
+                Host.Logger.Debug("Creating new runspace (async): TotalCount={Count}", _count);
                 // Runspace creation is synchronous, but we can offload to thread pool
                 return await Task.Run(CreateRunspace, cancellationToken).ConfigureAwait(false);
             }
             _ = Interlocked.Decrement(ref _count);
 
             // Wait for a runspace to be returned
-            if (Log.IsEnabled(LogEventLevel.Debug))
+            if (Host.Logger.IsEnabled(LogEventLevel.Debug))
             {
-                Log.Debug("Waiting for runspace to become available (async)");
+                Host.Logger.Debug("Waiting for runspace to become available (async)");
             }
 
             // Use a short delay to poll for availability
@@ -167,22 +178,22 @@ public sealed class KestrunRunspacePoolManager : IDisposable
     /// <param name="rs">The <see cref="Runspace"/> to return to the pool.</param>
     public void Release(Runspace rs)
     {
-        if (Log.IsEnabled(LogEventLevel.Debug))
+        if (Host.Logger.IsEnabled(LogEventLevel.Debug))
         {
-            Log.Debug("Release() called: Disposed={Disposed}", _disposed);
+            Host.Logger.Debug("Release() called: Disposed={Disposed}", _disposed);
         }
 
         if (_disposed)
         {
-            Log.Warning("Pool disposed; disposing returned runspace");
+            Host.Logger.Warning("Pool disposed; disposing returned runspace");
             rs.Dispose();
             return;
         }
 
         _stash.Add(rs);
-        if (Log.IsEnabled(LogEventLevel.Debug))
+        if (Host.Logger.IsEnabled(LogEventLevel.Debug))
         {
-            Log.Debug("Runspace returned to stash: StashCount={Count}", _stash.Count);
+            Host.Logger.Debug("Runspace returned to stash: StashCount={Count}", _stash.Count);
         }
         // Note: we do not decrement _count here, as the pool size is fixed.
         // The pool will keep the runspace open for reuse.
@@ -192,14 +203,14 @@ public sealed class KestrunRunspacePoolManager : IDisposable
     // ───────────────── helpers ───────────────────────────────
     private Runspace CreateRunspace()
     {
-        if (Log.IsEnabled(LogEventLevel.Debug))
+        if (Host.Logger.IsEnabled(LogEventLevel.Debug))
         {
-            Log.Debug("CreateRunspace() - creating new runspace");
+            Host.Logger.Debug("CreateRunspace() - creating new runspace");
         }
 
-        if (Log.IsEnabled(LogEventLevel.Debug))
+        if (Host.Logger.IsEnabled(LogEventLevel.Debug))
         {
-            Log.Debug("Creating new runspace with InitialSessionState");
+            Host.Logger.Debug("Creating new runspace with InitialSessionState");
         }
 
         var rs = RunspaceFactory.CreateRunspace(_iss);
@@ -209,10 +220,10 @@ public sealed class KestrunRunspacePoolManager : IDisposable
         rs.ApartmentState = ApartmentState.MTA;     // always MTA
 
         rs.Open();
-        Log.Information("Opened new Runspace with ThreadOptions={ThreadOptions}", ThreadOptions);
-        if (Log.IsEnabled(LogEventLevel.Debug))
+        Host.Logger.Information("Opened new Runspace with ThreadOptions={ThreadOptions}", ThreadOptions);
+        if (Host.Logger.IsEnabled(LogEventLevel.Debug))
         {
-            Log.Debug("New runspace created: {Runspace}", rs);
+            Host.Logger.Debug("New runspace created: {Runspace}", rs);
         }
 
         return rs;
@@ -224,9 +235,9 @@ public sealed class KestrunRunspacePoolManager : IDisposable
     /// </summary>
     public void Dispose()
     {
-        if (Log.IsEnabled(LogEventLevel.Debug))
+        if (Host.Logger.IsEnabled(LogEventLevel.Debug))
         {
-            Log.Debug("Disposing KestrunRunspacePoolManager: Disposed={Disposed}", _disposed);
+            Host.Logger.Debug("Disposing KestrunRunspacePoolManager: Disposed={Disposed}", _disposed);
         }
 
         if (_disposed)
@@ -235,17 +246,17 @@ public sealed class KestrunRunspacePoolManager : IDisposable
         }
 
         _disposed = true;
-        Log.Information("Disposing RunspacePoolManager and all pooled runspaces");
+        Host.Logger.Information("Disposing RunspacePoolManager and all pooled runspaces");
         while (_stash.TryTake(out var rs))
         {
-            if (Log.IsEnabled(LogEventLevel.Debug))
+            if (Host.Logger.IsEnabled(LogEventLevel.Debug))
             {
-                Log.Debug("Disposing runspace: {Runspace}", rs);
+                Host.Logger.Debug("Disposing runspace: {Runspace}", rs);
             }
 
             try { rs.Close(); } catch { /* ignore */ }
             rs.Dispose();
         }
-        Log.Information("RunspacePoolManager disposed");
+        Host.Logger.Information("RunspacePoolManager disposed");
     }
 }

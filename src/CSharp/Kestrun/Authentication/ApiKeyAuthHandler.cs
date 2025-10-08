@@ -1,5 +1,6 @@
 using System.Text;
 using System.Text.Encodings.Web;
+using Kestrun.Hosting;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Primitives;
@@ -12,18 +13,24 @@ namespace Kestrun.Authentication;
 public class ApiKeyAuthHandler
     : AuthenticationHandler<ApiKeyAuthenticationOptions>
 {
+    /// <summary> The Kestrun host instance. </summary>
+    public KestrunHost Host { get; }
+
     /// <summary>
     /// Initializes a new instance of the <see cref="ApiKeyAuthHandler"/> class.
     /// </summary>
+    /// <param name="host">The Kestrun host instance.</param>
     /// <param name="options">The options monitor for API key authentication options.</param>
     /// <param name="logger">The logger factory.</param>
     /// <param name="encoder">The URL encoder.</param>
-    public ApiKeyAuthHandler(
+    public ApiKeyAuthHandler(KestrunHost host,
         IOptionsMonitor<ApiKeyAuthenticationOptions> options,
         ILoggerFactory logger,
         UrlEncoder encoder)
         : base(options, logger, encoder)
     {
+        ArgumentNullException.ThrowIfNull(host);
+        Host = host;
         if (options.CurrentValue.Logger.IsEnabled(Serilog.Events.LogEventLevel.Debug))
         {
             options.CurrentValue.Logger.Debug("ApiKeyAuthHandler initialized");
@@ -174,17 +181,19 @@ public class ApiKeyAuthHandler
     /// <summary>
     /// Builds a PowerShell-based API key validator delegate using the provided authentication code settings.
     /// </summary>
+    ///<param name="host">The Kestrun host instance.</param>
     /// <param name="settings">The settings containing the PowerShell authentication code.</param>
-    /// <param name="logger">The logger to use for debug output.</param>
     /// <returns>A delegate that validates an API key using PowerShell code.</returns>
     /// <remarks>
     ///  This method compiles the PowerShell script and returns a delegate that can be used to validate API keys.
     /// </remarks>
-    public static Func<HttpContext, string, byte[], Task<bool>> BuildPsValidator(AuthenticationCodeSettings settings, Serilog.ILogger logger)
+    public static Func<HttpContext, string, byte[], Task<bool>> BuildPsValidator(
+            KestrunHost host,
+        AuthenticationCodeSettings settings)
     {
-        if (logger.IsEnabled(Serilog.Events.LogEventLevel.Debug))
+        if (host.Logger.IsEnabled(Serilog.Events.LogEventLevel.Debug))
         {
-            logger.Debug("BuildPsValidator  settings: {Settings}", settings);
+            host.Logger.Debug("BuildPsValidator  settings: {Settings}", settings);
         }
 
         return async (ctx, providedKey, providedKeyBytes) =>
@@ -193,26 +202,27 @@ public class ApiKeyAuthHandler
                    {
                     { "providedKey", providedKey },
                     { "providedKeyBytes", Convert.ToBase64String(providedKeyBytes) }
-                   }, logger);
+                   }, host.Logger);
                };
     }
 
     /// <summary>
     /// Builds a C#-based API key validator delegate using the provided authentication code settings.
     /// </summary>
+    /// <param name="host">The Kestrun host instance.</param>
     /// <param name="settings">The settings containing the C# authentication code.</param>
-    /// <param name="logger">The logger to use for debug output.</param>
     /// <returns>A delegate that validates an API key using C# code.</returns>
-    public static Func<HttpContext, string, byte[], Task<bool>> BuildCsValidator(AuthenticationCodeSettings settings, Serilog.ILogger logger)
+    public static Func<HttpContext, string, byte[], Task<bool>> BuildCsValidator(
+        KestrunHost host,
+        AuthenticationCodeSettings settings)
     {
-        if (logger.IsEnabled(Serilog.Events.LogEventLevel.Debug))
+        if (host.Logger.IsEnabled(Serilog.Events.LogEventLevel.Debug))
         {
-            logger.Debug("BuildCsValidator  settings: {Settings}", settings);
+            host.Logger.Debug("BuildCsValidator  settings: {Settings}", settings);
         }
         // pass the settings to the core C# validator
-        var core = IAuthHandler.BuildCsValidator(
+        var core = IAuthHandler.BuildCsValidator(host,
             settings,
-            logger,
             ("providedKey", string.Empty), ("providedKeyBytes", Array.Empty<byte>())
             ) ?? throw new InvalidOperationException("Failed to build C# validator delegate from provided settings.");
         return (ctx, providedKey, providedKeyBytes) =>
@@ -226,19 +236,20 @@ public class ApiKeyAuthHandler
     /// <summary>
     /// Builds a VB.NET-based API key validator delegate using the provided authentication code settings.
     /// </summary>
+    /// <param name="host">The Kestrun host instance.</param>
     /// <param name="settings">The settings containing the VB.NET authentication code.</param>
-    /// <param name="logger">The logger to use for debug output.</param>
     /// <returns>A delegate that validates an API key using VB.NET code.</returns>
-    public static Func<HttpContext, string, byte[], Task<bool>> BuildVBNetValidator(AuthenticationCodeSettings settings, Serilog.ILogger logger)
+    public static Func<HttpContext, string, byte[], Task<bool>> BuildVBNetValidator(
+         KestrunHost host,
+        AuthenticationCodeSettings settings)
     {
-        if (logger.IsEnabled(Serilog.Events.LogEventLevel.Debug))
+        if (host.Logger.IsEnabled(Serilog.Events.LogEventLevel.Debug))
         {
-            logger.Debug("BuildVBNetValidator  settings: {Settings}", settings);
+            host.Logger.Debug("BuildVBNetValidator  settings: {Settings}", settings);
         }
         // pass the settings to the core VB.NET validator
-        var core = IAuthHandler.BuildVBNetValidator(
+        var core = IAuthHandler.BuildVBNetValidator(host,
             settings,
-            logger,
             ("providedKey", string.Empty), ("providedKeyBytes", Array.Empty<byte>())
             ) ?? throw new InvalidOperationException("Failed to build VB.NET validator delegate from provided settings.");
         return (ctx, providedKey, providedKeyBytes) =>

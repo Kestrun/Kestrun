@@ -26,7 +26,8 @@ public class CsGlobalsTests
         var http = new DefaultHttpContext();
         var req = TestRequestFactory.Create();
         var res = new KestrunResponse(req);
-        var ctx = new KestrunContext(req, res, http);
+        var host = new Kestrun.Hosting.KestrunHost("Tests", Serilog.Log.Logger);
+        var ctx = new KestrunContext(host, req, res, http);
 
         var globals = new CsGlobals(g, ctx);
         Assert.Same(ctx, globals.Context);
@@ -41,7 +42,8 @@ public class CsGlobalsTests
         var http = new DefaultHttpContext();
         var req = TestRequestFactory.Create();
         var res = new KestrunResponse(req);
-        var ctx = new KestrunContext(req, res, http);
+        var host = new Kestrun.Hosting.KestrunHost("Tests", Serilog.Log.Logger);
+        var ctx = new KestrunContext(host, req, res, http);
 
         var globals = new CsGlobals(g, ctx, l);
         Assert.Same(g, globals.Globals);

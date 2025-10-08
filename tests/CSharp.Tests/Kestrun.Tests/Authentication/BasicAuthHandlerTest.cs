@@ -11,6 +11,7 @@ using Microsoft.Extensions.Options;
 using Moq;
 using Serilog;
 using Xunit;
+using Kestrun.Hosting;
 
 namespace KestrunTests.Authentication;
 
@@ -46,7 +47,9 @@ public class BasicAuthHandlerTest
         var loggerFactory = new LoggerFactory();
         var encoder = UrlEncoder.Default;
 
-        var handler = new BasicAuthHandler(optMonitor, loggerFactory, encoder);
+        // New constructor requires a KestrunHost
+        var host = new KestrunHost("Tests", Log.Logger);
+        var handler = new BasicAuthHandler(host, optMonitor, loggerFactory, encoder);
         var scheme = new AuthenticationScheme("Basic", "Basic", typeof(BasicAuthHandler));
         var ctx = context ?? new DefaultHttpContext();
         if (ctx.RequestServices is null)

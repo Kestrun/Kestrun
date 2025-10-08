@@ -7,7 +7,7 @@ namespace Kestrun.Hosting.Options;
 /// <summary>
 /// Options for configuring Kestrun-style exception handling middleware.
 /// </summary>
-public sealed class ExceptionOptions : Microsoft.AspNetCore.Builder.ExceptionHandlerOptions
+public sealed class ExceptionOptions : ExceptionHandlerOptions
 {
     /// <summary>
     ///
@@ -35,7 +35,7 @@ public sealed class ExceptionOptions : Microsoft.AspNetCore.Builder.ExceptionHan
             _languageOptions = value;
             if (value is not null && ExceptionHandler is null)
             {
-                var compiled = KestrunHostMapExtensions.CompileScript(value, Host.HostLogger);
+                var compiled = Host.CompileScript(value, Host.Logger);
                 ExceptionHandler = BuildScriptExceptionHandler(this, compiled);
             }
         }
@@ -56,7 +56,7 @@ public sealed class ExceptionOptions : Microsoft.AspNetCore.Builder.ExceptionHan
 
 
 
-    private static RequestDelegate BuildScriptExceptionHandler(ExceptionOptions o, RequestDelegate compiled)
+    private RequestDelegate BuildScriptExceptionHandler(ExceptionOptions o, RequestDelegate compiled)
     {
         return async httpContext =>
         {
@@ -78,7 +78,7 @@ public sealed class ExceptionOptions : Microsoft.AspNetCore.Builder.ExceptionHan
             // Build Kestrun abstractions and inject for the script to consume
             var req = await KestrunRequest.NewRequest(httpContext);
             var res = new KestrunResponse(req) { StatusCode = httpContext.Response.StatusCode };
-            var kr = new KestrunContext(req, res, httpContext);
+            var kr = new KestrunContext(Host, req, res, httpContext);
 
             httpContext.Items[PowerShellDelegateBuilder.PS_INSTANCE_KEY] = ps;
             httpContext.Items[PowerShellDelegateBuilder.KR_CONTEXT_KEY] = kr;

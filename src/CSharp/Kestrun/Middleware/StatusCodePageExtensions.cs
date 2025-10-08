@@ -86,11 +86,10 @@ public static class StatusCodePageExtensions
         {
             return null;
         }
-        var compiled = KestrunHostMapExtensions.CompileScript(options.LanguageOptions, options.Host.HostLogger);
+        var compiled = options.Host.CompileScript(options.LanguageOptions, options.Host.Logger);
         var handler = BuildScriptHandler(options, compiled);
         return app.UseStatusCodePages(handler);
     }
-
     private static bool HasValue(string? s) => !string.IsNullOrWhiteSpace(s);
 
     private static string? NormalizeQuery(string? query)
@@ -147,7 +146,7 @@ public static class StatusCodePageExtensions
             {
                 StatusCode = httpContext.Response.StatusCode
             };
-            var kr = new KestrunContext(req, res, httpContext);
+            var kr = new KestrunContext(pool.Host, req, res, httpContext);
 
             httpContext.Items[PowerShellDelegateBuilder.PS_INSTANCE_KEY] = ps;
             httpContext.Items[PowerShellDelegateBuilder.KR_CONTEXT_KEY] = kr;

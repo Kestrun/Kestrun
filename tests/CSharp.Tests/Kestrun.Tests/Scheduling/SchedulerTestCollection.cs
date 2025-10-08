@@ -1,5 +1,6 @@
 using Kestrun.Scheduling;
 using Kestrun.Scripting;
+using Kestrun.Hosting;
 using Serilog;
 using Xunit;
 
@@ -19,7 +20,8 @@ public sealed class SchedulerWarmupFixture : IDisposable
     {
         try
         {
-            using var pool = new KestrunRunspacePoolManager(1, 1);
+            using var host = new KestrunHost("Tests", Log.Logger);
+            using var pool = new KestrunRunspacePoolManager(host, 1, 1);
             var log = new LoggerConfiguration().MinimumLevel.Warning().CreateLogger();
             using var svc = new SchedulerService(pool, log, TimeZoneInfo.Utc);
 

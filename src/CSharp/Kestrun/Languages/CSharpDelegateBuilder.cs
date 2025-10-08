@@ -8,6 +8,7 @@ using Microsoft.CodeAnalysis.CSharp.Scripting;
 using Microsoft.CodeAnalysis.Scripting;
 using Serilog.Events;
 using Kestrun.Logging;
+using Kestrun.Hosting;
 
 namespace Kestrun.Languages;
 
@@ -17,8 +18,8 @@ internal static class CSharpDelegateBuilder
     /// <summary>
     /// Builds a C# delegate for handling HTTP requests.
     /// </summary>
+    /// <param name="host">The Kestrun host instance.</param>
     /// <param name="code">The C# code to execute.</param>
-    /// <param name="log">The logger instance.</param>
     /// <param name="args">Arguments to inject as variables into the script.</param>
     /// <param name="extraImports">Additional namespaces to import.</param>
     /// <param name="extraRefs">Additional assemblies to reference.</param>
@@ -31,13 +32,13 @@ internal static class CSharpDelegateBuilder
     /// It supports additional imports and references, and can inject global variables into the script.
     /// The delegate will execute the provided C# code within the context of an HTTP request, allowing access to the request and response objects.
     /// </remarks>
-    internal static RequestDelegate Build(
-            string code, Serilog.ILogger log, Dictionary<string, object?>? args, string[]? extraImports,
+    internal static RequestDelegate Build(KestrunHost host,
+            string code, Dictionary<string, object?>? args, string[]? extraImports,
             Assembly[]? extraRefs, LanguageVersion languageVersion = LanguageVersion.CSharp12)
     {
-        if (log.IsEnabled(LogEventLevel.Debug))
+        if (host.Logger.IsEnabled(LogEventLevel.Debug))
         {
-            log.Debug("Building C# delegate, script length={Length}, imports={ImportsCount}, refs={RefsCount}, lang={Lang}",
+            host.Logger.Debug("Building C# delegate, script length={Length}, imports={ImportsCount}, refs={RefsCount}, lang={Lang}",
                 code?.Length, extraImports?.Length ?? 0, extraRefs?.Length ?? 0, languageVersion);
         }
 
@@ -50,16 +51,16 @@ internal static class CSharpDelegateBuilder
         //    - Use CSharpScript.Create() to create a script with the provided code
         //    - Use ScriptOptions to specify imports, references, and language version
         //    - Inject the provided arguments into the globals
-        var script = Compile(code, log, extraImports, extraRefs, null, languageVersion);
+        var script = Compile(code, host.Logger, extraImports, extraRefs, null, languageVersion);
 
         // 2. Return a delegate that executes the script
         //    - The delegate takes an HttpContext and returns a Task
         //    - It creates a KestrunContext and KestrunResponse from the HttpContext
         //    - It executes the script with the provided globals and locals
         //    - It applies the response to the HttpContext
-        if (log.IsEnabled(LogEventLevel.Debug))
+        if (host.Logger.IsEnabled(LogEventLevel.Debug))
         {
-            log.Debug("C# delegate built successfully, script length={Length}, imports={ImportsCount}, refs={RefsCount}, lang={Lang}",
+            host.Logger.Debug("C# delegate built successfully, script length={Length}, imports={ImportsCount}, refs={RefsCount}, lang={Lang}",
                 code?.Length, extraImports?.Length ?? 0, extraRefs?.Length ?? 0, languageVersion);
         }
 
@@ -67,27 +68,27 @@ internal static class CSharpDelegateBuilder
         {
             try
             {
-                if (log.IsEnabled(LogEventLevel.Debug))
+                if (host.Logger.IsEnabled(LogEventLevel.Debug))
                 {
-                    log.DebugSanitized("Preparing execution for C# script at {Path}", ctx.Request.Path);
+                    host.Logger.DebugSanitized("Preparing execution for C# script at {Path}", ctx.Request.Path);
                 }
 
-                var (Globals, Response, Context) = await DelegateBuilder.PrepareExecutionAsync(ctx, log, args).ConfigureAwait(false);
+                var (Globals, Response, Context) = await DelegateBuilder.PrepareExecutionAsync(host, ctx, args).ConfigureAwait(false);
 
                 // Execute the script with the current context and shared state
-                if (log.IsEnabled(LogEventLevel.Debug))
+                if (host.Logger.IsEnabled(LogEventLevel.Debug))
                 {
-                    log.DebugSanitized("Executing C# script for {Path}", ctx.Request.Path);
+                    host.Logger.DebugSanitized("Executing C# script for {Path}", ctx.Request.Path);
                 }
 
                 _ = await script.RunAsync(Globals).ConfigureAwait(false);
-                if (log.IsEnabled(LogEventLevel.Debug))
+                if (host.Logger.IsEnabled(LogEventLevel.Debug))
                 {
-                    log.DebugSanitized("C# script executed successfully for {Path}", ctx.Request.Path);
+                    host.Logger.DebugSanitized("C# script executed successfully for {Path}", ctx.Request.Path);
                 }
 
                 // Apply the response to the Kestrun context
-                await DelegateBuilder.ApplyResponseAsync(ctx, Response, log).ConfigureAwait(false);
+                await DelegateBuilder.ApplyResponseAsync(ctx, Response, host.Logger).ConfigureAwait(false);
             }
             finally
             {
@@ -138,7 +139,7 @@ internal static class CSharpDelegateBuilder
         var coreRefs = DelegateBuilder.BuildBaselineReferences();
         // Core references + Kestrun + extras
         // Note: Order matters, Kestrun must come after core to avoid conflicts
-        var kestrunAssembly = typeof(Hosting.KestrunHost).Assembly; // Kestrun.dll
+        var kestrunAssembly = typeof(KestrunHost).Assembly; // Kestrun.dll
         var kestrunRef = MetadataReference.CreateFromFile(kestrunAssembly.Location);
         var kestrunNamespaces = CollectKestrunNamespaces(kestrunAssembly);
         // Create script options

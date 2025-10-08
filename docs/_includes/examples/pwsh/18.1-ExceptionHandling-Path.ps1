@@ -1,7 +1,7 @@
 ﻿#
 # Sample: Exception Handling with Re-execution
 # Demonstrates how to configure exception handling to re-execute the pipeline to a fixed error path.
-# FileName: 18.1-ExceptionHandling-ReExecute.ps1
+# FileName: 18.1-ExceptionHandling-Path.ps1
 #
 param(
     [int]$Port = 5000,

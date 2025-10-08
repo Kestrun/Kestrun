@@ -31,7 +31,8 @@ Add-KrMapRoute -Verbs Get -Pattern '/ok' -ScriptBlock {
 
 # PowerShell scripts should handle their own exceptions
 Add-KrMapRoute -Verbs Get -Pattern '/oops' -ScriptBlock {
-    throw 'Oops from /oops route'
+     throw [System.InvalidOperationException]::new('Boom! Something went wrong.')
+   # throw 'Oops from /oops route'
 }
 
 # This C# endpoint will use the exception middleware if it throws

@@ -65,19 +65,18 @@ internal static class PowerShellDelegateBuilder
             }
             catch (Exception ex)
             {
-                // Log and handle script errors
-                log.Error(ex, "PowerShell script failed - {Preview}", code[..Math.Min(40, code.Length)]);
                 // If we have exception options, set a 500 status code and generic message.
                 // Otherwise rethrow to let higher-level middleware handle it (e.g., Developer Exception Page
-                if (krContext is not null && krContext.Host.ExceptionOptions is not null)
-                {
+                if (krContext?.Host?.ExceptionOptions is null)
+                { // Log and handle script errors
+                    log.Error(ex, "PowerShell script failed - {Preview}", code[..Math.Min(40, code.Length)]);
                     context.Response.StatusCode = 500; // Internal Server Error
                     context.Response.ContentType = "text/plain; charset=utf-8";
                     await context.Response.WriteAsync("An error occurred while processing your request.");
                 }
                 else
                 {
-
+                    // re-throw to let higher-level middleware handle it (e.g., Developer Exception Page)
                     throw;
                 }
             }

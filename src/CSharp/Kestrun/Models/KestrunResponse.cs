@@ -571,7 +571,8 @@ public class KestrunResponse(KestrunRequest request, int bodyAsyncThreshold = 81
     /// <param name="inputObject">The object to be converted to a text response.</param>
     /// <param name="statusCode">The HTTP status code for the response.</param>
     /// <param name="contentType">The MIME type of the response content.</param>
-    public void WriteTextResponse(object? inputObject, int statusCode = StatusCodes.Status200OK, string? contentType = null) => WriteTextResponseAsync(inputObject, statusCode, contentType).GetAwaiter().GetResult();
+    public void WriteTextResponse(object? inputObject, int statusCode = StatusCodes.Status200OK, string? contentType = null) =>
+        WriteTextResponseAsync(inputObject, statusCode, contentType).GetAwaiter().GetResult();
 
     /// <summary>
     /// Asynchronously writes a text response with the specified input object, status code, and content type.

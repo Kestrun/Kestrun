@@ -163,7 +163,7 @@ public class ApiKeyAuthHandlerTest
     public void BuildPsValidator_ReturnsDelegate()
     {
         var logger = new LoggerConfiguration().MinimumLevel.Debug().WriteTo.Console().CreateLogger();
-        var host = new Kestrun.Hosting.KestrunHost("Tests", logger);
+        var host = new KestrunHost("Tests", logger);
         var settings = new AuthenticationCodeSettings { Code = "param($providedKey) return $providedKey -eq 'abc'", Language = ScriptLanguage.PowerShell };
         var validator = ApiKeyAuthHandler.BuildPsValidator(host, settings);
 
@@ -189,7 +189,7 @@ public class ApiKeyAuthHandlerTest
     public void BuildVBNetValidator_ReturnsDelegate()
     {
         var logger = new LoggerConfiguration().CreateLogger();
-        var host = new Kestrun.Hosting.KestrunHost("Tests", logger);
+        var host = new KestrunHost("Tests", logger);
         var settings = new AuthenticationCodeSettings { Code = "providedKey = \"abc\"", Language = ScriptLanguage.VBNet };
         var validator = ApiKeyAuthHandler.BuildVBNetValidator(host, settings);
 

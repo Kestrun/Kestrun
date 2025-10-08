@@ -3,7 +3,6 @@ using System.Diagnostics;
 using Kestrun.Languages;
 using Kestrun.Models;
 using Kestrun.Scripting;
-using Serilog;
 using Serilog.Events;
 using Kestrun.Hosting;
 

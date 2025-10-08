@@ -21,13 +21,16 @@ internal static class PowerShellDelegateBuilder
 
         return async context =>
         {
+            // Log invocation
             if (log.IsEnabled(LogEventLevel.Debug))
             {
                 log.DebugSanitized("PS delegate invoked for {Path}", context.Request.Path);
             }
-
+            // Prepare for execution
+            KestrunContext? krContext = null;
+            // Get the PowerShell instance from the context (set by middleware)
             var ps = GetPowerShellFromContext(context, log);
-            KestrunContext krContext = null;
+
             // Ensure the runspace pool is open before executing the script
             try
             {

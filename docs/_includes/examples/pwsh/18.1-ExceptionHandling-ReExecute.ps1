@@ -44,6 +44,5 @@ Write-Host "Server starting on http://$($IPAddress):$Port" -ForegroundColor Gree
 Write-Host 'Try these URLs:' -ForegroundColor Yellow
 Write-Host "  http://$($IPAddress):$Port/hello   - Happy path" -ForegroundColor Cyan
 Write-Host "  http://$($IPAddress):$Port/throw   - Triggers exception, re-executes to /error" -ForegroundColor Cyan
-Write-Host ''
 
 Start-KrServer

@@ -54,7 +54,9 @@ function Enable-KrExceptionHandling {
 
         [switch] $CreateScopeForErrors,
         [switch] $AllowStatusCode404Response,
+        [Parameter(ParameterSetName = 'Json')]
         [switch] $IncludeDetailsInDevelopment,
+        [Parameter(ParameterSetName = 'Json')]
         [switch] $UseProblemDetails,
 
         # Custom via LanguageOptions or ScriptBlock
@@ -98,7 +100,7 @@ function Enable-KrExceptionHandling {
 
         # Map direct ExceptionOptions properties from parameters
         if ($PSBoundParameters.ContainsKey('ExceptionHandlingPath')) {
-            $exceptionOptions.ReExecutePath = $ExceptionHandlingPath
+            $exceptionOptions.ExceptionHandlingPath = [Microsoft.AspNetCore.Http.PathString]::new($ExceptionHandlingPath)
         }
         if ($PSBoundParameters.ContainsKey('CreateScopeForErrors')) {
             $exceptionOptions.CreateScopeForErrors = $CreateScopeForErrors.IsPresent
@@ -106,14 +108,10 @@ function Enable-KrExceptionHandling {
         if ($PSBoundParameters.ContainsKey('AllowStatusCode404Response')) {
             $exceptionOptions.AllowStatusCode404Response = $AllowStatusCode404Response.IsPresent
         }
-        if ($PSBoundParameters.ContainsKey('IncludeDetailsInDevelopment')) {
-            $exceptionOptions.IncludeDetailsInDevelopment = $IncludeDetailsInDevelopment.IsPresent
-        }
-        if ($PSBoundParameters.ContainsKey('UseProblemDetails')) {
-            $exceptionOptions.UseProblemDetails = $UseProblemDetails.IsPresent
-        }
-
-        if ($PSCmdlet.ParameterSetName -eq 'LanguageOptions') {
+        if ($PSCmdlet.ParameterSetName -eq 'Json') {
+            # If using the JSON fallback, set up the built-in JSON handler
+            $exceptionOptions.UseJsonExceptionHandler($UseProblemDetails.IsPresent, $IncludeDetailsInDevelopment.IsPresent)
+        } elseif ($PSCmdlet.ParameterSetName -eq 'LanguageOptions') {
             $exceptionOptions.LanguageOptions = $LanguageOptions
         } elseif ($PSCmdlet.ParameterSetName -ne 'Default') {
             $lo = [Kestrun.Hosting.Options.LanguageOptions]::new()

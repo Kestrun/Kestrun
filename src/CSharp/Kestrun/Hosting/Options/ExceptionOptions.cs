@@ -1,9 +1,7 @@
 using System.Management.Automation;
-using System.Text.Json;
-using System.Text.Json.Serialization;
 using Kestrun.Languages;
 using Kestrun.Models;
-using Kestrun.Utilities;
+using Kestrun.Runtime;
 using Microsoft.AspNetCore.Diagnostics;
 
 namespace Kestrun.Hosting.Options;
@@ -124,8 +122,8 @@ public sealed class ExceptionOptions : ExceptionHandlerOptions
             var ex = feature?.Error;
 
 #if NET9_0_OR_GREATER
-        var status = StatusCodeSelector?.Invoke(ex ?? new Exception("Unhandled exception"))
-                     ?? StatusCodes.Status500InternalServerError;
+            var status = StatusCodeSelector?.Invoke(ex ?? new Exception("Unhandled exception"))
+                         ?? StatusCodes.Status500InternalServerError;
 #else
             var status = LegacyStatusCodeSelector?.Invoke(ex ?? new Exception("Unhandled exception"))
                          ?? StatusCodes.Status500InternalServerError;

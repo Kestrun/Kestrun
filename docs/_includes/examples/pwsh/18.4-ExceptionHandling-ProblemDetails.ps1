@@ -16,7 +16,7 @@ New-KrServer -Name 'Exception Handling - ProblemDetails'
 Add-KrEndpoint -Port $Port -IPAddress $IPAddress
 
 # No custom handler or re-exec path; rely on built-in JSON/ProblemDetails
-Enable-KrExceptionHandling -IncludeDetailsInDevelopment -UseProblemDetails 
+Enable-KrExceptionHandling -IncludeDetailsInDevelopment -UseProblemDetails
 
 Enable-KrConfiguration
 

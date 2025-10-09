@@ -1,4 +1,4 @@
-namespace Kestrun.Utilities;
+namespace Kestrun.Runtime;
 
 /// <summary>
 /// Helpers for determining the current environment name.
@@ -9,18 +9,28 @@ public static class EnvironmentHelper
     private static IHostEnvironment? _cachedEnv;
 
     /// <summary>
-    /// Set a callback to provide an explicit environment name override.
-    /// </summary>
-    /// <param name="provider">The override provider function.</param>
-    public static void SetOverride(Func<string?> provider)
-        => _overrideProvider = provider;
-
-    /// <summary>
-    /// Set the host environment (typically from DI).
+    /// Set the host environment (usually from DI).
     /// </summary>
     /// <param name="env">The host environment.</param>
-    public static void SetHostEnvironment(IHostEnvironment env)
-        => _cachedEnv = env;
+    public static void SetHostEnvironment(IHostEnvironment env) => _cachedEnv = env;
+
+    /// <summary>
+    /// Set an explicit override for the environment name.
+    /// </summary>
+    /// <param name="name">The environment name to override with.</param>
+    public static void SetOverrideName(string? name)
+        => _overrideProvider = string.IsNullOrWhiteSpace(name) ? null : () => name;
+
+    /// <summary>
+    /// Set an explicit override provider for the environment name.
+    /// </summary>
+    /// <param name="provider">The provider function to retrieve the environment name.</param>
+    public static void SetOverride(Func<string?> provider) => _overrideProvider = provider;
+
+    /// <summary>
+    /// Clear any explicit override for the environment name.
+    /// </summary>
+    public static void ClearOverride() => _overrideProvider = null;
 
     /// <summary>
     /// Determine the current environment name.

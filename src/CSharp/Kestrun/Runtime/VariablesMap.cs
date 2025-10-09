@@ -2,7 +2,7 @@ using System.Reflection;
 using Kestrun.Models;
 using Kestrun.SharedState;
 
-namespace Kestrun.Utilities;
+namespace Kestrun.Runtime;
 
 /// <summary>
 /// Provides utility methods for mapping and flattening variables from various sources.

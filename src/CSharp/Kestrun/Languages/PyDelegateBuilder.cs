@@ -10,7 +10,7 @@ namespace Kestrun.Languages;
 internal static class PyDelegateBuilder
 {
     public static bool Implemented { get; set; }
-    public static void ConfigurePythonRuntimePath(string path) => Runtime.PythonDLL = path;
+    public static void ConfigurePythonRuntimePath(string path) => Python.Runtime.Runtime.PythonDLL = path;
     // ---------------------------------------------------------------------------
     //  helpers at class level
     // ---------------------------------------------------------------------------

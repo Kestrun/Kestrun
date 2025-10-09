@@ -18,6 +18,12 @@
     If specified, formats error responses using the Problem Details standard (RFC 7807).
 .PARAMETER Compress
     If specified, compress the json response for error handling.
+.PARAMETER DeveloperExceptionPage
+    If specified, enables the Developer Exception Page middleware with default options.
+.PARAMETER SourceCodeLineCount
+    The number of source code lines to display around the error line in the Developer Exception Page.
+.PARAMETER SourceCodePath
+    The base path to use for locating source code files in the Developer Exception Page.
 .PARAMETER LanguageOptions
     A LanguageOptions object defining the scripting language, code, references, imports, and arguments
     for custom error handling logic.
@@ -52,16 +58,34 @@ function Enable-KrExceptionHandling {
         [Kestrun.Hosting.KestrunHost] $Server,
 
         # Redirect
+        [Parameter(Mandatory = $true, ParameterSetName = 'ExceptionHandlingPath')]
         [string] $ExceptionHandlingPath,
-
+        [Parameter(ParameterSetName = 'LanguageOptions')]
+        [Parameter(ParameterSetName = 'ScriptBlock')]
+        [Parameter(ParameterSetName = 'Code')]
+        [Parameter(ParameterSetName = 'CodeFilePath')]
+        [Parameter(ParameterSetName = 'ExceptionHandlingPath')]
         [switch] $CreateScopeForErrors,
+        [Parameter(ParameterSetName = 'LanguageOptions')]
+        [Parameter(ParameterSetName = 'ScriptBlock')]
+        [Parameter(ParameterSetName = 'Code')]
+        [Parameter(ParameterSetName = 'CodeFilePath')]
+        [Parameter(ParameterSetName = 'ExceptionHandlingPath')]
         [switch] $AllowStatusCode404Response,
+
         [Parameter(ParameterSetName = 'Json')]
         [switch] $IncludeDetailsInDevelopment,
         [Parameter(ParameterSetName = 'Json')]
         [switch] $UseProblemDetails,
         [Parameter(ParameterSetName = 'Json')]
         [switch] $Compress,
+
+        [Parameter(Mandatory = $true, ParameterSetName = 'DeveloperExceptionPage')]
+        [switch] $DeveloperExceptionPage,
+        [Parameter(ParameterSetName = 'DeveloperExceptionPage')]
+        [int] $SourceCodeLineCount,
+        [Parameter(ParameterSetName = 'DeveloperExceptionPage')]
+        [string] $SourceCodePath,
 
         # Custom via LanguageOptions or ScriptBlock
         [Parameter(ParameterSetName = 'LanguageOptions')]
@@ -117,7 +141,26 @@ function Enable-KrExceptionHandling {
             # If using the JSON fallback, set up the built-in JSON handler
             $exceptionOptions.UseJsonExceptionHandler($UseProblemDetails.IsPresent, $IncludeDetailsInDevelopment.IsPresent, $Compress.IsPresent)
         } elseif ($PSCmdlet.ParameterSetName -eq 'LanguageOptions') {
+            # If using LanguageOptions, assign it directly
             $exceptionOptions.LanguageOptions = $LanguageOptions
+        } elseif ($PSCmdlet.ParameterSetName -eq 'DeveloperExceptionPage') {
+            # Warn if not in Development environment
+            if (-not (Test-KrDebugContext)) {
+                if (Test-KrLogger) {
+                    Write-KrLog -Level Warning -Message 'DeveloperExceptionPage is typically used in Development environment. Current environment does not appear to be Development.'
+                } else {
+                    Write-Warning -Message 'DeveloperExceptionPage is typically used in Development environment. Current environment does not appear to be Development.'
+                }
+            }
+            # If using Developer Exception Page, set up the options accordingly
+            $exceptionOptions.DeveloperExceptionPageOptions = [Microsoft.AspNetCore.Builder.DeveloperExceptionPageOptions]::new()
+            # Configure Developer Exception Page options if specified
+            if ($PSBoundParameters.ContainsKey('SourceCodeLineCount')) {
+                $exceptionOptions.DeveloperExceptionPageOptions.SourceCodeLineCount = $SourceCodeLineCount
+            }
+            if ($PSBoundParameters.ContainsKey('SourceCodePath')) {
+                $exceptionOptions.DeveloperExceptionPageOptions.FileProvider = [Microsoft.Extensions.FileProviders.PhysicalFileProvider]::new($SourceCodePath)
+            }
         } elseif ($PSCmdlet.ParameterSetName -ne 'Default') {
             $lo = [Kestrun.Hosting.Options.LanguageOptions]::new()
             $lo.ExtraImports = $ExtraImports

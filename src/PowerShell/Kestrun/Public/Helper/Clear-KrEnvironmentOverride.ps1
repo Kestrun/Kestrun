@@ -6,11 +6,11 @@
     This reverts Kestrun to use the default environment, which is 'Production' unless
     changed by the KESTRUN_ENVIRONMENT environment variable.
 .EXAMPLE
-    Clear-KestrunEnvironmentOverride
+    Clear-KrEnvironmentOverride
     Clears any Kestrun environment override, reverting to the default environment.
     This is useful for resetting the environment after running tests or examples.
 #>
-function Clear-KestrunEnvironmentOverride {
+function Clear-KrEnvironmentOverride {
     [KestrunRuntimeApi('Everywhere')]
     [CmdletBinding(SupportsShouldProcess)]
     param()

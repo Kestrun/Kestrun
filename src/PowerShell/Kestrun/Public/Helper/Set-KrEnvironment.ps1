@@ -8,15 +8,15 @@
 .PARAMETER Name
     The name of the environment to set. Valid values are 'Development', 'Staging', and 'Production'.
 .EXAMPLE
-    Set-KestrunEnvironment -Name 'Development'
+    Set-KrEnvironment -Name 'Development'
     Sets the Kestrun environment to 'Development'.
     This enables detailed error messages and logging for development purposes.
 .EXAMPLE
-    Set-KestrunEnvironment -Name 'Production'
+    Set-KrEnvironment -Name 'Production'
     Sets the Kestrun environment to 'Production'.
     This enables optimized settings for a production environment.
 #>
-function Set-KestrunEnvironment {
+function Set-KrEnvironment {
     [KestrunRuntimeApi('Everywhere')]
     [CmdletBinding(SupportsShouldProcess)]
     [OutputType([string])]

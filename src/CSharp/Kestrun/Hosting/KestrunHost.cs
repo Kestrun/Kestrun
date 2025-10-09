@@ -854,9 +854,9 @@ public class KestrunHost : IDisposable
             {
                 Logger.Debug("Exception handling middleware is enabled.");
             }
-            //  _ = _app.UseException(ExceptionOptions);
-
-            _ = _app.UseExceptionHandler(ExceptionOptions);
+            _ = ExceptionOptions.DeveloperExceptionPageOptions is not null
+                ? _app.UseDeveloperExceptionPage(ExceptionOptions.DeveloperExceptionPageOptions)
+                : _app.UseExceptionHandler(ExceptionOptions);
         }
 
         // Register StatusCodePages BEFORE language runtimes so that re-executed requests

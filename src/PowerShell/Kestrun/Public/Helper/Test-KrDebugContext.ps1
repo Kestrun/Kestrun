@@ -14,11 +14,11 @@
 .PARAMETER IgnoreHostDebuggerEnabled
     If set, ignores whether the host's debugger is enabled (e.g., in VS Code).
 .EXAMPLE
-    Test-KestrunDebugContext
+    Test-KrDebugContext
     Returns $true if a managed debugger is attached, the -Debug switch is used,
     or the KESTRUN_DEBUG environment variable is set to a truthy value; otherwise, $false.
 #>
-function Test-KestrunDebugContext {
+function Test-KrDebugContext {
     [KestrunRuntimeApi('Everywhere')]
     [CmdletBinding()]
     [outputType([bool])]
@@ -32,8 +32,6 @@ function Test-KestrunDebugContext {
         [Parameter(Mandatory = $false)]
         [switch]$IgnoreHostDebuggerEnabled
     )
-    return ((-not $IgnoreDebugPreference.IsPresent) -and ($DebugPreference -ne 'SilentlyContinue')) -or
-    ((-not $IgnorePSBoundParameters.IsPresent) -and $PSBoundParameters.Debug.IsPresent) -or
-    ((-not $IgnorePSDebugContext.IsPresent) -and ($PSDebugContext)) -or
+    return ((-not $IgnorePSDebugContext.IsPresent) -and ($PSDebugContext)) -and
     ((-not $IgnoreHostDebuggerEnabled.IsPresent) -and $Host.DebuggerEnabled)
 }

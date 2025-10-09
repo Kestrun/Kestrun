@@ -19,11 +19,21 @@ public sealed class ExceptionOptions : ExceptionHandlerOptions
     /// Initializes a new instance of the <see cref="ExceptionOptions"/> class.
     /// </summary>
     /// <param name="host">The KestrunHost instance associated with these options.</param>
-    public ExceptionOptions(KestrunHost host)
+    /// <param name="developerExceptionPage">If true, enables the Developer Exception Page middleware with default options.</param>
+    public ExceptionOptions(KestrunHost host, bool developerExceptionPage = false)
     {
         ArgumentNullException.ThrowIfNull(host);
         Host = host;
+        if (developerExceptionPage)
+        {
+            DeveloperExceptionPageOptions = new DeveloperExceptionPageOptions();
+        }
     }
+
+    /// <summary>
+    /// Optional Developer Exception Page options. If present, the Developer Exception Page middleware is used.
+    /// </summary>
+    public DeveloperExceptionPageOptions? DeveloperExceptionPageOptions { get; set; }
 
     /// <summary>
     /// Optional scripting options (e.g., PowerShell). If present, a script-based handler is used.

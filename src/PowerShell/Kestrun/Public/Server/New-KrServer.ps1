@@ -63,17 +63,17 @@ function New-KrServer {
     begin {
         # Honor explicit -Environment if provided
         if ($Environment -ne 'Auto') {
-            Set-KestrunEnvironment -Name $Environment | Out-Null
+            Set-KrEnvironment -Name $Environment | Out-Null
         } else {
             # Auto: if debugger-ish, become Development; else clear override
-            if (Test-KestrunDebugContext) {
-                Set-KestrunEnvironment -Name Development | Out-Null
+            if (Test-KrDebugContext) {
+                Set-KrEnvironment -Name Development | Out-Null
             } else {
-                Set-KestrunEnvironment -Name Auto | Out-Null
+                Set-KrEnvironment -Name Auto | Out-Null
             }
 
         }
-        Write-Verbose ('Kestrun environment -> ' + (Get-KestrunEnvironment))
+        Write-Verbose ('Kestrun environment -> ' + (Get-KrDebugContext))
     }
     process {
         $loadedModules = Get-KrUserImportedModule

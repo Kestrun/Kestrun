@@ -5,11 +5,11 @@
     Gets the current Kestrun environment for the PowerShell session.
     This reflects how Kestrun behaves, for example in terms of error handling and logging.
 .EXAMPLE
-    Get-KestrunEnvironment
+    Get-KrDebugContext
     Returns the current Kestrun environment, e.g. 'Development'.
     This reflects how Kestrun behaves, for example in terms of error handling and logging.
 #>
-function Get-KestrunEnvironment {
+function Get-KrDebugContext {
     [KestrunRuntimeApi('Everywhere')]
     [CmdletBinding()]
     param()

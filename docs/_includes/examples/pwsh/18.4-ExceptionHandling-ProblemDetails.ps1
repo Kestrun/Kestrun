@@ -16,9 +16,14 @@ New-KrServer -Name 'Exception Handling - ProblemDetails'
 Add-KrEndpoint -Port $Port -IPAddress $IPAddress
 
 # No custom handler or re-exec path; rely on built-in JSON/ProblemDetails
-Enable-KrExceptionHandling -IncludeDetailsInDevelopment -UseProblemDetails
+Enable-KrExceptionHandling -IncludeDetailsInDevelopment -UseProblemDetails 
 
 Enable-KrConfiguration
+
+# A normal route
+Add-KrMapRoute -Verbs Get -Pattern '/hello' -ScriptBlock {
+    Write-KrJsonResponse @{ msg = 'Hello from /hello' } -StatusCode 200
+}
 
 Add-KrMapRoute -Verbs Get -Pattern '/boom' -ScriptBlock {
     throw 'This will be formatted as ProblemDetails (500)'
@@ -26,6 +31,7 @@ Add-KrMapRoute -Verbs Get -Pattern '/boom' -ScriptBlock {
 
 Write-Host "Server starting on http://$($IPAddress):$Port" -ForegroundColor Green
 Write-Host 'Try these URLs:' -ForegroundColor Yellow
+Write-Host "  http://$($IPAddress):$Port/hello   - Happy path" -ForegroundColor Cyan
 Write-Host "  http://$($IPAddress):$Port/boom  - Triggers ProblemDetails JSON" -ForegroundColor Cyan
 Write-Host ''
 

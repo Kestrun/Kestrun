@@ -16,6 +16,8 @@
     If specified, includes detailed error information when the environment is set to Development.
 .PARAMETER UseProblemDetails
     If specified, formats error responses using the Problem Details standard (RFC 7807).
+.PARAMETER Compress
+    If specified, compress the json response for error handling.
 .PARAMETER LanguageOptions
     A LanguageOptions object defining the scripting language, code, references, imports, and arguments
     for custom error handling logic.
@@ -58,6 +60,8 @@ function Enable-KrExceptionHandling {
         [switch] $IncludeDetailsInDevelopment,
         [Parameter(ParameterSetName = 'Json')]
         [switch] $UseProblemDetails,
+        [Parameter(ParameterSetName = 'Json')]
+        [switch] $Compress,
 
         # Custom via LanguageOptions or ScriptBlock
         [Parameter(ParameterSetName = 'LanguageOptions')]
@@ -108,9 +112,10 @@ function Enable-KrExceptionHandling {
         if ($PSBoundParameters.ContainsKey('AllowStatusCode404Response')) {
             $exceptionOptions.AllowStatusCode404Response = $AllowStatusCode404Response.IsPresent
         }
+        # If using JSON fallback, set the options accordingly
         if ($PSCmdlet.ParameterSetName -eq 'Json') {
             # If using the JSON fallback, set up the built-in JSON handler
-            $exceptionOptions.UseJsonExceptionHandler($UseProblemDetails.IsPresent, $IncludeDetailsInDevelopment.IsPresent)
+            $exceptionOptions.UseJsonExceptionHandler($UseProblemDetails.IsPresent, $IncludeDetailsInDevelopment.IsPresent, $Compress.IsPresent)
         } elseif ($PSCmdlet.ParameterSetName -eq 'LanguageOptions') {
             $exceptionOptions.LanguageOptions = $LanguageOptions
         } elseif ($PSCmdlet.ParameterSetName -ne 'Default') {

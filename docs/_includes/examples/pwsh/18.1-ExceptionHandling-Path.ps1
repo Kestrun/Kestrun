@@ -37,7 +37,7 @@ Add-KrMapRoute -Verbs Get -Pattern '/error' -ScriptBlock {
     # Note: the request URL remains the original URL; this route handles the response content
     $path = $Context.Request.Path
     $method = $Context.Request.Method
-    Write-KrJsonResponse @{ error=$true; message='Request re-executed to /error'; path=$path; method=$method } -StatusCode 500
+    Write-KrJsonResponse @{ error = $true; message = 'Request re-executed to /error'; path = $path; method = $method } -StatusCode 500
 }
 
 Write-Host "Server starting on http://$($IPAddress):$Port" -ForegroundColor Green

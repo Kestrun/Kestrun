@@ -875,8 +875,8 @@ public static partial class KestrunHostMapExtensions
             host.Logger.Debug("Adding HTML template route: {Pattern}", options.Pattern);
         }
 
-        if (options.HttpVerbs.Count() != 0 &&
-            (options.HttpVerbs.Count() > 1 || options.HttpVerbs.First() != HttpVerb.Get))
+        if (options.HttpVerbs.Count != 0 &&
+            (options.HttpVerbs.Count > 1 || options.HttpVerbs.First() != HttpVerb.Get))
         {
             host.Logger.Error("HTML template routes only support GET requests. Provided HTTP verbs: {HttpVerbs}", string.Join(", ", options.HttpVerbs));
             throw new ArgumentException("HTML template routes only support GET requests.", nameof(options.HttpVerbs));

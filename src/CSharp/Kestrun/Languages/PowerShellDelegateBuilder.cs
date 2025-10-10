@@ -77,7 +77,6 @@ internal static class PowerShellDelegateBuilder
                 else
                 {
                     // re-throw to let higher-level middleware handle it (e.g., Developer Exception Page)
-                    throw;
                 }
             }
             finally

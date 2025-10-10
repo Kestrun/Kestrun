@@ -12,6 +12,7 @@ Deeper, cross-cutting subjects (logging, deployment, performance, etc.).
 | Guide                | Description                                    |
 |----------------------|------------------------------------------------|
 | [Logging](./logging) | Configure structured logging (C# & PowerShell) |
+| [Exception Handling](./exceptionhandling) | Middleware patterns and standardized error responses |
 | [HTTP Caching](./caching) | Layered cache headers, middleware, validators |
 | [Health Monitoring](./health) | Health endpoints, probes, and operational guidance |
 | [HSTS & HTTPS Redirection](./hsts) | Secure transport policies and automatic redirection |

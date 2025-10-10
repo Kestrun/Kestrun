@@ -26,8 +26,6 @@ param(
 )
 
 begin {
-    $ReRunFailed = [switch]  $true
-    $RunPesterInProcess = [switch]  $true
     # Ensure Pester is available
     if (-not (Get-Module -ListAvailable -Name Pester)) {
         throw 'Pester module not found. Please Install-Module Pester -Scope CurrentUser'
@@ -58,26 +56,43 @@ begin {
     function New-BasePesterConfig {
         [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseShouldProcessForStateChangingFunctions', '')]
         param(
-            [string] $TestPath,
-            [string] $Verbosity,
+            [Parameter(Mandatory = $true)] [string] $TestPath,
+            [Parameter(Mandatory = $true)] [string] $Verbosity,
             [switch] $EmitNUnit
         )
+
+        # If ResultsDir is a module-level or script-level variable, we assume it's in scope.
+        # Otherwise, you may want to pass it as a parameter.
+        if (-not (Test-Path $ResultsDir)) {
+            New-Item -ItemType Directory -Force -Path $ResultsDir | Out-Null
+        }
+
         $cfg = [PesterConfiguration]::Default
+
+        # Path(s) to test files / directory
         $cfg.Run.Path = @($TestPath)
+
+        # Verbosity for output
         $cfg.Output.Verbosity = $Verbosity
+
+        # Enable test result output
         $cfg.TestResult.Enabled = $true
         $cfg.TestResult.OutputPath = Join-Path $ResultsDir 'Pester.trx'
-        # We control exiting ourselves to allow re-runs
+
+        # Do not auto-exit; we’ll manage exit logic ourselves (for reruns etc.)
         $cfg.Run.Exit = $false
+
+        # Make sure Invoke-Pester returns a result object
         $cfg.Run.PassThru = $true
 
-        # OS-based tag exclusions (optional, mirrors your original)
+        # Exclude tags based on OS
         $excludeTag = @()
         if ($IsLinux) { $excludeTag += 'Exclude_Linux' }
         if ($IsMacOS) { $excludeTag += 'Exclude_MacOs' }
         if ($IsWindows) { $excludeTag += 'Exclude_Windows' }
         $cfg.Filter.ExcludeTag = $excludeTag
 
+        # Optionally produce NUnit XML in addition to TRX
         if ($EmitNUnit) {
             $cfg.TestResult.OutputFormat = 'NUnitXml'
             $cfg.TestResult.OutputPath = Join-Path $ResultsDir 'Pester.nunit.xml'
@@ -102,10 +117,30 @@ begin {
     #>
     function Get-FailedSelector {
         param([Parameter(Mandatory)] $PesterRun)
+
         $PesterRun.Tests |
             Where-Object { $_.Result -eq 'Failed' -or $_.Outcome -eq 'Failed' } |
-            Select-Object Name, Path, Line
+            ForEach-Object {
+                # Prefer ScriptBlock.File; fall back to Block.BlockContainer
+                $file = $null
+                try { $file = $_.ScriptBlock.File } catch {
+                    Write-Warning "Failed to get ScriptBlock.File for test '$($_.Name)': $_"
+
+                    if ( $_.Block -and $_.Block.BlockContainer) {
+                        $file = $_.Block.BlockContainer.Item.ResolvedTarget
+                    }
+                }
+                [pscustomobject]@{
+                    File = $file
+                    Line = $_.StartLine
+                    FullName = $_.FullName
+                    ExpandedPath = $_.ExpandedPath
+                    Name = $_.Name
+                    Result = $_.Result
+                }
+            }
     }
+
 
     <#
     .SYNOPSIS
@@ -134,17 +169,17 @@ begin {
         $cfg.Run.Path = $BaseConfig.Run.Path
         $cfg.Output.Verbosity = $BaseConfig.Output.Verbosity
         $cfg.TestResult.Enabled = $true
+        $cfg.TestResult.OutputPath = Join-Path $ResultsDir ('Pester-rerun-{0}.trx' -f (Get-Date -Format 'yyyyMMdd-HHmmss'))
         $cfg.Run.Exit = $false
+        $cfg.Run.PassThru = $true
         $cfg.Filter.ExcludeTag = $BaseConfig.Filter.ExcludeTag
 
-        $cfg.Filter.Line = @(
-            $Failed | ForEach-Object {
-                @{ Path = $_.Path; Line = [int]$_.Line }
-            }
+        # 🎯 Target ONLY the failing tests by their FullName
+        $cfg.Filter.FullName = @(
+            $Failed |
+                Where-Object { $_.FullName } |
+                Select-Object -ExpandProperty FullName -Unique
         )
-
-        $stamp = (Get-Date).ToString('yyyyMMdd-HHmmss')
-        $cfg.TestResult.OutputPath = Join-Path $ResultsDir "Pester-rerun-$stamp.trx"
         return $cfg
     }
 
@@ -192,10 +227,11 @@ $payload = [pscustomobject]@{
     TotalCount  = $run.TotalCount
     Tests       = $run.Tests | ForEach-Object {
         [pscustomobject]@{
-            Name   = $_.Name
-            Path   = $_.Path
-            Line   = $_.Line
-            Result = $_.Result
+            FullName = $_.FullName
+            Name     = $_.Name
+            Path     = $_.Path
+            Line     = $_.Line
+            Result   = $_.Result
         }
     }
 }

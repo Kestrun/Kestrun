@@ -22,7 +22,8 @@ param(
     [string] $Verbosity = 'Normal',
     [string] $ResultsDir = "$((Get-Location).Path)/artifacts/testresults",
     [string] $TestPath = "$((Get-Location).Path)/tests/PowerShell.Tests",
-    [switch] $EmitNUnit
+    [switch] $EmitNUnit,
+    [int] $MaxFailedAllowed = 10
 )
 
 begin {
@@ -119,7 +120,7 @@ begin {
         param([Parameter(Mandatory)] $PesterRun)
 
         $PesterRun.Tests |
-            Where-Object { $_.Result -eq 'Failed' -or $_.Outcome -eq 'Failed' } |
+            Where-Object { $_.Result -eq 'Failed' } | # -or $_.Outcome -eq 'Failed' } |
             ForEach-Object {
                 # Prefer ScriptBlock.File; fall back to Block.BlockContainer
                 $file = $null
@@ -140,7 +141,6 @@ begin {
                 }
             }
     }
-
 
     <#
     .SYNOPSIS
@@ -267,28 +267,33 @@ process {
 
     $finalExit = $initial.ExitCode
     $attempt = 0
+    if ($initial.Run.FailedCount -le $MaxFailedAllowed ) {
 
-    if ($ReRunFailed -and $initial.Run.FailedCount -gt 0 -and $MaxReruns -gt 0) {
-        $failed = Get-FailedSelector -PesterRun $initial.Run
-        while ($attempt -lt $MaxReruns -and $failed.Count -gt 0) {
-            $attempt++
-            Write-Host ('🔁 Re-run attempt {0} for {1} failing test(s)...' -f $attempt, $failed.Count)
+        if ($ReRunFailed -and $initial.Run.FailedCount -gt 0 -and $MaxReruns -gt 0) {
+            $failed = Get-FailedSelector -PesterRun $initial.Run
+            while ($attempt -lt $MaxReruns -and $failed.Count -gt 0) {
+                $attempt++
+                Write-Host ('🔁 Re-run attempt {0} for {1} failing test(s)...' -f $attempt, $failed.Count)
 
-            $rerunCfg = New-RerunConfig -Failed $failed -BaseConfig $baseCfg
-            $rerun = if ($RunPesterInProcess) {
-                Invoke-PesterWithConfig -Config $rerunCfg
-            } else {
-                Invoke-PesterWithConfig -Config $rerunCfg -OutOfProcess
-            }
+                $rerunCfg = New-RerunConfig -Failed $failed -BaseConfig $baseCfg
+                $rerun = if ($RunPesterInProcess) {
+                    Invoke-PesterWithConfig -Config $rerunCfg
+                } else {
+                    Invoke-PesterWithConfig -Config $rerunCfg -OutOfProcess
+                }
 
-            if ($rerun.Run.FailedCount -gt 0) {
-                $failed = Get-FailedSelector -PesterRun $rerun.Run
-                $finalExit = 1
-            } else {
-                $failed = @()
-                $finalExit = 0
+                if ($rerun.Run.FailedCount -gt 0) {
+                    $failed = Get-FailedSelector -PesterRun $rerun.Run
+                    $finalExit = 1
+                } else {
+                    $failed = @()
+                    $finalExit = 0
+                }
             }
         }
+    } else {
+        Write-Host ('❌ Too many initial test failures ({0}) - skipping re-runs as MaxFailedAllowed is {1}.' -f $initial.Run.FailedCount, $MaxFailedAllowed) -ForegroundColor Red
+        $finalExit = 1
     }
 
     if ($finalExit -ne 0) {

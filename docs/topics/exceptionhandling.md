@@ -44,6 +44,9 @@ Common placement:
   to capture them.
 - C# and other compiled handlers naturally flow exceptions into the middleware pipeline.
 
+> Note: Custom exception handlers implemented as PowerShell scripts are not supported at this time.
+> Use C# or VB.NET for custom exception handling middleware.
+
 ## ProblemDetails contracts
 
 When `-UseProblemDetails` is enabled, unhandled exceptions become JSON with fields including:

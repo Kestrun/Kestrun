@@ -46,7 +46,12 @@ public sealed class ExceptionOptions : ExceptionHandlerOptions
             _languageOptions = value;
             if (value is not null && ExceptionHandler is null)
             {
+                if (value.Language == Scripting.ScriptLanguage.PowerShell)
+                {
+                    throw new NotSupportedException(" PowerShell is not supported for ExceptionOptions scripting at this time.");
+                }
                 var compiled = Host.CompileScript(value, Host.Logger);
+
                 ExceptionHandler = BuildScriptExceptionHandler(this, compiled);
             }
         }

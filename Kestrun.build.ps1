@@ -235,14 +235,16 @@ Add-BuildTask 'SyncPowerShellDll' {
             Where-Object { -not ($_.Name -like 'Microsoft.CodeAnalysis*') -or
                 $_.Name -like 'Microsoft.CodeAnalysis.Razor*' } |
             ForEach-Object {
-                $targetPath = $_.FullName.Replace($srcFramework, $destFramework)
-                $targetDir = Split-Path $targetPath -Parent
+                if ( -not $_.DirectoryName.Contains('/runtimes/') -and -not $_.DirectoryName.Contains('\runtimes\') ) {
+                    $targetPath = $_.FullName.Replace($srcFramework, $destFramework)
+                    $targetDir = Split-Path $targetPath -Parent
 
-                if (-not (Test-Path $targetDir)) {
-                    New-Item -ItemType Directory -Path $targetDir -Force | Out-Null
+                    if (-not (Test-Path $targetDir)) {
+                        New-Item -ItemType Directory -Path $targetDir -Force | Out-Null
+                    }
+
+                    Copy-Item -Path $_.FullName -Destination $targetPath -Force
                 }
-
-                Copy-Item -Path $_.FullName -Destination $targetPath -Force
             }
     }
 }

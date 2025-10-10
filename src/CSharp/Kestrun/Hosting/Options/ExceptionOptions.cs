@@ -1,4 +1,5 @@
 using System.Management.Automation;
+using System.Diagnostics.CodeAnalysis;
 using Kestrun.Languages;
 using Kestrun.Models;
 using Kestrun.Runtime;
@@ -20,6 +21,7 @@ public sealed class ExceptionOptions : ExceptionHandlerOptions
     /// </summary>
     /// <param name="host">The KestrunHost instance associated with these options.</param>
     /// <param name="developerExceptionPage">If true, enables the Developer Exception Page middleware with default options.</param>
+    [SetsRequiredMembers]
     public ExceptionOptions(KestrunHost host, bool developerExceptionPage = false)
     {
         ArgumentNullException.ThrowIfNull(host);
@@ -48,7 +50,7 @@ public sealed class ExceptionOptions : ExceptionHandlerOptions
             {
                 if (value.Language == Scripting.ScriptLanguage.PowerShell)
                 {
-                    throw new NotSupportedException(" PowerShell is not supported for ExceptionOptions scripting at this time.");
+                    throw new NotSupportedException("PowerShell is not supported for ExceptionOptions scripting at this time.");
                 }
                 var compiled = Host.CompileScript(value, Host.Logger);
 

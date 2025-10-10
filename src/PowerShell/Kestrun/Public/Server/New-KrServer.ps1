@@ -71,9 +71,8 @@ function New-KrServer {
             } else {
                 Set-KrEnvironment -Name Auto | Out-Null
             }
-
         }
-        Write-Verbose ('Kestrun environment -> ' + (Get-KrDebugContext))
+        Write-Verbose ('Kestrun environment -> ' + (Get-KrEnvironment))
     }
     process {
         $loadedModules = Get-KrUserImportedModule

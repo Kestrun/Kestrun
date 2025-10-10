@@ -5,10 +5,6 @@
 .DESCRIPTION
     Tests if the current PowerShell session is in a debugging context.
     This is determined by checking if a managed debugger is attached,
-.PARAMETER IgnorePSBoundParameters
-    If set, ignores the presence of the -Debug switch in the current command's bound parameters.
-.PARAMETER IgnoreDebugPreference
-    If set, ignores the current value of $DebugPreference.
 .PARAMETER IgnorePSDebugContext
     If set, ignores whether the session is currently paused at a breakpoint or step.
 .PARAMETER IgnoreHostDebuggerEnabled
@@ -23,10 +19,6 @@ function Test-KrDebugContext {
     [CmdletBinding()]
     [outputType([bool])]
     param (
-        [Parameter(Mandatory = $false)]
-        [switch]$IgnorePSBoundParameters,
-        [Parameter(Mandatory = $false)]
-        [switch]$IgnoreDebugPreference,
         [Parameter(Mandatory = $false)]
         [switch]$IgnorePSDebugContext,
         [Parameter(Mandatory = $false)]

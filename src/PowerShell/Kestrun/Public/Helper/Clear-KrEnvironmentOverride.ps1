@@ -5,6 +5,8 @@
     Clears any Kestrun environment override for the current PowerShell session.
     This reverts Kestrun to use the default environment, which is 'Production' unless
     changed by the KESTRUN_ENVIRONMENT environment variable.
+.PARAMETER WhatIf
+    Shows what would happen if the cmdlet runs. The cmdlet is not run.
 .EXAMPLE
     Clear-KrEnvironmentOverride
     Clears any Kestrun environment override, reverting to the default environment.

@@ -7,6 +7,8 @@
     This affects how Kestrun behaves, for example in terms of error handling and logging.
 .PARAMETER Name
     The name of the environment to set. Valid values are 'Development', 'Staging', and 'Production'.
+.PARAMETER WhatIf
+    Shows what would happen if the cmdlet runs. The cmdlet is not run.
 .EXAMPLE
     Set-KrEnvironment -Name 'Development'
     Sets the Kestrun environment to 'Development'.

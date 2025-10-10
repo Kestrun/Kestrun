@@ -16,13 +16,16 @@ namespace KestrunTests.Hosting;
 /// </summary>
 public class KestrunHostExceptionHandlingIntegrationTests
 {
-    private static KestrunHost CreateHost(Action<KestrunHost>? configure)
+    private static KestrunHost CreateHost(Action<KestrunHost>? configureBeforeBuild, Action<KestrunHost>? configureAfterBuild)
     {
         var logger = new LoggerConfiguration().CreateLogger();
         var host = new KestrunHost("TestExceptions", logger, AppContext.BaseDirectory);
         host.ConfigureListener(0, IPAddress.Loopback, useConnectionLogging: false);
-        configure?.Invoke(host);
+        // Configure options/middleware prior to building the app
+        configureBeforeBuild?.Invoke(host);
         host.EnableConfiguration();
+        // Map routes after the WebApplication has been built
+        configureAfterBuild?.Invoke(host);
         return host;
     }
 
@@ -42,16 +45,19 @@ public class KestrunHostExceptionHandlingIntegrationTests
     {
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
 
-        var host = CreateHost(h =>
-        {
-            // Route that throws
-            _ = h.AddMapRoute("/oops", HttpVerb.Get, "throw new Exception(\"boom\");", ScriptLanguage.CSharp);
-            // Also a healthy route for control
-            _ = h.AddMapRoute("/ok", HttpVerb.Get, "Context.Response.StatusCode = 200;", ScriptLanguage.CSharp);
-
-            h.ExceptionOptions = new(h);
-            h.ExceptionOptions.UseJsonExceptionHandler(useProblemDetails: true, includeDetailsInDevelopment: false);
-        });
+        var host = CreateHost(
+            // Configure exception handling BEFORE build
+            h =>
+            {
+                h.ExceptionOptions = new(h);
+                h.ExceptionOptions.UseJsonExceptionHandler(useProblemDetails: true, includeDetailsInDevelopment: false);
+            },
+            // Map routes AFTER build
+            h =>
+            {
+                _ = h.AddMapRoute("/oops", HttpVerb.Get, "throw new Exception(\"boom\");", ScriptLanguage.CSharp);
+                _ = h.AddMapRoute("/ok", HttpVerb.Get, "Context.Response.StatusCode = 200;", ScriptLanguage.CSharp);
+            });
 
         try
         {
@@ -81,18 +87,21 @@ public class KestrunHostExceptionHandlingIntegrationTests
     {
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
 
-        var host = CreateHost(h =>
-        {
-            // Throwing route
-            _ = h.AddMapRoute("/oops", HttpVerb.Get, "throw new Exception(\"fail\");", ScriptLanguage.CSharp);
-            // Error handler endpoint for re-execution
-            _ = h.AddMapRoute("/error", HttpVerb.Get, "Context.Response.WriteJsonResponse(new{ok=false}, 500);", ScriptLanguage.CSharp);
-
-            h.ExceptionOptions = new(h)
+        var host = CreateHost(
+            // Configure exception handler path BEFORE build
+            h =>
             {
-                ExceptionHandlingPath = new PathString("/error")
-            };
-        });
+                h.ExceptionOptions = new(h)
+                {
+                    ExceptionHandlingPath = new PathString("/error")
+                };
+            },
+            // Map routes AFTER build
+            h =>
+            {
+                _ = h.AddMapRoute("/oops", HttpVerb.Get, "throw new Exception(\"fail\");", ScriptLanguage.CSharp);
+                _ = h.AddMapRoute("/error", HttpVerb.Get, "Context.Response.WriteJsonResponse(new{ok=false}, 500);", ScriptLanguage.CSharp);
+            });
 
         try
         {
@@ -116,20 +125,24 @@ public class KestrunHostExceptionHandlingIntegrationTests
     {
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
 
-        var host = CreateHost(h =>
-        {
-            // Throwing route
-            _ = h.AddMapRoute("/oops", HttpVerb.Get, "throw new InvalidOperationException(\"bad\");", ScriptLanguage.CSharp);
-
-            h.ExceptionOptions = new(h)
+        var host = CreateHost(
+            // Configure scripted C# exception handler BEFORE build
+            h =>
             {
-                LanguageOptions = new LanguageOptions
+                h.ExceptionOptions = new(h)
                 {
-                    Language = ScriptLanguage.CSharp,
-                    Code = "Context.Response.WriteJsonResponse(new{handled=true}, 500);"
-                }
-            };
-        });
+                    LanguageOptions = new LanguageOptions
+                    {
+                        Language = ScriptLanguage.CSharp,
+                        Code = "Context.Response.WriteJsonResponse(new{handled=true}, 500);"
+                    }
+                };
+            },
+            // Map throwing route AFTER build
+            h =>
+            {
+                _ = h.AddMapRoute("/oops", HttpVerb.Get, "throw new InvalidOperationException(\"bad\");", ScriptLanguage.CSharp);
+            });
 
         try
         {
@@ -151,20 +164,24 @@ public class KestrunHostExceptionHandlingIntegrationTests
     {
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
 
-        var host = CreateHost(h =>
-        {
-            // Throwing route
-            _ = h.AddMapRoute("/oops", HttpVerb.Get, "throw new Exception(\"vbboom\");", ScriptLanguage.CSharp);
-
-            h.ExceptionOptions = new(h)
+        var host = CreateHost(
+            // Configure scripted VB.NET exception handler BEFORE build
+            h =>
             {
-                LanguageOptions = new LanguageOptions
+                h.ExceptionOptions = new(h)
                 {
-                    Language = ScriptLanguage.VBNet,
-                    Code = "Context.Response.WriteJsonResponse(New With {.handled = True}, 500)"
-                }
-            };
-        });
+                    LanguageOptions = new LanguageOptions
+                    {
+                        Language = ScriptLanguage.VBNet,
+                        Code = "Context.Response.WriteJsonResponse(New With {.handled = True}, 500)"
+                    }
+                };
+            },
+            // Map throwing route AFTER build
+            h =>
+            {
+                _ = h.AddMapRoute("/oops", HttpVerb.Get, "throw new Exception(\"vbboom\");", ScriptLanguage.CSharp);
+            });
 
         try
         {
@@ -188,11 +205,11 @@ public class KestrunHostExceptionHandlingIntegrationTests
         // Ensure dev environment for richer output
         EnvironmentHelper.SetOverrideName("Development");
 
-        var host = CreateHost(h =>
-        {
-            _ = h.AddMapRoute("/oops", HttpVerb.Get, "throw new Exception(\"devpage\");", ScriptLanguage.CSharp);
-            h.ExceptionOptions = new(h, developerExceptionPage: true);
-        });
+        var host = CreateHost(
+            // Enable developer exception page BEFORE build
+            h => { h.ExceptionOptions = new(h, developerExceptionPage: true); },
+            // Map throwing route AFTER build
+            h => { _ = h.AddMapRoute("/oops", HttpVerb.Get, "throw new Exception(\"devpage\");", ScriptLanguage.CSharp); });
 
         try
         {

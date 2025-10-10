@@ -179,6 +179,10 @@ public class KestrunHost : IDisposable
         Builder = WebApplication.CreateBuilder();
         _ = Builder.Host.UseSerilog();
 
+        // ④.1 Make this KestrunHost available via DI so framework-created components (e.g., auth handlers)
+        // can resolve it. We register the current instance as a singleton.
+        Builder.Services.AddSingleton(this);
+
         // ⑤ Options
         InitializeOptions(appName);
 

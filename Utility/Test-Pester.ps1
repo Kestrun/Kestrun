@@ -58,8 +58,8 @@ begin {
     function New-BasePesterConfig {
         [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseShouldProcessForStateChangingFunctions', '')]
         param(
-            [string] $TestPath = $TestPath,
-            [string] $Verbosity = $Verbosity,
+            [string] $TestPath,
+            [string] $Verbosity,
             [switch] $EmitNUnit
         )
         $cfg = [PesterConfiguration]::Default
@@ -69,6 +69,7 @@ begin {
         $cfg.TestResult.OutputPath = Join-Path $ResultsDir 'Pester.trx'
         # We control exiting ourselves to allow re-runs
         $cfg.Run.Exit = $false
+        $cfg.Run.PassThru = $true
 
         # OS-based tag exclusions (optional, mirrors your original)
         $excludeTag = @()

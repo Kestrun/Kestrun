@@ -84,6 +84,7 @@ function Get-FreeTcpPort {
     [CmdletBinding()]
     param()
     try {
+        $retryCount = 0
         $listener = $null
         do {
             if ($null -ne $listener) {
@@ -93,8 +94,8 @@ function Get-FreeTcpPort {
             $listener = [System.Net.Sockets.TcpListener]::new([System.Net.IPAddress]::Loopback, 0)
             $listener.Start()
             $port = ($listener.LocalEndpoint).Port
-        } until ($port -lt 58000)
-
+            $retryCount++
+        } until ($port -lt 58000 -or $retryCount -ge 5)
     } catch {
         Write-Warning "Failed to get free TCP port: $_"
         $port = 5000 # fallback

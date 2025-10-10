@@ -12,7 +12,7 @@ namespace Kestrun.Hosting.Options;
 public sealed class ExceptionOptions : ExceptionHandlerOptions
 {
     /// <summary>
-    ///
+    /// Optional scripting options (e.g., PowerShell). If present, a script-based handler is used.
     /// </summary>
     private LanguageOptions? _languageOptions;
 
@@ -205,5 +205,4 @@ public sealed class ExceptionOptions : ExceptionHandlerOptions
             await kestrunContext.Response.ApplyTo(httpContext.Response);
         };
     }
-
 }

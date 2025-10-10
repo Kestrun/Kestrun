@@ -835,23 +835,64 @@ public class KestrunHost : IDisposable
     /// <exception cref="InvalidOperationException"></exception>
     public WebApplication Build()
     {
+        ValidateBuilderState();
+        ApplyQueuedServices();
+        BuildWebApplication();
+        ConfigureBuiltInMiddleware();
+        LogApplicationInfo();
+        ApplyQueuedMiddleware();
+        ApplyFeatures();
+
+        return _app!;
+    }
+
+    /// <summary>
+    /// Validates that the builder is properly initialized before building.
+    /// </summary>
+    /// <exception cref="InvalidOperationException">Thrown when the builder is not initialized.</exception>
+    private void ValidateBuilderState()
+    {
         if (Builder == null)
         {
             throw new InvalidOperationException("Call CreateBuilder() first.");
         }
+    }
 
-        // 1️⃣  Apply all queued services
+    /// <summary>
+    /// Applies all queued service configurations to the service collection.
+    /// </summary>
+    private void ApplyQueuedServices()
+    {
         foreach (var configure in _serviceQueue)
         {
             configure(Builder.Services);
         }
+    }
 
-        // 2️⃣  Build the WebApplication
+    /// <summary>
+    /// Builds the WebApplication instance from the configured builder.
+    /// </summary>
+    private void BuildWebApplication()
+    {
         _app = Builder.Build();
-
         Logger.Information("Application built successfully.");
+    }
 
-        // Exception handling middleware
+    /// <summary>
+    /// Configures built-in middleware components in the correct order.
+    /// </summary>
+    private void ConfigureBuiltInMiddleware()
+    {
+        ConfigureExceptionHandling();
+        ConfigureStatusCodePages();
+        ConfigurePowerShellRuntime();
+    }
+
+    /// <summary>
+    /// Configures exception handling middleware if enabled.
+    /// </summary>
+    private void ConfigureExceptionHandling()
+    {
         if (ExceptionOptions is not null)
         {
             if (Logger.IsEnabled(LogEventLevel.Debug))
@@ -859,10 +900,16 @@ public class KestrunHost : IDisposable
                 Logger.Debug("Exception handling middleware is enabled.");
             }
             _ = ExceptionOptions.DeveloperExceptionPageOptions is not null
-                ? _app.UseDeveloperExceptionPage(ExceptionOptions.DeveloperExceptionPageOptions)
-                : _app.UseExceptionHandler(ExceptionOptions);
+                ? _app!.UseDeveloperExceptionPage(ExceptionOptions.DeveloperExceptionPageOptions)
+                : _app!.UseExceptionHandler(ExceptionOptions);
         }
+    }
 
+    /// <summary>
+    /// Configures status code pages middleware if enabled.
+    /// </summary>
+    private void ConfigureStatusCodePages()
+    {
         // Register StatusCodePages BEFORE language runtimes so that re-executed requests
         // pass through language middleware again (and get fresh RouteValues/context).
         if (StatusCodeOptions is not null)
@@ -871,9 +918,16 @@ public class KestrunHost : IDisposable
             {
                 Logger.Debug("Status code pages middleware is enabled.");
             }
-            _ = _app.UseStatusCodePages(StatusCodeOptions);
+            _ = _app!.UseStatusCodePages(StatusCodeOptions);
         }
+    }
 
+    /// <summary>
+    /// Configures PowerShell runtime middleware if enabled.
+    /// </summary>
+    /// <exception cref="InvalidOperationException">Thrown when PowerShell is enabled but runspace pool is not initialized.</exception>
+    private void ConfigurePowerShellRuntime()
+    {
         if (PowershellMiddlewareEnabled)
         {
             if (Logger.IsEnabled(LogEventLevel.Debug))
@@ -886,15 +940,30 @@ public class KestrunHost : IDisposable
                 throw new InvalidOperationException("Runspace pool is not initialized. Call EnableConfiguration first.");
             }
             Logger.Information("Adding PowerShell runtime");
-            _ = _app.UseLanguageRuntime(
+            _ = _app!.UseLanguageRuntime(
                     ScriptLanguage.PowerShell,
                     b => b.UsePowerShellRunspace(_runspacePool));
         }
+    }
 
+    /// <summary>
+    /// Logs application information including working directory and Pages directory contents.
+    /// </summary>
+    private void LogApplicationInfo()
+    {
         Logger.Information("CWD: {CWD}", Directory.GetCurrentDirectory());
-        Logger.Information("ContentRoot: {Root}", _app.Environment.ContentRootPath);
-        var pagesDir = Path.Combine(_app.Environment.ContentRootPath, "Pages");
+        Logger.Information("ContentRoot: {Root}", _app!.Environment.ContentRootPath);
+        LogPagesDirectory();
+    }
+
+    /// <summary>
+    /// Logs information about the Pages directory and its contents.
+    /// </summary>
+    private void LogPagesDirectory()
+    {
+        var pagesDir = Path.Combine(_app!.Environment.ContentRootPath, "Pages");
         Logger.Information("Pages Dir: {PagesDir}", pagesDir);
+
         if (Directory.Exists(pagesDir))
         {
             foreach (var file in Directory.GetFiles(pagesDir, "*.*", SearchOption.AllDirectories))
@@ -906,19 +975,28 @@ public class KestrunHost : IDisposable
         {
             Logger.Warning("Pages directory does not exist: {PagesDir}", pagesDir);
         }
+    }
 
-        // 3️⃣  Apply all queued middleware stages
+    /// <summary>
+    /// Applies all queued middleware stages to the application pipeline.
+    /// </summary>
+    private void ApplyQueuedMiddleware()
+    {
         foreach (var stage in _middlewareQueue)
         {
-            stage(_app);
+            stage(_app!);
         }
+    }
 
+    /// <summary>
+    /// Applies all queued features to the host.
+    /// </summary>
+    private void ApplyFeatures()
+    {
         foreach (var feature in FeatureQueue)
         {
             feature(this);
         }
-        // 5️⃣  Terminal endpoint execution
-        return _app;
     }
 
     /// <summary>

@@ -1,4 +1,4 @@
-﻿<#
+<#
 .SYNOPSIS
     Clears any Kestrun environment override for the current PowerShell session.
 .DESCRIPTION

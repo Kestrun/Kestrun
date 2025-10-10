@@ -30,7 +30,6 @@ public sealed record KestrunContext
         Request = request;
         Response = response;
         HttpContext = httpContext;
-
     }
 
     /// <summary>

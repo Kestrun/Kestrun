@@ -176,22 +176,6 @@ Add-BuildTask 'Restore' {
 
 Add-BuildTask 'BuildNoPwsh' {
     Write-Host '🔨 Building solution...'
-    <#   if (-not $Version) {
-        if ($PSCmdlet.ParameterSetName -eq 'FileVersion') {
-            $Version = Get-Version -FileVersion $FileVersion
-        } elseif ($PSCmdlet.ParameterSetName -eq 'Version') {
-            if (-not (Test-Path -Path $FileVersion)) {
-                [ordered]@{
-                    Version = $Version
-                    Release = $Release
-                    Iteration = $Iteration
-                } | ConvertTo-Json | Set-Content -Path $FileVersion
-            }
-            $Version = Get-Version -FileVersion $FileVersion
-        } else {
-            throw "Invalid parameter set. Use either 'FileVersion' or 'Version'."
-        }
-    }#>
     if ($Frameworks.Count -eq 1) {
         Write-Host "Building for single framework: $($Frameworks[0])" -ForegroundColor DarkCyan
         dotnet build "$SolutionPath" -c $Configuration -f $framework -v:$DotNetVerbosity -p:Version=$Version -p:InformationalVersion=$VersionDetails.InformationalVersion
@@ -235,7 +219,7 @@ Add-BuildTask 'SyncPowerShellDll' {
             Where-Object { -not ($_.Name -like 'Microsoft.CodeAnalysis*') -or
                 $_.Name -like 'Microsoft.CodeAnalysis.Razor*' } |
             ForEach-Object {
-                if ( -not $_.DirectoryName.Contains('/runtimes/') -and -not $_.DirectoryName.Contains('\runtimes\') ) {
+                if ( -not $_.DirectoryName.Contains("$([System.IO.Path]::DirectorySeparatorChar)runtimes$([System.IO.Path]::DirectorySeparatorChar)")) {
                     $targetPath = $_.FullName.Replace($srcFramework, $destFramework)
                     $targetDir = Split-Path $targetPath -Parent
 

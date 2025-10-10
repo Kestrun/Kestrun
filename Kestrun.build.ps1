@@ -270,46 +270,7 @@ Add-BuildTask 'Format' {
 
 
 Add-BuildTask 'Test-Pester' {
-
-    Import-Module Pester -Force
-    $cfg = [PesterConfiguration]::Default
-    $cfg.Run.Path = @("$($PWD.Path)/tests/PowerShell.Tests")
-    $cfg.Output.Verbosity = $PesterVerbosity
-    $cfg.TestResult.Enabled = $true
-    $cfg.Run.Exit = $true
-
-    $excludeTag = @()
-    if ($IsLinux) { $excludeTag += 'Exclude_Linux' }
-    if ($IsMacOS) { $excludeTag += 'Exclude_MacOs' }
-    if ($IsWindows) { $excludeTag += 'Exclude_Windows' }
-    $cfg.Filter.ExcludeTag = $excludeTag
-
-    if ($RunPesterInProcess) {
-        Invoke-Pester -Configuration $cfg
-        # Check exit code
-        if ($LASTEXITCODE -ne 0) {
-            Write-Host '❌ Some tests failed'
-            exit $LASTEXITCODE
-        } else {
-            Write-Host '✅ All tests passed'
-        }
-    } else {
-        $json = $cfg | ConvertTo-Json -Depth 10
-        $child = Join-Path -Path ([System.IO.Path]::GetTempPath()) -ChildPath "run-pester-$([guid]::NewGuid()).ps1"
-        @'
-param([string]$ConfigJson)
-Import-Module Pester -Force
-$hash = $ConfigJson | ConvertFrom-Json -AsHashtable
-$cfg = New-PesterConfiguration -Hashtable $hash
-Invoke-Pester -Configuration $cfg
-'@ | Set-Content -Path $child -Encoding UTF8
-
-        try {
-            pwsh -NoProfile -File $child -ConfigJson $json
-        } finally {
-            Remove-Item $child -ErrorAction SilentlyContinue
-        }
-    }
+    & .\Utility\Test-Pester.ps1 -ReRunFailed -Verbosity $PesterVerbosity -RunPesterInProcess:$RunPesterInProcess
 }
 
 Add-BuildTask 'Test' 'Test-xUnit', 'Test-Pester'

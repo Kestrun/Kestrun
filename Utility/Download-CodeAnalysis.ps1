@@ -11,7 +11,7 @@ param(
 $BaseOut = Join-Path -Path $OutputDir -ChildPath 'Microsoft.CodeAnalysis'
 
 # Versions and packages you want
-$Versions = @('4.9.2', '4.11.0', '4.13.0')
+$Versions = @('4.9.2', '4.11.0', '4.14.0')
 $Packages = @(
     'Microsoft.CodeAnalysis.Common',
     'Microsoft.CodeAnalysis.CSharp.Workspaces',

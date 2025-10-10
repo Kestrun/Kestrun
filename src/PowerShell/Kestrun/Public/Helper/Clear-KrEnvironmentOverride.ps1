@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Clears any Kestrun environment override for the current PowerShell session.
 .DESCRIPTION
@@ -7,6 +7,8 @@
     changed by the KESTRUN_ENVIRONMENT environment variable.
 .PARAMETER WhatIf
     Shows what would happen if the cmdlet runs. The cmdlet is not run.
+.PARAMETER Confirm
+    Prompts you for confirmation before running the cmdlet.
 .EXAMPLE
     Clear-KrEnvironmentOverride
     Clears any Kestrun environment override, reverting to the default environment.

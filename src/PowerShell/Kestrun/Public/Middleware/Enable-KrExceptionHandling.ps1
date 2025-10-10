@@ -45,6 +45,23 @@
     If specified, returns the modified Kestrun server instance.
 .OUTPUTS
     The modified Kestrun server instance if the PassThru parameter is specified; otherwise, no output.
+.EXAMPLE
+    Enable-KrExceptionHandling -ExceptionHandlingPath '/error' -CreateScopeForErrors -AllowStatusCode404Response -PassThru
+    Enables exception handling middleware on the default Kestrun server instance,
+    re-executing requests to '/error' when exceptions occur, creating a scope for error handling,
+    and allowing handling of 404 status code responses. The modified server instance is returned.
+.EXAMPLE
+    Enable-KrExceptionHandling -Server $myServer -DeveloperExceptionPage -SourceCodeLineCount 10 -SourceCodePath 'C:\MyApp'
+    Enables the Developer Exception Page middleware on the specified Kestrun server instance,
+    displaying 10 lines of source code around the error line and using 'C:\MyApp' as the base path for source files.
+.EXAMPLE
+    $langOptions = [Kestrun.Hosting.Options.LanguageOptions]::new()
+    $langOptions.Language = [Kestrun.Scripting.ScriptLanguage]::PowerShell
+    $langOptions.Code = { param($exception) "An error occurred: $($exception.Message)" }
+    Enable-KrExceptionHandling -Server $myServer -LanguageOptions $langOptions
+    Enables custom exception handling on the specified Kestrun server instance,
+    executing the provided PowerShell code block when an exception occurs. The code block receives the exception object as a parameter.
+    The custom error handling logic can be defined using the LanguageOptions, ScriptBlock, Code, or CodeFilePath parameters.
 .NOTES
     This function is part of the Kestrun PowerShell module and is used to manage Kestrun servers
     and their middleware components.
@@ -127,17 +144,16 @@ function Enable-KrExceptionHandling {
         $exceptionOptions = [Kestrun.Hosting.Options.ExceptionOptions]::new($Server)
 
         # Map direct ExceptionOptions properties from parameters
-        if ($PSBoundParameters.ContainsKey('ExceptionHandlingPath')) {
-            $exceptionOptions.ExceptionHandlingPath = [Microsoft.AspNetCore.Http.PathString]::new($ExceptionHandlingPath)
-        }
         if ($PSBoundParameters.ContainsKey('CreateScopeForErrors')) {
             $exceptionOptions.CreateScopeForErrors = $CreateScopeForErrors.IsPresent
         }
         if ($PSBoundParameters.ContainsKey('AllowStatusCode404Response')) {
             $exceptionOptions.AllowStatusCode404Response = $AllowStatusCode404Response.IsPresent
         }
-        # If using JSON fallback, set the options accordingly
-        if ($PSCmdlet.ParameterSetName -eq 'Json') {
+        if ($PSCmdlet.ParameterSetName -eq 'ExceptionHandlingPath') {
+            $exceptionOptions.ExceptionHandlingPath = [Microsoft.AspNetCore.Http.PathString]::new($ExceptionHandlingPath)
+        } elseif ($PSCmdlet.ParameterSetName -eq 'Json') {
+            # If using JSON fallback, set the options accordingly
             # If using the JSON fallback, set up the built-in JSON handler
             $exceptionOptions.UseJsonExceptionHandler($UseProblemDetails.IsPresent, $IncludeDetailsInDevelopment.IsPresent, $Compress.IsPresent)
         } elseif ($PSCmdlet.ParameterSetName -eq 'LanguageOptions') {

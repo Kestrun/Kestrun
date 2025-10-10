@@ -1,4 +1,4 @@
-
+﻿
 <#
 .SYNOPSIS
     Sets the Kestrun environment for the current PowerShell session.
@@ -9,6 +9,10 @@
     The name of the environment to set. Valid values are 'Development', 'Staging', and 'Production'.
 .PARAMETER WhatIf
     Shows what would happen if the cmdlet runs. The cmdlet is not run.
+.PARAMETER Confirm
+    Prompts you for confirmation before running the cmdlet.
+.OUTPUTS
+    The name of the currently set environment after applying the change.
 .EXAMPLE
     Set-KrEnvironment -Name 'Development'
     Sets the Kestrun environment to 'Development'.

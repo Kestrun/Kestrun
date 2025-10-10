@@ -1,6 +1,6 @@
 param()
 Describe 'Tutorial 18.2-ExceptionHandling-PowerShell' -Tag 'Tutorial' {
-    BeforeAll { . (Join-Path $PSScriptRoot '..\PesterHelpers.ps1'); $script:instance = Start-ExampleScript -Name '18.2-ExceptionHandling-PowerShell.ps1' }
+    BeforeAll { . (Join-Path $PSScriptRoot '..\PesterHelpers.ps1'); $script:instance = Start-ExampleScript -Name '18.2-ExceptionHandling-VBNet.ps1' }
     AfterAll { if ($script:instance) { Stop-ExampleScript -Instance $script:instance } }
 
     It 'GET /ok returns 200 text' {
@@ -14,6 +14,14 @@ Describe 'Tutorial 18.2-ExceptionHandling-PowerShell' -Tag 'Tutorial' {
         # The sample throws in PowerShell route; no middleware catches PowerShell script exceptions by design
         $r = Invoke-WebRequest -Uri "$($script:instance.Url)/oops" -UseBasicParsing -TimeoutSec 12 -SkipHttpErrorCheck
         $r.StatusCode | Should -Be 500
+        ($r.Headers['Content-Type'] -join ';') | Should -Match 'application/json'
+        $r.Content | Should -Not -BeNullOrEmpty
+        $obj = $r.Content | ConvertFrom-Json
+        $obj | Should -Not -BeNullOrEmpty
+        $obj.error | Should -BeTrue
+        $obj.message | Should -Be 'Handled by middleware exception handler'
+        $obj.path | Should -Be '/oops'
+        $obj.method | Should -Be 'GET'
         # Content-Type and body may be absent for thrown PS exceptions; assertion kept to status only
     }
 
@@ -21,8 +29,12 @@ Describe 'Tutorial 18.2-ExceptionHandling-PowerShell' -Tag 'Tutorial' {
         $r = Invoke-WebRequest -Uri "$($script:instance.Url)/csharp-error" -UseBasicParsing -TimeoutSec 12 -SkipHttpErrorCheck
         $r.StatusCode | Should -Be 500
         ($r.Headers['Content-Type'] -join ';') | Should -Match 'application/json'
+        $r.Content | Should -Not -BeNullOrEmpty
         $obj = $r.Content | ConvertFrom-Json
+        $obj | Should -Not -BeNullOrEmpty
         $obj.error | Should -BeTrue
         $obj.message | Should -Match 'Handled by middleware exception handler'
+        $obj.path | Should -Be '/csharp-error'
+        $obj.method | Should -Be 'GET'
     }
 }

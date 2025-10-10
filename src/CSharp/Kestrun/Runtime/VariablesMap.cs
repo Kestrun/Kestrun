@@ -5,7 +5,7 @@ using Kestrun.SharedState;
 namespace Kestrun.Runtime;
 
 /// <summary>
-/// Provides utility methods for mapping and flattening variables from various sources.
+/// Helper class to map common request and server properties, as well as shared state variables, into a dictionary.
 /// </summary>
 public static class VariablesMap
 {

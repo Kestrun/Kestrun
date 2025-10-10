@@ -36,7 +36,7 @@ Enable-KrConfiguration
 Add-KrRouteGroup -Prefix '/secure/key' {
     Add-KrMapRoute -Verbs Get -Pattern '/simple/hello' -AuthorizationSchema 'ApiKeySimple' -ScriptBlock { Write-KrTextResponse 'Simple Key OK' }
     Add-KrMapRoute -Verbs Get -Pattern '/ps/hello' -AuthorizationSchema 'ApiKeyPS' -ScriptBlock { Write-KrTextResponse 'PS Key OK' }
-    Add-KrMapRoute -Verbs Get -Pattern '/cs/hello' -AuthorizationSchema 'ApiKeyCS' -ScriptBlock { Write-KrTextResponse 'C# Key OK' }
+    Add-KrMapRoute -Verbs Get -Pattern '/cs/hello' -AuthorizationSchema 'ApiKeyCS' -ScriptBlock { Write-KrTextResponse 'CS Key OK' }
 }
 
 # 10. Start server

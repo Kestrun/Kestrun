@@ -1,4 +1,4 @@
-﻿#
+#
 # Sample: Exception Handling with C# Inline Code
 # Demonstrates using Enable-KrExceptionHandling with C# code via Roslyn.
 # FileName: 18.3-ExceptionHandling-CSharp.ps1

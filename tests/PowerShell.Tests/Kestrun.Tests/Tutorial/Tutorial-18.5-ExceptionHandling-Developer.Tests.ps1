@@ -1,4 +1,4 @@
-﻿param()
+param()
 Describe 'Tutorial 18.5-ExceptionHandling-Developer' -Tag 'Tutorial' {
     BeforeAll { . (Join-Path $PSScriptRoot '..\PesterHelpers.ps1'); $script:instance = Start-ExampleScript -Name '18.5-ExceptionHandling-Developer.ps1' }
     AfterAll { if ($script:instance) { Stop-ExampleScript -Instance $script:instance } }

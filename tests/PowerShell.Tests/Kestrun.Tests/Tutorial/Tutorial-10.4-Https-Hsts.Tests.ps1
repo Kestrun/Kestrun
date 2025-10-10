@@ -1,4 +1,4 @@
-﻿param()
+param()
 Describe 'Example 10.4-Https-Hsts' -Tag 'Tutorial', 'Middleware', 'Https', 'Hsts' {
     BeforeAll { . (Join-Path $PSScriptRoot '..\PesterHelpers.ps1'); $script:instance = Start-ExampleScript -Name '10.4-Https-Hsts.ps1' }
     AfterAll { if ($script:instance) { Stop-ExampleScript -Instance $script:instance } }

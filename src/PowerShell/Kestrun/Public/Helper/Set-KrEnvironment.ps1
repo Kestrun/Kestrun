@@ -1,4 +1,4 @@
-﻿
+
 <#
 .SYNOPSIS
     Sets the Kestrun environment for the current PowerShell session.

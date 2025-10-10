@@ -1,4 +1,4 @@
-﻿#
+#
 # Sample: Exception Handling with ProblemDetails Fallback
 # Demonstrates JSON responses using Problem Details (RFC 7807) without custom handlers.
 # FileName: 18.4-ExceptionHandling-ProblemDetails.ps1

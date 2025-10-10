@@ -1,4 +1,4 @@
-﻿
+
 <#
 .SYNOPSIS
     Tests if the current PowerShell session is in a debugging context.

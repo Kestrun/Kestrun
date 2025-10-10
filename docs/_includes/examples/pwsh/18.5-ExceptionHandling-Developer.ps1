@@ -1,4 +1,4 @@
-﻿#
+#
 # Sample: Exception Handling with Re-execution
 # Demonstrates how to configure the developer exception handling page.
 # Don't use this in production!

@@ -1,4 +1,4 @@
-﻿#
+#
 # Sample: Exception Handling with VB.NET Handler
 # Demonstrates handling exceptions via a VB.NET custom exception handler.
 # PowerShell routes can throw; middleware (VB.NET) formats a consistent JSON response.

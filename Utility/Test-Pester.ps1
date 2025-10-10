@@ -88,7 +88,7 @@ begin {
         # Exclude tags based on OS
         $excludeTag = @()
         if ($IsLinux) { $excludeTag += 'Exclude_Linux' }
-        if ($IsMacOS) { $excludeTag += 'Exclude_MacOS' }
+        if ($IsMacOS) { $excludeTag += 'Exclude_MacOs' }
         if ($IsWindows) { $excludeTag += 'Exclude_Windows' }
         $cfg.Filter.ExcludeTag = $excludeTag
 

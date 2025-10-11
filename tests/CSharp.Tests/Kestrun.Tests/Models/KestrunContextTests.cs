@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using Kestrun.Models;
+using Kestrun.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Features;
 using Xunit;
@@ -12,7 +13,8 @@ public class KestrunContextTests
     {
         var req = TestRequestFactory.Create(path: http.Request.Path.HasValue ? http.Request.Path.Value! : "/");
         var res = new KestrunResponse(req);
-        return new KestrunContext(req, res, http);
+        var host = new KestrunHost("Tests", AppContext.BaseDirectory);
+        return new KestrunContext(host, req, res, http);
     }
 
     [Fact]

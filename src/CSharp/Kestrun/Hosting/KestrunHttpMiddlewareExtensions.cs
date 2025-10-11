@@ -47,9 +47,9 @@ public static class KestrunHttpMiddlewareExtensions
     /// <returns>The configured <see cref="KestrunHost"/> instance.</returns>
     public static KestrunHost AddCommonAccessLog(this KestrunHost host, Action<CommonAccessLogOptions>? configure = null)
     {
-        if (host.HostLogger.IsEnabled(LogEventLevel.Debug))
+        if (host.Logger.IsEnabled(LogEventLevel.Debug))
         {
-            host.HostLogger.Debug(
+            host.Logger.Debug(
                 "Adding common access log middleware (custom configuration supplied: {HasConfig})",
                 configure != null);
         }
@@ -58,7 +58,7 @@ public static class KestrunHttpMiddlewareExtensions
         {
             // Ensure a Serilog.ILogger is available for middleware constructor injection.
             // We don't overwrite a user-provided registration.
-            services.TryAddSingleton(_ => host.HostLogger);
+            services.TryAddSingleton(_ => host.Logger);
 
             var builder = services.AddOptions<CommonAccessLogOptions>();
             if (configure != null)
@@ -81,9 +81,9 @@ public static class KestrunHttpMiddlewareExtensions
     /// <returns>The current KestrunHost instance.</returns>
     public static KestrunHost AddResponseCompression(this KestrunHost host, ResponseCompressionOptions? options)
     {
-        if (host.HostLogger.IsEnabled(LogEventLevel.Debug))
+        if (host.Logger.IsEnabled(LogEventLevel.Debug))
         {
-            host.HostLogger.Debug("Adding response compression with options: {@Options}", options);
+            host.Logger.Debug("Adding response compression with options: {@Options}", options);
         }
 
         if (options == null)
@@ -114,9 +114,9 @@ public static class KestrunHttpMiddlewareExtensions
     /// <returns>The current KestrunHost instance.</returns>
     public static KestrunHost AddResponseCompression(this KestrunHost host, Action<ResponseCompressionOptions>? cfg = null)
     {
-        if (host.HostLogger.IsEnabled(LogEventLevel.Debug))
+        if (host.Logger.IsEnabled(LogEventLevel.Debug))
         {
-            host.HostLogger.Debug("Adding response compression with configuration: {HasConfig}", cfg != null);
+            host.Logger.Debug("Adding response compression with configuration: {HasConfig}", cfg != null);
         }
         // Service side
         _ = host.AddService(services =>
@@ -138,9 +138,9 @@ public static class KestrunHttpMiddlewareExtensions
     /// <returns>The current KestrunHost instance.</returns>
     public static KestrunHost AddRateLimiter(this KestrunHost host, RateLimiterOptions cfg)
     {
-        if (host.HostLogger.IsEnabled(LogEventLevel.Debug))
+        if (host.Logger.IsEnabled(LogEventLevel.Debug))
         {
-            host.HostLogger.Debug("Adding rate limiter with configuration: {@Config}", cfg);
+            host.Logger.Debug("Adding rate limiter with configuration: {@Config}", cfg);
         }
 
         if (cfg == null)
@@ -165,9 +165,9 @@ public static class KestrunHttpMiddlewareExtensions
     /// <returns>The current KestrunHost instance.</returns>
     public static KestrunHost AddRateLimiter(this KestrunHost host, Action<RateLimiterOptions>? cfg = null)
     {
-        if (host.HostLogger.IsEnabled(LogEventLevel.Debug))
+        if (host.Logger.IsEnabled(LogEventLevel.Debug))
         {
-            host.HostLogger.Debug("Adding rate limiter with configuration: {HasConfig}", cfg != null);
+            host.Logger.Debug("Adding rate limiter with configuration: {HasConfig}", cfg != null);
         }
 
         // Register the rate limiter service
@@ -179,9 +179,9 @@ public static class KestrunHttpMiddlewareExtensions
         // Apply the middleware
         return host.Use(app =>
         {
-            if (host.HostLogger.IsEnabled(LogEventLevel.Debug))
+            if (host.Logger.IsEnabled(LogEventLevel.Debug))
             {
-                host.HostLogger.Debug("Registering rate limiter middleware");
+                host.Logger.Debug("Registering rate limiter middleware");
             }
 
             _ = app.UseRateLimiter();
@@ -199,9 +199,9 @@ public static class KestrunHttpMiddlewareExtensions
     /// <returns>The current KestrunHost instance.</returns>
     public static KestrunHost AddAntiforgery(this KestrunHost host, AntiforgeryOptions? options)
     {
-        if (host.HostLogger.IsEnabled(LogEventLevel.Debug))
+        if (host.Logger.IsEnabled(LogEventLevel.Debug))
         {
-            host.HostLogger.Debug("Adding Antiforgery with configuration: {@Config}", options);
+            host.Logger.Debug("Adding Antiforgery with configuration: {@Config}", options);
         }
 
         if (options == null)
@@ -230,9 +230,9 @@ public static class KestrunHttpMiddlewareExtensions
     /// <returns>The current KestrunHost instance.</returns>
     public static KestrunHost AddAntiforgery(this KestrunHost host, Action<AntiforgeryOptions>? setupAction = null)
     {
-        if (host.HostLogger.IsEnabled(LogEventLevel.Debug))
+        if (host.Logger.IsEnabled(LogEventLevel.Debug))
         {
-            host.HostLogger.Debug(
+            host.Logger.Debug(
                 setupAction == null
                     ? "Adding Antiforgery with default configuration (no custom options provided)."
                     : "Adding Antiforgery with custom configuration via setupAction."
@@ -299,9 +299,9 @@ public static class KestrunHttpMiddlewareExtensions
     /// <exception cref="ArgumentException">Thrown when the policy name is null or whitespace.</exception>
     public static KestrunHost AddCors(this KestrunHost host, string policyName, Action<CorsPolicyBuilder> buildPolicy)
     {
-        if (host.HostLogger.IsEnabled(LogEventLevel.Debug))
+        if (host.Logger.IsEnabled(LogEventLevel.Debug))
         {
-            host.HostLogger.Debug("Adding CORS policy: {PolicyName}", policyName);
+            host.Logger.Debug("Adding CORS policy: {PolicyName}", policyName);
         }
 
         if (string.IsNullOrWhiteSpace(policyName))
@@ -331,9 +331,9 @@ public static class KestrunHttpMiddlewareExtensions
     /// </param>
     public static KestrunHost AddResponseCaching(this KestrunHost host, ResponseCachingOptions options, CacheControlHeaderValue? cacheControl = null)
     {
-        if (host.HostLogger.IsEnabled(LogEventLevel.Debug))
+        if (host.Logger.IsEnabled(LogEventLevel.Debug))
         {
-            host.HostLogger.Debug("Adding response caching with options: {@Options}", options);
+            host.Logger.Debug("Adding response caching with options: {@Options}", options);
         }
 
         // delegate shim – re‑use the existing pipeline
@@ -353,15 +353,15 @@ public static class KestrunHttpMiddlewareExtensions
     /// <param name="cacheControl">Optional default Cache-Control to apply.</param>
     internal static void ValidateCachingInput(KestrunHost host, Action<ResponseCachingOptions>? cfg, CacheControlHeaderValue? cacheControl)
     {
-        if (host.HostLogger.IsEnabled(LogEventLevel.Debug))
+        if (host.Logger.IsEnabled(LogEventLevel.Debug))
         {
-            host.HostLogger.Debug("Adding response caching with Action<ResponseCachingOptions>{HasConfig} and Cache-Control: {HasCacheControl}", cfg != null, cacheControl != null);
+            host.Logger.Debug("Adding response caching with Action<ResponseCachingOptions>{HasConfig} and Cache-Control: {HasCacheControl}", cfg != null, cacheControl != null);
         }
 
         // Remember the default Cache-Control if provided
         if (cacheControl is not null)
         {
-            host.HostLogger.Information("Setting default Cache-Control: {CacheControl}", cacheControl.ToString());
+            host.Logger.Information("Setting default Cache-Control: {CacheControl}", cacheControl.ToString());
             // Save for reference
             host.DefaultCacheControl = cacheControl;
         }
@@ -450,12 +450,12 @@ public static class KestrunHttpMiddlewareExtensions
             {
                 try
                 {
-                    _ = ApplyCacheHeaders(context, cacheControl, host.HostLogger);
+                    _ = ApplyCacheHeaders(context, cacheControl, host.Logger);
                 }
                 catch (Exception ex)
                 {
                     // Never let caching decoration break the response
-                    host.HostLogger.Warning(ex, "Failed to apply default cache headers.");
+                    host.Logger.Warning(ex, "Failed to apply default cache headers.");
                 }
                 finally
                 {
@@ -490,9 +490,9 @@ public static class KestrunHttpMiddlewareExtensions
     /// <returns>The updated KestrunHost instance.</returns>
     public static KestrunHost AddHttpsRedirection(this KestrunHost host, HttpsRedirectionOptions cfg)
     {
-        if (host.HostLogger.IsEnabled(LogEventLevel.Debug))
+        if (host.Logger.IsEnabled(LogEventLevel.Debug))
         {
-            host.HostLogger.Debug("Adding HTTPS redirection with configuration: {@Config}", cfg);
+            host.Logger.Debug("Adding HTTPS redirection with configuration: {@Config}", cfg);
         }
 
         if (cfg == null)
@@ -520,9 +520,9 @@ public static class KestrunHttpMiddlewareExtensions
     /// <returns>The updated KestrunHost instance.</returns>
     public static KestrunHost AddHttpsRedirection(this KestrunHost host, Action<HttpsRedirectionOptions>? cfg = null)
     {
-        if (host.HostLogger.IsEnabled(LogEventLevel.Debug))
+        if (host.Logger.IsEnabled(LogEventLevel.Debug))
         {
-            host.HostLogger.Debug("Adding HTTPS redirection with configuration: {HasConfig}", cfg != null);
+            host.Logger.Debug("Adding HTTPS redirection with configuration: {HasConfig}", cfg != null);
         }
 
         // Register the HTTPS redirection service
@@ -544,9 +544,9 @@ public static class KestrunHttpMiddlewareExtensions
     /// <returns>The updated KestrunHost instance.</returns>
     public static KestrunHost AddHsts(this KestrunHost host, Action<HstsOptions>? cfg = null)
     {
-        if (host.HostLogger.IsEnabled(LogEventLevel.Debug))
+        if (host.Logger.IsEnabled(LogEventLevel.Debug))
         {
-            host.HostLogger.Debug("Adding HSTS with configuration: {HasConfig}", cfg != null);
+            host.Logger.Debug("Adding HSTS with configuration: {HasConfig}", cfg != null);
         }
 
         // Register the HSTS service
@@ -567,9 +567,9 @@ public static class KestrunHttpMiddlewareExtensions
     /// <returns>The updated KestrunHost instance.</returns>
     public static KestrunHost AddHsts(this KestrunHost host, HstsOptions cfg)
     {
-        if (host.HostLogger.IsEnabled(LogEventLevel.Debug))
+        if (host.Logger.IsEnabled(LogEventLevel.Debug))
         {
-            host.HostLogger.Debug("Adding HSTS with configuration: {@Config}", cfg);
+            host.Logger.Debug("Adding HSTS with configuration: {@Config}", cfg);
         }
 
         if (cfg == null)

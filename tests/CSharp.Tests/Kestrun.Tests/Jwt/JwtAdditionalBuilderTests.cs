@@ -78,7 +78,8 @@ public class JwtAdditionalBuilderTests
         http.Request.Headers["Authorization"] = "Bearer " + original;
         var req = await KestrunRequest.NewRequest(http);
         var resp = new KestrunResponse(req);
-        var ctx = new KestrunContext(req, resp, http);
+        var host = new Kestrun.Hosting.KestrunHost("Tests", Serilog.Log.Logger);
+        var ctx = new KestrunContext(host, req, resp, http);
 
         var renewed = b.RenewJwt(ctx, TimeSpan.FromMinutes(2));
         Assert.False(string.IsNullOrWhiteSpace(renewed));
@@ -102,7 +103,8 @@ public class JwtAdditionalBuilderTests
         var http = new DefaultHttpContext();
         var req = await KestrunRequest.NewRequest(http);
         var resp = new KestrunResponse(req);
-        var ctx = new KestrunContext(req, resp, http);
+        var host = new Kestrun.Hosting.KestrunHost("Tests", Serilog.Log.Logger);
+        var ctx = new KestrunContext(host, req, resp, http);
 
         var renewed = b.RenewJwt(ctx, TimeSpan.FromMinutes(1));
         Assert.Equal(string.Empty, renewed);

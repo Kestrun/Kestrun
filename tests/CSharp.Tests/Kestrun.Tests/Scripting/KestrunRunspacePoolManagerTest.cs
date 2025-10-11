@@ -1,4 +1,5 @@
 using Kestrun.Scripting;
+using Kestrun.Hosting;
 using Xunit;
 
 
@@ -13,7 +14,8 @@ public class KestrunRunspacePoolManagerTest
         // Arrange
         var minRunspaces = 1;
         var maxRunspaces = 5;
-        var manager = new KestrunRunspacePoolManager(minRunspaces, maxRunspaces);
+        using var host = new KestrunHost("Tests", Serilog.Log.Logger);
+        var manager = new KestrunRunspacePoolManager(host, minRunspaces, maxRunspaces);
 
         // Act
         var actualMax = manager.MaxRunspaces;

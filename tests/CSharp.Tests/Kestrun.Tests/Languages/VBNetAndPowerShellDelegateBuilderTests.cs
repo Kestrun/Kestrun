@@ -1,4 +1,5 @@
 using Kestrun.Languages;
+using Kestrun.Hosting;
 using Microsoft.AspNetCore.Http;
 using Serilog;
 using Xunit;
@@ -14,7 +15,8 @@ public class VBNetAndPowerShellDelegateBuilderTests
     public async Task VB_Build_Executes_Text_Write()
     {
         var code = "Response.WriteTextResponse(\"vb-ok\")";
-        var del = VBNetDelegateBuilder.Build(code, Log.Logger, null, null, null);
+        var host = new KestrunHost("Tests", Log.Logger);
+        var del = VBNetDelegateBuilder.Build(host, code, null, null, null);
 
         var ctx = new DefaultHttpContext();
         using var ms = new MemoryStream();
@@ -55,7 +57,9 @@ public class VBNetAndPowerShellDelegateBuilderTests
         ps.Streams.Error.Add(new ErrorRecord(new Exception("boom"), "BoomId", ErrorCategory.InvalidOperation, targetObject: null));
 
         ctx.Items[PowerShellDelegateBuilder.PS_INSTANCE_KEY] = ps;
+        var host = new KestrunHost("Tests", Log.Logger);
         ctx.Items[PowerShellDelegateBuilder.KR_CONTEXT_KEY] = new Kestrun.Models.KestrunContext(
+            host,
             await Kestrun.Models.KestrunRequest.NewRequest(ctx),
             new Kestrun.Models.KestrunResponse(await Kestrun.Models.KestrunRequest.NewRequest(ctx)),
             ctx);
@@ -72,9 +76,10 @@ public class VBNetAndPowerShellDelegateBuilderTests
     [Trait("Category", "Languages")]
     public void VB_Build_Throws_On_Whitespace()
     {
+        var host = new KestrunHost("Tests", Log.Logger);
         var ex = Assert.Throws<ArgumentNullException>(() =>
         {
-            return VBNetDelegateBuilder.Build("   ", Log.Logger, null, null, null);
+            return VBNetDelegateBuilder.Build(host, "   ", null, null, null);
         });
         _ = Assert.IsType<ArgumentNullException>(ex);
     }

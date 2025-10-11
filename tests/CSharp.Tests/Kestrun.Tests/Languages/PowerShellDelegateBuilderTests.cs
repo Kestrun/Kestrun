@@ -20,7 +20,8 @@ public class PowerShellDelegateBuilderTests
         // Build Kestrun context
         var req = TestRequestFactory.Create(method: http.Request.Method, path: http.Request.Path);
         var res = new KestrunResponse(req);
-        var kr = new KestrunContext(req, res, http);
+        var host = new Kestrun.Hosting.KestrunHost("Tests", Log.Logger);
+        var kr = new KestrunContext(host, req, res, http);
         http.Items[PowerShellDelegateBuilder.KR_CONTEXT_KEY] = kr;
         return (http, kr);
     }

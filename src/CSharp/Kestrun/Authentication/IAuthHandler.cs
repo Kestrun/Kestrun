@@ -4,6 +4,7 @@
 using System.Collections;
 using System.Management.Automation;
 using System.Security.Claims;
+using Kestrun.Hosting;
 using Kestrun.Languages;
 using Kestrun.Models;
 using Kestrun.SharedState;
@@ -167,15 +168,16 @@ public interface IAuthHandler
     /// <summary>
     /// Builds a C# validator function for the specified authentication settings.
     /// </summary>
+    /// <param name="host">The Kestrun host instance.</param>
     /// <param name="settings">The authentication code settings.</param>
-    /// <param name="log">The logger instance.</param>
     /// <param name="globals">Global variables to include in the validation context.</param>
     /// <returns>A function that validates the authentication context.</returns>
     internal static Func<HttpContext, IDictionary<string, object?>, Task<bool>> BuildCsValidator(
+        KestrunHost host,
         AuthenticationCodeSettings settings,
-        Serilog.ILogger log,
           params (string Name, object? Prototype)[] globals)
     {
+        var log = host.Logger;
         if (log.IsEnabled(Serilog.Events.LogEventLevel.Debug))
         {
             log.Debug("Building C# authentication script with globals: {Globals}", globals);
@@ -207,7 +209,7 @@ public interface IAuthHandler
             // --- Kestrun plumbing -------------------------------------------------
             var krReq = await KestrunRequest.NewRequest(ctx);
             var krRes = new KestrunResponse(krReq);
-            var kCtx = new KestrunContext(krReq, krRes, ctx);
+            var kCtx = new KestrunContext(host, krReq, krRes, ctx);
             // ---------------------------------------------------------------------
             var globalsDict = new Dictionary<string, object?>(
                     vars, StringComparer.OrdinalIgnoreCase);
@@ -223,14 +225,19 @@ public interface IAuthHandler
     }
 
     internal static Func<HttpContext, IDictionary<string, object?>, Task<bool>> BuildVBNetValidator(
+        KestrunHost host,
         AuthenticationCodeSettings settings,
-        Serilog.ILogger log,
       params (string Name, object? Prototype)[] globals)
     {
+        if (host is null)
+        {
+            throw new ArgumentNullException(nameof(host), "KestrunHost cannot be null");
+        }
         if (settings is null)
         {
             throw new ArgumentNullException(nameof(settings), "AuthenticationCodeSettings cannot be null");
         }
+        var log = host.Logger;
         // Place-holders so Roslyn knows the globals that will exist
         var stencil = globals.ToDictionary(n => n.Name, n => n.Prototype,
                                                  StringComparer.OrdinalIgnoreCase);
@@ -260,7 +267,7 @@ public interface IAuthHandler
             // --- Kestrun plumbing -------------------------------------------------
             var krReq = await KestrunRequest.NewRequest(ctx);
             var krRes = new KestrunResponse(krReq);
-            var kCtx = new KestrunContext(krReq, krRes, ctx);
+            var kCtx = new KestrunContext(host, krReq, krRes, ctx);
             // ---------------------------------------------------------------------
 
             // Merge shared state + user variables
@@ -279,14 +286,15 @@ public interface IAuthHandler
     /// <summary>
     /// Builds a PowerShell-based function for issuing claims for a user.
     /// </summary>
+    /// <param name="host">The Kestrun host instance.</param>
     /// <param name="settings">The authentication code settings containing the PowerShell script.</param>
-    /// <param name="logger">The logger instance for logging.</param>
     /// <returns>A function that issues claims using the provided PowerShell script.</returns>
     static Func<HttpContext, string, Task<IEnumerable<Claim>>> BuildPsIssueClaims(
-        AuthenticationCodeSettings settings, Serilog.ILogger logger) =>
+        KestrunHost host,
+        AuthenticationCodeSettings settings) =>
             async (ctx, identity) =>
         {
-            return await IssueClaimsPowerShellAsync(settings.Code, ctx, identity, logger);
+            return await IssueClaimsPowerShellAsync(settings.Code, ctx, identity, host.Logger);
         };
 
     /// <summary>
@@ -401,11 +409,18 @@ public interface IAuthHandler
     /// <summary>
     /// Builds a C#-based function for issuing claims for a user.
     /// </summary>
+    /// <param name="host">The Kestrun host instance.</param>
     /// <param name="settings">The authentication code settings containing the C# script.</param>
-    /// <param name="logger">The logger instance for logging.</param>
     /// <returns>A function that issues claims using the provided C# script.</returns>
-    static Func<HttpContext, string, Task<IEnumerable<Claim>>> BuildCsIssueClaims(AuthenticationCodeSettings settings, Serilog.ILogger logger)
+    static Func<HttpContext, string, Task<IEnumerable<Claim>>> BuildCsIssueClaims(
+        KestrunHost host,
+        AuthenticationCodeSettings settings)
     {
+        if (host is null)
+        {
+            throw new ArgumentNullException(nameof(host), "KestrunHost cannot be null");
+        }
+        var logger = host.Logger;
         if (logger.IsEnabled(Serilog.Events.LogEventLevel.Debug))
         {
             logger.Debug("Compiling C# script for issuing claims.");
@@ -423,7 +438,7 @@ public interface IAuthHandler
         {
             var krRequest = await KestrunRequest.NewRequest(ctx);
             var krResponse = new KestrunResponse(krRequest);
-            var context = new KestrunContext(krRequest, krResponse, ctx);
+            var context = new KestrunContext(host, krRequest, krResponse, ctx);
             var globals = new CsGlobals(SharedStateStore.Snapshot(), context, new Dictionary<string, object?>
             {
                 { "identity", identity }
@@ -439,11 +454,18 @@ public interface IAuthHandler
     /// <summary>
     /// Builds a VB.NET-based function for issuing claims for a user.
     /// </summary>
+    /// <param name="host">The Kestrun host instance.</param>
     /// <param name="settings">The authentication code settings containing the VB.NET script.</param>
-    /// <param name="logger">The logger instance for logging.</param>
     /// <returns>A function that issues claims using the provided VB.NET script.</returns>
-    static Func<HttpContext, string, Task<IEnumerable<Claim>>> BuildVBNetIssueClaims(AuthenticationCodeSettings settings, Serilog.ILogger logger)
+    static Func<HttpContext, string, Task<IEnumerable<Claim>>> BuildVBNetIssueClaims(
+        KestrunHost host,
+        AuthenticationCodeSettings settings)
     {
+        if (host is null)
+        {
+            throw new ArgumentNullException(nameof(host), "KestrunHost cannot be null");
+        }
+        var logger = host.Logger;
         if (logger.IsEnabled(Serilog.Events.LogEventLevel.Debug))
         {
             logger.Debug("Compiling VB.NET script for issuing claims.");
@@ -461,7 +483,7 @@ public interface IAuthHandler
         {
             var krRequest = await KestrunRequest.NewRequest(ctx);
             var krResponse = new KestrunResponse(krRequest);
-            var context = new KestrunContext(krRequest, krResponse, ctx);
+            var context = new KestrunContext(host, krRequest, krResponse, ctx);
             var glob = new CsGlobals(SharedStateStore.Snapshot(), context, new Dictionary<string, object?>
             {
                 { "identity", identity }

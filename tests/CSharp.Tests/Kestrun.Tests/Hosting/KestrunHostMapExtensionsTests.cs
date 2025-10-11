@@ -567,7 +567,8 @@ public class KestrunHostMapExtensionsTests
         };
 
         var logger = Serilog.Log.Logger;
-        var compiled = KestrunHostMapExtensions.CompileScript(options.ScriptCode, logger);
+        var host = new KestrunHost("TestApp", AppContext.BaseDirectory);
+        var compiled = host.CompileScript(options.ScriptCode, logger);
 
         Assert.NotNull(compiled);
         _ = Assert.IsType<RequestDelegate>(compiled);
@@ -589,7 +590,8 @@ public class KestrunHostMapExtensionsTests
         };
 
         var logger = Serilog.Log.Logger;
-        var compiled = KestrunHostMapExtensions.CompileScript(options.ScriptCode, logger);
+        var host = new KestrunHost("TestApp", AppContext.BaseDirectory);
+        var compiled = host.CompileScript(options.ScriptCode, logger);
 
         Assert.NotNull(compiled);
         _ = Assert.IsType<RequestDelegate>(compiled);
@@ -611,8 +613,9 @@ public class KestrunHostMapExtensionsTests
         };
 
         var logger = Serilog.Log.Logger;
+        var host = new KestrunHost("TestApp", AppContext.BaseDirectory);
 
-        var ex = Assert.Throws<NotSupportedException>(() => KestrunHostMapExtensions.CompileScript(options.ScriptCode, logger));
+        var ex = Assert.Throws<NotSupportedException>(() => host.CompileScript(options.ScriptCode, logger));
 
         Assert.Contains("999", ex.Message);
     }
@@ -635,7 +638,8 @@ public class KestrunHostMapExtensionsTests
         };
 
         var logger = Serilog.Log.Logger;
-        var compiled = KestrunHostMapExtensions.CompileScript(options.ScriptCode, logger);
+        var host = new KestrunHost("TestApp", AppContext.BaseDirectory);
+        var compiled = host.CompileScript(options.ScriptCode, logger);
 
         Assert.NotNull(compiled);
         _ = Assert.IsType<RequestDelegate>(compiled);

@@ -1,4 +1,5 @@
 using Kestrun.Languages;
+using Kestrun.Hosting;
 using Microsoft.AspNetCore.Http;
 using Moq;
 using Serilog;
@@ -16,7 +17,8 @@ public class VBNetDelegateBuilderTests
 
         // Minimal VB body that compiles — doesn’t need to touch Response
         var userCode = "Dim a As Integer = 1\r\nReturn True";
-        var del = VBNetDelegateBuilder.Build(userCode, log, args: null, extraImports: null, extraRefs: null);
+        var host = new KestrunHost("Tests", Log.Logger);
+        var del = VBNetDelegateBuilder.Build(host, userCode, args: null, extraImports: null, extraRefs: null);
 
         var http = new DefaultHttpContext();
         http.Request.Method = "GET";

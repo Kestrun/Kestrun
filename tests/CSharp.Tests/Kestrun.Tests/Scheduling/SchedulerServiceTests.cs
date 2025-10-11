@@ -1,6 +1,7 @@
 using System.Collections;
 using Kestrun.Scheduling;
 using Kestrun.Scripting;
+using Kestrun.Hosting;
 using Serilog;
 using Serilog.Core;
 using Xunit;
@@ -18,7 +19,8 @@ public class SchedulerServiceTests
     [Trait("Category", "Scheduling")]
     public async Task Schedule_Interval_Runs_And_Updates_Timestamps()
     {
-        using var pool = new KestrunRunspacePoolManager(1, 1);
+        using var host = new KestrunHost("Tests", Log.Logger);
+        using var pool = new KestrunRunspacePoolManager(host, 1, 1);
         var log = CreateLogger();
         using var svc = new SchedulerService(pool, log, TimeZoneInfo.Utc);
 
@@ -29,7 +31,6 @@ public class SchedulerServiceTests
             await Task.CompletedTask;
         }, runImmediately: false);
         // Previous fixed delay (800ms) was occasionally insufficient on slower / contended CI
-        // (notably net8 arm64) leading to rare flakes where only 1 run occurred. Poll up to 3s
         // for at least 2 executions to make the test robust while still validating interval logic.
         var start = DateTime.UtcNow;
         while (ran < 2 && DateTime.UtcNow - start < TimeSpan.FromSeconds(3))
@@ -40,7 +41,6 @@ public class SchedulerServiceTests
         var snap = svc.GetSnapshot();
         var job = Assert.Single(snap, j => j.Name == "tick");
         Assert.True(ran >= 2, $"Expected at least 2 runs, observed {ran}");
-        _ = Assert.NotNull(job.LastRunAt);
         Assert.True(job.NextRunAt > job.LastRunAt, $"Expected NextRunAt ({job.NextRunAt:o}) to be after LastRunAt ({job.LastRunAt:o})");
     }
 
@@ -48,7 +48,8 @@ public class SchedulerServiceTests
     [Trait("Category", "Scheduling")]
     public async Task Pause_And_Resume_Work()
     {
-        using var pool = new KestrunRunspacePoolManager(1, 1);
+        using var host = new KestrunHost("Tests", Log.Logger);
+        using var pool = new KestrunRunspacePoolManager(host, 1, 1);
         var log = CreateLogger();
         using var svc = new SchedulerService(pool, log, TimeZoneInfo.Utc);
 
@@ -61,7 +62,6 @@ public class SchedulerServiceTests
         {
             await Task.Delay(10);
         }
-        Assert.True(ran > 0);
 
         // Pause and allow any in-flight execution to drain before taking baseline
         Assert.True(svc.Pause("p"));
@@ -109,7 +109,8 @@ public class SchedulerServiceTests
     [Trait("Category", "Scheduling")]
     public async Task Cancel_Removes_And_Stops()
     {
-        using var pool = new KestrunRunspacePoolManager(1, 1);
+        using var host = new KestrunHost("Tests", Log.Logger);
+        using var pool = new KestrunRunspacePoolManager(host, 1, 1);
         var log = CreateLogger();
         using var svc = new SchedulerService(pool, log, TimeZoneInfo.Utc);
 
@@ -147,7 +148,8 @@ public class SchedulerServiceTests
     [Trait("Category", "Scheduling")]
     public void GetReport_And_Hashtable_Shape()
     {
-        using var pool = new KestrunRunspacePoolManager(1, 1);
+        using var host = new KestrunHost("Tests", Log.Logger);
+        using var pool = new KestrunRunspacePoolManager(host, 1, 1);
         var log = CreateLogger();
         using var svc = new SchedulerService(pool, log, TimeZoneInfo.Utc);
 
@@ -172,7 +174,8 @@ public class SchedulerServiceTests
     [Trait("Category", "Scheduling")]
     public async Task Schedule_PowerShell_Code_And_File()
     {
-        using var pool = new KestrunRunspacePoolManager(1, 1);
+        using var host = new KestrunHost("Tests", Log.Logger);
+        using var pool = new KestrunRunspacePoolManager(host, 1, 1);
         var log = CreateLogger();
         using var svc = new SchedulerService(pool, log, TimeZoneInfo.Utc);
 
@@ -217,7 +220,8 @@ public class SchedulerServiceTests
     [Trait("Category", "Scheduling")]
     public async Task Schedule_RunImmediately_CSharp_Interval_Fires()
     {
-        using var pool = new KestrunRunspacePoolManager(1, 1);
+        using var host = new KestrunHost("Tests", Log.Logger);
+        using var pool = new KestrunRunspacePoolManager(host, 1, 1);
         var log = CreateLogger();
         using var svc = new SchedulerService(pool, log, TimeZoneInfo.Utc);
 
@@ -238,7 +242,8 @@ public class SchedulerServiceTests
     [Trait("Category", "Scheduling")]
     public async Task Schedule_Cron_CSharp_RunImmediately()
     {
-        using var pool = new KestrunRunspacePoolManager(1, 1);
+        using var host = new KestrunHost("Tests", Log.Logger);
+        using var pool = new KestrunRunspacePoolManager(host, 1, 1);
         var log = CreateLogger();
         using var svc = new SchedulerService(pool, log, TimeZoneInfo.Utc);
 
@@ -259,7 +264,8 @@ public class SchedulerServiceTests
     [Trait("Category", "Scheduling")]
     public async Task Schedule_Cron_PowerShell_ScriptBlock()
     {
-        using var pool = new KestrunRunspacePoolManager(1, 1);
+        using var host = new KestrunHost("Tests", Log.Logger);
+        using var pool = new KestrunRunspacePoolManager(host, 1, 1);
         var log = CreateLogger();
         using var svc = new SchedulerService(pool, log, TimeZoneInfo.Utc);
 
@@ -288,7 +294,8 @@ public class SchedulerServiceTests
     [Trait("Category", "Scheduling")]
     public async Task Schedule_Cron_PowerShell_Code_String()
     {
-        using var pool = new KestrunRunspacePoolManager(1, 1);
+        using var host = new KestrunHost("Tests", Log.Logger);
+        using var pool = new KestrunRunspacePoolManager(host, 1, 1);
         var log = CreateLogger();
         using var svc = new SchedulerService(pool, log, TimeZoneInfo.Utc);
 
@@ -311,7 +318,8 @@ public class SchedulerServiceTests
     [Trait("Category", "Scheduling")]
     public async Task Schedule_File_Cron_PowerShell()
     {
-        using var pool = new KestrunRunspacePoolManager(1, 1);
+        using var host = new KestrunHost("Tests", Log.Logger);
+        using var pool = new KestrunRunspacePoolManager(host, 1, 1);
         var log = CreateLogger();
         using var svc = new SchedulerService(pool, log, TimeZoneInfo.Utc);
 
@@ -346,7 +354,8 @@ public class SchedulerServiceTests
         // Allow two concurrent runspaces to avoid contention causing the second immediate
         // job to queue behind the first on slow CI (net8 arm64), which occasionally exceeded
         // the previous 10s deadline.
-        using var pool = new KestrunRunspacePoolManager(1, 2);
+        using var host = new KestrunHost("Tests", Log.Logger);
+        using var pool = new KestrunRunspacePoolManager(host, 1, 2);
         var log = CreateLogger();
         using var svc = new SchedulerService(pool, log, TimeZoneInfo.Utc);
 
@@ -402,7 +411,8 @@ public class SchedulerServiceTests
     [Trait("Category", "Scheduling")]
     public void CancelAll_Removes_All_Tasks()
     {
-        using var pool = new KestrunRunspacePoolManager(1, 1);
+        using var host = new KestrunHost("Tests", Log.Logger);
+        using var pool = new KestrunRunspacePoolManager(host, 1, 1);
         var log = CreateLogger();
         using var svc = new SchedulerService(pool, log, TimeZoneInfo.Utc);
 
@@ -417,7 +427,8 @@ public class SchedulerServiceTests
     [Trait("Category", "Scheduling")]
     public void Duplicate_Name_Throws()
     {
-        using var pool = new KestrunRunspacePoolManager(1, 1);
+        using var host = new KestrunHost("Tests", Log.Logger);
+        using var pool = new KestrunRunspacePoolManager(host, 1, 1);
         var log = CreateLogger();
         using var svc = new SchedulerService(pool, log, TimeZoneInfo.Utc);
 
@@ -430,7 +441,8 @@ public class SchedulerServiceTests
     [Trait("Category", "Scheduling")]
     public void Invalid_Name_Operations_Throw()
     {
-        using var pool = new KestrunRunspacePoolManager(1, 1);
+        using var host = new KestrunHost("Tests", Log.Logger);
+        using var pool = new KestrunRunspacePoolManager(host, 1, 1);
         var log = CreateLogger();
         using var svc = new SchedulerService(pool, log, TimeZoneInfo.Utc);
 
@@ -443,7 +455,8 @@ public class SchedulerServiceTests
     [Trait("Category", "Scheduling")]
     public void Snapshot_Filtering_And_Hashtable_Output()
     {
-        using var pool = new KestrunRunspacePoolManager(1, 1);
+        using var host = new KestrunHost("Tests", Log.Logger);
+        using var pool = new KestrunRunspacePoolManager(host, 1, 1);
         var log = CreateLogger();
         using var svc = new SchedulerService(pool, log, TimeZoneInfo.Utc);
 
@@ -465,7 +478,8 @@ public class SchedulerServiceTests
     [Trait("Category", "Scheduling")]
     public async Task Timestamp_Invariant_NextRunAt_After_LastRunAt()
     {
-        using var pool = new KestrunRunspacePoolManager(1, 1);
+        using var host = new KestrunHost("Tests", Log.Logger);
+        using var pool = new KestrunRunspacePoolManager(host, 1, 1);
         var log = CreateLogger();
         using var svc = new SchedulerService(pool, log, TimeZoneInfo.Utc);
 

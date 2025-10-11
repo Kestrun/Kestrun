@@ -21,19 +21,23 @@ internal static class PowerShellDelegateBuilder
 
         return async context =>
         {
+            // Log invocation
             if (log.IsEnabled(LogEventLevel.Debug))
             {
                 log.DebugSanitized("PS delegate invoked for {Path}", context.Request.Path);
             }
-
+            // Prepare for execution
+            KestrunContext? krContext = null;
+            // Get the PowerShell instance from the context (set by middleware)
             var ps = GetPowerShellFromContext(context, log);
+
             // Ensure the runspace pool is open before executing the script
             try
             {
                 PowerShellExecutionHelpers.SetVariables(ps, arguments, log);
 
                 log.Verbose("Setting PowerShell variables for Request and Response in the runspace.");
-                var krContext = GetKestrunContext(context);
+                krContext = GetKestrunContext(context);
 
                 PowerShellExecutionHelpers.AddScript(ps, code);
                 var psResults = await PowerShellExecutionHelpers.InvokeAsync(ps, log, context.RequestAborted).ConfigureAwait(false);
@@ -61,11 +65,20 @@ internal static class PowerShellDelegateBuilder
             }
             catch (Exception ex)
             {
-                // Log the exception (optional)
-                log.Error(ex, "PowerShell script failed - {Preview}", code[..Math.Min(40, code.Length)]);
-                context.Response.StatusCode = 500; // Internal Server Error
-                context.Response.ContentType = "text/plain; charset=utf-8";
-                await context.Response.WriteAsync("An error occurred while processing your request.");
+                // If we have exception options, set a 500 status code and generic message.
+                // Otherwise rethrow to let higher-level middleware handle it (e.g., Developer Exception Page
+                if (krContext?.Host?.ExceptionOptions is null)
+                { // Log and handle script errors
+                    log.Error(ex, "PowerShell script failed - {Preview}", code[..Math.Min(40, code.Length)]);
+                    context.Response.StatusCode = 500; // Internal Server Error
+                    context.Response.ContentType = "text/plain; charset=utf-8";
+                    await context.Response.WriteAsync("An error occurred while processing your request.");
+                }
+                else
+                {
+                    // re-throw to let higher-level middleware handle it (e.g., Developer Exception Page)
+                    throw;
+                }
             }
             finally
             {

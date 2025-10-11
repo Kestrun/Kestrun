@@ -70,7 +70,7 @@ public static class KestrunHostHealthExtensions
         // Auto-register endpoint only when enabled
         if (!merged.AutoRegisterEndpoint)
         {
-            host.HostLogger.Debug("Health endpoint AutoRegisterEndpoint=false; skipping automatic mapping for pattern {Pattern}", merged.Pattern);
+            host.Logger.Debug("Health endpoint AutoRegisterEndpoint=false; skipping automatic mapping for pattern {Pattern}", merged.Pattern);
             return host;
         }
 
@@ -189,14 +189,14 @@ public static class KestrunHostHealthExtensions
             {
                 throw new InvalidOperationException(message);
             }
-            host.HostLogger.Warning(message);
+            host.Logger.Warning(message);
             return;
         }
 
         // Acquire WebApplication (throws if Build() truly has not executed yet). Using host.App here allows
         // early AddHealthEndpoint calls before EnableConfiguration via deferred middleware.
         var endpoints = host.App;
-        var endpointLogger = host.HostLogger.ForContext("HealthEndpoint", merged.Pattern);
+        var endpointLogger = host.Logger.ForContext("HealthEndpoint", merged.Pattern);
 
         var map = endpoints.MapMethods(merged.Pattern, [HttpMethods.Get], async context =>
         {
@@ -257,6 +257,6 @@ public static class KestrunHostHealthExtensions
 
         host.AddMapOptions(map, mapOptions);
         host._registeredRoutes[(mapOptions.Pattern!, HttpMethods.Get)] = mapOptions;
-        host.HostLogger.Information("Registered health endpoint at {Pattern}", mapOptions.Pattern);
+        host.Logger.Information("Registered health endpoint at {Pattern}", mapOptions.Pattern);
     }
 }

@@ -1,8 +1,8 @@
-using Kestrun.Utilities;
 using Kestrun.Models;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Features;
 using Xunit;
+using Kestrun.Runtime;
 
 namespace KestrunTests.Utilities;
 
@@ -26,7 +26,8 @@ public class VariablesMapTests
             body: string.Empty
         );
         var resp = new KestrunResponse(req);
-        var ctx = new KestrunContext(req, resp, http);
+        var host = new Kestrun.Hosting.KestrunHost("Tests", Serilog.Log.Logger);
+        var ctx = new KestrunContext(host, req, resp, http);
         return (ctx, http);
     }
 

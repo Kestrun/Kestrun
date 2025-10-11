@@ -19,6 +19,15 @@
         If specified, this server instance will be set as the default instance.
     .PARAMETER PassThru
         If specified, the cmdlet will return the created server instance.
+    .PARAMETER Environment
+        The environment to set for the Kestrun server instance. Valid values are 'Auto', 'Development', 'Staging', and 'Production'.
+        - 'Auto' (default): Automatically sets the environment to 'Development' if a debugger is attached or
+            if the -Debug switch is used; otherwise, it uses the environment specified by the KESTRUN_ENVIRONMENT environment variable
+            or defaults to 'Production'.
+        - 'Development': Forces the environment to 'Development'.
+        - 'Staging': Forces the environment to 'Staging'.
+        - 'Production': Forces the environment to 'Production'.
+        The environment setting affects middleware behavior, such as detailed error pages in 'Development'.
     .PARAMETER Force
         If specified, the cmdlet will overwrite any existing server instance with the same name.
     .EXAMPLE
@@ -46,8 +55,25 @@ function New-KrServer {
         [Parameter()]
         [switch]$Default,
         [Parameter()]
+        [ValidateSet('Auto', 'Development', 'Staging', 'Production')]
+        [string]$Environment = 'Auto',
+        [Parameter()]
         [switch]$Force
     )
+    begin {
+        # Honor explicit -Environment if provided
+        if ($Environment -ne 'Auto') {
+            Set-KrEnvironment -Name $Environment | Out-Null
+        } else {
+            # Auto: if debugger-ish, become Development; else clear override
+            if (Test-KrDebugContext) {
+                Set-KrEnvironment -Name Development | Out-Null
+            } else {
+                Set-KrEnvironment -Name Auto | Out-Null
+            }
+        }
+        Write-Verbose ('Kestrun environment -> ' + (Get-KrEnvironment))
+    }
     process {
         $loadedModules = Get-KrUserImportedModule
         $modulePaths = @($loadedModules | ForEach-Object { $_.Path })

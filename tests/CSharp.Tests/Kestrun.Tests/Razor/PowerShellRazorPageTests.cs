@@ -1,5 +1,6 @@
 using Kestrun.Razor;
 using Kestrun.Scripting;
+using Kestrun.Hosting;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
@@ -50,7 +51,8 @@ public class PowerShellRazorPageTests
             var host = wab.Build();
 
             var app = new ApplicationBuilder(host.Services);
-            var pool = new KestrunRunspacePoolManager(1, 1);
+            using var kesHost = new KestrunHost("Tests", Serilog.Log.Logger);
+            var pool = new KestrunRunspacePoolManager(kesHost, 1, 1);
 
             _ = app.UsePowerShellRazorPages(pool);
             // End of pipeline: just read model and write it to response
@@ -126,7 +128,8 @@ public class PowerShellRazorPageTests
             var host = wab.Build();
 
             var app = new ApplicationBuilder(host.Services);
-            var pool = new KestrunRunspacePoolManager(1, 1);
+            using var kesHost = new KestrunHost("Tests", Serilog.Log.Logger);
+            var pool = new KestrunRunspacePoolManager(kesHost, 1, 1);
 
             _ = app.UsePowerShellRazorPages(pool);
             // Terminal: ensure request completes; middleware handles error itself with response

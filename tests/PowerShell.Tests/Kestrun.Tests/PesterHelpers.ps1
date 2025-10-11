@@ -246,6 +246,17 @@ Start-KrServer
     $stdErr = Join-Path $tempDir ('kestrun-example-' + $fileNameWithoutExtension + '-' + [System.IO.Path]::GetRandomFileName() + '.err.log')
     $argList = @('-NoLogo', '-NoProfile', '-File', $tmp, '-Port', $Port)
 
+    # Build environment variables for the child process
+    $env = @{}
+    # Copy current environment variables
+    foreach ($key in [System.Environment]::GetEnvironmentVariables().Keys) {
+        $env[$key] = [System.Environment]::GetEnvironmentVariable($key)
+    }
+    # Ensure UPSTASH_REDIS_URL is passed if it exists
+    if ($env:UPSTASH_REDIS_URL) {
+        $env['UPSTASH_REDIS_URL'] = $env:UPSTASH_REDIS_URL
+    }
+
     $param = @{
         FilePath = 'pwsh'
         WorkingDirectory = $scriptDir
@@ -253,6 +264,7 @@ Start-KrServer
         PassThru = $true
         RedirectStandardOutput = $stdOut
         RedirectStandardError = $stdErr
+        Environment = $env
     }
     if ($IsWindows) { $param.WindowStyle = 'Hidden' } # Prevent spawned process from inheriting the test runner's console window on Windows (avoids unwanted UI popups during automated tests)
     $proc = Start-Process @param

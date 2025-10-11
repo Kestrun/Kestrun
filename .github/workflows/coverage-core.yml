@@ -267,18 +267,18 @@ jobs:
                   set -euo pipefail
                   cd coverage-site
                   # Verify token is available
-                  if [ -z "${{ secrets.COVERALLS_REPO_TOKEN }}" ]; then
-                    echo "❌ Error: COVERALLS_REPO_TOKEN secret is not set"
+                  if [ -z "${{ secrets.COVERAGE_REPO_PAT }}" ]; then
+                    echo "❌ Error: COVERAGE_REPO_PAT secret is not set"
                     exit 1
                   fi
-                  git remote set-url origin "https://x-access-token:${{ secrets.COVERALLS_REPO_TOKEN }}@github.com/${{ env.DEST_REPO }}.git"
+                  git remote set-url origin "https://x-access-token:${{ secrets.COVERAGE_REPO_PAT }}@github.com/${{ env.DEST_REPO }}.git"
                   git remote -v
 
                   # Test authentication by fetching latest
                   echo "🔍 Testing git authentication..."
                   git fetch origin || {
                     echo "❌ Error: Failed to authenticate with the coverage repository"
-                    echo "Please verify that COVERALLS_REPO_TOKEN has write access to ${{ env.DEST_REPO }}"
+                    echo "Please verify that COVERAGE_REPO_PAT has write access to ${{ env.DEST_REPO }}"
                     exit 1
                   }
                   echo "✅ Git authentication successful"

@@ -11,6 +11,8 @@ using Kestrun.Hosting.Compression;
 using Microsoft.AspNetCore.HttpsPolicy;
 using Moq;
 using Xunit;
+using Microsoft.Extensions.Caching.Distributed;
+using Microsoft.Extensions.Caching.Memory;
 
 namespace KestrunTests.Hosting;
 
@@ -521,6 +523,40 @@ public class KestrunHttpMiddlewareExtensionsTests
 
         _ = host.AddHsts(options);
         Assert.True(middleware.Count > 0);
+    }
+
+    #endregion
+
+    #region Session and Distributed Cache Tests
+
+    [Fact]
+    [Trait("Category", "Hosting")]
+    public void AddSession_WithNullOptions_RegistersMiddleware()
+    {
+        var host = CreateHost(out var middleware);
+        _ = host.AddSession((SessionOptions)null!);
+        Assert.True(middleware.Count > 0);
+    }
+
+    [Fact]
+    [Trait("Category", "Hosting")]
+    public void AddDistributedMemoryCache_WithNullOptions_RegistersService()
+    {
+        var host = CreateHost(out _);
+        _ = host.AddDistributedMemoryCache((MemoryDistributedCacheOptions)null!);
+
+        // Extract queued service registrations and build a provider to validate registration
+        var serviceField = typeof(KestrunHost).GetField("_serviceQueue", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+        var actions = (List<Action<IServiceCollection>>)serviceField!.GetValue(host)!;
+
+        var services = new ServiceCollection();
+        foreach (var a in actions)
+        {
+            a(services);
+        }
+        using var sp = services.BuildServiceProvider();
+        var cache = sp.GetService<IDistributedCache>();
+        Assert.NotNull(cache);
     }
 
     #endregion

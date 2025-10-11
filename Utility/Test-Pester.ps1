@@ -1,4 +1,4 @@
-﻿<#
+<#
 .SYNOPSIS
 Runs Pester with optional re-runs of failed tests.
 

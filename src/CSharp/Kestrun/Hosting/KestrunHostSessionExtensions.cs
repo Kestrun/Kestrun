@@ -169,5 +169,4 @@ public static class KestrunHostSessionExtensions
                 });
         });
     }
-
 }

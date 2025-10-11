@@ -181,7 +181,7 @@ public class KestrunHost : IDisposable
 
         // ④.1 Make this KestrunHost available via DI so framework-created components (e.g., auth handlers)
         // can resolve it. We register the current instance as a singleton.
-        Builder.Services.AddSingleton(this);
+        _ = Builder.Services.AddSingleton(this);
 
         // ⑤ Options
         InitializeOptions(appName);

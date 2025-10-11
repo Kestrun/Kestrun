@@ -101,7 +101,7 @@ function Add-KrSession {
             [Kestrun.Hosting.KestrunHttpMiddlewareExtensions]::AddDistributedMemoryCache($Server, $MemoryCacheOptions) | Out-Null
         }
 
-        # Add the Antiforgery service to the server
+        # Add the Session service to the server
         [Kestrun.Hosting.KestrunHttpMiddlewareExtensions]::AddSession($Server, $Options) | Out-Null
 
         if ($PassThru.IsPresent) {

@@ -12,7 +12,6 @@ namespace Kestrun.Hosting;
 /// </summary>
 public static class KestrunHostSessionExtensions
 {
-
     /// <summary>
     /// Adds session state services and middleware to the application.
     /// </summary>

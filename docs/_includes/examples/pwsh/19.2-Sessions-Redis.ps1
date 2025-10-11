@@ -1,4 +1,4 @@
-﻿<#
+<#
     Sample Kestrun Server Configuration – Sessions Demo
     This script shows how to enable Session middleware and use it in routes.
     FileName: 19.1-Sessions.ps1
@@ -9,7 +9,6 @@ param(
     [IPAddress]$IPAddress = [IPAddress]::Loopback,
     [string]$UpstashUrl = $env:UPSTASH_REDIS_URL
 )
-write-Host "Using Redis URL: $UpstashUrl"
 # Configure default logging
 New-KrLogger |
     Set-KrLoggerLevel -Value Debug |

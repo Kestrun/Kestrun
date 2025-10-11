@@ -1,4 +1,4 @@
-﻿<#
+<#
 .SYNOPSIS
   Import top-level properties from a JSON file into environment variables.
 
@@ -26,12 +26,17 @@ param(
     [ValidateSet('Process', 'User', 'Machine')]
     [string]$Scope = 'Process',
 
-    [switch]$Overwrite
+    [switch]$Overwrite,
+
+    [switch]$FailOnMissingFile
 )
 
 if (-not (Test-Path -LiteralPath $Path)) {
-    Write-Error "JSON file not found: $Path"
-    exit 2
+    if ( $FailOnMissingFile.IsPresent) {
+        Write-Error "JSON file not found: $Path"
+        exit 2
+    }
+    exit 0
 }
 
 try {

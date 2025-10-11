@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
 Runs Pester with optional re-runs of failed tests.
 
@@ -271,6 +271,7 @@ process {
 
         if ($ReRunFailed -and $initial.Run.FailedCount -gt 0 -and $MaxReruns -gt 0) {
             $failed = Get-FailedSelector -PesterRun $initial.Run
+            Format-Table -InputObject $failed -AutoSize | Out-Host
             while ($attempt -lt $MaxReruns -and $failed.Count -gt 0) {
                 $attempt++
                 Write-Host ('🔁 Re-run attempt {0} for {1} failing test(s)...' -f $attempt, $failed.Count)

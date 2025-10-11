@@ -43,7 +43,6 @@ Describe 'Example 19.2-Sessions-Redis' -Tag 'Tutorial', 'Middleware', 'Sessions'
             $probe = Invoke-WebRequest -Uri "$($script:instance.Url)/session/whoami" -UseBasicParsing -TimeoutSec 15 -WebSession $sess -SkipCertificateCheck -SkipHttpErrorCheck
             $probe.StatusCode | Should -Be 401
 
-
             # login
             $login = Invoke-WebRequest -Uri "$($script:instance.Url)/session/login?user=admin" -UseBasicParsing -TimeoutSec 15 -WebSession $sess -SkipCertificateCheck
             $login.StatusCode | Should -Be 200

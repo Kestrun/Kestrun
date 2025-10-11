@@ -594,5 +594,4 @@ public static class KestrunHttpMiddlewareExtensions
 
         return host.Use(app => app.UseHsts());
     }
-
 }

@@ -1,7 +1,7 @@
 ﻿<#
     Sample Kestrun Server Configuration – Sessions Demo
     This script shows how to enable Session middleware and use it in routes.
-    FileName: 10.5-Sessions.ps1
+    FileName: 19.1-Sessions.ps1
 #>
 
 param(
@@ -30,9 +30,13 @@ $cookie = New-KrCookieBuilder `
     -SameSite Lax `
     -SecurePolicy Always  # set to None if you want to test over plain http
 
-# Add session services + middleware.
-# By default, Add-KrSession will ensure a distributed memory cache exists.
+# SQL Server configuration (if using SQL Server)
+Add-KrDistributedSqlServerCache -ConnectionString 'Server=localhost;Database=KestrunSessions;User Id=sa;Password=Your_password123;' `
+    -SchemaName 'dbo' -TableName 'Sessions'
+
+# Add session services + middleware. By default, Add-KrSession will ensure a distributed memory cache exists.
 Add-KrSession -Cookie $cookie -IdleTimeout 20 -IOTimeout 10
+
 
 # Enable configuration
 Enable-KrConfiguration

@@ -11,11 +11,13 @@
         The cookie configuration to use. If not specified, default cookie settings are applied.
         Can be created with New-KrCookieBuilder and passed via pipeline.
     .PARAMETER IdleTimeout
-        The idle timeout in minutes after which the session will expire. If not specified, the default is 20 minutes.
+        The idle timeout in seconds after which the session will expire. If not specified, the default is 20 minutes.
     .PARAMETER IOTimeout
         The IO timeout in seconds for session operations. If not specified, the default is 10 seconds.
     .PARAMETER NoDistributedMemoryCache
-        If specified, the cmdlet will not add a default in-memory distributed cache. This is useful if you plan to add your own distributed cache implementation.
+        If specified, the cmdlet will not add a default in-memory distributed cache.
+        This is useful if you plan to add your own distributed cache implementation.
+        The cmdlet will check if a distributed cache is already registered before adding the default.
     .PARAMETER MemoryCacheOptions
         The configuration options for the in-memory distributed cache. If not specified, default options are used.
     .PARAMETER PassThru
@@ -86,7 +88,7 @@ function Add-KrSession {
             $Options = [Microsoft.AspNetCore.Builder.SessionOptions]::new()
 
             if ($PsBoundParameters.ContainsKey('IdleTimeout')) {
-                $Options.IdleTimeout = [TimeSpan]::FromMinutes($IdleTimeout)
+                $Options.IdleTimeout = [TimeSpan]::FromSeconds($IdleTimeout)
             }
             if ($PsBoundParameters.ContainsKey('IOTimeout')) {
                 $Options.IOTimeout = [TimeSpan]::FromSeconds($IOTimeout)
@@ -95,14 +97,16 @@ function Add-KrSession {
                 $Options.Cookie = $Cookie
             }
         }
-        # If NoDistributedMemoryCache is not specified, ensure a distributed memory cache is added
-        if (-not $NoDistributedMemoryCache.IsPresent) {
+        # If NoDistributedMemoryCache is not specified, and no distributed cache is registered, ensure a distributed memory cache is added
+        if ((-not $NoDistributedMemoryCache.IsPresent) -and
+            (-not $Server.IsServiceRegistered([Microsoft.Extensions.Caching.Distributed.IDistributedCache]))
+        ) {
             # Add a default in-memory distributed cache if none exists
-            [Kestrun.Hosting.KestrunHttpMiddlewareExtensions]::AddDistributedMemoryCache($Server, $MemoryCacheOptions) | Out-Null
+            [Kestrun.Hosting.KestrunHostSessionExtensions]::AddDistributedMemoryCache($Server, $MemoryCacheOptions) | Out-Null
         }
 
         # Add the Session service to the server
-        [Kestrun.Hosting.KestrunHttpMiddlewareExtensions]::AddSession($Server, $Options) | Out-Null
+        [Kestrun.Hosting.KestrunHostSessionExtensions]::AddSession($Server, $Options) | Out-Null
 
         if ($PassThru.IsPresent) {
             # if the PassThru switch is specified, return the modified server instance

@@ -87,6 +87,8 @@ if (($null -eq $PSCmdlet.MyInvocation) -or ([string]::IsNullOrEmpty($PSCmdlet.My
 # Add Helper utility
 . ./Utility/Helper.ps1
 
+. ./Utility/Import-EnvFile.ps1
+
 $SolutionPath = Join-Path -Path $PSScriptRoot -ChildPath 'Kestrun.sln'
 
 Write-Host '---------------------------------------------------' -ForegroundColor DarkCyan

@@ -9,8 +9,6 @@ using Microsoft.Net.Http.Headers;
 using Serilog.Events;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.AspNetCore.HttpsPolicy;
-using Microsoft.Extensions.Caching.Memory;
-using Microsoft.Extensions.Caching.Distributed; // Added for TryAddSingleton
 
 namespace Kestrun.Hosting;
 
@@ -597,63 +595,4 @@ public static class KestrunHttpMiddlewareExtensions
         return host.Use(app => app.UseHsts());
     }
 
-    /// <summary>
-    /// Adds session state services and middleware to the application.
-    /// </summary>
-    /// <param name="host">The <see cref="KestrunHost" /> to add services to.</param>
-    /// <param name="cfg">The configuration options for session state.</param>
-    /// <returns>The updated <see cref="KestrunHost" /> instance.</returns>
-    public static KestrunHost AddSession(this KestrunHost host, SessionOptions? cfg)
-    {
-        if (host.Logger.IsEnabled(LogEventLevel.Debug))
-        {
-            host.Logger.Debug("Adding Session with configuration: {@Config}", cfg);
-        }
-
-        _ = host.AddService(services =>
-        {
-            _ = (cfg is null) ?
-                services.AddSession() :
-                services.AddSession(opts =>
-                 {
-                     opts.Cookie = cfg.Cookie;
-                     opts.IdleTimeout = cfg.IdleTimeout;
-                     opts.IOTimeout = cfg.IOTimeout;
-                 });
-        });
-
-        return host.Use(app => app.UseSession());
-    }
-
-    /// <summary>
-    /// Adds a default implementation of <see cref="IDistributedCache"/> that stores items in memory
-    /// to the <see cref="KestrunHost" />. Frameworks that require a distributed cache to work
-    /// can safely add this dependency as part of their dependency list to ensure that there is at least
-    /// one implementation available.
-    /// </summary>
-    /// <param name="host">The <see cref="KestrunHost" /> to add services to.</param>
-    /// <param name="cfg">The configuration options for the memory distributed cache.</param>
-    /// <returns>The <see cref="KestrunHost"/> so that additional calls can be chained.</returns>
-    public static KestrunHost AddDistributedMemoryCache(this KestrunHost host, MemoryDistributedCacheOptions? cfg)
-    {
-        if (host.Logger.IsEnabled(LogEventLevel.Debug))
-        {
-            host.Logger.Debug("Adding Distributed Memory Cache with configuration: {@Config}", cfg);
-        }
-
-        return host.AddService(services =>
-        {
-            _ = (cfg is null) ?
-                services.AddDistributedMemoryCache() :
-                services.AddDistributedMemoryCache(opts =>
-                {
-                    opts.Clock = cfg.Clock;
-                    opts.CompactionPercentage = cfg.CompactionPercentage;
-                    opts.ExpirationScanFrequency = cfg.ExpirationScanFrequency;
-                    opts.SizeLimit = cfg.SizeLimit;
-                    opts.TrackLinkedCacheEntries = cfg.TrackLinkedCacheEntries;
-                    opts.TrackStatistics = cfg.TrackStatistics;
-                });
-        });
-    }
 }

@@ -1,7 +1,7 @@
 param()
 
-Describe 'Example 10.5-Sessions' -Tag 'Tutorial', 'Middleware', 'Sessions' {
-    BeforeAll { . (Join-Path $PSScriptRoot '..\PesterHelpers.ps1'); $script:instance = Start-ExampleScript -Name '10.5-Sessions.ps1'; }
+Describe 'Example 19.1-Sessions' -Tag 'Tutorial', 'Middleware', 'Sessions' {
+    BeforeAll { . (Join-Path $PSScriptRoot '..\PesterHelpers.ps1'); $script:instance = Start-ExampleScript -Name '19.1-Sessions.ps1'; }
 
     AfterAll { if ($script:instance) { Stop-ExampleScript -Instance $script:instance } }
 
@@ -81,7 +81,7 @@ Describe 'Example 10.5-Sessions' -Tag 'Tutorial', 'Middleware', 'Sessions' {
 
             # New session should not see previous key
             $sessD = [Microsoft.PowerShell.Commands.WebRequestSession]::new()
-            $probe = Get-HttpHeadersRaw -Uri "$($script:instance.Url)/session/get?key=color" -Insecure -AsHashtable
+            $probe = Invoke-WebRequest -Uri "$($script:instance.Url)/session/get?key=color" -UseBasicParsing -TimeoutSec 15 -WebSession $sessD -SkipCertificateCheck -SkipHttpErrorCheck
             $probe.StatusCode | Should -Be 404
         }
     }

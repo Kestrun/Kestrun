@@ -1128,8 +1128,16 @@ public class KestrunHost : IDisposable
     /// <returns>The current KestrunHost instance.</returns>
     public KestrunHost AddSignalR<T>(string path) where T : Hub
     {
-        return AddService(s => s.AddSignalR())
-               .Use(app => ((IEndpointRouteBuilder)app).MapHub<T>(path));
+        return AddService(s =>
+        {
+            s.AddSignalR();
+            // Register IRealtimeBroadcaster as singleton if it's the KestrunHub
+            if (typeof(T) == typeof(Kestrun.SignalR.KestrunHub))
+            {
+                s.AddSingleton<Kestrun.SignalR.IRealtimeBroadcaster, Kestrun.SignalR.RealtimeBroadcaster>();
+            }
+        })
+        .Use(app => ((IEndpointRouteBuilder)app).MapHub<T>(path));
     }
 
     /*

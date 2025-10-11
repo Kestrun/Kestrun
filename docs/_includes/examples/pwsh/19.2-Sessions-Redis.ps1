@@ -59,7 +59,7 @@ $cfg.ClientName = "kestrun-$(hostname)"
 
 
 # Redis configuration (if using Redis)
-Add-KrDistributedRedisCache -ConfigurationOptions $cfg -InstanceName 'KestrunSession_' -NoDistributedMemoryCache
+Add-KrDistributedRedisCache -ConfigurationOptions $cfg -InstanceName 'KestrunSession_'
 
 # Add session services + middleware. By default, Add-KrSession will ensure a distributed memory cache exists.
 Add-KrSession -Cookie $cookie -IdleTimeout 20 -IOTimeout 10

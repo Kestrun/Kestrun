@@ -20,7 +20,6 @@ function Get-KrSessionString {
         [Parameter(Mandatory)][string]$Key
     )
     if ($null -ne $Context.Session) {
-
         return [Microsoft.AspNetCore.Http.SessionExtensions]::GetString($Context.Session, $Key)
     }
 }

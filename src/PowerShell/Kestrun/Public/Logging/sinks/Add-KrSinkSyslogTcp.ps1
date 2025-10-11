@@ -139,8 +139,13 @@ function Add-KrSinkSyslogTcp {
         [string]$MessageIdPropertyName = [Serilog.Sinks.Syslog.Rfc5424Formatter]::DefaultMessageIdPropertyName,
 
         [int]$BatchSizeLimit,
+        [Parameter()]
+        [ValidateRange(1, [int]::MaxValue)]
         [int]$PeriodSeconds,
+        [Parameter()]
+        [ValidateRange(1, [int]::MaxValue)]
         [int]$QueueLimit,
+        [Parameter()]
         [switch]$EagerlyEmitFirstEvent,
 
         [string]$SourceHost = $null,

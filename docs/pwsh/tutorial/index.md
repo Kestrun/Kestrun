@@ -113,6 +113,9 @@ Stop the server with Ctrl+C in the terminal.
 | 61    | Status Code Pages: Format     | [Content Format][ch-status-format]        | [Script][sc-status-5]           | Custom content type & body format   |
 | 62    | Status Code Pages: Redirects  | [Redirect Pages][ch-status-redirects]     | [Script][sc-status-6]           | Redirect to error page URLs         |
 | 63    | Status Code Pages: Re-execute | [Re-execute Pipeline][ch-status-reexec]   | [Script][sc-status-7]           | Re-execute with alternate paths     |
+| 64    | Middleware: Sessions          | [Sessions][ch-mw-sessions]                | [Script][sc-mw-sessions]        | Cookie-based session state          |
+| 65    | Middleware: Sessions (Redis)  | [Sessions with Redis][ch-mw-sessions-redis] | [Script][sc-mw-sessions-redis] | Redis-backed session storage        |
+| 66    | Middleware: Sessions (SQL)    | [Sessions with SQL Server][ch-mw-sessions-sql] | [Script][sc-mw-sessions-sql] | SQL-backed session storage          |
 
 Static chapters and scripts are all linked directly above for quick navigation.
 
@@ -179,6 +182,9 @@ Static chapters and scripts are all linked directly above for quick navigation.
 [ch-status-format]: /topics/statuscodepages
 [ch-status-redirects]: /topics/statuscodepages
 [ch-status-reexec]: /topics/statuscodepages
+[ch-mw-sessions]: ./19.Session/1.Sessions
+[ch-mw-sessions-redis]: ./19.Session/2.Sessions-Redis
+[ch-mw-sessions-sql]: ./19.Session/3.Sessions-Sql
 [sc-hello]: /pwsh/tutorial/examples/1.1-Hello-World.ps1
 [sc-content]: /pwsh/tutorial/examples/2.1-Multiple-Content-Types.ps1
 [sc-multilang]: /pwsh/tutorial/examples/2.2-Multi-Language-Routes.ps1
@@ -242,3 +248,6 @@ Static chapters and scripts are all linked directly above for quick navigation.
 [sc-status-5]: /pwsh/tutorial/examples/17.5-StatusCodePages-ContentFormat.ps1
 [sc-status-6]: /pwsh/tutorial/examples/17.6-StatusCodePages-Redirects.ps1
 [sc-status-7]: /pwsh/tutorial/examples/17.7-StatusCodePages-ReExecute.ps1
+[sc-mw-sessions]: /pwsh/tutorial/examples/19.1-Sessions.ps1
+[sc-mw-sessions-redis]: /pwsh/tutorial/examples/19.2-Sessions-Redis.ps1
+[sc-mw-sessions-sql]: /pwsh/tutorial/examples/19.3-Sessions-Sql.ps1

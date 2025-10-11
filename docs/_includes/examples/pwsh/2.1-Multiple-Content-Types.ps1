@@ -16,8 +16,6 @@ New-KrServer -Name 'Simple Server'
 # Add a listener on the configured port and IP address
 Add-KrEndpoint -Port $Port -IPAddress $IPAddress
 
-
-
 # Enable Kestrun configuration
 Enable-KrConfiguration
 

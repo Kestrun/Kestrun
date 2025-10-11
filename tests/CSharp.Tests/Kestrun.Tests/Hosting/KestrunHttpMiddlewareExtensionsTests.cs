@@ -522,6 +522,5 @@ public class KestrunHttpMiddlewareExtensionsTests
         _ = host.AddHsts(options);
         Assert.True(middleware.Count > 0);
     }
-
     #endregion
 }

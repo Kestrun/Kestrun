@@ -89,6 +89,16 @@
 				"build",
 				"c:\\Users\\m_dan\\Documents\\GitHub\\Kestrun\\src\\CSharp\\Kestrun\\Kestrun.csproj"
 			]
+		},
+		{
+			"label": "validate tutorial docs",
+			"type": "shell",
+			"command": "pwsh",
+			"args": [
+				"-NoProfile",
+				"-File",
+				"Utility/Test-TutorialDocs.ps1"
+			]
 		}
 	]
 }

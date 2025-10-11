@@ -8,7 +8,7 @@ using Microsoft.AspNetCore.ResponseCompression;
 using Microsoft.Net.Http.Headers;
 using Serilog.Events;
 using Microsoft.Extensions.DependencyInjection.Extensions;
-using Microsoft.AspNetCore.HttpsPolicy; // Added for TryAddSingleton
+using Microsoft.AspNetCore.HttpsPolicy;
 
 namespace Kestrun.Hosting;
 

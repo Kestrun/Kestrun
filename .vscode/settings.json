@@ -62,5 +62,8 @@
             "ol_single": 1,
             "ol_multi": 1
         }
+    },
+    "[json]": {
+        "editor.defaultFormatter": "vscode.json-language-features"
     }
 }

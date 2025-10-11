@@ -82,6 +82,7 @@ function Set-KrServerLimit {
         [Parameter()]
         [int]$MaxRequestHeaderCount , # Default is 100
         [Parameter()]
+        [ValidateRange(1, [int]::MaxValue)]
         [int]$KeepAliveTimeoutSeconds  , # Default is 130 seconds
         [Parameter()]
         [long]$MaxRequestBufferSize , #default is 1,048,576 bytes (1 MB).
@@ -96,6 +97,7 @@ function Set-KrServerLimit {
         [Parameter()]
         [Microsoft.AspNetCore.Server.Kestrel.Core.MinDataRate]$MinResponseDataRate, # Defaults to 240 bytes/second with a 5 second grace period.
         [Parameter()]
+        [ValidateRange(1, [int]::MaxValue)]
         [int]$RequestHeadersTimeoutSeconds, # Default is 30 seconds.
         [Parameter()]
         [switch]$PassThru

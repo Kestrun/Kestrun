@@ -63,6 +63,7 @@ function Add-KrHsts {
         [Microsoft.AspNetCore.HttpsPolicy.HstsOptions]$Options,
 
         [Parameter(ParameterSetName = 'Items')]
+        [ValidateRange(1, [int]::MaxValue)]
         [int] $MaxAgeDays = 30,
         [Parameter(ParameterSetName = 'Items')]
         [switch] $IncludeSubDomains,

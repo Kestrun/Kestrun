@@ -104,14 +104,18 @@ function Add-KrStaticFilesMiddleware {
         [Parameter()]
         [switch]$NoStore,
         [Parameter()]
+        [ValidateRange(1, [int]::MaxValue)]
         [int]$MaxAge,
         [Parameter()]
+        [ValidateRange(1, [int]::MaxValue)]
         [int]$SharedMaxAge,
         [Parameter()]
         [switch]$MaxStale,
         [Parameter()]
+        [ValidateRange(1, [int]::MaxValue)]
         [int]$MaxStaleLimit,
         [Parameter()]
+        [ValidateRange(1, [int]::MaxValue)]
         [int]$MinFresh,
         [Parameter()]
         [switch]$NoTransform,
@@ -158,7 +162,7 @@ function Add-KrStaticFilesMiddleware {
             if ($ContentTypeMap) {
                 $provider = [Microsoft.AspNetCore.StaticFiles.FileExtensionContentTypeProvider]::new()
                 foreach ($k in $ContentTypeMap.Keys) {
-                    $ext = if ($k -like ".*") { $k } else { ".$k" }
+                    $ext = if ($k -like '.*') { $k } else { ".$k" }
                     $mime = [string]$ContentTypeMap[$k]
                     if ([string]::IsNullOrWhiteSpace($mime)) { continue }
                     $provider.Mappings[$ext] = $mime

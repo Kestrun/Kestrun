@@ -1000,6 +1000,17 @@ public class KestrunHost : IDisposable
     }
 
     /// <summary>
+    /// Returns true if the specified service type has already been registered in the IServiceCollection.
+    /// </summary>
+    public bool IsServiceRegistered(Type serviceType)
+        => Builder?.Services?.Any(sd => sd.ServiceType == serviceType) ?? false;
+
+    /// <summary>
+    /// Generic convenience overload.
+    /// </summary>
+    public bool IsServiceRegistered<TService>() => IsServiceRegistered(typeof(TService));
+
+    /// <summary>
     /// Adds a service configuration action to the service queue.
     /// This action will be executed when the services are built.
     /// </summary>

@@ -21,6 +21,6 @@ function Get-KrSessionByte {
         [string]$Key
     )
     if ($null -ne $Context.Session) {
-        [Microsoft.AspNetCore.Http.SessionExtensions]::Get($Context.Session, $Key)
+        return [Microsoft.AspNetCore.Http.SessionExtensions]::Get($Context.Session, $Key)
     }
 }

@@ -38,7 +38,6 @@ Describe 'Example 19.2-Sessions-Redis' -Tag 'Tutorial', 'Middleware', 'Sessions'
             $sess = [Microsoft.PowerShell.Commands.WebRequestSession]::new()
 
             # whoami without login -> 401
-            $who1 = $null
 
             # Invoke-WebRequest throws on non-200 sometimes; probe status code explicitly via headers helper
             $probe = Invoke-WebRequest -Uri "$($script:instance.Url)/session/whoami" -UseBasicParsing -TimeoutSec 15 -WebSession $sess -SkipCertificateCheck -SkipHttpErrorCheck

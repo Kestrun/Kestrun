@@ -8,7 +8,7 @@ using Microsoft.Extensions.Options;
 namespace Kestrun.Hosting;
 
 /// <summary>
-/// Provides extension methods for configuring common HTTP middleware in Kestrun.
+/// Provides extension methods for configuring session state and distributed cache in Kestrun.
 /// </summary>
 public static class KestrunHostSessionExtensions
 {

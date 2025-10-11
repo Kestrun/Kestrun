@@ -131,7 +131,6 @@ public static class KestrunHostSessionExtensions
                     opts.InstanceName = cfg.InstanceName;
                     opts.ProfilingSession = cfg.ProfilingSession;
                     opts.ConnectionMultiplexerFactory = cfg.ConnectionMultiplexerFactory;
-
                 });
         });
     }

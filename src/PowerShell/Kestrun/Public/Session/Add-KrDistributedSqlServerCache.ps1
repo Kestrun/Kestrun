@@ -54,9 +54,11 @@ function Add-KrDistributedSqlServerCache {
         [string]$TableName,
 
         [Parameter(ParameterSetName = 'Items')]
+        [ValidateRange(1, [int]::MaxValue)]
         [int]$ExpiredItemsDeletionInterval,
 
         [Parameter(ParameterSetName = 'Items')]
+        [ValidateRange(1, [int]::MaxValue)]
         [int]$DefaultSlidingExpiration,
 
         [Parameter()]

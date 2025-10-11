@@ -65,9 +65,11 @@ function Add-KrSession {
         [Microsoft.AspNetCore.Http.CookieBuilder]$Cookie,
 
         [Parameter(ParameterSetName = 'Items')]
-        [int]$IdleTimeout ,
+        [ValidateRange(1, [int]::MaxValue)]
+        [int]$IdleTimeout,
 
         [Parameter(ParameterSetName = 'Items')]
+        [ValidateRange(1, [int]::MaxValue)]
         [int]$IOTimeout,
 
         [Parameter()]

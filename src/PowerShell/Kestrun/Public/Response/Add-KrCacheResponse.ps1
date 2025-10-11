@@ -54,14 +54,18 @@ function Add-KrCacheResponse {
         [Parameter()]
         [switch]$NoStore,
         [Parameter()]
+        [ValidateRange(1, [int]::MaxValue)]
         [int]$MaxAge,
         [Parameter()]
+        [ValidateRange(1, [int]::MaxValue)]
         [int]$SharedMaxAge,
         [Parameter()]
         [switch]$MaxStale,
         [Parameter()]
+        [ValidateRange(1, [int]::MaxValue)]
         [int]$MaxStaleLimit,
         [Parameter()]
+        [ValidateRange(1, [int]::MaxValue)]
         [int]$MinFresh,
         [Parameter()]
         [switch]$NoTransform,

@@ -213,7 +213,7 @@ jobs:
                       Write-Host "❌ UPSTASH_REDIS_URL is NOT available in workflow" -ForegroundColor Red
                   }
                   $ErrorActionPreference = 'Stop'
-                  Invoke-Build Test -DotNetVerbosity $Env:DOTNET_VERBOSITY -PesterVerbosity $Env:PESTER_VERBOSITY -RunPesterInProcess
+                  Invoke-Build Test -DotNetVerbosity $Env:DOTNET_VERBOSITY -PesterVerbosity $Env:PESTER_VERBOSITY
 
             - name: 📤 Upload diagnostics on failure
               if: failure()

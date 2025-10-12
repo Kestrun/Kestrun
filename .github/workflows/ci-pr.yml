@@ -22,3 +22,5 @@ jobs:
         uses: Kestrun/Kestrun/.github/workflows/ci-core.yml@main
         with:
             is_pr: true
+        secrets:
+            UPSTASH_REDIS_URL: ${{ secrets.UPSTASH_REDIS_URL }}

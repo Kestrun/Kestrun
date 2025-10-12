@@ -91,9 +91,15 @@ if (($null -eq $PSCmdlet.MyInvocation) -or ([string]::IsNullOrEmpty($PSCmdlet.My
 
 # Debug environment variables
 Write-Host '🔍 [BUILD DEBUG] Checking UPSTASH_REDIS_URL in build script...' -ForegroundColor Cyan
-if ($env:UPSTASH_REDIS_URL) {
-    Write-Host "✅ UPSTASH_REDIS_URL is set in build script (length: $($env:UPSTASH_REDIS_URL.Length))" -ForegroundColor Green
-    Write-Host "✅ UPSTASH_REDIS_URL starts with: $($env:UPSTASH_REDIS_URL.Substring(0, [Math]::Min(20, $env:UPSTASH_REDIS_URL.Length)))..." -ForegroundColor Green
+$upstashValue = [System.Environment]::GetEnvironmentVariable('UPSTASH_REDIS_URL')
+if ($upstashValue) {
+    if ([string]::IsNullOrWhiteSpace($upstashValue)) {
+        Write-Host "⚠️ UPSTASH_REDIS_URL is set but empty/whitespace (length: $($upstashValue.Length))" -ForegroundColor Yellow
+        Write-Host "⚠️ Value: '$upstashValue'" -ForegroundColor Yellow
+    } else {
+        Write-Host "✅ UPSTASH_REDIS_URL is set in build script (length: $($upstashValue.Length))" -ForegroundColor Green
+        Write-Host "✅ UPSTASH_REDIS_URL starts with: $($upstashValue.Substring(0, [Math]::Min(20, $upstashValue.Length)))..." -ForegroundColor Green
+    }
 } else {
     Write-Host "❌ UPSTASH_REDIS_URL is NOT set in build script" -ForegroundColor Red
     # Try to load from .env.json if available
@@ -101,11 +107,12 @@ if ($env:UPSTASH_REDIS_URL) {
         Write-Host "🔄 Attempting to load .env.json..." -ForegroundColor Yellow
         try {
             . ./Utility/Import-EnvFile.ps1 -Path '.env.json' -Overwrite
-            if ($env:UPSTASH_REDIS_URL) {
-                Write-Host "✅ UPSTASH_REDIS_URL loaded from .env.json (length: $($env:UPSTASH_REDIS_URL.Length))" -ForegroundColor Green
-                Write-Host "✅ UPSTASH_REDIS_URL starts with: $($env:UPSTASH_REDIS_URL.Substring(0, [Math]::Min(20, $env:UPSTASH_REDIS_URL.Length)))..." -ForegroundColor Green
+            $upstashAfterLoad = [System.Environment]::GetEnvironmentVariable('UPSTASH_REDIS_URL')
+            if ($upstashAfterLoad -and -not [string]::IsNullOrWhiteSpace($upstashAfterLoad)) {
+                Write-Host "✅ UPSTASH_REDIS_URL loaded from .env.json (length: $($upstashAfterLoad.Length))" -ForegroundColor Green
+                Write-Host "✅ UPSTASH_REDIS_URL starts with: $($upstashAfterLoad.Substring(0, [Math]::Min(20, $upstashAfterLoad.Length)))..." -ForegroundColor Green
             } else {
-                Write-Host "❌ UPSTASH_REDIS_URL not found in .env.json" -ForegroundColor Red
+                Write-Host "❌ UPSTASH_REDIS_URL not found or empty in .env.json" -ForegroundColor Red
             }
         } catch {
             Write-Host "❌ Failed to load .env.json: $($_.Exception.Message)" -ForegroundColor Red
@@ -116,7 +123,12 @@ if ($env:UPSTASH_REDIS_URL) {
 }
 Write-Host "🔍 All environment variables containing UPSTASH in build script:" -ForegroundColor Cyan
 Get-ChildItem env: | Where-Object Name -like "*UPSTASH*" | ForEach-Object { 
-    Write-Host "  $($_.Name) = $($_.Value.Substring(0, [Math]::Min(20, $_.Value.Length)))..." -ForegroundColor Yellow 
+    $value = $_.Value
+    if ([string]::IsNullOrWhiteSpace($value)) {
+        Write-Host "  $($_.Name) = [EMPTY/WHITESPACE] (length: $($value.Length))" -ForegroundColor Red
+    } else {
+        Write-Host "  $($_.Name) = $($value.Substring(0, [Math]::Min(20, $value.Length)))... (length: $($value.Length))" -ForegroundColor Yellow 
+    }
 }
 
 $SolutionPath = Join-Path -Path $PSScriptRoot -ChildPath 'Kestrun.sln'
@@ -303,8 +315,15 @@ Add-BuildTask 'Format' {
 
 Add-BuildTask 'Test-Pester' {
     Write-Host '🔍 [TEST-PESTER DEBUG] Checking UPSTASH_REDIS_URL before running Pester tests...' -ForegroundColor Cyan
-    if ($env:UPSTASH_REDIS_URL) {
-        Write-Host "✅ UPSTASH_REDIS_URL is available for Pester tests (length: $($env:UPSTASH_REDIS_URL.Length))" -ForegroundColor Green
+    $upstashValue = [System.Environment]::GetEnvironmentVariable('UPSTASH_REDIS_URL')
+    if ($upstashValue) {
+        if ([string]::IsNullOrWhiteSpace($upstashValue)) {
+            Write-Host "⚠️ UPSTASH_REDIS_URL is set but empty/whitespace for Pester tests (length: $($upstashValue.Length))" -ForegroundColor Yellow
+            Write-Host "⚠️ Value: '$upstashValue'" -ForegroundColor Yellow
+        } else {
+            Write-Host "✅ UPSTASH_REDIS_URL is available for Pester tests (length: $($upstashValue.Length))" -ForegroundColor Green
+            Write-Host "✅ UPSTASH_REDIS_URL starts with: $($upstashValue.Substring(0, [Math]::Min(20, $upstashValue.Length)))..." -ForegroundColor Green
+        }
     } else {
         Write-Host "❌ UPSTASH_REDIS_URL is NOT available for Pester tests" -ForegroundColor Red
     }

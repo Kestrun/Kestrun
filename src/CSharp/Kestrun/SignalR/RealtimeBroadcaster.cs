@@ -5,21 +5,15 @@ namespace Kestrun.SignalR;
 /// <summary>
 /// Default implementation of <see cref="IRealtimeBroadcaster"/> that broadcasts messages via SignalR.
 /// </summary>
-public class RealtimeBroadcaster : IRealtimeBroadcaster
+/// <remarks>
+/// Initializes a new instance of the <see cref="RealtimeBroadcaster"/> class.
+/// </remarks>
+/// <param name="hubContext">The SignalR hub context for KestrunHub.</param>
+/// <param name="logger">The Serilog logger instance.</param>
+public class RealtimeBroadcaster(IHubContext<KestrunHub> hubContext, Serilog.ILogger logger) : IRealtimeBroadcaster
 {
-    private readonly IHubContext<KestrunHub> _hubContext;
-    private readonly Serilog.ILogger _logger;
-
-    /// <summary>
-    /// Initializes a new instance of the <see cref="RealtimeBroadcaster"/> class.
-    /// </summary>
-    /// <param name="hubContext">The SignalR hub context for KestrunHub.</param>
-    /// <param name="logger">The Serilog logger instance.</param>
-    public RealtimeBroadcaster(IHubContext<KestrunHub> hubContext, Serilog.ILogger logger)
-    {
-        _hubContext = hubContext;
-        _logger = logger;
-    }
+    private readonly IHubContext<KestrunHub> _hubContext = hubContext;
+    private readonly Serilog.ILogger _logger = logger;
 
     /// <inheritdoc/>
     public async Task BroadcastLogAsync(string level, string message, CancellationToken cancellationToken = default)

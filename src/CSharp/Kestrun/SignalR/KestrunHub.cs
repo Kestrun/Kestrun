@@ -6,18 +6,13 @@ namespace Kestrun.SignalR;
 /// Default SignalR hub for Kestrun providing real-time communication capabilities.
 /// Clients can connect to this hub to receive log messages, events, and other real-time updates.
 /// </summary>
-public class KestrunHub : Hub
+/// <remarks>
+/// Initializes a new instance of the <see cref="KestrunHub"/> class.
+/// </remarks>
+/// <param name="logger">The Serilog logger instance.</param>
+public class KestrunHub(Serilog.ILogger logger) : Hub
 {
-    private readonly Serilog.ILogger _logger;
-
-    /// <summary>
-    /// Initializes a new instance of the <see cref="KestrunHub"/> class.
-    /// </summary>
-    /// <param name="logger">The Serilog logger instance.</param>
-    public KestrunHub(Serilog.ILogger logger)
-    {
-        _logger = logger;
-    }
+    private readonly Serilog.ILogger _logger = logger;
 
     /// <summary>
     /// Called when a client connects to the hub.
@@ -69,8 +64,5 @@ public class KestrunHub : Hub
     /// Echoes a message back to the caller (useful for testing).
     /// </summary>
     /// <param name="message">The message to echo.</param>
-    public async Task Echo(string message)
-    {
-        await Clients.Caller.SendAsync("ReceiveEcho", message);
-    }
+    public async Task Echo(string message) => await Clients.Caller.SendAsync("ReceiveEcho", message);
 }

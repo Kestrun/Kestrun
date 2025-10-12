@@ -183,6 +183,11 @@ public class KestrunHost : IDisposable
         // can resolve it. We register the current instance as a singleton.
         _ = Builder.Services.AddSingleton(this);
 
+        // ④.2 Expose Serilog.ILogger via DI for components (e.g., SignalR hubs) that depend on Serilog's logger
+        // ASP.NET Core registers Microsoft.Extensions.Logging.ILogger by default; we also bind Serilog.ILogger
+        // to the same instance so constructors like `KestrunHub(Serilog.ILogger logger)` resolve properly.
+        _ = Builder.Services.AddSingleton(Logger);
+
         // ⑤ Options
         InitializeOptions(appName);
 
@@ -1113,13 +1118,6 @@ public class KestrunHost : IDisposable
         });
     }
 
-
-
-
-
-
-
-    // ② SignalR
     /// <summary>
     /// Adds a SignalR hub to the application at the specified path.
     /// </summary>
@@ -1130,15 +1128,22 @@ public class KestrunHost : IDisposable
     {
         return AddService(s =>
         {
-            s.AddSignalR();
+            _ = s.AddSignalR();
             // Register IRealtimeBroadcaster as singleton if it's the KestrunHub
-            if (typeof(T) == typeof(Kestrun.SignalR.KestrunHub))
+            if (typeof(T) == typeof(SignalR.KestrunHub))
             {
-                s.AddSingleton<Kestrun.SignalR.IRealtimeBroadcaster, Kestrun.SignalR.RealtimeBroadcaster>();
+                _ = s.AddSingleton<SignalR.IRealtimeBroadcaster, SignalR.RealtimeBroadcaster>();
             }
         })
         .Use(app => ((IEndpointRouteBuilder)app).MapHub<T>(path));
     }
+
+    /// <summary>
+    /// Adds the default SignalR hub (KestrunHub) to the application at the specified path.
+    /// </summary>
+    /// <param name="path">The path at which to map the SignalR hub.</param>
+    /// <returns></returns>
+    public KestrunHost AddSignalR(string path) => AddSignalR<SignalR.KestrunHub>(path);
 
     /*
         // ④ gRPC

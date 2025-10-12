@@ -5,10 +5,10 @@
         This function allows you to map a SignalR hub class to a specific URL path on the Kestrun server.
     .PARAMETER Server
         The Kestrun server instance to which the SignalR hub will be added.
-    .PARAMETER HubType
-        The type of the SignalR hub class to be mapped.
     .PARAMETER Path
         The URL path where the SignalR hub will be accessible.
+    .PARAMETER HubType
+        The type of the SignalR hub class to be mapped.
     .PARAMETER PassThru
         If specified, the cmdlet will return the modified server instance after adding the SignalR hub.
     .EXAMPLE
@@ -40,11 +40,11 @@ function Add-KrSignalRHubMiddleware {
         [Parameter(ValueFromPipeline)]
         [Kestrun.Hosting.KestrunHost]$Server,
 
-        [Parameter(Mandatory)]
-        [Type]$HubType,
-
-        [Parameter(Mandatory)]
+        [Parameter(Mandatory = $true)]
         [string]$Path,
+
+        [Parameter()]
+        [Type]$HubType,
 
         [Parameter()]
         [switch]$PassThru
@@ -54,26 +54,27 @@ function Add-KrSignalRHubMiddleware {
         $Server = Resolve-KestrunServer -Server $Server
     }
     process {
-        Write-KrLog -Level Warning -Message 'Add-KrSignalRHubMiddleware is an experimental feature and may not work as expected.'
+        if ($null -eq $HubType) {
+            $server.AddSignalR($Path) | Out-Null
+        } else {
+            # 1.  Find the generic method definition on KestrunHost
+            $method = $Server.GetType().GetMethods() |
+                Where-Object {
+                    $_.Name -eq 'AddSignalR' -and
+                    $_.IsGenericMethod -and
+                    $_.GetParameters().Count -eq 1        # (string path)
+                }
 
-        # 1.  Find the generic method definition on KestrunHost
-        $method = $Server.GetType().GetMethods() |
-            Where-Object {
-                $_.Name -eq 'AddSignalR' -and
-                $_.IsGenericMethod -and
-                $_.GetParameters().Count -eq 1        # (string path)
+            if (-not $method) {
+                throw 'Could not locate the generic AddSignalR<T>(string) method.'
             }
 
-        if (-not $method) {
-            throw 'Could not locate the generic AddSignalR<T>(string) method.'
+            # 2.  Close the generic with the hub type from the parameter
+            $closed = $method.MakeGenericMethod(@($HubType))
+
+            # 3.  Invoke it, passing the path; return the resulting server for chaining
+            $closed.Invoke($Server, @($Path)) | Out-Null
         }
-
-        # 2.  Close the generic with the hub type from the parameter
-        $closed = $method.MakeGenericMethod(@($HubType))
-
-        # 3.  Invoke it, passing the path; return the resulting server for chaining
-        $closed.Invoke($Server, @($Path)) | Out-Null
-
         if ($PassThru.IsPresent) {
             # if the PassThru switch is specified, return the modified server instance
             return $Server

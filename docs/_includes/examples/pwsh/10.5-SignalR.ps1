@@ -20,7 +20,7 @@ New-KrServer -Name 'Kestrun SignalR Demo'
 Add-KrEndpoint -Port $Port -IPAddress $IPAddress -Protocol Http1AndHttp2
 
 ## 4. Add SignalR with KestrunHub
-Add-KrSignalRHubMiddleware -HubType ([Kestrun.SignalR.KestrunHub]) -Path '/runtime'
+Add-KrSignalRHubMiddleware -Path '/runtime'
 
 ## 5. Enable Configuration
 Enable-KrConfiguration
@@ -33,6 +33,7 @@ Add-KrHtmlTemplateRoute -Pattern '/' -HtmlTemplatePath "Assets/wwwroot/signal-r.
 # Route to broadcast logs via PowerShell
 Add-KrMapRoute -Verbs Get -Pattern '/api/ps/log/{level}' {
     $level = Get-KrRequestRouteParam -Name 'level'
+    Write-KrLog -Level $level -Message "Test $level message from PowerShell at $(Get-Date -Format 'HH:mm:ss')"
     Send-KrLog -Level $level -Message "Test $level message from PowerShell at $(Get-Date -Format 'HH:mm:ss')"
     Write-KrTextResponse -InputObject "Broadcasted $level log message from PowerShell" -StatusCode 200
 }

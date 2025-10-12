@@ -8,8 +8,6 @@
         The log level (e.g., Information, Warning, Error, Debug, Verbose).
     .PARAMETER Message
         The log message to broadcast.
-    .PARAMETER Server
-        The Kestrun server instance. If not specified, the default server is used.
     .EXAMPLE
         Send-KrLog -Level Information -Message "Server started successfully"
         Broadcasts an information log message to all connected SignalR clients.
@@ -32,56 +30,25 @@ function Send-KrLog {
         [string]$Level,
 
         [Parameter(Mandatory = $true)]
-        [string]$Message,
-
-        [Parameter(ValueFromPipeline)]
-        [Kestrun.Hosting.KestrunHost]$Server
+        [string]$Message
     )
 
-    begin {
-        # Resolve the server instance if available (not strictly required when $Context is present)
-        if (-not $Server) {
-            $Server = Get-KrServer
+    try {
+        $Server = Get-KrServer
+        # Call the C# extension method directly
+        $httpContext = $null
+        if ($null -ne $Context -and $null -ne $Context.HttpContext) {
+            $httpContext = $Context.HttpContext
         }
-    }
-
-    process {
-        try {
-            # Prefer resolving from the current request's service provider when running inside a route
-            $svcProvider = $null
-            if ($null -ne $Context -and $null -ne $Context.HttpContext) {
-                $svcProvider = $Context.HttpContext.RequestServices
-            } elseif ($null -ne $Server) {
-                # Fallback: best-effort reflection access to internal App property to get Services
-                try {
-                    $appProp = $Server.GetType().GetProperty('App', [System.Reflection.BindingFlags] 'NonPublic,Instance')
-                    if ($appProp) {
-                        $appVal = $appProp.GetValue($Server)
-                        if ($null -ne $appVal) { $svcProvider = $appVal.Services }
-                    }
-                } catch { }
-            }
-
-            if (-not $svcProvider) {
-                Write-KrLog -Level Warning -Message 'No service provider available to resolve IRealtimeBroadcaster.'
-                return
-            }
-
-            # Get the IRealtimeBroadcaster service from DI
-            $broadcaster = $svcProvider.GetService([Kestrun.SignalR.IRealtimeBroadcaster])
-
-            if (-not $broadcaster) {
-                Write-KrLog -Level Warning -Message 'IRealtimeBroadcaster service is not registered. Make sure SignalR is configured with KestrunHub.'
-                return
-            }
-
-            # Broadcast the log message asynchronously
-            $task = $broadcaster.BroadcastLogAsync($Level, $Message, [System.Threading.CancellationToken]::None)
-            $task.GetAwaiter().GetResult()
-
+        if ([Kestrun.Hosting.KestrunHostSignalRExtensions]::BroadcastLog($Server, $Level, $Message, $httpContext, [System.Threading.CancellationToken]::None)) {
             Write-KrLog -Level Debug -Message "Broadcasted log message: $Level - $Message"
-        } catch {
-            Write-KrLog -Level Error -Message "Failed to broadcast log message: $_" -Exception $_.Exception
+            return
+        } else {
+            Write-KrLog -Level Error -Message 'Failed to broadcast log message: Unknown error'
+            return
         }
+    } catch {
+        Write-KrLog -Level Error -Message "Failed to broadcast log message: $_" -Exception $_.Exception
     }
+   
 }

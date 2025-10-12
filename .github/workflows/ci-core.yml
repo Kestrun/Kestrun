@@ -16,6 +16,10 @@ on:
                 required: false
                 default: false
                 type: boolean
+        secrets:
+            UPSTASH_REDIS_URL:
+                description: Redis URL for session testing
+                required: false
 
 concurrency:
     group: ci-${{ github.repository }}-${{ inputs.is_pr && github.event.pull_request.number || github.ref }}
@@ -131,9 +135,16 @@ jobs:
                   [System.Runtime.InteropServices.RuntimeInformation]::FrameworkDescription
                   [System.Environment]::Version
 
-            - name: Restore solution
+            - name: 📦 Restore solution
               shell: pwsh
-              run: Invoke-Build Restore -DotNetVerbosity $Env:DOTNET_VERBOSITY
+              run: |
+                  Write-Host "🔍 [WORKFLOW] Environment check before calling build script..."
+                  if ($env:UPSTASH_REDIS_URL) {
+                      Write-Host "✅ UPSTASH_REDIS_URL is available in workflow (length: $($env:UPSTASH_REDIS_URL.Length))" -ForegroundColor Green
+                  } else {
+                      Write-Host "❌ UPSTASH_REDIS_URL is NOT available in workflow" -ForegroundColor Red
+                  }
+                  Invoke-Build Restore -DotNetVerbosity $Env:DOTNET_VERBOSITY
 
             # 🐛 Debug-only; non-fatal if it exits 1
             - name: 🔎 List Roslyn packages (transitive)
@@ -159,6 +170,12 @@ jobs:
             - name: 🔧 Run C# Build (normal)
               shell: pwsh
               run: |
+                  Write-Host "🔍 [WORKFLOW] Environment check before calling build script..."
+                  if ($env:UPSTASH_REDIS_URL) {
+                      Write-Host "✅ UPSTASH_REDIS_URL is available in workflow (length: $($env:UPSTASH_REDIS_URL.Length))" -ForegroundColor Green
+                  } else {
+                      Write-Host "❌ UPSTASH_REDIS_URL is NOT available in workflow" -ForegroundColor Red
+                  }
                   $ErrorActionPreference = 'Stop'
                   Invoke-Build Build -DotNetVerbosity $Env:DOTNET_VERBOSITY
 
@@ -189,6 +206,12 @@ jobs:
             - name: 🧪 Run Tests
               shell: pwsh
               run: |
+                  Write-Host "🔍 [WORKFLOW] Environment check before calling test script..."
+                  if ($env:UPSTASH_REDIS_URL) {
+                      Write-Host "✅ UPSTASH_REDIS_URL is available in workflow (length: $($env:UPSTASH_REDIS_URL.Length))" -ForegroundColor Green
+                  } else {
+                      Write-Host "❌ UPSTASH_REDIS_URL is NOT available in workflow" -ForegroundColor Red
+                  }
                   $ErrorActionPreference = 'Stop'
                   Invoke-Build Test -DotNetVerbosity $Env:DOTNET_VERBOSITY -PesterVerbosity $Env:PESTER_VERBOSITY -RunPesterInProcess
 

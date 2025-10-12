@@ -28,10 +28,7 @@
     The verbosity level for Pester tests.
 
     .PARAMETER DotNetVerbosity
-    The verbosity level for .NET commands.
-
-    .PARAMETER RunPesterInProcess
-    Whether to run Pester tests in the same process.
+    The verbosity level for .NET commands. Valid values are 'quiet', 'minimal', 'normal', 'detailed', and 'diagnostic'.
 
     .EXAMPLE
     .\Kestrun.build.ps1 -Configuration Release -Frameworks net9.0 -Version 1.0.0
@@ -73,9 +70,7 @@ param(
     [Parameter(Mandatory = $false)]
     [string]
     [ValidateSet('quiet', 'minimal' , 'normal', 'detailed', 'diagnostic')]
-    $DotNetVerbosity = 'detailed',
-    [Parameter(Mandatory = $false)]
-    [switch]$RunPesterInProcess
+    $DotNetVerbosity = 'detailed'
 )
 
 if (($null -eq $PSCmdlet.MyInvocation) -or ([string]::IsNullOrEmpty($PSCmdlet.MyInvocation.PSCommandPath)) -or (-not $PSCmdlet.MyInvocation.PSCommandPath.EndsWith('Invoke-Build.ps1'))) {
@@ -340,7 +335,7 @@ Add-BuildTask 'Test-Pester' {
             Write-Host '❌ UPSTASH_REDIS_URL is NOT available for Pester tests' -ForegroundColor Red
         }
     }
-    $res = & .\Utility\Test-Pester.ps1 -ReRunFailed -Verbosity $PesterVerbosity -RunPesterInProcess:$RunPesterInProcess
+    $res = & .\Utility\Test-Pester.ps1 -ReRunFailed -Verbosity $PesterVerbosity
     if ($res -ne 0) { Write-Error "Test-Pester failed with exit code $res" }
     return $res
 }

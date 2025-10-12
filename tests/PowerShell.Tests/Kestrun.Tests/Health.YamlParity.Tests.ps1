@@ -22,7 +22,7 @@ Describe 'Validates numeric probe data representation in YAML health response' -
             Add-KrEndpoint -Port $Port -IPAddress $IPAddress
 
             # Add a simple health probe that returns numeric data
-            Add-KrHealthProbe -Name 'NumProbe' -Scriptblock {
+            Add-KrHealthProbe -Name 'NumProbe' -ScriptBlock {
                 New-KrProbeResult Healthy 'OK' -Data @{ intVal = 42; floatVal = 12.5 }
             }
 
@@ -34,7 +34,7 @@ Describe 'Validates numeric probe data representation in YAML health response' -
             # Start the server asynchronously
             Start-KrServer -CloseLogsOnExit
         }
-        $script:instance = Start-ExampleScript -Scriptblock $scriptBlock
+        $script:instance = Start-ExampleScript -ScriptBlock $scriptBlock
     }
     AfterAll { if ($script:instance) { Stop-ExampleScript -Instance $script:instance } }
 

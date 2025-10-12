@@ -82,7 +82,10 @@ function Get-KestrunModulePath {
 #>
 function Get-FreeTcpPort {
     [CmdletBinding()]
-    param()
+    param(
+        [int]$FallbackPort = 5000,
+        [int]$MaxPort = 64000
+    )
     try {
         $retryCount = 0
         $listener = $null
@@ -95,10 +98,10 @@ function Get-FreeTcpPort {
             $listener.Start()
             $port = ($listener.LocalEndpoint).Port
             $retryCount++
-        } until ($port -lt 58000 -or $retryCount -ge 5)
+        } until ($port -lt $MaxPort -or $retryCount -ge 5)
     } catch {
-        Write-Warning "Failed to get free TCP port: $_"
-        $port = 5000 # fallback
+        $port = $FallbackPort # fallback
+        Write-Warning "Failed to get free TCP port: $_ (using fallback port $FallbackPort)"
     } finally {
         if ($null -ne $listener) {
             $listener.Stop()
@@ -170,7 +173,8 @@ function Start-ExampleScript {
         [int]$Port,
         [int]$StartupTimeoutSeconds = 40,
         [int]$HttpProbeDelayMs = 150,
-        [switch]$FromRootDirectory
+        [switch]$FromRootDirectory,
+        [string[]]$EnvironmentVariables = @('UPSTASH_REDIS_URL')
     )
     if (-not $Port) { $Port = Get-FreeTcpPort }
     if ($PSCmdlet.ParameterSetName -eq 'Name') {
@@ -197,13 +201,7 @@ function Start-ExampleScript {
 
     $kestrunModulePath = Get-KestrunModulePath
     $importKestrunModule = @"
-# Debug: Check environment variables in child process
-Write-Host "🔍 [CHILD DEBUG] Child process UPSTASH_REDIS_URL: '`$env:UPSTASH_REDIS_URL'" -ForegroundColor Magenta
-Write-Host "🔍 [CHILD DEBUG] All child environment variables containing UPSTASH:" -ForegroundColor Magenta
-Get-ChildItem env: | Where-Object Name -like "*UPSTASH*" | ForEach-Object {
-    Write-Host "  `$(`$_.Name) = `$(`$_.Value)" -ForegroundColor Yellow
-}
-
+# Ensure Kestrun module is imported
 if (-not (Get-Module -Name Kestrun)) {
      if (Test-Path -Path '$kestrunModulePath' -PathType Leaf) {
         Import-Module '$kestrunModulePath' -Force -ErrorAction Stop
@@ -253,22 +251,15 @@ Start-KrServer
     $stdErr = Join-Path $tempDir ('kestrun-example-' + $fileNameWithoutExtension + '-' + [System.IO.Path]::GetRandomFileName() + '.err.log')
     $argList = @('-NoLogo', '-NoProfile', '-File', $tmp, '-Port', $Port)
 
-    # Build environment variables for the child process (including UPSTASH_REDIS_URL if set in parent)
-    Get-ChildItem env: | Where-Object Name -Like '*UPSTASH*' | ForEach-Object {
-        Write-Host "  $($_.Name) = $($_.Value)" -ForegroundColor Yellow
-    }
-
+    # Build environment variables for the child process (including UPSTASH_REDIS_URL if set in parent)     }
     $environment = @{}
     # Copy current environment variables
     foreach ($key in [System.Environment]::GetEnvironmentVariables().Keys) {
-        $environment[$key] = [System.Environment]::GetEnvironmentVariable($key)
+        if ($EnvironmentVariables -contains $key) {
+            $environment[$key] = [System.Environment]::GetEnvironmentVariable($key)
+        }
     }
-
-    # Ensure UPSTASH_REDIS_URL is passed if it exists
-    if ($env:UPSTASH_REDIS_URL) {
-        $environment['UPSTASH_REDIS_URL'] = $env:UPSTASH_REDIS_URL
-    }
-
+    # Create process start parameters
     $param = @{
         FilePath = 'pwsh'
         WorkingDirectory = $scriptDir
@@ -278,9 +269,13 @@ Start-KrServer
         RedirectStandardError = $stdErr
         Environment = $environment
     }
-    if ($IsWindows) { $param.WindowStyle = 'Hidden' } # Prevent spawned process from inheriting the test runner's console window on Windows (avoids unwanted UI popups during automated tests)
+
+    # Prevent spawned process from inheriting the test runner's console window on Windows (avoids unwanted UI popups during automated tests)
+    if ($IsWindows) { $param.WindowStyle = 'Hidden' }
+    # Start the process
     $proc = Start-Process @param
 
+    # Wait for the process to start accepting connections or timeout
     $deadline = [DateTime]::UtcNow.AddSeconds($StartupTimeoutSeconds)
     $ready = $false
     $attempt = 0
@@ -334,7 +329,7 @@ Start-KrServer
 
     Start-Sleep -Seconds 2 # Allow some time for server to stabilize
 
-    return [pscustomobject]@{
+    return @{
         Name = $Name
         Url = ('{0}://{1}:{2}' -f ($usesHttps ? 'https' : 'http'), $serverIp, $Port)
         Host = $serverIp

@@ -9,7 +9,7 @@ Runs Pester with optional re-runs of failed tests.
 - Writes result artifacts (TRX by default; optional NUnit).
 
 .EXAMPLE
-.\Utility\Test-Pester.ps1 -ReRunFailed -MaxReruns 2 -RunPesterInProcess `
+.\Utility\Test-Pester.ps1 -ReRunFailed -MaxReruns 2  `
     -Verbosity Detailed -ResultsDir ./artifacts/testresults
 #>
 
@@ -17,7 +17,6 @@ Runs Pester with optional re-runs of failed tests.
 param(
     [switch] $ReRunFailed,
     [int]    $MaxReruns = 1,
-    [switch] $RunPesterInProcess,
     [ValidateSet('None', 'Normal', 'Detailed', 'Diagnostic', 'Quiet')]
     [string] $Verbosity = 'Normal',
     [string] $ResultsDir = "$((Get-Location).Path)/artifacts/testresults",
@@ -188,9 +187,7 @@ begin {
     .SYNOPSIS
         Invokes Pester with the provided configuration, either in-process or out-of-process.
     .PARAMETER Config
-        The Pester configuration to use.
-    .PARAMETER OutOfProcess
-        If specified, runs Pester in a separate PowerShell process.
+        The Pester configuration to use. (Mandatory)
     .OUTPUTS
         A hashtable with keys:
         - Run: The Pester run result object.
@@ -202,57 +199,12 @@ begin {
     #>
     function Invoke-PesterWithConfig {
         param(
-            [Parameter(Mandatory)] $Config,
-            [switch] $OutOfProcess
+            [Parameter(Mandatory = $true)] $Config
         )
 
-        if (-not $OutOfProcess) {
-            $run = Invoke-Pester -Configuration $Config
-            $code = if ($run.FailedCount -gt 0) { 1 } else { 0 }
-            return @{ Run = $run; ExitCode = $code }
-        }
-
-        # Out-of-process runner writes a minimal JSON payload we read back
-        $jsonCfg = $Config | ConvertTo-Json -Depth 10
-        $child = Join-Path ([System.IO.Path]::GetTempPath()) ('run-pester-{0}.ps1' -f ([guid]::NewGuid()))
-        $runFile = Join-Path $ResultsDir ('run-{0}.json' -f ([guid]::NewGuid()))
-
-        @'
-param([string]$ConfigJson,[string]$RunOut)
-Import-Module Pester -Force
-$cfg = New-PesterConfiguration -Hashtable (($ConfigJson | ConvertFrom-Json -AsHashtable))
-$run = Invoke-Pester -Configuration $cfg
-
-$payload = [pscustomobject]@{
-    FailedCount = $run.FailedCount
-    TotalCount  = $run.TotalCount
-    Tests       = $run.Tests | ForEach-Object {
-        [pscustomobject]@{
-            FullName = $_.FullName
-            Name     = $_.Name
-            Path     = $_.Path
-            Line     = $_.Line
-            Result   = $_.Result
-        }
-    }
-}
-$payload | ConvertTo-Json -Depth 6 | Set-Content -Path $RunOut -Encoding UTF8
-'@ | Set-Content -Path $child -Encoding UTF8
-
-        try {
-            pwsh -NoProfile -File $child -ConfigJson $jsonCfg -RunOut $runFile | Out-Null
-            $payload = Get-Content $runFile -Raw | ConvertFrom-Json
-            $run = [pscustomobject]@{
-                FailedCount = [int]$payload.FailedCount
-                TotalCount = [int]$payload.TotalCount
-                Tests = $payload.Tests
-            }
-            $code = if ($run.FailedCount -gt 0) { 1 } else { 0 }
-            return @{ Run = $run; ExitCode = $code }
-        } finally {
-            Remove-Item $child -ErrorAction SilentlyContinue
-            Remove-Item $runFile -ErrorAction SilentlyContinue
-        }
+        $run = Invoke-Pester -Configuration $Config
+        $code = if ($run.FailedCount -gt 0) { 1 } else { 0 }
+        return @{ Run = $run; ExitCode = $code }
     }
 }
 
@@ -260,16 +212,12 @@ process {
     $baseCfg = New-BasePesterConfig -TestPath $TestPath -Verbosity $Verbosity -EmitNUnit:$EmitNUnit
     Write-Host "🧪 Running Pester tests in '$($baseCfg.Run.Path.Value)'" -ForegroundColor Cyan
 
-    $initial = if ($RunPesterInProcess) {
-        Invoke-PesterWithConfig -Config $baseCfg
-    } else {
-        Invoke-PesterWithConfig -Config $baseCfg -OutOfProcess
-    }
+    $initial = Invoke-PesterWithConfig -Config $baseCfg
 
     $finalExit = $initial.ExitCode
     $attempt = 0
 
-    if ( $initial.Run.FailedCount -gt 0 ) {
+    if ( $initial.Run.FailedCount -gt 0 -and $ReRunFailed ) {
         $failed = Get-FailedSelector -PesterRun $initial.Run
         if ($failed.Count -le $MaxFailedAllowed ) {
             Write-Host ('❌ Initial test run had {0} failures; preparing to re-run up to {1} times...' -f $failed.Count, $MaxReruns) -ForegroundColor Yellow
@@ -278,16 +226,12 @@ process {
             return 1
         }
 
-        while ($attempt -lt $MaxReruns -and $failed.Count -gt 0) {
+        while ($attempt -le $MaxReruns -and $failed.Count -gt 0) {
             $attempt++
             Write-Host ('🔁 Re-run attempt {0} for {1} failing test(s)...' -f $attempt, $failed.Count)
 
             $rerunCfg = New-RerunConfig -Failed $failed -BaseConfig $baseCfg
-            $rerun = if ($RunPesterInProcess) {
-                Invoke-PesterWithConfig -Config $rerunCfg
-            } else {
-                Invoke-PesterWithConfig -Config $rerunCfg -OutOfProcess
-            }
+            $rerun = Invoke-PesterWithConfig -Config $rerunCfg
 
             if ($rerun.Run.FailedCount -gt 0) {
                 $failed = Get-FailedSelector -PesterRun $rerun.Run
@@ -304,5 +248,6 @@ process {
         return $finalExit
     } else {
         Write-Host '✅ All tests passed'
+        return 0
     }
 }

@@ -254,8 +254,8 @@ Start-KrServer
     $argList = @('-NoLogo', '-NoProfile', '-File', $tmp, '-Port', $Port)
 
     # Build environment variables for the child process
-    Write-Host "🔍 [DEBUG] Parent process UPSTASH_REDIS_URL: '$env:UPSTASH_REDIS_URL'" -ForegroundColor Cyan
-    Write-Host '🔍 [DEBUG] All environment variables containing UPSTASH:' -ForegroundColor Cyan
+    Write-Debug "🔍 [DEBUG] Parent process UPSTASH_REDIS_URL: '$env:UPSTASH_REDIS_URL'"
+    Write-Debug '🔍 [DEBUG] All environment variables containing UPSTASH:'
     Get-ChildItem env: | Where-Object Name -Like '*UPSTASH*' | ForEach-Object {
         Write-Host "  $($_.Name) = $($_.Value)" -ForegroundColor Yellow
     }
@@ -267,14 +267,14 @@ Start-KrServer
     }
 
     # Debug: Check if UPSTASH_REDIS_URL exists in copied environment
-    Write-Host "🔍 [DEBUG] UPSTASH_REDIS_URL in copied env: '$($env['UPSTASH_REDIS_URL'])'" -ForegroundColor Cyan
+    Write-Debug "🔍 [DEBUG] UPSTASH_REDIS_URL in copied env: '$($env['UPSTASH_REDIS_URL'])'"
 
     # Ensure UPSTASH_REDIS_URL is passed if it exists
     if ($env:UPSTASH_REDIS_URL) {
         $env['UPSTASH_REDIS_URL'] = $env:UPSTASH_REDIS_URL
-        Write-Host "🔍 [DEBUG] Explicitly set UPSTASH_REDIS_URL in child env: '$($env['UPSTASH_REDIS_URL'])'" -ForegroundColor Green
+        Write-Debug "🔍 [DEBUG] Explicitly set UPSTASH_REDIS_URL in child env: '$($env['UPSTASH_REDIS_URL'])'"
     } else {
-        Write-Host '🔍 [DEBUG] UPSTASH_REDIS_URL not found in parent process!' -ForegroundColor Red
+        Write-Debug '🔍 [DEBUG] UPSTASH_REDIS_URL not found in parent process!'
     }
 
     $param = @{
@@ -361,7 +361,36 @@ Start-KrServer
     }
 }
 
- 
+<#
+.SYNOPSIS
+    Stop a running tutorial example script instance.
+.DESCRIPTION
+    Sends a shutdown request to the example's /shutdown endpoint, then forcibly kills the process if still running.
+    Cleans up temporary files created for the example.
+.PARAMETER Instance
+    The object returned by Start-ExampleScript representing the running instance to stop.
+#>
+function Stop-ExampleScript {
+    [CmdletBinding(SupportsShouldProcess)] param([Parameter(Mandatory)]$Instance)
+    $shutdown = "http://127.0.0.1:$($Instance.Port)/shutdown"
+    try { Invoke-WebRequest -Uri $shutdown -UseBasicParsing -TimeoutSec 3 -ErrorAction Stop | Out-Null } catch {
+        try {
+            Write-Debug "Initial shutdown failed, retrying with HTTPS: $($_.Exception.Message)"
+            $shutdown = "https://127.0.0.1:$($Instance.Port)/shutdown"
+            Invoke-WebRequest -Uri $shutdown -UseBasicParsing -TimeoutSec 3 -ErrorAction Stop -SkipCertificateCheck | Out-Null
+        } catch {
+            Write-Debug "Shutdown failed: $($_.Exception.Message)"
+        }
+    } finally {
+        if (-not $Instance.Process.HasExited) { $Instance.Process | Stop-Process -Force }
+        $Instance.Process.Dispose()
+        Remove-Item -Path $Instance.TempPath -Force -ErrorAction SilentlyContinue
+        if ($Instance.PushedLocation) {
+            try { Pop-Location -ErrorAction Stop } catch { Write-Warning "Pop-Location failed: $($_.Exception.Message)" }
+        }
+    }
+}
+
 <#
 .SYNOPSIS
     Extract route patterns from example script content.

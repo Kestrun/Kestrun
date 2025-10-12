@@ -1,4 +1,4 @@
-﻿<#
+<#
 .SYNOPSIS
 Runs Pester with optional re-runs of failed tests.
 
@@ -118,7 +118,7 @@ begin {
     #>
     function Get-FailedSelector {
         param([Parameter(Mandatory)] $PesterRun)
-
+        $result = @{}
         $PesterRun.Tests |
             Where-Object { $_.Result -eq 'Failed' } | # -or $_.Outcome -eq 'Failed' } |
             ForEach-Object {
@@ -131,7 +131,7 @@ begin {
                         $file = $_.Block.BlockContainer.Item.ResolvedTarget
                     }
                 }
-                [pscustomobject]@{
+                $result[$file] = @{
                     File = $file
                     Line = $_.StartLine
                     FullName = $_.FullName
@@ -140,6 +140,7 @@ begin {
                     Result = $_.Result
                 }
             }
+        return $result.Values
     }
 
     <#
@@ -166,7 +167,7 @@ begin {
             [Parameter(Mandatory)] $BaseConfig
         )
         $cfg = [PesterConfiguration]::Default
-        $cfg.Run.Path = $BaseConfig.Run.Path
+        $cfg.Run.Path = $Failed.File
         $cfg.Output.Verbosity = $BaseConfig.Output.Verbosity
         $cfg.TestResult.Enabled = $true
         $cfg.TestResult.OutputPath = Join-Path $ResultsDir ('Pester-rerun-{0}.trx' -f (Get-Date -Format 'yyyyMMdd-HHmmss'))
@@ -267,39 +268,40 @@ process {
 
     $finalExit = $initial.ExitCode
     $attempt = 0
-    if ($initial.Run.FailedCount -le $MaxFailedAllowed ) {
 
-        if ($ReRunFailed -and $initial.Run.FailedCount -gt 0 -and $MaxReruns -gt 0) {
-            $failed = Get-FailedSelector -PesterRun $initial.Run
-            Format-Table -InputObject $failed -AutoSize | Out-Host
-            while ($attempt -lt $MaxReruns -and $failed.Count -gt 0) {
-                $attempt++
-                Write-Host ('🔁 Re-run attempt {0} for {1} failing test(s)...' -f $attempt, $failed.Count)
+    if ( $initial.Run.FailedCount -gt 0 ) {
+        $failed = Get-FailedSelector -PesterRun $initial.Run
+        if ($failed.Count -le $MaxFailedAllowed ) {
+            Write-Host ('❌ Initial test run had {0} failures; preparing to re-run up to {1} times...' -f $failed.Count, $MaxReruns) -ForegroundColor Yellow
+        } else {
+            Write-Host ('❌ Initial test run had {0} failures which exceeds MaxFailedAllowed ({1}); skipping re-runs.' -f $initial.Run.FailedCount, $MaxFailedAllowed) -ForegroundColor Red
+            return 1
+        }
 
-                $rerunCfg = New-RerunConfig -Failed $failed -BaseConfig $baseCfg
-                $rerun = if ($RunPesterInProcess) {
-                    Invoke-PesterWithConfig -Config $rerunCfg
-                } else {
-                    Invoke-PesterWithConfig -Config $rerunCfg -OutOfProcess
-                }
+        while ($attempt -lt $MaxReruns -and $failed.Count -gt 0) {
+            $attempt++
+            Write-Host ('🔁 Re-run attempt {0} for {1} failing test(s)...' -f $attempt, $failed.Count)
 
-                if ($rerun.Run.FailedCount -gt 0) {
-                    $failed = Get-FailedSelector -PesterRun $rerun.Run
-                    $finalExit = 1
-                } else {
-                    $failed = @()
-                    $finalExit = 0
-                }
+            $rerunCfg = New-RerunConfig -Failed $failed -BaseConfig $baseCfg
+            $rerun = if ($RunPesterInProcess) {
+                Invoke-PesterWithConfig -Config $rerunCfg
+            } else {
+                Invoke-PesterWithConfig -Config $rerunCfg -OutOfProcess
+            }
+
+            if ($rerun.Run.FailedCount -gt 0) {
+                $failed = Get-FailedSelector -PesterRun $rerun.Run
+                $finalExit = 1
+            } else {
+                $failed = @()
+                $finalExit = 0
             }
         }
-    } else {
-        Write-Host ('❌ Too many initial test failures ({0}) - skipping re-runs as MaxFailedAllowed is {1}.' -f $initial.Run.FailedCount, $MaxFailedAllowed) -ForegroundColor Red
-        $finalExit = 1
     }
 
     if ($finalExit -ne 0) {
         Write-Host '❌ Some tests failed (after re-runs, if enabled).'
-        exit $finalExit
+        return $finalExit
     } else {
         Write-Host '✅ All tests passed'
     }

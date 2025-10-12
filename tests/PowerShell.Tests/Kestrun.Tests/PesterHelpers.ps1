@@ -361,36 +361,7 @@ Start-KrServer
     }
 }
 
-<#
-.SYNOPSIS
-    Stop a running tutorial example script instance.
-.DESCRIPTION
-    Sends a shutdown request to the example's /shutdown endpoint, then forcibly kills the process if still running.
-    Cleans up temporary files created for the example.
-.PARAMETER Instance
-    The object returned by Start-ExampleScript representing the running instance to stop.
-#>
-function Stop-ExampleScript {
-    [CmdletBinding(SupportsShouldProcess)] param([Parameter(Mandatory)]$Instance)
-    $shutdown = "http://127.0.0.1:$($Instance.Port)/shutdown"
-    try { Invoke-WebRequest -Uri $shutdown -UseBasicParsing -TimeoutSec 3 -ErrorAction Stop | Out-Null } catch {
-        try {
-            Write-Debug "Initial shutdown failed, retrying with HTTPS: $($_.Exception.Message)"
-            $shutdown = "https://127.0.0.1:$($Instance.Port)/shutdown"
-            Invoke-WebRequest -Uri $shutdown -UseBasicParsing -TimeoutSec 3 -ErrorAction Stop -SkipCertificateCheck | Out-Null
-        } catch {
-            Write-Debug "Shutdown failed: $($_.Exception.Message)"
-        }
-    } finally {
-        if (-not $Instance.Process.HasExited) { $Instance.Process | Stop-Process -Force }
-        $Instance.Process.Dispose()
-        Remove-Item -Path $Instance.TempPath -Force -ErrorAction SilentlyContinue
-        if ($Instance.PushedLocation) {
-            try { Pop-Location -ErrorAction Stop } catch { Write-Warning "Pop-Location failed: $($_.Exception.Message)" }
-        }
-    }
-}
-
+ 
 <#
 .SYNOPSIS
     Extract route patterns from example script content.

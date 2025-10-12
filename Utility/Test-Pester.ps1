@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
 Runs Pester with optional re-runs of failed tests.
 
@@ -21,7 +21,7 @@ param(
     [ValidateSet('None', 'Normal', 'Detailed', 'Diagnostic', 'Quiet')]
     [string] $Verbosity = 'Normal',
     [string] $ResultsDir = "$((Get-Location).Path)/artifacts/testresults",
-    [string] $TestPath = "$((Get-Location).Path)/tests/PowerShell.Tests",
+    [string] $TestPath = "$((Get-Location).Path)/tests/PowerShell.Tests/Kestrun.Tests",
     [switch] $EmitNUnit,
     [int] $MaxFailedAllowed = 10
 )
@@ -220,7 +220,7 @@ begin {
 param([string]$ConfigJson,[string]$RunOut)
 Import-Module Pester -Force
 $cfg = New-PesterConfiguration -Hashtable (($ConfigJson | ConvertFrom-Json -AsHashtable))
-$run = Invoke-Pester -Configuration $cfg -PassThru
+$run = Invoke-Pester -Configuration $cfg
 
 $payload = [pscustomobject]@{
     FailedCount = $run.FailedCount

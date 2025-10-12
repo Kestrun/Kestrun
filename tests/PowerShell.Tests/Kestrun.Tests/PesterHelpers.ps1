@@ -251,7 +251,7 @@ Start-KrServer
     $stdErr = Join-Path $tempDir ('kestrun-example-' + $fileNameWithoutExtension + '-' + [System.IO.Path]::GetRandomFileName() + '.err.log')
     $argList = @('-NoLogo', '-NoProfile', '-File', $tmp, '-Port', $Port)
 
-    # Build environment variables for the child process (including UPSTASH_REDIS_URL if set in parent)     }
+    # Build environment variables for the child process (including UPSTASH_REDIS_URL if set in parent)
     $environment = @{}
     # Copy current environment variables
     foreach ($key in [System.Environment]::GetEnvironmentVariables().Keys) {

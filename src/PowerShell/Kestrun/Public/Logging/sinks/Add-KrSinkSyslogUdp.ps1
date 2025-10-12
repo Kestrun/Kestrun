@@ -129,7 +129,11 @@ function Add-KrSinkSyslogUdp {
 
         # ---- Optional batching knobs ----
         [int]$BatchSizeLimit,
+        [Parameter()]
+        [ValidateRange(1, [int]::MaxValue)]
         [int]$PeriodSeconds,
+        [Parameter()]
+        [ValidateRange(1, [int]::MaxValue)]
         [int]$QueueLimit,
         [switch]$EagerlyEmitFirstEvent
     )

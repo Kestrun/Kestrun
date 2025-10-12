@@ -200,8 +200,8 @@ function Start-ExampleScript {
 # Debug: Check environment variables in child process
 Write-Host "🔍 [CHILD DEBUG] Child process UPSTASH_REDIS_URL: '`$env:UPSTASH_REDIS_URL'" -ForegroundColor Magenta
 Write-Host "🔍 [CHILD DEBUG] All child environment variables containing UPSTASH:" -ForegroundColor Magenta
-Get-ChildItem env: | Where-Object Name -like "*UPSTASH*" | ForEach-Object { 
-    Write-Host "  `$(`$_.Name) = `$(`$_.Value)" -ForegroundColor Yellow 
+Get-ChildItem env: | Where-Object Name -like "*UPSTASH*" | ForEach-Object {
+    Write-Host "  `$(`$_.Name) = `$(`$_.Value)" -ForegroundColor Yellow
 }
 
 if (-not (Get-Module -Name Kestrun)) {
@@ -255,26 +255,26 @@ Start-KrServer
 
     # Build environment variables for the child process
     Write-Host "🔍 [DEBUG] Parent process UPSTASH_REDIS_URL: '$env:UPSTASH_REDIS_URL'" -ForegroundColor Cyan
-    Write-Host "🔍 [DEBUG] All environment variables containing UPSTASH:" -ForegroundColor Cyan
-    Get-ChildItem env: | Where-Object Name -like "*UPSTASH*" | ForEach-Object { 
-        Write-Host "  $($_.Name) = $($_.Value)" -ForegroundColor Yellow 
+    Write-Host '🔍 [DEBUG] All environment variables containing UPSTASH:' -ForegroundColor Cyan
+    Get-ChildItem env: | Where-Object Name -Like '*UPSTASH*' | ForEach-Object {
+        Write-Host "  $($_.Name) = $($_.Value)" -ForegroundColor Yellow
     }
-    
+
     $env = @{}
     # Copy current environment variables
     foreach ($key in [System.Environment]::GetEnvironmentVariables().Keys) {
         $env[$key] = [System.Environment]::GetEnvironmentVariable($key)
     }
-    
+
     # Debug: Check if UPSTASH_REDIS_URL exists in copied environment
     Write-Host "🔍 [DEBUG] UPSTASH_REDIS_URL in copied env: '$($env['UPSTASH_REDIS_URL'])'" -ForegroundColor Cyan
-    
+
     # Ensure UPSTASH_REDIS_URL is passed if it exists
     if ($env:UPSTASH_REDIS_URL) {
         $env['UPSTASH_REDIS_URL'] = $env:UPSTASH_REDIS_URL
         Write-Host "🔍 [DEBUG] Explicitly set UPSTASH_REDIS_URL in child env: '$($env['UPSTASH_REDIS_URL'])'" -ForegroundColor Green
     } else {
-        Write-Host "🔍 [DEBUG] UPSTASH_REDIS_URL not found in parent process!" -ForegroundColor Red
+        Write-Host '🔍 [DEBUG] UPSTASH_REDIS_URL not found in parent process!' -ForegroundColor Red
     }
 
     $param = @{

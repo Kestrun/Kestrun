@@ -15,8 +15,11 @@
     .PARAMETER HtmlTemplatePath
         The file path to the HTML template to be used for the route.
 
-    .PARAMETER Authorization
-        An optional array of authorization strings for the route.
+    .PARAMETER AuthorizationSchema
+        An optional array of authorization schemes for the route.
+
+    .PARAMETER AuthorizationPolicy
+        An optional array of authorization policies for the route.
 
     .PARAMETER PassThru
         If specified, the function will return the created route object.
@@ -50,7 +53,10 @@ function Add-KrHtmlTemplateRoute {
         [string]$HtmlTemplatePath,
 
         [Parameter()]
-        [string[]]$Authorization = $null,
+        [string[]]$AuthorizationSchema = $null,
+
+        [Parameter()]
+        [string[]]$AuthorizationPolicy = $null,
 
         [Parameter()]
         [switch]$PassThru
@@ -62,14 +68,23 @@ function Add-KrHtmlTemplateRoute {
     process {
 
         $options = [Kestrun.Hosting.Options.MapRouteOptions]::new()
-        $options.HttpVerbs = [Kestrun.Utilities.HttpVerb[]]::new([Kestrun.Utilities.HttpVerb]::Get)
         $options.Pattern = $Pattern
-        $options.RequireAuthorization = $Authorization
-
-        [Kestrun.Hosting.KestrunHostMapExtensions]::AddHtmlTemplateRoute($Server, $options, $HtmlTemplatePath) | Out-Null
+        if ($null -ne $AuthorizationSchema) {
+            $Options.RequireSchemes = $AuthorizationSchema
+        }
+        if ($null -ne $AuthorizationPolicy) {
+            $Options.RequirePolicies = $AuthorizationPolicy
+        }
+        if ([string]::IsNullOrWhiteSpace($HtmlTemplatePath)) {
+            throw 'HtmlTemplatePath cannot be null or empty.'
+        }
+        # Resolve the file path relative to the Kestrun root if necessary
+        $resolvedPath = Resolve-KrPath -Path $HtmlTemplatePath -KestrunRoot -Test
+        Write-KrLog -Level Verbose -Message "Resolved file path: $resolvedPath"
+        # Call the C# extension method to add the HTML template route
+        [Kestrun.Hosting.KestrunHostMapExtensions]::AddHtmlTemplateRoute($Server, $options, $resolvedPath) | Out-Null
         if ($PassThru) {
             return $Server
         }
     }
 }
-

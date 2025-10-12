@@ -37,7 +37,7 @@ function Add-KrSignalRHubMiddleware {
     [KestrunRuntimeApi('Definition')]
     [CmdletBinding()]
     param(
-        [Parameter(Mandatory = $true, ValueFromPipeline)]
+        [Parameter(ValueFromPipeline)]
         [Kestrun.Hosting.KestrunHost]$Server,
 
         [Parameter(Mandatory)]
@@ -54,7 +54,7 @@ function Add-KrSignalRHubMiddleware {
         $Server = Resolve-KestrunServer -Server $Server
     }
     process {
-        Write-KrLog -Level Warning 'Add-KrSignalRHubMiddleware is an experimental feature and may not work as expected.'
+        Write-KrLog -Level Warning -Message 'Add-KrSignalRHubMiddleware is an experimental feature and may not work as expected.'
 
         # 1.  Find the generic method definition on KestrunHost
         $method = $Server.GetType().GetMethods() |

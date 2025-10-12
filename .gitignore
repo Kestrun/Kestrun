@@ -94,3 +94,4 @@ examples/CSharp/MultiRoutes/logs/audit-20250721.json
 /docs/cs/api
 /coverage
 docs/pwsh/tutorial/examples.zip
+.env.json

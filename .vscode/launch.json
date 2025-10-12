@@ -51,6 +51,13 @@
             "cwd": "${workspaceFolder}/examples/PowerShell/Authentication"
         },
         {
+            "name": "PowerShell: Launch SignalRDemo.ps1",
+            "type": "PowerShell",
+            "request": "launch",
+            "script": "${workspaceFolder}/examples/PowerShell/SignalRDemo/SignalRDemo.ps1",
+            "cwd": "${workspaceFolder}/examples/PowerShell/SignalRDemo"
+        },
+        {
             "name": ".NET Launch CSharp/MultiRoutes",
             "type": "coreclr",
             "request": "launch",
@@ -113,6 +120,17 @@
             "program": "${workspaceFolder}/examples/CSharp/Authentication/bin/Debug/net8.0/Authentication.dll",
             "args": [],
             "cwd": "${workspaceFolder}/examples/CSharp/Authentication",
+            "stopAtEntry": false,
+            "console": "integratedTerminal"
+        },
+        {
+            "name": ".NET Launch CSharp/SignalRDemo",
+            "type": "coreclr",
+            "request": "launch",
+            "preLaunchTask": "build SignalRDemo",
+            "program": "${workspaceFolder}/examples/CSharp/SignalRDemo/bin/Debug/net8.0/SignalRDemo.dll",
+            "args": [],
+            "cwd": "${workspaceFolder}/examples/CSharp/SignalRDemo",
             "stopAtEntry": false,
             "console": "integratedTerminal"
         },

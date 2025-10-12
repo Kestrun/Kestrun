@@ -10,9 +10,9 @@ param(
         It shows how to broadcast log messages and custom events to connected clients.
     .EXAMPLE
         .\SignalRDemo.ps1
-        
+
         # Then open http://localhost:5000 in your browser to see the real-time demo
-        
+
         # Or test the API endpoints:
         Invoke-RestMethod -Uri "http://localhost:5000/api/ps/log/Information"
         Invoke-RestMethod -Uri "http://localhost:5000/api/ps/log/Warning"
@@ -61,7 +61,7 @@ Add-KrMapRoute -Verbs Get -Pattern '/' {
 <body>
     <h1>🚀 Kestrun SignalR Demo (PowerShell)</h1>
     <p>Connected to SignalR hub at <code>/runtime</code></p>
-    
+
     <div>
         <button onclick="sendLog('Information')">Send Info Log</button>
         <button onclick="sendLog('Warning')">Send Warning Log</button>
@@ -69,18 +69,18 @@ Add-KrMapRoute -Verbs Get -Pattern '/' {
         <button onclick="sendEvent()">Send Custom Event</button>
         <button onclick="clearMessages()">Clear Messages</button>
     </div>
-    
+
     <h2>Real-time Messages:</h2>
     <div id="messages"></div>
-    
+
     <script>
         const connection = new signalR.HubConnectionBuilder()
             .withUrl("/runtime")
             .withAutomaticReconnect()
             .build();
-        
+
         const messagesDiv = document.getElementById("messages");
-        
+
         function addMessage(message, cssClass = "") {
             const entry = document.createElement("div");
             entry.className = cssClass;
@@ -88,34 +88,34 @@ Add-KrMapRoute -Verbs Get -Pattern '/' {
             messagesDiv.appendChild(entry);
             messagesDiv.scrollTop = messagesDiv.scrollHeight;
         }
-        
+
         connection.on("ReceiveLog", (data) => {
             const timestamp = new Date(data.timestamp).toLocaleTimeString();
             const logClass = `log-entry log-${data.level}`;
             addMessage(`<span class="timestamp">[${timestamp}]</span> <strong>${data.level}:</strong> ${data.message}`, logClass);
         });
-        
+
         connection.on("ReceiveEvent", (data) => {
             const timestamp = new Date(data.timestamp).toLocaleTimeString();
             addMessage(`<span class="timestamp">[${timestamp}]</span> <strong>Event:</strong> ${data.eventName} - ${JSON.stringify(data.data)}`, "event-entry");
         });
-        
+
         connection.start()
             .then(() => addMessage("✅ Connected to SignalR hub!", "log-entry log-Information"))
             .catch(err => addMessage(`❌ Connection error: ${err}`, "log-entry log-Error"));
-        
+
         async function sendLog(level) {
             const response = await fetch(`/api/ps/log/${level}`);
             const text = await response.text();
             console.log(text);
         }
-        
+
         async function sendEvent() {
             const response = await fetch("/api/ps/event");
             const text = await response.text();
             console.log(text);
         }
-        
+
         function clearMessages() {
             messagesDiv.innerHTML = "";
         }
@@ -136,9 +136,9 @@ Add-KrMapRoute -Verbs Get -Pattern '/api/ps/log/{level}' {
 # Route to broadcast custom events via PowerShell
 Add-KrMapRoute -Verbs Get -Pattern '/api/ps/event' {
     Send-KrEvent -EventName 'PowerShellEvent' -Data @{
-        Message   = 'Hello from PowerShell'
+        Message = 'Hello from PowerShell'
         Timestamp = (Get-Date)
-        Random    = Get-Random -Minimum 1 -Maximum 100
+        Random = Get-Random -Minimum 1 -Maximum 100
     }
     Write-KrTextResponse -InputObject 'Broadcasted custom event from PowerShell' -StatusCode 200
 }
@@ -154,10 +154,10 @@ Add-KrMapRoute -Verbs Get -Pattern '/api/start-monitor' {
             Write-Host "Monitor tick $i"
         }
     } -ArgumentList (Get-KrServer)
-    
+
     Write-KrJsonResponse -InputObject @{
         Message = 'Background monitor started'
-        JobId   = $monitorJob.Id
+        JobId = $monitorJob.Id
     } -StatusCode 200
 }
 

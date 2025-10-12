@@ -18,6 +18,7 @@ Deeper, cross-cutting subjects (logging, deployment, performance, etc.).
 | [HSTS & HTTPS Redirection](./hsts) | Secure transport policies and automatic redirection |
 | [JWT Tokens](./jwt) | Build, issue, validate, and renew JSON Web Tokens |
 | [Scheduling](./scheduling) | Background jobs via intervals and CRON (PS & C#) |
+| [Sessions](./sessions) | Cookie-based per-client state across requests |
 
 ## Planned
 

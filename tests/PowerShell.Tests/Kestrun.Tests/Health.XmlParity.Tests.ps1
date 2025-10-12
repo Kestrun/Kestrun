@@ -31,7 +31,7 @@ Describe 'Validates numeric probe data representation in XML health response' -T
             # Start the server asynchronously
             Start-KrServer -CloseLogsOnExit
         }
-        $script:instance = Start-ExampleScript -Scriptblock $scriptBlock
+        $script:instance = Start-ExampleScript -ScriptBlock $scriptBlock
     }
     AfterAll { if ($script:instance) { Stop-ExampleScript -Instance $script:instance } }
 

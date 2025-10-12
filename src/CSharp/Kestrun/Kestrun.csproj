@@ -1,237 +1,239 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk.Web">
-  <PropertyGroup>
-    <ProjectRoot>..\..\..\</ProjectRoot>
-  </PropertyGroup>
-  <!--───────────── Global Build Configuration ─────────────-->
-  <PropertyGroup>
-    <!-- Target .NET version -->
-    <TargetFrameworks>net8.0;net9.0</TargetFrameworks>
+    <PropertyGroup>
+        <ProjectRoot>..\..\..\</ProjectRoot>
+    </PropertyGroup>
+    <!--───────────── Global Build Configuration ─────────────-->
+    <PropertyGroup>
+        <!-- Target .NET version -->
+        <TargetFrameworks>net8.0;net9.0</TargetFrameworks>
 
-    <LangVersion>latest</LangVersion>    <!-- or 12.0 / latest -->
+        <LangVersion>latest</LangVersion>        <!-- or 12.0 / latest -->
 
-    <!-- Enable nullable reference types (safer code) -->
-    <Nullable>enable</Nullable>
+        <!-- Enable nullable reference types (safer code) -->
+        <Nullable>enable</Nullable>
 
-    <!-- Enable implicit usings for common namespaces -->
-    <ImplicitUsings>enable</ImplicitUsings>
-    <!-- Portable PDBs -->
-    <DebugType>portable</DebugType>
-    <EmbedUntrackedSources>true</EmbedUntrackedSources>
+        <!-- Enable implicit usings for common namespaces -->
+        <ImplicitUsings>enable</ImplicitUsings>
+        <!-- Portable PDBs -->
+        <DebugType>portable</DebugType>
+        <EmbedUntrackedSources>true</EmbedUntrackedSources>
 
-    <EnablePreviewFeatures>False</EnablePreviewFeatures>
+        <EnablePreviewFeatures>False</EnablePreviewFeatures>
 
-    <!-- Enable implicit using directives for common namespaces -->
-    <ImplicitUsings>enable</ImplicitUsings>
+        <!-- Enable implicit using directives for common namespaces -->
+        <ImplicitUsings>enable</ImplicitUsings>
 
-    <!-- Allow unsafe code blocks -->
-    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+        <!-- Allow unsafe code blocks -->
+        <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
 
-    <!-- Assembly output type -->
-    <OutputType>Library</OutputType>
+        <!-- Assembly output type -->
+        <OutputType>Library</OutputType>
 
-    <!-- Set assembly and namespace naming -->
-    <AssemblyName>Kestrun</AssemblyName>
-    <RootNamespace>Kestrun</RootNamespace>
+        <!-- Set assembly and namespace naming -->
+        <AssemblyName>Kestrun</AssemblyName>
+        <RootNamespace>Kestrun</RootNamespace>
 
-    <!-- Set output paths -->
-    <PublishDir>$(ProjectRoot)\publish\lib</PublishDir>
+        <!-- Set output paths -->
+        <PublishDir>$(ProjectRoot)\publish\lib</PublishDir>
 
-    <!-- Copy all referenced assemblies locally (needed for scripting engines like ClearScript) -->
-    <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
+        <!-- Copy all referenced assemblies locally (needed for scripting engines like ClearScript) -->
+        <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
 
-    <!-- Treat all warnings as errors (set to true in CI if desired) -->
-    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+        <!-- Treat all warnings as errors (set to true in CI if desired) -->
+        <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
 
-    <!-- Optional: Generate XML documentation (good for public NuGet packages) -->
-    <!-- <GenerateDocumentationFile>true</GenerateDocumentationFile> -->
-    <!-- <NoWarn>1591</NoWarn> -->
+        <!-- Optional: Generate XML documentation (good for public NuGet packages) -->
+        <!-- <GenerateDocumentationFile>true</GenerateDocumentationFile> -->
+        <!-- <NoWarn>1591</NoWarn> -->
 
-    <!-- Assembly versioning -->
-
-
+        <!-- Assembly versioning -->
 
 
-    <EpochDate>2020-01-01</EpochDate>
-    <!-- Get current UTC ticks and epoch ticks -->
-    <Now>$([System.DateTime]::UtcNow.Ticks)</Now>
-    <EpochTicks>$([System.DateTime]::Parse('$(EpochDate)').Ticks)</EpochTicks>
-
-    <!-- Subtract and divide inside MSBuild-compatible expressions -->
-    <TicksSinceEpoch>$([MSBuild]::Subtract($(Now), $(EpochTicks)))</TicksSinceEpoch>
-
-    <!-- 1 minute = 600,000,000 ticks -->
-    <BuildNumber>$([MSBuild]::Divide($(TicksSinceEpoch), 600000000))</BuildNumber>
 
 
-    <Version Condition="'$(Version)' == ''">0.0.1</Version>
-    <!-- Now use it for informational version -->
-    <!-- Default value if AssemblyVersion is empty -->
-    <InformationalVersion Condition="'$(InformationalVersion)' == ''">0.0.1-beta+build.$(BuildNumber).$(GitSha)</InformationalVersion>
-    <!-- Use AssemblyVersion if it is set -->
-    <InformationalVersion Condition="'$(InformationalVersion)' != ''">$(InformationalVersion)+build.$(BuildNumber).$(GitSha)</InformationalVersion>
+        <EpochDate>2020-01-01</EpochDate>
+        <!-- Get current UTC ticks and epoch ticks -->
+        <Now>$([System.DateTime]::UtcNow.Ticks)</Now>
+        <EpochTicks>$([System.DateTime]::Parse('$(EpochDate)').Ticks)</EpochTicks>
 
-    <PackageVersion Condition="'$(Version)' == ''">0.0.1</PackageVersion>
+        <!-- Subtract and divide inside MSBuild-compatible expressions -->
+        <TicksSinceEpoch>$([MSBuild]::Subtract($(Now), $(EpochTicks)))</TicksSinceEpoch>
 
-    <AssemblyFileVersion>1.0.0.$(BuildNumber)</AssemblyFileVersion>
-    <AssemblyVersion>1.0.0.0</AssemblyVersion>
-    <GenerateAssemblyInfo>true</GenerateAssemblyInfo>
-  </PropertyGroup>
-
-  <PropertyGroup>
-    <!-- Enable packing for NuGet -->
-    <IsPackable>true</IsPackable>
-    <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
-
-    <!-- Package identity -->
-    <PackageId>Kestrun</PackageId>
-    <Authors>Kestrun Team</Authors>
-    <Company>Kestrun</Company>
-    <Description>Kestrun Web Framework</Description>
-    <PackageVersion Condition="'$(Version)' == ''">0.0.1</PackageVersion>
-
-    <!-- Licensing and repo info -->
-    <PackageLicenseExpression>MIT</PackageLicenseExpression>
-    <RepositoryUrl>https://github.com/kestrun/Kestrun</RepositoryUrl>
-    <PackageProjectUrl>https://github.com/kestrun/Kestrun</PackageProjectUrl>
-    <PackageIcon>Assets\kestrun_128x128.png</PackageIcon>
-    <PackageTags>Kestrun web framework</PackageTags>
-    <Copyright>Copyright © 2025 Kestrun Team</Copyright>
-
-    <!-- Include README in NuGet package -->
-    <PackageReadmeFile>README.md</PackageReadmeFile>
-  </PropertyGroup>
-  <PropertyGroup>
-    <GenerateDocumentationFile>true</GenerateDocumentationFile>
-    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
-  </PropertyGroup>
-  <!--───────────── Optional Platform Targeting ─────────────-->
-
-  <PropertyGroup>
-    <RuntimeIdentifiers>win-x64;win-arm64;linux-x64;linux-arm64;osx-x64;osx-arm64</RuntimeIdentifiers>
-
-    <PublishTrimmed>false</PublishTrimmed>
-    <InvariantGlobalization>false</InvariantGlobalization>
-  </PropertyGroup>
-
-  <!--───────────── Files to Include in Package ─────────────-->
-  <ItemGroup>
-    <!-- README will show on NuGet.org page -->
-    <None Include="../../../README.md" Pack="true" PackagePath="\" />
-    <EmbeddedResource Include="Assets\favicon.ico" />
-    <None Include="Assets\kestrun_128x128.png" Pack="true" PackagePath="Assets\" />
-    <None Include="../../../LICENSE.txt" Pack="true" PackagePath="\" />
-    <None Include="../../../THIRD-PARTY-NOTICES.md" Pack="true" PackagePath="\" />
-  </ItemGroup>
-  <!--───────────── NuGet Dependencies ─────────────-->
-
-  <ItemGroup Condition=" '$(TargetFramework)' == 'net8.0' ">
-    <!-- Logging -->
-    <PackageReference Include="Serilog.AspNetCore" Version="8.0.3" />
+        <!-- 1 minute = 600,000,000 ticks -->
+        <BuildNumber>$([MSBuild]::Divide($(TicksSinceEpoch), 600000000))</BuildNumber>
 
 
-    <!-- Microsoft.AspNetCore -->
-    <!-- <PackageReference Include="Microsoft.AspNetCore.Authentication" Version="2.3.0" />
+        <Version Condition="'$(Version)' == ''">0.0.1</Version>
+        <!-- Now use it for informational version -->
+        <!-- Default value if AssemblyVersion is empty -->
+        <InformationalVersion Condition="'$(InformationalVersion)' == ''">0.0.1-beta+build.$(BuildNumber).$(GitSha)</InformationalVersion>
+        <!-- Use AssemblyVersion if it is set -->
+        <InformationalVersion Condition="'$(InformationalVersion)' != ''">$(InformationalVersion)+build.$(BuildNumber).$(GitSha)</InformationalVersion>
+
+        <PackageVersion Condition="'$(Version)' == ''">0.0.1</PackageVersion>
+
+        <AssemblyFileVersion>1.0.0.$(BuildNumber)</AssemblyFileVersion>
+        <AssemblyVersion>1.0.0.0</AssemblyVersion>
+        <GenerateAssemblyInfo>true</GenerateAssemblyInfo>
+    </PropertyGroup>
+
+    <PropertyGroup>
+        <!-- Enable packing for NuGet -->
+        <IsPackable>true</IsPackable>
+        <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+
+        <!-- Package identity -->
+        <PackageId>Kestrun</PackageId>
+        <Authors>Kestrun Team</Authors>
+        <Company>Kestrun</Company>
+        <Description>Kestrun Web Framework</Description>
+        <PackageVersion Condition="'$(Version)' == ''">0.0.1</PackageVersion>
+
+        <!-- Licensing and repo info -->
+        <PackageLicenseExpression>MIT</PackageLicenseExpression>
+        <RepositoryUrl>https://github.com/kestrun/Kestrun</RepositoryUrl>
+        <PackageProjectUrl>https://github.com/kestrun/Kestrun</PackageProjectUrl>
+        <PackageIcon>Assets\kestrun_128x128.png</PackageIcon>
+        <PackageTags>Kestrun web framework</PackageTags>
+        <Copyright>Copyright © 2025 Kestrun Team</Copyright>
+
+        <!-- Include README in NuGet package -->
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+    </PropertyGroup>
+    <PropertyGroup>
+        <GenerateDocumentationFile>true</GenerateDocumentationFile>
+        <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+    </PropertyGroup>
+    <!--───────────── Optional Platform Targeting ─────────────-->
+
+    <PropertyGroup>
+        <RuntimeIdentifiers>win-x64;win-arm64;linux-x64;linux-arm64;osx-x64;osx-arm64</RuntimeIdentifiers>
+
+        <PublishTrimmed>false</PublishTrimmed>
+        <InvariantGlobalization>false</InvariantGlobalization>
+    </PropertyGroup>
+
+    <!--───────────── Files to Include in Package ─────────────-->
+    <ItemGroup>
+        <!-- README will show on NuGet.org page -->
+        <None Include="../../../README.md" Pack="true" PackagePath="\" />
+        <EmbeddedResource Include="Assets\favicon.ico" />
+        <None Include="Assets\kestrun_128x128.png" Pack="true" PackagePath="Assets\" />
+        <None Include="../../../LICENSE.txt" Pack="true" PackagePath="\" />
+        <None Include="../../../THIRD-PARTY-NOTICES.md" Pack="true" PackagePath="\" />
+    </ItemGroup>
+    <!--───────────── NuGet Dependencies ─────────────-->
+
+    <ItemGroup Condition=" '$(TargetFramework)' == 'net8.0' ">
+        <!-- Logging -->
+        <PackageReference Include="Serilog.AspNetCore" Version="8.0.3" />
+
+
+        <!-- Microsoft.AspNetCore -->
+        <!-- <PackageReference Include="Microsoft.AspNetCore.Authentication" Version="2.3.0" />
     <PackageReference Include="Microsoft.AspNetCore.Authentication.Cookies" Version="2.3.0" />
     <PackageReference Include="Microsoft.AspNetCore.Authentication.Core" Version="2.3.0" />-->
-    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="8.0.20" />
-    <PackageReference Include="Microsoft.AspNetCore.Authentication.Certificate" Version="8.0.20" />
-    <PackageReference Include="Microsoft.AspNetCore.Authentication.OpenIdConnect" Version="8.0.20" />
-    <PackageReference Include="Microsoft.AspNetCore.Mvc.Razor.RuntimeCompilation" Version="8.0.20" />
-    <PackageReference Include="Microsoft.AspNetCore.Authentication.Negotiate" Version="8.0.20" />
+        <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="8.0.20" />
+        <PackageReference Include="Microsoft.AspNetCore.Authentication.Certificate" Version="8.0.20" />
+        <PackageReference Include="Microsoft.AspNetCore.Authentication.OpenIdConnect" Version="8.0.20" />
+        <PackageReference Include="Microsoft.AspNetCore.Mvc.Razor.RuntimeCompilation" Version="8.0.20" />
+        <PackageReference Include="Microsoft.AspNetCore.Authentication.Negotiate" Version="8.0.20" />
 
-    <!-- Serilog -->
-    <PackageReference Include="Serilog.Sinks.Http" Version="9.1.0" />
+        <!-- Serilog -->
+        <PackageReference Include="Serilog.Sinks.Http" Version="9.1.0" />
 
-    <!-- Hosting & DI -->
-    <PackageReference Include="Microsoft.Extensions.Hosting" Version="8.0.1" />
-    <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" Version="8.0.1" />
-    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="8.0.1" />
-    <PackageReference Include="Microsoft.Extensions.Logging.Console" Version="8.0.1" />
-    <PackageReference Include="Microsoft.Extensions.Primitives" Version="8.0.0" />
-
-
-
-  </ItemGroup>
-
-  <ItemGroup Condition=" '$(TargetFramework)' == 'net9.0' ">
-    <!-- Logging -->
-    <PackageReference Include="Serilog.AspNetCore" Version="9.0.0" />
+        <!-- Hosting & DI -->
+        <PackageReference Include="Microsoft.Extensions.Hosting" Version="8.0.1" />
+        <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" Version="8.0.1" />
+        <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="8.0.1" />
+        <PackageReference Include="Microsoft.Extensions.Logging.Console" Version="8.0.1" />
+        <PackageReference Include="Microsoft.Extensions.Primitives" Version="8.0.0" />
+        <PackageReference Include="Microsoft.Extensions.Caching.SqlServer" Version="8.0.20" />
+        <PackageReference Include="Microsoft.Extensions.Caching.StackExchangeRedis" Version="8.0.20" />
 
 
-    <!-- Microsoft.AspNetCore -->
-    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="9.0.9" />
-    <PackageReference Include="Microsoft.AspNetCore.Authentication.Certificate" Version="9.0.9" />
-    <PackageReference Include="Microsoft.AspNetCore.Authentication.OpenIdConnect" Version="9.0.9" />
-    <PackageReference Include="Microsoft.AspNetCore.Mvc.Razor.RuntimeCompilation" Version="9.0.9" />
-    <PackageReference Include="Microsoft.AspNetCore.Authentication.Negotiate" Version="9.0.9" />
+    </ItemGroup>
 
-    <!-- Serilog -->
-    <PackageReference Include="Serilog.Sinks.Http" Version="9.2.0" />
+    <ItemGroup Condition=" '$(TargetFramework)' == 'net9.0' ">
+        <!-- Logging -->
+        <PackageReference Include="Serilog.AspNetCore" Version="9.0.0" />
 
-    <!-- Hosting & DI -->
-    <PackageReference Include="Microsoft.Extensions.Hosting" Version="9.0.9" />
-    <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" Version="9.0.9" />
-    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="9.0.9" />
-    <PackageReference Include="Microsoft.Extensions.Logging.Console" Version="9.0.9" />
-    <PackageReference Include="Microsoft.Extensions.Primitives" Version="9.0.9" />
 
-  </ItemGroup>
+        <!-- Microsoft.AspNetCore -->
+        <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="9.0.9" />
+        <PackageReference Include="Microsoft.AspNetCore.Authentication.Certificate" Version="9.0.9" />
+        <PackageReference Include="Microsoft.AspNetCore.Authentication.OpenIdConnect" Version="9.0.9" />
+        <PackageReference Include="Microsoft.AspNetCore.Mvc.Razor.RuntimeCompilation" Version="9.0.9" />
+        <PackageReference Include="Microsoft.AspNetCore.Authentication.Negotiate" Version="9.0.9" />
 
-  <ItemGroup>
+        <!-- Serilog -->
+        <PackageReference Include="Serilog.Sinks.Http" Version="9.2.0" />
 
-    <!-- Roslyn Scripting -->
-    <PackageReference Include="Microsoft.CodeAnalysis" Version="4.9.2" />
-    <PackageReference Include="Microsoft.CodeAnalysis.CSharp.Workspaces" Version="4.9.2" />
-    <PackageReference Include="Microsoft.CodeAnalysis.CSharp.Scripting" Version="4.9.2" />
-    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.9.2" />
+        <!-- Hosting & DI -->
+        <PackageReference Include="Microsoft.Extensions.Hosting" Version="9.0.9" />
+        <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" Version="9.0.9" />
+        <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="9.0.9" />
+        <PackageReference Include="Microsoft.Extensions.Logging.Console" Version="9.0.9" />
+        <PackageReference Include="Microsoft.Extensions.Primitives" Version="9.0.9" />
+        <PackageReference Include="Microsoft.Extensions.Caching.SqlServer" Version="9.0.9" />
+        <PackageReference Include="Microsoft.Extensions.Caching.StackExchangeRedis" Version="9.0.9" />
+    </ItemGroup>
 
-    <PackageReference Include="Microsoft.CodeAnalysis.Scripting.Common" Version="4.9.2" />
-    <PackageReference Include="Microsoft.CodeAnalysis.VisualBasic" Version="4.9.2" />
-    <PackageReference Include="Microsoft.CodeAnalysis.VisualBasic.Workspaces" Version="4.9.2" />
-    <PackageReference Include="Microsoft.CodeAnalysis.Razor" Version="6.0.36" />
-    <PackageReference Include="Microsoft.CodeAnalysis.NetAnalyzers" Version="9.0.0">
-      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
-      <PrivateAssets>all</PrivateAssets>
-    </PackageReference>
-    <!-- Logging -->
-    <PackageReference Include="Serilog" Version="4.3.0" />
-    <PackageReference Include="Serilog.Enrichers.Environment" Version="3.0.1" />
-    <PackageReference Include="Serilog.Exceptions" Version="8.4.0" />
-    <PackageReference Include="Serilog.Sinks.Console" Version="6.0.0" />
-    <PackageReference Include="Serilog.Sinks.EventLog" Version="4.0.0" />
-    <PackageReference Include="Serilog.Sinks.File" Version="7.0.0" />
+    <ItemGroup>
 
-    <PackageReference Include="Serilog.Sinks.SyslogMessages" Version="4.0.0" />
+        <!-- Roslyn Scripting -->
+        <PackageReference Include="Microsoft.CodeAnalysis" Version="4.9.2" />
+        <PackageReference Include="Microsoft.CodeAnalysis.CSharp.Workspaces" Version="4.9.2" />
+        <PackageReference Include="Microsoft.CodeAnalysis.CSharp.Scripting" Version="4.9.2" />
+        <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.9.2" />
 
-    <!-- Microsoft.AspNetCore -->
-    <PackageReference Include="Microsoft.IdentityModel.JsonWebTokens" Version="8.14.0" />
-    <PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="8.14.0" />
-    <PackageReference Include="Microsoft.IdentityModel.Tokens" Version="8.14.0" />
+        <PackageReference Include="Microsoft.CodeAnalysis.Scripting.Common" Version="4.9.2" />
+        <PackageReference Include="Microsoft.CodeAnalysis.VisualBasic" Version="4.9.2" />
+        <PackageReference Include="Microsoft.CodeAnalysis.VisualBasic.Workspaces" Version="4.9.2" />
+        <PackageReference Include="Microsoft.CodeAnalysis.Razor" Version="6.0.36" />
+        <PackageReference Include="Microsoft.CodeAnalysis.NetAnalyzers" Version="9.0.0">
+            <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+            <PrivateAssets>all</PrivateAssets>
+        </PackageReference>
+        <!-- Logging -->
+        <PackageReference Include="Serilog" Version="4.3.0" />
+        <PackageReference Include="Serilog.Enrichers.Environment" Version="3.0.1" />
+        <PackageReference Include="Serilog.Exceptions" Version="8.4.0" />
+        <PackageReference Include="Serilog.Sinks.Console" Version="6.0.0" />
+        <PackageReference Include="Serilog.Sinks.EventLog" Version="4.0.0" />
+        <PackageReference Include="Serilog.Sinks.File" Version="7.0.0" />
 
-    <!-- Scripting Engines -->
-    <PackageReference Include="Microsoft.PowerShell.SDK" Version="7.4.12" />
-    <PackageReference Include="Microsoft.ClearScript.V8" Version="7.5.0" />
+        <PackageReference Include="Serilog.Sinks.SyslogMessages" Version="4.0.0" />
 
-    <PackageReference Include="Microsoft.CodeAnalysis.Analyzers" Version="4.14.0" />
-    <PackageReference Include="pythonnet" Version="3.0.5" />
-    <!-- Not Implemented Yet
+        <!-- Microsoft.AspNetCore -->
+        <PackageReference Include="Microsoft.IdentityModel.JsonWebTokens" Version="8.14.0" />
+        <PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="8.14.0" />
+        <PackageReference Include="Microsoft.IdentityModel.Tokens" Version="8.14.0" />
+
+        <!-- Scripting Engines -->
+        <PackageReference Include="Microsoft.PowerShell.SDK" Version="7.4.12" />
+        <PackageReference Include="Microsoft.ClearScript.V8" Version="7.5.0" />
+
+        <PackageReference Include="Microsoft.CodeAnalysis.Analyzers" Version="4.14.0" />
+        <PackageReference Include="pythonnet" Version="3.0.5" />
+        <!-- Not Implemented Yet
     <PackageReference Include="FSharp.Compiler.Service" Version="43.9.300" />
     -->
 
-    <!-- Utilities -->
-    <PackageReference Include="CsvHelper" Version="33.1.0" />
-    <PackageReference Include="Cronos" Version="0.11.1" />
-    <PackageReference Include="PeterO.Cbor" Version="4.5.5" />
-    <PackageReference Include="MongoDB.Bson" Version="3.5.0" />
-    <PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
-    <PackageReference Include="YamlDotNet" Version="16.3.0" />
-    <PackageReference Include="BouncyCastle.Cryptography" Version="2.6.2" />
-    <!-- Source Link for debugging
+        <!-- Utilities -->
+        <PackageReference Include="CsvHelper" Version="33.1.0" />
+        <PackageReference Include="Cronos" Version="0.11.1" />
+        <PackageReference Include="PeterO.Cbor" Version="4.5.5" />
+        <PackageReference Include="MongoDB.Bson" Version="3.5.0" />
+        <PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
+        <PackageReference Include="YamlDotNet" Version="16.3.0" />
+        <PackageReference Include="BouncyCastle.Cryptography" Version="2.6.2" />
+        <!-- Source Link for debugging
     <PackageReference Include="Microsoft.SourceLink.GitHub" Version="1.1.1" PrivateAssets="All" />-->
 
 
-  </ItemGroup>
-<!--
+    </ItemGroup>
+    <!--
   <Target Name="CopyToPowerShellLib" AfterTargets="Build" Condition="'$(Configuration)' == 'Debug'">
     <ItemGroup>
       <KestrunOutputFiles Include="$(OutputPath)*.*" Exclude="$(OutputPath)Microsoft.CodeAnalysis*.*" />
@@ -240,64 +242,64 @@
     <Copy SourceFiles="@(KestrunOutputFiles)" DestinationFolder="$(ProjectRoot)\src\PowerShell\Kestrun\lib\$(TargetFramework)\" SkipUnchangedFiles="true" />
   </Target>
 -->
-  <Target Name="CopyPowerShellModuleOnPublish" AfterTargets="Publish">
-    <!-- Copy PowerShell module files (excluding lib) to $(ProjectRoot)publish -->
-    <ItemGroup>
-      <PowerShellModuleFiles Include="$(ProjectRoot)\src\PowerShell\Kestrun\**\*" Exclude="$(ProjectRoot)src\PowerShell\Kestrun\lib\**\*" />
-    </ItemGroup>
-    <Copy SourceFiles="@(PowerShellModuleFiles)" DestinationFiles="@(PowerShellModuleFiles->'$(ProjectRoot)\publish\%(RecursiveDir)%(Filename)%(Extension)')" SkipUnchangedFiles="true" />
+    <Target Name="CopyPowerShellModuleOnPublish" AfterTargets="Publish">
+        <!-- Copy PowerShell module files (excluding lib) to $(ProjectRoot)publish -->
+        <ItemGroup>
+            <PowerShellModuleFiles Include="$(ProjectRoot)\src\PowerShell\Kestrun\**\*" Exclude="$(ProjectRoot)src\PowerShell\Kestrun\lib\**\*" />
+        </ItemGroup>
+        <Copy SourceFiles="@(PowerShellModuleFiles)" DestinationFiles="@(PowerShellModuleFiles->'$(ProjectRoot)\publish\%(RecursiveDir)%(Filename)%(Extension)')" SkipUnchangedFiles="true" />
 
-    <!-- Copy Release DLLs to $(ProjectRoot)\publish\lib -->
-    <ItemGroup>
-      <ReleaseLibFiles Include="$(OutputPath)*.*" />
-    </ItemGroup>
-    <Copy SourceFiles="@(ReleaseLibFiles)" DestinationFolder="$(ProjectRoot)\publish\lib\" SkipUnchangedFiles="true" />
-  </Target>
-  <Target Name="CustomClean" AfterTargets="Clean">
-    <!-- Clean PowerShell lib directory -->
-    <!--   <RemoveDir Directories="$(ProjectRoot)src\PowerShell\Kestrun\lib\$(TargetFramework)" /> -->
-    <!-- Clean publish directory -->
-    <RemoveDir Directories="$(ProjectRoot)\publish" />
-  </Target>
+        <!-- Copy Release DLLs to $(ProjectRoot)\publish\lib -->
+        <ItemGroup>
+            <ReleaseLibFiles Include="$(OutputPath)*.*" />
+        </ItemGroup>
+        <Copy SourceFiles="@(ReleaseLibFiles)" DestinationFolder="$(ProjectRoot)\publish\lib\" SkipUnchangedFiles="true" />
+    </Target>
+    <Target Name="CustomClean" AfterTargets="Clean">
+        <!-- Clean PowerShell lib directory -->
+        <!--   <RemoveDir Directories="$(ProjectRoot)src\PowerShell\Kestrun\lib\$(TargetFramework)" /> -->
+        <!-- Clean publish directory -->
+        <RemoveDir Directories="$(ProjectRoot)\publish" />
+    </Target>
 
-  <Target Name="DisplayBuildVersion" AfterTargets="GenerateAssemblyInfo">
-    <Message Text="🔨 Build Configuration: $(Configuration)" Importance="High" />
-    <Message Text="🌟 Kestrun Build Number: $(BuildNumber)" Importance="High" />
-    <Message Text="💫 InformationalVersion: $(InformationalVersion)" Importance="High" />
-    <Message Text="🔧 AssemblyVersion: $(AssemblyVersion)" Importance="High" />
-    <Message Text="🔧 AssemblyFileVersion: $(AssemblyFileVersion)" Importance="High" />
-    <Message Text="🔗 Git SHA: $(GitSha)" Importance="High" />
-    <Message Text="📅 Build Date: $(Now)" Importance="High" />
-    <Message Text="📅 Epoch Date: $(EpochDate)" Importance="High" />
-    <Message Text="📅 Ticks Since Epoch: $(TicksSinceEpoch)" Importance="High" />
-    <Message Text="🔗 Repository URL: $(RepositoryUrl)" Importance="High" />
-    <Message Text="📦 Package Version: $(PackageVersion)" Importance="Normal" />
-    <Message Text="📦 Package ID: $(PackageId)" Importance="Normal" />
-    <Message Text="📦 Authors: $(Authors)" Importance="Normal" />
-    <Message Text="📦 Company: $(Company)" Importance="Normal" />
-    <Message Text="📦 Description: $(Description)" Importance="Normal" />
-    <Message Text="📦 License: $(PackageLicenseExpression)" Importance="Normal" />
-    <Message Text="📦 Project URL: $(PackageProjectUrl)" Importance="Normal" />
-    <Message Text="📦 Readme File: $(PackageReadmeFile)" Importance="Normal" />
-    <Message Text="📦 Runtime Identifiers: $(RuntimeIdentifiers)" Importance="Normal" />
-    <Message Text="📦 Target Frameworks: $(TargetFrameworks)" Importance="Normal" />
-    <Message Text="📦 Publish Trimmed: $(PublishTrimmed)" Importance="Normal" />
-    <Message Text="📦 Invariant Globalization: $(InvariantGlobalization)" Importance="Normal" />
-    <Message Text="📦 Allow Unsafe Blocks: $(AllowUnsafeBlocks)" Importance="Normal" />
-    <Message Text="📦 Implicit Usings: $(ImplicitUsings)" Importance="Normal" />
-    <Message Text="📦 Enable Preview Features: $(EnablePreviewFeatures)" Importance="Normal" />
-    <Message Text="📦 Lang Version: $(LangVersion)" Importance="Normal" />
-    <Message Text="📦 Output Type: $(OutputType)" Importance="Normal" />
-    <Message Text="📦 Assembly Name: $(AssemblyName)" Importance="Normal" />
-    <Message Text="📦 Root Namespace: $(RootNamespace)" Importance="Normal" />
-    <Message Text="📦 Copy Local Lock File Assemblies: $(CopyLocalLockFileAssemblies)" Importance="Normal" />
-    <Message Text="📦 Generate Assembly Info: $(GenerateAssemblyInfo)" Importance="Normal" />
-    <Message Text="📦 Generate Documentation File: $(GenerateDocumentationFile)" Importance="Normal" />
-    <Message Text="📦 Treat Warnings As Errors: $(TreatWarningsAsErrors)" Importance="Normal" />
-    <Message Text="📦 No Warn: $(NoWarn)" Importance="Normal" />
-    <Message Text="📦 Is Packable: $(IsPackable)" Importance="Normal" />
-    <Message Text="📦 Generate Package On Build: $(GeneratePackageOnBuild)" Importance="Normal" />
-    <Message Text="📦 Package Version: $(PackageVersion)" Importance="Normal" />
-    <Message Text="📦 Package Id: $(PackageId)" Importance="Normal" />
-  </Target>
+    <Target Name="DisplayBuildVersion" AfterTargets="GenerateAssemblyInfo">
+        <Message Text="🔨 Build Configuration: $(Configuration)" Importance="High" />
+        <Message Text="🌟 Kestrun Build Number: $(BuildNumber)" Importance="High" />
+        <Message Text="💫 InformationalVersion: $(InformationalVersion)" Importance="High" />
+        <Message Text="🔧 AssemblyVersion: $(AssemblyVersion)" Importance="High" />
+        <Message Text="🔧 AssemblyFileVersion: $(AssemblyFileVersion)" Importance="High" />
+        <Message Text="🔗 Git SHA: $(GitSha)" Importance="High" />
+        <Message Text="📅 Build Date: $(Now)" Importance="High" />
+        <Message Text="📅 Epoch Date: $(EpochDate)" Importance="High" />
+        <Message Text="📅 Ticks Since Epoch: $(TicksSinceEpoch)" Importance="High" />
+        <Message Text="🔗 Repository URL: $(RepositoryUrl)" Importance="High" />
+        <Message Text="📦 Package Version: $(PackageVersion)" Importance="Normal" />
+        <Message Text="📦 Package ID: $(PackageId)" Importance="Normal" />
+        <Message Text="📦 Authors: $(Authors)" Importance="Normal" />
+        <Message Text="📦 Company: $(Company)" Importance="Normal" />
+        <Message Text="📦 Description: $(Description)" Importance="Normal" />
+        <Message Text="📦 License: $(PackageLicenseExpression)" Importance="Normal" />
+        <Message Text="📦 Project URL: $(PackageProjectUrl)" Importance="Normal" />
+        <Message Text="📦 Readme File: $(PackageReadmeFile)" Importance="Normal" />
+        <Message Text="📦 Runtime Identifiers: $(RuntimeIdentifiers)" Importance="Normal" />
+        <Message Text="📦 Target Frameworks: $(TargetFrameworks)" Importance="Normal" />
+        <Message Text="📦 Publish Trimmed: $(PublishTrimmed)" Importance="Normal" />
+        <Message Text="📦 Invariant Globalization: $(InvariantGlobalization)" Importance="Normal" />
+        <Message Text="📦 Allow Unsafe Blocks: $(AllowUnsafeBlocks)" Importance="Normal" />
+        <Message Text="📦 Implicit Usings: $(ImplicitUsings)" Importance="Normal" />
+        <Message Text="📦 Enable Preview Features: $(EnablePreviewFeatures)" Importance="Normal" />
+        <Message Text="📦 Lang Version: $(LangVersion)" Importance="Normal" />
+        <Message Text="📦 Output Type: $(OutputType)" Importance="Normal" />
+        <Message Text="📦 Assembly Name: $(AssemblyName)" Importance="Normal" />
+        <Message Text="📦 Root Namespace: $(RootNamespace)" Importance="Normal" />
+        <Message Text="📦 Copy Local Lock File Assemblies: $(CopyLocalLockFileAssemblies)" Importance="Normal" />
+        <Message Text="📦 Generate Assembly Info: $(GenerateAssemblyInfo)" Importance="Normal" />
+        <Message Text="📦 Generate Documentation File: $(GenerateDocumentationFile)" Importance="Normal" />
+        <Message Text="📦 Treat Warnings As Errors: $(TreatWarningsAsErrors)" Importance="Normal" />
+        <Message Text="📦 No Warn: $(NoWarn)" Importance="Normal" />
+        <Message Text="📦 Is Packable: $(IsPackable)" Importance="Normal" />
+        <Message Text="📦 Generate Package On Build: $(GeneratePackageOnBuild)" Importance="Normal" />
+        <Message Text="📦 Package Version: $(PackageVersion)" Importance="Normal" />
+        <Message Text="📦 Package Id: $(PackageId)" Importance="Normal" />
+    </Target>
 </Project>

@@ -5,6 +5,7 @@ using Kestrun.Models;
 using Kestrun.Scripting;
 using Serilog.Events;
 using Kestrun.Hosting;
+using Kestrun.Logging;
 
 namespace Kestrun.Middleware;
 
@@ -33,7 +34,7 @@ public sealed class PowerShellRunspaceMiddleware(RequestDelegate next, KestrunRu
         var current = Interlocked.Increment(ref _inFlight);
         if (Log.IsEnabled(LogEventLevel.Debug))
         {
-            Log.Debug("ENTER InvokeAsync path={Path} inFlight={InFlight} thread={Thread} time={Start}",
+            Log.DebugSanitized("ENTER InvokeAsync path={Path} inFlight={InFlight} thread={Thread} time={Start}",
                 context.Request.Path, current, threadId, start.ToString("O"));
         }
 
@@ -41,7 +42,7 @@ public sealed class PowerShellRunspaceMiddleware(RequestDelegate next, KestrunRu
         {
             if (Log.IsEnabled(LogEventLevel.Debug))
             {
-                Log.Debug("PowerShellRunspaceMiddleware started for {Path}", context.Request.Path);
+                Log.DebugSanitized("PowerShellRunspaceMiddleware started for {Path}", context.Request.Path);
             }
 
             // Acquire a runspace from the pool asynchronously (avoid blocking thread pool while waiting)
@@ -50,7 +51,7 @@ public sealed class PowerShellRunspaceMiddleware(RequestDelegate next, KestrunRu
             var acquireMs = (Stopwatch.GetTimestamp() - acquireStart) * 1000.0 / Stopwatch.Frequency;
             if (Log.IsEnabled(LogEventLevel.Debug))
             {
-                Log.Debug("Runspace acquired for {Path} in {AcquireMs} ms (inFlight={InFlight})", context.Request.Path, acquireMs, current);
+                Log.DebugSanitized("Runspace acquired for {Path} in {AcquireMs} ms (inFlight={InFlight})", context.Request.Path, acquireMs, current);
             }
 
             var ps = PowerShell.Create();
@@ -67,7 +68,7 @@ public sealed class PowerShellRunspaceMiddleware(RequestDelegate next, KestrunRu
 
             if (Log.IsEnabled(LogEventLevel.Debug))
             {
-                Log.Debug("PowerShellRunspaceMiddleware - Setting KestrunContext in HttpContext.Items for {Path}", context.Request.Path);
+                Log.DebugSanitized("PowerShellRunspaceMiddleware - Setting KestrunContext in HttpContext.Items for {Path}", context.Request.Path);
             }
 
             Log.Verbose("Setting PowerShell variables for Request and Response in the runspace.");
@@ -113,13 +114,13 @@ public sealed class PowerShellRunspaceMiddleware(RequestDelegate next, KestrunRu
 
             if (Log.IsEnabled(LogEventLevel.Debug))
             {
-                Log.Debug("PowerShellRunspaceMiddleware - Continuing Pipeline  for {Path}", context.Request.Path);
+                Log.DebugSanitized("PowerShellRunspaceMiddleware - Continuing Pipeline  for {Path}", context.Request.Path);
             }
 
             await _next(context); // continue the pipeline
             if (Log.IsEnabled(LogEventLevel.Debug))
             {
-                Log.Debug("PowerShellRunspaceMiddleware completed for {Path}", context.Request.Path);
+                Log.DebugSanitized("PowerShellRunspaceMiddleware completed for {Path}", context.Request.Path);
             }
         }
         catch (Exception ex)
@@ -133,7 +134,7 @@ public sealed class PowerShellRunspaceMiddleware(RequestDelegate next, KestrunRu
             var durationMs = (DateTime.UtcNow - start).TotalMilliseconds;
             if (Log.IsEnabled(LogEventLevel.Debug))
             {
-                Log.Debug("PowerShellRunspaceMiddleware ended for {Path} durationMs={durationMs} inFlight={remaining}",
+                Log.DebugSanitized("PowerShellRunspaceMiddleware ended for {Path} durationMs={durationMs} inFlight={remaining}",
                     context.Request.Path, durationMs, remaining);
             }
         }

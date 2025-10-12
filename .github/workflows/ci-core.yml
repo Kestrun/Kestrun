@@ -53,9 +53,9 @@ jobs:
 
         env:
             POWERSHELL_DISTRIBUTION_CHANNEL: GitHub-Actions
-            ACTIONS_STEP_DEBUG: ${{ inputs.debug && 'true' || '' }} 
-            UPSTASH_REDIS_URL: ${{ secrets.UPSTASH_REDIS_URL || 'redis://default:AVjCAAIncDIyNzhjYTkxY2VmYTM0ZDBkOTg3OWUwYWZjZjRhZjQ3NXAyMjI3MjI@fresh-sculpin-22722.upstash.io:6379' }}
- 
+            ACTIONS_STEP_DEBUG: ${{ inputs.debug && 'true' || '' }}
+            UPSTASH_REDIS_URL: ${{ secrets.UPSTASH_REDIS_URL }}
+
         steps:
             # Detect if GH "Enable debug logging" is ON
             - name: 🔎 Detect GH debug flag
@@ -148,15 +148,15 @@ jobs:
                       Write-Host "❌ UPSTASH_REDIS_URL is NOT set" -ForegroundColor Red
                   }
                   Write-Host "🔍 All environment variables containing UPSTASH:"
-                  Get-ChildItem env: | Where-Object Name -like "*UPSTASH*" | ForEach-Object { 
+                  Get-ChildItem env: | Where-Object Name -like "*UPSTASH*" | ForEach-Object {
                       $value = $_.Value
                       if ([string]::IsNullOrWhiteSpace($value)) {
                           Write-Host "  $($_.Name) = [EMPTY/WHITESPACE] (length: $($value.Length))" -ForegroundColor Red
                       } else {
-                          Write-Host "  $($_.Name) = $($value.Substring(0, [Math]::Min(20, $value.Length)))... (length: $($value.Length))" -ForegroundColor Yellow 
+                          Write-Host "  $($_.Name) = $($value.Substring(0, [Math]::Min(20, $value.Length)))... (length: $($value.Length))" -ForegroundColor Yellow
                       }
                   }
-                  
+
                   # Also check what GitHub is actually passing
                   Write-Host "🔍 GitHub Actions context debug:"
                   Write-Host "  secrets.UPSTASH_REDIS_URL exists: ${{ secrets.UPSTASH_REDIS_URL != '' }}"

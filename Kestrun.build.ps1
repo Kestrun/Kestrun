@@ -89,6 +89,36 @@ if (($null -eq $PSCmdlet.MyInvocation) -or ([string]::IsNullOrEmpty($PSCmdlet.My
 
 . ./Utility/Import-EnvFile.ps1
 
+# Debug environment variables
+Write-Host '🔍 [BUILD DEBUG] Checking UPSTASH_REDIS_URL in build script...' -ForegroundColor Cyan
+if ($env:UPSTASH_REDIS_URL) {
+    Write-Host "✅ UPSTASH_REDIS_URL is set in build script (length: $($env:UPSTASH_REDIS_URL.Length))" -ForegroundColor Green
+    Write-Host "✅ UPSTASH_REDIS_URL starts with: $($env:UPSTASH_REDIS_URL.Substring(0, [Math]::Min(20, $env:UPSTASH_REDIS_URL.Length)))..." -ForegroundColor Green
+} else {
+    Write-Host "❌ UPSTASH_REDIS_URL is NOT set in build script" -ForegroundColor Red
+    # Try to load from .env.json if available
+    if (Test-Path '.env.json') {
+        Write-Host "🔄 Attempting to load .env.json..." -ForegroundColor Yellow
+        try {
+            . ./Utility/Import-EnvFile.ps1 -Path '.env.json' -Overwrite
+            if ($env:UPSTASH_REDIS_URL) {
+                Write-Host "✅ UPSTASH_REDIS_URL loaded from .env.json (length: $($env:UPSTASH_REDIS_URL.Length))" -ForegroundColor Green
+                Write-Host "✅ UPSTASH_REDIS_URL starts with: $($env:UPSTASH_REDIS_URL.Substring(0, [Math]::Min(20, $env:UPSTASH_REDIS_URL.Length)))..." -ForegroundColor Green
+            } else {
+                Write-Host "❌ UPSTASH_REDIS_URL not found in .env.json" -ForegroundColor Red
+            }
+        } catch {
+            Write-Host "❌ Failed to load .env.json: $($_.Exception.Message)" -ForegroundColor Red
+        }
+    } else {
+        Write-Host "❌ .env.json file not found" -ForegroundColor Red
+    }
+}
+Write-Host "🔍 All environment variables containing UPSTASH in build script:" -ForegroundColor Cyan
+Get-ChildItem env: | Where-Object Name -like "*UPSTASH*" | ForEach-Object { 
+    Write-Host "  $($_.Name) = $($_.Value.Substring(0, [Math]::Min(20, $_.Value.Length)))..." -ForegroundColor Yellow 
+}
+
 $SolutionPath = Join-Path -Path $PSScriptRoot -ChildPath 'Kestrun.sln'
 
 Write-Host '---------------------------------------------------' -ForegroundColor DarkCyan
@@ -272,6 +302,12 @@ Add-BuildTask 'Format' {
 
 
 Add-BuildTask 'Test-Pester' {
+    Write-Host '🔍 [TEST-PESTER DEBUG] Checking UPSTASH_REDIS_URL before running Pester tests...' -ForegroundColor Cyan
+    if ($env:UPSTASH_REDIS_URL) {
+        Write-Host "✅ UPSTASH_REDIS_URL is available for Pester tests (length: $($env:UPSTASH_REDIS_URL.Length))" -ForegroundColor Green
+    } else {
+        Write-Host "❌ UPSTASH_REDIS_URL is NOT available for Pester tests" -ForegroundColor Red
+    }
     & .\Utility\Test-Pester.ps1 -ReRunFailed -Verbosity $PesterVerbosity -RunPesterInProcess:$RunPesterInProcess
 }
 

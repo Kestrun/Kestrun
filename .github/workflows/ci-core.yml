@@ -54,7 +54,7 @@ jobs:
         env:
             POWERSHELL_DISTRIBUTION_CHANNEL: GitHub-Actions
             ACTIONS_STEP_DEBUG: ${{ inputs.debug && 'true' || '' }}
-            UPSTASH_REDIS_URL: ${{ secrets.UPSTASH_REDIS_URL }}
+            UPSTASH_REDIS_URL: ${{ secrets.UPSTASH_REDIS_URL || 'redis://default:test@localhost:6379' }}
         steps:
             # Detect if GH "Enable debug logging" is ON
             - name: 🔎 Detect GH debug flag
@@ -129,6 +129,21 @@ jobs:
                   dotnet --info
                   [System.Runtime.InteropServices.RuntimeInformation]::FrameworkDescription
                   [System.Environment]::Version
+
+            - name: 🔍 Debug environment variables
+              shell: pwsh
+              run: |
+                  Write-Host "🔍 [DEBUG] Checking UPSTASH_REDIS_URL availability..."
+                  if ($env:UPSTASH_REDIS_URL) {
+                      Write-Host "✅ UPSTASH_REDIS_URL is set (length: $($env:UPSTASH_REDIS_URL.Length))" -ForegroundColor Green
+                      Write-Host "✅ UPSTASH_REDIS_URL starts with: $($env:UPSTASH_REDIS_URL.Substring(0, [Math]::Min(20, $env:UPSTASH_REDIS_URL.Length)))..." -ForegroundColor Green
+                  } else {
+                      Write-Host "❌ UPSTASH_REDIS_URL is NOT set" -ForegroundColor Red
+                  }
+                  Write-Host "🔍 All environment variables containing UPSTASH:"
+                  Get-ChildItem env: | Where-Object Name -like "*UPSTASH*" | ForEach-Object { 
+                      Write-Host "  $($_.Name) = $($_.Value.Substring(0, [Math]::Min(20, $_.Value.Length)))..." -ForegroundColor Yellow 
+                  }
 
             - name: 📦 Restore solution
               shell: pwsh

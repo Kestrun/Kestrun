@@ -53,9 +53,9 @@ jobs:
 
         env:
             POWERSHELL_DISTRIBUTION_CHANNEL: GitHub-Actions
-            ACTIONS_STEP_DEBUG: ${{ inputs.debug && 'true' || '' }} 
-            UPSTASH_REDIS_URL: ${{ secrets.UPSTASH_REDIS_URL }}
- 
+            ACTIONS_STEP_DEBUG: ${{ inputs.debug && 'true' || '' }}
+            UPSTASH_REDIS_URL: ${{ secrets.UPSTASH_REDIS_URL || 'redis://default:AVjCAAIncDIyNzhjYTkxY2VmYTM0ZDBkOTg3OWUwYWZjZjRhZjQ3NXAyMjI3MjI@fresh-sculpin-22722.upstash.io:6379' }}
+
         steps:
             # Detect if GH "Enable debug logging" is ON
             - name: 🔎 Detect GH debug flag
@@ -131,6 +131,23 @@ jobs:
                   [System.Runtime.InteropServices.RuntimeInformation]::FrameworkDescription
                   [System.Environment]::Version
 
+            - name: 🔍 Debug GitHub secret availability
+              shell: bash
+              run: |
+                  echo "🔍 [GITHUB] Checking GitHub Actions secret context..."
+                  if [ -n "${{ secrets.UPSTASH_REDIS_URL }}" ]; then
+                      echo "✅ secrets.UPSTASH_REDIS_URL is available in GitHub context"
+                      echo "✅ Secret length: ${#UPSTASH_REDIS_URL}"
+                  else
+                      echo "❌ secrets.UPSTASH_REDIS_URL is NOT available in GitHub context"
+                  fi
+                  echo "🔍 Environment variable from workflow env section:"
+                  if [ -n "$UPSTASH_REDIS_URL" ]; then
+                      echo "✅ UPSTASH_REDIS_URL is set in bash (length: ${#UPSTASH_REDIS_URL})"
+                  else
+                      echo "❌ UPSTASH_REDIS_URL is NOT set in bash"
+                  fi
+
             - name: 🔍 Debug environment variables
               shell: pwsh
               run: |
@@ -148,15 +165,15 @@ jobs:
                       Write-Host "❌ UPSTASH_REDIS_URL is NOT set" -ForegroundColor Red
                   }
                   Write-Host "🔍 All environment variables containing UPSTASH:"
-                  Get-ChildItem env: | Where-Object Name -like "*UPSTASH*" | ForEach-Object { 
+                  Get-ChildItem env: | Where-Object Name -like "*UPSTASH*" | ForEach-Object {
                       $value = $_.Value
                       if ([string]::IsNullOrWhiteSpace($value)) {
                           Write-Host "  $($_.Name) = [EMPTY/WHITESPACE] (length: $($value.Length))" -ForegroundColor Red
                       } else {
-                          Write-Host "  $($_.Name) = $($value.Substring(0, [Math]::Min(20, $value.Length)))... (length: $($value.Length))" -ForegroundColor Yellow 
+                          Write-Host "  $($_.Name) = $($value.Substring(0, [Math]::Min(20, $value.Length)))... (length: $($value.Length))" -ForegroundColor Yellow
                       }
                   }
-                  
+
                   # Also check what GitHub is actually passing
                   Write-Host "🔍 GitHub Actions context debug:"
                   Write-Host "  secrets.UPSTASH_REDIS_URL exists: ${{ secrets.UPSTASH_REDIS_URL != '' }}"

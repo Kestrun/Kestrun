@@ -54,7 +54,7 @@ jobs:
         env:
             POWERSHELL_DISTRIBUTION_CHANNEL: GitHub-Actions
             ACTIONS_STEP_DEBUG: ${{ inputs.debug && 'true' || '' }}
-            UPSTASH_REDIS_URL: ${{ secrets.UPSTASH_REDIS_URL || 'redis://default:AVjCAAIncDIyNzhjYTkxY2VmYTM0ZDBkOTg3OWUwYWZjZjRhZjQ3NXAyMjI3MjI@fresh-sculpin-22722.upstash.io:6379' }}
+            UPSTASH_REDIS_URL: ${{ secrets.UPSTASH_REDIS_URL }}
 
         steps:
             # Detect if GH "Enable debug logging" is ON
@@ -131,55 +131,7 @@ jobs:
                   [System.Runtime.InteropServices.RuntimeInformation]::FrameworkDescription
                   [System.Environment]::Version
 
-            - name: 🔍 Debug GitHub secret availability
-              shell: bash
-              run: |
-                  echo "🔍 [GITHUB] Checking GitHub Actions secret context..."
-                  if [ -n "${{ secrets.UPSTASH_REDIS_URL }}" ]; then
-                      echo "✅ secrets.UPSTASH_REDIS_URL is available in GitHub context"
-                      echo "✅ Secret length: ${#UPSTASH_REDIS_URL}"
-                  else
-                      echo "❌ secrets.UPSTASH_REDIS_URL is NOT available in GitHub context"
-                  fi
-                  echo "🔍 Environment variable from workflow env section:"
-                  if [ -n "$UPSTASH_REDIS_URL" ]; then
-                      echo "✅ UPSTASH_REDIS_URL is set in bash (length: ${#UPSTASH_REDIS_URL})"
-                  else
-                      echo "❌ UPSTASH_REDIS_URL is NOT set in bash"
-                  fi
-
-            - name: 🔍 Debug environment variables
-              shell: pwsh
-              run: |
-                  Write-Host "🔍 [DEBUG] Checking UPSTASH_REDIS_URL availability..."
-                  $upstashValue = [System.Environment]::GetEnvironmentVariable('UPSTASH_REDIS_URL')
-                  if ($upstashValue) {
-                      if ([string]::IsNullOrWhiteSpace($upstashValue)) {
-                          Write-Host "⚠️ UPSTASH_REDIS_URL is set but empty/whitespace (length: $($upstashValue.Length))" -ForegroundColor Yellow
-                          Write-Host "⚠️ Value: '$upstashValue'" -ForegroundColor Yellow
-                      } else {
-                          Write-Host "✅ UPSTASH_REDIS_URL is set (length: $($upstashValue.Length))" -ForegroundColor Green
-                          Write-Host "✅ UPSTASH_REDIS_URL starts with: $($upstashValue.Substring(0, [Math]::Min(20, $upstashValue.Length)))..." -ForegroundColor Green
-                      }
-                  } else {
-                      Write-Host "❌ UPSTASH_REDIS_URL is NOT set" -ForegroundColor Red
-                  }
-                  Write-Host "🔍 All environment variables containing UPSTASH:"
-                  Get-ChildItem env: | Where-Object Name -like "*UPSTASH*" | ForEach-Object {
-                      $value = $_.Value
-                      if ([string]::IsNullOrWhiteSpace($value)) {
-                          Write-Host "  $($_.Name) = [EMPTY/WHITESPACE] (length: $($value.Length))" -ForegroundColor Red
-                      } else {
-                          Write-Host "  $($_.Name) = $($value.Substring(0, [Math]::Min(20, $value.Length)))... (length: $($value.Length))" -ForegroundColor Yellow
-                      }
-                  }
-
-                  # Also check what GitHub is actually passing
-                  Write-Host "🔍 GitHub Actions context debug:"
-                  Write-Host "  secrets.UPSTASH_REDIS_URL exists: ${{ secrets.UPSTASH_REDIS_URL != '' }}"
-                  Write-Host "  Fallback would be: redis://default:test@localhost:6379"
-
-            - name: 📦 Restore solution
+            - name: Restore solution
               shell: pwsh
               run: Invoke-Build Restore -DotNetVerbosity $Env:DOTNET_VERBOSITY
 

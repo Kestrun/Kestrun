@@ -16,6 +16,10 @@ on:
                 required: false
                 default: false
                 type: boolean
+        secrets:
+            UPSTASH_REDIS_URL:
+                description: Redis URL for session testing
+                required: false
 
 concurrency:
     group: ci-${{ github.repository }}-${{ inputs.is_pr && github.event.pull_request.number || github.ref }}

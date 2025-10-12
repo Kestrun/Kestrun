@@ -329,7 +329,7 @@ Start-KrServer
 
     Start-Sleep -Seconds 2 # Allow some time for server to stabilize
 
-    return @{
+    return [pscustomobject]@{
         Name = $Name
         Url = ('{0}://{1}:{2}' -f ($usesHttps ? 'https' : 'http'), $serverIp, $Port)
         Host = $serverIp

@@ -89,45 +89,56 @@ if (($null -eq $PSCmdlet.MyInvocation) -or ([string]::IsNullOrEmpty($PSCmdlet.My
 
 . ./Utility/Import-EnvFile.ps1
 
-# Debug environment variables
-Write-Host '🔍 [BUILD DEBUG] Checking UPSTASH_REDIS_URL in build script...' -ForegroundColor Cyan
-$upstashValue = [System.Environment]::GetEnvironmentVariable('UPSTASH_REDIS_URL')
-if ($upstashValue) {
-    if ([string]::IsNullOrWhiteSpace($upstashValue)) {
-        Write-Host "⚠️ UPSTASH_REDIS_URL is set but empty/whitespace (length: $($upstashValue.Length))" -ForegroundColor Yellow
-        Write-Host "⚠️ Value: '$upstashValue'" -ForegroundColor Yellow
-    } else {
-        Write-Host "✅ UPSTASH_REDIS_URL is set in build script (length: $($upstashValue.Length))" -ForegroundColor Green
-        Write-Host "✅ UPSTASH_REDIS_URL starts with: $($upstashValue.Substring(0, [Math]::Min(20, $upstashValue.Length)))..." -ForegroundColor Green
-    }
-} else {
-    Write-Host '❌ UPSTASH_REDIS_URL is NOT set in build script' -ForegroundColor Red
-    # Try to load from .env.json if available
-    if (Test-Path '.env.json') {
-        Write-Host '🔄 Attempting to load .env.json...' -ForegroundColor Yellow
-        try {
-            . ./Utility/Import-EnvFile.ps1 -Path '.env.json' -Overwrite
-            $upstashAfterLoad = [System.Environment]::GetEnvironmentVariable('UPSTASH_REDIS_URL')
-            if ($upstashAfterLoad -and -not [string]::IsNullOrWhiteSpace($upstashAfterLoad)) {
-                Write-Host "✅ UPSTASH_REDIS_URL loaded from .env.json (length: $($upstashAfterLoad.Length))" -ForegroundColor Green
-                Write-Host "✅ UPSTASH_REDIS_URL starts with: $($upstashAfterLoad.Substring(0, [Math]::Min(20, $upstashAfterLoad.Length)))..." -ForegroundColor Green
-            } else {
-                Write-Host '❌ UPSTASH_REDIS_URL not found or empty in .env.json' -ForegroundColor Red
-            }
-        } catch {
-            Write-Host "❌ Failed to load .env.json: $($_.Exception.Message)" -ForegroundColor Red
+# Quiet env handling with optional verbose debug
+$krDebug = -not [string]::IsNullOrWhiteSpace($env:KR_DEBUG_UPSTASH) -and ($env:KR_DEBUG_UPSTASH -in @('1', 'true', 'True'))
+$isDebug = ($env:ACTIONS_STEP_DEBUG -eq 'true' -or $krDebug)
+
+if ($isDebug) {
+    # Verbose diagnostics (only when debug is enabled)
+    Write-Host '🔍 [BUILD DEBUG] Checking UPSTASH_REDIS_URL in build script...' -ForegroundColor Cyan
+    $upstashValue = [System.Environment]::GetEnvironmentVariable('UPSTASH_REDIS_URL')
+    if ($upstashValue) {
+        if ([string]::IsNullOrWhiteSpace($upstashValue)) {
+            Write-Host "⚠️ UPSTASH_REDIS_URL is set but empty/whitespace (length: $($upstashValue.Length))" -ForegroundColor Yellow
+            Write-Host "⚠️ Value: '$upstashValue'" -ForegroundColor Yellow
+        } else {
+            Write-Host "✅ UPSTASH_REDIS_URL is set in build script (length: $($upstashValue.Length))" -ForegroundColor Green
+            Write-Host "✅ UPSTASH_REDIS_URL starts with: $($upstashValue.Substring(0, [Math]::Min(20, $upstashValue.Length)))..." -ForegroundColor Green
         }
     } else {
-        Write-Host '❌ .env.json file not found' -ForegroundColor Red
+        Write-Host '❌ UPSTASH_REDIS_URL is NOT set in build script' -ForegroundColor Red
+        if (Test-Path '.env.json') {
+            Write-Host '🔄 Attempting to load .env.json...' -ForegroundColor Yellow
+            try {
+                . ./Utility/Import-EnvFile.ps1 -Path '.env.json' -Overwrite
+                $upstashAfterLoad = [System.Environment]::GetEnvironmentVariable('UPSTASH_REDIS_URL')
+                if ($upstashAfterLoad -and -not [string]::IsNullOrWhiteSpace($upstashAfterLoad)) {
+                    Write-Host "✅ UPSTASH_REDIS_URL loaded from .env.json (length: $($upstashAfterLoad.Length))" -ForegroundColor Green
+                    Write-Host "✅ UPSTASH_REDIS_URL starts with: $($upstashAfterLoad.Substring(0, [Math]::Min(20, $upstashAfterLoad.Length)))..." -ForegroundColor Green
+                } else {
+                    Write-Host '❌ UPSTASH_REDIS_URL not found or empty in .env.json' -ForegroundColor Red
+                }
+            } catch {
+                Write-Host "❌ Failed to load .env.json: $($_.Exception.Message)" -ForegroundColor Red
+            }
+        } else {
+            Write-Host '❌ .env.json file not found' -ForegroundColor Red
+        }
     }
-}
-Write-Host '🔍 All environment variables containing UPSTASH in build script:' -ForegroundColor Cyan
-Get-ChildItem env: | Where-Object Name -Like '*UPSTASH*' | ForEach-Object {
-    $value = $_.Value
-    if ([string]::IsNullOrWhiteSpace($value)) {
-        Write-Host "  $($_.Name) = [EMPTY/WHITESPACE] (length: $($value.Length))" -ForegroundColor Red
-    } else {
-        Write-Host "  $($_.Name) = $($value.Substring(0, [Math]::Min(20, $value.Length)))... (length: $($value.Length))" -ForegroundColor Yellow
+    Write-Host '🔍 All environment variables containing UPSTASH in build script:' -ForegroundColor Cyan
+    Get-ChildItem env: | Where-Object Name -Like '*UPSTASH*' | ForEach-Object {
+        $value = $_.Value
+        if ([string]::IsNullOrWhiteSpace($value)) {
+            Write-Host "  $($_.Name) = [EMPTY/WHITESPACE] (length: $($value.Length))" -ForegroundColor Red
+        } else {
+            Write-Host "  $($_.Name) = $($value.Substring(0, [Math]::Min(20, $value.Length)))... (length: $($value.Length))" -ForegroundColor Yellow
+        }
+    }
+} else {
+    # Silent hydration: best-effort import without noisy logs
+    $upstashValue = [System.Environment]::GetEnvironmentVariable('UPSTASH_REDIS_URL')
+    if ([string]::IsNullOrWhiteSpace($upstashValue) -and (Test-Path '.env.json')) {
+        try { . ./Utility/Import-EnvFile.ps1 -Path '.env.json' -Overwrite } catch { }
     }
 }
 
@@ -314,18 +325,20 @@ Add-BuildTask 'Format' {
 
 
 Add-BuildTask 'Test-Pester' {
-    Write-Host '🔍 [TEST-PESTER DEBUG] Checking UPSTASH_REDIS_URL before running Pester tests...' -ForegroundColor Cyan
-    $upstashValue = [System.Environment]::GetEnvironmentVariable('UPSTASH_REDIS_URL')
-    if ($upstashValue) {
-        if ([string]::IsNullOrWhiteSpace($upstashValue)) {
-            Write-Host "⚠️ UPSTASH_REDIS_URL is set but empty/whitespace for Pester tests (length: $($upstashValue.Length))" -ForegroundColor Yellow
-            Write-Host "⚠️ Value: '$upstashValue'" -ForegroundColor Yellow
+    if ($isDebug) {
+        Write-Host '🔍 [TEST-PESTER DEBUG] Checking UPSTASH_REDIS_URL before running Pester tests...' -ForegroundColor Cyan
+        $upstashValue = [System.Environment]::GetEnvironmentVariable('UPSTASH_REDIS_URL')
+        if ($upstashValue) {
+            if ([string]::IsNullOrWhiteSpace($upstashValue)) {
+                Write-Host "⚠️ UPSTASH_REDIS_URL is set but empty/whitespace for Pester tests (length: $($upstashValue.Length))" -ForegroundColor Yellow
+                Write-Host "⚠️ Value: '$upstashValue'" -ForegroundColor Yellow
+            } else {
+                Write-Host "✅ UPSTASH_REDIS_URL is available for Pester tests (length: $($upstashValue.Length))" -ForegroundColor Green
+                Write-Host "✅ UPSTASH_REDIS_URL starts with: $($upstashValue.Substring(0, [Math]::Min(20, $upstashValue.Length)))..." -ForegroundColor Green
+            }
         } else {
-            Write-Host "✅ UPSTASH_REDIS_URL is available for Pester tests (length: $($upstashValue.Length))" -ForegroundColor Green
-            Write-Host "✅ UPSTASH_REDIS_URL starts with: $($upstashValue.Substring(0, [Math]::Min(20, $upstashValue.Length)))..." -ForegroundColor Green
+            Write-Host '❌ UPSTASH_REDIS_URL is NOT available for Pester tests' -ForegroundColor Red
         }
-    } else {
-        Write-Host '❌ UPSTASH_REDIS_URL is NOT available for Pester tests' -ForegroundColor Red
     }
     & .\Utility\Test-Pester.ps1 -ReRunFailed -Verbosity $PesterVerbosity -RunPesterInProcess:$RunPesterInProcess
 }

@@ -53,8 +53,9 @@ jobs:
 
         env:
             POWERSHELL_DISTRIBUTION_CHANNEL: GitHub-Actions
-            ACTIONS_STEP_DEBUG: ${{ inputs.debug && 'true' || '' }}
+            ACTIONS_STEP_DEBUG: ${{ inputs.debug && 'true' || '' }} 
             UPSTASH_REDIS_URL: ${{ secrets.UPSTASH_REDIS_URL || 'redis://default:test@localhost:6379' }}
+ 
         steps:
             # Detect if GH "Enable debug logging" is ON
             - name: 🔎 Detect GH debug flag

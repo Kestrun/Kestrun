@@ -38,16 +38,36 @@ function Send-KrEvent {
     )
 
     begin {
-        # Resolve the server instance
+        # Resolve the server instance if available (not strictly required when $Context is present)
         if (-not $Server) {
-            $Server = Get-KrServer
+            try { $Server = Get-KrServer } catch { $Server = $null }
         }
     }
 
     process {
         try {
-            # Get the IRealtimeBroadcaster service from the server
-            $broadcaster = $Server.App.Services.GetService([Kestrun.SignalR.IRealtimeBroadcaster])
+            # Prefer resolving from the current request's service provider when running inside a route
+            $svcProvider = $null
+            if ($null -ne $Context -and $null -ne $Context.HttpContext) {
+                $svcProvider = $Context.HttpContext.RequestServices
+            } elseif ($null -ne $Server) {
+                # Fallback: best-effort reflection access to internal App property to get Services
+                try {
+                    $appProp = $Server.GetType().GetProperty('App', [System.Reflection.BindingFlags] 'NonPublic,Instance')
+                    if ($appProp) {
+                        $appVal = $appProp.GetValue($Server)
+                        if ($null -ne $appVal) { $svcProvider = $appVal.Services }
+                    }
+                } catch { }
+            }
+
+            if (-not $svcProvider) {
+                Write-KrLog -Level Warning -Message 'No service provider available to resolve IRealtimeBroadcaster.'
+                return
+            }
+
+            # Get the IRealtimeBroadcaster service from DI
+            $broadcaster = $svcProvider.GetService([Kestrun.SignalR.IRealtimeBroadcaster])
 
             if (-not $broadcaster) {
                 Write-KrLog -Level Warning -Message 'IRealtimeBroadcaster service is not registered. Make sure SignalR is configured with KestrunHub.'
@@ -59,8 +79,7 @@ function Send-KrEvent {
             $task.GetAwaiter().GetResult()
 
             Write-KrLog -Level Debug -Message "Broadcasted event: $EventName"
-        }
-        catch {
+        } catch {
             Write-KrLog -Level Error -Message "Failed to broadcast event: $_" -Exception $_.Exception
         }
     }

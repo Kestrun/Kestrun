@@ -253,28 +253,20 @@ Start-KrServer
     $stdErr = Join-Path $tempDir ('kestrun-example-' + $fileNameWithoutExtension + '-' + [System.IO.Path]::GetRandomFileName() + '.err.log')
     $argList = @('-NoLogo', '-NoProfile', '-File', $tmp, '-Port', $Port)
 
-    # Build environment variables for the child process
-    Write-Debug "🔍 [DEBUG] Parent process UPSTASH_REDIS_URL: '$env:UPSTASH_REDIS_URL'"
-    Write-Debug '🔍 [DEBUG] All environment variables containing UPSTASH:'
+    # Build environment variables for the child process (including UPSTASH_REDIS_URL if set in parent)
     Get-ChildItem env: | Where-Object Name -Like '*UPSTASH*' | ForEach-Object {
         Write-Host "  $($_.Name) = $($_.Value)" -ForegroundColor Yellow
     }
 
-    $env = @{}
+    $environment = @{}
     # Copy current environment variables
     foreach ($key in [System.Environment]::GetEnvironmentVariables().Keys) {
-        $env[$key] = [System.Environment]::GetEnvironmentVariable($key)
+        $environment[$key] = [System.Environment]::GetEnvironmentVariable($key)
     }
-
-    # Debug: Check if UPSTASH_REDIS_URL exists in copied environment
-    Write-Debug "🔍 [DEBUG] UPSTASH_REDIS_URL in copied env: '$($env['UPSTASH_REDIS_URL'])'"
 
     # Ensure UPSTASH_REDIS_URL is passed if it exists
     if ($env:UPSTASH_REDIS_URL) {
-        $env['UPSTASH_REDIS_URL'] = $env:UPSTASH_REDIS_URL
-        Write-Debug "🔍 [DEBUG] Explicitly set UPSTASH_REDIS_URL in child env: '$($env['UPSTASH_REDIS_URL'])'"
-    } else {
-        Write-Debug '🔍 [DEBUG] UPSTASH_REDIS_URL not found in parent process!'
+        $environment['UPSTASH_REDIS_URL'] = $env:UPSTASH_REDIS_URL
     }
 
     $param = @{
@@ -284,7 +276,7 @@ Start-KrServer
         PassThru = $true
         RedirectStandardOutput = $stdOut
         RedirectStandardError = $stdErr
-        Environment = $env
+        Environment = $environment
     }
     if ($IsWindows) { $param.WindowStyle = 'Hidden' } # Prevent spawned process from inheriting the test runner's console window on Windows (avoids unwanted UI popups during automated tests)
     $proc = Start-Process @param

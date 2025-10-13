@@ -31,56 +31,20 @@ function Send-KrEvent {
         [string]$EventName,
 
         [Parameter()]
-        [object]$Data,
-
-        [Parameter(ValueFromPipeline)]
-        [Kestrun.Hosting.KestrunHost]$Server
+        [object]$Data
     )
 
-    begin {
-        # Resolve the server instance if available (not strictly required when $Context is present)
-        if (-not $Server) {
-            try { $Server = Get-KrServer } catch { $Server = $null }
+      # Only works inside a route script block where $Context is available
+    if ($null -ne $Context) {
+        # Call the C# method on the $Context object
+        if ( $Context.BroadcastLog( $EventName, $Data, [System.Threading.CancellationToken]::None)) {
+            Write-KrLog -Level Debug -Message "Broadcasted log message: $EventName - $Data"
+            return
+        } else {
+            Write-KrLog -Level Error -Message 'Failed to broadcast log message: Unknown error'
+            return
         }
-    }
-
-    process {
-        try {
-            # Prefer resolving from the current request's service provider when running inside a route
-            $svcProvider = $null
-            if ($null -ne $Context -and $null -ne $Context.HttpContext) {
-                $svcProvider = $Context.HttpContext.RequestServices
-            } elseif ($null -ne $Server) {
-                # Fallback: best-effort reflection access to internal App property to get Services
-                try {
-                    $appProp = $Server.GetType().GetProperty('App', [System.Reflection.BindingFlags] 'NonPublic,Instance')
-                    if ($appProp) {
-                        $appVal = $appProp.GetValue($Server)
-                        if ($null -ne $appVal) { $svcProvider = $appVal.Services }
-                    }
-                } catch { }
-            }
-
-            if (-not $svcProvider) {
-                Write-KrLog -Level Warning -Message 'No service provider available to resolve IRealtimeBroadcaster.'
-                return
-            }
-
-            # Get the IRealtimeBroadcaster service from DI
-            $broadcaster = $svcProvider.GetService([Kestrun.SignalR.IRealtimeBroadcaster])
-
-            if (-not $broadcaster) {
-                Write-KrLog -Level Warning -Message 'IRealtimeBroadcaster service is not registered. Make sure SignalR is configured with KestrunHub.'
-                return
-            }
-
-            # Broadcast the event asynchronously
-            $task = $broadcaster.BroadcastEventAsync($EventName, $Data, [System.Threading.CancellationToken]::None)
-            $task.GetAwaiter().GetResult()
-
-            Write-KrLog -Level Debug -Message "Broadcasted event: $EventName"
-        } catch {
-            Write-KrLog -Level Error -Message "Failed to broadcast event: $_" -Exception $_.Exception
-        }
+    } else {
+        Write-KrOutsideRouteWarning
     }
 }

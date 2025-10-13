@@ -33,22 +33,17 @@ function Send-KrLog {
         [string]$Message
     )
 
-    try {
-        $Server = Get-KrServer
-        # Call the C# extension method directly
-        $httpContext = $null
-        if ($null -ne $Context -and $null -ne $Context.HttpContext) {
-            $httpContext = $Context.HttpContext
-        }
-        if ([Kestrun.Hosting.KestrunHostSignalRExtensions]::BroadcastLog($Server, $Level, $Message, $httpContext, [System.Threading.CancellationToken]::None)) {
+    # Only works inside a route script block where $Context is available
+    if ($null -ne $Context) {
+        # Call the C# method on the $Context object
+        if ( $Context.BroadcastLog(  $Level, $Message, [System.Threading.CancellationToken]::None)) {
             Write-KrLog -Level Debug -Message "Broadcasted log message: $Level - $Message"
             return
         } else {
             Write-KrLog -Level Error -Message 'Failed to broadcast log message: Unknown error'
             return
         }
-    } catch {
-        Write-KrLog -Level Error -Message "Failed to broadcast log message: $_" -Exception $_.Exception
+    } else {
+        Write-KrOutsideRouteWarning
     }
-   
 }

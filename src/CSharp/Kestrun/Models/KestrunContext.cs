@@ -1,6 +1,7 @@
 
 
 using System.Security.Claims;
+using Kestrun.SignalR;
 using Microsoft.AspNetCore.Http.Features;
 
 namespace Kestrun.Models;
@@ -105,4 +106,144 @@ public sealed record KestrunContext
     /// </summary>
     public override string ToString()
         => $"KestrunContext{{ Host={Host}, Path={HttpContext.Request.Path}, User={User?.Identity?.Name ?? "<anon>"}, HasSession={HasSession} }}";
+
+
+    /// <summary>
+    /// Asynchronously broadcasts a log message to all connected SignalR clients using the IRealtimeBroadcaster service.
+    /// </summary>
+    /// <param name="level">The log level (e.g., Information, Warning, Error, Debug, Verbose).</param>
+    /// <param name="message">The log message to broadcast.</param>
+    /// <param name="cancellationToken">Optional: Cancellation token.</param>
+    /// <returns>True if the log was broadcast successfully; otherwise, false.</returns>
+    public async Task<bool> BroadcastLogAsync(string level, string message, CancellationToken cancellationToken = default)
+    {
+
+        var svcProvider = HttpContext.RequestServices;
+
+        if (svcProvider == null)
+        {
+            Host.Logger.Warning("No service provider available to resolve IRealtimeBroadcaster.");
+            return false;
+        }
+        if (svcProvider.GetService(typeof(IRealtimeBroadcaster)) is not IRealtimeBroadcaster broadcaster)
+        {
+            Host.Logger.Warning("IRealtimeBroadcaster service is not registered. Make sure SignalR is configured with KestrunHub.");
+            return false;
+        }
+        try
+        {
+            await broadcaster.BroadcastLogAsync(level, message, cancellationToken);
+            Host.Logger.Debug("Broadcasted log message via SignalR: {Level} - {Message}", level, message);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            Host.Logger.Error(ex, "Failed to broadcast log message: {Level} - {Message}", level, message);
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Synchronous wrapper for BroadcastLogAsync.
+    /// </summary>
+    /// <param name="level">The log level (e.g., Information, Warning, Error, Debug, Verbose).</param>
+    /// <param name="message">The log message to broadcast.</param>
+    /// <param name="cancellationToken">Optional: Cancellation token.</param>
+    /// <returns>True if the log was broadcast successfully; otherwise, false.</returns>
+    public bool BroadcastLog(string level, string message, CancellationToken cancellationToken = default) =>
+        BroadcastLogAsync(level, message, cancellationToken).GetAwaiter().GetResult();
+
+
+    /// <summary>
+    /// Asynchronously broadcasts a custom event to all connected SignalR clients using the IRealtimeBroadcaster service.
+    /// </summary>
+    /// <param name="eventName">The event name (e.g., Information, Warning, Error, Debug, Verbose).</param>
+    /// <param name="data">The event data to broadcast.</param>
+    /// <param name="cancellationToken">Optional: Cancellation token.</param>
+    /// <returns>True if the event was broadcast successfully; otherwise, false.</returns>
+    public async Task<bool> BroadcastEventAsync(string eventName, object? data, CancellationToken cancellationToken = default)
+    {
+
+        var svcProvider = HttpContext.RequestServices;
+
+        if (svcProvider == null)
+        {
+            Host.Logger.Warning("No service provider available to resolve IRealtimeBroadcaster.");
+            return false;
+        }
+        if (svcProvider.GetService(typeof(IRealtimeBroadcaster)) is not IRealtimeBroadcaster broadcaster)
+        {
+            Host.Logger.Warning("IRealtimeBroadcaster service is not registered. Make sure SignalR is configured with KestrunHub.");
+            return false;
+        }
+        try
+        {
+            await broadcaster.BroadcastEventAsync(eventName, data, cancellationToken);
+            Host.Logger.Debug("Broadcasted event via SignalR: {EventName} - {Data}", eventName, data);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            Host.Logger.Error(ex, "Failed to broadcast event: {EventName} - {Data}", eventName, data);
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Synchronous wrapper for BroadcastEventAsync.
+    /// </summary>
+    /// <param name="eventName">The event name (e.g., Information, Warning, Error, Debug, Verbose).</param>
+    /// <param name="data">The event data to broadcast.</param>
+    /// <param name="cancellationToken">Optional: Cancellation token.</param>
+    /// <returns>True if the event was broadcast successfully; otherwise, false.</returns>
+    public bool BroadcastEvent(string eventName, object? data, CancellationToken cancellationToken = default) =>
+      BroadcastEventAsync(eventName, data, cancellationToken).GetAwaiter().GetResult();
+
+
+    /// <summary>
+    /// Asynchronously broadcasts a message to a specific group of SignalR clients using the IRealtimeBroadcaster service.
+    /// </summary>
+    /// <param name="groupName">The name of the group to broadcast the message to.</param>
+    /// <param name="method">The name of the method to invoke on the client.</param>
+    /// <param name="message">The message to broadcast.</param>
+    /// <param name="cancellationToken">Optional: Cancellation token.</param>
+    /// <returns></returns>
+    public async Task<bool> BroadcastToGroupAsync(string groupName, string method, object? message, CancellationToken cancellationToken = default)
+    {
+        var svcProvider = HttpContext.RequestServices;
+
+        if (svcProvider == null)
+        {
+            Host.Logger.Warning("No service provider available to resolve IRealtimeBroadcaster.");
+            return false;
+        }
+        if (svcProvider.GetService(typeof(IRealtimeBroadcaster)) is not IRealtimeBroadcaster broadcaster)
+        {
+            Host.Logger.Warning("IRealtimeBroadcaster service is not registered. Make sure SignalR is configured with KestrunHub.");
+            return false;
+        }
+        try
+        {
+            await broadcaster.BroadcastToGroupAsync(groupName, method, message, cancellationToken);
+            Host.Logger.Debug("Broadcasted log message to group via SignalR: {GroupName} - {Method} - {Message}", groupName, method, message);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            Host.Logger.Error(ex, "Failed to broadcast log message: {GroupName} - {Method} - {Message}", groupName, method, message);
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Synchronous wrapper for BroadcastToGroupAsync.
+    /// </summary>
+    /// <param name="groupName">The name of the group to broadcast the message to.</param>
+    /// <param name="method">The name of the method to invoke on the client.</param>
+    /// <param name="message">The message to broadcast.</param>
+    /// <param name="cancellationToken">Optional: Cancellation token.</param>
+    /// <returns></returns>
+    public bool BroadcastToGroup(string groupName, string method, object? message, CancellationToken cancellationToken = default) =>
+      BroadcastToGroupAsync(groupName, method, message, cancellationToken).GetAwaiter().GetResult();
 }
+

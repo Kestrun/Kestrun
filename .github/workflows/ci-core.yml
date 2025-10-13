@@ -28,7 +28,7 @@ concurrency:
 jobs:
     lint:
         name: Linting
-        uses: Kestrun/Kestrun/.github/workflows/lint-core.yml@main
+        uses: Kestrun/Kestrun/.github/workflows/lint.yml@main
         with:
             is_pr: ${{ inputs.is_pr }}
 

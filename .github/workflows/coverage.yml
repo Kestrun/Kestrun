@@ -1,26 +1,35 @@
-name: Coverage (core)
+name: Coverage (main)
 permissions:
     contents: read
     pull-requests: read
 
 on:
-    workflow_call:
-        inputs:
-            is_pr:
-                description: Whether the workflow runs for a pull request context.
-                required: true
-                type: boolean
+    push:
+        branches: [main]
+        paths:
+            - "**/*.cs"
+            - "**/*.csproj"
+            - "**/*.sln"
+            - "**/*.ps1"
+            - "**/*.psm1"
+            - "**/*.psd1"
+            - "**/*.yml"
+            - "**/*.yaml"
+            - tests/**
+    merge_group:
+        types: [checks_requested]
+    workflow_dispatch: {}
 
 concurrency:
-    group: coverage-${{ github.repository }}-${{ inputs.is_pr && github.event.pull_request.number || github.ref }}
+    group: coverage-${{ github.repository }}-${{ github.ref }}
     cancel-in-progress: true
 
 jobs:
     lint:
         name: Linting
-        uses: Kestrun/Kestrun/.github/workflows/lint-core.yml@main
+        uses: Kestrun/Kestrun/.github/workflows/lint.yml@main
         with:
-            is_pr: ${{ inputs.is_pr }}
+            is_pr: false
 
     merge-guard:
         name: "gate: run only on merges or main pushes"
@@ -44,14 +53,14 @@ jobs:
                     exit 0
                   fi
 
-                  # PR closed & merged
-                  if [[ "${{ github.event_name }}" == "pull_request" && "${{ github.event.pull_request.merged }}" == "true" ]]; then
+                  # Any direct push to main (merge commit OR single-parent commit)
+                  if [[ "${{ github.event_name }}" == "push" && "${{ github.ref }}" == "refs/heads/main" ]]; then
                     echo "proceed=true" >> "$GITHUB_OUTPUT"
                     exit 0
                   fi
 
-                  # Any direct push to main (merge commit OR single-parent commit)
-                  if [[ "${{ github.event_name }}" == "push" && "${{ github.ref }}" == "refs/heads/main" ]]; then
+                  # Manual workflow dispatch
+                  if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
                     echo "proceed=true" >> "$GITHUB_OUTPUT"
                     exit 0
                   fi
@@ -315,7 +324,6 @@ jobs:
 
               # ✅ Commit & push from the coverage repo itself (skip on PRs from forks)
             - name: ✅ Commit & push if changed
-              if: ${{ ! inputs.is_pr }}
               run: |
                   set -euo pipefail
                   cd coverage-site

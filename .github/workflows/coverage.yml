@@ -74,6 +74,7 @@ jobs:
         env:
             POWERSHELL_DISTRIBUTION_CHANNEL: GitHub-Actions
             DOTNET_VERBOSITY: minimal
+            UPSTASH_REDIS_URL: ${{ secrets.UPSTASH_REDIS_URL }}
         steps:
             - name: 🛎️ Checkout
               uses: actions/checkout@ff7abcd0c3c05ccf6adc123a8cd1fd4fb30fb493 # v5 pin
@@ -143,6 +144,7 @@ jobs:
             POWERSHELL_DISTRIBUTION_CHANNEL: GitHub-Actions
             PESTER_VERBOSITY: Normal
             DOTNET_VERBOSITY: minimal
+            UPSTASH_REDIS_URL: ${{ secrets.UPSTASH_REDIS_URL }}
         steps:
             - name: 🛎️ Checkout
               uses: actions/checkout@v5
@@ -229,7 +231,7 @@ jobs:
             DEST_REPO: Kestrun/coverage
             DEST_PATH: docs
             RESET_COVERAGE_HISTORY: "false"
-
+            UPSTASH_REDIS_URL: ${{ secrets.UPSTASH_REDIS_URL }}
         steps:
             # Source repo (no creds persisted)
             - name: 🛎️ Checkout (source repo)
@@ -305,6 +307,7 @@ jobs:
               env:
                   SITE_DIR: ${{ github.workspace }}/coverage-site/${{ env.DEST_PATH }}
                   HISTORY_DIR: ${{ github.workspace }}/coverage-site/${{ env.DEST_PATH }}/history
+                  UPSTASH_REDIS_URL: ${{ secrets.UPSTASH_REDIS_URL }}
               run: |
                   $ErrorActionPreference = 'Stop'
                   New-Item -ItemType Directory -Force -Path $env:SITE_DIR,$env:HISTORY_DIR | Out-Null

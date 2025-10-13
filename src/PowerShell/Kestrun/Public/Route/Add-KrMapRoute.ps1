@@ -110,7 +110,6 @@ function Add-KrMapRoute {
         [Parameter(ParameterSetName = 'CodeFilePath')]
         [string[]]$ExtraImports = $null,
 
-        [Parameter(ParameterSetName = 'ScriptBlock')]
         [Parameter(ParameterSetName = 'Code')]
         [Parameter(ParameterSetName = 'CodeFilePath')]
         [System.Reflection.Assembly[]]$ExtraRefs = $null,

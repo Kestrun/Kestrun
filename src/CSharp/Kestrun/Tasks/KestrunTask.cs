@@ -1,0 +1,61 @@
+using Kestrun.Hosting.Options;
+
+namespace Kestrun.Tasks;
+
+/// <summary>
+/// Represents a single-shot task execution with its current state and telemetry.
+/// </summary>
+/// <param name="Id">Unique task identifier.</param>
+/// <param name="ScriptCode">The scripting language and code configuration for this task.</param>
+/// <param name="tokenSource">Cancellation token source for this task.</param>
+public sealed class KestrunTask(string Id, LanguageOptions ScriptCode, CancellationTokenSource tokenSource)
+{
+    /// <summary>
+    /// Unique task identifier.
+    /// </summary>
+    public string Id { get; init; } = Id;
+    /// <summary>
+    /// The scripting language and code configuration for this task.
+    /// </summary>
+    public LanguageOptions ScriptCode { get; init; } = ScriptCode;
+    /// <summary>
+    /// Compiled work delegate producing a result.
+    /// </summary>
+    public required Func<CancellationToken, Task<object?>> Work { get; init; }
+    /// <summary>
+    /// Cancellation token source for this task.
+    /// </summary>
+    public CancellationTokenSource TokenSource { get; } = tokenSource;
+
+    /// <summary>
+    /// Current state of the task.
+    /// </summary>
+    public TaskState State { get; internal set; } = TaskState.Created;
+    /// <summary>
+    /// Fault exception if the task failed.
+    /// </summary>
+    public Exception? Fault { get; internal set; }
+    /// <summary>
+    /// Output produced by the task (last expression for C#/VB, pipeline for PowerShell).
+    /// </summary>
+    public object? Output { get; internal set; }
+
+    /// <summary>
+    /// UTC timestamp when execution started.
+    /// </summary>
+    public DateTimeOffset? StartedAtUtc { get; internal set; }
+    /// <summary>
+    /// UTC timestamp when execution ended.
+    /// </summary>
+    public DateTimeOffset? CompletedAtUtc { get; internal set; }
+
+    /// <summary>
+    /// The background task executing this work.
+    /// </summary>
+    public Task? Runner { get; internal set; }
+
+    /// <summary>
+    /// Creates a snapshot result for this task.
+    /// </summary>
+    public TaskResult ToResult() => new(Id, State, StartedAtUtc, CompletedAtUtc, Output, Fault?.ToString());
+}

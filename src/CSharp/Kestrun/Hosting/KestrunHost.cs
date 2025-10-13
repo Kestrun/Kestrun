@@ -60,6 +60,29 @@ public class KestrunHost : IDisposable
     /// </summary>
     public bool IsConfigured { get; private set; }
 
+    /// <summary>
+    /// Gets the timestamp when the Kestrun host was started.
+    /// </summary>
+    public DateTime? StartTime { get; private set; }
+
+    /// <summary>
+    /// Gets the timestamp when the Kestrun host was stopped.
+    /// </summary>
+    public DateTime? StopTime { get; private set; }
+
+    /// <summary>
+    /// Gets the uptime duration of the Kestrun host.
+    /// While running (no StopTime yet), this returns DateTime.UtcNow - StartTime.
+    /// After stopping, it returns StopTime - StartTime.
+    /// If StartTime is not set, returns null.
+    /// </summary>
+    public TimeSpan? Uptime =>
+        !StartTime.HasValue
+            ? null
+            : StopTime.HasValue
+                ? StopTime - StartTime
+                : DateTime.UtcNow - StartTime.Value;
+
     private KestrunRunspacePoolManager? _runspacePool;
 
     internal KestrunRunspacePoolManager RunspacePool => _runspacePool ?? throw new InvalidOperationException("Runspace pool is not initialized. Call EnableConfiguration first.");
@@ -1139,7 +1162,11 @@ public class KestrunHost : IDisposable
     {
         return AddService(s =>
         {
-            _ = s.AddSignalR();
+            _ = s.AddSignalR().AddJsonProtocol(opts =>
+            {
+                // Avoid failures when payloads contain cycles; our sanitizer should prevent most, this is a safety net.
+                opts.PayloadSerializerOptions.ReferenceHandler = System.Text.Json.Serialization.ReferenceHandler.IgnoreCycles;
+            });
             // Register IRealtimeBroadcaster as singleton if it's the KestrunHub
             if (typeof(T) == typeof(SignalR.KestrunHub))
             {
@@ -1201,7 +1228,7 @@ public class KestrunHost : IDisposable
         }
 
         EnableConfiguration();
-
+        StartTime = DateTime.UtcNow;
         _app?.Run();
     }
 
@@ -1220,6 +1247,7 @@ public class KestrunHost : IDisposable
         EnableConfiguration();
         if (_app != null)
         {
+            StartTime = DateTime.UtcNow;
             await _app.StartAsync(cancellationToken);
         }
     }
@@ -1242,6 +1270,7 @@ public class KestrunHost : IDisposable
             {
                 // Initiate graceful shutdown
                 await _app.StopAsync(cancellationToken);
+                StopTime = DateTime.UtcNow;
             }
             catch (Exception ex) when (ex.GetType().FullName == "System.Net.Quic.QuicException")
             {
@@ -1269,6 +1298,7 @@ public class KestrunHost : IDisposable
         }
         // This initiates a graceful shutdown.
         _app?.Lifetime.StopApplication();
+        StopTime = DateTime.UtcNow;
     }
 
     /// <summary>

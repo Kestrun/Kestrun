@@ -31,20 +31,38 @@ function Send-KrEvent {
         [string]$EventName,
 
         [Parameter()]
-        [object]$Data
+        [object]$Data,
+
+        [Parameter(ValueFromPipeline)]
+        [Kestrun.Hosting.KestrunHost]$Server
     )
 
-      # Only works inside a route script block where $Context is available
-    if ($null -ne $Context) {
-        # Call the C# method on the $Context object
-        if ( $Context.BroadcastLog( $EventName, $Data, [System.Threading.CancellationToken]::None)) {
-            Write-KrLog -Level Debug -Message "Broadcasted log message: $EventName - $Data"
-            return
-        } else {
-            Write-KrLog -Level Error -Message 'Failed to broadcast log message: Unknown error'
-            return
+    process {
+        try {
+            if ($null -ne $Context) {
+                # Prefer the centralized KestrunContext implementation when inside a route
+                if ($Context.BroadcastEvent($EventName, $Data, [System.Threading.CancellationToken]::None)) {
+                    Write-KrLog -Level Debug -Message "Broadcasted event: $EventName - $Data"
+                    return
+                } else {
+                    Write-KrLog -Level Error -Message 'Failed to broadcast event: Unknown error'
+                    return
+                }
+            }
+
+            # Fallback: allow explicit host usage outside a route (no HttpContext)
+            if (-not $Server) {
+                try { $Server = Get-KrServer } catch { $Server = $null }
+            }
+            if ($null -ne $Server) {
+                $task = [Kestrun.Hosting.KestrunHostSignalRExtensions]::BroadcastEventAsync($Server, $EventName, $Data, $null, [System.Threading.CancellationToken]::None)
+                $null = $task.GetAwaiter().GetResult()
+                Write-KrLog -Level Debug -Message "Broadcasted event (host fallback): $EventName - $Data"
+            } else {
+                Write-KrOutsideRouteWarning
+            }
+        } catch {
+            Write-KrLog -Level Error -Message "Failed to broadcast event: $_" -Exception $_.Exception
         }
-    } else {
-        Write-KrOutsideRouteWarning
     }
 }

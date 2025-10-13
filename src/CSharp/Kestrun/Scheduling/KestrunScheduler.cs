@@ -5,6 +5,7 @@ using System.Collections;
 using Kestrun.Utilities;
 using static Kestrun.Scheduling.JobFactory;
 using Kestrun.Scripting;
+using Kestrun.Hosting;
 
 namespace Kestrun.Scheduling;
 
@@ -55,6 +56,11 @@ public sealed class SchedulerService(KestrunRunspacePoolManager pool, Serilog.IL
     /// This is used to convert scheduled times to the appropriate time zone for display and execution.
     /// </summary>
     private readonly TimeZoneInfo _tz = tz ?? TimeZoneInfo.Local;
+
+    /// <summary>
+    /// Gets the Kestrun host associated with the runspace pool.
+    /// </summary>
+    public KestrunHost Host => _pool.Host;
 
     /*────────── C# JOBS ──────────*/
     /// <summary>

@@ -1,104 +1,122 @@
 {
-    "version": "2.0.0",
-    "tasks": [
-        {
-            "label": "build MultiRoutes",
-            "command": "dotnet",
-            "type": "process",
-            "args": [
-                "build",
-                "${workspaceFolder}/examples/CSharp/MultiRoutes/MultiRoutes.csproj"
-            ],
-            "problemMatcher": "$msCompile"
-        },
-        {
-            "label": "build Certificates",
-            "command": "dotnet",
-            "type": "process",
-            "args": [
-                "build",
-                "${workspaceFolder}/examples/CSharp/Certificates/Certificates.csproj"
-            ],
-            "problemMatcher": "$msCompile"
-        },
-        {
-            "label": "build SharedState",
-            "command": "dotnet",
-            "type": "process",
-            "args": [
-                "build",
-                "${workspaceFolder}/examples/CSharp/SharedState/SharedState.csproj"
-            ],
-            "problemMatcher": "$msCompile"
-        },
-        {
-            "label": "build RazorSample",
-            "command": "dotnet",
-            "type": "process",
-            "args": [
-                "build",
-                "${workspaceFolder}/examples/CSharp/RazorSample/RazorSample.csproj"
-            ],
-            "problemMatcher": "$msCompile"
-        },
-        {
-            "label": "build Scheduling",
-            "command": "dotnet",
-            "type": "process",
-            "args": [
-                "build",
-                "${workspaceFolder}/examples/CSharp/Scheduling/Scheduling.csproj"
-            ],
-            "problemMatcher": "$msCompile"
-        },
-        {
-            "label": "build Authentication",
-            "command": "dotnet",
-            "type": "process",
-            "args": [
-                "build",
-                "${workspaceFolder}/examples/CSharp/Authentication/Authentication.csproj"
-            ],
-            "problemMatcher": "$msCompile"
-        },
-        {
-            "label": "build SignalRDemo",
-            "command": "dotnet",
-            "type": "process",
-            "args": [
-                "build",
-                "${workspaceFolder}/examples/CSharp/SignalRDemo/SignalRDemo.csproj"
-            ],
-            "problemMatcher": "$msCompile"
-        },
-        {
-            "label": "build Kestrun library",
-            "command": "dotnet",
-            "type": "process",
-            "args": [
-                "build",
-                "${workspaceFolder}/src/CSharp/Kestrun/Kestrun.csproj"
-            ],
-            "problemMatcher": "$msCompile"
-        },
-        {
-            "label": "build HtmlTemplate",
-            "command": "dotnet",
-            "type": "process",
-            "args": [
-                "build",
-                "${workspaceFolder}/examples/CSharp/HtmlTemplate/HtmlTemplate.csproj"
-            ],
-            "problemMatcher": "$msCompile"
-        },
-        {
-            "label": "build Kestrun library (utilities)",
-            "type": "shell",
-            "command": "dotnet",
-            "args": [
-                "build",
-                "c:\\Users\\m_dan\\Documents\\GitHub\\Kestrun\\src\\CSharp\\Kestrun\\Kestrun.csproj"
-            ]
-        }
-    ]
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "build MultiRoutes",
+			"command": "dotnet",
+			"type": "process",
+			"args": [
+				"build",
+				"${workspaceFolder}/examples/CSharp/MultiRoutes/MultiRoutes.csproj"
+			],
+			"problemMatcher": "$msCompile"
+		},
+		{
+			"label": "build Certificates",
+			"command": "dotnet",
+			"type": "process",
+			"args": [
+				"build",
+				"${workspaceFolder}/examples/CSharp/Certificates/Certificates.csproj"
+			],
+			"problemMatcher": "$msCompile"
+		},
+		{
+			"label": "build SharedState",
+			"command": "dotnet",
+			"type": "process",
+			"args": [
+				"build",
+				"${workspaceFolder}/examples/CSharp/SharedState/SharedState.csproj"
+			],
+			"problemMatcher": "$msCompile"
+		},
+		{
+			"label": "build RazorSample",
+			"command": "dotnet",
+			"type": "process",
+			"args": [
+				"build",
+				"${workspaceFolder}/examples/CSharp/RazorSample/RazorSample.csproj"
+			],
+			"problemMatcher": "$msCompile"
+		},
+		{
+			"label": "build Scheduling",
+			"command": "dotnet",
+			"type": "process",
+			"args": [
+				"build",
+				"${workspaceFolder}/examples/CSharp/Scheduling/Scheduling.csproj"
+			],
+			"problemMatcher": "$msCompile"
+		},
+		{
+			"label": "build Authentication",
+			"command": "dotnet",
+			"type": "process",
+			"args": [
+				"build",
+				"${workspaceFolder}/examples/CSharp/Authentication/Authentication.csproj"
+			],
+			"problemMatcher": "$msCompile"
+		},
+		{
+			"label": "build SignalRDemo",
+			"command": "dotnet",
+			"type": "process",
+			"args": [
+				"build",
+				"${workspaceFolder}/examples/CSharp/SignalRDemo/SignalRDemo.csproj"
+			],
+			"problemMatcher": "$msCompile"
+		},
+		{
+			"label": "build Kestrun library",
+			"command": "dotnet",
+			"type": "process",
+			"args": [
+				"build",
+				"${workspaceFolder}/src/CSharp/Kestrun/Kestrun.csproj"
+			],
+			"problemMatcher": "$msCompile"
+		},
+		{
+			"label": "build HtmlTemplate",
+			"command": "dotnet",
+			"type": "process",
+			"args": [
+				"build",
+				"${workspaceFolder}/examples/CSharp/HtmlTemplate/HtmlTemplate.csproj"
+			],
+			"problemMatcher": "$msCompile"
+		},
+		{
+			"label": "build Kestrun library (utilities)",
+			"type": "shell",
+			"command": "dotnet",
+			"args": [
+				"build",
+				"c:\\Users\\m_dan\\Documents\\GitHub\\Kestrun\\src\\CSharp\\Kestrun\\Kestrun.csproj"
+			]
+		},
+		{
+			"label": "build Kestrun library (local)",
+			"type": "shell",
+			"command": "dotnet",
+			"args": [
+				"build",
+				"c:\\Users\\m_dan\\Documents\\GitHub\\kestrun\\kestrun\\src\\CSharp\\Kestrun\\Kestrun.csproj"
+			]
+		},
+		{
+			"label": "build Kestrun library (local)",
+			"type": "shell",
+			"command": "dotnet",
+			"args": [
+				"build",
+				"c:\\Users\\m_dan\\Documents\\GitHub\\kestrun\\kestrun\\src\\CSharp\\Kestrun\\Kestrun.csproj"
+			]
+		}
+	]
 }

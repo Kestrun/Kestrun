@@ -48,6 +48,8 @@ public class KestrunHub(Serilog.ILogger logger) : Hub
     {
         await Groups.AddToGroupAsync(Context.ConnectionId, groupName);
         _logger.Information("Client {ConnectionId} joined group {GroupName}", Context.ConnectionId, groupName);
+        // Notify caller so UI can update membership state
+        await Clients.Caller.SendAsync("GroupJoined", groupName);
     }
 
     /// <summary>
@@ -58,6 +60,8 @@ public class KestrunHub(Serilog.ILogger logger) : Hub
     {
         await Groups.RemoveFromGroupAsync(Context.ConnectionId, groupName);
         _logger.Information("Client {ConnectionId} left group {GroupName}", Context.ConnectionId, groupName);
+        // Notify caller so UI can update membership state
+        await Clients.Caller.SendAsync("GroupLeft", groupName);
     }
 
     /// <summary>

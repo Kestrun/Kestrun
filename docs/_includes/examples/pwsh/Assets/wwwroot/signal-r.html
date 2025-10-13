@@ -62,12 +62,68 @@
             color: #666;
             font-size: 0.85em;
         }
+
+        .feature-section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+
+        .group-section {
+            background: #f8f9fa;
+        }
+
+        .operation-section {
+            background: #f0f8ff;
+        }
+
+        .input-group {
+            margin: 10px 0;
+        }
+
+        .input-group input {
+            padding: 8px;
+            margin-right: 10px;
+            border: 1px solid #ddd;
+            border-radius: 3px;
+        }
+
+        .status-text {
+            font-size: 0.9em;
+            color: #666;
+        }
+
+        .progress-container {
+            margin-top: 10px;
+        }
+
+        .progress-track {
+            background: #e0e0e0;
+            height: 20px;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+
+        .progress-bar {
+            background: #4CAF50;
+            height: 100%;
+            border-radius: 10px;
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+
+        .progress-text {
+            margin-top: 5px;
+            font-size: 0.9em;
+            color: #333;
+        }
     </style>
 </head>
 
 <body>
     <h1>🚀 Kestrun SignalR Demo (PowerShell)</h1>
-    <p>Connected to SignalR hub at <code>/runtime</code></p>
+    <p>Connected to SignalR hub at <code>/hubs/kestrun</code></p>
 
     <div>
         <button onclick="sendLog('Information')">Send Info Log</button>
@@ -77,16 +133,45 @@
         <button onclick="clearMessages()">Clear Messages</button>
     </div>
 
+    <div class="feature-section group-section">
+        <h3>Group Management</h3>
+        <div class="input-group">
+            <input type="text" id="groupNameInput" placeholder="Enter group name" value="Admins">
+            <button onclick="joinGroup()">Join Group</button>
+            <button onclick="leaveGroup()">Leave Group</button>
+            <button onclick="broadcastToGroup()">Broadcast to Group</button>
+        </div>
+        <p class="status-text">Current groups: <span id="currentGroups">None</span></p>
+    </div>
+
+    <div class="feature-section operation-section">
+        <h3>Long Operations</h3>
+        <div class="input-group">
+            <button onclick="startLongOperation()">Start Long Operation</button>
+            <button onclick="getOperationStatus()">Get Operation Status</button>
+        </div>
+        <p class="status-text">Current operation: <span id="currentOperation">None</span></p>
+        <div id="progressContainer" class="progress-container" style="display: none;">
+            <div class="progress-track">
+                <div id="progressBar" class="progress-bar"></div>
+            </div>
+            <p id="progressText" class="progress-text">0%</p>
+        </div>
+    </div>
+
     <h2>Real-time Messages:</h2>
     <div id="messages"></div>
 
     <script>
         const connection = new signalR.HubConnectionBuilder()
-            .withUrl("/runtime")
+            .withUrl("/hubs/kestrun")
             .withAutomaticReconnect()
             .build();
 
         const messagesDiv = document.getElementById("messages");
+        let currentGroups = new Set();
+        let currentOperationId = null;
+        let isConnected = false;
 
         function addMessage(message, cssClass = "") {
             const entry = document.createElement("div");
@@ -96,21 +181,141 @@
             messagesDiv.scrollTop = messagesDiv.scrollHeight;
         }
 
+        // Original log messages
         connection.on("ReceiveLog", (data) => {
             const timestamp = new Date(data.timestamp).toLocaleTimeString();
             const logClass = `log-entry log-${data.level}`;
             addMessage(`<span class="timestamp">[${timestamp}]</span> <strong>${data.level}:</strong> ${data.message}`, logClass);
         });
 
+        // Original events + drive long-operation UI from OperationProgress/OperationComplete
         connection.on("ReceiveEvent", (data) => {
-            const timestamp = new Date(data.timestamp).toLocaleTimeString();
-            addMessage(`<span class="timestamp">[${timestamp}]</span> <strong>Event:</strong> ${data.eventName} - ${JSON.stringify(data.data)}`, "event-entry");
+            const ts = data?.timestamp || data?.Timestamp || Date.now();
+            const timestamp = new Date(ts).toLocaleTimeString();
+            const payload = data?.data || data?.Data || {};
+            const eventName = data?.eventName || data?.EventName;
+
+            if (eventName === 'OperationProgress') {
+                // Normalize fields across different casings/names
+                const opId = payload.OperationId || payload.operationId || payload.OperationID || payload.id || payload.Id || payload.ID;
+                let progressRaw = payload.Progress ?? payload.progress ?? payload.Percent ?? payload.percent ?? payload.Percentage ?? payload.percentage ?? 0;
+                const status = payload.Message || payload.message || payload.Status || payload.status || 'In progress';
+                const progress = Math.max(0, Math.min(100, Number(progressRaw)));
+
+                // Ensure we have an operation id on the client
+                if (!currentOperationId && opId) {
+                    currentOperationId = opId;
+                    document.getElementById("currentOperation").textContent = currentOperationId;
+                    document.getElementById("progressContainer").style.display = "block";
+                    updateProgressBar(0, "Starting...");
+                }
+
+                updateProgressBar(progress, `${status}: ${isNaN(progress) ? 0 : progress}%`);
+                addMessage(`<span class="timestamp">[${timestamp}]</span> 📊 <strong>Operation ${opId ?? ''}:</strong> ${isNaN(progress) ? 0 : progress}% - ${status}`, "event-entry");
+
+                if (!isNaN(progress) && progress >= 100) {
+                    setTimeout(() => {
+                        document.getElementById("progressContainer").style.display = "none";
+                        currentOperationId = null;
+                        document.getElementById("currentOperation").textContent = "None";
+                    }, 2000);
+                }
+                return;
+            }
+
+            if (eventName === 'OperationComplete') {
+                const opId = payload.OperationId || payload.operationId || payload.OperationID || payload.id || payload.Id || payload.ID;
+                addMessage(`<span class="timestamp">[${timestamp}]</span> ✅ <strong>Operation ${opId ?? ''}:</strong> Completed`, "event-entry");
+                setTimeout(() => {
+                    document.getElementById("progressContainer").style.display = "none";
+                    currentOperationId = null;
+                    document.getElementById("currentOperation").textContent = "None";
+                }, 1500);
+                return;
+            }
+
+            addMessage(`<span class="timestamp">[${timestamp}]</span> <strong>Event:</strong> ${eventName} - ${JSON.stringify(payload)}`, "event-entry");
+        });
+
+        // Group messages (new) - handle flexible payloads
+        connection.on("ReceiveGroupMessage", (...args) => {
+            let text = "";
+            if (args.length >= 3 && typeof args[0] === 'string' && typeof args[1] === 'string') {
+                const [groupName, eventType, data, timestamp] = args;
+                const time = timestamp ? new Date(timestamp).toLocaleTimeString() : new Date().toLocaleTimeString();
+                text = `<span class="timestamp">[${time}]</span> <strong>GROUP (${groupName}):</strong> ${eventType} - ${JSON.stringify(data)}`;
+            } else if (args.length === 1 && typeof args[0] === 'object') {
+                const payload = args[0];
+                const time = payload?.Timestamp ? new Date(payload.Timestamp).toLocaleTimeString() : new Date().toLocaleTimeString();
+                const groupName = payload?.GroupName || document.getElementById("groupNameInput").value || "(unknown)";
+                text = `<span class="timestamp">[${time}]</span> <strong>GROUP (${groupName}):</strong> ${JSON.stringify(payload)}`;
+            } else {
+                text = `Group message: ${JSON.stringify(args)}`;
+            }
+            addMessage(text, "event-entry");
+        });
+
+        // Group membership notifications from hub
+        connection.on("GroupJoined", (groupName) => {
+            currentGroups.add(groupName);
+            updateCurrentGroups();
+            addMessage(`✅ Joined group: ${groupName}`, "log-entry log-Information");
+        });
+        connection.on("GroupLeft", (groupName) => {
+            currentGroups.delete(groupName);
+            updateCurrentGroups();
+            addMessage(`🚪 Left group: ${groupName}`, "log-entry log-Information");
+        });
+
+        // Operation progress updates (new) - optional dedicated channel; normalize inputs
+        connection.on("ReceiveOperationProgress", (operationId, progress, status, data) => {
+            // Some servers may send a single payload object instead of positional args
+            if (operationId && typeof operationId === 'object' && progress === undefined) {
+                const payload = operationId;
+                operationId = payload.OperationId || payload.operationId || payload.Id || payload.id;
+                progress = payload.Progress ?? payload.progress ?? payload.Percent ?? payload.percentage ?? 0;
+                status = payload.Status || payload.status || payload.Message || payload.message || 'In progress';
+            }
+
+            if (!operationId || currentOperationId && currentOperationId !== operationId) return;
+
+            const p = Math.max(0, Math.min(100, Number(progress)));
+            const s = status || 'In progress';
+
+            if (!currentOperationId && operationId) {
+                currentOperationId = operationId;
+                document.getElementById("currentOperation").textContent = currentOperationId;
+                document.getElementById("progressContainer").style.display = "block";
+            }
+
+            updateProgressBar(isNaN(p) ? 0 : p, `${s}: ${isNaN(p) ? 0 : p}%`);
+            addMessage(`<span class="timestamp">[${new Date().toLocaleTimeString()}]</span> <strong>Operation (${operationId}):</strong> ${isNaN(p) ? 0 : p}% - ${s}`, "event-entry");
+
+            if (!isNaN(p) && p >= 100) {
+                setTimeout(() => {
+                    document.getElementById("progressContainer").style.display = "none";
+                    currentOperationId = null;
+                    document.getElementById("currentOperation").textContent = "None";
+                }, 2000);
+            }
         });
 
         connection.start()
-            .then(() => addMessage("✅ Connected to SignalR hub!", "log-entry log-Information"))
+            .then(() => { isConnected = true; addMessage("✅ Connected to SignalR hub!", "log-entry log-Information"); })
             .catch(err => addMessage(`❌ Connection error: ${err}`, "log-entry log-Error"));
 
+        async function ensureConnected() {
+            if (isConnected && connection.state === signalR.HubConnectionState.Connected) return;
+            try {
+                await connection.start();
+                isConnected = true;
+            } catch (err) {
+                addMessage(`❌ Unable to connect to hub: ${err}`, "log-entry log-Error");
+                throw err;
+            }
+        }
+
+        // Original functions
         async function sendLog(level) {
             const response = await fetch(`/api/ps/log/${level}`);
             const text = await response.text();
@@ -126,8 +331,129 @@
         function clearMessages() {
             messagesDiv.innerHTML = "";
         }
+
+        // New group management functions
+        async function joinGroup() {
+            const groupName = document.getElementById("groupNameInput").value;
+            if (!groupName) {
+                alert("Please enter a group name");
+                return;
+            }
+
+            try {
+                await ensureConnected();
+                await connection.invoke("JoinGroup", groupName);
+            } catch (error) {
+                addMessage(`❌ Error joining group: ${error.message}`, "log-entry log-Error");
+            }
+        }
+
+        async function leaveGroup() {
+            const groupName = document.getElementById("groupNameInput").value;
+            if (!groupName) {
+                alert("Please enter a group name");
+                return;
+            }
+
+            try {
+                await ensureConnected();
+                await connection.invoke("LeaveGroup", groupName);
+            } catch (error) {
+                addMessage(`❌ Error leaving group: ${error.message}`, "log-entry log-Error");
+            }
+        }
+
+        async function broadcastToGroup() {
+            const groupName = document.getElementById("groupNameInput").value;
+            if (!groupName) {
+                alert("Please enter a group name");
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/group/broadcast/${encodeURIComponent(groupName)}`, {
+                    method: 'POST'
+                });
+                const text = await response.text();
+
+                if (response.ok) {
+                    addMessage(`📢 Broadcast sent to group: ${groupName}`, "log-entry log-Information");
+                } else {
+                    addMessage(`❌ Failed to broadcast to group: ${text}`, "log-entry log-Error");
+                }
+            } catch (error) {
+                addMessage(`❌ Error broadcasting to group: ${error.message}`, "log-entry log-Error");
+            }
+        }
+
+        // New long operation functions
+        async function startLongOperation() {
+            try {
+                const response = await fetch("/api/operation/start", {
+                    method: 'POST'
+                });
+                const result = await response.json();
+
+                if (response.ok) {
+                    // Be resilient to server casing: OperationId vs operationId
+                    const opId = result.OperationId || result.operationId || result.id || null;
+                    currentOperationId = opId;
+                    document.getElementById("currentOperation").textContent = opId ?? 'Unknown';
+                    document.getElementById("progressContainer").style.display = "block";
+                    updateProgressBar(0, "Starting...");
+                    addMessage(`🔄 Started long operation: ${opId ?? 'unknown'}`, "log-entry log-Information");
+                } else {
+                    addMessage(`❌ Failed to start operation: ${result.message}`, "log-entry log-Error");
+                }
+            } catch (error) {
+                addMessage(`❌ Error starting operation: ${error.message}`, "log-entry log-Error");
+            }
+        }
+
+        async function getOperationStatus() {
+            if (!currentOperationId) {
+                addMessage("ℹ️ No active operation", "log-entry log-Information");
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/operation/status/${currentOperationId}`);
+                const result = await response.json();
+
+                if (response.ok) {
+                    const opId = result.OperationId || result.operationId || currentOperationId;
+                    const progress = result.Progress ?? result.progress ?? result.Percent ?? null;
+                    const status = result.Status || result.status || result.Message || result.message || 'No status info';
+
+                    if (progress !== null && !isNaN(Number(progress))) {
+                        addMessage(`📊 Operation ${opId}: ${Number(progress)}% - ${status}`, "log-entry log-Information");
+                        updateProgressBar(Number(progress), `${status}: ${Number(progress)}%`);
+                    } else {
+                        // Minimal demo response path
+                        addMessage(`ℹ️ Status for ${opId}: ${status}`, "log-entry log-Information");
+                    }
+                } else {
+                    addMessage(`❌ Failed to get status: ${result.message}`, "log-entry log-Error");
+                }
+            } catch (error) {
+                addMessage(`❌ Error getting status: ${error.message}`, "log-entry log-Error");
+            }
+        }
+
+        // Helper functions
+        function updateProgressBar(percentage, text) {
+            const progressBar = document.getElementById("progressBar");
+            const progressText = document.getElementById("progressText");
+
+            progressBar.style.width = percentage + "%";
+            progressText.textContent = text || (percentage + "%");
+        }
+
+        function updateCurrentGroups() {
+            const groupsSpan = document.getElementById("currentGroups");
+            groupsSpan.textContent = currentGroups.size > 0 ? Array.from(currentGroups).join(", ") : "None";
+        }
     </script>
 </body>
 
 </html>
-'@

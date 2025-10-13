@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.SignalR;
+using Kestrun.Utilities.Json;
 
 namespace Kestrun.SignalR;
 
@@ -43,12 +44,14 @@ public class RealtimeBroadcaster(IHubContext<KestrunHub> hubContext, Serilog.ILo
     {
         try
         {
+            // Sanitize data to avoid object cycles (PSObject graphs, etc.)
+            var safe = PayloadSanitizer.Sanitize(data);
             await _hubContext.Clients.All.SendAsync(
                 "ReceiveEvent",
                 new
                 {
                     eventName,
-                    data,
+                    data = safe,
                     timestamp = DateTime.UtcNow
                 },
                 cancellationToken);
@@ -66,7 +69,8 @@ public class RealtimeBroadcaster(IHubContext<KestrunHub> hubContext, Serilog.ILo
     {
         try
         {
-            await _hubContext.Clients.Group(groupName).SendAsync(method, message, cancellationToken);
+            var safe = PayloadSanitizer.Sanitize(message);
+            await _hubContext.Clients.Group(groupName).SendAsync(method, safe, cancellationToken);
             _logger.Debug("Broadcasted message to group {GroupName} via method {Method}", groupName, method);
         }
         catch (Exception ex)

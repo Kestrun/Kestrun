@@ -35,15 +35,13 @@ function Send-KrLog {
 
     # Only works inside a route script block where $Context is available
     if ($null -ne $Context) {
-        # Call the C# method on the $Context object
-        if ( $Context.BroadcastLog(  $Level, $Message, [System.Threading.CancellationToken]::None)) {
+        if ($Context.BroadcastLog($Level, $Message, [System.Threading.CancellationToken]::None)) {
             Write-KrLog -Level Debug -Message "Broadcasted log message: $Level - $Message"
             return
         } else {
             Write-KrLog -Level Error -Message 'Failed to broadcast log message: Unknown error'
             return
         }
-    } else {
-        Write-KrOutsideRouteWarning
     }
+    Write-KrOutsideRouteWarning
 }

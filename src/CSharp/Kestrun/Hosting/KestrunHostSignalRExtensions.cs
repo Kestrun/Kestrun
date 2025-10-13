@@ -14,6 +14,22 @@ namespace Kestrun.Hosting
     public static class KestrunHostSignalRExtensions
     {
         /// <summary>
+        /// Gets the number of currently connected SignalR clients if the Kestrun hub is configured.
+        /// </summary>
+        /// <param name="host">The KestrunHost instance.</param>
+        /// <returns>The count of connected clients, or null if SignalR hub/connection tracking is not configured.</returns>
+        public static int? GetConnectedClientCount(this KestrunHost host)
+        {
+            var svcProvider = host.App?.Services;
+            if (svcProvider == null) return null;
+            if (svcProvider.GetService(typeof(IConnectionTracker)) is IConnectionTracker tracker)
+            {
+                return tracker.ConnectedCount;
+            }
+            return null;
+        }
+
+        /// <summary>
         /// Broadcasts a log message to all connected SignalR clients using the best available service provider.
         /// </summary>
         /// <param name="host">The KestrunHost instance.</param>

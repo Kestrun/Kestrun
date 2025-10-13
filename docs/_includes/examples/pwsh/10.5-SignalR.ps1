@@ -176,7 +176,7 @@ Register-KrSchedule -Name 'HeartbeatBroadcast' -Cron '*/30 * * * * *' -ScriptBlo
         Type = 'Heartbeat'
         ServerTime = (Get-Date)
         Uptime =  Get-KrServer -Uptime
-        ConnectedClients = 'N/A'  # Would require hub context to get real count
+        ConnectedClients = Get-KrSignalRConnectedClient
         Message = 'Server heartbeat from scheduled task'
     }
     Write-KrLog -Level Information -Message 'Broadcasting heartbeat:{heartbeatMessage}' -Values $heartbeatMessage

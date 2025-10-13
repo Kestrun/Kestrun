@@ -10,9 +10,11 @@ namespace Kestrun.SignalR;
 /// Initializes a new instance of the <see cref="KestrunHub"/> class.
 /// </remarks>
 /// <param name="logger">The Serilog logger instance.</param>
-public class KestrunHub(Serilog.ILogger logger) : Hub
+/// <param name="tracker">The connection tracker for counting connected clients.</param>
+public class KestrunHub(Serilog.ILogger logger, IConnectionTracker tracker) : Hub
 {
     private readonly Serilog.ILogger _logger = logger;
+    private readonly IConnectionTracker _tracker = tracker;
 
     /// <summary>
     /// Called when a client connects to the hub.
@@ -20,6 +22,7 @@ public class KestrunHub(Serilog.ILogger logger) : Hub
     public override async Task OnConnectedAsync()
     {
         _logger.Information("SignalR client connected: {ConnectionId}", Context.ConnectionId);
+        _tracker.OnConnected(Context.ConnectionId);
         await base.OnConnectedAsync();
     }
 
@@ -37,6 +40,7 @@ public class KestrunHub(Serilog.ILogger logger) : Hub
         {
             _logger.Information("SignalR client disconnected: {ConnectionId}", Context.ConnectionId);
         }
+        _tracker.OnDisconnected(Context.ConnectionId);
         await base.OnDisconnectedAsync(exception);
     }
 

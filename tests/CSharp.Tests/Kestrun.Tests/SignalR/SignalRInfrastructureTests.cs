@@ -12,7 +12,8 @@ public class SignalRInfrastructureTests
     public void KestrunHub_CanBeInstantiated()
     {
         // Arrange & Act
-        var hub = new KestrunHub(Serilog.Log.Logger);
+        var tracker = new InMemoryConnectionTracker();
+        var hub = new KestrunHub(Serilog.Log.Logger, tracker);
 
         // Assert
         Assert.NotNull(hub);
@@ -27,7 +28,7 @@ public class SignalRInfrastructureTests
         // Assert
         Assert.NotNull(interfaceType);
         Assert.True(interfaceType.IsInterface);
-        
+
         // Verify interface has expected methods
         var methods = interfaceType.GetMethods();
         Assert.Contains(methods, m => m.Name == "BroadcastLogAsync");

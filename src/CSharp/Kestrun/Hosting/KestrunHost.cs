@@ -1171,6 +1171,7 @@ public class KestrunHost : IDisposable
             if (typeof(T) == typeof(SignalR.KestrunHub))
             {
                 _ = s.AddSingleton<SignalR.IRealtimeBroadcaster, SignalR.RealtimeBroadcaster>();
+                _ = s.AddSingleton<SignalR.IConnectionTracker, SignalR.InMemoryConnectionTracker>();
             }
         })
         .Use(app => ((IEndpointRouteBuilder)app).MapHub<T>(path));

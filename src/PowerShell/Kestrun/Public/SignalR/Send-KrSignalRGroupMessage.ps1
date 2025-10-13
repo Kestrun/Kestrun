@@ -13,16 +13,16 @@
     .PARAMETER Server
         The Kestrun server instance. If not specified, the default server is used.
     .EXAMPLE
-        Send-KrGroupMessage -GroupName "Admins" -Method "ReceiveAdminUpdate" -Message @{ Update = "System maintenance scheduled" }
+        Send-KrSignalRGroupMessage -GroupName "Admins" -Method "ReceiveAdminUpdate" -Message @{ Update = "System maintenance scheduled" }
         Broadcasts an admin update to all clients in the "Admins" group.
     .EXAMPLE
-        Send-KrGroupMessage -GroupName "Workers" -Method "ReceiveTaskUpdate" -Message @{ TaskId = 123; Progress = 75 }
+        Send-KrSignalRGroupMessage -GroupName "Workers" -Method "ReceiveTaskUpdate" -Message @{ TaskId = 123; Progress = 75 }
         Broadcasts a task progress update to all clients in the "Workers" group.
     .NOTES
         This function requires that SignalR has been configured on the server using Add-KrSignalRHubMiddleware.
         The IRealtimeBroadcaster service must be registered for this cmdlet to work.
 #>
-function Send-KrGroupMessage {
+function Send-KrSignalRGroupMessage {
     [KestrunRuntimeApi('Everywhere')]
     [CmdletBinding()]
     param(

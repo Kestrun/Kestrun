@@ -9,19 +9,19 @@
     .PARAMETER Message
         The log message to broadcast.
     .EXAMPLE
-        Send-KrLog -Level Information -Message "Server started successfully"
+        Send-KrSignalRLog -Level Information -Message "Server started successfully"
         Broadcasts an information log message to all connected SignalR clients.
     .EXAMPLE
-        Send-KrLog -Level Error -Message "Failed to process request"
+        Send-KrSignalRLog -Level Error -Message "Failed to process request"
         Broadcasts an error log message to all connected SignalR clients.
     .EXAMPLE
-        Get-KrServer | Send-KrLog -Level Warning -Message "High memory usage detected"
+        Get-KrServer | Send-KrSignalRLog -Level Warning -Message "High memory usage detected"
         Broadcasts a warning log message using the pipeline.
     .NOTES
         This function requires that SignalR has been configured on the server using Add-KrSignalRHubMiddleware.
         The IRealtimeBroadcaster service must be registered for this cmdlet to work.
 #>
-function Send-KrLog {
+function Send-KrSignalRLog {
     [KestrunRuntimeApi('Everywhere')]
     [CmdletBinding()]
     param(

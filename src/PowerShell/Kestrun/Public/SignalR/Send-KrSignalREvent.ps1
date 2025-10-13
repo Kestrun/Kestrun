@@ -11,19 +11,19 @@
     .PARAMETER Server
         The Kestrun server instance. If not specified, the default server is used.
     .EXAMPLE
-        Send-KrEvent -EventName "UserLoggedIn" -Data @{ Username = "admin"; Timestamp = (Get-Date) }
+        Send-KrSignalREvent -EventName "UserLoggedIn" -Data @{ Username = "admin"; Timestamp = (Get-Date) }
         Broadcasts a custom event with data to all connected SignalR clients.
     .EXAMPLE
-        Send-KrEvent -EventName "ServerHealthCheck" -Data @{ Status = "Healthy"; Uptime = 3600 }
+        Send-KrSignalREvent -EventName "ServerHealthCheck" -Data @{ Status = "Healthy"; Uptime = 3600 }
         Broadcasts a health check event with status information.
     .EXAMPLE
-        Get-KrServer | Send-KrEvent -EventName "TaskCompleted" -Data @{ TaskId = 123; Success = $true }
+        Get-KrServer | Send-KrSignalREvent -EventName "TaskCompleted" -Data @{ TaskId = 123; Success = $true }
         Broadcasts a task completion event using the pipeline.
     .NOTES
         This function requires that SignalR has been configured on the server using Add-KrSignalRHubMiddleware.
         The IRealtimeBroadcaster service must be registered for this cmdlet to work.
 #>
-function Send-KrEvent {
+function Send-KrSignalREvent {
     [KestrunRuntimeApi('Everywhere')]
     [CmdletBinding()]
     param(

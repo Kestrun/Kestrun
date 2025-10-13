@@ -67,7 +67,7 @@ server.AddMapRoute("/", HttpVerb.Get, """
 <body>
     <h1>🚀 Kestrun SignalR Demo</h1>
     <p>Connected to SignalR hub at <code>/runtime</code></p>
-    
+
     <div>
         <button onclick=\""sendLog('Information')\"">Send Info Log</button>
         <button onclick=\""sendLog('Warning')\"">Send Warning Log</button>
@@ -75,18 +75,18 @@ server.AddMapRoute("/", HttpVerb.Get, """
         <button onclick=\""sendEvent()\"">Send Custom Event</button>
         <button onclick=\""clearMessages()\"">Clear Messages</button>
     </div>
-    
+
     <h2>Real-time Messages:</h2>
     <div id=\""messages\""></div>
-    
+
     <script>
         const connection = new signalR.HubConnectionBuilder()
             .withUrl(\""/runtime\"")
             .withAutomaticReconnect()
             .build();
-        
+
         const messagesDiv = document.getElementById(\""messages\"");
-        
+
         function addMessage(message, cssClass = \""\"") {
             const entry = document.createElement(\""div\"");
             entry.className = cssClass;
@@ -94,34 +94,34 @@ server.AddMapRoute("/", HttpVerb.Get, """
             messagesDiv.appendChild(entry);
             messagesDiv.scrollTop = messagesDiv.scrollHeight;
         }
-        
+
         connection.on(\""ReceiveLog\"", (data) => {
             const timestamp = new Date(data.timestamp).toLocaleTimeString();
             const logClass = `log-entry log-${data.level}`;
             addMessage(`<span class=\""timestamp\"">[$\{timestamp}]</span> <strong>$\{data.level}:</strong> $\{data.message}`, logClass);
         });
-        
+
         connection.on(\""ReceiveEvent\"", (data) => {
             const timestamp = new Date(data.timestamp).toLocaleTimeString();
             addMessage(`<span class=\""timestamp\"">[$\{timestamp}]</span> <strong>Event:</strong> $\{data.eventName} - $\{JSON.stringify(data.data)}`, \""event-entry\"");
         });
-        
+
         connection.start()
             .then(() => addMessage(\""✅ Connected to SignalR hub!\"", \""log-entry log-Information\""))
             .catch(err => addMessage(`❌ Connection error: $\{err}`, \""log-entry log-Error\""));
-        
+
         async function sendLog(level) {
             const response = await fetch(`/api/ps/log/$\{level}`);
             const text = await response.text();
             console.log(text);
         }
-        
+
         async function sendEvent() {
             const response = await fetch(\""/api/ps/event\"");
             const text = await response.text();
             console.log(text);
         }
-        
+
         function clearMessages() {
             messagesDiv.innerHTML = \""\"";
         }
@@ -135,13 +135,13 @@ server.AddMapRoute("/", HttpVerb.Get, """
 // PowerShell route that broadcasts logs
 server.AddMapRoute("/api/ps/log/{level}", HttpVerb.Get, """
     $level = Get-KrRequestRouteParam -Name 'level'
-    Send-KrLog -Level $level -Message "Test $level message from PowerShell at $(Get-Date -Format 'HH:mm:ss')"
+    Send-KrSignalRLog -Level $level -Message "Test $level message from PowerShell at $(Get-Date -Format 'HH:mm:ss')"
     Write-KrTextResponse -InputObject "Broadcasted $level log message from PowerShell" -StatusCode 200
 """, ScriptLanguage.PowerShell);
 
 // PowerShell route that broadcasts custom events
 server.AddMapRoute("/api/ps/event", HttpVerb.Get, """
-    Send-KrEvent -EventName 'PowerShellEvent' -Data @{ Message = 'Hello from PowerShell'; Timestamp = (Get-Date) }
+    Send-KrSignalREvent -EventName 'PowerShellEvent' -Data @{ Message = 'Hello from PowerShell'; Timestamp = (Get-Date) }
     Write-KrTextResponse -InputObject 'Broadcasted custom event from PowerShell' -StatusCode 200
 """, ScriptLanguage.PowerShell);
 

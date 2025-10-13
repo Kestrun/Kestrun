@@ -117,7 +117,6 @@ public sealed record KestrunContext
     /// <returns>True if the log was broadcast successfully; otherwise, false.</returns>
     public async Task<bool> BroadcastLogAsync(string level, string message, CancellationToken cancellationToken = default)
     {
-
         var svcProvider = HttpContext.RequestServices;
 
         if (svcProvider == null)
@@ -163,7 +162,6 @@ public sealed record KestrunContext
     /// <returns>True if the event was broadcast successfully; otherwise, false.</returns>
     public async Task<bool> BroadcastEventAsync(string eventName, object? data, CancellationToken cancellationToken = default)
     {
-
         var svcProvider = HttpContext.RequestServices;
 
         if (svcProvider == null)

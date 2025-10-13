@@ -15,8 +15,8 @@ Kestrun provides native SignalR integration for real-time, bidirectional communi
 | `KestrunHub` | Default SignalR hub for Kestrun | Handles client connections, disconnections, and group management. |
 | `IRealtimeBroadcaster` | Service interface for broadcasting messages | Allows PowerShell and C# routes to broadcast logs, events, and messages to connected clients. |
 | `RealtimeBroadcaster` | Default implementation of `IRealtimeBroadcaster` | Registered as singleton when `KestrunHub` is added. |
-| `Send-KrLog` | PowerShell cmdlet for broadcasting log messages | Sends log messages to all connected SignalR clients. |
-| `Send-KrEvent` | PowerShell cmdlet for broadcasting custom events | Sends custom events with data to all connected clients. |
+| `Send-KrSignalRLog` | PowerShell cmdlet for broadcasting log messages | Sends log messages to all connected SignalR clients. |
+| `Send-KrSignalREvent` | PowerShell cmdlet for broadcasting custom events | Sends custom events with data to all connected clients. |
 
 ## Adding SignalR to Your Server
 
@@ -36,7 +36,7 @@ Add-KrSignalRHubMiddleware -HubType ([Kestrun.SignalR.KestrunHub]) -Path '/runti
 Enable-KrConfiguration
 ```
 
-### C#
+### C #
 
 ```csharp
 using Kestrun.Hosting;
@@ -65,13 +65,13 @@ await server.RunUntilShutdownAsync();
 # Broadcast a log message
 Add-KrMapRoute -Verbs Get -Pattern '/api/log/{level}' {
     $level = Get-KrRequestRouteParam -Name 'level'
-    Send-KrLog -Level $level -Message "Event occurred at $(Get-Date -Format 'HH:mm:ss')"
+    Send-KrSignalRLog -Level $level -Message "Event occurred at $(Get-Date -Format 'HH:mm:ss')"
     Write-KrTextResponse -InputObject "Log broadcasted" -StatusCode 200
 }
 
 # Broadcast a custom event
 Add-KrMapRoute -Verbs Get -Pattern '/api/notify' {
-    Send-KrEvent -EventName 'Notification' -Data @{
+    Send-KrSignalREvent -EventName 'Notification' -Data @{
         Title = 'System Update'
         Message = 'New features available'
         Timestamp = (Get-Date)
@@ -84,9 +84,9 @@ Add-KrMapRoute -Verbs Get -Pattern '/api/notify' {
 
 ```csharp
 server.AddMapRoute("/api/log", HttpVerb.Get, """
-    var broadcaster = Context.RequestServices.GetService(typeof(Kestrun.SignalR.IRealtimeBroadcaster)) 
+    var broadcaster = Context.RequestServices.GetService(typeof(Kestrun.SignalR.IRealtimeBroadcaster))
         as Kestrun.SignalR.IRealtimeBroadcaster;
-    
+
     if (broadcaster != null)
     {
         await broadcaster.BroadcastLogAsync("Information", "Hello from C#", Context.RequestAborted);
@@ -107,27 +107,27 @@ server.AddMapRoute("/api/log", HttpVerb.Get, """
 </head>
 <body>
     <div id="messages"></div>
-    
+
     <script>
         const connection = new signalR.HubConnectionBuilder()
             .withUrl("/runtime")
             .withAutomaticReconnect()
             .build();
-        
+
         // Listen for log messages
         connection.on("ReceiveLog", (data) => {
             console.log(`[${data.level}] ${data.message}`, data.timestamp);
-            document.getElementById("messages").innerHTML += 
+            document.getElementById("messages").innerHTML +=
                 `<div>${data.level}: ${data.message}</div>`;
         });
-        
+
         // Listen for custom events
         connection.on("ReceiveEvent", (data) => {
             console.log(`Event: ${data.eventName}`, data.data, data.timestamp);
-            document.getElementById("messages").innerHTML += 
+            document.getElementById("messages").innerHTML +=
                 `<div>Event: ${data.eventName} - ${JSON.stringify(data.data)}</div>`;
         });
-        
+
         // Start connection
         connection.start()
             .then(() => console.log("Connected to SignalR hub"))
@@ -202,7 +202,7 @@ await connection.invoke("Echo", "Hello, server!");
 Add-KrMapRoute -Verbs Post -Pattern '/api/notify-group/{group}' {
     $groupName = Get-KrRequestRouteParam -Name 'group'
     $broadcaster = $Server.App.Services.GetService([Kestrun.SignalR.IRealtimeBroadcaster])
-    
+
     if ($broadcaster) {
         $task = $broadcaster.BroadcastToGroupAsync(
             $groupName,
@@ -253,9 +253,9 @@ Stream server logs to a web dashboard:
 
 ```powershell
 # Configure Serilog to broadcast logs via SignalR
-$logger = New-KrLogger | 
-    Add-KrSinkConsole | 
-    Add-KrSinkSignalR |  # Custom sink that uses Send-KrLog
+$logger = New-KrLogger |
+    Add-KrSinkConsole |
+    Add-KrSinkSignalR |  # Custom sink that uses Send-KrSignalRLog
     Register-KrLogger -SetAsDefault
 
 # Now all logs are automatically broadcast to connected clients
@@ -270,8 +270,8 @@ Monitor long-running operations:
 Add-KrMapRoute -Verbs Post -Pattern '/api/process' {
     for ($i = 0; $i -le 100; $i += 10) {
         Start-Sleep -Milliseconds 500
-        Send-KrEvent -EventName 'Progress' -Data @{ 
-            Percent = $i 
+        Send-KrSignalREvent -EventName 'Progress' -Data @{
+            Percent = $i
             Status = "Processing item $i"
         }
     }
@@ -294,7 +294,7 @@ $timer.Add_Elapsed({
         MemoryMB = [Math]::Round((Get-Process -Id $PID).WorkingSet64 / 1MB, 2)
         Timestamp = (Get-Date)
     }
-    Send-KrEvent -EventName 'SystemMetrics' -Data $metrics
+    Send-KrSignalREvent -EventName 'SystemMetrics' -Data $metrics
 })
 $timer.Start()
 ```
@@ -358,8 +358,8 @@ Both examples include a full HTML/JavaScript client with real-time updates.
 ### PowerShell Cmdlets
 
 - `Add-KrSignalRHubMiddleware`: Registers a SignalR hub at the specified path
-- `Send-KrLog`: Broadcasts a log message to all connected clients
-- `Send-KrEvent`: Broadcasts a custom event to all connected clients
+- `Send-KrSignalRLog`: Broadcasts a log message to all connected clients
+- `Send-KrSignalREvent`: Broadcasts a custom event to all connected clients
 
 ### C# Classes
 

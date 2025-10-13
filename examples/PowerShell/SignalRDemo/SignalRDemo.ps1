@@ -77,13 +77,13 @@ Add-KrMapRoute -Verbs Get -Pattern '/' {
 # Route to broadcast logs via PowerShell
 Add-KrMapRoute -Verbs Get -Pattern '/api/ps/log/{level}' {
     $level = Get-KrRequestRouteParam -Name 'level'
-    Send-KrLog -Level $level -Message "Test $level message from PowerShell at $(Get-Date -Format 'HH:mm:ss')"
+    Send-KrSignalRLog -Level $level -Message "Test $level message from PowerShell at $(Get-Date -Format 'HH:mm:ss')"
     Write-KrTextResponse -InputObject "Broadcasted $level log message from PowerShell" -StatusCode 200
 }
 
 # Route to broadcast custom events via PowerShell
 Add-KrMapRoute -Verbs Get -Pattern '/api/ps/event' {
-    Send-KrEvent -EventName 'PowerShellEvent' -Data @{
+    Send-KrSignalREvent -EventName 'PowerShellEvent' -Data @{
         Message = 'Hello from PowerShell'
         Timestamp = (Get-Date)
         Random = Get-Random -Minimum 1 -Maximum 100

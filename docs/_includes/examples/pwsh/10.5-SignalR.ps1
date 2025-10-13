@@ -17,7 +17,7 @@ New-KrLogger | Add-KrSinkConsole | Register-KrLogger -Name 'SignalRDemo' -SetAsD
 New-KrServer -Name 'Kestrun SignalR Demo'
 
 ## 3. Configure Listener
-Add-KrEndpoint -Port $Port -IPAddress $IPAddress -Protocol Http1AndHttp2
+Add-KrEndpoint -Port $Port -IPAddress $IPAddress
 
 ## 4. Add SignalR with KestrunHub
 Add-KrSignalRHubMiddleware -Path '/hubs/kestrun'
@@ -37,13 +37,13 @@ Add-KrHtmlTemplateRoute -Pattern '/' -HtmlTemplatePath 'Assets/wwwroot/signal-r.
 Add-KrMapRoute -Verbs Get -Pattern '/api/ps/log/{level}' {
     $level = Get-KrRequestRouteParam -Name 'level'
     Write-KrLog -Level $level -Message "Test $level message from PowerShell at $(Get-Date -Format 'HH:mm:ss')"
-    Send-KrLog -Level $level -Message "Test $level message from PowerShell at $(Get-Date -Format 'HH:mm:ss')"
+    Send-KrSignalRLog -Level $level -Message "Test $level message from PowerShell at $(Get-Date -Format 'HH:mm:ss')"
     Write-KrTextResponse -InputObject "Broadcasted $level log message from PowerShell" -StatusCode 200
 }
 
 # Route to broadcast custom events via PowerShell
 Add-KrMapRoute -Verbs Get -Pattern '/api/ps/event' {
-    Send-KrEvent -EventName 'PowerShellEvent' -Data @{
+    Send-KrSignalREvent -EventName 'PowerShellEvent' -Data @{
         Message = 'Hello from PowerShell'
         Timestamp = (Get-Date)
         Random = Get-Random -Minimum 1 -Maximum 100
@@ -56,7 +56,7 @@ Add-KrMapRoute -Verbs Post -Pattern '/api/group/join/{groupName}' {
     $groupName = Get-KrRequestRouteParam -Name 'groupName'
 
     # This would normally be handled by the hub itself, but we can broadcast a notification
-    Send-KrEvent -EventName 'GroupJoinRequest' -Data @{
+    Send-KrSignalREvent -EventName 'GroupJoinRequest' -Data @{
         GroupName = $groupName
         Message = "Request to join group: $groupName"
         Timestamp = (Get-Date)
@@ -74,7 +74,7 @@ Add-KrMapRoute -Verbs Post -Pattern '/api/group/leave/{groupName}' {
     $groupName = Get-KrRequestRouteParam -Name 'groupName'
 
     # This would normally be handled by the hub itself, but we can broadcast a notification
-    Send-KrEvent -EventName 'GroupLeaveRequest' -Data @{
+    Send-KrSignalREvent -EventName 'GroupLeaveRequest' -Data @{
         GroupName = $groupName
         Message = "Request to leave group: $groupName"
         Timestamp = (Get-Date)
@@ -91,7 +91,7 @@ Add-KrMapRoute -Verbs Post -Pattern '/api/group/leave/{groupName}' {
 Add-KrMapRoute -Verbs Post -Pattern '/api/group/broadcast/{groupName}' {
     $groupName = Get-KrRequestRouteParam -Name 'groupName'
 
-    Send-KrGroupMessage -GroupName $groupName -Method 'ReceiveGroupMessage' -Message @{
+    Send-KrSignalRGroupMessage -GroupName $groupName -Method 'ReceiveGroupMessage' -Message @{
         Message = "Hello from PowerShell to group: $groupName"
         Timestamp = (Get-Date)
         Sender = 'PowerShell Route'
@@ -181,7 +181,7 @@ Register-KrSchedule -Name 'HeartbeatBroadcast' -Cron '*/30 * * * * *' -ScriptBlo
     }
     Write-KrLog -Level Information -Message 'Broadcasting heartbeat:{heartbeatMessage}' -Values $heartbeatMessage
     # Broadcast heartbeat to all connected clients
-    Send-KrEvent -EventName 'ServerHeartbeat' -Data $heartbeatMessage
+    Send-KrSignalREvent -EventName 'ServerHeartbeat' -Data $heartbeatMessage
 }
 
 # Register a scheduled task that broadcasts to the "Admins" group every minute
@@ -198,7 +198,7 @@ Register-KrSchedule -Name 'AdminStatusUpdate' -Cron '0 * * * * *' -ScriptBlock {
     }
     Write-KrLog -Level Information -Message 'Broadcasting admin status update :{statusMessage}' -Values $statusMessage
     # Broadcast to admin group only
-    Send-KrGroupMessage -GroupName 'Admins' -Method 'ReceiveAdminUpdate' -Message $statusMessage
+    Send-KrSignalRGroupMessage -GroupName 'Admins' -Method 'ReceiveAdminUpdate' -Message $statusMessage
 }
 
 ## 8. Start Server

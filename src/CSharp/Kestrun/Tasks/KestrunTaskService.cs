@@ -316,11 +316,30 @@ public sealed class KestrunTaskService(KestrunRunspacePoolManager pool, Serilog.
             {
                 task.Progress.Complete("Completed");
             }
+            else if (task.State == TaskState.Stopped)
+            {
+                // If cancellation was requested but no exception was thrown (graceful exit), normalize progress
+                task.Progress.Cancel("Cancelled");
+            }
         }
         catch (OperationCanceledException) when (task.TokenSource.IsCancellationRequested)
         {
             task.State = TaskState.Stopped;
             task.Progress.Cancel("Cancelled");
+        }
+        catch (TaskCanceledException) when (task.TokenSource.IsCancellationRequested)
+        {
+            // Some libraries throw TaskCanceledException instead of OperationCanceledException on cancellation
+            task.State = TaskState.Stopped;
+            task.Progress.Cancel("Cancelled");
+        }
+        catch (Exception ex) when (task.TokenSource.IsCancellationRequested)
+        {
+            // During cancellation, certain engines (e.g., PowerShell) may surface non-cancellation exceptions
+            // such as PipelineStoppedException. If cancellation was requested, normalize to Stopped.
+            task.State = TaskState.Stopped;
+            task.Progress.Cancel("Cancelled");
+            _log.Information(ex, "Task {Id} cancelled with exception after cancellation was requested", task.Id);
         }
         catch (Exception ex)
         {

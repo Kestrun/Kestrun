@@ -98,11 +98,17 @@ Add-KrMapRoute -Verbs Get -Path '/tasks/result' -ScriptBlock {
         Write-KrJsonResponse -StatusCode 400 -InputObject @{ error = "Missing 'id' query parameter" }
         return
     }
-    $r = Get-KrTask -Id $id -Result
-    if ($null -eq $r) {
+    $state = Get-KrTask -Id $id -State
+    if( $null -eq $state) {
         Write-KrJsonResponse -StatusCode 404 -InputObject @{ error = 'Task not found' }
         return
     }
+    if ($state -ne 'Completed' -and $state -ne 'Cancelled' -and $state -ne 'Faulted') {
+        Write-KrJsonResponse -StatusCode 409 -InputObject @{ error = 'Task is not in a completed state' }
+        return
+    }
+    $r = Get-KrTask -Id $id -Result
+
     Write-KrJsonResponse -StatusCode 200 -InputObject $r
 }
 

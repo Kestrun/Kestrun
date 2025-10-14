@@ -20,4 +20,11 @@ public record KrTask(
     /// The textual name of <see cref="State"/> for display and serialization convenience.
     /// </summary>
     public string StateText => State.ToString();
+
+    /// <summary>
+    /// Duration of the execution, if both timestamps are available.
+    /// </summary>
+    public TimeSpan? Duration => (StartedAt.HasValue && CompletedAt.HasValue)
+        ? CompletedAt.Value - StartedAt.Value
+        : null;
 }

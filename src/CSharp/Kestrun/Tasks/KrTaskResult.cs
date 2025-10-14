@@ -16,12 +16,4 @@ public sealed record KrTaskResult(
     DateTimeOffset? CompletedAt,
     object? Output,
     string? Error
-) : KrTask(Id, State, StartedAt, CompletedAt, Error)
-{
-    /// <summary>
-    /// Duration of the execution, if both timestamps are available.
-    /// </summary>
-    public TimeSpan? Duration => (StartedAt.HasValue && CompletedAt.HasValue)
-        ? CompletedAt.Value - StartedAt.Value
-        : null;
-}
+) : KrTask(Id, State, StartedAt, CompletedAt, Error);

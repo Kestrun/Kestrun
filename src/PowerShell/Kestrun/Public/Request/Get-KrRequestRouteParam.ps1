@@ -59,7 +59,7 @@ function Get-KrRequestRouteParam {
         [switch]$ThrowIfMissing
     )
     if ($null -ne $Context) {
-        if ( $ThrowIfMissing -and -not $Context.Request.RouteValues.ContainsKey($Name) ) {
+        if ($ThrowIfMissing -and -not $Context.Request.RouteValues.ContainsKey($Name)) {
             throw "Missing required route parameter: $Name"
         }
         # Get the route parameter value from the request

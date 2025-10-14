@@ -32,7 +32,7 @@ Describe 'Tutorial 20.1 - Tasks' -Tag 'Tutorial' {
                 }
                 Start-Sleep -Milliseconds $PollMs
             } while ([DateTime]::UtcNow -lt $deadline)
-            throw "Task '$Id' did not reach any of states [$($States -join ', ')] within ${TimeoutSec}s. Last: $($obj.state)"
+            throw "Task '$Id' did not reach any of states [$($States -join ', ')] within ${TimeoutSec}s. Last: $($obj.StateText)"
         }
     }
 

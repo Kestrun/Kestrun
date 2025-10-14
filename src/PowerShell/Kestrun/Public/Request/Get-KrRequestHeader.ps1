@@ -62,7 +62,7 @@ function Get-KrRequestHeader {
         [switch]$ThrowIfMissing
     )
     if ($null -ne $Context.Request) {
-        if ( $ThrowIfMissing -and -not $Context.Request.Headers.ContainsKey($Name) ) {
+        if ($ThrowIfMissing -and -not $Context.Request.Headers.ContainsKey($Name)) {
             throw "Missing required header: $Name"
         }
         # Get the request header value from the request

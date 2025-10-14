@@ -180,7 +180,7 @@ Add-KrMapRoute -Verbs Get -Path '/tasks/run/ps' -ScriptBlock {
         Get-Date
     }
     # One-shot = create + start
-    $id = New-KrTask -Language PowerShell -Code $scriptBlock -Arguments @{ 'seconds' = $seconds }
+    $id = New-KrTask -ScriptBlock $scriptBlock -Arguments @{ 'seconds' = $seconds }
     $null = Start-KrTask -Id $id
     Write-KrJsonResponse -StatusCode 202 -InputObject @{ id = $id; started = $true }
 }

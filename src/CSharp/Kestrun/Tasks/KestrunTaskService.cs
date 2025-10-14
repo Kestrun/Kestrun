@@ -156,7 +156,7 @@ public sealed class KestrunTaskService(KestrunRunspacePoolManager pool, Serilog.
         catch (Exception ex)
         {
             // Optional: handle or log errors
-            Console.Error.WriteLine($"Task {id} failed: {ex}");
+            _log.Error(ex, "Task {Id} failed", id);
         }
 
         return true;

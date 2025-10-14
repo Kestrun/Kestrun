@@ -110,7 +110,20 @@ internal static class TaskJobFactory
 
     private static Func<CancellationToken, Task<object?>> VbNetTask(TaskJobConfig config)
     {
-        var runner = VBNetDelegateBuilder.Compile<object>(config.ScriptCode.Code, config.Log, config.ScriptCode.ExtraImports, config.ScriptCode.ExtraRefs, config.ScriptCode.Arguments, Microsoft.CodeAnalysis.VisualBasic.LanguageVersion.VisualBasic16_9);
+        var code = config.ScriptCode.Code;
+        var log = config.Log;
+        var extraImports = config.ScriptCode.ExtraImports;
+        var extraRefs = config.ScriptCode.ExtraRefs;
+        var arguments = config.ScriptCode.Arguments;
+        var vbLangVersion = Microsoft.CodeAnalysis.VisualBasic.LanguageVersion.VisualBasic16_9;
+        var runner = VBNetDelegateBuilder.Compile<object>(
+            code,
+            log,
+            extraImports,
+            extraRefs,
+            arguments,
+            vbLangVersion
+        );
         return async ct =>
         {
             // For VB, expose Progress via locals as well

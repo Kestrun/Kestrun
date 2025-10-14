@@ -11,7 +11,7 @@ namespace Kestrun.Tasks;
 /// <param name="CompletedAt">UTC timestamp when execution ended.</param>
 /// <param name="Progress">Optional progress state of the task.</param>
 /// <param name="ParentId">Optional identifier of the parent task, if any.</param>
-/// <param name="ChildrenId">Identifiers of any child tasks spawned by this task.</param
+/// <param name="ChildrenId">Identifiers of any child tasks spawned by this task.</param>
 public record KrTask(
     string Id,
     string Name,

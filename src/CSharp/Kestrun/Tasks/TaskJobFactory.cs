@@ -56,7 +56,7 @@ internal static class TaskJobFactory
                 // Merge arguments and inject Progress variable for cooperative updates
                 var vars = config.ScriptCode.Arguments is { Count: > 0 }
                     ? new Dictionary<string, object?>(config.ScriptCode.Arguments)
-                    : new();
+                    : [];
                 vars["Progress"] = config.Progress;
                 PowerShellExecutionHelpers.SetVariables(ps, vars, config.Log);
                 using var reg = ct.Register(() => ps.Stop());
@@ -93,7 +93,7 @@ internal static class TaskJobFactory
             // Add Progress object into locals so C# scripts can do: Progress.PercentComplete = 42;
             var locals = config.ScriptCode.Arguments is { Count: > 0 }
                 ? new Dictionary<string, object?>(config.ScriptCode.Arguments)
-                : new();
+                : [];
             locals["Progress"] = config.Progress;
             var globals = new CsGlobals(SharedStateStore.Snapshot(), locals);
             return await runner(globals, ct).ConfigureAwait(false);
@@ -108,7 +108,7 @@ internal static class TaskJobFactory
             // For VB, expose Progress via locals as well
             var locals = config.ScriptCode.Arguments is { Count: > 0 }
                 ? new Dictionary<string, object?>(config.ScriptCode.Arguments)
-                : new();
+                : [];
             locals["Progress"] = config.Progress;
             var globals = new CsGlobals(SharedStateStore.Snapshot(), locals);
             // VB compiled delegate does not accept CancellationToken; allow cooperative cancel of awaiting.

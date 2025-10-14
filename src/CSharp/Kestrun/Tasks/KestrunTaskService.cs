@@ -183,10 +183,6 @@ public sealed class KestrunTaskService(KestrunRunspacePoolManager pool, Serilog.
     /// </summary>
     /// <param name="id">The task identifier.</param>
     /// <returns>The task output object, or null if not found or no output.</returns>
-    //   public KrTaskResult? GetResult(string id)
-    //     => _tasks.TryGetValue(id, out var t) ? t.ToKrTaskResult() : null;
-
-
     public object? GetResult(string id)
            => _tasks.TryGetValue(id, out var t) ? t.Output : null;
 

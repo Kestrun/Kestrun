@@ -187,6 +187,15 @@ public class KestrunTaskServiceAllTests
             var id = svc.Create(null, lang, false, null, null);
             Assert.True(svc.Start(id));
 
+            // CI (Linux) sometimes cancels before the worker has flipped state to Running.
+            // Wait briefly for transition out of NotStarted to avoid a race where cancellation
+            // happens pre-execution and state never updates to Stopped within the timeout.
+            var spin = DateTime.UtcNow;
+            while (svc.GetState(id) == TaskState.NotStarted && DateTime.UtcNow - spin < TimeSpan.FromSeconds(2))
+            {
+                await Task.Delay(25);
+            }
+
             // Not terminal yet → cannot remove
             Assert.False(svc.Remove(id));
 

@@ -35,12 +35,14 @@ public sealed class KestrunTaskService(KestrunRunspacePoolManager pool, Serilog.
             throw new InvalidOperationException($"Task id '{id}' already exists.");
         }
 
-        var cfg = new TaskJobFactory.TaskJobConfig(ScriptCode, _log, _pool);
+        var progress = new ProgressiveKestrunTaskState();
+        var cfg = new TaskJobFactory.TaskJobConfig(ScriptCode, _log, _pool, progress);
         var work = TaskJobFactory.Create(cfg);
         var cts = new CancellationTokenSource();
         var task = new KestrunTask(id, ScriptCode, cts)
         {
-            Work = work
+            Work = work,
+            Progress = progress
         };
 
         return !_tasks.TryAdd(id, task) ? throw new InvalidOperationException($"Task id '{id}' already exists.") : id;
@@ -53,7 +55,7 @@ public sealed class KestrunTaskService(KestrunRunspacePoolManager pool, Serilog.
         {
             return false;
         }
-        if (task.State != TaskState.Created || task.Runner != null)
+        if (task.State != TaskState.NotStarted || task.Runner != null)
         {
             return false; // only start once from Created state
         }
@@ -73,7 +75,7 @@ public sealed class KestrunTaskService(KestrunRunspacePoolManager pool, Serilog.
             return false;
         }
 
-        if (task.State != TaskState.Created || task.Runner != null)
+        if (task.State != TaskState.NotStarted || task.Runner != null)
         {
             return false; // only start once from Created state
         }
@@ -133,7 +135,7 @@ public sealed class KestrunTaskService(KestrunRunspacePoolManager pool, Serilog.
         {
             return false;
         }
-        if (t.State is TaskState.Completed or TaskState.Faulted or TaskState.Cancelled)
+        if (t.State is TaskState.Completed or TaskState.Failed or TaskState.Stopped)
         {
             return false;
         }
@@ -142,38 +144,114 @@ public sealed class KestrunTaskService(KestrunRunspacePoolManager pool, Serilog.
         return true;
     }
 
-    /// <summary>Removes a finished task from the registry.</summary>
-    public bool Remove(string id) => _tasks.TryRemove(id, out _);
+    /// <summary>
+    /// Checks recursively if all children of a task are finished.
+    /// </summary>
+    /// <param name="task">The parent task to check.</param>
+    /// <returns>True if all children are finished; false otherwise.</returns>
+    private static bool ChildrenAreFinished(KestrunTask task)
+    {
+        foreach (var child in task.Children)
+        {
+            if (!ChildrenAreFinished(child))
+            {
+                return false;
+            }
+            if (child.State is not TaskState.Completed and not TaskState.Failed and not TaskState.Stopped)
+            {
+                return false;
+            }
+        }
+        return true;
+    }
+    /// <summary>
+    /// Removes a finished task from the registry.
+    /// </summary>
+    /// <param name="id">The task identifier.</param>
+    /// <returns>True if the task was found and removed; false if not found or not finished.</returns>
+    /// <remarks>
+    /// A task can only be removed if it is in a terminal state (Completed, Failed, Stopped)
+    /// and all its child tasks are also in terminal states.
+    /// </remarks>
+    public bool Remove(string id)
+    {
+        if (_tasks.TryGetValue(id, out var t))
+        {
+            if (t.State is TaskState.Completed or TaskState.Failed or TaskState.Stopped)
+            {
+                if (!ChildrenAreFinished(t))
+                {
+                    _log.Warning("Cannot remove task {Id} because it has running child tasks", id);
+                    return false;
+                }
 
-    /// <summary>Lists all tasks with basic info.</summary>
-    public IReadOnlyCollection<KrTaskResult> List()
-        => [.. _tasks.Values.Select(v => v.ToKrTaskResult())];
+                _log.Information("Removing task {Id}", id);
+                if (_tasks.TryRemove(id, out _))
+                {
+                    if (t.Parent is not null)
+                    {
+                        _ = t.Parent.Children.Remove(t);
+                    }
+                    if (t.Children.Count > 0)
+                    {
+                        foreach (var child in t.Children)
+                        {
+                            if (!Remove(child.Id))
+                            {
+                                _log.Warning("Failed to remove child task {ChildId} of parent task {ParentId}", child.Id, id);
+                            }
+                        }
+                    }
+                    return true;
+                }
+            }
+            return false;
+        }
+        return false;
+    }
 
+    /// <summary>
+    /// Lists all tasks with basic info.
+    /// Does not include output or error details.
+    /// </summary>
+    public IReadOnlyCollection<KrTask> List()
+        => [.. _tasks.Values.Select(v => v.ToKrTask())];
+
+    /// <summary>
+    /// Executes the task's work function and updates its state accordingly.
+    /// </summary>
+    /// <param name="task">The task to execute.</param>
+    /// <returns>A task representing the asynchronous operation.</returns>
     private async Task ExecuteAsync(KestrunTask task)
     {
         task.State = TaskState.Running;
+        task.Progress.StatusMessage = "Running";
         task.StartedAtUtc = DateTimeOffset.UtcNow;
         try
         {
             var result = await task.Work(task.TokenSource.Token).ConfigureAwait(false);
             task.Output = result;
-            task.State = task.TokenSource.IsCancellationRequested ? TaskState.Cancelled : TaskState.Completed;
+            task.State = task.TokenSource.IsCancellationRequested ? TaskState.Stopped : TaskState.Completed;
+            if (task.State == TaskState.Completed)
+            {
+                task.Progress.Complete("Completed");
+            }
         }
         catch (OperationCanceledException) when (task.TokenSource.IsCancellationRequested)
         {
-            task.State = TaskState.Cancelled;
+            task.State = TaskState.Stopped;
+            task.Progress.Cancel("Cancelled");
         }
         catch (Exception ex)
         {
             task.Fault = ex;
-            task.State = TaskState.Faulted;
+            task.State = TaskState.Failed;
             _log.Error(ex, "Task {Id} failed", task.Id);
+            task.Progress.Fail("Failed");
         }
         finally
         {
             task.CompletedAtUtc = DateTimeOffset.UtcNow;
         }
     }
-
-    //
 }

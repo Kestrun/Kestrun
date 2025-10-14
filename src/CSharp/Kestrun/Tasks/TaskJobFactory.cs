@@ -3,7 +3,6 @@ using Kestrun.Scripting;
 using Kestrun.SharedState;
 using Kestrun.Utilities;
 using Kestrun.Languages;
-using Serilog.Events;
 using Kestrun.Hosting.Options;
 
 namespace Kestrun.Tasks;
@@ -19,10 +18,12 @@ internal static class TaskJobFactory
     /// <param name="ScriptCode">The language options containing the script code and settings.</param>
     /// <param name="Log">Logger instance for logging.</param>
     /// <param name="Pool">Optional PowerShell runspace pool.</param>
+    /// <param name="Progress">Progress state object to expose to scripts.</param>
     internal record TaskJobConfig(
         LanguageOptions ScriptCode,
         Serilog.ILogger Log,
-        KestrunRunspacePoolManager? Pool
+        KestrunRunspacePoolManager? Pool,
+        ProgressiveKestrunTaskState Progress
     );
 
     internal static Func<CancellationToken, Task<object?>> Create(TaskJobConfig config)
@@ -51,7 +52,13 @@ internal static class TaskJobFactory
                 using var ps = PowerShell.Create();
                 ps.Runspace = runspace;
                 _ = ps.AddScript(config.ScriptCode.Code);
-                PowerShellExecutionHelpers.SetVariables(ps, config.ScriptCode.Arguments, config.Log);
+
+                // Merge arguments and inject Progress variable for cooperative updates
+                var vars = config.ScriptCode.Arguments is { Count: > 0 }
+                    ? new Dictionary<string, object?>(config.ScriptCode.Arguments)
+                    : new();
+                vars["Progress"] = config.Progress;
+                PowerShellExecutionHelpers.SetVariables(ps, vars, config.Log);
                 using var reg = ct.Register(() => ps.Stop());
                 var results = await ps.InvokeAsync().WaitAsync(ct).ConfigureAwait(false);
 
@@ -83,9 +90,12 @@ internal static class TaskJobFactory
         var runner = script.CreateDelegate(); // ScriptRunner<object?>
         return async ct =>
         {
-            var globals = config.ScriptCode.Arguments is { Count: > 0 }
-                ? new CsGlobals(SharedStateStore.Snapshot(), config.ScriptCode.Arguments)
-                : new CsGlobals(SharedStateStore.Snapshot());
+            // Add Progress object into locals so C# scripts can do: Progress.PercentComplete = 42;
+            var locals = config.ScriptCode.Arguments is { Count: > 0 }
+                ? new Dictionary<string, object?>(config.ScriptCode.Arguments)
+                : new();
+            locals["Progress"] = config.Progress;
+            var globals = new CsGlobals(SharedStateStore.Snapshot(), locals);
             return await runner(globals, ct).ConfigureAwait(false);
         };
     }
@@ -95,7 +105,12 @@ internal static class TaskJobFactory
         var runner = VBNetDelegateBuilder.Compile<object>(config.ScriptCode.Code, config.Log, config.ScriptCode.ExtraImports, config.ScriptCode.ExtraRefs, config.ScriptCode.Arguments, Microsoft.CodeAnalysis.VisualBasic.LanguageVersion.VisualBasic16_9);
         return async ct =>
         {
-            var globals = new CsGlobals(SharedStateStore.Snapshot());
+            // For VB, expose Progress via locals as well
+            var locals = config.ScriptCode.Arguments is { Count: > 0 }
+                ? new Dictionary<string, object?>(config.ScriptCode.Arguments)
+                : new();
+            locals["Progress"] = config.Progress;
+            var globals = new CsGlobals(SharedStateStore.Snapshot(), locals);
             // VB compiled delegate does not accept CancellationToken; allow cooperative cancel of awaiting.
             var task = runner(globals);
             var completed = await Task.WhenAny(task, Task.Delay(Timeout.Infinite, ct)).ConfigureAwait(false);

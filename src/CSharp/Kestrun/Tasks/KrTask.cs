@@ -4,16 +4,24 @@ namespace Kestrun.Tasks;
 /// Basic information about a task for listing purposes.
 /// </summary>
 /// <param name="Id">Unique task identifier.</param>
+/// <param name="Name">Optional human-friendly name of the task.</param>
+/// <param name="Description">Optional description of the task.</param>
 /// <param name="State">Final state of the task when the result was captured.</param>
 /// <param name="StartedAt">UTC timestamp when execution started.</param>
 /// <param name="CompletedAt">UTC timestamp when execution ended.</param>
-/// <param name="Error">Fault exception message or error record text if any.</param>
+/// <param name="Progress">Optional progress state of the task.</param>
+/// <param name="ParentId">Optional identifier of the parent task, if any.</param>
+/// <param name="ChildrenId">Identifiers of any child tasks spawned by this task.</param
 public record KrTask(
     string Id,
+    string Name,
+    string Description,
     TaskState State,
     DateTimeOffset? StartedAt,
     DateTimeOffset? CompletedAt,
-    string? Error
+    ProgressiveKestrunTaskState? Progress,
+    string ParentId,
+    string[] ChildrenId
 )
 {
     /// <summary>

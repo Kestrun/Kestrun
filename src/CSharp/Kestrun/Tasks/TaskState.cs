@@ -8,7 +8,7 @@ public enum TaskState
     /// <summary>
     /// Task has been created but not yet started.
     /// </summary>
-    Created,
+    NotStarted,
     /// <summary>
     /// Task is currently running.
     /// </summary>
@@ -20,9 +20,13 @@ public enum TaskState
     /// <summary>
     /// Task has failed with an error.
     /// </summary>
-    Faulted,
+    Failed,
     /// <summary>
-    /// Task was cancelled.
+    /// Task was stopped.
     /// </summary>
-    Cancelled
+    Stopped,
+    /// <summary>
+    /// Task is in the process of stopping.
+    /// </summary>
+    Stopping
 }

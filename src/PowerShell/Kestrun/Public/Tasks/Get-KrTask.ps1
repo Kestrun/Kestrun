@@ -7,8 +7,10 @@
     The Kestrun server instance.
 .PARAMETER Id
     Task id to query.
-.PARAMETER Detailed
+.PARAMETER Result
     When present, return TaskResult.
+.PARAMETER State
+    When present, return only the task state string.
 .EXAMPLE
     Get-KrTask -Id 'task-id'
 
@@ -26,9 +28,10 @@
 #>
 function Get-KrTask {
     [KestrunRuntimeApi('Everywhere')]
-    [CmdletBinding()]
-    [OutputType([Kestrun.Tasks.TaskResult])]
-    [OutputType([Kestrun.Tasks.TaskResult[]])]
+    [CmdletBinding(defaultParameterSetName = 'Default')]
+    [OutputType([Kestrun.Tasks.KrTaskResult])]
+    [OutputType([Kestrun.Tasks.KrTaskResult[]])]
+    [OutputType([Kestrun.Tasks.KrTask])]
     param(
         [Parameter(ValueFromPipeline = $true)]
         [Kestrun.Hosting.KestrunHost]$Server,
@@ -36,7 +39,11 @@ function Get-KrTask {
         [Parameter()]
         [string]$Id,
 
-        [switch]$Detailed
+        [Parameter(parameterSetName = 'Result')]
+        [switch]$Result,
+
+        [Parameter(parameterSetName = 'State')]
+        [switch]$State
     )
     begin {
         $Server = Resolve-KestrunServer -Server $Server
@@ -45,10 +52,12 @@ function Get-KrTask {
         if ([string]::IsNullOrEmpty($Id)) {
             return $Server.Tasks.List()
         }
-        if ($Detailed) {
+        if ($Result.IsPresent) {
             return $Server.Tasks.GetResult($Id)
-        } else {
+        } elseif ($State.IsPresent) {
             return $Server.Tasks.GetState($Id)
+        } else {
+            return $Server.Tasks.Get($Id)
         }
     }
 }

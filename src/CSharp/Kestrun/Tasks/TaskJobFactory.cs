@@ -51,7 +51,7 @@ internal static class TaskJobFactory
                 using var ps = PowerShell.Create();
                 ps.Runspace = runspace;
                 _ = ps.AddScript(config.ScriptCode.Code);
-
+                PowerShellExecutionHelpers.SetVariables(ps, config.ScriptCode.Arguments, config.Log);
                 using var reg = ct.Register(() => ps.Stop());
                 var results = await ps.InvokeAsync().WaitAsync(ct).ConfigureAwait(false);
 

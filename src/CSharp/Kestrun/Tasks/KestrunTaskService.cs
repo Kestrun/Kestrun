@@ -98,14 +98,29 @@ public sealed class KestrunTaskService(KestrunRunspacePoolManager pool, Serilog.
         return true;
     }
 
+    /// <summary>
+    /// Gets a task by id.
+    /// </summary>
+    /// <param name="id">The task identifier.</param>
+    /// <returns>The task result, or null if not found.</returns>
+    public KrTask? Get(string id)
+           => _tasks.TryGetValue(id, out var t) ? t.ToKrTask() : null;
 
-    /// <summary>Gets the current state for a task.</summary>
+    /// <summary>
+    /// Gets the current state for a task.
+    /// </summary>
+    /// <param name="id">The task identifier.</param>
+    /// <returns>The task state, or null if not found.</returns>
     public TaskState? GetState(string id)
         => _tasks.TryGetValue(id, out var t) ? t.State : null;
 
-    /// <summary>Gets a snapshot result for a task (works even while running; Output is only set after completion).</summary>
-    public TaskResult? GetResult(string id)
-        => _tasks.TryGetValue(id, out var t) ? t.ToResult() : null;
+    /// <summary>
+    /// Gets the output object for a completed task.
+    /// </summary>
+    /// <param name="id">The task identifier.</param>
+    /// <returns>The task output object, or null if not found or no output.</returns>
+    public KrTaskResult? GetResult(string id)
+        => _tasks.TryGetValue(id, out var t) ? t.ToKrTaskResult() : null;
 
     /// <summary>Attempts to cancel a running task.</summary>
     public bool Cancel(string id)
@@ -127,8 +142,8 @@ public sealed class KestrunTaskService(KestrunRunspacePoolManager pool, Serilog.
     public bool Remove(string id) => _tasks.TryRemove(id, out _);
 
     /// <summary>Lists all tasks with basic info.</summary>
-    public IReadOnlyCollection<TaskResult> List()
-        => [.. _tasks.Values.Select(v => v.ToResult())];
+    public IReadOnlyCollection<KrTaskResult> List()
+        => [.. _tasks.Values.Select(v => v.ToKrTaskResult())];
 
     private async Task ExecuteAsync(KestrunTask task)
     {

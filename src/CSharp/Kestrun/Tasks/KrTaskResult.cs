@@ -9,20 +9,15 @@ namespace Kestrun.Tasks;
 /// <param name="CompletedAt">UTC timestamp when execution ended.</param>
 /// <param name="Output">Primary output object (C#/VB returns last expression; PowerShell returns array of pipeline output).</param>
 /// <param name="Error">Fault exception message or error record text if any.</param>
-public sealed record TaskResult(
+public sealed record KrTaskResult(
     string Id,
     TaskState State,
     DateTimeOffset? StartedAt,
     DateTimeOffset? CompletedAt,
     object? Output,
     string? Error
-)
+) : KrTask(Id, State, StartedAt, CompletedAt, Error)
 {
-    /// <summary>
-    /// The textual name of <see cref="State"/> for display and serialization convenience.
-    /// </summary>
-    public string StateText => State.ToString();
-
     /// <summary>
     /// Duration of the execution, if both timestamps are available.
     /// </summary>

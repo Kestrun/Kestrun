@@ -57,5 +57,12 @@ public sealed class KestrunTask(string Id, LanguageOptions ScriptCode, Cancellat
     /// <summary>
     /// Creates a snapshot result for this task.
     /// </summary>
-    public TaskResult ToResult() => new(Id, State, StartedAtUtc, CompletedAtUtc, Output, Fault?.ToString());
+    /// <returns> A snapshot result for this task. </returns>
+    public KrTaskResult ToKrTaskResult() => new(Id, State, StartedAtUtc, CompletedAtUtc, Output, Fault?.ToString());
+
+    /// <summary>
+    /// Creates a basic task info record for this task.
+    /// </summary>
+    /// <returns> A basic task info record. </returns>
+    public KrTask ToKrTask() => new(Id, State, StartedAtUtc, CompletedAtUtc, Fault?.ToString());
 }

@@ -38,6 +38,7 @@
 #>
 function New-KrTask {
     [KestrunRuntimeApi('Everywhere')]
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseShouldProcessForStateChangingFunctions', '')]
     [CmdletBinding(DefaultParameterSetName = 'FromCode')]
     [OutputType([string])]
     param(
@@ -75,11 +76,9 @@ function New-KrTask {
         [Parameter(ParameterSetName = 'Code')]
         [Parameter(ParameterSetName = 'CodeFilePath')]
         [hashtable]$Arguments
-
     )
     begin {
         $Server = Resolve-KestrunServer -Server $Server
-
     }
     process {
         if ($PSCmdlet.ParameterSetName -ne 'Options') {
@@ -125,7 +124,6 @@ function New-KrTask {
                 }
             }
         }
-
         return $Server.Tasks.Create($id, $Options)
     }
 }

@@ -33,10 +33,16 @@ Enable-KrConfiguration
 # 1) Create a PowerShell task (does NOT start it). Example:
 #    /tasks/create/ps?seconds=2
 Add-KrMapRoute -Verbs Get -Path '/tasks/create/ps' -ScriptBlock {
-    $seconds = [int](Get-KrRequestQuery -Name 'seconds')
+    $seconds = Get-KrRequestQuery -Name 'seconds' -AsInt
     if ($seconds -le 0) { $seconds = 2 }
+    Write-KrLog -Level Debug -Message 'Creating PS task that sleeps for {seconds} seconds' -Values $seconds
 
-    $id = New-KrTask -scriptblock { param($s) Start-Sleep -Seconds $s; "PS task done at " + (Get-Date).ToString("o") } -Arguments @{ s = $seconds }
+    # Create a new PowerShell task that sleeps for the specified seconds and then returns the current
+    $id = New-KrTask -ScriptBlock {
+        write-debug "Task started, will sleep for $sec seconds"
+        Start-Sleep -Seconds $sec;
+        'PS task done at ' + (Get-Date).ToString('o')
+    } -Arguments @{ "sec" = $seconds }
     Write-KrJsonResponse -StatusCode 200 -InputObject @{ id = $id; language = 'PowerShell' }
 }
 
@@ -76,12 +82,12 @@ Add-KrMapRoute -Verbs Get -Path '/tasks/state' -ScriptBlock {
         Write-KrJsonResponse -StatusCode 400 -InputObject @{ error = "Missing 'id' query parameter" }
         return
     }
-    $state = Get-KrTask -Id $id
-    if ($null -eq $state) {
+    $task = Get-KrTask -Id $id
+    if ($null -eq $task) {
         Write-KrJsonResponse -StatusCode 404 -InputObject @{ error = 'Task not found' }
         return
     }
-    Write-KrJsonResponse -StatusCode 200 -InputObject @{ id = $id; state = $state }
+    Write-KrJsonResponse -StatusCode 200 -InputObject $task
 }
 
 # 5) Get detailed result snapshot. Example:
@@ -92,7 +98,7 @@ Add-KrMapRoute -Verbs Get -Path '/tasks/result' -ScriptBlock {
         Write-KrJsonResponse -StatusCode 400 -InputObject @{ error = "Missing 'id' query parameter" }
         return
     }
-    $r = Get-KrTask -Id $id -Detailed
+    $r = Get-KrTask -Id $id -Result
     if ($null -eq $r) {
         Write-KrJsonResponse -StatusCode 404 -InputObject @{ error = 'Task not found' }
         return
@@ -139,7 +145,9 @@ Add-KrMapRoute -Verbs Get -Path '/tasks/run/ps' -ScriptBlock {
     $seconds = [int](Get-KrRequestQuery -Name 'seconds')
     if ($seconds -le 0) { $seconds = 1 }
     $code = "Start-Sleep -Seconds $seconds; Get-Date"
-    $id = Start-KrTask -Language PowerShell -Code $code
+    # One-shot = create + start
+    $id = New-KrTask -Language PowerShell -Code $code
+    $null = Start-KrTask -Id $id
     Write-KrJsonResponse -StatusCode 202 -InputObject @{ id = $id; started = $true }
 }
 

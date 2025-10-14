@@ -57,7 +57,7 @@ internal static class TaskJobFactory
                 var vars = config.ScriptCode.Arguments is { Count: > 0 }
                     ? new Dictionary<string, object?>(config.ScriptCode.Arguments)
                     : [];
-                vars["Progress"] = config.Progress;
+                vars["TaskProgress"] = config.Progress;
                 PowerShellExecutionHelpers.SetVariables(ps, vars, config.Log);
                 using var reg = ct.Register(() => ps.Stop());
                 var results = await ps.InvokeAsync().WaitAsync(ct).ConfigureAwait(false);
@@ -85,17 +85,25 @@ internal static class TaskJobFactory
 
     private static Func<CancellationToken, Task<object?>> CSharpTask(TaskJobConfig config)
     {
+        // Prepare locals upfront and include TaskProgress so compilation preamble declares it
+        var compileLocals = config.ScriptCode.Arguments is { Count: > 0 }
+            ? new Dictionary<string, object?>(config.ScriptCode.Arguments)
+            : [];
+        compileLocals["TaskProgress"] = config.Progress;
+
         // Compile and get a runner that returns object? (last expression)
-        var script = CSharpDelegateBuilder.Compile(config.ScriptCode.Code, config.Log, config.ScriptCode.ExtraImports, config.ScriptCode.ExtraRefs, config.ScriptCode.Arguments, config.ScriptCode.LanguageVersion);
+        var script = CSharpDelegateBuilder.Compile(
+            config.ScriptCode.Code,
+            config.Log,
+            config.ScriptCode.ExtraImports,
+            config.ScriptCode.ExtraRefs,
+            compileLocals,
+            config.ScriptCode.LanguageVersion);
         var runner = script.CreateDelegate(); // ScriptRunner<object?>
         return async ct =>
         {
-            // Add Progress object into locals so C# scripts can do: Progress.PercentComplete = 42;
-            var locals = config.ScriptCode.Arguments is { Count: > 0 }
-                ? new Dictionary<string, object?>(config.ScriptCode.Arguments)
-                : [];
-            locals["Progress"] = config.Progress;
-            var globals = new CsGlobals(SharedStateStore.Snapshot(), locals);
+            // Use the same locals at execution time
+            var globals = new CsGlobals(SharedStateStore.Snapshot(), compileLocals);
             return await runner(globals, ct).ConfigureAwait(false);
         };
     }
@@ -109,7 +117,7 @@ internal static class TaskJobFactory
             var locals = config.ScriptCode.Arguments is { Count: > 0 }
                 ? new Dictionary<string, object?>(config.ScriptCode.Arguments)
                 : [];
-            locals["Progress"] = config.Progress;
+            locals["TaskProgress"] = config.Progress;
             var globals = new CsGlobals(SharedStateStore.Snapshot(), locals);
             // VB compiled delegate does not accept CancellationToken; allow cooperative cancel of awaiting.
             var task = runner(globals);

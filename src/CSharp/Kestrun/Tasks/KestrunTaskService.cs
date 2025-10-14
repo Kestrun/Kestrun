@@ -21,9 +21,17 @@ public sealed class KestrunTaskService(KestrunRunspacePoolManager pool, Serilog.
     /// <summary>
     /// Creates a task from a code snippet without starting it.
     /// </summary>
-    public string Create(string? id, LanguageOptions ScriptCode)
+    /// <param name="id">Optional unique task identifier. If null or empty, a new GUID will be generated.</param>
+    /// <param name="scriptCode">The scripting language and code configuration for this task.</param>
+    /// <param name="autoStart">Whether to start the task automatically.</param>
+    /// <param name="name">Optional human-friendly name of the task.</param>
+    /// <param name="description">Optional description of the task.</param>
+    /// <returns>The unique identifier of the created task.</returns>
+    /// <exception cref="ArgumentNullException">Thrown if scriptCode is null.</exception>
+    /// <exception cref="InvalidOperationException">Thrown if a task with the same id already exists.</exception>
+    public string Create(string? id, LanguageOptions scriptCode, bool autoStart, string? name, string? description = null)
     {
-        ArgumentNullException.ThrowIfNull(ScriptCode);
+        ArgumentNullException.ThrowIfNull(scriptCode);
 
         if (string.IsNullOrWhiteSpace(id))
         {
@@ -35,19 +43,74 @@ public sealed class KestrunTaskService(KestrunRunspacePoolManager pool, Serilog.
         }
 
         var progress = new ProgressiveKestrunTaskState();
-        var cfg = new TaskJobFactory.TaskJobConfig(ScriptCode, _log, _pool, progress);
+        var cfg = new TaskJobFactory.TaskJobConfig(scriptCode, _log, _pool, progress);
         var work = TaskJobFactory.Create(cfg);
         var cts = new CancellationTokenSource();
-        var task = new KestrunTask(id, ScriptCode, cts)
+        var task = new KestrunTask(id, scriptCode, cts)
         {
             Work = work,
-            Progress = progress
+            Progress = progress,
+            Name = string.IsNullOrWhiteSpace(name) ? ("Task " + id) : name,
+            Description = string.IsNullOrWhiteSpace(description) ? string.Empty : description
         };
 
-        return !_tasks.TryAdd(id, task) ? throw new InvalidOperationException($"Task id '{id}' already exists.") : id;
+        if (!_tasks.TryAdd(id, task))
+        {
+            throw new InvalidOperationException($"Task id '{id}' already exists.");
+        }
+        if (autoStart)
+        {
+            _ = Start(id);
+        }
+        return id;
     }
 
-    /// <summary>Starts a previously created task by id.</summary>
+    /// <summary>
+    /// Sets or updates the name of a task.
+    /// </summary>
+    /// <param name="id">The task identifier.</param>
+    /// <param name="name">The new name for the task.</param>
+    /// <returns>True if the task was found and updated; false if not found.</returns>
+    public bool SetTaskName(string id, string name)
+    {
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            throw new ArgumentNullException(nameof(name));
+        }
+
+        if (!_tasks.TryGetValue(id, out var task))
+        {
+            return false;
+        }
+        task.Name = name;
+        return true;
+    }
+
+    /// <summary>
+    /// Sets or updates the description of a task.
+    /// </summary>
+    /// <param name="id">The task identifier.</param>
+    /// <param name="description">The new description for the task.</param>
+    /// <returns>True if the task was found and updated; false if not found.</returns>
+    public bool SetTaskDescription(string id, string description)
+    {
+        if (string.IsNullOrWhiteSpace(description))
+        {
+            throw new ArgumentNullException(nameof(description));
+        }
+        if (!_tasks.TryGetValue(id, out var task))
+        {
+            return false;
+        }
+        task.Description = description;
+        return true;
+    }
+
+    /// <summary>
+    /// Starts a previously created task by id.
+    /// </summary>
+    /// <param name="id">The task identifier.</param>
+    /// <returns>True if the task was found and started; false if not found or already started.</returns>
     public bool Start(string id)
     {
         if (!_tasks.TryGetValue(id, out var task))

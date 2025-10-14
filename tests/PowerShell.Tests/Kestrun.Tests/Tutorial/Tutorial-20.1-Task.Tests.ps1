@@ -48,7 +48,8 @@ Describe 'Tutorial 20.1 - Tasks' -Tag 'Tutorial' {
 
     It 'PowerShell task: create → start → complete → result → remove' {
         # Create
-        $sc = $null; $params = @{ Uri = ("$($script:instance.Url)/tasks/create/ps?seconds=1"); Headers = @{Accept = 'application/json' }; TimeoutSec = 12; SkipHttpErrorCheck = $true; StatusCodeVariable = 'sc' }
+        $sc = $null
+        $params = @{ Uri = ("$($script:instance.Url)/tasks/create/ps?seconds=1"); Headers = @{Accept = 'application/json' }; TimeoutSec = 12; SkipHttpErrorCheck = $true; StatusCodeVariable = 'sc' }
         if ($script:instance.Https) { $params.SkipCertificateCheck = $true }
         $create = Invoke-RestMethod @params
         $sc | Should -Be 200
@@ -57,7 +58,8 @@ Describe 'Tutorial 20.1 - Tasks' -Tag 'Tutorial' {
 
         # Start
         $startUrl = "$($script:instance.Url)/tasks/start?id=$($create.id)"
-        $sc = $null; $params = @{ Uri = $startUrl; Headers = @{Accept = 'application/json' }; TimeoutSec = 12; SkipHttpErrorCheck = $true; StatusCodeVariable = 'sc' }
+        $sc = $null
+        $params = @{ Uri = $startUrl; Headers = @{Accept = 'application/json' }; TimeoutSec = 12; SkipHttpErrorCheck = $true; StatusCodeVariable = 'sc' }
         if ($script:instance.Https) { $params.SkipCertificateCheck = $true }
         $start = Invoke-RestMethod @params
         $sc | Should -Be 202
@@ -70,7 +72,11 @@ Describe 'Tutorial 20.1 - Tasks' -Tag 'Tutorial' {
         $state.stateText | Should -Be 'Completed'
         $state.StartedAt | Should -Not -BeNullOrEmpty
         $state.CompletedAt | Should -Not -BeNullOrEmpty
-        # Result snapshot
+        # Progress should be present and completed
+        $state.Progress | Should -Not -BeNullOrEmpty
+        $state.Progress.PercentComplete | Should -Be 100
+        $state.Progress.StatusMessage | Should -Be 'Completed'
+        # Result object only (no task envelope)
         $resultUrl = "$($script:instance.Url)/tasks/result?id=$($create.id)"
         $sc = $null; $params = @{ Uri = $resultUrl; Headers = @{Accept = 'application/json' }; TimeoutSec = 12; SkipHttpErrorCheck = $true; StatusCodeVariable = 'sc' }
         if ($script:instance.Https) { $params.SkipCertificateCheck = $true }
@@ -105,6 +111,9 @@ Describe 'Tutorial 20.1 - Tasks' -Tag 'Tutorial' {
 
         $state = Wait-UntilTaskState -Id $create.id -States @('Completed') -TimeoutSec 25
         $state.stateText | Should -Be 'Completed'
+        $state.Progress | Should -Not -BeNullOrEmpty
+        $state.Progress.PercentComplete | Should -Be 100
+        $state.Progress.StatusMessage | Should -Be 'Completed'
 
         $resultUrl = "$($script:instance.Url)/tasks/result?id=$($create.id)"
         $sc = $null; $params = @{ Uri = $resultUrl; Headers = @{Accept = 'application/json' }; TimeoutSec = 12; SkipHttpErrorCheck = $true; StatusCodeVariable = 'sc' }
@@ -133,7 +142,7 @@ Describe 'Tutorial 20.1 - Tasks' -Tag 'Tutorial' {
         $list.GetType().Name | Should -BeIn @('Object[]', 'PSCustomObject')
     }
 
-    It 'cancel running task transitions to Cancelled or Completed' -Tag 'Slow' {
+    It 'cancel running task transitions to Stopped or Completed' -Tag 'Slow' {
         # Create a longer PS task so we can cancel
         $sc = $null; $params = @{ Uri = ("$($script:instance.Url)/tasks/create/ps?seconds=5"); Headers = @{Accept = 'application/json' }; TimeoutSec = 12; SkipHttpErrorCheck = $true; StatusCodeVariable = 'sc' }
         if ($script:instance.Https) { $params.SkipCertificateCheck = $true }
@@ -160,7 +169,7 @@ Describe 'Tutorial 20.1 - Tasks' -Tag 'Tutorial' {
         }
 
         # Wait until it reaches a terminal state
-        $state = Wait-UntilTaskState -Id $id -States @('Cancelled', 'Completed') -TimeoutSec 25
-        $state.stateText | Should -BeIn @('Cancelled', 'Completed')
+        $state = Wait-UntilTaskState -Id $id -States @('Stopped', 'Completed') -TimeoutSec 25
+        $state.stateText | Should -BeIn @('Stopped', 'Completed')
     }
 }

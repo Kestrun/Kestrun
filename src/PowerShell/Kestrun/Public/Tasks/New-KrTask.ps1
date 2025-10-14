@@ -7,6 +7,12 @@
     The Kestrun server instance.
 .PARAMETER Id
     Optional task id; if omitted, a new GUID is generated.
+.PARAMETER AutoStart
+    If specified, the task will be started immediately after creation.
+.PARAMETER Name
+    Optional human-friendly name of the task.
+.PARAMETER Description
+    Optional description of the task.
 .PARAMETER Options
     Language options object; mutually exclusive with other code parameters.
 .PARAMETER ScriptBlock
@@ -47,6 +53,15 @@ function New-KrTask {
 
         [Parameter()]
         [string]$Id,
+
+        [Parameter()]
+        [switch]$AutoStart,
+
+        [Parameter(Mandatory = $false)]
+        [string]$Name,
+
+        [parameter(Mandatory = $false)]
+        [string]$Description,
 
         [Parameter(Mandatory = $true, ParameterSetName = 'Options')]
         [Kestrun.Hosting.Options.LanguageOptions]$Options,
@@ -124,6 +139,6 @@ function New-KrTask {
                 }
             }
         }
-        return $Server.Tasks.Create($id, $Options)
+        return $Server.Tasks.Create($id, $Options, $AutoStart.IsPresent, $Name, $Description)
     }
 }

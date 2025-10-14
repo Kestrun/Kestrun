@@ -7,8 +7,6 @@
     The Kestrun server instance.
 .PARAMETER Id
     Task id to query.
-.PARAMETER Result
-    When present, return TaskResult.
 .PARAMETER State
     When present, return only the task state string.
 .EXAMPLE
@@ -29,8 +27,7 @@
 function Get-KrTask {
     [KestrunRuntimeApi('Everywhere')]
     [CmdletBinding(defaultParameterSetName = 'Default')]
-    [OutputType([Kestrun.Tasks.KrTaskResult])]
-    [OutputType([Kestrun.Tasks.KrTaskResult[]])]
+    [OutputType([Kestrun.Tasks.KrTask[]])]
     [OutputType([Kestrun.Tasks.KrTask])]
     param(
         [Parameter(ValueFromPipeline = $true)]
@@ -38,9 +35,6 @@ function Get-KrTask {
 
         [Parameter()]
         [string]$Id,
-
-        [Parameter(parameterSetName = 'Result')]
-        [switch]$Result,
 
         [Parameter(parameterSetName = 'State')]
         [switch]$State
@@ -52,9 +46,7 @@ function Get-KrTask {
         if ([string]::IsNullOrEmpty($Id)) {
             return $Server.Tasks.List()
         }
-        if ($Result.IsPresent) {
-            return $Server.Tasks.GetResult($Id)
-        } elseif ($State.IsPresent) {
+        if ($State.IsPresent) {
             return $Server.Tasks.GetState($Id)
         } else {
             return $Server.Tasks.Get($Id)

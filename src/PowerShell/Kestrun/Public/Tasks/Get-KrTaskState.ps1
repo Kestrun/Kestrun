@@ -8,15 +8,15 @@
 .PARAMETER Id
     Task id to query.
 .EXAMPLE
-    Get-KrTaskResult -Id 'task-id'
-    Returns the detailed result of the specified task.
+    Get-KrTaskState -Id 'task-id'
+    Returns the state of the specified task as a [Kestrun.Tasks.TaskState] object.
 .OUTPUTS
-    Returns a [int].
+    [Kestrun.Tasks.TaskState]
 #>
 function Get-KrTaskState {
     [KestrunRuntimeApi('Everywhere')]
     [CmdletBinding(defaultParameterSetName = 'Default')]
-    [OutputType([int])]
+    [OutputType([Kestrun.Tasks.TaskState])]
     param(
         [Parameter(ValueFromPipeline = $true)]
         [Kestrun.Hosting.KestrunHost]$Server,

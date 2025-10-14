@@ -288,7 +288,7 @@ public class KestrunTaskServiceAllTests
             var childSpin = DateTime.UtcNow;
             while (svc.GetState(childId) == TaskState.NotStarted && DateTime.UtcNow - childSpin < TimeSpan.FromSeconds(3))
             {
-                await Task.Delay(20);
+                await Task.Delay(30);
             }
 
             // Wait parent to complete

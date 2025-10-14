@@ -60,7 +60,7 @@ function Get-KrRequestQuery {
     )
     if ($null -ne $Context.Request) {
         if ($ThrowIfMissing -and -not $Context.Request.Query.ContainsKey($Name)) {
-            throw "Missing required query parameter: $Name"
+            throw [System.ArgumentException]::new("Missing required query parameter: $Name")
         }
         # Get the query parameter value from the request
         $value = $Context.Request.Query[$Name]

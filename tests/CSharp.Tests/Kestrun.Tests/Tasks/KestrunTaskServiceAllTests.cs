@@ -266,7 +266,8 @@ public class KestrunTaskServiceAllTests
         {
             // Create parent (quick completes) and child (long running)
             var parentLang = new LanguageOptions { Language = ScriptLanguage.CSharp, Code = "await Task.Delay(20); return 1;" };
-            var childLang = new LanguageOptions { Language = ScriptLanguage.CSharp, Code = "await Task.Delay(300); return 2;" };
+            // Make child long enough to still be running when we try to remove the parent
+            var childLang = new LanguageOptions { Language = ScriptLanguage.CSharp, Code = "await Task.Delay(2000); return 2;" };
             var parentId = svc.Create(null, parentLang, true, "parent", null);
             var childId = svc.Create(null, childLang, false, "child", null);
 
@@ -299,6 +300,12 @@ public class KestrunTaskServiceAllTests
             }
             Assert.Equal(TaskState.Completed, svc.GetState(parentId));
 
+            // Ensure the child is actually Running before attempting removal
+            var ensureRunning = DateTime.UtcNow;
+            while (svc.GetState(childId) == TaskState.NotStarted && DateTime.UtcNow - ensureRunning < TimeSpan.FromSeconds(3))
+            {
+                await Task.Delay(25);
+            }
             // Parent removal should fail because child still running
             Assert.False(svc.Remove(parentId));
 

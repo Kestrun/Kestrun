@@ -7,9 +7,6 @@ namespace Kestrun.Tasks;
 /// <summary>
 /// Service to run ad-hoc Kestrun tasks in PowerShell, C#, or VB.NET, with status, result, and cancellation.
 /// </summary>
-/// <summary>
-/// Creates a new instance of the KestrunTaskService.
-/// </summary>
 /// <param name="pool">PowerShell runspace pool manager.</param>
 /// <param name="log">Logger instance.</param>
 public sealed class KestrunTaskService(KestrunRunspacePoolManager pool, Serilog.ILogger log)

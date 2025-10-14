@@ -23,7 +23,7 @@ Add-KrEndpoint -Port $Port -IPAddress $IPAddress -SelfSignedCert
 
 # --- Tasks setup ------------------------------------------------------------
 # Register the ad-hoc Tasks feature (PowerShell, C#, VB.NET)
-Add-KrTask
+Add-KrTasksService
 
 # Enable configuration
 Enable-KrConfiguration

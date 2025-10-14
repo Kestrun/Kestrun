@@ -89,7 +89,7 @@
         'Add-KrSignalRHubMiddleware', 'Add-KrSinkConsole', 'Add-KrSinkEventLog',
         'Add-KrSinkFile', 'Add-KrSinkHttp', 'Add-KrSinkPowerShell',
         'Add-KrSinkSyslogLocal', 'Add-KrSinkSyslogTcp', 'Add-KrSinkSyslogUdp',
-        'Add-KrStaticFilesMiddleware', 'Add-KrStaticMapOverride', 'Add-KrTask',
+        'Add-KrStaticFilesMiddleware', 'Add-KrStaticMapOverride', 'Add-KrTasksService',
         'Add-KrUserClaim', 'Add-KrWindowsAuthentication', 'Build-KrClaimPolicy',
         'Build-KrJWT', 'Clear-KrEnvironmentOverride', 'Clear-KrSession',
         'Close-KrLogger', 'ConvertFrom-KrYaml', 'ConvertTo-KrYaml',

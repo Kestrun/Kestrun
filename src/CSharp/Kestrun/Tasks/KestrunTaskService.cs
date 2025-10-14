@@ -186,7 +186,13 @@ public sealed class KestrunTaskService(KestrunRunspacePoolManager pool, Serilog.
     public object? GetResult(string id)
            => _tasks.TryGetValue(id, out var t) ? t.Output : null;
 
-    /// <summary>Attempts to cancel a running task.</summary>
+    /// <summary>
+    /// Attempts to cancel a task.
+    /// </summary>
+    /// <remarks>
+    /// If the task has not been started (NotStarted) it is transitioned directly to the terminal
+    /// Stopped state so it can be removed later and does not remain orphaned.
+    /// </remarks>
     public bool Cancel(string id)
     {
         if (!_tasks.TryGetValue(id, out var t))
@@ -197,7 +203,21 @@ public sealed class KestrunTaskService(KestrunRunspacePoolManager pool, Serilog.
         {
             return false;
         }
-        _log.Information("Cancelling task {Id}", id);
+
+        if (t.State == TaskState.NotStarted)
+        {
+            _log.Information("Cancelling task {Id} before start", id);
+            // Transition to a terminal state so Remove() can succeed
+            t.State = TaskState.Stopped;
+            t.Progress.Cancel("Cancelled before start");
+            var now = DateTimeOffset.UtcNow;
+            t.StartedAtUtc ??= now;
+            t.CompletedAtUtc = now;
+            t.TokenSource.Cancel(); // ensure any future Start() attempt observes cancellation
+            return true;
+        }
+
+        _log.Information("Cancelling running task {Id}", id);
         t.TokenSource.Cancel();
         return true;
     }

@@ -58,7 +58,7 @@ function Get-KrRequestCookie {
         [Parameter()]
         [switch]$ThrowIfMissing
     )
-    if ($null -ne $Context.Request) {
+    if ($null -ne $Context -and $null -ne $Context.Request -and $null -ne $Context.Request.Cookies) {
         if ($ThrowIfMissing -and -not $Context.Request.Cookies.ContainsKey($Name)) {
             throw [System.ArgumentException]::new("Missing required cookie: $Name", "$Name")
         }

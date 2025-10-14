@@ -5,7 +5,6 @@ using Kestrun.Tasks;
 using Serilog;
 using Serilog.Core;
 using Xunit;
-using System.Threading.Tasks;
 
 namespace KestrunTests.Tasks;
 

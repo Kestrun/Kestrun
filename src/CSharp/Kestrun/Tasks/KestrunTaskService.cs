@@ -250,13 +250,18 @@ public sealed class KestrunTaskService(KestrunRunspacePoolManager pool, Serilog.
                 _log.Information("Removing task {Id}", id);
                 if (_tasks.TryRemove(id, out _))
                 {
+                    // Detach from parent first so recursive child removals can't mutate the list we iterate
                     if (t.Parent is not null)
                     {
                         _ = t.Parent.Children.Remove(t);
                     }
+
+                    // Take a point-in-time snapshot because recursive Remove(child.Id) will
+                    // mutate the parent's Children collection (each child removes itself).
                     if (t.Children.Count > 0)
                     {
-                        foreach (var child in t.Children)
+                        var snapshot = t.Children.ToArray();
+                        foreach (var child in snapshot)
                         {
                             if (!Remove(child.Id))
                             {

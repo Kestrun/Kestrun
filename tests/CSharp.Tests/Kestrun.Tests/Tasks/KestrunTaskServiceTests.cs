@@ -72,22 +72,23 @@ return "done";
         var id = svc.Create(id: null, scriptCode: lang, autoStart: false, name: null, description: null);
         Assert.True(svc.Start(id));
 
-        // Wait for running
+        // Wait for running (CI can be slow starting runspace); if we never see Running we still attempt cancel
         var start = DateTime.UtcNow;
-        while (svc.GetState(id) == TaskState.NotStarted && DateTime.UtcNow - start < TimeSpan.FromSeconds(1))
+        while (svc.GetState(id) == TaskState.NotStarted && DateTime.UtcNow - start < TimeSpan.FromSeconds(3))
         {
-            await Task.Delay(10);
+            await Task.Delay(25);
         }
 
-        _ = svc.Cancel(id);
+        _ = svc.Cancel(id); // idempotent if already cancelled
 
-        // Wait for stopped
+        // Wait for stopped (allow extra time for PS pipeline abort)
         start = DateTime.UtcNow;
-        while (svc.GetState(id) != TaskState.Stopped && DateTime.UtcNow - start < TimeSpan.FromSeconds(3))
+        while (svc.GetState(id) != TaskState.Stopped && DateTime.UtcNow - start < TimeSpan.FromSeconds(6))
         {
-            await Task.Delay(20);
+            await Task.Delay(40);
         }
-        Assert.Equal(TaskState.Stopped, svc.GetState(id));
+        var final = svc.GetState(id);
+        Assert.True(final == TaskState.Stopped, $"Expected Stopped, got {final}");
         var kr = svc.Get(id);
         Assert.NotNull(kr);
         Assert.Equal(100, kr!.Progress!.PercentComplete);

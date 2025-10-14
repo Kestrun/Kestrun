@@ -11,7 +11,7 @@
     .PARAMETER PassThru
         Returns the server when specified.
 #>
-function Add-KrTasks {
+function Add-KrTask {
     [KestrunRuntimeApi('Definition')]
     [CmdletBinding()]
     [OutputType([Kestrun.Hosting.KestrunHost])]

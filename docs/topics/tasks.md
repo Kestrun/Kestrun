@@ -136,5 +136,5 @@ Tasks complement the scheduler: you can even have scheduled jobs that queue task
 ## See Also
 
 - Tutorial: [Tasks Walkthrough](/pwsh/tutorial/20.Tasks/1.Tasks)
-- Cmdlets: `Add-KrTasks`, `New-KrTask`, `Start-KrTask`, `Get-KrTask`, `Stop-KrTask`, `Remove-KrTask`
+- Cmdlets: `Add-KrTask`, `New-KrTask`, `Start-KrTask`, `Get-KrTask`, `Stop-KrTask`, `Remove-KrTask`
 - Guides: [Scheduling](/topics/scheduling), [Logging](/topics/logging)

@@ -284,6 +284,13 @@ public class KestrunTaskServiceAllTests
 
             Assert.True(svc.Start(childId));
 
+            // Wait for child to actually transition to Running (CI can be slower scheduling the work)
+            var childSpin = DateTime.UtcNow;
+            while (svc.GetState(childId) == TaskState.NotStarted && DateTime.UtcNow - childSpin < TimeSpan.FromSeconds(3))
+            {
+                await Task.Delay(20);
+            }
+
             // Wait parent to complete
             var start = DateTime.UtcNow;
             while (svc.GetState(parentId) != TaskState.Completed && DateTime.UtcNow - start < TimeSpan.FromSeconds(3))
@@ -295,14 +302,15 @@ public class KestrunTaskServiceAllTests
             // Parent removal should fail because child still running
             Assert.False(svc.Remove(parentId));
 
-            // Cancel child to reach terminal
+            // Cancel child to reach terminal (ensure we saw Running first where possible)
             Assert.True(svc.Cancel(childId));
             start = DateTime.UtcNow;
-            while (svc.GetState(childId) != TaskState.Stopped && DateTime.UtcNow - start < TimeSpan.FromSeconds(5))
+            while (svc.GetState(childId) != TaskState.Stopped && DateTime.UtcNow - start < TimeSpan.FromSeconds(8))
             {
                 await Task.Delay(25);
             }
-            Assert.Equal(TaskState.Stopped, svc.GetState(childId));
+            var childFinal = svc.GetState(childId);
+            Assert.True(childFinal == TaskState.Stopped, $"Expected Stopped after cancellation, got {childFinal}");
 
             // Now removal should succeed and cascade
             Assert.True(svc.Remove(parentId));

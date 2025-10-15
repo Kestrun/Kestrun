@@ -117,6 +117,19 @@
 				"build",
 				"c:\\Users\\m_dan\\Documents\\GitHub\\kestrun\\kestrun\\src\\CSharp\\Kestrun\\Kestrun.csproj"
 			]
+		},
+		{
+			"label": "build Kestrun library",
+			"type": "shell",
+			"command": "dotnet",
+			"args": [
+				"build",
+				"c:\\Users\\m_dan\\Documents\\GitHub\\kestrun\\kestrun\\src\\CSharp\\Kestrun\\Kestrun.csproj"
+			],
+			"problemMatcher": [
+				"$msCompile"
+			],
+			"group": "build"
 		}
 	]
 }

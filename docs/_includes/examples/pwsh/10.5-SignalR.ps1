@@ -1,4 +1,4 @@
-﻿<#
+<#
     Create a SignalR demo server with Kestrun in PowerShell.
     FileName: 10.5-SignalR.ps1
 #>
@@ -24,6 +24,9 @@ Add-KrSignalRHubMiddleware -Path '/hubs/kestrun'
 
 ## 5. Enable Scheduler (must be added before configuration)
 Add-KrScheduling
+
+# Register the ad-hoc Tasks feature (PowerShell, C#, VB.NET)
+Add-KrTasksService
 
 ## 6. Enable Configuration
 Enable-KrConfiguration
@@ -106,30 +109,34 @@ Add-KrMapRoute -Verbs Post -Pattern '/api/group/broadcast/{groupName}' {
 
 # Route to start a long-running operation with progress updates
 Add-KrMapRoute -Verbs Post -Pattern '/api/operation/start' {
+    $seconds = Get-KrRequestQuery -Name 'seconds' -AsInt
+    if ($seconds -le 0) { $seconds = 2 }
     $operationId = [Guid]::NewGuid().ToString()
+    $message = "Starting long operation with ID: $operationId"
+    Write-KrLog -Level Information -Message $message
+
     # Expand-KrObject $krserver
     # Start a background job to simulate long operation
-    $job = Start-Job -ScriptBlock {
-        param($OperationId, $ServerInstance)
-
-        # Import the Kestrun module in the background job
-        Import-Module $using:PSScriptRoot\..\..\..\src\PowerShell\Kestrun\Kestrun.psm1 -Force
-
+    #$job = Start-Job -ScriptBlock {
+    #     param($OperationId, $ServerInstance)
+    $id = New-KrTask -ScriptBlock {
         for ($i = 1; $i -le 10; $i++) {
             Start-Sleep -Seconds 2
-
-            $progress = $i * 10
+            Write-KrLog -Level Information -Message 'Operation {OperationId} progress: {i}/10' -Values $OperationId, $i
+            $TaskProgress.StatusMessage = "Sleeping ($i/$seconds)"
+            $TaskProgress.PercentComplete = [int](($i - 1) * 100 / $seconds)
             $message = @{
                 OperationId = $OperationId
-                Progress = $progress
+                Progress = $TaskProgress.PercentComplete
                 Step = $i
                 Message = "Processing step $i of 10..."
                 Timestamp = (Get-Date)
             }
 
-            # Broadcast progress to all clients
+            # Broadcast progress to all clients using the generic event channel the HTML listens to (ReceiveEvent)
             try {
-                [Kestrun.Hosting.KestrunHostSignalRExtensions]::BroadcastEventAsync($ServerInstance, 'OperationProgress', $message, $null, [System.Threading.CancellationToken]::None).GetAwaiter().GetResult()
+                Send-KrSignalREvent -EventName 'OperationProgress' -Data $message
+                # Alternatively, to use the dedicated handler: Send-KrSignalRGroupMessage -GroupName 'OperationProgress' -Method 'ReceiveOperationProgress' -Message $message
             } catch {
                 Write-Warning "Failed to broadcast progress: $_"
             }
@@ -138,35 +145,52 @@ Add-KrMapRoute -Verbs Post -Pattern '/api/operation/start' {
         # Send completion message
         $completionMessage = @{
             OperationId = $OperationId
-            Progress = 100
-            Message = 'Operation completed successfully!'
+            Progress = $TaskProgress.PercentComplete
+            Message = $TaskProgress.StatusMessage
             Timestamp = (Get-Date)
         }
 
         try {
-            [Kestrun.Hosting.KestrunHostSignalRExtensions]::BroadcastEventAsync($ServerInstance, 'OperationComplete', $completionMessage, $null, [System.Threading.CancellationToken]::None).GetAwaiter().GetResult()
+            # Broadcast completion on the same event channel the HTML expects
+            Send-KrSignalREvent -EventName 'OperationComplete' -Data $completionMessage
+            # Alternatively, for the dedicated handler: Send-KrSignalRGroupMessage -GroupName 'OperationProgress' -Method 'ReceiveOperationProgress' -Message $completionMessage
         } catch {
             Write-Warning "Failed to broadcast completion: $_"
         }
-    } -ArgumentList $operationId, $KrServer
+    } -Arguments @{ operationId = $operationId; seconds = $seconds } -AutoStart -Name "LongOperation-$operationId" -Description $message
 
+    Write-KrLog -Level Information -Message 'Long operation started: {OperationId}' -Values $operationId
+    Write-KrLog -Level Information -Message 'Long operation task created: {id}' -Values $id
     Write-KrJsonResponse -InputObject @{
         Success = $true
         OperationId = $operationId
-        JobId = $job.Id
-        Message = 'Long operation started'
+        TaskId = $id
+        Message = $message
     } -StatusCode 200
 }
 
 # Route to get operation status
 Add-KrMapRoute -Verbs Get -Pattern '/api/operation/status/{operationId}' {
     $operationId = Get-KrRequestRouteParam -Name 'operationId'
+    Write-KrLog -Level Information -Message 'Status requested for operation: {OperationId}' -Values $operationId
+    $task = Get-KrTask -Id $operationId
+    if ( $null -ne $task ) {
+        Write-KrLog -Level Information -Message 'Found task for operation {OperationId} with status {Status}' -Values $operationId, $task.Status
 
-    # In a real application, you'd track operation status in a database or cache
+    } else {
+        Write-KrLog -Level Warning -Message 'No task found for operation {OperationId}' -Values $operationId
+        Write-KrJsonResponse -InputObject @{
+            OperationId = $operationId
+            Message = "No task found for operation '$operationId'"
+        } -StatusCode 404
+        return
+    }
+    
     Write-KrJsonResponse -InputObject @{
         OperationId = $operationId
         Message = 'Operation status retrieved'
-        Note = 'This is a demo - real status tracking would require persistent storage'
+        TaskStatus = $task.Status.ToString()
+        Progress = $task.Progress
     } -StatusCode 200
 }
 
@@ -175,7 +199,7 @@ Register-KrSchedule -Name 'HeartbeatBroadcast' -Cron '*/30 * * * * *' -ScriptBlo
     $heartbeatMessage = @{
         Type = 'Heartbeat'
         ServerTime = (Get-Date)
-        Uptime =  Get-KrServer -Uptime
+        Uptime = Get-KrServer -Uptime
         ConnectedClients = Get-KrSignalRConnectedClient
         Message = 'Server heartbeat from scheduled task'
     }

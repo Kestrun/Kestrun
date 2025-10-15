@@ -1,4 +1,4 @@
-﻿<#
+<#
 .SYNOPSIS
     Gets the state of a task by id.
 .DESCRIPTION

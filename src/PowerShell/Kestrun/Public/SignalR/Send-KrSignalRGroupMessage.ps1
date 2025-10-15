@@ -1,4 +1,4 @@
-﻿<#
+<#
     .SYNOPSIS
         Broadcasts a message to a specific SignalR group.
     .DESCRIPTION

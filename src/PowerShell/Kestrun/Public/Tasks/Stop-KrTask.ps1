@@ -1,4 +1,4 @@
-﻿<#
+<#
 .SYNOPSIS
     Requests cancellation for a running task.
 .DESCRIPTION

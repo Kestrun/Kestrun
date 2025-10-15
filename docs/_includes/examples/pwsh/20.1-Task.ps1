@@ -1,4 +1,4 @@
-﻿<#
+<#
     Sample Kestrun Server Configuration – Tasks Demo
     This script shows how to enable the Tasks feature and use it via HTTP routes.
     FileName: 20.1-Task.ps1

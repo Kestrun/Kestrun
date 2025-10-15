@@ -1,4 +1,4 @@
-﻿<#
+<#
 .SYNOPSIS
     Gets the current Kestrun server instance.
 .DESCRIPTION

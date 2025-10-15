@@ -1,4 +1,4 @@
-﻿<#
+<#
 .SYNOPSIS
     Creates a task without starting it.
 .DESCRIPTION

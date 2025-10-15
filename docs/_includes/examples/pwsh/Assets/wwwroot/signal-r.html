@@ -118,6 +118,15 @@
             font-size: 0.9em;
             color: #333;
         }
+
+        /* Moved from inline styles */
+        #secondsInput {
+            width: 90px;
+        }
+
+        .hidden {
+            display: none;
+        }
     </style>
 </head>
 
@@ -147,11 +156,13 @@
     <div class="feature-section operation-section">
         <h3>Long Operations</h3>
         <div class="input-group">
+            <input type="number" id="secondsInput" min="1" value="20" />
+            <label for="secondsInput">seconds</label>
             <button onclick="startLongOperation()">Start Long Operation</button>
             <button onclick="getOperationStatus()">Get Operation Status</button>
         </div>
         <p class="status-text">Current operation: <span id="currentOperation">None</span></p>
-        <div id="progressContainer" class="progress-container" style="display: none;">
+        <div id="progressContainer" class="progress-container hidden">
             <div class="progress-track">
                 <div id="progressBar" class="progress-bar"></div>
             </div>
@@ -389,7 +400,9 @@
         // New long operation functions
         async function startLongOperation() {
             try {
-                const response = await fetch("/api/operation/start", {
+                const secondsRaw = document.getElementById("secondsInput")?.value;
+                const seconds = Number.parseInt(secondsRaw) > 0 ? Number.parseInt(secondsRaw) : 2;
+                const response = await fetch(`/api/operation/start?seconds=${encodeURIComponent(seconds)}`, {
                     method: 'POST'
                 });
                 const result = await response.json();
@@ -400,8 +413,8 @@
                     currentOperationId = opId;
                     document.getElementById("currentOperation").textContent = opId ?? 'Unknown';
                     document.getElementById("progressContainer").style.display = "block";
-                    updateProgressBar(0, "Starting...");
-                    addMessage(`🔄 Started long operation: ${opId ?? 'unknown'}`, "log-entry log-Information");
+                    updateProgressBar(0, `Starting... (0/${seconds})`);
+                    addMessage(`🔄 Started long operation: ${opId ?? 'unknown'} (seconds=${seconds})`, "log-entry log-Information");
                 } else {
                     addMessage(`❌ Failed to start operation: ${result.message}`, "log-entry log-Error");
                 }

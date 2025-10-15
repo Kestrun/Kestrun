@@ -1,4 +1,4 @@
-﻿<#
+<#
 .SYNOPSIS
     Adds ad-hoc Tasks support to the Kestrun server.
 .DESCRIPTION

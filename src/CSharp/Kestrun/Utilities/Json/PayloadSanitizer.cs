@@ -1,6 +1,5 @@
 using System.Collections;
 using System.Management.Automation;
-using System.Runtime.CompilerServices;
 using System.Globalization;
 
 namespace Kestrun.Utilities.Json;
@@ -21,6 +20,13 @@ public static class PayloadSanitizer
     public static object? Sanitize(object? value)
         => Sanitize(value, new HashSet<object>(ReferenceEqualityComparer.Instance), 0);
 
+    /// <summary>
+    /// Internal recursive sanitizer with cycle detection.
+    /// </summary>
+    /// <param name="value">The value to sanitize.</param>
+    /// <param name="visited">The set of visited objects.</param>
+    /// <param name="depth">The current depth in the object graph.</param>
+    /// <returns>The sanitized value.</returns>
     private static object? Sanitize(object? value, HashSet<object> visited, int depth)
     {
         if (value is null)
@@ -28,24 +34,70 @@ public static class PayloadSanitizer
             return null;
         }
 
-        var type = value.GetType();
-        if (type.IsValueType || value is string)
+        // Fast-path for scalars and special normalization
+        if (IsSimpleScalar(value, out var simple))
         {
-            // Normalize some known value types that don't serialize as desired by default
-            if (value is TimeSpan ts)
-            {
-                // Use constant (round-trippable) format 'c' (e.g., "1.02:03:04.0050000")
-                return ts.ToString("c", CultureInfo.InvariantCulture);
-            }
-            return value;
+            return simple;
         }
 
+        // Prevent cycles for reference types
         if (!TryAddVisited(value, visited))
         {
             return "[Circular]";
         }
 
-        // Unwrap PowerShell objects safely
+        // Handlers for common composite/PowerShell shapes
+        if (TryHandlePowerShellObject(value, visited, depth, out var psResult))
+        {
+            return psResult;
+        }
+        if (TryHandleDictionary(value, visited, depth, out var dictResult))
+        {
+            return dictResult;
+        }
+        if (TryHandleEnumerable(value, visited, depth, out var listResult))
+        {
+            return listResult;
+        }
+
+        // Friendly representations for tricky types
+        if (TryHandleFriendlyTypes(value, out var friendly))
+        {
+            return friendly;
+        }
+
+        // Fallback: let System.Text.Json serialize public properties as-is
+        return value;
+    }
+
+    private static bool IsSimpleScalar(object value, out object? normalized)
+    {
+        // Treat value types and strings as simple scalars, with a special case for TimeSpan
+        if (value is string)
+        {
+            normalized = value;
+            return true;
+        }
+
+        var type = value.GetType();
+        if (type.IsValueType)
+        {
+            if (value is TimeSpan ts)
+            {
+                normalized = ts.ToString("c", CultureInfo.InvariantCulture);
+                return true;
+            }
+
+            normalized = value;
+            return true;
+        }
+
+        normalized = null;
+        return false;
+    }
+
+    private static bool TryHandlePowerShellObject(object value, HashSet<object> visited, int depth, out object? result)
+    {
         if (value is PSObject pso)
         {
             if (IsPSCustomObject(pso))
@@ -53,20 +105,27 @@ public static class PayloadSanitizer
                 var dict = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase);
                 foreach (var prop in pso.Properties)
                 {
-                    // Skip meta/special members that cause cycles
                     if (IsSpecialMember(prop.Name))
                     {
-                        continue;
+                        continue; // Skip meta/special members that cause cycles
                     }
                     dict[prop.Name] = Sanitize(prop.Value, visited, depth + 1);
                 }
-                return dict;
+                result = dict;
+                return true;
             }
 
             // Otherwise unwrap to base object and continue
-            return Sanitize(pso.BaseObject, visited, depth + 1);
+            result = Sanitize(pso.BaseObject, visited, depth + 1);
+            return true;
         }
 
+        result = null;
+        return false;
+    }
+
+    private static bool TryHandleDictionary(object value, HashSet<object> visited, int depth, out object? result)
+    {
         if (value is IDictionary idict)
         {
             var dict = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase);
@@ -75,9 +134,16 @@ public static class PayloadSanitizer
                 var key = entry.Key?.ToString() ?? string.Empty;
                 dict[key] = Sanitize(entry.Value, visited, depth + 1);
             }
-            return dict;
+            result = dict;
+            return true;
         }
 
+        result = null;
+        return false;
+    }
+
+    private static bool TryHandleEnumerable(object value, HashSet<object> visited, int depth, out object? result)
+    {
         if (value is IEnumerable enumerable and not string)
         {
             var list = new List<object?>();
@@ -85,30 +151,36 @@ public static class PayloadSanitizer
             {
                 list.Add(Sanitize(item, visited, depth + 1));
             }
-            return list;
+            result = list;
+            return true;
         }
 
-        // Friendly representations for a few tricky types
-        if (value is Type t)
-        {
-            return t.FullName;
-        }
-        if (value is Delegate del)
-        {
-            return del.Method?.Name ?? del.GetType().Name;
-        }
-        if (value is Exception ex)
-        {
-            return new
-            {
-                Type = ex.GetType().FullName,
-                ex.Message,
-                ex.StackTrace
-            };
-        }
+        result = null;
+        return false;
+    }
 
-        // Fallback: return as-is; System.Text.Json will attempt to serialize public properties
-        return value;
+    private static bool TryHandleFriendlyTypes(object value, out object? result)
+    {
+        switch (value)
+        {
+            case Type t:
+                result = t.FullName;
+                return true;
+            case Delegate del:
+                result = del.Method?.Name ?? del.GetType().Name;
+                return true;
+            case Exception ex:
+                result = new
+                {
+                    Type = ex.GetType().FullName,
+                    ex.Message,
+                    ex.StackTrace
+                };
+                return true;
+            default:
+                result = null;
+                return false;
+        }
     }
 
     private static bool TryAddVisited(object o, HashSet<object> visited) =>
@@ -120,13 +192,4 @@ public static class PayloadSanitizer
 
     private static bool IsSpecialMember(string name)
         => name is "PSObject" or "BaseObject" or "Members" or "ImmediateBaseObject" or "Properties" or "TypeNames" or "Methods";
-}
-
-internal sealed class ReferenceEqualityComparer : IEqualityComparer<object>
-{
-    public static readonly ReferenceEqualityComparer Instance = new();
-
-    bool IEqualityComparer<object>.Equals(object? x, object? y) => ReferenceEquals(x, y);
-
-    int IEqualityComparer<object>.GetHashCode(object obj) => RuntimeHelpers.GetHashCode(obj);
 }

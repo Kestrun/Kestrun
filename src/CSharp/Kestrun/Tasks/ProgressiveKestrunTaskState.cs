@@ -82,12 +82,20 @@ public class ProgressiveKestrunTaskState
 
     private void SetState(int percentComplete, string statusMessage, string percentParameterName = nameof(PercentComplete))
     {
-        if (percentComplete is < 0 or > 100)
+        if (string.IsNullOrWhiteSpace(statusMessage))
         {
-            throw new ArgumentOutOfRangeException(percentParameterName, "PercentComplete must be between 0 and 100.");
+            throw new ArgumentNullException(nameof(statusMessage));
         }
 
-        ArgumentNullException.ThrowIfNull(statusMessage);
+        if (percentComplete < 0)
+        {
+            percentComplete = 0;
+        }
+        else if (percentComplete > 100)
+        {
+            percentComplete = 100;
+        }
+
 
         lock (_syncRoot)
         {

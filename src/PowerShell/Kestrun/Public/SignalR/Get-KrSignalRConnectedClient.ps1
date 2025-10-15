@@ -18,10 +18,12 @@
 function Get-KrSignalRConnectedClient {
     [KestrunRuntimeApi('Everywhere')]
     [CmdletBinding()]
+    [outputtype([System.Nullable`1[System.Int32]])]
     param(
         [Parameter(Mandatory = $false, ValueFromPipeline = $true)]
         [Kestrun.Hosting.KestrunHost]$Server
-    )begin {
+    )
+    begin {
         # Ensure the server instance is resolved
         $Server = Resolve-KestrunServer -Server $Server
     }

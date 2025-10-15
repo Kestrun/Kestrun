@@ -6,7 +6,10 @@ nav_order: 40
 
 # SignalR Real-time Communication
 
-Kestrun provides native SignalR integration for real-time, bidirectional communication between the server and connected clients. This enables live event streaming, push notifications, and instant updates without polling—perfect for dashboards, log viewers, and collaborative applications.
+Kestrun provides native SignalR integration for real-time, bidirectional communication
+between the server and connected clients. This enables live event streaming, push
+notifications, and instant updates—perfect for dashboards, log viewers, long‑running task
+progress, and collaborative apps.
 
 ## Architecture Overview
 
@@ -14,9 +17,10 @@ Kestrun provides native SignalR integration for real-time, bidirectional communi
 |-----------|---------|-------|
 | `KestrunHub` | Default SignalR hub for Kestrun | Handles client connections, disconnections, and group management. |
 | `IRealtimeBroadcaster` | Service interface for broadcasting messages | Allows PowerShell and C# routes to broadcast logs, events, and messages to connected clients. |
-| `RealtimeBroadcaster` | Default implementation of `IRealtimeBroadcaster` | Registered as singleton when `KestrunHub` is added. |
+| `RealtimeBroadcaster` | Default implementation of `IRealtimeBroadcaster` | Registered as singleton when the hub middleware is added. |
 | `Send-KrSignalRLog` | PowerShell cmdlet for broadcasting log messages | Sends log messages to all connected SignalR clients. |
 | `Send-KrSignalREvent` | PowerShell cmdlet for broadcasting custom events | Sends custom events with data to all connected clients. |
+| `Send-KrSignalRGroupMessage` | PowerShell cmdlet for group targeting | Sends a method invocation with a payload to a specific group. |
 
 ## Adding SignalR to Your Server
 
@@ -26,17 +30,17 @@ Kestrun provides native SignalR integration for real-time, bidirectional communi
 # Create server
 New-KrServer -Name 'My SignalR Server'
 
-# Add endpoint with HTTP/2 support (required for SignalR)
-Add-KrEndpoint -Port 5000 -IPAddress ([IPAddress]::Loopback) -Protocol Http1AndHttp2
+# Add endpoint (HTTP/1.1 or HTTP/2 are both supported)
+Add-KrEndpoint -Port 5000 -IPAddress ([IPAddress]::Loopback)
 
-# Add SignalR with KestrunHub at /runtime path
-Add-KrSignalRHubMiddleware -HubType ([Kestrun.SignalR.KestrunHub]) -Path '/runtime'
+# Add SignalR hub at /hubs/kestrun (default hub type)
+Add-KrSignalRHubMiddleware -Path '/hubs/kestrun'
 
 # Enable configuration
 Enable-KrConfiguration
 ```
 
-### C #
+### C# (C Sharp)
 
 ```csharp
 using Kestrun.Hosting;
@@ -47,11 +51,11 @@ var server = new KestrunHost("My SignalR Server", Directory.GetCurrentDirectory(
 server.ConfigureListener(
     port: 5000,
     ipAddress: IPAddress.Any,
-    protocols: HttpProtocols.Http1AndHttp2  // HTTP/2 required for SignalR
+    protocols: HttpProtocols.Http1AndHttp2  // HTTP/1.1 and HTTP/2 are supported
 );
 
 // Add SignalR with KestrunHub
-server.AddSignalR<KestrunHub>("/runtime");
+server.AddSignalR<KestrunHub>("/hubs/kestrun");
 
 server.EnableConfiguration();
 await server.RunUntilShutdownAsync();
@@ -63,15 +67,15 @@ await server.RunUntilShutdownAsync();
 
 ```powershell
 # Broadcast a log message
-Add-KrMapRoute -Verbs Get -Pattern '/api/log/{level}' {
+Add-KrMapRoute -Verbs Get -Pattern '/api/ps/log/{level}' {
     $level = Get-KrRequestRouteParam -Name 'level'
     Send-KrSignalRLog -Level $level -Message "Event occurred at $(Get-Date -Format 'HH:mm:ss')"
     Write-KrTextResponse -InputObject "Log broadcasted" -StatusCode 200
 }
 
 # Broadcast a custom event
-Add-KrMapRoute -Verbs Get -Pattern '/api/notify' {
-    Send-KrSignalREvent -EventName 'Notification' -Data @{
+Add-KrMapRoute -Verbs Get -Pattern '/api/ps/event' {
+    Send-KrSignalREvent -EventName 'PowerShellEvent' -Data @{
         Title = 'System Update'
         Message = 'New features available'
         Timestamp = (Get-Date)
@@ -110,7 +114,7 @@ server.AddMapRoute("/api/log", HttpVerb.Get, """
 
     <script>
         const connection = new signalR.HubConnectionBuilder()
-            .withUrl("/runtime")
+            .withUrl("/hubs/kestrun")
             .withAutomaticReconnect()
             .build();
 
@@ -145,7 +149,7 @@ Install-Package Microsoft.AspNetCore.SignalR.Client
 
 # Connect to hub
 $connection = [Microsoft.AspNetCore.SignalR.Client.HubConnectionBuilder]::new()
-    .WithUrl("http://localhost:5000/runtime")
+    .WithUrl("http://localhost:5000/hubs/kestrun")
     .WithAutomaticReconnect()
     .Build()
 
@@ -199,18 +203,12 @@ await connection.invoke("Echo", "Hello, server!");
 
 ```powershell
 # PowerShell: Broadcast to specific group
-Add-KrMapRoute -Verbs Post -Pattern '/api/notify-group/{group}' {
+Add-KrMapRoute -Verbs Post -Pattern '/api/group/broadcast/{group}' {
     $groupName = Get-KrRequestRouteParam -Name 'group'
     $broadcaster = $Server.App.Services.GetService([Kestrun.SignalR.IRealtimeBroadcaster])
 
     if ($broadcaster) {
-        $task = $broadcaster.BroadcastToGroupAsync(
-            $groupName,
-            "ReceiveMessage",
-            @{ Message = "Group notification" },
-            [System.Threading.CancellationToken]::None
-        )
-        $task.GetAwaiter().GetResult()
+        Send-KrSignalRGroupMessage -GroupName $groupName -Method 'ReceiveGroupMessage' -Message @{ Message = 'Group notification' }
         Write-KrTextResponse -InputObject "Sent to group: $groupName" -StatusCode 200
     }
 }
@@ -267,15 +265,21 @@ Write-KrLog -Level Information -Message "This will appear in real-time on the da
 Monitor long-running operations:
 
 ```powershell
-Add-KrMapRoute -Verbs Post -Pattern '/api/process' {
-    for ($i = 0; $i -le 100; $i += 10) {
-        Start-Sleep -Milliseconds 500
-        Send-KrSignalREvent -EventName 'Progress' -Data @{
-            Percent = $i
-            Status = "Processing item $i"
+Add-KrMapRoute -Verbs Post -Pattern '/api/operation/start' {
+    $seconds = Get-KrRequestQuery -Name 'seconds' -AsInt
+    if ($seconds -le 0) { $seconds = 2 }
+
+    $id = New-KrTask -ScriptBlock {
+        for ($i = 1; $i -le $seconds; $i++) {
+            Start-Sleep -Milliseconds 1000
+            $TaskProgress.StatusMessage = "Sleeping ($i/$seconds)"
+            $TaskProgress.PercentComplete = ($i * 100/$seconds)
+            Send-KrSignalREvent -EventName 'OperationProgress' -Data @{ TaskId = $TaskId; Progress = $TaskProgress.PercentComplete; Step = $i }
         }
-    }
-    Write-KrTextResponse -InputObject "Complete" -StatusCode 200
+        Send-KrSignalREvent -EventName 'OperationComplete' -Data @{ TaskId = $TaskId; Progress = $TaskProgress.PercentComplete; Status = $TaskProgress.StatusMessage }
+    } -Arguments @{ seconds = $seconds } -AutoStart
+
+    Write-KrJsonResponse -InputObject @{ Success = $true; TaskId = $id } -StatusCode 200
 }
 ```
 
@@ -329,13 +333,24 @@ public class AdminHub : Hub
 }
 ```
 
+## External References
+
+- SignalR overview (Microsoft Docs):
+    <https://learn.microsoft.com/aspnet/core/signalr/introduction>
+- SignalR JavaScript client guide:
+    <https://learn.microsoft.com/aspnet/core/signalr/javascript-client>
+- Server-Sent Events (SSE) overview:
+    <https://developer.mozilla.org/docs/Web/API/Server-sent_events/Using_server-sent_events>
+- SSE vs WebSockets:
+    <https://ably.com/topic/sse-vs-websockets>
+
 ## Troubleshooting
 
 ### Connection Issues
 
 1. **Ensure HTTP/2 is enabled**: SignalR requires HTTP/1.1 or HTTP/2
 2. **Check CORS settings**: If connecting from different origins, configure CORS
-3. **Verify hub path**: Ensure the client connects to the correct hub path
+3. **Verify hub path**: Ensure the client connects to the correct hub path (e.g., `/hubs/kestrun`)
 4. **Check firewall rules**: Ensure the port is accessible
 
 ### Message Not Received
@@ -348,8 +363,8 @@ public class AdminHub : Hub
 
 Complete working examples are available in the repository:
 
-- **C# Example**: `examples/CSharp/SignalRDemo/Program.cs`
-- **PowerShell Example**: `examples/PowerShell/SignalRDemo/SignalRDemo.ps1`
+- Tutorial: [Middleware > SignalR](/pwsh/tutorial/10.middleware/5.SignalR)
+- PowerShell sample: [`docs/_includes/examples/pwsh/10.5-SignalR.ps1`](https://github.com/Kestrun/Kestrun/blob/main/docs/_includes/examples/pwsh/10.5-SignalR.ps1)
 
 Both examples include a full HTML/JavaScript client with real-time updates.
 

@@ -82,8 +82,6 @@ internal static class VBNetDelegateBuilder
 
                 var (Globals, Response, Context) = await DelegateBuilder.PrepareExecutionAsync(host, ctx, args).ConfigureAwait(false);
 
-
-
                 // Execute the script with the current context and shared state
                 if (log.IsEnabled(LogEventLevel.Debug))
                 {
@@ -107,10 +105,11 @@ internal static class VBNetDelegateBuilder
         };
     }
 
-
-
-
-    // Decide the VB return type string that matches TResult
+    /// <summary>
+    /// Decide the VB return type string that matches TResult
+    /// </summary>
+    /// <param name="t">The type to get the VB return type for.</param>
+    /// <returns> The VB.NET return type as a string.</returns>
     private static string GetVbReturnType(Type t)
     {
         if (t == typeof(bool))

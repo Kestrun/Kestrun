@@ -95,7 +95,7 @@ server.AddMapRoute("/schedule/report", HttpVerb.Get, async (ctx) =>
 {
     var report = server.Scheduler.GetReport();
     await ctx.Response.WriteJsonResponseAsync(report, 200);
-});
+}, out _);
 
 await server.RunUntilShutdownAsync(
     consoleEncoding: Encoding.UTF8,

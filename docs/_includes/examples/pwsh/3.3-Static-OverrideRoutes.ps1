@@ -27,7 +27,10 @@ Add-KrEndpoint -Port $Port -IPAddress $IPAddress
 Add-KrStaticFilesMiddleware -RequestPath '/assets' -RootPath '.\Assets\wwwroot'
 
 # Add a static map override
-Add-KrStaticMapOverride -Path '/assets/override/pwsh' -ScriptBlock {
+# Note: register the static files middleware first, then register the dynamic
+# route with `Add-KrMapRoute` to override a specific physical path. The last
+# registration wins when a path conflict occurs.
+Add-KrMapRoute -Path '/assets/override/pwsh' -ScriptBlock {
 
     $data = @{
         status = 'ok'

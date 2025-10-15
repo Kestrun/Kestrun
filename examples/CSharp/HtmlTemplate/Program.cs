@@ -14,7 +14,7 @@ new LoggerConfiguration()
       .WriteTo.File("logs/HtmlTemplate.log", rollingInterval: RollingInterval.Day)
       .Register("Audit", setAsDefault: true);
 
-// 1. Create server 
+// 1. Create server
 
 var server = new KestrunHost("Kestrun HtmlTemplate", currentDir);
 // Set Kestrel options
@@ -70,7 +70,7 @@ server.AddMapRoute("/visit", HttpVerb.Get, async (ctx) =>
     {
         await ctx.Response.WriteErrorResponseAsync("Visits variable not found.", 500, "text/plain");
     }
-});
+}, out _);
 
 await server.RunUntilShutdownAsync(
     consoleEncoding: Encoding.UTF8,

@@ -16,7 +16,7 @@ new LoggerConfiguration()
       .WriteTo.File("logs/sharedState.log", rollingInterval: RollingInterval.Day)
       .Register("Audit", setAsDefault: true);
 
-// 1. Create server 
+// 1. Create server
 
 var server = new KestrunHost("Kestrun SharedState", currentDir);
 // Set Kestrel options
@@ -52,7 +52,7 @@ server.EnableConfiguration();
 // 4. Add routes
 server.AddMapRoute("/ps/show", HttpVerb.Get,
 """
-    # $Visits is available      
+    # $Visits is available
 
     Write-KrTextResponse -inputObject "Runspace: $([runspace]::DefaultRunspace.Name) - Visits(type:$($Visits.GetType().Name)) so far: $($Visits["Count"])" -statusCode 200
 """,
@@ -97,7 +97,7 @@ server.AddMapRoute("/raw", HttpVerb.Get, async (ctx) =>
     {
         await ctx.Response.WriteErrorResponseAsync("Visits variable not found or invalid.", 500);
     }
-});
+}, out _);
 
 await server.RunUntilShutdownAsync(
     consoleEncoding: Encoding.UTF8,

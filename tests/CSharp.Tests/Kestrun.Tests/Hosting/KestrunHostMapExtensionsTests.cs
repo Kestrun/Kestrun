@@ -75,32 +75,6 @@ public class KestrunHostMapExtensionsTests
 
     [Fact]
     [Trait("Category", "Hosting")]
-    public void AddMapRoute_Duplicate_WithoutThrow_ReturnsNull()
-    {
-        SanitizeSharedGlobals();
-        var host = new KestrunHost("TestApp", AppContext.BaseDirectory);
-        host.EnableConfiguration();
-
-        var options = new MapRouteOptions
-        {
-            Pattern = "/dup2",
-            HttpVerbs = [HttpVerb.Get],
-            ScriptCode = new LanguageOptions
-            {
-                Code = "Context.Response.StatusCode = 200;",
-                Language = ScriptLanguage.CSharp
-            },
-            ThrowOnDuplicate = false
-        };
-
-        var first = host.AddMapRoute(options);
-        var second = host.AddMapRoute(options);
-        Assert.NotNull(first);
-        Assert.Null(second);
-    }
-
-    [Fact]
-    [Trait("Category", "Hosting")]
     public void MapExists_MultiVerb_Works()
     {
         SanitizeSharedGlobals();

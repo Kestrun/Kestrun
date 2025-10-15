@@ -564,8 +564,7 @@ public static partial class KestrunHostMapExtensions
     /// <param name="port">The port component.</param>
     /// <returns>The formatted host and port string.</returns>
     internal static string ToRequireHost(string host, int port) =>
-        // IPv6 literals must be bracketed in RequireHost
-        IsIPv6Address(host) ? $"[{host}]:{port}" : $"{host}:{port}";
+        IsIPv6Address(host) ? $"[{host}]:{port}" : $"{host}:{port}"; // IPv6 literals must be bracketed in RequireHost
 
     /// <summary>
     /// Determines if the given host string is an IPv6 address.

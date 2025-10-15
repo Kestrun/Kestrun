@@ -23,6 +23,7 @@ blending scriptable flexibility with modern .NET performance.
 **Kestrun** is a PowerShell-integrated framework on ASP.NET Core (Kestrel) designed for REST API development.
 It combines the performance of C# with the flexibility of PowerShell, making it easy to prototype, automate, and deliver production-ready APIs with confidence.
 
+
 ## Highlights
 
 - **PowerShell-first routing** — author endpoints with `Add-KrMapRoute` or Razor+PS hybrids.
@@ -60,4 +61,15 @@ Start-KrServer
 
 ```
 
+## External Documentation
+
+- [Kestrel documentation]
+
+- [Powershell documentation]
+
+- [OpenAPI documentation]
+
 [Kestrun repo]: https://github.com/kestrun/kestrun
+[Kestrel documentation]: https://learn.microsoft.com/en-us/aspnet/core/?view=aspnetcore-9.0
+[Powershell documentation]: https://learn.microsoft.com/en-us/powershell/
+[OpenAPI documentation]:https://spec.openapis.org/oas/

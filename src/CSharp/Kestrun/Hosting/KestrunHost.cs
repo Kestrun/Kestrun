@@ -20,6 +20,7 @@ using System.Net.Sockets;
 using Microsoft.Net.Http.Headers;
 using Kestrun.Authentication;
 using Kestrun.Health;
+using Kestrun.Tasks;
 
 namespace Kestrun.Hosting;
 
@@ -122,6 +123,11 @@ public class KestrunHost : IDisposable
     /// Gets the scheduler service used for managing scheduled tasks in the Kestrun host.
     /// </summary>
     public SchedulerService Scheduler { get; internal set; } = null!; // Initialized in ConfigureServices
+
+    /// <summary>
+    /// Gets the ad-hoc task service used for running one-off tasks (PowerShell, C#, VB.NET).
+    /// </summary>
+    public KestrunTaskService Tasks { get; internal set; } = null!; // Initialized via AddTasks()
 
     /// <summary>
     /// Gets the stack used for managing route groups in the Kestrun host.
@@ -1105,6 +1111,40 @@ public class KestrunHost : IDisposable
             else
             {
                 Logger.Warning("SchedulerService already configured; skipping.");
+            }
+        });
+    }
+
+    /// <summary>
+    /// Adds the Tasks feature to run ad-hoc scripts with status/result/cancellation.
+    /// </summary>
+    /// <param name="MaxRunspaces">Optional max runspaces for the task PowerShell pool; when null uses scheduler default.</param>
+    /// <returns>The current KestrunHost instance.</returns>
+    public KestrunHost AddTasks(int? MaxRunspaces = null)
+    {
+        return MaxRunspaces is not null and <= 0
+            ? throw new ArgumentOutOfRangeException(nameof(MaxRunspaces), "MaxRunspaces must be greater than zero.")
+            : AddFeature(host =>
+        {
+            if (Logger.IsEnabled(LogEventLevel.Debug))
+            {
+                Logger.Debug("AddTasks (deferred)");
+            }
+
+            if (host.Tasks is null)
+            {
+                // Reuse scheduler pool sizing unless explicitly overridden
+                if (MaxRunspaces is not null and > 0)
+                {
+                    Logger.Information("Setting MaxTaskRunspaces to {MaxRunspaces}", MaxRunspaces);
+                }
+                var pool = host.CreateRunspacePool(MaxRunspaces ?? host.Options.MaxSchedulerRunspaces);
+                var logger = Logger.ForContext<KestrunHost>();
+                host.Tasks = new KestrunTaskService(pool, logger);
+            }
+            else
+            {
+                Logger.Warning("KestrunTaskService already configured; skipping.");
             }
         });
     }

@@ -48,4 +48,9 @@ public record LanguageOptions
     /// Additional metadata for the route, represented as key-value pairs.
     /// </summary>
     public Dictionary<string, object?>? Arguments { get; set; } = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// Version of the C# language to use when <see cref="Language"/> is <see cref="ScriptLanguage.CSharp"/>.
+    /// </summary>
+    public Microsoft.CodeAnalysis.CSharp.LanguageVersion LanguageVersion { get; set; } = Microsoft.CodeAnalysis.CSharp.LanguageVersion.CSharp12;
 }

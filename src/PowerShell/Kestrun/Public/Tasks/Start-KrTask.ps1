@@ -1,4 +1,4 @@
-﻿<#
+<#
 .SYNOPSIS
     Starts a previously created task by id.
 .DESCRIPTION

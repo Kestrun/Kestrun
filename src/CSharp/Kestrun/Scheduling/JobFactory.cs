@@ -13,7 +13,7 @@ internal static class JobFactory
           ScriptLanguage Language,
           string Code,
           Serilog.ILogger Log,
-           KestrunRunspacePoolManager? Pool = null,
+          KestrunRunspacePoolManager? Pool = null,
           string[]? ExtraImports = null,
           Assembly[]? ExtraRefs = null,
             IReadOnlyDictionary<string, object?>? Locals = null,
@@ -121,7 +121,7 @@ internal static class JobFactory
                 {
                     config.Log.Debug("PowerShell job completed, releasing runspace back to pool.");
                 }
-                // Ensure we release the runspace back to the pool                 
+                // Ensure we release the runspace back to the pool
                 config.Pool.Release(runspace);
             }
         };

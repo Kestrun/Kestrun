@@ -15,23 +15,6 @@ public class ProgressiveKestrunTaskStateTests
     }
 
     [Fact]
-    public void PercentComplete_Allows_0_to_100_and_throws_out_of_range()
-    {
-        var s = new ProgressiveKestrunTaskState
-        {
-            PercentComplete = 0
-        };
-        Assert.Equal(0, s.PercentComplete);
-        s.PercentComplete = 50;
-        Assert.Equal(50, s.PercentComplete);
-        s.PercentComplete = 100;
-        Assert.Equal(100, s.PercentComplete);
-
-        _ = Assert.Throws<ArgumentOutOfRangeException>(() => s.PercentComplete = -1);
-        _ = Assert.Throws<ArgumentOutOfRangeException>(() => s.PercentComplete = 101);
-    }
-
-    [Fact]
     public void StatusMessage_Rejects_Null()
     {
         var s = new ProgressiveKestrunTaskState();

@@ -1,7 +1,7 @@
 ---
 title: Tasks
 parent: Guides
-nav_order: 55
+nav_order: 60
 ---
 
 # Ad-hoc Tasks (Background Script Execution)

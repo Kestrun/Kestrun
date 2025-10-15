@@ -1,6 +1,7 @@
 param()
 
-Describe 'Example 19.2-Sessions-Redis' -Tag 'Tutorial', 'Middleware', 'Sessions' {
+Describe 'Example 19.2-Sessions-Redis' -Tag 'Tutorial', 'Middleware', 'Sessions' -Skip:(-not $env:UPSTASH_REDIS_URL) {
+
     BeforeAll { . (Join-Path $PSScriptRoot '..\PesterHelpers.ps1'); $script:instance = Start-ExampleScript -Name '19.2-Sessions-Redis.ps1'; }
 
     AfterAll { if ($script:instance) { Stop-ExampleScript -Instance $script:instance } }

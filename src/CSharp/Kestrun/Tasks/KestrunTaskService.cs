@@ -40,7 +40,7 @@ public sealed class KestrunTaskService(KestrunRunspacePoolManager pool, Serilog.
         }
 
         var progress = new ProgressiveKestrunTaskState();
-        var cfg = new TaskJobFactory.TaskJobConfig(scriptCode, _log, _pool, progress);
+        var cfg = new TaskJobFactory.TaskJobConfig(id, scriptCode, _log, _pool, progress);
         var work = TaskJobFactory.Create(cfg);
         var cts = new CancellationTokenSource();
         var task = new KestrunTask(id, scriptCode, cts)

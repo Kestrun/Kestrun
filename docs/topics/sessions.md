@@ -1,5 +1,6 @@
 ---
 title: Sessions
+parent: Guides
 nav_order: 70
 ---
 

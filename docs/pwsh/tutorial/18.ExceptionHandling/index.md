@@ -2,7 +2,6 @@
 title: Exception Handling
 parent: Tutorials
 nav_order: 18
-has_children: true
 ---
 
 # Exception Handling

@@ -7,10 +7,8 @@ updates:
     commit-message:
       prefix: "🔼 NuGet"
     open-pull-requests-limit: 10
-  - package-ecosystem: "github-actions"
-    directory: "/"                # updates GitHub Actions versions
-    schedule:
-      interval: "weekly"
+    ignore:
+      - dependency-name: "Microsoft.CodeAnalysis*"
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:

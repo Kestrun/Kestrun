@@ -2,7 +2,6 @@
 title: Status Code Pages
 parent: Tutorials
 nav_order: 17
-has_children: true
 ---
 
 # Status Code Pages

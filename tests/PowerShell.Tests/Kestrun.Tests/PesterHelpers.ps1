@@ -1013,108 +1013,6 @@ function Compare-Hashtable {
 }
 
 
-<#
-.SYNOPSIS
-  Waits for a web server to become available at a specified URI or port.
-
-.DESCRIPTION
-  This function continuously checks if a web server is online by sending an HTTP request.
-  It retries until the server responds with a 200 status code or a timeout is reached.
-
-.PARAMETER Uri
-  The full URI to check (e.g., "http://127.0.0.1:5000"). If not provided, defaults to "http://localhost:$Port".
-
-.PARAMETER Port
-  The port on which the web server is expected to be available. If no URI is provided, the function constructs a default URI using "http://localhost:$Port".
-
-.PARAMETER Timeout
-  The maximum number of seconds to wait before timing out. Default is 60 seconds.
-
-.PARAMETER Interval
-  The number of seconds to wait between retries. Default is 2 seconds.
-
-.OUTPUTS
-  Boolean - Returns $true if the server is online, otherwise $false.
-
-.EXAMPLE
-  Wait-ForWebServer -Port 8080 -Timeout 30 -Interval 2
-
-  Waits up to 30 seconds for the web server on port 8080 to come online.
-
-.EXAMPLE
-  Wait-ForWebServer -Uri "http://127.0.0.1:5000" -Timeout 45
-
-  Waits up to 45 seconds for the web server at "http://127.0.0.1:5000" to respond.
-
-#>
-function Wait-ForWebServer {
-    [CmdletBinding(DefaultParameterSetName = 'localhost')]
-    [OutputType([bool])]
-    param (
-        [Parameter(Mandatory = $true, ParameterSetName = 'Uri' )]
-        [string]$Uri,
-
-        [Parameter(ParameterSetName = 'localhost' )]
-        [ValidateSet('http', 'https')]
-        [string]$Protocol = 'http',
-
-        [Parameter(ParameterSetName = 'localhost' )]
-        [int]$Port,
-
-        [Parameter()]
-        [int]$Timeout = 60,
-
-        [Parameter()]
-        [int]$Interval = 2,
-
-        [Parameter()]
-        [switch]$Offline
-    )
-
-    # Determine the final URI: If no URI is provided, use "http://localhost:$Port"
-    if (-not $Uri) {
-        if ($Port -gt 0) {
-            $Uri = "$($Protocol)://localhost:$Port"
-        } else {
-            $Uri = "$($Protocol)://localhost"
-        }
-    }
-
-    $MaxRetries = [math]::Ceiling($Timeout / $Interval)
-    $RetryCount = 0
-
-    while ($RetryCount -lt $MaxRetries) {
-        try {
-            # Use curl to check server status
-            if ($PSEdition -eq 'Desktop' -or $IsWindows) {
-                $curlCmd = 'curl.exe'
-                $outputArg = 'NUL'
-            } else {
-                $curlCmd = 'curl'
-                $outputArg = '/dev/null'
-            }
-            # Suppress curl error output when server is offline
-            $statusCode = & $curlCmd --silent --show-error --output $outputArg --write-out '%{http_code}' --max-time 3 --insecure --url $Uri 2>$null
-            if ($statusCode -eq '000') { throw 'curl failed to connect' }
-            if ($Offline) {
-                $RetryCount++
-                Write-Host "Webserver is expected to be offline, but it is online at $Uri... (Attempt $($RetryCount)/$MaxRetries)"
-                continue
-            } elseif ($statusCode -eq '200' -or $statusCode -eq '404') {
-                Write-Host "Webserver is online at $Uri (HTTP $statusCode)"
-                return $true
-            }
-        } catch {
-            if ($Offline) {
-                return $true
-            }
-            Write-Host "Waiting for webserver to come online at $Uri... (Attempt $($RetryCount+1)/$MaxRetries)"
-        }
-        Start-Sleep -Seconds $Interval
-        $RetryCount++
-    }
-    return $false
-}
 
 <#
 .SYNOPSIS
@@ -1164,14 +1062,20 @@ function Get-SseEvent {
     $client.Timeout = [timespan]::FromMinutes(10)      # infinite-ish
 
     # 2. Discover stream URL  (GET /sse returns  { Sse = @{ Url = '/sse_events' } })
-    $meta = $client.GetStringAsync("$BaseUrl$MetaEndpoint").Result | ConvertFrom-Json
-    $sseUri = $meta.Sse.Url
-    if ([System.Uri]::IsWellFormedUriString( $meta.Sse.Url, 'Absolute')) {
-        $sseUri = $meta.Sse.Url
+    $metaRaw = $client.GetStringAsync("$BaseUrl$MetaEndpoint").Result
+    $meta = $metaRaw | ConvertFrom-Json
+    # Be flexible with casing: Sse/url vs sse/url
+    $metaSse = $meta.Sse
+    if (-not $metaSse -and $meta.sse) { $metaSse = $meta.sse }
+    $metaUrl = $metaSse.Url
+    if (-not $metaUrl -and $metaSse.url) { $metaUrl = $metaSse.url }
+    $sseUri = $metaUrl
+    if ([System.Uri]::IsWellFormedUriString($metaUrl, 'Absolute')) {
+        $sseUri = $metaUrl
     } else {
         # Ensure the base ends with a slash, then combine
         $base = if ($BaseUrl.EndsWith('/')) { $BaseUrl } else { "$BaseUrl/" }
-        $sseUri = [System.Uri]::new($base + $meta.Sse.Url.TrimStart('/'))
+        $sseUri = [System.Uri]::new($base + ($metaUrl ?? '').TrimStart('/'))
     }
 
 
@@ -1185,6 +1089,8 @@ function Get-SseEvent {
 
     # 4. Parse frames (default = "message")
     $events = @()
+    $evtName = 'message'
+    $evtData = ''
     while ($true) {
         $line = $reader.ReadLine(); if ($null -eq $line) { break }
         if ($line -eq '') {
@@ -1203,58 +1109,170 @@ function Get-SseEvent {
         }
     }
 
+    try { $reader.Dispose() } catch {}
+    try { $resp.Dispose() } catch {}
+    try { $client.Dispose() } catch {}
     return $events
 }
 
-<#
-.SYNOPSIS
-    Creates a new test file of a specified size.
-.DESCRIPTION
-    This function creates a new file at the specified path with the desired size.
-.PARAMETER Path
-    The path to the file to create.
-.PARAMETER SizeBytes
-    The size of the file in bytes.
-#>
-function New-TestFile {
-    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseShouldProcessForStateChangingFunctions', '')]
+
+# Minimal SignalR client using WebSockets to capture messages from a hub
+function Get-SignalRMessages {
+    [CmdletBinding()]
     param(
-        [string]$Path,
-        [long]  $SizeBytes,
-        [ValidateSet('Text', 'Binary')]$Kind
+        [Parameter(Mandatory)] [string]$BaseUrl,           # e.g., http://localhost:5000
+        [string]$HubPath = '/hubs/kestrun',                 # default hub path
+        [int]$Count = 5,                                    # max messages to collect
+        [int]$TimeoutSeconds = 30,                          # overall timeout
+        [string[]]$Targets,                                 # filter by hub method names (e.g., 'ReceiveEvent')
+        [scriptblock]$OnConnected,                          # optional callback invoked after handshake, before receive loop
+        [object]$OnConnectedArg                             # optional argument passed to OnConnected
     )
 
-    if (Test-Path -Path $Path -PathType Leaf) { Remove-Item $Path -Force }
+    function Get-PropValue($obj, [string]$name) {
+        if ($null -eq $obj) { return $null }
+        if ($obj -is [hashtable]) {
+            $key = $obj.Keys | Where-Object { $_ -is [string] -and $_.ToString() -ieq $name } | Select-Object -First 1
+            if ($null -ne $key) { return $obj[$key] }
+            return $null
+        }
+        $prop = $obj.PSObject.Properties | Where-Object { $_.Name -ieq $name } | Select-Object -First 1
+        if ($prop) { return $prop.Value }
+        return $null
+    }
 
-    $fs = [System.IO.File]::Open($Path, 'CreateNew')
+    # Build negotiate URL
+    $negotiateUrl = "$BaseUrl$HubPath/negotiate?negotiateVersion=1"
+    $http = [System.Net.Http.HttpClient]::new()
     try {
-        switch ($Kind) {
-            'Binary' { $fs.SetLength($SizeBytes) }
-            'Text' {
-                $chunkSz = 8KB
-                $chunk = [byte[]]::new($chunkSz)
-                $rand = [System.Random]::new()
+        $negRaw = $http.PostAsync($negotiateUrl, [System.Net.Http.StringContent]::new('')).Result.Content.ReadAsStringAsync().Result
+    } catch {
+        throw ('Negotiate failed for {0}: {1}' -f $negotiateUrl, $_.Exception.Message)
+    } finally {
+        try { $http.Dispose() } catch {}
+    }
+    $neg = $negRaw | ConvertFrom-Json
+    # Prefer connectionToken when present; fall back to connectionId
+    $connToken = Get-PropValue $neg 'connectionToken'
+    if (-not $connToken) { $connToken = Get-PropValue $neg 'ConnectionToken' }
+    if (-not $connToken) { $connToken = Get-PropValue $neg 'connectionId' }
+    if (-not $connToken) { $connToken = Get-PropValue $neg 'ConnectionId' }
+    if (-not $connToken) { throw "Negotiate did not return connectionToken/connectionId. Payload: $negRaw" }
 
-                for ($i = 0; $i -lt $chunkSz - 1; $i++) {
-                    $chunk[$i] = [byte]($rand.Next(32, 127))   # any printable char
+    # Optional redirect URL and access token
+    $redirectUrl = Get-PropValue $neg 'url'
+    if (-not $redirectUrl) { $redirectUrl = Get-PropValue $neg 'Url' }
+    $accessToken = Get-PropValue $neg 'accessToken'
+    if (-not $accessToken) { $accessToken = Get-PropValue $neg 'AccessToken' }
+
+    # Build WebSocket URL
+    if ($redirectUrl) {
+        # Replace http/https with ws/wss
+        if ($redirectUrl -like 'http*') {
+            $wsUri = $redirectUrl -replace '^https', 'wss' -replace '^http', 'ws'
+        } else {
+            # Relative redirect URL; resolve against BaseUrl
+            $baseUri = [System.Uri]$BaseUrl
+            $combined = [System.Uri]::new($baseUri, $redirectUrl)
+            $wsUri = $combined.AbsoluteUri -replace '^https', 'wss' -replace '^http', 'ws'
+        }
+        # If negotiate url already contains id or other params, append if missing
+        if ($wsUri -notmatch '[?&]id=') { $wsUri = ('{0}{1}id={2}' -f $wsUri, ($wsUri -match '\?' ? '&' : '?'), $connToken) }
+    } else {
+        $uri = [System.Uri]$BaseUrl
+        $wsScheme = if ($uri.Scheme -eq 'https') { 'wss' } else { 'ws' }
+        $wsUri = '{0}://{1}{2}?id={3}' -f $wsScheme, $uri.Authority, $HubPath, $connToken
+    }
+
+    $socket = [System.Net.WebSockets.ClientWebSocket]::new()
+    $cts = [System.Threading.CancellationTokenSource]::new([TimeSpan]::FromSeconds($TimeoutSeconds))
+    $encoding = [System.Text.Encoding]::UTF8
+    $recordSep = [char]0x1e
+
+    try {
+        if ($accessToken) {
+            $socket.Options.SetRequestHeader('Authorization', 'Bearer ' + $accessToken)
+        }
+        $socket.ConnectAsync([System.Uri]$wsUri, $cts.Token).Wait()
+
+        # Handshake: {"protocol":"json","version":1}\x1e
+        $handshake = '{"protocol":"json","version":1}' + $recordSep
+        $hsBuf = $encoding.GetBytes($handshake)
+        $handshakeSeg = [ArraySegment[byte]]::new($hsBuf)
+        $socket.SendAsync($handshakeSeg, [System.Net.WebSockets.WebSocketMessageType]::Text, $true, $cts.Token).Wait()
+
+        # Allow caller to trigger HTTP routes or hub actions once connected
+        if ($OnConnected) {
+            try {
+                if ($PSBoundParameters.ContainsKey('OnConnectedArg')) { & $OnConnected $OnConnectedArg }
+                else { & $OnConnected }
+            } catch { Write-Warning ('OnConnected callback failed: {0}' -f $_.Exception.Message) }
+        }
+
+        $messages = @()
+        $buffer = New-Object byte[] 8192
+        $sb = [System.Text.StringBuilder]::new()
+
+        $targetFilter = if ($null -eq $Targets) { @() } else { @($Targets) }
+        $hasFilter = ($targetFilter -is [array] -and $targetFilter.Length -gt 0)
+        while ($messages.Count -lt $Count -and $socket.State -eq [System.Net.WebSockets.WebSocketState]::Open -and -not $cts.IsCancellationRequested) {
+            [System.Net.WebSockets.WebSocketReceiveResult] $recvResult = $socket.ReceiveAsync([ArraySegment[byte]]::new($buffer), $cts.Token).Result
+
+            $bytes = 0
+            try {
+                $bytes = [int]($recvResult.Count)
+            } catch {
+                # Fallback: if property not available, skip processing this iteration
+                continue
+            }
+
+            if ($bytes -le 0) { continue }
+            $chunk = $encoding.GetString($buffer, 0, $bytes)
+            $sb.Append($chunk) | Out-Null
+
+            # Messages are delimited by 0x1E
+            $text = $sb.ToString()
+            $parts = $text.Split($recordSep)
+            # Keep the last (possibly incomplete) segment in the StringBuilder
+            if ($parts.Length -gt 0) {
+                $sb.Clear() | Out-Null
+                $sb.Append($parts[-1]) | Out-Null
+            }
+
+            for ($i = 0; $i -lt $parts.Length - 1; $i++) {
+                $msg = $parts[$i]
+                if (-not $msg) { continue }
+                try {
+                    $json = $msg | ConvertFrom-Json
+                } catch {
+                    continue
                 }
-                $chunk[$chunkSz - 1] = 0x0A                    # newline
 
-                # Pre-allocate to avoid fragmentation, then overwrite with data
-                $fs.SetLength($SizeBytes)
-                $fs.Position = 0
+                # SignalR handshake returns {} — ignore. We only want invocation messages (type == 1)
+                $type = Get-PropValue $json 'type'
+                if ($type -ne 1) { continue }
 
-                $remaining = $SizeBytes
-                while ($remaining -gt 0) {
-                    $toWrite = [long][System.Math]::Min([long]$chunkSz, $remaining)
-                    $fs.Write($chunk, 0, [int]$toWrite)        # Stream.Write wants Int32
-                    $remaining -= $toWrite
+                $target = Get-PropValue $json 'target'
+                $invArgs = Get-PropValue $json 'arguments'
+                if ($hasFilter -and -not ($targetFilter -contains $target)) { continue }
+
+                $messages += [pscustomobject]@{
+                    Target = $target
+                    Arguments = $invArgs
+                    Raw = $msg
                 }
+
+                if ($messages.Count -ge $Count) { break }
             }
         }
-    } finally { $fs.Dispose() }
-}
 
+        return $messages
+    } finally {
+        try { if ($socket.State -eq [System.Net.WebSockets.WebSocketState]::Open) { $socket.CloseAsync([System.Net.WebSockets.WebSocketCloseStatus]::NormalClosure, 'done', $cts.Token).Wait() } } catch {}
+        try { $socket.Dispose() } catch {}
+        try { $cts.Dispose() } catch {}
+    }
+}
 
 <#
 .SYNOPSIS

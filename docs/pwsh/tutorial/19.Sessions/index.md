@@ -2,7 +2,6 @@
 parent: Tutorials
 title: Sessions
 nav_order: 19
-has_children: true
 ---
 
 # Sessions

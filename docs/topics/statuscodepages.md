@@ -1,8 +1,8 @@
 ---
 layout: default
-parent: Topics
+parent: Guides
 title: Status Code Pages
-nav_order: 8
+nav_order: 80
 ---
 
 # Status Code Pages

@@ -969,7 +969,7 @@ server.AddMapRoute("/cookies/login", HttpVerb.Get, async ctx =>
   </body>
 </html>", statusCode: 200, contentType: "text/html; charset=UTF-8");
 }, map: out _);
-server.AddMapRoute(pattern: "/cookies/login", httpVerb: HttpVerb.Post, async (ctx) =>
+server.AddMapRoute(pattern: "/cookies/login", httpVerb: HttpVerb.Post, handler: async (ctx) =>
 {
     var form = ctx.Request.Form;
     if (form == null)

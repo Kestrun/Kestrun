@@ -165,12 +165,12 @@
         <!-- Serilog -->
         <PackageReference Include="Serilog.Sinks.Http" Version="9.2.0" />
 
-        <!-- Hosting & DI -->
+        <!-- Hosting & DI  
         <PackageReference Include="Microsoft.Extensions.Hosting" Version="9.0.10" />
         <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" Version="9.0.10" />
         <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="9.0.10" />
         <PackageReference Include="Microsoft.Extensions.Logging.Console" Version="9.0.10" />
-        <PackageReference Include="Microsoft.Extensions.Primitives" Version="9.0.10" />
+        <PackageReference Include="Microsoft.Extensions.Primitives" Version="9.0.10" />-->
         <PackageReference Include="Microsoft.Extensions.Caching.SqlServer" Version="9.0.10" />
         <PackageReference Include="Microsoft.Extensions.Caching.StackExchangeRedis" Version="9.0.10" />
     </ItemGroup>

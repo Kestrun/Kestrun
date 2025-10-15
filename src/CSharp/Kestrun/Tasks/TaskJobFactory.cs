@@ -15,11 +15,13 @@ internal static class TaskJobFactory
     /// <summary>
     /// Configuration for creating a task job delegate.
     /// </summary>
+    /// <param name="TaskId">Unique identifier of the task.</param>
     /// <param name="ScriptCode">The language options containing the script code and settings.</param>
     /// <param name="Log">Logger instance for logging.</param>
     /// <param name="Pool">Optional PowerShell runspace pool.</param>
     /// <param name="Progress">Progress state object to expose to scripts.</param>
     internal record TaskJobConfig(
+        string TaskId,
         LanguageOptions ScriptCode,
         Serilog.ILogger Log,
         KestrunRunspacePoolManager? Pool,
@@ -58,6 +60,7 @@ internal static class TaskJobFactory
                     ? new Dictionary<string, object?>(config.ScriptCode.Arguments)
                     : [];
                 vars["TaskProgress"] = config.Progress;
+                vars["TaskId"] = config.TaskId;
                 PowerShellExecutionHelpers.SetVariables(ps, vars, config.Log);
                 using var reg = ct.Register(() => ps.Stop());
                 var results = await ps.InvokeAsync().WaitAsync(ct).ConfigureAwait(false);

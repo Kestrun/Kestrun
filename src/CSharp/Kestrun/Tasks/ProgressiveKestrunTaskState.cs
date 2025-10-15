@@ -80,7 +80,9 @@ public class ProgressiveKestrunTaskState
     /// <param name="message"> Optional message to include with the cancellation status.</param>
     public void Cancel(string message = "Cancelled") => SetState(100, message);
 
+#pragma warning disable IDE0060 // Remove unused parameter
     private void SetState(int percentComplete, string statusMessage, string percentParameterName = nameof(PercentComplete))
+#pragma warning restore IDE0060 // Remove unused parameter
     {
         if (string.IsNullOrWhiteSpace(statusMessage))
         {

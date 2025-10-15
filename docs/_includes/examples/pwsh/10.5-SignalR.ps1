@@ -111,25 +111,21 @@ Add-KrMapRoute -Verbs Post -Pattern '/api/group/broadcast/{groupName}' {
 Add-KrMapRoute -Verbs Post -Pattern '/api/operation/start' {
     $seconds = Get-KrRequestQuery -Name 'seconds' -AsInt
     if ($seconds -le 0) { $seconds = 2 }
-    $operationId = [Guid]::NewGuid().ToString()
-    $message = "Starting long operation with ID: $operationId"
+
     Write-KrLog -Level Information -Message $message
 
-    # Expand-KrObject $krserver
-    # Start a background job to simulate long operation
-    #$job = Start-Job -ScriptBlock {
-    #     param($OperationId, $ServerInstance)
     $id = New-KrTask -ScriptBlock {
-        for ($i = 1; $i -le 10; $i++) {
-            Start-Sleep -Seconds 2
-            Write-KrLog -Level Information -Message 'Operation {OperationId} progress: {i}/10' -Values $OperationId, $i
+        for ($i = 1; $i -le $seconds; $i++) {
+            Start-Sleep -Milliseconds 1000
+
             $TaskProgress.StatusMessage = "Sleeping ($i/$seconds)"
-            $TaskProgress.PercentComplete = [int](($i - 1) * 100 / $seconds)
+            $TaskProgress.PercentComplete = ($i * 100/$seconds)
+            Write-KrLog -Level Information -Message 'Operation {TaskId} progress: {i}/{seconds} {PercentComplete}%' -Values $TaskId, $i,$seconds,$TaskProgress.PercentComplete
             $message = @{
-                OperationId = $OperationId
+                TaskId = $TaskId
                 Progress = $TaskProgress.PercentComplete
                 Step = $i
-                Message = "Processing step $i of 10..."
+                Message = "Processing step $i of $seconds..."
                 Timestamp = (Get-Date)
             }
 
@@ -144,7 +140,7 @@ Add-KrMapRoute -Verbs Post -Pattern '/api/operation/start' {
 
         # Send completion message
         $completionMessage = @{
-            OperationId = $OperationId
+            TaskId = $TaskId
             Progress = $TaskProgress.PercentComplete
             Message = $TaskProgress.StatusMessage
             Timestamp = (Get-Date)
@@ -157,40 +153,55 @@ Add-KrMapRoute -Verbs Post -Pattern '/api/operation/start' {
         } catch {
             Write-Warning "Failed to broadcast completion: $_"
         }
-    } -Arguments @{ operationId = $operationId; seconds = $seconds } -AutoStart -Name "LongOperation-$operationId" -Description $message
+    } -Arguments @{ seconds = $seconds } -AutoStart
 
-    Write-KrLog -Level Information -Message 'Long operation started: {OperationId}' -Values $operationId
+    $message = "Starting long operation with ID: $id"
+    Set-KrTaskName -Id $id -Name "LongOperation-$id" -Description $message
+
+    Write-KrLog -Level Information -Message 'Long operation started: {id}' -Values $id
     Write-KrLog -Level Information -Message 'Long operation task created: {id}' -Values $id
     Write-KrJsonResponse -InputObject @{
         Success = $true
-        OperationId = $operationId
         TaskId = $id
         Message = $message
     } -StatusCode 200
 }
 
 # Route to get operation status
-Add-KrMapRoute -Verbs Get -Pattern '/api/operation/status/{operationId}' {
-    $operationId = Get-KrRequestRouteParam -Name 'operationId'
-    Write-KrLog -Level Information -Message 'Status requested for operation: {OperationId}' -Values $operationId
-    $task = Get-KrTask -Id $operationId
+Add-KrMapRoute -Verbs Get -Pattern '/api/operation/status/{taskId}' {
+    $taskId = Get-KrRequestRouteParam -Name 'taskId'
+    Write-KrLog -Level Information -Message 'Status requested for operation: {taskId}' -Values $taskId
+    $task = Get-KrTask -Id $taskId
+
     if ( $null -ne $task ) {
-        Write-KrLog -Level Information -Message 'Found task for operation {OperationId} with status {Status}' -Values $operationId, $task.Status
+        Write-KrLog -Level Information -Message 'Found task for operation {taskId} with status {Status}' -Values $taskId, $task.Status
 
     } else {
-        Write-KrLog -Level Warning -Message 'No task found for operation {OperationId}' -Values $operationId
+        Write-KrLog -Level Warning -Message 'No task found for operation {taskId}' -Values $taskId
         Write-KrJsonResponse -InputObject @{
-            OperationId = $operationId
-            Message = "No task found for operation '$operationId'"
+            taskId = $taskId
+            Message = "No task found for operation '$taskId'"
         } -StatusCode 404
         return
     }
-    
+
+
+    $progress = $null
+    $status = $null
+    if ($task.Progress) {
+        $progress = $task.Progress.PercentComplete
+        $status = $task.Progress.StatusMessage
+    }
+
     Write-KrJsonResponse -InputObject @{
         OperationId = $operationId
+        TaskId = $taskId
+        State = $task.StateText
+        StartedAt = $task.StartedAt
+        CompletedAt = $task.CompletedAt
+        Progress = $progress
+        Status = $status
         Message = 'Operation status retrieved'
-        TaskStatus = $task.Status.ToString()
-        Progress = $task.Progress
     } -StatusCode 200
 }
 

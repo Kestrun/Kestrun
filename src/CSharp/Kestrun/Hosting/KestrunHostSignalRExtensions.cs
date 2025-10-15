@@ -15,12 +15,9 @@ public static class KestrunHostSignalRExtensions
     public static int? GetConnectedClientCount(this KestrunHost host)
     {
         var svcProvider = host.App?.Services;
-        if (svcProvider == null)
-        {
-            return null;
-        }
-
-        return svcProvider.GetService(typeof(IConnectionTracker)) is IConnectionTracker tracker ? tracker.ConnectedCount : (int?)null;
+        return svcProvider == null
+            ? null
+            : svcProvider.GetService(typeof(IConnectionTracker)) is IConnectionTracker tracker ? tracker.ConnectedCount : (int?)null;
     }
 
     /// <summary>

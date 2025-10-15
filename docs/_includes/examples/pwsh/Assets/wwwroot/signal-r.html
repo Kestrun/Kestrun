@@ -181,6 +181,8 @@
 
         const messagesDiv = document.getElementById("messages");
         let currentGroups = new Set();
+        // Prefer TaskId going forward; keep currentOperationId for backward compatibility
+        let currentTaskId = null;
         let currentOperationId = null;
         let isConnected = false;
 
@@ -190,6 +192,26 @@
             entry.innerHTML = message;
             messagesDiv.appendChild(entry);
             messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        }
+
+        // Safely parse a response body preferring JSON; fall back to text
+        async function parseResponseSafe(response) {
+            const ct = (response.headers.get('content-type') || '').toLowerCase();
+            if (ct.includes('application/json')) {
+                try {
+                    return await response.json();
+                } catch (e) {
+                    // JSON advertised but invalid; provide useful info
+                    return { message: `Invalid JSON payload: ${e?.message || e}` };
+                }
+            }
+            // Not JSON: try text, and if it looks like JSON, parse
+            const text = await response.text();
+            try {
+                return JSON.parse(text);
+            } catch {
+                return { message: text };
+            }
         }
 
         // Original log messages
@@ -208,15 +230,16 @@
 
             if (eventName === 'OperationProgress') {
                 // Normalize fields across different casings/names
-                const opId = payload.OperationId || payload.operationId || payload.OperationID || payload.id || payload.Id || payload.ID;
+                const opId = payload.TaskId || payload.taskId || payload.Id || payload.id || payload.OperationId || payload.operationId || payload.OperationID || payload.ID;
                 let progressRaw = payload.Progress ?? payload.progress ?? payload.Percent ?? payload.percent ?? payload.Percentage ?? payload.percentage ?? 0;
                 const status = payload.Message || payload.message || payload.Status || payload.status || 'In progress';
                 const progress = Math.max(0, Math.min(100, Number(progressRaw)));
 
                 // Ensure we have an operation id on the client
-                if (!currentOperationId && opId) {
-                    currentOperationId = opId;
-                    document.getElementById("currentOperation").textContent = currentOperationId;
+                if (!currentTaskId && opId) {
+                    currentTaskId = opId;
+                    currentOperationId = opId; // backward compat
+                    document.getElementById("currentOperation").textContent = currentTaskId;
                     document.getElementById("progressContainer").style.display = "block";
                     updateProgressBar(0, "Starting...");
                 }
@@ -227,6 +250,7 @@
                 if (!isNaN(progress) && progress >= 100) {
                     setTimeout(() => {
                         document.getElementById("progressContainer").style.display = "none";
+                        currentTaskId = null;
                         currentOperationId = null;
                         document.getElementById("currentOperation").textContent = "None";
                     }, 2000);
@@ -235,10 +259,11 @@
             }
 
             if (eventName === 'OperationComplete') {
-                const opId = payload.OperationId || payload.operationId || payload.OperationID || payload.id || payload.Id || payload.ID;
+                const opId = payload.TaskId || payload.taskId || payload.Id || payload.id || payload.OperationId || payload.operationId || payload.OperationID || payload.ID;
                 addMessage(`<span class="timestamp">[${timestamp}]</span> ✅ <strong>Operation ${opId ?? ''}:</strong> Completed`, "event-entry");
                 setTimeout(() => {
                     document.getElementById("progressContainer").style.display = "none";
+                    currentTaskId = null;
                     currentOperationId = null;
                     document.getElementById("currentOperation").textContent = "None";
                 }, 1500);
@@ -283,19 +308,20 @@
             // Some servers may send a single payload object instead of positional args
             if (operationId && typeof operationId === 'object' && progress === undefined) {
                 const payload = operationId;
-                operationId = payload.OperationId || payload.operationId || payload.Id || payload.id;
+                operationId = payload.TaskId || payload.taskId || payload.OperationId || payload.operationId || payload.Id || payload.id;
                 progress = payload.Progress ?? payload.progress ?? payload.Percent ?? payload.percentage ?? 0;
                 status = payload.Status || payload.status || payload.Message || payload.message || 'In progress';
             }
 
-            if (!operationId || currentOperationId && currentOperationId !== operationId) return;
+            if (!operationId || (currentTaskId && currentTaskId !== operationId)) return;
 
             const p = Math.max(0, Math.min(100, Number(progress)));
             const s = status || 'In progress';
 
-            if (!currentOperationId && operationId) {
-                currentOperationId = operationId;
-                document.getElementById("currentOperation").textContent = currentOperationId;
+            if (!currentTaskId && operationId) {
+                currentTaskId = operationId;
+                currentOperationId = operationId; // backward compat
+                document.getElementById("currentOperation").textContent = currentTaskId;
                 document.getElementById("progressContainer").style.display = "block";
             }
 
@@ -305,6 +331,7 @@
             if (!isNaN(p) && p >= 100) {
                 setTimeout(() => {
                     document.getElementById("progressContainer").style.display = "none";
+                    currentTaskId = null;
                     currentOperationId = null;
                     document.getElementById("currentOperation").textContent = "None";
                 }, 2000);
@@ -405,18 +432,22 @@
                 const response = await fetch(`/api/operation/start?seconds=${encodeURIComponent(seconds)}`, {
                     method: 'POST'
                 });
-                const result = await response.json();
+                const result = await parseResponseSafe(response);
 
                 if (response.ok) {
-                    // Be resilient to server casing: OperationId vs operationId
-                    const opId = result.OperationId || result.operationId || result.id || null;
-                    currentOperationId = opId;
-                    document.getElementById("currentOperation").textContent = opId ?? 'Unknown';
+                    // Prefer TaskId going forward; keep backward compatibility fallbacks
+                    const opIdResp = result.OperationId || result.operationId || null;
+                    const taskIdResp = result.TaskId || result.taskId || result.Id || result.id || null;
+                    currentOperationId = opIdResp ?? taskIdResp;
+                    currentTaskId = taskIdResp ?? opIdResp;
+                    const displayId = currentOperationId || currentTaskId;
+                    document.getElementById("currentOperation").textContent = displayId ?? 'Unknown';
                     document.getElementById("progressContainer").style.display = "block";
                     updateProgressBar(0, `Starting... (0/${seconds})`);
-                    addMessage(`🔄 Started long operation: ${opId ?? 'unknown'} (seconds=${seconds})`, "log-entry log-Information");
+                    addMessage(`🔄 Started long operation: ${displayId ?? 'unknown'} (seconds=${seconds})`, "log-entry log-Information");
                 } else {
-                    addMessage(`❌ Failed to start operation: ${result.message}`, "log-entry log-Error");
+                    const msg = (typeof result === 'string') ? result : (result?.message || JSON.stringify(result));
+                    addMessage(`❌ Failed to start operation: ${msg}`, "log-entry log-Error");
                 }
             } catch (error) {
                 addMessage(`❌ Error starting operation: ${error.message}`, "log-entry log-Error");
@@ -424,17 +455,18 @@
         }
 
         async function getOperationStatus() {
-            if (!currentOperationId) {
+            if (!currentTaskId) {
                 addMessage("ℹ️ No active operation", "log-entry log-Information");
                 return;
             }
 
             try {
-                const response = await fetch(`/api/operation/status/${currentOperationId}`);
-                const result = await response.json();
+                const idForStatus = currentOperationId || currentTaskId;
+                const response = await fetch(`/api/operation/status/${idForStatus}`);
+                const result = await parseResponseSafe(response);
 
                 if (response.ok) {
-                    const opId = result.OperationId || result.operationId || currentOperationId;
+                    const opId = result.OperationId || result.operationId || result.TaskId || result.taskId || idForStatus;
                     const progress = result.Progress ?? result.progress ?? result.Percent ?? null;
                     const status = result.Status || result.status || result.Message || result.message || 'No status info';
 
@@ -446,7 +478,8 @@
                         addMessage(`ℹ️ Status for ${opId}: ${status}`, "log-entry log-Information");
                     }
                 } else {
-                    addMessage(`❌ Failed to get status: ${result.message}`, "log-entry log-Error");
+                    const msg = (typeof result === 'string') ? result : (result?.message || JSON.stringify(result));
+                    addMessage(`❌ Failed to get status: ${msg}`, "log-entry log-Error");
                 }
             } catch (error) {
                 addMessage(`❌ Error getting status: ${error.message}`, "log-entry log-Error");

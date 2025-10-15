@@ -25,7 +25,7 @@ to files relative to the configured root path.
 |-------|------------------------------------------------------|---------------------------------------------------------------------|
 | 1     | [Serving Static Files](./1.Static-Routes)            | Basic static file service (`Add-KrStaticFilesService`)              |
 | 2     | [File Server & Directory Browsing](./2.File-Server)  | Whole-site directory hosting + listings (`Add-KrFileServer`)        |
-| 3     | [Static Route Overrides](./3.Static-Override-Routes) | Dynamic endpoints under a static prefix (`Add-KrStaticMapOverride`) |
+| 3     | [Static Route Overrides](./3.Static-Override-Routes) | Dynamic endpoints under a static prefix (`Add-KrMapRoute`) |
 | 4     | [Adding a Favicon](./4.Favicon)                      | Register favicon middleware (`Add-KrFavicon`)                       |
 | 5     | [File Server Caching Headers](./5.File-Server-Caching) | Global cache headers for static files (`Add-KrFileServerMiddleware`) |
 | 6     | [Response Caching & Conditional Requests](./6.Response-Caching) | Dynamic validators + in-memory cache (`Add-KrCacheMiddleware`) |

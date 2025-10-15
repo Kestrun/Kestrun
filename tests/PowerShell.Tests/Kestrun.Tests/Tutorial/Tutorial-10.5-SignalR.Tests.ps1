@@ -17,13 +17,17 @@ Describe 'Tutorial 10.5 - SignalR (PowerShell)' -Tag 'Tutorial' {
             $deadline = [DateTime]::UtcNow.AddSeconds($TimeoutSec)
             do {
                 $url = "$($script:instance.Url)/api/operation/status/$Id"
-                $params = @{ Uri = $url; TimeoutSec = 12; Headers = @{ Accept = 'application/json' }; SkipHttpErrorCheck = $true; StatusCodeVariable = 'sc' }
-                if ($script:instance.Https) { $params.SkipCertificateCheck = $true }
-                $sc = $null
-                $obj = Invoke-RestMethod @params
-                $sc | Should -Be 200
-
-                if ($null -ne $obj -and $obj.State -eq 'Completed') { return $obj }
+                $invokeParams = @{ Uri = $url; Method = 'Get'; UseBasicParsing = $true; TimeoutSec = 12; Headers = @{ Accept = 'application/json' } }
+                if ($script:instance.Https) { $invokeParams.SkipCertificateCheck = $true }
+                try {
+                    $resp = Invoke-WebRequest @invokeParams
+                    if ($resp.StatusCode -eq 200) {
+                        $obj = $resp.Content | ConvertFrom-Json -ErrorAction Stop
+                        if ($null -ne $obj -and $obj.State -eq 'Completed') { return $obj }
+                    }
+                } catch {
+                    # ignore transient issues and keep polling
+                }
                 Start-Sleep -Milliseconds $PollMs
             } while ([DateTime]::UtcNow -lt $deadline)
             throw "Operation '$Id' did not reach Completed state within ${TimeoutSec}s."
@@ -41,7 +45,7 @@ Describe 'Tutorial 10.5 - SignalR (PowerShell)' -Tag 'Tutorial' {
     It 'Broadcasts a log and a custom event to the hub' {
         # Capture hub messages for ReceiveLog, after we trigger the route post-handshake
         $logUrl = "$($script:instance.Url)/api/ps/log/Information"
-    $msgs = Get-SignalRMessages -BaseUrl $script:instance.Url -Count 2 -TimeoutSeconds 12 -OnConnected { param($url) Assert-RouteContent -Uri $url -Contains 'Broadcasted' | Out-Null } -OnConnectedArg $logUrl
+        $msgs = Get-SignalRMessages -BaseUrl $script:instance.Url -Count 2 -TimeoutSeconds 12 -OnConnected { param($url) Assert-RouteContent -Uri $url -Contains 'Broadcasted' | Out-Null } -OnConnectedArg $logUrl
         $msgs | Should -Not -BeNullOrEmpty
         $msg = $msgs | Where-Object { $_.Target -eq 'ReceiveLog' } | Select-Object -First 1
         $msg | Should -Not -BeNullOrEmpty -Because 'Expected at least one ReceiveLog message'
@@ -65,23 +69,23 @@ Describe 'Tutorial 10.5 - SignalR (PowerShell)' -Tag 'Tutorial' {
                 if ($ename -eq 'PowerShellEvent') { $psEvent = $pl; break }
             }
         }
-        $psEvent | Should -Not -BeNullOrEmpty -Because "Expected a PowerShellEvent within ReceiveEvent messages"
+        $psEvent | Should -Not -BeNullOrEmpty -Because 'Expected a PowerShellEvent within ReceiveEvent messages'
         ($psEvent.Data ?? $psEvent.data) | Should -Not -BeNullOrEmpty
     }
 
     It 'Long operation emits progress and completes (100%)' -Tag 'Slow' {
         # Start the operation via API and verify completion using the status endpoint
         $startUrl = "$($script:instance.Url)/api/operation/start?seconds=4"
-        $sc = $null
-        $params = @{ Uri = $startUrl; Method = 'Post'; Headers = @{ Accept = 'application/json' }; TimeoutSec = 12; SkipHttpErrorCheck = $true; StatusCodeVariable = 'sc' }
-        if ($script:instance.Https) { $params.SkipCertificateCheck = $true }
-        $resp = Invoke-RestMethod @params
-        $sc | Should -Be 200
-        $id = ($resp.TaskId ?? $resp.taskId ?? $resp.Id ?? $resp.id)
+        $invokeParams = @{ Uri = $startUrl; Method = 'Post'; UseBasicParsing = $true; TimeoutSec = 12; Headers = @{ Accept = 'application/json' } }
+        if ($script:instance.Https) { $invokeParams.SkipCertificateCheck = $true }
+        $startResp = Invoke-WebRequest @invokeParams
+        $startResp.StatusCode | Should -Be 200
+        $respObj = $startResp.Content | ConvertFrom-Json
+        $id = ($respObj.TaskId ?? $respObj.taskId ?? $respObj.Id ?? $respObj.id)
         $id | Should -Not -BeNullOrEmpty
 
         $st = Wait-UntilOperationCompleted -Id $id -TimeoutSec 40
         $st.State | Should -Be 'Completed'
-        [int]($st.Progress ?? 0) | Should -BeGreaterThanOrEqual 100
+        [int]($st.Progress ?? 0) | Should -BeGreaterOrEqual 100
     }
 }

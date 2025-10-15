@@ -1,4 +1,4 @@
-﻿<#
+<#
 .SYNOPSIS
     Removes a finished task from the registry.
 .DESCRIPTION

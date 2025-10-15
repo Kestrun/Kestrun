@@ -62,6 +62,16 @@
 			"problemMatcher": "$msCompile"
 		},
 		{
+			"label": "build SignalRDemo",
+			"command": "dotnet",
+			"type": "process",
+			"args": [
+				"build",
+				"${workspaceFolder}/examples/CSharp/SignalRDemo/SignalRDemo.csproj"
+			],
+			"problemMatcher": "$msCompile"
+		},
+		{
 			"label": "build Kestrun library",
 			"command": "dotnet",
 			"type": "process",
@@ -91,14 +101,35 @@
 			]
 		},
 		{
-			"label": "validate tutorial docs",
+			"label": "build Kestrun library (local)",
 			"type": "shell",
-			"command": "pwsh",
+			"command": "dotnet",
 			"args": [
-				"-NoProfile",
-				"-File",
-				"Utility/Test-TutorialDocs.ps1"
+				"build",
+				"c:\\Users\\m_dan\\Documents\\GitHub\\kestrun\\kestrun\\src\\CSharp\\Kestrun\\Kestrun.csproj"
 			]
+		},
+		{
+			"label": "build Kestrun library (local)",
+			"type": "shell",
+			"command": "dotnet",
+			"args": [
+				"build",
+				"c:\\Users\\m_dan\\Documents\\GitHub\\kestrun\\kestrun\\src\\CSharp\\Kestrun\\Kestrun.csproj"
+			]
+		},
+		{
+			"label": "build Kestrun library",
+			"type": "shell",
+			"command": "dotnet",
+			"args": [
+				"build",
+				"c:\\Users\\m_dan\\Documents\\GitHub\\kestrun\\kestrun\\src\\CSharp\\Kestrun\\Kestrun.csproj"
+			],
+			"problemMatcher": [
+				"$msCompile"
+			],
+			"group": "build"
 		}
 	]
 }

@@ -1,4 +1,4 @@
-﻿<#
+<#
 .SYNOPSIS
     Sets the name and/or description of a task.
 .DESCRIPTION

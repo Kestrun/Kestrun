@@ -1,4 +1,4 @@
-﻿<#
+<#
 .SYNOPSIS
     Gets the detailed result of a task by id.
 .DESCRIPTION

@@ -1,4 +1,4 @@
-﻿param()
+param()
 
 Describe 'Tutorial 20.1 - Tasks' -Tag 'Tutorial' {
     BeforeAll {

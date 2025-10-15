@@ -27,7 +27,7 @@ Add-KrEndpoint -Port $Port -IPAddress $IPAddress
 Add-KrStaticFilesMiddleware -RequestPath '/assets' -RootPath '.\Assets\wwwroot'
 
 # Add a static map override
-Add-KrStaticMapOverride -Path '/assets/override/pwsh' -ScriptBlock {
+Add-KrMapRoute -Path '/assets/override/pwsh' -ScriptBlock {
 
     $data = @{
         status = 'ok'

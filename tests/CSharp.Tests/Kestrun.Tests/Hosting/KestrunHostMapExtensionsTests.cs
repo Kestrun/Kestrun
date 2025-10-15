@@ -285,9 +285,10 @@ public class KestrunHostMapExtensionsTests
         SanitizeSharedGlobals();
         var host = new KestrunHost("TestApp", AppContext.BaseDirectory);
 
-        _ = host.AddStaticMapOverride(
+        _ = host.AddMapRoute(
             pattern: "/override",
-            code: "Context.Response.StatusCode = 201;",
+            httpVerbs: [HttpVerb.Get],
+            scriptBlock: "Context.Response.StatusCode = 201;",
             language: ScriptLanguage.CSharp);
 
         // Route is queued and applied during Build

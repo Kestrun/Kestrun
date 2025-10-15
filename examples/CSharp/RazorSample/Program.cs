@@ -76,12 +76,12 @@ server.AddResponseCompression(options =>
     opts.Base64Encoded = true;            // default anyway
     opts.RequireHttps = false;           // example
 })
-.AddStaticMapOverride("/assets/report", async ctx =>
+.AddMapRoute("/assets/report", HttpVerb.Get, async ctx =>
 {
     await ctx.Response.WriteJsonResponseAsync(new { ok = true, message = "Static override works!" });
-})
-.AddStaticMapOverride(
-   pattern: "/assets/ps-report", code: """
+}, map: out _)
+.AddMapRoute(
+   pattern: "/assets/ps-report", httpVerbs: HttpVerb.Get, scriptBlock: """
 
   $Payload = @{
     ok    = $true
@@ -91,17 +91,17 @@ server.AddResponseCompression(options =>
 Write-KrJsonResponse -inputObject $Payload
 """, language: ScriptLanguage.PowerShell, requireSchemes: [BasicPowershellScheme])
 
-.AddStaticMapOverride(
-    "/assets/vb-report",
+.AddMapRoute(
+    pattern: "/assets/vb-report", httpVerbs: HttpVerb.Get, scriptBlock:
     """
     Dim payload = New With {.ok=True, .lang="VB.NET", .time=DateTime.UtcNow}
     Await Context.Response.WriteJsonResponseAsync(payload)
 """,
     ScriptLanguage.VBNet)
 
-.AddStaticMapOverride(
-    "/assets/cs-report",
-    """  
+.AddMapRoute(
+    "/assets/cs-report", httpVerbs: HttpVerb.Get, scriptBlock:
+    """
         var payload = new
         {
             ok = true,
@@ -110,11 +110,11 @@ Write-KrJsonResponse -inputObject $Payload
         };
         await Context.Response.WriteJsonResponseAsync(payload);
 """,
-    ScriptLanguage.CSharp)
+    language: ScriptLanguage.CSharp)
 
 .AddFileServer(options =>
 {
-    options.RequestPath = "/assets"; // Set the request path for static files 
+    options.RequestPath = "/assets"; // Set the request path for static files
     options.EnableDirectoryBrowsing = true;
 })
 .AddPowerShellRazorPages(routePrefix: "/pages");

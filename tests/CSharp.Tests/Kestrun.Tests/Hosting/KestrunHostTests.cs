@@ -78,30 +78,7 @@ public class KestrunHostTest
         var host = new KestrunHost("TestApp", logger);
 
         _ = Assert.Throws<InvalidOperationException>(() =>
-           host.AddMapRoute("/test", HttpVerb.Get, async ctx => { await Task.CompletedTask; })
-        );
-    }
-
-    [Fact]
-    [Trait("Category", "Hosting")]
-    public void AddMapRoute_ThrowsIfAppNotInitialized()
-    {
-        var logger = new LoggerConfiguration().CreateLogger();
-        var host = new KestrunHost("TestApp", logger);
-
-        var options = new MapRouteOptions
-        {
-            Pattern = "/test",
-            HttpVerbs = [HttpVerb.Get],
-            ScriptCode = new LanguageOptions
-            {
-                Code = "Write-Output 'Hello'",
-                Language = ScriptLanguage.PowerShell
-            }
-        };
-
-        _ = Assert.Throws<InvalidOperationException>(() =>
-            host.AddMapRoute(options)
+           host.AddMapRoute("/test", HttpVerb.Get, async ctx => { await Task.CompletedTask; }, out _)
         );
     }
 

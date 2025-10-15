@@ -782,7 +782,7 @@ server.AddMapRoute("/secure/key/simple/hello", HttpVerb.Get, async (ctx) =>
 {
     var user = ctx.User?.Identity?.Name;
     await ctx.Response.WriteTextResponseAsync($"Welcome, {user}! You are authenticated using simple key matching.", 200);
-}, [ApiKeySimple]);
+}, map: out _, requireSchemes: [ApiKeySimple]);
 
 
 server.AddMapRoute("/secure/key/ps/hello", HttpVerb.Get, """
@@ -916,7 +916,7 @@ server.AddMapRoute("/token/renew", HttpVerb.Get, async (ctx) =>
         return;
     }
     await ctx.Response.WriteJsonResponseAsync(new { access_token = token });
-}, [JwtScheme]);
+}, map: out _, requireSchemes: [JwtScheme]);
 
 
 server.AddMapRoute("/token/new", HttpVerb.Get, async (ctx) =>
@@ -936,7 +936,7 @@ server.AddMapRoute("/token/new", HttpVerb.Get, async (ctx) =>
         Log.Error(ex, "Failed to generate JWT token");
         await ctx.Response.WriteErrorResponseAsync("Internal Server Error", 500);
     }
-}, [BasicNativeScheme]);
+}, map: out _, requireSchemes: [BasicNativeScheme]);
 
 
 /*
@@ -968,8 +968,8 @@ server.AddMapRoute("/cookies/login", HttpVerb.Get, async ctx =>
     </form>
   </body>
 </html>", statusCode: 200, contentType: "text/html; charset=UTF-8");
-});
-server.AddMapRoute("/cookies/login", HttpVerb.Post, async (ctx) =>
+}, map: out _);
+server.AddMapRoute(pattern: "/cookies/login", httpVerb: HttpVerb.Post, async (ctx) =>
 {
     var form = ctx.Request.Form;
     if (form == null)
@@ -998,7 +998,7 @@ server.AddMapRoute("/cookies/login", HttpVerb.Post, async (ctx) =>
     {
         await ctx.Response.WriteJsonResponseAsync(new { success = false }, statusCode: 401);
     }
-});
+}, map: out _);
 
 server.AddMapRoute("/cookies/logout", HttpVerb.Get, async ctx =>
 {
@@ -1006,7 +1006,7 @@ server.AddMapRoute("/cookies/logout", HttpVerb.Get, async ctx =>
     // After logout, send them back to login
     ctx.Response.StatusCode = 302;
     ctx.Response.Headers["Location"] = "/cookies/login";
-}, [CookieScheme]);
+}, map: out _);
 /*
 server.AddMapRoute("/cookies/login2", HttpVerb.Post, """
     write-host 'Processing login request...'
@@ -1048,7 +1048,7 @@ server.AddMapRoute("/secure/cookies3", HttpVerb.Get, """
 """, ScriptLanguage.CSharp, [CookieScheme]);
 */
 
-server.AddMapRoute("/secure/cookies", HttpVerb.Get, async (ctx) =>
+server.AddMapRoute(pattern: "/secure/cookies", httpVerb: HttpVerb.Get, handler: async (ctx) =>
 {
     if (ctx.User?.Identity == null || !ctx.User.Identity.IsAuthenticated)
     {
@@ -1058,7 +1058,7 @@ server.AddMapRoute("/secure/cookies", HttpVerb.Get, async (ctx) =>
     {
         await ctx.Response.WriteTextResponseAsync($"Hello, {ctx.User.Identity.Name}");
     }
-}, [CookieScheme]);
+}, map: out _, requireSchemes: [CookieScheme]);
 
 
 server.AddMapRoute(new()
@@ -1142,7 +1142,7 @@ server.AddMapRoute("/kerberos/secure", HttpVerb.Get, async (ctx) =>
 {
     var userName = ctx.User?.Identity?.Name ?? "Unknown";
     await ctx.Response.WriteTextResponseAsync($"Hello, {userName}");
-}, [NegotiateDefaults.AuthenticationScheme]);
+}, map: out _, requireSchemes: [NegotiateDefaults.AuthenticationScheme]);
 
 
 

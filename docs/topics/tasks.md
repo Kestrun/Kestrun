@@ -1,5 +1,5 @@
 ---
-title: Tasks
+title: Ad-hoc Tasks
 parent: Guides
 nav_order: 60
 ---

@@ -1,10 +1,10 @@
 ---
-title: Sessions
+title: Client Sessions
 parent: Guides
 nav_order: 70
 ---
 
-# Sessions
+# Client Sessions
 
 Sessions provide per-client, cookie-based state across multiple HTTP requests.
 They’re ideal for small, transient data like counters, selected items, feature flags, or the current user identity after login.

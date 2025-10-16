@@ -1,11 +1,11 @@
 ---
 layout: default
 parent: Guides
-title: Status Code Pages
+title: Status Code Pages Middleware
 nav_order: 80
 ---
 
-# Status Code Pages
+# Status Code Pages Middleware
 
 Status Code Pages middleware provides custom error pages for HTTP status codes
 between 400 and 599 that don't have a response body. This is essential for

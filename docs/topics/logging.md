@@ -1,10 +1,10 @@
 ---
-title: Logging
+title: Kestrun Logging
 parent: Guides
 nav_order: 30
 ---
 
-# Kestrun Logging (C# & PowerShell)
+# Kestrun Logging
 
 This topic provides an in-depth guide to configuring and using Kestrun's Serilog-based logging pipeline
 from both C# and PowerShell. PowerShell cmdlets wrap the same builder APIs used directly in C#.

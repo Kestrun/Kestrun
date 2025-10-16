@@ -1,10 +1,10 @@
 ---
-title: Certificates
+title: Certificates Management
 parent: Guides
 nav_order: 40
 ---
 
-# Certificates (Create, Import, Export, Validate, Use in Kestrel)
+# Certificates Management
 
 Kestrun provides helper APIs and cmdlets to generate, import, export, and validate X.509 certificates.
 They’re powered by Bouncy Castle and work the same on Windows, Linux, and macOS.

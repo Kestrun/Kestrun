@@ -22,6 +22,9 @@
     .PARAMETER DisallowCredentials
         If specified, disallows credentials in requests.
         If not specified, credentials will be allowed.
+    .PARAMETER AllowAll
+        If specified, allows any origin, method, and header to access the resources.
+        This is a shorthand for specifying AllowAnyOrigin, AllowAnyMethod, and AllowAnyHeader
     .PARAMETER PassThru
         If specified, returns the modified server instance after adding the CORS policy.
     .EXAMPLE
@@ -67,6 +70,9 @@ function Add-KrCorsPolicyMiddleware {
         [Parameter(ParameterSetName = 'Items')]
         [switch]$DisallowCredentials,
 
+        [Parameter(ParameterSetName = 'AllowAll')]
+        [switch]$AllowAll,
+
         [Parameter()]
         [switch]$PassThru
     )
@@ -80,7 +86,7 @@ function Add-KrCorsPolicyMiddleware {
             if ($AllowCredentials.IsPresent -and $DisallowCredentials.IsPresent) {
                 throw 'Cannot specify both AllowCredentials and DisallowCredentials.'
             }
-
+            # Build the CORS policy based on the specified parameters
             $Builder = [Microsoft.AspNetCore.Cors.Infrastructure.CorsPolicyBuilder]::new()
             if ($AllowAnyOrigin.IsPresent) {
                 $Builder.AllowAnyOrigin() | Out-Null
@@ -97,9 +103,15 @@ function Add-KrCorsPolicyMiddleware {
             if ($DisallowCredentials.IsPresent) {
                 $Builder.DisallowCredentials() | Out-Null
             }
+        } elseif ( $PSCmdlet.ParameterSetName -eq 'AllowAll') {
+            # If AllowAll is specified, configure the builder to allow any origin, method, and header
+            $Builder = [Microsoft.AspNetCore.Cors.Infrastructure.CorsPolicyBuilder]::new()
+            $Builder.AllowAnyOrigin() | Out-Null
+            $Builder.AllowAnyMethod() | Out-Null
+            $Builder.AllowAnyHeader() | Out-Null
         }
 
-        [Kestrun.Hosting.KestrunHttpMiddlewareExtensions]::AddCors($Server, $Name, $Builder) | Out-Null
+        [Kestrun.Hosting.KestrunSecurityMiddlewareExtensions]::AddCors($Server, $Name, $Builder) | Out-Null
         # Add the CORS policy to the server
 
         if ($PassThru.IsPresent) {

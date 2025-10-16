@@ -80,11 +80,11 @@ function Add-KrHostFiltering {
             }
             # Validate the options
             $Options.AllowEmptyHosts = -not $NotAllowEmptyHosts.IsPresent
-            $Options.IncludeFailureMessage = -not $ExcludeFailureMessage.IsPresent 
+            $Options.IncludeFailureMessage = -not $ExcludeFailureMessage.IsPresent
         }
 
         # Add the Host Filtering middleware
-        [Kestrun.Hosting.KestrunHttpMiddlewareExtensions]::AddHostFiltering($Server, $Options) | Out-Null
+        [Kestrun.Hosting.KestrunSecurityMiddlewareExtensions]::AddHostFiltering($Server, $Options) | Out-Null
 
         if ($PassThru.IsPresent) {
             # if the PassThru switch is specified, return the modified server instance

@@ -93,7 +93,7 @@ function Add-KrAntiforgeryMiddleware {
         }
 
         # Add the Antiforgery service to the server
-        [Kestrun.Hosting.KestrunHttpMiddlewareExtensions]::AddAntiforgery($Server, $Options) | Out-Null
+        [Kestrun.Hosting.KestrunSecurityMiddlewareExtensions]::AddAntiforgery($Server, $Options) | Out-Null
 
         if ($PassThru.IsPresent) {
             # if the PassThru switch is specified, return the modified server instance

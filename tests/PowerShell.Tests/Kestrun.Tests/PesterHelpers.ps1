@@ -1161,7 +1161,7 @@ function Get-SseEvent {
     # and collects messages targeting 'ReceiveEvent'.
 .NOTES
     This function requires .NET 5+ / PowerShell 7+ for full compatibility.
-    It is intended for internal or test use and may not handle all edge cases of the Signal
+    It is intended for internal or test use and may not handle all edge cases of the SignalR protocol.
 #>
 function Get-SignalRMessage {
     [CmdletBinding()]

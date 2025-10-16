@@ -206,25 +206,22 @@ public class KestrunHost : IDisposable
 
         // ③ Ensure Kestrun module path is available
         AddKestrunModulePathIfMissing(modulePathsObj);
-        var webAppOptions = new WebApplicationOptions()
+
+        // ④ WebApplicationBuilder
+        Builder = WebApplication.CreateBuilder(new WebApplicationOptions()
         {
-            // ApplicationName assignment is disabled because setting it can interfere with certain ASP.NET Core features.
-            //ApplicationName = appName,
             ContentRootPath = string.IsNullOrWhiteSpace(kestrunRoot) ? Directory.GetCurrentDirectory() : kestrunRoot,
             Args = args ?? [],
             EnvironmentName = EnvironmentHelper.Name
-        };
-
-
-        // ④ Builder + logging
-        Builder = WebApplication.CreateBuilder(webAppOptions);
+        });
+        // Enable Serilog for the host
         _ = Builder.Host.UseSerilog();
 
-        // ④.1 Make this KestrunHost available via DI so framework-created components (e.g., auth handlers)
+        // Make this KestrunHost available via DI so framework-created components (e.g., auth handlers)
         // can resolve it. We register the current instance as a singleton.
         _ = Builder.Services.AddSingleton(this);
 
-        // ④.2 Expose Serilog.ILogger via DI for components (e.g., SignalR hubs) that depend on Serilog's logger
+        // Expose Serilog.ILogger via DI for components (e.g., SignalR hubs) that depend on Serilog's logger
         // ASP.NET Core registers Microsoft.Extensions.Logging.ILogger by default; we also bind Serilog.ILogger
         // to the same instance so constructors like `KestrunHub(Serilog.ILogger logger)` resolve properly.
         _ = Builder.Services.AddSingleton(Logger);

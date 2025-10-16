@@ -79,8 +79,8 @@ function Add-KrHostFiltering {
                 }
             }
             # Validate the options
-            if ($PSBoundParameters.ContainsKey('NotAllowEmptyHosts')) { $Options.AllowEmptyHosts = -not $NotAllowEmptyHosts.IsPresent }
-            if ($PSBoundParameters.ContainsKey('ExcludeFailureMessage')) { $Options.IncludeFailureMessage = -not $ExcludeFailureMessage.IsPresent }
+            $Options.AllowEmptyHosts = -not $NotAllowEmptyHosts.IsPresent
+            $Options.IncludeFailureMessage = -not $ExcludeFailureMessage.IsPresent 
         }
 
         # Add the Host Filtering middleware

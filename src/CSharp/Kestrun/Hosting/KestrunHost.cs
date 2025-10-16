@@ -21,6 +21,7 @@ using Microsoft.Net.Http.Headers;
 using Kestrun.Authentication;
 using Kestrun.Health;
 using Kestrun.Tasks;
+using Kestrun.Runtime;
 
 namespace Kestrun.Hosting;
 
@@ -192,7 +193,9 @@ public class KestrunHost : IDisposable
     /// <param name="logger">The Serilog logger instance to use.</param>
     /// <param name="kestrunRoot">The root directory for the Kestrun application.</param>
     /// <param name="modulePathsObj">An array of module paths to be loaded.</param>
-    public KestrunHost(string? appName, Serilog.ILogger logger, string? kestrunRoot = null, string[]? modulePathsObj = null)
+    /// <param name="args">Command line arguments to pass to the application.</param>
+    public KestrunHost(string? appName, Serilog.ILogger logger,
+    string? kestrunRoot = null, string[]? modulePathsObj = null, string[]? args = null)
     {
         // ① Logger
         Logger = logger ?? Log.Logger;
@@ -203,9 +206,17 @@ public class KestrunHost : IDisposable
 
         // ③ Ensure Kestrun module path is available
         AddKestrunModulePathIfMissing(modulePathsObj);
+        var webAppOptions = new WebApplicationOptions()
+        {
+            //ApplicationName = appName,
+            ContentRootPath = string.IsNullOrWhiteSpace(kestrunRoot) ? Directory.GetCurrentDirectory() : kestrunRoot,
+            Args = args ?? [],
+            EnvironmentName = EnvironmentHelper.Name
+        };
+
 
         // ④ Builder + logging
-        Builder = WebApplication.CreateBuilder();
+        Builder = WebApplication.CreateBuilder(webAppOptions);
         _ = Builder.Host.UseSerilog();
 
         // ④.1 Make this KestrunHost available via DI so framework-created components (e.g., auth handlers)

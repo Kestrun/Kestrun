@@ -20,7 +20,7 @@ New-KrServer -Name 'Endpoints HostFiltering'
 # 2) Listener
 Add-KrEndpoint -Port $Port -IPAddress $IPAddress
 
-# 5)  Configure Host Filtering via parameters
+# 3)  Configure Host Filtering via parameters
 #    - Only allow requests with Host header "example.com" or "www.example.com"
 #    - Reject empty Host headers
 #    - Exclude failure message body for blocked hosts

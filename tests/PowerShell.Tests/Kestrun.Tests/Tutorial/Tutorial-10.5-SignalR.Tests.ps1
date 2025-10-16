@@ -7,7 +7,25 @@ Describe 'Tutorial 10.5 - SignalR (PowerShell)' -Tag 'Tutorial' {
         # Start the SignalR example server
         $script:instance = Start-ExampleScript -Name '10.5-SignalR.ps1' -StartupTimeoutSeconds 60
 
-        # Helper: wait until operation completed via status endpoint
+        <#
+        .SYNOPSIS
+            Waits until the specified operation reaches the Completed state or times out.
+        .DESCRIPTION
+            This function polls the operation status endpoint for the given operation ID until the operation state is Completed or the timeout is reached.
+        .PARAMETER Id
+            The ID of the operation to monitor.
+        .PARAMETER TimeoutSec
+            The maximum time in seconds to wait for the operation to complete. Default is 30 seconds.
+        .PARAMETER PollMs
+            The interval in milliseconds between status checks. Default is 300 ms.
+        .OUTPUTS
+            The operation status object when the operation reaches the Completed state.
+        .EXAMPLE
+            Wait-UntilOperationCompleted -Id "operation-id" -TimeoutSec 60
+            Waits up to 60 seconds for the operation with ID "operation-id" to reach the Completed state.
+        .NOTES
+            This function is intended for use in tests to monitor long-running operations.
+        #>
         function Wait-UntilOperationCompleted {
             param(
                 [Parameter(Mandatory)][string]$Id,
@@ -27,6 +45,7 @@ Describe 'Tutorial 10.5 - SignalR (PowerShell)' -Tag 'Tutorial' {
                     }
                 } catch {
                     # ignore transient issues and keep polling
+                    Write-Debug "Error checking operation status: $_"
                 }
                 Start-Sleep -Milliseconds $PollMs
             } while ([DateTime]::UtcNow -lt $deadline)
@@ -45,7 +64,7 @@ Describe 'Tutorial 10.5 - SignalR (PowerShell)' -Tag 'Tutorial' {
     It 'Broadcasts a log and a custom event to the hub' {
         # Capture hub messages for ReceiveLog, after we trigger the route post-handshake
         $logUrl = "$($script:instance.Url)/api/ps/log/Information"
-        $msgs = Get-SignalRMessages -BaseUrl $script:instance.Url -Count 2 -TimeoutSeconds 12 -OnConnected { param($url) Assert-RouteContent -Uri $url -Contains 'Broadcasted' | Out-Null } -OnConnectedArg $logUrl
+        $msgs = Get-SignalRMessage -BaseUrl $script:instance.Url -Count 2 -TimeoutSeconds 12 -OnConnected { param($url) Assert-RouteContent -Uri $url -Contains 'Broadcasted' | Out-Null } -OnConnectedArg $logUrl
         $msgs | Should -Not -BeNullOrEmpty
         $msg = $msgs | Where-Object { $_.Target -eq 'ReceiveLog' } | Select-Object -First 1
         $msg | Should -Not -BeNullOrEmpty -Because 'Expected at least one ReceiveLog message'
@@ -54,7 +73,7 @@ Describe 'Tutorial 10.5 - SignalR (PowerShell)' -Tag 'Tutorial' {
 
         # Capture hub messages for ReceiveEvent with on-connected trigger
         $evtUrl = "$($script:instance.Url)/api/ps/event"
-        $events = Get-SignalRMessages -BaseUrl $script:instance.Url -Count 3 -TimeoutSeconds 15 -OnConnected {
+        $events = Get-SignalRMessage -BaseUrl $script:instance.Url -Count 3 -TimeoutSeconds 15 -OnConnected {
             param($url)
             Assert-RouteContent -Uri $url -Contains 'Broadcasted custom event' | Out-Null
         } -OnConnectedArg $evtUrl

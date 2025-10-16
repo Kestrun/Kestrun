@@ -21,6 +21,7 @@ using Microsoft.Net.Http.Headers;
 using Kestrun.Authentication;
 using Kestrun.Health;
 using Kestrun.Tasks;
+using Kestrun.Runtime;
 
 namespace Kestrun.Hosting;
 
@@ -192,7 +193,9 @@ public class KestrunHost : IDisposable
     /// <param name="logger">The Serilog logger instance to use.</param>
     /// <param name="kestrunRoot">The root directory for the Kestrun application.</param>
     /// <param name="modulePathsObj">An array of module paths to be loaded.</param>
-    public KestrunHost(string? appName, Serilog.ILogger logger, string? kestrunRoot = null, string[]? modulePathsObj = null)
+    /// <param name="args">Command line arguments to pass to the application.</param>
+    public KestrunHost(string? appName, Serilog.ILogger logger,
+    string? kestrunRoot = null, string[]? modulePathsObj = null, string[]? args = null)
     {
         // ① Logger
         Logger = logger ?? Log.Logger;
@@ -204,15 +207,21 @@ public class KestrunHost : IDisposable
         // ③ Ensure Kestrun module path is available
         AddKestrunModulePathIfMissing(modulePathsObj);
 
-        // ④ Builder + logging
-        Builder = WebApplication.CreateBuilder();
+        // ④ WebApplicationBuilder
+        Builder = WebApplication.CreateBuilder(new WebApplicationOptions()
+        {
+            ContentRootPath = string.IsNullOrWhiteSpace(kestrunRoot) ? Directory.GetCurrentDirectory() : kestrunRoot,
+            Args = args ?? [],
+            EnvironmentName = EnvironmentHelper.Name
+        });
+        // Enable Serilog for the host
         _ = Builder.Host.UseSerilog();
 
-        // ④.1 Make this KestrunHost available via DI so framework-created components (e.g., auth handlers)
+        // Make this KestrunHost available via DI so framework-created components (e.g., auth handlers)
         // can resolve it. We register the current instance as a singleton.
         _ = Builder.Services.AddSingleton(this);
 
-        // ④.2 Expose Serilog.ILogger via DI for components (e.g., SignalR hubs) that depend on Serilog's logger
+        // Expose Serilog.ILogger via DI for components (e.g., SignalR hubs) that depend on Serilog's logger
         // ASP.NET Core registers Microsoft.Extensions.Logging.ILogger by default; we also bind Serilog.ILogger
         // to the same instance so constructors like `KestrunHub(Serilog.ILogger logger)` resolve properly.
         _ = Builder.Services.AddSingleton(Logger);

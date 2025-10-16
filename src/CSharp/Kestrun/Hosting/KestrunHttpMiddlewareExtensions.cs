@@ -9,6 +9,7 @@ using Microsoft.Net.Http.Headers;
 using Serilog.Events;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.AspNetCore.HttpsPolicy;
+using Microsoft.AspNetCore.HostFiltering;
 
 namespace Kestrun.Hosting;
 
@@ -540,19 +541,19 @@ public static class KestrunHttpMiddlewareExtensions
     /// Adds HSTS to the application using the specified <see cref="HstsOptions"/>.
     /// </summary>
     /// <param name="host">The KestrunHost instance to configure.</param>
-    /// <param name="cfg">The delegate for configuring HSTS options.</param>
+    /// <param name="opts">The delegate for configuring HSTS options.</param>
     /// <returns>The updated KestrunHost instance.</returns>
-    public static KestrunHost AddHsts(this KestrunHost host, Action<HstsOptions>? cfg = null)
+    public static KestrunHost AddHsts(this KestrunHost host, Action<HstsOptions>? opts = null)
     {
         if (host.Logger.IsEnabled(LogEventLevel.Debug))
         {
-            host.Logger.Debug("Adding HSTS with configuration: {HasConfig}", cfg != null);
+            host.Logger.Debug("Adding HSTS with configuration: {HasConfig}", opts != null);
         }
 
         // Register the HSTS service
         _ = host.AddService(services =>
             {
-                _ = services.AddHsts(cfg ?? (_ => { })); // Always pass a delegate
+                _ = services.AddHsts(opts ?? (_ => { })); // Always pass a delegate
             });
 
         // Apply the middleware
@@ -563,35 +564,90 @@ public static class KestrunHttpMiddlewareExtensions
     /// Adds HSTS to the application using the specified <see cref="HstsOptions"/>.
     /// </summary>
     /// <param name="host">The KestrunHost instance to configure.</param>
-    /// <param name="cfg">The HSTS options.</param>
+    /// <param name="opts">The HSTS options.</param>
     /// <returns>The updated KestrunHost instance.</returns>
-    public static KestrunHost AddHsts(this KestrunHost host, HstsOptions cfg)
+    public static KestrunHost AddHsts(this KestrunHost host, HstsOptions opts)
     {
         if (host.Logger.IsEnabled(LogEventLevel.Debug))
         {
-            host.Logger.Debug("Adding HSTS with configuration: {@Config}", cfg);
+            host.Logger.Debug("Adding HSTS with configuration: {@Config}", opts);
         }
 
-        if (cfg == null)
+        if (opts == null)
         {
             return host.AddHsts();   // fallback to parameterless overload
         }
 
         _ = host.AddService(services =>
         {
-            _ = services.AddHsts(opts =>
+            _ = services.AddHsts(o =>
             {
-                opts.Preload = cfg.Preload;
-                opts.IncludeSubDomains = cfg.IncludeSubDomains;
-                opts.MaxAge = cfg.MaxAge;
-                opts.ExcludedHosts.Clear();
-                foreach (var h in cfg.ExcludedHosts)
+                o.Preload = opts.Preload;
+                o.IncludeSubDomains = opts.IncludeSubDomains;
+                o.MaxAge = opts.MaxAge;
+                o.ExcludedHosts.Clear();
+                foreach (var h in opts.ExcludedHosts)
                 {
-                    opts.ExcludedHosts.Add(h);
+                    o.ExcludedHosts.Add(h);
                 }
             });
         });
 
         return host.Use(app => app.UseHsts());
+    }
+
+    /// <summary>
+    /// Adds Host Filtering to the application using the specified configuration delegate.
+    /// </summary>
+    /// <param name="host">The KestrunHost instance to configure.</param>
+    /// <param name="opts">The delegate for configuring host filtering options.</param>
+    /// <returns>The updated KestrunHost instance.</returns>
+    public static KestrunHost AddHostFiltering(this KestrunHost host, Action<HostFilteringOptions>? opts = null)
+    {
+        if (host.Logger.IsEnabled(LogEventLevel.Debug))
+        {
+            host.Logger.Debug("Adding host filtering with configuration: {HostFilteringOptions}", opts != null);
+        }
+
+        // Register the host filtering service
+        _ = host.AddService(services =>
+            {
+                _ = services.AddHostFiltering(opts ?? (_ => { })); // Always pass a delegate
+            });
+
+        // Apply the middleware
+        return host.Use(app => app.UseHostFiltering());
+    }
+
+    /// <summary>
+    /// Adds Host Filtering to the application using the specified <see cref="HostFilteringOptions"/>.
+    /// </summary>
+    /// <param name="host">The KestrunHost instance to configure.</param>
+    /// <param name="opts">The host filtering options.</param>
+    /// <returns>The updated KestrunHost instance.</returns>
+    public static KestrunHost AddHostFiltering(this KestrunHost host, HostFilteringOptions opts)
+    {
+        if (host.Logger.IsEnabled(LogEventLevel.Debug))
+        {
+            host.Logger.Debug("Adding host filtering with configuration: {HostFilteringOptions}", opts);
+        }
+
+        // Register the host filtering service
+        _ = host.AddService(services =>
+        {
+            _ = services.AddHostFiltering(o =>
+            {
+                o.AllowedHosts.Clear();
+                foreach (var host in opts.AllowedHosts)
+                {
+                    o.AllowedHosts.Add(host);
+                }
+                o.AllowEmptyHosts = opts.AllowEmptyHosts;
+                o.IncludeFailureMessage = opts.IncludeFailureMessage;
+            });
+        });
+
+        // Apply the middleware
+        return host.Use(app => app.UseHostFiltering());
     }
 }

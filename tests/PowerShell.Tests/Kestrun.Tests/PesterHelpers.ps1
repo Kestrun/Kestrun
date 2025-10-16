@@ -1115,9 +1115,55 @@ function Get-SseEvent {
     return $events
 }
 
-
-# Minimal SignalR client using WebSockets to capture messages from a hub
-function Get-SignalRMessages {
+<#
+.SYNOPSIS
+    Connects to a SignalR hub and captures messages.
+.DESCRIPTION
+    This function connects to a SignalR hub using WebSockets, performs the necessary handshake,
+    and listens for incoming messages. It collects messages up to a specified count or until a timeout
+    occurs. Optionally, it can filter messages by target method names and invoke a callback after
+    the connection is established.
+.PARAMETER BaseUrl
+    The base URL of the server hosting the SignalR hub (e.g., 'http://localhost:5000').
+.PARAMETER HubPath
+    The relative path to the SignalR hub (default is '/hubs/kestrun').
+.PARAMETER Count
+    The maximum number of messages to collect (default is 5).
+.PARAMETER TimeoutSeconds
+    The overall timeout in seconds for the operation (default is 30).
+.PARAMETER Targets
+    An array of target method names to filter messages (e.g., 'ReceiveEvent'). If specified,
+    only messages with these target names will be collected.
+.PARAMETER OnConnected
+    An optional script block to invoke after the connection is established and the handshake is complete,
+    but before entering the message receive loop. This can be used to send initial messages or perform
+    other setup tasks.
+.PARAMETER OnConnectedArg
+    An optional argument to pass to the OnConnected script block.
+.OUTPUTS
+    An array of objects representing the received messages, each with properties:
+    - InvocationId: The invocation ID of the message (if present).
+    - Target: The target method name of the message.
+    - Arguments: The arguments of the message.
+    - Raw: The raw JSON string of the message.
+.EXAMPLE
+    $messages = Get-SignalRMessage -BaseUrl 'http://localhost:5000' -HubPath '/hubs/kestrun' -Count 10 -TimeoutSeconds 60
+    # Connects to the specified SignalR hub and collects up to 10 messages or until 60 seconds elapse.
+.EXAMPLE
+    $messages = Get-SignalRMessage -BaseUrl 'http://localhost:5000' -Targets 'ReceiveEvent' -OnConnected {
+        # Send an initial message or perform setup
+        $initMessage = '{"type":1,"target":"JoinGroup","arguments":["TestGroup"]}' + [char]0x1e
+        $buf = [System.Text.Encoding]::UTF8.GetBytes($initMessage)
+        $seg = [ArraySegment[byte]]::new($buf)
+        $arg.SendAsync($seg, [System.Net.WebSockets.WebSocketMessageType]::Text, $true, [Threading.CancellationToken]::None).Wait()
+    }
+    # Connects to the hub, invokes the OnConnected script block to join a group,
+    # and collects messages targeting 'ReceiveEvent'.
+.NOTES
+    This function requires .NET 5+ / PowerShell 7+ for full compatibility.
+    It is intended for internal or test use and may not handle all edge cases of the SignalR protocol.
+#>
+function Get-SignalRMessage {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)] [string]$BaseUrl,           # e.g., http://localhost:5000

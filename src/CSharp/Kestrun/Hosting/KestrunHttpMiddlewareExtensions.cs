@@ -650,5 +650,4 @@ public static class KestrunHttpMiddlewareExtensions
         // Apply the middleware
         return host.Use(app => app.UseHostFiltering());
     }
-
 }

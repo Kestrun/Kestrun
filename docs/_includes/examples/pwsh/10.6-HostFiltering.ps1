@@ -20,18 +20,16 @@ New-KrServer -Name 'Endpoints HostFiltering'
 # 2) Listener
 Add-KrEndpoint -Port $Port -IPAddress $IPAddress
 
-# 3) Enable Kestrun configuration
-Enable-KrConfiguration
-
-# 4A) (Typical) Configure Host Filtering via parameters
+# 5)  Configure Host Filtering via parameters
 #    - Only allow requests with Host header "example.com" or "www.example.com"
 #    - Reject empty Host headers
 #    - Exclude failure message body for blocked hosts
 Add-KrHostFiltering `
     -AllowedHosts @('example.com', 'www.example.com') `
-    -NotAllowEmptyHosts `
-    -ExcludeFailureMessage
+    -NotAllowEmptyHosts
 
+# 4) Enable Kestrun configuration
+Enable-KrConfiguration
 
 # 5) Map a simple route
 Add-KrMapRoute -Verbs Get -Pattern '/hello' -ScriptBlock {

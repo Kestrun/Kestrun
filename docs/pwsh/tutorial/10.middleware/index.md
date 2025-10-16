@@ -25,6 +25,7 @@ Core goals:
 | Logging | Sinks / enrichment | See Logging section |
 | AuthN/Z | Schemes & policies | See Authentication section |
 | Sessions | Session state | New – see Sessions chapter |
+| Security | Host Filtering | [Tutorial](./6.Host-Filtering) |
 | Upcoming | Rate Limiting | Planned |
 | Upcoming | Compression | Planned |
 | Upcoming | CORS | Planned |
@@ -69,6 +70,7 @@ Planned middleware will appear here as they are implemented. Contributions welco
 ## Next Steps
 
 - Read the [Antiforgery Protection](./1.Antiforgery) chapter
+- Explore [Host Filtering](./6.Host-Filtering)
 - Learn about [HTTPS and HSTS Security](./4.Https-Hsts)
 - Explore [Sessions](../19.Session/1.Sessions)
 - Review caching in [Responses: Caching & Revalidation](/pwsh/tutorial/9.Responses/8.Caching)

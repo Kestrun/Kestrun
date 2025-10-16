@@ -208,6 +208,7 @@ public class KestrunHost : IDisposable
         AddKestrunModulePathIfMissing(modulePathsObj);
         var webAppOptions = new WebApplicationOptions()
         {
+            // ApplicationName assignment is disabled because setting it can interfere with certain ASP.NET Core features.
             //ApplicationName = appName,
             ContentRootPath = string.IsNullOrWhiteSpace(kestrunRoot) ? Directory.GetCurrentDirectory() : kestrunRoot,
             Args = args ?? [],

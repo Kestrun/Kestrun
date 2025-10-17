@@ -1,4 +1,5 @@
 ---
+layout: default
 title: Client Sessions
 parent: Guides
 nav_order: 70
@@ -221,3 +222,7 @@ Client ──(Cookie: SessionId)──> Kestrun (UseSession)
 - [Clear-KrSession](/pwsh/cmdlets/Clear-KrSession)
 - [Add-KrDistributedRedisCache](/pwsh/cmdlets/Add-KrDistributedRedisCache)
 - [Add-KrDistributedSqlServerCache](/pwsh/cmdlets/Add-KrDistributedSqlServerCache)
+
+---
+
+Return to the [Guides index](./index).

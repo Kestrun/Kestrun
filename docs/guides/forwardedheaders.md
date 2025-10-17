@@ -1,8 +1,8 @@
 ---
 layout: default
 title: Forwarded Headers
-parent: Topics
-nav_order: 7
+parent: Guides
+nav_order: 55
 ---
 
 # Forwarded Headers
@@ -157,7 +157,7 @@ Consult your provider’s documentation for the exact outbound IP ranges and upd
 
 - PowerShell tutorial: [Forwarded Headers](/pwsh/tutorial/10.middleware/7.Forwarded-Headers)
 - Cmdlet: [Add-KrForwardedHeader](/pwsh/cmdlets/Add-KrForwardedHeader)
-- Topic: [Host Filtering](./hsts)
+- Guide: [HSTS & HTTPS](/guides/hsts)
 - ASP.NET Core docs: [Forwarded Headers Middleware](https://learn.microsoft.com/aspnet/core/host-and-deploy/proxy-load-balancer)
 
 ## External references
@@ -170,3 +170,7 @@ Consult your provider’s documentation for the exact outbound IP ranges and upd
 - [Apache: mod_proxy](https://httpd.apache.org/docs/current/mod/mod_proxy.html)
 - [HAProxy Docs](https://docs.haproxy.org/)
 - [Azure Front Door headers](https://learn.microsoft.com/azure/frontdoor/front-door-http-headers-protocol)
+
+---
+
+Return to the [Guides index](./index).

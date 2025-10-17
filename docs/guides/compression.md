@@ -126,3 +126,7 @@ Add-KrCompressionMiddleware -MimeTypes $common -EnableForHttps
 - Combine with caching for maximum performance
 - Add metrics around compression ratio to logs or observability pipeline
 - Benchmark with and without Brotli to select optimal provider set for workload
+
+---
+
+Return to the [Guides index](./index).

@@ -1,7 +1,8 @@
 ---
+layout: default
 title: Scheduling
 parent: Guides
-nav_order: 50
+nav_order: 65
 ---
 
 # Kestrun Scheduling (Jobs & CRON)
@@ -128,6 +129,6 @@ Types:
 - Log failures inside job bodies — a failed job should never crash the server
 - Pause instead of delete for outages — preserves next run predictability
 
-## See also
+---
 
-- Tutorial: [Scheduling Quickstart](/pwsh/tutorial/12.scheduling/1.Scheduling-Quickstart)
+Return to the [Guides index](./index).

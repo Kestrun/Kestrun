@@ -297,4 +297,6 @@ For high-risk apps, combine:
 - Origin / Referer header verification for unsafe verbs
 - Strong CSP to minimize XSS that could harvest tokens
 
-Return to the [Guides index](./index) or the [Tutorial index](/pwsh/tutorial/index).
+---
+
+Return to the [Guides index](./index).

@@ -20,6 +20,9 @@ Deeper, cross-cutting subjects (logging, deployment, performance, etc.).
 | [JWT Tokens](./jwt) | Build, issue, validate, and renew JSON Web Tokens |
 | [Scheduling](./scheduling) | Background jobs via intervals and CRON (PS & C#) |
 | [Sessions](./sessions) | Cookie-based per-client state across requests |
+| [Tasks](./tasks) | On-demand background work with progress and results |
+| [Status Code Pages](./statuscodepages) | Friendly error pages and re-execution flows |
+| [Certificates](./certificates) | Generate, import, export, and validate X.509 |
 
 ## Planned
 

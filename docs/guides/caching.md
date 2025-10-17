@@ -48,7 +48,7 @@ prefer the core ones (`Public/Private`, `MaxAge`, `NoStore`).
 Example (PowerShell):
 
 ```powershell
-Add-KrFileServerMiddleware -RequestPath '/' -RootPath '.\Assets\wwwroot' -EnableDirectoryBrowsing -Public -MaxAge 300 -MustRevalidate
+Add-KrFileServerMiddleware -RequestPath '/' -RootPath '.\\Assets\\wwwroot' -Public -MaxAge 300 -MustRevalidate
 ```
 
 Equivalent (C# builder pattern snippet):
@@ -169,7 +169,7 @@ Example combining all layers:
 Initialize-KrRoot -Path $PSScriptRoot
 New-KrServer -Name 'cache-demo'
 Add-KrEndpoint -Port 5000 -IPAddress ([IPAddress]::Loopback)
-Add-KrFileServerMiddleware -RequestPath '/' -RootPath '.\Assets\wwwroot' -Public -MaxAge 600 -MustRevalidate
+Add-KrFileServerMiddleware -RequestPath '/' -RootPath '.\\Assets\\wwwroot' -Public -MaxAge 600 -MustRevalidate
 Add-KrCacheMiddleware -SizeLimit 8388608 -MaximumBodySize 65536 -Public -MaxAge 60
 Enable-KrConfiguration
 
@@ -235,4 +235,4 @@ See the tutorial chapters:
 
 ---
 
-Return to the [Guides index](./index) or the [Tutorial index](/pwsh/tutorial/index).
+Return to the [Guides index](./index).

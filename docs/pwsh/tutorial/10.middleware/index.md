@@ -61,7 +61,7 @@ Planned middleware will appear here as they are implemented. Contributions welco
 | Feature | Status | Tracking |
 |---------|--------|----------|
 | Antiforgery | ✅ Implemented | Tutorial + Topic Deep Dive (coming) |
-| HSTS & HTTPS Redirection | ✅ Implemented | [Tutorial](./4.Https-Hsts) + [Topic](../../../topics/hsts) |
+| HSTS & HTTPS Redirection | ✅ Implemented | [Tutorial](./4.Https-Hsts) + [Guide](/guides/hsts) |
 | Rate Limiting | ⏳ Planned | TBD |
 | Compression | ⏳ Planned | TBD |
 | CORS | ⏳ Planned | TBD |

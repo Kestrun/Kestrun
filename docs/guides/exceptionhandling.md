@@ -1,5 +1,7 @@
 ---
+layout: default
 title: Exception Handling
+parent: Guides
 nav_order: 55
 ---
 
@@ -21,8 +23,8 @@ These modes are driven by `Enable-KrExceptionHandling` and work uniformly for Po
 ## When to use each mode
 
 - Re-execute to Path: Centralize rendering of user-friendly error pages or JSON payloads.
-- PowerShell Handler: You author error formatting in PowerShell; great for PS-first apps.
-- C# Inline Handler: You need maximum performance or want typed access to `Context`.
+- PowerShell Handler: Author error formatting in PowerShell; great for PS-first apps.
+- C# Inline Handler: Maximum performance with typed access to `Context`.
 - ProblemDetails: API-first services that want standardized machine-readable errors.
 - Developer Exception Page: Local development diagnostics only.
 
@@ -39,13 +41,11 @@ Common placement:
 
 ## PowerShell vs C# behavior
 
-- PowerShell routes can opt to handle their own exceptions. If you want the middleware to
-  handle PS exceptions, throw outside route blocks or ensure the middleware is configured
-  to capture them.
+- PowerShell routes can handle their own exceptions. If you want the middleware to handle PS exceptions,
+  throw outside route blocks or ensure the middleware is configured to capture them.
 - C# and other compiled handlers naturally flow exceptions into the middleware pipeline.
 
-> Note: Custom exception handlers implemented as PowerShell scripts are not supported at this time.
-> Use C# or VB.NET for custom exception handling middleware.
+> Note: Custom exception handlers implemented as PowerShell scripts are not supported at this time. Use C# or VB.NET for custom exception handling middleware.
 
 ## ProblemDetails contracts
 
@@ -69,21 +69,13 @@ Clients should not rely on exact wording. Contract shape follows RFC 7807.
 - PowerShell: `Enable-KrExceptionHandling`, `Write-KrJsonResponse`, `Write-KrTextResponse`
 - C#: `Context.Response.WriteJsonResponse`, `WriteTextResponse`, etc.
 
-## End-to-end examples
+## Tutorials
 
-See the tutorials:
-
-- [18.1 Re-execute to Path](/pwsh/tutorial/18.ExceptionHandling/1.Re-execute-Path)
-- [18.2 PowerShell Handler](/pwsh/tutorial/18.ExceptionHandling/2.PowerShell-Handler)
-- [18.3 C# Inline Handler](/pwsh/tutorial/18.ExceptionHandling/3.CSharp-Inline)
-- [18.4 ProblemDetails Fallback](/pwsh/tutorial/18.ExceptionHandling/4.ProblemDetails)
-- [18.5 Developer Exception Page](/pwsh/tutorial/18.ExceptionHandling/5.Developer-Exception-Page)
-
-## Troubleshooting
-
-- Seeing plain text instead of JSON? Check content negotiation and whether the exception is thrown where the middleware can intercept.
-- Getting a 200 OK on errors? Ensure the handler sets the status code when writing custom responses.
-- Binary or gzip response bodies in tests? Decode to string before parsing JSON.
+- [Re-execute to Path](/pwsh/tutorial/18.ExceptionHandling/1.Re-execute-Path)
+- [PowerShell Handler](/pwsh/tutorial/18.ExceptionHandling/2.PowerShell-Handler)
+- [C# Inline Handler](/pwsh/tutorial/18.ExceptionHandling/3.CSharp-Inline)
+- [ProblemDetails Fallback](/pwsh/tutorial/18.ExceptionHandling/4.ProblemDetails)
+- [Developer Exception Page](/pwsh/tutorial/18.ExceptionHandling/5.Developer-Exception-Page)
 
 ## Security considerations
 
@@ -94,4 +86,7 @@ See the tutorials:
 
 - [RFC 7807 — Problem Details for HTTP APIs](https://datatracker.ietf.org/doc/html/rfc7807)
 - [ASP.NET Core error handling](https://learn.microsoft.com/aspnet/core/fundamentals/error-handling)
-- Kestrun cmdlets: `Enable-KrExceptionHandling`, `Add-KrMapRoute`, `Write-KrJsonResponse`
+
+---
+
+Return to the [Guides index](./index).

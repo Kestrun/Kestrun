@@ -17,8 +17,8 @@ This script enforces tutorial documentation standards including:
 - Proper cmdlet, topic, and example script reference formats
 
 The validator checks for:
-- Cmdlet references: Should use '/pwsh/cmdlets/' or '/topics/' with anchors
-- Topic references: Should use '/topics/' instead of relative paths like '../../../../topics/'
+- Cmdlet references: Should use '/pwsh/cmdlets/' or '/guides/' with anchors
+- Guide references: Should use '/guides/' instead of relative paths like '../../../../guides/'
 - Example scripts: Should use '/pwsh/tutorial/examples/' instead of relative paths
 - Complex relative paths: Flags references with multiple '../' traversals
 
@@ -76,7 +76,9 @@ Get-ChildItem -Path $scan -Recurse -Filter *.md | ForEach-Object {
     }
 
     # Ensure required sections exist
-    foreach ($hdr in '## Full source', '## Step-by-step', '## Try it', '## Troubleshooting', '## References', '### Previous / Next') {
+    foreach ($hdr in '## Full source', '## Step-by-step', '## Try it', '## Troubleshooting', '## References', '### Previous / Next
+
+{: .fs-4 .fw-500}') {
         if ($text -notmatch [regex]::Escape($hdr)) { $failures += "[Section] $rel missing '$hdr'" }
     }
 
@@ -127,14 +129,14 @@ Get-ChildItem -Path $scan -Recurse -Filter *.md | ForEach-Object {
             # Check for cmdlet references - should use absolute paths (but allow topic references with anchors)
             if ($refKey -match '^(Add|Remove|Set|Get|New|Test|Start|Stop|Enable|Disable|Write|Read|Import|Export)-Kr' -and
                 $refUrl -notmatch '^/pwsh/cmdlets/' -and
-                $refUrl -notmatch '^/topics/.*#' -and
+                $refUrl -notmatch '^/guides/.*#' -and
                 $refUrl -match '\.\./') {
                 $failures += "[Links] $rel cmdlet reference '$refKey' uses relative path '$refUrl' - consider absolute path"
             }
 
             # Check for topic references - should use absolute paths when relative
-            if ($refUrl -match '\.\./.*topics/' -and $refUrl -notmatch '^/topics/') {
-                $failures += "[Links] $rel topic reference '$refKey' uses relative path '$refUrl' - should use absolute path '/topics/'"
+            if ($refUrl -match '\.\./.*(topics|guides)/' -and $refUrl -notmatch '^/(guides|topics)/') {
+                $failures += "[Links] $rel guide/topic reference '$refKey' uses relative path '$refUrl' - should use absolute path '/guides/'"
             }
 
             # Check for example script references - should use absolute paths when relative

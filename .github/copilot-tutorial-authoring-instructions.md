@@ -16,14 +16,18 @@ These instructions formalize how Copilot should generate new tutorial documentat
 7. Include a `## Step-by-step` numbered list describing the script actions (max 8 steps unless justification is documented).
 8. Include a `## Try it` section with at least one `curl` example and (when relevant) PowerShell equivalents.
 9. Include any feature-specific explanatory sections (e.g., `## Redirect Types`).
-10. Provide a `## References` section linking all cmdlets used and any related topic docs (Health tutorials must link `/topics/health`).
-11. Append a horizontal rule `---` followed by a `### Previous / Next` navigation block.
+10. Provide a `## References` section linking all cmdlets used and any related guide docs (Health tutorials must link `/guides/health`).
+11. Append a horizontal rule `---` followed by a `### Previous / Next
+
+{: .fs-4 .fw-500}` navigation block.
 12. Add link reference definitions for the included script at the bottom.
 13. Use consistent imperative style and avoid redundant commentary.
 14. For Health probe examples, use `New-KrProbeResult` instead of direct constructors.
 15. Maintain ordering exactly: Title → Intro → Full source → Step-by-step → Try it → Feature-specific blocks →
 (Key Points / Troubleshooting optional) → References → --- → Previous / Next → link refs.
-16. Do not omit `## Step-by-step`, `## Full source`, `## References`, or navigation unless explicitly instructed.
+16. Do not omit `## Step-by-step`,`## Full source`,`## References`, or navigation unless explicitly instructed.
+17. Any changes to these instructions must be reflected in both this file and`tutorial-template.md`.
+18. Any file change must be verified using /utilitys/validate-tutorials.ps1.
 
 ## Formatting Rules
 
@@ -37,7 +41,7 @@ These instructions formalize how Copilot should generate new tutorial documentat
 
 When generating a Health tutorial:
 
-- Ensure `## References` includes: endpoint cmdlets, probe cmdlets, `New-KrProbeResult`, and `[Health Topic](/topics/health)`.
+- Ensure `## References` includes: endpoint cmdlets, probe cmdlets, `New-KrProbeResult`, and `[Health Guide](/guides/health)`.
 - If showing sample JSON output, wrap in a fenced `json` block.
 - Mention tag filtering, degraded status, or timeouts only if they appear in the sample code.
 
@@ -90,11 +94,13 @@ curl -i http://127.0.0.1:5000/route
 ## References
 
 - [Write-KrRedirectResponse](/pwsh/cmdlets/Write-KrRedirectResponse)
-- [Health Topic](/topics/health) <!-- Include only if relevant -->
+- [Health Guide](/guides/health) <!-- Include only if relevant -->
 
 ---
 
 ### Previous / Next
+
+{: .fs-4 .fw-500}
 
 Previous: [PREV_TITLE](./PREV_FILE)
 Next: [NEXT_TITLE](./NEXT_FILE)
@@ -105,7 +111,7 @@ Next: [NEXT_TITLE](./NEXT_FILE)
 
 Copilot must verify before completing generation:
 
-- [ ] Filename matches `N.Title.md` pattern.    
+- [ ] Filename matches `N.Title.md` pattern.
 - [ ] Front matter present and valid.
 - [ ] H1 matches title.
 - [ ] Intro sentence present.

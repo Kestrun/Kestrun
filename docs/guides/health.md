@@ -316,4 +316,6 @@ Disable or override by registering your own probe with the same name before `Ena
 - Combine with scheduling (`Register-KrSchedule`) to self-heal when a probe fails (e.g., restart a background job).
 - Read the [Logging guide](./logging) to add structured telemetry around probe execution.
 
-Return to the [Guides index](./index) or jump back to the [PowerShell tutorial](../pwsh/tutorial/index).
+---
+
+Return to the [Guides index](./index).

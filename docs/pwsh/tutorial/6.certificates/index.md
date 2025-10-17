@@ -7,7 +7,7 @@ nav_order: 6
 # Certificates
 
 Hands-on steps to create, request, import/export, validate, and use certificates with Kestrun.
-For background and C#/PowerShell API details, see the [Certificates guide](/topics/certificates).
+For background and C#/PowerShell API details, see the [Certificates guide](/guides/certificates).
 
 ## Chapters
 

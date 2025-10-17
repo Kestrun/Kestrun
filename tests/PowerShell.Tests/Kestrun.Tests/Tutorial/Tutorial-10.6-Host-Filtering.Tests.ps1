@@ -1,4 +1,4 @@
-﻿param()
+param()
 
 Describe 'Example 10.6-Host-Filtering' -Tag 'Tutorial', 'Middleware', 'HostFiltering' {
     BeforeAll {

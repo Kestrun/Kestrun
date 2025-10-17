@@ -40,7 +40,7 @@ Enable Forwarded Headers early in the pipeline and restrict trust to your proxy 
 ### PowerShell
 
 ```powershell
-Add-ForwardedHeader -XForwardedFor -XForwardedProto -XForwardedHost -ForwardLimit 1 -KnownProxies @('127.0.0.1', '::1')
+Add-KrForwardedHeader -XForwardedFor -XForwardedProto -XForwardedHost -ForwardLimit 1 -KnownProxies @('127.0.0.1', '::1')
 ```
 
 Inside a route, you can read the effective values:
@@ -130,7 +130,7 @@ Ensure your Kestrun app trusts only those proxy IPs (or subnets):
 
 ```powershell
 # Example: trust provider CIDR ranges (replace with actual)
-Add-ForwardedHeader -XForwardedFor -XForwardedProto -XForwardedHost -KnownNetworks @('192.0.2.0/24', '2001:db8::/32')
+Add-KrForwardedHeader -XForwardedFor -XForwardedProto -XForwardedHost -KnownNetworks @('192.0.2.0/24', '2001:db8::/32')
 ```
 
 Consult your provider’s documentation for the exact outbound IP ranges and update periodically.
@@ -156,7 +156,7 @@ Consult your provider’s documentation for the exact outbound IP ranges and upd
 ## Related
 
 - PowerShell tutorial: [Forwarded Headers](/pwsh/tutorial/10.middleware/7.Forwarded-Headers)
-- Cmdlet: [Add-ForwardedHeader](/pwsh/cmdlets/Add-ForwardedHeader)
+- Cmdlet: [Add-KrForwardedHeader](/pwsh/cmdlets/Add-KrForwardedHeader)
 - Topic: [Host Filtering](./hsts)
 - ASP.NET Core docs: [Forwarded Headers Middleware](https://learn.microsoft.com/aspnet/core/host-and-deploy/proxy-load-balancer)
 

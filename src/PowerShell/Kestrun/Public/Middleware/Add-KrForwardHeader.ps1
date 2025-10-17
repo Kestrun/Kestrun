@@ -55,14 +55,14 @@
     If specified, the cmdlet returns the Kestrun server instance after adding
     the middleware.
 .EXAMPLE
-    Add-ForwardedHeader -XForwardedFor -XForwardedProto -KnownProxies $proxyIps
+    Add-KrForwardedHeader -XForwardedFor -XForwardedProto -KnownProxies $proxyIps
     Adds Forwarded Headers middleware to the current Kestrun server, enabling
     processing of X-Forwarded-For and X-Forwarded-Proto headers, and
     trusting the specified proxy IP addresses.
 .NOTES
     This cmdlet is part of the Kestrun PowerShell module.
 #>
-function Add-ForwardedHeader {
+function Add-KrForwardedHeader {
     [KestrunRuntimeApi('Definition')]
     [CmdletBinding(DefaultParameterSetName = 'Items')]
     [OutputType([Kestrun.Hosting.KestrunHost])]

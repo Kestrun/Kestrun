@@ -1,4 +1,4 @@
-﻿param()
+param()
 Describe 'Example 10.7-Forwarded-Header' {
     BeforeAll {
         . (Join-Path $PSScriptRoot '..\PesterHelpers.ps1')

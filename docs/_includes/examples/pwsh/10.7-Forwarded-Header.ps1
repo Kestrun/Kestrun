@@ -22,14 +22,13 @@ New-KrServer -Name 'Forwarded Headers Demo'
 # Add a listener on the configured port and IP address
 Add-KrEndpoint -Port $Port -IPAddress $IPAddress
 
-# Enable Kestrun configuration
-Enable-KrConfiguration
+
 
 # Enable Forwarded Headers middleware. Trust loopback so tests/locals can pass headers.
 # Process X-Forwarded-For, X-Forwarded-Proto, and X-Forwarded-Host.
 # Limit to 1 forward (the first value in a comma-delimited list).
 # Trust local reverse proxies (loopback)
-Add-ForwardedHeaders -ForwardedHeaders 'XForwardedFor', 'XForwardedProto', 'XForwardedHost' -ForwardLimit 1 -KnownProxies '127.0.0.1', '::1'
+Add-ForwardedHeader -ForwardedHeaders 'XForwardedFor', 'XForwardedProto'
 
 # Map a diagnostic route that reveals forwarded effects
 Add-KrMapRoute -Verbs Get -Pattern '/forward' -ScriptBlock {
@@ -47,6 +46,9 @@ Add-KrMapRoute -Verbs Get -Pattern '/forward' -ScriptBlock {
     }
     Write-KrJsonResponse -InputObject $payload -StatusCode 200
 }
+
+# Enable Kestrun configuration
+Enable-KrConfiguration
 
 # Initial informational log
 Write-KrLog -Level Information -Message 'Server {Name} configured.' -Values 'Forwarded Headers Demo'

@@ -31,20 +31,20 @@
     .PARAMETER PassThru
         If specified, the cmdlet returns the modified Kestrun server instance. This allows for further chaining of cmdlets or inspection of the server instance.
     .EXAMPLE
-        Add-ForwardedHeaders -ForwardedHeaders 'XForwardedFor, XForwardedProto' -KnownProxies $proxy1, $proxy2 -PassThru
+        Add-ForwardedHeader -ForwardedHeaders 'XForwardedFor, XForwardedProto' -KnownProxies $proxy1, $proxy2 -PassThru
         This example adds Forwarded Headers middleware to the current Kestrun server instance, configuring it to process X-Forwarded-For and X-Forwarded-Proto headers,
         trusting the specified known proxies, and returns the modified server instance.
     .EXAMPLE
         $options = [Microsoft.AspNetCore.Builder.ForwardedHeadersOptions]::new()
         $options.ForwardedHeaders = [Microsoft.AspNetCore.HttpOverrides.ForwardedHeaders]::XForwardedFor -bor [Microsoft.AspNetCore.HttpOverrides.ForwardedHeaders]::XForwardedProto
         $options.KnownNetworks.Add([System.Net.IPNetwork]::Parse("192.168.0.0/16"))
-        Add-ForwardedHeaders -Options $options -PassThru
+        Add-ForwardedHeader -Options $options -PassThru
         This example creates a ForwardedHeadersOptions object, configures it to process X-Forwarded-For and X-Forwarded-Proto headers,
         adds a known network, and then adds the Forwarded Headers middleware to the current Kestrun server instance using the specified options.
     .NOTES
         This cmdlet is part of the Kestrun PowerShell module.
         #>
-function Add-ForwardedHeaders {
+function Add-ForwardedHeader {
     [KestrunRuntimeApi('Definition')]
     [CmdletBinding(defaultParameterSetName = 'Items')]
     [OutputType([Kestrun.Hosting.KestrunHost])]

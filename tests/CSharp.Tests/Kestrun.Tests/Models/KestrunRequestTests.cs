@@ -88,7 +88,7 @@ public class KestrunRequestTests
         Assert.Equal("GET", req.Method);
         Assert.Equal("https", req.Scheme);
         Assert.True(req.IsHttps);
-        Assert.Equal("example.com:8443", req.Host);
+        Assert.Equal("example.com:8443", req.Host.ToString());
         Assert.Equal("/base", req.PathBase);
         Assert.Equal("/resource", req.Path);
         Assert.Equal("?one=1&two=second", req.QueryString);

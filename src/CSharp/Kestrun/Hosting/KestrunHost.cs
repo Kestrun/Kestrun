@@ -84,8 +84,23 @@ public class KestrunHost : IDisposable
             : StopTime.HasValue
                 ? StopTime - StartTime
                 : DateTime.UtcNow - StartTime.Value;
-
+    /// <summary>
+    /// The runspace pool manager for PowerShell execution.
+    /// </summary>
     private KestrunRunspacePoolManager? _runspacePool;
+
+    /// <summary>
+    /// Status code options for configuring status code pages.
+    /// </summary>
+    private StatusCodeOptions? _statusCodeOptions;
+    /// <summary>
+    /// Exception options for configuring exception handling.
+    /// </summary>
+    private ExceptionOptions? _exceptionOptions;
+    /// <summary>
+    /// Forwarded headers options for configuring forwarded headers handling.
+    /// </summary>
+    private ForwardedHeadersOptions? _forwardedHeaderOptions;
 
     internal KestrunRunspacePoolManager RunspacePool => _runspacePool ?? throw new InvalidOperationException("Runspace pool is not initialized. Call EnableConfiguration first.");
 
@@ -164,12 +179,50 @@ public class KestrunHost : IDisposable
     /// <summary>
     /// Gets or sets the status code options for configuring status code pages.
     /// </summary>
-    public StatusCodeOptions? StatusCodeOptions { get; set; }
+    public StatusCodeOptions? StatusCodeOptions
+    {
+        get => _statusCodeOptions;
+        set
+        {
+            if (IsConfigured)
+            {
+                throw new InvalidOperationException("Cannot modify StatusCodeOptions after configuration is applied.");
+            }
+            _statusCodeOptions = value;
+        }
+    }
 
     /// <summary>
     /// Gets or sets the exception options for configuring exception handling.
     /// </summary>
-    public ExceptionOptions? ExceptionOptions { get; set; }
+    public ExceptionOptions? ExceptionOptions
+    {
+        get => _exceptionOptions;
+        set
+        {
+            if (IsConfigured)
+            {
+                throw new InvalidOperationException("Cannot modify ExceptionOptions after configuration is applied.");
+            }
+            _exceptionOptions = value;
+        }
+    }
+
+    /// <summary>
+    /// Gets or sets the forwarded headers options for configuring forwarded headers handling.
+    /// </summary>
+    public ForwardedHeadersOptions? ForwardedHeaderOptions
+    {
+        get => _forwardedHeaderOptions;
+        set
+        {
+            if (IsConfigured)
+            {
+                throw new InvalidOperationException("Cannot modify ForwardedHeaderOptions after configuration is applied.");
+            }
+            _forwardedHeaderOptions = value;
+        }
+    }
 
     #endregion
 
@@ -927,6 +980,7 @@ public class KestrunHost : IDisposable
     private void ConfigureBuiltInMiddleware()
     {
         ConfigureExceptionHandling();
+        ConfigureForwardedHeaders();
         ConfigureStatusCodePages();
         ConfigurePowerShellRuntime();
     }
@@ -945,6 +999,21 @@ public class KestrunHost : IDisposable
             _ = ExceptionOptions.DeveloperExceptionPageOptions is not null
                 ? _app!.UseDeveloperExceptionPage(ExceptionOptions.DeveloperExceptionPageOptions)
                 : _app!.UseExceptionHandler(ExceptionOptions);
+        }
+    }
+
+    /// <summary>
+    /// Configures forwarded headers middleware if enabled.
+    /// </summary>
+    private void ConfigureForwardedHeaders()
+    {
+        if (ForwardedHeaderOptions is not null)
+        {
+            if (Logger.IsEnabled(LogEventLevel.Debug))
+            {
+                Logger.Debug("Forwarded headers middleware is enabled.");
+            }
+            _ = _app!.UseForwardedHeaders(ForwardedHeaderOptions);
         }
     }
 

@@ -10,7 +10,7 @@ public partial class KestrunRequest
 {
     private KestrunRequest(HttpContext context, Dictionary<string, string>? formDict, string body)
     {
-        Context = context ?? throw new ArgumentNullException(nameof(context));
+        HttpContext = context ?? throw new ArgumentNullException(nameof(context));
         Request = context.Request;
         Query = Request.Query
                             .ToDictionary(x => x.Key, x => x.Value.ToString() ?? string.Empty);
@@ -25,9 +25,9 @@ public partial class KestrunRequest
     }
 
     /// <summary>
-    /// Gets the <see cref="HttpContext"/> associated with the request.
+    /// Gets the <see cref="Microsoft.AspNetCore.Http.HttpContext"/> associated with the request.
     /// </summary>
-    public HttpContext Context { get; init; }
+    public HttpContext HttpContext { get; init; }
 
     /// <summary>
     /// Gets the <see cref="HttpRequest"/> associated with the request.
@@ -41,7 +41,7 @@ public partial class KestrunRequest
     /// <summary>
     /// Gets the host header value for the request.
     /// </summary>
-    public string Host => Request.Host.ToUriComponent();
+    public HostString Host => Request.Host;
 
     /// <summary>
     /// Gets the query string for the request (e.g., "?id=123").
@@ -126,7 +126,7 @@ public partial class KestrunRequest
 
 
     /// <summary>
-    /// Creates a new <see cref="KestrunRequest"/> instance from the specified <see cref="HttpContext"/>.
+    /// Creates a new <see cref="KestrunRequest"/> instance from the specified <see cref="Microsoft.AspNetCore.Http.HttpContext"/>.
     /// </summary>
     /// <param name="context">The HTTP context containing the request information.</param>
     /// <returns>A task that represents the asynchronous operation. The task result contains the constructed <see cref="KestrunRequest"/>.</returns>

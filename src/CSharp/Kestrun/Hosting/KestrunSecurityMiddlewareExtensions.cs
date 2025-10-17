@@ -13,7 +13,6 @@ namespace Kestrun.Hosting;
 public static class KestrunSecurityMiddlewareExtensions
 {
 
-
     /// <summary>
     /// Adds rate limiting to the application using the specified <see cref="RateLimiterOptions"/>.
     /// </summary>

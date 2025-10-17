@@ -78,7 +78,7 @@
         'Add-KrDistributedSqlServerCache', 'Add-KrEndpoint', 'Add-KrEnrichEnvironment',
         'Add-KrEnrichErrorRecord', 'Add-KrEnrichExceptionDetail', 'Add-KrEnrichFromLogContext',
         'Add-KrEnrichProcessId', 'Add-KrEnrichProcessName', 'Add-KrEnrichProperty',
-        'Add-KrFaviconMiddleware', 'Add-KrFileServerMiddleware', 'Add-KrForwardHeaders',
+        'Add-KrFaviconMiddleware', 'Add-KrFileServerMiddleware', 'Add-ForwardedHeaders',
         'Add-KrHealthEndpoint', 'Add-KrHealthHttpProbe', 'Add-KrHealthProbe',
         'Add-KrHealthProcessProbe', 'Add-KrHostFiltering', 'Add-KrHsts',
         'Add-KrHtmlTemplateRoute', 'Add-KrHttpsRedirection', 'Add-KrJWTAudience',

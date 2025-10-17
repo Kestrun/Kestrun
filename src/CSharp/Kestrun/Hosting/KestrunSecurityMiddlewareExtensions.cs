@@ -265,7 +265,7 @@ public static class KestrunSecurityMiddlewareExtensions
     /// <param name="host">The KestrunHost instance to configure.</param>
     /// <param name="opts">The delegate for configuring forwarded headers options.</param>
     /// <returns>The updated KestrunHost instance.</returns>
-    public static KestrunHost AddForwardHeaders(this KestrunHost host, Action<ForwardedHeadersOptions> opts)
+    public static KestrunHost AddForwardedHeaders(this KestrunHost host, Action<ForwardedHeadersOptions> opts)
     {
         if (host.Logger.IsEnabled(LogEventLevel.Debug))
         {
@@ -288,7 +288,7 @@ public static class KestrunSecurityMiddlewareExtensions
     /// <param name="host">The KestrunHost instance to configure.</param>
     /// <param name="opts">The forwarded headers options.</param>
     /// <returns>The updated KestrunHost instance.</returns>
-    public static KestrunHost AddForwardHeaders(this KestrunHost host, ForwardedHeadersOptions opts)
+    public static KestrunHost AddForwardedHeaders(this KestrunHost host, ForwardedHeadersOptions opts)
     {
         if (host.Logger.IsEnabled(LogEventLevel.Debug))
         {

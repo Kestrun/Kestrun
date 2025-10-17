@@ -31,20 +31,20 @@
     .PARAMETER PassThru
         If specified, the cmdlet returns the modified Kestrun server instance. This allows for further chaining of cmdlets or inspection of the server instance.
     .EXAMPLE
-        Add-KrForwardHeaders -ForwardedHeaders 'XForwardedFor, XForwardedProto' -KnownProxies $proxy1, $proxy2 -PassThru
+        Add-ForwardedHeaders -ForwardedHeaders 'XForwardedFor, XForwardedProto' -KnownProxies $proxy1, $proxy2 -PassThru
         This example adds Forwarded Headers middleware to the current Kestrun server instance, configuring it to process X-Forwarded-For and X-Forwarded-Proto headers,
         trusting the specified known proxies, and returns the modified server instance.
     .EXAMPLE
         $options = [Microsoft.AspNetCore.Builder.ForwardedHeadersOptions]::new()
         $options.ForwardedHeaders = [Microsoft.AspNetCore.HttpOverrides.ForwardedHeaders]::XForwardedFor -bor [Microsoft.AspNetCore.HttpOverrides.ForwardedHeaders]::XForwardedProto
         $options.KnownNetworks.Add([System.Net.IPNetwork]::Parse("192.168.0.0/16"))
-        Add-KrForwardHeaders -Options $options -PassThru
+        Add-ForwardedHeaders -Options $options -PassThru
         This example creates a ForwardedHeadersOptions object, configures it to process X-Forwarded-For and X-Forwarded-Proto headers,
         adds a known network, and then adds the Forwarded Headers middleware to the current Kestrun server instance using the specified options.
     .NOTES
         This cmdlet is part of the Kestrun PowerShell module.
         #>
-function Add-KrForwardHeaders {
+function Add-ForwardedHeaders {
     [KestrunRuntimeApi('Definition')]
     [CmdletBinding(defaultParameterSetName = 'Items')]
     [OutputType([Kestrun.Hosting.KestrunHost])]
@@ -60,9 +60,9 @@ function Add-KrForwardHeaders {
         [Parameter(ParameterSetName = 'Items')]
         [int] $ForwardLimit,
         [Parameter(ParameterSetName = 'Items')]
-        [System.Net.IPNetwork[]] $KnownNetworks,
+        [System.Net.IPAddress[]] $KnownNetworks,
         [Parameter(ParameterSetName = 'Items')]
-        [System.Net.IPNetwork[]] $KnownProxies,
+        [System.Net.IPAddress[]] $KnownProxies,
         [Parameter(ParameterSetName = 'Items')]
         [string[]] $AllowedHosts,
         [Parameter(ParameterSetName = 'Items')]

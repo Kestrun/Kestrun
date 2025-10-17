@@ -22,8 +22,6 @@ New-KrServer -Name 'Forwarded Headers Demo'
 # Add a listener on the configured port and IP address
 Add-KrEndpoint -Port $Port -IPAddress $IPAddress
 
-
-
 # Enable Forwarded Headers middleware. Trust loopback so tests/local can pass headers.
 # Process X-Forwarded-For, X-Forwarded-Proto, and X-Forwarded-Host.
 # Limit to 1 forward (the first value in a comma-delimited list).
@@ -36,12 +34,6 @@ Enable-KrConfiguration
 
 # Map a diagnostic route that reveals forwarded effects
 Add-KrMapRoute -Verbs Get -Pattern '/forward' -ScriptBlock {
-
-    Expand-KrObject -InputObject $Context.Request
-
-     Expand-KrObject -InputObject $Context.httpContext.Request
-  Expand-KrObject -InputObject $Context.httpContext.Connection
-    Expand-KrObject -InputObject $Context.Request.Host
   # 1) Effective host & hostPort (prefer HostString; fallback to raw Host header)
     $hs         = $Context.Request.Host
     $hostOnly   = $hs.Host

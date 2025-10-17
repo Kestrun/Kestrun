@@ -10,22 +10,32 @@ Describe 'Example 10.7-Forwarded-Header' {
 
     It 'GET /forward reflects forwarded headers' {
         $uri = "$($script:instance.Url)/forward"
-        # Simulate reverse proxy by providing X-Forwarded-* headers
+
+        # Simulate reverse proxy
         $headers = @{
-            'X-Forwarded-For' = '203.0.113.9'              # test public IP (RFC 5737)
+            'X-Forwarded-For' = '203.0.113.9'         # RFC 5737 test IP
             'X-Forwarded-Proto' = 'https'
             'X-Forwarded-Host' = 'proxy.example.test'
+            # If your app uses PathBase via X-Forwarded-Prefix, include it:
+            'X-Forwarded-Prefix' = '/myapp'
         }
 
-        $resp = Invoke-WebRequest -Uri $uri -UseBasicParsing -TimeoutSec 8 -Method Get -Headers $headers -ErrorAction Stop
+        $resp = Invoke-WebRequest -Uri $uri -TimeoutSec 8 -Method Get -Headers $headers -ErrorAction Stop
         $resp.StatusCode | Should -Be 200
-        Write-Host "Body: $($resp.Content)" -ForegroundColor Cyan
+
         $obj = $resp.Content | ConvertFrom-Json
+        if (-not $obj) {
+            Write-Host "Raw Body: $($resp.Content)" -ForegroundColor Yellow
+            throw 'Response body was not valid JSON.'
+        }
 
         # Forwarded headers should be applied by middleware
-        $obj.scheme | Should -Be 'http'
-        $obj.host | Should -Be 'proxy.example.test'
-        # RemoteIp should reflect X-Forwarded-For first value
-        $obj.remoteIp | Should -Be '203.0.113.9'
+        $obj.scheme | Should -Be 'https'                     # because X-Forwarded-Proto: https
+        $obj.host | Should -Be 'proxy.example.test'        # because X-Forwarded-Host
+        $obj.remoteIp | Should -Be '203.0.113.9'             # first IP from X-Forwarded-For
+
+        # Optional sanity checks if your route returns them:
+        $obj.basePath | Should -Be '/myapp'
+        $obj.fullPath | Should -Be '/myapp/forward'
     }
 }

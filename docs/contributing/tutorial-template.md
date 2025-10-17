@@ -45,9 +45,11 @@ Every tutorial page SHOULD follow this order (omit optional sections only if emp
 6. Feature-specific sections (e.g., `## Redirect Types`, `## Health Response Shape`) — Optional.
 7. `## Key Points` — Optional bullet list summarizing important behaviors.
 8. `## Troubleshooting` — Optional common pitfalls.
-9. `## References` — Links to related cmdlets AND (when applicable) topic docs (e.g., Health: `/topics/health`).
+9. `## References` — Links to related cmdlets AND (when applicable) guide docs (e.g., Health: `/guides/health`).
 10. Horizontal rule `---`.
-11. `### Previous / Next` — Two inline links to adjacent tutorials in the same section.
+11. `### Previous / Next
+
+{: .fs-4 .fw-500}` — Two inline links to adjacent tutorials in the same section.
 12. Footnote-style link references at bottom (for `Full source` file path and any others if preferred).
 
 ## 4. Full Source Section
@@ -90,7 +92,7 @@ Add focused sections when extra patterns matter (e.g., different redirect styles
 
 Include:
 - Each cmdlet used (e.g., `[Write-KrRedirectResponse](/pwsh/cmdlets/Write-KrRedirectResponse)`).
-- Related topic doc(s): e.g., Health tutorials must link `[Health Topic](/topics/health)`.
+- Related guide doc(s): e.g., Health tutorials must link `[Health Guide](/guides/health)`.
 - Keep bullet list—one link per line.
 
 ## 9. Previous / Next Navigation
@@ -103,6 +105,8 @@ Format:
 ---
 
 ### Previous / Next
+
+{: .fs-4 .fw-500}
 
 Previous: [Special Formats (BSON / CBOR)](./5.Special-Bson-Cbor)
 Next: [Errors](./7.Errors)
@@ -134,7 +138,7 @@ Use this style for clarity when referenced multiple times; otherwise inline link
 
 When authoring a Health tutorial page:
 
-- Ensure `## References` includes `[Health Topic](/topics/health)` plus all probe/endpoint cmdlets used.
+- Ensure `## References` includes `[Health Guide](/guides/health)` plus all probe/endpoint cmdlets used.
 - If showing response JSON, wrap in fenced `json` block.
 - Mention tag filtering or status mapping only if directly relevant to the sample.
 
@@ -189,11 +193,13 @@ curl -i http://127.0.0.1:5000/route
 ## References
 
 - [Write-KrRedirectResponse](/pwsh/cmdlets/Write-KrRedirectResponse)
-- [Health Topic](/topics/health) <!-- Include when relevant -->
+- [Health Guide](/guides/health) <!-- Include when relevant -->
 
 ---
 
 ### Previous / Next
+
+{: .fs-4 .fw-500}
 
 Previous: [PREV_TITLE](./PREV_FILE)
 Next: [NEXT_TITLE](./NEXT_FILE)

@@ -233,12 +233,4 @@ Add-KrMapRoute -Verbs Get -Pattern '/token/renew' -AuthorizationSchema 'Bearer' 
 
 ---
 
-## Next
-
-Return to [Guides index](./index) or continue with [Logging](./logging) and
-[HTTP Caching](./caching). For usage inside tutorial flows see the Authentication
-tutorial’s JWT chapter.
-
----
-
-_Examples above assume the surrounding server setup (logger, server, listener, runtime, enable configuration) already completed._
+Return to the [Guides index](./index).

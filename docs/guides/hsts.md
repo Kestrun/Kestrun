@@ -306,3 +306,7 @@ Test-NetConnection -ComputerName localhost -Port 443
 - [Certificate Management](../pwsh/tutorial/6.certificates/index.md)
 - [AspNetCoreSSL](https://learn.microsoft.com/aspnet/core/security/enforcing-ssl)
 - [HSTS](https://developer.mozilla.org/docs/Web/HTTP/Headers/Strict-Transport-Security)
+
+---
+
+Return to the [Guides index](./index).

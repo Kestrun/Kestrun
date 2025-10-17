@@ -1,4 +1,5 @@
 ---
+layout: default
 title: Ad-hoc Tasks
 parent: Guides
 nav_order: 60
@@ -137,4 +138,8 @@ Tasks complement the scheduler: you can even have scheduled jobs that queue task
 
 - Tutorial: [Tasks Walkthrough](/pwsh/tutorial/20.Tasks/1.Tasks)
 - Cmdlets: `Add-KrTasksService`, `New-KrTask`, `Start-KrTask`, `Get-KrTask`, `Stop-KrTask`, `Remove-KrTask`
-- Guides: [Scheduling](/topics/scheduling), [Logging](/topics/logging)
+- Guides: [Scheduling](/guides/scheduling), [Logging](/guides/logging)
+
+---
+
+Return to the [Guides index](./index).

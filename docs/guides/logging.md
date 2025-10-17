@@ -264,4 +264,4 @@ Return to the [home](/) or the [tutorial index](/pwsh/tutorial/index).
 
 ---
 
-_For full examples (multi-logger, global default, advanced sinks) see the PowerShell tutorial under Logging, or the C# examples in the repo._
+Return to the [Guides index](./index).

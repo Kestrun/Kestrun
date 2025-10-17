@@ -132,3 +132,7 @@ $handler = {
 
 Enable-KrStatusCodePage -ScriptBlock $handler
 ```
+
+---
+
+Return to the [Guides index](./index).

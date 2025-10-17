@@ -103,7 +103,7 @@ function Add-KrCorsPolicyMiddleware {
             if ($DisallowCredentials.IsPresent) {
                 $Builder.DisallowCredentials() | Out-Null
             }
-        } elseif ( $PSCmdlet.ParameterSetName -eq 'AllowAll') {
+        } elseif ( $AllowAll.IsPresent ) {
             # If AllowAll is specified, configure the builder to allow any origin, method, and header
             $Builder = [Microsoft.AspNetCore.Cors.Infrastructure.CorsPolicyBuilder]::new()
             $Builder.AllowAnyOrigin() | Out-Null

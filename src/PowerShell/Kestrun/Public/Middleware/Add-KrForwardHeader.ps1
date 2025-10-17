@@ -162,7 +162,6 @@ function Add-KrForwardedHeader {
                     $net = if ($n -is [System.Net.IPNetwork]) { $n } else { [System.Net.IPNetwork]::Parse($n) }
                     [void]$Options.KnownNetworks.Add($net)
                 }
-                foreach ($net in $KnownNetworks) { [void]$Options.KnownNetworks.Add($net) }
             }
             # Custom header names
             if ($PSBoundParameters.ContainsKey('ForwardedForHeaderName')) {

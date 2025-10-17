@@ -27,7 +27,7 @@ These instructions formalize how Copilot should generate new tutorial documentat
 (Key Points / Troubleshooting optional) → References → --- → Previous / Next → link refs.
 16. Do not omit `## Step-by-step`,`## Full source`,`## References`, or navigation unless explicitly instructed.
 17. Any changes to these instructions must be reflected in both this file and`tutorial-template.md`.
-18. Any file change must be verified using /utilitys/validate-tutorials.ps1.
+18. Any file change must be verified using /utilities/validate-tutorials.ps1.
 
 ## Formatting Rules
 

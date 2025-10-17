@@ -1,7 +1,7 @@
 ---
 layout: default
 title: HSTS and HTTPS Redirection
-parent: Topics
+parent: Guides
 nav_order: 6
 ---
 

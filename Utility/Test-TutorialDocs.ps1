@@ -14,7 +14,7 @@ This script enforces tutorial documentation standards including:
 - Required front matter and section structure
 - Reference-style link format with matching text/key
 - Absolute path usage in reference definitions for consistency
-- Proper cmdlet, topic, and example script reference formats
+- Proper cmdlet, guide, and example script reference formats
 
 The validator checks for:
 - Cmdlet references: Should use '/pwsh/cmdlets/' or '/guides/' with anchors
@@ -126,7 +126,7 @@ Get-ChildItem -Path $scan -Recurse -Filter *.md | ForEach-Object {
                 continue
             }
 
-            # Check for cmdlet references - should use absolute paths (but allow topic references with anchors)
+            # Check for cmdlet references - should use absolute paths (but allow guide references with anchors)
             if ($refKey -match '^(Add|Remove|Set|Get|New|Test|Start|Stop|Enable|Disable|Write|Read|Import|Export)-Kr' -and
                 $refUrl -notmatch '^/pwsh/cmdlets/' -and
                 $refUrl -notmatch '^/guides/.*#' -and
@@ -134,9 +134,9 @@ Get-ChildItem -Path $scan -Recurse -Filter *.md | ForEach-Object {
                 $failures += "[Links] $rel cmdlet reference '$refKey' uses relative path '$refUrl' - consider absolute path"
             }
 
-            # Check for topic references - should use absolute paths when relative
-            if ($refUrl -match '\.\./.*(topics|guides)/' -and $refUrl -notmatch '^/(guides|topics)/') {
-                $failures += "[Links] $rel guide/topic reference '$refKey' uses relative path '$refUrl' - should use absolute path '/guides/'"
+            # Check for guide references - should use absolute paths when relative
+            if ($refUrl -match '\.\./.*(guides)/' -and $refUrl -notmatch '^/(guides)/') {
+                $failures += "[Links] $rel guide reference '$refKey' uses relative path '$refUrl' - should use absolute path '/guides/'"
             }
 
             # Check for example script references - should use absolute paths when relative

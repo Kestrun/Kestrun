@@ -1,6 +1,6 @@
 ---
 layout: default
-title: Exception Handling
+title: ExceptionHandling
 parent: Guides
 nav_order: 55
 ---

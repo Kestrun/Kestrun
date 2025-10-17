@@ -257,5 +257,4 @@ public static class KestrunSecurityMiddlewareExtensions
         // Apply the middleware
         return host.Use(app => app.UseHostFiltering());
     }
-
 }

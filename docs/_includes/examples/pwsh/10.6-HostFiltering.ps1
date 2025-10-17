@@ -1,4 +1,4 @@
-﻿<#
+<#
     Sample Kestrun Server – Host Filtering
     Demonstrates enabling Host Filtering middleware and a simple route.
     FileName: 10.6-HostFiltering.ps1

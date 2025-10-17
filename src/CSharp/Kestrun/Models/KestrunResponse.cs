@@ -50,11 +50,11 @@ public class KestrunResponse(KestrunRequest request, int bodyAsyncThreshold = 81
     /// <summary>
     /// Gets the <see cref="HttpContext"/> associated with the response.
     /// </summary>
-    public HttpContext Context => Request.Context;
+    public HttpContext Context => Request.HttpContext;
     /// <summary>
     /// Gets or sets the HTTP status code for the response.
     /// </summary>
-    public int StatusCode { get; set; } = request.Context.Response.StatusCode;
+    public int StatusCode { get; set; } = request.HttpContext.Response.StatusCode;
     /// <summary>
     /// Gets or sets the collection of HTTP headers for the response.
     /// </summary>

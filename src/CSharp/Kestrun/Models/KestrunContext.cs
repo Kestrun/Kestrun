@@ -102,6 +102,11 @@ public sealed record KestrunContext
     public ClaimsPrincipal User => HttpContext.User;
 
     /// <summary>
+    /// Gets the connection information for the current HTTP context.
+    /// </summary>
+    public ConnectionInfo Connection => HttpContext.Connection;
+
+    /// <summary>
     /// Returns a string representation of the KestrunContext, including path, user, and session status.
     /// </summary>
     public override string ToString()

@@ -1,5 +1,4 @@
 param()
-. './tests/PowerShell.Tests/Kestrun.Tests/PesterHelpers.ps1'
 Describe 'Example 8.3 Authentication (ApiKey)' -Tag 'Tutorial', 'Slow' {
     BeforeAll { . (Join-Path $PSScriptRoot '..\PesterHelpers.ps1')
         $script:instance = Start-ExampleScript -Name '8.3-Api-Key.ps1'

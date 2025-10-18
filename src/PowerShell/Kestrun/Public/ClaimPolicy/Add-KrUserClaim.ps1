@@ -24,7 +24,12 @@
         The value of the claim to add to the user's identity. This is required if the Claims parameter is not specified.
         It can be a string or a Kestrun.Claims.UserIdentityClaim enum value.
         If the Claims parameter is specified, this parameter is ignored.
-
+    .PARAMETER SingleClaim
+        If specified, the function will return a single Claim object instead of an array of claims.
+        This is useful when you want to create a single claim without adding it to the user's identity.
+    .OUTPUTS
+        System.Security.Claims.Claim[] - An array of claims added to the user's identity.
+        System.Security.Claims.Claim - A single claim if the SingleClaim parameter is specified.
     .EXAMPLE
         Adds a claim to the current user's identity.
         This example demonstrates how to add a claim using the ClaimType and Value parameters.
@@ -33,6 +38,10 @@
         Adds a claim to the current user's identity.
         This example demonstrates how to add a claim using the UserClaimType and Value parameters.
         Add-KrUserClaim -UserClaimType "Email" -Value "user@example.com"
+    .EXAMPLE
+        Creates a single claim without adding it to the user's identity.
+        This example demonstrates how to create a single claim using the ClaimType and Value parameters.
+        $claim = Add-KrUserClaim -ClaimType "role" -Value "admin" -SingleClaim
     .NOTES
         This function is part of the Kestrun.Claims module and is used to manage user claims.
         It maps to ClaimCollection.Add method.
@@ -42,6 +51,7 @@ function Add-KrUserClaim {
     [CmdletBinding(DefaultParameterSetName = 'ClaimType')]
     [OutputType([System.Security.Claims.Claim[]])]
     [OutputType([System.Array])]
+    [OutputType([System.Security.Claims.Claim])]
     param(
         [Parameter(ValueFromPipeline)]
         [System.Security.Claims.Claim[]] $Claims,
@@ -50,7 +60,9 @@ function Add-KrUserClaim {
         [Parameter(Mandatory = $true, ParameterSetName = 'UserClaimType')]
         [Kestrun.Claims.UserIdentityClaim] $UserClaimType,
         [Parameter(Mandatory = $true)]
-        [string] $Value
+        [string] $Value,
+        [Parameter()]
+        [switch] $SingleClaim
     )
 
     begin { $bag = [System.Collections.Generic.List[System.Security.Claims.Claim]]::new() }
@@ -61,6 +73,10 @@ function Add-KrUserClaim {
         # resolve ClaimType if the user chose the enum parameter-set
         if ($UserClaimType) {
             $ClaimType = [Kestrun.Claims.KestrunClaimExtensions]::ToClaimUri($UserClaimType)
+        }
+
+        if ($SingleClaim) {
+            return [System.Security.Claims.Claim]::new($ClaimType, $Value)
         }
 
         $bag.Add([System.Security.Claims.Claim]::new($ClaimType, $Value))

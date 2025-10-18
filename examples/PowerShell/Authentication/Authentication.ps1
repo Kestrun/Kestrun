@@ -538,7 +538,6 @@ Add-KrMapRoute -Verbs Post -Pattern '/cookies/login' -ScriptBlock {
     $password = $form['password']
 
     if ($username -eq 'admin' -and $password -eq 'secret') {
-
         $claims = (Add-KrUserClaim -UserClaimType Name -Value $username |
                 Add-KrUserClaim -UserClaimType Role -Value 'admin' |
                 Add-KrUserClaim -ClaimType 'can_read' -Value 'true' |

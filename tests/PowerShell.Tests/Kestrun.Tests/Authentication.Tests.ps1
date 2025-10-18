@@ -210,12 +210,16 @@ Describe 'Kestrun Authentication' {
     }
     Describe 'Cookies Authentication' {
         BeforeAll {
-            $script:authSession = [Microsoft.PowerShell.Commands.WebRequestSession]::new()
-            $result = Invoke-WebRequest -Uri "$($script:instance.Url)/cookies/login" -SkipCertificateCheck -Method Post -Body @{ username = 'admin'; password = 'secret' } -SessionVariable authSession
+            $result = Invoke-WebRequest -Uri "$($script:instance.Url)/cookies/login" -SkipCertificateCheck -Method Post -Body @{ username = 'admin'; password = 'secret' } -SessionVariable lauthSession
+            $script:authSession = $lauthSession
             $result.StatusCode | Should -Be 200
         }
         AfterAll {
             $script:authSession = $null
+        }
+        It 'Login successful' {
+            $script:authSession | Should -Not -BeNullOrEmpty
+            $script:authSession.Cookies.Count | Should -Be 1
         }
         It 'Can access secure cookies endpoint' {
             $result = Invoke-WebRequest -Uri "$($script:instance.Url)/secure/cookies/hello" -SkipCertificateCheck -WebSession $authSession

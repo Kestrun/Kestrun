@@ -117,8 +117,8 @@ function Invoke-KrCookieSignIn {
         }
 
         #   Add Name claim if provided
-        if ($PSBoundParameters.ContainsKey('Name') -and $Name) {
-            $Identity.AddClaim([System.Security.Claims.Claim]::new([System.Security.Claims.ClaimTypes]::Name, [string]$Name))
+        if ($PSBoundParameters.ContainsKey('Name') -and (-not [string]::IsNullOrWhiteSpace($Name))) {
+            $Identity.AddClaim((Add-KrUserClaim -UserClaimType Name -Value $username -SingleClaim))
         }
 
         # Add any provided claims

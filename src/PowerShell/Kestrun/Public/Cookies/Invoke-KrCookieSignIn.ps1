@@ -118,7 +118,8 @@ function Invoke-KrCookieSignIn {
 
         #   Add Name claim if provided
         if ($PSBoundParameters.ContainsKey('Name') -and (-not [string]::IsNullOrWhiteSpace($Name))) {
-            $Identity.AddClaim((Add-KrUserClaim -UserClaimType Name -Value $username -SingleClaim))
+            $ClaimType = [Kestrun.Claims.KestrunClaimExtensions]::ToClaimUri('Name')
+            $Identity.AddClaim([System.Security.Claims.Claim]::new($ClaimType, $Name))
         }
 
         # Add any provided claims

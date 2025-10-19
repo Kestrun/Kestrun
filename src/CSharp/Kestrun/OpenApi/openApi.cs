@@ -142,25 +142,25 @@ public sealed class OpenApiSchemaAttribute : Attribute
 
     // ---- Strings ----
     /// <summary>Maximum length (characters).</summary>
-    public int? MaxLength { get; set; }
+    public int MaxLength { get; set; } = -1;
     /// <summary>Minimum length (characters).</summary>
-    public int? MinLength { get; set; }
+    public int MinLength { get; set; } = -1;
     /// <summary>ECMA-262 compliant regex.</summary>
     public string? Pattern { get; set; }
 
     // ---- Arrays ----
     /// <summary>Max items in array.</summary>
-    public int? MaxItems { get; set; }
+    public int MaxItems { get; set; } = -1;
     /// <summary>Min items in array.</summary>
-    public int? MinItems { get; set; }
+    public int MinItems { get; set; } = -1;
     /// <summary>Items must be unique.</summary>
     public bool UniqueItems { get; set; }
 
     // ---- Objects ----
     /// <summary>Max properties an object may contain.</summary>
-    public int? MaxProperties { get; set; }
+    public int MaxProperties { get; set; } = -1;
     /// <summary>Min properties an object must contain.</summary>
-    public int? MinProperties { get; set; }
+    public int MinProperties { get; set; } = -1;
     /// <summary>
     /// Object-level required property names (apply this on the CLASS).
     /// </summary>

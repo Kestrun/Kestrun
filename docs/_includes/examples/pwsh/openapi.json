@@ -1,0 +1,78 @@
+{
+  "openapi": "3.1.1",
+  "info": {
+    "title": "Kestrun API",
+    "version": "1.0.0"
+  },
+  "paths": { },
+  "components": {
+    "schemas": {
+      "Address": {
+        "type": "object",
+        "properties": {
+          "Street": {
+            "title": "Street Address",
+            "maxLength": 100,
+            "pattern": "^[\\w\\s\\d]+$",
+            "type": "string",
+            "description": "The street address",
+            "default": "123 Main St",
+            "example": "123 Main St"
+          },
+          "City": {
+            "title": "City Name",
+            "pattern": "^[\\w\\s\\d]+$",
+            "type": "string",
+            "description": "The city name",
+            "default": "Anytown",
+            "example": "Anytown"
+          },
+          "PostalCode": {
+            "title": "Postal Code",
+            "pattern": "^\\d{5}(-\\d{4})?$",
+            "type": "string",
+            "description": "The postal code",
+            "default": "12345",
+            "example": "12345"
+          },
+          "ApartmentNumber": {
+            "title": "Apartment Number",
+            "minimum": 1,
+            "type": "integer",
+            "description": "The apartment number",
+            "format": "int32",
+            "default": 101,
+            "example": 101
+          }
+        }
+      },
+      "UserInfoResponse": {
+        "type": "object",
+        "properties": {
+          "Id": {
+            "minimum": 0,
+            "type": "integer",
+            "description": "User identifier",
+            "format": "int32"
+          },
+          "Name": {
+            "maxLength": 50,
+            "type": "string",
+            "description": "Display name"
+          },
+          "Age": {
+            "maximum": 120,
+            "minimum": 0,
+            "type": "integer",
+            "description": "Age in years",
+            "format": "int32"
+          },
+          "Address": {
+            "description": "Mailing address",
+            "$ref": "#/components/schemas/Address"
+          }
+        }
+      }
+    }
+  }
+}

@@ -91,7 +91,8 @@ public static class OpenApiV2Generator
             return; // primitives don't go to components
         }
 
-        var clsAttr = t.GetCustomAttribute<OpenApiSchemaAttribute>();
+        var clsAttrs = t.GetCustomAttributes<OpenApiSchemaAttribute>(inherit: false).ToArray();
+        var clsAttr = MergeSchemaAttributes(clsAttrs);
         var required = new HashSet<string>(StringComparer.Ordinal);
         foreach (var r in t.GetCustomAttributes<OpenApiRequiredAttribute>())
         {
@@ -128,7 +129,94 @@ public static class OpenApiV2Generator
             doc.Components.Schemas[t.Name] = obj;
         }
     }
+    /// <summary>
+    /// Generates an OpenAPI document from the provided schema types, with optional extra components.
+    /// </summary>
+    /// <param name="schemaTypes">The schema types to include in the document.</param>
+    /// <param name="title">The title of the API.</param>
+    /// <param name="version">The version of the API.</param>
+    /// <param name="extra">Optional extra components to include in the document.</param>
+    /// <returns>The generated OpenAPI document.</returns>
+    public static OpenApiDocument Generate(
+              IEnumerable<Type> schemaTypes,
+              string title = "API",
+              string version = "1.0.0",
+              OpenApiComponentsInput? extra = null)
+    {
+        var doc = new OpenApiDocument
+        {
+            Info = new OpenApiInfo { Title = title, Version = version },
+            Components = new OpenApiComponents
+            {
+                // v2 wants IDictionary<string, IOpenApiSchema> for Schemas — these are filled below
+                Schemas = new Dictionary<string, IOpenApiSchema>(StringComparer.Ordinal)
+            },
+            Paths = []
+        };
 
+        // build schemas from types (your existing logic)
+        var built = new HashSet<Type>();
+        foreach (var t in schemaTypes)
+        {
+            BuildSchema(t, doc, built);
+        }
+
+        // merge optional component maps
+        if (extra != null)
+        {
+            if (extra.Responses != null)
+            {
+                doc.Components.Responses = extra.Responses;
+            }
+
+            if (extra.Parameters != null)
+            {
+                doc.Components.Parameters = extra.Parameters;
+            }
+
+            if (extra.Examples != null)
+            {
+                doc.Components.Examples = extra.Examples;
+            }
+
+            if (extra.RequestBodies != null)
+            {
+                doc.Components.RequestBodies = extra.RequestBodies;
+            }
+
+            if (extra.Headers != null)
+            {
+                doc.Components.Headers = extra.Headers;
+            }
+
+            if (extra.SecuritySchemes != null)
+            {
+                doc.Components.SecuritySchemes = extra.SecuritySchemes;
+            }
+
+            if (extra.Links != null)
+            {
+                doc.Components.Links = extra.Links;
+            }
+
+            if (extra.Callbacks != null)
+            {
+                doc.Components.Callbacks = extra.Callbacks;
+            }
+
+            if (extra.PathItems != null)
+            {
+                doc.Components.PathItems = extra.PathItems;
+            }
+
+            if (extra.Extensions != null)
+            {
+                doc.Components.Extensions = extra.Extensions;
+            }
+        }
+
+        return doc;
+    }
     private static IOpenApiSchema BuildPropertySchema(PropertyInfo p, OpenApiDocument doc, HashSet<Type> built)
     {
         var pt = p.PropertyType;
@@ -150,7 +238,9 @@ public static class OpenApiV2Generator
                 Type = JsonSchemaType.String,
                 Enum = [.. pt.GetEnumNames().Select(n => (JsonNode)n)]
             };
-            ApplySchemaAttr(p.GetCustomAttribute<OpenApiSchemaAttribute>(), s);
+            var attrs = p.GetCustomAttributes<OpenApiSchemaAttribute>(inherit: false).ToArray();
+            var a = MergeSchemaAttributes(attrs);
+            ApplySchemaAttr(a, s);
             return s;
         }
 
@@ -185,6 +275,127 @@ public static class OpenApiV2Generator
         var prim = InferPrimitiveSchema(pt);
         ApplySchemaAttr(p.GetCustomAttribute<OpenApiSchemaAttribute>(), prim);
         return prim;
+    }
+
+    private static OpenApiSchemaAttribute? MergeSchemaAttributes(OpenApiSchemaAttribute[] attrs)
+    {
+        if (attrs == null || attrs.Length == 0)
+        {
+            return null;
+        }
+
+        if (attrs.Length == 1)
+        {
+            return attrs[0];
+        }
+
+        var m = new OpenApiSchemaAttribute();
+
+        foreach (var a in attrs)
+        {
+            // strings: last non-empty wins
+            if (!string.IsNullOrWhiteSpace(a.Title))
+            {
+                m.Title = a.Title;
+            }
+
+            if (!string.IsNullOrWhiteSpace(a.Description))
+            {
+                m.Description = a.Description;
+            }
+
+            if (!string.IsNullOrWhiteSpace(a.Format))
+            {
+                m.Format = a.Format;
+            }
+
+            if (!string.IsNullOrWhiteSpace(a.Pattern))
+            {
+                m.Pattern = a.Pattern;
+            }
+
+            if (!string.IsNullOrWhiteSpace(a.Maximum))
+            {
+                m.Maximum = a.Maximum;
+            }
+
+            if (!string.IsNullOrWhiteSpace(a.Minimum))
+            {
+                m.Minimum = a.Minimum;
+            }
+
+            // enums/arrays: concatenate
+            if (a.Enum is { Length: > 0 })
+            {
+                m.Enum = [.. m.Enum ?? [], .. a.Enum];
+            }
+
+            // defaults/examples: last non-null wins
+            if (a.Default is not null)
+            {
+                m.Default = a.Default;
+            }
+
+            if (a.Example is not null)
+            {
+                m.Example = a.Example;
+            }
+
+            // numbers: prefer explicitly set (>=0 if you used sentinel; or HasValue if nullable)
+            if (a.MaxLength >= 0)
+            {
+                m.MaxLength = a.MaxLength;
+            }
+
+            if (a.MinLength >= 0)
+            {
+                m.MinLength = a.MinLength;
+            }
+
+            if (a.MaxItems >= 0)
+            {
+                m.MaxItems = a.MaxItems;
+            }
+
+            if (a.MinItems >= 0)
+            {
+                m.MinItems = a.MinItems;
+            }
+
+            if (a.MultipleOf is not null)
+            {
+                m.MultipleOf = a.MultipleOf;
+            }
+
+            // booleans: OR them
+            m.Nullable |= a.Nullable;
+            m.ReadOnly |= a.ReadOnly;
+            m.WriteOnly |= a.WriteOnly;
+            m.Deprecated |= a.Deprecated;
+            m.UniqueItems |= a.UniqueItems;
+            m.ExclusiveMaximum |= a.ExclusiveMaximum;
+            m.ExclusiveMinimum |= a.ExclusiveMinimum;
+
+            // type override: last non-None wins
+            if (a.Type != OaSchemaType.None)
+            {
+                m.Type = a.Type;
+            }
+
+            // collect Required names if your attribute exposes them
+            if (a.Required is { Length: > 0 })
+            {
+                m.Required = [.. (m.Required ?? []).Concat(a.Required).Distinct()];
+            }
+
+            // carry any custom fields like XmlName if you have them
+            if (!string.IsNullOrWhiteSpace(a.XmlName))
+            {
+                m.XmlName = a.XmlName;
+            }
+        }
+
+        return m;
     }
 
     private static OpenApiSchema InferPrimitiveSchema(Type t)
@@ -285,12 +496,12 @@ public static class OpenApiV2Generator
                 }
             }
 
-            if (a.MaxLength.HasValue)
+            if (a.MaxLength >= 0)
             {
                 sc.MaxLength = a.MaxLength;
             }
 
-            if (a.MinLength.HasValue)
+            if (a.MinLength >= 0)
             {
                 sc.MinLength = a.MinLength;
             }
@@ -300,12 +511,12 @@ public static class OpenApiV2Generator
                 sc.Pattern = a.Pattern;
             }
 
-            if (a.MaxItems.HasValue)
+            if (a.MaxItems >= 0)
             {
                 sc.MaxItems = a.MaxItems;
             }
 
-            if (a.MinItems.HasValue)
+            if (a.MinItems >= 0)
             {
                 sc.MinItems = a.MinItems;
             }
@@ -315,12 +526,12 @@ public static class OpenApiV2Generator
                 sc.UniqueItems = true;
             }
 
-            if (a.MaxProperties.HasValue)
+            if (a.MaxProperties >= 0)
             {
                 sc.MaxProperties = a.MaxProperties;
             }
 
-            if (a.MinProperties.HasValue)
+            if (a.MinProperties >= 0)
             {
                 sc.MinProperties = a.MinProperties;
             }

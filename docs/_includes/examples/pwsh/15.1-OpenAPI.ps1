@@ -57,17 +57,50 @@ class UserListQueryParams {
     [OpenApiSchema(Description = 'Filter by name (contains)')]
     [string]$Name
 
-    [OpenApiParameter(In = [OaParameterLocation]::Query, Name = 'minAge')]
+    [OpenApiParameter(In = [OaParameterLocation]::Cookie, Name = 'minAge')]
     [OpenApiSchema(Description = 'Minimum age', Type = [OaSchemaType]::Integer, Format = 'int32', Minimum = 0)]
     [int]$MinAge
 }
 
-(New-KrOpenApiSchemasJson -Title 'Kestrun API' -Version '1.0.0') |
-    Set-Content -Encoding UTF8 -Path "$PSScriptRoot\openapi.json"
+$schemaTypes = [Kestrun.OpenApi.OpenApiSchemaDiscovery]::GetOpenApiSchemaTypes()       # schemas
+$parameterTypes = [Kestrun.OpenApi.OpenApiSchemaDiscovery]::GetOpenApiParameterTypes()  # parameters
+
+# 2) Build extra component dictionaries (typed, not Hashtables)
+$responses = [System.Collections.Generic.Dictionary[string, Microsoft.OpenApi.IOpenApiResponse]]::new()
+$parameters = [System.Collections.Generic.Dictionary[string, Microsoft.OpenApi.IOpenApiParameter]]::new()
+$pathItems = [System.Collections.Generic.Dictionary[string, Microsoft.OpenApi.IOpenApiPathItem]]::new()
+
+# 2a) Response: 200 that returns Address
+$respOK = [Kestrun.OpenApi.OpenApiBuilders]::JsonResponseRef('Address', 'Address payload')
+$responses.Add('AddressOk', $respOK)
+
+# 2b) A reusable query parameter
+$paramName = [Kestrun.OpenApi.OpenApiBuilders]::QueryParam('name', 'Filter by name')
+$parameters.Add('name', $paramName)
+
+# 2c) A reusable PathItem (OpenAPI v2.x types live under Microsoft.OpenApi.* root namespace)
+$pi = [Microsoft.OpenApi.OpenApiPathItem]::new()
+$pi.Description = 'Reusable stuff'
+$pathItems.Add('ReusableThing', $pi)
+
+# 3) Compose a single component set
+$components = [Kestrun.OpenApi.OpenApiComponentSet]::new()
+$components.SchemaTypes = [Type[]]($schemaTypes | ForEach-Object { [Type]$_ })
+$components.ParameterTypes = [Type[]]($parameterTypes | ForEach-Object { [Type]$_ })
+
+# Optional component maps
+$components.ResponseTypes = $responses
+$components.ParameterTypes = $parameters
+$components.PathItemTypes = $pathItems
+# (You can also set: Examples, RequestBodies, Headers, SecuritySchemes, Links, Callbacks, Extensions)
+
+# 4) Generate & serialize
+$doc = [Kestrun.OpenApi.OpenApiV2Generator]::Generate($components, 'Kestrun API', '1.0.0')
+$json = [Kestrun.OpenApi.OpenApiV2Generator]::ToJson($doc, $true)  # OpenAPI 3.1 JSON
+$json | Set-Content -Encoding UTF8 -Path "$PSScriptRoot\openapi.json"
 
 # 2. Create server host
 $srv = New-KrServer -Name 'Lifecycle Demo' -PassThru
-
 
 # 3. Add loopback listener on port 5000 (auto unlinks existing file if present)
 # This listener will be used to demonstrate server limits configuration.

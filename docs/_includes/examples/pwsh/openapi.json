@@ -73,6 +73,26 @@
           }
         }
       }
+    },
+    "parameters": {
+      "UserListQueryParams.Name": {
+        "name": "name",
+        "in": "query",
+        "schema": {
+          "type": "string",
+          "description": "Filter by name (contains)"
+        }
+      },
+      "UserListQueryParams.MinAge": {
+        "name": "minAge",
+        "in": "query",
+        "schema": {
+          "minimum": 0,
+          "type": "integer",
+          "description": "Minimum age",
+          "format": "int32"
+        }
+      }
     }
   }
 }

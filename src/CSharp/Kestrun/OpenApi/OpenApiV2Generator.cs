@@ -16,11 +16,11 @@ public static class OpenApiV2Generator
     /// <summary>
     /// Generates an OpenAPI document from the provided schema types.
     /// </summary>
-    /// <param name="schemaTypes">The C# types to include in the OpenAPI document.</param>
+    /// <param name="components">The set of discovered OpenAPI component types.</param>
     /// <param name="title">The title of the API.</param>
     /// <param name="version">The version of the API.</param>
     /// <returns>The generated OpenAPI document.</returns>
-    public static OpenApiDocument Generate(IEnumerable<Type> schemaTypes, string title = "API", string version = "1.0.0")
+    public static OpenApiDocument Generate(OpenApiComponentSet components, string title = "API", string version = "1.0.0")
     {
         var doc = new OpenApiDocument
         {
@@ -33,9 +33,14 @@ public static class OpenApiV2Generator
         };
 
         var built = new HashSet<Type>();
-        foreach (var t in schemaTypes)
+        foreach (var t in components.SchemaTypes)
         {
             BuildSchema(t, doc, built);
+        }
+
+        foreach (var t in components.ParameterTypes)
+        {
+            BuildParameters(t, doc);
         }
 
         return doc;
@@ -135,12 +140,14 @@ public static class OpenApiV2Generator
     /// <param name="schemaTypes">The schema types to include in the document.</param>
     /// <param name="title">The title of the API.</param>
     /// <param name="version">The version of the API.</param>
+    /// <param name="parameterTypes">Optional parameter types to include in the document.</param>
     /// <param name="extra">Optional extra components to include in the document.</param>
     /// <returns>The generated OpenAPI document.</returns>
     public static OpenApiDocument Generate(
               IEnumerable<Type> schemaTypes,
+
               string title = "API",
-              string version = "1.0.0",
+              string version = "1.0.0", IEnumerable<Type>? parameterTypes = null,
               OpenApiComponentsInput? extra = null)
     {
         var doc = new OpenApiDocument
@@ -159,6 +166,14 @@ public static class OpenApiV2Generator
         foreach (var t in schemaTypes)
         {
             BuildSchema(t, doc, built);
+        }
+
+        if (parameterTypes != null)
+        {
+            foreach (var t in parameterTypes)
+            {
+                BuildParameters(t, doc);
+            }
         }
 
         // merge optional component maps
@@ -217,6 +232,8 @@ public static class OpenApiV2Generator
 
         return doc;
     }
+
+
     private static IOpenApiSchema BuildPropertySchema(PropertyInfo p, OpenApiDocument doc, HashSet<Type> built)
     {
         var pt = p.PropertyType;
@@ -595,5 +612,153 @@ public static class OpenApiV2Generator
             IEnumerable<object?> seq => new JsonArray([.. seq.Select(ToNode)]),
             _ => JsonValue.Create(value.ToString())
         };
+    }
+
+
+    private static void BuildParameters(Type t, OpenApiDocument doc)
+    {
+        if (doc.Components!.Parameters == null)
+        {
+            doc.Components.Parameters = new Dictionary<string, IOpenApiParameter>(StringComparer.Ordinal);
+        }
+
+        const BindingFlags flags = BindingFlags.Public | BindingFlags.Instance;
+
+        foreach (var p in t.GetProperties(flags))
+        {
+            // Require [OpenApiParameter(...)] on the property
+            var pAttr = p.GetCustomAttributes(inherit: false)
+                         .FirstOrDefault(a => a.GetType().Name == "OpenApiParameterAttribute");
+            if (pAttr is null)
+            {
+                continue;
+            }
+
+            // Reflect attribute fields (keeps this decoupled from your attribute assembly)
+            var inVal = pAttr.GetType().GetProperty("In")?.GetValue(pAttr);
+            var name = (string?)pAttr.GetType().GetProperty("Name")?.GetValue(pAttr) ?? p.Name;
+            var required = (bool?)pAttr.GetType().GetProperty("Required")?.GetValue(pAttr) ?? false;
+            var deprecated = (bool?)pAttr.GetType().GetProperty("Deprecated")?.GetValue(pAttr) ?? false;
+            var allowEmptyVal = (bool?)pAttr.GetType().GetProperty("AllowEmptyValue")?.GetValue(pAttr) ?? false;
+            var styleObj = pAttr.GetType().GetProperty("Style")?.GetValue(pAttr);   // OaParameterStyle?
+            var _explode = (bool?)pAttr.GetType().GetProperty("Explode")?.GetValue(pAttr);
+            var explode = (_explode is not null) && _explode.Value;
+            var allowReserved = (bool?)pAttr.GetType().GetProperty("AllowReserved")?.GetValue(pAttr) ?? false;
+            var exampleObj = pAttr.GetType().GetProperty("Example")?.GetValue(pAttr);
+
+            // Merge any [OpenApiSchema(...)] attributes on the property (last one wins)
+            var schemaAttr = p.GetCustomAttributes(inherit: false)
+                              .Where(a => a.GetType().Name == "OpenApiSchemaAttribute")
+                              .Cast<object>()
+                              .LastOrDefault();
+
+            IOpenApiSchema paramSchema;
+
+            var pt = p.PropertyType;
+
+            // ENUM → string + enum list
+            if (pt.IsEnum)
+            {
+                var s = new OpenApiSchema
+                {
+                    Type = JsonSchemaType.String,
+                    Enum = [.. pt.GetEnumNames().Select(n => (JsonNode)n)]
+                };
+                ApplySchemaAttr(schemaAttr as OpenApiSchemaAttribute, s);
+                paramSchema = s;
+            }
+            // ARRAY → array with item schema
+            else if (pt.IsArray)
+            {
+                var elem = pt.GetElementType()!;
+                IOpenApiSchema itemSchema;
+                if (!IsPrimitiveLike(elem) && !elem.IsEnum)
+                {
+                    // ensure a component schema exists for the complex element and $ref it
+                    EnsureSchemaComponent(elem, doc);
+                    itemSchema = new OpenApiSchemaReference(elem.Name);
+                }
+                else if (elem.IsEnum)
+                {
+                    itemSchema = new OpenApiSchema
+                    {
+                        Type = JsonSchemaType.String,
+                        Enum = [.. elem.GetEnumNames().Select(n => (JsonNode)n)]
+                    };
+                }
+                else
+                {
+                    itemSchema = InferPrimitiveSchema(elem);
+                }
+
+                var s = new OpenApiSchema { Type = JsonSchemaType.Array, Items = itemSchema };
+                ApplySchemaAttr(schemaAttr as OpenApiSchemaAttribute, s);
+                paramSchema = s;
+            }
+            // COMPLEX → ensure component + $ref
+            else if (!IsPrimitiveLike(pt))
+            {
+                EnsureSchemaComponent(pt, doc);
+                var r = new OpenApiSchemaReference(pt.Name);
+                ApplySchemaAttr(schemaAttr as OpenApiSchemaAttribute, r);
+                paramSchema = r;
+            }
+            // PRIMITIVE
+            else
+            {
+                var s = InferPrimitiveSchema(pt);
+                ApplySchemaAttr(schemaAttr as OpenApiSchemaAttribute, s);
+                paramSchema = s;
+            }
+
+            // Build the OpenAPI parameter
+            var param = new OpenApiParameter
+            {
+                Name = name,
+                In = (inVal as OaParameterLocation? ?? OaParameterLocation.Query).ToOpenApi(),
+                Required = required,
+                Deprecated = deprecated,
+                AllowEmptyValue = allowEmptyVal,
+                Schema = paramSchema
+            };
+
+            // Optional hints
+            if (styleObj is OaParameterStyle style)
+            {
+                param.Style = style.ToOpenApi();
+            }
+
+            if (explode)
+            {
+                param.Explode = explode;
+            }
+
+            param.AllowReserved = allowReserved;
+            if (exampleObj is not null)
+            {
+                param.Example = ToNode(exampleObj);
+            }
+
+            // Store under components.parameters as "<Class>.<Property>"
+            var key = $"{t.Name}.{p.Name}";
+            doc.Components.Parameters[key] = param;
+        }
+
+        // ---- local helpers ----
+
+        // Ensure a schema component exists for a complex .NET type
+        static void EnsureSchemaComponent(Type complexType, OpenApiDocument doc)
+        {
+            // If schema already present, bail
+            if (doc.Components?.Schemas != null && doc.Components.Schemas.ContainsKey(complexType.Name))
+            {
+                return;
+            }
+
+            // Minimal one-off build (avoids needing the outer 'built' set)
+            // If you prefer, you can expose and pass the outer HashSet<Type> instead.
+            var temp = new HashSet<Type>();
+            BuildSchema(complexType, doc, temp);
+        }
     }
 }

@@ -74,6 +74,7 @@ public enum OaParameterLocation
     Cookie = 3
 }
 
+
 /// <summary>
 /// Serialization style hints for parameters (per OAS 3.x).
 /// </summary>

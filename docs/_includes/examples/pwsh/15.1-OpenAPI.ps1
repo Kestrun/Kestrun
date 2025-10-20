@@ -30,17 +30,17 @@ New-KrLogger | Add-KrSinkConsole | Register-KrLogger -Name 'console' -SetAsDefau
 [OpenApiSchema(Required = 'City')]
 [OpenApiSchema(Required = 'PostalCode')]
 class Address {
-    [OpenApiSchemaAttribute(Description = 'The street address' , Default = '123 Main St', title = 'Street Address', example = '123 Main St', Pattern = '^[\w\s\d]+$' , XmlName = 'StreetAddress', MaxLength = 100 )]
-    [string]$Street
+    [OpenApiSchemaAttribute(Description = 'The street address'  , title = 'Street Address', Pattern = '^[\w\s\d]+$' , XmlName = 'StreetAddress', MaxLength = 100 )]
+    [string]$Street = '123 Main St'
 
-    [OpenApiSchemaAttribute(Description = 'The city name' , Default = 'Anytown', title = 'City Name', example = 'Anytown', Pattern = '^[\w\s\d]+$' , XmlName = 'CityName' )]
-    [string]$City
+    [OpenApiSchemaAttribute(Description = 'The city name' , title = 'City Name', Pattern = '^[\w\s\d]+$' , XmlName = 'CityName' )]
+    [string]$City = 'Anytown'
 
-    [OpenApiSchemaAttribute(Description = 'The postal code' , Default = '12345', title = 'Postal Code', example = '12345', Pattern = '^\d{5}(-\d{4})?$' , XmlName = 'PostalCode' )]
-    [string]$PostalCode
+    [OpenApiSchemaAttribute(Description = 'The postal code' , title = 'Postal Code', Pattern = '^\d{5}(-\d{4})?$' , XmlName = 'PostalCode' )]
+    [string]$PostalCode = '12345'
 
-    [OpenApiSchemaAttribute(Description = 'The apartment number' , Default = 101, title = 'Apartment Number', example = 101, Minimum = 1 , XmlName = 'AptNumber' )]
-    [int]$ApartmentNumber
+    [OpenApiSchemaAttribute(Description = 'The apartment number' , title = 'Apartment Number', Minimum = 1 , XmlName = 'AptNumber' )]
+    [int]$ApartmentNumber = 101
 }
 
 
@@ -49,28 +49,50 @@ class Address {
 [OpenApiModelKind([OpenApiModelKind]::Schema)]
 [OpenApiSchema(Required = 'Name')]
 class UserInfoResponse {
-    [OpenApiSchema(Description = 'User identifier', Type = [OaSchemaType]::Integer, Format = 'int32', Minimum = 0)]
+    [OpenApiSchema(Description = 'User identifier' )]
+    [ValidateRange(0, [int]::MaxValue)]
     [int]$Id
 
-    [OpenApiSchema(Description = 'Display name', MaxLength = 50)]
+    [OpenApiSchema(Description = 'Display name' )]
+    [ValidateLength(1, 50)]
     [string]$Name
 
-    [OpenApiSchema(Description = 'Age in years', Minimum = 0, Maximum = 120)]
+    [OpenApiSchema(Description = 'Age in years' )]
+    [ValidateRange(0, 120)]
     [long]$Age
+
+    [OpenApiSchema(Description = 'Counter' )]
+    [nullable[long]]$Counter
 
     [OpenApiSchema(Description = 'Mailing address')]
     [Address]$Address
+
+    [OpenApiSchema(Description = 'The country name')]
+    [ValidateSet('USA', 'Canada', 'Mexico')]
+    [string]$Country = 'USA'
 }
 
-[OpenApiModelKind([OpenApiModelKind]::Parameters)] #, JoinClassName = '.')]
-class UserListQueryParams {
-    [OpenApiParameter(In = [OaParameterLocation]::Query, Name = 'name')]
-    [OpenApiSchema(Description = 'Filter by name (contains)')]
-    [string]$Name
 
-    [OpenApiParameter(In = [OaParameterLocation]::Cookie, Name = 'minAge')]
-    [OpenApiSchema(Description = 'Minimum age', Type = [OaSchemaType]::Integer, Format = 'int32', Minimum = 0)]
-    [int]$MinAge
+# Parameters (class-first; one class per parameter; no Name= needed — property name is used)
+[OpenApiModelKind([OpenApiModelKind]::Parameters)]
+class Param_Name {
+    [OpenApiParameter(In = [OaParameterLocation]::Query)]
+    [OpenApiSchema(Description = 'Filter by name (contains)')]
+    [string]$Name = 'John'
+}
+
+[OpenApiModelKind([OpenApiModelKind]::Parameters)]
+class Param_MinAge {
+    [OpenApiParameter(In = [OaParameterLocation]::Cookie)]
+    [OpenApiSchema(Description = 'Minimum age', Minimum = 0)]
+    [long]$MinAge = 20
+}
+
+[OpenApiModelKind([OpenApiModelKind]::Parameters)]
+class Param_MaxAge {
+    [OpenApiParameter(In = [OaParameterLocation]::Cookie)]
+    [OpenApiSchema(Description = 'Maximum age', Minimum = 0)]
+    [long]$MaxAge = 120
 }
 # Response components (member-level responses; JoinClassName ties class+member in key)
 [OpenApiModelKind([OpenApiModelKind]::Response, JoinClassName = '-')]
@@ -98,7 +120,7 @@ class AddressExample_NoApt {
 }
 
 # Request body components (class-first; one class per request body; defaults become the example)
-[OpenApiModelKind([OpenApiModelKind]::RequestBody, InlineSchema = $true)]
+[OpenApiModelKind([OpenApiModelKind]::RequestBody, InlineSchema = $false)]
 class CreateAddressBody {
     [OpenApiSchema(Description = 'The street address')]
     [string]$Street = '123 Main St'
@@ -114,6 +136,17 @@ class CreateAddressBody {
 
     [OpenApiSchema(Description = 'Additional mailing address')]
     [Address]$AdditionalAddress
+
+    [OpenApiSchema(Description = 'The country name')]
+    [string]$Country = 'USA'
+
+    [OpenApiSchema(Description = 'The request identifier')]
+    [guid]$RequestId = [guid]::NewGuid()
+
+    [OpenApiSchema(Description = 'Seconds since epoch')]
+    [long]$SecondsSinceEpoch = [int][DateTimeOffset]::UtcNow.ToUnixTimeSeconds()
+
+    [dateTime]$CreatedAt = [DateTime]::UtcNow
 }
 
 [OpenApiModelKind([OpenApiModelKind]::RequestBody)]
@@ -129,6 +162,42 @@ class CommonHeaders {
 
     [OpenApiHeader( Description = 'Correlation id for tracing' )]
     $CorrelationId = 'abc-123'
+}
+
+# Link components (class-first). These are discovered via [OpenApiModelKind(Link)].
+# Generators may use these to populate components.links.
+[OpenApiModelKind([OpenApiModelKind]::Link)]
+class Link_UserById {
+    $OperationRef = '#/paths/~1users~1{id}/get'
+    $OperationId = 'getUserById'
+    $Description = 'Link to fetch user details using the id from the response body.'
+    $Parameters = @{
+        id = '$response.body#/id'
+        verbose = '$request.query.verbose'
+    }
+    $RequestBody = @{
+        email = '$request.body#/email'
+        locale = '$request.body#/locale'
+    }
+}
+
+[microsoft.OpenApi.Models.openapiLinkParameter]$paramLocation = [Microsoft.OpenApi.Models.OaParameterLocation]::Query
+
+# Callback components (class-first). Discovered via [OpenApiModelKind(Callback)].
+# Generators may use these to populate components.callbacks.
+[OpenApiModelKind([OpenApiModelKind]::Callback)]
+class Callback_UserCreated {
+    # Expression to the URL in the incoming request that should receive callback requests
+    [string]$Expression = '$request.body#/callbackUrl'
+    [string]$Description = 'Callback invoked after a user is created.'
+}
+
+# PathItem components (class-first). Discovered via [OpenApiModelKind(PathItem)].
+# Generators may use these to populate components.pathItems.
+[OpenApiModelKind([OpenApiModelKind]::PathItem)]
+class PathItem_ReusableThing {
+    [string]$Summary = 'Reusable operations for /users/{id}'
+    [string]$Description = 'Intended to represent a reusable path item (e.g., GET and PATCH).'
 }
 
 

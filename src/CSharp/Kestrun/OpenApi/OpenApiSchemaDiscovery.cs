@@ -166,38 +166,23 @@ public static class OpenApiSchemaDiscovery
                      .OfType<OpenApiModelKindAttribute>()
                      .Any(a => a.Kind == OpenApiModelKind.Header) ||
                     t.GetCustomAttributes(typeof(OpenApiHeaderAttribute), true).Length != 0))]
-            /*
-RequestBodyTypes = [.. assemblies.SelectMany(asm => asm.GetTypes())
-.Where(t => t.IsClass && !t.IsAbstract &&
-(t.GetCustomAttributes(typeof(OpenApiModelKindAttribute), true)
-.OfType<OpenApiModelKindAttribute>()
-.Any(a => a.Kind == OpenApiModelKind.RequestBody) ||
-t.GetCustomAttributes(typeof(OpenApiRequestBodyAttribute), true).Length != 0))],
-HeaderTypes = [.. assemblies.SelectMany(asm => asm.GetTypes())
-.Where(t => t.IsClass && !t.IsAbstract &&
-(t.GetCustomAttributes(typeof(OpenApiModelKindAttribute), true)
-.OfType<OpenApiModelKindAttribute>()
-.Any(a => a.Kind == OpenApiModelKind.Header) ||
-t.GetCustomAttributes(typeof(OpenApiHeaderAttribute), true).Length != 0))],
-LinkTypes = [.. assemblies.SelectMany(asm => asm.GetTypes())
-.Where(t => t.IsClass && !t.IsAbstract &&
-(t.GetCustomAttributes(typeof(OpenApiModelKindAttribute), true)
-.OfType<OpenApiModelKindAttribute>()
-.Any(a => a.Kind == OpenApiModelKind.Link) ||
-t.GetCustomAttributes(typeof(OpenApiLinkAttribute), true).Length != 0))],
-CallbackTypes = [.. assemblies.SelectMany(asm => asm.GetTypes())
-.Where(t => t.IsClass && !t.IsAbstract &&
-(t.GetCustomAttributes(typeof(OpenApiModelKindAttribute), true)
-.OfType<OpenApiModelKindAttribute>()
-.Any(a => a.Kind == OpenApiModelKind.Callback) ||
-t.GetCustomAttributes(typeof(OpenApiCallbackAttribute), true).Length != 0))],
-PathItemTypes = [.. assemblies.SelectMany(asm => asm.GetTypes())
-.Where(t => t.IsClass && !t.IsAbstract &&
-(t.GetCustomAttributes(typeof(OpenApiModelKindAttribute), true)
-.OfType<OpenApiModelKindAttribute>()
-.Any(a => a.Kind == OpenApiModelKind.PathItem) ||
-t.GetCustomAttributes(typeof(OpenApiPathItemAttribute), true).Length != 0))]
-*/
+            ,
+            // Use only OpenApiModelKindAttribute to avoid compile-time deps on attribute types that may not exist yet
+            LinkTypes = [.. assemblies.SelectMany(asm => asm.GetTypes())
+                .Where(t => t.IsClass && !t.IsAbstract &&
+                    t.GetCustomAttributes(typeof(OpenApiModelKindAttribute), true)
+                     .OfType<OpenApiModelKindAttribute>()
+                     .Any(a => a.Kind == OpenApiModelKind.Link))],
+            CallbackTypes = [.. assemblies.SelectMany(asm => asm.GetTypes())
+                .Where(t => t.IsClass && !t.IsAbstract &&
+                    t.GetCustomAttributes(typeof(OpenApiModelKindAttribute), true)
+                     .OfType<OpenApiModelKindAttribute>()
+                     .Any(a => a.Kind == OpenApiModelKind.Callback))],
+            PathItemTypes = [.. assemblies.SelectMany(asm => asm.GetTypes())
+                .Where(t => t.IsClass && !t.IsAbstract &&
+                    t.GetCustomAttributes(typeof(OpenApiModelKindAttribute), true)
+                     .OfType<OpenApiModelKindAttribute>()
+                     .Any(a => a.Kind == OpenApiModelKind.PathItem))]
         };
     }
 

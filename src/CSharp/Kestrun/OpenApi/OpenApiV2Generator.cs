@@ -130,9 +130,26 @@ public static class OpenApiV2Generator
             Properties = new Dictionary<string, IOpenApiSchema>(StringComparer.Ordinal)
         };
 
+        // Create an instance to capture default-initialized property values
+        object? inst = null;
+        try { inst = Activator.CreateInstance(t); } catch { inst = null; }
+
         foreach (var p in t.GetProperties(BindingFlags.Public | BindingFlags.Instance))
         {
             var ps = BuildPropertySchema(p, doc, built);
+            // If this is a concrete schema and no explicit default is set, try to use the property default value
+            if (inst is not null && ps is OpenApiSchema concrete && concrete.Default is null)
+            {
+                try
+                {
+                    var def = p.GetValue(inst);
+                    if (def is not null)
+                    {
+                        concrete.Default = ToNode(def);
+                    }
+                }
+                catch { /* ignore */ }
+            }
             obj.Properties[p.Name] = ps;
             if (p.GetCustomAttribute<OpenApiRequiredPropertyAttribute>() != null)
             {
@@ -257,6 +274,13 @@ public static class OpenApiV2Generator
     private static IOpenApiSchema BuildPropertySchema(PropertyInfo p, OpenApiDocument doc, HashSet<Type> built)
     {
         var pt = p.PropertyType;
+        var allowNull = false;
+        var underlying = Nullable.GetUnderlyingType(pt);
+        if (underlying != null)
+        {
+            allowNull = true;
+            pt = underlying;
+        }
 
         // complex type -> $ref via OpenApiSchemaReference
         if (!IsPrimitiveLike(pt) && !pt.IsEnum && !pt.IsArray)
@@ -278,6 +302,11 @@ public static class OpenApiV2Generator
             var attrs = p.GetCustomAttributes<OpenApiSchemaAttribute>(inherit: false).ToArray();
             var a = MergeSchemaAttributes(attrs);
             ApplySchemaAttr(a, s);
+            ApplyPowerShellValidationAttributes(p, s);
+            if (allowNull)
+            {
+                s.Type |= JsonSchemaType.Null;
+            }
             return s;
         }
 
@@ -305,12 +334,22 @@ public static class OpenApiV2Generator
                 Items = itemSchema
             };
             ApplySchemaAttr(p.GetCustomAttribute<OpenApiSchemaAttribute>(), s);
+            ApplyPowerShellValidationAttributes(p, s);
+            if (allowNull)
+            {
+                s.Type |= JsonSchemaType.Null;
+            }
             return s;
         }
 
         // primitive
         var prim = InferPrimitiveSchema(pt);
         ApplySchemaAttr(p.GetCustomAttribute<OpenApiSchemaAttribute>(), prim);
+        ApplyPowerShellValidationAttributes(p, prim);
+        if (allowNull)
+        {
+            prim.Type |= JsonSchemaType.Null;
+        }
         return prim;
     }
 
@@ -447,9 +486,14 @@ public static class OpenApiV2Generator
             return new() { Type = JsonSchemaType.Boolean };
         }
 
-        if (t == typeof(int) || t == typeof(short) || t == typeof(long) || t == typeof(byte))
+        // Integer types
+        if (t == typeof(int) || t == typeof(short) || t == typeof(byte))
         {
             return new() { Type = JsonSchemaType.Integer, Format = "int32" };
+        }
+        if (t == typeof(long))
+        {
+            return new() { Type = JsonSchemaType.Integer, Format = "int64" };
         }
 
         if (t == typeof(float) || t == typeof(double) || t == typeof(decimal))
@@ -708,6 +752,24 @@ public static class OpenApiV2Generator
 
         const BindingFlags flags = BindingFlags.Public | BindingFlags.Instance;
 
+        // Enforce class-first parameter convention: a [OpenApiModelKind(Parameters)] class
+        // should declare exactly one property decorated with [OpenApiParameter].
+        var isParamKindClass = t.GetCustomAttributes(inherit: false)
+                                .Any(a => a.GetType().Name == nameof(OpenApiModelKindAttribute)
+                                       && string.Equals(
+                                           a.GetType().GetProperty("Kind")?.GetValue(a)?.ToString(),
+                                           nameof(OpenApiModelKind.Parameters), StringComparison.Ordinal));
+        if (isParamKindClass)
+        {
+            var paramPropCount = t.GetProperties(flags)
+                                   .Count(p => p.GetCustomAttributes(inherit: false)
+                                                 .Any(a => a.GetType().Name == nameof(OpenApiParameterAttribute)));
+            if (paramPropCount > 1)
+            {
+                throw new InvalidOperationException($"OpenAPI Parameters class '{t.FullName}' must define exactly one property decorated with [OpenApiParameter]. Found {paramPropCount}.");
+            }
+        }
+
         foreach (var p in t.GetProperties(flags))
         {
             // Require [OpenApiParameter(...)] on the property
@@ -739,6 +801,13 @@ public static class OpenApiV2Generator
             IOpenApiSchema paramSchema;
 
             var pt = p.PropertyType;
+            var allowNull = false;
+            var underlying = Nullable.GetUnderlyingType(pt);
+            if (underlying != null)
+            {
+                allowNull = true;
+                pt = underlying;
+            }
 
             // ENUM → string + enum list
             if (pt.IsEnum)
@@ -749,6 +818,10 @@ public static class OpenApiV2Generator
                     Enum = [.. pt.GetEnumNames().Select(n => (JsonNode)n)]
                 };
                 ApplySchemaAttr(schemaAttr as OpenApiSchemaAttribute, s);
+                if (allowNull)
+                {
+                    s.Type |= JsonSchemaType.Null;
+                }
                 paramSchema = s;
             }
             // ARRAY → array with item schema
@@ -762,21 +835,24 @@ public static class OpenApiV2Generator
                     EnsureSchemaComponent(elem, doc);
                     itemSchema = new OpenApiSchemaReference(elem.Name);
                 }
-                else if (elem.IsEnum)
-                {
-                    itemSchema = new OpenApiSchema
-                    {
-                        Type = JsonSchemaType.String,
-                        Enum = [.. elem.GetEnumNames().Select(n => (JsonNode)n)]
-                    };
-                }
                 else
                 {
-                    itemSchema = InferPrimitiveSchema(elem);
+                    itemSchema = elem.IsEnum
+                        ? new OpenApiSchema
+                        {
+                            Type = JsonSchemaType.String,
+                            Enum = [.. elem.GetEnumNames().Select(n => (JsonNode)n)]
+                        }
+                        : InferPrimitiveSchema(elem);
                 }
 
                 var s = new OpenApiSchema { Type = JsonSchemaType.Array, Items = itemSchema };
                 ApplySchemaAttr(schemaAttr as OpenApiSchemaAttribute, s);
+                ApplyPowerShellValidationAttributes(p, s);
+                if (allowNull)
+                {
+                    s.Type |= JsonSchemaType.Null;
+                }
                 paramSchema = s;
             }
             // COMPLEX → ensure component + $ref
@@ -792,6 +868,25 @@ public static class OpenApiV2Generator
             {
                 var s = InferPrimitiveSchema(pt);
                 ApplySchemaAttr(schemaAttr as OpenApiSchemaAttribute, s);
+                ApplyPowerShellValidationAttributes(p, s);
+                // If no explicit default provided via schema attribute, try to pull default from property value
+                if (s is OpenApiSchema sc && sc.Default is null)
+                {
+                    try
+                    {
+                        var inst = Activator.CreateInstance(t);
+                        var def = p.GetValue(inst);
+                        if (def is not null)
+                        {
+                            sc.Default = ToNode(def);
+                        }
+                    }
+                    catch { /* ignore */ }
+                }
+                if (allowNull)
+                {
+                    s.Type |= JsonSchemaType.Null;
+                }
                 paramSchema = s;
             }
 
@@ -855,12 +950,7 @@ public static class OpenApiV2Generator
             }
 
             var join = mk.GetType().GetProperty("JoinClassName")?.GetValue(mk) as string;
-            if (string.IsNullOrEmpty(join))
-            {
-                return memberName;
-            }
-
-            return $"{declaringType.Name}{join}{memberName}";
+            return string.IsNullOrEmpty(join) ? memberName : $"{declaringType.Name}{join}{memberName}";
         }
     }
 
@@ -944,12 +1034,7 @@ public static class OpenApiV2Generator
         }
 
         var join = mk.GetType().GetProperty("JoinClassName")?.GetValue(mk) as string;
-        if (string.IsNullOrEmpty(join))
-        {
-            return memberName;
-        }
-
-        return $"{declaringType.Name}{join}{memberName}";
+        return string.IsNullOrEmpty(join) ? memberName : $"{declaringType.Name}{join}{memberName}";
     }
     private static OpenApiResponse CreateResponseFromAttribute(object attr)
     {
@@ -1261,8 +1346,8 @@ public static class OpenApiV2Generator
         return rb;
     }
 
-    private static IOpenApiSchema? BuildInlineSchemaFromRefOrType(string _schemaRef, Type? fallbackType, OpenApiDocument _doc)
-        => fallbackType != null ? BuildInlineSchemaFromType(fallbackType, _doc) : new OpenApiSchema { Type = JsonSchemaType.Object };
+    private static IOpenApiSchema? BuildInlineSchemaFromRefOrType(string _, Type? fallbackType, OpenApiDocument __)
+        => fallbackType != null ? BuildInlineSchemaFromType(fallbackType, __) : new OpenApiSchema { Type = JsonSchemaType.Object };
 
 
 
@@ -1275,10 +1360,21 @@ public static class OpenApiV2Generator
             Properties = new Dictionary<string, IOpenApiSchema>(StringComparer.Ordinal)
         };
 
+        // Instantiate to capture default-initialized values from the class for property-level defaults
+        object? inst = null;
+        try { inst = Activator.CreateInstance(t); } catch { inst = null; }
+
         const BindingFlags flags = BindingFlags.Public | BindingFlags.Instance;
         foreach (var p in t.GetProperties(flags))
         {
             var pt = p.PropertyType;
+            var allowNull = false;
+            var underlying = Nullable.GetUnderlyingType(pt);
+            if (underlying != null)
+            {
+                allowNull = true;
+                pt = underlying;
+            }
             IOpenApiSchema ps;
             if (pt.IsEnum)
             {
@@ -1318,6 +1414,25 @@ public static class OpenApiV2Generator
                               .Cast<object>()
                               .LastOrDefault() as OpenApiSchemaAttribute;
             ApplySchemaAttr(schemaAttr, ps);
+            if (allowNull && ps is OpenApiSchema poss)
+            {
+                poss.Type |= JsonSchemaType.Null;
+            }
+
+            // If we have an instance and this property has a default value, and the schema is concrete,
+            // populate schema.Default (unless already set by attribute)
+            if (inst is not null && ps is OpenApiSchema concrete && concrete.Default is null)
+            {
+                try
+                {
+                    var val = p.GetValue(inst);
+                    if (val is not null)
+                    {
+                        concrete.Default = ToNode(val);
+                    }
+                }
+                catch { /* ignore */ }
+            }
             obj.Properties[p.Name] = ps;
         }
 
@@ -1366,6 +1481,118 @@ public static class OpenApiV2Generator
                 var h = CreateHeaderFromAttribute(a);
                 var name = GetNameOverride(a) ?? BuildMemberResponseKey(t, f.Name);
                 doc.Components!.Headers![name] = h;
+            }
+        }
+    }
+
+    // Map PowerShell validation attributes on properties to OpenAPI schema constraints
+    private static void ApplyPowerShellValidationAttributes(PropertyInfo p, IOpenApiSchema s)
+    {
+        if (s is not OpenApiSchema sc)
+        {
+            return; // constraints only applicable on a concrete schema, not a $ref proxy
+        }
+
+        foreach (var attr in p.GetCustomAttributes(inherit: false))
+        {
+            var atName = attr.GetType().Name;
+            switch (atName)
+            {
+                case "ValidateRangeAttribute":
+                    {
+                        var min = attr.GetType().GetProperty("MinRange")?.GetValue(attr);
+                        var max = attr.GetType().GetProperty("MaxRange")?.GetValue(attr);
+                        if (min is not null)
+                        {
+                            sc.Minimum = min.ToString();
+                        }
+                        if (max is not null)
+                        {
+                            sc.Maximum = max.ToString();
+                        }
+                        break;
+                    }
+                case "ValidateLengthAttribute":
+                    {
+                        var minLen = attr.GetType().GetProperty("MinLength")?.GetValue(attr) as int?;
+                        var maxLen = attr.GetType().GetProperty("MaxLength")?.GetValue(attr) as int?;
+                        if (minLen.HasValue && minLen.Value >= 0)
+                        {
+                            sc.MinLength = minLen.Value;
+                        }
+                        if (maxLen.HasValue && maxLen.Value >= 0)
+                        {
+                            sc.MaxLength = maxLen.Value;
+                        }
+                        break;
+                    }
+                case "ValidateSetAttribute":
+                    {
+                        var vals = attr.GetType().GetProperty("ValidValues")?.GetValue(attr) as System.Collections.IEnumerable;
+                        if (vals is not null)
+                        {
+                            var list = new List<JsonNode>();
+                            foreach (var v in vals)
+                            {
+                                var node = ToNode(v);
+                                if (node is not null)
+                                {
+                                    list.Add(node);
+                                }
+                            }
+                            if (list.Count > 0)
+                            {
+                                var existing = sc.Enum?.ToList() ?? new List<JsonNode>();
+                                existing.AddRange(list);
+                                sc.Enum = existing;
+                            }
+                        }
+                        break;
+                    }
+                case "ValidatePatternAttribute":
+                    {
+                        var pattern = attr.GetType().GetProperty("RegexPattern")?.GetValue(attr) as string;
+                        if (!string.IsNullOrWhiteSpace(pattern))
+                        {
+                            sc.Pattern = pattern;
+                        }
+                        break;
+                    }
+                case "ValidateCountAttribute":
+                    {
+                        var minItems = attr.GetType().GetProperty("MinLength")?.GetValue(attr) as int?;
+                        var maxItems = attr.GetType().GetProperty("MaxLength")?.GetValue(attr) as int?;
+                        if (minItems.HasValue && minItems.Value >= 0)
+                        {
+                            sc.MinItems = minItems.Value;
+                        }
+                        if (maxItems.HasValue && maxItems.Value >= 0)
+                        {
+                            sc.MaxItems = maxItems.Value;
+                        }
+                        break;
+                    }
+                case "ValidateNotNullOrEmptyAttribute":
+                    {
+                        // If string → minLength=1; if array → minItems=1
+                        if ((sc.Type & JsonSchemaType.String) == JsonSchemaType.String)
+                        {
+                            if (sc.MinLength is null or < 1)
+                            {
+                                sc.MinLength = 1;
+                            }
+                        }
+                        else if ((sc.Type & JsonSchemaType.Array) == JsonSchemaType.Array)
+                        {
+                            if (sc.MinItems is null or < 1)
+                            {
+                                sc.MinItems = 1;
+                            }
+                        }
+                        break;
+                    }
+                default:
+                    break;
             }
         }
     }

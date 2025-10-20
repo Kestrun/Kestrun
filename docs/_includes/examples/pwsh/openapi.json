@@ -16,24 +16,21 @@
             "pattern": "^[\\w\\s\\d]+$",
             "type": "string",
             "description": "The street address",
-            "default": "123 Main St",
-            "example": "123 Main St"
+            "default": "123 Main St"
           },
           "City": {
             "title": "City Name",
             "pattern": "^[\\w\\s\\d]+$",
             "type": "string",
             "description": "The city name",
-            "default": "Anytown",
-            "example": "Anytown"
+            "default": "Anytown"
           },
           "PostalCode": {
             "title": "Postal Code",
             "pattern": "^\\d{5}(-\\d{4})?$",
             "type": "string",
             "description": "The postal code",
-            "default": "12345",
-            "example": "12345"
+            "default": "12345"
           },
           "ApartmentNumber": {
             "title": "Apartment Number",
@@ -41,8 +38,7 @@
             "type": "integer",
             "description": "The apartment number",
             "format": "int32",
-            "default": 101,
-            "example": 101
+            "default": 101
           }
         }
       },
@@ -50,13 +46,16 @@
         "type": "object",
         "properties": {
           "Id": {
+            "maximum": 2147483647,
             "minimum": 0,
             "type": "integer",
             "description": "User identifier",
-            "format": "int32"
+            "format": "int32",
+            "default": 0
           },
           "Name": {
             "maxLength": 50,
+            "minLength": 1,
             "type": "string",
             "description": "Display name"
           },
@@ -65,11 +64,82 @@
             "minimum": 0,
             "type": "integer",
             "description": "Age in years",
-            "format": "int32"
+            "format": "int64",
+            "default": 0
+          },
+          "Counter": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "description": "Counter",
+            "format": "int64"
           },
           "Address": {
             "description": "Mailing address",
             "$ref": "#/components/schemas/Address"
+          },
+          "Country": {
+            "enum": [
+              "USA",
+              "Canada",
+              "Mexico"
+            ],
+            "type": "string",
+            "description": "The country name",
+            "default": "USA"
+          }
+        }
+      },
+      "CreateAddressBody": {
+        "type": "object",
+        "properties": {
+          "Street": {
+            "type": "string",
+            "description": "The street address",
+            "default": "123 Main St"
+          },
+          "City": {
+            "type": "string",
+            "description": "The city name",
+            "default": "Anytown"
+          },
+          "PostalCode": {
+            "type": "string",
+            "description": "The postal code",
+            "default": "12345"
+          },
+          "ApartmentNumber": {
+            "type": "integer",
+            "description": "The apartment number",
+            "format": "int32",
+            "default": 101
+          },
+          "AdditionalAddress": {
+            "description": "Additional mailing address",
+            "$ref": "#/components/schemas/Address"
+          },
+          "Country": {
+            "type": "string",
+            "description": "The country name",
+            "default": "USA"
+          },
+          "RequestId": {
+            "type": "string",
+            "description": "The request identifier",
+            "format": "uuid",
+            "default": "0ef121ed-43dc-40d3-a1c2-5305bcff026e"
+          },
+          "SecondsSinceEpoch": {
+            "type": "integer",
+            "description": "Seconds since epoch",
+            "format": "int64",
+            "default": 1760974349
+          },
+          "CreatedAt": {
+            "type": "string",
+            "format": "date-time",
+            "default": "2025-10-20T15:32:29.7163960Z"
           }
         }
       },
@@ -77,7 +147,8 @@
         "type": "object",
         "properties": {
           "City": {
-            "type": "string"
+            "type": "string",
+            "default": "Gotham"
           }
         }
       }
@@ -99,21 +170,34 @@
     },
     "parameters": {
       "Name": {
-        "name": "name",
+        "name": "Name",
         "in": "query",
         "schema": {
           "type": "string",
-          "description": "Filter by name (contains)"
+          "description": "Filter by name (contains)",
+          "default": "John"
         }
       },
       "MinAge": {
-        "name": "minAge",
+        "name": "MinAge",
         "in": "cookie",
         "schema": {
           "minimum": 0,
           "type": "integer",
           "description": "Minimum age",
-          "format": "int32"
+          "format": "int64",
+          "default": 20
+        }
+      },
+      "MaxAge": {
+        "name": "MaxAge",
+        "in": "cookie",
+        "schema": {
+          "minimum": 0,
+          "type": "integer",
+          "description": "Maximum age",
+          "format": "int64",
+          "default": 120
         }
       }
     },
@@ -140,36 +224,17 @@
         "content": {
           "application/json": {
             "schema": {
-              "type": "object",
-              "properties": {
-                "Street": {
-                  "type": "string",
-                  "description": "The street address"
-                },
-                "City": {
-                  "type": "string",
-                  "description": "The city name"
-                },
-                "PostalCode": {
-                  "type": "string",
-                  "description": "The postal code"
-                },
-                "ApartmentNumber": {
-                  "type": "integer",
-                  "description": "The apartment number",
-                  "format": "int32"
-                },
-                "AdditionalAddress": {
-                  "description": "Additional mailing address",
-                  "$ref": "#/components/schemas/Address"
-                }
-              }
+              "$ref": "#/components/schemas/CreateAddressBody"
             },
             "example": {
               "Street": "123 Main St",
               "City": "Anytown",
               "PostalCode": "12345",
-              "ApartmentNumber": 101
+              "ApartmentNumber": 101,
+              "Country": "USA",
+              "RequestId": "f58cdac2-c7a9-454c-b23d-4a9a9ccadd20",
+              "SecondsSinceEpoch": 1760974349,
+              "CreatedAt": "2025-10-20T15:32:29.7177385Z"
             }
           }
         }

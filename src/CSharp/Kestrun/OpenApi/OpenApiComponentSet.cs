@@ -30,10 +30,6 @@ public sealed class OpenApiComponentSet
     /// </summary>
     public IReadOnlyList<Type> HeaderTypes { get; init; } = [];
     /// <summary>
-    /// Security scheme types available for reuse in the specification.
-    /// </summary>
-    public IReadOnlyList<Type> SecuritySchemeTypes { get; init; } = [];
-    /// <summary>
     /// Link types available for reuse in the specification.
     /// </summary>
     public IReadOnlyList<Type> LinkTypes { get; init; } = [];
@@ -47,7 +43,10 @@ public sealed class OpenApiComponentSet
     public IReadOnlyList<Type> PathItemTypes { get; init; } = [];
 
     //public IReadOnlyList<Type> ExtensionTypes { get; init; } = [];
-
+    /// <summary>
+    /// Security scheme types available for reuse in the specification.
+    /// </summary>
+    public IReadOnlyList<Type> SecuritySchemeTypes { get; init; } = [];
 
     /// <summary>
     /// Discover all OpenAPI component types from loaded assemblies.

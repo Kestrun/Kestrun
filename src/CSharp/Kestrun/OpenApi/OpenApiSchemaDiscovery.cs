@@ -113,6 +113,82 @@ public static class OpenApiSchemaDiscovery
     }
 
     /// <summary>
+    /// Discover all OpenAPI component types from dynamic PowerShell classes.
+    /// Scans all loaded assemblies for classes decorated with OpenApiModelKindAttribute
+    /// or having any OpenApi* attributes.
+    /// </summary>
+    /// <returns> </returns>
+    public static OpenApiComponentSet GetOpenApiTypesAuto()
+    {
+        var assemblies = AppDomain.CurrentDomain.GetAssemblies()
+            .Where(a => a.FullName is not null &&
+                    (a.FullName.Contains("PowerShell Class Assembly") ||
+                        a.FullName.StartsWith("Kestrun")))
+            .ToArray();
+        return new OpenApiComponentSet()
+        {
+
+            ParameterTypes = [.. assemblies.SelectMany(asm => asm.GetTypes())
+            .Where(t => t.IsClass && !t.IsAbstract &&
+                   (t.GetCustomAttributes(typeof(OpenApiModelKindAttribute), true)
+                     .OfType<OpenApiModelKindAttribute>()
+                     .Any(a => a.Kind == OpenApiModelKind.Parameters) ||
+                    t.GetProperties(BindingFlags.Public | BindingFlags.Instance)
+                     .Any(p => p.GetCustomAttributes(typeof(OpenApiParameterAttribute), true).Length != 0)))],
+
+            SchemaTypes = [.. assemblies.SelectMany(asm => asm.GetTypes())
+            .Where(t => t.IsClass && !t.IsAbstract &&
+                   (t.GetCustomAttributes(typeof(OpenApiModelKindAttribute), true)
+                     .OfType<OpenApiModelKindAttribute>()
+                     .Any(a => a.Kind == OpenApiModelKind.Schema) ||
+                    t.GetCustomAttributes(typeof(OpenApiSchemaAttribute), true).Length != 0))],
+            ResponseTypes = [.. assemblies.SelectMany(asm => asm.GetTypes())
+            .Where(t => t.IsClass && !t.IsAbstract &&
+                   (t.GetCustomAttributes(typeof(OpenApiModelKindAttribute), true)
+                     .OfType<OpenApiModelKindAttribute>()
+                     .Any(a => a.Kind == OpenApiModelKind.Response) ||
+                    t.GetCustomAttributes(typeof(OpenApiResponseAttribute), true).Length != 0))],
+            /*        ExampleTypes = [.. assemblies.SelectMany(asm => asm.GetTypes())
+                    .Where(t => t.IsClass && !t.IsAbstract &&
+                           (t.GetCustomAttributes(typeof(OpenApiModelKindAttribute), true)
+                             .OfType<OpenApiModelKindAttribute>()
+                             .Any(a => a.Kind == OpenApiModelKind.Example) ||
+                            t.GetCustomAttributes(typeof(OpenApiExampleAttribute), true).Length != 0))],
+                    RequestBodyTypes = [.. assemblies.SelectMany(asm => asm.GetTypes())
+                    .Where(t => t.IsClass && !t.IsAbstract &&
+                           (t.GetCustomAttributes(typeof(OpenApiModelKindAttribute), true)
+                             .OfType<OpenApiModelKindAttribute>()
+                             .Any(a => a.Kind == OpenApiModelKind.RequestBody) ||
+                            t.GetCustomAttributes(typeof(OpenApiRequestBodyAttribute), true).Length != 0))],
+                    HeaderTypes = [.. assemblies.SelectMany(asm => asm.GetTypes())
+                    .Where(t => t.IsClass && !t.IsAbstract &&
+                           (t.GetCustomAttributes(typeof(OpenApiModelKindAttribute), true)
+                             .OfType<OpenApiModelKindAttribute>()
+                             .Any(a => a.Kind == OpenApiModelKind.Header) ||
+                            t.GetCustomAttributes(typeof(OpenApiHeaderAttribute), true).Length != 0))],
+                    LinkTypes = [.. assemblies.SelectMany(asm => asm.GetTypes())
+                    .Where(t => t.IsClass && !t.IsAbstract &&
+                           (t.GetCustomAttributes(typeof(OpenApiModelKindAttribute), true)
+                             .OfType<OpenApiModelKindAttribute>()
+                             .Any(a => a.Kind == OpenApiModelKind.Link) ||
+                            t.GetCustomAttributes(typeof(OpenApiLinkAttribute), true).Length != 0))],
+                    CallbackTypes = [.. assemblies.SelectMany(asm => asm.GetTypes())
+                    .Where(t => t.IsClass && !t.IsAbstract &&
+                           (t.GetCustomAttributes(typeof(OpenApiModelKindAttribute), true)
+                             .OfType<OpenApiModelKindAttribute>()
+                             .Any(a => a.Kind == OpenApiModelKind.Callback) ||
+                            t.GetCustomAttributes(typeof(OpenApiCallbackAttribute), true).Length != 0))],
+                    PathItemTypes = [.. assemblies.SelectMany(asm => asm.GetTypes())
+                    .Where(t => t.IsClass && !t.IsAbstract &&
+                           (t.GetCustomAttributes(typeof(OpenApiModelKindAttribute), true)
+                             .OfType<OpenApiModelKindAttribute>()
+                             .Any(a => a.Kind == OpenApiModelKind.PathItem) ||
+                            t.GetCustomAttributes(typeof(OpenApiPathItemAttribute), true).Length != 0))]
+        */
+        };
+    }
+
+    /// <summary>
     /// Discover OpenAPI schema types from dynamic PowerShell classes.
     /// Scans all loaded assemblies for classes decorated with OpenApiModelKind(Schema)
     /// or having any OpenApiSchema attributes.

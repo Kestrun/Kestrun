@@ -44,8 +44,8 @@ class UserInfoResponse {
     [OpenApiSchema(Description = 'Display name', MaxLength = 50)]
     [string]$Name
 
-    [OpenApiSchema(Description = 'Age in years', Type = [OaSchemaType]::Integer, Minimum = 0, Maximum = 120)]
-    [int]$Age
+    [OpenApiSchema(Description = 'Age in years', Minimum = 0, Maximum = 120)]
+    [long]$Age
 
     [OpenApiSchema(Description = 'Mailing address')]
     [Address]$Address
@@ -61,7 +61,16 @@ class UserListQueryParams {
     [OpenApiSchema(Description = 'Minimum age', Type = [OaSchemaType]::Integer, Format = 'int32', Minimum = 0)]
     [int]$MinAge
 }
+<#
+[OpenApiModelKind([OpenApiModelKind]::Response)]
+class AddressResponse {
+    [OpenApiResponse('200', 'Successful retrieval of address', SchemaRef = 'Address')]
+    [void]$OK
 
+    [OpenApiResponse('404', 'Address not found')]
+    [void]$NotFound
+}#>
+<#
 $schemaTypes = [Kestrun.OpenApi.OpenApiSchemaDiscovery]::GetOpenApiSchemaTypes()       # schemas
 $parameterTypes = [Kestrun.OpenApi.OpenApiSchemaDiscovery]::GetOpenApiParameterTypes()  # parameters
 
@@ -91,7 +100,9 @@ $components.ParameterTypes = [Type[]]($parameterTypes | ForEach-Object { [Type]$
 # Optional component maps
 $components.ResponseTypes = $responses
 $components.ParameterTypes = $parameters
-$components.PathItemTypes = $pathItems
+$components.PathItemTypes = $pathItems#>
+$components = [Kestrun.OpenApi.OpenApiSchemaDiscovery]::GetOpenApiTypesAuto()
+
 # (You can also set: Examples, RequestBodies, Headers, SecuritySchemes, Links, Callbacks, Extensions)
 
 # 4) Generate & serialize

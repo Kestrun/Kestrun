@@ -85,7 +85,7 @@
       },
       "UserListQueryParams.MinAge": {
         "name": "minAge",
-        "in": "query",
+        "in": "cookie",
         "schema": {
           "minimum": 0,
           "type": "integer",

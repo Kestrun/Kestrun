@@ -73,28 +73,6 @@
           }
         }
       },
-      "CreateAddressBody": {
-        "type": "object",
-        "properties": {
-          "Street": {
-            "type": "string",
-            "description": "The street address"
-          },
-          "City": {
-            "type": "string",
-            "description": "The city name"
-          },
-          "PostalCode": {
-            "type": "string",
-            "description": "The postal code"
-          },
-          "ApartmentNumber": {
-            "type": "integer",
-            "description": "The apartment number",
-            "format": "int32"
-          }
-        }
-      },
       "PatchAddressBody": {
         "type": "object",
         "properties": {
@@ -162,7 +140,30 @@
         "content": {
           "application/json": {
             "schema": {
-              "$ref": "#/components/schemas/CreateAddressBody"
+              "type": "object",
+              "properties": {
+                "Street": {
+                  "type": "string",
+                  "description": "The street address"
+                },
+                "City": {
+                  "type": "string",
+                  "description": "The city name"
+                },
+                "PostalCode": {
+                  "type": "string",
+                  "description": "The postal code"
+                },
+                "ApartmentNumber": {
+                  "type": "integer",
+                  "description": "The apartment number",
+                  "format": "int32"
+                },
+                "AdditionalAddress": {
+                  "description": "Additional mailing address",
+                  "$ref": "#/components/schemas/Address"
+                }
+              }
             },
             "example": {
               "Street": "123 Main St",

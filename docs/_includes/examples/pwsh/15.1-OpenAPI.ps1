@@ -98,7 +98,7 @@ class AddressExample_NoApt {
 }
 
 # Request body components (class-first; one class per request body; defaults become the example)
-[OpenApiModelKind([OpenApiModelKind]::RequestBody)]
+[OpenApiModelKind([OpenApiModelKind]::RequestBody, InlineSchema = $true)]
 class CreateAddressBody {
     [OpenApiSchema(Description = 'The street address')]
     [string]$Street = '123 Main St'
@@ -111,6 +111,9 @@ class CreateAddressBody {
 
     [OpenApiSchema(Description = 'The apartment number')]
     [int]$ApartmentNumber = 101
+
+    [OpenApiSchema(Description = 'Additional mailing address')]
+    [Address]$AdditionalAddress
 }
 
 [OpenApiModelKind([OpenApiModelKind]::RequestBody)]

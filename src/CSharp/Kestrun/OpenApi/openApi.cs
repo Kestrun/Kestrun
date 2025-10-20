@@ -78,6 +78,12 @@ public sealed class OpenApiModelKindAttribute(OpenApiModelKind kind) : Attribute
     /// Example: JoinClassName = "-" => AddressResponse-OK
     /// </summary>
     public string? JoinClassName { get; set; }
+
+    /// <summary>
+    /// For class-first generators (e.g., RequestBody), when true instructs the generator to
+    /// emit an inline schema in-place rather than a $ref to components.schemas.
+    /// </summary>
+    public bool InlineSchema { get; set; }
 }
 
 

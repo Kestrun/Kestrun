@@ -26,5 +26,12 @@ public sealed class OpenApiRequestBodyAttribute : Attribute
     /// default value, the generator will use that default as the example.
     /// </summary>
     public object? Example { get; set; }
+
+    /// <summary>
+    /// When true, emit an inline schema object instead of a $ref. If SchemaRef is provided and
+    /// a matching schema exists in components, that schema will be embedded; otherwise the generator
+    /// will try to infer an inline schema when possible.
+    /// </summary>
+    public bool Inline { get; set; }
 }
 #pragma warning restore CA1050 // Declare types in namespaces

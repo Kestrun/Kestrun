@@ -1113,7 +1113,7 @@ public static class OpenApiV2Generator
                           .ToArray();
         foreach (var a in classAttrs)
         {
-            var rb = CreateRequestBodyFromAttribute(a);
+            var rb = CreateRequestBodyFromAttribute(a, t, doc);
             var name = GetNameOverride(a) ?? t.Name;
             doc.Components!.RequestBodies![name] = rb;
         }
@@ -1129,8 +1129,12 @@ public static class OpenApiV2Generator
                 var kindVal = mk.GetType().GetProperty("Kind")?.GetValue(mk)?.ToString();
                 if (string.Equals(kindVal, nameof(OpenApiModelKind.RequestBody), StringComparison.Ordinal))
                 {
-                    // Ensure a schema exists for this class and reference it
-                    EnsureSchemaComponent(t, doc);
+                    var inline = (bool?)mk.GetType().GetProperty("InlineSchema")?.GetValue(mk) ?? false;
+                    if (!inline)
+                    {
+                        // Ensure a schema exists for this class and reference it
+                        EnsureSchemaComponent(t, doc);
+                    }
                     var rb = new OpenApiRequestBody
                     {
                         Description = "Request body",
@@ -1139,7 +1143,7 @@ public static class OpenApiV2Generator
                         {
                             ["application/json"] = new OpenApiMediaType
                             {
-                                Schema = new OpenApiSchemaReference(t.Name)
+                                Schema = inline ? BuildInlineSchemaFromType(t, doc) : new OpenApiSchemaReference(t.Name)
                             }
                         }
                     };
@@ -1222,7 +1226,7 @@ public static class OpenApiV2Generator
         }
     }
 
-    private static OpenApiRequestBody CreateRequestBodyFromAttribute(object attr)
+    private static OpenApiRequestBody CreateRequestBodyFromAttribute(object attr, Type? declaringType = null, OpenApiDocument? doc = null)
     {
         var t = attr.GetType();
         var description = t.GetProperty("Description")?.GetValue(attr) as string;
@@ -1230,6 +1234,7 @@ public static class OpenApiV2Generator
         var schemaRef = t.GetProperty("SchemaRef")?.GetValue(attr) as string;
         var required = (bool?)t.GetProperty("Required")?.GetValue(attr) ?? false;
         var example = t.GetProperty("Example")?.GetValue(attr);
+        var inline = (bool?)t.GetProperty("Inline")?.GetValue(attr) ?? false;
 
         var rb = new OpenApiRequestBody
         {
@@ -1239,7 +1244,11 @@ public static class OpenApiV2Generator
             {
                 [contentType] = new OpenApiMediaType
                 {
-                    Schema = string.IsNullOrWhiteSpace(schemaRef) ? null : new OpenApiSchemaReference(schemaRef)
+                    Schema = inline
+                        ? (!string.IsNullOrWhiteSpace(schemaRef) && doc != null
+                            ? BuildInlineSchemaFromRefOrType(schemaRef, declaringType, doc)
+                            : (declaringType != null ? BuildInlineSchemaFromType(declaringType, doc!) : null))
+                        : (string.IsNullOrWhiteSpace(schemaRef) ? null : new OpenApiSchemaReference(schemaRef))
                 }
             }
         };
@@ -1250,6 +1259,69 @@ public static class OpenApiV2Generator
         }
 
         return rb;
+    }
+
+    private static IOpenApiSchema? BuildInlineSchemaFromRefOrType(string _schemaRef, Type? fallbackType, OpenApiDocument _doc)
+        => fallbackType != null ? BuildInlineSchemaFromType(fallbackType, _doc) : new OpenApiSchema { Type = JsonSchemaType.Object };
+
+
+
+    // Overload that ensures nested complex types have component schemas available in the document
+    private static IOpenApiSchema BuildInlineSchemaFromType(Type t, OpenApiDocument doc)
+    {
+        var obj = new OpenApiSchema
+        {
+            Type = JsonSchemaType.Object,
+            Properties = new Dictionary<string, IOpenApiSchema>(StringComparer.Ordinal)
+        };
+
+        const BindingFlags flags = BindingFlags.Public | BindingFlags.Instance;
+        foreach (var p in t.GetProperties(flags))
+        {
+            var pt = p.PropertyType;
+            IOpenApiSchema ps;
+            if (pt.IsEnum)
+            {
+                ps = new OpenApiSchema { Type = JsonSchemaType.String, Enum = [.. pt.GetEnumNames().Select(n => (JsonNode)n)] };
+            }
+            else if (pt.IsArray)
+            {
+                var elem = pt.GetElementType()!;
+                IOpenApiSchema item;
+                if (elem.IsEnum)
+                {
+                    item = new OpenApiSchema { Type = JsonSchemaType.String, Enum = [.. elem.GetEnumNames().Select(n => (JsonNode)n)] };
+                }
+                else if (IsPrimitiveLike(elem))
+                {
+                    item = InferPrimitiveSchema(elem);
+                }
+                else
+                {
+                    EnsureSchemaComponent(elem, doc);
+                    item = new OpenApiSchemaReference(elem.Name);
+                }
+                ps = new OpenApiSchema { Type = JsonSchemaType.Array, Items = item };
+            }
+            else if (!IsPrimitiveLike(pt))
+            {
+                EnsureSchemaComponent(pt, doc);
+                ps = new OpenApiSchemaReference(pt.Name);
+            }
+            else
+            {
+                ps = InferPrimitiveSchema(pt);
+            }
+
+            var schemaAttr = p.GetCustomAttributes(inherit: false)
+                              .Where(a => a.GetType().Name == nameof(OpenApiSchemaAttribute))
+                              .Cast<object>()
+                              .LastOrDefault() as OpenApiSchemaAttribute;
+            ApplySchemaAttr(schemaAttr, ps);
+            obj.Properties[p.Name] = ps;
+        }
+
+        return obj;
     }
 
     private static void BuildHeaders(Type t, OpenApiDocument doc)

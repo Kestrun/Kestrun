@@ -74,8 +74,23 @@
         }
       }
     },
+    "responses": {
+      "AddressResponse-OK": {
+        "description": "Successful retrieval of address",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Address"
+            }
+          }
+        }
+      },
+      "AddressResponse-NotFound": {
+        "description": "Address not found"
+      }
+    },
     "parameters": {
-      "UserListQueryParams.Name": {
+      "Name": {
         "name": "name",
         "in": "query",
         "schema": {
@@ -83,7 +98,7 @@
           "description": "Filter by name (contains)"
         }
       },
-      "UserListQueryParams.MinAge": {
+      "MinAge": {
         "name": "minAge",
         "in": "cookie",
         "schema": {

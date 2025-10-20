@@ -43,6 +43,11 @@ public static class OpenApiV2Generator
             BuildParameters(t, doc);
         }
 
+        foreach (var t in components.ResponseTypes)
+        {
+            BuildResponses(t, doc);
+        }
+
         return doc;
     }
     /// <summary>
@@ -739,8 +744,8 @@ public static class OpenApiV2Generator
                 param.Example = ToNode(exampleObj);
             }
 
-            // Store under components.parameters as "<Class>.<Property>"
-            var key = $"{t.Name}.{p.Name}";
+            // Compute component key using class-level JoinClassName (if present) or just member name
+            var key = BuildParameterKey(t, p.Name);
             doc.Components.Parameters[key] = param;
         }
 
@@ -759,6 +764,140 @@ public static class OpenApiV2Generator
             // If you prefer, you can expose and pass the outer HashSet<Type> instead.
             var temp = new HashSet<Type>();
             BuildSchema(complexType, doc, temp);
+        }
+
+        static string BuildParameterKey(Type declaringType, string memberName)
+        {
+            var mk = declaringType.GetCustomAttributes(inherit: false)
+                                  .FirstOrDefault(a => a.GetType().Name == nameof(OpenApiModelKindAttribute));
+            if (mk is null)
+            {
+                return memberName;
+            }
+
+            var join = mk.GetType().GetProperty("JoinClassName")?.GetValue(mk) as string;
+            if (string.IsNullOrEmpty(join))
+            {
+                return memberName;
+            }
+
+            return $"{declaringType.Name}{join}{memberName}";
+        }
+    }
+
+    private static void BuildResponses(Type t, OpenApiDocument doc)
+    {
+        if (doc.Components!.Responses == null)
+        {
+            doc.Components.Responses = new Dictionary<string, IOpenApiResponse>(StringComparer.Ordinal);
+        }
+
+        // 1) Class-level [OpenApiResponse(...)] attributes
+        var classAttrs = t.GetCustomAttributes(inherit: false)
+                          .Where(a => a.GetType().Name == nameof(OpenApiResponseAttribute))
+                          .Cast<object>()
+                          .ToArray();
+
+        foreach (var a in classAttrs)
+        {
+            var resp = CreateResponseFromAttribute(a);
+            var custom = GetNameOverride(a);
+            var key = !string.IsNullOrWhiteSpace(custom) ? custom! : t.Name;
+            doc.Components!.Responses![key] = resp;
+        }
+
+        const BindingFlags flags = BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly;
+
+        // 2) Property-level
+        foreach (var p in t.GetProperties(flags))
+        {
+            var attrs = p.GetCustomAttributes(inherit: false)
+                         .Where(a => a.GetType().Name == nameof(OpenApiResponseAttribute))
+                         .Cast<object>()
+                         .ToArray();
+
+            if (attrs.Length == 0) { continue; }
+
+            // Support multiple attributes per property
+            foreach (var a in attrs)
+            {
+                var resp = CreateResponseFromAttribute(a);
+                var custom = GetNameOverride(a);
+                var key = !string.IsNullOrWhiteSpace(custom) ? custom! : BuildMemberResponseKey(t, p.Name);
+                doc.Components!.Responses![key] = resp;
+            }
+        }
+
+        // 3) Field-level (rare in PS classes, but supported by attribute)
+        foreach (var f in t.GetFields(flags))
+        {
+            var attrs = f.GetCustomAttributes(inherit: false)
+                         .Where(a => a.GetType().Name == nameof(OpenApiResponseAttribute))
+                         .Cast<object>()
+                         .ToArray();
+
+            if (attrs.Length == 0) { continue; }
+
+            foreach (var a in attrs)
+            {
+                var resp = CreateResponseFromAttribute(a);
+                var custom = GetNameOverride(a);
+                var key = !string.IsNullOrWhiteSpace(custom) ? custom! : BuildMemberResponseKey(t, f.Name);
+                doc.Components!.Responses![key] = resp;
+            }
+        }
+
+        // Local helpers
+        static string? GetNameOverride(object attr)
+        {
+            var t = attr.GetType();
+            return t.GetProperty("Name")?.GetValue(attr) as string;
+        }
+
+        static string BuildMemberResponseKey(Type declaringType, string memberName)
+        {
+            // Look for [OpenApiModelKind(Kind) { JoinClassName = "-" }] on the declaring type
+            var mk = declaringType.GetCustomAttributes(inherit: false)
+                                  .FirstOrDefault(a => a.GetType().Name == nameof(OpenApiModelKindAttribute));
+            if (mk is null)
+            {
+                return memberName; // default: just member name
+            }
+
+            var join = mk.GetType().GetProperty("JoinClassName")?.GetValue(mk) as string;
+            if (string.IsNullOrEmpty(join))
+            {
+                return memberName;
+            }
+
+            return $"{declaringType.Name}{join}{memberName}";
+        }
+
+        static OpenApiResponse CreateResponseFromAttribute(object attr)
+        {
+            var t = attr.GetType();
+            var description = t.GetProperty("Description")?.GetValue(attr) as string;
+            var contentType = t.GetProperty("ContentType")?.GetValue(attr) as string ?? "application/json";
+            var schemaRef = t.GetProperty("SchemaRef")?.GetValue(attr) as string;
+
+            var response = new OpenApiResponse
+            {
+                Description = string.IsNullOrWhiteSpace(description) ? "Response" : description
+            };
+
+            if (!string.IsNullOrWhiteSpace(schemaRef))
+            {
+                response.Content = new Dictionary<string, OpenApiMediaType>
+                {
+                    [contentType] = new OpenApiMediaType
+                    {
+                        Schema = new OpenApiSchemaReference(schemaRef)
+                    }
+                };
+            }
+
+            // TODO: In future, map ExampleRef, HeaderRef, LinkRef when component builders exist.
+            return response;
         }
     }
 }

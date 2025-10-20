@@ -1,5 +1,4 @@
-namespace Kestrun.OpenApi;
-
+#pragma warning disable CA1050 // Declare types in namespaces
 /// <summary>
 /// Specifies metadata for an OpenAPI response object.
 /// Can be attached to PowerShell or C# classes representing reusable responses.
@@ -7,6 +6,12 @@ namespace Kestrun.OpenApi;
 [AttributeUsage(AttributeTargets.Class | AttributeTargets.Property | AttributeTargets.Field, AllowMultiple = true, Inherited = false)]
 public sealed class OpenApiResponseAttribute : Attribute
 {
+    /// <summary>
+    /// Optional component name override for components.responses key.
+    /// If omitted, the generator will name by member (Class.Property) when used on members,
+    /// or by class name when applied at class-level.
+    /// </summary>
+    public string? Name { get; set; }
     /// <summary>
     /// The HTTP status code (e.g., "200", "400", "404").
     /// </summary>
@@ -58,7 +63,7 @@ public sealed class OpenApiResponseAttribute : Attribute
     public bool Deprecated { get; set; }
 
     /// <summary>
-    /// Default constructor.
+    /// Default constructor. Use named properties like Description, SchemaRef, Status, etc.
     /// </summary>
     public OpenApiResponseAttribute() { }
 
@@ -73,3 +78,4 @@ public sealed class OpenApiResponseAttribute : Attribute
         Description = description;
     }
 }
+#pragma warning restore CA1050 // Declare types in namespaces

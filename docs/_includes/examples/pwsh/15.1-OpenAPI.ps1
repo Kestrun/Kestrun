@@ -51,7 +51,7 @@ class UserInfoResponse {
     [Address]$Address
 }
 
-[OpenApiModelKind([OpenApiModelKind]::Parameters)]
+[OpenApiModelKind([OpenApiModelKind]::Parameters)] #, JoinClassName = '.')]
 class UserListQueryParams {
     [OpenApiParameter(In = [OaParameterLocation]::Query, Name = 'name')]
     [OpenApiSchema(Description = 'Filter by name (contains)')]
@@ -61,15 +61,14 @@ class UserListQueryParams {
     [OpenApiSchema(Description = 'Minimum age', Type = [OaSchemaType]::Integer, Format = 'int32', Minimum = 0)]
     [int]$MinAge
 }
-<#
-[OpenApiModelKind([OpenApiModelKind]::Response)]
+# Response components (member-level responses; JoinClassName ties class+member in key)
+[OpenApiModelKind([OpenApiModelKind]::Response, JoinClassName = '-')]
 class AddressResponse {
-    [OpenApiResponse('200', 'Successful retrieval of address', SchemaRef = 'Address')]
-    [void]$OK
-
-    [OpenApiResponse('404', 'Address not found')]
-    [void]$NotFound
-}#>
+    [OpenApiResponse( Description = 'Successful retrieval of address', SchemaRef = 'Address' )]
+    $OK
+    [OpenApiResponse( Description = 'Address not found' )]
+    $NotFound
+}
 <#
 $schemaTypes = [Kestrun.OpenApi.OpenApiSchemaDiscovery]::GetOpenApiSchemaTypes()       # schemas
 $parameterTypes = [Kestrun.OpenApi.OpenApiSchemaDiscovery]::GetOpenApiParameterTypes()  # parameters

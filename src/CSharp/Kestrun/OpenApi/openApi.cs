@@ -68,6 +68,16 @@ public sealed class OpenApiModelKindAttribute(OpenApiModelKind kind) : Attribute
 
     /// <summary>The kind of OpenAPI model this class represents.</summary>
     public OpenApiModelKind Kind { get; } = kind;
+
+    /// <summary>
+    /// Optional delimiter used by generators for naming component keys that are
+    /// derived from member names (e.g., responses from properties within a class).
+    /// When set and applicable (e.g., for Response kinds), generators may name
+    /// a member-driven component as "ClassName{JoinClassName}MemberName" instead
+    /// of just "MemberName".
+    /// Example: JoinClassName = "-" => AddressResponse-OK
+    /// </summary>
+    public string? JoinClassName { get; set; }
 }
 
 
@@ -129,7 +139,7 @@ public enum OaParameterStyle
     DeepObject
 }
 
- 
+
 
 /// <summary>Repeat on a class to mark required property names (PowerShell-friendly).</summary>
 [AttributeUsage(AttributeTargets.Class, AllowMultiple = true, Inherited = false)]

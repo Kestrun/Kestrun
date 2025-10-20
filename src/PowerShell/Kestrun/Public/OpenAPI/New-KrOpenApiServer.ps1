@@ -24,7 +24,7 @@ function New-KrOpenApiServer {
         [Parameter(Mandatory)]
         [string]$Url,
         [string]$Description,
-        [System.Collections.Generic.Dictionary[string, Microsoft.OpenApi.OpenApiServerVariable]]$Variables
+        [System.Collections.Specialized.OrderedDictionary]$Variables
     )
     $server = [Microsoft.OpenApi.OpenApiServer]::new()
     if ($PsBoundParameters.ContainsKey('Description')) {
@@ -32,7 +32,11 @@ function New-KrOpenApiServer {
     }
     $server.Url = $Url
     if ($PsBoundParameters.ContainsKey('Variables')) {
-        $server.Variables = $Variables
+        $server.Variables = [System.Collections.Generic.Dictionary[string, Microsoft.OpenApi.OpenApiServerVariable]]::new()
+        foreach ($key in $Variables.Keys) {
+            $value = $Variables[$key]
+            $server.Variables.Add($key, $value)
+        }
     }
     return $server
 }

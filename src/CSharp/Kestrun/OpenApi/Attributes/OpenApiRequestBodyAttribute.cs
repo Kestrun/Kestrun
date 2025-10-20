@@ -36,6 +36,7 @@ public sealed class OpenApiRequestBodyAttribute : Attribute
     /// will try to infer an inline schema when possible.
     /// </summary>
     public bool Inline { get; set; }
+     public Microsoft.OpenApi.OpenApiServer? Server { get; set; }
     public Microsoft.OpenApi.OpenApiLink? Link { get; set; }
     public Microsoft.OpenApi.RuntimeExpressionAnyWrapper? RequestBody { get; set; }
 

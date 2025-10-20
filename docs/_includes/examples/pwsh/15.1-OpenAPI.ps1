@@ -179,8 +179,19 @@ class Link_UserById {
         email = '$request.body#/email'
         locale = '$request.body#/locale'
     }
+    $Server = @{
+        Url = 'https://{env}.api.example.com'
+        Description = 'Target API endpoint'
+        Variables = @{
+            env = @{
+                Default = 'dev'
+                Enum = @('dev', 'staging', 'prod')
+                Description = 'Environment name'
+            }
+        }
+    }
 }
-
+<#
 [microsoft.OpenApi.Models.openapiLinkParameter]$paramLocation = [Microsoft.OpenApi.Models.OaParameterLocation]::Query
 
 # Callback components (class-first). Discovered via [OpenApiModelKind(Callback)].
@@ -199,7 +210,7 @@ class PathItem_ReusableThing {
     [string]$Summary = 'Reusable operations for /users/{id}'
     [string]$Description = 'Intended to represent a reusable path item (e.g., GET and PATCH).'
 }
-
+#>
 
 <#
 $schemaTypes = [Kestrun.OpenApi.OpenApiSchemaDiscovery]::GetOpenApiSchemaTypes()       # schemas
@@ -236,9 +247,15 @@ $components = [Kestrun.OpenApi.OpenApiSchemaDiscovery]::GetOpenApiTypesAuto()
 
 # (You can also set: Examples, RequestBodies, Headers, SecuritySchemes, Links, Callbacks, Extensions)
 
+
+
 # 4) Generate & serialize
 $doc = [Kestrun.OpenApi.OpenApiV2Generator]::Generate($components, 'Kestrun API', '1.0.0')
+
+$doc.Servers.Add((New-KrOpenApiServer -Description 'Development server' -Url 'https://dev.api.example.com'))
 $json = [Kestrun.OpenApi.OpenApiV2Generator]::ToJson($doc, $true)  # OpenAPI 3.1 JSON
+
+
 $json | Set-Content -Encoding UTF8 -Path "$PSScriptRoot\openapi.json"
 
 # 2. Create server host

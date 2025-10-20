@@ -1,4 +1,7 @@
 #pragma warning disable CA1050 // Declare types in namespaces
+using Microsoft.OpenApi;
+
+
 /// <summary>
 /// Specifies metadata for an OpenAPI Request Body component. Can be applied to classes,
 /// properties, or fields to contribute entries under components.requestBodies.
@@ -33,5 +36,8 @@ public sealed class OpenApiRequestBodyAttribute : Attribute
     /// will try to infer an inline schema when possible.
     /// </summary>
     public bool Inline { get; set; }
+    public Microsoft.OpenApi.OpenApiLink? Link { get; set; }
+    public Microsoft.OpenApi.RuntimeExpressionAnyWrapper? RequestBody { get; set; }
+
 }
 #pragma warning restore CA1050 // Declare types in namespaces

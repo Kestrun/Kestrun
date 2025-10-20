@@ -63,6 +63,12 @@ public static class OpenApiV2Generator
             BuildHeaders(t, doc);
         }
 
+        // Links
+        foreach (var t in components.LinkTypes)
+        {
+            BuildLinks(t, doc);
+        }
+
         return doc;
     }
     /// <summary>
@@ -1627,5 +1633,315 @@ public static class OpenApiV2Generator
         if (example is not null) { header.Example = ToNode(example); }
 
         return header;
+    }
+
+    private static void BuildLinks(Type t, OpenApiDocument doc)
+    {
+        doc.Components!.Links ??= new Dictionary<string, IOpenApiLink>(StringComparer.Ordinal);
+
+        // Class-first pattern: instantiate and read well-known members
+        object? inst;
+        try { inst = Activator.CreateInstance(t); } catch { inst = null; }
+
+        string? opId = null;
+        string? opRef = null;
+        string? description = null;
+        object? parametersObj = null;
+        object? requestBodyObj = null;
+        object? serverObj = null;
+
+        const BindingFlags flags = BindingFlags.Public | BindingFlags.Instance;
+        foreach (var p in t.GetProperties(flags))
+        {
+            var name = p.Name;
+            object? value = null;
+            try { value = inst is not null ? p.GetValue(inst) : null; } catch { }
+
+            switch (name)
+            {
+                case "OperationId":
+                    opId = value as string; break;
+                case "OperationRef":
+                    opRef = value as string; break;
+                case "Description":
+                    description = value as string; break;
+                case "Parameters":
+                    parametersObj = value; break;
+                case "RequestBody":
+                    requestBodyObj = value; break;
+                case "Server":
+                    serverObj = value; break;
+                default:
+                    break;
+            }
+        }
+
+        var link = new OpenApiLink();
+
+        // Spec: operationId and operationRef are mutually exclusive. Prefer OperationId if both provided.
+        if (!string.IsNullOrWhiteSpace(opId))
+        {
+            link.OperationId = opId;
+        }
+        else if (!string.IsNullOrWhiteSpace(opRef))
+        {
+            link.OperationRef = opRef;
+        }
+
+        if (!string.IsNullOrWhiteSpace(description))
+        {
+            link.Description = description;
+        }
+
+        // Parameters: Hashtable/IDictionary<string, object> of name -> runtime expression (string)
+        if (parametersObj is System.Collections.IDictionary dict)
+        {
+            var paramProp = typeof(OpenApiLink).GetProperty("Parameters", BindingFlags.Public | BindingFlags.Instance);
+            if (paramProp != null && paramProp.CanWrite)
+            {
+                var pt = paramProp.PropertyType;
+                if (pt.IsGenericType && pt.GetGenericTypeDefinition() == typeof(IDictionary<,>))
+                {
+                    var args = pt.GetGenericArguments();
+                    var keyType = args[0];
+                    var valType = args[1];
+                    if (keyType == typeof(string))
+                    {
+                        var dictType = typeof(Dictionary<,>).MakeGenericType(keyType, valType);
+                        var instDict = Activator.CreateInstance(dictType) as System.Collections.IDictionary;
+                        if (instDict is not null)
+                        {
+                            foreach (System.Collections.DictionaryEntry de in dict)
+                            {
+                                var k = de.Key?.ToString();
+                                var v = de.Value as string;
+                                if (string.IsNullOrWhiteSpace(k) || string.IsNullOrWhiteSpace(v)) { continue; }
+                                var valueToSet = CreateRuntimeExpressionAnyWrapper(valType, v);
+                                instDict[k!] = valueToSet;
+                            }
+                            paramProp.SetValue(link, instDict);
+                        }
+                    }
+                }
+            }
+        }
+
+        // RequestBody: runtime expression string or literal object (hashtable)
+        if (requestBodyObj is string rbe && !string.IsNullOrWhiteSpace(rbe))
+        {
+            var rbProp = typeof(OpenApiLink).GetProperty("RequestBody", BindingFlags.Public | BindingFlags.Instance);
+            if (rbProp != null && rbProp.CanWrite)
+            {
+                var rbt = rbProp.PropertyType;
+                var valueToSet = CreateRuntimeExpressionAnyWrapper(rbt, rbe);
+                rbProp.SetValue(link, valueToSet);
+            }
+        }
+        else if (requestBodyObj is System.Collections.IDictionary rbDict)
+        {
+            var rbProp = typeof(OpenApiLink).GetProperty("RequestBody", BindingFlags.Public | BindingFlags.Instance);
+            if (rbProp != null && rbProp.CanWrite)
+            {
+                var rbt = rbProp.PropertyType;
+                var asm = rbt.Assembly;
+                var any = BuildOpenApiAny(rbDict, asm);
+                var wrapper = Activator.CreateInstance(rbt);
+                if (wrapper is not null)
+                {
+                    var anyProp = rbt.GetProperty("Any", BindingFlags.Public | BindingFlags.Instance);
+                    if (anyProp != null && anyProp.CanWrite && any is not null)
+                    {
+                        anyProp.SetValue(wrapper, any);
+                        rbProp.SetValue(link, wrapper);
+                    }
+                }
+            }
+        }
+
+        // Server: allow string URL or hashtable { Url, Description, Variables }
+        if (serverObj is not null)
+        {
+            var server = BuildServer(serverObj);
+            if (server is not null)
+            {
+                link.Server = server;
+            }
+        }
+
+        // Component key is class name
+        doc.Components!.Links[t.Name] = link;
+
+        static OpenApiServer? BuildServer(object value)
+        {
+            if (value is string urlStr && !string.IsNullOrWhiteSpace(urlStr))
+            {
+                return new OpenApiServer { Url = urlStr };
+            }
+
+            if (value is System.Collections.IDictionary ht)
+            {
+                var srv = new OpenApiServer();
+                foreach (System.Collections.DictionaryEntry de in ht)
+                {
+                    var key = de.Key?.ToString() ?? string.Empty;
+                    if (string.IsNullOrWhiteSpace(key)) { continue; }
+                    switch (key)
+                    {
+                        case "Url":
+                        case "url":
+                            srv.Url = de.Value?.ToString();
+                            break;
+                        case "Description":
+                        case "description":
+                            srv.Description = de.Value?.ToString();
+                            break;
+                        case "Variables":
+                        case "variables":
+                            if (de.Value is System.Collections.IDictionary vars)
+                            {
+                                srv.Variables = new Dictionary<string, OpenApiServerVariable>(StringComparer.Ordinal);
+                                foreach (System.Collections.DictionaryEntry v in vars)
+                                {
+                                    var varName = v.Key?.ToString();
+                                    if (string.IsNullOrWhiteSpace(varName) || v.Value is not System.Collections.IDictionary vht) { continue; }
+                                    var osv = new OpenApiServerVariable();
+                                    foreach (System.Collections.DictionaryEntry ve in vht)
+                                    {
+                                        var vk = ve.Key?.ToString();
+                                        if (string.Equals(vk, "Default", StringComparison.OrdinalIgnoreCase))
+                                        {
+                                            osv.Default = ve.Value?.ToString();
+                                        }
+                                        else if (string.Equals(vk, "Description", StringComparison.OrdinalIgnoreCase))
+                                        {
+                                            osv.Description = ve.Value?.ToString();
+                                        }
+                                        else if (string.Equals(vk, "Enum", StringComparison.OrdinalIgnoreCase) && ve.Value is System.Collections.IEnumerable enumSeq)
+                                        {
+                                            osv.Enum = new List<string>();
+                                            foreach (var item in enumSeq)
+                                            {
+                                                if (item is null) { continue; }
+                                                osv.Enum.Add(item.ToString()!);
+                                            }
+                                        }
+                                    }
+                                    srv.Variables[varName] = osv;
+                                }
+                            }
+                            break;
+                        default:
+                            break;
+                    }
+                }
+                return srv;
+            }
+
+            return null;
+        }
+
+        // Helper: create an instance of RuntimeExpressionAnyWrapper (or compatible) from a string
+        static object CreateRuntimeExpressionAnyWrapper(Type wrapperType, string text)
+        {
+            // If it's already a string, just return the text
+            if (wrapperType == typeof(string)) { return text; }
+
+            // Try ctor(string) directly
+            var ctorStr = wrapperType.GetConstructor(new Type[] { typeof(string) });
+            if (ctorStr is not null)
+            {
+                try { return ctorStr.Invoke(new object[] { text }); } catch { /* ignore */ }
+            }
+
+            // Try to locate Microsoft.OpenApi.RuntimeExpression and set as Expression
+            var asm = wrapperType.Assembly;
+            var exprType = asm.GetType("Microsoft.OpenApi.RuntimeExpression");
+            if (exprType is not null)
+            {
+                try
+                {
+                    // Prefer wrapper ctor(RuntimeExpression)
+                    var ctorExpr = wrapperType.GetConstructor(new Type[] { exprType });
+                    if (ctorExpr is not null)
+                    {
+                        var expr = Activator.CreateInstance(exprType, new object[] { text });
+                        return ctorExpr.Invoke(new object[] { expr! });
+                    }
+
+                    // Otherwise set property 'Expression'
+                    var exprProp = wrapperType.GetProperty("Expression", BindingFlags.Public | BindingFlags.Instance);
+                    if (exprProp != null && exprProp.CanWrite)
+                    {
+                        var expr = Activator.CreateInstance(exprType, new object[] { text });
+                        var inst = Activator.CreateInstance(wrapperType)!;
+                        exprProp.SetValue(inst, expr);
+                        return inst;
+                    }
+                }
+                catch { /* ignore and try Any */ }
+            }
+
+            // Fallback: set as Any using Microsoft.OpenApi.Any.OpenApiString
+            var anyType = asm.GetType("Microsoft.OpenApi.Any.OpenApiString");
+            if (anyType != null)
+            {
+                try
+                {
+                    var any = Activator.CreateInstance(anyType, new object[] { text });
+                    var anyProp = wrapperType.GetProperty("Any", BindingFlags.Public | BindingFlags.Instance);
+                    if (anyProp != null && anyProp.CanWrite)
+                    {
+                        var inst = Activator.CreateInstance(wrapperType)!;
+                        anyProp.SetValue(inst, any);
+                        return inst;
+                    }
+                }
+                catch { /* ignore */ }
+            }
+
+            // As a last resort, create an empty wrapper instance
+            return Activator.CreateInstance(wrapperType)!;
+        }
+
+        // Build an OpenAPI Any object (OpenApiObject/OpenApiArray/OpenApiString) via reflection
+        static object? BuildOpenApiAny(object value, System.Reflection.Assembly asm)
+        {
+            var anyNs = "Microsoft.OpenApi.Any";
+            var tObj = asm.GetType($"{anyNs}.OpenApiObject");
+            var tArr = asm.GetType($"{anyNs}.OpenApiArray");
+            var tStr = asm.GetType($"{anyNs}.OpenApiString");
+            if (tStr is null) { return null; }
+
+            // IDictionary -> OpenApiObject
+            if (value is System.Collections.IDictionary d)
+            {
+                var obj = Activator.CreateInstance(tObj!) as System.Collections.IDictionary;
+                if (obj is null) { return null; }
+                foreach (System.Collections.DictionaryEntry de in d)
+                {
+                    var key = de.Key?.ToString();
+                    if (string.IsNullOrWhiteSpace(key)) { continue; }
+                    var child = BuildOpenApiAny(de.Value ?? string.Empty, asm) ?? Activator.CreateInstance(tStr, new object[] { string.Empty });
+                    obj[key] = child;
+                }
+                return obj;
+            }
+
+            // IEnumerable (non-string) -> OpenApiArray
+            if (value is System.Collections.IEnumerable en && value is not string)
+            {
+                var arr = Activator.CreateInstance(tArr!) as System.Collections.IList;
+                if (arr is null) { return null; }
+                foreach (var item in en)
+                {
+                    var child = BuildOpenApiAny(item ?? string.Empty, asm) ?? Activator.CreateInstance(tStr, new object[] { string.Empty });
+                    arr.Add(child);
+                }
+                return arr;
+            }
+
+            // Primitive -> OpenApiString(text)
+            return Activator.CreateInstance(tStr, new object[] { value?.ToString() ?? string.Empty });
+        }
     }
 }

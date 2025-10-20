@@ -4,6 +4,12 @@
     "title": "Kestrun API",
     "version": "1.0.0"
   },
+  "servers": [
+    {
+      "url": "https://dev.api.example.com",
+      "description": "Development server"
+    }
+  ],
   "paths": { },
   "components": {
     "schemas": {
@@ -128,18 +134,18 @@
             "type": "string",
             "description": "The request identifier",
             "format": "uuid",
-            "default": "0ef121ed-43dc-40d3-a1c2-5305bcff026e"
+            "default": "8804489c-f2b6-43f9-b256-9dc1cc45d8c9"
           },
           "SecondsSinceEpoch": {
             "type": "integer",
             "description": "Seconds since epoch",
             "format": "int64",
-            "default": 1760974349
+            "default": 1760979794
           },
           "CreatedAt": {
             "type": "string",
             "format": "date-time",
-            "default": "2025-10-20T15:32:29.7163960Z"
+            "default": "2025-10-20T17:03:14.2270547Z"
           }
         }
       },
@@ -232,9 +238,9 @@
               "PostalCode": "12345",
               "ApartmentNumber": 101,
               "Country": "USA",
-              "RequestId": "f58cdac2-c7a9-454c-b23d-4a9a9ccadd20",
-              "SecondsSinceEpoch": 1760974349,
-              "CreatedAt": "2025-10-20T15:32:29.7177385Z"
+              "RequestId": "3da96d7e-2a31-497b-a9e2-01a85c2bbe8d",
+              "SecondsSinceEpoch": 1760979794,
+              "CreatedAt": "2025-10-20T17:03:14.2285935Z"
             }
           }
         }
@@ -267,6 +273,31 @@
         "style": "simple",
         "schema": {
           "type": "string"
+        }
+      }
+    },
+    "links": {
+      "Link_UserById": {
+        "operationId": "getUserById",
+        "parameters": {
+          "verbose": ,
+          "id": 
+        },
+        "description": "Link to fetch user details using the id from the response body.",
+        "server": {
+          "url": "https://{env}.api.example.com",
+          "description": "Target API endpoint",
+          "variables": {
+            "env": {
+              "default": "dev",
+              "description": "Environment name",
+              "enum": [
+                "dev",
+                "staging",
+                "prod"
+              ]
+            }
+          }
         }
       }
     }

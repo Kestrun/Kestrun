@@ -165,14 +165,13 @@ class CommonHeaders {
 }
 
 # Link component via helper functions (preferred authoring)
-$serverVars =[ordered] @{
-    env = (New-KrOpenApiServerVariable -Default 'dev' -Enum @('dev','staging','prod') -Description 'Environment name')
-}
+$serverVars = (New-KrOpenApiServerVariable -Name 'env' -Default 'dev' -Enum @('dev','staging','prod') -Description 'Environment name')
+
 $linkServer = New-KrOpenApiServer -Url 'https://{env}.api.example.com' -Description 'Target API endpoint' -Variables $serverVars
 $linkParams = @{ id = '$response.body#/id'; verbose = '$request.query.verbose' }
-$linkRequestBody = @{ email = '$request.body#/email'; locale = '$request.body#/locale' }
+#$linkRequestBody = @{ email = '$request.body#/email'; locale = '$request.body#/locale' }
 $link_UserById = New-KrOpenApiLink -OperationRef '#/paths/~1users~1{id}/get' -OperationId 'getUserById' `
-    -Description 'Link to fetch user details using the id from the response body.' -Parameters $linkParams -RequestBody $linkRequestBody -Server $linkServer
+    -Description 'Link to fetch user details using the id from the response body.' -Parameters $linkParams  -Server $linkServer #-RequestBody $linkRequestBody
 <#
 [microsoft.OpenApi.Models.openapiLinkParameter]$paramLocation = [Microsoft.OpenApi.Models.OaParameterLocation]::Query
 

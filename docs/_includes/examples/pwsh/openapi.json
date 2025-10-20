@@ -134,18 +134,18 @@
             "type": "string",
             "description": "The request identifier",
             "format": "uuid",
-            "default": "8804489c-f2b6-43f9-b256-9dc1cc45d8c9"
+            "default": "685ac028-424e-4a0a-b61f-2744593e9e2c"
           },
           "SecondsSinceEpoch": {
             "type": "integer",
             "description": "Seconds since epoch",
             "format": "int64",
-            "default": 1760979794
+            "default": 1760995490
           },
           "CreatedAt": {
             "type": "string",
             "format": "date-time",
-            "default": "2025-10-20T17:03:14.2270547Z"
+            "default": "2025-10-20T21:24:50.0686586Z"
           }
         }
       },
@@ -238,9 +238,9 @@
               "PostalCode": "12345",
               "ApartmentNumber": 101,
               "Country": "USA",
-              "RequestId": "3da96d7e-2a31-497b-a9e2-01a85c2bbe8d",
-              "SecondsSinceEpoch": 1760979794,
-              "CreatedAt": "2025-10-20T17:03:14.2285935Z"
+              "RequestId": "47713c4b-6554-41e6-89c1-ca01c7e77412",
+              "SecondsSinceEpoch": 1760995490,
+              "CreatedAt": "2025-10-20T21:24:50.0703815Z"
             }
           }
         }
@@ -273,31 +273,6 @@
         "style": "simple",
         "schema": {
           "type": "string"
-        }
-      }
-    },
-    "links": {
-      "Link_UserById": {
-        "operationId": "getUserById",
-        "parameters": {
-          "verbose": ,
-          "id": 
-        },
-        "description": "Link to fetch user details using the id from the response body.",
-        "server": {
-          "url": "https://{env}.api.example.com",
-          "description": "Target API endpoint",
-          "variables": {
-            "env": {
-              "default": "dev",
-              "description": "Environment name",
-              "enum": [
-                "dev",
-                "staging",
-                "prod"
-              ]
-            }
-          }
         }
       }
     }

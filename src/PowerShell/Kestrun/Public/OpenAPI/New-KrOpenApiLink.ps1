@@ -48,8 +48,7 @@ function New-RuntimeExpressionAnyWrapper {
 
     # String starting with $ is treated as runtime expression
     if ($Value -is [string] -and $Value.Trim().StartsWith('$')) {
-        $expr = [Microsoft.OpenApi.RuntimeExpression]::new([string]$Value)
-        $wrapper.Expression = $expr
+        $wrapper.Expression = [Microsoft.OpenApi.RuntimeExpression]::Build($Value)
         return $wrapper
     }
 

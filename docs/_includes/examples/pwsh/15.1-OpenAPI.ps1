@@ -8,6 +8,17 @@ param(
 )
 
 
+# Ensure Kestrun module (which contains the OpenAPI attribute types) is loaded
+if (-not (Get-Module -Name Kestrun)) {
+    $modulePath = Join-Path -Path $PSScriptRoot -ChildPath '..\..\..\..\src\PowerShell\Kestrun\Kestrun.psm1'
+    if (Test-Path $modulePath) {
+        Import-Module -Force $modulePath
+    } else {
+        Write-Warning "Kestrun module not found at $modulePath. OpenAPI attributes may not resolve."
+    }
+}
+
+
 New-KrLogger | Add-KrSinkConsole | Register-KrLogger -Name 'console' -SetAsDefault | Out-Null
 # Optional helpers for OpenAPI-friendly attributes
 # No 'using namespace' needed—attributes are global
@@ -69,6 +80,18 @@ class AddressResponse {
     [OpenApiResponse( Description = 'Address not found' )]
     $NotFound
 }
+
+# Example components (member-level examples; JoinClassName ties class+member in key)
+[OpenApiModelKind([OpenApiModelKind]::Example, JoinClassName = '-')]
+class AddressExamples {
+    [OpenApiExample( Description = 'Sample address'  )]
+    $Basic= @{ Street = '123 Main St'; City = 'Anytown'; PostalCode = '12345'; ApartmentNumber = 101 }
+
+    [OpenApiExample( Description = 'Address without apartment'  )]
+    $NoApt= @{ Street = '456 2nd Ave'; City = 'Metropolis'; PostalCode = '10001' }
+}
+
+
 <#
 $schemaTypes = [Kestrun.OpenApi.OpenApiSchemaDiscovery]::GetOpenApiSchemaTypes()       # schemas
 $parameterTypes = [Kestrun.OpenApi.OpenApiSchemaDiscovery]::GetOpenApiParameterTypes()  # parameters

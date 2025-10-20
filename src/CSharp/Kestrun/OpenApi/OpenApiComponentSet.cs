@@ -47,21 +47,4 @@ public sealed class OpenApiComponentSet
     /// Security scheme types available for reuse in the specification.
     /// </summary>
     public IReadOnlyList<Type> SecuritySchemeTypes { get; init; } = [];
-
-    /// <summary>
-    /// Discover all OpenAPI component types from loaded assemblies.
-    /// </summary>
-    /// <returns>The set of discovered OpenAPI component types.</returns>
-    public static OpenApiComponentSet DiscoverAll()
-    {
-        var schemas = OpenApiSchemaDiscovery.GetOpenApiSchemaTypesAuto().ToList();
-        var parameters = OpenApiSchemaDiscovery.GetOpenApiParameterTypesAuto().ToList();
-        // optionally add future extensions (responses, examples, headers…)
-
-        return new OpenApiComponentSet
-        {
-            SchemaTypes = schemas,
-            ParameterTypes = parameters
-        };
-    }
 }

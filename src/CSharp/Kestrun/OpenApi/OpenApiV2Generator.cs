@@ -48,6 +48,11 @@ public static class OpenApiV2Generator
             BuildResponses(t, doc);
         }
 
+        foreach (var t in components.ExampleTypes)
+        {
+            BuildExamples(t, doc);
+        }
+
         return doc;
     }
     /// <summary>
@@ -614,9 +619,36 @@ public static class OpenApiV2Generator
             float or double or decimal => JsonValue.Create(Convert.ToDouble(value)),
             DateTime dt => JsonValue.Create(dt.ToString("o")),
             Guid g => JsonValue.Create(g.ToString()),
+            // Hashtable/IDictionary -> JsonObject
+            System.Collections.IDictionary dict => ToJsonObject(dict),
+            // Generic enumerable -> JsonArray
             IEnumerable<object?> seq => new JsonArray([.. seq.Select(ToNode)]),
+            // Non-generic enumerable -> JsonArray
+            System.Collections.IEnumerable en when value is not string => ToJsonArray(en),
             _ => JsonValue.Create(value.ToString())
         };
+    }
+
+    private static JsonObject ToJsonObject(System.Collections.IDictionary dict)
+    {
+        var obj = new JsonObject();
+        foreach (System.Collections.DictionaryEntry de in dict)
+        {
+            if (de.Key is null) { continue; }
+            var k = de.Key.ToString() ?? string.Empty;
+            obj[k] = ToNode(de.Value);
+        }
+        return obj;
+    }
+
+    private static JsonArray ToJsonArray(System.Collections.IEnumerable en)
+    {
+        var arr = new JsonArray();
+        foreach (var item in en)
+        {
+            arr.Add(ToNode(item));
+        }
+        return arr;
     }
 
 
@@ -846,58 +878,159 @@ public static class OpenApiV2Generator
                 doc.Components!.Responses![key] = resp;
             }
         }
+    }
 
-        // Local helpers
-        static string? GetNameOverride(object attr)
+    private static string? GetNameOverride(object attr)
+    {
+        var t = attr.GetType();
+        return t.GetProperty("Name")?.GetValue(attr) as string;
+    }
+
+    private static string BuildMemberResponseKey(Type declaringType, string memberName)
+    {
+        // Look for [OpenApiModelKind(Kind) { JoinClassName = "-" }] on the declaring type
+        var mk = declaringType.GetCustomAttributes(inherit: false)
+                              .FirstOrDefault(a => a.GetType().Name == nameof(OpenApiModelKindAttribute));
+        if (mk is null)
         {
-            var t = attr.GetType();
-            return t.GetProperty("Name")?.GetValue(attr) as string;
+            return memberName; // default: just member name
         }
 
-        static string BuildMemberResponseKey(Type declaringType, string memberName)
+        var join = mk.GetType().GetProperty("JoinClassName")?.GetValue(mk) as string;
+        if (string.IsNullOrEmpty(join))
         {
-            // Look for [OpenApiModelKind(Kind) { JoinClassName = "-" }] on the declaring type
-            var mk = declaringType.GetCustomAttributes(inherit: false)
-                                  .FirstOrDefault(a => a.GetType().Name == nameof(OpenApiModelKindAttribute));
-            if (mk is null)
-            {
-                return memberName; // default: just member name
-            }
-
-            var join = mk.GetType().GetProperty("JoinClassName")?.GetValue(mk) as string;
-            if (string.IsNullOrEmpty(join))
-            {
-                return memberName;
-            }
-
-            return $"{declaringType.Name}{join}{memberName}";
+            return memberName;
         }
 
-        static OpenApiResponse CreateResponseFromAttribute(object attr)
+        return $"{declaringType.Name}{join}{memberName}";
+    }
+    private static OpenApiResponse CreateResponseFromAttribute(object attr)
+    {
+        var t = attr.GetType();
+        var description = t.GetProperty("Description")?.GetValue(attr) as string;
+        var contentType = t.GetProperty("ContentType")?.GetValue(attr) as string ?? "application/json";
+        var schemaRef = t.GetProperty("SchemaRef")?.GetValue(attr) as string;
+
+        var response = new OpenApiResponse
+        {
+            Description = string.IsNullOrWhiteSpace(description) ? "Response" : description
+        };
+
+        if (!string.IsNullOrWhiteSpace(schemaRef))
+        {
+            response.Content = new Dictionary<string, OpenApiMediaType>
+            {
+                [contentType] = new OpenApiMediaType
+                {
+                    Schema = new OpenApiSchemaReference(schemaRef)
+                }
+            };
+        }
+
+        // TODO: In future, map ExampleRef, HeaderRef, LinkRef when component builders exist.
+        return response;
+    }
+
+    private static void BuildExamples(Type t, OpenApiDocument doc)
+    {
+        if (doc.Components!.Examples == null)
+        {
+            doc.Components.Examples = new Dictionary<string, IOpenApiExample>(StringComparer.Ordinal);
+        }
+
+        // class-level
+        var classAttrs = t.GetCustomAttributes(inherit: false)
+                          .Where(a => a.GetType().Name == nameof(OpenApiExampleAttribute))
+                          .ToArray();
+        foreach (var a in classAttrs)
+        {
+            var ex = CreateExampleFromAttribute(a);
+            var name = GetNameOverride(a) ?? t.Name;
+            doc.Components!.Examples![name] = ex;
+        }
+
+        const BindingFlags flags = BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly;
+
+        // property-level
+        foreach (var p in t.GetProperties(flags))
+        {
+            var attrs = p.GetCustomAttributes(inherit: false)
+                         .Where(a => a.GetType().Name == nameof(OpenApiExampleAttribute))
+                         .ToArray();
+            foreach (var a in attrs)
+            {
+                var ex = CreateExampleFromAttribute(a);
+                // If no inline or external value was provided, try to pull the default value from an instance
+                if (ex.Value is null && string.IsNullOrWhiteSpace(ex.ExternalValue))
+                {
+                    try
+                    {
+                        var inst = Activator.CreateInstance(t);
+                        var def = p.GetValue(inst);
+                        if (def is not null)
+                        {
+                            ex.Value = ToNode(def);
+                        }
+                    }
+                    catch { /* ignore */ }
+                }
+                var name = GetNameOverride(a) ?? BuildMemberResponseKey(t, p.Name); // reuse same join logic
+                doc.Components!.Examples![name] = ex;
+            }
+        }
+
+        // field-level
+        foreach (var f in t.GetFields(flags))
+        {
+            var attrs = f.GetCustomAttributes(inherit: false)
+                         .Where(a => a.GetType().Name == nameof(OpenApiExampleAttribute))
+                         .ToArray();
+            foreach (var a in attrs)
+            {
+                var ex = CreateExampleFromAttribute(a);
+                if (ex.Value is null && string.IsNullOrWhiteSpace(ex.ExternalValue))
+                {
+                    try
+                    {
+                        var inst = Activator.CreateInstance(t);
+                        var def = f.GetValue(inst);
+                        if (def is not null)
+                        {
+                            ex.Value = ToNode(def);
+                        }
+                    }
+                    catch { /* ignore */ }
+                }
+                var name = GetNameOverride(a) ?? BuildMemberResponseKey(t, f.Name);
+                doc.Components!.Examples![name] = ex;
+            }
+        }
+
+        static OpenApiExample CreateExampleFromAttribute(object attr)
         {
             var t = attr.GetType();
+            var summary = t.GetProperty("Summary")?.GetValue(attr) as string;
             var description = t.GetProperty("Description")?.GetValue(attr) as string;
-            var contentType = t.GetProperty("ContentType")?.GetValue(attr) as string ?? "application/json";
-            var schemaRef = t.GetProperty("SchemaRef")?.GetValue(attr) as string;
+            var value = t.GetProperty("Value")?.GetValue(attr);
+            var external = t.GetProperty("ExternalValue")?.GetValue(attr) as string;
 
-            var response = new OpenApiResponse
+            var ex = new OpenApiExample
             {
-                Description = string.IsNullOrWhiteSpace(description) ? "Response" : description
+                Summary = summary,
+                Description = description
             };
 
-            if (!string.IsNullOrWhiteSpace(schemaRef))
+            if (value is not null)
             {
-                response.Content = new Dictionary<string, OpenApiMediaType>
-                {
-                    [contentType] = new OpenApiMediaType
-                    {
-                        Schema = new OpenApiSchemaReference(schemaRef)
-                    }
-                };
+                ex.Value = ToNode(value);
             }
 
-            // TODO: In future, map ExampleRef, HeaderRef, LinkRef when component builders exist.
-            return response;
+            if (!string.IsNullOrWhiteSpace(external))
+            {
+                ex.ExternalValue = external;
+            }
+
+            return ex;
         }
     }
 }

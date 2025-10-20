@@ -635,7 +635,7 @@ public static class OpenApiV2Generator
             IEnumerable<object?> seq => new JsonArray([.. seq.Select(ToNode)]),
             // Non-generic enumerable -> JsonArray
             System.Collections.IEnumerable en when value is not string => ToJsonArray(en),
-            _ => JsonValue.Create(value.ToString())
+            _ => ToNodeFromPocoOrString(value)
         };
     }
 
@@ -659,6 +659,43 @@ public static class OpenApiV2Generator
             arr.Add(ToNode(item));
         }
         return arr;
+    }
+
+    private static JsonNode ToNodeFromPocoOrString(object value)
+    {
+        // Try POCO reflection
+        var t = value.GetType();
+        // Ignore types that are clearly not POCOs
+        if (!t.IsPrimitive && t != typeof(string) && !typeof(System.Collections.IEnumerable).IsAssignableFrom(t))
+        {
+            var props = t.GetProperties(BindingFlags.Public | BindingFlags.Instance);
+            if (props.Length > 0)
+            {
+                var obj = new JsonObject();
+                foreach (var p in props)
+                {
+                    if (!p.CanRead) { continue; }
+                    var v = p.GetValue(value);
+                    if (v is null) { continue; }
+                    obj[p.Name] = ToNode(v);
+                }
+                return obj;
+            }
+        }
+        // Fallback
+        return JsonValue.Create(value?.ToString() ?? string.Empty)!;
+    }
+
+    // Ensure a schema component exists for a complex .NET type
+    private static void EnsureSchemaComponent(Type complexType, OpenApiDocument doc)
+    {
+        if (doc.Components?.Schemas != null && doc.Components.Schemas.ContainsKey(complexType.Name))
+        {
+            return;
+        }
+
+        var temp = new HashSet<Type>();
+        BuildSchema(complexType, doc, temp);
     }
 
 
@@ -959,6 +996,28 @@ public static class OpenApiV2Generator
             doc.Components!.Examples![name] = ex;
         }
 
+        // If no class-level [OpenApiExample] attribute but the class is marked as Example kind,
+        // create an example from the class instance defaults
+        if (classAttrs.Length == 0)
+        {
+            var mk = t.GetCustomAttributes(inherit: false)
+                      .FirstOrDefault(a => a.GetType().Name == nameof(OpenApiModelKindAttribute));
+            if (mk is not null)
+            {
+                var kindVal = mk.GetType().GetProperty("Kind")?.GetValue(mk)?.ToString();
+                if (string.Equals(kindVal, nameof(OpenApiModelKind.Example), StringComparison.Ordinal))
+                {
+                    try
+                    {
+                        var inst = Activator.CreateInstance(t);
+                        var ex = new OpenApiExample { Value = ToNode(inst) };
+                        doc.Components!.Examples![t.Name] = ex;
+                    }
+                    catch { /* ignore */ }
+                }
+            }
+        }
+
         const BindingFlags flags = BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly;
 
         // property-level
@@ -1057,6 +1116,43 @@ public static class OpenApiV2Generator
             var rb = CreateRequestBodyFromAttribute(a);
             var name = GetNameOverride(a) ?? t.Name;
             doc.Components!.RequestBodies![name] = rb;
+        }
+
+        // If no class-level [OpenApiRequestBody] but the class is marked RequestBody kind,
+        // generate a request body that references this class schema and uses instance defaults as example
+        if (classAttrs.Length == 0)
+        {
+            var mk = t.GetCustomAttributes(inherit: false)
+                      .FirstOrDefault(a => a.GetType().Name == nameof(OpenApiModelKindAttribute));
+            if (mk is not null)
+            {
+                var kindVal = mk.GetType().GetProperty("Kind")?.GetValue(mk)?.ToString();
+                if (string.Equals(kindVal, nameof(OpenApiModelKind.RequestBody), StringComparison.Ordinal))
+                {
+                    // Ensure a schema exists for this class and reference it
+                    EnsureSchemaComponent(t, doc);
+                    var rb = new OpenApiRequestBody
+                    {
+                        Description = "Request body",
+                        Required = false,
+                        Content = new Dictionary<string, OpenApiMediaType>
+                        {
+                            ["application/json"] = new OpenApiMediaType
+                            {
+                                Schema = new OpenApiSchemaReference(t.Name)
+                            }
+                        }
+                    };
+                    try
+                    {
+                        var inst = Activator.CreateInstance(t);
+                        rb.Content["application/json"].Example = ToNode(inst);
+                    }
+                    catch { /* ignore */ }
+
+                    doc.Components!.RequestBodies![t.Name] = rb;
+                }
+            }
         }
 
         const BindingFlags flags = BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly;

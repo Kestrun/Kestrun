@@ -72,6 +72,36 @@
             "$ref": "#/components/schemas/Address"
           }
         }
+      },
+      "CreateAddressBody": {
+        "type": "object",
+        "properties": {
+          "Street": {
+            "type": "string",
+            "description": "The street address"
+          },
+          "City": {
+            "type": "string",
+            "description": "The city name"
+          },
+          "PostalCode": {
+            "type": "string",
+            "description": "The postal code"
+          },
+          "ApartmentNumber": {
+            "type": "integer",
+            "description": "The apartment number",
+            "format": "int32"
+          }
+        }
+      },
+      "PatchAddressBody": {
+        "type": "object",
+        "properties": {
+          "City": {
+            "type": "string"
+          }
+        }
       }
     },
     "responses": {
@@ -110,46 +140,46 @@
       }
     },
     "examples": {
-      "AddressExamples-Basic": {
-        "description": "Sample address",
+      "AddressExample_Basic": {
         "value": {
-          "City": "Anytown",
-          "ApartmentNumber": 101,
           "Street": "123 Main St",
-          "PostalCode": "12345"
+          "City": "Anytown",
+          "PostalCode": "12345",
+          "ApartmentNumber": 101
         }
       },
-      "AddressExamples-NoApt": {
-        "description": "Address without apartment",
+      "AddressExample_NoApt": {
         "value": {
-          "City": "Metropolis",
           "Street": "456 2nd Ave",
+          "City": "Metropolis",
           "PostalCode": "10001"
         }
       }
     },
     "requestBodies": {
-      "AddressRequestBodies-Create": {
-        "description": "Create address payload",
+      "CreateAddressBody": {
+        "description": "Request body",
         "content": {
           "application/json": {
             "schema": {
-              "$ref": "#/components/schemas/Address"
+              "$ref": "#/components/schemas/CreateAddressBody"
             },
             "example": {
-              "City": "Anytown",
-              "ApartmentNumber": 101,
               "Street": "123 Main St",
-              "PostalCode": "12345"
+              "City": "Anytown",
+              "PostalCode": "12345",
+              "ApartmentNumber": 101
             }
           }
-        },
-        "required": true
+        }
       },
-      "AddressRequestBodies-Patch": {
-        "description": "Partial update payload",
+      "PatchAddressBody": {
+        "description": "Request body",
         "content": {
           "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/PatchAddressBody"
+            },
             "example": {
               "City": "Gotham"
             }

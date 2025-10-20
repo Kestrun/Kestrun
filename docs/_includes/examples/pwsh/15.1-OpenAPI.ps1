@@ -81,26 +81,41 @@ class AddressResponse {
     $NotFound
 }
 
-# Example components (member-level examples; JoinClassName ties class+member in key)
-[OpenApiModelKind([OpenApiModelKind]::Example, JoinClassName = '-')]
-class AddressExamples {
-    [OpenApiExample( Description = 'Sample address'  )]
-    $Basic = @{ Street = '123 Main St'; City = 'Anytown'; PostalCode = '12345'; ApartmentNumber = 101 }
-
-    [OpenApiExample( Description = 'Address without apartment'  )]
-    $NoApt = @{ Street = '456 2nd Ave'; City = 'Metropolis'; PostalCode = '10001' }
+# Example components (class-first; one class per example; defaults become the example object)
+[OpenApiModelKind([OpenApiModelKind]::Example)]
+class AddressExample_Basic {
+    [string]$Street = '123 Main St'
+    [string]$City = 'Anytown'
+    [string]$PostalCode = '12345'
+    [int]$ApartmentNumber = 101
 }
 
-# Request body components (member-level; default values become examples)
-[OpenApiModelKind([OpenApiModelKind]::RequestBody, JoinClassName = '-')]
-class AddressRequestBodies {
-    # Required JSON body that references the Address schema
-    [OpenApiRequestBody( Description = 'Create address payload', SchemaRef = 'Address', Required = $true )]
-    $Create = @{ Street = '123 Main St'; City = 'Anytown'; PostalCode = '12345'; ApartmentNumber = 101 }
+[OpenApiModelKind([OpenApiModelKind]::Example)]
+class AddressExample_NoApt {
+    [string]$Street = '456 2nd Ave'
+    [string]$City = 'Metropolis'
+    [string]$PostalCode = '10001'
+}
 
-    # Optional JSON body; inline example from default
-    [OpenApiRequestBody( Description = 'Partial update payload' )]
-    $Patch = @{ City = 'Gotham' }
+# Request body components (class-first; one class per request body; defaults become the example)
+[OpenApiModelKind([OpenApiModelKind]::RequestBody)]
+class CreateAddressBody {
+    [OpenApiSchema(Description = 'The street address')]
+    [string]$Street = '123 Main St'
+
+    [OpenApiSchema(Description = 'The city name')]
+    [string]$City = 'Anytown'
+
+    [OpenApiSchema(Description = 'The postal code')]
+    [string]$PostalCode = '12345'
+
+    [OpenApiSchema(Description = 'The apartment number')]
+    [int]$ApartmentNumber = 101
+}
+
+[OpenApiModelKind([OpenApiModelKind]::RequestBody)]
+class PatchAddressBody {
+    [string]$City = 'Gotham'
 }
 
 # Header components (member-level; default values become examples)

@@ -108,6 +108,71 @@
           "format": "int32"
         }
       }
+    },
+    "examples": {
+      "AddressExamples-Basic": {
+        "description": "Sample address",
+        "value": {
+          "City": "Anytown",
+          "ApartmentNumber": 101,
+          "Street": "123 Main St",
+          "PostalCode": "12345"
+        }
+      },
+      "AddressExamples-NoApt": {
+        "description": "Address without apartment",
+        "value": {
+          "City": "Metropolis",
+          "Street": "456 2nd Ave",
+          "PostalCode": "10001"
+        }
+      }
+    },
+    "requestBodies": {
+      "AddressRequestBodies-Create": {
+        "description": "Create address payload",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Address"
+            },
+            "example": {
+              "City": "Anytown",
+              "ApartmentNumber": 101,
+              "Street": "123 Main St",
+              "PostalCode": "12345"
+            }
+          }
+        },
+        "required": true
+      },
+      "AddressRequestBodies-Patch": {
+        "description": "Partial update payload",
+        "content": {
+          "application/json": {
+            "example": {
+              "City": "Gotham"
+            }
+          }
+        }
+      }
+    },
+    "headers": {
+      "CommonHeaders-TenantId": {
+        "description": "Tenant identifier",
+        "required": true,
+        "style": "simple",
+        "schema": {
+          "type": "string"
+        }
+      },
+      "CommonHeaders-CorrelationId": {
+        "description": "Correlation id for tracing",
+        "style": "simple",
+        "schema": {
+          "type": "string"
+        }
+      }
     }
   }
 }

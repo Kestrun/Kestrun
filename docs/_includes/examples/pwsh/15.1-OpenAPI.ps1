@@ -85,10 +85,32 @@ class AddressResponse {
 [OpenApiModelKind([OpenApiModelKind]::Example, JoinClassName = '-')]
 class AddressExamples {
     [OpenApiExample( Description = 'Sample address'  )]
-    $Basic= @{ Street = '123 Main St'; City = 'Anytown'; PostalCode = '12345'; ApartmentNumber = 101 }
+    $Basic = @{ Street = '123 Main St'; City = 'Anytown'; PostalCode = '12345'; ApartmentNumber = 101 }
 
     [OpenApiExample( Description = 'Address without apartment'  )]
-    $NoApt= @{ Street = '456 2nd Ave'; City = 'Metropolis'; PostalCode = '10001' }
+    $NoApt = @{ Street = '456 2nd Ave'; City = 'Metropolis'; PostalCode = '10001' }
+}
+
+# Request body components (member-level; default values become examples)
+[OpenApiModelKind([OpenApiModelKind]::RequestBody, JoinClassName = '-')]
+class AddressRequestBodies {
+    # Required JSON body that references the Address schema
+    [OpenApiRequestBody( Description = 'Create address payload', SchemaRef = 'Address', Required = $true )]
+    $Create = @{ Street = '123 Main St'; City = 'Anytown'; PostalCode = '12345'; ApartmentNumber = 101 }
+
+    # Optional JSON body; inline example from default
+    [OpenApiRequestBody( Description = 'Partial update payload' )]
+    $Patch = @{ City = 'Gotham' }
+}
+
+# Header components (member-level; default values become examples)
+[OpenApiModelKind([OpenApiModelKind]::Header, JoinClassName = '-')]
+class CommonHeaders {
+    [OpenApiHeader( Description = 'Tenant identifier', Required = $true )]
+    $TenantId = 'contoso'
+
+    [OpenApiHeader( Description = 'Correlation id for tracing' )]
+    $CorrelationId = 'abc-123'
 }
 
 

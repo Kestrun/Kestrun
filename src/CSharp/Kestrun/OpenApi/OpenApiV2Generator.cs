@@ -53,6 +53,16 @@ public static class OpenApiV2Generator
             BuildExamples(t, doc);
         }
 
+        foreach (var t in components.RequestBodyTypes)
+        {
+            BuildRequestBodies(t, doc);
+        }
+
+        foreach (var t in components.HeaderTypes)
+        {
+            BuildHeaders(t, doc);
+        }
+
         return doc;
     }
     /// <summary>
@@ -1032,5 +1042,195 @@ public static class OpenApiV2Generator
 
             return ex;
         }
+    }
+
+    private static void BuildRequestBodies(Type t, OpenApiDocument doc)
+    {
+        doc.Components!.RequestBodies ??= new Dictionary<string, IOpenApiRequestBody>(StringComparer.Ordinal);
+
+        // class-level
+        var classAttrs = t.GetCustomAttributes(inherit: false)
+                          .Where(a => a.GetType().Name == nameof(OpenApiRequestBodyAttribute))
+                          .ToArray();
+        foreach (var a in classAttrs)
+        {
+            var rb = CreateRequestBodyFromAttribute(a);
+            var name = GetNameOverride(a) ?? t.Name;
+            doc.Components!.RequestBodies![name] = rb;
+        }
+
+        const BindingFlags flags = BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly;
+
+        // property-level
+        foreach (var p in t.GetProperties(flags))
+        {
+            var attrs = p.GetCustomAttributes(inherit: false)
+                         .Where(a => a.GetType().Name == nameof(OpenApiRequestBodyAttribute))
+                         .ToArray();
+            foreach (var a in attrs)
+            {
+                var rb = CreateRequestBodyFromAttribute(a);
+                // synthesize example from default if none provided
+                if ((rb.Content?.Count ?? 0) > 0)
+                {
+                    TryPopulateExampleFromDefault(t, p, rb);
+                }
+                var name = GetNameOverride(a) ?? BuildMemberResponseKey(t, p.Name);
+                doc.Components!.RequestBodies![name] = rb;
+            }
+        }
+
+        // field-level
+        foreach (var f in t.GetFields(flags))
+        {
+            var attrs = f.GetCustomAttributes(inherit: false)
+                         .Where(a => a.GetType().Name == nameof(OpenApiRequestBodyAttribute))
+                         .ToArray();
+            foreach (var a in attrs)
+            {
+                var rb = CreateRequestBodyFromAttribute(a);
+                if ((rb.Content?.Count ?? 0) > 0)
+                {
+                    TryPopulateExampleFromDefault(t, f, rb);
+                }
+                var name = GetNameOverride(a) ?? BuildMemberResponseKey(t, f.Name);
+                doc.Components!.RequestBodies![name] = rb;
+            }
+        }
+
+        static void TryPopulateExampleFromDefault(Type t, MemberInfo m, OpenApiRequestBody rb)
+        {
+            // Only add example if none present
+            if (rb.Content is null || rb.Content.Count == 0) { return; }
+            foreach (var mt in rb.Content.Values)
+            {
+                if (mt.Example != null) { return; }
+            }
+            try
+            {
+                var inst = Activator.CreateInstance(t);
+                var def = m switch
+                {
+                    PropertyInfo pi => pi.GetValue(inst),
+                    FieldInfo fi => fi.GetValue(inst),
+                    _ => null
+                };
+                if (def is not null)
+                {
+                    // Use first content type entry
+                    var first = rb.Content.First().Value;
+                    first.Example = ToNode(def);
+                }
+            }
+            catch { }
+        }
+    }
+
+    private static OpenApiRequestBody CreateRequestBodyFromAttribute(object attr)
+    {
+        var t = attr.GetType();
+        var description = t.GetProperty("Description")?.GetValue(attr) as string;
+        var contentType = t.GetProperty("ContentType")?.GetValue(attr) as string ?? "application/json";
+        var schemaRef = t.GetProperty("SchemaRef")?.GetValue(attr) as string;
+        var required = (bool?)t.GetProperty("Required")?.GetValue(attr) ?? false;
+        var example = t.GetProperty("Example")?.GetValue(attr);
+
+        var rb = new OpenApiRequestBody
+        {
+            Description = description,
+            Required = required,
+            Content = new Dictionary<string, OpenApiMediaType>
+            {
+                [contentType] = new OpenApiMediaType
+                {
+                    Schema = string.IsNullOrWhiteSpace(schemaRef) ? null : new OpenApiSchemaReference(schemaRef)
+                }
+            }
+        };
+
+        if (example is not null)
+        {
+            rb.Content![contentType].Example = ToNode(example);
+        }
+
+        return rb;
+    }
+
+    private static void BuildHeaders(Type t, OpenApiDocument doc)
+    {
+        doc.Components!.Headers ??= new Dictionary<string, IOpenApiHeader>(StringComparer.Ordinal);
+
+        // class-level
+        var classAttrs = t.GetCustomAttributes(inherit: false)
+                          .Where(a => a.GetType().Name == nameof(OpenApiHeaderAttribute))
+                          .ToArray();
+        foreach (var a in classAttrs)
+        {
+            var h = CreateHeaderFromAttribute(a);
+            var name = GetNameOverride(a) ?? t.Name;
+            doc.Components!.Headers![name] = h;
+        }
+
+        const BindingFlags flags = BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly;
+
+        // property-level
+        foreach (var p in t.GetProperties(flags))
+        {
+            var attrs = p.GetCustomAttributes(inherit: false)
+                         .Where(a => a.GetType().Name == nameof(OpenApiHeaderAttribute))
+                         .ToArray();
+            foreach (var a in attrs)
+            {
+                var h = CreateHeaderFromAttribute(a);
+                var name = GetNameOverride(a) ?? BuildMemberResponseKey(t, p.Name);
+                doc.Components!.Headers![name] = h;
+            }
+        }
+
+        // field-level
+        foreach (var f in t.GetFields(flags))
+        {
+            var attrs = f.GetCustomAttributes(inherit: false)
+                         .Where(a => a.GetType().Name == nameof(OpenApiHeaderAttribute))
+                         .ToArray();
+            foreach (var a in attrs)
+            {
+                var h = CreateHeaderFromAttribute(a);
+                var name = GetNameOverride(a) ?? BuildMemberResponseKey(t, f.Name);
+                doc.Components!.Headers![name] = h;
+            }
+        }
+    }
+
+    private static OpenApiHeader CreateHeaderFromAttribute(object attr)
+    {
+        var t = attr.GetType();
+        var description = t.GetProperty("Description")?.GetValue(attr) as string;
+        var required = (bool?)t.GetProperty("Required")?.GetValue(attr) ?? false;
+        var deprecated = (bool?)t.GetProperty("Deprecated")?.GetValue(attr) ?? false;
+        var allowEmptyVal = (bool?)t.GetProperty("AllowEmptyValue")?.GetValue(attr) ?? false;
+        var styleObj = t.GetProperty("Style")?.GetValue(attr);
+        var explodeObj = t.GetProperty("Explode")?.GetValue(attr);
+        var explode = (explodeObj is bool b) && b;
+        var schemaRef = t.GetProperty("SchemaRef")?.GetValue(attr) as string;
+        var example = t.GetProperty("Example")?.GetValue(attr);
+
+        var header = new OpenApiHeader
+        {
+            Description = description,
+            Required = required,
+            Deprecated = deprecated,
+            AllowEmptyValue = allowEmptyVal,
+            Schema = string.IsNullOrWhiteSpace(schemaRef) ? new OpenApiSchema { Type = JsonSchemaType.String } : new OpenApiSchemaReference(schemaRef)
+        };
+
+        if (styleObj is OaParameterStyle style)
+        {
+            header.Style = style.ToOpenApi();
+        }
+        if (explode) { header.Explode = true; }
+        if (example is not null) { header.Example = ToNode(example); }
+
+        return header;
     }
 }

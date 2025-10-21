@@ -134,18 +134,18 @@
             "type": "string",
             "description": "The request identifier",
             "format": "uuid",
-            "default": "3c0ffe23-44c0-420e-aa5f-5ecae7b9b648"
+            "default": "9570c51e-35c7-41cd-bb7e-36ece2ba9887"
           },
           "SecondsSinceEpoch": {
             "type": "integer",
             "description": "Seconds since epoch",
             "format": "int64",
-            "default": 1761008771
+            "default": 1761011264
           },
           "CreatedAt": {
             "type": "string",
             "format": "date-time",
-            "default": "2025-10-21T01:06:11.4321837Z"
+            "default": "2025-10-21T01:47:44.3608371Z"
           }
         }
       },
@@ -238,9 +238,9 @@
               "PostalCode": "12345",
               "ApartmentNumber": 101,
               "Country": "USA",
-              "RequestId": "7933e4d9-d23c-4fd6-bcc2-0f55ca5406d2",
-              "SecondsSinceEpoch": 1761008771,
-              "CreatedAt": "2025-10-21T01:06:11.4334176Z"
+              "RequestId": "44da7006-47fe-45af-8a40-04fc0489a8f0",
+              "SecondsSinceEpoch": 1761011264,
+              "CreatedAt": "2025-10-21T01:47:44.3623979Z"
             }
           }
         }
@@ -280,8 +280,8 @@
       "UserById": {
         "operationId": "getUserById",
         "parameters": {
-          "id": "$response.body#/id",
-          "verbose": "$request.query.verbose"
+          "verbose": "$request.query.verbose",
+          "id": "$response.body#/id"
         },
         "requestBody": {
           "locale": "$request.body#/locale",
@@ -304,6 +304,9 @@
           }
         }
       }
+    },
+    "callbacks": {
+      "Callback_UserCreated": { }
     }
   }
 }

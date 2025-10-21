@@ -2,22 +2,14 @@
 <#
     15.1 Start / Stop Patterns
 #>
+
 param(
     [int]$Port = 5000,
     [IPAddress]$IPAddress = [IPAddress]::Loopback
 )
 
 
-# Ensure Kestrun module (which contains the OpenAPI attribute types) is loaded
-if (-not (Get-Module -Name Kestrun)) {
-    $modulePath = Join-Path -Path $PSScriptRoot -ChildPath '..\..\..\..\src\PowerShell\Kestrun\Kestrun.psm1'
-    if (Test-Path $modulePath) {
-        Import-Module -Force $modulePath
-    } else {
-        Write-Warning "Kestrun module not found at $modulePath. OpenAPI attributes may not resolve."
-    }
-}
-
+Import-Module -Force  "C:\Users\m_dan\Documents\GitHub\kestrun\Kestrun/src/PowerShell/Kestrun/Kestrun.psm1"
 
 New-KrLogger | Add-KrSinkConsole | Register-KrLogger -Name 'console' -SetAsDefault | Out-Null
 # Optional helpers for OpenAPI-friendly attributes
@@ -175,26 +167,15 @@ $link_UserById = New-KrOpenApiLink -OperationRef '#/paths/~1users~1{id}/get' -Op
 
 
 
-<#
-[microsoft.OpenApi.Models.openapiLinkParameter]$paramLocation = [Microsoft.OpenApi.Models.OaParameterLocation]::Query
-
-# Callback components (class-first). Discovered via [OpenApiModelKind(Callback)].
-# Generators may use these to populate components.callbacks.
+# Callback component (class-first). Discovered via [OpenApiModelKind(Callback)].
+# The generator will emit components.callbacks["Callback_UserCreated"] with the expression as the key.
 [OpenApiModelKind([OpenApiModelKind]::Callback)]
 class Callback_UserCreated {
-    # Expression to the URL in the incoming request that should receive callback requests
+    # Expression pointing to a URL provided by the inbound request body
     [string]$Expression = '$request.body#/callbackUrl'
+    # Optional description; used on the synthesized PathItem when none is provided
     [string]$Description = 'Callback invoked after a user is created.'
 }
-
-# PathItem components (class-first). Discovered via [OpenApiModelKind(PathItem)].
-# Generators may use these to populate components.pathItems.
-[OpenApiModelKind([OpenApiModelKind]::PathItem)]
-class PathItem_ReusableThing {
-    [string]$Summary = 'Reusable operations for /users/{id}'
-    [string]$Description = 'Intended to represent a reusable path item (e.g., GET and PATCH).'
-}
-#>
 
 <#
 $schemaTypes = [Kestrun.OpenApi.OpenApiSchemaDiscovery]::GetOpenApiSchemaTypes()       # schemas
@@ -239,6 +220,8 @@ if ($null -eq $doc.Components.Links) {
     $doc.Components.Links = [System.Collections.Generic.Dictionary[string, Microsoft.OpenApi.IOpenApiLink]]::new()
 }
 $doc.components.Links.Add('UserById', $link_UserById)
+$cbKeys = if ($null -ne $doc.Components.Callbacks) { ($doc.Components.Callbacks.Keys -join ', ') } else { '' }
+if ($cbKeys) { Write-Host "Discovered callback components: $cbKeys" }
 $doc.Servers.Add((New-KrOpenApiServer -Description 'Development server' -Url 'https://dev.api.example.com'))
 $json = [Kestrun.OpenApi.OpenApiV2Generator]::ToJson($doc, $true)  # OpenAPI 3.1 JSON
 

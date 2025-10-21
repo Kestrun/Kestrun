@@ -69,6 +69,12 @@ public static class OpenApiV2Generator
             BuildLinks(t, doc);
         }
 
+        // Callbacks
+        foreach (var t in components.CallbackTypes)
+        {
+            BuildCallbacks(t, doc);
+        }
+
         return doc;
     }
     /// <summary>
@@ -1548,7 +1554,7 @@ public static class OpenApiV2Generator
                             }
                             if (list.Count > 0)
                             {
-                                var existing = sc.Enum?.ToList() ?? new List<JsonNode>();
+                                var existing = sc.Enum?.ToList() ?? [];
                                 existing.AddRange(list);
                                 sc.Enum = existing;
                             }
@@ -1818,7 +1824,7 @@ public static class OpenApiV2Generator
                                         }
                                         else if (string.Equals(vk, "Enum", StringComparison.OrdinalIgnoreCase) && ve.Value is System.Collections.IEnumerable enumSeq)
                                         {
-                                            osv.Enum = new List<string>();
+                                            osv.Enum = [];
                                             foreach (var item in enumSeq)
                                             {
                                                 if (item is null) { continue; }
@@ -1847,10 +1853,10 @@ public static class OpenApiV2Generator
             if (wrapperType == typeof(string)) { return text; }
 
             // Try ctor(string) directly
-            var ctorStr = wrapperType.GetConstructor(new Type[] { typeof(string) });
+            var ctorStr = wrapperType.GetConstructor([typeof(string)]);
             if (ctorStr is not null)
             {
-                try { return ctorStr.Invoke(new object[] { text }); } catch { /* ignore */ }
+                try { return ctorStr.Invoke([text]); } catch { /* ignore */ }
             }
 
             // Try to locate Microsoft.OpenApi.RuntimeExpression and set as Expression
@@ -1861,18 +1867,18 @@ public static class OpenApiV2Generator
                 try
                 {
                     // Prefer wrapper ctor(RuntimeExpression)
-                    var ctorExpr = wrapperType.GetConstructor(new Type[] { exprType });
+                    var ctorExpr = wrapperType.GetConstructor([exprType]);
                     if (ctorExpr is not null)
                     {
-                        var expr = Activator.CreateInstance(exprType, new object[] { text });
-                        return ctorExpr.Invoke(new object[] { expr! });
+                        var expr = Activator.CreateInstance(exprType, [text]);
+                        return ctorExpr.Invoke([expr!]);
                     }
 
                     // Otherwise set property 'Expression'
                     var exprProp = wrapperType.GetProperty("Expression", BindingFlags.Public | BindingFlags.Instance);
                     if (exprProp != null && exprProp.CanWrite)
                     {
-                        var expr = Activator.CreateInstance(exprType, new object[] { text });
+                        var expr = Activator.CreateInstance(exprType, [text]);
                         var inst = Activator.CreateInstance(wrapperType)!;
                         exprProp.SetValue(inst, expr);
                         return inst;
@@ -1887,7 +1893,7 @@ public static class OpenApiV2Generator
             {
                 try
                 {
-                    var any = Activator.CreateInstance(anyType, new object[] { text });
+                    var any = Activator.CreateInstance(anyType, [text]);
                     var anyProp = wrapperType.GetProperty("Any", BindingFlags.Public | BindingFlags.Instance);
                     if (anyProp != null && anyProp.CanWrite)
                     {
@@ -1904,7 +1910,7 @@ public static class OpenApiV2Generator
         }
 
         // Build an OpenAPI Any object (OpenApiObject/OpenApiArray/OpenApiString) via reflection
-        static object? BuildOpenApiAny(object value, System.Reflection.Assembly asm)
+        static object? BuildOpenApiAny(object value, Assembly asm)
         {
             var anyNs = "Microsoft.OpenApi.Any";
             var tObj = asm.GetType($"{anyNs}.OpenApiObject");
@@ -1915,33 +1921,107 @@ public static class OpenApiV2Generator
             // IDictionary -> OpenApiObject
             if (value is System.Collections.IDictionary d)
             {
-                var obj = Activator.CreateInstance(tObj!) as System.Collections.IDictionary;
-                if (obj is null) { return null; }
+                if (Activator.CreateInstance(tObj!) is not System.Collections.IDictionary obj) { return null; }
                 foreach (System.Collections.DictionaryEntry de in d)
                 {
                     var key = de.Key?.ToString();
                     if (string.IsNullOrWhiteSpace(key)) { continue; }
-                    var child = BuildOpenApiAny(de.Value ?? string.Empty, asm) ?? Activator.CreateInstance(tStr, new object[] { string.Empty });
+                    var child = BuildOpenApiAny(de.Value ?? string.Empty, asm) ?? Activator.CreateInstance(tStr, [string.Empty]);
                     obj[key] = child;
                 }
                 return obj;
             }
 
             // IEnumerable (non-string) -> OpenApiArray
-            if (value is System.Collections.IEnumerable en && value is not string)
+            if (value is System.Collections.IEnumerable en and not string)
             {
-                var arr = Activator.CreateInstance(tArr!) as System.Collections.IList;
-                if (arr is null) { return null; }
+                if (Activator.CreateInstance(tArr!) is not System.Collections.IList arr) { return null; }
                 foreach (var item in en)
                 {
-                    var child = BuildOpenApiAny(item ?? string.Empty, asm) ?? Activator.CreateInstance(tStr, new object[] { string.Empty });
-                    arr.Add(child);
+                    var child = BuildOpenApiAny(item ?? string.Empty, asm) ?? Activator.CreateInstance(tStr, [string.Empty]);
+                    _ = arr.Add(child);
                 }
                 return arr;
             }
 
             // Primitive -> OpenApiString(text)
-            return Activator.CreateInstance(tStr, new object[] { value?.ToString() ?? string.Empty });
+            return Activator.CreateInstance(tStr, [value?.ToString() ?? string.Empty]);
         }
+    }
+
+    private static void BuildCallbacks(Type t, OpenApiDocument doc)
+    {
+        doc.Components!.Callbacks ??= new Dictionary<string, IOpenApiCallback>(StringComparer.Ordinal);
+
+        // Instantiate the class to pull default values
+        object? inst = null;
+        try { inst = Activator.CreateInstance(t); } catch { }
+
+        string? description = null;
+        var expressions = new List<string>();
+        OpenApiPathItem? providedPathItem = null;
+
+        const BindingFlags flags = BindingFlags.Public | BindingFlags.Instance;
+        foreach (var p in t.GetProperties(flags))
+        {
+            object? val = null;
+            try { val = inst is not null ? p.GetValue(inst) : null; } catch { }
+
+            switch (p.Name)
+            {
+                case "Description":
+                    description = val as string; break;
+                case "Expression":
+                    if (val is string s && !string.IsNullOrWhiteSpace(s)) { expressions.Add(s); }
+                    break;
+                case "Expressions":
+                    if (val is System.Collections.IEnumerable en)
+                    {
+                        foreach (var item in en)
+                        {
+                            if (item is string es && !string.IsNullOrWhiteSpace(es)) { expressions.Add(es); }
+                        }
+                    }
+                    break;
+                case "PathItem":
+                    if (val is OpenApiPathItem pi) { providedPathItem = pi; }
+                    break;
+                default:
+                    break;
+            }
+        }
+
+        if (expressions.Count == 0)
+        {
+            // Nothing to build
+            return;
+        }
+
+        var cb = new OpenApiCallback();
+        // Build a minimal PathItem if one was not provided
+        var pathItem = providedPathItem ?? new OpenApiPathItem { Description = description };
+
+        // Resolve the exact IDictionary<string, OpenApiPathItem> interface and its Add method
+        var dictIface = typeof(OpenApiCallback)
+            .GetInterfaces()
+            .FirstOrDefault(i => i.IsGenericType
+                               && i.GetGenericTypeDefinition() == typeof(IDictionary<,>)
+                               && i.GetGenericArguments()[0] == typeof(string)
+                               && i.GetGenericArguments()[1] == typeof(OpenApiPathItem));
+        var addMethod = dictIface?.GetMethod("Add", [typeof(string), typeof(OpenApiPathItem)]);
+        foreach (var expr in expressions.Distinct(StringComparer.Ordinal))
+        {
+            if (addMethod is not null)
+            {
+                _ = addMethod.Invoke(cb, [expr, pathItem]);
+            }
+            else
+            {
+                // Fallback: try IDictionary<string, object> add via dynamic as a last resort
+                try { ((dynamic)cb).Add(expr, pathItem); } catch { /* ignore */ }
+            }
+        }
+
+        doc.Components!.Callbacks[t.Name] = cb;
     }
 }

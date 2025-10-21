@@ -60,18 +60,18 @@ public static class OpenApiLinkFactory
 
         return link;
 
-        static Microsoft.OpenApi.RuntimeExpressionAnyWrapper BuildWrapper(object? value)
+        static RuntimeExpressionAnyWrapper BuildWrapper(object? value)
         {
-            var w = new Microsoft.OpenApi.RuntimeExpressionAnyWrapper();
+            var w = new RuntimeExpressionAnyWrapper();
             if (value is string s && s.TrimStart().StartsWith("$", StringComparison.Ordinal))
             {
                 // Prefer the official builder
-                w.Expression = Microsoft.OpenApi.RuntimeExpression.Build(s);
+                w.Expression = RuntimeExpression.Build(s);
                 return w;
             }
 
             // Literal: set Any based on expected property type (JsonNode or IOpenApiAny)
-            var anyProp = typeof(Microsoft.OpenApi.RuntimeExpressionAnyWrapper).GetProperty("Any");
+            var anyProp = typeof(RuntimeExpressionAnyWrapper).GetProperty("Any");
             if (anyProp is not null)
             {
                 var pType = anyProp.PropertyType;

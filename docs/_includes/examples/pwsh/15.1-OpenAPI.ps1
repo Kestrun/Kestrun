@@ -1,4 +1,5 @@
 
+using module 'C:\Users\m_dan\Documents\GitHub\kestrun\Kestrun\src\PowerShell\Kestrun\Kestrun.psd1'
 <#
     15.1 Start / Stop Patterns
 #>
@@ -8,8 +9,7 @@ param(
     [IPAddress]$IPAddress = [IPAddress]::Loopback
 )
 
-
-Import-Module -Force 'C:\Users\m_dan\Documents\GitHub\kestrun\Kestrun/src/PowerShell/Kestrun/Kestrun.psm1'
+Import-Module -Force 'C:\Users\m_dan\Documents\GitHub\kestrun\Kestrun\src\PowerShell\Kestrun\Kestrun.psm1'
 
 New-KrLogger | Add-KrSinkConsole | Register-KrLogger -Name 'console' -SetAsDefault | Out-Null
 # Optional helpers for OpenAPI-friendly attributes
@@ -208,21 +208,11 @@ $components.ParameterTypes = [Type[]]($parameterTypes | ForEach-Object { [Type]$
 $components.ResponseTypes = $responses
 $components.ParameterTypes = $parameters
 $components.PathItemTypes = $pathItems#>
-$components = [Kestrun.OpenApi.OpenApiSchemaDiscovery]::GetOpenApiTypesAuto()
+
 
 # (You can also set: Examples, RequestBodies, Headers, SecuritySchemes, Links, Callbacks, Extensions)
 
 
-
-# 4) Generate & serialize
-$doc = [Kestrun.OpenApi.OpenApiV2Generator]::Generate($components, 'Kestrun API', '1.0.0')
-if ($null -eq $doc.Components.Links) {
-    $doc.Components.Links = [System.Collections.Generic.Dictionary[string, Microsoft.OpenApi.IOpenApiLink]]::new()
-}
-$doc.components.Links.Add('UserById', $link_UserById)
-$cbKeys = if ($null -ne $doc.Components.Callbacks) { ($doc.Components.Callbacks.Keys -join ', ') } else { '' }
-if ($cbKeys) { Write-Host "Discovered callback components: $cbKeys" }
-$doc.Servers.Add((New-KrOpenApiServer -Description 'Development server' -Url 'https://dev.api.example.com'))
 
 
 # 2. Create server host
@@ -238,7 +228,7 @@ Enable-KrConfiguration
 
 
 New-KrMapRouteBuilder |
-    Add-KrMapRouteVerbPattern -Verbs @('GET') -Pattern '/status' |
+    Add-KrMapRouteVerbPattern -Verbs @('GET', 'HEAD') -Pattern '/status' |
     Add-KrMapRouteScriptBlock -ScriptBlock {
         Write-KrLog -Level Debug -Message 'Health check'
         Write-KrJsonResponse -InputObject @{ status = 'healthy' }
@@ -247,15 +237,59 @@ New-KrMapRouteBuilder |
     Add-KrMapRouteOpenApiServer -Server (New-KrOpenApiServer -Url 'https://api.example.com/v1' -Description 'Production Server') |
     Add-KrMapRouteOpenApiServer -Server (New-KrOpenApiServer -Url 'https://staging-api.example.com/v1' -Description 'Staging Server') |
     #Add-KrMapRouteOpenApiResponse -StatusCode '200' -Description 'Healthy status' |
-  #  Add-KrMapRouteOpenApiResponse -StatusCode '503' -Description 'Service unavailable' |
+    #  Add-KrMapRouteOpenApiResponse -StatusCode '503' -Description 'Service unavailable' |
     Build-KrMapRoute
 
-$doc.Paths['/status'] = $srv.RegisteredRoutes['/status'].ToOpenApiPathItem()
+
+
+
+# 4) Generate & serialize
+$components = [Kestrun.OpenApi.OpenApiSchemaDiscovery]::GetOpenApiTypesAuto()
+$doc = [Kestrun.OpenApi.OpenApiV2Generator]::Generate($components, $srv, 'Kestrun API', '1.0.0')
+if ($null -eq $doc.Components.Links) {
+    $doc.Components.Links = [System.Collections.Generic.Dictionary[string, Microsoft.OpenApi.IOpenApiLink]]::new()
+}
+$doc.components.Links.Add('UserById', $link_UserById)
+$cbKeys = if ($null -ne $doc.Components.Callbacks) { ($doc.Components.Callbacks.Keys -join ', ') } else { '' }
+if ($cbKeys) { Write-Host "Discovered callback components: $cbKeys" }
+$doc.Servers.Add((New-KrOpenApiServer -Description 'Development server' -Url 'https://dev.api.example.com'))
+
 $json = [Kestrun.OpenApi.OpenApiV2Generator]::ToJson($doc, $true)  # OpenAPI 3.1 JSON
 
+$yml = [Kestrun.OpenApi.OpenApiV2Generator]::ToYaml($doc, $true)  # OpenAPI 3.1 YAML
 
-
+$yml | Set-Content -Encoding UTF8 -Path "$PSScriptRoot\openapi.yaml"
 $json | Set-Content -Encoding UTF8 -Path "$PSScriptRoot\openapi.json"
+# Helper: Project OpenApiPathItem to a PS-friendly view so ConvertTo-Json shows operations
+function ConvertTo-OpenApiPathView {
+    param(
+        [Parameter(Mandatory, ValueFromPipeline)]
+        $PathItem
+    )
+    process {
+        $ops = @{}
+        if ($null -ne $PathItem.Operations) {
+            foreach ($entry in $PathItem.Operations.GetEnumerator()) {
+                $key = ($entry.Key.ToString()).ToLowerInvariant()
+                $ops[$key] = $entry.Value
+            }
+        }
+        [pscustomobject]@{
+            Summary = $PathItem.Summary
+            Description = $PathItem.Description
+            Operations = $ops
+            Servers = $PathItem.Servers
+            Parameters = $PathItem.Parameters
+            Extensions = $PathItem.Extensions
+        }
+    }
+}
+
+# Preview the /status path with visible operations in JSON
+if ($doc.Paths.ContainsKey('/status')) {
+    $view = $doc.Paths['/status'] | ConvertTo-OpenApiPathView
+    $view | ConvertTo-Json -Depth 10 | Write-Host
+}
 # 7. Map a simple info route to demonstrate server options in action
 #Add-KrMapRoute -Verbs Get -Pattern '/status' -ScriptBlock {
 #   Write-KrLog -Level Debug -Message 'Health check'

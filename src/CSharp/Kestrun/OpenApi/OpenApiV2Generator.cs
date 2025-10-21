@@ -6,6 +6,8 @@
 using System.Reflection;
 using System.Text.Json.Nodes;
 using Microsoft.OpenApi;
+using Kestrun.Hosting;
+using Kestrun.Hosting.Options;
 namespace Kestrun.OpenApi;
 
 /// <summary>
@@ -77,6 +79,25 @@ public static class OpenApiV2Generator
 
         return doc;
     }
+
+    /// <summary>
+    /// Generates an OpenAPI document from the provided components and the host's registered routes.
+    /// Builds Paths by mapping KestrunHost.RegisteredRoutes to OpenAPI PathItem/Operations using MapRouteOptions.OpenAPI metadata.
+    /// </summary>
+    /// <param name="components">Discovered OpenAPI component types to include.</param>
+    /// <param name="host">The Kestrun host providing registered routes.</param>
+    /// <param name="title">API title.</param>
+    /// <param name="version">API version.</param>
+    /// <returns>The generated OpenAPI document including paths.</returns>
+    public static OpenApiDocument Generate(OpenApiComponentSet components, KestrunHost host, string title = "API", string version = "1.0.0")
+    {
+        var doc = Generate(components, title, version);
+        if (host is not null)
+        {
+            BuildPathsFromRegisteredRoutes(host.RegisteredRoutes, doc);
+        }
+        return doc;
+    }
     /// <summary>
     /// Serializes the OpenAPI document to a JSON string.
     /// </summary>
@@ -99,7 +120,174 @@ public static class OpenApiV2Generator
         return sw.ToString();
     }
 
+    /// <summary>
+    /// Serializes the OpenAPI document to a YAML string.
+    /// </summary>
+    /// <param name="doc">The OpenAPI document to serialize.</param>
+    /// <param name="as31">Whether to serialize as OpenAPI 3.1.</param>
+    /// <returns>The serialized YAML string.</returns>
+    public static string ToYaml(OpenApiDocument doc, bool as31 = true)
+    {
+        using var sw = new StringWriter();
+        var w = new OpenApiYamlWriter(sw);
+        if (as31)
+        {
+            doc.SerializeAsV31(w);
+        }
+        else
+        {
+            doc.SerializeAsV3(w);
+        }
+
+        return sw.ToString();
+    }
+
     // ---- internals ----
+
+    /// <summary>
+    /// Populates doc.Paths from the registered routes using OpenAPI metadata on each route.
+    /// </summary>
+    private static void BuildPathsFromRegisteredRoutes(IDictionary<(string Pattern, string Method), MapRouteOptions> routes, OpenApiDocument doc)
+    {
+        if (routes is null || routes.Count == 0)
+        {
+            return;
+        }
+
+        // Group by path pattern
+        foreach (var grp in routes.GroupBy(kvp => kvp.Key.Pattern, StringComparer.Ordinal))
+        {
+
+            var pattern = grp.Key;
+            if (string.IsNullOrWhiteSpace(pattern)) { continue; }
+
+            // Ensure a PathItem exists
+            doc.Paths ??= [];
+
+            if (!doc.Paths.TryGetValue(pattern, out var pathInterface) || pathInterface is null)
+            {
+                pathInterface = new OpenApiPathItem();
+                doc.Paths[pattern] = pathInterface;
+            }
+
+            var pathItem = (OpenApiPathItem)pathInterface;
+            var multipleMethods = grp.Count() > 1;
+            foreach (var kvp in grp)
+            {
+                var method = kvp.Key.Method;
+                var map = kvp.Value;
+                if (map is null) { continue; }
+
+
+                // Decide whether to include the operation. Prefer explicit enable, but also include when metadata is present.
+                var meta = map.OpenAPI ?? new OpenAPIMetadata();
+                if (!meta.Enabled)
+                {
+                    // Skip silent routes by default
+                    continue;
+                }
+                /*   if (multipleMethods)
+                   {
+                       pathItem.Description = meta.Description;
+                       pathItem.Summary = meta.Summary;
+                   }*/
+                var op = BuildOperationFromMetadata(meta);
+
+                pathItem.AddOperation(HttpMethod.Parse(method), op);
+            }
+            // Optionally apply servers/parameters at the path level for quick discovery in PS views
+
+            // Optionally apply servers/parameters at the path level for quick discovery in PS views
+            try
+            {
+
+                if (pathItem.Servers is { Count: > 0 })
+                {
+                    dynamic dPath = pathItem!;
+                    if (dPath.Servers == null) { dPath.Servers = new List<OpenApiServer>(); }
+                    foreach (var s in pathItem.Servers)
+                    {
+                        dPath.Servers.Add(s);
+                    }
+                }
+                if (pathItem.Parameters is { Count: > 0 })
+                {
+                    dynamic dPath = pathItem!;
+                    if (dPath.Parameters == null) { dPath.Parameters = new List<IOpenApiParameter>(); }
+                    foreach (var p in pathItem.Parameters)
+                    {
+                        dPath.Parameters.Add(p);
+                    }
+                }
+            }
+            catch { /* tolerate differing model shapes */ }
+
+        }
+
+
+
+        static OpenApiOperation BuildOperationFromMetadata(OpenAPIMetadata meta)
+        {
+            var op = new OpenApiOperation
+            {
+                OperationId = string.IsNullOrWhiteSpace(meta.OperationId) ? null : meta.OperationId,
+
+                Summary = string.IsNullOrWhiteSpace(meta.Summary) ? null : meta.Summary,
+                Description = string.IsNullOrWhiteSpace(meta.Description) ? null : meta.Description,
+                Deprecated = meta.Deprecated
+            };
+
+            // Tags (optional): omit here due to model variance; can be added as references by callers if needed
+
+            // External docs
+            if (meta.ExternalDocs is not null)
+            {
+                op.ExternalDocs = meta.ExternalDocs;
+            }
+
+            // Servers (operation-level)
+            try
+            {
+                if (meta.Servers is { Count: > 0 })
+                {
+                    dynamic d = op;
+                    if (d.Servers == null) { d.Servers = new List<OpenApiServer>(); }
+                    foreach (var s in meta.Servers) { d.Servers.Add(s); }
+                }
+            }
+            catch { }
+
+            // Parameters (operation-level)
+            try
+            {
+                if (meta.Parameters is { Count: > 0 })
+                {
+                    dynamic d = op;
+                    if (d.Parameters == null) { d.Parameters = new List<IOpenApiParameter>(); }
+                    foreach (var p in meta.Parameters) { d.Parameters.Add(p); }
+                }
+            }
+            catch { }
+
+
+            // Request body
+            if (meta.RequestBody is not null)
+            {
+                op.RequestBody = meta.RequestBody;
+            }
+
+            // Responses (required by spec)
+            op.Responses = meta.Responses ?? new OpenApiResponses { ["200"] = new OpenApiResponse { Description = "Success" } };
+
+            // Callbacks
+            if (meta.Callbacks is not null && meta.Callbacks.Count > 0)
+            {
+                op.Callbacks = new Dictionary<string, IOpenApiCallback>(meta.Callbacks);
+            }
+
+            return op;
+        }
+    }
 
     private static void BuildSchema(Type t, OpenApiDocument doc, HashSet<Type> built)
     {

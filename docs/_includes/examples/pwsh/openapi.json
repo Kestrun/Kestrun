@@ -10,7 +10,42 @@
       "description": "Development server"
     }
   ],
-  "paths": { },
+  "paths": {
+    "/status": {
+      "get": {
+        "summary": "Health check endpoint",
+        "description": "Returns the health status of the service.",
+        "operationId": "GetStatus",
+        "responses": { },
+        "servers": [
+          {
+            "url": "https://api.example.com/v1",
+            "description": "Production Server"
+          },
+          {
+            "url": "https://staging-api.example.com/v1",
+            "description": "Staging Server"
+          }
+        ]
+      },
+      "head": {
+        "summary": "Health check endpoint",
+        "description": "Returns the health status of the service.",
+        "operationId": "GetStatus",
+        "responses": { },
+        "servers": [
+          {
+            "url": "https://api.example.com/v1",
+            "description": "Production Server"
+          },
+          {
+            "url": "https://staging-api.example.com/v1",
+            "description": "Staging Server"
+          }
+        ]
+      }
+    }
+  },
   "components": {
     "schemas": {
       "Address": {
@@ -134,18 +169,18 @@
             "type": "string",
             "description": "The request identifier",
             "format": "uuid",
-            "default": "8f56e7f8-fbf2-4626-898f-3fcb6613d717"
+            "default": "1b899a01-c835-4ef1-a146-baa129649871"
           },
           "SecondsSinceEpoch": {
             "type": "integer",
             "description": "Seconds since epoch",
             "format": "int64",
-            "default": 1761054751
+            "default": 1761067476
           },
           "CreatedAt": {
             "type": "string",
             "format": "date-time",
-            "default": "2025-10-21T13:52:31.0599650Z"
+            "default": "2025-10-21T17:24:36.9592535Z"
           }
         }
       },
@@ -238,9 +273,9 @@
               "PostalCode": "12345",
               "ApartmentNumber": 101,
               "Country": "USA",
-              "RequestId": "e3eb273d-220b-417b-92e7-a8b2a3d162f2",
-              "SecondsSinceEpoch": 1761054751,
-              "CreatedAt": "2025-10-21T13:52:31.0612230Z"
+              "RequestId": "b60a3f01-a46b-4a41-8c78-37ef24142b88",
+              "SecondsSinceEpoch": 1761067476,
+              "CreatedAt": "2025-10-21T17:24:36.9605466Z"
             }
           }
         }
@@ -280,12 +315,12 @@
       "UserById": {
         "operationId": "getUserById",
         "parameters": {
-          "id": "$response.body#/id",
-          "verbose": "$request.query.verbose"
+          "verbose": "$request.query.verbose",
+          "id": "$response.body#/id"
         },
         "requestBody": {
-          "locale": "$request.body#/locale",
-          "email": "$request.body#/email"
+          "email": "$request.body#/email",
+          "locale": "$request.body#/locale"
         },
         "description": "Link to fetch user details using the id from the response body.",
         "server": {

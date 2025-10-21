@@ -1,0 +1,252 @@
+openapi: '3.1.1'
+info:
+  title: Kestrun API
+  version: 1.0.0
+servers:
+  - url: https://dev.api.example.com
+    description: Development server
+paths:
+  /status:
+    get:
+      summary: Health check endpoint
+      description: Returns the health status of the service.
+      operationId: GetStatus
+      responses: { }
+      servers:
+        - url: https://api.example.com/v1
+          description: Production Server
+        - url: https://staging-api.example.com/v1
+          description: Staging Server
+    head:
+      summary: Health check endpoint
+      description: Returns the health status of the service.
+      operationId: GetStatus
+      responses: { }
+      servers:
+        - url: https://api.example.com/v1
+          description: Production Server
+        - url: https://staging-api.example.com/v1
+          description: Staging Server
+components:
+  schemas:
+    Address:
+      type: object
+      properties:
+        Street:
+          title: Street Address
+          maxLength: 100
+          pattern: '^[\w\s\d]+$'
+          type: string
+          description: The street address
+          default: 123 Main St
+        City:
+          title: City Name
+          pattern: '^[\w\s\d]+$'
+          type: string
+          description: The city name
+          default: Anytown
+        PostalCode:
+          title: Postal Code
+          pattern: '^\d{5}(-\d{4})?$'
+          type: string
+          description: The postal code
+          default: '12345'
+        ApartmentNumber:
+          title: Apartment Number
+          minimum: 1
+          type: integer
+          description: The apartment number
+          format: int32
+          default: 101
+    UserInfoResponse:
+      type: object
+      properties:
+        Id:
+          maximum: 2147483647
+          minimum: 0
+          type: integer
+          description: User identifier
+          format: int32
+          default: 0
+        Name:
+          maxLength: 50
+          minLength: 1
+          type: string
+          description: Display name
+        Age:
+          maximum: 120
+          minimum: 0
+          type: integer
+          description: Age in years
+          format: int64
+          default: 0
+        Counter:
+          type:
+            - 'null'
+            - integer
+          description: Counter
+          format: int64
+        Address:
+          description: Mailing address
+          $ref: '#/components/schemas/Address'
+        Country:
+          enum:
+            - USA
+            - Canada
+            - Mexico
+          type: string
+          description: The country name
+          default: USA
+    CreateAddressBody:
+      type: object
+      properties:
+        Street:
+          type: string
+          description: The street address
+          default: 123 Main St
+        City:
+          type: string
+          description: The city name
+          default: Anytown
+        PostalCode:
+          type: string
+          description: The postal code
+          default: '12345'
+        ApartmentNumber:
+          type: integer
+          description: The apartment number
+          format: int32
+          default: 101
+        AdditionalAddress:
+          description: Additional mailing address
+          $ref: '#/components/schemas/Address'
+        Country:
+          type: string
+          description: The country name
+          default: USA
+        RequestId:
+          type: string
+          description: The request identifier
+          format: uuid
+          default: 1b899a01-c835-4ef1-a146-baa129649871
+        SecondsSinceEpoch:
+          type: integer
+          description: Seconds since epoch
+          format: int64
+          default: 1761067476
+        CreatedAt:
+          type: string
+          format: date-time
+          default: '2025-10-21T17:24:36.9592535Z'
+    PatchAddressBody:
+      type: object
+      properties:
+        City:
+          type: string
+          default: Gotham
+  responses:
+    AddressResponse-OK:
+      description: Successful retrieval of address
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Address'
+    AddressResponse-NotFound:
+      description: Address not found
+  parameters:
+    Name:
+      name: Name
+      in: query
+      schema:
+        type: string
+        description: Filter by name (contains)
+        default: John
+    MinAge:
+      name: MinAge
+      in: cookie
+      schema:
+        minimum: 0
+        type: integer
+        description: Minimum age
+        format: int64
+        default: 20
+    MaxAge:
+      name: MaxAge
+      in: cookie
+      schema:
+        minimum: 0
+        type: integer
+        description: Maximum age
+        format: int64
+        default: 120
+  examples:
+    AddressExample_Basic:
+      value:
+        Street: 123 Main St
+        City: Anytown
+        PostalCode: '12345'
+        ApartmentNumber: 101
+    AddressExample_NoApt:
+      value:
+        Street: 456 2nd Ave
+        City: Metropolis
+        PostalCode: '10001'
+  requestBodies:
+    CreateAddressBody:
+      description: Request body
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/CreateAddressBody'
+          example:
+            Street: 123 Main St
+            City: Anytown
+            PostalCode: '12345'
+            ApartmentNumber: 101
+            Country: USA
+            RequestId: b60a3f01-a46b-4a41-8c78-37ef24142b88
+            SecondsSinceEpoch: 1761067476
+            CreatedAt: '2025-10-21T17:24:36.9605466Z'
+    PatchAddressBody:
+      description: Request body
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/PatchAddressBody'
+          example:
+            City: Gotham
+  headers:
+    CommonHeaders-TenantId:
+      description: Tenant identifier
+      required: true
+      style: simple
+      schema:
+        type: string
+    CommonHeaders-CorrelationId:
+      description: Correlation id for tracing
+      style: simple
+      schema:
+        type: string
+  links:
+    UserById:
+      operationId: getUserById
+      parameters:
+        verbose: $request.query.verbose
+        id: $response.body#/id
+      requestBody:
+        email: $request.body#/email
+        locale: $request.body#/locale
+      description: Link to fetch user details using the id from the response body.
+      server:
+        url: 'https://{env}.api.example.com'
+        description: Target API endpoint
+        variables:
+          env:
+            default: dev
+            description: Environment name
+            enum:
+              - dev
+              - staging
+              - prod
+  callbacks:
+    Callback_UserCreated: { }

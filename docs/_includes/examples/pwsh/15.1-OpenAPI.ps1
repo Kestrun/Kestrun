@@ -1,5 +1,5 @@
 
-using module 'C:\Users\m_dan\Documents\GitHub\kestrun\Kestrun\src\PowerShell\Kestrun\Kestrun.psd1'
+#using module 'C:\Users\m_dan\Documents\GitHub\kestrun\Kestrun\src\PowerShell\Kestrun\Kestrun.psd1'
 <#
     15.1 Start / Stop Patterns
 #>
@@ -9,7 +9,7 @@ param(
     [IPAddress]$IPAddress = [IPAddress]::Loopback
 )
 
-Import-Module -Force 'C:\Users\m_dan\Documents\GitHub\kestrun\Kestrun\src\PowerShell\Kestrun\Kestrun.psm1'
+#Import-Module -Force 'C:\Users\m_dan\Documents\GitHub\kestrun\Kestrun\src\PowerShell\Kestrun\Kestrun.psm1'
 
 New-KrLogger | Add-KrSinkConsole | Register-KrLogger -Name 'console' -SetAsDefault | Out-Null
 # Optional helpers for OpenAPI-friendly attributes
@@ -227,13 +227,13 @@ Add-KrEndpoint -Port $Port -IPAddress $IPAddress
 Enable-KrConfiguration
 
 
-New-KrMapRouteBuilder |
-    Add-KrMapRouteVerbPattern -Verbs @('GET', 'HEAD') -Pattern '/status' |
+New-KrMapRouteBuilder  -Verbs @('GET', 'HEAD') -Pattern '/status' |
     Add-KrMapRouteScriptBlock -ScriptBlock {
         Write-KrLog -Level Debug -Message 'Health check'
         Write-KrJsonResponse -InputObject @{ status = 'healthy' }
     } |
-    Add-KrMapRouteOpenApiInfo -Summary 'Health check endpoint' -Description 'Returns the health status of the service.' -OperationId 'GetStatus' |
+    Add-KrMapRouteOpenApiInfo -Summary 'Health check endpoint' -Description 'Returns the health status of the service.'   |
+     Add-KrMapRouteOpenApiInfo -Verbs 'GET' -OperationId 'GetStatus' |
     Add-KrMapRouteOpenApiServer -Server (New-KrOpenApiServer -Url 'https://api.example.com/v1' -Description 'Production Server') |
     Add-KrMapRouteOpenApiServer -Server (New-KrOpenApiServer -Url 'https://staging-api.example.com/v1' -Description 'Staging Server') |
     #Add-KrMapRouteOpenApiResponse -StatusCode '200' -Description 'Healthy status' |

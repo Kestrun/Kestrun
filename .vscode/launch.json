@@ -173,7 +173,7 @@
                 "-ExecutionPolicy",
                 "Bypass",
                 "-Command",
-                "  import-module 'C:\\Users\\m_dan\\Documents\\GitHub\\kestrun\\Kestrun\\src\\PowerShell\\Kestrun\\Kestrun.psm1'; . '${file}'  "
+                "  import-module '.\\src\\PowerShell\\Kestrun\\Kestrun.psm1'; . '${file}'  "
             ],
             "cwd": "${workspaceFolder}",
             "justMyCode": true,

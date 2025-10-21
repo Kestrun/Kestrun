@@ -56,14 +56,15 @@ public static class KestrunHostHealthExtensions
             ShortCircuit = merged.ShortCircuit,
             ShortCircuitStatusCode = merged.ShortCircuitStatusCode,
             ThrowOnDuplicate = merged.ThrowOnDuplicate,
-            OpenAPI = new OpenAPIMetadata
-            {
-                Summary = merged.OpenApiSummary,
-                Description = merged.OpenApiDescription,
-                OperationId = merged.OpenApiOperationId,
-                Tags = merged.OpenApiTags
-            }
+
         };
+        mapOptions.OpenAPI.Add(HttpVerb.Get, new OpenAPIMetadata(pattern: merged.Pattern)
+        {
+            Summary = merged.OpenApiSummary,
+            Description = merged.OpenApiDescription,
+            OperationId = merged.OpenApiOperationId,
+            Tags = merged.OpenApiTags
+        });
 
 
         // Auto-register endpoint only when enabled
@@ -255,7 +256,7 @@ public static class KestrunHostHealthExtensions
         }).WithMetadata(new ScriptLanguageAttribute(ScriptLanguage.Native));
 
         host.AddMapOptions(map, mapOptions);
-        host._registeredRoutes[(mapOptions.Pattern!, HttpMethods.Get)] = mapOptions;
+        host._registeredRoutes[(mapOptions.Pattern!, HttpVerb.Get)] = mapOptions;
         host.Logger.Information("Registered health endpoint at {Pattern}", mapOptions.Pattern);
     }
 }

@@ -5,6 +5,8 @@
     The Add-KrMapRouteOpenApiServer cmdlet adds OpenAPI server information to a Map Route Builder object.
 .PARAMETER MapRouteBuilder
     The Map Route Builder object to which the OpenAPI server information will be added.
+.PARAMETER Verbs
+    An array of HTTP verbs (e.g., GET, POST) to which the OpenAPI server information will be applied. If not specified, the server information will be applied to all verbs defined in the Map Route Builder.
 .PARAMETER Server
     An array of OpenAPI server objects to be associated with the route.
 .EXAMPLE
@@ -23,15 +25,25 @@ function Add-KrMapRouteOpenApiServer {
     param (
         [Parameter(Mandatory = $true, ValueFromPipeline = $true)]
         [Kestrun.Hosting.Options.MapRouteBuilder]$MapRouteBuilder,
+        [Parameter()]
+        [Kestrun.Utilities.HttpVerb[]]$Verbs,
         [Parameter(Mandatory = $true)]
         [Microsoft.OpenApi.OpenApiServer[]]$Server
     )
     process {
-        $MapRouteBuilder.OpenApi.Enabled = $true
-        foreach ($s in $Server) {
-            $MapRouteBuilder.OpenApi.Servers.Add($s)
+        if ($Verbs.Count -eq 0) {
+            # Apply to all verbs defined in the MapRouteBuilder
+            $Verbs = $MapRouteBuilder.HttpVerbs
         }
-
+        foreach ($verb in $Verbs) {
+            if (-not $MapRouteBuilder.OpenApi.ContainsKey($verb)) {
+                $MapRouteBuilder.OpenApi[$verb] = [Kestrun.Hosting.Options.OpenAPIMetadata]::new($MapRouteBuilder.Pattern)
+            }
+            $MapRouteBuilder.OpenApi[$verb].Enabled = $true
+            foreach ($s in $Server) {
+                $MapRouteBuilder.OpenApi[$verb].Servers.Add($s)
+            }
+        }
         # Return the modified MapRouteBuilder for pipeline chaining
         return $MapRouteBuilder
     }

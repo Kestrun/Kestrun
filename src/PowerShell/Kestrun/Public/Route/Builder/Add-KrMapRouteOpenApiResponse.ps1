@@ -5,6 +5,8 @@
     The Add-KrMapRouteOpenApiResponse cmdlet adds an OpenAPI response with a specified status code and description to a Map Route Builder object.
 .PARAMETER MapRouteBuilder
     The Map Route Builder object to which the OpenAPI response will be added.
+.PARAMETER Verbs
+    An array of HTTP verbs (e.g., GET, POST) to which the OpenAPI response will be applied. If not specified, the response will be applied to all verbs defined in the Map Route Builder.
 .PARAMETER StatusCode
     The HTTP status code for the OpenAPI response.
 .PARAMETER Description
@@ -24,21 +26,30 @@ function Add-KrMapRouteOpenApiResponse {
     param (
         [Parameter(Mandatory = $true, ValueFromPipeline = $true)]
         [Kestrun.Hosting.Options.MapRouteBuilder]$MapRouteBuilder,
+        [Parameter()]
+        [Kestrun.Utilities.HttpVerb[]]$Verbs,
         [Parameter(Mandatory = $true)]
         [string]$StatusCode,
         [Parameter(Mandatory = $true)]
         [string]$Description
-
-
     )
     process {
-        $MapRouteBuilder.OpenApi.Enabled = $true
-        $MapRouteBuilder.OpenApi.Responses[$StatusCode] =  [Microsoft.OpenApi.IOpenApiResponse]::new()
-        @{
-            Description = $Description
+        if ($Verbs.Count -eq 0) {
+            # Apply to all verbs defined in the MapRouteBuilder
+            $Verbs = $MapRouteBuilder.HttpVerbs
         }
+        foreach ($verb in $Verbs) {
+            if (-not $MapRouteBuilder.OpenApi.ContainsKey($verb)) {
+                $MapRouteBuilder.OpenApi[$verb] = [Kestrun.Hosting.Options.OpenAPIMetadata]::new($MapRouteBuilder.Pattern)
+            }
+            $MapRouteBuilder.OpenApi[$verb].Enabled = $true
+            $MapRouteBuilder.OpenApi[$verb].Responses[$StatusCode] = [Microsoft.OpenApi.IOpenApiResponse]::new()
+            #@{
+            #       Description = $Description
+            #    }
 
-        # Return the modified MapRouteBuilder for pipeline chaining
-        return $MapRouteBuilder
+            # Return the modified MapRouteBuilder for pipeline chaining
+            return $MapRouteBuilder
+        }
     }
 }

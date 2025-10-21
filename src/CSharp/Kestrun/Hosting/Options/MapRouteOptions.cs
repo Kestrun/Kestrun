@@ -58,7 +58,12 @@ public record MapRouteOptions
     /// <summary>
     /// OpenAPI metadata for this route.
     /// </summary>
-    public OpenAPIMetadata OpenAPI { get; set; } = new OpenAPIMetadata(); // OpenAPI metadata for this route
+    public Dictionary<HttpVerb, OpenAPIMetadata> OpenAPI { get; set; } = []; // OpenAPI metadata for this route
+
+    /// <summary>
+    /// Path-level OpenAPI common metadata for this route.
+    /// </summary>
+    public OpenAPICommonMetadata? PathLevelOpenAPIMetadata { get; set; }
 
     /// <summary>
     /// Script code and language options for this route.

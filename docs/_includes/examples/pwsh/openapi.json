@@ -31,7 +31,6 @@
       "head": {
         "summary": "Health check endpoint",
         "description": "Returns the health status of the service.",
-        "operationId": "GetStatus",
         "responses": { },
         "servers": [
           {
@@ -169,18 +168,18 @@
             "type": "string",
             "description": "The request identifier",
             "format": "uuid",
-            "default": "1b899a01-c835-4ef1-a146-baa129649871"
+            "default": "e94e5cc2-e7e0-4ab9-a509-0d70b9938ad4"
           },
           "SecondsSinceEpoch": {
             "type": "integer",
             "description": "Seconds since epoch",
             "format": "int64",
-            "default": 1761067476
+            "default": 1761082483
           },
           "CreatedAt": {
             "type": "string",
             "format": "date-time",
-            "default": "2025-10-21T17:24:36.9592535Z"
+            "default": "2025-10-21T21:34:43.5706116Z"
           }
         }
       },
@@ -273,9 +272,9 @@
               "PostalCode": "12345",
               "ApartmentNumber": 101,
               "Country": "USA",
-              "RequestId": "b60a3f01-a46b-4a41-8c78-37ef24142b88",
-              "SecondsSinceEpoch": 1761067476,
-              "CreatedAt": "2025-10-21T17:24:36.9605466Z"
+              "RequestId": "e259991c-3ab4-44e5-9b66-faa0064fd10a",
+              "SecondsSinceEpoch": 1761082483,
+              "CreatedAt": "2025-10-21T21:34:43.5718267Z"
             }
           }
         }
@@ -315,12 +314,12 @@
       "UserById": {
         "operationId": "getUserById",
         "parameters": {
-          "verbose": "$request.query.verbose",
-          "id": "$response.body#/id"
+          "id": "$response.body#/id",
+          "verbose": "$request.query.verbose"
         },
         "requestBody": {
-          "email": "$request.body#/email",
-          "locale": "$request.body#/locale"
+          "locale": "$request.body#/locale",
+          "email": "$request.body#/email"
         },
         "description": "Link to fetch user details using the id from the response body.",
         "server": {

@@ -4,12 +4,16 @@ namespace Kestrun.Hosting.Options;
 /// </summary>
 public record MapRouteBuilder : MapRouteOptions
 {
-
     /// <summary>
     /// Initializes a new instance of the <see cref="MapRouteBuilder"/> class with the specified Kestrun host.
     /// </summary>
     /// <param name="server">The Kestrun host this route is associated with.</param>
-    public MapRouteBuilder(KestrunHost server) => Server = server;
+    /// <param name="pattern">The route pattern to match for this option.</param>
+    public MapRouteBuilder(KestrunHost server, string? pattern)
+    {
+        Server = server;
+        Pattern = pattern;
+    }
     /// <summary>
     /// The Kestrun host this route is associated with.
     /// Used by the MapRouteBuilder cmdlet.

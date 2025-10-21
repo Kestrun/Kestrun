@@ -5,20 +5,17 @@ namespace Kestrun.Hosting.Options;
 /// <summary>
 /// Metadata for OpenAPI documentation related to the route.
 /// </summary>
-public record OpenAPIMetadata
+public record OpenAPIMetadata : OpenAPICommonMetadata
 {
     /// <summary>
-    /// Indicates whether OpenAPI documentation is enabled for this route.
+    /// Initializes a new instance of the <see cref="OpenAPIMetadata"/> class with the specified pattern.
     /// </summary>
-    public bool Enabled { get; set; }
-    /// <summary>
-    /// A brief summary of the route for OpenAPI documentation.
-    /// </summary>
-    public string? Summary { get; set; }
-    /// <summary>
-    /// A detailed description of the route for OpenAPI documentation.
-    /// </summary>
-    public string? Description { get; set; }
+    /// <param name="pattern">The route pattern.</param>
+    public OpenAPIMetadata(string pattern)
+        : base(pattern)
+    {
+    }
+
     /// <summary>
     /// The unique operation ID for the route in OpenAPI documentation.
     /// </summary>
@@ -35,20 +32,6 @@ public record OpenAPIMetadata
     /// Indicates whether the operation is deprecated in OpenAPI documentation.
     /// </summary>
     public bool Deprecated { get; set; }
-    /// <summary>
-    /// An alternative server array to service this operation.
-    /// If an alternative server object is specified at the Path Item Object or Root level,
-    /// it will be overridden by this value.
-    /// </summary>
-    public IList<OpenApiServer>? Servers { get; set; } = [];
-
-    /// <summary>
-    /// A list of parameters that are applicable for this operation.
-    /// If a parameter is already defined at the Path Item, the new definition will override it but can never remove it.
-    /// The list MUST NOT include duplicated parameters. A unique parameter is defined by a combination of a name and location.
-    /// The list can use the Reference Object to link to parameters that are defined at the OpenAPI Object's components/parameters.
-    /// </summary>
-    public IList<IOpenApiParameter>? Parameters { get; set; } = [];
 
     /// <summary>
     /// The request body applicable for this operation.

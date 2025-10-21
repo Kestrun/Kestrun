@@ -376,8 +376,9 @@ public static partial class KestrunHostMapExtensions
 
         host.AddMapOptions(map, routeOptions);
 
-        foreach (var method in routeOptions.HttpVerbs.Select(v => v.ToMethodString()))
+        foreach (var method in routeOptions.HttpVerbs)//.Select(v => v.ToMethodString()))
         {
+            ApplyOpenApiMetadata(host, map, routeOptions.OpenAPI[method]);
             host._registeredRoutes[(routeOptions.Pattern!, method)] = routeOptions;
         }
 
@@ -401,7 +402,6 @@ public static partial class KestrunHostMapExtensions
         ApplyAuthSchemes(host, map, options);
         ApplyPolicies(host, map, options);
         ApplyCors(host, map, options);
-        ApplyOpenApiMetadata(host, map, options);
         ApplyRequiredHost(host, map, options);
     }
 
@@ -840,31 +840,31 @@ public static partial class KestrunHostMapExtensions
     /// </summary>
     /// <param name="host">The Kestrun host.</param>
     /// <param name="map">The endpoint convention builder.</param>
-    /// <param name="options">The mapping options.</param>
-    private static void ApplyOpenApiMetadata(KestrunHost host, IEndpointConventionBuilder map, MapRouteOptions options)
+    /// <param name="openAPI">The OpenAPI metadata.</param>
+    private static void ApplyOpenApiMetadata(KestrunHost host, IEndpointConventionBuilder map, OpenAPIMetadata openAPI)
     {
-        if (!string.IsNullOrEmpty(options.OpenAPI.OperationId))
+        if (!string.IsNullOrEmpty(openAPI.OperationId))
         {
-            host.Logger.Verbose("Adding OpenAPI metadata for route: {Pattern} with OperationId: {OperationId}", options.Pattern, options.OpenAPI.OperationId);
-            _ = map.WithName(options.OpenAPI.OperationId);
+            host.Logger.Verbose("Adding OpenAPI metadata for route: {Pattern} with OperationId: {OperationId}", openAPI.Pattern, openAPI.OperationId);
+            _ = map.WithName(openAPI.OperationId);
         }
 
-        if (!string.IsNullOrWhiteSpace(options.OpenAPI.Summary))
+        if (!string.IsNullOrWhiteSpace(openAPI.Summary))
         {
-            host.Logger.Verbose("Adding OpenAPI summary for route: {Pattern} with Summary: {Summary}", options.Pattern, options.OpenAPI.Summary);
-            _ = map.WithSummary(options.OpenAPI.Summary);
+            host.Logger.Verbose("Adding OpenAPI summary for route: {Pattern} with Summary: {Summary}", openAPI.Pattern, openAPI.Summary);
+            _ = map.WithSummary(openAPI.Summary);
         }
 
-        if (!string.IsNullOrWhiteSpace(options.OpenAPI.Description))
+        if (!string.IsNullOrWhiteSpace(openAPI.Description))
         {
-            host.Logger.Verbose("Adding OpenAPI description for route: {Pattern} with Description: {Description}", options.Pattern, options.OpenAPI.Description);
-            _ = map.WithDescription(options.OpenAPI.Description);
+            host.Logger.Verbose("Adding OpenAPI description for route: {Pattern} with Description: {Description}", openAPI.Pattern, openAPI.Description);
+            _ = map.WithDescription(openAPI.Description);
         }
 
-        if (options.OpenAPI.Tags.Length > 0)
+        if (openAPI.Tags.Length > 0)
         {
-            host.Logger.Verbose("Adding OpenAPI tags for route: {Pattern} with Tags: {Tags}", options.Pattern, string.Join(", ", options.OpenAPI.Tags));
-            _ = map.WithTags(options.OpenAPI.Tags);
+            host.Logger.Verbose("Adding OpenAPI tags for route: {Pattern} with Tags: {Tags}", openAPI.Pattern, string.Join(", ", openAPI.Tags));
+            _ = map.WithTags(openAPI.Tags);
         }
     }
 
@@ -950,7 +950,7 @@ public static partial class KestrunHostMapExtensions
         var methodSet = verbs.Select(v => v.ToMethodString()).ToHashSet(StringComparer.OrdinalIgnoreCase);
         return host._registeredRoutes.Keys
             .Where(k => string.Equals(k.Pattern, pattern, StringComparison.OrdinalIgnoreCase))
-            .Any(k => methodSet.Contains(k.Method));
+            .Any(k => methodSet.Contains(k.Method.ToMethodString()));
     }
 
     /// <summary>
@@ -961,7 +961,7 @@ public static partial class KestrunHostMapExtensions
     /// <param name="verb">The optional HTTP method to check for the route.</param>
     /// <returns>True if the route exists; otherwise, false.</returns>
     public static bool MapExists(this KestrunHost host, string pattern, HttpVerb verb) =>
-        host._registeredRoutes.ContainsKey((pattern, verb.ToMethodString()));
+        host._registeredRoutes.ContainsKey((pattern, verb));
 
 
     /// <summary>
@@ -989,7 +989,7 @@ public static partial class KestrunHostMapExtensions
     /// </example>
     public static MapRouteOptions? GetMapRouteOptions(this KestrunHost host, string pattern, HttpVerb verb)
     {
-        return host._registeredRoutes.TryGetValue((pattern, verb.ToMethodString()), out var options)
+        return host._registeredRoutes.TryGetValue((pattern, verb), out var options)
             ? options
             : null;
     }
@@ -1049,7 +1049,7 @@ public static partial class KestrunHostMapExtensions
         host.AddMapOptions(map, options);
 
         // (Optional) track in your registry for consistency / duplicate checks
-        host._registeredRoutes[(options.Pattern, HttpMethods.Get)] = options;
+        host._registeredRoutes[(options.Pattern, HttpVerb.Get)] = options;
 
         host.Logger.Information("Added token endpoint: {Pattern} (GET)", options.Pattern);
         return map;
@@ -1139,4 +1139,3 @@ public static partial class KestrunHostMapExtensions
     [GeneratedRegex(@"^https?://[^/\?#]+:$", RegexOptions.IgnoreCase, "en-US")]
     private static partial Regex EmptyPortDetectionRegex();
 }
-

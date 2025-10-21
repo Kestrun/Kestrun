@@ -119,7 +119,7 @@ public class KestrunHost : IDisposable
     private readonly object _healthProbeLock = new();
 #endif
 
-    internal readonly Dictionary<(string Pattern, string Method), MapRouteOptions> _registeredRoutes =
+    internal readonly Dictionary<(string Pattern, HttpVerb Method), MapRouteOptions> _registeredRoutes =
     new(new RouteKeyComparer());
 
     //internal readonly Dictionary<(string Scheme, string Type), AuthenticationSchemeOptions> _registeredAuthentications =
@@ -154,7 +154,7 @@ public class KestrunHost : IDisposable
     /// <summary>
     /// Gets the registered routes in the Kestrun host.
     /// </summary>
-    public Dictionary<(string, string), MapRouteOptions> RegisteredRoutes => _registeredRoutes;
+    public Dictionary<(string, HttpVerb), MapRouteOptions> RegisteredRoutes => _registeredRoutes;
 
     /// <summary>
     /// Gets the registered authentication schemes in the Kestrun host.

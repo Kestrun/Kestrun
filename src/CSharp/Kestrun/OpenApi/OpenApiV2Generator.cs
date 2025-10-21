@@ -8,6 +8,7 @@ using System.Text.Json.Nodes;
 using Microsoft.OpenApi;
 using Kestrun.Hosting;
 using Kestrun.Hosting.Options;
+using Kestrun.Utilities;
 namespace Kestrun.OpenApi;
 
 /// <summary>
@@ -147,7 +148,7 @@ public static class OpenApiV2Generator
     /// <summary>
     /// Populates doc.Paths from the registered routes using OpenAPI metadata on each route.
     /// </summary>
-    private static void BuildPathsFromRegisteredRoutes(IDictionary<(string Pattern, string Method), MapRouteOptions> routes, OpenApiDocument doc)
+    private static void BuildPathsFromRegisteredRoutes(IDictionary<(string Pattern, HttpVerb Method), MapRouteOptions> routes, OpenApiDocument doc)
     {
         if (routes is null || routes.Count == 0)
         {
@@ -157,7 +158,7 @@ public static class OpenApiV2Generator
         // Group by path pattern
         foreach (var grp in routes.GroupBy(kvp => kvp.Key.Pattern, StringComparer.Ordinal))
         {
-
+            OpenAPICommonMetadata? pathMeta = null;
             var pattern = grp.Key;
             if (string.IsNullOrWhiteSpace(pattern)) { continue; }
 
@@ -177,11 +178,14 @@ public static class OpenApiV2Generator
                 var method = kvp.Key.Method;
                 var map = kvp.Value;
                 if (map is null) { continue; }
-
+                if ((map.PathLevelOpenAPIMetadata is not null) && (pathMeta is null))
+                {
+                    pathMeta = map.PathLevelOpenAPIMetadata;
+                }
 
                 // Decide whether to include the operation. Prefer explicit enable, but also include when metadata is present.
-                var meta = map.OpenAPI ?? new OpenAPIMetadata();
-                if (!meta.Enabled)
+                var meta = map.OpenAPI[method];
+                if (meta is null || !meta.Enabled)
                 {
                     // Skip silent routes by default
                     continue;
@@ -193,34 +197,36 @@ public static class OpenApiV2Generator
                    }*/
                 var op = BuildOperationFromMetadata(meta);
 
-                pathItem.AddOperation(HttpMethod.Parse(method), op);
+                pathItem.AddOperation(HttpMethod.Parse(method.ToMethodString()), op);
             }
             // Optionally apply servers/parameters at the path level for quick discovery in PS views
-
-            // Optionally apply servers/parameters at the path level for quick discovery in PS views
-            try
+            if (pathMeta is not null)
             {
-
-                if (pathItem.Servers is { Count: > 0 })
+                pathItem.Description = pathMeta.Description;
+                pathItem.Summary = pathMeta.Summary;
+                try
                 {
-                    dynamic dPath = pathItem!;
-                    if (dPath.Servers == null) { dPath.Servers = new List<OpenApiServer>(); }
-                    foreach (var s in pathItem.Servers)
+                    if (pathMeta.Servers is { Count: > 0 })
                     {
-                        dPath.Servers.Add(s);
+                        dynamic dPath = pathItem!;
+                        if (dPath.Servers == null) { dPath.Servers = new List<OpenApiServer>(); }
+                        foreach (var s in pathMeta.Servers)
+                        {
+                            dPath.Servers.Add(s);
+                        }
+                    }
+                    if (pathMeta.Parameters is { Count: > 0 })
+                    {
+                        dynamic dPath = pathItem!;
+                        if (dPath.Parameters == null) { dPath.Parameters = new List<IOpenApiParameter>(); }
+                        foreach (var p in pathMeta.Parameters)
+                        {
+                            dPath.Parameters.Add(p);
+                        }
                     }
                 }
-                if (pathItem.Parameters is { Count: > 0 })
-                {
-                    dynamic dPath = pathItem!;
-                    if (dPath.Parameters == null) { dPath.Parameters = new List<IOpenApiParameter>(); }
-                    foreach (var p in pathItem.Parameters)
-                    {
-                        dPath.Parameters.Add(p);
-                    }
-                }
+                catch { /* tolerate differing model shapes */ }
             }
-            catch { /* tolerate differing model shapes */ }
 
         }
 

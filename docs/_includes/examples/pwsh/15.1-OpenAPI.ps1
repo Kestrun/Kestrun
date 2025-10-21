@@ -1,4 +1,4 @@
-
+#using assembly C:\Users\mdaneri\Documents\GitHub\Kestrun\src\PowerShell\Kestrun\lib\net8.0\Kestrun.Annotations.dll
 #using module 'C:\Users\m_dan\Documents\GitHub\kestrun\Kestrun\src\PowerShell\Kestrun\Kestrun.psd1'
 <#
     15.1 Start / Stop Patterns

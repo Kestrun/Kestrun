@@ -2,34 +2,32 @@ using System.Collections;
 using System.Text.Json.Nodes;
 
 namespace Kestrun.OpenApi;
-
+/// <summary>
+/// Helpers to create System.Text.Json.Nodes from .NET objects for OpenAPI representation.
+/// </summary>
 public static class OpenApiJsonNodeFactory
 {
+    /// <summary>
+    /// Create a JsonNode from a .NET object.
+    /// </summary>
+    /// <param name="value">The .NET object to convert.</param>
+    /// <returns>A JsonNode representation of the object.</returns>
     public static JsonNode? FromObject(object? value)
     {
-        if (value is null) return null;
-
-        switch (value)
-        {
-            case bool b:
-                return JsonValue.Create(b);
-            case string s:
-                return JsonValue.Create(s);
-            case sbyte or byte or short or ushort or int or uint or long or ulong:
-                return JsonValue.Create(Convert.ToInt64(value));
-            case float or double or decimal:
-                return JsonValue.Create(Convert.ToDouble(value));
-            case DateTime dt:
-                return JsonValue.Create(dt.ToString("o"));
-            case Guid g:
-                return JsonValue.Create(g.ToString());
-            case IDictionary dict:
-                return ToJsonObject(dict);
-            case IEnumerable en when value is not string:
-                return ToJsonArray(en);
-            default:
-                return FromPocoOrString(value);
-        }
+        return value is null
+            ? null
+            : value switch
+            {
+                bool b => JsonValue.Create(b),
+                string s => JsonValue.Create(s),
+                sbyte or byte or short or ushort or int or uint or long or ulong => JsonValue.Create(Convert.ToInt64(value)),
+                float or double or decimal => JsonValue.Create(Convert.ToDouble(value)),
+                DateTime dt => JsonValue.Create(dt.ToString("o")),
+                Guid g => JsonValue.Create(g.ToString()),
+                IDictionary dict => ToJsonObject(dict),
+                IEnumerable en when value is not string => ToJsonArray(en),
+                _ => FromPocoOrString(value),
+            };
     }
 
     private static JsonObject ToJsonObject(IDictionary dict)
@@ -37,7 +35,11 @@ public static class OpenApiJsonNodeFactory
         var obj = new JsonObject();
         foreach (DictionaryEntry de in dict)
         {
-            if (de.Key is null) continue;
+            if (de.Key is null)
+            {
+                continue;
+            }
+
             var k = de.Key.ToString() ?? string.Empty;
             obj[k] = FromObject(de.Value);
         }
@@ -65,9 +67,17 @@ public static class OpenApiJsonNodeFactory
                 var obj = new JsonObject();
                 foreach (var p in props)
                 {
-                    if (!p.CanRead) continue;
+                    if (!p.CanRead)
+                    {
+                        continue;
+                    }
+
                     var v = p.GetValue(value);
-                    if (v is null) continue;
+                    if (v is null)
+                    {
+                        continue;
+                    }
+
                     obj[p.Name] = FromObject(v);
                 }
                 return obj;

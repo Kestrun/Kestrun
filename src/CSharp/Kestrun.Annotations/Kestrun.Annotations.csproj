@@ -4,6 +4,8 @@
     <TargetFramework>net8.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <AssemblyName>Kestrun.Annotations</AssemblyName>
+    <RootNamespace>Kestrun.Annotations</RootNamespace>
   </PropertyGroup>
 
 </Project>

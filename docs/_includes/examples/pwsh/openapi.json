@@ -134,18 +134,18 @@
             "type": "string",
             "description": "The request identifier",
             "format": "uuid",
-            "default": "685ac028-424e-4a0a-b61f-2744593e9e2c"
+            "default": "3c0ffe23-44c0-420e-aa5f-5ecae7b9b648"
           },
           "SecondsSinceEpoch": {
             "type": "integer",
             "description": "Seconds since epoch",
             "format": "int64",
-            "default": 1760995490
+            "default": 1761008771
           },
           "CreatedAt": {
             "type": "string",
             "format": "date-time",
-            "default": "2025-10-20T21:24:50.0686586Z"
+            "default": "2025-10-21T01:06:11.4321837Z"
           }
         }
       },
@@ -238,9 +238,9 @@
               "PostalCode": "12345",
               "ApartmentNumber": 101,
               "Country": "USA",
-              "RequestId": "47713c4b-6554-41e6-89c1-ca01c7e77412",
-              "SecondsSinceEpoch": 1760995490,
-              "CreatedAt": "2025-10-20T21:24:50.0703815Z"
+              "RequestId": "7933e4d9-d23c-4fd6-bcc2-0f55ca5406d2",
+              "SecondsSinceEpoch": 1761008771,
+              "CreatedAt": "2025-10-21T01:06:11.4334176Z"
             }
           }
         }
@@ -273,6 +273,35 @@
         "style": "simple",
         "schema": {
           "type": "string"
+        }
+      }
+    },
+    "links": {
+      "UserById": {
+        "operationId": "getUserById",
+        "parameters": {
+          "id": "$response.body#/id",
+          "verbose": "$request.query.verbose"
+        },
+        "requestBody": {
+          "locale": "$request.body#/locale",
+          "email": "$request.body#/email"
+        },
+        "description": "Link to fetch user details using the id from the response body.",
+        "server": {
+          "url": "https://{env}.api.example.com",
+          "description": "Target API endpoint",
+          "variables": {
+            "env": {
+              "default": "dev",
+              "description": "Environment name",
+              "enum": [
+                "dev",
+                "staging",
+                "prod"
+              ]
+            }
+          }
         }
       }
     }

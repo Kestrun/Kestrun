@@ -165,13 +165,16 @@ class CommonHeaders {
 }
 
 # Link component via helper functions (preferred authoring)
-$serverVars = (New-KrOpenApiServerVariable -Name 'env' -Default 'dev' -Enum @('dev','staging','prod') -Description 'Environment name')
+$serverVars = (New-KrOpenApiServerVariable -Name 'env' -Default 'dev' -Enum @('dev', 'staging', 'prod') -Description 'Environment name')
 
 $linkServer = New-KrOpenApiServer -Url 'https://{env}.api.example.com' -Description 'Target API endpoint' -Variables $serverVars
 $linkParams = @{ id = '$response.body#/id'; verbose = '$request.query.verbose' }
-#$linkRequestBody = @{ email = '$request.body#/email'; locale = '$request.body#/locale' }
+$linkRequestBody = @{ email = '$request.body#/email'; locale = '$request.body#/locale' }
 $link_UserById = New-KrOpenApiLink -OperationRef '#/paths/~1users~1{id}/get' -OperationId 'getUserById' `
-    -Description 'Link to fetch user details using the id from the response body.' -Parameters $linkParams  -Server $linkServer #-RequestBody $linkRequestBody
+    -Description 'Link to fetch user details using the id from the response body.' -Parameters $linkParams -Server $linkServer -RequestBody $linkRequestBody
+
+
+
 <#
 [microsoft.OpenApi.Models.openapiLinkParameter]$paramLocation = [Microsoft.OpenApi.Models.OaParameterLocation]::Query
 
@@ -232,6 +235,9 @@ $components = [Kestrun.OpenApi.OpenApiSchemaDiscovery]::GetOpenApiTypesAuto()
 
 # 4) Generate & serialize
 $doc = [Kestrun.OpenApi.OpenApiV2Generator]::Generate($components, 'Kestrun API', '1.0.0')
+if ($null -eq $doc.Components.Links) {
+    $doc.Components.Links = [System.Collections.Generic.Dictionary[string, Microsoft.OpenApi.IOpenApiLink]]::new()
+}
 $doc.components.Links.Add('UserById', $link_UserById)
 $doc.Servers.Add((New-KrOpenApiServer -Description 'Development server' -Url 'https://dev.api.example.com'))
 $json = [Kestrun.OpenApi.OpenApiV2Generator]::ToJson($doc, $true)  # OpenAPI 3.1 JSON

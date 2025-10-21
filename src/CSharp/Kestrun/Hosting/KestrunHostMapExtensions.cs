@@ -866,12 +866,6 @@ public static partial class KestrunHostMapExtensions
             host.Logger.Verbose("Adding OpenAPI tags for route: {Pattern} with Tags: {Tags}", options.Pattern, string.Join(", ", options.OpenAPI.Tags));
             _ = map.WithTags(options.OpenAPI.Tags);
         }
-
-        if (!string.IsNullOrWhiteSpace(options.OpenAPI.GroupName))
-        {
-            host.Logger.Verbose("Adding OpenAPI group name for route: {Pattern} with GroupName: {GroupName}", options.Pattern, options.OpenAPI.GroupName);
-            _ = map.WithGroupName(options.OpenAPI.GroupName);
-        }
     }
 
     /// <summary>

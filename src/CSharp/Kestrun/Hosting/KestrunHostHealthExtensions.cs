@@ -61,8 +61,7 @@ public static class KestrunHostHealthExtensions
                 Summary = merged.OpenApiSummary,
                 Description = merged.OpenApiDescription,
                 OperationId = merged.OpenApiOperationId,
-                Tags = merged.OpenApiTags,
-                GroupName = merged.OpenApiGroupName
+                Tags = merged.OpenApiTags
             }
         };
 

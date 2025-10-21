@@ -16,7 +16,6 @@ public class OpenAPIMetadataTests
         Assert.Null(metadata.OperationId);
         Assert.NotNull(metadata.Tags);
         Assert.Empty(metadata.Tags);
-        Assert.Null(metadata.GroupName);
     }
 
     [Fact]
@@ -55,15 +54,6 @@ public class OpenAPIMetadataTests
         Assert.Equal(2, metadata.Tags.Length);
         Assert.Contains("users", metadata.Tags);
         Assert.Contains("api", metadata.Tags);
-    }
-
-    [Fact]
-    [Trait("Category", "Hosting")]
-    public void GroupName_CanBeSet()
-    {
-        var metadata = new OpenAPIMetadata { GroupName = "v1" };
-
-        Assert.Equal("v1", metadata.GroupName);
     }
 
     [Fact]

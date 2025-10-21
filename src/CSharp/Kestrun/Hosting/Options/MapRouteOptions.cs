@@ -50,7 +50,6 @@ public record MapRouteOptions
     /// The name of the rate limit policy to apply to this route, if any.
     /// </summary>
     public string? RateLimitPolicyName { get; set; }
-
     /// <summary>
     /// Endpoints to bind the route to, if any.
     /// </summary>
@@ -69,4 +68,13 @@ public record MapRouteOptions
     /// If true, throws an exception on duplicate routes.
     /// </summary>
     public bool ThrowOnDuplicate { get; set; }
+    /// <summary>
+    /// Returns a string representation of the MapRouteOptions.
+    /// </summary>
+    /// <returns></returns>
+    public override string ToString()
+    {
+        var verbs = HttpVerbs.Count > 0 ? string.Join(",", HttpVerbs) : "ANY";
+        return $"{verbs} {Pattern}";
+    }
 }

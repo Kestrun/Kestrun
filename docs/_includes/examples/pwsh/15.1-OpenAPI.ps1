@@ -9,7 +9,7 @@ param(
 )
 
 
-Import-Module -Force  "C:\Users\m_dan\Documents\GitHub\kestrun\Kestrun/src/PowerShell/Kestrun/Kestrun.psm1"
+Import-Module -Force 'C:\Users\m_dan\Documents\GitHub\kestrun\Kestrun/src/PowerShell/Kestrun/Kestrun.psm1'
 
 New-KrLogger | Add-KrSinkConsole | Register-KrLogger -Name 'console' -SetAsDefault | Out-Null
 # Optional helpers for OpenAPI-friendly attributes
@@ -223,10 +223,7 @@ $doc.components.Links.Add('UserById', $link_UserById)
 $cbKeys = if ($null -ne $doc.Components.Callbacks) { ($doc.Components.Callbacks.Keys -join ', ') } else { '' }
 if ($cbKeys) { Write-Host "Discovered callback components: $cbKeys" }
 $doc.Servers.Add((New-KrOpenApiServer -Description 'Development server' -Url 'https://dev.api.example.com'))
-$json = [Kestrun.OpenApi.OpenApiV2Generator]::ToJson($doc, $true)  # OpenAPI 3.1 JSON
 
-
-$json | Set-Content -Encoding UTF8 -Path "$PSScriptRoot\openapi.json"
 
 # 2. Create server host
 $srv = New-KrServer -Name 'Lifecycle Demo' -PassThru
@@ -239,11 +236,31 @@ Add-KrEndpoint -Port $Port -IPAddress $IPAddress
 # 6. Finalize configuration and set server limits
 Enable-KrConfiguration
 
+
+New-KrMapRouteBuilder |
+    Add-KrMapRouteVerbPattern -Verbs @('GET') -Pattern '/status' |
+    Add-KrMapRouteScriptBlock -ScriptBlock {
+        Write-KrLog -Level Debug -Message 'Health check'
+        Write-KrJsonResponse -InputObject @{ status = 'healthy' }
+    } |
+    Add-KrMapRouteOpenApiInfo -Summary 'Health check endpoint' -Description 'Returns the health status of the service.' -OperationId 'GetStatus' |
+    Add-KrMapRouteOpenApiServer -Server (New-KrOpenApiServer -Url 'https://api.example.com/v1' -Description 'Production Server') |
+    Add-KrMapRouteOpenApiServer -Server (New-KrOpenApiServer -Url 'https://staging-api.example.com/v1' -Description 'Staging Server') |
+    #Add-KrMapRouteOpenApiResponse -StatusCode '200' -Description 'Healthy status' |
+  #  Add-KrMapRouteOpenApiResponse -StatusCode '503' -Description 'Service unavailable' |
+    Build-KrMapRoute
+
+$doc.Paths['/status'] = $srv.RegisteredRoutes['/status'].ToOpenApiPathItem()
+$json = [Kestrun.OpenApi.OpenApiV2Generator]::ToJson($doc, $true)  # OpenAPI 3.1 JSON
+
+
+
+$json | Set-Content -Encoding UTF8 -Path "$PSScriptRoot\openapi.json"
 # 7. Map a simple info route to demonstrate server options in action
-Add-KrMapRoute -Verbs Get -Pattern '/status' -ScriptBlock {
-    Write-KrLog -Level Debug -Message 'Health check'
-    Write-KrJsonResponse -InputObject @{ status = 'healthy' }
-}
+#Add-KrMapRoute -Verbs Get -Pattern '/status' -ScriptBlock {
+#   Write-KrLog -Level Debug -Message 'Health check'
+#  Write-KrJsonResponse -InputObject @{ status = 'healthy' }
+#}
 
 # 8. Start the server (runs asynchronously; press Ctrl+C to stop)
 Start-KrServer -Server $srv -NoWait

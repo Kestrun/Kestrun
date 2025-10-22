@@ -236,7 +236,7 @@ New-KrMapRouteBuilder  -Verbs @('GET', 'HEAD') -Pattern '/status' |
      Add-KrMapRouteOpenApiInfo -Verbs 'GET' -OperationId 'GetStatus' |
     Add-KrMapRouteOpenApiServer -Server (New-KrOpenApiServer -Url 'https://api.example.com/v1' -Description 'Production Server') |
     Add-KrMapRouteOpenApiServer -Server (New-KrOpenApiServer -Url 'https://staging-api.example.com/v1' -Description 'Staging Server') |
-    Add-KrMapRouteOpenApiRequestBody -Description 'Healthy status2' -Reference 'CreateAddressBody' |
+    Add-KrMapRouteOpenApiRequestBody -Description 'Healthy status2' | #-Reference 'CreateAddressBody' |
     #Add-KrMapRouteOpenApiResponse -StatusCode '200' -Description 'Healthy status' |
     #  Add-KrMapRouteOpenApiResponse -StatusCode '503' -Description 'Service unavailable' |
     Build-KrMapRoute

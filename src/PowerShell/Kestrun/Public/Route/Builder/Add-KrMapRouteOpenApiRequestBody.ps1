@@ -42,8 +42,11 @@ function Add-KrMapRouteOpenApiRequestBody {
                 $MapRouteBuilder.OpenApi[$verb] = [Kestrun.Hosting.Options.OpenAPIMetadata]::new($MapRouteBuilder.Pattern)
             }
             $MapRouteBuilder.OpenApi[$verb].Enabled = $true
-            $MapRouteBuilder.OpenApi[$verb].RequestBody = [Microsoft.OpenApi.OpenApiRequestBodyReference]::new($Reference)
-
+            if ([string]::IsNullOrEmpty($Reference)) {
+                $MapRouteBuilder.OpenApi[$verb].RequestBody = [Microsoft.OpenApi.OpenApiRequestBody]::new()
+            } else {
+                $MapRouteBuilder.OpenApi[$verb].RequestBody = [Microsoft.OpenApi.OpenApiRequestBodyReference]::new($Reference)
+            }
             if ($Description) {
                 $MapRouteBuilder.OpenApi[$verb].RequestBody.Description = $Description
             }

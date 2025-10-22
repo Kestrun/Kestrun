@@ -31,7 +31,10 @@ function Add-KrMapRouteOpenApiResponse {
         [Parameter(Mandatory = $true)]
         [string]$StatusCode,
         [Parameter(Mandatory = $true)]
-        [string]$Description
+        [string]$Description,
+        [string]$ContentType = 'application/json',
+        [string]$SchemaRef,
+        [switch]$InlineSchema
     )
     process {
         if ($Verbs.Count -eq 0) {
@@ -42,11 +45,22 @@ function Add-KrMapRouteOpenApiResponse {
             if (-not $MapRouteBuilder.OpenApi.ContainsKey($verb)) {
                 $MapRouteBuilder.OpenApi[$verb] = [Kestrun.Hosting.Options.OpenAPIMetadata]::new($MapRouteBuilder.Pattern)
             }
+            $response = [Microsoft.OpenApi.OpenApiResponse]::new()
+            $response.Description = $Description
+            if ($SchemaRef) {
+                if ($InlineSchema) {
+                    # to implement inline schema generation in future
+                    throw 'Inline schema generation is not implemented yet.'
+                } else {
+                    # Add content with schema reference if provided
+                    $response.Content = [System.Collections.Generic.Dictionary[string, Microsoft.OpenApi.OpenApiMediaType]]::new()
+                    $mediaType = [Microsoft.OpenApi.OpenApiMediaType]::new()
+                    $mediaType.Schema = [Microsoft.OpenApi.OpenApiSchemaReference]::new($SchemaRef)
+                    $response.Content[$ContentType] = $mediaType
+                }
+            }
             $MapRouteBuilder.OpenApi[$verb].Enabled = $true
-            $MapRouteBuilder.OpenApi[$verb].Responses[$StatusCode] = [Microsoft.OpenApi.IOpenApiResponse]::new()
-            #@{
-            #       Description = $Description
-            #    }
+            $MapRouteBuilder.OpenApi[$verb].Responses[$StatusCode] = $response
 
             # Return the modified MapRouteBuilder for pipeline chaining
             return $MapRouteBuilder

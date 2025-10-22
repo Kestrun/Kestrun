@@ -1,4 +1,6 @@
-#using assembly C:\Users\mdaneri\Documents\GitHub\Kestrun\src\PowerShell\Kestrun\lib\net8.0\Kestrun.Annotations.dll
+#using assembly ..\..\..\..\src\PowerShell\Kestrun\lib\net8.0\Kestrun.Annotations.dll
+using assembly C:\Users\m_dan\Documents\GitHub\kestrun\Kestrun\src\PowerShell\Kestrun\lib\net8.0\Kestrun.Annotations.dll
+
 #using module 'C:\Users\m_dan\Documents\GitHub\kestrun\Kestrun\src\PowerShell\Kestrun\Kestrun.psd1'
 <#
     15.1 Start / Stop Patterns
@@ -227,17 +229,17 @@ Add-KrEndpoint -Port $Port -IPAddress $IPAddress
 Enable-KrConfiguration
 
 
-New-KrMapRouteBuilder  -Verbs @('GET', 'HEAD') -Pattern '/status' |
+New-KrMapRouteBuilder -Verbs @('GET', 'HEAD') -Pattern '/status' |
     Add-KrMapRouteScriptBlock -ScriptBlock {
         Write-KrLog -Level Debug -Message 'Health check'
         Write-KrJsonResponse -InputObject @{ status = 'healthy' }
     } |
-    Add-KrMapRouteOpenApiInfo -Summary 'Health check endpoint' -Description 'Returns the health status of the service.'   |
-     Add-KrMapRouteOpenApiInfo -Verbs 'GET' -OperationId 'GetStatus' |
+    Add-KrMapRouteOpenApiInfo -Summary 'Health check endpoint' -Description 'Returns the health status of the service.' |
+    Add-KrMapRouteOpenApiInfo -Verbs 'GET' -OperationId 'GetStatus' |
     Add-KrMapRouteOpenApiServer -Server (New-KrOpenApiServer -Url 'https://api.example.com/v1' -Description 'Production Server') |
     Add-KrMapRouteOpenApiServer -Server (New-KrOpenApiServer -Url 'https://staging-api.example.com/v1' -Description 'Staging Server') |
-    #Add-KrMapRouteOpenApiResponse -StatusCode '200' -Description 'Healthy status' |
-    #  Add-KrMapRouteOpenApiResponse -StatusCode '503' -Description 'Service unavailable' |
+    Add-KrMapRouteOpenApiResponse -StatusCode '200' -Description 'Healthy status' -SchemaRef 'Address' |
+    Add-KrMapRouteOpenApiResponse -StatusCode '503' -Description 'Service unavailable' |
     Build-KrMapRoute
 
 

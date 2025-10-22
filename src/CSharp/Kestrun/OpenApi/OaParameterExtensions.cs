@@ -20,8 +20,6 @@ public static class OaParameterExtensions
             _ => throw new ArgumentOutOfRangeException(nameof(location), location, null)
         };
 
-
-
     /// <summary>
     /// Convert to Microsoft.OpenApi ParameterStyle.
     /// </summary>

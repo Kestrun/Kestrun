@@ -117,7 +117,7 @@ class AddressExample_NoApt {
 }
 
 # Request body components (class-first; one class per request body; defaults become the example)
-[OpenApiModelKind([OpenApiModelKind]::RequestBody, InlineSchema = $false)]
+[OpenApiModelKind([OpenApiModelKind]::RequestBody, InlineSchema = $true)]
 class CreateAddressBody {
     [OpenApiSchema(Description = 'The street address')]
     [string]$Street = '123 Main St'
@@ -225,8 +225,22 @@ $components.PathItemTypes = $pathItems#>
 # This listener will be used to demonstrate server limits configuration.
 Add-KrEndpoint -Port $Port -IPAddress $IPAddress
 
+# 4. Add OpenAPI info
+Add-KrOpenApiInfo -Title 'My API' -Version '1.0.0' -Description 'This is my API.' `
+    -Summary 'A brief summary of my API.' -TermsOfService 'https://example.com/terms'
+# 5. Add contact information
+Add-KrOpenApiContact -Name 'John Doe' -Url 'https://johndoe.com' -Email 'john.doe@example.com'
+# 6. Add license information
+Add-KrOpenApiLicense -Name 'MIT License' -Url 'https://opensource.org/licenses/MIT' -Identifier 'MIT'
 
-# 6. Finalize configuration and set server limits
+
+# Add a tag to the default document
+Add-KrOpenApiTag -Name 'MyTag' -Description 'This is my tag.' `
+    -ExternalDocs (New-KrOpenApiExternalDoc -Description 'More info' -Url 'https://example.com/tag-info')
+
+Add-KrOpenApiExternalDoc -Description 'Find more info here' -Url 'https://example.com/docs'
+
+# 7. Finalize configuration and set server limits
 Enable-KrConfiguration
 
 Add-KrSwaggerUiRoute
@@ -246,54 +260,40 @@ New-KrMapRouteBuilder -Verbs @('GET', 'HEAD', 'POST', 'TRACE') -Pattern '/status
     Add-KrMapRouteOpenApiResponse -StatusCode '503' -Description 'Service unavailable' |
     Build-KrMapRoute
 
-Add-KrMapRoute -Pattern '/openapi/v3.0/openapi.json' -Method 'GET' -ScriptBlock {
-    # 4) Generate & serialize
-    # $components = [Kestrun.OpenApi.OpenApiSchemaDiscovery]::GetOpenApiTypesAuto()
-    #  $doc = [Kestrun.OpenApi.OpenApiV2Generator]::Generate($components, $KrServer, 'Kestrun API', '1.0.0')
-    #if ($null -eq $doc.Components.Links) {
-    #     $doc.Components.Links = [System.Collections.Generic.Dictionary[string, Microsoft.OpenApi.IOpenApiLink]]::new()
-    #  }
-    # $doc.components.Links.Add('UserById', $link_UserById)
-    # $cbKeys = if ($null -ne $doc.Components.Callbacks) { ($doc.Components.Callbacks.Keys -join ', ') } else { '' }
-    # if ($cbKeys) { Write-Host "Discovered callback components: $cbKeys" }
-    #  $doc.Servers.Add((New-KrOpenApiServer -Description 'Development server' -Url 'https://dev.api.example.com'))
-
-    Build-KrOpenApiDocument
-
-    $json = Export-KrOpenApiDocument -Format 'json' -Version OpenApi3_1 # OpenAPI 3.1 JSON
-
-    $yml = Export-KrOpenApiDocument -Format 'yaml' -Version OpenApi3_1 # OpenAPI 3.1 YAML
-
-    # $yml | Set-Content -Encoding UTF8 -Path "$PSScriptRoot\openapi.yaml"
-    #   $json | Set-Content -Encoding UTF8 -Path "$PSScriptRoot\openapi.json"
-    #  Write-KrLog -Level Information -Message "Generated OpenAPI document with $($doc.Paths.Count) paths, $($doc.Components.Schemas.Count) schemas."
-    Write-KrTextResponse -InputObject $json -ContentType 'application/json'
-}
-
-# Helper: Project OpenApiPathItem to a PS-friendly view so ConvertTo-Json shows operations
-function ConvertTo-OpenApiPathView {
-    param(
-        [Parameter(Mandatory, ValueFromPipeline)]
-        $PathItem
-    )
-    process {
-        $ops = @{}
-        if ($null -ne $PathItem.Operations) {
-            foreach ($entry in $PathItem.Operations.GetEnumerator()) {
-                $key = ($entry.Key.ToString()).ToLowerInvariant()
-                $ops[$key] = $entry.Value
-            }
+Add-KrMapRoute -Pattern '/openapi/{version}/openapi.{format}' -Method 'GET' -ScriptBlock {
+    $version = Get-KrRequestRouteParam -Name 'version' -AsString
+    $format = Get-KrRequestRouteParam -Name 'format' -AsString
+    $refresh = Get-KrRequestQuery -Name 'refresh' -AsBool
+    # 3. Validate requested version and format
+    try {
+        $specVersion = [Kestrun.OpenApi.OpenApiSpecVersionExtensions]::FromString($version)
+        if ($format -notin @('json', 'yaml')) {
+            throw "Unsupported OpenAPI format requested: $format"
         }
-        [pscustomobject]@{
-            Summary = $PathItem.Summary
-            Description = $PathItem.Description
-            Operations = $ops
-            Servers = $PathItem.Servers
-            Parameters = $PathItem.Parameters
-            Extensions = $PathItem.Extensions
-        }
+    } catch {
+        Write-KrLog -Level Warning -ErrorRecord $_ -Message 'Invalid OpenAPI version or format requested: {Version}, {Format}' -Values @($version, $format)
+        Write-KrStatusResponse -StatusCode 404
+        return
+    }
+    # 4. Build OpenAPI document
+    if ($refresh) {
+        Write-KrLog -Level Information -Message 'Refreshing OpenAPI document cache as requested.'
+        # Invalidate cached document descriptors to force rebuild
+        Build-KrOpenApiDocument
+    }
+
+    if ($format -eq 'yaml') {
+        $yml = Export-KrOpenApiDocument -Format 'yaml' -Version $specVersion # OpenAPI 3.1 YAML
+        Write-KrTextResponse -InputObject $yml -ContentType 'application/yaml'
+        return
+    } else {
+        $json = Export-KrOpenApiDocument -Format 'json' -Version $specVersion # OpenAPI 3.1 JSON
+        Write-KrTextResponse -InputObject $json -ContentType 'application/json'
     }
 }
+
+Build-KrOpenApiDocument
+
 
 # Preview the /status path with visible operations in JSON
 #if ($doc.Paths.ContainsKey('/status')) {

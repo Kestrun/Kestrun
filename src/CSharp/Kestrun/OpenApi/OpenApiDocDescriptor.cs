@@ -33,67 +33,65 @@ public class OpenApiDocDescriptor(KestrunHost host, string docId)
     /// </summary>
     public OpenApiDocument Document { get; init; } = new OpenApiDocument { Components = new OpenApiComponents() };
 
+
     /// <summary>
     /// Generates an OpenAPI document from the provided schema types.
     /// </summary>
     /// <param name="components">The set of discovered OpenAPI component types.</param>
-    /// <param name="title">The title of the API.</param>
-    /// <param name="version">The version of the API.</param>
     /// <returns>The generated OpenAPI document.</returns>
-    public void Generate(OpenApiComponentSet components, string title = "API", string version = "1.0.0")
+    public void Generate(OpenApiComponentSet components)
     {
-
-        Document.Info = new OpenApiInfo { Title = title, Version = version };
-
         Document.Paths = [];
 
         BuildPathsFromRegisteredRoutes(Host.RegisteredRoutes);
 
-        var built = new HashSet<Type>();
-        if (Document.Components is null && components.SchemaTypes.Any())
+        if (Document.Components!.Schemas == null)
         {
+
             Document.Components!.Schemas = new Dictionary<string, IOpenApiSchema>(StringComparer.Ordinal);
-            foreach (var t in components.SchemaTypes)
-            {
-                BuildSchema(t, Document, built);
-            }
         }
+
+        foreach (var t in components.SchemaTypes)
+        {
+            BuildSchema(t);
+        }
+
 
         foreach (var t in components.ParameterTypes)
         {
-            BuildParameters(t, Document);
+            BuildParameters(t);
         }
 
         foreach (var t in components.ResponseTypes)
         {
-            BuildResponses(t, Document);
+            BuildResponses(t);
         }
 
         foreach (var t in components.ExampleTypes)
         {
-            BuildExamples(t, Document);
+            BuildExamples(t);
         }
 
         foreach (var t in components.RequestBodyTypes)
         {
-            BuildRequestBodies(t, Document);
+            BuildRequestBodies(t);
         }
 
         foreach (var t in components.HeaderTypes)
         {
-            BuildHeaders(t, Document);
+            BuildHeaders(t);
         }
 
         // Links
         foreach (var t in components.LinkTypes)
         {
-            BuildLinks(t, Document);
+            BuildLinks(t);
         }
 
         // Callbacks
         foreach (var t in components.CallbackTypes)
         {
-            BuildCallbacks(t, Document);
+            BuildCallbacks(t);
         }
     }
 
@@ -286,8 +284,9 @@ public class OpenApiDocDescriptor(KestrunHost host, string docId)
     }
 
 
-    private static void BuildSchema(Type t, OpenApiDocument doc, HashSet<Type> built)
+    private void BuildSchema(Type t, HashSet<Type>? built = null)
     {
+        built ??= [];
         if (built.Contains(t))
         {
             return;
@@ -297,9 +296,9 @@ public class OpenApiDocDescriptor(KestrunHost host, string docId)
 
         if (t.IsEnum)
         {
-            if (doc.Components is not null && doc.Components.Schemas is not null)
+            if (Document.Components is not null && Document.Components.Schemas is not null)
             {
-                doc.Components.Schemas[t.Name] = new OpenApiSchema
+                Document.Components.Schemas[t.Name] = new OpenApiSchema
                 {
                     Type = JsonSchemaType.String,
                     Enum = [.. t.GetEnumNames().Select(n => (JsonNode)n)]
@@ -333,7 +332,7 @@ public class OpenApiDocDescriptor(KestrunHost host, string docId)
 
         foreach (var p in t.GetProperties(BindingFlags.Public | BindingFlags.Instance))
         {
-            var ps = BuildPropertySchema(p, doc, built);
+            var ps = BuildPropertySchema(p, built);
             // If this is a concrete schema and no explicit default is set, try to use the property default value
             if (inst is not null && ps is OpenApiSchema concrete && concrete.Default is null)
             {
@@ -363,112 +362,15 @@ public class OpenApiDocDescriptor(KestrunHost host, string docId)
         {
             ApplySchemaAttr(clsAttr, obj);
         }
-        if (doc.Components is not null && doc.Components.Schemas is not null)
+        if (Document.Components is not null && Document.Components.Schemas is not null)
         {
-            doc.Components.Schemas[t.Name] = obj;
+            Document.Components.Schemas[t.Name] = obj;
         }
     }
-    /// <summary>
-    /// Generates an OpenAPI document from the provided schema types, with optional extra components.
-    /// </summary>
-    /// <param name="schemaTypes">The schema types to include in the document.</param>
-    /// <param name="title">The title of the API.</param>
-    /// <param name="version">The version of the API.</param>
-    /// <param name="parameterTypes">Optional parameter types to include in the document.</param>
-    /// <param name="extra">Optional extra components to include in the document.</param>
-    /// <returns>The generated OpenAPI document.</returns>
-    public static OpenApiDocument Generate(
-              IEnumerable<Type> schemaTypes,
-
-              string title = "API",
-              string version = "1.0.0", IEnumerable<Type>? parameterTypes = null,
-              OpenApiComponentsInput? extra = null)
-    {
-        var doc = new OpenApiDocument
-        {
-            Info = new OpenApiInfo { Title = title, Version = version },
-            Components = new OpenApiComponents
-            {
-                // v2 wants IDictionary<string, IOpenApiSchema> for Schemas — these are filled below
-                Schemas = new Dictionary<string, IOpenApiSchema>(StringComparer.Ordinal)
-            },
-            Paths = []
-        };
-
-        // build schemas from types (your existing logic)
-        var built = new HashSet<Type>();
-        foreach (var t in schemaTypes)
-        {
-            BuildSchema(t, doc, built);
-        }
-
-        if (parameterTypes != null)
-        {
-            foreach (var t in parameterTypes)
-            {
-                BuildParameters(t, doc);
-            }
-        }
-
-        // merge optional component maps
-        if (extra != null)
-        {
-            if (extra.Responses != null)
-            {
-                doc.Components.Responses = extra.Responses;
-            }
-
-            if (extra.Parameters != null)
-            {
-                doc.Components.Parameters = extra.Parameters;
-            }
-
-            if (extra.Examples != null)
-            {
-                doc.Components.Examples = extra.Examples;
-            }
-
-            if (extra.RequestBodies != null)
-            {
-                doc.Components.RequestBodies = extra.RequestBodies;
-            }
-
-            if (extra.Headers != null)
-            {
-                doc.Components.Headers = extra.Headers;
-            }
-
-            if (extra.SecuritySchemes != null)
-            {
-                doc.Components.SecuritySchemes = extra.SecuritySchemes;
-            }
-
-            if (extra.Links != null)
-            {
-                doc.Components.Links = extra.Links;
-            }
-
-            if (extra.Callbacks != null)
-            {
-                doc.Components.Callbacks = extra.Callbacks;
-            }
-
-            if (extra.PathItems != null)
-            {
-                doc.Components.PathItems = extra.PathItems;
-            }
-
-            if (extra.Extensions != null)
-            {
-                doc.Components.Extensions = extra.Extensions;
-            }
-        }
-
-        return doc;
-    }
 
 
-    private static IOpenApiSchema BuildPropertySchema(PropertyInfo p, OpenApiDocument doc, HashSet<Type> built)
+
+    private IOpenApiSchema BuildPropertySchema(PropertyInfo p, HashSet<Type> built)
     {
         var pt = p.PropertyType;
         var allowNull = false;
@@ -482,7 +384,7 @@ public class OpenApiDocDescriptor(KestrunHost host, string docId)
         // complex type -> $ref via OpenApiSchemaReference
         if (!IsPrimitiveLike(pt) && !pt.IsEnum && !pt.IsArray)
         {
-            BuildSchema(pt, doc, built); // ensure component exists
+            BuildSchema(pt, built); // ensure component exists
             var refSchema = new OpenApiSchemaReference(pt.Name);
             ApplySchemaAttr(p.GetCustomAttribute<OpenApiSchemaAttribute>(), refSchema);
             return refSchema;
@@ -516,7 +418,7 @@ public class OpenApiDocDescriptor(KestrunHost host, string docId)
             if (!IsPrimitiveLike(item) && !item.IsEnum)
             {
                 // ensure the component exists
-                BuildSchema(item, doc, built);
+                BuildSchema(item, built);
                 // then reference it
                 itemSchema = new OpenApiSchemaReference(item.Name);
             }
@@ -928,23 +830,23 @@ public class OpenApiDocDescriptor(KestrunHost host, string docId)
     }
 
     // Ensure a schema component exists for a complex .NET type
-    private static void EnsureSchemaComponent(Type complexType, OpenApiDocument doc)
+    private void EnsureSchemaComponent(Type complexType)
     {
-        if (doc.Components?.Schemas != null && doc.Components.Schemas.ContainsKey(complexType.Name))
+        if (Document.Components?.Schemas != null && Document.Components.Schemas.ContainsKey(complexType.Name))
         {
             return;
         }
 
         var temp = new HashSet<Type>();
-        BuildSchema(complexType, doc, temp);
+        BuildSchema(complexType, temp);
     }
 
 
-    private static void BuildParameters(Type t, OpenApiDocument doc)
+    private void BuildParameters(Type t)
     {
-        if (doc.Components!.Parameters == null)
+        if (Document.Components!.Parameters == null)
         {
-            doc.Components.Parameters = new Dictionary<string, IOpenApiParameter>(StringComparer.Ordinal);
+            Document.Components.Parameters = new Dictionary<string, IOpenApiParameter>(StringComparer.Ordinal);
         }
 
         const BindingFlags flags = BindingFlags.Public | BindingFlags.Instance;
@@ -1029,7 +931,7 @@ public class OpenApiDocDescriptor(KestrunHost host, string docId)
                 if (!IsPrimitiveLike(elem) && !elem.IsEnum)
                 {
                     // ensure a component schema exists for the complex element and $ref it
-                    EnsureSchemaComponent(elem, doc);
+                    EnsureSchemaComponent(elem);
                     itemSchema = new OpenApiSchemaReference(elem.Name);
                 }
                 else
@@ -1055,7 +957,7 @@ public class OpenApiDocDescriptor(KestrunHost host, string docId)
             // COMPLEX → ensure component + $ref
             else if (!IsPrimitiveLike(pt))
             {
-                EnsureSchemaComponent(pt, doc);
+                EnsureSchemaComponent(pt);
                 var r = new OpenApiSchemaReference(pt.Name);
                 ApplySchemaAttr(schemaAttr as OpenApiSchemaAttribute, r);
                 paramSchema = r;
@@ -1117,25 +1019,11 @@ public class OpenApiDocDescriptor(KestrunHost host, string docId)
 
             // Compute component key using class-level JoinClassName (if present) or just member name
             var key = BuildParameterKey(t, p.Name);
-            doc.Components.Parameters[key] = param;
+            Document.Components.Parameters[key] = param;
         }
 
         // ---- local helpers ----
 
-        // Ensure a schema component exists for a complex .NET type
-        static void EnsureSchemaComponent(Type complexType, OpenApiDocument doc)
-        {
-            // If schema already present, bail
-            if (doc.Components?.Schemas != null && doc.Components.Schemas.ContainsKey(complexType.Name))
-            {
-                return;
-            }
-
-            // Minimal one-off build (avoids needing the outer 'built' set)
-            // If you prefer, you can expose and pass the outer HashSet<Type> instead.
-            var temp = new HashSet<Type>();
-            BuildSchema(complexType, doc, temp);
-        }
 
         static string BuildParameterKey(Type declaringType, string memberName)
         {
@@ -1151,11 +1039,11 @@ public class OpenApiDocDescriptor(KestrunHost host, string docId)
         }
     }
 
-    private static void BuildResponses(Type t, OpenApiDocument doc)
+    private void BuildResponses(Type t)
     {
-        if (doc.Components!.Responses == null)
+        if (Document.Components!.Responses == null)
         {
-            doc.Components.Responses = new Dictionary<string, IOpenApiResponse>(StringComparer.Ordinal);
+            Document.Components.Responses = new Dictionary<string, IOpenApiResponse>(StringComparer.Ordinal);
         }
 
         // 1) Class-level [OpenApiResponse(...)] attributes
@@ -1169,7 +1057,7 @@ public class OpenApiDocDescriptor(KestrunHost host, string docId)
             var resp = CreateResponseFromAttribute(a);
             var custom = GetNameOverride(a);
             var key = !string.IsNullOrWhiteSpace(custom) ? custom! : t.Name;
-            doc.Components!.Responses![key] = resp;
+            Document.Components!.Responses![key] = resp;
         }
 
         const BindingFlags flags = BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly;
@@ -1190,7 +1078,7 @@ public class OpenApiDocDescriptor(KestrunHost host, string docId)
                 var resp = CreateResponseFromAttribute(a);
                 var custom = GetNameOverride(a);
                 var key = !string.IsNullOrWhiteSpace(custom) ? custom! : BuildMemberResponseKey(t, p.Name);
-                doc.Components!.Responses![key] = resp;
+                Document.Components!.Responses![key] = resp;
             }
         }
 
@@ -1209,7 +1097,7 @@ public class OpenApiDocDescriptor(KestrunHost host, string docId)
                 var resp = CreateResponseFromAttribute(a);
                 var custom = GetNameOverride(a);
                 var key = !string.IsNullOrWhiteSpace(custom) ? custom! : BuildMemberResponseKey(t, f.Name);
-                doc.Components!.Responses![key] = resp;
+                Document.Components!.Responses![key] = resp;
             }
         }
     }
@@ -1260,11 +1148,11 @@ public class OpenApiDocDescriptor(KestrunHost host, string docId)
         return response;
     }
 
-    private static void BuildExamples(Type t, OpenApiDocument doc)
+    private void BuildExamples(Type t)
     {
-        if (doc.Components!.Examples == null)
+        if (Document.Components!.Examples == null)
         {
-            doc.Components.Examples = new Dictionary<string, IOpenApiExample>(StringComparer.Ordinal);
+            Document.Components.Examples = new Dictionary<string, IOpenApiExample>(StringComparer.Ordinal);
         }
 
         // class-level
@@ -1275,7 +1163,7 @@ public class OpenApiDocDescriptor(KestrunHost host, string docId)
         {
             var ex = CreateExampleFromAttribute(a);
             var name = GetNameOverride(a) ?? t.Name;
-            doc.Components!.Examples![name] = ex;
+            Document.Components!.Examples![name] = ex;
         }
 
         // If no class-level [OpenApiExample] attribute but the class is marked as Example kind,
@@ -1293,7 +1181,7 @@ public class OpenApiDocDescriptor(KestrunHost host, string docId)
                     {
                         var inst = Activator.CreateInstance(t);
                         var ex = new OpenApiExample { Value = ToNode(inst) };
-                        doc.Components!.Examples![t.Name] = ex;
+                        Document.Components!.Examples![t.Name] = ex;
                     }
                     catch { /* ignore */ }
                 }
@@ -1326,7 +1214,7 @@ public class OpenApiDocDescriptor(KestrunHost host, string docId)
                     catch { /* ignore */ }
                 }
                 var name = GetNameOverride(a) ?? BuildMemberResponseKey(t, p.Name); // reuse same join logic
-                doc.Components!.Examples![name] = ex;
+                Document.Components!.Examples![name] = ex;
             }
         }
 
@@ -1353,7 +1241,7 @@ public class OpenApiDocDescriptor(KestrunHost host, string docId)
                     catch { /* ignore */ }
                 }
                 var name = GetNameOverride(a) ?? BuildMemberResponseKey(t, f.Name);
-                doc.Components!.Examples![name] = ex;
+                Document.Components!.Examples![name] = ex;
             }
         }
 
@@ -1385,9 +1273,9 @@ public class OpenApiDocDescriptor(KestrunHost host, string docId)
         }
     }
 
-    private static void BuildRequestBodies(Type t, OpenApiDocument doc)
+    private void BuildRequestBodies(Type t)
     {
-        doc.Components!.RequestBodies ??= new Dictionary<string, IOpenApiRequestBody>(StringComparer.Ordinal);
+        Document.Components!.RequestBodies ??= new Dictionary<string, IOpenApiRequestBody>(StringComparer.Ordinal);
 
         // class-level
         var classAttrs = t.GetCustomAttributes(inherit: false)
@@ -1395,9 +1283,9 @@ public class OpenApiDocDescriptor(KestrunHost host, string docId)
                           .ToArray();
         foreach (var a in classAttrs)
         {
-            var rb = CreateRequestBodyFromAttribute(a, t, doc);
+            var rb = CreateRequestBodyFromAttribute(a, t);
             var name = GetNameOverride(a) ?? t.Name;
-            doc.Components!.RequestBodies![name] = rb;
+            Document.Components!.RequestBodies![name] = rb;
         }
 
         // If no class-level [OpenApiRequestBody] but the class is marked RequestBody kind,
@@ -1415,7 +1303,7 @@ public class OpenApiDocDescriptor(KestrunHost host, string docId)
                     if (!inline)
                     {
                         // Ensure a schema exists for this class and reference it
-                        EnsureSchemaComponent(t, doc);
+                        EnsureSchemaComponent(t);
                     }
                     var rb = new OpenApiRequestBody
                     {
@@ -1425,7 +1313,7 @@ public class OpenApiDocDescriptor(KestrunHost host, string docId)
                         {
                             ["application/json"] = new OpenApiMediaType
                             {
-                                Schema = inline ? BuildInlineSchemaFromType(t, doc) : new OpenApiSchemaReference(t.Name)
+                                Schema = inline ? BuildInlineSchemaFromType(t) : new OpenApiSchemaReference(t.Name)
                             }
                         }
                     };
@@ -1436,7 +1324,7 @@ public class OpenApiDocDescriptor(KestrunHost host, string docId)
                     }
                     catch { /* ignore */ }
 
-                    doc.Components!.RequestBodies![t.Name] = rb;
+                    Document.Components!.RequestBodies![t.Name] = rb;
                 }
             }
         }
@@ -1458,7 +1346,7 @@ public class OpenApiDocDescriptor(KestrunHost host, string docId)
                     TryPopulateExampleFromDefault(t, p, rb);
                 }
                 var name = GetNameOverride(a) ?? BuildMemberResponseKey(t, p.Name);
-                doc.Components!.RequestBodies![name] = rb;
+                Document.Components!.RequestBodies![name] = rb;
             }
         }
 
@@ -1476,7 +1364,7 @@ public class OpenApiDocDescriptor(KestrunHost host, string docId)
                     TryPopulateExampleFromDefault(t, f, rb);
                 }
                 var name = GetNameOverride(a) ?? BuildMemberResponseKey(t, f.Name);
-                doc.Components!.RequestBodies![name] = rb;
+                Document.Components!.RequestBodies![name] = rb;
             }
         }
 
@@ -1508,7 +1396,7 @@ public class OpenApiDocDescriptor(KestrunHost host, string docId)
         }
     }
 
-    private static OpenApiRequestBody CreateRequestBodyFromAttribute(object attr, Type? declaringType = null, OpenApiDocument? doc = null)
+    private OpenApiRequestBody CreateRequestBodyFromAttribute(object attr, Type? declaringType = null)
     {
         var t = attr.GetType();
         var description = t.GetProperty("Description")?.GetValue(attr) as string;
@@ -1527,9 +1415,9 @@ public class OpenApiDocDescriptor(KestrunHost host, string docId)
                 [contentType] = new OpenApiMediaType
                 {
                     Schema = inline
-                        ? (!string.IsNullOrWhiteSpace(schemaRef) && doc != null
-                            ? BuildInlineSchemaFromRefOrType(schemaRef, declaringType, doc)
-                            : (declaringType != null ? BuildInlineSchemaFromType(declaringType, doc!) : null))
+                        ? (!string.IsNullOrWhiteSpace(schemaRef)
+                            ? BuildInlineSchemaFromRefOrType(schemaRef, declaringType)
+                            : (declaringType != null ? BuildInlineSchemaFromType(declaringType) : null))
                         : (string.IsNullOrWhiteSpace(schemaRef) ? null : new OpenApiSchemaReference(schemaRef))
                 }
             }
@@ -1543,13 +1431,13 @@ public class OpenApiDocDescriptor(KestrunHost host, string docId)
         return rb;
     }
 
-    private static IOpenApiSchema? BuildInlineSchemaFromRefOrType(string _, Type? fallbackType, OpenApiDocument __)
-        => fallbackType != null ? BuildInlineSchemaFromType(fallbackType, __) : new OpenApiSchema { Type = JsonSchemaType.Object };
+    private IOpenApiSchema? BuildInlineSchemaFromRefOrType(string _, Type? fallbackType)
+        => fallbackType != null ? BuildInlineSchemaFromType(fallbackType) : new OpenApiSchema { Type = JsonSchemaType.Object };
 
 
 
     // Overload that ensures nested complex types have component schemas available in the document
-    private static IOpenApiSchema BuildInlineSchemaFromType(Type t, OpenApiDocument doc)
+    private IOpenApiSchema BuildInlineSchemaFromType(Type t)
     {
         var obj = new OpenApiSchema
         {
@@ -1591,14 +1479,14 @@ public class OpenApiDocDescriptor(KestrunHost host, string docId)
                 }
                 else
                 {
-                    EnsureSchemaComponent(elem, doc);
+                    EnsureSchemaComponent(elem);
                     item = new OpenApiSchemaReference(elem.Name);
                 }
                 ps = new OpenApiSchema { Type = JsonSchemaType.Array, Items = item };
             }
             else if (!IsPrimitiveLike(pt))
             {
-                EnsureSchemaComponent(pt, doc);
+                EnsureSchemaComponent(pt);
                 ps = new OpenApiSchemaReference(pt.Name);
             }
             else
@@ -1636,9 +1524,9 @@ public class OpenApiDocDescriptor(KestrunHost host, string docId)
         return obj;
     }
 
-    private static void BuildHeaders(Type t, OpenApiDocument doc)
+    private void BuildHeaders(Type t)
     {
-        doc.Components!.Headers ??= new Dictionary<string, IOpenApiHeader>(StringComparer.Ordinal);
+        Document.Components!.Headers ??= new Dictionary<string, IOpenApiHeader>(StringComparer.Ordinal);
 
         // class-level
         var classAttrs = t.GetCustomAttributes(inherit: false)
@@ -1648,7 +1536,7 @@ public class OpenApiDocDescriptor(KestrunHost host, string docId)
         {
             var h = CreateHeaderFromAttribute(a);
             var name = GetNameOverride(a) ?? t.Name;
-            doc.Components!.Headers![name] = h;
+            Document.Components!.Headers![name] = h;
         }
 
         const BindingFlags flags = BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly;
@@ -1663,7 +1551,7 @@ public class OpenApiDocDescriptor(KestrunHost host, string docId)
             {
                 var h = CreateHeaderFromAttribute(a);
                 var name = GetNameOverride(a) ?? BuildMemberResponseKey(t, p.Name);
-                doc.Components!.Headers![name] = h;
+                Document.Components!.Headers![name] = h;
             }
         }
 
@@ -1677,7 +1565,7 @@ public class OpenApiDocDescriptor(KestrunHost host, string docId)
             {
                 var h = CreateHeaderFromAttribute(a);
                 var name = GetNameOverride(a) ?? BuildMemberResponseKey(t, f.Name);
-                doc.Components!.Headers![name] = h;
+                Document.Components!.Headers![name] = h;
             }
         }
     }
@@ -1826,9 +1714,9 @@ public class OpenApiDocDescriptor(KestrunHost host, string docId)
         return header;
     }
 
-    private static void BuildLinks(Type t, OpenApiDocument doc)
+    private void BuildLinks(Type t)
     {
-        doc.Components!.Links ??= new Dictionary<string, IOpenApiLink>(StringComparer.Ordinal);
+        Document.Components!.Links ??= new Dictionary<string, IOpenApiLink>(StringComparer.Ordinal);
 
         // Class-first pattern: instantiate and read well-known members
         object? inst;
@@ -1960,7 +1848,7 @@ public class OpenApiDocDescriptor(KestrunHost host, string docId)
         }
 
         // Component key is class name
-        doc.Components!.Links[t.Name] = link;
+        Document.Components!.Links[t.Name] = link;
 
         static OpenApiServer? BuildServer(object value)
         {
@@ -2134,9 +2022,9 @@ public class OpenApiDocDescriptor(KestrunHost host, string docId)
         }
     }
 
-    private static void BuildCallbacks(Type t, OpenApiDocument doc)
+    private void BuildCallbacks(Type t)
     {
-        doc.Components!.Callbacks ??= new Dictionary<string, IOpenApiCallback>(StringComparer.Ordinal);
+        Document.Components!.Callbacks ??= new Dictionary<string, IOpenApiCallback>(StringComparer.Ordinal);
 
         // Instantiate the class to pull default values
         object? inst = null;
@@ -2207,6 +2095,6 @@ public class OpenApiDocDescriptor(KestrunHost host, string docId)
             }
         }
 
-        doc.Components!.Callbacks[t.Name] = cb;
+        Document.Components!.Callbacks[t.Name] = cb;
     }
 }

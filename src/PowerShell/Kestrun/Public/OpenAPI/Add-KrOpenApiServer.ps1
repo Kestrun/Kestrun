@@ -18,7 +18,7 @@
     Microsoft.OpenApi.OpenApiServer
 #>
 function Add-KrOpenApiServer {
-    [KestrunRuntimeApi('Definition')]
+    [KestrunRuntimeApi('Everywhere')]
     param(
         [Parameter(Mandatory = $false, ValueFromPipeline = $true)]
         [Kestrun.Hosting.KestrunHost]$Server,

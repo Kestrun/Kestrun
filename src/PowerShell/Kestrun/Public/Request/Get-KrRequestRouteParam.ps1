@@ -47,6 +47,7 @@ function Get-KrRequestRouteParam {
         [switch]$AsInt,
 
         [Parameter(parameterSetName = 'Bool')]
+        [Alias('AsBoolean')]
         [switch]$AsBool,
 
         [Parameter(parameterSetName = 'Double')]

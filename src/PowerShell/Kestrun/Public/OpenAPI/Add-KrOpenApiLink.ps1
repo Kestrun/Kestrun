@@ -30,7 +30,7 @@
     This cmdlet is part of the OpenAPI module.
 #>
 function Add-KrOpenApiLink {
-    [KestrunRuntimeApi('Definition')]
+    [KestrunRuntimeApi('Everywhere')]
     param(
         [Parameter(Mandatory = $false, ValueFromPipeline = $true)]
         [Kestrun.Hosting.KestrunHost]$Server,

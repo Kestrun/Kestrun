@@ -20,6 +20,7 @@
 #>
 function New-KrOpenApiServerVariable {
     [Diagnostics.CodeAnalysis.SuppressMessage('PSUseShouldProcessForStateChangingFunctions', '')]
+    [KestrunRuntimeApi('Everywhere')]
     [CmdletBinding()]
     param(
         [Parameter(ValueFromPipeline = $true, Position = 0)]
@@ -51,7 +52,6 @@ function New-KrOpenApiServerVariable {
         $dict[$Name] = [Microsoft.OpenApi.OpenApiServerVariable]::new()
     }
     end {
-
         if ($PSBoundParameters.ContainsKey('Default')) { $dict[$Name].default = $Default }
         if ($PSBoundParameters.ContainsKey('Description')) { $dict[$Name].description = $Description }
         if ($PSBoundParameters.ContainsKey('Enum') -and $Enum) {

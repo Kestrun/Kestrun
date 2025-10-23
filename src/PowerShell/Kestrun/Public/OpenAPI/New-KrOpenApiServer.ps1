@@ -19,7 +19,7 @@
 #>
 function New-KrOpenApiServer {
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseShouldProcessForStateChangingFunctions', '')]
-    [KestrunRuntimeApi('Definition')]
+    [KestrunRuntimeApi('Everywhere')]
     param(
         [Parameter(Mandatory)]
         [string]$Url,

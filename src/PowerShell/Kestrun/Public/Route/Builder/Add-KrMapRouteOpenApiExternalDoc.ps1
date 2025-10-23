@@ -18,7 +18,7 @@
 .NOTES
     This cmdlet is part of the route builder module.
 #>
-function Add-KrMapRouteOpenApiExternalDocs {
+function Add-KrMapRouteOpenApiExternalDoc {
     [KestrunRuntimeApi('Definition')]
     [OutputType([Kestrun.Hosting.Options.MapRouteBuilder])]
     param (

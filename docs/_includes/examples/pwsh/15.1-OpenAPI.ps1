@@ -229,20 +229,20 @@ Add-KrEndpoint -Port $Port -IPAddress $IPAddress
 Enable-KrConfiguration
 
 
-New-KrMapRouteBuilder -Verbs @('GET', 'HEAD') -Pattern '/status' |
+New-KrMapRouteBuilder -Verbs @('GET', 'HEAD', 'POST', 'TRACE') -Pattern '/status' |
     Add-KrMapRouteScriptBlock -ScriptBlock {
         Write-KrLog -Level Debug -Message 'Health check'
         Write-KrJsonResponse -InputObject @{ status = 'healthy' }
     } |
-    Add-KrMapRouteOpenApiInfo -Summary 'Health check endpoint' -Description 'Returns the health status of the service.' |
+    Add-KrMapRouteOpenApiInfo -Summary 'Health check endpoint' -Description 'Returns the health status of the service.'   |
     Add-KrMapRouteOpenApiInfo -Verbs 'GET' -OperationId 'GetStatus' |
     Add-KrMapRouteOpenApiServer -Server (New-KrOpenApiServer -Url 'https://api.example.com/v1' -Description 'Production Server') |
     Add-KrMapRouteOpenApiServer -Server (New-KrOpenApiServer -Url 'https://staging-api.example.com/v1' -Description 'Staging Server') |
+    Add-KrMapRouteOpenApiRequestBody -Verbs @('POST', 'GET', 'TRACE') -Description 'Healthy status2' -Reference 'CreateAddressBody' -Force |
+    Add-KrMapRouteOpenApiExternalDocs -Description 'Find more info here' -Url 'https://example.com/docs' |
     Add-KrMapRouteOpenApiResponse -StatusCode '200' -Description 'Healthy status' -SchemaRef 'Address' |
     Add-KrMapRouteOpenApiResponse -StatusCode '503' -Description 'Service unavailable' |
     Build-KrMapRoute
-
-
 
 
 # 4) Generate & serialize

@@ -1,4 +1,4 @@
-﻿<#
+<#
 .SYNOPSIS
     Adds OpenAPI metadata to a Map Route Builder.
 .DESCRIPTION

@@ -1,4 +1,4 @@
-﻿<#
+<#
 .SYNOPSIS
     Adds an OpenAPI request body to a Map Route Builder.
 .DESCRIPTION

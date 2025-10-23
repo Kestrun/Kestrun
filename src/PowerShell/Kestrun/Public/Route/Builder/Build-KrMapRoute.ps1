@@ -1,4 +1,4 @@
-﻿<#
+<#
 .SYNOPSIS
     Builds and adds the Map Route to the Kestrun server.
 .DESCRIPTION

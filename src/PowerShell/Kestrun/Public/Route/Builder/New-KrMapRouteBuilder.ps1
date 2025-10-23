@@ -1,4 +1,4 @@
-﻿<#
+<#
 .SYNOPSIS
     Creates a new Map Route Builder for defining route mappings.
 .DESCRIPTION

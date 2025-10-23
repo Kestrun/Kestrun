@@ -1,4 +1,4 @@
-﻿<#
+<#
 .SYNOPSIS
     Adds a code block to a Map Route Builder.
 .DESCRIPTION

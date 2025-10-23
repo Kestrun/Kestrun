@@ -11,7 +11,15 @@ paths:
       summary: Health check endpoint
       description: Returns the health status of the service.
       operationId: GetStatus
-      responses: { }
+      responses:
+        '200':
+          description: Healthy status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Address'
+        '503':
+          description: Service unavailable
       servers:
         - url: https://api.example.com/v1
           description: Production Server
@@ -127,16 +135,16 @@ components:
           type: string
           description: The request identifier
           format: uuid
-          default: 3309cfc7-b0ba-4c51-9168-c6cdcf920914
+          default: d501be2d-d754-4d1b-8c8a-82838d8d06d8
         SecondsSinceEpoch:
           type: integer
           description: Seconds since epoch
           format: int64
-          default: 1761084198
+          default: 1761145841
         CreatedAt:
           type: string
           format: date-time
-          default: '2025-10-21T22:03:18.7414003Z'
+          default: '2025-10-22T15:10:41.6330681Z'
     PatchAddressBody:
       type: object
       properties:
@@ -203,9 +211,9 @@ components:
             PostalCode: '12345'
             ApartmentNumber: 101
             Country: USA
-            RequestId: 61dc2f5f-12f8-4322-8b80-f8e9b1190298
-            SecondsSinceEpoch: 1761084198
-            CreatedAt: '2025-10-21T22:03:18.7433438Z'
+            RequestId: 4cab71a8-53a9-44e1-9cb9-a96a9eac07bf
+            SecondsSinceEpoch: 1761145841
+            CreatedAt: '2025-10-22T15:10:41.6344644Z'
     PatchAddressBody:
       description: Request body
       content:

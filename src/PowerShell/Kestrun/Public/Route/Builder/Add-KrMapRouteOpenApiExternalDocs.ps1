@@ -1,4 +1,4 @@
-﻿<#
+<#
 .SYNOPSIS
     Adds OpenAPI external documentation to a Map Route Builder.
 .DESCRIPTION

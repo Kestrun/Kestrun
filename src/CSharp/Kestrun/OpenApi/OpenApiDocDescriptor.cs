@@ -14,8 +14,25 @@ namespace Kestrun.OpenApi;
 /// <summary>
 /// Generates OpenAPI v2 (Swagger) documents from C# types decorated with OpenApiSchema attributes.
 /// </summary>
-public static class OpenApiV2Generator
+/// <param name="host">The Kestrun host providing registered routes.</param>
+/// <param name="docId">The ID of the OpenAPI document being generated.</param>
+public class OpenApiDocDescriptor(KestrunHost host, string docId)
 {
+    /// <summary>
+    /// The Kestrun host providing registered routes.
+    /// </summary>
+    public KestrunHost Host { get; init; } = host;
+
+    /// <summary>
+    /// The ID of the OpenAPI document being generated.
+    /// </summary>
+    public string DocumentId { get; init; } = docId;
+
+    /// <summary>
+    /// The OpenAPI document being generated.
+    /// </summary>
+    public OpenApiDocument Document { get; init; } = new OpenApiDocument { Components = new OpenApiComponents() };
+
     /// <summary>
     /// Generates an OpenAPI document from the provided schema types.
     /// </summary>
@@ -23,132 +40,96 @@ public static class OpenApiV2Generator
     /// <param name="title">The title of the API.</param>
     /// <param name="version">The version of the API.</param>
     /// <returns>The generated OpenAPI document.</returns>
-    public static OpenApiDocument Generate(OpenApiComponentSet components, string title = "API", string version = "1.0.0")
+    public void Generate(OpenApiComponentSet components, string title = "API", string version = "1.0.0")
     {
-        var doc = new OpenApiDocument
-        {
-            Info = new OpenApiInfo { Title = title, Version = version },
-            Components = new OpenApiComponents
-            {
-                Schemas = new Dictionary<string, IOpenApiSchema>(StringComparer.Ordinal)
-            },
-            Paths = []
-        };
+
+        Document.Info = new OpenApiInfo { Title = title, Version = version };
+
+        Document.Paths = [];
+
+        BuildPathsFromRegisteredRoutes(Host.RegisteredRoutes);
 
         var built = new HashSet<Type>();
-        foreach (var t in components.SchemaTypes)
+        if (Document.Components is null && components.SchemaTypes.Any())
         {
-            BuildSchema(t, doc, built);
+            Document.Components!.Schemas = new Dictionary<string, IOpenApiSchema>(StringComparer.Ordinal);
+            foreach (var t in components.SchemaTypes)
+            {
+                BuildSchema(t, Document, built);
+            }
         }
 
         foreach (var t in components.ParameterTypes)
         {
-            BuildParameters(t, doc);
+            BuildParameters(t, Document);
         }
 
         foreach (var t in components.ResponseTypes)
         {
-            BuildResponses(t, doc);
+            BuildResponses(t, Document);
         }
 
         foreach (var t in components.ExampleTypes)
         {
-            BuildExamples(t, doc);
+            BuildExamples(t, Document);
         }
 
         foreach (var t in components.RequestBodyTypes)
         {
-            BuildRequestBodies(t, doc);
+            BuildRequestBodies(t, Document);
         }
 
         foreach (var t in components.HeaderTypes)
         {
-            BuildHeaders(t, doc);
+            BuildHeaders(t, Document);
         }
 
         // Links
         foreach (var t in components.LinkTypes)
         {
-            BuildLinks(t, doc);
+            BuildLinks(t, Document);
         }
 
         // Callbacks
         foreach (var t in components.CallbackTypes)
         {
-            BuildCallbacks(t, doc);
+            BuildCallbacks(t, Document);
         }
-
-        return doc;
     }
 
-    /// <summary>
-    /// Generates an OpenAPI document from the provided components and the host's registered routes.
-    /// Builds Paths by mapping KestrunHost.RegisteredRoutes to OpenAPI PathItem/Operations using MapRouteOptions.OpenAPI metadata.
-    /// </summary>
-    /// <param name="components">Discovered OpenAPI component types to include.</param>
-    /// <param name="host">The Kestrun host providing registered routes.</param>
-    /// <param name="title">API title.</param>
-    /// <param name="version">API version.</param>
-    /// <returns>The generated OpenAPI document including paths.</returns>
-    public static OpenApiDocument Generate(OpenApiComponentSet components, KestrunHost host, string title = "API", string version = "1.0.0")
-    {
-        var doc = Generate(components, title, version);
-        if (host is not null)
-        {
-            BuildPathsFromRegisteredRoutes(host.RegisteredRoutes, doc);
-        }
-        return doc;
-    }
     /// <summary>
     /// Serializes the OpenAPI document to a JSON string.
     /// </summary>
-    /// <param name="doc">The OpenAPI document to serialize.</param>
-    /// <param name="as31">Whether to serialize as OpenAPI 3.1.</param>
+    /// <param name="version">The OpenAPI specification version to serialize as.</param>
     /// <returns>The serialized JSON string.</returns>
-    public static string ToJson(OpenApiDocument doc, bool as31 = true)
+    public string ToJson(OpenApiSpecVersion version)
     {
         using var sw = new StringWriter();
         var w = new OpenApiJsonWriter(sw);
-        if (as31)
-        {
-            doc.SerializeAsV31(w);
-        }
-        else
-        {
-            doc.SerializeAsV3(w);
-        }
-
+        Document.SerializeAs(version, w);
         return sw.ToString();
     }
 
     /// <summary>
     /// Serializes the OpenAPI document to a YAML string.
     /// </summary>
-    /// <param name="doc">The OpenAPI document to serialize.</param>
-    /// <param name="as31">Whether to serialize as OpenAPI 3.1.</param>
+    /// <param name="version">The OpenAPI specification version to serialize as.</param>
     /// <returns>The serialized YAML string.</returns>
-    public static string ToYaml(OpenApiDocument doc, bool as31 = true)
+    public string ToYaml(OpenApiSpecVersion version)
     {
         using var sw = new StringWriter();
         var w = new OpenApiYamlWriter(sw);
-        if (as31)
-        {
-            doc.SerializeAsV31(w);
-        }
-        else
-        {
-            doc.SerializeAsV3(w);
-        }
-
+        Document.SerializeAs(version, w);
         return sw.ToString();
     }
+
 
     // ---- internals ----
 
     /// <summary>
-    /// Populates doc.Paths from the registered routes using OpenAPI metadata on each route.
+    /// Populates Document.Paths from the registered routes using OpenAPI metadata on each route.
     /// </summary>
-    private static void BuildPathsFromRegisteredRoutes(IDictionary<(string Pattern, HttpVerb Method), MapRouteOptions> routes, OpenApiDocument doc)
+    private void BuildPathsFromRegisteredRoutes(IDictionary<(string Pattern, HttpVerb Method), MapRouteOptions> routes)
     {
         if (routes is null || routes.Count == 0)
         {
@@ -156,19 +137,21 @@ public static class OpenApiV2Generator
         }
 
         // Group by path pattern
-        foreach (var grp in routes.GroupBy(kvp => kvp.Key.Pattern, StringComparer.Ordinal))
+        foreach (var grp in routes
+            .GroupBy(kvp => kvp.Key.Pattern, StringComparer.Ordinal)
+            .Where(g => !string.IsNullOrWhiteSpace(g.Key))
+            .Where(g => g.Any(kvp => kvp.Value?.OpenAPI?.Count > 0)))
         {
             OpenAPICommonMetadata? pathMeta = null;
             var pattern = grp.Key;
-            if (string.IsNullOrWhiteSpace(pattern)) { continue; }
 
             // Ensure a PathItem exists
-            doc.Paths ??= [];
+            Document.Paths ??= [];
 
-            if (!doc.Paths.TryGetValue(pattern, out var pathInterface) || pathInterface is null)
+            if (!Document.Paths.TryGetValue(pattern, out var pathInterface) || pathInterface is null)
             {
                 pathInterface = new OpenApiPathItem();
-                doc.Paths[pattern] = pathInterface;
+                Document.Paths[pattern] = pathInterface;
             }
 
             var pathItem = (OpenApiPathItem)pathInterface;
@@ -177,7 +160,11 @@ public static class OpenApiV2Generator
             {
                 var method = kvp.Key.Method;
                 var map = kvp.Value;
-                if (map is null) { continue; }
+                if (map is null || map.OpenAPI.Count == 0)
+                {
+                    continue;
+                }
+
                 if ((map.PathLevelOpenAPIMetadata is not null) && (pathMeta is null))
                 {
                     pathMeta = map.PathLevelOpenAPIMetadata;
@@ -229,71 +216,75 @@ public static class OpenApiV2Generator
             }
 
         }
-
-
-
-        static OpenApiOperation BuildOperationFromMetadata(OpenAPIMetadata meta)
-        {
-            var op = new OpenApiOperation
-            {
-                OperationId = string.IsNullOrWhiteSpace(meta.OperationId) ? null : meta.OperationId,
-
-                Summary = string.IsNullOrWhiteSpace(meta.Summary) ? null : meta.Summary,
-                Description = string.IsNullOrWhiteSpace(meta.Description) ? null : meta.Description,
-                Deprecated = meta.Deprecated
-            };
-
-            // Tags (optional): omit here due to model variance; can be added as references by callers if needed
-
-            // External docs
-            if (meta.ExternalDocs is not null)
-            {
-                op.ExternalDocs = meta.ExternalDocs;
-            }
-
-            // Servers (operation-level)
-            try
-            {
-                if (meta.Servers is { Count: > 0 })
-                {
-                    dynamic d = op;
-                    if (d.Servers == null) { d.Servers = new List<OpenApiServer>(); }
-                    foreach (var s in meta.Servers) { d.Servers.Add(s); }
-                }
-            }
-            catch { }
-
-            // Parameters (operation-level)
-            try
-            {
-                if (meta.Parameters is { Count: > 0 })
-                {
-                    dynamic d = op;
-                    if (d.Parameters == null) { d.Parameters = new List<IOpenApiParameter>(); }
-                    foreach (var p in meta.Parameters) { d.Parameters.Add(p); }
-                }
-            }
-            catch { }
-
-
-            // Request body
-            if (meta.RequestBody is not null)
-            {
-                op.RequestBody = meta.RequestBody;
-            }
-
-            // Responses (required by spec)
-            op.Responses = meta.Responses ?? new OpenApiResponses { ["200"] = new OpenApiResponse { Description = "Success" } };
-
-            // Callbacks
-            if (meta.Callbacks is not null && meta.Callbacks.Count > 0)
-            {
-                op.Callbacks = new Dictionary<string, IOpenApiCallback>(meta.Callbacks);
-            }
-
-            return op;
-        }
     }
+
+    /// <summary>
+    /// Builds an OpenApiOperation from OpenAPIMetadata.
+    /// </summary>
+    /// <param name="meta">The OpenAPIMetadata to build from.</param>
+    /// <returns>The constructed OpenApiOperation.</returns>
+    private static OpenApiOperation BuildOperationFromMetadata(OpenAPIMetadata meta)
+    {
+        var op = new OpenApiOperation
+        {
+            OperationId = string.IsNullOrWhiteSpace(meta.OperationId) ? null : meta.OperationId,
+
+            Summary = string.IsNullOrWhiteSpace(meta.Summary) ? null : meta.Summary,
+            Description = string.IsNullOrWhiteSpace(meta.Description) ? null : meta.Description,
+            Deprecated = meta.Deprecated
+        };
+
+        // Tags (optional): omit here due to model variance; can be added as references by callers if needed
+
+        // External docs
+        if (meta.ExternalDocs is not null)
+        {
+            op.ExternalDocs = meta.ExternalDocs;
+        }
+
+        // Servers (operation-level)
+        try
+        {
+            if (meta.Servers is { Count: > 0 })
+            {
+                dynamic d = op;
+                if (d.Servers == null) { d.Servers = new List<OpenApiServer>(); }
+                foreach (var s in meta.Servers) { d.Servers.Add(s); }
+            }
+        }
+        catch { }
+
+        // Parameters (operation-level)
+        try
+        {
+            if (meta.Parameters is { Count: > 0 })
+            {
+                dynamic d = op;
+                if (d.Parameters == null) { d.Parameters = new List<IOpenApiParameter>(); }
+                foreach (var p in meta.Parameters) { d.Parameters.Add(p); }
+            }
+        }
+        catch { }
+
+
+        // Request body
+        if (meta.RequestBody is not null)
+        {
+            op.RequestBody = meta.RequestBody;
+        }
+
+        // Responses (required by spec)
+        op.Responses = meta.Responses ?? new OpenApiResponses { ["200"] = new OpenApiResponse { Description = "Success" } };
+
+        // Callbacks
+        if (meta.Callbacks is not null && meta.Callbacks.Count > 0)
+        {
+            op.Callbacks = new Dictionary<string, IOpenApiCallback>(meta.Callbacks);
+        }
+
+        return op;
+    }
+
 
     private static void BuildSchema(Type t, OpenApiDocument doc, HashSet<Type> built)
     {

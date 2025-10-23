@@ -1,4 +1,5 @@
 using System.Net;
+using System.Text;
 using System.Text.RegularExpressions;
 using Kestrun.Hosting.Options;
 using Kestrun.Languages;
@@ -376,9 +377,14 @@ public static partial class KestrunHostMapExtensions
 
         host.AddMapOptions(map, routeOptions);
 
-        foreach (var method in routeOptions.HttpVerbs)//.Select(v => v.ToMethodString()))
+        // Register OpenAPI metadata for each verb
+        foreach (var method in routeOptions.HttpVerbs)
         {
-            ApplyOpenApiMetadata(host, map, routeOptions.OpenAPI[method]);
+            if (routeOptions.OpenAPI.TryGetValue(method, out var value))
+            {
+                ApplyOpenApiMetadata(host, map, value);
+            }
+            // Register the route to prevent duplicates
             host._registeredRoutes[(routeOptions.Pattern!, method)] = routeOptions;
         }
 
@@ -937,6 +943,63 @@ public static partial class KestrunHostMapExtensions
         AddMapOptions(host, map, options);
         return map;
     }
+
+
+    /// <summary>
+    /// Adds a Swagger UI route to the KestrunHost for the specified pattern and OpenAPI endpoint.
+    /// </summary>
+    /// <param name="host">The KestrunHost instance.</param>
+    /// <param name="options">The MapRouteOptions containing route configuration.</param>
+    /// <param name="openApiEndpoint">The URI of the OpenAPI endpoint.</param>
+    /// <returns>An IEndpointConventionBuilder for further configuration.</returns>
+    /// <exception cref="ArgumentException">Thrown when the provided options are invalid.</exception>
+    /// <exception cref="InvalidOperationException">Thrown when the Swagger UI route cannot be created.</exception>
+    public static IEndpointConventionBuilder AddSwaggerUiRoute(this KestrunHost host, MapRouteOptions options, Uri openApiEndpoint)
+    {
+        if (host.Logger.IsEnabled(LogEventLevel.Debug))
+        {
+            host.Logger.Debug("Adding Swagger UI route: {Pattern} for OpenAPI endpoint: {OpenApiEndpoint}", options.Pattern, openApiEndpoint);
+        }
+
+        if (options.HttpVerbs.Count != 0 &&
+            (options.HttpVerbs.Count > 1 || options.HttpVerbs.First() != HttpVerb.Get))
+        {
+            host.Logger.Error("Swagger UI routes only support GET requests. Provided HTTP verbs: {HttpVerbs}", string.Join(", ", options.HttpVerbs));
+            throw new ArgumentException("Swagger UI routes only support GET requests.", nameof(options.HttpVerbs));
+        }
+        if (string.IsNullOrWhiteSpace(options.Pattern))
+        {
+            host.Logger.Error("Pattern cannot be null or empty.");
+            throw new ArgumentException("Pattern cannot be null or empty.", nameof(options.Pattern));
+        }
+
+        _ = host.AddMapRoute(options.Pattern, HttpVerb.Get, async (ctx) =>
+          {
+              const string embedded = "Kestrun.Assets.swagger-ui.html";
+              var asm = typeof(KestrunHostMapExtensions).Assembly;
+              using var stream = asm.GetManifestResourceStream(embedded)
+                  ?? throw new InvalidOperationException($"Embedded Swagger UI HTML not found: {embedded}");
+              using var ms = new MemoryStream();
+              stream.CopyTo(ms);
+              var htmlBuffer = ms.ToArray();
+              ctx.Response.ContentType = "text/html; charset=utf-8";
+              await ctx.Response.WriteHtmlResponseAsync(htmlBuffer, new Dictionary<string, object?>
+              {
+                  { "OPENAPI_ENDPOINT", openApiEndpoint.ToString() }
+              }, ctx.Response.StatusCode);
+          }, out var map);
+        if (host.Logger.IsEnabled(LogEventLevel.Debug))
+        {
+            host.Logger.Debug("Mapped Swagger UI route: {Pattern} for OpenAPI endpoint: {OpenApiEndpoint}", options.Pattern, openApiEndpoint);
+        }
+        if (map is null)
+        {
+            throw new InvalidOperationException("Failed to create Swagger UI route.");
+        }
+        AddMapOptions(host, map, options);
+        return map;
+    }
+
 
     /// <summary>
     /// Checks if a route with the specified pattern and optional HTTP method exists in the KestrunHost.

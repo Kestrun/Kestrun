@@ -1,4 +1,4 @@
-﻿<#
+<#
 .SYNOPSIS
     Adds the authorization schema to a Map Route Builder.
 .DESCRIPTION

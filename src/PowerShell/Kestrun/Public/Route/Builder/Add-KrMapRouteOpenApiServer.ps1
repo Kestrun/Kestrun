@@ -1,4 +1,4 @@
-﻿<#
+<#
 .SYNOPSIS
     Adds OpenAPI server information to a Map Route Builder.
 .DESCRIPTION

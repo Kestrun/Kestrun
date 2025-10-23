@@ -1,4 +1,4 @@
-﻿<#
+<#
 .SYNOPSIS
     Adds the authorization policy to a Map Route Builder.
 .DESCRIPTION

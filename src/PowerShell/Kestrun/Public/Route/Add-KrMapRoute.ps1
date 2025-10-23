@@ -73,7 +73,7 @@ function Add-KrMapRoute {
         [Parameter(ParameterSetName = 'Code')]
         [Parameter(ParameterSetName = 'CodeFilePath')]
         [Alias('Method')]
-        [Kestrun.Utilities.HttpVerb[]]$Verbs = @([Kestrun.Utilities.HttpVerb]::Get),
+        [Kestrun.Utilities.HttpVerb[]]$Verbs = @('Get'),
 
         [Parameter(ParameterSetName = 'ScriptBlock')]
         [Parameter(ParameterSetName = 'Code')]

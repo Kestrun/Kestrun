@@ -1,4 +1,4 @@
-﻿<#
+<#
 .SYNOPSIS
     Gets all OpenAPI schema types from the loaded assemblies.
 .DESCRIPTION

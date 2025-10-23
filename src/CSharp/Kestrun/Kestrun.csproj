@@ -112,12 +112,17 @@
         <PublishTrimmed>false</PublishTrimmed>
         <InvariantGlobalization>false</InvariantGlobalization>
     </PropertyGroup>
+    
+    <!--───────────── Files to Embed in the DLL ─────────────-->
+    <ItemGroup>
+        <EmbeddedResource Include="Assets\favicon.ico" />
+        <EmbeddedResource Include="Assets\swagger-ui.html" LogicalName="Kestrun.Assets.swagger-ui.html" />
+    </ItemGroup>
 
     <!--───────────── Files to Include in Package ─────────────-->
     <ItemGroup>
         <!-- README will show on NuGet.org page -->
         <None Include="../../../README.md" Pack="true" PackagePath="\" />
-        <EmbeddedResource Include="Assets\favicon.ico" />
         <None Include="Assets\kestrun_128x128.png" Pack="true" PackagePath="Assets\" />
         <None Include="../../../LICENSE.txt" Pack="true" PackagePath="\" />
         <None Include="../../../THIRD-PARTY-NOTICES.md" Pack="true" PackagePath="\" />

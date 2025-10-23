@@ -22,6 +22,7 @@ using Kestrun.Authentication;
 using Kestrun.Health;
 using Kestrun.Tasks;
 using Kestrun.Runtime;
+using Kestrun.OpenApi;
 
 namespace Kestrun.Hosting;
 
@@ -224,6 +225,13 @@ public class KestrunHost : IDisposable
         }
     }
 
+    /// <summary>
+    /// Gets the OpenAPI document descriptor for configuring OpenAPI generation.
+    /// </summary>
+    public Dictionary<string, OpenApiDocDescriptor> OpenApiDocumentDescriptor { get; } = [];
+
+
+
     #endregion
 
     // Accepts optional module paths (from PowerShell)
@@ -291,6 +299,32 @@ public class KestrunHost : IDisposable
 
     #region Helpers
 
+    /// <summary>
+    /// Gets the OpenAPI document descriptor for the specified document ID.
+    /// </summary>
+    /// <param name="docId">The ID of the OpenAPI document.</param>
+    /// <returns>The OpenAPI document descriptor.</returns>
+    public OpenApiDocDescriptor GetOrCreateOpenApiDocument(string docId)
+    {
+        if (string.IsNullOrWhiteSpace(docId))
+        {
+            throw new ArgumentException("Document ID cannot be null or whitespace.", nameof(docId));
+        }
+        // Check if descriptor already exists
+        if (OpenApiDocumentDescriptor.TryGetValue(docId, out var descriptor))
+        {
+            if (Logger.IsEnabled(LogEventLevel.Debug))
+            {
+                Logger.Debug("OpenAPI document descriptor for ID '{DocId}' already exists. Returning existing descriptor.", docId);
+            }
+        }
+        else
+        {
+            descriptor = new OpenApiDocDescriptor(this, docId);
+            OpenApiDocumentDescriptor[docId] = descriptor;
+        }
+        return descriptor;
+    }
 
     /// <summary>
     /// Logs constructor arguments at Debug level for diagnostics.

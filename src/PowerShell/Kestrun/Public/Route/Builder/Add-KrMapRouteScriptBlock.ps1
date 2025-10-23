@@ -1,4 +1,4 @@
-﻿<#
+<#
 .SYNOPSIS
     Adds a script block to a Map Route Builder.
 .DESCRIPTION

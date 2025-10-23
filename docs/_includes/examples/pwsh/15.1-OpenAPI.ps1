@@ -117,7 +117,7 @@ class AddressExample_NoApt {
 }
 
 # Request body components (class-first; one class per request body; defaults become the example)
-[OpenApiModelKind([OpenApiModelKind]::RequestBody, InlineSchema = $true)]
+[OpenApiModelKind([OpenApiModelKind]::RequestBody, InlineSchema = $false)]
 class CreateAddressBody {
     [OpenApiSchema(Description = 'The street address')]
     [string]$Street = '123 Main St'
@@ -254,8 +254,8 @@ New-KrMapRouteBuilder -Verbs @('GET', 'HEAD', 'POST', 'TRACE') -Pattern '/status
     Add-KrMapRouteOpenApiInfo -Verbs 'GET' -OperationId 'GetStatus' |
     Add-KrMapRouteOpenApiServer -Server (New-KrOpenApiServer -Url 'https://api.example.com/v1' -Description 'Production Server') |
     Add-KrMapRouteOpenApiServer -Server (New-KrOpenApiServer -Url 'https://staging-api.example.com/v1' -Description 'Staging Server') |
-    Add-KrMapRouteOpenApiRequestBody -Verbs @('POST', 'GET', 'TRACE') -Description 'Healthy status2' -Reference 'CreateAddressBody' -Force |
-    Add-KrMapRouteOpenApiExternalDocs -Description 'Find more info here' -url 'https://example.com/docs' |
+    Add-KrMapRouteOpenApiRequestBody -Verbs @('POST', 'GET', 'TRACE') -Description 'Healthy status2' -Reference 'CreateAddressBody' |
+    Add-KrMapRouteOpenApiExternalDoc -Description 'Find more info here' -url 'https://example.com/docs' |
     Add-KrMapRouteOpenApiResponse -StatusCode '200' -Description 'Healthy status' -SchemaRef 'Address' |
     Add-KrMapRouteOpenApiResponse -StatusCode '503' -Description 'Service unavailable' |
     Build-KrMapRoute

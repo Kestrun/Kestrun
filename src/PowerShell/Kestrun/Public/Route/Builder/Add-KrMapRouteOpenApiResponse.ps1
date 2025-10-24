@@ -64,6 +64,5 @@ function Add-KrMapRouteOpenApiResponse {
         }
         # Return the modified MapRouteBuilder for pipeline chaining
         return $MapRouteBuilder
-        
     }
 }

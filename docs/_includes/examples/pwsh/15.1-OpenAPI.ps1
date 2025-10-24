@@ -1,10 +1,4 @@
-#using assembly ..\..\..\..\src\PowerShell\Kestrun\lib\net8.0\Kestrun.Annotations.dll
-using assembly C:\Users\m_dan\Documents\GitHub\kestrun\Kestrun\src\PowerShell\Kestrun\lib\net8.0\Kestrun.Annotations.dll
-
-#using module 'C:\Users\m_dan\Documents\GitHub\kestrun\Kestrun\src\PowerShell\Kestrun\Kestrun.psd1'
-<#
-    15.1 Start / Stop Patterns
-#>
+using module 'Kestrun'
 
 param(
     [int]$Port = 5000,
@@ -250,6 +244,7 @@ New-KrMapRouteBuilder -Verbs @('GET', 'HEAD', 'POST', 'TRACE') -Pattern '/status
         Write-KrLog -Level Debug -Message 'Health check'
         Write-KrJsonResponse -InputObject @{ status = 'healthy' }
     } |
+    Add-KrMapRouteOpenApiTag -Tag 'MyTag' |
     Add-KrMapRouteOpenApiInfo -Summary 'Health check endpoint' -Description 'Returns the health status of the service.' |
     Add-KrMapRouteOpenApiInfo -Verbs 'GET' -OperationId 'GetStatus' |
     Add-KrMapRouteOpenApiServer -Server (New-KrOpenApiServer -Url 'https://api.example.com/v1' -Description 'Production Server') |

@@ -231,9 +231,15 @@ public class OpenApiDocDescriptor(KestrunHost host, string docId)
             Description = string.IsNullOrWhiteSpace(meta.Description) ? null : meta.Description,
             Deprecated = meta.Deprecated
         };
-
-        // Tags (optional): omit here due to model variance; can be added as references by callers if needed
-
+        // Tags
+        if (meta.Tags.Length > 0)
+        {
+            op.Tags = new HashSet<OpenApiTagReference>();
+            foreach (var t in meta.Tags ?? [])
+            {
+                _ = op.Tags.Add(new OpenApiTagReference(t));
+            }
+        }
         // External docs
         if (meta.ExternalDocs is not null)
         {

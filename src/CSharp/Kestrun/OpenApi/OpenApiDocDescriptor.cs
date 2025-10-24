@@ -9,6 +9,9 @@ using Microsoft.OpenApi;
 using Kestrun.Hosting;
 using Kestrun.Hosting.Options;
 using Kestrun.Utilities;
+using Microsoft.OpenApi.Reader;
+using System.Text;  // OpenApiYamlWriter (2.x)
+
 namespace Kestrun.OpenApi;
 
 /// <summary>
@@ -42,8 +45,6 @@ public class OpenApiDocDescriptor(KestrunHost host, string docId)
     public void Generate(OpenApiComponentSet components)
     {
         Document.Paths = [];
-
-        BuildPathsFromRegisteredRoutes(Host.RegisteredRoutes);
 
         if (Document.Components!.Schemas == null)
         {
@@ -93,6 +94,24 @@ public class OpenApiDocDescriptor(KestrunHost host, string docId)
         {
             BuildCallbacks(t);
         }
+        // Finally, build paths from registered routes
+        BuildPathsFromRegisteredRoutes(Host.RegisteredRoutes);
+    }
+
+
+    /// <summary>
+    /// Reads and diagnoses the OpenAPI document by serializing and re-parsing it.
+    /// </summary>
+    /// <param name="version">The OpenAPI specification version to read as.</param>
+    /// <returns>A tuple containing the OpenAPI document and any diagnostics.</returns>
+    public ReadResult ReadAndDiagnose(OpenApiSpecVersion version)
+    {
+        using var sw = new StringWriter();
+        var w = new OpenApiJsonWriter(sw);
+        Document.SerializeAs(version, w);
+        using var ms = new MemoryStream(Encoding.UTF8.GetBytes(sw.ToString()));
+        // format must be "json" or "yaml"
+        return OpenApiDocument.Load(ms);
     }
 
     /// <summary>
@@ -864,16 +883,16 @@ public class OpenApiDocDescriptor(KestrunHost host, string docId)
                                        && string.Equals(
                                            a.GetType().GetProperty("Kind")?.GetValue(a)?.ToString(),
                                            nameof(OpenApiModelKind.Parameters), StringComparison.Ordinal));
-        if (isParamKindClass)
-        {
-            var paramPropCount = t.GetProperties(flags)
-                                   .Count(p => p.GetCustomAttributes(inherit: false)
-                                                 .Any(a => a.GetType().Name == nameof(OpenApiParameterAttribute)));
-            if (paramPropCount > 1)
-            {
-                throw new InvalidOperationException($"OpenAPI Parameters class '{t.FullName}' must define exactly one property decorated with [OpenApiParameter]. Found {paramPropCount}.");
-            }
-        }
+        /*  if (isParamKindClass)
+          {
+              var paramPropCount = t.GetProperties(flags)
+                                     .Count(p => p.GetCustomAttributes(inherit: false)
+                                                   .Any(a => a.GetType().Name == nameof(OpenApiParameterAttribute)));
+              if (paramPropCount > 1)
+              {
+                  throw new InvalidOperationException($"OpenAPI Parameters class '{t.FullName}' must define exactly one property decorated with [OpenApiParameter]. Found {paramPropCount}.");
+              }
+          }*/
 
         foreach (var p in t.GetProperties(flags))
         {

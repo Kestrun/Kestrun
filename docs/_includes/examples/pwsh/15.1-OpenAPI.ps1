@@ -5,6 +5,9 @@ param(
     [IPAddress]$IPAddress = [IPAddress]::Loopback
 )
 
+if (-not (Get-Module -Name Kestrun)) {
+    Import-Module Kestrun
+}
 #Import-Module -Force 'C:\Users\m_dan\Documents\GitHub\kestrun\Kestrun\src\PowerShell\Kestrun\Kestrun.psm1'
 
 New-KrLogger | Add-KrSinkConsole | Register-KrLogger -Name 'console' -SetAsDefault | Out-Null
@@ -160,11 +163,13 @@ $serverVars = (New-KrOpenApiServerVariable -Name 'env' -Default 'dev' -Enum @('d
 
 Add-KrOpenApiServer -Url 'https://{env}.api.example.com' -Description 'Target API endpoint' -Variables $serverVars
 
-$linkParams = @{ id = '$response.body#/id'; verbose = '$request.query.verbose' }
-$linkRequestBody = @{ email = '$request.body#/email'; locale = '$request.body#/locale' }
-Add-KrOpenApiLink -LinkName 'GetUserByIdLink' -OperationRef '#/paths/~1users~1{id}/get' -OperationId 'getUserById' `
-    -Description 'Link to fetch user details using the id from the response body.' -Parameters $linkParams -Server $linkServer -RequestBody $linkRequestBody
+$linkParams = @{ id = '$response.body#/id'; verbose = '$request.query.verbose' ;email = '$request.body#/email'; locale = '$request.body#/locale' }
+$linkRequestBody = @{  locale = '$request.body#/locale' }
+Add-KrOpenApiLink -LinkName 'GetUserByIdLink' -OperationRef '#/paths/users/{id}/get' -OperationId 'getUserById1' `
+    -Description 'Link to fetch user details using the id from the response body.' -Parameters $linkParams -Server $linkServer #-RequestBody $linkRequestBody
 
+Add-KrOpenApiLink -LinkName 'GetUserByIdLink2' -OperationRef '#/paths/users2/{id}/get' -OperationId 'getUserById2' `
+    -Description 'Link to fetch user details using the id from the response body.'  -RequestBody $linkRequestBody
 
 
 # Callback component (class-first). Discovered via [OpenApiModelKind(Callback)].
@@ -251,6 +256,7 @@ New-KrMapRouteBuilder -Verbs @('GET', 'HEAD', 'POST', 'TRACE') -Pattern '/status
     Add-KrMapRouteOpenApiServer -Server (New-KrOpenApiServer -Url 'https://staging-api.example.com/v1' -Description 'Staging Server') |
     Add-KrMapRouteOpenApiRequestBody -Verbs @('POST', 'GET', 'TRACE') -Description 'Healthy status2' -Reference 'CreateAddressBody' |
     Add-KrMapRouteOpenApiExternalDoc -Description 'Find more info here' -url 'https://example.com/docs' |
+    Add-KrMapRouteOpenApiParameter -Verbs @('GET', 'HEAD', 'POST') -Reference 'Name' |
     Add-KrMapRouteOpenApiResponse -StatusCode '200' -Description 'Healthy status' -SchemaRef 'Address' |
     Add-KrMapRouteOpenApiResponse -StatusCode '503' -Description 'Service unavailable' |
     Build-KrMapRoute
@@ -290,7 +296,7 @@ Add-KrMapRoute -Pattern '/openapi2/{version}/openapi.{format}' -Method 'GET' -Sc
 }
 
 Build-KrOpenApiDocument
-
+Test-KrOpenApiDocument
 
 # Preview the /status path with visible operations in JSON
 #if ($doc.Paths.ContainsKey('/status')) {

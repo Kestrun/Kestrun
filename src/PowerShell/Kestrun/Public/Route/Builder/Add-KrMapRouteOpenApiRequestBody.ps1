@@ -11,6 +11,8 @@
     A description of the OpenAPI request body.
 .PARAMETER ReferenceId
     A ReferenceId string for the OpenAPI request body.
+.PARAMETER Force
+    A switch to force adding a request body to HTTP verbs that typically do not support it (e.g., GET, HEAD, TRACE).
 .EXAMPLE
     # Create a new Map Route Builder
     $mapRouteBuilder = New-KrMapRouteBuilder |

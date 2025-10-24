@@ -42,11 +42,11 @@ function Add-KrMapRouteOpenApiParameter {
                 $MapRouteBuilder.OpenApi[$verb] = [Kestrun.Hosting.Options.OpenAPIMetadata]::new($MapRouteBuilder.Pattern)
             }
             $MapRouteBuilder.OpenApi[$verb].Enabled = $true
-            $MapRouteBuilder.OpenApi[$verb].Parameters = [Microsoft.OpenApi.OpenApiParameterReference]::new($ReferenceId)
-
-            if ($Description) {
-                $MapRouteBuilder.OpenApi[$verb].Parameters.Description = $Description
+            $param = [Microsoft.OpenApi.OpenApiParameterReference]::new($ReferenceId)
+            if ($PSBoundParameters.ContainsKey('Description')) {
+                $param.Description = $Description
             }
+            $MapRouteBuilder.OpenApi[$verb].Parameters.Add($param)
         }
         # Return the modified MapRouteBuilder for pipeline chaining
         return $MapRouteBuilder

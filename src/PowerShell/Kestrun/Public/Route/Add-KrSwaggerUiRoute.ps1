@@ -6,14 +6,12 @@
     .PARAMETER Server
         The Kestrun server instance to which the route will be added.
         If not specified, the function will attempt to resolve the current server context.
+    .PARAMETER Options
+        The MapRouteOptions object to configure the route.
     .PARAMETER Pattern
         The URL path for the new Swagger UI route. Default is '/docs/swagger'.
     .PARAMETER OpenApiEndpoint
         The OpenAPI endpoint URI that the Swagger UI will use to fetch the API documentation. Default is '/openapi/v3.0/openapi.json'.
-    .PARAMETER AuthorizationSchema
-        An optional array of authorization schemes for the route.
-    .PARAMETER AuthorizationPolicy
-        An optional array of authorization policies for the route.
     .PARAMETER PassThru
         If specified, the function will return the created route object.
     .OUTPUTS
@@ -33,20 +31,13 @@ function Add-KrSwaggerUiRoute {
     param(
         [Parameter(Mandatory = $false, ValueFromPipeline = $true)]
         [Kestrun.Hosting.KestrunHost]$Server,
-
+        [Parameter()]
+        [Kestrun.Hosting.Options.MapRouteOptions]$Options,
         [Parameter()]
         [alias('Path')]
-        [string]$Pattern = '/docs/swagger',
-
+        [string]$Pattern,
         [Parameter()]
         [Uri]$OpenApiEndpoint = [Uri]::new('/openapi/v3.0/openapi.json', [UriKind]::Relative),
-
-        [Parameter()]
-        [string[]]$AuthorizationSchema = $null,
-
-        [Parameter()]
-        [string[]]$AuthorizationPolicy = $null,
-
         [Parameter()]
         [switch]$PassThru
     )
@@ -55,18 +46,18 @@ function Add-KrSwaggerUiRoute {
         $Server = Resolve-KestrunServer -Server $Server
     }
     process {
-
-        $options = [Kestrun.Hosting.Options.MapRouteOptions]::new()
-        $options.Pattern = $Pattern
-        if ($null -ne $AuthorizationSchema) {
-            $Options.RequireSchemes = $AuthorizationSchema
+        if ($null -eq $Options) {
+            $Options = [Kestrun.Hosting.Options.MapRouteOptions]::new()
         }
-        if ($null -ne $AuthorizationPolicy) {
-            $Options.RequirePolicies = $AuthorizationPolicy
+        if ([string]::IsNullOrEmpty($Pattern)) {
+            $Options.Pattern = '/docs/swagger'
+        } else {
+
+            $Options.Pattern = $Pattern
         }
 
         # Call the C# extension method to add the Swagger UI route
-        [Kestrun.Hosting.KestrunHostMapExtensions]::AddSwaggerUiRoute($Server, $options, $OpenApiEndpoint) | Out-Null
+        [Kestrun.Hosting.KestrunHostMapExtensions]::AddSwaggerUiRoute($Server, $Options, $OpenApiEndpoint) | Out-Null
         if ($PassThru) {
             return $Server
         }

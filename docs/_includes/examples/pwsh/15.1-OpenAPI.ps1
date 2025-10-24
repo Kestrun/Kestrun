@@ -260,7 +260,9 @@ New-KrMapRouteBuilder -Verbs @('GET', 'HEAD', 'POST', 'TRACE') -Pattern '/status
     Add-KrMapRouteOpenApiResponse -StatusCode '503' -Description 'Service unavailable' |
     Build-KrMapRoute
 
-Add-KrMapRoute -Pattern '/openapi/{version}/openapi.{format}' -Method 'GET' -ScriptBlock {
+Add-KrOpenApiRoute -Pattern '/openapi/{version}/openapi.{format}'
+
+Add-KrMapRoute -Pattern '/openapi2/{version}/openapi.{format}' -Method 'GET' -ScriptBlock {
     $version = Get-KrRequestRouteParam -Name 'version' -AsString
     $format = Get-KrRequestRouteParam -Name 'format' -AsString
     $refresh = Get-KrRequestQuery -Name 'refresh' -AsBool

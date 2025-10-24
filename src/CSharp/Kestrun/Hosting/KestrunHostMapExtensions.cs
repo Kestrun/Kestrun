@@ -1,9 +1,9 @@
 using System.Net;
-using System.Text;
 using System.Text.RegularExpressions;
 using Kestrun.Hosting.Options;
 using Kestrun.Languages;
 using Kestrun.Models;
+using Kestrun.OpenApi;
 using Kestrun.Runtime;
 using Kestrun.Scripting;
 using Kestrun.TBuilder;
@@ -11,6 +11,7 @@ using Kestrun.Utilities;
 using Microsoft.AspNetCore.Antiforgery;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.Extensions.Options;
+using Microsoft.OpenApi;
 using Serilog.Events;
 
 namespace Kestrun.Hosting;
@@ -134,6 +135,66 @@ public static partial class KestrunHostMapExtensions
         return host;
     }
 
+    /// <summary>
+    /// Adds a route to the KestrunHost that serves OpenAPI documents based on the provided options.
+    /// </summary>
+    /// <param name="host">The KestrunHost instance.</param>
+    /// <param name="options">The OpenApiMapRouteOptions instance.</param>
+    /// <returns>The KestrunHost instance for chaining.</returns>
+    public static KestrunHost AddOpenApiMapRoute(this KestrunHost host, OpenApiMapRouteOptions options)
+    {
+        // Validate options
+        return host.AddMapRoute(options.MapOptions, async context =>
+        {
+            // Extract parameters
+            var refresh = false;
+            var docId = options.DocId;
+            var specVersion = OpenApiSpecVersion.OpenApi3_0;
+            // Try to get version and format from route values
+            var version = context.Request.RouteValues[options.VersionVarName]?.ToString() ?? options.DefaultVersion;
+            var format = context.Request.RouteValues[options.FormatVarName]?.ToString() ?? options.DefaultFormat;
+            if (context.Request.Query.TryGetValue(options.RefreshVarName, out var value))
+            {
+                _ = bool.TryParse(value, out refresh);
+            }
+            // Try to get version and format from route values
+            try
+            {
+                specVersion = OpenApiSpecVersionExtensions.FromString(version);
+                if (format is not "json" and not "yaml")
+                {
+                    throw new InvalidOperationException($"Unsupported OpenAPI format requested: {format}");
+                }
+            }
+            catch
+            {
+                host.Logger.Warning("Invalid OpenAPI version or format requested: {Version}, {Format}", version, format);
+                context.Response.StatusCode = 404; // Not Found
+                return;
+            }
+
+            // Refresh the document if requested
+            if (refresh)
+            {
+                host.Logger.Information("Refreshing OpenAPI document cache as requested.");
+                var components = OpenApiSchemaDiscovery.GetOpenApiTypesAuto();
+                var doc = host.OpenApiDocumentDescriptor[docId];
+                doc.Generate(components);
+            }
+            // Serve the document in the requested format
+            if (format == "json")
+            {
+                var json = host.OpenApiDocumentDescriptor[docId].ToJson(specVersion);
+                await context.Response.WriteTextResponseAsync(json, 200, "application/json");
+            }
+            else
+            {
+                var yml = host.OpenApiDocumentDescriptor[docId].ToYaml(specVersion);
+                await context.Response.WriteTextResponseAsync(yml, 200, "application/yaml");
+            }
+
+        }, out _);
+    }
 
     /// <summary>
     /// Adds a route to the KestrunHost that executes a script block for the specified HTTP verb and pattern.

@@ -30,8 +30,7 @@ function Build-KrOpenApiDocument {
         if ( -not $Server.OpenApiDocumentDescriptor.ContainsKey($DocId)) {
             throw "OpenAPI document with ID '$DocId' does not exist on the server."
         }
-        $components = [Kestrun.OpenApi.OpenApiSchemaDiscovery]::GetOpenApiTypesAuto()
         $doc = $Server.OpenApiDocumentDescriptor[$DocId]
-        $doc.Generate($components)
+        $doc.GenerateDoc()
     }
 }

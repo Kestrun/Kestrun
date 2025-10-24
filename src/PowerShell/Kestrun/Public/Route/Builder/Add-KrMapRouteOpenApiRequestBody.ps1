@@ -13,6 +13,8 @@
     A ReferenceId string for the OpenAPI request body.
 .PARAMETER Force
     A switch to force adding a request body to HTTP verbs that typically do not support it (e.g., GET, HEAD, TRACE).
+.PARAMETER Embed
+    A switch indicating whether to embed the request body definition directly into the route or to reference it
 .EXAMPLE
     # Create a new Map Route Builder
     $mapRouteBuilder = New-KrMapRouteBuilder |
@@ -31,10 +33,12 @@ function Add-KrMapRouteOpenApiRequestBody {
         [Kestrun.Utilities.HttpVerb[]]$Verbs,
         [Parameter()]
         [string]$Description,
-        [Parameter()]
+        [Parameter(Mandatory = $true)]
         [string]$ReferenceId,
         [Parameter()]
-        [switch]$Force
+        [switch]$Force,
+        [Parameter()]
+        [switch]$Embed
     )
     process {
         if ($Verbs.Count -eq 0) {
@@ -57,8 +61,12 @@ function Add-KrMapRouteOpenApiRequestBody {
                 throw "RequestBody already defined for verb $verb in this MapRouteBuilder."
             }
             $MapRouteBuilder.OpenApi[$verb].Enabled = $true
-            if ([string]::IsNullOrEmpty($ReferenceId)) {
-                $MapRouteBuilder.OpenApi[$verb].RequestBody = [Microsoft.OpenApi.OpenApiRequestBody]::new()
+            if ($Embed) {
+                $RequestBodies = $MapRouteBuilder.Server.OpenApiDocumentDescriptor['default'].Document.Components.RequestBodies
+                if (-not $requestBodies.ContainsKey($ReferenceId)){
+                    throw "RequestBody with ReferenceId '$ReferenceId' does not exist in the OpenAPI document components."
+                }
+                $MapRouteBuilder.OpenApi[$verb].RequestBody = [Kestrun.OpenApi.OpenApiComponentClone]::Clone($requestBodies[$ReferenceId])
             } else {
                 $MapRouteBuilder.OpenApi[$verb].RequestBody = [Microsoft.OpenApi.OpenApiRequestBodyReference]::new($ReferenceId)
             }

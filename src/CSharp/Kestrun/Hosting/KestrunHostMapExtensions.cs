@@ -172,14 +172,12 @@ public static partial class KestrunHostMapExtensions
                 context.Response.StatusCode = 404; // Not Found
                 return;
             }
-
             // Refresh the document if requested
             if (refresh)
             {
                 host.Logger.Information("Refreshing OpenAPI document cache as requested.");
-                var components = OpenApiSchemaDiscovery.GetOpenApiTypesAuto();
                 var doc = host.OpenApiDocumentDescriptor[docId];
-                doc.Generate(components);
+                doc.GenerateDoc();
             }
             // Serve the document in the requested format
             if (format == "json")

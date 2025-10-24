@@ -42,7 +42,7 @@ public class OpenApiDocDescriptor(KestrunHost host, string docId)
     /// </summary>
     /// <param name="components">The set of discovered OpenAPI component types.</param>
     /// <returns>The generated OpenAPI document.</returns>
-    public void Generate(OpenApiComponentSet components)
+    public void GenerateComponents(OpenApiComponentSet components)
     {
         Document.Paths = [];
 
@@ -94,10 +94,19 @@ public class OpenApiDocDescriptor(KestrunHost host, string docId)
         {
             BuildCallbacks(t);
         }
+
+    }
+
+    /// <summary>
+    /// Generates the OpenAPI document by processing components and registered routes.
+    /// </summary> 
+    public void GenerateDoc()
+    {
+        var components = OpenApiSchemaDiscovery.GetOpenApiTypesAuto();
+        GenerateComponents(components);
         // Finally, build paths from registered routes
         BuildPathsFromRegisteredRoutes(Host.RegisteredRoutes);
     }
-
 
     /// <summary>
     /// Reads and diagnoses the OpenAPI document by serializing and re-parsing it.

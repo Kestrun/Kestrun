@@ -10,7 +10,8 @@ using Kestrun.Hosting;
 using Kestrun.Hosting.Options;
 using Kestrun.Utilities;
 using Microsoft.OpenApi.Reader;
-using System.Text;  // OpenApiYamlWriter (2.x)
+using System.Text;
+using Azure;  // OpenApiYamlWriter (2.x)
 
 namespace Kestrun.OpenApi;
 
@@ -1075,32 +1076,21 @@ public class OpenApiDocDescriptor(KestrunHost host, string docId)
 
     private void BuildResponses(Type t)
     {
-        if (Document.Components!.Responses == null)
-        {
-            Document.Components.Responses = new Dictionary<string, IOpenApiResponse>(StringComparer.Ordinal);
-        }
+        // Ensure Responses dictionary exists
+        Document.Components!.Responses ??= new Dictionary<string, IOpenApiResponse>(StringComparer.Ordinal);
 
-        // 1) Class-level [OpenApiResponse(...)] attributes
-        var classAttrs = t.GetCustomAttributes(inherit: false)
-                          .Where(a => a.GetType().Name == nameof(OpenApiResponseAttribute))
-                          .Cast<object>()
-                          .ToArray();
-
-        foreach (var a in classAttrs)
-        {
-            var resp = CreateResponseFromAttribute(a);
-            var custom = GetNameOverride(a);
-            var key = !string.IsNullOrWhiteSpace(custom) ? custom! : t.Name;
-            Document.Components!.Responses![key] = resp;
-        }
-
+        // Scan properties for response-related attributes
         const BindingFlags flags = BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly;
-
-        // 2) Property-level
         foreach (var p in t.GetProperties(flags))
         {
+            var response = new OpenApiResponse();
             var attrs = p.GetCustomAttributes(inherit: false)
-                         .Where(a => a.GetType().Name == nameof(OpenApiResponseAttribute))
+                         .Where(a => a.GetType().Name is
+                         (nameof(OpenApiResponseAttribute)) or
+                         (nameof(OpenApiLinkRefAttribute)) or
+                         (nameof(OpenApiHeaderRefAttribute)) or
+                         (nameof(OpenApiContentTypeAttribute)) or
+                         (nameof(OpenApiExampleRefAttribute)))
                          .Cast<object>()
                          .ToArray();
 
@@ -1109,29 +1099,26 @@ public class OpenApiDocDescriptor(KestrunHost host, string docId)
             // Support multiple attributes per property
             foreach (var a in attrs)
             {
-                var resp = CreateResponseFromAttribute(a);
-                var custom = GetNameOverride(a);
-                var key = !string.IsNullOrWhiteSpace(custom) ? custom! : BuildMemberResponseKey(t, p.Name);
-                Document.Components!.Responses![key] = resp;
+                if (CreateResponseFromAttribute(a, response))
+                {
+                    var custom = GetNameOverride(a);
+                    var key = !string.IsNullOrWhiteSpace(custom) ? custom! : BuildMemberResponseKey(t, p.Name);
+                    Document.Components!.Responses![key] = response;
+                }
             }
-        }
+            // Skip inferring schema/content for object-typed properties
+            if (p.PropertyType.Name == "Object") { continue; }
 
-        // 3) Field-level (rare in PS classes, but supported by attribute)
-        foreach (var f in t.GetFields(flags))
-        {
-            var attrs = f.GetCustomAttributes(inherit: false)
-                         .Where(a => a.GetType().Name == nameof(OpenApiResponseAttribute))
-                         .Cast<object>()
-                         .ToArray();
-
-            if (attrs.Length == 0) { continue; }
-
-            foreach (var a in attrs)
+            // If no schema/content was defined via attributes, infer from property type
+            response.Content ??= new Dictionary<string, OpenApiMediaType>(StringComparer.Ordinal)
             {
-                var resp = CreateResponseFromAttribute(a);
-                var custom = GetNameOverride(a);
-                var key = !string.IsNullOrWhiteSpace(custom) ? custom! : BuildMemberResponseKey(t, f.Name);
-                Document.Components!.Responses![key] = resp;
+                ["application/json"] = new OpenApiMediaType()
+            };
+
+            // Set schema to $ref of property type
+            foreach (var a in response.Content.Values)
+            {
+                a.Schema = new OpenApiSchemaReference(p.PropertyType.Name);
             }
         }
     }
@@ -1155,156 +1142,72 @@ public class OpenApiDocDescriptor(KestrunHost host, string docId)
         var join = mk.GetType().GetProperty("JoinClassName")?.GetValue(mk) as string;
         return string.IsNullOrEmpty(join) ? memberName : $"{declaringType.Name}{join}{memberName}";
     }
-    private static OpenApiResponse CreateResponseFromAttribute(object attr)
+
+    /// <summary>
+    /// Creates a response object from the specified attribute.
+    /// </summary>
+    /// <param name="attr">The attribute object.</param>
+    /// <param name="response">The response object to populate.</param>
+    /// <returns>True if the attribute was recognized and processed; otherwise, false.</returns>
+    private static bool CreateResponseFromAttribute(object attr, OpenApiResponse response)
     {
         var t = attr.GetType();
-        var description = t.GetProperty("Description")?.GetValue(attr) as string;
-        var contentType = t.GetProperty("ContentType")?.GetValue(attr) as string ?? "application/json";
-        var schemaRef = t.GetProperty("SchemaRef")?.GetValue(attr) as string;
-        var headerRef = t.GetProperty("HeaderRef")?.GetValue(attr) as string;
-        var linkRef = t.GetProperty("LinkRef")?.GetValue(attr) as string;
-        var exampleRef = t.GetProperty("ExampleRef")?.GetValue(attr) as string;
-
-        var response = new OpenApiResponse
+        switch (t.Name)
         {
-            Description = string.IsNullOrWhiteSpace(description) ? "Response" : description
-        };
-
-        if (!string.IsNullOrWhiteSpace(schemaRef))
-        {
-            response.Content = new Dictionary<string, OpenApiMediaType>
-            {
-                [contentType] = new OpenApiMediaType
+            case nameof(OpenApiContentTypeAttribute):
+                var ctype = (OpenApiContentTypeAttribute)attr;
+                response.Content ??= new Dictionary<string, OpenApiMediaType>(StringComparer.Ordinal);
+                if (!response.Content.ContainsKey(ctype.ContentType))
                 {
-                    Schema = new OpenApiSchemaReference(schemaRef)
+                    response.Content[ctype.ContentType] = new OpenApiMediaType();
                 }
-            };
-        }
-
-        // Map ExampleRef -> response.Content[contentType].Examples[ExampleRef] = $ref to components.examples[ExampleRef]
-        if (!string.IsNullOrWhiteSpace(exampleRef))
-        {
-            response.Content ??= new Dictionary<string, OpenApiMediaType>(StringComparer.Ordinal)
-            {
-                [contentType] = new OpenApiMediaType()
-            };
-
-            if (!response.Content.TryGetValue(contentType, out var mediaType) || mediaType is null)
-            {
-                mediaType = new OpenApiMediaType();
-                response.Content[contentType] = mediaType;
-            }
-
-            mediaType.Examples ??= new Dictionary<string, IOpenApiExample>(StringComparer.Ordinal);
-
-            try
-            {
-                // Prefer typed reference if available
-                var exRefType = Type.GetType("Microsoft.OpenApi.OpenApiExampleReference, Microsoft.OpenApi", throwOnError: false);
-                if (exRefType is not null)
+                break;
+            case nameof(OpenApiResponseAttribute):
+                var resp = (OpenApiResponseAttribute)attr;
+                if (!string.IsNullOrEmpty(resp.Description))
                 {
-                    if (Activator.CreateInstance(exRefType, [exampleRef]) is IOpenApiExample exRef)
-                    {
-                        mediaType.Examples[exampleRef] = exRef;
-                    }
+                    response.Description = resp.Description;
                 }
-                else
-                {
-                    // Fallback: create OpenApiExample and set Reference dynamically
-                    var ex = new OpenApiExample();
-                    var refProp = typeof(OpenApiExample).GetProperty("Reference", BindingFlags.Public | BindingFlags.Instance);
-                    var refType = refProp?.PropertyType;
-                    var refEnumType = refType?.GetProperty("Type")?.PropertyType;
-                    var refObj = refType is not null ? Activator.CreateInstance(refType)! : null;
-                    if (refObj is not null && refEnumType is not null)
-                    {
-                        var enumVal = Enum.Parse(refEnumType, "Example");
-                        refType!.GetProperty("Type")?.SetValue(refObj, enumVal);
-                        refType!.GetProperty("Id")?.SetValue(refObj, exampleRef);
-                        refProp!.SetValue(ex, refObj);
-                        mediaType.Examples[exampleRef] = ex;
-                    }
-                }
-            }
-            catch { /* tolerate environments without typed reference helpers */ }
-        }
-
-        // Map HeaderRef -> response.Headers[HeaderRef] = $ref to components.headers[HeaderRef]
-        if (!string.IsNullOrWhiteSpace(headerRef))
-        {
-            response.Headers ??= new Dictionary<string, IOpenApiHeader>(StringComparer.Ordinal);
-            try
-            {
-                // Prefer typed reference if available
-                var headerRefType = Type.GetType("Microsoft.OpenApi.OpenApiHeaderReference, Microsoft.OpenApi", throwOnError: false);
-                if (headerRefType is not null)
-                {
-                    if (Activator.CreateInstance(headerRefType, [headerRef]) is IOpenApiHeader href)
-                    {
-                        response.Headers[headerRef] = href;
-                    }
-                }
-                else
-                {
-                    // Fallback: create OpenApiHeader and set Reference dynamically
-                    var header = new OpenApiHeader();
-                    var refProp = typeof(OpenApiHeader).GetProperty("Reference", BindingFlags.Public | BindingFlags.Instance);
-                    var refType = refProp?.PropertyType;
-                    var refEnumType = refType?.GetProperty("Type")?.PropertyType;
-                    var refObj = refType is not null ? Activator.CreateInstance(refType)! : null;
-                    if (refObj is not null && refEnumType is not null)
-                    {
-                        var linkEnumVal = Enum.Parse(refEnumType, "Header");
-                        refType!.GetProperty("Type")?.SetValue(refObj, linkEnumVal);
-                        refType!.GetProperty("Id")?.SetValue(refObj, headerRef);
-                        refProp!.SetValue(header, refObj);
-                        response.Headers[headerRef] = header;
-                    }
-                }
-            }
-            catch { /* tolerate environments without typed reference helpers */ }
-        }
-
-        // Map LinkRef -> response.Links[LinkRef] = $ref to components.links[LinkRef]
-        if (!string.IsNullOrWhiteSpace(linkRef))
-        {
-            try
-            {
+                break;
+            case nameof(OpenApiHeaderRefAttribute):
+                response.Headers ??= new Dictionary<string, IOpenApiHeader>(StringComparer.Ordinal);
+                var href = (OpenApiHeaderRefAttribute)attr;
+                var headerRef = href.RefId;
+                var headerKey = href.Key;
+                response.Headers[headerKey] = new OpenApiHeaderReference(headerRef);
+                break;
+            case nameof(OpenApiLinkRefAttribute):
                 response.Links ??= new Dictionary<string, IOpenApiLink>(StringComparer.Ordinal);
-                // Prefer typed reference if available
-                var linkRefType = new Microsoft.OpenApi.OpenApiLinkReference(linkRef);
-                /*  Type.GetType("Microsoft.OpenApi.OpenApiLinkReference, Microsoft.OpenApi", throwOnError: false);
-                  if (linkRefType is not null)
-                  {
-                      if (Activator.CreateInstance(linkRefType, [linkRef]) is IOpenApiLink lref)
-                      {
-                          response.Links[linkRef] = lref;
-                      }
-                  }
-                  else
-                  {
-                      // Fallback: create OpenApiLink and set Reference dynamically
-                      var link = new OpenApiLink();
-                      var refProp = typeof(OpenApiLink).GetProperty("Reference", BindingFlags.Public | BindingFlags.Instance);
-                      var refType = refProp?.PropertyType;
-                      var refEnumType = refType?.GetProperty("Type")?.PropertyType;
-                      var refObj = refType is not null ? Activator.CreateInstance(refType)! : null;
-                      if (refObj is not null && refEnumType is not null)
-                      {
-                          var linkEnumVal = Enum.Parse(refEnumType, "Link");
-                          refType!.GetProperty("Type")?.SetValue(refObj, linkEnumVal);
-                          refType!.GetProperty("Id")?.SetValue(refObj, linkRef);
-                          refProp!.SetValue(link, refObj);
-                          response.Links[linkRef] = link;
-                      }
-                  }*/
-                response.Links[linkRef] = linkRefType;
-            }
-            catch { /* tolerate environments without typed reference helpers */ }
+                var lref = (OpenApiLinkRefAttribute)attr;
+                var linkRef = lref.RefId;
+                var linkKey = lref.Key;
+                response.Links[linkKey] = new OpenApiLinkReference(linkRef);
+                break;
+            case nameof(OpenApiExampleRefAttribute):
+                var exRef = (OpenApiExampleRefAttribute)attr;
+                response.Content ??= new Dictionary<string, OpenApiMediaType>(StringComparer.Ordinal);
+                // Determine which content types to add the example reference to
+                var keys = (exRef.ContentType is null) ?
+                    response.Content.Keys : [exRef.ContentType];
+                if (keys.Count == 0)
+                {
+                    // No existing content types; default to application/json
+                    keys = ["application/json"];
+                }
+                // Add example reference to each specified content type
+                foreach (var ct in keys)
+                {
+                    _ = response.Content.TryAdd(ct, new OpenApiMediaType());
+                    var mediaType = response.Content[ct];
+                    mediaType.Examples ??= new Dictionary<string, IOpenApiExample>(StringComparer.Ordinal);
+                    var exRefType = new OpenApiExampleReference(exRef.RefId);
+                    mediaType.Examples[exRef.Key] = exRefType;
+                }
+                break;
+            default:
+                return false; // unrecognized attribute type
         }
-
-        // NOTE: ExampleRef is mapped above into media type examples; additional inline example values can be added later if needed.
-        return response;
+        return true;
     }
 
     private void BuildExamples(Type t)

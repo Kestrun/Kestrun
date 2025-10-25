@@ -89,15 +89,25 @@ class Param_Age {
 # Response components (member-level responses; JoinClassName ties class+member in key)
 [OpenApiModelKind([OpenApiModelKind]::Response, JoinClassName = '-')]
 class AddressResponse {
-    [OpenApiResponse( Description = 'Successful retrieval of address', SchemaRef = 'Address' ,ExampleRef = 'AddressExample_Basic')]
-   #[OpenApiExampleRef('Basic', 'AddressExample_Basic')]
-    $OK
+    [OpenApiResponse( Description = 'Successful retrieval of address' )]# ,ExampleRef = 'AddressExample_Basic')]
+    [OpenApiExampleRefAttribute('Basic', 'AddressExample_Basic')]
+    [OpenApiHeaderRef('X-Request-ID', 'X-Request-ID')]
+    [OpenApiHeaderRef('X-RateLimit-Remaining', 'X-RateLimit-Remaining')]
+    [Address] $OK
 
-    [OpenApiResponse( Description = 'Address not found' , SchemaRef = 'UserInfoResponse', ExampleRef = 'AddressExample_NoApt' )]
-    [OpenApiLinkRef('GetUserById', 'GetUserByIdLink')]
-    [OpenApiLinkRef('GetUserById2', 'GetUserByIdLink2')]
-   # [OpenApiExampleRef('NotFoundExample', 'AddressExample_NoApt')]
-    $NotFound
+    [OpenApiResponse( Description = 'Address not found' , ContentType = 'application/json')]
+    [OpenApiContentTypeAttribute('application/yaml')]
+    [OpenApiContentTypeAttribute('application/xml')]
+    [OpenApiContentTypeAttribute('application/json')]
+    [OpenApiLinkRefAttribute( 'GetUserById', 'GetUserByIdLink')]
+    [OpenApiLinkRefAttribute('GetUserById2', 'GetUserByIdLink2')]
+    [OpenApiExampleRefAttribute('application/json', 'NotFoundExample', 'AddressExample_NoApt')]
+    [OpenApiHeaderRef('X-Request-ID', 'X-Request-ID')]
+    [OpenApiHeaderRef('X-RateLimit-Remaining', 'X-RateLimit-Remaining')]
+    [UserInfoResponse] $NotFound
+
+    [OpenApiResponse( Description = 'Address not found'  )]
+    $Error
 }
 
 # Example components (class-first; one class per example; defaults become the example object)
@@ -158,7 +168,16 @@ class CommonHeaders {
     $TenantId = 'contoso'
 
     [OpenApiHeader( Description = 'Correlation id for tracing' )]
-    $CorrelationId = 'abc-123'
+    [int] $CorrelationId = 12345
+}
+
+[OpenApiModelKind([OpenApiModelKind]::Header )]
+class RateHeaders {
+    [OpenApiHeader( Description = 'Correlation id for tracing', Name = 'X-Request-ID' )]
+    [string] $xRequestId = 'abc-123'
+
+    [OpenApiHeader( Description = 'Correlation id for tracing', Name = 'X-RateLimit-Remaining' )]
+    [string] $xRateLimitRemaining = '10'
 }
 
 # Link component via helper functions (preferred authoring)

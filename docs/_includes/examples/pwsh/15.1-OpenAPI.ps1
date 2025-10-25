@@ -75,25 +75,23 @@ class Param_Name {
     [string]$Name = 'John'
 }
 
+# Age parameters (class-first; grouped parameters)
 [OpenApiModelKind([OpenApiModelKind]::Parameters)]
-class Param_MinAge {
+class Param_Age {
     [OpenApiParameter(In = [OaParameterLocation]::Cookie)]
     [OpenApiSchema(Description = 'Minimum age', Minimum = 0)]
     [long]$MinAge = 20
-}
-
-[OpenApiModelKind([OpenApiModelKind]::Parameters)]
-class Param_MaxAge {
     [OpenApiParameter(In = [OaParameterLocation]::Cookie)]
     [OpenApiSchema(Description = 'Maximum age', Minimum = 0)]
     [long]$MaxAge = 120
 }
+
 # Response components (member-level responses; JoinClassName ties class+member in key)
 [OpenApiModelKind([OpenApiModelKind]::Response, JoinClassName = '-')]
 class AddressResponse {
     [OpenApiResponse( Description = 'Successful retrieval of address', SchemaRef = 'Address' )]
     $OK
-    [OpenApiResponse( Description = 'Address not found' )]
+    [OpenApiResponse( Description = 'Address not found',LinkRef = 'GetUserByIdLink' )]
     $NotFound
 }
 
@@ -163,13 +161,13 @@ $serverVars = (New-KrOpenApiServerVariable -Name 'env' -Default 'dev' -Enum @('d
 
 Add-KrOpenApiServer -Url 'https://{env}.api.example.com' -Description 'Target API endpoint' -Variables $serverVars
 
-$linkParams = @{ id = '$response.body#/id'; verbose = '$request.query.verbose' ;email = '$request.body#/email'; locale = '$request.body#/locale' }
+$linkParams = @{ id = '$response.body#/id'; verbose = '$request.query.verbose' ; email = '$request.body#/email'; locale = '$request.body#/locale' }
 $linkRequestBody = @{  locale = '$request.body#/locale' }
 Add-KrOpenApiLink -LinkName 'GetUserByIdLink' -OperationRef '#/paths/users/{id}/get' -OperationId 'getUserById1' `
     -Description 'Link to fetch user details using the id from the response body.' -Parameters $linkParams -Server $linkServer #-RequestBody $linkRequestBody
 
 Add-KrOpenApiLink -LinkName 'GetUserByIdLink2' -OperationRef '#/paths/users2/{id}/get' -OperationId 'getUserById2' `
-    -Description 'Link to fetch user details using the id from the response body.'  -RequestBody $linkRequestBody
+    -Description 'Link to fetch user details using the id from the response body.' -RequestBody $linkRequestBody
 
 
 # Callback component (class-first). Discovered via [OpenApiModelKind(Callback)].
@@ -254,11 +252,12 @@ New-KrMapRouteBuilder -Verbs @('GET', 'HEAD', 'POST', 'TRACE') -Pattern '/status
     Add-KrMapRouteOpenApiInfo -Verbs 'GET' -OperationId 'GetStatus' |
     Add-KrMapRouteOpenApiServer -Server (New-KrOpenApiServer -Url 'https://api.example.com/v1' -Description 'Production Server') |
     Add-KrMapRouteOpenApiServer -Server (New-KrOpenApiServer -Url 'https://staging-api.example.com/v1' -Description 'Staging Server') |
-    Add-KrMapRouteOpenApiRequestBody -Verbs @('POST', 'GET', 'TRACE') -Description 'Healthy status2' -Reference 'CreateAddressBody' -Embed|
+    Add-KrMapRouteOpenApiRequestBody -Verbs @('POST', 'GET', 'TRACE') -Description 'Healthy status2' -Reference 'CreateAddressBody' -Embed |
     Add-KrMapRouteOpenApiExternalDoc -Description 'Find more info here' -url 'https://example.com/docs' |
     Add-KrMapRouteOpenApiParameter -Verbs @('GET', 'HEAD', 'POST') -Reference 'Name' -Embed |
-    Add-KrMapRouteOpenApiResponse -StatusCode '200' -Description 'Healthy status' -ReferenceId 'Address' |
+    # Add-KrMapRouteOpenApiResponse -StatusCode '200' -Description 'Healthy status' -ReferenceId 'Address' |
     Add-KrMapRouteOpenApiResponse -StatusCode '503' -Description 'Service unavailable' |
+    Add-KrMapRouteOpenApiResponse -StatusCode '500' -ReferenceId 'AddressResponse-NotFound' |
     Build-KrMapRoute
 
 Add-KrOpenApiRoute -Pattern '/openapi/{version}/openapi.{format}'

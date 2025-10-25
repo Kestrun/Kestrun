@@ -45,24 +45,25 @@ function Add-KrMapRouteOpenApiParameter {
             if (-not $MapRouteBuilder.OpenApi.ContainsKey($verb)) {
                 $MapRouteBuilder.OpenApi[$verb] = [Kestrun.Hosting.Options.OpenAPIMetadata]::new($MapRouteBuilder.Pattern)
             }
-            $MapRouteBuilder.OpenApi[$verb].Enabled = $true
-            if ($Embed) {
-                $parameters = $MapRouteBuilder.Server.OpenApiDocumentDescriptor['default'].Document.Components.Parameters
-                if (-not $parameters.ContainsKey($ReferenceId)){
-                    throw "Parameter with ReferenceId '$ReferenceId' does not exist in the OpenAPI document components."
-                }
-                $param = [Kestrun.OpenApi.OpenApiComponentClone]::Clone($parameters[$ReferenceId])
-                if ($PSBoundParameters.ContainsKey('Description')) {
-                    $param.Description = $Description
-                }
-                $MapRouteBuilder.OpenApi[$verb].Parameters.Add($param)
-            } else {
-                $param = [Microsoft.OpenApi.OpenApiParameterReference]::new($ReferenceId)
-                if ($PSBoundParameters.ContainsKey('Description')) {
-                    $param.Description = $Description
-                }
-                $MapRouteBuilder.OpenApi[$verb].Parameters.Add($param)
+
+            # Use reference-based parameter
+            $parameters = $MapRouteBuilder.Server.OpenApiDocumentDescriptor['default'].Document.Components.Parameters
+            if (-not $parameters.ContainsKey($ReferenceId)) {
+                throw "Parameter with ReferenceId '$ReferenceId' does not exist in the OpenAPI document components."
             }
+            $parameter = ($Embed)?
+            ([Kestrun.OpenApi.OpenApiComponentClone]::Clone($parameters[$ReferenceId])):
+            ([Microsoft.OpenApi.OpenApiParameterReference]::new($ReferenceId))
+
+            # Ensure the MapRouteBuilder is marked as having OpenAPI metadata
+            $MapRouteBuilder.OpenApi[$verb].Enabled = $true
+
+            # Add description if provided
+            if ($PSBoundParameters.ContainsKey('Description')) {
+                $parameter.Description = $Description
+            }
+            # Add the parameter to the MapRouteBuilder
+            $MapRouteBuilder.OpenApi[$verb].Parameters.Add($parameter)
         }
         # Return the modified MapRouteBuilder for pipeline chaining
         return $MapRouteBuilder

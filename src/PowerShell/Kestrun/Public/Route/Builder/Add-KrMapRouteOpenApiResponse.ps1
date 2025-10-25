@@ -11,6 +11,10 @@
     The HTTP status code for the OpenAPI response.
 .PARAMETER Description
     A description of the OpenAPI response.
+.PARAMETER ReferenceId
+    A reference string for the OpenAPI response.
+.PARAMETER Embed
+    A switch indicating whether to embed the response definition directly into the route or to reference it.
 .EXAMPLE
     # Create a new Map Route Builder
     $mapRouteBuilder = New-KrMapRouteBuilder |
@@ -22,6 +26,7 @@
 #>
 function Add-KrMapRouteOpenApiResponse {
     [KestrunRuntimeApi('Definition')]
+    [CmdletBinding(defaultParameterSetName = 'DescriptionOnly')]
     [OutputType([Kestrun.Hosting.Options.MapRouteBuilder])]
     param (
         [Parameter(Mandatory = $true, ValueFromPipeline = $true)]
@@ -30,11 +35,13 @@ function Add-KrMapRouteOpenApiResponse {
         [Kestrun.Utilities.HttpVerb[]]$Verbs,
         [Parameter(Mandatory = $true)]
         [string]$StatusCode,
-        [Parameter(Mandatory = $true)]
+        [Parameter(ParameterSetName = 'Reference')]
+        [Parameter(Mandatory = $true, ParameterSetName = 'DescriptionOnly')]
         [string]$Description,
-        [string]$ContentType = 'application/json',
-        [string]$SchemaRef,
-        [switch]$InlineSchema
+        [Parameter(ParameterSetName = 'Reference')]
+        [string]$ReferenceId,
+        [Parameter(ParameterSetName = 'Reference')]
+        [switch]$Embed
     )
     process {
         if ($Verbs.Count -eq 0) {
@@ -45,22 +52,36 @@ function Add-KrMapRouteOpenApiResponse {
             if (-not $MapRouteBuilder.OpenApi.ContainsKey($verb)) {
                 $MapRouteBuilder.OpenApi[$verb] = [Kestrun.Hosting.Options.OpenAPIMetadata]::new($MapRouteBuilder.Pattern)
             }
-            $response = [Microsoft.OpenApi.OpenApiResponse]::new()
-            $response.Description = $Description
-            if ($SchemaRef) {
-                if ($InlineSchema) {
-                    # to implement inline schema generation in future
-                    throw 'Inline schema generation is not implemented yet.'
-                } else {
-                    # Add content with schema reference if provided
-                    $response.Content = [System.Collections.Generic.Dictionary[string, Microsoft.OpenApi.OpenApiMediaType]]::new()
-                    $mediaType = [Microsoft.OpenApi.OpenApiMediaType]::new()
-                    $mediaType.Schema = [Microsoft.OpenApi.OpenApiSchemaReference]::new($SchemaRef)
-                    $response.Content[$ContentType] = $mediaType
+            if ($PSBoundParameters.ContainsKey('ReferenceId')) {
+                # Use reference-based response
+                $responses = $MapRouteBuilder.Server.OpenApiDocumentDescriptor['default'].Document.Components.Responses
+                if (-not $responses.ContainsKey($ReferenceId)) {
+                    throw "Response with ReferenceId '$ReferenceId' does not exist in the OpenAPI document components."
                 }
+                if ($Embed) {
+                    $resp = [Kestrun.OpenApi.OpenApiComponentClone]::Clone($responses[$ReferenceId])
+                    if ($PSBoundParameters.ContainsKey('Description')) {
+                        $resp.Description = $Description
+                    }
+                    $response = $resp
+                } else {
+                    $response = [Microsoft.OpenApi.OpenApiResponseReference]::new($ReferenceId)
+                }
+            } else {
+                # Create a new response with description only
+                $response = [Microsoft.OpenApi.OpenApiResponse]::new()
+                $response.Description = $Description
             }
+
+            # Ensure the MapRouteBuilder is marked as having OpenAPI metadata
             $MapRouteBuilder.OpenApi[$verb].Enabled = $true
+            # Add description if provided
+            if ($PSBoundParameters.ContainsKey('Description')) {
+                $response.Description = $Description
+            }
+            # Add the response to the MapRouteBuilder
             $MapRouteBuilder.OpenApi[$verb].Responses[$StatusCode] = $response
+
         }
         # Return the modified MapRouteBuilder for pipeline chaining
         return $MapRouteBuilder

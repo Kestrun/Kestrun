@@ -99,7 +99,7 @@ public class OpenApiDocDescriptor(KestrunHost host, string docId)
 
     /// <summary>
     /// Generates the OpenAPI document by processing components and registered routes.
-    /// </summary> 
+    /// </summary>
     public void GenerateDoc()
     {
         var components = OpenApiSchemaDiscovery.GetOpenApiTypesAuto();

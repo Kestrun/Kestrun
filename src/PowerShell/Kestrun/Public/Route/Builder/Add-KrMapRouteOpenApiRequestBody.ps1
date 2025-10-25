@@ -60,19 +60,26 @@ function Add-KrMapRouteOpenApiRequestBody {
             if ($null -ne $MapRouteBuilder.OpenApi[$verb].RequestBody) {
                 throw "RequestBody already defined for verb $verb in this MapRouteBuilder."
             }
+
+            # Use reference-based request body
+            $requestBodies = $MapRouteBuilder.Server.OpenApiDocumentDescriptor['default'].Document.Components.RequestBodies
+            if (-not $requestBodies.ContainsKey($ReferenceId)) {
+                throw "RequestBody with ReferenceId '$ReferenceId' does not exist in the OpenAPI document components."
+            }
+            # Add the request body to the MapRouteBuilder
+            $requestBody = ($Embed)?
+            ([Kestrun.OpenApi.OpenApiComponentClone]::Clone($requestBodies[$ReferenceId])):
+            ([Microsoft.OpenApi.OpenApiRequestBodyReference]::new($ReferenceId))
+
+            # Ensure the MapRouteBuilder is marked as having OpenAPI metadata
             $MapRouteBuilder.OpenApi[$verb].Enabled = $true
-            if ($Embed) {
-                $RequestBodies = $MapRouteBuilder.Server.OpenApiDocumentDescriptor['default'].Document.Components.RequestBodies
-                if (-not $requestBodies.ContainsKey($ReferenceId)){
-                    throw "RequestBody with ReferenceId '$ReferenceId' does not exist in the OpenAPI document components."
-                }
-                $MapRouteBuilder.OpenApi[$verb].RequestBody = [Kestrun.OpenApi.OpenApiComponentClone]::Clone($requestBodies[$ReferenceId])
-            } else {
-                $MapRouteBuilder.OpenApi[$verb].RequestBody = [Microsoft.OpenApi.OpenApiRequestBodyReference]::new($ReferenceId)
-            }
+
+            # Add description if provided
             if ($Description) {
-                $MapRouteBuilder.OpenApi[$verb].RequestBody.Description = $Description
+                $requestBody.Description = $Description
             }
+            # Add the request body to the MapRouteBuilder
+            $MapRouteBuilder.OpenApi[$verb].RequestBody = $requestBody
         }
         # Return the modified MapRouteBuilder for pipeline chaining
         return $MapRouteBuilder

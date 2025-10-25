@@ -89,9 +89,14 @@ class Param_Age {
 # Response components (member-level responses; JoinClassName ties class+member in key)
 [OpenApiModelKind([OpenApiModelKind]::Response, JoinClassName = '-')]
 class AddressResponse {
-    [OpenApiResponse( Description = 'Successful retrieval of address', SchemaRef = 'Address' )]
+    [OpenApiResponse( Description = 'Successful retrieval of address', SchemaRef = 'Address' ,ExampleRef = 'AddressExample_Basic')]
+   #[OpenApiExampleRef('Basic', 'AddressExample_Basic')]
     $OK
-    [OpenApiResponse( Description = 'Address not found',LinkRef = 'GetUserByIdLink' )]
+
+    [OpenApiResponse( Description = 'Address not found' , SchemaRef = 'UserInfoResponse', ExampleRef = 'AddressExample_NoApt' )]
+    [OpenApiLinkRef('GetUserById', 'GetUserByIdLink')]
+    [OpenApiLinkRef('GetUserById2', 'GetUserByIdLink2')]
+   # [OpenApiExampleRef('NotFoundExample', 'AddressExample_NoApt')]
     $NotFound
 }
 
@@ -167,7 +172,7 @@ Add-KrOpenApiLink -LinkName 'GetUserByIdLink' -OperationRef '#/paths/users/{id}/
     -Description 'Link to fetch user details using the id from the response body.' -Parameters $linkParams -Server $linkServer #-RequestBody $linkRequestBody
 
 Add-KrOpenApiLink -LinkName 'GetUserByIdLink2' -OperationRef '#/paths/users2/{id}/get' -OperationId 'getUserById2' `
-    -Description 'Link to fetch user details using the id from the response body.' -RequestBody $linkRequestBody
+    -Description 'Link to fetch user details using the id from the response body.' -RequestBody '$request.body#/locale'
 
 
 # Callback component (class-first). Discovered via [OpenApiModelKind(Callback)].

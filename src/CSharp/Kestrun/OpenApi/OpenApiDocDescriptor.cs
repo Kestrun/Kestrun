@@ -1161,6 +1161,9 @@ public class OpenApiDocDescriptor(KestrunHost host, string docId)
         var description = t.GetProperty("Description")?.GetValue(attr) as string;
         var contentType = t.GetProperty("ContentType")?.GetValue(attr) as string ?? "application/json";
         var schemaRef = t.GetProperty("SchemaRef")?.GetValue(attr) as string;
+        var headerRef = t.GetProperty("HeaderRef")?.GetValue(attr) as string;
+        var linkRef = t.GetProperty("LinkRef")?.GetValue(attr) as string;
+        var exampleRef = t.GetProperty("ExampleRef")?.GetValue(attr) as string;
 
         var response = new OpenApiResponse
         {
@@ -1178,7 +1181,129 @@ public class OpenApiDocDescriptor(KestrunHost host, string docId)
             };
         }
 
-        // TODO: In future, map ExampleRef, HeaderRef, LinkRef when component builders exist.
+        // Map ExampleRef -> response.Content[contentType].Examples[ExampleRef] = $ref to components.examples[ExampleRef]
+        if (!string.IsNullOrWhiteSpace(exampleRef))
+        {
+            response.Content ??= new Dictionary<string, OpenApiMediaType>(StringComparer.Ordinal)
+            {
+                [contentType] = new OpenApiMediaType()
+            };
+
+            if (!response.Content.TryGetValue(contentType, out var mediaType) || mediaType is null)
+            {
+                mediaType = new OpenApiMediaType();
+                response.Content[contentType] = mediaType;
+            }
+
+            mediaType.Examples ??= new Dictionary<string, IOpenApiExample>(StringComparer.Ordinal);
+
+            try
+            {
+                // Prefer typed reference if available
+                var exRefType = Type.GetType("Microsoft.OpenApi.OpenApiExampleReference, Microsoft.OpenApi", throwOnError: false);
+                if (exRefType is not null)
+                {
+                    if (Activator.CreateInstance(exRefType, [exampleRef]) is IOpenApiExample exRef)
+                    {
+                        mediaType.Examples[exampleRef] = exRef;
+                    }
+                }
+                else
+                {
+                    // Fallback: create OpenApiExample and set Reference dynamically
+                    var ex = new OpenApiExample();
+                    var refProp = typeof(OpenApiExample).GetProperty("Reference", BindingFlags.Public | BindingFlags.Instance);
+                    var refType = refProp?.PropertyType;
+                    var refEnumType = refType?.GetProperty("Type")?.PropertyType;
+                    var refObj = refType is not null ? Activator.CreateInstance(refType)! : null;
+                    if (refObj is not null && refEnumType is not null)
+                    {
+                        var enumVal = Enum.Parse(refEnumType, "Example");
+                        refType!.GetProperty("Type")?.SetValue(refObj, enumVal);
+                        refType!.GetProperty("Id")?.SetValue(refObj, exampleRef);
+                        refProp!.SetValue(ex, refObj);
+                        mediaType.Examples[exampleRef] = ex;
+                    }
+                }
+            }
+            catch { /* tolerate environments without typed reference helpers */ }
+        }
+
+        // Map HeaderRef -> response.Headers[HeaderRef] = $ref to components.headers[HeaderRef]
+        if (!string.IsNullOrWhiteSpace(headerRef))
+        {
+            response.Headers ??= new Dictionary<string, IOpenApiHeader>(StringComparer.Ordinal);
+            try
+            {
+                // Prefer typed reference if available
+                var headerRefType = Type.GetType("Microsoft.OpenApi.OpenApiHeaderReference, Microsoft.OpenApi", throwOnError: false);
+                if (headerRefType is not null)
+                {
+                    if (Activator.CreateInstance(headerRefType, [headerRef]) is IOpenApiHeader href)
+                    {
+                        response.Headers[headerRef] = href;
+                    }
+                }
+                else
+                {
+                    // Fallback: create OpenApiHeader and set Reference dynamically
+                    var header = new OpenApiHeader();
+                    var refProp = typeof(OpenApiHeader).GetProperty("Reference", BindingFlags.Public | BindingFlags.Instance);
+                    var refType = refProp?.PropertyType;
+                    var refEnumType = refType?.GetProperty("Type")?.PropertyType;
+                    var refObj = refType is not null ? Activator.CreateInstance(refType)! : null;
+                    if (refObj is not null && refEnumType is not null)
+                    {
+                        var linkEnumVal = Enum.Parse(refEnumType, "Header");
+                        refType!.GetProperty("Type")?.SetValue(refObj, linkEnumVal);
+                        refType!.GetProperty("Id")?.SetValue(refObj, headerRef);
+                        refProp!.SetValue(header, refObj);
+                        response.Headers[headerRef] = header;
+                    }
+                }
+            }
+            catch { /* tolerate environments without typed reference helpers */ }
+        }
+
+        // Map LinkRef -> response.Links[LinkRef] = $ref to components.links[LinkRef]
+        if (!string.IsNullOrWhiteSpace(linkRef))
+        {
+            try
+            {
+                response.Links ??= new Dictionary<string, IOpenApiLink>(StringComparer.Ordinal);
+                // Prefer typed reference if available
+                var linkRefType = new Microsoft.OpenApi.OpenApiLinkReference(linkRef);
+                /*  Type.GetType("Microsoft.OpenApi.OpenApiLinkReference, Microsoft.OpenApi", throwOnError: false);
+                  if (linkRefType is not null)
+                  {
+                      if (Activator.CreateInstance(linkRefType, [linkRef]) is IOpenApiLink lref)
+                      {
+                          response.Links[linkRef] = lref;
+                      }
+                  }
+                  else
+                  {
+                      // Fallback: create OpenApiLink and set Reference dynamically
+                      var link = new OpenApiLink();
+                      var refProp = typeof(OpenApiLink).GetProperty("Reference", BindingFlags.Public | BindingFlags.Instance);
+                      var refType = refProp?.PropertyType;
+                      var refEnumType = refType?.GetProperty("Type")?.PropertyType;
+                      var refObj = refType is not null ? Activator.CreateInstance(refType)! : null;
+                      if (refObj is not null && refEnumType is not null)
+                      {
+                          var linkEnumVal = Enum.Parse(refEnumType, "Link");
+                          refType!.GetProperty("Type")?.SetValue(refObj, linkEnumVal);
+                          refType!.GetProperty("Id")?.SetValue(refObj, linkRef);
+                          refProp!.SetValue(link, refObj);
+                          response.Links[linkRef] = link;
+                      }
+                  }*/
+                response.Links[linkRef] = linkRefType;
+            }
+            catch { /* tolerate environments without typed reference helpers */ }
+        }
+
+        // NOTE: ExampleRef is mapped above into media type examples; additional inline example values can be added later if needed.
         return response;
     }
 

@@ -46,12 +46,7 @@ public sealed class OpenApiResponseAttribute : Attribute
     /// Optional header reference name, if the response defines a custom header.
     /// </summary>
     public string? HeaderRef { get; set; }
-
-    /// <summary>
-    /// Optional link reference (for response follow-ups, e.g. HATEOAS).
-    /// </summary>
-    public string? LinkRef { get; set; }
-
+ 
     /// <summary>
     /// Optional summary for documentation purposes.
     /// </summary>

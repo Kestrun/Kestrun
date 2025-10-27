@@ -15,7 +15,7 @@ switch ($PSVersionTable.PSVersion.Minor) {
     2 { throw 'Unsupported PowerShell version. Please use PowerShell 7.4.' }
     3 { throw 'Unsupported PowerShell version. Please use PowerShell 7.4.' }
     4 { $netVersion = 'net8.0'; $codeAnalysisVersion = '4.9.2' }
-    5 { $netVersion = 'net9.0'; $codeAnalysisVersion = '4.11.0' }
+    5 { $netVersion = 'net8.0'; $codeAnalysisVersion = '4.11.0' }
     6 { $netVersion = 'net9.0'; $codeAnalysisVersion = '4.14.0' }
     default { $netVersion = 'net9.0'; $codeAnalysisVersion = '4.14.0' }
 }

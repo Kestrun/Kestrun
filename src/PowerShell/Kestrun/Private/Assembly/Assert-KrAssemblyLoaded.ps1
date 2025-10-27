@@ -29,6 +29,7 @@ function Assert-KrAssemblyLoaded {
             Add-Type -LiteralPath $AssemblyPath
         } catch {
             Write-Error "Failed to load assembly: $AssemblyPath"
+            Write-Error $_
             return $false
         }
     } else {

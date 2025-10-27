@@ -17,47 +17,47 @@ param(
         $creds   = "admin:password"
         $basic   = "Basic " + [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes($creds))
 
-        Invoke-RestMethod -Uri https://localhost:5001/secure/ps/hello -SkipCertificateCheck -Headers @{Authorization=$basic}
-        Invoke-RestMethod -Uri https://localhost:5001/secure/cs/hello -SkipCertificateCheck -Headers @{Authorization=$basic}
-        Invoke-RestMethod -Uri https://localhost:5001/secure/vb/hello -SkipCertificateCheck -Headers @{Authorization=$basic}
+        Invoke-RestMethod -Uri https://localhost:5000/secure/ps/hello -SkipCertificateCheck -Headers @{Authorization=$basic}
+        Invoke-RestMethod -Uri https://localhost:5000/secure/cs/hello -SkipCertificateCheck -Headers @{Authorization=$basic}
+        Invoke-RestMethod -Uri https://localhost:5000/secure/vb/hello -SkipCertificateCheck -Headers @{Authorization=$basic}
 
-        Invoke-RestMethod -Uri https://localhost:5001/secure/ps/policy -Method GET -SkipCertificateCheck -Headers @{Authorization=$basic}
-        Invoke-RestMethod -Uri https://localhost:5001/secure/ps/policy -Method DELETE -SkipCertificateCheck -Headers @{Authorization=$basic}
-        Invoke-RestMethod -Uri https://localhost:5001/secure/ps/policy -Method POST -SkipCertificateCheck -Headers @{Authorization=$basic}
-        Invoke-RestMethod -Uri https://localhost:5001/secure/ps/policy -Method PUT -SkipCertificateCheck -Headers @{Authorization=$basic}
+        Invoke-RestMethod -Uri https://localhost:5000/secure/ps/policy -Method GET -SkipCertificateCheck -Headers @{Authorization=$basic}
+        Invoke-RestMethod -Uri https://localhost:5000/secure/ps/policy -Method DELETE -SkipCertificateCheck -Headers @{Authorization=$basic}
+        Invoke-RestMethod -Uri https://localhost:5000/secure/ps/policy -Method POST -SkipCertificateCheck -Headers @{Authorization=$basic}
+        Invoke-RestMethod -Uri https://localhost:5000/secure/ps/policy -Method PUT -SkipCertificateCheck -Headers @{Authorization=$basic}
 
-        Invoke-RestMethod -Uri https://localhost:5001/secure/vb/policy -Method GET -SkipCertificateCheck -Headers @{Authorization=$basic}
-        Invoke-RestMethod -Uri https://localhost:5001/secure/vb/policy -Method DELETE -SkipCertificateCheck -Headers @{Authorization=$basic}
-        Invoke-RestMethod -Uri https://localhost:5001/secure/vb/policy -Method POST -SkipCertificateCheck -Headers @{Authorization=$basic}
-        Invoke-RestMethod -Uri https://localhost:5001/secure/vb/policy -Method PUT -SkipCertificateCheck -Headers @{Authorization=$basic}
+        Invoke-RestMethod -Uri https://localhost:5000/secure/vb/policy -Method GET -SkipCertificateCheck -Headers @{Authorization=$basic}
+        Invoke-RestMethod -Uri https://localhost:5000/secure/vb/policy -Method DELETE -SkipCertificateCheck -Headers @{Authorization=$basic}
+        Invoke-RestMethod -Uri https://localhost:5000/secure/vb/policy -Method POST -SkipCertificateCheck -Headers @{Authorization=$basic}
+        Invoke-RestMethod -Uri https://localhost:5000/secure/vb/policy -Method PUT -SkipCertificateCheck -Headers @{Authorization=$basic}
 
-        Invoke-RestMethod -Uri https://localhost:5001/secure/key/simple/hello -SkipCertificateCheck -Headers @{ "X-Api-Key" = "my-secret-api-key" }
-        Invoke-RestMethod -Uri https://localhost:5001/secure/key/ps/hello -SkipCertificateCheck -Headers @{ "X-Api-Key" = "my-secret-api-key" }
-        Invoke-RestMethod -Uri https://localhost:5001/secure/key/cs/hello -SkipCertificateCheck -Headers @{ "X-Api-Key" = "my-secret-api-key" }
-        Invoke-RestMethod -Uri https://localhost:5001/secure/key/vb/hello -SkipCertificateCheck -Headers @{ "X-Api-Key" = "my-secret-api-key" }
+        Invoke-RestMethod -Uri https://localhost:5000/secure/key/simple/hello -SkipCertificateCheck -Headers @{ "X-Api-Key" = "my-secret-api-key" }
+        Invoke-RestMethod -Uri https://localhost:5000/secure/key/ps/hello -SkipCertificateCheck -Headers @{ "X-Api-Key" = "my-secret-api-key" }
+        Invoke-RestMethod -Uri https://localhost:5000/secure/key/cs/hello -SkipCertificateCheck -Headers @{ "X-Api-Key" = "my-secret-api-key" }
+        Invoke-RestMethod -Uri https://localhost:5000/secure/key/vb/hello -SkipCertificateCheck -Headers @{ "X-Api-Key" = "my-secret-api-key" }
 
-        Invoke-RestMethod -Uri https://localhost:5001/secure/key/ps/policy -Method GET -SkipCertificateCheck -Headers @{ "X-Api-Key" = "my-secret-api-key" }
-        Invoke-RestMethod -Uri https://localhost:5001/secure/key/ps/policy -Method DELETE -SkipCertificateCheck -Headers @{ "X-Api-Key" = "my-secret-api-key" }
-        Invoke-RestMethod -Uri https://localhost:5001/secure/key/ps/policy -Method POST -SkipCertificateCheck -Headers @{ "X-Api-Key" = "my-secret-api-key" }
-        Invoke-RestMethod -Uri https://localhost:5001/secure/key/ps/policy -Method PUT -SkipCertificateCheck -Headers @{ "X-Api-Key" = "my-secret-api-key" }
+        Invoke-RestMethod -Uri https://localhost:5000/secure/key/ps/policy -Method GET -SkipCertificateCheck -Headers @{ "X-Api-Key" = "my-secret-api-key" }
+        Invoke-RestMethod -Uri https://localhost:5000/secure/key/ps/policy -Method DELETE -SkipCertificateCheck -Headers @{ "X-Api-Key" = "my-secret-api-key" }
+        Invoke-RestMethod -Uri https://localhost:5000/secure/key/ps/policy -Method POST -SkipCertificateCheck -Headers @{ "X-Api-Key" = "my-secret-api-key" }
+        Invoke-RestMethod -Uri https://localhost:5000/secure/key/ps/policy -Method PUT -SkipCertificateCheck -Headers @{ "X-Api-Key" = "my-secret-api-key" }
 
-        $token = (Invoke-RestMethod -Uri https://localhost:5001/token/new -SkipCertificateCheck -Headers @{ Authorization = $basic }).access_token
-        Invoke-RestMethod -Uri https://localhost:5001/secure/jwt/hello -SkipCertificateCheck -Headers @{ Authorization = "Bearer $token" }
+        $token = (Invoke-RestMethod -Uri https://localhost:5000/token/new -SkipCertificateCheck -Headers @{ Authorization = $basic }).access_token
+        Invoke-RestMethod -Uri https://localhost:5000/secure/jwt/hello -SkipCertificateCheck -Headers @{ Authorization = "Bearer $token" }
 
-        Invoke-RestMethod -Uri https://localhost:5001/secure/jwt/policy -Method GET -SkipCertificateCheck -Headers @{ Authorization = "Bearer $token" }
-        Invoke-RestMethod -Uri https://localhost:5001/secure/jwt/policy -Method DELETE -SkipCertificateCheck -Headers @{ Authorization = "Bearer $token" }
-        Invoke-RestMethod -Uri https://localhost:5001/secure/jwt/policy -Method POST -SkipCertificateCheck -Headers @{ Authorization = "Bearer $token" }
-        Invoke-RestMethod -Uri https://localhost:5001/secure/jwt/policy -Method PUT -SkipCertificateCheck -Headers @{ Authorization = "Bearer $token" }
+        Invoke-RestMethod -Uri https://localhost:5000/secure/jwt/policy -Method GET -SkipCertificateCheck -Headers @{ Authorization = "Bearer $token" }
+        Invoke-RestMethod -Uri https://localhost:5000/secure/jwt/policy -Method DELETE -SkipCertificateCheck -Headers @{ Authorization = "Bearer $token" }
+        Invoke-RestMethod -Uri https://localhost:5000/secure/jwt/policy -Method POST -SkipCertificateCheck -Headers @{ Authorization = "Bearer $token" }
+        Invoke-RestMethod -Uri https://localhost:5000/secure/jwt/policy -Method PUT -SkipCertificateCheck -Headers @{ Authorization = "Bearer $token" }
 
-        $token2 = (Invoke-RestMethod -Uri https://localhost:5001/token/renew -SkipCertificateCheck -Headers @{ Authorization = "Bearer $token" }).access_token
-        Invoke-RestMethod -Uri https://localhost:5001/secure/jwt/hello -SkipCertificateCheck -Headers @{ Authorization = "Bearer $token2" }
+        $token2 = (Invoke-RestMethod -Uri https://localhost:5000/token/renew -SkipCertificateCheck -Headers @{ Authorization = "Bearer $token" }).access_token
+        Invoke-RestMethod -Uri https://localhost:5000/secure/jwt/hello -SkipCertificateCheck -Headers @{ Authorization = "Bearer $token2" }
         #Form
-        Invoke-WebRequest -Uri https://localhost:5001/cookies/login -SkipCertificateCheck -Method Post -Body @{ username = 'admin'; password = 'secret' } -SessionVariable authSession
-        Invoke-WebRequest -Uri https://localhost:5001/secure/cookies/hello -SkipCertificateCheck -WebSession $authSession
-        Invoke-RestMethod -Uri https://localhost:5001/secure/cookies/policy -Method GET -SkipCertificateCheck -WebSession $authSession
-        Invoke-RestMethod -Uri https://localhost:5001/secure/cookies/policy -Method DELETE -SkipCertificateCheck -WebSession $authSession
-        Invoke-RestMethod -Uri https://localhost:5001/secure/cookies/policy -Method POST -SkipCertificateCheck -WebSession $authSession
-        Invoke-RestMethod -Uri https://localhost:5001/secure/cookies/policy -Method PUT -SkipCertificateCheck -WebSession $authSession
+        Invoke-WebRequest -Uri https://localhost:5000/cookies/login -SkipCertificateCheck -Method Post -Body @{ username = 'admin'; password = 'secret' } -SessionVariable authSession
+        Invoke-WebRequest -Uri https://localhost:5000/secure/cookies/hello -SkipCertificateCheck -WebSession $authSession
+        Invoke-RestMethod -Uri https://localhost:5000/secure/cookies/policy -Method GET -SkipCertificateCheck -WebSession $authSession
+        Invoke-RestMethod -Uri https://localhost:5000/secure/cookies/policy -Method DELETE -SkipCertificateCheck -WebSession $authSession
+        Invoke-RestMethod -Uri https://localhost:5000/secure/cookies/policy -Method POST -SkipCertificateCheck -WebSession $authSession
+        Invoke-RestMethod -Uri https://localhost:5000/secure/cookies/policy -Method PUT -SkipCertificateCheck -WebSession $authSession
 #>
 
 $logger = New-KrLogger |

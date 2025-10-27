@@ -53,7 +53,7 @@ jobs:
               run: Invoke-Build Build-Help # outputs into ./docs
 
             - name: ⬆️ Upload site artifact
-              uses: actions/upload-artifact@v4
+              uses: actions/upload-artifact@v5
               with:
                   name: site
                   path: ./docs
@@ -68,7 +68,7 @@ jobs:
             COMMIT_AUTHOR_EMAIL: "41898282+github-actions[bot]@users.noreply.github.com"
         steps:
             - name: ⬇️ Download site artifact
-              uses: actions/download-artifact@v5
+              uses: actions/download-artifact@v6
               with:
                   name: site
                   path: site

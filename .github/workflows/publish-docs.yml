@@ -53,7 +53,7 @@ jobs:
               run: Invoke-Build Build-Help # outputs into ./docs
 
             - name: ⬆️ Upload site artifact
-              uses: actions/upload-artifact@v4
+              uses: actions/upload-artifact@v5
               with:
                   name: site
                   path: ./docs

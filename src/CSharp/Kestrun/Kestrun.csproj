@@ -151,7 +151,8 @@
         <PackageReference Include="Microsoft.Extensions.Primitives" Version="8.0.0" />-->
         <PackageReference Include="Microsoft.Extensions.Caching.SqlServer" Version="8.0.21" />
         <PackageReference Include="Microsoft.Extensions.Caching.StackExchangeRedis" Version="8.0.21" />
-
+        <!-- Scripting Engines -->
+        <PackageReference Include="Microsoft.PowerShell.SDK" Version="7.4.13" />
 
     </ItemGroup>
 
@@ -178,9 +179,11 @@
         <PackageReference Include="Microsoft.Extensions.Primitives" Version="9.0.10" />-->
         <PackageReference Include="Microsoft.Extensions.Caching.SqlServer" Version="9.0.10" />
         <PackageReference Include="Microsoft.Extensions.Caching.StackExchangeRedis" Version="9.0.10" />
+        <!-- Scripting Engines -->
+        <PackageReference Include="Microsoft.PowerShell.SDK" Version="7.5.4" />
     </ItemGroup>
 
-    <ItemGroup>
+    <ItemGroup Condition=" '$(TargetFramework)' == 'net8.0' ">
 
         <!-- Roslyn Scripting -->
         <PackageReference Include="Microsoft.CodeAnalysis" Version="4.9.2" />
@@ -191,6 +194,23 @@
         <PackageReference Include="Microsoft.CodeAnalysis.Scripting.Common" Version="4.9.2" />
         <PackageReference Include="Microsoft.CodeAnalysis.VisualBasic" Version="4.9.2" />
         <PackageReference Include="Microsoft.CodeAnalysis.VisualBasic.Workspaces" Version="4.9.2" />
+    </ItemGroup>
+
+
+
+    <ItemGroup Condition=" '$(TargetFramework)' == 'net9.0' ">
+
+        <!-- Roslyn Scripting -->
+        <PackageReference Include="Microsoft.CodeAnalysis" Version="4.11.0" />
+        <PackageReference Include="Microsoft.CodeAnalysis.CSharp.Workspaces" Version="4.11.0" />
+        <PackageReference Include="Microsoft.CodeAnalysis.CSharp.Scripting" Version="4.11.0" />
+        <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.11.0" />
+
+        <PackageReference Include="Microsoft.CodeAnalysis.Scripting.Common" Version="4.11.0" />
+        <PackageReference Include="Microsoft.CodeAnalysis.VisualBasic" Version="4.11.0" />
+        <PackageReference Include="Microsoft.CodeAnalysis.VisualBasic.Workspaces" Version="4.11.0" />
+    </ItemGroup>
+    <ItemGroup>
         <PackageReference Include="Microsoft.CodeAnalysis.Razor" Version="6.0.36" />
         <PackageReference Include="Microsoft.CodeAnalysis.NetAnalyzers" Version="9.0.0">
             <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
@@ -212,7 +232,6 @@
         <PackageReference Include="Microsoft.IdentityModel.Tokens" Version="8.14.0" />
 
         <!-- Scripting Engines -->
-        <PackageReference Include="Microsoft.PowerShell.SDK" Version="7.4.12" />
         <PackageReference Include="Microsoft.ClearScript.V8" Version="7.5.0" />
 
         <PackageReference Include="Microsoft.CodeAnalysis.Analyzers" Version="4.14.0" />

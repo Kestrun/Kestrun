@@ -1095,17 +1095,23 @@ public class OpenApiDocDescriptor(KestrunHost host, string docId)
                          .ToArray();
 
             if (attrs.Length == 0) { continue; }
-
+            bool hasResponseDef = false;
+            var customName = string.Empty;
             // Support multiple attributes per property
             foreach (var a in attrs)
             {
                 if (CreateResponseFromAttribute(a, response))
                 {
-                    var custom = GetNameOverride(a);
-                    var key = !string.IsNullOrWhiteSpace(custom) ? custom! : BuildMemberResponseKey(t, p.Name);
-                    Document.Components!.Responses![key] = response;
+                    hasResponseDef = true;
+                      customName = GetNameOverride(a);
                 }
             }
+            if (!hasResponseDef)
+            {
+                continue;
+            }
+            var key = !string.IsNullOrWhiteSpace(customName) ? customName! : BuildMemberResponseKey(t, p.Name);
+            Document.Components!.Responses![key] = response;
             // Skip inferring schema/content for object-typed properties
             if (p.PropertyType.Name == "Object") { continue; }
 
@@ -1118,7 +1124,7 @@ public class OpenApiDocDescriptor(KestrunHost host, string docId)
             // Set schema to $ref of property type
             foreach (var a in response.Content.Values)
             {
-                a.Schema = new OpenApiSchemaReference(p.PropertyType.Name);
+                a.Schema ??= new OpenApiSchemaReference(p.PropertyType.Name);
             }
         }
     }
@@ -1149,7 +1155,7 @@ public class OpenApiDocDescriptor(KestrunHost host, string docId)
     /// <param name="attr">The attribute object.</param>
     /// <param name="response">The response object to populate.</param>
     /// <returns>True if the attribute was recognized and processed; otherwise, false.</returns>
-    private static bool CreateResponseFromAttribute(object attr, OpenApiResponse response)
+    private bool CreateResponseFromAttribute(object attr, OpenApiResponse response)
     {
         var t = attr.GetType();
         switch (t.Name)
@@ -1161,6 +1167,27 @@ public class OpenApiDocDescriptor(KestrunHost host, string docId)
                 {
                     response.Content[ctype.ContentType] = new OpenApiMediaType();
                 }
+                if (!string.IsNullOrEmpty(ctype.SchemaRef))
+                {
+                    if (ctype.Embed) // embed the schema directly
+                    {
+                        if (Document.Components != null && Document.Components.Schemas != null &&
+                            Document.Components.Schemas.TryGetValue(ctype.SchemaRef, out var schema))
+                        {
+                            // Clone the schema to avoid modifying the component directly
+                            response.Content[ctype.ContentType].Schema = schema.Clone();
+                        }
+                        else // schema not found in components
+                        {
+                            throw new InvalidOperationException($"Schema reference '{ctype.SchemaRef}' cannot be embedded because it was not found in components.");
+                        }
+                    }
+                    else // reference the schema
+                    {
+                        response.Content[ctype.ContentType].Schema = new OpenApiSchemaReference(ctype.SchemaRef);
+                    }
+                }
+
                 break;
             case nameof(OpenApiResponseAttribute):
                 var resp = (OpenApiResponseAttribute)attr;

@@ -97,7 +97,7 @@ class AddressResponse {
 
     [OpenApiResponse( Description = 'Address not found' , ContentType = 'application/json')]
     [OpenApiContentTypeAttribute('application/yaml')]
-    [OpenApiContentTypeAttribute('application/xml')]
+    [OpenApiContentTypeAttribute('application/xml', SchemaRef = 'Address', Embed = $true)]
     [OpenApiContentTypeAttribute('application/json')]
     [OpenApiLinkRefAttribute( 'GetUserById', 'GetUserByIdLink')]
     [OpenApiLinkRefAttribute('GetUserById2', 'GetUserByIdLink2')]

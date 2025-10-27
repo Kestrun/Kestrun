@@ -7,4 +7,13 @@ public sealed class OpenApiContentTypeAttribute(string contentType) : Attribute
 {
     /// <summary>Media type bucket (e.g., application/json, application/xml)</summary>
     public string ContentType { get; } = contentType;
+    /// <summary>
+    /// Optional reference to a predefined schema (e.g., "UserInfoResponse").
+    /// </summary>
+    public string? SchemaRef { get; set; }
+
+    /// <summary>
+    /// When true, embeds the schema directly instead of referencing it.
+    /// </summary>
+    public bool Embed { get; set; }
 }

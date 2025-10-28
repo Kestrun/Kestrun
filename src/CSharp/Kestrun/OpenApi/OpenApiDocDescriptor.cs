@@ -1081,14 +1081,41 @@ public class OpenApiDocDescriptor(KestrunHost host, string docId)
     /// <param name="t">The type to build responses for.</param>
     private void BuildResponses(Type t)
     {
+        string? defaultDescription = null;
+        string? joinClassName = null;
         // Ensure Responses dictionary exists
         Document.Components!.Responses ??= new Dictionary<string, IOpenApiResponse>(StringComparer.Ordinal);
 
         // Scan properties for response-related attributes
         const BindingFlags flags = BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly;
+
         foreach (var p in t.GetProperties(flags))
         {
             var response = new OpenApiResponse();
+            var classAttrs = t.GetCustomAttributes(inherit: false).
+                                Where(a => a.GetType().Name is
+                                nameof(OpenApiResponseComponent))
+                                .Cast<object>()
+                                .ToArray();
+            if (classAttrs.Length > 0)
+            {
+                if (classAttrs.Length > 1)
+                {
+                    throw new InvalidOperationException($"Type '{t.FullName}' has multiple [OpenApiResponseComponent] attributes. Only one is allowed per class.");
+                }
+                // Apply any class-level [OpenApiResponseComponent] attributes first
+                if (classAttrs[0] is OpenApiResponseComponent classRespAttr)
+                {
+                    if (!string.IsNullOrEmpty(classRespAttr.Description))
+                    {
+                        defaultDescription = classRespAttr.Description;
+                    }
+                    if (!string.IsNullOrEmpty(classRespAttr.JoinClassName))
+                    {
+                        joinClassName = t.FullName + classRespAttr.JoinClassName;
+                    }
+                }
+            }
             var attrs = p.GetCustomAttributes(inherit: false)
                          .Where(a => a.GetType().Name is
                          (nameof(OpenApiResponseAttribute)) or
@@ -1108,6 +1135,9 @@ public class OpenApiDocDescriptor(KestrunHost host, string docId)
                 if (CreateResponseFromAttribute(a, response))
                 {
                     hasResponseDef = true;
+                }
+                if (GetNameOverride(a) is not null)
+                {
                     customName = GetNameOverride(a);
                 }
             }
@@ -1115,7 +1145,13 @@ public class OpenApiDocDescriptor(KestrunHost host, string docId)
             {
                 continue;
             }
-            var key = !string.IsNullOrWhiteSpace(customName) ? customName! : BuildMemberResponseKey(t, p.Name);
+            var tname = string.IsNullOrWhiteSpace(customName) ? p.Name : customName!;
+            var key = joinClassName is not null ? $"{joinClassName}{tname}" : tname;
+            if (response.Description is null && defaultDescription is not null)
+            {
+                response.Description = defaultDescription;
+            }
+            // Apply default description if none set
             Document.Components!.Responses![key] = response;
             // Skip inferring schema/content for object-typed properties
             if (p.PropertyType.Name == "Object") { continue; }
@@ -1268,7 +1304,7 @@ public class OpenApiDocDescriptor(KestrunHost host, string docId)
 
         // class-level
         var classAttrs = t.GetCustomAttributes(inherit: false)
-                          .Where(a => a.GetType().Name == nameof(OAExampleComponent))
+                          .Where(a => a.GetType().Name == nameof(OpenApiExampleComponent))
                           .ToArray();
         foreach (var a in classAttrs)
         {

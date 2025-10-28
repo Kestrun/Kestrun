@@ -87,7 +87,8 @@ class Param_Age {
 }
 
 # Response components (member-level responses; JoinClassName ties class+member in key)
-[OpenApiModelKindAttribute([OpenApiModelKind]::Response, JoinClassName = '-')]
+#[OpenApiModelKindAttribute([OpenApiModelKind]::Response, JoinClassName = '-')]
+[OpenApiResponseComponent(JoinClassName = '-', Description = 'Response containing address information')]
 class AddressResponse {
     [OpenApiResponseAttribute( Description = 'Successful retrieval of address' )]# ,ExampleRef = 'AddressExample_Basic')]
     [OpenApiExampleRefAttribute(key = 'Basic', refId = 'AddressExample_Basic')]
@@ -107,19 +108,19 @@ class AddressResponse {
     [OpenApiHeaderRefAttribute( Key = 'X-RateLimit-Remaining', RefId = 'X-RateLimit-Remaining')]
     [UserInfoResponse] $NotFound
 
-    [OpenApiResponse( Description = 'Address not found'  )]
+    [OpenApiResponse(  )]
     $Error
 }
 
 # Example components (class-first; one class per example; defaults become the example object)
-[OAExampleComponent(  Summary = 'Basic address example', Description = 'An example address with all fields populated.' )]
+[OpenApiExampleComponent(  Summary = 'Basic address example', Description = 'An example address with all fields populated.' )]
 class AddressExample_Basic {
     [string]$Street = '123 Main St'
     [string]$City = 'Anytown'
     [string]$PostalCode = '12345'
     [int]$ApartmentNumber = 101
 }
-[OAExampleComponent( Name = 'WithApt', Summary = 'Address with apartment number', Description = 'An example address that includes an apartment number.' )]
+[OpenApiExampleComponent( Name = 'WithApt', Summary = 'Address with apartment number', Description = 'An example address that includes an apartment number.' )]
 class AddressExample_WithApt {
     [string]$Street = '789 Elm St'
     [string]$City = 'Springfield'
@@ -128,7 +129,7 @@ class AddressExample_WithApt {
 }
 
 #[OpenApiModelKindAttribute([OpenApiModelKind]::Example)]
-[OAExampleComponent( Summary = 'Address without apartment number', Description = 'An example address that does not include an apartment number.' )]
+[OpenApiExampleComponent( Summary = 'Address without apartment number', Description = 'An example address that does not include an apartment number.' )]
 class AddressExample_NoApt {
     [string]$Street = '456 2nd Ave'
     [string]$City = 'Metropolis'

@@ -37,5 +37,15 @@ public sealed class OpenApiHeaderAttribute : Attribute
 
     /// <summary>Inline example for header value.</summary>
     public object? Example { get; set; }
+
+    /// <summary>
+    /// When true, indicates that the header value allows reserved characters.
+    /// </summary>
+    public bool AllowReserved { get; set; }
+
+    /// <summary>
+    /// Optional reference to an example component (e.g., "ExampleUser").
+    /// </summary>
+    public string? ExampleRef { get; set; }
 }
 #pragma warning restore CA1050 // Declare types in namespaces

@@ -4,7 +4,7 @@
 
 using Microsoft.OpenApi;
 
-namespace Kestrun.OpenApi;
+namespace Kestrun.OpenApi1;
 
 /// <summary>
 /// Optional inputs for OpenAPI Components. Any property left null is simply ignored.

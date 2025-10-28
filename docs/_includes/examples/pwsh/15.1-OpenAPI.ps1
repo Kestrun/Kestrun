@@ -172,8 +172,13 @@ class PatchAddressBody {
 }
 
 # Header components (member-level; default values become examples)
-[OpenApiModelKindAttribute([OpenApiModelKind]::Header, JoinClassName = '-')]
+[OpenApiHeaderComponent (JoinClassName = '-')]
 class CommonHeaders {
+    [OpenApiHeader("X-Request-ID", Description = "Unique request identifier for tracing"  ]
+[OpenApiExampleAttribute( Name = 'demo', refId = 'X-Request-ID' )]
+[OpenApiExampleAttribute("demo", "Another example ID", "12345678-90ab-cdef-1234-567890abcdef")]
+    [string] $xRequestId = [guid]::NewGuid().ToString()
+
     [OpenApiHeader( Description = 'Tenant identifier', Required = $true )]
     $TenantId = 'contoso'
 
@@ -181,7 +186,7 @@ class CommonHeaders {
     [int] $CorrelationId = 12345
 }
 
-[OpenApiModelKindAttribute([OpenApiModelKind]::Header )]
+[OpenApiHeaderComponent()]
 class RateHeaders {
     [OpenApiHeader( Description = 'Correlation id for tracing', Name = 'X-Request-ID' )]
     [string] $xRequestId = 'abc-123'

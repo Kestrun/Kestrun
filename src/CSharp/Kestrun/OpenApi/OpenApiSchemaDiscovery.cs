@@ -142,10 +142,16 @@ public static class OpenApiSchemaDiscovery
                      .OfType<OpenApiModelKindAttribute>()
                      .Any(a => a.Kind == OpenApiModelKind.Schema) ||
                     t.GetCustomAttributes(typeof(OpenApiSchemaAttribute), true).Length != 0))],
+            // Use similar logic for Response types
             ResponseTypes = [.. assemblies.SelectMany(asm => asm.GetTypes())
             .Where(t => t.IsClass && !t.IsAbstract &&
                    (t.GetCustomAttributes(typeof(OpenApiResponseComponent), true).Length != 0 ||
                     t.GetCustomAttributes(typeof(OpenApiResponseAttribute), true).Length != 0))],
+            // Use similar logic for Header types
+            HeaderTypes = [.. assemblies.SelectMany(asm => asm.GetTypes())
+            .Where(t => t.IsClass && !t.IsAbstract &&
+                    (t.GetCustomAttributes(typeof(OpenApiHeaderComponent), true).Length != 0 ||
+                    t.GetCustomAttributes(typeof(OpenApiHeaderAttribute), true).Length != 0))],
             ExampleTypes = [.. assemblies.SelectMany(asm => asm.GetTypes())
             .Where(t => t.IsClass && !t.IsAbstract &&
                     (t.GetCustomAttributes(typeof(OpenApiModelKindAttribute), true)
@@ -158,13 +164,7 @@ public static class OpenApiSchemaDiscovery
                      .OfType<OpenApiModelKindAttribute>()
                      .Any(a => a.Kind == OpenApiModelKind.RequestBody) ||
                     t.GetCustomAttributes(typeof(OpenApiRequestBodyAttribute), true).Length != 0))],
-            HeaderTypes = [.. assemblies.SelectMany(asm => asm.GetTypes())
-            .Where(t => t.IsClass && !t.IsAbstract &&
-                    (t.GetCustomAttributes(typeof(OpenApiModelKindAttribute), true)
-                     .OfType<OpenApiModelKindAttribute>()
-                     .Any(a => a.Kind == OpenApiModelKind.Header) ||
-                    t.GetCustomAttributes(typeof(OpenApiHeaderAttribute), true).Length != 0))]
-            ,
+
             // Use only OpenApiModelKindAttribute to avoid compile-time deps on attribute types that may not exist yet
             LinkTypes = [.. assemblies.SelectMany(asm => asm.GetTypes())
                 .Where(t => t.IsClass && !t.IsAbstract &&

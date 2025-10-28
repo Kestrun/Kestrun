@@ -11,7 +11,6 @@ using Kestrun.Hosting.Options;
 using Kestrun.Utilities;
 using Microsoft.OpenApi.Reader;
 using System.Text;
-using Azure;  // OpenApiYamlWriter (2.x)
 
 namespace Kestrun.OpenApi;
 
@@ -1352,7 +1351,146 @@ public class OpenApiDocDescriptor(KestrunHost host, string docId)
     }
 
     #endregion
+    #region Headers
+    private void BuildHeaders(Type t)
+    {
+        string? defaultDescription = null;
+        string? joinClassName = null;
+        // Ensure Headers dictionary exists
+        Document.Components!.Headers ??= new Dictionary<string, IOpenApiHeader>(StringComparer.Ordinal);
+        const BindingFlags flags = BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly;
 
+        foreach (var p in t.GetProperties(flags))
+        {
+
+            var header = new OpenApiHeader();
+
+            var classAttrs = t.GetCustomAttributes(inherit: false).
+                               Where(a => a.GetType().Name is
+                               nameof(OpenApiHeaderComponent))
+                               .Cast<object>()
+                               .ToArray();
+            if (classAttrs.Length > 0)
+            {
+                if (classAttrs.Length > 1)
+                {
+                    throw new InvalidOperationException($"Type '{t.FullName}' has multiple [OpenApiResponseComponent] attributes. Only one is allowed per class.");
+                }
+                // Apply any class-level [OpenApiResponseComponent] attributes first
+                if (classAttrs[0] is OpenApiHeaderComponent classRespAttr)
+                {
+                    if (!string.IsNullOrEmpty(classRespAttr.Description))
+                    {
+                        defaultDescription = classRespAttr.Description;
+                    }
+                    if (!string.IsNullOrEmpty(classRespAttr.JoinClassName))
+                    {
+                        joinClassName = t.FullName + classRespAttr.JoinClassName;
+                    }
+                }
+            }
+            var attrs = p.GetCustomAttributes(inherit: false)
+                                   .Where(a => a.GetType().Name is
+                                   nameof(OpenApiHeaderAttribute) or
+                                   nameof(OpenApiExampleRefAttribute))
+                                   .Cast<object>()
+                                   .ToArray();
+
+            if (attrs.Length == 0) { continue; }
+            var customName = string.Empty;
+            foreach (var a in attrs)
+            {
+                var h = CreateHeaderFromAttribute(a, header);
+                if (GetNameOverride(a) is not null)
+                {
+                    customName = GetNameOverride(a);
+                }
+            }
+            var tname = string.IsNullOrWhiteSpace(customName) ? p.Name : customName!;
+            var key = joinClassName is not null ? $"{joinClassName}{tname}" : tname;
+            if (header.Description is null && defaultDescription is not null)
+            {
+                header.Description = defaultDescription;
+            }
+            Document.Components!.Headers![key] = header;
+        }
+    }
+
+    /// <summary>
+    /// Creates an OpenApiHeader from the specified attribute.
+    /// </summary>
+    /// <param name="attr">The attribute to create the header from.</param>
+    /// <param name="header">The OpenApiHeader to populate.</param>
+    /// <returns>The created OpenApiHeader.</returns>
+    private static OpenApiHeader CreateHeaderFromAttribute(object attr, OpenApiHeader header)
+    {
+        var t = attr.GetType();
+        switch (t.Name)
+        {
+            case nameof(OpenApiHeaderAttribute):
+                var description = t.GetProperty("Description")?.GetValue(attr) as string;
+                var required = (bool?)t.GetProperty("Required")?.GetValue(attr) ?? false;
+                var deprecated = (bool?)t.GetProperty("Deprecated")?.GetValue(attr) ?? false;
+                var allowEmptyVal = (bool?)t.GetProperty("AllowEmptyValue")?.GetValue(attr) ?? false;
+                var styleObj = t.GetProperty("Style")?.GetValue(attr);
+                var explodeObj = t.GetProperty("Explode")?.GetValue(attr);
+                var explode = (explodeObj is bool b) && b;
+                var schemaRef = t.GetProperty("SchemaRef")?.GetValue(attr) as string;
+                var example = t.GetProperty("Example")?.GetValue(attr);
+
+
+                header.Description = description;
+                header.Required = required;
+                header.Deprecated = deprecated;
+                header.AllowEmptyValue = allowEmptyVal;
+                header.Schema = string.IsNullOrWhiteSpace(schemaRef) ? new OpenApiSchema { Type = JsonSchemaType.String } : new OpenApiSchemaReference(schemaRef);
+
+
+
+                if (styleObj is OaParameterStyle style)
+                {
+                    header.Style = style.ToOpenApi();
+                }
+                if (t.GetProperty("AllowReserved") is not null)
+                {
+                    header.AllowReserved = (bool?)t.GetProperty("AllowReserved")?.GetValue(attr) ?? false;
+                }
+
+                if (explode) { header.Explode = true; }
+                if (example is not null)
+                {
+                    header.Example = ToNode(example);
+                }
+                break;
+
+            case nameof(OpenApiExampleRefAttribute):
+                var exRef = (OpenApiExampleRefAttribute)attr;
+                header.Examples ??= new Dictionary<string, IOpenApiExample>(StringComparer.Ordinal);
+                // Determine which content types to add the example reference to
+                header.Examples[exRef.Key] = new OpenApiExampleReference(exRef.RefId);
+                break;
+            case nameof(OpenApiExampleAttribute):
+                var ex = (OpenApiExampleAttribute)attr;
+                if (ex.Name is null)
+                {
+                    throw new InvalidOperationException($"OpenApiExampleAttribute requires a non-null Name property.");
+                }
+
+                header.Examples ??= new Dictionary<string, IOpenApiExample>(StringComparer.Ordinal);
+                // Determine which content types to add the example reference to
+                header.Examples[ex.Name] = new OpenApiExample()
+                {
+                    Summary = ex.Summary,
+                    Description = ex.Description,
+                    Value = ToNode(ex.Value),
+                    ExternalValue = ex.ExternalValue
+                };
+                break;
+        }
+        return header;
+    }
+
+    #endregion
 
 
     private void BuildRequestBodies(Type t)
@@ -1606,51 +1744,7 @@ public class OpenApiDocDescriptor(KestrunHost host, string docId)
         return obj;
     }
 
-    private void BuildHeaders(Type t)
-    {
-        Document.Components!.Headers ??= new Dictionary<string, IOpenApiHeader>(StringComparer.Ordinal);
 
-        // class-level
-        var classAttrs = t.GetCustomAttributes(inherit: false)
-                          .Where(a => a.GetType().Name == nameof(OpenApiHeaderAttribute))
-                          .ToArray();
-        foreach (var a in classAttrs)
-        {
-            var h = CreateHeaderFromAttribute(a);
-            var name = GetNameOverride(a) ?? t.Name;
-            Document.Components!.Headers![name] = h;
-        }
-
-        const BindingFlags flags = BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly;
-
-        // property-level
-        foreach (var p in t.GetProperties(flags))
-        {
-            var attrs = p.GetCustomAttributes(inherit: false)
-                         .Where(a => a.GetType().Name == nameof(OpenApiHeaderAttribute))
-                         .ToArray();
-            foreach (var a in attrs)
-            {
-                var h = CreateHeaderFromAttribute(a);
-                var name = GetNameOverride(a) ?? BuildMemberResponseKey(t, p.Name);
-                Document.Components!.Headers![name] = h;
-            }
-        }
-
-        // field-level
-        foreach (var f in t.GetFields(flags))
-        {
-            var attrs = f.GetCustomAttributes(inherit: false)
-                         .Where(a => a.GetType().Name == nameof(OpenApiHeaderAttribute))
-                         .ToArray();
-            foreach (var a in attrs)
-            {
-                var h = CreateHeaderFromAttribute(a);
-                var name = GetNameOverride(a) ?? BuildMemberResponseKey(t, f.Name);
-                Document.Components!.Headers![name] = h;
-            }
-        }
-    }
 
     // Map PowerShell validation attributes on properties to OpenAPI schema constraints
     private static void ApplyPowerShellValidationAttributes(PropertyInfo p, IOpenApiSchema s)
@@ -1762,38 +1856,6 @@ public class OpenApiDocDescriptor(KestrunHost host, string docId)
                     break;
             }
         }
-    }
-
-    private static OpenApiHeader CreateHeaderFromAttribute(object attr)
-    {
-        var t = attr.GetType();
-        var description = t.GetProperty("Description")?.GetValue(attr) as string;
-        var required = (bool?)t.GetProperty("Required")?.GetValue(attr) ?? false;
-        var deprecated = (bool?)t.GetProperty("Deprecated")?.GetValue(attr) ?? false;
-        var allowEmptyVal = (bool?)t.GetProperty("AllowEmptyValue")?.GetValue(attr) ?? false;
-        var styleObj = t.GetProperty("Style")?.GetValue(attr);
-        var explodeObj = t.GetProperty("Explode")?.GetValue(attr);
-        var explode = (explodeObj is bool b) && b;
-        var schemaRef = t.GetProperty("SchemaRef")?.GetValue(attr) as string;
-        var example = t.GetProperty("Example")?.GetValue(attr);
-
-        var header = new OpenApiHeader
-        {
-            Description = description,
-            Required = required,
-            Deprecated = deprecated,
-            AllowEmptyValue = allowEmptyVal,
-            Schema = string.IsNullOrWhiteSpace(schemaRef) ? new OpenApiSchema { Type = JsonSchemaType.String } : new OpenApiSchemaReference(schemaRef)
-        };
-
-        if (styleObj is OaParameterStyle style)
-        {
-            header.Style = style.ToOpenApi();
-        }
-        if (explode) { header.Explode = true; }
-        if (example is not null) { header.Example = ToNode(example); }
-
-        return header;
     }
 
     private void BuildLinks(Type t)

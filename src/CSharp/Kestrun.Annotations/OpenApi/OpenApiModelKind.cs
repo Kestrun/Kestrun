@@ -1,10 +1,8 @@
 
 /// <summary>
 /// Kind of OpenAPI model a class represents.
-/// </summary>
-#pragma warning disable CA1050 // Declare types in namespaces
+/// </summary> 
 public enum OpenApiModelKind
-#pragma warning restore CA1050 // Declare types in namespaces
 {
     /// <summary>
     /// Class represents an object schema for request/response bodies.

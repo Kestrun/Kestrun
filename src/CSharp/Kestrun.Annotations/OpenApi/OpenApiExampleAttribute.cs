@@ -1,4 +1,3 @@
-#pragma warning disable CA1050 // Declare types in namespaces
 /// <summary>
 /// Specifies metadata for an OpenAPI Example object. Can be applied to classes,
 /// properties, or fields to contribute entries under components.examples.
@@ -20,13 +19,7 @@ public sealed class OpenApiExampleAttribute : Attribute
     public string? Description { get; set; }
 
     /// <summary>
-    /// Inline example value. Use simple types, arrays, hashtables, or objects that can be converted to JSON.
-    /// </summary>
-    public object? Value { get; set; }
-
-    /// <summary>
     /// External example URI. If provided, Value is usually omitted per spec.
     /// </summary>
     public string? ExternalValue { get; set; }
 }
-#pragma warning restore CA1050 // Declare types in namespaces

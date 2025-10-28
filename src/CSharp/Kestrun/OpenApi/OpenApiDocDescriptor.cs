@@ -1074,6 +1074,11 @@ public class OpenApiDocDescriptor(KestrunHost host, string docId)
         }
     }
 
+    #region Responses
+    /// <summary>
+    /// Builds response components from the specified type.
+    /// </summary>
+    /// <param name="t">The type to build responses for.</param>
     private void BuildResponses(Type t)
     {
         // Ensure Responses dictionary exists
@@ -1095,7 +1100,7 @@ public class OpenApiDocDescriptor(KestrunHost host, string docId)
                          .ToArray();
 
             if (attrs.Length == 0) { continue; }
-            bool hasResponseDef = false;
+            var hasResponseDef = false;
             var customName = string.Empty;
             // Support multiple attributes per property
             foreach (var a in attrs)
@@ -1103,7 +1108,7 @@ public class OpenApiDocDescriptor(KestrunHost host, string docId)
                 if (CreateResponseFromAttribute(a, response))
                 {
                     hasResponseDef = true;
-                      customName = GetNameOverride(a);
+                    customName = GetNameOverride(a);
                 }
             }
             if (!hasResponseDef)
@@ -1129,12 +1134,24 @@ public class OpenApiDocDescriptor(KestrunHost host, string docId)
         }
     }
 
+
+    /// <summary>
+    /// Gets the name override from an attribute, if present.
+    /// </summary>
+    /// <param name="attr">The attribute to inspect.</param>
+    /// <returns>The name override, if present; otherwise, null.</returns>
     private static string? GetNameOverride(object attr)
     {
         var t = attr.GetType();
         return t.GetProperty("Name")?.GetValue(attr) as string;
     }
 
+    /// <summary>
+    /// Builds the response key for a member, considering any OpenApiModelKind attribute on the declaring type.
+    /// </summary>
+    /// <param name="declaringType">The type declaring the member.</param>
+    /// <param name="memberName">The name of the member.</param>
+    /// <returns>The response key for the member.</returns>
     private static string BuildMemberResponseKey(Type declaringType, string memberName)
     {
         // Look for [OpenApiModelKind(Kind) { JoinClassName = "-" }] on the declaring type
@@ -1169,7 +1186,7 @@ public class OpenApiDocDescriptor(KestrunHost host, string docId)
                 }
                 if (!string.IsNullOrEmpty(ctype.SchemaRef))
                 {
-                    if (ctype.Embed) // embed the schema directly
+                    if (ctype.Inline) // embed the schema directly
                     {
                         if (Document.Components != null && Document.Components.Schemas != null &&
                             Document.Components.Schemas.TryGetValue(ctype.SchemaRef, out var schema))
@@ -1236,7 +1253,9 @@ public class OpenApiDocDescriptor(KestrunHost host, string docId)
         }
         return true;
     }
+    #endregion
 
+    #region Examples
     private void BuildExamples(Type t)
     {
         if (Document.Components!.Examples == null)
@@ -1361,6 +1380,9 @@ public class OpenApiDocDescriptor(KestrunHost host, string docId)
             return ex;
         }
     }
+    #endregion
+
+
 
     private void BuildRequestBodies(Type t)
     {

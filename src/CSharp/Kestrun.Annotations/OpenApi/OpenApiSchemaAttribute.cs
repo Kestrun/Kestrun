@@ -8,9 +8,7 @@
 /// </list>
 /// </summary>
 [AttributeUsage(AttributeTargets.Property | AttributeTargets.Class | AttributeTargets.Parameter, AllowMultiple = false)]
-#pragma warning disable CA1050 // Declare types in namespaces
 public sealed class OpenApiSchemaAttribute : Attribute
-#pragma warning restore CA1050 // Declare types in namespaces
 {
     // ---- Basic ----
     /// <summary>Human-friendly title for the schema.</summary>

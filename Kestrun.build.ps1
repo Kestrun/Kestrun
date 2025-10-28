@@ -314,7 +314,7 @@ Add-BuildTask 'SyncPowerShellDll' {
     }
 
     # Additionally, copy Kestrun.Annotations.dll and .pdb to PowerShell lib/assemblies
-    $annotationSrc = Join-Path -Path $PWD -ChildPath 'src' -AdditionalChildPath 'CSharp', 'Kestrun.Annotations' , 'bin', $Configuration, 'netstandard2.1'
+    $annotationSrc = Join-Path -Path $PWD -ChildPath 'src' -AdditionalChildPath 'CSharp', 'Kestrun.Annotations' , 'bin', $Configuration, 'net8.0'
     $annotationDest = Join-Path -Path $PWD -ChildPath 'src' -AdditionalChildPath 'PowerShell', 'Kestrun' , 'lib', 'assemblies'
     Write-Host "📄 Copying Kestrun.Annotations.dll from $annotationSrc to $annotationDest"
     # Create destination directory if it doesn't exist

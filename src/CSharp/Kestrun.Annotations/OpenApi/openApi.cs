@@ -25,5 +25,5 @@ public sealed class OpenApiModelKindAttribute(OpenApiModelKind kind) : Attribute
     /// For class-first generators (e.g., RequestBody), when true instructs the generator to
     /// emit an inline schema in-place rather than a $ref to components.schemas.
     /// </summary>
-    public bool InlineSchema { get; set; }
+    public bool Inline { get; set; }
 }

@@ -19,7 +19,7 @@ New-KrLogger | Add-KrSinkConsole | Register-KrLogger -Name 'console' -SetAsDefau
 # 2. Create server host
 $srv = New-KrServer -Name 'Lifecycle Demo' -PassThru
 
-[OpenApiModelKind([OpenApiModelKind]::Schema)]
+[OpenApiModelKindAttribute([OpenApiModelKind]::Schema)]
 [OpenApiSchema(Required = 'Street')]
 [OpenApiSchema(Required = 'City')]
 [OpenApiSchema(Required = 'PostalCode')]
@@ -40,7 +40,7 @@ class Address {
 
 
 
-[OpenApiModelKind([OpenApiModelKind]::Schema)]
+[OpenApiModelKindAttribute([OpenApiModelKind]::Schema)]
 [OpenApiSchema(Required = 'Name')]
 class UserInfoResponse {
     [OpenApiSchema(Description = 'User identifier' )]
@@ -68,7 +68,7 @@ class UserInfoResponse {
 
 
 # Parameters (class-first; one class per parameter; no Name= needed — property name is used)
-[OpenApiModelKind([OpenApiModelKind]::Parameters)]
+[OpenApiModelKindAttribute([OpenApiModelKind]::Parameters)]
 class Param_Name {
     [OpenApiParameter(In = [OaParameterLocation]::Query)]
     [OpenApiSchema(Description = 'Filter by name (contains)')]
@@ -76,7 +76,7 @@ class Param_Name {
 }
 
 # Age parameters (class-first; grouped parameters)
-[OpenApiModelKind([OpenApiModelKind]::Parameters)]
+[OpenApiModelKindAttribute([OpenApiModelKind]::Parameters)]
 class Param_Age {
     [OpenApiParameter(In = [OaParameterLocation]::Cookie)]
     [OpenApiSchema(Description = 'Minimum age', Minimum = 0)]
@@ -87,23 +87,24 @@ class Param_Age {
 }
 
 # Response components (member-level responses; JoinClassName ties class+member in key)
-[OpenApiModelKind([OpenApiModelKind]::Response, JoinClassName = '-')]
+[OpenApiModelKindAttribute([OpenApiModelKind]::Response, JoinClassName = '-')]
 class AddressResponse {
-    [OpenApiResponse( Description = 'Successful retrieval of address' )]# ,ExampleRef = 'AddressExample_Basic')]
-    [OpenApiExampleRefAttribute('Basic', 'AddressExample_Basic')]
-    [OpenApiHeaderRef('X-Request-ID', 'X-Request-ID')]
-    [OpenApiHeaderRef('X-RateLimit-Remaining', 'X-RateLimit-Remaining')]
+    [OpenApiResponseAttribute( Description = 'Successful retrieval of address' )]# ,ExampleRef = 'AddressExample_Basic')]
+    [OpenApiExampleRefAttribute(key = 'Basic', refId = 'AddressExample_Basic')]
+    [OpenApiHeaderRefAttribute( Key = 'X-Request-ID', RefId = 'X-Request-ID')]
+    [OpenApiHeaderRefAttribute(Key = 'X-RateLimit-Remaining', RefId = 'X-RateLimit-Remaining')]
     [Address] $OK
 
-    [OpenApiResponse( Description = 'Address not found' , ContentType = 'application/json')]
-    [OpenApiContentTypeAttribute('application/yaml')]
-    [OpenApiContentTypeAttribute('application/xml', SchemaRef = 'Address', Embed = $true)]
-    [OpenApiContentTypeAttribute('application/json')]
-    [OpenApiLinkRefAttribute( 'GetUserById', 'GetUserByIdLink')]
-    [OpenApiLinkRefAttribute('GetUserById2', 'GetUserByIdLink2')]
-    [OpenApiExampleRefAttribute('application/json', 'NotFoundExample', 'AddressExample_NoApt')]
-    [OpenApiHeaderRef('X-Request-ID', 'X-Request-ID')]
-    [OpenApiHeaderRef('X-RateLimit-Remaining', 'X-RateLimit-Remaining')]
+    [OpenApiResponseAttribute( Description = 'Address not found' , ContentType = 'application/json')]
+    [OpenApiContentTypeAttribute( ContentType = 'application/yaml')]
+    [OpenApiContentTypeAttribute( ContentType = 'application/xml', SchemaRef = 'Address',  Inline = $true)]
+    [OpenApiContentTypeAttribute( ContentType = 'application/json')]
+    [OpenApiLinkRefAttribute( Key = 'GetUserById', RefId = 'GetUserByIdLink')]
+    [OpenApiLinkRefAttribute( Key = 'GetUserById2', RefId = 'GetUserByIdLink2')]
+    [OpenApiExampleRefAttribute( contentType = 'application/json', key = 'NotFoundExample', refId = 'AddressExample_NoApt')]
+    [OpenApiExampleRefAttribute( key = 'NotFoundExample', refId = 'AddressExample_NoApt' , Inline = $true)]
+    [OpenApiHeaderRefAttribute( Key = 'X-Request-ID', RefId = 'X-Request-ID')]
+    [OpenApiHeaderRefAttribute( Key = 'X-RateLimit-Remaining', RefId = 'X-RateLimit-Remaining')]
     [UserInfoResponse] $NotFound
 
     [OpenApiResponse( Description = 'Address not found'  )]
@@ -111,7 +112,7 @@ class AddressResponse {
 }
 
 # Example components (class-first; one class per example; defaults become the example object)
-[OpenApiModelKind([OpenApiModelKind]::Example)]
+[OpenApiModelKindAttribute([OpenApiModelKind]::Example)]
 class AddressExample_Basic {
     [string]$Street = '123 Main St'
     [string]$City = 'Anytown'
@@ -119,7 +120,8 @@ class AddressExample_Basic {
     [int]$ApartmentNumber = 101
 }
 
-[OpenApiModelKind([OpenApiModelKind]::Example)]
+[OpenApiModelKindAttribute([OpenApiModelKind]::Example)]
+[OpenApiExampleAttribute( Summary = 'Address without apartment number', Description = 'An example address that does not include an apartment number.' )]
 class AddressExample_NoApt {
     [string]$Street = '456 2nd Ave'
     [string]$City = 'Metropolis'
@@ -127,7 +129,7 @@ class AddressExample_NoApt {
 }
 
 # Request body components (class-first; one class per request body; defaults become the example)
-[OpenApiModelKind([OpenApiModelKind]::RequestBody, InlineSchema = $true)]
+[OpenApiModelKindAttribute([OpenApiModelKind]::RequestBody, Inline = $true)]
 class CreateAddressBody {
     [OpenApiSchema(Description = 'The street address')]
     [string]$Street = '123 Main St'
@@ -156,13 +158,13 @@ class CreateAddressBody {
     [dateTime]$CreatedAt = [DateTime]::UtcNow
 }
 
-[OpenApiModelKind([OpenApiModelKind]::RequestBody)]
+[OpenApiModelKindAttribute([OpenApiModelKind]::RequestBody)]
 class PatchAddressBody {
     [string]$City = 'Gotham'
 }
 
 # Header components (member-level; default values become examples)
-[OpenApiModelKind([OpenApiModelKind]::Header, JoinClassName = '-')]
+[OpenApiModelKindAttribute([OpenApiModelKind]::Header, JoinClassName = '-')]
 class CommonHeaders {
     [OpenApiHeader( Description = 'Tenant identifier', Required = $true )]
     $TenantId = 'contoso'
@@ -171,7 +173,7 @@ class CommonHeaders {
     [int] $CorrelationId = 12345
 }
 
-[OpenApiModelKind([OpenApiModelKind]::Header )]
+[OpenApiModelKindAttribute([OpenApiModelKind]::Header )]
 class RateHeaders {
     [OpenApiHeader( Description = 'Correlation id for tracing', Name = 'X-Request-ID' )]
     [string] $xRequestId = 'abc-123'
@@ -194,9 +196,9 @@ Add-KrOpenApiLink -LinkName 'GetUserByIdLink2' -OperationRef '#/paths/users2/{id
     -Description 'Link to fetch user details using the id from the response body.' -RequestBody '$request.body#/locale'
 
 
-# Callback component (class-first). Discovered via [OpenApiModelKind(Callback)].
+# Callback component (class-first). Discovered via [OpenApiModelKindAttribute(Callback)].
 # The generator will emit components.callbacks["Callback_UserCreated"] with the expression as the key.
-[OpenApiModelKind([OpenApiModelKind]::Callback)]
+[OpenApiModelKindAttribute([OpenApiModelKind]::Callback)]
 class Callback_UserCreated {
     # Expression pointing to a URL provided by the inbound request body
     [string]$Expression = '$request.body#/callbackUrl'

@@ -1256,130 +1256,65 @@ public class OpenApiDocDescriptor(KestrunHost host, string docId)
     #endregion
 
     #region Examples
+
+    /// <summary>
+    /// Builds example components from the specified type.
+    /// </summary>
+    /// <param name="t">The type to build examples from.</param>
     private void BuildExamples(Type t)
     {
-        if (Document.Components!.Examples == null)
-        {
-            Document.Components.Examples = new Dictionary<string, IOpenApiExample>(StringComparer.Ordinal);
-        }
+        // Ensure Examples dictionary exists
+        Document.Components!.Examples ??= new Dictionary<string, IOpenApiExample>(StringComparer.Ordinal);
 
         // class-level
         var classAttrs = t.GetCustomAttributes(inherit: false)
-                          .Where(a => a.GetType().Name == nameof(OpenApiExampleAttribute))
+                          .Where(a => a.GetType().Name == nameof(OAExampleComponent))
                           .ToArray();
         foreach (var a in classAttrs)
         {
-            var ex = CreateExampleFromAttribute(a);
-            var name = GetNameOverride(a) ?? t.Name;
-            Document.Components!.Examples![name] = ex;
-        }
-
-        // If no class-level [OpenApiExample] attribute but the class is marked as Example kind,
-        // create an example from the class instance defaults
-        if (classAttrs.Length == 0)
-        {
-            var mk = t.GetCustomAttributes(inherit: false)
-                      .FirstOrDefault(a => a.GetType().Name == nameof(OpenApiModelKindAttribute));
-            if (mk is not null)
-            {
-                var kindVal = mk.GetType().GetProperty("Kind")?.GetValue(mk)?.ToString();
-                if (string.Equals(kindVal, nameof(OpenApiModelKind.Example), StringComparison.Ordinal))
-                {
-                    try
-                    {
-                        var inst = Activator.CreateInstance(t);
-                        var ex = new OpenApiExample { Value = ToNode(inst) };
-                        Document.Components!.Examples![t.Name] = ex;
-                    }
-                    catch { /* ignore */ }
-                }
-            }
-        }
-
-        const BindingFlags flags = BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly;
-
-        // property-level
-        foreach (var p in t.GetProperties(flags))
-        {
-            var attrs = p.GetCustomAttributes(inherit: false)
-                         .Where(a => a.GetType().Name == nameof(OpenApiExampleAttribute))
-                         .ToArray();
-            foreach (var a in attrs)
+            if (!Document.Components!.Examples!.ContainsKey(t.Name))
             {
                 var ex = CreateExampleFromAttribute(a);
-                // If no inline or external value was provided, try to pull the default value from an instance
-                if (ex.Value is null && string.IsNullOrWhiteSpace(ex.ExternalValue))
-                {
-                    try
-                    {
-                        var inst = Activator.CreateInstance(t);
-                        var def = p.GetValue(inst);
-                        if (def is not null)
-                        {
-                            ex.Value = ToNode(def);
-                        }
-                    }
-                    catch { /* ignore */ }
-                }
-                var name = GetNameOverride(a) ?? BuildMemberResponseKey(t, p.Name); // reuse same join logic
+                var name = GetNameOverride(a) ?? t.Name;
+                var inst = Activator.CreateInstance(t);
+                ex.Value ??= ToNode(inst);
                 Document.Components!.Examples![name] = ex;
             }
-        }
-
-        // field-level
-        foreach (var f in t.GetFields(flags))
-        {
-            var attrs = f.GetCustomAttributes(inherit: false)
-                         .Where(a => a.GetType().Name == nameof(OpenApiExampleAttribute))
-                         .ToArray();
-            foreach (var a in attrs)
-            {
-                var ex = CreateExampleFromAttribute(a);
-                if (ex.Value is null && string.IsNullOrWhiteSpace(ex.ExternalValue))
-                {
-                    try
-                    {
-                        var inst = Activator.CreateInstance(t);
-                        var def = f.GetValue(inst);
-                        if (def is not null)
-                        {
-                            ex.Value = ToNode(def);
-                        }
-                    }
-                    catch { /* ignore */ }
-                }
-                var name = GetNameOverride(a) ?? BuildMemberResponseKey(t, f.Name);
-                Document.Components!.Examples![name] = ex;
-            }
-        }
-
-        static OpenApiExample CreateExampleFromAttribute(object attr)
-        {
-            var t = attr.GetType();
-            var summary = t.GetProperty("Summary")?.GetValue(attr) as string;
-            var description = t.GetProperty("Description")?.GetValue(attr) as string;
-            var value = t.GetProperty("Value")?.GetValue(attr);
-            var external = t.GetProperty("ExternalValue")?.GetValue(attr) as string;
-
-            var ex = new OpenApiExample
-            {
-                Summary = summary,
-                Description = description
-            };
-
-            if (value is not null)
-            {
-                ex.Value = ToNode(value);
-            }
-
-            if (!string.IsNullOrWhiteSpace(external))
-            {
-                ex.ExternalValue = external;
-            }
-
-            return ex;
         }
     }
+
+    /// <summary>
+    /// Creates an OpenApiExample from the specified attribute.
+    /// </summary>
+    /// <param name="attr">The attribute object.</param>
+    /// <returns>The created OpenApiExample.</returns>
+    private static OpenApiExample CreateExampleFromAttribute(object attr)
+    {
+        var t = attr.GetType();
+        var summary = t.GetProperty("Summary")?.GetValue(attr) as string;
+        var description = t.GetProperty("Description")?.GetValue(attr) as string;
+        var value = t.GetProperty("Value")?.GetValue(attr);
+        var external = t.GetProperty("ExternalValue")?.GetValue(attr) as string;
+
+        var ex = new OpenApiExample
+        {
+            Summary = summary,
+            Description = description
+        };
+
+        if (value is not null)
+        {
+            ex.Value = ToNode(value);
+        }
+
+        if (!string.IsNullOrWhiteSpace(external))
+        {
+            ex.ExternalValue = external;
+        }
+
+        return ex;
+    }
+
     #endregion
 
 

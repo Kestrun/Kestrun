@@ -3,7 +3,7 @@
 /// properties, or fields to contribute entries under components.examples.
 /// </summary>
 [AttributeUsage(AttributeTargets.Class | AttributeTargets.Property | AttributeTargets.Field, AllowMultiple = true, Inherited = false)]
-public sealed class OpenApiExampleAttribute : Attribute
+public sealed class OAExampleComponent : Attribute
 {
     /// <summary>
     /// Optional component name override for components.examples key.

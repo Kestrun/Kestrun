@@ -20,9 +20,9 @@ New-KrLogger | Add-KrSinkConsole | Register-KrLogger -Name 'console' -SetAsDefau
 $srv = New-KrServer -Name 'Lifecycle Demo' -PassThru
 
 [OpenApiModelKindAttribute([OpenApiModelKind]::Schema)]
-[OpenApiSchema(Required = 'Street')]
-[OpenApiSchema(Required = 'City')]
-[OpenApiSchema(Required = 'PostalCode')]
+[OpenApiSchemaAttribute(Required = 'Street')]
+[OpenApiSchemaAttribute(Required = 'City')]
+[OpenApiSchemaAttribute(Required = 'PostalCode')]
 class Address {
     [OpenApiSchemaAttribute(Description = 'The street address'  , title = 'Street Address', Pattern = '^[\w\s\d]+$' , XmlName = 'StreetAddress', MaxLength = 100 )]
     [string]$Street = '123 Main St'
@@ -41,27 +41,27 @@ class Address {
 
 
 [OpenApiModelKindAttribute([OpenApiModelKind]::Schema)]
-[OpenApiSchema(Required = 'Name')]
+[OpenApiSchemaAttribute(Required = 'Name')]
 class UserInfoResponse {
-    [OpenApiSchema(Description = 'User identifier' )]
+    [OpenApiSchemaAttribute(Description = 'User identifier' )]
     [ValidateRange(0, [int]::MaxValue)]
     [int]$Id
 
-    [OpenApiSchema(Description = 'Display name' )]
+    [OpenApiSchemaAttribute(Description = 'Display name' )]
     [ValidateLength(1, 50)]
     [string]$Name
 
-    [OpenApiSchema(Description = 'Age in years' )]
+    [OpenApiSchemaAttribute(Description = 'Age in years' )]
     [ValidateRange(0, 120)]
     [long]$Age
 
-    [OpenApiSchema(Description = 'Counter' )]
+    [OpenApiSchemaAttribute(Description = 'Counter' )]
     [nullable[long]]$Counter
 
-    [OpenApiSchema(Description = 'Mailing address')]
+    [OpenApiSchemaAttribute(Description = 'Mailing address')]
     [Address]$Address
 
-    [OpenApiSchema(Description = 'The country name')]
+    [OpenApiSchemaAttribute(Description = 'The country name')]
     [ValidateSet('USA', 'Canada', 'Mexico')]
     [string]$Country = 'USA'
 }
@@ -97,7 +97,7 @@ class AddressResponse {
 
     [OpenApiResponseAttribute( Description = 'Address not found' , ContentType = 'application/json')]
     [OpenApiContentTypeAttribute( ContentType = 'application/yaml')]
-    [OpenApiContentTypeAttribute( ContentType = 'application/xml', SchemaRef = 'Address',  Inline = $true)]
+    [OpenApiContentTypeAttribute( ContentType = 'application/xml', SchemaRef = 'Address', Inline = $true)]
     [OpenApiContentTypeAttribute( ContentType = 'application/json')]
     [OpenApiLinkRefAttribute( Key = 'GetUserById', RefId = 'GetUserByIdLink')]
     [OpenApiLinkRefAttribute( Key = 'GetUserById2', RefId = 'GetUserByIdLink2')]
@@ -112,16 +112,23 @@ class AddressResponse {
 }
 
 # Example components (class-first; one class per example; defaults become the example object)
-[OpenApiModelKindAttribute([OpenApiModelKind]::Example)]
+[OAExampleComponent(  Summary = 'Basic address example', Description = 'An example address with all fields populated.' )]
 class AddressExample_Basic {
     [string]$Street = '123 Main St'
     [string]$City = 'Anytown'
     [string]$PostalCode = '12345'
     [int]$ApartmentNumber = 101
 }
+[OAExampleComponent( Name = 'WithApt', Summary = 'Address with apartment number', Description = 'An example address that includes an apartment number.' )]
+class AddressExample_WithApt {
+    [string]$Street = '789 Elm St'
+    [string]$City = 'Springfield'
+    [string]$PostalCode = '54321'
+    [int]$ApartmentNumber = 202
+}
 
-[OpenApiModelKindAttribute([OpenApiModelKind]::Example)]
-[OpenApiExampleAttribute( Summary = 'Address without apartment number', Description = 'An example address that does not include an apartment number.' )]
+#[OpenApiModelKindAttribute([OpenApiModelKind]::Example)]
+[OAExampleComponent( Summary = 'Address without apartment number', Description = 'An example address that does not include an apartment number.' )]
 class AddressExample_NoApt {
     [string]$Street = '456 2nd Ave'
     [string]$City = 'Metropolis'

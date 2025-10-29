@@ -7,5 +7,5 @@
 public sealed class OpenApiHeaderRefAttribute : Attribute
 {
     public required string Key { get; set; }
-    public required string RefId { get; set; }
+    public required string ReferenceId { get; set; }
 }

@@ -11,8 +11,8 @@ public sealed class OpenApiExampleRefAttribute : Attribute
     /// <summary>Local name under content[contentType].examples</summary>
     public required string Key { get; set; }
 
-    /// <summary>Id under #/components/examples/{RefId}</summary>
-    public required string RefId { get; set; }
+    /// <summary>Id under #/components/examples/{ReferenceId}</summary>
+    public required string ReferenceId { get; set; }
 
     /// <summary>Media type bucket (e.g., application/json, application/xml)</summary>
     public string? ContentType { get; set; } = "application/json";

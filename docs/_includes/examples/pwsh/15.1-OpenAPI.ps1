@@ -91,21 +91,21 @@ class Param_Age {
 [OpenApiResponseComponent(JoinClassName = '-', Description = 'Response containing address information')]
 class AddressResponse {
     [OpenApiResponseAttribute( Description = 'Successful retrieval of address' )]# ,ExampleRef = 'AddressExample_Basic')]
-    [OpenApiExampleRefAttribute(key = 'Basic', refId = 'AddressExample_Basic')]
-    [OpenApiHeaderRefAttribute( Key = 'X-Request-ID', RefId = 'X-Request-ID')]
-    [OpenApiHeaderRefAttribute(Key = 'X-RateLimit-Remaining', RefId = 'X-RateLimit-Remaining')]
+    [OpenApiExampleRefAttribute(Key = 'Basic', ReferenceId = 'AddressExample_Basic')]
+    [OpenApiHeaderRefAttribute(Key = 'X-Request-ID', ReferenceId = 'X-Request-ID')]
+    [OpenApiHeaderRefAttribute(Key = 'X-RateLimit-Remaining', ReferenceId = 'X-RateLimit-Remaining')]
     [Address] $OK
 
     [OpenApiResponseAttribute( Description = 'Address not found' , ContentType = 'application/json')]
     [OpenApiContentTypeAttribute( ContentType = 'application/yaml')]
-    [OpenApiContentTypeAttribute( ContentType = 'application/xml', SchemaRef = 'Address', Inline = $true)]
+    [OpenApiContentTypeAttribute( ContentType = 'application/xml', ReferenceId = 'Address', Inline = $true)]
     [OpenApiContentTypeAttribute( ContentType = 'application/json')]
-    [OpenApiLinkRefAttribute( Key = 'GetUserById', RefId = 'GetUserByIdLink')]
-    [OpenApiLinkRefAttribute( Key = 'GetUserById2', RefId = 'GetUserByIdLink2')]
-    [OpenApiExampleRefAttribute( contentType = 'application/json', key = 'NotFoundExample', refId = 'AddressExample_NoApt')]
-    [OpenApiExampleRefAttribute( key = 'NotFoundExample', refId = 'AddressExample_NoApt' , Inline = $true)]
-    [OpenApiHeaderRefAttribute( Key = 'X-Request-ID', RefId = 'X-Request-ID')]
-    [OpenApiHeaderRefAttribute( Key = 'X-RateLimit-Remaining', RefId = 'X-RateLimit-Remaining')]
+    [OpenApiLinkRefAttribute( Key = 'GetUserById', ReferenceId = 'GetUserByIdLink')]
+    [OpenApiLinkRefAttribute( Key = 'GetUserById2', ReferenceId = 'GetUserByIdLink2')]
+    [OpenApiExampleRefAttribute( ContentType = 'application/json', Key = 'NotFoundExample', ReferenceId = 'AddressExample_NoApt')]
+    [OpenApiExampleRefAttribute( Key = 'NotFoundExample', ReferenceId = 'AddressExample_NoApt' , Inline = $true)]
+    [OpenApiHeaderRefAttribute( Key = 'X-Request-ID', ReferenceId = 'X-Request-ID')]
+    [OpenApiHeaderRefAttribute( Key = 'X-RateLimit-Remaining', ReferenceId = 'X-RateLimit-Remaining')]
     [UserInfoResponse] $NotFound
 
     [OpenApiResponse(  )]
@@ -120,7 +120,7 @@ class AddressExample_Basic {
     [string]$PostalCode = '12345'
     [int]$ApartmentNumber = 101
 }
-[OpenApiExampleComponent( Name = 'WithApt', Summary = 'Address with apartment number', Description = 'An example address that includes an apartment number.' )]
+[OpenApiExampleComponent( Key = 'WithApt', Summary = 'Address with apartment number', Description = 'An example address that includes an apartment number.' )]
 class AddressExample_WithApt {
     [string]$Street = '789 Elm St'
     [string]$City = 'Springfield'
@@ -174,9 +174,9 @@ class PatchAddressBody {
 # Header components (member-level; default values become examples)
 [OpenApiHeaderComponent (JoinClassName = '-')]
 class CommonHeaders {
-    [OpenApiHeader("X-Request-ID", Description = "Unique request identifier for tracing"  ]
-[OpenApiExampleAttribute( Name = 'demo', refId = 'X-Request-ID' )]
-[OpenApiExampleAttribute("demo", "Another example ID", "12345678-90ab-cdef-1234-567890abcdef")]
+    [OpenApiHeader(Key = 'X-Request-ID', Description = 'Unique request identifier for tracing')  ]
+    [OpenApiExampleRefAttribute( Key = 'demo', ReferenceId = 'X-Request-ID' )]
+    [OpenApiExampleAttribute(Key = 'demo2', Summary = 'Another example ID', Value = '12345678-90ab-cdef-1234-567890abcdef')]
     [string] $xRequestId = [guid]::NewGuid().ToString()
 
     [OpenApiHeader( Description = 'Tenant identifier', Required = $true )]
@@ -188,10 +188,10 @@ class CommonHeaders {
 
 [OpenApiHeaderComponent()]
 class RateHeaders {
-    [OpenApiHeader( Description = 'Correlation id for tracing', Name = 'X-Request-ID' )]
+    [OpenApiHeader( Description = 'Correlation id for tracing', Key = 'X-Request-ID' )]
     [string] $xRequestId = 'abc-123'
 
-    [OpenApiHeader( Description = 'Correlation id for tracing', Name = 'X-RateLimit-Remaining' )]
+    [OpenApiHeader( Description = 'Correlation id for tracing', Key = 'X-RateLimit-Remaining' )]
     [string] $xRateLimitRemaining = '10'
 }
 

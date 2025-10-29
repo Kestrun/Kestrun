@@ -1131,13 +1131,16 @@ public class OpenApiDocDescriptor(KestrunHost host, string docId)
             // Support multiple attributes per property
             foreach (var a in attrs)
             {
+                if (a is OpenApiResponseAttribute oaRa)
+                {
+                    if (!string.IsNullOrWhiteSpace(oaRa.Key))
+                    {
+                        customName = oaRa.Key;
+                    }
+                }
                 if (CreateResponseFromAttribute(a, response))
                 {
                     hasResponseDef = true;
-                }
-                if (GetNameOverride(a) is not null)
-                {
-                    customName = GetNameOverride(a);
                 }
             }
             if (!hasResponseDef)
@@ -1175,10 +1178,10 @@ public class OpenApiDocDescriptor(KestrunHost host, string docId)
     /// </summary>
     /// <param name="attr">The attribute to inspect.</param>
     /// <returns>The name override, if present; otherwise, null.</returns>
-    private static string? GetNameOverride(object attr)
+    private static string? GetKeyOverride(object attr)
     {
         var t = attr.GetType();
-        return t.GetProperty("Name")?.GetValue(attr) as string;
+        return t.GetProperty("Key")?.GetValue(attr) as string;
     }
 
     /// <summary>
@@ -1219,24 +1222,24 @@ public class OpenApiDocDescriptor(KestrunHost host, string docId)
                 {
                     response.Content[ctype.ContentType] = new OpenApiMediaType();
                 }
-                if (!string.IsNullOrEmpty(ctype.SchemaRef))
+                if (!string.IsNullOrEmpty(ctype.ReferenceId))
                 {
                     if (ctype.Inline) // embed the schema directly
                     {
                         if (Document.Components != null && Document.Components.Schemas != null &&
-                            Document.Components.Schemas.TryGetValue(ctype.SchemaRef, out var schema))
+                            Document.Components.Schemas.TryGetValue(ctype.ReferenceId, out var schema))
                         {
                             // Clone the schema to avoid modifying the component directly
                             response.Content[ctype.ContentType].Schema = schema.Clone();
                         }
                         else // schema not found in components
                         {
-                            throw new InvalidOperationException($"Schema reference '{ctype.SchemaRef}' cannot be embedded because it was not found in components.");
+                            throw new InvalidOperationException($"Schema reference '{ctype.ReferenceId}' cannot be embedded because it was not found in components.");
                         }
                     }
                     else // reference the schema
                     {
-                        response.Content[ctype.ContentType].Schema = new OpenApiSchemaReference(ctype.SchemaRef);
+                        response.Content[ctype.ContentType].Schema = new OpenApiSchemaReference(ctype.ReferenceId);
                     }
                 }
 
@@ -1251,14 +1254,14 @@ public class OpenApiDocDescriptor(KestrunHost host, string docId)
             case nameof(OpenApiHeaderRefAttribute):
                 response.Headers ??= new Dictionary<string, IOpenApiHeader>(StringComparer.Ordinal);
                 var href = (OpenApiHeaderRefAttribute)attr;
-                var headerRef = href.RefId;
+                var headerRef = href.ReferenceId;
                 var headerKey = href.Key;
                 response.Headers[headerKey] = new OpenApiHeaderReference(headerRef);
                 break;
             case nameof(OpenApiLinkRefAttribute):
                 response.Links ??= new Dictionary<string, IOpenApiLink>(StringComparer.Ordinal);
                 var lref = (OpenApiLinkRefAttribute)attr;
-                var linkRef = lref.RefId;
+                var linkRef = lref.ReferenceId;
                 var linkKey = lref.Key;
                 response.Links[linkKey] = new OpenApiLinkReference(linkRef);
                 break;
@@ -1279,7 +1282,7 @@ public class OpenApiDocDescriptor(KestrunHost host, string docId)
                     _ = response.Content.TryAdd(ct, new OpenApiMediaType());
                     var mediaType = response.Content[ct];
                     mediaType.Examples ??= new Dictionary<string, IOpenApiExample>(StringComparer.Ordinal);
-                    var exRefType = new OpenApiExampleReference(exRef.RefId);
+                    var exRefType = new OpenApiExampleReference(exRef.ReferenceId);
                     mediaType.Examples[exRef.Key] = exRefType;
                 }
                 break;
@@ -1307,10 +1310,19 @@ public class OpenApiDocDescriptor(KestrunHost host, string docId)
                           .ToArray();
         foreach (var a in classAttrs)
         {
-            if (!Document.Components!.Examples!.ContainsKey(t.Name))
+            string? customName = null;
+            if (a is OpenApiExampleComponent oaEa)
+            {
+                if (!string.IsNullOrWhiteSpace(oaEa.Key))
+                {
+                    customName = oaEa.Key;
+                }
+            }
+            var name = customName ?? t.Name;
+            if (!Document.Components!.Examples!.ContainsKey(name))
             {
                 var ex = CreateExampleFromAttribute(a);
-                var name = GetNameOverride(a) ?? t.Name;
+
                 var inst = Activator.CreateInstance(t);
                 ex.Value ??= ToNode(inst);
                 Document.Components!.Examples![name] = ex;
@@ -1392,7 +1404,9 @@ public class OpenApiDocDescriptor(KestrunHost host, string docId)
             var attrs = p.GetCustomAttributes(inherit: false)
                                    .Where(a => a.GetType().Name is
                                    nameof(OpenApiHeaderAttribute) or
-                                   nameof(OpenApiExampleRefAttribute))
+                                   nameof(OpenApiExampleRefAttribute) or
+                                   nameof(OpenApiExampleAttribute)
+                                   )
                                    .Cast<object>()
                                    .ToArray();
 
@@ -1400,11 +1414,15 @@ public class OpenApiDocDescriptor(KestrunHost host, string docId)
             var customName = string.Empty;
             foreach (var a in attrs)
             {
-                var h = CreateHeaderFromAttribute(a, header);
-                if (GetNameOverride(a) is not null)
+                if (a is OpenApiHeaderAttribute oaHa)
                 {
-                    customName = GetNameOverride(a);
+                    if (!string.IsNullOrWhiteSpace(oaHa.Key))
+                    {
+                        customName = oaHa.Key;
+                    }
                 }
+                _ = CreateHeaderFromAttribute(a, header);
+
             }
             var tname = string.IsNullOrWhiteSpace(customName) ? p.Name : customName!;
             var key = joinClassName is not null ? $"{joinClassName}{tname}" : tname;
@@ -1421,8 +1439,8 @@ public class OpenApiDocDescriptor(KestrunHost host, string docId)
     /// </summary>
     /// <param name="attr">The attribute to create the header from.</param>
     /// <param name="header">The OpenApiHeader to populate.</param>
-    /// <returns>The created OpenApiHeader.</returns>
-    private static OpenApiHeader CreateHeaderFromAttribute(object attr, OpenApiHeader header)
+    /// <returns>True if the header was created successfully; otherwise, false.</returns>
+    private static bool CreateHeaderFromAttribute(object attr, OpenApiHeader header)
     {
         var t = attr.GetType();
         switch (t.Name)
@@ -1437,16 +1455,13 @@ public class OpenApiDocDescriptor(KestrunHost host, string docId)
                 var explode = (explodeObj is bool b) && b;
                 var schemaRef = t.GetProperty("SchemaRef")?.GetValue(attr) as string;
                 var example = t.GetProperty("Example")?.GetValue(attr);
-
-
+                // Populate header fields
                 header.Description = description;
                 header.Required = required;
                 header.Deprecated = deprecated;
                 header.AllowEmptyValue = allowEmptyVal;
                 header.Schema = string.IsNullOrWhiteSpace(schemaRef) ? new OpenApiSchema { Type = JsonSchemaType.String } : new OpenApiSchemaReference(schemaRef);
-
-
-
+                // Optional hints
                 if (styleObj is OaParameterStyle style)
                 {
                     header.Style = style.ToOpenApi();
@@ -1466,19 +1481,27 @@ public class OpenApiDocDescriptor(KestrunHost host, string docId)
             case nameof(OpenApiExampleRefAttribute):
                 var exRef = (OpenApiExampleRefAttribute)attr;
                 header.Examples ??= new Dictionary<string, IOpenApiExample>(StringComparer.Ordinal);
+                if (header.Examples.ContainsKey(exRef.Key))
+                {
+                    throw new InvalidOperationException($"Header already contains an example with the key '{exRef.Key}'.");
+                }
                 // Determine which content types to add the example reference to
-                header.Examples[exRef.Key] = new OpenApiExampleReference(exRef.RefId);
+                header.Examples[exRef.Key] = new OpenApiExampleReference(exRef.ReferenceId);
                 break;
             case nameof(OpenApiExampleAttribute):
                 var ex = (OpenApiExampleAttribute)attr;
-                if (ex.Name is null)
+                if (ex.Key is null)
                 {
                     throw new InvalidOperationException($"OpenApiExampleAttribute requires a non-null Name property.");
                 }
 
                 header.Examples ??= new Dictionary<string, IOpenApiExample>(StringComparer.Ordinal);
+                if (header.Examples.ContainsKey(ex.Key))
+                {
+                    throw new InvalidOperationException($"Header already contains an example with the key '{ex.Key}'.");
+                }
                 // Determine which content types to add the example reference to
-                header.Examples[ex.Name] = new OpenApiExample()
+                header.Examples[ex.Key] = new OpenApiExample()
                 {
                     Summary = ex.Summary,
                     Description = ex.Description,
@@ -1486,8 +1509,10 @@ public class OpenApiDocDescriptor(KestrunHost host, string docId)
                     ExternalValue = ex.ExternalValue
                 };
                 break;
+            default:
+                return false; // unrecognized attribute type
         }
-        return header;
+        return true;
     }
 
     #endregion
@@ -1504,7 +1529,7 @@ public class OpenApiDocDescriptor(KestrunHost host, string docId)
         foreach (var a in classAttrs)
         {
             var rb = CreateRequestBodyFromAttribute(a, t);
-            var name = GetNameOverride(a) ?? t.Name;
+            var name = GetKeyOverride(a) ?? t.Name;
             Document.Components!.RequestBodies![name] = rb;
         }
 
@@ -1565,7 +1590,7 @@ public class OpenApiDocDescriptor(KestrunHost host, string docId)
                 {
                     TryPopulateExampleFromDefault(t, p, rb);
                 }
-                var name = GetNameOverride(a) ?? BuildMemberResponseKey(t, p.Name);
+                var name = GetKeyOverride(a) ?? BuildMemberResponseKey(t, p.Name);
                 Document.Components!.RequestBodies![name] = rb;
             }
         }
@@ -1583,7 +1608,7 @@ public class OpenApiDocDescriptor(KestrunHost host, string docId)
                 {
                     TryPopulateExampleFromDefault(t, f, rb);
                 }
-                var name = GetNameOverride(a) ?? BuildMemberResponseKey(t, f.Name);
+                var name = GetKeyOverride(a) ?? BuildMemberResponseKey(t, f.Name);
                 Document.Components!.RequestBodies![name] = rb;
             }
         }

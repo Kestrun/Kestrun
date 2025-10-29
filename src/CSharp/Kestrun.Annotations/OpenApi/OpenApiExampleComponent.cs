@@ -10,7 +10,7 @@ public sealed class OpenApiExampleComponent : Attribute
     /// If omitted, generator uses class name (class-level) or member name (member-level),
     /// possibly prefixed by class name depending on JoinClassName.
     /// </summary>
-    public string? Name { get; set; }
+    public string? Key { get; set; }
 
     /// <summary>Short summary for the example.</summary>
     public string? Summary { get; set; }

@@ -7,5 +7,5 @@
 public sealed class OpenApiLinkRefAttribute : Attribute
 {
     public required string Key { get; set; }      // local name under response.links
-    public required string RefId { get; set; } // components/links id
+    public required string ReferenceId { get; set; } // components/links id
 }

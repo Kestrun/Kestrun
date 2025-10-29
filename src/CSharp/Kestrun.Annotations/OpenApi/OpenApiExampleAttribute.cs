@@ -8,7 +8,7 @@ public sealed class OpenApiExampleAttribute : Attribute
     /// <summary>
     /// Optional component name override for components.examples key.
     /// </summary>
-    public string? Name { get; set; }
+    public string? Key { get; set; }
 
     /// <summary>Short summary for the example.</summary>
     public string? Summary { get; set; }

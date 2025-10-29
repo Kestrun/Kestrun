@@ -1,4 +1,4 @@
-#pragma warning disable CA1050 // Declare types in namespaces
+
 /// <summary>
 /// Specifies metadata for an OpenAPI response object.
 /// Can be attached to PowerShell or C# classes representing reusable responses.
@@ -11,7 +11,7 @@ public sealed class OpenApiResponseAttribute : Attribute
     /// If omitted, the generator will name by member (Class.Property) when used on members,
     /// or by class name when applied at class-level.
     /// </summary>
-    public string? Name { get; set; }
+    public string? Key { get; set; }
     /// <summary>
     /// The HTTP status code (e.g., "200", "400", "404").
     /// </summary>
@@ -46,7 +46,7 @@ public sealed class OpenApiResponseAttribute : Attribute
     /// Optional header reference name, if the response defines a custom header.
     /// </summary>
     public string? HeaderRef { get; set; }
- 
+
     /// <summary>
     /// Optional summary for documentation purposes.
     /// </summary>
@@ -73,4 +73,3 @@ public sealed class OpenApiResponseAttribute : Attribute
         Description = description;
     }
 }
-#pragma warning restore CA1050 // Declare types in namespaces

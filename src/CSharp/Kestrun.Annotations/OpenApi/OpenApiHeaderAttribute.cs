@@ -1,4 +1,3 @@
-#pragma warning disable CA1050 // Declare types in namespaces
 /// <summary>
 /// Specifies metadata for an OpenAPI Header component. Can be applied to classes,
 /// properties, or fields to contribute entries under components.headers.
@@ -7,7 +6,7 @@
 public sealed class OpenApiHeaderAttribute : Attribute
 {
     /// <summary>Optional component key override. If omitted, generator will use class/member naming rules.</summary>
-    public required string? Name { get; set; }
+    public required string? Key { get; set; }
 
     /// <summary>Header description.</summary>
     public string? Description { get; set; }
@@ -48,4 +47,3 @@ public sealed class OpenApiHeaderAttribute : Attribute
     /// </summary>
     public string? ExampleRef { get; set; }
 }
-#pragma warning restore CA1050 // Declare types in namespaces

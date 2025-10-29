@@ -1,5 +1,3 @@
-#pragma warning disable CA1050 // Declare types in namespaces
-
 /// <summary>
 /// Specifies metadata for an OpenAPI Request Body component. Can be applied to classes,
 /// properties, or fields to contribute entries under components.requestBodies.
@@ -8,7 +6,7 @@
 public sealed class OpenApiRequestBodyAttribute : Attribute
 {
     /// <summary>Optional component key override. If omitted, generator will use class/member naming rules.</summary>
-    public string? Name { get; set; }
+    public string? Key { get; set; }
 
     /// <summary>Description for the request body.</summary>
     public string? Description { get; set; }
@@ -36,4 +34,3 @@ public sealed class OpenApiRequestBodyAttribute : Attribute
     public bool Inline { get; set; }
 
 }
-#pragma warning restore CA1050 // Declare types in namespaces

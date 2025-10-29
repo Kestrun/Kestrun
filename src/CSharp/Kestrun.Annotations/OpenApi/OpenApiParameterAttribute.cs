@@ -1,12 +1,9 @@
-
 /// <summary>
 /// OpenAPI Parameter metadata for query/path/header/cookie items.
 /// Apply on properties inside a class marked with <see cref="OpenApiModelKindAttribute"/> = Parameters.
 /// </summary>
 [AttributeUsage(AttributeTargets.Property | AttributeTargets.Parameter, AllowMultiple = false)]
-#pragma warning disable CA1050 // Declare types in namespaces
 public sealed class OpenApiParameterAttribute : Attribute
-#pragma warning restore CA1050 // Declare types in namespaces
 {
     /// <summary>Where the parameter lives (query/header/path/cookie).</summary>
     public OaParameterLocation In { get; set; } = OaParameterLocation.Query;

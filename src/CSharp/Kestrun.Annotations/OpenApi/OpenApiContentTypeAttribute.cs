@@ -10,7 +10,7 @@ public sealed class OpenApiContentTypeAttribute : Attribute
     /// <summary>
     /// Optional reference to a predefined schema (e.g., "UserInfoResponse").
     /// </summary>
-    public string? SchemaRef { get; set; }
+    public string? ReferenceId { get; set; }
 
     /// <summary>
     /// When true, embeds the schema directly instead of referencing it.

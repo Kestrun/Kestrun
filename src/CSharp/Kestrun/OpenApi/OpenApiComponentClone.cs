@@ -135,4 +135,21 @@ public static class OpenApiComponentClone
         return clone;
     }
 
+    /// <summary>
+    /// Clones an OpenApiExample instance.
+    /// </summary>
+    /// <param name="example">The OpenApiExample to clone.</param>
+    /// <returns>A new OpenApiExample instance with the same properties as the input example.</returns>
+    public static IOpenApiExample Clone(this IOpenApiExample example)
+    {
+        var clone = new OpenApiExample
+        {
+            Summary = example.Summary,
+            Description = example.Description,
+            Value = example.Value != null ? JsonNodeClone(example.Value) : null,
+            ExternalValue = example.ExternalValue,
+            Extensions = example.Extensions != null ? new Dictionary<string, IOpenApiExtension>(example.Extensions) : null
+        };
+        return clone;
+    }
 }

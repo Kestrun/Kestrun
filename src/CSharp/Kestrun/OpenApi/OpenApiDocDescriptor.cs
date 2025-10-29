@@ -607,6 +607,11 @@ public class OpenApiDocDescriptor(KestrunHost host, string docId)
         return m;
     }
 
+    /// <summary>
+    /// Infers a primitive OpenApiSchema from a .NET type.
+    /// </summary>
+    /// <param name="t">The .NET type to infer from.</param>
+    /// <returns>The inferred OpenApiSchema.</returns>
     private static OpenApiSchema InferPrimitiveSchema(Type t)
     {
         if (t == typeof(string))
@@ -639,6 +644,10 @@ public class OpenApiDocDescriptor(KestrunHost host, string docId)
             return new() { Type = JsonSchemaType.String, Format = "date-time" };
         }
 
+        if (t == typeof(object))
+        {
+            return new() { Type = JsonSchemaType.Object };
+        }
         // default to string for other primitive-like types
         return t == typeof(Guid) ? new() { Type = JsonSchemaType.String, Format = "uuid" } :
         new() { Type = JsonSchemaType.String };
@@ -753,7 +762,16 @@ public class OpenApiDocDescriptor(KestrunHost host, string docId)
             sc.ReadOnly = a.ReadOnly;
             sc.WriteOnly = a.WriteOnly;
             sc.Deprecated = a.Deprecated;
-
+            if (a.AdditionalProperties is not null)
+            {
+                sc.AdditionalProperties = new OpenApiSchemaReference(a.AdditionalProperties);
+            }
+            // nullable bool
+            if (a.AdditionalPropertiesAllowed is not null)
+            {
+                sc.AdditionalPropertiesAllowed = (bool)a.AdditionalPropertiesAllowed;
+            }
+            sc.UnevaluatedProperties = a.UnevaluatedProperties;
             if (a.Default is not null)
             {
                 sc.Default = ToNode(a.Default);
@@ -768,6 +786,7 @@ public class OpenApiDocDescriptor(KestrunHost host, string docId)
             {
                 sc.Enum = [.. a.Enum.Select(ToNode).OfType<JsonNode>()];
             }
+
         }
         else if (s is OpenApiSchemaReference refSchema)
         {
@@ -788,7 +807,7 @@ public class OpenApiDocDescriptor(KestrunHost host, string docId)
     }
 
     private static bool IsPrimitiveLike(Type t)
-        => t.IsPrimitive || t == typeof(string) || t == typeof(decimal) || t == typeof(DateTime) || t == typeof(Guid);
+        => t.IsPrimitive || t == typeof(string) || t == typeof(decimal) || t == typeof(DateTime) || t == typeof(Guid) || t == typeof(object);
 
     private static JsonNode? ToNode(object? value)
     {
@@ -875,57 +894,90 @@ public class OpenApiDocDescriptor(KestrunHost host, string docId)
         BuildSchema(complexType, temp);
     }
 
-
+    #region Parameters
     private void BuildParameters(Type t)
     {
-        if (Document.Components!.Parameters == null)
-        {
-            Document.Components.Parameters = new Dictionary<string, IOpenApiParameter>(StringComparer.Ordinal);
-        }
+        string? defaultDescription = null;
+        string? joinClassName = null;
+        Document.Components!.Parameters ??= new Dictionary<string, IOpenApiParameter>(StringComparer.Ordinal);
 
-        const BindingFlags flags = BindingFlags.Public | BindingFlags.Instance;
+        const BindingFlags flags = BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly;
 
         // Enforce class-first parameter convention: a [OpenApiModelKind(Parameters)] class
         // should declare exactly one property decorated with [OpenApiParameter].
-        var isParamKindClass = t.GetCustomAttributes(inherit: false)
-                                .Any(a => a.GetType().Name == nameof(OpenApiModelKindAttribute)
-                                       && string.Equals(
-                                           a.GetType().GetProperty("Kind")?.GetValue(a)?.ToString(),
-                                           nameof(OpenApiModelKind.Parameters), StringComparison.Ordinal));
-        /*  if (isParamKindClass)
-          {
-              var paramPropCount = t.GetProperties(flags)
-                                     .Count(p => p.GetCustomAttributes(inherit: false)
-                                                   .Any(a => a.GetType().Name == nameof(OpenApiParameterAttribute)));
-              if (paramPropCount > 1)
-              {
-                  throw new InvalidOperationException($"OpenAPI Parameters class '{t.FullName}' must define exactly one property decorated with [OpenApiParameter]. Found {paramPropCount}.");
-              }
-          }*/
+        /*   var isParamKindClass = t.GetCustomAttributes(inherit: false)
+                                   .Any(a => a.GetType().Name == nameof(OpenApiModelKindAttribute)
+                                          && string.Equals(
+                                              a.GetType().GetProperty("Kind")?.GetValue(a)?.ToString(),
+                                              nameof(OpenApiModelKind.Parameters), StringComparison.Ordinal));
+   */
 
         foreach (var p in t.GetProperties(flags))
         {
-            // Require [OpenApiParameter(...)] on the property
-            var pAttr = p.GetCustomAttributes(inherit: false)
-                         .FirstOrDefault(a => a.GetType().Name == "OpenApiParameterAttribute");
-            if (pAttr is null)
+            var parameter = new OpenApiParameter();
+            var classAttrs = t.GetCustomAttributes(inherit: false).
+                            Where(a => a.GetType().Name is
+                            nameof(OpenApiParameterComponent))
+                            .Cast<object>()
+                            .ToArray();
+            if (classAttrs.Length > 0)
+            {
+                if (classAttrs.Length > 1)
+                {
+                    throw new InvalidOperationException($"Type '{t.FullName}' has multiple [OpenApiResponseComponent] attributes. Only one is allowed per class.");
+                }
+                // Apply any class-level [OpenApiResponseComponent] attributes first
+                if (classAttrs[0] is OpenApiParameterComponent classRespAttr)
+                {
+                    if (!string.IsNullOrEmpty(classRespAttr.Description))
+                    {
+                        defaultDescription = classRespAttr.Description;
+                    }
+                    if (!string.IsNullOrEmpty(classRespAttr.JoinClassName))
+                    {
+                        joinClassName = t.FullName + classRespAttr.JoinClassName;
+                    }
+                }
+            }
+
+            var attrs = p.GetCustomAttributes(inherit: false)
+                         .Where(a => a.GetType().Name is
+                         (nameof(OpenApiParameterAttribute)) or
+                         (nameof(OpenApiSchemaAttribute)) or
+                         (nameof(OpenApiExampleRefAttribute))
+                         )
+                         .Cast<object>()
+                         .ToArray();
+
+            if (attrs.Length == 0) { continue; }
+            var hasResponseDef = false;
+            var customName = string.Empty;
+            foreach (var a in attrs)
+            {
+                if (a is OpenApiParameterAttribute oaRa)
+                {
+                    if (!string.IsNullOrWhiteSpace(oaRa.Key))
+                    {
+                        customName = oaRa.Key;
+                    }
+                }
+                if (CreateParameterFromAttribute(a, parameter))
+                {
+                    hasResponseDef = true;
+                }
+            }
+            if (!hasResponseDef)
             {
                 continue;
             }
+            var tname = string.IsNullOrWhiteSpace(customName) ? p.Name : customName!;
+            parameter.Name = joinClassName is not null ? $"{joinClassName}{tname}" : tname;
+            if (parameter.Description is null && defaultDescription is not null)
+            {
+                parameter.Description = defaultDescription;
+            }
+            Document.Components.Parameters[parameter.Name] = parameter;
 
-            // Reflect attribute fields (keeps this decoupled from your attribute assembly)
-            var inVal = pAttr.GetType().GetProperty("In")?.GetValue(pAttr);
-            var name = (string?)pAttr.GetType().GetProperty("Name")?.GetValue(pAttr) ?? p.Name;
-            var required = (bool?)pAttr.GetType().GetProperty("Required")?.GetValue(pAttr) ?? false;
-            var deprecated = (bool?)pAttr.GetType().GetProperty("Deprecated")?.GetValue(pAttr) ?? false;
-            var allowEmptyVal = (bool?)pAttr.GetType().GetProperty("AllowEmptyValue")?.GetValue(pAttr) ?? false;
-            var styleObj = pAttr.GetType().GetProperty("Style")?.GetValue(pAttr);   // OaParameterStyle?
-            var _explode = (bool?)pAttr.GetType().GetProperty("Explode")?.GetValue(pAttr);
-            var explode = (_explode is not null) && _explode.Value;
-            var allowReserved = (bool?)pAttr.GetType().GetProperty("AllowReserved")?.GetValue(pAttr) ?? false;
-            var exampleObj = pAttr.GetType().GetProperty("Example")?.GetValue(pAttr);
-
-            // Merge any [OpenApiSchema(...)] attributes on the property (last one wins)
             var schemaAttr = p.GetCustomAttributes(inherit: false)
                               .Where(a => a.GetType().Name == "OpenApiSchemaAttribute")
                               .Cast<object>()
@@ -941,7 +993,6 @@ public class OpenApiDocDescriptor(KestrunHost host, string docId)
                 allowNull = true;
                 pt = underlying;
             }
-
             // ENUM → string + enum list
             if (pt.IsEnum)
             {
@@ -1023,55 +1074,75 @@ public class OpenApiDocDescriptor(KestrunHost host, string docId)
                 paramSchema = s;
             }
 
-            // Build the OpenAPI parameter
-            var param = new OpenApiParameter
-            {
-                Name = name,
-                In = (inVal as OaParameterLocation? ?? OaParameterLocation.Query).ToOpenApi(),
-                Required = required,
-                Deprecated = deprecated,
-                AllowEmptyValue = allowEmptyVal,
-                Schema = paramSchema
-            };
-
-            // Optional hints
-            if (styleObj is OaParameterStyle style)
-            {
-                param.Style = style.ToOpenApi();
-            }
-
-            if (explode)
-            {
-                param.Explode = explode;
-            }
-
-            param.AllowReserved = allowReserved;
-            if (exampleObj is not null)
-            {
-                param.Example = ToNode(exampleObj);
-            }
-
-            // Compute component key using class-level JoinClassName (if present) or just member name
-            var key = BuildParameterKey(t, p.Name);
-            Document.Components.Parameters[key] = param;
-        }
-
-        // ---- local helpers ----
-
-
-        static string BuildParameterKey(Type declaringType, string memberName)
-        {
-            var mk = declaringType.GetCustomAttributes(inherit: false)
-                                  .FirstOrDefault(a => a.GetType().Name == nameof(OpenApiModelKindAttribute));
-            if (mk is null)
-            {
-                return memberName;
-            }
-
-            var join = mk.GetType().GetProperty("JoinClassName")?.GetValue(mk) as string;
-            return string.IsNullOrEmpty(join) ? memberName : $"{declaringType.Name}{join}{memberName}";
+            parameter.Schema = paramSchema;
         }
     }
+
+    private bool CreateParameterFromAttribute(object attr, OpenApiParameter parameter)
+    {
+        var t = attr.GetType();
+        switch (t.Name)
+        {
+
+            case nameof(OpenApiParameterAttribute):
+                var param = (OpenApiParameterAttribute)attr;
+
+                parameter.Description = param.Description;
+                parameter.Name = param.Key;
+                parameter.Required = param.Required;
+                parameter.Deprecated = param.Deprecated;
+                parameter.AllowEmptyValue = param.AllowEmptyValue;
+                parameter.Explode = param.Explode;
+                parameter.AllowReserved = param.AllowReserved;
+
+                parameter.In = param.In.ToParameterLocation();
+                if (param.Style is not null)
+                {
+                    parameter.Style = param.Style.ToParameterStyle();
+                }
+                if (param.Example is not null)
+                {
+                    parameter.Example = ToNode(param.Example);
+                }
+                break;
+            case nameof(OpenApiExampleRefAttribute):
+                var exRef = (OpenApiExampleRefAttribute)attr;
+                parameter.Examples ??= new Dictionary<string, IOpenApiExample>(StringComparer.Ordinal);
+                if (exRef.Inline)
+                {
+                    if (Document.Components?.Examples == null || !Document.Components.Examples.TryGetValue(exRef.ReferenceId, out var value))
+                    {
+                        throw new InvalidOperationException($"Example reference '{exRef.ReferenceId}' cannot be embedded because it was not found in components.");
+                    }
+                    parameter.Examples[exRef.Key] = value.Clone();
+                }
+                else
+                {
+                    parameter.Examples[exRef.Key] = new OpenApiExampleReference(exRef.ReferenceId);
+                }
+                break;
+
+            default:
+                return false; // unrecognized attribute type
+        }
+        return true;
+    }
+    // ---- local helpers ----
+
+
+    private static string BuildParameterKey(Type declaringType, string memberName)
+    {
+        var mk = declaringType.GetCustomAttributes(inherit: false)
+                              .FirstOrDefault(a => a.GetType().Name == nameof(OpenApiModelKindAttribute));
+        if (mk is null)
+        {
+            return memberName;
+        }
+
+        var join = mk.GetType().GetProperty("JoinClassName")?.GetValue(mk) as string;
+        return string.IsNullOrEmpty(join) ? memberName : $"{declaringType.Name}{join}{memberName}";
+    }
+    #endregion
 
     #region Responses
     /// <summary>

@@ -130,11 +130,13 @@ public static class OpenApiSchemaDiscovery
 
             ParameterTypes = [.. assemblies.SelectMany(asm => asm.GetTypes())
             .Where(t => t.IsClass && !t.IsAbstract &&
-                   (t.GetCustomAttributes(typeof(OpenApiModelKindAttribute), true)
-                     .OfType<OpenApiModelKindAttribute>()
-                     .Any(a => a.Kind == OpenApiModelKind.Parameters) ||
-                    t.GetProperties(BindingFlags.Public | BindingFlags.Instance)
-                     .Any(p => p.GetCustomAttributes(typeof(OpenApiParameterAttribute), true).Length != 0)))],
+                    (t.GetCustomAttributes(typeof(OpenApiParameterComponent), true).Length != 0
+                   //(t.GetCustomAttributes(typeof(OpenApiModelKindAttribute), true)
+                   //  .OfType<OpenApiModelKindAttribute>()
+                    // .Any(a => a.Kind == OpenApiModelKind.Parameters) ||
+                   // t.GetProperties(BindingFlags.Public | BindingFlags.Instance)
+                    // .Any(p => p.GetCustomAttributes(typeof(OpenApiParameterAttribute), true).Length != 0)
+                    ))],
 
             SchemaTypes = [.. assemblies.SelectMany(asm => asm.GetTypes())
             .Where(t => t.IsClass && !t.IsAbstract &&
@@ -145,19 +147,22 @@ public static class OpenApiSchemaDiscovery
             // Use similar logic for Response types
             ResponseTypes = [.. assemblies.SelectMany(asm => asm.GetTypes())
             .Where(t => t.IsClass && !t.IsAbstract &&
-                   (t.GetCustomAttributes(typeof(OpenApiResponseComponent), true).Length != 0 ||
-                    t.GetCustomAttributes(typeof(OpenApiResponseAttribute), true).Length != 0))],
+                   (t.GetCustomAttributes(typeof(OpenApiResponseComponent), true).Length != 0
+                   //|| t.GetCustomAttributes(typeof(OpenApiResponseAttribute), true).Length != 0
+                   ))
+                    ],
             // Use similar logic for Header types
             HeaderTypes = [.. assemblies.SelectMany(asm => asm.GetTypes())
             .Where(t => t.IsClass && !t.IsAbstract &&
-                    (t.GetCustomAttributes(typeof(OpenApiHeaderComponent), true).Length != 0 ||
-                    t.GetCustomAttributes(typeof(OpenApiHeaderAttribute), true).Length != 0))],
+                    (t.GetCustomAttributes(typeof(OpenApiHeaderComponent), true).Length != 0
+                    //||                    t.GetCustomAttributes(typeof(OpenApiHeaderAttribute), true).Length != 0
+                    ))],
             ExampleTypes = [.. assemblies.SelectMany(asm => asm.GetTypes())
             .Where(t => t.IsClass && !t.IsAbstract &&
-                    (t.GetCustomAttributes(typeof(OpenApiModelKindAttribute), true)
-                     .OfType<OpenApiModelKindAttribute>()
-                     .Any(a => a.Kind == OpenApiModelKind.Example) ||
-                    t.GetCustomAttributes(typeof(OpenApiExampleComponent), true).Length != 0))],
+            //        (t.GetCustomAttributes(typeof(OpenApiModelKindAttribute), true)
+              //       .OfType<OpenApiModelKindAttribute>()
+                //     .Any(a => a.Kind == OpenApiModelKind.Example) ||
+                   ( t.GetCustomAttributes(typeof(OpenApiExampleComponent), true).Length != 0))],
             RequestBodyTypes = [.. assemblies.SelectMany(asm => asm.GetTypes())
             .Where(t => t.IsClass && !t.IsAbstract &&
                     (t.GetCustomAttributes(typeof(OpenApiModelKindAttribute), true)

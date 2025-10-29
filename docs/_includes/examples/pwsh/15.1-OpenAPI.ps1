@@ -37,9 +37,6 @@ class Address {
     [int]$ApartmentNumber = 101
 }
 
-
-
-
 [OpenApiModelKindAttribute([OpenApiModelKind]::Schema)]
 [OpenApiSchemaAttribute(Required = 'Name')]
 class UserInfoResponse {
@@ -68,22 +65,41 @@ class UserInfoResponse {
 
 
 # Parameters (class-first; one class per parameter; no Name= needed — property name is used)
-[OpenApiModelKindAttribute([OpenApiModelKind]::Parameters)]
+[OpenApiParameterComponent()]
 class Param_Name {
-    [OpenApiParameter(In = [OaParameterLocation]::Query)]
-    [OpenApiSchema(Description = 'Filter by name (contains)')]
+    [OpenApiParameterAttribute(In = [OaParameterLocation]::Query)]
+    [OpenApiSchemaAttribute(Description = 'Filter by name (contains)')]
     [string]$Name = 'John'
 }
 
 # Age parameters (class-first; grouped parameters)
-[OpenApiModelKindAttribute([OpenApiModelKind]::Parameters)]
+[OpenApiParameterComponent( JoinClassName = '-')]
 class Param_Age {
-    [OpenApiParameter(In = [OaParameterLocation]::Cookie)]
-    [OpenApiSchema(Description = 'Minimum age', Minimum = 0)]
+    [OpenApiParameterAttribute(In = [OaParameterLocation]::Cookie, Description = 'Minimum age parameter')]
     [long]$MinAge = 20
-    [OpenApiParameter(In = [OaParameterLocation]::Cookie)]
-    [OpenApiSchema(Description = 'Maximum age', Minimum = 0)]
+    [OpenApiParameterAttribute(In = [OaParameterLocation]::Cookie, Description = 'Maximum age parameter')]
     [long]$MaxAge = 120
+}
+[OpenApiParameterComponent()]
+class Param_Address {
+    [OpenApiParameterAttribute(In = [OaParameterLocation]::Header, Description = 'Address parameter')]
+    [OpenApiExampleRefAttribute(Key = 'Basic', ReferenceId = 'AddressExample_Basic')]
+    [OpenApiExampleRefAttribute(Key = 'WithApt', ReferenceId = 'WithApt')]
+    [OpenApiExampleRefAttribute(Key = 'NoApt', ReferenceId = 'AddressExample_NoApt')]
+    [Address]$Param_Address
+
+    [OpenApiParameterAttribute(In = [OaParameterLocation]::Cookie, Description = 'Location parameter')]
+    [OaParameterLocation]$Location = [OaParameterLocation]::Cookie
+
+    [OpenApiParameterAttribute(In = [OaParameterLocation]::Query, Description = 'Locations parameter')]
+    [OaParameterLocation[]]$Locations = [OaParameterLocation]::Cookie
+
+    [OpenApiParameterAttribute(In = [OaParameterLocation]::Query, Description = 'object array parameter')]
+    [object[]]$ob = [OaParameterLocation]::Cookie
+
+    [OpenApiParameterAttribute(In = [OaParameterLocation]::Query, Description = 'object')]
+    [OpenApiSchemaAttribute(Description = 'An object parameter', AdditionalPropertiesAllowed = $true)]
+    [object]$ob1
 }
 
 # Response components (member-level responses; JoinClassName ties class+member in key)
@@ -108,7 +124,7 @@ class AddressResponse {
     [OpenApiHeaderRefAttribute( Key = 'X-RateLimit-Remaining', ReferenceId = 'X-RateLimit-Remaining')]
     [UserInfoResponse] $NotFound
 
-    [OpenApiResponse(  )]
+    [OpenApiResponse()]
     $Error
 }
 
@@ -169,6 +185,11 @@ class CreateAddressBody {
 [OpenApiModelKindAttribute([OpenApiModelKind]::RequestBody)]
 class PatchAddressBody {
     [string]$City = 'Gotham'
+}
+
+[OpenApiExampleComponent( Summary = 'X-Request-ID header example', Description = 'An example X-Request-ID header value.', Key = 'X-Request-ID' )]
+class XRequestID {
+    [string] $Value = [guid]::NewGuid().ToString()
 }
 
 # Header components (member-level; default values become examples)
@@ -293,7 +314,25 @@ New-KrMapRouteBuilder -Verbs @('GET', 'HEAD', 'POST', 'TRACE') -Pattern '/status
     Add-KrMapRouteOpenApiServer -Server (New-KrOpenApiServer -Url 'https://staging-api.example.com/v1' -Description 'Staging Server') |
     Add-KrMapRouteOpenApiRequestBody -Verbs @('POST', 'GET', 'TRACE') -Description 'Healthy status2' -Reference 'CreateAddressBody' -Embed |
     Add-KrMapRouteOpenApiExternalDoc -Description 'Find more info here' -url 'https://example.com/docs' |
-    Add-KrMapRouteOpenApiParameter -Verbs @('GET', 'HEAD', 'POST') -Reference 'Name' -Embed |
+    Add-KrMapRouteOpenApiParameter -Verbs @('GET', 'HEAD', 'POST') -Reference 'Name' |
+    Add-KrMapRouteOpenApiParameter -Verbs @(  'POST') -Reference 'Param_Address' |
+    # Add-KrMapRouteOpenApiResponse -StatusCode '200' -Description 'Healthy status' -ReferenceId 'Address' |
+    Add-KrMapRouteOpenApiResponse -StatusCode '503' -Description 'Service unavailable' |
+    Add-KrMapRouteOpenApiResponse -StatusCode '500' -ReferenceId 'AddressResponse-NotFound' |
+    Build-KrMapRoute
+
+
+
+New-KrMapRouteBuilder -Verbs @('GET' ) -Pattern '/address' |
+    Add-KrMapRouteScriptBlock -ScriptBlock {
+        Write-KrLog -Level Debug -Message 'Health check'
+        Write-KrJsonResponse -InputObject @{ status = 'healthy' }
+    } |
+    Add-KrMapRouteOpenApiTag -Tag 'MyTag' |
+    Add-KrMapRouteOpenApiInfo -Summary 'Address info endpoint' -Description 'Returns information about a specific address.' |
+    Add-KrMapRouteOpenApiInfo -OperationId 'GetAddressInfo' |
+    Add-KrMapRouteOpenApiExternalDoc -Description 'Find more info here' -url 'https://example.com/docs' |
+    Add-KrMapRouteOpenApiParameter -Reference 'Param_Address' |
     # Add-KrMapRouteOpenApiResponse -StatusCode '200' -Description 'Healthy status' -ReferenceId 'Address' |
     Add-KrMapRouteOpenApiResponse -StatusCode '503' -Description 'Service unavailable' |
     Add-KrMapRouteOpenApiResponse -StatusCode '500' -ReferenceId 'AddressResponse-NotFound' |

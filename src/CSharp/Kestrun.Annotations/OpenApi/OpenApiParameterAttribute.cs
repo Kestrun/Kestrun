@@ -7,8 +7,13 @@ public sealed class OpenApiParameterAttribute : Attribute
 {
     /// <summary>Where the parameter lives (query/header/path/cookie).</summary>
     public OaParameterLocation In { get; set; } = OaParameterLocation.Query;
+
+    /// <summary>
+    /// Optional description for the parameter.
+    /// </summary>
+    public string? Description { get; set; }
     /// <summary>Override the parameter name (default: property name).</summary>
-    public string? Name { get; set; }
+    public string? Key { get; set; }
     /// <summary>Marks the parameter as required.</summary>
     public bool Required { get; set; }
     /// <summary>Marks the parameter as deprecated.</summary>
@@ -18,7 +23,7 @@ public sealed class OpenApiParameterAttribute : Attribute
     /// <summary>Serialization style hint.</summary>
     public OaParameterStyle? Style { get; set; }
     /// <summary>Explode hint for structured values.</summary>
-    public bool? Explode { get; set; }
+    public bool Explode { get; set; }
     /// <summary>Allow reserved characters unescaped (query only).</summary>
     public bool AllowReserved { get; set; }
     /// <summary>Example value (single example).</summary>

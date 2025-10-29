@@ -7,7 +7,7 @@
 /// <item><description>Property (member-level): set description, format, constraints, enum, etc.</description></item>
 /// </list>
 /// </summary>
-[AttributeUsage(AttributeTargets.Property | AttributeTargets.Class | AttributeTargets.Parameter, AllowMultiple = false)]
+[AttributeUsage(AttributeTargets.Property | AttributeTargets.Class | AttributeTargets.Parameter | AttributeTargets.Field, AllowMultiple = true)]
 public sealed class OpenApiSchemaAttribute : Attribute
 {
     // ---- Basic ----
@@ -80,9 +80,19 @@ public sealed class OpenApiSchemaAttribute : Attribute
     /// <summary>Items type by .NET type for code-first generators.</summary>
     public Type? ItemsType { get; set; }
 
+    private bool? _additionalPropertiesAllowed;
     // ---- additionalProperties (map/dictionary) ----
     /// <summary>Allow or disallow additional properties (null = generator decides).</summary>
-    public bool? AdditionalPropertiesAllowed { get; set; }
+    public object? AdditionalPropertiesAllowed
+    {
+        get => _additionalPropertiesAllowed.HasValue ? _additionalPropertiesAllowed.Value : null;
+        set => _additionalPropertiesAllowed = value switch
+        {
+            true => true,
+            false => false,
+            _ => null
+        };
+    }
     /// <summary>Schema reference for additionalProperties.</summary>
     public string? AdditionalPropertiesRef { get; set; }
     /// <summary>.NET type to infer additionalProperties schema.</summary>
@@ -131,4 +141,9 @@ public sealed class OpenApiSchemaAttribute : Attribute
     public bool XmlAttribute { get; set; }
     /// <summary>Indicates arrays are wrapped in an enclosing element.</summary>
     public bool XmlWrapped { get; set; }
+    /// <summary>
+    /// Sets unevaluatedProperties for OpenAPI Schema (null = generator decides).
+    /// </summary>
+    public bool UnevaluatedProperties { get; set; }
+    public string? AdditionalProperties { get; set; }
 }

@@ -143,7 +143,7 @@ public static class OpenApiSchemaDiscovery
                    (t.GetCustomAttributes(typeof(OpenApiModelKindAttribute), true)
                      .OfType<OpenApiModelKindAttribute>()
                      .Any(a => a.Kind == OpenApiModelKind.Schema) ||
-                    t.GetCustomAttributes(typeof(OpenApiSchemaAttribute), true).Length != 0))],
+                    t.GetCustomAttributes(typeof(OpenApiRequestBodyComponent), true).Length != 0))],
             // Use similar logic for Response types
             ResponseTypes = [.. assemblies.SelectMany(asm => asm.GetTypes())
             .Where(t => t.IsClass && !t.IsAbstract &&

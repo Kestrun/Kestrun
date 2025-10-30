@@ -154,6 +154,7 @@ class AddressExample_NoApt {
 
 # Request body components (class-first; one class per request body; defaults become the example)
 [OpenApiRequestBodyComponent( Description = 'Request body for creating an address', Inline = $true )]
+[OpenApiExampleRefAttribute( Key = 'demo', ReferenceId = 'X-Request-ID' )]
 class CreateAddressBody {
     [OpenApiSchemaAttribute(Description = 'The street address')]
     [string]$Street = '123 Main St'

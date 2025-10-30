@@ -5,7 +5,7 @@
 /// <remarks>
 /// Create an example reference specifying the media type.
 /// </remarks>
-[AttributeUsage(AttributeTargets.Field | AttributeTargets.Property, AllowMultiple = true)]
+[AttributeUsage(AttributeTargets.Class | AttributeTargets.Field | AttributeTargets.Property, AllowMultiple = true)]
 public sealed class OpenApiExampleRefAttribute : Attribute
 {
     /// <summary>Local name under content[contentType].examples</summary>

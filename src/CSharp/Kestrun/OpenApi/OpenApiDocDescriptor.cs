@@ -1608,14 +1608,16 @@ public class OpenApiDocDescriptor(KestrunHost host, string docId)
             requestBody.Description = bodyAttribute.Description;
             requestBody.Required = bodyAttribute.Required;
             // Build content
-            requestBody.Content = new Dictionary<string, OpenApiMediaType>
+            requestBody.Content ??= new Dictionary<string, OpenApiMediaType>(StringComparer.Ordinal);
+            var mediaType = new OpenApiMediaType
             {
-                [bodyAttribute.ContentType ?? "application/json"] = new OpenApiMediaType()
+                Schema = new OpenApiSchemaReference(t.Name)
             };
+
 
             if (bodyAttribute.Example is not null)
             {
-                requestBody.Content[bodyAttribute.ContentType ?? "application/json"].Example = ToNode(bodyAttribute.Example);
+                mediaType.Example = ToNode(bodyAttribute.Example);
             }
             else
             {
@@ -1627,6 +1629,7 @@ public class OpenApiDocDescriptor(KestrunHost host, string docId)
                 }
                 catch { /* ignore */ }
             }
+            requestBody.Content[bodyAttribute.ContentType ?? "application/json"] = mediaType;
             var name = GetKeyOverride(a) ?? t.Name;
             Document.Components!.RequestBodies![name] = requestBody;
         }

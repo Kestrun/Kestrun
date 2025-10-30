@@ -153,30 +153,30 @@ class AddressExample_NoApt {
 }
 
 # Request body components (class-first; one class per request body; defaults become the example)
-[OpenApiModelKindAttribute([OpenApiModelKind]::RequestBody, Inline = $true)]
+[OpenApiRequestBodyComponent( Description = 'Request body for creating an address', Inline = $true )]
 class CreateAddressBody {
-    [OpenApiSchema(Description = 'The street address')]
+    [OpenApiSchemaAttribute(Description = 'The street address')]
     [string]$Street = '123 Main St'
 
-    [OpenApiSchema(Description = 'The city name')]
+    [OpenApiSchemaAttribute(Description = 'The city name')]
     [string]$City = 'Anytown'
 
-    [OpenApiSchema(Description = 'The postal code')]
+    [OpenApiSchemaAttribute(Description = 'The postal code')]
     [string]$PostalCode = '12345'
 
-    [OpenApiSchema(Description = 'The apartment number')]
+    [OpenApiSchemaAttribute(Description = 'The apartment number')]
     [int]$ApartmentNumber = 101
 
-    [OpenApiSchema(Description = 'Additional mailing address')]
+    [OpenApiSchemaAttribute(Description = 'Additional mailing address')]
     [Address]$AdditionalAddress
 
-    [OpenApiSchema(Description = 'The country name')]
+    [OpenApiSchemaAttribute(Description = 'The country name')]
     [string]$Country = 'USA'
 
-    [OpenApiSchema(Description = 'The request identifier')]
+    [OpenApiSchemaAttribute(Description = 'The request identifier')]
     [guid]$RequestId = [guid]::NewGuid()
 
-    [OpenApiSchema(Description = 'Seconds since epoch')]
+    [OpenApiSchemaAttribute(Description = 'Seconds since epoch')]
     [long]$SecondsSinceEpoch = [int][DateTimeOffset]::UtcNow.ToUnixTimeSeconds()
 
     [dateTime]$CreatedAt = [DateTime]::UtcNow

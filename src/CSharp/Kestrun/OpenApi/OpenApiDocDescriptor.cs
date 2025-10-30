@@ -1588,20 +1588,47 @@ public class OpenApiDocDescriptor(KestrunHost host, string docId)
 
     #endregion
 
-
+    #region RequestBodies
+    /// <summary>
+    /// Builds request body components from the specified type.
+    /// </summary>
+    /// <param name="t">The type to build request bodies for.</param>
     private void BuildRequestBodies(Type t)
     {
         Document.Components!.RequestBodies ??= new Dictionary<string, IOpenApiRequestBody>(StringComparer.Ordinal);
 
+        var requestBody = new OpenApiRequestBody();
         // class-level
         var classAttrs = t.GetCustomAttributes(inherit: false)
-                          .Where(a => a.GetType().Name == nameof(OpenApiRequestBodyAttribute))
+                          .Where(a => a.GetType().Name == nameof(OpenApiRequestBodyComponent))
                           .ToArray();
         foreach (var a in classAttrs)
         {
-            var rb = CreateRequestBodyFromAttribute(a, t);
+            var bodyAttribute = (OpenApiRequestBodyComponent)a;
+            requestBody.Description = bodyAttribute.Description;
+            requestBody.Required = bodyAttribute.Required;
+            // Build content
+            requestBody.Content = new Dictionary<string, OpenApiMediaType>
+            {
+                [bodyAttribute.ContentType ?? "application/json"] = new OpenApiMediaType()
+            };
+
+            if (bodyAttribute.Example is not null)
+            {
+                requestBody.Content[bodyAttribute.ContentType ?? "application/json"].Example = ToNode(bodyAttribute.Example);
+            }
+            else
+            {
+                // Try to create example from instance defaults
+                try
+                {
+                    var inst = Activator.CreateInstance(t);
+                    requestBody.Content[bodyAttribute.ContentType ?? "application/json"].Example = ToNode(inst);
+                }
+                catch { /* ignore */ }
+            }
             var name = GetKeyOverride(a) ?? t.Name;
-            Document.Components!.RequestBodies![name] = rb;
+            Document.Components!.RequestBodies![name] = requestBody;
         }
 
         // If no class-level [OpenApiRequestBody] but the class is marked RequestBody kind,
@@ -1746,6 +1773,9 @@ public class OpenApiDocDescriptor(KestrunHost host, string docId)
 
         return rb;
     }
+
+    #endregion
+
 
     private IOpenApiSchema? BuildInlineSchemaFromRefOrType(string _, Type? fallbackType)
         => fallbackType != null ? BuildInlineSchemaFromType(fallbackType) : new OpenApiSchema { Type = JsonSchemaType.Object };

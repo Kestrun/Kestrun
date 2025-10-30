@@ -165,10 +165,7 @@ public static class OpenApiSchemaDiscovery
                    ( t.GetCustomAttributes(typeof(OpenApiExampleComponent), true).Length != 0))],
             RequestBodyTypes = [.. assemblies.SelectMany(asm => asm.GetTypes())
             .Where(t => t.IsClass && !t.IsAbstract &&
-                    (t.GetCustomAttributes(typeof(OpenApiModelKindAttribute), true)
-                     .OfType<OpenApiModelKindAttribute>()
-                     .Any(a => a.Kind == OpenApiModelKind.RequestBody) ||
-                    t.GetCustomAttributes(typeof(OpenApiRequestBodyAttribute), true).Length != 0))],
+                    (t.GetCustomAttributes(typeof(OpenApiRequestBodyComponent), true).Length != 0))],
 
             // Use only OpenApiModelKindAttribute to avoid compile-time deps on attribute types that may not exist yet
             LinkTypes = [.. assemblies.SelectMany(asm => asm.GetTypes())

@@ -25,6 +25,7 @@ function Build-KrOpenApiDocument {
     begin {
         # Ensure the server instance is resolved
         $Server = Resolve-KestrunServer -Server $Server
+        Write-KrLog -Level Information -Logger $Server.Logger -Message 'Building OpenAPI document...'
     }
     process {
         if ( -not $Server.OpenApiDocumentDescriptor.ContainsKey($DocId)) {

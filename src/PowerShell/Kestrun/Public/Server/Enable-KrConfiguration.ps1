@@ -53,7 +53,7 @@ function Enable-KrConfiguration {
                 }
             }
         }
-
+        Write-KrLog -Level Debug -Logger $Server.Logger -Message 'Collected {VarCount} user-defined variables for server configuration.' -Values $vars.Count
         $callerPath = $null
         $selfPath = $PSCommandPath
         foreach ($f in Get-PSCallStack) {
@@ -93,18 +93,20 @@ function Enable-KrConfiguration {
             $fxMap = [System.Collections.Generic.Dictionary[string, string]]::new([System.StringComparer]::OrdinalIgnoreCase)
             foreach ($f in $fx) { $fxMap[$f.Name] = $f.Definition }
         }
+        Write-KrLog -Level Debug -Logger $Server.Logger -Message 'Enabling Kestrun server configuration with {VarCount} variables and {FuncCount} functions.' -Values $vars.Count, ($fxMap?.Count ?? 0)
         # Apply the configuration to the server
         # Set the user-defined variables in the server configuration
         $Server.EnableConfiguration($vars, $fxMap) | Out-Null
+
+        Write-KrLog -Level Information -Logger $Server.Logger -Message 'Kestrun server configuration enabled successfully.'
 
         if (-not $Quiet.IsPresent) {
             Write-Host 'Kestrun server configuration enabled successfully.'
             Write-Host "Server Name: $($Server.Options.ApplicationName)"
         }
         # Generate OpenAPI components for all documents
-        $components = [Kestrun.OpenApi.OpenApiSchemaDiscovery]::GetOpenApiTypesAuto()
         foreach ( $doc in $Server.OpenApiDocumentDescriptor.Values ) {
-            $doc.GenerateComponents($components)
+            $doc.GenerateComponents()
         }
 
         if ($PassThru.IsPresent) {

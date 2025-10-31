@@ -10,11 +10,11 @@ if (-not (Get-Module -Name Kestrun)) {
 }
 #Import-Module -Force 'C:\Users\m_dan\Documents\GitHub\kestrun\Kestrun\src\PowerShell\Kestrun\Kestrun.psm1'
 
-New-KrLogger | Add-KrSinkConsole | Register-KrLogger -Name 'console' -SetAsDefault | Out-Null
+New-KrLogger | Add-KrSinkConsole |
+    Set-KrLoggerLevel -Value Debug |
+    Register-KrLogger -Name 'console' -SetAsDefault | Out-Null
 # Optional helpers for OpenAPI-friendly attributes
 # No 'using namespace' needed—attributes are global
-
-
 
 # 2. Create server host
 $srv = New-KrServer -Name 'Lifecycle Demo' -PassThru
@@ -154,7 +154,10 @@ class AddressExample_NoApt {
 
 # Request body components (class-first; one class per request body; defaults become the example)
 [OpenApiRequestBodyComponent( Description = 'Request body for creating an address', Inline = $true )]
-[OpenApiExampleRefAttribute( Key = 'demo', ReferenceId = 'X-Request-ID' )]
+[OpenApiRequestBodyComponent( ContentType = 'application/json' )]
+[OpenApiRequestBodyComponent( ContentType = 'application/yaml' )]
+[OpenApiRequestBodyComponent( ContentType = 'application/xml' )]
+#[OpenApiExampleRefAttribute( Key = 'demo', ReferenceId = 'X-Request-ID', Inline = $true )]
 class CreateAddressBody {
     [OpenApiSchemaAttribute(Description = 'The street address')]
     [string]$Street = '123 Main St'
@@ -183,10 +186,81 @@ class CreateAddressBody {
     [dateTime]$CreatedAt = [DateTime]::UtcNow
 }
 
-[OpenApiModelKindAttribute([OpenApiModelKind]::RequestBody)]
-class PatchAddressBody {
+[OpenApiRequestBodyComponent( Description = 'Request body for updating an address')]
+class UpdateAddressBody {
     [string]$City = 'Gotham'
 }
+
+[OpenApiRequestBodyComponent( Description = 'Request body for creating a new user account', Inline = $false )]
+[OpenApiExampleRefAttribute( Key = 'userDemo', ReferenceId = 'UserExample_Basic', Inline = $false )]
+[OpenApiRequestBodyComponent( ContentType = 'application/yaml' )]
+class CreateUserBody {
+    [OpenApiSchemaAttribute(Description = 'The unique username for the account')]
+    [string]$Username = 'jdoe'
+
+    [OpenApiSchemaAttribute(Description = 'The email address associated with the account')]
+    [string]$Email = 'jdoe@example.com'
+
+    [OpenApiSchemaAttribute(Description = 'The password for the account (hashed or plaintext depending on policy)')]
+    [string]$Password = 'P@ssw0rd123'
+
+    [OpenApiSchemaAttribute(Description = 'The display name of the user')]
+    [string]$FullName = 'John Doe'
+
+    [OpenApiSchemaAttribute(Description = "The user's preferred locale code")]
+    [string]$Locale = 'en-US'
+
+    [OpenApiSchemaAttribute(Description = 'The date of birth of the user')]
+    [datetime]$DateOfBirth = [datetime]'1990-01-01'
+
+    [OpenApiSchemaAttribute(Description = 'Metadata for account creation')]
+    [AccountMetadata]$Metadata
+
+    [OpenApiSchemaAttribute(Description = 'The request correlation identifier')]
+    [guid]$RequestId = [guid]::NewGuid()
+
+    [OpenApiSchemaAttribute(Description = 'UNIX timestamp when the request was generated')]
+    [long]$Timestamp = [int][DateTimeOffset]::UtcNow.ToUnixTimeSeconds()
+
+    [dateTime]$CreatedAt = [DateTime]::UtcNow
+}
+
+# Example of a nested metadata type
+[OpenApiModelKindAttribute([OpenApiModelKind]::Schema)]
+[OpenApiSchemaAttribute(Required = 'Name', Description = 'Additional metadata about the account creation')]
+class AccountMetadata {
+    [OpenApiSchemaAttribute(Description = 'Whether the account was created via API or UI')]
+    [string]$Source = 'API'
+
+    [OpenApiSchemaAttribute(Description = 'Client application version')]
+    [string]$ClientVersion = '1.0.0'
+
+    [OpenApiSchemaAttribute(Description = 'Indicates if email verification is required')]
+    [bool]$RequiresVerification = $true
+}
+
+
+[OpenApiExampleComponent(
+    Summary = 'Basic user creation example',
+    Description = 'An example of a user registration request with common fields populated.'
+)]
+class UserExample_Basic {
+    [string]$Username = 'jdoe'
+    [string]$Email = 'jdoe@example.com'
+    [string]$Password = 'P@ssw0rd123'
+    [string]$FullName = 'John Doe'
+    [string]$Locale = 'en-US'
+    [datetime]$DateOfBirth = [datetime]'1990-01-01'
+    [AccountMetadata]$Metadata = [AccountMetadata]@{
+        Source = 'API'
+        ClientVersion = '1.0.0'
+        RequiresVerification = $true
+    }
+    [guid]$RequestId = [guid]'123e4567-e89b-12d3-a456-426614174000'
+    [long]$Timestamp = 1730380000
+    [datetime]$CreatedAt = [datetime]'2025-10-31T09:00:00Z'
+}
+
 
 [OpenApiExampleComponent( Summary = 'X-Request-ID header example', Description = 'An example X-Request-ID header value.', Key = 'X-Request-ID' )]
 class XRequestID {
@@ -292,7 +366,7 @@ Add-KrOpenApiContact -Name 'John Doe' -Url 'https://johndoe.com' -Email 'john.do
 Add-KrOpenApiLicense -Name 'MIT License' -Url 'https://opensource.org/licenses/MIT' -Identifier 'MIT'
 
 
-# Add a tag to the default document
+# Add a tag to the default document with external documentation
 Add-KrOpenApiTag -Name 'MyTag' -Description 'This is my tag.' `
     -ExternalDocs (New-KrOpenApiExternalDoc -Description 'More info' -Url 'https://example.com/tag-info')
 
@@ -373,6 +447,7 @@ Add-KrMapRoute -Pattern '/openapi2/{version}/openapi.{format}' -Method 'GET' -Sc
     }
 }
 
+# 8. Build and test the OpenAPI document
 Build-KrOpenApiDocument
 Test-KrOpenApiDocument
 

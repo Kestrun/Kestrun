@@ -34,8 +34,7 @@ public class OpenApiDocDescriptor(KestrunHost host, string docId)
     /// <summary>
     /// The OpenAPI document being generated.
     /// </summary>
-    public OpenApiDocument Document { get; init; } = new OpenApiDocument { Components = new OpenApiComponents() };
-
+    public OpenApiDocument Document { get; private set; } = new OpenApiDocument { Components = new OpenApiComponents() };
 
     /// <summary>
     /// Generates an OpenAPI document from the provided schema types.
@@ -44,43 +43,64 @@ public class OpenApiDocDescriptor(KestrunHost host, string docId)
     /// <returns>The generated OpenAPI document.</returns>
     public void GenerateComponents(OpenApiComponentSet components)
     {
-        Document.Paths = [];
-
-        if (Document.Components!.Schemas == null)
+        if (Document.Components is null)
         {
-
-            Document.Components!.Schemas = new Dictionary<string, IOpenApiSchema>(StringComparer.Ordinal);
+            Document.Components = new OpenApiComponents();
+        }
+        // Schemas
+        if (components.SchemaTypes is not null && components.SchemaTypes.Count > 0)
+        {
+            Document.Components.Schemas = new Dictionary<string, IOpenApiSchema>(StringComparer.Ordinal);
+            foreach (var t in components.SchemaTypes)
+            {
+                BuildSchema(t);
+            }
+        }
+        // Parameters
+        if (components.ParameterTypes is not null && components.ParameterTypes.Count > 0)
+        {
+            Document.Components.Parameters = new Dictionary<string, IOpenApiParameter>(StringComparer.Ordinal);
+            foreach (var t in components.ParameterTypes)
+            {
+                BuildParameters(t);
+            }
+        }
+        // Responses
+        if (components.ResponseTypes is not null && components.ResponseTypes.Count > 0)
+        {
+            Document.Components.Responses = new Dictionary<string, IOpenApiResponse>(StringComparer.Ordinal);
+            foreach (var t in components.ResponseTypes)
+            {
+                BuildResponses(t);
+            }
+        }
+        // Examples
+        if (components.ExampleTypes is not null && components.ExampleTypes.Count > 0)
+        {
+            Document.Components.Examples = new Dictionary<string, IOpenApiExample>(StringComparer.Ordinal);
+            foreach (var t in components.ExampleTypes)
+            {
+                BuildExamples(t);
+            }
+        }
+        // Request bodies
+        if (components.RequestBodyTypes is not null && components.RequestBodyTypes.Count > 0)
+        {
+            Document.Components.RequestBodies = new Dictionary<string, IOpenApiRequestBody>(StringComparer.Ordinal);
+            foreach (var t in components.RequestBodyTypes)
+            {
+                BuildRequestBodies(t);
+            }
         }
 
-        foreach (var t in components.SchemaTypes)
+        // Headers
+        if (components.HeaderTypes is not null && components.HeaderTypes.Count > 0)
         {
-            BuildSchema(t);
-        }
-
-
-        foreach (var t in components.ParameterTypes)
-        {
-            BuildParameters(t);
-        }
-
-        foreach (var t in components.ResponseTypes)
-        {
-            BuildResponses(t);
-        }
-
-        foreach (var t in components.ExampleTypes)
-        {
-            BuildExamples(t);
-        }
-
-        foreach (var t in components.RequestBodyTypes)
-        {
-            BuildRequestBodies(t);
-        }
-
-        foreach (var t in components.HeaderTypes)
-        {
-            BuildHeaders(t);
+            Document.Components.Headers = new Dictionary<string, IOpenApiHeader>(StringComparer.Ordinal);
+            foreach (var t in components.HeaderTypes)
+            {
+                BuildHeaders(t);
+            }
         }
 
         // Links
@@ -98,12 +118,20 @@ public class OpenApiDocDescriptor(KestrunHost host, string docId)
     }
 
     /// <summary>
+    /// Generates the OpenAPI document by auto-discovering component types.
+    /// </summary>
+    public void GenerateComponents()
+    {
+        var components = OpenApiSchemaDiscovery.GetOpenApiTypesAuto();
+        GenerateComponents(components);
+    }
+    /// <summary>
     /// Generates the OpenAPI document by processing components and registered routes.
     /// </summary>
     public void GenerateDoc()
     {
-        var components = OpenApiSchemaDiscovery.GetOpenApiTypesAuto();
-        GenerateComponents(components);
+        // First, generate components
+        GenerateComponents();
         // Finally, build paths from registered routes
         BuildPathsFromRegisteredRoutes(Host.RegisteredRoutes);
     }
@@ -161,7 +189,7 @@ public class OpenApiDocDescriptor(KestrunHost host, string docId)
         {
             return;
         }
-
+        Document.Paths = [];
         // Group by path pattern
         foreach (var grp in routes
             .GroupBy(kvp => kvp.Key.Pattern, StringComparer.Ordinal)
@@ -903,15 +931,6 @@ public class OpenApiDocDescriptor(KestrunHost host, string docId)
 
         const BindingFlags flags = BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly;
 
-        // Enforce class-first parameter convention: a [OpenApiModelKind(Parameters)] class
-        // should declare exactly one property decorated with [OpenApiParameter].
-        /*   var isParamKindClass = t.GetCustomAttributes(inherit: false)
-                                   .Any(a => a.GetType().Name == nameof(OpenApiModelKindAttribute)
-                                          && string.Equals(
-                                              a.GetType().GetProperty("Kind")?.GetValue(a)?.ToString(),
-                                              nameof(OpenApiModelKind.Parameters), StringComparison.Ordinal));
-   */
-
         foreach (var p in t.GetProperties(flags))
         {
             var parameter = new OpenApiParameter();
@@ -1281,7 +1300,7 @@ public class OpenApiDocDescriptor(KestrunHost host, string docId)
     /// <param name="attr">The attribute object.</param>
     /// <param name="response">The response object to populate.</param>
     /// <returns>True if the attribute was recognized and processed; otherwise, false.</returns>
-    private bool CreateResponseFromAttribute(object attr, OpenApiResponse response)
+    private bool CreateResponseFromAttribute2(object attr, OpenApiResponse response)
     {
         var t = attr.GetType();
         switch (t.Name)
@@ -1362,6 +1381,103 @@ public class OpenApiDocDescriptor(KestrunHost host, string docId)
         }
         return true;
     }
+
+
+    private bool CreateResponseFromAttribute(object attr, OpenApiResponse response)
+    {
+        ArgumentNullException.ThrowIfNull(attr);
+        ArgumentNullException.ThrowIfNull(response);
+
+        switch (attr)
+        {
+            case OpenApiContentTypeAttribute ctype:
+                {
+                    var media = GetOrAddMediaType(response, ctype.ContentType);
+
+                    if (!string.IsNullOrEmpty(ctype.ReferenceId))
+                    {
+                        media.Schema = ctype.Inline
+                            ? CloneSchemaOrThrow(ctype.ReferenceId)
+                            : new OpenApiSchemaReference(ctype.ReferenceId);
+                    }
+                    return true;
+                }
+
+            case OpenApiResponseAttribute resp:
+                {
+                    if (!string.IsNullOrEmpty(resp.Description))
+                    {
+                        response.Description = resp.Description;
+                    }
+
+                    return true;
+                }
+
+            case OpenApiHeaderRefAttribute href:
+                {
+                    (response.Headers ??= new Dictionary<string, IOpenApiHeader>(StringComparer.Ordinal))
+                        [href.Key] = new OpenApiHeaderReference(href.ReferenceId);
+                    return true;
+                }
+
+            case OpenApiLinkRefAttribute lref:
+                {
+                    (response.Links ??= new Dictionary<string, IOpenApiLink>(StringComparer.Ordinal))
+                        [lref.Key] = new OpenApiLinkReference(lref.ReferenceId);
+                    return true;
+                }
+
+            case OpenApiExampleRefAttribute exRef:
+                {
+                    var targets =
+                        exRef.ContentType is null
+                            ? (IEnumerable<string>)(response.Content?.Keys ?? Array.Empty<string>())
+                            : [exRef.ContentType];
+
+                    if (!targets.Any())
+                    {
+                        targets = ["application/json"];
+                    }
+
+                    foreach (var ct in targets)
+                    {
+                        var media = GetOrAddMediaType(response, ct);
+                        (media.Examples ??= new Dictionary<string, IOpenApiExample>(StringComparer.Ordinal))
+                            [exRef.Key] = new OpenApiExampleReference(exRef.ReferenceId);
+                    }
+                    return true;
+                }
+
+            default:
+                return false;
+        }
+    }
+    // --- local helpers -------------------------------------------------------
+
+    private OpenApiMediaType GetOrAddMediaType(OpenApiResponse resp, string contentType)
+    {
+        resp.Content ??= new Dictionary<string, OpenApiMediaType>(StringComparer.Ordinal);
+        if (!resp.Content.TryGetValue(contentType, out var media))
+        {
+            media = resp.Content[contentType] = new OpenApiMediaType();
+        }
+
+        return media;
+    }
+
+    private OpenApiSchema CloneSchemaOrThrow(string refId)
+    {
+        if (Document.Components?.Schemas is { } schemas &&
+            schemas.TryGetValue(refId, out var schema))
+        {
+            // your existing clone semantics
+            return schema.Clone();
+        }
+
+        throw new InvalidOperationException(
+            $"Schema reference '{refId}' cannot be embedded because it was not found in components.");
+    }
+
     #endregion
 
     #region Examples
@@ -1600,146 +1716,79 @@ public class OpenApiDocDescriptor(KestrunHost host, string docId)
         var requestBody = new OpenApiRequestBody();
         // class-level
         var classAttrs = t.GetCustomAttributes(inherit: false)
-                          .Where(a => a.GetType().Name == nameof(OpenApiRequestBodyComponent))
-                          .ToArray();
+            .Where(a => a is OpenApiRequestBodyComponent or OpenApiExampleRefAttribute)
+            .OrderBy(a => a is not OpenApiRequestBodyComponent)
+            .ToArray();
+
+        var name = string.Empty;
         foreach (var a in classAttrs)
         {
-            var bodyAttribute = (OpenApiRequestBodyComponent)a;
-            requestBody.Description = bodyAttribute.Description;
-            requestBody.Required = bodyAttribute.Required;
-            // Build content
-            requestBody.Content ??= new Dictionary<string, OpenApiMediaType>(StringComparer.Ordinal);
-            var mediaType = new OpenApiMediaType
+            if (a is OpenApiRequestBodyComponent bodyAttribute)
             {
-                Schema = new OpenApiSchemaReference(t.Name)
-            };
-
-
-            if (bodyAttribute.Example is not null)
-            {
-                mediaType.Example = ToNode(bodyAttribute.Example);
-            }
-            else
-            {
-                // Try to create example from instance defaults
-                try
+                name = GetKeyOverride(a) ?? t.Name;
+                requestBody.Description = bodyAttribute.Description;
+                requestBody.Required = bodyAttribute.Required;
+                // Build content
+                requestBody.Content ??= new Dictionary<string, OpenApiMediaType>(StringComparer.Ordinal);
+                var mediaType = new OpenApiMediaType
                 {
-                    var inst = Activator.CreateInstance(t);
-                    requestBody.Content[bodyAttribute.ContentType ?? "application/json"].Example = ToNode(inst);
-                }
-                catch { /* ignore */ }
-            }
-            requestBody.Content[bodyAttribute.ContentType ?? "application/json"] = mediaType;
-            var name = GetKeyOverride(a) ?? t.Name;
-            Document.Components!.RequestBodies![name] = requestBody;
-        }
-
-        // If no class-level [OpenApiRequestBody] but the class is marked RequestBody kind,
-        // generate a request body that references this class schema and uses instance defaults as example
-        if (classAttrs.Length == 0)
-        {
-            var mk = t.GetCustomAttributes(inherit: false)
-                      .FirstOrDefault(a => a.GetType().Name == nameof(OpenApiModelKindAttribute));
-            if (mk is not null)
-            {
-                var kindVal = mk.GetType().GetProperty("Kind")?.GetValue(mk)?.ToString();
-                if (string.Equals(kindVal, nameof(OpenApiModelKind.RequestBody), StringComparison.Ordinal))
-                {
-                    var inline = (bool?)mk.GetType().GetProperty("InlineSchema")?.GetValue(mk) ?? false;
-                    if (!inline)
-                    {
-                        // Ensure a schema exists for this class and reference it
-                        EnsureSchemaComponent(t);
-                    }
-                    var rb = new OpenApiRequestBody
-                    {
-                        Description = "Request body",
-                        Required = false,
-                        Content = new Dictionary<string, OpenApiMediaType>
-                        {
-                            ["application/json"] = new OpenApiMediaType
-                            {
-                                Schema = inline ? BuildInlineSchemaFromType(t) : new OpenApiSchemaReference(t.Name)
-                            }
-                        }
-                    };
-                    try
-                    {
-                        var inst = Activator.CreateInstance(t);
-                        rb.Content["application/json"].Example = ToNode(inst);
-                    }
-                    catch { /* ignore */ }
-
-                    Document.Components!.RequestBodies![t.Name] = rb;
-                }
-            }
-        }
-
-        const BindingFlags flags = BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly;
-
-        // property-level
-        foreach (var p in t.GetProperties(flags))
-        {
-            var attrs = p.GetCustomAttributes(inherit: false)
-                         .Where(a => a.GetType().Name == nameof(OpenApiRequestBodyAttribute))
-                         .ToArray();
-            foreach (var a in attrs)
-            {
-                var rb = CreateRequestBodyFromAttribute(a);
-                // synthesize example from default if none provided
-                if ((rb.Content?.Count ?? 0) > 0)
-                {
-                    TryPopulateExampleFromDefault(t, p, rb);
-                }
-                var name = GetKeyOverride(a) ?? BuildMemberResponseKey(t, p.Name);
-                Document.Components!.RequestBodies![name] = rb;
-            }
-        }
-
-        // field-level
-        foreach (var f in t.GetFields(flags))
-        {
-            var attrs = f.GetCustomAttributes(inherit: false)
-                         .Where(a => a.GetType().Name == nameof(OpenApiRequestBodyAttribute))
-                         .ToArray();
-            foreach (var a in attrs)
-            {
-                var rb = CreateRequestBodyFromAttribute(a);
-                if ((rb.Content?.Count ?? 0) > 0)
-                {
-                    TryPopulateExampleFromDefault(t, f, rb);
-                }
-                var name = GetKeyOverride(a) ?? BuildMemberResponseKey(t, f.Name);
-                Document.Components!.RequestBodies![name] = rb;
-            }
-        }
-
-        static void TryPopulateExampleFromDefault(Type t, MemberInfo m, OpenApiRequestBody rb)
-        {
-            // Only add example if none present
-            if (rb.Content is null || rb.Content.Count == 0) { return; }
-            foreach (var mt in rb.Content.Values)
-            {
-                if (mt.Example != null) { return; }
-            }
-            try
-            {
-                var inst = Activator.CreateInstance(t);
-                var def = m switch
-                {
-                    PropertyInfo pi => pi.GetValue(inst),
-                    FieldInfo fi => fi.GetValue(inst),
-                    _ => null
+                    Schema = new OpenApiSchemaReference(name)
                 };
-                if (def is not null)
+                if (bodyAttribute.Inline)
                 {
-                    // Use first content type entry
-                    var first = rb.Content.First().Value;
-                    first.Example = ToNode(def);
+                    if (Document.Components?.Schemas == null || !Document.Components.Schemas.TryGetValue(name, out var value))
+                    {
+                        throw new InvalidOperationException($"Example reference '{name}' cannot be embedded because it was not found in components.");
+                    }
+                    mediaType.Schema = value.Clone();
+                }
+                else
+                {
+                    mediaType.Schema = new OpenApiSchemaReference(name);
+                }
+
+                if (bodyAttribute.Example is not null)
+                {
+                    mediaType.Example = ToNode(bodyAttribute.Example);
+                }
+                requestBody.Content[bodyAttribute.ContentType ?? "application/json"] = mediaType;
+            }
+            else if (a is OpenApiExampleRefAttribute exRef)
+            {
+                requestBody.Content ??= new Dictionary<string, OpenApiMediaType>(StringComparer.Ordinal);
+                // Determine which content types to add the example reference to
+                var keys = (exRef.ContentType is null) ?
+                    requestBody.Content.Keys : [exRef.ContentType];
+                if (keys.Count == 0)
+                {
+                    // No existing content types; default to application/json
+                    keys = ["application/json"];
+                }
+                // Add example reference to each specified content type
+                foreach (var ct in keys)
+                {
+                    _ = requestBody.Content.TryAdd(ct, new OpenApiMediaType());
+                    var mediaType = requestBody.Content[ct];
+                    mediaType.Examples ??= new Dictionary<string, IOpenApiExample>(StringComparer.Ordinal);
+                    IOpenApiExample exRefType;
+                    if (exRef.Inline)
+                    {
+                        if (Document.Components?.Examples == null || !Document.Components.Examples.TryGetValue(exRef.ReferenceId, out var value))
+                        {
+                            throw new InvalidOperationException($"Example reference '{exRef.ReferenceId}' cannot be embedded because it was not found in components.");
+                        }
+                        exRefType = value.Clone();
+                    }
+                    else
+                    {
+                        exRefType = new OpenApiExampleReference(exRef.ReferenceId);
+                    }
+                    mediaType.Examples[exRef.Key] = exRefType;
                 }
             }
-            catch { }
         }
+        Document.Components!.RequestBodies![name] = requestBody;
+        return;
     }
 
     private OpenApiRequestBody CreateRequestBodyFromAttribute(object attr, Type? declaringType = null)

@@ -270,7 +270,7 @@ class XRequestID {
 # Header components (member-level; default values become examples)
 [OpenApiHeaderComponent (JoinClassName = '-')]
 class CommonHeaders {
-    [OpenApiHeader(Key = 'X-Request-ID', Description = 'Unique request identifier for tracing')  ]
+    [OpenApiHeaderAttribute(Key = 'X-Request-ID', Description = 'Unique request identifier for tracing')  ]
     [OpenApiExampleRefAttribute( Key = 'demo', ReferenceId = 'X-Request-ID' )]
     [OpenApiExampleAttribute(Key = 'demo2', Summary = 'Another example ID', Value = '12345678-90ab-cdef-1234-567890abcdef')]
     [string] $xRequestId = [guid]::NewGuid().ToString()

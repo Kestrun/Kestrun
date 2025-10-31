@@ -1,9 +1,7 @@
 /// <summary>
 /// Serialization style hints for parameters (per OAS 3.x).
 /// </summary>
-#pragma warning disable CA1050 // Declare types in namespaces
 public enum OaParameterStyle
-#pragma warning restore CA1050 // Declare types in namespaces
 {
     /// <summary>Default for path &amp; header (no delimiters).</summary>
     Simple = 0,

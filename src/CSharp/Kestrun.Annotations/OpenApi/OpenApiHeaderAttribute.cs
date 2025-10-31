@@ -46,4 +46,10 @@ public sealed class OpenApiHeaderAttribute : Attribute
     /// Optional reference to an example component (e.g., "ExampleUser").
     /// </summary>
     public string? ExampleRef { get; set; }
+
+    /// <summary>
+    /// Optional reference to a schema component (e.g., "HeaderSchema").
+    /// </summary>
+    public string? SchemaRef { get; set; }
+
 }

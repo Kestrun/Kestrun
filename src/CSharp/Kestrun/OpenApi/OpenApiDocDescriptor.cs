@@ -1551,6 +1551,11 @@ public class OpenApiDocDescriptor(KestrunHost host, string docId)
 
     #endregion
     #region Headers
+    /// <summary>
+    /// Builds header components from the specified type.
+    /// </summary>
+    /// <param name="t">The type to build headers from.</param>
+    /// <exception cref="InvalidOperationException">Thrown when the type has multiple [OpenApiHeaderComponent] attributes.</exception>
     private void BuildHeaders(Type t)
     {
         string? defaultDescription = null;
@@ -1629,75 +1634,61 @@ public class OpenApiDocDescriptor(KestrunHost host, string docId)
     /// <returns>True if the header was created successfully; otherwise, false.</returns>
     private static bool CreateHeaderFromAttribute(object attr, OpenApiHeader header)
     {
-        var t = attr.GetType();
-        switch (t.Name)
+        if (attr is OpenApiHeaderAttribute attribute)
         {
-            case nameof(OpenApiHeaderAttribute):
-                var description = t.GetProperty("Description")?.GetValue(attr) as string;
-                var required = (bool?)t.GetProperty("Required")?.GetValue(attr) ?? false;
-                var deprecated = (bool?)t.GetProperty("Deprecated")?.GetValue(attr) ?? false;
-                var allowEmptyVal = (bool?)t.GetProperty("AllowEmptyValue")?.GetValue(attr) ?? false;
-                var styleObj = t.GetProperty("Style")?.GetValue(attr);
-                var explodeObj = t.GetProperty("Explode")?.GetValue(attr);
-                var explode = (explodeObj is bool b) && b;
-                var schemaRef = t.GetProperty("SchemaRef")?.GetValue(attr) as string;
-                var example = t.GetProperty("Example")?.GetValue(attr);
-                // Populate header fields
-                header.Description = description;
-                header.Required = required;
-                header.Deprecated = deprecated;
-                header.AllowEmptyValue = allowEmptyVal;
-                header.Schema = string.IsNullOrWhiteSpace(schemaRef) ? new OpenApiSchema { Type = JsonSchemaType.String } : new OpenApiSchemaReference(schemaRef);
-                // Optional hints
-                if (styleObj is OaParameterStyle style)
-                {
-                    header.Style = style.ToOpenApi();
-                }
-                if (t.GetProperty("AllowReserved") is not null)
-                {
-                    header.AllowReserved = (bool?)t.GetProperty("AllowReserved")?.GetValue(attr) ?? false;
-                }
 
-                if (explode) { header.Explode = true; }
-                if (example is not null)
-                {
-                    header.Example = ToNode(example);
-                }
-                break;
+            // Populate header fields
+            header.Description = attribute.Description;
+            header.Required = attribute.Required;
+            header.Deprecated = attribute.Deprecated;
+            header.AllowEmptyValue = attribute.AllowEmptyValue;
+            header.Schema = string.IsNullOrWhiteSpace(attribute.SchemaRef) ? new OpenApiSchema { Type = JsonSchemaType.String } : new OpenApiSchemaReference(attribute.SchemaRef);
+            // Optional hints
+            header.Style = attribute.Style.ToOpenApi();
 
-            case nameof(OpenApiExampleRefAttribute):
-                var exRef = (OpenApiExampleRefAttribute)attr;
-                header.Examples ??= new Dictionary<string, IOpenApiExample>(StringComparer.Ordinal);
-                if (header.Examples.ContainsKey(exRef.Key))
-                {
-                    throw new InvalidOperationException($"Header already contains an example with the key '{exRef.Key}'.");
-                }
-                // Determine which content types to add the example reference to
-                header.Examples[exRef.Key] = new OpenApiExampleReference(exRef.ReferenceId);
-                break;
-            case nameof(OpenApiExampleAttribute):
-                var ex = (OpenApiExampleAttribute)attr;
-                if (ex.Key is null)
-                {
-                    throw new InvalidOperationException($"OpenApiExampleAttribute requires a non-null Name property.");
-                }
+            header.AllowReserved = attribute.AllowReserved;
 
-                header.Examples ??= new Dictionary<string, IOpenApiExample>(StringComparer.Ordinal);
-                if (header.Examples.ContainsKey(ex.Key))
-                {
-                    throw new InvalidOperationException($"Header already contains an example with the key '{ex.Key}'.");
-                }
-                // Determine which content types to add the example reference to
-                header.Examples[ex.Key] = new OpenApiExample()
-                {
-                    Summary = ex.Summary,
-                    Description = ex.Description,
-                    Value = ToNode(ex.Value),
-                    ExternalValue = ex.ExternalValue
-                };
-                break;
-            default:
-                return false; // unrecognized attribute type
+            header.Explode = attribute.Explode;
+            var example = attribute.Example;
+            if (example is not null)
+            {
+                header.Example = ToNode(example);
+            }
+        }
+        else if (attr is OpenApiExampleRefAttribute exRef)
+        {
+            header.Examples ??= new Dictionary<string, IOpenApiExample>(StringComparer.Ordinal);
+            if (header.Examples.ContainsKey(exRef.Key))
+            {
+                throw new InvalidOperationException($"Header already contains an example with the key '{exRef.Key}'.");
+            }
+            // Determine which content types to add the example reference to
+            header.Examples[exRef.Key] = new OpenApiExampleReference(exRef.ReferenceId);
+        }
+        else if (attr is OpenApiExampleAttribute ex)
+        {
+            if (ex.Key is null)
+            {
+                throw new InvalidOperationException($"OpenApiExampleAttribute requires a non-null Name property.");
+            }
+
+            header.Examples ??= new Dictionary<string, IOpenApiExample>(StringComparer.Ordinal);
+            if (header.Examples.ContainsKey(ex.Key))
+            {
+                throw new InvalidOperationException($"Header already contains an example with the key '{ex.Key}'.");
+            }
+            // Determine which content types to add the example reference to
+            header.Examples[ex.Key] = new OpenApiExample()
+            {
+                Summary = ex.Summary,
+                Description = ex.Description,
+                Value = ToNode(ex.Value),
+                ExternalValue = ex.ExternalValue
+            };
+        }
+        else
+        {
+            return false; // unrecognized attribute type
         }
         return true;
     }

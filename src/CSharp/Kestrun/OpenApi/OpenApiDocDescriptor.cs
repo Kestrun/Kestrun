@@ -2136,6 +2136,10 @@ public class OpenApiDocDescriptor(KestrunHost host, string docId)
         }
         else if (attr is OpenApiServerVariableAttribute serverVariable)
         {
+            if (string.IsNullOrWhiteSpace(serverVariable.Name))
+            {
+                throw new InvalidOperationException("OpenApiServerVariableAttribute requires a non-empty Name property.");
+            }
             link.Server ??= new OpenApiServer();
             link.Server.Variables ??= new Dictionary<string, OpenApiServerVariable>(StringComparer.Ordinal);
             var osv = new OpenApiServerVariable();

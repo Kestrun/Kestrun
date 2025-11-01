@@ -5,7 +5,7 @@
 public sealed class OpenApiServerVariableAttribute : Attribute
 {
     /// <summary>The placeholder name (e.g., "region" for {region}).</summary>
-    public string Name { get; }
+    public string? Name { get; set; }
 
     /// <summary>Default value for the variable.</summary>
     public string? Default { get; set; }
@@ -15,6 +15,4 @@ public sealed class OpenApiServerVariableAttribute : Attribute
 
     /// <summary>Description of the variable.</summary>
     public string? Description { get; set; }
-
-    public OpenApiServerVariableAttribute(string name) => Name = name;
 }

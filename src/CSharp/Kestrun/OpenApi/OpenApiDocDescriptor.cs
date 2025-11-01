@@ -11,6 +11,7 @@ using Kestrun.Hosting.Options;
 using Kestrun.Utilities;
 using Microsoft.OpenApi.Reader;
 using System.Text;
+using YamlDotNet.Core.Events;
 
 namespace Kestrun.OpenApi;
 
@@ -345,7 +346,7 @@ public class OpenApiDocDescriptor(KestrunHost host, string docId)
         return op;
     }
 
-
+    #region Schemas
     private void BuildSchema(Type t, HashSet<Type>? built = null)
     {
         built ??= [];
@@ -374,19 +375,56 @@ public class OpenApiDocDescriptor(KestrunHost host, string docId)
             return; // primitives don't go to components
         }
 
-        var clsAttrs = t.GetCustomAttributes<OpenApiSchemaAttribute>(inherit: false).ToArray();
-        var clsAttr = MergeSchemaAttributes(clsAttrs);
-        var required = new HashSet<string>(StringComparer.Ordinal);
-        foreach (var r in t.GetCustomAttributes<OpenApiRequiredAttribute>())
-        {
-            _ = required.Add(r.Name);
-        }
-
-        var obj = new OpenApiSchema
+        var schema = new OpenApiSchema
         {
             Type = JsonSchemaType.Object,
             Properties = new Dictionary<string, IOpenApiSchema>(StringComparer.Ordinal)
         };
+        var clsComp = t.GetCustomAttributes(inherit: false)
+        .Where(a => a is OpenApiSchemaComponent)
+        .OrderBy(a => a is not OpenApiSchemaComponent)
+        .ToArray();
+        foreach (var a in clsComp)
+        {
+            if (a is OpenApiSchemaComponent schemaAttribute)
+            {
+                // Use the Key as the component name if provided
+                schema.Title = GetKeyOverride(a) ?? t.Name;
+                if (!string.IsNullOrWhiteSpace(schemaAttribute.Description))
+                {
+                    schema.Description = schemaAttribute.Description;
+                }
+
+                schema.Deprecated |= schemaAttribute.Deprecated;
+                schema.AdditionalPropertiesAllowed &= schemaAttribute.AdditionalPropertiesAllowed;
+
+                if (schemaAttribute.Example is not null)
+                {
+                    schema.Example = ToNode(schemaAttribute.Example);
+                }
+                if (schemaAttribute.Examples is not null)
+                {
+                    schema.Examples ??= [];
+                    var node = ToNode(schemaAttribute.Examples);
+                    if (node is not null)
+                    {
+                        schema.Examples.Add(node);
+                    }
+                }
+
+                if (!string.IsNullOrWhiteSpace(schemaAttribute.Required))
+                {
+                    schema.Required ??= new HashSet<string>(StringComparer.Ordinal);
+                    var tmp = schemaAttribute.Required?
+                     .Split([','], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).ToHashSet(StringComparer.Ordinal);
+                    foreach (var r in tmp!)
+                    {
+                        _ = schema.Required.Add(r);
+                    }
+                }
+            }
+
+        }
 
         // Create an instance to capture default-initialized property values
         object? inst = null;
@@ -408,25 +446,17 @@ public class OpenApiDocDescriptor(KestrunHost host, string docId)
                 }
                 catch { /* ignore */ }
             }
-            obj.Properties[p.Name] = ps;
+            schema.Properties[p.Name] = ps;
             if (p.GetCustomAttribute<OpenApiRequiredPropertyAttribute>() != null)
             {
-                _ = required.Add(p.Name);
+                schema.Required ??= new HashSet<string>(StringComparer.Ordinal);
+                _ = schema.Required.Add(p.Name);
             }
         }
 
-        if (required.Count > 0)
-        {
-            obj.Required = required;
-        }
-
-        if (clsAttr != null)
-        {
-            ApplySchemaAttr(clsAttr, obj);
-        }
         if (Document.Components is not null && Document.Components.Schemas is not null)
         {
-            Document.Components.Schemas[t.Name] = obj;
+            Document.Components.Schemas[t.Name] = schema;
         }
     }
 
@@ -836,6 +866,7 @@ public class OpenApiDocDescriptor(KestrunHost host, string docId)
 
     private static bool IsPrimitiveLike(Type t)
         => t.IsPrimitive || t == typeof(string) || t == typeof(decimal) || t == typeof(DateTime) || t == typeof(Guid) || t == typeof(object);
+    #endregion
 
     private static JsonNode? ToNode(object? value)
     {
@@ -1636,7 +1667,6 @@ public class OpenApiDocDescriptor(KestrunHost host, string docId)
     {
         if (attr is OpenApiHeaderAttribute attribute)
         {
-
             // Populate header fields
             header.Description = attribute.Description;
             header.Required = attribute.Required;
@@ -1782,46 +1812,7 @@ public class OpenApiDocDescriptor(KestrunHost host, string docId)
         return;
     }
 
-    private OpenApiRequestBody CreateRequestBodyFromAttribute(object attr, Type? declaringType = null)
-    {
-        var t = attr.GetType();
-        var description = t.GetProperty("Description")?.GetValue(attr) as string;
-        var contentType = t.GetProperty("ContentType")?.GetValue(attr) as string ?? "application/json";
-        var schemaRef = t.GetProperty("SchemaRef")?.GetValue(attr) as string;
-        var required = (bool?)t.GetProperty("Required")?.GetValue(attr) ?? false;
-        var example = t.GetProperty("Example")?.GetValue(attr);
-        var inline = (bool?)t.GetProperty("Inline")?.GetValue(attr) ?? false;
-
-        var rb = new OpenApiRequestBody
-        {
-            Description = description,
-            Required = required,
-            Content = new Dictionary<string, OpenApiMediaType>
-            {
-                [contentType] = new OpenApiMediaType
-                {
-                    Schema = inline
-                        ? (!string.IsNullOrWhiteSpace(schemaRef)
-                            ? BuildInlineSchemaFromRefOrType(schemaRef, declaringType)
-                            : (declaringType != null ? BuildInlineSchemaFromType(declaringType) : null))
-                        : (string.IsNullOrWhiteSpace(schemaRef) ? null : new OpenApiSchemaReference(schemaRef))
-                }
-            }
-        };
-
-        if (example is not null)
-        {
-            rb.Content![contentType].Example = ToNode(example);
-        }
-
-        return rb;
-    }
-
     #endregion
-
-
-    private IOpenApiSchema? BuildInlineSchemaFromRefOrType(string _, Type? fallbackType)
-        => fallbackType != null ? BuildInlineSchemaFromType(fallbackType) : new OpenApiSchema { Type = JsonSchemaType.Object };
 
 
 

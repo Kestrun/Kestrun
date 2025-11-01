@@ -19,10 +19,10 @@ New-KrLogger | Add-KrSinkConsole |
 # 2. Create server host
 $srv = New-KrServer -Name 'Lifecycle Demo' -PassThru
 
-[OpenApiModelKindAttribute([OpenApiModelKind]::Schema)]
-[OpenApiSchemaAttribute(Required = 'Street')]
-[OpenApiSchemaAttribute(Required = 'City')]
-[OpenApiSchemaAttribute(Required = 'PostalCode')]
+[OpenApiSchemaComponent(Description = 'Mailing address schema', Deprecated = $true)]
+[OpenApiSchemaComponent(Required = 'Street')]
+[OpenApiSchemaComponent(Required = 'City')]
+[OpenApiSchemaComponent(Required = 'PostalCode')]
 class Address {
     [OpenApiSchemaAttribute(Description = 'The street address'  , title = 'Street Address', Pattern = '^[\w\s\d]+$' , XmlName = 'StreetAddress', MaxLength = 100 )]
     [string]$Street = '123 Main St'
@@ -37,7 +37,7 @@ class Address {
     [int]$ApartmentNumber = 101
 }
 
-[OpenApiModelKindAttribute([OpenApiModelKind]::Schema)]
+[OpenApiSchemaComponent()]
 [OpenApiSchemaAttribute(Required = 'Name')]
 class UserInfoResponse {
     [OpenApiSchemaAttribute(Description = 'User identifier' )]

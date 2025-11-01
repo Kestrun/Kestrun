@@ -295,61 +295,27 @@ $serverVars = (New-KrOpenApiServerVariable -Name 'env' -Default 'dev' -Enum @('d
 
 Add-KrOpenApiServer -Url 'https://{env}.api.example.com' -Description 'Target API endpoint' -Variables $serverVars
 
-$linkParams = @{ id = '$response.body#/id'; verbose = '$request.query.verbose' ; email = '$request.body#/email'; locale = '$request.body#/locale' }
-$linkRequestBody = @{  locale = '$request.body#/locale' }
-Add-KrOpenApiLink -LinkName 'GetUserByIdLink' -OperationRef '#/paths/users/{id}/get' -OperationId 'getUserById1' `
-    -Description 'Link to fetch user details using the id from the response body.' -Parameters $linkParams -Server $linkServer #-RequestBody $linkRequestBody
+#$linkParams = @{ id = '$response.body#/id'; verbose = '$request.query.verbose' ; email = '$request.body#/email'; locale = '$request.body#/locale' }
+#$linkRequestBody = @{  locale = '$request.body#/locale' }
+#Add-KrOpenApiLink -LinkName 'GetUserByIdLink' -OperationRef '#/paths/users/{id}/get' -OperationId 'getUserById1' `
+#   -Description 'Link to fetch user details using the id from the response body.' -Parameters $linkParams -Server $linkServer #-RequestBody $linkRequestBody
 
-Add-KrOpenApiLink -LinkName 'GetUserByIdLink2' -OperationRef '#/paths/users2/{id}/get' -OperationId 'getUserById2' `
-    -Description 'Link to fetch user details using the id from the response body.' -RequestBody '$request.body#/locale'
+#Add-KrOpenApiLink -LinkName 'GetUserByIdLink2' -OperationRef '#/paths/users2/{id}/get' -OperationId 'getUserById2' `
+#  -Description 'Link to fetch user details using the id from the response body.' -RequestBody '$request.body#/locale'
 
+[OpenApiLinkComponent()]
+class MyLinks {
+    [OpenApiLinkAttribute( Description = 'Link to fetch user details using the id from the response body.' )]
+    [OpenApiLinkAttribute( OperationId = 'getUserById1'  )]
+    [OpenApiLinkAttribute( MapKey = 'userid', MapValue = '$request.path.id' )]
+    [OpenApiLinkAttribute(RequestBodyExpression = '$request.body#/profile')]
+    $GetUserByIdLink
 
-# Callback component (class-first). Discovered via [OpenApiModelKindAttribute(Callback)].
-# The generator will emit components.callbacks["Callback_UserCreated"] with the expression as the key.
-<#[OpenApiModelKindAttribute([OpenApiModelKind]::Callback)]
-class Callback_UserCreated {
-    # Expression pointing to a URL provided by the inbound request body
-    [string]$Expression = '$request.body#/callbackUrl'
-    # Optional description; used on the synthesized PathItem when none is provided
-    [string]$Description = 'Callback invoked after a user is created.'
-}#>
-
-<#
-$schemaTypes = [Kestrun.OpenApi.OpenApiSchemaDiscovery]::GetOpenApiSchemaTypes()       # schemas
-$parameterTypes = [Kestrun.OpenApi.OpenApiSchemaDiscovery]::GetOpenApiParameterTypes()  # parameters
-
-# 2) Build extra component dictionaries (typed, not Hashtables)
-$responses = [System.Collections.Generic.Dictionary[string, Microsoft.OpenApi.IOpenApiResponse]]::new()
-$parameters = [System.Collections.Generic.Dictionary[string, Microsoft.OpenApi.IOpenApiParameter]]::new()
-$pathItems = [System.Collections.Generic.Dictionary[string, Microsoft.OpenApi.IOpenApiPathItem]]::new()
-
-# 2a) Response: 200 that returns Address
-$respOK = [Kestrun.OpenApi.OpenApiBuilders]::JsonResponseRef('Address', 'Address payload')
-$responses.Add('AddressOk', $respOK)
-
-# 2b) A reusable query parameter
-$paramName = [Kestrun.OpenApi.OpenApiBuilders]::QueryParam('name', 'Filter by name')
-$parameters.Add('name', $paramName)
-
-# 2c) A reusable PathItem (OpenAPI v2.x types live under Microsoft.OpenApi.* root namespace)
-$pi = [Microsoft.OpenApi.OpenApiPathItem]::new()
-$pi.Description = 'Reusable stuff'
-$pathItems.Add('ReusableThing', $pi)
-
-# 3) Compose a single component set
-$components = [Kestrun.OpenApi.OpenApiComponentSet]::new()
-$components.SchemaTypes = [Type[]]($schemaTypes | ForEach-Object { [Type]$_ })
-$components.ParameterTypes = [Type[]]($parameterTypes | ForEach-Object { [Type]$_ })
-
-# Optional component maps
-$components.ResponseTypes = $responses
-$components.ParameterTypes = $parameters
-$components.PathItemTypes = $pathItems#>
-
-
-# (You can also set: Examples, RequestBodies, Headers, SecuritySchemes, Links, Callbacks, Extensions)
-
-
+    [OpenApiLinkAttribute( Description = 'Link to fetch user details using the id from the response body.' )]
+    [OpenApiLinkAttribute( OperationRef = 'https://na2.gigantic-server.com/#/paths/~12.0~1repositories~1%7Busername%7D/get' )]
+    [OpenApiLinkAttribute( MapKey = 'id', MapValue = '$response.body#/id' )]
+    $GetUserByIdLink2
+}
 
 
 # 3. Add loopback listener on port 5000 (auto unlinks existing file if present)

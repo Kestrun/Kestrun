@@ -11,7 +11,6 @@ using Kestrun.Hosting.Options;
 using Kestrun.Utilities;
 using Microsoft.OpenApi.Reader;
 using System.Text;
-using YamlDotNet.Core.Events;
 
 namespace Kestrun.OpenApi;
 
@@ -103,13 +102,15 @@ public class OpenApiDocDescriptor(KestrunHost host, string docId)
                 BuildHeaders(t);
             }
         }
-
         // Links
-        foreach (var t in components.LinkTypes)
+        if (components.LinkTypes is not null && components.LinkTypes.Count > 0)
         {
-            BuildLinks(t);
+            Document.Components.Links = new Dictionary<string, IOpenApiLink>(StringComparer.Ordinal);
+            foreach (var t in components.LinkTypes)
+            {
+                BuildLinks(t);
+            }
         }
-
         // Callbacks
         foreach (var t in components.CallbackTypes)
         {
@@ -1576,10 +1577,6 @@ public class OpenApiDocDescriptor(KestrunHost host, string docId)
                                .ToArray();
             if (classAttrs.Length > 0)
             {
-                if (classAttrs.Length > 1)
-                {
-                    throw new InvalidOperationException($"Type '{t.FullName}' has multiple [OpenApiResponseComponent] attributes. Only one is allowed per class.");
-                }
                 // Apply any class-level [OpenApiResponseComponent] attributes first
                 if (classAttrs[0] is OpenApiHeaderComponent classRespAttr)
                 {
@@ -1594,10 +1591,10 @@ public class OpenApiDocDescriptor(KestrunHost host, string docId)
                 }
             }
             var attrs = p.GetCustomAttributes(inherit: false)
-                                   .Where(a => a.GetType().Name is
-                                   nameof(OpenApiHeaderAttribute) or
-                                   nameof(OpenApiExampleRefAttribute) or
-                                   nameof(OpenApiExampleAttribute)
+                                   .Where(a => a is
+                                   OpenApiHeaderAttribute or
+                                   OpenApiExampleRefAttribute or
+                                   OpenApiExampleAttribute
                                    )
                                    .Cast<object>()
                                    .ToArray();
@@ -1986,314 +1983,181 @@ public class OpenApiDocDescriptor(KestrunHost host, string docId)
             }
         }
     }
-
+    #region Links
+    /// <summary>
+    /// Builds link components from the specified type.
+    /// </summary>
+    /// <param name="t">The type to build links for.</param>
     private void BuildLinks(Type t)
     {
+
+        string? defaultDescription = null;
+        string? joinClassName = null;
+        // Ensure Links dictionary exists
         Document.Components!.Links ??= new Dictionary<string, IOpenApiLink>(StringComparer.Ordinal);
-
-        // Class-first pattern: instantiate and read well-known members
-        object? inst;
-        try { inst = Activator.CreateInstance(t); } catch { inst = null; }
-
-        string? opId = null;
-        string? opRef = null;
-        string? description = null;
-        object? parametersObj = null;
-        object? requestBodyObj = null;
-        object? serverObj = null;
-
-        const BindingFlags flags = BindingFlags.Public | BindingFlags.Instance;
+        const BindingFlags flags = BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly;
+        // ------ Build Links -------
         foreach (var p in t.GetProperties(flags))
         {
-            var name = p.Name;
-            object? value = null;
-            try { value = inst is not null ? p.GetValue(inst) : null; } catch { }
 
-            switch (name)
+            var link = new OpenApiLink();
+
+            var classAttrs = t.GetCustomAttributes(inherit: false).
+                               Where(a => a.GetType().Name is
+                               nameof(OpenApiLinkComponent))
+                               .Cast<object>()
+                               .ToArray();
+            if (classAttrs.Length > 0)
             {
-                case "OperationId":
-                    opId = value as string; break;
-                case "OperationRef":
-                    opRef = value as string; break;
-                case "Description":
-                    description = value as string; break;
-                case "Parameters":
-                    parametersObj = value; break;
-                case "RequestBody":
-                    requestBodyObj = value; break;
-                case "Server":
-                    serverObj = value; break;
-                default:
-                    break;
-            }
-        }
-
-        var link = new OpenApiLink();
-
-        // Spec: operationId and operationRef are mutually exclusive. Prefer OperationId if both provided.
-        if (!string.IsNullOrWhiteSpace(opId))
-        {
-            link.OperationId = opId;
-        }
-        else if (!string.IsNullOrWhiteSpace(opRef))
-        {
-            link.OperationRef = opRef;
-        }
-
-        if (!string.IsNullOrWhiteSpace(description))
-        {
-            link.Description = description;
-        }
-
-        // Parameters: Hashtable/IDictionary<string, object> of name -> runtime expression (string)
-        if (parametersObj is System.Collections.IDictionary dict)
-        {
-            var paramProp = typeof(OpenApiLink).GetProperty("Parameters", BindingFlags.Public | BindingFlags.Instance);
-            if (paramProp != null && paramProp.CanWrite)
-            {
-                var pt = paramProp.PropertyType;
-                if (pt.IsGenericType && pt.GetGenericTypeDefinition() == typeof(IDictionary<,>))
+                // Apply any class-level [OpenApiLinkComponent] attributes first
+                if (classAttrs[0] is OpenApiLinkComponent classLinkAttr)
                 {
-                    var args = pt.GetGenericArguments();
-                    var keyType = args[0];
-                    var valType = args[1];
-                    if (keyType == typeof(string))
+                    if (!string.IsNullOrEmpty(classLinkAttr.Description))
                     {
-                        var dictType = typeof(Dictionary<,>).MakeGenericType(keyType, valType);
-                        var instDict = Activator.CreateInstance(dictType) as System.Collections.IDictionary;
-                        if (instDict is not null)
-                        {
-                            foreach (System.Collections.DictionaryEntry de in dict)
-                            {
-                                var k = de.Key?.ToString();
-                                var v = de.Value as string;
-                                if (string.IsNullOrWhiteSpace(k) || string.IsNullOrWhiteSpace(v)) { continue; }
-                                var valueToSet = CreateRuntimeExpressionAnyWrapper(valType, v);
-                                instDict[k!] = valueToSet;
-                            }
-                            paramProp.SetValue(link, instDict);
-                        }
+                        defaultDescription = classLinkAttr.Description;
+                    }
+                    if (!string.IsNullOrEmpty(classLinkAttr.JoinClassName))
+                    {
+                        joinClassName = t.FullName + classLinkAttr.JoinClassName;
                     }
                 }
             }
-        }
 
-        // RequestBody: runtime expression string or literal object (hashtable)
-        if (requestBodyObj is string rbe && !string.IsNullOrWhiteSpace(rbe))
-        {
-            var rbProp = typeof(OpenApiLink).GetProperty("RequestBody", BindingFlags.Public | BindingFlags.Instance);
-            if (rbProp != null && rbProp.CanWrite)
+            var attrs = p.GetCustomAttributes(inherit: false)
+                                  .Where(a => a is OpenApiLinkAttribute or
+                                    OpenApiServerAttribute or
+                                    OpenApiServerVariableAttribute)
+                                  .Cast<object>()
+                                  .ToArray();
+
+            if (attrs.Length == 0) { continue; }
+            var customName = string.Empty;
+            foreach (var a in attrs)
             {
-                var rbt = rbProp.PropertyType;
-                var valueToSet = CreateRuntimeExpressionAnyWrapper(rbt, rbe);
-                rbProp.SetValue(link, valueToSet);
-            }
-        }
-        else if (requestBodyObj is System.Collections.IDictionary rbDict)
-        {
-            var rbProp = typeof(OpenApiLink).GetProperty("RequestBody", BindingFlags.Public | BindingFlags.Instance);
-            if (rbProp != null && rbProp.CanWrite)
-            {
-                var rbt = rbProp.PropertyType;
-                var asm = rbt.Assembly;
-                var any = BuildOpenApiAny(rbDict, asm);
-                var wrapper = Activator.CreateInstance(rbt);
-                if (wrapper is not null)
+                if (a is OpenApiLinkAttribute oaHa)
                 {
-                    var anyProp = rbt.GetProperty("Any", BindingFlags.Public | BindingFlags.Instance);
-                    if (anyProp != null && anyProp.CanWrite && any is not null)
+                    if (!string.IsNullOrWhiteSpace(oaHa.Key))
                     {
-                        anyProp.SetValue(wrapper, any);
-                        rbProp.SetValue(link, wrapper);
+                        customName = oaHa.Key;
                     }
                 }
+                _ = CreateLinkFromAttribute(a, link);
+
             }
+            var tname = string.IsNullOrWhiteSpace(customName) ? p.Name : customName!;
+            var key = joinClassName is not null ? $"{joinClassName}{tname}" : tname;
+            if (link.Description is null && defaultDescription is not null)
+            {
+                link.Description = defaultDescription;
+            }
+            Document.Components!.Links![key] = link;
         }
 
-        // Server: allow string URL or hashtable { Url, Description, Variables }
-        if (serverObj is not null)
-        {
-            var server = BuildServer(serverObj);
-            if (server is not null)
-            {
-                link.Server = server;
-            }
-        }
-
-        // Component key is class name
-        Document.Components!.Links[t.Name] = link;
-
-        static OpenApiServer? BuildServer(object value)
-        {
-            if (value is string urlStr && !string.IsNullOrWhiteSpace(urlStr))
-            {
-                return new OpenApiServer { Url = urlStr };
-            }
-
-            if (value is System.Collections.IDictionary ht)
-            {
-                var srv = new OpenApiServer();
-                foreach (System.Collections.DictionaryEntry de in ht)
-                {
-                    var key = de.Key?.ToString() ?? string.Empty;
-                    if (string.IsNullOrWhiteSpace(key)) { continue; }
-                    switch (key)
-                    {
-                        case "Url":
-                        case "url":
-                            srv.Url = de.Value?.ToString();
-                            break;
-                        case "Description":
-                        case "description":
-                            srv.Description = de.Value?.ToString();
-                            break;
-                        case "Variables":
-                        case "variables":
-                            if (de.Value is System.Collections.IDictionary vars)
-                            {
-                                srv.Variables = new Dictionary<string, OpenApiServerVariable>(StringComparer.Ordinal);
-                                foreach (System.Collections.DictionaryEntry v in vars)
-                                {
-                                    var varName = v.Key?.ToString();
-                                    if (string.IsNullOrWhiteSpace(varName) || v.Value is not System.Collections.IDictionary vht) { continue; }
-                                    var osv = new OpenApiServerVariable();
-                                    foreach (System.Collections.DictionaryEntry ve in vht)
-                                    {
-                                        var vk = ve.Key?.ToString();
-                                        if (string.Equals(vk, "Default", StringComparison.OrdinalIgnoreCase))
-                                        {
-                                            osv.Default = ve.Value?.ToString();
-                                        }
-                                        else if (string.Equals(vk, "Description", StringComparison.OrdinalIgnoreCase))
-                                        {
-                                            osv.Description = ve.Value?.ToString();
-                                        }
-                                        else if (string.Equals(vk, "Enum", StringComparison.OrdinalIgnoreCase) && ve.Value is System.Collections.IEnumerable enumSeq)
-                                        {
-                                            osv.Enum = [];
-                                            foreach (var item in enumSeq)
-                                            {
-                                                if (item is null) { continue; }
-                                                osv.Enum.Add(item.ToString()!);
-                                            }
-                                        }
-                                    }
-                                    srv.Variables[varName] = osv;
-                                }
-                            }
-                            break;
-                        default:
-                            break;
-                    }
-                }
-                return srv;
-            }
-
-            return null;
-        }
-
-        // Helper: create an instance of RuntimeExpressionAnyWrapper (or compatible) from a string
-        static object CreateRuntimeExpressionAnyWrapper(Type wrapperType, string text)
-        {
-            // If it's already a string, just return the text
-            if (wrapperType == typeof(string)) { return text; }
-
-            // Try ctor(string) directly
-            var ctorStr = wrapperType.GetConstructor([typeof(string)]);
-            if (ctorStr is not null)
-            {
-                try { return ctorStr.Invoke([text]); } catch { /* ignore */ }
-            }
-
-            // Try to locate Microsoft.OpenApi.RuntimeExpression and set as Expression
-            var asm = wrapperType.Assembly;
-            var exprType = asm.GetType("Microsoft.OpenApi.RuntimeExpression");
-            if (exprType is not null)
-            {
-                try
-                {
-                    // Prefer wrapper ctor(RuntimeExpression)
-                    var ctorExpr = wrapperType.GetConstructor([exprType]);
-                    if (ctorExpr is not null)
-                    {
-                        var expr = Activator.CreateInstance(exprType, [text]);
-                        return ctorExpr.Invoke([expr!]);
-                    }
-
-                    // Otherwise set property 'Expression'
-                    var exprProp = wrapperType.GetProperty("Expression", BindingFlags.Public | BindingFlags.Instance);
-                    if (exprProp != null && exprProp.CanWrite)
-                    {
-                        var expr = Activator.CreateInstance(exprType, [text]);
-                        var inst = Activator.CreateInstance(wrapperType)!;
-                        exprProp.SetValue(inst, expr);
-                        return inst;
-                    }
-                }
-                catch { /* ignore and try Any */ }
-            }
-
-            // Fallback: set as Any using Microsoft.OpenApi.Any.OpenApiString
-            var anyType = asm.GetType("Microsoft.OpenApi.Any.OpenApiString");
-            if (anyType != null)
-            {
-                try
-                {
-                    var any = Activator.CreateInstance(anyType, [text]);
-                    var anyProp = wrapperType.GetProperty("Any", BindingFlags.Public | BindingFlags.Instance);
-                    if (anyProp != null && anyProp.CanWrite)
-                    {
-                        var inst = Activator.CreateInstance(wrapperType)!;
-                        anyProp.SetValue(inst, any);
-                        return inst;
-                    }
-                }
-                catch { /* ignore */ }
-            }
-
-            // As a last resort, create an empty wrapper instance
-            return Activator.CreateInstance(wrapperType)!;
-        }
-
-        // Build an OpenAPI Any object (OpenApiObject/OpenApiArray/OpenApiString) via reflection
-        static object? BuildOpenApiAny(object value, Assembly asm)
-        {
-            var anyNs = "Microsoft.OpenApi.Any";
-            var tObj = asm.GetType($"{anyNs}.OpenApiObject");
-            var tArr = asm.GetType($"{anyNs}.OpenApiArray");
-            var tStr = asm.GetType($"{anyNs}.OpenApiString");
-            if (tStr is null) { return null; }
-
-            // IDictionary -> OpenApiObject
-            if (value is System.Collections.IDictionary d)
-            {
-                if (Activator.CreateInstance(tObj!) is not System.Collections.IDictionary obj) { return null; }
-                foreach (System.Collections.DictionaryEntry de in d)
-                {
-                    var key = de.Key?.ToString();
-                    if (string.IsNullOrWhiteSpace(key)) { continue; }
-                    var child = BuildOpenApiAny(de.Value ?? string.Empty, asm) ?? Activator.CreateInstance(tStr, [string.Empty]);
-                    obj[key] = child;
-                }
-                return obj;
-            }
-
-            // IEnumerable (non-string) -> OpenApiArray
-            if (value is System.Collections.IEnumerable en and not string)
-            {
-                if (Activator.CreateInstance(tArr!) is not System.Collections.IList arr) { return null; }
-                foreach (var item in en)
-                {
-                    var child = BuildOpenApiAny(item ?? string.Empty, asm) ?? Activator.CreateInstance(tStr, [string.Empty]);
-                    _ = arr.Add(child);
-                }
-                return arr;
-            }
-
-            // Primitive -> OpenApiString(text)
-            return Activator.CreateInstance(tStr, [value?.ToString() ?? string.Empty]);
-        }
     }
+
+    /// <summary>
+    /// Creates an OpenApiLink from the specified attribute.
+    /// </summary>
+    /// <param name="attr">The attribute to create the link from.</param>
+    /// <param name="link">The link to populate.</param>
+    /// <returns>True if the link was successfully created; otherwise, false.</returns>
+    /// <exception cref="InvalidOperationException">Thrown when the attribute is invalid.</exception>
+    private static bool CreateLinkFromAttribute(object attr, OpenApiLink link)
+    {
+        if (attr is OpenApiLinkAttribute attribute)
+        {
+            if (!string.IsNullOrWhiteSpace(attribute.OperationId) &&
+               !string.IsNullOrWhiteSpace(attribute.OperationRef))
+            {
+                throw new InvalidOperationException("OpenApiLinkAttribute cannot have both OperationId and OperationRef specified.");
+            }
+            if (!string.IsNullOrWhiteSpace(attribute.RequestBodyExpression) &&
+                !string.IsNullOrWhiteSpace(attribute.RequestBodyJson))
+            {
+                throw new InvalidOperationException("OpenApiLinkAttribute cannot have both RequestBodyExpression and RequestBodyJson specified.");
+            }
+            // Populate link fields
+            if (!string.IsNullOrWhiteSpace(attribute.Description))
+            {
+                link.Description = attribute.Description;
+            }
+            if (!string.IsNullOrWhiteSpace(attribute.OperationId))
+            {
+                if (link.OperationRef is not null)
+                {
+                    throw new InvalidOperationException("OpenApiLink cannot have both OperationId and OperationRef specified.");
+                }
+                link.OperationId = attribute.OperationId;
+            }
+            if (!string.IsNullOrWhiteSpace(attribute.OperationRef))
+            {
+                if (link.OperationId is not null)
+                {
+                    throw new InvalidOperationException("OpenApiLink cannot have both OperationId and OperationRef specified.");
+                }
+                link.OperationRef = attribute.OperationRef;
+            }
+            if (!string.IsNullOrWhiteSpace(attribute.MapKey) && !string.IsNullOrWhiteSpace(attribute.MapValue))
+            {
+                link.Parameters ??= new Dictionary<string, RuntimeExpressionAnyWrapper>(StringComparer.Ordinal);
+
+                link.Parameters[attribute.MapKey] = new RuntimeExpressionAnyWrapper()
+                {
+                    Expression = RuntimeExpression.Build(attribute.MapValue)
+                };
+
+            }
+            if (!string.IsNullOrWhiteSpace(attribute.RequestBodyExpression))
+            {
+                link.RequestBody = new RuntimeExpressionAnyWrapper()
+                {
+                    Expression = RuntimeExpression.Build(attribute.RequestBodyExpression)
+                };
+
+            }
+            if (!string.IsNullOrWhiteSpace(attribute.RequestBodyJson))
+            {
+                link.RequestBody = new RuntimeExpressionAnyWrapper()
+                {
+                    Any = ToNode(attribute.RequestBodyJson)
+                };
+            }
+            return true;
+        }
+        else if (attr is OpenApiServerAttribute server)
+        {
+            link.Server ??= new OpenApiServer();
+            if (!string.IsNullOrWhiteSpace(server.Description))
+            {
+                link.Server.Description = server.Description;
+            }
+            link.Server.Url = server.Url;
+            return true;
+        }
+        else if (attr is OpenApiServerVariableAttribute serverVariable)
+        {
+            link.Server ??= new OpenApiServer();
+            link.Server.Variables ??= new Dictionary<string, OpenApiServerVariable>(StringComparer.Ordinal);
+            var osv = new OpenApiServerVariable();
+            if (!string.IsNullOrWhiteSpace(serverVariable.Default))
+            {
+                osv.Default = serverVariable.Default;
+            }
+            if (!string.IsNullOrWhiteSpace(serverVariable.Description))
+            {
+                osv.Description = serverVariable.Description;
+            }
+            if (serverVariable.Enum is not null && serverVariable.Enum.Length > 0)
+            {
+                osv.Enum = [.. serverVariable.Enum];
+            }
+            link.Server.Variables[serverVariable.Name] = osv;
+            return true;
+        }
+        return false;
+    }
+
+    #endregion
 
     private void BuildCallbacks(Type t)
     {

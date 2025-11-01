@@ -1,8 +1,8 @@
 
 /// <summary>
 /// Kind of OpenAPI model a class represents.
-/// </summary> 
-public enum OpenApiModelKind
+/// </summary>
+public enum OpenApiModelKind1
 {
     /// <summary>
     /// Class represents an object schema for request/response bodies.

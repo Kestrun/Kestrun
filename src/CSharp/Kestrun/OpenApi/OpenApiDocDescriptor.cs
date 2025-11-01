@@ -447,11 +447,11 @@ public class OpenApiDocDescriptor(KestrunHost host, string docId)
                 catch { /* ignore */ }
             }
             schema.Properties[p.Name] = ps;
-            if (p.GetCustomAttribute<OpenApiRequiredPropertyAttribute>() != null)
-            {
-                schema.Required ??= new HashSet<string>(StringComparer.Ordinal);
-                _ = schema.Required.Add(p.Name);
-            }
+            /* if (p.GetCustomAttribute<OpenApiRequiredPropertyAttribute>() != null)
+             {
+                 schema.Required ??= new HashSet<string>(StringComparer.Ordinal);
+                 _ = schema.Required.Add(p.Name);
+             }*/
         }
 
         if (Document.Components is not null && Document.Components.Schemas is not null)
@@ -1179,19 +1179,6 @@ public class OpenApiDocDescriptor(KestrunHost host, string docId)
     }
     // ---- local helpers ----
 
-
-    private static string BuildParameterKey(Type declaringType, string memberName)
-    {
-        var mk = declaringType.GetCustomAttributes(inherit: false)
-                              .FirstOrDefault(a => a.GetType().Name == nameof(OpenApiModelKindAttribute));
-        if (mk is null)
-        {
-            return memberName;
-        }
-
-        var join = mk.GetType().GetProperty("JoinClassName")?.GetValue(mk) as string;
-        return string.IsNullOrEmpty(join) ? memberName : $"{declaringType.Name}{join}{memberName}";
-    }
     #endregion
 
     #region Responses
@@ -1305,25 +1292,7 @@ public class OpenApiDocDescriptor(KestrunHost host, string docId)
         return t.GetProperty("Key")?.GetValue(attr) as string;
     }
 
-    /// <summary>
-    /// Builds the response key for a member, considering any OpenApiModelKind attribute on the declaring type.
-    /// </summary>
-    /// <param name="declaringType">The type declaring the member.</param>
-    /// <param name="memberName">The name of the member.</param>
-    /// <returns>The response key for the member.</returns>
-    private static string BuildMemberResponseKey(Type declaringType, string memberName)
-    {
-        // Look for [OpenApiModelKind(Kind) { JoinClassName = "-" }] on the declaring type
-        var mk = declaringType.GetCustomAttributes(inherit: false)
-                              .FirstOrDefault(a => a.GetType().Name == nameof(OpenApiModelKindAttribute));
-        if (mk is null)
-        {
-            return memberName; // default: just member name
-        }
 
-        var join = mk.GetType().GetProperty("JoinClassName")?.GetValue(mk) as string;
-        return string.IsNullOrEmpty(join) ? memberName : $"{declaringType.Name}{join}{memberName}";
-    }
 
     /// <summary>
     /// Creates a response object from the specified attribute.

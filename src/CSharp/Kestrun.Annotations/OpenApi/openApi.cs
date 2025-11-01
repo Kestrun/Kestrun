@@ -5,11 +5,11 @@
 /// <param name="kind">The kind of OpenAPI model.</param>
 /// <remarks>Create the attribute with a specific model kind.</remarks>
 [AttributeUsage(AttributeTargets.Class, AllowMultiple = false, Inherited = false)]
-public sealed class OpenApiModelKindAttribute(OpenApiModelKind kind) : Attribute
+public sealed class OpenApiModelKindAttribute1(OpenApiModelKind1 kind) : Attribute
 {
 
     /// <summary>The kind of OpenAPI model this class represents.</summary>
-    public OpenApiModelKind Kind { get; } = kind;
+    public OpenApiModelKind1 Kind { get; } = kind;
 
     /// <summary>
     /// Optional delimiter used by generators for naming component keys that are

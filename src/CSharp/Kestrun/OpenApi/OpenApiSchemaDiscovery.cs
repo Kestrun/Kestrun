@@ -28,31 +28,7 @@ public static class OpenApiSchemaDiscovery
             : [.. types.Where(t => t.Namespace != null && t.Namespace.StartsWith(namespacePrefix, StringComparison.Ordinal))];
     }
 
-    /// <summary>
-    /// Discover parameter types.
-    /// Works with or without a hint. If <paramref name="hintType"/> is null,
-    /// scans *all* loaded assemblies, including dynamic PowerShell class assemblies.
-    /// </summary>
-    /// <param name="hintType">The hint type to limit assembly scanning, or null to scan all loaded assemblies.</param>
-    /// <returns>All discovered parameter types.</returns>
-    public static Type[] GetOpenApiParameterTypes(Type? hintType = null)
-    {
-        var assemblies = (hintType != null)
-            ? [hintType.Assembly]
-            : AppDomain.CurrentDomain.GetAssemblies();
 
-        var allClasses = assemblies
-            .SelectMany(SafeGetTypes)
-            .Where(t => t is { IsClass: true } && !t.IsAbstract)
-            .ToArray();
-
-        var paramTypes = allClasses
-            .Where(t => IsParameterKind(t) || HasParameterDecoratedProperty(t))
-            .OrderBy(t => t.FullName, StringComparer.Ordinal)
-            .ToArray();
-
-        return paramTypes;
-    }
 
     /// <summary>
     /// Discover schema types (plus referenced complex types and enums).
@@ -156,92 +132,25 @@ public static class OpenApiSchemaDiscovery
                     (t.GetCustomAttributes(typeof(OpenApiRequestBodyComponent), true).Length != 0))],
 
             // Use only OpenApiModelKindAttribute to avoid compile-time deps on attribute types that may not exist yet
-            LinkTypes = [.. assemblies.SelectMany(asm => asm.GetTypes())
-                .Where(t => t.IsClass && !t.IsAbstract &&
-                    t.GetCustomAttributes(typeof(OpenApiModelKindAttribute), true)
-                     .OfType<OpenApiModelKindAttribute>()
-                     .Any(a => a.Kind == OpenApiModelKind.Link))],
-            CallbackTypes = [.. assemblies.SelectMany(asm => asm.GetTypes())
-                .Where(t => t.IsClass && !t.IsAbstract &&
-                    t.GetCustomAttributes(typeof(OpenApiModelKindAttribute), true)
-                     .OfType<OpenApiModelKindAttribute>()
-                     .Any(a => a.Kind == OpenApiModelKind.Callback))],
-            PathItemTypes = [.. assemblies.SelectMany(asm => asm.GetTypes())
-                .Where(t => t.IsClass && !t.IsAbstract &&
-                    t.GetCustomAttributes(typeof(OpenApiModelKindAttribute), true)
-                     .OfType<OpenApiModelKindAttribute>()
-                     .Any(a => a.Kind == OpenApiModelKind.PathItem))]
+            /*       LinkTypes = [.. assemblies.SelectMany(asm => asm.GetTypes())
+                       .Where(t => t.IsClass && !t.IsAbstract &&
+                           t.GetCustomAttributes(typeof(OpenApiModelKindAttribute), true)
+                            .OfType<OpenApiModelKindAttribute>()
+                            .Any(a => a.Kind == OpenApiModelKind.Link))],
+                   CallbackTypes = [.. assemblies.SelectMany(asm => asm.GetTypes())
+                       .Where(t => t.IsClass && !t.IsAbstract &&
+                           t.GetCustomAttributes(typeof(OpenApiModelKindAttribute), true)
+                            .OfType<OpenApiModelKindAttribute>()
+                            .Any(a => a.Kind == OpenApiModelKind.Callback))],
+                   PathItemTypes = [.. assemblies.SelectMany(asm => asm.GetTypes())
+                       .Where(t => t.IsClass && !t.IsAbstract &&
+                           t.GetCustomAttributes(typeof(OpenApiModelKindAttribute), true)
+                            .OfType<OpenApiModelKindAttribute>()
+                            .Any(a => a.Kind == OpenApiModelKind.PathItem))]
+                            */
         };
     }
 
-    /// <summary>
-    /// Discover OpenAPI schema types from dynamic PowerShell classes.
-    /// Scans all loaded assemblies for classes decorated with OpenApiModelKind(Schema)
-    /// or having any OpenApiSchema attributes.
-    /// </summary>
-    /// <returns>All discovered schema types.</returns>
-    public static IEnumerable<Type> GetOpenApiSchemaTypesAuto()
-    {
-        var assemblies = AppDomain.CurrentDomain.GetAssemblies()
-            .Where(a => a.FullName is not null &&
-                    (a.FullName.Contains("PowerShell Class Assembly") ||
-                        a.FullName.StartsWith("Kestrun")))
-            .ToArray();
-
-
-        var result = new HashSet<Type>();
-
-        foreach (var asm in assemblies)
-        {
-            foreach (var t in asm.GetTypes())
-            {
-                if (!t.IsClass || t.IsAbstract)
-                {
-                    continue;
-                }
-
-                // PowerShell class decorated with [OpenApiModelKind(Schema)]
-                if (t.GetCustomAttributes(typeof(OpenApiModelKindAttribute), true)
-                      .OfType<OpenApiModelKindAttribute>()
-                      .Any(a => a.Kind == OpenApiModelKind.Schema))
-                {
-                    _ = result.Add(t);
-                    continue;
-                }
-
-                // Or class has any [OpenApiSchema] attributes
-                if (t.GetCustomAttributes(typeof(OpenApiSchemaAttribute), true).Length != 0)
-                {
-                    _ = result.Add(t);
-                }
-            }
-        }
-
-        return result;
-    }
-
-    /// <summary>
-    /// Discover parameter types from dynamic PowerShell classes.
-    /// Scans all loaded assemblies for classes decorated with OpenApiModelKind(Parameters)
-    /// or having any OpenApiParameter attributes.
-    /// </summary>
-    /// <returns>The discovered parameter types.</returns>
-    public static IEnumerable<Type> GetOpenApiParameterTypesAuto()
-    {
-        var assemblies = AppDomain.CurrentDomain.GetAssemblies()
-            .Where(a => a.FullName is not null &&
-                    (a.FullName.Contains("PowerShell Class Assembly") ||
-                        a.FullName.StartsWith("Kestrun")))
-            .ToArray();
-
-        return [.. assemblies.SelectMany(asm => asm.GetTypes())
-            .Where(t => t.IsClass && !t.IsAbstract &&
-                   (t.GetCustomAttributes(typeof(OpenApiModelKindAttribute), true)
-                     .OfType<OpenApiModelKindAttribute>()
-                     .Any(a => a.Kind == OpenApiModelKind.Parameters) ||
-                    t.GetProperties(BindingFlags.Public | BindingFlags.Instance)
-                     .Any(p => p.GetCustomAttributes(typeof(OpenApiParameterAttribute), true).Length != 0)))];
-    }
 
     // ----- helpers -----
 
@@ -316,64 +225,5 @@ public static class OpenApiSchemaDiscovery
 
     private static bool IsPrimitiveLike(Type t) =>
         t.IsPrimitive || t == typeof(string) || t == typeof(decimal) || t == typeof(DateTime) || t == typeof(Guid);
-
-    // add near your other constants
-    private const string ParameterAttrName = "OpenApiParameterAttribute";
-    private const string ModelKindParamsName = "Parameters";
-
-    // helper: class is [OpenApiModelKind(Parameters)]
-    private static bool IsParameterKind(Type t)
-    {
-        foreach (var a in t.GetCustomAttributes(inherit: false))
-        {
-            var at = a.GetType();
-            if (!string.Equals(at.Name, ModelKindAttrName, StringComparison.Ordinal))
-            {
-                continue;
-            }
-
-            var prop = at.GetProperty("Kind", BindingFlags.Public | BindingFlags.Instance);
-            if (prop == null)
-            {
-                continue;
-            }
-
-            var kindValue = prop.GetValue(a);
-            if (kindValue == null)
-            {
-                continue;
-            }
-
-            if (!string.Equals(kindValue.GetType().Name, ModelKindEnumName, StringComparison.Ordinal))
-            {
-                continue;
-            }
-
-            if (string.Equals(kindValue.ToString(), ModelKindParamsName, StringComparison.Ordinal))
-            {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    // helper: class has at least one property with [OpenApiParameter(...)]
-    private static bool HasParameterDecoratedProperty(Type t)
-    {
-        const BindingFlags flags = BindingFlags.Public | BindingFlags.Instance;
-        foreach (var p in t.GetProperties(flags))
-        {
-            var has = p.GetCustomAttributes(inherit: false)
-                       .Any(a => string.Equals(a.GetType().Name, ParameterAttrName, StringComparison.Ordinal));
-            if (has)
-            {
-                return true;
-            }
-        }
-        return false;
-    }
-
-
-
 
 }

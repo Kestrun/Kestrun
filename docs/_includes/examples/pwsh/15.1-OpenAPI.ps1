@@ -225,9 +225,8 @@ class CreateUserBody {
     [dateTime]$CreatedAt = [DateTime]::UtcNow
 }
 
-# Example of a nested metadata type
-[OpenApiModelKindAttribute([OpenApiModelKind]::Schema)]
-[OpenApiSchemaAttribute(Required = 'Name', Description = 'Additional metadata about the account creation')]
+# Example of a nested metadata type used in CreateUserBody
+[OpenApiSchemaComponent(Required = 'Name', Description = 'Additional metadata about the account creation')]
 class AccountMetadata {
     [OpenApiSchemaAttribute(Description = 'Whether the account was created via API or UI')]
     [string]$Source = 'API'
@@ -307,13 +306,13 @@ Add-KrOpenApiLink -LinkName 'GetUserByIdLink2' -OperationRef '#/paths/users2/{id
 
 # Callback component (class-first). Discovered via [OpenApiModelKindAttribute(Callback)].
 # The generator will emit components.callbacks["Callback_UserCreated"] with the expression as the key.
-[OpenApiModelKindAttribute([OpenApiModelKind]::Callback)]
+<#[OpenApiModelKindAttribute([OpenApiModelKind]::Callback)]
 class Callback_UserCreated {
     # Expression pointing to a URL provided by the inbound request body
     [string]$Expression = '$request.body#/callbackUrl'
     # Optional description; used on the synthesized PathItem when none is provided
     [string]$Description = 'Callback invoked after a user is created.'
-}
+}#>
 
 <#
 $schemaTypes = [Kestrun.OpenApi.OpenApiSchemaDiscovery]::GetOpenApiSchemaTypes()       # schemas

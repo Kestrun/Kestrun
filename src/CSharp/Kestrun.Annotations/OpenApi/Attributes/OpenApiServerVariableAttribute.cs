@@ -2,7 +2,7 @@
 /// Place on a property or field to indicate it is a server variable.
 /// </summary>
 [AttributeUsage(AttributeTargets.Field | AttributeTargets.Property, AllowMultiple = true, Inherited = false)]
-public sealed class OpenApiServerVariableAttribute : Attribute
+public sealed class OpenApiServerVariableAttribute : KestrunAnnotation
 {
     /// <summary>The placeholder name (e.g., "region" for {region}).</summary>
     public string? Name { get; set; }

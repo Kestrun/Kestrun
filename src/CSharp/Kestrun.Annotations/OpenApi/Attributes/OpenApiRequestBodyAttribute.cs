@@ -3,7 +3,7 @@
 /// properties, or fields to contribute entries under components.requestBodies.
 /// </summary>
 [AttributeUsage(AttributeTargets.Class | AttributeTargets.Property | AttributeTargets.Field, AllowMultiple = true, Inherited = false)]
-public sealed class OpenApiRequestBodyAttribute : Attribute
+public sealed class OpenApiRequestBodyAttribute : KestrunAnnotation
 {
     /// <summary>Optional component key override. If omitted, generator will use class/member naming rules.</summary>
     public string? Key { get; set; }

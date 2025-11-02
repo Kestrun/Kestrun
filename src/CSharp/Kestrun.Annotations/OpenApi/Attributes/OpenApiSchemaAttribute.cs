@@ -8,7 +8,7 @@
 /// </list>
 /// </summary>
 [AttributeUsage(AttributeTargets.Property | AttributeTargets.Class | AttributeTargets.Parameter | AttributeTargets.Field, AllowMultiple = true)]
-public sealed class OpenApiSchemaAttribute : Attribute
+public sealed class OpenApiSchemaAttribute : KestrunAnnotation
 {
     // ---- Basic ----
     /// <summary>Human-friendly title for the schema.</summary>

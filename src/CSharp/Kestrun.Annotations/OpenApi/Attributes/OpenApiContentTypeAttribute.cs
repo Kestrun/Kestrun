@@ -3,7 +3,7 @@
 /// </summary>
 /// <param name="contentType">Media type (e.g., "application/json")</param>
 [AttributeUsage(AttributeTargets.Field | AttributeTargets.Property, AllowMultiple = true)]
-public sealed class OpenApiContentTypeAttribute : Attribute
+public sealed class OpenApiContentTypeAttribute : KestrunAnnotation
 {
     /// <summary>Media type bucket (e.g., application/json, application/xml)</summary>
     public required string ContentType { get; set; }

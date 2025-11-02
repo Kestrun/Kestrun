@@ -3,7 +3,7 @@
 /// to contribute entries under components.responses.
 /// </summary>
 [AttributeUsage(AttributeTargets.Class, AllowMultiple = false, Inherited = false)]
-public sealed class OpenApiResponseComponent : Attribute
+public sealed class OpenApiResponseComponent : KestrunAnnotation
 {
     /// <summary>
     /// Optional delimiter used by generators for naming component keys that are

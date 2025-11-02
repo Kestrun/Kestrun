@@ -3,7 +3,7 @@
 /// to contribute entries under components.headers.
 /// </summary>
 [AttributeUsage(AttributeTargets.Class, AllowMultiple = false, Inherited = false)]
-public sealed class OpenApiHeaderComponent : Attribute
+public sealed class OpenApiHeaderComponent : KestrunAnnotation
 {
     /// <summary>
     /// Optional delimiter used by generators for naming component keys that are

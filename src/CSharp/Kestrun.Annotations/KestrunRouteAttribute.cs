@@ -6,7 +6,7 @@
 /// </remarks>
 /// <param name="contexts">The API contexts in which the route or schedule can be executed.</param>
 [AttributeUsage(AttributeTargets.Class | AttributeTargets.Method, Inherited = false, AllowMultiple = false)]
-public sealed class KestrunRuntimeApiAttribute(KestrunApiContext contexts) : Attribute
+public sealed class KestrunRuntimeApiAttribute(KestrunApiContext contexts) : KestrunAnnotation
 {
     /// <summary>
     /// Gets the API contexts in which the route or schedule can be executed.

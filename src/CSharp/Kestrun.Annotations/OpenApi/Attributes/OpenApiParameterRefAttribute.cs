@@ -1,12 +1,12 @@
 /// <summary>
 /// Place on a property or field to indicate it is a response reference.
 /// </summary>
-/// <param name="statusCode">The HTTP status code for the response.</param>
-/// <param name="refId">The components/responses id</param>
+/// <param name="name">The name of the parameter.</param>
+/// <param name="refId">The components/parameters id</param>
 [AttributeUsage(AttributeTargets.Field | AttributeTargets.Property, AllowMultiple = true)]
-public sealed class OpenApiResponseRefAttribute : KestrunAnnotation
+public sealed class OpenApiParameterRefAttribute : KestrunAnnotation
 {
-    public required string StatusCode { get; set; }
+    public required string Name { get; set; }
     public required string ReferenceId { get; set; }
     /// <summary>
     /// Description of the response reference.

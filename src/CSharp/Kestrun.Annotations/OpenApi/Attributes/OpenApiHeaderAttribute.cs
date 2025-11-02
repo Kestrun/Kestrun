@@ -3,7 +3,7 @@
 /// properties, or fields to contribute entries under components.headers.
 /// </summary>
 [AttributeUsage(AttributeTargets.Class | AttributeTargets.Property | AttributeTargets.Field, AllowMultiple = true, Inherited = false)]
-public sealed class OpenApiHeaderAttribute : Attribute
+public sealed class OpenApiHeaderAttribute : KestrunAnnotation
 {
     /// <summary>Optional component key override. If omitted, generator will use class/member naming rules.</summary>
     public required string? Key { get; set; }

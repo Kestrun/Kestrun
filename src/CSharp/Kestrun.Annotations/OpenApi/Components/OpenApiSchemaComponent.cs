@@ -3,7 +3,7 @@
 /// to contribute entries under components.headers.
 /// </summary>
 [AttributeUsage(AttributeTargets.Class, AllowMultiple = false, Inherited = false)]
-public sealed class OpenApiSchemaComponent : Attribute
+public sealed class OpenApiSchemaComponent : KestrunAnnotation
 {
     /// <summary>
     /// Optional component key override. If omitted, generator will use class/member naming rules.

@@ -3,7 +3,7 @@
 /// to contribute entries under components.parameters.
 /// </summary>
 [AttributeUsage(AttributeTargets.All, AllowMultiple = false, Inherited = false)]
-public sealed class OpenApiPathComponent : Attribute
+public sealed class OpenApiPathComponent : KestrunAnnotation
 {
     /// <summary>
     /// Optional delimiter used by generators for naming component keys that are

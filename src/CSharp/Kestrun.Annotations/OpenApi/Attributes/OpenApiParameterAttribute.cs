@@ -3,7 +3,7 @@
 /// Apply on properties inside a class marked with <see cref="OpenApiModelKindAttribute"/> = Parameters.
 /// </summary>
 [AttributeUsage(AttributeTargets.Property | AttributeTargets.Parameter, AllowMultiple = false)]
-public sealed class OpenApiParameterAttribute : Attribute
+public sealed class OpenApiParameterAttribute : KestrunAnnotation
 {
     /// <summary>Where the parameter lives (query/header/path/cookie).</summary>
     public OaParameterLocation In { get; set; } = OaParameterLocation.Query;

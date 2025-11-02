@@ -3,7 +3,7 @@
 /// to contribute entries under components.examples.
 /// </summary>
 [AttributeUsage(AttributeTargets.Class, AllowMultiple = true, Inherited = false)]
-public sealed class OpenApiExampleComponent : Attribute
+public sealed class OpenApiExampleComponent : KestrunAnnotation
 {
     /// <summary>
     /// Optional component name override for components.examples key.

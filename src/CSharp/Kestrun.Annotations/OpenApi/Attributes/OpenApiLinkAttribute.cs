@@ -2,7 +2,7 @@
 /// Place on a property or parameter to indicate it is an OpenAPI link.
 /// </summary>
 [AttributeUsage(AttributeTargets.Property | AttributeTargets.Parameter, AllowMultiple = true)]
-public sealed class OpenApiLinkAttribute : Attribute
+public sealed class OpenApiLinkAttribute : KestrunAnnotation
 {
     /// <summary>
     /// Override the parameter name (default: property name).

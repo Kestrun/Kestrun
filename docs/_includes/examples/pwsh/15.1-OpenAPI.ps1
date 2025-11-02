@@ -153,7 +153,7 @@ class AddressExample_NoApt {
 }
 
 # Request body components (class-first; one class per request body; defaults become the example)
-[OpenApiRequestBodyComponent( Description = 'Request body for creating an address', Inline = $true )]
+[OpenApiRequestBodyComponent( Description = 'Request body for creating an address', Inline = $true, Required = $true )]
 [OpenApiRequestBodyComponent( ContentType = 'application/json' )]
 [OpenApiRequestBodyComponent( ContentType = 'application/yaml' )]
 [OpenApiRequestBodyComponent( ContentType = 'application/xml' )]
@@ -427,8 +427,11 @@ Add-KrMapRoute -Pattern '/openapi2/{version}/openapi.{format}' -Method 'GET' -Sc
     The divisor number.
 #>
 function TestDivide {
-    [OpenApiPath(HttpVerb = 'HEAD', Pattern = '/divide')]
-    [OpenApiResponseRefAttribute( Key = 'SuccessResponse', ReferenceId = 'AddressResponse-OK' )]
+    [OpenApiPath(HttpVerb = 'POST', Pattern = '/divide')]
+    [OpenApiResponseRefAttribute( StatusCode = '200', ReferenceId = 'AddressResponse-OK' )]
+    [OpenApiResponseAttribute( Description = 'Address not found' , ContentType = 'application/yaml' , SchemaRef = 'UserInfoResponse', Inline = $true )]
+    [OpenApiResponseRefAttribute( StatusCode = '404', ReferenceId = 'AddressResponse-NotFound' )]
+    [OpenApiRequestBodyRefAttribute( ReferenceId = 'CreateAddressBody', Inline = $true )]
     param(
         [OpenApiParameterAttribute(In = [OaParameterLocation]::Query, Description = 'The dividend number')]
         [int]$number1,
@@ -436,7 +439,7 @@ function TestDivide {
         [int]$number2
     )
     if ($number2 -eq 0) {
-        throw "Division by zero is not allowed."
+        throw 'Division by zero is not allowed.'
     }
     return $number1 / $number2
 }

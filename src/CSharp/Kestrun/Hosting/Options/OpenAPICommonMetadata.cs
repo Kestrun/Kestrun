@@ -16,7 +16,14 @@ public record OpenAPICommonMetadata
         Pattern = pattern;
         Enabled = true;
     }
-
+    /// <summary>
+    /// Initializes a new instance of the <see cref="OpenAPICommonMetadata"/> class.
+    /// </summary>
+    public OpenAPICommonMetadata()
+    {
+        Pattern = "/";
+        Enabled = true;
+    }
     /// <summary>
     /// Indicates whether OpenAPI documentation is enabled for this route.
     /// </summary>
@@ -25,7 +32,7 @@ public record OpenAPICommonMetadata
     /// <summary>
     /// The relative path for the route in OpenAPI documentation.
     /// </summary>
-    public string Pattern { get; init; }
+    public string Pattern { get; set; }
 
     /// <summary>
     /// A brief summary of the route for OpenAPI documentation.

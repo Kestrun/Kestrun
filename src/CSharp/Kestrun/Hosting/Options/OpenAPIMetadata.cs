@@ -17,6 +17,12 @@ public record OpenAPIMetadata : OpenAPICommonMetadata
     }
 
     /// <summary>
+    /// Initializes a new instance of the <see cref="OpenAPIMetadata"/> class.
+    /// </summary>
+    public OpenAPIMetadata()
+    {
+    }
+    /// <summary>
     /// The unique operation ID for the route in OpenAPI documentation.
     /// </summary>
     public string? OperationId { get; set; }

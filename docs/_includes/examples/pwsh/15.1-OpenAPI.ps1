@@ -412,6 +412,35 @@ Add-KrMapRoute -Pattern '/openapi2/{version}/openapi.{format}' -Method 'GET' -Sc
     }
 }
 
+<#
+.SYNOPSIS
+    Test divide operation with OpenAPI annotations.
+.DESCRIPTION
+    This function demonstrates the use of OpenAPI annotations to document an API operation.
+    It performs a division operation and includes metadata for the OpenAPI specification.
+.EXAMPLE
+    TestDivide -number1 10 -number2 2
+    Returns 5.
+.PARAMETER number1
+    The dividend number.
+.PARAMETER number2
+    The divisor number.
+#>
+function TestDivide {
+    [OpenApiPath(HttpVerb = 'HEAD', Pattern = '/divide')]
+    [OpenApiResponseRefAttribute( Key = 'SuccessResponse', ReferenceId = 'AddressResponse-OK' )]
+    param(
+        [OpenApiParameterAttribute(In = [OaParameterLocation]::Query, Description = 'The dividend number')]
+        [int]$number1,
+        [OpenApiParameterAttribute(In = [OaParameterLocation]::Query, Description = 'The divisor number')]
+        [int]$number2
+    )
+    if ($number2 -eq 0) {
+        throw "Division by zero is not allowed."
+    }
+    return $number1 / $number2
+}
+
 # 8. Build and test the OpenAPI document
 Build-KrOpenApiDocument
 Test-KrOpenApiDocument

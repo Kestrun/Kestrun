@@ -31,6 +31,7 @@ function Build-KrOpenApiDocument {
         if ( -not $Server.OpenApiDocumentDescriptor.ContainsKey($DocId)) {
             throw "OpenAPI document with ID '$DocId' does not exist on the server."
         }
+        Get-KrAnnotatedFunctionsLoaded
         $doc = $Server.OpenApiDocumentDescriptor[$DocId]
         $doc.GenerateDoc()
     }

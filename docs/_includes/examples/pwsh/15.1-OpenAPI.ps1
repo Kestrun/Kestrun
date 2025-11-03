@@ -24,41 +24,40 @@ $srv = New-KrServer -Name 'Lifecycle Demo' -PassThru
 [OpenApiSchemaComponent(Required = 'City')]
 [OpenApiSchemaComponent(Required = 'PostalCode')]
 class Address {
-    [OpenApiSchemaAttribute(Description = 'The street address'  , title = 'Street Address', Pattern = '^[\w\s\d]+$' , XmlName = 'StreetAddress', MaxLength = 100 )]
+    [OpenApiPropertyAttribute(Description = 'The street address'  , title = 'Street Address', Pattern = '^[\w\s\d]+$' , XmlName = 'StreetAddress', MaxLength = 100 )]
     [string]$Street = '123 Main St'
 
-    [OpenApiSchemaAttribute(Description = 'The city name' , title = 'City Name', Pattern = '^[\w\s\d]+$' , XmlName = 'CityName' )]
+    [OpenApiPropertyAttribute(Description = 'The city name' , title = 'City Name', Pattern = '^[\w\s\d]+$' , XmlName = 'CityName' )]
     [string]$City = 'Anytown'
 
-    [OpenApiSchemaAttribute(Description = 'The postal code' , title = 'Postal Code', Pattern = '^\d{5}(-\d{4})?$' , XmlName = 'PostalCode' )]
+    [OpenApiPropertyAttribute(Description = 'The postal code' , title = 'Postal Code', Pattern = '^\d{5}(-\d{4})?$' , XmlName = 'PostalCode' )]
     [string]$PostalCode = '12345'
 
-    [OpenApiSchemaAttribute(Description = 'The apartment number' , title = 'Apartment Number', Minimum = 1 , XmlName = 'AptNumber' )]
+    [OpenApiPropertyAttribute(Description = 'The apartment number' , title = 'Apartment Number', Minimum = 1 , XmlName = 'AptNumber' )]
     [int]$ApartmentNumber = 101
 }
 
-[OpenApiSchemaComponent()]
-[OpenApiSchemaAttribute(Required = 'Name')]
+[OpenApiSchemaComponent(Required = 'Name')]
 class UserInfoResponse {
-    [OpenApiSchemaAttribute(Description = 'User identifier' )]
+    [OpenApiPropertyAttribute(Description = 'User identifier' )]
     [ValidateRange(0, [int]::MaxValue)]
     [int]$Id
 
-    [OpenApiSchemaAttribute(Description = 'Display name' )]
+    [OpenApiPropertyAttribute(Description = 'Display name' )]
     [ValidateLength(1, 50)]
     [string]$Name
 
-    [OpenApiSchemaAttribute(Description = 'Age in years' )]
+    [OpenApiPropertyAttribute(Description = 'Age in years' )]
     [ValidateRange(0, 120)]
     [long]$Age
 
-    [OpenApiSchemaAttribute(Description = 'Counter' )]
+    [OpenApiPropertyAttribute(Description = 'Counter' )]
     [nullable[long]]$Counter
 
-    [OpenApiSchemaAttribute(Description = 'Mailing address')]
+    [OpenApiPropertyAttribute(Description = 'Mailing address')]
     [Address]$Address
 
-    [OpenApiSchemaAttribute(Description = 'The country name')]
+    [OpenApiPropertyAttribute(Description = 'The country name')]
     [ValidateSet('USA', 'Canada', 'Mexico')]
     [string]$Country = 'USA'
 }
@@ -68,7 +67,7 @@ class UserInfoResponse {
 [OpenApiParameterComponent()]
 class Param_Name {
     [OpenApiParameterAttribute(In = [OaParameterLocation]::Query)]
-    [OpenApiSchemaAttribute(Description = 'Filter by name (contains)')]
+    [OpenApiPropertyAttribute(Description = 'Filter by name (contains)')]
     [string]$Name = 'John'
 }
 
@@ -98,7 +97,7 @@ class Param_Address {
     [object[]]$ob = [OaParameterLocation]::Cookie
 
     [OpenApiParameterAttribute(In = [OaParameterLocation]::Query, Description = 'object')]
-    [OpenApiSchemaAttribute(Description = 'An object parameter', AdditionalPropertiesAllowed = $true)]
+    [OpenApiPropertyAttribute(Description = 'An object parameter', AdditionalPropertiesAllowed = $true)]
     [object]$ob1
 }
 
@@ -159,28 +158,28 @@ class AddressExample_NoApt {
 [OpenApiRequestBodyComponent( ContentType = 'application/xml' )]
 #[OpenApiExampleRefAttribute( Key = 'demo', ReferenceId = 'X-Request-ID', Inline = $true )]
 class CreateAddressBody {
-    [OpenApiSchemaAttribute(Description = 'The street address')]
+    [OpenApiPropertyAttribute(Description = 'The street address')]
     [string]$Street = '123 Main St'
 
-    [OpenApiSchemaAttribute(Description = 'The city name')]
+    [OpenApiPropertyAttribute(Description = 'The city name')]
     [string]$City = 'Anytown'
 
-    [OpenApiSchemaAttribute(Description = 'The postal code')]
+    [OpenApiPropertyAttribute(Description = 'The postal code')]
     [string]$PostalCode = '12345'
 
-    [OpenApiSchemaAttribute(Description = 'The apartment number')]
+    [OpenApiPropertyAttribute(Description = 'The apartment number')]
     [int]$ApartmentNumber = 101
 
-    [OpenApiSchemaAttribute(Description = 'Additional mailing address')]
+    [OpenApiPropertyAttribute(Description = 'Additional mailing address')]
     [Address]$AdditionalAddress
 
-    [OpenApiSchemaAttribute(Description = 'The country name')]
+    [OpenApiPropertyAttribute(Description = 'The country name')]
     [string]$Country = 'USA'
 
-    [OpenApiSchemaAttribute(Description = 'The request identifier')]
+    [OpenApiPropertyAttribute(Description = 'The request identifier')]
     [guid]$RequestId = [guid]::NewGuid()
 
-    [OpenApiSchemaAttribute(Description = 'Seconds since epoch')]
+    [OpenApiPropertyAttribute(Description = 'Seconds since epoch')]
     [long]$SecondsSinceEpoch = [int][DateTimeOffset]::UtcNow.ToUnixTimeSeconds()
 
     [dateTime]$CreatedAt = [DateTime]::UtcNow
@@ -195,31 +194,31 @@ class UpdateAddressBody {
 [OpenApiExampleRefAttribute( Key = 'userDemo', ReferenceId = 'UserExample_Basic', Inline = $false )]
 [OpenApiRequestBodyComponent( ContentType = 'application/yaml' )]
 class CreateUserBody {
-    [OpenApiSchemaAttribute(Description = 'The unique username for the account')]
+    [OpenApiPropertyAttribute(Description = 'The unique username for the account')]
     [string]$Username = 'jdoe'
 
-    [OpenApiSchemaAttribute(Description = 'The email address associated with the account')]
+    [OpenApiPropertyAttribute(Description = 'The email address associated with the account')]
     [string]$Email = 'jdoe@example.com'
 
-    [OpenApiSchemaAttribute(Description = 'The password for the account (hashed or plaintext depending on policy)')]
+    [OpenApiPropertyAttribute(Description = 'The password for the account (hashed or plaintext depending on policy)')]
     [string]$Password = 'P@ssw0rd123'
 
-    [OpenApiSchemaAttribute(Description = 'The display name of the user')]
+    [OpenApiPropertyAttribute(Description = 'The display name of the user')]
     [string]$FullName = 'John Doe'
 
-    [OpenApiSchemaAttribute(Description = "The user's preferred locale code")]
+    [OpenApiPropertyAttribute(Description = "The user's preferred locale code")]
     [string]$Locale = 'en-US'
 
-    [OpenApiSchemaAttribute(Description = 'The date of birth of the user')]
+    [OpenApiPropertyAttribute(Description = 'The date of birth of the user')]
     [datetime]$DateOfBirth = [datetime]'1990-01-01'
 
-    [OpenApiSchemaAttribute(Description = 'Metadata for account creation')]
+    [OpenApiPropertyAttribute(Description = 'Metadata for account creation')]
     [AccountMetadata]$Metadata
 
-    [OpenApiSchemaAttribute(Description = 'The request correlation identifier')]
+    [OpenApiPropertyAttribute(Description = 'The request correlation identifier')]
     [guid]$RequestId = [guid]::NewGuid()
 
-    [OpenApiSchemaAttribute(Description = 'UNIX timestamp when the request was generated')]
+    [OpenApiPropertyAttribute(Description = 'UNIX timestamp when the request was generated')]
     [long]$Timestamp = [int][DateTimeOffset]::UtcNow.ToUnixTimeSeconds()
 
     [dateTime]$CreatedAt = [DateTime]::UtcNow
@@ -228,13 +227,13 @@ class CreateUserBody {
 # Example of a nested metadata type used in CreateUserBody
 [OpenApiSchemaComponent(Required = 'Name', Description = 'Additional metadata about the account creation')]
 class AccountMetadata {
-    [OpenApiSchemaAttribute(Description = 'Whether the account was created via API or UI')]
+    [OpenApiPropertyAttribute(Description = 'Whether the account was created via API or UI')]
     [string]$Source = 'API'
 
-    [OpenApiSchemaAttribute(Description = 'Client application version')]
+    [OpenApiPropertyAttribute(Description = 'Client application version')]
     [string]$ClientVersion = '1.0.0'
 
-    [OpenApiSchemaAttribute(Description = 'Indicates if email verification is required')]
+    [OpenApiPropertyAttribute(Description = 'Indicates if email verification is required')]
     [bool]$RequiresVerification = $true
 }
 
@@ -433,9 +432,11 @@ function TestDivide {
     [OpenApiResponseRefAttribute( StatusCode = '404', ReferenceId = 'AddressResponse-NotFound' )]
     [OpenApiRequestBodyRefAttribute( ReferenceId = 'CreateAddressBody', Inline = $true )]
     param(
-        [OpenApiParameterAttribute(In = [OaParameterLocation]::Query, Description = 'The dividend number')]
+        [OpenApiParameterAttribute(In = 'Query', Description = 'The dividend number')]
+        #   [OpenApiPropertyAttribute(Example = 10)]
         [int]$number1,
-        [OpenApiParameterAttribute(In = [OaParameterLocation]::Query, Description = 'The divisor number')]
+        [OpenApiParameterAttribute(In = 'Query', Description = 'The divisor number')]
+        # [OpenApiPropertyAttribute(Example = 2)]
         [int]$number2
     )
     if ($number2 -eq 0) {

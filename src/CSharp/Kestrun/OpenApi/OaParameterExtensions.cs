@@ -77,4 +77,22 @@ public static class OaParameterExtensions
             _ => throw new ArgumentOutOfRangeException(nameof(style), style, null)
         };
     }
+
+    /// <summary>
+    /// Convert string to Microsoft.OpenApi ParameterLocation.
+    /// </summary>
+    /// <param name="location">The string representation of the parameter location.</param>
+    /// <returns>The corresponding OpenApi ParameterLocation value.</returns>
+    /// <exception cref="ArgumentOutOfRangeException">Thrown when the location is not recognized.</exception>
+    public static ParameterLocation ToOpenApiParameterLocation(this string location)
+    {
+        return location.ToLower() switch
+        {
+            "query" => ParameterLocation.Query,
+            "header" => ParameterLocation.Header,
+            "path" => ParameterLocation.Path,
+            "cookie" => ParameterLocation.Cookie,
+            _ => throw new ArgumentOutOfRangeException(nameof(location), location, null)
+        };
+    }
 }

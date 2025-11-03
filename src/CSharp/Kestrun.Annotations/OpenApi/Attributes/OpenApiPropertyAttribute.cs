@@ -7,8 +7,8 @@
 /// <item><description>Property (member-level): set description, format, constraints, enum, etc.</description></item>
 /// </list>
 /// </summary>
-[AttributeUsage(AttributeTargets.Property | AttributeTargets.Class | AttributeTargets.Parameter | AttributeTargets.Field, AllowMultiple = true)]
-public sealed class OpenApiSchemaAttribute : KestrunAnnotation
+[AttributeUsage(AttributeTargets.Property | AttributeTargets.Parameter | AttributeTargets.Field, AllowMultiple = true)]
+public sealed class OpenApiPropertyAttribute : KestrunAnnotation
 {
     // ---- Basic ----
     /// <summary>Human-friendly title for the schema.</summary>

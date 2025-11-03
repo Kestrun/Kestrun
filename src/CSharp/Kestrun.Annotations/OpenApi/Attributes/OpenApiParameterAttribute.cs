@@ -6,7 +6,7 @@
 public sealed class OpenApiParameterAttribute : KestrunAnnotation
 {
     /// <summary>Where the parameter lives (query/header/path/cookie).</summary>
-    public OaParameterLocation In { get; set; } = OaParameterLocation.Query;
+    public string In { get; set; } = OaParameterLocation.Query.ToString();
 
     /// <summary>
     /// Optional description for the parameter.

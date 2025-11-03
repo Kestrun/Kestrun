@@ -492,7 +492,7 @@ public class OpenApiDocDescriptor
         {
             BuildSchema(pt, built); // ensure component exists
             var refSchema = new OpenApiSchemaReference(pt.Name);
-            ApplySchemaAttr(p.GetCustomAttribute<OpenApiSchemaAttribute>(), refSchema);
+            ApplySchemaAttr(p.GetCustomAttribute<OpenApiPropertyAttribute>(), refSchema);
             return refSchema;
         }
 
@@ -504,7 +504,7 @@ public class OpenApiDocDescriptor
                 Type = JsonSchemaType.String,
                 Enum = [.. pt.GetEnumNames().Select(n => (JsonNode)n)]
             };
-            var attrs = p.GetCustomAttributes<OpenApiSchemaAttribute>(inherit: false).ToArray();
+            var attrs = p.GetCustomAttributes<OpenApiPropertyAttribute>(inherit: false).ToArray();
             var a = MergeSchemaAttributes(attrs);
             ApplySchemaAttr(a, s);
             ApplyPowerShellValidationAttributes(p, s);
@@ -538,7 +538,7 @@ public class OpenApiDocDescriptor
                 Type = JsonSchemaType.Array,
                 Items = itemSchema
             };
-            ApplySchemaAttr(p.GetCustomAttribute<OpenApiSchemaAttribute>(), s);
+            ApplySchemaAttr(p.GetCustomAttribute<OpenApiPropertyAttribute>(), s);
             ApplyPowerShellValidationAttributes(p, s);
             if (allowNull)
             {
@@ -549,7 +549,7 @@ public class OpenApiDocDescriptor
 
         // primitive
         var prim = InferPrimitiveSchema(pt);
-        ApplySchemaAttr(p.GetCustomAttribute<OpenApiSchemaAttribute>(), prim);
+        ApplySchemaAttr(p.GetCustomAttribute<OpenApiPropertyAttribute>(), prim);
         ApplyPowerShellValidationAttributes(p, prim);
         if (allowNull)
         {
@@ -558,7 +558,7 @@ public class OpenApiDocDescriptor
         return prim;
     }
 
-    private static OpenApiSchemaAttribute? MergeSchemaAttributes(OpenApiSchemaAttribute[] attrs)
+    private static OpenApiPropertyAttribute? MergeSchemaAttributes(OpenApiPropertyAttribute[] attrs)
     {
         if (attrs == null || attrs.Length == 0)
         {
@@ -570,7 +570,7 @@ public class OpenApiDocDescriptor
             return attrs[0];
         }
 
-        var m = new OpenApiSchemaAttribute();
+        var m = new OpenApiPropertyAttribute();
 
         foreach (var a in attrs)
         {
@@ -688,44 +688,75 @@ public class OpenApiDocDescriptor
     {
         if (t == typeof(string))
         {
-            return new() { Type = JsonSchemaType.String };
+            return new OpenApiSchema { Type = JsonSchemaType.String };
         }
 
         if (t == typeof(bool))
         {
-            return new() { Type = JsonSchemaType.Boolean };
+            return new OpenApiSchema { Type = JsonSchemaType.Boolean };
         }
 
         // Integer types
         if (t == typeof(int) || t == typeof(short) || t == typeof(byte))
         {
-            return new() { Type = JsonSchemaType.Integer, Format = "int32" };
+            return new OpenApiSchema { Type = JsonSchemaType.Integer, Format = "int32" };
         }
         if (t == typeof(long))
         {
-            return new() { Type = JsonSchemaType.Integer, Format = "int64" };
+            return new OpenApiSchema { Type = JsonSchemaType.Integer, Format = "int64" };
         }
 
         if (t == typeof(float) || t == typeof(double) || t == typeof(decimal))
         {
-            return new() { Type = JsonSchemaType.Number };
+            return new OpenApiSchema { Type = JsonSchemaType.Number };
         }
 
         if (t == typeof(DateTime))
         {
-            return new() { Type = JsonSchemaType.String, Format = "date-time" };
+            return new OpenApiSchema { Type = JsonSchemaType.String, Format = "date-time" };
         }
 
         if (t == typeof(object))
         {
-            return new() { Type = JsonSchemaType.Object };
+            return new OpenApiSchema { Type = JsonSchemaType.Object };
         }
-        // default to string for other primitive-like types
-        return t == typeof(Guid) ? new() { Type = JsonSchemaType.String, Format = "uuid" } :
-        new() { Type = JsonSchemaType.String };
+        if (t == typeof(void))
+        {
+            return new OpenApiSchema { Type = JsonSchemaType.Null };
+        }
+        if (t == typeof(char))
+        {
+            return new OpenApiSchema { Type = JsonSchemaType.String, MaxLength = 1, MinLength = 1 };
+        }
+        if (t == typeof(sbyte) || t == typeof(ushort) || t == typeof(uint) || t == typeof(ulong))
+        {
+            return new OpenApiSchema { Type = JsonSchemaType.Integer };
+        }
+        if (t == typeof(DateTimeOffset))
+        {
+            return new OpenApiSchema { Type = JsonSchemaType.String, Format = "date-time" };
+        }
+        if (t == typeof(TimeSpan))
+        {
+            return new OpenApiSchema { Type = JsonSchemaType.String, Format = "duration" };
+        }
+        if (t == typeof(byte[]))
+        {
+            return new OpenApiSchema { Type = JsonSchemaType.String, Format = "byte" };
+        }
+        if (t == typeof(Uri))
+        {
+            return new OpenApiSchema { Type = JsonSchemaType.String, Format = "uri" };
+        }
+        if (t == typeof(Guid))
+        {
+            return new OpenApiSchema { Type = JsonSchemaType.String, Format = "uuid" };
+        }
+        // Fallback
+        return new OpenApiSchema { Type = JsonSchemaType.String };
     }
 
-    private static void ApplySchemaAttr(OpenApiSchemaAttribute? a, IOpenApiSchema s)
+    private static void ApplySchemaAttr(OpenApiPropertyAttribute? a, IOpenApiSchema s)
     {
         if (a == null)
         {
@@ -968,6 +999,12 @@ public class OpenApiDocDescriptor
     }
 
     #region Parameters
+
+    /// <summary>
+    /// Builds OpenAPI parameters from a given type's properties.
+    /// </summary>
+    /// <param name="t">The type to build parameters from.</param>
+    /// <exception cref="InvalidOperationException">Thrown when the type has multiple [OpenApiResponseComponent] attributes.</exception>
     private void BuildParameters(Type t)
     {
         string? defaultDescription = null;
@@ -1007,7 +1044,7 @@ public class OpenApiDocDescriptor
             var attrs = p.GetCustomAttributes(inherit: false)
                          .Where(a => a.GetType().Name is
                          (nameof(OpenApiParameterAttribute)) or
-                         (nameof(OpenApiSchemaAttribute)) or
+                         (nameof(OpenApiPropertyAttribute)) or
                          (nameof(OpenApiExampleRefAttribute))
                          )
                          .Cast<object>()
@@ -1042,116 +1079,26 @@ public class OpenApiDocDescriptor
             }
             Document.Components.Parameters[parameter.Name] = parameter;
 
-            var schemaAttr = (OpenApiSchemaAttribute?)p.GetCustomAttributes(inherit: false)
-                              .Where(a => a.GetType().Name == "OpenApiSchemaAttribute")
+            var schemaAttr = (OpenApiPropertyAttribute?)p.GetCustomAttributes(inherit: false)
+                              .Where(a => a.GetType().Name == "OpenApiPropertyAttribute")
                               .Cast<object>()
                               .LastOrDefault();
-            if (schemaAttr is null)
-            {
-                continue;
-            }
-            //IOpenApiSchema paramSchema;
-
-            var pt = p.PropertyType;
-            var allowNull = false;
-            var underlying = Nullable.GetUnderlyingType(pt);
-            if (underlying != null)
-            {
-                allowNull = true;
-                pt = underlying;
-            }
-            // ENUM → string + enum list
-            /*     if (pt.IsEnum)
-                 {
-                     var s = new OpenApiSchema
-                     {
-                         Type = JsonSchemaType.String,
-                         Enum = [.. pt.GetEnumNames().Select(n => (JsonNode)n)]
-                     };
-                     ApplySchemaAttr(schemaAttr as OpenApiSchemaAttribute, s);
-                     if (allowNull)
-                     {
-                         s.Type |= JsonSchemaType.Null;
-                     }
-                     paramSchema = s;
-                 }
-                 // ARRAY → array with item schema
-                 else if (pt.IsArray)
-                 {
-                     var elem = pt.GetElementType()!;
-                     IOpenApiSchema itemSchema;
-                     if (!IsPrimitiveLike(elem) && !elem.IsEnum)
-                     {
-                         // ensure a component schema exists for the complex element and $ref it
-                         EnsureSchemaComponent(elem);
-                         itemSchema = new OpenApiSchemaReference(elem.Name);
-                     }
-                     else
-                     {
-                         itemSchema = elem.IsEnum
-                             ? new OpenApiSchema
-                             {
-                                 Type = JsonSchemaType.String,
-                                 Enum = [.. elem.GetEnumNames().Select(n => (JsonNode)n)]
-                             }
-                             : InferPrimitiveSchema(elem);
-                     }
-
-                     var s = new OpenApiSchema { Type = JsonSchemaType.Array, Items = itemSchema };
-                     ApplySchemaAttr(schemaAttr as OpenApiSchemaAttribute, s);
-                     ApplyPowerShellValidationAttributes(p, s);
-                     if (allowNull)
-                     {
-                         s.Type |= JsonSchemaType.Null;
-                     }
-                     paramSchema = s;
-                 }
-                 // COMPLEX → ensure component + $ref
-                 else if (!IsPrimitiveLike(pt))
-                 {
-                     EnsureSchemaComponent(pt);
-                     var r = new OpenApiSchemaReference(pt.Name);
-                     ApplySchemaAttr(schemaAttr as OpenApiSchemaAttribute, r);
-                     paramSchema = r;
-                 }
-                 // PRIMITIVE
-                 else
-                 {
-                     var s = InferPrimitiveSchema(pt);
-                     ApplySchemaAttr(schemaAttr as OpenApiSchemaAttribute, s);
-                     ApplyPowerShellValidationAttributes(p, s);
-                     // If no explicit default provided via schema attribute, try to pull default from property value
-                     if (s is OpenApiSchema sc && sc.Default is null)
-                     {
-                         try
-                         {
-                             var inst = Activator.CreateInstance(t);
-                             var def = p.GetValue(inst);
-                             if (def is not null)
-                             {
-                                 sc.Default = ToNode(def);
-                             }
-                         }
-                         catch {  }
-                     }
-                     if (allowNull)
-                     {
-                         s.Type |= JsonSchemaType.Null;
-                     }
-                     paramSchema = s;
-                 }*/
-
-            parameter.Schema = CreatePropertySchema(schemaAttr, pt, p, allowNull);
-
+            // Build and assign the parameter schema
+            parameter.Schema = CreatePropertySchema(schemaAttr, t, p);
         }
     }
 
-    private IOpenApiSchema CreatePropertySchema(OpenApiSchemaAttribute? schemaAttr, Type pt, PropertyInfo p, bool allowNull)
+    private IOpenApiSchema CreatePropertySchema(OpenApiPropertyAttribute? schemaAttr, Type t, PropertyInfo p)
     {
         IOpenApiSchema paramSchema;
-        if (schemaAttr is null)
+
+        var pt = p.PropertyType;
+        var allowNull = false;
+        var underlying = Nullable.GetUnderlyingType(pt);
+        if (underlying != null)
         {
-            throw new InvalidOperationException("Schema attribute is required to create parameter schema.");
+            allowNull = true;
+            pt = underlying;
         }
         // ENUM → string + enum list
         if (pt.IsEnum)
@@ -1225,7 +1172,7 @@ public class OpenApiDocDescriptor
                         sc.Default = ToNode(def);
                     }
                 }
-                catch { /* ignore */ }
+                catch { }
             }
             if (allowNull)
             {
@@ -1252,8 +1199,11 @@ public class OpenApiDocDescriptor
                 parameter.AllowEmptyValue = param.AllowEmptyValue;
                 parameter.Explode = param.Explode;
                 parameter.AllowReserved = param.AllowReserved;
+                if (!string.IsNullOrEmpty(param.In))
+                {
+                    parameter.In = param.In.ToOpenApiParameterLocation();
+                }
 
-                parameter.In = param.In.ToParameterLocation();
                 if (param.Style is not null)
                 {
                     parameter.Style = param.Style.ToParameterStyle();
@@ -1263,6 +1213,8 @@ public class OpenApiDocDescriptor
                     parameter.Example = ToNode(param.Example);
                 }
                 break;
+
+
             case nameof(OpenApiExampleRefAttribute):
                 var exRef = (OpenApiExampleRefAttribute)attr;
                 parameter.Examples ??= new Dictionary<string, IOpenApiExample>(StringComparer.Ordinal);
@@ -1955,9 +1907,9 @@ public class OpenApiDocDescriptor
             }
 
             var schemaAttr = p.GetCustomAttributes(inherit: false)
-                              .Where(a => a.GetType().Name == nameof(OpenApiSchemaAttribute))
+                              .Where(a => a.GetType().Name == nameof(OpenApiPropertyAttribute))
                               .Cast<object>()
-                              .LastOrDefault() as OpenApiSchemaAttribute;
+                              .LastOrDefault() as OpenApiPropertyAttribute;
             ApplySchemaAttr(schemaAttr, ps);
             if (allowNull && ps is OpenApiSchema poss)
             {
@@ -2483,6 +2435,7 @@ public class OpenApiDocDescriptor
                         openApiAttr.RequestBody.Description = oaRBra.Description;
                     }
                 }
+
                 else
                 {
                     if (attr is KestrunAnnotation ka)
@@ -2498,18 +2451,21 @@ public class OpenApiDocDescriptor
             {
                 // Check for [OpenApiParameter] attribute on the parameter
                 var paramAttrs = param.Attributes;
+                IOpenApiParameter? iparameter = null;
                 foreach (var pAttr in paramAttrs)
                 {
                     if (pAttr is OpenApiParameterAttribute oaParamAttr)
                     {
                         openApiAttr.Parameters ??= [];
                         var parameter = new OpenApiParameter();
+                        iparameter = parameter;
                         if (CreateParameterFromAttribute(oaParamAttr, parameter))
                         {
                             if (string.IsNullOrEmpty(parameter.Name))
                             {
                                 parameter.Name = param.Name;
                             }
+                            parameter.Schema = InferPrimitiveSchema(param.ParameterType);
                             openApiAttr.Parameters.Add(parameter);
                         }
                     }
@@ -2536,7 +2492,7 @@ public class OpenApiDocDescriptor
                         {
                             parameter = new OpenApiParameterReference(oaParamRefAttr.ReferenceId);
                         }
-
+                        iparameter = parameter;
                         openApiAttr.Parameters.Add(parameter);
 
                     }
@@ -2549,6 +2505,55 @@ public class OpenApiDocDescriptor
                         }
                     }
                 }
+                if (iparameter is not null and OpenApiParameter pmtr)
+                {
+                    var pt = param.ParameterType;
+                    /* var allowNull = false;
+                     var underlying = Nullable.GetUnderlyingType(pt);
+                     if (underlying != null)
+                     {
+                         allowNull = true;
+                         pt = underlying;
+                     }*/
+                    IOpenApiSchema ps;
+                    if (pt.IsEnum)
+                    {
+                        ps = new OpenApiSchema { Type = JsonSchemaType.String, Enum = [.. pt.GetEnumNames().Select(n => (JsonNode)n)] };
+                    }
+                    else if (pt.IsArray)
+                    {
+                        var elem = pt.GetElementType()!;
+                        IOpenApiSchema item;
+                        if (elem.IsEnum)
+                        {
+                            item = new OpenApiSchema { Type = JsonSchemaType.String, Enum = [.. elem.GetEnumNames().Select(n => (JsonNode)n)] };
+                        }
+                        else if (IsPrimitiveLike(elem))
+                        {
+                            item = InferPrimitiveSchema(elem);
+                        }
+                        else
+                        {
+                            EnsureSchemaComponent(elem);
+                            item = new OpenApiSchemaReference(elem.Name);
+                        }
+                        ps = new OpenApiSchema { Type = JsonSchemaType.Array, Items = item };
+
+                    }
+                    else if (!IsPrimitiveLike(pt))
+                    {
+                        EnsureSchemaComponent(pt);
+                        ps = new OpenApiSchemaReference(pt.Name);
+                    }
+                    else
+                    {
+                        ps = InferPrimitiveSchema(pt);
+                    }
+                    // Apply any [OpenApiProperty] attribute on the parameter to the schema
+                    pmtr.Schema = ps;
+                }
+
+
             }
 
             routeOptions.OpenAPI.Add(parsedVerb, openApiAttr);

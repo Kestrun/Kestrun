@@ -24,10 +24,10 @@ public static class OpenApiComponentClone
             Style = parameter.Style,
             Explode = parameter.Explode,
             AllowReserved = parameter.AllowReserved,
-            Schema = parameter.Schema?.CreateShallowCopy(),
-            Examples = parameter.Examples != null ? new Dictionary<string, IOpenApiExample>(parameter.Examples) : null,
+            Schema = parameter.Schema?.Clone(),
+            Examples = parameter.Examples?.Clone(),
             Example = parameter.Example != null ? JsonNodeClone(parameter.Example) : null,
-            Content = parameter.Content != null ? new Dictionary<string, OpenApiMediaType>(parameter.Content) : null,
+            Content = parameter.Content?.Clone(),
             Extensions = parameter.Extensions != null ? new Dictionary<string, IOpenApiExtension>(parameter.Extensions) : null,
             AllowEmptyValue = parameter.AllowEmptyValue,
             Deprecated = parameter.Deprecated
@@ -62,12 +62,70 @@ public static class OpenApiComponentClone
         {
             Description = response.Description,
             Headers = response.Headers != null ? new Dictionary<string, IOpenApiHeader>(response.Headers) : null,
-            Content = response.Content != null ? new Dictionary<string, OpenApiMediaType>(response.Content) : null,
+            Content = Clone(response.Content),
             Links = response.Links != null ? new Dictionary<string, IOpenApiLink>(response.Links) : null,
             Extensions = response.Extensions != null ? new Dictionary<string, IOpenApiExtension>(response.Extensions) : null
         };
         return clone;
     }
+    /// <summary>
+    /// Clones a dictionary of OpenApiMediaType instances.
+    /// </summary>
+    /// <param name="content">The dictionary to clone.</param>
+    /// <returns>A new dictionary with cloned OpenApiMediaType instances.</returns>
+    public static IDictionary<string, OpenApiMediaType>? Clone(this IDictionary<string, OpenApiMediaType>? content)
+    {
+        if (content == null)
+        {
+            return null;
+        }
+
+        var clone = new Dictionary<string, OpenApiMediaType>();
+        foreach (var kvp in content)
+        {
+            clone[kvp.Key] = kvp.Value.Clone();
+        }
+        return clone;
+    }
+
+    /// <summary>
+    /// Clones an OpenApiMediaType instance.
+    /// </summary>
+    /// <param name="mediaType">The OpenApiMediaType to clone.</param>
+    /// <returns>A new OpenApiMediaType instance with the same properties as the input mediaType.</returns>
+    public static OpenApiMediaType Clone(this OpenApiMediaType mediaType)
+    {
+        var clone = new OpenApiMediaType
+        {
+            Schema = mediaType.Schema?.Clone(),
+            Example = mediaType.Example != null ? JsonNodeClone(mediaType.Example) : null,
+            Examples = mediaType.Examples != null ? new Dictionary<string, IOpenApiExample>(mediaType.Examples) : null,
+            Encoding = mediaType.Encoding != null ? new Dictionary<string, OpenApiEncoding>(mediaType.Encoding) : null,
+            Extensions = mediaType.Extensions != null ? new Dictionary<string, IOpenApiExtension>(mediaType.Extensions) : null
+        };
+        return clone;
+    }
+
+    /// <summary>
+    /// Clones a dictionary of OpenApiExample instances.
+    /// </summary>
+    /// <param name="examples">The dictionary to clone.</param>
+    /// <returns>A new dictionary with cloned OpenApiExample instances.</returns>
+    public static IDictionary<string, IOpenApiExample>? Clone(this IDictionary<string, IOpenApiExample>? examples)
+    {
+        if (examples == null)
+        {
+            return null;
+        }
+
+        var clone = new Dictionary<string, IOpenApiExample>();
+        foreach (var kvp in examples)
+        {
+            clone[kvp.Key] = kvp.Value.Clone();
+        }
+        return clone;
+    }
+
     internal static JsonNode? JsonNodeClone(JsonNode? value) => value?.DeepClone();
 
 

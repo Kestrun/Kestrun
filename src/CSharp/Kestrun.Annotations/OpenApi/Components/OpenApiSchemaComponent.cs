@@ -43,4 +43,9 @@ public sealed class OpenApiSchemaComponent : KestrunAnnotation
     /// Inline examples object for the schema (optional).
     /// </summary>
     public object? Examples { get; set; }
+
+    /// <summary>
+    /// Title for the schema.
+    /// </summary>
+    public string? Title { get; set; }
 }

@@ -403,14 +403,17 @@ public class OpenApiDocDescriptor
             if (a is OpenApiSchemaComponent schemaAttribute)
             {
                 // Use the Key as the component name if provided
-                schema.Title = GetKeyOverride(a) ?? t.Name;
+                if (schemaAttribute.Title is not null)
+                {
+                    schema.Title = schemaAttribute.Title;
+                }
                 if (!string.IsNullOrWhiteSpace(schemaAttribute.Description))
                 {
                     schema.Description = schemaAttribute.Description;
                 }
 
                 schema.Deprecated |= schemaAttribute.Deprecated;
-                schema.AdditionalPropertiesAllowed &= schemaAttribute.AdditionalPropertiesAllowed;
+                schema.AdditionalPropertiesAllowed |= schemaAttribute.AdditionalPropertiesAllowed;
 
                 if (schemaAttribute.Example is not null)
                 {
@@ -1197,11 +1200,18 @@ public class OpenApiDocDescriptor
                 parameter.Required = param.Required;
                 parameter.Deprecated = param.Deprecated;
                 parameter.AllowEmptyValue = param.AllowEmptyValue;
-                parameter.Explode = param.Explode;
+                if (param.Explode)
+                {
+                    parameter.Explode = param.Explode;
+                }
                 parameter.AllowReserved = param.AllowReserved;
                 if (!string.IsNullOrEmpty(param.In))
                 {
                     parameter.In = param.In.ToOpenApiParameterLocation();
+                    if (parameter.In == ParameterLocation.Path)
+                    {
+                        parameter.Required = true; // path parameters must be required
+                    }
                 }
 
                 if (param.Style is not null)
@@ -1352,97 +1362,6 @@ public class OpenApiDocDescriptor
         return t.GetProperty("Key")?.GetValue(attr) as string;
     }
 
-
-
-    /// <summary>
-    /// Creates a response object from the specified attribute.
-    /// </summary>
-    /// <param name="attr">The attribute object.</param>
-    /// <param name="response">The response object to populate.</param>
-    /// <returns>True if the attribute was recognized and processed; otherwise, false.</returns>
-    private bool CreateResponseFromAttribute2(object attr, OpenApiResponse response)
-    {
-        var t = attr.GetType();
-        switch (t.Name)
-        {
-            case nameof(OpenApiContentTypeAttribute):
-                var ctype = (OpenApiContentTypeAttribute)attr;
-                response.Content ??= new Dictionary<string, OpenApiMediaType>(StringComparer.Ordinal);
-                if (!response.Content.ContainsKey(ctype.ContentType))
-                {
-                    response.Content[ctype.ContentType] = new OpenApiMediaType();
-                }
-                if (!string.IsNullOrEmpty(ctype.ReferenceId))
-                {
-                    if (ctype.Inline) // embed the schema directly
-                    {
-                        if (Document.Components != null && Document.Components.Schemas != null &&
-                            Document.Components.Schemas.TryGetValue(ctype.ReferenceId, out var schema))
-                        {
-                            // Clone the schema to avoid modifying the component directly
-                            response.Content[ctype.ContentType].Schema = schema.Clone();
-                        }
-                        else // schema not found in components
-                        {
-                            throw new InvalidOperationException($"Schema reference '{ctype.ReferenceId}' cannot be embedded because it was not found in components.");
-                        }
-                    }
-                    else // reference the schema
-                    {
-                        response.Content[ctype.ContentType].Schema = new OpenApiSchemaReference(ctype.ReferenceId);
-                    }
-                }
-
-                break;
-            case nameof(OpenApiResponseAttribute):
-                var resp = (OpenApiResponseAttribute)attr;
-                if (!string.IsNullOrEmpty(resp.Description))
-                {
-                    response.Description = resp.Description;
-                }
-                break;
-            case nameof(OpenApiHeaderRefAttribute):
-                response.Headers ??= new Dictionary<string, IOpenApiHeader>(StringComparer.Ordinal);
-                var href = (OpenApiHeaderRefAttribute)attr;
-                var headerRef = href.ReferenceId;
-                var headerKey = href.Key;
-                response.Headers[headerKey] = new OpenApiHeaderReference(headerRef);
-                break;
-            case nameof(OpenApiLinkRefAttribute):
-                response.Links ??= new Dictionary<string, IOpenApiLink>(StringComparer.Ordinal);
-                var lref = (OpenApiLinkRefAttribute)attr;
-                var linkRef = lref.ReferenceId;
-                var linkKey = lref.Key;
-                response.Links[linkKey] = new OpenApiLinkReference(linkRef);
-                break;
-            case nameof(OpenApiExampleRefAttribute):
-                var exRef = (OpenApiExampleRefAttribute)attr;
-                response.Content ??= new Dictionary<string, OpenApiMediaType>(StringComparer.Ordinal);
-                // Determine which content types to add the example reference to
-                var keys = (exRef.ContentType is null) ?
-                    response.Content.Keys : [exRef.ContentType];
-                if (keys.Count == 0)
-                {
-                    // No existing content types; default to application/json
-                    keys = ["application/json"];
-                }
-                // Add example reference to each specified content type
-                foreach (var ct in keys)
-                {
-                    _ = response.Content.TryAdd(ct, new OpenApiMediaType());
-                    var mediaType = response.Content[ct];
-                    mediaType.Examples ??= new Dictionary<string, IOpenApiExample>(StringComparer.Ordinal);
-                    var exRefType = new OpenApiExampleReference(exRef.ReferenceId);
-                    mediaType.Examples[exRef.Key] = exRefType;
-                }
-                break;
-            default:
-                return false; // unrecognized attribute type
-        }
-        return true;
-    }
-
-
     private bool CreateResponseFromAttribute(object attr, OpenApiResponse response)
     {
         ArgumentNullException.ThrowIfNull(attr);
@@ -1509,9 +1428,11 @@ public class OpenApiDocDescriptor
                     foreach (var ct in targets)
                     {
                         var media = GetOrAddMediaType(response, ct);
+                        media.Examples ??= new Dictionary<string, IOpenApiExample>(StringComparer.Ordinal);
                         (media.Examples ??= new Dictionary<string, IOpenApiExample>(StringComparer.Ordinal))
                             [exRef.Key] = new OpenApiExampleReference(exRef.ReferenceId);
                     }
+
                     return true;
                 }
 

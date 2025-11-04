@@ -1234,7 +1234,11 @@ public class OpenApiDocDescriptor
                     {
                         throw new InvalidOperationException($"Example reference '{exRef.ReferenceId}' cannot be embedded because it was not found in components.");
                     }
-                    parameter.Examples[exRef.Key] = value.Clone();
+                    if (value is not OpenApiExample example)
+                    {
+                        throw new InvalidOperationException($"Example reference '{exRef.ReferenceId}' cannot be embedded because it is not an OpenApiExample.");
+                    }
+                    parameter.Examples[exRef.Key] = example.Clone();
                 }
                 else
                 {
@@ -1459,7 +1463,7 @@ public class OpenApiDocDescriptor
             schemas.TryGetValue(refId, out var schema))
         {
             // your existing clone semantics
-            return schema.Clone();
+            return (OpenApiSchema)schema.Clone();
         }
 
         throw new InvalidOperationException(
@@ -1751,7 +1755,11 @@ public class OpenApiDocDescriptor
                         {
                             throw new InvalidOperationException($"Example reference '{exRef.ReferenceId}' cannot be embedded because it was not found in components.");
                         }
-                        exRefType = value.Clone();
+                        if (value is not OpenApiExample example)
+                        {
+                            throw new InvalidOperationException($"Example reference '{exRef.ReferenceId}' cannot be embedded because it is not an OpenApiExample.");
+                        }
+                        exRefType = example.Clone();
                     }
                     else
                     {
@@ -2311,7 +2319,11 @@ public class OpenApiDocDescriptor
                         {
                             throw new InvalidOperationException($"Response reference '{oaRRa.ReferenceId}' cannot be embedded because it was not found in components.");
                         }
-                        response = value.Clone();
+                        if (value is not OpenApiResponse example)
+                        {
+                            throw new InvalidOperationException($"Response reference '{oaRRa.ReferenceId}' cannot be embedded because it is not an OpenApiResponse.");
+                        }
+                        response = example.Clone();
                     }
                     else
                     {
@@ -2345,7 +2357,11 @@ public class OpenApiDocDescriptor
                         {
                             throw new InvalidOperationException($"RequestBody reference '{oaRBra.ReferenceId}' cannot be embedded because it was not found in components.");
                         }
-                        openApiAttr.RequestBody = requestBody.Clone();
+                        if (requestBody is not OpenApiRequestBody example)
+                        {
+                            throw new InvalidOperationException($"RequestBody reference '{oaRBra.ReferenceId}' cannot be embedded because it is not an OpenApiRequestBody.");
+                        }
+                        openApiAttr.RequestBody = example.Clone();
                     }
                     else
                     {
@@ -2397,17 +2413,21 @@ public class OpenApiDocDescriptor
                         // Determine if we inline the referenced parameter or use a $ref
                         if (oaParamRefAttr.Inline)
                         {
-                            if (Document.Components?.Parameters == null || !Document.Components.Parameters.TryGetValue(oaParamRefAttr.ReferenceId, out var value))
+                            if (Document.Components?.Parameters == null || !Document.Components.Parameters.TryGetValue(oaParamRefAttr.ReferenceId, out var parameterValue))
                             {
                                 throw new InvalidOperationException($"Parameter reference '{oaParamRefAttr.ReferenceId}' cannot be embedded because it was not found in components.");
                             }
-                            var valueClone = value.Clone();
+                            if (parameterValue is not OpenApiParameter valueClone)
+                            {
+                                throw new InvalidOperationException($"Parameter reference '{oaParamRefAttr.ReferenceId}' is not an OpenApiParameter and cannot be inlined.");
+                            }
+                            var parameterClone = valueClone.Clone();
                             // Apply any name override
                             if (!string.IsNullOrEmpty(oaParamRefAttr.Name))
                             {
-                                valueClone.Name = oaParamRefAttr.Name;
+                                parameterClone.Name = oaParamRefAttr.Name;
                             }
-                            parameter = valueClone;
+                            parameter = parameterClone;
                         }
                         else
                         {

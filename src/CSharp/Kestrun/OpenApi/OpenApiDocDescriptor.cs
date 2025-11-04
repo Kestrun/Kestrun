@@ -60,33 +60,6 @@ public class OpenApiDocDescriptor
         {
             Document.Components = new OpenApiComponents();
         }
-        // Schemas
-        if (components.SchemaTypes is not null && components.SchemaTypes.Count > 0)
-        {
-            Document.Components.Schemas = new Dictionary<string, IOpenApiSchema>(StringComparer.Ordinal);
-            foreach (var t in components.SchemaTypes)
-            {
-                BuildSchema(t);
-            }
-        }
-        // Parameters
-        if (components.ParameterTypes is not null && components.ParameterTypes.Count > 0)
-        {
-            Document.Components.Parameters = new Dictionary<string, IOpenApiParameter>(StringComparer.Ordinal);
-            foreach (var t in components.ParameterTypes)
-            {
-                BuildParameters(t);
-            }
-        }
-        // Responses
-        if (components.ResponseTypes is not null && components.ResponseTypes.Count > 0)
-        {
-            Document.Components.Responses = new Dictionary<string, IOpenApiResponse>(StringComparer.Ordinal);
-            foreach (var t in components.ResponseTypes)
-            {
-                BuildResponses(t);
-            }
-        }
         // Examples
         if (components.ExampleTypes is not null && components.ExampleTypes.Count > 0)
         {
@@ -96,13 +69,13 @@ public class OpenApiDocDescriptor
                 BuildExamples(t);
             }
         }
-        // Request bodies
-        if (components.RequestBodyTypes is not null && components.RequestBodyTypes.Count > 0)
+        // Schemas
+        if (components.SchemaTypes is not null && components.SchemaTypes.Count > 0)
         {
-            Document.Components.RequestBodies = new Dictionary<string, IOpenApiRequestBody>(StringComparer.Ordinal);
-            foreach (var t in components.RequestBodyTypes)
+            Document.Components.Schemas = new Dictionary<string, IOpenApiSchema>(StringComparer.Ordinal);
+            foreach (var t in components.SchemaTypes)
             {
-                BuildRequestBodies(t);
+                BuildSchema(t);
             }
         }
 
@@ -115,6 +88,15 @@ public class OpenApiDocDescriptor
                 BuildHeaders(t);
             }
         }
+        // Parameters
+        if (components.ParameterTypes is not null && components.ParameterTypes.Count > 0)
+        {
+            Document.Components.Parameters = new Dictionary<string, IOpenApiParameter>(StringComparer.Ordinal);
+            foreach (var t in components.ParameterTypes)
+            {
+                BuildParameters(t);
+            }
+        }
         // Links
         if (components.LinkTypes is not null && components.LinkTypes.Count > 0)
         {
@@ -125,11 +107,32 @@ public class OpenApiDocDescriptor
             }
         }
         // Callbacks
-        foreach (var t in components.CallbackTypes)
+        if (components.CallbackTypes is not null && components.CallbackTypes.Count > 0)
         {
-            BuildCallbacks(t);
+            Document.Components.Callbacks = new Dictionary<string, IOpenApiCallback>(StringComparer.Ordinal);
+            foreach (var t in components.CallbackTypes)
+            {
+                BuildCallbacks(t);
+            }
         }
-
+        // Responses
+        if (components.ResponseTypes is not null && components.ResponseTypes.Count > 0)
+        {
+            Document.Components.Responses = new Dictionary<string, IOpenApiResponse>(StringComparer.Ordinal);
+            foreach (var t in components.ResponseTypes)
+            {
+                BuildResponses(t);
+            }
+        }
+        // Request bodies
+        if (components.RequestBodyTypes is not null && components.RequestBodyTypes.Count > 0)
+        {
+            Document.Components.RequestBodies = new Dictionary<string, IOpenApiRequestBody>(StringComparer.Ordinal);
+            foreach (var t in components.RequestBodyTypes)
+            {
+                BuildRequestBodies(t);
+            }
+        }
     }
 
     /// <summary>
@@ -1188,12 +1191,9 @@ public class OpenApiDocDescriptor
 
     private bool CreateParameterFromAttribute(object attr, OpenApiParameter parameter)
     {
-        var t = attr.GetType();
-        switch (t.Name)
+        switch (attr)
         {
-
-            case nameof(OpenApiParameterAttribute):
-                var param = (OpenApiParameterAttribute)attr;
+            case OpenApiParameterAttribute param:
 
                 parameter.Description = param.Description;
                 parameter.Name = param.Key;
@@ -1225,8 +1225,7 @@ public class OpenApiDocDescriptor
                 break;
 
 
-            case nameof(OpenApiExampleRefAttribute):
-                var exRef = (OpenApiExampleRefAttribute)attr;
+            case OpenApiExampleRefAttribute exRef:
                 parameter.Examples ??= new Dictionary<string, IOpenApiExample>(StringComparer.Ordinal);
                 if (exRef.Inline)
                 {
@@ -1433,8 +1432,22 @@ public class OpenApiDocDescriptor
                     {
                         var media = GetOrAddMediaType(response, ct);
                         media.Examples ??= new Dictionary<string, IOpenApiExample>(StringComparer.Ordinal);
-                        (media.Examples ??= new Dictionary<string, IOpenApiExample>(StringComparer.Ordinal))
-                            [exRef.Key] = new OpenApiExampleReference(exRef.ReferenceId);
+                        if (exRef.Inline)
+                        {
+                            if (Document.Components?.Examples == null || !Document.Components.Examples.TryGetValue(exRef.ReferenceId, out var value))
+                            {
+                                throw new InvalidOperationException($"Example reference '{exRef.ReferenceId}' cannot be embedded because it was not found in components.");
+                            }
+                            if (value is not OpenApiExample example)
+                            {
+                                throw new InvalidOperationException($"Example reference '{exRef.ReferenceId}' cannot be embedded because it is not an OpenApiExample.");
+                            }
+                            media.Examples[exRef.Key] = example.Clone();
+                        }
+                        else
+                        {
+                            media.Examples[exRef.Key] = new OpenApiExampleReference(exRef.ReferenceId);
+                        }
                     }
 
                     return true;
@@ -1701,72 +1714,76 @@ public class OpenApiDocDescriptor
         var name = string.Empty;
         foreach (var a in classAttrs)
         {
-            if (a is OpenApiRequestBodyComponent bodyAttribute)
+            OpenApiMediaType mediaType;
+            switch (a)
             {
-                name = GetKeyOverride(a) ?? t.Name;
-                requestBody.Description = bodyAttribute.Description;
-                requestBody.Required = bodyAttribute.Required;
-                // Build content
-                requestBody.Content ??= new Dictionary<string, OpenApiMediaType>(StringComparer.Ordinal);
-                var mediaType = new OpenApiMediaType
-                {
-                    Schema = new OpenApiSchemaReference(name)
-                };
-                if (bodyAttribute.Inline)
-                {
-                    if (Document.Components?.Schemas == null || !Document.Components.Schemas.TryGetValue(name, out var value))
-                    {
-                        throw new InvalidOperationException($"Example reference '{name}' cannot be embedded because it was not found in components.");
-                    }
-                    mediaType.Schema = value.Clone();
-                }
-                else
-                {
-                    mediaType.Schema = new OpenApiSchemaReference(name);
-                }
+                case OpenApiRequestBodyComponent bodyAttribute:
 
-                if (bodyAttribute.Example is not null)
-                {
-                    mediaType.Example = ToNode(bodyAttribute.Example);
-                }
-                requestBody.Content[bodyAttribute.ContentType ?? "application/json"] = mediaType;
-            }
-            else if (a is OpenApiExampleRefAttribute exRef)
-            {
-                requestBody.Content ??= new Dictionary<string, OpenApiMediaType>(StringComparer.Ordinal);
-                // Determine which content types to add the example reference to
-                var keys = (exRef.ContentType is null) ?
-                    requestBody.Content.Keys : [exRef.ContentType];
-                if (keys.Count == 0)
-                {
-                    // No existing content types; default to application/json
-                    keys = ["application/json"];
-                }
-                // Add example reference to each specified content type
-                foreach (var ct in keys)
-                {
-                    _ = requestBody.Content.TryAdd(ct, new OpenApiMediaType());
-                    var mediaType = requestBody.Content[ct];
-                    mediaType.Examples ??= new Dictionary<string, IOpenApiExample>(StringComparer.Ordinal);
-                    IOpenApiExample exRefType;
-                    if (exRef.Inline)
+                    name = GetKeyOverride(a) ?? t.Name;
+                    requestBody.Description = bodyAttribute.Description;
+                    requestBody.Required = bodyAttribute.Required;
+                    // Build content
+                    requestBody.Content ??= new Dictionary<string, OpenApiMediaType>(StringComparer.Ordinal);
+                    mediaType = new OpenApiMediaType
                     {
-                        if (Document.Components?.Examples == null || !Document.Components.Examples.TryGetValue(exRef.ReferenceId, out var value))
+                        Schema = new OpenApiSchemaReference(name)
+                    };
+                    if (bodyAttribute.Inline)
+                    {
+                        if (Document.Components?.Schemas == null || !Document.Components.Schemas.TryGetValue(name, out var value))
                         {
-                            throw new InvalidOperationException($"Example reference '{exRef.ReferenceId}' cannot be embedded because it was not found in components.");
+                            throw new InvalidOperationException($"Example reference '{name}' cannot be embedded because it was not found in components.");
                         }
-                        if (value is not OpenApiExample example)
-                        {
-                            throw new InvalidOperationException($"Example reference '{exRef.ReferenceId}' cannot be embedded because it is not an OpenApiExample.");
-                        }
-                        exRefType = example.Clone();
+                        mediaType.Schema = value.Clone();
                     }
                     else
                     {
-                        exRefType = new OpenApiExampleReference(exRef.ReferenceId);
+                        mediaType.Schema = new OpenApiSchemaReference(name);
                     }
-                    mediaType.Examples[exRef.Key] = exRefType;
-                }
+
+                    if (bodyAttribute.Example is not null)
+                    {
+                        mediaType.Example = ToNode(bodyAttribute.Example);
+                    }
+                    requestBody.Content[bodyAttribute.ContentType ?? "application/json"] = mediaType;
+                    break;
+                case OpenApiExampleRefAttribute exRef:
+
+                    requestBody.Content ??= new Dictionary<string, OpenApiMediaType>(StringComparer.Ordinal);
+                    // Determine which content types to add the example reference to
+                    var keys = (exRef.ContentType is null) ?
+                        requestBody.Content.Keys : [exRef.ContentType];
+                    if (keys.Count == 0)
+                    {
+                        // No existing content types; default to application/json
+                        keys = ["application/json"];
+                    }
+                    // Add example reference to each specified content type
+                    foreach (var ct in keys)
+                    {
+                        _ = requestBody.Content.TryAdd(ct, new OpenApiMediaType());
+                        mediaType = requestBody.Content[ct];
+                        mediaType.Examples ??= new Dictionary<string, IOpenApiExample>(StringComparer.Ordinal);
+                        IOpenApiExample exRefType;
+                        if (exRef.Inline)
+                        {
+                            if (Document.Components?.Examples == null || !Document.Components.Examples.TryGetValue(exRef.ReferenceId, out var value))
+                            {
+                                throw new InvalidOperationException($"Example reference '{exRef.ReferenceId}' cannot be embedded because it was not found in components.");
+                            }
+                            if (value is not OpenApiExample example)
+                            {
+                                throw new InvalidOperationException($"Example reference '{exRef.ReferenceId}' cannot be embedded because it is not an OpenApiExample.");
+                            }
+                            exRefType = example.Clone();
+                        }
+                        else
+                        {
+                            exRefType = new OpenApiExampleReference(exRef.ReferenceId);
+                        }
+                        mediaType.Examples[exRef.Key] = exRefType;
+                    }
+                    break;
             }
         }
         Document.Components!.RequestBodies![name] = requestBody;

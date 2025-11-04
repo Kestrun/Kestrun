@@ -31,17 +31,29 @@ function Add-KrMapRouteOpenApiServer {
         [Microsoft.OpenApi.OpenApiServer[]]$Server
     )
     process {
-        if ($Verbs.Count -eq 0) {
-            # Apply to all verbs defined in the MapRouteBuilder
-            $Verbs = $MapRouteBuilder.HttpVerbs
-        }
-        foreach ($verb in $Verbs) {
-            if (-not $MapRouteBuilder.OpenApi.ContainsKey($verb)) {
-                $MapRouteBuilder.OpenApi[$verb] = [Kestrun.Hosting.Options.OpenAPIMetadata]::new($MapRouteBuilder.Pattern)
+        # Determine if we are using path-level metadata
+        $usePathLevel = $Verbs.Count -eq 0
+
+        # Add servers to the MapRouteBuilder
+        if ($usePathLevel) {
+            # Add to path-level if no verbs specified
+            if ($null -eq $MapRouteBuilder.PathLevelOpenAPIMetadata) {
+                $MapRouteBuilder.PathLevelOpenAPIMetadata = [Kestrun.Hosting.Options.OpenAPICommonMetadata]::new()
             }
-            $MapRouteBuilder.OpenApi[$verb].Enabled = $true
+            # Add servers to the path-level metadata
             foreach ($s in $Server) {
-                $MapRouteBuilder.OpenApi[$verb].Servers.Add($s)
+                $MapRouteBuilder.PathLevelOpenAPIMetadata.Servers.Add($s)
+            }
+        } else {
+            foreach ($verb in $Verbs) {
+                if (-not $MapRouteBuilder.OpenApi.ContainsKey($verb)) {
+                    $MapRouteBuilder.OpenApi[$verb] = [Kestrun.Hosting.Options.OpenAPIMetadata]::new($MapRouteBuilder.Pattern)
+                }
+                $MapRouteBuilder.OpenApi[$verb].Enabled = $true
+                # Add servers to the specified verb
+                foreach ($s in $Server) {
+                    $MapRouteBuilder.OpenApi[$verb].Servers.Add($s)
+                }
             }
         }
         # Return the modified MapRouteBuilder for pipeline chaining

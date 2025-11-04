@@ -37,33 +37,40 @@ function Add-KrMapRouteOpenApiParameter {
         [switch]$Embed
     )
     process {
-        if ($Verbs.Count -eq 0) {
-            # Apply to all verbs defined in the MapRouteBuilder
-            $Verbs = $MapRouteBuilder.HttpVerbs
+        # Determine if we are using path-level metadata
+        $usePathLevel = $Verbs.Count -eq 0
+
+        # Use reference-based parameter
+        $parameters = $MapRouteBuilder.Server.OpenApiDocumentDescriptor['default'].Document.Components.Parameters
+        if (-not $parameters.ContainsKey($ReferenceId)) {
+            throw "Parameter with ReferenceId '$ReferenceId' does not exist in the OpenAPI document components."
         }
-        foreach ($verb in $Verbs) {
-            if (-not $MapRouteBuilder.OpenApi.ContainsKey($verb)) {
-                $MapRouteBuilder.OpenApi[$verb] = [Kestrun.Hosting.Options.OpenAPIMetadata]::new($MapRouteBuilder.Pattern)
-            }
+        $parameter = ($Embed)?
+        ([Kestrun.OpenApi.OpenApiComponentClone]::Clone($parameters[$ReferenceId])):
+        ([Microsoft.OpenApi.OpenApiParameterReference]::new($ReferenceId))
 
-            # Use reference-based parameter
-            $parameters = $MapRouteBuilder.Server.OpenApiDocumentDescriptor['default'].Document.Components.Parameters
-            if (-not $parameters.ContainsKey($ReferenceId)) {
-                throw "Parameter with ReferenceId '$ReferenceId' does not exist in the OpenAPI document components."
+        # Update the MapRouteBuilder to use path-level metadata
+        if ($usePathLevel) {
+            if ($null -eq $MapRouteBuilder.PathLevelOpenAPIMetadata) {
+                $MapRouteBuilder.PathLevelOpenAPIMetadata = [Kestrun.Hosting.Options.OpenAPICommonMetadata]::new()
             }
-            $parameter = ($Embed)?
-            ([Kestrun.OpenApi.OpenApiComponentClone]::Clone($parameters[$ReferenceId])):
-            ([Microsoft.OpenApi.OpenApiParameterReference]::new($ReferenceId))
+            $MapRouteBuilder.PathLevelOpenAPIMetadata.Parameters.Add($parameter)
+        } else {
+            # Add to specified verbs
+            foreach ($verb in $Verbs) {
+                if (-not $MapRouteBuilder.OpenApi.ContainsKey($verb)) {
+                    $MapRouteBuilder.OpenApi[$verb] = [Kestrun.Hosting.Options.OpenAPIMetadata]::new($MapRouteBuilder.Pattern)
+                }
+                # Ensure the MapRouteBuilder is marked as having OpenAPI metadata
+                $MapRouteBuilder.OpenApi[$verb].Enabled = $true
 
-            # Ensure the MapRouteBuilder is marked as having OpenAPI metadata
-            $MapRouteBuilder.OpenApi[$verb].Enabled = $true
-
-            # Add description if provided
-            if ($PSBoundParameters.ContainsKey('Description')) {
-                $parameter.Description = $Description
+                # Add description if provided
+                if ($PSBoundParameters.ContainsKey('Description')) {
+                    $parameter.Description = $Description
+                }
+                # Add the parameter to the MapRouteBuilder
+                $MapRouteBuilder.OpenApi[$verb].Parameters.Add($parameter)
             }
-            # Add the parameter to the MapRouteBuilder
-            $MapRouteBuilder.OpenApi[$verb].Parameters.Add($parameter)
         }
         # Return the modified MapRouteBuilder for pipeline chaining
         return $MapRouteBuilder

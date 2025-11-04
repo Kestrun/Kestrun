@@ -81,7 +81,6 @@ function Add-KrMapRouteOpenApiResponse {
             }
             # Add the response to the MapRouteBuilder
             $MapRouteBuilder.OpenApi[$verb].Responses[$StatusCode] = $response
-
         }
         # Return the modified MapRouteBuilder for pipeline chaining
         return $MapRouteBuilder

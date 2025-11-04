@@ -10,25 +10,6 @@ public static class OpenApiComponentClone
 {
     #region Parameter
     /// <summary>
-    /// Clones an IOpenApiParameter instance.
-    /// </summary>
-    /// <param name="parameter">The IOpenApiParameter to clone.</param>
-    /// <returns>A new IOpenApiParameter instance with the same properties as the input parameter.</returns>
-    /// <exception cref="InvalidOperationException">Thrown when the parameter is not a supported IOpenApiParameter implementation.</exception>
-   /* public static IOpenApiParameter Clone(this IOpenApiParameter parameter)
-    {
-        if (parameter is OpenApiParameter openApiParameter)
-        {
-            return openApiParameter.Clone();
-        }
-        else if (parameter is OpenApiParameterReference parameterRef)
-        {
-            return parameterRef.Clone();
-        }
-        throw new InvalidOperationException("Unsupported IOpenApiParameter implementation.");
-    }*/
-
-    /// <summary>
     /// Clones an OpenApiParameterReference instance.
     /// </summary>
     /// <param name="parameter">The OpenApiParameterReference to clone.</param>
@@ -41,6 +22,7 @@ public static class OpenApiComponentClone
         };
         return clone;
     }
+
     /// <summary>
     /// Clones an OpenApiParameter instance.
     /// </summary>
@@ -69,24 +51,6 @@ public static class OpenApiComponentClone
     }
     #endregion
     #region RequestBody
-    /// <summary>
-    /// Clones an IOpenApiRequestBody instance.
-    /// </summary>
-    /// <param name="requestBody">The IOpenApiRequestBody to clone.</param>
-    /// <returns>A new IOpenApiRequestBody instance with the same properties as the input requestBody.</returns>
-    /// <exception cref="InvalidOperationException"></exception>
-  /*  public static IOpenApiRequestBody Clone(this IOpenApiRequestBody requestBody)
-    {
-        if (requestBody is OpenApiRequestBody openApiRequestBody)
-        {
-            return openApiRequestBody.Clone();
-        }
-        else if (requestBody is OpenApiRequestBodyReference requestBodyRef)
-        {
-            return requestBodyRef.Clone();
-        }
-        throw new InvalidOperationException("Unsupported IOpenApiRequestBody implementation.");
-    }*/
     /// <summary>
     /// Clones an OpenApiRequestBodyReference instance.
     /// </summary>
@@ -145,26 +109,81 @@ public static class OpenApiComponentClone
     /// <returns>A new OpenApiExtension instance with the same properties as the input extension.</returns>
     public static IOpenApiExtension Clone(this IOpenApiExtension extension) => extension.Clone();
     #endregion
-    #region Response
+
+    #region Header
     /// <summary>
-    /// Clones an IOpenApiResponse instance.
+    /// Clones a dictionary of IOpenApiHeader instances.
     /// </summary>
-    /// <param name="response">The IOpenApiResponse to clone.</param>
-    /// <returns>A new IOpenApiResponse instance with the same properties as the input response.</returns>
-    /// <exception cref="InvalidOperationException"></exception>
- /*   public static IOpenApiResponse Clone(this IOpenApiResponse response)
+    /// <param name="headers">The dictionary of headers to clone.</param>
+    /// <returns>A new dictionary with cloned IOpenApiHeader instances.</returns>
+    public static IDictionary<string, IOpenApiHeader>? Clone(this IDictionary<string, IOpenApiHeader>? headers)
     {
-        if (response is OpenApiResponse openApiResponse)
+        if (headers == null)
         {
-            return openApiResponse.Clone();
+            return null;
         }
-        else if (response is OpenApiResponseReference responseRef)
+
+        var clone = new Dictionary<string, IOpenApiHeader>();
+        foreach (var kvp in headers)
         {
-            return responseRef.Clone();
+            clone[kvp.Key] = kvp.Value.Clone();
         }
-        throw new InvalidOperationException("Unsupported IOpenApiResponse implementation.");
+        return clone;
     }
-*/
+
+    /// <summary>
+    /// Clones an IOpenApiHeader instance.
+    /// </summary>
+    /// <param name="header">The IOpenApiHeader to clone.</param>
+    /// <returns>A new IOpenApiHeader instance with the same properties as the input header.</returns>
+    /// <exception cref="InvalidOperationException">Thrown when the header is of an unsupported type.</exception>
+    public static IOpenApiHeader Clone(this IOpenApiHeader header) =>
+    header switch
+    {
+        OpenApiHeader headerObj => headerObj.Clone(),
+        OpenApiHeaderReference headerRef => headerRef.Clone(),
+        _ => throw new InvalidOperationException("Unsupported IOpenApiHeader implementation.")
+    };
+
+    /// <summary>
+    /// Clones an OpenApiHeader instance.
+    /// </summary>
+    /// <param name="header">The OpenApiHeader to clone.</param>
+    /// <returns>A new OpenApiHeader instance with the same properties as the input header.</returns>
+    public static OpenApiHeader Clone(this OpenApiHeader header)
+    {
+        var clone = new OpenApiHeader
+        {
+            Description = header.Description,
+            Required = header.Required,
+            Deprecated = header.Deprecated,
+            Style = header.Style,
+            Explode = header.Explode,
+            AllowEmptyValue = header.AllowEmptyValue,
+            Schema = header.Schema?.Clone(),
+            Examples = header.Examples?.Clone(),
+            Example = JsonNodeClone(header.Example),
+            Content = header.Content?.Clone(),
+            Extensions = header.Extensions.Clone(),
+            AllowReserved = header.AllowReserved
+        };
+        return clone;
+    }
+    /// <summary>
+    /// Clones an OpenApiHeaderReference instance.
+    /// </summary>
+    /// <param name="header">The OpenApiHeaderReference to clone.</param>
+    /// <returns>A new OpenApiHeaderReference instance with the same properties as the input header.</returns>
+    public static OpenApiHeaderReference Clone(this OpenApiHeaderReference header)
+    {
+        var clone = new OpenApiHeaderReference(header.Reference.Id!)
+        {
+            Description = header.Description,
+        };
+        return clone;
+    }
+    #endregion
+    #region Response
 
     /// <summary>
     /// Clones an OpenApiResponse instance.
@@ -176,9 +195,9 @@ public static class OpenApiComponentClone
         var clone = new OpenApiResponse
         {
             Description = response.Description,
-            Headers = response.Headers != null ? new Dictionary<string, IOpenApiHeader>(response.Headers) : null,
+            Headers = response.Headers?.Clone(),
             Content = Clone(response.Content),
-            Links = response.Links != null ? new Dictionary<string, IOpenApiLink>(response.Links) : null,
+            Links = response.Links.Clone(),
             Extensions = response.Extensions.Clone()
         };
         return clone;
@@ -252,39 +271,15 @@ public static class OpenApiComponentClone
         var clone = new Dictionary<string, IOpenApiExample>();
         foreach (var kvp in examples)
         {
-            if(kvp.Value is OpenApiExample openApiExample)
+            clone[kvp.Key] = kvp.Value switch
             {
-                clone[kvp.Key] = openApiExample.Clone();
-            }
-            else if(kvp.Value is OpenApiExampleReference exampleRef)
-            {
-                clone[kvp.Key] = exampleRef.Clone();
-            }
-            else
-            {
-                throw new InvalidOperationException("Unsupported IOpenApiExample implementation.");
-            }
+                OpenApiExample exampleObj => exampleObj.Clone(),
+                OpenApiExampleReference exampleRef => exampleRef.Clone(),
+                _ => throw new InvalidOperationException("Unsupported IOpenApiExample implementation."),
+            };
         }
         return clone;
     }
-
-    /// <summary>
-    /// Clones an OpenApiExample instance.
-    /// </summary>
-    /// <param name="example">The OpenApiExample to clone.</param>
-    /// <returns>A new OpenApiExample instance with the same properties as the input example.</returns>
-   /* public static IOpenApiExample Clone(this IOpenApiExample example)
-    {
-        if (example is OpenApiExample openApiExample)
-        {
-            return openApiExample.Clone();
-        }
-        else if (example is OpenApiExampleReference exampleRef)
-        {
-            return exampleRef.Clone();
-        }
-        throw new InvalidOperationException("Unsupported IOpenApiExample implementation.");
-    }*/
 
     /// <summary>
     /// Clones an OpenApiExampleReference instance.
@@ -325,21 +320,14 @@ public static class OpenApiComponentClone
     /// </summary>
     /// <param name="schema">The IOpenApiSchema to clone.</param>
     /// <returns>A new IOpenApiSchema instance with the same properties as the input schema.</returns>
-    public static IOpenApiSchema Clone(this IOpenApiSchema schema)
+    public static IOpenApiSchema Clone(this IOpenApiSchema schema) =>
+    schema switch
     {
+        OpenApiSchemaReference schemaRef => schemaRef.Clone(),
+        OpenApiSchema schemaObj => schemaObj.Clone(),
+        _ => throw new InvalidOperationException("Unsupported IOpenApiSchema implementation.")
+    };
 
-        if (schema is OpenApiSchemaReference schemaRef)
-        {
-            return schemaRef.Clone();
-        }
-        else if (schema is OpenApiSchema schemaObj)
-        {
-            return schemaObj.Clone();
-        }
-
-        throw new InvalidOperationException("Unsupported IOpenApiSchema implementation.");
-
-    }
 
     /// <summary>
     /// Clones an OpenApiSchema instance.
@@ -460,23 +448,37 @@ public static class OpenApiComponentClone
     #endregion
     #region Link
     /// <summary>
+    /// Clones a dictionary of IOpenApiLink instances.
+    /// </summary>
+    /// <param name="links">The dictionary of IOpenApiLink instances to clone.</param>
+    /// <returns>A new dictionary containing cloned IOpenApiLink instances.</returns>
+    public static IDictionary<string, IOpenApiLink>? Clone(this IDictionary<string, IOpenApiLink>? links)
+    {
+        if (links == null)
+        {
+            return null;
+        }
+
+        var clone = new Dictionary<string, IOpenApiLink>();
+        foreach (var kvp in links)
+        {
+            clone[kvp.Key] = kvp.Value.Clone();
+        }
+        return clone;
+    }
+
+    /// <summary>
     /// Clones an IOpenApiLink instance.
     /// </summary>
     /// <param name="link">The IOpenApiLink to clone.</param>
     /// <returns>A new IOpenApiLink instance with the same properties as the input link.</returns>
-    public static IOpenApiLink Clone(this IOpenApiLink link)
+    public static IOpenApiLink Clone(this IOpenApiLink link) =>
+    link switch
     {
-        if (link is OpenApiLink openApiLink)
-        {
-            return openApiLink.Clone();
-        }
-        else if (link is OpenApiLinkReference linkRef)
-        {
-            return linkRef.Clone();
-        }
-        throw new InvalidOperationException("Unsupported IOpenApiLink implementation.");
-
-    }
+        OpenApiLink linkObj => linkObj.Clone(),
+        OpenApiLinkReference linkRef => linkRef.Clone(),
+        _ => throw new InvalidOperationException("Unsupported IOpenApiLink implementation.")
+    };
 
     /// <summary>
     /// Clones an OpenApiLinkReference instance.
@@ -507,12 +509,30 @@ public static class OpenApiComponentClone
             Parameters = link.Parameters.Clone(),
             RequestBody = link.RequestBody!.Clone(),
             Description = link.Description,
-            Server = link.Server != null ? new OpenApiServer(link.Server) : null,
+            Server = link.Server?.Clone(),
             Extensions = link.Extensions.Clone()
         };
         return clone;
     }
     #endregion
+
+    /// <summary>
+    /// Clones an OpenApiServer instance.
+    /// </summary>
+    /// <param name="server">The OpenApiServer instance to clone.</param>
+    /// <returns>A new OpenApiServer instance with the same properties as the input instance.</returns>
+    public static OpenApiServer Clone(this OpenApiServer server)
+    {
+        var clone = new OpenApiServer
+        {
+            Url = server.Url,
+            Description = server.Description,
+            Variables = server.Variables != null ? new Dictionary<string, OpenApiServerVariable>(server.Variables) : null,
+            Extensions = server.Extensions.Clone()
+        };
+        return clone;
+    }
+
     #region RuntimeExpression
     /// <summary>
     /// Clones a RuntimeExpressionAnyWrapper instance.

@@ -109,7 +109,8 @@ class PetPage {
 }
 
 # --- Examples ---
-[OpenApiExampleComponent(Summary = 'A new kitten')] class NewPetExample {
+[OpenApiExampleComponent(Summary = 'A new kitten')]
+class NewPetExample {
     [string]$name = 'Luna'
     [string]$kind = 'cat'
     [string]$meowStyle = 'soft'
@@ -126,6 +127,15 @@ class PetPageSample {
     # }
 }
 
+[OpenApiExampleComponent()]
+class PetSample {
+    $value = @{
+        id = 1
+        name = 'Spots'
+        kind = 'dog'
+        barkStyle = 'deep'
+    }
+}
 # --- Headers (reusable, referenced by Key) ---
 [OpenApiHeaderComponent()]
 class CommonHeaders {
@@ -164,11 +174,11 @@ class PetLinks {
 }
 
 # --- Responses (headers live **inside** responses) ---
-[OpenApiResponseComponent(JoinClassName = '-', Description = 'Common problem response')]
+[OpenApiResponseComponent(  Description = 'Common problem response')]
 class ProblemResponse {
     [OpenApiResponseAttribute(Description = 'RFC 7807 Problem Details')]
-    [OpenApiContentTypeAttribute(ContentType = 'application/problem+json', ReferenceId = 'Problem')]
-    [Problem]$Default
+    [OpenApiContentTypeAttribute(ContentType = 'application/problem+json')]
+    [Problem]$Problem
 }
 
 [OpenApiResponseComponent(JoinClassName = '-', Description = 'Pet responses')]
@@ -183,6 +193,7 @@ class PetResponses {
     # 200 (single)
     [OpenApiResponseAttribute(Description = 'The pet')]
     [OpenApiHeaderRefAttribute(Key = 'X-Request-ID', ReferenceId = 'X-Request-ID')]
+    [OpenApiExampleRefAttribute(Key = 'pet', ReferenceId = 'PetSample', Inline = $true)]
     [Pet]$PetOK
 
     # 404
@@ -265,12 +276,12 @@ New-KrMapRouteBuilder -Verbs @('GET', 'POST') -Pattern '/pets' |
     Add-KrMapRouteOpenApiParameter -Verbs 'GET' -ReferenceId 'cursor' |
     Add-KrMapRouteOpenApiParameter -Verbs 'GET' -ReferenceId 'tag' -Embed |
     Add-KrMapRouteOpenApiResponse -Verbs 'GET' -StatusCode '200' -Description 'A page of pets' -ReferenceId 'PetResponses-OK' -Embed |
-    Add-KrMapRouteOpenApiResponse -Verbs 'GET' -StatusCode 'default' -Description 'Problem' -ReferenceId 'ProblemResponse-Default' |
+    Add-KrMapRouteOpenApiResponse -Verbs 'GET' -StatusCode 'default' -Description 'Problem' -ReferenceId 'Problem' |
     # POST
     Add-KrMapRouteOpenApiInfo -Verbs 'POST' -Summary 'Create a pet' -OperationId 'createPet' |
     Add-KrMapRouteOpenApiRequestBody -Verbs 'POST' -Description 'Pet to add' -ReferenceId 'CreatePetBody' -Embed |
-    Add-KrMapRouteOpenApiResponse -Verbs 'POST' -StatusCode '201' -Description 'Created' -ReferenceId 'CreatePetResponse-Created' |
-    Add-KrMapRouteOpenApiResponse -Verbs 'POST' -StatusCode 'default' -Description 'RFC 7807 Problem Details' -ReferenceId 'ProblemResponse-Default' |
+    Add-KrMapRouteOpenApiResponse -Verbs 'POST' -StatusCode '201' -Description 'Created' -ReferenceId 'CreatePetResponse-Created' -Embed |
+    Add-KrMapRouteOpenApiResponse -Verbs 'POST' -StatusCode 'default' -Description 'RFC 7807 Problem Details' -ReferenceId 'Problem' |
     Build-KrMapRoute
 
 # /pets/{petId}
@@ -293,17 +304,17 @@ New-KrMapRouteBuilder -Verbs @('GET', 'PATCH', 'DELETE') -Pattern '/pets/{petId}
     Add-KrMapRouteOpenApiParameter -ReferenceId 'petId' |
     Add-KrMapRouteOpenApiInfo -Verbs 'GET' -Summary 'Get a pet by id' -OperationId 'getPetById' |
     Add-KrMapRouteOpenApiResponse -Verbs 'GET' -StatusCode '200' -Description 'The pet' -ReferenceId 'PetResponses-PetOK' -Embed |
-    Add-KrMapRouteOpenApiResponse -Verbs 'GET' -StatusCode '404' -Description 'Not found' -ReferenceId 'PetResponses-NotFound' -Embed |
-    Add-KrMapRouteOpenApiResponse -Verbs 'GET' -StatusCode 'default' -Description 'Problem' -ReferenceId 'ProblemResponse-Default' |
+    Add-KrMapRouteOpenApiResponse -Verbs 'GET' -StatusCode '404' -Description 'Not found' -ReferenceId 'Problem' -Embed |
+    Add-KrMapRouteOpenApiResponse -Verbs 'GET' -StatusCode 'default' -ReferenceId 'Problem' |
     # PATCH
     Add-KrMapRouteOpenApiInfo -Verbs 'PATCH' -Summary 'Update part of a pet (merge-patch)' -OperationId 'patchPet' |
     Add-KrMapRouteOpenApiRequestBody -Verbs 'PATCH' -Description 'JSON Merge Patch' -ReferenceId 'PatchPetBody' -Embed |
     Add-KrMapRouteOpenApiResponse -Verbs 'PATCH' -StatusCode '200' -Description 'Updated pet' -ReferenceId 'PetResponses-PetOK' |
-    Add-KrMapRouteOpenApiResponse -Verbs 'PATCH' -StatusCode 'default' -Description 'Problem' -ReferenceId 'ProblemResponse-Default' |
+    Add-KrMapRouteOpenApiResponse -Verbs 'PATCH' -StatusCode 'default' -Description 'Problem' -ReferenceId 'Problem' |
     # DELETE
     Add-KrMapRouteOpenApiInfo -Verbs 'DELETE' -Summary 'Delete a pet' -OperationId 'deletePet' |
     Add-KrMapRouteOpenApiResponse -Verbs 'DELETE' -StatusCode '204' -Description 'Deleted' |
-    Add-KrMapRouteOpenApiResponse -Verbs 'DELETE' -StatusCode 'default' -Description 'Problem' -ReferenceId 'ProblemResponse-Default' |
+    Add-KrMapRouteOpenApiResponse -Verbs 'DELETE' -StatusCode 'default' -Description 'Problem' -ReferenceId 'Problem' |
     Build-KrMapRoute
 
 # --- OpenAPI doc routes / server start ---

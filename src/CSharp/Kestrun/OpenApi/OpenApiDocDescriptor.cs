@@ -1344,11 +1344,68 @@ public class OpenApiDocDescriptor
             {
                 ["application/json"] = new OpenApiMediaType()
             };
+            var pt = p.PropertyType;
+            var s = new OpenApiSchema();
+            var allowNull = false;
+            var underlying = Nullable.GetUnderlyingType(pt);
+            if (underlying != null)
+            {
+                allowNull = true;
+                pt = underlying;
+            }
 
+            if (pt.IsEnum)
+            {
+                s.Type = JsonSchemaType.String;
+                s.Enum = [.. pt.GetEnumNames().Select(n => (JsonNode)n)];
+                var propAttrs = p.GetCustomAttributes<OpenApiPropertyAttribute>(inherit: false).ToArray();
+                var a = MergeSchemaAttributes(propAttrs);
+                ApplySchemaAttr(a, s);
+                ApplyPowerShellValidationAttributes(p, s);
+                if (allowNull)
+                {
+                    s.Type |= JsonSchemaType.Null;
+                }
+            }
+
+            // array
+            if (pt.IsArray)
+            {
+                var item = pt.GetElementType()!;
+                IOpenApiSchema itemSchema;
+
+                if (!IsPrimitiveLike(item) && !item.IsEnum)
+                {
+                    // then reference it
+                    itemSchema = new OpenApiSchemaReference(item.Name);
+                }
+                else
+                {
+                    itemSchema = InferPrimitiveSchema(item);
+                }
+                // then build the array schema
+                s.Type = JsonSchemaType.Array;
+                s.Items = itemSchema;
+                ApplySchemaAttr(p.GetCustomAttribute<OpenApiPropertyAttribute>(), s);
+                ApplyPowerShellValidationAttributes(p, s);
+                if (allowNull)
+                {
+                    s.Type |= JsonSchemaType.Null;
+                }
+            }
+
+            // primitive
+            var prim = InferPrimitiveSchema(pt);
+            ApplySchemaAttr(p.GetCustomAttribute<OpenApiPropertyAttribute>(), prim);
+            ApplyPowerShellValidationAttributes(p, prim);
+            if (allowNull)
+            {
+                prim.Type |= JsonSchemaType.Null;
+            }
             // Set schema to $ref of property type
             foreach (var a in response.Content.Values)
             {
-                a.Schema ??= new OpenApiSchemaReference(p.PropertyType.Name);
+                a.Schema = s;
             }
         }
     }
@@ -1452,7 +1509,6 @@ public class OpenApiDocDescriptor
 
                     return true;
                 }
-
             default:
                 return false;
         }

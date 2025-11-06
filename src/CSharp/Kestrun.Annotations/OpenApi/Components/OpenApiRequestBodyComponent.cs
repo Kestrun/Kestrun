@@ -32,6 +32,13 @@ public sealed class OpenApiRequestBodyComponent : KestrunAnnotation
     public object? Example { get; set; }
 
     /// <summary>
+    /// Reference ID of a schema defined in components.schemas to use for the request body.
+    /// If provided, the generator will use that schema for the request body. If not provided,
+    /// the generator will try to infer a schema based on the annotated class.
+    /// </summary>
+    public string? ReferenceId { get; set; }
+
+    /// <summary>
     /// When true, emit an inline schema object instead of a $ref. If SchemaRef is provided and
     /// a matching schema exists in components, that schema will be embedded; otherwise the generator
     /// will try to infer an inline schema when possible.

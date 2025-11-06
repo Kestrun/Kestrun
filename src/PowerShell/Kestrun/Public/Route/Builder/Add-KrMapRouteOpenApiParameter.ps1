@@ -13,6 +13,8 @@
     A reference string for the OpenAPI parameter.
 .PARAMETER Embed
     A switch indicating whether to embed the parameter definition directly into the route or to reference it.
+.PARAMETER Key
+    An optional key to set the name of the parameter in the OpenAPI definition.
 .EXAMPLE
     # Create a new Map Route Builder
     $mapRouteBuilder = New-KrMapRouteBuilder |
@@ -34,7 +36,9 @@ function Add-KrMapRouteOpenApiParameter {
         [Parameter(Mandatory = $true)]
         [string]$ReferenceId,
         [Parameter()]
-        [switch]$Embed
+        [switch]$Embed,
+        [Parameter()]
+        [string]$Key
     )
     process {
         # Determine if we are using path-level metadata
@@ -45,10 +49,15 @@ function Add-KrMapRouteOpenApiParameter {
         if (-not $parameters.ContainsKey($ReferenceId)) {
             throw "Parameter with ReferenceId '$ReferenceId' does not exist in the OpenAPI document components."
         }
-        $parameter = ($Embed)?
-        ([Kestrun.OpenApi.OpenApiComponentClone]::Clone($parameters[$ReferenceId])):
-        ([Microsoft.OpenApi.OpenApiParameterReference]::new($ReferenceId))
-
+        if ($Embed) {
+            $parameter = ([Kestrun.OpenApi.OpenApiComponentClone]::Clone($parameters[$ReferenceId]))
+            # Set parameter name if provided
+            if ($PSBoundParameters.ContainsKey('Key')) {
+                $parameter.Name = $Key
+            }
+        } else {
+            $parameter = ([Microsoft.OpenApi.OpenApiParameterReference]::new($ReferenceId))
+        }
         # Update the MapRouteBuilder to use path-level metadata
         if ($usePathLevel) {
             if ($null -eq $MapRouteBuilder.PathLevelOpenAPIMetadata) {

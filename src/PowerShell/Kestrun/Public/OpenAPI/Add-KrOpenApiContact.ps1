@@ -27,9 +27,9 @@ function Add-KrOpenApiContact {
         [Kestrun.Hosting.KestrunHost]$Server,
         [Parameter()]
         [string[]]$DocId = @('default'),
-        [Parameter(Mandatory)]
+        [Parameter()]
         [string]$Name,
-        [Parameter(Mandatory)]
+        [Parameter()]
         [Uri]$Url,
         [Parameter()]
         [string]$Email

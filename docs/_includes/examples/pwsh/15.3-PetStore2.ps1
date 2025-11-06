@@ -111,6 +111,7 @@ class Order {
     [bool]$complete
 }
 
+#region COMPONENT REQUEST BODIES
 # =========================================================
 #                 COMPONENT REQUEST BODIES
 # =========================================================
@@ -131,6 +132,33 @@ class UserArrayBody {
     [OpenApiPropertyAttribute()]
     [User[]]$value
 }
+
+# RequestBody: User
+[OpenApiRequestBodyComponent(Description = 'Created user object', Required = $true)]
+[OpenApiRequestBodyComponent(ContentType = 'application/json')]
+[OpenApiRequestBodyComponent(ContentType = 'application/xml')]
+[OpenApiRequestBodyComponent(ContentType = 'application/x-www-form-urlencoded')]
+class UserBody {
+    [User]$value
+}
+
+# RequestBody: Order
+[OpenApiRequestBodyComponent(required = $true)]
+[OpenApiRequestBodyComponent(ContentType = 'application/json')]
+[OpenApiRequestBodyComponent(ContentType = 'application/xml')]
+[OpenApiRequestBodyComponent(ContentType = 'application/x-www-form-urlencoded')]
+class OrderBody {
+    [Order]$value
+}
+
+[OpenApiRequestBodyComponent(required = $true, ContentType = 'application/octet-stream')]
+class upload_OctetStream {
+    [OpenApiPropertyAttribute(Format = 'binary')]
+    [string]$value
+}
+#endregion
+
+#region COMPONENT PARAMETERS
 # =========================
 # COMPONENT: PARAMETERS
 # =========================
@@ -176,13 +204,12 @@ class DeletePetHeader {
 }
 
 # /pet/{petId}/uploadImage (plus optional additionalMetadata)
-[OpenApiParameterComponent()]
+[OpenApiParameterComponent(JoinClassName = '-')]
 class UploadImageParams {
-    [OpenApiParameterAttribute(In = [OaParameterLocation]::Path, Description = 'ID of pet to update')]
-    [OpenApiPropertyAttribute(Format = 'int64')]
+    [OpenApiParameterAttribute(In = [OaParameterLocation]::Path, Description = 'ID of pet to update', Name = 'petId')]
     [long]$petId
 
-    [OpenApiParameterAttribute(In = [OaParameterLocation]::Query, Description = 'Additional Metadata')]
+    [OpenApiParameterAttribute(In = [OaParameterLocation]::Query, Description = 'Additional Metadata', Name = 'additionalMetadata')]
     [string]$additionalMetadata
 }
 
@@ -210,7 +237,8 @@ class Param_Username {
     [OpenApiParameterAttribute(In = [OaParameterLocation]::Path, Description = 'The name that needs to be fetched. Use user1 for testing')]
     [string]$username
 }
-
+#endregion
+#region COMPONENT RESPONSES
 # =========================
 # COMPONENT: RESPONSES
 # =========================
@@ -514,13 +542,15 @@ class Resp_UserByName_Delete {
     [OpenApiContentTypeAttribute(ContentType = 'application/json')]
     [Error]$Default
 }
-
+#endregion
+#region COMPONENT SECURITY SCHEMES
 # =========================================================
 #                 SECURITY (placeholders)
 # =========================================================
 # TODO: securitySchemes (oauth2 implicit petstore_auth; api_key header) not yet implemented in Kestrun.
 # TODO: per-operation security requirements replicated below as comments.
-
+#endregion
+#region ROUTES / OPERATIONS
 # =========================================================
 #                 ROUTES / OPERATIONS
 # =========================================================
@@ -544,15 +574,14 @@ New-KrMapRouteBuilder -Verbs @('PUT', 'POST') -Pattern '/pet' |
     Add-KrMapRouteOpenApiResponse -StatusCode 'default' -ReferenceId 'Resp_Pet_Write-Default' |
     # PUT updatePet
     Add-KrMapRouteOpenApiInfo -Verbs 'PUT' -Summary 'Update an existing pet.' -Description 'Update an existing pet by Id.' -OperationId 'updatePet' |
-    Add-KrMapRouteOpenApiRequestBody -Verbs 'PUT' -Description 'Update an existent pet in the store' -ReferenceId 'PetBody' -Embed |
-
+    Add-KrMapRouteOpenApiRequestBody -Verbs 'PUT' -Description 'Update an existent pet in the store' -ReferenceId 'PetBody' |
     Add-KrMapRouteOpenApiResponse -Verbs 'PUT' -StatusCode '404' -ReferenceId 'Resp_Pet_Write-NotFound' -Embed |
 
     # TODO: security: petstore_auth [write:pets, read:pets]
 
     # POST addPet
     Add-KrMapRouteOpenApiInfo -Verbs 'POST' -Summary 'Add a new pet to the store.' -Description 'Add a new pet to the store.' -OperationId 'addPet' |
-    Add-KrMapRouteOpenApiRequestBody -Verbs 'POST' -Description 'Create a new pet in the store' -ReferenceId 'PetBody' -Embed |
+    Add-KrMapRouteOpenApiRequestBody -Verbs 'POST' -Description 'Create a new pet in the store' -ReferenceId 'PetBody' |
 
     # TODO: security: petstore_auth [write:pets, read:pets]
     Build-KrMapRoute
@@ -629,12 +658,9 @@ New-KrMapRouteBuilder -Verbs @('GET', 'POST', 'DELETE') -Pattern '/pet/{petId}' 
 New-KrMapRouteBuilder -Verbs 'POST' -Pattern '/pet/{petId}/uploadImage' |
     Add-KrMapRouteScriptBlock -ScriptBlock { Write-KrJsonResponse @{ } } |
     Add-KrMapRouteOpenApiTag -Tag 'pet' |
-    Add-KrMapRouteOpenApiParameter -ReferenceId 'UploadImageParams-petId' |
-    Add-KrMapRouteOpenApiParameter -ReferenceId 'UploadImageParams-additionalMetadata' |
-    Add-KrMapRouteOpenApiRequestBody -Description 'binary body' -Embed -ScriptBlock {
-        param($rb)
-        Add-KrOpenApiRequestBodyContent -RequestBody $rb -ContentType 'application/octet-stream' -Schema @{ type = 'string'; format = 'binary' } | Out-Null
-    } |
+    Add-KrMapRouteOpenApiParameter -ReferenceId 'UploadImageParams-petId' -Key 'petId' |
+    Add-KrMapRouteOpenApiParameter -ReferenceId 'UploadImageParams-additionalMetadata' -Key 'additionalMetadata' |
+    Add-KrMapRouteOpenApiRequestBody -Embed -ReferenceId 'upload_OctetStream' |
     Add-KrMapRouteOpenApiInfo -Summary 'Uploads an image.' -Description 'Upload image of the pet.' -OperationId 'uploadFile' |
     Add-KrMapRouteOpenApiResponse -StatusCode '200' -ReferenceId 'Resp_UploadImage-OK' -Embed |
     Add-KrMapRouteOpenApiResponse -StatusCode '400' -ReferenceId 'Resp_UploadImage-BadRequest' -Embed |
@@ -664,12 +690,7 @@ New-KrMapRouteBuilder -Verbs 'POST' -Pattern '/store/order' |
     Add-KrMapRouteScriptBlock -ScriptBlock { Write-KrJsonResponse @{ } } |
     Add-KrMapRouteOpenApiTag -Tag 'store' |
     Add-KrMapRouteOpenApiInfo -Summary 'Place an order for a pet.' -Description 'Place a new order in the store.' -OperationId 'placeOrder' |
-    Add-KrMapRouteOpenApiRequestBody -Description '' -Embed -ScriptBlock {
-        param($rb)
-        foreach ($ct in 'application/json', 'application/xml', 'application/x-www-form-urlencoded') {
-            Add-KrOpenApiRequestBodyContent -RequestBody $rb -ContentType $ct -SchemaRef 'Order' | Out-Null
-        }
-    } |
+    Add-KrMapRouteOpenApiRequestBody -Embed -ReferenceId 'OrderBody' |
     Add-KrMapRouteOpenApiResponse -StatusCode '200' -ReferenceId 'Resp_Order_Create-OK' -Embed |
     Add-KrMapRouteOpenApiResponse -StatusCode '400' -ReferenceId 'Resp_Order_Create-BadRequest' -Embed |
     Add-KrMapRouteOpenApiResponse -StatusCode '422' -ReferenceId 'Resp_Order_Create-UnprocessableEntity' -Embed |
@@ -708,12 +729,7 @@ New-KrMapRouteBuilder -Verbs 'POST' -Pattern '/user' |
     Add-KrMapRouteScriptBlock -ScriptBlock { Write-KrJsonResponse @{ } } |
     Add-KrMapRouteOpenApiTag -Tag 'user' |
     Add-KrMapRouteOpenApiInfo -Summary 'Create user.' -Description 'This can only be done by the logged in user.' -OperationId 'createUser' |
-    Add-KrMapRouteOpenApiRequestBody -Description 'Created user object' -Embed -ScriptBlock {
-        param($rb)
-        foreach ($ct in 'application/json', 'application/xml', 'application/x-www-form-urlencoded') {
-            Add-KrOpenApiRequestBodyContent -RequestBody $rb -ContentType $ct -SchemaRef 'User' | Out-Null
-        }
-    } |
+    Add-KrMapRouteOpenApiRequestBody -Embed -ReferenceId 'UserBody' |
     Add-KrMapRouteOpenApiResponse -StatusCode '200' -ReferenceId 'Resp_User_Create-OK' -Embed |
     Add-KrMapRouteOpenApiResponse -StatusCode 'default' -ReferenceId 'Resp_User_Create-Default' |
 
@@ -726,11 +742,7 @@ New-KrMapRouteBuilder -Verbs 'POST' -Pattern '/user/createWithList' |
     Add-KrMapRouteScriptBlock -ScriptBlock { Write-KrJsonResponse @() } |
     Add-KrMapRouteOpenApiTag -Tag 'user' |
     Add-KrMapRouteOpenApiInfo -Summary 'Creates list of users with given input array.' -Description 'Creates list of users with given input array.' -OperationId 'createUsersWithListInput' |
-    Add-KrMapRouteOpenApiRequestBody -Embed -ScriptBlock {
-        param($rb)
-        Add-KrOpenApiRequestBodyContent -RequestBody $rb -ContentType 'application/json' `
-            -Schema @{ type = 'array'; items = @{ '$ref' = '#/components/schemas/User' } } | Out-Null
-    } |
+    Add-KrMapRouteOpenApiRequestBody -Embed -ReferenceId 'UserArrayBody' |
     Add-KrMapRouteOpenApiResponse -StatusCode '200' -ReferenceId 'Resp_User_CreateWithList-OK' -Embed |
     Add-KrMapRouteOpenApiResponse -StatusCode 'default' -ReferenceId 'Resp_User_CreateWithList-Default' |
 
@@ -781,7 +793,7 @@ New-KrMapRouteBuilder -Verbs @('GET', 'PUT', 'DELETE') -Pattern '/user/{username
 
     # PUT /user/{username}
     Add-KrMapRouteOpenApiInfo -Verbs 'PUT' -Summary 'Update user resource.' -Description 'This can only be done by the logged in user.' -OperationId 'updateUser' |
-   <# Add-KrMapRouteOpenApiRequestBody -Verbs 'PUT' -Description 'Update an existent user in the store' -Embed -ScriptBlock {
+    <# Add-KrMapRouteOpenApiRequestBody -Verbs 'PUT' -Description 'Update an existent user in the store' -Embed -ScriptBlock {
         param($rb)
         foreach ($ct in 'application/json', 'application/xml', 'application/x-www-form-urlencoded') {
             Add-KrOpenApiRequestBodyContent -RequestBody $rb -ContentType $ct -SchemaRef 'User' | Out-Null
@@ -808,13 +820,18 @@ New-KrMapRouteBuilder -Verbs @('GET', 'PUT', 'DELETE') -Pattern '/user/{username
 #                OPENAPI DOC ROUTE / BUILD
 # =========================================================
 Add-KrOpenApiRoute -Pattern '/openapi/{version}/openapi.{format}'
+#endregion
 
+#region BUILD AND TEST OPENAPI DOCUMENT
 # Register component requestBodies to match Pet/UserArray in official doc
 # (If your builder collects from class attributes, this is already handled.)
 
 Build-KrOpenApiDocument
 Test-KrOpenApiDocument
+#endregion
 
+#region RUN SERVER
 # Optional: run server (your call, you deliciously decisive creature)
 Add-KrEndpoint -Port $Port -IPAddress $IPAddress
 Start-KrServer -Server $srv -CloseLogsOnExit
+#endregion

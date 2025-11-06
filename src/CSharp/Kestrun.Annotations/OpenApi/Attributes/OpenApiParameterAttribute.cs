@@ -7,7 +7,8 @@ public sealed class OpenApiParameterAttribute : KestrunAnnotation
 {
     /// <summary>Where the parameter lives (query/header/path/cookie).</summary>
     public string In { get; set; } = OaParameterLocation.Query.ToString();
-
+    /// <summary>Override the parameter name (default: property name).</summary>
+    public string? Name { get; set; }
     /// <summary>
     /// Optional description for the parameter.
     /// </summary>

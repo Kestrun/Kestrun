@@ -29,14 +29,13 @@ public static class OpenApiSchemaDiscovery
 
             SchemaTypes = [.. assemblies.SelectMany(asm => asm.GetTypes())
             .Where(t => t.IsClass && !t.IsAbstract &&
-                   (t.GetCustomAttributes(typeof(OpenApiSchemaComponent), true).Length != 0 ||
-                    t.GetCustomAttributes(typeof(OpenApiRequestBodyComponent), true).Length != 0))],
+                   (t.GetCustomAttributes(typeof(OpenApiSchemaComponent), true).Length != 0 )
+                   )],
             // Use similar logic for Response types
             ResponseTypes = [.. assemblies.SelectMany(asm => asm.GetTypes())
             .Where(t => t.IsClass && !t.IsAbstract &&
-                   (t.GetCustomAttributes(typeof(OpenApiResponseComponent), true).Length != 0
-                   ))
-                    ],
+                   (t.GetCustomAttributes(typeof(OpenApiResponseComponent), true).Length != 0)
+                   )],
             // Use similar logic for Header types
             HeaderTypes = [.. assemblies.SelectMany(asm => asm.GetTypes())
             .Where(t => t.IsClass && !t.IsAbstract &&

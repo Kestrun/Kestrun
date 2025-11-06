@@ -364,12 +364,17 @@ public class OpenApiDocDescriptor
     }
 
     #region Schemas
-    private void BuildSchema(Type t, HashSet<Type>? built = null)
+    private OpenApiSchema BuildSchemaForType(Type t, HashSet<Type>? built = null)
     {
         built ??= [];
+        var schema = new OpenApiSchema
+        {
+            Type = JsonSchemaType.Object,
+            Properties = new Dictionary<string, IOpenApiSchema>(StringComparer.Ordinal)
+        };
         if (built.Contains(t))
         {
-            return;
+            return schema;
         }
 
         _ = built.Add(t);
@@ -384,19 +389,15 @@ public class OpenApiDocDescriptor
                     Enum = [.. t.GetEnumNames().Select(n => (JsonNode)n)]
                 };
             }
-            return;
+            return schema;
         }
 
         if (IsPrimitiveLike(t))
         {
-            return; // primitives don't go to components
+            return schema; // primitives don't go to components
         }
 
-        var schema = new OpenApiSchema
-        {
-            Type = JsonSchemaType.Object,
-            Properties = new Dictionary<string, IOpenApiSchema>(StringComparer.Ordinal)
-        };
+
         var clsComp = t.GetCustomAttributes(inherit: false)
         .Where(a => a is OpenApiSchemaComponent)
         .OrderBy(a => a is not OpenApiSchemaComponent)
@@ -473,10 +474,13 @@ public class OpenApiDocDescriptor
                  _ = schema.Required.Add(p.Name);
              }*/
         }
-
+        return schema;
+    }
+    private void BuildSchema(Type t, HashSet<Type>? built = null)
+    {
         if (Document.Components is not null && Document.Components.Schemas is not null)
         {
-            Document.Components.Schemas[t.Name] = schema;
+            Document.Components.Schemas[t.Name] = BuildSchemaForType(t, built);
         }
     }
 
@@ -1078,12 +1082,16 @@ public class OpenApiDocDescriptor
                 continue;
             }
             var tname = string.IsNullOrWhiteSpace(customName) ? p.Name : customName!;
-            parameter.Name = joinClassName is not null ? $"{joinClassName}{tname}" : tname;
+            var key = joinClassName is not null ? $"{joinClassName}{tname}" : tname;
+            if (string.IsNullOrWhiteSpace(parameter.Name))
+            {
+                parameter.Name = tname;
+            }
             if (parameter.Description is null && defaultDescription is not null)
             {
                 parameter.Description = defaultDescription;
             }
-            Document.Components.Parameters[parameter.Name] = parameter;
+            Document.Components.Parameters[key] = parameter;
 
             var schemaAttr = (OpenApiPropertyAttribute?)p.GetCustomAttributes(inherit: false)
                               .Where(a => a.GetType().Name == "OpenApiPropertyAttribute")
@@ -1196,7 +1204,7 @@ public class OpenApiDocDescriptor
             case OpenApiParameterAttribute param:
 
                 parameter.Description = param.Description;
-                parameter.Name = param.Key;
+                parameter.Name = string.IsNullOrEmpty(param.Name) ? param.Key : param.Name;
                 parameter.Required = param.Required;
                 parameter.Deprecated = param.Deprecated;
                 parameter.AllowEmptyValue = param.AllowEmptyValue;
@@ -1345,7 +1353,7 @@ public class OpenApiDocDescriptor
                 ["application/json"] = new OpenApiMediaType()
             };
             var pt = p.PropertyType;
-            var s = new OpenApiSchema();
+            IOpenApiSchema iSchema;
             var allowNull = false;
             var underlying = Nullable.GetUnderlyingType(pt);
             if (underlying != null)
@@ -1356,20 +1364,22 @@ public class OpenApiDocDescriptor
 
             if (pt.IsEnum)
             {
-                s.Type = JsonSchemaType.String;
-                s.Enum = [.. pt.GetEnumNames().Select(n => (JsonNode)n)];
+                var schema = new OpenApiSchema
+                {
+                    Type = JsonSchemaType.String,
+                    Enum = [.. pt.GetEnumNames().Select(n => (JsonNode)n)]
+                };
                 var propAttrs = p.GetCustomAttributes<OpenApiPropertyAttribute>(inherit: false).ToArray();
                 var a = MergeSchemaAttributes(propAttrs);
-                ApplySchemaAttr(a, s);
-                ApplyPowerShellValidationAttributes(p, s);
+                ApplySchemaAttr(a, schema);
+                ApplyPowerShellValidationAttributes(p, schema);
                 if (allowNull)
                 {
-                    s.Type |= JsonSchemaType.Null;
+                    schema.Type |= JsonSchemaType.Null;
                 }
+                iSchema = schema;
             }
-
-            // array
-            if (pt.IsArray)
+            else if (pt.IsArray)
             {
                 var item = pt.GetElementType()!;
                 IOpenApiSchema itemSchema;
@@ -1383,29 +1393,44 @@ public class OpenApiDocDescriptor
                 {
                     itemSchema = InferPrimitiveSchema(item);
                 }
-                // then build the array schema
-                s.Type = JsonSchemaType.Array;
-                s.Items = itemSchema;
-                ApplySchemaAttr(p.GetCustomAttribute<OpenApiPropertyAttribute>(), s);
-                ApplyPowerShellValidationAttributes(p, s);
+                var schema = new OpenApiSchema
+                {
+                    // then build the array schema
+                    Type = JsonSchemaType.Array,
+                    Items = itemSchema
+                };
+                ApplySchemaAttr(p.GetCustomAttribute<OpenApiPropertyAttribute>(), schema);
+                ApplyPowerShellValidationAttributes(p, schema);
                 if (allowNull)
                 {
-                    s.Type |= JsonSchemaType.Null;
+                    schema.Type |= JsonSchemaType.Null;
                 }
+                iSchema = schema;
+            }
+            else if (!IsPrimitiveLike(pt))
+            {
+                EnsureSchemaComponent(pt);
+
+                iSchema = new OpenApiSchemaReference(pt.Name);
+            }
+            else
+            {
+
+                var schema = InferPrimitiveSchema(pt);
+                ApplySchemaAttr(p.GetCustomAttribute<OpenApiPropertyAttribute>(), schema);
+                ApplyPowerShellValidationAttributes(p, schema);
+                if (allowNull)
+                {
+                    schema.Type |= JsonSchemaType.Null;
+                }
+                iSchema = schema;
             }
 
-            // primitive
-            var prim = InferPrimitiveSchema(pt);
-            ApplySchemaAttr(p.GetCustomAttribute<OpenApiPropertyAttribute>(), prim);
-            ApplyPowerShellValidationAttributes(p, prim);
-            if (allowNull)
-            {
-                prim.Type |= JsonSchemaType.Null;
-            }
+
             // Set schema to $ref of property type
             foreach (var a in response.Content.Values)
             {
-                a.Schema = s;
+                a.Schema = iSchema;
             }
         }
     }
@@ -1759,7 +1784,7 @@ public class OpenApiDocDescriptor
     private void BuildRequestBodies(Type t)
     {
         Document.Components!.RequestBodies ??= new Dictionary<string, IOpenApiRequestBody>(StringComparer.Ordinal);
-
+        var schema = BuildSchemaForType(t);
         var requestBody = new OpenApiRequestBody();
         // class-level
         var classAttrs = t.GetCustomAttributes(inherit: false)
@@ -1776,15 +1801,19 @@ public class OpenApiDocDescriptor
                 case OpenApiRequestBodyComponent bodyAttribute:
 
                     name = GetKeyOverride(a) ?? t.Name;
-                    requestBody.Description = bodyAttribute.Description;
-                    requestBody.Required = bodyAttribute.Required;
+                    if (bodyAttribute.Description is not null)
+                    {
+                        requestBody.Description = bodyAttribute.Description;
+                    }
+                    requestBody.Required |= bodyAttribute.Required;
                     // Build content
                     requestBody.Content ??= new Dictionary<string, OpenApiMediaType>(StringComparer.Ordinal);
                     mediaType = new OpenApiMediaType
                     {
-                        Schema = new OpenApiSchemaReference(name)
+                        Schema = schema //new OpenApiSchemaReference(name)
                     };
-                    if (bodyAttribute.Inline)
+                    //mediaType.Schema = schema;
+                    /*if (bodyAttribute.Inline)
                     {
                         if (Document.Components?.Schemas == null || !Document.Components.Schemas.TryGetValue(name, out var value))
                         {
@@ -1795,7 +1824,7 @@ public class OpenApiDocDescriptor
                     else
                     {
                         mediaType.Schema = new OpenApiSchemaReference(name);
-                    }
+                    }*/
 
                     if (bodyAttribute.Example is not null)
                     {

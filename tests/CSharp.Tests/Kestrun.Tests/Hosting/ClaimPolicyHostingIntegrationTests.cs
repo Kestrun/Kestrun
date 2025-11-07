@@ -29,7 +29,7 @@ public class ClaimPolicyHostingIntegrationTests
             scheme: "BasicX",
             configure: opts =>
             {
-                opts.RequireHttps = false; // keep defaults simple
+                opts.AllowInsecureHttp = false; // keep defaults simple
                 opts.ClaimPolicyConfig = cfg;
             });
 
@@ -67,7 +67,7 @@ public class ClaimPolicyHostingIntegrationTests
             scheme: "ApiKeyX",
             configure: opts =>
             {
-                opts.RequireHttps = false;
+                opts.AllowInsecureHttp = false;
                 opts.ExpectedKey = "ignored-for-test";
                 opts.ClaimPolicyConfig = cfg;
             });

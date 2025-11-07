@@ -33,7 +33,7 @@ public class ApiKeyAuthenticationOptionsTest
     public void RequireHttps_Defaults_To_True()
     {
         var options = new ApiKeyAuthenticationOptions();
-        Assert.True(options.RequireHttps);
+        Assert.True(options.AllowInsecureHttp);
     }
 
     [Fact]

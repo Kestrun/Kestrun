@@ -273,11 +273,9 @@ function Add-KrBasicAuthentication {
             if (-not [string]::IsNullOrWhiteSpace($Realm)) {
                 $Options.Realm = $Realm
             }
-            if ($AllowInsecureHttp.IsPresent) {
-                $Options.RequireHttps = $false
-            } else {
-                $Options.RequireHttps = $true
-            }
+
+            $Options.AllowInsecureHttp = $AllowInsecureHttp.IsPresent
+
             if ($null -ne $ClaimPolicyConfig) {
                 $Options.ClaimPolicyConfig = $ClaimPolicyConfig
             }

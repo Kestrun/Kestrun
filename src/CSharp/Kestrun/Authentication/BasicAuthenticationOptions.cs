@@ -39,9 +39,9 @@ public partial class BasicAuthenticationOptions : AuthenticationSchemeOptions, I
     public Serilog.ILogger Logger { get; set; } = Serilog.Log.ForContext<BasicAuthenticationOptions>();
 
     /// <summary>
-    /// Gets or sets a value indicating whether HTTPS is required for authentication.
+    /// Gets or sets a value indicating whether to allow insecure HTTP connections.
     /// </summary>
-    public bool RequireHttps { get; set; } = true;
+    public bool AllowInsecureHttp { get; set; }
 
     /// <summary>
     /// Gets or sets a value indicating whether to suppress the WWW-Authenticate header in responses.

@@ -62,4 +62,9 @@ public record OpenAPIMetadata : OpenAPICommonMetadata
     /// </summary>
     public IDictionary<string, IOpenApiCallback>? Callbacks { get; set; }
 
+    /// <summary>
+    /// A declaration of which security mechanisms can be used for this operation.
+    /// The list of values includes alternative security requirement objects that can be used.
+    /// </summary>
+    public IEnumerable<string>? Security { get; set; }
 }

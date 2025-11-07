@@ -26,6 +26,14 @@ function Add-KrMapRouteAuthorizationSchema {
         [string[]]$AuthorizationSchema
     )
     process {
+        foreach ($verb in $MapRouteBuilder.HttpVerbs) {
+            if (-not $MapRouteBuilder.OpenApi.ContainsKey($verb)) {
+                $MapRouteBuilder.OpenApi[$verb] = [Kestrun.Hosting.Options.OpenAPIMetadata]::new($MapRouteBuilder.Pattern)
+            }
+            $MapRouteBuilder.OpenApi[$verb].Enabled = $true
+            $MapRouteBuilder.OpenApi[$verb].Security = $AuthorizationSchema
+        }
+
         $MapRouteBuilder.RequireSchemes = $AuthorizationSchema
 
         # Return the modified MapRouteBuilder for pipeline chaining

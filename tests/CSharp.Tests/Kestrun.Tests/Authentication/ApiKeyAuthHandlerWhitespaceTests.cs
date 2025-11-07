@@ -22,7 +22,7 @@ public class ApiKeyAuthHandlerWhitespaceTests
             HeaderName = "X-Api-Key",
             AdditionalHeaderNames = ["X-Alt-Api-Key"],
             AllowQueryStringFallback = true,
-            RequireHttps = false,
+            AllowInsecureHttp = false,
             EmitChallengeHeader = false,
             ExpectedKey = "my-secret-api-key",
             Logger = new LoggerConfiguration().MinimumLevel.Error().CreateLogger()

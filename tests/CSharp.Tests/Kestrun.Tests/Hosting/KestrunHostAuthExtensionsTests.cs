@@ -178,7 +178,7 @@ public class KestrunHostAuthExtensionsTests
             HeaderName = "Authorization",
             Base64Encoded = true,
             Realm = "realm",
-            RequireHttps = false,
+            AllowInsecureHttp = false,
             SuppressWwwAuthenticate = false,
             ClaimPolicyConfig = cfg
         };
@@ -262,7 +262,7 @@ public class KestrunHostAuthExtensionsTests
             ExpectedKey = "abc",
             HeaderName = "X-API-KEY",
             AllowQueryStringFallback = true,
-            RequireHttps = false,
+            AllowInsecureHttp = false,
             EmitChallengeHeader = false,
             ClaimPolicyConfig = cfg
         };

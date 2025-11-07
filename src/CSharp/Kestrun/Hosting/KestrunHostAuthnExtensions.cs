@@ -100,7 +100,7 @@ public static class KestrunHostAuthnExtensions
                 }
 
                 opts.Realm = configure.Realm;
-                opts.RequireHttps = configure.RequireHttps;
+                opts.AllowInsecureHttp = configure.AllowInsecureHttp;
                 opts.SuppressWwwAuthenticate = configure.SuppressWwwAuthenticate;
                 // Logger configuration
                 opts.Logger = configure.Logger == Log.ForContext<BasicAuthenticationOptions>() ?
@@ -574,7 +574,7 @@ public static class KestrunHostAuthnExtensions
                 opts.Logger = configure.Logger == Log.ForContext<ApiKeyAuthenticationOptions>() ?
                         host.Logger.ForContext<ApiKeyAuthenticationOptions>() : configure.Logger;
 
-                opts.RequireHttps = configure.RequireHttps;
+                opts.AllowInsecureHttp = configure.AllowInsecureHttp;
                 opts.EmitChallengeHeader = configure.EmitChallengeHeader;
                 opts.ChallengeHeaderFormat = configure.ChallengeHeaderFormat;
                 opts.ValidateCodeSettings = configure.ValidateCodeSettings;

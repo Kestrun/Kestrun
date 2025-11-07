@@ -16,7 +16,7 @@ public class ApiKeyAuthHandlerTest
 {
     private static ApiKeyAuthenticationOptions GetDefaultOptions(
         string expectedKey = "test-key",
-        bool requireHttps = false,
+        bool allowInsecureHttp = true,
         bool allowQueryStringFallback = false,
         string headerName = "X-Api-Key")
     {
@@ -24,7 +24,7 @@ public class ApiKeyAuthHandlerTest
         {
             HeaderName = headerName,
             ExpectedKey = expectedKey,
-            RequireHttps = requireHttps,
+            AllowInsecureHttp = allowInsecureHttp,
             AllowQueryStringFallback = allowQueryStringFallback,
             Logger = new LoggerConfiguration().MinimumLevel.Debug().CreateLogger(),
             AdditionalHeaderNames = [],
@@ -122,7 +122,7 @@ public class ApiKeyAuthHandlerTest
     [Fact]
     public async Task HandleAuthenticateAsync_Fails_WhenHttpsRequired_AndNotHttps()
     {
-        var options = GetDefaultOptions(requireHttps: true);
+        var options = GetDefaultOptions(allowInsecureHttp: true);
         var context = CreateHttpContext("test-key", isHttps: false);
         var handler = CreateHandler(options, context);
 

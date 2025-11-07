@@ -78,6 +78,9 @@ function Add-KrApiKeyAuthentication {
         [Parameter(Mandatory = $true)]
         [string]$Name,
 
+        [Parameter()]
+        [string[]]$DocId = @('default'),
+
         [Parameter(Mandatory = $true, ParameterSetName = 'Options')]
         [Kestrun.Authentication.ApiKeyAuthenticationOptions]$Options,
 
@@ -328,11 +331,8 @@ function Add-KrApiKeyAuthentication {
                 $Options.ChallengeHeaderFormat = $ChallengeHeaderFormat
             }
 
-            if ($AllowInsecureHttp.IsPresent) {
-                $Options.RequireHttps = $false
-            } else {
-                $Options.RequireHttps = $true
-            }
+            $Options.AllowInsecureHttp = $AllowInsecureHttp.IsPresent
+
             if ($null -ne $ClaimPolicyConfig) {
                 $Options.ClaimPolicyConfig = $ClaimPolicyConfig
             }
@@ -380,7 +380,11 @@ function Add-KrApiKeyAuthentication {
             $Name,
             $Options
         ) | Out-Null
-
+        foreach ($doc in $DocId) {
+            $docDescriptor = $Server.GetOrCreateOpenApiDocument($doc)
+            if ($null -eq $docDescriptor) { break }
+            $docDescriptor.ApplyApiKeySecurityScheme($Name, $Options)
+        }
         if ($PassThru.IsPresent) {
             # if the PassThru switch is specified, return the modified server instance
             return $Server

@@ -49,9 +49,9 @@ public class ApiKeyAuthenticationOptions : AuthenticationSchemeOptions, IAuthent
     public Serilog.ILogger Logger { get; set; } = Serilog.Log.ForContext<ApiKeyAuthenticationOptions>();
 
     /// <summary>
-    /// If true, requires HTTPS for API key requests.
+    /// If true, allows API key authentication over insecure HTTP connections.
     /// </summary>
-    public bool RequireHttps { get; set; } = true;
+    public bool AllowInsecureHttp { get; set; }
 
     /// <summary>
     /// If true, includes the <c>WWW-Authenticate</c> header in 401 responses.

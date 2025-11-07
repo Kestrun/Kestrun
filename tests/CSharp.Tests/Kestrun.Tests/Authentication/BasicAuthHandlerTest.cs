@@ -19,7 +19,7 @@ public class BasicAuthHandlerTest
 {
     private static BasicAuthenticationOptions CreateOptions(
         Func<HttpContext, string, string, Task<bool>>? validator = null,
-        bool requireHttps = false,
+        bool allowInsecureHttp = true,
         bool base64 = true,
         string? headerName = "Authorization",
         Serilog.ILogger? logger = null)
@@ -27,7 +27,7 @@ public class BasicAuthHandlerTest
         return new BasicAuthenticationOptions
         {
             ValidateCredentialsAsync = validator ?? ((_, _, _) => Task.FromResult(false)),
-            RequireHttps = requireHttps,
+            AllowInsecureHttp = allowInsecureHttp,
             Base64Encoded = base64,
             HeaderName = headerName ?? "Authorization",
             Logger = logger ?? new LoggerConfiguration().MinimumLevel.Debug().WriteTo.Console().CreateLogger(),
@@ -86,7 +86,7 @@ public class BasicAuthHandlerTest
     [Fact]
     public async Task HandleAuthenticateAsync_ReturnsFail_WhenHttpsRequiredAndNotHttps()
     {
-        var options = CreateOptions(validator: (_, _, _) => Task.FromResult(true), requireHttps: true);
+        var options = CreateOptions(validator: (_, _, _) => Task.FromResult(true), allowInsecureHttp: true);
         var context = new DefaultHttpContext();
         context.Request.Scheme = "http";
         var handler = CreateHandler(options, context);
@@ -233,7 +233,7 @@ public class BasicAuthHandlerTest
     public void PreValidateRequest_ReturnsFail_WhenHttpsRequiredAndNotHttps()
     {
         // Arrange
-        var opts = CreateOptions(validator: (_, _, _) => Task.FromResult(true), requireHttps: true);
+        var opts = CreateOptions(validator: (_, _, _) => Task.FromResult(true), allowInsecureHttp: true);
         var ctx = new DefaultHttpContext();
         ctx.Request.Scheme = "http";
         var handler = CreateHandler(opts, ctx);
@@ -254,9 +254,9 @@ public class BasicAuthHandlerTest
     public void PreValidateRequest_ReturnsNull_WhenAllGood()
     {
         // Arrange
-        var opts = CreateOptions(validator: (_, _, _) => Task.FromResult(true), requireHttps: false);
+        var opts = CreateOptions(validator: (_, _, _) => Task.FromResult(true), allowInsecureHttp: false);
         var ctx = new DefaultHttpContext();
-        ctx.Request.Scheme = "http"; // doesn't matter since RequireHttps = false
+        ctx.Request.Scheme = "http"; // doesn't matter since AllowInsecureHttp = true
         var handler = CreateHandler(opts, ctx);
 
         var method = typeof(BasicAuthHandler).GetMethod("PreValidateRequest", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);

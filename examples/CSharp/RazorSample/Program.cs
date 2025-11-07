@@ -74,7 +74,7 @@ server.AddResponseCompression(options =>
         """
     };
     opts.Base64Encoded = true;            // default anyway
-    opts.RequireHttps = false;           // example
+    opts.AllowInsecureHttp = false;           // example
 })
 .AddMapRoute("/assets/report", HttpVerb.Get, async ctx =>
 {

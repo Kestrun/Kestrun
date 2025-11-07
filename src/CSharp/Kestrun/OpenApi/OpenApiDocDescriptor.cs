@@ -36,6 +36,11 @@ public class OpenApiDocDescriptor
     public OpenApiDocument Document { get; private set; } = new OpenApiDocument { Components = new OpenApiComponents() };
 
     /// <summary>
+    /// Security requirements for the OpenAPI document.
+    /// </summary>
+    public IDictionary<string, OpenApiSecurityRequirement> SecurityRequirement { get; private set; } = new Dictionary<string, OpenApiSecurityRequirement>();
+
+    /// <summary>
     /// Initializes a new instance of the OpenApiDocDescriptor.
     /// </summary>
     /// <param name="host">The Kestrun host.</param>
@@ -56,10 +61,7 @@ public class OpenApiDocDescriptor
     /// <returns>The generated OpenAPI document.</returns>
     public void GenerateComponents(OpenApiComponentSet components)
     {
-        if (Document.Components is null)
-        {
-            Document.Components = new OpenApiComponents();
-        }
+        Document.Components ??= new OpenApiComponents();
         // Examples
         if (components.ExampleTypes is not null && components.ExampleTypes.Count > 0)
         {
@@ -295,7 +297,7 @@ public class OpenApiDocDescriptor
     /// </summary>
     /// <param name="meta">The OpenAPIMetadata to build from.</param>
     /// <returns>The constructed OpenApiOperation.</returns>
-    private static OpenApiOperation BuildOperationFromMetadata(OpenAPIMetadata meta)
+    private OpenApiOperation BuildOperationFromMetadata(OpenAPIMetadata meta)
     {
         var op = new OpenApiOperation
         {
@@ -353,12 +355,37 @@ public class OpenApiDocDescriptor
 
         // Responses (required by spec)
         op.Responses = meta.Responses ?? new OpenApiResponses { ["200"] = new OpenApiResponse { Description = "Success" } };
-
         // Callbacks
         if (meta.Callbacks is not null && meta.Callbacks.Count > 0)
         {
             op.Callbacks = new Dictionary<string, IOpenApiCallback>(meta.Callbacks);
         }
+        if (meta.Security is not null)
+        {
+            // If meta.Security is an empty sequence, you may want to mark the op as anonymous.
+            if (!meta.Security.Any())
+            {
+                // Explicitly anonymous for this operation (overrides any Document.Security)
+                op.Security = [];
+            }
+            else
+            {
+                op.Security ??= [];
+                foreach (var schemeName in meta.Security)
+                {
+                    if (SecurityRequirement.TryGetValue(schemeName, out var req))
+                    {
+                        op.Security.Add(req);
+                    }
+                    else
+                    {
+                        // optional: log or throw so you don’t end up with {} in JSON
+                        throw new InvalidOperationException($"Unknown security scheme '{schemeName}'.");
+                    }
+                }
+            }
+        }
+
 
         return op;
     }
@@ -2708,4 +2735,47 @@ public class OpenApiDocDescriptor
             _ = Host.AddMapRoute(routeOptions);
         }
     }
+
+    /// <summary>
+    /// Applies an API key security scheme to the OpenAPI document.
+    /// </summary>
+    /// <param name="Name">The name of the security scheme.</param>
+    /// <param name="Options">The API key authentication options.</param>
+    public void ApplyApiKeySecurityScheme(string Name, Authentication.ApiKeyAuthenticationOptions Options)
+    {
+        Document.Components ??= new OpenApiComponents();
+        Document.Components.SecuritySchemes ??= new Dictionary<string, IOpenApiSecurityScheme>(StringComparer.Ordinal);
+
+        var securityScheme = new OpenApiSecurityScheme()
+        {
+            Type = SecuritySchemeType.ApiKey,
+            Name = Options.HeaderName,
+            In = ParameterLocation.Header
+        };
+        if (Options.AllowQueryStringFallback)
+        {
+            // Note: OpenAPI does not have a direct way to indicate query string fallback for API keys.
+            // This is a documentation note only.
+            securityScheme.Description = "API key can also be provided in the query string as a fallback.";
+        }
+        if (Options.AllowInsecureHttp)
+        {
+            // Note: OpenAPI does not have a direct way to indicate allowance of insecure HTTP.
+            // This is a documentation note only.
+            securityScheme.Description += " (Insecure HTTP allowed)";
+        }
+
+
+        Document.Components.SecuritySchemes[Name] = securityScheme;
+        // Reference it by NAME in the requirement (no .Reference in v2)
+        var requirement = new OpenApiSecurityRequirement
+        {
+            [new OpenApiSecuritySchemeReference(Name)] = []
+        };
+        SecurityRequirement[Name] = requirement;
+        // Apply globally (or attach to specific operations)
+        Document.Security ??= [];
+        Document.Security.Add(requirement);
+    }
+
 }

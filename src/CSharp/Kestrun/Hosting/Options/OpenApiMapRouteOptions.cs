@@ -1,4 +1,3 @@
-using Kestrun.Hosting.Options;
 using Microsoft.OpenApi;
 
 namespace Kestrun.Hosting.Options;

@@ -235,7 +235,7 @@ server.AddResponseCompression(options =>
 
 
     opts.Base64Encoded = true;            // default anyway
-    opts.RequireHttps = false;           // example
+    opts.AllowInsecureHttp = false;           // example
     opts.ClaimPolicyConfig = claimConfig;
 }
 )

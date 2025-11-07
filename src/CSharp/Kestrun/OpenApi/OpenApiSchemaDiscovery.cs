@@ -29,12 +29,13 @@ public static class OpenApiSchemaDiscovery
 
             SchemaTypes = [.. assemblies.SelectMany(asm => asm.GetTypes())
             .Where(t => t.IsClass && !t.IsAbstract &&
-                   (t.GetCustomAttributes(typeof(OpenApiSchemaComponent), true).Length != 0 )
+                    !typeof(IOpenApiType).IsAssignableFrom(t) &&
+                    (t.GetCustomAttributes(typeof(OpenApiSchemaComponent), true).Length != 0)
                    )],
             // Use similar logic for Response types
             ResponseTypes = [.. assemblies.SelectMany(asm => asm.GetTypes())
             .Where(t => t.IsClass && !t.IsAbstract &&
-                   (t.GetCustomAttributes(typeof(OpenApiResponseComponent), true).Length != 0)
+                    (t.GetCustomAttributes(typeof(OpenApiResponseComponent), true).Length != 0)
                    )],
             // Use similar logic for Header types
             HeaderTypes = [.. assemblies.SelectMany(asm => asm.GetTypes())
@@ -43,11 +44,10 @@ public static class OpenApiSchemaDiscovery
                     ))],
             ExampleTypes = [.. assemblies.SelectMany(asm => asm.GetTypes())
             .Where(t => t.IsClass && !t.IsAbstract &&
-                   ( t.GetCustomAttributes(typeof(OpenApiExampleComponent), true).Length != 0))],
+                    (t.GetCustomAttributes(typeof(OpenApiExampleComponent), true).Length != 0))],
             RequestBodyTypes = [.. assemblies.SelectMany(asm => asm.GetTypes())
             .Where(t => t.IsClass && !t.IsAbstract &&
                     (t.GetCustomAttributes(typeof(OpenApiRequestBodyComponent), true).Length != 0))],
-
             LinkTypes = [.. assemblies.SelectMany(asm => asm.GetTypes())
             .Where(t => t.IsClass && !t.IsAbstract &&
                     (t.GetCustomAttributes(typeof(OpenApiLinkComponent), true).Length != 0))],

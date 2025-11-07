@@ -7,7 +7,7 @@
 /// <item><description>Property (member-level): set description, format, constraints, enum, etc.</description></item>
 /// </list>
 /// </summary>
-[AttributeUsage(AttributeTargets.Property | AttributeTargets.Parameter | AttributeTargets.Field, AllowMultiple = true)]
+[AttributeUsage(AttributeTargets.Property | AttributeTargets.Parameter | AttributeTargets.Class | AttributeTargets.Field, Inherited = true, AllowMultiple = true)]
 public sealed class OpenApiPropertyAttribute : KestrunAnnotation
 {
     // ---- Basic ----
@@ -31,7 +31,10 @@ public sealed class OpenApiPropertyAttribute : KestrunAnnotation
     public bool WriteOnly { get; set; }
     /// <summary>Marks the schema/property as deprecated.</summary>
     public bool Deprecated { get; set; }
-
+    /// <summary>
+    /// Indicates the property is an array (enables array constraints).
+    /// </summary>
+    public bool Array { get; set; }
     // ---- Numbers ----
     /// <summary>Value must be a multiple of this.</summary>
     public decimal? MultipleOf { get; set; }

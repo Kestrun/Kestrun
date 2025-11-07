@@ -364,9 +364,44 @@ public class OpenApiDocDescriptor
     }
 
     #region Schemas
-    private OpenApiSchema BuildSchemaForType(Type t, HashSet<Type>? built = null)
+
+    private static JsonSchemaType Map(OaSchemaType t) => t switch
+    {
+        OaSchemaType.String => JsonSchemaType.String,
+        OaSchemaType.Integer => JsonSchemaType.Integer,
+        OaSchemaType.Number => JsonSchemaType.Number,
+        OaSchemaType.Boolean => JsonSchemaType.Boolean,
+        _ => JsonSchemaType.String
+    };
+    private static OpenApiPropertyAttribute? GetSchemaIdentity(Type t)
+    {
+        // inherit:true already climbs the chain until it finds the first one
+        var attrs = (OpenApiPropertyAttribute[])t.GetCustomAttributes(typeof(OpenApiPropertyAttribute), inherit: true);
+        return attrs.Length > 0 ? attrs[0] : null;
+    }
+
+    private IOpenApiSchema BuildSchemaForType(Type t, HashSet<Type>? built = null)
     {
         built ??= [];
+        if (t.BaseType is not null && t.BaseType != typeof(object))
+        {
+            if (typeof(IOpenApiType).IsAssignableFrom(t))
+            {
+                var a = GetSchemaIdentity(t);
+                if (a is not null)
+                {
+                    return new OpenApiSchema
+                    {
+                        Type = Map(a.Type),
+                        Format = a.Format
+                    };
+                }
+            }
+            else
+            {
+                return new OpenApiSchemaReference(t.BaseType.Name); // Ensure base type schema is built first
+            }
+        }
         var schema = new OpenApiSchema
         {
             Type = JsonSchemaType.Object,
@@ -459,22 +494,70 @@ public class OpenApiDocDescriptor
             {
                 try
                 {
-                    var def = p.GetValue(inst);
-                    if (def is not null)
+                    var val = p.GetValue(inst);
+                    if (!IsIntrinsicDefault(val, p.PropertyType))
                     {
-                        concrete.Default = ToNode(def);
+                        concrete.Default = ToNode(val);
                     }
                 }
                 catch { /* ignore */ }
             }
             schema.Properties[p.Name] = ps;
-            /* if (p.GetCustomAttribute<OpenApiRequiredPropertyAttribute>() != null)
-             {
-                 schema.Required ??= new HashSet<string>(StringComparer.Ordinal);
-                 _ = schema.Required.Add(p.Name);
-             }*/
         }
         return schema;
+    }
+    /// <summary>
+    /// Determines if a value is the intrinsic default for its declared type.
+    /// </summary>
+    /// <param name="value">The value to check.</param>
+    /// <param name="declaredType">The declared type of the value.</param>
+    /// <returns>True if the value is the intrinsic default for its declared type; otherwise, false.</returns>
+    private static bool IsIntrinsicDefault(object? value, Type declaredType)
+    {
+        if (value is null)
+        {
+            return true;
+        }
+
+        // Unwrap Nullable<T>
+        var t = Nullable.GetUnderlyingType(declaredType) ?? declaredType;
+
+        // Reference types: null is the only intrinsic default
+        if (!t.IsValueType)
+        {
+            return false;
+        }
+
+        // Special-cases for common structs
+        if (t == typeof(Guid))
+        {
+            return value.Equals(Guid.Empty);
+        }
+
+        if (t == typeof(TimeSpan))
+        {
+            return value.Equals(TimeSpan.Zero);
+        }
+
+        if (t == typeof(DateTime))
+        {
+            return value.Equals(default(DateTime));
+        }
+
+        if (t == typeof(DateTimeOffset))
+        {
+            return value.Equals(default(DateTimeOffset));
+        }
+
+        // Enums: 0 is intrinsic default
+        if (t.IsEnum)
+        {
+            return Convert.ToInt64(value) == 0;
+        }
+
+        // Primitive/value types: compare to default(T)
+        var def = Activator.CreateInstance(t);
+        return value.Equals(def);
     }
     private void BuildSchema(Type t, HashSet<Type>? built = null)
     {
@@ -1788,7 +1871,7 @@ public class OpenApiDocDescriptor
         var requestBody = new OpenApiRequestBody();
         // class-level
         var classAttrs = t.GetCustomAttributes(inherit: false)
-            .Where(a => a is OpenApiRequestBodyComponent or OpenApiExampleRefAttribute)
+            .Where(a => a is OpenApiRequestBodyComponent or OpenApiExampleRefAttribute or OpenApiPropertyAttribute)
             .OrderBy(a => a is not OpenApiRequestBodyComponent)
             .ToArray();
 
@@ -1812,25 +1895,37 @@ public class OpenApiDocDescriptor
                     {
                         Schema = schema //new OpenApiSchemaReference(name)
                     };
-                    //mediaType.Schema = schema;
-                    /*if (bodyAttribute.Inline)
-                    {
-                        if (Document.Components?.Schemas == null || !Document.Components.Schemas.TryGetValue(name, out var value))
-                        {
-                            throw new InvalidOperationException($"Example reference '{name}' cannot be embedded because it was not found in components.");
-                        }
-                        mediaType.Schema = value.Clone();
-                    }
-                    else
-                    {
-                        mediaType.Schema = new OpenApiSchemaReference(name);
-                    }*/
 
                     if (bodyAttribute.Example is not null)
                     {
                         mediaType.Example = ToNode(bodyAttribute.Example);
                     }
                     requestBody.Content[bodyAttribute.ContentType ?? "application/json"] = mediaType;
+                    break;
+                case OpenApiPropertyAttribute schemaAttr:
+                    if (schemaAttr.Array && schema is OpenApiSchemaReference)
+                    {
+                        // Wrap referenced schema in an array schema
+                        var arraySchema = new OpenApiSchema
+                        {
+                            Type = JsonSchemaType.Array,
+                            Items = schema
+                        };
+                        schema = arraySchema;
+
+                    }
+                    // Apply schema attribute to the schema
+                    ApplySchemaAttr(schemaAttr, schema);
+                    // No content yet; create default application/json media type
+                    requestBody.Content ??= new Dictionary<string, OpenApiMediaType>(StringComparer.Ordinal)
+                    {
+                        ["application/json"] = new OpenApiMediaType()
+                    };
+                    // Determine which content types to add the example reference to
+                    foreach (var value in requestBody.Content.Values)
+                    {
+                        value.Schema = schema;
+                    }
                     break;
                 case OpenApiExampleRefAttribute exRef:
 

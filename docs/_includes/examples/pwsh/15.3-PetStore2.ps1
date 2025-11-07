@@ -115,47 +115,50 @@ class Order {
 # =========================================================
 #                 COMPONENT REQUEST BODIES
 # =========================================================
-
-# RequestBody: Pet
-[OpenApiRequestBodyComponent(Description = 'Pet object that needs to be added to the store', Required = $true)]
-[OpenApiRequestBodyComponent(ContentType = 'application/json')]
-[OpenApiRequestBodyComponent(ContentType = 'application/xml')]
-[OpenApiRequestBodyComponent(ContentType = 'application/x-www-form-urlencoded')]
-class PetBody {
-    [Pet]$value
+[OpenApiRequestBodyComponent()]
+class test {
+    [Nullable[long]]$id
+    [OpenApiPropertyAttribute(Description = 'Quantity of items', Minimum = 1, Maximum = 200)]
+    [int]$quantity
+    [OpenApiPropertyAttribute(Description = 'Maximum items allowed', Minimum = 1, Maximum = 200)]
+    [int]$maximum = 200
+    [Pet]$pet
+    [User]$user
 }
+# RequestBody: upload_OctetStream
+[OpenApiRequestBodyComponent(required = $true, ContentType = 'application/octet-stream')]
+#[OpenApiPropertyAttribute(Format = 'binary')]
+class Upload_OctetStream:OpenApiBinary {}
 
 # RequestBody: UserArray
 [OpenApiRequestBodyComponent(Description = 'List of user object', Required = $true)]
 [OpenApiRequestBodyComponent(ContentType = 'application/json')]
-class UserArrayBody {
-    [OpenApiPropertyAttribute()]
-    [User[]]$value
-}
+[OpenApiPropertyAttribute(Array = $true)]
+class UserArrayBody:User {}
 
 # RequestBody: User
 [OpenApiRequestBodyComponent(Description = 'Created user object', Required = $true)]
 [OpenApiRequestBodyComponent(ContentType = 'application/json')]
 [OpenApiRequestBodyComponent(ContentType = 'application/xml')]
 [OpenApiRequestBodyComponent(ContentType = 'application/x-www-form-urlencoded')]
-class UserBody {
-    [User]$value
-}
+class UserBody:User {}
+
+# RequestBody: Pet
+[OpenApiRequestBodyComponent(Description = 'Pet object that needs to be added to the store', Required = $true)]
+[OpenApiRequestBodyComponent(ContentType = 'application/json')]
+[OpenApiRequestBodyComponent(ContentType = 'application/xml')]
+[OpenApiRequestBodyComponent(ContentType = 'application/x-www-form-urlencoded')]
+class PetBody:Pet {}
 
 # RequestBody: Order
 [OpenApiRequestBodyComponent(required = $true)]
 [OpenApiRequestBodyComponent(ContentType = 'application/json')]
 [OpenApiRequestBodyComponent(ContentType = 'application/xml')]
 [OpenApiRequestBodyComponent(ContentType = 'application/x-www-form-urlencoded')]
-class OrderBody {
-    [Order]$value
+class OrderBody:Order {
 }
 
-[OpenApiRequestBodyComponent(required = $true, ContentType = 'application/octet-stream')]
-class upload_OctetStream {
-    [OpenApiPropertyAttribute(Format = 'binary')]
-    [string]$value
-}
+
 #endregion
 
 #region COMPONENT PARAMETERS
@@ -660,7 +663,7 @@ New-KrMapRouteBuilder -Verbs 'POST' -Pattern '/pet/{petId}/uploadImage' |
     Add-KrMapRouteOpenApiTag -Tag 'pet' |
     Add-KrMapRouteOpenApiParameter -ReferenceId 'UploadImageParams-petId' -Key 'petId' |
     Add-KrMapRouteOpenApiParameter -ReferenceId 'UploadImageParams-additionalMetadata' -Key 'additionalMetadata' |
-    Add-KrMapRouteOpenApiRequestBody -Embed -ReferenceId 'upload_OctetStream' |
+    Add-KrMapRouteOpenApiRequestBody -Embed -ReferenceId 'Upload_OctetStream' |
     Add-KrMapRouteOpenApiInfo -Summary 'Uploads an image.' -Description 'Upload image of the pet.' -OperationId 'uploadFile' |
     Add-KrMapRouteOpenApiResponse -StatusCode '200' -ReferenceId 'Resp_UploadImage-OK' -Embed |
     Add-KrMapRouteOpenApiResponse -StatusCode '400' -ReferenceId 'Resp_UploadImage-BadRequest' -Embed |

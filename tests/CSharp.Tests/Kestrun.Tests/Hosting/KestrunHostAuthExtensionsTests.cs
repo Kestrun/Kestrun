@@ -149,6 +149,33 @@ public class KestrunHostAuthExtensionsTests
 
     [Fact]
     [Trait("Category", "Hosting")]
+    public void OAuth2_Adds_Schemes_And_Cookie_PolicyScheme()
+    {
+        var host = new KestrunHost("TestApp");
+        var opts = new Microsoft.AspNetCore.Authentication.OAuth.OAuthOptions
+        {
+            ClientId = "client",
+            ClientSecret = "secret",
+            AuthorizationEndpoint = "https://example.com/oauth/authorize",
+            TokenEndpoint = "https://example.com/oauth/token",
+            CallbackPath = "/signin-oauth",
+            UsePkce = true,
+            SaveTokens = true
+        };
+        opts.Scope.Add("profile");
+        opts.Scope.Add("email");
+        // keep options minimal; claim mapping validated indirectly in handler
+
+        _ = host.AddOAuth2Authentication("OAuthX", opts);
+        _ = host.Build();
+
+        Assert.True(host.HasAuthScheme("OAuthX"));
+        Assert.True(host.HasAuthScheme("OAuthX.Policy"));
+        Assert.True(host.HasAuthScheme("OAuthX.Cookies"));
+    }
+
+    [Fact]
+    [Trait("Category", "Hosting")]
     public void OpenIdConnect_Omitted_ClaimPolicies_Registers_No_Custom_Policy()
     {
         var host = new KestrunHost("TestApp");

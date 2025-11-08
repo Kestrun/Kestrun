@@ -30,6 +30,20 @@
     One or more OAuth scopes to request.
 .PARAMETER CookieScheme
     The cookie scheme that OAuth signs into. Defaults to '<Name>.Cookies' if not specified.
+.PARAMETER UsePkce
+    Enables Proof Key for Code Exchange (PKCE) for the authorization code flow.
+.PARAMETER SignInScheme
+    Explicit cookie scheme to sign into (overrides -CookieScheme if both provided).
+.PARAMETER ClaimsIssuer
+    The issuer to use when creating claims.
+.PARAMETER ClaimMap
+    Hashtable mapping ClaimType => JsonKey for mapping userinfo JSON fields to claims.
+.PARAMETER ClaimSubMap
+    Hashtable mapping ClaimType => 'jsonKey:subKey' for nested userinfo JSON fields.
+.PARAMETER BackchannelTimeout
+    Timeout for the backchannel HTTP client used by the OAuth handler.
+.PARAMETER BackchannelHeaders
+    Additional default headers to set on the backchannel HTTP client (hashtable of Name=Value).
 .PARAMETER PassThru
     If specified, returns the modified server instance.
 .EXAMPLE
@@ -94,6 +108,27 @@ function Add-KrOAuth2Authentication {
         [Parameter(ParameterSetName = 'Items')]
         [string]$CookieScheme,
 
+        [Parameter(ParameterSetName = 'Items')]
+        [switch]$UsePkce,
+
+        [Parameter(ParameterSetName = 'Items')]
+        [string]$SignInScheme,
+
+        [Parameter(ParameterSetName = 'Items')]
+        [string]$ClaimsIssuer,
+
+        [Parameter(ParameterSetName = 'Items')]
+        [hashtable]$ClaimMap,
+
+        [Parameter(ParameterSetName = 'Items')]
+        [hashtable]$ClaimSubMap,
+
+        [Parameter(ParameterSetName = 'Items')]
+        [TimeSpan]$BackchannelTimeout,
+
+        [Parameter(ParameterSetName = 'Items')]
+        [hashtable]$BackchannelHeaders,
+
         [Parameter()]
         [switch]$PassThru
     )
@@ -116,10 +151,14 @@ function Add-KrOAuth2Authentication {
             $Options.SaveTokens = $true
 
             # Sign-in target (cookie)
-            if ([string]::IsNullOrWhiteSpace($CookieScheme)) {
-                $CookieScheme = "$Name.Cookies"
+            if (-not [string]::IsNullOrWhiteSpace($SignInScheme)) {
+                $Options.SignInScheme = $SignInScheme
+            } else {
+                if ([string]::IsNullOrWhiteSpace($CookieScheme)) {
+                    $CookieScheme = "$Name.Cookies"
+                }
+                $Options.SignInScheme = $CookieScheme
             }
-            $Options.SignInScheme = $CookieScheme
 
             # Scopes
             if ($null -ne $Scope -and $Scope.Count -gt 0) {
@@ -131,6 +170,56 @@ function Add-KrOAuth2Authentication {
             if (-not [string]::IsNullOrWhiteSpace($UserInformationPath)) {
                 $Options.UserInformationEndpoint = ($Authority.TrimEnd('/') + '/' + $UserInformationPath.TrimStart('/'))
                 # Claim mapping can be customized later in C# or via a future -ClaimMap parameter
+            }
+
+            # PKCE
+            if ($UsePkce.IsPresent) { $Options.UsePkce = $true }
+
+            # Claims issuer
+            if (-not [string]::IsNullOrWhiteSpace($ClaimsIssuer)) { $Options.ClaimsIssuer = $ClaimsIssuer }
+
+            # Claim mappings (flat) – manually create JsonKeyClaimAction (extension helpers not available)
+            if ($ClaimMap) {
+                foreach ($k in $ClaimMap.Keys) {
+                    $jsonKey = [string]$ClaimMap[$k]
+                    $claimType = [string]$k
+                    $action = [Microsoft.AspNetCore.Authentication.OAuth.Claims.JsonKeyClaimAction]::new(
+                        $claimType,
+                        [System.Security.Claims.ClaimValueTypes]::String,
+                        $jsonKey)
+                    $Options.ClaimActions.Add($action)
+                }
+            }
+            # Claim mappings (nested jsonKey:subKey) – manually create JsonSubKeyClaimAction
+            if ($ClaimSubMap) {
+                foreach ($k in $ClaimSubMap.Keys) {
+                    $spec = [string]$ClaimSubMap[$k]
+                    $parts = $spec.Split(':', 2)
+                    if ($parts.Count -eq 2 -and $parts[0] -and $parts[1]) {
+                        $claimType = [string]$k
+                        $jsonKey = $parts[0]
+                        $subKey = $parts[1]
+                        $action = [Microsoft.AspNetCore.Authentication.OAuth.Claims.JsonSubKeyClaimAction]::new(
+                            $claimType,
+                            [System.Security.Claims.ClaimValueTypes]::String,
+                            $jsonKey,
+                            $subKey)
+                        $Options.ClaimActions.Add($action)
+                    }
+                }
+            }
+
+            # Backchannel
+            if ($PSBoundParameters.ContainsKey('BackchannelTimeout') -or $BackchannelHeaders) {
+                $handler = [System.Net.Http.HttpClientHandler]::new()
+                $client = [System.Net.Http.HttpClient]::new($handler)
+                if ($PSBoundParameters.ContainsKey('BackchannelTimeout')) { $client.Timeout = $BackchannelTimeout }
+                if ($BackchannelHeaders) {
+                    foreach ($h in $BackchannelHeaders.GetEnumerator()) {
+                        [void]$client.DefaultRequestHeaders.TryAddWithoutValidation([string]$h.Key, [string]$h.Value)
+                    }
+                }
+                $Options.Backchannel = $client
             }
         }
 

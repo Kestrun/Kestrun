@@ -18,8 +18,8 @@ param(
     [string]$TokenPath = '/login/oauth/access_token',
     [string]$CallbackPath = '/signin-oauth'
 )
-$ClientId = 'Ov23liPwNax68FU5v09g'
-$ClientSecret = '36d1ecab4a9e646d56173512ceca6420dfcf0238'
+# Tip: Set GITHUB_CLIENT_ID / GITHUB_CLIENT_SECRET in your environment for local runs
+#       $env:GITHUB_CLIENT_ID = 'xxx'; $env:GITHUB_CLIENT_SECRET = 'yyy'
 # 1) Logging
 New-KrLogger |
     Set-KrLoggerLevel -Value Debug |
@@ -36,7 +36,7 @@ Add-KrEndpoint -Port $Port -IPAddress $IPAddress -SelfSignedCert
 #    Important: SameSite=Lax is friendlier for OAuth return redirects.
 #New-KrCookieBuilder -Name 'KestrunAuth' -HttpOnly -SecurePolicy Always -SameSite Lax |
 #   Add-KrCookiesAuthentication -Name 'Cookies' `
-##     -ExpireTimeSpan (New-TimeSpan -Minutes 30)
+#      -ExpireTimeSpan (New-TimeSpan -Minutes 30)
 
 
 # 5) OAuth2 scheme (AUTH CHALLENGE) — signs into the 'Cookies' scheme above
@@ -47,8 +47,9 @@ Add-KrOAuth2Authentication -Name 'GitHub' `
     -CallbackPath $CallbackPath `
     -ClientId $ClientId `
     -ClientSecret $ClientSecret `
-    -Scope 'read:user', 'user:email'
-#-CookieScheme 'Cookie8s'
+    -UsePkce `
+    -Scope 'read:user', 'user:email' #`
+# -CookieScheme 'Cookies'
 
 # 6) Finalize configuration
 Enable-KrConfiguration
@@ -68,7 +69,7 @@ Add-KrMapRoute -Verbs Get -Pattern '/' -ScriptBlock {
 # 8) Protected routes (challenge via 'GitHub', session via 'Cookies')
 Add-KrRouteGroup -Prefix '/secure/oauth' -AuthorizationSchema 'GitHub' {
     Add-KrMapRoute -Verbs Get -Pattern '/hello' -ScriptBlock {
-        $name = $Context.User?.Identity?.Name
+        $name = $Context.User.Identity.Name
         if ([string]::IsNullOrWhiteSpace($name)) { $name = '(no name claim)' }
         Write-KrTextResponse "hello, $name — you’re suavely authenticated via GitHub → Cookies."
     }
@@ -84,7 +85,7 @@ Add-KrRouteGroup -Prefix '/secure/oauth' -AuthorizationSchema 'GitHub' {
 
     # sign-out clears the session cookie (no remote sign-out for plain OAuth2)
     Add-KrMapRoute -Verbs Get -Pattern '/logout' -ScriptBlock {
-        Invoke-KrCookieSignOut -Scheme 'Cookies' -Redirect -RedirectUri '/'
+        #Invoke-KrCookieSignOut -Scheme 'Cookies'
     }
 }
 

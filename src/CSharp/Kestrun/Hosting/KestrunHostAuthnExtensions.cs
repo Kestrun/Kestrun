@@ -13,6 +13,7 @@ using Microsoft.AspNetCore.Authentication.Negotiate;
 using Kestrun.Claims;
 using Serilog;
 using Microsoft.AspNetCore.Authentication.OAuth;
+using System.Text.Json;
 
 
 namespace Kestrun.Hosting;
@@ -354,8 +355,7 @@ public static class KestrunHostAuthnExtensions
     }
     #endregion
 
-    #region OAuth2
-
+    #region OAuth2 Authentication
     /// <summary>
     /// Adds OAuth2 authentication to the Kestrun host.
     /// <para>Use this for applications that require OAuth2 authentication.</para>
@@ -371,6 +371,8 @@ public static class KestrunHostAuthnExtensions
         OAuthOptions options,
         ClaimPolicyConfig? claimPolicy = null /* optional in practice */)
     {
+        // register in host for introspection
+        _ = host.RegisteredAuthentications.Register(scheme, "OAuth2", options);
         // Derive cookie/policy schemes
         var cookieScheme = string.IsNullOrWhiteSpace(options.SignInScheme)
             ? scheme + ".Cookies"
@@ -398,6 +400,31 @@ public static class KestrunHostAuthnExtensions
                     {
                         o.SaveTokens = true;
                     }
+
+                    // If a UserInformationEndpoint is specified and no custom OnCreatingTicket logic
+                    // adds claims, attach a default handler that fetches user info JSON and runs claim actions.
+                    var previous = o.Events?.OnCreatingTicket;
+                    o.Events ??= new OAuthEvents();
+                    o.Events.OnCreatingTicket = async context =>
+                    {
+                        if (previous is not null)
+                        {
+                            await previous(context).ConfigureAwait(false);
+                        }
+
+                        if (!string.IsNullOrWhiteSpace(context.Options.UserInformationEndpoint))
+                        {
+                            using var request = new HttpRequestMessage(HttpMethod.Get, context.Options.UserInformationEndpoint);
+                            request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", context.AccessToken);
+                            request.Headers.Accept.ParseAdd("application/json");
+
+                            using var response = await context.Backchannel.SendAsync(request, context.HttpContext.RequestAborted).ConfigureAwait(false);
+                            _ = response.EnsureSuccessStatusCode();
+
+                            using var payload = JsonDocument.Parse(await response.Content.ReadAsStringAsync(context.HttpContext.RequestAborted).ConfigureAwait(false));
+                            context.RunClaimActions(payload.RootElement);
+                        }
+                    };
                 });
 
                 // Policy scheme: auth/sign-in/out → cookies; challenge → OAuth
@@ -410,8 +437,8 @@ public static class KestrunHostAuthnExtensions
                     fwd.ForwardChallenge = scheme;
                 });
             },
-            // If you need claimPolicy applied, plug its logic here later
-            configureAuthz: null
+            // Apply claim policy if supplied (consistent with other schemes)
+            configureAuthz: claimPolicy?.ToAuthzDelegate()
         );
 
         static void Copy(OAuthOptions dst, OAuthOptions src)
@@ -423,10 +450,26 @@ public static class KestrunHostAuthnExtensions
             dst.ClientSecret = src.ClientSecret;
             dst.CallbackPath = src.CallbackPath;
             dst.SaveTokens = src.SaveTokens;
+            dst.ClaimsIssuer = src.ClaimsIssuer;
+            dst.UsePkce = src.UsePkce;
             dst.Scope.Clear();
             foreach (var s in src.Scope)
             {
                 dst.Scope.Add(s);
+            }
+
+            // Backchannel & timeout (if provided)
+            if (src.BackchannelTimeout != default)
+            {
+                dst.BackchannelTimeout = src.BackchannelTimeout;
+            }
+            if (src.Backchannel is not null)
+            {
+                dst.Backchannel = src.Backchannel;
+            }
+            if (src.BackchannelHttpHandler is not null)
+            {
+                dst.BackchannelHttpHandler = src.BackchannelHttpHandler;
             }
 
             // Claim actions & events (if any) need copying explicitly:
@@ -446,14 +489,6 @@ public static class KestrunHostAuthnExtensions
         }
     }
 
-    /// <summary>
-    /// Combines a base URI and a relative path into a single URI.
-    /// </summary>
-    /// <param name="baseUri">The base URI.</param>
-    /// <param name="relative">The relative path.</param>
-    /// <returns>The combined URI.</returns>
-    private static string Combine(string baseUri, string relative)
-        => baseUri.TrimEnd('/') + "/" + relative.TrimStart('/');
     #endregion
 
     #region Helper Methods

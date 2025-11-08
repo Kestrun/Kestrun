@@ -141,10 +141,21 @@ public class KestrunHostAuthExtensionsTests
     public void OpenIdConnect_Adds_Scheme()
     {
         var host = new KestrunHost("TestApp");
-        _ = host.AddOpenIdConnectAuthentication("OidcX", "client", "secret", "https://example.com");
+        _ = host.AddOpenIdConnectAuthentication(
+            scheme: "OidcX",
+            clientId: "client",
+            clientSecret: "secret",
+            authority: "https://example.com",
+            scope: ["email"],
+            callbackPath: "/signin-custom",
+            usePkce: true,
+            saveTokens: true,
+            getUserInfo: true);
         _ = host.Build();
 
         Assert.True(host.HasAuthScheme("OidcX"));
+        Assert.True(host.HasAuthScheme("OidcX.Cookies"));
+        Assert.True(host.HasAuthScheme("OidcX.Policy"));
     }
 
     [Fact]

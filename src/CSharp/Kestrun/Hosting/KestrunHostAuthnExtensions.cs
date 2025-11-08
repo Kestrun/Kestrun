@@ -107,7 +107,7 @@ public static class KestrunHostAuthnExtensions
                 opts.RequireHttps = configure.RequireHttps;
                 opts.SuppressWwwAuthenticate = configure.SuppressWwwAuthenticate;
                 // Logger configuration
-                opts.Logger = configure.Logger == Log.ForContext<BasicAuthenticationOptions>() ?
+                opts.Logger = configure.Logger == host.Logger.ForContext<BasicAuthenticationOptions>() ?
                             host.Logger.ForContext<BasicAuthenticationOptions>() : configure.Logger;
 
                 // Copy properties from the provided configure object
@@ -346,7 +346,7 @@ public static class KestrunHostAuthnExtensions
                     {
                         // let caller mutate everything first
                         configure?.Invoke(opts);
-                        Log.Debug("Configured Cookie Authentication with LoginPath: {LoginPath}", opts.LoginPath);
+                        host.Logger.Debug("Configured Cookie Authentication with LoginPath: {LoginPath}", opts.LoginPath);
                     });
             },
              configureAuthz: claimPolicy?.ToAuthzDelegate()
@@ -545,7 +545,7 @@ public static class KestrunHostAuthnExtensions
                             using var response = await context.Backchannel.SendAsync(request, context.HttpContext.RequestAborted).ConfigureAwait(false);
                             if (!response.IsSuccessStatusCode)
                             {
-                                Log.Warning("OAuth userinfo request failed: {StatusCode} {Reason}", (int)response.StatusCode, response.ReasonPhrase);
+                                host.Logger.Warning("OAuth userinfo request failed: {StatusCode} {Reason}", (int)response.StatusCode, response.ReasonPhrase);
                                 return; // proceed without userinfo claims
                             }
 
@@ -847,7 +847,7 @@ public static class KestrunHostAuthnExtensions
                 opts.AdditionalHeaderNames = configure.AdditionalHeaderNames;
                 opts.AllowQueryStringFallback = configure.AllowQueryStringFallback;
                 // Logger configuration
-                opts.Logger = configure.Logger == Log.ForContext<ApiKeyAuthenticationOptions>() ?
+                opts.Logger = configure.Logger == host.Logger.ForContext<ApiKeyAuthenticationOptions>() ?
                         host.Logger.ForContext<ApiKeyAuthenticationOptions>() : configure.Logger;
 
                 opts.RequireHttps = configure.RequireHttps;
@@ -871,7 +871,13 @@ public static class KestrunHostAuthnExtensions
     /// <param name="clientId">The client ID for the OpenID Connect application.</param>
     /// <param name="clientSecret">The client secret for the OpenID Connect application.</param>
     /// <param name="authority">The authority URL for the OpenID Connect provider.</param>
-    /// <param name="configure">An optional action to configure the OpenID Connect options.</param>
+    /// <param name="scope">Optional additional scopes; default includes openid and profile.</param>
+    /// <param name="callbackPath">Optional callback path (default "/signin-oidc").</param>
+    /// <param name="usePkce">Enable PKCE for code flow (default true).</param>
+    /// <param name="saveTokens">Persist tokens into auth cookie (default true).</param>
+    /// <param name="getUserInfo">Call UserInfo endpoint to populate claims when available (default true).</param>
+    /// <param name="verboseEvents">When true, logs token response presence and remote failures (for diagnostics).</param>
+    /// <param name="configure">An optional action to further configure the OpenID Connect options.</param>
     /// <param name="configureAuthz">An optional action to configure the authorization options.</param>
     /// <returns>The configured KestrunHost instance.</returns>
     public static KestrunHost AddOpenIdConnectAuthentication(
@@ -879,14 +885,27 @@ public static class KestrunHostAuthnExtensions
         string scheme,
         string clientId,
         string clientSecret,
-        string authority,
+    string authority,
+    IEnumerable<string>? scope = null,
+    string? callbackPath = null,
+    bool usePkce = true,
+    bool saveTokens = true,
+    bool getUserInfo = true,
+    bool verboseEvents = false,
         Action<OpenIdConnectOptions>? configure = null,
         Action<AuthorizationOptions>? configureAuthz = null)
     {
+        // Derive cookie/policy schemes
+        var cookieScheme = scheme + ".Cookies";
+        var policyScheme = scheme + ".Policy";
+
         return host.AddAuthentication(
-            defaultScheme: scheme,
+            defaultScheme: policyScheme,
             buildSchemes: ab =>
             {
+                // Cookie scheme for local sign-in persistence
+                _ = ab.AddCookie(cookieScheme);
+
                 _ = ab.AddOpenIdConnect(
                     authenticationScheme: scheme,
                     displayName: "OIDC",
@@ -895,10 +914,77 @@ public static class KestrunHostAuthnExtensions
                         opts.ClientId = clientId;
                         opts.ClientSecret = clientSecret;
                         opts.Authority = authority;
+                        // Ensure explicit metadata address to avoid providers returning relative endpoints
+                        var trimmed = authority?.TrimEnd('/') ?? string.Empty;
+                        if (!string.IsNullOrWhiteSpace(trimmed))
+                        {
+                            opts.MetadataAddress = trimmed + "/.well-known/openid-configuration";
+                            // Provide a Backchannel with BaseAddress so relative endpoints (if any) are resolved
+                            if (opts.Backchannel is null)
+                            {
+                                var hc = new HttpClient { BaseAddress = new Uri(trimmed + "/") };
+                                try { hc.DefaultRequestHeaders.UserAgent.ParseAdd("KestrunOIDC/1.0"); } catch { }
+                                hc.DefaultRequestHeaders.Accept.ParseAdd("application/json");
+                                opts.Backchannel = hc;
+                            }
+                        }
+                        opts.SignInScheme = cookieScheme;
                         opts.ResponseType = "code";
-                        opts.SaveTokens = true;
+                        opts.UsePkce = usePkce;
+                        opts.SaveTokens = saveTokens;
+                        if (!string.IsNullOrWhiteSpace(callbackPath))
+                        {
+                            opts.CallbackPath = callbackPath!.StartsWith("/") ? callbackPath : "/" + callbackPath;
+                        }
+                        // Default scopes: openid + profile
+                        opts.Scope.Clear();
+                        opts.Scope.Add("openid");
+                        opts.Scope.Add("profile");
+                        if (scope is not null)
+                        {
+                            foreach (var s in scope)
+                            {
+                                if (!opts.Scope.Contains(s))
+                                {
+                                    opts.Scope.Add(s);
+                                }
+                            }
+                        }
+                        // Prefer userinfo when supported to enrich claims
+                        opts.GetClaimsFromUserInfoEndpoint = getUserInfo;
+                        if (verboseEvents)
+                        {
+                            opts.Events ??= new OpenIdConnectEvents();
+                            var existingTokenResp = opts.Events.OnTokenResponseReceived;
+                            opts.Events.OnTokenResponseReceived = context =>
+                            {
+                                var hasAt = !string.IsNullOrEmpty(context.ProtocolMessage?.AccessToken);
+                                var hasId = !string.IsNullOrEmpty(context.ProtocolMessage?.IdToken);
+                                if (host.Logger.IsEnabled(LogEventLevel.Debug))
+                                {
+                                    host.Logger.Debug("OIDC token response received: access_token? {HasAccessToken} id_token? {HasIdToken}", hasAt, hasId);
+                                }
+                                return existingTokenResp?.Invoke(context) ?? Task.CompletedTask;
+                            };
+                            var existingRemoteFailure = opts.Events.OnRemoteFailure;
+                            opts.Events.OnRemoteFailure = context =>
+                            {
+                                host.Logger.Error(context.Failure, "OIDC remote failure.");
+                                return existingRemoteFailure?.Invoke(context) ?? Task.CompletedTask;
+                            };
+                        }
                         configure?.Invoke(opts);
                     });
+
+                // Policy scheme forwards auth/sign-in/out to cookie; challenges go to OIDC
+                _ = ab.AddPolicyScheme(policyScheme, "App Auth", fwd =>
+                {
+                    fwd.ForwardAuthenticate = cookieScheme;
+                    fwd.ForwardSignIn = cookieScheme;
+                    fwd.ForwardSignOut = cookieScheme;
+                    fwd.ForwardForbid = cookieScheme;
+                    fwd.ForwardChallenge = scheme;
+                });
             },
             configureAuthz: configureAuthz
         );
@@ -935,7 +1021,7 @@ public static class KestrunHostAuthnExtensions
                 _ = app.UseAuthentication();
                 _ = app.UseAuthorization();
                 app.Properties[Key] = true;
-                Log.Information("Kestrun: Authentication & Authorization middleware added.");
+                host.Logger.Information("Kestrun: Authentication & Authorization middleware added.");
             }
         });
     }

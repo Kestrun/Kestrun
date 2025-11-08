@@ -1,7 +1,7 @@
 <#
         Sample: Multiple Authentication Schemes
         Purpose: Combine Basic, API Key, and JWT Bearer schemes in one server.
-        File:    8.8-Multiple-Schemes.ps1
+        File:    8.10-Multiple-Schemes.ps1
         Notes:   Shows grouping routes and applying distinct schemes per endpoint.
 #>
 param(

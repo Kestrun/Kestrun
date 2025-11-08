@@ -85,4 +85,8 @@ public partial class BasicAuthenticationOptions : AuthenticationSchemeOptions, I
     /// Each policy can specify a claim type and allowed values.
     /// </remarks>
     public ClaimPolicyConfig? ClaimPolicyConfig { get; set; }
+    /// <inheritdoc/>
+    public bool GlobalScheme { get; set; }
+    /// <inheritdoc/>
+    public string? Description { get; set; }
 }

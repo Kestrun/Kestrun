@@ -360,27 +360,37 @@ public class OpenApiDocDescriptor
         {
             op.Callbacks = new Dictionary<string, IOpenApiCallback>(meta.Callbacks);
         }
-        if (meta.Security is not null)
+        if (Document.Components?.SecuritySchemes is Dictionary<string, IOpenApiSecurityScheme> schemes)
         {
-            // If meta.Security is an empty sequence, you may want to mark the op as anonymous.
-            if (!meta.Security.Any())
+            if (meta.Security is not null)
             {
-                // Explicitly anonymous for this operation (overrides any Document.Security)
-                op.Security = [];
-            }
-            else
-            {
-                op.Security ??= [];
-                foreach (var schemeName in meta.Security)
+                // If meta.Security is an empty sequence, you may want to mark the op as anonymous.
+                if (!meta.Security.Any())
                 {
-                    if (SecurityRequirement.TryGetValue(schemeName, out var req))
+                    // Explicitly anonymous for this operation (overrides any Document.Security)
+                    op.Security = [];
+                }
+                else
+                {
+                    op.Security ??= [];
+                    // OR semantics: add one requirement per scheme name
+                    var seen = new HashSet<string>(StringComparer.Ordinal);
+                    foreach (var schemeName in meta.Security)
                     {
-                        op.Security.Add(req);
-                    }
-                    else
-                    {
-                        // optional: log or throw so you don’t end up with {} in JSON
-                        throw new InvalidOperationException($"Unknown security scheme '{schemeName}'.");
+                        if (!seen.Add(schemeName))
+                        {
+                            continue; // skip duplicates
+                        }
+
+                        if (!schemes.ContainsKey(schemeName))
+                        {
+                            continue; // or log/throw
+                        }
+                        if (SecurityRequirement.TryGetValue(schemeName, out var existingRequirement))
+                        {
+                            op.Security.Add(existingRequirement);
+                        }
+
                     }
                 }
             }
@@ -2739,43 +2749,52 @@ public class OpenApiDocDescriptor
     /// <summary>
     /// Applies an API key security scheme to the OpenAPI document.
     /// </summary>
-    /// <param name="Name">The name of the security scheme.</param>
-    /// <param name="Options">The API key authentication options.</param>
-    public void ApplyApiKeySecurityScheme(string Name, Authentication.ApiKeyAuthenticationOptions Options)
+    /// <param name="name">The name of the security scheme.</param>
+    /// <param name="options">The API key authentication options.</param>
+    public void ApplyApiKeySecurityScheme(string name, Authentication.ApiKeyAuthenticationOptions options)
     {
         Document.Components ??= new OpenApiComponents();
-        Document.Components.SecuritySchemes ??= new Dictionary<string, IOpenApiSecurityScheme>(StringComparer.Ordinal);
-
-        var securityScheme = new OpenApiSecurityScheme()
+        string? description;
+        if (options.Description is not null)
+        {
+            description = options.Description;
+        }
+        else
+        {
+            description = options.AllowQueryStringFallback
+              ? "API key can also be provided in the query string as a fallback."
+              : null;
+            if (options.AllowInsecureHttp)
+            {
+                description = (description is null ? "" : description + " ") + "(Insecure HTTP allowed)";
+            }
+        }
+        _ = Document.AddComponent(name, new OpenApiSecurityScheme()
         {
             Type = SecuritySchemeType.ApiKey,
-            Name = Options.HeaderName,
-            In = ParameterLocation.Header
-        };
-        if (Options.AllowQueryStringFallback)
-        {
-            // Note: OpenAPI does not have a direct way to indicate query string fallback for API keys.
-            // This is a documentation note only.
-            securityScheme.Description = "API key can also be provided in the query string as a fallback.";
-        }
-        if (Options.AllowInsecureHttp)
-        {
-            // Note: OpenAPI does not have a direct way to indicate allowance of insecure HTTP.
-            // This is a documentation note only.
-            securityScheme.Description += " (Insecure HTTP allowed)";
-        }
+            Name = options.HeaderName,
+            In = ParameterLocation.Header,
+            Description = description
+        });
 
 
-        Document.Components.SecuritySchemes[Name] = securityScheme;
         // Reference it by NAME in the requirement (no .Reference in v2)
         var requirement = new OpenApiSecurityRequirement
         {
-            [new OpenApiSecuritySchemeReference(Name)] = []
+            {
+                new OpenApiSecuritySchemeReference(name,Document), new List<string>()
+            }
         };
-        SecurityRequirement[Name] = requirement;
-        // Apply globally (or attach to specific operations)
-        Document.Security ??= [];
-        Document.Security.Add(requirement);
+        SecurityRequirement.Add(name, requirement);
+
+
+        // Apply globally if specified
+        if (options.GlobalScheme)
+        {
+            // Apply globally
+            Document.Security ??= [];
+            Document.Security.Add(requirement);
+        }
     }
 
 }

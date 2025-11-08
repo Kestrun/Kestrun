@@ -18,4 +18,15 @@ public interface IAuthenticationCommonOptions : IClaimsCommonOptions
     /// Gets or sets the logger used for authentication-related logging.
     /// </summary>
     Serilog.ILogger Logger { get; set; }
+
+
+    /// <summary>
+    /// If true, this security scheme is applied globally in OpenAPI documentation.
+    /// </summary>
+    bool GlobalScheme { get; set; }
+
+    /// <summary>
+    /// Optional description for the security scheme in OpenAPI documentation.
+    /// </summary>
+    string? Description { get; set; }
 }

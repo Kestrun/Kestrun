@@ -31,7 +31,10 @@ function Add-KrMapRouteAuthorizationSchema {
                 $MapRouteBuilder.OpenApi[$verb] = [Kestrun.Hosting.Options.OpenAPIMetadata]::new($MapRouteBuilder.Pattern)
             }
             $MapRouteBuilder.OpenApi[$verb].Enabled = $true
-            $MapRouteBuilder.OpenApi[$verb].Security = $AuthorizationSchema
+            if (-not $MapRouteBuilder.OpenApi[$verb].Security) {
+                $MapRouteBuilder.OpenApi[$verb].Security = [System.Collections.Generic.List[string]]::new()
+            }
+            $MapRouteBuilder.OpenApi[$verb].Security.AddRange($AuthorizationSchema)
         }
 
         $MapRouteBuilder.RequireSchemes = $AuthorizationSchema

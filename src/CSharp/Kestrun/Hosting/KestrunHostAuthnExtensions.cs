@@ -12,6 +12,7 @@ using Kestrun.Scripting;
 using Microsoft.AspNetCore.Authentication.Negotiate;
 using Kestrun.Claims;
 using Serilog;
+using Microsoft.AspNetCore.Authentication.OAuth;
 
 
 namespace Kestrun.Hosting;
@@ -628,6 +629,102 @@ public static class KestrunHostAuthnExtensions
         );
     }
 
+    /// <summary>
+    /// Generic OAuth 2.0 (Authorization Code) authentication.
+    /// You must provide explicit Authorization/Token endpoints (generic handler has no discovery).
+    /// </summary>
+    /// <param name="host">The Kestrun host instance.</param>
+    /// <param name="scheme">The OAuth handler scheme name.</param>
+    /// <param name="clientId">The client ID for the OAuth application.</param>
+    /// <param name="clientSecret">The client secret for the OAuth application.</param>
+    /// <param name="authority">The base URL of your OAuth provider.</param>
+    /// <param name="configure">An optional action to configure the OAuth options.</param>
+    /// <param name="configureAuthz">An optional action to configure the authorization options.</param>
+    /// <returns>The configured KestrunHost instance.</returns>
+    public static KestrunHost AddOAuth2Authentication(
+       this KestrunHost host,
+       string scheme,                 // OAuth handler scheme name
+       string clientId,
+       string clientSecret,
+       string authority,              // base URL of your provider
+       Action<OAuthOptions>? configure = null,
+       Action<AuthorizationOptions>? configureAuthz = null)
+    {
+        var cookieScheme = scheme + ".Cookies";
+        var policyScheme = scheme + ".Policy";
+
+        return host.AddAuthentication(
+            defaultScheme: policyScheme,           // use policy as the single default
+            buildSchemes: ab =>
+            {
+                // Session cookie
+                _ = ab.AddCookie(cookieScheme);
+
+                // OAuth 2.0 handler (generic)
+                _ = ab.AddOAuth(scheme, options =>
+                {
+                    // Generic OAuth has no discovery — provide endpoints.
+                    // Adjust if your provider uses different paths.
+                    options.AuthorizationEndpoint = Combine(authority, "/oauth/authorize");
+                    options.TokenEndpoint = Combine(authority, "/oauth/token");
+
+                    options.ClientId = clientId;
+                    options.ClientSecret = clientSecret;
+
+                    options.CallbackPath = "/signin-oauth";
+                    options.SaveTokens = true;
+
+                    // OAuth signs into our cookie
+                    options.SignInScheme = cookieScheme;
+
+                    // Scopes (override in 'configure' if needed)
+                    options.Scope.Clear();
+
+                    // OPTIONAL: If your provider exposes a userinfo endpoint, set it here
+                    // and map a few claims. Comment out if not applicable.
+                    // options.UserInformationEndpoint = Combine(authority, "/userinfo");
+                    // options.ClaimActions.MapJsonKey(ClaimTypes.NameIdentifier, "id");
+                    // options.ClaimActions.MapJsonKey(ClaimTypes.Name,          "name");
+                    // options.ClaimActions.MapJsonKey(ClaimTypes.Email,         "email");
+                    // options.Events = new OAuthEvents
+                    // {
+                    //     OnCreatingTicket = async ctx =>
+                    //     {
+                    //         using var req = new HttpRequestMessage(HttpMethod.Get, ctx.Options.UserInformationEndpoint);
+                    //         req.Headers.Authorization =
+                    //             new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", ctx.AccessToken);
+                    //         using var resp = await ctx.Backchannel.SendAsync(req, HttpCompletionOption.ResponseHeadersRead, ctx.HttpContext.RequestAborted);
+                    //         resp.EnsureSuccessStatusCode();
+                    //         using var doc = System.Text.Json.JsonDocument.Parse(await resp.Content.ReadAsStringAsync());
+                    //         ctx.RunClaimActions(doc.RootElement);
+                    //     }
+                    // };
+
+                    // Let callers tweak anything
+                    configure?.Invoke(options);
+                });
+
+                // Policy scheme to route actions without needing DefaultChallengeScheme param
+                _ = ab.AddPolicyScheme(policyScheme, "App Auth", opts =>
+                {
+                    opts.ForwardAuthenticate = cookieScheme;
+                    opts.ForwardSignIn = cookieScheme;
+                    opts.ForwardSignOut = cookieScheme;
+                    opts.ForwardForbid = cookieScheme;
+                    opts.ForwardChallenge = scheme;      // <-- challenge goes to OAuth
+                });
+            },
+            configureAuthz: configureAuthz
+        );
+    }
+    /// <summary>
+    /// Combines a base URI and a relative path into a single URI.
+    /// </summary>
+    /// <param name="baseUri">The base URI.</param>
+    /// <param name="relative">The relative path.</param>
+    /// <returns>The combined URI.</returns>
+    private static string Combine(string baseUri, string relative)
+        => baseUri.TrimEnd('/') + "/" + relative.TrimStart('/');
 
     /// <summary>
     /// Adds authentication and authorization middleware to the Kestrun host.

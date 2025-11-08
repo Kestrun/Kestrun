@@ -15,7 +15,7 @@
       - Do NOT hardcode real secrets in sample code.
 #>
 param(
-    [int]$Port = 5001,
+    [int]$Port = 5000,
     [IPAddress]$IPAddress = [IPAddress]::Loopback,
     [string]$ClientId = $env:GITHUB_CLIENT_ID,
     [string]$ClientSecret = $env:GITHUB_CLIENT_SECRET,
@@ -23,7 +23,8 @@ param(
     [string]$AuthorizationPath = '/login/oauth/authorize',
     [string]$TokenPath = '/login/oauth/access_token',
     [string]$CallbackPath = '/signin-oauth',
-    [string]$UserInformationPath = '/user'
+    # IMPORTANT: GitHub user API is hosted at api.github.com, not github.com
+    [string]$UserInformationPath = 'https://api.github.com/user'
 )
 
 if (-not $ClientId -or -not $ClientSecret) {
@@ -43,29 +44,14 @@ New-KrServer -Name 'Auth OAuth2 Policy Demo'
 # 3) HTTPS listener (self-signed)
 Add-KrEndpoint -Port $Port -IPAddress $IPAddress -SelfSignedCert
 
-# 4) Cookie scheme (optional explicit config). SameSite=Lax for OAuth redirects.
-New-KrCookieBuilder -Name 'KestrunAuth' -HttpOnly -SecurePolicy Always -SameSite Lax |
-    Add-KrCookiesAuthentication -Name 'GitHub.Cookies' -ExpireTimeSpan (New-TimeSpan -Minutes 30)
+# 4) GitHub-ready auth (adds 'GitHub', 'GitHub.Cookies', 'GitHub.Policy')
+#    Uses PKCE, saves tokens, maps login/avatar, and enriches email when permitted.
+Add-KrGitHubAuthentication -Name 'GitHub' -ClientId $ClientId -ClientSecret $ClientSecret
 
-# 5) OAuth2 base scheme + automatic policy & cookie schemes
-#    Use PKCE, map some GitHub userinfo fields to standard claims.
-Add-KrOAuth2Authentication -Name 'GitHub' `
-    -Authority $Authority `
-    -AuthorizationPath $AuthorizationPath `
-    -TokenPath $TokenPath `
-    -CallbackPath $CallbackPath `
-    -ClientId $ClientId `
-    -ClientSecret $ClientSecret `
-    -UserInformationPath $UserInformationPath `
-    -UsePkce `
-    -Scope 'read:user', 'user:email' `
-    -ClaimMap @{ ([System.Security.Claims.ClaimTypes]::Name) = 'login'; 'urn:github:avatar' = 'avatar_url'; ([System.Security.Claims.ClaimTypes]::Email) = 'email' } `
-    -ClaimsIssuer 'github.com'
-
-# 6) Finalize configuration
+# 5) Finalize configuration
 Enable-KrConfiguration
 
-# 7) Public landing page
+# 6) Public landing page
 Add-KrMapRoute -Verbs Get -Pattern '/' -ScriptBlock {
     Write-KrHtmlResponse -Template @'
 <!doctype html>
@@ -78,10 +64,11 @@ Add-KrMapRoute -Verbs Get -Pattern '/' -ScriptBlock {
 '@
 }
 
-# 8) Protected routes using the explicit policy scheme name
+# 7) Protected routes using the explicit policy scheme name
 #    Forwarding: authenticate/sign-in/sign-out via 'GitHub.Cookies', challenge -> 'GitHub'
 Add-KrRouteGroup -Prefix '/secure-policy' -AuthorizationSchema 'GitHub.Policy' {
     Add-KrMapRoute -Verbs Get -Pattern '/hello' -ScriptBlock {
+        Expand-KrObject -InputObject $Context.User
         $name = $Context.User.Identity.Name
         if ([string]::IsNullOrWhiteSpace($name)) { $name = '(no name claim)' }
         Write-KrTextResponse "hello via policy scheme, $name"
@@ -98,7 +85,7 @@ Add-KrRouteGroup -Prefix '/secure-policy' -AuthorizationSchema 'GitHub.Policy' {
     }
 }
 
-# 9) Alternate group referencing raw OAuth scheme directly (auto forwards too, but less explicit)
+# 8) Alternate group referencing raw OAuth scheme directly (auto forwards too, but less explicit)
 Add-KrRouteGroup -Prefix '/raw-oauth' -AuthorizationSchema 'GitHub' {
     Add-KrMapRoute -Verbs Get -Pattern '/hello' -ScriptBlock {
         $name = $Context.User?.Identity?.Name
@@ -106,5 +93,5 @@ Add-KrRouteGroup -Prefix '/raw-oauth' -AuthorizationSchema 'GitHub' {
     }
 }
 
-# 10) Start
+# 9) Start
 Start-KrServer -CloseLogsOnExit

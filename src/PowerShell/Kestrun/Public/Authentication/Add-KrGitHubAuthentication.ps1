@@ -1,0 +1,63 @@
+﻿<#
+.SYNOPSIS
+    Adds GitHub OAuth (Authorization Code) authentication to the Kestrun server.
+.DESCRIPTION
+    Convenience wrapper around the C# extension AddGitHubOAuthAuthentication. Registers three schemes:
+      <Name>, <Name>.Cookies, <Name>.Policy
+    Includes PKCE, saves tokens, maps login & avatar claims, and can enrich email from /user/emails.
+.PARAMETER Server
+    The Kestrun server instance. If omitted, uses the current active server.
+.PARAMETER Name
+    Base scheme name (default 'GitHub').
+.PARAMETER ClientId
+    GitHub OAuth App Client ID.
+.PARAMETER ClientSecret
+    GitHub OAuth App Client Secret.
+.PARAMETER Scope
+    Additional scopes to append (read:user, user:email included by default).
+.PARAMETER CallbackPath
+    Optional callback path (default '/signin-github'). Must match your GitHub OAuth App redirect URL path.
+.PARAMETER DisableEmailEnrichment
+    If set, skips calling /user/emails for supplemental email claim.
+.PARAMETER PassThru
+    Return the modified server object.
+.EXAMPLE
+    Add-KrGitHubAuthentication -ClientId $env:GITHUB_CLIENT_ID -ClientSecret $env:GITHUB_CLIENT_SECRET
+.EXAMPLE
+    Add-KrGitHubAuthentication -Name 'GitHubMain' -ClientId 'abc' -ClientSecret 'secret' -Scope 'gist' -DisableEmailEnrichment
+.NOTES
+    Requires the generic OAuth2 infrastructure plus provider-specific handling in C#.
+#>
+function Add-KrGitHubAuthentication {
+    [KestrunRuntimeApi('Definition')]
+    [CmdletBinding()]
+    [OutputType([Kestrun.Hosting.KestrunHost])]
+    param(
+        [Parameter(ValueFromPipeline = $true)]
+        [Kestrun.Hosting.KestrunHost]$Server,
+        [string]$Name = 'GitHub',
+        [Parameter(Mandatory = $true)]
+        [string]$ClientId,
+        [Parameter(Mandatory = $true)]
+        [string]$ClientSecret,
+        [string[]]$Scope,
+        [string]$CallbackPath = '/signin-github',
+        [switch]$DisableEmailEnrichment,
+        [switch]$PassThru
+    )
+    process {
+        $Server = Resolve-KestrunServer -Server $Server
+        $enrich = -not $DisableEmailEnrichment.IsPresent
+        [Kestrun.Hosting.KestrunHostAuthnExtensions]::AddGitHubOAuthAuthentication(
+            $Server,
+            $Name,
+            $ClientId,
+            $ClientSecret,
+            $Scope,
+            $CallbackPath,
+            $enrich,
+            $null
+        ) | Out-Null
+        if ($PassThru) { return $Server }
+    }
+}

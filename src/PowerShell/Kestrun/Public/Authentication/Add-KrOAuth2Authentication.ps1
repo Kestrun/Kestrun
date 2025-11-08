@@ -166,10 +166,14 @@ function Add-KrOAuth2Authentication {
                 foreach ($s in $Scope) { [void]$Options.Scope.Add($s) }
             }
 
-            # Optional user info endpoint
+            # Optional user info endpoint (allow absolute URL; else combine with Authority)
             if (-not [string]::IsNullOrWhiteSpace($UserInformationPath)) {
-                $Options.UserInformationEndpoint = ($Authority.TrimEnd('/') + '/' + $UserInformationPath.TrimStart('/'))
-                # Claim mapping can be customized later in C# or via a future -ClaimMap parameter
+                if ([System.Uri]::IsWellFormedUriString($UserInformationPath, [System.UriKind]::Absolute)) {
+                    $Options.UserInformationEndpoint = $UserInformationPath
+                } else {
+                    $Options.UserInformationEndpoint = ($Authority.TrimEnd('/') + '/' + $UserInformationPath.TrimStart('/'))
+                }
+                # Claim mapping can be customized later via -ClaimMap / -ClaimSubMap
             }
 
             # PKCE

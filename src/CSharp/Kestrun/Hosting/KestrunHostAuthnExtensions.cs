@@ -121,6 +121,128 @@ public static class KestrunHostAuthnExtensions
     }
 
     #endregion
+    #region GitHub OAuth Authentication
+    /// <summary>
+    /// Adds GitHub OAuth (Authorization Code) authentication with optional email enrichment.
+    /// Creates three schemes: <paramref name="scheme"/>, <paramref name="scheme"/>.Cookies, <paramref name="scheme"/>.Policy.
+    /// </summary>
+    /// <param name="host">The Kestrun host instance.</param>
+    /// <param name="scheme">Base scheme name (e.g. "GitHub").</param>
+    /// <param name="clientId">GitHub OAuth App Client ID.</param>
+    /// <param name="clientSecret">GitHub OAuth App Client Secret.</param>
+    /// <param name="scope">Optional additional scopes (default adds read:user and user:email).</param>
+    /// <param name="callbackPath">Optional callback path (default "/signin-github"). Must match the OAuth App's configured redirect URI path.</param>
+    /// <param name="enrichEmail">Fetch /user/emails and add ClaimTypes.Email if missing (requires user:email scope).</param>
+    /// <param name="configure">Optional mutation of OAuthOptions before handler build.</param>
+    /// <returns>The configured KestrunHost.</returns>
+    public static KestrunHost AddGitHubOAuthAuthentication(
+        this KestrunHost host,
+        string scheme,
+        string clientId,
+        string clientSecret,
+        IEnumerable<string>? scope = null,
+        string? callbackPath = null,
+        bool enrichEmail = true,
+        Action<OAuthOptions>? configure = null)
+    {
+        var opts = new OAuthOptions
+        {
+            ClientId = clientId,
+            ClientSecret = clientSecret,
+            AuthorizationEndpoint = "https://github.com/login/oauth/authorize",
+            TokenEndpoint = "https://github.com/login/oauth/access_token",
+            CallbackPath = "/signin-github",
+            UserInformationEndpoint = "https://api.github.com/user",
+            ClaimsIssuer = "github.com",
+            UsePkce = true,
+            SaveTokens = true
+        };
+        if (!string.IsNullOrWhiteSpace(callbackPath))
+        {
+            // Normalize to leading '/'
+            opts.CallbackPath = callbackPath!.StartsWith("/") ? callbackPath : "/" + callbackPath;
+        }
+        // Default scopes
+        opts.Scope.Clear();
+        opts.Scope.Add("read:user");
+        opts.Scope.Add("user:email");
+        if (scope is not null)
+        {
+            foreach (var s in scope)
+            {
+                if (!opts.Scope.Contains(s))
+                {
+                    opts.Scope.Add(s);
+                }
+            }
+        }
+        // Map common fields -> claims
+        opts.ClaimActions.MapJsonKey(System.Security.Claims.ClaimTypes.Name, "login");
+        opts.ClaimActions.MapJsonKey("urn:github:avatar", "avatar_url");
+        opts.Events = new OAuthEvents
+        {
+            OnCreatingTicket = async context =>
+            {
+                // Basic user info
+                using var userReq = new HttpRequestMessage(HttpMethod.Get, context.Options.UserInformationEndpoint);
+                userReq.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", context.AccessToken);
+                userReq.Headers.Accept.ParseAdd("application/json");
+                try { userReq.Headers.UserAgent.ParseAdd("KestrunOAuth/1.0"); } catch { }
+                using var userResp = await context.Backchannel.SendAsync(userReq, context.HttpContext.RequestAborted).ConfigureAwait(false);
+                if (userResp.IsSuccessStatusCode)
+                {
+                    using var doc = JsonDocument.Parse(await userResp.Content.ReadAsStringAsync(context.HttpContext.RequestAborted).ConfigureAwait(false));
+                    context.RunClaimActions(doc.RootElement);
+                }
+                // Optional email enrichment
+                if (enrichEmail && context.Identity?.Claims?.Any(c => c.Type == System.Security.Claims.ClaimTypes.Email) != true &&
+                    context.Options.Scope.Any(s => string.Equals(s, "user:email", StringComparison.OrdinalIgnoreCase)))
+                {
+                    using var emailReq = new HttpRequestMessage(HttpMethod.Get, "https://api.github.com/user/emails");
+                    emailReq.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", context.AccessToken);
+                    emailReq.Headers.Accept.ParseAdd("application/json");
+                    try { emailReq.Headers.UserAgent.ParseAdd("KestrunOAuth/1.0"); } catch { }
+                    using var emailResp = await context.Backchannel.SendAsync(emailReq, context.HttpContext.RequestAborted).ConfigureAwait(false);
+                    if (emailResp.IsSuccessStatusCode)
+                    {
+                        using var doc = JsonDocument.Parse(await emailResp.Content.ReadAsStringAsync(context.HttpContext.RequestAborted).ConfigureAwait(false));
+                        if (doc.RootElement.ValueKind == JsonValueKind.Array)
+                        {
+                            JsonElement? pick = null;
+                            foreach (var e in doc.RootElement.EnumerateArray())
+                            {
+                                if (e.TryGetProperty("primary", out var p) && p.ValueKind == JsonValueKind.True &&
+                                    e.TryGetProperty("verified", out var v) && v.ValueKind == JsonValueKind.True)
+                                { pick = e; break; }
+                            }
+                            if (pick is null)
+                            {
+                                foreach (var e in doc.RootElement.EnumerateArray())
+                                {
+                                    if (e.TryGetProperty("verified", out var v) && v.ValueKind == JsonValueKind.True) { pick = e; break; }
+                                }
+                            }
+                            if (pick is null && doc.RootElement.GetArrayLength() > 0)
+                            {
+                                pick = doc.RootElement[0];
+                            }
+                            if (pick is not null && pick.Value.TryGetProperty("email", out var emailProp) && emailProp.ValueKind == JsonValueKind.String)
+                            {
+                                var email = emailProp.GetString();
+                                if (!string.IsNullOrWhiteSpace(email))
+                                {
+                                    context.Identity!.AddClaim(new System.Security.Claims.Claim(System.Security.Claims.ClaimTypes.Email, email!, System.Security.Claims.ClaimValueTypes.String, context.Options.ClaimsIssuer));
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        };
+        configure?.Invoke(opts);
+        return host.AddOAuth2Authentication(scheme, opts);
+    }
+    #endregion
     #region JWT Bearer Authentication
     /// <summary>
     /// Adds JWT Bearer authentication to the Kestrun host.
@@ -417,12 +539,19 @@ public static class KestrunHostAuthnExtensions
                             using var request = new HttpRequestMessage(HttpMethod.Get, context.Options.UserInformationEndpoint);
                             request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", context.AccessToken);
                             request.Headers.Accept.ParseAdd("application/json");
+                            // Add a default User-Agent if none is present (some providers like GitHub require it)
+                            try { request.Headers.UserAgent.ParseAdd("KestrunOAuth/1.0"); } catch { /* ignore */ }
 
                             using var response = await context.Backchannel.SendAsync(request, context.HttpContext.RequestAborted).ConfigureAwait(false);
-                            _ = response.EnsureSuccessStatusCode();
+                            if (!response.IsSuccessStatusCode)
+                            {
+                                Log.Warning("OAuth userinfo request failed: {StatusCode} {Reason}", (int)response.StatusCode, response.ReasonPhrase);
+                                return; // proceed without userinfo claims
+                            }
 
                             using var payload = JsonDocument.Parse(await response.Content.ReadAsStringAsync(context.HttpContext.RequestAborted).ConfigureAwait(false));
                             context.RunClaimActions(payload.RootElement);
+
                         }
                     };
                 });

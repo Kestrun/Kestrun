@@ -640,7 +640,7 @@ public static class KestrunHostAuthnExtensions
 
         return host.AddAuthentication(
             defaultScheme: CookieAuthenticationDefaults.AuthenticationScheme,
-            defaultChallengeScheme: OpenIdConnectDefaults.AuthenticationScheme,
+            defaultChallengeScheme: scheme,
 
             buildSchemes: ab =>
             {
@@ -650,101 +650,135 @@ public static class KestrunHostAuthnExtensions
                     displayName: "OIDC",
                     configureOptions: opts =>
                     {
-                        // Copy all settings from the provided options
-                        Copy(opts, options);
+                        if (string.IsNullOrWhiteSpace(options.Authority))
+                        {
+                            throw new ArgumentException("OpenIdConnect authority must be provided.", nameof(options));
+                        }
 
-                        // Default to code flow if not specified
+                        var authority = options.Authority.TrimEnd('/');
+                        opts.Authority = authority;
+                        if (!string.IsNullOrWhiteSpace(options.MetadataAddress))
+                        {
+                            opts.MetadataAddress = options.MetadataAddress;
+                        }
+
+                        opts.ClientId = options.ClientId;
+                        opts.ClientSecret = options.ClientSecret;
+                        opts.CallbackPath = options.CallbackPath.HasValue ? options.CallbackPath : "/signin-oidc";
+                        opts.SignedOutCallbackPath = options.SignedOutCallbackPath;
+                        opts.SignOutScheme = string.IsNullOrWhiteSpace(options.SignOutScheme)
+                            ? CookieAuthenticationDefaults.AuthenticationScheme
+                            : options.SignOutScheme;
+
+                        // Flow configuration
+                        opts.ResponseType = string.IsNullOrWhiteSpace(options.ResponseType)
+                            ? OpenIdConnectResponseType.Code
+                            : options.ResponseType;
+                        opts.ResponseMode = string.IsNullOrWhiteSpace(options.ResponseMode)
+                            ? OpenIdConnectResponseMode.FormPost
+                            : options.ResponseMode;
+                        opts.UsePkce = options.UsePkce || string.Equals(opts.ResponseType, OpenIdConnectResponseType.Code, StringComparison.Ordinal);
+                        opts.RequireHttpsMetadata = options.RequireHttpsMetadata;
+
+                        // Token behaviour
+                        opts.SaveTokens = true;
+                        opts.GetClaimsFromUserInfoEndpoint = true;
+                        opts.UseTokenLifetime = options.UseTokenLifetime;
+                        opts.Resource = options.Resource;
+
+                        // Scope handling (dedupe & guarantee openid/profile)
+                        opts.Scope.Clear();
+                        var seen = new HashSet<string>(StringComparer.Ordinal);
+                        IEnumerable<string> requestedScopes = options.Scope.Count > 0 ? options.Scope : Array.Empty<string>();
+                        foreach (var scope in requestedScopes)
+                        {
+                            if (string.IsNullOrWhiteSpace(scope))
+                            {
+                                continue;
+                            }
+
+                            if (seen.Add(scope))
+                            {
+                                opts.Scope.Add(scope);
+                            }
+                        }
+                        if (seen.Add("openid"))
+                        {
+                            opts.Scope.Add("openid");
+                        }
+                        if (seen.Add("profile"))
+                        {
+                            opts.Scope.Add("profile");
+                        }
+
+                        // Claims mapping / validation
                         opts.MapInboundClaims = false;
+                        if (options.TokenValidationParameters is not null)
+                        {
+                            opts.TokenValidationParameters = options.TokenValidationParameters;
+                        }
                         opts.TokenValidationParameters.NameClaimType = JwtRegisteredClaimNames.Name;
                         opts.TokenValidationParameters.RoleClaimType = "roles";
-                        opts.ResponseType = OpenIdConnectResponseType.Code;
-                        options.SignInScheme = CookieAuthenticationDefaults.AuthenticationScheme;
-                        options.ResponseType = OpenIdConnectResponseType.Code;
 
-                        options.SaveTokens = true;
-                        options.GetClaimsFromUserInfoEndpoint = true;
+                        // Sign-in cookie linkage
+                        opts.SignInScheme = string.IsNullOrWhiteSpace(options.SignInScheme)
+                            ? CookieAuthenticationDefaults.AuthenticationScheme
+                            : options.SignInScheme;
 
+                        // Copy claim actions from caller
+                        opts.ClaimActions.Clear();
+                        foreach (var action in options.ClaimActions)
+                        {
+                            opts.ClaimActions.Add(action);
+                        }
+
+                        // Preserve caller events but ensure token endpoint is absolute before redemption
+                        var events = options.Events ?? new OpenIdConnectEvents();
+                        var previousAuthCodeHandler = events.OnAuthorizationCodeReceived;
+                        events.OnAuthorizationCodeReceived = async context =>
+                        {
+                            if (context.TokenEndpointRequest is not null && string.IsNullOrWhiteSpace(context.TokenEndpointRequest.TokenEndpoint))
+                            {
+                                var resolved = context.Options.Configuration?.TokenEndpoint;
+                                if (string.IsNullOrWhiteSpace(resolved) && context.Options.ConfigurationManager is not null)
+                                {
+                                    var configuration = await context.Options.ConfigurationManager.GetConfigurationAsync(context.HttpContext.RequestAborted).ConfigureAwait(false);
+                                    resolved = configuration?.TokenEndpoint;
+                                }
+
+                                if (!string.IsNullOrWhiteSpace(resolved))
+                                {
+                                    context.TokenEndpointRequest.TokenEndpoint = resolved;
+                                }
+                                else if (host.Logger.IsEnabled(LogEventLevel.Error))
+                                {
+                                    host.Logger.Error("OIDC token endpoint missing for scheme {Scheme}. Provide Authority or TokenEndpoint explicitly.", scheme);
+                                }
+                            }
+
+                            if (previousAuthCodeHandler is not null)
+                            {
+                                await previousAuthCodeHandler(context).ConfigureAwait(false);
+                            }
+                        };
+                        opts.Events = events;
+
+                        if (options.BackchannelTimeout != default)
+                        {
+                            opts.BackchannelTimeout = options.BackchannelTimeout;
+                        }
+                        if (options.Backchannel is not null)
+                        {
+                            opts.Backchannel = options.Backchannel;
+                        }
+                        if (options.BackchannelHttpHandler is not null)
+                        {
+                            opts.BackchannelHttpHandler = options.BackchannelHttpHandler;
+                        }
                     });
             },
             configureAuthz: claimPolicy?.ToAuthzDelegate()
         );
-
-        static void Copy(OpenIdConnectOptions dst, OpenIdConnectOptions src)
-        {
-            dst.Authority = src.Authority;
-            dst.ClientId = src.ClientId;
-            dst.ClientSecret = src.ClientSecret;
-            dst.CallbackPath = src.CallbackPath;
-            dst.ResponseType = src.ResponseType;
-            dst.ResponseMode = src.ResponseMode;
-            dst.UsePkce = src.UsePkce;
-            dst.SaveTokens = src.SaveTokens;
-            dst.GetClaimsFromUserInfoEndpoint = src.GetClaimsFromUserInfoEndpoint;
-            dst.RequireHttpsMetadata = src.RequireHttpsMetadata;
-            dst.MetadataAddress = src.MetadataAddress;
-            dst.SignedOutCallbackPath = src.SignedOutCallbackPath;
-            dst.SignOutScheme = src.SignOutScheme;
-            dst.UseTokenLifetime = src.UseTokenLifetime;
-            dst.SkipUnrecognizedRequests = src.SkipUnrecognizedRequests;
-            dst.TokenHandler = src.TokenHandler;
-            dst.DisableTelemetry = src.DisableTelemetry;
-            dst.AutomaticRefreshInterval = src.AutomaticRefreshInterval;
-            dst.RefreshInterval = src.RefreshInterval;
-            dst.MapInboundClaims = src.MapInboundClaims;
-            dst.UseSecurityTokenValidator = src.UseSecurityTokenValidator;
-            dst.SignInScheme = src.SignInScheme;
-            // Copy scopes
-            dst.Scope.Clear();
-            foreach (var s in src.Scope)
-            {
-                dst.Scope.Add(s);
-            }
-
-            // Backchannel & timeout
-            if (src.BackchannelTimeout != default)
-            {
-                dst.BackchannelTimeout = src.BackchannelTimeout;
-            }
-            if (src.Backchannel is not null)
-            {
-                dst.Backchannel = src.Backchannel;
-            }
-            if (src.BackchannelHttpHandler is not null)
-            {
-                dst.BackchannelHttpHandler = src.BackchannelHttpHandler;
-            }
-
-            // Configuration & manager
-            if (src.Configuration is not null)
-            {
-                dst.Configuration = src.Configuration;
-            }
-            if (src.ConfigurationManager is not null)
-            {
-                dst.ConfigurationManager = src.ConfigurationManager;
-            }
-
-            // Events
-            if (src.Events is not null)
-            {
-                dst.Events = src.Events;
-            }
-
-            // Token validation
-            if (src.TokenValidationParameters is not null)
-            {
-                dst.TokenValidationParameters = src.TokenValidationParameters;
-            }
-
-            // Claim actions
-            foreach (var action in src.ClaimActions)
-            {
-                if (action is Microsoft.AspNetCore.Authentication.OAuth.Claims.JsonKeyClaimAction jka && !string.IsNullOrEmpty(jka.JsonKey))
-                {
-                    dst.ClaimActions.MapJsonKey(action.ClaimType, jka.JsonKey);
-                }
-            }
-        }
     }
 
     #endregion

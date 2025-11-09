@@ -979,6 +979,7 @@ public class KestrunHost : IDisposable
     /// </summary>
     private void ConfigureBuiltInMiddleware()
     {
+        _ = _app!.UseRouting();
         ConfigureExceptionHandling();
         ConfigureForwardedHeaders();
         ConfigureStatusCodePages();

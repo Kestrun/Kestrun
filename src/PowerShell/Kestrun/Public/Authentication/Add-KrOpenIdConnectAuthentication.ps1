@@ -8,23 +8,25 @@
 .PARAMETER Server
     The Kestrun server instance. If omitted, uses the current active server.
 .PARAMETER Name
-    Base scheme name (default 'OIDC').
+    Base scheme name (default 'Oidc').
 .PARAMETER Authority
     The OpenID Provider authority (e.g., https://login.microsoftonline.com/{tenant}/v2.0).
 .PARAMETER ClientId
     OIDC client application (app registration) Client ID.
 .PARAMETER ClientSecret
-    OIDC client application Client Secret.
+    OIDC client application Client Secret (leave empty for public clients).
 .PARAMETER Scope
     Additional scopes to request; default includes 'openid' and 'profile'.
 .PARAMETER CallbackPath
     Callback path for the redirect URI (default '/signin-oidc').
+.PARAMETER ResponseMode
+    The response mode (default 'form_post'). Use 'query' or 'fragment' if needed.
 .PARAMETER UsePkce
-    Enable PKCE for code flow (default: on).
+    Enable PKCE for code flow (default: true).
 .PARAMETER SaveTokens
-    Persist tokens into the auth cookie (default: on).
+    Persist tokens into the auth cookie (default: true).
 .PARAMETER GetUserInfo
-    Call the UserInfo endpoint to enrich claims when available (default: on).
+    Call the UserInfo endpoint to enrich claims when available (default: true).
 .PARAMETER VerboseEvents
     Enable verbose event logging for token responses and remote failures.
 .PARAMETER PassThru
@@ -41,43 +43,43 @@ function Add-KrOpenIdConnectAuthentication {
     param(
         [Parameter(ValueFromPipeline = $true)]
         [Kestrun.Hosting.KestrunHost]$Server,
-        [string]$Name = 'OIDC',
+        [string]$Name = 'Oidc',
         [Parameter(Mandatory = $true)]
         [string]$Authority,
         [Parameter(Mandatory = $true)]
         [string]$ClientId,
-        [Parameter(Mandatory = $true)]
+        [Parameter(Mandatory = $false)]
         [string]$ClientSecret,
         [string[]]$Scope,
-        [string]$CallbackPath = '/signin-oidc',
-        [switch]$UsePkce,
-        [switch]$SaveTokens,
-        [switch]$GetUserInfo,
-        [switch]$VerboseEvents,
         [switch]$PassThru
     )
     process {
         $Server = Resolve-KestrunServer -Server $Server
-        # Defaults for switches: on by default unless explicitly set false; PowerShell switch only signals true when present.
-        $usePkce = $true; if ($PSBoundParameters.ContainsKey('UsePkce')) { $usePkce = [bool]$UsePkce }
-        $saveTokens = $true; if ($PSBoundParameters.ContainsKey('SaveTokens')) { $saveTokens = [bool]$SaveTokens }
-        $getUserInfo = $true; if ($PSBoundParameters.ContainsKey('GetUserInfo')) { $getUserInfo = [bool]$GetUserInfo }
 
+        # Build OpenIdConnectOptions object
+        $options = [Microsoft.AspNetCore.Authentication.OpenIdConnect.OpenIdConnectOptions]::new()
+        $options.Authority = $Authority
+        $options.ClientId = $ClientId
+        if ($ClientSecret) {
+            $options.ClientSecret = $ClientSecret
+        }
+        # Add additional scopes (defaults already include 'openid' and 'profile')
+        if ($Scope) {
+            foreach ($s in $Scope) {
+                if ($options.Scope -notcontains $s) {
+                    $options.Scope.Add($s) | Out-Null
+                }
+            }
+        }
+
+        # Enable PKCE, token persistence, and userinfo by default
         [Kestrun.Hosting.KestrunHostAuthnExtensions]::AddOpenIdConnectAuthentication(
             $Server,
             $Name,
-            $ClientId,
-            $ClientSecret,
-            $Authority,
-            $Scope,
-            $CallbackPath,
-            $usePkce,
-            $saveTokens,
-            $getUserInfo,
-            [bool]$VerboseEvents.IsPresent,
-            $null,
+            $options,
             $null
         ) | Out-Null
+
         if ($PassThru) { return $Server }
     }
 }

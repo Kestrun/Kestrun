@@ -11,10 +11,11 @@ using Serilog.Events;
 using Kestrun.Scripting;
 using Microsoft.AspNetCore.Authentication.Negotiate;
 using Kestrun.Claims;
-using Serilog;
+
 using Microsoft.AspNetCore.Authentication.OAuth;
 using System.Text.Json;
-
+using Microsoft.IdentityModel.Protocols.OpenIdConnect;
+using System.IdentityModel.Tokens.Jwt;
 
 namespace Kestrun.Hosting;
 
@@ -619,7 +620,134 @@ public static class KestrunHostAuthnExtensions
     }
 
     #endregion
+    #region OpenID Connect Authentication
+    /// <summary>
+    /// Adds OpenID Connect authentication to the Kestrun host.
+    /// <para>Use this for applications that require OpenID Connect authentication.</para>
+    /// <para>Automatically creates three schemes: <paramref name="scheme"/>, <paramref name="scheme"/>.Cookies, and <paramref name="scheme"/>.Policy.</para>
+    /// </summary>
+    /// <param name="host">The Kestrun host instance.</param>
+    /// <param name="scheme">The base authentication scheme name (e.g., "Oidc").</param>
+    /// <param name="options">The OpenID Connect configuration options.</param>
+    /// <param name="claimPolicy">Optional authorization policy configuration.</param>
+    /// <returns>The configured KestrunHost instance.</returns>
+    public static KestrunHost AddOpenIdConnectAuthentication(
+        this KestrunHost host,
+        string scheme,
+        OpenIdConnectOptions options,
+        ClaimPolicyConfig? claimPolicy = null)
+    {
 
+        return host.AddAuthentication(
+            defaultScheme: CookieAuthenticationDefaults.AuthenticationScheme,
+            defaultChallengeScheme: OpenIdConnectDefaults.AuthenticationScheme,
+
+            buildSchemes: ab =>
+            {
+                _ = ab.AddCookie();
+                _ = ab.AddOpenIdConnect(
+                    authenticationScheme: scheme,
+                    displayName: "OIDC",
+                    configureOptions: opts =>
+                    {
+                        // Copy all settings from the provided options
+                        Copy(opts, options);
+
+                        // Default to code flow if not specified
+                        opts.MapInboundClaims = false;
+                        opts.TokenValidationParameters.NameClaimType = JwtRegisteredClaimNames.Name;
+                        opts.TokenValidationParameters.RoleClaimType = "roles";
+                        opts.ResponseType = OpenIdConnectResponseType.Code;
+                        options.SignInScheme = CookieAuthenticationDefaults.AuthenticationScheme;
+                        options.ResponseType = OpenIdConnectResponseType.Code;
+
+                        options.SaveTokens = true;
+                        options.GetClaimsFromUserInfoEndpoint = true;
+
+                    });
+            },
+            configureAuthz: claimPolicy?.ToAuthzDelegate()
+        );
+
+        static void Copy(OpenIdConnectOptions dst, OpenIdConnectOptions src)
+        {
+            dst.Authority = src.Authority;
+            dst.ClientId = src.ClientId;
+            dst.ClientSecret = src.ClientSecret;
+            dst.CallbackPath = src.CallbackPath;
+            dst.ResponseType = src.ResponseType;
+            dst.ResponseMode = src.ResponseMode;
+            dst.UsePkce = src.UsePkce;
+            dst.SaveTokens = src.SaveTokens;
+            dst.GetClaimsFromUserInfoEndpoint = src.GetClaimsFromUserInfoEndpoint;
+            dst.RequireHttpsMetadata = src.RequireHttpsMetadata;
+            dst.MetadataAddress = src.MetadataAddress;
+            dst.SignedOutCallbackPath = src.SignedOutCallbackPath;
+            dst.SignOutScheme = src.SignOutScheme;
+            dst.UseTokenLifetime = src.UseTokenLifetime;
+            dst.SkipUnrecognizedRequests = src.SkipUnrecognizedRequests;
+            dst.TokenHandler = src.TokenHandler;
+            dst.DisableTelemetry = src.DisableTelemetry;
+            dst.AutomaticRefreshInterval = src.AutomaticRefreshInterval;
+            dst.RefreshInterval = src.RefreshInterval;
+            dst.MapInboundClaims = src.MapInboundClaims;
+            dst.UseSecurityTokenValidator = src.UseSecurityTokenValidator;
+            dst.SignInScheme = src.SignInScheme;
+            // Copy scopes
+            dst.Scope.Clear();
+            foreach (var s in src.Scope)
+            {
+                dst.Scope.Add(s);
+            }
+
+            // Backchannel & timeout
+            if (src.BackchannelTimeout != default)
+            {
+                dst.BackchannelTimeout = src.BackchannelTimeout;
+            }
+            if (src.Backchannel is not null)
+            {
+                dst.Backchannel = src.Backchannel;
+            }
+            if (src.BackchannelHttpHandler is not null)
+            {
+                dst.BackchannelHttpHandler = src.BackchannelHttpHandler;
+            }
+
+            // Configuration & manager
+            if (src.Configuration is not null)
+            {
+                dst.Configuration = src.Configuration;
+            }
+            if (src.ConfigurationManager is not null)
+            {
+                dst.ConfigurationManager = src.ConfigurationManager;
+            }
+
+            // Events
+            if (src.Events is not null)
+            {
+                dst.Events = src.Events;
+            }
+
+            // Token validation
+            if (src.TokenValidationParameters is not null)
+            {
+                dst.TokenValidationParameters = src.TokenValidationParameters;
+            }
+
+            // Claim actions
+            foreach (var action in src.ClaimActions)
+            {
+                if (action is Microsoft.AspNetCore.Authentication.OAuth.Claims.JsonKeyClaimAction jka && !string.IsNullOrEmpty(jka.JsonKey))
+                {
+                    dst.ClaimActions.MapJsonKey(action.ClaimType, jka.JsonKey);
+                }
+            }
+        }
+    }
+
+    #endregion
     #region Helper Methods
     /// <summary>
     /// Configures the validators for Basic authentication.
@@ -861,134 +989,6 @@ public static class KestrunHostAuthnExtensions
             }
         );
     }
-
-    /// <summary>
-    /// Adds OpenID Connect authentication to the Kestrun host.
-    /// <para>Use this for applications that require OpenID Connect authentication.</para>
-    /// </summary>
-    /// <param name="host">The Kestrun host instance.</param>
-    /// <param name="scheme">The authentication scheme name.</param>
-    /// <param name="clientId">The client ID for the OpenID Connect application.</param>
-    /// <param name="clientSecret">The client secret for the OpenID Connect application.</param>
-    /// <param name="authority">The authority URL for the OpenID Connect provider.</param>
-    /// <param name="scope">Optional additional scopes; default includes openid and profile.</param>
-    /// <param name="callbackPath">Optional callback path (default "/signin-oidc").</param>
-    /// <param name="usePkce">Enable PKCE for code flow (default true).</param>
-    /// <param name="saveTokens">Persist tokens into auth cookie (default true).</param>
-    /// <param name="getUserInfo">Call UserInfo endpoint to populate claims when available (default true).</param>
-    /// <param name="verboseEvents">When true, logs token response presence and remote failures (for diagnostics).</param>
-    /// <param name="configure">An optional action to further configure the OpenID Connect options.</param>
-    /// <param name="configureAuthz">An optional action to configure the authorization options.</param>
-    /// <returns>The configured KestrunHost instance.</returns>
-    public static KestrunHost AddOpenIdConnectAuthentication(
-        this KestrunHost host,
-        string scheme,
-        string clientId,
-        string clientSecret,
-    string authority,
-    IEnumerable<string>? scope = null,
-    string? callbackPath = null,
-    bool usePkce = true,
-    bool saveTokens = true,
-    bool getUserInfo = true,
-    bool verboseEvents = false,
-        Action<OpenIdConnectOptions>? configure = null,
-        Action<AuthorizationOptions>? configureAuthz = null)
-    {
-        // Derive cookie/policy schemes
-        var cookieScheme = scheme + ".Cookies";
-        var policyScheme = scheme + ".Policy";
-
-        return host.AddAuthentication(
-            defaultScheme: policyScheme,
-            buildSchemes: ab =>
-            {
-                // Cookie scheme for local sign-in persistence
-                _ = ab.AddCookie(cookieScheme);
-
-                _ = ab.AddOpenIdConnect(
-                    authenticationScheme: scheme,
-                    displayName: "OIDC",
-                    configureOptions: opts =>
-                    {
-                        opts.ClientId = clientId;
-                        opts.ClientSecret = clientSecret;
-                        opts.Authority = authority;
-                        // Ensure explicit metadata address to avoid providers returning relative endpoints
-                        var trimmed = authority?.TrimEnd('/') ?? string.Empty;
-                        if (!string.IsNullOrWhiteSpace(trimmed))
-                        {
-                            opts.MetadataAddress = trimmed + "/.well-known/openid-configuration";
-                            // Provide a Backchannel with BaseAddress so relative endpoints (if any) are resolved
-                            if (opts.Backchannel is null)
-                            {
-                                var hc = new HttpClient { BaseAddress = new Uri(trimmed + "/") };
-                                try { hc.DefaultRequestHeaders.UserAgent.ParseAdd("KestrunOIDC/1.0"); } catch { }
-                                hc.DefaultRequestHeaders.Accept.ParseAdd("application/json");
-                                opts.Backchannel = hc;
-                            }
-                        }
-                        opts.SignInScheme = cookieScheme;
-                        opts.ResponseType = "code";
-                        opts.UsePkce = usePkce;
-                        opts.SaveTokens = saveTokens;
-                        if (!string.IsNullOrWhiteSpace(callbackPath))
-                        {
-                            opts.CallbackPath = callbackPath!.StartsWith("/") ? callbackPath : "/" + callbackPath;
-                        }
-                        // Default scopes: openid + profile
-                        opts.Scope.Clear();
-                        opts.Scope.Add("openid");
-                        opts.Scope.Add("profile");
-                        if (scope is not null)
-                        {
-                            foreach (var s in scope)
-                            {
-                                if (!opts.Scope.Contains(s))
-                                {
-                                    opts.Scope.Add(s);
-                                }
-                            }
-                        }
-                        // Prefer userinfo when supported to enrich claims
-                        opts.GetClaimsFromUserInfoEndpoint = getUserInfo;
-                        if (verboseEvents)
-                        {
-                            opts.Events ??= new OpenIdConnectEvents();
-                            var existingTokenResp = opts.Events.OnTokenResponseReceived;
-                            opts.Events.OnTokenResponseReceived = context =>
-                            {
-                                var hasAt = !string.IsNullOrEmpty(context.ProtocolMessage?.AccessToken);
-                                var hasId = !string.IsNullOrEmpty(context.ProtocolMessage?.IdToken);
-                                if (host.Logger.IsEnabled(LogEventLevel.Debug))
-                                {
-                                    host.Logger.Debug("OIDC token response received: access_token? {HasAccessToken} id_token? {HasIdToken}", hasAt, hasId);
-                                }
-                                return existingTokenResp?.Invoke(context) ?? Task.CompletedTask;
-                            };
-                            var existingRemoteFailure = opts.Events.OnRemoteFailure;
-                            opts.Events.OnRemoteFailure = context =>
-                            {
-                                host.Logger.Error(context.Failure, "OIDC remote failure.");
-                                return existingRemoteFailure?.Invoke(context) ?? Task.CompletedTask;
-                            };
-                        }
-                        configure?.Invoke(opts);
-                    });
-
-                // Policy scheme forwards auth/sign-in/out to cookie; challenges go to OIDC
-                _ = ab.AddPolicyScheme(policyScheme, "App Auth", fwd =>
-                {
-                    fwd.ForwardAuthenticate = cookieScheme;
-                    fwd.ForwardSignIn = cookieScheme;
-                    fwd.ForwardSignOut = cookieScheme;
-                    fwd.ForwardForbid = cookieScheme;
-                    fwd.ForwardChallenge = scheme;
-                });
-            },
-            configureAuthz: configureAuthz
-        );
-    }
     #endregion
 
     /// <summary>
@@ -996,22 +996,24 @@ public static class KestrunHostAuthnExtensions
     /// </summary>
     /// <param name="host">The Kestrun host instance.</param>
     /// <param name="buildSchemes">A delegate to configure authentication schemes.</param>
-    /// <param name="defaultScheme">The default authentication scheme (default is JwtBearer).</param>
+    /// <param name="defaultScheme">The default authentication scheme.</param>
     /// <param name="configureAuthz">Optional authorization policy configuration.</param>
+    /// <param name="defaultChallengeScheme">The default challenge scheme .</param>
     /// <returns>The configured KestrunHost instance.</returns>
     internal static KestrunHost AddAuthentication(this KestrunHost host,
     Action<AuthenticationBuilder> buildSchemes,            // ← unchanged
-    string defaultScheme = JwtBearerDefaults.AuthenticationScheme,
-    Action<AuthorizationOptions>? configureAuthz = null)
+    string defaultScheme,
+    Action<AuthorizationOptions>? configureAuthz = null,
+    string? defaultChallengeScheme = null)
     {
         _ = host.AddService(services =>
-        {
-            var ab = services.AddAuthentication(defaultScheme);
-            buildSchemes(ab);                                  // Basic + JWT here
-
-            // make sure UseAuthorization() can find its services
-            _ = configureAuthz is null ? services.AddAuthorization() : services.AddAuthorization(configureAuthz);
-        });
+            {
+                var ab = services.AddAuthentication(defaultScheme);
+                buildSchemes(ab);                                  // Basic + JWT here
+                defaultChallengeScheme ??= defaultChallengeScheme; ;
+                // make sure UseAuthorization() can find its services
+                _ = configureAuthz is null ? services.AddAuthorization() : services.AddAuthorization(configureAuthz);
+            });
 
         return host.Use(app =>
         {

@@ -5,8 +5,10 @@ using Kestrun.Claims;
 using Kestrun.Hosting;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Authentication.Negotiate;
+using Microsoft.AspNetCore.Authentication.OpenIdConnect;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.IdentityModel.Tokens;
+using Microsoft.IdentityModel.Protocols.OpenIdConnect;
 using Xunit;
 using Microsoft.AspNetCore.Http;
 using System.Management.Automation;
@@ -141,16 +143,20 @@ public class KestrunHostAuthExtensionsTests
     public void OpenIdConnect_Adds_Scheme()
     {
         var host = new KestrunHost("TestApp");
-        _ = host.AddOpenIdConnectAuthentication(
-            scheme: "OidcX",
-            clientId: "client",
-            clientSecret: "secret",
-            authority: "https://example.com",
-            scope: ["email"],
-            callbackPath: "/signin-custom",
-            usePkce: true,
-            saveTokens: true,
-            getUserInfo: true);
+        var opts = new OpenIdConnectOptions
+        {
+            Authority = "https://example.com",
+            ClientId = "client",
+            ClientSecret = "secret",
+            CallbackPath = "/signin-custom",
+            ResponseType = OpenIdConnectResponseType.Code,
+            UsePkce = true,
+            SaveTokens = true,
+            GetClaimsFromUserInfoEndpoint = true
+        };
+        opts.Scope.Add("email");
+
+        _ = host.AddOpenIdConnectAuthentication("OidcX", opts);
         _ = host.Build();
 
         Assert.True(host.HasAuthScheme("OidcX"));
@@ -190,7 +196,13 @@ public class KestrunHostAuthExtensionsTests
     public void OpenIdConnect_Omitted_ClaimPolicies_Registers_No_Custom_Policy()
     {
         var host = new KestrunHost("TestApp");
-        _ = host.AddOpenIdConnectAuthentication("OidcNoPolicy", "client", "secret", "https://example.com");
+        var opts = new OpenIdConnectOptions
+        {
+            Authority = "https://example.com",
+            ClientId = "client",
+            ClientSecret = "secret"
+        };
+        _ = host.AddOpenIdConnectAuthentication("OidcNoPolicy", opts);
         _ = host.Build();
 
         Assert.True(host.HasAuthScheme("OidcNoPolicy"));

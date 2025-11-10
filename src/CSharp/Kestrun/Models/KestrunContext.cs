@@ -1,7 +1,9 @@
 
 
+using System.Collections;
 using System.Security.Claims;
 using Kestrun.SignalR;
+using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Http.Features;
 
 namespace Kestrun.Models;
@@ -248,5 +250,67 @@ public sealed record KestrunContext
     /// <returns></returns>
     public bool BroadcastToGroup(string groupName, string method, object? message, CancellationToken cancellationToken = default) =>
       BroadcastToGroupAsync(groupName, method, message, cancellationToken).GetAwaiter().GetResult();
+
+    /// <summary>
+    /// Synchronous wrapper for HttpContext.ChallengeAsync.
+    /// </summary>
+    /// <param name="scheme">The authentication scheme to challenge.</param>
+    /// <param name="properties">The authentication properties to include in the challenge.</param>
+    public void Challenge(string? scheme, AuthenticationProperties? properties) => HttpContext.ChallengeAsync(scheme, properties).GetAwaiter().GetResult();
+
+    /// <summary>
+    /// Synchronous wrapper for HttpContext.ChallengeAsync using a Hashtable for properties.
+    /// </summary>
+    /// <param name="scheme">The authentication scheme to challenge.</param>
+    /// <param name="properties">The authentication properties to include in the challenge.</param>
+    public void Challenge(string? scheme, Hashtable? properties)
+    {
+        var dict = new Dictionary<string, string?>();
+        if (properties != null)
+        {
+            foreach (DictionaryEntry entry in properties)
+            {
+                dict[entry.Key.ToString()!] = entry.Value?.ToString();
+            }
+        }
+        AuthenticationProperties authProps = new(dict);
+        HttpContext.ChallengeAsync(scheme, authProps).GetAwaiter().GetResult();
+    }
+
+    /// <summary>
+    /// Synchronous wrapper for HttpContext.SignOutAsync.
+    /// </summary>
+    /// <param name="scheme">The authentication scheme to sign out.</param>
+    public void SignOut(string? scheme) => HttpContext.SignOutAsync(scheme).GetAwaiter().GetResult();
+    /// <summary>
+    /// Synchronous wrapper for HttpContext.SignOutAsync.
+    /// </summary>
+    /// <param name="scheme">The authentication scheme to sign out.</param>
+    /// <param name="properties">The authentication properties to include in the sign-out.</param>
+    public void SignOut(string? scheme, AuthenticationProperties? properties) => HttpContext.SignOutAsync(scheme, properties).GetAwaiter().GetResult();
+
+    /// <summary>
+    /// Synchronous wrapper for HttpContext.SignOutAsync using a Hashtable for properties.
+    /// </summary>
+    /// <param name="scheme">The authentication scheme to sign out.</param>
+    /// <param name="properties">The authentication properties to include in the sign-out.</param>
+    public void SignOut(string? scheme, Hashtable? properties)
+    {
+        AuthenticationProperties? authProps = null;
+        if (properties != null)
+        {
+            var dict = new Dictionary<string, string?>();
+            if (properties != null)
+            {
+                foreach (DictionaryEntry entry in properties)
+                {
+                    dict[entry.Key.ToString()!] = entry.Value?.ToString();
+                }
+            }
+            authProps = new(dict);
+        }
+        HttpContext.SignOutAsync(scheme, authProps).GetAwaiter().GetResult();
+    }
+
 }
 

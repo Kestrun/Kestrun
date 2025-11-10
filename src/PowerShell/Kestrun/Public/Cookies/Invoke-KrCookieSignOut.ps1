@@ -9,6 +9,8 @@
 .PARAMETER Redirect
     If specified, redirects the user to the login path after signing out.
     If the login path is not configured, redirects to '/'.
+.PARAMETER Properties
+    Additional sign-out authentication properties to pass to the SignOut call.
 .PARAMETER WhatIf
     Shows what would happen if the command runs. The command is not run.
 .PARAMETER Confirm
@@ -28,20 +30,21 @@ function Invoke-KrCookieSignOut {
     param(
         [Parameter()]
         [string]$Scheme = 'Cookies',
-        [switch]$Redirect
+        [switch]$Redirect,
+        [hashtable]$Properties
     )
     # Only works inside a route script block where $Context is available
     if ($null -ne $Context -and $null -ne $KrServer) {
         if ($PSCmdlet.ShouldProcess($Scheme, 'SignOut')) {
             # Sign out the user
             if ($Context.User -and $Context.User.Identity.IsAuthenticated) {
-                [Microsoft.AspNetCore.Authentication.AuthenticationHttpContextExtensions]::SignOutAsync($Context.HttpContext, $Scheme).GetAwaiter().GetResult() | Out-Null
+                $Context.SignOut($Scheme, $Properties)
             }
 
             if ($Redirect) {
                 $cookiesAuth = $null
-                if ($KrServer.RegisteredAuthentications.Exists($Scheme, "Cookie")) {
-                    $cookiesAuth = $KrServer.RegisteredAuthentications.Get($Scheme, "Cookie")
+                if ($KrServer.RegisteredAuthentications.Exists($Scheme, 'Cookie')) {
+                    $cookiesAuth = $KrServer.RegisteredAuthentications.Get($Scheme, 'Cookie')
                 } else {
                     Write-KrLog -Level Warning -Message 'Authentication scheme {scheme} not found in registered authentications.' -Values $Scheme
                     Write-KrErrorResponse -Message "Authentication scheme '$Scheme' not found." -StatusCode 400

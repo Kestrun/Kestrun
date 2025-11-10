@@ -504,6 +504,7 @@ public static class KestrunHostAuthnExtensions
 
         return host.AddAuthentication(
             defaultScheme: policyScheme,
+            defaultChallengeScheme: scheme,
             buildSchemes: ab =>
             {
                 // Ensure there's a cookie scheme to sign into
@@ -644,7 +645,10 @@ public static class KestrunHostAuthnExtensions
 
             buildSchemes: ab =>
             {
-                _ = ab.AddCookie();
+                _ = ab.AddCookie(CookieAuthenticationDefaults.AuthenticationScheme, opts =>
+                    {
+                        opts.SlidingExpiration = true;
+                    });
                 _ = ab.AddOpenIdConnect(
                     authenticationScheme: scheme,
                     displayName: "OIDC",
@@ -654,16 +658,16 @@ public static class KestrunHostAuthnExtensions
                         {
                             throw new ArgumentException("OpenIdConnect authority must be provided.", nameof(options));
                         }
-
-                        var authority = options.Authority.TrimEnd('/');
-                        opts.Authority = authority;
+                        // Authority and endpoints
+                        opts.Authority = options.Authority.TrimEnd('/');
                         if (!string.IsNullOrWhiteSpace(options.MetadataAddress))
                         {
                             opts.MetadataAddress = options.MetadataAddress;
                         }
-
                         opts.ClientId = options.ClientId;
                         opts.ClientSecret = options.ClientSecret;
+
+                        // Paths and schemes
                         opts.CallbackPath = options.CallbackPath.HasValue ? options.CallbackPath : "/signin-oidc";
                         opts.SignedOutCallbackPath = options.SignedOutCallbackPath;
                         opts.SignOutScheme = string.IsNullOrWhiteSpace(options.SignOutScheme)
@@ -679,6 +683,7 @@ public static class KestrunHostAuthnExtensions
                             : options.ResponseMode;
                         opts.UsePkce = options.UsePkce || string.Equals(opts.ResponseType, OpenIdConnectResponseType.Code, StringComparison.Ordinal);
                         opts.RequireHttpsMetadata = options.RequireHttpsMetadata;
+                        opts.SignedOutRedirectUri = options.SignedOutRedirectUri;
 
                         // Token behaviour
                         opts.SaveTokens = true;
@@ -730,50 +735,6 @@ public static class KestrunHostAuthnExtensions
                         foreach (var action in options.ClaimActions)
                         {
                             opts.ClaimActions.Add(action);
-                        }
-
-                        // Preserve caller events but ensure token endpoint is absolute before redemption
-                        var events = options.Events ?? new OpenIdConnectEvents();
-                        var previousAuthCodeHandler = events.OnAuthorizationCodeReceived;
-                        events.OnAuthorizationCodeReceived = async context =>
-                        {
-                            if (context.TokenEndpointRequest is not null && string.IsNullOrWhiteSpace(context.TokenEndpointRequest.TokenEndpoint))
-                            {
-                                var resolved = context.Options.Configuration?.TokenEndpoint;
-                                if (string.IsNullOrWhiteSpace(resolved) && context.Options.ConfigurationManager is not null)
-                                {
-                                    var configuration = await context.Options.ConfigurationManager.GetConfigurationAsync(context.HttpContext.RequestAborted).ConfigureAwait(false);
-                                    resolved = configuration?.TokenEndpoint;
-                                }
-
-                                if (!string.IsNullOrWhiteSpace(resolved))
-                                {
-                                    context.TokenEndpointRequest.TokenEndpoint = resolved;
-                                }
-                                else if (host.Logger.IsEnabled(LogEventLevel.Error))
-                                {
-                                    host.Logger.Error("OIDC token endpoint missing for scheme {Scheme}. Provide Authority or TokenEndpoint explicitly.", scheme);
-                                }
-                            }
-
-                            if (previousAuthCodeHandler is not null)
-                            {
-                                await previousAuthCodeHandler(context).ConfigureAwait(false);
-                            }
-                        };
-                        opts.Events = events;
-
-                        if (options.BackchannelTimeout != default)
-                        {
-                            opts.BackchannelTimeout = options.BackchannelTimeout;
-                        }
-                        if (options.Backchannel is not null)
-                        {
-                            opts.Backchannel = options.Backchannel;
-                        }
-                        if (options.BackchannelHttpHandler is not null)
-                        {
-                            opts.BackchannelHttpHandler = options.BackchannelHttpHandler;
                         }
                     });
             },
@@ -1034,21 +995,38 @@ public static class KestrunHostAuthnExtensions
     /// <param name="configureAuthz">Optional authorization policy configuration.</param>
     /// <param name="defaultChallengeScheme">The default challenge scheme .</param>
     /// <returns>The configured KestrunHost instance.</returns>
-    internal static KestrunHost AddAuthentication(this KestrunHost host,
-    Action<AuthenticationBuilder> buildSchemes,            // ← unchanged
+    internal static KestrunHost AddAuthentication(
+    this KestrunHost host,
+    Action<AuthenticationBuilder> buildSchemes,   // e.g., ab => ab.AddCookie().AddOpenIdConnect("oidc", ...)
     string defaultScheme,
     Action<AuthorizationOptions>? configureAuthz = null,
     string? defaultChallengeScheme = null)
     {
+        ArgumentNullException.ThrowIfNull(buildSchemes);
+        if (string.IsNullOrWhiteSpace(defaultScheme))
+        {
+            throw new ArgumentException("Default scheme is required.", nameof(defaultScheme));
+        }
+
         _ = host.AddService(services =>
+        {
+            // Configure defaults in one place
+            var authBuilder = services.AddAuthentication(options =>
             {
-                var ab = services.AddAuthentication(defaultScheme);
-                buildSchemes(ab);                                  // Basic + JWT here
-                defaultChallengeScheme ??= defaultChallengeScheme; ;
-                // make sure UseAuthorization() can find its services
-                _ = configureAuthz is null ? services.AddAuthorization() : services.AddAuthorization(configureAuthz);
+                options.DefaultScheme = defaultScheme;
+                options.DefaultChallengeScheme = defaultChallengeScheme ?? defaultScheme;
             });
 
+            // Let caller add handlers/schemes
+            buildSchemes(authBuilder);
+
+            // Ensure Authorization is available (with optional customization)
+            _ = configureAuthz is not null ?
+                services.AddAuthorization(configureAuthz) :
+                services.AddAuthorization();
+        });
+
+        // Add middleware once
         return host.Use(app =>
         {
             const string Key = "__kr.authmw";
@@ -1061,6 +1039,7 @@ public static class KestrunHostAuthnExtensions
             }
         });
     }
+
 
     /// <summary>
     /// Checks if the specified authentication scheme is registered in the Kestrun host.

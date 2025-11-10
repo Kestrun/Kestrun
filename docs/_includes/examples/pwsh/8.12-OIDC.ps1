@@ -35,10 +35,10 @@ if ($ClientId -eq 'interactive.confidential' -and [string]::IsNullOrWhiteSpace($
     Write-Host "         Set `$env:DUENDE_CLIENT_SECRET='secret' or pass -ClientSecret 'secret'." -ForegroundColor Yellow
     Write-Host "         Switching to 'interactive.public' (no secret, PKCE) for this run." -ForegroundColor Yellow
     $ClientId = 'interactive.public'
+    $ClientId = 'interactive.confidential'
+    $ClientSecret = 'secret'
 }
 
-# Decide PKCE usage: public client requires PKCE; confidential client (with secret) disables PKCE for Duende demo
-$usePkce = [string]::IsNullOrWhiteSpace($ClientSecret)
 
 # 1) Logging
 New-KrLogger |
@@ -54,7 +54,7 @@ Add-KrEndpoint -Port $Port -IPAddress $IPAddress -SelfSignedCert
 
 # 4) OpenID Connect auth (adds 'Oidc', 'Oidc.Cookies', 'Oidc.Policy')
 $oidcParams = @{
-    Name = 'Oidc'
+    Name = 'oidc'
     Authority = $Authority
     ClientId = $ClientId
     Scope = @()
@@ -65,7 +65,10 @@ if ($ClientSecret) {
 if ($Scopes -and $Scopes.Count -gt 0) {
     $oidcParams.Scope += $Scopes
 }
+Add-KrHttpsRedirection
+
 Add-KrOpenIdConnectAuthentication @oidcParams
+
 
 # 5) Finalize pipeline
 Enable-KrConfiguration
@@ -76,6 +79,7 @@ Add-KrMapRoute -Verbs Get -Pattern '/' -ScriptBlock {
 <!doctype html>
 <title>OIDC Duende Demo</title>
 <h1>OIDC Duende Demo</h1>
+<li><a href="/login">Login</a></li>
 <p><a href="/oidc/hello">Login with OIDC (Policy)</a></p>
 <p><a href="/oidc/me">Who am I?</a></p>
 <p><a href="/oidc/logout">Logout</a></p>
@@ -93,21 +97,39 @@ Add-KrMapRoute -Verbs Get -Pattern '/' -ScriptBlock {
     Secret = $ClientSecret
 }
 
+
+Add-KrMapRoute -Verbs Get -Pattern '/login' -ScriptBlock {
+    <#   $dic = [System.Collections.Generic.Dictionary[string, string]]::new()
+    $dic.Add('RedirectUri', '/hello')
+    $props = [Microsoft.AspNetCore.Authentication.AuthenticationProperties]::new( $dic);
+    $Context.HttpContext.ChallengeAsync('Oidc', $props) | Out-Null#>
+    $Context.Challenge('oidc', @{ 'RedirectUri' = '/oidc/hello' })
+} -AllowAnonymous
+
 # 7) Protected route group using the policy scheme
-Add-KrRouteGroup -Prefix '/oidc' -AuthorizationSchema 'Oidc' {
+Add-KrRouteGroup -Prefix '/oidc' -AuthorizationSchema 'oidc' {
     Add-KrMapRoute -Verbs Get -Pattern '/hello' -ScriptBlock {
-        $name = $Context.User.Identity.Name
-        if ([string]::IsNullOrWhiteSpace($name)) { $name = '(no name claim)' }
-        Write-KrTextResponse "Hello from OIDC, $name"
+        $name = $Context.User.Identity.Name ?? '(no name)'
+        #   if ([string]::IsNullOrWhiteSpace($name)) { $name = '(no name claim)' }
+        Write-KrHtmlResponse -Template @'
+<!doctype html>
+<title>OIDC Duende Demo - Hello</title>
+<h1>Hello from OIDC, {{name}}</h1>
+<p><a href="/oidc/me">Who am I?</a></p>
+<p><a href="/oidc/logout">Logout</a></p>
+'@ -Variables @{ name = $name }
     }
 
     Add-KrMapRoute -Verbs Get -Pattern '/me' -ScriptBlock {
         $claims = foreach ($c in $Context.User.Claims) { @{ Type = $c.Type; Value = $c.Value } }
-        Write-KrJsonResponse @{ scheme = 'Oidc.Policy'; authenticated = $Context.User.Identity.IsAuthenticated; claims = $claims }
+        Write-KrJsonResponse @{ scheme = 'oidc'; authenticated = $Context.User.Identity.IsAuthenticated; claims = $claims }
     }
 
     Add-KrMapRoute -Verbs Get -Pattern '/logout' -ScriptBlock {
-        Invoke-KrCookieSignOut -Scheme 'Oidc.Cookies'
+        $context.SignOut('Cookies')
+        $context.SignOut('oidc', @{ 'RedirectUri' = '/' })
+
+        #Invoke-KrCookieSignOut -Scheme 'oidc'
         Write-KrTextResponse 'Signed out (local cookie cleared).'
     }
 }

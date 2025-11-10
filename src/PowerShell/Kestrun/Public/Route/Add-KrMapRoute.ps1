@@ -27,6 +27,8 @@
         An optional array of authorization schemes that the route requires.
     .PARAMETER AuthorizationPolicy
         An optional array of authorization policies that the route requires.
+    .PARAMETER AllowAnonymous
+        If specified, allows anonymous access to the route. it's mutually exclusive with AuthorizationSchema and AuthorizationPolicy.
     .PARAMETER ExtraImports
         An optional array of additional namespaces to import for the route.
     .PARAMETER ExtraRefs
@@ -105,6 +107,11 @@ function Add-KrMapRoute {
         [Parameter(ParameterSetName = 'CodeFilePath')]
         [string[]]$AuthorizationPolicy = $null,
 
+        [Parameter(ParameterSetName = 'ScriptBlock')]
+        [Parameter(ParameterSetName = 'Code')]
+        [Parameter(ParameterSetName = 'CodeFilePath')]
+        [switch]$AllowAnonymous,
+
         [Parameter(ParameterSetName = 'Code')]
         [Parameter(ParameterSetName = 'CodeFilePath')]
         [string[]]$ExtraImports = $null,
@@ -160,12 +167,20 @@ function Add-KrMapRoute {
             $Options = [Kestrun.Hosting.Options.MapRouteOptions]::new()
             $Options.HttpVerbs = $Verbs
             $Options.Pattern = $Pattern
-
-            if ($null -ne $AuthorizationSchema) {
-                $Options.RequireSchemes = $AuthorizationSchema
-            }
-            if ($null -ne $AuthorizationPolicy) {
-                $Options.RequirePolicies = $AuthorizationPolicy
+            if ($AllowAnonymous.IsPresent) {
+                if ( $null -ne $AuthorizationSchema -or $null -ne $AuthorizationPolicy) {
+                    throw [System.ArgumentException]::new(
+                        'The AllowAnonymous parameter cannot be used together with AuthorizationSchema or AuthorizationPolicy parameters.')
+                }
+                # No authorization required
+                $Options.AllowAnonymous = $true
+            } else {
+                if ($null -ne $AuthorizationSchema) {
+                    $Options.RequireSchemes = $AuthorizationSchema
+                }
+                if ($null -ne $AuthorizationPolicy) {
+                    $Options.RequirePolicies = $AuthorizationPolicy
+                }
             }
 
             # Endpoints

@@ -16,6 +16,7 @@ using Microsoft.AspNetCore.Authentication.OAuth;
 using System.Text.Json;
 using Microsoft.IdentityModel.Protocols.OpenIdConnect;
 using System.IdentityModel.Tokens.Jwt;
+using Serilog;
 
 namespace Kestrun.Hosting;
 
@@ -648,6 +649,8 @@ public static class KestrunHostAuthnExtensions
                 _ = ab.AddCookie(CookieAuthenticationDefaults.AuthenticationScheme, opts =>
                     {
                         opts.SlidingExpiration = true;
+
+                        Log.Information("Configured Cookie Authentication for OpenID Connect with LoginPath: {LoginPath}", opts.LoginPath);
                     });
                 _ = ab.AddOpenIdConnect(
                     authenticationScheme: scheme,
@@ -666,7 +669,8 @@ public static class KestrunHostAuthnExtensions
                         }
                         opts.ClientId = options.ClientId;
                         opts.ClientSecret = options.ClientSecret;
-
+                        Log.Information("Configuring OpenID Connect Authentication with Authority: {Authority}, ClientId: {ClientId}, ClientSecret: {ClientSecret}",
+                        opts.Authority, opts.ClientId, opts.ClientSecret);
                         // Paths and schemes
                         opts.CallbackPath = options.CallbackPath.HasValue ? options.CallbackPath : "/signin-oidc";
                         opts.SignedOutCallbackPath = options.SignedOutCallbackPath;
@@ -718,10 +722,10 @@ public static class KestrunHostAuthnExtensions
 
                         // Claims mapping / validation
                         opts.MapInboundClaims = false;
-                        if (options.TokenValidationParameters is not null)
-                        {
-                            opts.TokenValidationParameters = options.TokenValidationParameters;
-                        }
+                        /*   if (options.TokenValidationParameters is not null)
+                           {
+                               opts.TokenValidationParameters = options.TokenValidationParameters;
+                           }*/
                         opts.TokenValidationParameters.NameClaimType = JwtRegisteredClaimNames.Name;
                         opts.TokenValidationParameters.RoleClaimType = "roles";
 
@@ -731,11 +735,11 @@ public static class KestrunHostAuthnExtensions
                             : options.SignInScheme;
 
                         // Copy claim actions from caller
-                        opts.ClaimActions.Clear();
+                        /*opts.ClaimActions.Clear();
                         foreach (var action in options.ClaimActions)
                         {
                             opts.ClaimActions.Add(action);
-                        }
+                        }*/
                     });
             },
             configureAuthz: claimPolicy?.ToAuthzDelegate()

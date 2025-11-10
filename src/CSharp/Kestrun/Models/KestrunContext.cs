@@ -278,6 +278,43 @@ public sealed record KestrunContext
     }
 
     /// <summary>
+    /// Synchronous wrapper for HttpContext.ChallengeAsync using a Dictionary for properties.
+    /// </summary>
+    /// <param name="scheme">The authentication scheme to challenge.</param>
+    /// <param name="properties">The authentication properties to include in the challenge.</param>
+    public void Challenge(string? scheme, Dictionary<string, string?>? properties)
+    {
+        if (properties == null)
+        {
+            HttpContext.ChallengeAsync(scheme).GetAwaiter().GetResult();
+            return;
+        }
+
+        AuthenticationProperties authProps = new(properties);
+        HttpContext.ChallengeAsync(scheme, authProps).GetAwaiter().GetResult();
+    }
+
+    /// <summary>
+    /// Asynchronous wrapper for HttpContext.ChallengeAsync using a Hashtable for properties.
+    /// </summary>
+    /// <param name="scheme">The authentication scheme to challenge.</param>
+    /// <param name="properties">The authentication properties to include in the challenge.</param>
+    /// <returns>Task representing the asynchronous operation.</returns>
+    public Task ChallengeAsync(string? scheme, Hashtable? properties)
+    {
+        var dict = new Dictionary<string, string?>();
+        if (properties != null)
+        {
+            foreach (DictionaryEntry entry in properties)
+            {
+                dict[entry.Key.ToString()!] = entry.Value?.ToString();
+            }
+        }
+        AuthenticationProperties authProps = new(dict);
+        return HttpContext.ChallengeAsync(scheme, authProps);
+    }
+
+    /// <summary>
     /// Synchronous wrapper for HttpContext.SignOutAsync.
     /// </summary>
     /// <param name="scheme">The authentication scheme to sign out.</param>

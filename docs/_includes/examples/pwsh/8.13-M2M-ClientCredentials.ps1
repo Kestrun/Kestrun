@@ -167,8 +167,12 @@ function New-DPoPProof {
             $tokenBytes = [Text.Encoding]::UTF8.GetBytes($AccessToken)
             $hashBytes = [Security.Cryptography.SHA256]::HashData($tokenBytes)
             $ath = [Convert]::ToBase64String($hashBytes).TrimEnd('=').Replace('+', '-').Replace('/', '_')
+            Write-KrLog -Level Debug -Message 'DPoP: Adding ath claim with value: {ath}' -Values $ath
             $builder = $builder | Add-KrJWTClaim -ClaimType 'ath' -Value $ath
         }
+
+        Write-KrLog -Level Debug -Message 'DPoP claims: htm={htm}, htu={htu}, has_ath={hasAth}' -Values $HttpMethod, $HttpUri, ([bool]$AccessToken)
+        Write-KrLog -Level Debug -Message 'DPoP JWK components: kty={kty}, n_length={nLen}, e_length={eLen}' -Values $PublicKey.kty, $PublicKey.n.Length, $PublicKey.e.Length
 
         # Sign with certificate and build
         $result = $builder |
@@ -614,13 +618,29 @@ Add-KrMapRoute -Verbs Get -Pattern '/api-call' -ScriptBlock {
             "$Authority/api/test"
         }
 
+        # For DPoP, use 'DPoP' token type instead of 'Bearer'
+        $tokenType = if ($UseDPoP) { 'DPoP' } else { 'Bearer' }
         $apiHeaders = @{
-            Authorization = "Bearer $($tokenResponse.access_token)"
+            Authorization = "$tokenType $($tokenResponse.access_token)"
         }
 
         # Add DPoP proof for API call if using DPoP
         if ($UseDPoP) {
             Write-KrLog -Level Information -Message 'Creating DPoP proof for API call'
+            Write-KrLog -Level Debug -Message 'API endpoint: {endpoint}' -Values $apiEndpoint
+            Write-KrLog -Level Debug -Message 'Access token length: {length}' -Values $tokenResponse.access_token.Length
+            Write-KrLog -Level Debug -Message 'Access token (first 50 chars): {token}' -Values $tokenResponse.access_token.Substring(0, [Math]::Min(50, $tokenResponse.access_token.Length))
+
+            # Compute ath manually for debugging
+            $tokenBytes = [Text.Encoding]::UTF8.GetBytes($tokenResponse.access_token)
+            $hashBytes = [Security.Cryptography.SHA256]::HashData($tokenBytes)
+            $athDebug = [Convert]::ToBase64String($hashBytes).TrimEnd('=').Replace('+', '-').Replace('/', '_')
+            Write-KrLog -Level Debug -Message 'Computed ath (access token hash): {ath}' -Values $athDebug
+
+            # Verify JWK thumbprint
+            $jktDebug = Get-KrJwkThumbprint -Certificate $certificate
+            Write-KrLog -Level Debug -Message 'Certificate JWK thumbprint (jkt): {jkt}' -Values $jktDebug
+
             $apiDPoPProof = New-DPoPProof -HttpMethod 'GET' -HttpUri $apiEndpoint -Certificate $certificate -PublicKey $publicKey -AccessToken $tokenResponse.access_token
 
             if (-not $apiDPoPProof) {
@@ -633,7 +653,7 @@ Add-KrMapRoute -Verbs Get -Pattern '/api-call' -ScriptBlock {
             }
 
             $apiHeaders.DPoP = $apiDPoPProof
-            Write-KrLog -Level Debug -Message 'DPoP proof added to API request'
+            Write-KrLog -Level Debug -Message 'DPoP proof added to API request. Proof length: {length}' -Values $apiDPoPProof.Length
         }
 
         Write-KrLog -Level Information -Message 'Step 2: Calling protected API with token...'
@@ -657,6 +677,20 @@ Add-KrMapRoute -Verbs Get -Pattern '/api-call' -ScriptBlock {
             }
         } catch {
             Write-KrLog -Level Warning -Message 'Protected API call failed with error: {error}' -Values $_.Exception.Message
+
+            # Try to get more details from the error response
+            $errorDetails = $null
+            if ($_.Exception.Response) {
+                try {
+                    $stream = $_.Exception.Response.GetResponseStream()
+                    $reader = [System.IO.StreamReader]::new($stream)
+                    $errorBody = $reader.ReadToEnd()
+                    Write-KrLog -Level Debug -Message 'API error response body: {body}' -Values $errorBody
+                    $errorDetails = $errorBody
+                } catch {
+                    Write-KrLog -Level Debug -Message 'Could not read error response body'
+                }
+            }
             # API call failed (expected if endpoint doesn't exist in demo)
             $er = @{
                 success = $true
@@ -670,7 +704,8 @@ Add-KrMapRoute -Verbs Get -Pattern '/api-call' -ScriptBlock {
                     success = $false
                     endpoint = $apiEndpoint
                     error = $_.Exception.Message
-                    note = 'Token was obtained successfully, but demo API endpoint may not exist. In production, you would call your actual protected API here.'
+                    error_details = $errorDetails
+                    note = 'Token was obtained successfully, but API call failed. Check error_details for more information.'
                 }
                 how_to_use_token = @{
                     header_name = 'Authorization'

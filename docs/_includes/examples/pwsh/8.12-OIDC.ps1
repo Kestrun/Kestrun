@@ -24,18 +24,21 @@ param(
     [int]$Port = 5000,
     [IPAddress]$IPAddress = [IPAddress]::Loopback,
     [string]$Authority = 'https://demo.duendesoftware.com',
-    [string]$ClientId = 'interactive.confidential',
-    [string]$ClientSecret = $env:DUENDE_CLIENT_SECRET,  # Set to 'secret' for demo confidential client or via env var
-    [string[]]$Scopes  # Additional scopes beyond 'openid' and 'profile' (which are added by default)
+    [validateSet('confidential', 'public')]
+    [string]$DemoMode = 'confidential'
 )
 
-# Prefer a working default: if using the confidential demo client but no secret is provided,
-# automatically switch to the public client (no secret required) to avoid a 400 at the token endpoint.
-if ($ClientId -eq 'interactive.confidential' -and [string]::IsNullOrWhiteSpace($ClientSecret)) {
-    Write-Host 'WARNING: interactive.confidential requires a client secret.' -ForegroundColor Yellow
-    Write-Host "         Set `$env:DUENDE_CLIENT_SECRET='secret' or pass -ClientSecret 'secret'." -ForegroundColor Yellow
-    Write-Host "         Using default secret 'secret' for Duende demo." -ForegroundColor Yellow
-    $ClientSecret = 'secret'  # Default secret for Duende demo
+
+
+switch ($DemoMode) {
+    'confidential' {
+        $ClientId = 'interactive.confidential'
+        $ClientSecret = 'secret'
+    }
+    'public' {
+        $ClientId = 'interactive.public'
+        $ClientSecret = $null
+    }
 }
 
 Initialize-KrRoot -Path $PSScriptRoot

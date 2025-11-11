@@ -93,6 +93,7 @@ function Enable-KrConfiguration {
             $fxMap = [System.Collections.Generic.Dictionary[string, string]]::new([System.StringComparer]::OrdinalIgnoreCase)
             foreach ($f in $fx) { $fxMap[$f.Name] = $f.Definition }
         }
+        Write-KrLog -Level Information -Message 'Collected {count} user-defined functions {names} for runspaces.' -Values $fxMap.Count, $fxMap.Keys
         # Apply the configuration to the server
         # Set the user-defined variables in the server configuration
         $Server.EnableConfiguration($vars, $fxMap) | Out-Null

@@ -634,12 +634,13 @@ Add-KrMapRoute -Verbs Get -Pattern '/api-call' -ScriptBlock {
 
             $apiHeaders.DPoP = $apiDPoPProof
             Write-KrLog -Level Debug -Message 'DPoP proof added to API request'
-        }        Write-KrLog -Level Information -Message 'Step 2: Calling protected API with token...'
+        }
 
+        Write-KrLog -Level Information -Message 'Step 2: Calling protected API with token...'
         try {
             $apiResponse = Invoke-RestMethod -Uri $apiEndpoint -Method Get -Headers $apiHeaders
-
-            Write-KrJsonResponse @{
+            Write-KrLog -Level Information -Message 'Protected API call succeeded'
+            Write-KrJsonResponse -InputObject @{
                 success = $true
                 step1_token = @{
                     obtained = $true
@@ -655,8 +656,9 @@ Add-KrMapRoute -Verbs Get -Pattern '/api-call' -ScriptBlock {
                 note = 'Successfully authenticated with client credentials and called a protected API!'
             }
         } catch {
+            Write-KrLog -Level Warning -Message 'Protected API call failed with error: {error}' -Values $_.Exception.Message
             # API call failed (expected if endpoint doesn't exist in demo)
-            Write-KrJsonResponse @{
+            $er = @{
                 success = $true
                 step1_token = @{
                     obtained = $true
@@ -676,9 +678,14 @@ Add-KrMapRoute -Verbs Get -Pattern '/api-call' -ScriptBlock {
                     example = "Invoke-RestMethod -Uri 'https://api.example.com/data' -Headers @{ Authorization = 'Bearer $($tokenResponse.access_token.Substring(0, 20))...' }"
                 }
             }
+
+            Write-KrJsonResponse -InputObject $er -StatusCode 403
+
+            Write-KrLog -Level Information -Message 'Note: In a real scenario, you would call your actual protected API endpoint here using the obtained token.'
         }
     } catch {
-        Write-KrJsonResponse @{
+        Write-KrLog -Level Error -Message 'Failed during M2M API call process: {error}' -Values $_.Exception.Message -ErrorRecord $_
+        Write-KrJsonResponse -InputObject @{
             success = $false
             error = $_.Exception.Message
             details = if ($_.ErrorDetails.Message) { $_.ErrorDetails.Message | ConvertFrom-Json } else { $null }

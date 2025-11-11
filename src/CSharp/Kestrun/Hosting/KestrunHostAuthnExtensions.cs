@@ -630,24 +630,32 @@ public static class KestrunHostAuthnExtensions
     /// </summary>
     /// <param name="host">The Kestrun host instance.</param>
     /// <param name="scheme">The authentication scheme name.</param>
-    /// <param name="authority">The OIDC authority URL.</param>
-    /// <param name="clientId">The client ID.</param>
-    /// <param name="clientSecret">The client secret (optional for public clients).</param>
-    /// <param name="scopes">Additional scopes beyond openid and profile.</param>
+    /// <param name="options">The OpenIdConnectOptions to configure the authentication.</param>
     /// <param name="claimPolicy">Optional authorization policy configuration.</param>
     /// <returns>The configured KestrunHost instance.</returns>
     public static KestrunHost AddOpenIdConnectAuthentication(
         this KestrunHost host,
         string scheme,
-        string authority,
-        string clientId,
-        string? clientSecret = null,
-        IEnumerable<string>? scopes = null,
+        OpenIdConnectOptions options,
         ClaimPolicyConfig? claimPolicy = null)
     {
         // CRITICAL: Register authentication in the host's registration tracker to prevent duplicate registrations
-        var opts = new OpenIdConnectOptions { Authority = authority, ClientId = clientId, ClientSecret = clientSecret };
-        _ = host.RegisteredAuthentications.Register(scheme, "OpenIdConnect", opts);
+        // var options = new OpenIdConnectOptions { Authority = authority, ClientId = clientId, ClientSecret = clientSecret };
+        if (host.Logger.IsEnabled(LogEventLevel.Debug))
+        {
+            host.Logger.Debug("Adding OpenID Connect Authentication with scheme: {Scheme}, Authority: {Authority}, ClientId: {ClientId}",
+                scheme, options.Authority, options.ClientId);
+        }
+        if (string.IsNullOrWhiteSpace(options.Authority))
+        {
+            throw new ArgumentException("Authority must be provided in OpenIdConnectOptions", nameof(options));
+        }
+        // Ensure the scheme is not null
+        var authority = options.Authority;
+        var clientId = options.ClientId;
+        var clientSecret = options.ClientSecret;
+        var scopes = options.Scope;
+        _ = host.RegisteredAuthentications.Register(scheme, "OpenIdConnect", options);
 
         var h = host.AddAuthentication(
             defaultScheme: CookieAuthenticationDefaults.AuthenticationScheme,
@@ -709,12 +717,12 @@ public static class KestrunHostAuthnExtensions
                     }
 
                     // Flow configuration
-                    opts.ResponseType = OpenIdConnectResponseType.Code;
-                    opts.ResponseMode = OpenIdConnectResponseMode.FormPost;
-                    opts.UsePkce = true;
-                    opts.SaveTokens = true;
-                    opts.GetClaimsFromUserInfoEndpoint = true;
-                    opts.MapInboundClaims = false;
+                    opts.ResponseType = options.ResponseType ?? OpenIdConnectResponseType.Code;
+                    opts.ResponseMode = options.ResponseMode ?? OpenIdConnectResponseMode.FormPost;
+                    opts.UsePkce = options.UsePkce;
+                    opts.SaveTokens = options.SaveTokens;
+                    opts.GetClaimsFromUserInfoEndpoint = options.GetClaimsFromUserInfoEndpoint;
+                    opts.MapInboundClaims = options.MapInboundClaims;
 
                     // Protocol validation - use framework defaults
                     // The default ProtocolValidator handles token response validation correctly
@@ -1038,157 +1046,6 @@ public static class KestrunHostAuthnExtensions
                 }
             });
         });
-    }
-
-    /// <summary>
-    /// Adds OpenID Connect authentication to the Kestrun host.
-    /// <para>Use this for applications that require OpenID Connect authentication.</para>
-    /// </summary>
-    /// <param name="host">The Kestrun host instance.</param>
-    /// <param name="scheme">The base authentication scheme name (e.g., "Oidc").</param>
-    /// <param name="options">The OpenID Connect configuration options.</param>
-    /// <param name="claimPolicy">Optional authorization policy configuration.</param>
-    /// <returns>The configured KestrunHost instance.</returns>
-    public static KestrunHost AddOpenIdConnectAuthentication(
-        this KestrunHost host,
-        string scheme,
-        OpenIdConnectOptions options,
-        ClaimPolicyConfig? claimPolicy = null)
-    {
-
-        return host.AddAuthentication(
-            defaultScheme: CookieAuthenticationDefaults.AuthenticationScheme,
-            defaultChallengeScheme: scheme,
-
-            buildSchemes: ab =>
-            {
-                _ = ab.AddCookie(CookieAuthenticationDefaults.AuthenticationScheme, opts =>
-                    {
-                        opts.SlidingExpiration = true;
-
-                        Log.Information("Configured Cookie Authentication for OpenID Connect with LoginPath: {LoginPath}", opts.LoginPath);
-                    });
-                _ = ab.AddOpenIdConnect(
-                    authenticationScheme: scheme,
-                    displayName: "OIDC",
-                    configureOptions: opts =>
-                    {
-                        if (string.IsNullOrWhiteSpace(options.Authority))
-                        {
-                            throw new ArgumentException("OpenIdConnect authority must be provided.", nameof(options));
-                        }
-                        // Authority and endpoints
-                        opts.Authority = options.Authority.TrimEnd('/');
-                        // DO NOT set MetadataAddress if not provided - let framework auto-discover
-                        if (!string.IsNullOrWhiteSpace(options.MetadataAddress))
-                        {
-                            opts.MetadataAddress = options.MetadataAddress;
-                        }
-                        opts.ClientId = options.ClientId;
-                        opts.ClientSecret = options.ClientSecret;
-                        Log.Information("Configuring OpenID Connect Authentication with Authority: {Authority}, ClientId: {ClientId}, ClientSecret: {ClientSecret}",
-                        opts.Authority, opts.ClientId, opts.ClientSecret);
-                        // Paths and schemes
-                        opts.CallbackPath = options.CallbackPath.HasValue ? options.CallbackPath : "/signin-oidc";
-                        opts.SignedOutCallbackPath = options.SignedOutCallbackPath;
-                        opts.SignOutScheme = string.IsNullOrWhiteSpace(options.SignOutScheme)
-                            ? CookieAuthenticationDefaults.AuthenticationScheme
-                            : options.SignOutScheme;
-
-                        // Flow configuration
-                        // CRITICAL: Framework default for ResponseType is "id_token" (implicit flow)
-                        // We MUST force to "code" unless explicitly overridden to something else
-                        opts.ResponseType = string.IsNullOrWhiteSpace(options.ResponseType) ||
-                                            string.Equals(options.ResponseType, "id_token", StringComparison.Ordinal)
-                            ? OpenIdConnectResponseType.Code
-                            : options.ResponseType;
-                        opts.ResponseMode = string.IsNullOrWhiteSpace(options.ResponseMode)
-                            ? OpenIdConnectResponseMode.FormPost
-                            : options.ResponseMode;
-                        opts.UsePkce = options.UsePkce || string.Equals(opts.ResponseType, OpenIdConnectResponseType.Code, StringComparison.Ordinal);
-                        opts.RequireHttpsMetadata = options.RequireHttpsMetadata;
-                        opts.SignedOutRedirectUri = options.SignedOutRedirectUri;
-
-                        // Token behaviour
-                        opts.SaveTokens = true;
-                        opts.GetClaimsFromUserInfoEndpoint = true;
-                        opts.UseTokenLifetime = options.UseTokenLifetime;
-                        opts.Resource = options.Resource;
-
-                        // Scope handling (dedupe & guarantee openid/profile)
-                        opts.Scope.Clear();
-                        var seen = new HashSet<string>(StringComparer.Ordinal);
-                        IEnumerable<string> requestedScopes = options.Scope.Count > 0 ? options.Scope : Array.Empty<string>();
-                        foreach (var scope in requestedScopes)
-                        {
-                            if (string.IsNullOrWhiteSpace(scope))
-                            {
-                                continue;
-                            }
-
-                            if (seen.Add(scope))
-                            {
-                                opts.Scope.Add(scope);
-                            }
-                        }
-                        if (seen.Add("openid"))
-                        {
-                            opts.Scope.Add("openid");
-                        }
-                        if (seen.Add("profile"))
-                        {
-                            opts.Scope.Add("profile");
-                        }
-
-                        // Claims mapping / validation
-                        opts.MapInboundClaims = false;
-                        /*   if (options.TokenValidationParameters is not null)
-                           {
-                               opts.TokenValidationParameters = options.TokenValidationParameters;
-                           }*/
-                        opts.TokenValidationParameters.NameClaimType = JwtRegisteredClaimNames.Name;
-                        opts.TokenValidationParameters.RoleClaimType = "roles";
-
-                        // Sign-in cookie linkage
-                        opts.SignInScheme = string.IsNullOrWhiteSpace(options.SignInScheme)
-                            ? CookieAuthenticationDefaults.AuthenticationScheme
-                            : options.SignInScheme;
-
-                        // CRITICAL: Explicitly create backchannel HttpClient with BaseAddress
-                        // The framework's post-configuration doesn't seem to be running properly
-                        var authorityUri = new Uri(opts.Authority.TrimEnd('/'));
-                        opts.BackchannelHttpHandler = new HttpClientHandler();
-                        opts.Backchannel = new HttpClient(opts.BackchannelHttpHandler)
-                        {
-                            BaseAddress = authorityUri,
-                            Timeout = TimeSpan.FromSeconds(60),
-                            MaxResponseContentBufferSize = 10 * 1024 * 1024 // 10 MB
-                        };
-
-                        // Backchannel configuration override (if provided by caller)
-                        if (options.Backchannel is not null)
-                        {
-                            opts.Backchannel = options.Backchannel;
-                        }
-                        if (options.BackchannelHttpHandler is not null)
-                        {
-                            opts.BackchannelHttpHandler = options.BackchannelHttpHandler;
-                        }
-                        if (options.BackchannelTimeout != default)
-                        {
-                            opts.BackchannelTimeout = options.BackchannelTimeout;
-                        }
-
-                        // Copy claim actions from caller
-                        /*opts.ClaimActions.Clear();
-                        foreach (var action in options.ClaimActions)
-                        {
-                            opts.ClaimActions.Add(action);
-                        }*/
-                    });
-            },
-            configureAuthz: claimPolicy?.ToAuthzDelegate()
-        );
     }
 
     #endregion

@@ -61,6 +61,8 @@ $allModes = @{
         ClientId = 'interactive.confidential'
         ClientSecret = 'secret'
         GrantType = 'authorization code and client credentials'
+        ResponseType = 'code'
+        ResponseMode = $null
         TokenLifetime = '1h'
         RequiresPKCE = $true
         UseJwtAuth = $false
@@ -71,6 +73,8 @@ $allModes = @{
         ClientId = 'interactive.confidential.jwt'
         ClientSecret = $null  # Uses private_key_jwt
         GrantType = 'authorization code and client credentials'
+        ResponseType = 'code'
+        ResponseMode = $null
         TokenLifetime = '1h'
         RequiresPKCE = $true
         UseJwtAuth = $true
@@ -81,6 +85,8 @@ $allModes = @{
         ClientId = 'interactive.confidential.short'
         ClientSecret = 'secret'
         GrantType = 'authorization code and client credentials'
+        ResponseType = 'code'
+        ResponseMode = $null
         TokenLifetime = '0h 1m 15s (75 seconds)'
         RequiresPKCE = $true
         UseJwtAuth = $false
@@ -91,6 +97,8 @@ $allModes = @{
         ClientId = 'interactive.confidential.short.jwt'
         ClientSecret = $null
         GrantType = 'authorization code and client credentials'
+        ResponseType = 'code'
+        ResponseMode = $null
         TokenLifetime = '0h 1m 15s (75 seconds)'
         RequiresPKCE = $true
         UseJwtAuth = $true
@@ -101,6 +109,8 @@ $allModes = @{
         ClientId = 'interactive.public'
         ClientSecret = $null
         GrantType = 'authorization code'
+        ResponseType = 'code'
+        ResponseMode = $null
         TokenLifetime = '1h'
         RequiresPKCE = $true
         UseJwtAuth = $false
@@ -111,6 +121,8 @@ $allModes = @{
         ClientId = 'interactive.public.short'
         ClientSecret = $null
         GrantType = 'authorization code'
+        ResponseType = 'code'
+        ResponseMode = $null
         TokenLifetime = '0h 1m 15s (75 seconds)'
         RequiresPKCE = $true
         UseJwtAuth = $false
@@ -121,6 +133,8 @@ $allModes = @{
         ClientId = 'interactive.confidential.nopkce'
         ClientSecret = 'secret'
         GrantType = 'authorization code and client credentials'
+        ResponseType = 'code'
+        ResponseMode = $null
         TokenLifetime = '1h'
         RequiresPKCE = $false
         UseJwtAuth = $false
@@ -131,16 +145,20 @@ $allModes = @{
         ClientId = 'interactive.confidential.hybrid'
         ClientSecret = 'secret'
         GrantType = 'hybrid and client credentials'
+        ResponseType = 'code id_token'  # Hybrid flow requires id_token at authorization endpoint
+        ResponseMode = 'form_post'      # Hybrid flow typically uses form_post
         TokenLifetime = '1h'
         RequiresPKCE = $true
         UseJwtAuth = $false
         Scopes = @('openid', 'profile', 'email', 'offline_access', 'api')
-        Description = 'Hybrid flow (returns tokens at authorization endpoint)'
+        Description = 'Hybrid flow (returns id_token at authorization endpoint)'
     }
     'interactive.implicit' = @{
         ClientId = 'interactive.implicit'
         ClientSecret = $null
         GrantType = 'implicit'
+        ResponseType = 'id_token token'  # Implicit flow returns tokens directly
+        ResponseMode = 'fragment'        # Implicit flow uses fragment for security
         TokenLifetime = '1h'
         RequiresPKCE = $true
         UseJwtAuth = $false
@@ -277,7 +295,19 @@ $oidcParams = @{
     Authority = $Authority
     ClientId = $ClientId
     Scope = $Scopes
-  #  UsePkce = $modeConfig.RequiresPKCE
+    UsePkce = $modeConfig.RequiresPKCE
+}
+
+# Add ResponseType if specified (for hybrid/implicit flows)
+if ($modeConfig.ResponseType) {
+    $oidcParams.ResponseType = $modeConfig.ResponseType
+    Write-KrLog -Level Debug -Message 'Using ResponseType: {responseType}' -Values $modeConfig.ResponseType
+}
+
+# Add ResponseMode if specified (for hybrid/implicit flows)
+if ($modeConfig.ResponseMode) {
+    $oidcParams.ResponseMode = $modeConfig.ResponseMode
+    Write-KrLog -Level Debug -Message 'Using ResponseMode: {responseMode}' -Values $modeConfig.ResponseMode
 }
 
 # Configure client authentication based on mode

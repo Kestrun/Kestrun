@@ -101,7 +101,7 @@ $ClientId = $Mode
 # Duende demo's RSA key pair (PEM format) - loaded from Assets/certs folder
 # This is the demo key from https://demo.duendesoftware.com - NOT for production!
 $duendePrivateKeyPemPath = Join-Path -Path $PSScriptRoot -ChildPath 'Assets' -AdditionalChildPath 'certs', 'private.pem'
-$duendePublicKeyPemPath = Join-Path -Path $PSScriptRoot -ChildPath 'Assets' -AdditionalChildPath 'certs', 'public.pem'
+$publicKeyPemPath = Join-Path -Path $PSScriptRoot -ChildPath 'Assets' -AdditionalChildPath 'certs', 'public.pem'
 
 
 # 1) Logging
@@ -111,8 +111,8 @@ New-KrLogger |
     Register-KrLogger -Name 'console' -SetAsDefault | Out-Null
 
 # Certificate and public key will be created after Initialize-KrRoot
-$duendeCert = $null
-$duendePublicKey = $null
+$certificate = $null
+$publicKey = $null
 
 
 
@@ -178,7 +178,7 @@ function New-DPoPProof {
         return $result | Get-KrJWTToken
 
     } catch {
-        Write-Error "Failed to create DPoP proof: $_"
+        Write-KrLog -Level Error -ErrorRecord $_ -Message 'Failed to create DPoP proof: {error}' -Values $_.Exception.Message
         return $null
     }
 }
@@ -224,7 +224,7 @@ function New-JwtClientAssertion {
         return $result | Get-KrJWTToken
 
     } catch {
-        Write-Error "Failed to create JWT client assertion: $_"
+        Write-KrLog -Level Error -ErrorRecord $_ -Message 'Failed to create JWT client assertion: {error}' -Values $_.Exception.Message
         return $null
     }
 }
@@ -287,10 +287,10 @@ try {
     $rsa.ImportFromPem($privateKeyContent)
 
     # Read public key PEM file
-    if (-not (Test-Path $duendePublicKeyPemPath)) {
-        throw "Public key PEM file not found: $duendePublicKeyPemPath"
+    if (-not (Test-Path $publicKeyPemPath)) {
+        throw "Public key PEM file not found: $publicKeyPemPath"
     }
-    $publicKeyContent = Get-Content $duendePublicKeyPemPath -Raw
+    $publicKeyContent = Get-Content $publicKeyPemPath -Raw
     $rsaPublic = [System.Security.Cryptography.RSA]::Create()
     $rsaPublic.ImportFromPem($publicKeyContent)
 
@@ -307,102 +307,41 @@ try {
         [System.Security.Cryptography.RSASignaturePadding]::Pkcs1
     )
 
-    $duendeCert = $certRequest.CreateSelfSigned(
+    $certificate = $certRequest.CreateSelfSigned(
         [DateTimeOffset]::Now.AddDays(-1),
         [DateTimeOffset]::Now.AddYears(1)
     )
 
     # Build public key JWK for DPoP (from separate public key PEM file)
-    $duendePublicKey = @{
+    $publicKey = @{
         kty = 'RSA'
         n = ConvertTo-KrBase64Url $rsaParams.Modulus
         e = ConvertTo-KrBase64Url $rsaParams.Exponent
-        kid = (Get-KrJwkThumbprint -Certificate $duendeCert)
+        kid = (Get-KrJwkThumbprint -Certificate $certificate)
     }
 
     Write-KrLog -Level Information -Message 'RSA certificate created successfully from PEM'
-    Write-KrLog -Level Debug -Message 'Certificate Thumbprint: {thumbprint}' -Values $duendeCert.Thumbprint
-    Write-KrLog -Level Debug -Message 'Has Private Key: {hasPrivateKey}' -Values $duendeCert.HasPrivateKey
+    Write-KrLog -Level Debug -Message 'Certificate Thumbprint: {thumbprint}' -Values $certificate.Thumbprint
+    Write-KrLog -Level Debug -Message 'Has Private Key: {hasPrivateKey}' -Values $certificate.HasPrivateKey
 } catch {
     Write-KrLog -Level Error -ErrorRecord $_ -Message 'Failed to create certificate from PEM: {error}' -Values $_.Exception.Message
-    $duendeCert = $null
+    $certificate = $null
     return 1
 }
-$Certificate = $duendeCert
-$PublicKey = $duendePublicKey
+
 # 2) Server
 New-KrServer -Name 'M2M Client Credentials Demo'
 
 # 3) HTTPS endpoint
 Add-KrEndpoint -Port $Port -IPAddress $IPAddress -SelfSignedCert
 
-
 # 4) Finalize pipeline (no authentication middleware needed for M2M demo)
 Enable-KrConfiguration
 
+Add-Kr
 # 5) Landing page
 Add-KrMapRoute -Verbs Get -Pattern '/' -ScriptBlock {
-    Write-KrHtmlResponse -Template @'
-<!doctype html>
-<html>
-<head>
-    <title>M2M Client Credentials Demo</title>
-    <style>
-        body { font-family: Arial, sans-serif; max-width: 800px; margin: 50px auto; padding: 20px; }
-        h1 { color: #333; }
-        .section { margin: 20px 0; padding: 15px; background: #f5f5f5; border-radius: 5px; }
-        .endpoint { margin: 10px 0; }
-        code { background: #e0e0e0; padding: 2px 5px; border-radius: 3px; }
-        pre { background: #272822; color: #f8f8f2; padding: 15px; border-radius: 5px; overflow-x: auto; }
-    </style>
-</head>
-<body>
-    <h1>🔐 Machine-to-Machine (M2M) Authentication Demo</h1>
-
-    <div class="section">
-        <h2>What is M2M?</h2>
-        <p>Machine-to-Machine authentication allows services to authenticate without user interaction.</p>
-        <p>Uses OAuth 2.0 <strong>Client Credentials Grant</strong> - the application authenticates as itself.</p>
-    </div>
-
-        <div class="section">
-        <h2>Demo Configuration</h2>
-        <p><strong>Authority:</strong> {{authority}}</p>
-        <p><strong>Client ID:</strong> {{clientId}}</p>
-        <div class="info-box">
-            <strong>{{clientDescription}}</strong><br>
-            Authentication Method: {{authMethod}}<br>
-            Token Lifetime: {{tokenLifetime}}<br>
-            DPoP Required: {{useDPoP}}
-        </div>
-        <p><strong>Client Secret:</strong> {{secret}}</p>
-        <p><strong>Scopes:</strong> {{scopes}}</p>
-    </div>
-
-    <div class="section">
-        <h2>Try It Out</h2>
-        <div class="endpoint">
-            <strong><a href="/token">GET /token</a></strong> - Request an access token using client credentials
-        </div>
-        <div class="endpoint">
-            <strong><a href="/token/decode">GET /token/decode</a></strong> - Get a token and decode its claims
-        </div>
-        <div class="endpoint">
-            <strong><a href="/api-call">GET /api-call</a></strong> - Simulate calling a protected API with the token
-        </div>
-    </div>
-
-    <div class="section">
-        <h2>How It Works</h2>
-        <pre>
-1. POST to token endpoint with client credentials
-2. Receive access_token in response
-3. Use token in Authorization header for API calls
-4. Token represents the application (not a user)</pre>
-    </div>
-</body>
-</html>
-'@ -Variables @{
+    Write-KrHtmlResponse -FilePath './Assets/wwwroot/M2Mdemo.html' -Variables @{
         authority = $Authority
         clientId = $ClientId
         clientDescription = $clientInfo.Description
@@ -442,7 +381,7 @@ Add-KrMapRoute -Verbs Get -Pattern '/token' -ScriptBlock {
         Write-KrLog -Level Information -Message 'Using DPoP (Demonstrating Proof-of-Possession)'
 
         # Create DPoP proof JWT for token request
-        $dpopProof = New-DPoPProof -HttpMethod 'POST' -HttpUri $tokenEndpoint -Certificate $Certificate -PublicKey $PublicKey
+        $dpopProof = New-DPoPProof -HttpMethod 'POST' -HttpUri $tokenEndpoint -Certificate $certificate -PublicKey $publicKey
 
         if (-not $dpopProof) {
             Write-KrJsonResponse @{
@@ -457,7 +396,7 @@ Add-KrMapRoute -Verbs Get -Pattern '/token' -ScriptBlock {
         $headers.DPoP = $dpopProof
 
         # Add JWK thumbprint to request (RFC 9449 requires jkt)
-        $jkt = Get-KrJwkThumbprint -Certificate $Certificate
+        $jkt = Get-KrJwkThumbprint -Certificate $certificate
         $body.dpop_jkt = $jkt
 
         Write-KrLog -Level Debug -Message 'DPoP proof created and JWK thumbprint added'
@@ -469,7 +408,7 @@ Add-KrMapRoute -Verbs Get -Pattern '/token' -ScriptBlock {
         Write-KrLog -Level Information -Message 'Using JWT Bearer authentication (private_key_jwt)'
 
         # Create and sign JWT client assertion
-        $jwt = New-JwtClientAssertion -ClientId $ClientId -TokenEndpoint $tokenEndpoint -Certificate $Certificate -KeyId $PublicKey.kid
+        $jwt = New-JwtClientAssertion -ClientId $ClientId -TokenEndpoint $tokenEndpoint -Certificate $certificate -KeyId $publicKey.kid
 
         if (-not $jwt) {
             Write-KrJsonResponse @{
@@ -528,7 +467,6 @@ Add-KrMapRoute -Verbs Get -Pattern '/token' -ScriptBlock {
 # 7) Get and decode token endpoint
 Add-KrMapRoute -Verbs Get -Pattern '/token/decode' -ScriptBlock {
 
-
     $tokenEndpoint = "$Authority/connect/token"
     $scope = $Scopes -join ' '
     $UseJwtAuth = $ClientId -like '*.jwt*'
@@ -547,19 +485,19 @@ Add-KrMapRoute -Verbs Get -Pattern '/token/decode' -ScriptBlock {
 
     # Add DPoP proof if needed
     if ($UseDPoP) {
-        $dpopProof = New-DPoPProof -HttpMethod 'POST' -HttpUri $tokenEndpoint -Certificate $Certificate -PublicKey $PublicKey
+        $dpopProof = New-DPoPProof -HttpMethod 'POST' -HttpUri $tokenEndpoint -Certificate $certificate -PublicKey $publicKey
         if (-not $dpopProof) {
             Write-KrJsonResponse @{ success = $false; error = 'dpop_proof_failed' } -StatusCode 500
             return
         }
         $headers.DPoP = $dpopProof
-        $jkt = Get-KrJwkThumbprint -Certificate $Certificate
+        $jkt = Get-KrJwkThumbprint -Certificate $certificate
         $body.dpop_jkt = $jkt
     }
 
     # Choose authentication method
     if ($UseJwtAuth) {
-        $jwt = New-JwtClientAssertion -ClientId $ClientId -TokenEndpoint $tokenEndpoint -Certificate $Certificate -KeyId $PublicKey.kid
+        $jwt = New-JwtClientAssertion -ClientId $ClientId -TokenEndpoint $tokenEndpoint -Certificate $certificate -KeyId $publicKey.kid
         if (-not $jwt) {
             Write-KrJsonResponse @{ success = $false; error = 'jwt_signing_failed' } -StatusCode 500
             return
@@ -640,19 +578,19 @@ Add-KrMapRoute -Verbs Get -Pattern '/api-call' -ScriptBlock {
 
     # Add DPoP proof if needed
     if ($UseDPoP) {
-        $dpopProof = New-DPoPProof -HttpMethod 'POST' -HttpUri $tokenEndpoint -Certificate $Certificate -PublicKey $PublicKey
+        $dpopProof = New-DPoPProof -HttpMethod 'POST' -HttpUri $tokenEndpoint -Certificate $certificate -PublicKey $publicKey
         if (-not $dpopProof) {
             Write-KrJsonResponse @{ success = $false; error = 'dpop_proof_failed' } -StatusCode 500
             return
         }
         $tokenHeaders.DPoP = $dpopProof
-        $jkt = Get-KrJwkThumbprint -Certificate $Certificate
+        $jkt = Get-KrJwkThumbprint -Certificate $certificate
         $body.dpop_jkt = $jkt
     }
 
     # Choose authentication method
     if ($UseJwtAuth) {
-        $jwt = New-JwtClientAssertion -ClientId $ClientId -TokenEndpoint $tokenEndpoint -Certificate $Certificate -KeyId $PublicKey.kid
+        $jwt = New-JwtClientAssertion -ClientId $ClientId -TokenEndpoint $tokenEndpoint -Certificate $certificate -KeyId $publicKey.kid
         if (-not $jwt) {
             Write-KrJsonResponse @{ success = $false; error = 'jwt_signing_failed' } -StatusCode 500
             return
@@ -683,7 +621,7 @@ Add-KrMapRoute -Verbs Get -Pattern '/api-call' -ScriptBlock {
         # Add DPoP proof for API call if using DPoP
         if ($UseDPoP) {
             Write-KrLog -Level Information -Message 'Creating DPoP proof for API call'
-            $apiDPoPProof = New-DPoPProof -HttpMethod 'GET' -HttpUri $apiEndpoint -Certificate $Certificate -PublicKey $PublicKey -AccessToken $tokenResponse.access_token
+            $apiDPoPProof = New-DPoPProof -HttpMethod 'GET' -HttpUri $apiEndpoint -Certificate $certificate -PublicKey $publicKey -AccessToken $tokenResponse.access_token
 
             if (-not $apiDPoPProof) {
                 Write-KrJsonResponse @{

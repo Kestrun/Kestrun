@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>M2M Client Credentials Demo</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 800px; margin: 50px auto; padding: 20px; }
+        h1 { color: #333; }
+        .section { margin: 20px 0; padding: 15px; background: #f5f5f5; border-radius: 5px; }
+        .endpoint { margin: 10px 0; }
+        code { background: #e0e0e0; padding: 2px 5px; border-radius: 3px; }
+        pre { background: #272822; color: #f8f8f2; padding: 15px; border-radius: 5px; overflow-x: auto; }
+    </style>
+</head>
+<body>
+    <h1>🔐 Machine-to-Machine (M2M) Authentication Demo</h1>
+
+    <div class="section">
+        <h2>What is M2M?</h2>
+        <p>Machine-to-Machine authentication allows services to authenticate without user interaction.</p>
+        <p>Uses OAuth 2.0 <strong>Client Credentials Grant</strong> - the application authenticates as itself.</p>
+    </div>
+
+        <div class="section">
+        <h2>Demo Configuration</h2>
+        <p><strong>Authority:</strong> {{authority}}</p>
+        <p><strong>Client ID:</strong> {{clientId}}</p>
+        <div class="info-box">
+            <strong>{{clientDescription}}</strong><br>
+            Authentication Method: {{authMethod}}<br>
+            Token Lifetime: {{tokenLifetime}}<br>
+            DPoP Required: {{useDPoP}}
+        </div>
+        <p><strong>Client Secret:</strong> {{secret}}</p>
+        <p><strong>Scopes:</strong> {{scopes}}</p>
+    </div>
+
+    <div class="section">
+        <h2>Try It Out</h2>
+        <div class="endpoint">
+            <strong><a href="/token">GET /token</a></strong> - Request an access token using client credentials
+        </div>
+        <div class="endpoint">
+            <strong><a href="/token/decode">GET /token/decode</a></strong> - Get a token and decode its claims
+        </div>
+        <div class="endpoint">
+            <strong><a href="/api-call">GET /api-call</a></strong> - Simulate calling a protected API with the token
+        </div>
+    </div>
+
+    <div class="section">
+        <h2>How It Works</h2>
+        <pre>
+1. POST to token endpoint with client credentials
+2. Receive access_token in response
+3. Use token in Authorization header for API calls
+4. Token represents the application (not a user)</pre>
+    </div>
+</body>
+</html>

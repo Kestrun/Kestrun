@@ -670,20 +670,28 @@ public static class KestrunHostAuthnExtensions
                     }
 
                     // CRITICAL: Create backchannel immediately during configuration
-                    // The framework's OpenIdConnectPostConfigureOptions creates a broken HttpClient
-                    // with no handler, so we must create it ourselves here
+                    // The framework's OpenIdConnectPostConfigureOptions checks if Backchannel is null
+                    // and creates one using BackchannelHttpHandler. However:
+                    // 1. We can't set BackchannelHttpHandler to a DelegatingHandler (framework will fail to recreate clients)
+                    // 2. We can't leave Backchannel null (framework creates one without BaseAddress)
+                    // Solution: Create Backchannel with BaseAddress set, and DON'T set BackchannelHttpHandler
 
                     // Create a logging handler to intercept HTTP requests
                     var loggingHandler = new HttpClientHandler();
-                    var logginMessageHandler = new LoggingHttpMessageHandler(loggingHandler, host.Logger);
+                    var loggingMessageHandler = new LoggingHttpMessageHandler(loggingHandler, host.Logger);
 
-                    opts.BackchannelHttpHandler = loggingHandler;
-                    opts.Backchannel = new HttpClient(logginMessageHandler)
+                    // Create HttpClient with BaseAddress set to the authority
+                    // This prevents "invalid request URI" errors when making token requests
+                    opts.Backchannel = new HttpClient(loggingMessageHandler)
                     {
+                        BaseAddress = new Uri(authority),
                         Timeout = TimeSpan.FromSeconds(60),
                         MaxResponseContentBufferSize = 10 * 1024 * 1024
                     };
-                    host.Logger.Debug("Created backchannel HttpClient with logging during OIDC configuration");
+
+                    // DO NOT set BackchannelHttpHandler - it will cause the framework to recreate
+                    // the client and lose our logging handler and BaseAddress
+                    host.Logger.Debug($"Created backchannel HttpClient with BaseAddress={authority} and logging handler");
 
                     // Scopes
                     opts.Scope.Clear();
@@ -857,7 +865,7 @@ public static class KestrunHostAuthnExtensions
                             // CRITICAL FIX: Manually extract access_token from the token response if it's missing
                             // This event fires AFTER token response parsing but BEFORE protocol validation
                             var tokenResponse = context.TokenEndpointResponse;
-                            
+
                             if (tokenResponse != null && string.IsNullOrEmpty(tokenResponse.AccessToken))
                             {
                                 // Try to manually parse from Parameters one more time
@@ -871,7 +879,7 @@ public static class KestrunHostAuthnExtensions
                                     }
                                 }
                             }
-                            
+
                             host.Logger.Debug("Token validated successfully");
                             return Task.CompletedTask;
                         },
@@ -913,7 +921,7 @@ public static class KestrunHostAuthnExtensions
                         {
                             host.Logger.Warning($"ConfigMgr returned config: Issuer={config.Issuer}, AuthEndpoint={config.AuthorizationEndpoint}, TokenEndpoint={config.TokenEndpoint}, JwksUri={config.JwksUri}, SigningKeysCount={config.SigningKeys?.Count ?? 0}");
 
-                            // WORKAROUND: TokenEndpoint and JwksUri properties are mysteriously empty even though discovery document contains them
+                            // WORKAROUND: TokenEndpoint, JwksUri, and EndSessionEndpoint properties are mysteriously empty even though discovery document contains them
                             // Manually construct them from Issuer if needed
                             if (string.IsNullOrEmpty(config.TokenEndpoint) && !string.IsNullOrEmpty(config.Issuer))
                             {
@@ -925,6 +933,12 @@ public static class KestrunHostAuthnExtensions
                             {
                                 config.JwksUri = $"{config.Issuer.TrimEnd('/')}/.well-known/openid-configuration/jwks";
                                 host.Logger.Warning($"JwksUri was empty, manually set to: {config.JwksUri}");
+                            }
+
+                            if (string.IsNullOrEmpty(config.EndSessionEndpoint) && !string.IsNullOrEmpty(config.Issuer))
+                            {
+                                config.EndSessionEndpoint = $"{config.Issuer.TrimEnd('/')}/connect/endsession";
+                                host.Logger.Warning($"EndSessionEndpoint was empty, manually set to: {config.EndSessionEndpoint}");
                             }
 
                             // CRITICAL: Also check if signing keys are missing and fetch them if needed
@@ -1582,7 +1596,7 @@ public static class KestrunHostAuthnExtensions
 internal class LoggingHttpMessageHandler : DelegatingHandler
 {
     private readonly Serilog.ILogger _logger;
-    
+
     // CRITICAL: Static field to store the last token response body so we can manually parse it
     // The framework's OpenIdConnectMessage parser fails to populate AccessToken correctly
     internal static string? LastTokenResponseBody { get; private set; }
@@ -1607,7 +1621,7 @@ internal class LoggingHttpMessageHandler : DelegatingHandler
             var requestBytes = await request.Content.ReadAsByteArrayAsync(cancellationToken);
             var requestBody = System.Text.Encoding.UTF8.GetString(requestBytes);
             _logger.Warning($"Request Body: {requestBody}");
-            
+
             // Recreate the content so it can be read again
             request.Content = new ByteArrayContent(requestBytes);
             request.Content.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("application/x-www-form-urlencoded");
@@ -1630,20 +1644,20 @@ internal class LoggingHttpMessageHandler : DelegatingHandler
             // Read the response body
             var responseBytes = await response.Content.ReadAsByteArrayAsync(cancellationToken);
             var responseBody = System.Text.Encoding.UTF8.GetString(responseBytes);
-            
+
             // Store it in static field for later manual parsing
             LastTokenResponseBody = responseBody;
             _logger.Warning($"Captured token response body ({responseBytes.Length} bytes) for manual parsing");
-            
+
             // Recreate the content stream with ALL original headers preserved
             var originalHeaders = response.Content.Headers.ToList();
             var newContent = new ByteArrayContent(responseBytes);
-            
+
             foreach (var header in originalHeaders)
             {
                 _ = newContent.Headers.TryAddWithoutValidation(header.Key, header.Value);
             }
-            
+
             response.Content = newContent;
             _logger.Warning("Recreated token response stream for framework parsing");
         }
@@ -1651,21 +1665,21 @@ internal class LoggingHttpMessageHandler : DelegatingHandler
         {
             // Save original headers
             var originalHeaders = response.Content.Headers;
-            
+
             // Read response body and preserve it for the handler
             var responseBytes = await response.Content.ReadAsByteArrayAsync(cancellationToken);
             var responseBody = System.Text.Encoding.UTF8.GetString(responseBytes);
             _logger.Warning($"Response Body: {responseBody}");
-            
+
             // Recreate the content so it can be read again by the OIDC handler
             var newContent = new ByteArrayContent(responseBytes);
-            
+
             // Copy all original headers to the new content
             foreach (var header in originalHeaders)
             {
                 _ = newContent.Headers.TryAddWithoutValidation(header.Key, header.Value);
             }
-            
+
             response.Content = newContent;
         }
         else if (response.Content != null && isTokenEndpoint)

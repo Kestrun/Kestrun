@@ -4,11 +4,21 @@
 .DESCRIPTION
     Wraps SignOutAsync on the current HTTP context to remove a cookie-based session.
     Designed for use inside Kestrun route script blocks where $Context is available.
+
+    For OIDC logout, use -OidcScheme to sign out from both the cookie and OIDC provider.
+    This will redirect to the OIDC provider's logout endpoint automatically.
 .PARAMETER Scheme
     Authentication scheme to use (default 'Cookies').
+.PARAMETER OidcScheme
+    If specified, also signs out from the OIDC scheme (e.g., 'oidc').
+    This triggers RP-initiated logout at the identity provider.
 .PARAMETER Redirect
     If specified, redirects the user to the login path after signing out.
     If the login path is not configured, redirects to '/'.
+    NOTE: This is ignored when OidcScheme is used, as the OIDC handler manages the redirect.
+.PARAMETER RedirectUri
+    URI to redirect to after OIDC logout completes (default '/').
+    Only used when OidcScheme is specified.
 .PARAMETER Properties
     Additional sign-out authentication properties to pass to the SignOut call.
 .PARAMETER WhatIf
@@ -20,23 +30,49 @@
     Invoke-KrCookieSignOut  # Signs out the current user from the default 'Cookies' scheme.
 .EXAMPLE
     Invoke-KrCookieSignOut -Scheme 'MyCookieScheme'  # Signs out the current user from the specified scheme.
+.EXAMPLE
+    Invoke-KrCookieSignOut -OidcScheme 'oidc' -RedirectUri '/'  # Signs out from both Cookies and OIDC, redirects to root after OIDC logout.
 .OUTPUTS
     None
 #>
 function Invoke-KrCookieSignOut {
     [KestrunRuntimeApi('Route')]
     [CmdletBinding(SupportsShouldProcess = $true, ConfirmImpact = 'Low', DefaultParameterSetName = 'SimpleIdentity')]
-    [OutputType([System.Security.Claims.ClaimsPrincipal])]
+    [OutputType([void])]
     param(
         [Parameter()]
         [string]$Scheme = 'Cookies',
+
+        [Parameter()]
+        [string]$OidcScheme,
+
         [switch]$Redirect,
+
+        [Parameter()]
+        [string]$RedirectUri = '/',
+
         [hashtable]$Properties
     )
     # Only works inside a route script block where $Context is available
     if ($null -ne $Context -and $null -ne $KrServer) {
         if ($PSCmdlet.ShouldProcess($Scheme, 'SignOut')) {
-            # Sign out the user
+            # OIDC logout requires special handling
+            if ($OidcScheme) {
+                Write-KrLog -Level Information -Message 'Signing out from Cookie ({cookieScheme}) and OIDC ({oidcScheme}) schemes' -Values $Scheme, $OidcScheme
+
+                # Sign out from cookie scheme first (local session)
+                $Context.SignOut($Scheme)
+                # Then sign out from OIDC scheme (triggers redirect to IdP logout)
+                $oidcProperties = [Microsoft.AspNetCore.Authentication.AuthenticationProperties]::new()
+                $oidcProperties.RedirectUri = $RedirectUri
+                $Context.SignOut($OidcScheme, $oidcProperties)
+                Write-KrStatusResponse -StatusCode 302
+                Write-KrLog -Level Information -Message 'OIDC logout initiated, OIDC handler will redirect to IdP logout endpoint'
+
+                return
+            }
+
+            # Standard cookie-only logout
             if ($Context.User -and $Context.User.Identity.IsAuthenticated) {
                 $Context.SignOut($Scheme, $Properties)
             }

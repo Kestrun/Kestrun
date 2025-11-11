@@ -101,13 +101,16 @@ Add-KrMapRoute -Verbs Get -Pattern '/' -ScriptBlock {
     Secret = $ClientSecret
 }
 Add-KrMapRoute -Verbs Get -Pattern '/login2' -Code @'
-Context.Challenge("oidc", new Dictionary<string, string?> {
-    { "RedirectUri", "/hello" }
-});
+var properties = new Microsoft.AspNetCore.Authentication.AuthenticationProperties
+{
+    RedirectUri = "/hello"
+};
+await Context.HttpContext.ChallengeAsync("oidc", properties);
 '@ -AllowAnonymous -Language CSharp
 
 Add-KrMapRoute -Verbs Get -Pattern '/login' -ScriptBlock {
-    $Context.Challenge('oidc', @{ 'RedirectUri' = '/hello' })
+    # Use the new Invoke-KrChallenge function for cleaner OIDC login
+    Invoke-KrChallenge -Scheme 'oidc' -RedirectUri '/hello'
 } -AllowAnonymous
 
 # 8) Protected route group using the policy scheme
@@ -131,13 +134,12 @@ Add-KrMapRoute -Verbs Get -Pattern '/me' -AuthorizationSchema 'oidc' -ScriptBloc
     Write-KrJsonResponse @{ scheme = 'oidc'; authenticated = $Context.User.Identity.IsAuthenticated; claims = $claims }
 }
 
-Add-KrMapRoute -Verbs Get -Pattern '/logout' -AuthorizationSchema 'oidc' -ScriptBlock {
-    $context.SignOut('Cookies')
-    $context.SignOut('oidc', @{ 'RedirectUri' = '/' })
-
-    #Invoke-KrCookieSignOut -Scheme 'oidc'
-    Write-KrTextResponse 'Signed out (local cookie cleared).'
+#Add-KrMapRoute -Verbs Get -Pattern '/logout' -AllowAnonymous -Code @'
+Add-KrMapRoute -Verbs Get -Pattern '/logout' -AllowAnonymous -ScriptBlock {
+    # Use enhanced Invoke-KrCookieSignOut with OIDC support
+    Invoke-KrCookieSignOut -OidcScheme 'oidc' -RedirectUri '/'
 }
+#'@ -Language CSharp
 #}
 
 # 9) Start

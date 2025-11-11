@@ -34,10 +34,8 @@ param(
 if ($ClientId -eq 'interactive.confidential' -and [string]::IsNullOrWhiteSpace($ClientSecret)) {
     Write-Host 'WARNING: interactive.confidential requires a client secret.' -ForegroundColor Yellow
     Write-Host "         Set `$env:DUENDE_CLIENT_SECRET='secret' or pass -ClientSecret 'secret'." -ForegroundColor Yellow
-    Write-Host "         Switching to 'interactive.public' (no secret, PKCE) for this run." -ForegroundColor Yellow
-    $ClientId = 'interactive.public'
-    $ClientId = 'interactive.confidential'
-    $ClientSecret = 'secret'
+    Write-Host "         Using default secret 'secret' for Duende demo." -ForegroundColor Yellow
+    $ClientSecret = 'secret'  # Default secret for Duende demo
 }
 
 Initialize-KrRoot -Path $PSScriptRoot
@@ -48,32 +46,25 @@ New-KrLogger |
     Register-KrLogger -Name 'console' -SetAsDefault | Out-Null
 
 
-if (Test-Path 'devcert.pfx' ) {
-    $cert = Import-KrCertificate -FilePath 'devcert.pfx' -Password (ConvertTo-SecureString -String 'p@ss' -AsPlainText -Force)
-} else {
-    $cert = New-KrSelfSignedCertificate -DnsNames 'localhost' -Exportable
-    Export-KrCertificate -Certificate $cert `
-        -FilePath 'devcert' -Format pfx -IncludePrivateKey -Password (ConvertTo-SecureString -String 'p@ss' -AsPlainText -Force)
-}
 
-if (-not (Test-KrCertificate -Certificate $cert )) {
-    Write-Error 'Certificate validation failed. Ensure the certificate is valid and not self-signed.'
-    exit 1
-}
 
 
 # 2) Server
 New-KrServer -Name 'OIDC Duende Demo'
 
-# 3) HTTPS endpoint
-Add-KrEndpoint -Port $Port -IPAddress $IPAddress -X509Certificate $cert
+# 3) HTTPS endpoint (primary)
+Add-KrEndpoint -Port $Port -IPAddress $IPAddress -SelfSignedCert
 
-# 4) OpenID Connect auth (adds 'Oidc', 'Oidc.Cookies', 'Oidc.Policy')
+# 4) HTTP endpoint for redirect (optional - redirects HTTP to HTTPS)
+# Add-KrEndpoint -Port 5001 -IPAddress $IPAddress
+# Add-KrHttpsRedirection -HttpPort 5001 -HttpsPort $Port
+
+# 5) OpenID Connect auth (adds 'Oidc', 'Oidc.Cookies', 'Oidc.Policy')
 $oidcParams = @{
     Name = 'oidc'
     Authority = $Authority
     ClientId = $ClientId
-    Scope = @('openid', 'profile', 'email', 'api', 'offline_access')  # default scopes
+    Scope = @('openid', 'profile', 'email', 'offline_access', 'api')  # Matching working C# code
 }
 if ($ClientSecret) {
     $oidcParams.ClientSecret = $ClientSecret
@@ -81,15 +72,12 @@ if ($ClientSecret) {
 if ($Scopes -and $Scopes.Count -gt 0) {
     $oidcParams.Scope += $Scopes
 }
-#Add-KrHttpsRedirection
-
 Add-KrOpenIdConnectAuthentication @oidcParams
 
-
-# 5) Finalize pipeline
+# 6) Finalize pipeline
 Enable-KrConfiguration
 
-# 6) Landing page
+# 7) Landing page
 Add-KrMapRoute -Verbs Get -Pattern '/' -ScriptBlock {
     Write-KrHtmlResponse -Template @'
 <!doctype html>
@@ -119,15 +107,10 @@ Context.Challenge("oidc", new Dictionary<string, string?> {
 '@ -AllowAnonymous -Language CSharp
 
 Add-KrMapRoute -Verbs Get -Pattern '/login' -ScriptBlock {
-    <#   $dic = [System.Collections.Generic.Dictionary[string, string]]::new()
-    $dic.Add('RedirectUri', '/hello')
-    $props = [Microsoft.AspNetCore.Authentication.AuthenticationProperties]::new( $dic);
-    $Context.HttpContext.ChallengeAsync('Oidc', $props) | Out-Null#>
-    $task = $Context.Challenge('oidc', @{ 'RedirectUri' = '/hello' })
-    Write-KrRedirectResponse -Url '/hello'
+    $Context.Challenge('oidc', @{ 'RedirectUri' = '/hello' })
 } -AllowAnonymous
 
-# 7) Protected route group using the policy scheme
+# 8) Protected route group using the policy scheme
 #Add-KrRouteGroup -Prefix '/oidc' -AuthorizationSchema 'oidc'  {
 Add-KrMapRoute -Verbs Get -Pattern '/hello' -AuthorizationSchema 'oidc' -ScriptBlock {
     $name = $Context.User.Identity.Name ?? '(no name)'
@@ -157,5 +140,5 @@ Add-KrMapRoute -Verbs Get -Pattern '/logout' -AuthorizationSchema 'oidc' -Script
 }
 #}
 
-# 8) Start
+# 9) Start
 Start-KrServer -CloseLogsOnExit

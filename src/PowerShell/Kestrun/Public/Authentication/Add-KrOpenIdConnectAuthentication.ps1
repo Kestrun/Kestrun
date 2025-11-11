@@ -56,28 +56,16 @@ function Add-KrOpenIdConnectAuthentication {
     process {
         $Server = Resolve-KestrunServer -Server $Server
 
-        # Build OpenIdConnectOptions object
-        $options = [Microsoft.AspNetCore.Authentication.OpenIdConnect.OpenIdConnectOptions]::new()
-        $options.Authority = $Authority
-        $options.ClientId = $ClientId
-        if ($ClientSecret) {
-            $options.ClientSecret = $ClientSecret
-        }
-        # Add additional scopes (defaults already include 'openid' and 'profile')
-        if ($Scope) {
-            foreach ($s in $Scope) {
-                if ($options.Scope -notcontains $s) {
-                    $options.Scope.Add($s) | Out-Null
-                }
-            }
-        }
-
-        # Enable PKCE, token persistence, and userinfo by default
+        # Call the simpler C# overload that takes individual parameters
+        # This lets the framework properly initialize the ConfigurationManager and backchannel
         [Kestrun.Hosting.KestrunHostAuthnExtensions]::AddOpenIdConnectAuthentication(
             $Server,
             $Name,
-            $options,
-            $null
+            $Authority,
+            $ClientId,
+            $ClientSecret,
+            $Scope,
+            $null  # claimPolicy
         ) | Out-Null
 
         if ($PassThru) { return $Server }

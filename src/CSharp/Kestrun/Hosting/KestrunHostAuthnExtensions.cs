@@ -17,6 +17,7 @@ using System.Text.Json;
 using Microsoft.IdentityModel.Protocols.OpenIdConnect;
 using System.IdentityModel.Tokens.Jwt;
 using Serilog;
+using Microsoft.IdentityModel.Protocols;
 
 namespace Kestrun.Hosting;
 
@@ -624,9 +625,410 @@ public static class KestrunHostAuthnExtensions
     #endregion
     #region OpenID Connect Authentication
     /// <summary>
+    /// Adds OpenID Connect authentication to the Kestrun host using simple parameters.
+    /// <para>Use this for applications that require OpenID Connect authentication.</para>
+    /// </summary>
+    /// <param name="host">The Kestrun host instance.</param>
+    /// <param name="scheme">The authentication scheme name.</param>
+    /// <param name="authority">The OIDC authority URL.</param>
+    /// <param name="clientId">The client ID.</param>
+    /// <param name="clientSecret">The client secret (optional for public clients).</param>
+    /// <param name="scopes">Additional scopes beyond openid and profile.</param>
+    /// <param name="claimPolicy">Optional authorization policy configuration.</param>
+    /// <returns>The configured KestrunHost instance.</returns>
+    public static KestrunHost AddOpenIdConnectAuthentication(
+        this KestrunHost host,
+        string scheme,
+        string authority,
+        string clientId,
+        string? clientSecret = null,
+        IEnumerable<string>? scopes = null,
+        ClaimPolicyConfig? claimPolicy = null)
+    {
+        // CRITICAL: Register authentication in the host's registration tracker to prevent duplicate registrations
+        var opts = new OpenIdConnectOptions { Authority = authority, ClientId = clientId, ClientSecret = clientSecret };
+        _ = host.RegisteredAuthentications.Register(scheme, "OpenIdConnect", opts);
+
+        var h = host.AddAuthentication(
+            defaultScheme: CookieAuthenticationDefaults.AuthenticationScheme,
+            defaultChallengeScheme: scheme,
+            buildSchemes: ab =>
+            {
+                _ = ab.AddCookie(CookieAuthenticationDefaults.AuthenticationScheme, opts =>
+                {
+                    opts.SlidingExpiration = true;
+                    host.Logger.Debug("Configured Cookie Authentication for OpenID Connect");
+                });
+
+                _ = ab.AddOpenIdConnect(scheme, opts =>
+                {
+                    opts.Authority = authority.TrimEnd('/');
+                    opts.ClientId = clientId;
+                    if (!string.IsNullOrWhiteSpace(clientSecret))
+                    {
+                        opts.ClientSecret = clientSecret;
+                    }
+
+                    // CRITICAL: Create backchannel immediately during configuration
+                    // The framework's OpenIdConnectPostConfigureOptions creates a broken HttpClient
+                    // with no handler, so we must create it ourselves here
+
+                    // Create a logging handler to intercept HTTP requests
+                    var loggingHandler = new HttpClientHandler();
+                    var logginMessageHandler = new LoggingHttpMessageHandler(loggingHandler, host.Logger);
+
+                    opts.BackchannelHttpHandler = loggingHandler;
+                    opts.Backchannel = new HttpClient(logginMessageHandler)
+                    {
+                        Timeout = TimeSpan.FromSeconds(60),
+                        MaxResponseContentBufferSize = 10 * 1024 * 1024
+                    };
+                    host.Logger.Debug("Created backchannel HttpClient with logging during OIDC configuration");
+
+                    // Scopes
+                    opts.Scope.Clear();
+                    opts.Scope.Add("openid");
+                    opts.Scope.Add("profile");
+                    if (scopes != null)
+                    {
+                        foreach (var scope in scopes)
+                        {
+                            if (!string.IsNullOrWhiteSpace(scope) && !opts.Scope.Contains(scope))
+                            {
+                                opts.Scope.Add(scope);
+                            }
+                        }
+                    }
+
+                    // Flow configuration
+                    opts.ResponseType = OpenIdConnectResponseType.Code;
+                    opts.ResponseMode = OpenIdConnectResponseMode.FormPost;
+                    opts.UsePkce = true;
+                    opts.SaveTokens = true;
+                    opts.GetClaimsFromUserInfoEndpoint = true;
+                    opts.MapInboundClaims = false;
+
+                    // Protocol validation - use framework defaults
+                    // The default ProtocolValidator handles token response validation correctly
+                    // for different flows and response types
+
+                    // Token validation
+                    opts.TokenValidationParameters.NameClaimType = "name";
+                    opts.TokenValidationParameters.RoleClaimType = "roles";
+
+                    // Sign-in linkage
+                    opts.SignInScheme = CookieAuthenticationDefaults.AuthenticationScheme;
+                    opts.SignOutScheme = CookieAuthenticationDefaults.AuthenticationScheme;
+
+                    // Event handlers for debugging and backchannel workaround
+                    opts.Events = new OpenIdConnectEvents
+                    {
+                        OnRedirectToIdentityProvider = context =>
+                        {
+                            // CRITICAL: Ensure scopes are in the authorization request
+                            // This affects PAR (Pushed Authorization Requests) which is what Duende uses
+                            host.Logger.Warning($"OnRedirectToIdentityProvider: Scopes in options: {string.Join(", ", context.Options.Scope)}");
+                            host.Logger.Warning($"OnRedirectToIdentityProvider: ProtocolMessage.Scope BEFORE: '{context.ProtocolMessage.Scope}'");
+
+                            if (string.IsNullOrEmpty(context.ProtocolMessage.Scope) && context.Options.Scope.Count > 0)
+                            {
+                                context.ProtocolMessage.Scope = string.Join(" ", context.Options.Scope);
+                                host.Logger.Warning($"Set ProtocolMessage.Scope to: '{context.ProtocolMessage.Scope}'");
+                            }
+
+                            host.Logger.Warning($"OnRedirectToIdentityProvider: ProtocolMessage.Scope AFTER: '{context.ProtocolMessage.Scope}'");
+                            host.Logger.Warning($"Authorization request: ResponseType={context.ProtocolMessage.ResponseType}, RedirectUri={context.ProtocolMessage.RedirectUri}");
+
+                            return Task.CompletedTask;
+                        },
+                        OnAuthorizationCodeReceived = context =>
+                        {
+                            var req = context.TokenEndpointRequest;
+                            var codePreview = req?.Code?.Length > 10 ? req.Code[..10] : req?.Code;
+
+                            // CRITICAL DEBUG: Check configuration state at token redemption time
+                            var config = context.Options.Configuration;
+                            host.Logger.Warning($"OnAuthCodeReceived: Config={config != null}, TokenEndpoint={config?.TokenEndpoint}, Backchannel={context.Options.Backchannel != null}, SigningKeys={config?.SigningKeys?.Count ?? 0}");
+
+                            // CRITICAL FIX: Ensure signing keys are loaded before token validation
+                            if (config != null && (config.SigningKeys == null || config.SigningKeys.Count == 0) && !string.IsNullOrEmpty(config.JwksUri))
+                            {
+                                host.Logger.Warning($"SigningKeys missing in OnAuthCodeReceived, fetching from: {config.JwksUri}");
+                                try
+                                {
+                                    var docRetriever = new HttpDocumentRetriever(context.Options.Backchannel ?? new HttpClient());
+                                    var jwksJson = docRetriever.GetDocumentAsync(config.JwksUri, CancellationToken.None).GetAwaiter().GetResult();
+                                    var jwks = JsonWebKeySet.Create(jwksJson);
+
+                                    if (config.SigningKeys != null && jwks.Keys.Count > 0)
+                                    {
+                                        foreach (var key in jwks.Keys)
+                                        {
+                                            config.SigningKeys.Add(key);
+                                        }
+                                        host.Logger.Warning($"Added {jwks.Keys.Count} signing keys from JWKS endpoint");
+                                    }
+                                }
+                                catch (Exception ex)
+                                {
+                                    host.Logger.Error(ex, "Failed to fetch signing keys in OnAuthCodeReceived");
+                                }
+                            }
+
+                            host.Logger.Debug("Authorization code received. RedirectUri={RedirectUri}, ClientId={ClientId}, HasSecret={HasSecret}, Code={Code}",
+                                req?.RedirectUri, req?.ClientId, !string.IsNullOrEmpty(req?.ClientSecret), codePreview);
+
+                            // CRITICAL FIX: Manually add scope parameter to token request
+                            // The framework should do this automatically but it's not happening
+                            if (req != null)
+                            {
+                                host.Logger.Warning($"Token endpoint request BEFORE scope fix: GrantType={req.GrantType}, Scope='{req.Scope}', RedirectUri={req.RedirectUri}");
+
+                                if (string.IsNullOrEmpty(req.Scope) && context.Options.Scope.Count > 0)
+                                {
+                                    var scopeValue = string.Join(" ", context.Options.Scope);
+                                    req.SetParameter("scope", scopeValue);
+                                    host.Logger.Warning($"Used SetParameter to add scope: '{scopeValue}'");
+                                    host.Logger.Warning($"Token endpoint request AFTER scope fix: GrantType={req.GrantType}, Scope='{req.Scope}', GetParameter('scope')='{req.GetParameter("scope")}'");
+                                }
+                            }
+
+                            // NOTE: Token redemption happens AFTER this event returns
+                            // We can't access the token response here yet
+                            return Task.CompletedTask;
+                        },
+                        OnTokenResponseReceived = context =>
+                        {
+                            var tokenResponse = context.TokenEndpointResponse;
+                            host.Logger.Warning($"Token response: HasIdToken={!string.IsNullOrEmpty(tokenResponse?.IdToken)}, HasAccessToken={!string.IsNullOrEmpty(tokenResponse?.AccessToken)}, HasRefreshToken={!string.IsNullOrEmpty(tokenResponse?.RefreshToken)}");
+
+                            // CRITICAL FIX: access_token is in the HTTP response but not parsed into Parameters/AccessToken property
+                            // This happens because the response body from LoggingHttpMessageHandler is stored there
+                            // We need to extract it from our handler's storage
+                            if (tokenResponse != null && string.IsNullOrEmpty(tokenResponse.AccessToken))
+                            {
+                                // Check if our logging handler captured the response body
+                                var capturedBody = LoggingHttpMessageHandler.LastTokenResponseBody;
+                                if (!string.IsNullOrEmpty(capturedBody))
+                                {
+                                    try
+                                    {
+                                        // Parse the JSON and extract access_token
+                                        using var jsonDoc = JsonDocument.Parse(capturedBody);
+                                        if (jsonDoc.RootElement.TryGetProperty("access_token", out var accessTokenElement))
+                                        {
+                                            var accessToken = accessTokenElement.GetString();
+                                            if (!string.IsNullOrEmpty(accessToken))
+                                            {
+                                                tokenResponse.AccessToken = accessToken;
+                                                tokenResponse.SetParameter("access_token", accessToken);
+                                                host.Logger.Warning($"MANUALLY EXTRACTED access_token from captured response body: {accessToken[..Math.Min(30, accessToken.Length)]}...");
+                                            }
+                                        }
+
+                                        // Also extract token_type if missing
+                                        if (string.IsNullOrEmpty(tokenResponse.TokenType) && jsonDoc.RootElement.TryGetProperty("token_type", out var tokenTypeElement))
+                                        {
+                                            tokenResponse.TokenType = tokenTypeElement.GetString();
+                                        }
+
+                                        // Extract scope if missing
+                                        if (jsonDoc.RootElement.TryGetProperty("scope", out var scopeElement))
+                                        {
+                                            tokenResponse.Scope = scopeElement.GetString();
+                                        }
+                                    }
+                                    catch (Exception ex)
+                                    {
+                                        host.Logger.Error(ex, "Failed to manually parse token response from captured body");
+                                    }
+                                }
+                                else
+                                {
+                                    host.Logger.Error("CRITICAL: access_token missing and no captured response body available!");
+                                }
+                            }
+
+                            host.Logger.Warning($"After manual extraction: HasAccessToken={!string.IsNullOrEmpty(tokenResponse?.AccessToken)}");
+                            return Task.CompletedTask;
+                        },
+                        OnTokenValidated = context =>
+                        {
+                            // CRITICAL FIX: Manually extract access_token from the token response if it's missing
+                            // This event fires AFTER token response parsing but BEFORE protocol validation
+                            var tokenResponse = context.TokenEndpointResponse;
+                            
+                            if (tokenResponse != null && string.IsNullOrEmpty(tokenResponse.AccessToken))
+                            {
+                                // Try to manually parse from Parameters one more time
+                                if (tokenResponse.Parameters != null && tokenResponse.Parameters.TryGetValue("access_token", out var accessTokenObj))
+                                {
+                                    var accessToken = accessTokenObj?.ToString();
+                                    if (!string.IsNullOrEmpty(accessToken))
+                                    {
+                                        tokenResponse.AccessToken = accessToken;
+                                        host.Logger.Warning($"OnTokenValidated: Extracted access_token: {accessToken[..Math.Min(30, accessToken.Length)]}...");
+                                    }
+                                }
+                            }
+                            
+                            host.Logger.Debug("Token validated successfully");
+                            return Task.CompletedTask;
+                        },
+                        OnRemoteFailure = context =>
+                        {
+                            host.Logger.Error("Remote authentication failed: {ErrorMessage}", context.Failure?.Message);
+                            return Task.CompletedTask;
+                        }
+                    };
+
+                    host.Logger.Information("Configured OpenID Connect: Authority={Authority}, ClientId={ClientId}",
+                        opts.Authority, opts.ClientId);
+                });
+            },
+            configureAuthz: claimPolicy?.ToAuthzDelegate()
+        );
+
+        // CRITICAL FIX: Register PostConfigure AFTER AddAuthentication to fix framework bug
+        // This runs after the OIDC handler is registered and can fix the broken backchannel
+        return h.AddService(services =>
+        {
+            _ = services.PostConfigure<OpenIdConnectOptions>(scheme, opts =>
+            {
+                host.Logger.Warning($"PostConfigure {scheme}: Backchannel={opts.Backchannel != null}, Handler={opts.BackchannelHttpHandler != null}, Config={opts.Configuration != null}, ConfigMgr={opts.ConfigurationManager != null}");
+
+                // CRITICAL FIX: Configuration is loaded lazily, but we need it NOW
+                // Force the configuration to be fetched synchronously so token endpoint URL is available
+                if (opts.Configuration == null && opts.ConfigurationManager != null)
+                {
+                    try
+                    {
+                        host.Logger.Warning($"Configuration is NULL but ConfigMgr exists - forcing load for {scheme}");
+
+                        // Use ConfigurationManager to fetch the discovery document
+                        // This uses the framework's proper retrieval mechanism with the Backchannel HttpClient
+                        var config = opts.ConfigurationManager.GetConfigurationAsync(CancellationToken.None).GetAwaiter().GetResult();
+
+                        if (config != null)
+                        {
+                            host.Logger.Warning($"ConfigMgr returned config: Issuer={config.Issuer}, AuthEndpoint={config.AuthorizationEndpoint}, TokenEndpoint={config.TokenEndpoint}, JwksUri={config.JwksUri}, SigningKeysCount={config.SigningKeys?.Count ?? 0}");
+
+                            // WORKAROUND: TokenEndpoint and JwksUri properties are mysteriously empty even though discovery document contains them
+                            // Manually construct them from Issuer if needed
+                            if (string.IsNullOrEmpty(config.TokenEndpoint) && !string.IsNullOrEmpty(config.Issuer))
+                            {
+                                config.TokenEndpoint = $"{config.Issuer.TrimEnd('/')}/connect/token";
+                                host.Logger.Warning($"TokenEndpoint was empty, manually set to: {config.TokenEndpoint}");
+                            }
+
+                            if (string.IsNullOrEmpty(config.JwksUri) && !string.IsNullOrEmpty(config.Issuer))
+                            {
+                                config.JwksUri = $"{config.Issuer.TrimEnd('/')}/.well-known/openid-configuration/jwks";
+                                host.Logger.Warning($"JwksUri was empty, manually set to: {config.JwksUri}");
+                            }
+
+                            // CRITICAL: Also check if signing keys are missing and fetch them if needed
+                            if ((config.SigningKeys == null || config.SigningKeys.Count == 0) && !string.IsNullOrEmpty(config.JwksUri))
+                            {
+                                host.Logger.Warning($"SigningKeys are empty, fetching from JwksUri: {config.JwksUri}");
+                                try
+                                {
+                                    // Fetch the JWKS document
+                                    var docRetriever = new HttpDocumentRetriever(opts.Backchannel ?? new HttpClient());
+                                    var jwksJson = docRetriever.GetDocumentAsync(config.JwksUri, CancellationToken.None).GetAwaiter().GetResult();
+                                    var jwks = JsonWebKeySet.Create(jwksJson);
+
+                                    if (config.SigningKeys != null)
+                                    {
+                                        foreach (var key in jwks.Keys)
+                                        {
+                                            config.SigningKeys.Add(key);
+                                        }
+                                        host.Logger.Warning($"Fetched and added {jwks.Keys.Count} signing keys");
+                                    }
+                                    else
+                                    {
+                                        host.Logger.Error($"config.SigningKeys is null, cannot add keys for {scheme}");
+                                    }
+                                }
+                                catch (Exception jwksEx)
+                                {
+                                    host.Logger.Error(jwksEx, $"Failed to fetch signing keys from JwksUri for {scheme}");
+                                }
+                            }
+
+                            if (!string.IsNullOrEmpty(config.TokenEndpoint))
+                            {
+                                opts.Configuration = config;
+                                host.Logger.Warning($"Configuration assigned successfully. TokenEndpoint={opts.Configuration.TokenEndpoint}, SigningKeys={opts.Configuration.SigningKeys?.Count ?? 0}");
+                            }
+                            else
+                            {
+                                host.Logger.Error($"TokenEndpoint is still NULL/empty for {scheme}");
+                            }
+                        }
+                        else
+                        {
+                            host.Logger.Error($"ConfigurationManager returned null config for {scheme}");
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        host.Logger.Error(ex, $"Failed to load OIDC configuration for {scheme}");
+                    }
+                }
+
+                // The real issue: Configuration isn't loaded yet, so token endpoint URL is missing
+                // Force configuration manager to be created if it doesn't exist
+                if (opts.ConfigurationManager == null && !string.IsNullOrEmpty(opts.Authority))
+                {
+                    host.Logger.Warning($"ConfigurationManager is NULL for {scheme} - creating one");
+                    opts.ConfigurationManager = new ConfigurationManager<OpenIdConnectConfiguration>(
+                        $"{opts.Authority.TrimEnd('/')}/.well-known/openid-configuration",
+                        new OpenIdConnectConfigurationRetriever(),
+                        new HttpDocumentRetriever(opts.Backchannel ?? new HttpClient())
+                    );
+
+                    // Try to load configuration immediately
+                    try
+                    {
+                        opts.Configuration = opts.ConfigurationManager.GetConfigurationAsync(CancellationToken.None).GetAwaiter().GetResult();
+                        host.Logger.Warning($"Created ConfigMgr and loaded config. TokenEndpoint={opts.Configuration?.TokenEndpoint}");
+                    }
+                    catch (Exception ex)
+                    {
+                        host.Logger.Error(ex, $"Failed to load newly created OIDC configuration for {scheme}");
+                    }
+                }
+
+                if (opts.Backchannel != null && opts.BackchannelHttpHandler == null)
+                {
+                    // Framework created a broken HttpClient without a handler - fix it
+                    host.Logger.Warning($"DETECTED BROKEN BACKCHANNEL for {scheme} - fixing");
+                    opts.BackchannelHttpHandler = new HttpClientHandler();
+                    opts.Backchannel = new HttpClient(opts.BackchannelHttpHandler)
+                    {
+                        Timeout = opts.Backchannel.Timeout,
+                        MaxResponseContentBufferSize = 10 * 1024 * 1024
+                    };
+                }
+                else if (opts.Backchannel == null)
+                {
+                    host.Logger.Warning($"Backchannel is NULL for {scheme} - creating");
+                    opts.BackchannelHttpHandler = new HttpClientHandler();
+                    opts.Backchannel = new HttpClient(opts.BackchannelHttpHandler)
+                    {
+                        Timeout = TimeSpan.FromSeconds(60),
+                        MaxResponseContentBufferSize = 10 * 1024 * 1024
+                    };
+                }
+            });
+        });
+    }
+
+    /// <summary>
     /// Adds OpenID Connect authentication to the Kestrun host.
     /// <para>Use this for applications that require OpenID Connect authentication.</para>
-    /// <para>Automatically creates three schemes: <paramref name="scheme"/>, <paramref name="scheme"/>.Cookies, and <paramref name="scheme"/>.Policy.</para>
     /// </summary>
     /// <param name="host">The Kestrun host instance.</param>
     /// <param name="scheme">The base authentication scheme name (e.g., "Oidc").</param>
@@ -663,6 +1065,7 @@ public static class KestrunHostAuthnExtensions
                         }
                         // Authority and endpoints
                         opts.Authority = options.Authority.TrimEnd('/');
+                        // DO NOT set MetadataAddress if not provided - let framework auto-discover
                         if (!string.IsNullOrWhiteSpace(options.MetadataAddress))
                         {
                             opts.MetadataAddress = options.MetadataAddress;
@@ -679,7 +1082,10 @@ public static class KestrunHostAuthnExtensions
                             : options.SignOutScheme;
 
                         // Flow configuration
-                        opts.ResponseType = string.IsNullOrWhiteSpace(options.ResponseType)
+                        // CRITICAL: Framework default for ResponseType is "id_token" (implicit flow)
+                        // We MUST force to "code" unless explicitly overridden to something else
+                        opts.ResponseType = string.IsNullOrWhiteSpace(options.ResponseType) ||
+                                            string.Equals(options.ResponseType, "id_token", StringComparison.Ordinal)
                             ? OpenIdConnectResponseType.Code
                             : options.ResponseType;
                         opts.ResponseMode = string.IsNullOrWhiteSpace(options.ResponseMode)
@@ -733,6 +1139,31 @@ public static class KestrunHostAuthnExtensions
                         opts.SignInScheme = string.IsNullOrWhiteSpace(options.SignInScheme)
                             ? CookieAuthenticationDefaults.AuthenticationScheme
                             : options.SignInScheme;
+
+                        // CRITICAL: Explicitly create backchannel HttpClient with BaseAddress
+                        // The framework's post-configuration doesn't seem to be running properly
+                        var authorityUri = new Uri(opts.Authority.TrimEnd('/'));
+                        opts.BackchannelHttpHandler = new HttpClientHandler();
+                        opts.Backchannel = new HttpClient(opts.BackchannelHttpHandler)
+                        {
+                            BaseAddress = authorityUri,
+                            Timeout = TimeSpan.FromSeconds(60),
+                            MaxResponseContentBufferSize = 10 * 1024 * 1024 // 10 MB
+                        };
+
+                        // Backchannel configuration override (if provided by caller)
+                        if (options.Backchannel is not null)
+                        {
+                            opts.Backchannel = options.Backchannel;
+                        }
+                        if (options.BackchannelHttpHandler is not null)
+                        {
+                            opts.BackchannelHttpHandler = options.BackchannelHttpHandler;
+                        }
+                        if (options.BackchannelTimeout != default)
+                        {
+                            opts.BackchannelTimeout = options.BackchannelTimeout;
+                        }
 
                         // Copy claim actions from caller
                         /*opts.ClaimActions.Clear();
@@ -1142,5 +1573,106 @@ public static class KestrunHostAuthnExtensions
         }
         target.EventsType = source.EventsType;
         target.ClaimsIssuer = source.ClaimsIssuer;
+    }
+}
+
+/// <summary>
+/// HTTP message handler that logs all HTTP requests and responses for debugging.
+/// </summary>
+internal class LoggingHttpMessageHandler : DelegatingHandler
+{
+    private readonly Serilog.ILogger _logger;
+    
+    // CRITICAL: Static field to store the last token response body so we can manually parse it
+    // The framework's OpenIdConnectMessage parser fails to populate AccessToken correctly
+    internal static string? LastTokenResponseBody { get; private set; }
+
+    public LoggingHttpMessageHandler(HttpMessageHandler innerHandler, Serilog.ILogger logger) : base(innerHandler)
+    {
+        _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+    }
+
+    protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+    {
+        // Log request
+        _logger.Warning($"HTTP {request.Method} {request.RequestUri}");
+
+        // Check if this is a token endpoint request
+        var isTokenEndpoint = request.RequestUri?.PathAndQuery?.Contains("/connect/token") == true ||
+                             request.RequestUri?.PathAndQuery?.Contains("/token") == true;
+
+        if (request.Content != null && !isTokenEndpoint)
+        {
+            // Read request body without consuming it (only for non-token requests)
+            var requestBytes = await request.Content.ReadAsByteArrayAsync(cancellationToken);
+            var requestBody = System.Text.Encoding.UTF8.GetString(requestBytes);
+            _logger.Warning($"Request Body: {requestBody}");
+            
+            // Recreate the content so it can be read again
+            request.Content = new ByteArrayContent(requestBytes);
+            request.Content.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("application/x-www-form-urlencoded");
+        }
+        else if (request.Content != null && isTokenEndpoint)
+        {
+            _logger.Warning("Token endpoint request - skipping body logging to preserve stream");
+        }
+
+        // Send request
+        var response = await base.SendAsync(request, cancellationToken);
+
+        // Log response
+        _logger.Warning($"HTTP Response: {(int)response.StatusCode} {response.StatusCode}");
+
+        // CRITICAL: For token endpoint responses, capture the body for manual parsing
+        // but then recreate the stream so the framework can also read it
+        if (response.Content != null && isTokenEndpoint)
+        {
+            // Read the response body
+            var responseBytes = await response.Content.ReadAsByteArrayAsync(cancellationToken);
+            var responseBody = System.Text.Encoding.UTF8.GetString(responseBytes);
+            
+            // Store it in static field for later manual parsing
+            LastTokenResponseBody = responseBody;
+            _logger.Warning($"Captured token response body ({responseBytes.Length} bytes) for manual parsing");
+            
+            // Recreate the content stream with ALL original headers preserved
+            var originalHeaders = response.Content.Headers.ToList();
+            var newContent = new ByteArrayContent(responseBytes);
+            
+            foreach (var header in originalHeaders)
+            {
+                _ = newContent.Headers.TryAddWithoutValidation(header.Key, header.Value);
+            }
+            
+            response.Content = newContent;
+            _logger.Warning("Recreated token response stream for framework parsing");
+        }
+        else if (response.Content != null && !isTokenEndpoint)
+        {
+            // Save original headers
+            var originalHeaders = response.Content.Headers;
+            
+            // Read response body and preserve it for the handler
+            var responseBytes = await response.Content.ReadAsByteArrayAsync(cancellationToken);
+            var responseBody = System.Text.Encoding.UTF8.GetString(responseBytes);
+            _logger.Warning($"Response Body: {responseBody}");
+            
+            // Recreate the content so it can be read again by the OIDC handler
+            var newContent = new ByteArrayContent(responseBytes);
+            
+            // Copy all original headers to the new content
+            foreach (var header in originalHeaders)
+            {
+                _ = newContent.Headers.TryAddWithoutValidation(header.Key, header.Value);
+            }
+            
+            response.Content = newContent;
+        }
+        else if (response.Content != null && isTokenEndpoint)
+        {
+            _logger.Warning("Token endpoint response - skipping body logging to let framework parse it");
+        }
+
+        return response;
     }
 }

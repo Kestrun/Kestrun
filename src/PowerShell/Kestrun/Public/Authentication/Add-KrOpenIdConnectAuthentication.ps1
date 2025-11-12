@@ -64,14 +64,13 @@ function Add-KrOpenIdConnectAuthentication {
     }
     process {
         if ($PSCmdlet.ParameterSetName -ne 'Options') {
+            # Build options manually when individual parameters used
             $options = [Microsoft.AspNetCore.Authentication.OpenIdConnect.OpenIdConnectOptions]::new()
             $options.Authority = $Authority
             $options.ClientId = $ClientId
             $options.ClientSecret = $ClientSecret
             $options.Scope.Clear()
-            foreach ($s in $Scope) {
-                $options.Scope.Add($s) | Out-Null
-            }
+            foreach ($s in $Scope) { if ($s) { $options.Scope.Add($s) | Out-Null } }
             $options.UsePkce = $UsePkce.IsPresent
             if ($ResponseMode) {
                 switch ($ResponseMode.ToLower()) {
@@ -93,6 +92,58 @@ function Add-KrOpenIdConnectAuthentication {
                     'none' { $options.ResponseType = [Microsoft.IdentityModel.Protocols.OpenIdConnect.OpenIdConnectResponseType]::None }
                     default { throw "Invalid ResponseType: $ResponseType. Valid values are 'code', 'id_token', 'token'." }
                 }
+            }
+            # Enable token persistence & userinfo claims retrieval by default
+            $options.SaveTokens = $true
+            $options.GetClaimsFromUserInfoEndpoint = $true
+            # Map common user profile claims (Duende demo returns these via userinfo)
+            # Use reflection to locate and invoke the extension method MapJsonKey since it's not directly exposed in PowerShell
+            $extType = [System.AppDomain]::CurrentDomain.GetAssemblies() |
+                Where-Object { $_.GetType('Microsoft.AspNetCore.Authentication.OAuth.Claims.ClaimActionCollectionMapExtensions') } |
+                ForEach-Object { $_.GetType('Microsoft.AspNetCore.Authentication.OAuth.Claims.ClaimActionCollectionMapExtensions') } |
+                Select-Object -First 1
+            if ($extType) {
+                $mapMethod = $extType.GetMethods([System.Reflection.BindingFlags] 'Public,Static') | Where-Object { $_.Name -eq 'MapJsonKey' -and $_.GetParameters().Count -ge 3 } | Select-Object -First 1
+                if ($mapMethod) {
+                    foreach ($pair in @(
+                            @('email', 'email'),
+                            @('name', 'name'),
+                            @('preferred_username', 'preferred_username'),
+                            @('given_name', 'given_name'),
+                            @('family_name', 'family_name')
+                        )) {
+                        try { $null = $mapMethod.Invoke($null, @($options.ClaimActions, $pair[0], $pair[1])) } catch { Write-Verbose "Failed mapping claim $($pair[0]): $_" }
+                    }
+                }
+            } else {
+                Write-Verbose 'ClaimActionCollectionMapExtensions type not found; skipping claim mappings.'
+            }
+            # Assign to $Options parameter variable so downstream call uses configured instance
+            $Options = $options
+        } else {
+            # Parameter set 'Options' supplied externally – ensure essential flags are on if unset
+            if (-not $Options.SaveTokens) { $Options.SaveTokens = $true }
+            if (-not $Options.GetClaimsFromUserInfoEndpoint) { $Options.GetClaimsFromUserInfoEndpoint = $true }
+            # Add claim mappings if missing
+            $extType = [System.AppDomain]::CurrentDomain.GetAssemblies() |
+                Where-Object { $_.GetType('Microsoft.AspNetCore.Authentication.OAuth.Claims.ClaimActionCollectionMapExtensions') } |
+                ForEach-Object { $_.GetType('Microsoft.AspNetCore.Authentication.OAuth.Claims.ClaimActionCollectionMapExtensions') } |
+                Select-Object -First 1
+            if ($extType) {
+                $mapMethod = $extType.GetMethods([System.Reflection.BindingFlags] 'Public,Static') | Where-Object { $_.Name -eq 'MapJsonKey' -and $_.GetParameters().Count -ge 3 } | Select-Object -First 1
+                if ($mapMethod) {
+                    foreach ($pair in @(
+                            @('email', 'email'),
+                            @('name', 'name'),
+                            @('preferred_username', 'preferred_username'),
+                            @('given_name', 'given_name'),
+                            @('family_name', 'family_name')
+                        )) {
+                        try { $null = $mapMethod.Invoke($null, @($Options.ClaimActions, $pair[0], $pair[1])) } catch { Write-Verbose "Failed mapping claim $($pair[0]): $_" }
+                    }
+                }
+            } else {
+                Write-Verbose 'ClaimActionCollectionMapExtensions type not found; skipping claim mappings.'
             }
         }
         # Call the simpler C# overload that takes individual parameters

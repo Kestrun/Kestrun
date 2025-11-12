@@ -36,6 +36,7 @@
 #>
 [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidUsingConvertToSecureStringWithPlainText', '')]
 param(
+    # Default HTTPS port changed to 5000 (common ASP.NET dev cert port; matches many demo redirect registrations)
     [int]$Port = 5000,
     [IPAddress]$IPAddress = [IPAddress]::Loopback,
     [string]$Authority = 'https://demo.duendesoftware.com',
@@ -50,7 +51,11 @@ param(
         'interactive.confidential.hybrid',
         'interactive.implicit'
     )]
-    [string]$Mode = 'interactive.confidential'
+    [string]$Mode = 'interactive.confidential',
+    # Force replacing 127.0.0.1 host with localhost in redirect_uri (helps when demo client registration only lists localhost)
+    [switch]$ForceLocalhostRedirect,
+    # Attempt a fallback to 'interactive.confidential' client_id for authorize if jwt client continues to fail (experimental)
+    [switch]$EnableFallbackClient
 )
 
 
@@ -173,6 +178,9 @@ $ClientId = $modeConfig.ClientId
 $ClientSecret = $modeConfig.ClientSecret
 $Scopes = $modeConfig.Scopes
 $UseJwtAuth = $modeConfig.UseJwtAuth
+
+# Effective client id may be overridden for fallback logic (only if requested)
+$EffectiveClientId = $ClientId
 
 Initialize-KrRoot -Path $PSScriptRoot
 
@@ -297,8 +305,17 @@ if ($UseJwtAuth -and $certificate) {
     # Create options object to configure events
     $oidcOptions = [Microsoft.AspNetCore.Authentication.OpenIdConnect.OpenIdConnectOptions]::new()
     $oidcOptions.Authority = $Authority
-    $oidcOptions.ClientId = $ClientId
+    $oidcOptions.ClientId = $EffectiveClientId
     $oidcOptions.UsePkce = $modeConfig.RequiresPKCE
+    # Enable token persistence and userinfo claims retrieval
+    $oidcOptions.SaveTokens = $true
+    $oidcOptions.GetClaimsFromUserInfoEndpoint = $true
+    # Map essential user profile claims
+    $oidcOptions.ClaimActions.MapJsonKey('email', 'email')
+    $oidcOptions.ClaimActions.MapJsonKey('name', 'name')
+    $oidcOptions.ClaimActions.MapJsonKey('preferred_username', 'preferred_username')
+    $oidcOptions.ClaimActions.MapJsonKey('given_name', 'given_name')
+    $oidcOptions.ClaimActions.MapJsonKey('family_name', 'family_name')
 
     # Add scopes
     $oidcOptions.Scope.Clear()
@@ -325,30 +342,66 @@ if ($UseJwtAuth -and $certificate) {
 
     # Configure event to inject JWT client assertion during token exchange
     # Capture variables in closure for event handler
-    $capturedClientId = $ClientId
+    $capturedClientId = $EffectiveClientId
     $capturedCertificate = $certificate
     $capturedPublicKey = $publicKey
 
     $oidcOptions.Events = [Microsoft.AspNetCore.Authentication.OpenIdConnect.OpenIdConnectEvents]::new()
+
+    # Detailed authorization redirect logging (before browser navigation)
+    $oidcOptions.Events.OnRedirectToIdentityProvider = {
+        param($context)
+        $pm = $context.ProtocolMessage
+        $origRedirect = $pm.RedirectUri
+
+        # Host fix: replace 127.0.0.1 with localhost if requested or if demo likely requires it
+        if ($origRedirect -and ($origRedirect -like 'https://127.0.0.1*') -and ($ForceLocalhostRedirect.IsPresent)) {
+            try {
+                $u = [Uri]$origRedirect
+                $fixed = "https://localhost:$($u.Port)$($u.AbsolutePath)"
+                $pm.RedirectUri = $fixed
+                Write-KrLog -Level Warning -Message 'Redirect host adjusted from 127.0.0.1 to localhost: {redirect}' -Values $fixed
+            } catch {
+                Write-KrLog -Level Error -Message 'Failed adjusting redirect host: {err}' -Values $_
+            }
+        }
+
+        # Fallback client id substitution (authorization only) if enabled and jwt mode selected
+        if ($EnableFallbackClient.IsPresent -and $ClientId -eq 'interactive.confidential.jwt' -and $pm.ClientId -eq 'interactive.confidential.jwt') {
+            $pm.ClientId = 'interactive.confidential'
+            Write-KrLog -Level Warning -Message 'Fallback client id applied for authorize: interactive.confidential'
+        }
+
+        Write-KrLog -Level Warning -Message 'OIDC Redirect: client_id={clientId}, response_type={rt}, redirect_uri={ru}, scope={scope}, code_challenge={cc}, code_challenge_method={ccm}' -Values \
+        $pm.ClientId, $pm.ResponseType, $pm.RedirectUri, $pm.Scope, $pm.CodeChallenge, $pm.CodeChallengeMethod
+        # Also log raw authorize URL for diagnostics
+        $authUrl = $pm.CreateAuthenticationRequestUrl()
+        Write-KrLog -Level Warning -Message 'Authorize URL: {url}' -Values $authUrl
+        [System.Threading.Tasks.Task]::CompletedTask
+    }.GetNewClosure()
+
+    # Inject JWT client assertion at token exchange
     $oidcOptions.Events.OnAuthorizationCodeReceived = {
         param($context)
-
         $tokenEndpoint = $context.Options.Configuration.TokenEndpoint
-        Write-KrLog -Level Debug -Message 'OnAuthorizationCodeReceived: Creating JWT client assertion for token endpoint: {endpoint}' -Values $tokenEndpoint
+        Write-KrLog -Level Warning -Message 'OnAuthorizationCodeReceived: token_endpoint={endpoint}, grant_type={grantType}' -Values $tokenEndpoint, $context.TokenEndpointRequest.GrantType
 
-        # Create JWT client assertion using captured variables
+        # Ensure scope present (defensive – some middleware drops it)
+        if ([string]::IsNullOrWhiteSpace($context.TokenEndpointRequest.Scope) -and $context.Options.Scope.Count -gt 0) {
+            $scopeValue = [string]::Join(' ', $context.Options.Scope)
+            $context.TokenEndpointRequest.SetParameter('scope', $scopeValue)
+            Write-KrLog -Level Debug -Message 'Added missing scope parameter to token request: {scope}' -Values $scopeValue
+        }
+
         $jwt = New-OidcJwtClientAssertion -ClientId $capturedClientId -TokenEndpoint $tokenEndpoint -Certificate $capturedCertificate -KeyId $capturedPublicKey.kid
-
         if ($jwt) {
-            # Inject JWT assertion into token request (remove client_secret if present)
             $context.TokenEndpointRequest.ClientSecret = $null
             $context.TokenEndpointRequest.ClientAssertionType = 'urn:ietf:params:oauth:client-assertion-type:jwt-bearer'
             $context.TokenEndpointRequest.ClientAssertion = $jwt
-            Write-KrLog -Level Debug -Message 'JWT client assertion injected into token request'
+            Write-KrLog -Level Warning -Message 'Injected private_key_jwt client assertion (length={len})' -Values $jwt.Length
         } else {
-            Write-KrLog -Level Error -Message 'Failed to create JWT client assertion'
+            Write-KrLog -Level Error -Message 'Failed creating JWT client assertion – falling back (no assertion)'
         }
-
         [System.Threading.Tasks.Task]::CompletedTask
     }.GetNewClosure()
 
@@ -356,10 +409,16 @@ if ($UseJwtAuth -and $certificate) {
 
 } else {
     # Standard configuration with client secret
+    # Apply fallback at configuration time for non-JWT modes if requested (rare)
+    if ($EnableFallbackClient.IsPresent -and $ClientId -eq 'interactive.confidential.jwt') {
+        $EffectiveClientId = 'interactive.confidential'
+        Write-KrLog -Level Warning -Message 'Fallback client id applied at configuration: interactive.confidential'
+    }
+
     $oidcParams = @{
         Name = 'oidc'
         Authority = $Authority
-        ClientId = $ClientId
+        ClientId = $EffectiveClientId
         Scope = $Scopes
         UsePkce = $modeConfig.RequiresPKCE
     }
@@ -404,14 +463,32 @@ Add-KrMapRoute -Verbs Get -Pattern '/' -ScriptBlock {
 }
 
 Add-KrMapRoute -Verbs Get -Pattern '/login' -ScriptBlock {
-    # Use the new Invoke-KrChallenge function for cleaner OIDC login
+    # Manual pre-challenge diagnostics: construct expected authorize URL
+    $hostHeader = $Context.Request.Host.Value
+    $scheme = if ($Context.Request.IsHttps) { 'https' } else { 'http' }
+    $redirectHost = if ($ForceLocalhostRedirect.IsPresent -and $hostHeader -like '127.0.0.1*') { 'localhost' } else { $hostHeader }
+    if ($hostHeader -like '127.0.0.1*' -and -not $ForceLocalhostRedirect.IsPresent) {
+        Write-KrLog -Level Warning -Message '127.0.0.1 host detected; consider -ForceLocalhostRedirect for demo client compatibility.'
+    }
+    $redirectUri = "${scheme}://${redirectHost}/signin-oidc"
+    $responseType = if ($modeConfig.ResponseType) { $modeConfig.ResponseType } else { 'code' }
+    $scopeValue = ($Scopes -join ' ')
+    $authorizeEndpoint = "$Authority/connect/authorize"
+    $authUrlPreview = "$authorizeEndpoint?client_id=$ClientId&response_type=$responseType&scope=$([Uri]::EscapeDataString($scopeValue))&redirect_uri=$([Uri]::EscapeDataString($redirectUri))"
+    Write-KrLog -Level Warning -Message 'Authorize diagnostics: client_id={clientId}, response_type={rt}, redirect_uri={ru}, scope={scope}' -Values $ClientId, $responseType, $redirectUri, $scopeValue
+    Write-KrLog -Level Warning -Message 'Authorize base URL: {url}' -Values $authorizeEndpoint
+    Write-KrLog -Level Warning -Message 'Authorize assembled (partial preview): {preview}' -Values $authUrlPreview
+    if ($scheme -eq 'https' -and $hostHeader -like '127.0.0.1*') {
+        Write-KrLog -Level Warning -Message 'Host 127.0.0.1 detected; some demo clients are registered for localhost. Try https://localhost:{port}/ if invalid_client continues.' -Values $Port
+    }
+    # Proceed with challenge
     Invoke-KrChallenge -Scheme 'oidc' -RedirectUri '/hello'
 } -AllowAnonymous
 
 # 8) Protected route group using the policy scheme
 #Add-KrRouteGroup -Prefix '/oidc' -AuthorizationSchema 'oidc'  {
 Add-KrMapRoute -Verbs Get -Pattern '/hello' -AuthorizationSchema 'oidc' -ScriptBlock {
-    write-host ($Context.User.Identity|ConvertTo-Json -Depth 5)
+    Write-Host ($Context.User.Identity | ConvertTo-Json -Depth 5)
     $name = $Context.User.Identity.Name ?? '(no name)'
     $email = $Context.User.FindFirst('email')?.Value ?? 'No email claim'
     $sub = $Context.User.FindFirst('sub')?.Value ?? 'No sub claim'
@@ -449,7 +526,10 @@ Add-KrMapRoute -Verbs Get -Pattern '/logout' -AllowAnonymous -ScriptBlock {
 Write-KrLog -Level Information -Message '=== OIDC Duende Demo ==='
 Write-KrLog -Level Information -Message 'Mode: {mode} ({description})' -Values $Mode, $modeConfig.Description
 Write-KrLog -Level Information -Message 'Authority: {authority}' -Values $Authority
-Write-KrLog -Level Information -Message 'Client ID: {clientId}' -Values $ClientId
+Write-KrLog -Level Information -Message 'Client ID (requested): {clientId}' -Values $ClientId
+if ($EffectiveClientId -ne $ClientId) {
+    Write-KrLog -Level Information -Message 'Client ID (effective): {clientId}' -Values $EffectiveClientId
+}
 Write-KrLog -Level Information -Message 'Grant Type: {grantType}' -Values $modeConfig.GrantType
 Write-KrLog -Level Information -Message 'Token Lifetime: {lifetime}' -Values $modeConfig.TokenLifetime
 Write-KrLog -Level Information -Message 'Requires PKCE: {pkce}' -Values $modeConfig.RequiresPKCE
@@ -460,6 +540,6 @@ if ($UseJwtAuth) {
     Write-KrLog -Level Information -Message 'Using private_key_jwt client assertion for enhanced security.'
 }
 
-Write-KrLog -Level Information -Message 'Visit: https://localhost:{port}' -Values $Port
+Write-KrLog -Level Information -Message 'Visit: https://localhost:{port} (redirect host fix={fix}, fallback={fallback})' -Values $Port, ($ForceLocalhostRedirect.IsPresent), ($EnableFallbackClient.IsPresent)
 
 Start-KrServer -CloseLogsOnExit

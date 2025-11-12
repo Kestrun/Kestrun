@@ -720,9 +720,36 @@ public static class KestrunHostAuthnExtensions
                     opts.ResponseType = options.ResponseType ?? OpenIdConnectResponseType.Code;
                     opts.ResponseMode = options.ResponseMode ?? OpenIdConnectResponseMode.FormPost;
                     opts.UsePkce = options.UsePkce;
+                    // Ensure token persistence and userinfo retrieval default to true when requested
                     opts.SaveTokens = options.SaveTokens;
                     opts.GetClaimsFromUserInfoEndpoint = options.GetClaimsFromUserInfoEndpoint;
                     opts.MapInboundClaims = options.MapInboundClaims;
+
+                    // Copy claim mappings from provided options (JsonKey -> ClaimType)
+                    try
+                    {
+                        if (options.ClaimActions is not null)
+                        {
+                            foreach (var a in options.ClaimActions)
+                            {
+                                if (a is Microsoft.AspNetCore.Authentication.OAuth.Claims.JsonKeyClaimAction jka &&
+                                    !string.IsNullOrEmpty(jka.JsonKey) && !string.IsNullOrEmpty(a.ClaimType))
+                                {
+                                    opts.ClaimActions.MapJsonKey(a.ClaimType, jka.JsonKey);
+                                }
+                            }
+                        }
+                        // Add sensible defaults if not already present
+                        opts.ClaimActions.MapJsonKey("email", "email");
+                        opts.ClaimActions.MapJsonKey("name", "name");
+                        opts.ClaimActions.MapJsonKey("preferred_username", "preferred_username");
+                        opts.ClaimActions.MapJsonKey("given_name", "given_name");
+                        opts.ClaimActions.MapJsonKey("family_name", "family_name");
+                    }
+                    catch (Exception ex)
+                    {
+                        host.Logger.Error(ex, "Failed to apply OIDC claim action mappings");
+                    }
                     opts.SignedOutRedirectUri = options.SignedOutRedirectUri;
                     opts.SignedOutCallbackPath = options.SignedOutCallbackPath;
                     // Protocol validation - use framework defaults
@@ -737,11 +764,21 @@ public static class KestrunHostAuthnExtensions
                     opts.SignInScheme = CookieAuthenticationDefaults.AuthenticationScheme;
                     opts.SignOutScheme = CookieAuthenticationDefaults.AuthenticationScheme;
 
-                    // Event handlers for debugging and backchannel workaround
+                    // Merge user-provided events (if any) with our diagnostics/backchannel fixes
+                    var userEvents = options.Events;
                     opts.Events = new OpenIdConnectEvents
                     {
                         OnRedirectToIdentityProvider = context =>
                         {
+                            // Invoke user handler first
+                            if (userEvents?.OnRedirectToIdentityProvider != null)
+                            {
+                                var t = userEvents.OnRedirectToIdentityProvider(context);
+                                if (!t.IsCompletedSuccessfully)
+                                {
+                                    return t;
+                                }
+                            }
                             // CRITICAL: Ensure scopes are in the authorization request
                             // This affects PAR (Pushed Authorization Requests) which is what Duende uses
                             host.Logger.Warning($"OnRedirectToIdentityProvider: Scopes in options: {string.Join(", ", context.Options.Scope)}");
@@ -760,6 +797,15 @@ public static class KestrunHostAuthnExtensions
                         },
                         OnAuthorizationCodeReceived = context =>
                         {
+                            // Invoke user handler first (e.g., to inject private_key_jwt assertion)
+                            if (userEvents?.OnAuthorizationCodeReceived != null)
+                            {
+                                var t = userEvents.OnAuthorizationCodeReceived(context);
+                                if (!t.IsCompletedSuccessfully)
+                                {
+                                    return t;
+                                }
+                            }
                             var req = context.TokenEndpointRequest;
                             var codePreview = req?.Code?.Length > 10 ? req.Code[..10] : req?.Code;
 
@@ -816,6 +862,14 @@ public static class KestrunHostAuthnExtensions
                         },
                         OnTokenResponseReceived = context =>
                         {
+                            if (userEvents?.OnTokenResponseReceived != null)
+                            {
+                                var t = userEvents.OnTokenResponseReceived(context);
+                                if (!t.IsCompletedSuccessfully)
+                                {
+                                    return t;
+                                }
+                            }
                             var tokenResponse = context.TokenEndpointResponse;
                             host.Logger.Warning($"Token response: HasIdToken={!string.IsNullOrEmpty(tokenResponse?.IdToken)}, HasAccessToken={!string.IsNullOrEmpty(tokenResponse?.AccessToken)}, HasRefreshToken={!string.IsNullOrEmpty(tokenResponse?.RefreshToken)}");
 
@@ -871,6 +925,14 @@ public static class KestrunHostAuthnExtensions
                         },
                         OnTokenValidated = context =>
                         {
+                            if (userEvents?.OnTokenValidated != null)
+                            {
+                                var t = userEvents.OnTokenValidated(context);
+                                if (!t.IsCompletedSuccessfully)
+                                {
+                                    return t;
+                                }
+                            }
                             // CRITICAL FIX: Manually extract access_token from the token response if it's missing
                             // This event fires AFTER token response parsing but BEFORE protocol validation
                             var tokenResponse = context.TokenEndpointResponse;
@@ -889,11 +951,78 @@ public static class KestrunHostAuthnExtensions
                                 }
                             }
 
-                            host.Logger.Debug("Token validated successfully");
+                            // Fallback: fetch UserInfo if profile claims missing
+                            try
+                            {
+                                var principal = context.Principal;
+                                var identity = principal?.Identity as System.Security.Claims.ClaimsIdentity;
+                                var hasProfile = identity?.Claims?.Any(c => c.Type is "email" or "name" or "preferred_username") == true;
+                                var accessToken = tokenResponse?.AccessToken;
+                                var userInfoEndpoint = context.Options.Configuration?.UserInfoEndpoint;
+                                if (!hasProfile && !string.IsNullOrEmpty(accessToken) && context.Options.GetClaimsFromUserInfoEndpoint)
+                                {
+                                    if (string.IsNullOrEmpty(userInfoEndpoint) && !string.IsNullOrEmpty(context.Options.Authority))
+                                    {
+                                        userInfoEndpoint = $"{context.Options.Authority.TrimEnd('/')}/connect/userinfo";
+                                    }
+                                    if (!string.IsNullOrEmpty(userInfoEndpoint) && identity is not null)
+                                    {
+                                        var req = new HttpRequestMessage(HttpMethod.Get, userInfoEndpoint);
+                                        req.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", accessToken);
+                                        var http = context.Options.Backchannel ?? new HttpClient();
+                                        var resp = http.SendAsync(req, CancellationToken.None).GetAwaiter().GetResult();
+                                        if (resp.IsSuccessStatusCode)
+                                        {
+                                            var json = resp.Content.ReadAsStringAsync().GetAwaiter().GetResult();
+                                            using var doc = JsonDocument.Parse(json);
+                                            var root = doc.RootElement;
+                                            if (root.TryGetProperty("email", out var emailEl))
+                                            {
+                                                identity.AddClaim(new System.Security.Claims.Claim("email", emailEl.GetString() ?? string.Empty));
+                                            }
+                                            if (root.TryGetProperty("name", out var nameEl))
+                                            {
+                                                identity.AddClaim(new System.Security.Claims.Claim("name", nameEl.GetString() ?? string.Empty));
+                                            }
+                                            if (root.TryGetProperty("preferred_username", out var unameEl))
+                                            {
+                                                identity.AddClaim(new System.Security.Claims.Claim("preferred_username", unameEl.GetString() ?? string.Empty));
+                                            }
+                                            if (root.TryGetProperty("given_name", out var givenEl))
+                                            {
+                                                identity.AddClaim(new System.Security.Claims.Claim("given_name", givenEl.GetString() ?? string.Empty));
+                                            }
+                                            if (root.TryGetProperty("family_name", out var famEl))
+                                            {
+                                                identity.AddClaim(new System.Security.Claims.Claim("family_name", famEl.GetString() ?? string.Empty));
+                                            }
+                                            host.Logger.Warning("Merged UserInfo claims after token validation from {Endpoint}", userInfoEndpoint);
+                                        }
+                                        else
+                                        {
+                                            host.Logger.Error("UserInfo call failed after token validation: {StatusCode}", resp.StatusCode);
+                                        }
+                                    }
+                                }
+                            }
+                            catch (Exception ex)
+                            {
+                                host.Logger.Error(ex, "UserInfo fallback failed in OnTokenValidated");
+                            }
+
+                            host.Logger.Debug("Token validated successfully (profile claims fallback executed)");
                             return Task.CompletedTask;
                         },
                         OnRemoteFailure = context =>
                         {
+                            if (userEvents?.OnRemoteFailure != null)
+                            {
+                                var t = userEvents.OnRemoteFailure(context);
+                                if (!t.IsCompletedSuccessfully)
+                                {
+                                    return t;
+                                }
+                            }
                             host.Logger.Error("Remote authentication failed: {ErrorMessage}", context.Failure?.Message);
                             return Task.CompletedTask;
                         }

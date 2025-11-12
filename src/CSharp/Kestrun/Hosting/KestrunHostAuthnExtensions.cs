@@ -15,8 +15,6 @@ using Kestrun.Claims;
 using Microsoft.AspNetCore.Authentication.OAuth;
 using System.Text.Json;
 using Microsoft.IdentityModel.Protocols.OpenIdConnect;
-using System.IdentityModel.Tokens.Jwt;
-using Serilog;
 using Microsoft.IdentityModel.Protocols;
 
 namespace Kestrun.Hosting;
@@ -725,9 +723,18 @@ public static class KestrunHostAuthnExtensions
                     opts.GetClaimsFromUserInfoEndpoint = options.GetClaimsFromUserInfoEndpoint;
                     opts.MapInboundClaims = options.MapInboundClaims;
 
-                    // Copy claim mappings from provided options (JsonKey -> ClaimType)
+                    // Copy claim mappings from provided options (JsonKey -> ClaimType), avoiding duplicates
                     try
                     {
+                        var existing = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                        foreach (var x in opts.ClaimActions)
+                        {
+                            if (x is Microsoft.AspNetCore.Authentication.OAuth.Claims.JsonKeyClaimAction j && !string.IsNullOrEmpty(j.JsonKey) && !string.IsNullOrEmpty(x.ClaimType))
+                            {
+                                _ = existing.Add($"{x.ClaimType}|{j.JsonKey}");
+                            }
+                        }
+
                         if (options.ClaimActions is not null)
                         {
                             foreach (var a in options.ClaimActions)
@@ -735,16 +742,31 @@ public static class KestrunHostAuthnExtensions
                                 if (a is Microsoft.AspNetCore.Authentication.OAuth.Claims.JsonKeyClaimAction jka &&
                                     !string.IsNullOrEmpty(jka.JsonKey) && !string.IsNullOrEmpty(a.ClaimType))
                                 {
-                                    opts.ClaimActions.MapJsonKey(a.ClaimType, jka.JsonKey);
+                                    var key = $"{a.ClaimType}|{jka.JsonKey}";
+                                    if (!existing.Contains(key))
+                                    {
+                                        opts.ClaimActions.MapJsonKey(a.ClaimType, jka.JsonKey);
+                                        _ = existing.Add(key);
+                                    }
                                 }
                             }
                         }
+
                         // Add sensible defaults if not already present
-                        opts.ClaimActions.MapJsonKey("email", "email");
-                        opts.ClaimActions.MapJsonKey("name", "name");
-                        opts.ClaimActions.MapJsonKey("preferred_username", "preferred_username");
-                        opts.ClaimActions.MapJsonKey("given_name", "given_name");
-                        opts.ClaimActions.MapJsonKey("family_name", "family_name");
+                        void AddDefault(string claimType, string jsonKey)
+                        {
+                            var key = $"{claimType}|{jsonKey}";
+                            if (!existing.Contains(key))
+                            {
+                                opts.ClaimActions.MapJsonKey(claimType, jsonKey);
+                                _ = existing.Add(key);
+                            }
+                        }
+                        AddDefault("email", "email");
+                        AddDefault("name", "name");
+                        AddDefault("preferred_username", "preferred_username");
+                        AddDefault("given_name", "given_name");
+                        AddDefault("family_name", "family_name");
                     }
                     catch (Exception ex)
                     {
@@ -1010,7 +1032,36 @@ public static class KestrunHostAuthnExtensions
                                 host.Logger.Error(ex, "UserInfo fallback failed in OnTokenValidated");
                             }
 
-                            host.Logger.Debug("Token validated successfully (profile claims fallback executed)");
+                            // De-duplicate across ALL identities: rebuild a single identity with distinct (Type,Value)
+                            try
+                            {
+                                var principal = context.Principal;
+                                if (principal is not null)
+                                {
+                                    var allClaims = principal.Identities.SelectMany(i => i.Claims).ToList();
+                                    var distinctClaims = allClaims
+                                        .GroupBy(c => $"{c.Type}|{c.Value}", StringComparer.OrdinalIgnoreCase)
+                                        .Select(g => g.First())
+                                        .ToList();
+
+                                    var first = principal.Identities.FirstOrDefault();
+                                    var authType = first?.AuthenticationType;
+                                    var nameClaimType = first?.NameClaimType ?? "name";
+                                    var roleClaimType = first?.RoleClaimType ?? "roles";
+                                    if (distinctClaims.Count != allClaims.Count)
+                                    {
+                                        var newIdentity = new System.Security.Claims.ClaimsIdentity(distinctClaims, authType, nameClaimType, roleClaimType);
+                                        context.Principal = new System.Security.Claims.ClaimsPrincipal(newIdentity);
+                                        host.Logger.Warning("Deduplicated claims: removed {Removed} duplicates (final {Final} of original {Original})", allClaims.Count - distinctClaims.Count, distinctClaims.Count, allClaims.Count);
+                                    }
+                                }
+                            }
+                            catch (Exception ex)
+                            {
+                                host.Logger.Error(ex, "Failed to globally de-duplicate claims");
+                            }
+
+                            host.Logger.Debug("Token validated successfully (profile claims dedup applied)");
                             return Task.CompletedTask;
                         },
                         OnRemoteFailure = context =>
@@ -1580,18 +1631,13 @@ public static class KestrunHostAuthnExtensions
 /// <summary>
 /// HTTP message handler that logs all HTTP requests and responses for debugging.
 /// </summary>
-internal class LoggingHttpMessageHandler : DelegatingHandler
+internal class LoggingHttpMessageHandler(HttpMessageHandler innerHandler, Serilog.ILogger logger) : DelegatingHandler(innerHandler)
 {
-    private readonly Serilog.ILogger _logger;
+    private readonly Serilog.ILogger _logger = logger ?? throw new ArgumentNullException(nameof(logger));
 
     // CRITICAL: Static field to store the last token response body so we can manually parse it
     // The framework's OpenIdConnectMessage parser fails to populate AccessToken correctly
     internal static string? LastTokenResponseBody { get; private set; }
-
-    public LoggingHttpMessageHandler(HttpMessageHandler innerHandler, Serilog.ILogger logger) : base(innerHandler)
-    {
-        _logger = logger ?? throw new ArgumentNullException(nameof(logger));
-    }
 
     protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
     {

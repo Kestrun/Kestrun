@@ -102,64 +102,33 @@ function Add-KrOpenIdConnectAuthentication {
             # Enable token persistence & userinfo claims retrieval by default
             $options.SaveTokens = $true
             $options.GetClaimsFromUserInfoEndpoint = $true
-            # Map common user profile claims (Duende demo returns these via userinfo)
-            # Use reflection to locate and invoke the extension method MapJsonKey since it's not directly exposed in PowerShell
-            $extType = [System.AppDomain]::CurrentDomain.GetAssemblies() |
-                Where-Object { $_.GetType('Microsoft.AspNetCore.Authentication.OAuth.Claims.ClaimActionCollectionMapExtensions') } |
-                ForEach-Object { $_.GetType('Microsoft.AspNetCore.Authentication.OAuth.Claims.ClaimActionCollectionMapExtensions') } |
-                Select-Object -First 1
-            if ($extType) {
-                $mapMethod = $extType.GetMethods([System.Reflection.BindingFlags] 'Public,Static') | Where-Object { $_.Name -eq 'MapJsonKey' -and $_.GetParameters().Count -ge 3 } | Select-Object -First 1
-                if ($mapMethod) {
-                    foreach ($pair in @(
-                            @('email', 'email'),
-                            @('name', 'name'),
-                            @('preferred_username', 'preferred_username'),
-                            @('given_name', 'given_name'),
-                            @('family_name', 'family_name')
-                        )) {
-                        try { $null = $mapMethod.Invoke($null, @($options.ClaimActions, $pair[0], $pair[1])) } catch { Write-Verbose "Failed mapping claim $($pair[0]): $_" }
-                    }
-                }
-            } else {
-                Write-Verbose 'ClaimActionCollectionMapExtensions type not found; skipping claim mappings.'
-            }
+            # Map common user profile claims (Duende demo returns these via userinfo) using correct extension type
+    #        [Microsoft.AspNetCore.Authentication.ClaimActionCollectionMapExtensions]::MapJsonKey($options.ClaimActions, 'email', 'email')
+      #      [Microsoft.AspNetCore.Authentication.ClaimActionCollectionMapExtensions]::MapJsonKey($options.ClaimActions, 'name', 'name')
+    #        [Microsoft.AspNetCore.Authentication.ClaimActionCollectionMapExtensions]::MapJsonKey($options.ClaimActions, 'preferred_username', 'preferred_username')
+   #         [Microsoft.AspNetCore.Authentication.ClaimActionCollectionMapExtensions]::MapJsonKey($options.ClaimActions, 'given_name', 'given_name')
+     #       [Microsoft.AspNetCore.Authentication.ClaimActionCollectionMapExtensions]::MapJsonKey($options.ClaimActions, 'family_name', 'family_name')
             # Assign to $Options parameter variable so downstream call uses configured instance
             $Options = $options
         } else {
             # Parameter set 'Options' supplied externally – ensure essential flags are on if unset
             if (-not $Options.SaveTokens) { $Options.SaveTokens = $true }
             if (-not $Options.GetClaimsFromUserInfoEndpoint) { $Options.GetClaimsFromUserInfoEndpoint = $true }
-            # Add claim mappings if missing
-            $extType = [System.AppDomain]::CurrentDomain.GetAssemblies() |
-                Where-Object { $_.GetType('Microsoft.AspNetCore.Authentication.OAuth.Claims.ClaimActionCollectionMapExtensions') } |
-                ForEach-Object { $_.GetType('Microsoft.AspNetCore.Authentication.OAuth.Claims.ClaimActionCollectionMapExtensions') } |
-                Select-Object -First 1
-            if ($extType) {
-                $mapMethod = $extType.GetMethods([System.Reflection.BindingFlags] 'Public,Static') | Where-Object { $_.Name -eq 'MapJsonKey' -and $_.GetParameters().Count -ge 3 } | Select-Object -First 1
-                if ($mapMethod) {
-                    foreach ($pair in @(
-                            @('email', 'email'),
-                            @('name', 'name'),
-                            @('preferred_username', 'preferred_username'),
-                            @('given_name', 'given_name'),
-                            @('family_name', 'family_name')
-                        )) {
-                        try { $null = $mapMethod.Invoke($null, @($Options.ClaimActions, $pair[0], $pair[1])) } catch { Write-Verbose "Failed mapping claim $($pair[0]): $_" }
-                    }
-                }
-            } else {
-                Write-Verbose 'ClaimActionCollectionMapExtensions type not found; skipping claim mappings.'
-            }
+            # Add claim mappings if missing using correct extension type
+           # [Microsoft.AspNetCore.Authentication.ClaimActionCollectionMapExtensions]::MapJsonKey($Options.ClaimActions, 'email', 'email')
+        #    [Microsoft.AspNetCore.Authentication.ClaimActionCollectionMapExtensions]::MapJsonKey($Options.ClaimActions, 'name', 'name')
+        #    [Microsoft.AspNetCore.Authentication.ClaimActionCollectionMapExtensions]::MapJsonKey($Options.ClaimActions, 'preferred_username', 'preferred_username')
+        #    [Microsoft.AspNetCore.Authentication.ClaimActionCollectionMapExtensions]::MapJsonKey($Options.ClaimActions, 'given_name', 'given_name')
+        #    [Microsoft.AspNetCore.Authentication.ClaimActionCollectionMapExtensions]::MapJsonKey($Options.ClaimActions, 'family_name', 'family_name')
         }
         # If IncludeDefaultProfilePolicies requested and no ClaimPolicy provided, build one now using ClaimPolicy utilities
         if ($IncludeDefaultProfilePolicies.IsPresent -and -not $ClaimPolicy) {
-            $builder = New-KrClaimPolicy
-            # Allow any value for these common claims using a placeholder '*' token
-            $builder = Add-KrClaimPolicy -Builder $builder -PolicyName 'EmailPresent' -ClaimType 'email' -AllowedValues '*' \
-            | Add-KrClaimPolicy -PolicyName 'NamePresent' -ClaimType 'name' -AllowedValues '*' \
-            | Add-KrClaimPolicy -PolicyName 'PreferredUserNamePresent' -ClaimType 'preferred_username' -AllowedValues '*'
-            $ClaimPolicy = $builder | Build-KrClaimPolicy
+            $ClaimPolicy = New-KrClaimPolicy |
+                # Allow any value for these common claims using a placeholder '*' token
+                Add-KrClaimPolicy -PolicyName 'EmailPresent' -ClaimType 'email' -AllowedValues '*' |
+                Add-KrClaimPolicy -PolicyName 'NamePresent' -ClaimType 'name' -AllowedValues '*' |
+                Add-KrClaimPolicy -PolicyName 'PreferredUserNamePresent' -ClaimType 'preferred_username' -AllowedValues '*' |
+                Build-KrClaimPolicy
         }
 
         # Call C# extension with optional claim policy

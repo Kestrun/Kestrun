@@ -440,7 +440,7 @@ if ($UseJwtAuth -and $certificate) {
         $oidcParams.ClientSecret = $ClientSecret
     }
 
-    Add-KrOpenIdConnectAuthentication @oidcParams
+    Add-KrOpenIdConnectAuthentication @oidcParams 
 }
 
 # 6) Finalize pipeline

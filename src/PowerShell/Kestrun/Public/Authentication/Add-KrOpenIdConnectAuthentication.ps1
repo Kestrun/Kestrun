@@ -56,6 +56,12 @@ function Add-KrOpenIdConnectAuthentication {
         [string]$ResponseType,
         [Parameter(Mandatory = $false, ParameterSetName = 'Items')]
         [switch]$UsePkce,
+        # Optional: provide a pre-built claim policy configuration (from Build-KrClaimPolicy)
+        [Parameter(Mandatory = $false)]
+        [Kestrun.Claims.ClaimPolicyConfig]$ClaimPolicy,
+        # Convenience: build and include default profile claim policies (email/name/username) allowing any value
+        [Parameter(Mandatory = $false)]
+        [switch]$IncludeDefaultProfilePolicies,
         [switch]$PassThru
     )
     begin {
@@ -146,13 +152,22 @@ function Add-KrOpenIdConnectAuthentication {
                 Write-Verbose 'ClaimActionCollectionMapExtensions type not found; skipping claim mappings.'
             }
         }
-        # Call the simpler C# overload that takes individual parameters
-        # This lets the framework properly initialize the ConfigurationManager and backchannel
+        # If IncludeDefaultProfilePolicies requested and no ClaimPolicy provided, build one now using ClaimPolicy utilities
+        if ($IncludeDefaultProfilePolicies.IsPresent -and -not $ClaimPolicy) {
+            $builder = New-KrClaimPolicy
+            # Allow any value for these common claims using a placeholder '*' token
+            $builder = Add-KrClaimPolicy -Builder $builder -PolicyName 'EmailPresent' -ClaimType 'email' -AllowedValues '*' \
+            | Add-KrClaimPolicy -PolicyName 'NamePresent' -ClaimType 'name' -AllowedValues '*' \
+            | Add-KrClaimPolicy -PolicyName 'PreferredUserNamePresent' -ClaimType 'preferred_username' -AllowedValues '*'
+            $ClaimPolicy = $builder | Build-KrClaimPolicy
+        }
+
+        # Call C# extension with optional claim policy
         [Kestrun.Hosting.KestrunHostAuthnExtensions]::AddOpenIdConnectAuthentication(
             $Server,
             $Name,
             $Options,
-            $null  # claimPolicy
+            $ClaimPolicy  # may be null
         ) | Out-Null
 
         if ($PassThru.IsPresent) {

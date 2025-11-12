@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>OIDC Duende Demo - {{mode}}</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+        }
+
+        h1 {
+            color: #333;
+        }
+
+        .section {
+            margin: 20px 0;
+            padding: 15px;
+            background: #f5f5f5;
+            border-radius: 5px;
+        }
+
+        .info-box {
+            margin: 10px 0;
+            padding: 10px;
+            background: white;
+            border-left: 4px solid #007acc;
+        }
+
+        a {
+            color: #007acc;
+            text-decoration: none;
+            font-weight: bold;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        .nav {
+            margin: 20px 0;
+        }
+
+        .nav a {
+            display: inline-block;
+            margin-right: 15px;
+            padding: 8px 16px;
+            background: #007acc;
+            color: white;
+            border-radius: 4px;
+        }
+
+        .nav a:hover {
+            background: #005a9e;
+            text-decoration: none;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>🔐 OIDC Duende Demo</h1>
+
+    <div class="section">
+        <h2>Current Mode: {{mode}}</h2>
+        <div class="info-box">
+            <p><strong>Description:</strong> {{description}}</p>
+            <p><strong>Client ID:</strong> {{clientId}}</p>
+            <p><strong>Grant Type:</strong> {{grantType}}</p>
+            <p><strong>Token Lifetime:</strong> {{tokenLifetime}}</p>
+            <p><strong>Requires PKCE:</strong> {{requiresPkce}}</p>
+            <p><strong>Authentication:</strong> {{authMethod}}</p>
+            <p><strong>Scopes:</strong> {{scopes}}</p>
+        </div>
+    </div>
+
+    <div class="nav">
+        <a href="/login">🔑 Login</a>
+        <a href="/hello">👋 Protected Page</a>
+        <a href="/me">👤 User Info</a>
+        <a href="/logout">🚪 Logout</a>
+    </div>
+
+    <div class="section">
+        <h2>Server Configuration</h2>
+        <p><strong>Authority:</strong> {{authority}}</p>
+        <p><strong>Redirect URI:</strong> https://localhost:{{port}}/signin-oidc</p>
+    </div>
+
+    <div class="section">
+        <h2>Available Modes</h2>
+        <p>Restart the script with different <code>-Mode</code> parameter to try other configurations:</p>
+        <ul>
+            <li><code>interactive.confidential</code> - Standard (client secret)</li>
+            <li><code>interactive.confidential.jwt</code> - JWT authentication</li>
+            <li><code>interactive.confidential.short</code> - Short-lived tokens (75s)</li>
+            <li><code>interactive.public</code> - Public client (no secret)</li>
+            <li><code>interactive.confidential.nopkce</code> - Without PKCE</li>
+            <li><code>interactive.confidential.hybrid</code> - Hybrid flow</li>
+        </ul>
+    </div>
+</body>
+
+</html>

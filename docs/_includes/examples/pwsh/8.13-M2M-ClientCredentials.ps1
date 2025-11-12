@@ -345,7 +345,7 @@ Enable-KrConfiguration
 Add-Kr
 # 5) Landing page
 Add-KrMapRoute -Verbs Get -Pattern '/' -ScriptBlock {
-    Write-KrHtmlResponse -FilePath './Assets/wwwroot/M2Mdemo.html' -Variables @{
+    Write-KrHtmlResponse -FilePath './Assets/wwwroot/openId/M2Mdemo.html' -Variables @{
         authority = $Authority
         clientId = $ClientId
         clientDescription = $clientInfo.Description

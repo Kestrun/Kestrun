@@ -52,7 +52,7 @@ function Add-KrOpenIdConnectAuthentication {
         [ValidateSet('query', 'fragment', 'form_post')]
         [string]$ResponseMode,
         [Parameter(Mandatory = $false, ParameterSetName = 'Items')]
-        [ValidateSet("code id_token","code id_token token","code token",'code', 'id_token', "id_token token",'token','none')]
+        [ValidateSet('code id_token', 'code id_token token', 'code token', 'code', 'id_token', 'id_token token', 'token', 'none')]
         [string]$ResponseType,
         [Parameter(Mandatory = $false, ParameterSetName = 'Items')]
         [switch]$UsePkce,
@@ -70,7 +70,7 @@ function Add-KrOpenIdConnectAuthentication {
             $options.ClientSecret = $ClientSecret
             $options.Scope.Clear()
             foreach ($s in $Scope) {
-                $options.Scope.Add($s)
+                $options.Scope.Add($s) | Out-Null
             }
             $options.UsePkce = $UsePkce.IsPresent
             if ($ResponseMode) {

@@ -723,7 +723,8 @@ public static class KestrunHostAuthnExtensions
                     opts.SaveTokens = options.SaveTokens;
                     opts.GetClaimsFromUserInfoEndpoint = options.GetClaimsFromUserInfoEndpoint;
                     opts.MapInboundClaims = options.MapInboundClaims;
-
+                    opts.SignedOutRedirectUri = options.SignedOutRedirectUri;
+                    opts.SignedOutCallbackPath = options.SignedOutCallbackPath;
                     // Protocol validation - use framework defaults
                     // The default ProtocolValidator handles token response validation correctly
                     // for different flows and response types

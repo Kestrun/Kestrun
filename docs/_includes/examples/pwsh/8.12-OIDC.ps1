@@ -290,42 +290,98 @@ Add-KrEndpoint -Port $Port -IPAddress $IPAddress -SelfSignedCert
 # Add-KrHttpsRedirection -HttpPort 5001 -HttpsPort $Port
 
 # 5) OpenID Connect auth (adds 'oidc', 'oidc.Cookies', 'oidc.Policy')
-$oidcParams = @{
-    Name = 'oidc'
-    Authority = $Authority
-    ClientId = $ClientId
-    Scope = $Scopes
-    UsePkce = $modeConfig.RequiresPKCE
-}
-
-# Add ResponseType if specified (for hybrid/implicit flows)
-if ($modeConfig.ResponseType) {
-    $oidcParams.ResponseType = $modeConfig.ResponseType
-    Write-KrLog -Level Debug -Message 'Using ResponseType: {responseType}' -Values $modeConfig.ResponseType
-}
-
-# Add ResponseMode if specified (for hybrid/implicit flows)
-if ($modeConfig.ResponseMode) {
-    $oidcParams.ResponseMode = $modeConfig.ResponseMode
-    Write-KrLog -Level Debug -Message 'Using ResponseMode: {responseMode}' -Values $modeConfig.ResponseMode
-}
-
-# Configure client authentication based on mode
-if ($UseJwtAuth) {
-    # JWT authentication - will use OnAuthorizationCodeReceived event to add client_assertion
-    Write-KrLog -Level Information -Message 'Configuring OIDC with private_key_jwt authentication'
-    # Note: Client secret not set - we'll inject JWT assertion via token request customization
-} elseif ($ClientSecret) {
-    $oidcParams.ClientSecret = $ClientSecret
-}
-
-Add-KrOpenIdConnectAuthentication @oidcParams
-
-# For JWT modes, customize token requests to use client_assertion
 if ($UseJwtAuth -and $certificate) {
-    Write-KrLog -Level Information -Message 'JWT authentication will use client_assertion for token requests'
-    # TODO: Add event handler to inject client_assertion in token requests
-    # This would typically be done via OnAuthorizationCodeReceived event
+    # JWT authentication requires custom event handling to inject client_assertion
+    Write-KrLog -Level Information -Message 'Configuring OIDC with private_key_jwt authentication'
+
+    # Create options object to configure events
+    $oidcOptions = [Microsoft.AspNetCore.Authentication.OpenIdConnect.OpenIdConnectOptions]::new()
+    $oidcOptions.Authority = $Authority
+    $oidcOptions.ClientId = $ClientId
+    $oidcOptions.UsePkce = $modeConfig.RequiresPKCE
+
+    # Add scopes
+    $oidcOptions.Scope.Clear()
+    foreach ($scope in $Scopes) {
+        $oidcOptions.Scope.Add($scope) | Out-Null
+    }
+
+    # Add ResponseType if specified
+    if ($modeConfig.ResponseType) {
+        switch ($modeConfig.ResponseType) {
+            'code' { $oidcOptions.ResponseType = [Microsoft.IdentityModel.Protocols.OpenIdConnect.OpenIdConnectResponseType]::Code }
+            'code id_token' { $oidcOptions.ResponseType = [Microsoft.IdentityModel.Protocols.OpenIdConnect.OpenIdConnectResponseType]::CodeIdToken }
+        }
+        Write-KrLog -Level Debug -Message 'Using ResponseType: {responseType}' -Values $modeConfig.ResponseType
+    }
+
+    # Add ResponseMode if specified
+    if ($modeConfig.ResponseMode) {
+        switch ($modeConfig.ResponseMode) {
+            'form_post' { $oidcOptions.ResponseMode = [Microsoft.IdentityModel.Protocols.OpenIdConnect.OpenIdConnectResponseMode]::FormPost }
+        }
+        Write-KrLog -Level Debug -Message 'Using ResponseMode: {responseMode}' -Values $modeConfig.ResponseMode
+    }
+
+    # Configure event to inject JWT client assertion during token exchange
+    # Capture variables in closure for event handler
+    $capturedClientId = $ClientId
+    $capturedCertificate = $certificate
+    $capturedPublicKey = $publicKey
+
+    $oidcOptions.Events = [Microsoft.AspNetCore.Authentication.OpenIdConnect.OpenIdConnectEvents]::new()
+    $oidcOptions.Events.OnAuthorizationCodeReceived = {
+        param($context)
+
+        $tokenEndpoint = $context.Options.Configuration.TokenEndpoint
+        Write-KrLog -Level Debug -Message 'OnAuthorizationCodeReceived: Creating JWT client assertion for token endpoint: {endpoint}' -Values $tokenEndpoint
+
+        # Create JWT client assertion using captured variables
+        $jwt = New-OidcJwtClientAssertion -ClientId $capturedClientId -TokenEndpoint $tokenEndpoint -Certificate $capturedCertificate -KeyId $capturedPublicKey.kid
+
+        if ($jwt) {
+            # Inject JWT assertion into token request (remove client_secret if present)
+            $context.TokenEndpointRequest.ClientSecret = $null
+            $context.TokenEndpointRequest.ClientAssertionType = 'urn:ietf:params:oauth:client-assertion-type:jwt-bearer'
+            $context.TokenEndpointRequest.ClientAssertion = $jwt
+            Write-KrLog -Level Debug -Message 'JWT client assertion injected into token request'
+        } else {
+            Write-KrLog -Level Error -Message 'Failed to create JWT client assertion'
+        }
+
+        [System.Threading.Tasks.Task]::CompletedTask
+    }.GetNewClosure()
+
+    Add-KrOpenIdConnectAuthentication -Name 'oidc' -Options $oidcOptions
+
+} else {
+    # Standard configuration with client secret
+    $oidcParams = @{
+        Name = 'oidc'
+        Authority = $Authority
+        ClientId = $ClientId
+        Scope = $Scopes
+        UsePkce = $modeConfig.RequiresPKCE
+    }
+
+    # Add ResponseType if specified
+    if ($modeConfig.ResponseType) {
+        $oidcParams.ResponseType = $modeConfig.ResponseType
+        Write-KrLog -Level Debug -Message 'Using ResponseType: {responseType}' -Values $modeConfig.ResponseType
+    }
+
+    # Add ResponseMode if specified
+    if ($modeConfig.ResponseMode) {
+        $oidcParams.ResponseMode = $modeConfig.ResponseMode
+        Write-KrLog -Level Debug -Message 'Using ResponseMode: {responseMode}' -Values $modeConfig.ResponseMode
+    }
+
+    # Add client secret
+    if ($ClientSecret) {
+        $oidcParams.ClientSecret = $ClientSecret
+    }
+
+    Add-KrOpenIdConnectAuthentication @oidcParams
 }
 
 # 6) Finalize pipeline
@@ -333,68 +389,8 @@ Enable-KrConfiguration
 
 # 7) Landing page
 Add-KrMapRoute -Verbs Get -Pattern '/' -ScriptBlock {
-    Write-KrHtmlResponse -Template @'
-<!doctype html>
-<html>
-<head>
-    <title>OIDC Duende Demo - {{mode}}</title>
-    <style>
-        body { font-family: Arial, sans-serif; max-width: 800px; margin: 50px auto; padding: 20px; }
-        h1 { color: #333; }
-        .section { margin: 20px 0; padding: 15px; background: #f5f5f5; border-radius: 5px; }
-        .info-box { margin: 10px 0; padding: 10px; background: white; border-left: 4px solid #007acc; }
-        a { color: #007acc; text-decoration: none; font-weight: bold; }
-        a:hover { text-decoration: underline; }
-        .nav { margin: 20px 0; }
-        .nav a { display: inline-block; margin-right: 15px; padding: 8px 16px; background: #007acc; color: white; border-radius: 4px; }
-        .nav a:hover { background: #005a9e; text-decoration: none; }
-    </style>
-</head>
-<body>
-    <h1>🔐 OIDC Duende Demo</h1>
-
-    <div class="section">
-        <h2>Current Mode: {{mode}}</h2>
-        <div class="info-box">
-            <p><strong>Description:</strong> {{description}}</p>
-            <p><strong>Client ID:</strong> {{clientId}}</p>
-            <p><strong>Grant Type:</strong> {{grantType}}</p>
-            <p><strong>Token Lifetime:</strong> {{tokenLifetime}}</p>
-            <p><strong>Requires PKCE:</strong> {{requiresPkce}}</p>
-            <p><strong>Authentication:</strong> {{authMethod}}</p>
-            <p><strong>Scopes:</strong> {{scopes}}</p>
-        </div>
-    </div>
-
-    <div class="nav">
-        <a href="/login">🔑 Login</a>
-        <a href="/hello">👋 Protected Page</a>
-        <a href="/me">👤 User Info</a>
-        <a href="/logout">🚪 Logout</a>
-    </div>
-
-    <div class="section">
-        <h2>Server Configuration</h2>
-        <p><strong>Authority:</strong> {{authority}}</p>
-        <p><strong>Redirect URI:</strong> https://localhost:{{port}}/signin-oidc</p>
-    </div>
-
-    <div class="section">
-        <h2>Available Modes</h2>
-        <p>Restart the script with different <code>-Mode</code> parameter to try other configurations:</p>
-        <ul>
-            <li><code>interactive.confidential</code> - Standard (client secret)</li>
-            <li><code>interactive.confidential.jwt</code> - JWT authentication</li>
-            <li><code>interactive.confidential.short</code> - Short-lived tokens (75s)</li>
-            <li><code>interactive.public</code> - Public client (no secret)</li>
-            <li><code>interactive.confidential.nopkce</code> - Without PKCE</li>
-            <li><code>interactive.confidential.hybrid</code> - Hybrid flow</li>
-        </ul>
-    </div>
-</body>
-</html>
-'@ -Variables @{
-        mode = $Mode
+    Write-KrHtmlResponse -FilePath './Assets/wwwroot/openId/oidcdemo.html' -Variables @{
+        mode = $ClientId
         authority = $Authority
         clientId = $ClientId
         description = $modeConfig.Description
@@ -406,13 +402,6 @@ Add-KrMapRoute -Verbs Get -Pattern '/' -ScriptBlock {
         port = $Port
     }
 }
-Add-KrMapRoute -Verbs Get -Pattern '/login2' -Code @'
-var properties = new Microsoft.AspNetCore.Authentication.AuthenticationProperties
-{
-    RedirectUri = "/hello"
-};
-await Context.HttpContext.ChallengeAsync("oidc", properties);
-'@ -AllowAnonymous -Language CSharp
 
 Add-KrMapRoute -Verbs Get -Pattern '/login' -ScriptBlock {
     # Use the new Invoke-KrChallenge function for cleaner OIDC login
@@ -422,17 +411,22 @@ Add-KrMapRoute -Verbs Get -Pattern '/login' -ScriptBlock {
 # 8) Protected route group using the policy scheme
 #Add-KrRouteGroup -Prefix '/oidc' -AuthorizationSchema 'oidc'  {
 Add-KrMapRoute -Verbs Get -Pattern '/hello' -AuthorizationSchema 'oidc' -ScriptBlock {
+    write-host ($Context.User.Identity|ConvertTo-Json -Depth 5)
     $name = $Context.User.Identity.Name ?? '(no name)'
-    #   if ([string]::IsNullOrWhiteSpace($name)) { $name = '(no name claim)' }
-    Write-KrHtmlResponse -Template @'
-<!doctype html>
-<title>OIDC Duende Demo - Hello</title>
-<h1>Hello from OIDC, {{name}}</h1>
-<li><a href="/login">Login</a></li>
-<li><a href="/hello">Hello (requires auth)</a></li>
-<p><a href="/me">Who am I?</a></p>
-<p><a href="/logout">Logout</a></p>
-'@ -Variables @{ name = $name }
+    $email = $Context.User.FindFirst('email')?.Value ?? 'No email claim'
+    $sub = $Context.User.FindFirst('sub')?.Value ?? 'No sub claim'
+
+    # Get authentication details
+    $authType = $Context.User.Identity.AuthenticationType ?? 'Unknown'
+    $isAuthenticated = $Context.User.Identity.IsAuthenticated
+
+    Write-KrHtmlResponse -FilePath './Assets/wwwroot/openId/protected.html' -Variables @{
+        name = $name
+        email = $email
+        sub = $sub
+        authType = $authType
+        isAuthenticated = $isAuthenticated
+    }
 }
 
 Add-KrMapRoute -Verbs Get -Pattern '/me' -AuthorizationSchema 'oidc' -ScriptBlock {
@@ -440,13 +434,16 @@ Add-KrMapRoute -Verbs Get -Pattern '/me' -AuthorizationSchema 'oidc' -ScriptBloc
     Write-KrJsonResponse @{ scheme = 'oidc'; authenticated = $Context.User.Identity.IsAuthenticated; claims = $claims }
 }
 
-#Add-KrMapRoute -Verbs Get -Pattern '/logout' -AllowAnonymous -Code @'
 Add-KrMapRoute -Verbs Get -Pattern '/logout' -AllowAnonymous -ScriptBlock {
     # Use enhanced Invoke-KrCookieSignOut with OIDC support
-    Invoke-KrCookieSignOut -OidcScheme 'oidc' -RedirectUri '/'
+    # Construct full redirect URI for post-logout redirect
+    $uriScheme = if ($Context.Request.IsHttps) { 'https' } else { 'http' }
+    $hostValue = $Context.Request.Host.Value
+    $postLogoutUri = "${uriScheme}://${hostValue}/"
+
+    Write-KrLog -Level Debug -Message 'Logging out with post_logout_redirect_uri: {uri}' -Values $postLogoutUri
+    Invoke-KrCookieSignOut -OidcScheme 'oidc' -RedirectUri $postLogoutUri
 }
-#'@ -Language CSharp
-#}
 
 # 9) Start server
 Write-KrLog -Level Information -Message '=== OIDC Duende Demo ==='

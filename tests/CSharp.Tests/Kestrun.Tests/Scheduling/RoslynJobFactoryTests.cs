@@ -3,7 +3,6 @@ using Serilog;
 using Serilog.Core;
 using Serilog.Events;
 using Xunit;
-using Kestrun.SharedState;
 using Microsoft.CodeAnalysis.Scripting;
 using Kestrun.Hosting;
 
@@ -74,7 +73,7 @@ public class RoslynJobFactoryTests
     {
         var (log, sink) = MakeLogger();
         var host = new KestrunHost("TestHost", logger: log);
-        var ex = Assert.Throws<CompilationErrorException>(() => RoslynJobFactory.Build(host, "var x = ;",  null, null, null, Microsoft.CodeAnalysis.CSharp.LanguageVersion.CSharp12));
+        var ex = Assert.Throws<CompilationErrorException>(() => RoslynJobFactory.Build(host, "var x = ;", null, null, null, Microsoft.CodeAnalysis.CSharp.LanguageVersion.CSharp12));
         Assert.Contains("C# script compilation completed with", ex.Message);
         // Also ensure an error was logged
         Assert.Contains(sink.Events, e => e.Level == LogEventLevel.Error && e.RenderMessage().Contains("Error [CS"));

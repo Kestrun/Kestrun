@@ -2,7 +2,6 @@ using Kestrun.Hosting;
 using Kestrun.Hosting.Options;
 using Kestrun.Scripting;
 using Kestrun.Claims;
-using Kestrun.SharedState;
 using Microsoft.AspNetCore.Http;
 using Microsoft.IdentityModel.Tokens;
 using Xunit;

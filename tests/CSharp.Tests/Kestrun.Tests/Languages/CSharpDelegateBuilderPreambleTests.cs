@@ -1,5 +1,4 @@
 using Kestrun.Languages;
-using Kestrun.SharedState;
 using Kestrun.Hosting;
 using Microsoft.AspNetCore.Http;
 using Serilog;
@@ -14,7 +13,7 @@ public class CSharpDelegateBuilderPreambleTests
     [Trait("Category", "Languages")]
     public void Compile_Includes_Dynamic_Imports_From_Locals_Generic()
     {
-               var host = new KestrunHost("Tests", Log.Logger);
+        var host = new KestrunHost("Tests", Log.Logger);
         // Arrange
         var locals = new Dictionary<string, object?>
         {

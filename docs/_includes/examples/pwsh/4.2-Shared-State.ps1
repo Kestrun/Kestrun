@@ -60,8 +60,9 @@ Add-KrMapRoute -Verbs Post -Pattern '/visit' -ScriptBlock {
     $config = Get-KrSharedState -Name 'Config'
 
     Start-Sleep -Seconds 2  # Simulate some processing delay
-    # Thread-safe increment
-    $visits.Count = [int]$visits.Count + 1
+
+    # Atomic increment
+    Update-KrSynchronizedCounter -Table $visits -Key 'Count' -By 1
 
     $response = @{
         count = $visits.Count

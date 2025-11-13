@@ -3,7 +3,6 @@ using System.Text;
 using Kestrun.Languages;
 using Kestrun.Logging;
 using Kestrun.Models;
-using Kestrun.SharedState;
 using Microsoft.CodeAnalysis;
 using Serilog.Events;
 using System.Reflection;

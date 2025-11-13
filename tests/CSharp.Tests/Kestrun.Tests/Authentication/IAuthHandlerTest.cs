@@ -7,7 +7,6 @@ using System.Reflection;
 using Moq;
 using Serilog;
 using Xunit;
-using Kestrun.SharedState;
 using Kestrun.Authentication;
 
 namespace KestrunTests.Authentication;

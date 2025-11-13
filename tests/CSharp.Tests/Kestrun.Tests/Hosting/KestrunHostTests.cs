@@ -8,7 +8,6 @@ using Kestrun.Hosting;
 using Kestrun.Hosting.Options;
 using Kestrun.Scripting;
 using Microsoft.AspNetCore.Server.Kestrel.Core;
-using Kestrun.SharedState;
 
 namespace KestrunTests.Hosting;
 
@@ -214,7 +213,7 @@ public class KestrunHostTest
     [Trait("Category", "Hosting")]
     public void GetMapRouteOptions_ReturnsOptionsForAddedRoute()
     {
-       
+
         var host = new KestrunHost("TestApp", AppContext.BaseDirectory);
         host.EnableConfiguration();
 

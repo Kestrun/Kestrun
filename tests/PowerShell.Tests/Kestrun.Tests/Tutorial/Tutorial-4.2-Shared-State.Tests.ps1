@@ -84,7 +84,7 @@ Describe 'Example 4.2-Shared-State' {
                 } -ArgumentList $url
             }
 
-            $results = $jobs | Wait-Job | Receive-Job
+            $null = $jobs | Wait-Job | Receive-Job
             $jobs | Remove-Job
             start-sleep -Seconds 2  # Allow slight delay for state update
             # Verify final count

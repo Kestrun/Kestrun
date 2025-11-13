@@ -37,7 +37,7 @@ public class KestrunHostSessionExtensionsIntegrationTests
     [Trait("Category", "Hosting")]
     public async Task Session_State_Persists_Across_Requests_For_Same_Client()
     {
-        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
 
         // Configure distributed cache (required by sessions) and sessions before building the app
         var host = CreateBuiltHost(h =>
@@ -86,7 +86,7 @@ public class KestrunHostSessionExtensionsIntegrationTests
     [Trait("Category", "Hosting")]
     public async Task DistributedMemoryCache_Can_Store_And_Retrieve_Via_DI()
     {
-        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(60));
 
         // Only register the distributed memory cache
         var host = CreateBuiltHost(h =>

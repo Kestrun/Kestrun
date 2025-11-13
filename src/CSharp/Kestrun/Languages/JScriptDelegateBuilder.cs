@@ -1,3 +1,4 @@
+using Kestrun.Hosting;
 using Kestrun.Models;
 using Microsoft.ClearScript.V8;
 using Serilog.Events;
@@ -10,8 +11,9 @@ namespace Kestrun.Languages;
 internal static class JScriptDelegateBuilder
 {
     public static bool Implemented { get; set; }
-    internal static RequestDelegate Build(string code, Serilog.ILogger logger)
+    internal static RequestDelegate Build(KestrunHost host, string code)
     {
+        var logger = host.Logger;
         if (logger.IsEnabled(LogEventLevel.Debug))
         {
             logger.Debug("Building JavaScript delegate, script length={Length}", code?.Length);

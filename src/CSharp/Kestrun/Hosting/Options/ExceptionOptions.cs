@@ -52,7 +52,7 @@ public sealed class ExceptionOptions : ExceptionHandlerOptions
                 {
                     throw new NotSupportedException("PowerShell is not supported for ExceptionOptions scripting at this time.");
                 }
-                var compiled = Host.CompileScript(value, Host.Logger);
+                var compiled = Host.CompileScript(value);
 
                 ExceptionHandler = BuildScriptExceptionHandler(this, compiled);
             }

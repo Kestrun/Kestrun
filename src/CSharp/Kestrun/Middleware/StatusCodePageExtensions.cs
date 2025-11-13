@@ -86,7 +86,7 @@ public static class StatusCodePageExtensions
         {
             return null;
         }
-        var compiled = options.Host.CompileScript(options.LanguageOptions, options.Host.Logger);
+        var compiled = options.Host.CompileScript( options.LanguageOptions);
         var handler = BuildScriptHandler(options, compiled);
         return app.UseStatusCodePages(handler);
     }

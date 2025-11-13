@@ -146,13 +146,23 @@ public class KestrunHost : IDisposable
 
     /// <summary>
     /// Gets the scheduler service used for managing scheduled tasks in the Kestrun host.
+    /// Initialized in ConfigureServices via AddScheduler()
     /// </summary>
-    public SchedulerService? Scheduler { get; internal set; } // Initialized in ConfigureServices
+    public SchedulerService Scheduler
+    {
+        get => field ?? throw new InvalidOperationException("SchedulerService is not initialized. Call AddScheduler() to enable scheduling.");
+        internal set;
+    }
 
     /// <summary>
     /// Gets the ad-hoc task service used for running one-off tasks (PowerShell, C#, VB.NET).
+    /// Initialized via AddTasks()
     /// </summary>
-    public KestrunTaskService? Tasks { get; internal set; } // Initialized via AddTasks()
+    public KestrunTaskService Tasks
+    {
+        get => field ?? throw new InvalidOperationException("Tasks is not initialized. Call AddTasks() to enable task management.");
+        internal set;
+    }
 
     /// <summary>
     /// Gets the stack used for managing route groups in the Kestrun host.

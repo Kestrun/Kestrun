@@ -1,4 +1,4 @@
-﻿<#
+<#
 .SYNOPSIS
     Updates a synchronized counter in a thread-safe manner.
 .DESCRIPTION

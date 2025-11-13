@@ -1,4 +1,4 @@
-﻿param()
+param()
 Describe 'Example 4.2-Shared-State' {
     BeforeAll {
         . (Join-Path $PSScriptRoot '..\PesterHelpers.ps1')

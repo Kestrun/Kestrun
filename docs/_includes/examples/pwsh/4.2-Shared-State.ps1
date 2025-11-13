@@ -1,4 +1,4 @@
-﻿<#
+<#
     Sample Kestrun Server demonstrating shared state management.
     This example shows how to use Set-KrSharedState, Get-KrSharedState, and Remove-KrSharedState cmdlets.
     FileName: 4.2-Shared-State.ps1

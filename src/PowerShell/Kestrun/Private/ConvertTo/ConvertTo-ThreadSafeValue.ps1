@@ -1,4 +1,4 @@
-﻿<#
+<#
 .SYNOPSIS
     Converts collections to thread-safe equivalents.
 .DESCRIPTION

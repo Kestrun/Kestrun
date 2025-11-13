@@ -26,7 +26,7 @@ public static class VariablesMap
     }
 
     /// <summary>
-    /// Populates the provided dictionary with variables from the shared state store.
+    /// Populates the provided dictionary with variables from the host-scoped shared state store.
     /// </summary>
     /// <param name="host">The Kestrun host instance.</param>
     /// <param name="vars">The dictionary to populate with shared state variables.</param>

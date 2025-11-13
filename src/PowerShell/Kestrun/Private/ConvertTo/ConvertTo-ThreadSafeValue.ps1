@@ -19,6 +19,7 @@
     Thread-safe collection equivalent of the input. If the input is not a collection, returns it unchanged.
 #>
 function ConvertTo-KrThreadSafeValue {
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseOutputTypeCorrectly', '')]
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)]
@@ -51,7 +52,7 @@ function ConvertTo-KrThreadSafeValue {
 
     # --- Any other IDictionary (generic or not, but not handled above) ---
     if ($Value -is [System.Collections.IDictionary]) {
-        $dict = [System.Collections.Concurrent.ConcurrentDictionary[object,object]]::new()
+        $dict = [System.Collections.Concurrent.ConcurrentDictionary[object, object]]::new()
         foreach ($entry in $Value.GetEnumerator()) {
             $null = $dict.TryAdd($entry.Key, $entry.Value)
         }

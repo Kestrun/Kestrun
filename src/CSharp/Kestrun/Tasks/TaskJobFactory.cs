@@ -115,7 +115,6 @@ internal static class TaskJobFactory
     private static Func<CancellationToken, Task<object?>> VbNetTask(TaskJobConfig config)
     {
         var code = config.ScriptCode.Code;
-        var log = config.Host.Logger;
         var arguments = config.ScriptCode.Arguments;
         var runner = VBNetDelegateBuilder.Compile<object>(
             host: config.Host,

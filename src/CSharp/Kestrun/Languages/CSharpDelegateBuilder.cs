@@ -422,16 +422,18 @@ internal static class CSharpDelegateBuilder
         IReadOnlyDictionary<string, object?>? locals)
     {
         var merged = new Dictionary<string, (string Dict, object? Value)>(StringComparer.OrdinalIgnoreCase);
-        var allGlobals = host.SharedState.Snapshot();
-        foreach (var g in allGlobals)
-        {
-            merged[g.Key] = ("HostGlobals", g.Value);
-        }
         foreach (var g in GlobalStore.Snapshot())
         {
-            merged[g.Key] = ("GlobalGlobals", g.Value);
+            merged[g.Key] = ("Globals", g.Value);
         }
-
+        // Also include host-level shared state
+        // if host shared state has same key as global, host takes precedence
+        foreach (var g in host.SharedState.Snapshot())
+        {
+            merged[g.Key] = ("Globals", g.Value);
+        }
+        // Now overlay locals
+        // if local has same key as global, local takes precedence
         if (locals is { Count: > 0 })
         {
             foreach (var l in locals)

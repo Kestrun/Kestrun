@@ -425,11 +425,11 @@ internal static class CSharpDelegateBuilder
         var allGlobals = host.SharedState.Snapshot();
         foreach (var g in allGlobals)
         {
-            merged[g.Key] = ("Globals", g.Value);
+            merged[g.Key] = ("HostGlobals", g.Value);
         }
         foreach (var g in GlobalStore.Snapshot())
         {
-            merged[g.Key] = ("Globals", g.Value);
+            merged[g.Key] = ("GlobalGlobals", g.Value);
         }
 
         if (locals is { Count: > 0 })

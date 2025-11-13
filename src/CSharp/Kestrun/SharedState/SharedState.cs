@@ -6,19 +6,25 @@ namespace Kestrun.SharedState;
 /// <summary>
 /// Thread‑safe, case‑insensitive global key/value store for reference‑type objects.
 /// </summary>
-public static partial class SharedStateStore
+public partial class SharedState
 {
     // ── configuration ───────────────────────────────────────────────
     private static readonly Regex _validName =
         MyRegex();
 
     // StringComparer.OrdinalIgnoreCase ⇒ 100 % case‑insensitive keys
-    private static readonly ConcurrentDictionary<string, object?> _store =
+    private readonly ConcurrentDictionary<string, object?> _store =
         new(StringComparer.OrdinalIgnoreCase);
 
     // ── public API ──────────────────────────────────────────────────
-    /// <summary>Add or overwrite a value (reference‑types only).</summary>
-    public static bool Set(string name, object? value, bool allowsValueType = false)
+    /// <summary>
+    /// Add or overwrite a value (reference‑types only).
+    /// </summary>
+    /// <param name="name">The name of the variable to set.</param>
+    /// <param name="value">The value to set. Must be a reference type unless <paramref name="allowsValueType"/> is <c>true</c>.</param>
+    /// <param name="allowsValueType">If <c>true</c>, allows setting value types; otherwise, only reference types are allowed.</param>
+    /// <returns><c>true</c> if the value was set successfully.</returns>
+    public bool Set(string name, object? value, bool allowsValueType = false)
     {
         ValidateName(name);
         ValidateValue(name, value, allowsValueType);
@@ -31,13 +37,13 @@ public static partial class SharedStateStore
     /// </summary>
     /// <param name="name">The name of the variable to check.</param>
     /// <returns> <c>true</c> if the variable exists; otherwise, <c>false</c>.</returns>
-    public static bool Contains(string name) => _store.ContainsKey(name);
+    public bool Contains(string name) => _store.ContainsKey(name);
 
     /// <summary>
     /// Strongly‑typed fetch. Returns <c>false</c> if the key is missing
     /// or the stored value can’t be cast to <typeparamref name="T"/>.
     /// </summary>
-    public static bool TryGet<T>(string name, out T? value)
+    public bool TryGet<T>(string name, out T? value)
     {
         if (_store.TryGetValue(name, out var raw) && raw is T cast)
         {
@@ -49,17 +55,47 @@ public static partial class SharedStateStore
     }
 
     /// <summary>Untyped fetch; <c>null</c> if absent.</summary>
-    public static object? Get(string name) =>
+    public object? Get(string name) =>
         _store.TryGetValue(name, out var val) ? val : null;
 
     /// <summary>Snapshot of *all* current variables (shallow copy).</summary>
-    public static IReadOnlyDictionary<string, object?> Snapshot() =>
+    public IReadOnlyDictionary<string, object?> Snapshot() =>
         _store.ToDictionary(kvp => kvp.Key, kvp => kvp.Value,
                             StringComparer.OrdinalIgnoreCase);
 
     /// <summary>Snapshot of keys only—handy for quick listings.</summary>
-    public static IReadOnlyCollection<string> KeySnapshot() =>
+    public IReadOnlyCollection<string> KeySnapshot() =>
         [.. _store.Keys];
+
+    /// <summary>
+    /// Clears all entries in the shared state.
+    /// </summary>
+    public void Clear() =>
+        _store.Clear();
+
+    /// <summary>
+    /// Gets the number of key/value pairs in the shared state.
+    /// </summary>
+    public int Count =>
+        _store.Count;
+    /// <summary>
+    /// Gets an enumerable collection of all keys in the shared state.
+    /// </summary>
+    public IEnumerable<string> Keys =>
+        _store.Keys;
+    /// <summary>
+    /// Gets an enumerable collection of all values in the shared state.
+    /// </summary>
+    public IEnumerable<object?> Values =>
+        _store.Values;
+
+    /// <summary>
+    /// Attempts to remove the value with the specified name from the shared state.
+    /// </summary>
+    /// <param name="name">The name of the variable to remove.</param>
+    /// <returns><c>true</c> if the variable was successfully removed; otherwise, <c>false</c>.</returns>
+    public bool Remove(string name) =>
+            _store.Remove(name, out _);
 
     // ── helpers ────────────────────────────────────────────────────
     private static void ValidateName(string name)
@@ -72,6 +108,13 @@ public static partial class SharedStateStore
         }
     }
 
+    /// <summary>
+    /// Validates the value to be stored in the shared state.
+    /// </summary>
+    /// <param name="name">The name of the variable.</param>
+    /// <param name="value">The value to validate.</param>
+    /// <param name="allowsValueType">Indicates whether value types are allowed.</param>
+    /// <exception cref="ArgumentException">Thrown if the value is a value type and value types are not allowed.</exception>
     private static void ValidateValue(string name, object? value, bool allowsValueType = false)
     {
         if (value is null)

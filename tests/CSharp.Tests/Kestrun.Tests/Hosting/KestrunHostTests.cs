@@ -214,11 +214,7 @@ public class KestrunHostTest
     [Trait("Category", "Hosting")]
     public void GetMapRouteOptions_ReturnsOptionsForAddedRoute()
     {
-        // Sanitize globals so dynamic C# prelude uses 'object' for casts
-        foreach (var key in SharedStateStore.KeySnapshot())
-        {
-            _ = SharedStateStore.Set(key, null);
-        }
+       
         var host = new KestrunHost("TestApp", AppContext.BaseDirectory);
         host.EnableConfiguration();
 

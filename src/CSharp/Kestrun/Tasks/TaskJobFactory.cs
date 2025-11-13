@@ -1,9 +1,9 @@
 using System.Management.Automation;
 using Kestrun.Scripting;
-using Kestrun.SharedState;
 using Kestrun.Utilities;
 using Kestrun.Languages;
 using Kestrun.Hosting.Options;
+using Kestrun.Hosting;
 
 namespace Kestrun.Tasks;
 
@@ -15,15 +15,15 @@ internal static class TaskJobFactory
     /// <summary>
     /// Configuration for creating a task job delegate.
     /// </summary>
+    /// <param name="Host">The Kestrun host instance.</param>
     /// <param name="TaskId">Unique identifier of the task.</param>
     /// <param name="ScriptCode">The language options containing the script code and settings.</param>
-    /// <param name="Log">Logger instance for logging.</param>
     /// <param name="Pool">Optional PowerShell runspace pool.</param>
     /// <param name="Progress">Progress state object to expose to scripts.</param>
     internal record TaskJobConfig(
+        KestrunHost Host,
         string TaskId,
         LanguageOptions ScriptCode,
-        Serilog.ILogger Log,
         KestrunRunspacePoolManager? Pool,
         ProgressiveKestrunTaskState Progress
     );
@@ -48,6 +48,7 @@ internal static class TaskJobFactory
             {
                 throw new InvalidOperationException("PowerShell runspace pool must be provided for PowerShell tasks.");
             }
+            var log = config.Host.Logger;
             var runspace = config.Pool.Acquire();
             try
             {
@@ -61,7 +62,7 @@ internal static class TaskJobFactory
                     : [];
                 vars["TaskProgress"] = config.Progress;
                 vars["TaskId"] = config.TaskId;
-                PowerShellExecutionHelpers.SetVariables(ps, vars, config.Log);
+                PowerShellExecutionHelpers.SetVariables(ps, vars, log);
                 using var reg = ct.Register(() => ps.Stop());
                 var results = await ps.InvokeAsync().WaitAsync(ct).ConfigureAwait(false);
 
@@ -74,7 +75,7 @@ internal static class TaskJobFactory
                     ps.Streams.Warning.Count > 0 || ps.Streams.Verbose.Count > 0 ||
                     ps.Streams.Debug.Count > 0 || ps.Streams.Information.Count > 0)
                 {
-                    config.Log.Verbose(BuildError.Text(ps));
+                    log.Verbose(BuildError.Text(ps));
                 }
 
                 return output;
@@ -96,17 +97,17 @@ internal static class TaskJobFactory
 
         // Compile and get a runner that returns object? (last expression)
         var script = CSharpDelegateBuilder.Compile(
-            config.ScriptCode.Code,
-            config.Log,
-            config.ScriptCode.ExtraImports,
-            config.ScriptCode.ExtraRefs,
-            compileLocals,
-            config.ScriptCode.LanguageVersion);
+            host: config.Host,
+            code: config.ScriptCode.Code,
+            extraImports: config.ScriptCode.ExtraImports,
+            extraRefs: config.ScriptCode.ExtraRefs,
+            locals: compileLocals,
+            languageVersion: config.ScriptCode.LanguageVersion);
         var runner = script.CreateDelegate(); // ScriptRunner<object?>
         return async ct =>
         {
             // Use the same locals at execution time
-            var globals = new CsGlobals(SharedStateStore.Snapshot(), compileLocals);
+            var globals = new CsGlobals(config.Host.SharedState.Snapshot(), compileLocals);
             return await runner(globals, ct).ConfigureAwait(false);
         };
     }
@@ -114,27 +115,24 @@ internal static class TaskJobFactory
     private static Func<CancellationToken, Task<object?>> VbNetTask(TaskJobConfig config)
     {
         var code = config.ScriptCode.Code;
-        var log = config.Log;
-        var extraImports = config.ScriptCode.ExtraImports;
-        var extraRefs = config.ScriptCode.ExtraRefs;
+        var log = config.Host.Logger;
         var arguments = config.ScriptCode.Arguments;
-        var vbLangVersion = Microsoft.CodeAnalysis.VisualBasic.LanguageVersion.VisualBasic16_9;
         var runner = VBNetDelegateBuilder.Compile<object>(
-            code,
-            log,
-            extraImports,
-            extraRefs,
-            arguments,
-            vbLangVersion
+            host: config.Host,
+            code: config.ScriptCode.Code,
+            extraImports: config.ScriptCode.ExtraImports,
+            extraRefs: config.ScriptCode.ExtraRefs,
+            locals: arguments,
+            languageVersion: Microsoft.CodeAnalysis.VisualBasic.LanguageVersion.VisualBasic16_9
         );
         return async ct =>
         {
             // For VB, expose Progress via locals as well
-            var locals = config.ScriptCode.Arguments is { Count: > 0 }
-                ? new Dictionary<string, object?>(config.ScriptCode.Arguments)
+            var locals = arguments is { Count: > 0 }
+                ? new Dictionary<string, object?>(arguments)
                 : [];
             locals["TaskProgress"] = config.Progress;
-            var globals = new CsGlobals(SharedStateStore.Snapshot(), locals);
+            var globals = new CsGlobals(config.Host.SharedState.Snapshot(), locals);
             // VB compiled delegate does not accept CancellationToken; allow cooperative cancel of awaiting.
             var task = runner(globals);
             var completed = await Task.WhenAny(task, Task.Delay(Timeout.Infinite, ct)).ConfigureAwait(false);

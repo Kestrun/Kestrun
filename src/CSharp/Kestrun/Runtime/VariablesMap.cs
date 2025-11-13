@@ -1,4 +1,5 @@
 using System.Reflection;
+using Kestrun.Hosting;
 using Kestrun.Models;
 using Kestrun.SharedState;
 
@@ -20,25 +21,41 @@ public static class VariablesMap
         // ① Initialize the dictionary
         vars ??= new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase);
         return GetCommonProperties(ctx, ref vars) // ② Add common request properties
-        && GetSharedStateStore(ref vars); // ③ Add shared state variables
+            && GetHostSharedState(ctx.Host, ref vars) // ③ Add host shared state variables
+            && GetSharedStateStore(ref vars); // ③ Add shared state variables
     }
 
     /// <summary>
     /// Populates the provided dictionary with variables from the shared state store.
     /// </summary>
+    /// <param name="host">The Kestrun host instance.</param>
     /// <param name="vars">The dictionary to populate with shared state variables.</param>
     /// <returns>True if variables were successfully mapped; otherwise, false.</returns>
-    public static bool GetSharedStateStore(ref Dictionary<string, object?> vars)
+    private static bool GetHostSharedState(KestrunHost host, ref Dictionary<string, object?> vars)
     {
         vars ??= new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase);
-        foreach (var kv in SharedStateStore.Snapshot())
+        foreach (var kv in host.SharedState.Snapshot())
         {
             vars[kv.Key] = kv.Value; // 1) top-level JSON
         }
 
         return true;
     }
+    /// <summary>
+    /// Populates the provided dictionary with variables from the global shared state store.
+    /// </summary>
+    /// <param name="vars">The dictionary to populate with shared state variables.</param>
+    /// <returns>True if variables were successfully mapped; otherwise, false.</returns>
+    private static bool GetSharedStateStore(ref Dictionary<string, object?> vars)
+    {
+        vars ??= new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase);
+        foreach (var kv in GlobalStore.Snapshot())
+        {
+            vars[kv.Key] = kv.Value; // 1) top-level JSON
+        }
 
+        return true;
+    }
     /// <summary>
     /// Populates the provided dictionary with common request and server properties from the Kestrun context.
     /// </summary>

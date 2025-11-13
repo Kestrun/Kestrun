@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using Kestrun.Hosting;
 using Kestrun.Hosting.Options;
 using Kestrun.Scripting;
 
@@ -14,6 +15,8 @@ public sealed class KestrunTaskService(KestrunRunspacePoolManager pool, Serilog.
     private readonly ConcurrentDictionary<string, KestrunTask> _tasks = new(StringComparer.OrdinalIgnoreCase);
     private readonly KestrunRunspacePoolManager _pool = pool;
     private readonly Serilog.ILogger _log = log;
+
+    private KestrunHost Host => _pool.Host;
 
     /// <summary>
     /// Creates a task from a code snippet without starting it.
@@ -40,7 +43,7 @@ public sealed class KestrunTaskService(KestrunRunspacePoolManager pool, Serilog.
         }
 
         var progress = new ProgressiveKestrunTaskState();
-        var cfg = new TaskJobFactory.TaskJobConfig(id, scriptCode, _log, _pool, progress);
+        var cfg = new TaskJobFactory.TaskJobConfig(Host, id, scriptCode, _pool, progress);
         var work = TaskJobFactory.Create(cfg);
         var cts = new CancellationTokenSource();
         var task = new KestrunTask(id, scriptCode, cts)

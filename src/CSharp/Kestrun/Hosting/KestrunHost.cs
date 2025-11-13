@@ -10,7 +10,6 @@ using Serilog;
 using Serilog.Events;
 using Microsoft.AspNetCore.SignalR;
 using Kestrun.Scheduling;
-using Kestrun.SharedState;
 using Kestrun.Middleware;
 using Kestrun.Scripting;
 using Kestrun.Hosting.Options;
@@ -131,6 +130,16 @@ public class KestrunHost : IDisposable
     public string? KestrunRoot { get; private set; }
 
     /// <summary>
+    /// Gets the collection of module paths to be loaded by the Kestrun host.
+    /// </summary>
+    public List<string> ModulePaths => _modulePaths;
+
+    /// <summary>
+    /// Gets the shared state store for managing shared data across requests and sessions.
+    /// </summary>
+    public SharedState.SharedState SharedState { get; } = new();
+
+    /// <summary>
     /// Gets the Serilog logger instance used by the Kestrun host.
     /// </summary>
     public Serilog.ILogger Logger { get; private set; }
@@ -138,12 +147,12 @@ public class KestrunHost : IDisposable
     /// <summary>
     /// Gets the scheduler service used for managing scheduled tasks in the Kestrun host.
     /// </summary>
-    public SchedulerService Scheduler { get; internal set; } = null!; // Initialized in ConfigureServices
+    public SchedulerService? Scheduler { get; internal set; } // Initialized in ConfigureServices
 
     /// <summary>
     /// Gets the ad-hoc task service used for running one-off tasks (PowerShell, C#, VB.NET).
     /// </summary>
-    public KestrunTaskService Tasks { get; internal set; } = null!; // Initialized via AddTasks()
+    public KestrunTaskService? Tasks { get; internal set; } // Initialized via AddTasks()
 
     /// <summary>
     /// Gets the stack used for managing route groups in the Kestrun host.
@@ -460,16 +469,10 @@ public class KestrunHost : IDisposable
 
         var effectiveLanguage = language ?? Options.Health.DefaultScriptLanguage;
         var logger = Logger.ForContext("HealthProbe", name);
-        var probe = ScriptProbeFactory.Create(
-            name,
-            tags,
-            effectiveLanguage,
-            code,
-            logger,
-            effectiveLanguage == ScriptLanguage.PowerShell ? () => RunspacePool : null,
-            arguments,
-            extraImports,
-            extraRefs);
+        var probe = ScriptProbeFactory.Create(host: this, name: name, tags: tags,
+            effectiveLanguage, code: code,
+            runspaceAccessor: effectiveLanguage == ScriptLanguage.PowerShell ? () => RunspacePool : null,
+            arguments: arguments, extraImports: extraImports, extraRefs: extraRefs);
 
         RegisterProbeInternal(probe);
         return this;
@@ -979,6 +982,7 @@ public class KestrunHost : IDisposable
     /// </summary>
     private void ConfigureBuiltInMiddleware()
     {
+        _ = _app!.UseRouting();
         ConfigureExceptionHandling();
         ConfigureForwardedHeaders();
         ConfigureStatusCodePages();
@@ -1477,7 +1481,7 @@ public class KestrunHost : IDisposable
             )
         );
         // Inject global variables into all runspaces
-        foreach (var kvp in SharedStateStore.Snapshot())
+        foreach (var kvp in SharedState.Snapshot())
         {
             // kvp.Key = "Visits", kvp.Value = 0
             iss.Variables.Add(

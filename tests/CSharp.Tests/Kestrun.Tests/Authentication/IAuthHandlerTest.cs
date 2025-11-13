@@ -83,10 +83,12 @@ public class IAuthHandlerTest
     [Fact]
     public void BuildCsIssueClaims_ReturnsFunc()
     {
+        var logger = new LoggerConfiguration().MinimumLevel.Debug().WriteTo.Console().CreateLogger();
+        var host = new Kestrun.Hosting.KestrunHost("Tests", logger);
         // Arrange
-        foreach (var key in SharedStateStore.KeySnapshot())
+        foreach (var key in host.SharedState.KeySnapshot())
         {
-            _ = SharedStateStore.Set(key, null);
+            _ = host.SharedState.Set(key, null);
         }
         var settings = new AuthenticationCodeSettings
         {
@@ -94,8 +96,7 @@ public class IAuthHandlerTest
             CSharpVersion = Microsoft.CodeAnalysis.CSharp.LanguageVersion.Latest,
             ExtraImports = ["System", "System.Linq", "System.Collections.Generic", "System.Security.Claims", "Kestrun", "Microsoft.AspNetCore.Http"]
         };
-        var logger = new LoggerConfiguration().MinimumLevel.Debug().WriteTo.Console().CreateLogger();
-        var host = new Kestrun.Hosting.KestrunHost("Tests", logger);
+
 
         // Act
         var func = IAuthHandler.BuildCsIssueClaims(host, settings);

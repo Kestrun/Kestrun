@@ -1,27 +1,28 @@
 using Kestrun.Languages;
-using Kestrun.SharedState;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.Scripting;
 using RoslynCompilationErrorException = Microsoft.CodeAnalysis.Scripting.CompilationErrorException;
 using SerilogLogger = Serilog.ILogger;
 using Serilog.Events;
+using Kestrun.Hosting;
 
 namespace Kestrun.Health;
 /// <summary>
 /// A health probe implemented via a C# script.
 /// </summary>
+/// <param name="host">The Kestrun host instance.</param>
 /// <param name="name">The name of the probe.</param>
 /// <param name="tags">The tags associated with the probe.</param>
 /// <param name="runner">The script runner to execute the probe.</param>
 /// <param name="locals">The local variables for the script.</param>
-/// <param name="logger">The logger to use for logging.</param>
 internal sealed class CSharpScriptProbe(
+    KestrunHost host,
     string name,
     IEnumerable<string>? tags,
     ScriptRunner<ProbeResult> runner,
-    IReadOnlyDictionary<string, object?>? locals,
-    SerilogLogger logger) : Probe(name, tags, logger), IProbe
+    IReadOnlyDictionary<string, object?>? locals) : Probe(name, tags), IProbe
 {
+    private SerilogLogger Logger => host.Logger;
     /// <summary>
     /// The script runner to execute the probe.
     /// </summary>
@@ -35,8 +36,8 @@ internal sealed class CSharpScriptProbe(
     public override async Task<ProbeResult> CheckAsync(CancellationToken ct = default)
     {
         var globals = _locals is { Count: > 0 }
-            ? new CsGlobals(SharedStateStore.Snapshot(), _locals)
-            : new CsGlobals(SharedStateStore.Snapshot());
+            ? new CsGlobals(host.SharedState.Snapshot(), _locals)
+            : new CsGlobals(host.SharedState.Snapshot());
         try
         {
             if (Logger.IsEnabled(LogEventLevel.Debug))

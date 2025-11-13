@@ -51,7 +51,7 @@ internal static class CSharpDelegateBuilder
         //    - Use CSharpScript.Create() to create a script with the provided code
         //    - Use ScriptOptions to specify imports, references, and language version
         //    - Inject the provided arguments into the globals
-        var script = Compile(code, host.Logger, extraImports, extraRefs, null, languageVersion);
+        var script = Compile(host: host, code: code, extraImports: extraImports, extraRefs: extraRefs, null, languageVersion: languageVersion);
 
         // 2. Return a delegate that executes the script
         //    - The delegate takes an HttpContext and returns a Task
@@ -103,8 +103,8 @@ internal static class CSharpDelegateBuilder
     /// This method supports additional imports and references, and can inject global variables into the script.
     /// It returns a compiled script that can be executed later.
     /// </summary>
+    /// <param name="host">The Kestrun host instance.</param>
     /// <param name="code">The C# code to compile.</param>
-    /// <param name="log">The logger instance.</param>
     /// <param name="extraImports">Additional namespaces to import.</param>
     /// <param name="extraRefs">Additional assembly references.</param>
     /// <param name="locals">Local variables to inject into the script.</param>
@@ -119,10 +119,12 @@ internal static class CSharpDelegateBuilder
     /// It is useful for scenarios where dynamic C# code execution is required, such as in web applications or scripting environments.
     /// </remarks>
     internal static Script<object> Compile(
-            string? code, Serilog.ILogger log, string[]? extraImports,
+            KestrunHost host,
+            string? code, string[]? extraImports,
             Assembly[]? extraRefs, IReadOnlyDictionary<string, object?>? locals, LanguageVersion languageVersion = LanguageVersion.CSharp12
             )
     {
+        var log = host.Logger;
         if (log.IsEnabled(LogEventLevel.Debug))
         {
             log.Debug("Compiling C# script, length={Length}, imports={ImportsCount}, refs={RefsCount}, lang={Lang}",
@@ -151,7 +153,7 @@ internal static class CSharpDelegateBuilder
         opts = AddLoadedAssemblyReferences(opts, log);
 
         // Globals/locals injection plus dynamic discovery of namespaces & assemblies needed
-        var (CodeWithPreamble, DynamicImports, DynamicReferences) = BuildGlobalsAndLocalsPreamble(code, locals, log);
+        var (CodeWithPreamble, DynamicImports, DynamicReferences) = BuildGlobalsAndLocalsPreamble(host, code, locals);
         code = CodeWithPreamble;
 
         if (DynamicImports.Count > 0)
@@ -380,19 +382,19 @@ internal static class CSharpDelegateBuilder
     /// <summary>
     /// Prepends global and local variable declarations to the provided code.
     /// </summary>
+    ///<param name="host">The Kestrun host instance.</param>
     /// <param name="code">The original code to modify.</param>
     /// <param name="locals">The local variables to include.</param>
     /// <returns>The modified code with global and local variable declarations.</returns>
     /// <summary>Builds the preamble variable declarations for globals &amp; locals and discovers required namespaces and assemblies.</summary>
-    /// <param name="log">Logger instance.</param>
     /// <returns>Tuple containing code with preamble, dynamic imports, dynamic references.</returns>
     private static (string CodeWithPreamble, List<string> DynamicImports, List<Assembly> DynamicReferences) BuildGlobalsAndLocalsPreamble(
+        KestrunHost host,
         string? code,
-        IReadOnlyDictionary<string, object?>? locals,
-        Serilog.ILogger log)
+        IReadOnlyDictionary<string, object?>? locals)
     {
         // Merge globals + locals
-        var merged = MergeGlobalsAndLocals(locals);
+        var merged = MergeGlobalsAndLocals(host, locals);
 
         // Build preamble & discover dynamic imports/refs
         var (preamble, imports, refs) = GeneratePreambleAndDiscover(merged);
@@ -403,7 +405,7 @@ internal static class CSharpDelegateBuilder
         // Filter references to only those with locations
         var filteredRefs = refs.Where(r => !string.IsNullOrEmpty(r.Location)).ToList();
 
-        LogDynamicDiscovery(imports, filteredRefs, log);
+        LogDynamicDiscovery(imports, filteredRefs, host.Logger);
 
         return (finalCode, imports.ToList(), filteredRefs);
     }
@@ -412,16 +414,24 @@ internal static class CSharpDelegateBuilder
     /// Creates a merged dictionary of global shared state and the supplied <paramref name="locals"/>.
     /// Local values override globals when a key collision occurs (case-insensitive).
     /// </summary>
+    /// <param name="host">The Kestrun host instance.</param>
     /// <param name="locals">Optional locals dictionary passed in at compile time.</param>
     /// <returns>A mutable dictionary keyed by variable name mapping to its source store name and value.</returns>
-    private static Dictionary<string, (string Dict, object? Value)> MergeGlobalsAndLocals(IReadOnlyDictionary<string, object?>? locals)
+    private static Dictionary<string, (string Dict, object? Value)> MergeGlobalsAndLocals(
+        KestrunHost host,
+        IReadOnlyDictionary<string, object?>? locals)
     {
         var merged = new Dictionary<string, (string Dict, object? Value)>(StringComparer.OrdinalIgnoreCase);
-        var allGlobals = SharedStateStore.Snapshot();
+        var allGlobals = host.SharedState.Snapshot();
         foreach (var g in allGlobals)
         {
             merged[g.Key] = ("Globals", g.Value);
         }
+        foreach (var g in GlobalStore.Snapshot())
+        {
+            merged[g.Key] = ("Globals", g.Value);
+        }
+
         if (locals is { Count: > 0 })
         {
             foreach (var l in locals)

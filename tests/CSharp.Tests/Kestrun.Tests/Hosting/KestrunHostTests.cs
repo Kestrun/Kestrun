@@ -233,7 +233,7 @@ public class KestrunHostTest
 
         var saved = host.GetMapRouteOptions("/hello", HttpVerb.Get);
         Assert.NotNull(saved);
-        Assert.Equal(ScriptLanguage.CSharp, saved!.ScriptCode.Language);
+        Assert.Equal(ScriptLanguage.CSharp, saved.ScriptCode.Language);
         Assert.Contains(HttpVerb.Get, saved.HttpVerbs);
         Assert.Equal("Context.Response.StatusCode = 204;", saved.ScriptCode.Code);
     }

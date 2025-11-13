@@ -137,7 +137,7 @@ public class KestrunHost : IDisposable
     /// <summary>
     /// Gets the shared state store for managing shared data across requests and sessions.
     /// </summary>
-    public SharedState.SharedState SharedState { get; } = new();
+    public SharedState.SharedState SharedState { get; }
 
     /// <summary>
     /// Gets the Serilog logger instance used by the Kestrun host.
@@ -259,6 +259,16 @@ public class KestrunHost : IDisposable
     { }
 
     /// <summary>
+    /// Initializes a new instance of the <see cref="KestrunHost"/> class with the specified application name and logger.
+    /// </summary>
+    /// <param name="appName">The name of the application.</param>
+    /// <param name="logger">The Serilog logger instance to use.</param>
+    /// <param name="ordinalIgnoreCase">Indicates whether the shared state should be case-insensitive.</param>
+    public KestrunHost(string? appName, Serilog.ILogger logger,
+          bool ordinalIgnoreCase) : this(appName, logger, null, null, null, ordinalIgnoreCase)
+    { }
+
+    /// <summary>
     /// Initializes a new instance of the <see cref="KestrunHost"/> class with the specified application name, logger, root directory, and optional module paths.
     /// </summary>
     /// <param name="appName">The name of the application.</param>
@@ -266,13 +276,14 @@ public class KestrunHost : IDisposable
     /// <param name="kestrunRoot">The root directory for the Kestrun application.</param>
     /// <param name="modulePathsObj">An array of module paths to be loaded.</param>
     /// <param name="args">Command line arguments to pass to the application.</param>
+    /// <param name="ordinalIgnoreCase">Indicates whether the shared state should be case-insensitive.</param>
     public KestrunHost(string? appName, Serilog.ILogger logger,
-    string? kestrunRoot = null, string[]? modulePathsObj = null, string[]? args = null)
+    string? kestrunRoot = null, string[]? modulePathsObj = null, string[]? args = null, bool ordinalIgnoreCase = true)
     {
         // ① Logger
         Logger = logger ?? Log.Logger;
         LogConstructorArgs(appName, logger == null, kestrunRoot, modulePathsObj?.Length ?? 0);
-
+        SharedState = new(ordinalIgnoreCase: ordinalIgnoreCase);
         // ② Working directory/root
         SetWorkingDirectoryIfNeeded(kestrunRoot);
 

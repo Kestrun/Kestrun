@@ -242,11 +242,11 @@ public class BasicAuthHandlerTest
         Assert.NotNull(method);
 
         // Act
-        var result = method!.Invoke(handler, []) as AuthenticateResult;
+        var result = method.Invoke(handler, []) as AuthenticateResult;
 
         // Assert
         Assert.NotNull(result);
-        Assert.False(result!.Succeeded);
+        Assert.False(result.Succeeded);
         Assert.Equal("HTTPS required", result.Failure?.Message);
     }
 
@@ -263,7 +263,7 @@ public class BasicAuthHandlerTest
         Assert.NotNull(method);
 
         // Act
-        var result = method!.Invoke(handler, []);
+        var result = method.Invoke(handler, []);
 
         // Assert
         Assert.Null(result);

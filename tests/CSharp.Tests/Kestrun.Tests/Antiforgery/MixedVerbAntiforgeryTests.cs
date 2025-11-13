@@ -16,7 +16,7 @@ namespace KestrunTests.Antiforgery;
 public class MixedVerbAntiforgeryTests
 {
     private static readonly MethodInfo ShouldValidateCsrfMethod = typeof(KestrunHostMapExtensions)
-        .GetMethod("ShouldValidateCsrf", BindingFlags.NonPublic | BindingFlags.Static)!
+        .GetMethod("ShouldValidateCsrf", BindingFlags.NonPublic | BindingFlags.Static)
         ?? throw new InvalidOperationException("Could not locate ShouldValidateCsrf via reflection");
 
     private static bool InvokeShouldValidate(MapRouteOptions opts, string method)

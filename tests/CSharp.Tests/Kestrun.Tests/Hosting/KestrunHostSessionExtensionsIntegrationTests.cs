@@ -42,8 +42,8 @@ public class KestrunHostSessionExtensionsIntegrationTests
         // Configure distributed cache (required by sessions) and sessions before building the app
         var host = CreateBuiltHost(h =>
         {
-            _ = h.AddDistributedMemoryCache(null!);
-            _ = h.AddSession(null!);
+            _ = h.AddDistributedMemoryCache(null);
+            _ = h.AddSession(null);
         });
 
         // Map a route that increments a session counter and returns the current value as text
@@ -91,7 +91,7 @@ public class KestrunHostSessionExtensionsIntegrationTests
         // Only register the distributed memory cache
         var host = CreateBuiltHost(h =>
         {
-            _ = h.AddDistributedMemoryCache(null!);
+            _ = h.AddDistributedMemoryCache(null);
         });
 
         // Route uses DI to resolve IDistributedCache, writes and reads a value

@@ -39,7 +39,7 @@ public class PowerShellRazorPageTests
             await File.WriteAllTextAsync(psPath, "$Model = @{ Name = 'Bar' } | ConvertTo-Json | ConvertFrom-Json");
 
             // Build a fully configured service provider using WebApplication builder
-            var appName = typeof(PowerShellRazorPageTests).Assembly.GetName().Name!;
+            var appName = typeof(PowerShellRazorPageTests).Assembly.GetName().Name;
             var wab = WebApplication.CreateBuilder(new WebApplicationOptions
             {
                 ContentRootPath = tmpRoot.FullName,
@@ -63,7 +63,7 @@ public class PowerShellRazorPageTests
                 var name = "";
                 try
                 {
-                    dynamic d = model!;
+                    dynamic d = model;
                     name = d.Name?.ToString() ?? "";
                 }
                 catch
@@ -116,7 +116,7 @@ public class PowerShellRazorPageTests
             await File.WriteAllTextAsync(psPath, "Write-Error 'boom'");
 
             // Build a fully configured service provider using WebApplication builder
-            var appName = typeof(PowerShellRazorPageTests).Assembly.GetName().Name!;
+            var appName = typeof(PowerShellRazorPageTests).Assembly.GetName().Name;
             var wab = WebApplication.CreateBuilder(new WebApplicationOptions
             {
                 ContentRootPath = tmpRoot.FullName,

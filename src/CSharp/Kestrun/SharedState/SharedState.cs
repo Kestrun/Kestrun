@@ -13,8 +13,24 @@ public partial class SharedState
         MyRegex();
 
     // StringComparer.OrdinalIgnoreCase ⇒ 100 % case‑insensitive keys
-    private readonly ConcurrentDictionary<string, object?> _store =
-        new(StringComparer.OrdinalIgnoreCase);
+    private readonly ConcurrentDictionary<string, object?> _store;
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="SharedState"/> class.
+    /// </summary>
+    /// <param name="ordinalIgnoreCase">If <c>true</c>, keys are compared in a case-insensitive manner; otherwise, case-sensitive.</param>
+    public SharedState(bool ordinalIgnoreCase = true)
+    {
+        if (ordinalIgnoreCase)
+        {
+            _store = new(StringComparer.OrdinalIgnoreCase);
+            return;
+        }
+        else
+        {
+            _store = new(StringComparer.Ordinal);
+        }
+    }
 
     // ── public API ──────────────────────────────────────────────────
     /// <summary>

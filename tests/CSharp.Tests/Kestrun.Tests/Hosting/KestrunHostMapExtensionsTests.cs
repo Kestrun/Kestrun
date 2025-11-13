@@ -38,7 +38,7 @@ public class KestrunHostMapExtensionsTests
         Assert.True(host.MapExists("/t-code-default", HttpVerb.Get));
         var saved = host.GetMapRouteOptions("/t-code-default", HttpVerb.Get);
         Assert.NotNull(saved);
-        Assert.Equal(ScriptLanguage.CSharp, saved!.ScriptCode.Language);
+        Assert.Equal(ScriptLanguage.CSharp, saved.ScriptCode.Language);
     }
 
     [Fact]
@@ -259,7 +259,7 @@ public class KestrunHostMapExtensionsTests
         Assert.True(host.MapExists("/override", HttpVerb.Get));
         var opts = host.GetMapRouteOptions("/override", HttpVerb.Get);
         Assert.NotNull(opts);
-        Assert.Equal(ScriptLanguage.CSharp, opts!.ScriptCode.Language);
+        Assert.Equal(ScriptLanguage.CSharp, opts.ScriptCode.Language);
     }
 
     #region ValidateRouteOptions Tests
@@ -296,7 +296,7 @@ public class KestrunHostMapExtensionsTests
 
         var options = new MapRouteOptions
         {
-            Pattern = null!,
+            Pattern = null,
             ScriptCode = new LanguageOptions
             {
                 Code = "Context.Response.StatusCode = 200;",
@@ -345,7 +345,7 @@ public class KestrunHostMapExtensionsTests
             Pattern = "/test",
             ScriptCode = new LanguageOptions
             {
-                Code = null!,
+                Code = null,
                 Language = ScriptLanguage.CSharp
             }
         };
@@ -645,7 +645,7 @@ public class KestrunHostMapExtensionsTests
 
         var savedOptions = host.GetMapRouteOptions("/test-create-register", HttpVerb.Get);
         Assert.NotNull(savedOptions);
-        Assert.Equal(routeOptions.Pattern, savedOptions!.Pattern);
+        Assert.Equal(routeOptions.Pattern, savedOptions.Pattern);
         Assert.Equal(routeOptions.ScriptCode.Language, savedOptions.ScriptCode.Language);
     }
 

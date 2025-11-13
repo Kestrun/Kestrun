@@ -30,7 +30,6 @@ function Set-KrSharedState {
     [KestrunRuntimeApi('Definition')]
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseShouldProcessForStateChangingFunctions', '')]
     [CmdletBinding(defaultParameterSetName = 'Server')]
-    [OutputType([bool])]
     param(
         [Parameter(ValueFromPipeline = $true, ParameterSetName = 'Server')]
         [Kestrun.Hosting.KestrunHost]$Server,
@@ -76,4 +75,3 @@ function Set-KrSharedState {
         )
     }
 }
-

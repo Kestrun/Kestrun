@@ -242,7 +242,7 @@ public class CertificateManagerTest
         }
         else
         {
-            Assert.True(imported!.HasPrivateKey);
+            Assert.True(imported.HasPrivateKey);
             Assert.Contains("CN=localhost", imported.Subject, StringComparison.OrdinalIgnoreCase);
         }
         // no Environment.CurrentDirectory manipulation needed
@@ -365,7 +365,7 @@ public class CertificateManagerTest
         File.WriteAllText(certPemPath, $"-----BEGIN CERTIFICATE-----\n{certB64}\n-----END CERTIFICATE-----\n");
 
         // Write unencrypted PKCS#1 RSA PRIVATE KEY (CreateFromPemFile supports it)
-        var keyDer = rsa!.ExportRSAPrivateKey();
+        var keyDer = rsa.ExportRSAPrivateKey();
         var keyB64 = Convert.ToBase64String(keyDer, Base64FormattingOptions.InsertLineBreaks);
         File.WriteAllText(keyPemPath, $"-----BEGIN RSA PRIVATE KEY-----\n{keyB64}\n-----END RSA PRIVATE KEY-----\n");
 

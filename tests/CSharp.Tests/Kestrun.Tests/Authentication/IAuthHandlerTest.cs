@@ -218,7 +218,7 @@ public class IAuthHandlerTest
         var context = new DefaultHttpContext();
 
         // Act + Assert
-        var ex = Assert.Throws<TargetInvocationException>(() => getPs!.Invoke(null, [context]));
+        var ex = Assert.Throws<TargetInvocationException>(() => getPs.Invoke(null, [context]));
         _ = Assert.IsType<InvalidOperationException>(ex.InnerException);
     }
 
@@ -237,7 +237,7 @@ public class IAuthHandlerTest
         context.Items["PS_INSTANCE"] = ps;
 
         // Act
-        var result = getPs!.Invoke(null, [context]);
+        var result = getPs.Invoke(null, [context]);
 
         // Assert
         Assert.NotNull(result);

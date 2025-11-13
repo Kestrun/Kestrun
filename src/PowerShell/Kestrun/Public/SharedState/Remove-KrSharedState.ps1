@@ -45,7 +45,7 @@ function Remove-KrSharedState {
         if ($Global.IsPresent) {
             # Remove from global store
             if ($PSCmdlet.ShouldProcess("Global shared state variable '$Name'", "Remove")) {
-                return [Kestrun.SharedState.GlobalStore].Remove($Name)
+                return [Kestrun.SharedState.GlobalStore]::Remove($Name)
             }
             return $false
         }

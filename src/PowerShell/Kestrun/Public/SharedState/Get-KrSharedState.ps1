@@ -40,7 +40,7 @@ function Get-KrSharedState {
     process {
         if ($Global.IsPresent) {
             # Retrieve from server instance
-            return [Kestrun.SharedState.GlobalStore].Get($Name)
+            return [Kestrun.SharedState.GlobalStore]::Get($Name)
         }
         # Retrieve (or $null if not defined)
         return $Server.SharedState.Get($Name)

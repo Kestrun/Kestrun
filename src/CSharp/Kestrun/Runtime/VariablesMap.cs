@@ -41,10 +41,11 @@ public static class VariablesMap
 
         return true;
     }
+
     /// <summary>
     /// Populates the provided dictionary with variables from the global shared state store.
     /// </summary>
-    /// <param name="vars">The dictionary to populate with shared state variables.</param>
+    /// <param name="vars">The dictionary to populate with global shared state variables.</param>
     /// <returns>True if variables were successfully mapped; otherwise, false.</returns>
     private static bool GetSharedStateStore(ref Dictionary<string, object?> vars)
     {

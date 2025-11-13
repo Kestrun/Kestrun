@@ -30,7 +30,7 @@ function Set-KrSharedState {
     [KestrunRuntimeApi('Definition')]
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseShouldProcessForStateChangingFunctions', '')]
     [CmdletBinding(defaultParameterSetName = 'Server')]
-    [OutputType([Kestrun.Hosting.KestrunHost])]
+    [OutputType([bool])]
     param(
         [Parameter(ValueFromPipeline = $true, ParameterSetName = 'Server')]
         [Kestrun.Hosting.KestrunHost]$Server,
@@ -45,7 +45,11 @@ function Set-KrSharedState {
         [object]$Value,
 
         [Parameter()]
-        [switch]$AllowsValueType
+        [switch]$AllowsValueType,
+
+        [Parameter()]
+        [switch]$ThreadSafe
+
     )
     begin {
         if (-not $Global.IsPresent) {
@@ -54,9 +58,15 @@ function Set-KrSharedState {
         }
     }
     process {
+        if ($ThreadSafe.IsPresent) {
+            $Value = ConvertTo-KrThreadSafeValue -Value $Value
+        }
         if ($Global.IsPresent) {
             # Retrieve from server instance
-            return [Kestrun.SharedState.GlobalStore].Get($Name)
+            return [Kestrun.SharedState.GlobalStore]::Set($Name,
+                $Value,
+                $AllowsValueType.IsPresent  # Allow value types if specified
+            )
         }
         # Define or update the variable; throws if it was already read-only
         $null = $Server.SharedState.Set(

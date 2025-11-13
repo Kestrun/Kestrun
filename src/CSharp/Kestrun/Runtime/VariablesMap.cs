@@ -44,6 +44,7 @@ public static class VariablesMap
 
     /// <summary>
     /// Populates the provided dictionary with variables from the global shared state store.
+    /// This is separate from host-scoped shared state and spans all KestrunHost instances.
     /// </summary>
     /// <param name="vars">The dictionary to populate with global shared state variables.</param>
     /// <returns>True if variables were successfully mapped; otherwise, false.</returns>

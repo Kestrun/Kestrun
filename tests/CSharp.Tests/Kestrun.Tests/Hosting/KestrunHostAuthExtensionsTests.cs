@@ -11,7 +11,6 @@ using Xunit;
 using Microsoft.AspNetCore.Http;
 using System.Management.Automation;
 using System.Management.Automation.Runspaces;
-using Kestrun.SharedState;
 
 namespace KestrunTests.Hosting;
 

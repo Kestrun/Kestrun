@@ -144,24 +144,26 @@ public class KestrunHost : IDisposable
     /// </summary>
     public Serilog.ILogger Logger { get; private set; }
 
+    private SchedulerService? _scheduler;
     /// <summary>
     /// Gets the scheduler service used for managing scheduled tasks in the Kestrun host.
     /// Initialized in ConfigureServices via AddScheduler()
     /// </summary>
     public SchedulerService Scheduler
     {
-        get => field ?? throw new InvalidOperationException("SchedulerService is not initialized. Call AddScheduler() to enable scheduling.");
-        internal set;
+        get => _scheduler ?? throw new InvalidOperationException("SchedulerService is not initialized. Call AddScheduler() to enable scheduling.");
+        internal set => _scheduler = value;
     }
 
+    private KestrunTaskService? _tasks;
     /// <summary>
     /// Gets the ad-hoc task service used for running one-off tasks (PowerShell, C#, VB.NET).
     /// Initialized via AddTasks()
     /// </summary>
     public KestrunTaskService Tasks
     {
-        get => field ?? throw new InvalidOperationException("Tasks is not initialized. Call AddTasks() to enable task management.");
-        internal set;
+        get => _tasks ?? throw new InvalidOperationException("Tasks is not initialized. Call AddTasks() to enable task management.");
+        internal set => _tasks = value;
     }
 
     /// <summary>
@@ -1197,7 +1199,7 @@ public class KestrunHost : IDisposable
                 Logger.Debug("AddScheduling (deferred)");
             }
 
-            if (host.Scheduler is null)
+            if (host._scheduler is null)
             {
                 if (MaxRunspaces is not null and > 0)
                 {
@@ -1233,7 +1235,7 @@ public class KestrunHost : IDisposable
                 Logger.Debug("AddTasks (deferred)");
             }
 
-            if (host.Tasks is null)
+            if (host._tasks is null)
             {
                 // Reuse scheduler pool sizing unless explicitly overridden
                 if (MaxRunspaces is not null and > 0)
@@ -1582,7 +1584,7 @@ public class KestrunHost : IDisposable
         _runspacePool = null; // Clear the runspace pool reference
         IsConfigured = false; // Reset configuration state
         _app = null;
-        Scheduler?.Dispose();
+        _scheduler?.Dispose();
         (Logger as IDisposable)?.Dispose();
         GC.SuppressFinalize(this);
     }

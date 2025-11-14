@@ -58,7 +58,7 @@ public class VBNetAndPowerShellDelegateBuilderTests
         // Add an error to Streams to trigger BuildError.ResponseAsync
         ps.Streams.Error.Add(new ErrorRecord(new Exception("boom"), "BoomId", ErrorCategory.InvalidOperation, targetObject: null));
 
-        ctx.Items[PowerShellDelegateBuilder.PS_INSTANCE_KEY] = ps; 
+        ctx.Items[PowerShellDelegateBuilder.PS_INSTANCE_KEY] = ps;
         ctx.Items[PowerShellDelegateBuilder.KR_CONTEXT_KEY] = new Kestrun.Models.KestrunContext(
             host,
             await Kestrun.Models.KestrunRequest.NewRequest(ctx),

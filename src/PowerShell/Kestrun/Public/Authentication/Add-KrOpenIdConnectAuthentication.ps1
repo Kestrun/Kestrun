@@ -23,6 +23,12 @@
     The response type. Use 'code', 'id_token', or 'token' if needed.
 .PARAMETER UsePkce
     Enable PKCE for code flow (default: true).
+.PARAMETER UseSecurityTokenValidator
+    Use a custom security token validator (default: false).
+.PARAMETER ClaimPolicy
+    Optional ClaimPolicyConfig to enforce claim policies on authenticated users.
+.PARAMETER IncludeDefaultProfilePolicies
+    If specified, includes default claim policies for common profile claims (email, name, preferred_username
 .PARAMETER PassThru
     Return the modified server object.
 .EXAMPLE
@@ -56,12 +62,19 @@ function Add-KrOpenIdConnectAuthentication {
         [string]$ResponseType,
         [Parameter(Mandatory = $false, ParameterSetName = 'Items')]
         [switch]$UsePkce,
+        [Parameter(Mandatory = $false, ParameterSetName = 'Items')]
+        [switch]$UseSecurityTokenValidator,
         # Optional: provide a pre-built claim policy configuration (from Build-KrClaimPolicy)
         [Parameter(Mandatory = $false)]
         [Kestrun.Claims.ClaimPolicyConfig]$ClaimPolicy,
         # Convenience: build and include default profile claim policies (email/name/username) allowing any value
         [Parameter(Mandatory = $false)]
         [switch]$IncludeDefaultProfilePolicies,
+        [Parameter(Mandatory = $false)]
+        [switch]$EnablePar,
+        [string]$ClientAssertionJwkJson,
+        [Parameter(Mandatory = $false)]
+        [System.Security.Cryptography.X509Certificates.X509Certificate2]$Certificate,
         [switch]$PassThru
     )
     begin {
@@ -99,15 +112,12 @@ function Add-KrOpenIdConnectAuthentication {
                     default { throw "Invalid ResponseType: $ResponseType. Valid values are 'code', 'id_token', 'token'." }
                 }
             }
+            if ($UseSecurityTokenValidator.IsPresent) {
+                $options.UseSecurityTokenValidator = $true
+            }
             # Enable token persistence & userinfo claims retrieval by default
             $options.SaveTokens = $true
             $options.GetClaimsFromUserInfoEndpoint = $true
-            # Map common user profile claims (Duende demo returns these via userinfo) using correct extension type
-    #        [Microsoft.AspNetCore.Authentication.ClaimActionCollectionMapExtensions]::MapJsonKey($options.ClaimActions, 'email', 'email')
-      #      [Microsoft.AspNetCore.Authentication.ClaimActionCollectionMapExtensions]::MapJsonKey($options.ClaimActions, 'name', 'name')
-    #        [Microsoft.AspNetCore.Authentication.ClaimActionCollectionMapExtensions]::MapJsonKey($options.ClaimActions, 'preferred_username', 'preferred_username')
-   #         [Microsoft.AspNetCore.Authentication.ClaimActionCollectionMapExtensions]::MapJsonKey($options.ClaimActions, 'given_name', 'given_name')
-     #       [Microsoft.AspNetCore.Authentication.ClaimActionCollectionMapExtensions]::MapJsonKey($options.ClaimActions, 'family_name', 'family_name')
             # Assign to $Options parameter variable so downstream call uses configured instance
             $Options = $options
         } else {
@@ -115,11 +125,6 @@ function Add-KrOpenIdConnectAuthentication {
             if (-not $Options.SaveTokens) { $Options.SaveTokens = $true }
             if (-not $Options.GetClaimsFromUserInfoEndpoint) { $Options.GetClaimsFromUserInfoEndpoint = $true }
             # Add claim mappings if missing using correct extension type
-           # [Microsoft.AspNetCore.Authentication.ClaimActionCollectionMapExtensions]::MapJsonKey($Options.ClaimActions, 'email', 'email')
-        #    [Microsoft.AspNetCore.Authentication.ClaimActionCollectionMapExtensions]::MapJsonKey($Options.ClaimActions, 'name', 'name')
-        #    [Microsoft.AspNetCore.Authentication.ClaimActionCollectionMapExtensions]::MapJsonKey($Options.ClaimActions, 'preferred_username', 'preferred_username')
-        #    [Microsoft.AspNetCore.Authentication.ClaimActionCollectionMapExtensions]::MapJsonKey($Options.ClaimActions, 'given_name', 'given_name')
-        #    [Microsoft.AspNetCore.Authentication.ClaimActionCollectionMapExtensions]::MapJsonKey($Options.ClaimActions, 'family_name', 'family_name')
         }
         # If IncludeDefaultProfilePolicies requested and no ClaimPolicy provided, build one now using ClaimPolicy utilities
         if ($IncludeDefaultProfilePolicies.IsPresent -and -not $ClaimPolicy) {
@@ -136,7 +141,8 @@ function Add-KrOpenIdConnectAuthentication {
             $Server,
             $Name,
             $Options,
-            $ClaimPolicy  # may be null
+            $ClaimPolicy,  # may be null
+            $Certificate, $EnablePar.IsPresent, $ClientAssertionJwkJson
         ) | Out-Null
 
         if ($PassThru.IsPresent) {

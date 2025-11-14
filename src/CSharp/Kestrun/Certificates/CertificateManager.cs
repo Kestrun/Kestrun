@@ -20,6 +20,10 @@ using System.Text;
 using Org.BouncyCastle.Asn1.X9;
 using Serilog;
 using Kestrun.Utilities;
+using System.Text.Json;
+using Microsoft.IdentityModel.Tokens;
+using System.Security.Claims;
+using Microsoft.IdentityModel.JsonWebTokens;
 
 
 namespace Kestrun.Certificates;
@@ -969,6 +973,149 @@ public static class CertificateManager
         // this will run your span‐based implementation,
         // then immediately zero & free the unmanaged buffer
         );
+    }
+
+
+    private sealed class RsaJwk
+    {
+        public string kty { get; set; } = "";
+        public string n { get; set; } = "";
+        public string e { get; set; } = "";
+        public string d { get; set; } = "";
+        public string p { get; set; } = "";
+        public string q { get; set; } = "";
+        public string dp { get; set; } = "";
+        public string dq { get; set; } = "";
+        public string qi { get; set; } = "";
+        public string? kid { get; set; }
+    }
+
+    /// <summary>
+    /// Creates a self-signed X509 certificate from the provided RSA JWK JSON string.
+    /// </summary>
+    /// <param name="jwkJson">The JSON string representing the RSA JWK.</param>
+    /// <param name="subjectName">The subject name for the certificate.</param>
+    /// <returns>A self-signed X509Certificate2 instance.</returns>
+    /// <exception cref="ArgumentException">Thrown when the JWK JSON is invalid.</exception>
+    /// <exception cref="NotSupportedException"></exception>
+    public static X509Certificate2 CreateSelfSignedCertificateFromJwk(
+        string jwkJson,
+        string subjectName = "CN=client-jwt")
+    {
+        var jwk = JsonSerializer.Deserialize<RsaJwk>(jwkJson)
+                  ?? throw new ArgumentException("Invalid JWK JSON");
+
+        if (!string.Equals(jwk.kty, "RSA", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new NotSupportedException("Only RSA JWKs are supported.");
+        }
+
+        var rsaParams = new RSAParameters
+        {
+            Modulus = Base64UrlEncoder.DecodeBytes(jwk.n),
+            Exponent = Base64UrlEncoder.DecodeBytes(jwk.e),
+            D = Base64UrlEncoder.DecodeBytes(jwk.d),
+            P = Base64UrlEncoder.DecodeBytes(jwk.p),
+            Q = Base64UrlEncoder.DecodeBytes(jwk.q),
+            DP = Base64UrlEncoder.DecodeBytes(jwk.dp),
+            DQ = Base64UrlEncoder.DecodeBytes(jwk.dq),
+            InverseQ = Base64UrlEncoder.DecodeBytes(jwk.qi)
+        };
+
+        using var rsa = RSA.Create();
+        rsa.ImportParameters(rsaParams);
+
+        var req = new CertificateRequest(
+            subjectName,
+            rsa,
+            HashAlgorithmName.SHA256,
+            RSASignaturePadding.Pkcs1);
+
+        // Self-signed, 1 year validity (tune as you like)
+        var notBefore = DateTimeOffset.UtcNow.AddDays(-1);
+        var notAfter = notBefore.AddYears(1);
+
+        var cert = req.CreateSelfSigned(notBefore, notAfter);
+
+        // Export with private key, re-import as X509Certificate2
+        var pfxBytes = cert.Export(X509ContentType.Pfx);
+        return new X509Certificate2(pfxBytes, (string?)null,
+            X509KeyStorageFlags.MachineKeySet |
+            X509KeyStorageFlags.Exportable);
+    }
+
+    /// <summary>
+    /// Builds a Private Key JWT for client authentication using the specified certificate.
+    /// </summary>
+    /// <param name="key">The security key (X509SecurityKey or JsonWebKey) to sign the JWT.</param>
+    /// <param name="clientId">The client ID (issuer and subject) for the JWT.</param>
+    /// <param name="tokenEndpoint">The token endpoint URL (audience) for the JWT.</param>
+    /// <returns>The generated Private Key JWT as a string.</returns>
+    public static string BuildPrivateKeyJwt(
+        SecurityKey key,
+        string clientId,
+        string tokenEndpoint)
+    {
+        var now = DateTimeOffset.UtcNow;
+
+        var creds = new SigningCredentials(key, SecurityAlgorithms.RsaSha256);
+        var handler = new JsonWebTokenHandler();
+
+        var descriptor = new SecurityTokenDescriptor
+        {
+            Issuer = clientId,
+            Audience = tokenEndpoint,
+            Subject = new ClaimsIdentity(
+            [
+                new Claim("sub", clientId),
+                new Claim("jti", Guid.NewGuid().ToString("N"))
+            ]),
+            NotBefore = now.UtcDateTime,
+            IssuedAt = now.UtcDateTime,
+            Expires = now.AddMinutes(2).UtcDateTime,
+            SigningCredentials = creds
+        };
+
+        return handler.CreateToken(descriptor);
+    }
+
+    /// <summary>
+    /// Builds a Private Key JWT for client authentication using the specified X509 certificate.
+    /// </summary>
+    /// <param name="certificate">The X509 certificate containing the private key.</param>
+    /// <param name="clientId">The client ID (issuer and subject) for the JWT.</param>
+    /// <param name="tokenEndpoint">The token endpoint URL (audience) for the JWT.</param>
+    /// <returns>The generated Private Key JWT as a string.</returns>
+    public static string BuildPrivateKeyJwt(
+        X509Certificate2 certificate,
+        string clientId,
+        string tokenEndpoint)
+    {
+        var key = new X509SecurityKey(certificate)
+        {
+            KeyId = certificate.Thumbprint
+        };
+
+        return BuildPrivateKeyJwt(key, clientId, tokenEndpoint);
+    }
+
+    /// <summary>
+    /// Builds a Private Key JWT for client authentication using the specified JWK JSON string.
+    /// </summary>
+    /// <param name="jwkJson">The JWK JSON string representing the key.</param>
+    /// <param name="clientId">The client ID (issuer and subject) for the JWT.</param>
+    /// <param name="tokenEndpoint">The token endpoint URL (audience) for the JWT.</param>
+    /// <returns>The generated Private Key JWT as a string.</returns>
+    public static string BuildPrivateKeyJwtFromJwkJson(
+        string jwkJson,
+        string clientId,
+        string tokenEndpoint)
+    {
+        var jwk = new JsonWebKey(jwkJson);
+        // You can set KeyId here if you want to use kid from the JSON:
+        // jwk.KeyId is automatically populated from "kid" if present.
+
+        return BuildPrivateKeyJwt(jwk, clientId, tokenEndpoint);
     }
 
     #endregion

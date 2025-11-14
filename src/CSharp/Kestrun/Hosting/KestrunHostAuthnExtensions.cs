@@ -16,6 +16,8 @@ using Microsoft.AspNetCore.Authentication.OAuth;
 using System.Text.Json;
 using Microsoft.IdentityModel.Protocols.OpenIdConnect;
 using Microsoft.IdentityModel.Protocols;
+using System.Security.Cryptography.X509Certificates;
+using Kestrun.Certificates;
 
 namespace Kestrun.Hosting;
 
@@ -622,6 +624,7 @@ public static class KestrunHostAuthnExtensions
 
     #endregion
     #region OpenID Connect Authentication
+
     /// <summary>
     /// Adds OpenID Connect authentication to the Kestrun host using simple parameters.
     /// <para>Use this for applications that require OpenID Connect authentication.</para>
@@ -630,12 +633,16 @@ public static class KestrunHostAuthnExtensions
     /// <param name="scheme">The authentication scheme name.</param>
     /// <param name="options">The OpenIdConnectOptions to configure the authentication.</param>
     /// <param name="claimPolicy">Optional authorization policy configuration.</param>
+    /// <param name="clientAssertionCertificate">Optional X509 certificate for client assertion.</param>
+    /// <param name="enablePar">If true, enables Pushed Authorization Requests (PAR) as per RFC 9126.</param>
+    /// <param name="ClientAssertionJwkJson">Optional JSON Web Key (JWK) for client assertion.</param>
     /// <returns>The configured KestrunHost instance.</returns>
     public static KestrunHost AddOpenIdConnectAuthentication(
         this KestrunHost host,
         string scheme,
         OpenIdConnectOptions options,
-        ClaimPolicyConfig? claimPolicy = null)
+        ClaimPolicyConfig? claimPolicy = null,
+        X509Certificate2? clientAssertionCertificate = null, bool enablePar = false, string? ClientAssertionJwkJson = null)
     {
         // CRITICAL: Register authentication in the host's registration tracker to prevent duplicate registrations
         // var options = new OpenIdConnectOptions { Authority = authority, ClientId = clientId, ClientSecret = clientSecret };
@@ -723,6 +730,8 @@ public static class KestrunHostAuthnExtensions
                     opts.GetClaimsFromUserInfoEndpoint = options.GetClaimsFromUserInfoEndpoint;
                     opts.MapInboundClaims = options.MapInboundClaims;
 
+                    opts.UseSecurityTokenValidator = options.UseSecurityTokenValidator;
+
                     // Copy claim mappings from provided options (JsonKey -> ClaimType), avoiding duplicates
                     try
                     {
@@ -781,7 +790,6 @@ public static class KestrunHostAuthnExtensions
                     // Token validation
                     opts.TokenValidationParameters.NameClaimType = "name";
                     opts.TokenValidationParameters.RoleClaimType = "roles";
-
                     // Sign-in linkage
                     opts.SignInScheme = CookieAuthenticationDefaults.AuthenticationScheme;
                     opts.SignOutScheme = CookieAuthenticationDefaults.AuthenticationScheme;
@@ -790,33 +798,64 @@ public static class KestrunHostAuthnExtensions
                     var userEvents = options.Events;
                     opts.Events = new OpenIdConnectEvents
                     {
-                        OnRedirectToIdentityProvider = context =>
+                        OnRedirectToIdentityProvider = async context =>
                         {
-                            // Invoke user handler first
+                            // 1. Invoke user handler first
                             if (userEvents?.OnRedirectToIdentityProvider != null)
                             {
                                 var t = userEvents.OnRedirectToIdentityProvider(context);
                                 if (!t.IsCompletedSuccessfully)
                                 {
-                                    return t;
+                                    await t.ConfigureAwait(false);
                                 }
                             }
-                            // CRITICAL: Ensure scopes are in the authorization request
-                            // This affects PAR (Pushed Authorization Requests) which is what Duende uses
-                            host.Logger.Warning($"OnRedirectToIdentityProvider: Scopes in options: {string.Join(", ", context.Options.Scope)}");
-                            host.Logger.Warning($"OnRedirectToIdentityProvider: ProtocolMessage.Scope BEFORE: '{context.ProtocolMessage.Scope}'");
+
+                            // 2. Your existing diagnostics
+                            host.Logger.Warning("OnRedirectToIdentityProvider: Scopes in options: {Scopes}",
+                                string.Join(", ", context.Options.Scope));
+                            host.Logger.Warning("OnRedirectToIdentityProvider: ProtocolMessage.Scope BEFORE: '{Scope}'",
+                                context.ProtocolMessage.Scope);
 
                             if (string.IsNullOrEmpty(context.ProtocolMessage.Scope) && context.Options.Scope.Count > 0)
                             {
                                 context.ProtocolMessage.Scope = string.Join(" ", context.Options.Scope);
-                                host.Logger.Warning($"Set ProtocolMessage.Scope to: '{context.ProtocolMessage.Scope}'");
+                                host.Logger.Warning("Set ProtocolMessage.Scope to: '{Scope}'", context.ProtocolMessage.Scope);
                             }
 
-                            host.Logger.Warning($"OnRedirectToIdentityProvider: ProtocolMessage.Scope AFTER: '{context.ProtocolMessage.Scope}'");
-                            host.Logger.Warning($"Authorization request: ResponseType={context.ProtocolMessage.ResponseType}, RedirectUri={context.ProtocolMessage.RedirectUri}");
+                            host.Logger.Warning(
+                                "OnRedirectToIdentityProvider: ProtocolMessage.Scope AFTER: '{Scope}'",
+                                context.ProtocolMessage.Scope);
+                            host.Logger.Warning(
+                                "Authorization request: ResponseType={ResponseType}, RedirectUri={RedirectUri}",
+                                context.ProtocolMessage.ResponseType,
+                                context.ProtocolMessage.RedirectUri);
 
-                            return Task.CompletedTask;
+                            // 3. OPTIONAL: apply PAR when you want (e.g. only for specific clients)
+                            // For example, enable PAR when client_id ends with ".jwt"
+                            var clientId = context.Options.ClientId;
+                            // Enable PAR based on parameter
+                            if (enablePar)
+                            {
+                                // If you have a certificate for private_key_jwt, use it here
+                                // (you can capture it in the outer scope of AddOpenIdConnectAuthentication)
+                                Func<string, string?>? buildAssertion = null;
+
+                                if (clientAssertionCertificate is not null)
+                                {
+                                    // Example: audience = PAR endpoint (or token endpoint)
+                                    buildAssertion = parAudience =>
+                                        CertificateManager.BuildPrivateKeyJwt(
+                                            clientAssertionCertificate,
+                                            clientId!,
+                                            parAudience);
+                                }
+
+                                await ClientAssertionHelper
+                                    .TryApplyParAsync(context, host.Logger, buildAssertion)
+                                    .ConfigureAwait(false);
+                            }
                         },
+
                         OnAuthorizationCodeReceived = context =>
                         {
                             // Invoke user handler first (e.g., to inject private_key_jwt assertion)
@@ -877,7 +916,109 @@ public static class KestrunHostAuthnExtensions
                                     host.Logger.Warning($"Token endpoint request AFTER scope fix: GrantType={req.GrantType}, Scope='{req.Scope}', GetParameter('scope')='{req.GetParameter("scope")}'");
                                 }
                             }
+                            // ----------------------------------------------------------------
+                            // PRIVATE_KEY_JWT USING JWK JSON (no X509 cert)
+                            // ----------------------------------------------------------------
+                            // Only run if we have a JWK JSON configured and a token request.
+                            if (!string.IsNullOrWhiteSpace(ClientAssertionJwkJson) && req != null)
+                            {
+                                var clientId = context.Options.ClientId;
+                                // Determine token endpoint
+                                var tokenEndpoint = context.Options.Configuration?.TokenEndpoint;
+                                if (string.IsNullOrWhiteSpace(tokenEndpoint) && !string.IsNullOrEmpty(context.Options.Authority))
+                                {
+                                    tokenEndpoint = $"{context.Options.Authority.TrimEnd('/')}/connect/token";
+                                }
 
+                                if (!string.IsNullOrWhiteSpace(clientId) &&
+                                    !string.IsNullOrWhiteSpace(tokenEndpoint))
+                                {
+                                    try
+                                    {
+                                        var assertion = CertificateManager.BuildPrivateKeyJwtFromJwkJson(
+                                             ClientAssertionJwkJson!,
+                                            clientId!,
+                                            tokenEndpoint
+                                        );
+
+                                        // Switch from client_secret to private_key_jwt
+                                        req.ClientSecret = null;
+                                        req.SetParameter(
+                                            "client_assertion_type",
+                                            "urn:ietf:params:oauth:client-assertion-type:jwt-bearer");
+                                        req.SetParameter("client_assertion", assertion);
+
+                                        host.Logger.Warning(
+                                            "Applied private_key_jwt (JWK) for token request. ClientId={ClientId}, TokenEndpoint={TokenEndpoint}, JwtLength={Len}",
+                                            clientId,
+                                            tokenEndpoint,
+                                            assertion.Length
+                                        );
+                                    }
+                                    catch (Exception ex)
+                                    {
+                                        host.Logger.Error(ex, "Failed to generate private_key_jwt assertion from JWK JSON");
+                                    }
+                                }
+                                else
+                                {
+                                    host.Logger.Error(
+                                        "private_key_jwt cannot be used: missing ClientId / TokenEndpoint (ClientId={ClientId}, TokenEndpoint={TokenEndpoint})",
+                                        clientId,
+                                        tokenEndpoint
+                                    );
+                                }
+                            }
+                            // --------------------------------------------------------------------
+                            // PRIVATE_KEY_JWT via X509 certificate provided from PowerShell
+                            // --------------------------------------------------------------------
+                            if (clientAssertionCertificate is not null && req is not null)
+                            {
+                                var caClientId = context.Options.ClientId;
+                                var tokenEndpoint = context.Options.Configuration?.TokenEndpoint;
+                                if (string.IsNullOrWhiteSpace(tokenEndpoint) &&
+                                    !string.IsNullOrEmpty(context.Options.Authority))
+                                {
+                                    tokenEndpoint = $"{context.Options.Authority.TrimEnd('/')}/connect/token";
+                                }
+
+                                if (!string.IsNullOrWhiteSpace(caClientId) &&
+                                    !string.IsNullOrWhiteSpace(tokenEndpoint))
+                                {
+                                    try
+                                    {
+                                        var assertion = CertificateManager.BuildPrivateKeyJwt(
+                                            clientAssertionCertificate,
+                                            caClientId!,
+                                            tokenEndpoint!);
+
+                                        // ensure we do NOT use client_secret in body
+                                        req.ClientSecret = null;
+
+                                        req.SetParameter(
+                                            "client_assertion_type",
+                                            "urn:ietf:params:oauth:client-assertion-type:jwt-bearer");
+                                        req.SetParameter("client_assertion", assertion);
+
+                                        host.Logger.Warning(
+                                            "Applied private_key_jwt for token request. ClientId={ClientId}, TokenEndpoint={TokenEndpoint}, JwtLength={Len}",
+                                            caClientId,
+                                            tokenEndpoint,
+                                            assertion.Length);
+                                    }
+                                    catch (Exception ex)
+                                    {
+                                        host.Logger.Error(ex, "Failed to generate private_key_jwt client assertion");
+                                    }
+                                }
+                                else
+                                {
+                                    host.Logger.Error(
+                                        "private_key_jwt cannot be used: missing ClientId or TokenEndpoint (ClientId={ClientId}, TokenEndpoint={TokenEndpoint})",
+                                        caClientId,
+                                        tokenEndpoint);
+                                }
+                            }
                             // NOTE: Token redemption happens AFTER this event returns
                             // We can't access the token response here yet
                             return Task.CompletedTask;
@@ -895,11 +1036,59 @@ public static class KestrunHostAuthnExtensions
                             var tokenResponse = context.TokenEndpointResponse;
                             host.Logger.Warning($"Token response: HasIdToken={!string.IsNullOrEmpty(tokenResponse?.IdToken)}, HasAccessToken={!string.IsNullOrEmpty(tokenResponse?.AccessToken)}, HasRefreshToken={!string.IsNullOrEmpty(tokenResponse?.RefreshToken)}");
 
+                            // 🔍 Log all parameters as seen by the OIDC handler
+                            try
+                            {
+                                if (tokenResponse != null)
+                                {
+                                    host.Logger.Warning("==== Raw TokenEndpointResponse parameters ====");
+                                    if (tokenResponse.Parameters is not null && tokenResponse.Parameters.Count > 0)
+                                    {
+                                        foreach (var kvp in tokenResponse.Parameters)
+                                        {
+                                            host.Logger.Warning("TokenResponse[{Key}] = {Value}", kvp.Key, kvp.Value);
+                                        }
+                                    }
+                                    else
+                                    {
+                                        host.Logger.Warning("TokenResponse.Parameters is null or empty");
+                                    }
+
+                                    host.Logger.Warning("TokenResponse.AccessToken = '{AccessToken}'", tokenResponse.AccessToken);
+                                    host.Logger.Warning("TokenResponse.IdToken     = '{IdTokenPresent}'", !string.IsNullOrEmpty(tokenResponse.IdToken));
+                                    host.Logger.Warning("TokenResponse.RefreshToken= '{RefreshTokenPresent}'", !string.IsNullOrEmpty(tokenResponse.RefreshToken));
+                                }
+                                else
+                                {
+                                    host.Logger.Warning("TokenEndpointResponse is NULL in OnTokenResponseReceived");
+                                }
+                            }
+                            catch (Exception ex)
+                            {
+                                host.Logger.Error(ex, "Failed to log raw TokenEndpointResponse");
+                            }
+
                             // CRITICAL FIX: access_token is in the HTTP response but not parsed into Parameters/AccessToken property
                             // This happens because the response body from LoggingHttpMessageHandler is stored there
                             // We need to extract it from our handler's storage
                             if (tokenResponse != null && string.IsNullOrEmpty(tokenResponse.AccessToken))
                             {
+                                // Try to pull it out of the parameters
+                                var accessObj = tokenResponse.GetParameter("access_token");
+                                var access = accessObj?.ToString();
+
+                                if (!string.IsNullOrEmpty(access))
+                                {
+                                    tokenResponse.AccessToken = access;
+                                    host.Logger.Warning(
+                                        "Recovered access_token from TokenEndpointResponse parameters: {Preview}...",
+                                        access[..Math.Min(30, access.Length)]
+                                    );
+                                }
+                                else
+                                {
+                                    host.Logger.Warning("access_token missing in TokenEndpointResponse parameters");
+                                }
                                 // Check if our logging handler captured the response body
                                 var capturedBody = LoggingHttpMessageHandler.LastTokenResponseBody;
                                 if (!string.IsNullOrEmpty(capturedBody))

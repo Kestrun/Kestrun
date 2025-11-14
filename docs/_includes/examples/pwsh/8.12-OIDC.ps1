@@ -51,7 +51,7 @@ param(
         'interactive.confidential.hybrid',
         'interactive.implicit'
     )]
-    [string]$Mode = 'interactive.confidential',
+    [string]$Mode = 'interactive.confidential.jwt',
     # Force replacing 127.0.0.1 host with localhost in redirect_uri (helps when demo client registration only lists localhost)
     [switch]$ForceLocalhostRedirect,
     # Attempt a fallback to 'interactive.confidential' client_id for authorize if jwt client continues to fail (experimental)
@@ -178,6 +178,7 @@ $ClientId = $modeConfig.ClientId
 $ClientSecret = $modeConfig.ClientSecret
 $Scopes = $modeConfig.Scopes
 $UseJwtAuth = $modeConfig.UseJwtAuth
+
 
 # Effective client id may be overridden for fallback logic (only if requested)
 $EffectiveClientId = $ClientId
@@ -310,13 +311,7 @@ if ($UseJwtAuth -and $certificate) {
     # Enable token persistence and userinfo claims retrieval
     $oidcOptions.SaveTokens = $true
     $oidcOptions.GetClaimsFromUserInfoEndpoint = $true
-    # Map essential user profile claims
-    $oidcOptions.ClaimActions.MapJsonKey('email', 'email')
-    $oidcOptions.ClaimActions.MapJsonKey('name', 'name')
-    $oidcOptions.ClaimActions.MapJsonKey('preferred_username', 'preferred_username')
-    $oidcOptions.ClaimActions.MapJsonKey('given_name', 'given_name')
-    $oidcOptions.ClaimActions.MapJsonKey('family_name', 'family_name')
-
+    $oidcOptions.UseSecurityTokenValidator = $true
     # Add scopes
     $oidcOptions.Scope.Clear()
     foreach ($scope in $Scopes) {
@@ -339,73 +334,19 @@ if ($UseJwtAuth -and $certificate) {
         }
         Write-KrLog -Level Debug -Message 'Using ResponseMode: {responseMode}' -Values $modeConfig.ResponseMode
     }
-
-    # Configure event to inject JWT client assertion during token exchange
-    # Capture variables in closure for event handler
-    $capturedClientId = $EffectiveClientId
-    $capturedCertificate = $certificate
-    $capturedPublicKey = $publicKey
-
-    $oidcOptions.Events = [Microsoft.AspNetCore.Authentication.OpenIdConnect.OpenIdConnectEvents]::new()
-
-    # Detailed authorization redirect logging (before browser navigation)
-    $oidcOptions.Events.OnRedirectToIdentityProvider = {
-        param($context)
-        $pm = $context.ProtocolMessage
-        $origRedirect = $pm.RedirectUri
-
-        # Host fix: replace 127.0.0.1 with localhost if requested or if demo likely requires it
-        if ($origRedirect -and ($origRedirect -like 'https://127.0.0.1*') -and ($ForceLocalhostRedirect.IsPresent)) {
-            try {
-                $u = [Uri]$origRedirect
-                $fixed = "https://localhost:$($u.Port)$($u.AbsolutePath)"
-                $pm.RedirectUri = $fixed
-                Write-KrLog -Level Warning -Message 'Redirect host adjusted from 127.0.0.1 to localhost: {redirect}' -Values $fixed
-            } catch {
-                Write-KrLog -Level Error -Message 'Failed adjusting redirect host: {err}' -Values $_
-            }
-        }
-
-        # Fallback client id substitution (authorization only) if enabled and jwt mode selected
-        if ($EnableFallbackClient.IsPresent -and $ClientId -eq 'interactive.confidential.jwt' -and $pm.ClientId -eq 'interactive.confidential.jwt') {
-            $pm.ClientId = 'interactive.confidential'
-            Write-KrLog -Level Warning -Message 'Fallback client id applied for authorize: interactive.confidential'
-        }
-
-        Write-KrLog -Level Warning -Message 'OIDC Redirect: client_id={clientId}, response_type={rt}, redirect_uri={ru}, scope={scope}, code_challenge={cc}, code_challenge_method={ccm}' -Values \
-        $pm.ClientId, $pm.ResponseType, $pm.RedirectUri, $pm.Scope, $pm.CodeChallenge, $pm.CodeChallengeMethod
-        # Also log raw authorize URL for diagnostics
-        $authUrl = $pm.CreateAuthenticationRequestUrl()
-        Write-KrLog -Level Warning -Message 'Authorize URL: {url}' -Values $authUrl
-        [System.Threading.Tasks.Task]::CompletedTask
-    }.GetNewClosure()
-
-    # Inject JWT client assertion at token exchange
-    $oidcOptions.Events.OnAuthorizationCodeReceived = {
-        param($context)
-        $tokenEndpoint = $context.Options.Configuration.TokenEndpoint
-        Write-KrLog -Level Warning -Message 'OnAuthorizationCodeReceived: token_endpoint={endpoint}, grant_type={grantType}' -Values $tokenEndpoint, $context.TokenEndpointRequest.GrantType
-
-        # Ensure scope present (defensive – some middleware drops it)
-        if ([string]::IsNullOrWhiteSpace($context.TokenEndpointRequest.Scope) -and $context.Options.Scope.Count -gt 0) {
-            $scopeValue = [string]::Join(' ', $context.Options.Scope)
-            $context.TokenEndpointRequest.SetParameter('scope', $scopeValue)
-            Write-KrLog -Level Debug -Message 'Added missing scope parameter to token request: {scope}' -Values $scopeValue
-        }
-
-        $jwt = New-OidcJwtClientAssertion -ClientId $capturedClientId -TokenEndpoint $tokenEndpoint -Certificate $capturedCertificate -KeyId $capturedPublicKey.kid
-        if ($jwt) {
-            $context.TokenEndpointRequest.ClientSecret = $null
-            $context.TokenEndpointRequest.ClientAssertionType = 'urn:ietf:params:oauth:client-assertion-type:jwt-bearer'
-            $context.TokenEndpointRequest.ClientAssertion = $jwt
-            Write-KrLog -Level Warning -Message 'Injected private_key_jwt client assertion (length={len})' -Values $jwt.Length
-        } else {
-            Write-KrLog -Level Error -Message 'Failed creating JWT client assertion – falling back (no assertion)'
-        }
-        [System.Threading.Tasks.Task]::CompletedTask
-    }.GetNewClosure()
-
-    Add-KrOpenIdConnectAuthentication -Name 'oidc' -Options $oidcOptions
+    $ClientAssertionJwkJson = @{
+        'd' = 'GmiaucNIzdvsEzGjZjd43SDToy1pz-Ph-shsOUXXh-dsYNGftITGerp8bO1iryXh_zUEo8oDK3r1y4klTonQ6bLsWw4ogjLPmL3yiqsoSjJa1G2Ymh_RY_sFZLLXAcrmpbzdWIAkgkHSZTaliL6g57vA7gxvd8L4s82wgGer_JmURI0ECbaCg98JVS0Srtf9GeTRHoX4foLWKc1Vq6NHthzqRMLZe-aRBNU9IMvXNd7kCcIbHCM3GTD_8cFj135nBPP2HOgC_ZXI1txsEf-djqJj8W5vaM7ViKU28IDv1gZGH3CatoysYx6jv1XJVvb2PH8RbFKbJmeyUm3Wvo-rgQ'
+        'dp' = 'YNjVBTCIwZD65WCht5ve06vnBLP_Po1NtL_4lkholmPzJ5jbLYBU8f5foNp8DVJBdFQW7wcLmx85-NC5Pl1ZeyA-Ecbw4fDraa5Z4wUKlF0LT6VV79rfOF19y8kwf6MigyrDqMLcH_CRnRGg5NfDsijlZXffINGuxg6wWzhiqqE'
+        'dq' = 'LfMDQbvTFNngkZjKkN2CBh5_MBG6Yrmfy4kWA8IC2HQqID5FtreiY2MTAwoDcoINfh3S5CItpuq94tlB2t-VUv8wunhbngHiB5xUprwGAAnwJ3DL39D2m43i_3YP-UO1TgZQUAOh7Jrd4foatpatTvBtY3F1DrCrUKE5Kkn770M'
+        'e' = 'AQAB'
+        'kid' = 'ZzAjSnraU3bkWGnnAqLapYGpTyNfLbjbzgAPbbW2GEA'
+        'kty' = 'RSA'
+        'n' = 'wWwQFtSzeRjjerpEM5Rmqz_DsNaZ9S1Bw6UbZkDLowuuTCjBWUax0vBMMxdy6XjEEK4Oq9lKMvx9JzjmeJf1knoqSNrox3Ka0rnxXpNAz6sATvme8p9mTXyp0cX4lF4U2J54xa2_S9NF5QWvpXvBeC4GAJx7QaSw4zrUkrc6XyaAiFnLhQEwKJCwUw4NOqIuYvYp_IXhw-5Ti_icDlZS-282PcccnBeOcX7vc21pozibIdmZJKqXNsL1Ibx5Nkx1F1jLnekJAmdaACDjYRLL_6n3W4wUp19UvzB1lGtXcJKLLkqB6YDiZNu16OSiSprfmrRXvYmvD8m6Fnl5aetgKw'
+        'p' = '7enorp9Pm9XSHaCvQyENcvdU99WCPbnp8vc0KnY_0g9UdX4ZDH07JwKu6DQEwfmUA1qspC-e_KFWTl3x0-I2eJRnHjLOoLrTjrVSBRhBMGEH5PvtZTTThnIY2LReH-6EhceGvcsJ_MhNDUEZLykiH1OnKhmRuvSdhi8oiETqtPE'
+        'q' = '0CBLGi_kRPLqI8yfVkpBbA9zkCAshgrWWn9hsq6a7Zl2LcLaLBRUxH0q1jWnXgeJh9o5v8sYGXwhbrmuypw7kJ0uA3OgEzSsNvX5Ay3R9sNel-3Mqm8Me5OfWWvmTEBOci8RwHstdR-7b9ZT13jk-dsZI7OlV_uBja1ny9Nz9ts'
+        'qi' = 'pG6J4dcUDrDndMxa-ee1yG4KjZqqyCQcmPAfqklI2LmnpRIjcK78scclvpboI3JQyg6RCEKVMwAhVtQM6cBcIO3JrHgqeYDblp5wXHjto70HVW6Z8kBruNx1AH9E8LzNvSRL-JVTFzBkJuNgzKQfD0G77tQRgJ-Ri7qu3_9o1M4'
+    }
+    Add-KrOpenIdConnectAuthentication -Name 'oidc' -Options $oidcOptions -ClientAssertionJwkJson ($clientAssertionJwkJson | ConvertTo-Json -Compress)
 
 } else {
     # Standard configuration with client secret
@@ -440,7 +381,7 @@ if ($UseJwtAuth -and $certificate) {
         $oidcParams.ClientSecret = $ClientSecret
     }
 
-    Add-KrOpenIdConnectAuthentication @oidcParams 
+    Add-KrOpenIdConnectAuthentication @oidcParams
 }
 
 # 6) Finalize pipeline

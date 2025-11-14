@@ -17,6 +17,8 @@
     Value to assign to the variable.
 .PARAMETER AllowsValueType
     If specified, allows the variable to hold value types (e.g., int, bool).
+.PARAMETER ThreadSafe
+    If specified, the value is converted to a thread-safe representation.
 .EXAMPLE
     Set-KrSharedState -Name "MyVariable" -Value "Hello, World!"
     This creates a global variable "MyVariable" with the value "Hello, World!".

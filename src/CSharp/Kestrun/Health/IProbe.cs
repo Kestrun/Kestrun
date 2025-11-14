@@ -29,9 +29,4 @@ public interface IProbe
     /// <param name="ct">The cancellation token.</param>
     /// <returns>A task representing the asynchronous operation, with a <see cref="ProbeResult"/> as the result.</returns>
     Task<ProbeResult> CheckAsync(CancellationToken ct = default);
-
-    /// <summary>
-    /// Logger used for diagnostics within the probe.
-    /// </summary>
-    Serilog.ILogger Logger { get; init; }
 }

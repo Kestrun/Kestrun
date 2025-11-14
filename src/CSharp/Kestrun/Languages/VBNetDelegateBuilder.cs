@@ -8,7 +8,6 @@ using Microsoft.CodeAnalysis;
 using Kestrun.Utilities;
 using System.Security.Claims;
 using Kestrun.Logging;
-using Kestrun.SharedState;
 using Kestrun.Hosting;
 
 namespace Kestrun.Languages;
@@ -59,7 +58,7 @@ internal static class VBNetDelegateBuilder
         //    - Use VisualBasicScript.Create() to create a script with the provided code
         //    - Use ScriptOptions to specify imports, references, and language version
         //    - Inject the provided arguments into the globals
-        var script = Compile<bool>(code, log, extraImports, extraRefs, null, languageVersion);
+        var script = Compile<bool>(host: host, code: code, extraImports: extraImports, extraRefs: extraRefs, null, languageVersion);
 
         // 2. Build the per-request delegate
         //    - This delegate will be executed for each request
@@ -129,8 +128,9 @@ internal static class VBNetDelegateBuilder
     /// <summary>
     /// Compiles the provided VB.NET code into a delegate that can be executed with CsGlobals.
     /// </summary>
+    /// <typeparam name="TResult">The type of the result returned by the delegate.</typeparam>
+    /// <param name="host">The Kestrun host instance.</param>
     /// <param name="code">The VB.NET code to compile.</param>
-    /// <param name="log">The logger to use for logging compilation errors and warnings.</param>
     /// <param name="extraImports">Optional additional namespaces to import in the script.</param>
     /// <param name="extraRefs">Optional additional assemblies to reference in the script.</param>
     /// <param name="locals">Optional local variables to provide to the script.</param>
@@ -141,10 +141,12 @@ internal static class VBNetDelegateBuilder
     /// This method uses the Roslyn compiler to compile the provided VB.NET code into a delegate.
     /// </remarks>
     internal static Func<CsGlobals, Task<TResult>> Compile<TResult>(
-            string? code, Serilog.ILogger log, string[]? extraImports,
+        KestrunHost host,
+            string? code, string[]? extraImports,
             Assembly[]? extraRefs, IReadOnlyDictionary<string, object?>? locals, LanguageVersion languageVersion
         )
     {
+        var log = host.Logger;
         if (log.IsEnabled(LogEventLevel.Debug))
         {
             log.Debug("Building VB.NET delegate, script length={Length}, imports={ImportsCount}, refs={RefsCount}, lang={Lang}",
@@ -161,7 +163,7 @@ internal static class VBNetDelegateBuilder
         extraImports = [.. extraImports, "System.Collections.Generic", "System.Linq", "System.Security.Claims"];
 
         // Discover dynamic namespaces from globals + locals similar to C# path
-        var dynamicImports = CollectDynamicImports(locals);
+        var dynamicImports = CollectDynamicImports(host, locals);
         if (dynamicImports.Count > 0)
         {
             var mergedImports = extraImports.Concat(dynamicImports)
@@ -184,8 +186,8 @@ internal static class VBNetDelegateBuilder
         // Parse the source code into a syntax tree
         // This will allow us to analyze and compile the code
         var tree = VisualBasicSyntaxTree.ParseText(
-                       source,
-                       new VisualBasicParseOptions(LanguageVersion.VisualBasic16));
+                   source,
+                   new VisualBasicParseOptions(languageVersion));
 
         // 🔧 2.  References = everything already loaded  +  extras
         var refs = BuildMetadataReferences(extraRefs);
@@ -262,7 +264,7 @@ internal static class VBNetDelegateBuilder
         // non-existent path.  Roslyn's MetadataReference.CreateFromFile will throw FileNotFoundException
         // in that scenario.  We therefore skip any loaded assemblies whose Location no longer exists.
         var baseRefs = AppDomain.CurrentDomain.GetAssemblies()
-            .Where(a => !a.IsDynamic && SafeHasLocation(a))
+            .Where(a => !a.IsDynamic && SafeHasLocation(a) && !IsSatelliteAssembly(a))
             .Select(a => MetadataReference.CreateFromFile(a.Location));
 
         var extras = extraRefs?.Select(r => MetadataReference.CreateFromFile(r.Location))
@@ -275,16 +277,39 @@ internal static class VBNetDelegateBuilder
             .Concat(DelegateBuilder.BuildBaselineReferences());
     }
 
+    private static bool IsSatelliteAssembly(Assembly a)
+    {
+        try
+        {
+            var name = a.GetName();
+            if (name.Name != null && name.Name.EndsWith(".resources", StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+            var loc = a.Location;
+            if (!string.IsNullOrEmpty(loc) && loc.EndsWith(".resources.dll", StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+        }
+        catch
+        {
+            // If we can't inspect it, be conservative and treat as non-satellite
+        }
+        return false;
+    }
+
     /// <summary>
     /// Collects dynamic imports from the types of the provided locals and shared globals.
     /// </summary>
+    /// <param name="host">The Kestrun host instance.</param>
     /// <param name="locals">The local variables to inspect.</param>
     /// <returns>A set of unique namespace strings.</returns>
-    private static HashSet<string> CollectDynamicImports(IReadOnlyDictionary<string, object?>? locals)
+    private static HashSet<string> CollectDynamicImports(KestrunHost host, IReadOnlyDictionary<string, object?>? locals)
     {
         var imports = new HashSet<string>(StringComparer.Ordinal);
         // Merge globals + locals (locals override) just for namespace harvesting
-        var globals = SharedStateStore.Snapshot();
+        var globals = host.SharedState.Snapshot();
         foreach (var g in globals)
         {
             AddTypeNamespaces(g.Value?.GetType(), imports);
@@ -307,7 +332,7 @@ internal static class VBNetDelegateBuilder
         }
         if (!string.IsNullOrEmpty(t.Namespace))
         {
-            _ = set.Add(t.Namespace!);
+            _ = set.Add(t.Namespace);
         }
         if (t.IsGenericType)
         {
@@ -382,14 +407,18 @@ internal static class VBNetDelegateBuilder
         }
 
         log.Error($"VBNet script compilation completed with {errors.Length} error(s):");
+        var sb = new StringBuilder();
+        _ = sb.AppendLine("VBNet route code compilation failed:");
         foreach (var error in errors)
         {
             var location = error.Location.IsInSource
                 ? $" at line {error.Location.GetLineSpan().StartLinePosition.Line - startLine + 1}"
                 : "";
-            log.Error($"  Error [{error.Id}]: {error.GetMessage()}{location}");
+            var msg = $"  Error [{error.Id}]: {error.GetMessage()}{location}";
+            log.Error(msg);
+            _ = sb.AppendLine(msg);
         }
-        throw new CompilationErrorException("VBNet route code compilation failed", diagnostics);
+        throw new CompilationErrorException(sb.ToString().TrimEnd(), diagnostics);
     }
 
     /// <summary>

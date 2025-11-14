@@ -27,7 +27,7 @@ public class KestrunHostFollowUpTests
             {
                 return candidate;
             }
-            current = Path.GetDirectoryName(current)!;
+            current = Path.GetDirectoryName(current);
         }
         throw new FileNotFoundException("Unable to locate dev Kestrun.psm1 in repo");
     }
@@ -68,7 +68,7 @@ public class KestrunHostFollowUpTests
         var def = KestrunHostManager.Default;
         // Default should be reassigned to one of the remaining instances
         Assert.NotNull(def);
-        Assert.Contains(def!.Options.ApplicationName!, names);
+        Assert.Contains(def.Options.ApplicationName, names);
         Assert.NotEqual("aa", def.Options.ApplicationName);
     }
 
@@ -184,7 +184,7 @@ public class KestrunHostFollowUpTests
         KestrunHostManager.SetDefault("b");
         var def = KestrunHostManager.Default;
         Assert.NotNull(def);
-        Assert.Equal("b", def!.Options.ApplicationName);
+        Assert.Equal("b", def.Options.ApplicationName);
     }
 
     [Fact]

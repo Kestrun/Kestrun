@@ -50,7 +50,7 @@ public class PwshKestrunModelTests
     public void Config_Is_Resolved_From_RequestServices()
     {
         var mem = new Dictionary<string, string?> { ["App:Name"] = "Kestrun" };
-        var config = new ConfigurationBuilder().AddInMemoryCollection(mem!).Build();
+        var config = new ConfigurationBuilder().AddInMemoryCollection(mem).Build();
         var services = new ServiceCollection();
         _ = services.AddSingleton<IConfiguration>(config);
         var sp = services.BuildServiceProvider();

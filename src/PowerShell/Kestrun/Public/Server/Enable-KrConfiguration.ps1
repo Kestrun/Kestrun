@@ -48,9 +48,7 @@ function Enable-KrConfiguration {
         $vars = [System.Collections.Generic.Dictionary[string, object]]::new()
         foreach ($v in $Variables) {
             if ($ExcludeVariables -notcontains $v.Name) {
-                #  if (-not [Kestrun.SharedState.SharedStateStore]::Contains($v.Name)) {
-                [void][Kestrun.SharedState.SharedStateStore]::Set($v.Name, $v.Value, $true)
-                #  }
+                $null = $Server.SharedState.Set($v.Name, $v.Value, $true)
             }
         }
 
@@ -94,6 +92,7 @@ function Enable-KrConfiguration {
             foreach ($f in $fx) { $fxMap[$f.Name] = $f.Definition }
         }
         Write-KrLog -Level Information -Message 'Collected {count} user-defined functions {names} for runspaces.' -Values $fxMap.Count, $fxMap.Keys
+        
         # Apply the configuration to the server
         # Set the user-defined variables in the server configuration
         $Server.EnableConfiguration($vars, $fxMap) | Out-Null

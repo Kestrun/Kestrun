@@ -5,7 +5,6 @@ using Kestrun.Utilities;
 using Kestrun.Scripting;
 using Kestrun.Logging;
 using Kestrun.Hosting;
-using Kestrun.SharedState;
 using System.Text;
 
 
@@ -43,7 +42,7 @@ var sharedVisits = new Hashtable
     ["Count"] = 0
 };
 // 3.1 Inject global variable
-if (!SharedStateStore.Set("Visits", sharedVisits))
+if (!server.SharedState.Set("Visits", sharedVisits))
 {
     Console.WriteLine("Failed to define global variable 'Visits'.");
     Environment.Exit(1);
@@ -85,7 +84,7 @@ server.AddMapRoute("/raw", HttpVerb.Get, async (ctx) =>
 {
     Console.WriteLine("Native C# route hit!");
 
-    _ = SharedStateStore.TryGet("Visits", out Hashtable? visits);
+    _ = server.SharedState.TryGet("Visits", out Hashtable? visits);
 
     var visitCount = visits != null && visits["Count"] != null ? (visits["Count"] as int? ?? 0) : 0;
 

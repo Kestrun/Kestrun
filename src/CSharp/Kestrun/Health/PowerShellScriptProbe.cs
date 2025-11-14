@@ -3,28 +3,29 @@ using System.Management.Automation;
 using System.Management.Automation.Runspaces;
 using Kestrun.Languages;
 using Kestrun.Scripting;
-using SerilogLogger = Serilog.ILogger;
 using Serilog.Events;
+using Kestrun.Hosting;
 
 namespace Kestrun.Health;
 
 /// <summary>
 /// A health probe implemented via a PowerShell script.
 /// </summary>
+/// <param name="host">The Kestrun host instance.</param>
 /// <param name="name">The name of the probe.</param>
 /// <param name="tags">The tags associated with the probe.</param>
 /// <param name="script">The PowerShell script to execute.</param>
-/// <param name="logger">The logger to use for logging.</param>
 /// <param name="poolAccessor">A function to access the runspace pool.</param>
 /// <param name="arguments">The arguments for the script.</param>
 internal sealed class PowerShellScriptProbe(
+        KestrunHost host,
         string name,
         IEnumerable<string>? tags,
         string script,
-        SerilogLogger logger,
         Func<KestrunRunspacePoolManager> poolAccessor,
-        IReadOnlyDictionary<string, object?>? arguments) : Probe(name, tags, logger), IProbe
+        IReadOnlyDictionary<string, object?>? arguments) : Probe(name, tags), IProbe
 {
+    private Serilog.ILogger Logger => host.Logger;
     private readonly Func<KestrunRunspacePoolManager> _poolAccessor = poolAccessor ?? throw new ArgumentNullException(nameof(poolAccessor));
     private readonly IReadOnlyDictionary<string, object?>? _arguments = arguments;
     private readonly string _script = string.IsNullOrWhiteSpace(script)

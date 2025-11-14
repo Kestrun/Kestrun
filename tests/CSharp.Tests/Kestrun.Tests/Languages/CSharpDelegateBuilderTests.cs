@@ -62,9 +62,10 @@ public class CSharpDelegateBuilderTests
     [Trait("Category", "Languages")]
     public void FSharp_Build_NotImplemented()
     {
+        var host = new KestrunHost("Tests", Log.Logger);
         var ex = Assert.Throws<NotImplementedException>(() =>
         {
-            return FSharpDelegateBuilder.Build("printfn \"hi\"", Log.Logger);
+            return FSharpDelegateBuilder.Build(host, "printfn \"hi\"");
         });
         _ = Assert.IsType<NotImplementedException>(ex);
     }
@@ -73,10 +74,11 @@ public class CSharpDelegateBuilderTests
     [Trait("Category", "Languages")]
     public void JScript_Build_NotImplemented_When_Flag_False()
     {
+        var host = new KestrunHost("Tests", Log.Logger);
         JScriptDelegateBuilder.Implemented = false;
         var ex = Assert.Throws<NotImplementedException>(() =>
         {
-            return JScriptDelegateBuilder.Build("function handle(ctx,res){ }", Log.Logger);
+            return JScriptDelegateBuilder.Build(host, "function handle(ctx,res){ }");
         });
         _ = Assert.IsType<NotImplementedException>(ex);
     }
@@ -85,10 +87,11 @@ public class CSharpDelegateBuilderTests
     [Trait("Category", "Languages")]
     public void Python_Build_NotImplemented_When_Flag_False()
     {
+        var host = new KestrunHost("Tests", Log.Logger);
         PyDelegateBuilder.Implemented = false;
         var ex = Assert.Throws<NotImplementedException>(() =>
         {
-            return PyDelegateBuilder.Build("def handle(ctx,res): pass", Log.Logger);
+            return PyDelegateBuilder.Build(host, "def handle(ctx,res): pass");
         });
         _ = Assert.IsType<NotImplementedException>(ex);
     }

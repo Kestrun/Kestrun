@@ -36,7 +36,7 @@ public class ErrorRecordEnricherTests
         // Assert
         var evt = sink.Events.LastOrDefault();
         Assert.NotNull(evt);
-        Assert.True(evt!.Properties.ContainsKey(ErrorRecordEnricher.ERR_PROPERTY_NAME_FULL));
+        Assert.True(evt.Properties.ContainsKey(ErrorRecordEnricher.ERR_PROPERTY_NAME_FULL));
         Assert.True(evt.Properties.ContainsKey(ErrorRecordEnricher.II_PROPERTY_NAME_FULL));
 
         // When destructured, properties should be a StructureValue
@@ -62,7 +62,7 @@ public class ErrorRecordEnricherTests
         // Assert
         var evt = sink.Events.LastOrDefault();
         Assert.NotNull(evt);
-        Assert.False(evt!.Properties.ContainsKey(ErrorRecordEnricher.ERR_PROPERTY_NAME_FULL));
+        Assert.False(evt.Properties.ContainsKey(ErrorRecordEnricher.ERR_PROPERTY_NAME_FULL));
         Assert.False(evt.Properties.ContainsKey(ErrorRecordEnricher.II_PROPERTY_NAME_FULL));
     }
 
@@ -92,7 +92,7 @@ public class ErrorRecordEnricherTests
         // Assert
         var evt = sink.Events.LastOrDefault();
         Assert.NotNull(evt);
-        Assert.True(evt!.Properties.ContainsKey(ErrorRecordEnricher.ERR_PROPERTY_NAME_FULL));
+        Assert.True(evt.Properties.ContainsKey(ErrorRecordEnricher.ERR_PROPERTY_NAME_FULL));
         Assert.True(evt.Properties.ContainsKey(ErrorRecordEnricher.II_PROPERTY_NAME_FULL));
 
         // In scalar mode, values should be stringified (ScalarValue of string)
@@ -100,8 +100,8 @@ public class ErrorRecordEnricherTests
         var iiProp = Assert.IsType<ScalarValue>(evt.Properties[ErrorRecordEnricher.II_PROPERTY_NAME_FULL]);
         _ = Assert.IsType<string>(errProp.Value);
         _ = Assert.IsType<string>(iiProp.Value);
-        Assert.False(string.IsNullOrEmpty((string)errProp.Value!));
-        Assert.False(string.IsNullOrEmpty((string)iiProp.Value!));
+        Assert.False(string.IsNullOrEmpty((string)errProp.Value));
+        Assert.False(string.IsNullOrEmpty((string)iiProp.Value));
     }
 
     private sealed class InMemorySink : ILogEventSink

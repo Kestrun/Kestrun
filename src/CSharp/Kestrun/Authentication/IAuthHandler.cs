@@ -7,7 +7,6 @@ using System.Security.Claims;
 using Kestrun.Hosting;
 using Kestrun.Languages;
 using Kestrun.Models;
-using Kestrun.SharedState;
 using Microsoft.AspNetCore.Authentication;
 
 namespace Kestrun.Authentication;
@@ -90,7 +89,7 @@ public interface IAuthHandler
         }
 
         var name = string.IsNullOrEmpty(alias) ? user : alias;
-        claims.Add(new Claim(ClaimTypes.Name, name!));
+        claims.Add(new Claim(ClaimTypes.Name, name));
     }
 
     /// <summary>
@@ -192,11 +191,11 @@ public interface IAuthHandler
         }
 
         var script = CSharpDelegateBuilder.Compile(
-            settings.Code,
-            log,                             // already scoped by caller
-            settings.ExtraImports,
-            settings.ExtraRefs,
-            stencil,
+            host: host,
+            code: settings.Code,                   // already scoped by caller
+            extraImports: settings.ExtraImports,
+            extraRefs: settings.ExtraRefs,
+            locals: stencil,
             languageVersion: settings.CSharpVersion);
 
         // Return the runtime delegate
@@ -215,7 +214,7 @@ public interface IAuthHandler
                     vars, StringComparer.OrdinalIgnoreCase);
             // Merge shared state + user variables
             var globals = new CsGlobals(
-                SharedStateStore.Snapshot(),
+                host.SharedState.Snapshot(),
                 kCtx,
                 globalsDict);
 
@@ -249,11 +248,11 @@ public interface IAuthHandler
 
         // Compile the VB.NET script with the provided settings
         var script = VBNetDelegateBuilder.Compile<bool>(
-            settings.Code,
-            log,                             // already scoped by caller
-            settings.ExtraImports,
-            settings.ExtraRefs,
-            stencil,
+            host: host,
+            code: settings.Code,
+            extraImports: settings.ExtraImports,
+            extraRefs: settings.ExtraRefs,
+            locals: stencil,
             languageVersion: settings.VisualBasicVersion);
 
         // Return the runtime delegate
@@ -272,7 +271,7 @@ public interface IAuthHandler
 
             // Merge shared state + user variables
             var globals = new CsGlobals(
-                SharedStateStore.Snapshot(),
+                host.SharedState.Snapshot(),
                 kCtx,
                 new Dictionary<string, object?>(vars, StringComparer.OrdinalIgnoreCase));
 
@@ -427,9 +426,11 @@ public interface IAuthHandler
         }
 
         // Compile the C# script with the provided settings
-        var script = CSharpDelegateBuilder.Compile(settings.Code, logger,
-        settings.ExtraImports, settings.ExtraRefs,
-        new Dictionary<string, object?>
+        var script = CSharpDelegateBuilder.Compile(host: host,
+        code: settings.Code,
+        extraImports: settings.ExtraImports,
+        extraRefs: settings.ExtraRefs,
+        locals: new Dictionary<string, object?>
             {
                 { "identity", "" }
             }, languageVersion: settings.CSharpVersion);
@@ -439,7 +440,7 @@ public interface IAuthHandler
             var krRequest = await KestrunRequest.NewRequest(ctx);
             var krResponse = new KestrunResponse(krRequest);
             var context = new KestrunContext(host, krRequest, krResponse, ctx);
-            var globals = new CsGlobals(SharedStateStore.Snapshot(), context, new Dictionary<string, object?>
+            var globals = new CsGlobals(host.SharedState.Snapshot(), context, new Dictionary<string, object?>
             {
                 { "identity", identity }
             });
@@ -472,9 +473,12 @@ public interface IAuthHandler
         }
 
         // Compile the VB.NET script with the provided settings
-        var script = VBNetDelegateBuilder.Compile<IEnumerable<Claim>>(settings.Code, logger,
-        settings.ExtraImports, settings.ExtraRefs,
-        new Dictionary<string, object?>
+        var script = VBNetDelegateBuilder.Compile<IEnumerable<Claim>>(
+            host: host,
+            code: settings.Code,
+            extraImports: settings.ExtraImports,
+            extraRefs: settings.ExtraRefs,
+            locals: new Dictionary<string, object?>
             {
                 { "identity", "" }
             }, languageVersion: settings.VisualBasicVersion);
@@ -484,7 +488,7 @@ public interface IAuthHandler
             var krRequest = await KestrunRequest.NewRequest(ctx);
             var krResponse = new KestrunResponse(krRequest);
             var context = new KestrunContext(host, krRequest, krResponse, ctx);
-            var glob = new CsGlobals(SharedStateStore.Snapshot(), context, new Dictionary<string, object?>
+            var glob = new CsGlobals(host.SharedState.Snapshot(), context, new Dictionary<string, object?>
             {
                 { "identity", identity }
             });

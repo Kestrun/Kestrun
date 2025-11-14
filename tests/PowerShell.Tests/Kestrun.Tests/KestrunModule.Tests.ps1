@@ -10,8 +10,8 @@ Describe 'Kestrun PowerShell Functions' {
     }
 
     It 'Set-KrSharedState defines and retrieves values' {
-        Set-KrSharedState -Name 'psTestVar' -Value @(1, 2, 3)
-        (Get-KrSharedState -Name 'psTestVar').Count | Should -Be 3
+        Set-KrSharedState -Global -Name 'psTestVar' -Value @(1, 2, 3)
+        (Get-KrSharedState -Global -Name 'psTestVar').Count | Should -Be 3
     }
 
     It 'Resolve-KrPath returns absolute path' {

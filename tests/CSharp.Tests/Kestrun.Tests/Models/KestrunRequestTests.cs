@@ -55,8 +55,8 @@ public class KestrunRequestTests
         var req = await KestrunRequest.NewRequest(ctx);
 
         Assert.NotNull(req.Form);
-        Assert.Equal("bar", req.Form!["foo"]);
-        Assert.Equal("1,2", req.Form!["baz"]);
+        Assert.Equal("bar", req.Form["foo"]);
+        Assert.Equal("1,2", req.Form["baz"]);
         Assert.True(req.HasFormContentType);
         Assert.Equal("application/x-www-form-urlencoded", req.ContentType);
     }

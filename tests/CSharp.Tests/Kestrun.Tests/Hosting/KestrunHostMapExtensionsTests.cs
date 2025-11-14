@@ -2,7 +2,6 @@ using Kestrun.Hosting;
 using Kestrun.Hosting.Options;
 using Kestrun.Scripting;
 using Kestrun.Claims;
-using Kestrun.SharedState;
 using Microsoft.AspNetCore.Http;
 using Microsoft.IdentityModel.Tokens;
 using Xunit;
@@ -13,19 +12,12 @@ namespace KestrunTests.Hosting;
 [Collection("SharedStateSerial")]
 public class KestrunHostMapExtensionsTests
 {
-    private static void SanitizeSharedGlobals()
-    {
-        foreach (var key in SharedStateStore.KeySnapshot())
-        {
-            _ = SharedStateStore.Set(key, null);
-        }
-    }
+
 
     [Fact]
     [Trait("Category", "Hosting")]
     public void AddMapRoute_Code_DefaultsToGet_WhenNoVerbsSpecified()
     {
-        SanitizeSharedGlobals();
         var host = new KestrunHost("TestApp", AppContext.BaseDirectory);
         host.EnableConfiguration();
 
@@ -46,14 +38,13 @@ public class KestrunHostMapExtensionsTests
         Assert.True(host.MapExists("/t-code-default", HttpVerb.Get));
         var saved = host.GetMapRouteOptions("/t-code-default", HttpVerb.Get);
         Assert.NotNull(saved);
-        Assert.Equal(ScriptLanguage.CSharp, saved!.ScriptCode.Language);
+        Assert.Equal(ScriptLanguage.CSharp, saved.ScriptCode.Language);
     }
 
     [Fact]
     [Trait("Category", "Hosting")]
     public void AddMapRoute_Duplicate_WithThrowOnDuplicate_Throws()
     {
-        SanitizeSharedGlobals();
         var host = new KestrunHost("TestApp", AppContext.BaseDirectory);
         host.EnableConfiguration();
 
@@ -77,7 +68,6 @@ public class KestrunHostMapExtensionsTests
     [Trait("Category", "Hosting")]
     public void MapExists_MultiVerb_Works()
     {
-        SanitizeSharedGlobals();
         var host = new KestrunHost("TestApp", AppContext.BaseDirectory);
         host.EnableConfiguration();
 
@@ -105,7 +95,6 @@ public class KestrunHostMapExtensionsTests
     [Trait("Category", "Hosting")]
     public void AddMapRoute_RequireSchemes_Unregistered_Throws()
     {
-        SanitizeSharedGlobals();
         var host = new KestrunHost("TestApp", AppContext.BaseDirectory);
         // Ensure auth services exist so HasAuthScheme can resolve provider
         _ = host.AddBasicAuthentication("InitAuth", _ => { });
@@ -130,7 +119,6 @@ public class KestrunHostMapExtensionsTests
     [Trait("Category", "Hosting")]
     public void AddMapRoute_RequireSchemes_Registered_Ok()
     {
-        SanitizeSharedGlobals();
         var host = new KestrunHost("TestApp", AppContext.BaseDirectory);
 
         // Register a basic auth scheme
@@ -158,7 +146,7 @@ public class KestrunHostMapExtensionsTests
     [Trait("Category", "Hosting")]
     public void AddMapRoute_RequirePolicies_Unregistered_Throws()
     {
-        SanitizeSharedGlobals();
+
         var host = new KestrunHost("TestApp", AppContext.BaseDirectory);
         // Ensure authorization services exist so HasAuthzPolicy can resolve provider
         _ = host.AddAuthorization();
@@ -183,7 +171,7 @@ public class KestrunHostMapExtensionsTests
     [Trait("Category", "Hosting")]
     public void AddMapRoute_RequirePolicies_Registered_Ok()
     {
-        SanitizeSharedGlobals();
+
         var host = new KestrunHost("TestApp", AppContext.BaseDirectory);
 
         // Register a scheme with a claim policy
@@ -256,7 +244,7 @@ public class KestrunHostMapExtensionsTests
     [Trait("Category", "Hosting")]
     public void AddStaticOverride_Code_RegistersMapping_AfterBuild()
     {
-        SanitizeSharedGlobals();
+
         var host = new KestrunHost("TestApp", AppContext.BaseDirectory);
 
         _ = host.AddMapRoute(
@@ -271,7 +259,7 @@ public class KestrunHostMapExtensionsTests
         Assert.True(host.MapExists("/override", HttpVerb.Get));
         var opts = host.GetMapRouteOptions("/override", HttpVerb.Get);
         Assert.NotNull(opts);
-        Assert.Equal(ScriptLanguage.CSharp, opts!.ScriptCode.Language);
+        Assert.Equal(ScriptLanguage.CSharp, opts.ScriptCode.Language);
     }
 
     #region ValidateRouteOptions Tests
@@ -302,13 +290,13 @@ public class KestrunHostMapExtensionsTests
     [Trait("Category", "Hosting")]
     public void ValidateRouteOptions_WithNullPattern_ThrowsArgumentException()
     {
-        SanitizeSharedGlobals();
+
         var host = new KestrunHost("TestApp", AppContext.BaseDirectory);
         host.EnableConfiguration();
 
         var options = new MapRouteOptions
         {
-            Pattern = null!,
+            Pattern = null,
             ScriptCode = new LanguageOptions
             {
                 Code = "Context.Response.StatusCode = 200;",
@@ -325,7 +313,7 @@ public class KestrunHostMapExtensionsTests
     [Trait("Category", "Hosting")]
     public void ValidateRouteOptions_WithEmptyPattern_ThrowsArgumentException()
     {
-        SanitizeSharedGlobals();
+
         var host = new KestrunHost("TestApp", AppContext.BaseDirectory);
         host.EnableConfiguration();
 
@@ -348,7 +336,7 @@ public class KestrunHostMapExtensionsTests
     [Trait("Category", "Hosting")]
     public void ValidateRouteOptions_WithNullCode_ThrowsArgumentException()
     {
-        SanitizeSharedGlobals();
+
         var host = new KestrunHost("TestApp", AppContext.BaseDirectory);
         host.EnableConfiguration();
 
@@ -357,7 +345,7 @@ public class KestrunHostMapExtensionsTests
             Pattern = "/test",
             ScriptCode = new LanguageOptions
             {
-                Code = null!,
+                Code = null,
                 Language = ScriptLanguage.CSharp
             }
         };
@@ -371,7 +359,7 @@ public class KestrunHostMapExtensionsTests
     [Trait("Category", "Hosting")]
     public void ValidateRouteOptions_WithEmptyCode_ThrowsArgumentException()
     {
-        SanitizeSharedGlobals();
+
         var host = new KestrunHost("TestApp", AppContext.BaseDirectory);
         host.EnableConfiguration();
 
@@ -394,7 +382,7 @@ public class KestrunHostMapExtensionsTests
     [Trait("Category", "Hosting")]
     public void ValidateRouteOptions_WithEmptyHttpVerbs_DefaultsToGet()
     {
-        SanitizeSharedGlobals();
+
         var host = new KestrunHost("TestApp", AppContext.BaseDirectory);
         host.EnableConfiguration();
 
@@ -420,7 +408,7 @@ public class KestrunHostMapExtensionsTests
     [Trait("Category", "Hosting")]
     public void ValidateRouteOptions_WithValidOptions_ReturnsTrue()
     {
-        SanitizeSharedGlobals();
+
         var host = new KestrunHost("TestApp", AppContext.BaseDirectory);
         host.EnableConfiguration();
 
@@ -448,7 +436,7 @@ public class KestrunHostMapExtensionsTests
     [Trait("Category", "Hosting")]
     public void ValidateRouteOptions_WithDuplicateRoute_ThrowOnDuplicate_ThrowsInvalidOperationException()
     {
-        SanitizeSharedGlobals();
+
         var host = new KestrunHost("TestApp", AppContext.BaseDirectory);
         host.EnableConfiguration();
 
@@ -487,7 +475,7 @@ public class KestrunHostMapExtensionsTests
     [Trait("Category", "Hosting")]
     public void ValidateRouteOptions_WithDuplicateRoute_NoThrow_ReturnsFalse()
     {
-        SanitizeSharedGlobals();
+
         var host = new KestrunHost("TestApp", AppContext.BaseDirectory);
         host.EnableConfiguration();
 
@@ -542,8 +530,8 @@ public class KestrunHostMapExtensionsTests
         };
 
         var logger = Serilog.Log.Logger;
-        var host = new KestrunHost("TestApp", AppContext.BaseDirectory);
-        var compiled = host.CompileScript(options.ScriptCode, logger);
+        var host = new KestrunHost("TestApp", logger, AppContext.BaseDirectory);
+        var compiled = host.CompileScript(options.ScriptCode);
 
         Assert.NotNull(compiled);
         _ = Assert.IsType<RequestDelegate>(compiled);
@@ -565,8 +553,8 @@ public class KestrunHostMapExtensionsTests
         };
 
         var logger = Serilog.Log.Logger;
-        var host = new KestrunHost("TestApp", AppContext.BaseDirectory);
-        var compiled = host.CompileScript(options.ScriptCode, logger);
+        var host = new KestrunHost("TestApp", logger, AppContext.BaseDirectory);
+        var compiled = host.CompileScript(options.ScriptCode);
 
         Assert.NotNull(compiled);
         _ = Assert.IsType<RequestDelegate>(compiled);
@@ -590,7 +578,7 @@ public class KestrunHostMapExtensionsTests
         var logger = Serilog.Log.Logger;
         var host = new KestrunHost("TestApp", AppContext.BaseDirectory);
 
-        var ex = Assert.Throws<NotSupportedException>(() => host.CompileScript(options.ScriptCode, logger));
+        var ex = Assert.Throws<NotSupportedException>(() => host.CompileScript(options.ScriptCode));
 
         Assert.Contains("999", ex.Message);
     }
@@ -613,8 +601,8 @@ public class KestrunHostMapExtensionsTests
         };
 
         var logger = Serilog.Log.Logger;
-        var host = new KestrunHost("TestApp", AppContext.BaseDirectory);
-        var compiled = host.CompileScript(options.ScriptCode, logger);
+        var host = new KestrunHost("TestApp", logger, AppContext.BaseDirectory);
+        var compiled = host.CompileScript(options.ScriptCode);
 
         Assert.NotNull(compiled);
         _ = Assert.IsType<RequestDelegate>(compiled);
@@ -628,7 +616,7 @@ public class KestrunHostMapExtensionsTests
     [Trait("Category", "Hosting")]
     public void CreateAndRegisterRoute_WithValidInputs_ReturnsEndpointBuilder()
     {
-        SanitizeSharedGlobals();
+
         var host = new KestrunHost("TestApp", AppContext.BaseDirectory);
         host.EnableConfiguration();
 
@@ -657,7 +645,7 @@ public class KestrunHostMapExtensionsTests
 
         var savedOptions = host.GetMapRouteOptions("/test-create-register", HttpVerb.Get);
         Assert.NotNull(savedOptions);
-        Assert.Equal(routeOptions.Pattern, savedOptions!.Pattern);
+        Assert.Equal(routeOptions.Pattern, savedOptions.Pattern);
         Assert.Equal(routeOptions.ScriptCode.Language, savedOptions.ScriptCode.Language);
     }
 
@@ -665,7 +653,7 @@ public class KestrunHostMapExtensionsTests
     [Trait("Category", "Hosting")]
     public void CreateAndRegisterRoute_WithMultipleVerbs_RegistersAllMethods()
     {
-        SanitizeSharedGlobals();
+
         var host = new KestrunHost("TestApp", AppContext.BaseDirectory);
         host.EnableConfiguration();
 
@@ -826,7 +814,7 @@ public class KestrunHostMapExtensionsTests
     [Trait("Category", "Hosting")]
     public void ApplyRequiredHost_WithNoEndpoints_DoesNotThrow()
     {
-        SanitizeSharedGlobals();
+
         var host = new KestrunHost("TestApp", AppContext.BaseDirectory);
         _ = host.ConfigureListener(5000, System.Net.IPAddress.Parse("127.0.0.1"), null, Microsoft.AspNetCore.Server.Kestrel.Core.HttpProtocols.Http1, false);
         host.EnableConfiguration();
@@ -841,7 +829,7 @@ public class KestrunHostMapExtensionsTests
     [Trait("Category", "Hosting")]
     public void ApplyRequiredHost_WithEmptyEndpoints_DoesNotThrow()
     {
-        SanitizeSharedGlobals();
+
         var host = new KestrunHost("TestApp", AppContext.BaseDirectory);
         _ = host.ConfigureListener(5000, System.Net.IPAddress.Parse("127.0.0.1"), null, Microsoft.AspNetCore.Server.Kestrel.Core.HttpProtocols.Http1, false);
         host.EnableConfiguration();
@@ -856,7 +844,7 @@ public class KestrunHostMapExtensionsTests
     [Trait("Category", "Hosting")]
     public void ApplyRequiredHost_WithValidEndpoint_DoesNotThrow()
     {
-        SanitizeSharedGlobals();
+
         var host = new KestrunHost("TestApp", AppContext.BaseDirectory);
         _ = host.ConfigureListener(5000, System.Net.IPAddress.Parse("127.0.0.1"), null, Microsoft.AspNetCore.Server.Kestrel.Core.HttpProtocols.Http1, false);
         host.EnableConfiguration();
@@ -882,7 +870,7 @@ public class KestrunHostMapExtensionsTests
     [Trait("Category", "Hosting")]
     public void ApplyRequiredHost_WithValidHttpsEndpoint_DoesNotThrow()
     {
-        SanitizeSharedGlobals();
+
         var host = new KestrunHost("TestApp", AppContext.BaseDirectory);
 
         // Create a self-signed certificate for testing
@@ -914,7 +902,7 @@ public class KestrunHostMapExtensionsTests
     [Trait("Category", "Hosting")]
     public void ApplyRequiredHost_WithMatchingAnyListener_DoesNotThrow()
     {
-        SanitizeSharedGlobals();
+
         var host = new KestrunHost("TestApp", AppContext.BaseDirectory);
         _ = host.ConfigureListener(5000, System.Net.IPAddress.Any, null, Microsoft.AspNetCore.Server.Kestrel.Core.HttpProtocols.Http1, false); // Listen on Any
         host.EnableConfiguration();
@@ -940,7 +928,7 @@ public class KestrunHostMapExtensionsTests
     [Trait("Category", "Hosting")]
     public void ApplyRequiredHost_WithInvalidEndpointFormat_ThrowsArgumentException()
     {
-        SanitizeSharedGlobals();
+
         var host = new KestrunHost("TestApp", AppContext.BaseDirectory);
         _ = host.ConfigureListener(5000, System.Net.IPAddress.Parse("127.0.0.1"), null, Microsoft.AspNetCore.Server.Kestrel.Core.HttpProtocols.Http1, false);
         host.EnableConfiguration();
@@ -967,7 +955,7 @@ public class KestrunHostMapExtensionsTests
     [Trait("Category", "Hosting")]
     public void ApplyRequiredHost_WithNonMatchingListener_ThrowsArgumentException()
     {
-        SanitizeSharedGlobals();
+
         var host = new KestrunHost("TestApp", AppContext.BaseDirectory);
         _ = host.ConfigureListener(5000, System.Net.IPAddress.Parse("127.0.0.1"), null, Microsoft.AspNetCore.Server.Kestrel.Core.HttpProtocols.Http1, false);
         host.EnableConfiguration();
@@ -994,7 +982,7 @@ public class KestrunHostMapExtensionsTests
     [Trait("Category", "Hosting")]
     public void ApplyRequiredHost_WithMultipleValidEndpoints_DoesNotThrow()
     {
-        SanitizeSharedGlobals();
+
         var host = new KestrunHost("TestApp", AppContext.BaseDirectory);
         _ = host.ConfigureListener(5000, System.Net.IPAddress.Parse("127.0.0.1"), null, Microsoft.AspNetCore.Server.Kestrel.Core.HttpProtocols.Http1, false);
 
@@ -1027,7 +1015,7 @@ public class KestrunHostMapExtensionsTests
     [Trait("Category", "Hosting")]
     public void ApplyRequiredHost_WithMixedValidAndInvalidEndpoints_ThrowsArgumentException()
     {
-        SanitizeSharedGlobals();
+
         var host = new KestrunHost("TestApp", AppContext.BaseDirectory);
         _ = host.ConfigureListener(5000, System.Net.IPAddress.Parse("127.0.0.1"), null, Microsoft.AspNetCore.Server.Kestrel.Core.HttpProtocols.Http1, false);
         host.EnableConfiguration();
@@ -1055,7 +1043,7 @@ public class KestrunHostMapExtensionsTests
     [Trait("Category", "Hosting")]
     public void ApplyRequiredHost_WithIPv6Endpoint_DoesNotThrow()
     {
-        SanitizeSharedGlobals();
+
         var host = new KestrunHost("TestApp", AppContext.BaseDirectory);
         _ = host.ConfigureListener(5000, System.Net.IPAddress.IPv6Loopback, null, Microsoft.AspNetCore.Server.Kestrel.Core.HttpProtocols.Http1, false);
         host.EnableConfiguration();

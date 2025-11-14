@@ -16,7 +16,7 @@ public class AuthenticationCodeSettingsTest
         Assert.Null(settings.ExtraImports);
         Assert.Null(settings.ExtraRefs);
         Assert.Equal(Microsoft.CodeAnalysis.CSharp.LanguageVersion.CSharp12, settings.CSharpVersion);
-        Assert.Equal(Microsoft.CodeAnalysis.VisualBasic.LanguageVersion.VisualBasic12, settings.VisualBasicVersion);
+        Assert.Equal(Microsoft.CodeAnalysis.VisualBasic.LanguageVersion.VisualBasic16_9, settings.VisualBasicVersion);
     }
 
     [Fact]

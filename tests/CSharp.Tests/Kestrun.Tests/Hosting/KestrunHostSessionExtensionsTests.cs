@@ -26,7 +26,7 @@ public class KestrunHostSessionExtensionsTests
     public void AddSession_WithNullOptions_RegistersMiddleware()
     {
         var host = CreateHost(out var middleware);
-        _ = host.AddSession(null!);
+        _ = host.AddSession(null);
         Assert.True(middleware.Count > 0);
     }
 

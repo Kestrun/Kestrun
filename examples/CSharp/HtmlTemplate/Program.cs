@@ -3,7 +3,6 @@ using System.Net;
 using Serilog;
 using Kestrun.Logging;
 using Kestrun.Utilities;
-using Kestrun.SharedState;
 using System.Text;
 using Kestrun.Hosting;   // Only for writing the CSR key
 
@@ -40,7 +39,7 @@ var sharedVisits = new Hashtable
     ["Count"] = 0
 };
 // 3.1 Inject global variable
-if (!SharedStateStore.Set("Visits", sharedVisits))
+if (!server.SharedState.Set("Visits", sharedVisits))
 {
     Console.WriteLine("Failed to define global variable 'Visits'.");
     Environment.Exit(1);
@@ -58,7 +57,7 @@ server.AddHtmlTemplateRoute(
 
 server.AddMapRoute("/visit", HttpVerb.Get, async (ctx) =>
 {
-    _ = SharedStateStore.TryGet("Visits", out Hashtable? visits);
+    _ = server.SharedState.TryGet("Visits", out Hashtable? visits);
 
     // Increment visit count and return response
     if (visits != null && visits.ContainsKey("Count"))

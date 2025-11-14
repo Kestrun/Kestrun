@@ -1,3 +1,4 @@
+using Kestrun.Hosting;
 using Kestrun.Languages;
 using Xunit;
 
@@ -25,9 +26,9 @@ public class VBNetDelegateBuilderRegressionTests
         // normal invocation succeeds.
 
         var code = "Return True"; // simple snippet returning Boolean
-
+        var host = new KestrunHost("Tests");
         // Act / Assert: should not throw
-        var func = VBNetDelegateBuilder.Compile<bool>(code, Serilog.Log.Logger, null, null, null, Microsoft.CodeAnalysis.VisualBasic.LanguageVersion.VisualBasic16);
+        var func = VBNetDelegateBuilder.Compile<bool>(host, code, null, null, null, Microsoft.CodeAnalysis.VisualBasic.LanguageVersion.VisualBasic16);
         Assert.NotNull(func);
     }
 }

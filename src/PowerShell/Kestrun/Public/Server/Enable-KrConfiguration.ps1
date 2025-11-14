@@ -48,9 +48,7 @@ function Enable-KrConfiguration {
         $vars = [System.Collections.Generic.Dictionary[string, object]]::new()
         foreach ($v in $Variables) {
             if ($ExcludeVariables -notcontains $v.Name) {
-                if (-not [Kestrun.SharedState.SharedStateStore]::Contains($v.Name)) {
-                    [void][Kestrun.SharedState.SharedStateStore]::Set($v.Name, $v.Value, $true)
-                }
+                $Server.SharedState.Set($v.Name, $v.Value, $true)
             }
         }
 
@@ -93,6 +91,7 @@ function Enable-KrConfiguration {
             $fxMap = [System.Collections.Generic.Dictionary[string, string]]::new([System.StringComparer]::OrdinalIgnoreCase)
             foreach ($f in $fx) { $fxMap[$f.Name] = $f.Definition }
         }
+
         # Apply the configuration to the server
         # Set the user-defined variables in the server configuration
         $Server.EnableConfiguration($vars, $fxMap) | Out-Null

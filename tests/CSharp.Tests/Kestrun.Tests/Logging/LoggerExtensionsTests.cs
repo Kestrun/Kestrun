@@ -29,7 +29,7 @@ public class LoggerExtensionsTests
         logger.DebugSanitized("msg {val}", dirty);
 
         Assert.NotNull(sink.Last);
-        var prop = sink.Last!.Properties["val"].ToString().Trim('"');
+        var prop = sink.Last.Properties["val"].ToString().Trim('"');
         Assert.Equal("Line1Line2", prop);
     }
 
@@ -47,7 +47,7 @@ public class LoggerExtensionsTests
         logger.DebugSanitized(new InvalidOperationException("boom"), "err {v}", dirty);
 
         Assert.NotNull(sink.Last);
-        var prop = sink.Last!.Properties["v"].ToString().Trim('"');
+        var prop = sink.Last.Properties["v"].ToString().Trim('"');
         Assert.Equal("ABC", prop);
     }
 

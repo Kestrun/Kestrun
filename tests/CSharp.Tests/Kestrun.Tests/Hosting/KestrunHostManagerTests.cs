@@ -19,7 +19,7 @@ public class KestrunHostManagerTests
             {
                 return candidate;
             }
-            current = Path.GetDirectoryName(current)!;
+            current = Path.GetDirectoryName(current);
         }
         throw new FileNotFoundException("Unable to locate dev Kestrun.psm1 in repo");
     }

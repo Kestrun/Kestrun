@@ -41,7 +41,7 @@ public class AssemblyAutoLoaderResolveTests
             // Assembly should now be loaded
             var loaded = AppDomain.CurrentDomain.GetAssemblies().FirstOrDefault(a => a.GetName().Name == "AutoLoaderTemp");
             Assert.NotNull(loaded);
-            var type = loaded!.GetType("AutoLoaderTempType");
+            var type = loaded.GetType("AutoLoaderTempType");
             Assert.NotNull(type);
         }
         finally

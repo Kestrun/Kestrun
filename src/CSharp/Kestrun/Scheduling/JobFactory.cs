@@ -1,5 +1,6 @@
 using System.Management.Automation;
 using System.Reflection;
+using Kestrun.Hosting;
 using Kestrun.Scripting;
 using Kestrun.Utilities;
 using Microsoft.CodeAnalysis.CSharp;
@@ -10,9 +11,9 @@ namespace Kestrun.Scheduling;
 internal static class JobFactory
 {
     internal record JobConfig(
+          KestrunHost Host,
           ScriptLanguage Language,
           string Code,
-          Serilog.ILogger Log,
           KestrunRunspacePoolManager? Pool = null,
           string[]? ExtraImports = null,
           Assembly[]? ExtraRefs = null,
@@ -37,6 +38,7 @@ internal static class JobFactory
     public static async Task<Func<CancellationToken, Task>> CreateAsync(
      JobConfig config, FileInfo fileInfo, CancellationToken ct = default)
     {
+        var log = config.Host.Logger;
         ArgumentNullException.ThrowIfNull(fileInfo);
         if (!fileInfo.Exists)
         {
@@ -44,9 +46,9 @@ internal static class JobFactory
         }
 
         var updatedConfig = config with { Code = await File.ReadAllTextAsync(fileInfo.FullName, ct) };
-        if (updatedConfig.Log.IsEnabled(LogEventLevel.Debug))
+        if (log.IsEnabled(LogEventLevel.Debug))
         {
-            updatedConfig.Log.Debug("Creating job for {File} with language {Lang}", fileInfo.FullName, updatedConfig.Language);
+            log.Debug("Creating job for {File} with language {Lang}", fileInfo.FullName, updatedConfig.Language);
         }
 
         return Create(updatedConfig);
@@ -62,9 +64,10 @@ internal static class JobFactory
     {
         return async ct =>
         {
-            if (config.Log.IsEnabled(LogEventLevel.Debug))
+            var log = config.Host.Logger;
+            if (log.IsEnabled(LogEventLevel.Debug))
             {
-                config.Log.Debug("Building PowerShell delegate, script length={Length}", config.Code?.Length);
+                log.Debug("Building PowerShell delegate, script length={Length}", config.Code?.Length);
             }
 
             if (config.Pool is null)
@@ -78,9 +81,9 @@ internal static class JobFactory
                 using var ps = PowerShell.Create();
                 ps.Runspace = runspace;
                 _ = ps.AddScript(config.Code);
-                if (config.Log.IsEnabled(LogEventLevel.Debug))
+                if (log.IsEnabled(LogEventLevel.Debug))
                 {
-                    config.Log.Debug("Executing PowerShell script with {RunspaceId} - {Preview}", runspace.Id, config.Code?[..Math.Min(40, config.Code.Length)]);
+                    log.Debug("Executing PowerShell script with {RunspaceId} - {Preview}", runspace.Id, config.Code?[..Math.Min(40, config.Code.Length)]);
                 }
 
                 // Register cancellation
@@ -89,37 +92,37 @@ internal static class JobFactory
                 // Wait for the PowerShell script to complete
                 var psResults = await ps.InvokeAsync().WaitAsync(ct).ConfigureAwait(false);
 
-                config.Log.Verbose($"PowerShell script executed with {psResults.Count} results.");
-                if (config.Log.IsEnabled(LogEventLevel.Debug))
+                log.Verbose($"PowerShell script executed with {psResults.Count} results.");
+                if (log.IsEnabled(LogEventLevel.Debug))
                 {
-                    config.Log.Debug("PowerShell script output:");
+                    log.Debug("PowerShell script output:");
                     foreach (var r in psResults.Take(10))      // first 10 only
                     {
-                        config.Log.Debug("   • {Result}", r);
+                        log.Debug("   • {Result}", r);
                     }
 
                     if (psResults.Count > 10)
                     {
-                        config.Log.Debug("   … {Count} more", psResults.Count - 10);
+                        log.Debug("   … {Count} more", psResults.Count - 10);
                     }
                 }
 
                 if (ps.HadErrors || ps.Streams.Error.Count != 0 || ps.Streams.Verbose.Count > 0 || ps.Streams.Debug.Count > 0 || ps.Streams.Warning.Count > 0 || ps.Streams.Information.Count > 0)
                 {
-                    config.Log.Verbose("PowerShell script completed with verbose/debug/warning/info messages.");
-                    config.Log.Verbose(BuildError.Text(ps));
+                    log.Verbose("PowerShell script completed with verbose/debug/warning/info messages.");
+                    log.Verbose(BuildError.Text(ps));
                 }
             }
             catch (Exception ex)
             {
-                config.Log.Error(ex, "PowerShell job failed - {Preview}", config.Code?[..Math.Min(40, config.Code.Length)]);
+                log.Error(ex, "PowerShell job failed - {Preview}", config.Code?[..Math.Min(40, config.Code.Length)]);
                 throw;
             }
             finally
             {
-                if (config.Log.IsEnabled(LogEventLevel.Debug))
+                if (log.IsEnabled(LogEventLevel.Debug))
                 {
-                    config.Log.Debug("PowerShell job completed, releasing runspace back to pool.");
+                    log.Debug("PowerShell job completed, releasing runspace back to pool.");
                 }
                 // Ensure we release the runspace back to the pool
                 config.Pool.Release(runspace);
@@ -135,5 +138,6 @@ internal static class JobFactory
     /// <remarks>
     /// This method uses Roslyn to compile and execute C# or VB.NET code.
     /// </remarks>
-    private static Func<CancellationToken, Task> RoslynJob(JobConfig config) => RoslynJobFactory.Build(config.Code, config.Log, config.ExtraImports, config.ExtraRefs, config.Locals, config.LanguageVersion);
+    private static Func<CancellationToken, Task> RoslynJob(JobConfig config) =>
+    RoslynJobFactory.Build(config.Host, config.Code, config.ExtraImports, config.ExtraRefs, config.Locals, config.LanguageVersion);
 }

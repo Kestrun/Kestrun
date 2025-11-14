@@ -11,21 +11,12 @@ using Xunit;
 using Microsoft.AspNetCore.Http;
 using System.Management.Automation;
 using System.Management.Automation.Runspaces;
-using Kestrun.SharedState;
 
 namespace KestrunTests.Hosting;
 
 [Collection("SharedStateSerial")]
 public class KestrunHostAuthExtensionsTests
 {
-    private static void SanitizeSharedGlobals()
-    {
-        // Ensure any leftover globals use 'object' typing in script prelude
-        foreach (var key in SharedStateStore.KeySnapshot())
-        {
-            _ = SharedStateStore.Set(key, null);
-        }
-    }
     [Fact]
     [Trait("Category", "Hosting")]
     public async Task JwtBearer_Adds_Scheme_And_Policies()
@@ -211,7 +202,6 @@ public class KestrunHostAuthExtensionsTests
     [Trait("Category", "Hosting")]
     public async Task BasicAuth_CSharp_Validator_And_IssueClaims_Wiring_Works()
     {
-        SanitizeSharedGlobals();
         var host = new KestrunHost("TestApp");
 
         _ = host.AddBasicAuthentication("BasicCode", opts =>
@@ -295,7 +285,6 @@ public class KestrunHostAuthExtensionsTests
     [Trait("Category", "Hosting")]
     public async Task ApiKey_CSharp_Validator_And_IssueClaims_Wiring_Works()
     {
-        SanitizeSharedGlobals();
         var host = new KestrunHost("TestApp");
 
         _ = host.AddApiKeyAuthentication("ApiKeyCode", opts =>

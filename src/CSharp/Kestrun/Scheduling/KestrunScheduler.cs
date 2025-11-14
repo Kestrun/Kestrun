@@ -98,7 +98,7 @@ public sealed class SchedulerService(KestrunRunspacePoolManager pool, Serilog.IL
     /// <param name="runImmediately">Whether to run the job immediately upon scheduling.</param>
     public void Schedule(string name, string cron, ScriptBlock scriptblock, bool runImmediately = false)
     {
-        JobConfig config = new(ScriptLanguage.PowerShell, scriptblock.ToString(), _log, _pool);
+        JobConfig config = new(Host, ScriptLanguage.PowerShell, scriptblock.ToString(), _pool);
         var job = Create(config);
         Schedule(name, cron, job, runImmediately);
     }
@@ -111,7 +111,7 @@ public sealed class SchedulerService(KestrunRunspacePoolManager pool, Serilog.IL
     /// <param name="runImmediately">Whether to run the job immediately upon scheduling.</param>
     public void Schedule(string name, TimeSpan interval, ScriptBlock scriptblock, bool runImmediately = false)
     {
-        JobConfig config = new(ScriptLanguage.PowerShell, scriptblock.ToString(), _log, _pool);
+        JobConfig config = new(Host, ScriptLanguage.PowerShell, scriptblock.ToString(), _pool);
         var job = Create(config);
         Schedule(name, interval, job, runImmediately);
     }
@@ -125,7 +125,7 @@ public sealed class SchedulerService(KestrunRunspacePoolManager pool, Serilog.IL
     /// <param name="runImmediately">Whether to run the job immediately upon scheduling.</param>
     public void Schedule(string name, TimeSpan interval, string code, ScriptLanguage lang, bool runImmediately = false)
     {
-        JobConfig config = new(lang, code, _log, _pool);
+        JobConfig config = new(Host, lang, code, _pool);
         var job = Create(config);
         Schedule(name, interval, job, runImmediately);
     }
@@ -140,7 +140,7 @@ public sealed class SchedulerService(KestrunRunspacePoolManager pool, Serilog.IL
     /// <param name="runImmediately">Whether to run the job immediately upon scheduling.</param>
     public void Schedule(string name, string cron, string code, ScriptLanguage lang, bool runImmediately = false)
     {
-        JobConfig config = new(lang, code, _log, _pool);
+        JobConfig config = new(Host, lang, code, _pool);
         var job = Create(config);
         Schedule(name, cron, job, runImmediately);
     }
@@ -155,7 +155,7 @@ public sealed class SchedulerService(KestrunRunspacePoolManager pool, Serilog.IL
     /// <param name="runImmediately">Whether to run the job immediately upon scheduling.</param>
     public void Schedule(string name, TimeSpan interval, FileInfo fileInfo, ScriptLanguage lang, bool runImmediately = false)
     {
-        JobConfig config = new(lang, string.Empty, _log, _pool);
+        JobConfig config = new(Host, lang, string.Empty, _pool);
         var job = Create(config, fileInfo);
         Schedule(name, interval, job, runImmediately);
     }
@@ -170,7 +170,7 @@ public sealed class SchedulerService(KestrunRunspacePoolManager pool, Serilog.IL
     /// <param name="runImmediately">Whether to run the job immediately upon scheduling.</param>
     public void Schedule(string name, string cron, FileInfo fileInfo, ScriptLanguage lang, bool runImmediately = false)
     {
-        JobConfig config = new(lang, string.Empty, _log, _pool);
+        JobConfig config = new(Host, lang, string.Empty, _pool);
         var job = Create(config, fileInfo);
         Schedule(name, cron, job, runImmediately);
     }
@@ -186,7 +186,7 @@ public sealed class SchedulerService(KestrunRunspacePoolManager pool, Serilog.IL
     /// <param name="ct">The cancellation token to cancel the operation.</param>
     public async Task ScheduleAsync(string name, TimeSpan interval, FileInfo fileInfo, ScriptLanguage lang, bool runImmediately = false, CancellationToken ct = default)
     {
-        JobConfig config = new(lang, string.Empty, _log, _pool);
+        JobConfig config = new(Host, lang, string.Empty, _pool);
         var job = await CreateAsync(config, fileInfo, ct);
         Schedule(name, interval, job, runImmediately);
     }
@@ -202,7 +202,7 @@ public sealed class SchedulerService(KestrunRunspacePoolManager pool, Serilog.IL
     /// <param name="ct">The cancellation token to cancel the operation.</param>
     public async Task ScheduleAsync(string name, string cron, FileInfo fileInfo, ScriptLanguage lang, bool runImmediately = false, CancellationToken ct = default)
     {
-        JobConfig config = new(lang, string.Empty, _log, _pool);
+        JobConfig config = new(Host, lang, string.Empty, _pool);
         var job = await CreateAsync(config, fileInfo, ct);
         Schedule(name, cron, job, runImmediately);
     }

@@ -246,7 +246,7 @@ public static partial class KestrunHostMapExtensions
             var logger = host.Logger.ForContext("Route", routeOptions.Pattern);
 
             // Compile the script once – return a RequestDelegate
-            var compiled = CompileScript(host, options.ScriptCode, logger);
+            var compiled = CompileScript(host, options.ScriptCode);
 
             // Create and register the route
             return CreateAndRegisterRoute(host, routeOptions, compiled);
@@ -327,19 +327,18 @@ public static partial class KestrunHostMapExtensions
     /// </summary>
     /// <param name="host">The KestrunHost instance.</param>
     /// <param name="options">The language options containing the script code and language.</param>
-    /// <param name="logger">The Serilog logger to use for compilation.</param>
     /// <returns>A compiled RequestDelegate that can handle HTTP requests.</returns>
     /// <exception cref="NotSupportedException">Thrown when the script language is not supported.</exception>
-    internal static RequestDelegate CompileScript(this KestrunHost host, LanguageOptions options, Serilog.ILogger logger)
+    internal static RequestDelegate CompileScript(this KestrunHost host, LanguageOptions options)
     {
         return options.Language switch
         {
-            ScriptLanguage.PowerShell => PowerShellDelegateBuilder.Build(options.Code!, logger, options.Arguments),
+            ScriptLanguage.PowerShell => PowerShellDelegateBuilder.Build(host, options.Code!, options.Arguments),
             ScriptLanguage.CSharp => CSharpDelegateBuilder.Build(host, options.Code!, options.Arguments, options.ExtraImports, options.ExtraRefs),
             ScriptLanguage.VBNet => VBNetDelegateBuilder.Build(host, options.Code!, options.Arguments, options.ExtraImports, options.ExtraRefs),
-            ScriptLanguage.FSharp => FSharpDelegateBuilder.Build(options.Code!, logger), // F# scripting not implemented
-            ScriptLanguage.Python => PyDelegateBuilder.Build(options.Code!, logger),
-            ScriptLanguage.JavaScript => JScriptDelegateBuilder.Build(options.Code!, logger),
+            ScriptLanguage.FSharp => FSharpDelegateBuilder.Build(host, options.Code!), // F# scripting not implemented
+            ScriptLanguage.Python => PyDelegateBuilder.Build(host, options.Code!),
+            ScriptLanguage.JavaScript => JScriptDelegateBuilder.Build(host, options.Code!),
             _ => throw new NotSupportedException(options.Language.ToString())
         };
     }
@@ -1145,4 +1144,3 @@ public static partial class KestrunHostMapExtensions
     [GeneratedRegex(@"^https?://[^/\?#]+:$", RegexOptions.IgnoreCase, "en-US")]
     private static partial Regex EmptyPortDetectionRegex();
 }
-

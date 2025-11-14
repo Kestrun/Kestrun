@@ -1,5 +1,4 @@
 using Kestrun.Languages;
-using Kestrun.SharedState;
 using Kestrun.Hosting;
 using Microsoft.AspNetCore.Http;
 using Serilog;
@@ -14,6 +13,7 @@ public class CSharpDelegateBuilderPreambleTests
     [Trait("Category", "Languages")]
     public void Compile_Includes_Dynamic_Imports_From_Locals_Generic()
     {
+        var host = new KestrunHost("Tests", Log.Logger);
         // Arrange
         var locals = new Dictionary<string, object?>
         {
@@ -22,7 +22,7 @@ public class CSharpDelegateBuilderPreambleTests
         var code = "// no-op"; // script body not important for preamble test
 
         // Act
-        var script = CSharpDelegateBuilder.Compile(code, Log.Logger, null, null, locals);
+        var script = CSharpDelegateBuilder.Compile(host, code, null, null, locals);
 
         // Assert
         // The script options are internal; we validate indirectly by compiling successfully
@@ -33,13 +33,14 @@ public class CSharpDelegateBuilderPreambleTests
     [Trait("Category", "Languages")]
     public void Compile_Locals_Override_Globals_By_Key()
     {
+        var host = new KestrunHost("Tests", Log.Logger);
         // Arrange - set a global then override via locals
-        _ = SharedStateStore.Set("greeting", "hello", true);
+        _ = host.SharedState.Set("greeting", "hello", true);
         var locals = new Dictionary<string, object?> { ["greeting"] = "override" };
         var code = "// use greeting";
 
         // Act
-        var script = CSharpDelegateBuilder.Compile(code, Log.Logger, null, null, locals);
+        var script = CSharpDelegateBuilder.Compile(host, code, null, null, locals);
 
         // We cannot access preamble directly, but absence of exception indicates merge worked.
         Assert.NotNull(script);
@@ -50,9 +51,9 @@ public class CSharpDelegateBuilderPreambleTests
     public async Task Build_Delegate_Uses_Preamble_Variables()
     {
         // Arrange
-        _ = SharedStateStore.Set("answer", 42, true);
-        var code = "await Context.Response.WriteTextResponseAsync(answer.ToString());";
         var host = new KestrunHost("Tests", Log.Logger);
+        _ = host.SharedState.Set("answer", 42, true);
+        var code = "await Context.Response.WriteTextResponseAsync(answer.ToString());";
         var del = CSharpDelegateBuilder.Build(host, code, null, null, null);
         var ctx = new DefaultHttpContext();
         using var ms = new MemoryStream();

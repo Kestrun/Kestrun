@@ -64,7 +64,7 @@ public class KestrunHostScriptValidationExtensionsTests
         var code = "return missing;";
         var errors = host.GetCSharpScriptErrors(code);
         Assert.NotNull(errors);
-        Assert.Contains("error", errors!, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("error", errors, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]

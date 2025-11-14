@@ -10,7 +10,6 @@ using Serilog;
 using Serilog.Events;
 using Microsoft.AspNetCore.SignalR;
 using Kestrun.Scheduling;
-using Kestrun.SharedState;
 using Kestrun.Middleware;
 using Kestrun.Scripting;
 using Kestrun.Hosting.Options;
@@ -131,19 +130,41 @@ public class KestrunHost : IDisposable
     public string? KestrunRoot { get; private set; }
 
     /// <summary>
+    /// Gets the collection of module paths to be loaded by the Kestrun host.
+    /// </summary>
+    public List<string> ModulePaths => _modulePaths;
+
+    /// <summary>
+    /// Gets the shared state store for managing shared data across requests and sessions.
+    /// </summary>
+    public SharedState.SharedState SharedState { get; }
+
+    /// <summary>
     /// Gets the Serilog logger instance used by the Kestrun host.
     /// </summary>
     public Serilog.ILogger Logger { get; private set; }
 
+    private SchedulerService? _scheduler;
     /// <summary>
     /// Gets the scheduler service used for managing scheduled tasks in the Kestrun host.
+    /// Initialized in ConfigureServices via AddScheduler()
     /// </summary>
-    public SchedulerService Scheduler { get; internal set; } = null!; // Initialized in ConfigureServices
+    public SchedulerService Scheduler
+    {
+        get => _scheduler ?? throw new InvalidOperationException("SchedulerService is not initialized. Call AddScheduler() to enable scheduling.");
+        internal set => _scheduler = value;
+    }
 
+    private KestrunTaskService? _tasks;
     /// <summary>
     /// Gets the ad-hoc task service used for running one-off tasks (PowerShell, C#, VB.NET).
+    /// Initialized via AddTasks()
     /// </summary>
-    public KestrunTaskService Tasks { get; internal set; } = null!; // Initialized via AddTasks()
+    public KestrunTaskService Tasks
+    {
+        get => _tasks ?? throw new InvalidOperationException("Tasks is not initialized. Call AddTasks() to enable task management.");
+        internal set => _tasks = value;
+    }
 
     /// <summary>
     /// Gets the stack used for managing route groups in the Kestrun host.
@@ -240,6 +261,16 @@ public class KestrunHost : IDisposable
     { }
 
     /// <summary>
+    /// Initializes a new instance of the <see cref="KestrunHost"/> class with the specified application name and logger.
+    /// </summary>
+    /// <param name="appName">The name of the application.</param>
+    /// <param name="logger">The Serilog logger instance to use.</param>
+    /// <param name="ordinalIgnoreCase">Indicates whether the shared state should be case-insensitive.</param>
+    public KestrunHost(string? appName, Serilog.ILogger logger,
+          bool ordinalIgnoreCase) : this(appName, logger, null, null, null, ordinalIgnoreCase)
+    { }
+
+    /// <summary>
     /// Initializes a new instance of the <see cref="KestrunHost"/> class with the specified application name, logger, root directory, and optional module paths.
     /// </summary>
     /// <param name="appName">The name of the application.</param>
@@ -247,13 +278,14 @@ public class KestrunHost : IDisposable
     /// <param name="kestrunRoot">The root directory for the Kestrun application.</param>
     /// <param name="modulePathsObj">An array of module paths to be loaded.</param>
     /// <param name="args">Command line arguments to pass to the application.</param>
+    /// <param name="ordinalIgnoreCase">Indicates whether the shared state should be case-insensitive.</param>
     public KestrunHost(string? appName, Serilog.ILogger logger,
-    string? kestrunRoot = null, string[]? modulePathsObj = null, string[]? args = null)
+    string? kestrunRoot = null, string[]? modulePathsObj = null, string[]? args = null, bool ordinalIgnoreCase = true)
     {
         // ① Logger
         Logger = logger ?? Log.Logger;
         LogConstructorArgs(appName, logger == null, kestrunRoot, modulePathsObj?.Length ?? 0);
-
+        SharedState = new(ordinalIgnoreCase: ordinalIgnoreCase);
         // ② Working directory/root
         SetWorkingDirectoryIfNeeded(kestrunRoot);
 
@@ -460,16 +492,10 @@ public class KestrunHost : IDisposable
 
         var effectiveLanguage = language ?? Options.Health.DefaultScriptLanguage;
         var logger = Logger.ForContext("HealthProbe", name);
-        var probe = ScriptProbeFactory.Create(
-            name,
-            tags,
-            effectiveLanguage,
-            code,
-            logger,
-            effectiveLanguage == ScriptLanguage.PowerShell ? () => RunspacePool : null,
-            arguments,
-            extraImports,
-            extraRefs);
+        var probe = ScriptProbeFactory.Create(host: this, name: name, tags: tags,
+            effectiveLanguage, code: code,
+            runspaceAccessor: effectiveLanguage == ScriptLanguage.PowerShell ? () => RunspacePool : null,
+            arguments: arguments, extraImports: extraImports, extraRefs: extraRefs);
 
         RegisterProbeInternal(probe);
         return this;
@@ -1173,7 +1199,7 @@ public class KestrunHost : IDisposable
                 Logger.Debug("AddScheduling (deferred)");
             }
 
-            if (host.Scheduler is null)
+            if (host._scheduler is null)
             {
                 if (MaxRunspaces is not null and > 0)
                 {
@@ -1209,7 +1235,7 @@ public class KestrunHost : IDisposable
                 Logger.Debug("AddTasks (deferred)");
             }
 
-            if (host.Tasks is null)
+            if (host._tasks is null)
             {
                 // Reuse scheduler pool sizing unless explicitly overridden
                 if (MaxRunspaces is not null and > 0)
@@ -1477,7 +1503,7 @@ public class KestrunHost : IDisposable
             )
         );
         // Inject global variables into all runspaces
-        foreach (var kvp in SharedStateStore.Snapshot())
+        foreach (var kvp in SharedState.Snapshot())
         {
             // kvp.Key = "Visits", kvp.Value = 0
             iss.Variables.Add(
@@ -1558,7 +1584,7 @@ public class KestrunHost : IDisposable
         _runspacePool = null; // Clear the runspace pool reference
         IsConfigured = false; // Reset configuration state
         _app = null;
-        Scheduler?.Dispose();
+        _scheduler?.Dispose();
         (Logger as IDisposable)?.Dispose();
         GC.SuppressFinalize(this);
     }

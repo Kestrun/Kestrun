@@ -186,8 +186,8 @@ internal static class VBNetDelegateBuilder
         // Parse the source code into a syntax tree
         // This will allow us to analyze and compile the code
         var tree = VisualBasicSyntaxTree.ParseText(
-                       source,
-                       new VisualBasicParseOptions(LanguageVersion.VisualBasic16));
+                   source,
+                   new VisualBasicParseOptions(languageVersion));
 
         // 🔧 2.  References = everything already loaded  +  extras
         var refs = BuildMetadataReferences(extraRefs);
@@ -264,7 +264,7 @@ internal static class VBNetDelegateBuilder
         // non-existent path.  Roslyn's MetadataReference.CreateFromFile will throw FileNotFoundException
         // in that scenario.  We therefore skip any loaded assemblies whose Location no longer exists.
         var baseRefs = AppDomain.CurrentDomain.GetAssemblies()
-            .Where(a => !a.IsDynamic && SafeHasLocation(a))
+            .Where(a => !a.IsDynamic && SafeHasLocation(a) && !IsSatelliteAssembly(a))
             .Select(a => MetadataReference.CreateFromFile(a.Location));
 
         var extras = extraRefs?.Select(r => MetadataReference.CreateFromFile(r.Location))
@@ -275,6 +275,28 @@ internal static class VBNetDelegateBuilder
             .Concat(extras)
             .Append(MetadataReference.CreateFromFile(typeof(Microsoft.VisualBasic.Constants).Assembly.Location))
             .Concat(DelegateBuilder.BuildBaselineReferences());
+    }
+
+    private static bool IsSatelliteAssembly(Assembly a)
+    {
+        try
+        {
+            var name = a.GetName();
+            if (name.Name != null && name.Name.EndsWith(".resources", StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+            var loc = a.Location;
+            if (!string.IsNullOrEmpty(loc) && loc.EndsWith(".resources.dll", StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+        }
+        catch
+        {
+            // If we can't inspect it, be conservative and treat as non-satellite
+        }
+        return false;
     }
 
     /// <summary>
@@ -385,14 +407,18 @@ internal static class VBNetDelegateBuilder
         }
 
         log.Error($"VBNet script compilation completed with {errors.Length} error(s):");
+        var sb = new StringBuilder();
+        _ = sb.AppendLine("VBNet route code compilation failed:");
         foreach (var error in errors)
         {
             var location = error.Location.IsInSource
                 ? $" at line {error.Location.GetLineSpan().StartLinePosition.Line - startLine + 1}"
                 : "";
-            log.Error($"  Error [{error.Id}]: {error.GetMessage()}{location}");
+            var msg = $"  Error [{error.Id}]: {error.GetMessage()}{location}";
+            log.Error(msg);
+            _ = sb.AppendLine(msg);
         }
-        throw new CompilationErrorException("VBNet route code compilation failed", diagnostics);
+        throw new CompilationErrorException(sb.ToString().TrimEnd(), diagnostics);
     }
 
     /// <summary>

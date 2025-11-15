@@ -57,15 +57,33 @@ Add-KrGitHubAuthentication -Name 'GitHub' -ClientId $ClientId -ClientSecret $Cli
 Enable-KrConfiguration
 
 # 6) Landing page
-Add-KrHtmlTemplateRoute -Pattern '/' -HtmlTemplatePath './Assets/wwwroot/github-oauth.html'
+Add-KrHtmlTemplateRoute -Pattern '/' -HtmlTemplatePath './Assets/wwwroot/github/github-auth.html'
 
 # 7) Protected routes using the policy scheme
 
-Add-KrMapRoute -Verbs Get -Pattern '/github/login' -ScriptBlock {
-    $name = $Context.User.Identity.Name
-    if ([string]::IsNullOrWhiteSpace($name)) { $name = '(no name claim)' }
-    Write-KrTextResponse "Hello from GitHub auth, $name"
-} -AllowAnonymous
+Add-KrMapRoute -Verbs Get -Pattern '/github/login' -AuthorizationSchema 'GitHub' -ScriptBlock {
+    # Extract user claims
+    Expand-KrObject -InputObject $Context.User.Identity
+    $name = $Context.User.Identity.Name ?? '(no name)'
+    $email = $Context.User.FindFirst('email')?.Value ?? 'No email claim'
+    $username = $Context.User.FindFirst('login')?.Value ?? $Context.User.FindFirst('preferred_username')?.Value ?? 'N/A'
+    $githubId = $Context.User.FindFirst('id')?.Value ?? $Context.User.FindFirst('sub')?.Value ?? 'N/A'
+    $profileUrl = $Context.User.FindFirst('profile')?.Value ?? $Context.User.FindFirst('url')?.Value ?? "https://github.com/$username"
+
+    # Get authentication details
+    $authType = $Context.User.Identity.AuthenticationType ?? 'Unknown'
+    $isAuthenticated = $Context.User.Identity.IsAuthenticated
+
+    Write-KrHtmlResponse -FilePath './Assets/wwwroot/github/protected.html' -Variables @{
+        name = $name
+        email = $email
+        username = $username
+        githubId = $githubId
+        profileUrl = $profileUrl
+        authType = $authType
+        isAuthenticated = $isAuthenticated
+    }
+}
 
 Add-KrMapRoute -Verbs Get -Pattern '/github/me' -AuthorizationSchema 'GitHub' -ScriptBlock {
     $claims = foreach ($c in $Context.User.Claims) { @{ Type = $c.Type; Value = $c.Value } }

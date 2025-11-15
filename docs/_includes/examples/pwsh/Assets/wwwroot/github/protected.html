@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>GitHub OAuth2 - Protected Page</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+        }
+
+        .subtitle {
+            color: #666;
+            margin-bottom: 30px;
+        }
+
+        .section {
+            margin: 20px 0;
+            padding: 15px;
+            background: #f5f5f5;
+            border-radius: 5px;
+        }
+
+        .info-box {
+            margin: 10px 0;
+            padding: 15px;
+            background: white;
+            border-left: 4px solid #2da44e;
+            border-radius: 3px;
+        }
+
+        .user-info {
+            display: grid;
+            grid-template-columns: 120px 1fr;
+            gap: 10px;
+        }
+
+        .user-info dt {
+            font-weight: bold;
+            color: #555;
+        }
+
+        .user-info dd {
+            margin: 0;
+            color: #333;
+        }
+
+        a {
+            color: #0969da;
+            text-decoration: none;
+            font-weight: bold;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        .nav {
+            margin: 20px 0;
+        }
+
+        .nav a {
+            display: inline-block;
+            margin-right: 15px;
+            padding: 8px 16px;
+            background: #24292f;
+            color: white;
+            border-radius: 6px;
+            transition: background 0.2s;
+        }
+
+        .nav a:hover {
+            background: #1f2328;
+            text-decoration: none;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 4px 8px;
+            background: #2da44e;
+            color: white;
+            border-radius: 12px;
+            font-size: 0.85em;
+        }
+
+        .github-logo {
+            font-size: 1.5em;
+            margin-right: 10px;
+        }
+
+        code {
+            background: #f6f8fa;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+        }
+    </style>
+</head>
+
+<body>
+    <h1><span class="github-logo">🐙</span>Hello, {{name}}!</h1>
+    <p class="subtitle">Welcome to the protected area <span class="badge">✓ Authenticated via GitHub</span></p>
+
+    <div class="section">
+        <h2>Your GitHub Profile</h2>
+        <div class="info-box">
+            <dl class="user-info">
+                <dt>Name:</dt>
+                <dd>{{name}}</dd>
+
+                <dt>Email:</dt>
+                <dd>{{email}}</dd>
+
+                <dt>Username:</dt>
+                <dd><code>{{username}}</code></dd>
+
+                <dt>GitHub ID:</dt>
+                <dd><code>{{githubId}}</code></dd>
+
+                <dt>Profile URL:</dt>
+                <dd><a href="{{profileUrl}}" target="_blank">{{profileUrl}}</a></dd>
+
+                <dt>Auth Type:</dt>
+                <dd>{{authType}}</dd>
+
+                <dt>Authenticated:</dt>
+                <dd>{{isAuthenticated}}</dd>
+            </dl>
+        </div>
+    </div>
+
+    <div class="nav">
+        <a href="/">🏠 Home</a>
+        <a href="/github/login">👋 Protected Page</a>
+        <a href="/github/me">👤 User Info (JSON)</a>
+        <a href="/github/logout">🚪 Logout</a>
+    </div>
+
+    <div class="section">
+        <h2>What's This?</h2>
+        <p>This page is protected by GitHub OAuth2 authentication. You can only see this because you successfully
+            logged in through GitHub.</p>
+        <p>Your identity is verified via the <strong>{{authType}}</strong> authentication scheme using the OAuth2 Authorization Code flow with PKCE.</p>
+    </div>
+
+    <div class="section">
+        <h2>Security Features</h2>
+        <ul>
+            <li>✅ PKCE (Proof Key for Code Exchange) enabled</li>
+            <li>✅ Access tokens stored in secure, encrypted cookies</li>
+            <li>✅ Email claims enriched from GitHub API</li>
+            <li>✅ HTTPS-only session cookies</li>
+        </ul>
+    </div>
+</body>
+
+</html>

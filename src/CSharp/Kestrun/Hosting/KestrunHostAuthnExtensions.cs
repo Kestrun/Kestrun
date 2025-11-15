@@ -155,11 +155,11 @@ public static class KestrunHostAuthnExtensions
         opts.Scope.Add("user:email");
 
         opts.SaveTokens = true;
+        opts.SignInScheme = CookieAuthenticationDefaults.AuthenticationScheme;
 
         // Map JSON from the user endpoint to claims
         opts.ClaimActions.MapJsonKey(ClaimTypes.NameIdentifier, "id");
-        opts.ClaimActions.MapJsonKey(ClaimTypes.Name, "name");
-        opts.ClaimActions.MapJsonKey("urn:github:login", "login");
+        opts.ClaimActions.MapJsonKey(ClaimTypes.Name, "login");
         opts.ClaimActions.MapJsonKey("urn:github:avatar_url", "avatar_url");
         opts.ClaimActions.MapJsonKey("urn:github:html_url", "html_url");
 

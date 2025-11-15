@@ -62,15 +62,18 @@ function Invoke-KrCookieSignOut {
             switch ($AuthKind) {
                 'OAuth2' {
                     # OAuth2 logout requires special handling
-                    Write-KrLog -Level Information -Message 'Signing out from Cookie ({cookieScheme}) and OAuth2 ({oauth2Scheme}) schemes' -Values $Scheme, $AuthKind
-                    $schemeName = $KrServer.RegisteredAuthentications.ResolveAuthenticationSchemeName($Scheme, $AuthKind )
-                    Write-KrLog -Level Debug -Message 'Resolved OAuth2 scheme name: {scheme}' -Values $schemeName
-                    # Then sign out from OAuth2 scheme
+                    Write-KrLog -Level Information -Message 'Signing out from Cookie and OAuth2 ({oauth2Scheme}) schemes' -Values $Scheme
+                    $cookieSchemeName = $KrServer.RegisteredAuthentications.ResolveAuthenticationSchemeName($Scheme, $AuthKind)
+                    Write-KrLog -Level Debug -Message 'Resolved Cookie scheme name: {scheme}' -Values $cookieSchemeName
+
+                    # Sign out from Cookie
                     $oidcProperties = [Microsoft.AspNetCore.Authentication.AuthenticationProperties]::new()
                     if (-not [string]::IsNullOrEmpty($RedirectUri)  ) {
                         $oidcProperties.RedirectUri = $RedirectUri
                     }
-                    $Context.SignOut($schemeName, $Properties) | Out-Null
+                    $Context.SignOut($cookieSchemeName, $oidcProperties) | Out-Null
+                   Write-KrStatusResponse -StatusCode 302
+                    Write-KrLog -Level Information -Message 'OAuth2 logout initiated, OAuth2 handler will redirect to IdP logout endpoint'
                     return
                 }
                 'Oidc' {
@@ -87,7 +90,7 @@ function Invoke-KrCookieSignOut {
                         $oidcProperties.RedirectUri = $RedirectUri
                     }
                     $Context.SignOut($Scheme, $oidcProperties) | Out-Null
-                    Write-KrStatusResponse -StatusCode 302
+                 #   Write-KrStatusResponse -StatusCode 302
                     Write-KrLog -Level Information -Message 'OIDC logout initiated, OIDC handler will redirect to IdP logout endpoint'
                     return
                 }

@@ -324,7 +324,14 @@ public sealed record KestrunContext
     /// </summary>
     /// <param name="scheme">The authentication scheme to sign out.</param>
     /// <param name="properties">The authentication properties to include in the sign-out.</param>
-    public void SignOut(string? scheme, AuthenticationProperties? properties) => HttpContext.SignOutAsync(scheme, properties).GetAwaiter().GetResult();
+    public void SignOut(string? scheme, AuthenticationProperties? properties)
+    {
+        HttpContext.SignOutAsync(scheme, properties).GetAwaiter().GetResult();
+        if (properties != null && !string.IsNullOrWhiteSpace(properties.RedirectUri))
+        {
+            Response.WriteStatusOnly(302);
+        }
+    }
 
     /// <summary>
     /// Synchronous wrapper for HttpContext.SignOutAsync using a Hashtable for properties.
@@ -346,7 +353,7 @@ public sealed record KestrunContext
             }
             authProps = new(dict);
         }
-        HttpContext.SignOutAsync(scheme, authProps).GetAwaiter().GetResult();
+        SignOut(scheme, authProps);
     }
 
 }

@@ -62,13 +62,26 @@ Add-KrHtmlTemplateRoute -Pattern '/' -HtmlTemplatePath './Assets/wwwroot/github/
 # 7) Protected routes using the policy scheme
 
 Add-KrMapRoute -Verbs Get -Pattern '/github/login' -AuthorizationSchema 'GitHub' -ScriptBlock {
-    # Extract user claims
-    Expand-KrObject -InputObject $Context.User.Identity
+    # Extract user claims (robust to GitHub-specific claim types)
     $name = $Context.User.Identity.Name ?? '(no name)'
-    $email = $Context.User.FindFirst('email')?.Value ?? 'No email claim'
-    $username = $Context.User.FindFirst('login')?.Value ?? $Context.User.FindFirst('preferred_username')?.Value ?? 'N/A'
-    $githubId = $Context.User.FindFirst('id')?.Value ?? $Context.User.FindFirst('sub')?.Value ?? 'N/A'
-    $profileUrl = $Context.User.FindFirst('profile')?.Value ?? $Context.User.FindFirst('url')?.Value ?? "https://github.com/$username"
+    $email = $Context.User.FindFirst([System.Security.Claims.ClaimTypes]::Email)?.Value `
+        ?? $Context.User.FindFirst('email')?.Value `
+        ?? 'No email claim'
+    $username = $Context.User.FindFirst('urn:github:login')?.Value `
+        ?? $Context.User.FindFirst('login')?.Value `
+        ?? $Context.User.FindFirst('preferred_username')?.Value `
+        ?? $name
+    if ([string]::IsNullOrWhiteSpace($username)) { $username = 'N/A' }
+
+    $githubId = $Context.User.FindFirst([System.Security.Claims.ClaimTypes]::NameIdentifier)?.Value `
+        ?? $Context.User.FindFirst('id')?.Value `
+        ?? $Context.User.FindFirst('sub')?.Value `
+        ?? 'N/A'
+
+    $profileUrl = $Context.User.FindFirst('urn:github:html_url')?.Value `
+        ?? $Context.User.FindFirst('profile')?.Value `
+        ?? $Context.User.FindFirst('url')?.Value `
+        ?? "https://github.com/$username"
 
     # Get authentication details
     $authType = $Context.User.Identity.AuthenticationType ?? 'Unknown'
@@ -92,7 +105,7 @@ Add-KrMapRoute -Verbs Get -Pattern '/github/me' -AuthorizationSchema 'GitHub' -S
 
 Add-KrMapRoute -Verbs Get -Pattern '/github/logout' -ScriptBlock {
     Invoke-KrCookieSignOut -AuthKind 'OAuth2' -Scheme 'GitHub' -RedirectUri '/'
-    Write-KrTextResponse 'Signed out (local cookie cleared).'
+    #  Write-KrTextResponse 'Signed out (local cookie cleared).'
 }
 
 

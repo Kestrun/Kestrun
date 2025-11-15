@@ -160,6 +160,9 @@ public static class KestrunHostAuthnExtensions
         // Map JSON from the user endpoint to claims
         opts.ClaimActions.MapJsonKey(ClaimTypes.NameIdentifier, "id");
         opts.ClaimActions.MapJsonKey(ClaimTypes.Name, "login");
+        opts.ClaimActions.MapJsonKey(ClaimTypes.Email, "email");
+        opts.ClaimActions.MapJsonKey("name", "name");  // GitHub's display name (may be null)
+        opts.ClaimActions.MapJsonKey("urn:github:login", "login");
         opts.ClaimActions.MapJsonKey("urn:github:avatar_url", "avatar_url");
         opts.ClaimActions.MapJsonKey("urn:github:html_url", "html_url");
 
@@ -181,6 +184,73 @@ public static class KestrunHostAuthnExtensions
 
                 using var user = JsonDocument.Parse(await response.Content.ReadAsStringAsync(context.HttpContext.RequestAborted));
                 context.RunClaimActions(user.RootElement);
+
+                // Enrich email if missing from /user endpoint (requires user:email scope)
+                if (context.Identity is not null &&
+                    !context.Identity.HasClaim(c => c.Type == ClaimTypes.Email))
+                {
+                    try
+                    {
+                        var emailRequest = new HttpRequestMessage(HttpMethod.Get, "https://api.github.com/user/emails");
+                        emailRequest.Headers.Accept.Add(new("application/json"));
+                        emailRequest.Headers.Add("User-Agent", "KestrunOAuth/1.0");
+                        emailRequest.Headers.Authorization = new("Bearer", context.AccessToken);
+
+                        var emailResponse = await context.Backchannel.SendAsync(emailRequest,
+                            HttpCompletionOption.ResponseHeadersRead,
+                            context.HttpContext.RequestAborted);
+
+                        if (emailResponse.IsSuccessStatusCode)
+                        {
+                            using var emails = JsonDocument.Parse(await emailResponse.Content.ReadAsStringAsync(context.HttpContext.RequestAborted));
+
+                            // Find primary verified email, fallback to first verified email
+                            string? primaryEmail = null;
+                            foreach (var emailObj in emails.RootElement.EnumerateArray())
+                            {
+                                var isPrimary = emailObj.TryGetProperty("primary", out var primaryProp) && primaryProp.GetBoolean();
+                                var isVerified = emailObj.TryGetProperty("verified", out var verifiedProp) && verifiedProp.GetBoolean();
+
+                                if (isPrimary && isVerified && emailObj.TryGetProperty("email", out var emailProp))
+                                {
+                                    primaryEmail = emailProp.GetString();
+                                    break;
+                                }
+                            }
+
+                            // Fallback to first verified email if no primary found
+                            if (string.IsNullOrWhiteSpace(primaryEmail))
+                            {
+                                foreach (var emailObj in emails.RootElement.EnumerateArray())
+                                {
+                                    var isVerified = emailObj.TryGetProperty("verified", out var verifiedProp) && verifiedProp.GetBoolean();
+                                    if (isVerified && emailObj.TryGetProperty("email", out var emailProp))
+                                    {
+                                        primaryEmail = emailProp.GetString();
+                                        break;
+                                    }
+                                }
+                            }
+
+                            if (!string.IsNullOrWhiteSpace(primaryEmail))
+                            {
+                                context.Identity.AddClaim(new Claim(
+                                    ClaimTypes.Email,
+                                    primaryEmail,
+                                    ClaimValueTypes.String,
+                                    context.Options.ClaimsIssuer));
+                            }
+                        }
+                    }
+                    catch
+                    {
+                        if (host.Logger.IsEnabled(LogEventLevel.Verbose))
+                        {
+                            host.Logger.Verbose("Failed to enrich GitHub email claim.");
+                        }
+                        // Best-effort email enrichment; ignore failures
+                    }
+                }
             }
 
         };

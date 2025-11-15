@@ -27,6 +27,10 @@
     Use a custom security token validator (default: false).
 .PARAMETER ClaimPolicy
     Optional ClaimPolicyConfig to enforce claim policies on authenticated users.
+.PARAMETER Certificate
+    Optional X.509 certificate for client assertion authentication.
+.PARAMETER JwkJson
+    Optional JSON Web Key (JWK) for client assertion authentication.
 .PARAMETER IncludeDefaultProfilePolicies
     If specified, includes default claim policies for common profile claims (email, name, preferred_username
 .PARAMETER PassThru
@@ -71,8 +75,7 @@ function Add-KrOpenIdConnectAuthentication {
         [Parameter(Mandatory = $false)]
         [switch]$IncludeDefaultProfilePolicies,
         [Parameter(Mandatory = $false)]
-        [switch]$EnablePar,
-        [string]$ClientAssertionJwkJson,
+        [string]$JwkJson,
         [Parameter(Mandatory = $false)]
         [System.Security.Cryptography.X509Certificates.X509Certificate2]$Certificate,
         [switch]$PassThru
@@ -91,6 +94,9 @@ function Add-KrOpenIdConnectAuthentication {
             $options.Scope.Clear()
             foreach ($s in $Scope) { if ($s) { $options.Scope.Add($s) | Out-Null } }
             $options.UsePkce = $UsePkce.IsPresent
+            if(-not [string]::IsNullOrWhiteSpace($JwkJson)) {
+                $options.JwkJson = $JwkJson
+            }
             if ($ResponseMode) {
                 switch ($ResponseMode.ToLower()) {
                     'query' { $options.ResponseMode = [Microsoft.IdentityModel.Protocols.OpenIdConnect.OpenIdConnectResponseMode]::Query }
@@ -119,12 +125,18 @@ function Add-KrOpenIdConnectAuthentication {
             $options.SaveTokens = $true
             $options.GetClaimsFromUserInfoEndpoint = $true
             # Assign to $Options parameter variable so downstream call uses configured instance
-            $Options = $options
+
         } else {
             # Parameter set 'Options' supplied externally – ensure essential flags are on if unset
             if (-not $Options.SaveTokens) { $Options.SaveTokens = $true }
             if (-not $Options.GetClaimsFromUserInfoEndpoint) { $Options.GetClaimsFromUserInfoEndpoint = $true }
             # Add claim mappings if missing using correct extension type
+        }
+        try {
+            $Options.PushedAuthorizationBehavior = [Microsoft.AspNetCore.Authentication.OpenIdConnect.PushedAuthorizationBehavior]::Disable
+        } catch {
+            # Ignore if running on older .NET versions where this property is not available
+            write-log -Level Debug -Message 'PushedAuthorizationBehavior property not available; skipping configuration.'
         }
         # If IncludeDefaultProfilePolicies requested and no ClaimPolicy provided, build one now using ClaimPolicy utilities
         if ($IncludeDefaultProfilePolicies.IsPresent -and -not $ClaimPolicy) {
@@ -140,9 +152,9 @@ function Add-KrOpenIdConnectAuthentication {
         [Kestrun.Hosting.KestrunHostAuthnExtensions]::AddOpenIdConnectAuthentication(
             $Server,
             $Name,
-            $Options,
-            $ClaimPolicy,  # may be null
-            $Certificate, $EnablePar.IsPresent, $ClientAssertionJwkJson
+            $Options
+            <#   $ClaimPolicy,  # may be null
+            $Certificate, $ClientAssertionJwkJson#>
         ) | Out-Null
 
         if ($PassThru.IsPresent) {

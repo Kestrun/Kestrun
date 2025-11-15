@@ -304,7 +304,7 @@ if ($UseJwtAuth -and $certificate) {
     Write-KrLog -Level Information -Message 'Configuring OIDC with private_key_jwt authentication'
 
     # Create options object to configure events
-    $oidcOptions = [Microsoft.AspNetCore.Authentication.OpenIdConnect.OpenIdConnectOptions]::new()
+    $oidcOptions = [Kestrun.Authentication.OidcOptions]::new()
     $oidcOptions.Authority = $Authority
     $oidcOptions.ClientId = $EffectiveClientId
     $oidcOptions.UsePkce = $modeConfig.RequiresPKCE
@@ -317,6 +317,9 @@ if ($UseJwtAuth -and $certificate) {
     foreach ($scope in $Scopes) {
         $oidcOptions.Scope.Add($scope) | Out-Null
     }
+    #   $oidcOptions.PushedAuthorizationBehavior = [Microsoft.AspNetCore.Authentication.OpenIdConnect.PushedAuthorizationBehavior]::Disable;
+
+
 
     # Add ResponseType if specified
     if ($modeConfig.ResponseType) {
@@ -346,7 +349,8 @@ if ($UseJwtAuth -and $certificate) {
         'q' = '0CBLGi_kRPLqI8yfVkpBbA9zkCAshgrWWn9hsq6a7Zl2LcLaLBRUxH0q1jWnXgeJh9o5v8sYGXwhbrmuypw7kJ0uA3OgEzSsNvX5Ay3R9sNel-3Mqm8Me5OfWWvmTEBOci8RwHstdR-7b9ZT13jk-dsZI7OlV_uBja1ny9Nz9ts'
         'qi' = 'pG6J4dcUDrDndMxa-ee1yG4KjZqqyCQcmPAfqklI2LmnpRIjcK78scclvpboI3JQyg6RCEKVMwAhVtQM6cBcIO3JrHgqeYDblp5wXHjto70HVW6Z8kBruNx1AH9E8LzNvSRL-JVTFzBkJuNgzKQfD0G77tQRgJ-Ri7qu3_9o1M4'
     }
-    Add-KrOpenIdConnectAuthentication -Name 'oidc' -Options $oidcOptions -ClientAssertionJwkJson ($clientAssertionJwkJson | ConvertTo-Json -Compress)
+    $oidcOptions.JwkJson = ($clientAssertionJwkJson | ConvertTo-Json -Compress)
+    Add-KrOpenIdConnectAuthentication -Name 'oidc' -Options $oidcOptions
 
 } else {
     # Standard configuration with client secret

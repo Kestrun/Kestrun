@@ -18,7 +18,10 @@ using Microsoft.IdentityModel.Protocols.OpenIdConnect;
 using Microsoft.IdentityModel.Protocols;
 using System.Security.Cryptography.X509Certificates;
 using Kestrun.Certificates;
-
+using Microsoft.IdentityModel.JsonWebTokens;
+using System.Security.Claims;
+using System.IdentityModel.Tokens.Jwt;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 namespace Kestrun.Hosting;
 
 /// <summary>
@@ -626,6 +629,77 @@ public static class KestrunHostAuthnExtensions
     #region OpenID Connect Authentication
 
     /// <summary>
+    /// Adds OpenID Connect authentication to the Kestrun host with private key JWT client assertion.
+    /// <para>Use this for applications that require OpenID Connect authentication with client credentials using JWT assertion.</para>
+    /// </summary>
+    /// <param name="host">The Kestrun host instance.</param>
+    /// <param name="scheme">The authentication scheme name.</param>
+    /// <param name="options">The OpenIdConnectOptions to configure the authentication.</param>
+    /// <returns>The configured KestrunHost instance.</returns>
+    public static KestrunHost AddOpenIdConnectAuthentication(
+           this KestrunHost host, string scheme,
+           OidcOptions options)
+    {
+        ArgumentNullException.ThrowIfNull(options);
+        if (string.IsNullOrWhiteSpace(options.ClientId))
+        {
+            throw new ArgumentException("ClientId must be provided in OpenIdConnectOptions", nameof(options));
+        }
+        var clientId = options.ClientId;
+
+        // CRITICAL: Register OidcEvents and AssertionService in DI before configuring authentication
+        // This is required because EventsType expects these to be available in the service provider
+        return host.AddService(services =>
+         {
+             // Register AssertionService as a singleton with factory to pass clientId and jwkJson
+             services.TryAddSingleton(sp => new AssertionService(clientId, options.JwkJson));
+             // Register OidcEvents as scoped (per-request)
+             services.TryAddScoped<OidcEvents>();
+         }).AddAuthentication(
+              defaultScheme: CookieAuthenticationDefaults.AuthenticationScheme,
+              defaultChallengeScheme: scheme,
+              buildSchemes: ab =>
+              {
+                  _ = ab.AddCookie(CookieAuthenticationDefaults.AuthenticationScheme, opts =>
+                 {
+                     opts.SlidingExpiration = true;
+                     host.Logger.Debug("Configured Cookie Authentication for OpenID Connect");
+                 });
+
+                  _ = ab.AddOpenIdConnect(scheme, options =>
+                 {
+                     options.Authority = "https://demo.duendesoftware.com";
+                     options.ClientId = clientId;
+
+                     // Authorization Code + PKCE
+                     options.ResponseType = "code";
+                     options.UsePkce = true;
+                     options.ResponseMode = "form_post";
+                     options.RequireHttpsMetadata = true;
+#if NET9_0_OR_GREATER
+                     // 🔸 Disable PAR so .NET 9 uses the classic authorize redirect
+                     options.PushedAuthorizationBehavior = PushedAuthorizationBehavior.Disable;
+#endif
+                     // Allowed scopes
+                     options.Scope.Clear();
+                     options.Scope.Add("openid");
+                     options.Scope.Add("profile");
+                     options.Scope.Add("email");
+                     options.Scope.Add("offline_access");
+                     options.Scope.Add("api");
+
+                     options.GetClaimsFromUserInfoEndpoint = true;
+                     options.SaveTokens = true;
+
+                     // Inject private key JWT at code → token step
+                     // This will be resolved from DI at runtime
+                     options.EventsType = typeof(OidcEvents);
+                 });
+
+              });
+    }
+
+    /// <summary>
     /// Adds OpenID Connect authentication to the Kestrun host using simple parameters.
     /// <para>Use this for applications that require OpenID Connect authentication.</para>
     /// </summary>
@@ -731,7 +805,12 @@ public static class KestrunHostAuthnExtensions
                     opts.MapInboundClaims = options.MapInboundClaims;
 
                     opts.UseSecurityTokenValidator = options.UseSecurityTokenValidator;
+#if NET9_0_OR_GREATER
 
+                    opts.PushedAuthorizationBehavior = Microsoft.AspNetCore.Authentication.OpenIdConnect.PushedAuthorizationBehavior.Disable;
+                    // opts.PushedAuthorizationBehavior = options.PushedAuthorizationBehavior;
+                    // Microsoft.AspNetCore.Authentication.OpenIdConnect.PushedAuthorizationBehavior.Disable;
+#endif
                     // Copy claim mappings from provided options (JsonKey -> ClaimType), avoiding duplicates
                     try
                     {
@@ -1673,8 +1752,8 @@ public static class KestrunHostAuthnExtensions
     /// <returns>The configured KestrunHost instance.</returns>
     internal static KestrunHost AddAuthentication(
     this KestrunHost host,
-    Action<AuthenticationBuilder> buildSchemes,   // e.g., ab => ab.AddCookie().AddOpenIdConnect("oidc", ...)
     string defaultScheme,
+    Action<AuthenticationBuilder>? buildSchemes = null,    // e.g., ab => ab.AddCookie().AddOpenIdConnect("oidc", ...)
     Action<AuthorizationOptions>? configureAuthz = null,
     string? defaultChallengeScheme = null)
     {
@@ -1686,17 +1765,36 @@ public static class KestrunHostAuthnExtensions
 
         _ = host.AddService(services =>
         {
-            // Configure defaults in one place
-            var authBuilder = services.AddAuthentication(options =>
+            // CRITICAL: Check if authentication services are already registered
+            // If they are, we only need to add new schemes, not reconfigure defaults
+            var authDescriptor = services.FirstOrDefault(d => d.ServiceType == typeof(IAuthenticationService));
+
+            AuthenticationBuilder authBuilder;
+            if (authDescriptor != null)
             {
-                options.DefaultScheme = defaultScheme;
-                options.DefaultChallengeScheme = defaultChallengeScheme ?? defaultScheme;
-            });
+                // Authentication already registered - only add new schemes without changing defaults
+                host.Logger.Debug("Authentication services already registered - adding schemes only (default={DefaultScheme})", defaultScheme);
+                authBuilder = new AuthenticationBuilder(services);
+            }
+            else
+            {
+                // First time registration - configure defaults
+                host.Logger.Debug(
+                    "Registering authentication services with defaults (default={DefaultScheme}, challenge={ChallengeScheme})",
+                    defaultScheme,
+                    defaultChallengeScheme ?? defaultScheme);
+                authBuilder = services.AddAuthentication(options =>
+                {
+                    options.DefaultScheme = defaultScheme;
+                    options.DefaultChallengeScheme = defaultChallengeScheme ?? defaultScheme;
+                });
+            }
 
             // Let caller add handlers/schemes
-            buildSchemes(authBuilder);
+            buildSchemes?.Invoke(authBuilder);
 
             // Ensure Authorization is available (with optional customization)
+            // AddAuthorization is idempotent - safe to call multiple times
             _ = configureAuthz is not null ?
                 services.AddAuthorization(configureAuthz) :
                 services.AddAuthorization();
@@ -1715,6 +1813,9 @@ public static class KestrunHostAuthnExtensions
             }
         });
     }
+
+
+
 
 
     /// <summary>

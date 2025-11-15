@@ -150,7 +150,7 @@
             "name": "Launch pwsh with script",
             "type": "coreclr",
             "request": "launch",
-            "program": "pwsh",
+            "program": "C:\\Program Files\\PowerShell\\7-preview\\pwsh.exe",
             "args": [
                 "-NoLogo",
                 "-NoProfile",

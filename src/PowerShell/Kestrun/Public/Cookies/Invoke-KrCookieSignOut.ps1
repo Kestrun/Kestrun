@@ -72,7 +72,7 @@ function Invoke-KrCookieSignOut {
                         $oidcProperties.RedirectUri = $RedirectUri
                     }
                     $Context.SignOut($cookieSchemeName, $oidcProperties) | Out-Null
-                   Write-KrStatusResponse -StatusCode 302
+
                     Write-KrLog -Level Information -Message 'OAuth2 logout initiated, OAuth2 handler will redirect to IdP logout endpoint'
                     return
                 }
@@ -90,7 +90,7 @@ function Invoke-KrCookieSignOut {
                         $oidcProperties.RedirectUri = $RedirectUri
                     }
                     $Context.SignOut($Scheme, $oidcProperties) | Out-Null
-                 #   Write-KrStatusResponse -StatusCode 302
+                    
                     Write-KrLog -Level Information -Message 'OIDC logout initiated, OIDC handler will redirect to IdP logout endpoint'
                     return
                 }

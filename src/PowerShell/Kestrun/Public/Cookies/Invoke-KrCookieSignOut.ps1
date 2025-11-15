@@ -9,9 +9,10 @@
     This will redirect to the OIDC provider's logout endpoint automatically.
 .PARAMETER Scheme
     Authentication scheme to use (default 'Cookies').
-.PARAMETER OidcScheme
-    If specified, also signs out from the OIDC scheme (e.g., 'oidc').
-    This triggers RP-initiated logout at the identity provider.
+.PARAMETER AuthKind
+    Authentication kind: 'Cookies' (default), 'OAuth2', or 'Oidc'.
+    Use 'OAuth2' to sign out from both Cookies and OAuth2 schemes.
+    Use 'Oidc' to sign out from both Cookies and OIDC schemes (triggers redirect to IdP logout).
 .PARAMETER Redirect
     If specified, redirects the user to the login path after signing out.
     If the login path is not configured, redirects to '/'.
@@ -44,7 +45,8 @@ function Invoke-KrCookieSignOut {
         [string]$Scheme = 'Cookies',
 
         [Parameter()]
-        [string]$OidcScheme,
+        [ValidateSet('OAuth2', 'Oidc', 'Cookies')]
+        [string]$AuthKind = 'Cookies',
 
         [switch]$Redirect,
 
@@ -56,46 +58,68 @@ function Invoke-KrCookieSignOut {
     # Only works inside a route script block where $Context is available
     if ($null -ne $Context -and $null -ne $KrServer) {
         if ($PSCmdlet.ShouldProcess($Scheme, 'SignOut')) {
-            # OIDC logout requires special handling
-            if ($OidcScheme) {
-                Write-KrLog -Level Information -Message 'Signing out from Cookie ({cookieScheme}) and OIDC ({oidcScheme}) schemes' -Values $Scheme, $OidcScheme
 
-                # Sign out from cookie scheme first (local session)
-                $Context.SignOut($Scheme)
-                # Then sign out from OIDC scheme (triggers redirect to IdP logout)
-                $oidcProperties = [Microsoft.AspNetCore.Authentication.AuthenticationProperties]::new()
-                $oidcProperties.RedirectUri = $RedirectUri
-                $Context.SignOut($OidcScheme, $oidcProperties)
-                Write-KrStatusResponse -StatusCode 302
-                Write-KrLog -Level Information -Message 'OIDC logout initiated, OIDC handler will redirect to IdP logout endpoint'
-
-                return
-            }
-
-            # Standard cookie-only logout
-            if ($Context.User -and $Context.User.Identity.IsAuthenticated) {
-                $Context.SignOut($Scheme, $Properties)
-            }
-
-            if ($Redirect) {
-                $cookiesAuth = $null
-                if ($KrServer.RegisteredAuthentications.Exists($Scheme, 'Cookie')) {
-                    $cookiesAuth = $KrServer.RegisteredAuthentications.Get($Scheme, 'Cookie')
-                } else {
-                    Write-KrLog -Level Warning -Message 'Authentication scheme {scheme} not found in registered authentications.' -Values $Scheme
-                    Write-KrErrorResponse -Message "Authentication scheme '$Scheme' not found." -StatusCode 400
+            switch ($AuthKind) {
+                'OAuth2' {
+                    # OAuth2 logout requires special handling
+                    Write-KrLog -Level Information -Message 'Signing out from Cookie ({cookieScheme}) and OAuth2 ({oauth2Scheme}) schemes' -Values $Scheme, $AuthKind
+                    $schemeName = $KrServer.RegisteredAuthentications.ResolveAuthenticationSchemeName($Scheme, $AuthKind )
+                    Write-KrLog -Level Debug -Message 'Resolved OAuth2 scheme name: {scheme}' -Values $schemeName
+                    # Then sign out from OAuth2 scheme
+                    $oidcProperties = [Microsoft.AspNetCore.Authentication.AuthenticationProperties]::new()
+                    if (-not [string]::IsNullOrEmpty($RedirectUri)  ) {
+                        $oidcProperties.RedirectUri = $RedirectUri
+                    }
+                    $Context.SignOut($schemeName, $Properties) | Out-Null
                     return
                 }
-                Write-KrLog -Level Information -Message 'User {@user} signed out from {scheme} authentication.' -Values $Context.User, $Scheme
-                # Redirect to login path or root
+                'Oidc' {
 
-                if ($null -ne $cookiesAuth -and $cookiesAuth.LoginPath -and $cookiesAuth.LoginPath.ToString().Trim()) {
-                    $url = $cookiesAuth.LoginPath
-                } else {
-                    $url = '/'
+                    # OIDC logout requires special handling
+                    Write-KrLog -Level Information -Message 'Signing out from Cookie ({cookieScheme}) and OIDC ({oidcScheme}) schemes' -Values $Scheme, $AuthKind
+                    $schemeName = $KrServer.RegisteredAuthentications.ResolveAuthenticationSchemeName($Scheme, $AuthKind )
+                    Write-KrLog -Level Debug -Message 'Resolved OIDC scheme name: {scheme}' -Values $schemeName
+
+                    $Context.SignOut($schemeName) | Out-Null
+                    # Then sign out from OIDC scheme (triggers redirect to IdP logout)
+                    $oidcProperties = [Microsoft.AspNetCore.Authentication.AuthenticationProperties]::new()
+                    if (-not [string]::IsNullOrEmpty($RedirectUri)  ) {
+                        $oidcProperties.RedirectUri = $RedirectUri
+                    }
+                    $Context.SignOut($Scheme, $oidcProperties) | Out-Null
+                    Write-KrStatusResponse -StatusCode 302
+                    Write-KrLog -Level Information -Message 'OIDC logout initiated, OIDC handler will redirect to IdP logout endpoint'
+                    return
                 }
-                Write-KrLog -Level Information -Message 'Redirecting {user} after logout to {path}' -Values $Context.User, $url
-                Write-KrRedirectResponse -Url $url
+                'Cookies' {
+                    Write-KrLog -Level Information -Message 'Signing out from Cookie scheme: {scheme}' -Values $Scheme
+
+                    # Standard cookie-only logout
+                    if ($Context.User -and $Context.User.Identity.IsAuthenticated) {
+                        $Context.SignOut($Scheme, $Properties)
+                    }
+
+                    if ($Redirect) {
+                        $cookiesAuth = $null
+                        if ($KrServer.RegisteredAuthentications.Exists($Scheme, 'Cookie')) {
+                            $cookiesAuth = $KrServer.RegisteredAuthentications.Get($Scheme, 'Cookie')
+                        } else {
+                            Write-KrLog -Level Warning -Message 'Authentication scheme {scheme} not found in registered authentications.' -Values $Scheme
+                            Write-KrErrorResponse -Message "Authentication scheme '$Scheme' not found." -StatusCode 400
+                            return
+                        }
+                        Write-KrLog -Level Information -Message 'User {@user} signed out from {scheme} authentication.' -Values $Context.User, $Scheme
+                        # Redirect to login path or root
+
+                        if ($null -ne $cookiesAuth -and $cookiesAuth.LoginPath -and $cookiesAuth.LoginPath.ToString().Trim()) {
+                            $url = $cookiesAuth.LoginPath
+                        } else {
+                            $url = '/'
+                        }
+                        Write-KrLog -Level Information -Message 'Redirecting {user} after logout to {path}' -Values $Context.User, $url
+                        Write-KrRedirectResponse -Url $url
+                    }
+                }
             }
         }
     } else {

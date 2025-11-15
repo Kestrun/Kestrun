@@ -5,9 +5,7 @@
 
     Notes:
       - This registers three schemes when using Add-KrGitHubAuthentication -Name 'GitHub':
-          1. 'GitHub'          → OAuth challenge (remote login)
-          2. 'GitHub.Cookies'  → Cookie sign-in (session persistence)
-          3. 'GitHub.Policy'   → Policy/forwarding (authenticate via cookies; challenge via OAuth)
+          1. 'GitHub'          → OAuth challenge (remote login) scheme
       - PKCE is enabled and tokens are saved to the cookie session.
       - Email claim is optionally enriched from /user/emails when permitted by scope and consent.
       - Set environment variables first:
@@ -23,9 +21,17 @@ param(
     [string]$CallbackPath = '/signin-oauth'
 )
 
+if (([string]::IsNullOrWhiteSpace( $ClientId)) -and
+    ([string]::IsNullOrWhiteSpace( $ClientSecret)) -and
+    (Test-Path -Path .\Utility\Import-EnvFile.ps1)) {
+    & .\Utility\Import-EnvFile.ps1
+    $ClientId = $env:GITHUB_CLIENT_ID
+    $ClientSecret = $env:GITHUB_CLIENT_SECRET
+}
+
 if (-not $ClientId -or -not $ClientSecret) {
-    Write-Host 'ERROR: Set GITHUB_CLIENT_ID and GITHUB_CLIENT_SECRET environment variables before running.' -ForegroundColor Red
-    return
+    Write-Error 'ERROR: Set GITHUB_CLIENT_ID and GITHUB_CLIENT_SECRET environment variables before running.'
+    exit 1
 }
 # This is recommended in order to use relative paths without issues
 Initialize-KrRoot -Path $PSScriptRoot
@@ -54,23 +60,23 @@ Enable-KrConfiguration
 Add-KrHtmlTemplateRoute -Pattern '/' -HtmlTemplatePath './Assets/wwwroot/github-oauth.html'
 
 # 7) Protected routes using the policy scheme
-Add-KrRouteGroup -Prefix '/github' -AuthorizationSchema 'GitHub.Policy' {
-    Add-KrMapRoute -Verbs Get -Pattern '/hello' -ScriptBlock {
-        $name = $Context.User.Identity.Name
-        if ([string]::IsNullOrWhiteSpace($name)) { $name = '(no name claim)' }
-        Write-KrTextResponse "Hello from GitHub auth, $name"
-    }
 
-    Add-KrMapRoute -Verbs Get -Pattern '/me' -ScriptBlock {
-        $claims = foreach ($c in $Context.User.Claims) { @{ Type = $c.Type; Value = $c.Value } }
-        Write-KrJsonResponse @{ scheme = 'GitHub.Policy'; authenticated = $Context.User.Identity.IsAuthenticated; claims = $claims }
-    }
+Add-KrMapRoute -Verbs Get -Pattern '/github/login' -ScriptBlock {
+    $name = $Context.User.Identity.Name
+    if ([string]::IsNullOrWhiteSpace($name)) { $name = '(no name claim)' }
+    Write-KrTextResponse "Hello from GitHub auth, $name"
+} -AllowAnonymous
 
-    Add-KrMapRoute -Verbs Get -Pattern '/logout' -ScriptBlock {
-        Invoke-KrCookieSignOut -Scheme 'GitHub.Cookies'
-        Write-KrTextResponse 'Signed out (local cookie cleared).'
-    }
+Add-KrMapRoute -Verbs Get -Pattern '/github/me' -AuthorizationSchema 'GitHub' -ScriptBlock {
+    $claims = foreach ($c in $Context.User.Claims) { @{ Type = $c.Type; Value = $c.Value } }
+    Write-KrJsonResponse @{ scheme = 'GitHub'; authenticated = $Context.User.Identity.IsAuthenticated; claims = $claims }
 }
+
+Add-KrMapRoute -Verbs Get -Pattern '/github/logout' -ScriptBlock {
+    Invoke-KrCookieSignOut -AuthKind 'OAuth2' -Scheme 'GitHub' -RedirectUri '/'
+    Write-KrTextResponse 'Signed out (local cookie cleared).'
+}
+
 
 # 8) Start
 Start-KrServer -CloseLogsOnExit

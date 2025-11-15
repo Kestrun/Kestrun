@@ -1,7 +1,6 @@
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
-using Microsoft.AspNetCore.Authentication.OpenIdConnect;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.Extensions.Options;
@@ -14,13 +13,7 @@ using Kestrun.Claims;
 
 using Microsoft.AspNetCore.Authentication.OAuth;
 using System.Text.Json;
-using Microsoft.IdentityModel.Protocols.OpenIdConnect;
-using Microsoft.IdentityModel.Protocols;
-using System.Security.Cryptography.X509Certificates;
-using Kestrun.Certificates;
-using Microsoft.IdentityModel.JsonWebTokens;
 using System.Security.Claims;
-using System.IdentityModel.Tokens.Jwt;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 namespace Kestrun.Hosting;
 
@@ -136,118 +129,66 @@ public static class KestrunHostAuthnExtensions
     /// <param name="scheme">Base scheme name (e.g. "GitHub").</param>
     /// <param name="clientId">GitHub OAuth App Client ID.</param>
     /// <param name="clientSecret">GitHub OAuth App Client Secret.</param>
-    /// <param name="scope">Optional additional scopes (default adds read:user and user:email).</param>
-    /// <param name="callbackPath">Optional callback path (default "/signin-github"). Must match the OAuth App's configured redirect URI path.</param>
-    /// <param name="enrichEmail">Fetch /user/emails and add ClaimTypes.Email if missing (requires user:email scope).</param>
-    /// <param name="configure">Optional mutation of OAuthOptions before handler build.</param>
+    /// <param name="callbackPath">The callback path for OAuth redirection (e.g. "/signin-github").</param>
     /// <returns>The configured KestrunHost.</returns>
     public static KestrunHost AddGitHubOAuthAuthentication(
         this KestrunHost host,
         string scheme,
         string clientId,
         string clientSecret,
-        IEnumerable<string>? scope = null,
-        string? callbackPath = null,
-        bool enrichEmail = true,
-        Action<OAuthOptions>? configure = null)
+        string callbackPath)
     {
-        var opts = new OAuthOptions
+        var opts = new OAuth2Options
         {
             ClientId = clientId,
             ClientSecret = clientSecret,
+
+            CallbackPath = callbackPath,
+
             AuthorizationEndpoint = "https://github.com/login/oauth/authorize",
             TokenEndpoint = "https://github.com/login/oauth/access_token",
-            CallbackPath = "/signin-github",
-            UserInformationEndpoint = "https://api.github.com/user",
-            ClaimsIssuer = "github.com",
-            UsePkce = true,
-            SaveTokens = true
+            UserInformationEndpoint = "https://api.github.com/user"
         };
-        if (!string.IsNullOrWhiteSpace(callbackPath))
-        {
-            // Normalize to leading '/'
-            opts.CallbackPath = callbackPath!.StartsWith("/") ? callbackPath : "/" + callbackPath;
-        }
-        // Default scopes
-        opts.Scope.Clear();
+
+        // Request additional scopes if you want (optional)
         opts.Scope.Add("read:user");
         opts.Scope.Add("user:email");
-        if (scope is not null)
-        {
-            foreach (var s in scope)
-            {
-                if (!opts.Scope.Contains(s))
-                {
-                    opts.Scope.Add(s);
-                }
-            }
-        }
-        // Map common fields -> claims
-        opts.ClaimActions.MapJsonKey(System.Security.Claims.ClaimTypes.Name, "login");
-        opts.ClaimActions.MapJsonKey("urn:github:avatar", "avatar_url");
+
+        opts.SaveTokens = true;
+
+        // Map JSON from the user endpoint to claims
+        opts.ClaimActions.MapJsonKey(ClaimTypes.NameIdentifier, "id");
+        opts.ClaimActions.MapJsonKey(ClaimTypes.Name, "name");
+        opts.ClaimActions.MapJsonKey("urn:github:login", "login");
+        opts.ClaimActions.MapJsonKey("urn:github:avatar_url", "avatar_url");
+        opts.ClaimActions.MapJsonKey("urn:github:html_url", "html_url");
+
         opts.Events = new OAuthEvents
         {
             OnCreatingTicket = async context =>
             {
-                // Basic user info
-                using var userReq = new HttpRequestMessage(HttpMethod.Get, context.Options.UserInformationEndpoint);
-                userReq.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", context.AccessToken);
-                userReq.Headers.Accept.ParseAdd("application/json");
-                try { userReq.Headers.UserAgent.ParseAdd("KestrunOAuth/1.0"); } catch { }
-                using var userResp = await context.Backchannel.SendAsync(userReq, context.HttpContext.RequestAborted).ConfigureAwait(false);
-                if (userResp.IsSuccessStatusCode)
-                {
-                    using var doc = JsonDocument.Parse(await userResp.Content.ReadAsStringAsync(context.HttpContext.RequestAborted).ConfigureAwait(false));
-                    context.RunClaimActions(doc.RootElement);
-                }
-                // Optional email enrichment
-                if (enrichEmail && context.Identity?.Claims?.Any(c => c.Type == System.Security.Claims.ClaimTypes.Email) != true &&
-                    context.Options.Scope.Any(s => string.Equals(s, "user:email", StringComparison.OrdinalIgnoreCase)))
-                {
-                    using var emailReq = new HttpRequestMessage(HttpMethod.Get, "https://api.github.com/user/emails");
-                    emailReq.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", context.AccessToken);
-                    emailReq.Headers.Accept.ParseAdd("application/json");
-                    try { emailReq.Headers.UserAgent.ParseAdd("KestrunOAuth/1.0"); } catch { }
-                    using var emailResp = await context.Backchannel.SendAsync(emailReq, context.HttpContext.RequestAborted).ConfigureAwait(false);
-                    if (emailResp.IsSuccessStatusCode)
-                    {
-                        using var doc = JsonDocument.Parse(await emailResp.Content.ReadAsStringAsync(context.HttpContext.RequestAborted).ConfigureAwait(false));
-                        if (doc.RootElement.ValueKind == JsonValueKind.Array)
-                        {
-                            JsonElement? pick = null;
-                            foreach (var e in doc.RootElement.EnumerateArray())
-                            {
-                                if (e.TryGetProperty("primary", out var p) && p.ValueKind == JsonValueKind.True &&
-                                    e.TryGetProperty("verified", out var v) && v.ValueKind == JsonValueKind.True)
-                                { pick = e; break; }
-                            }
-                            if (pick is null)
-                            {
-                                foreach (var e in doc.RootElement.EnumerateArray())
-                                {
-                                    if (e.TryGetProperty("verified", out var v) && v.ValueKind == JsonValueKind.True) { pick = e; break; }
-                                }
-                            }
-                            if (pick is null && doc.RootElement.GetArrayLength() > 0)
-                            {
-                                pick = doc.RootElement[0];
-                            }
-                            if (pick is not null && pick.Value.TryGetProperty("email", out var emailProp) && emailProp.ValueKind == JsonValueKind.String)
-                            {
-                                var email = emailProp.GetString();
-                                if (!string.IsNullOrWhiteSpace(email))
-                                {
-                                    context.Identity!.AddClaim(new System.Security.Claims.Claim(System.Security.Claims.ClaimTypes.Email, email!, System.Security.Claims.ClaimValueTypes.String, context.Options.ClaimsIssuer));
-                                }
-                            }
-                        }
-                    }
-                }
+                // Fetch the user info from GitHub
+                var request = new HttpRequestMessage(HttpMethod.Get, context.Options.UserInformationEndpoint);
+                request.Headers.Accept.Add(new("application/json"));
+                request.Headers.Add("User-Agent", "KestrunOAuth/1.0");
+                request.Headers.Authorization = new("Bearer", context.AccessToken);
+
+                var response = await context.Backchannel.SendAsync(request,
+                    HttpCompletionOption.ResponseHeadersRead,
+                    context.HttpContext.RequestAborted);
+
+                _ = response.EnsureSuccessStatusCode();
+
+                using var user = JsonDocument.Parse(await response.Content.ReadAsStringAsync(context.HttpContext.RequestAborted));
+                context.RunClaimActions(user.RootElement);
             }
+
         };
-        configure?.Invoke(opts);
         return host.AddOAuth2Authentication(scheme, opts);
+
     }
+
+
     #endregion
     #region JWT Bearer Authentication
     /// <summary>
@@ -340,8 +281,9 @@ public static class KestrunHostAuthnExtensions
         Action<CookieAuthenticationOptions>? configure = null,
      ClaimPolicyConfig? claimPolicy = null)
     {
+        // register in host for introspection
         _ = host.RegisteredAuthentications.Register(scheme, "Cookie", configure);
-
+        // Add authentication
         return host.AddAuthentication(
             defaultScheme: scheme,
             buildSchemes: ab =>
@@ -425,8 +367,10 @@ public static class KestrunHostAuthnExtensions
     public static KestrunHost AddWindowsAuthentication(this KestrunHost host)
     {
         var options = new AuthenticationSchemeOptions();
-
+        //register in host for introspection
         _ = host.RegisteredAuthentications.Register("Windows", "WindowsAuth", options);
+
+        // Add authentication
         return host.AddAuthentication(
             defaultScheme: NegotiateDefaults.AuthenticationScheme,
             buildSchemes: ab =>
@@ -452,6 +396,7 @@ public static class KestrunHostAuthnExtensions
     {
         // register in host for introspection
         _ = host.RegisteredAuthentications.Register(scheme, "ApiKey", configure);
+        // Add authentication
         var h = host.AddAuthentication(
            defaultScheme: scheme,
            buildSchemes: ab =>
@@ -490,140 +435,41 @@ public static class KestrunHostAuthnExtensions
     /// </summary>
     /// <param name="host">The Kestrun host instance.</param>
     /// <param name="scheme">The authentication scheme name.</param>
-    /// <param name="options">The OAuthOptions to configure the authentication.</param>
-    /// <param name="claimPolicy">Optional authorization policy configuration.</param>
+    /// <param name="options">The OAuth2Options to configure the authentication.</param>
     /// <returns>The configured KestrunHost instance.</returns>
     public static KestrunHost AddOAuth2Authentication(
         this KestrunHost host,
         string scheme,
-        OAuthOptions options,
-        ClaimPolicyConfig? claimPolicy = null /* optional in practice */)
+        OAuth2Options options)
     {
+        ArgumentNullException.ThrowIfNull(options);
+        if (string.IsNullOrWhiteSpace(options.ClientId))
+        {
+            throw new ArgumentException("ClientId must be provided in OAuth2Options", nameof(options));
+        }
         // register in host for introspection
         _ = host.RegisteredAuthentications.Register(scheme, "OAuth2", options);
-        // Derive cookie/policy schemes
-        var cookieScheme = string.IsNullOrWhiteSpace(options.SignInScheme)
-            ? scheme + ".Cookies"
-            : options.SignInScheme;
-        var policyScheme = scheme + ".Policy";
 
+        // Add authentication
         return host.AddAuthentication(
-            defaultScheme: policyScheme,
+            defaultScheme: options.AuthenticationScheme,
             defaultChallengeScheme: scheme,
             buildSchemes: ab =>
             {
-                // Ensure there's a cookie scheme to sign into
-                _ = ab.AddCookie(cookieScheme);
-
-                // Register OAuth handler with the provided options
-                _ = ab.AddOAuth(scheme, o =>
+                _ = ab.AddCookie(options.AuthenticationScheme, cookieOpts =>
                 {
-                    // Copy everything from the supplied options
-                    Copy(o, options);
+                    CopyCookieAuthenticationOptions(options.CookieOptions, cookieOpts);
+                });
+                _ = ab.AddOAuth(scheme, oauthOpts =>
+                {
 
-                    // Ensure we sign into the cookie scheme we just added
-                    o.SignInScheme = cookieScheme;
+                    options.ApplyTo(oauthOpts);
 
-                    // If the caller forgot, keep tokens by default
-                    if (!o.SaveTokens)
-                    {
-                        o.SaveTokens = true;
-                    }
-
-                    // If a UserInformationEndpoint is specified and no custom OnCreatingTicket logic
-                    // adds claims, attach a default handler that fetches user info JSON and runs claim actions.
-                    var previous = o.Events?.OnCreatingTicket;
-                    o.Events ??= new OAuthEvents();
-                    o.Events.OnCreatingTicket = async context =>
-                    {
-                        if (previous is not null)
-                        {
-                            await previous(context).ConfigureAwait(false);
-                        }
-
-                        if (!string.IsNullOrWhiteSpace(context.Options.UserInformationEndpoint))
-                        {
-                            using var request = new HttpRequestMessage(HttpMethod.Get, context.Options.UserInformationEndpoint);
-                            request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", context.AccessToken);
-                            request.Headers.Accept.ParseAdd("application/json");
-                            // Add a default User-Agent if none is present (some providers like GitHub require it)
-                            try { request.Headers.UserAgent.ParseAdd("KestrunOAuth/1.0"); } catch { /* ignore */ }
-
-                            using var response = await context.Backchannel.SendAsync(request, context.HttpContext.RequestAborted).ConfigureAwait(false);
-                            if (!response.IsSuccessStatusCode)
-                            {
-                                host.Logger.Warning("OAuth userinfo request failed: {StatusCode} {Reason}", (int)response.StatusCode, response.ReasonPhrase);
-                                return; // proceed without userinfo claims
-                            }
-
-                            using var payload = JsonDocument.Parse(await response.Content.ReadAsStringAsync(context.HttpContext.RequestAborted).ConfigureAwait(false));
-                            context.RunClaimActions(payload.RootElement);
-
-                        }
-                    };
                 });
 
-                // Policy scheme: auth/sign-in/out → cookies; challenge → OAuth
-                _ = ab.AddPolicyScheme(policyScheme, "App Auth", fwd =>
-                {
-                    fwd.ForwardAuthenticate = cookieScheme;
-                    fwd.ForwardSignIn = cookieScheme;
-                    fwd.ForwardSignOut = cookieScheme;
-                    fwd.ForwardForbid = cookieScheme;
-                    fwd.ForwardChallenge = scheme;
-                });
-            },
-            // Apply claim policy if supplied (consistent with other schemes)
-            configureAuthz: claimPolicy?.ToAuthzDelegate()
-        );
-
-        static void Copy(OAuthOptions dst, OAuthOptions src)
-        {
-            dst.AuthorizationEndpoint = src.AuthorizationEndpoint;
-            dst.TokenEndpoint = src.TokenEndpoint;
-            dst.UserInformationEndpoint = src.UserInformationEndpoint;
-            dst.ClientId = src.ClientId;
-            dst.ClientSecret = src.ClientSecret;
-            dst.CallbackPath = src.CallbackPath;
-            dst.SaveTokens = src.SaveTokens;
-            dst.ClaimsIssuer = src.ClaimsIssuer;
-            dst.UsePkce = src.UsePkce;
-            dst.Scope.Clear();
-            foreach (var s in src.Scope)
-            {
-                dst.Scope.Add(s);
-            }
-
-            // Backchannel & timeout (if provided)
-            if (src.BackchannelTimeout != default)
-            {
-                dst.BackchannelTimeout = src.BackchannelTimeout;
-            }
-            if (src.Backchannel is not null)
-            {
-                dst.Backchannel = src.Backchannel;
-            }
-            if (src.BackchannelHttpHandler is not null)
-            {
-                dst.BackchannelHttpHandler = src.BackchannelHttpHandler;
-            }
-
-            // Claim actions & events (if any) need copying explicitly:
-            foreach (var a in src.ClaimActions)
-            {
-                // Only map json-key actions when the JsonKey is available to avoid passing null
-                if (a is Microsoft.AspNetCore.Authentication.OAuth.Claims.JsonKeyClaimAction jka && !string.IsNullOrEmpty(jka.JsonKey))
-                {
-                    dst.ClaimActions.MapJsonKey(a.ClaimType, jka.JsonKey);
-                }
-            }
-
-            if (src.Events is not null)
-            {
-                dst.Events = src.Events;
-            }
-        }
+            });
     }
+
 
     #endregion
     #region OpenID Connect Authentication
@@ -646,6 +492,8 @@ public static class KestrunHostAuthnExtensions
             throw new ArgumentException("ClientId must be provided in OpenIdConnectOptions", nameof(options));
         }
         var clientId = options.ClientId;
+        // register in host for introspection
+        _ = host.RegisteredAuthentications.Register(scheme, "Oidc", options);
 
         // CRITICAL: Register OidcEvents and AssertionService in DI before configuring authentication
         // This is required because EventsType expects these to be available in the service provider
@@ -675,7 +523,7 @@ public static class KestrunHostAuthnExtensions
                   _ = ab.AddOpenIdConnect(scheme, oidcOpts =>
                  {
                      // Copy all properties from the provided options to the framework's options
-                     CopyOpenIdConnectOptions(options, oidcOpts);
+                     options.ApplyTo(oidcOpts);
 
                      // Inject private key JWT at code → token step (only if JwkJson is provided)
                      // This will be resolved from DI at runtime
@@ -1079,15 +927,17 @@ public static class KestrunHostAuthnExtensions
 
         // Cookie builder settings
         // (Cookie is always non-null; copy primitive settings)
-        target.Cookie.Name = source.Cookie.Name;
-        target.Cookie.Path = source.Cookie.Path;
-        target.Cookie.Domain = source.Cookie.Domain;
-        target.Cookie.HttpOnly = source.Cookie.HttpOnly;
-        target.Cookie.SameSite = source.Cookie.SameSite;
-        target.Cookie.SecurePolicy = source.Cookie.SecurePolicy;
-        target.Cookie.IsEssential = source.Cookie.IsEssential;
-        target.Cookie.MaxAge = source.Cookie.MaxAge;
-
+        if (source.Cookie.Name is not null)
+        {
+            target.Cookie.Name = source.Cookie.Name;
+            target.Cookie.Path = source.Cookie.Path;
+            target.Cookie.Domain = source.Cookie.Domain;
+            target.Cookie.HttpOnly = source.Cookie.HttpOnly;
+            target.Cookie.SameSite = source.Cookie.SameSite;
+            target.Cookie.SecurePolicy = source.Cookie.SecurePolicy;
+            target.Cookie.IsEssential = source.Cookie.IsEssential;
+            target.Cookie.MaxAge = source.Cookie.MaxAge;
+        }
         // Forwarding
         target.ForwardAuthenticate = source.ForwardAuthenticate;
         target.ForwardChallenge = source.ForwardChallenge;
@@ -1111,218 +961,102 @@ public static class KestrunHostAuthnExtensions
         target.ClaimsIssuer = source.ClaimsIssuer;
     }
 
+
+
+
     /// <summary>
-    /// Helper to copy values from a user-supplied OpenIdConnectOptions instance to the instance
-    /// created by the framework inside AddOpenIdConnect().
+    /// HTTP message handler that logs all HTTP requests and responses for debugging.
     /// </summary>
-    /// <param name="source">The source options to copy from.</param>
-    /// <param name="target">The target options to copy to.</param>
-    private static void CopyOpenIdConnectOptions(OpenIdConnectOptions source, OpenIdConnectOptions target)
+    internal class LoggingHttpMessageHandler(HttpMessageHandler innerHandler, Serilog.ILogger logger) : DelegatingHandler(innerHandler)
     {
-        // Core OIDC endpoints
-        target.Authority = source.Authority;
-        target.ClientId = source.ClientId;
-        target.ClientSecret = source.ClientSecret;
+        private readonly Serilog.ILogger _logger = logger ?? throw new ArgumentNullException(nameof(logger));
 
-        // Flow configuration
-        target.ResponseType = source.ResponseType;
-        target.ResponseMode = source.ResponseMode;
-        target.UsePkce = source.UsePkce;
-        target.RequireHttpsMetadata = source.RequireHttpsMetadata;
+        // CRITICAL: Static field to store the last token response body so we can manually parse it
+        // The framework's OpenIdConnectMessage parser fails to populate AccessToken correctly
+        internal static string? LastTokenResponseBody { get; private set; }
 
-        // Scopes - clear and copy
-        target.Scope.Clear();
-        foreach (var scope in source.Scope)
+        protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
-            target.Scope.Add(scope);
-        }
+            // Log request
+            _logger.Warning($"HTTP {request.Method} {request.RequestUri}");
 
-        // Token handling
-        target.SaveTokens = source.SaveTokens;
-        target.GetClaimsFromUserInfoEndpoint = source.GetClaimsFromUserInfoEndpoint;
-        target.MapInboundClaims = source.MapInboundClaims;
-        target.UseSecurityTokenValidator = source.UseSecurityTokenValidator;
+            // Check if this is a token endpoint request
+            var isTokenEndpoint = request.RequestUri?.PathAndQuery?.Contains("/connect/token") == true ||
+                                 request.RequestUri?.PathAndQuery?.Contains("/token") == true;
 
-        // Paths
-        target.CallbackPath = source.CallbackPath;
-        target.SignedOutCallbackPath = source.SignedOutCallbackPath;
-        target.SignedOutRedirectUri = source.SignedOutRedirectUri;
-        target.RemoteSignOutPath = source.RemoteSignOutPath;
-
-        // Token validation
-        if (source.TokenValidationParameters != null)
-        {
-            target.TokenValidationParameters = source.TokenValidationParameters;
-        }
-
-        // Scheme linkage
-        target.SignInScheme = source.SignInScheme;
-        target.SignOutScheme = source.SignOutScheme;
-
-        // Backchannel configuration
-        if (source.Backchannel != null)
-        {
-            target.Backchannel = source.Backchannel;
-        }
-        if (source.BackchannelHttpHandler != null)
-        {
-            target.BackchannelHttpHandler = source.BackchannelHttpHandler;
-        }
-        if (source.BackchannelTimeout != default)
-        {
-            target.BackchannelTimeout = source.BackchannelTimeout;
-        }
-
-        // Configuration
-        if (source.Configuration != null)
-        {
-            target.Configuration = source.Configuration;
-        }
-        if (source.ConfigurationManager != null)
-        {
-            target.ConfigurationManager = source.ConfigurationManager;
-        }
-
-        // Claim actions
-        if (source.ClaimActions != null)
-        {
-            foreach (var action in source.ClaimActions)
+            if (request.Content != null && !isTokenEndpoint)
             {
-                if (action is Microsoft.AspNetCore.Authentication.OAuth.Claims.JsonKeyClaimAction jka
-                    && !string.IsNullOrEmpty(jka.JsonKey) && !string.IsNullOrEmpty(action.ClaimType))
+                // Read request body without consuming it (only for non-token requests)
+                var requestBytes = await request.Content.ReadAsByteArrayAsync(cancellationToken);
+                var requestBody = System.Text.Encoding.UTF8.GetString(requestBytes);
+                _logger.Warning($"Request Body: {requestBody}");
+
+                // Recreate the content so it can be read again
+                request.Content = new ByteArrayContent(requestBytes);
+                request.Content.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("application/x-www-form-urlencoded");
+            }
+            else if (request.Content != null && isTokenEndpoint)
+            {
+                _logger.Warning("Token endpoint request - skipping body logging to preserve stream");
+            }
+
+            // Send request
+            var response = await base.SendAsync(request, cancellationToken);
+
+            // Log response
+            _logger.Warning($"HTTP Response: {(int)response.StatusCode} {response.StatusCode}");
+
+            // CRITICAL: For token endpoint responses, capture the body for manual parsing
+            // but then recreate the stream so the framework can also read it
+            if (response.Content != null && isTokenEndpoint)
+            {
+                // Read the response body
+                var responseBytes = await response.Content.ReadAsByteArrayAsync(cancellationToken);
+                var responseBody = System.Text.Encoding.UTF8.GetString(responseBytes);
+
+                // Store it in static field for later manual parsing
+                LastTokenResponseBody = responseBody;
+                _logger.Warning($"Captured token response body ({responseBytes.Length} bytes) for manual parsing");
+
+                // Recreate the content stream with ALL original headers preserved
+                var originalHeaders = response.Content.Headers.ToList();
+                var newContent = new ByteArrayContent(responseBytes);
+
+                foreach (var header in originalHeaders)
                 {
-                    target.ClaimActions.MapJsonKey(action.ClaimType, jka.JsonKey);
+                    _ = newContent.Headers.TryAddWithoutValidation(header.Key, header.Value);
                 }
+
+                response.Content = newContent;
+                _logger.Warning("Recreated token response stream for framework parsing");
             }
-        }
-
-        // Events - copy if provided
-        if (source.Events != null)
-        {
-            target.Events = source.Events;
-        }
-        if (source.EventsType != null)
-        {
-            target.EventsType = source.EventsType;
-        }
-
-        // Issuer and other properties
-        target.ClaimsIssuer = source.ClaimsIssuer;
-        target.DisableTelemetry = source.DisableTelemetry;
-        target.MaxAge = source.MaxAge;
-        target.ProtocolValidator = source.ProtocolValidator;
-        target.RefreshOnIssuerKeyNotFound = source.RefreshOnIssuerKeyNotFound;
-        target.Resource = source.Resource;
-        target.SkipUnrecognizedRequests = source.SkipUnrecognizedRequests;
-        target.StateDataFormat = source.StateDataFormat;
-        target.StringDataFormat = source.StringDataFormat;
-
-#if NET9_0_OR_GREATER
-        target.PushedAuthorizationBehavior = source.PushedAuthorizationBehavior;
-        // AdditionalAuthorizationParameters is read-only collection, copy items individually
-        if (source.AdditionalAuthorizationParameters != null)
-        {
-            foreach (var param in source.AdditionalAuthorizationParameters)
+            else if (response.Content != null && !isTokenEndpoint)
             {
-                target.AdditionalAuthorizationParameters[param.Key] = param.Value;
+                // Save original headers
+                var originalHeaders = response.Content.Headers;
+
+                // Read response body and preserve it for the handler
+                var responseBytes = await response.Content.ReadAsByteArrayAsync(cancellationToken);
+                var responseBody = System.Text.Encoding.UTF8.GetString(responseBytes);
+                _logger.Warning($"Response Body: {responseBody}");
+
+                // Recreate the content so it can be read again by the OIDC handler
+                var newContent = new ByteArrayContent(responseBytes);
+
+                // Copy all original headers to the new content
+                foreach (var header in originalHeaders)
+                {
+                    _ = newContent.Headers.TryAddWithoutValidation(header.Key, header.Value);
+                }
+
+                response.Content = newContent;
             }
-        }
-#endif
-    }
-}
-
-/// <summary>
-/// HTTP message handler that logs all HTTP requests and responses for debugging.
-/// </summary>
-internal class LoggingHttpMessageHandler(HttpMessageHandler innerHandler, Serilog.ILogger logger) : DelegatingHandler(innerHandler)
-{
-    private readonly Serilog.ILogger _logger = logger ?? throw new ArgumentNullException(nameof(logger));
-
-    // CRITICAL: Static field to store the last token response body so we can manually parse it
-    // The framework's OpenIdConnectMessage parser fails to populate AccessToken correctly
-    internal static string? LastTokenResponseBody { get; private set; }
-
-    protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
-    {
-        // Log request
-        _logger.Warning($"HTTP {request.Method} {request.RequestUri}");
-
-        // Check if this is a token endpoint request
-        var isTokenEndpoint = request.RequestUri?.PathAndQuery?.Contains("/connect/token") == true ||
-                             request.RequestUri?.PathAndQuery?.Contains("/token") == true;
-
-        if (request.Content != null && !isTokenEndpoint)
-        {
-            // Read request body without consuming it (only for non-token requests)
-            var requestBytes = await request.Content.ReadAsByteArrayAsync(cancellationToken);
-            var requestBody = System.Text.Encoding.UTF8.GetString(requestBytes);
-            _logger.Warning($"Request Body: {requestBody}");
-
-            // Recreate the content so it can be read again
-            request.Content = new ByteArrayContent(requestBytes);
-            request.Content.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("application/x-www-form-urlencoded");
-        }
-        else if (request.Content != null && isTokenEndpoint)
-        {
-            _logger.Warning("Token endpoint request - skipping body logging to preserve stream");
-        }
-
-        // Send request
-        var response = await base.SendAsync(request, cancellationToken);
-
-        // Log response
-        _logger.Warning($"HTTP Response: {(int)response.StatusCode} {response.StatusCode}");
-
-        // CRITICAL: For token endpoint responses, capture the body for manual parsing
-        // but then recreate the stream so the framework can also read it
-        if (response.Content != null && isTokenEndpoint)
-        {
-            // Read the response body
-            var responseBytes = await response.Content.ReadAsByteArrayAsync(cancellationToken);
-            var responseBody = System.Text.Encoding.UTF8.GetString(responseBytes);
-
-            // Store it in static field for later manual parsing
-            LastTokenResponseBody = responseBody;
-            _logger.Warning($"Captured token response body ({responseBytes.Length} bytes) for manual parsing");
-
-            // Recreate the content stream with ALL original headers preserved
-            var originalHeaders = response.Content.Headers.ToList();
-            var newContent = new ByteArrayContent(responseBytes);
-
-            foreach (var header in originalHeaders)
+            else if (response.Content != null && isTokenEndpoint)
             {
-                _ = newContent.Headers.TryAddWithoutValidation(header.Key, header.Value);
+                _logger.Warning("Token endpoint response - skipping body logging to let framework parse it");
             }
 
-            response.Content = newContent;
-            _logger.Warning("Recreated token response stream for framework parsing");
+            return response;
         }
-        else if (response.Content != null && !isTokenEndpoint)
-        {
-            // Save original headers
-            var originalHeaders = response.Content.Headers;
-
-            // Read response body and preserve it for the handler
-            var responseBytes = await response.Content.ReadAsByteArrayAsync(cancellationToken);
-            var responseBody = System.Text.Encoding.UTF8.GetString(responseBytes);
-            _logger.Warning($"Response Body: {responseBody}");
-
-            // Recreate the content so it can be read again by the OIDC handler
-            var newContent = new ByteArrayContent(responseBytes);
-
-            // Copy all original headers to the new content
-            foreach (var header in originalHeaders)
-            {
-                _ = newContent.Headers.TryAddWithoutValidation(header.Key, header.Value);
-            }
-
-            response.Content = newContent;
-        }
-        else if (response.Content != null && isTokenEndpoint)
-        {
-            _logger.Warning("Token endpoint response - skipping body logging to let framework parse it");
-        }
-
-        return response;
     }
 }

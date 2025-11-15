@@ -13,12 +13,8 @@
     GitHub OAuth App Client ID.
 .PARAMETER ClientSecret
     GitHub OAuth App Client Secret.
-.PARAMETER Scope
-    Additional scopes to append (read:user, user:email included by default).
 .PARAMETER CallbackPath
-    Optional callback path (default '/signin-github'). Must match your GitHub OAuth App redirect URL path.
-.PARAMETER DisableEmailEnrichment
-    If set, skips calling /user/emails for supplemental email claim.
+    Optional callback path (default '/signin-oauth'). Must match your GitHub OAuth App redirect URL path.
 .PARAMETER PassThru
     Return the modified server object.
 .EXAMPLE
@@ -40,24 +36,20 @@ function Add-KrGitHubAuthentication {
         [string]$ClientId,
         [Parameter(Mandatory = $true)]
         [string]$ClientSecret,
-        [string[]]$Scope,
-        [string]$CallbackPath = '/signin-github',
-        [switch]$DisableEmailEnrichment,
+        [string]$CallbackPath = '/signin-oauth',
         [switch]$PassThru
     )
     process {
         $Server = Resolve-KestrunServer -Server $Server
-        $enrich = -not $DisableEmailEnrichment.IsPresent
+
         [Kestrun.Hosting.KestrunHostAuthnExtensions]::AddGitHubOAuthAuthentication(
             $Server,
             $Name,
             $ClientId,
             $ClientSecret,
-            $Scope,
-            $CallbackPath,
-            $enrich,
-            $null
+            $CallbackPath
         ) | Out-Null
+
         if ($PassThru) { return $Server }
     }
 }

@@ -464,7 +464,7 @@ Add-KrMapRoute -Verbs Get -Pattern '/logout' -AllowAnonymous -ScriptBlock {
     $postLogoutUri = "${uriScheme}://${hostValue}/"
 
     Write-KrLog -Level Debug -Message 'Logging out with post_logout_redirect_uri: {uri}' -Values $postLogoutUri
-    Invoke-KrCookieSignOut -OidcScheme 'oidc' -RedirectUri $postLogoutUri
+    Invoke-KrCookieSignOut -AuthKind 'Oidc' -Scheme 'oidc' -RedirectUri $postLogoutUri
 }
 
 # 9) Start server

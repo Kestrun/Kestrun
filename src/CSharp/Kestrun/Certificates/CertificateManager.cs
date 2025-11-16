@@ -969,16 +969,101 @@ public static class CertificateManager
         SecureString password,
         bool includePrivateKey = false)
     {
-        password.ToSecureSpan(span =>
-            Export(cert, filePath, fmt, span, includePrivateKey)
-        // this will run your span‐based implementation,
-        // then immediately zero & free the unmanaged buffer
-        );
+        if (password is null)
+        {
+            // Delegate to span-based overload with no password
+            Export(cert, filePath, fmt, [], includePrivateKey);
+        }
+        else
+        {
+            password.ToSecureSpan(span =>
+                Export(cert, filePath, fmt, span, includePrivateKey)
+            // this will run your span‐based implementation,
+            // then immediately zero & free the unmanaged buffer
+            );
+        }
     }
+
+
+    /// <summary>
+    /// Creates a self-signed certificate from the given RSA JWK JSON and exports it
+    /// as a PEM certificate (optionally including the private key) to the specified path.
+    /// </summary>
+    /// <param name="jwkJson">The RSA JWK JSON string.</param>
+    /// <param name="filePath">
+    /// Target file path. If no extension is provided, ".pem" will be added.
+    /// </param>
+    /// <param name="password">
+    /// Optional password used to encrypt the private key when <paramref name="includePrivateKey"/> is true.
+    /// Ignored when <paramref name="includePrivateKey"/> is false.
+    /// </param>
+    /// <param name="includePrivateKey">
+    /// If true, the PEM export will include the private key (and create a .key file as per Export logic).
+    /// </param>
+    public static void ExportPemFromJwkJson(
+        string jwkJson,
+        string filePath,
+        ReadOnlySpan<char> password = default,
+        bool includePrivateKey = false)
+    {
+        if (string.IsNullOrWhiteSpace(jwkJson))
+        {
+            throw new ArgumentException("JWK JSON cannot be null or empty.", nameof(jwkJson));
+        }
+
+        // 1) Create a self-signed certificate from the JWK
+        var cert = CreateSelfSignedCertificateFromJwk(jwkJson);
+
+        // 2) Reuse the existing Export pipeline to write PEM (cert + optional key)
+        Export(cert, filePath, ExportFormat.Pem, password, includePrivateKey);
+    }
+
+    /// <summary>
+    /// Creates a self-signed certificate from the given RSA JWK JSON and exports it
+    /// as a PEM certificate (optionally including the private key) to the specified path,
+    /// using a <see cref="SecureString"/> password.
+    /// </summary>
+    /// <param name="jwkJson">The RSA JWK JSON string.</param>
+    /// <param name="filePath">Target file path for the PEM output.</param>
+    /// <param name="password">
+    /// SecureString password used to encrypt the private key when
+    /// <paramref name="includePrivateKey"/> is true.
+    /// </param>
+    /// <param name="includePrivateKey">
+    /// If true, the PEM export will include the private key.
+    /// </param>
+    public static void ExportPemFromJwkJson(
+        string jwkJson,
+        string filePath,
+        SecureString password,
+        bool includePrivateKey = false)
+    {
+        if (password is null)
+        {
+            // Delegate to span-based overload with no password
+            ExportPemFromJwkJson(jwkJson, filePath, [], includePrivateKey);
+            return;
+        }
+
+        password.ToSecureSpan(span =>
+        {
+            ExportPemFromJwkJson(jwkJson, filePath, span, includePrivateKey);
+        });
+    }
+
 
     #endregion
 
     #region JWK
+
+
+    private static readonly JsonSerializerOptions s_jwkJsonOptions = new()
+    {
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
+        WriteIndented = false
+    };
+
     /// <summary>
     /// Represents an RSA JSON Web Key (JWK).
     /// </summary>
@@ -1237,7 +1322,66 @@ public static class CertificateManager
             jwk.QI = Base64UrlEncoder.Encode(p.InverseQ);
         }
 
-        return JsonSerializer.Serialize(jwk, JwkJson.Options);
+        return JsonSerializer.Serialize(jwk, s_jwkJsonOptions);
+    }
+
+    /// <summary>
+    /// Creates an RSA JWK JSON from a given RSA instance (must contain private key).
+    /// </summary>
+    /// <param name="rsa">The RSA instance with a private key.</param>
+    /// <param name="keyId">Optional key identifier (kid) to set on the JWK.</param>
+    /// <returns>JWK JSON string containing public and private parameters.</returns>
+    public static string CreateJwkJsonFromRsa(RSA rsa, string? keyId = null)
+    {
+        ArgumentNullException.ThrowIfNull(rsa);
+
+        // true => includes private key params (d, p, q, dp, dq, qi)
+        var p = rsa.ExportParameters(includePrivateParameters: true);
+
+        if (p.D is null || p.P is null || p.Q is null ||
+            p.DP is null || p.DQ is null || p.InverseQ is null)
+        {
+            throw new InvalidOperationException("RSA key does not contain private parameters.");
+        }
+
+        var jwk = new RsaJwk
+        {
+            Kty = "RSA",
+            N = Base64UrlEncoder.Encode(p.Modulus),
+            E = Base64UrlEncoder.Encode(p.Exponent),
+            D = Base64UrlEncoder.Encode(p.D),
+            P = Base64UrlEncoder.Encode(p.P),
+            Q = Base64UrlEncoder.Encode(p.Q),
+            DP = Base64UrlEncoder.Encode(p.DP),
+            DQ = Base64UrlEncoder.Encode(p.DQ),
+            QI = Base64UrlEncoder.Encode(p.InverseQ),
+            Kid = keyId
+        };
+
+        return JsonSerializer.Serialize(jwk, s_jwkJsonOptions);
+    }
+
+    /// <summary>
+    /// Creates an RSA JWK JSON from a PKCS#1 or PKCS#8 RSA private key in PEM format.
+    /// </summary>
+    /// <param name="rsaPrivateKeyPem">
+    /// PEM containing an RSA private key (e.g. "-----BEGIN RSA PRIVATE KEY----- ...").
+    /// </param>
+    /// <param name="keyId">Optional key identifier (kid) to set on the JWK.</param>
+    /// <returns>JWK JSON string containing public and private parameters.</returns>
+    public static string CreateJwkJsonFromRsaPrivateKeyPem(
+        string rsaPrivateKeyPem,
+        string? keyId = null)
+    {
+        if (string.IsNullOrWhiteSpace(rsaPrivateKeyPem))
+        {
+            throw new ArgumentException("RSA private key PEM cannot be null or empty.", nameof(rsaPrivateKeyPem));
+        }
+
+        using var rsa = RSA.Create();
+        rsa.ImportFromPem(rsaPrivateKeyPem.AsSpan());
+
+        return CreateJwkJsonFromRsa(rsa, keyId);
     }
 
 

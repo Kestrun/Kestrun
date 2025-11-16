@@ -186,63 +186,8 @@ $EffectiveClientId = $ClientId
 Initialize-KrRoot -Path $PSScriptRoot
 
 # For JWT authentication modes, load the Duende demo RSA keys
-$certificate = $null
-$publicKey = $null
 
-if ($UseJwtAuth) {
-    $privateKeyPemPath = Join-Path -Path $PSScriptRoot -ChildPath 'Assets' -AdditionalChildPath 'certs', 'private.pem'
-    $publicKeyPemPath = Join-Path -Path $PSScriptRoot -ChildPath 'Assets' -AdditionalChildPath 'certs', 'public.pem'
 
-    try {
-        if (-not (Test-Path $privateKeyPemPath)) {
-            throw "Private key PEM file not found: $privateKeyPemPath"
-        }
-
-        # Read and import private key
-        $privateKeyContent = Get-Content $privateKeyPemPath -Raw
-        $rsa = [System.Security.Cryptography.RSA]::Create()
-        $rsa.ImportFromPem($privateKeyContent)
-
-        # Read and import public key
-        if (-not (Test-Path $publicKeyPemPath)) {
-            throw "Public key PEM file not found: $publicKeyPemPath"
-        }
-        $publicKeyContent = Get-Content $publicKeyPemPath -Raw
-        $rsaPublic = [System.Security.Cryptography.RSA]::Create()
-        $rsaPublic.ImportFromPem($publicKeyContent)
-
-        # Extract RSA parameters
-        $rsaParams = $rsaPublic.ExportParameters($false)
-
-        # Create self-signed certificate
-        $certRequest = [System.Security.Cryptography.X509Certificates.CertificateRequest]::new(
-            'CN=Duende Demo OIDC',
-            $rsa,
-            [System.Security.Cryptography.HashAlgorithmName]::SHA256,
-            [System.Security.Cryptography.RSASignaturePadding]::Pkcs1
-        )
-
-        $certificate = $certRequest.CreateSelfSigned(
-            [DateTimeOffset]::Now.AddDays(-1),
-            [DateTimeOffset]::Now.AddYears(1)
-        )
-
-        # Build public key JWK
-        $publicKey = @{
-            kty = 'RSA'
-            n = ConvertTo-KrBase64Url $rsaParams.Modulus
-            e = ConvertTo-KrBase64Url $rsaParams.Exponent
-            kid = (Get-KrJwkThumbprint -Certificate $certificate)
-        }
-
-        Write-Host '✅ JWT authentication enabled - loaded RSA keys from PEM files' -ForegroundColor Green
-    } catch {
-        Write-Error "Failed to load RSA keys for JWT authentication: $_"
-        $certificate = $null
-        return 1
-    }
-}
- 
 
 # 1) Logging
 New-KrLogger |
@@ -283,9 +228,6 @@ if ($UseJwtAuth) {
     foreach ($scope in $Scopes) {
         $oidcOptions.Scope.Add($scope) | Out-Null
     }
-    #   $oidcOptions.PushedAuthorizationBehavior = [Microsoft.AspNetCore.Authentication.OpenIdConnect.PushedAuthorizationBehavior]::Disable;
-
-
 
     # Add ResponseType if specified
     if ($modeConfig.ResponseType) {
@@ -303,6 +245,19 @@ if ($UseJwtAuth) {
         }
         Write-KrLog -Level Debug -Message 'Using ResponseMode: {responseMode}' -Values $modeConfig.ResponseMode
     }
+    $privateKeyPemPath = Join-Path -Path $PSScriptRoot -ChildPath 'Assets' -AdditionalChildPath 'certs', 'private.pem'
+
+
+    if (-not (Test-Path $privateKeyPemPath)) {
+        throw "Private key PEM file not found: $privateKeyPemPath"
+    }
+    #$wellKnown = Invoke-RestMethod -Uri ($Authority.TrimEnd('/') + '/.well-known/openid-configuration')
+
+    #$TokenEndpoint = $wellKnown.token_endpoint
+
+    #Write-KrLog -Level Debug -Message 'Using token endpoint: {tokenEndpoint}' -Values $TokenEndpoint
+
+
     $ClientAssertionJwkJson = @{
         'd' = 'GmiaucNIzdvsEzGjZjd43SDToy1pz-Ph-shsOUXXh-dsYNGftITGerp8bO1iryXh_zUEo8oDK3r1y4klTonQ6bLsWw4ogjLPmL3yiqsoSjJa1G2Ymh_RY_' +
         'sFZLLXAcrmpbzdWIAkgkHSZTaliL6g57vA7gxvd8L4s82wgGer_JmURI0ECbaCg98JVS0Srtf9GeTRHoX4foLWKc1Vq6NHthzqRMLZe-aRBNU9IMvXNd7kCcIbHCM3GTD_' +
@@ -318,8 +273,15 @@ if ($UseJwtAuth) {
         'q' = '0CBLGi_kRPLqI8yfVkpBbA9zkCAshgrWWn9hsq6a7Zl2LcLaLBRUxH0q1jWnXgeJh9o5v8sYGXwhbrmuypw7kJ0uA3OgEzSsNvX5Ay3R9sNel-3Mqm8Me5OfWWvmTEBOci8RwHstdR-7b9ZT13jk-dsZI7OlV_uBja1ny9Nz9ts'
         'qi' = 'pG6J4dcUDrDndMxa-ee1yG4KjZqqyCQcmPAfqklI2LmnpRIjcK78scclvpboI3JQyg6RCEKVMwAhVtQM6cBcIO3JrHgqeYDblp5wXHjto70HVW6Z8kBruNx1AH9E8LzNvSRL-JVTFzBkJuNgzKQfD0G77tQRgJ-Ri7qu3_9o1M4'
     }
-    $oidcOptions.JwkJson = ($clientAssertionJwkJson | ConvertTo-Json -Compress)
 
+    $clientCert = ConvertFrom-KrJwkJsonToCertificate -Jwk ($ClientAssertionJwkJson | ConvertTo-Json -Compress) -SubjectName 'CN=Duende Demo Client JWT'
+    Export-KrCertificate -Certificate $clientCert -FilePath './Assets/certs/client-jwt-cert' -Format Pem -IncludePrivateKey
+    $jwkJson = ConvertTo-KrJwkJson -RsaPrivateKeyPath $privateKeyPemPath
+    $oidcOptions.JwkJson = New-KrPrivateKeyJwt -JwkJson $jwkJson -ClientId $oidcOptions.ClientId -Authority $Authority
+
+
+    #   $oidcOptions.JwkJson = ($clientAssertionJwkJson | ConvertTo-Json -Compress)
+    #>
     Add-KrOpenIdConnectAuthentication -Name 'oidc' -Options $oidcOptions
 
 } else {
@@ -337,7 +299,7 @@ if ($UseJwtAuth) {
     $oidcOptions.SaveTokens = $true
     $oidcOptions.GetClaimsFromUserInfoEndpoint = $true
     $oidcOptions.UseSecurityTokenValidator = $true
-     # Name claim mapping Important to fill Identity.Name
+    # Name claim mapping Important to fill Identity.Name
     $oidcOptions.TokenValidationParameters.NameClaimType = 'name'
     $oidcOptions.PushedAuthorizationBehavior = [Microsoft.AspNetCore.Authentication.OpenIdConnect.PushedAuthorizationBehavior]::Disable
     # Add scopes

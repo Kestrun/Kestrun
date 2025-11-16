@@ -243,40 +243,7 @@ if ($UseJwtAuth) {
     }
 }
 
-<#
-.SYNOPSIS
-    Creates a JWT client assertion for OIDC token requests.
-.DESCRIPTION
-    Used for private_key_jwt client authentication method.
-.OUTPUTS
-    The signed JWT client assertion as a string.
-#>
-function New-OidcJwtClientAssertion {
-    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseShouldProcessForStateChangingFunctions', '')]
-    param(
-        [string]$ClientId,
-        [string]$TokenEndpoint,
-        [System.Security.Cryptography.X509Certificates.X509Certificate2]$Certificate,
-        [string]$KeyId
-    )
 
-    try {
-        $result = New-KrJWTBuilder |
-            Add-KrJWTHeader -Name 'kid' -Value $KeyId |
-            Add-KrJWTIssuer -Issuer $ClientId |
-            Add-KrJWTSubject -Subject $ClientId |
-            Add-KrJWTAudience -Audience $TokenEndpoint |
-            Add-KrJWTClaim -ClaimType 'jti' -Value ([Guid]::NewGuid().ToString()) |
-            Limit-KrJWTValidity -Minutes 5 |
-            Protect-KrJWT -X509Certificate $Certificate -Algorithm RS256 |
-            Build-KrJWT
-
-        return $result | Get-KrJWTToken
-    } catch {
-        Write-Error "Failed to create JWT client assertion: $_"
-        return $null
-    }
-}
 
 # 1) Logging
 New-KrLogger |

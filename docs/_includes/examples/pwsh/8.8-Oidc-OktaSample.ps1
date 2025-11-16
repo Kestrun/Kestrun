@@ -24,7 +24,7 @@ if (([string]::IsNullOrWhiteSpace( $ClientId)) -and
     $Authority = $env:OKTA_AUTHORITY
 }
 # Callback and endpoint paths
-$CallbackPath = '/signin-oauth'
+$CallbackPath = '/signin-oidc'
 
 # Initialize Kestrun root for resolving relative paths
 Initialize-KrRoot -Path $PSScriptRoot
@@ -72,8 +72,12 @@ Add-KrMapRoute -Verbs Get -Pattern '/' -ScriptBlock {
         Write-KrHtmlResponse -FilePath './Assets/wwwroot/okta/okta-auth.html'
     } else {
         $name = $Context.User.Identity.Name ?? '(no name)'
+        $nickname = $Context.User.FindFirst('nickname')?.Value ?? 'N/A'
         $email = $Context.User.FindFirst('email')?.Value ?? 'No email claim'
+        $emailVerified = $Context.User.FindFirst('email_verified')?.Value ?? 'N/A'
+        $picture = $Context.User.FindFirst('picture')?.Value ?? ''
         $sub = $Context.User.FindFirst('sub')?.Value ?? 'No sub claim'
+        $updatedAt = $Context.User.FindFirst('updated_at')?.Value ?? 'N/A'
         $authType = $Context.User.Identity.AuthenticationType ?? 'Unknown'
         $isAuthenticated = $Context.User.Identity.IsAuthenticated
 
@@ -83,8 +87,12 @@ Add-KrMapRoute -Verbs Get -Pattern '/' -ScriptBlock {
 
         Write-KrHtmlResponse -FilePath './Assets/wwwroot/okta/protected.html' -Variables @{
             name = $name
+            nickname = $nickname
             email = $email
+            emailVerified = $emailVerified
+            picture = $picture
             sub = $sub
+            updatedAt = $updatedAt
             authType = $authType
             isAuthenticated = $isAuthenticated
             claims = $claimsString
@@ -108,7 +116,7 @@ Add-KrMapRoute -Verbs Get -Pattern '/me' -ScriptBlock {
 
 # sign-out clears the session cookie (no remote sign-out for plain OAuth2)
 Add-KrMapRoute -Verbs Get -Pattern '/logout' -ScriptBlock {
-    Invoke-KrCookieSignOut -Scheme 'Okta' -AuthKind 'OAuth2' -RedirectUri '/'
+    Invoke-KrCookieSignOut -Scheme 'Okta' -AuthKind Oidc -RedirectUri '/'
 }
 
 # 9) Start

@@ -155,13 +155,23 @@
             font-weight: bold;
             font-size: 1.2em;
         }
+
+        .okta-logo {
+            height: 28px;
+            vertical-align: middle;
+            margin-right: 8px;
+        }
     </style>
 </head>
 
 <body>
     <div class="container">
         <h1>
-            <span class="okta-logo">🔐</span>
+
+            <svg class="okta-logo" viewBox="0 0 24 24" width="28" height="28" aria-hidden="true">
+                <path fill="#007DC1"
+                    d="M12 0C5.37 0 0 5.37 0 12s5.37 12 12 12 12-5.37 12-12S18.63 0 12 0zm0 18.46A6.46 6.46 0 1 1 18.46 12 6.47 6.47 0 0 1 12 18.46z" />
+            </svg>
             Okta OIDC Demo
         </h1>
         <p class="subtitle">Secure authentication with Okta and Kestrun</p>
@@ -219,7 +229,7 @@
         <div class="section">
             <h2>🔗 Useful Links</h2>
             <div class="info-box">
-                <p><a href="https://developer.okta.com/" target="_blank" rel="noopener">Okta Developer Portal</a></p>
+                <p><a href="https://manage.auth0.com/" target="_blank" rel="noopener">Okta Developer Portal</a></p>
                 <p><a href="https://github.com/kestrun/kestrun" target="_blank" rel="noopener">Kestrun on GitHub</a></p>
                 <p><a href="https://openid.net/connect/" target="_blank" rel="noopener">OpenID Connect Spec</a></p>
             </div>

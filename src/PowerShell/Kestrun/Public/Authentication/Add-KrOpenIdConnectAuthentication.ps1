@@ -9,30 +9,8 @@
     The Kestrun server instance. If omitted, uses the current active server.
 .PARAMETER Name
     Base scheme name (default 'Oidc').
-.PARAMETER Authority
-    The OpenID Provider authority (e.g., https://login.microsoftonline.com/{tenant}/v2.0).
-.PARAMETER ClientId
-    OIDC client application (app registration) Client ID.
-.PARAMETER ClientSecret
-    OIDC client application Client Secret (leave empty for public clients).
-.PARAMETER Scope
-    Additional scopes to request; default includes 'openid' and 'profile'.
-.PARAMETER ResponseMode
-    The response mode. Use 'query' or 'fragment' if needed.
-.PARAMETER ResponseType
-    The response type. Use 'code', 'id_token', or 'token' if needed.
-.PARAMETER UsePkce
-    Enable PKCE for code flow (default: true).
-.PARAMETER UseSecurityTokenValidator
-    Use a custom security token validator (default: false).
-.PARAMETER ClaimPolicy
-    Optional ClaimPolicyConfig to enforce claim policies on authenticated users.
-.PARAMETER Certificate
-    Optional X.509 certificate for client assertion authentication.
-.PARAMETER JwkJson
-    Optional JSON Web Key (JWK) for client assertion authentication.
-.PARAMETER IncludeDefaultProfilePolicies
-    If specified, includes default claim policies for common profile claims (email, name, preferred_username
+.PARAMETER Options
+    An instance of Kestrun.Authentication.OidcOptions containing the OIDC configuration.
 .PARAMETER PassThru
     Return the modified server object.
 .EXAMPLE
@@ -42,42 +20,16 @@
 #>
 function Add-KrOpenIdConnectAuthentication {
     [KestrunRuntimeApi('Definition')]
-    [CmdletBinding(defaultParameterSetName = 'Items' )]
+    [CmdletBinding()]
     [OutputType([Kestrun.Hosting.KestrunHost])]
     param(
         [Parameter(ValueFromPipeline = $true)]
         [Kestrun.Hosting.KestrunHost]$Server,
+        [Parameter(Mandatory = $false)]
         [string]$Name = 'Oidc',
-        [Parameter(Mandatory = $true, ParameterSetName = 'Options')]
-        [Microsoft.AspNetCore.Authentication.OpenIdConnect.OpenIdConnectOptions]$Options,
-        [Parameter(Mandatory = $true, ParameterSetName = 'Items')]
-        [string]$Authority,
-        [Parameter(Mandatory = $true, ParameterSetName = 'Items')]
-        [string]$ClientId,
-        [Parameter(Mandatory = $false, ParameterSetName = 'Items')]
-        [string]$ClientSecret,
-        [Parameter(Mandatory = $false, ParameterSetName = 'Items')]
-        [string[]]$Scope,
-        [Parameter(Mandatory = $false, ParameterSetName = 'Items')]
-        [ValidateSet('query', 'fragment', 'form_post')]
-        [string]$ResponseMode,
-        [Parameter(Mandatory = $false, ParameterSetName = 'Items')]
-        [ValidateSet('code id_token', 'code id_token token', 'code token', 'code', 'id_token', 'id_token token', 'token', 'none')]
-        [string]$ResponseType,
-        [Parameter(Mandatory = $false, ParameterSetName = 'Items')]
-        [switch]$UsePkce,
-        [Parameter(Mandatory = $false, ParameterSetName = 'Items')]
-        [switch]$UseSecurityTokenValidator,
-        # Optional: provide a pre-built claim policy configuration (from Build-KrClaimPolicy)
+        [Parameter(Mandatory = $true)]
+        [Kestrun.Authentication.OidcOptions]$Options,
         [Parameter(Mandatory = $false)]
-        [Kestrun.Claims.ClaimPolicyConfig]$ClaimPolicy,
-        # Convenience: build and include default profile claim policies (email/name/username) allowing any value
-        [Parameter(Mandatory = $false)]
-        [switch]$IncludeDefaultProfilePolicies,
-        [Parameter(Mandatory = $false)]
-        [string]$JwkJson,
-        [Parameter(Mandatory = $false)]
-        [System.Security.Cryptography.X509Certificates.X509Certificate2]$Certificate,
         [switch]$PassThru
     )
     begin {
@@ -85,76 +37,11 @@ function Add-KrOpenIdConnectAuthentication {
         $Server = Resolve-KestrunServer -Server $Server
     }
     process {
-        if ($PSCmdlet.ParameterSetName -ne 'Options') {
-            # Build options manually when individual parameters used
-            $options = [Microsoft.AspNetCore.Authentication.OpenIdConnect.OpenIdConnectOptions]::new()
-            $options.Authority = $Authority
-            $options.ClientId = $ClientId
-            $options.ClientSecret = $ClientSecret
-            $options.Scope.Clear()
-            foreach ($s in $Scope) { if ($s) { $options.Scope.Add($s) | Out-Null } }
-            $options.UsePkce = $UsePkce.IsPresent
-            if(-not [string]::IsNullOrWhiteSpace($JwkJson)) {
-                $options.JwkJson = $JwkJson
-            }
-            if ($ResponseMode) {
-                switch ($ResponseMode.ToLower()) {
-                    'query' { $options.ResponseMode = [Microsoft.IdentityModel.Protocols.OpenIdConnect.OpenIdConnectResponseMode]::Query }
-                    'fragment' { $options.ResponseMode = [Microsoft.IdentityModel.Protocols.OpenIdConnect.OpenIdConnectResponseMode]::Fragment }
-                    'form_post' { $options.ResponseMode = [Microsoft.IdentityModel.Protocols.OpenIdConnect.OpenIdConnectResponseMode]::FormPost }
-                    default { throw "Invalid ResponseMode: $ResponseMode. Valid values are 'query', 'fragment', 'form_post'." }
-                }
-            }
-            if ($ResponseType) {
-                switch ($ResponseType.ToLower()) {
-                    'code' { $options.ResponseType = [Microsoft.IdentityModel.Protocols.OpenIdConnect.OpenIdConnectResponseType]::Code }
-                    'id_token' { $options.ResponseType = [Microsoft.IdentityModel.Protocols.OpenIdConnect.OpenIdConnectResponseType]::IdToken }
-                    'token' { $options.ResponseType = [Microsoft.IdentityModel.Protocols.OpenIdConnect.OpenIdConnectResponseType]::Token }
-                    'code id_token' { $options.ResponseType = [Microsoft.IdentityModel.Protocols.OpenIdConnect.OpenIdConnectResponseType]::CodeIdToken }
-                    'code token' { $options.ResponseType = [Microsoft.IdentityModel.Protocols.OpenIdConnect.OpenIdConnectResponseType]::CodeToken }
-                    'id_token token' { $options.ResponseType = [Microsoft.IdentityModel.Protocols.OpenIdConnect.OpenIdConnectResponseType]::IdTokenToken }
-                    'code id_token token' { $options.ResponseType = [Microsoft.IdentityModel.Protocols.OpenIdConnect.OpenIdConnectResponseType]::CodeIdTokenToken }
-                    'none' { $options.ResponseType = [Microsoft.IdentityModel.Protocols.OpenIdConnect.OpenIdConnectResponseType]::None }
-                    default { throw "Invalid ResponseType: $ResponseType. Valid values are 'code', 'id_token', 'token'." }
-                }
-            }
-            if ($UseSecurityTokenValidator.IsPresent) {
-                $options.UseSecurityTokenValidator = $true
-            }
-            # Enable token persistence & userinfo claims retrieval by default
-            $options.SaveTokens = $true
-            $options.GetClaimsFromUserInfoEndpoint = $true
-            # Assign to $Options parameter variable so downstream call uses configured instance
-
-        } else {
-            # Parameter set 'Options' supplied externally – ensure essential flags are on if unset
-            if (-not $Options.SaveTokens) { $Options.SaveTokens = $true }
-            if (-not $Options.GetClaimsFromUserInfoEndpoint) { $Options.GetClaimsFromUserInfoEndpoint = $true }
-            # Add claim mappings if missing using correct extension type
-        }
-        try {
-            $Options.PushedAuthorizationBehavior = [Microsoft.AspNetCore.Authentication.OpenIdConnect.PushedAuthorizationBehavior]::Disable
-        } catch {
-            # Ignore if running on older .NET versions where this property is not available
-            write-log -Level Debug -Message 'PushedAuthorizationBehavior property not available; skipping configuration.'
-        }
-        # If IncludeDefaultProfilePolicies requested and no ClaimPolicy provided, build one now using ClaimPolicy utilities
-        if ($IncludeDefaultProfilePolicies.IsPresent -and -not $ClaimPolicy) {
-            $ClaimPolicy = New-KrClaimPolicy |
-                # Allow any value for these common claims using a placeholder '*' token
-                Add-KrClaimPolicy -PolicyName 'EmailPresent' -ClaimType 'email' -AllowedValues '*' |
-                Add-KrClaimPolicy -PolicyName 'NamePresent' -ClaimType 'name' -AllowedValues '*' |
-                Add-KrClaimPolicy -PolicyName 'PreferredUserNamePresent' -ClaimType 'preferred_username' -AllowedValues '*' |
-                Build-KrClaimPolicy
-        }
-
         # Call C# extension with optional claim policy
         [Kestrun.Hosting.KestrunHostAuthnExtensions]::AddOpenIdConnectAuthentication(
             $Server,
             $Name,
             $Options
-            <#   $ClaimPolicy,  # may be null
-            $Certificate, $ClientAssertionJwkJson#>
         ) | Out-Null
 
         if ($PassThru.IsPresent) {

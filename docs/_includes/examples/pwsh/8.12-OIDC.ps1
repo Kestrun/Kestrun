@@ -242,8 +242,7 @@ if ($UseJwtAuth) {
         return 1
     }
 }
-
-
+ 
 
 # 1) Logging
 New-KrLogger |
@@ -263,7 +262,7 @@ Add-KrEndpoint -Port $Port -IPAddress $IPAddress -SelfSignedCert
 # Add-KrHttpsRedirection -HttpPort 5001 -HttpsPort $Port
 
 # 5) OpenID Connect auth (adds 'oidc', 'oidc.Cookies', 'oidc.Policy')
-if ($UseJwtAuth -and $certificate) {
+if ($UseJwtAuth) {
     # JWT authentication requires custom event handling to inject client_assertion
     Write-KrLog -Level Information -Message 'Configuring OIDC with private_key_jwt authentication'
 
@@ -276,6 +275,8 @@ if ($UseJwtAuth -and $certificate) {
     $oidcOptions.SaveTokens = $true
     $oidcOptions.GetClaimsFromUserInfoEndpoint = $true
     $oidcOptions.UseSecurityTokenValidator = $true
+    # Name claim mapping Important to fill Identity.Name
+    $oidcOptions.TokenValidationParameters.NameClaimType = 'name'
     $oidcOptions.PushedAuthorizationBehavior = [Microsoft.AspNetCore.Authentication.OpenIdConnect.PushedAuthorizationBehavior]::Disable
     # Add scopes
     $oidcOptions.Scope.Clear()
@@ -318,6 +319,7 @@ if ($UseJwtAuth -and $certificate) {
         'qi' = 'pG6J4dcUDrDndMxa-ee1yG4KjZqqyCQcmPAfqklI2LmnpRIjcK78scclvpboI3JQyg6RCEKVMwAhVtQM6cBcIO3JrHgqeYDblp5wXHjto70HVW6Z8kBruNx1AH9E8LzNvSRL-JVTFzBkJuNgzKQfD0G77tQRgJ-Ri7qu3_9o1M4'
     }
     $oidcOptions.JwkJson = ($clientAssertionJwkJson | ConvertTo-Json -Compress)
+
     Add-KrOpenIdConnectAuthentication -Name 'oidc' -Options $oidcOptions
 
 } else {
@@ -335,6 +337,8 @@ if ($UseJwtAuth -and $certificate) {
     $oidcOptions.SaveTokens = $true
     $oidcOptions.GetClaimsFromUserInfoEndpoint = $true
     $oidcOptions.UseSecurityTokenValidator = $true
+     # Name claim mapping Important to fill Identity.Name
+    $oidcOptions.TokenValidationParameters.NameClaimType = 'name'
     $oidcOptions.PushedAuthorizationBehavior = [Microsoft.AspNetCore.Authentication.OpenIdConnect.PushedAuthorizationBehavior]::Disable
     # Add scopes
     $oidcOptions.Scope.Clear()

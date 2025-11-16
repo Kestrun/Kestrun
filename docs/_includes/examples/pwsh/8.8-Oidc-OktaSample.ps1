@@ -50,6 +50,7 @@ $options.Authority = $Authority
 $options.ClientId = $ClientId
 $options.ClientSecret = $ClientSecret
 $options.CallbackPath = $CallbackPath
+$options.SignedOutCallbackPath = '/signout-callback-oidc'  # Logout callback path
 $options.SaveTokens = $true
 $options.ResponseType = [Microsoft.IdentityModel.Protocols.OpenIdConnect.OpenIdConnectResponseType]::Code;
 $options.UsePkce = $true;
@@ -58,7 +59,10 @@ $options.Scope.Clear()
 $options.Scope.Add('openid') | Out-Null
 $options.Scope.Add('profile') | Out-Null
 $options.Scope.Add('email') | Out-Null
-$options.TokenValidationParameters.NameClaimType = [System.Security.Claims.ClaimTypes]::Name;
+
+# Map the 'name' claim from OIDC token to Identity.Name
+# Okta sends the email in the 'name' claim, which gets mapped to ClaimTypes.Name
+$options.TokenValidationParameters.NameClaimType = 'name'
 
 # 5) OAuth2 scheme (AUTH CHALLENGE) — signs into the 'Cookies' scheme above
 Add-KrOpenIdConnectAuthentication -Options $options -Name 'Okta'
@@ -114,9 +118,19 @@ Add-KrMapRoute -Verbs Get -Pattern '/me' -ScriptBlock {
     Write-KrJsonResponse @{ authenticated = $Context.User.Identity.IsAuthenticated; claims = $claims }
 }
 
-# sign-out clears the session cookie (no remote sign-out for plain OAuth2)
+# Logout callback page - shown after OIDC provider completes logout
+Add-KrMapRoute -Verbs Get -Pattern '/signout' -ScriptBlock {
+    Write-KrHtmlResponse -FilePath './Assets/wwwroot/okta/logout.html'
+} -AllowAnonymous
+
+# sign-out clears the session cookie and triggers OIDC logout
 Add-KrMapRoute -Verbs Get -Pattern '/logout' -ScriptBlock {
-    Invoke-KrCookieSignOut -Scheme 'Okta' -AuthKind Oidc -RedirectUri '/'
+    # Construct the full post-logout redirect URI
+    $uriScheme = if ($Context.Request.IsHttps) { 'https' } else { 'http' }
+    $hostValue = $Context.Request.Host.Value
+    $postLogoutUri = "${uriScheme}://${hostValue}/signout"
+
+    Invoke-KrCookieSignOut -Scheme 'Okta' -AuthKind Oidc -RedirectUri $postLogoutUri
 }
 
 # 9) Start

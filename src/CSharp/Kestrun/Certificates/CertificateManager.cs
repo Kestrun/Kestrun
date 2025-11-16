@@ -24,6 +24,7 @@ using System.Text.Json;
 using Microsoft.IdentityModel.Tokens;
 using System.Security.Claims;
 using Microsoft.IdentityModel.JsonWebTokens;
+using System.Text.Json.Serialization;
 
 
 namespace Kestrun.Certificates;
@@ -222,7 +223,7 @@ public static class CertificateManager
         var attrs = new Dictionary<DerObjectIdentifier, string>();
         void Add(DerObjectIdentifier oid, string? v)
         {
-            if (!string.IsNullOrWhiteSpace(v)) { order.Add(oid); attrs[oid] = v!; }
+            if (!string.IsNullOrWhiteSpace(v)) { order.Add(oid); attrs[oid] = v; }
         }
         Add(X509Name.C, options.Country);
         Add(X509Name.O, options.Org);
@@ -704,7 +705,7 @@ public static class CertificateManager
         ReadOnlySpan<char> passwordSpan = default;
         // capture the return value of the span-based overload
         var result = Import(certPath: certPath, password: passwordSpan, privateKeyPath: privateKeyPath, flags: flags);
-        return result!;
+        return result;
     }
 
     /// <summary>
@@ -718,7 +719,7 @@ public static class CertificateManager
         ReadOnlySpan<char> passwordSpan = default;
         // capture the return value of the span-based overload
         var result = Import(certPath: certPath, password: passwordSpan);
-        return result!;
+        return result;
     }
 
 
@@ -884,7 +885,7 @@ public static class CertificateManager
                 {
                     var baseName = Path.GetFileNameWithoutExtension(filePath);
                     var dir = Path.GetDirectoryName(filePath);
-                    var keyFile = string.IsNullOrEmpty(dir) ? baseName + ".key" : Path.Combine(dir!, baseName + ".key");
+                    var keyFile = string.IsNullOrEmpty(dir) ? baseName + ".key" : Path.Combine(dir, baseName + ".key");
                     if (File.Exists(keyFile))
                     {
                         File.AppendAllText(filePath, Environment.NewLine + File.ReadAllText(keyFile));
@@ -975,19 +976,73 @@ public static class CertificateManager
         );
     }
 
+    #endregion
 
-    private sealed class RsaJwk
+    #region JWK
+    /// <summary>
+    /// Represents an RSA JSON Web Key (JWK).
+    /// </summary>
+    public sealed class RsaJwk
     {
-        public string kty { get; set; } = "";
-        public string n { get; set; } = "";
-        public string e { get; set; } = "";
-        public string d { get; set; } = "";
-        public string p { get; set; } = "";
-        public string q { get; set; } = "";
-        public string dp { get; set; } = "";
-        public string dq { get; set; } = "";
-        public string qi { get; set; } = "";
-        public string? kid { get; set; }
+        /// <summary>
+        /// Key Type - should be "RSA"
+        /// </summary>
+        [JsonPropertyName("kty")]
+        public string Kty { get; set; } = "RSA";
+
+        /// <summary>
+        /// Modulus
+        /// </summary>
+        [JsonPropertyName("n")]
+        public string? N { get; set; }
+
+        /// <summary>
+        /// Exponent
+        /// </summary>
+        [JsonPropertyName("e")]
+        public string? E { get; set; }
+
+        /// <summary>
+        /// Private Exponent
+        /// </summary>
+        [JsonPropertyName("d")]
+        public string? D { get; set; }
+
+        /// <summary>
+        /// First Prime Factor
+        /// </summary>
+        [JsonPropertyName("p")]
+        public string? P { get; set; }
+
+        /// <summary>
+        /// Second Prime Factor
+        /// </summary>
+        [JsonPropertyName("q")]
+        public string? Q { get; set; }
+
+        /// <summary>
+        /// First Factor CRT Exponent
+        /// </summary>
+        [JsonPropertyName("dp")]
+        public string? DP { get; set; }
+
+        /// <summary>
+        /// Second Factor CRT Exponent
+        /// </summary>
+        [JsonPropertyName("dq")]
+        public string? DQ { get; set; }
+
+        /// <summary>
+        /// CRT Coefficient
+        /// </summary>
+        [JsonPropertyName("qi")]
+        public string? QI { get; set; }
+
+        /// <summary>
+        /// Key ID
+        /// </summary>
+        [JsonPropertyName("kid")]
+        public string? Kid { get; set; }
     }
 
     /// <summary>
@@ -1005,21 +1060,21 @@ public static class CertificateManager
         var jwk = JsonSerializer.Deserialize<RsaJwk>(jwkJson)
                   ?? throw new ArgumentException("Invalid JWK JSON");
 
-        if (!string.Equals(jwk.kty, "RSA", StringComparison.OrdinalIgnoreCase))
+        if (!string.Equals(jwk.Kty, "RSA", StringComparison.OrdinalIgnoreCase))
         {
             throw new NotSupportedException("Only RSA JWKs are supported.");
         }
 
         var rsaParams = new RSAParameters
         {
-            Modulus = Base64UrlEncoder.DecodeBytes(jwk.n),
-            Exponent = Base64UrlEncoder.DecodeBytes(jwk.e),
-            D = Base64UrlEncoder.DecodeBytes(jwk.d),
-            P = Base64UrlEncoder.DecodeBytes(jwk.p),
-            Q = Base64UrlEncoder.DecodeBytes(jwk.q),
-            DP = Base64UrlEncoder.DecodeBytes(jwk.dp),
-            DQ = Base64UrlEncoder.DecodeBytes(jwk.dq),
-            InverseQ = Base64UrlEncoder.DecodeBytes(jwk.qi)
+            Modulus = Base64UrlEncoder.DecodeBytes(jwk.N),
+            Exponent = Base64UrlEncoder.DecodeBytes(jwk.E),
+            D = Base64UrlEncoder.DecodeBytes(jwk.D),
+            P = Base64UrlEncoder.DecodeBytes(jwk.P),
+            Q = Base64UrlEncoder.DecodeBytes(jwk.Q),
+            DP = Base64UrlEncoder.DecodeBytes(jwk.DP),
+            DQ = Base64UrlEncoder.DecodeBytes(jwk.DQ),
+            InverseQ = Base64UrlEncoder.DecodeBytes(jwk.QI)
         };
 
         using var rsa = RSA.Create();
@@ -1039,9 +1094,17 @@ public static class CertificateManager
 
         // Export with private key, re-import as X509Certificate2
         var pfxBytes = cert.Export(X509ContentType.Pfx);
-        return new X509Certificate2(pfxBytes, (string?)null,
-            X509KeyStorageFlags.MachineKeySet |
-            X509KeyStorageFlags.Exportable);
+#if NET9_0_OR_GREATER
+        return X509CertificateLoader.LoadPkcs12(
+            pfxBytes,
+            password: default,
+            keyStorageFlags: X509KeyStorageFlags.MachineKeySet | X509KeyStorageFlags.Exportable,
+            loaderLimits: Pkcs12LoaderLimits.Defaults);
+#else
+                return new X509Certificate2(pfxBytes, (string?)null,
+                    X509KeyStorageFlags.MachineKeySet |
+                    X509KeyStorageFlags.Exportable);
+#endif
     }
 
     /// <summary>
@@ -1117,6 +1180,67 @@ public static class CertificateManager
 
         return BuildPrivateKeyJwt(jwk, clientId, tokenEndpoint);
     }
+
+
+    /// <summary>
+    /// Builds a JWK JSON (RSA) representation of the given certificate.
+    /// By default only public parameters are included (safe for publishing as JWKS).
+    /// Set <paramref name="includePrivateParameters"/> to true if you want a full private JWK
+    /// (for local storage only – never publish it).
+    /// </summary>
+    /// <param name="certificate">The X509 certificate to convert.</param>
+    /// <param name="includePrivateParameters">Whether to include private key parameters in the JWK.</param>
+    /// <returns>The JWK JSON string.</returns>
+    public static string CreateJwkJsonFromCertificate(
+       X509Certificate2 certificate,
+       bool includePrivateParameters = false)
+    {
+        var x509Key = new X509SecurityKey(certificate)
+        {
+            KeyId = certificate.Thumbprint?.ToLowerInvariant()
+        };
+
+        // Convert to a JsonWebKey (n, e, kid, x5c, etc.)
+        var jwk = JsonWebKeyConverter.ConvertFromX509SecurityKey(
+            x509Key,
+            representAsRsaKey: true);
+
+        if (!includePrivateParameters)
+        {
+            // Clean public JWK
+            jwk.D = null;
+            jwk.P = null;
+            jwk.Q = null;
+            jwk.DP = null;
+            jwk.DQ = null;
+            jwk.QI = null;
+        }
+        else
+        {
+            if (!certificate.HasPrivateKey)
+            {
+                throw new InvalidOperationException("Certificate has no private key.");
+            }
+
+            using var rsa = certificate.GetRSAPrivateKey()
+                ?? throw new NotSupportedException("Certificate does not contain an RSA private key.");
+
+            var p = rsa.ExportParameters(true);
+
+            jwk.N = Base64UrlEncoder.Encode(p.Modulus);
+            jwk.E = Base64UrlEncoder.Encode(p.Exponent);
+            jwk.D = Base64UrlEncoder.Encode(p.D);
+            jwk.P = Base64UrlEncoder.Encode(p.P);
+            jwk.Q = Base64UrlEncoder.Encode(p.Q);
+            jwk.DP = Base64UrlEncoder.Encode(p.DP);
+            jwk.DQ = Base64UrlEncoder.Encode(p.DQ);
+            jwk.QI = Base64UrlEncoder.Encode(p.InverseQ);
+        }
+
+        return JsonSerializer.Serialize(jwk, JwkJson.Options);
+    }
+
+
 
     #endregion
 

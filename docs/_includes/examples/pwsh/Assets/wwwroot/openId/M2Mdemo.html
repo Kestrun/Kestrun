@@ -1,20 +1,58 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>M2M Client Credentials Demo</title>
     <style>
-        body { font-family: Arial, sans-serif; max-width: 800px; margin: 50px auto; padding: 20px; }
-        h1 { color: #333; }
-        .section { margin: 20px 0; padding: 15px; background: #f5f5f5; border-radius: 5px; }
-        .endpoint { margin: 10px 0; }
-        code { background: #e0e0e0; padding: 2px 5px; border-radius: 3px; }
-        pre { background: #272822; color: #f8f8f2; padding: 15px; border-radius: 5px; overflow-x: auto; }
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+        }
+
+        h1 {
+            color: #333;
+        }
+
+        .section {
+            margin: 20px 0;
+            padding: 15px;
+            background: #f5f5f5;
+            border-radius: 5px;
+        }
+
+        .endpoint {
+            margin: 10px 0;
+        }
+
+        code {
+            background: #e0e0e0;
+            padding: 2px 5px;
+            border-radius: 3px;
+        }
+
+        pre {
+            background: #272822;
+            color: #f8f8f2;
+            padding: 15px;
+            border-radius: 5px;
+            overflow-x: auto;
+        }
+
+        .duende-logo {
+            height: 32px;
+            vertical-align: middle;
+            margin-right: 8px;
+        }
     </style>
 </head>
+
 <body>
-    <h1>🔐 Machine-to-Machine (M2M) Authentication Demo</h1>
+    <h1><img class="duende-logo" src="https://duendesoftware.com/img/logo.png" alt="Duende Logo">
+        Machine-to-Machine (M2M) Authentication Demo</h1>
 
     <div class="section">
         <h2>What is M2M?</h2>
@@ -22,7 +60,7 @@
         <p>Uses OAuth 2.0 <strong>Client Credentials Grant</strong> - the application authenticates as itself.</p>
     </div>
 
-        <div class="section">
+    <div class="section">
         <h2>Demo Configuration</h2>
         <p><strong>Authority:</strong> {{authority}}</p>
         <p><strong>Client ID:</strong> {{clientId}}</p>
@@ -58,4 +96,5 @@
 4. Token represents the application (not a user)</pre>
     </div>
 </body>
+
 </html>

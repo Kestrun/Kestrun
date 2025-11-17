@@ -222,7 +222,7 @@ if ($UseJwtAuth) {
     $oidcOptions.UseSecurityTokenValidator = $true
     # Name claim mapping Important to fill Identity.Name
     $oidcOptions.TokenValidationParameters.NameClaimType = 'name'
-    $oidcOptions.PushedAuthorizationBehavior = [Microsoft.AspNetCore.Authentication.OpenIdConnect.PushedAuthorizationBehavior]::Disable
+    $oidcOptions.PushedAuthorizationBehavior = 'Disable'
     # Add scopes
     $oidcOptions.Scope.Clear()
     foreach ($scope in $Scopes) {
@@ -245,39 +245,31 @@ if ($UseJwtAuth) {
         }
         Write-KrLog -Level Debug -Message 'Using ResponseMode: {responseMode}' -Values $modeConfig.ResponseMode
     }
-    $privateKeyPemPath = Join-Path -Path $PSScriptRoot -ChildPath 'Assets' -AdditionalChildPath 'certs', 'private.pem'
+<#
+    # The './Assets/certs/client-jwt-cert.key' file contains the RSA private key in PEM format
+    # The corresponding public key certificate is in './Assets/certs/client-jwt-cert.pem'
+    # The Duende demo server is pre-configured to trust this key for the 'interactive.confidential.jwt' client.
+    # and has beed generate using the ConvertFrom-KrJwkJsonToCertificate function below
 
-
-    if (-not (Test-Path $privateKeyPemPath)) {
-        throw "Private key PEM file not found: $privateKeyPemPath"
+    $ClientAssertionJwkJson = @'
+    {
+        "d":"GmiaucNIzdvsEzGjZjd43SDToy1pz-Ph-shsOUXXh-dsYNGftITGerp8bO1iryXh_zUEo8oDK3r1y4klTonQ6bLsWw4ogjLPmL3yiqsoSjJa1G2Ymh_RY_sFZLLXAcrmpbzdWIAkgkHSZTaliL6g57vA7gxvd8L4s82wgGer_JmURI0ECbaCg98JVS0Srtf9GeTRHoX4foLWKc1Vq6NHthzqRMLZe-aRBNU9IMvXNd7kCcIbHCM3GTD_8cFj135nBPP2HOgC_ZXI1txsEf-djqJj8W5vaM7ViKU28IDv1gZGH3CatoysYx6jv1XJVvb2PH8RbFKbJmeyUm3Wvo-rgQ",
+        "dp":"YNjVBTCIwZD65WCht5ve06vnBLP_Po1NtL_4lkholmPzJ5jbLYBU8f5foNp8DVJBdFQW7wcLmx85-NC5Pl1ZeyA-Ecbw4fDraa5Z4wUKlF0LT6VV79rfOF19y8kwf6MigyrDqMLcH_CRnRGg5NfDsijlZXffINGuxg6wWzhiqqE",
+        "dq":"LfMDQbvTFNngkZjKkN2CBh5_MBG6Yrmfy4kWA8IC2HQqID5FtreiY2MTAwoDcoINfh3S5CItpuq94tlB2t-VUv8wunhbngHiB5xUprwGAAnwJ3DL39D2m43i_3YP-UO1TgZQUAOh7Jrd4foatpatTvBtY3F1DrCrUKE5Kkn770M",
+        "e":"AQAB",
+        "kid":"ZzAjSnraU3bkWGnnAqLapYGpTyNfLbjbzgAPbbW2GEA",
+        "kty":"RSA",
+        "n":"wWwQFtSzeRjjerpEM5Rmqz_DsNaZ9S1Bw6UbZkDLowuuTCjBWUax0vBMMxdy6XjEEK4Oq9lKMvx9JzjmeJf1knoqSNrox3Ka0rnxXpNAz6sATvme8p9mTXyp0cX4lF4U2J54xa2_S9NF5QWvpXvBeC4GAJx7QaSw4zrUkrc6XyaAiFnLhQEwKJCwUw4NOqIuYvYp_IXhw-5Ti_icDlZS-282PcccnBeOcX7vc21pozibIdmZJKqXNsL1Ibx5Nkx1F1jLnekJAmdaACDjYRLL_6n3W4wUp19UvzB1lGtXcJKLLkqB6YDiZNu16OSiSprfmrRXvYmvD8m6Fnl5aetgKw",
+        "p":"7enorp9Pm9XSHaCvQyENcvdU99WCPbnp8vc0KnY_0g9UdX4ZDH07JwKu6DQEwfmUA1qspC-e_KFWTl3x0-I2eJRnHjLOoLrTjrVSBRhBMGEH5PvtZTTThnIY2LReH-6EhceGvcsJ_MhNDUEZLykiH1OnKhmRuvSdhi8oiETqtPE",
+        "q":"0CBLGi_kRPLqI8yfVkpBbA9zkCAshgrWWn9hsq6a7Zl2LcLaLBRUxH0q1jWnXgeJh9o5v8sYGXwhbrmuypw7kJ0uA3OgEzSsNvX5Ay3R9sNel-3Mqm8Me5OfWWvmTEBOci8RwHstdR-7b9ZT13jk-dsZI7OlV_uBja1ny9Nz9ts",
+        "qi":"pG6J4dcUDrDndMxa-ee1yG4KjZqqyCQcmPAfqklI2LmnpRIjcK78scclvpboI3JQyg6RCEKVMwAhVtQM6cBcIO3JrHgqeYDblp5wXHjto70HVW6Z8kBruNx1AH9E8LzNvSRL-JVTFzBkJuNgzKQfD0G77tQRgJ-Ri7qu3_9o1M4"
     }
-    #$wellKnown = Invoke-RestMethod -Uri ($Authority.TrimEnd('/') + '/.well-known/openid-configuration')
-
-    #$TokenEndpoint = $wellKnown.token_endpoint
-
-    #Write-KrLog -Level Debug -Message 'Using token endpoint: {tokenEndpoint}' -Values $TokenEndpoint
-
-
-    $ClientAssertionJwkJson = @{
-        'd' = 'GmiaucNIzdvsEzGjZjd43SDToy1pz-Ph-shsOUXXh-dsYNGftITGerp8bO1iryXh_zUEo8oDK3r1y4klTonQ6bLsWw4ogjLPmL3yiqsoSjJa1G2Ymh_RY_' +
-        'sFZLLXAcrmpbzdWIAkgkHSZTaliL6g57vA7gxvd8L4s82wgGer_JmURI0ECbaCg98JVS0Srtf9GeTRHoX4foLWKc1Vq6NHthzqRMLZe-aRBNU9IMvXNd7kCcIbHCM3GTD_' +
-        '8cFj135nBPP2HOgC_ZXI1txsEf-djqJj8W5vaM7ViKU28IDv1gZGH3CatoysYx6jv1XJVvb2PH8RbFKbJmeyUm3Wvo-rgQ'
-        'dp' = 'YNjVBTCIwZD65WCht5ve06vnBLP_Po1NtL_4lkholmPzJ5jbLYBU8f5foNp8DVJBdFQW7wcLmx85-NC5Pl1ZeyA-Ecbw4fDraa5Z4wUKlF0LT6VV79rfOF19y8kwf6MigyrDqMLcH_CRnRGg5NfDsijlZXffINGuxg6wWzhiqqE'
-        'dq' = 'LfMDQbvTFNngkZjKkN2CBh5_MBG6Yrmfy4kWA8IC2HQqID5FtreiY2MTAwoDcoINfh3S5CItpuq94tlB2t-VUv8wunhbngHiB5xUprwGAAnwJ3DL39D2m43i_3YP-UO1TgZQUAOh7Jrd4foatpatTvBtY3F1DrCrUKE5Kkn770M'
-        'e' = 'AQAB'
-        'kid' = 'ZzAjSnraU3bkWGnnAqLapYGpTyNfLbjbzgAPbbW2GEA'
-        'kty' = 'RSA'
-        'n' = 'wWwQFtSzeRjjerpEM5Rmqz_DsNaZ9S1Bw6UbZkDLowuuTCjBWUax0vBMMxdy6XjEEK4Oq9lKMvx9JzjmeJf1knoqSNrox3Ka0rnxXpNAz6sATvme8p9mTXyp0cX4lF4U2J54xa2' +
-        '_S9NF5QWvpXvBeC4GAJx7QaSw4zrUkrc6XyaAiFnLhQEwKJCwUw4NOqIuYvYp_IXhw-5Ti_icDlZS-282PcccnBeOcX7vc21pozibIdmZJKqXNsL1Ibx5Nkx1F1jLnekJAmdaACDjYRLL_6n3W4wUp19UvzB1lGtXcJKLLkqB6YDiZNu16OSiSprfmrRXvYmvD8m6Fnl5aetgKw'
-        'p' = '7enorp9Pm9XSHaCvQyENcvdU99WCPbnp8vc0KnY_0g9UdX4ZDH07JwKu6DQEwfmUA1qspC-e_KFWTl3x0-I2eJRnHjLOoLrTjrVSBRhBMGEH5PvtZTTThnIY2LReH-6EhceGvcsJ_MhNDUEZLykiH1OnKhmRuvSdhi8oiETqtPE'
-        'q' = '0CBLGi_kRPLqI8yfVkpBbA9zkCAshgrWWn9hsq6a7Zl2LcLaLBRUxH0q1jWnXgeJh9o5v8sYGXwhbrmuypw7kJ0uA3OgEzSsNvX5Ay3R9sNel-3Mqm8Me5OfWWvmTEBOci8RwHstdR-7b9ZT13jk-dsZI7OlV_uBja1ny9Nz9ts'
-        'qi' = 'pG6J4dcUDrDndMxa-ee1yG4KjZqqyCQcmPAfqklI2LmnpRIjcK78scclvpboI3JQyg6RCEKVMwAhVtQM6cBcIO3JrHgqeYDblp5wXHjto70HVW6Z8kBruNx1AH9E8LzNvSRL-JVTFzBkJuNgzKQfD0G77tQRgJ-Ri7qu3_9o1M4'
-    }
-
-    $clientCert = ConvertFrom-KrJwkJsonToCertificate -Jwk ($ClientAssertionJwkJson | ConvertTo-Json -Compress) -SubjectName 'CN=Duende Demo Client JWT'
+    '@
+    $clientCert = ConvertFrom-KrJwkJsonToCertificate -Jwk ($ClientAssertionJwkJson) -SubjectName 'CN=Duende Demo Client JWT'
     Export-KrCertificate -Certificate $clientCert -FilePath './Assets/certs/client-jwt-cert' -Format Pem -IncludePrivateKey
-    $jwkJson = ConvertTo-KrJwkJson -RsaPrivateKeyPath $privateKeyPemPath
-    $oidcOptions.JwkJson = New-KrPrivateKeyJwt -JwkJson $jwkJson -ClientId $oidcOptions.ClientId -Authority $Authority
+    #>
+
+    $oidcOptions.JwkJson = ConvertTo-KrJwkJson -RsaPrivateKeyPath './Assets/certs/client-jwt-cert.key'
 
 
     #   $oidcOptions.JwkJson = ($clientAssertionJwkJson | ConvertTo-Json -Compress)
@@ -307,7 +299,7 @@ if ($UseJwtAuth) {
     foreach ($scope in $Scopes) {
         $oidcOptions.Scope.Add($scope) | Out-Null
     }
-    $oidcOptions.ResponseType = [Microsoft.IdentityModel.Protocols.OpenIdConnect.OpenIdConnectResponseType]::Code;
+    $oidcOptions.ResponseType = [Microsoft.IdentityModel.Protocols.OpenIdConnect.OpenIdConnectResponseType]::Code
 
     # Add client secret
     if ($ClientSecret) {

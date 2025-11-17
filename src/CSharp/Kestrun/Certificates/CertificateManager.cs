@@ -907,14 +907,45 @@ public static class CertificateManager
     /// <param name="certFilePath">The file path to export the certificate to.</param>
     private static void WritePrivateKey(X509Certificate2 cert, ReadOnlySpan<char> password, string certFilePath)
     {
+        if (!cert.HasPrivateKey)
+        {
+            throw new InvalidOperationException(
+                "Certificate does not contain a private key; cannot export private key PEM.");
+        }
+
+        AsymmetricAlgorithm key;
+
+        try
+        {
+            // Try RSA first, then ECDSA
+            key = (AsymmetricAlgorithm?)cert.GetRSAPrivateKey()
+                  ?? cert.GetECDsaPrivateKey()
+                  ?? throw new NotSupportedException(
+                        "Certificate private key is neither RSA nor ECDSA, or is not accessible.");
+        }
+        catch (CryptographicException ex) when (ex.HResult == unchecked((int)0x80090016))
+        {
+            // 0x80090016 = NTE_BAD_KEYSET  → "Keyset does not exist"
+            throw new InvalidOperationException(
+                "The certificate reports a private key, but the key container ('keyset') is not accessible. " +
+                "This usually means the certificate was loaded without its private key, or the current process " +
+                "identity does not have permission to access the key. Re-import the certificate from a PFX " +
+                "with the private key and X509KeyStorageFlags.Exportable, or adjust key permissions.",
+                ex);
+        }
+
         byte[] keyDer;
         string pemLabel;
+
         if (password.IsEmpty)
         {
             // unencrypted PKCS#8
-            keyDer = cert.GetRSAPrivateKey() is RSA rsa
-                       ? rsa.ExportPkcs8PrivateKey()
-                       : cert.GetECDsaPrivateKey()!.ExportPkcs8PrivateKey();
+            keyDer = key switch
+            {
+                RSA rsa => rsa.ExportPkcs8PrivateKey(),
+                ECDsa ecc => ecc.ExportPkcs8PrivateKey(),
+                _ => throw new NotSupportedException("Only RSA and ECDSA private keys are supported.")
+            };
             pemLabel = "PRIVATE KEY";
         }
         else
@@ -923,12 +954,14 @@ public static class CertificateManager
             var pbe = new PbeParameters(
                 PbeEncryptionAlgorithm.Aes256Cbc,
                 HashAlgorithmName.SHA256,
-                100_000
-            );
+                iterationCount: 100_000);
 
-            keyDer = cert.GetRSAPrivateKey() is RSA rsaEnc
-                       ? rsaEnc.ExportEncryptedPkcs8PrivateKey(password, pbe)
-                       : cert.GetECDsaPrivateKey()!.ExportEncryptedPkcs8PrivateKey(password, pbe);
+            keyDer = key switch
+            {
+                RSA rsa => rsa.ExportEncryptedPkcs8PrivateKey(password, pbe),
+                ECDsa ecc => ecc.ExportEncryptedPkcs8PrivateKey(password, pbe),
+                _ => throw new NotSupportedException("Only RSA and ECDSA private keys are supported.")
+            };
             pemLabel = "ENCRYPTED PRIVATE KEY";
         }
 
@@ -938,21 +971,24 @@ public static class CertificateManager
         var keyFilePath = string.IsNullOrEmpty(certDir)
             ? baseName + ".key"
             : Path.Combine(certDir!, baseName + ".key");
+
         File.WriteAllText(keyFilePath, keyPem);
 
         try
         {
             if (ShouldAppendKeyToPem)
             {
-                // Optional: append the key to the main certificate PEM when explicitly enabled.
                 File.AppendAllText(certFilePath, Environment.NewLine + keyPem);
             }
         }
         catch (Exception ex)
         {
-            Log.Debug(ex, "Failed to append private key to certificate PEM file {CertFilePath}; continuing with separate key file only", certFilePath);
+            Log.Debug(ex,
+                "Failed to append private key to certificate PEM file {CertFilePath}; continuing with separate key file only",
+                certFilePath);
         }
     }
+
 
     /// <summary>
     /// Exports the specified X509 certificate to a file in the given format, using a SecureString password and optional private key inclusion.
@@ -1183,12 +1219,11 @@ public static class CertificateManager
         return X509CertificateLoader.LoadPkcs12(
             pfxBytes,
             password: default,
-            keyStorageFlags: X509KeyStorageFlags.MachineKeySet | X509KeyStorageFlags.Exportable,
+            keyStorageFlags: X509KeyStorageFlags.Exportable,
             loaderLimits: Pkcs12LoaderLimits.Defaults);
 #else
-                return new X509Certificate2(pfxBytes, (string?)null,
-                    X509KeyStorageFlags.MachineKeySet |
-                    X509KeyStorageFlags.Exportable);
+        return new X509Certificate2(pfxBytes, (string?)null,
+            X509KeyStorageFlags.Exportable);
 #endif
     }
 

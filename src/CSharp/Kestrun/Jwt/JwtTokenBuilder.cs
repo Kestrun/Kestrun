@@ -98,6 +98,7 @@ public sealed class JwtTokenBuilder
     private sealed record PendingSymmetricSign(string B64u, string Alg /*auto/HS256…*/);
     private sealed record PendingRsaSign(string Pem, string Alg);
     private sealed record PendingCertSign(X509Certificate2 Cert, string Alg);
+    private sealed record PendingJwkSign(JsonWebKey Jwk, string Alg);
 
     private sealed record PendingSymmetricEnc(string B64u, string KeyAlg, string EncAlg);
     private sealed record PendingRsaEnc(string Pem, string KeyAlg, string EncAlg);
@@ -248,6 +249,63 @@ public sealed class JwtTokenBuilder
         return this;
     }
 
+    /// <summary>
+    /// Signs the JWT using a JWK JSON string (RSA / EC / oct).
+    /// </summary>
+    /// <param name="jwkJson">The JWK JSON string.</param>
+    /// <param name="alg">
+    /// The algorithm to use. If <see cref="JwtAlgorithm.Auto"/>, a default is chosen
+    /// based on JWK key type (RS256 for RSA, ES256 for EC, HS256 for symmetric).
+    /// </param>
+    public JwtTokenBuilder SignWithJwkJson(
+        string jwkJson,
+        JwtAlgorithm alg = JwtAlgorithm.Auto)
+    {
+        if (string.IsNullOrWhiteSpace(jwkJson))
+        {
+            throw new ArgumentNullException(nameof(jwkJson));
+        }
+
+        var jwk = new JsonWebKey(jwkJson);
+
+        // Determine algorithm
+        string resolvedAlg;
+        if (alg == JwtAlgorithm.Auto)
+        {
+            resolvedAlg = jwk.Kty switch
+            {
+                "RSA" => SecurityAlgorithms.RsaSha256,
+                "EC" => SecurityAlgorithms.EcdsaSha256,
+                "oct" => SecurityAlgorithms.HmacSha256,
+                _ => throw new NotSupportedException(
+                            $"Unsupported JWK key type '{jwk.Kty}'.")
+            };
+        }
+        else
+        {
+            // You already map JwtAlgorithm → SecurityAlgorithms via ToJwtString
+            resolvedAlg = alg.ToJwtString(0);
+        }
+
+        // For symmetric JWKs, we can treat it like other HMAC keys for validation helpers
+        if (string.Equals(jwk.Kty, "oct", StringComparison.OrdinalIgnoreCase))
+        {
+            // JWK 'k' is the base64url-encoded raw key material
+            if (string.IsNullOrEmpty(jwk.K))
+            {
+                throw new InvalidOperationException("Symmetric JWK is missing 'k' value.");
+            }
+
+            var raw = Base64UrlEncoder.DecodeBytes(jwk.K);
+            _issuerSigningKey = new SymmetricSecurityKey(raw)
+            {
+                KeyId = jwk.Kid ?? Guid.NewGuid().ToString("N")
+            };
+        }
+
+        _pendingSign = new PendingJwkSign(jwk, resolvedAlg);
+        return this;
+    }
 
 
     // ── encryption helpers (lazy) ───────────────────────────────────
@@ -426,6 +484,7 @@ public sealed class JwtTokenBuilder
             PendingSymmetricSign ps => CreateHsCreds(ps, out key),
             PendingRsaSign pr => CreateRsaCreds(pr),
             PendingCertSign pc => CreateCertCreds(pc),
+            PendingJwkSign pj => CreateJwkCreds(pj),
             _ => null
         };
     }
@@ -495,6 +554,48 @@ public sealed class JwtTokenBuilder
         var key = new X509SecurityKey(cert);  // thumbprint becomes kid
         return new SigningCredentials(key, pc.Alg);
     }
+
+    /// <summary>
+    /// Creates signing credentials for a JsonWebKey.
+    /// </summary>
+    /// <param name="pj">The pending JWK signing configuration.</param>
+    /// <returns>The signing credentials for the JWK.</returns>
+    /// <exception cref="NotSupportedException">Thrown if the JWK key type is incompatible with the specified algorithm.</exception>
+    /// <remarks>
+    /// This method creates signing credentials for a JsonWebKey using the provided JWK.
+    /// </remarks>
+    private static SigningCredentials CreateJwkCreds(
+        PendingJwkSign pj)
+    {
+        var jwk = pj.Jwk;
+
+        // Optional sanity checks: ensure alg matches key type
+        if (string.Equals(jwk.Kty, "RSA", StringComparison.OrdinalIgnoreCase) &&
+            !pj.Alg.StartsWith("RS", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new NotSupportedException(
+                $"Incompatible algorithm '{pj.Alg}' for RSA JWK (kty='RSA').");
+        }
+
+        if (string.Equals(jwk.Kty, "EC", StringComparison.OrdinalIgnoreCase) &&
+            !pj.Alg.StartsWith("ES", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new NotSupportedException(
+                $"Incompatible algorithm '{pj.Alg}' for EC JWK (kty='EC').");
+        }
+
+        if (string.Equals(jwk.Kty, "oct", StringComparison.OrdinalIgnoreCase) &&
+            !pj.Alg.StartsWith("HS", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new NotSupportedException(
+                $"Incompatible algorithm '{pj.Alg}' for symmetric JWK (kty='oct').");
+        }
+
+        // JsonWebKey is already a SecurityKey
+        return new SigningCredentials(jwk, pj.Alg);
+    }
+
+
     /// <summary>
     /// Builds the encrypting credentials.
     /// This method constructs the encrypting credentials based on the pending encryption configuration.

@@ -19,6 +19,13 @@ public class OidcOptions : OpenIdConnectOptions
     /// </summary>
     public string? JwkJson { get; set; }
 
+#if NET8_0
+    /// <summary>
+    /// Additional authorization parameters to include in the authorization request.
+    /// </summary>
+    public string PushedAuthorizationBehavior { get; set; } = "Disable";
+#endif
+
     /// <summary>
     /// Initializes a new instance of the <see cref="OidcOptions"/> class.
     /// </summary>

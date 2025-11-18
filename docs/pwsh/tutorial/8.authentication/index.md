@@ -21,10 +21,11 @@ Chapters:
 | 5   | [Cookies](./5.Cookies)                               | Form login + cookie session auth          |
 | 6   | [Windows Authentication](./6.Windows-Authentication) | Integrated Windows credentials            |
 | 7   | [Claims & Policies](./7.Claims-Policies)             | Claim policy config + route enforcement   |
-| 8   | [Claims & Policies](./7.Claims-Policies)             | Claim policy config + route enforcement   |
-| 9   | [Claims & Policies](./7.Claims-Policies)             | Claim policy config + route enforcement   |
-| 10  | [Multiple Schemes](./10.Multiple-Schemes)             | Combining schemes & route groups          |
-| 11  | [Full Demo](./11.Full-Demo)                           | Integrated multi-scheme server            |
+| 8   | [Multiple Schemes](./10.Multiple-Schemes)            | Combining schemes & route groups          |
+| 9   | [OpenID Connect (Okta)](./9.OpenID-Connect-Okta)     | Okta OIDC + cookie session                |
+| 10  | [GitHub Authentication](./11.GitHub-Authentication)  | GitHub OAuth + cookie policy              |
+| 11  | [OpenID Connect (Duende Demo)](./12.OpenID-Connect)  | OIDC code flow (PKCE, tokens)             |
+| 12  | [Full Demo](./13.Full-Demo)                          | Integrated multi-scheme server            |
 
 ---
 

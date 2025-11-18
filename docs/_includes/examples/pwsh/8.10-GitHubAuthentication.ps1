@@ -1,7 +1,7 @@
 ﻿<#
     Sample: GitHub Authentication (Authorization Code) + Cookies
     Purpose: Ready-to-use GitHub OAuth2 login using the convenience function.
-    Based on: 8.9-Auth2PolicyScheme.ps1, simplified and focused on GitHub.
+    Based on: 8.10-GitHubAuthentication.ps1, simplified and focused on GitHub.
 
     Notes:
       - This registers three schemes when using Add-KrGitHubAuthentication -Name 'GitHub':

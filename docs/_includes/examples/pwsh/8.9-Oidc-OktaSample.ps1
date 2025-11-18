@@ -1,7 +1,7 @@
 <#
     Sample: OAuth 2.0 (Authorization Code) + Cookies
     Purpose: External login via GitHub → sign into local Cookies scheme → protect routes.
-    File:    8.4-OAuth2.ps1
+    File:    8.9-Oidc-OktaSample.ps1
     Notes:   Use HTTPS. For OAuth redirects, SameSite=Lax is recommended (Strict can block cross-site return).
 #>
 param(

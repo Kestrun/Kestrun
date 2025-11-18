@@ -281,7 +281,7 @@ public static class XmlHelper
         {
             if (attr.Name.NamespaceName == xsi.NamespaceName && attr.Name.LocalName == "nil" && attr.Value == "true")
             {
-                return new Hashtable { [element.Name.LocalName] = null! };
+                return new Hashtable { [element.Name.LocalName] = null };
             }
             table["@" + attr.Name.LocalName] = attr.Value;
         }

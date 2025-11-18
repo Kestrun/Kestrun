@@ -970,7 +970,7 @@ public static class CertificateManager
         var baseName = Path.GetFileNameWithoutExtension(certFilePath);
         var keyFilePath = string.IsNullOrEmpty(certDir)
             ? baseName + ".key"
-            : Path.Combine(certDir!, baseName + ".key");
+            : Path.Combine(certDir, baseName + ".key");
 
         File.WriteAllText(keyFilePath, keyPem);
 

@@ -24,7 +24,7 @@ internal static class PowerShellExecutionHelpers
         {
             log.Verbose("Setting PowerShell variables from arguments: {Count}", arguments.Count);
         }
-        var proxy = ps.Runspace!.SessionStateProxy;
+        var proxy = ps.Runspace.SessionStateProxy;
         foreach (var kv in arguments)
         {
             proxy.SetVariable(kv.Key, kv.Value);

@@ -45,8 +45,8 @@ public static class JwkUtilities
 
         using var rsa = certificate.GetRSAPublicKey() ?? throw new NotSupportedException("Certificate does not contain an RSA public key.");
         var parameters = rsa.ExportParameters(false);
-        var n = Base64UrlEncode(parameters.Modulus!);
-        var e = Base64UrlEncode(parameters.Exponent!);
+        var n = Base64UrlEncode(parameters.Modulus);
+        var e = Base64UrlEncode(parameters.Exponent);
         return ComputeThumbprintRsa(n, e);
     }
 

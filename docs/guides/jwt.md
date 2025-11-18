@@ -70,6 +70,26 @@ $validation = $built | Get-KrJWTValidationParameter
 Add-KrJWTBearerAuthentication -Name 'Bearer' -ValidationParameter $validation
 ```
 
+Alternative (JWK RSA key):
+
+```powershell
+# Using an RSA JWK (private key) to sign with RS256
+$builder = New-KrJWTBuilder |
+  Add-KrJWTIssuer -Issuer 'DemoIssuer' |
+  Add-KrJWTAudience -Audience 'DemoAudience' |
+  Protect-KrJWT -JwkPath './keys/signing.jwk.json' -Algorithm RS256 |
+  Limit-KrJWTValidity -Minutes 30
+
+$built = $builder |
+  Add-KrJWTSubject -Subject 'user1' |
+  Add-KrJWTClaim -UserClaimType Name -Value 'user1' |
+  Build-KrJWT
+
+$token = $built | Get-KrJWTToken
+$validation = $built | Get-KrJWTValidationParameter
+Add-KrJWTBearerAuthentication -Name 'Bearer' -ValidationParameter $validation
+```
+
 ---
 
 ## 4. Detailed cmdlet pipeline
@@ -98,6 +118,48 @@ $b = $b | Protect-KrJWT -HexadecimalKey 'a0b1c2d3e4f5061728394a5b6c7d8e9fa1b2c3d
 ```
 
 Or protect only payload (header left default) via `Protect-KrJWTPayload` (rare; usually use full protection).
+
+JWK (RSA/EC) private key from file (JSON Web Key):
+
+```powershell
+# Auto can infer algorithm from key type, but you can be explicit
+$b = $b | Protect-KrJWT -JwkPath './keys/signing.jwk.json' -Algorithm RS256
+```
+
+JWK provided as JSON string (e.g., loaded at runtime):
+
+```powershell
+$jwk = Get-Content './keys/signing.jwk.json' -Raw
+$b = $b | Protect-KrJWT -JwkJson $jwk -Algorithm Auto
+```
+
+PEM (RSA private key) path:
+
+```powershell
+$b = $b | Protect-KrJWT -PemPath './keys/private.key' -Algorithm RS256
+```
+
+#### Key material formats
+
+Minimal RSA JWK (private key) example:
+
+```json
+{
+  "kty": "RSA",
+  "kid": "demo-signing-key-1",
+  "use": "sig",
+  "alg": "RS256",
+  "n": "u8x3a0...base64url-modulus...",
+  "e": "AQAB",
+  "d": "HkV...base64url-private-exponent..."
+}
+```
+
+- `kty`: key type (`RSA`, `EC`).
+- `n`/`e`: RSA public modulus/exponent. `d`: private exponent (keep secret).
+- `alg` and `use` are optional hints; `Protect-KrJWT -Algorithm Auto` can infer from `kty`.
+- For EC JWKs use fields: `kty: "EC"`, `crv` (curve), `x`, `y` (public), and `d` (private).
+- Validation only needs the public components (`n`/`e` for RSA; `x`/`y` for EC). Store private keys securely.
 
 ### 4.4 Lifetime & temporal claims
 
@@ -230,6 +292,12 @@ Add-KrMapRoute -Verbs Get -Pattern '/token/renew' -AuthorizationSchema 'Bearer' 
 | Build/Extract | `Build-KrJWT`, `Get-KrJWTToken`, `Get-KrJWTInfo`                                                 |
 | Validate      | `Get-KrJWTValidationParameter`, `Test-KrJWT`, `Add-KrJWTBearerAuthentication`                    |
 | Update        | `Update-KrJWT`                                                                                   |
+
+Notes:
+
+- `Protect-KrJWT` supports symmetric secrets and asymmetric keys via multiple parameter sets:
+  `-HexadecimalKey`, `-Base64Url`, `-Passphrase` (HMAC), `-PemPath` (RSA PEM), `-JwkPath`, and `-JwkJson` (RSA/EC JWK), and `-X509Certificate`.
+- Use `-Algorithm Auto` to let Kestrun infer appropriate signing based on the supplied key material; specify `HS256`/`RS256`/`ES256` etc. when you need control.
 
 ---
 

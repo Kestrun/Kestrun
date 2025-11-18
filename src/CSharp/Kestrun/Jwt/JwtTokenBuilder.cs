@@ -103,6 +103,7 @@ public sealed class JwtTokenBuilder
     private sealed record PendingSymmetricEnc(string B64u, string KeyAlg, string EncAlg);
     private sealed record PendingRsaEnc(string Pem, string KeyAlg, string EncAlg);
     private sealed record PendingCertEnc(X509Certificate2 Cert, string KeyAlg, string EncAlg);
+    private sealed record PendingJwkEnc(string JwkJson, string KeyAlg, string EncAlg);
 
     private object? _pendingSign;     // will be one of the above
     private object? _pendingEnc;
@@ -385,6 +386,53 @@ public sealed class JwtTokenBuilder
     }
 
 
+    /// <summary>
+    /// Encrypts the JWT payload using a JWK (public key) in JSON format.
+    /// </summary>
+    /// <param name="jwkJson">The JWK JSON string (typically an RSA or EC public key).</param>
+    /// <param name="keyAlg">The JWE key management algorithm (default: "RSA-OAEP").</param>
+    /// <param name="encAlg">The JWE content encryption algorithm (default: "A256GCM").</param>
+    /// <returns>The current <see cref="JwtTokenBuilder"/> instance.</returns>
+    public JwtTokenBuilder EncryptWithJwkJson(
+        string jwkJson,
+        string keyAlg = "RSA-OAEP",
+        string encAlg = "A256GCM")
+    {
+        if (string.IsNullOrWhiteSpace(jwkJson))
+        {
+            throw new ArgumentException("JWK JSON cannot be null or empty.", nameof(jwkJson));
+        }
+
+        _pendingEnc = new PendingJwkEnc(jwkJson, keyAlg, encAlg);
+        return this;
+    }
+
+    /// <summary>
+    /// Encrypts the JWT payload using a JWK read from a file.
+    /// </summary>
+    /// <param name="jwkPath">Path to the JWK JSON file.</param>
+    /// <param name="keyAlg">The JWE key management algorithm (default: "RSA-OAEP").</param>
+    /// <param name="encAlg">The JWE content encryption algorithm (default: "A256GCM").</param>
+    /// <returns>The current <see cref="JwtTokenBuilder"/> instance.</returns>
+    public JwtTokenBuilder EncryptWithJwkPath(
+        string jwkPath,
+        string keyAlg = "RSA-OAEP",
+        string encAlg = "A256GCM")
+    {
+        if (string.IsNullOrWhiteSpace(jwkPath))
+        {
+            throw new ArgumentException("JWK path cannot be null or empty.", nameof(jwkPath));
+        }
+
+        var fullPath = Path.GetFullPath(jwkPath);
+        var jwkJson = File.ReadAllText(fullPath);
+
+        _pendingEnc = new PendingJwkEnc(jwkJson, keyAlg, encAlg);
+        return this;
+    }
+
+
+
     // ───── Build the compact JWT ──────────────────────────────────────
 
     /// <summary>
@@ -615,6 +663,8 @@ public sealed class JwtTokenBuilder
                                           re.Pem, re.KeyAlg, re.EncAlg).ToEncryptingCreds(),
             PendingCertEnc ce => new CertEncrypt(
                                           ce.Cert, ce.KeyAlg, ce.EncAlg).ToEncryptingCreds(),
+            PendingJwkEnc je => new JwkEncrypt(
+                                    je.JwkJson, je.KeyAlg, je.EncAlg).ToEncryptingCreds(),
             _ => null
         };
 
@@ -777,6 +827,22 @@ public sealed class JwtTokenBuilder
             var rsa = RSA.Create(); rsa.ImportFromPem(Pem);
             var key = new RsaSecurityKey(rsa);
             return new EncryptingCredentials(key, KeyAlgMapped, EncAlgMapped);
+        }
+    }
+
+    private sealed record JwkEncrypt(string JwkJson, string KeyAlg, string EncAlg) : BaseEnc(KeyAlg, EncAlg)
+    {
+        public override EncryptingCredentials ToEncryptingCreds()
+        {
+            // JsonWebKey is a SecurityKey
+            var jwk = new JsonWebKey(JwkJson);
+            var key = (SecurityKey)jwk;
+
+            return new EncryptingCredentials(
+                key,
+                KeyAlgMapped,   // mapped from Map.KeyAlg
+                EncAlgMapped    // mapped from Map.EncAlg
+            );
         }
     }
 

@@ -558,7 +558,7 @@ public class KestrunResponse(KestrunRequest request, int bodyAsyncThreshold = 81
             Log.Debug("Writing XML response (async), StatusCode={StatusCode}, ContentType={ContentType}", statusCode, contentType);
         }
 
-        var root = string.IsNullOrWhiteSpace(rootElementName) ? "Response" : rootElementName!.Trim();
+        var root = string.IsNullOrWhiteSpace(rootElementName) ? "Response" : rootElementName.Trim();
         var xml = await Task.Run(() => XmlHelper.ToXml(root, inputObject));
         var saveOptions = compress ? SaveOptions.DisableFormatting : SaveOptions.None;
         Body = await Task.Run(() => xml.ToString(saveOptions));

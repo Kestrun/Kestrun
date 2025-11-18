@@ -15,17 +15,17 @@
 
     Usage Examples:
       # Standard confidential client (1-hour tokens)
-      .\8.12-OIDC.ps1
-      .\8.12-OIDC.ps1 -Mode 'interactive.confidential'
+      .\8.11-OIDC.ps1
+      .\8.11-OIDC.ps1 -Mode 'interactive.confidential'
 
       # JWT authentication (more secure than client secrets)
-      .\8.12-OIDC.ps1 -Mode 'interactive.confidential.jwt'
+      .\8.11-OIDC.ps1 -Mode 'interactive.confidential.jwt'
 
       # Short-lived tokens (75 seconds) - test token expiration
-      .\8.12-OIDC.ps1 -Mode 'interactive.confidential.short'
+      .\8.11-OIDC.ps1 -Mode 'interactive.confidential.short'
 
       # Public client (no secret, PKCE required)
-      .\8.12-OIDC.ps1 -Mode 'interactive.public'
+      .\8.11-OIDC.ps1 -Mode 'interactive.public'
 
     Notes:
       - Schemes registered: 'oidc', 'oidc.Cookies', 'oidc.Policy'
@@ -253,7 +253,8 @@ if ($UseJwtAuth) {
 
     $ClientAssertionJwkJson = @'
     {
-        "d":"GmiaucNIzdvsEzGjZjd43SDToy1pz-Ph-shsOUXXh-dsYNGftITGerp8bO1iryXh_zUEo8oDK3r1y4klTonQ6bLsWw4ogjLPmL3yiqsoSjJa1G2Ymh_RY_sFZLLXAcrmpbzdWIAkgkHSZTaliL6g57vA7gxvd8L4s82wgGer_JmURI0ECbaCg98JVS0Srtf9GeTRHoX4foLWKc1Vq6NHthzqRMLZe-aRBNU9IMvXNd7kCcIbHCM3GTD_8cFj135nBPP2HOgC_ZXI1txsEf-djqJj8W5vaM7ViKU28IDv1gZGH3CatoysYx6jv1XJVvb2PH8RbFKbJmeyUm3Wvo-rgQ",
+        "d":"GmiaucNIzdvsEzGjZjd43SDToy1pz-Ph-shsOUXXh-dsYNGftITGerp8bO1iryXh_zUEo8oDK3r1y4klTonQ6bLsWw4ogjLPmL3yiqsoSjJa1G2Ymh_"+
+        "RY_sFZLLXAcrmpbzdWIAkgkHSZTaliL6g57vA7gxvd8L4s82wgGer_JmURI0ECbaCg98JVS0Srtf9GeTRHoX4foLWKc1Vq6NHthzqRMLZe-aRBNU9IMvXNd7kCcIbHCM3GTD_8cFj135nBPP2HOgC_ZXI1txsEf-djqJj8W5vaM7ViKU28IDv1gZGH3CatoysYx6jv1XJVvb2PH8RbFKbJmeyUm3Wvo-rgQ",
         "dp":"YNjVBTCIwZD65WCht5ve06vnBLP_Po1NtL_4lkholmPzJ5jbLYBU8f5foNp8DVJBdFQW7wcLmx85-NC5Pl1ZeyA-Ecbw4fDraa5Z4wUKlF0LT6VV79rfOF19y8kwf6MigyrDqMLcH_CRnRGg5NfDsijlZXffINGuxg6wWzhiqqE",
         "dq":"LfMDQbvTFNngkZjKkN2CBh5_MBG6Yrmfy4kWA8IC2HQqID5FtreiY2MTAwoDcoINfh3S5CItpuq94tlB2t-VUv8wunhbngHiB5xUprwGAAnwJ3DL39D2m43i_3YP-UO1TgZQUAOh7Jrd4foatpatTvBtY3F1DrCrUKE5Kkn770M",
         "e":"AQAB",
@@ -267,7 +268,7 @@ if ($UseJwtAuth) {
     '@
     $clientCert = ConvertFrom-KrJwkJsonToCertificate -Jwk ($ClientAssertionJwkJson) -SubjectName 'CN=Duende Demo Client JWT'
     Export-KrCertificate -Certificate $clientCert -FilePath './Assets/certs/client-jwt-cert' -Format Pem -IncludePrivateKey
-    #>
+#>
 
     $oidcOptions.JwkJson = ConvertTo-KrJwkJson -RsaPrivateKeyPath './Assets/certs/client-jwt-cert.key'
 

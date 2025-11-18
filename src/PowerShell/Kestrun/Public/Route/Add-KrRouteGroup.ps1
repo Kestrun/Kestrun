@@ -4,7 +4,7 @@
     .DESCRIPTION
         While the ScriptBlock runs, all Add-KrMapRoute calls inherit:
           - Prefix (prepended to -Path)
-          - AuthorizationSchema / AuthorizationPolicy
+          - AuthorizationScheme / AuthorizationPolicy
           - ExtraImports / ExtraRefs
           - Arguments (merged; child overrides keys)
         Supports nesting; inner groups inherit and can override unless -NoInherit is used.
@@ -15,7 +15,7 @@
         The options to apply to all routes in the group.
     .PARAMETER Prefix
         The path prefix for the group (e.g. '/todoitems').
-    .PARAMETER AuthorizationSchema
+    .PARAMETER AuthorizationScheme
         Authorization schemes required by all routes in the group.
     .PARAMETER AuthorizationPolicy
         Authorization policies required by all routes in the group.
@@ -63,7 +63,7 @@ function Add-KrRouteGroup {
 
         [Parameter(ParameterSetName = 'ScriptBlock')]
         [Parameter(ParameterSetName = 'FileName')]
-        [string[]]$AuthorizationSchema,
+        [string[]]$AuthorizationScheme,
 
         [Parameter(ParameterSetName = 'ScriptBlock')]
         [Parameter(ParameterSetName = 'FileName')]
@@ -128,7 +128,7 @@ function Add-KrRouteGroup {
                 foreach ($k in $Arguments.Keys) { $dict[$k] = $Arguments[$k] }
             }
             New-KrMapRouteOption -Property @{
-                RequireSchemes = $AuthorizationSchema
+                RequireSchemes = $AuthorizationScheme
                 RequirePolicies = $AuthorizationPolicy
                 Pattern = $Prefix
                 ScriptCode = @{

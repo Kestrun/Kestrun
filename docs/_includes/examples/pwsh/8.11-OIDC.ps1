@@ -353,8 +353,8 @@ Add-KrMapRoute -Verbs Get -Pattern '/login' -ScriptBlock {
 } -AllowAnonymous
 
 # 8) Protected route group using the policy scheme
-#Add-KrRouteGroup -Prefix '/oidc' -AuthorizationSchema 'oidc'  {
-Add-KrMapRoute -Verbs Get -Pattern '/hello' -AuthorizationSchema 'oidc' -ScriptBlock {
+#Add-KrRouteGroup -Prefix '/oidc' -AuthorizationScheme 'oidc'  {
+Add-KrMapRoute -Verbs Get -Pattern '/hello' -AuthorizationScheme 'oidc' -ScriptBlock {
     Write-Host ($Context.User.Identity | ConvertTo-Json -Depth 5)
     $name = $Context.User.Identity.Name ?? '(no name)'
     $email = $Context.User.FindFirst('email')?.Value ?? 'No email claim'
@@ -373,7 +373,7 @@ Add-KrMapRoute -Verbs Get -Pattern '/hello' -AuthorizationSchema 'oidc' -ScriptB
     }
 }
 
-Add-KrMapRoute -Verbs Get -Pattern '/me' -AuthorizationSchema 'oidc' -ScriptBlock {
+Add-KrMapRoute -Verbs Get -Pattern '/me' -AuthorizationScheme 'oidc' -ScriptBlock {
     $claims = foreach ($c in $Context.User.Claims) { @{ Type = $c.Type; Value = $c.Value } }
     Write-KrJsonResponse @{ scheme = 'oidc'; authenticated = $Context.User.Identity.IsAuthenticated; claims = $claims }
 }

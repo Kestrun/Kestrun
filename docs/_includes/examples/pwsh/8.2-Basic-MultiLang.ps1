@@ -34,11 +34,11 @@ Add-KrBasicAuthentication -Name 'VBNetBasic' -Realm 'VB' -AllowInsecureHttp -Cod
 Enable-KrConfiguration
 
 # 8. Map language-specific routes
-Add-KrMapRoute -Verbs Get -Pattern '/secure/cs/hello' -AuthorizationSchema 'CSharpBasic' -ScriptBlock {
+Add-KrMapRoute -Verbs Get -Pattern '/secure/cs/hello' -AuthorizationScheme 'CSharpBasic' -ScriptBlock {
     Write-KrTextResponse -InputObject "CS Hello, $( $Context.User.Identity.Name )!" -ContentType 'text/plain'
 }
 
-Add-KrMapRoute -Verbs Get -Pattern '/secure/vb/hello' -AuthorizationSchema 'VBNetBasic' -ScriptBlock {
+Add-KrMapRoute -Verbs Get -Pattern '/secure/vb/hello' -AuthorizationScheme 'VBNetBasic' -ScriptBlock {
     Write-KrTextResponse -InputObject "VB Hello, $( $Context.User.Identity.Name )!" -ContentType 'text/plain'
 }
 

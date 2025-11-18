@@ -61,7 +61,7 @@ Add-KrHtmlTemplateRoute -Pattern '/' -HtmlTemplatePath './Assets/wwwroot/github/
 
 # 7) Protected routes using the policy scheme
 
-Add-KrMapRoute -Verbs Get -Pattern '/github/login' -AuthorizationSchema 'GitHub' -ScriptBlock {
+Add-KrMapRoute -Verbs Get -Pattern '/github/login' -AuthorizationScheme 'GitHub' -ScriptBlock {
     # Extract user claims (robust to GitHub-specific claim types)
     $name = $Context.User.Identity.Name ?? '(no name)'
     $email = $Context.User.FindFirst([System.Security.Claims.ClaimTypes]::Email)?.Value `
@@ -98,7 +98,7 @@ Add-KrMapRoute -Verbs Get -Pattern '/github/login' -AuthorizationSchema 'GitHub'
     }
 }
 
-Add-KrMapRoute -Verbs Get -Pattern '/github/me' -AuthorizationSchema 'GitHub' -ScriptBlock {
+Add-KrMapRoute -Verbs Get -Pattern '/github/me' -AuthorizationScheme 'GitHub' -ScriptBlock {
     $claims = foreach ($c in $Context.User.Claims) { @{ Type = $c.Type; Value = $c.Value } }
     Write-KrJsonResponse @{ scheme = 'GitHub'; authenticated = $Context.User.Identity.IsAuthenticated; claims = $claims }
 }

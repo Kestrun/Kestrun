@@ -34,9 +34,9 @@ Enable-KrConfiguration
 
 # 9. Group routes by scheme variant
 Add-KrRouteGroup -Prefix '/secure/key' {
-    Add-KrMapRoute -Verbs Get -Pattern '/simple/hello' -AuthorizationSchema 'ApiKeySimple' -ScriptBlock { Write-KrTextResponse 'Simple Key OK' }
-    Add-KrMapRoute -Verbs Get -Pattern '/ps/hello' -AuthorizationSchema 'ApiKeyPS' -ScriptBlock { Write-KrTextResponse 'PS Key OK' }
-    Add-KrMapRoute -Verbs Get -Pattern '/cs/hello' -AuthorizationSchema 'ApiKeyCS' -ScriptBlock { Write-KrTextResponse 'CS Key OK' }
+    Add-KrMapRoute -Verbs Get -Pattern '/simple/hello' -AuthorizationScheme 'ApiKeySimple' -ScriptBlock { Write-KrTextResponse 'Simple Key OK' }
+    Add-KrMapRoute -Verbs Get -Pattern '/ps/hello' -AuthorizationScheme 'ApiKeyPS' -ScriptBlock { Write-KrTextResponse 'PS Key OK' }
+    Add-KrMapRoute -Verbs Get -Pattern '/cs/hello' -AuthorizationScheme 'ApiKeyCS' -ScriptBlock { Write-KrTextResponse 'CS Key OK' }
 }
 
 # 10. Start server

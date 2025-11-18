@@ -15,7 +15,7 @@
     .PARAMETER HtmlTemplatePath
         The file path to the HTML template to be used for the route.
 
-    .PARAMETER AuthorizationSchema
+    .PARAMETER AuthorizationScheme
         An optional array of authorization schemes for the route.
 
     .PARAMETER AuthorizationPolicy
@@ -53,7 +53,7 @@ function Add-KrHtmlTemplateRoute {
         [string]$HtmlTemplatePath,
 
         [Parameter()]
-        [string[]]$AuthorizationSchema = $null,
+        [string[]]$AuthorizationScheme = $null,
 
         [Parameter()]
         [string[]]$AuthorizationPolicy = $null,
@@ -69,8 +69,8 @@ function Add-KrHtmlTemplateRoute {
 
         $options = [Kestrun.Hosting.Options.MapRouteOptions]::new()
         $options.Pattern = $Pattern
-        if ($null -ne $AuthorizationSchema) {
-            $Options.RequireSchemes = $AuthorizationSchema
+        if ($null -ne $AuthorizationScheme) {
+            $Options.RequireSchemes = $AuthorizationScheme
         }
         if ($null -ne $AuthorizationPolicy) {
             $Options.RequirePolicies = $AuthorizationPolicy

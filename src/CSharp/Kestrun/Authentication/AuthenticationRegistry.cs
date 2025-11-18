@@ -173,7 +173,6 @@ public sealed class AuthenticationRegistry
     /// <exception cref="KeyNotFoundException"></exception>
     public string ResolveAuthenticationSchemeName(string schema, string type)
     {
-
         if (!TryGet(schema, type, out var options))
         {
             throw new KeyNotFoundException($"No authentication registered for schema='{schema}', type='{type}'.");

@@ -137,124 +137,166 @@ public static class KestrunHostAuthnExtensions
         string clientSecret,
         string callbackPath)
     {
-        var opts = new OAuth2Options
-        {
-            ClientId = clientId,
-            ClientSecret = clientSecret,
-
-            CallbackPath = callbackPath,
-
-            AuthorizationEndpoint = "https://github.com/login/oauth/authorize",
-            TokenEndpoint = "https://github.com/login/oauth/access_token",
-            UserInformationEndpoint = "https://api.github.com/user"
-        };
-
-        // Request additional scopes if you want (optional)
-        opts.Scope.Add("read:user");
-        opts.Scope.Add("user:email");
-
-        opts.SaveTokens = true;
-        opts.SignInScheme = CookieAuthenticationDefaults.AuthenticationScheme;
-
-        // Map JSON from the user endpoint to claims
-        opts.ClaimActions.MapJsonKey(ClaimTypes.NameIdentifier, "id");
-        opts.ClaimActions.MapJsonKey(ClaimTypes.Name, "login");
-        opts.ClaimActions.MapJsonKey(ClaimTypes.Email, "email");
-        opts.ClaimActions.MapJsonKey("name", "name");  // GitHub's display name (may be null)
-        opts.ClaimActions.MapJsonKey("urn:github:login", "login");
-        opts.ClaimActions.MapJsonKey("urn:github:avatar_url", "avatar_url");
-        opts.ClaimActions.MapJsonKey("urn:github:html_url", "html_url");
-
+        var opts = ConfigureGitHubOAuth2Options(clientId, clientSecret, callbackPath);
+        ConfigureGitHubClaimMappings(opts);
         opts.Events = new OAuthEvents
         {
             OnCreatingTicket = async context =>
             {
-                // Fetch the user info from GitHub
-                var request = new HttpRequestMessage(HttpMethod.Get, context.Options.UserInformationEndpoint);
-                request.Headers.Accept.Add(new("application/json"));
-                request.Headers.Add("User-Agent", "KestrunOAuth/1.0");
-                request.Headers.Authorization = new("Bearer", context.AccessToken);
-
-                var response = await context.Backchannel.SendAsync(request,
-                    HttpCompletionOption.ResponseHeadersRead,
-                    context.HttpContext.RequestAborted);
-
-                _ = response.EnsureSuccessStatusCode();
-
-                using var user = JsonDocument.Parse(await response.Content.ReadAsStringAsync(context.HttpContext.RequestAborted));
-                context.RunClaimActions(user.RootElement);
-
-                // Enrich email if missing from /user endpoint (requires user:email scope)
-                if (context.Identity is not null &&
-                    !context.Identity.HasClaim(c => c.Type == ClaimTypes.Email))
-                {
-                    try
-                    {
-                        var emailRequest = new HttpRequestMessage(HttpMethod.Get, "https://api.github.com/user/emails");
-                        emailRequest.Headers.Accept.Add(new("application/json"));
-                        emailRequest.Headers.Add("User-Agent", "KestrunOAuth/1.0");
-                        emailRequest.Headers.Authorization = new("Bearer", context.AccessToken);
-
-                        var emailResponse = await context.Backchannel.SendAsync(emailRequest,
-                            HttpCompletionOption.ResponseHeadersRead,
-                            context.HttpContext.RequestAborted);
-
-                        if (emailResponse.IsSuccessStatusCode)
-                        {
-                            using var emails = JsonDocument.Parse(await emailResponse.Content.ReadAsStringAsync(context.HttpContext.RequestAborted));
-
-                            // Find primary verified email, fallback to first verified email
-                            string? primaryEmail = null;
-                            foreach (var emailObj in emails.RootElement.EnumerateArray())
-                            {
-                                var isPrimary = emailObj.TryGetProperty("primary", out var primaryProp) && primaryProp.GetBoolean();
-                                var isVerified = emailObj.TryGetProperty("verified", out var verifiedProp) && verifiedProp.GetBoolean();
-
-                                if (isPrimary && isVerified && emailObj.TryGetProperty("email", out var emailProp))
-                                {
-                                    primaryEmail = emailProp.GetString();
-                                    break;
-                                }
-                            }
-
-                            // Fallback to first verified email if no primary found
-                            if (string.IsNullOrWhiteSpace(primaryEmail))
-                            {
-                                foreach (var emailObj in emails.RootElement.EnumerateArray())
-                                {
-                                    var isVerified = emailObj.TryGetProperty("verified", out var verifiedProp) && verifiedProp.GetBoolean();
-                                    if (isVerified && emailObj.TryGetProperty("email", out var emailProp))
-                                    {
-                                        primaryEmail = emailProp.GetString();
-                                        break;
-                                    }
-                                }
-                            }
-
-                            if (!string.IsNullOrWhiteSpace(primaryEmail))
-                            {
-                                context.Identity.AddClaim(new Claim(
-                                    ClaimTypes.Email,
-                                    primaryEmail,
-                                    ClaimValueTypes.String,
-                                    context.Options.ClaimsIssuer));
-                            }
-                        }
-                    }
-                    catch
-                    {
-                        if (host.Logger.IsEnabled(LogEventLevel.Verbose))
-                        {
-                            host.Logger.Verbose("Failed to enrich GitHub email claim.");
-                        }
-                        // Best-effort email enrichment; ignore failures
-                    }
-                }
+                await FetchGitHubUserInfoAsync(context);
+                await EnrichGitHubEmailClaimAsync(context, host);
             }
         };
         return host.AddOAuth2Authentication(scheme, opts);
     }
 
+    /// <summary>
+    /// Configures OAuth2Options for GitHub authentication.
+    /// </summary>
+    /// <param name="clientId">GitHub OAuth App Client ID.</param>
+    /// <param name="clientSecret">GitHub OAuth App Client Secret.</param>
+    /// <param name="callbackPath">The callback path for OAuth redirection (e.g. "/signin-github").</param>
+    /// <returns>The configured OAuth2Options.</returns>
+    private static OAuth2Options ConfigureGitHubOAuth2Options(string clientId, string clientSecret, string callbackPath)
+    {
+        return new OAuth2Options
+        {
+            ClientId = clientId,
+            ClientSecret = clientSecret,
+            CallbackPath = callbackPath,
+            AuthorizationEndpoint = "https://github.com/login/oauth/authorize",
+            TokenEndpoint = "https://github.com/login/oauth/access_token",
+            UserInformationEndpoint = "https://api.github.com/user",
+            SaveTokens = true,
+            SignInScheme = CookieAuthenticationDefaults.AuthenticationScheme,
+            Scope = { "read:user", "user:email" }
+        };
+    }
+
+    /// <summary>
+    /// Configures claim mappings for GitHub OAuth2Options.
+    /// </summary>
+    /// <param name="opts">The OAuth2Options to configure.</param>
+    private static void ConfigureGitHubClaimMappings(OAuth2Options opts)
+    {
+        opts.ClaimActions.MapJsonKey(ClaimTypes.NameIdentifier, "id");
+        opts.ClaimActions.MapJsonKey(ClaimTypes.Name, "login");
+        opts.ClaimActions.MapJsonKey(ClaimTypes.Email, "email");
+        opts.ClaimActions.MapJsonKey("name", "name");
+        opts.ClaimActions.MapJsonKey("urn:github:login", "login");
+        opts.ClaimActions.MapJsonKey("urn:github:avatar_url", "avatar_url");
+        opts.ClaimActions.MapJsonKey("urn:github:html_url", "html_url");
+    }
+
+    /// <summary>
+    /// Fetches GitHub user information and adds claims to the identity.
+    /// </summary>
+    /// <param name="context">The OAuthCreatingTicketContext.</param>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    private static async Task FetchGitHubUserInfoAsync(OAuthCreatingTicketContext context)
+    {
+        var request = new HttpRequestMessage(HttpMethod.Get, context.Options.UserInformationEndpoint);
+        request.Headers.Accept.Add(new("application/json"));
+        request.Headers.Add("User-Agent", "KestrunOAuth/1.0");
+        request.Headers.Authorization = new("Bearer", context.AccessToken);
+
+        var response = await context.Backchannel.SendAsync(request,
+            HttpCompletionOption.ResponseHeadersRead,
+            context.HttpContext.RequestAborted);
+
+        _ = response.EnsureSuccessStatusCode();
+
+        using var user = JsonDocument.Parse(await response.Content.ReadAsStringAsync(context.HttpContext.RequestAborted));
+        context.RunClaimActions(user.RootElement);
+    }
+
+    /// <summary>
+    /// Fetches GitHub user emails and enriches the identity with the primary verified email claim.
+    /// </summary>
+    /// <param name="context">The OAuthCreatingTicketContext.</param>
+    /// <param name="host">The KestrunHost instance for logging.</param>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    private static async Task EnrichGitHubEmailClaimAsync(OAuthCreatingTicketContext context, KestrunHost host)
+    {
+        if (context.Identity is null || context.Identity.HasClaim(c => c.Type == ClaimTypes.Email))
+        {
+            return;
+        }
+
+        try
+        {
+            var emailRequest = new HttpRequestMessage(HttpMethod.Get, "https://api.github.com/user/emails");
+            emailRequest.Headers.Accept.Add(new("application/json"));
+            emailRequest.Headers.Add("User-Agent", "KestrunOAuth/1.0");
+            emailRequest.Headers.Authorization = new("Bearer", context.AccessToken);
+
+            var emailResponse = await context.Backchannel.SendAsync(emailRequest,
+                HttpCompletionOption.ResponseHeadersRead,
+                context.HttpContext.RequestAborted);
+
+            if (!emailResponse.IsSuccessStatusCode)
+            {
+                return;
+            }
+
+            using var emails = JsonDocument.Parse(await emailResponse.Content.ReadAsStringAsync(context.HttpContext.RequestAborted));
+            var primaryEmail = FindPrimaryVerifiedEmail(emails) ?? FindFirstVerifiedEmail(emails);
+
+            if (!string.IsNullOrWhiteSpace(primaryEmail))
+            {
+                context.Identity.AddClaim(new Claim(
+                    ClaimTypes.Email,
+                    primaryEmail,
+                    ClaimValueTypes.String,
+                    context.Options.ClaimsIssuer));
+            }
+        }
+        catch
+        {
+            if (host.Logger.IsEnabled(LogEventLevel.Verbose))
+            {
+                host.Logger.Verbose("Failed to enrich GitHub email claim.");
+            }
+        }
+    }
+
+    /// <summary>
+    /// Finds the primary verified email from the GitHub emails JSON document.
+    /// </summary>
+    /// <param name="emails">The JSON document containing GitHub emails.</param>
+    /// <returns>The primary verified email if found; otherwise, null.</returns>
+    private static string? FindPrimaryVerifiedEmail(JsonDocument emails)
+    {
+        foreach (var emailObj in emails.RootElement.EnumerateArray())
+        {
+            var isPrimary = emailObj.TryGetProperty("primary", out var primaryProp) && primaryProp.GetBoolean();
+            var isVerified = emailObj.TryGetProperty("verified", out var verifiedProp) && verifiedProp.GetBoolean();
+
+            if (isPrimary && isVerified && emailObj.TryGetProperty("email", out var emailProp))
+            {
+                return emailProp.GetString();
+            }
+        }
+        return null;
+    }
+
+    /// <summary>
+    /// Finds the primary verified email from the GitHub emails JSON document.
+    /// </summary>
+    /// <param name="emails">The JSON document containing GitHub emails.</param>
+    /// <returns>The primary verified email if found; otherwise, null.</returns>
+    private static string? FindFirstVerifiedEmail(JsonDocument emails)
+    {
+        foreach (var emailObj in emails.RootElement.EnumerateArray())
+        {
+            var isVerified = emailObj.TryGetProperty("verified", out var verifiedProp) && verifiedProp.GetBoolean();
+            if (isVerified && emailObj.TryGetProperty("email", out var emailProp))
+            {
+                return emailProp.GetString();
+            }
+        }
+        return null;
+    }
 
     #endregion
     #region JWT Bearer Authentication

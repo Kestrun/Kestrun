@@ -62,47 +62,79 @@ public class OidcOptions : OpenIdConnectOptions
     /// <param name="target">The target options to copy to.</param>
     public void ApplyTo(OpenIdConnectOptions target)
     {
-        // Core OIDC endpoints
+        CopyCoreEndpoints(target);
+        CopyFlowConfiguration(target);
+        CopyScopes(target);
+        CopyTokenHandling(target);
+        CopyPaths(target);
+        CopyTokenValidation(target);
+        CopySchemeLinkage(target);
+        CopyBackchannelConfiguration(target);
+        CopyConfiguration(target);
+        CopyClaimActions(target);
+        CopyEvents(target);
+        CopyIssuerAndProperties(target);
+#if NET9_0_OR_GREATER
+        CopyNet9Features(target);
+#endif
+    }
+
+    private void CopyCoreEndpoints(OpenIdConnectOptions target)
+    {
         target.Authority = Authority;
         target.ClientId = ClientId;
         target.ClientSecret = ClientSecret;
+    }
 
-        // Flow configuration
+    private void CopyFlowConfiguration(OpenIdConnectOptions target)
+    {
         target.ResponseType = ResponseType;
         target.ResponseMode = ResponseMode;
         target.UsePkce = UsePkce;
         target.RequireHttpsMetadata = RequireHttpsMetadata;
+    }
 
-        // Scopes - clear and copy
+    private void CopyScopes(OpenIdConnectOptions target)
+    {
         target.Scope.Clear();
         foreach (var scope in Scope)
         {
             target.Scope.Add(scope);
         }
+    }
 
-        // Token handling
+    private void CopyTokenHandling(OpenIdConnectOptions target)
+    {
         target.SaveTokens = SaveTokens;
         target.GetClaimsFromUserInfoEndpoint = GetClaimsFromUserInfoEndpoint;
         target.MapInboundClaims = MapInboundClaims;
         target.UseSecurityTokenValidator = UseSecurityTokenValidator;
+    }
 
-        // Paths
+    private void CopyPaths(OpenIdConnectOptions target)
+    {
         target.CallbackPath = CallbackPath;
         target.SignedOutCallbackPath = SignedOutCallbackPath;
         target.SignedOutRedirectUri = SignedOutRedirectUri;
         target.RemoteSignOutPath = RemoteSignOutPath;
+    }
 
-        // Token validation
+    private void CopyTokenValidation(OpenIdConnectOptions target)
+    {
         if (TokenValidationParameters != null)
         {
             target.TokenValidationParameters = TokenValidationParameters;
         }
+    }
 
-        // Scheme linkage
+    private void CopySchemeLinkage(OpenIdConnectOptions target)
+    {
         target.SignInScheme = SignInScheme;
         target.SignOutScheme = SignOutScheme;
+    }
 
-        // Backchannel configuration
+    private void CopyBackchannelConfiguration(OpenIdConnectOptions target)
+    {
         if (Backchannel != null)
         {
             target.Backchannel = Backchannel;
@@ -115,8 +147,10 @@ public class OidcOptions : OpenIdConnectOptions
         {
             target.BackchannelTimeout = BackchannelTimeout;
         }
+    }
 
-        // Configuration
+    private void CopyConfiguration(OpenIdConnectOptions target)
+    {
         if (Configuration != null)
         {
             target.Configuration = Configuration;
@@ -125,21 +159,26 @@ public class OidcOptions : OpenIdConnectOptions
         {
             target.ConfigurationManager = ConfigurationManager;
         }
+    }
 
-        // Claim actions
-        if (ClaimActions != null)
+    private void CopyClaimActions(OpenIdConnectOptions target)
+    {
+        if (ClaimActions == null)
         {
-            foreach (var action in ClaimActions)
+            return;
+        }
+        foreach (var action in ClaimActions)
+        {
+            if (action is Microsoft.AspNetCore.Authentication.OAuth.Claims.JsonKeyClaimAction jka
+                && !string.IsNullOrEmpty(jka.JsonKey) && !string.IsNullOrEmpty(action.ClaimType))
             {
-                if (action is Microsoft.AspNetCore.Authentication.OAuth.Claims.JsonKeyClaimAction jka
-                    && !string.IsNullOrEmpty(jka.JsonKey) && !string.IsNullOrEmpty(action.ClaimType))
-                {
-                    target.ClaimActions.MapJsonKey(action.ClaimType, jka.JsonKey);
-                }
+                target.ClaimActions.MapJsonKey(action.ClaimType, jka.JsonKey);
             }
         }
+    }
 
-        // Events - copy if provided
+    private void CopyEvents(OpenIdConnectOptions target)
+    {
         if (Events != null)
         {
             target.Events = Events;
@@ -148,8 +187,10 @@ public class OidcOptions : OpenIdConnectOptions
         {
             target.EventsType = EventsType;
         }
+    }
 
-        // Issuer and other properties
+    private void CopyIssuerAndProperties(OpenIdConnectOptions target)
+    {
         target.ClaimsIssuer = ClaimsIssuer;
         target.DisableTelemetry = DisableTelemetry;
         target.MaxAge = MaxAge;
@@ -159,10 +200,12 @@ public class OidcOptions : OpenIdConnectOptions
         target.SkipUnrecognizedRequests = SkipUnrecognizedRequests;
         target.StateDataFormat = StateDataFormat;
         target.StringDataFormat = StringDataFormat;
+    }
 
 #if NET9_0_OR_GREATER
+    private void CopyNet9Features(OpenIdConnectOptions target)
+    {
         target.PushedAuthorizationBehavior = PushedAuthorizationBehavior;
-        // AdditionalAuthorizationParameters is read-only collection, copy items individually
         if (AdditionalAuthorizationParameters != null)
         {
             foreach (var param in AdditionalAuthorizationParameters)
@@ -170,6 +213,6 @@ public class OidcOptions : OpenIdConnectOptions
                 target.AdditionalAuthorizationParameters[param.Key] = param.Value;
             }
         }
-#endif
     }
+#endif
 }

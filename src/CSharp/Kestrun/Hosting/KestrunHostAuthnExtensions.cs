@@ -532,7 +532,6 @@ public static class KestrunHostAuthnExtensions
                 {
 
                     options.ApplyTo(oauthOpts);
-
                 });
 
             });

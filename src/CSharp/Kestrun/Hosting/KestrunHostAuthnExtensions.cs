@@ -251,7 +251,6 @@ public static class KestrunHostAuthnExtensions
                     }
                 }
             }
-
         };
         return host.AddOAuth2Authentication(scheme, opts);
     }

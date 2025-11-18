@@ -530,7 +530,6 @@ public static class KestrunHostAuthnExtensions
                 });
                 _ = ab.AddOAuth(scheme, oauthOpts =>
                 {
-
                     options.ApplyTo(oauthOpts);
                 });
 

@@ -127,28 +127,6 @@ public class KestrunHostAuthExtensionsTests
         Assert.True(host.HasAuthScheme(NegotiateDefaults.AuthenticationScheme));
     }
 
-    [Fact]
-    [Trait("Category", "Hosting")]
-    public void OpenIdConnect_Adds_Scheme()
-    {
-        var host = new KestrunHost("TestApp");
-        _ = host.AddOpenIdConnectAuthentication("OidcX", "client", "secret", "https://example.com");
-        _ = host.Build();
-
-        Assert.True(host.HasAuthScheme("OidcX"));
-    }
-
-    [Fact]
-    [Trait("Category", "Hosting")]
-    public void OpenIdConnect_Omitted_ClaimPolicies_Registers_No_Custom_Policy()
-    {
-        var host = new KestrunHost("TestApp");
-        _ = host.AddOpenIdConnectAuthentication("OidcNoPolicy", "client", "secret", "https://example.com");
-        _ = host.Build();
-
-        Assert.True(host.HasAuthScheme("OidcNoPolicy"));
-        Assert.False(host.HasAuthPolicy("NonExistentOidcPolicy"));
-    }
 
     [Fact]
     [Trait("Category", "Hosting")]

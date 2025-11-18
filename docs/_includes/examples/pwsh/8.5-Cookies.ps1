@@ -78,7 +78,7 @@ Add-KrMapRoute -Verbs Post -Pattern '/cookies/login' -ScriptBlock {
 }
 
 # 10. Protected route group requiring cookie auth
-Add-KrRouteGroup -Prefix '/cookies' -AuthorizationSchema 'Cookies' {
+Add-KrRouteGroup -Prefix '/cookies' -AuthorizationScheme 'Cookies' {
     Add-KrMapRoute -Verbs Get -Pattern '/logout' -ScriptBlock {
         Invoke-KrCookieSignOut -Scheme 'Cookies' -Redirect
     }

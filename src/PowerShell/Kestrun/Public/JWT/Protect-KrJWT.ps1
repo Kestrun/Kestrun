@@ -13,6 +13,10 @@
         The passphrase to use for signing the JWT token, provided as a secure string.
     .PARAMETER PemPath
         The path to a PEM file containing the RSA key to use for signing the JWT token.
+    .PARAMETER JwkJson
+        The JWK JSON string to use for signing the JWT token.
+    .PARAMETER JwkPath
+        The path to a JWK file to use for signing the JWT token.
     .PARAMETER Certificate
         The X509 certificate to use for signing the JWT token.
     .PARAMETER Algorithm
@@ -52,6 +56,10 @@ function Protect-KrJWT {
         [securestring] $Passphrase,
         [Parameter(Mandatory = $true, ParameterSetName = 'PemPath')]
         [string] $PemPath,
+        [Parameter(Mandatory = $true, ParameterSetName = 'JwkJson')]
+        [string] $JwkJson,
+        [Parameter(Mandatory = $true, ParameterSetName = 'JwkPath')]
+        [string] $JwkPath,
         [Parameter(Mandatory = $true, ParameterSetName = 'Certificate')]
         [System.Security.Cryptography.X509Certificates.X509Certificate2] $X509Certificate,
         [Parameter(Mandatory = $false)]
@@ -83,8 +91,18 @@ function Protect-KrJWT {
                 $Builder.SignWithCertificate($X509Certificate, $algEnum) | Out-Null
                 break
             }
+            'JwkJson' {
+                $Builder.SignWithJwkJson($JwkJson, $algEnum) | Out-Null
+                break
+            }
+            'JwkPath' {
+                $resolvedPath = Resolve-KrPath -Path $JwkPath -KestrunRoot
+                $json = Get-Content -Path $resolvedPath -Raw
+                $Builder.SignWithJwkJson($json, $algEnum) | Out-Null
+                break
+            }
+
         }
         return $Builder
     }
 }
-

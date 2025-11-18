@@ -501,7 +501,7 @@ internal static class CSharpDelegateBuilder
     {
         if (!string.IsNullOrEmpty(ns))
         {
-            _ = imports.Add(ns!);
+            _ = imports.Add(ns);
         }
     }
 

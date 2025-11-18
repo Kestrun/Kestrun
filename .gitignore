@@ -78,9 +78,7 @@ cert/devcert.crt
 /logs
 *.pfx
 *.p12
-*.pem
 *.csr
-*.key
 *.log
 /examples/PowerShell/logs
 examples/CSharpTest/test.bin

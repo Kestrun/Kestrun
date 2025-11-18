@@ -25,7 +25,7 @@ function Write-KrHtmlResponse {
     param(
         [Parameter(Mandatory = $true, ParameterSetName = 'FilePath')]
         [string]$FilePath,
-        [Parameter(Mandatory = $true, ParameterSetName = 'Template')]
+        [Parameter(Mandatory = $true, ParameterSetName = 'Template', position = 0)]
         [string]$Template,
         [Parameter()]
         [int]$StatusCode = 200,

@@ -374,7 +374,7 @@ function Add-KrApiKeyAuthentication {
         }
         # Ensure the server instance is resolved
         $Server = Resolve-KestrunServer -Server $Server
-
+        # Add API key authentication to the server
         [Kestrun.Hosting.KestrunHostAuthnExtensions]::AddApiKeyAuthentication(
             $Server,
             $Name,

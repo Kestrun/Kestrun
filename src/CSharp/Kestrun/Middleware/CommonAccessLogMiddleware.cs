@@ -198,7 +198,7 @@ public sealed class CommonAccessLogMiddleware
             var first = ExtractFirstHeaderValue(forwarded);
             if (!string.IsNullOrWhiteSpace(first))
             {
-                return first!;
+                return first;
             }
         }
 
@@ -230,7 +230,7 @@ public sealed class CommonAccessLogMiddleware
     private static string ResolveRemoteUser(HttpContext context)
     {
         var identity = context.User?.Identity;
-        return identity is { IsAuthenticated: true, Name.Length: > 0 } ? identity.Name! : "-";
+        return identity is { IsAuthenticated: true, Name.Length: > 0 } ? identity.Name : "-";
     }
 
     private static string BuildRequestLine(HttpRequest request, CommonAccessLogOptions options)

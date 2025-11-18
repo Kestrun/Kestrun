@@ -15,9 +15,9 @@ internal class Program
         // 1) Generate a self-signed RSA “dev” cert
         // ────────────────────────────────────────────────────────────────
         var rsaCert = CertificateManager.NewSelfSigned(
-            new CertificateManager.SelfSignedOptions(
+            new SelfSignedOptions(
                 DnsNames: DnsNames,
-                KeyType: CertificateManager.KeyType.Rsa,
+                KeyType: KeyType.Rsa,
                 KeyLength: 2048,
                 ValidDays: 30,
                 Exportable: true
@@ -41,7 +41,7 @@ internal class Program
         CertificateManager.Export(
             rsaCert,
             filePath: "out/devcert",
-            fmt: CertificateManager.ExportFormat.Pfx,
+            fmt: ExportFormat.Pfx,
             password: pwdSpan,
             includePrivateKey: true);
         Console.WriteLine("[Export PFX] out/devcert.pfx written");
@@ -52,7 +52,7 @@ internal class Program
         CertificateManager.Export(
             cert: rsaCert,
             filePath: "out/devcert-plain",
-            fmt: CertificateManager.ExportFormat.Pem,
+            fmt: ExportFormat.Pem,
             includePrivateKey: true
         );
         Console.WriteLine("[Export PEM-plain] out/devcert-plain.pem + .key");
@@ -63,7 +63,7 @@ internal class Program
         CertificateManager.Export(
             cert: rsaCert,
             filePath: "out/devcert-enc",
-            fmt: CertificateManager.ExportFormat.Pem,
+            fmt: ExportFormat.Pem,
             password: pwdSpan,
             includePrivateKey: true
         );
@@ -76,7 +76,7 @@ internal class Program
         CertificateManager.Export(
             rsaCert,
             filePath: "out/devcert-certonly",
-            fmt: CertificateManager.ExportFormat.Pem,
+            fmt: ExportFormat.Pem,
             includePrivateKey: false);
         Console.WriteLine("[Export PEM cert-only] out/devcert-certonly.pem written");
 
@@ -94,7 +94,7 @@ internal class Program
         CertificateManager.Export(
             rsaCert,
             filePath: "out/devcert-secure",
-            fmt: CertificateManager.ExportFormat.Pfx,
+            fmt: ExportFormat.Pfx,
             password: securePwd,
             includePrivateKey: true);
         Console.WriteLine("[Export PFX SecureString] out/devcert-secure.pfx written");
@@ -103,9 +103,9 @@ internal class Program
         // 2) Generate an ECDSA CSR
         // ────────────────────────────────────────────────────────────────
         var csrResult = CertificateManager.NewCertificateRequest(
-            new CertificateManager.CsrOptions(
+            new CsrOptions(
                 DnsNames: ["example.com", "www.example.com"],
-                KeyType: CertificateManager.KeyType.Ecdsa,
+                KeyType: KeyType.Ecdsa,
                 KeyLength: 384,
                 Country: "US",
                 Org: "Acme Ltd.",

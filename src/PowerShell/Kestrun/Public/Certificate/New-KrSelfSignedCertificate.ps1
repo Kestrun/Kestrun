@@ -45,9 +45,9 @@ function New-KrSelfSignedCertificate {
         [switch]$Exportable
     )
 
-    $opts = [Kestrun.Certificates.CertificateManager+SelfSignedOptions]::new(
+    $opts = [Kestrun.Certificates.SelfSignedOptions]::new(
         $DnsNames,
-        [Kestrun.Certificates.CertificateManager+KeyType]::$KeyType,
+        [Kestrun.Certificates.KeyType]::$KeyType,
         $KeyLength,
         $null,      # purposes
         $ValidDays,
@@ -57,4 +57,3 @@ function New-KrSelfSignedCertificate {
 
     return [Kestrun.Certificates.CertificateManager]::NewSelfSigned($opts)
 }
-

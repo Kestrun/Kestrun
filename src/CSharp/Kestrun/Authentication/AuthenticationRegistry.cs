@@ -1,5 +1,7 @@
 using System.Collections.Concurrent;
 using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 
 namespace Kestrun.Authentication;
 
@@ -160,6 +162,33 @@ public sealed class AuthenticationRegistry
         return !TryGet<TOptions>(schema, type, out var opts)
             ? throw new KeyNotFoundException($"No authentication of type {typeof(TOptions).Name} for schema='{schema}', type='{type}'.")
             : opts!;
+    }
+
+    /// <summary>
+    /// Gets the authentication scheme name for the specified schema and type.
+    /// </summary>
+    /// <param name="schema"></param>
+    /// <param name="type"></param>
+    /// <returns></returns>
+    /// <exception cref="KeyNotFoundException"></exception>
+    public string ResolveAuthenticationSchemeName(string schema, string type)
+    {
+        if (!TryGet(schema, type, out var options))
+        {
+            throw new KeyNotFoundException($"No authentication registered for schema='{schema}', type='{type}'.");
+        }
+        // determine scheme name based on options type
+        return options switch
+        {
+            OAuth2Options oauth2Opts => oauth2Opts.AuthenticationScheme,
+            OidcOptions oidcOpts => oidcOpts.AuthenticationScheme,
+            BasicAuthenticationOptions => schema,
+            JwtBearerOptions => schema,
+            CookieAuthenticationOptions => schema,
+            ApiKeyAuthenticationOptions => schema,
+            // DigestAuthenticationOptions digestOpts => digestOpts.AuthenticationScheme,
+            _ => schema
+        };
     }
 
     // ---------- Remove / Clear / Enumerate ----------

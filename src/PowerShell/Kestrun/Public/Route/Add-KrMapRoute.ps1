@@ -23,10 +23,12 @@
         The scripting language of the code to be executed.
     .PARAMETER CodeFilePath
         The file path to the code to be executed when the route is accessed.
-    .PARAMETER AuthorizationSchema
+    .PARAMETER AuthorizationScheme
         An optional array of authorization schemes that the route requires.
     .PARAMETER AuthorizationPolicy
         An optional array of authorization policies that the route requires.
+    .PARAMETER AllowAnonymous
+        If specified, allows anonymous access to the route. it's mutually exclusive with AuthorizationScheme and AuthorizationPolicy.
     .PARAMETER ExtraImports
         An optional array of additional namespaces to import for the route.
     .PARAMETER ExtraRefs
@@ -98,12 +100,17 @@ function Add-KrMapRoute {
         [Parameter(ParameterSetName = 'ScriptBlock')]
         [Parameter(ParameterSetName = 'Code')]
         [Parameter(ParameterSetName = 'CodeFilePath')]
-        [string[]]$AuthorizationSchema = $null,
+        [string[]]$AuthorizationScheme = $null,
 
         [Parameter(ParameterSetName = 'ScriptBlock')]
         [Parameter(ParameterSetName = 'Code')]
         [Parameter(ParameterSetName = 'CodeFilePath')]
         [string[]]$AuthorizationPolicy = $null,
+
+        [Parameter(ParameterSetName = 'ScriptBlock')]
+        [Parameter(ParameterSetName = 'Code')]
+        [Parameter(ParameterSetName = 'CodeFilePath')]
+        [switch]$AllowAnonymous,
 
         [Parameter(ParameterSetName = 'Code')]
         [Parameter(ParameterSetName = 'CodeFilePath')]
@@ -160,12 +167,20 @@ function Add-KrMapRoute {
             $Options = [Kestrun.Hosting.Options.MapRouteOptions]::new()
             $Options.HttpVerbs = $Verbs
             $Options.Pattern = $Pattern
-
-            if ($null -ne $AuthorizationSchema) {
-                $Options.RequireSchemes = $AuthorizationSchema
-            }
-            if ($null -ne $AuthorizationPolicy) {
-                $Options.RequirePolicies = $AuthorizationPolicy
+            if ($AllowAnonymous.IsPresent) {
+                if ( $null -ne $AuthorizationScheme -or $null -ne $AuthorizationPolicy) {
+                    throw [System.ArgumentException]::new(
+                        'The AllowAnonymous parameter cannot be used together with AuthorizationScheme or AuthorizationPolicy parameters.')
+                }
+                # No authorization required
+                $Options.AllowAnonymous = $true
+            } else {
+                if ($null -ne $AuthorizationScheme) {
+                    $Options.RequireSchemes = $AuthorizationScheme
+                }
+                if ($null -ne $AuthorizationPolicy) {
+                    $Options.RequirePolicies = $AuthorizationPolicy
+                }
             }
 
             # Endpoints

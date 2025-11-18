@@ -34,11 +34,11 @@ public static class HealthReportTextFormatter
             _ = sb.Append($"name={p.Name} status={p.StatusText} duration={FormatDuration(p.Duration)}");
             if (!string.IsNullOrWhiteSpace(p.Description))
             {
-                _ = sb.Append($" desc=\"{Escape(p.Description!)}\"");
+                _ = sb.Append($" desc=\"{Escape(p.Description)}\"");
             }
             if (!string.IsNullOrWhiteSpace(p.Error))
             {
-                _ = sb.Append($" error=\"{Escape(p.Error!)}\"");
+                _ = sb.Append($" error=\"{Escape(p.Error)}\"");
             }
             _ = sb.AppendLine();
             if (includeData && p.Data is { Count: > 0 })

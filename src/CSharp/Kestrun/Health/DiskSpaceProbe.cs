@@ -58,7 +58,7 @@ public sealed class DiskSpaceProbe : IProbe
 
         Name = name;
         Tags = tags;
-        _path = string.IsNullOrWhiteSpace(path) ? AppContext.BaseDirectory : path!;
+        _path = string.IsNullOrWhiteSpace(path) ? AppContext.BaseDirectory : path;
         _criticalPercent = criticalPercent;
         _warnPercent = warnPercent;
         Logger = logger ?? Log.ForContext("HealthProbe", name).ForContext("Probe", name);

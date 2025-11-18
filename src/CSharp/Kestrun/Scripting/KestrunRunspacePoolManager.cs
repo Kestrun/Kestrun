@@ -15,6 +15,8 @@ public sealed class KestrunRunspacePoolManager : IDisposable
     private int _count;        // total live runspaces
     private bool _disposed;
 
+    private readonly ConcurrentDictionary<Runspace, byte> _all;
+
     /// <summary>
     /// KestrunHost is needed for logging, config, etc.
     /// </summary>
@@ -64,7 +66,7 @@ public sealed class KestrunRunspacePoolManager : IDisposable
         {
             throw new ArgumentOutOfRangeException(nameof(maxRunspaces));
         }
-
+        _all = new();
         Host = host;
         MinRunspaces = minRunspaces;
         MaxRunspaces = maxRunspaces;
@@ -190,6 +192,21 @@ public sealed class KestrunRunspacePoolManager : IDisposable
             return;
         }
 
+        try
+        {
+            // Put the genie back in the bottle: variables, funcs, modules…
+            // This returns the runspace to the InitialSessionState baseline.
+            rs.ResetRunspaceState();
+        }
+        catch (Exception ex)
+        {
+            Host.Logger.Warning(ex, "ResetRunspaceState failed; disposing runspace instead");
+            try { rs.Close(); }
+            catch (Exception closeEx) { Host.Logger.Verbose(exception: closeEx, messageTemplate: "Failed to close runspace during release after ResetRunspaceState failure"); }
+            rs.Dispose();
+            _ = Interlocked.Decrement(ref _count);
+            return;
+        }
         _stash.Add(rs);
         if (Host.Logger.IsEnabled(LogEventLevel.Debug))
         {
@@ -212,20 +229,22 @@ public sealed class KestrunRunspacePoolManager : IDisposable
         {
             Host.Logger.Debug("Creating new runspace with InitialSessionState");
         }
-
-        var rs = RunspaceFactory.CreateRunspace(_iss);
+        // Important: clone per runspace
+        var iss = _iss.Clone();
+        var rs = RunspaceFactory.CreateRunspace(iss);
 
         // Apply the chosen thread‑affinity strategy **before** opening.
         rs.ThreadOptions = ThreadOptions;
         rs.ApartmentState = ApartmentState.MTA;     // always MTA
-
         rs.Open();
+
         Host.Logger.Information("Opened new Runspace with ThreadOptions={ThreadOptions}", ThreadOptions);
         if (Host.Logger.IsEnabled(LogEventLevel.Debug))
         {
             Host.Logger.Debug("New runspace created: {Runspace}", rs);
         }
 
+        _ = _all.TryAdd(rs, 0);
         return rs;
     }
 
@@ -246,16 +265,31 @@ public sealed class KestrunRunspacePoolManager : IDisposable
         }
 
         _disposed = true;
+
         Host.Logger.Information("Disposing RunspacePoolManager and all pooled runspaces");
+
+        // Drain the stash
         while (_stash.TryTake(out var rs))
         {
             if (Host.Logger.IsEnabled(LogEventLevel.Debug))
             {
                 Host.Logger.Debug("Disposing runspace: {Runspace}", rs);
             }
-
-            try { rs.Close(); } catch { /* ignore */ }
+            try { rs.ResetRunspaceState(); } catch (Exception ex) { Host.Logger.Verbose(exception: ex, messageTemplate: "Failed to reset runspace state during disposal"); }
+            try { rs.Close(); } catch (Exception ex) { Host.Logger.Verbose(exception: ex, messageTemplate: "Failed to close runspace during disposal"); }
             rs.Dispose();
+            _ = _all.TryRemove(rs, out _);
+            _ = Interlocked.Decrement(ref _count);
+        }
+
+        // Anything still checked out? Close them too.
+        foreach (var kv in _all.Keys)
+        {
+            try { kv.ResetRunspaceState(); } catch (Exception ex) { Host.Logger.Verbose(exception: ex, messageTemplate: "Failed to reset runspace state during disposal"); }
+            try { kv.Close(); } catch (Exception ex) { Host.Logger.Verbose(exception: ex, messageTemplate: "Failed to close runspace during disposal"); }
+            kv.Dispose();
+            _ = _all.TryRemove(kv, out _);
+            _ = Interlocked.Decrement(ref _count);
         }
         Host.Logger.Information("RunspacePoolManager disposed");
     }

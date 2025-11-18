@@ -20,6 +20,11 @@ using System.Text;
 using Org.BouncyCastle.Asn1.X9;
 using Serilog;
 using Kestrun.Utilities;
+using System.Text.Json;
+using Microsoft.IdentityModel.Tokens;
+using System.Security.Claims;
+using Microsoft.IdentityModel.JsonWebTokens;
+using System.Text.Json.Serialization;
 
 
 namespace Kestrun.Certificates;
@@ -43,88 +48,6 @@ public static class CertificateManager
     private static bool ShouldAppendKeyToPem =>
         string.Equals(Environment.GetEnvironmentVariable("KESTRUN_APPEND_KEY_TO_PEM"), "1", StringComparison.OrdinalIgnoreCase) ||
         string.Equals(Environment.GetEnvironmentVariable("KESTRUN_APPEND_KEY_TO_PEM"), "true", StringComparison.OrdinalIgnoreCase);
-    #region  enums / option records
-    /// <summary>
-    /// Specifies the type of cryptographic key to use for certificate operations.
-    /// </summary>
-    /// <summary>
-    /// Specifies the cryptographic key type.
-    /// </summary>
-    public enum KeyType
-    {
-        /// <summary>
-        /// RSA key type.
-        /// </summary>
-        Rsa,
-        /// <summary>
-        /// ECDSA key type.
-        /// </summary>
-        Ecdsa
-    }
-
-    /// <summary>
-    /// Specifies the format to use when exporting certificates.
-    /// </summary>
-    /// <summary>
-    /// Specifies the format to use when exporting certificates.
-    /// </summary>
-    public enum ExportFormat
-    {
-        /// <summary>
-        /// PFX/PKCS#12 format.
-        /// </summary>
-        Pfx,
-        /// <summary>
-        /// PEM format.
-        /// </summary>
-        Pem
-    }
-
-    /// <summary>
-    /// Options for creating a self-signed certificate.
-    /// </summary>
-    /// <param name="DnsNames">The DNS names to include in the certificate's Subject Alternative Name (SAN) extension.</param>
-    /// <param name="KeyType">The type of cryptographic key to use (RSA or ECDSA).</param>
-    /// <param name="KeyLength">The length of the cryptographic key in bits.</param>
-    /// <param name="Purposes">The key purposes (Extended Key Usage) for the certificate.</param>
-    /// <param name="ValidDays">The number of days the certificate will be valid.</param>
-    /// <param name="Ephemeral">If true, the certificate will not be stored in the Windows certificate store.</param>
-    /// <param name="Exportable">If true, the private key can be exported from the certificate.</param>
-    /// <remarks>
-    /// This record is used to specify options for creating a self-signed certificate.
-    /// </remarks>
-    public record SelfSignedOptions(
-        IEnumerable<string> DnsNames,
-        KeyType KeyType = KeyType.Rsa,
-        int KeyLength = 2048,
-        IEnumerable<KeyPurposeID>? Purposes = null,
-        int ValidDays = 365,
-        bool Ephemeral = false,
-        bool Exportable = false
-        );
-
-    /// <summary>
-    /// Options for creating a Certificate Signing Request (CSR).
-    /// </summary>
-    /// <param name="DnsNames">The DNS names to include in the CSR's Subject Alternative Name (SAN) extension.</param>
-    /// <param name="KeyType">The type of cryptographic key to use (RSA or ECDSA).</param>
-    /// <param name="KeyLength">The length of the cryptographic key in bits.</param>
-    /// <param name="Country">The country code for the subject distinguished name.</param>
-    /// <param name="Org">The organization name for the subject distinguished name.</param>
-    /// <param name="OrgUnit">The organizational unit for the subject distinguished name.</param>
-    /// <param name="CommonName">The common name for the subject distinguished name.</param>
-    /// <remarks>
-    /// This record is used to specify options for creating a Certificate Signing Request (CSR).
-    /// </remarks>
-    public record CsrOptions(
-        IEnumerable<string> DnsNames,
-        KeyType KeyType = KeyType.Rsa,
-        int KeyLength = 2048,
-        string? Country = null,
-        string? Org = null,
-        string? OrgUnit = null,
-        string? CommonName = null);
-    #endregion
 
     #region  Self-signed certificate
     /// <summary>
@@ -218,7 +141,7 @@ public static class CertificateManager
         var attrs = new Dictionary<DerObjectIdentifier, string>();
         void Add(DerObjectIdentifier oid, string? v)
         {
-            if (!string.IsNullOrWhiteSpace(v)) { order.Add(oid); attrs[oid] = v!; }
+            if (!string.IsNullOrWhiteSpace(v)) { order.Add(oid); attrs[oid] = v; }
         }
         Add(X509Name.C, options.Country);
         Add(X509Name.O, options.Org);
@@ -700,7 +623,7 @@ public static class CertificateManager
         ReadOnlySpan<char> passwordSpan = default;
         // capture the return value of the span-based overload
         var result = Import(certPath: certPath, password: passwordSpan, privateKeyPath: privateKeyPath, flags: flags);
-        return result!;
+        return result;
     }
 
     /// <summary>
@@ -714,7 +637,7 @@ public static class CertificateManager
         ReadOnlySpan<char> passwordSpan = default;
         // capture the return value of the span-based overload
         var result = Import(certPath: certPath, password: passwordSpan);
-        return result!;
+        return result;
     }
 
 
@@ -880,7 +803,7 @@ public static class CertificateManager
                 {
                     var baseName = Path.GetFileNameWithoutExtension(filePath);
                     var dir = Path.GetDirectoryName(filePath);
-                    var keyFile = string.IsNullOrEmpty(dir) ? baseName + ".key" : Path.Combine(dir!, baseName + ".key");
+                    var keyFile = string.IsNullOrEmpty(dir) ? baseName + ".key" : Path.Combine(dir, baseName + ".key");
                     if (File.Exists(keyFile))
                     {
                         File.AppendAllText(filePath, Environment.NewLine + File.ReadAllText(keyFile));
@@ -902,14 +825,45 @@ public static class CertificateManager
     /// <param name="certFilePath">The file path to export the certificate to.</param>
     private static void WritePrivateKey(X509Certificate2 cert, ReadOnlySpan<char> password, string certFilePath)
     {
+        if (!cert.HasPrivateKey)
+        {
+            throw new InvalidOperationException(
+                "Certificate does not contain a private key; cannot export private key PEM.");
+        }
+
+        AsymmetricAlgorithm key;
+
+        try
+        {
+            // Try RSA first, then ECDSA
+            key = (AsymmetricAlgorithm?)cert.GetRSAPrivateKey()
+                  ?? cert.GetECDsaPrivateKey()
+                  ?? throw new NotSupportedException(
+                        "Certificate private key is neither RSA nor ECDSA, or is not accessible.");
+        }
+        catch (CryptographicException ex) when (ex.HResult == unchecked((int)0x80090016))
+        {
+            // 0x80090016 = NTE_BAD_KEYSET  → "Keyset does not exist"
+            throw new InvalidOperationException(
+                "The certificate reports a private key, but the key container ('keyset') is not accessible. " +
+                "This usually means the certificate was loaded without its private key, or the current process " +
+                "identity does not have permission to access the key. Re-import the certificate from a PFX " +
+                "with the private key and X509KeyStorageFlags.Exportable, or adjust key permissions.",
+                ex);
+        }
+
         byte[] keyDer;
         string pemLabel;
+
         if (password.IsEmpty)
         {
             // unencrypted PKCS#8
-            keyDer = cert.GetRSAPrivateKey() is RSA rsa
-                       ? rsa.ExportPkcs8PrivateKey()
-                       : cert.GetECDsaPrivateKey()!.ExportPkcs8PrivateKey();
+            keyDer = key switch
+            {
+                RSA rsa => rsa.ExportPkcs8PrivateKey(),
+                ECDsa ecc => ecc.ExportPkcs8PrivateKey(),
+                _ => throw new NotSupportedException("Only RSA and ECDSA private keys are supported.")
+            };
             pemLabel = "PRIVATE KEY";
         }
         else
@@ -918,12 +872,14 @@ public static class CertificateManager
             var pbe = new PbeParameters(
                 PbeEncryptionAlgorithm.Aes256Cbc,
                 HashAlgorithmName.SHA256,
-                100_000
-            );
+                iterationCount: 100_000);
 
-            keyDer = cert.GetRSAPrivateKey() is RSA rsaEnc
-                       ? rsaEnc.ExportEncryptedPkcs8PrivateKey(password, pbe)
-                       : cert.GetECDsaPrivateKey()!.ExportEncryptedPkcs8PrivateKey(password, pbe);
+            keyDer = key switch
+            {
+                RSA rsa => rsa.ExportEncryptedPkcs8PrivateKey(password, pbe),
+                ECDsa ecc => ecc.ExportEncryptedPkcs8PrivateKey(password, pbe),
+                _ => throw new NotSupportedException("Only RSA and ECDSA private keys are supported.")
+            };
             pemLabel = "ENCRYPTED PRIVATE KEY";
         }
 
@@ -932,22 +888,25 @@ public static class CertificateManager
         var baseName = Path.GetFileNameWithoutExtension(certFilePath);
         var keyFilePath = string.IsNullOrEmpty(certDir)
             ? baseName + ".key"
-            : Path.Combine(certDir!, baseName + ".key");
+            : Path.Combine(certDir, baseName + ".key");
+
         File.WriteAllText(keyFilePath, keyPem);
 
         try
         {
             if (ShouldAppendKeyToPem)
             {
-                // Optional: append the key to the main certificate PEM when explicitly enabled.
                 File.AppendAllText(certFilePath, Environment.NewLine + keyPem);
             }
         }
         catch (Exception ex)
         {
-            Log.Debug(ex, "Failed to append private key to certificate PEM file {CertFilePath}; continuing with separate key file only", certFilePath);
+            Log.Debug(ex,
+                "Failed to append private key to certificate PEM file {CertFilePath}; continuing with separate key file only",
+                certFilePath);
         }
     }
+
 
     /// <summary>
     /// Exports the specified X509 certificate to a file in the given format, using a SecureString password and optional private key inclusion.
@@ -964,12 +923,355 @@ public static class CertificateManager
         SecureString password,
         bool includePrivateKey = false)
     {
-        password.ToSecureSpan(span =>
-            Export(cert, filePath, fmt, span, includePrivateKey)
-        // this will run your span‐based implementation,
-        // then immediately zero & free the unmanaged buffer
-        );
+        if (password is null)
+        {
+            // Delegate to span-based overload with no password
+            Export(cert, filePath, fmt, [], includePrivateKey);
+        }
+        else
+        {
+            password.ToSecureSpan(span =>
+                Export(cert, filePath, fmt, span, includePrivateKey)
+            // this will run your span‐based implementation,
+            // then immediately zero & free the unmanaged buffer
+            );
+        }
     }
+
+
+    /// <summary>
+    /// Creates a self-signed certificate from the given RSA JWK JSON and exports it
+    /// as a PEM certificate (optionally including the private key) to the specified path.
+    /// </summary>
+    /// <param name="jwkJson">The RSA JWK JSON string.</param>
+    /// <param name="filePath">
+    /// Target file path. If no extension is provided, ".pem" will be added.
+    /// </param>
+    /// <param name="password">
+    /// Optional password used to encrypt the private key when <paramref name="includePrivateKey"/> is true.
+    /// Ignored when <paramref name="includePrivateKey"/> is false.
+    /// </param>
+    /// <param name="includePrivateKey">
+    /// If true, the PEM export will include the private key (and create a .key file as per Export logic).
+    /// </param>
+    public static void ExportPemFromJwkJson(
+        string jwkJson,
+        string filePath,
+        ReadOnlySpan<char> password = default,
+        bool includePrivateKey = false)
+    {
+        if (string.IsNullOrWhiteSpace(jwkJson))
+        {
+            throw new ArgumentException("JWK JSON cannot be null or empty.", nameof(jwkJson));
+        }
+
+        // 1) Create a self-signed certificate from the JWK
+        var cert = CreateSelfSignedCertificateFromJwk(jwkJson);
+
+        // 2) Reuse the existing Export pipeline to write PEM (cert + optional key)
+        Export(cert, filePath, ExportFormat.Pem, password, includePrivateKey);
+    }
+
+    /// <summary>
+    /// Creates a self-signed certificate from the given RSA JWK JSON and exports it
+    /// as a PEM certificate (optionally including the private key) to the specified path,
+    /// using a <see cref="SecureString"/> password.
+    /// </summary>
+    /// <param name="jwkJson">The RSA JWK JSON string.</param>
+    /// <param name="filePath">Target file path for the PEM output.</param>
+    /// <param name="password">
+    /// SecureString password used to encrypt the private key when
+    /// <paramref name="includePrivateKey"/> is true.
+    /// </param>
+    /// <param name="includePrivateKey">
+    /// If true, the PEM export will include the private key.
+    /// </param>
+    public static void ExportPemFromJwkJson(
+        string jwkJson,
+        string filePath,
+        SecureString password,
+        bool includePrivateKey = false)
+    {
+        if (password is null)
+        {
+            // Delegate to span-based overload with no password
+            ExportPemFromJwkJson(jwkJson, filePath, [], includePrivateKey);
+            return;
+        }
+
+        password.ToSecureSpan(span =>
+        {
+            ExportPemFromJwkJson(jwkJson, filePath, span, includePrivateKey);
+        });
+    }
+
+
+    #endregion
+
+    #region JWK
+
+
+    private static readonly JsonSerializerOptions s_jwkJsonOptions = new()
+    {
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
+        WriteIndented = false
+    };
+
+    /// <summary>
+    /// Creates a self-signed X509 certificate from the provided RSA JWK JSON string.
+    /// </summary>
+    /// <param name="jwkJson">The JSON string representing the RSA JWK.</param>
+    /// <param name="subjectName">The subject name for the certificate.</param>
+    /// <returns>A self-signed X509Certificate2 instance.</returns>
+    /// <exception cref="ArgumentException">Thrown when the JWK JSON is invalid.</exception>
+    /// <exception cref="NotSupportedException"></exception>
+    public static X509Certificate2 CreateSelfSignedCertificateFromJwk(
+        string jwkJson,
+        string subjectName = "CN=client-jwt")
+    {
+        var jwk = JsonSerializer.Deserialize<RsaJwk>(jwkJson)
+                  ?? throw new ArgumentException("Invalid JWK JSON");
+
+        if (!string.Equals(jwk.Kty, "RSA", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new NotSupportedException("Only RSA JWKs are supported.");
+        }
+
+        var rsaParams = new RSAParameters
+        {
+            Modulus = Base64UrlEncoder.DecodeBytes(jwk.N),
+            Exponent = Base64UrlEncoder.DecodeBytes(jwk.E),
+            D = Base64UrlEncoder.DecodeBytes(jwk.D),
+            P = Base64UrlEncoder.DecodeBytes(jwk.P),
+            Q = Base64UrlEncoder.DecodeBytes(jwk.Q),
+            DP = Base64UrlEncoder.DecodeBytes(jwk.DP),
+            DQ = Base64UrlEncoder.DecodeBytes(jwk.DQ),
+            InverseQ = Base64UrlEncoder.DecodeBytes(jwk.QI)
+        };
+
+        using var rsa = RSA.Create();
+        rsa.ImportParameters(rsaParams);
+
+        var req = new CertificateRequest(
+            subjectName,
+            rsa,
+            HashAlgorithmName.SHA256,
+            RSASignaturePadding.Pkcs1);
+
+        // Self-signed, 1 year validity (tune as you like)
+        var notBefore = DateTimeOffset.UtcNow.AddDays(-1);
+        var notAfter = notBefore.AddYears(1);
+
+        var cert = req.CreateSelfSigned(notBefore, notAfter);
+
+        // Export with private key, re-import as X509Certificate2
+        var pfxBytes = cert.Export(X509ContentType.Pfx);
+#if NET9_0_OR_GREATER
+        return X509CertificateLoader.LoadPkcs12(
+            pfxBytes,
+            password: default,
+            keyStorageFlags: X509KeyStorageFlags.Exportable,
+            loaderLimits: Pkcs12LoaderLimits.Defaults);
+#else
+        return new X509Certificate2(pfxBytes, (string?)null,
+            X509KeyStorageFlags.Exportable);
+#endif
+    }
+
+    /// <summary>
+    /// Builds a Private Key JWT for client authentication using the specified certificate.
+    /// </summary>
+    /// <param name="key">The security key (X509SecurityKey or JsonWebKey) to sign the JWT.</param>
+    /// <param name="clientId">The client ID (issuer and subject) for the JWT.</param>
+    /// <param name="tokenEndpoint">The token endpoint URL (audience) for the JWT.</param>
+    /// <returns>The generated Private Key JWT as a string.</returns>
+    public static string BuildPrivateKeyJwt(
+        SecurityKey key,
+        string clientId,
+        string tokenEndpoint)
+    {
+        var now = DateTimeOffset.UtcNow;
+
+        var creds = new SigningCredentials(key, SecurityAlgorithms.RsaSha256);
+        var handler = new JsonWebTokenHandler();
+
+        var descriptor = new SecurityTokenDescriptor
+        {
+            Issuer = clientId,
+            Audience = tokenEndpoint,
+            Subject = new ClaimsIdentity(
+            [
+                new Claim("sub", clientId),
+                new Claim("jti", Guid.NewGuid().ToString("N"))
+            ]),
+            NotBefore = now.UtcDateTime,
+            IssuedAt = now.UtcDateTime,
+            Expires = now.AddMinutes(2).UtcDateTime,
+            SigningCredentials = creds
+        };
+
+        return handler.CreateToken(descriptor);
+    }
+
+    /// <summary>
+    /// Builds a Private Key JWT for client authentication using the specified X509 certificate.
+    /// </summary>
+    /// <param name="certificate">The X509 certificate containing the private key.</param>
+    /// <param name="clientId">The client ID (issuer and subject) for the JWT.</param>
+    /// <param name="tokenEndpoint">The token endpoint URL (audience) for the JWT.</param>
+    /// <returns>The generated Private Key JWT as a string.</returns>
+    public static string BuildPrivateKeyJwt(
+        X509Certificate2 certificate,
+        string clientId,
+        string tokenEndpoint)
+    {
+        var key = new X509SecurityKey(certificate)
+        {
+            KeyId = certificate.Thumbprint
+        };
+
+        return BuildPrivateKeyJwt(key, clientId, tokenEndpoint);
+    }
+
+    /// <summary>
+    /// Builds a Private Key JWT for client authentication using the specified JWK JSON string.
+    /// </summary>
+    /// <param name="jwkJson">The JWK JSON string representing the key.</param>
+    /// <param name="clientId">The client ID (issuer and subject) for the JWT.</param>
+    /// <param name="tokenEndpoint">The token endpoint URL (audience) for the JWT.</param>
+    /// <returns>The generated Private Key JWT as a string.</returns>
+    public static string BuildPrivateKeyJwtFromJwkJson(
+        string jwkJson,
+        string clientId,
+        string tokenEndpoint)
+    {
+        var jwk = new JsonWebKey(jwkJson);
+        // You can set KeyId here if you want to use kid from the JSON:
+        // jwk.KeyId is automatically populated from "kid" if present.
+
+        return BuildPrivateKeyJwt(jwk, clientId, tokenEndpoint);
+    }
+
+
+    /// <summary>
+    /// Builds a JWK JSON (RSA) representation of the given certificate.
+    /// By default only public parameters are included (safe for publishing as JWKS).
+    /// Set <paramref name="includePrivateParameters"/> to true if you want a full private JWK
+    /// (for local storage only – never publish it).
+    /// </summary>
+    /// <param name="certificate">The X509 certificate to convert.</param>
+    /// <param name="includePrivateParameters">Whether to include private key parameters in the JWK.</param>
+    /// <returns>The JWK JSON string.</returns>
+    public static string CreateJwkJsonFromCertificate(
+       X509Certificate2 certificate,
+       bool includePrivateParameters = false)
+    {
+        var x509Key = new X509SecurityKey(certificate)
+        {
+            KeyId = certificate.Thumbprint?.ToLowerInvariant()
+        };
+
+        // Convert to a JsonWebKey (n, e, kid, x5c, etc.)
+        var jwk = JsonWebKeyConverter.ConvertFromX509SecurityKey(
+            x509Key,
+            representAsRsaKey: true);
+
+        if (!includePrivateParameters)
+        {
+            // Clean public JWK
+            jwk.D = null;
+            jwk.P = null;
+            jwk.Q = null;
+            jwk.DP = null;
+            jwk.DQ = null;
+            jwk.QI = null;
+        }
+        else
+        {
+            if (!certificate.HasPrivateKey)
+            {
+                throw new InvalidOperationException("Certificate has no private key.");
+            }
+
+            using var rsa = certificate.GetRSAPrivateKey()
+                ?? throw new NotSupportedException("Certificate does not contain an RSA private key.");
+
+            var p = rsa.ExportParameters(true);
+
+            jwk.N = Base64UrlEncoder.Encode(p.Modulus);
+            jwk.E = Base64UrlEncoder.Encode(p.Exponent);
+            jwk.D = Base64UrlEncoder.Encode(p.D);
+            jwk.P = Base64UrlEncoder.Encode(p.P);
+            jwk.Q = Base64UrlEncoder.Encode(p.Q);
+            jwk.DP = Base64UrlEncoder.Encode(p.DP);
+            jwk.DQ = Base64UrlEncoder.Encode(p.DQ);
+            jwk.QI = Base64UrlEncoder.Encode(p.InverseQ);
+        }
+
+        return JsonSerializer.Serialize(jwk, s_jwkJsonOptions);
+    }
+
+    /// <summary>
+    /// Creates an RSA JWK JSON from a given RSA instance (must contain private key).
+    /// </summary>
+    /// <param name="rsa">The RSA instance with a private key.</param>
+    /// <param name="keyId">Optional key identifier (kid) to set on the JWK.</param>
+    /// <returns>JWK JSON string containing public and private parameters.</returns>
+    public static string CreateJwkJsonFromRsa(RSA rsa, string? keyId = null)
+    {
+        ArgumentNullException.ThrowIfNull(rsa);
+
+        // true => includes private key params (d, p, q, dp, dq, qi)
+        var p = rsa.ExportParameters(includePrivateParameters: true);
+
+        if (p.D is null || p.P is null || p.Q is null ||
+            p.DP is null || p.DQ is null || p.InverseQ is null)
+        {
+            throw new InvalidOperationException("RSA key does not contain private parameters.");
+        }
+
+        var jwk = new RsaJwk
+        {
+            Kty = "RSA",
+            N = Base64UrlEncoder.Encode(p.Modulus),
+            E = Base64UrlEncoder.Encode(p.Exponent),
+            D = Base64UrlEncoder.Encode(p.D),
+            P = Base64UrlEncoder.Encode(p.P),
+            Q = Base64UrlEncoder.Encode(p.Q),
+            DP = Base64UrlEncoder.Encode(p.DP),
+            DQ = Base64UrlEncoder.Encode(p.DQ),
+            QI = Base64UrlEncoder.Encode(p.InverseQ),
+            Kid = keyId
+        };
+
+        return JsonSerializer.Serialize(jwk, s_jwkJsonOptions);
+    }
+
+    /// <summary>
+    /// Creates an RSA JWK JSON from a PKCS#1 or PKCS#8 RSA private key in PEM format.
+    /// </summary>
+    /// <param name="rsaPrivateKeyPem">
+    /// PEM containing an RSA private key (e.g. "-----BEGIN RSA PRIVATE KEY----- ...").
+    /// </param>
+    /// <param name="keyId">Optional key identifier (kid) to set on the JWK.</param>
+    /// <returns>JWK JSON string containing public and private parameters.</returns>
+    public static string CreateJwkJsonFromRsaPrivateKeyPem(
+        string rsaPrivateKeyPem,
+        string? keyId = null)
+    {
+        if (string.IsNullOrWhiteSpace(rsaPrivateKeyPem))
+        {
+            throw new ArgumentException("RSA private key PEM cannot be null or empty.", nameof(rsaPrivateKeyPem));
+        }
+
+        using var rsa = RSA.Create();
+        rsa.ImportFromPem(rsaPrivateKeyPem.AsSpan());
+
+        return CreateJwkJsonFromRsa(rsa, keyId);
+    }
+
+
 
     #endregion
 

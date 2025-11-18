@@ -27,7 +27,7 @@ function Add-KrOAuth2Authentication {
         [Kestrun.Hosting.KestrunHost]$Server,
 
         [Parameter(Mandatory = $false)]
-        [string]$Name='OAuth2',
+        [string]$Name = 'OAuth2',
 
         [Parameter(Mandatory = $true)]
         [Kestrun.Authentication.OAuth2Options]$Options,

@@ -355,6 +355,5 @@ public sealed record KestrunContext
         }
         SignOut(scheme, authProps);
     }
-
 }
 

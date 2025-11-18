@@ -66,7 +66,7 @@ public class DiskSpaceProbeTests
 
         // Assert
         Assert.Equal("disk-check", probe.Name);
-        Assert.Single(probe.Tags);
+        _ = Assert.Single(probe.Tags);
         Assert.Equal("ready", probe.Tags[0]);
         Assert.NotNull(probe.Logger);
     }
@@ -162,10 +162,10 @@ public class DiskSpaceProbeTests
         // Assert
         if (result.Data is not null)
         {
-            Assert.IsType<string>(result.Data["path"]);
-            Assert.IsType<string>(result.Data["driveName"]);
-            Assert.IsType<long>(result.Data["totalBytes"]);
-            Assert.IsType<long>(result.Data["freeBytes"]);
+            _ = Assert.IsType<string>(result.Data["path"]);
+            _ = Assert.IsType<string>(result.Data["driveName"]);
+            _ = Assert.IsType<long>(result.Data["totalBytes"]);
+            _ = Assert.IsType<long>(result.Data["freeBytes"]);
             Assert.True(result.Data["freePercent"] is double);
             Assert.True(result.Data["criticalPercent"] is double);
             Assert.True(result.Data["warnPercent"] is double);

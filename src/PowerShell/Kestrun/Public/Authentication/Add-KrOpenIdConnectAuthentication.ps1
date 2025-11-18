@@ -1,4 +1,4 @@
-﻿<#
+<#
 .SYNOPSIS
     Adds OpenID Connect (Authorization Code) authentication to the Kestrun server.
 .DESCRIPTION

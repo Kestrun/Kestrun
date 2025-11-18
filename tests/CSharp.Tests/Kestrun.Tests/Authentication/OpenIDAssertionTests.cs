@@ -14,7 +14,7 @@ public class OpenIDAssertionTests
     {
         using var rsa = RSA.Create(2048);
         var parameters = rsa.ExportParameters(includePrivateParameters: true);
-        
+
         var jwk = new
         {
             kty = "RSA",
@@ -142,7 +142,7 @@ public class OpenIDAssertionTests
         var token = handler.ReadJwtToken(assertion);
         var expirationDifference = token.ValidTo - beforeCreation;
 
-        Assert.True(expirationDifference.TotalSeconds >= 50 && expirationDifference.TotalSeconds <= 70,
+        Assert.True(expirationDifference.TotalSeconds is >= 50 and <= 70,
             $"Expected expiration around 60 seconds, got {expirationDifference.TotalSeconds}");
     }
 

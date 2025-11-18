@@ -1,4 +1,4 @@
-﻿<#
+<#
     Sample: GitHub Authentication (Authorization Code) + Cookies
     Purpose: Ready-to-use GitHub OAuth2 login using the convenience function.
     Based on: 8.10-GitHubAuthentication.ps1, simplified and focused on GitHub.

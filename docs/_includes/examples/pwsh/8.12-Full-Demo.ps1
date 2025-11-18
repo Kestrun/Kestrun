@@ -1,4 +1,4 @@
-﻿# NOTE: This include mirrors the Authentication full example.
+# NOTE: This include mirrors the Authentication full example.
 # Source reference: examples/PowerShell/Authentication/Authentication.ps1
 #
 # For readability in the docs, this is a straight copy of the sample.

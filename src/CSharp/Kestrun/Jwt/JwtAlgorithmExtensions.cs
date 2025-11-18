@@ -1,6 +1,6 @@
 using Microsoft.IdentityModel.Tokens;
 
-namespace Kestrun.Jwt; 
+namespace Kestrun.Jwt;
 
 /// <summary>
 /// Provides extension methods for the JwtAlgorithm enum.

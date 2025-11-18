@@ -116,13 +116,13 @@ public class JwtAlgorithmExtensionsTests
         // Act & Assert
         // Exactly 48 bytes should use HS384
         Assert.Equal(SecurityAlgorithms.HmacSha384, alg.ToJwtString(48));
-        
+
         // 47 bytes should use HS256
         Assert.Equal(SecurityAlgorithms.HmacSha256, alg.ToJwtString(47));
-        
+
         // Exactly 64 bytes should use HS512
         Assert.Equal(SecurityAlgorithms.HmacSha512, alg.ToJwtString(64));
-        
+
         // 63 bytes should use HS384
         Assert.Equal(SecurityAlgorithms.HmacSha384, alg.ToJwtString(63));
     }

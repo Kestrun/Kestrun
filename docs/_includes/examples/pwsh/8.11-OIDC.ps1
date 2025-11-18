@@ -1,4 +1,4 @@
-﻿<#
+<#
     Sample: OpenID Connect (Duende Demo) - Multiple Client Modes
     Purpose: Demonstrate OIDC login with various Duende demo clients and configurations.
 

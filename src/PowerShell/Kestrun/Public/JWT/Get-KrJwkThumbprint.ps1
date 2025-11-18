@@ -1,4 +1,4 @@
-﻿<#
+<#
 .SYNOPSIS
     Computes an RFC 7638 JWK thumbprint for an RSA key.
 

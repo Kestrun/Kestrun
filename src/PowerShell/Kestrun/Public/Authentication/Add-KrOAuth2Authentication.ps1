@@ -1,4 +1,4 @@
-﻿<#
+<#
 .SYNOPSIS
     Adds OAuth 2.0 (Authorization Code) authentication to the Kestrun server.
 .DESCRIPTION

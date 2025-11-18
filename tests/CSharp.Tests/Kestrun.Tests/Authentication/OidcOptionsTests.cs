@@ -56,7 +56,7 @@ public class OidcOptionsTests
     {
         // Arrange
         var options = new OidcOptions();
-        var jwkJson = "{\"kty\":\"RSA\",\"n\":\"test\",\"e\":\"AQAB\"}";
+        var jwkJson = /*lang=json,strict*/ "{\"kty\":\"RSA\",\"n\":\"test\",\"e\":\"AQAB\"}";
 
         // Act
         options.JwkJson = jwkJson;
@@ -78,7 +78,7 @@ public class OidcOptionsTests
             ResponseType = "code",
             UsePkce = true,
             SaveTokens = true,
-            JwkJson = "{\"kty\":\"RSA\"}"
+            JwkJson = /*lang=json,strict*/ "{\"kty\":\"RSA\"}"
         };
         source.Scope.Add("openid");
         source.Scope.Add("profile");
@@ -95,7 +95,7 @@ public class OidcOptionsTests
         Assert.Equal("code", target.ResponseType);
         Assert.True(target.UsePkce);
         Assert.True(target.SaveTokens);
-        Assert.Equal("{\"kty\":\"RSA\"}", target.JwkJson);
+        Assert.Equal(/*lang=json,strict*/ "{\"kty\":\"RSA\"}", target.JwkJson);
         Assert.Contains("openid", target.Scope);
         Assert.Contains("profile", target.Scope);
     }
@@ -192,7 +192,7 @@ public class OidcOptionsTests
 
         // Assert
         Assert.NotNull(target.Events);
-        Assert.IsType<OpenIdConnectEvents>(target.Events);
+        _ = Assert.IsType<OpenIdConnectEvents>(target.Events);
     }
 
 #if NET9_0_OR_GREATER
@@ -245,7 +245,7 @@ public class OidcOptionsTests
         var source = new OidcOptions();
 
         // Act & Assert - test both overloads
-        Assert.ThrowsAny<Exception>(() => source.ApplyTo((OidcOptions)null!));
-        Assert.ThrowsAny<Exception>(() => source.ApplyTo((OpenIdConnectOptions)null!));
+        _ = Assert.ThrowsAny<Exception>(() => source.ApplyTo(null!));
+        _ = Assert.ThrowsAny<Exception>(() => source.ApplyTo((OpenIdConnectOptions)null!));
     }
 }

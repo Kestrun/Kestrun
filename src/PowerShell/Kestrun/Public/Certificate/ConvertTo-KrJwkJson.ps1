@@ -1,4 +1,4 @@
-﻿<#
+<#
     .SYNOPSIS
         Converts an X509 certificate or RSA private key PEM to an RSA JWK JSON string.
     .DESCRIPTION

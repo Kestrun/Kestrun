@@ -54,11 +54,11 @@ public class OidcEventsTests
 
         var options = new OpenIdConnectOptions
         {
-            Authority = "https://issuer.example"
-        };
-        options.Configuration = new OpenIdConnectConfiguration
-        {
-            TokenEndpoint = "https://issuer.example/connect/token"
+            Authority = "https://issuer.example",
+            Configuration = new OpenIdConnectConfiguration
+            {
+                TokenEndpoint = "https://issuer.example/connect/token"
+            }
         };
 
         var context = BuildContext(options);

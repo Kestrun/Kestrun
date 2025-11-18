@@ -1,4 +1,4 @@
-﻿<#
+<#
 .SYNOPSIS
     Challenges the current request to authenticate with the specified authentication scheme.
 .DESCRIPTION

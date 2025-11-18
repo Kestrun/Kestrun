@@ -80,11 +80,9 @@ public class JwkUtilitiesTests
 
     [Fact]
     [Trait("Category", "Jwt")]
-    public void ComputeThumbprintFromCertificate_WithNullCertificate_ThrowsArgumentNullException()
-    {
+    public void ComputeThumbprintFromCertificate_WithNullCertificate_ThrowsArgumentNullException() =>
         // Act & Assert
-        Assert.Throws<ArgumentNullException>(() => JwkUtilities.ComputeThumbprintFromCertificate(null!));
-    }
+        _ = Assert.Throws<ArgumentNullException>(() => JwkUtilities.ComputeThumbprintFromCertificate(null!));
 
     [Fact]
     [Trait("Category", "Jwt")]

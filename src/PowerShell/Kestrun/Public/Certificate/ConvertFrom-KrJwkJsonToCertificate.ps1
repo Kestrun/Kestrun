@@ -1,4 +1,4 @@
-﻿<#
+<#
     .SYNOPSIS
         Creates a self-signed X509 certificate from an RSA JWK.
     .DESCRIPTION

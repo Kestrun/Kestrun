@@ -1,4 +1,4 @@
-﻿<#
+<#
     Sample: Machine-to-Machine (M2M) Authentication using Client Credentials
     Purpose: Demonstrate OAuth 2.0 client credentials grant with Duende demo server.
 

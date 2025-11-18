@@ -1,4 +1,4 @@
-﻿<#
+<#
 .SYNOPSIS
     Adds GitHub OAuth (Authorization Code) authentication to the Kestrun server.
 .DESCRIPTION

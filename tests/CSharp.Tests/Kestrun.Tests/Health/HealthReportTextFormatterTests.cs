@@ -17,7 +17,7 @@ public class HealthReportTextFormatterTests
         // Arrange
         var probes = new List<HealthProbeEntry>
         {
-            new("test-probe", Array.Empty<string>(), ProbeStatus.Healthy, "healthy",
+            new("test-probe", [], ProbeStatus.Healthy, "healthy",
                 "All systems operational", null, TimeSpan.FromMilliseconds(50), null)
         };
         var summary = new HealthSummary(1, 1, 0, 0);
@@ -41,7 +41,7 @@ public class HealthReportTextFormatterTests
         var data = new Dictionary<string, object> { ["freePercent"] = 8.5 };
         var probes = new List<HealthProbeEntry>
         {
-            new("disk-probe", Array.Empty<string>(), ProbeStatus.Degraded, "degraded",
+            new("disk-probe", [], ProbeStatus.Degraded, "degraded",
                 "Low disk space", data, TimeSpan.FromMilliseconds(100), null)
         };
         var summary = new HealthSummary(1, 0, 1, 0);

@@ -167,13 +167,11 @@ public class OidcOptions : OpenIdConnectOptions
         {
             return;
         }
-        foreach (var action in ClaimActions)
+        foreach (var jka in ClaimActions
+            .OfType<Microsoft.AspNetCore.Authentication.OAuth.Claims.JsonKeyClaimAction>()
+            .Where(a => !string.IsNullOrEmpty(a.JsonKey) && !string.IsNullOrEmpty(a.ClaimType)))
         {
-            if (action is Microsoft.AspNetCore.Authentication.OAuth.Claims.JsonKeyClaimAction jka
-                && !string.IsNullOrEmpty(jka.JsonKey) && !string.IsNullOrEmpty(action.ClaimType))
-            {
-                target.ClaimActions.MapJsonKey(action.ClaimType, jka.JsonKey);
-            }
+            target.ClaimActions.MapJsonKey(jka.ClaimType, jka.JsonKey);
         }
     }
 

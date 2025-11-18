@@ -99,41 +99,38 @@ function Protect-KrJWTPayload {
     )
 
     process {
+        # Determine defaults based on parameter set (symmetric vs asymmetric)
+        $defaultKeyAlg, $defaultEncAlg = switch ($PSCmdlet.ParameterSetName) {
+            'Base64Url' { 'dir', 'A256CBC-HS512' }
+            'HexadecimalKey' { 'dir', 'A256CBC-HS512' }
+            'Bytes' { 'dir', 'A256CBC-HS512' }
+            default { 'RSA-OAEP', 'A256GCM' }
+        }
+
+        $ka = if ([string]::IsNullOrWhiteSpace($KeyAlg)) { $defaultKeyAlg } else { $KeyAlg }
+        $ea = if ([string]::IsNullOrWhiteSpace($EncAlg)) { $defaultEncAlg } else { $EncAlg }
+
         switch ($PSCmdlet.ParameterSetName) {
             'Base64Url' {
-                $ka = if ([string]::IsNullOrWhiteSpace($KeyAlg)) { 'dir' } else { $KeyAlg }
-                $ea = if ([string]::IsNullOrWhiteSpace($EncAlg)) { 'A256CBC-HS512' } else { $EncAlg }
                 $Builder.EncryptWithSecretB64($Base64Url, $ka, $ea) | Out-Null
             }
             'HexadecimalKey' {
-                $ka = if ([string]::IsNullOrWhiteSpace($KeyAlg)) { 'dir' } else { $KeyAlg }
-                $ea = if ([string]::IsNullOrWhiteSpace($EncAlg)) { 'A256CBC-HS512' } else { $EncAlg }
                 $Builder.EncryptWithSecretHex($HexadecimalKey, $ka, $ea) | Out-Null
             }
             'Bytes' {
-                $ka = if ([string]::IsNullOrWhiteSpace($KeyAlg)) { 'dir' } else { $KeyAlg }
-                $ea = if ([string]::IsNullOrWhiteSpace($EncAlg)) { 'A256CBC-HS512' } else { $EncAlg }
                 $Builder.EncryptWithSecret($KeyBytes, $ka, $ea) | Out-Null
             }
             'PemPath' {
-                $ka = if ([string]::IsNullOrWhiteSpace($KeyAlg)) { 'RSA-OAEP' } else { $KeyAlg }
-                $ea = if ([string]::IsNullOrWhiteSpace($EncAlg)) { 'A256GCM' } else { $EncAlg }
                 $resolvedPath = Resolve-KrPath -Path $PemPath -KestrunRoot
                 $Builder.EncryptWithPemPublic($resolvedPath, $ka, $ea) | Out-Null
             }
             'Certificate' {
-                $ka = if ([string]::IsNullOrWhiteSpace($KeyAlg)) { 'RSA-OAEP' } else { $KeyAlg }
-                $ea = if ([string]::IsNullOrWhiteSpace($EncAlg)) { 'A256GCM' } else { $EncAlg }
                 $Builder.EncryptWithCertificate($X509Certificate, $ka, $ea) | Out-Null
             }
             'JwkJson' {
-                $ka = if ([string]::IsNullOrWhiteSpace($KeyAlg)) { 'RSA-OAEP' } else { $KeyAlg }
-                $ea = if ([string]::IsNullOrWhiteSpace($EncAlg)) { 'A256GCM' } else { $EncAlg }
                 $Builder.EncryptWithJwkJson($JwkJson, $ka, $ea) | Out-Null
             }
             'JwkPath' {
-                $ka = if ([string]::IsNullOrWhiteSpace($KeyAlg)) { 'RSA-OAEP' } else { $KeyAlg }
-                $ea = if ([string]::IsNullOrWhiteSpace($EncAlg)) { 'A256GCM' } else { $EncAlg }
                 $resolvedPath = Resolve-KrPath -Path $JwkPath -KestrunRoot
                 $Builder.EncryptWithJwkPath($resolvedPath, $ka, $ea) | Out-Null
             }
@@ -142,5 +139,3 @@ function Protect-KrJWTPayload {
         return $Builder
     }
 }
-
-

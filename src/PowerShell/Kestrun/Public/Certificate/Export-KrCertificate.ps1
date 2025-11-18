@@ -44,10 +44,9 @@ function Export-KrCertificate {
         $resolvedPath = Resolve-KrPath -Path $FilePath -KestrunRoot
         Write-KrLog -Level Verbose -Message "Resolved file path: $resolvedPath"
 
-        $fmtEnum = [Kestrun.Certificates.CertificateManager+ExportFormat]::$Format
+        $fmtEnum = [Kestrun.Certificates.ExportFormat]::$Format
         [Kestrun.Certificates.CertificateManager]::Export($Certificate, $resolvedPath, $fmtEnum, $Password,
             $IncludePrivateKey.IsPresent)
         Write-KrLog -Level Verbose -Message "Certificate exported to $resolvedPath with format $Format"
     }
 }
-

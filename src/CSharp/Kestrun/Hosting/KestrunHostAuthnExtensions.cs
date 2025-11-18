@@ -195,12 +195,12 @@ public static class KestrunHostAuthnExtensions
     /// <returns>A task representing the asynchronous operation.</returns>
     private static async Task FetchGitHubUserInfoAsync(OAuthCreatingTicketContext context)
     {
-        var request = new HttpRequestMessage(HttpMethod.Get, context.Options.UserInformationEndpoint);
+        using var request = new HttpRequestMessage(HttpMethod.Get, context.Options.UserInformationEndpoint);
         request.Headers.Accept.Add(new("application/json"));
         request.Headers.Add("User-Agent", "KestrunOAuth/1.0");
         request.Headers.Authorization = new("Bearer", context.AccessToken);
 
-        var response = await context.Backchannel.SendAsync(request,
+        using var response = await context.Backchannel.SendAsync(request,
             HttpCompletionOption.ResponseHeadersRead,
             context.HttpContext.RequestAborted);
 
@@ -225,12 +225,12 @@ public static class KestrunHostAuthnExtensions
 
         try
         {
-            var emailRequest = new HttpRequestMessage(HttpMethod.Get, "https://api.github.com/user/emails");
+            using var emailRequest = new HttpRequestMessage(HttpMethod.Get, "https://api.github.com/user/emails");
             emailRequest.Headers.Accept.Add(new("application/json"));
             emailRequest.Headers.Add("User-Agent", "KestrunOAuth/1.0");
             emailRequest.Headers.Authorization = new("Bearer", context.AccessToken);
 
-            var emailResponse = await context.Backchannel.SendAsync(emailRequest,
+            using var emailResponse = await context.Backchannel.SendAsync(emailRequest,
                 HttpCompletionOption.ResponseHeadersRead,
                 context.HttpContext.RequestAborted);
 
@@ -251,12 +251,9 @@ public static class KestrunHostAuthnExtensions
                     context.Options.ClaimsIssuer));
             }
         }
-        catch
+        catch (Exception ex)
         {
-            if (host.Logger.IsEnabled(LogEventLevel.Verbose))
-            {
-                host.Logger.Verbose("Failed to enrich GitHub email claim.");
-            }
+            host.Logger.Verbose(exception: ex, messageTemplate: "Failed to enrich GitHub email claim.");
         }
     }
 

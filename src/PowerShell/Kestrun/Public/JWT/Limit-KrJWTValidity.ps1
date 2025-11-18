@@ -53,8 +53,8 @@ function Limit-KrJWTValidity {
         [double] $Seconds = 0
     )
     process {
-        $ts = ($PSCmdlet.ParameterSetName -eq 'TimeSpan') ?
-        $Lifetime : [TimeSpan]::FromSeconds(($Hours * 3600) + ($Minutes * 60) + $Seconds)
+        $ts = (($PSCmdlet.ParameterSetName -eq 'TimeSpan') ?
+            $Lifetime : [TimeSpan]::FromSeconds(($Hours * 3600) + ($Minutes * 60) + $Seconds))
 
         return $Builder.ValidFor($ts)
     }

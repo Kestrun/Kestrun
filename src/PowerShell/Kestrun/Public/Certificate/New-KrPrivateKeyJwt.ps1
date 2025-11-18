@@ -22,6 +22,8 @@
         The client identifier; used as both issuer (iss) and subject (sub) in the JWT.
     .PARAMETER TokenEndpoint
         The token endpoint URL; used as the audience (aud) in the JWT.
+    .PARAMETER Authority
+        The authority (issuer) URL; used to discover the token endpoint via OIDC discovery.
     .PARAMETER WhatIf
         Shows what would happen if the command runs. The command is not run.
     .PARAMETER Confirm

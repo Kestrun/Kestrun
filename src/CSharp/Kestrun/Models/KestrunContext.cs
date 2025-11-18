@@ -341,19 +341,19 @@ public sealed record KestrunContext
     public void SignOut(string? scheme, Hashtable? properties)
     {
         AuthenticationProperties? authProps = null;
-        if (properties != null)
+        // Convert Hashtable to Dictionary<string, string?> for AuthenticationProperties
+        if (properties is not null)
         {
             var dict = new Dictionary<string, string?>();
-            if (properties != null)
+            // Convert each entry in the Hashtable to a string key-value pair
+            foreach (DictionaryEntry entry in properties)
             {
-                foreach (DictionaryEntry entry in properties)
-                {
-                    dict[entry.Key.ToString()!] = entry.Value?.ToString();
-                }
+                dict[entry.Key.ToString()!] = entry.Value?.ToString();
             }
-            authProps = new(dict);
+            // Create AuthenticationProperties from the dictionary
+            authProps = new AuthenticationProperties(dict);
         }
+        // Call SignOut with the constructed AuthenticationProperties
         SignOut(scheme, authProps);
     }
 }
-

@@ -600,7 +600,6 @@ public static class KestrunHostAuthnExtensions
                      host.Logger.Debug("Configured OpenID Connect with Authority: {Authority}, ClientId: {ClientId}, Scopes: {Scopes}",
                          oidcOpts.Authority, oidcOpts.ClientId, string.Join(", ", oidcOpts.Scope));
                  });
-
               });
     }
 

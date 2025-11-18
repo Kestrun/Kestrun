@@ -22,7 +22,6 @@ namespace Kestrun.Hosting;
 /// </summary>
 public static class KestrunHostAuthnExtensions
 {
-
     #region Basic Authentication
     /// <summary>
     /// Adds Basic Authentication to the Kestrun host.

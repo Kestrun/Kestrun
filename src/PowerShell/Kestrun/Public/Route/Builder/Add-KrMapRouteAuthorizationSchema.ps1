@@ -5,6 +5,9 @@
     The Add-KrMapRouteAuthorizationSchema cmdlet adds authorization schema names to a Map Route Builder object.
 .PARAMETER MapRouteBuilder
     The Map Route Builder object to which the authorization schema will be added.
+.PARAMETER Verbs
+    An array of HTTP verbs (e.g., GET, POST) to which the authorization schema will be applied.
+    If not specified, the schema will be applied to all verbs defined in the Map
 .PARAMETER AuthorizationSchema
     An array of authorization schema names required for the route.
 .EXAMPLE
@@ -22,11 +25,17 @@ function Add-KrMapRouteAuthorizationSchema {
     param (
         [Parameter(Mandatory = $true, ValueFromPipeline = $true)]
         [Kestrun.Hosting.Options.MapRouteBuilder]$MapRouteBuilder,
+        [Parameter(ParameterSetName = 'VerbLevel')]
+        [Kestrun.Utilities.HttpVerb[]]$Verbs,
         [Parameter(Mandatory = $true)]
         [string[]]$AuthorizationSchema
     )
     process {
-        foreach ($verb in $MapRouteBuilder.HttpVerbs) {
+        if ($Verbs.Count -eq 0) {
+            # Apply to all verbs defined in the MapRouteBuilder
+            $Verbs = $MapRouteBuilder.HttpVerbs
+        }
+        foreach ($verb in $Verbs) {
             if (-not $MapRouteBuilder.OpenApi.ContainsKey($verb)) {
                 $MapRouteBuilder.OpenApi[$verb] = [Kestrun.Hosting.Options.OpenAPIMetadata]::new($MapRouteBuilder.Pattern)
             }

@@ -18,14 +18,14 @@ public class OpenIDAssertionTests
         var jwk = new
         {
             kty = "RSA",
-            n = Base64UrlEncoder.Encode(parameters.Modulus!),
-            e = Base64UrlEncoder.Encode(parameters.Exponent!),
-            d = Base64UrlEncoder.Encode(parameters.D!),
-            p = Base64UrlEncoder.Encode(parameters.P!),
-            q = Base64UrlEncoder.Encode(parameters.Q!),
-            dp = Base64UrlEncoder.Encode(parameters.DP!),
-            dq = Base64UrlEncoder.Encode(parameters.DQ!),
-            qi = Base64UrlEncoder.Encode(parameters.InverseQ!)
+            n = Base64UrlEncoder.Encode(parameters.Modulus),
+            e = Base64UrlEncoder.Encode(parameters.Exponent),
+            d = Base64UrlEncoder.Encode(parameters.D),
+            p = Base64UrlEncoder.Encode(parameters.P),
+            q = Base64UrlEncoder.Encode(parameters.Q),
+            dp = Base64UrlEncoder.Encode(parameters.DP),
+            dq = Base64UrlEncoder.Encode(parameters.DQ),
+            qi = Base64UrlEncoder.Encode(parameters.InverseQ)
         };
 
         return JsonSerializer.Serialize(jwk, JwkJson.Options);

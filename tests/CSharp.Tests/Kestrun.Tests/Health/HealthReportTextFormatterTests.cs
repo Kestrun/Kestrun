@@ -21,7 +21,7 @@ public class HealthReportTextFormatterTests
                 "All systems operational", null, TimeSpan.FromMilliseconds(50), null)
         };
         var summary = new HealthSummary(1, 1, 0, 0);
-        var report = new HealthReport(ProbeStatus.Healthy, "healthy", DateTimeOffset.UtcNow, probes, summary, Array.Empty<string>());
+        var report = new HealthReport(ProbeStatus.Healthy, "healthy", DateTimeOffset.UtcNow, probes, summary, []);
 
         // Act
         var result = HealthReportTextFormatter.Format(report);
@@ -45,7 +45,7 @@ public class HealthReportTextFormatterTests
                 "Low disk space", data, TimeSpan.FromMilliseconds(100), null)
         };
         var summary = new HealthSummary(1, 0, 1, 0);
-        var report = new HealthReport(ProbeStatus.Degraded, "degraded", DateTimeOffset.UtcNow, probes, summary, Array.Empty<string>());
+        var report = new HealthReport(ProbeStatus.Degraded, "degraded", DateTimeOffset.UtcNow, probes, summary, []);
 
         // Act
         var result = HealthReportTextFormatter.Format(report);

@@ -19,14 +19,14 @@ public class OidcEventsTests
         var jwk = new
         {
             kty = "RSA",
-            n = Base64UrlEncoder.Encode(p.Modulus!),
-            e = Base64UrlEncoder.Encode(p.Exponent!),
-            d = Base64UrlEncoder.Encode(p.D!),
-            p = Base64UrlEncoder.Encode(p.P!),
-            q = Base64UrlEncoder.Encode(p.Q!),
-            dp = Base64UrlEncoder.Encode(p.DP!),
-            dq = Base64UrlEncoder.Encode(p.DQ!),
-            qi = Base64UrlEncoder.Encode(p.InverseQ!)
+            n = Base64UrlEncoder.Encode(p.Modulus),
+            e = Base64UrlEncoder.Encode(p.Exponent),
+            d = Base64UrlEncoder.Encode(p.D),
+            p = Base64UrlEncoder.Encode(p.P),
+            q = Base64UrlEncoder.Encode(p.Q),
+            dp = Base64UrlEncoder.Encode(p.DP),
+            dq = Base64UrlEncoder.Encode(p.DQ),
+            qi = Base64UrlEncoder.Encode(p.InverseQ)
         };
         return JsonSerializer.Serialize(jwk, Kestrun.Certificates.JwkJson.Options);
     }

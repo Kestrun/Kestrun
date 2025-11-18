@@ -9,7 +9,6 @@ nav_order: 8
 Protect routes with multiple authentication schemes: Basic, API Key, JWT, Cookies, plus claims & policies.
 
 > Prerequisites: review [Endpoints](../7.endpoints/index) & [Logging](../5.logging/1.Simple-Logging) for hosting & diagnostics.
-
 > Conceptual background: see Guides — [OAuth 2.0](/guides/oauth2) and [OpenID Connect](/guides/oidc).
 
 Chapters:

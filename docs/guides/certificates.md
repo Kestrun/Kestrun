@@ -7,7 +7,8 @@ nav_order: 45
 
 # Certificates & JWK Management
 
-Kestrun provides a unified set of APIs and cmdlets to generate, import, export, convert, and validate X.509 certificates and JSON Web Keys (JWK). These tools support cross-platform scenarios (Windows, Linux, macOS) and are essential for HTTPS, JWT signing, OIDC/OAuth2 client authentication, and secure automation.
+Kestrun provides a unified set of APIs and cmdlets to generate, import, export, convert, and validate X.509 certificates and JSON Web Keys (JWK).
+These tools support cross-platform scenarios (Windows, Linux, macOS) and are essential for HTTPS, JWT signing, OIDC/OAuth2 client authentication, and secure automation.
 
 ## Concepts
 

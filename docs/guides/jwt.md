@@ -238,7 +238,7 @@ Test-KrJWT -Token $jwtString -ValidationParameter $validation
 ## 5. Putting it together (issue & renew snippet)
 
 ```powershell
-Add-KrMapRoute -Verbs Get -Pattern '/token/new' -AuthorizationSchema 'BasicInit' -ScriptBlock {
+Add-KrMapRoute -Verbs Get -Pattern '/token/new' -AuthorizationScheme 'BasicInit' -ScriptBlock {
   $build = Copy-KrJWTTokenBuilder -Builder $jwtBuilder |
     Add-KrJWTSubject -Subject $Context.User.Identity.Name |
     Add-KrJWTClaim -UserClaimType Name -Value $Context.User.Identity.Name |
@@ -247,7 +247,7 @@ Add-KrMapRoute -Verbs Get -Pattern '/token/new' -AuthorizationSchema 'BasicInit'
   Write-KrJsonResponse @{ access_token = ($build | Get-KrJWTToken); expires = $build.Expires }
 }
 
-Add-KrMapRoute -Verbs Get -Pattern '/token/renew' -AuthorizationSchema 'Bearer' -ScriptBlock {
+Add-KrMapRoute -Verbs Get -Pattern '/token/renew' -AuthorizationScheme 'Bearer' -ScriptBlock {
   $newToken = $jwtBuilder | Update-KrJWT -FromContext
   Write-KrJsonResponse @{ access_token = $newToken }
 }

@@ -96,11 +96,11 @@ Enable-KrConfiguration
 Add-KrHtmlTemplateRoute -Pattern '/' -HtmlTemplatePath './Assets/wwwroot/github/github-auth.html'
 
 # Protected routes (policy scheme)
-Add-KrMapRoute -Verbs Get -Pattern '/github/login' -AuthorizationSchema 'GitHub' -ScriptBlock {
+Add-KrMapRoute -Verbs Get -Pattern '/github/login' -AuthorizationScheme 'GitHub' -ScriptBlock {
   Write-KrTextResponse 'Welcome via OAuth2 (GitHub)'
 }
 
-Add-KrMapRoute -Verbs Get -Pattern '/github/me' -AuthorizationSchema 'GitHub' -ScriptBlock {
+Add-KrMapRoute -Verbs Get -Pattern '/github/me' -AuthorizationScheme 'GitHub' -ScriptBlock {
   $claims = foreach ($c in $Context.User.Claims) { @{ Type = $c.Type; Value = $c.Value } }
   Write-KrJsonResponse @{ authenticated = $true; claims = $claims }
 }
@@ -142,7 +142,7 @@ Add-KrOAuth2Authentication -Name 'Google' -Options $opt
 
 Enable-KrConfiguration
 
-Add-KrMapRoute -Verbs Get -Pattern '/google/me' -AuthorizationSchema 'Google' -ScriptBlock {
+Add-KrMapRoute -Verbs Get -Pattern '/google/me' -AuthorizationScheme 'Google' -ScriptBlock {
   $claims = foreach ($c in $Context.User.Claims) { @{ Type = $c.Type; Value = $c.Value } }
   Write-KrJsonResponse @{ provider = 'google'; authenticated = $true; claims = $claims }
 }
@@ -175,7 +175,7 @@ Add-KrOAuth2Authentication -Name 'GitLab' -Options $gitlab
 
 Enable-KrConfiguration
 
-Add-KrMapRoute -Verbs Get -Pattern '/gitlab/me' -AuthorizationSchema 'GitLab' -ScriptBlock {
+Add-KrMapRoute -Verbs Get -Pattern '/gitlab/me' -AuthorizationScheme 'GitLab' -ScriptBlock {
   $claims = foreach ($c in $Context.User.Claims) { @{ Type = $c.Type; Value = $c.Value } }
   Write-KrJsonResponse @{ provider = 'gitlab'; authenticated = $true; claims = $claims }
 }
@@ -209,7 +209,7 @@ Add-KrOAuth2Authentication -Name 'AzureAD' -Options $aad
 
 Enable-KrConfiguration
 
-Add-KrMapRoute -Verbs Get -Pattern '/azuread/me' -AuthorizationSchema 'AzureAD' -ScriptBlock {
+Add-KrMapRoute -Verbs Get -Pattern '/azuread/me' -AuthorizationScheme 'AzureAD' -ScriptBlock {
   $claims = foreach ($c in $Context.User.Claims) { @{ Type = $c.Type; Value = $c.Value } }
   Write-KrJsonResponse @{ provider = 'azuread'; authenticated = $true; claims = $claims }
 }
@@ -248,7 +248,7 @@ Tokens:
 
 ## 5. Protecting routes
 
-- Use `-AuthorizationSchema 'GitHub'` (policy scheme) on protected endpoints.
+- Use `-AuthorizationScheme 'GitHub'` (policy scheme) on protected endpoints.
 - Unauthenticated requests are challenged (302 to GitHub); authenticated requests use the session cookie.
 
 ## 6. Custom providers
@@ -263,7 +263,7 @@ Tokens:
 |---------------------------------|--------------------------------------|-----------------------------------------------------------------|
 | Callback mismatch               | App uses different path              | Set `-CallbackPath` to match and update app settings            |
 | No email claim                  | Scope not granted / email private    | Include `user:email` scope and ensure account has a primary     |
-| Infinite redirect loop          | Cookie blocked or wrong scheme       | Allow cookies; use `-AuthorizationSchema 'GitHub'`              |
+| Infinite redirect loop          | Cookie blocked or wrong scheme       | Allow cookies; use `-AuthorizationScheme 'GitHub'`              |
 | 401 after login                 | Session lost                         | Same-site or domain issues; test in a fresh profile             |
 
 ## 8. Security best practices

@@ -105,7 +105,7 @@ Enable-KrConfiguration
 # Routes
 Add-KrMapRoute -Verbs Get -Pattern '/' -ScriptBlock { Write-KrTextResponse 'Home' }
 Add-KrMapRoute -Verbs Get -Pattern '/login' -ScriptBlock { Invoke-KrChallenge -Scheme 'oidc' -RedirectUri '/hello' } -AllowAnonymous
-Add-KrMapRoute -Verbs Get -Pattern '/hello' -AuthorizationSchema 'oidc' -ScriptBlock {
+Add-KrMapRoute -Verbs Get -Pattern '/hello' -AuthorizationScheme 'oidc' -ScriptBlock {
   Write-KrJsonResponse @{ hello = $Context.User.Identity.Name; authenticated = $true }
 }
 Add-KrMapRoute -Verbs Get -Pattern '/logout' -AllowAnonymous -ScriptBlock {
@@ -144,7 +144,7 @@ Add-KrOpenIdConnectAuthentication -Name 'azuread' -Options $options
 Enable-KrConfiguration
 
 Add-KrMapRoute -Verbs Get -Pattern '/azuread/login' -ScriptBlock { Invoke-KrChallenge -Scheme 'azuread' -RedirectUri '/azuread/me' } -AllowAnonymous
-Add-KrMapRoute -Verbs Get -Pattern '/azuread/me' -AuthorizationSchema 'azuread' -ScriptBlock {
+Add-KrMapRoute -Verbs Get -Pattern '/azuread/me' -AuthorizationScheme 'azuread' -ScriptBlock {
   Write-KrJsonResponse @{ name = $Context.User.Identity.Name; provider = 'azuread'; authenticated = $true }
 }
 
@@ -167,7 +167,7 @@ Start-KrServer -CloseLogsOnExit
 
 ## 6. Protecting routes
 
-- Use `-AuthorizationSchema 'oidc'` on protected routes. The policy scheme:
+- Use `-AuthorizationScheme 'oidc'` on protected routes. The policy scheme:
   - Authenticates via the cookie issued after OIDC callback.
   - Forwards challenges to OIDC when unauthenticated (login redirect).
 
@@ -182,7 +182,7 @@ Start-KrServer -CloseLogsOnExit
 |-------------------------------|--------------------------------------|----------------------------------------------------------------------------|
 | redirect_uri not valid       | Callback path/host mismatch          | Register `https://localhost:5000/signin-oidc` (or your configured path)    |
 | Empty/partial claims         | Minimal scopes                       | Add `email` or custom scopes; enable `GetClaimsFromUserInfoEndpoint`       |
-| Infinite redirect loop       | Cookie blocked / scheme mismatch     | Allow cookies; use `-AuthorizationSchema 'oidc'` on protected routes       |
+| Infinite redirect loop       | Cookie blocked / scheme mismatch     | Allow cookies; use `-AuthorizationScheme 'oidc'` on protected routes       |
 | 400 invalid_client           | Wrong secret / client id             | Verify `ClientId`/`ClientSecret` and application type                      |
 | Name claim is null           | Claim type not mapped                | Set `TokenValidationParameters.NameClaimType = 'name'`                      |
 

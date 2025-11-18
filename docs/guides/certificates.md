@@ -65,8 +65,8 @@ $csrResult.PrivateKey | Set-Content './private.key'
 ### 5. C# Example: Self-signed
 
 ```csharp
-var cert = CertificateManager.NewSelfSigned(new CertificateManager.SelfSignedOptions(
-    DnsNames: new[] { "localhost", "127.0.0.1" }, KeyType: CertificateManager.KeyType.Rsa,
+var cert = CertificateManager.NewSelfSigned(new SelfSignedOptions(
+    DnsNames: new[] { "localhost", "127.0.0.1" }, KeyType: KeyType.Rsa,
     KeyLength: 2048, ValidDays: 30, Exportable: true));
 ```
 

@@ -201,7 +201,7 @@ public sealed class KestrunRunspacePoolManager : IDisposable
         catch (Exception ex)
         {
             Host.Logger.Warning(ex, "ResetRunspaceState failed; disposing runspace instead");
-            try { rs.Close(); } catch { /* ignore */ }
+            try { rs.Close(); } catch { Host.Logger.Debug("Failed to close runspace during release after ResetRunspaceState failure"); }
             rs.Dispose();
             _ = Interlocked.Decrement(ref _count);
             return;
@@ -274,8 +274,8 @@ public sealed class KestrunRunspacePoolManager : IDisposable
             {
                 Host.Logger.Debug("Disposing runspace: {Runspace}", rs);
             }
-            try { rs.ResetRunspaceState(); } catch { /* ignore */ }
-            try { rs.Close(); } catch { /* ignore */ }
+            try { rs.ResetRunspaceState(); } catch { Host.Logger.Debug("Failed to reset runspace state during disposal"); }
+            try { rs.Close(); } catch { Host.Logger.Debug("Failed to close runspace during disposal"); }
             rs.Dispose();
             _ = _all.TryRemove(rs, out _);
             _ = Interlocked.Decrement(ref _count);
@@ -284,8 +284,8 @@ public sealed class KestrunRunspacePoolManager : IDisposable
         // Anything still checked out? Close them too.
         foreach (var kv in _all.Keys)
         {
-            try { kv.ResetRunspaceState(); } catch { /* ignore */ }
-            try { kv.Close(); } catch { /* ignore */ }
+            try { kv.ResetRunspaceState(); } catch { Host.Logger.Debug("Failed to reset runspace state during disposal"); }
+            try { kv.Close(); } catch { Host.Logger.Debug("Failed to close runspace during disposal"); }
             kv.Dispose();
             _ = _all.TryRemove(kv, out _);
             _ = Interlocked.Decrement(ref _count);

@@ -150,11 +150,11 @@ public class JwtAlgorithmExtensionsTests
         var allAlgorithms = Enum.GetValues<JwtAlgorithm>();
 
         // Act & Assert - All should convert without throwing
-        foreach (var alg in allAlgorithms)
+        foreach (var result in allAlgorithms.Select(alg => alg.ToJwtString(32)))
         {
-            var result = alg.ToJwtString(32); // Provide key length for Auto
             Assert.NotNull(result);
             Assert.NotEmpty(result);
         }
+
     }
 }

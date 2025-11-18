@@ -271,22 +271,18 @@ public sealed class JwtTokenBuilder
 
         // Determine algorithm
         string resolvedAlg;
-        if (alg == JwtAlgorithm.Auto)
-        {
-            resolvedAlg = jwk.Kty switch
-            {
-                "RSA" => SecurityAlgorithms.RsaSha256,
-                "EC" => SecurityAlgorithms.EcdsaSha256,
-                "oct" => SecurityAlgorithms.HmacSha256,
-                _ => throw new NotSupportedException(
-                            $"Unsupported JWK key type '{jwk.Kty}'.")
-            };
-        }
-        else
-        {
-            // You already map JwtAlgorithm → SecurityAlgorithms via ToJwtString
-            resolvedAlg = alg.ToJwtString(0);
-        }
+        resolvedAlg = (alg == JwtAlgorithm.Auto) ?
+          jwk.Kty switch
+          {
+              "RSA" => SecurityAlgorithms.RsaSha256,
+              "EC" => SecurityAlgorithms.EcdsaSha256,
+              "oct" => SecurityAlgorithms.HmacSha256,
+              _ => throw new NotSupportedException(
+                         $"Unsupported JWK key type '{jwk.Kty}'.")
+          }
+          : alg.ToJwtString(0);        // You already map JwtAlgorithm → SecurityAlgorithms via ToJwtString
+
+
 
         // For symmetric JWKs, we can treat it like other HMAC keys for validation helpers
         if (string.Equals(jwk.Kty, "oct", StringComparison.OrdinalIgnoreCase))

@@ -1,4 +1,4 @@
-<#
+﻿<#
     .SYNOPSIS
         Builds a Private Key JWT (client assertion) for OAuth2/OIDC client authentication.
     .DESCRIPTION
@@ -134,6 +134,5 @@ function New-KrPrivateKeyJwt {
             $ClientId,
             $TokenEndpoint
         )
-
     }
 }

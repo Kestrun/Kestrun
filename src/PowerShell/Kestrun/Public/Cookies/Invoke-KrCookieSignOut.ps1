@@ -90,7 +90,7 @@ function Invoke-KrCookieSignOut {
                         $oidcProperties.RedirectUri = $RedirectUri
                     }
                     $Context.SignOut($Scheme, $oidcProperties) | Out-Null
-                    
+
                     Write-KrLog -Level Information -Message 'OIDC logout initiated, OIDC handler will redirect to IdP logout endpoint'
                     return
                 }

@@ -1,7 +1,6 @@
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
-using Microsoft.AspNetCore.Authentication.OpenIdConnect;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.Extensions.Options;
@@ -11,9 +10,11 @@ using Serilog.Events;
 using Kestrun.Scripting;
 using Microsoft.AspNetCore.Authentication.Negotiate;
 using Kestrun.Claims;
-using Serilog;
 
-
+using Microsoft.AspNetCore.Authentication.OAuth;
+using System.Text.Json;
+using System.Security.Claims;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 namespace Kestrun.Hosting;
 
 /// <summary>
@@ -21,6 +22,7 @@ namespace Kestrun.Hosting;
 /// </summary>
 public static class KestrunHostAuthnExtensions
 {
+    #region Basic Authentication
     /// <summary>
     /// Adds Basic Authentication to the Kestrun host.
     /// <para>Use this for simple username/password authentication.</para>
@@ -103,7 +105,7 @@ public static class KestrunHostAuthnExtensions
                 opts.AllowInsecureHttp = configure.AllowInsecureHttp;
                 opts.SuppressWwwAuthenticate = configure.SuppressWwwAuthenticate;
                 // Logger configuration
-                opts.Logger = configure.Logger == Log.ForContext<BasicAuthenticationOptions>() ?
+                opts.Logger = configure.Logger == host.Logger.ForContext<BasicAuthenticationOptions>() ?
                             host.Logger.ForContext<BasicAuthenticationOptions>() : configure.Logger;
 
                 // Copy properties from the provided configure object
@@ -116,7 +118,185 @@ public static class KestrunHostAuthnExtensions
         );
     }
 
+    #endregion
+    #region GitHub OAuth Authentication
+    /// <summary>
+    /// Adds GitHub OAuth (Authorization Code) authentication with optional email enrichment.
+    /// Creates three schemes: <paramref name="scheme"/>, <paramref name="scheme"/>.Cookies, <paramref name="scheme"/>.Policy.
+    /// </summary>
+    /// <param name="host">The Kestrun host instance.</param>
+    /// <param name="scheme">Base scheme name (e.g. "GitHub").</param>
+    /// <param name="clientId">GitHub OAuth App Client ID.</param>
+    /// <param name="clientSecret">GitHub OAuth App Client Secret.</param>
+    /// <param name="callbackPath">The callback path for OAuth redirection (e.g. "/signin-github").</param>
+    /// <returns>The configured KestrunHost.</returns>
+    public static KestrunHost AddGitHubOAuthAuthentication(
+        this KestrunHost host,
+        string scheme,
+        string clientId,
+        string clientSecret,
+        string callbackPath)
+    {
+        var opts = ConfigureGitHubOAuth2Options(clientId, clientSecret, callbackPath);
+        ConfigureGitHubClaimMappings(opts);
+        opts.Events = new OAuthEvents
+        {
+            OnCreatingTicket = async context =>
+            {
+                await FetchGitHubUserInfoAsync(context);
+                await EnrichGitHubEmailClaimAsync(context, host);
+            }
+        };
+        return host.AddOAuth2Authentication(scheme, opts);
+    }
 
+    /// <summary>
+    /// Configures OAuth2Options for GitHub authentication.
+    /// </summary>
+    /// <param name="clientId">GitHub OAuth App Client ID.</param>
+    /// <param name="clientSecret">GitHub OAuth App Client Secret.</param>
+    /// <param name="callbackPath">The callback path for OAuth redirection (e.g. "/signin-github").</param>
+    /// <returns>The configured OAuth2Options.</returns>
+    private static OAuth2Options ConfigureGitHubOAuth2Options(string clientId, string clientSecret, string callbackPath)
+    {
+        return new OAuth2Options
+        {
+            ClientId = clientId,
+            ClientSecret = clientSecret,
+            CallbackPath = callbackPath,
+            AuthorizationEndpoint = "https://github.com/login/oauth/authorize",
+            TokenEndpoint = "https://github.com/login/oauth/access_token",
+            UserInformationEndpoint = "https://api.github.com/user",
+            SaveTokens = true,
+            SignInScheme = CookieAuthenticationDefaults.AuthenticationScheme,
+            Scope = { "read:user", "user:email" }
+        };
+    }
+
+    /// <summary>
+    /// Configures claim mappings for GitHub OAuth2Options.
+    /// </summary>
+    /// <param name="opts">The OAuth2Options to configure.</param>
+    private static void ConfigureGitHubClaimMappings(OAuth2Options opts)
+    {
+        opts.ClaimActions.MapJsonKey(ClaimTypes.NameIdentifier, "id");
+        opts.ClaimActions.MapJsonKey(ClaimTypes.Name, "login");
+        opts.ClaimActions.MapJsonKey(ClaimTypes.Email, "email");
+        opts.ClaimActions.MapJsonKey("name", "name");
+        opts.ClaimActions.MapJsonKey("urn:github:login", "login");
+        opts.ClaimActions.MapJsonKey("urn:github:avatar_url", "avatar_url");
+        opts.ClaimActions.MapJsonKey("urn:github:html_url", "html_url");
+    }
+
+    /// <summary>
+    /// Fetches GitHub user information and adds claims to the identity.
+    /// </summary>
+    /// <param name="context">The OAuthCreatingTicketContext.</param>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    private static async Task FetchGitHubUserInfoAsync(OAuthCreatingTicketContext context)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Get, context.Options.UserInformationEndpoint);
+        request.Headers.Accept.Add(new("application/json"));
+        request.Headers.Add("User-Agent", "KestrunOAuth/1.0");
+        request.Headers.Authorization = new("Bearer", context.AccessToken);
+
+        using var response = await context.Backchannel.SendAsync(request,
+            HttpCompletionOption.ResponseHeadersRead,
+            context.HttpContext.RequestAborted);
+
+        _ = response.EnsureSuccessStatusCode();
+
+        using var user = JsonDocument.Parse(await response.Content.ReadAsStringAsync(context.HttpContext.RequestAborted));
+        context.RunClaimActions(user.RootElement);
+    }
+
+    /// <summary>
+    /// Fetches GitHub user emails and enriches the identity with the primary verified email claim.
+    /// </summary>
+    /// <param name="context">The OAuthCreatingTicketContext.</param>
+    /// <param name="host">The KestrunHost instance for logging.</param>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    private static async Task EnrichGitHubEmailClaimAsync(OAuthCreatingTicketContext context, KestrunHost host)
+    {
+        if (context.Identity is null || context.Identity.HasClaim(c => c.Type == ClaimTypes.Email))
+        {
+            return;
+        }
+
+        try
+        {
+            using var emailRequest = new HttpRequestMessage(HttpMethod.Get, "https://api.github.com/user/emails");
+            emailRequest.Headers.Accept.Add(new("application/json"));
+            emailRequest.Headers.Add("User-Agent", "KestrunOAuth/1.0");
+            emailRequest.Headers.Authorization = new("Bearer", context.AccessToken);
+
+            using var emailResponse = await context.Backchannel.SendAsync(emailRequest,
+                HttpCompletionOption.ResponseHeadersRead,
+                context.HttpContext.RequestAborted);
+
+            if (!emailResponse.IsSuccessStatusCode)
+            {
+                return;
+            }
+
+            using var emails = JsonDocument.Parse(await emailResponse.Content.ReadAsStringAsync(context.HttpContext.RequestAborted));
+            var primaryEmail = FindPrimaryVerifiedEmail(emails) ?? FindFirstVerifiedEmail(emails);
+
+            if (!string.IsNullOrWhiteSpace(primaryEmail))
+            {
+                context.Identity.AddClaim(new Claim(
+                    ClaimTypes.Email,
+                    primaryEmail,
+                    ClaimValueTypes.String,
+                    context.Options.ClaimsIssuer));
+            }
+        }
+        catch (Exception ex)
+        {
+            host.Logger.Verbose(exception: ex, messageTemplate: "Failed to enrich GitHub email claim.");
+        }
+    }
+
+    /// <summary>
+    /// Finds the primary verified email from the GitHub emails JSON document.
+    /// </summary>
+    /// <param name="emails">The JSON document containing GitHub emails.</param>
+    /// <returns>The primary verified email if found; otherwise, null.</returns>
+    private static string? FindPrimaryVerifiedEmail(JsonDocument emails)
+    {
+        foreach (var emailObj in emails.RootElement.EnumerateArray())
+        {
+            var isPrimary = emailObj.TryGetProperty("primary", out var primaryProp) && primaryProp.GetBoolean();
+            var isVerified = emailObj.TryGetProperty("verified", out var verifiedProp) && verifiedProp.GetBoolean();
+
+            if (isPrimary && isVerified && emailObj.TryGetProperty("email", out var emailProp))
+            {
+                return emailProp.GetString();
+            }
+        }
+        return null;
+    }
+
+    /// <summary>
+    /// Finds the primary verified email from the GitHub emails JSON document.
+    /// </summary>
+    /// <param name="emails">The JSON document containing GitHub emails.</param>
+    /// <returns>The primary verified email if found; otherwise, null.</returns>
+    private static string? FindFirstVerifiedEmail(JsonDocument emails)
+    {
+        foreach (var emailObj in emails.RootElement.EnumerateArray())
+        {
+            var isVerified = emailObj.TryGetProperty("verified", out var verifiedProp) && verifiedProp.GetBoolean();
+            if (isVerified && emailObj.TryGetProperty("email", out var emailProp))
+            {
+                return emailProp.GetString();
+            }
+        }
+        return null;
+    }
+
+    #endregion
+    #region JWT Bearer Authentication
     /// <summary>
     /// Adds JWT Bearer authentication to the Kestrun host.
     /// <para>Use this for APIs that require token-based authentication.</para>
@@ -190,7 +370,8 @@ public static class KestrunHostAuthnExtensions
             configureAuthz: claimPolicy?.ToAuthzDelegate()
             );
     }
-
+    #endregion
+    #region Cookie Authentication
     /// <summary>
     /// Adds Cookie Authentication to the Kestrun host.
     /// <para>Use this for browser-based authentication using cookies.</para>
@@ -206,8 +387,9 @@ public static class KestrunHostAuthnExtensions
         Action<CookieAuthenticationOptions>? configure = null,
      ClaimPolicyConfig? claimPolicy = null)
     {
+        // register in host for introspection
         _ = host.RegisteredAuthentications.Register(scheme, "Cookie", configure);
-
+        // Add authentication
         return host.AddAuthentication(
             defaultScheme: scheme,
             buildSchemes: ab =>
@@ -218,7 +400,7 @@ public static class KestrunHostAuthnExtensions
                     {
                         // let caller mutate everything first
                         configure?.Invoke(opts);
-                        Log.Debug("Configured Cookie Authentication with LoginPath: {LoginPath}", opts.LoginPath);
+                        host.Logger.Debug("Configured Cookie Authentication with LoginPath: {LoginPath}", opts.LoginPath);
                     });
             },
              configureAuthz: claimPolicy?.ToAuthzDelegate()
@@ -256,7 +438,7 @@ public static class KestrunHostAuthnExtensions
             claimPolicy: claimPolicy
         );
     }
-
+    #endregion
 
     /*
         public static KestrunHost AddClientCertificateAuthentication(
@@ -277,6 +459,8 @@ public static class KestrunHostAuthnExtensions
             );
         }
     */
+
+    #region Windows Authentication
     /// <summary>
     /// Adds Windows Authentication to the Kestrun host.
     /// <para>
@@ -289,8 +473,10 @@ public static class KestrunHostAuthnExtensions
     public static KestrunHost AddWindowsAuthentication(this KestrunHost host)
     {
         var options = new AuthenticationSchemeOptions();
-
+        //register in host for introspection
         _ = host.RegisteredAuthentications.Register("Windows", "WindowsAuth", options);
+
+        // Add authentication
         return host.AddAuthentication(
             defaultScheme: NegotiateDefaults.AuthenticationScheme,
             buildSchemes: ab =>
@@ -299,7 +485,8 @@ public static class KestrunHostAuthnExtensions
             }
         );
     }
-
+    #endregion
+    #region API Key Authentication
     /// <summary>
     /// Adds API Key Authentication to the Kestrun host.
     /// <para>Use this for endpoints that require an API key for access.</para>
@@ -315,6 +502,7 @@ public static class KestrunHostAuthnExtensions
     {
         // register in host for introspection
         _ = host.RegisteredAuthentications.Register(scheme, "ApiKey", configure);
+        // Add authentication
         var h = host.AddAuthentication(
            defaultScheme: scheme,
            buildSchemes: ab =>
@@ -344,7 +532,117 @@ public static class KestrunHostAuthnExtensions
                               IOptionsMonitor<ApiKeyAuthenticationOptions>>()));
         });
     }
+    #endregion
 
+    #region OAuth2 Authentication
+    /// <summary>
+    /// Adds OAuth2 authentication to the Kestrun host.
+    /// <para>Use this for applications that require OAuth2 authentication.</para>
+    /// </summary>
+    /// <param name="host">The Kestrun host instance.</param>
+    /// <param name="scheme">The authentication scheme name.</param>
+    /// <param name="options">The OAuth2Options to configure the authentication.</param>
+    /// <returns>The configured KestrunHost instance.</returns>
+    public static KestrunHost AddOAuth2Authentication(
+        this KestrunHost host,
+        string scheme,
+        OAuth2Options options)
+    {
+        ArgumentNullException.ThrowIfNull(options);
+        if (string.IsNullOrWhiteSpace(options.ClientId))
+        {
+            throw new ArgumentException("ClientId must be provided in OAuth2Options", nameof(options));
+        }
+        // register in host for introspection
+        _ = host.RegisteredAuthentications.Register(scheme, "OAuth2", options);
+
+        // Add authentication
+        return host.AddAuthentication(
+            defaultScheme: options.AuthenticationScheme,
+            defaultChallengeScheme: scheme,
+            buildSchemes: ab =>
+            {
+                _ = ab.AddCookie(options.AuthenticationScheme, cookieOpts =>
+                {
+                    CopyCookieAuthenticationOptions(options.CookieOptions, cookieOpts);
+                });
+                _ = ab.AddOAuth(scheme, oauthOpts =>
+                {
+                    options.ApplyTo(oauthOpts);
+                });
+            });
+    }
+
+
+    #endregion
+    #region OpenID Connect Authentication
+
+    /// <summary>
+    /// Adds OpenID Connect authentication to the Kestrun host with private key JWT client assertion.
+    /// <para>Use this for applications that require OpenID Connect authentication with client credentials using JWT assertion.</para>
+    /// </summary>
+    /// <param name="host">The Kestrun host instance.</param>
+    /// <param name="scheme">The authentication scheme name.</param>
+    /// <param name="options">The OpenIdConnectOptions to configure the authentication.</param>
+    /// <returns>The configured KestrunHost instance.</returns>
+    public static KestrunHost AddOpenIdConnectAuthentication(
+           this KestrunHost host, string scheme,
+           OidcOptions options)
+    {
+        ArgumentNullException.ThrowIfNull(options);
+        if (string.IsNullOrWhiteSpace(options.ClientId))
+        {
+            throw new ArgumentException("ClientId must be provided in OpenIdConnectOptions", nameof(options));
+        }
+        var clientId = options.ClientId;
+        // register in host for introspection
+        _ = host.RegisteredAuthentications.Register(scheme, "Oidc", options);
+
+        // CRITICAL: Register OidcEvents and AssertionService in DI before configuring authentication
+        // This is required because EventsType expects these to be available in the service provider
+        return host.AddService(services =>
+         {
+             // Register AssertionService as a singleton with factory to pass clientId and jwkJson
+             // Only register if JwkJson is provided (for private_key_jwt authentication)
+             if (!string.IsNullOrWhiteSpace(options.JwkJson))
+             {
+                 services.TryAddSingleton(sp => new AssertionService(clientId, options.JwkJson));
+                 // Register OidcEvents as scoped (per-request)
+                 services.TryAddScoped<OidcEvents>();
+             }
+         }).AddAuthentication(
+              defaultScheme: CookieAuthenticationDefaults.AuthenticationScheme,
+              defaultChallengeScheme: scheme,
+              buildSchemes: ab =>
+              {
+                  _ = ab.AddCookie(CookieAuthenticationDefaults.AuthenticationScheme, cookieOpts =>
+                 {
+                     // Copy cookie configuration from options.CookieOptions
+                     CopyCookieAuthenticationOptions(options.CookieOptions, cookieOpts);
+                     host.Logger.Debug("Configured Cookie Authentication for OpenID Connect with SlidingExpiration: {SlidingExpiration}",
+                         cookieOpts.SlidingExpiration);
+                 });
+
+                  _ = ab.AddOpenIdConnect(scheme, oidcOpts =>
+                 {
+                     // Copy all properties from the provided options to the framework's options
+                     options.ApplyTo(oidcOpts);
+
+                     // Inject private key JWT at code → token step (only if JwkJson is provided)
+                     // This will be resolved from DI at runtime
+                     if (!string.IsNullOrWhiteSpace(options.JwkJson))
+                     {
+                         oidcOpts.EventsType = typeof(OidcEvents);
+                     }
+
+                     host.Logger.Debug("Configured OpenID Connect with Authority: {Authority}, ClientId: {ClientId}, Scopes: {Scopes}",
+                         oidcOpts.Authority, oidcOpts.ClientId, string.Join(", ", oidcOpts.Scope));
+                 });
+              });
+    }
+
+    #endregion
+    #region Helper Methods
     /// <summary>
     /// Configures the validators for Basic authentication.
     /// </summary>
@@ -571,7 +869,7 @@ public static class KestrunHostAuthnExtensions
                 opts.AdditionalHeaderNames = configure.AdditionalHeaderNames;
                 opts.AllowQueryStringFallback = configure.AllowQueryStringFallback;
                 // Logger configuration
-                opts.Logger = configure.Logger == Log.ForContext<ApiKeyAuthenticationOptions>() ?
+                opts.Logger = configure.Logger == host.Logger.ForContext<ApiKeyAuthenticationOptions>() ?
                         host.Logger.ForContext<ApiKeyAuthenticationOptions>() : configure.Logger;
 
                 opts.AllowInsecureHttp = configure.AllowInsecureHttp;
@@ -585,72 +883,68 @@ public static class KestrunHostAuthnExtensions
             }
         );
     }
-
-    /// <summary>
-    /// Adds OpenID Connect authentication to the Kestrun host.
-    /// <para>Use this for applications that require OpenID Connect authentication.</para>
-    /// </summary>
-    /// <param name="host">The Kestrun host instance.</param>
-    /// <param name="scheme">The authentication scheme name.</param>
-    /// <param name="clientId">The client ID for the OpenID Connect application.</param>
-    /// <param name="clientSecret">The client secret for the OpenID Connect application.</param>
-    /// <param name="authority">The authority URL for the OpenID Connect provider.</param>
-    /// <param name="configure">An optional action to configure the OpenID Connect options.</param>
-    /// <param name="configureAuthz">An optional action to configure the authorization options.</param>
-    /// <returns>The configured KestrunHost instance.</returns>
-    public static KestrunHost AddOpenIdConnectAuthentication(
-        this KestrunHost host,
-        string scheme,
-        string clientId,
-        string clientSecret,
-        string authority,
-        Action<OpenIdConnectOptions>? configure = null,
-        Action<AuthorizationOptions>? configureAuthz = null)
-    {
-        return host.AddAuthentication(
-            defaultScheme: scheme,
-            buildSchemes: ab =>
-            {
-                _ = ab.AddOpenIdConnect(
-                    authenticationScheme: scheme,
-                    displayName: "OIDC",
-                    configureOptions: opts =>
-                    {
-                        opts.ClientId = clientId;
-                        opts.ClientSecret = clientSecret;
-                        opts.Authority = authority;
-                        opts.ResponseType = "code";
-                        opts.SaveTokens = true;
-                        configure?.Invoke(opts);
-                    });
-            },
-            configureAuthz: configureAuthz
-        );
-    }
-
+    #endregion
 
     /// <summary>
     /// Adds authentication and authorization middleware to the Kestrun host.
     /// </summary>
     /// <param name="host">The Kestrun host instance.</param>
     /// <param name="buildSchemes">A delegate to configure authentication schemes.</param>
-    /// <param name="defaultScheme">The default authentication scheme (default is JwtBearer).</param>
+    /// <param name="defaultScheme">The default authentication scheme.</param>
     /// <param name="configureAuthz">Optional authorization policy configuration.</param>
+    /// <param name="defaultChallengeScheme">The default challenge scheme .</param>
     /// <returns>The configured KestrunHost instance.</returns>
-    internal static KestrunHost AddAuthentication(this KestrunHost host,
-    Action<AuthenticationBuilder> buildSchemes,            // ← unchanged
-    string defaultScheme = JwtBearerDefaults.AuthenticationScheme,
-    Action<AuthorizationOptions>? configureAuthz = null)
+    internal static KestrunHost AddAuthentication(
+    this KestrunHost host,
+    string defaultScheme,
+    Action<AuthenticationBuilder>? buildSchemes = null,    // e.g., ab => ab.AddCookie().AddOpenIdConnect("oidc", ...)
+    Action<AuthorizationOptions>? configureAuthz = null,
+    string? defaultChallengeScheme = null)
     {
+        ArgumentNullException.ThrowIfNull(buildSchemes);
+        if (string.IsNullOrWhiteSpace(defaultScheme))
+        {
+            throw new ArgumentException("Default scheme is required.", nameof(defaultScheme));
+        }
+
         _ = host.AddService(services =>
         {
-            var ab = services.AddAuthentication(defaultScheme);
-            buildSchemes(ab);                                  // Basic + JWT here
+            // CRITICAL: Check if authentication services are already registered
+            // If they are, we only need to add new schemes, not reconfigure defaults
+            var authDescriptor = services.FirstOrDefault(d => d.ServiceType == typeof(IAuthenticationService));
 
-            // make sure UseAuthorization() can find its services
-            _ = configureAuthz is null ? services.AddAuthorization() : services.AddAuthorization(configureAuthz);
+            AuthenticationBuilder authBuilder;
+            if (authDescriptor != null)
+            {
+                // Authentication already registered - only add new schemes without changing defaults
+                host.Logger.Debug("Authentication services already registered - adding schemes only (default={DefaultScheme})", defaultScheme);
+                authBuilder = new AuthenticationBuilder(services);
+            }
+            else
+            {
+                // First time registration - configure defaults
+                host.Logger.Debug(
+                    "Registering authentication services with defaults (default={DefaultScheme}, challenge={ChallengeScheme})",
+                    defaultScheme,
+                    defaultChallengeScheme ?? defaultScheme);
+                authBuilder = services.AddAuthentication(options =>
+                {
+                    options.DefaultScheme = defaultScheme;
+                    options.DefaultChallengeScheme = defaultChallengeScheme ?? defaultScheme;
+                });
+            }
+
+            // Let caller add handlers/schemes
+            buildSchemes?.Invoke(authBuilder);
+
+            // Ensure Authorization is available (with optional customization)
+            // AddAuthorization is idempotent - safe to call multiple times
+            _ = configureAuthz is not null ?
+                services.AddAuthorization(configureAuthz) :
+                services.AddAuthorization();
         });
 
+        // Add middleware once
         return host.Use(app =>
         {
             const string Key = "__kr.authmw";
@@ -659,10 +953,14 @@ public static class KestrunHostAuthnExtensions
                 _ = app.UseAuthentication();
                 _ = app.UseAuthorization();
                 app.Properties[Key] = true;
-                Log.Information("Kestrun: Authentication & Authorization middleware added.");
+                host.Logger.Information("Kestrun: Authentication & Authorization middleware added.");
             }
         });
     }
+
+
+
+
 
     /// <summary>
     /// Checks if the specified authentication scheme is registered in the Kestrun host.
@@ -731,15 +1029,17 @@ public static class KestrunHostAuthnExtensions
 
         // Cookie builder settings
         // (Cookie is always non-null; copy primitive settings)
-        target.Cookie.Name = source.Cookie.Name;
-        target.Cookie.Path = source.Cookie.Path;
-        target.Cookie.Domain = source.Cookie.Domain;
-        target.Cookie.HttpOnly = source.Cookie.HttpOnly;
-        target.Cookie.SameSite = source.Cookie.SameSite;
-        target.Cookie.SecurePolicy = source.Cookie.SecurePolicy;
-        target.Cookie.IsEssential = source.Cookie.IsEssential;
-        target.Cookie.MaxAge = source.Cookie.MaxAge;
-
+        if (source.Cookie.Name is not null)
+        {
+            target.Cookie.Name = source.Cookie.Name;
+            target.Cookie.Path = source.Cookie.Path;
+            target.Cookie.Domain = source.Cookie.Domain;
+            target.Cookie.HttpOnly = source.Cookie.HttpOnly;
+            target.Cookie.SameSite = source.Cookie.SameSite;
+            target.Cookie.SecurePolicy = source.Cookie.SecurePolicy;
+            target.Cookie.IsEssential = source.Cookie.IsEssential;
+            target.Cookie.MaxAge = source.Cookie.MaxAge;
+        }
         // Forwarding
         target.ForwardAuthenticate = source.ForwardAuthenticate;
         target.ForwardChallenge = source.ForwardChallenge;
@@ -761,5 +1061,104 @@ public static class KestrunHostAuthnExtensions
         }
         target.EventsType = source.EventsType;
         target.ClaimsIssuer = source.ClaimsIssuer;
+    }
+
+
+
+
+    /// <summary>
+    /// HTTP message handler that logs all HTTP requests and responses for debugging.
+    /// </summary>
+    internal class LoggingHttpMessageHandler(HttpMessageHandler innerHandler, Serilog.ILogger logger) : DelegatingHandler(innerHandler)
+    {
+        private readonly Serilog.ILogger _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+
+        // CRITICAL: Static field to store the last token response body so we can manually parse it
+        // The framework's OpenIdConnectMessage parser fails to populate AccessToken correctly
+        internal static string? LastTokenResponseBody { get; private set; }
+
+        protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            // Log request
+            _logger.Warning($"HTTP {request.Method} {request.RequestUri}");
+
+            // Check if this is a token endpoint request
+            var isTokenEndpoint = request.RequestUri?.PathAndQuery?.Contains("/connect/token") == true ||
+                                 request.RequestUri?.PathAndQuery?.Contains("/token") == true;
+
+            if (request.Content != null && !isTokenEndpoint)
+            {
+                // Read request body without consuming it (only for non-token requests)
+                var requestBytes = await request.Content.ReadAsByteArrayAsync(cancellationToken);
+                var requestBody = System.Text.Encoding.UTF8.GetString(requestBytes);
+                _logger.Warning($"Request Body: {requestBody}");
+
+                // Recreate the content so it can be read again
+                request.Content = new ByteArrayContent(requestBytes);
+                request.Content.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("application/x-www-form-urlencoded");
+            }
+            else if (request.Content != null && isTokenEndpoint)
+            {
+                _logger.Warning("Token endpoint request - skipping body logging to preserve stream");
+            }
+
+            // Send request
+            var response = await base.SendAsync(request, cancellationToken);
+
+            // Log response
+            _logger.Warning($"HTTP Response: {(int)response.StatusCode} {response.StatusCode}");
+
+            // CRITICAL: For token endpoint responses, capture the body for manual parsing
+            // but then recreate the stream so the framework can also read it
+            if (response.Content != null && isTokenEndpoint)
+            {
+                // Read the response body
+                var responseBytes = await response.Content.ReadAsByteArrayAsync(cancellationToken);
+                var responseBody = System.Text.Encoding.UTF8.GetString(responseBytes);
+
+                // Store it in static field for later manual parsing
+                LastTokenResponseBody = responseBody;
+                _logger.Warning($"Captured token response body ({responseBytes.Length} bytes) for manual parsing");
+
+                // Recreate the content stream with ALL original headers preserved
+                var originalHeaders = response.Content.Headers.ToList();
+                var newContent = new ByteArrayContent(responseBytes);
+
+                foreach (var header in originalHeaders)
+                {
+                    _ = newContent.Headers.TryAddWithoutValidation(header.Key, header.Value);
+                }
+
+                response.Content = newContent;
+                _logger.Warning("Recreated token response stream for framework parsing");
+            }
+            else if (response.Content != null && !isTokenEndpoint)
+            {
+                // Save original headers
+                var originalHeaders = response.Content.Headers;
+
+                // Read response body and preserve it for the handler
+                var responseBytes = await response.Content.ReadAsByteArrayAsync(cancellationToken);
+                var responseBody = System.Text.Encoding.UTF8.GetString(responseBytes);
+                _logger.Warning($"Response Body: {responseBody}");
+
+                // Recreate the content so it can be read again by the OIDC handler
+                var newContent = new ByteArrayContent(responseBytes);
+
+                // Copy all original headers to the new content
+                foreach (var header in originalHeaders)
+                {
+                    _ = newContent.Headers.TryAddWithoutValidation(header.Key, header.Value);
+                }
+
+                response.Content = newContent;
+            }
+            else if (response.Content != null && isTokenEndpoint)
+            {
+                _logger.Warning("Token endpoint response - skipping body logging to let framework parse it");
+            }
+
+            return response;
+        }
     }
 }

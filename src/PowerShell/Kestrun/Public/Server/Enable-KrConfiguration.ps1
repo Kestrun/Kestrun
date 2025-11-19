@@ -48,9 +48,7 @@ function Enable-KrConfiguration {
         $vars = [System.Collections.Generic.Dictionary[string, object]]::new()
         foreach ($v in $Variables) {
             if ($ExcludeVariables -notcontains $v.Name) {
-                if (-not [Kestrun.SharedState.SharedStateStore]::Contains($v.Name)) {
-                    [void][Kestrun.SharedState.SharedStateStore]::Set($v.Name, $v.Value, $true)
-                }
+                $null = $Server.SharedState.Set($v.Name, $v.Value, $true)
             }
         }
         Write-KrLog -Level Debug -Logger $Server.Logger -Message 'Collected {VarCount} user-defined variables for server configuration.' -Values $vars.Count

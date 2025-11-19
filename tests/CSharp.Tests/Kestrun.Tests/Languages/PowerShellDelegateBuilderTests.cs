@@ -1,3 +1,4 @@
+using Kestrun.Hosting;
 using Kestrun.Languages;
 using Kestrun.Models;
 using Microsoft.AspNetCore.Http;
@@ -20,7 +21,7 @@ public class PowerShellDelegateBuilderTests
         // Build Kestrun context
         var req = TestRequestFactory.Create(method: http.Request.Method, path: http.Request.Path);
         var res = new KestrunResponse(req);
-        var host = new Kestrun.Hosting.KestrunHost("Tests", Log.Logger);
+        var host = new KestrunHost("Tests", Log.Logger);
         var kr = new KestrunContext(host, req, res, http);
         http.Items[PowerShellDelegateBuilder.KR_CONTEXT_KEY] = kr;
         return (http, kr);
@@ -30,6 +31,7 @@ public class PowerShellDelegateBuilderTests
     [Trait("Category", "Languages")]
     public async Task Build_ExecutesScript_AndAppliesDefaultResponse()
     {
+        var host = new KestrunHost("Tests", Log.Logger);
         var log = new Mock<ILogger>(MockBehavior.Loose).Object;
         var (http, kr) = MakeContext();
 
@@ -42,7 +44,7 @@ public class PowerShellDelegateBuilderTests
 
         // trivial script
         var code = "$x = 1; $x | Out-Null;";
-        var del = PowerShellDelegateBuilder.Build(code, log, arguments: null);
+        var del = PowerShellDelegateBuilder.Build(host, code, arguments: null);
 
         await del(http);
 

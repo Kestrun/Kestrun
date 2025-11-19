@@ -470,9 +470,9 @@ else
 {
     // Create a new self-signed certificate
     x509Certificate = CertificateManager.NewSelfSigned(
-      new CertificateManager.SelfSignedOptions(
+      new SelfSignedOptions(
           DnsNames: ["localhost", "127.0.0.1"],
-          KeyType: CertificateManager.KeyType.Rsa,
+          KeyType: KeyType.Rsa,
           KeyLength: 2048,
           ValidDays: 30,
           Exportable: true
@@ -482,7 +482,7 @@ else
     CertificateManager.Export(
         x509Certificate,
         "./devcert.pfx",
-        CertificateManager.ExportFormat.Pfx,
+        ExportFormat.Pfx,
         "p@ss".AsSpan()
     );
 }

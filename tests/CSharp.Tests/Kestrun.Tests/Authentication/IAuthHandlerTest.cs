@@ -7,7 +7,6 @@ using System.Reflection;
 using Moq;
 using Serilog;
 using Xunit;
-using Kestrun.SharedState;
 using Kestrun.Authentication;
 
 namespace KestrunTests.Authentication;
@@ -83,10 +82,12 @@ public class IAuthHandlerTest
     [Fact]
     public void BuildCsIssueClaims_ReturnsFunc()
     {
+        var logger = new LoggerConfiguration().MinimumLevel.Debug().WriteTo.Console().CreateLogger();
+        var host = new Kestrun.Hosting.KestrunHost("Tests", logger);
         // Arrange
-        foreach (var key in SharedStateStore.KeySnapshot())
+        foreach (var key in host.SharedState.KeySnapshot())
         {
-            _ = SharedStateStore.Set(key, null);
+            _ = host.SharedState.Set(key, null);
         }
         var settings = new AuthenticationCodeSettings
         {
@@ -94,8 +95,7 @@ public class IAuthHandlerTest
             CSharpVersion = Microsoft.CodeAnalysis.CSharp.LanguageVersion.Latest,
             ExtraImports = ["System", "System.Linq", "System.Collections.Generic", "System.Security.Claims", "Kestrun", "Microsoft.AspNetCore.Http"]
         };
-        var logger = new LoggerConfiguration().MinimumLevel.Debug().WriteTo.Console().CreateLogger();
-        var host = new Kestrun.Hosting.KestrunHost("Tests", logger);
+
 
         // Act
         var func = IAuthHandler.BuildCsIssueClaims(host, settings);
@@ -218,7 +218,7 @@ public class IAuthHandlerTest
         var context = new DefaultHttpContext();
 
         // Act + Assert
-        var ex = Assert.Throws<TargetInvocationException>(() => getPs!.Invoke(null, [context]));
+        var ex = Assert.Throws<TargetInvocationException>(() => getPs.Invoke(null, [context]));
         _ = Assert.IsType<InvalidOperationException>(ex.InnerException);
     }
 
@@ -237,7 +237,7 @@ public class IAuthHandlerTest
         context.Items["PS_INSTANCE"] = ps;
 
         // Act
-        var result = getPs!.Invoke(null, [context]);
+        var result = getPs.Invoke(null, [context]);
 
         // Assert
         Assert.NotNull(result);

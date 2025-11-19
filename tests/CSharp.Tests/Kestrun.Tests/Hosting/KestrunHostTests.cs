@@ -8,7 +8,6 @@ using Kestrun.Hosting;
 using Kestrun.Hosting.Options;
 using Kestrun.Scripting;
 using Microsoft.AspNetCore.Server.Kestrel.Core;
-using Kestrun.SharedState;
 
 namespace KestrunTests.Hosting;
 
@@ -214,11 +213,7 @@ public class KestrunHostTest
     [Trait("Category", "Hosting")]
     public void GetMapRouteOptions_ReturnsOptionsForAddedRoute()
     {
-        // Sanitize globals so dynamic C# prelude uses 'object' for casts
-        foreach (var key in SharedStateStore.KeySnapshot())
-        {
-            _ = SharedStateStore.Set(key, null);
-        }
+
         var host = new KestrunHost("TestApp", AppContext.BaseDirectory);
         host.EnableConfiguration();
 
@@ -238,7 +233,7 @@ public class KestrunHostTest
 
         var saved = host.GetMapRouteOptions("/hello", HttpVerb.Get);
         Assert.NotNull(saved);
-        Assert.Equal(ScriptLanguage.CSharp, saved!.ScriptCode.Language);
+        Assert.Equal(ScriptLanguage.CSharp, saved.ScriptCode.Language);
         Assert.Contains(HttpVerb.Get, saved.HttpVerbs);
         Assert.Equal("Context.Response.StatusCode = 204;", saved.ScriptCode.Code);
     }

@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>GitHub OAuth2 Demo</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+        }
+
+        h1 {
+            color: #333;
+        }
+
+        .section {
+            margin: 20px 0;
+            padding: 15px;
+            background: #f5f5f5;
+            border-radius: 5px;
+        }
+
+        .info-box {
+            margin: 10px 0;
+            padding: 10px;
+            background: white;
+            border-left: 4px solid #24292f;
+        }
+
+        a {
+            color: #0969da;
+            text-decoration: none;
+            font-weight: bold;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        .nav {
+            margin: 20px 0;
+        }
+
+        .nav a {
+            display: inline-block;
+            margin-right: 15px;
+            padding: 8px 16px;
+            background: #24292f;
+            color: white;
+            border-radius: 6px;
+            transition: background 0.2s;
+        }
+
+        .nav a:hover {
+            background: #1f2328;
+            text-decoration: none;
+        }
+
+        .title-bar {
+            display: flex;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        code {
+            background: #f6f8fa;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: 'Courier New', monospace;
+        }
+
+        .github-logo {
+            width: 28px;
+            height: 28px;
+            margin-right: 8px;
+            vertical-align: middle;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="title-bar">
+        <svg class="github-logo" viewBox="0 0 16 16" width="24" height="24" aria-hidden="true">
+            <path fill="currentColor" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59
+           .4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49
+           -2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13
+           -.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82
+           .72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07
+           -1.78-.2-3.64-.89-3.64-3.95
+           0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12
+           0 0 .67-.21 2.2.82a7.65 7.65 0 0 1 2-.27
+           c.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82
+           .44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15
+           0 3.07-1.87 3.75-3.65 3.95
+           .29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2
+           0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8
+           c0-4.42-3.58-8-8-8z" />
+        </svg>
+
+        <h1>GitHub OAuth2 Demo</h1>
+    </div>
+
+    <div class="section">
+        <h2>Authentication with GitHub</h2>
+        <div class="info-box">
+            <p><strong>Provider:</strong> GitHub OAuth2</p>
+            <p><strong>Flow:</strong> Authorization Code with PKCE</p>
+            <p><strong>Scopes:</strong> <code>user:email</code>, <code>read:user</code></p>
+            <p><strong>Token Storage:</strong> Secure Cookie Session</p>
+        </div>
+    </div>
+
+    <div class="nav">
+        <a href="/github/login">🔑 Login with GitHub</a>
+        <a href="/github/me">👤 User Info</a>
+        <a href="/github/logout">🚪 Logout</a>
+    </div>
+
+    <div class="section">
+        <h2>How It Works</h2>
+        <ol>
+            <li>Click "Login with GitHub" to start OAuth2 flow</li>
+            <li>Authorize the application on GitHub</li>
+            <li>Get redirected back with your identity claims</li>
+            <li>Access protected routes with your authenticated session</li>
+        </ol>
+    </div>
+
+    <div class="section">
+        <h2>Environment Setup</h2>
+        <p>Before running, set these environment variables:</p>
+        <pre><code>$env:GITHUB_CLIENT_ID = 'your-client-id'
+$env:GITHUB_CLIENT_SECRET = 'your-client-secret'</code></pre>
+        <p>Or create a <code>.env</code> file in the project root.</p>
+    </div>
+
+    <div class="section">
+        <h2>Features Demonstrated</h2>
+        <ul>
+            <li>✅ OAuth2 Authorization Code flow</li>
+            <li>✅ PKCE (Proof Key for Code Exchange)</li>
+            <li>✅ Email claim enrichment via GitHub API</li>
+            <li>✅ Secure cookie-based sessions</li>
+            <li>✅ Protected route authorization</li>
+        </ul>
+    </div>
+</body>
+
+</html>

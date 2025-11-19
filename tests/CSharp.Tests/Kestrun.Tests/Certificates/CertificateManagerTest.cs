@@ -12,9 +12,9 @@ namespace KestrunTests.Certificates;
 
 public class CertificateManagerTest
 {
-    private static CertificateManager.SelfSignedOptions DefaultSelfSignedOptions()
+    private static SelfSignedOptions DefaultSelfSignedOptions()
         => new(["localhost", "127.0.0.1"],
-               KeyType: CertificateManager.KeyType.Rsa,
+               KeyType: KeyType.Rsa,
                KeyLength: 2048,
                ValidDays: 30,
                Ephemeral: true,
@@ -51,9 +51,9 @@ public class CertificateManagerTest
     public void NewCertificateRequest_ReturnsPemAndPrivateKey_WithSAN()
     {
         var csr = CertificateManager.NewCertificateRequest(
-            new CertificateManager.CsrOptions([
+            new CsrOptions([
                 "localhost", "192.168.0.1"
-            ], KeyType: CertificateManager.KeyType.Rsa, KeyLength: 2048, CommonName: "localhost"));
+            ], KeyType: KeyType.Rsa, KeyLength: 2048, CommonName: "localhost"));
 
         Assert.NotNull(csr);
         Assert.NotNull(csr.PrivateKey);
@@ -96,7 +96,7 @@ public class CertificateManagerTest
         var pfxPath = Path.Combine(dir, "testcert.pfx");
         var password = "s3cret".AsSpan();
 
-        CertificateManager.Export(cert, pfxPath, CertificateManager.ExportFormat.Pfx, password);
+        CertificateManager.Export(cert, pfxPath, ExportFormat.Pfx, password);
         Assert.True(File.Exists(pfxPath));
         Assert.True(new FileInfo(pfxPath).Length > 0);
 
@@ -111,9 +111,9 @@ public class CertificateManagerTest
     public void ExportImport_Pem_RoundTrip_WithEncryptedKey()
     {
         // Use non-ephemeral key to avoid platform-specific issues exporting encrypted PKCS#8 on some Linux runners (.NET 8)
-        var options = new CertificateManager.SelfSignedOptions([
+        var options = new SelfSignedOptions([
             "localhost", "127.0.0.1"
-        ], KeyType: CertificateManager.KeyType.Rsa, KeyLength: 2048, ValidDays: 30, Ephemeral: false, Exportable: true);
+        ], KeyType: KeyType.Rsa, KeyLength: 2048, ValidDays: 30, Ephemeral: false, Exportable: true);
         var cert = CertificateManager.NewSelfSigned(options);
 
         var dir = Directory.CreateDirectory(Path.Combine(Path.GetTempPath(), "KestrunTests", Guid.NewGuid().ToString("N"))).FullName;
@@ -127,7 +127,7 @@ public class CertificateManagerTest
             ss.AppendChar(ch);
         }
         ss.MakeReadOnly();
-        CertificateManager.Export(cert, pemPath, CertificateManager.ExportFormat.Pem, ss, includePrivateKey: true);
+        CertificateManager.Export(cert, pemPath, ExportFormat.Pem, ss, includePrivateKey: true);
         Assert.True(File.Exists(pemPath));
         var keyPath = Path.Combine(dir, "cert.key");
         Assert.True(File.Exists(keyPath));
@@ -242,7 +242,7 @@ public class CertificateManagerTest
         }
         else
         {
-            Assert.True(imported!.HasPrivateKey);
+            Assert.True(imported.HasPrivateKey);
             Assert.Contains("CN=localhost", imported.Subject, StringComparison.OrdinalIgnoreCase);
         }
         // no Environment.CurrentDirectory manipulation needed
@@ -256,7 +256,7 @@ public class CertificateManagerTest
         var dir = Directory.CreateDirectory(Path.Combine(Path.GetTempPath(), "KestrunTests", Guid.NewGuid().ToString("N"))).FullName;
         var pemPath = Path.Combine(dir, "pubonly.pem");
 
-        CertificateManager.Export(cert, pemPath, CertificateManager.ExportFormat.Pem, [], includePrivateKey: false);
+        CertificateManager.Export(cert, pemPath, ExportFormat.Pem, [], includePrivateKey: false);
         Assert.True(File.Exists(pemPath));
 
         var imported = CertificateManager.Import(pemPath);
@@ -272,9 +272,9 @@ public class CertificateManagerTest
         Assert.True(CertificateManager.Validate(good));
         Assert.False(CertificateManager.Validate(good, denySelfSigned: true));
 
-        var weak = CertificateManager.NewSelfSigned(new CertificateManager.SelfSignedOptions([
+        var weak = CertificateManager.NewSelfSigned(new SelfSignedOptions([
             "localhost"
-        ], KeyType: CertificateManager.KeyType.Rsa, KeyLength: 1024, ValidDays: 7, Ephemeral: true, Exportable: true));
+        ], KeyType: KeyType.Rsa, KeyLength: 1024, ValidDays: 7, Ephemeral: true, Exportable: true));
 
         Assert.False(CertificateManager.Validate(weak, allowWeakAlgorithms: false));
         Assert.True(CertificateManager.Validate(weak, allowWeakAlgorithms: true));
@@ -329,7 +329,7 @@ public class CertificateManagerTest
         var dir = Directory.CreateDirectory(Path.Combine(Path.GetTempPath(), "KestrunTests", Guid.NewGuid().ToString("N"))).FullName;
         var pfxPath = Path.Combine(dir, "secure.pfx");
         var pwd = "Sup3rS3cure".AsSpan();
-        CertificateManager.Export(cert, pfxPath, CertificateManager.ExportFormat.Pfx, pwd);
+        CertificateManager.Export(cert, pfxPath, ExportFormat.Pfx, pwd);
         Assert.True(File.Exists(pfxPath));
 
         using var ss = new SecureString();
@@ -349,9 +349,9 @@ public class CertificateManagerTest
     public void Import_Pem_With_Unencrypted_SeparateKey_Manual()
     {
         // Generate a non-ephemeral exportable self-signed cert for key extraction
-        var cert = CertificateManager.NewSelfSigned(new CertificateManager.SelfSignedOptions([
+        var cert = CertificateManager.NewSelfSigned(new SelfSignedOptions([
             "localhost", "127.0.0.1"
-        ], KeyType: CertificateManager.KeyType.Rsa, KeyLength: 2048, ValidDays: 30, Ephemeral: false, Exportable: true));
+        ], KeyType: KeyType.Rsa, KeyLength: 2048, ValidDays: 30, Ephemeral: false, Exportable: true));
         using var rsa = cert.GetRSAPrivateKey();
         Assert.NotNull(rsa);
 
@@ -365,7 +365,7 @@ public class CertificateManagerTest
         File.WriteAllText(certPemPath, $"-----BEGIN CERTIFICATE-----\n{certB64}\n-----END CERTIFICATE-----\n");
 
         // Write unencrypted PKCS#1 RSA PRIVATE KEY (CreateFromPemFile supports it)
-        var keyDer = rsa!.ExportRSAPrivateKey();
+        var keyDer = rsa.ExportRSAPrivateKey();
         var keyB64 = Convert.ToBase64String(keyDer, Base64FormattingOptions.InsertLineBreaks);
         File.WriteAllText(keyPemPath, $"-----BEGIN RSA PRIVATE KEY-----\n{keyB64}\n-----END RSA PRIVATE KEY-----\n");
 
@@ -412,9 +412,9 @@ public class CertificateManagerTest
     [Trait("Category", "Certificates")]
     public void NewCertificateRequest_Ecdsa_Uses_ECDSA_KeyPair()
     {
-        var csr = CertificateManager.NewCertificateRequest(new CertificateManager.CsrOptions([
+        var csr = CertificateManager.NewCertificateRequest(new CsrOptions([
             "localhost"
-        ], KeyType: CertificateManager.KeyType.Ecdsa, KeyLength: 256, CommonName: "localhost"));
+        ], KeyType: KeyType.Ecdsa, KeyLength: 256, CommonName: "localhost"));
         Assert.NotNull(csr.PrivateKey);
         // Private key should be EC
         var ecKey = Assert.IsType<Org.BouncyCastle.Crypto.Parameters.ECPrivateKeyParameters>(csr.PrivateKey);

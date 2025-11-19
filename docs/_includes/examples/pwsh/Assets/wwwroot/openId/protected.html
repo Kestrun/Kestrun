@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>OIDC Duende Demo - Protected Page</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+        }
+
+        .subtitle {
+            color: #666;
+            margin-bottom: 30px;
+        }
+
+        .section {
+            margin: 20px 0;
+            padding: 15px;
+            background: #f5f5f5;
+            border-radius: 5px;
+        }
+
+        .info-box {
+            margin: 10px 0;
+            padding: 15px;
+            background: white;
+            border-left: 4px solid #28a745;
+            border-radius: 3px;
+        }
+
+        .user-info {
+            display: grid;
+            grid-template-columns: 120px 1fr;
+            gap: 10px;
+        }
+
+        .user-info dt {
+            font-weight: bold;
+            color: #555;
+        }
+
+        .user-info dd {
+            margin: 0;
+            color: #333;
+        }
+
+        a {
+            color: #007acc;
+            text-decoration: none;
+            font-weight: bold;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        .nav {
+            margin: 20px 0;
+        }
+
+        .nav a {
+            display: inline-block;
+            margin-right: 15px;
+            padding: 8px 16px;
+            background: #007acc;
+            color: white;
+            border-radius: 4px;
+        }
+
+        .nav a:hover {
+            background: #005a9e;
+            text-decoration: none;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 4px 8px;
+            background: #28a745;
+            color: white;
+            border-radius: 3px;
+            font-size: 0.85em;
+        }
+        .duende-logo {
+            height: 32px;
+            vertical-align: middle;
+            margin-right: 8px;
+        }
+    </style>
+</head>
+
+<body>
+    <h1><img class="duende-logo" src="https://duendesoftware.com/img/logo.png" alt="Duende Logo"> Hello, {{name}}!</h1>
+    <p class="subtitle">Welcome to the protected area <span class="badge">✓ Authenticated</span></p>
+
+    <div class="section">
+        <h2>Your Profile</h2>
+        <div class="info-box">
+            <dl class="user-info">
+                <dt>Name:</dt>
+                <dd>{{name}}</dd>
+
+                <dt>Email:</dt>
+                <dd>{{email}}</dd>
+
+                <dt>Subject (sub):</dt>
+                <dd><code>{{sub}}</code></dd>
+
+                <dt>Auth Type:</dt>
+                <dd>{{authType}}</dd>
+
+                <dt>Authenticated:</dt>
+                <dd>{{isAuthenticated}}</dd>
+            </dl>
+        </div>
+    </div>
+
+    <div class="nav">
+        <a href="/">🏠 Home</a>
+        <a href="/hello">👋 Protected Page</a>
+        <a href="/me">👤 User Info (JSON)</a>
+        <a href="/logout">🚪 Logout</a>
+    </div>
+
+    <div class="section">
+        <h2>What's This?</h2>
+        <p>This page is protected by OpenID Connect authentication. You can only see this because you successfully
+            logged in through the identity provider.</p>
+        <p>Your identity is verified via the <strong>{{authType}}</strong> authentication scheme.</p>
+    </div>
+</body>
+
+</html>

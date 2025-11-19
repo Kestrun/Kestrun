@@ -42,22 +42,22 @@ Enable-KrConfiguration
 # 9. Map routes with different schemes
 Add-KrRouteGroup -Prefix '/secure' {
     # Pure Basic route
-    Add-KrMapRoute -Verbs Get -Pattern '/basic' -AuthorizationSchema 'BasicPS' -ScriptBlock {
+    Add-KrMapRoute -Verbs Get -Pattern '/basic' -AuthorizationScheme 'BasicPS' -ScriptBlock {
         Write-KrTextResponse 'Basic OK'
     }
 
     # API Key OR Basic (either accepted: order matters only for challenge response)
-    Add-KrMapRoute -Verbs Get -Pattern '/key' -AuthorizationSchema 'KeySimple', 'BasicPS' -ScriptBlock {
+    Add-KrMapRoute -Verbs Get -Pattern '/key' -AuthorizationScheme 'KeySimple', 'BasicPS' -ScriptBlock {
         Write-KrTextResponse 'Key OK'
     }
 
     # JWT OR Basic
-    Add-KrMapRoute -Verbs Get -Pattern '/jwt' -AuthorizationSchema 'Bearer', 'BasicPS' -ScriptBlock {
+    Add-KrMapRoute -Verbs Get -Pattern '/jwt' -AuthorizationScheme 'Bearer', 'BasicPS' -ScriptBlock {
         Write-KrTextResponse 'JWT OK'
     }
 
     # Issue a JWT using Basic (to demonstrate acquiring a token for /secure/jwt)
-    Add-KrMapRoute -Verbs Get -Pattern '/token/new' -AuthorizationSchema 'BasicPS' -ScriptBlock {
+    Add-KrMapRoute -Verbs Get -Pattern '/token/new' -AuthorizationScheme 'BasicPS' -ScriptBlock {
         $user = $Context.User.Identity.Name
         $build = Copy-KrJWTTokenBuilder -Builder $builder |
             Add-KrJWTSubject -Subject $user |

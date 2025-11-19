@@ -3,7 +3,6 @@ using System.Text;
 using Kestrun.Languages;
 using Kestrun.Logging;
 using Kestrun.Models;
-using Kestrun.SharedState;
 using Microsoft.CodeAnalysis;
 using Serilog.Events;
 using System.Reflection;
@@ -41,7 +40,7 @@ internal static class DelegateBuilder
             log.Debug("Creating shared state store for Kestrun context");
         }
 
-        var glob = new Dictionary<string, object?>(SharedStateStore.Snapshot());
+        var glob = new Dictionary<string, object?>(host.SharedState.Snapshot());
         if (log.IsEnabled(LogEventLevel.Debug))
         {
             log.Debug("Shared state store created with {Count} items", glob.Count);

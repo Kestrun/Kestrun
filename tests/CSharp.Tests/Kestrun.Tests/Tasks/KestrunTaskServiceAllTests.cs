@@ -114,8 +114,8 @@ public class KestrunTaskServiceAllTests
             Assert.Equal(TaskState.Completed, svc.GetState(id));
             var result = svc.GetResult(id) as object[];
             Assert.NotNull(result);
-            _ = Assert.Single(result!);
-            Assert.Equal("ok", result![0] as string);
+            _ = Assert.Single(result);
+            Assert.Equal("ok", result[0] as string);
         }
     }
 
@@ -274,14 +274,14 @@ public class KestrunTaskServiceAllTests
             // Link child manually to parent; service doesn't expose a parent-child API yet
             var parentTaskField = typeof(KestrunTaskService).GetField("_tasks", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
             Assert.NotNull(parentTaskField);
-            var dict = parentTaskField!.GetValue(svc) as System.Collections.IDictionary;
+            var dict = parentTaskField.GetValue(svc) as System.Collections.IDictionary;
             Assert.NotNull(dict);
-            var parentTask = (KestrunTask?)dict![parentId];
-            var childTask = (KestrunTask?)dict![childId];
+            var parentTask = (KestrunTask?)dict[parentId];
+            var childTask = (KestrunTask?)dict[childId];
             Assert.NotNull(parentTask);
             Assert.NotNull(childTask);
-            childTask!.Parent = parentTask!;
-            parentTask!.Children.Add(childTask);
+            childTask.Parent = parentTask;
+            parentTask.Children.Add(childTask);
 
             Assert.True(svc.Start(childId));
 

@@ -47,7 +47,7 @@ public class CompressionFeatureTests
         // Assert that the service collection now contains the singleton registration for our provider
         var descriptor = services.SingleOrDefault(d => d.ServiceType == typeof(IResponseCompressionProvider));
         Assert.NotNull(descriptor);
-        Assert.Equal(ServiceLifetime.Singleton, descriptor!.Lifetime);
+        Assert.Equal(ServiceLifetime.Singleton, descriptor.Lifetime);
         Assert.Equal(typeof(KestrunResponseCompressionProvider), descriptor.ImplementationType);
     }
 

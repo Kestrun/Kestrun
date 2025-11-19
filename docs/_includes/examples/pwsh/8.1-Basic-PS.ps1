@@ -29,7 +29,7 @@ Add-KrBasicAuthentication -Name 'PowershellBasic' -Realm 'Demo' -AllowInsecureHt
 Enable-KrConfiguration
 
 # 6. Map secured route group using the scheme
-Add-KrRouteGroup -Prefix '/secure/ps' -AuthorizationSchema 'PowershellBasic' {
+Add-KrRouteGroup -Prefix '/secure/ps' -AuthorizationScheme 'PowershellBasic' {
     Add-KrMapRoute -Verbs Get -Pattern '/hello' -ScriptBlock {
         Write-KrTextResponse -InputObject "Hello, $( $Context.User.Identity.Name )!" -ContentType 'text/plain'
     }

@@ -36,7 +36,7 @@ Add-KrJWTBearerAuthentication -Name 'Bearer' -ValidationParameter $validation
 Enable-KrConfiguration
 
 # 9. Route: issue token (requires Basic)
-Add-KrMapRoute -Verbs Get -Pattern '/token/new' -AuthorizationSchema 'BasicInit' -ScriptBlock {
+Add-KrMapRoute -Verbs Get -Pattern '/token/new' -AuthorizationScheme 'BasicInit' -ScriptBlock {
     $user = $Context.User.Identity.Name
     Write-KrLog -Level Information -Message 'Generating JWT token for user {User}' -Values $user
     Write-KrLog -Level Information -Message 'Issuer : {Issuer} ' -Values $JwtTokenBuilder.Issuer
@@ -52,7 +52,7 @@ Add-KrMapRoute -Verbs Get -Pattern '/token/new' -AuthorizationSchema 'BasicInit'
     Write-KrJsonResponse @{ access_token = $token; expires = $build.Expires }
 }
 
-Add-KrMapRoute -Verbs Get -Pattern '/token/renew' -AuthorizationSchema $JwtScheme -ScriptBlock {
+Add-KrMapRoute -Verbs Get -Pattern '/token/renew' -AuthorizationScheme $JwtScheme -ScriptBlock {
     $user = $Context.User.Identity.Name
 
     Write-KrLog -Level Information -Message 'Generating JWT token for user {0}' -Values $user
@@ -65,7 +65,7 @@ Add-KrMapRoute -Verbs Get -Pattern '/token/renew' -AuthorizationSchema $JwtSchem
 }
 
 # 10. Route: protected with bearer token
-Add-KrMapRoute -Verbs Get -Pattern '/secure/jwt/hello' -AuthorizationSchema 'Bearer' -ScriptBlock {
+Add-KrMapRoute -Verbs Get -Pattern '/secure/jwt/hello' -AuthorizationScheme 'Bearer' -ScriptBlock {
     Write-KrTextResponse -InputObject "JWT Hello $( $Context.User.Identity.Name )"
 }
 

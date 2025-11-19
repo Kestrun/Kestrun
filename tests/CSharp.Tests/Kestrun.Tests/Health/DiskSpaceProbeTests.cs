@@ -14,6 +14,7 @@ public class DiskSpaceProbeTests
     }
 
     [Fact]
+    [Trait("Category", "Health")]
     public async Task DiskSpaceProbe_DynamicThresholds_ClassifyStatuses()
     {
         var (freePercent, _) = GetDriveInfo();
@@ -54,5 +55,156 @@ public class DiskSpaceProbeTests
 
         var unhealthy = await new DiskSpaceProbe("disk-u", ["live"], AppContext.BaseDirectory, uCritical, uWarn).CheckAsync();
         Assert.Equal(ProbeStatus.Unhealthy, unhealthy.Status);
+    }
+
+    [Fact]
+    [Trait("Category", "Health")]
+    public void Constructor_WithValidParameters_CreatesProbe()
+    {
+        // Arrange & Act
+        var probe = new DiskSpaceProbe("disk-check", ["ready"], AppContext.BaseDirectory, 5.0, 10.0);
+
+        // Assert
+        Assert.Equal("disk-check", probe.Name);
+        _ = Assert.Single(probe.Tags);
+        Assert.Equal("ready", probe.Tags[0]);
+        Assert.NotNull(probe.Logger);
+    }
+
+    [Fact]
+    [Trait("Category", "Health")]
+    public void Constructor_WithInvalidThresholds_ThrowsArgumentException()
+    {
+        // Critical equals warn
+        var ex1 = Assert.Throws<ArgumentException>(() =>
+            new DiskSpaceProbe("test", [], criticalPercent: 10.0, warnPercent: 10.0));
+        Assert.Contains("Invalid threshold", ex1.Message);
+
+        // Critical greater than warn
+        var ex2 = Assert.Throws<ArgumentException>(() =>
+            new DiskSpaceProbe("test", [], criticalPercent: 15.0, warnPercent: 10.0));
+        Assert.Contains("Invalid threshold", ex2.Message);
+
+        // Warn over 100
+        var ex3 = Assert.Throws<ArgumentException>(() =>
+            new DiskSpaceProbe("test", [], criticalPercent: 5.0, warnPercent: 110.0));
+        Assert.Contains("Invalid threshold", ex3.Message);
+
+        // Critical zero or negative
+        var ex4 = Assert.Throws<ArgumentException>(() =>
+            new DiskSpaceProbe("test", [], criticalPercent: 0.0, warnPercent: 10.0));
+        Assert.Contains("Invalid threshold", ex4.Message);
+    }
+
+    [Fact]
+    [Trait("Category", "Health")]
+    public async Task CheckAsync_WithValidDrive_ReturnsDataDictionary()
+    {
+        // Arrange
+        var probe = new DiskSpaceProbe("disk-check", [], AppContext.BaseDirectory, 0.1, 1.0);
+
+        // Act
+        var result = await probe.CheckAsync();
+
+        // Assert
+        Assert.NotNull(result.Data);
+        Assert.True(result.Data.ContainsKey("path"));
+        Assert.True(result.Data.ContainsKey("driveName"));
+        Assert.True(result.Data.ContainsKey("totalBytes"));
+        Assert.True(result.Data.ContainsKey("freeBytes"));
+        Assert.True(result.Data.ContainsKey("freePercent"));
+        Assert.True(result.Data.ContainsKey("criticalPercent"));
+        Assert.True(result.Data.ContainsKey("warnPercent"));
+    }
+
+    [Fact]
+    [Trait("Category", "Health")]
+    public async Task CheckAsync_WithValidDrive_IncludesDescription()
+    {
+        // Arrange
+        var probe = new DiskSpaceProbe("disk-check", [], AppContext.BaseDirectory);
+
+        // Act
+        var result = await probe.CheckAsync();
+
+        // Assert
+        Assert.NotNull(result.Description);
+        Assert.Contains("Free", result.Description);
+        Assert.Contains("free)", result.Description); // percentage
+    }
+
+    [Fact]
+    [Trait("Category", "Health")]
+    public async Task CheckAsync_WithInvalidPath_ReturnsUnhealthyStatus()
+    {
+        // Arrange - using a path that likely doesn't exist
+        var probe = new DiskSpaceProbe("disk-check", [], "Z:\\NonExistentPath\\Test");
+
+        // Act
+        var result = await probe.CheckAsync();
+
+        // Assert
+        Assert.Equal(ProbeStatus.Unhealthy, result.Status);
+        // Message can vary across machines (not ready vs not found); just ensure we have a message
+        Assert.False(string.IsNullOrWhiteSpace(result.Description));
+    }
+
+    [Fact]
+    [Trait("Category", "Health")]
+    public async Task CheckAsync_DataContainsCorrectTypes()
+    {
+        // Arrange
+        var probe = new DiskSpaceProbe("disk-check", [], AppContext.BaseDirectory);
+
+        // Act
+        var result = await probe.CheckAsync();
+
+        // Assert
+        if (result.Data is not null)
+        {
+            _ = Assert.IsType<string>(result.Data["path"]);
+            _ = Assert.IsType<string>(result.Data["driveName"]);
+            _ = Assert.IsType<long>(result.Data["totalBytes"]);
+            _ = Assert.IsType<long>(result.Data["freeBytes"]);
+            Assert.True(result.Data["freePercent"] is double);
+            Assert.True(result.Data["criticalPercent"] is double);
+            Assert.True(result.Data["warnPercent"] is double);
+        }
+    }
+
+    [Fact]
+    [Trait("Category", "Health")]
+    public async Task CheckAsync_FreePercentIsRounded()
+    {
+        // Arrange
+        var probe = new DiskSpaceProbe("disk-check", [], AppContext.BaseDirectory);
+
+        // Act
+        var result = await probe.CheckAsync();
+
+        // Assert
+        if (result.Data is not null && result.Data.TryGetValue("freePercent", out var freePercentObj))
+        {
+            var freePercent = (double)freePercentObj;
+            // Check that it's rounded to 2 decimal places
+            var rounded = Math.Round(freePercent, 2);
+            Assert.Equal(rounded, freePercent);
+        }
+    }
+
+    [Fact]
+    [Trait("Category", "Health")]
+    public async Task CheckAsync_ThresholdValuesMatchConstructor()
+    {
+        // Arrange
+        var probe = new DiskSpaceProbe("disk-check", [], AppContext.BaseDirectory, 3.0, 7.0);
+
+        // Act
+        var result = await probe.CheckAsync();
+
+        // Assert
+        Assert.NotNull(result.Data);
+        Assert.Equal(3.0, (double)result.Data["criticalPercent"]);
+        Assert.Equal(7.0, (double)result.Data["warnPercent"]);
     }
 }

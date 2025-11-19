@@ -41,7 +41,7 @@ public class PowerShellRunspaceMiddlewareTests
             Assert.NotNull(ps.Runspace);
             Assert.True(ps.Runspace.RunspaceStateInfo.State is System.Management.Automation.Runspaces.RunspaceState.Opened);
 
-            var kr = Assert.IsType<Kestrun.Models.KestrunContext>(ctx.Items[PowerShellDelegateBuilder.KR_CONTEXT_KEY]!);
+            var kr = Assert.IsType<Kestrun.Models.KestrunContext>(ctx.Items[PowerShellDelegateBuilder.KR_CONTEXT_KEY]);
             Assert.Equal(ctx, kr.HttpContext);
 
             // Verify session state variable set
@@ -88,7 +88,7 @@ public class PowerShellRunspaceMiddlewareTests
         // Build a PS delegate that writes to KestrunResponse via the injected Context
         var code = "\r\n$Context.Response.WriteTextResponse('ok from ps')\r\n";
         var log = Log.Logger;
-        var del = PowerShellDelegateBuilder.Build(code, log, arguments: null);
+        var del = PowerShellDelegateBuilder.Build(host, code, arguments: null);
 
         app.Run(del);
 
@@ -119,7 +119,7 @@ public class PowerShellRunspaceMiddlewareTests
         // Ask PS to set a redirect on the KestrunResponse
         var code = "\r\n$Context.Response.WriteRedirectResponse('https://example.org/next')\r\n";
         var log = Log.Logger;
-        var del = PowerShellDelegateBuilder.Build(code, log, arguments: null);
+        var del = PowerShellDelegateBuilder.Build(host, code, arguments: null);
         app.Run(del);
 
         var pipeline = app.Build();

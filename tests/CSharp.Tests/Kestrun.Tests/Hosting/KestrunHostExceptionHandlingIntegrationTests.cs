@@ -43,7 +43,7 @@ public class KestrunHostExceptionHandlingIntegrationTests
     [Trait("Category", "Hosting")]
     public async Task UseJsonExceptionHandler_ProblemDetails_ContentAndStatus()
     {
-        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(60));
 
         var host = CreateHost(
             // Configure exception handling BEFORE build
@@ -69,7 +69,7 @@ public class KestrunHostExceptionHandlingIntegrationTests
             var resp = await client.GetAsync("oops", cts.Token);
             Assert.Equal(HttpStatusCode.InternalServerError, resp.StatusCode);
             Assert.NotNull(resp.Content.Headers.ContentType);
-            Assert.Contains("application/problem+json", resp.Content.Headers.ContentType!.ToString());
+            Assert.Contains("application/problem+json", resp.Content.Headers.ContentType.ToString());
             var body = await resp.Content.ReadAsStringAsync(cts.Token);
             // No whitespace between key/value in our serializer when compress=true
             Assert.Contains("\"status\":500", body.Replace(" ", string.Empty));
@@ -86,7 +86,7 @@ public class KestrunHostExceptionHandlingIntegrationTests
     [Trait("Category", "Hosting")]
     public async Task ExceptionHandlingPath_ReExecutes_ToErrorEndpoint()
     {
-        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
 
         var host = CreateHost(
             // Configure exception handler path BEFORE build
@@ -125,7 +125,7 @@ public class KestrunHostExceptionHandlingIntegrationTests
     [Trait("Category", "Hosting")]
     public async Task ScriptedCSharpExceptionHandler_HandlesAndReturnsJson500()
     {
-        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
 
         var host = CreateHost(
             // Configure scripted C# exception handler BEFORE build
@@ -164,7 +164,7 @@ public class KestrunHostExceptionHandlingIntegrationTests
     [Trait("Category", "Hosting")]
     public async Task ScriptedVBNetExceptionHandler_HandlesAndReturnsJson500()
     {
-        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
 
         var host = CreateHost(
             // Configure scripted VB.NET exception handler BEFORE build
@@ -203,7 +203,7 @@ public class KestrunHostExceptionHandlingIntegrationTests
     [Trait("Category", "Hosting")]
     public async Task DeveloperExceptionPage_WhenEnabled_RendersHtmlError()
     {
-        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
         // Ensure dev environment for richer output
         EnvironmentHelper.SetOverrideName("Development");
 

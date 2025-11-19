@@ -59,9 +59,9 @@ function New-KrCertificateRequest {
         [string]   $CommonName
     )
 
-    $opts = [Kestrun.Certificates.CertificateManager+CsrOptions]::new(
+    $opts = [Kestrun.Certificates.CsrOptions]::new(
         $DnsNames,
-        [Kestrun.Certificates.CertificateManager+KeyType]::$KeyType,
+        [Kestrun.Certificates.KeyType]::$KeyType,
         $KeyLength,
         $Country,
         $Org,
@@ -70,4 +70,3 @@ function New-KrCertificateRequest {
     )
     return [Kestrun.Certificates.CertificateManager]::NewCertificateRequest($opts)
 }
-

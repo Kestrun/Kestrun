@@ -18,6 +18,8 @@ Deeper, cross-cutting subjects (logging, deployment, performance, etc.).
 | [HSTS & HTTPS Redirection](./hsts) | Secure transport policies and automatic redirection |
 | [Forwarded Headers](./forwardedheaders) | Honor X-Forwarded-* from proxies for correct scheme/host/IP |
 | [JWT Tokens](./jwt) | Build, issue, validate, and renew JSON Web Tokens |
+| [OpenID Connect](./oidc) | Configure OIDC (Authorization Code + PKCE), claims, and logout |
+| [OAuth 2.0](./oauth2) | Configure OAuth2 providers (e.g., GitHub) and protect routes |
 | [Scheduling](./scheduling) | Background jobs via intervals and CRON (PS & C#) |
 | [Sessions](./sessions) | Cookie-based per-client state across requests |
 | [Tasks](./tasks) | On-demand background work with progress and results |

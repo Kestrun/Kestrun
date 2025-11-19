@@ -15,10 +15,11 @@ public class JobFactoryTests
     [Trait("Category", "Scheduling")]
     public void PowerShell_Create_Throws_WhenPoolMissing()
     {
+        using var host = new KestrunHost("Tests", CreateLogger());
         var cfg = new JobFactory.JobConfig(
+            Host: host,
             ScriptLanguage.PowerShell,
             Code: "Write-Output 'hi'",
-            Log: CreateLogger(),
             Pool: null
         );
 
@@ -30,12 +31,12 @@ public class JobFactoryTests
     [Trait("Category", "Scheduling")]
     public async Task PowerShell_Job_Executes_Successfully()
     {
-        using var host = new KestrunHost("Tests", Log.Logger);
+        using var host = new KestrunHost("Tests", CreateLogger());
         using var pool = new KestrunRunspacePoolManager(host, 1, 1);
         var cfg = new JobFactory.JobConfig(
+            Host: host,
             ScriptLanguage.PowerShell,
             Code: "$x = 1; $x",
-            Log: CreateLogger(),
             Pool: pool
         );
 
@@ -47,12 +48,12 @@ public class JobFactoryTests
     [Trait("Category", "Scheduling")]
     public async Task PowerShell_Job_Honors_Cancellation()
     {
-        using var host = new KestrunHost("Tests", Log.Logger);
+        using var host = new KestrunHost("Tests", CreateLogger());
         using var pool = new KestrunRunspacePoolManager(host, 1, 1);
         var cfg = new JobFactory.JobConfig(
+            Host: host,
             ScriptLanguage.PowerShell,
             Code: "Start-Sleep -Seconds 5",
-            Log: CreateLogger(),
             Pool: pool
         );
 
@@ -65,12 +66,12 @@ public class JobFactoryTests
     [Trait("Category", "Scheduling")]
     public async Task CreateAsync_Reads_Code_From_File()
     {
-        using var host = new KestrunHost("Tests", Log.Logger);
+        using var host = new KestrunHost("Tests", CreateLogger());
         using var pool = new KestrunRunspacePoolManager(host, 1, 1);
         var cfg = new JobFactory.JobConfig(
+            Host: host,
             ScriptLanguage.PowerShell,
             Code: string.Empty,
-            Log: CreateLogger(),
             Pool: pool
         );
 

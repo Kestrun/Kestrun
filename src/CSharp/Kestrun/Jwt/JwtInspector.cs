@@ -32,7 +32,7 @@ public static class JwtInspector
         // copy all header entries
         foreach (var kv in jwt.Header)
         {
-            result.Header[kv.Key] = kv.Value!;
+            result.Header[kv.Key] = kv.Value;
         }
 
         // copy all payload claims (including custom ones)

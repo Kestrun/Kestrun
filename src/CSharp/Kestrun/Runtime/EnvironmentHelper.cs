@@ -42,13 +42,13 @@ public static class EnvironmentHelper
         var fromOverride = _overrideProvider?.Invoke();
         if (!string.IsNullOrWhiteSpace(fromOverride))
         {
-            return fromOverride!;
+            return fromOverride;
         }
 
         // 2️⃣ Cached host environment (from SetHostEnvironment)
         if (!string.IsNullOrWhiteSpace(_cachedEnv?.EnvironmentName))
         {
-            return _cachedEnv!.EnvironmentName;
+            return _cachedEnv.EnvironmentName;
         }
 
         // 3️⃣ Standard environment variables (like Kestrel)

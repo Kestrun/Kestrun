@@ -36,6 +36,12 @@
     .PARAMETER X509Certificate
         The X509 certificate used for encryption.
 
+    .PARAMETER JwkJson
+        The JSON Web Key (JWK) in JSON format used for encryption.
+
+    .PARAMETER JwkPath
+        The path to a JSON Web Key (JWK) file used for encryption.
+
     .OUTPUTS
         [Kestrun.Jwt.JwtTokenBuilder]
         Returns the modified JWT token builder with encryption applied.
@@ -63,47 +69,73 @@ function Protect-KrJWTPayload {
     param(
         [Parameter(Mandatory = $true, ValueFromPipeline)]
         [Kestrun.Jwt.JwtTokenBuilder] $Builder,
+
         [Parameter(Mandatory = $true, ParameterSetName = 'HexadecimalKey')]
         [string] $HexadecimalKey,
+
         [Parameter(Mandatory = $true, ParameterSetName = 'Base64Url')]
         [string] $Base64Url,
+
         [Parameter(Mandatory = $true, ParameterSetName = 'Bytes')]
         [byte[]] $KeyBytes,
+
         [Parameter(Mandatory = $false)]
         [string] $KeyAlg = '',
+
         [Parameter(Mandatory = $false)]
         [string] $EncAlg = '',
+
         [Parameter(Mandatory = $true, ParameterSetName = 'PemPath')]
         [string] $PemPath,
+
         [Parameter(Mandatory = $true, ParameterSetName = 'Certificate')]
-        [System.Security.Cryptography.X509Certificates.X509Certificate2] $X509Certificate
+        [System.Security.Cryptography.X509Certificates.X509Certificate2] $X509Certificate,
+
+        [Parameter(Mandatory = $true, ParameterSetName = 'JwkJson')]
+        [string] $JwkJson,
+
+        [Parameter(Mandatory = $true, ParameterSetName = 'JwkPath')]
+        [string] $JwkPath
     )
 
     process {
+        # Determine defaults based on parameter set (symmetric vs asymmetric)
+        $defaultKeyAlg, $defaultEncAlg = switch ($PSCmdlet.ParameterSetName) {
+            'Base64Url' { 'dir', 'A256CBC-HS512' }
+            'HexadecimalKey' { 'dir', 'A256CBC-HS512' }
+            'Bytes' { 'dir', 'A256CBC-HS512' }
+            default { 'RSA-OAEP', 'A256GCM' }
+        }
+
+        $ka = if ([string]::IsNullOrWhiteSpace($KeyAlg)) { $defaultKeyAlg } else { $KeyAlg }
+        $ea = if ([string]::IsNullOrWhiteSpace($EncAlg)) { $defaultEncAlg } else { $EncAlg }
+
         switch ($PSCmdlet.ParameterSetName) {
             'Base64Url' {
-                $Builder.EncryptWithSecretB64($Base64Url, $KeyAlg, $EncAlg) | Out-Null
-                break
+                $Builder.EncryptWithSecretB64($Base64Url, $ka, $ea) | Out-Null
             }
             'HexadecimalKey' {
-                $Builder.EncryptWithSecretHex($HexadecimalKey, $KeyAlg, $EncAlg) | Out-Null
-                break
+                $Builder.EncryptWithSecretHex($HexadecimalKey, $ka, $ea) | Out-Null
             }
             'Bytes' {
-                $Builder.EncryptWithSecret($KeyBytes, $KeyAlg, $EncAlg) | Out-Null
-                break
+                $Builder.EncryptWithSecret($KeyBytes, $ka, $ea) | Out-Null
             }
             'PemPath' {
                 $resolvedPath = Resolve-KrPath -Path $PemPath -KestrunRoot
-                $Builder.EncryptWithPemPublic($resolvedPath, $KeyAlg, $EncAlg) | Out-Null
-                break
+                $Builder.EncryptWithPemPublic($resolvedPath, $ka, $ea) | Out-Null
             }
             'Certificate' {
-                $Builder.EncryptWithCertificate($X509Certificate, $KeyAlg, $EncAlg) | Out-Null
-                break
+                $Builder.EncryptWithCertificate($X509Certificate, $ka, $ea) | Out-Null
+            }
+            'JwkJson' {
+                $Builder.EncryptWithJwkJson($JwkJson, $ka, $ea) | Out-Null
+            }
+            'JwkPath' {
+                $resolvedPath = Resolve-KrPath -Path $JwkPath -KestrunRoot
+                $Builder.EncryptWithJwkPath($resolvedPath, $ka, $ea) | Out-Null
             }
         }
+
         return $Builder
     }
 }
-

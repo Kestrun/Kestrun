@@ -140,7 +140,7 @@ public class ApiKeyAuthHandlerWhitespaceTests
         Assert.False(result.Succeeded);
         var warn = sink.Events.FirstOrDefault(e => e.Level == LogEventLevel.Warning);
         Assert.NotNull(warn);
-        Assert.True(warn!.Properties.TryGetValue("Reason", out var reason));
+        Assert.True(warn.Properties.TryGetValue("Reason", out var reason));
         var reasonText = (reason as ScalarValue)?.Value?.ToString();
         Assert.Equal("Invalid API Key: not-the-key", reasonText);
     }

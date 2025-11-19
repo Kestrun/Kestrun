@@ -1,3 +1,4 @@
+using Kestrun.Hosting;
 using Kestrun.Models;
 using Python.Runtime;
 using Serilog.Events;
@@ -45,8 +46,9 @@ internal static class PyDelegateBuilder
             _pyInit = true;
         }
     }
-    internal static RequestDelegate Build(string code, Serilog.ILogger logger)
+    internal static RequestDelegate Build(KestrunHost host, string code)
     {
+        var logger = host.Logger;
         if (logger.IsEnabled(LogEventLevel.Debug))
         {
             logger.Debug("Building Python delegate, script l   ength={Length}", code?.Length);
@@ -59,7 +61,7 @@ internal static class PyDelegateBuilder
 
         if (!Implemented)
         {
-            throw new NotImplementedException("JavaScript scripting is not yet supported in Kestrun.");
+            throw new NotImplementedException("Python scripting is not yet supported in Kestrun.");
         }
 
         EnsurePythonEngine();                 // one-time init

@@ -36,7 +36,8 @@ public class VBNetAndPowerShellDelegateBuilderTests
     public async Task PowerShell_Build_Missing_Runspace_Throws_InvalidOperation()
     {
         var code = "Write-Host 'hi'";
-        var del = PowerShellDelegateBuilder.Build(code, Log.Logger, null);
+        var host = new KestrunHost("Tests", Log.Logger);
+        var del = PowerShellDelegateBuilder.Build(host, code, null);
         var ctx = new DefaultHttpContext();
         _ = await Assert.ThrowsAsync<InvalidOperationException>(() => del(ctx));
     }
@@ -45,8 +46,9 @@ public class VBNetAndPowerShellDelegateBuilderTests
     [Trait("Category", "Languages")]
     public async Task PowerShell_ErrorStream_Triggers_Error_Response()
     {
+        var host = new KestrunHost("Tests", Log.Logger);
         // Arrange: build trivial PS delegate and inject a PS instance with an error
-        var del = PowerShellDelegateBuilder.Build("Write-Host 'noop'", Log.Logger, null);
+        var del = PowerShellDelegateBuilder.Build(host, "Write-Host 'noop'", null);
         var ctx = new DefaultHttpContext();
 
         using var ps = PowerShell.Create();
@@ -57,7 +59,6 @@ public class VBNetAndPowerShellDelegateBuilderTests
         ps.Streams.Error.Add(new ErrorRecord(new Exception("boom"), "BoomId", ErrorCategory.InvalidOperation, targetObject: null));
 
         ctx.Items[PowerShellDelegateBuilder.PS_INSTANCE_KEY] = ps;
-        var host = new KestrunHost("Tests", Log.Logger);
         ctx.Items[PowerShellDelegateBuilder.KR_CONTEXT_KEY] = new Kestrun.Models.KestrunContext(
             host,
             await Kestrun.Models.KestrunRequest.NewRequest(ctx),

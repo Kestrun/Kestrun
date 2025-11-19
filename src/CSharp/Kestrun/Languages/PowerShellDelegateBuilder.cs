@@ -1,4 +1,5 @@
 using System.Management.Automation;
+using Kestrun.Hosting;
 using Kestrun.Logging;
 using Kestrun.Models;
 using Kestrun.Utilities;
@@ -11,8 +12,9 @@ internal static class PowerShellDelegateBuilder
     public const string PS_INSTANCE_KEY = "PS_INSTANCE";
     public const string KR_CONTEXT_KEY = "KR_CONTEXT";
 
-    internal static RequestDelegate Build(string code, Serilog.ILogger log, Dictionary<string, object?>? arguments)
+    internal static RequestDelegate Build(KestrunHost host, string code, Dictionary<string, object?>? arguments)
     {
+        var log = host.Logger;
         ArgumentNullException.ThrowIfNull(code);
         if (log.IsEnabled(LogEventLevel.Debug))
         {

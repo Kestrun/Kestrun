@@ -2270,7 +2270,6 @@ public class OpenApiDocDescriptor
                     }
                 }
                 _ = CreateLinkFromAttribute(a, link);
-
             }
             var tname = string.IsNullOrWhiteSpace(customName) ? p.Name : customName!;
             var key = joinClassName is not null ? $"{joinClassName}{tname}" : tname;

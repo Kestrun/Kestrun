@@ -2724,7 +2724,6 @@ public class OpenApiDocDescriptor
                     // Apply any [OpenApiProperty] attribute on the parameter to the schema
                     pmtr.Schema = ps;
                 }
-
             }
 
             routeOptions.OpenAPI.Add(parsedVerb, openApiAttr);

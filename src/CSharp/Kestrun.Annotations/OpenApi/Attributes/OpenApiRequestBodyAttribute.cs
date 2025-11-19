@@ -32,5 +32,4 @@ public sealed class OpenApiRequestBodyAttribute : KestrunAnnotation
     /// will try to infer an inline schema when possible.
     /// </summary>
     public bool Inline { get; set; }
-
 }

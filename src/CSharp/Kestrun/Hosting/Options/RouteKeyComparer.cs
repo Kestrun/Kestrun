@@ -2,7 +2,6 @@ using Kestrun.Utilities;
 
 namespace Kestrun.Hosting.Options;
 
-
 internal class RouteKeyComparer : IEqualityComparer<(string Pattern, HttpVerb Method)>
 {
     private static readonly StringComparer comparer = StringComparer.OrdinalIgnoreCase;

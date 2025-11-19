@@ -24,7 +24,6 @@ public partial class BasicAuthenticationOptions : AuthenticationSchemeOptions, I
     /// </summary>
     public Regex SeparatorRegex { get; set; } = MyRegex();
 
-
     /// <summary>
     /// Gets or sets the authentication realm used in the WWW-Authenticate header.
     /// </summary>
@@ -47,7 +46,6 @@ public partial class BasicAuthenticationOptions : AuthenticationSchemeOptions, I
     /// Gets or sets a value indicating whether to suppress the WWW-Authenticate header in responses.
     /// </summary>
     public bool SuppressWwwAuthenticate { get; set; }
-
 
     /// <summary>
     /// Delegate to validate user credentials.

@@ -1,7 +1,6 @@
 // ——— String & friends ———
 public interface IOpenApiType { }
 
-
 [OpenApiSchemaComponent]
 [OpenApiProperty(Type = OaSchemaType.String)]
 public class OpenApiString : IOpenApiType { }
@@ -26,7 +25,6 @@ public class OpenApiEmail : OpenApiString { }
 [OpenApiSchemaComponent]
 [OpenApiProperty(Type = OaSchemaType.String, Format = "binary")]
 public class OpenApiBinary : OpenApiString { }
-
 
 // ——— Integers / Numbers / Boolean ———
 

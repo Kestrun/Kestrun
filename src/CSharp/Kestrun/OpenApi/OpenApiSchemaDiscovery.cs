@@ -21,7 +21,6 @@ public static class OpenApiSchemaDiscovery
             .ToArray();
         return new OpenApiComponentSet()
         {
-
             ParameterTypes = [.. assemblies.SelectMany(asm => asm.GetTypes())
             .Where(t => t.IsClass && !t.IsAbstract &&
                     (t.GetCustomAttributes(typeof(OpenApiParameterComponent), true).Length != 0
@@ -64,5 +63,4 @@ public static class OpenApiSchemaDiscovery
                             */
         };
     }
-
 }

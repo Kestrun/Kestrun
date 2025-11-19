@@ -56,7 +56,6 @@ public static class KestrunHostHealthExtensions
             ShortCircuit = merged.ShortCircuit,
             ShortCircuitStatusCode = merged.ShortCircuitStatusCode,
             ThrowOnDuplicate = merged.ThrowOnDuplicate,
-
         };
         mapOptions.OpenAPI.Add(HttpVerb.Get, new OpenAPIMetadata(pattern: merged.Pattern)
         {
@@ -65,7 +64,6 @@ public static class KestrunHostHealthExtensions
             OperationId = merged.OpenApiOperationId,
             Tags = merged.OpenApiTags
         });
-
 
         // Auto-register endpoint only when enabled
         if (!merged.AutoRegisterEndpoint)

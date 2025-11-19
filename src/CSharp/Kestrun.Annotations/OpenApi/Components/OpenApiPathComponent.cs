@@ -19,5 +19,4 @@ public sealed class OpenApiPathComponent : KestrunAnnotation
     /// Optional default description for the parameter components.
     /// </summary>
     public string? Description { get; set; }
-
 }

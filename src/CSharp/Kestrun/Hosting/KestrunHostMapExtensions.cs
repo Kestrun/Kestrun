@@ -190,7 +190,6 @@ public static partial class KestrunHostMapExtensions
                 var yml = host.OpenApiDocumentDescriptor[docId].ToYaml(specVersion);
                 await context.Response.WriteTextResponseAsync(yml, 200, "application/yaml");
             }
-
         }, out _);
     }
 
@@ -329,7 +328,6 @@ public static partial class KestrunHostMapExtensions
                 ex);
         }
     }
-
 
     /// <summary>
     /// Validates the host and options for adding a map route.
@@ -1002,7 +1000,6 @@ public static partial class KestrunHostMapExtensions
         return map;
     }
 
-
     /// <summary>
     /// Adds a Swagger UI route to the KestrunHost for the specified pattern and OpenAPI endpoint.
     /// </summary>
@@ -1058,7 +1055,6 @@ public static partial class KestrunHostMapExtensions
         return map;
     }
 
-
     /// <summary>
     /// Checks if a route with the specified pattern and optional HTTP method exists in the KestrunHost.
     /// </summary>
@@ -1083,7 +1079,6 @@ public static partial class KestrunHostMapExtensions
     /// <returns>True if the route exists; otherwise, false.</returns>
     public static bool MapExists(this KestrunHost host, string pattern, HttpVerb verb) =>
         host._registeredRoutes.ContainsKey((pattern, verb));
-
 
     /// <summary>
     /// Retrieves the <see cref="MapRouteOptions"/> associated with a given route pattern and HTTP verb, if registered.
@@ -1248,7 +1243,6 @@ public static partial class KestrunHostMapExtensions
     /// </summary>
     [GeneratedRegex(@"^([^:]+):(\d+)$")]
     private static partial Regex HostPortSpecMatcher();
-
 
     /// <summary>
     /// Matches a URL that starts with "http://" or "https://", followed by a host (excluding '/', '?', or '#'), and ends with a colon.

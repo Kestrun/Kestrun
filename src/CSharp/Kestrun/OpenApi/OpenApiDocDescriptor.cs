@@ -197,7 +197,6 @@ public class OpenApiDocDescriptor
         return sw.ToString();
     }
 
-
     // ---- internals ----
 
     /// <summary>
@@ -288,7 +287,6 @@ public class OpenApiDocDescriptor
                 }
                 catch { /* tolerate differing model shapes */ }
             }
-
         }
     }
 
@@ -346,7 +344,6 @@ public class OpenApiDocDescriptor
         }
         catch { }
 
-
         // Request body
         if (meta.RequestBody is not null)
         {
@@ -390,12 +387,10 @@ public class OpenApiDocDescriptor
                         {
                             op.Security.Add(existingRequirement);
                         }
-
                     }
                 }
             }
         }
-
 
         return op;
     }
@@ -468,7 +463,6 @@ public class OpenApiDocDescriptor
         {
             return schema; // primitives don't go to components
         }
-
 
         var clsComp = t.GetCustomAttributes(inherit: false)
         .Where(a => a is OpenApiSchemaComponent)
@@ -602,8 +596,6 @@ public class OpenApiDocDescriptor
             Document.Components.Schemas[t.Name] = BuildSchemaForType(t, built);
         }
     }
-
-
 
     private IOpenApiSchema BuildPropertySchema(PropertyInfo p, HashSet<Type> built)
     {
@@ -1018,7 +1010,6 @@ public class OpenApiDocDescriptor
             {
                 sc.Enum = [.. a.Enum.Select(ToNode).OfType<JsonNode>()];
             }
-
         }
         else if (s is OpenApiSchemaReference refSchema)
         {
@@ -1351,7 +1342,6 @@ public class OpenApiDocDescriptor
                 }
                 break;
 
-
             case OpenApiExampleRefAttribute exRef:
                 parameter.Examples ??= new Dictionary<string, IOpenApiExample>(StringComparer.Ordinal);
                 if (exRef.Inline)
@@ -1534,7 +1524,6 @@ public class OpenApiDocDescriptor
             }
             else
             {
-
                 var schema = InferPrimitiveSchema(pt);
                 ApplySchemaAttr(p.GetCustomAttribute<OpenApiPropertyAttribute>(), schema);
                 ApplyPowerShellValidationAttributes(p, schema);
@@ -1545,7 +1534,6 @@ public class OpenApiDocDescriptor
                 iSchema = schema;
             }
 
-
             // Set schema to $ref of property type
             foreach (var a in response.Content.Values)
             {
@@ -1553,7 +1541,6 @@ public class OpenApiDocDescriptor
             }
         }
     }
-
 
     /// <summary>
     /// Gets the name override from an attribute, if present.
@@ -1771,7 +1758,6 @@ public class OpenApiDocDescriptor
 
         foreach (var p in t.GetProperties(flags))
         {
-
             var header = new OpenApiHeader();
 
             var classAttrs = t.GetCustomAttributes(inherit: false).
@@ -1815,7 +1801,6 @@ public class OpenApiDocDescriptor
                     }
                 }
                 _ = CreateHeaderFromAttribute(a, header);
-
             }
             var tname = string.IsNullOrWhiteSpace(customName) ? p.Name : customName!;
             var key = joinClassName is not null ? $"{joinClassName}{tname}" : tname;
@@ -1948,7 +1933,6 @@ public class OpenApiDocDescriptor
                             Items = schema
                         };
                         schema = arraySchema;
-
                     }
                     // Apply schema attribute to the schema
                     ApplySchemaAttr(schemaAttr, schema);
@@ -2007,8 +1991,6 @@ public class OpenApiDocDescriptor
     }
 
     #endregion
-
-
 
     // Overload that ensures nested complex types have component schemas available in the document
     private IOpenApiSchema BuildInlineSchemaFromType(Type t)
@@ -2097,8 +2079,6 @@ public class OpenApiDocDescriptor
 
         return obj;
     }
-
-
 
     // Map PowerShell validation attributes on properties to OpenAPI schema constraints
     private static void ApplyPowerShellValidationAttributes(PropertyInfo p, IOpenApiSchema s)
@@ -2218,7 +2198,6 @@ public class OpenApiDocDescriptor
     /// <param name="t">The type to build links for.</param>
     private void BuildLinks(Type t)
     {
-
         string? defaultDescription = null;
         string? joinClassName = null;
         // Ensure Links dictionary exists
@@ -2227,7 +2206,6 @@ public class OpenApiDocDescriptor
         // ------ Build Links -------
         foreach (var p in t.GetProperties(flags))
         {
-
             var link = new OpenApiLink();
 
             var classAttrs = t.GetCustomAttributes(inherit: false).
@@ -2279,7 +2257,6 @@ public class OpenApiDocDescriptor
             }
             Document.Components!.Links![key] = link;
         }
-
     }
 
     /// <summary>
@@ -2332,7 +2309,6 @@ public class OpenApiDocDescriptor
                 {
                     Expression = RuntimeExpression.Build(attribute.MapValue)
                 };
-
             }
             if (!string.IsNullOrWhiteSpace(attribute.RequestBodyExpression))
             {
@@ -2340,7 +2316,6 @@ public class OpenApiDocDescriptor
                 {
                     Expression = RuntimeExpression.Build(attribute.RequestBodyExpression)
                 };
-
             }
             if (!string.IsNullOrWhiteSpace(attribute.RequestBodyJson))
             {
@@ -2603,7 +2578,6 @@ public class OpenApiDocDescriptor
                         openApiAttr.RequestBody.Description = oaRBra.Description;
                     }
                 }
-
                 else
                 {
                     if (attr is KestrunAnnotation ka)
@@ -2612,7 +2586,6 @@ public class OpenApiDocDescriptor
                             $"Unhandled Kestrun annotation: {ka.GetType().Name}");
                     }
                 }
-
             }
             // Process parameters for [OpenApiParameter] attributes
             foreach (var param in func.Parameters.Values)
@@ -2666,7 +2639,6 @@ public class OpenApiDocDescriptor
                         }
                         iparameter = parameter;
                         openApiAttr.Parameters.Add(parameter);
-
                     }
                     else
                     {
@@ -2710,7 +2682,6 @@ public class OpenApiDocDescriptor
                             item = new OpenApiSchemaReference(elem.Name);
                         }
                         ps = new OpenApiSchema { Type = JsonSchemaType.Array, Items = item };
-
                     }
                     else if (!IsPrimitiveLike(pt))
                     {
@@ -2772,7 +2743,6 @@ public class OpenApiDocDescriptor
             Description = description
         });
 
-
         // Reference it by NAME in the requirement (no .Reference in v2)
         var requirement = new OpenApiSecurityRequirement
         {
@@ -2782,7 +2752,6 @@ public class OpenApiDocDescriptor
         };
         SecurityRequirement.Add(name, requirement);
 
-
         // Apply globally if specified
         if (options.GlobalScheme)
         {
@@ -2791,5 +2760,4 @@ public class OpenApiDocDescriptor
             Document.Security.Add(requirement);
         }
     }
-
 }

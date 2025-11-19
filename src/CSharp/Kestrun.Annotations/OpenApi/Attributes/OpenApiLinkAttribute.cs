@@ -38,5 +38,4 @@ public sealed class OpenApiLinkAttribute : KestrunAnnotation
     /// The request body json for the link.
     /// </summary>
     public string? RequestBodyJson { get; set; }
-
 }

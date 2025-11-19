@@ -328,7 +328,6 @@ public static class OpenApiComponentClone
         _ => throw new InvalidOperationException("Unsupported IOpenApiSchema implementation.")
     };
 
-
     /// <summary>
     /// Clones an OpenApiSchema instance.
     /// </summary>
@@ -399,7 +398,6 @@ public static class OpenApiComponentClone
     /// <returns>A new OpenApiSchemaReference instance with the same properties as the input instance.</returns>
     public static OpenApiSchemaReference Clone(this OpenApiSchemaReference schemaRef)
     {
-
         var cloneRef = new OpenApiSchemaReference(referenceId: schemaRef.Reference.Id!)
         {
             Reference = schemaRef.Reference,
@@ -407,7 +405,6 @@ public static class OpenApiComponentClone
             Description = schemaRef.Description
         };
         return cloneRef;
-
     }
     /// <summary>
     /// Clones a list of OpenApiSchema instances.
@@ -501,7 +498,6 @@ public static class OpenApiComponentClone
     /// <returns>A new OpenApiLink instance with the same properties as the input instance.</returns>
     public static OpenApiLink Clone(this OpenApiLink link)
     {
-
         var clone = new OpenApiLink
         {
             OperationRef = link.OperationRef,
@@ -546,7 +542,6 @@ public static class OpenApiComponentClone
             Expression = expressionWrapper.Expression,
             Any = expressionWrapper.Any != null ? JsonNodeClone(expressionWrapper.Any) : null
         };
-
     }
 
     /// <summary>

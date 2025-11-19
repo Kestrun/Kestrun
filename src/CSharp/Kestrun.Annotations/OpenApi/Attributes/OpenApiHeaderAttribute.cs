@@ -51,5 +51,4 @@ public sealed class OpenApiHeaderAttribute : KestrunAnnotation
     /// Optional reference to a schema component (e.g., "HeaderSchema").
     /// </summary>
     public string? SchemaRef { get; set; }
-
 }

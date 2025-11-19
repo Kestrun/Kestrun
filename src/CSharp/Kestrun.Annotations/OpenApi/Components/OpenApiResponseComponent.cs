@@ -19,5 +19,4 @@ public sealed class OpenApiResponseComponent : KestrunAnnotation
     /// Optional default description for the response components.
     /// </summary>
     public string? Description { get; set; }
-
 }

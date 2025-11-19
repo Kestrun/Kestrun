@@ -37,5 +37,4 @@ public sealed class OpenApiResponseAttribute : KestrunAnnotation
     /// If true, the schema will be inlined rather than referenced.
     /// </summary>
     public bool Inline { get; set; }
-
 }

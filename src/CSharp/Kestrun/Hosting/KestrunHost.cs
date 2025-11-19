@@ -172,7 +172,6 @@ public class KestrunHost : IDisposable
     /// </summary>
     public System.Collections.Stack RouteGroupStack { get; } = new();
 
-
     /// <summary>
     /// Gets the registered routes in the Kestrun host.
     /// </summary>
@@ -250,8 +249,6 @@ public class KestrunHost : IDisposable
     /// Gets the OpenAPI document descriptor for configuring OpenAPI generation.
     /// </summary>
     public Dictionary<string, OpenApiDocDescriptor> OpenApiDocumentDescriptor { get; } = [];
-
-
 
     #endregion
 
@@ -469,7 +466,6 @@ public class KestrunHost : IDisposable
     }
     #endregion
 
-
     #region Health Probes
 
     /// <summary>
@@ -566,7 +562,6 @@ public class KestrunHost : IDisposable
 
     #endregion
 
-
     #region ListenerOptions
 
     /// <summary>
@@ -627,7 +622,6 @@ public class KestrunHost : IDisposable
     public void ConfigureListener(
     int port,
     bool useConnectionLogging = false) => _ = ConfigureListener(port: port, ipAddress: null, x509Certificate: null, protocols: HttpProtocols.Http1, useConnectionLogging: useConnectionLogging);
-
 
     /// <summary>
     /// Configures listeners for the Kestrun host by resolving the specified host name to IP addresses and binding to each address.
@@ -725,7 +719,6 @@ public class KestrunHost : IDisposable
     #endregion
 
     #region Configuration
-
 
     /// <summary>
     /// Validates if configuration can be applied and returns early if already configured.
@@ -1305,9 +1298,6 @@ public class KestrunHost : IDisposable
         });
     }
 
-
-
-
     /// <summary>
     /// Adds a PowerShell runtime to the application.
     /// This middleware allows you to execute PowerShell scripts in response to HTTP requests.
@@ -1498,8 +1488,6 @@ public class KestrunHost : IDisposable
 
     #endregion
 
-
-
     #region Runspace Pool Management
 
     /// <summary>
@@ -1599,9 +1587,7 @@ public class KestrunHost : IDisposable
         return runspacePool;
     }
 
-
     #endregion
-
 
     #region Disposable
 
@@ -1626,7 +1612,6 @@ public class KestrunHost : IDisposable
     #endregion
 
     #region Script Validation
-
 
     #endregion
 }

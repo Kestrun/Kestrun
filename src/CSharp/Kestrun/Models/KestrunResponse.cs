@@ -76,7 +76,6 @@ public class KestrunResponse(KestrunRequest request, int bodyAsyncThreshold = 81
     /// </summary>
     public List<string>? Cookies { get; set; } // For Set-Cookie headers
 
-
     /// <summary>
     /// Text encoding for textual MIME types.
     /// </summary>
@@ -634,8 +633,6 @@ public class KestrunResponse(KestrunRequest request, int bodyAsyncThreshold = 81
         }
     }
 
-
-
     /// <summary>
     /// Writes a binary response with the specified data, status code, and content type.
     /// </summary>
@@ -741,7 +738,6 @@ public class KestrunResponse(KestrunRequest request, int bodyAsyncThreshold = 81
       int statusCode = StatusCodes.Status500InternalServerError,
       string? contentType = null,
       string? details = null) => WriteErrorResponseAsync(message, statusCode, contentType, details).GetAwaiter().GetResult();
-
 
     /// <summary>
     /// Asynchronously writes an error response based on an exception.
@@ -938,8 +934,6 @@ public class KestrunResponse(KestrunRequest request, int bodyAsyncThreshold = 81
         return sb.ToString();
     }
 
-
-
     /// <summary>
     /// Resolves a dotted path like “Request.Path” through nested dictionaries
     /// and/or object properties (case-insensitive).
@@ -1092,7 +1086,6 @@ public class KestrunResponse(KestrunRequest request, int bodyAsyncThreshold = 81
         var template = await File.ReadAllTextAsync(filePath);
         WriteHtmlResponseAsync(template, vars, statusCode).GetAwaiter().GetResult();
     }
-
 
     /// <summary>
     /// Renders the given HTML string with placeholders and writes it as a response.

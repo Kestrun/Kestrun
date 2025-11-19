@@ -20,7 +20,6 @@ public sealed class OpenApiSchemaComponent : KestrunAnnotation
     /// </summary>
     public bool Deprecated { get; set; }
 
-
     /// <summary>
     /// Inline example object for the media type (optional). If omitted and the member has a
     /// default value, the generator will use that default as the example.
@@ -31,7 +30,6 @@ public sealed class OpenApiSchemaComponent : KestrunAnnotation
     /// Comma-separated list of required properties for this schema.
     /// </summary>
     public string? Required { get; set; }
-
 
     /// <summary>
     /// Indicates whether array items must be unique.

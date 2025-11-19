@@ -32,5 +32,4 @@ public sealed class OpenApiPath() : KestrunAnnotation
     /// Indicates whether the operation is deprecated in OpenAPI documentation.
     /// </summary>
     public bool Deprecated { get; set; }
-
 }

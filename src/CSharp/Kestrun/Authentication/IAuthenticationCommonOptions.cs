@@ -1,6 +1,5 @@
 namespace Kestrun.Authentication;
 
-
 /// <summary>
 /// Defines common options for authentication, including code validation, claim issuance, and claim policy configuration.
 /// </summary>
@@ -18,7 +17,6 @@ public interface IAuthenticationCommonOptions : IClaimsCommonOptions
     /// Gets or sets the logger used for authentication-related logging.
     /// </summary>
     Serilog.ILogger Logger { get; set; }
-
 
     /// <summary>
     /// If true, this security scheme is applied globally in OpenAPI documentation.

@@ -407,7 +407,6 @@ public static class KestrunHostAuthnExtensions
         );
     }
 
-
     /// <summary>
     /// Adds Cookie Authentication to the Kestrun host using the provided options object.
     /// </summary>
@@ -572,7 +571,6 @@ public static class KestrunHostAuthnExtensions
                 });
             });
     }
-
 
     #endregion
     #region OpenID Connect Authentication
@@ -838,7 +836,6 @@ public static class KestrunHostAuthnExtensions
         }
     }
 
-
     /// <summary>
     /// Adds API Key Authentication to the Kestrun host using the provided options object.
     /// </summary>
@@ -958,10 +955,6 @@ public static class KestrunHostAuthnExtensions
         });
     }
 
-
-
-
-
     /// <summary>
     /// Checks if the specified authentication scheme is registered in the Kestrun host.
     /// </summary>
@@ -988,8 +981,6 @@ public static class KestrunHostAuthnExtensions
             _ = cfg == null ? services.AddAuthorization() : services.AddAuthorization(cfg);
         });
     }
-
-
 
     /// <summary>
     /// Checks if the specified authorization policy is registered in the Kestrun host.
@@ -1062,9 +1053,6 @@ public static class KestrunHostAuthnExtensions
         target.EventsType = source.EventsType;
         target.ClaimsIssuer = source.ClaimsIssuer;
     }
-
-
-
 
     /// <summary>
     /// HTTP message handler that logs all HTTP requests and responses for debugging.

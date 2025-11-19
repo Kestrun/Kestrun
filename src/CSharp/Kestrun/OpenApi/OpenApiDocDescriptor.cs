@@ -2725,7 +2725,6 @@ public class OpenApiDocDescriptor
                     pmtr.Schema = ps;
                 }
 
-
             }
 
             routeOptions.OpenAPI.Add(parsedVerb, openApiAttr);

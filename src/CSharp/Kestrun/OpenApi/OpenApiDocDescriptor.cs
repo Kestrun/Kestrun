@@ -2504,7 +2504,6 @@ public class OpenApiDocDescriptor
                     {
                         parsedVerb = HttpVerbExtensions.FromMethodString(httpVerb);
                         routeOptions.HttpVerbs.Add(parsedVerb);
-
                     }
 
                     // Pattern

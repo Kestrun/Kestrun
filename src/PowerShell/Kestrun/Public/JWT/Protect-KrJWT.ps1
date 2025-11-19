@@ -101,7 +101,6 @@ function Protect-KrJWT {
                 $Builder.SignWithJwkJson($json, $algEnum) | Out-Null
                 break
             }
-
         }
         return $Builder
     }

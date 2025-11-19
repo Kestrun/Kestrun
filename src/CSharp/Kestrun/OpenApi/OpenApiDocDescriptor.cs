@@ -516,7 +516,6 @@ public class OpenApiDocDescriptor
                     }
                 }
             }
-
         }
 
         // Create an instance to capture default-initialized property values

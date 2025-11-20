@@ -50,7 +50,8 @@ public class ApiKeyAuthHandler
                 Options.Logger.Debug("Handling API Key authentication for request: {Request}", Request);
             }
 
-            if (Options.AllowInsecureHttp && !Request.IsHttps)
+            // If insecure HTTP is NOT allowed and the request is not HTTPS, fail.
+            if (!Options.AllowInsecureHttp && !Request.IsHttps)
             {
                 return Fail("HTTPS required");
             }

@@ -117,7 +117,7 @@ public class BasicAuthHandler : AuthenticationHandler<BasicAuthenticationOptions
     {
         return Options.ValidateCredentialsAsync is null
             ? Fail("No credentials validation function provided")
-            : Options.AllowInsecureHttp && !Request.IsHttps ? Fail("HTTPS required") : null;
+            : (!Options.AllowInsecureHttp && !Request.IsHttps) ? Fail("HTTPS required") : null;
     }
 
     /// <summary>

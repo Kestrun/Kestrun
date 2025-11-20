@@ -1,4 +1,4 @@
-﻿<#
+<#
 .SYNOPSIS
     Loads OpenAPI-annotated PowerShell functions into a KestrunHost instance.
 .DESCRIPTION

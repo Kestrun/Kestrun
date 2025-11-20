@@ -1,4 +1,4 @@
-﻿#requires -Module Kestrun
+#requires -Module Kestrun
 param(
     [int]$Port = 5000,
     [IPAddress]$IPAddress = [IPAddress]::Loopback

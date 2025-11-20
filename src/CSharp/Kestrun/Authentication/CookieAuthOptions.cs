@@ -112,7 +112,4 @@ public class CookieAuthOptions : CookieAuthenticationOptions, IAuthenticationCom
         target.EventsType = EventsType;
         target.ClaimsIssuer = ClaimsIssuer;
     }
-
-
-
 }

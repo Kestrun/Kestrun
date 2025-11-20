@@ -315,7 +315,10 @@ class MyLinks {
     [OpenApiLinkAttribute( MapKey = 'id', MapValue = '$response.body#/id' )]
     $GetUserByIdLink2
 }
-
+Add-KrBasicAuthentication -Name 'PowershellBasic' -Realm 'Demo' -AllowInsecureHttp -ScriptBlock {
+    param($Username, $Password)
+    $Username -eq 'admin' -and $Password -eq 'password'
+}
 
 # 3. Add loopback listener on port 5000 (auto unlinks existing file if present)
 # This listener will be used to demonstrate server limits configuration.

@@ -140,6 +140,5 @@ public class OAuth2Options : OAuthOptions, IOpenApiAuthenticationOptions, IAuthe
         // Other properties
         target.StateDataFormat = StateDataFormat;
 
-
     }
 }

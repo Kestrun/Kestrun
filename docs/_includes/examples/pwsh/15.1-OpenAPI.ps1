@@ -328,6 +328,15 @@ New-KrCookieBuilder -Name 'KestrunAuth' -HttpOnly -SecurePolicy Always -SameSite
     Add-KrCookiesAuthentication -Name 'Cookies' -LoginPath '/cookies/login' -LogoutPath '/cookies/logout' -AccessDeniedPath '/cookies/denied' `
         -SlidingExpiration -ExpireTimeSpan (New-TimeSpan -Minutes 30)
 
+if (([string]::IsNullOrWhiteSpace( $ClientId)) -and
+    ([string]::IsNullOrWhiteSpace( $ClientSecret)) -and
+    (Test-Path -Path .\Utility\Import-EnvFile.ps1)) {
+    & .\Utility\Import-EnvFile.ps1
+    $ClientId = $env:GITHUB_CLIENT_ID
+    $ClientSecret = $env:GITHUB_CLIENT_SECRET
+}
+Add-KrGitHubAuthentication -Name 'GitHub' -ClientId $ClientId -ClientSecret $ClientSecret -CallbackPath $CallbackPath
+
 # 6. Build JWT configuration
 $jwtBuilder = New-KrJWTBuilder |
     Add-KrJWTIssuer -Issuer 'KestrunApi' |

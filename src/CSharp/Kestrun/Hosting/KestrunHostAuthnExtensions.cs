@@ -32,26 +32,26 @@ public static class KestrunHostAuthnExtensions
     public static KestrunHost AddBasicAuthentication(
     this KestrunHost host,
     string scheme = "Basic",
-    string displayName = "Basic Authentication",
+    string? displayName = "Basic Authentication",
     Action<BasicAuthenticationOptions>? configure = null
     )
     {
+        // Build a prototype options instance (single source of truth)
+        var prototype = new BasicAuthenticationOptions { Host = host };
+
+        // Let the caller mutate the prototype
+        configure?.Invoke(prototype);
+
+        // Configure validators / claims / OpenAPI on the prototype
+        ConfigureBasicAuthValidators(host, prototype);
+        ConfigureBasicIssueClaims(host, prototype);
+        ConfigureOpenApi(host, scheme, prototype);
         // register in host for introspection
         _ = host.RegisteredAuthentications.Register(scheme, "Basic", configure);
         var h = host.AddAuthentication(
            defaultScheme: scheme,
            buildSchemes: ab =>
            {
-               // Build a prototype options instance (single source of truth)
-               var prototype = new BasicAuthenticationOptions { Host = host };
-
-               // Let the caller mutate the prototype
-               configure?.Invoke(prototype);
-
-               // Configure validators / claims / OpenAPI on the prototype
-               ConfigureBasicAuthValidators(host, prototype);
-               ConfigureBasicIssueClaims(host, prototype);
-               ConfigureOpenApi(host, scheme, prototype);
                _ = ab.AddScheme<BasicAuthenticationOptions, BasicAuthHandler>(
                    authenticationScheme: scheme,
                    displayName: displayName,
@@ -88,7 +88,7 @@ public static class KestrunHostAuthnExtensions
     public static KestrunHost AddBasicAuthentication(
         this KestrunHost host,
         string scheme,
-        string displayName,
+        string? displayName,
         BasicAuthenticationOptions configure
         )
     {
@@ -220,6 +220,7 @@ public static class KestrunHostAuthnExtensions
     /// </summary>
     /// <param name="host">The Kestrun host instance.</param>
     /// <param name="scheme">Base scheme name (e.g. "GitHub").</param>
+    /// <param name="displayName">The display name for the authentication scheme.</param>
     /// <param name="clientId">GitHub OAuth App Client ID.</param>
     /// <param name="clientSecret">GitHub OAuth App Client Secret.</param>
     /// <param name="callbackPath">The callback path for OAuth redirection (e.g. "/signin-github").</param>
@@ -227,6 +228,7 @@ public static class KestrunHostAuthnExtensions
     public static KestrunHost AddGitHubOAuthAuthentication(
         this KestrunHost host,
         string scheme,
+        string? displayName,
         string clientId,
         string clientSecret,
         string callbackPath)
@@ -241,7 +243,7 @@ public static class KestrunHostAuthnExtensions
                 await EnrichGitHubEmailClaimAsync(context, host);
             }
         };
-        return host.AddOAuth2Authentication(scheme, opts);
+        return host.AddOAuth2Authentication(scheme, displayName, opts);
     }
 
     /// <summary>
@@ -445,7 +447,7 @@ public static class KestrunHostAuthnExtensions
     public static KestrunHost AddJwtBearerAuthentication(
       this KestrunHost host,
       string authenticationScheme,
-      string displayName,
+      string? displayName,
       Action<JwtAuthOptions> configureOptions)
     {
         // Build a prototype options instance (single source of truth)
@@ -483,7 +485,7 @@ public static class KestrunHostAuthnExtensions
     public static KestrunHost AddJwtBearerAuthentication(
          this KestrunHost host,
          string authenticationScheme,
-         string displayName,
+         string? displayName,
          JwtAuthOptions configureOptions)
     {
         if (host.Logger.IsEnabled(LogEventLevel.Debug))
@@ -500,8 +502,6 @@ public static class KestrunHostAuthnExtensions
         {
             configureOptions.Host = host;
         }
-        // register in host for introspection
-        _ = host.RegisteredAuthentications.Register(authenticationScheme, "JwtBearer", configureOptions);
 
         return host.AddJwtBearerAuthentication(
             authenticationScheme: authenticationScheme,
@@ -512,7 +512,7 @@ public static class KestrunHostAuthnExtensions
                   configureOptions.ApplyTo(opts);
                   host.Logger.Debug(
                            "Configured JWT Authentication using scheme {Scheme}  )",
-                           authenticationScheme );
+                           authenticationScheme);
               }
             );
     }
@@ -531,7 +531,7 @@ public static class KestrunHostAuthnExtensions
     public static KestrunHost AddCookieAuthentication(
         this KestrunHost host,
         string authenticationScheme = CookieAuthenticationDefaults.AuthenticationScheme,
-        string displayName = "Cookie Authentication",
+        string? displayName = "Cookie Authentication",
         Action<CookieAuthOptions>? configureOptions = null,
      ClaimPolicyConfig? claimPolicy = null)
     {
@@ -575,7 +575,7 @@ public static class KestrunHostAuthnExtensions
     public static KestrunHost AddCookieAuthentication(
           this KestrunHost host,
           string authenticationScheme,
-          string displayName,
+          string? displayName,
           CookieAuthOptions configureOptions,
        ClaimPolicyConfig? claimPolicy = null)
     {
@@ -664,7 +664,7 @@ public static class KestrunHostAuthnExtensions
     public static KestrunHost AddApiKeyAuthentication(
     this KestrunHost host,
     string scheme = "ApiKey",
-    string displayName = "API Key",
+    string? displayName = "API Key",
     Action<ApiKeyAuthenticationOptions>? configure = null)
     {
         // Build a prototype options instance (single source of truth)
@@ -724,7 +724,7 @@ public static class KestrunHostAuthnExtensions
     public static KestrunHost AddApiKeyAuthentication(
     this KestrunHost host,
     string scheme,
-    string displayName,
+    string? displayName,
     ApiKeyAuthenticationOptions configure)
     {
         if (host.Logger.IsEnabled(LogEventLevel.Debug))
@@ -852,41 +852,85 @@ public static class KestrunHostAuthnExtensions
     #endregion
 
     #region OAuth2 Authentication
+
     /// <summary>
     /// Adds OAuth2 authentication to the Kestrun host.
     /// <para>Use this for applications that require OAuth2 authentication.</para>
     /// </summary>
     /// <param name="host">The Kestrun host instance.</param>
-    /// <param name="scheme">The authentication scheme name.</param>
-    /// <param name="options">The OAuth2Options to configure the authentication.</param>
+    /// <param name="authenticationScheme">The authentication scheme name.</param>
+    /// <param name="displayName">The display name for the authentication scheme.</param>
+    /// <param name="configureOptions">The OAuth2Options to configure the authentication.</param>
+    /// <returns>The configured KestrunHost instance.</returns>
+    public static KestrunHost AddOAuth2Authentication(
+      this KestrunHost host,
+      string authenticationScheme,
+      string? displayName,
+          Action<OAuth2Options> configureOptions)
+    {
+        var prototype = new OAuth2Options { Host = host };
+        configureOptions?.Invoke(prototype);
+        ConfigureOpenApi(host, authenticationScheme, prototype);
+
+        // register in host for introspection
+        _ = host.RegisteredAuthentications.Register(authenticationScheme, "OAuth2", configureOptions);
+        return host.AddAuthentication(
+            defaultScheme: authenticationScheme,
+            defaultChallengeScheme: displayName,
+            buildSchemes: ab =>
+            {
+                _ = ab.AddCookie(authenticationScheme, cookieOpts =>
+                {
+                    prototype.CookieOptions.ApplyTo(cookieOpts);
+                });
+                _ = ab.AddOAuth(authenticationScheme, oauthOpts =>
+                {
+                    prototype.ApplyTo(oauthOpts);
+                });
+            });
+    }
+    /// <summary>
+    /// Adds OAuth2 authentication to the Kestrun host.
+    /// <para>Use this for applications that require OAuth2 authentication.</para>
+    /// </summary>
+    /// <param name="host">The Kestrun host instance.</param>
+    /// <param name="authenticationScheme">The authentication scheme name.</param>
+    /// <param name="displayName">The display name for the authentication scheme.</param>
+    /// <param name="configureOptions">The OAuth2Options to configure the authentication.</param>
     /// <returns>The configured KestrunHost instance.</returns>
     public static KestrunHost AddOAuth2Authentication(
         this KestrunHost host,
-        string scheme,
-        OAuth2Options options)
+        string authenticationScheme,
+        string? displayName,
+        OAuth2Options configureOptions)
     {
-        ArgumentNullException.ThrowIfNull(options);
-        if (string.IsNullOrWhiteSpace(options.ClientId))
+        if (host.Logger.IsEnabled(LogEventLevel.Debug))
         {
-            throw new ArgumentException("ClientId must be provided in OAuth2Options", nameof(options));
+            host.Logger.Debug("Adding OAuth2 Authentication with scheme: {Scheme}", authenticationScheme);
         }
-        // register in host for introspection
-        _ = host.RegisteredAuthentications.Register(scheme, "OAuth2", options);
-
+        // Ensure the scheme is not null
+        ArgumentNullException.ThrowIfNull(host);
+        ArgumentNullException.ThrowIfNull(authenticationScheme);
+        ArgumentNullException.ThrowIfNull(configureOptions);
+        if (string.IsNullOrWhiteSpace(configureOptions.ClientId))
+        {
+            throw new ArgumentException("ClientId must be provided in OAuth2Options", nameof(configureOptions));
+        }
+        // Ensure host is set
+        if (configureOptions.Host != host)
+        {
+            configureOptions.Host = host;
+        }
         // Add authentication
-        return host.AddAuthentication(
-            defaultScheme: options.AuthenticationScheme,
-            defaultChallengeScheme: scheme,
-            buildSchemes: ab =>
+        return host.AddOAuth2Authentication(
+                  authenticationScheme: authenticationScheme,
+              displayName: displayName,
+              configureOptions: opts =>
             {
-                _ = ab.AddCookie(options.AuthenticationScheme, cookieOpts =>
-                {
-                    options.CookieOptions.ApplyTo(cookieOpts);
-                });
-                _ = ab.AddOAuth(scheme, oauthOpts =>
-                {
-                    options.ApplyTo(oauthOpts);
-                });
+                configureOptions.ApplyTo(opts);
+                host.Logger.Debug(
+                        "Configured OAuth2 Authentication using scheme {Scheme}  )",
+                        authenticationScheme);
             });
     }
 

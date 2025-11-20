@@ -16,6 +16,11 @@ public class OAuth2Options : OAuthOptions, IOpenApiAuthenticationOptions, IAuthe
     /// </summary>
     public CookieAuthOptions CookieOptions { get; }
 
+    /// <summary>
+    /// The OAuth2 flow type.
+    /// </summary>
+    public OAuthFlowType Flow { get; set; } = OAuthFlowType.AuthorizationCode;
+
     /// <inheritdoc/>
     public bool GlobalScheme { get; set; }
 
@@ -60,12 +65,14 @@ public class OAuth2Options : OAuthOptions, IOpenApiAuthenticationOptions, IAuthe
     public void ApplyTo(OAuth2Options target)
     {
         ApplyTo((OAuthOptions)target);
+        CookieOptions.ApplyTo(target.CookieOptions);
         // OpenAPI / documentation properties
         target.GlobalScheme = GlobalScheme;
         target.Description = Description;
         target.DisplayName = DisplayName;
         target.DocumentationId = DocumentationId;
         target.Host = Host;
+        target.Flow = Flow;
     }
 
     /// <summary>

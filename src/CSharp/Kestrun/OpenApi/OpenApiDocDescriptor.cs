@@ -2728,11 +2728,46 @@ public class OpenApiDocDescriptor
             BasicAuthenticationOptions basicOptions => GetSecurityScheme(basicOptions),
             CookieAuthOptions cookieOptions => GetSecurityScheme(cookieOptions),
             JwtAuthOptions jwtOptions => GetSecurityScheme(jwtOptions),
+            OAuth2Options oauth2Options => GetSecurityScheme(oauth2Options),
             _ => throw new NotSupportedException($"Unsupported authentication options type: {options.GetType().FullName}"),
         };
         AddSecurityComponent(scheme: scheme, globalScheme: options.GlobalScheme, securityScheme: securityScheme);
     }
 
+    /// <summary>
+    /// Gets the OpenAPI security scheme for OAuth2 authentication.
+    /// </summary>
+    /// <param name="options">The OAuth2 authentication options.</param>
+    /// <returns></returns>
+    private static OpenApiSecurityScheme GetSecurityScheme(OAuth2Options options)
+    {
+        // Build OAuth flows
+        var flows = new OpenApiOAuthFlows();
+        // Client Credentials flow
+        if (options.Flow == OAuthFlowType.ClientCredentials)
+        {
+            flows.ClientCredentials = new OpenApiOAuthFlow
+            {
+                TokenUrl = new Uri(options.TokenEndpoint, UriKind.Absolute),
+                Scopes = options.Scope.ToDictionary(s => s, s => s)
+            };
+        }
+        else // Authorization Code flow
+        {
+            flows.AuthorizationCode = new OpenApiOAuthFlow
+            {
+                AuthorizationUrl = new Uri(options.AuthorizationEndpoint, UriKind.Absolute),
+                TokenUrl = new Uri(options.TokenEndpoint, UriKind.Absolute),
+                Scopes = options.Scope.ToDictionary(s => s, s => s)
+            };
+        }
+        return new OpenApiSecurityScheme()
+        {
+            Type = SecuritySchemeType.OAuth2,
+            Flows = flows,
+            Description = options.Description
+        };
+    }
     /// <summary>
     /// Gets the OpenAPI security scheme for API key authentication.
     /// </summary>

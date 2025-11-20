@@ -35,7 +35,7 @@ public class JwtAuthOptions : JwtBearerOptions, IOpenApiAuthenticationOptions, I
     /// <summary>
     /// Configuration for claim policy enforcement.
     /// </summary>
-    public ClaimPolicyConfig? ClaimPolicy { get;  set; }
+    public ClaimPolicyConfig? ClaimPolicy { get; set; }
 
     /// <summary>
     /// Helper to copy values from a user-supplied JwtBearerOptions instance to the instance

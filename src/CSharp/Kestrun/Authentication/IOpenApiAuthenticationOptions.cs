@@ -20,5 +20,4 @@ public interface IOpenApiAuthenticationOptions
     /// </summary>
     string[] DocumentationId { get; set; }
 
-
 }

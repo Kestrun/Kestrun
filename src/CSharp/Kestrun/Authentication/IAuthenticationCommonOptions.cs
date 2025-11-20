@@ -12,5 +12,4 @@ public interface IAuthenticationCommonOptions : IClaimsCommonOptions, IAuthentic
     /// This allows you to specify the language, code, and additional imports/refs.
     /// </remarks>
     AuthenticationCodeSettings ValidateCodeSettings { get; set; }
-
 }

@@ -171,11 +171,11 @@ Add-KrWindowsAuthentication
 
 
 
-Add-KrApiKeyAuthentication -Name $ApiKeySimple -AllowInsecureHttp -HeaderName 'X-Api-Key' -ExpectedKey 'my-secret-api-key'
+Add-KrApiKeyAuthentication -Name $ApiKeySimple -AllowInsecureHttp -ApiKeyName 'X-Api-Key' -ExpectedKey 'my-secret-api-key'
 
 
 
-Add-KrApiKeyAuthentication -Name $ApiKeyPowerShell -AllowInsecureHttp -HeaderName 'X-Api-Key' -ScriptBlock {
+Add-KrApiKeyAuthentication -Name $ApiKeyPowerShell -AllowInsecureHttp -ApiKeyName 'X-Api-Key' -ScriptBlock {
     param(
         [string]$ProvidedKey
     )
@@ -195,13 +195,13 @@ Add-KrApiKeyAuthentication -Name $ApiKeyPowerShell -AllowInsecureHttp -HeaderNam
 '@ -ClaimPolicyConfig $claimConfig -Logger $logger
 
 
-Add-KrApiKeyAuthentication -Name $ApiKeyCSharp -AllowInsecureHttp -HeaderName 'X-Api-Key' -Code @'
+Add-KrApiKeyAuthentication -Name $ApiKeyCSharp -AllowInsecureHttp -ApiKeyName 'X-Api-Key' -Code @'
     return FixedTimeEquals.Test(providedKeyBytes, "my-secret-api-key");
     // or use a simple string comparison:
     //return providedKey == "my-secret-api-key";
 '@
 
-Add-KrApiKeyAuthentication -Name $ApiKeyVBNet -AllowInsecureHttp -HeaderName 'X-Api-Key' -Code @'
+Add-KrApiKeyAuthentication -Name $ApiKeyVBNet -AllowInsecureHttp -ApiKeyName 'X-Api-Key' -Code @'
     Return FixedTimeEquals.Test(providedKeyBytes, "my-secret-api-key")
     ' or use a simple string comparison:
     ' Return providedKey = "my-secret-api-key"

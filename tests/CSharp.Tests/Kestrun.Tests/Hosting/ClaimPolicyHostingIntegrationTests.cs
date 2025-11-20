@@ -68,7 +68,7 @@ public class ClaimPolicyHostingIntegrationTests
             configure: opts =>
             {
                 opts.AllowInsecureHttp = false;
-                opts.ExpectedKey = "ignored-for-test";
+                opts.StaticApiKey = "ignored-for-test";
                 opts.ClaimPolicyConfig = cfg;
             });
 

@@ -1,4 +1,5 @@
 
+using Kestrun.Hosting;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.OAuth;
@@ -8,19 +9,37 @@ namespace Kestrun.Authentication;
 /// <summary>
 /// Options for OAuth2 authentication.
 /// </summary>
-public class OAuth2Options : OAuthOptions
+public class OAuth2Options : OAuthOptions, IOpenApiAuthenticationOptions, IAuthenticationHostOptions
 {
     /// <summary>
     /// Options for cookie authentication.
     /// </summary>
-    public CookieAuthenticationOptions CookieOptions { get; }
+    public CookieAuthOptions CookieOptions { get; }
+
+    /// <inheritdoc/>
+    public bool GlobalScheme { get; set; }
+
+    /// <inheritdoc/>
+    public string? Description { get; set; }
+
+    /// <inheritdoc/>
+    public string? DisplayName { get; set; }
+
+    /// <inheritdoc/>
+    public string[] DocumentationId { get; set; } = [];
+
+    /// <inheritdoc/>
+    public KestrunHost Host { get; set; } = default!;
+
+    /// <inheritdoc/>
+    public Serilog.ILogger Logger => Host.Logger;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="OAuth2Options"/> class.
     /// </summary>
     public OAuth2Options()
     {
-        CookieOptions = new CookieAuthenticationOptions
+        CookieOptions = new CookieAuthOptions()
         {
             SlidingExpiration = true
         };
@@ -31,6 +50,23 @@ public class OAuth2Options : OAuthOptions
     public string AuthenticationScheme => CookieOptions.Cookie.Name is not null
             ? CookieOptions.Cookie.Name
             : CookieAuthenticationDefaults.AuthenticationScheme;
+
+    /// <summary>
+    /// Helper to copy values from a user-supplied OAuth2Options instance to the instance
+    /// created by the framework inside AddOAuth(). Reassigning the local variable (opts = source) would
+    /// not work because only the local reference changes – the framework keeps the original instance.
+    /// </summary>
+    /// <param name="target">The target OAuth2Options instance to copy values to.</param>
+    public void ApplyTo(OAuth2Options target)
+    {
+        ApplyTo((OAuthOptions)target);
+        // OpenAPI / documentation properties
+        target.GlobalScheme = GlobalScheme;
+        target.Description = Description;
+        target.DisplayName = DisplayName;
+        target.DocumentationId = DocumentationId;
+        target.Host = Host;
+    }
 
     /// <summary>
     /// Apply these options to the target <see cref="OAuthOptions"/> instance.
@@ -103,5 +139,7 @@ public class OAuth2Options : OAuthOptions
 
         // Other properties
         target.StateDataFormat = StateDataFormat;
+
+
     }
 }

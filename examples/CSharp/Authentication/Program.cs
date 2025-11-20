@@ -149,7 +149,7 @@ server.AddResponseCompression(options =>
 .AddPowerShellRuntime()
 
 /// ── BASIC AUTHENTICATION – POWERSHELL CODE ─────────────────────────────
-.AddBasicAuthentication(BasicPowershellScheme, opts =>
+.AddBasicAuthentication(BasicPowershellScheme, "PowerShell Basic Authentication", opts =>
 {
     opts.Realm = "Power-Kestrun";
 
@@ -241,7 +241,7 @@ server.AddResponseCompression(options =>
 )
 
 /// ── BASIC AUTHENTICATION – NATIVE C# CODE ──────────────────────────────
-   .AddBasicAuthentication(BasicNativeScheme, opts =>
+   .AddBasicAuthentication(BasicNativeScheme, "Native Basic Authentication", opts =>
    {
        opts.Realm = "Native-Kestrun";
        opts.ValidateCredentialsAsync = async (_, username, password) =>
@@ -277,7 +277,7 @@ server.AddResponseCompression(options =>
    })
 
 /// ── BASIC AUTHENTICATION – C# CODE ────────────────────────────────────
-   .AddBasicAuthentication(BasicCSharpScheme, opts =>
+   .AddBasicAuthentication(BasicCSharpScheme, "CSharp Basic Authentication", opts =>
    {
        opts.Realm = "CSharp-Kestrun";
        opts.ValidateCodeSettings = new AuthenticationCodeSettings
@@ -291,7 +291,7 @@ server.AddResponseCompression(options =>
    }
    )
 /// ── BASIC AUTHENTICATION – C# CODE ────────────────────────────────────
-   .AddBasicAuthentication(BasicVBNetScheme, opts =>
+   .AddBasicAuthentication(BasicVBNetScheme, "VBNet Basic Authentication", opts =>
    {
        opts.Realm = "VBNet-Kestrun";
        opts.ValidateCodeSettings = new AuthenticationCodeSettings
@@ -329,16 +329,16 @@ server.AddResponseCompression(options =>
    .AddWindowsAuthentication()
 
 /// ── API KEY AUTHENTICATION – SIMPLE STRING MATCHING ────────────────────
-   .AddApiKeyAuthentication(ApiKeySimple, opts =>
+   .AddApiKeyAuthentication(ApiKeySimple, "Simple API Key Authentication", opts =>
    {
-       opts.HeaderName = "X-Api-Key";
-       opts.ExpectedKey = "my-secret-api-key";
+       opts.ApiKeyName = "X-Api-Key";
+       opts.StaticApiKey = "my-secret-api-key";
    })
 
 /// ── API KEY AUTHENTICATION – POWERSHELL CODE ───────────────────────────
-   .AddApiKeyAuthentication(ApiKeyPowerShell, opts =>
+   .AddApiKeyAuthentication(ApiKeyPowerShell, "PowerShell API Key Authentication", opts =>
    {
-       opts.HeaderName = "X-Api-Key";
+       opts.ApiKeyName = "X-Api-Key";
        opts.ValidateCodeSettings = new AuthenticationCodeSettings
        {
            Language = ScriptLanguage.PowerShell,
@@ -379,9 +379,9 @@ server.AddResponseCompression(options =>
        opts.ClaimPolicyConfig = claimConfig;
    })
 /// ── API KEY AUTHENTICATION – C# CODE ───────────────────────────────────
-   .AddApiKeyAuthentication(ApiKeyCSharp, opts =>
+   .AddApiKeyAuthentication(ApiKeyCSharp, "CSharp API Key Authentication", opts =>
    {
-       opts.HeaderName = "X-Api-Key";
+       opts.ApiKeyName = "X-Api-Key";
        opts.ValidateCodeSettings = new AuthenticationCodeSettings
        {
            Language = ScriptLanguage.CSharp,
@@ -393,9 +393,9 @@ server.AddResponseCompression(options =>
            ExtraImports = ["System.Text"]
        };
    })
-   .AddApiKeyAuthentication(ApiKeyVBNet, opts =>
+   .AddApiKeyAuthentication(ApiKeyVBNet, "VBNet API Key Authentication", opts =>
    {
-       opts.HeaderName = "X-Api-Key";
+       opts.ApiKeyName = "X-Api-Key";
        opts.ValidateCodeSettings = new AuthenticationCodeSettings
        {
            Language = ScriptLanguage.VBNet,

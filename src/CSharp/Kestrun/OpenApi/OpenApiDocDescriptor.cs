@@ -12,6 +12,7 @@ using Kestrun.Utilities;
 using Microsoft.OpenApi.Reader;
 using System.Text;
 using System.Management.Automation;
+using Kestrun.Authentication;
 
 namespace Kestrun.OpenApi;
 
@@ -2713,51 +2714,79 @@ public class OpenApiDocDescriptor
     }
 
     /// <summary>
-    /// Applies an API key security scheme to the OpenAPI document.
+    /// Applies a security scheme to the OpenAPI document based on the provided authentication options.
     /// </summary>
-    /// <param name="name">The name of the security scheme.</param>
-    /// <param name="options">The API key authentication options.</param>
-    public void ApplyApiKeySecurityScheme(string name, Authentication.ApiKeyAuthenticationOptions options)
+    /// <param name="scheme">The name of the security scheme.</param>
+    /// <param name="options">The authentication options.</param>
+    /// <exception cref="NotSupportedException">Thrown when the authentication options type is not supported.</exception>
+    internal void ApplySecurityScheme(string scheme, IOpenApiAuthenticationOptions options)
     {
         Document.Components ??= new OpenApiComponents();
-        string? description;
-        if (options.Description is not null)
+        var securityScheme = options switch
         {
-            description = options.Description;
-        }
-        else
-        {
-            description = options.AllowQueryStringFallback
-              ? "API key can also be provided in the query string as a fallback."
-              : null;
-            if (options.AllowInsecureHttp)
-            {
-                description = (description is null ? "" : description + " ") + "(Insecure HTTP allowed)";
-            }
-        }
-        _ = Document.AddComponent(name, new OpenApiSecurityScheme()
+            ApiKeyAuthenticationOptions apiKeyOptions => GetSecurityScheme(apiKeyOptions),
+            BasicAuthenticationOptions basicOptions => GetSecurityScheme(basicOptions),
+            _ => throw new NotSupportedException($"Unsupported authentication options type: {options.GetType().FullName}"),
+        };
+        AddSecurityComponent(scheme: scheme, globalScheme: options.GlobalScheme, securityScheme: securityScheme);
+    }
+
+    /// <summary>
+    /// Gets the OpenAPI security scheme for API key authentication.
+    /// </summary>
+    /// <param name="options">The API key authentication options.</param>
+    internal OpenApiSecurityScheme GetSecurityScheme(ApiKeyAuthenticationOptions options)
+    {
+        return new OpenApiSecurityScheme()
         {
             Type = SecuritySchemeType.ApiKey,
-            Name = options.HeaderName,
-            In = ParameterLocation.Header,
-            Description = description
-        });
+            Name = options.ApiKeyName,
+            In = options.In,
+            Description = options.Description
+        };
+    }
+
+    /// <summary>
+    ///  Gets the OpenAPI security scheme for basic authentication.
+    /// </summary>
+    /// <param name="options">The basic authentication options.</param>
+    internal OpenApiSecurityScheme GetSecurityScheme(BasicAuthenticationOptions options)
+    {
+        return new OpenApiSecurityScheme()
+        {
+            Type = SecuritySchemeType.Http,
+            Scheme = "basic",
+            Description = options.Description
+        };
+    }
+
+    /// <summary>
+    /// Adds a security component to the OpenAPI document.
+    /// </summary>
+    /// <param name="scheme">The name of the security component.</param>
+    /// <param name="globalScheme">Indicates whether the security scheme should be applied globally.</param>
+    /// <param name="securityScheme">The security scheme to add.</param>
+    private void AddSecurityComponent(string scheme, bool globalScheme, OpenApiSecurityScheme securityScheme)
+    {
+        _ = Document.AddComponent(scheme, securityScheme);
 
         // Reference it by NAME in the requirement (no .Reference in v2)
         var requirement = new OpenApiSecurityRequirement
         {
             {
-                new OpenApiSecuritySchemeReference(name,Document), new List<string>()
+                new OpenApiSecuritySchemeReference(scheme,Document), new List<string>()
             }
         };
-        SecurityRequirement.Add(name, requirement);
+        SecurityRequirement.Add(scheme, requirement);
 
         // Apply globally if specified
-        if (options.GlobalScheme)
+        if (globalScheme)
         {
             // Apply globally
             Document.Security ??= [];
             Document.Security.Add(requirement);
         }
     }
+
+
 }

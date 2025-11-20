@@ -97,7 +97,7 @@ public class KestrunHostMapExtensionsTests
     {
         var host = new KestrunHost("TestApp", AppContext.BaseDirectory);
         // Ensure auth services exist so HasAuthScheme can resolve provider
-        _ = host.AddBasicAuthentication("InitAuth", _ => { });
+        _ = host.AddBasicAuthentication("InitAuth","Init Basic Authentication", _ => { });
         host.EnableConfiguration();
 
         var options = new MapRouteOptions
@@ -122,7 +122,7 @@ public class KestrunHostMapExtensionsTests
         var host = new KestrunHost("TestApp", AppContext.BaseDirectory);
 
         // Register a basic auth scheme
-        _ = host.AddBasicAuthentication("BasicX", _ => { });
+        _ = host.AddBasicAuthentication("BasicX","BasicX Basic Authentication", _ => { });
         host.EnableConfiguration();
 
         var options = new MapRouteOptions

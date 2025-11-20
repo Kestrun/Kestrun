@@ -1,3 +1,4 @@
+using Kestrun.Hosting;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.OpenIdConnect;
@@ -7,12 +8,12 @@ namespace Kestrun.Authentication;
 /// <summary>
 /// Options for OpenID Connect authentication.
 /// </summary>
-public class OidcOptions : OpenIdConnectOptions
+public class OidcOptions : OpenIdConnectOptions, IOpenApiAuthenticationOptions, IAuthenticationHostOptions
 {
     /// <summary>
     /// Options for cookie authentication.
     /// </summary>
-    public CookieAuthenticationOptions CookieOptions { get; }
+    public CookieAuthOptions CookieOptions { get; }
 
     /// <summary>
     /// JSON Web Key (JWK) for token validation.
@@ -26,12 +27,30 @@ public class OidcOptions : OpenIdConnectOptions
     public string PushedAuthorizationBehavior { get; set; } = "Disable";
 #endif
 
+    /// <inheritdoc/>
+    public bool GlobalScheme { get; set; }
+
+    /// <inheritdoc/>
+    public string? Description { get; set; }
+
+    /// <inheritdoc/>
+    public string? DisplayName { get; set; }
+
+    /// <inheritdoc/>
+    public string[] DocumentationId { get; set; } = [];
+
+    /// <inheritdoc/>
+    public KestrunHost Host { get; set; } = default!;
+
+    /// <inheritdoc/>
+    public Serilog.ILogger Logger => Host.Logger;
+
     /// <summary>
     /// Initializes a new instance of the <see cref="OidcOptions"/> class.
     /// </summary>
     public OidcOptions()
     {
-        CookieOptions = new CookieAuthenticationOptions
+        CookieOptions = new CookieAuthOptions()
         {
             SlidingExpiration = true
         };
@@ -53,6 +72,12 @@ public class OidcOptions : OpenIdConnectOptions
     {
         ApplyTo((OpenIdConnectOptions)target);
         target.JwkJson = JwkJson;
+        // OpenAPI / documentation properties
+        target.GlobalScheme = GlobalScheme;
+        target.Description = Description;
+        target.DisplayName = DisplayName;
+        target.DocumentationId = DocumentationId;
+        target.Host = Host;
     }
 
     /// <summary>

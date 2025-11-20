@@ -22,11 +22,11 @@ public class ApiKeyAuthHandlerTest
     {
         return new ApiKeyAuthenticationOptions
         {
-            HeaderName = headerName,
-            ExpectedKey = expectedKey,
+            ApiKeyName = headerName,
+            StaticApiKey = expectedKey,
             AllowInsecureHttp = allowInsecureHttp,
             AllowQueryStringFallback = allowQueryStringFallback,
-            Logger = new LoggerConfiguration().MinimumLevel.Debug().CreateLogger(),
+            Host = new KestrunHost("Tests", new LoggerConfiguration().MinimumLevel.Error().CreateLogger()),
             AdditionalHeaderNames = [],
             EmitChallengeHeader = true,
             ChallengeHeaderFormat = ApiKeyChallengeFormat.HeaderOnly

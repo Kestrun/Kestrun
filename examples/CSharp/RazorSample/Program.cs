@@ -54,7 +54,7 @@ server.AddResponseCompression(options =>
     options.Providers.Add<BrotliCompressionProvider>();
 }).AddPowerShellRuntime()
 
-.AddBasicAuthentication(BasicPowershellScheme, opts =>
+.AddBasicAuthentication(BasicPowershellScheme,"PowerShell Basic Authentication", opts =>
 {
     opts.Realm = "Power-Kestrun";
 

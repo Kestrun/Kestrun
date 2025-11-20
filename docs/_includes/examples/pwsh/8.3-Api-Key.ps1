@@ -19,13 +19,13 @@ Add-KrEndpoint -Port $Port -IPAddress $IPAddress
 
 
 # 5. Fixed key scheme
-Add-KrApiKeyAuthentication -Name 'ApiKeySimple' -AllowInsecureHttp -HeaderName 'X-Api-Key' -ExpectedKey 'my-secret-api-key'
+Add-KrApiKeyAuthentication -Name 'ApiKeySimple' -AllowInsecureHttp -ApiKeyName 'X-Api-Key' -ExpectedKey 'my-secret-api-key'
 
 # 6. Script-based validation
-Add-KrApiKeyAuthentication -Name 'ApiKeyPS' -AllowInsecureHttp -HeaderName 'X-Api-Key' -ScriptBlock { param($ProvidedKey) $ProvidedKey -eq 'my-secret-api-key' }
+Add-KrApiKeyAuthentication -Name 'ApiKeyPS' -AllowInsecureHttp -ApiKeyName 'X-Api-Key' -ScriptBlock { param($ProvidedKey) $ProvidedKey -eq 'my-secret-api-key' }
 
 # 7. C# code validation
-Add-KrApiKeyAuthentication -Name 'ApiKeyCS' -AllowInsecureHttp -HeaderName 'X-Api-Key' -Code @'
+Add-KrApiKeyAuthentication -Name 'ApiKeyCS' -AllowInsecureHttp -ApiKeyName 'X-Api-Key' -Code @'
     return providedKey == "my-secret-api-key";
 '@
 

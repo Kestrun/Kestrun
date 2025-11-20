@@ -30,7 +30,7 @@ public class BasicAuthHandlerTest
             AllowInsecureHttp = allowInsecureHttp,
             Base64Encoded = base64,
             HeaderName = headerName ?? "Authorization",
-            Logger = logger ?? new LoggerConfiguration().MinimumLevel.Debug().WriteTo.Console().CreateLogger(),
+            Host = new KestrunHost("Tests", logger ?? new LoggerConfiguration().MinimumLevel.Debug().WriteTo.Console().CreateLogger()),
             SeparatorRegex = new System.Text.RegularExpressions.Regex(@"^([^:]*):(.*)$")
         };
     }

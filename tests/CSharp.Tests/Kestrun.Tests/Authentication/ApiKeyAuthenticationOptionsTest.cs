@@ -12,7 +12,7 @@ public class ApiKeyAuthenticationOptionsTest
     public void Default_HeaderName_Is_XApiKey()
     {
         var options = new ApiKeyAuthenticationOptions();
-        Assert.Equal("X-Api-Key", options.HeaderName);
+        Assert.Equal("X-Api-Key", options.ApiKeyName);
     }
 
     [Fact]
@@ -53,15 +53,15 @@ public class ApiKeyAuthenticationOptionsTest
     [Fact]
     public void ExpectedKeyBytes_Returns_Bytes_If_ExpectedKey_Set()
     {
-        var options = new ApiKeyAuthenticationOptions { ExpectedKey = "abc123" };
-        Assert.Equal(System.Text.Encoding.UTF8.GetBytes("abc123"), options.ExpectedKeyBytes);
+        var options = new ApiKeyAuthenticationOptions { StaticApiKey = "abc123" };
+        Assert.Equal(System.Text.Encoding.UTF8.GetBytes("abc123"), options.StaticApiKeyAsBytes);
     }
 
     [Fact]
     public void ExpectedKeyBytes_Returns_Null_If_ExpectedKey_Null()
     {
-        var options = new ApiKeyAuthenticationOptions { ExpectedKey = null };
-        Assert.Null(options.ExpectedKeyBytes);
+        var options = new ApiKeyAuthenticationOptions { StaticApiKey = null };
+        Assert.Null(options.StaticApiKeyAsBytes);
     }
 
     [Fact]

@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using Kestrun.Claims;
+using Kestrun.Hosting;
 using Microsoft.AspNetCore.Authentication.Cookies;
 
 namespace Kestrun.Authentication;
@@ -7,20 +8,15 @@ namespace Kestrun.Authentication;
 /// <summary>
 /// Options for cookie-based authentication.
 /// </summary>
-public class CookieAuthOptions : CookieAuthenticationOptions, IAuthenticationCommonOptions
+public class CookieAuthOptions : CookieAuthenticationOptions, IAuthenticationCommonOptions, IOpenApiAuthenticationOptions, IAuthenticationHostOptions
 {
     /// <summary>
     /// If true, allows cookie authentication over insecure HTTP connections.
     /// </summary>
     public bool AllowInsecureHttp { get; set; }
 
-    /// <summary>
-    /// Optional display name for the authentication scheme in OpenAPI documentation.
-    /// </summary>
-    public string? DisplayName { get; set; }
-
     /// <inheritdoc/>
-    public Serilog.ILogger Logger { get; set; } = Serilog.Log.ForContext<ApiKeyAuthenticationOptions>();
+    public string? DisplayName { get; set; }
 
     /// <inheritdoc/>
     public bool GlobalScheme { get; set; }
@@ -42,6 +38,12 @@ public class CookieAuthOptions : CookieAuthenticationOptions, IAuthenticationCom
     /// <inheritdoc/>
     public ClaimPolicyConfig? ClaimPolicyConfig { get => throw new NotImplementedException(); set => throw new NotImplementedException(); }
 
+    /// <inheritdoc/>
+    public KestrunHost Host { get; set; } = default!;
+
+    /// <inheritdoc/>
+    public Serilog.ILogger Logger => Host.Logger;
+
     /// <summary>
     /// Helper to copy values from a user-supplied CookieAuthenticationOptions instance to the instance
     /// created by the framework inside AddCookie(). Reassigning the local variable (opts = source) would
@@ -58,6 +60,8 @@ public class CookieAuthOptions : CookieAuthenticationOptions, IAuthenticationCom
         target.GlobalScheme = GlobalScheme;
         target.Description = Description;
         target.DocumentationId = DocumentationId;
+        target.DisplayName = DisplayName;
+        target.Host = Host;
     }
 
 

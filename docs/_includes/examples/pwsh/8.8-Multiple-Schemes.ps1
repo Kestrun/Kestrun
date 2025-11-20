@@ -25,7 +25,7 @@ Add-KrBasicAuthentication -Name 'BasicPS' -Realm 'Multi' -AllowInsecureHttp -Scr
 }
 
 # 6. API key scheme
-Add-KrApiKeyAuthentication -Name 'KeySimple' -AllowInsecureHttp -HeaderName 'X-Api-Key' -ExpectedKey 'my-secret-api-key'
+Add-KrApiKeyAuthentication -Name 'KeySimple' -AllowInsecureHttp -ApiKeyName 'X-Api-Key' -ExpectedKey 'my-secret-api-key'
 
 # 7. JWT bearer scheme setup
 $builder = New-KrJWTBuilder |

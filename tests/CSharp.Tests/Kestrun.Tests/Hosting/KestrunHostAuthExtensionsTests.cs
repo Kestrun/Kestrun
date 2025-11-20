@@ -152,7 +152,7 @@ public class KestrunHostAuthExtensionsTests
             ClaimPolicyConfig = cfg
         };
 
-        _ = host.AddBasicAuthentication("BasicY", opts);
+        _ = host.AddBasicAuthentication("BasicY", "Basic Authentication for Y", opts);
         var app = host.Build();
 
         Assert.True(host.HasAuthScheme("BasicY"));
@@ -169,7 +169,7 @@ public class KestrunHostAuthExtensionsTests
     {
         var host = new KestrunHost("TestApp");
 
-        _ = host.AddBasicAuthentication("BasicNoPolicy", _ => { });
+        _ = host.AddBasicAuthentication("BasicNoPolicy", "Basic Authentication with No Policy", _ => { });
         _ = host.Build();
 
         Assert.True(host.HasAuthScheme("BasicNoPolicy"));
@@ -182,7 +182,7 @@ public class KestrunHostAuthExtensionsTests
     {
         var host = new KestrunHost("TestApp");
 
-        _ = host.AddBasicAuthentication("BasicCode", opts =>
+        _ = host.AddBasicAuthentication("BasicCode", "CSharp Basic Authentication", opts =>
         {
             opts.ValidateCodeSettings = new AuthenticationCodeSettings
             {
@@ -227,15 +227,15 @@ public class KestrunHostAuthExtensionsTests
 
         var opts = new ApiKeyAuthenticationOptions
         {
-            ExpectedKey = "abc",
-            HeaderName = "X-API-KEY",
+            StaticApiKey = "abc",
+            ApiKeyName = "X-API-KEY",
             AllowQueryStringFallback = true,
             AllowInsecureHttp = false,
             EmitChallengeHeader = false,
             ClaimPolicyConfig = cfg
         };
 
-        _ = host.AddApiKeyAuthentication("ApiKeyY", opts);
+        _ = host.AddApiKeyAuthentication("ApiKeyY", "API Key Authentication for Y", opts);
         var app = host.Build();
 
         Assert.True(host.HasAuthScheme("ApiKeyY"));
@@ -252,7 +252,7 @@ public class KestrunHostAuthExtensionsTests
     {
         var host = new KestrunHost("TestApp");
 
-        _ = host.AddApiKeyAuthentication("ApiKeyNoPolicy", _ => { });
+        _ = host.AddApiKeyAuthentication("ApiKeyNoPolicy", "API Key Authentication with No Policy", _ => { });
         _ = host.Build();
 
         Assert.True(host.HasAuthScheme("ApiKeyNoPolicy"));
@@ -265,7 +265,7 @@ public class KestrunHostAuthExtensionsTests
     {
         var host = new KestrunHost("TestApp");
 
-        _ = host.AddApiKeyAuthentication("ApiKeyCode", opts =>
+        _ = host.AddApiKeyAuthentication("ApiKeyCode", "CSharp API Key Authentication", opts =>
         {
             opts.ValidateCodeSettings = new AuthenticationCodeSettings
             {
@@ -300,7 +300,7 @@ public class KestrunHostAuthExtensionsTests
     {
         var host = new KestrunHost("TestApp");
 
-        _ = host.AddBasicAuthentication("BasicPS", opts =>
+        _ = host.AddBasicAuthentication("BasicPS", "PowerShell Basic Authentication", opts =>
             {
                 opts.ValidateCodeSettings = new AuthenticationCodeSettings
                 {
@@ -342,7 +342,7 @@ public class KestrunHostAuthExtensionsTests
     {
         var host = new KestrunHost("TestApp");
 
-        _ = host.AddApiKeyAuthentication("ApiKeyPS", opts =>
+        _ = host.AddApiKeyAuthentication("ApiKeyPS", "PowerShell API Key Authentication", opts =>
             {
                 opts.ValidateCodeSettings = new AuthenticationCodeSettings
                 {
@@ -384,7 +384,7 @@ public class KestrunHostAuthExtensionsTests
     {
         var host = new KestrunHost("TestApp");
 
-        _ = host.AddBasicAuthentication("BasicVB", opts =>
+        _ = host.AddBasicAuthentication("BasicVB", "VBNet Basic Authentication", opts =>
             {
                 opts.ValidateCodeSettings = new AuthenticationCodeSettings
                 {
@@ -419,7 +419,7 @@ public class KestrunHostAuthExtensionsTests
     {
         var host = new KestrunHost("TestApp");
 
-        _ = host.AddApiKeyAuthentication("ApiKeyVB", opts =>
+        _ = host.AddApiKeyAuthentication("ApiKeyVB", "VBNet API Key Authentication", opts =>
             {
                 opts.ValidateCodeSettings = new AuthenticationCodeSettings
                 {

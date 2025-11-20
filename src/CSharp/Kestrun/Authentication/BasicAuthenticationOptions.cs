@@ -2,13 +2,14 @@ using System.Security.Claims;
 using System.Text.RegularExpressions;
 using Microsoft.AspNetCore.Authentication;
 using Kestrun.Claims;
+using Kestrun.Hosting;
 
 namespace Kestrun.Authentication;
 
 /// <summary>
 /// Options for configuring Basic Authentication in Kestrun.
 /// </summary>
-public partial class BasicAuthenticationOptions : AuthenticationSchemeOptions, IAuthenticationCommonOptions
+public partial class BasicAuthenticationOptions : AuthenticationSchemeOptions, IAuthenticationCommonOptions, IOpenApiAuthenticationOptions, IAuthenticationHostOptions
 {
     /// <summary>
     /// Gets or sets the name of the HTTP header used for authentication.
@@ -31,11 +32,6 @@ public partial class BasicAuthenticationOptions : AuthenticationSchemeOptions, I
 
     [GeneratedRegex("^([^:]*):(.*)$", RegexOptions.Compiled)]
     private static partial Regex MyRegex();
-
-    /// <summary>
-    /// Gets or sets the Serilog logger used for authentication events.
-    /// </summary>
-    public Serilog.ILogger Logger { get; set; } = Serilog.Log.ForContext<BasicAuthenticationOptions>();
 
     /// <summary>
     /// Gets or sets a value indicating whether to allow insecure HTTP connections.
@@ -83,8 +79,55 @@ public partial class BasicAuthenticationOptions : AuthenticationSchemeOptions, I
     /// Each policy can specify a claim type and allowed values.
     /// </remarks>
     public ClaimPolicyConfig? ClaimPolicyConfig { get; set; }
+
     /// <inheritdoc/>
     public bool GlobalScheme { get; set; }
+
     /// <inheritdoc/>
     public string? Description { get; set; }
+
+    /// <inheritdoc/>
+    public string[] DocumentationId { get; set; } = [];
+
+    /// <inheritdoc/>
+    public KestrunHost Host { get; set; } = default!;
+
+    /// <inheritdoc/>
+    public Serilog.ILogger Logger => Host.Logger;
+
+
+    /// <summary>
+    /// Helper to copy values from a user-supplied BasicAuthenticationOptions instance to the instance
+    /// created by the framework inside AddBasic(). Reassigning the local variable (opts = source) would
+    /// not work because only the local reference changes – the framework keeps the original instance.
+    /// </summary>
+    /// <param name="target">The target instance to which values will be copied. </param>
+    public void ApplyTo(BasicAuthenticationOptions target)
+    {
+        // Copy properties from the provided configure object
+        target.HeaderName = HeaderName;
+        target.Base64Encoded = Base64Encoded;
+        if (SeparatorRegex is not null)
+        {
+            target.SeparatorRegex = new Regex(SeparatorRegex.ToString(), SeparatorRegex.Options);
+        }
+
+        target.Realm = Realm;
+        target.AllowInsecureHttp = AllowInsecureHttp;
+        target.SuppressWwwAuthenticate = SuppressWwwAuthenticate;
+        target.ValidateCredentialsAsync = ValidateCredentialsAsync;
+        // Copy properties from the provided configure object
+        target.ValidateCodeSettings = ValidateCodeSettings;
+        target.IssueClaimsCodeSettings = IssueClaimsCodeSettings;
+        target.IssueClaims = IssueClaims;
+        // Claims policy configuration
+        target.ClaimPolicyConfig = ClaimPolicyConfig;
+
+        // Copy IAuthenticationHostOptions properties
+        target.Host = Host;
+        // OpenAPI / documentation properties(IOpenApiAuthenticationOptions)
+        target.GlobalScheme = GlobalScheme;
+        target.Description = Description;
+        target.DocumentationId = DocumentationId;
+    }
 }

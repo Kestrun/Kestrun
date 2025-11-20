@@ -19,13 +19,13 @@ public class ApiKeyAuthHandlerWhitespaceTests
     {
         return new ApiKeyAuthenticationOptions
         {
-            HeaderName = "X-Api-Key",
+            ApiKeyName = "X-Api-Key",
             AdditionalHeaderNames = ["X-Alt-Api-Key"],
             AllowQueryStringFallback = true,
             AllowInsecureHttp = false,
             EmitChallengeHeader = false,
-            ExpectedKey = "my-secret-api-key",
-            Logger = new LoggerConfiguration().MinimumLevel.Error().CreateLogger()
+            StaticApiKey = "my-secret-api-key",
+            Host = new KestrunHost("Tests", new LoggerConfiguration().MinimumLevel.Error().CreateLogger())
         };
     }
 
@@ -47,7 +47,7 @@ public class ApiKeyAuthHandlerWhitespaceTests
         var ctx = new DefaultHttpContext();
         ctx.Request.Scheme = "http";
         var opts = MakeOptions();
-        ctx.Request.Headers[opts.HeaderName] = "my-secret-api-key\r\n ";
+        ctx.Request.Headers[opts.ApiKeyName] = "my-secret-api-key\r\n ";
 
         var handler = await MakeHandlerAsync(opts, ctx);
         var result = await handler.PublicHandleAuthenticateAsync();
@@ -92,8 +92,7 @@ public class ApiKeyAuthHandlerWhitespaceTests
         var ctx = new DefaultHttpContext();
         ctx.Request.Scheme = "http";
         var opts = MakeOptions();
-        opts.Logger = logger;
-        ctx.Request.Headers[opts.HeaderName] = "my-secret-api-key \r\n";
+        ctx.Request.Headers[opts.ApiKeyName] = "my-secret-api-key \r\n";
 
         var handler = await MakeHandlerAsync(opts, ctx);
         var result = await handler.PublicHandleAuthenticateAsync();
@@ -111,8 +110,7 @@ public class ApiKeyAuthHandlerWhitespaceTests
         var ctx = new DefaultHttpContext();
         ctx.Request.Scheme = "http";
         var opts = MakeOptions();
-        opts.Logger = logger;
-        ctx.Request.Headers[opts.HeaderName] = "not-the-key\n";
+        ctx.Request.Headers[opts.ApiKeyName] = "not-the-key\n";
 
         var handler = await MakeHandlerAsync(opts, ctx);
         var result = await handler.PublicHandleAuthenticateAsync();
@@ -130,7 +128,6 @@ public class ApiKeyAuthHandlerWhitespaceTests
         var ctx = new DefaultHttpContext();
         ctx.Request.Scheme = "http";
         var opts = MakeOptions();
-        opts.Logger = logger;
         // Encoded spaces + CRLF around wrong key
         ctx.Request.QueryString = new QueryString("?X-Api-Key=%20not-the-key%20%0D%0A");
 

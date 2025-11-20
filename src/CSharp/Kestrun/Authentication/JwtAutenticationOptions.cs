@@ -9,7 +9,7 @@ namespace Kestrun.Authentication;
 /// <summary>
 /// Provides options for JWT authentication, including claim policies and custom claim issuance.
 /// </summary>
-public class JwtAuthenticationOptions : JwtBearerOptions, IClaimsCommonOptions
+public class JwtAuthenticationOptions : JwtBearerOptions, IClaimsCommonOptions, IOpenApiAuthenticationOptions
 {
     /// <summary>
     /// Gets or sets the token validation parameters.
@@ -43,4 +43,16 @@ public class JwtAuthenticationOptions : JwtBearerOptions, IClaimsCommonOptions
     /// Each policy can specify a claim type and allowed values.
     /// </remarks>
     public ClaimPolicyConfig? ClaimPolicyConfig { get; set; }
+
+    /// <inheritdoc/>
+    public bool GlobalScheme { get; set; }
+
+    /// <inheritdoc/>
+    public string? Description { get; set; }
+
+    /// <inheritdoc/>
+    public string? DisplayName { get; set; }
+
+    /// <inheritdoc/>
+    public string[] DocumentationId { get; set; } = [];
 }

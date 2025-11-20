@@ -29,11 +29,13 @@ public static class KestrunHostAuthnExtensions
     /// </summary>
     /// <param name="host">The Kestrun host instance.</param>
     /// <param name="scheme">The authentication scheme name (e.g. "Basic").</param>
+    /// <param name="displayName">The display name for the authentication scheme.</param>
     /// <param name="configure">Optional configuration for BasicAuthenticationOptions.</param>
     /// <returns>returns the KestrunHost instance.</returns>
     public static KestrunHost AddBasicAuthentication(
     this KestrunHost host,
     string scheme = "Basic",
+    string displayName = "Basic Authentication",
     Action<BasicAuthenticationOptions>? configure = null
     )
     {
@@ -43,17 +45,21 @@ public static class KestrunHostAuthnExtensions
            defaultScheme: scheme,
            buildSchemes: ab =>
            {
-               // ← TOptions == BasicAuthenticationOptions
-               //    THandler == BasicAuthHandler
                _ = ab.AddScheme<BasicAuthenticationOptions, BasicAuthHandler>(
                    authenticationScheme: scheme,
-                   displayName: "Basic Authentication",
-                    configureOptions: opts =>
+                   displayName: displayName,
+                   configureOptions: opts =>
                    {
+                       // Ensure host is set
+                       if (opts.Host != host)
+                       {
+                           opts.Host = host;
+                       }
                        // let caller mutate everything first
                        configure?.Invoke(opts);
                        ConfigureBasicAuthValidators(host, opts);
                        ConfigureBasicIssueClaims(host, opts);
+                       ConfigureOpenApi(host, scheme, opts);
                    });
            }
        );
@@ -68,16 +74,20 @@ public static class KestrunHostAuthnExtensions
                               IOptionsMonitor<BasicAuthenticationOptions>>()));
         });
     }
+
+
     /// <summary>
     /// Adds Basic Authentication to the Kestrun host using the provided options object.
     /// </summary>
     /// <param name="host">The Kestrun host instance.</param>
     /// <param name="scheme">The authentication scheme name (e.g. "Basic").</param>
+    /// <param name="displayName">The display name for the authentication scheme.</param>
     /// <param name="configure">The BasicAuthenticationOptions object to configure the authentication.</param>
     /// <returns>The configured KestrunHost instance.</returns>
     public static KestrunHost AddBasicAuthentication(
         this KestrunHost host,
         string scheme,
+        string displayName,
         BasicAuthenticationOptions configure
         )
     {
@@ -89,33 +99,116 @@ public static class KestrunHostAuthnExtensions
         ArgumentNullException.ThrowIfNull(host);
         ArgumentNullException.ThrowIfNull(scheme);
         ArgumentNullException.ThrowIfNull(configure);
+        // Ensure host is set
+        if (configure.Host != host)
+        {
+            configure.Host = host;
+        }
         return host.AddBasicAuthentication(
             scheme: scheme,
+            displayName: displayName,
             configure: opts =>
             {
-                // Copy properties from the provided configure object
-                opts.HeaderName = configure.HeaderName;
-                opts.Base64Encoded = configure.Base64Encoded;
-                if (configure.SeparatorRegex is not null)
-                {
-                    opts.SeparatorRegex = new Regex(configure.SeparatorRegex.ToString(), configure.SeparatorRegex.Options);
-                }
-
-                opts.Realm = configure.Realm;
-                opts.AllowInsecureHttp = configure.AllowInsecureHttp;
-                opts.SuppressWwwAuthenticate = configure.SuppressWwwAuthenticate;
-                // Logger configuration
-                opts.Logger = configure.Logger == host.Logger.ForContext<BasicAuthenticationOptions>() ?
-                            host.Logger.ForContext<BasicAuthenticationOptions>() : configure.Logger;
-
-                // Copy properties from the provided configure object
-                opts.ValidateCodeSettings = configure.ValidateCodeSettings;
-                opts.IssueClaimsCodeSettings = configure.IssueClaimsCodeSettings;
-
-                // Claims policy configuration
-                opts.ClaimPolicyConfig = configure.ClaimPolicyConfig;
+                configure.ApplyTo(opts);
             }
         );
+    }
+
+    /// <summary>
+    /// Configures the validators for Basic authentication.
+    /// </summary>
+    /// <param name="host">The Kestrun host instance.</param>
+    /// <param name="opts">The options to configure.</param>
+    private static void ConfigureBasicAuthValidators(KestrunHost host, BasicAuthenticationOptions opts)
+    {
+        var settings = opts.ValidateCodeSettings;
+        if (string.IsNullOrWhiteSpace(settings.Code))
+        {
+            return;
+        }
+
+        switch (settings.Language)
+        {
+            case ScriptLanguage.PowerShell:
+                if (opts.Logger.IsEnabled(LogEventLevel.Debug))
+                {
+                    opts.Logger.Debug("Building PowerShell validator for Basic authentication");
+                }
+
+                opts.ValidateCredentialsAsync = BasicAuthHandler.BuildPsValidator(host, settings);
+                break;
+            case ScriptLanguage.CSharp:
+                if (opts.Logger.IsEnabled(LogEventLevel.Debug))
+                {
+                    opts.Logger.Debug("Building C# validator for Basic authentication");
+                }
+
+                opts.ValidateCredentialsAsync = BasicAuthHandler.BuildCsValidator(host, settings);
+                break;
+            case ScriptLanguage.VBNet:
+                if (opts.Logger.IsEnabled(LogEventLevel.Debug))
+                {
+                    opts.Logger.Debug("Building VB.NET validator for Basic authentication");
+                }
+
+                opts.ValidateCredentialsAsync = BasicAuthHandler.BuildVBNetValidator(host, settings);
+                break;
+            default:
+                if (opts.Logger.IsEnabled(LogEventLevel.Warning))
+                {
+                    opts.Logger.Warning("No valid language specified for Basic authentication");
+                }
+                break;
+        }
+    }
+
+    /// <summary>
+    /// Configures the issue claims for Basic authentication.
+    /// </summary>
+    /// <param name="host">The Kestrun host instance.</param>
+    /// <param name="opts">The options to configure.</param>
+    /// <exception cref="NotSupportedException">Thrown when the language is not supported.</exception>
+    private static void ConfigureBasicIssueClaims(KestrunHost host, BasicAuthenticationOptions opts)
+    {
+        var settings = opts.IssueClaimsCodeSettings;
+        if (string.IsNullOrWhiteSpace(settings.Code))
+        {
+            return;
+        }
+
+        switch (settings.Language)
+        {
+            case ScriptLanguage.PowerShell:
+                if (opts.Logger.IsEnabled(LogEventLevel.Debug))
+                {
+                    opts.Logger.Debug("Building PowerShell Issue Claims for API Basic authentication");
+                }
+
+                opts.IssueClaims = IAuthHandler.BuildPsIssueClaims(host, settings);
+                break;
+            case ScriptLanguage.CSharp:
+                if (opts.Logger.IsEnabled(LogEventLevel.Debug))
+                {
+                    opts.Logger.Debug("Building C# Issue Claims for API Basic authentication");
+                }
+
+                opts.IssueClaims = IAuthHandler.BuildCsIssueClaims(host, settings);
+                break;
+            case ScriptLanguage.VBNet:
+                if (opts.Logger.IsEnabled(LogEventLevel.Debug))
+                {
+                    opts.Logger.Debug("Building VB.NET Issue Claims for API Basic authentication");
+                }
+
+                opts.IssueClaims = IAuthHandler.BuildVBNetIssueClaims(host, settings);
+                break;
+            default:
+                if (opts.Logger.IsEnabled(LogEventLevel.Warning))
+                {
+                    opts.Logger.Warning("{language} is not supported for API Basic authentication", settings.Language);
+                }
+                throw new NotSupportedException("Unsupported language");
+        }
     }
 
     #endregion
@@ -137,7 +230,7 @@ public static class KestrunHostAuthnExtensions
         string clientSecret,
         string callbackPath)
     {
-        var opts = ConfigureGitHubOAuth2Options(clientId, clientSecret, callbackPath);
+        var opts = ConfigureGitHubOAuth2Options(host, clientId, clientSecret, callbackPath);
         ConfigureGitHubClaimMappings(opts);
         opts.Events = new OAuthEvents
         {
@@ -153,14 +246,16 @@ public static class KestrunHostAuthnExtensions
     /// <summary>
     /// Configures OAuth2Options for GitHub authentication.
     /// </summary>
+    /// <param name="host">The Kestrun host instance.</param>
     /// <param name="clientId">GitHub OAuth App Client ID.</param>
     /// <param name="clientSecret">GitHub OAuth App Client Secret.</param>
     /// <param name="callbackPath">The callback path for OAuth redirection (e.g. "/signin-github").</param>
     /// <returns>The configured OAuth2Options.</returns>
-    private static OAuth2Options ConfigureGitHubOAuth2Options(string clientId, string clientSecret, string callbackPath)
+    private static OAuth2Options ConfigureGitHubOAuth2Options(KestrunHost host, string clientId, string clientSecret, string callbackPath)
     {
-        return new OAuth2Options
+        return new OAuth2Options()
         {
+            Host = host,
             ClientId = clientId,
             ClientSecret = clientSecret,
             CallbackPath = callbackPath,
@@ -492,11 +587,13 @@ public static class KestrunHostAuthnExtensions
     /// </summary>
     /// <param name="host">The Kestrun host instance.</param>
     /// <param name="scheme">The authentication scheme name (default is "ApiKey").</param>
+    /// <param name="displayName">The display name for the authentication scheme (default is "API Key").</param>
     /// <param name="configure">Optional configuration for ApiKeyAuthenticationOptions.</param>
     /// <returns>The configured KestrunHost instance.</returns>
     public static KestrunHost AddApiKeyAuthentication(
     this KestrunHost host,
     string scheme = "ApiKey",
+    string displayName = "API Key",
     Action<ApiKeyAuthenticationOptions>? configure = null)
     {
         // register in host for introspection
@@ -510,13 +607,19 @@ public static class KestrunHostAuthnExtensions
                //    THandler == ApiKeyAuthHandler
                _ = ab.AddScheme<ApiKeyAuthenticationOptions, ApiKeyAuthHandler>(
                    authenticationScheme: scheme,
-                   displayName: "API Key",
+                   displayName: displayName,
                    configureOptions: opts =>
                    {
+                       // Ensure host is set
+                       if (opts.Host != host)
+                       {
+                           opts.Host = host;
+                       }
                        // let caller mutate everything first
                        configure?.Invoke(opts);
                        ConfigureApiKeyValidators(host, opts);
                        ConfigureApiKeyIssueClaims(host, opts);
+                       ConfigureOpenApi(host, scheme, opts);
                    });
            }
        );
@@ -531,6 +634,143 @@ public static class KestrunHostAuthnExtensions
                               IOptionsMonitor<ApiKeyAuthenticationOptions>>()));
         });
     }
+
+    /// <summary>
+    /// Adds API Key Authentication to the Kestrun host using the provided options object.
+    /// </summary>
+    /// <param name="host">The Kestrun host instance.</param>
+    /// <param name="scheme">The authentication scheme name.</param>
+    /// <param name="displayName">The display name for the authentication scheme.</param>
+    /// <param name="configure">The ApiKeyAuthenticationOptions object to configure the authentication.</param>
+    /// <returns>The configured KestrunHost instance.</returns>
+    public static KestrunHost AddApiKeyAuthentication(
+    this KestrunHost host,
+    string scheme,
+    string displayName,
+    ApiKeyAuthenticationOptions configure)
+    {
+        if (host.Logger.IsEnabled(LogEventLevel.Debug))
+        {
+            host.Logger.Debug("Adding API Key Authentication with scheme: {Scheme}", scheme);
+        }
+        // Ensure the scheme is not null
+        ArgumentNullException.ThrowIfNull(host);
+        ArgumentNullException.ThrowIfNull(scheme);
+        ArgumentNullException.ThrowIfNull(configure);
+        // Ensure host is set
+        if (configure.Host != host)
+        {
+            configure.Host = host;
+        }
+        return host.AddApiKeyAuthentication(
+            scheme: scheme,
+            displayName: displayName,
+            configure: opts =>
+            {
+                // Copy properties from the provided configure object
+                configure.ApplyTo(opts);
+            }
+        );
+    }
+
+    /// <summary>
+    /// Configures the API Key validators.
+    /// </summary>
+    /// <param name="host">The Kestrun host instance.</param>
+    /// <param name="opts">The options to configure.</param>
+    /// <exception cref="NotSupportedException">Thrown when the language is not supported.</exception>
+    private static void ConfigureApiKeyValidators(KestrunHost host, ApiKeyAuthenticationOptions opts)
+    {
+        var settings = opts.ValidateCodeSettings;
+        if (string.IsNullOrWhiteSpace(settings.Code))
+        {
+            return;
+        }
+
+        switch (settings.Language)
+        {
+            case ScriptLanguage.PowerShell:
+                if (opts.Logger.IsEnabled(LogEventLevel.Debug))
+                {
+                    opts.Logger.Debug("Building PowerShell validator for API Key authentication");
+                }
+
+                opts.ValidateKeyAsync = ApiKeyAuthHandler.BuildPsValidator(host, settings);
+                break;
+            case ScriptLanguage.CSharp:
+                if (opts.Logger.IsEnabled(LogEventLevel.Debug))
+                {
+                    opts.Logger.Debug("Building C# validator for API Key authentication");
+                }
+
+                opts.ValidateKeyAsync = ApiKeyAuthHandler.BuildCsValidator(host, settings);
+                break;
+            case ScriptLanguage.VBNet:
+                if (opts.Logger.IsEnabled(LogEventLevel.Debug))
+                {
+                    opts.Logger.Debug("Building VB.NET validator for API Key authentication");
+                }
+
+                opts.ValidateKeyAsync = ApiKeyAuthHandler.BuildVBNetValidator(host, settings);
+                break;
+            default:
+                if (opts.Logger.IsEnabled(LogEventLevel.Warning))
+                {
+                    opts.Logger.Warning("{language} is not supported for API Basic authentication", settings.Language);
+                }
+                throw new NotSupportedException("Unsupported language");
+        }
+    }
+
+    /// <summary>
+    /// Configures the API Key issue claims.
+    /// </summary>
+    /// <param name="host">The Kestrun host instance.</param>
+    /// <param name="opts">The options to configure.</param>
+    /// <exception cref="NotSupportedException">Thrown when the language is not supported.</exception>
+    private static void ConfigureApiKeyIssueClaims(KestrunHost host, ApiKeyAuthenticationOptions opts)
+    {
+        var settings = opts.IssueClaimsCodeSettings;
+        if (string.IsNullOrWhiteSpace(settings.Code))
+        {
+            return;
+        }
+
+        switch (settings.Language)
+        {
+            case ScriptLanguage.PowerShell:
+                if (opts.Logger.IsEnabled(LogEventLevel.Debug))
+                {
+                    opts.Logger.Debug("Building PowerShell Issue Claims for API Key authentication");
+                }
+
+                opts.IssueClaims = IAuthHandler.BuildPsIssueClaims(host, settings);
+                break;
+            case ScriptLanguage.CSharp:
+                if (opts.Logger.IsEnabled(LogEventLevel.Debug))
+                {
+                    opts.Logger.Debug("Building C# Issue Claims for API Key authentication");
+                }
+
+                opts.IssueClaims = IAuthHandler.BuildCsIssueClaims(host, settings);
+                break;
+            case ScriptLanguage.VBNet:
+                if (opts.Logger.IsEnabled(LogEventLevel.Debug))
+                {
+                    opts.Logger.Debug("Building VB.NET Issue Claims for API Key authentication");
+                }
+
+                opts.IssueClaims = IAuthHandler.BuildVBNetIssueClaims(host, settings);
+                break;
+            default:
+                if (opts.Logger.IsEnabled(LogEventLevel.Warning))
+                {
+                    opts.Logger.Warning("{language} is not supported for API Basic authentication", settings.Language);
+                }
+                throw new NotSupportedException("Unsupported language");
+        }
+    }
+
     #endregion
 
     #region OAuth2 Authentication
@@ -642,244 +882,21 @@ public static class KestrunHostAuthnExtensions
     #endregion
     #region Helper Methods
     /// <summary>
-    /// Configures the validators for Basic authentication.
-    /// </summary>
-    /// <param name="host">The Kestrun host instance.</param>
-    /// <param name="opts">The options to configure.</param>
-    private static void ConfigureBasicAuthValidators(KestrunHost host, BasicAuthenticationOptions opts)
-    {
-        var settings = opts.ValidateCodeSettings;
-        if (string.IsNullOrWhiteSpace(settings.Code))
-        {
-            return;
-        }
-
-        switch (settings.Language)
-        {
-            case ScriptLanguage.PowerShell:
-                if (opts.Logger.IsEnabled(LogEventLevel.Debug))
-                {
-                    opts.Logger.Debug("Building PowerShell validator for Basic authentication");
-                }
-
-                opts.ValidateCredentialsAsync = BasicAuthHandler.BuildPsValidator(host, settings);
-                break;
-            case ScriptLanguage.CSharp:
-                if (opts.Logger.IsEnabled(LogEventLevel.Debug))
-                {
-                    opts.Logger.Debug("Building C# validator for Basic authentication");
-                }
-
-                opts.ValidateCredentialsAsync = BasicAuthHandler.BuildCsValidator(host, settings);
-                break;
-            case ScriptLanguage.VBNet:
-                if (opts.Logger.IsEnabled(LogEventLevel.Debug))
-                {
-                    opts.Logger.Debug("Building VB.NET validator for Basic authentication");
-                }
-
-                opts.ValidateCredentialsAsync = BasicAuthHandler.BuildVBNetValidator(host, settings);
-                break;
-            default:
-                if (opts.Logger.IsEnabled(LogEventLevel.Warning))
-                {
-                    opts.Logger.Warning("No valid language specified for Basic authentication");
-                }
-                break;
-        }
-    }
-
-    /// <summary>
-    /// Configures the issue claims for Basic authentication.
-    /// </summary>
-    /// <param name="host">The Kestrun host instance.</param>
-    /// <param name="opts">The options to configure.</param>
-    /// <exception cref="NotSupportedException">Thrown when the language is not supported.</exception>
-    private static void ConfigureBasicIssueClaims(KestrunHost host, BasicAuthenticationOptions opts)
-    {
-        var settings = opts.IssueClaimsCodeSettings;
-        if (string.IsNullOrWhiteSpace(settings.Code))
-        {
-            return;
-        }
-
-        switch (settings.Language)
-        {
-            case ScriptLanguage.PowerShell:
-                if (opts.Logger.IsEnabled(LogEventLevel.Debug))
-                {
-                    opts.Logger.Debug("Building PowerShell Issue Claims for API Basic authentication");
-                }
-
-                opts.IssueClaims = IAuthHandler.BuildPsIssueClaims(host, settings);
-                break;
-            case ScriptLanguage.CSharp:
-                if (opts.Logger.IsEnabled(LogEventLevel.Debug))
-                {
-                    opts.Logger.Debug("Building C# Issue Claims for API Basic authentication");
-                }
-
-                opts.IssueClaims = IAuthHandler.BuildCsIssueClaims(host, settings);
-                break;
-            case ScriptLanguage.VBNet:
-                if (opts.Logger.IsEnabled(LogEventLevel.Debug))
-                {
-                    opts.Logger.Debug("Building VB.NET Issue Claims for API Basic authentication");
-                }
-
-                opts.IssueClaims = IAuthHandler.BuildVBNetIssueClaims(host, settings);
-                break;
-            default:
-                if (opts.Logger.IsEnabled(LogEventLevel.Warning))
-                {
-                    opts.Logger.Warning("{language} is not supported for API Basic authentication", settings.Language);
-                }
-                throw new NotSupportedException("Unsupported language");
-        }
-    }
-
-    /// <summary>
-    /// Configures the API Key validators.
-    /// </summary>
-    /// <param name="host">The Kestrun host instance.</param>
-    /// <param name="opts">The options to configure.</param>
-    /// <exception cref="NotSupportedException">Thrown when the language is not supported.</exception>
-    private static void ConfigureApiKeyValidators(KestrunHost host, ApiKeyAuthenticationOptions opts)
-    {
-        var settings = opts.ValidateCodeSettings;
-        if (string.IsNullOrWhiteSpace(settings.Code))
-        {
-            return;
-        }
-
-        switch (settings.Language)
-        {
-            case ScriptLanguage.PowerShell:
-                if (opts.Logger.IsEnabled(LogEventLevel.Debug))
-                {
-                    opts.Logger.Debug("Building PowerShell validator for API Key authentication");
-                }
-
-                opts.ValidateKeyAsync = ApiKeyAuthHandler.BuildPsValidator(host, settings);
-                break;
-            case ScriptLanguage.CSharp:
-                if (opts.Logger.IsEnabled(LogEventLevel.Debug))
-                {
-                    opts.Logger.Debug("Building C# validator for API Key authentication");
-                }
-
-                opts.ValidateKeyAsync = ApiKeyAuthHandler.BuildCsValidator(host, settings);
-                break;
-            case ScriptLanguage.VBNet:
-                if (opts.Logger.IsEnabled(LogEventLevel.Debug))
-                {
-                    opts.Logger.Debug("Building VB.NET validator for API Key authentication");
-                }
-
-                opts.ValidateKeyAsync = ApiKeyAuthHandler.BuildVBNetValidator(host, settings);
-                break;
-            default:
-                if (opts.Logger.IsEnabled(LogEventLevel.Warning))
-                {
-                    opts.Logger.Warning("{language} is not supported for API Basic authentication", settings.Language);
-                }
-                throw new NotSupportedException("Unsupported language");
-        }
-    }
-
-    /// <summary>
-    /// Configures the API Key issue claims.
-    /// </summary>
-    /// <param name="host">The Kestrun host instance.</param>
-    /// <param name="opts">The options to configure.</param>
-    /// <exception cref="NotSupportedException">Thrown when the language is not supported.</exception>
-    private static void ConfigureApiKeyIssueClaims(KestrunHost host, ApiKeyAuthenticationOptions opts)
-    {
-        var settings = opts.IssueClaimsCodeSettings;
-        if (string.IsNullOrWhiteSpace(settings.Code))
-        {
-            return;
-        }
-
-        switch (settings.Language)
-        {
-            case ScriptLanguage.PowerShell:
-                if (opts.Logger.IsEnabled(LogEventLevel.Debug))
-                {
-                    opts.Logger.Debug("Building PowerShell Issue Claims for API Key authentication");
-                }
-
-                opts.IssueClaims = IAuthHandler.BuildPsIssueClaims(host, settings);
-                break;
-            case ScriptLanguage.CSharp:
-                if (opts.Logger.IsEnabled(LogEventLevel.Debug))
-                {
-                    opts.Logger.Debug("Building C# Issue Claims for API Key authentication");
-                }
-
-                opts.IssueClaims = IAuthHandler.BuildCsIssueClaims(host, settings);
-                break;
-            case ScriptLanguage.VBNet:
-                if (opts.Logger.IsEnabled(LogEventLevel.Debug))
-                {
-                    opts.Logger.Debug("Building VB.NET Issue Claims for API Key authentication");
-                }
-
-                opts.IssueClaims = IAuthHandler.BuildVBNetIssueClaims(host, settings);
-                break;
-            default:
-                if (opts.Logger.IsEnabled(LogEventLevel.Warning))
-                {
-                    opts.Logger.Warning("{language} is not supported for API Basic authentication", settings.Language);
-                }
-                throw new NotSupportedException("Unsupported language");
-        }
-    }
-
-    /// <summary>
-    /// Adds API Key Authentication to the Kestrun host using the provided options object.
+    /// Configures OpenAPI security schemes for the given authentication options.
     /// </summary>
     /// <param name="host">The Kestrun host instance.</param>
     /// <param name="scheme">The authentication scheme name.</param>
-    /// <param name="configure">The ApiKeyAuthenticationOptions object to configure the authentication.</param>
-    /// <returns>The configured KestrunHost instance.</returns>
-    public static KestrunHost AddApiKeyAuthentication(
-    this KestrunHost host,
-    string scheme,
-    ApiKeyAuthenticationOptions configure)
+    /// <param name="opts">The OpenAPI authentication options.</param>
+    private static void ConfigureOpenApi(KestrunHost host, string scheme, IOpenApiAuthenticationOptions opts)
     {
-        if (host.Logger.IsEnabled(LogEventLevel.Debug))
+        foreach (var doc in opts.DocumentationId)
         {
-            host.Logger.Debug("Adding API Key Authentication with scheme: {Scheme}", scheme);
+            var docDescriptor = host.GetOrCreateOpenApiDocument(doc);
+            if (docDescriptor == null) { break; }
+            docDescriptor.ApplySecurityScheme(scheme, opts);
         }
-
-        ArgumentNullException.ThrowIfNull(host);
-        ArgumentNullException.ThrowIfNull(scheme);
-        ArgumentNullException.ThrowIfNull(configure);
-        return host.AddApiKeyAuthentication(
-            scheme: scheme,
-            configure: opts =>
-            {
-                // let caller mutate everything first
-                opts.ExpectedKey = configure.ExpectedKey;
-                opts.HeaderName = configure.HeaderName;
-                opts.AdditionalHeaderNames = configure.AdditionalHeaderNames;
-                opts.AllowQueryStringFallback = configure.AllowQueryStringFallback;
-                // Logger configuration
-                opts.Logger = configure.Logger == host.Logger.ForContext<ApiKeyAuthenticationOptions>() ?
-                        host.Logger.ForContext<ApiKeyAuthenticationOptions>() : configure.Logger;
-
-                opts.AllowInsecureHttp = configure.AllowInsecureHttp;
-                opts.EmitChallengeHeader = configure.EmitChallengeHeader;
-                opts.ChallengeHeaderFormat = configure.ChallengeHeaderFormat;
-                opts.ValidateCodeSettings = configure.ValidateCodeSettings;
-                // IssueClaimsCodeSettings
-                opts.IssueClaimsCodeSettings = configure.IssueClaimsCodeSettings;
-                // Claims policy configuration
-                opts.ClaimPolicyConfig = configure.ClaimPolicyConfig;
-            }
-        );
     }
+
     #endregion
 
     /// <summary>

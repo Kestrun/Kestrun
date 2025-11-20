@@ -7,6 +7,10 @@
         The Kestrun server instance to configure.
     .PARAMETER Name
         The name of the basic authentication scheme.
+    .PARAMETER DisplayName
+        The display name of the basic authentication scheme.
+    .PARAMETER DocId
+        The documentation IDs to associate with this authentication scheme.
     .PARAMETER Options
         The options to configure the basic authentication.
     .PARAMETER ScriptBlock
@@ -66,6 +70,12 @@ function Add-KrBasicAuthentication {
 
         [Parameter(Mandatory = $true)]
         [string]$Name,
+
+        [Parameter()]
+        [string]$DisplayName = 'Basic Authentication',
+
+        [Parameter()]
+        [string[]]$DocId = @('default'),
 
         [Parameter(Mandatory = $true, ParameterSetName = 'Options')]
         [Kestrun.Authentication.BasicAuthenticationOptions]$Options,
@@ -314,6 +324,8 @@ function Add-KrBasicAuthentication {
                     $Options.IssueClaimsCodeSettings.Code = Get-Content -Path $CodeFilePath -Raw
                 }
             }
+            # Set OpenApi documentation IDs
+            $Options.DocumentationId = $DocId
         }
         # Ensure the server instance is resolved
         $Server = Resolve-KestrunServer -Server $Server
@@ -321,8 +333,10 @@ function Add-KrBasicAuthentication {
         [Kestrun.Hosting.KestrunHostAuthnExtensions]::AddBasicAuthentication(
             $Server,
             $Name,
+            $DisplayName,
             $Options
         ) | Out-Null
+
         if ($PassThru.IsPresent) {
             # if the PassThru switch is specified, return the modified server instance
             return $Server

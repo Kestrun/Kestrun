@@ -7,6 +7,8 @@
         The Kestrun server instance to configure.
     .PARAMETER Name
         The name of the API key authentication scheme.
+    .PARAMETER DisplayName
+        The display name of the API key authentication scheme.
     .PARAMETER Options
         The options to configure the API key authentication.
     .PARAMETER ScriptBlock
@@ -17,9 +19,9 @@
         The scripting language of the code used for validating the API key.
     .PARAMETER CodeFilePath
         Path to a file containing C# code that contains the logic for validating the API key.
-    .PARAMETER ExpectedKey
+    .PARAMETER StaticApiKey
         The expected API key to validate against.
-    .PARAMETER HeaderName
+    .PARAMETER ApiKeyName
         The name of the header to look for the API key.
     .PARAMETER AdditionalHeaderNames
         Additional headers to check for the API key.
@@ -46,7 +48,7 @@
     .PARAMETER PassThru
         If specified, returns the modified server instance after adding the authentication.
     .EXAMPLE
-        Add-KrApiKeyAuthentication -Name 'MyApiKey' -ExpectedKey '12345' -HeaderName 'X-Api-Key'
+        Add-KrApiKeyAuthentication -Name 'MyApiKey' -ExpectedKey '12345' -ApiKeyName 'X-Api-Key'
         This example adds API key authentication to the server with the specified expected key and header name.
     .EXAMPLE
         Add-KrApiKeyAuthentication -Name 'MyApiKey' -ScriptBlock {
@@ -69,326 +71,208 @@
 #>
 function Add-KrApiKeyAuthentication {
     [KestrunRuntimeApi('Definition')]
-    [CmdletBinding(defaultParameterSetName = 'ItemsScriptBlock')]
+    [CmdletBinding(DefaultParameterSetName = 'ScriptBlock')]
     [OutputType([Kestrun.Hosting.KestrunHost])]
     param(
-        [Parameter(Mandatory = $false, ValueFromPipeline)]
+        [Parameter(ValueFromPipeline = $true)]
         [Kestrun.Hosting.KestrunHost]$Server,
 
         [Parameter(Mandatory = $true)]
         [string]$Name,
 
-        [Parameter()]
+        [string]$DisplayName = 'API Key Authentication',
+
         [string[]]$DocId = @('default'),
 
+        # 1. Direct options
         [Parameter(Mandatory = $true, ParameterSetName = 'Options')]
         [Kestrun.Authentication.ApiKeyAuthenticationOptions]$Options,
 
-        [Parameter(Mandatory = $true, ParameterSetName = 'v1')]
-        [Parameter(Mandatory = $true, ParameterSetName = 'v1_i1')]
-        [Parameter(Mandatory = $true, ParameterSetName = 'v1_i2')]
-        [Parameter(Mandatory = $true, ParameterSetName = 'v1_i3')]
+        # 2. Validation via ScriptBlock
+        [Parameter(Mandatory = $true, ParameterSetName = 'ScriptBlock')]
         [scriptblock]$ScriptBlock,
 
-        [Parameter(Mandatory = $true, ParameterSetName = 'v2')]
-        [Parameter(Mandatory = $true, ParameterSetName = 'v2_i1')]
-        [Parameter(Mandatory = $true, ParameterSetName = 'v2_i2')]
-        [Parameter(Mandatory = $true, ParameterSetName = 'v2_i3')]
+        # 3. Validation via inline code (C#/VB)
+        [Parameter(Mandatory = $true, ParameterSetName = 'CodeInline')]
         [string]$Code,
 
-        [Parameter(ParameterSetName = 'v2')]
-        [Parameter(ParameterSetName = 'v2_i1')]
-        [Parameter(ParameterSetName = 'v2_i2')]
-        [Parameter(ParameterSetName = 'v2_i3')]
+        [Parameter(ParameterSetName = 'CodeInline')]
         [Kestrun.Scripting.ScriptLanguage]$CodeLanguage = [Kestrun.Scripting.ScriptLanguage]::CSharp,
 
-        [Parameter(Mandatory = $true, ParameterSetName = 'v3')]
-        [Parameter(Mandatory = $true, ParameterSetName = 'v3_i1')]
-        [Parameter(Mandatory = $true, ParameterSetName = 'v3_i2')]
-        [Parameter(Mandatory = $true, ParameterSetName = 'v3_i3')]
+        # 4. Validation via code file
+        [Parameter(Mandatory = $true, ParameterSetName = 'CodeFile')]
         [string]$CodeFilePath,
 
-        [Parameter(Mandatory = $true, ParameterSetName = 'v4')]
-        [Parameter(Mandatory = $true, ParameterSetName = 'v4_i1')]
-        [Parameter(Mandatory = $true, ParameterSetName = 'v4_i2')]
-        [Parameter(Mandatory = $true, ParameterSetName = 'v4_i3')]
-        [string]$ExpectedKey,
+        # 5. Validation via static API key
+        [Parameter(Mandatory = $true, ParameterSetName = 'StaticKey')]
+        [string]$StaticApiKey,
 
-        [Parameter(ParameterSetName = 'v1')]
-        [Parameter(ParameterSetName = 'v1_i1')]
-        [Parameter(ParameterSetName = 'v1_i2')]
-        [Parameter(ParameterSetName = 'v1_i3')]
-        [Parameter(ParameterSetName = 'v2')]
-        [Parameter(ParameterSetName = 'v2_i1')]
-        [Parameter(ParameterSetName = 'v2_i2')]
-        [Parameter(ParameterSetName = 'v2_i3')]
-        [Parameter(ParameterSetName = 'v3')]
-        [Parameter(ParameterSetName = 'v3_i1')]
-        [Parameter(ParameterSetName = 'v3_i2')]
-        [Parameter(ParameterSetName = 'v3_i3')]
-        [Parameter(ParameterSetName = 'v4')]
-        [Parameter(ParameterSetName = 'v4_i1')]
-        [Parameter(ParameterSetName = 'v4_i2')]
-        [Parameter(ParameterSetName = 'v4_i3')]
-        [string]$HeaderName,
+        # Common API key config (all parameter sets)
+        [Microsoft.OpenApi.ParameterLocation]$In = [Microsoft.OpenApi.ParameterLocation]::Header,
 
-        [Parameter(ParameterSetName = 'v1')]
-        [Parameter(ParameterSetName = 'v1_i1')]
-        [Parameter(ParameterSetName = 'v1_i2')]
-        [Parameter(ParameterSetName = 'v1_i3')]
-        [Parameter(ParameterSetName = 'v2')]
-        [Parameter(ParameterSetName = 'v2_i1')]
-        [Parameter(ParameterSetName = 'v2_i2')]
-        [Parameter(ParameterSetName = 'v2_i3')]
-        [Parameter(ParameterSetName = 'v3')]
-        [Parameter(ParameterSetName = 'v3_i1')]
-        [Parameter(ParameterSetName = 'v3_i2')]
-        [Parameter(ParameterSetName = 'v3_i3')]
-        [Parameter(ParameterSetName = 'v4')]
-        [Parameter(ParameterSetName = 'v4_i1')]
-        [Parameter(ParameterSetName = 'v4_i2')]
-        [Parameter(ParameterSetName = 'v4_i3')]
+        [string]$ApiKeyName,
         [string[]]$AdditionalHeaderNames,
 
-        [Parameter(ParameterSetName = 'v1')]
-        [Parameter(ParameterSetName = 'v1_i1')]
-        [Parameter(ParameterSetName = 'v1_i2')]
-        [Parameter(ParameterSetName = 'v1_i3')]
-        [Parameter(ParameterSetName = 'v2')]
-        [Parameter(ParameterSetName = 'v2_i1')]
-        [Parameter(ParameterSetName = 'v2_i2')]
-        [Parameter(ParameterSetName = 'v2_i3')]
-        [Parameter(ParameterSetName = 'v3')]
-        [Parameter(ParameterSetName = 'v3_i1')]
-        [Parameter(ParameterSetName = 'v3_i2')]
-        [Parameter(ParameterSetName = 'v3_i3')]
-        [Parameter(ParameterSetName = 'v4')]
-        [Parameter(ParameterSetName = 'v4_i1')]
-        [Parameter(ParameterSetName = 'v4_i2')]
-        [Parameter(ParameterSetName = 'v4_i3')]
         [switch]$AllowQueryStringFallback,
-
-        [Parameter(ParameterSetName = 'v1')]
-        [Parameter(ParameterSetName = 'v1_i1')]
-        [Parameter(ParameterSetName = 'v1_i2')]
-        [Parameter(ParameterSetName = 'v1_i3')]
-        [Parameter(ParameterSetName = 'v2')]
-        [Parameter(ParameterSetName = 'v2_i1')]
-        [Parameter(ParameterSetName = 'v2_i2')]
-        [Parameter(ParameterSetName = 'v2_i3')]
-        [Parameter(ParameterSetName = 'v3')]
-        [Parameter(ParameterSetName = 'v3_i1')]
-        [Parameter(ParameterSetName = 'v3_i2')]
-        [Parameter(ParameterSetName = 'v3_i3')]
-        [Parameter(ParameterSetName = 'v4')]
-        [Parameter(ParameterSetName = 'v4_i1')]
-        [Parameter(ParameterSetName = 'v4_i2')]
-        [Parameter(ParameterSetName = 'v4_i3')]
         [switch]$AllowInsecureHttp,
-
-        [Parameter(ParameterSetName = 'v1')]
-        [Parameter(ParameterSetName = 'v1_i1')]
-        [Parameter(ParameterSetName = 'v1_i2')]
-        [Parameter(ParameterSetName = 'v1_i3')]
-        [Parameter(ParameterSetName = 'v2')]
-        [Parameter(ParameterSetName = 'v2_i1')]
-        [Parameter(ParameterSetName = 'v2_i2')]
-        [Parameter(ParameterSetName = 'v2_i3')]
-        [Parameter(ParameterSetName = 'v3')]
-        [Parameter(ParameterSetName = 'v3_i1')]
-        [Parameter(ParameterSetName = 'v3_i2')]
-        [Parameter(ParameterSetName = 'v3_i3')]
-        [Parameter(ParameterSetName = 'v4')]
-        [Parameter(ParameterSetName = 'v4_i1')]
-        [Parameter(ParameterSetName = 'v4_i2')]
-        [Parameter(ParameterSetName = 'v4_i3')]
         [switch]$EmitChallengeHeader,
 
-        [Parameter(ParameterSetName = 'v1')]
-        [Parameter(ParameterSetName = 'v1_i1')]
-        [Parameter(ParameterSetName = 'v1_i2')]
-        [Parameter(ParameterSetName = 'v1_i3')]
-        [Parameter(ParameterSetName = 'v2')]
-        [Parameter(ParameterSetName = 'v2_i1')]
-        [Parameter(ParameterSetName = 'v2_i2')]
-        [Parameter(ParameterSetName = 'v2_i3')]
-        [Parameter(ParameterSetName = 'v3')]
-        [Parameter(ParameterSetName = 'v3_i1')]
-        [Parameter(ParameterSetName = 'v3_i2')]
-        [Parameter(ParameterSetName = 'v3_i3')]
-        [Parameter(ParameterSetName = 'v4')]
-        [Parameter(ParameterSetName = 'v4_i1')]
-        [Parameter(ParameterSetName = 'v4_i2')]
-        [Parameter(ParameterSetName = 'v4_i3')]
         [Kestrun.Authentication.ApiKeyChallengeFormat]$ChallengeHeaderFormat,
-
-        [Parameter(ParameterSetName = 'v1')]
-        [Parameter(ParameterSetName = 'v1_i1')]
-        [Parameter(ParameterSetName = 'v1_i2')]
-        [Parameter(ParameterSetName = 'v1_i3')]
-        [Parameter(ParameterSetName = 'v2')]
-        [Parameter(ParameterSetName = 'v2_i1')]
-        [Parameter(ParameterSetName = 'v2_i2')]
-        [Parameter(ParameterSetName = 'v2_i3')]
-        [Parameter(ParameterSetName = 'v3')]
-        [Parameter(ParameterSetName = 'v3_i1')]
-        [Parameter(ParameterSetName = 'v3_i2')]
-        [Parameter(ParameterSetName = 'v3_i3')]
-        [Parameter(ParameterSetName = 'v4')]
-        [Parameter(ParameterSetName = 'v4_i1')]
-        [Parameter(ParameterSetName = 'v4_i2')]
-        [Parameter(ParameterSetName = 'v4_i3')]
         [Serilog.ILogger]$Logger,
-
-        [Parameter(ParameterSetName = 'v1_i1')]
-        [Parameter(ParameterSetName = 'v1_i2')]
-        [Parameter(ParameterSetName = 'v1_i3')]
-        [Parameter(ParameterSetName = 'v2_i1')]
-        [Parameter(ParameterSetName = 'v2_i2')]
-        [Parameter(ParameterSetName = 'v2_i3')]
-        [Parameter(ParameterSetName = 'v3_i1')]
-        [Parameter(ParameterSetName = 'v3_i2')]
-        [Parameter(ParameterSetName = 'v3_i3')]
-        [Parameter(ParameterSetName = 'v4_i1')]
-        [Parameter(ParameterSetName = 'v4_i2')]
-        [Parameter(ParameterSetName = 'v4_i3')]
         [Kestrun.Claims.ClaimPolicyConfig]$ClaimPolicyConfig,
 
-        [Parameter(Mandatory = $true, ParameterSetName = 'v1_i1')]
-        [Parameter(Mandatory = $true, ParameterSetName = 'v2_i1')]
-        [Parameter(Mandatory = $true, ParameterSetName = 'v3_i1')]
-        [Parameter(Mandatory = $true, ParameterSetName = 'v4_i1')]
+        # Optional "issue claims" configuration (independent from validation mode)
         [scriptblock]$IssueClaimsScriptBlock,
-
-        [Parameter(Mandatory = $true, ParameterSetName = 'v3_i2')]
-        [Parameter(Mandatory = $true, ParameterSetName = 'v2_i2')]
-        [Parameter(Mandatory = $true, ParameterSetName = 'v1_i2')]
-        [Parameter(Mandatory = $true, ParameterSetName = 'v4_i2')]
         [string]$IssueClaimsCode,
-
-        [Parameter(ParameterSetName = 'v3_i2')]
-        [Parameter(ParameterSetName = 'v2_i2')]
-        [Parameter(ParameterSetName = 'v1_i2')]
-        [Parameter(ParameterSetName = 'v4_i2')]
         [Kestrun.Scripting.ScriptLanguage]$IssueClaimsCodeLanguage = [Kestrun.Scripting.ScriptLanguage]::CSharp,
-
-        [Parameter(Mandatory = $true, ParameterSetName = 'v3_i3')]
-        [Parameter(Mandatory = $true, ParameterSetName = 'v2_i3')]
-        [Parameter(Mandatory = $true, ParameterSetName = 'v1_i3')]
-        [Parameter(Mandatory = $true, ParameterSetName = 'v4_i3')]
         [string]$IssueClaimsCodeFilePath,
 
-        [Parameter()]
         [switch]$PassThru
     )
+
     process {
+        # Build Options only when not provided directly
         if ($PSCmdlet.ParameterSetName -ne 'Options') {
             $Options = [Kestrun.Authentication.ApiKeyAuthenticationOptions]::new()
             $Options.ValidateCodeSettings = [Kestrun.Authentication.AuthenticationCodeSettings]::new()
-            if (-not [string]::IsNullOrWhiteSpace($ExpectedKey)) {
-                $Options.ExpectedKey = $ExpectedKey
-            } elseif ($null -ne $ScriptBlock) {
-                $Options.ValidateCodeSettings.Code = $ScriptBlock.ToString()
-                $Options.ValidateCodeSettings.Language = [Kestrun.Scripting.ScriptLanguage]::PowerShell
-            } elseif (-not [string]::IsNullOrWhiteSpace($Code)) {
-                $Options.ValidateCodeSettings.Code = $Code
-                $Options.ValidateCodeSettings.Language = $CodeLanguage
-            } elseif (-not [string]::IsNullOrWhiteSpace($CodeFilePath)) {
-                if (-not (Test-Path -Path $CodeFilePath)) {
-                    throw "The specified code file path does not exist: $CodeFilePath"
+
+            switch ($PSCmdlet.ParameterSetName) {
+                'ScriptBlock' {
+                    $Options.ValidateCodeSettings.Code = $ScriptBlock.ToString()
+                    $Options.ValidateCodeSettings.Language = [Kestrun.Scripting.ScriptLanguage]::PowerShell
                 }
-                $extension = Split-Path -Path $CodeFilePath -Extension
-                switch ($extension) {
-                    '.ps1' {
-                        $Options.ValidateCodeSettings.Language = [Kestrun.Scripting.ScriptLanguage]::PowerShell
-                    }
-                    '.cs' {
-                        $Options.ValidateCodeSettings.Language = [Kestrun.Scripting.ScriptLanguage]::CSharp
-                    }
-                    '.vb' {
-                        $Options.ValidateCodeSettings.Language = [Kestrun.Scripting.ScriptLanguage]::VisualBasic
-                    }
-                    default {
-                        throw "Unsupported '$extension' code file extension."
-                    }
+                'CodeInline' {
+                    $Options.ValidateCodeSettings.Code = $Code
+                    $Options.ValidateCodeSettings.Language = $CodeLanguage
                 }
-                $Options.ValidateCodeSettings.Code = Get-Content -Path $CodeFilePath -Raw
+                'CodeFile' {
+                    if (-not (Test-Path -Path $CodeFilePath)) {
+                        throw "The specified code file path does not exist: $CodeFilePath"
+                    }
+
+                    $extension = [System.IO.Path]::GetExtension($CodeFilePath)
+
+                    switch ($extension.ToLowerInvariant()) {
+                        '.ps1' {
+                            $Options.ValidateCodeSettings.Language = [Kestrun.Scripting.ScriptLanguage]::PowerShell
+                        }
+                        '.cs' {
+                            $Options.ValidateCodeSettings.Language = [Kestrun.Scripting.ScriptLanguage]::CSharp
+                        }
+                        '.vb' {
+                            $Options.ValidateCodeSettings.Language = [Kestrun.Scripting.ScriptLanguage]::VisualBasic
+                        }
+                        default {
+                            throw "Unsupported '$extension' code file extension for validation."
+                        }
+                    }
+
+                    $Options.ValidateCodeSettings.Code = Get-Content -Path $CodeFilePath -Raw
+                }
+                'StaticKey' {
+                    $Options.StaticApiKey = $StaticApiKey
+                }
             }
 
-            if (-not [string]::IsNullOrWhiteSpace($HeaderName)) {
-                $Options.HeaderName = $HeaderName
+            # Common API key options
+            if ($PSBoundParameters.ContainsKey('ApiKeyName')) {
+                $Options.ApiKeyName = $ApiKeyName
             }
-            if ($AdditionalHeaderNames.Count -gt 0) {
+
+            # Set location of API key
+            $Options.In = $In
+
+            if ($PSBoundParameters.ContainsKey('AdditionalHeaderNames') -and $AdditionalHeaderNames.Count -gt 0) {
                 $Options.AdditionalHeaderNames = $AdditionalHeaderNames
             }
+
             if ($AllowQueryStringFallback.IsPresent) {
-                $Options.AllowQueryStringFallback = $AllowQueryStringFallback.IsPresent
-            }
-            if ($EmitChallengeHeader.IsPresent) {
-                $Options.EmitChallengeHeader = $EmitChallengeHeader.IsPresent
-            }
-            if ($null -ne $ChallengeHeaderFormat) {
-                $Options.ChallengeHeaderFormat = $ChallengeHeaderFormat
+                $Options.AllowQueryStringFallback = $true
             }
 
             $Options.AllowInsecureHttp = $AllowInsecureHttp.IsPresent
 
-            if ($null -ne $ClaimPolicyConfig) {
+            $Options.EmitChallengeHeader = $EmitChallengeHeader.IsPresent
+
+
+            if ($PSBoundParameters.ContainsKey('ChallengeHeaderFormat')) {
+                $Options.ChallengeHeaderFormat = $ChallengeHeaderFormat
+            }
+
+            if ($PSBoundParameters.ContainsKey('ClaimPolicyConfig')) {
                 $Options.ClaimPolicyConfig = $ClaimPolicyConfig
             }
-            if ($null -ne $Logger) {
+
+            if ($PSBoundParameters.ContainsKey('Logger')) {
                 $Options.Logger = $Logger
             }
 
-            if ($PSCmdlet.ParameterSetName.contains('_')) {
+            # Optional issue-claims settings (single-choice)
+            $issueModes = @()
+            if ($PSBoundParameters.ContainsKey('IssueClaimsScriptBlock')) { $issueModes += 'ScriptBlock' }
+            if ($PSBoundParameters.ContainsKey('IssueClaimsCode')) { $issueModes += 'Code' }
+            if ($PSBoundParameters.ContainsKey('IssueClaimsCodeFilePath')) { $issueModes += 'File' }
 
+            if ($issueModes.Count -gt 1) {
+                throw 'Specify only one of -IssueClaimsScriptBlock, -IssueClaimsCode, or -IssueClaimsCodeFilePath.'
+            }
+
+            if ($issueModes.Count -eq 1) {
                 $Options.IssueClaimsCodeSettings = [Kestrun.Authentication.AuthenticationCodeSettings]::new()
-                if ($null -ne $IssueClaimsScriptBlock) {
-                    $Options.IssueClaimsCodeSettings.Code = $IssueClaimsScriptBlock.ToString()
-                    $Options.IssueClaimsCodeSettings.Language = [Kestrun.Scripting.ScriptLanguage]::PowerShell
-                } elseif (-not [string]::IsNullOrWhiteSpace($IssueClaimsCode)) {
-                    $Options.IssueClaimsCodeSettings.Code = $IssueClaimsCode
-                    $Options.IssueClaimsCodeSettings.Language = $IssueClaimsCodeLanguage
-                } elseif (-not [string]::IsNullOrWhiteSpace($IssueClaimsCodeFilePath)) {
-                    if (-not (Test-Path -Path $IssueClaimsCodeFilePath)) {
-                        throw "The specified code file path does not exist: $IssueClaimsCodeFilePath"
+
+                switch ($issueModes[0]) {
+                    'ScriptBlock' {
+                        $Options.IssueClaimsCodeSettings.Code = $IssueClaimsScriptBlock.ToString()
+                        $Options.IssueClaimsCodeSettings.Language = [Kestrun.Scripting.ScriptLanguage]::PowerShell
                     }
-                    $extension = Split-Path -Path $IssueClaimsCodeFilePath -Extension
-                    switch ($extension) {
-                        '.ps1' {
-                            $Options.IssueClaimsCodeSettings.Language = [Kestrun.Scripting.ScriptLanguage]::PowerShell
-                        }
-                        '.cs' {
-                            $Options.IssueClaimsCodeSettings.Language = [Kestrun.Scripting.ScriptLanguage]::CSharp
-                        }
-                        '.vb' {
-                            $Options.IssueClaimsCodeSettings.Language = [Kestrun.Scripting.ScriptLanguage]::VisualBasic
-                        }
-                        default {
-                            throw "Unsupported '$extension' code file extension."
-                        }
+                    'Code' {
+                        $Options.IssueClaimsCodeSettings.Code = $IssueClaimsCode
+                        $Options.IssueClaimsCodeSettings.Language = $IssueClaimsCodeLanguage
                     }
-                    $Options.IssueClaimsCodeSettings.Code = Get-Content -Path $CodeFilePath -Raw
+                    'File' {
+                        if (-not (Test-Path -Path $IssueClaimsCodeFilePath)) {
+                            throw "The specified issue-claims code file path does not exist: $IssueClaimsCodeFilePath"
+                        }
+
+                        $issueExt = [System.IO.Path]::GetExtension($IssueClaimsCodeFilePath)
+
+                        switch ($issueExt.ToLowerInvariant()) {
+                            '.ps1' {
+                                $Options.IssueClaimsCodeSettings.Language = [Kestrun.Scripting.ScriptLanguage]::PowerShell
+                            }
+                            '.cs' {
+                                $Options.IssueClaimsCodeSettings.Language = [Kestrun.Scripting.ScriptLanguage]::CSharp
+                            }
+                            '.vb' {
+                                $Options.IssueClaimsCodeSettings.Language = [Kestrun.Scripting.ScriptLanguage]::VisualBasic
+                            }
+                            default {
+                                throw "Unsupported '$issueExt' code file extension for issue-claims."
+                            }
+                        }
+
+                        $Options.IssueClaimsCodeSettings.Code = Get-Content -Path $IssueClaimsCodeFilePath -Raw
+                    }
                 }
             }
+
+            # OpenAPI documentation IDs
+            $Options.DocumentationId = $DocId
         }
+
         # Ensure the server instance is resolved
         $Server = Resolve-KestrunServer -Server $Server
+
         # Add API key authentication to the server
         [Kestrun.Hosting.KestrunHostAuthnExtensions]::AddApiKeyAuthentication(
             $Server,
             $Name,
+            $DisplayName,
             $Options
         ) | Out-Null
-        foreach ($doc in $DocId) {
-            $docDescriptor = $Server.GetOrCreateOpenApiDocument($doc)
-            if ($null -eq $docDescriptor) { break }
-            $docDescriptor.ApplyApiKeySecurityScheme($Name, $Options)
-        }
+
         if ($PassThru.IsPresent) {
-            # if the PassThru switch is specified, return the modified server instance
             return $Server
         }
     }
 }
-

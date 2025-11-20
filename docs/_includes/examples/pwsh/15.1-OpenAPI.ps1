@@ -19,6 +19,7 @@ New-KrLogger | Add-KrSinkConsole |
 # 2. Create server host
 $srv = New-KrServer -Name 'Lifecycle Demo' -PassThru
 
+# Define OpenAPI schema components (class-first; one class per schema)
 [OpenApiSchemaComponent(Description = 'Mailing address schema', Deprecated = $true)]
 [OpenApiSchemaComponent(Required = 'Street')]
 [OpenApiSchemaComponent(Required = 'City')]
@@ -319,6 +320,10 @@ Add-KrBasicAuthentication -Name 'PowershellBasic' -Realm 'Demo' -AllowInsecureHt
     param($Username, $Password)
     $Username -eq 'admin' -and $Password -eq 'password'
 }
+Add-KrApiKeyAuthentication -Name 'ApiKeyCS' -AllowInsecureHttp -ApiKeyName 'X-Api-Key' -Code @'
+    return providedKey == "my-secret-api-key";
+'@ -In Cookie
+
 
 # 3. Add loopback listener on port 5000 (auto unlinks existing file if present)
 # This listener will be used to demonstrate server limits configuration.

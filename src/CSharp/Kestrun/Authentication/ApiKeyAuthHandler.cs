@@ -93,7 +93,7 @@ public class ApiKeyAuthHandler
         providedKey = string.Empty;
 
         // Primary header
-        if (!Request.Headers.TryGetValue(Options.HeaderName, out var values))
+        if (!Request.Headers.TryGetValue(Options.ApiKeyName, out var values))
         {
             // Additional headers
             foreach (var header in Options.AdditionalHeaderNames)
@@ -108,7 +108,7 @@ public class ApiKeyAuthHandler
         // Query string fallback
         if ((values.Count == 0 || StringValues.IsNullOrEmpty(values))
             && Options.AllowQueryStringFallback
-            && Request.Query.TryGetValue(Options.HeaderName, out var qsValues))
+            && Request.Query.TryGetValue(Options.ApiKeyName, out var qsValues))
         {
             values = qsValues;
         }
@@ -131,8 +131,8 @@ public class ApiKeyAuthHandler
     /// <returns>True if the API key is valid; otherwise, false.</returns>
     private async Task<bool> ValidateApiKeyAsync(string providedKey, byte[] providedKeyBytes)
     {
-        return Options.ExpectedKeyBytes is not null
-            ? FixedTimeEquals.Test(providedKeyBytes, Options.ExpectedKeyBytes)
+        return Options.StaticApiKeyAsBytes is not null
+            ? FixedTimeEquals.Test(providedKeyBytes, Options.StaticApiKeyAsBytes)
             : Options.ValidateKeyAsync is not null
             ? await Options.ValidateKeyAsync(Context, providedKey, providedKeyBytes)
             : throw new InvalidOperationException(
@@ -167,7 +167,7 @@ public class ApiKeyAuthHandler
     {
         if (Options.EmitChallengeHeader)
         {
-            var header = Options.HeaderName ?? "X-Api-Key";
+            var header = Options.ApiKeyName ?? "X-Api-Key";
 
             var value = Options.ChallengeHeaderFormat == ApiKeyChallengeFormat.ApiKeyHeader
                 ? $"ApiKey header=\"{header}\""

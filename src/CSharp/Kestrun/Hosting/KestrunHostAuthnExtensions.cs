@@ -4,7 +4,6 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.Extensions.Options;
-using System.Text.RegularExpressions;
 using Kestrun.Authentication;
 using Serilog.Events;
 using Kestrun.Scripting;
@@ -45,21 +44,25 @@ public static class KestrunHostAuthnExtensions
            defaultScheme: scheme,
            buildSchemes: ab =>
            {
+               // Build a prototype options instance (single source of truth)
+               var prototype = new BasicAuthenticationOptions { Host = host };
+
+               // Let the caller mutate the prototype
+               configure?.Invoke(prototype);
+
+               // Configure validators / claims / OpenAPI on the prototype
+               ConfigureBasicAuthValidators(host, prototype);
+               ConfigureBasicIssueClaims(host, prototype);
+               ConfigureOpenApi(host, scheme, prototype);
                _ = ab.AddScheme<BasicAuthenticationOptions, BasicAuthHandler>(
                    authenticationScheme: scheme,
                    displayName: displayName,
                    configureOptions: opts =>
                    {
-                       // Ensure host is set
-                       if (opts.Host != host)
-                       {
-                           opts.Host = host;
-                       }
-                       // let caller mutate everything first
-                       configure?.Invoke(opts);
-                       ConfigureBasicAuthValidators(host, opts);
-                       ConfigureBasicIssueClaims(host, opts);
-                       ConfigureOpenApi(host, scheme, opts);
+                       // Copy from the prototype into the runtime instance
+                       prototype.ApplyTo(opts);
+
+                       host.Logger.Debug("Configured Basic Authentication using scheme {Scheme}", scheme);
                    });
            }
        );
@@ -473,17 +476,25 @@ public static class KestrunHostAuthnExtensions
     /// </summary>
     /// <param name="host">The Kestrun host instance.</param>
     /// <param name="scheme">The authentication scheme name (default is CookieAuthenticationDefaults.AuthenticationScheme).</param>
+    /// <param name="displayName">The display name for the authentication scheme.</param>
     /// <param name="configure">Optional configuration for CookieAuthenticationOptions.</param>
     /// <param name="claimPolicy">Optional authorization policy configuration.</param>
     /// <returns>The configured KestrunHost instance.</returns>
     public static KestrunHost AddCookieAuthentication(
         this KestrunHost host,
         string scheme = CookieAuthenticationDefaults.AuthenticationScheme,
-        Action<CookieAuthenticationOptions>? configure = null,
+        string displayName = "Cookie Authentication",
+        Action<CookieAuthOptions>? configure = null,
      ClaimPolicyConfig? claimPolicy = null)
     {
+        // Build a prototype options instance (single source of truth)
+        var prototype = new CookieAuthOptions { Host = host };
+        configure?.Invoke(prototype);
+        ConfigureOpenApi(host, scheme, prototype);
+
         // register in host for introspection
         _ = host.RegisteredAuthentications.Register(scheme, "Cookie", configure);
+
         // Add authentication
         return host.AddAuthentication(
             defaultScheme: scheme,
@@ -491,11 +502,13 @@ public static class KestrunHostAuthnExtensions
             {
                 _ = ab.AddCookie(
                     authenticationScheme: scheme,
+                    displayName: displayName,
                     configureOptions: opts =>
                     {
+                        // Copy everything from the prototype into the real options instance
+                        prototype.ApplyTo(opts);
                         // let caller mutate everything first
-                        configure?.Invoke(opts);
-                        host.Logger.Debug("Configured Cookie Authentication with LoginPath: {LoginPath}", opts.LoginPath);
+                        //configure?.Invoke(opts);
                     });
             },
              configureAuthz: claimPolicy?.ToAuthzDelegate()
@@ -507,27 +520,37 @@ public static class KestrunHostAuthnExtensions
     /// </summary>
     /// <param name="host">The Kestrun host instance.</param>
     /// <param name="scheme">The authentication scheme name (default is CookieAuthenticationDefaults.AuthenticationScheme).</param>
+    /// <param name="displayName">The display name for the authentication scheme.</param>
     /// <param name="configure">The CookieAuthenticationOptions object to configure the authentication.</param>
     /// <param name="claimPolicy">Optional authorization policy configuration.</param>
     /// <returns>The configured KestrunHost instance.</returns>
     public static KestrunHost AddCookieAuthentication(
           this KestrunHost host,
-          string scheme = CookieAuthenticationDefaults.AuthenticationScheme,
-          CookieAuthenticationOptions? configure = null,
+          string scheme,
+          string displayName,
+          CookieAuthOptions configure,
        ClaimPolicyConfig? claimPolicy = null)
     {
-        // If no object provided just delegate to action overload without extra config
-        return configure is null
-            ? host.AddCookieAuthentication(
-                scheme: scheme,
-                configure: (Action<CookieAuthenticationOptions>?)null,
-                claimPolicy: claimPolicy)
-            : host.AddCookieAuthentication(
+        if (host.Logger.IsEnabled(LogEventLevel.Debug))
+        {
+            host.Logger.Debug("Adding Cookie Authentication with scheme: {Scheme}", scheme);
+        }
+        // Ensure the scheme is not null
+        ArgumentNullException.ThrowIfNull(host);
+        ArgumentNullException.ThrowIfNull(scheme);
+        ArgumentNullException.ThrowIfNull(configure);
+        // Ensure host is set
+        if (configure.Host != host)
+        {
+            configure.Host = host;
+        }
+        return host.AddCookieAuthentication(
             scheme: scheme,
+            displayName: displayName,
             configure: opts =>
             {
                 // Copy relevant properties from provided options instance to the framework-created one
-                CopyCookieAuthenticationOptions(configure, opts);
+                configure.ApplyTo(opts);
             },
             claimPolicy: claimPolicy
         );
@@ -596,43 +619,50 @@ public static class KestrunHostAuthnExtensions
     string displayName = "API Key",
     Action<ApiKeyAuthenticationOptions>? configure = null)
     {
+        // Build a prototype options instance (single source of truth)
+        var prototype = new ApiKeyAuthenticationOptions { Host = host };
+
+        // Let the caller mutate the prototype
+        configure?.Invoke(prototype);
+
+        // Configure validators / claims / OpenAPI on the prototype
+        ConfigureApiKeyValidators(host, prototype);
+        ConfigureApiKeyIssueClaims(host, prototype);
+        ConfigureOpenApi(host, scheme, prototype);
+
         // register in host for introspection
         _ = host.RegisteredAuthentications.Register(scheme, "ApiKey", configure);
         // Add authentication
-        var h = host.AddAuthentication(
-           defaultScheme: scheme,
-           buildSchemes: ab =>
-           {
-               // ← TOptions == ApiKeyAuthenticationOptions
-               //    THandler == ApiKeyAuthHandler
-               _ = ab.AddScheme<ApiKeyAuthenticationOptions, ApiKeyAuthHandler>(
-                   authenticationScheme: scheme,
-                   displayName: displayName,
-                   configureOptions: opts =>
-                   {
-                       // Ensure host is set
-                       if (opts.Host != host)
-                       {
-                           opts.Host = host;
-                       }
-                       // let caller mutate everything first
-                       configure?.Invoke(opts);
-                       ConfigureApiKeyValidators(host, opts);
-                       ConfigureApiKeyIssueClaims(host, opts);
-                       ConfigureOpenApi(host, scheme, opts);
-                   });
-           }
-       );
+        return host.AddAuthentication(
+             defaultScheme: scheme,
+             buildSchemes: ab =>
+             {
+                 // ← TOptions == ApiKeyAuthenticationOptions
+                 //    THandler == ApiKeyAuthHandler
+                 _ = ab.AddScheme<ApiKeyAuthenticationOptions, ApiKeyAuthHandler>(
+                     authenticationScheme: scheme,
+                     displayName: displayName,
+                     configureOptions: opts =>
+                     {
+                         // Copy from the prototype into the runtime instance
+                         prototype.ApplyTo(opts);
+
+                         host.Logger.Debug(
+                             "Configured API Key Authentication using scheme {Scheme} with header {Header} (In={In})",
+                             scheme, prototype.ApiKeyName, prototype.In);
+                     });
+             }
+         )
         //  register the post-configurer **after** the scheme so it can
         //    read BasicAuthenticationOptions for <scheme>
-        return h.AddService(services =>
-        {
-            _ = services.AddSingleton<IPostConfigureOptions<AuthorizationOptions>>(
-                sp => new ClaimPolicyPostConfigurer(
-                          scheme,
-                          sp.GetRequiredService<
-                              IOptionsMonitor<ApiKeyAuthenticationOptions>>()));
-        });
+        .AddService(services =>
+          {
+              _ = services.AddSingleton<IPostConfigureOptions<AuthorizationOptions>>(
+                  sp => new ClaimPolicyPostConfigurer(
+                            scheme,
+                            sp.GetRequiredService<
+                                IOptionsMonitor<ApiKeyAuthenticationOptions>>()));
+          });
     }
 
     /// <summary>
@@ -803,7 +833,7 @@ public static class KestrunHostAuthnExtensions
             {
                 _ = ab.AddCookie(options.AuthenticationScheme, cookieOpts =>
                 {
-                    CopyCookieAuthenticationOptions(options.CookieOptions, cookieOpts);
+                    options.CookieOptions.ApplyTo(cookieOpts);
                 });
                 _ = ab.AddOAuth(scheme, oauthOpts =>
                 {
@@ -856,7 +886,7 @@ public static class KestrunHostAuthnExtensions
                   _ = ab.AddCookie(CookieAuthenticationDefaults.AuthenticationScheme, cookieOpts =>
                  {
                      // Copy cookie configuration from options.CookieOptions
-                     CopyCookieAuthenticationOptions(options.CookieOptions, cookieOpts);
+                     options.CookieOptions.ApplyTo(cookieOpts);
                      host.Logger.Debug("Configured Cookie Authentication for OpenID Connect with SlidingExpiration: {SlidingExpiration}",
                          cookieOpts.SlidingExpiration);
                  });
@@ -1012,64 +1042,7 @@ public static class KestrunHostAuthnExtensions
         return policy != null;
     }
 
-    /// <summary>
-    /// Helper to copy values from a user-supplied CookieAuthenticationOptions instance to the instance
-    /// created by the framework inside AddCookie(). Reassigning the local variable (opts = source) would
-    /// not work because only the local reference changes – the framework keeps the original instance.
-    /// </summary>
-    /// <param name="source">The source options to copy from.</param>
-    /// <param name="target">The target options to copy to.</param>
-    /// <exception cref="ArgumentNullException">Thrown when source or target is null.</exception>
-    /// <remarks>
-    /// Only copies primitive properties and references. Does not clone complex objects like CookieBuilder.
-    /// </remarks>
-    private static void CopyCookieAuthenticationOptions(CookieAuthenticationOptions source, CookieAuthenticationOptions target)
-    {
-        // Paths & return URL
-        target.LoginPath = source.LoginPath;
-        target.LogoutPath = source.LogoutPath;
-        target.AccessDeniedPath = source.AccessDeniedPath;
-        target.ReturnUrlParameter = source.ReturnUrlParameter;
 
-        // Expiration & sliding behavior
-        target.ExpireTimeSpan = source.ExpireTimeSpan;
-        target.SlidingExpiration = source.SlidingExpiration;
-
-        // Cookie builder settings
-        // (Cookie is always non-null; copy primitive settings)
-        if (source.Cookie.Name is not null)
-        {
-            target.Cookie.Name = source.Cookie.Name;
-            target.Cookie.Path = source.Cookie.Path;
-            target.Cookie.Domain = source.Cookie.Domain;
-            target.Cookie.HttpOnly = source.Cookie.HttpOnly;
-            target.Cookie.SameSite = source.Cookie.SameSite;
-            target.Cookie.SecurePolicy = source.Cookie.SecurePolicy;
-            target.Cookie.IsEssential = source.Cookie.IsEssential;
-            target.Cookie.MaxAge = source.Cookie.MaxAge;
-        }
-        // Forwarding
-        target.ForwardAuthenticate = source.ForwardAuthenticate;
-        target.ForwardChallenge = source.ForwardChallenge;
-        target.ForwardDefault = source.ForwardDefault;
-        target.ForwardDefaultSelector = source.ForwardDefaultSelector;
-        target.ForwardForbid = source.ForwardForbid;
-        target.ForwardSignIn = source.ForwardSignIn;
-        target.ForwardSignOut = source.ForwardSignOut;
-
-        // Data protection / ticket / session
-        target.TicketDataFormat = source.TicketDataFormat;
-        target.DataProtectionProvider = source.DataProtectionProvider;
-        target.SessionStore = source.SessionStore;
-
-        // Events & issuer
-        if (source.Events is not null)
-        {
-            target.Events = source.Events;
-        }
-        target.EventsType = source.EventsType;
-        target.ClaimsIssuer = source.ClaimsIssuer;
-    }
 
     /// <summary>
     /// HTTP message handler that logs all HTTP requests and responses for debugging.

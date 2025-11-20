@@ -8,14 +8,14 @@
 .PARAMETER Verbs
     An array of HTTP verbs (e.g., GET, POST) to which the authorization schema will be applied.
     If not specified, the schema will be applied to all verbs defined in the Map
-.PARAMETER AuthorizationSchema
+.PARAMETER Schema
     An array of authorization schema names required for the route.
 .EXAMPLE
     # Create a new Map Route Builder
     $mapRouteBuilder = New-KrMapRouteBuilder
     $mapRouteBuilder = New-KrMapRouteBuilder |
     Add-KrMapRouteVerbPattern -MapRouteBuilder $mapRouteBuilder -Verbs @('GET', 'POST') -Pattern '/api/items' |
-    Add-KrMapRouteAuthorizationSchema -AuthorizationSchema 'Basic', 'Bearer'
+    Add-KrMapRouteAuthorizationSchema -Schema 'Basic', 'Bearer'
 .NOTES
     This cmdlet is part of the route builder module.
 #>
@@ -28,7 +28,7 @@ function Add-KrMapRouteAuthorizationSchema {
         [Parameter(ParameterSetName = 'VerbLevel')]
         [Kestrun.Utilities.HttpVerb[]]$Verbs,
         [Parameter(Mandatory = $true)]
-        [string[]]$AuthorizationSchema
+        [string[]]$Schema
     )
     process {
         if ($Verbs.Count -eq 0) {
@@ -43,10 +43,10 @@ function Add-KrMapRouteAuthorizationSchema {
             if (-not $MapRouteBuilder.OpenApi[$verb].Security) {
                 $MapRouteBuilder.OpenApi[$verb].Security = [System.Collections.Generic.List[string]]::new()
             }
-            $MapRouteBuilder.OpenApi[$verb].Security.AddRange($AuthorizationSchema)
+            $MapRouteBuilder.OpenApi[$verb].Security.AddRange($Schema)
         }
 
-        $MapRouteBuilder.RequireSchemes = $AuthorizationSchema
+        $MapRouteBuilder.RequireSchemes = $Schema
 
         # Return the modified MapRouteBuilder for pipeline chaining
         return $MapRouteBuilder

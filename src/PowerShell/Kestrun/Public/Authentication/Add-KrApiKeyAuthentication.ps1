@@ -79,9 +79,9 @@ function Add-KrApiKeyAuthentication {
 
         [Parameter(Mandatory = $true)]
         [string]$Name,
-
+        [Parameter()]
         [string]$DisplayName = 'API Key Authentication',
-
+        [Parameter()]
         [string[]]$DocId = @('default'),
 
         # 1. Direct options
@@ -107,18 +107,23 @@ function Add-KrApiKeyAuthentication {
         [Parameter(Mandatory = $true, ParameterSetName = 'StaticKey')]
         [string]$StaticApiKey,
 
+        [Parameter()]
         # Common API key config (all parameter sets)
         [Microsoft.OpenApi.ParameterLocation]$In = [Microsoft.OpenApi.ParameterLocation]::Header,
-
+        [Parameter()]
         [string]$ApiKeyName,
+        [Parameter()]
         [string[]]$AdditionalHeaderNames,
-
+        [Parameter()]
         [switch]$AllowQueryStringFallback,
+        [Parameter()]
         [switch]$AllowInsecureHttp,
+        [Parameter()]
         [switch]$EmitChallengeHeader,
-
+        [Parameter()]
         [Kestrun.Authentication.ApiKeyChallengeFormat]$ChallengeHeaderFormat,
-        [Serilog.ILogger]$Logger,
+
+        [Parameter()]
         [Kestrun.Claims.ClaimPolicyConfig]$ClaimPolicyConfig,
 
         # Optional "issue claims" configuration (independent from validation mode)
@@ -131,9 +136,13 @@ function Add-KrApiKeyAuthentication {
     )
 
     process {
+        # Ensure the server instance is resolved
+        $Server = Resolve-KestrunServer -Server $Server
         # Build Options only when not provided directly
         if ($PSCmdlet.ParameterSetName -ne 'Options') {
             $Options = [Kestrun.Authentication.ApiKeyAuthenticationOptions]::new()
+            # Set host reference
+            $Options.Host = $Server
             $Options.ValidateCodeSettings = [Kestrun.Authentication.AuthenticationCodeSettings]::new()
 
             switch ($PSCmdlet.ParameterSetName) {
@@ -203,9 +212,7 @@ function Add-KrApiKeyAuthentication {
                 $Options.ClaimPolicyConfig = $ClaimPolicyConfig
             }
 
-            if ($PSBoundParameters.ContainsKey('Logger')) {
-                $Options.Logger = $Logger
-            }
+
 
             # Optional issue-claims settings (single-choice)
             $issueModes = @()
@@ -260,17 +267,11 @@ function Add-KrApiKeyAuthentication {
             $Options.DocumentationId = $DocId
         }
 
-        # Ensure the server instance is resolved
-        $Server = Resolve-KestrunServer -Server $Server
-
         # Add API key authentication to the server
         [Kestrun.Hosting.KestrunHostAuthnExtensions]::AddApiKeyAuthentication(
-            $Server,
-            $Name,
-            $DisplayName,
-            $Options
-        ) | Out-Null
+            $Server, $Name, $DisplayName, $Options ) | Out-Null
 
+        # Return the modified server instance if PassThru is specified
         if ($PassThru.IsPresent) {
             return $Server
         }

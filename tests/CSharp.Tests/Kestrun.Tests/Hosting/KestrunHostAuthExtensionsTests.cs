@@ -109,7 +109,7 @@ public class KestrunHostAuthExtensionsTests
     public void Cookie_Omitted_ClaimPolicies_Registers_No_Custom_Policy()
     {
         var host = new KestrunHost("TestApp");
-        _ = host.AddCookieAuthentication("CookieNoPolicy", _ => { });
+        _ = host.AddCookieAuthentication("CookieNoPolicy", "CookieNoPolicy", _ => { });
         _ = host.Build();
 
         Assert.True(host.HasAuthScheme("CookieNoPolicy"));

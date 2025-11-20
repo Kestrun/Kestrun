@@ -2726,6 +2726,7 @@ public class OpenApiDocDescriptor
         {
             ApiKeyAuthenticationOptions apiKeyOptions => GetSecurityScheme(apiKeyOptions),
             BasicAuthenticationOptions basicOptions => GetSecurityScheme(basicOptions),
+            CookieAuthOptions cookieOptions => GetSecurityScheme(cookieOptions),
             _ => throw new NotSupportedException($"Unsupported authentication options type: {options.GetType().FullName}"),
         };
         AddSecurityComponent(scheme: scheme, globalScheme: options.GlobalScheme, securityScheme: securityScheme);
@@ -2735,7 +2736,7 @@ public class OpenApiDocDescriptor
     /// Gets the OpenAPI security scheme for API key authentication.
     /// </summary>
     /// <param name="options">The API key authentication options.</param>
-    internal OpenApiSecurityScheme GetSecurityScheme(ApiKeyAuthenticationOptions options)
+    internal static OpenApiSecurityScheme GetSecurityScheme(ApiKeyAuthenticationOptions options)
     {
         return new OpenApiSecurityScheme()
         {
@@ -2746,11 +2747,24 @@ public class OpenApiDocDescriptor
         };
     }
 
+
+    internal static OpenApiSecurityScheme GetSecurityScheme(CookieAuthOptions options)
+    {
+        return new OpenApiSecurityScheme()
+        {
+            Type = SecuritySchemeType.ApiKey,
+            Name = options.Cookie.Name,
+            In = ParameterLocation.Cookie,
+            Description = options.Description
+        };
+    }
+
+
     /// <summary>
     ///  Gets the OpenAPI security scheme for basic authentication.
     /// </summary>
     /// <param name="options">The basic authentication options.</param>
-    internal OpenApiSecurityScheme GetSecurityScheme(BasicAuthenticationOptions options)
+    internal static OpenApiSecurityScheme GetSecurityScheme(BasicAuthenticationOptions options)
     {
         return new OpenApiSecurityScheme()
         {

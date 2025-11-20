@@ -322,8 +322,11 @@ Add-KrBasicAuthentication -Name 'PowershellBasic' -Realm 'Demo' -AllowInsecureHt
 }
 Add-KrApiKeyAuthentication -Name 'ApiKeyCS' -AllowInsecureHttp -ApiKeyName 'X-Api-Key' -Code @'
     return providedKey == "my-secret-api-key";
-'@ -In Cookie
+'@ -In Query
 
+New-KrCookieBuilder -Name 'KestrunAuth' -HttpOnly -SecurePolicy Always -SameSite Strict |
+    Add-KrCookiesAuthentication -Name 'Cookies' -LoginPath '/cookies/login' -LogoutPath '/cookies/logout' -AccessDeniedPath '/cookies/denied' `
+        -SlidingExpiration -ExpireTimeSpan (New-TimeSpan -Minutes 30)
 
 # 3. Add loopback listener on port 5000 (auto unlinks existing file if present)
 # This listener will be used to demonstrate server limits configuration.
@@ -355,6 +358,7 @@ New-KrMapRouteBuilder -Verbs @('GET', 'HEAD', 'POST', 'TRACE') -Pattern '/status
         Write-KrJsonResponse -InputObject @{ status = 'healthy' }
     } |
     Add-KrMapRouteOpenApiTag -Tag 'MyTag' |
+    Add-KrMapRouteAuthorizationSchema -Schema 'PowershellBasic', 'ApiKeyCS', 'Cookies' |
     Add-KrMapRouteOpenApiInfo -Summary 'Health check endpoint' -Description 'Returns the health status of the service.' |
     Add-KrMapRouteOpenApiInfo -Verbs 'GET' -OperationId 'GetStatus' |
     Add-KrMapRouteOpenApiServer -Server (New-KrOpenApiServer -Url 'https://api.example.com/v1' -Description 'Production Server') |

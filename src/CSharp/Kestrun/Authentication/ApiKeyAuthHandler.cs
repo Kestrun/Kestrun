@@ -31,9 +31,9 @@ public class ApiKeyAuthHandler
     {
         ArgumentNullException.ThrowIfNull(host);
         Host = host;
-        if (options.CurrentValue.Logger.IsEnabled(Serilog.Events.LogEventLevel.Debug))
+        if (host.Logger.IsEnabled(Serilog.Events.LogEventLevel.Debug))
         {
-            options.CurrentValue.Logger.Debug("ApiKeyAuthHandler initialized");
+            host.Logger.Debug("ApiKeyAuthHandler initialized");
         }
     }
 

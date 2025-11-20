@@ -56,6 +56,10 @@ function Add-KrCookiesAuthentication {
         [Kestrun.Hosting.KestrunHost]$Server,
         [Parameter(Mandatory = $true)]
         [string]$Name,
+        [Parameter()]
+        [string]$DisplayName = 'Cookie Authentication',
+        [Parameter()]
+        [string[]]$DocId = @('default'),
         [Parameter(Mandatory = $true, ParameterSetName = 'Options')]
         [Microsoft.AspNetCore.Authentication.Cookies.CookieAuthenticationOptions]$Options,
         [Parameter()]
@@ -78,8 +82,13 @@ function Add-KrCookiesAuthentication {
         [switch]$PassThru
     )
     process {
+        # Ensure the server instance is resolved
+        $Server = Resolve-KestrunServer -Server $Server
+        # Build Options only when not provided directly
         if ($PSCmdlet.ParameterSetName -ne 'Options') {
-            $Options = [Microsoft.AspNetCore.Authentication.Cookies.CookieAuthenticationOptions]::new()
+            $Options = [Kestrun.Authentication.CookieAuthOptions]::new()
+            # Set host reference
+            $Options.Host = $Server
             if ($PSBoundParameters.ContainsKey('SlidingExpiration')) { $Options.SlidingExpiration = $SlidingExpiration.IsPresent }
             if ($PSBoundParameters.ContainsKey('LoginPath')) { $Options.LoginPath = $LoginPath }
             if ($PSBoundParameters.ContainsKey('LogoutPath')) { $Options.LogoutPath = $LogoutPath }
@@ -87,14 +96,15 @@ function Add-KrCookiesAuthentication {
             if ($PSBoundParameters.ContainsKey('ReturnUrlParameter')) { $Options.ReturnUrlParameter = $ReturnUrlParameter }
             if ($PSBoundParameters.ContainsKey('ExpireTimeSpan')) { $Options.ExpireTimeSpan = $ExpireTimeSpan }
             if ($PSBoundParameters.ContainsKey('Cookie')) { $Options.Cookie = $Cookie }
+            # OpenAPI documentation IDs
+            $Options.DocumentationId = $DocId
         }
-        # Ensure the server instance is resolved
-        $Server = Resolve-KestrunServer -Server $Server
-
+        # Add cookie authentication to the server
         [Kestrun.Hosting.KestrunHostAuthnExtensions]::AddCookieAuthentication(
-            $Server, $Name, $Options, $ClaimPolicy) | Out-Null
+            $Server, $Name, $DisplayName, $Options, $ClaimPolicy) | Out-Null
+
+        # Return the modified server instance if PassThru is specified
         if ($PassThru.IsPresent) {
-            # if the PassThru switch is specified, return the modified server instance
             return $Server
         }
     }

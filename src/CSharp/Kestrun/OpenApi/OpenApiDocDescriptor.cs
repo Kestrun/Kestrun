@@ -2802,5 +2802,4 @@ public class OpenApiDocDescriptor
         }
     }
 
-
 }

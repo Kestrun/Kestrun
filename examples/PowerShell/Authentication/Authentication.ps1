@@ -221,7 +221,7 @@ $result = Build-KrJWT -Builder $JwtTokenBuilder
 #$jwt     = Get-JwtToken -Result $result
 $jwtOptions = $result | Get-KrJWTValidationParameter
 
-Add-KrJWTBearerAuthentication -Name $JwtScheme -ValidationParameter $jwtOptions -ClaimPolicy $claimConfig
+Add-KrJWTBearerAuthentication -Name $JwtScheme -ValidationParameter $jwtOptions -ClaimPolicy $claimConfig -MapInboundClaims
 
 
 $cookie = [Microsoft.AspNetCore.Http.CookieBuilder]::new()
@@ -614,4 +614,3 @@ Add-KrRouteGroup -Prefix '/secure/cookies' -AuthorizationScheme $CookieScheme {
 ********************************************
 #>
 Start-KrServer -Server $server
-

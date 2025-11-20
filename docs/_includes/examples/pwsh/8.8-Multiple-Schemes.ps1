@@ -34,7 +34,7 @@ $builder = New-KrJWTBuilder |
     Protect-KrJWT -HexadecimalKey '6f1a1ce2e8cc4a5685ad0e1d1f0b8c092b6dce4f7a08b1c2d3e4f5a6b7c8d9e0' -Algorithm HS256
 $res = Build-KrJWT -Builder $builder
 $validation = $res | Get-KrJWTValidationParameter
-Add-KrJWTBearerAuthentication -Name 'Bearer' -ValidationParameter $validation
+Add-KrJWTBearerAuthentication -Name 'Bearer' -ValidationParameter $validation -MapInboundClaims
 
 # 8. Finalize configuration
 Enable-KrConfiguration
@@ -71,4 +71,3 @@ Add-KrRouteGroup -Prefix '/secure' {
 
 # 10. Start server
 Start-KrServer -CloseLogsOnExit
-

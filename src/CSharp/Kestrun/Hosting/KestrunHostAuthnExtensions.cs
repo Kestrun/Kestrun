@@ -1,7 +1,5 @@
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
-using Microsoft.AspNetCore.Authentication.JwtBearer;
-using Microsoft.IdentityModel.Tokens;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.Extensions.Options;
 using Kestrun.Authentication;
@@ -400,10 +398,9 @@ public static class KestrunHostAuthnExtensions
     /// <para>Use this for APIs that require token-based authentication.</para>
     /// </summary>
     /// <param name="host">The Kestrun host instance.</param>
-    /// <param name="scheme">The authentication scheme name (e.g. "Bearer").</param>
-    /// <param name="validationParameters">Parameters used to validate JWT tokens.</param>
-    /// <param name="configureJwt">Optional hook to customize JwtBearerOptions.</param>
-    /// <param name="claimPolicy">Optional authorization policy configuration.</param>
+    /// <param name="authenticationScheme">The authentication scheme name (e.g. "Bearer").</param>
+    /// <param name="displayName">The display name for the authentication scheme.</param>
+    /// <param name="configureOptions">Optional configuration for JwtAuthOptions.</param>
     /// <example>
     /// HS512 (HMAC-SHA-512, symmetric)
     /// </example>
@@ -447,25 +444,76 @@ public static class KestrunHostAuthnExtensions
     /// <returns></returns>
     public static KestrunHost AddJwtBearerAuthentication(
       this KestrunHost host,
-      string scheme,
-      TokenValidationParameters validationParameters,
-      Action<JwtBearerOptions>? configureJwt = null,
-      ClaimPolicyConfig? claimPolicy = null)
+      string authenticationScheme,
+      string displayName,
+      Action<JwtAuthOptions> configureOptions)
     {
+        // Build a prototype options instance (single source of truth)
+        var prototype = new JwtAuthOptions { Host = host };
+        configureOptions?.Invoke(prototype);
+        ConfigureOpenApi(host, authenticationScheme, prototype);
+
         // register in host for introspection
-        _ = host.RegisteredAuthentications.Register(scheme, "JwtBearer", configureJwt);
+        _ = host.RegisteredAuthentications.Register(authenticationScheme, "JwtBearer", configureOptions);
+
         return host.AddAuthentication(
-            defaultScheme: scheme,
+            defaultScheme: authenticationScheme,
             buildSchemes: ab =>
             {
-                _ = ab.AddJwtBearer(scheme, opts =>
+                _ = ab.AddJwtBearer(
+                    authenticationScheme: authenticationScheme,
+                    displayName: displayName,
+                    configureOptions: opts =>
                 {
-                    opts.TokenValidationParameters = validationParameters;
-                    opts.MapInboundClaims = true;
-                    configureJwt?.Invoke(opts);
+                    prototype.ApplyTo(opts);
                 });
             },
-            configureAuthz: claimPolicy?.ToAuthzDelegate()
+            configureAuthz: prototype.ClaimPolicy?.ToAuthzDelegate()
+            );
+    }
+
+    /// <summary>
+    /// Adds JWT Bearer authentication to the Kestrun host using the provided options object.
+    /// </summary>
+    /// <param name="host">The Kestrun host instance.</param>
+    /// <param name="authenticationScheme">The authentication scheme name.</param>
+    /// <param name="displayName">The display name for the authentication scheme.</param>
+    /// <param name="configureOptions">Optional configuration for JwtAuthOptions.</param>
+    /// <returns>The configured KestrunHost instance.</returns>
+    public static KestrunHost AddJwtBearerAuthentication(
+         this KestrunHost host,
+         string authenticationScheme,
+         string displayName,
+         JwtAuthOptions configureOptions)
+    {
+        if (host.Logger.IsEnabled(LogEventLevel.Debug))
+        {
+            host.Logger.Debug("Adding Jwt Bearer Authentication with scheme: {Scheme}", authenticationScheme);
+        }
+        // Ensure the scheme is not null
+        ArgumentNullException.ThrowIfNull(host);
+        ArgumentNullException.ThrowIfNull(authenticationScheme);
+        ArgumentNullException.ThrowIfNull(configureOptions);
+
+        // Ensure host is set
+        if (configureOptions.Host != host)
+        {
+            configureOptions.Host = host;
+        }
+        // register in host for introspection
+        _ = host.RegisteredAuthentications.Register(authenticationScheme, "JwtBearer", configureOptions);
+
+        return host.AddJwtBearerAuthentication(
+            authenticationScheme: authenticationScheme,
+              displayName: displayName,
+              configureOptions: opts =>
+              {
+                  // Copy relevant properties from provided options instance to the framework-created one
+                  configureOptions.ApplyTo(opts);
+                  host.Logger.Debug(
+                           "Configured JWT Authentication using scheme {Scheme}  )",
+                           authenticationScheme );
+              }
             );
     }
     #endregion
@@ -475,33 +523,33 @@ public static class KestrunHostAuthnExtensions
     /// <para>Use this for browser-based authentication using cookies.</para>
     /// </summary>
     /// <param name="host">The Kestrun host instance.</param>
-    /// <param name="scheme">The authentication scheme name (default is CookieAuthenticationDefaults.AuthenticationScheme).</param>
+    /// <param name="authenticationScheme">The authentication scheme name (default is CookieAuthenticationDefaults.AuthenticationScheme).</param>
     /// <param name="displayName">The display name for the authentication scheme.</param>
-    /// <param name="configure">Optional configuration for CookieAuthenticationOptions.</param>
+    /// <param name="configureOptions">Optional configuration for CookieAuthenticationOptions.</param>
     /// <param name="claimPolicy">Optional authorization policy configuration.</param>
     /// <returns>The configured KestrunHost instance.</returns>
     public static KestrunHost AddCookieAuthentication(
         this KestrunHost host,
-        string scheme = CookieAuthenticationDefaults.AuthenticationScheme,
+        string authenticationScheme = CookieAuthenticationDefaults.AuthenticationScheme,
         string displayName = "Cookie Authentication",
-        Action<CookieAuthOptions>? configure = null,
+        Action<CookieAuthOptions>? configureOptions = null,
      ClaimPolicyConfig? claimPolicy = null)
     {
         // Build a prototype options instance (single source of truth)
         var prototype = new CookieAuthOptions { Host = host };
-        configure?.Invoke(prototype);
-        ConfigureOpenApi(host, scheme, prototype);
+        configureOptions?.Invoke(prototype);
+        ConfigureOpenApi(host, authenticationScheme, prototype);
 
         // register in host for introspection
-        _ = host.RegisteredAuthentications.Register(scheme, "Cookie", configure);
+        _ = host.RegisteredAuthentications.Register(authenticationScheme, "Cookie", configureOptions);
 
         // Add authentication
         return host.AddAuthentication(
-            defaultScheme: scheme,
+            defaultScheme: authenticationScheme,
             buildSchemes: ab =>
             {
                 _ = ab.AddCookie(
-                    authenticationScheme: scheme,
+                    authenticationScheme: authenticationScheme,
                     displayName: displayName,
                     configureOptions: opts =>
                     {
@@ -511,7 +559,7 @@ public static class KestrunHostAuthnExtensions
                         //configure?.Invoke(opts);
                     });
             },
-             configureAuthz: claimPolicy?.ToAuthzDelegate()
+            configureAuthz: claimPolicy?.ToAuthzDelegate()
         );
     }
 
@@ -519,38 +567,38 @@ public static class KestrunHostAuthnExtensions
     /// Adds Cookie Authentication to the Kestrun host using the provided options object.
     /// </summary>
     /// <param name="host">The Kestrun host instance.</param>
-    /// <param name="scheme">The authentication scheme name (default is CookieAuthenticationDefaults.AuthenticationScheme).</param>
+    /// <param name="authenticationScheme">The authentication scheme name (default is CookieAuthenticationDefaults.AuthenticationScheme).</param>
     /// <param name="displayName">The display name for the authentication scheme.</param>
-    /// <param name="configure">The CookieAuthenticationOptions object to configure the authentication.</param>
+    /// <param name="configureOptions">The CookieAuthenticationOptions object to configure the authentication.</param>
     /// <param name="claimPolicy">Optional authorization policy configuration.</param>
     /// <returns>The configured KestrunHost instance.</returns>
     public static KestrunHost AddCookieAuthentication(
           this KestrunHost host,
-          string scheme,
+          string authenticationScheme,
           string displayName,
-          CookieAuthOptions configure,
+          CookieAuthOptions configureOptions,
        ClaimPolicyConfig? claimPolicy = null)
     {
         if (host.Logger.IsEnabled(LogEventLevel.Debug))
         {
-            host.Logger.Debug("Adding Cookie Authentication with scheme: {Scheme}", scheme);
+            host.Logger.Debug("Adding Cookie Authentication with scheme: {Scheme}", authenticationScheme);
         }
         // Ensure the scheme is not null
         ArgumentNullException.ThrowIfNull(host);
-        ArgumentNullException.ThrowIfNull(scheme);
-        ArgumentNullException.ThrowIfNull(configure);
+        ArgumentNullException.ThrowIfNull(authenticationScheme);
+        ArgumentNullException.ThrowIfNull(configureOptions);
         // Ensure host is set
-        if (configure.Host != host)
+        if (configureOptions.Host != host)
         {
-            configure.Host = host;
+            configureOptions.Host = host;
         }
         return host.AddCookieAuthentication(
-            scheme: scheme,
+            authenticationScheme: authenticationScheme,
             displayName: displayName,
-            configure: opts =>
+            configureOptions: opts =>
             {
                 // Copy relevant properties from provided options instance to the framework-created one
-                configure.ApplyTo(opts);
+                configureOptions.ApplyTo(opts);
             },
             claimPolicy: claimPolicy
         );

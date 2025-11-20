@@ -1,5 +1,3 @@
-using System.Security.Claims;
-using Kestrun.Claims;
 using Kestrun.Hosting;
 using Microsoft.AspNetCore.Authentication.Cookies;
 
@@ -8,7 +6,7 @@ namespace Kestrun.Authentication;
 /// <summary>
 /// Options for cookie-based authentication.
 /// </summary>
-public class CookieAuthOptions : CookieAuthenticationOptions, IAuthenticationCommonOptions, IOpenApiAuthenticationOptions, IAuthenticationHostOptions
+public class CookieAuthOptions : CookieAuthenticationOptions, IOpenApiAuthenticationOptions, IAuthenticationHostOptions
 {
     /// <summary>
     /// If true, allows cookie authentication over insecure HTTP connections.
@@ -26,17 +24,6 @@ public class CookieAuthOptions : CookieAuthenticationOptions, IAuthenticationCom
 
     /// <inheritdoc/>
     public string[] DocumentationId { get; set; } = [];
-
-    /// <inheritdoc/>
-    public AuthenticationCodeSettings ValidateCodeSettings { get => throw new NotImplementedException(); set => throw new NotImplementedException(); }
-
-    /// <inheritdoc/>
-    public Func<HttpContext, string, Task<IEnumerable<Claim>>>? IssueClaims { get => throw new NotImplementedException(); set => throw new NotImplementedException(); }
-    /// <inheritdoc/>
-    public AuthenticationCodeSettings IssueClaimsCodeSettings { get => throw new NotImplementedException(); set => throw new NotImplementedException(); }
-
-    /// <inheritdoc/>
-    public ClaimPolicyConfig? ClaimPolicyConfig { get => throw new NotImplementedException(); set => throw new NotImplementedException(); }
 
     /// <inheritdoc/>
     public KestrunHost Host { get; set; } = default!;

@@ -328,6 +328,17 @@ New-KrCookieBuilder -Name 'KestrunAuth' -HttpOnly -SecurePolicy Always -SameSite
     Add-KrCookiesAuthentication -Name 'Cookies' -LoginPath '/cookies/login' -LogoutPath '/cookies/logout' -AccessDeniedPath '/cookies/denied' `
         -SlidingExpiration -ExpireTimeSpan (New-TimeSpan -Minutes 30)
 
+# 6. Build JWT configuration
+$jwtBuilder = New-KrJWTBuilder |
+    Add-KrJWTIssuer -Issuer 'KestrunApi' |
+    Add-KrJWTAudience -Audience 'KestrunClients' |
+    Protect-KrJWT -HexadecimalKey '6f1a1ce2e8cc4a5685ad0e1d1f0b8c092b6dce4f7a08b1c2d3e4f5a6b7c8d9e0' -Algorithm HS256
+$result = Build-KrJWT -Builder $jwtBuilder
+$validation = $result | Get-KrJWTValidationParameter
+
+# 7. Register bearer scheme
+Add-KrJWTBearerAuthentication -Name 'Bearer' -ValidationParameter $validation -MapInboundClaims -SaveToken
+
 # 3. Add loopback listener on port 5000 (auto unlinks existing file if present)
 # This listener will be used to demonstrate server limits configuration.
 Add-KrEndpoint -Port $Port -IPAddress $IPAddress

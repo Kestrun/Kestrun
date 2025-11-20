@@ -30,7 +30,7 @@ $result = Build-KrJWT -Builder $jwtBuilder
 $validation = $result | Get-KrJWTValidationParameter
 
 # 7. Register bearer scheme
-Add-KrJWTBearerAuthentication -Name 'Bearer' -ValidationParameter $validation
+Add-KrJWTBearerAuthentication -Name 'Bearer' -ValidationParameter $validation -MapInboundClaims
 
 # 8. Finalize configuration
 Enable-KrConfiguration
@@ -71,4 +71,3 @@ Add-KrMapRoute -Verbs Get -Pattern '/secure/jwt/hello' -AuthorizationScheme 'Bea
 
 # 11. Start server
 Start-KrServer -CloseLogsOnExit
-

@@ -42,7 +42,12 @@ public class KestrunHostAuthExtensionsTests
             }
         };
 
-        _ = host.AddJwtBearerAuthentication("BearerX", tvp, claimPolicy: cfg);
+        _ = host.AddJwtBearerAuthentication("BearerX", displayName: "BearerX", configureOptions: new JwtAuthOptions
+        {
+            Host = host,
+            TokenValidationParameters = tvp,
+            ClaimPolicy = cfg
+        });
 
         var app = host.Build();
 
@@ -71,7 +76,11 @@ public class KestrunHostAuthExtensionsTests
             ValidAlgorithms = [SecurityAlgorithms.HmacSha256]
         };
 
-        _ = host.AddJwtBearerAuthentication("BearerNoPolicy", tvp);
+        _ = host.AddJwtBearerAuthentication("BearerNoPolicy", displayName: "BearerNoPolicy", configureOptions: new JwtAuthOptions
+        {
+            Host = host,
+            TokenValidationParameters = tvp,
+        });
         _ = host.Build();
 
         Assert.True(host.HasAuthScheme("BearerNoPolicy"));
@@ -92,7 +101,7 @@ public class KestrunHostAuthExtensionsTests
             }
         };
 
-        _ = host.AddCookieAuthentication("CookieX", configure: _ => { }, claimPolicy: cfg);
+        _ = host.AddCookieAuthentication("CookieX", configureOptions: _ => { }, claimPolicy: cfg);
 
         var app = host.Build();
 

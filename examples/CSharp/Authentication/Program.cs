@@ -16,7 +16,6 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Negotiate;
 using Kestrun.Claims;
-using Microsoft.AspNetCore.Authentication.Cookies;
 using Kestrun.Hosting.Options;          // ISecurityTokenValidator
 
 
@@ -408,10 +407,16 @@ server.AddResponseCompression(options =>
        };
    })
 /// ── JWT AUTHENTICATION – C# CODE ───────────────────────────────────────
+
    .AddJwtBearerAuthentication(
-       scheme: JwtScheme,
-        validationParameters: builderResult.GetValidationParameters(),
-        claimPolicy: claimConfig
+       authenticationScheme: JwtScheme,
+         displayName: "JWT Bearer Authentication",
+         configureOptions: new JwtAuthOptions
+         {
+             Host = server,
+             TokenValidationParameters = builderResult.GetValidationParameters(),
+             ClaimPolicy = claimConfig
+         }
     )
 
 /// ── COOKIE AUTHENTICATION – C# CODE ────────────────────────────────────
@@ -433,9 +438,9 @@ server.AddResponseCompression(options =>
       claimPolicy: claimConfig
 );*/
 .AddCookieAuthentication(
-       scheme: CookieScheme,
+       authenticationScheme: CookieScheme,
          displayName: "Cookie Authentication",
-       configure: new CookieAuthOptions
+       configureOptions: new CookieAuthOptions
        {
            Cookie = new CookieBuilder
            {

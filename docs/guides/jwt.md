@@ -67,7 +67,7 @@ $token = $built | Get-KrJWTToken
 
 # Prepare validation parameters (for bearer scheme)
 $validation = $built | Get-KrJWTValidationParameter
-Add-KrJWTBearerAuthentication -Name 'Bearer' -ValidationParameter $validation
+Add-KrJWTBearerAuthentication -Name 'Bearer' -ValidationParameter $validation -MapInboundClaims
 ```
 
 Alternative (JWK RSA key):
@@ -87,7 +87,7 @@ $built = $builder |
 
 $token = $built | Get-KrJWTToken
 $validation = $built | Get-KrJWTValidationParameter
-Add-KrJWTBearerAuthentication -Name 'Bearer' -ValidationParameter $validation
+Add-KrJWTBearerAuthentication -Name 'Bearer' -ValidationParameter $validation -MapInboundClaims
 ```
 
 ---

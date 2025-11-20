@@ -269,7 +269,7 @@ public class OpenApiDocDescriptor
                 {
                     if (pathMeta.Servers is { Count: > 0 })
                     {
-                        dynamic dPath = pathItem!;
+                        dynamic dPath = pathItem;
                         if (dPath.Servers == null) { dPath.Servers = new List<OpenApiServer>(); }
                         foreach (var s in pathMeta.Servers)
                         {
@@ -278,7 +278,7 @@ public class OpenApiDocDescriptor
                     }
                     if (pathMeta.Parameters is { Count: > 0 })
                     {
-                        dynamic dPath = pathItem!;
+                        dynamic dPath = pathItem;
                         if (dPath.Parameters == null) { dPath.Parameters = new List<IOpenApiParameter>(); }
                         foreach (var p in pathMeta.Parameters)
                         {
@@ -1104,7 +1104,7 @@ public class OpenApiDocDescriptor
             }
         }
         // Fallback
-        return JsonValue.Create(value?.ToString() ?? string.Empty)!;
+        return JsonValue.Create(value?.ToString() ?? string.Empty);
     }
 
     // Ensure a schema component exists for a complex .NET type
@@ -2727,6 +2727,7 @@ public class OpenApiDocDescriptor
             ApiKeyAuthenticationOptions apiKeyOptions => GetSecurityScheme(apiKeyOptions),
             BasicAuthenticationOptions basicOptions => GetSecurityScheme(basicOptions),
             CookieAuthOptions cookieOptions => GetSecurityScheme(cookieOptions),
+            JwtAuthOptions jwtOptions => GetSecurityScheme(jwtOptions),
             _ => throw new NotSupportedException($"Unsupported authentication options type: {options.GetType().FullName}"),
         };
         AddSecurityComponent(scheme: scheme, globalScheme: options.GlobalScheme, securityScheme: securityScheme);
@@ -2736,7 +2737,7 @@ public class OpenApiDocDescriptor
     /// Gets the OpenAPI security scheme for API key authentication.
     /// </summary>
     /// <param name="options">The API key authentication options.</param>
-    internal static OpenApiSecurityScheme GetSecurityScheme(ApiKeyAuthenticationOptions options)
+    private static OpenApiSecurityScheme GetSecurityScheme(ApiKeyAuthenticationOptions options)
     {
         return new OpenApiSecurityScheme()
         {
@@ -2747,8 +2748,12 @@ public class OpenApiDocDescriptor
         };
     }
 
-
-    internal static OpenApiSecurityScheme GetSecurityScheme(CookieAuthOptions options)
+    /// <summary>
+    /// Gets the OpenAPI security scheme for cookie authentication.
+    /// </summary>
+    /// <param name="options">The cookie authentication options.</param>
+    /// <returns></returns>
+    private static OpenApiSecurityScheme GetSecurityScheme(CookieAuthOptions options)
     {
         return new OpenApiSecurityScheme()
         {
@@ -2759,12 +2764,27 @@ public class OpenApiDocDescriptor
         };
     }
 
+    /// <summary>
+    /// Gets the OpenAPI security scheme for JWT authentication.
+    /// </summary>
+    /// <param name="options">The JWT authentication options.</param>
+    /// <returns></returns>
+    private static OpenApiSecurityScheme GetSecurityScheme(JwtAuthOptions options)
+    {
+        return new OpenApiSecurityScheme()
+        {
+            Type = SecuritySchemeType.Http,
+            Scheme = "bearer",
+            BearerFormat = "JWT",
+            Description = options.Description
+        };
+    }
 
     /// <summary>
     ///  Gets the OpenAPI security scheme for basic authentication.
     /// </summary>
     /// <param name="options">The basic authentication options.</param>
-    internal static OpenApiSecurityScheme GetSecurityScheme(BasicAuthenticationOptions options)
+    private static OpenApiSecurityScheme GetSecurityScheme(BasicAuthenticationOptions options)
     {
         return new OpenApiSecurityScheme()
         {

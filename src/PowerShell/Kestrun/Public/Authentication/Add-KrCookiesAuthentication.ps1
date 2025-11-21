@@ -54,10 +54,10 @@ function Add-KrCookiesAuthentication {
     param(
         [Parameter(Mandatory = $false, ValueFromPipeline = $true)]
         [Kestrun.Hosting.KestrunHost]$Server,
-        [Parameter(Mandatory = $true)]
-        [string]$Name,
         [Parameter()]
-        [string]$DisplayName = 'Cookie Authentication',
+        [string]$Name = [Microsoft.AspNetCore.Authentication.Cookies.CookieAuthenticationDefaults]::AuthenticationScheme,
+        [Parameter()]
+        [string]$DisplayName,
         [Parameter()]
         [string[]]$DocId = @('default'),
         [Parameter(Mandatory = $true, ParameterSetName = 'Options')]

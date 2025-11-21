@@ -9,6 +9,10 @@
     The Kestrun server instance. If omitted, uses the current active server.
 .PARAMETER Name
     Base scheme name (default 'GitHub').
+.PARAMETER DisplayName
+    Display name for the authentication scheme.
+.PARAMETER DocId
+    Documentation IDs for the authentication scheme.
 .PARAMETER ClientId
     GitHub OAuth App Client ID.
 .PARAMETER ClientSecret
@@ -32,6 +36,10 @@ function Add-KrGitHubAuthentication {
         [Parameter(ValueFromPipeline = $true)]
         [Kestrun.Hosting.KestrunHost]$Server,
         [string]$Name = 'GitHub',
+        [Parameter()]
+        [string]$DisplayName = 'GitHub Login',
+        [Parameter()]
+        [string[]]$DocId = @('default'),
         [Parameter(Mandatory = $true)]
         [string]$ClientId,
         [Parameter(Mandatory = $true)]
@@ -45,6 +53,8 @@ function Add-KrGitHubAuthentication {
         [Kestrun.Hosting.KestrunHostAuthnExtensions]::AddGitHubOAuthAuthentication(
             $Server,
             $Name,
+            $DisplayName,
+            $DocId,
             $ClientId,
             $ClientSecret,
             $CallbackPath

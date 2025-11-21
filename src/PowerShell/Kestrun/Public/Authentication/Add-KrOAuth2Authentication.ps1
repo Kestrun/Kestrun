@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Adds OAuth 2.0 (Authorization Code) authentication to the Kestrun server.
 .DESCRIPTION
@@ -28,6 +28,8 @@ function Add-KrOAuth2Authentication {
 
         [Parameter(Mandatory = $false)]
         [string]$Name = 'OAuth2',
+        [Parameter(Mandatory = $false)]
+        [string]$DisplayName = 'GitHub Login',
 
         [Parameter(Mandatory = $true)]
         [Kestrun.Authentication.OAuth2Options]$Options,
@@ -41,7 +43,7 @@ function Add-KrOAuth2Authentication {
 
         # Bridge to your C# extension (parallel to AddCookieAuthentication)
         [Kestrun.Hosting.KestrunHostAuthnExtensions]::AddOAuth2Authentication(
-            $Server, $Name, $Options
+            $Server, $Name, $DisplayName, $Options
         ) | Out-Null
 
         if ($PassThru.IsPresent) { return $Server }

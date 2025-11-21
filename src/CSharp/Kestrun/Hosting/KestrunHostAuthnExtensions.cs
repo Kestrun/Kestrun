@@ -47,7 +47,7 @@ public static class KestrunHostAuthnExtensions
         ConfigureBasicIssueClaims(host, prototype);
         ConfigureOpenApi(host, scheme, prototype);
         // register in host for introspection
-        _ = host.RegisteredAuthentications.Register(scheme, "Basic", configure);
+        _ = host.RegisteredAuthentications.Register(scheme, "Basic", prototype);
         var h = host.AddAuthentication(
            defaultScheme: scheme,
            buildSchemes: ab =>
@@ -221,6 +221,7 @@ public static class KestrunHostAuthnExtensions
     /// <param name="host">The Kestrun host instance.</param>
     /// <param name="scheme">Base scheme name (e.g. "GitHub").</param>
     /// <param name="displayName">The display name for the authentication scheme.</param>
+    /// <param name="documentationId">Documentation IDs for the authentication scheme.</param>
     /// <param name="clientId">GitHub OAuth App Client ID.</param>
     /// <param name="clientSecret">GitHub OAuth App Client Secret.</param>
     /// <param name="callbackPath">The callback path for OAuth redirection (e.g. "/signin-github").</param>
@@ -229,12 +230,14 @@ public static class KestrunHostAuthnExtensions
         this KestrunHost host,
         string scheme,
         string? displayName,
+        string[]? documentationId,
         string clientId,
         string clientSecret,
         string callbackPath)
     {
         var opts = ConfigureGitHubOAuth2Options(host, clientId, clientSecret, callbackPath);
         ConfigureGitHubClaimMappings(opts);
+        opts.DocumentationId = documentationId ?? [];
         opts.Events = new OAuthEvents
         {
             OnCreatingTicket = async context =>
@@ -456,7 +459,7 @@ public static class KestrunHostAuthnExtensions
         ConfigureOpenApi(host, authenticationScheme, prototype);
 
         // register in host for introspection
-        _ = host.RegisteredAuthentications.Register(authenticationScheme, "JwtBearer", configureOptions);
+        _ = host.RegisteredAuthentications.Register(authenticationScheme, "JwtBearer", prototype);
 
         return host.AddAuthentication(
             defaultScheme: authenticationScheme,
@@ -531,7 +534,7 @@ public static class KestrunHostAuthnExtensions
     public static KestrunHost AddCookieAuthentication(
         this KestrunHost host,
         string authenticationScheme = CookieAuthenticationDefaults.AuthenticationScheme,
-        string? displayName = "Cookie Authentication",
+        string? displayName = null,
         Action<CookieAuthOptions>? configureOptions = null,
      ClaimPolicyConfig? claimPolicy = null)
     {
@@ -541,7 +544,7 @@ public static class KestrunHostAuthnExtensions
         ConfigureOpenApi(host, authenticationScheme, prototype);
 
         // register in host for introspection
-        _ = host.RegisteredAuthentications.Register(authenticationScheme, "Cookie", configureOptions);
+        _ = host.RegisteredAuthentications.Register(authenticationScheme, "Cookie", prototype);
 
         // Add authentication
         return host.AddAuthentication(
@@ -679,7 +682,7 @@ public static class KestrunHostAuthnExtensions
         ConfigureOpenApi(host, scheme, prototype);
 
         // register in host for introspection
-        _ = host.RegisteredAuthentications.Register(scheme, "ApiKey", configure);
+        _ = host.RegisteredAuthentications.Register(scheme, "ApiKey", prototype);
         // Add authentication
         return host.AddAuthentication(
              defaultScheme: scheme,
@@ -863,42 +866,6 @@ public static class KestrunHostAuthnExtensions
     /// <param name="configureOptions">The OAuth2Options to configure the authentication.</param>
     /// <returns>The configured KestrunHost instance.</returns>
     public static KestrunHost AddOAuth2Authentication(
-      this KestrunHost host,
-      string authenticationScheme,
-      string? displayName,
-          Action<OAuth2Options> configureOptions)
-    {
-        var prototype = new OAuth2Options { Host = host };
-        configureOptions?.Invoke(prototype);
-        ConfigureOpenApi(host, authenticationScheme, prototype);
-
-        // register in host for introspection
-        _ = host.RegisteredAuthentications.Register(authenticationScheme, "OAuth2", configureOptions);
-        return host.AddAuthentication(
-            defaultScheme: authenticationScheme,
-            defaultChallengeScheme: displayName,
-            buildSchemes: ab =>
-            {
-                _ = ab.AddCookie(authenticationScheme, cookieOpts =>
-                {
-                    prototype.CookieOptions.ApplyTo(cookieOpts);
-                });
-                _ = ab.AddOAuth(authenticationScheme, oauthOpts =>
-                {
-                    prototype.ApplyTo(oauthOpts);
-                });
-            });
-    }
-    /// <summary>
-    /// Adds OAuth2 authentication to the Kestrun host.
-    /// <para>Use this for applications that require OAuth2 authentication.</para>
-    /// </summary>
-    /// <param name="host">The Kestrun host instance.</param>
-    /// <param name="authenticationScheme">The authentication scheme name.</param>
-    /// <param name="displayName">The display name for the authentication scheme.</param>
-    /// <param name="configureOptions">The OAuth2Options to configure the authentication.</param>
-    /// <returns>The configured KestrunHost instance.</returns>
-    public static KestrunHost AddOAuth2Authentication(
         this KestrunHost host,
         string authenticationScheme,
         string? displayName,
@@ -921,16 +888,27 @@ public static class KestrunHostAuthnExtensions
         {
             configureOptions.Host = host;
         }
+        ConfigureOpenApi(host, authenticationScheme, configureOptions);
+        // register in host for introspection
+        _ = host.RegisteredAuthentications.Register(authenticationScheme, "OAuth2", configureOptions);
+
         // Add authentication
-        return host.AddOAuth2Authentication(
-                  authenticationScheme: authenticationScheme,
-              displayName: displayName,
-              configureOptions: opts =>
+        return host.AddAuthentication(
+            defaultScheme: configureOptions.AuthenticationScheme,
+            defaultChallengeScheme: authenticationScheme,
+            buildSchemes: ab =>
             {
-                configureOptions.ApplyTo(opts);
-                host.Logger.Debug(
-                        "Configured OAuth2 Authentication using scheme {Scheme}  )",
-                        authenticationScheme);
+                _ = ab.AddCookie(configureOptions.AuthenticationScheme, cookieOpts =>
+               {
+                   configureOptions.CookieOptions.ApplyTo(cookieOpts);
+               });
+                _ = ab.AddOAuth(
+                    authenticationScheme: authenticationScheme,
+                    displayName: displayName ?? OAuthDefaults.DisplayName,
+                    configureOptions: oauthOpts =>
+                {
+                    configureOptions.ApplyTo(oauthOpts);
+                });
             });
     }
 

@@ -324,9 +324,9 @@ Add-KrApiKeyAuthentication -Name 'ApiKeyCS' -AllowInsecureHttp -ApiKeyName 'X-Ap
     return providedKey == "my-secret-api-key";
 '@ -In Query
 
-New-KrCookieBuilder -Name 'KestrunAuth' -HttpOnly -SecurePolicy Always -SameSite Strict |
-    Add-KrCookiesAuthentication -Name 'Cookies' -LoginPath '/cookies/login' -LogoutPath '/cookies/logout' -AccessDeniedPath '/cookies/denied' `
-        -SlidingExpiration -ExpireTimeSpan (New-TimeSpan -Minutes 30)
+#New-KrCookieBuilder -Name 'KestrunAuth' -HttpOnly -SecurePolicy Always -SameSite Strict |
+ #   Add-KrCookiesAuthentication -Name 'Cookies' -LoginPath '/cookies/login' -LogoutPath '/cookies/logout' -AccessDeniedPath '/cookies/denied' `
+  #      -SlidingExpiration -ExpireTimeSpan (New-TimeSpan -Minutes 30)
 
 if (([string]::IsNullOrWhiteSpace( $ClientId)) -and
     ([string]::IsNullOrWhiteSpace( $ClientSecret)) -and
@@ -335,7 +335,8 @@ if (([string]::IsNullOrWhiteSpace( $ClientId)) -and
     $ClientId = $env:GITHUB_CLIENT_ID
     $ClientSecret = $env:GITHUB_CLIENT_SECRET
 }
-Add-KrGitHubAuthentication -Name 'GitHub' -ClientId $ClientId -ClientSecret $ClientSecret -CallbackPath $CallbackPath
+
+Add-KrGitHubAuthentication -Name 'GitHub' -ClientId $ClientId -ClientSecret $ClientSecret -CallbackPath '/signin-oauth'
 
 # 6. Build JWT configuration
 $jwtBuilder = New-KrJWTBuilder |

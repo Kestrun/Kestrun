@@ -25,7 +25,7 @@ if (Test-Path -Path "$OutDir/about_.md") {
     Write-Host "🗑️ Clearing existing help in $OutDir/about_.md"
     Remove-Item -Path "$OutDir/about_.md" -Force
 }
-<#
+# Import PlatyPS module
 Import-Module Microsoft.PowerShell.PlatyPS
 Write-Host "📦 Importing module: $ModulePath"
 Import-Module $ModulePath -Force
@@ -66,7 +66,7 @@ This documentation is generated from the Kestrun PowerShell module and provides 
 
 
 Set-Content -Path (Join-Path $OutDir 'index.md') -Value $index_md -Encoding UTF8
-#>
+
 # Normalize cmdlet pages for Just the Docs
 $files = Get-ChildItem $OutDir -Recurse -Filter *.md | Sort-Object Name
 $i = 1

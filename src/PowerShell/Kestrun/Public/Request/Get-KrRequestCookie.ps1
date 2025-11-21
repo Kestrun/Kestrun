@@ -33,7 +33,7 @@
 #>
 function Get-KrRequestCookie {
     [KestrunRuntimeApi('Route')]
-    [CmdletBinding(defaultParameterSetName = 'Default')]
+    [CmdletBinding()]
     [OutputType([string])]
     [OutputType([int])]
     [OutputType([bool])]

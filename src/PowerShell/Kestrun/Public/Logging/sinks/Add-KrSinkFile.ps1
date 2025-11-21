@@ -50,7 +50,7 @@
 #>
 function Add-KrSinkFile {
     [KestrunRuntimeApi('Everywhere')]
-    [CmdletBinding(DefaultParameterSetName = 'Default')]
+    [CmdletBinding()]
     [OutputType([Serilog.LoggerConfiguration])]
     param(
         [Parameter(Mandatory = $true, ValueFromPipeline = $true)]
@@ -156,4 +156,3 @@ function Add-KrSinkFile {
         }
     }
 }
-

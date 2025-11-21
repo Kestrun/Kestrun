@@ -36,7 +36,7 @@
 #>
 function Get-KrRequestHeader {
     [KestrunRuntimeApi('Route')]
-    [CmdletBinding(defaultParameterSetName = 'Default')]
+    [CmdletBinding()]
     [OutputType([string])]
     [OutputType([int])]
     [OutputType([bool])]

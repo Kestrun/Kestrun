@@ -323,12 +323,12 @@ Add-KrBasicAuthentication -AuthenticationScheme 'PowershellBasic' -Realm 'Demo' 
 Add-KrApiKeyAuthentication -AuthenticationScheme 'ApiKeyCS' -AllowInsecureHttp -ApiKeyName 'X-Api-Key' -Code @'
     return providedKey == "my-secret-api-key";
 '@ -In Query
-<#
+
 New-KrCookieBuilder -Name 'KestrunAuth' -HttpOnly -SecurePolicy Always -SameSite Strict |
     Add-KrCookiesAuthentication -AuthenticationScheme 'Cookies' -LoginPath '/cookies/login' -LogoutPath '/cookies/logout' -AccessDeniedPath '/cookies/denied' `
         -SlidingExpiration -ExpireTimeSpan (New-TimeSpan -Minutes 30)
 
-if ((Test-Path -Path .\Utility\Import-EnvFile.ps1)) {
+if ((Test-Path -Path .\.env.json)) {
     & .\Utility\Import-EnvFile.ps1
     $GitHubClientId = $env:GITHUB_CLIENT_ID
     $GitHubClientSecret = $env:GITHUB_CLIENT_SECRET
@@ -373,7 +373,7 @@ $validation = $result | Get-KrJWTValidationParameter
 
 # 7. Register bearer scheme
 Add-KrJWTBearerAuthentication -AuthenticationScheme 'Bearer' -ValidationParameter $validation -MapInboundClaims -SaveToken
-#>
+
 
 
 
@@ -412,7 +412,7 @@ New-KrMapRouteBuilder -Verbs @('GET', 'HEAD', 'POST', 'TRACE') -Pattern '/status
     Add-KrMapRouteOpenApiInfo -Verbs 'GET' -OperationId 'GetStatus' |
     Add-KrMapRouteOpenApiServer -Server (New-KrOpenApiServer -Url 'https://api.example.com/v1' -Description 'Production Server') |
     Add-KrMapRouteOpenApiServer -Server (New-KrOpenApiServer -Url 'https://staging-api.example.com/v1' -Description 'Staging Server') |
-    Add-KrMapRouteOpenApiRequestBody -Verbs @('POST', 'GET', 'TRACE') -Description 'Healthy status2' -Reference 'CreateAddressBody' -Embed |
+    Add-KrMapRouteOpenApiRequestBody -Verbs @('POST', 'GET', 'TRACE') -Description 'Healthy status2' -Reference 'CreateAddressBody' -Embed -Force|
     Add-KrMapRouteOpenApiExternalDoc -Description 'Find more info here' -url 'https://example.com/docs' |
     Add-KrMapRouteOpenApiParameter -Verbs @('GET', 'HEAD', 'POST') -Reference 'Name' |
     Add-KrMapRouteOpenApiParameter -Verbs @(  'POST') -Reference 'Param_Address' |

@@ -33,7 +33,7 @@
 #>
 function Get-KrRequestRouteParam {
     [KestrunRuntimeApi('Route')]
-    [CmdletBinding(defaultParameterSetName = 'default')]
+    [CmdletBinding()]
     [OutputType([string])]
     [OutputType([int])]
     [OutputType([bool])]

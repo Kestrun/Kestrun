@@ -68,7 +68,7 @@
 #>
 function Enable-KrExceptionHandling {
     [KestrunRuntimeApi('Definition')]
-    [CmdletBinding(DefaultParameterSetName = 'Default')]
+    [CmdletBinding()]
     [OutputType([Kestrun.Hosting.KestrunHost])]
     param(
         [Parameter(ValueFromPipeline = $true)]

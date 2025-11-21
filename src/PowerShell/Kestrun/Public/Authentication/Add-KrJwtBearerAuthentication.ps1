@@ -78,14 +78,14 @@ function Add-KrJWTBearerAuthentication {
         [Parameter(Mandatory = $false, ValueFromPipeline)]
         [Kestrun.Hosting.KestrunHost]$Server,
 
-        [Parameter(Mandatory = $true)]
-        [string]$AuthenticationScheme,
+        [Parameter()]
+        [string]$AuthenticationScheme = [Kestrun.Authentication.AuthenticationDefaults]::JwtBearerAuthenticationSchemeName,
 
         [Parameter()]
-        [string]$DisplayName = 'JWT Bearer Authentication',
+        [string]$DisplayName = [Kestrun.Authentication.AuthenticationDefaults]::JwtBearerDisplayName,
 
         [Parameter()]
-        [string[]]$DocId = @('default'),
+        [string[]]$DocId = [Kestrun.Authentication.IOpenApiAuthenticationOptions]::DefaultDocumentationIds,
 
         [Parameter(Mandatory = $true, ParameterSetName = 'Options')]
         [Kestrun.Authentication.JwtAuthOptions]$Options,

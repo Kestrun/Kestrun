@@ -33,6 +33,8 @@ function Add-KrMapRouteOpenApiResponse {
         [Kestrun.Hosting.Options.MapRouteBuilder]$MapRouteBuilder,
         [Parameter()]
         [Kestrun.Utilities.HttpVerb[]]$Verbs,
+        [Parameter()]
+        [string]$DocId = [Kestrun.Authentication.IOpenApiAuthenticationOptions]::DefaultSchemeName,
         [Parameter(Mandatory = $true)]
         [string]$StatusCode,
         [Parameter(ParameterSetName = 'Reference')]
@@ -54,7 +56,7 @@ function Add-KrMapRouteOpenApiResponse {
             }
             if ($PSBoundParameters.ContainsKey('ReferenceId')) {
                 # Use reference-based response
-                $responses = $MapRouteBuilder.Server.OpenApiDocumentDescriptor['default'].Document.Components.Responses
+                $responses = $MapRouteBuilder.Server.OpenApiDocumentDescriptor[$DocId].Document.Components.Responses
                 if (-not $responses.ContainsKey($ReferenceId)) {
                     throw "Response with ReferenceId '$ReferenceId' does not exist in the OpenAPI document components."
                 }

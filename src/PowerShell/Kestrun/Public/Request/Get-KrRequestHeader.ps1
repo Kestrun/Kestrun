@@ -36,7 +36,7 @@
 #>
 function Get-KrRequestHeader {
     [KestrunRuntimeApi('Route')]
-    [CmdletBinding(defaultParameterSetName = 'default')]
+    [CmdletBinding(defaultParameterSetName = 'Default')]
     [OutputType([string])]
     [OutputType([int])]
     [OutputType([bool])]
@@ -86,4 +86,3 @@ function Get-KrRequestHeader {
         Write-KrOutsideRouteWarning
     }
 }
-

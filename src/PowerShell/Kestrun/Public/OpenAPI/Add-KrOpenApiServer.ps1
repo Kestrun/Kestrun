@@ -23,7 +23,7 @@ function Add-KrOpenApiServer {
         [Parameter(Mandatory = $false, ValueFromPipeline = $true)]
         [Kestrun.Hosting.KestrunHost]$Server,
         [Parameter()]
-        [string[]]$DocId = @('default'),
+        [string[]]$DocId = [Kestrun.Authentication.IOpenApiAuthenticationOptions]::DefaultDocumentationIds,
         [Parameter(Mandatory)]
         [string]$Url,
         [string]$Description,

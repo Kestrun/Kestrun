@@ -29,10 +29,10 @@ function Add-KrOAuth2Authentication {
         [Kestrun.Hosting.KestrunHost]$Server,
 
         [Parameter(Mandatory = $false)]
-        [string]$AuthenticationScheme = 'OAuth2',
+        [string]$AuthenticationScheme = [Kestrun.Authentication.AuthenticationDefaults]::OAuth2SchemeName,
 
         [Parameter(Mandatory = $false)]
-        [string]$DisplayName = [Microsoft.AspNetCore.Authentication.OAuth.OAuthDefaults]::DisplayName,
+        [string]$DisplayName = [Kestrun.Authentication.AuthenticationDefaults]::OAuth2DisplayName,
 
         [Parameter(Mandatory = $true)]
         [Kestrun.Authentication.OAuth2Options]$Options,

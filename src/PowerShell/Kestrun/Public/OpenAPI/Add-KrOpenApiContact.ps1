@@ -26,7 +26,7 @@ function Add-KrOpenApiContact {
         [Parameter(Mandatory = $false, ValueFromPipeline = $true)]
         [Kestrun.Hosting.KestrunHost]$Server,
         [Parameter()]
-        [string[]]$DocId = @('default'),
+        [string[]]$DocId = [Kestrun.Authentication.IOpenApiAuthenticationOptions]::DefaultDocumentationIds,
         [Parameter()]
         [string]$Name,
         [Parameter()]

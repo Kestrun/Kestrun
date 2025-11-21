@@ -22,7 +22,7 @@ public record OpenApiMapRouteOptions
     /// <summary>
     /// The document ID to serve.
     /// </summary>
-    public string DocId { get; set; } = "default";
+    public string DocId { get; set; } = Authentication.IOpenApiAuthenticationOptions.DefaultSchemeName;
     /// <summary>
     /// The supported OpenAPI spec versions.
     /// </summary>

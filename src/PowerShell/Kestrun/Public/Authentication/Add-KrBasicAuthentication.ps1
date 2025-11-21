@@ -68,14 +68,14 @@ function Add-KrBasicAuthentication {
         [Parameter(Mandatory = $false, ValueFromPipeline)]
         [Kestrun.Hosting.KestrunHost]$Server,
 
-        [Parameter(Mandatory = $true)]
-        [string]$AuthenticationScheme,
+        [Parameter()]
+        [string]$AuthenticationScheme = [Kestrun.Authentication.AuthenticationDefaults]::BasicAuthenticationSchemeName,
 
         [Parameter()]
-        [string]$DisplayName = 'Basic Authentication',
+        [string]$DisplayName = [Kestrun.Authentication.AuthenticationDefaults]::BasicAuthenticationDisplayName,
 
         [Parameter()]
-        [string[]]$DocId = @('default'),
+        [string[]]$DocId = [Kestrun.Authentication.IOpenApiAuthenticationOptions]::DefaultDocumentationIds,
 
         [Parameter(Mandatory = $true, ParameterSetName = 'Options')]
         [Kestrun.Authentication.BasicAuthenticationOptions]$Options,
@@ -343,4 +343,3 @@ function Add-KrBasicAuthentication {
         }
     }
 }
-

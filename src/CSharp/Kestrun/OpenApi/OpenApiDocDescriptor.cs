@@ -2721,7 +2721,6 @@ public class OpenApiDocDescriptor
     /// <exception cref="NotSupportedException">Thrown when the authentication options type is not supported.</exception>
     internal void ApplySecurityScheme(string scheme, IOpenApiAuthenticationOptions options)
     {
-        Document.Components ??= new OpenApiComponents();
         var securityScheme = options switch
         {
             ApiKeyAuthenticationOptions apiKeyOptions => GetSecurityScheme(apiKeyOptions),

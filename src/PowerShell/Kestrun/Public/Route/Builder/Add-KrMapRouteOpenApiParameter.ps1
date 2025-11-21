@@ -32,6 +32,8 @@ function Add-KrMapRouteOpenApiParameter {
         [Parameter()]
         [Kestrun.Utilities.HttpVerb[]]$Verbs,
         [Parameter()]
+        [string]$DocId = [Kestrun.Authentication.IOpenApiAuthenticationOptions]::DefaultSchemeName,
+        [Parameter()]
         [string]$Description,
         [Parameter(Mandatory = $true)]
         [string]$ReferenceId,
@@ -45,7 +47,7 @@ function Add-KrMapRouteOpenApiParameter {
         $usePathLevel = $Verbs.Count -eq 0
 
         # Use reference-based parameter
-        $parameters = $MapRouteBuilder.Server.OpenApiDocumentDescriptor['default'].Document.Components.Parameters
+        $parameters = $MapRouteBuilder.Server.OpenApiDocumentDescriptor[$DocId].Document.Components.Parameters
         if (-not $parameters.ContainsKey($ReferenceId)) {
             throw "Parameter with ReferenceId '$ReferenceId' does not exist in the OpenAPI document components."
         }

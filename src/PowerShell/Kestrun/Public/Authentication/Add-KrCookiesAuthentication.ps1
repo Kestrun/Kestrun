@@ -59,13 +59,17 @@ function Add-KrCookiesAuthentication {
         [Parameter(Mandatory = $false, ValueFromPipeline = $true)]
         [Kestrun.Hosting.KestrunHost]$Server,
         [Parameter()]
-        [string]$AuthenticationScheme = [Microsoft.AspNetCore.Authentication.Cookies.CookieAuthenticationDefaults]::AuthenticationScheme,
+        [string]$AuthenticationScheme = [Kestrun.Authentication.AuthenticationDefaults]::CookiesAuthenticationSchemeName,
+
         [Parameter()]
-        [string]$DisplayName,
+        [string]$DisplayName = [Kestrun.Authentication.AuthenticationDefaults]::CookiesDisplayName,
+
         [Parameter()]
-        [string[]]$DocId = @('default'),
+        [string[]]$DocId = [Kestrun.Authentication.IOpenApiAuthenticationOptions]::DefaultDocumentationIds,
+
         [Parameter(Mandatory = $true, ParameterSetName = 'Options')]
         [Microsoft.AspNetCore.Authentication.Cookies.CookieAuthenticationOptions]$Options,
+        
         [Parameter()]
         [Kestrun.Claims.ClaimPolicyConfig]$ClaimPolicy,
         [Parameter(ParameterSetName = 'Items')]
@@ -113,4 +117,3 @@ function Add-KrCookiesAuthentication {
         }
     }
 }
-

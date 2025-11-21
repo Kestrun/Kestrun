@@ -31,7 +31,7 @@ function Add-KrOpenApiInfo {
         [Parameter(Mandatory = $false, ValueFromPipeline = $true)]
         [Kestrun.Hosting.KestrunHost]$Server,
         [Parameter()]
-        [string[]]$DocId = @('default'),
+        [string[]]$DocId = [Kestrun.Authentication.IOpenApiAuthenticationOptions]::DefaultDocumentationIds,
         [Parameter(Mandatory)]
         [string]$Title,
         [Parameter(Mandatory)]

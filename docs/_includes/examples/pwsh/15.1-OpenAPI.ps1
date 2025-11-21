@@ -316,10 +316,10 @@ class MyLinks {
     [OpenApiLinkAttribute( MapKey = 'id', MapValue = '$response.body#/id' )]
     $GetUserByIdLink2
 }
-#Add-KrBasicAuthentication -AuthenticationScheme 'PowershellBasic' -Realm 'Demo' -AllowInsecureHttp -ScriptBlock {
- #   param($Username, $Password)
-  #  $Username -eq 'admin' -and $Password -eq 'password'
-#}
+Add-KrBasicAuthentication -AuthenticationScheme 'PowershellBasic' -Realm 'Demo' -AllowInsecureHttp -ScriptBlock {
+    param($Username, $Password)
+    $Username -eq 'admin' -and $Password -eq 'password'
+}
 Add-KrApiKeyAuthentication -AuthenticationScheme 'ApiKeyCS' -AllowInsecureHttp -ApiKeyName 'X-Api-Key' -Code @'
     return providedKey == "my-secret-api-key";
 '@ -In Query

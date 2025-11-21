@@ -32,6 +32,8 @@ function Add-KrMapRouteOpenApiRequestBody {
         [Parameter()]
         [Kestrun.Utilities.HttpVerb[]]$Verbs,
         [Parameter()]
+        [string]$DocId = [Kestrun.Authentication.IOpenApiAuthenticationOptions]::DefaultSchemeName,
+        [Parameter()]
         [string]$Description,
         [Parameter(Mandatory = $true)]
         [string]$ReferenceId,
@@ -62,7 +64,7 @@ function Add-KrMapRouteOpenApiRequestBody {
             }
 
             # Use reference-based request body
-            $requestBodies = $MapRouteBuilder.Server.OpenApiDocumentDescriptor['default'].Document.Components.RequestBodies
+            $requestBodies = $MapRouteBuilder.Server.OpenApiDocumentDescriptor[$DocId].Document.Components.RequestBodies
             if (-not $requestBodies.ContainsKey($ReferenceId)) {
                 throw "RequestBody with ReferenceId '$ReferenceId' does not exist in the OpenAPI document components."
             }

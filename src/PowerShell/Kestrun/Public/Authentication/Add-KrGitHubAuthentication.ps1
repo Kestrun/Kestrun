@@ -35,11 +35,16 @@ function Add-KrGitHubAuthentication {
     param(
         [Parameter(ValueFromPipeline = $true)]
         [Kestrun.Hosting.KestrunHost]$Server,
-        [string]$AuthenticationScheme = 'GitHub',
+
         [Parameter()]
-        [string]$DisplayName = 'GitHub Login',
+        [string]$AuthenticationScheme = [Kestrun.Authentication.AuthenticationDefaults]::GitHubAuthenticationSchemeName,
+
         [Parameter()]
-        [string[]]$DocId = @('default'),
+        [string]$DisplayName = [Kestrun.Authentication.AuthenticationDefaults]::GitHubDisplayName,
+
+        [Parameter()]
+        [string[]]$DocId = [Kestrun.Authentication.IOpenApiAuthenticationOptions]::DefaultDocumentationIds,
+
         [Parameter(Mandatory = $true)]
         [string]$ClientId,
         [Parameter(Mandatory = $true)]
@@ -47,9 +52,10 @@ function Add-KrGitHubAuthentication {
         [string]$CallbackPath = '/signin-oauth',
         [switch]$PassThru
     )
-    process {
+    begin {
         $Server = Resolve-KestrunServer -Server $Server
-
+    }
+    process {
         [Kestrun.Hosting.KestrunHostAuthnExtensions]::AddGitHubOAuthAuthentication(
             $Server,
             $AuthenticationScheme,

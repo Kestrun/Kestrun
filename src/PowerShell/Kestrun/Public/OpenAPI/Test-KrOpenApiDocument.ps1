@@ -27,7 +27,7 @@ function Test-KrOpenApiDocument {
         [Parameter(Mandatory = $false, ValueFromPipeline = $true)]
         [Kestrun.Hosting.KestrunHost]$Server,
         [Parameter()]
-        [string]$DocId = 'default',
+        [string]$DocId = [Kestrun.Authentication.IOpenApiAuthenticationOptions]::DefaultSchemeName,
         [Parameter(Mandatory = $false)]
         [Microsoft.OpenApi.OpenApiSpecVersion]$Version = [Microsoft.OpenApi.OpenApiSpecVersion]::OpenApi3_1,
         [switch]$ThrowOnError,

@@ -64,8 +64,8 @@ public class ClaimPolicyHostingIntegrationTests
         };
 
         _ = host.AddApiKeyAuthentication(
-            scheme: "ApiKeyX",
-            configure: opts =>
+            authenticationScheme: "ApiKeyX",
+            configureOptions: opts =>
             {
                 opts.AllowInsecureHttp = false;
                 opts.StaticApiKey = "ignored-for-test";

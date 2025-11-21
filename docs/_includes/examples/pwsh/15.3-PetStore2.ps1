@@ -549,7 +549,7 @@ class Resp_UserByName_Delete {
 #region COMPONENT SECURITY SCHEMES
 
 # 6. Script-based validation
-Add-KrApiKeyAuthentication -Name 'ApiKey' -AllowInsecureHttp -HeaderName 'api_key' -ScriptBlock { param($ProvidedKey) $ProvidedKey -eq 'my-secret-api-key' }
+Add-KrApiKeyAuthentication -AuthenticationScheme 'ApiKey' -AllowInsecureHttp -HeaderName 'api_key' -ScriptBlock { param($ProvidedKey) $ProvidedKey -eq 'my-secret-api-key' }
 
 # =========================================================
 #                 SECURITY (placeholders)

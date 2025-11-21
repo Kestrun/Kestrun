@@ -5,7 +5,7 @@
         Configures the Kestrun server to use JWT Bearer authentication for incoming requests.
     .PARAMETER Server
         The Kestrun server instance to configure.
-    .PARAMETER Name
+    .PARAMETER AuthenticationScheme
         The name of the authentication scheme.
         This name is used to identify the authentication scheme in the Kestrun server configuration.
     .PARAMETER ValidationParameter
@@ -79,7 +79,7 @@ function Add-KrJWTBearerAuthentication {
         [Kestrun.Hosting.KestrunHost]$Server,
 
         [Parameter(Mandatory = $true)]
-        [string]$Name,
+        [string]$AuthenticationScheme,
 
         [Parameter()]
         [string]$DisplayName = 'JWT Bearer Authentication',
@@ -176,7 +176,7 @@ function Add-KrJWTBearerAuthentication {
             $Options.ClaimPolicy = $ClaimPolicy
         }
         [Kestrun.Hosting.KestrunHostAuthnExtensions]::AddJwtBearerAuthentication(
-            $Server, $Name, $DisplayName, $Options ) | Out-Null
+            $Server, $AuthenticationScheme, $DisplayName, $Options ) | Out-Null
         if ($PassThru.IsPresent) {
             # if the PassThru switch is specified, return the modified server instance
             return $Server

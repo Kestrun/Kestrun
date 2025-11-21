@@ -5,7 +5,7 @@
         Configures the Kestrun server to use basic authentication for incoming requests.
     .PARAMETER Server
         The Kestrun server instance to configure.
-    .PARAMETER Name
+    .PARAMETER AuthenticationScheme
         The name of the basic authentication scheme.
     .PARAMETER DisplayName
         The display name of the basic authentication scheme.
@@ -69,7 +69,7 @@ function Add-KrBasicAuthentication {
         [Kestrun.Hosting.KestrunHost]$Server,
 
         [Parameter(Mandatory = $true)]
-        [string]$Name,
+        [string]$AuthenticationScheme,
 
         [Parameter()]
         [string]$DisplayName = 'Basic Authentication',
@@ -332,7 +332,7 @@ function Add-KrBasicAuthentication {
 
         [Kestrun.Hosting.KestrunHostAuthnExtensions]::AddBasicAuthentication(
             $Server,
-            $Name,
+            $AuthenticationScheme,
             $DisplayName,
             $Options
         ) | Out-Null

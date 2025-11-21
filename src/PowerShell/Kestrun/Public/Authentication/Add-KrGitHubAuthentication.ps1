@@ -7,7 +7,7 @@
     Includes PKCE, saves tokens, maps login & avatar claims, and can enrich email from /user/emails.
 .PARAMETER Server
     The Kestrun server instance. If omitted, uses the current active server.
-.PARAMETER Name
+.PARAMETER AuthenticationScheme
     Base scheme name (default 'GitHub').
 .PARAMETER DisplayName
     Display name for the authentication scheme.
@@ -24,7 +24,7 @@
 .EXAMPLE
     Add-KrGitHubAuthentication -ClientId $env:GITHUB_CLIENT_ID -ClientSecret $env:GITHUB_CLIENT_SECRET
 .EXAMPLE
-    Add-KrGitHubAuthentication -Name 'GitHubMain' -ClientId 'abc' -ClientSecret 'secret' -Scope 'gist' -DisableEmailEnrichment
+    Add-KrGitHubAuthentication -AuthenticationScheme 'GitHubMain' -ClientId 'abc' -ClientSecret 'secret' -Scope 'gist' -DisableEmailEnrichment
 .NOTES
     Requires the generic OAuth2 infrastructure plus provider-specific handling in C#.
 #>
@@ -35,7 +35,7 @@ function Add-KrGitHubAuthentication {
     param(
         [Parameter(ValueFromPipeline = $true)]
         [Kestrun.Hosting.KestrunHost]$Server,
-        [string]$Name = 'GitHub',
+        [string]$AuthenticationScheme = 'GitHub',
         [Parameter()]
         [string]$DisplayName = 'GitHub Login',
         [Parameter()]
@@ -52,7 +52,7 @@ function Add-KrGitHubAuthentication {
 
         [Kestrun.Hosting.KestrunHostAuthnExtensions]::AddGitHubOAuthAuthentication(
             $Server,
-            $Name,
+            $AuthenticationScheme,
             $DisplayName,
             $DocId,
             $ClientId,

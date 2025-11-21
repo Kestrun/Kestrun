@@ -2729,9 +2729,35 @@ public class OpenApiDocDescriptor
             CookieAuthOptions cookieOptions => GetSecurityScheme(cookieOptions),
             JwtAuthOptions jwtOptions => GetSecurityScheme(jwtOptions),
             OAuth2Options oauth2Options => GetSecurityScheme(oauth2Options),
+            OidcOptions oidcOptions => GetSecurityScheme(oidcOptions),
             _ => throw new NotSupportedException($"Unsupported authentication options type: {options.GetType().FullName}"),
         };
         AddSecurityComponent(scheme: scheme, globalScheme: options.GlobalScheme, securityScheme: securityScheme);
+    }
+
+
+    /// <summary>
+    /// Gets the OpenAPI security scheme for OIDC authentication.
+    /// </summary>
+    /// <param name="options">The OIDC authentication options.</param>
+    /// <returns></returns>
+    /// <exception cref="InvalidOperationException">Thrown when neither Authority nor MetadataAddress is set.</exception>
+    private static OpenApiSecurityScheme GetSecurityScheme(OidcOptions options)
+    {
+        // Prefer explicit MetadataAddress if set
+        var discoveryUrl = options.MetadataAddress
+                           ?? (options.Authority is null
+                               ? throw new InvalidOperationException(
+                                   "Either Authority or MetadataAddress must be set to build OIDC OpenAPI scheme.")
+                               : $"{options.Authority.TrimEnd('/')}/.well-known/openid-configuration");
+
+        return new OpenApiSecurityScheme
+        {
+            Type = SecuritySchemeType.OpenIdConnect,
+            OpenIdConnectUrl = new Uri(discoveryUrl, UriKind.Absolute),
+            // Description comes from AuthenticationSchemeOptions base class
+            Description = options.Description
+        };
     }
 
     /// <summary>

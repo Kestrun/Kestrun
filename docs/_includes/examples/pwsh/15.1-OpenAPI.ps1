@@ -316,27 +316,52 @@ class MyLinks {
     [OpenApiLinkAttribute( MapKey = 'id', MapValue = '$response.body#/id' )]
     $GetUserByIdLink2
 }
-Add-KrBasicAuthentication -Name 'PowershellBasic' -Realm 'Demo' -AllowInsecureHttp -ScriptBlock {
-    param($Username, $Password)
-    $Username -eq 'admin' -and $Password -eq 'password'
-}
-Add-KrApiKeyAuthentication -Name 'ApiKeyCS' -AllowInsecureHttp -ApiKeyName 'X-Api-Key' -Code @'
+#Add-KrBasicAuthentication -AuthenticationScheme 'PowershellBasic' -Realm 'Demo' -AllowInsecureHttp -ScriptBlock {
+ #   param($Username, $Password)
+  #  $Username -eq 'admin' -and $Password -eq 'password'
+#}
+Add-KrApiKeyAuthentication -AuthenticationScheme 'ApiKeyCS' -AllowInsecureHttp -ApiKeyName 'X-Api-Key' -Code @'
     return providedKey == "my-secret-api-key";
 '@ -In Query
+<#
+New-KrCookieBuilder -Name 'KestrunAuth' -HttpOnly -SecurePolicy Always -SameSite Strict |
+    Add-KrCookiesAuthentication -AuthenticationScheme 'Cookies' -LoginPath '/cookies/login' -LogoutPath '/cookies/logout' -AccessDeniedPath '/cookies/denied' `
+        -SlidingExpiration -ExpireTimeSpan (New-TimeSpan -Minutes 30)
 
-#New-KrCookieBuilder -Name 'KestrunAuth' -HttpOnly -SecurePolicy Always -SameSite Strict |
- #   Add-KrCookiesAuthentication -Name 'Cookies' -LoginPath '/cookies/login' -LogoutPath '/cookies/logout' -AccessDeniedPath '/cookies/denied' `
-  #      -SlidingExpiration -ExpireTimeSpan (New-TimeSpan -Minutes 30)
-
-if (([string]::IsNullOrWhiteSpace( $ClientId)) -and
-    ([string]::IsNullOrWhiteSpace( $ClientSecret)) -and
-    (Test-Path -Path .\Utility\Import-EnvFile.ps1)) {
+if ((Test-Path -Path .\Utility\Import-EnvFile.ps1)) {
     & .\Utility\Import-EnvFile.ps1
-    $ClientId = $env:GITHUB_CLIENT_ID
-    $ClientSecret = $env:GITHUB_CLIENT_SECRET
-}
+    $GitHubClientId = $env:GITHUB_CLIENT_ID
+    $GitHubClientSecret = $env:GITHUB_CLIENT_SECRET
+    $OktaClientId = $env:OKTA_CLIENT_ID
+    $OktaClientSecret = $env:OKTA_CLIENT_SECRET
+    $OktaAuthority = $env:OKTA_AUTHORITY
 
-Add-KrGitHubAuthentication -Name 'GitHub' -ClientId $ClientId -ClientSecret $ClientSecret -CallbackPath '/signin-oauth'
+    Add-KrGitHubAuthentication -AuthenticationScheme 'GitHub' -ClientId $GitHubClientId -ClientSecret $GitHubClientSecret -CallbackPath '/signin-oauth'
+
+    # Callback and endpoint paths
+    $options = [Kestrun.Authentication.OidcOptions]::new()
+
+    $options.Authority = $OktaAuthority
+    $options.ClientId = $OktaClientId
+    $options.ClientSecret = $OktaClientSecret
+    $options.CallbackPath = '/signin-oidc'
+    $options.SignedOutCallbackPath = '/signout-callback-oidc'  # Logout callback path
+    $options.SaveTokens = $true
+    $options.ResponseType = [Microsoft.IdentityModel.Protocols.OpenIdConnect.OpenIdConnectResponseType]::Code;
+    $options.UsePkce = $true;
+    $options.GetClaimsFromUserInfoEndpoint = $true
+    $options.Scope.Clear()
+    $options.Scope.Add('openid') | Out-Null
+    $options.Scope.Add('profile') | Out-Null
+    $options.Scope.Add('email') | Out-Null
+
+    # Map the 'name' claim from OIDC token to Identity.Name
+    # Okta sends the email in the 'name' claim, which gets mapped to ClaimTypes.Name
+    $options.TokenValidationParameters.NameClaimType = 'name'
+
+    # 5) OAuth2 scheme (AUTH CHALLENGE) — signs into the 'Cookies' scheme above
+    Add-KrOpenIdConnectAuthentication -AuthenticationScheme 'Okta' -Options $options
+}
 
 # 6. Build JWT configuration
 $jwtBuilder = New-KrJWTBuilder |
@@ -347,7 +372,10 @@ $result = Build-KrJWT -Builder $jwtBuilder
 $validation = $result | Get-KrJWTValidationParameter
 
 # 7. Register bearer scheme
-Add-KrJWTBearerAuthentication -Name 'Bearer' -ValidationParameter $validation -MapInboundClaims -SaveToken
+Add-KrJWTBearerAuthentication -AuthenticationScheme 'Bearer' -ValidationParameter $validation -MapInboundClaims -SaveToken
+#>
+
+
 
 # 3. Add loopback listener on port 5000 (auto unlinks existing file if present)
 # This listener will be used to demonstrate server limits configuration.
@@ -379,7 +407,7 @@ New-KrMapRouteBuilder -Verbs @('GET', 'HEAD', 'POST', 'TRACE') -Pattern '/status
         Write-KrJsonResponse -InputObject @{ status = 'healthy' }
     } |
     Add-KrMapRouteOpenApiTag -Tag 'MyTag' |
-    Add-KrMapRouteAuthorizationSchema -Schema 'PowershellBasic', 'ApiKeyCS', 'Cookies' |
+    #Add-KrMapRouteAuthorizationSchema -Schema 'PowershellBasic', 'ApiKeyCS', 'Cookies' |
     Add-KrMapRouteOpenApiInfo -Summary 'Health check endpoint' -Description 'Returns the health status of the service.' |
     Add-KrMapRouteOpenApiInfo -Verbs 'GET' -OperationId 'GetStatus' |
     Add-KrMapRouteOpenApiServer -Server (New-KrOpenApiServer -Url 'https://api.example.com/v1' -Description 'Production Server') |

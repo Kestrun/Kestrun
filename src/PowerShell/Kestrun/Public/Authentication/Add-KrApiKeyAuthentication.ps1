@@ -5,7 +5,7 @@
         Configures the Kestrun server to use API key authentication for incoming requests.
     .PARAMETER Server
         The Kestrun server instance to configure.
-    .PARAMETER Name
+    .PARAMETER AuthenticationScheme
         The name of the API key authentication scheme.
     .PARAMETER DisplayName
         The display name of the API key authentication scheme.
@@ -48,21 +48,21 @@
     .PARAMETER PassThru
         If specified, returns the modified server instance after adding the authentication.
     .EXAMPLE
-        Add-KrApiKeyAuthentication -Name 'MyApiKey' -ExpectedKey '12345' -ApiKeyName 'X-Api-Key'
+        Add-KrApiKeyAuthentication -AuthenticationScheme 'MyApiKey' -ExpectedKey '12345' -ApiKeyName 'X-Api-Key'
         This example adds API key authentication to the server with the specified expected key and header name.
     .EXAMPLE
-        Add-KrApiKeyAuthentication -Name 'MyApiKey' -ScriptBlock {
+        Add-KrApiKeyAuthentication -AuthenticationScheme 'MyApiKey' -ScriptBlock {
             param($username, $password)
             return $username -eq 'admin' -and $password -eq 'password'
         }
         This example adds API key authentication using a script block to validate the API key.
     .EXAMPLE
-        Add-KrApiKeyAuthentication -Name 'MyApiKey' -Code @"
+        Add-KrApiKeyAuthentication -AuthenticationScheme 'MyApiKey' -Code @"
             return username == "admin" && password == "password";
         "@
         This example adds API key authentication using C# code to validate the API key.
     .EXAMPLE
-        Add-KrApiKeyAuthentication -Name 'MyApiKey' -CodeFilePath 'C:\path\to\code.cs'
+        Add-KrApiKeyAuthentication -AuthenticationScheme 'MyApiKey' -CodeFilePath 'C:\path\to\code.cs'
         This example adds API key authentication using a C# code file to validate the API key.
     .LINK
         https://learn.microsoft.com/en-us/dotnet/api/microsoft.aspnetcore.authentication.apikey.apikeyauthenticationoptions?view=aspnetcore-8.0
@@ -77,12 +77,14 @@ function Add-KrApiKeyAuthentication {
         [Parameter(ValueFromPipeline = $true)]
         [Kestrun.Hosting.KestrunHost]$Server,
 
-        [Parameter(Mandatory = $true)]
-        [string]$Name,
+        [Parameter(Mandatory)]
+        [string]$AuthenticationScheme = [Kestrun.Authentication.AuthenticationDefaults]::ApiKeySchemeName,
+
         [Parameter()]
-        [string]$DisplayName = 'API Key Authentication',
+        [string]$DisplayName = [Kestrun.Authentication.AuthenticationDefaults]::ApiKeyDisplayName,
+
         [Parameter()]
-        [string[]]$DocId = @('default'),
+        [string[]]$DocId = [Kestrun.Authentication.IOpenApiAuthenticationOptions]::DefaultDocumentationIds,
 
         # 1. Direct options
         [Parameter(Mandatory = $true, ParameterSetName = 'Options')]
@@ -134,10 +136,11 @@ function Add-KrApiKeyAuthentication {
 
         [switch]$PassThru
     )
-
-    process {
+    begin {
         # Ensure the server instance is resolved
         $Server = Resolve-KestrunServer -Server $Server
+    }
+    process {
         # Build Options only when not provided directly
         if ($PSCmdlet.ParameterSetName -ne 'Options') {
             $Options = [Kestrun.Authentication.ApiKeyAuthenticationOptions]::new()
@@ -269,7 +272,7 @@ function Add-KrApiKeyAuthentication {
 
         # Add API key authentication to the server
         [Kestrun.Hosting.KestrunHostAuthnExtensions]::AddApiKeyAuthentication(
-            $Server, $Name, $DisplayName, $Options ) | Out-Null
+            $Server, $AuthenticationScheme, $DisplayName, $Options ) | Out-Null
 
         # Return the modified server instance if PassThru is specified
         if ($PassThru.IsPresent) {

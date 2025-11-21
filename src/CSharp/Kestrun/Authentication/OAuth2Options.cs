@@ -34,7 +34,9 @@ public class OAuth2Options : OAuthOptions, IOpenApiAuthenticationOptions, IAuthe
     public string[] DocumentationId { get; set; } = [];
 
     /// <inheritdoc/>
+#pragma warning disable IDE0370 // Remove unnecessary suppression
     public KestrunHost Host { get; set; } = default!;
+#pragma warning restore IDE0370 // Remove unnecessary suppression
 
     /// <inheritdoc/>
     public Serilog.ILogger Logger => Host.Logger;
@@ -50,11 +52,16 @@ public class OAuth2Options : OAuthOptions, IOpenApiAuthenticationOptions, IAuthe
         };
     }
     /// <summary>
-    /// Gets the authentication scheme.
+    /// Gets or sets the authentication scheme name.
     /// </summary>
-    public string AuthenticationScheme => CookieOptions.Cookie.Name is not null
-            ? CookieOptions.Cookie.Name
-            : CookieAuthenticationDefaults.AuthenticationScheme;
+    public string AuthenticationScheme { get; set; } = AuthenticationDefaults.OAuth2SchemeName;
+
+    /// <summary>
+    /// Gets the cookie authentication scheme name.
+    /// </summary>
+    public string CookieScheme =>
+    CookieOptions.Cookie.Name ?? (CookieAuthenticationDefaults.AuthenticationScheme + "." + AuthenticationScheme);
+
 
     /// <summary>
     /// Helper to copy values from a user-supplied OAuth2Options instance to the instance

@@ -25,7 +25,7 @@ Add-KrEndpoint -Port $Port -IPAddress $IPAddress -SelfSignedCert
 
 # 6. Register cookie auth scheme
 New-KrCookieBuilder -Name 'KestrunAuth' -HttpOnly -SecurePolicy Always -SameSite Strict |
-    Add-KrCookiesAuthentication -Name 'Cookies' -LoginPath '/cookies/login' -LogoutPath '/cookies/logout' -AccessDeniedPath '/cookies/denied' `
+    Add-KrCookiesAuthentication -AuthenticationScheme 'Cookies' -LoginPath '/cookies/login' -LogoutPath '/cookies/logout' -AccessDeniedPath '/cookies/denied' `
         -SlidingExpiration -ExpireTimeSpan (New-TimeSpan -Minutes 30)
 
 # 7. Finalize configuration

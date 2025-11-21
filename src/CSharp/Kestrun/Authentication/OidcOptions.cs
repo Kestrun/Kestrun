@@ -16,6 +16,12 @@ public class OidcOptions : OpenIdConnectOptions, IOpenApiAuthenticationOptions, 
     public CookieAuthOptions CookieOptions { get; }
 
     /// <summary>
+    /// Gets the cookie authentication scheme name.
+    /// </summary>
+    public string CookieScheme =>
+    CookieOptions.Cookie.Name ?? (CookieAuthenticationDefaults.AuthenticationScheme + "." + AuthenticationScheme);
+
+    /// <summary>
     /// JSON Web Key (JWK) for token validation.
     /// </summary>
     public string? JwkJson { get; set; }
@@ -40,7 +46,9 @@ public class OidcOptions : OpenIdConnectOptions, IOpenApiAuthenticationOptions, 
     public string[] DocumentationId { get; set; } = [];
 
     /// <inheritdoc/>
+#pragma warning disable IDE0370 // Remove unnecessary suppression
     public KestrunHost Host { get; set; } = default!;
+#pragma warning restore IDE0370 // Remove unnecessary suppression
 
     /// <inheritdoc/>
     public Serilog.ILogger Logger => Host.Logger;
@@ -57,11 +65,9 @@ public class OidcOptions : OpenIdConnectOptions, IOpenApiAuthenticationOptions, 
     }
 
     /// <summary>
-    /// Gets the authentication scheme.
+    /// Gets or sets the authentication scheme name.
     /// </summary>
-    public string AuthenticationScheme => CookieOptions.Cookie.Name is not null
-            ? CookieOptions.Cookie.Name
-            : CookieAuthenticationDefaults.AuthenticationScheme;
+    public string AuthenticationScheme { get; set; } = AuthenticationDefaults.OidcSchemeName;
 
     /// <summary>
     /// Helper to copy values from a user-supplied OidcOptions instance to the instance

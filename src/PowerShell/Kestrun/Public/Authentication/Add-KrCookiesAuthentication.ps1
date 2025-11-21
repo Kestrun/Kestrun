@@ -5,8 +5,12 @@
     Configures the Kestrun server to use cookie authentication for incoming requests.
 .PARAMETER Server
     The Kestrun server instance to configure. If not specified, the current server instance is used.
-.PARAMETER Name
+.PARAMETER AuthenticationScheme
     The name of the cookie authentication scheme.
+.PARAMETER DisplayName
+    The display name for the authentication scheme.
+.PARAMETER DocId
+    Documentation IDs for the authentication scheme.
 .PARAMETER Options
     The cookie authentication options to configure. If not specified, default options are used.
 .PARAMETER ClaimPolicy
@@ -32,15 +36,15 @@
     Add-KrCookiesAuthentication -Server $myServer -Name 'MyCookieAuth' -Options $myCookieOptions -ClaimPolicy $myClaimPolicy
     Adds cookie authentication to the specified Kestrun server with the provided options and claim policy.
 .EXAMPLE
-    Add-KrCookiesAuthentication -Name 'MyCookieAuth' -SlidingExpiration -LoginPath '/Login' -LogoutPath '/Logout' -AccessDeniedPath '/Denied' -ExpireTimeSpan (New-TimeSpan -Days 14)
+    Add-KrCookiesAuthentication -AuthenticationScheme 'MyCookieAuth' -SlidingExpiration -LoginPath '/Login' -LogoutPath '/Logout' -AccessDeniedPath '/Denied' -ExpireTimeSpan (New-TimeSpan -Days 14)
     Configures cookie authentication with sliding expiration and custom paths for login, logout, and access denied
 .EXAMPLE
     $cookie = New-KrCookieBuilder -Name 'AuthCookie' -HttpOnly -SameSite Lax
-    Add-KrCookiesAuthentication -Name 'MyCookieAuth' -Cookie $cookie -SlidingExpiration -ExpireTimeSpan (New-TimeSpan -Days 7)
+    Add-KrCookiesAuthentication -AuthenticationScheme 'MyCookieAuth' -Cookie $cookie -SlidingExpiration -ExpireTimeSpan (New-TimeSpan -Days 7)
     Configures cookie authentication using a custom cookie with HttpOnly and SameSite=Lax, along with sliding expiration.
 .EXAMPLE
     New-KrCookieBuilder -Name 'AuthCookie' -HttpOnly -SameSite Lax |
-        Add-KrCookiesAuthentication -Name 'MyCookieAuth' -SlidingExpiration -ExpireTimeSpan (New-TimeSpan -Days 7)
+        Add-KrCookiesAuthentication -AuthenticationScheme 'MyCookieAuth' -SlidingExpiration -ExpireTimeSpan (New-TimeSpan -Days 7)
     Configures cookie authentication using a custom cookie created via pipeline with HttpOnly and SameSite=Lax, along with sliding expiration.
 .NOTES
     This cmdlet is part of the Kestrun PowerShell module and is used to configure cookie authentication for Kestrun servers.
@@ -55,7 +59,7 @@ function Add-KrCookiesAuthentication {
         [Parameter(Mandatory = $false, ValueFromPipeline = $true)]
         [Kestrun.Hosting.KestrunHost]$Server,
         [Parameter()]
-        [string]$Name = [Microsoft.AspNetCore.Authentication.Cookies.CookieAuthenticationDefaults]::AuthenticationScheme,
+        [string]$AuthenticationScheme = [Microsoft.AspNetCore.Authentication.Cookies.CookieAuthenticationDefaults]::AuthenticationScheme,
         [Parameter()]
         [string]$DisplayName,
         [Parameter()]
@@ -101,7 +105,7 @@ function Add-KrCookiesAuthentication {
         }
         # Add cookie authentication to the server
         [Kestrun.Hosting.KestrunHostAuthnExtensions]::AddCookieAuthentication(
-            $Server, $Name, $DisplayName, $Options, $ClaimPolicy) | Out-Null
+            $Server, $AuthenticationScheme, $DisplayName, $Options, $ClaimPolicy) | Out-Null
 
         # Return the modified server instance if PassThru is specified
         if ($PassThru.IsPresent) {

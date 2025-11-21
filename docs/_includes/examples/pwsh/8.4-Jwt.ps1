@@ -19,7 +19,7 @@ Add-KrEndpoint -Port $Port -IPAddress $IPAddress -SelfSignedCert
 
 
 # 5. Initial Basic scheme for token issuance
-Add-KrBasicAuthentication -Name 'BasicInit' -Realm 'Init' -AllowInsecureHttp -ScriptBlock { param($Username, $Password) $Username -eq 'admin' -and $Password -eq 'password' }
+Add-KrBasicAuthentication -AuthenticationScheme 'BasicInit' -Realm 'Init' -AllowInsecureHttp -ScriptBlock { param($Username, $Password) $Username -eq 'admin' -and $Password -eq 'password' }
 
 # 6. Build JWT configuration
 $jwtBuilder = New-KrJWTBuilder |
@@ -30,7 +30,7 @@ $result = Build-KrJWT -Builder $jwtBuilder
 $validation = $result | Get-KrJWTValidationParameter
 
 # 7. Register bearer scheme
-Add-KrJWTBearerAuthentication -Name 'Bearer' -ValidationParameter $validation -MapInboundClaims
+Add-KrJWTBearerAuthentication -AuthenticationScheme 'Bearer' -ValidationParameter $validation -MapInboundClaims
 
 # 8. Finalize configuration
 Enable-KrConfiguration

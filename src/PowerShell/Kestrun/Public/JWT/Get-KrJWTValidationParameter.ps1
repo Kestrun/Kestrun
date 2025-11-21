@@ -21,7 +21,7 @@
         Protect-KrJWT -HexadecimalKey $JwtKeyHex -Algorithm HS256
 
         # Add a JWT bearer authentication scheme using the validation parameters
-        Add-KrJWTBearerAuthentication -Name "JwtScheme" -Options (Build-KrJWT -Builder $JwtTokenBuilder | Get-KrJWTValidation)
+        Add-KrJWTBearerAuthentication -AuthenticationScheme "JwtScheme" -Options (Build-KrJWT -Builder $JwtTokenBuilder | Get-KrJWTValidation)
         This example creates a JWT token builder, adds an issuer and audience, protects the JWT with a hexadecimal key, and retrieves the validation parameters for use in authentication.
     .NOTES
         This function is part of the Kestrun.Jwt module and is used to manage JWT tokens.

@@ -67,7 +67,7 @@ $token = $built | Get-KrJWTToken
 
 # Prepare validation parameters (for bearer scheme)
 $validation = $built | Get-KrJWTValidationParameter
-Add-KrJWTBearerAuthentication -Name 'Bearer' -ValidationParameter $validation -MapInboundClaims
+Add-KrJWTBearerAuthentication -AuthenticationScheme 'Bearer' -ValidationParameter $validation -MapInboundClaims
 ```
 
 Alternative (JWK RSA key):
@@ -87,7 +87,7 @@ $built = $builder |
 
 $token = $built | Get-KrJWTToken
 $validation = $built | Get-KrJWTValidationParameter
-Add-KrJWTBearerAuthentication -Name 'Bearer' -ValidationParameter $validation -MapInboundClaims
+Add-KrJWTBearerAuthentication -AuthenticationScheme 'Bearer' -ValidationParameter $validation -MapInboundClaims
 ```
 
 ---
@@ -199,7 +199,7 @@ $jwtString = $result | Get-KrJWTToken
 
 ```powershell
 $validation = $result | Get-KrJWTValidationParameter
-Add-KrJWTBearerAuthentication -Name 'Bearer' -ValidationParameter $validation
+Add-KrJWTBearerAuthentication -AuthenticationScheme 'Bearer' -ValidationParameter $validation
 ```
 
 ### 4.8 Copy & mutate per-request

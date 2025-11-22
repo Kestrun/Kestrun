@@ -1,3 +1,4 @@
+using Kestrun.Claims;
 using Kestrun.Hosting;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
@@ -69,6 +70,11 @@ public class OidcOptions : OpenIdConnectOptions, IOpenApiAuthenticationOptions, 
     /// </summary>
     public string AuthenticationScheme { get; set; } = AuthenticationDefaults.OidcSchemeName;
 
+
+    /// <summary>
+    /// Configuration for claim policy enforcement.
+    /// </summary>
+    public ClaimPolicyConfig? ClaimPolicy { get; set; }
     /// <summary>
     /// Helper to copy values from a user-supplied OidcOptions instance to the instance
     /// created by the framework inside AddOpenIdConnect().

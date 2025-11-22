@@ -17,11 +17,11 @@ public record MapRouteOptions
     /// <summary>
     /// Authorization Scheme names required for this route.
     /// </summary>
-    public string[] RequireSchemes { get; set; } = []; // Authorization scheme name, if any
+    public List<string> RequireSchemes { get; init; } = []; // Authorization scheme name, if any
     /// <summary>
     /// Authorization policy names required for this route.
     /// </summary>
-    public string[]? RequirePolicies { get; set; } = []; // Authorization policies, if any
+    public List<string> RequirePolicies { get; init; } = []; // Authorization policies, if any
     /// <summary>
     /// Name of the CORS policy to apply, if any.
     /// </summary>

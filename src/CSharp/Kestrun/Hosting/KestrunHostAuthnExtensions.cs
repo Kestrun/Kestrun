@@ -12,6 +12,8 @@ using System.Text.Json;
 using System.Security.Claims;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.AspNetCore.Authentication.OpenIdConnect;
+using Microsoft.IdentityModel.Protocols;
+using Microsoft.IdentityModel.Protocols.OpenIdConnect;
 
 namespace Kestrun.Hosting;
 
@@ -896,7 +898,24 @@ public static class KestrunHostAuthnExtensions
         {
             configureOptions.AuthenticationScheme = authenticationScheme;
         }
+        if (configureOptions.Scope != null && configureOptions.Scope.Count > 0)
+        {
+            if (host.Logger.IsEnabled(LogEventLevel.Debug))
+            {
+                host.Logger.Debug("OAuth2 scopes configured: {Scopes}", string.Join(", ", configureOptions.Scope));
+            }
 
+            var claimPolicy = new ClaimPolicyBuilder();
+            foreach (var scope in configureOptions.Scope)
+            {
+                if (host.Logger.IsEnabled(LogEventLevel.Debug))
+                {
+                    host.Logger.Debug("OAuth2 scope added: {Scope}", scope);
+                }
+                _ = claimPolicy.AddPolicy(scope, "scope", scope);
+            }
+            configureOptions.ClaimPolicy = claimPolicy.Build();
+        }
         // Configure OpenAPI
         ConfigureOpenApi(host, authenticationScheme, configureOptions);
 
@@ -927,7 +946,9 @@ public static class KestrunHostAuthnExtensions
                           oauthOpts.ClientId, string.Join(", ", oauthOpts.Scope));
                     }
                 });
-            });
+            },
+              configureAuthz: configureOptions.ClaimPolicy?.ToAuthzDelegate()
+        );
     }
 
     #endregion
@@ -972,7 +993,15 @@ public static class KestrunHostAuthnExtensions
         {
             configureOptions.AuthenticationScheme = authenticationScheme;
         }
-
+        // Retrieve supported scopes from the OIDC provider
+        if (!string.IsNullOrWhiteSpace(configureOptions.Authority))
+        {
+            configureOptions.ClaimPolicy = GetSupportedScopes(configureOptions.Authority, host.Logger);
+            if (host.Logger.IsEnabled(LogEventLevel.Debug))
+            {
+                host.Logger.Debug("OIDC supported scopes: {Scopes}", string.Join(", ", configureOptions.ClaimPolicy?.Policies.Keys ?? Enumerable.Empty<string>()));
+            }
+        }
         // Configure OpenAPI
         ConfigureOpenApi(host, authenticationScheme, configureOptions);
 
@@ -1023,7 +1052,82 @@ public static class KestrunHostAuthnExtensions
                              oidcOpts.Authority, oidcOpts.ClientId, string.Join(", ", oidcOpts.Scope));
                      }
                  });
-              });
+              },
+              configureAuthz: configureOptions.ClaimPolicy?.ToAuthzDelegate()
+            );
+    }
+
+    /// <summary>
+    /// Retrieves the supported scopes from the OpenID Connect provider's metadata.
+    /// </summary>
+    /// <param name="authority">The authority URL of the OpenID Connect provider.</param>
+    /// <param name="logger">The logger instance for logging.</param>
+    /// <returns>A ClaimPolicyConfig containing the supported scopes, or null if retrieval fails.</returns>
+    private static ClaimPolicyConfig? GetSupportedScopes(string authority, Serilog.ILogger logger)
+    {
+
+        var claimPolicy = new ClaimPolicyBuilder();
+        if (string.IsNullOrWhiteSpace(authority))
+        {
+            throw new ArgumentException("Authority must be provided to retrieve OpenID Connect scopes.", nameof(authority));
+        }
+
+        var metadataAddress = authority.TrimEnd('/') + "/.well-known/openid-configuration";
+
+        var documentRetriever = new HttpDocumentRetriever
+        {
+            RequireHttps = metadataAddress.StartsWith("https://", StringComparison.OrdinalIgnoreCase)
+        };
+
+        var configManager = new ConfigurationManager<OpenIdConnectConfiguration>(
+            metadataAddress,
+            new OpenIdConnectConfigurationRetriever(),
+            documentRetriever);
+
+        try
+        {
+            var cfg = configManager.GetConfigurationAsync(CancellationToken.None)
+                                   .GetAwaiter()
+                                   .GetResult();
+            // First try the strongly-typed property
+            var scopes = cfg.ScopesSupported;
+
+            // If it's null or empty, fall back to raw JSON
+            if (scopes == null || scopes.Count == 0)
+            {
+                var json = documentRetriever.GetDocumentAsync(metadataAddress, CancellationToken.None)
+                                            .GetAwaiter()
+                                            .GetResult();
+
+                using var doc = JsonDocument.Parse(json);
+                if (doc.RootElement.TryGetProperty("scopes_supported", out var scopesElement) &&
+                    scopesElement.ValueKind == JsonValueKind.Array)
+                {
+                    foreach (var item in scopesElement.EnumerateArray())
+                    {
+                        var scope = item.GetString();
+                        if (!string.IsNullOrWhiteSpace(scope))
+                        {
+                            _ = claimPolicy.AddPolicy(scope, "scope", scope);
+                        }
+                    }
+                }
+            }
+            else
+            {
+                // Normal path: configuration object had scopes
+                foreach (var scope in scopes)
+                {
+                    _ = claimPolicy.AddPolicy(scope, "scope", scope);
+                }
+            }
+            return claimPolicy.Build();
+        }
+        catch (Exception ex)
+        {
+            logger.Warning(ex, "Failed to retrieve OpenID Connect configuration from {MetadataAddress}", metadataAddress);
+            return null;
+        }
     }
 
     #endregion

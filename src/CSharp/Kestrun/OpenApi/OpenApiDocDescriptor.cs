@@ -358,39 +358,40 @@ public class OpenApiDocDescriptor
         {
             op.Callbacks = new Dictionary<string, IOpenApiCallback>(meta.Callbacks);
         }
-        if (Document.Components?.SecuritySchemes is Dictionary<string, IOpenApiSecurityScheme> schemes)
+        if (meta.Security is not null && meta.Security.Any())
         {
-            if (meta.Security is not null)
-            {
-                // If meta.Security is an empty sequence, you may want to mark the op as anonymous.
-                if (!meta.Security.Any())
-                {
-                    // Explicitly anonymous for this operation (overrides any Document.Security)
-                    op.Security = [];
-                }
-                else
-                {
-                    op.Security ??= [];
-                    // OR semantics: add one requirement per scheme name
-                    var seen = new HashSet<string>(StringComparer.Ordinal);
-                    foreach (var schemeName in meta.Security)
-                    {
-                        if (!seen.Add(schemeName))
-                        {
-                            continue; // skip duplicates
-                        }
+            op.Security ??= [];
 
-                        if (!schemes.ContainsKey(schemeName))
-                        {
-                            continue; // or log/throw
-                        }
-                        if (SecurityRequirement.TryGetValue(schemeName, out var existingRequirement))
-                        {
-                            op.Security.Add(existingRequirement);
-                        }
-                    }
+            var seen = new HashSet<string>(StringComparer.Ordinal);
+
+            foreach (var schemeName in meta.Security
+                         .SelectMany(d => d.Keys)
+                         .Distinct())
+            {
+                if (!seen.Add(schemeName))
+                {
+                    continue;
                 }
+                // Gather scopes for this scheme
+                var scopesForScheme = meta.Security
+                    .SelectMany(dict => dict)
+                    .Where(kv => kv.Key == schemeName)
+                    .SelectMany(kv => kv.Value)
+                    .Distinct()
+                    .ToList();
+                // Build requirement
+                var requirement = new OpenApiSecurityRequirement
+                {
+                    [new OpenApiSecuritySchemeReference(schemeName, Document)] = scopesForScheme
+                };
+
+                op.Security.Add(requirement);
             }
+        }
+        else if (meta.Security is not null && !meta.Security.Any())
+        {
+            // Explicitly anonymous for this operation (overrides Document.Security)
+            op.Security = [];
         }
 
         return op;

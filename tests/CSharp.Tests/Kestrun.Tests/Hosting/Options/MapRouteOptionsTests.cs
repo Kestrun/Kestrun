@@ -56,7 +56,7 @@ public class MapRouteOptionsTests
             RequireSchemes = ["Bearer", "ApiKey"]
         };
 
-        Assert.Equal(2, options.RequireSchemes.Length);
+        Assert.Equal(2, options.RequireSchemes.Count());
         Assert.Contains("Bearer", options.RequireSchemes);
     }
 
@@ -70,7 +70,7 @@ public class MapRouteOptionsTests
         };
 
         Assert.NotNull(options.RequirePolicies);
-        Assert.Equal(2, options.RequirePolicies.Length);
+        Assert.Equal(2, options.RequirePolicies.Count());
         Assert.Contains("Admin", options.RequirePolicies);
     }
 

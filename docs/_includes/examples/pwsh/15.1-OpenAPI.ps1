@@ -316,6 +316,7 @@ class MyLinks {
     [OpenApiLinkAttribute( MapKey = 'id', MapValue = '$response.body#/id' )]
     $GetUserByIdLink2
 }
+<#
 Add-KrBasicAuthentication -AuthenticationScheme 'PowershellBasic' -Realm 'Demo' -AllowInsecureHttp -ScriptBlock {
     param($Username, $Password)
     $Username -eq 'admin' -and $Password -eq 'password'
@@ -327,7 +328,7 @@ Add-KrApiKeyAuthentication -AuthenticationScheme 'ApiKeyCS' -AllowInsecureHttp -
 New-KrCookieBuilder -Name 'KestrunAuth' -HttpOnly -SecurePolicy Always -SameSite Strict |
     Add-KrCookiesAuthentication -AuthenticationScheme 'Cookies' -LoginPath '/cookies/login' -LogoutPath '/cookies/logout' -AccessDeniedPath '/cookies/denied' `
         -SlidingExpiration -ExpireTimeSpan (New-TimeSpan -Minutes 30)
-
+#>
 if ((Test-Path -Path .\.env.json)) {
     & .\Utility\Import-EnvFile.ps1
     $GitHubClientId = $env:GITHUB_CLIENT_ID
@@ -360,7 +361,7 @@ if ((Test-Path -Path .\.env.json)) {
     $options.TokenValidationParameters.NameClaimType = 'name'
 
     # 5) OAuth2 scheme (AUTH CHALLENGE) — signs into the 'Cookies' scheme above
-    Add-KrOpenIdConnectAuthentication -AuthenticationScheme 'Okta' -Options $options
+    #   Add-KrOpenIdConnectAuthentication -AuthenticationScheme 'Okta' -Options $options
 }
 
 # 6. Build JWT configuration
@@ -372,7 +373,7 @@ $result = Build-KrJWT -Builder $jwtBuilder
 $validation = $result | Get-KrJWTValidationParameter
 
 # 7. Register bearer scheme
-Add-KrJWTBearerAuthentication -AuthenticationScheme 'Bearer' -ValidationParameter $validation -MapInboundClaims -SaveToken
+# Add-KrJWTBearerAuthentication -AuthenticationScheme 'Bearer' -ValidationParameter $validation -MapInboundClaims -SaveToken
 
 
 
@@ -407,12 +408,12 @@ New-KrMapRouteBuilder -Verbs @('GET', 'HEAD', 'POST', 'TRACE') -Pattern '/status
         Write-KrJsonResponse -InputObject @{ status = 'healthy' }
     } |
     Add-KrMapRouteOpenApiTag -Tag 'MyTag' |
-    #Add-KrMapRouteAuthorizationSchema -Schema 'PowershellBasic', 'ApiKeyCS', 'Cookies' |
+    #Add-KrMapRouteAuthorization -Schema 'PowershellBasic', 'ApiKeyCS', 'Cookies' |
     Add-KrMapRouteOpenApiInfo -Summary 'Health check endpoint' -Description 'Returns the health status of the service.' |
     Add-KrMapRouteOpenApiInfo -Verbs 'GET' -OperationId 'GetStatus' |
     Add-KrMapRouteOpenApiServer -Server (New-KrOpenApiServer -Url 'https://api.example.com/v1' -Description 'Production Server') |
     Add-KrMapRouteOpenApiServer -Server (New-KrOpenApiServer -Url 'https://staging-api.example.com/v1' -Description 'Staging Server') |
-    Add-KrMapRouteOpenApiRequestBody -Verbs @('POST', 'GET', 'TRACE') -Description 'Healthy status2' -Reference 'CreateAddressBody' -Embed -Force|
+    Add-KrMapRouteOpenApiRequestBody -Verbs @('POST', 'GET', 'TRACE') -Description 'Healthy status2' -Reference 'CreateAddressBody' -Embed -Force |
     Add-KrMapRouteOpenApiExternalDoc -Description 'Find more info here' -url 'https://example.com/docs' |
     Add-KrMapRouteOpenApiParameter -Verbs @('GET', 'HEAD', 'POST') -Reference 'Name' |
     Add-KrMapRouteOpenApiParameter -Verbs @(  'POST') -Reference 'Param_Address' |
@@ -429,6 +430,7 @@ New-KrMapRouteBuilder -Verbs @('GET' ) -Pattern '/address' |
         Write-KrJsonResponse -InputObject @{ status = 'healthy' }
     } |
     Add-KrMapRouteOpenApiTag -Tag 'MyTag' |
+    Add-KrMapRouteAuthorization -Policy 'read:user' | #'openid' |
     Add-KrMapRouteOpenApiInfo -Summary 'Address info endpoint' -Description 'Returns information about a specific address.' |
     Add-KrMapRouteOpenApiInfo -OperationId 'GetAddressInfo' |
     Add-KrMapRouteOpenApiExternalDoc -Description 'Find more info here' -url 'https://example.com/docs' |

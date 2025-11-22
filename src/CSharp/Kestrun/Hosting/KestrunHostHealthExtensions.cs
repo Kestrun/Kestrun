@@ -49,8 +49,8 @@ public static class KestrunHostHealthExtensions
             },
             AllowAnonymous = merged.AllowAnonymous,
             DisableAntiforgery = true,
-            RequireSchemes = merged.RequireSchemes,
-            RequirePolicies = merged.RequirePolicies,
+            RequireSchemes = [.. merged.RequireSchemes],
+            RequirePolicies = [.. merged.RequirePolicies],
             CorsPolicyName = merged.CorsPolicyName ?? string.Empty,
             RateLimitPolicyName = merged.RateLimitPolicyName,
             ShortCircuit = merged.ShortCircuit,
@@ -178,6 +178,13 @@ public static class KestrunHostHealthExtensions
         _ => StatusCodes.Status503ServiceUnavailable
     };
 
+    /// <summary>
+    /// Maps the health endpoint immediately.
+    /// </summary>
+    /// <param name="host">The KestrunHost instance.</param>
+    /// <param name="merged">The merged HealthEndpointOptions instance.</param>
+    /// <param name="mapOptions">The route mapping options.</param>
+    /// <exception cref="InvalidOperationException">Thrown if a route with the same pattern and HTTP verb already exists and ThrowOnDuplicate is true.</exception>
     private static void MapHealthEndpointImmediate(KestrunHost host, HealthEndpointOptions merged, MapRouteOptions mapOptions)
     {
         if (host.MapExists(mapOptions.Pattern!, HttpVerb.Get))

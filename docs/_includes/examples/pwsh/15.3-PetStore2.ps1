@@ -683,7 +683,7 @@ New-KrMapRouteBuilder -Verbs 'POST' -Pattern '/pet/{petId}/uploadImage' |
 New-KrMapRouteBuilder -Verbs 'GET' -Pattern '/store/inventory' |
     Add-KrMapRouteScriptBlock -ScriptBlock { Write-KrJsonResponse @{} } |
     Add-KrMapRouteOpenApiTag -Tag 'store' |
-    Add-KrMapRouteAuthorizationSchema -Schema 'ApiKey' |
+    Add-KrMapRouteAuthorization -Schema 'ApiKey' |
     Add-KrMapRouteOpenApiInfo -Summary 'Returns pet inventories by status.' -Description 'Returns a map of status codes to quantities.' -OperationId 'getInventory' |
     Add-KrMapRouteOpenApiResponse -StatusCode '200' -ReferenceId 'Resp_Inventory-OK' -Embed |
     Add-KrMapRouteOpenApiResponse -StatusCode 'default' -ReferenceId 'Resp_Inventory-Default' |

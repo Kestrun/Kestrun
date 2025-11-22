@@ -55,7 +55,7 @@ function Add-KrOpenApiTag {
             if ($PsBoundParameters.ContainsKey('ExternalDocs')) {
                 $tag.ExternalDocs = $ExternalDocs
             }
-            $docDescriptor.Document.Tags.Add($tag)
+            $docDescriptor.Document.Tags.Add($tag) | Out-Null
         }
     }
 }

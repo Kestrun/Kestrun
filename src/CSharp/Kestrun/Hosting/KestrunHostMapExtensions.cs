@@ -55,7 +55,7 @@ public static partial class KestrunHostMapExtensions
     /// <param name="requireSchemes">Optional array of authorization schemes required for the route.</param>
     /// <param name="map">The endpoint convention builder for further configuration.</param>
     /// <returns>The KestrunHost instance for chaining.</returns>
-    public static KestrunHost AddMapRoute(this KestrunHost host, string pattern, HttpVerb httpVerb, KestrunHandler handler, out IEndpointConventionBuilder? map, string[]? requireSchemes = null) =>
+    public static KestrunHost AddMapRoute(this KestrunHost host, string pattern, HttpVerb httpVerb, KestrunHandler handler, out IEndpointConventionBuilder? map, List<string>? requireSchemes = null) =>
     host.AddMapRoute(pattern: pattern, httpVerbs: [httpVerb], handler: handler, out map, requireSchemes: requireSchemes);
 
     /// <summary>
@@ -69,7 +69,7 @@ public static partial class KestrunHostMapExtensions
     /// <param name="map">The endpoint convention builder for further configuration.</param>
     /// <returns>The KestrunHost instance for chaining.</returns>
     public static KestrunHost AddMapRoute(this KestrunHost host, string pattern, IEnumerable<HttpVerb> httpVerbs, KestrunHandler handler,
-    out IEndpointConventionBuilder? map, string[]? requireSchemes = null)
+    out IEndpointConventionBuilder? map, List<string>? requireSchemes = null)
     {
         return host.AddMapRoute(new MapRouteOptions
         {
@@ -205,7 +205,7 @@ public static partial class KestrunHostMapExtensions
     /// <param name="arguments">Optional dictionary of arguments to pass to the script.</param>
     /// <returns>The KestrunHost instance for chaining.</returns>
     public static KestrunHost AddMapRoute(this KestrunHost host, string pattern, HttpVerb httpVerbs, string scriptBlock, ScriptLanguage language = ScriptLanguage.PowerShell,
-                                     string[]? requireSchemes = null,
+                                     List<string>? requireSchemes = null,
                                  Dictionary<string, object?>? arguments = null)
     {
         arguments ??= [];
@@ -238,7 +238,7 @@ public static partial class KestrunHostMapExtensions
                                 IEnumerable<HttpVerb> httpVerbs,
                                 string scriptBlock,
                                 ScriptLanguage language = ScriptLanguage.PowerShell,
-                                string[]? requireSchemes = null,
+                                List<string>? requireSchemes = null,
                                  Dictionary<string, object?>? arguments = null)
     {
         return host.AddMapRoute(new MapRouteOptions
@@ -833,7 +833,7 @@ public static partial class KestrunHostMapExtensions
     /// <param name="options">The mapping options.</param>
     private static void ApplyAuthSchemes(KestrunHost host, IEndpointConventionBuilder map, MapRouteOptions options)
     {
-        if (options.RequireSchemes is { Length: > 0 })
+        if (options.RequireSchemes is not null && options.RequireSchemes.Any())
         {
             foreach (var schema in options.RequireSchemes)
             {
@@ -862,7 +862,7 @@ public static partial class KestrunHostMapExtensions
     /// <param name="options">The mapping options.</param>
     private static void ApplyPolicies(KestrunHost host, IEndpointConventionBuilder map, MapRouteOptions options)
     {
-        if (options.RequirePolicies is { Length: > 0 })
+        if (options.RequirePolicies is not null && options.RequirePolicies.Any())
         {
             foreach (var policy in options.RequirePolicies)
             {
@@ -871,7 +871,7 @@ public static partial class KestrunHostMapExtensions
                     throw new ArgumentException($"Authorization policy '{policy}' is not registered.", nameof(options.RequirePolicies));
                 }
             }
-            _ = map.RequireAuthorization(options.RequirePolicies);
+            _ = map.RequireAuthorization(options.RequirePolicies.ToArray());
         }
         else
         {
@@ -938,7 +938,7 @@ public static partial class KestrunHostMapExtensions
     /// <param name="htmlFilePath">The path to the HTML template file.</param>
     /// <param name="requireSchemes">Optional array of authorization schemes required for the route.</param>
     /// <returns>An IEndpointConventionBuilder for further configuration.</returns>
-    public static IEndpointConventionBuilder AddHtmlTemplateRoute(this KestrunHost host, string pattern, string htmlFilePath, string[]? requireSchemes = null)
+    public static IEndpointConventionBuilder AddHtmlTemplateRoute(this KestrunHost host, string pattern, string htmlFilePath, List<string>? requireSchemes = null)
     {
         return host.AddHtmlTemplateRoute(new MapRouteOptions
         {

@@ -176,10 +176,10 @@ function Add-KrMapRoute {
                 $Options.AllowAnonymous = $true
             } else {
                 if ($null -ne $AuthorizationScheme) {
-                    $Options.RequireSchemes = $AuthorizationScheme
+                    $Options.RequireSchemes.AddRange($AuthorizationScheme) | Out-Null
                 }
                 if ($null -ne $AuthorizationPolicy) {
-                    $Options.RequirePolicies = $AuthorizationPolicy
+                    $Options.RequirePolicies.AddRange($AuthorizationPolicy) | Out-Null
                 }
             }
 

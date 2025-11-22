@@ -67,5 +67,4 @@ public record OpenAPIMetadata : OpenAPICommonMetadata
     /// The list of values includes alternative security requirement objects that can be used.
     /// </summary>
     public IEnumerable<Dictionary<string, IEnumerable<string>>>? Security { get; set; }
-
 }

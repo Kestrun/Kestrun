@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using Kestrun.Claims;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -212,6 +213,117 @@ public sealed class AuthenticationRegistry
     /// <returns>A collection of key-value pairs representing the registered authentication schemes.</returns>
     public IEnumerable<KeyValuePair<(string schema, AuthenticationType type), AuthenticationSchemeOptions>> Items()
         => _map;
+
+    /// <summary>
+    /// Returns a dictionary of all registered OpenID Connect (OIDC) authentication options
+    /// keyed by their schema. Only entries whose <see cref="AuthenticationType"/> is <see cref="AuthenticationType.Oidc"/>
+    /// and whose stored options are of type <see cref="OidcOptions"/> are included.
+    /// </summary>
+    /// <returns>A dictionary mapping schema names to their <see cref="OidcOptions"/>.</returns>
+    public IDictionary<string, OidcOptions> GetOidcOptions()
+    {
+        var result = new Dictionary<string, OidcOptions>(_stringComparer);
+        foreach (var kvp in _map)
+        {
+            if (kvp.Key.type == AuthenticationType.Oidc && kvp.Value is OidcOptions oidc)
+            {
+                result[kvp.Key.schema] = oidc;
+            }
+        }
+        return result;
+    }
+
+    /// <summary>
+    /// Returns a dictionary mapping authentication schema names to the array of claim policy names
+    /// defined for that schema. It inspects registered option objects for a property named
+    /// <c>ClaimPolicyConfig</c> or <c>ClaimPolicy</c> of type <see cref="ClaimPolicyConfig"/>.
+    /// Only schemas with at least one defined policy are returned.
+    /// Supports <see cref="OidcOptions"/>, <see cref="OAuth2Options"/>, and other options types.
+    /// </summary>
+    /// <returns>A dictionary of schema -> string[] (policy names).</returns>
+    public IDictionary<string, string[]> GetClaimPolicyConfigs()
+    {
+        var result = new Dictionary<string, string[]>(_stringComparer);
+        foreach (var kvp in _map)
+        {
+            var options = kvp.Value;
+            ClaimPolicyConfig? cfg = null;
+
+            // Try explicit properties first (avoids reflection if we add strong-typed support later)
+            if (options is OidcOptions oidc && oidc.ClaimPolicy is { } oidcCfg)
+            {
+                cfg = oidcCfg;
+            }
+            else if (options is OAuth2Options oauth2)
+            {
+                // OAuth2Options uses reflection fallback (no ClaimPolicy property currently)
+                var prop = oauth2.GetType().GetProperty("ClaimPolicyConfig") ?? oauth2.GetType().GetProperty("ClaimPolicy");
+                if (prop != null && typeof(ClaimPolicyConfig).IsAssignableFrom(prop.PropertyType))
+                {
+                    cfg = (ClaimPolicyConfig?)prop.GetValue(oauth2);
+                }
+            }
+            else
+            {
+                // Fallback: reflection search for ClaimPolicyConfig or ClaimPolicy of correct type
+                var prop = options.GetType().GetProperty("ClaimPolicyConfig") ?? options.GetType().GetProperty("ClaimPolicy");
+                if (prop != null && typeof(ClaimPolicyConfig).IsAssignableFrom(prop.PropertyType))
+                {
+                    cfg = (ClaimPolicyConfig?)prop.GetValue(options);
+                }
+            }
+
+            if (cfg?.Policies is { Count: > 0 })
+            {
+                result[kvp.Key.schema] = [.. cfg.Policies.Keys];
+            }
+        }
+        return result;
+    }
+
+    /// <summary>
+    /// Returns a list of authentication schema names that define the specified policy name.
+    /// This method searches through all registered authentication options and returns the schemas
+    /// that have a <see cref="ClaimPolicyConfig"/> containing a policy with the given name.
+    /// </summary>
+    /// <param name="policyName">The name of the policy to search for.</param>
+    /// <returns>A list of schema names that own the specified policy.</returns>
+    public IList<string> GetSchemesByPolicy(string policyName)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(policyName);
+
+        var result = new List<string>();
+        foreach (var kvp in _map)
+        {
+            var options = kvp.Value;
+            ClaimPolicyConfig? cfg = null;
+
+            // Try explicit properties first
+            if (options is OidcOptions oidc && oidc.ClaimPolicy is { } oidcCfg)
+            {
+                cfg = oidcCfg;
+            }
+            else if (options is OAuth2Options oauth2 && oauth2.ClaimPolicy is { } oauth2Cfg)
+            {
+                cfg = oauth2Cfg;
+            }
+            else
+            {
+                // Fallback: reflection search for ClaimPolicyConfig or ClaimPolicy
+                var prop = options.GetType().GetProperty("ClaimPolicyConfig") ?? options.GetType().GetProperty("ClaimPolicy");
+                if (prop != null && typeof(ClaimPolicyConfig).IsAssignableFrom(prop.PropertyType))
+                {
+                    cfg = (ClaimPolicyConfig?)prop.GetValue(options);
+                }
+            }
+
+            if (cfg?.Policies != null && cfg.Policies.ContainsKey(policyName))
+            {
+                result.Add(kvp.Key.schema);
+            }
+        }
+        return result;
+    }
 
     // ---------- Internal tuple comparer (case-insensitive support) ----------
 

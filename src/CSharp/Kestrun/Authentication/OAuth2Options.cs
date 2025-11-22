@@ -1,4 +1,5 @@
 
+using Kestrun.Claims;
 using Kestrun.Hosting;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
@@ -62,6 +63,10 @@ public class OAuth2Options : OAuthOptions, IOpenApiAuthenticationOptions, IAuthe
     public string CookieScheme =>
     CookieOptions.Cookie.Name ?? (CookieAuthenticationDefaults.AuthenticationScheme + "." + AuthenticationScheme);
 
+    /// <summary>
+    /// Configuration for claim policy enforcement.
+    /// </summary>
+    public ClaimPolicyConfig? ClaimPolicy { get; set; }
 
     /// <summary>
     /// Helper to copy values from a user-supplied OAuth2Options instance to the instance

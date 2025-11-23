@@ -40,10 +40,11 @@ function Add-KrOAuth2Authentication {
         [Parameter(Mandatory = $false)]
         [switch]$PassThru
     )
-    process {
+    begin {
         # Ensure the server instance is resolved
         $Server = Resolve-KestrunServer -Server $Server
-
+    }
+    process {
         # Bridge to your C# extension (parallel to AddCookieAuthentication)
         [Kestrun.Hosting.KestrunHostAuthnExtensions]::AddOAuth2Authentication(
             $Server, $AuthenticationScheme, $DisplayName, $Options

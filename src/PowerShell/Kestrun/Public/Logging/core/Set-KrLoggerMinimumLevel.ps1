@@ -30,11 +30,11 @@ function Set-KrLoggerLevel {
     [OutputType([Serilog.LoggerConfiguration])]
     [CmdletBinding(DefaultParameterSetName = 'Static')]
     param(
-        [Parameter(Mandatory = $true, ParameterSetName = 'Static', Position = 0)]
-        [Alias('Level')]
-        [Serilog.Events.LogEventLevel]$Value,
         [Parameter(Mandatory = $true, ValueFromPipeline = $true)]
         [Serilog.LoggerConfiguration]$LoggerConfig,
+        [Parameter(Mandatory = $true, ParameterSetName = 'Static')]
+        [Alias('Level')]
+        [Serilog.Events.LogEventLevel]$Value,
         [Parameter(Mandatory = $true, ParameterSetName = 'Dynamic')]
         [Serilog.Events.LogEventLevel]$Dynamic
     )

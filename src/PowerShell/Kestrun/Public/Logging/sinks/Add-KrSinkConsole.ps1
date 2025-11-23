@@ -36,7 +36,7 @@
 #>
 function Add-KrSinkConsole {
     [KestrunRuntimeApi('Everywhere')]
-    [CmdletBinding()]
+    [CmdletBinding(DefaultParameterSetName = 'Default')]
     [OutputType([Serilog.LoggerConfiguration])]
     param(
         [Parameter(Mandatory = $true, ValueFromPipeline = $true)]

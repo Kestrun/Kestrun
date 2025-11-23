@@ -6,7 +6,10 @@ param(
 if (-not (Get-Module Kestrun)) { Import-Module Kestrun }
 
 # --- Logging / Server ---
-New-KrLogger | Add-KrSinkConsole | Set-KrLoggerLevel Debug | Register-KrLogger console -SetAsDefault | Out-Null
+
+New-KrLogger | Add-KrSinkConsole |
+    Set-KrLoggerLevel -Value Debug |
+    Register-KrLogger -Name 'console' -SetAsDefault | Out-Null
 $srv = New-KrServer -Name 'Swagger Petstore - OpenAPI 3.0' -PassThru
 
 # =========================================================
@@ -549,8 +552,20 @@ class Resp_UserByName_Delete {
 #region COMPONENT SECURITY SCHEMES
 
 # 6. Script-based validation
-Add-KrApiKeyAuthentication -AuthenticationScheme 'ApiKey' -AllowInsecureHttp -HeaderName 'api_key' -ScriptBlock { param($ProvidedKey) $ProvidedKey -eq 'my-secret-api-key' }
+Add-KrApiKeyAuthentication -AuthenticationScheme 'api_key' -AllowInsecureHttp -ApiKeyName 'api_key' -ScriptBlock {
+    param($ProvidedKey) $ProvidedKey -eq 'my-secret-api-key' }
+$options = [Kestrun.Authentication.OAuth2Options]::new()
 
+$options.ClientId = 'zL91HbWioaNrqAldrVyPGjJHIxODaYj4'
+$options.ClientSecret = 'your-client-secret'
+$options.AuthorizationEndpoint = 'https://petstore3.swagger.io/oauth/authorize'
+$options.TokenEndpoint = 'https://your-auth-server/oauth/token'
+$options.CallbackPath = '/signin-petstore'
+$options.SaveTokens = $true
+$options.SignInScheme = [Microsoft.AspNetCore.Authentication.Cookies.CookieAuthenticationDefaults]::AuthenticationScheme
+$options.Scope.Add('write:pets') | Out-Null # modify pets in your account
+$options.Scope.Add('read:pets') | Out-Null  # read your pets
+#Add-KrOAuth2Authentication -AuthenticationScheme 'petstore_auth' -Options $options
 # =========================================================
 #                 SECURITY (placeholders)
 # =========================================================
@@ -579,6 +594,7 @@ New-KrMapRouteBuilder -Verbs @('PUT', 'POST') -Pattern '/pet' |
     Add-KrMapRouteOpenApiResponse -StatusCode '400' -ReferenceId 'Resp_Pet_Write-BadRequest' -Embed |
     Add-KrMapRouteOpenApiResponse -StatusCode '422' -ReferenceId 'Resp_Pet_Write-UnprocessableEntity' -Embed |
     Add-KrMapRouteOpenApiResponse -StatusCode 'default' -ReferenceId 'Resp_Pet_Write-Default' |
+ #   Add-KrMapRouteAuthorization -Schema 'petstore_auth' -Policy 'write:pets', 'read:pets' |
     # PUT updatePet
     Add-KrMapRouteOpenApiInfo -Verbs 'PUT' -Summary 'Update an existing pet.' -Description 'Update an existing pet by Id.' -OperationId 'updatePet' |
     Add-KrMapRouteOpenApiRequestBody -Verbs 'PUT' -Description 'Update an existent pet in the store' -ReferenceId 'PetBody' |
@@ -683,7 +699,7 @@ New-KrMapRouteBuilder -Verbs 'POST' -Pattern '/pet/{petId}/uploadImage' |
 New-KrMapRouteBuilder -Verbs 'GET' -Pattern '/store/inventory' |
     Add-KrMapRouteScriptBlock -ScriptBlock { Write-KrJsonResponse @{} } |
     Add-KrMapRouteOpenApiTag -Tag 'store' |
-    Add-KrMapRouteAuthorization -Schema 'ApiKey' |
+    Add-KrMapRouteAuthorization -Schema 'api_key' |
     Add-KrMapRouteOpenApiInfo -Summary 'Returns pet inventories by status.' -Description 'Returns a map of status codes to quantities.' -OperationId 'getInventory' |
     Add-KrMapRouteOpenApiResponse -StatusCode '200' -ReferenceId 'Resp_Inventory-OK' -Embed |
     Add-KrMapRouteOpenApiResponse -StatusCode 'default' -ReferenceId 'Resp_Inventory-Default' |

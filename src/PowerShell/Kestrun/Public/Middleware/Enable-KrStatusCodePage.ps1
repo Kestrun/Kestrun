@@ -83,7 +83,7 @@
 #>
 function Enable-KrStatusCodePage {
     [KestrunRuntimeApi('Definition')]
-    [CmdletBinding()]
+    [CmdletBinding(DefaultParameterSetName = 'Default')]
     [OutputType([Kestrun.Hosting.KestrunHost])]
     param(
         [Parameter(ValueFromPipeline = $true)]

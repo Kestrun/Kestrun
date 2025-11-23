@@ -361,7 +361,7 @@ if ((Test-Path -Path .\.env.json)) {
     $options.TokenValidationParameters.NameClaimType = 'name'
 
     # 5) OAuth2 scheme (AUTH CHALLENGE) — signs into the 'Cookies' scheme above
-    #   Add-KrOpenIdConnectAuthentication -AuthenticationScheme 'Okta' -Options $options
+    Add-KrOpenIdConnectAuthentication -AuthenticationScheme 'Okta' -Options $options
 }
 
 # 6. Build JWT configuration

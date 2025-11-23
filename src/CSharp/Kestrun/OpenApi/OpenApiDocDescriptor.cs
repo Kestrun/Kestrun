@@ -2783,9 +2783,12 @@ public class OpenApiDocDescriptor
             flows.AuthorizationCode = new OpenApiOAuthFlow
             {
                 AuthorizationUrl = new Uri(options.AuthorizationEndpoint, UriKind.Absolute),
-                TokenUrl = new Uri(options.TokenEndpoint, UriKind.Absolute),
                 Scopes = options.Scope.ToDictionary(s => s, s => s)
             };
+            if (options.TokenEndpoint is not null)
+            {
+                flows.AuthorizationCode.TokenUrl = new Uri(options.TokenEndpoint, UriKind.Absolute);
+            }
         }
         return new OpenApiSecurityScheme()
         {

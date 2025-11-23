@@ -883,10 +883,26 @@ public static class KestrunHostAuthnExtensions
         ArgumentNullException.ThrowIfNull(authenticationScheme);
         ArgumentNullException.ThrowIfNull(configureOptions);
 
-        // Ensure ClientId is set
+        // Required for OAuth2
         if (string.IsNullOrWhiteSpace(configureOptions.ClientId))
         {
             throw new ArgumentException("ClientId must be provided in OAuth2Options", nameof(configureOptions));
+        }
+
+        if (string.IsNullOrWhiteSpace(configureOptions.AuthorizationEndpoint))
+        {
+            throw new ArgumentException("AuthorizationEndpoint must be provided in OAuth2Options", nameof(configureOptions));
+        }
+
+        if (string.IsNullOrWhiteSpace(configureOptions.TokenEndpoint))
+        {
+            throw new ArgumentException("TokenEndpoint must be provided in OAuth2Options", nameof(configureOptions));
+        }
+
+        // Default CallbackPath if not set: /signin-{scheme}
+        if (string.IsNullOrWhiteSpace(configureOptions.CallbackPath))
+        {
+            configureOptions.CallbackPath = $"/signin-{authenticationScheme.ToLowerInvariant()}";
         }
         // Ensure host is set
         if (configureOptions.Host != host)

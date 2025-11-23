@@ -88,7 +88,7 @@ $options.UserInformationEndpoint = 'https://api.github.com/user'
 $options.Scope.Clear(); $options.Scope.Add('read:user'); $options.Scope.Add('user:email') | Out-Null
 
 # Register OAuth2 (adds 'GitHub', 'GitHub.Cookies', 'GitHub.Policy')
-Add-KrOAuth2Authentication -Name 'GitHub' -Options $options
+Add-KrOAuth2Authentication -AuthenticationScheme 'GitHub' -Options $options
 
 Enable-KrConfiguration
 
@@ -138,7 +138,7 @@ $opt.TokenEndpoint = 'https://oauth2.googleapis.com/token'
 $opt.UserInformationEndpoint = 'https://openidconnect.googleapis.com/v1/userinfo'
 $opt.Scope.Clear(); $null = $opt.Scope.Add('openid'); $null = $opt.Scope.Add('email'); $null = $opt.Scope.Add('profile')
 
-Add-KrOAuth2Authentication -Name 'Google' -Options $opt
+Add-KrOAuth2Authentication -AuthenticationScheme 'Google' -Options $opt
 
 Enable-KrConfiguration
 
@@ -171,7 +171,7 @@ $gitlab.TokenEndpoint = 'https://gitlab.com/oauth/token'
 $gitlab.UserInformationEndpoint = 'https://gitlab.com/api/v4/user'
 $gitlab.Scope.Clear(); $null = $gitlab.Scope.Add('read_user')
 
-Add-KrOAuth2Authentication -Name 'GitLab' -Options $gitlab
+Add-KrOAuth2Authentication -AuthenticationScheme 'GitLab' -Options $gitlab
 
 Enable-KrConfiguration
 
@@ -205,7 +205,7 @@ $aad.TokenEndpoint = "https://login.microsoftonline.com/$tenant/oauth2/v2.0/toke
 $aad.UserInformationEndpoint = 'https://graph.microsoft.com/v1.0/me'
 $aad.Scope.Clear(); $null = $aad.Scope.Add('User.Read'); $null = $aad.Scope.Add('offline_access')
 
-Add-KrOAuth2Authentication -Name 'AzureAD' -Options $aad
+Add-KrOAuth2Authentication -AuthenticationScheme 'AzureAD' -Options $aad
 
 Enable-KrConfiguration
 

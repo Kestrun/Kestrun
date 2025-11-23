@@ -7,8 +7,10 @@
     Enables PKCE and token persistence by default; supports custom scopes and callback path.
 .PARAMETER Server
     The Kestrun server instance. If omitted, uses the current active server.
-.PARAMETER Name
+.PARAMETER AuthenticationScheme
     Base scheme name (default 'Oidc').
+.PARAMETER DisplayName
+    The display name for the authentication scheme (default is the OpenID Connect default display name).
 .PARAMETER Options
     An instance of Kestrun.Authentication.OidcOptions containing the OIDC configuration.
 .PARAMETER PassThru
@@ -16,7 +18,7 @@
 .EXAMPLE
     Add-KrOpenIdConnectAuthentication -Authority 'https://example.com' -ClientId $id -ClientSecret $secret
 .EXAMPLE
-    Add-KrOpenIdConnectAuthentication -Name 'AzureAD' -Authority $authority -ClientId $id -ClientSecret $secret -Scope 'email' -CallbackPath '/signin-oidc'
+    Add-KrOpenIdConnectAuthentication -AuthenticationScheme 'AzureAD' -Authority $authority -ClientId $id -ClientSecret $secret -Scope 'email' -CallbackPath '/signin-oidc'
 #>
 function Add-KrOpenIdConnectAuthentication {
     [KestrunRuntimeApi('Definition')]
@@ -25,10 +27,16 @@ function Add-KrOpenIdConnectAuthentication {
     param(
         [Parameter(ValueFromPipeline = $true)]
         [Kestrun.Hosting.KestrunHost]$Server,
+
         [Parameter(Mandatory = $false)]
-        [string]$Name = 'Oidc',
+        [string]$AuthenticationScheme = [Kestrun.Authentication.AuthenticationDefaults]::OidcSchemeName,
+
+        [Parameter(Mandatory = $false)]
+        [string]$DisplayName = [Kestrun.Authentication.AuthenticationDefaults]::OidcDisplayName,
+
         [Parameter(Mandatory = $true)]
         [Kestrun.Authentication.OidcOptions]$Options,
+
         [Parameter(Mandatory = $false)]
         [switch]$PassThru
     )
@@ -40,7 +48,8 @@ function Add-KrOpenIdConnectAuthentication {
         # Call C# extension with optional claim policy
         [Kestrun.Hosting.KestrunHostAuthnExtensions]::AddOpenIdConnectAuthentication(
             $Server,
-            $Name,
+            $AuthenticationScheme,
+            $DisplayName,
             $Options
         ) | Out-Null
 

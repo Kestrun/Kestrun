@@ -49,23 +49,21 @@ public static class KestrunHostHealthExtensions
             },
             AllowAnonymous = merged.AllowAnonymous,
             DisableAntiforgery = true,
-            RequireSchemes = merged.RequireSchemes,
-            RequirePolicies = merged.RequirePolicies,
+            RequireSchemes = [.. merged.RequireSchemes],
+            RequirePolicies = [.. merged.RequirePolicies],
             CorsPolicyName = merged.CorsPolicyName ?? string.Empty,
             RateLimitPolicyName = merged.RateLimitPolicyName,
             ShortCircuit = merged.ShortCircuit,
             ShortCircuitStatusCode = merged.ShortCircuitStatusCode,
             ThrowOnDuplicate = merged.ThrowOnDuplicate,
-            OpenAPI = new OpenAPIMetadata
-            {
-                Summary = merged.OpenApiSummary,
-                Description = merged.OpenApiDescription,
-                OperationId = merged.OpenApiOperationId,
-                Tags = merged.OpenApiTags,
-                GroupName = merged.OpenApiGroupName
-            }
         };
-
+        mapOptions.OpenAPI.Add(HttpVerb.Get, new OpenAPIMetadata(pattern: merged.Pattern)
+        {
+            Summary = merged.OpenApiSummary,
+            Description = merged.OpenApiDescription,
+            OperationId = merged.OpenApiOperationId,
+            Tags = merged.OpenApiTags
+        });
 
         // Auto-register endpoint only when enabled
         if (!merged.AutoRegisterEndpoint)
@@ -180,6 +178,13 @@ public static class KestrunHostHealthExtensions
         _ => StatusCodes.Status503ServiceUnavailable
     };
 
+    /// <summary>
+    /// Maps the health endpoint immediately.
+    /// </summary>
+    /// <param name="host">The KestrunHost instance.</param>
+    /// <param name="merged">The merged HealthEndpointOptions instance.</param>
+    /// <param name="mapOptions">The route mapping options.</param>
+    /// <exception cref="InvalidOperationException">Thrown if a route with the same pattern and HTTP verb already exists and ThrowOnDuplicate is true.</exception>
     private static void MapHealthEndpointImmediate(KestrunHost host, HealthEndpointOptions merged, MapRouteOptions mapOptions)
     {
         if (host.MapExists(mapOptions.Pattern!, HttpVerb.Get))
@@ -256,7 +261,7 @@ public static class KestrunHostHealthExtensions
         }).WithMetadata(new ScriptLanguageAttribute(ScriptLanguage.Native));
 
         host.AddMapOptions(map, mapOptions);
-        host._registeredRoutes[(mapOptions.Pattern!, HttpMethods.Get)] = mapOptions;
+        host._registeredRoutes[(mapOptions.Pattern!, HttpVerb.Get)] = mapOptions;
         host.Logger.Information("Registered health endpoint at {Pattern}", mapOptions.Pattern);
     }
 }

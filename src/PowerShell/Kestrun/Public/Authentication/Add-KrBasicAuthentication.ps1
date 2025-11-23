@@ -5,8 +5,12 @@
         Configures the Kestrun server to use basic authentication for incoming requests.
     .PARAMETER Server
         The Kestrun server instance to configure.
-    .PARAMETER Name
+    .PARAMETER AuthenticationScheme
         The name of the basic authentication scheme.
+    .PARAMETER DisplayName
+        The display name of the basic authentication scheme.
+    .PARAMETER DocId
+        The documentation IDs to associate with this authentication scheme.
     .PARAMETER Options
         The options to configure the basic authentication.
     .PARAMETER ScriptBlock
@@ -64,8 +68,14 @@ function Add-KrBasicAuthentication {
         [Parameter(Mandatory = $false, ValueFromPipeline)]
         [Kestrun.Hosting.KestrunHost]$Server,
 
-        [Parameter(Mandatory = $true)]
-        [string]$Name,
+        [Parameter()]
+        [string]$AuthenticationScheme = [Kestrun.Authentication.AuthenticationDefaults]::BasicAuthenticationSchemeName,
+
+        [Parameter()]
+        [string]$DisplayName = [Kestrun.Authentication.AuthenticationDefaults]::BasicAuthenticationDisplayName,
+
+        [Parameter()]
+        [string[]]$DocId = [Kestrun.Authentication.IOpenApiAuthenticationOptions]::DefaultDocumentationIds,
 
         [Parameter(Mandatory = $true, ParameterSetName = 'Options')]
         [Kestrun.Authentication.BasicAuthenticationOptions]$Options,
@@ -273,11 +283,9 @@ function Add-KrBasicAuthentication {
             if (-not [string]::IsNullOrWhiteSpace($Realm)) {
                 $Options.Realm = $Realm
             }
-            if ($AllowInsecureHttp.IsPresent) {
-                $Options.RequireHttps = $false
-            } else {
-                $Options.RequireHttps = $true
-            }
+
+            $Options.AllowInsecureHttp = $AllowInsecureHttp.IsPresent
+
             if ($null -ne $ClaimPolicyConfig) {
                 $Options.ClaimPolicyConfig = $ClaimPolicyConfig
             }
@@ -316,19 +324,22 @@ function Add-KrBasicAuthentication {
                     $Options.IssueClaimsCodeSettings.Code = Get-Content -Path $CodeFilePath -Raw
                 }
             }
+            # Set OpenApi documentation IDs
+            $Options.DocumentationId = $DocId
         }
         # Ensure the server instance is resolved
         $Server = Resolve-KestrunServer -Server $Server
 
         [Kestrun.Hosting.KestrunHostAuthnExtensions]::AddBasicAuthentication(
             $Server,
-            $Name,
+            $AuthenticationScheme,
+            $DisplayName,
             $Options
         ) | Out-Null
+
         if ($PassThru.IsPresent) {
             # if the PassThru switch is specified, return the modified server instance
             return $Server
         }
     }
 }
-

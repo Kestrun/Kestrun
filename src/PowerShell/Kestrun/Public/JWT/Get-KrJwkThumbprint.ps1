@@ -21,6 +21,7 @@
 function Get-KrJwkThumbprint {
     [KestrunRuntimeApi('Everywhere')]
     [CmdletBinding(DefaultParameterSetName = 'Certificate')]
+    [OutputType([string])]
     param(
         [Parameter(Mandatory, ParameterSetName = 'Certificate', Position = 0)]
         [System.Security.Cryptography.X509Certificates.X509Certificate2]

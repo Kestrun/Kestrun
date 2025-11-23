@@ -20,7 +20,7 @@ New-KrServer -Name 'Auth Basic PS'
 Add-KrEndpoint -Port $Port -IPAddress $IPAddress
 
 # 4. Define Basic auth scheme with inline validation script
-Add-KrBasicAuthentication -Name 'PowershellBasic' -Realm 'Demo' -AllowInsecureHttp -ScriptBlock {
+Add-KrBasicAuthentication -AuthenticationScheme 'PowershellBasic' -Realm 'Demo' -AllowInsecureHttp -ScriptBlock {
     param($Username, $Password)
     $Username -eq 'admin' -and $Password -eq 'password'
 }

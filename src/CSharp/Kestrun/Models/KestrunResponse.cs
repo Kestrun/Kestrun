@@ -76,7 +76,6 @@ public class KestrunResponse(KestrunRequest request, int bodyAsyncThreshold = 81
     /// </summary>
     public List<string>? Cookies { get; set; } // For Set-Cookie headers
 
-
     /// <summary>
     /// Text encoding for textual MIME types.
     /// </summary>
@@ -122,8 +121,7 @@ public class KestrunResponse(KestrunRequest request, int bodyAsyncThreshold = 81
         if (string.IsNullOrWhiteSpace(contentType))
         {
             _ = Request.Headers.TryGetValue("Accept", out var acceptHeader);
-            contentType = (acceptHeader ?? defaultType)
-                                 .ToLowerInvariant();
+            contentType = (acceptHeader ?? defaultType).ToLowerInvariant();
         }
 
         return contentType;
@@ -635,8 +633,6 @@ public class KestrunResponse(KestrunRequest request, int bodyAsyncThreshold = 81
         }
     }
 
-
-
     /// <summary>
     /// Writes a binary response with the specified data, status code, and content type.
     /// </summary>
@@ -742,7 +738,6 @@ public class KestrunResponse(KestrunRequest request, int bodyAsyncThreshold = 81
       int statusCode = StatusCodes.Status500InternalServerError,
       string? contentType = null,
       string? details = null) => WriteErrorResponseAsync(message, statusCode, contentType, details).GetAwaiter().GetResult();
-
 
     /// <summary>
     /// Asynchronously writes an error response based on an exception.
@@ -939,8 +934,6 @@ public class KestrunResponse(KestrunRequest request, int bodyAsyncThreshold = 81
         return sb.ToString();
     }
 
-
-
     /// <summary>
     /// Resolves a dotted path like “Request.Path” through nested dictionaries
     /// and/or object properties (case-insensitive).
@@ -1046,6 +1039,29 @@ public class KestrunResponse(KestrunRequest request, int bodyAsyncThreshold = 81
     }
 
     /// <summary>
+    /// Asynchronously writes an HTML response, rendering the provided template byte array and replacing placeholders with values from the given dictionary.
+    /// </summary>
+    /// <param name="template">The HTML template byte array.</param>
+    /// <param name="vars">A dictionary of variables to replace in the template.</param>
+    /// <param name="statusCode">The HTTP status code for the response.</param>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    public async Task WriteHtmlResponseAsync(
+    byte[] template,
+    IReadOnlyDictionary<string, object?>? vars,
+    int statusCode = 200) => await WriteHtmlResponseAsync(Encoding.GetString(template), vars, statusCode);
+
+    /// <summary>
+    /// Writes an HTML response, rendering the provided template byte array and replacing placeholders with values from the given dictionary.
+    /// </summary>
+    /// <param name="template">The HTML template byte array.</param>
+    /// <param name="vars">A dictionary of variables to replace in the template.</param>
+    /// <param name="statusCode">The HTTP status code for the response.</param>
+    public void WriteHtmlResponse(
+         byte[] template,
+         IReadOnlyDictionary<string, object?>? vars,
+         int statusCode = 200) => WriteHtmlResponseAsync(Encoding.GetString(template), vars, statusCode).GetAwaiter().GetResult();
+
+    /// <summary>
     /// Asynchronously reads an HTML file, merges in placeholders from the provided dictionary, and writes the result as a response.
     /// </summary>
     /// <param name="filePath">The path to the HTML file to read.</param>
@@ -1070,7 +1086,6 @@ public class KestrunResponse(KestrunRequest request, int bodyAsyncThreshold = 81
         var template = await File.ReadAllTextAsync(filePath);
         WriteHtmlResponseAsync(template, vars, statusCode).GetAwaiter().GetResult();
     }
-
 
     /// <summary>
     /// Renders the given HTML string with placeholders and writes it as a response.

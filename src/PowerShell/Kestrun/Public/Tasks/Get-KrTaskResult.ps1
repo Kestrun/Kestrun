@@ -15,7 +15,7 @@
 #>
 function Get-KrTaskResult {
     [KestrunRuntimeApi('Everywhere')]
-    [CmdletBinding(defaultParameterSetName = 'Default')]
+    [CmdletBinding()]
     [OutputType([object])]
     param(
         [Parameter(ValueFromPipeline = $true)]

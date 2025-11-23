@@ -10,6 +10,20 @@
     The name of the OAuth authentication scheme (e.g., 'MyOAuth').
 .PARAMETER DisplayName
     The display name for the authentication scheme (e.g., 'GitHub Login').
+.PARAMETER ClientId
+    The OAuth client ID.
+.PARAMETER ClientSecret
+    The OAuth client secret.
+.PARAMETER AuthorizationEndpoint
+    The OAuth authorization endpoint URL.
+.PARAMETER TokenEndpoint
+    The OAuth token endpoint URL.
+.PARAMETER CallbackPath
+    The callback path for OAuth responses.
+.PARAMETER SaveTokens
+    If specified, saves the OAuth tokens in the authentication properties.
+.PARAMETER ClaimPolicy
+    An optional Kestrun.Claims.ClaimPolicyConfig to apply claim policies during authentication.
 .PARAMETER Options
     An instance of Kestrun.Authentication.OAuth2Options containing the OAuth configuration.
 .PARAMETER PassThru
@@ -45,6 +59,8 @@ function Add-KrOAuth2Authentication {
         [string]$CallbackPath,
         [Parameter(Mandatory = $false)]
         [switch]$SaveTokens,
+         [Parameter(Mandatory = $false)]
+        [Kestrun.Claims.ClaimPolicyConfig]$ClaimPolicy,
         [Parameter(Mandatory = $false)]
         [Kestrun.Authentication.OAuth2Options]$Options,
 
@@ -66,6 +82,7 @@ function Add-KrOAuth2Authentication {
         if ($AuthorizationEndpoint) { $Options.AuthorizationEndpoint = $AuthorizationEndpoint }
         if ($TokenEndpoint) { $Options.TokenEndpoint = $TokenEndpoint }
         if ($CallbackPath) { $Options.CallbackPath = $CallbackPath }
+        if ($ClaimPolicy) { $Options.ClaimPolicy = $ClaimPolicy }
         $Options.SaveTokens = $SaveTokens.IsPresent
 
         # Bridge to your C# extension (parallel to AddCookieAuthentication)

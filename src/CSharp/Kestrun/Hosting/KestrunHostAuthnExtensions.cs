@@ -914,7 +914,7 @@ public static class KestrunHostAuthnExtensions
         {
             configureOptions.AuthenticationScheme = authenticationScheme;
         }
-        if (configureOptions.Scope != null && configureOptions.Scope.Count > 0)
+        if (configureOptions.ClaimPolicy is null && configureOptions.Scope is not null && configureOptions.Scope.Count > 0)
         {
             if (host.Logger.IsEnabled(LogEventLevel.Debug))
             {

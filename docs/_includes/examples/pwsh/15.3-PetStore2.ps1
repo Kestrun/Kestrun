@@ -556,16 +556,23 @@ Add-KrApiKeyAuthentication -AuthenticationScheme 'api_key' -AllowInsecureHttp -A
     param($ProvidedKey) $ProvidedKey -eq 'my-secret-api-key' }
 $options = [Kestrun.Authentication.OAuth2Options]::new()
 
-$options.ClientId = 'zL91HbWioaNrqAldrVyPGjJHIxODaYj4'
-$options.ClientSecret = 'your-client-secret'
-$options.AuthorizationEndpoint = 'https://petstore3.swagger.io/oauth/authorize'
-$options.TokenEndpoint = 'https://your-auth-server/oauth/token'
-$options.CallbackPath = '/signin-petstore'
-$options.SaveTokens = $true
-$options.SignInScheme = [Microsoft.AspNetCore.Authentication.Cookies.CookieAuthenticationDefaults]::AuthenticationScheme
 $options.Scope.Add('write:pets') | Out-Null # modify pets in your account
 $options.Scope.Add('read:pets') | Out-Null  # read your pets
-Add-KrOAuth2Authentication -AuthenticationScheme 'petstore_auth' -Options $options
+
+$claimPolicy = New-KrClaimPolicy |
+    Add-KrClaimPolicy -PolicyName 'read:pets' -ClaimType 'scope' -AllowedValues 'read:pets' -Description 'read your pets' |
+    Add-KrClaimPolicy -PolicyName 'write:pets' -ClaimType 'scope' -AllowedValues 'write:pets' -Description 'modify pets in your account' |
+    Build-KrClaimPolicy
+
+Add-KrOAuth2Authentication -AuthenticationScheme 'petstore_auth' `
+    -ClientId 'zL91HbWioaNrqAldrVyPGjJHIxODaYj4' `
+    -ClientSecret 'your-client-secret' `
+    -AuthorizationEndpoint 'https://petstore3.swagger.io/oauth/authorize' `
+    -TokenEndpoint 'https://your-auth-server/oauth/token' `
+    -CallbackPath '/signin-petstore' `
+    -SaveTokens `
+    -ClaimPolicy $claimPolicy `
+    -Options $options
 # =========================================================
 #                 SECURITY (placeholders)
 # =========================================================

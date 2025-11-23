@@ -45,7 +45,7 @@ function Add-KrClaimPolicy {
         }
     }
     process {
-        return $Builder.AddPolicy($PolicyName, $ClaimType, $AllowedValues)#, $Description)
+        return $Builder.AddPolicy($PolicyName, $ClaimType, $Description, $AllowedValues)
     }
 }
 

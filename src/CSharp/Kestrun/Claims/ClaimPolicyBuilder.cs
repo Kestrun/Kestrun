@@ -13,9 +13,10 @@ public sealed class ClaimPolicyBuilder
     /// </summary>
     /// <param name="policyName">The name of the policy.</param>
     /// <param name="claimType">The required claim type.</param>
+    /// <param name="Description">Description of the claim rule.</param>
     /// <param name="allowedValues">Allowed values for the claim.</param>
     /// <returns>The current builder instance.</returns>
-    public ClaimPolicyBuilder AddPolicy(string policyName, string claimType, params string[] allowedValues)
+    public ClaimPolicyBuilder AddPolicy(string policyName, string claimType, string Description, params string[] allowedValues)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(policyName);
         ArgumentException.ThrowIfNullOrWhiteSpace(claimType);
@@ -24,7 +25,7 @@ public sealed class ClaimPolicyBuilder
             throw new ArgumentException("At least one allowed value must be specified.", nameof(allowedValues));
         }
 
-        _policies[policyName] = new ClaimRule(claimType, allowedValues);
+        _policies[policyName] = new ClaimRule(claimType, Description, allowedValues);
         return this;
     }
 
@@ -33,9 +34,10 @@ public sealed class ClaimPolicyBuilder
     /// </summary>
     /// <param name="policyName">The name of the policy.</param>
     /// <param name="claimType">The required <see cref="UserIdentityClaim"/> type.</param>
+    /// <param name="Description">Description of the claim rule.</param>
     /// <param name="allowedValues">Allowed values for the claim.</param>
     /// <returns>The current builder instance.</returns>
-    public ClaimPolicyBuilder AddPolicy(string policyName, UserIdentityClaim claimType, params string[] allowedValues)
+    public ClaimPolicyBuilder AddPolicy(string policyName, UserIdentityClaim claimType, string? Description, params string[] allowedValues)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(policyName);
         if (allowedValues is null || allowedValues.Length == 0)
@@ -43,17 +45,24 @@ public sealed class ClaimPolicyBuilder
             throw new ArgumentException("At least one allowed value must be specified.", nameof(allowedValues));
         }
 
-        _policies[policyName] = new ClaimRule(claimType.ToClaimUri(), allowedValues);
+        _policies[policyName] = new ClaimRule(claimType.ToClaimUri(), Description, allowedValues);
         return this;
     }
     /// <summary>
     /// Adds a prebuilt claim rule under a policy name.
     /// </summary>
-    public ClaimPolicyBuilder AddPolicy(string policyName, ClaimRule rule)
+    /// <param name="policyName">The name of the policy.</param>
+    /// <param name="rule">The claim rule to associate with the policy.</param>
+    /// <param name="Description">Description of the claim rule.</param>
+    /// <returns>The current builder instance.</returns>
+    public ClaimPolicyBuilder AddPolicy(string policyName, ClaimRule rule, string? Description = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(policyName);
         ArgumentNullException.ThrowIfNull(rule);
-
+        if (Description is not null)
+        {
+            rule.Description = Description;
+        }
         _policies[policyName] = rule;
         return this;
     }

@@ -20,8 +20,8 @@ public class ClaimPolicyHostingIntegrationTests
         {
             Policies = new()
             {
-                ["MustBeAdmin"] = new ClaimRule(ClaimTypes.Role, "Admin"),
-                ["NamedAlice"] = new ClaimRule(ClaimTypes.Name, "Alice")
+                ["MustBeAdmin"] = new ClaimRule(ClaimTypes.Role, string.Empty, "Admin"),
+                ["NamedAlice"] = new ClaimRule(ClaimTypes.Name, string.Empty, "Alice")
             }
         };
 
@@ -59,7 +59,7 @@ public class ClaimPolicyHostingIntegrationTests
         {
             Policies = new()
             {
-                ["AllowUserBob"] = new ClaimRule(ClaimTypes.Name, "Bob")
+                ["AllowUserBob"] = new ClaimRule(ClaimTypes.Name, string.Empty, "Bob")
             }
         };
 

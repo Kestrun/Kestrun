@@ -577,7 +577,8 @@ Add-KrOAuth2Authentication -AuthenticationScheme 'petstore_auth' -Options $optio
 #                 ROUTES / OPERATIONS
 # =========================================================
 Enable-KrConfiguration
-Add-KrSwaggerUiRoute
+Add-KrApiDocumentationRoute -DocumentType Swagger
+Add-KrApiDocumentationRoute -DocumentType Redoc
 
 # --------------------------------------
 # /pet  (PUT, POST)
@@ -863,4 +864,5 @@ Test-KrOpenApiDocument
 # Optional: run server (your call, you deliciously decisive creature)
 Add-KrEndpoint -Port $Port -IPAddress $IPAddress
 Start-KrServer -Server $srv -CloseLogsOnExit
+#endregion
 #endregion

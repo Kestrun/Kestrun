@@ -120,7 +120,7 @@ public class ApiKeyAuthenticationOptions() : AuthenticationSchemeOptions, IAuthe
     public KestrunHost Host { get; set; } = default!;
 
     /// <inheritdoc/>
-    public Serilog.ILogger Logger => Host.Logger;
+    public Serilog.ILogger Logger => Host?.Logger ?? Serilog.Log.Logger;
 
 
     /// <summary>

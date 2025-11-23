@@ -33,8 +33,19 @@ function Add-KrOAuth2Authentication {
 
         [Parameter(Mandatory = $false)]
         [string]$DisplayName = [Kestrun.Authentication.AuthenticationDefaults]::OAuth2DisplayName,
-
-        [Parameter(Mandatory = $true)]
+        [Parameter(Mandatory = $false)]
+        [string]$ClientId,
+        [Parameter(Mandatory = $false)]
+        [string]$ClientSecret,
+        [Parameter(Mandatory = $false)]
+        [string]$AuthorizationEndpoint,
+        [Parameter(Mandatory = $false)]
+        [string]$TokenEndpoint,
+        [Parameter(Mandatory = $false)]
+        [string]$CallbackPath,
+        [Parameter(Mandatory = $false)]
+        [switch]$SaveTokens,
+        [Parameter(Mandatory = $false)]
         [Kestrun.Authentication.OAuth2Options]$Options,
 
         [Parameter(Mandatory = $false)]
@@ -45,11 +56,23 @@ function Add-KrOAuth2Authentication {
         $Server = Resolve-KestrunServer -Server $Server
     }
     process {
+        if ($Options -eq $null) {
+            # Build options from individual parameters if not provided
+            $Options = [Kestrun.Authentication.OAuth2Options]::new()
+        }
+
+        if ($ClientId) { $Options.ClientId = $ClientId }
+        if ($ClientSecret) { $Options.ClientSecret = $ClientSecret }
+        if ($AuthorizationEndpoint) { $Options.AuthorizationEndpoint = $AuthorizationEndpoint }
+        if ($TokenEndpoint) { $Options.TokenEndpoint = $TokenEndpoint }
+        if ($CallbackPath) { $Options.CallbackPath = $CallbackPath }
+        $Options.SaveTokens = $SaveTokens.IsPresent
+
         # Bridge to your C# extension (parallel to AddCookieAuthentication)
         [Kestrun.Hosting.KestrunHostAuthnExtensions]::AddOAuth2Authentication(
-            $Server, $AuthenticationScheme, $DisplayName, $Options
-        ) | Out-Null
-
-        if ($PassThru.IsPresent) { return $Server }
+            $Server, $AuthenticationScheme, $DisplayName, $Options) | Out-Null
+        if ($PassThru.IsPresent) {
+            return $Server
+        }
     }
 }

@@ -22,7 +22,7 @@ public class ApiKeyAuthHandlerWhitespaceTests
             ApiKeyName = "X-Api-Key",
             AdditionalHeaderNames = ["X-Alt-Api-Key"],
             AllowQueryStringFallback = true,
-            AllowInsecureHttp = false,
+            AllowInsecureHttp = true,
             EmitChallengeHeader = false,
             StaticApiKey = "my-secret-api-key",
             Host = new KestrunHost("Tests", new LoggerConfiguration().MinimumLevel.Error().CreateLogger())
@@ -92,6 +92,7 @@ public class ApiKeyAuthHandlerWhitespaceTests
         var ctx = new DefaultHttpContext();
         ctx.Request.Scheme = "http";
         var opts = MakeOptions();
+        opts.Host = new KestrunHost("Tests", logger);
         ctx.Request.Headers[opts.ApiKeyName] = "my-secret-api-key \r\n";
 
         var handler = await MakeHandlerAsync(opts, ctx);
@@ -110,6 +111,7 @@ public class ApiKeyAuthHandlerWhitespaceTests
         var ctx = new DefaultHttpContext();
         ctx.Request.Scheme = "http";
         var opts = MakeOptions();
+        opts.Host = new KestrunHost("Tests", logger);
         ctx.Request.Headers[opts.ApiKeyName] = "not-the-key\n";
 
         var handler = await MakeHandlerAsync(opts, ctx);
@@ -128,6 +130,7 @@ public class ApiKeyAuthHandlerWhitespaceTests
         var ctx = new DefaultHttpContext();
         ctx.Request.Scheme = "http";
         var opts = MakeOptions();
+        opts.Host = new KestrunHost("Tests", logger);
         // Encoded spaces + CRLF around wrong key
         ctx.Request.QueryString = new QueryString("?X-Api-Key=%20not-the-key%20%0D%0A");
 

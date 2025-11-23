@@ -86,7 +86,7 @@ public class BasicAuthHandlerTest
     [Fact]
     public async Task HandleAuthenticateAsync_ReturnsFail_WhenHttpsRequiredAndNotHttps()
     {
-        var options = CreateOptions(validator: (_, _, _) => Task.FromResult(true), allowInsecureHttp: true);
+        var options = CreateOptions(validator: (_, _, _) => Task.FromResult(true), allowInsecureHttp: false);
         var context = new DefaultHttpContext();
         context.Request.Scheme = "http";
         var handler = CreateHandler(options, context);
@@ -233,7 +233,7 @@ public class BasicAuthHandlerTest
     public void PreValidateRequest_ReturnsFail_WhenHttpsRequiredAndNotHttps()
     {
         // Arrange
-        var opts = CreateOptions(validator: (_, _, _) => Task.FromResult(true), allowInsecureHttp: true);
+        var opts = CreateOptions(validator: (_, _, _) => Task.FromResult(true), allowInsecureHttp: false);
         var ctx = new DefaultHttpContext();
         ctx.Request.Scheme = "http";
         var handler = CreateHandler(opts, ctx);
@@ -256,7 +256,7 @@ public class BasicAuthHandlerTest
         // Arrange
         var opts = CreateOptions(validator: (_, _, _) => Task.FromResult(true), allowInsecureHttp: false);
         var ctx = new DefaultHttpContext();
-        ctx.Request.Scheme = "http"; // doesn't matter since AllowInsecureHttp = true
+        ctx.Request.Scheme = "https"; // HTTPS should bypass the insecure check when HTTPS is used
         var handler = CreateHandler(opts, ctx);
 
         var method = typeof(BasicAuthHandler).GetMethod("PreValidateRequest", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);

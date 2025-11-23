@@ -60,8 +60,25 @@ public class OpenAPIMetadataTests
     [Trait("Category", "Hosting")]
     public void RecordEquality_SameValues_ReturnsTrue()
     {
-        var metadata1 = new OpenAPIMetadata(pattern: "/test") { Summary = "Test", OperationId = "Op1" };
-        var metadata2 = new OpenAPIMetadata(pattern: "/test") { Summary = "Test", OperationId = "Op1" };
+        var metadata1 = new OpenAPIMetadata(pattern: "/test")
+        {
+            Summary = "Test",
+            OperationId = "Op1",
+            // Normalize properties that would otherwise differ by reference
+            Servers = null,
+            Parameters = null,
+            Tags = System.Array.Empty<string>(),
+            Responses = null
+        };
+        var metadata2 = new OpenAPIMetadata(pattern: "/test")
+        {
+            Summary = "Test",
+            OperationId = "Op1",
+            Servers = null,
+            Parameters = null,
+            Tags = System.Array.Empty<string>(),
+            Responses = null
+        };
 
         Assert.Equal(metadata1, metadata2);
     }

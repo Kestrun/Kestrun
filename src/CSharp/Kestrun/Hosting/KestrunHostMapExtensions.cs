@@ -1022,27 +1022,14 @@ public static partial class KestrunHostMapExtensions
             host.Logger.Error("Swagger UI routes only support GET requests. Provided HTTP verbs: {HttpVerbs}", string.Join(", ", options.HttpVerbs));
             throw new ArgumentException("Swagger UI routes only support GET requests.", nameof(options.HttpVerbs));
         }
+        // Set default pattern if not provided
         if (string.IsNullOrWhiteSpace(options.Pattern))
         {
-            host.Logger.Error("Pattern cannot be null or empty.");
-            throw new ArgumentException("Pattern cannot be null or empty.", nameof(options.Pattern));
+            options.Pattern = "/docs/swagger";
         }
+        // Load embedded Swagger UI HTML
+        var map = AddHtmlRouteFromEmbeddedResource(host, options.Pattern, openApiEndpoint, "Kestrun.Assets.swagger-ui.html");
 
-        _ = host.AddMapRoute(options.Pattern, HttpVerb.Get, async (ctx) =>
-          {
-              const string embedded = "Kestrun.Assets.swagger-ui.html";
-              var asm = typeof(KestrunHostMapExtensions).Assembly;
-              using var stream = asm.GetManifestResourceStream(embedded)
-                  ?? throw new InvalidOperationException($"Embedded Swagger UI HTML not found: {embedded}");
-              using var ms = new MemoryStream();
-              stream.CopyTo(ms);
-              var htmlBuffer = ms.ToArray();
-              ctx.Response.ContentType = "text/html; charset=utf-8";
-              await ctx.Response.WriteHtmlResponseAsync(htmlBuffer, new Dictionary<string, object?>
-              {
-                  { "OPENAPI_ENDPOINT", openApiEndpoint.ToString() }
-              }, ctx.Response.StatusCode);
-          }, out var map);
         if (host.Logger.IsEnabled(LogEventLevel.Debug))
         {
             host.Logger.Debug("Mapped Swagger UI route: {Pattern} for OpenAPI endpoint: {OpenApiEndpoint}", options.Pattern, openApiEndpoint);
@@ -1052,6 +1039,74 @@ public static partial class KestrunHostMapExtensions
             throw new InvalidOperationException("Failed to create Swagger UI route.");
         }
         AddMapOptions(host, map, options);
+        return map;
+    }
+
+    /// <summary>
+    /// Adds a Redoc UI route to the KestrunHost for the specified pattern and OpenAPI endpoint.
+    /// </summary>
+    /// <param name="host">The KestrunHost instance.</param>
+    /// <param name="options">The route mapping options.</param>
+    /// <param name="openApiEndpoint">The OpenAPI endpoint URI.</param>
+    /// <returns>An IEndpointConventionBuilder for the mapped route.</returns>
+    /// <exception cref="ArgumentException">Thrown when the provided options are invalid.</exception>
+    /// <exception cref="InvalidOperationException">Thrown when the Swagger UI route cannot be created.</exception>
+    public static IEndpointConventionBuilder AddRedocUiRoute(this KestrunHost host, MapRouteOptions options, Uri openApiEndpoint)
+    {
+        if (host.Logger.IsEnabled(LogEventLevel.Debug))
+        {
+            host.Logger.Debug("Adding Redoc UI route: {Pattern} for OpenAPI endpoint: {OpenApiEndpoint}", options.Pattern, openApiEndpoint);
+        }
+
+        if (options.HttpVerbs.Count != 0 &&
+            (options.HttpVerbs.Count > 1 || options.HttpVerbs.First() != HttpVerb.Get))
+        {
+            host.Logger.Error("Redoc UI routes only support GET requests. Provided HTTP verbs: {HttpVerbs}", string.Join(", ", options.HttpVerbs));
+            throw new ArgumentException("Redoc UI routes only support GET requests.", nameof(options.HttpVerbs));
+        }
+        // Set default pattern if not provided
+        if (string.IsNullOrWhiteSpace(options.Pattern))
+        {
+            options.Pattern = "/docs/redoc";
+        }
+        // Load embedded Redoc HTML
+        var map = AddHtmlRouteFromEmbeddedResource(host, options.Pattern, openApiEndpoint, "Kestrun.Assets.redoc-ui.html");
+        if (host.Logger.IsEnabled(LogEventLevel.Debug))
+        {
+            host.Logger.Debug("Mapped Redoc UI route: {Pattern} for OpenAPI endpoint: {OpenApiEndpoint}", options.Pattern, openApiEndpoint);
+        }
+        if (map is null)
+        {
+            throw new InvalidOperationException("Failed to create Redoc UI route.");
+        }
+        AddMapOptions(host, map, options);
+        return map;
+    }
+
+    /// <summary>
+    /// Add a HTML route from an embedded resource.
+    /// </summary>
+    /// <param name="host">The KestrunHost instance.</param>
+    /// <param name="pattern">The route pattern.</param>
+    /// <param name="openApiEndpoint">The OpenAPI endpoint URI.</param>
+    /// <param name="embeddedResource">The embedded resource name.</param>
+    /// <exception cref="InvalidOperationException"></exception>
+    private static IEndpointConventionBuilder? AddHtmlRouteFromEmbeddedResource(KestrunHost host, string pattern, Uri openApiEndpoint, string embeddedResource)
+    {
+        _ = host.AddMapRoute(pattern: pattern, httpVerb: HttpVerb.Get, async (ctx) =>
+          {
+              var asm = typeof(KestrunHostMapExtensions).Assembly;
+              using var stream = asm.GetManifestResourceStream(embeddedResource)
+                  ?? throw new InvalidOperationException($"Embedded Redoc HTML not found: {embeddedResource}");
+              using var ms = new MemoryStream();
+              stream.CopyTo(ms);
+              var htmlBuffer = ms.ToArray();
+              ctx.Response.ContentType = "text/html; charset=utf-8";
+              await ctx.Response.WriteHtmlResponseAsync(htmlBuffer, new Dictionary<string, object?>
+              {
+                  { "OPENAPI_ENDPOINT", openApiEndpoint.ToString() }
+              }, ctx.Response.StatusCode);
+          }, out var map);
         return map;
     }
 

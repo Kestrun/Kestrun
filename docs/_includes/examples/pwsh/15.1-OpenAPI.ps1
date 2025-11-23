@@ -400,7 +400,7 @@ Add-KrOpenApiExternalDoc -Description 'Find more info here' -Url 'https://exampl
 # 7. Finalize configuration and set server limits
 Enable-KrConfiguration
 
-Add-KrSwaggerUiRoute
+Add-KrApiDocumentationRoute
 
 New-KrMapRouteBuilder -Verbs @('GET', 'HEAD', 'POST', 'TRACE') -Pattern '/status' |
     Add-KrMapRouteScriptBlock -ScriptBlock {

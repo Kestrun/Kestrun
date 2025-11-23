@@ -22,14 +22,14 @@ public class OAuth2OptionsTests
 
     [Fact]
     [Trait("Category", "Authentication")]
-    public void AuthenticationScheme_DerivedFromCookieName()
+    public void CookieScheme_DerivedFromCookieName()
     {
         // Arrange
         var options = new OAuth2Options();
         options.CookieOptions.Cookie.Name = "TestAuthCookie";
 
         // Act
-        var scheme = options.AuthenticationScheme;
+        var scheme = options.CookieScheme;
 
         // Assert
         Assert.Equal("TestAuthCookie", scheme);
@@ -37,16 +37,16 @@ public class OAuth2OptionsTests
 
     [Fact]
     [Trait("Category", "Authentication")]
-    public void AuthenticationScheme_DefaultsWhenCookieNameNotSet()
+    public void CookieScheme_DefaultsWhenCookieNameNotSet()
     {
         // Arrange
         var options = new OAuth2Options();
 
         // Act
-        var scheme = options.AuthenticationScheme;
+        var scheme = options.CookieScheme;
 
         // Assert
-        Assert.Equal(CookieAuthenticationDefaults.AuthenticationScheme, scheme);
+        Assert.Equal(CookieAuthenticationDefaults.AuthenticationScheme + "." + AuthenticationDefaults.OAuth2SchemeName, scheme);
     }
 
     [Fact]

@@ -250,7 +250,7 @@ class PatchPetBody {
 
 # --- Finalize config & UI ---
 Enable-KrConfiguration
-Add-KrSwaggerUiRoute
+Add-KrApiDocumentationRoute
 
 # --- Routes ---
 # /pets

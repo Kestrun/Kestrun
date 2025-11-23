@@ -9,6 +9,8 @@
         The name of the policy to be created.
     .PARAMETER ClaimType
         The type of claim being defined.
+    .PARAMETER Description
+        The description of the claim policy.
     .PARAMETER UserClaimType
         The user identity claim type.
     .PARAMETER AllowedValues
@@ -33,7 +35,9 @@ function Add-KrClaimPolicy {
         [Parameter(Mandatory = $true, ParameterSetName = 'UserClaimType')]
         [Kestrun.Claims.UserIdentityClaim] $UserClaimType,
         [Parameter(Mandatory = $true)]
-        [string[]] $AllowedValues
+        [string[]] $AllowedValues,
+        [Parameter(Mandatory = $false)]
+        [string]$Description
     )
     begin {
         if ($UserClaimType) {
@@ -41,7 +45,7 @@ function Add-KrClaimPolicy {
         }
     }
     process {
-        return $Builder.AddPolicy($PolicyName, $ClaimType, $AllowedValues)
+        return $Builder.AddPolicy($PolicyName, $ClaimType, $AllowedValues)#, $Description)
     }
 }
 

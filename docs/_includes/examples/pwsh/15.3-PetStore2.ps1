@@ -565,7 +565,7 @@ $options.SaveTokens = $true
 $options.SignInScheme = [Microsoft.AspNetCore.Authentication.Cookies.CookieAuthenticationDefaults]::AuthenticationScheme
 $options.Scope.Add('write:pets') | Out-Null # modify pets in your account
 $options.Scope.Add('read:pets') | Out-Null  # read your pets
-#Add-KrOAuth2Authentication -AuthenticationScheme 'petstore_auth' -Options $options
+Add-KrOAuth2Authentication -AuthenticationScheme 'petstore_auth' -Options $options
 # =========================================================
 #                 SECURITY (placeholders)
 # =========================================================
@@ -594,7 +594,7 @@ New-KrMapRouteBuilder -Verbs @('PUT', 'POST') -Pattern '/pet' |
     Add-KrMapRouteOpenApiResponse -StatusCode '400' -ReferenceId 'Resp_Pet_Write-BadRequest' -Embed |
     Add-KrMapRouteOpenApiResponse -StatusCode '422' -ReferenceId 'Resp_Pet_Write-UnprocessableEntity' -Embed |
     Add-KrMapRouteOpenApiResponse -StatusCode 'default' -ReferenceId 'Resp_Pet_Write-Default' |
- #   Add-KrMapRouteAuthorization -Schema 'petstore_auth' -Policy 'write:pets', 'read:pets' |
+    Add-KrMapRouteAuthorization -Schema 'petstore_auth' -Policy 'write:pets', 'read:pets' |
     # PUT updatePet
     Add-KrMapRouteOpenApiInfo -Verbs 'PUT' -Summary 'Update an existing pet.' -Description 'Update an existing pet by Id.' -OperationId 'updatePet' |
     Add-KrMapRouteOpenApiRequestBody -Verbs 'PUT' -Description 'Update an existent pet in the store' -ReferenceId 'PetBody' |
@@ -616,6 +616,7 @@ New-KrMapRouteBuilder -Verbs 'GET' -Pattern '/pet/findByStatus' |
     Add-KrMapRouteScriptBlock -ScriptBlock { Write-KrJsonResponse @() } |
     Add-KrMapRouteOpenApiTag -Tag 'pet' |
     Add-KrMapRouteOpenApiInfo -Summary 'Finds Pets by status.' -Description 'Multiple status values can be provided with comma separated strings.' -OperationId 'findPetsByStatus' |
+    Add-KrMapRouteAuthorization -Schema 'petstore_auth' -Policy 'write:pets', 'read:pets' |
     Add-KrMapRouteOpenApiParameter -Verbs 'GET' -ReferenceId 'FindByStatusParams-status' |
     Add-KrMapRouteOpenApiResponse -StatusCode '200' -ReferenceId 'Resp_FindByStatus-OK' -Embed |
     Add-KrMapRouteOpenApiResponse -StatusCode '400' -ReferenceId 'Resp_FindByStatus-BadRequest' -Embed |
@@ -631,6 +632,7 @@ New-KrMapRouteBuilder -Verbs 'GET' -Pattern '/pet/findByTags' |
     Add-KrMapRouteScriptBlock -ScriptBlock { Write-KrJsonResponse @() } |
     Add-KrMapRouteOpenApiTag -Tag 'pet' |
     Add-KrMapRouteOpenApiInfo -Summary 'Finds Pets by tags.' -Description 'Multiple tags can be provided with comma separated strings. Use tag1, tag2, tag3 for testing.' -OperationId 'findPetsByTags' |
+    Add-KrMapRouteAuthorization -Schema 'petstore_auth' -Policy 'write:pets', 'read:pets' |
     Add-KrMapRouteOpenApiParameter -ReferenceId 'FindByTagsParams-tags' |
     Add-KrMapRouteOpenApiResponse -StatusCode '200' -ReferenceId 'Resp_FindByTags-OK' -Embed |
     Add-KrMapRouteOpenApiResponse -StatusCode '400' -ReferenceId 'Resp_FindByTags-BadRequest' -Embed |
@@ -648,6 +650,8 @@ New-KrMapRouteBuilder -Verbs @('GET', 'POST', 'DELETE') -Pattern '/pet/{petId}' 
     Add-KrMapRouteOpenApiParameter -ReferenceId 'petId' | # from Param_PetId
     # GET getPetById
     Add-KrMapRouteOpenApiInfo -Verbs 'GET' -Summary 'Find pet by ID.' -Description 'Returns a single pet.' -OperationId 'getPetById' |
+    Add-KrMapRouteAuthorization -Schema 'petstore_auth' -Policy 'write:pets', 'read:pets' |
+    Add-KrMapRouteAuthorization -Verbs 'GET' -Schema 'api_key' |
     Add-KrMapRouteOpenApiResponse -Verbs 'GET' -StatusCode '200' -ReferenceId 'Resp_PetById_Get-OK' -Embed |
     Add-KrMapRouteOpenApiResponse -Verbs 'GET' -StatusCode '400' -ReferenceId 'Resp_PetById_Get-BadRequest' -Embed |
     Add-KrMapRouteOpenApiResponse -Verbs 'GET' -StatusCode '404' -ReferenceId 'Resp_PetById_Get-NotFound' -Embed |
@@ -681,6 +685,7 @@ New-KrMapRouteBuilder -Verbs @('GET', 'POST', 'DELETE') -Pattern '/pet/{petId}' 
 New-KrMapRouteBuilder -Verbs 'POST' -Pattern '/pet/{petId}/uploadImage' |
     Add-KrMapRouteScriptBlock -ScriptBlock { Write-KrJsonResponse @{ } } |
     Add-KrMapRouteOpenApiTag -Tag 'pet' |
+    Add-KrMapRouteAuthorization -Schema 'petstore_auth' -Policy 'write:pets', 'read:pets' |
     Add-KrMapRouteOpenApiParameter -ReferenceId 'UploadImageParams-petId' -Key 'petId' |
     Add-KrMapRouteOpenApiParameter -ReferenceId 'UploadImageParams-additionalMetadata' -Key 'additionalMetadata' |
     Add-KrMapRouteOpenApiRequestBody -Embed -ReferenceId 'Upload_OctetStream' |

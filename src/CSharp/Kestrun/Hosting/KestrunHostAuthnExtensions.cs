@@ -1080,7 +1080,11 @@ public static class KestrunHostAuthnExtensions
     /// <param name="logger">The logger instance for logging.</param>
     /// <returns>A ClaimPolicyConfig containing the supported scopes, or null if retrieval fails.</returns>
     private static ClaimPolicyConfig? GetSupportedScopes(string authority, Serilog.ILogger logger)
-
+    {
+        if (logger.IsEnabled(LogEventLevel.Debug))
+        {
+            logger.Debug("Retrieving OpenID Connect configuration from authority: {Authority}", authority);
+        }
         var claimPolicy = new ClaimPolicyBuilder();
         if (string.IsNullOrWhiteSpace(authority))
         {

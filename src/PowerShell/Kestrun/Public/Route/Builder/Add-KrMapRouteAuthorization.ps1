@@ -48,14 +48,16 @@ function Add-KrMapRouteAuthorization {
                 ]]::new()
             }
             [string[]]$schemas = @()
-            if (-not ([string]::IsNullOrWhiteSpace($Schema))) {
-                $schemas += $Schema
-            }
             # d: Dictionary<string, IEnumerable<string>>
             $d = [System.Collections.Generic.Dictionary[
             string,
             System.Collections.Generic.IEnumerable[string]
             ]]::new()
+
+            if (-not ([string]::IsNullOrWhiteSpace($Schema))) {
+                $schemas += $Schema
+                $d[$Schema] = [System.Collections.Generic.List[string]]::new()
+            }
 
             # one list of scopes for this schema
             foreach ($p in $Policy) {

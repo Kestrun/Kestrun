@@ -2768,28 +2768,32 @@ public class OpenApiDocDescriptor
     private static OpenApiSecurityScheme GetSecurityScheme(OAuth2Options options)
     {
         // Build OAuth flows
-        var flows = new OpenApiOAuthFlows();
-        // Client Credentials flow
-        if (options.Flow == OAuthFlowType.ClientCredentials)
+        var flows = new OpenApiOAuthFlows
         {
-            flows.ClientCredentials = new OpenApiOAuthFlow
-            {
-                TokenUrl = new Uri(options.TokenEndpoint, UriKind.Absolute),
-                Scopes = options.Scope.ToDictionary(s => s, s => s)
-            };
-        }
-        else // Authorization Code flow
-        {
-            flows.AuthorizationCode = new OpenApiOAuthFlow
+            // Client Credentials flow
+            AuthorizationCode = new OpenApiOAuthFlow
             {
                 AuthorizationUrl = new Uri(options.AuthorizationEndpoint, UriKind.Absolute),
-                Scopes = options.Scope.ToDictionary(s => s, s => s)
-            };
-            if (options.TokenEndpoint is not null)
-            {
-                flows.AuthorizationCode.TokenUrl = new Uri(options.TokenEndpoint, UriKind.Absolute);
+
             }
+        };
+        // Scopes
+        if (options.ClaimPolicy is not null && options.ClaimPolicy.Policies is not null && options.ClaimPolicy.Policies.Count > 0)
+        {
+            var scopes = new Dictionary<string, string>();
+            var policies = options.ClaimPolicy.Policies;
+            foreach (var item in policies)
+            {
+                scopes.Add(item.Key, item.Value.Description ?? string.Empty);
+            }
+            flows.AuthorizationCode.Scopes = scopes;
         }
+        // Token endpoint
+        if (options.TokenEndpoint is not null)
+        {
+            flows.AuthorizationCode.TokenUrl = new Uri(options.TokenEndpoint, UriKind.Absolute);
+        }
+
         return new OpenApiSecurityScheme()
         {
             Type = SecuritySchemeType.OAuth2,

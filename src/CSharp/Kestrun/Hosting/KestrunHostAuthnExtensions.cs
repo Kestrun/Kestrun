@@ -914,24 +914,8 @@ public static class KestrunHostAuthnExtensions
         {
             configureOptions.AuthenticationScheme = authenticationScheme;
         }
-        if (configureOptions.ClaimPolicy is null && configureOptions.Scope is not null && configureOptions.Scope.Count > 0)
-        {
-            if (host.Logger.IsEnabled(LogEventLevel.Debug))
-            {
-                host.Logger.Debug("OAuth2 scopes configured: {Scopes}", string.Join(", ", configureOptions.Scope));
-            }
-
-            var claimPolicy = new ClaimPolicyBuilder();
-            foreach (var scope in configureOptions.Scope)
-            {
-                if (host.Logger.IsEnabled(LogEventLevel.Debug))
-                {
-                    host.Logger.Debug("OAuth2 scope added: {Scope}", scope);
-                }
-                _ = claimPolicy.AddPolicy(scope, "scope", scope);
-            }
-            configureOptions.ClaimPolicy = claimPolicy.Build();
-        }
+        // Configure scopes and claim policies
+        ConfigureScopes(configureOptions, host.Logger);
         // Configure OpenAPI
         ConfigureOpenApi(host, authenticationScheme, configureOptions);
 
@@ -965,6 +949,78 @@ public static class KestrunHostAuthnExtensions
             },
               configureAuthz: configureOptions.ClaimPolicy?.ToAuthzDelegate()
         );
+    }
+
+
+    /// <summary>
+    /// Configures OAuth2 scopes and claim policies.
+    /// </summary>
+    /// <param name="configureOptions">The OAuth2 options to configure.</param>
+    /// <param name="logger">The logger for debug output.</param>
+    private static void ConfigureScopes(IOAuthCommonOptions configureOptions, Serilog.ILogger logger)
+    {
+        if (configureOptions.ClaimPolicy is null)
+        {
+            if (configureOptions.Scope is not null && configureOptions.Scope.Count > 0)
+            {
+                if (logger.IsEnabled(LogEventLevel.Debug))
+                {
+                    logger.Debug("OAuth2 scopes configured: {Scopes}", string.Join(", ", configureOptions.Scope));
+                }
+
+                var claimPolicyBuilder = new ClaimPolicyBuilder();
+                foreach (var scope in configureOptions.Scope)
+                {
+                    if (logger.IsEnabled(LogEventLevel.Debug))
+                    {
+                        logger.Debug("OAuth2 scope added: {Scope}", scope);
+                    }
+                    _ = claimPolicyBuilder.AddPolicy(policyName: scope, claimType: "scope", Description: string.Empty, allowedValues: scope);
+                }
+                configureOptions.ClaimPolicy = claimPolicyBuilder.Build();
+            }
+        }
+        else if (configureOptions.Scope is not null)
+        {
+            if (configureOptions.Scope.Count > 0)
+            {
+                if (logger.IsEnabled(LogEventLevel.Debug))
+                {
+                    logger.Debug("OAuth2 scopes configured: {Scopes}", string.Join(", ", configureOptions.Scope));
+                }
+                var missingScopes = configureOptions.Scope
+                    .Where(s => !configureOptions.ClaimPolicy.Policies.ContainsKey(s))
+                    .ToList();
+                if (missingScopes.Count > 0)
+                {
+                    if (logger.IsEnabled(LogEventLevel.Debug))
+                    {
+                        logger.Debug("Adding missing OAuth2 scopes to claim policy: {Scopes}", string.Join(", ", missingScopes));
+                    }
+                    var claimPolicyBuilder = new ClaimPolicyBuilder();
+                    foreach (var scope in missingScopes)
+                    {
+                        _ = claimPolicyBuilder.AddPolicy(policyName: scope, claimType: "scope", Description: string.Empty, allowedValues: scope);
+                        if (logger.IsEnabled(LogEventLevel.Debug))
+                        {
+                            logger.Debug("OAuth2 scope added to claim policy: {Scope}", scope);
+                        }
+                    }
+                    configureOptions.ClaimPolicy.AddPolicies(claimPolicyBuilder.Policies);
+                }
+            }
+            else
+            {
+                foreach (var policy in configureOptions.ClaimPolicy.PolicyNames)
+                {
+                    if (logger.IsEnabled(LogEventLevel.Debug))
+                    {
+                        logger.Debug("OAuth2 claim policy configured: {Policy}", policy);
+                    }
+                    configureOptions.Scope.Add(policy);
+                }
+            }
+        }
     }
 
     #endregion
@@ -1018,6 +1074,8 @@ public static class KestrunHostAuthnExtensions
                 host.Logger.Debug("OIDC supported scopes: {Scopes}", string.Join(", ", configureOptions.ClaimPolicy?.Policies.Keys ?? Enumerable.Empty<string>()));
             }
         }
+        // Configure scopes and claim policies
+        ConfigureScopes(configureOptions, host.Logger);
         // Configure OpenAPI
         ConfigureOpenApi(host, authenticationScheme, configureOptions);
 
@@ -1127,7 +1185,7 @@ public static class KestrunHostAuthnExtensions
                         var scope = item.GetString();
                         if (!string.IsNullOrWhiteSpace(scope))
                         {
-                            _ = claimPolicy.AddPolicy(scope, "scope", scope);
+                            _ = claimPolicy.AddPolicy(policyName: scope, claimType: "scope", Description: string.Empty, allowedValues: scope);
                         }
                     }
                 }
@@ -1137,7 +1195,7 @@ public static class KestrunHostAuthnExtensions
                 // Normal path: configuration object had scopes
                 foreach (var scope in scopes)
                 {
-                    _ = claimPolicy.AddPolicy(scope, "scope", scope);
+                    _ = claimPolicy.AddPolicy(policyName: scope, claimType: "scope", Description: string.Empty, allowedValues: scope);
                 }
             }
             return claimPolicy.Build();

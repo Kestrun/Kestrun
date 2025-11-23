@@ -552,16 +552,18 @@ class Resp_UserByName_Delete {
 #region COMPONENT SECURITY SCHEMES
 
 # 6. Script-based validation
+
+
+# =========================================================
+#                 SECURITY SCHEMES
+# =========================================================
 Add-KrApiKeyAuthentication -AuthenticationScheme 'api_key' -AllowInsecureHttp -ApiKeyName 'api_key' -ScriptBlock {
     param($ProvidedKey) $ProvidedKey -eq 'my-secret-api-key' }
-$options = [Kestrun.Authentication.OAuth2Options]::new()
 
-$options.Scope.Add('write:pets') | Out-Null # modify pets in your account
-$options.Scope.Add('read:pets') | Out-Null  # read your pets
 
 $claimPolicy = New-KrClaimPolicy |
-    Add-KrClaimPolicy -PolicyName 'read:pets' -ClaimType 'scope' -AllowedValues 'read:pets' -Description 'read your pets' |
-    Add-KrClaimPolicy -PolicyName 'write:pets' -ClaimType 'scope' -AllowedValues 'write:pets' -Description 'modify pets in your account' |
+    Add-KrClaimPolicy -PolicyName 'read:pets' -Scope -Description 'read your pets' |
+    Add-KrClaimPolicy -PolicyName 'write:pets' -Scope -Description 'modify pets in your account' |
     Build-KrClaimPolicy
 
 Add-KrOAuth2Authentication -AuthenticationScheme 'petstore_auth' `
@@ -571,13 +573,8 @@ Add-KrOAuth2Authentication -AuthenticationScheme 'petstore_auth' `
     -TokenEndpoint 'https://your-auth-server/oauth/token' `
     -CallbackPath '/signin-petstore' `
     -SaveTokens `
-    -ClaimPolicy $claimPolicy `
-    -Options $options
-# =========================================================
-#                 SECURITY (placeholders)
-# =========================================================
-# TODO: securitySchemes (oauth2 implicit petstore_auth; api_key header) not yet implemented in Kestrun.
-# TODO: per-operation security requirements replicated below as comments.
+    -ClaimPolicy $claimPolicy
+
 #endregion
 #region ROUTES / OPERATIONS
 # =========================================================

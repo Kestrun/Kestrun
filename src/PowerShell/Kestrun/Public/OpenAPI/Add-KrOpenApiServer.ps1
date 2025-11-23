@@ -3,8 +3,13 @@
     Creates a new OpenAPI server.
 .DESCRIPTION
     This function creates a new OpenAPI server using the provided parameters.
+.PARAMETER Server
+    The Kestrun server instance to which the OpenAPI server will be added.
+    If not specified, the function will attempt to resolve the current server context.
 .PARAMETER Description
     A description of the server.
+.PARAMETER DocId
+    The documentation IDs to which this server will be added.
 .PARAMETER Url
     The URL of the server.
 .PARAMETER Variables
@@ -14,8 +19,8 @@
         env = New-KrOpenApiServerVariable -Default 'dev' -Enum @('dev', 'staging', 'prod') -Description 'Environment name'
     }
     $oaServer = New-KrOpenApiServer -Description 'My API Server' -Url 'https://api.example.com' -Variables $variables
-.OUTPUTS
-    Microsoft.OpenApi.OpenApiServer
+.NOTES
+    This cmdlet is part of the Kestrun OpenAPI module.
 #>
 function Add-KrOpenApiServer {
     [KestrunRuntimeApi('Everywhere')]

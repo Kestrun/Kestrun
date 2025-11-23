@@ -175,7 +175,7 @@ Add-KrWindowsAuthentication
 
 
 
-Add-KrApiKeyAuthentication -AuthenticationScheme $ApiKeySimple -AllowInsecureHttp -ApiKeyName 'X-Api-Key' -ExpectedKey 'my-secret-api-key'
+Add-KrApiKeyAuthentication -AuthenticationScheme $ApiKeySimple -AllowInsecureHttp -ApiKeyName 'X-Api-Key' -StaticApiKey 'my-secret-api-key'
 
 
 

@@ -337,31 +337,34 @@ if ((Test-Path -Path .\.env.json)) {
     $OktaClientSecret = $env:OKTA_CLIENT_SECRET
     $OktaAuthority = $env:OKTA_AUTHORITY
 
-    Add-KrGitHubAuthentication -AuthenticationScheme 'GitHub' -ClientId $GitHubClientId -ClientSecret $GitHubClientSecret -CallbackPath '/signin-oauth'
+    Add-KrGitHubAuthentication -AuthenticationScheme 'GitHub' -ClientId $GitHubClientId `
+        -ClientSecret $GitHubClientSecret -CallbackPath '/signin-oauth'
 
-    # Callback and endpoint paths
+
+    $claimPolicy = New-KrClaimPolicy |
+        Add-KrClaimPolicy -PolicyName 'openid' -Scope -Description 'OpenID Connect scope' |
+        Add-KrClaimPolicy -PolicyName 'profile' -Scope -Description 'Profile scope' |
+        Build-KrClaimPolicy
+
+
     $options = [Kestrun.Authentication.OidcOptions]::new()
-
-    $options.Authority = $OktaAuthority
-    $options.ClientId = $OktaClientId
-    $options.ClientSecret = $OktaClientSecret
-    $options.CallbackPath = '/signin-oidc'
-    $options.SignedOutCallbackPath = '/signout-callback-oidc'  # Logout callback path
-    $options.SaveTokens = $true
-    $options.ResponseType = [Microsoft.IdentityModel.Protocols.OpenIdConnect.OpenIdConnectResponseType]::Code;
-    $options.UsePkce = $true;
-    $options.GetClaimsFromUserInfoEndpoint = $true
-    $options.Scope.Clear()
-    $options.Scope.Add('openid') | Out-Null
-    $options.Scope.Add('profile') | Out-Null
-    $options.Scope.Add('email') | Out-Null
 
     # Map the 'name' claim from OIDC token to Identity.Name
     # Okta sends the email in the 'name' claim, which gets mapped to ClaimTypes.Name
     $options.TokenValidationParameters.NameClaimType = 'name'
 
     # 5) OAuth2 scheme (AUTH CHALLENGE) — signs into the 'Cookies' scheme above
-    Add-KrOpenIdConnectAuthentication -AuthenticationScheme 'Okta' -Options $options
+    Add-KrOpenIdConnectAuthentication -AuthenticationScheme 'Okta' `
+        -Authority $OktaAuthority `
+        -ClientId $OktaClientId `
+        -ClientSecret $OktaClientSecret `
+        -CallbackPath '/signin-oidc' `
+        -SignedOutCallbackPath '/signout-callback-oidc' `
+        -SaveTokens `
+        -UsePkce `
+        -GetClaimsFromUserInfoEndpoint `
+        -ClaimPolicy $claimPolicy `
+        -Options $options
 }
 
 # 6. Build JWT configuration

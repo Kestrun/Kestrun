@@ -7,6 +7,8 @@
     The Map Route Builder object to which the OpenAPI parameter will be added.
 .PARAMETER Verbs
     An array of HTTP verbs (e.g., GET, POST) to which the OpenAPI parameter will be applied. If not specified, the parameter will be applied to all verbs defined in the Map Route Builder.
+.PARAMETER DocId
+    The documentation ID associated with the OpenAPI parameter. Default is the default authentication scheme name.
 .PARAMETER Description
     A description of the OpenAPI parameter.
 .PARAMETER ReferenceId

@@ -10,7 +10,7 @@ namespace Kestrun.Authentication;
 /// <summary>
 /// Options for OAuth2 authentication.
 /// </summary>
-public class OAuth2Options : OAuthOptions, IOpenApiAuthenticationOptions, IAuthenticationHostOptions
+public class OAuth2Options : OAuthOptions, IOpenApiAuthenticationOptions, IAuthenticationHostOptions, IOAuthCommonOptions
 {
     /// <summary>
     /// Options for cookie authentication.

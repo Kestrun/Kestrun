@@ -9,6 +9,8 @@
         The name of the API key authentication scheme.
     .PARAMETER DisplayName
         The display name of the API key authentication scheme.
+    .PARAMETER DocId
+        The documentation IDs to associate with this authentication scheme in OpenAPI documentation.
     .PARAMETER Options
         The options to configure the API key authentication.
     .PARAMETER ScriptBlock
@@ -48,7 +50,7 @@
     .PARAMETER PassThru
         If specified, returns the modified server instance after adding the authentication.
     .EXAMPLE
-        Add-KrApiKeyAuthentication -AuthenticationScheme 'MyApiKey' -ExpectedKey '12345' -ApiKeyName 'X-Api-Key'
+        Add-KrApiKeyAuthentication -AuthenticationScheme 'MyApiKey' -StaticApiKey '12345' -ApiKeyName 'X-Api-Key'
         This example adds API key authentication to the server with the specified expected key and header name.
     .EXAMPLE
         Add-KrApiKeyAuthentication -AuthenticationScheme 'MyApiKey' -ScriptBlock {

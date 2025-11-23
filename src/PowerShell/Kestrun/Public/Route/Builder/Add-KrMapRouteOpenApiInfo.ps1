@@ -5,6 +5,9 @@
     The Add-KrMapRouteOpenApiInfo cmdlet adds OpenAPI metadata such as summary, description, tags, and operation ID to a Map Route Builder object.
 .PARAMETER MapRouteBuilder
     The Map Route Builder object to which the OpenAPI metadata will be added.
+.PARAMETER Verbs
+    An array of HTTP verbs to which the OpenAPI metadata will be applied.
+    If not specified, the metadata will be applied to all verbs defined in the Map Route Builder
 .PARAMETER Summary
     (Optional) A brief summary of the route for OpenAPI documentation.
 .PARAMETER Description

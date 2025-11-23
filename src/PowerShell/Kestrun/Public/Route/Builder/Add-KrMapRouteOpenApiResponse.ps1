@@ -7,6 +7,8 @@
     The Map Route Builder object to which the OpenAPI response will be added.
 .PARAMETER Verbs
     An array of HTTP verbs (e.g., GET, POST) to which the OpenAPI response will be applied. If not specified, the response will be applied to all verbs defined in the Map Route Builder.
+.PARAMETER DocId
+    The documentation ID associated with the OpenAPI response. Default is the default authentication scheme name.
 .PARAMETER StatusCode
     The HTTP status code for the OpenAPI response.
 .PARAMETER Description

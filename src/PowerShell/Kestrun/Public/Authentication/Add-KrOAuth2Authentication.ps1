@@ -22,6 +22,8 @@
     The callback path for OAuth responses.
 .PARAMETER SaveTokens
     If specified, saves the OAuth tokens in the authentication properties.
+.PARAMETER UsePkce
+    If specified, enables Proof Key for Code Exchange (PKCE) for enhanced security.
 .PARAMETER ClaimPolicy
     An optional Kestrun.Claims.ClaimPolicyConfig to apply claim policies during authentication.
 .PARAMETER Options
@@ -47,20 +49,31 @@ function Add-KrOAuth2Authentication {
 
         [Parameter(Mandatory = $false)]
         [string]$DisplayName = [Kestrun.Authentication.AuthenticationDefaults]::OAuth2DisplayName,
+
         [Parameter(Mandatory = $false)]
         [string]$ClientId,
+
         [Parameter(Mandatory = $false)]
         [string]$ClientSecret,
+
         [Parameter(Mandatory = $false)]
         [string]$AuthorizationEndpoint,
+
         [Parameter(Mandatory = $false)]
         [string]$TokenEndpoint,
+
         [Parameter(Mandatory = $false)]
         [string]$CallbackPath,
+
         [Parameter(Mandatory = $false)]
         [switch]$SaveTokens,
-         [Parameter(Mandatory = $false)]
+
+        [Parameter(Mandatory = $false)]
+        [switch]$UsePkce,
+
+        [Parameter(Mandatory = $false)]
         [Kestrun.Claims.ClaimPolicyConfig]$ClaimPolicy,
+
         [Parameter(Mandatory = $false)]
         [Kestrun.Authentication.OAuth2Options]$Options,
 
@@ -84,6 +97,7 @@ function Add-KrOAuth2Authentication {
         if ($CallbackPath) { $Options.CallbackPath = $CallbackPath }
         if ($ClaimPolicy) { $Options.ClaimPolicy = $ClaimPolicy }
         $Options.SaveTokens = $SaveTokens.IsPresent
+          $Options.UsePkce = $UsePkce.IsPresent
 
         # Bridge to your C# extension (parallel to AddCookieAuthentication)
         [Kestrun.Hosting.KestrunHostAuthnExtensions]::AddOAuth2Authentication(

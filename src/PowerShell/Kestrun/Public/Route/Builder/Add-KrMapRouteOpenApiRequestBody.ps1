@@ -7,6 +7,8 @@
     The Map Route Builder object to which the OpenAPI request body will be added.
 .PARAMETER Verbs
     An array of HTTP verbs (e.g., GET, POST) to which the OpenAPI request body will be applied. If not specified, the request body will be applied to all verbs defined in the Map Route Builder.
+.PARAMETER DocId
+    The documentation ID associated with the OpenAPI request body. Default is the default authentication scheme name
 .PARAMETER Description
     A description of the OpenAPI request body.
 .PARAMETER ReferenceId
@@ -19,7 +21,7 @@
     # Create a new Map Route Builder
     $mapRouteBuilder = New-KrMapRouteBuilder |
     Add-KrMapRouteVerbPattern -MapRouteBuilder $mapRouteBuilder -Verbs @('POST') -Pattern '/api/items' |
-    Add-KrMapRouteOpenApiRequestBody -Description 'Item creation request body' -Reference 'CreateItemBody'
+    Add-KrMapRouteOpenApiRequestBody -Description 'Item creation request body' -ReferenceId 'ItemCreateRequestBody'
 .NOTES
     This cmdlet is part of the route builder module.
 #>

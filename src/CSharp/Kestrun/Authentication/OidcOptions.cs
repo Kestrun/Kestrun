@@ -9,7 +9,7 @@ namespace Kestrun.Authentication;
 /// <summary>
 /// Options for OpenID Connect authentication.
 /// </summary>
-public class OidcOptions : OpenIdConnectOptions, IOpenApiAuthenticationOptions, IAuthenticationHostOptions
+public class OidcOptions : OpenIdConnectOptions, IOpenApiAuthenticationOptions, IAuthenticationHostOptions, IOAuthCommonOptions
 {
     /// <summary>
     /// Options for cookie authentication.

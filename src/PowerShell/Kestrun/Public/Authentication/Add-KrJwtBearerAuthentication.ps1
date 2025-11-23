@@ -8,6 +8,14 @@
     .PARAMETER AuthenticationScheme
         The name of the authentication scheme.
         This name is used to identify the authentication scheme in the Kestrun server configuration.
+    .PARAMETER DisplayName
+        The display name for the authentication scheme.
+        This name is shown in user interfaces and documentation.
+    .PARAMETER DocId
+        The documentation IDs to associate with this authentication scheme in OpenAPI documentation.
+    .PARAMETER Options
+        An instance of Kestrun.Authentication.JwtAuthOptions containing the JWT Bearer authentication configuration.
+        This parameter is mandatory when using the 'Options' parameter set.
     .PARAMETER ValidationParameter
         The token validation parameters used to validate incoming JWT tokens.
         This parameter is mandatory when using the 'ValParamOption' parameter set.

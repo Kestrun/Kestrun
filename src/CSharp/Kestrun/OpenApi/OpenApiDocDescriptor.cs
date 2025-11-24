@@ -2903,5 +2903,4 @@ public class OpenApiDocDescriptor
             Document.Security.Add(requirement);
         }
     }
-
 }

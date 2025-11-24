@@ -1020,7 +1020,6 @@ public static class KestrunHostAuthnExtensions
         );
     }
 
-
     /// <summary>
     /// Configures OAuth2 scopes and claim policies.
     /// </summary>

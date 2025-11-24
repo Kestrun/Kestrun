@@ -70,7 +70,6 @@ public class WindowsAuthOptions : NegotiateOptions, IOpenApiAuthenticationOption
             var domain = domainProp?.GetValue(ldapSettings) as string;
             if (!string.IsNullOrEmpty(domain))
             {
-
                 target.EnableLdap(domain);
             }
         }

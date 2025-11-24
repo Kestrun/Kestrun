@@ -1,6 +1,5 @@
 namespace Kestrun.Claims;
 
-
 /// <summary>
 /// Builder for defining claim-based authorization policies.
 /// </summary>

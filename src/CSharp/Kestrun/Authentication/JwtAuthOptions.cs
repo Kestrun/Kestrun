@@ -92,7 +92,6 @@ public class JwtAuthOptions : JwtBearerOptions, IOpenApiAuthenticationOptions, I
         target.ClaimPolicy = ClaimPolicy;
     }
 
-
     /// <summary>
     /// Helper to copy values from this JwtAuthOptions instance to a target JwtBearerOptions instance.
     /// </summary>

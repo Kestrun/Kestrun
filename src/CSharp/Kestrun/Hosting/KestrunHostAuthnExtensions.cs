@@ -1415,8 +1415,6 @@ public static class KestrunHostAuthnExtensions
         return policy != null;
     }
 
-
-
     /// <summary>
     /// HTTP message handler that logs all HTTP requests and responses for debugging.
     /// </summary>

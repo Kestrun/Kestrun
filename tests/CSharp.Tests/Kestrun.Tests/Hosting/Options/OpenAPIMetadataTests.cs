@@ -60,6 +60,9 @@ public class OpenAPIMetadataTests
     [Trait("Category", "Hosting")]
     public void RecordEquality_SameValues_ReturnsTrue()
     {
+        // Share the same Tags reference to ensure record equality
+        var sharedTags = new List<string>();
+
         var metadata1 = new OpenAPIMetadata(pattern: "/test")
         {
             Summary = "Test",
@@ -67,7 +70,7 @@ public class OpenAPIMetadataTests
             // Normalize properties that would otherwise differ by reference
             Servers = null,
             Parameters = null,
-            Tags = [],
+            Tags = sharedTags,
             Responses = null
         };
         var metadata2 = new OpenAPIMetadata(pattern: "/test")
@@ -76,7 +79,7 @@ public class OpenAPIMetadataTests
             OperationId = "Op1",
             Servers = null,
             Parameters = null,
-            Tags = [],
+            Tags = sharedTags,
             Responses = null
         };
 

@@ -60,7 +60,7 @@ function ConvertTo-KrYaml {
         }
     }
     end {
-        if ($d -eq $null -or $d.Count -eq 0) {
+        if ( $null -eq $d -or $d.Count -eq 0) {
             return
         }
         if ($d.Count -eq 1 -and !($KeepArray)) {

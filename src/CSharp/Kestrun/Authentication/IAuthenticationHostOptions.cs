@@ -10,7 +10,7 @@ public interface IAuthenticationHostOptions
     /// <summary>
     /// Gets or sets the logger used for authentication-related logging.
     /// </summary>
-    Serilog.ILogger Logger => Host.Logger;
+    Serilog.ILogger Logger { get; set; }
 
     /// <summary>
     /// Gets or sets the Kestrun host instance.

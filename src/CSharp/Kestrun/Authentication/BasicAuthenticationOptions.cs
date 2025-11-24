@@ -25,8 +25,12 @@ public partial class BasicAuthenticationOptions : AuthenticationSchemeOptions, I
     /// <inheritdoc/>
     public KestrunHost Host { get; set; } = default!;
 
+    private Serilog.ILogger? _logger;
     /// <inheritdoc/>
-    public Serilog.ILogger Logger => Host?.Logger ?? Serilog.Log.Logger;
+    public Serilog.ILogger Logger
+    {
+        get => _logger ?? (Host is null ? Serilog.Log.Logger : Host.Logger); set => _logger = value;
+    }
     /// <summary>
     /// Gets or sets the name of the HTTP header used for authentication.
     /// </summary>

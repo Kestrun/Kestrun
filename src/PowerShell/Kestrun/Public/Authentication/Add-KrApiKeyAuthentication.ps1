@@ -89,7 +89,7 @@ function Add-KrApiKeyAuthentication {
 
         [Parameter(Mandatory = $false, ParameterSetName = 'ScriptBlock')]
         [Parameter(Mandatory = $false, ParameterSetName = 'CodeInline')]
-        [Parameter(Mandatory = $true, ParameterSetName = 'StaticKey')]
+        [Parameter(Mandatory = $false, ParameterSetName = 'StaticKey')]
         [Parameter(Mandatory = $false, ParameterSetName = 'CodeFile')]
         [string]$Description,
 

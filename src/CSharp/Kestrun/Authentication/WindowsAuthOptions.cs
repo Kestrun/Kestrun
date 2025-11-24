@@ -29,6 +29,14 @@ public class WindowsAuthOptions : NegotiateOptions, IOpenApiAuthenticationOption
     /// </summary>
     public WindowsAuthProtocol Protocol { get; set; } = WindowsAuthProtocol.Negotiate;
 
+    private Serilog.ILogger? _logger;
+    /// <inheritdoc/>
+    public Serilog.ILogger Logger
+    {
+        get => _logger ?? (Host is null ? Serilog.Log.Logger : Host.Logger); set => _logger = value;
+    }
+
+
     /// <summary>
     /// Helper to copy values from a user-supplied WindowsAuthOptions instance to the instance
     /// </summary>

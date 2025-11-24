@@ -51,8 +51,12 @@ public class OidcOptions : OpenIdConnectOptions, IOpenApiAuthenticationOptions, 
     public KestrunHost Host { get; set; } = default!;
 #pragma warning restore IDE0370 // Remove unnecessary suppression
 
+    private Serilog.ILogger? _logger;
     /// <inheritdoc/>
-    public Serilog.ILogger Logger => Host.Logger;
+    public Serilog.ILogger Logger
+    {
+        get => _logger ?? (Host is null ? Serilog.Log.Logger : Host.Logger); set => _logger = value;
+    }
 
     /// <summary>
     /// Initializes a new instance of the <see cref="OidcOptions"/> class.

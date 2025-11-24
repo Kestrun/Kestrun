@@ -26,9 +26,12 @@ public class ApiKeyAuthenticationOptions() : AuthenticationSchemeOptions, IAuthe
     /// <inheritdoc/>
     public KestrunHost Host { get; set; } = default!;
 
+    private Serilog.ILogger? _logger;
     /// <inheritdoc/>
-    public Serilog.ILogger Logger => Host?.Logger ?? Serilog.Log.Logger;
-
+    public Serilog.ILogger Logger
+    {
+        get => _logger ?? (Host is null ? Serilog.Log.Logger : Host.Logger); set => _logger = value;
+    }
     /// <summary>
     /// Name of to look for the API key.
     /// </summary>
@@ -123,7 +126,6 @@ public class ApiKeyAuthenticationOptions() : AuthenticationSchemeOptions, IAuthe
     /// Each policy can specify a claim type and allowed values.
     /// </remarks>
     public ClaimPolicyConfig? ClaimPolicyConfig { get; set; }
-
 
     /// <summary>
     /// Helper to copy values from a user-supplied ApiKeyAuthenticationOptions instance to the instance

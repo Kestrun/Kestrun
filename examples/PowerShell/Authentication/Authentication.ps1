@@ -192,7 +192,7 @@ Add-KrApiKeyAuthentication -AuthenticationScheme $ApiKeyPowerShell -AllowInsecur
         new System.Security.Claims.Claim("can_create", "true")          // custom claim
     };
 
-'@ -ClaimPolicyConfig $claimConfig -Logger $logger
+'@ -ClaimPolicyConfig $claimConfig
 
 
 Add-KrApiKeyAuthentication -AuthenticationScheme $ApiKeyCSharp -AllowInsecureHttp -ApiKeyName 'X-Api-Key' -Code @'

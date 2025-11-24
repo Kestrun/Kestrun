@@ -1,19 +1,33 @@
+using System.Security.Claims;
 using Kestrun.Claims;
 using Kestrun.Hosting;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.IdentityModel.Tokens;
 
 namespace Kestrun.Authentication;
 
 /// <summary>
 /// Options for JWT-based authentication.
 /// </summary>
-public class JwtAuthOptions : JwtBearerOptions, IOpenApiAuthenticationOptions, IAuthenticationHostOptions
+public class JwtAuthOptions : JwtBearerOptions, IOpenApiAuthenticationOptions, IClaimsCommonOptions, IAuthenticationHostOptions
 {
     /// <summary>
     /// If true, allows cookie authentication over insecure HTTP connections.
     /// </summary>
     public bool AllowInsecureHttp { get; set; }
 
+    private Serilog.ILogger? _logger;
+    /// <inheritdoc/>
+    public Serilog.ILogger Logger
+    {
+        get => _logger ?? (Host is null ? Serilog.Log.Logger : Host.Logger); set => _logger = value;
+    }
+
+    /// <summary>
+    /// Gets or sets the token validation parameters.
+    /// </summary>
+    public TokenValidationParameters? ValidationParameters { get; set; }
+    
     /// <inheritdoc/>
     public string? DisplayName { get; set; }
 
@@ -29,13 +43,33 @@ public class JwtAuthOptions : JwtBearerOptions, IOpenApiAuthenticationOptions, I
     /// <inheritdoc/>
     public KestrunHost Host { get; set; } = default!;
 
-    /// <inheritdoc/>
-    public Serilog.ILogger Logger => Host.Logger;
-
     /// <summary>
     /// Configuration for claim policy enforcement.
     /// </summary>
     public ClaimPolicyConfig? ClaimPolicy { get; set; }
+
+    /// <summary>
+    /// After credentials are valid, this is called to add extra Claims.
+    /// Parameters: HttpContext, username → IEnumerable of extra claims.
+    /// </summary>
+    public Func<HttpContext, string, Task<IEnumerable<Claim>>>? IssueClaims { get; set; }
+
+    /// <summary>
+    /// Settings for the claims issuing code, if using a script.
+    /// </summary>
+    /// <remarks>
+    /// This allows you to specify the language, code, and additional imports/refs for claims issuance.
+    /// </remarks>
+    public AuthenticationCodeSettings IssueClaimsCodeSettings { get; set; } = new();
+
+    /// <summary>
+    /// Gets or sets the claim policy configuration.
+    /// </summary>
+    /// <remarks>
+    /// This allows you to define multiple authorization policies based on claims.
+    /// Each policy can specify a claim type and allowed values.
+    /// </remarks>
+    public ClaimPolicyConfig? ClaimPolicyConfig { get; set; }
 
     /// <summary>
     /// Helper to copy values from a user-supplied JwtBearerOptions instance to the instance

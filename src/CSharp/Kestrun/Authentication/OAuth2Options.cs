@@ -34,9 +34,6 @@ public class OAuth2Options : OAuthOptions, IOpenApiAuthenticationOptions, IAuthe
     public KestrunHost Host { get; set; } = default!;
 #pragma warning restore IDE0370 // Remove unnecessary suppression
 
-    /// <inheritdoc/>
-    public Serilog.ILogger Logger => Host.Logger;
-
     /// <summary>
     /// Initializes a new instance of the <see cref="OAuth2Options"/> class.
     /// </summary>
@@ -62,6 +59,13 @@ public class OAuth2Options : OAuthOptions, IOpenApiAuthenticationOptions, IAuthe
     /// Configuration for claim policy enforcement.
     /// </summary>
     public ClaimPolicyConfig? ClaimPolicy { get; set; }
+
+    private Serilog.ILogger? _logger;
+    /// <inheritdoc/>
+    public Serilog.ILogger Logger
+    {
+        get => _logger ?? (Host is null ? Serilog.Log.Logger : Host.Logger); set => _logger = value;
+    }
 
     /// <summary>
     /// Helper to copy values from a user-supplied OAuth2Options instance to the instance

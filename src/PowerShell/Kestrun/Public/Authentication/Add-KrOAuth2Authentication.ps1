@@ -90,7 +90,7 @@ function Add-KrOAuth2Authentication {
         $Server = Resolve-KestrunServer -Server $Server
     }
     process {
-        if ($Options -eq $null) {
+        if ($null -eq $Options) {
             # Build options from individual parameters if not provided
             $Options = [Kestrun.Authentication.OAuth2Options]::new()
         }

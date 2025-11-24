@@ -11,6 +11,8 @@
     Base scheme name (default 'GitHub').
 .PARAMETER DisplayName
     Display name for the authentication scheme.
+.PARAMETER Description
+    A description of the GitHub authentication scheme.
 .PARAMETER DocId
     Documentation IDs for the authentication scheme.
 .PARAMETER ClientId
@@ -45,6 +47,9 @@ function Add-KrGitHubAuthentication {
         [Parameter()]
         [string[]]$DocId = [Kestrun.Authentication.IOpenApiAuthenticationOptions]::DefaultDocumentationIds,
 
+        [Parameter()]
+        [string]$Description,
+
         [Parameter(Mandatory = $true)]
         [string]$ClientId,
         [Parameter(Mandatory = $true)]
@@ -61,6 +66,7 @@ function Add-KrGitHubAuthentication {
             $AuthenticationScheme,
             $DisplayName,
             $DocId,
+            $Description,
             $ClientId,
             $ClientSecret,
             $CallbackPath

@@ -19,4 +19,8 @@ public interface IAuthenticationHostOptions
     KestrunHost Host { get; set; }
 #pragma warning restore CS8767 // Nullability of reference types in type of parameter doesn't match implicitly implemented member (possibly because of nullability attributes).
 
+    /// <summary>
+    /// Gets or sets the display name for the authentication scheme.
+    /// </summary>
+    string? DisplayName { get; set; }
 }

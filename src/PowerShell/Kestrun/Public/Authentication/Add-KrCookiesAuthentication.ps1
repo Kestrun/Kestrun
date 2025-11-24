@@ -9,6 +9,8 @@
     The name of the cookie authentication scheme.
 .PARAMETER DisplayName
     The display name for the authentication scheme.
+.PARAMETER Description
+    A description of the cookie authentication scheme.
 .PARAMETER DocId
     Documentation IDs for the authentication scheme.
 .PARAMETER Options
@@ -67,9 +69,12 @@ function Add-KrCookiesAuthentication {
         [Parameter()]
         [string[]]$DocId = [Kestrun.Authentication.IOpenApiAuthenticationOptions]::DefaultDocumentationIds,
 
+        [Parameter(ParameterSetName = 'Items')]
+        [string] $Description,
+
         [Parameter(Mandatory = $true, ParameterSetName = 'Options')]
         [Microsoft.AspNetCore.Authentication.Cookies.CookieAuthenticationOptions]$Options,
-        
+
         [Parameter()]
         [Kestrun.Claims.ClaimPolicyConfig]$ClaimPolicy,
         [Parameter(ParameterSetName = 'Items')]
@@ -104,6 +109,10 @@ function Add-KrCookiesAuthentication {
             if ($PSBoundParameters.ContainsKey('ReturnUrlParameter')) { $Options.ReturnUrlParameter = $ReturnUrlParameter }
             if ($PSBoundParameters.ContainsKey('ExpireTimeSpan')) { $Options.ExpireTimeSpan = $ExpireTimeSpan }
             if ($PSBoundParameters.ContainsKey('Cookie')) { $Options.Cookie = $Cookie }
+
+            if (-not ([string]::IsNullOrWhiteSpace($Description))) {
+                $Options.Description = $Description
+            }
             # OpenAPI documentation IDs
             $Options.DocumentationId = $DocId
         }

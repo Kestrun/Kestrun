@@ -9,6 +9,8 @@
         The name of the basic authentication scheme.
     .PARAMETER DisplayName
         The display name of the basic authentication scheme.
+    .PARAMETER Description
+        A description of the basic authentication scheme.
     .PARAMETER DocId
         The documentation IDs to associate with this authentication scheme.
     .PARAMETER Options
@@ -79,6 +81,20 @@ function Add-KrBasicAuthentication {
 
         [Parameter(Mandatory = $true, ParameterSetName = 'Options')]
         [Kestrun.Authentication.BasicAuthenticationOptions]$Options,
+
+        [Parameter(ParameterSetName = 'v1')]
+        [Parameter(ParameterSetName = 'v1_i1')]
+        [Parameter(ParameterSetName = 'v1_i2')]
+        [Parameter(ParameterSetName = 'v1_i3')]
+        [Parameter(ParameterSetName = 'v2')]
+        [Parameter(ParameterSetName = 'v2_i1')]
+        [Parameter(ParameterSetName = 'v2_i2')]
+        [Parameter(ParameterSetName = 'v2_i3')]
+        [Parameter(ParameterSetName = 'v3')]
+        [Parameter(ParameterSetName = 'v3_i1')]
+        [Parameter(ParameterSetName = 'v3_i2')]
+        [Parameter(ParameterSetName = 'v3_i3')]
+        [string]$Description,
 
         [Parameter(Mandatory = $true, ParameterSetName = 'v1')]
         [Parameter(Mandatory = $true, ParameterSetName = 'v1_i1')]
@@ -282,6 +298,10 @@ function Add-KrBasicAuthentication {
             }
             if (-not [string]::IsNullOrWhiteSpace($Realm)) {
                 $Options.Realm = $Realm
+            }
+
+            if (-not ([string]::IsNullOrWhiteSpace($Description))) {
+                $Options.Description = $Description
             }
 
             $Options.AllowInsecureHttp = $AllowInsecureHttp.IsPresent

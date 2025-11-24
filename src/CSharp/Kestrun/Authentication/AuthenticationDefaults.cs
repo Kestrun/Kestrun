@@ -1,3 +1,5 @@
+using Microsoft.AspNetCore.Authentication.Negotiate;
+
 namespace Kestrun.Authentication;
 
 /// <summary>
@@ -101,4 +103,12 @@ public static class AuthenticationDefaults
     /// Cookies authentication display name.
     /// </summary>
     public const string CookiesDisplayName = "Cookies Authentication";
+    /// <summary>
+    /// Windows authentication scheme name.
+    /// </summary>
+    public const string WindowsSchemeName = NegotiateDefaults.AuthenticationScheme;
+    /// <summary>
+    /// Default display name for Windows authentication.
+    /// </summary>
+    public const string WindowsDisplayName = "Windows Authentication";
 }

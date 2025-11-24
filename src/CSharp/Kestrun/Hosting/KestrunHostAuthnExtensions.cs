@@ -224,6 +224,7 @@ public static class KestrunHostAuthnExtensions
     /// <param name="scheme">Base scheme name (e.g. "GitHub").</param>
     /// <param name="displayName">The display name for the authentication scheme.</param>
     /// <param name="documentationId">Documentation IDs for the authentication scheme.</param>
+    /// <param name="description">A description of the authentication scheme.</param>
     /// <param name="clientId">GitHub OAuth App Client ID.</param>
     /// <param name="clientSecret">GitHub OAuth App Client Secret.</param>
     /// <param name="callbackPath">The callback path for OAuth redirection (e.g. "/signin-github").</param>
@@ -233,6 +234,7 @@ public static class KestrunHostAuthnExtensions
         string scheme,
         string? displayName,
         string[]? documentationId,
+        string? description,
         string clientId,
         string clientSecret,
         string callbackPath)
@@ -240,6 +242,10 @@ public static class KestrunHostAuthnExtensions
         var opts = ConfigureGitHubOAuth2Options(host, clientId, clientSecret, callbackPath);
         ConfigureGitHubClaimMappings(opts);
         opts.DocumentationId = documentationId ?? [];
+        if (!string.IsNullOrWhiteSpace(description))
+        {
+            opts.Description = description;
+        }
         opts.Events = new OAuthEvents
         {
             OnCreatingTicket = async context =>
@@ -632,6 +638,50 @@ public static class KestrunHostAuthnExtensions
     */
 
     #region Windows Authentication
+
+    /// <summary>
+    /// Adds Windows Authentication to the Kestrun host.
+    /// <para>The authentication scheme name is <see cref="NegotiateDefaults.AuthenticationScheme"/>.
+    /// This enables Kerberos and NTLM authentication.</para>
+    /// </summary>
+    /// <param name="host">The Kestrun host instance.</param>
+    /// <param name="authenticationScheme">The authentication scheme name (default is NegotiateDefaults.AuthenticationScheme).</param>
+    /// <param name="displayName">The display name for the authentication scheme.</param>
+    /// <param name="configureOptions">The WindowsAuthOptions object to configure the authentication.</param>
+    /// <returns>The configured KestrunHost instance.</returns>
+    public static KestrunHost AddWindowsAuthentication(
+       this KestrunHost host,
+       string authenticationScheme = AuthenticationDefaults.WindowsSchemeName,
+       string? displayName = AuthenticationDefaults.WindowsDisplayName,
+       Action<WindowsAuthOptions>? configureOptions = null)
+    {
+        // Build a prototype options instance (single source of truth)
+        var prototype = new WindowsAuthOptions { Host = host };
+        configureOptions?.Invoke(prototype);
+        ConfigureOpenApi(host, authenticationScheme, prototype);
+
+        // register in host for introspection
+        _ = host.RegisteredAuthentications.Register(authenticationScheme, AuthenticationType.Cookie, prototype);
+
+        // Add authentication
+        return host.AddAuthentication(
+            defaultScheme: authenticationScheme,
+            buildSchemes: ab =>
+            {
+                _ = ab.AddNegotiate(
+                    authenticationScheme: authenticationScheme,
+                    displayName: displayName,
+                    configureOptions: opts =>
+                    {
+                        // Copy everything from the prototype into the real options instance
+                        prototype.ApplyTo(opts);
+
+                        host.Logger.Debug("Configured Windows Authentication using scheme {Scheme}", authenticationScheme);
+                    }
+                );
+            }
+        );
+    }
     /// <summary>
     /// Adds Windows Authentication to the Kestrun host.
     /// <para>
@@ -640,22 +690,53 @@ public static class KestrunHostAuthnExtensions
     /// </para>
     /// </summary>
     /// <param name="host">The Kestrun host instance.</param>
+    /// <param name="authenticationScheme">The authentication scheme name (default is NegotiateDefaults.AuthenticationScheme).</param>
+    /// <param name="displayName">The display name for the authentication scheme.</param>
+    /// <param name="configureOptions">The WindowsAuthOptions object to configure the authentication.</param>
     /// <returns>The configured KestrunHost instance.</returns>
-    public static KestrunHost AddWindowsAuthentication(this KestrunHost host)
+    public static KestrunHost AddWindowsAuthentication(
+        this KestrunHost host,
+        string authenticationScheme = AuthenticationDefaults.WindowsSchemeName,
+        string? displayName = AuthenticationDefaults.WindowsDisplayName,
+        WindowsAuthOptions? configureOptions = null)
     {
-        var options = new AuthenticationSchemeOptions();
-        //register in host for introspection
-        _ = host.RegisteredAuthentications.Register("Windows", AuthenticationType.Windows, options);
-
+        if (host.Logger.IsEnabled(LogEventLevel.Debug))
+        {
+            host.Logger.Debug("Adding Cookie Authentication with scheme: {Scheme}", authenticationScheme);
+        }
+        // Ensure the scheme is not null
+        ArgumentNullException.ThrowIfNull(host);
+        ArgumentNullException.ThrowIfNull(configureOptions);
+        // Ensure host is set
+        if (configureOptions.Host != host)
+        {
+            configureOptions.Host = host;
+        }
         // Add authentication
-        return host.AddAuthentication(
-            defaultScheme: NegotiateDefaults.AuthenticationScheme,
-            buildSchemes: ab =>
-            {
-                _ = ab.AddNegotiate();
-            }
-        );
+        return host.AddWindowsAuthentication(
+           authenticationScheme: authenticationScheme,
+           displayName: displayName,
+           configureOptions: opts =>
+           {
+               // Copy relevant properties from provided options instance to the framework-created one
+               configureOptions.ApplyTo(opts);
+           }
+       );
     }
+
+    /// <summary>
+    /// Adds Windows Authentication to the Kestrun host.
+    /// <para>The authentication scheme name is <see cref="NegotiateDefaults.AuthenticationScheme"/>.
+    /// This enables Kerberos and NTLM authentication.</para>
+    /// </summary>
+    /// <param name="host"> The Kestrun host instance.</param>
+    /// <returns> The configured KestrunHost instance.</returns>
+    public static KestrunHost AddWindowsAuthentication(this KestrunHost host) =>
+        host.AddWindowsAuthentication(
+            AuthenticationDefaults.WindowsSchemeName,
+            AuthenticationDefaults.WindowsDisplayName,
+            (Action<WindowsAuthOptions>?)null);
+
     #endregion
     #region API Key Authentication
     /// <summary>

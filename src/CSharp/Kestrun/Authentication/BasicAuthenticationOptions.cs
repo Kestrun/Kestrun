@@ -11,6 +11,22 @@ namespace Kestrun.Authentication;
 /// </summary>
 public partial class BasicAuthenticationOptions : AuthenticationSchemeOptions, IAuthenticationCommonOptions, IOpenApiAuthenticationOptions, IAuthenticationHostOptions
 {
+    /// <inheritdoc/>
+    public string? DisplayName { get; set; }
+    /// <inheritdoc/>
+    public bool GlobalScheme { get; set; }
+
+    /// <inheritdoc/>
+    public string? Description { get; set; }
+
+    /// <inheritdoc/>
+    public string[] DocumentationId { get; set; } = [];
+
+    /// <inheritdoc/>
+    public KestrunHost Host { get; set; } = default!;
+
+    /// <inheritdoc/>
+    public Serilog.ILogger Logger => Host?.Logger ?? Serilog.Log.Logger;
     /// <summary>
     /// Gets or sets the name of the HTTP header used for authentication.
     /// </summary>
@@ -79,22 +95,6 @@ public partial class BasicAuthenticationOptions : AuthenticationSchemeOptions, I
     /// Each policy can specify a claim type and allowed values.
     /// </remarks>
     public ClaimPolicyConfig? ClaimPolicyConfig { get; set; }
-
-    /// <inheritdoc/>
-    public bool GlobalScheme { get; set; }
-
-    /// <inheritdoc/>
-    public string? Description { get; set; }
-
-    /// <inheritdoc/>
-    public string[] DocumentationId { get; set; } = [];
-
-    /// <inheritdoc/>
-    public KestrunHost Host { get; set; } = default!;
-
-    /// <inheritdoc/>
-    public Serilog.ILogger Logger => Host?.Logger ?? Serilog.Log.Logger;
-
 
     /// <summary>
     /// Helper to copy values from a user-supplied BasicAuthenticationOptions instance to the instance

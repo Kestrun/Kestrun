@@ -9,6 +9,8 @@
         The name of the API key authentication scheme.
     .PARAMETER DisplayName
         The display name of the API key authentication scheme.
+    .PARAMETER Description
+        A description of the API key authentication scheme.
     .PARAMETER DocId
         The documentation IDs to associate with this authentication scheme in OpenAPI documentation.
     .PARAMETER Options
@@ -84,6 +86,12 @@ function Add-KrApiKeyAuthentication {
 
         [Parameter()]
         [string]$DisplayName = [Kestrun.Authentication.AuthenticationDefaults]::ApiKeyDisplayName,
+
+        [Parameter(Mandatory = $false, ParameterSetName = 'ScriptBlock')]
+        [Parameter(Mandatory = $false, ParameterSetName = 'CodeInline')]
+        [Parameter(Mandatory = $true, ParameterSetName = 'StaticKey')]
+        [Parameter(Mandatory = $false, ParameterSetName = 'CodeFile')]
+        [string]$Description,
 
         [Parameter()]
         [string[]]$DocId = [Kestrun.Authentication.IOpenApiAuthenticationOptions]::DefaultDocumentationIds,
@@ -217,7 +225,9 @@ function Add-KrApiKeyAuthentication {
                 $Options.ClaimPolicyConfig = $ClaimPolicyConfig
             }
 
-
+            if (-not ([string]::IsNullOrWhiteSpace($Description))) {
+                $Options.Description = $Description
+            }
 
             # Optional issue-claims settings (single-choice)
             $issueModes = @()

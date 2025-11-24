@@ -13,6 +13,8 @@
         This name is shown in user interfaces and documentation.
     .PARAMETER DocId
         The documentation IDs to associate with this authentication scheme in OpenAPI documentation.
+    .PARAMETER Description
+        A description of the JWT Bearer authentication scheme.
     .PARAMETER Options
         An instance of Kestrun.Authentication.JwtAuthOptions containing the JWT Bearer authentication configuration.
         This parameter is mandatory when using the 'Options' parameter set.
@@ -95,6 +97,9 @@ function Add-KrJWTBearerAuthentication {
         [Parameter()]
         [string[]]$DocId = [Kestrun.Authentication.IOpenApiAuthenticationOptions]::DefaultDocumentationIds,
 
+        [Parameter(ParameterSetName = 'Items')]
+        [string] $Description,
+
         [Parameter(Mandatory = $true, ParameterSetName = 'Options')]
         [Kestrun.Authentication.JwtAuthOptions]$Options,
 
@@ -171,6 +176,7 @@ function Add-KrJWTBearerAuthentication {
                 if ($PSBoundParameters.ContainsKey('IssuerSigningKeys')) { $ValidationParameter.IssuerSigningKeys = $IssuerSigningKeys }
 
                 if ($PSBoundParameters.ContainsKey('ClockSkew')) { $ValidationParameter.ClockSkew = $ClockSkew }
+                if (-not ([string]::IsNullOrWhiteSpace($Description))) { $Options.Description = $Description }
                 # Map inbound claims
                 $ValidationParameter.MapInboundClaims = $MapInboundClaims.IsPresent
                 # Save token

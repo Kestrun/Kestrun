@@ -10,6 +10,8 @@
     The name of the OAuth authentication scheme (e.g., 'MyOAuth').
 .PARAMETER DisplayName
     The display name for the authentication scheme (e.g., 'GitHub Login').
+.PARAMETER Description
+    A description of the OAuth authentication scheme.
 .PARAMETER ClientId
     The OAuth client ID.
 .PARAMETER ClientSecret
@@ -49,6 +51,9 @@ function Add-KrOAuth2Authentication {
 
         [Parameter(Mandatory = $false)]
         [string]$DisplayName = [Kestrun.Authentication.AuthenticationDefaults]::OAuth2DisplayName,
+
+        [Parameter(Mandatory = $false)]
+        [string]$Description,
 
         [Parameter(Mandatory = $false)]
         [string]$ClientId,
@@ -96,8 +101,10 @@ function Add-KrOAuth2Authentication {
         if ($TokenEndpoint) { $Options.TokenEndpoint = $TokenEndpoint }
         if ($CallbackPath) { $Options.CallbackPath = $CallbackPath }
         if ($ClaimPolicy) { $Options.ClaimPolicy = $ClaimPolicy }
+        if ($Description) { $Options.Description = $Description }
+
         $Options.SaveTokens = $SaveTokens.IsPresent
-          $Options.UsePkce = $UsePkce.IsPresent
+        $Options.UsePkce = $UsePkce.IsPresent
 
         # Bridge to your C# extension (parallel to AddCookieAuthentication)
         [Kestrun.Hosting.KestrunHostAuthnExtensions]::AddOAuth2Authentication(

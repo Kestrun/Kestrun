@@ -11,6 +11,8 @@
     Base scheme name (default 'Oidc').
 .PARAMETER DisplayName
     The display name for the authentication scheme (default is the OpenID Connect default display name).
+.PARAMETER Description
+    A description of the OpenID Connect authentication scheme.
 .PARAMETER Authority
     The OpenID Connect authority URL.
 .PARAMETER ClientId
@@ -57,6 +59,9 @@ function Add-KrOpenIdConnectAuthentication {
 
         [Parameter(Mandatory = $false)]
         [string]$DisplayName = [Kestrun.Authentication.AuthenticationDefaults]::OidcDisplayName,
+
+        [Parameter(Mandatory = $false)]
+        [string]$Description,
 
         [Parameter(Mandatory = $false)]
         [string]$Authority,
@@ -118,6 +123,7 @@ function Add-KrOpenIdConnectAuthentication {
         if ($SignedOutCallbackPath) { $Options.SignedOutCallbackPath = $SignedOutCallbackPath }
         if ($ClaimPolicy) { $Options.ClaimPolicy = $ClaimPolicy }
         if ($ResponseType) { $Options.ResponseType = $ResponseType }
+        if ($Description) { $Options.Description = $Description }
         $Options.SaveTokens = $SaveTokens.IsPresent
         $Options.UsePkce = $UsePkce.IsPresent
         $Options.GetClaimsFromUserInfoEndpoint = $GetClaimsFromUserInfoEndpoint.IsPresent

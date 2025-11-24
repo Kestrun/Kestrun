@@ -12,6 +12,23 @@ namespace Kestrun.Authentication;
 /// </summary>
 public class ApiKeyAuthenticationOptions() : AuthenticationSchemeOptions, IAuthenticationCommonOptions, IAuthenticationHostOptions, IOpenApiAuthenticationOptions
 {
+    /// <inheritdoc/>
+    public string? DisplayName { get; set; }
+    /// <inheritdoc/>
+    public bool GlobalScheme { get; set; }
+
+    /// <inheritdoc/>
+    public string? Description { get; set; }
+
+    /// <inheritdoc/>
+    public string[] DocumentationId { get; set; } = [];
+
+    /// <inheritdoc/>
+    public KestrunHost Host { get; set; } = default!;
+
+    /// <inheritdoc/>
+    public Serilog.ILogger Logger => Host?.Logger ?? Serilog.Log.Logger;
+
     /// <summary>
     /// Name of to look for the API key.
     /// </summary>
@@ -106,21 +123,6 @@ public class ApiKeyAuthenticationOptions() : AuthenticationSchemeOptions, IAuthe
     /// Each policy can specify a claim type and allowed values.
     /// </remarks>
     public ClaimPolicyConfig? ClaimPolicyConfig { get; set; }
-
-    /// <inheritdoc/>
-    public bool GlobalScheme { get; set; }
-
-    /// <inheritdoc/>
-    public string? Description { get; set; }
-
-    /// <inheritdoc/>
-    public string[] DocumentationId { get; set; } = [];
-
-    /// <inheritdoc/>
-    public KestrunHost Host { get; set; } = default!;
-
-    /// <inheritdoc/>
-    public Serilog.ILogger Logger => Host?.Logger ?? Serilog.Log.Logger;
 
 
     /// <summary>

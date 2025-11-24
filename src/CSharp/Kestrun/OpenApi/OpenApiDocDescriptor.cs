@@ -2730,11 +2730,26 @@ public class OpenApiDocDescriptor
             JwtAuthOptions jwtOptions => GetSecurityScheme(jwtOptions),
             OAuth2Options oauth2Options => GetSecurityScheme(oauth2Options),
             OidcOptions oidcOptions => GetSecurityScheme(oidcOptions),
+            WindowsAuthOptions windowsOptions => GetSecurityScheme(windowsOptions),
             _ => throw new NotSupportedException($"Unsupported authentication options type: {options.GetType().FullName}"),
         };
         AddSecurityComponent(scheme: scheme, globalScheme: options.GlobalScheme, securityScheme: securityScheme);
     }
 
+    /// <summary>
+    /// Gets the OpenAPI security scheme for Windows authentication.
+    /// </summary>
+    /// <param name="options">The Windows authentication options.</param>
+    /// <returns>The OpenAPI security scheme for Windows authentication.</returns>
+    private static OpenApiSecurityScheme GetSecurityScheme(WindowsAuthOptions options)
+    {
+        return new OpenApiSecurityScheme()
+        {
+            Type = SecuritySchemeType.Http,
+            Scheme = options.Protocol == WindowsAuthProtocol.Ntlm ? "ntlm" : "negotiate",
+            Description = options.Description
+        };
+    }
 
     /// <summary>
     /// Gets the OpenAPI security scheme for OIDC authentication.

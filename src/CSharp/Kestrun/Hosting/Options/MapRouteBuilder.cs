@@ -63,7 +63,6 @@ public class MapRouteBuilder : MapRouteOptions
         ScriptCode.Code = scriptBlock.Ast.Extent.Text;
         ScriptCode.Language = ScriptLanguage.PowerShell;
         return this;
-
     }
 
     /// <summary>

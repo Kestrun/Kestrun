@@ -36,7 +36,6 @@ public class WindowsAuthOptions : NegotiateOptions, IOpenApiAuthenticationOption
         get => _logger ?? (Host is null ? Serilog.Log.Logger : Host.Logger); set => _logger = value;
     }
 
-
     /// <summary>
     /// Helper to copy values from a user-supplied WindowsAuthOptions instance to the instance
     /// </summary>

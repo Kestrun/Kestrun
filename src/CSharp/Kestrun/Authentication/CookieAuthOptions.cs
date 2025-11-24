@@ -35,7 +35,6 @@ public class CookieAuthOptions : CookieAuthenticationOptions, IOpenApiAuthentica
         get => _logger ?? (Host is null ? Serilog.Log.Logger : Host.Logger); set => _logger = value;
     }
 
-
     /// <summary>
     /// Helper to copy values from a user-supplied CookieAuthenticationOptions instance to the instance
     /// created by the framework inside AddCookie(). Reassigning the local variable (opts = source) would
@@ -55,7 +54,6 @@ public class CookieAuthOptions : CookieAuthenticationOptions, IOpenApiAuthentica
         target.DisplayName = DisplayName;
         target.Host = Host;
     }
-
 
     /// <summary>
     /// Helper to copy values from this CookieAuthOptions instance to a target CookieAuthenticationOptions instance.

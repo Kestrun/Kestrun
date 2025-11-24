@@ -74,7 +74,6 @@ public class OidcOptions : OpenIdConnectOptions, IOpenApiAuthenticationOptions, 
     /// </summary>
     public string AuthenticationScheme { get; set; } = AuthenticationDefaults.OidcSchemeName;
 
-
     /// <summary>
     /// Configuration for claim policy enforcement.
     /// </summary>

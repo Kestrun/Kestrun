@@ -598,16 +598,4 @@ public class MapRouteBuilder : MapRouteOptions
 
         return this;
     }
-
-
-
-
-
-
-
-
-
-
 }
-
-

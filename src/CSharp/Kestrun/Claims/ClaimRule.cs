@@ -1,6 +1,5 @@
 namespace Kestrun.Claims;
 
-
 /// <summary>Represents one claim must equal rule.</summary>
 /// <remarks>
 /// This is used to define authorization policies that require a specific claim type

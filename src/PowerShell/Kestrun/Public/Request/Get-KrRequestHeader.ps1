@@ -36,7 +36,7 @@
 #>
 function Get-KrRequestHeader {
     [KestrunRuntimeApi('Route')]
-    [CmdletBinding()]
+    [CmdletBinding(DefaultParameterSetName = 'default')]
     [OutputType([string])]
     [OutputType([int])]
     [OutputType([bool])]
@@ -80,6 +80,7 @@ function Get-KrRequestHeader {
         if ($AsString) {
             return $value.ToString()
         }
+        # Default: return as-is (string or array of strings)
         return $value
     } else {
         # Outside of route context

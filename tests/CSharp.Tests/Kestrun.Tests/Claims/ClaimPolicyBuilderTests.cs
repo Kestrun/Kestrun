@@ -95,7 +95,7 @@ public class ClaimPolicyBuilderTests
     public void AddPolicy_Throws_On_Null_Rule()
     {
         var builder = new ClaimPolicyBuilder();
-        _ = Assert.Throws<ArgumentNullException>(() => builder.AddPolicy("P", (ClaimRule)null!));
+        _ = Assert.Throws<ArgumentNullException>(() => builder.AddPolicy("P", null!));
     }
 
     [Fact]

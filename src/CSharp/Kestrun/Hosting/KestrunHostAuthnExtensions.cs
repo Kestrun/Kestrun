@@ -110,10 +110,7 @@ public static class KestrunHostAuthnExtensions
         return host.AddBasicAuthentication(
             scheme: scheme,
             displayName: displayName,
-            configure: opts =>
-            {
-                configure.ApplyTo(opts);
-            }
+            configure: configure.ApplyTo
         );
     }
 
@@ -604,14 +601,11 @@ public static class KestrunHostAuthnExtensions
         {
             configureOptions.Host = host;
         }
+        // Copy relevant properties from provided options instance to the framework-created one
         return host.AddCookieAuthentication(
             authenticationScheme: authenticationScheme,
             displayName: displayName,
-            configureOptions: opts =>
-            {
-                // Copy relevant properties from provided options instance to the framework-created one
-                configureOptions.ApplyTo(opts);
-            },
+            configureOptions: configureOptions.ApplyTo,
             claimPolicy: claimPolicy
         );
     }
@@ -712,15 +706,12 @@ public static class KestrunHostAuthnExtensions
         {
             configureOptions.Host = host;
         }
+        // Copy relevant properties from provided options instance to the framework-created one
         // Add authentication
         return host.AddWindowsAuthentication(
            authenticationScheme: authenticationScheme,
            displayName: displayName,
-           configureOptions: opts =>
-           {
-               // Copy relevant properties from provided options instance to the framework-created one
-               configureOptions.ApplyTo(opts);
-           }
+           configureOptions: configureOptions.ApplyTo
        );
     }
 
@@ -827,14 +818,11 @@ public static class KestrunHostAuthnExtensions
         {
             configureOptions.Host = host;
         }
+        // Copy properties from the provided configure object
         return host.AddApiKeyAuthentication(
             authenticationScheme: authenticationScheme,
             displayName: displayName,
-            configureOptions: opts =>
-            {
-                // Copy properties from the provided configure object
-                configureOptions.ApplyTo(opts);
-            }
+            configureOptions: configureOptions.ApplyTo
         );
     }
 

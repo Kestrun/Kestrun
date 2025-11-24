@@ -835,7 +835,7 @@ public static partial class KestrunHostMapExtensions
     /// <param name="options">The mapping options.</param>
     private static void ApplyAuthSchemes(KestrunHost host, IEndpointConventionBuilder map, MapRouteOptions options)
     {
-        if (options.RequireSchemes is not null && options.RequireSchemes.Any())
+        if (options.RequireSchemes is not null && options.RequireSchemes.Count != 0)
         {
             foreach (var schema in options.RequireSchemes)
             {
@@ -864,7 +864,7 @@ public static partial class KestrunHostMapExtensions
     /// <param name="options">The mapping options.</param>
     private static void ApplyPolicies(KestrunHost host, IEndpointConventionBuilder map, MapRouteOptions options)
     {
-        if (options.RequirePolicies is not null && options.RequirePolicies.Any())
+        if (options.RequirePolicies is not null && options.RequirePolicies.Count != 0)
         {
             foreach (var policy in options.RequirePolicies)
             {

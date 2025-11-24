@@ -27,7 +27,7 @@ public class JwtAuthOptions : JwtBearerOptions, IOpenApiAuthenticationOptions, I
     /// Gets or sets the token validation parameters.
     /// </summary>
     public TokenValidationParameters? ValidationParameters { get; set; }
-    
+
     /// <inheritdoc/>
     public string? DisplayName { get; set; }
 

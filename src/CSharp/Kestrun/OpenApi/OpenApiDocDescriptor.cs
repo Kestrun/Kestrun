@@ -591,6 +591,12 @@ public class OpenApiDocDescriptor
         var def = Activator.CreateInstance(t);
         return value.Equals(def);
     }
+
+    /// <summary>
+    /// Builds and adds the schema for a given type to the document components.
+    /// </summary>
+    /// <param name="t">The type to build the schema for.</param>
+    /// <param name="built">The set of already built types to avoid recursion.</param>
     private void BuildSchema(Type t, HashSet<Type>? built = null)
     {
         if (Document.Components is not null && Document.Components.Schemas is not null)
@@ -599,6 +605,12 @@ public class OpenApiDocDescriptor
         }
     }
 
+    /// <summary>
+    /// Builds the schema for a property, handling nullable types and complex types.
+    /// </summary>
+    /// <param name="p">The property info.</param>
+    /// <param name="built">The set of already built types to avoid recursion.</param>
+    /// <returns>The constructed OpenAPI schema for the property.</returns>
     private IOpenApiSchema BuildPropertySchema(PropertyInfo p, HashSet<Type> built)
     {
         var pt = p.PropertyType;
@@ -610,74 +622,89 @@ public class OpenApiDocDescriptor
             pt = underlying;
         }
 
-        // complex type -> $ref via OpenApiSchemaReference
-        if (!IsPrimitiveLike(pt) && !pt.IsEnum && !pt.IsArray)
+        // Determine schema type and build accordingly
+        var schema = (!IsPrimitiveLike(pt) && !pt.IsEnum && !pt.IsArray)
+            ? BuildComplexTypeSchema(pt, p, built)
+            : pt.IsEnum
+                ? BuildEnumSchema(pt, p)
+                : pt.IsArray
+                    ? BuildArraySchema(pt, p, built)
+                    : BuildPrimitiveSchema(pt, p);
+
+        // Apply nullable flag if needed
+        if (allowNull && schema is OpenApiSchema s)
         {
-            BuildSchema(pt, built); // ensure component exists
-            var refSchema = new OpenApiSchemaReference(pt.Name);
-            ApplySchemaAttr(p.GetCustomAttribute<OpenApiPropertyAttribute>(), refSchema);
-            return refSchema;
+            s.Type |= JsonSchemaType.Null;
         }
 
-        // enum
-        if (pt.IsEnum)
+        return schema;
+    }
+
+    /// <summary>
+    /// Builds the schema for a complex type property.
+    /// </summary>
+    /// <param name="pt">The property type.</param>
+    /// <param name="p">The property info.</param>
+    /// <param name="built">The set of already built types to avoid recursion.</param>
+    /// <returns>The constructed OpenAPI schema for the complex type property.</returns>
+    private IOpenApiSchema BuildComplexTypeSchema(Type pt, PropertyInfo p, HashSet<Type> built)
+    {
+        BuildSchema(pt, built); // ensure component exists
+        var refSchema = new OpenApiSchemaReference(pt.Name);
+        ApplySchemaAttr(p.GetCustomAttribute<OpenApiPropertyAttribute>(), refSchema);
+        return refSchema;
+    }
+
+    /// <summary>
+    /// Builds the schema for an enum property.
+    /// </summary>
+    /// <param name="pt">The property type.</param>
+    /// <param name="p">The property info.</param>
+    /// <returns>The constructed OpenAPI schema for the enum property.</returns>
+    private static IOpenApiSchema BuildEnumSchema(Type pt, PropertyInfo p)
+    {
+        var s = new OpenApiSchema
         {
-            var s = new OpenApiSchema
-            {
-                Type = JsonSchemaType.String,
-                Enum = [.. pt.GetEnumNames().Select(n => (JsonNode)n)]
-            };
-            var attrs = p.GetCustomAttributes<OpenApiPropertyAttribute>(inherit: false).ToArray();
-            var a = MergeSchemaAttributes(attrs);
-            ApplySchemaAttr(a, s);
-            ApplyPowerShellValidationAttributes(p, s);
-            if (allowNull)
-            {
-                s.Type |= JsonSchemaType.Null;
-            }
-            return s;
+            Type = JsonSchemaType.String,
+            Enum = [.. pt.GetEnumNames().Select(n => (JsonNode)n)]
+        };
+        var attrs = p.GetCustomAttributes<OpenApiPropertyAttribute>(inherit: false).ToArray();
+        var a = MergeSchemaAttributes(attrs);
+        ApplySchemaAttr(a, s);
+        ApplyPowerShellValidationAttributes(p, s);
+        return s;
+    }
+
+    private IOpenApiSchema BuildArraySchema(Type pt, PropertyInfo p, HashSet<Type> built)
+    {
+        var item = pt.GetElementType()!;
+        IOpenApiSchema itemSchema;
+
+        if (!IsPrimitiveLike(item) && !item.IsEnum)
+        {
+            BuildSchema(item, built);
+            itemSchema = new OpenApiSchemaReference(item.Name);
+        }
+        else
+        {
+            itemSchema = InferPrimitiveSchema(item);
         }
 
-        // array
-        if (pt.IsArray)
+        var s = new OpenApiSchema
         {
-            var item = pt.GetElementType()!;
-            IOpenApiSchema itemSchema;
+            Type = JsonSchemaType.Array,
+            Items = itemSchema
+        };
+        ApplySchemaAttr(p.GetCustomAttribute<OpenApiPropertyAttribute>(), s);
+        ApplyPowerShellValidationAttributes(p, s);
+        return s;
+    }
 
-            if (!IsPrimitiveLike(item) && !item.IsEnum)
-            {
-                // ensure the component exists
-                BuildSchema(item, built);
-                // then reference it
-                itemSchema = new OpenApiSchemaReference(item.Name);
-            }
-            else
-            {
-                itemSchema = InferPrimitiveSchema(item);
-            }
-            // then build the array schema
-            var s = new OpenApiSchema
-            {
-                Type = JsonSchemaType.Array,
-                Items = itemSchema
-            };
-            ApplySchemaAttr(p.GetCustomAttribute<OpenApiPropertyAttribute>(), s);
-            ApplyPowerShellValidationAttributes(p, s);
-            if (allowNull)
-            {
-                s.Type |= JsonSchemaType.Null;
-            }
-            return s;
-        }
-
-        // primitive
+    private IOpenApiSchema BuildPrimitiveSchema(Type pt, PropertyInfo p)
+    {
         var prim = InferPrimitiveSchema(pt);
         ApplySchemaAttr(p.GetCustomAttribute<OpenApiPropertyAttribute>(), prim);
         ApplyPowerShellValidationAttributes(p, prim);
-        if (allowNull)
-        {
-            prim.Type |= JsonSchemaType.Null;
-        }
         return prim;
     }
 
@@ -809,75 +836,75 @@ public class OpenApiDocDescriptor
     /// <returns>The inferred OpenApiSchema.</returns>
     private static OpenApiSchema InferPrimitiveSchema(Type t)
     {
-        if (t == typeof(string))
+        // Direct type mappings
+        if (PrimitiveSchemaMap.TryGetValue(t, out var schemaFactory))
         {
-            return new OpenApiSchema { Type = JsonSchemaType.String };
+            return schemaFactory();
         }
 
-        if (t == typeof(bool))
-        {
-            return new OpenApiSchema { Type = JsonSchemaType.Boolean };
-        }
-
-        // Integer types
-        if (t == typeof(int) || t == typeof(short) || t == typeof(byte))
+        // Group checks for integer types
+        if (IsInt32Type(t))
         {
             return new OpenApiSchema { Type = JsonSchemaType.Integer, Format = "int32" };
         }
-        if (t == typeof(long))
-        {
-            return new OpenApiSchema { Type = JsonSchemaType.Integer, Format = "int64" };
-        }
 
-        if (t == typeof(float) || t == typeof(double) || t == typeof(decimal))
+        if (IsNumericType(t))
         {
             return new OpenApiSchema { Type = JsonSchemaType.Number };
         }
 
-        if (t == typeof(DateTime))
-        {
-            return new OpenApiSchema { Type = JsonSchemaType.String, Format = "date-time" };
-        }
-
-        if (t == typeof(object))
-        {
-            return new OpenApiSchema { Type = JsonSchemaType.Object };
-        }
-        if (t == typeof(void))
-        {
-            return new OpenApiSchema { Type = JsonSchemaType.Null };
-        }
-        if (t == typeof(char))
-        {
-            return new OpenApiSchema { Type = JsonSchemaType.String, MaxLength = 1, MinLength = 1 };
-        }
-        if (t == typeof(sbyte) || t == typeof(ushort) || t == typeof(uint) || t == typeof(ulong))
+        if (IsUnsignedIntegerType(t))
         {
             return new OpenApiSchema { Type = JsonSchemaType.Integer };
         }
-        if (t == typeof(DateTimeOffset))
-        {
-            return new OpenApiSchema { Type = JsonSchemaType.String, Format = "date-time" };
-        }
-        if (t == typeof(TimeSpan))
-        {
-            return new OpenApiSchema { Type = JsonSchemaType.String, Format = "duration" };
-        }
-        if (t == typeof(byte[]))
-        {
-            return new OpenApiSchema { Type = JsonSchemaType.String, Format = "byte" };
-        }
-        if (t == typeof(Uri))
-        {
-            return new OpenApiSchema { Type = JsonSchemaType.String, Format = "uri" };
-        }
-        if (t == typeof(Guid))
-        {
-            return new OpenApiSchema { Type = JsonSchemaType.String, Format = "uuid" };
-        }
+
         // Fallback
         return new OpenApiSchema { Type = JsonSchemaType.String };
     }
+
+    /// <summary>
+    /// Mapping of .NET primitive types to OpenAPI schema definitions.
+    /// </summary>
+    /// <remarks>
+    /// This dictionary maps common .NET primitive types to their corresponding OpenAPI schema representations.
+    /// Each entry consists of a .NET type as the key and a function that returns an OpenApiSchema as the value.
+    /// </remarks>
+    private static readonly Dictionary<Type, Func<OpenApiSchema>> PrimitiveSchemaMap = new()
+    {
+        [typeof(string)] = () => new OpenApiSchema { Type = JsonSchemaType.String },
+        [typeof(bool)] = () => new OpenApiSchema { Type = JsonSchemaType.Boolean },
+        [typeof(long)] = () => new OpenApiSchema { Type = JsonSchemaType.Integer, Format = "int64" },
+        [typeof(DateTime)] = () => new OpenApiSchema { Type = JsonSchemaType.String, Format = "date-time" },
+        [typeof(DateTimeOffset)] = () => new OpenApiSchema { Type = JsonSchemaType.String, Format = "date-time" },
+        [typeof(TimeSpan)] = () => new OpenApiSchema { Type = JsonSchemaType.String, Format = "duration" },
+        [typeof(byte[])] = () => new OpenApiSchema { Type = JsonSchemaType.String, Format = "byte" },
+        [typeof(Uri)] = () => new OpenApiSchema { Type = JsonSchemaType.String, Format = "uri" },
+        [typeof(Guid)] = () => new OpenApiSchema { Type = JsonSchemaType.String, Format = "uuid" },
+        [typeof(object)] = () => new OpenApiSchema { Type = JsonSchemaType.Object },
+        [typeof(void)] = () => new OpenApiSchema { Type = JsonSchemaType.Null },
+        [typeof(char)] = () => new OpenApiSchema { Type = JsonSchemaType.String, MaxLength = 1, MinLength = 1 }
+    };
+
+    /// <summary>
+    /// Determines if the type is a 32-bit integer type (int, short, byte).
+    /// </summary>
+    /// <param name="t"> The type to check.</param>
+    /// <returns>True if the type is a 32-bit integer type; otherwise, false.</returns>
+    private static bool IsInt32Type(Type t) => t == typeof(int) || t == typeof(short) || t == typeof(byte);
+
+    /// <summary>
+    /// Determines if the type is a numeric type (float, double, decimal).
+    /// </summary>
+    /// <param name="t">The type to check.</param>
+    /// <returns>True if the type is a numeric type; otherwise, false.</returns>
+    private static bool IsNumericType(Type t) => t == typeof(float) || t == typeof(double) || t == typeof(decimal);
+
+    /// <summary>
+    /// Determines if the type is an unsigned integer type (sbyte, ushort, uint, ulong).
+    /// </summary>
+    /// <param name="t">The type to check.</param>
+    /// <returns>True if the type is an unsigned integer type; otherwise, false.</returns>
+    private static bool IsUnsignedIntegerType(Type t) => t == typeof(sbyte) || t == typeof(ushort) || t == typeof(uint) || t == typeof(ulong);
 
     private static void ApplySchemaAttr(OpenApiPropertyAttribute? a, IOpenApiSchema s)
     {

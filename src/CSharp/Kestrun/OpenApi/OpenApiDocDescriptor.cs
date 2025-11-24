@@ -2789,7 +2789,6 @@ public class OpenApiDocDescriptor
             AuthorizationCode = new OpenApiOAuthFlow
             {
                 AuthorizationUrl = new Uri(options.AuthorizationEndpoint, UriKind.Absolute),
-
             }
         };
         // Scopes

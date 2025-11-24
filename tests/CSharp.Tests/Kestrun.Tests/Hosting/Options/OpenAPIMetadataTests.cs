@@ -51,7 +51,7 @@ public class OpenAPIMetadataTests
     {
         var metadata = new OpenAPIMetadata(pattern: "/test") { Tags = ["users", "api"] };
 
-        Assert.Equal(2, metadata.Tags.Length);
+        Assert.Equal(2, metadata.Tags.Count);
         Assert.Contains("users", metadata.Tags);
         Assert.Contains("api", metadata.Tags);
     }
@@ -67,7 +67,7 @@ public class OpenAPIMetadataTests
             // Normalize properties that would otherwise differ by reference
             Servers = null,
             Parameters = null,
-            Tags = System.Array.Empty<string>(),
+            Tags = [],
             Responses = null
         };
         var metadata2 = new OpenAPIMetadata(pattern: "/test")
@@ -76,7 +76,7 @@ public class OpenAPIMetadataTests
             OperationId = "Op1",
             Servers = null,
             Parameters = null,
-            Tags = System.Array.Empty<string>(),
+            Tags = [],
             Responses = null
         };
 

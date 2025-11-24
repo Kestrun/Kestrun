@@ -29,7 +29,7 @@ public record OpenAPIMetadata : OpenAPICommonMetadata
     /// <summary>
     /// Comma-separated tags for OpenAPI documentation.
     /// </summary>
-    public string[] Tags { get; set; } = []; // Comma-separated tags
+    public List<string> Tags { get; set; } = []; // Comma-separated tags
     /// <summary>
     /// External documentation reference for the route.
     /// </summary>

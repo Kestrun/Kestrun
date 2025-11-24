@@ -47,12 +47,12 @@ function Add-KrMapRouteAuthorization {
             $Verbs = $MapRouteBuilder.HttpVerbs
         }
         foreach ($verb in $Verbs) {
-            if (-not $MapRouteBuilder.OpenApi.ContainsKey($verb)) {
-                $MapRouteBuilder.OpenApi[$verb] = [Kestrun.Hosting.Options.OpenAPIMetadata]::new($MapRouteBuilder.Pattern)
+            if (-not $MapRouteBuilder.OpenAPI.ContainsKey($verb)) {
+                $MapRouteBuilder.OpenAPI[$verb] = [Kestrun.Hosting.Options.OpenAPIMetadata]::new($MapRouteBuilder.Pattern)
             }
-            $MapRouteBuilder.OpenApi[$verb].Enabled = $true
-            if (-not $MapRouteBuilder.OpenApi[$verb].Security) {
-                $MapRouteBuilder.OpenApi[$verb].Security = [System.Collections.Generic.List[
+            $MapRouteBuilder.OpenAPI[$verb].Enabled = $true
+            if (-not $MapRouteBuilder.OpenAPI[$verb].Security) {
+                $MapRouteBuilder.OpenAPI[$verb].Security = [System.Collections.Generic.List[
                 System.Collections.Generic.Dictionary[
                 string,
                 System.Collections.Generic.IEnumerable[string]
@@ -86,7 +86,7 @@ function Add-KrMapRouteAuthorization {
                 }
             }
 
-            $MapRouteBuilder.OpenApi[$verb].Security.Add($d) | Out-Null
+            $MapRouteBuilder.OpenAPI[$verb].Security.Add($d) | Out-Null
         }
         if ($schemas.Count -gt 0) {
             # Add to the authorization requirements

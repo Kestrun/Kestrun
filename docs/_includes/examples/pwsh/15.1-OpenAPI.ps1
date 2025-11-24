@@ -410,12 +410,12 @@ New-KrMapRouteBuilder -Verbs @('GET', 'HEAD', 'POST', 'TRACE') -Pattern '/status
         Write-KrLog -Level Debug -Message 'Health check'
         Write-KrJsonResponse -InputObject @{ status = 'healthy' }
     } |
-    Add-KrMapRouteOpenApiTag -Tag 'MyTag' |
+    Add-KrMapRouteOpenApiTag -Tags 'MyTag' |
     #Add-KrMapRouteAuthorization -Schema 'PowershellBasic', 'ApiKeyCS', 'Cookies' |
     Add-KrMapRouteOpenApiInfo -Summary 'Health check endpoint' -Description 'Returns the health status of the service.' |
     Add-KrMapRouteOpenApiInfo -Verbs 'GET' -OperationId 'GetStatus' |
-    Add-KrMapRouteOpenApiServer -Server (New-KrOpenApiServer -Url 'https://api.example.com/v1' -Description 'Production Server') |
-    Add-KrMapRouteOpenApiServer -Server (New-KrOpenApiServer -Url 'https://staging-api.example.com/v1' -Description 'Staging Server') |
+    Add-KrMapRouteOpenApiServer -Servers (New-KrOpenApiServer -Url 'https://api.example.com/v1' -Description 'Production Server') |
+    Add-KrMapRouteOpenApiServer -Servers (New-KrOpenApiServer -Url 'https://staging-api.example.com/v1' -Description 'Staging Server') |
     Add-KrMapRouteOpenApiRequestBody -Verbs @('POST', 'GET', 'TRACE') -Description 'Healthy status2' -Reference 'CreateAddressBody' -Embed -Force |
     Add-KrMapRouteOpenApiExternalDoc -Description 'Find more info here' -url 'https://example.com/docs' |
     Add-KrMapRouteOpenApiParameter -Verbs @('GET', 'HEAD', 'POST') -Reference 'Name' |
@@ -432,7 +432,7 @@ New-KrMapRouteBuilder -Verbs @('GET' ) -Pattern '/address' |
         Write-KrLog -Level Debug -Message 'Health check'
         Write-KrJsonResponse -InputObject @{ status = 'healthy' }
     } |
-    Add-KrMapRouteOpenApiTag -Tag 'MyTag' |
+    Add-KrMapRouteOpenApiTag -Tags 'MyTag' |
     Add-KrMapRouteAuthorization -Policy 'read:user' | #'openid' |
     Add-KrMapRouteOpenApiInfo -Summary 'Address info endpoint' -Description 'Returns information about a specific address.' |
     Add-KrMapRouteOpenApiInfo -OperationId 'GetAddressInfo' |

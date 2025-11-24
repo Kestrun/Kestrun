@@ -155,9 +155,9 @@ public static class KestrunHostHealthExtensions
         target.OpenApiSummary = source.OpenApiSummary;
         target.OpenApiDescription = source.OpenApiDescription;
         target.OpenApiOperationId = source.OpenApiOperationId;
-        target.OpenApiTags = source.OpenApiTags is { Length: > 0 } openApiTags
+        target.OpenApiTags = source.OpenApiTags is { Count: > 0 } openApiTags
             ? [.. openApiTags]
-            : Array.Empty<string>();
+            : new List<string>();
         target.OpenApiGroupName = source.OpenApiGroupName;
         target.MaxDegreeOfParallelism = source.MaxDegreeOfParallelism;
         target.ProbeTimeout = source.ProbeTimeout;

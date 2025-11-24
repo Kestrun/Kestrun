@@ -43,21 +43,12 @@ function Add-KrMapRouteCodeBlock {
         [Microsoft.CodeAnalysis.CSharp.LanguageVersion]$LanguageVersion = 'Latest'
     )
     process {
-        $MapRouteBuilder.ScriptCode.Language = $Language
-        $MapRouteBuilder.ScriptCode.ExtraImports = $ExtraImports
-        $MapRouteBuilder.ScriptCode.ExtraRefs = $ExtraRefs
-        $MapRouteBuilder.ScriptCode.Code = $CodeBlock
-        $MapRouteBuilder.ScriptCode.LanguageVersion = $LanguageVersion
-
-        if ($null -ne $Arguments) {
-            $dict = [System.Collections.Generic.Dictionary[string, object]]::new()
-            foreach ($key in $Arguments.Keys) {
-                $dict[$key] = $Arguments[$key]
-            }
-            $MapRouteBuilder.ScriptCode.Arguments = $dict
-        }
-
-        # Return the modified MapRouteBuilder for pipeline chaining
-        return $MapRouteBuilder
+        return $MapRouteBuilder.AddCodeBlock(
+            $CodeBlock,
+            $Language,
+            $ExtraImports,
+            $ExtraRefs,
+            $Arguments,
+            $LanguageVersion)
     }
 }

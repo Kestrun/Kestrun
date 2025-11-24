@@ -594,7 +594,7 @@ New-KrMapRouteBuilder -Verbs @('PUT', 'POST') -Pattern '/pet' |
             Write-KrJsonResponse @{ ok = $true }
         }
     } |
-    Add-KrMapRouteOpenApiTag -Tag 'pet' |
+    Add-KrMapRouteOpenApiTag -Tags 'pet' |
     Add-KrMapRouteOpenApiResponse -StatusCode '200' -ReferenceId 'Resp_Pet_Write-OK' -Embed |
     Add-KrMapRouteOpenApiResponse -StatusCode '400' -ReferenceId 'Resp_Pet_Write-BadRequest' -Embed |
     Add-KrMapRouteOpenApiResponse -StatusCode '422' -ReferenceId 'Resp_Pet_Write-UnprocessableEntity' -Embed |
@@ -619,7 +619,7 @@ New-KrMapRouteBuilder -Verbs @('PUT', 'POST') -Pattern '/pet' |
 # --------------------------------------
 New-KrMapRouteBuilder -Verbs 'GET' -Pattern '/pet/findByStatus' |
     Add-KrMapRouteScriptBlock -ScriptBlock { Write-KrJsonResponse @() } |
-    Add-KrMapRouteOpenApiTag -Tag 'pet' |
+    Add-KrMapRouteOpenApiTag -Tags 'pet' |
     Add-KrMapRouteOpenApiInfo -Summary 'Finds Pets by status.' -Description 'Multiple status values can be provided with comma separated strings.' -OperationId 'findPetsByStatus' |
     Add-KrMapRouteAuthorization -Schema 'petstore_auth' -Policy 'write:pets', 'read:pets' |
     Add-KrMapRouteOpenApiParameter -Verbs 'GET' -ReferenceId 'FindByStatusParams-status' |
@@ -635,7 +635,7 @@ New-KrMapRouteBuilder -Verbs 'GET' -Pattern '/pet/findByStatus' |
 # --------------------------------------
 New-KrMapRouteBuilder -Verbs 'GET' -Pattern '/pet/findByTags' |
     Add-KrMapRouteScriptBlock -ScriptBlock { Write-KrJsonResponse @() } |
-    Add-KrMapRouteOpenApiTag -Tag 'pet' |
+    Add-KrMapRouteOpenApiTag -Tags 'pet' |
     Add-KrMapRouteOpenApiInfo -Summary 'Finds Pets by tags.' -Description 'Multiple tags can be provided with comma separated strings. Use tag1, tag2, tag3 for testing.' -OperationId 'findPetsByTags' |
     Add-KrMapRouteAuthorization -Schema 'petstore_auth' -Policy 'write:pets', 'read:pets' |
     Add-KrMapRouteOpenApiParameter -ReferenceId 'FindByTagsParams-tags' |
@@ -651,7 +651,7 @@ New-KrMapRouteBuilder -Verbs 'GET' -Pattern '/pet/findByTags' |
 # --------------------------------------
 New-KrMapRouteBuilder -Verbs @('GET', 'POST', 'DELETE') -Pattern '/pet/{petId}' |
     Add-KrMapRouteScriptBlock -ScriptBlock { Write-KrJsonResponse @{ } } |
-    Add-KrMapRouteOpenApiTag -Tag 'pet' |
+    Add-KrMapRouteOpenApiTag -Tags 'pet' |
     Add-KrMapRouteOpenApiParameter -ReferenceId 'petId' | # from Param_PetId
     # GET getPetById
     Add-KrMapRouteOpenApiInfo -Verbs 'GET' -Summary 'Find pet by ID.' -Description 'Returns a single pet.' -OperationId 'getPetById' |
@@ -689,7 +689,7 @@ New-KrMapRouteBuilder -Verbs @('GET', 'POST', 'DELETE') -Pattern '/pet/{petId}' 
 # --------------------------------------
 New-KrMapRouteBuilder -Verbs 'POST' -Pattern '/pet/{petId}/uploadImage' |
     Add-KrMapRouteScriptBlock -ScriptBlock { Write-KrJsonResponse @{ } } |
-    Add-KrMapRouteOpenApiTag -Tag 'pet' |
+    Add-KrMapRouteOpenApiTag -Tags 'pet' |
     Add-KrMapRouteAuthorization -Schema 'petstore_auth' -Policy 'write:pets', 'read:pets' |
     Add-KrMapRouteOpenApiParameter -ReferenceId 'UploadImageParams-petId' -Key 'petId' |
     Add-KrMapRouteOpenApiParameter -ReferenceId 'UploadImageParams-additionalMetadata' -Key 'additionalMetadata' |
@@ -708,7 +708,7 @@ New-KrMapRouteBuilder -Verbs 'POST' -Pattern '/pet/{petId}/uploadImage' |
 # --------------------------------------
 New-KrMapRouteBuilder -Verbs 'GET' -Pattern '/store/inventory' |
     Add-KrMapRouteScriptBlock -ScriptBlock { Write-KrJsonResponse @{} } |
-    Add-KrMapRouteOpenApiTag -Tag 'store' |
+    Add-KrMapRouteOpenApiTag -Tags 'store' |
     Add-KrMapRouteAuthorization -Schema 'api_key' |
     Add-KrMapRouteOpenApiInfo -Summary 'Returns pet inventories by status.' -Description 'Returns a map of status codes to quantities.' -OperationId 'getInventory' |
     Add-KrMapRouteOpenApiResponse -StatusCode '200' -ReferenceId 'Resp_Inventory-OK' -Embed |
@@ -722,7 +722,7 @@ New-KrMapRouteBuilder -Verbs 'GET' -Pattern '/store/inventory' |
 # --------------------------------------
 New-KrMapRouteBuilder -Verbs 'POST' -Pattern '/store/order' |
     Add-KrMapRouteScriptBlock -ScriptBlock { Write-KrJsonResponse @{ } } |
-    Add-KrMapRouteOpenApiTag -Tag 'store' |
+    Add-KrMapRouteOpenApiTag -Tags 'store' |
     Add-KrMapRouteOpenApiInfo -Summary 'Place an order for a pet.' -Description 'Place a new order in the store.' -OperationId 'placeOrder' |
     Add-KrMapRouteOpenApiRequestBody -Embed -ReferenceId 'OrderBody' |
     Add-KrMapRouteOpenApiResponse -StatusCode '200' -ReferenceId 'Resp_Order_Create-OK' -Embed |
@@ -737,7 +737,7 @@ New-KrMapRouteBuilder -Verbs 'POST' -Pattern '/store/order' |
 # --------------------------------------
 New-KrMapRouteBuilder -Verbs @('GET', 'DELETE') -Pattern '/store/order/{orderId}' |
     Add-KrMapRouteScriptBlock -ScriptBlock { Write-KrJsonResponse @{ } } |
-    Add-KrMapRouteOpenApiTag -Tag 'store' |
+    Add-KrMapRouteOpenApiTag -Tags 'store' |
     Add-KrMapRouteOpenApiParameter -ReferenceId 'orderId' |
     Add-KrMapRouteOpenApiInfo -Verbs 'GET' -Summary 'Find purchase order by ID.' `
         -Description 'For valid response try integer IDs with value <= 5 or > 10. Other values will generate exceptions.' -OperationId 'getOrderById' |
@@ -761,7 +761,7 @@ New-KrMapRouteBuilder -Verbs @('GET', 'DELETE') -Pattern '/store/order/{orderId}
 # --------------------------------------
 New-KrMapRouteBuilder -Verbs 'POST' -Pattern '/user' |
     Add-KrMapRouteScriptBlock -ScriptBlock { Write-KrJsonResponse @{ } } |
-    Add-KrMapRouteOpenApiTag -Tag 'user' |
+    Add-KrMapRouteOpenApiTag -Tags 'user' |
     Add-KrMapRouteOpenApiInfo -Summary 'Create user.' -Description 'This can only be done by the logged in user.' -OperationId 'createUser' |
     Add-KrMapRouteOpenApiRequestBody -Embed -ReferenceId 'UserBody' |
     Add-KrMapRouteOpenApiResponse -StatusCode '200' -ReferenceId 'Resp_User_Create-OK' -Embed |
@@ -774,7 +774,7 @@ New-KrMapRouteBuilder -Verbs 'POST' -Pattern '/user' |
 # --------------------------------------
 New-KrMapRouteBuilder -Verbs 'POST' -Pattern '/user/createWithList' |
     Add-KrMapRouteScriptBlock -ScriptBlock { Write-KrJsonResponse @() } |
-    Add-KrMapRouteOpenApiTag -Tag 'user' |
+    Add-KrMapRouteOpenApiTag -Tags 'user' |
     Add-KrMapRouteOpenApiInfo -Summary 'Creates list of users with given input array.' -Description 'Creates list of users with given input array.' -OperationId 'createUsersWithListInput' |
     Add-KrMapRouteOpenApiRequestBody -Embed -ReferenceId 'UserArrayBody' |
     Add-KrMapRouteOpenApiResponse -StatusCode '200' -ReferenceId 'Resp_User_CreateWithList-OK' -Embed |
@@ -787,7 +787,7 @@ New-KrMapRouteBuilder -Verbs 'POST' -Pattern '/user/createWithList' |
 # --------------------------------------
 New-KrMapRouteBuilder -Verbs 'GET' -Pattern '/user/login' |
     Add-KrMapRouteScriptBlock -ScriptBlock { Write-KrJsonResponse '' } |
-    Add-KrMapRouteOpenApiTag -Tag 'user' |
+    Add-KrMapRouteOpenApiTag -Tags 'user' |
     Add-KrMapRouteOpenApiInfo -Summary 'Logs user into the system.' -Description 'Log into the system.' -OperationId 'loginUser' |
     Add-KrMapRouteOpenApiParameter -ReferenceId 'LoginParams-username' -Embed |
     Add-KrMapRouteOpenApiParameter -ReferenceId 'LoginParams-password' -Embed |
@@ -801,7 +801,7 @@ New-KrMapRouteBuilder -Verbs 'GET' -Pattern '/user/login' |
 # --------------------------------------
 New-KrMapRouteBuilder -Verbs 'GET' -Pattern '/user/logout' |
     Add-KrMapRouteScriptBlock -ScriptBlock { Write-KrStatusResponse 200 } |
-    Add-KrMapRouteOpenApiTag -Tag 'user' |
+    Add-KrMapRouteOpenApiTag -Tags 'user' |
     Add-KrMapRouteOpenApiInfo -Summary 'Logs out current logged in user session.' -Description 'Log user out of the system.' -OperationId 'logoutUser' |
     Add-KrMapRouteOpenApiResponse -StatusCode '200' -ReferenceId 'Resp_User_Logout-OK' -Embed |
     Add-KrMapRouteOpenApiResponse -StatusCode 'default' -ReferenceId 'Resp_User_Logout-Default' |
@@ -813,7 +813,7 @@ New-KrMapRouteBuilder -Verbs 'GET' -Pattern '/user/logout' |
 # --------------------------------------
 New-KrMapRouteBuilder -Verbs @('GET', 'PUT', 'DELETE') -Pattern '/user/{username}' |
     Add-KrMapRouteScriptBlock -ScriptBlock { Write-KrJsonResponse @{ } } |
-    Add-KrMapRouteOpenApiTag -Tag 'user' |
+    Add-KrMapRouteOpenApiTag -Tags 'user' |
     # parameter component
     Add-KrMapRouteOpenApiParameter -ReferenceId 'Param_Username-username' -Embed -Key 'username' |
 

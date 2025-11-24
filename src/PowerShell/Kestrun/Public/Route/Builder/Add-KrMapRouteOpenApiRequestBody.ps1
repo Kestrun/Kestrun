@@ -58,10 +58,10 @@ function Add-KrMapRouteOpenApiRequestBody {
                 }
                 continue
             }
-            if (-not $MapRouteBuilder.OpenApi.ContainsKey($verb)) {
-                $MapRouteBuilder.OpenApi[$verb] = [Kestrun.Hosting.Options.OpenAPIMetadata]::new($MapRouteBuilder.Pattern)
+            if (-not $MapRouteBuilder.OpenAPI.ContainsKey($verb)) {
+                $MapRouteBuilder.OpenAPI[$verb] = [Kestrun.Hosting.Options.OpenAPIMetadata]::new($MapRouteBuilder.Pattern)
             }
-            if ($null -ne $MapRouteBuilder.OpenApi[$verb].RequestBody) {
+            if ($null -ne $MapRouteBuilder.OpenAPI[$verb].RequestBody) {
                 throw "RequestBody already defined for verb $verb in this MapRouteBuilder."
             }
 
@@ -76,14 +76,14 @@ function Add-KrMapRouteOpenApiRequestBody {
             ([Microsoft.OpenApi.OpenApiRequestBodyReference]::new($ReferenceId))
 
             # Ensure the MapRouteBuilder is marked as having OpenAPI metadata
-            $MapRouteBuilder.OpenApi[$verb].Enabled = $true
+            $MapRouteBuilder.OpenAPI[$verb].Enabled = $true
 
             # Add description if provided
             if ($Description) {
                 $requestBody.Description = $Description
             }
             # Add the request body to the MapRouteBuilder
-            $MapRouteBuilder.OpenApi[$verb].RequestBody = $requestBody
+            $MapRouteBuilder.OpenAPI[$verb].RequestBody = $requestBody
         }
         # Return the modified MapRouteBuilder for pipeline chaining
         return $MapRouteBuilder

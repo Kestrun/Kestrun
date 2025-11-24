@@ -307,7 +307,7 @@ public class OpenApiDocDescriptor
             Deprecated = meta.Deprecated
         };
         // Tags
-        if (meta.Tags.Length > 0)
+        if (meta.Tags.Count > 0)
         {
             op.Tags = new HashSet<OpenApiTagReference>();
             foreach (var t in meta.Tags ?? [])

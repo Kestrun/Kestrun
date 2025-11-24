@@ -32,22 +32,7 @@ function Add-KrMapRouteOpenApiExternalDoc {
         [Uri]$url
     )
     process {
-        if ($Verbs.Count -eq 0) {
-            # Apply to all verbs defined in the MapRouteBuilder
-            $Verbs = $MapRouteBuilder.HttpVerbs
-        }
-        foreach ($verb in $Verbs) {
-            if (-not $MapRouteBuilder.OpenApi.ContainsKey($verb)) {
-                $MapRouteBuilder.OpenApi[$verb] = [Kestrun.Hosting.Options.OpenAPIMetadata]::new($MapRouteBuilder.Pattern)
-            }
-            $MapRouteBuilder.OpenApi[$verb].Enabled = $true
-            $MapRouteBuilder.OpenApi[$verb].ExternalDocs = [Microsoft.OpenApi.OpenApiExternalDocs]::new()
-            if (-not [string]::IsNullOrEmpty($Description)) {
-                $MapRouteBuilder.OpenApi[$verb].ExternalDocs.Description = $Description
-            }
-            $MapRouteBuilder.OpenApi[$verb].ExternalDocs.Url = $url
-        }
-        # Return the modified MapRouteBuilder for pipeline chaining
-        return $MapRouteBuilder
+        return $MapRouteBuilder.AddOpenApiExternalDoc(
+            $url, $Description, $Verbs)
     }
 }

@@ -29,10 +29,7 @@ function Add-KrMapRouteScriptBlock {
 
     )
     process {
-        $MapRouteBuilder.ScriptCode.Language = [Kestrun.Scripting.ScriptLanguage]::PowerShell
-        $MapRouteBuilder.ScriptCode.Code = $ScriptBlock.ToString()
-
-        # Return the modified MapRouteBuilder for pipeline chaining
-        return $MapRouteBuilder
+        # Add the script block to the MapRouteBuilder
+        return $MapRouteBuilder.AddScriptBlock($ScriptBlock)
     }
 }

@@ -48,45 +48,9 @@ function Add-KrMapRouteOpenApiResponse {
         [switch]$Embed
     )
     process {
-        if ($Verbs.Count -eq 0) {
-            # Apply to all verbs defined in the MapRouteBuilder
-            $Verbs = $MapRouteBuilder.HttpVerbs
-        }
-        foreach ($verb in $Verbs) {
-            if (-not $MapRouteBuilder.OpenApi.ContainsKey($verb)) {
-                $MapRouteBuilder.OpenApi[$verb] = [Kestrun.Hosting.Options.OpenAPIMetadata]::new($MapRouteBuilder.Pattern)
-            }
-            if ($PSBoundParameters.ContainsKey('ReferenceId')) {
-                # Use reference-based response
-                $responses = $MapRouteBuilder.Server.OpenApiDocumentDescriptor[$DocId].Document.Components.Responses
-                if (-not $responses.ContainsKey($ReferenceId)) {
-                    throw "Response with ReferenceId '$ReferenceId' does not exist in the OpenAPI document components."
-                }
-                if ($Embed) {
-                    $resp = [Kestrun.OpenApi.OpenApiComponentClone]::Clone($responses[$ReferenceId])
-                    if ($PSBoundParameters.ContainsKey('Description')) {
-                        $resp.Description = $Description
-                    }
-                    $response = $resp
-                } else {
-                    $response = [Microsoft.OpenApi.OpenApiResponseReference]::new($ReferenceId)
-                }
-            } else {
-                # Create a new response with description only
-                $response = [Microsoft.OpenApi.OpenApiResponse]::new()
-                $response.Description = $Description
-            }
 
-            # Ensure the MapRouteBuilder is marked as having OpenAPI metadata
-            $MapRouteBuilder.OpenApi[$verb].Enabled = $true
-            # Add description if provided
-            if ($PSBoundParameters.ContainsKey('Description')) {
-                $response.Description = $Description
-            }
-            # Add the response to the MapRouteBuilder
-            $MapRouteBuilder.OpenApi[$verb].Responses[$StatusCode] = $response
-        }
-        # Return the modified MapRouteBuilder for pipeline chaining
-        return $MapRouteBuilder
+        return $MapRouteBuilder.AddOpenApiResponse(
+            $StatusCode, $Description, $Verbs, $DocId, $ReferenceId,
+            $Embed.IsPresent)
     }
 }

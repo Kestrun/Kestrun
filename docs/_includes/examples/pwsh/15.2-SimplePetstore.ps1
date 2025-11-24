@@ -269,7 +269,7 @@ New-KrMapRouteBuilder -Verbs @('GET', 'POST') -Pattern '/pets' |
             Write-KrStatusResponse -StatusCode 201
         }
     } |
-    Add-KrMapRouteOpenApiTag -Tag 'pets' |
+    Add-KrMapRouteOpenApiTag -Tags 'pets' |
     # GET
     Add-KrMapRouteOpenApiInfo -Verbs 'GET' -Summary 'List pets' -Description 'Returns a paginated list of pets.' -OperationId 'listPets' |
     Add-KrMapRouteOpenApiParameter -Verbs 'GET' -ReferenceId 'limit' |
@@ -300,7 +300,7 @@ New-KrMapRouteBuilder -Verbs @('GET', 'PATCH', 'DELETE') -Pattern '/pets/{petId}
             'DELETE' { Write-KrStatusResponse 204 }
         }
     } |
-    Add-KrMapRouteOpenApiTag -Tag 'pets' |
+    Add-KrMapRouteOpenApiTag -Tags 'pets' |
     Add-KrMapRouteOpenApiParameter -ReferenceId 'petId' |
     Add-KrMapRouteOpenApiInfo -Verbs 'GET' -Summary 'Get a pet by id' -OperationId 'getPetById' |
     Add-KrMapRouteOpenApiResponse -Verbs 'GET' -StatusCode '200' -Description 'The pet' -ReferenceId 'PetResponses-PetOK' -Embed |

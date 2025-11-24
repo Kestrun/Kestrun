@@ -4,7 +4,7 @@ namespace Kestrun.Hosting.Options;
 /// <summary>
 /// Options for mapping a route, including pattern, HTTP verbs, script code, authorization, and metadata.
 /// </summary>
-public record MapRouteOptions
+public class MapRouteOptions
 {
     /// <summary>
     /// The route pattern to match for this option.

@@ -12,8 +12,6 @@
     (Optional) A brief summary of the route for OpenAPI documentation.
 .PARAMETER Description
     (Optional) A detailed description of the route for OpenAPI documentation.
-.PARAMETER Tags
-    (Optional) An array of tags associated with the route for OpenAPI documentation.
 .PARAMETER OperationId
     (Optional) A unique operation ID for the route in OpenAPI documentation.
 .PARAMETER Deprecated
@@ -49,8 +47,6 @@ function Add-KrMapRouteOpenApiInfo {
         [Parameter(ParameterSetName = 'VerbLevel')]
         [string]$Description,
         [Parameter(ParameterSetName = 'VerbLevel')]
-        [string[]]$Tags,
-        [Parameter(ParameterSetName = 'VerbLevel')]
         [string]$OperationId,
         [Parameter(ParameterSetName = 'VerbLevel')]
         [switch]$Deprecated,
@@ -58,42 +54,13 @@ function Add-KrMapRouteOpenApiInfo {
         [switch]$PathLevel
     )
     process {
-        if ($PathLevel.IsPresent) {
-            $MapRouteBuilder.PathLevelOpenAPIMetadata = [Kestrun.Hosting.Options.OpenAPICommonMetadata]::new($MapRouteBuilder.Pattern)
-            if ($PsBoundParameters.ContainsKey('Summary')) {
-                $MapRouteBuilder.PathLevelOpenAPIMetadata.Summary = $Summary
-            }
-            if ($PsBoundParameters.ContainsKey('Description')) {
-                $MapRouteBuilder.PathLevelOpenAPIMetadata.Description = $Description
-            }
-        } else {
-            if ($Verbs.Count -eq 0) {
-                # Apply to all verbs defined in the MapRouteBuilder
-                $Verbs = $MapRouteBuilder.HttpVerbs
-            }
-            if ($Verbs.Count -gt 1 -and $PsBoundParameters.ContainsKey('OperationId')) {
-                throw "OperationId cannot be set for multiple verbs."
-            }
-            foreach ($verb in $Verbs) {
-                if (-not $MapRouteBuilder.OpenApi.ContainsKey($verb)) {
-                    $MapRouteBuilder.OpenApi[$verb] = [Kestrun.Hosting.Options.OpenAPIMetadata]::new($MapRouteBuilder.Pattern)
-                }
-                $MapRouteBuilder.OpenApi[$verb].Deprecated = $Deprecated.IsPresent
-                if ($PsBoundParameters.ContainsKey('Summary')) {
-                    $MapRouteBuilder.OpenApi[$verb].Summary = $Summary
-                }
-                if ($PsBoundParameters.ContainsKey('Description')) {
-                    $MapRouteBuilder.OpenApi[$verb].Description = $Description
-                }
-                if ($PsBoundParameters.ContainsKey('Tags')) {
-                    $MapRouteBuilder.OpenApi[$verb].Tags = $Tags
-                }
-                if ($PsBoundParameters.ContainsKey('OperationId')) {
-                    $MapRouteBuilder.OpenApi[$verb].OperationId = $OperationId
-                }
-            }
-        }
-        # Return the modified MapRouteBuilder for pipeline chaining
-        return $MapRouteBuilder
+        return $MapRouteBuilder.AddOpenApiInfo(
+            $Summary,
+            $Description,
+            $OperationId,
+            $Deprecated.IsPresent,
+            $Verbs,
+            $PathLevel.IsPresent
+        )
     }
 }

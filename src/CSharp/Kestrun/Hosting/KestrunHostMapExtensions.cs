@@ -361,8 +361,10 @@ public static partial class KestrunHostMapExtensions
         routeOptions = options;
         if (options.HttpVerbs.Count == 0)
         {
-            // Create a new RouteOptions with HttpVerbs set to [HttpVerb.Get]
-            routeOptions = options with { HttpVerbs = [HttpVerb.Get] };
+            // If no HTTP verbs were specified, default to GET.
+            // MapRouteOptions is not a record type here, so mutate the HttpVerbs collection
+            // (or replace it) instead of using a 'with' expression.
+            routeOptions.HttpVerbs = [HttpVerb.Get];
         }
 
         if (MapExists(host, routeOptions.Pattern, routeOptions.HttpVerbs))
@@ -923,10 +925,10 @@ public static partial class KestrunHostMapExtensions
             _ = map.WithDescription(openAPI.Description);
         }
 
-        if (openAPI.Tags.Length > 0)
+        if (openAPI.Tags.Count > 0)
         {
             host.Logger.Verbose("Adding OpenAPI tags for route: {Pattern} with Tags: {Tags}", openAPI.Pattern, string.Join(", ", openAPI.Tags));
-            _ = map.WithTags(openAPI.Tags);
+            _ = map.WithTags([.. openAPI.Tags]);
         }
     }
 

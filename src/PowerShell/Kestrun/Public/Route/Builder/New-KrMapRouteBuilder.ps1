@@ -35,8 +35,6 @@ function New-KrMapRouteBuilder {
         $Server = Resolve-KestrunServer -Server $Server
     }
     process {
-        $MapRouteBuilder = [Kestrun.Hosting.Options.MapRouteBuilder]::new($Server, $Pattern)
-        $MapRouteBuilder.HttpVerbs = $Verbs
-        return $MapRouteBuilder
+        return [Kestrun.Hosting.Options.MapRouteBuilder]::Create($Server, $Pattern, $Verbs)
     }
 }

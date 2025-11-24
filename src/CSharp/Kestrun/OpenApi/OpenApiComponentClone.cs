@@ -49,6 +49,23 @@ public static class OpenApiComponentClone
         };
         return clone;
     }
+
+    /// <summary>
+    /// Clones an IOpenApiParameter instance.
+    /// </summary>
+    /// <param name="parameter">The IOpenApiParameter instance to clone.</param>
+    /// <returns>A cloned instance of IOpenApiParameter.</returns>
+    /// <exception cref="InvalidOperationException">Thrown when the IOpenApiParameter implementation is unsupported.</exception>
+    public static IOpenApiParameter Clone(this IOpenApiParameter parameter)
+    {
+        // Determine the actual type of IOpenApiParameter and clone accordingly
+        return parameter switch
+        {
+            OpenApiParameter param => param.Clone(),
+            OpenApiParameterReference paramRef => paramRef.Clone(),
+            _ => throw new InvalidOperationException("Unsupported IOpenApiParameter implementation."),
+        };
+    }
     #endregion
     #region RequestBody
     /// <summary>
@@ -215,6 +232,24 @@ public static class OpenApiComponentClone
         };
         return clone;
     }
+
+    /// <summary>
+    /// Clones an IOpenApiResponse instance.
+    /// </summary>
+    /// <param name="response"> The IOpenApiResponse instance to clone.</param>
+    /// <returns>A cloned IOpenApiResponse instance.</returns>
+    /// <exception cref="InvalidOperationException">Thrown when the IOpenApiResponse implementation is unsupported.</exception>
+    public static IOpenApiResponse Clone(this IOpenApiResponse response)
+    {
+        // Determine the actual type of IOpenApiResponse and clone accordingly
+        return response switch
+        {
+            OpenApiResponse resp => resp.Clone(),
+            OpenApiResponseReference respRef => respRef.Clone(),
+            _ => throw new InvalidOperationException("Unsupported IOpenApiResponse implementation."),
+        };
+    }
+
     #endregion
     #region MediaType
     /// <summary>

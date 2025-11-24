@@ -19,7 +19,7 @@ function New-KrClaimPolicy {
     [KestrunRuntimeApi('Everywhere')]
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseShouldProcessForStateChangingFunctions', '')]
     [OutputType([Kestrun.Claims.ClaimPolicyBuilder])]
-    param( )
-    return [Kestrun.Claims.ClaimPolicyBuilder]::new()
+    param()
+    return [Kestrun.Claims.ClaimPolicyBuilder]::Create()
 }
 

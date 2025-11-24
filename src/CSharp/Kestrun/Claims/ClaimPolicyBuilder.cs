@@ -79,5 +79,20 @@ public sealed class ClaimPolicyBuilder
     {
         Policies = new Dictionary<string, ClaimRule>(_policies, StringComparer.OrdinalIgnoreCase)
     };
+    /// <summary>
+    /// Returns a string representation of the builder.
+    /// </summary>
+    /// <returns></returns>
+    public override string ToString() => $"ClaimPolicyBuilder: {_policies.Count} policies defined.";
+    /// <summary>
+    /// Clears all defined policies from the builder.
+    /// </summary>
+    public void Clear() => _policies.Clear();
+
+    /// <summary>
+    /// Creates a new instance of the <see cref="ClaimPolicyBuilder"/>.
+    /// </summary>
+    /// <returns>A new instance of <see cref="ClaimPolicyBuilder"/>.</returns>
+    public static ClaimPolicyBuilder Create() => new();
 }
 

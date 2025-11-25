@@ -42,6 +42,10 @@ function Add-KrMapRouteAuthorization {
         [string[]]$Policy
     )
     process {
+        return $MapRouteBuilder.AddAuthorization(
+            $Policy, $Verbs, $Schema
+        )
+        <# old implementation - to be removed after testing the C# implementation
         if ($Verbs.Count -eq 0) {
             # Apply to all verbs defined in the MapRouteBuilder
             $Verbs = $MapRouteBuilder.HttpVerbs
@@ -99,5 +103,6 @@ function Add-KrMapRouteAuthorization {
 
         # Return the modified MapRouteBuilder for pipeline chaining
         return $MapRouteBuilder
+        #>
     }
 }

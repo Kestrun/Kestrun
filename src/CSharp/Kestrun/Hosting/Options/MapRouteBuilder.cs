@@ -598,4 +598,275 @@ public class MapRouteBuilder : MapRouteOptions
 
         return this;
     }
+
+
+    /// <summary>
+    /// Adds an OpenAPI request body (by reference) to this route for the given HTTP verbs.
+    /// The request body is resolved from the OpenAPI document components using a reference ID.
+    /// </summary>
+    /// <param name="referenceId">
+    /// The reference ID of the request body in the OpenAPI document components.
+    /// </param>
+    /// <param name="verbs">Optional HTTP verbs to which the request body will be applied.If null or empty, the request body is applied to all verbs defined on <see cref="HttpVerb"/>.</param>
+    /// <param name="docId">Optional documentation ID. Defaults to <see cref="IOpenApiAuthenticationOptions.DefaultSchemeName"/>. </param>
+    /// <param name="description">Optional description override for the request body.</param>
+    /// <param name="force">If true, allows adding a request body to verbs that usually don’t support one (GET, HEAD).TRACE is always skipped.</param>
+    /// <param name="embed">If true, the request body definition is cloned and embedded.If false, a reference-based request body is used.</param>
+    /// <returns>The same <see cref="MapRouteBuilder"/> instance for chaining.</returns>
+    public MapRouteBuilder AddOpenApiRequestBody(
+        string referenceId,
+        IEnumerable<HttpVerb>? verbs = null,
+        string? docId = null,
+        string? description = null,
+        bool force = false,
+        bool embed = false)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(referenceId);
+        ArgumentException.ThrowIfNullOrWhiteSpace(Pattern);
+        // Default DocId like in PS: [IOpenApiAuthenticationOptions]::DefaultSchemeName
+        docId ??= IOpenApiAuthenticationOptions.DefaultSchemeName;
+
+        // If no verbs passed, apply to the builder's own verbs
+        var effectiveVerbs = (verbs is null || !verbs.Any())
+            ? HttpVerbs
+            : verbs;
+
+        // Resolve request bodies from OpenAPI components
+        var docDescriptor = Server.OpenApiDocumentDescriptor[docId];
+        if (docDescriptor.Document?.Components == null)
+        {
+            throw new InvalidOperationException(
+                $"The OpenAPI document with ID '{docId}' does not contain any components.");
+        }
+        var requestBodies = docDescriptor.Document.Components.RequestBodies ?? throw new InvalidOperationException(
+                $"The OpenAPI document with ID '{docId}' does not contain any request body components.");
+
+        if (!requestBodies.TryGetValue(referenceId, out var componentRequestBody))
+        {
+            throw new InvalidOperationException(
+                $"RequestBody with ReferenceId '{referenceId}' does not exist in the OpenAPI document components.");
+        }
+
+        foreach (var verb in effectiveVerbs)
+        {
+            // Skip verbs that typically don't support request bodies unless forced.
+            var isGetOrHead = verb is HttpVerb.Get or HttpVerb.Head;
+            var isTrace = verb == HttpVerb.Trace;
+
+            if ((isGetOrHead && !force) || isTrace)
+            {
+                // In PS you log or Write-Warning; here you can hook Serilog or any logger
+                Server.Logger?.Warning(
+                    "Cannot add RequestBody to HTTP verb {Verb} as it does not support a request body.",
+                    verb);
+
+                continue;
+            }
+
+            if (!OpenAPI.TryGetValue(verb, out var metadata))
+            {
+                metadata = new OpenAPIMetadata(Pattern);
+                OpenAPI[verb] = metadata;
+            }
+
+            if (metadata.RequestBody is not null)
+            {
+                throw new InvalidOperationException(
+                    $"RequestBody already defined for verb {verb} in this MapRouteBuilder.");
+            }
+
+            // Build request body: embedded clone or reference
+            var requestBody = embed ?
+                OpenApiComponentClone.Clone(componentRequestBody) :
+                new OpenApiRequestBodyReference(referenceId);
+
+            // Mark as having OpenAPI metadata
+            metadata.Enabled = true;
+
+            // Description override if provided
+            if (!string.IsNullOrEmpty(description))
+            {
+                requestBody.Description = description;
+            }
+
+            metadata.RequestBody = requestBody;
+        }
+
+        return this;
+    }
+    /// <summary>
+    /// Adds code from a file to this route's script configuration.
+    /// The script language is inferred from the file extension.
+    /// </summary>
+    /// <param name="codeFilePath">The file path to the code file that defines the route's behavior.</param>
+    /// <param name="extraImports">Optional additional namespaces to import for the script.</param>
+    /// <param name="extraRefs">Optional additional assemblies to reference for the script.</param>
+    /// <param name="arguments">Optional arguments to pass to the script.</param>
+    /// <returns>The same <see cref="MapRouteBuilder"/> instance for chaining.</returns>
+    public MapRouteBuilder AddCodeFromFile(
+        string codeFilePath,
+        IEnumerable<string>? extraImports = null,
+        IEnumerable<Assembly>? extraRefs = null,
+        IDictionary<string, object>? arguments = null)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(codeFilePath);
+
+        if (!File.Exists(codeFilePath))
+        {
+            throw new FileNotFoundException(
+                $"The specified code file path does not exist: {codeFilePath}",
+                codeFilePath);
+        }
+
+        // Map optional collections
+        ScriptCode.ExtraImports = extraImports?.ToArray();
+        ScriptCode.ExtraRefs = extraRefs?.ToArray();
+
+        if (arguments is not null)
+        {
+            ScriptCode.Arguments = arguments.ToDictionary(
+                kvp => kvp.Key,
+                kvp => (object?)kvp.Value);
+        }
+
+        // Infer language from extension
+        var extension = Path.GetExtension(codeFilePath);
+
+        ScriptCode.Language = extension.ToLowerInvariant() switch
+        {
+            ".ps1" => ScriptLanguage.PowerShell,
+            ".cs" => ScriptLanguage.CSharp,
+            ".vb" => ScriptLanguage.VBNet,
+            _ => throw new NotSupportedException(
+                                $"Unsupported '{extension}' code file extension."),
+        };
+
+        // Load file content as raw script code
+        ScriptCode.Code = File.ReadAllText(codeFilePath);
+
+        return this;
+    }
+
+    /// <summary>
+    /// Adds authorization requirements (schemes + policies) to this route and
+    /// configures corresponding OpenAPI security metadata.
+    /// </summary>
+    /// <param name="policies">Authorization policy names required for the route. These are also treated as scopes for the OpenAPI security requirements. </param>
+    /// <param name="verbs">Optional HTTP verbs to which the authorization will be applied.If null or empty, the authorization is applied to all verbs defined in <see cref="HttpVerb"/>.</param>
+    /// <param name="schema">Optional explicit authentication scheme name to include in the security requirements.</param>
+    /// <returns>The same <see cref="MapRouteBuilder"/> instance for chaining.</returns>
+    public MapRouteBuilder AddAuthorization(
+        IEnumerable<string>? policies = null,
+        IEnumerable<HttpVerb>? verbs = null,
+        string? schema = null)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(Pattern);
+        // Normalize inputs
+        var policyList = policies?.Where(p => !string.IsNullOrWhiteSpace(p)).ToList()
+                         ?? [];
+
+        // If no verbs passed, apply to all defined on the builder
+        var effectiveVerbs = (verbs is null || !verbs.Any())
+            ? HttpVerbs
+            : verbs;
+
+        // This collects all schemes used so we can add them to RequireSchemes at the end
+        var allSchemes = new List<string>();
+
+        foreach (var verb in effectiveVerbs)
+        {
+            if (!OpenAPI.TryGetValue(verb, out var metadata))
+            {
+                metadata = new OpenAPIMetadata(Pattern);
+                OpenAPI[verb] = metadata;
+            }
+
+            metadata.Enabled = true;
+
+            // Ensure Security list exists:
+            // List<Dictionary<string, IEnumerable<string>>>
+            metadata.Security ??= new List<Dictionary<string, List<string>>>();
+            // d: Dictionary<string, List<string>> (we'll convert values to IEnumerable<string> later)
+            var tempScopesByScheme = new Dictionary<string, List<string>>();
+
+            // Start with the explicit schema, if any
+            if (!string.IsNullOrWhiteSpace(schema))
+            {
+                tempScopesByScheme[schema] = new List<string>();
+                if (!allSchemes.Contains(schema))
+                {
+                    allSchemes.Add(schema);
+                }
+            }
+
+            // For each policy, resolve schemes and map scheme -> scopes (policies)
+            foreach (var policy in policyList)
+            {
+                var schemesForPolicy = Server.RegisteredAuthentications.GetSchemesByPolicy(policy);
+                if (schemesForPolicy is null) { continue; }
+
+                foreach (var sc in schemesForPolicy)
+                {
+
+                    if (!tempScopesByScheme.TryGetValue(sc, out var scopeList))
+                    {
+                        scopeList = [];
+                        tempScopesByScheme[sc] = scopeList;
+                    }
+                    if (scopeList != null && scopeList is List<string> list && !list.Contains(policy))
+                    {
+                        list.Add(policy);
+                    }
+
+                    if (!allSchemes.Contains(sc))
+                    {
+                        allSchemes.Add(sc);
+                    }
+                }
+            }
+
+            // Convert List<string> -> IEnumerable<string> for the OpenAPI model
+            var securityRequirement = tempScopesByScheme.ToDictionary(
+                kvp => kvp.Key,
+                kvp => kvp.Value
+            );
+
+            metadata.Security.Add(securityRequirement);
+        }
+
+        // Add schemes to RequireSchemes if any
+        if (allSchemes.Count > 0)
+        {
+            // Assuming RequireSchemes is a List<string> or similar collection
+            if (RequireSchemes is List<string> list)
+            {
+                list.AddRange(allSchemes);
+            }
+            else if (RequireSchemes is ICollection<string> coll)
+            {
+                foreach (var s in allSchemes)
+                {
+                    coll.Add(s);
+                }
+            }
+        }
+
+        // Add policies if any
+        if (policyList.Count > 0)
+        {
+            if (RequirePolicies is List<string> list)
+            {
+                list.AddRange(policyList);
+            }
+            else if (RequirePolicies is ICollection<string> coll)
+            {
+                foreach (var p in policyList)
+                {
+                    coll.Add(p);
+                }
+            }
+        }
+
+        return this;
+    }
 }

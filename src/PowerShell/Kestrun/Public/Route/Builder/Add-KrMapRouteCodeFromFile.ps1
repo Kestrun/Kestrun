@@ -35,38 +35,10 @@ function Add-KrMapRouteCodeFromFile {
         [hashtable]$Arguments
     )
     process {
-        $MapRouteBuilder.ScriptCode.ExtraImports = $ExtraImports
-        $MapRouteBuilder.ScriptCode.ExtraRefs = $ExtraRefs
-
-        if ($null -ne $Arguments) {
-            $dict = [System.Collections.Generic.Dictionary[string, object]]::new()
-            foreach ($key in $Arguments.Keys) {
-                $dict[$key] = $Arguments[$key]
-            }
-            $MapRouteBuilder.ScriptCode.Arguments = $dict
-        }
-
-        if (-not (Test-Path -Path $CodeFilePath)) {
-            throw "The specified code file path does not exist: $CodeFilePath"
-        }
-        $extension = Split-Path -Path $CodeFilePath -Extension
-        switch ($extension) {
-            '.ps1' {
-                $MapRouteBuilder.ScriptCode.Language = [Kestrun.Scripting.ScriptLanguage]::PowerShell
-            }
-            '.cs' {
-                $MapRouteBuilder.ScriptCode.Language = [Kestrun.Scripting.ScriptLanguage]::CSharp
-            }
-            '.vb' {
-                $MapRouteBuilder.ScriptCode.Language = [Kestrun.Scripting.ScriptLanguage]::VisualBasic
-            }
-            default {
-                throw "Unsupported '$extension' code file extension."
-            }
-        }
-        $MapRouteBuilder.ScriptCode.Code = Get-Content -Path $CodeFilePath -Raw
-
-        # Return the modified MapRouteBuilder for pipeline chaining
-        return $MapRouteBuilder
+        return $MapRouteBuilder.AddCodeFromFile(
+            $CodeFilePath,
+            $ExtraImports,
+            $ExtraRefs,
+            $Arguments)
     }
 }

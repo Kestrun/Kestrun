@@ -363,8 +363,9 @@ class Resp_PetById_Delete {
 # ---------- /pet/{petId}/uploadImage  (POST)
 [OpenApiResponseComponent(JoinClassName = '-')]
 class Resp_UploadImage {
-    [OpenApiResponseAttribute(Description = 'successful operation')]
-    [OpenApiContentTypeAttribute(ContentType = 'application/json')]
+    # TODO: Fix Inline attribute
+    [OpenApiResponseAttribute(Description = 'successful operation' )]
+    [OpenApiContentTypeAttribute(ContentType = 'application/json', Inline = $true)]
     [ApiResponse]$OK
 
     [OpenApiResponseAttribute(Description = 'No file uploaded')]
@@ -604,14 +605,9 @@ New-KrMapRouteBuilder -Verbs @('PUT', 'POST') -Pattern '/pet' |
     Add-KrMapRouteOpenApiInfo -Verbs 'PUT' -Summary 'Update an existing pet.' -Description 'Update an existing pet by Id.' -OperationId 'updatePet' |
     Add-KrMapRouteOpenApiRequestBody -Verbs 'PUT' -Description 'Update an existent pet in the store' -ReferenceId 'PetBody' |
     Add-KrMapRouteOpenApiResponse -Verbs 'PUT' -StatusCode '404' -ReferenceId 'Resp_Pet_Write-NotFound' -Embed |
-
-    # TODO: security: petstore_auth [write:pets, read:pets]
-
     # POST addPet
     Add-KrMapRouteOpenApiInfo -Verbs 'POST' -Summary 'Add a new pet to the store.' -Description 'Add a new pet to the store.' -OperationId 'addPet' |
     Add-KrMapRouteOpenApiRequestBody -Verbs 'POST' -Description 'Create a new pet in the store' -ReferenceId 'PetBody' |
-
-    # TODO: security: petstore_auth [write:pets, read:pets]
     Build-KrMapRoute
 
 # --------------------------------------
@@ -626,8 +622,6 @@ New-KrMapRouteBuilder -Verbs 'GET' -Pattern '/pet/findByStatus' |
     Add-KrMapRouteOpenApiResponse -StatusCode '200' -ReferenceId 'Resp_FindByStatus-OK' -Embed |
     Add-KrMapRouteOpenApiResponse -StatusCode '400' -ReferenceId 'Resp_FindByStatus-BadRequest' -Embed |
     Add-KrMapRouteOpenApiResponse -StatusCode 'default' -ReferenceId 'Resp_FindByStatus-Default' |
-
-    # TODO: security: petstore_auth [write:pets, read:pets]
     Build-KrMapRoute
 
 # --------------------------------------
@@ -643,7 +637,6 @@ New-KrMapRouteBuilder -Verbs 'GET' -Pattern '/pet/findByTags' |
     Add-KrMapRouteOpenApiResponse -StatusCode '400' -ReferenceId 'Resp_FindByTags-BadRequest' -Embed |
     Add-KrMapRouteOpenApiResponse -StatusCode 'default' -ReferenceId 'Resp_FindByTags-Default' |
 
-    # TODO: security: petstore_auth [write:pets, read:pets]
     Build-KrMapRoute
 
 # --------------------------------------
@@ -662,8 +655,6 @@ New-KrMapRouteBuilder -Verbs @('GET', 'POST', 'DELETE') -Pattern '/pet/{petId}' 
     Add-KrMapRouteOpenApiResponse -Verbs 'GET' -StatusCode '404' -ReferenceId 'Resp_PetById_Get-NotFound' -Embed |
     Add-KrMapRouteOpenApiResponse -Verbs 'GET' -StatusCode 'default' -ReferenceId 'Resp_PetById_Get-Default' |
 
-    # TODO: security: api_key and petstore_auth [write:pets, read:pets]
-
     # POST updatePetWithForm (query params name, status)
     Add-KrMapRouteOpenApiInfo -Verbs 'POST' -Summary 'Updates a pet in the store with form data.' -Description 'Updates a pet resource based on the form data.' -OperationId 'updatePetWithForm' |
     Add-KrMapRouteOpenApiParameter -Verbs 'POST' -ReferenceId 'UpdatePetWithFormParams-name' |
@@ -672,16 +663,12 @@ New-KrMapRouteBuilder -Verbs @('GET', 'POST', 'DELETE') -Pattern '/pet/{petId}' 
     Add-KrMapRouteOpenApiResponse -Verbs 'POST' -StatusCode '400' -ReferenceId 'Resp_PetById_PostForm-BadRequest' -Embed |
     Add-KrMapRouteOpenApiResponse -Verbs 'POST' -StatusCode 'default' -ReferenceId 'Resp_PetById_PostForm-Default' |
 
-    # TODO: security: petstore_auth [write:pets, read:pets]
-
     # DELETE deletePet (header api_key optional)
     Add-KrMapRouteOpenApiInfo -Verbs 'DELETE' -Summary 'Deletes a pet.' -Description 'Delete a pet.' -OperationId 'deletePet' |
     Add-KrMapRouteOpenApiParameter -Verbs 'DELETE' -ReferenceId 'api_key' |
     Add-KrMapRouteOpenApiResponse -Verbs 'DELETE' -StatusCode '200' -ReferenceId 'Resp_PetById_Delete-OK' -Embed |
     Add-KrMapRouteOpenApiResponse -Verbs 'DELETE' -StatusCode '400' -ReferenceId 'Resp_PetById_Delete-BadRequest' -Embed |
     Add-KrMapRouteOpenApiResponse -Verbs 'DELETE' -StatusCode 'default' -ReferenceId 'Resp_PetById_Delete-Default' |
-
-    # TODO: security: petstore_auth [write:pets, read:pets]
     Build-KrMapRoute
 
 # --------------------------------------
@@ -699,8 +686,6 @@ New-KrMapRouteBuilder -Verbs 'POST' -Pattern '/pet/{petId}/uploadImage' |
     Add-KrMapRouteOpenApiResponse -StatusCode '400' -ReferenceId 'Resp_UploadImage-BadRequest' -Embed |
     Add-KrMapRouteOpenApiResponse -StatusCode '404' -ReferenceId 'Resp_UploadImage-NotFound' -Embed |
     Add-KrMapRouteOpenApiResponse -StatusCode 'default' -ReferenceId 'Resp_UploadImage-Default' |
-
-    # TODO: security: petstore_auth [write:pets, read:pets]
     Build-KrMapRoute
 
 # --------------------------------------
@@ -713,8 +698,6 @@ New-KrMapRouteBuilder -Verbs 'GET' -Pattern '/store/inventory' |
     Add-KrMapRouteOpenApiInfo -Summary 'Returns pet inventories by status.' -Description 'Returns a map of status codes to quantities.' -OperationId 'getInventory' |
     Add-KrMapRouteOpenApiResponse -StatusCode '200' -ReferenceId 'Resp_Inventory-OK' -Embed |
     Add-KrMapRouteOpenApiResponse -StatusCode 'default' -ReferenceId 'Resp_Inventory-Default' |
-
-    # TODO: security: api_key []
     Build-KrMapRoute
 
 # --------------------------------------
@@ -823,7 +806,6 @@ New-KrMapRouteBuilder -Verbs @('GET', 'PUT', 'DELETE') -Pattern '/user/{username
     Add-KrMapRouteOpenApiResponse -Verbs 'GET' -StatusCode '400' -ReferenceId 'Resp_UserByName_Get-BadRequest' -Embed |
     Add-KrMapRouteOpenApiResponse -Verbs 'GET' -StatusCode '404' -ReferenceId 'Resp_UserByName_Get-NotFound' -Embed |
     Add-KrMapRouteOpenApiResponse -Verbs 'GET' -StatusCode 'default' -ReferenceId 'Resp_UserByName_Get-Default' |
-    # TODO: security (api_key and/or petstore_auth) when implemented
 
     # PUT /user/{username}
     Add-KrMapRouteOpenApiInfo -Verbs 'PUT' -Summary 'Update user resource.' -Description 'This can only be done by the logged in user.' -OperationId 'updateUser' |
@@ -837,7 +819,6 @@ New-KrMapRouteBuilder -Verbs @('GET', 'PUT', 'DELETE') -Pattern '/user/{username
     Add-KrMapRouteOpenApiResponse -Verbs 'PUT' -StatusCode '400' -ReferenceId 'Resp_UserByName_Put-BadRequest' -Embed |
     Add-KrMapRouteOpenApiResponse -Verbs 'PUT' -StatusCode '404' -ReferenceId 'Resp_UserByName_Put-NotFound' -Embed |
     Add-KrMapRouteOpenApiResponse -Verbs 'PUT' -StatusCode 'default' -ReferenceId 'Resp_UserByName_Put-Default' |
-    # TODO: security (petstore_auth) when implemented
 
     # DELETE /user/{username}
     Add-KrMapRouteOpenApiInfo -Verbs 'DELETE' -Summary 'Delete user resource.' -Description 'This can only be done by the logged in user.' -OperationId 'deleteUser' |
@@ -845,7 +826,7 @@ New-KrMapRouteBuilder -Verbs @('GET', 'PUT', 'DELETE') -Pattern '/user/{username
     Add-KrMapRouteOpenApiResponse -Verbs 'DELETE' -StatusCode '400' -ReferenceId 'Resp_UserByName_Delete-BadRequest' -Embed |
     Add-KrMapRouteOpenApiResponse -Verbs 'DELETE' -StatusCode '404' -ReferenceId 'Resp_UserByName_Delete-NotFound' -Embed |
     Add-KrMapRouteOpenApiResponse -Verbs 'DELETE' -StatusCode 'default' -ReferenceId 'Resp_UserByName_Delete-Default' |
-    # TODO: security (petstore_auth) when implemented
+
 
     Build-KrMapRoute
 

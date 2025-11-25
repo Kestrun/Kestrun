@@ -45,47 +45,13 @@ function Add-KrMapRouteOpenApiRequestBody {
         [switch]$Embed
     )
     process {
-        if ($Verbs.Count -eq 0) {
-            # Apply to all verbs defined in the MapRouteBuilder
-            $Verbs = $MapRouteBuilder.HttpVerbs
-        }
-        foreach ($verb in $Verbs) {
-            if ( ((('GET', 'HEAD' ) -contains $verb) -and -not $Force.IsPresent) -or ($verb -eq 'TRACE')) {
-                if (Test-KrLogger) {
-                    Write-KrLog -Level Warning -Message 'Cannot add RequestBody to HTTP verb {verb} as it does not support a request body.' -Values $verb
-                } else {
-                    Write-Warning -Message "Cannot add RequestBody to HTTP verb [$verb] as it does not support a request body."
-                }
-                continue
-            }
-            if (-not $MapRouteBuilder.OpenAPI.ContainsKey($verb)) {
-                $MapRouteBuilder.OpenAPI[$verb] = [Kestrun.Hosting.Options.OpenAPIMetadata]::new($MapRouteBuilder.Pattern)
-            }
-            if ($null -ne $MapRouteBuilder.OpenAPI[$verb].RequestBody) {
-                throw "RequestBody already defined for verb $verb in this MapRouteBuilder."
-            }
-
-            # Use reference-based request body
-            $requestBodies = $MapRouteBuilder.Server.OpenApiDocumentDescriptor[$DocId].Document.Components.RequestBodies
-            if (-not $requestBodies.ContainsKey($ReferenceId)) {
-                throw "RequestBody with ReferenceId '$ReferenceId' does not exist in the OpenAPI document components."
-            }
-            # Add the request body to the MapRouteBuilder
-            $requestBody = ($Embed)?
-            ([Kestrun.OpenApi.OpenApiComponentClone]::Clone($requestBodies[$ReferenceId])):
-            ([Microsoft.OpenApi.OpenApiRequestBodyReference]::new($ReferenceId))
-
-            # Ensure the MapRouteBuilder is marked as having OpenAPI metadata
-            $MapRouteBuilder.OpenAPI[$verb].Enabled = $true
-
-            # Add description if provided
-            if ($Description) {
-                $requestBody.Description = $Description
-            }
-            # Add the request body to the MapRouteBuilder
-            $MapRouteBuilder.OpenAPI[$verb].RequestBody = $requestBody
-        }
-        # Return the modified MapRouteBuilder for pipeline chaining
-        return $MapRouteBuilder
+        return $MapRouteBuilder.AddOpenApiRequestBody(
+            $ReferenceId,
+            $Verbs,
+            $DocId,
+            $Description,
+            $Force.IsPresent,
+            $Embed.IsPresent
+        )
     }
 }

@@ -97,6 +97,22 @@ public static class OpenApiComponentClone
         };
         return clone;
     }
+    /// <summary>
+    /// Clones an IOpenApiRequestBody instance.
+    /// </summary>
+    /// <param name="parameter">The IOpenApiRequestBody instance to clone.</param>
+    /// <returns>A cloned instance of IOpenApiRequestBody.</returns>
+    /// <exception cref="InvalidOperationException">Thrown when the IOpenApiRequestBody implementation is unsupported.</exception>
+    public static IOpenApiRequestBody Clone(this IOpenApiRequestBody parameter)
+    {
+        // Determine the actual type of IOpenApiParameter and clone accordingly
+        return parameter switch
+        {
+            OpenApiRequestBody param => param.Clone(),
+            OpenApiRequestBodyReference paramRef => paramRef.Clone(),
+            _ => throw new InvalidOperationException("Unsupported IOpenApiRequestBody implementation."),
+        };
+    }
     #endregion
     #region Extensions
     /// <summary>

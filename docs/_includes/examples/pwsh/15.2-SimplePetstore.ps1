@@ -17,7 +17,7 @@ Add-KrOpenApiExternalDoc -Description 'OpenAPI 3.1 Spec' -Url 'https://spec.open
 Add-KrOpenApiTag -Name 'pets' -Description 'Manage your furry (and scaly) friends'
 $envVar = New-KrOpenApiServerVariable -Name env -Default 'prod' -Enum @('dev', 'staging', 'prod') -Description 'Environment'
 Add-KrOpenApiServer -Url 'https://{env}.api.petstore.example.com/v1' -Description 'Main API' -Variables $envVar
-
+ 
 # --- Schemas ---
 
 # Problem per RFC 7807 (true JSON Schema in 3.1)

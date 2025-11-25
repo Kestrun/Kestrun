@@ -15,7 +15,7 @@
     A ReferenceId string for the OpenAPI request body.
 .PARAMETER Force
     A switch to force adding a request body to HTTP verbs that typically do not support it (e.g., GET, HEAD, TRACE).
-.PARAMETER Embed
+.PARAMETER Inline
     A switch indicating whether to embed the request body definition directly into the route or to reference it
 .EXAMPLE
     # Create a new Map Route Builder
@@ -42,7 +42,7 @@ function Add-KrMapRouteOpenApiRequestBody {
         [Parameter()]
         [switch]$Force,
         [Parameter()]
-        [switch]$Embed
+        [switch]$Inline
     )
     process {
         return $MapRouteBuilder.AddOpenApiRequestBody(
@@ -51,7 +51,7 @@ function Add-KrMapRouteOpenApiRequestBody {
             $DocId,
             $Description,
             $Force.IsPresent,
-            $Embed.IsPresent
+            $Inline.IsPresent
         )
     }
 }

@@ -13,7 +13,7 @@
     A description of the OpenAPI parameter.
 .PARAMETER ReferenceId
     A reference string for the OpenAPI parameter.
-.PARAMETER Embed
+.PARAMETER Inline
     A switch indicating whether to embed the parameter definition directly into the route or to reference it.
 .PARAMETER Key
     An optional key to set the name of the parameter in the OpenAPI definition.
@@ -40,12 +40,12 @@ function Add-KrMapRouteOpenApiParameter {
         [Parameter(Mandatory = $true)]
         [string]$ReferenceId,
         [Parameter()]
-        [switch]$Embed,
+        [switch]$Inline,
         [Parameter()]
         [string]$Key
     )
     process {
         return $MapRouteBuilder.AddOpenApiParameter(
-            $ReferenceId, $Verbs, $DocId, $Description, $Embed.IsPresent, $Key)
+            $ReferenceId, $Verbs, $DocId, $Description, $Inline.IsPresent, $Key)
     }
 }

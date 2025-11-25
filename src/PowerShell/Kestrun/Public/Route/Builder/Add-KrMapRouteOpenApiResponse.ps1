@@ -15,7 +15,7 @@
     A description of the OpenAPI response.
 .PARAMETER ReferenceId
     A reference string for the OpenAPI response.
-.PARAMETER Embed
+.PARAMETER Inline
     A switch indicating whether to embed the response definition directly into the route or to reference it.
 .EXAMPLE
     # Create a new Map Route Builder
@@ -45,12 +45,12 @@ function Add-KrMapRouteOpenApiResponse {
         [Parameter(ParameterSetName = 'Reference')]
         [string]$ReferenceId,
         [Parameter(ParameterSetName = 'Reference')]
-        [switch]$Embed
+        [switch]$Inline
     )
     process {
 
         return $MapRouteBuilder.AddOpenApiResponse(
             $StatusCode, $Description, $Verbs, $DocId, $ReferenceId,
-            $Embed.IsPresent)
+            $Inline.IsPresent)
     }
 }

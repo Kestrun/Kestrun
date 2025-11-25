@@ -596,15 +596,15 @@ New-KrMapRouteBuilder -Verbs @('PUT', 'POST') -Pattern '/pet' |
         }
     } |
     Add-KrMapRouteOpenApiTag -Tags 'pet' |
-    Add-KrMapRouteOpenApiResponse -StatusCode '200' -ReferenceId 'Resp_Pet_Write-OK' -Embed |
-    Add-KrMapRouteOpenApiResponse -StatusCode '400' -ReferenceId 'Resp_Pet_Write-BadRequest' -Embed |
-    Add-KrMapRouteOpenApiResponse -StatusCode '422' -ReferenceId 'Resp_Pet_Write-UnprocessableEntity' -Embed |
+    Add-KrMapRouteOpenApiResponse -StatusCode '200' -ReferenceId 'Resp_Pet_Write-OK' -Inline |
+    Add-KrMapRouteOpenApiResponse -StatusCode '400' -ReferenceId 'Resp_Pet_Write-BadRequest' -Inline |
+    Add-KrMapRouteOpenApiResponse -StatusCode '422' -ReferenceId 'Resp_Pet_Write-UnprocessableEntity' -Inline |
     Add-KrMapRouteOpenApiResponse -StatusCode 'default' -ReferenceId 'Resp_Pet_Write-Default' |
     Add-KrMapRouteAuthorization -Schema 'petstore_auth' -Policy 'write:pets', 'read:pets' |
     # PUT updatePet
     Add-KrMapRouteOpenApiInfo -Verbs 'PUT' -Summary 'Update an existing pet.' -Description 'Update an existing pet by Id.' -OperationId 'updatePet' |
     Add-KrMapRouteOpenApiRequestBody -Verbs 'PUT' -Description 'Update an existent pet in the store' -ReferenceId 'PetBody' |
-    Add-KrMapRouteOpenApiResponse -Verbs 'PUT' -StatusCode '404' -ReferenceId 'Resp_Pet_Write-NotFound' -Embed |
+    Add-KrMapRouteOpenApiResponse -Verbs 'PUT' -StatusCode '404' -ReferenceId 'Resp_Pet_Write-NotFound' -Inline |
     # POST addPet
     Add-KrMapRouteOpenApiInfo -Verbs 'POST' -Summary 'Add a new pet to the store.' -Description 'Add a new pet to the store.' -OperationId 'addPet' |
     Add-KrMapRouteOpenApiRequestBody -Verbs 'POST' -Description 'Create a new pet in the store' -ReferenceId 'PetBody' |
@@ -619,8 +619,8 @@ New-KrMapRouteBuilder -Verbs 'GET' -Pattern '/pet/findByStatus' |
     Add-KrMapRouteOpenApiInfo -Summary 'Finds Pets by status.' -Description 'Multiple status values can be provided with comma separated strings.' -OperationId 'findPetsByStatus' |
     Add-KrMapRouteAuthorization -Schema 'petstore_auth' -Policy 'write:pets', 'read:pets' |
     Add-KrMapRouteOpenApiParameter -Verbs 'GET' -ReferenceId 'FindByStatusParams-status' |
-    Add-KrMapRouteOpenApiResponse -StatusCode '200' -ReferenceId 'Resp_FindByStatus-OK' -Embed |
-    Add-KrMapRouteOpenApiResponse -StatusCode '400' -ReferenceId 'Resp_FindByStatus-BadRequest' -Embed |
+    Add-KrMapRouteOpenApiResponse -StatusCode '200' -ReferenceId 'Resp_FindByStatus-OK' -Inline |
+    Add-KrMapRouteOpenApiResponse -StatusCode '400' -ReferenceId 'Resp_FindByStatus-BadRequest' -Inline |
     Add-KrMapRouteOpenApiResponse -StatusCode 'default' -ReferenceId 'Resp_FindByStatus-Default' |
     Build-KrMapRoute
 
@@ -633,8 +633,8 @@ New-KrMapRouteBuilder -Verbs 'GET' -Pattern '/pet/findByTags' |
     Add-KrMapRouteOpenApiInfo -Summary 'Finds Pets by tags.' -Description 'Multiple tags can be provided with comma separated strings. Use tag1, tag2, tag3 for testing.' -OperationId 'findPetsByTags' |
     Add-KrMapRouteAuthorization -Schema 'petstore_auth' -Policy 'write:pets', 'read:pets' |
     Add-KrMapRouteOpenApiParameter -ReferenceId 'FindByTagsParams-tags' |
-    Add-KrMapRouteOpenApiResponse -StatusCode '200' -ReferenceId 'Resp_FindByTags-OK' -Embed |
-    Add-KrMapRouteOpenApiResponse -StatusCode '400' -ReferenceId 'Resp_FindByTags-BadRequest' -Embed |
+    Add-KrMapRouteOpenApiResponse -StatusCode '200' -ReferenceId 'Resp_FindByTags-OK' -Inline |
+    Add-KrMapRouteOpenApiResponse -StatusCode '400' -ReferenceId 'Resp_FindByTags-BadRequest' -Inline |
     Add-KrMapRouteOpenApiResponse -StatusCode 'default' -ReferenceId 'Resp_FindByTags-Default' |
 
     Build-KrMapRoute
@@ -650,24 +650,24 @@ New-KrMapRouteBuilder -Verbs @('GET', 'POST', 'DELETE') -Pattern '/pet/{petId}' 
     Add-KrMapRouteOpenApiInfo -Verbs 'GET' -Summary 'Find pet by ID.' -Description 'Returns a single pet.' -OperationId 'getPetById' |
     Add-KrMapRouteAuthorization -Schema 'petstore_auth' -Policy 'write:pets', 'read:pets' |
     Add-KrMapRouteAuthorization -Verbs 'GET' -Schema 'api_key' |
-    Add-KrMapRouteOpenApiResponse -Verbs 'GET' -StatusCode '200' -ReferenceId 'Resp_PetById_Get-OK' -Embed |
-    Add-KrMapRouteOpenApiResponse -Verbs 'GET' -StatusCode '400' -ReferenceId 'Resp_PetById_Get-BadRequest' -Embed |
-    Add-KrMapRouteOpenApiResponse -Verbs 'GET' -StatusCode '404' -ReferenceId 'Resp_PetById_Get-NotFound' -Embed |
+    Add-KrMapRouteOpenApiResponse -Verbs 'GET' -StatusCode '200' -ReferenceId 'Resp_PetById_Get-OK' -Inline |
+    Add-KrMapRouteOpenApiResponse -Verbs 'GET' -StatusCode '400' -ReferenceId 'Resp_PetById_Get-BadRequest' -Inline |
+    Add-KrMapRouteOpenApiResponse -Verbs 'GET' -StatusCode '404' -ReferenceId 'Resp_PetById_Get-NotFound' -Inline |
     Add-KrMapRouteOpenApiResponse -Verbs 'GET' -StatusCode 'default' -ReferenceId 'Resp_PetById_Get-Default' |
 
     # POST updatePetWithForm (query params name, status)
     Add-KrMapRouteOpenApiInfo -Verbs 'POST' -Summary 'Updates a pet in the store with form data.' -Description 'Updates a pet resource based on the form data.' -OperationId 'updatePetWithForm' |
     Add-KrMapRouteOpenApiParameter -Verbs 'POST' -ReferenceId 'UpdatePetWithFormParams-name' |
     Add-KrMapRouteOpenApiParameter -Verbs 'POST' -ReferenceId 'UpdatePetWithFormParams-status' |
-    Add-KrMapRouteOpenApiResponse -Verbs 'POST' -StatusCode '200' -ReferenceId 'Resp_PetById_PostForm-OK' -Embed |
-    Add-KrMapRouteOpenApiResponse -Verbs 'POST' -StatusCode '400' -ReferenceId 'Resp_PetById_PostForm-BadRequest' -Embed |
+    Add-KrMapRouteOpenApiResponse -Verbs 'POST' -StatusCode '200' -ReferenceId 'Resp_PetById_PostForm-OK' -Inline |
+    Add-KrMapRouteOpenApiResponse -Verbs 'POST' -StatusCode '400' -ReferenceId 'Resp_PetById_PostForm-BadRequest' -Inline |
     Add-KrMapRouteOpenApiResponse -Verbs 'POST' -StatusCode 'default' -ReferenceId 'Resp_PetById_PostForm-Default' |
 
     # DELETE deletePet (header api_key optional)
     Add-KrMapRouteOpenApiInfo -Verbs 'DELETE' -Summary 'Deletes a pet.' -Description 'Delete a pet.' -OperationId 'deletePet' |
     Add-KrMapRouteOpenApiParameter -Verbs 'DELETE' -ReferenceId 'api_key' |
-    Add-KrMapRouteOpenApiResponse -Verbs 'DELETE' -StatusCode '200' -ReferenceId 'Resp_PetById_Delete-OK' -Embed |
-    Add-KrMapRouteOpenApiResponse -Verbs 'DELETE' -StatusCode '400' -ReferenceId 'Resp_PetById_Delete-BadRequest' -Embed |
+    Add-KrMapRouteOpenApiResponse -Verbs 'DELETE' -StatusCode '200' -ReferenceId 'Resp_PetById_Delete-OK' -Inline |
+    Add-KrMapRouteOpenApiResponse -Verbs 'DELETE' -StatusCode '400' -ReferenceId 'Resp_PetById_Delete-BadRequest' -Inline |
     Add-KrMapRouteOpenApiResponse -Verbs 'DELETE' -StatusCode 'default' -ReferenceId 'Resp_PetById_Delete-Default' |
     Build-KrMapRoute
 
@@ -680,11 +680,11 @@ New-KrMapRouteBuilder -Verbs 'POST' -Pattern '/pet/{petId}/uploadImage' |
     Add-KrMapRouteAuthorization -Schema 'petstore_auth' -Policy 'write:pets', 'read:pets' |
     Add-KrMapRouteOpenApiParameter -ReferenceId 'UploadImageParams-petId' -Key 'petId' |
     Add-KrMapRouteOpenApiParameter -ReferenceId 'UploadImageParams-additionalMetadata' -Key 'additionalMetadata' |
-    Add-KrMapRouteOpenApiRequestBody -Embed -ReferenceId 'Upload_OctetStream' |
+    Add-KrMapRouteOpenApiRequestBody -Inline -ReferenceId 'Upload_OctetStream' |
     Add-KrMapRouteOpenApiInfo -Summary 'Uploads an image.' -Description 'Upload image of the pet.' -OperationId 'uploadFile' |
-    Add-KrMapRouteOpenApiResponse -StatusCode '200' -ReferenceId 'Resp_UploadImage-OK' -Embed |
-    Add-KrMapRouteOpenApiResponse -StatusCode '400' -ReferenceId 'Resp_UploadImage-BadRequest' -Embed |
-    Add-KrMapRouteOpenApiResponse -StatusCode '404' -ReferenceId 'Resp_UploadImage-NotFound' -Embed |
+    Add-KrMapRouteOpenApiResponse -StatusCode '200' -ReferenceId 'Resp_UploadImage-OK' -Inline |
+    Add-KrMapRouteOpenApiResponse -StatusCode '400' -ReferenceId 'Resp_UploadImage-BadRequest' -Inline |
+    Add-KrMapRouteOpenApiResponse -StatusCode '404' -ReferenceId 'Resp_UploadImage-NotFound' -Inline |
     Add-KrMapRouteOpenApiResponse -StatusCode 'default' -ReferenceId 'Resp_UploadImage-Default' |
     Build-KrMapRoute
 
@@ -696,7 +696,7 @@ New-KrMapRouteBuilder -Verbs 'GET' -Pattern '/store/inventory' |
     Add-KrMapRouteOpenApiTag -Tags 'store' |
     Add-KrMapRouteAuthorization -Schema 'api_key' |
     Add-KrMapRouteOpenApiInfo -Summary 'Returns pet inventories by status.' -Description 'Returns a map of status codes to quantities.' -OperationId 'getInventory' |
-    Add-KrMapRouteOpenApiResponse -StatusCode '200' -ReferenceId 'Resp_Inventory-OK' -Embed |
+    Add-KrMapRouteOpenApiResponse -StatusCode '200' -ReferenceId 'Resp_Inventory-OK' -Inline |
     Add-KrMapRouteOpenApiResponse -StatusCode 'default' -ReferenceId 'Resp_Inventory-Default' |
     Build-KrMapRoute
 
@@ -707,10 +707,10 @@ New-KrMapRouteBuilder -Verbs 'POST' -Pattern '/store/order' |
     Add-KrMapRouteScriptBlock -ScriptBlock { Write-KrJsonResponse @{ } } |
     Add-KrMapRouteOpenApiTag -Tags 'store' |
     Add-KrMapRouteOpenApiInfo -Summary 'Place an order for a pet.' -Description 'Place a new order in the store.' -OperationId 'placeOrder' |
-    Add-KrMapRouteOpenApiRequestBody -Embed -ReferenceId 'OrderBody' |
-    Add-KrMapRouteOpenApiResponse -StatusCode '200' -ReferenceId 'Resp_Order_Create-OK' -Embed |
-    Add-KrMapRouteOpenApiResponse -StatusCode '400' -ReferenceId 'Resp_Order_Create-BadRequest' -Embed |
-    Add-KrMapRouteOpenApiResponse -StatusCode '422' -ReferenceId 'Resp_Order_Create-UnprocessableEntity' -Embed |
+    Add-KrMapRouteOpenApiRequestBody -Inline -ReferenceId 'OrderBody' |
+    Add-KrMapRouteOpenApiResponse -StatusCode '200' -ReferenceId 'Resp_Order_Create-OK' -Inline |
+    Add-KrMapRouteOpenApiResponse -StatusCode '400' -ReferenceId 'Resp_Order_Create-BadRequest' -Inline |
+    Add-KrMapRouteOpenApiResponse -StatusCode '422' -ReferenceId 'Resp_Order_Create-UnprocessableEntity' -Inline |
     Add-KrMapRouteOpenApiResponse -StatusCode 'default' -ReferenceId 'Resp_Order_Create-Default' |
 
     Build-KrMapRoute
@@ -724,17 +724,17 @@ New-KrMapRouteBuilder -Verbs @('GET', 'DELETE') -Pattern '/store/order/{orderId}
     Add-KrMapRouteOpenApiParameter -ReferenceId 'orderId' |
     Add-KrMapRouteOpenApiInfo -Verbs 'GET' -Summary 'Find purchase order by ID.' `
         -Description 'For valid response try integer IDs with value <= 5 or > 10. Other values will generate exceptions.' -OperationId 'getOrderById' |
-    Add-KrMapRouteOpenApiResponse -Verbs 'GET' -StatusCode '200' -ReferenceId 'Resp_OrderById_Get-OK' -Embed |
-    Add-KrMapRouteOpenApiResponse -Verbs 'GET' -StatusCode '400' -ReferenceId 'Resp_OrderById_Get-BadRequest' -Embed |
-    Add-KrMapRouteOpenApiResponse -Verbs 'GET' -StatusCode '404' -ReferenceId 'Resp_OrderById_Get-NotFound' -Embed |
+    Add-KrMapRouteOpenApiResponse -Verbs 'GET' -StatusCode '200' -ReferenceId 'Resp_OrderById_Get-OK' -Inline |
+    Add-KrMapRouteOpenApiResponse -Verbs 'GET' -StatusCode '400' -ReferenceId 'Resp_OrderById_Get-BadRequest' -Inline |
+    Add-KrMapRouteOpenApiResponse -Verbs 'GET' -StatusCode '404' -ReferenceId 'Resp_OrderById_Get-NotFound' -Inline |
     Add-KrMapRouteOpenApiResponse -Verbs 'GET' -StatusCode 'default' -ReferenceId 'Resp_OrderById_Get-Default' |
 
 
     Add-KrMapRouteOpenApiInfo -Verbs 'DELETE' -Summary 'Delete purchase order by identifier.' `
         -Description 'For valid response try integer IDs with value < 1000. Anything above 1000 or nonintegers will generate API errors.' -OperationId 'deleteOrder' |
-    Add-KrMapRouteOpenApiResponse -Verbs 'DELETE' -StatusCode '200' -ReferenceId 'Resp_OrderById_Delete-OK' -Embed |
-    Add-KrMapRouteOpenApiResponse -Verbs 'DELETE' -StatusCode '400' -ReferenceId 'Resp_OrderById_Delete-BadRequest' -Embed |
-    Add-KrMapRouteOpenApiResponse -Verbs 'DELETE' -StatusCode '404' -ReferenceId 'Resp_OrderById_Delete-NotFound' -Embed |
+    Add-KrMapRouteOpenApiResponse -Verbs 'DELETE' -StatusCode '200' -ReferenceId 'Resp_OrderById_Delete-OK' -Inline |
+    Add-KrMapRouteOpenApiResponse -Verbs 'DELETE' -StatusCode '400' -ReferenceId 'Resp_OrderById_Delete-BadRequest' -Inline |
+    Add-KrMapRouteOpenApiResponse -Verbs 'DELETE' -StatusCode '404' -ReferenceId 'Resp_OrderById_Delete-NotFound' -Inline |
     Add-KrMapRouteOpenApiResponse -Verbs 'DELETE' -StatusCode 'default' -ReferenceId 'Resp_OrderById_Delete-Default' |
 
     Build-KrMapRoute
@@ -746,8 +746,8 @@ New-KrMapRouteBuilder -Verbs 'POST' -Pattern '/user' |
     Add-KrMapRouteScriptBlock -ScriptBlock { Write-KrJsonResponse @{ } } |
     Add-KrMapRouteOpenApiTag -Tags 'user' |
     Add-KrMapRouteOpenApiInfo -Summary 'Create user.' -Description 'This can only be done by the logged in user.' -OperationId 'createUser' |
-    Add-KrMapRouteOpenApiRequestBody -Embed -ReferenceId 'UserBody' |
-    Add-KrMapRouteOpenApiResponse -StatusCode '200' -ReferenceId 'Resp_User_Create-OK' -Embed |
+    Add-KrMapRouteOpenApiRequestBody -Inline -ReferenceId 'UserBody' |
+    Add-KrMapRouteOpenApiResponse -StatusCode '200' -ReferenceId 'Resp_User_Create-OK' -Inline |
     Add-KrMapRouteOpenApiResponse -StatusCode 'default' -ReferenceId 'Resp_User_Create-Default' |
 
     Build-KrMapRoute
@@ -759,8 +759,8 @@ New-KrMapRouteBuilder -Verbs 'POST' -Pattern '/user/createWithList' |
     Add-KrMapRouteScriptBlock -ScriptBlock { Write-KrJsonResponse @() } |
     Add-KrMapRouteOpenApiTag -Tags 'user' |
     Add-KrMapRouteOpenApiInfo -Summary 'Creates list of users with given input array.' -Description 'Creates list of users with given input array.' -OperationId 'createUsersWithListInput' |
-    Add-KrMapRouteOpenApiRequestBody -Embed -ReferenceId 'UserArrayBody' |
-    Add-KrMapRouteOpenApiResponse -StatusCode '200' -ReferenceId 'Resp_User_CreateWithList-OK' -Embed |
+    Add-KrMapRouteOpenApiRequestBody -Inline -ReferenceId 'UserArrayBody' |
+    Add-KrMapRouteOpenApiResponse -StatusCode '200' -ReferenceId 'Resp_User_CreateWithList-OK' -Inline |
     Add-KrMapRouteOpenApiResponse -StatusCode 'default' -ReferenceId 'Resp_User_CreateWithList-Default' |
 
     Build-KrMapRoute
@@ -772,10 +772,10 @@ New-KrMapRouteBuilder -Verbs 'GET' -Pattern '/user/login' |
     Add-KrMapRouteScriptBlock -ScriptBlock { Write-KrJsonResponse '' } |
     Add-KrMapRouteOpenApiTag -Tags 'user' |
     Add-KrMapRouteOpenApiInfo -Summary 'Logs user into the system.' -Description 'Log into the system.' -OperationId 'loginUser' |
-    Add-KrMapRouteOpenApiParameter -ReferenceId 'LoginParams-username' -Embed |
-    Add-KrMapRouteOpenApiParameter -ReferenceId 'LoginParams-password' -Embed |
-    Add-KrMapRouteOpenApiResponse -StatusCode '200' -ReferenceId 'Resp_User_Login-OK' -Embed |
-    Add-KrMapRouteOpenApiResponse -StatusCode '400' -ReferenceId 'Resp_User_Login-BadRequest' -Embed |
+    Add-KrMapRouteOpenApiParameter -ReferenceId 'LoginParams-username' -Inline |
+    Add-KrMapRouteOpenApiParameter -ReferenceId 'LoginParams-password' -Inline |
+    Add-KrMapRouteOpenApiResponse -StatusCode '200' -ReferenceId 'Resp_User_Login-OK' -Inline |
+    Add-KrMapRouteOpenApiResponse -StatusCode '400' -ReferenceId 'Resp_User_Login-BadRequest' -Inline |
     Add-KrMapRouteOpenApiResponse -StatusCode 'default' -ReferenceId 'Resp_User_Login-Default' |
     Build-KrMapRoute
 
@@ -786,7 +786,7 @@ New-KrMapRouteBuilder -Verbs 'GET' -Pattern '/user/logout' |
     Add-KrMapRouteScriptBlock -ScriptBlock { Write-KrStatusResponse 200 } |
     Add-KrMapRouteOpenApiTag -Tags 'user' |
     Add-KrMapRouteOpenApiInfo -Summary 'Logs out current logged in user session.' -Description 'Log user out of the system.' -OperationId 'logoutUser' |
-    Add-KrMapRouteOpenApiResponse -StatusCode '200' -ReferenceId 'Resp_User_Logout-OK' -Embed |
+    Add-KrMapRouteOpenApiResponse -StatusCode '200' -ReferenceId 'Resp_User_Logout-OK' -Inline |
     Add-KrMapRouteOpenApiResponse -StatusCode 'default' -ReferenceId 'Resp_User_Logout-Default' |
 
     Build-KrMapRoute
@@ -798,33 +798,33 @@ New-KrMapRouteBuilder -Verbs @('GET', 'PUT', 'DELETE') -Pattern '/user/{username
     Add-KrMapRouteScriptBlock -ScriptBlock { Write-KrJsonResponse @{ } } |
     Add-KrMapRouteOpenApiTag -Tags 'user' |
     # parameter component
-    Add-KrMapRouteOpenApiParameter -ReferenceId 'Param_Username-username' -Embed -Key 'username' |
+    Add-KrMapRouteOpenApiParameter -ReferenceId 'Param_Username-username' -Inline -Key 'username' |
 
     # GET /user/{username}
     Add-KrMapRouteOpenApiInfo -Verbs 'GET' -Summary 'Get user by user name.' -Description 'Get user detail based on username.' -OperationId 'getUserByName' |
-    Add-KrMapRouteOpenApiResponse -Verbs 'GET' -StatusCode '200' -ReferenceId 'Resp_UserByName_Get-OK' -Embed |
-    Add-KrMapRouteOpenApiResponse -Verbs 'GET' -StatusCode '400' -ReferenceId 'Resp_UserByName_Get-BadRequest' -Embed |
-    Add-KrMapRouteOpenApiResponse -Verbs 'GET' -StatusCode '404' -ReferenceId 'Resp_UserByName_Get-NotFound' -Embed |
+    Add-KrMapRouteOpenApiResponse -Verbs 'GET' -StatusCode '200' -ReferenceId 'Resp_UserByName_Get-OK' -Inline |
+    Add-KrMapRouteOpenApiResponse -Verbs 'GET' -StatusCode '400' -ReferenceId 'Resp_UserByName_Get-BadRequest' -Inline |
+    Add-KrMapRouteOpenApiResponse -Verbs 'GET' -StatusCode '404' -ReferenceId 'Resp_UserByName_Get-NotFound' -Inline |
     Add-KrMapRouteOpenApiResponse -Verbs 'GET' -StatusCode 'default' -ReferenceId 'Resp_UserByName_Get-Default' |
 
     # PUT /user/{username}
     Add-KrMapRouteOpenApiInfo -Verbs 'PUT' -Summary 'Update user resource.' -Description 'This can only be done by the logged in user.' -OperationId 'updateUser' |
-    <# Add-KrMapRouteOpenApiRequestBody -Verbs 'PUT' -Description 'Update an existent user in the store' -Embed -ScriptBlock {
+    <# Add-KrMapRouteOpenApiRequestBody -Verbs 'PUT' -Description 'Update an existent user in the store' -Inline -ScriptBlock {
         param($rb)
         foreach ($ct in 'application/json', 'application/xml', 'application/x-www-form-urlencoded') {
             Add-KrOpenApiRequestBodyContent -RequestBody $rb -ContentType $ct -SchemaRef 'User' | Out-Null
         }
     } |#>
-    Add-KrMapRouteOpenApiResponse -Verbs 'PUT' -StatusCode '200' -ReferenceId 'Resp_UserByName_Put-OK' -Embed |
-    Add-KrMapRouteOpenApiResponse -Verbs 'PUT' -StatusCode '400' -ReferenceId 'Resp_UserByName_Put-BadRequest' -Embed |
-    Add-KrMapRouteOpenApiResponse -Verbs 'PUT' -StatusCode '404' -ReferenceId 'Resp_UserByName_Put-NotFound' -Embed |
+    Add-KrMapRouteOpenApiResponse -Verbs 'PUT' -StatusCode '200' -ReferenceId 'Resp_UserByName_Put-OK' -Inline |
+    Add-KrMapRouteOpenApiResponse -Verbs 'PUT' -StatusCode '400' -ReferenceId 'Resp_UserByName_Put-BadRequest' -Inline |
+    Add-KrMapRouteOpenApiResponse -Verbs 'PUT' -StatusCode '404' -ReferenceId 'Resp_UserByName_Put-NotFound' -Inline |
     Add-KrMapRouteOpenApiResponse -Verbs 'PUT' -StatusCode 'default' -ReferenceId 'Resp_UserByName_Put-Default' |
 
     # DELETE /user/{username}
     Add-KrMapRouteOpenApiInfo -Verbs 'DELETE' -Summary 'Delete user resource.' -Description 'This can only be done by the logged in user.' -OperationId 'deleteUser' |
-    Add-KrMapRouteOpenApiResponse -Verbs 'DELETE' -StatusCode '200' -ReferenceId 'Resp_UserByName_Delete-OK' -Embed |
-    Add-KrMapRouteOpenApiResponse -Verbs 'DELETE' -StatusCode '400' -ReferenceId 'Resp_UserByName_Delete-BadRequest' -Embed |
-    Add-KrMapRouteOpenApiResponse -Verbs 'DELETE' -StatusCode '404' -ReferenceId 'Resp_UserByName_Delete-NotFound' -Embed |
+    Add-KrMapRouteOpenApiResponse -Verbs 'DELETE' -StatusCode '200' -ReferenceId 'Resp_UserByName_Delete-OK' -Inline |
+    Add-KrMapRouteOpenApiResponse -Verbs 'DELETE' -StatusCode '400' -ReferenceId 'Resp_UserByName_Delete-BadRequest' -Inline |
+    Add-KrMapRouteOpenApiResponse -Verbs 'DELETE' -StatusCode '404' -ReferenceId 'Resp_UserByName_Delete-NotFound' -Inline |
     Add-KrMapRouteOpenApiResponse -Verbs 'DELETE' -StatusCode 'default' -ReferenceId 'Resp_UserByName_Delete-Default' |
 
 
@@ -834,7 +834,7 @@ New-KrMapRouteBuilder -Verbs @('GET', 'PUT', 'DELETE') -Pattern '/user/{username
 # =========================================================
 #                OPENAPI DOC ROUTE / BUILD
 # =========================================================
-Add-KrOpenApiRoute -Pattern '/openapi/{version}/openapi.{format}'
+Add-KrOpenApiRoute  # Default Pattern '/openapi/{version}/openapi.{format}'
 #endregion
 
 #region BUILD AND TEST OPENAPI DOCUMENT

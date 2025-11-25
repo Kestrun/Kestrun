@@ -406,7 +406,7 @@ Enable-KrConfiguration
 Add-KrApiDocumentationRoute -DocumentType Redoc
 Add-KrApiDocumentationRoute -DocumentType Swagger
 
-Add-KrOpenApiRoute
+Add-KrOpenApiRoute # Default Pattern '/openapi/{version}/openapi.{format}'
 
 New-KrMapRouteBuilder -Verbs @('GET', 'HEAD', 'POST', 'TRACE') -Pattern '/status' |
     Add-KrMapRouteScriptBlock -ScriptBlock {
@@ -419,7 +419,7 @@ New-KrMapRouteBuilder -Verbs @('GET', 'HEAD', 'POST', 'TRACE') -Pattern '/status
     Add-KrMapRouteOpenApiInfo -Verbs 'GET' -OperationId 'GetStatus' |
     Add-KrMapRouteOpenApiServer -Servers (New-KrOpenApiServer -Url 'https://api.example.com/v1' -Description 'Production Server') |
     Add-KrMapRouteOpenApiServer -Servers (New-KrOpenApiServer -Url 'https://staging-api.example.com/v1' -Description 'Staging Server') |
-    Add-KrMapRouteOpenApiRequestBody -Verbs @('POST', 'GET', 'TRACE') -Description 'Healthy status2' -Reference 'CreateAddressBody' -Embed -Force |
+    Add-KrMapRouteOpenApiRequestBody -Verbs @('POST', 'GET', 'TRACE') -Description 'Healthy status2' -Reference 'CreateAddressBody' -Inline -Force |
     Add-KrMapRouteOpenApiExternalDoc -Description 'Find more info here' -url 'https://example.com/docs' |
     Add-KrMapRouteOpenApiParameter -Verbs @('GET', 'HEAD', 'POST') -Reference 'Name' |
     Add-KrMapRouteOpenApiParameter -Verbs @(  'POST') -Reference 'Param_Address' |
@@ -446,7 +446,7 @@ New-KrMapRouteBuilder -Verbs @('GET' ) -Pattern '/address' |
     Add-KrMapRouteOpenApiResponse -StatusCode '500' -ReferenceId 'AddressResponse-NotFound' |
     Build-KrMapRoute
 
-Add-KrOpenApiRoute -Pattern '/openapi/{version}/openapi.{format}'
+Add-KrOpenApiRoute
 
 Add-KrMapRoute -Pattern '/openapi2/{version}/openapi.{format}' -Method 'GET' -ScriptBlock {
     $version = Get-KrRequestRouteParam -Name 'version' -AsString

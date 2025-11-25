@@ -10,6 +10,7 @@
         The MapRouteOptions object to configure the route.
     .PARAMETER Pattern
         The URL path for the new OpenAPI map route.
+        Default is '/openapi/{version}/openapi.{format}'.
     .PARAMETER SpecVersion
         An array of OpenAPI specification versions to support (e.g., OpenApi2_0 or OpenApi3_0).
     .PARAMETER VersionVarName

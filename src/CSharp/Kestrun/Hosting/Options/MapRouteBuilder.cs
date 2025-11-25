@@ -807,7 +807,6 @@ public class MapRouteBuilder : MapRouteOptions
 
                 foreach (var sc in schemesForPolicy)
                 {
-
                     if (!tempScopesByScheme.TryGetValue(sc, out var scopeList))
                     {
                         scopeList = [];

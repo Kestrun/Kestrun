@@ -164,7 +164,7 @@ public class MapRouteBuilderTests
         var doc = host.GetOrCreateOpenApiDocument(IOpenApiAuthenticationOptions.DefaultSchemeName);
         doc.GenerateComponents(new OpenApiComponentSet { ResponseTypes = [typeof(ResponseComponentHolder)] });
         var builder = MapRouteBuilder.Create(host, "/respref", [HttpVerb.Post]);
-        _ = builder.AddOpenApiResponseFromReference("200", "Ok", description: "Override desc", embed: false);
+        _ = builder.AddOpenApiResponseFromReference("200", "Ok", description: "Override desc", inline: false);
         var meta = builder.OpenAPI[HttpVerb.Post];
         var respRef = meta.Responses!["200"];
         Assert.Equal("Override desc", respRef.Description);
@@ -172,9 +172,9 @@ public class MapRouteBuilderTests
 
         // Embedded
         var builderEmbed = MapRouteBuilder.Create(host, "/respembed", [HttpVerb.Post]);
-        _ = builderEmbed.AddOpenApiResponseFromReference("200", "Ok", description: "Embed desc", embed: true);
+        _ = builderEmbed.AddOpenApiResponseFromReference("200", "Ok", description: "Inline desc", inline: true);
         var respEmbed = builderEmbed.OpenAPI[HttpVerb.Post].Responses!["200"];
-        Assert.Equal("Embed desc", respEmbed.Description);
+        Assert.Equal("Inline desc", respEmbed.Description);
         _ = Assert.IsType<Microsoft.OpenApi.OpenApiResponse>(respEmbed);
     }
 
@@ -185,14 +185,14 @@ public class MapRouteBuilderTests
         var doc = host.GetOrCreateOpenApiDocument(IOpenApiAuthenticationOptions.DefaultSchemeName);
         doc.GenerateComponents(new OpenApiComponentSet { ParameterTypes = [typeof(ParameterComponentHolder)] });
         var builder = MapRouteBuilder.Create(host, "/param/{id}", [HttpVerb.Get]);
-        _ = builder.AddOpenApiParameter("Id", verbs: [HttpVerb.Get], description: "override desc", embed: false);
+        _ = builder.AddOpenApiParameter("Id", verbs: [HttpVerb.Get], description: "override desc", inline: false);
         var meta = builder.OpenAPI[HttpVerb.Get];
         _ = Assert.Single(meta.Parameters!);
         _ = Assert.IsType<Microsoft.OpenApi.OpenApiParameterReference>(meta.Parameters![0]);
         Assert.Equal("override desc", meta.Parameters![0].Description);
 
         var builderEmbed = MapRouteBuilder.Create(host, "/param2/{id}", [HttpVerb.Get]);
-        _ = builderEmbed.AddOpenApiParameter("Id", verbs: [HttpVerb.Get], embed: true, key: "id2");
+        _ = builderEmbed.AddOpenApiParameter("Id", verbs: [HttpVerb.Get], inline: true, key: "id2");
         var metaEmbed = builderEmbed.OpenAPI[HttpVerb.Get];
         Assert.Equal("id2", metaEmbed.Parameters![0].Name);
         _ = Assert.IsType<Microsoft.OpenApi.OpenApiParameter>(metaEmbed.Parameters![0]);
@@ -206,14 +206,14 @@ public class MapRouteBuilderTests
         doc.GenerateComponents(new OpenApiComponentSet { RequestBodyTypes = [typeof(RequestBodyComponentHolder)] });
         // POST normal
         var builderPost = MapRouteBuilder.Create(host, "/rb", [HttpVerb.Post]);
-        _ = builderPost.AddOpenApiRequestBody("ReqBody", description: "desc", embed: false);
+        _ = builderPost.AddOpenApiRequestBody("ReqBody", description: "desc", inline: false);
         var rbRef = builderPost.OpenAPI[HttpVerb.Post].RequestBody;
         Assert.Equal("desc", rbRef!.Description);
         _ = Assert.IsType<Microsoft.OpenApi.OpenApiRequestBodyReference>(rbRef);
 
         // Embedded
         var builderPostEmbed = MapRouteBuilder.Create(host, "/rbembed", [HttpVerb.Post]);
-        _ = builderPostEmbed.AddOpenApiRequestBody("ReqBody", embed: true);
+        _ = builderPostEmbed.AddOpenApiRequestBody("ReqBody", inline: true);
         _ = Assert.IsType<Microsoft.OpenApi.OpenApiRequestBody>(builderPostEmbed.OpenAPI[HttpVerb.Post].RequestBody);
 
         // GET requires force
@@ -228,14 +228,14 @@ public class MapRouteBuilderTests
         var host = NewHost();
         // Simulate authentication registrations (depends on host implementation). We'll assume no schemes returned => only explicit schema captured.
         var builder = MapRouteBuilder.Create(host, "/auth", [HttpVerb.Get]);
-        _ = builder.AddAuthorization(policies: ["PolicyA", "PolicyB"], schema: "Scheme1");
+        _ = builder.AddAuthorization(policies: ["PolicyA", "PolicyB"], scheme: "Scheme1");
         Assert.Contains("Scheme1", builder.RequireSchemes);
         Assert.Contains("PolicyA", builder.RequirePolicies);
         Assert.Contains("PolicyB", builder.RequirePolicies);
         var meta = builder.OpenAPI[HttpVerb.Get];
-        Assert.NotNull(meta.Security);
-        Assert.True(meta.Security.Count > 0);
-        Assert.Contains(meta.Security.First().Keys, k => k == "Scheme1");
+        Assert.NotNull(meta.SecuritySchemes);
+        Assert.True(meta.SecuritySchemes.Count > 0);
+        Assert.Contains(meta.SecuritySchemes.First().Keys, k => k == "Scheme1");
     }
 
     [Fact]
@@ -283,15 +283,15 @@ public class MapRouteBuilderTests
     {
         var host = NewHost();
         var builder = MapRouteBuilder.Create(host, "/auth-multi", [HttpVerb.Get, HttpVerb.Post]);
-        _ = builder.AddAuthorization(policies: ["PolicyA"], schema: "Scheme1", verbs: [HttpVerb.Get]);
-        _ = builder.AddAuthorization(policies: ["PolicyB"], schema: "Scheme2", verbs: [HttpVerb.Post]);
+        _ = builder.AddAuthorization(policies: ["PolicyA"], scheme: "Scheme1", verbs: [HttpVerb.Get]);
+        _ = builder.AddAuthorization(policies: ["PolicyB"], scheme: "Scheme2", verbs: [HttpVerb.Post]);
         Assert.Contains("Scheme1", builder.RequireSchemes);
         Assert.Contains("Scheme2", builder.RequireSchemes);
         Assert.Contains("PolicyA", builder.RequirePolicies);
         Assert.Contains("PolicyB", builder.RequirePolicies);
         var getMeta = builder.OpenAPI[HttpVerb.Get];
         var postMeta = builder.OpenAPI[HttpVerb.Post];
-        Assert.Contains(getMeta.Security!.First().Keys, k => k == "Scheme1");
-        Assert.Contains(postMeta.Security!.First().Keys, k => k == "Scheme2");
+        Assert.Contains(getMeta.SecuritySchemes!.First().Keys, k => k == "Scheme1");
+        Assert.Contains(postMeta.SecuritySchemes!.First().Keys, k => k == "Scheme2");
     }
 }

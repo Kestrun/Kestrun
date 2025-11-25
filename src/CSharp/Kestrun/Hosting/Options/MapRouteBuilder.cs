@@ -200,7 +200,7 @@ public class MapRouteBuilder : MapRouteOptions
     /// Optional reference ID of a response defined in the OpenAPI document components.
     /// When provided, the response is based on that component, optionally embedded or referenced.
     /// </param>
-    /// <param name="embed">
+    /// <param name="inline">
     /// If <c>true</c> and <paramref name="referenceId"/> is provided, the component is cloned and embedded.
     /// If <c>false</c>, a reference-based response is used instead.
     /// </param>
@@ -211,7 +211,7 @@ public class MapRouteBuilder : MapRouteOptions
         IEnumerable<HttpVerb>? verbs = null,
         string? docId = null,
         string? referenceId = null,
-        bool embed = false)
+        bool inline = false)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(statusCode);
         ArgumentException.ThrowIfNullOrWhiteSpace(Pattern);
@@ -254,9 +254,9 @@ public class MapRouteBuilder : MapRouteOptions
                         $"Response with ReferenceId '{referenceId}' does not exist in the OpenAPI document components.");
                 }
 
-                if (embed)
+                if (inline)
                 {
-                    // Embed: clone the component and optionally override description
+                    // Inline: clone the component and optionally override description
                     var cloned = OpenApiComponentClone.Clone(componentResponse);
                     if (!string.IsNullOrEmpty(description))
                     {
@@ -320,19 +320,36 @@ public class MapRouteBuilder : MapRouteOptions
     public MapRouteBuilder AddOpenApiResponse(
         string statusCode,
         string description)
-        => AddOpenApiResponse(statusCode, description, verbs: null, docId: null, referenceId: null, embed: false);
+        => AddOpenApiResponse(statusCode, description, verbs: null, docId: null, referenceId: null, inline: false);
 
     /// <summary>
     /// Convenience overload: reference-based response, optionally embedded.
     /// </summary>
+    /// <param name="statusCode">The HTTP status code for the OpenAPI response.</param>
+    /// <param name="referenceId">The reference ID of the response defined in the OpenAPI document components.</param>
+    /// <param name="description">
+    /// Optional description of the response. When provided, this overrides the description of the referenced response if set.
+    /// </param>
+    /// <param name="verbs">
+    /// Optional HTTP verbs to which this response applies.
+    /// If <c>null</c> or empty, all verbs defined on <see cref="HttpVerb"/> are used.
+    /// </param>
+    /// <param name="docId">
+    /// The documentation ID to use when resolving a referenced response.  If <c>null</c>, defaults to <see cref="IOpenApiAuthenticationOptions.DefaultSchemeName"/>.
+    /// </param>
+    /// <param name="inline">
+    /// If <c>true</c>, the component is cloned and embedded.
+    /// If <c>false</c>, a reference-based response is used instead.
+    /// </param>
+    /// <returns>The same <see cref="MapRouteBuilder"/> instance for chaining.</returns>
     public MapRouteBuilder AddOpenApiResponseFromReference(
         string statusCode,
         string referenceId,
         string? description = null,
         IEnumerable<HttpVerb>? verbs = null,
         string? docId = null,
-        bool embed = false)
-        => AddOpenApiResponse(statusCode, description, verbs, docId, referenceId, embed);
+        bool inline = false)
+        => AddOpenApiResponse(statusCode, description, verbs, docId, referenceId, inline);
 
     /// <summary>
     /// Adds a code block in a specified scripting language to this route.
@@ -504,7 +521,7 @@ public class MapRouteBuilder : MapRouteOptions
     /// <param name="verbs">Optional HTTP verbs to which the parameter will be applied. If null or empty, the parameter is applied at the path level.</param>
     /// <param name="docId">Optional documentation ID. Defaults to <see cref="IOpenApiAuthenticationOptions.DefaultSchemeName"/>.</param>
     /// <param name="description">Optional description override for the parameter (applied only at verb level, like the PowerShell version).</param>
-    /// <param name="embed">If true, the parameter definition is cloned and embedded into the route. If false, a reference-based parameter is used.</param>
+    /// <param name="inline">If <c>true</c>, the component is cloned and embedded. If <c>false</c>, a reference-based parameter is used instead.</param>
     /// <param name="key">Optional key to set the parameter name when embedding. Ignored for reference-only parameters.</param>
     /// <returns>The same <see cref="MapRouteBuilder"/> instance for chaining.</returns>
     public MapRouteBuilder AddOpenApiParameter(
@@ -512,7 +529,7 @@ public class MapRouteBuilder : MapRouteOptions
         IEnumerable<HttpVerb>? verbs = null,
         string? docId = null,
         string? description = null,
-        bool embed = false,
+        bool inline = false,
         string? key = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(referenceId);
@@ -542,7 +559,7 @@ public class MapRouteBuilder : MapRouteOptions
 
         IOpenApiParameter parameter;
 
-        if (embed)
+        if (inline)
         {
             // Clone the component
             var cloned = OpenApiComponentClone.Clone(componentParameter);
@@ -610,7 +627,7 @@ public class MapRouteBuilder : MapRouteOptions
     /// <param name="docId">Optional documentation ID. Defaults to <see cref="IOpenApiAuthenticationOptions.DefaultSchemeName"/>. </param>
     /// <param name="description">Optional description override for the request body.</param>
     /// <param name="force">If true, allows adding a request body to verbs that usually don’t support one (GET, HEAD).TRACE is always skipped.</param>
-    /// <param name="embed">If true, the request body definition is cloned and embedded.If false, a reference-based request body is used.</param>
+    /// <param name="inline">If true, the request body definition is cloned and embedded.If false, a reference-based request body is used.</param>
     /// <returns>The same <see cref="MapRouteBuilder"/> instance for chaining.</returns>
     public MapRouteBuilder AddOpenApiRequestBody(
         string referenceId,
@@ -618,7 +635,7 @@ public class MapRouteBuilder : MapRouteOptions
         string? docId = null,
         string? description = null,
         bool force = false,
-        bool embed = false)
+        bool inline = false)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(referenceId);
         ArgumentException.ThrowIfNullOrWhiteSpace(Pattern);
@@ -675,7 +692,7 @@ public class MapRouteBuilder : MapRouteOptions
             }
 
             // Build request body: embedded clone or reference
-            var requestBody = embed ?
+            var requestBody = inline ?
                 OpenApiComponentClone.Clone(componentRequestBody) :
                 new OpenApiRequestBodyReference(referenceId);
 
@@ -752,17 +769,17 @@ public class MapRouteBuilder : MapRouteOptions
     /// </summary>
     /// <param name="policies">Authorization policy names required for the route. These are also treated as scopes for the OpenAPI security requirements. </param>
     /// <param name="verbs">Optional HTTP verbs to which the authorization will be applied.If null or empty, the authorization is applied to all verbs defined in <see cref="HttpVerb"/>.</param>
-    /// <param name="schema">Optional explicit authentication scheme name to include in the security requirements.</param>
+    /// <param name="scheme">Optional explicit authentication scheme name to include in the security requirements.</param>
     /// <returns>The same <see cref="MapRouteBuilder"/> instance for chaining.</returns>
     public MapRouteBuilder AddAuthorization(
         IEnumerable<string>? policies = null,
         IEnumerable<HttpVerb>? verbs = null,
-        string? schema = null)
+        string? scheme = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(Pattern);
         // Normalize inputs
         var policyList = policies?.Where(p => !string.IsNullOrWhiteSpace(p)).ToList()
-                         ?? [];
+                        ?? [];
 
         // If no verbs passed, apply to all defined on the builder
         var effectiveVerbs = (verbs is null || !verbs.Any())
@@ -770,7 +787,7 @@ public class MapRouteBuilder : MapRouteOptions
             : verbs;
 
         // This collects all schemes used so we can add them to RequireSchemes at the end
-        var allSchemes = new List<string>();
+        List<string>? allSchemes = [];
 
         foreach (var verb in effectiveVerbs)
         {
@@ -784,86 +801,13 @@ public class MapRouteBuilder : MapRouteOptions
 
             // Ensure Security list exists:
             // List<Dictionary<string, IEnumerable<string>>>
-            metadata.Security ??= [];
-            // d: Dictionary<string, List<string>> (we'll convert values to IEnumerable<string> later)
-            var tempScopesByScheme = new Dictionary<string, List<string>>();
+            metadata.SecuritySchemes ??= [];
+            // Add security requirement object for this verb
+            // If no scheme provided, the schema is derived from the policies
+            allSchemes = Server.AddSecurityRequirementObject(scheme, policyList, metadata.SecuritySchemes);
 
-            // Start with the explicit schema, if any
-            if (!string.IsNullOrWhiteSpace(schema))
-            {
-                tempScopesByScheme[schema] = [];
-                if (!allSchemes.Contains(schema))
-                {
-                    allSchemes.Add(schema);
-                }
-            }
-
-            // For each policy, resolve schemes and map scheme -> scopes (policies)
-            foreach (var policy in policyList)
-            {
-                var schemesForPolicy = Server.RegisteredAuthentications.GetSchemesByPolicy(policy);
-                if (schemesForPolicy is null) { continue; }
-
-                foreach (var sc in schemesForPolicy)
-                {
-                    if (!tempScopesByScheme.TryGetValue(sc, out var scopeList))
-                    {
-                        scopeList = [];
-                        tempScopesByScheme[sc] = scopeList;
-                    }
-                    if (scopeList != null && scopeList is List<string> list && !list.Contains(policy))
-                    {
-                        list.Add(policy);
-                    }
-
-                    if (!allSchemes.Contains(sc))
-                    {
-                        allSchemes.Add(sc);
-                    }
-                }
-            }
-
-            // Convert List<string> -> IEnumerable<string> for the OpenAPI model
-            var securityRequirement = tempScopesByScheme.ToDictionary(
-                kvp => kvp.Key,
-                kvp => kvp.Value
-            );
-
-            metadata.Security.Add(securityRequirement);
         }
-
-        // Add schemes to RequireSchemes if any
-        if (allSchemes.Count > 0)
-        {
-            // Assuming RequireSchemes is a List<string> or similar collection
-            if (RequireSchemes is List<string> list)
-            {
-                list.AddRange(allSchemes);
-            }
-            else if (RequireSchemes is ICollection<string> coll)
-            {
-                foreach (var s in allSchemes)
-                {
-                    coll.Add(s);
-                }
-            }
-        }
-
-        // Add policies if any
-        if (policyList.Count > 0)
-        {
-            if (RequirePolicies is List<string> list)
-            {
-                list.AddRange(policyList);
-            }
-            else if (RequirePolicies is ICollection<string> coll)
-            {
-                foreach (var p in policyList)
-                {
-                    coll.Add(p);
-                }
-            }
-        }
+        AddSecurityRequirementObject(schemes: allSchemes, policies: policyList);
 
         return this;
     }

@@ -317,13 +317,13 @@ public class OpenApiDocDescriptor
         {
             op.Callbacks = new Dictionary<string, IOpenApiCallback>(meta.Callbacks);
         }
-        if (meta.Security is not null && meta.Security.Count != 0)
+        if (meta.SecuritySchemes is not null && meta.SecuritySchemes.Count != 0)
         {
             op.Security ??= [];
 
             var seen = new HashSet<string>(StringComparer.Ordinal);
 
-            foreach (var schemeName in meta.Security
+            foreach (var schemeName in meta.SecuritySchemes
                          .SelectMany(d => d.Keys)
                          .Distinct())
             {
@@ -332,7 +332,7 @@ public class OpenApiDocDescriptor
                     continue;
                 }
                 // Gather scopes for this scheme
-                var scopesForScheme = meta.Security
+                var scopesForScheme = meta.SecuritySchemes
                     .SelectMany(dict => dict)
                     .Where(kv => kv.Key == schemeName)
                     .SelectMany(kv => kv.Value)
@@ -347,7 +347,7 @@ public class OpenApiDocDescriptor
                 op.Security.Add(requirement);
             }
         }
-        else if (meta.Security is not null && meta.Security.Count == 0)
+        else if (meta.SecuritySchemes is not null && meta.SecuritySchemes.Count == 0)
         {
             // Explicitly anonymous for this operation (overrides Document.Security)
             op.Security = [];
@@ -2577,6 +2577,15 @@ public class OpenApiDocDescriptor
                     {
                         openApiAttr.RequestBody.Description = oaRBra.Description;
                     }
+                }
+                else if (attr is OpenApiAuthorizationAttribute oaRBa)
+                {
+                    openApiAttr.SecuritySchemes ??= [];
+                    var policyList = oaRBa.Policies?.Where(p => !string.IsNullOrWhiteSpace(p)).ToList() ?? [];
+                    // Add security requirement object for this verb
+                    // If no scheme provided, the schema is derived from the policies
+                    var securitySchemeList = Host.AddSecurityRequirementObject(oaRBa.Scheme, policyList, openApiAttr.SecuritySchemes);
+                    routeOptions.AddSecurityRequirementObject(schemes: securitySchemeList, policies: policyList);
                 }
                 else
                 {

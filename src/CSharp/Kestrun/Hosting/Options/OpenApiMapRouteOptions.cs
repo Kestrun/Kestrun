@@ -16,7 +16,8 @@ public record OpenApiMapRouteOptions
         MapOptions = mapOptions;
         if (MapOptions.Pattern == null)
         {
-            MapOptions.Pattern = "/openapi/{version:regex(^v(2\\.0|3\\.0(\\.\\d+)?|3\\.1(\\.\\d+)?$)?)}/{format:regex(^(json|yaml)$)?}";
+            //MapOptions.Pattern = "/openapi/{version:regex(^v(2\\.0|3\\.0(\\.\\d+)?|3\\.1(\\.\\d+)?)$)}/{file:regex(^([a-zA-Z0-9_-]+\\.)?(json|yaml)$)}";
+            MapOptions.Pattern = "/openapi/{version}/openapi.{format}";
         }
     }
     /// <summary>

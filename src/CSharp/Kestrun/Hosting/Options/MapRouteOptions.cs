@@ -82,4 +82,29 @@ public class MapRouteOptions
         var verbs = HttpVerbs.Count > 0 ? string.Join(",", HttpVerbs) : "ANY";
         return $"{verbs} {Pattern}";
     }
+
+    /// <summary>
+    /// Adds security requirement information to this route's authorization settings.
+    /// </summary>
+    /// <param name="schemes">the authorization schemes required for this route</param>
+    /// <param name="policies">the authorization policies required for this route</param>
+    public void AddSecurityRequirementObject(List<string>? schemes, List<string>? policies)
+    {
+        if (schemes is null or { Count: 0 })
+        {
+            if (policies is null or { Count: 0 })
+            {
+                return;
+            }
+        }
+        else
+        {
+            // Add schemes to RequireSchemes if any
+            RequireSchemes.AddRange(schemes);
+            if (policies is not null and { Count: > 0 })
+            {
+                RequirePolicies.AddRange(policies);
+            }
+        }
+    }
 }

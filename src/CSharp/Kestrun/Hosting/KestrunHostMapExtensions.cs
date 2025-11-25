@@ -143,6 +143,9 @@ public static partial class KestrunHostMapExtensions
     /// <returns>The KestrunHost instance for chaining.</returns>
     public static KestrunHost AddOpenApiMapRoute(this KestrunHost host, OpenApiMapRouteOptions options)
     {
+        ArgumentNullException.ThrowIfNull(options);
+        ArgumentNullException.ThrowIfNull(host);
+
         // Validate options
         return host.AddMapRoute(options.MapOptions, async context =>
         {

@@ -66,5 +66,5 @@ public record OpenAPIMetadata : OpenAPICommonMetadata
     /// A declaration of which security mechanisms can be used for this operation.
     /// The list of values includes alternative security requirement objects that can be used.
     /// </summary>
-    public List<Dictionary<string, List<string>>>? Security { get; set; }
+    public List<Dictionary<string, List<string>>>? SecuritySchemes { get; set; }
 }

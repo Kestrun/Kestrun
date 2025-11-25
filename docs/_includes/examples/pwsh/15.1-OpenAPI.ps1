@@ -403,10 +403,11 @@ Add-KrOpenApiExternalDoc -Description 'Find more info here' -Url 'https://exampl
 # 7. Finalize configuration and set server limits
 Enable-KrConfiguration
 
-Add-KrApiDocumentationRoute
+Add-KrApiDocumentationRoute -DocumentType Redoc
+Add-KrApiDocumentationRoute -DocumentType Swagger
 
-Add-KrOpenApiRoute -Pattern '/openapi/{version}/openapi.{format}'
-<#
+Add-KrOpenApiRoute
+
 New-KrMapRouteBuilder -Verbs @('GET', 'HEAD', 'POST', 'TRACE') -Pattern '/status' |
     Add-KrMapRouteScriptBlock -ScriptBlock {
         Write-KrLog -Level Debug -Message 'Health check'
@@ -478,7 +479,6 @@ Add-KrMapRoute -Pattern '/openapi2/{version}/openapi.{format}' -Method 'GET' -Sc
         Write-KrTextResponse -InputObject $json -ContentType 'application/json'
     }
 }
-#>
 
 <#
 .SYNOPSIS
@@ -500,6 +500,7 @@ function TestDivide {
     [OpenApiResponseAttribute( Description = 'Address not found' , ContentType = 'application/yaml' , SchemaRef = 'UserInfoResponse', Inline = $true )]
     [OpenApiResponseRefAttribute( StatusCode = '404', ReferenceId = 'AddressResponse-NotFound' )]
     [OpenApiRequestBodyRefAttribute( ReferenceId = 'CreateAddressBody', Inline = $true )]
+    [OpenApiAuthorizationAttribute( Policies = 'read:user' )]
     param(
         [OpenApiParameterAttribute(In = 'Query', Description = 'The dividend number')]
         #   [OpenApiPropertyAttribute(Example = 10)]

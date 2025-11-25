@@ -785,14 +785,14 @@ public class MapRouteBuilder : MapRouteOptions
 
             // Ensure Security list exists:
             // List<Dictionary<string, IEnumerable<string>>>
-            metadata.Security ??= new List<Dictionary<string, List<string>>>();
+            metadata.Security ??= [];
             // d: Dictionary<string, List<string>> (we'll convert values to IEnumerable<string> later)
             var tempScopesByScheme = new Dictionary<string, List<string>>();
 
             // Start with the explicit schema, if any
             if (!string.IsNullOrWhiteSpace(schema))
             {
-                tempScopesByScheme[schema] = new List<string>();
+                tempScopesByScheme[schema] = [];
                 if (!allSchemes.Contains(schema))
                 {
                     allSchemes.Add(schema);

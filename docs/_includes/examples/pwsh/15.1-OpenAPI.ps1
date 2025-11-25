@@ -405,6 +405,8 @@ Enable-KrConfiguration
 
 Add-KrApiDocumentationRoute
 
+Add-KrOpenApiRoute -Pattern '/openapi/{version}/openapi.{format}'
+<#
 New-KrMapRouteBuilder -Verbs @('GET', 'HEAD', 'POST', 'TRACE') -Pattern '/status' |
     Add-KrMapRouteScriptBlock -ScriptBlock {
         Write-KrLog -Level Debug -Message 'Health check'
@@ -476,6 +478,7 @@ Add-KrMapRoute -Pattern '/openapi2/{version}/openapi.{format}' -Method 'GET' -Sc
         Write-KrTextResponse -InputObject $json -ContentType 'application/json'
     }
 }
+#>
 
 <#
 .SYNOPSIS

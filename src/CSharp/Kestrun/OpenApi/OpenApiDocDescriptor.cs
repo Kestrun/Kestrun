@@ -63,78 +63,37 @@ public class OpenApiDocDescriptor
     public void GenerateComponents(OpenApiComponentSet components)
     {
         Document.Components ??= new OpenApiComponents();
-        // Examples
-        if (components.ExampleTypes is not null && components.ExampleTypes.Count > 0)
+
+        ProcessComponentTypes(components.ExampleTypes, () => Document.Components.Examples ??= new Dictionary<string, IOpenApiExample>(StringComparer.Ordinal), BuildExamples);
+        ProcessComponentTypes(components.SchemaTypes, () => Document.Components.Schemas ??= new Dictionary<string, IOpenApiSchema>(StringComparer.Ordinal), t => BuildSchema(t));
+        ProcessComponentTypes(components.HeaderTypes, () => Document.Components.Headers ??= new Dictionary<string, IOpenApiHeader>(StringComparer.Ordinal), BuildHeaders);
+        ProcessComponentTypes(components.ParameterTypes, () => Document.Components.Parameters ??= new Dictionary<string, IOpenApiParameter>(StringComparer.Ordinal), BuildParameters);
+        ProcessComponentTypes(components.LinkTypes, () => Document.Components.Links ??= new Dictionary<string, IOpenApiLink>(StringComparer.Ordinal), BuildLinks);
+        ProcessComponentTypes(components.CallbackTypes, () => Document.Components.Callbacks ??= new Dictionary<string, IOpenApiCallback>(StringComparer.Ordinal), BuildCallbacks);
+        ProcessComponentTypes(components.ResponseTypes, () => Document.Components.Responses ??= new Dictionary<string, IOpenApiResponse>(StringComparer.Ordinal), BuildResponses);
+        ProcessComponentTypes(components.RequestBodyTypes, () => Document.Components.RequestBodies ??= new Dictionary<string, IOpenApiRequestBody>(StringComparer.Ordinal), BuildRequestBodies);
+    }
+
+    /// <summary>
+    /// Processes a list of component types and builds them into the OpenAPI document.
+    /// </summary>
+    /// <param name="types">The list of component types to process.</param>
+    /// <param name="ensureDictionary">An action to ensure the corresponding dictionary is initialized.</param>
+    /// <param name="buildAction">An action to build each component type.</param>
+    private static void ProcessComponentTypes(
+        IReadOnlyList<Type>? types,
+        Action ensureDictionary,
+        Action<Type> buildAction)
+    {
+        if (types is null || types.Count == 0)
         {
-            Document.Components.Examples = new Dictionary<string, IOpenApiExample>(StringComparer.Ordinal);
-            foreach (var t in components.ExampleTypes)
-            {
-                BuildExamples(t);
-            }
-        }
-        // Schemas
-        if (components.SchemaTypes is not null && components.SchemaTypes.Count > 0)
-        {
-            Document.Components.Schemas = new Dictionary<string, IOpenApiSchema>(StringComparer.Ordinal);
-            foreach (var t in components.SchemaTypes)
-            {
-                BuildSchema(t);
-            }
+            return;
         }
 
-        // Headers
-        if (components.HeaderTypes is not null && components.HeaderTypes.Count > 0)
+        ensureDictionary();
+        foreach (var type in types)
         {
-            Document.Components.Headers = new Dictionary<string, IOpenApiHeader>(StringComparer.Ordinal);
-            foreach (var t in components.HeaderTypes)
-            {
-                BuildHeaders(t);
-            }
-        }
-        // Parameters
-        if (components.ParameterTypes is not null && components.ParameterTypes.Count > 0)
-        {
-            Document.Components.Parameters = new Dictionary<string, IOpenApiParameter>(StringComparer.Ordinal);
-            foreach (var t in components.ParameterTypes)
-            {
-                BuildParameters(t);
-            }
-        }
-        // Links
-        if (components.LinkTypes is not null && components.LinkTypes.Count > 0)
-        {
-            Document.Components.Links = new Dictionary<string, IOpenApiLink>(StringComparer.Ordinal);
-            foreach (var t in components.LinkTypes)
-            {
-                BuildLinks(t);
-            }
-        }
-        // Callbacks
-        if (components.CallbackTypes is not null && components.CallbackTypes.Count > 0)
-        {
-            Document.Components.Callbacks = new Dictionary<string, IOpenApiCallback>(StringComparer.Ordinal);
-            foreach (var t in components.CallbackTypes)
-            {
-                BuildCallbacks(t);
-            }
-        }
-        // Responses
-        if (components.ResponseTypes is not null && components.ResponseTypes.Count > 0)
-        {
-            Document.Components.Responses = new Dictionary<string, IOpenApiResponse>(StringComparer.Ordinal);
-            foreach (var t in components.ResponseTypes)
-            {
-                BuildResponses(t);
-            }
-        }
-        // Request bodies
-        if (components.RequestBodyTypes is not null && components.RequestBodyTypes.Count > 0)
-        {
-            Document.Components.RequestBodies = new Dictionary<string, IOpenApiRequestBody>(StringComparer.Ordinal);
-            foreach (var t in components.RequestBodyTypes)
-            {
-                BuildRequestBodies(t);
-            }
+            buildAction(type);
         }
     }
 
@@ -358,7 +317,7 @@ public class OpenApiDocDescriptor
         {
             op.Callbacks = new Dictionary<string, IOpenApiCallback>(meta.Callbacks);
         }
-        if (meta.Security is not null && meta.Security.Any())
+        if (meta.Security is not null && meta.Security.Count != 0)
         {
             op.Security ??= [];
 
@@ -388,7 +347,7 @@ public class OpenApiDocDescriptor
                 op.Security.Add(requirement);
             }
         }
-        else if (meta.Security is not null && !meta.Security.Any())
+        else if (meta.Security is not null && meta.Security.Count == 0)
         {
             // Explicitly anonymous for this operation (overrides Document.Security)
             op.Security = [];
@@ -2029,7 +1988,11 @@ public class OpenApiDocDescriptor
 
     #endregion
 
-    // Overload that ensures nested complex types have component schemas available in the document
+    /// <summary>
+    /// Builds an inline schema representation from the specified type.
+    /// </summary>
+    /// <param name="t">The type to build the schema from.</param>
+    /// <returns>An inline schema representation of the specified type.</returns>
     private IOpenApiSchema BuildInlineSchemaFromType(Type t)
     {
         var obj = new OpenApiSchema

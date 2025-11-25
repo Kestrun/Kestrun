@@ -599,7 +599,6 @@ public class MapRouteBuilder : MapRouteOptions
         return this;
     }
 
-
     /// <summary>
     /// Adds an OpenAPI request body (by reference) to this route for the given HTTP verbs.
     /// The request body is resolved from the OpenAPI document components using a reference ID.

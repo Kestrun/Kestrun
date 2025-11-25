@@ -79,10 +79,8 @@ if (($null -eq $PSCmdlet.MyInvocation) -or ([string]::IsNullOrEmpty($PSCmdlet.My
     return
 }
 
-# Add Helper utility
-. ./Utility/Helper.ps1
-
-. ./Utility/Import-EnvFile.ps1
+# Add Helper utility module
+Import-Module -Name './Utility/Modules/Helper.psm1'
 
 # Quiet env handling with optional verbose debug
 $krDebug = -not [string]::IsNullOrWhiteSpace($env:KR_DEBUG_UPSTASH) -and ($env:KR_DEBUG_UPSTASH -in @('1', 'true', 'True'))
@@ -244,43 +242,8 @@ Add-BuildTask 'BuildNoPwsh' {
 Add-BuildTask 'Build' 'BuildNoPwsh', 'SyncPowerShellDll', { Write-Host '🚀 Build completed.' }
 
 Add-BuildTask 'SyncPowerShellDll' {
-    $dest = '.\src\PowerShell\Kestrun\lib'
-    $src = ".\src\CSharp\Kestrun\bin\$Configuration"
-    Write-Host "📁 Preparing to copy files from $src to $dest"
-    if (-not (Test-Path -Path $dest)) {
-        New-Item -Path $dest -ItemType Directory -Force | Out-Null
-    }
-    if (-not (Test-Path -Path (Join-Path -Path $dest -ChildPath 'Microsoft.CodeAnalysis'))) {
-        Write-Host '📦 Missing CodeAnalysis (downloading)...'
-        & .\Utility\Download-CodeAnalysis.ps1
-    }
-    foreach ($framework in $Frameworks) {
-        $destFramework = Join-Path -Path $dest -ChildPath $framework
-        if (Test-Path -Path $destFramework) {
-            Remove-Item -Path $destFramework -Recurse -Force | Out-Null
-        }
-        New-Item -Path $destFramework -ItemType Directory -Force | Out-Null
-        $destFramework = Resolve-Path -Path $destFramework
-        $srcFramework = Resolve-Path (Join-Path -Path $src -ChildPath $framework)
-        Write-Host "📄 Copying dlls from $srcFramework to $destFramework"
-
-        # Copy files except ones starting with Microsoft.CodeAnalysis
-        Get-ChildItem -Path $srcFramework -Recurse -File |
-            Where-Object { -not ($_.Name -like 'Microsoft.CodeAnalysis*') -or
-                $_.Name -like 'Microsoft.CodeAnalysis.Razor*' } |
-            ForEach-Object {
-                if ( -not $_.DirectoryName.Contains("$([System.IO.Path]::DirectorySeparatorChar)runtimes$([System.IO.Path]::DirectorySeparatorChar)")) {
-                    $targetPath = $_.FullName.Replace($srcFramework, $destFramework)
-                    $targetDir = Split-Path $targetPath -Parent
-
-                    if (-not (Test-Path $targetDir)) {
-                        New-Item -ItemType Directory -Path $targetDir -Force | Out-Null
-                    }
-
-                    Copy-Item -Path $_.FullName -Destination $targetPath -Force
-                }
-            }
-    }
+    Write-Host '🔄 Syncing PowerShell DLLs to src/PowerShell/Kestrun/lib...'
+    Sync-PowerShellDll -Configuration $Configuration -Frameworks $Frameworks -dest '.\src\PowerShell\Kestrun\lib'
 }
 
 Add-BuildTask 'Nuget-CodeAnalysis' {
@@ -396,9 +359,9 @@ Add-BuildTask 'Build_CSharp_Help' {
 Add-BuildTask 'Build-Help' {
     Write-Host '📚 Generating all Help...'
 }, 'Build_Powershell_Help', 'Build_CSharp_Help', {
-     $tutorialZipPath='./docs/pwsh/tutorial/examples.zip'
+    $tutorialZipPath = './docs/pwsh/tutorial/examples.zip'
     Write-Host "📦 Creating tutorial examples zip ($tutorialZipPath)..."
-    if( (Test-Path -Path $tutorialZipPath)) {
+    if ( (Test-Path -Path $tutorialZipPath)) {
         Write-Verbose "🗑️ Removing existing tutorial examples zip ($tutorialZipPath)..."
         Remove-Item -Path $tutorialZipPath -Force | Out-Null
     }

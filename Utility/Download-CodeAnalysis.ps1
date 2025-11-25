@@ -4,8 +4,8 @@ param(
     [switch]$Force
 )
 
-# Add Helper utility
-. ./Utility/Helper.ps1
+# Add Helper utility module
+Import-Module -Name './Utility/Modules/Helper.psm1'
 
 # Where to put the final DLLs
 $BaseOut = Join-Path -Path $OutputDir -ChildPath 'Microsoft.CodeAnalysis'

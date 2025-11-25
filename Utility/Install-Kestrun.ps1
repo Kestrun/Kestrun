@@ -7,8 +7,8 @@ param(
     [switch]$Remove
 )
 
-# Add Helper utility
-. ./Utility/Helper.ps1
+# Add Helper utility module
+Import-Module -Name './Utility/Modules/Helper.psm1'
 
 $PSPaths = if ($IsWindows) {
     $env:PSModulePath -split ';'
@@ -48,5 +48,3 @@ Copy-Item -Path $path -Destination $dest -Force -Recurse | Out-Null
 
 # Confirm the deployment
 Write-Host "🚀 Deployed to $dest"
-
-

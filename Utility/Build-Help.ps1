@@ -7,6 +7,8 @@ param(
     [string]$OutDir = './docs/pwsh/cmdlets',
     # Optional culture for XML help (not required for web site)
     [string]$XmlCulture = 'en-US',
+    # Optional folder to put XML help in (overrides default module folder)
+    [string]$XmlFolder,
     # Create/refresh XML help too?
     [switch]$NotEmitXmlHelp,
     [switch]$Clean
@@ -113,8 +115,12 @@ $($raw.Substring(5))
 # (Optional) emit external help XML to ship in your module
 if (-not $NotEmitXmlHelp) {
     $md = Measure-PlatyPSMarkdown -Path "$OutDir/Kestrun/*.md"
-    $srcDir = Split-Path -Path $ModulePath -Parent
-    $xmlOut = Join-Path -Path $srcDir -ChildPath $XmlCulture
+    if ( $XmlFolder) {
+        $xmlOut = Join-Path -Path $XmlFolder -ChildPath $XmlCulture
+    } else {
+        $srcDir = Split-Path -Path $ModulePath -Parent
+        $xmlOut = Join-Path -Path $srcDir -ChildPath $XmlCulture
+    }
     New-Item -ItemType Directory -Force -Path $xmlOut | Out-Null
     Write-Host '🧬 Generating external help XML…'
     # Import only CommandHelp → export MAML

@@ -1951,7 +1951,7 @@ public class OpenApiDocDescriptor
         var explicitKey = GetKeyOverride(bodyAttribute);
         if (!string.IsNullOrWhiteSpace(explicitKey))
         {
-            name = explicitKey!;
+            name = explicitKey;
         }
 
         if (bodyAttribute.Description is not null)
@@ -2014,25 +2014,17 @@ public class OpenApiDocDescriptor
 
     private IEnumerable<string> ResolveExampleContentTypes(OpenApiExampleRefAttribute exRef, OpenApiRequestBody requestBody)
     {
-        var keys = exRef.ContentType is null ? (requestBody.Content?.Keys ?? Array.Empty<string>()) : new[] { exRef.ContentType };
-        if (!keys.Any())
-        {
-            return new[] { "application/json" };
-        }
-        return keys;
+        var keys = exRef.ContentType is null ? (requestBody.Content?.Keys ?? Array.Empty<string>()) : [exRef.ContentType];
+        return keys.Count == 0 ? ["application/json"] : (IEnumerable<string>)keys;
     }
 
     private IOpenApiExample CloneExampleOrThrow(string referenceId)
     {
-        if (Document.Components?.Examples == null || !Document.Components.Examples.TryGetValue(referenceId, out var value))
-        {
-            throw new InvalidOperationException($"Example reference '{referenceId}' cannot be embedded because it was not found in components.");
-        }
-        if (value is not OpenApiExample example)
-        {
-            throw new InvalidOperationException($"Example reference '{referenceId}' cannot be embedded because it is not an OpenApiExample.");
-        }
-        return example.Clone();
+        return Document.Components?.Examples == null || !Document.Components.Examples.TryGetValue(referenceId, out var value)
+            ? throw new InvalidOperationException($"Example reference '{referenceId}' cannot be embedded because it was not found in components.")
+            : value is not OpenApiExample example
+            ? throw new InvalidOperationException($"Example reference '{referenceId}' cannot be embedded because it is not an OpenApiExample.")
+            : (IOpenApiExample)example.Clone();
     }
 
     #endregion

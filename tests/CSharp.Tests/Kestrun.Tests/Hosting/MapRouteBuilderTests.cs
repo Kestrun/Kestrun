@@ -35,7 +35,7 @@ public class MapRouteBuilderTests
         public string Name { get; set; } = "Alice";
     }
 
-    private KestrunHost NewHost() => new("TestApp", Log.Logger);
+    private static KestrunHost NewHost() => new("TestApp", Log.Logger);
 
     [Fact]
     public void CreateAndToString_PopulatesVerbsAndPattern()
@@ -236,5 +236,62 @@ public class MapRouteBuilderTests
         Assert.NotNull(meta.Security);
         Assert.True(meta.Security.Count > 0);
         Assert.Contains(meta.Security.First().Keys, k => k == "Scheme1");
+    }
+
+    [Fact]
+    public void AddOpenApiTag_Empty_Throws()
+    {
+        var host = NewHost();
+        var builder = MapRouteBuilder.Create(host, "/tags-empty", [HttpVerb.Get]);
+        var ex = Assert.Throws<ArgumentException>(() => builder.AddOpenApiTag([]));
+        Assert.Contains("At least one non-empty tag", ex.Message);
+    }
+
+    [Fact]
+    public void AddOpenApiRequestBody_GetWithoutForce_Skips()
+    {
+        var host = NewHost();
+        var doc = host.GetOrCreateOpenApiDocument(IOpenApiAuthenticationOptions.DefaultSchemeName);
+        doc.GenerateComponents(new OpenApiComponentSet { RequestBodyTypes = [typeof(RequestBodyComponentHolder)] });
+        var builder = MapRouteBuilder.Create(host, "/get-skip", [HttpVerb.Get]);
+        _ = builder.AddOpenApiRequestBody("ReqBody", force: false);
+        // When force=false for GET, metadata for GET may not be created; ensure dictionary does not contain verb or has null request body
+        if (builder.OpenAPI.TryGetValue(HttpVerb.Get, out var meta))
+        {
+            Assert.Null(meta.RequestBody);
+        }
+        else
+        {
+            Assert.False(builder.OpenAPI.ContainsKey(HttpVerb.Get));
+        }
+    }
+
+    [Fact]
+    public void AddOpenApiRequestBody_Duplicate_Throws()
+    {
+        var host = NewHost();
+        var doc = host.GetOrCreateOpenApiDocument(IOpenApiAuthenticationOptions.DefaultSchemeName);
+        doc.GenerateComponents(new OpenApiComponentSet { RequestBodyTypes = [typeof(RequestBodyComponentHolder)] });
+        var builder = MapRouteBuilder.Create(host, "/dup", [HttpVerb.Post]);
+        _ = builder.AddOpenApiRequestBody("ReqBody");
+        var ex = Assert.Throws<InvalidOperationException>(() => builder.AddOpenApiRequestBody("ReqBody"));
+        Assert.Contains("already defined", ex.Message);
+    }
+
+    [Fact]
+    public void AddAuthorization_MultipleCalls_MergesSchemesAndPolicies()
+    {
+        var host = NewHost();
+        var builder = MapRouteBuilder.Create(host, "/auth-multi", [HttpVerb.Get, HttpVerb.Post]);
+        _ = builder.AddAuthorization(policies: ["PolicyA"], schema: "Scheme1", verbs: [HttpVerb.Get]);
+        _ = builder.AddAuthorization(policies: ["PolicyB"], schema: "Scheme2", verbs: [HttpVerb.Post]);
+        Assert.Contains("Scheme1", builder.RequireSchemes);
+        Assert.Contains("Scheme2", builder.RequireSchemes);
+        Assert.Contains("PolicyA", builder.RequirePolicies);
+        Assert.Contains("PolicyB", builder.RequirePolicies);
+        var getMeta = builder.OpenAPI[HttpVerb.Get];
+        var postMeta = builder.OpenAPI[HttpVerb.Post];
+        Assert.Contains(getMeta.Security!.First().Keys, k => k == "Scheme1");
+        Assert.Contains(postMeta.Security!.First().Keys, k => k == "Scheme2");
     }
 }

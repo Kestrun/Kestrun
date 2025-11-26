@@ -87,7 +87,6 @@ foreach ($f in $files) {
     #       Resolve-KrPath ...
     #       ```
     #
-    # 1. Fix MD040 - add language to bare code fences
     #    Only touch opening fences that are just ``` on their own line.
     $inFence = $false
 

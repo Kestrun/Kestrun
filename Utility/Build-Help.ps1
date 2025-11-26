@@ -28,6 +28,10 @@ if (Test-Path -Path "$OutDir/about_.md") {
     Remove-Item -Path "$OutDir/about_.md" -Force
 }
 # Import PlatyPS module
+if (-not (Get-Module -ListAvailable -Name Microsoft.PowerShell.PlatyPS)) {
+    Write-Host "📦 Installing Microsoft.PowerShell.PlatyPS..."
+    Install-Module Microsoft.PowerShell.PlatyPS -Force -Scope CurrentUser
+}
 Import-Module Microsoft.PowerShell.PlatyPS
 Write-Host "📦 Importing module: $ModulePath"
 Import-Module $ModulePath -Force

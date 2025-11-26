@@ -4,9 +4,11 @@
     [Parameter()]
     [string]$ArtifactsPath = './artifacts',
     [Parameter()]
-    [switch]$SignModule
+    [switch]$SignModule,
+    [Parameter(Mandatory = $false)]
+    [string]$CertificateThumbprint
 )
-$ErrorActionPreference = "Stop"
+$ErrorActionPreference = 'Stop'
 if (-not (Test-Path -Path $FileVersion)) {
     throw "Version file $FileVersion not found"
 }
@@ -91,7 +93,7 @@ Get-ChildItem "$kestrunSrcPath/Public/*.ps1" -Recurse | ForEach-Object {
 }
 # 5. Build the module manifest
 Write-Host '🛠️ Updating module manifest...'
-& .\Utility\Update-Manifest.ps1
+& .\Utility\Update-Manifest.ps1 -ModuleRootPath $kestrunSrcPath -FileVersion $FileVersion -OutputPath $artifactsPath
 Write-Host '📦 Copying module manifest...'
 Copy-Item -Path "$kestrunSrcPath/Kestrun.psd1" -Destination (Join-Path -Path $artifactsPath -ChildPath 'Kestrun.psd1') -Force
 
@@ -138,8 +140,11 @@ Write-Host "📦 Module distribution ready at: $artifactsPath"
 # 11. (Optional) Sign the module files during
 if ($SignModule) {
     Write-Host '🔐 Signing module files...'
+    if (-not $CertificateThumbprint) {
+        throw 'Certificate thumbprint required when -SignModule is specified'
+    }
     # Get certificate once
-    $cert = Get-Item Cert:\CurrentUser\My\<thumbprint>
+    $cert = Get-Item "Cert:\CurrentUser\My\$CertificateThumbprint"
 
     Write-Host "Signing module at $psm1Path"
     Set-AuthenticodeSignature -FilePath $psm1Path -Certificate $cert | Out-Null

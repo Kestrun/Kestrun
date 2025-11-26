@@ -190,6 +190,7 @@ Add-BuildTask Help {
     Write-Host '- Restore: Restores NuGet packages.'
     Write-Host '- Build: Builds the solution.'
     Write-Host '- Test: Runs tests and Pester tests.'
+    Write-Host '- Package: Packages the solution.'
     Write-Host '- All: Runs Clean, Build, and Test tasks in sequence.'
     Write-Host '-----------------------------------------------------'
     Write-Host '🧩 Additional Tasks:' -ForegroundColor Green
@@ -197,7 +198,6 @@ Add-BuildTask Help {
     Write-Host '- Clean-CodeAnalysis: Cleans the CodeAnalysis packages.'
     Write-Host '- Test-xUnit: Runs Kestrun DLL tests.'
     Write-Host '- Test-Pester: Runs Pester tests.'
-    Write-Host '- Package: Packages the solution.'
     Write-Host '- Manifest: Updates the Kestrun.psd1 manifest.'
     Write-Host '- New-LargeFile: Generates a large test file.'
     Write-Host '- Clean-LargeFile: Cleans the generated large test files.'
@@ -323,7 +323,16 @@ Add-BuildTask 'Create-Distribution' {
     & .\Utility\Create-Distribution.ps1 -SignModule:$SignModule
 }
 
-Add-BuildTask 'Package' 'Build', {
+
+Add-BuildTask 'Clear-Package' {
+    Write-Host '🧼 Clearing previous package artifacts...'
+    $out = Join-Path -Path $PWD -ChildPath 'artifacts'
+    if (Test-Path -Path $out) {
+        Remove-Item -Path $out -Recurse -Force -ErrorAction Stop
+    }
+}
+
+Add-BuildTask 'Package' 'Clear-Package', 'Build', {
     Write-Host '🚀 Starting release build...'
     $script:Configuration = 'Release'
 
@@ -354,7 +363,7 @@ Add-BuildTask 'Package' 'Build', {
     }
     $powershellGallery = New-Item -ItemType Directory -Force -Path (Join-Path -Path $out -ChildPath 'PowershellGallery')
     $zip = Join-Path -Path $powershellGallery -ChildPath("Kestrun-PSModule-$($Version).zip")
-    Compress-Archive -Path "$kestrunReleasePath/*" -DestinationPath $zip -Force
+    Compress-Archive -Path "$kestrunReleasePath/$($VersionDetails.Version)/*" -DestinationPath $zip -Force
     if ($LASTEXITCODE -ne 0) {
         Write-Host "❌ Failed to create $zip" -ForegroundColor Red
         throw "Failed to create $zip"

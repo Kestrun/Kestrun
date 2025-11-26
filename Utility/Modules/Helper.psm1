@@ -34,8 +34,8 @@ Get-ChildItem "$($moduleRootPath)/src/PowerShell/Kestrun/Private/Assembly/*.ps1"
         This function is intended to keep tool discovery logic in one place so other scripts can remain simpler and more robust.
 #>
 function Get-ReportGeneratorPath {
-    $toolDir = if ($IsWindows) { Join-Path $env:USERPROFILE ".dotnet\tools" } else { "$HOME/.dotnet/tools" }
-    $exe = if ($IsWindows) { "reportgenerator.exe" } else { "reportgenerator" }
+    $toolDir = if ($IsWindows) { Join-Path $env:USERPROFILE '.dotnet\tools' } else { "$HOME/.dotnet/tools" }
+    $exe = if ($IsWindows) { 'reportgenerator.exe' } else { 'reportgenerator' }
     Join-Path $toolDir $exe
 }
 
@@ -65,7 +65,7 @@ function Get-ReportGeneratorPath {
 function Install-ReportGenerator {
     $rg = Get-ReportGeneratorPath
     if (-not (Test-Path $rg)) {
-        Write-Host "Installing ReportGenerator (dotnet global tool)..." -ForegroundColor Cyan
+        Write-Host 'Installing ReportGenerator (dotnet global tool)...' -ForegroundColor Cyan
         dotnet tool install -g dotnet-reportgenerator-globaltool | Out-Host
     }
     # ensure current session PATH includes toolDir
@@ -112,7 +112,7 @@ function Install-ReportGenerator {
 function Get-AspNetSharedDir([string]$framework) {
     $major = ($framework -replace '^net(\d+)\..+$', '$1')
     $runtimes = & dotnet --list-runtimes | Select-String 'Microsoft.AspNetCore.App'
-    if (-not $runtimes) { throw "Microsoft.AspNetCore.App runtime not found" }
+    if (-not $runtimes) { throw 'Microsoft.AspNetCore.App runtime not found' }
 
     $aspnetMatches = @()
     foreach ($r in $runtimes) {
@@ -276,7 +276,7 @@ function Get-PackageFolder {
             $nupkgUrl = "https://api.nuget.org/v3-flatcontainer/$idLower/$Version/$nupkgName"
             $nupkgPath = Join-Path $pkgRoot $nupkgName
 
-            Write-Host "Downloading $Id $Version (attempt $attempt of $($Retries + 1))..."
+            Write-Host "Downloading $Id $Version (attempt $attempt of $($Retries + 1))..." -NoNewline
             Invoke-WebRequest `
                 -Uri $nupkgUrl `
                 -OutFile $nupkgPath `
@@ -290,7 +290,7 @@ function Get-PackageFolder {
             } finally {
                 if (Test-Path $nupkgPath) { Remove-Item $nupkgPath -Force -ErrorAction SilentlyContinue }
             }
-
+            Write-Host 'Succeeded.' -ForegroundColor Green
             return (Resolve-Path $pkgRoot).Path
         } catch {
             if ($attempt -gt $Retries) { throw }
@@ -299,7 +299,7 @@ function Get-PackageFolder {
             $base = [Math]::Min($MaxDelaySeconds, $DelaySeconds * [Math]::Pow(2, $attempt - 1))
             $jitter = 1 + (Get-Random -Minimum -0.2 -Maximum 0.2) # ±20%
             $sleep = [int][Math]::Max(1, [Math]::Round($base * $jitter))
-
+            Write-Host 'Failed.' -ForegroundColor Yellow
             Write-Warning ("Get-PackageFolder failed (attempt {0}/{1}): {2}`nRetrying in {3}s..." -f $attempt, ($Retries + 1), $_.Exception.Message, $sleep)
 
             # Clean up any partial extraction before the next try
@@ -520,43 +520,52 @@ function Set-CoberturaGrouping {
     collapses multiple blank lines into a single blank line, and trims leading/trailing blank lines.
 .PARAMETER Path
     The path to the PowerShell script file.
+.PARAMETER ShouldProcess
+    Indicates whether to perform the operation. If specified, the function will prompt for confirmation before proceeding.
+.PARAMETER ConfirmImpact
+    The impact level of the operation for confirmation prompts. Default is 'Low'.
+.EXAMPLE
+    $modifiedContent = Remove-CommentHelpBlock -Path './MyScript.ps1'
+    This will read the content of 'MyScript.ps1', remove the comment-based help block
 .OUTPUTS
     The modified content of the script file as a string.
 #>
 function Remove-CommentHelpBlock {
+    [CmdletBinding(SupportsShouldProcess = $true, ConfirmImpact = 'Low')]
     param(
         [string]$Path
     )
+    if ($PSCmdlet.ShouldProcess('CommentHelpBlock', 'Remove')) {
+        $content = Get-Content $Path -Raw
 
-    $content = Get-Content $Path -Raw
+        # Normalize newlines to LF
+        $content = $content -replace "`r`n", "`n"
+        $content = $content -replace "`r", "`n"
 
-    # Normalize newlines to LF
-    $content = $content -replace "`r`n", "`n"
-    $content = $content -replace "`r", "`n"
+        # Strip the first <# ... #> block (comment-based help)
+        $stripped = $content -replace '<#[\s\S]*?#>', ''
 
-    # Strip the first <# ... #> block (comment-based help)
-    $stripped = $content -replace '<#[\s\S]*?#>', ''
+        # Collapse 3+ blank lines → one blank line
+        $stripped = $stripped -replace '(\n) { 3, }', "`n`n"
 
-    # Collapse 3+ blank lines → one blank line
-    $stripped = $stripped -replace "(\n){3,}", "`n`n"
-
-    # Trim leading/trailing blank lines
-    return $stripped.Trim()
+        # Trim leading/trailing blank lines
+        return $stripped.Trim()
+    }
 }
 
 <#
-    .SYNOPSIS
-        Synchronizes PowerShell DLLs from the C# project output to the PowerShell module lib folder.
-    .DESCRIPTION
-        Copies compiled DLLs from the C# project output directory to the PowerShell module's lib folder,
-        ensuring that the necessary assemblies are available for the PowerShell module to function correctly.
-        It also checks for the presence of Microsoft.CodeAnalysis assemblies and downloads them if missing.
-    .PARAMETER dest
-        The destination directory where the DLLs will be copied. Default is '.\src\PowerShell\Kestrun\lib'.
-    .PARAMETER Configuration
-        The build configuration (Debug or Release). Default is 'Debug'.
-    .PARAMETER Frameworks
-        An array of target frameworks to synchronize. Default is @('net8.0', 'net9.0').
+.SYNOPSIS
+    Synchronizes PowerShell DLLs from the C# project output to the PowerShell module lib folder.
+.DESCRIPTION
+    Copies compiled DLLs from the C# project output directory to the PowerShell module's lib folder,
+    ensuring that the necessary assemblies are available for the PowerShell module to function correctly.
+    It also checks for the presence of Microsoft.CodeAnalysis assemblies and downloads them if missing.
+.PARAMETER dest
+    The destination directory where the DLLs will be copied. Default is '.\src\PowerShell\Kestrun\lib'.
+.PARAMETER Configuration
+    The build configuration (Debug or Release). Default is 'Debug'.
+.PARAMETER Frameworks
+    An array of target frameworks to synchronize. Default is @('net8.0', 'net9.0').
 #>
 function Sync-PowerShellDll {
     param (
@@ -568,7 +577,7 @@ function Sync-PowerShellDll {
         [Parameter()]
         [string[]]$Frameworks = @('net8.0', 'net9.0')
     )
-    $src = ".\src\CSharp\Kestrun\bin\$Configuration"
+    $src = Join-Path -Path $PWD -ChildPath 'src' -AdditionalChildPath 'CSharp', 'Kestrun', 'bin', $Configuration
     Write-Host "📁 Preparing to copy files from $src to $dest"
     if (-not (Test-Path -Path $dest)) {
         New-Item -Path $dest -ItemType Directory -Force | Out-Null
@@ -590,7 +599,7 @@ function Sync-PowerShellDll {
         # Copy files except ones starting with Microsoft.CodeAnalysis
         Get-ChildItem -Path $srcFramework -Recurse -File |
             Where-Object { -not ($_.Name -like 'Microsoft.CodeAnalysis*') -or
-                $_.Name -like 'Microsoft.CodeAnalysis.Razor*' } |
+                $_.Name -like 'Microsoft.CodeAnalysis.Razor*' -or $_.Name -like 'Kestrun.Annotations.dll' } |
             ForEach-Object {
                 if ( -not $_.DirectoryName.Contains("$([System.IO.Path]::DirectorySeparatorChar)runtimes$([System.IO.Path]::DirectorySeparatorChar)")) {
                     $targetPath = $_.FullName.Replace($srcFramework, $destFramework)
@@ -603,6 +612,20 @@ function Sync-PowerShellDll {
                     Copy-Item -Path $_.FullName -Destination $targetPath -Force
                 }
             }
+    }
+    # Additionally, copy Kestrun.Annotations.dll and .pdb to PowerShell lib/assemblies
+    $annotationSrc = Join-Path -Path $PWD -ChildPath 'src' -AdditionalChildPath 'CSharp', 'Kestrun.Annotations' , 'bin', $Configuration, 'net8.0'
+    $annotationDest = Join-Path -Path $dest -ChildPath 'assemblies'
+    Write-Host "📄 Copying Kestrun.Annotations.dll from $annotationSrc to $annotationDest"
+    # Create destination directory if it doesn't exist
+    if (-not (Test-Path -Path $annotationDest)) {
+        New-Item -Path $annotationDest -ItemType Directory -Force | Out-Null
+    }
+    # Copy the DLL and PDB files
+    Copy-Item -Path (Join-Path -Path $annotationSrc -ChildPath 'Kestrun.Annotations.dll') -Destination (Join-Path -Path $annotationDest -ChildPath 'Kestrun.Annotations.dll') -Force
+
+    if ($Configuration -eq 'Debug' -and (Test-Path -Path (Join-Path -Path $annotationSrc -ChildPath 'Kestrun.Annotations.pdb'))) {
+        Copy-Item -Path (Join-Path -Path $annotationSrc -ChildPath 'Kestrun.Annotations.pdb') -Destination (Join-Path -Path $annotationDest -ChildPath 'Kestrun.Annotations.pdb') -Force
     }
 }
 

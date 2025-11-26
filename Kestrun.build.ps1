@@ -214,7 +214,8 @@ Add-BuildTask Help {
     Write-Host '- Clean-Coverage: Cleans the code coverage reports.'
     Write-Host '- Normalize-LineEndings: Normalizes line endings to LF in .ps1, .psm1, and .cs files.'
     Write-Host '- Test-Tutorials: Runs tests on tutorial documentation.'
-    Write-Host '- DeepClean: Cleans all build artifacts.'
+    Write-Host '- Deep-Clean: Cleans all build artifacts.'
+    Write-Host '- Clean-Package: Cleans the package output directories.'
     Write-Host '-----------------------------------------------------'
 }
 
@@ -224,7 +225,9 @@ Add-BuildTask 'Clean' 'Clean-CodeAnalysis', 'Clean-Help', 'Clean-Dotnet', 'Clean
 
 Add-BuildTask 'Clean-PowerShellLib' {
     Write-Host '🧹 Cleaning PowerShell library...'
-    Remove-Item -Recurse -Force './src/PowerShell/Kestrun/lib' -ErrorAction SilentlyContinue
+    if (Test-Path -Path './src/PowerShell/Kestrun/lib') {
+        Remove-Item -Recurse -Force './src/PowerShell/Kestrun/lib' -ErrorAction SilentlyContinue
+    }
     Write-Host '✅ PowerShell library Clean completed.'
 }
 
@@ -236,18 +239,43 @@ Add-BuildTask 'Clean-Dotnet' {
 
 Add-BuildTask 'CleanObj' {
     Write-Host '🧹 Cleaning obj folders...'
-    Remove-Item -Recurse -Force '.\src\CSharp\Kestrun.Annotations\obj' -ErrorAction SilentlyContinue
-    Remove-Item -Recurse -Force '.\src\CSharp\Kestrun\obj' -ErrorAction SilentlyContinue
+    if (Test-Path -Path '.\src\CSharp\Kestrun.Annotations\obj') {
+        Remove-Item -Recurse -Force '.\src\CSharp\Kestrun.Annotations\obj' -ErrorAction SilentlyContinue
+    }
+    if (Test-Path -Path '.\src\CSharp\Kestrun\obj') {
+        Remove-Item -Recurse -Force '.\src\CSharp\Kestrun\obj' -ErrorAction SilentlyContinue
+    }
     Write-Host '✅ Obj clean completed.'
 }
 Add-BuildTask 'CleanBin' {
     Write-Host '🧹 Cleaning bin folders...'
-    Remove-Item -Recurse -Force '.\src\CSharp\Kestrun.Annotations\bin' -ErrorAction SilentlyContinue
-    Remove-Item -Recurse -Force '.\src\CSharp\Kestrun\bin' -ErrorAction SilentlyContinue
+    if (Test-Path -Path '.\src\CSharp\Kestrun.Annotations\bin') {
+        Remove-Item -Recurse -Force '.\src\CSharp\Kestrun.Annotations\bin' -ErrorAction SilentlyContinue
+    }
+    if (Test-Path -Path '.\src\CSharp\Kestrun\bin') {
+        Remove-Item -Recurse -Force '.\src\CSharp\Kestrun\bin' -ErrorAction SilentlyContinue
+    }
     Write-Host '✅ Bin clean completed.'
 }
 
-Add-BuildTask 'DeepClean' 'Clean', 'CleanObj', 'CleanBin' , {
+Add-BuildTask 'Clean-Package' {
+    Write-Host '🧼 Clearing previous package artifacts...'
+    $out = Join-Path -Path $PWD -ChildPath 'artifacts'
+    if (Test-Path -Path $out) {
+        Remove-Item -Path $out -Recurse -Force -ErrorAction Stop
+    }
+    Write-Host '✅ Package clean completed.'
+}
+
+Add-BuildTask 'Clean-CodeAnalysis' {
+    Write-Host '🧼 Cleaning CodeAnalysis packages...'
+    if (Test-Path -Path './src/PowerShell/Kestrun/lib/Microsoft.CodeAnalysis/') {
+        Remove-Item -Path './src/PowerShell/Kestrun/lib/Microsoft.CodeAnalysis/' -Force -Recurse -ErrorAction SilentlyContinue
+    }
+    Write-Host '✅ CodeAnalysis clean completed.'
+}
+
+Add-BuildTask 'Deep-Clean' 'Clean', 'CleanObj', 'CleanBin' , 'Clean-Package', {
     Write-Host '🧼 Deep cleaning completed.'
 }
 
@@ -279,60 +307,8 @@ Add-BuildTask 'BuildNoPwsh' {
 Add-BuildTask 'Build' 'BuildNoPwsh', 'SyncPowerShellDll', { Write-Host '🚀 Build completed.' }
 
 Add-BuildTask 'SyncPowerShellDll' {
-    $dest = Join-Path -Path $PWD -ChildPath 'src' -AdditionalChildPath 'PowerShell', 'Kestrun' , 'lib'
-    $src = Join-Path -Path $PWD -ChildPath 'src' -AdditionalChildPath 'CSharp', 'Kestrun' , 'bin', $Configuration
-    Write-Host "📁 Preparing to copy files from $src to $dest"
-    if (-not (Test-Path -Path $dest)) {
-        New-Item -Path $dest -ItemType Directory -Force | Out-Null
-    }
-    if (-not (Test-Path -Path (Join-Path -Path $dest -ChildPath 'Microsoft.CodeAnalysis'))) {
-        Write-Host '📦 Missing CodeAnalysis (downloading)...'
-        & .\Utility\Download-CodeAnalysis.ps1
-    }
-    foreach ($framework in $Frameworks) {
-        $destFramework = Join-Path -Path $dest -ChildPath $framework
-        if (Test-Path -Path $destFramework) {
-            Remove-Item -Path $destFramework -Recurse -Force | Out-Null
-        }
-        New-Item -Path $destFramework -ItemType Directory -Force | Out-Null
-        $destFramework = Resolve-Path -Path $destFramework
-        $srcFramework = Resolve-Path (Join-Path -Path $src -ChildPath $framework)
-        Write-Host "📄 Copying dlls from $srcFramework to $destFramework"
-
-        # Copy files except ones starting with Microsoft.CodeAnalysis
-        Get-ChildItem -Path $srcFramework -Recurse -File |
-            Where-Object { -not ($_.Name -like 'Microsoft.CodeAnalysis*') -or (-not ($_.Name -like 'Kestrun.Annotations.*')) -or
-                $_.Name -like 'Microsoft.CodeAnalysis.Razor*' } |
-            ForEach-Object {
-                if ( -not $_.DirectoryName.Contains("$([System.IO.Path]::DirectorySeparatorChar)runtimes$([System.IO.Path]::DirectorySeparatorChar)")) {
-                    $targetPath = $_.FullName.Replace($srcFramework, $destFramework)
-                    $targetDir = Split-Path $targetPath -Parent
-
-                    if (-not (Test-Path $targetDir)) {
-                        New-Item -ItemType Directory -Path $targetDir -Force | Out-Null
-                    }
-
-                    Copy-Item -Path $_.FullName -Destination $targetPath -Force
-                }
-            }
-
-        Write-Host "✅ Copied dlls for framework $framework to $destFramework"
-    }
-
-    # Additionally, copy Kestrun.Annotations.dll and .pdb to PowerShell lib/assemblies
-    $annotationSrc = Join-Path -Path $PWD -ChildPath 'src' -AdditionalChildPath 'CSharp', 'Kestrun.Annotations' , 'bin', $Configuration, 'net8.0'
-    $annotationDest = Join-Path -Path $PWD -ChildPath 'src' -AdditionalChildPath 'PowerShell', 'Kestrun' , 'lib', 'assemblies'
-    Write-Host "📄 Copying Kestrun.Annotations.dll from $annotationSrc to $annotationDest"
-    # Create destination directory if it doesn't exist
-    if (-not (Test-Path -Path $annotationDest)) {
-        New-Item -Path $annotationDest -ItemType Directory -Force | Out-Null
-    }
-    # Copy the DLL and PDB files
-    Copy-Item -Path (Join-Path -Path $annotationSrc -ChildPath 'Kestrun.Annotations.dll') -Destination (Join-Path -Path $annotationDest -ChildPath 'Kestrun.Annotations.dll') -Force
-    if (Test-Path -Path (Join-Path -Path $annotationSrc -ChildPath 'Kestrun.Annotations.pdb')) {
-        Copy-Item -Path (Join-Path -Path $annotationSrc -ChildPath 'Kestrun.Annotations.pdb') -Destination (Join-Path -Path $annotationDest -ChildPath 'Kestrun.Annotations.pdb') -Force
-    }
-    # Finalize
+    Write-Host '🔄 Syncing PowerShell DLLs to src/PowerShell/Kestrun/lib...'
+    Sync-PowerShellDll -Configuration $Configuration -Frameworks $Frameworks -dest '.\src\PowerShell\Kestrun\lib'
     Write-Host '🚀 PowerShell DLL synchronization completed.'
 }
 
@@ -341,10 +317,7 @@ Add-BuildTask 'Nuget-CodeAnalysis' {
     & .\Utility\Download-CodeAnalysis.ps1
 }
 
-Add-BuildTask 'Clean-CodeAnalysis' {
-    Write-Host '🧼 Cleaning CodeAnalysis packages...'
-    Remove-Item -Path './src/PowerShell/Kestrun/lib/Microsoft.CodeAnalysis/' -Force -Recurse -ErrorAction SilentlyContinue
-}
+
 
 Add-BuildTask 'Test-xUnit' {
     Write-Host '🧪 Running Kestrun DLL tests...'
@@ -405,16 +378,7 @@ Add-BuildTask 'Create-Distribution' {
     & .\Utility\Create-Distribution.ps1 -SignModule:$SignModule
 }
 
-
-Add-BuildTask 'Clear-Package' {
-    Write-Host '🧼 Clearing previous package artifacts...'
-    $out = Join-Path -Path $PWD -ChildPath 'artifacts'
-    if (Test-Path -Path $out) {
-        Remove-Item -Path $out -Recurse -Force -ErrorAction Stop
-    }
-}
-
-Add-BuildTask 'Package' 'Clear-Package', 'Build', {
+Add-BuildTask 'Package' 'Clean-Package', 'Build', {
     Write-Host '🚀 Starting release build...'
     $script:Configuration = 'Release'
 

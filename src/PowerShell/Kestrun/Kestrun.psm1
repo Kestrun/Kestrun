@@ -85,7 +85,6 @@ try {
         $funcs = Get-KrCommandsByContext -AnyOf Runtime -Functions $funcs
     }
 
-    # Get functions from memory and compare to existing to find new functions added
 
     $aliases = Get-ChildItem Alias: | Where-Object { $sysaliases -notcontains $_ }
     # export the module's public functions

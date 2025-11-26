@@ -108,6 +108,9 @@ Copy-Item -Path "$kestrunSrcPath/Formats" -Destination (Join-Path -Path $artifac
 # 8. Generate and copy THIRD-PARTY-NOTICES.md, LICENSE.txt, README.md
 Write-Host '📄 Generating and copying THIRD-PARTY-NOTICES.md...'
 & .\Utility\Update-ThirdPartyNotices.ps1 -Version $Version -Path (Join-Path -Path $artifactsPath -ChildPath 'THIRD-PARTY-NOTICES.md')
+if ($LASTEXITCODE -ne 0) {
+    throw "Failed to generate THIRD-PARTY-NOTICES.md"
+}
 
 # 9. Copy LICENSE.txt and README.md
 Copy-Item -Path './LICENSE.txt' -Destination (Join-Path -Path $artifactsPath -ChildPath 'LICENSE.txt') -Force

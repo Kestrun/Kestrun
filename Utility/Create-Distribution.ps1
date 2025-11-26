@@ -98,6 +98,9 @@ Copy-Item -Path "$kestrunSrcPath/Kestrun.psd1" -Destination (Join-Path -Path $ar
 # 6. Build the help files
 Write-Host '🛠️ Building help files...'
 pwsh -NoProfile -File .\Utility\Build-Help.ps1 -ModulePath "$kestrunSrcPath/Kestrun.psd1" -XmlFolder $artifactsPath -XmlCulture 'en-US'
+if ($LASTEXITCODE -ne 0) {
+    throw "Failed to build help files"
+}
 Move-Item -Path "$artifactsPath/en-US/Kestrun/Kestrun-Help.xml" -Destination "$artifactsPath/en-US/Kestrun-help.xml" -Force -ErrorAction Stop
 Remove-Item -Path "$artifactsPath/en-US/Kestrun" -Recurse -Force -ErrorAction Stop
 # 7. Copy additional module files

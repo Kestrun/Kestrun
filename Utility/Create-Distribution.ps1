@@ -92,6 +92,9 @@ Get-ChildItem "$kestrunSrcPath/Public/*.ps1" -Recurse | ForEach-Object {
 # 5. Build the module manifest
 Write-Host '🛠️ Updating module manifest...'
 & .\Utility\Update-Manifest.ps1
+if ($LASTEXITCODE -ne 0) {
+    throw "Failed to update module manifest"
+}
 Write-Host '📦 Copying module manifest...'
 Copy-Item -Path "$kestrunSrcPath/Kestrun.psd1" -Destination (Join-Path -Path $artifactsPath -ChildPath 'Kestrun.psd1') -Force
 

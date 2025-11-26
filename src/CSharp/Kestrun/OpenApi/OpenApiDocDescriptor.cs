@@ -2471,129 +2471,148 @@ public class OpenApiDocDescriptor
 
             foreach (var attr in attrs)
             {
-                if (attr is OpenApiPath oaPath)
+                try
                 {
-                    // HTTP Verb
-                    var httpVerb = oaPath.HttpVerb ?? string.Empty;
-                    if (!string.IsNullOrWhiteSpace(httpVerb))
+                    if (attr is OpenApiPath oaPath)
                     {
-                        parsedVerb = HttpVerbExtensions.FromMethodString(httpVerb);
-                        routeOptions.HttpVerbs.Add(parsedVerb);
-                    }
-
-                    // Pattern
-                    if (!string.IsNullOrWhiteSpace(oaPath.Pattern))
-                    {
-                        routeOptions.Pattern = oaPath.Pattern;
-                        openApiAttr.Pattern = oaPath.Pattern;
-                    }
-
-                    // Summary
-                    if (!string.IsNullOrWhiteSpace(oaPath.Summary))
-                    {
-                        openApiAttr.Summary = oaPath.Summary;
-                    }
-
-                    // Description
-                    if (!string.IsNullOrWhiteSpace(oaPath.Description))
-                    {
-                        openApiAttr.Description = oaPath.Description;
-                    }
-
-                    // Tags
-                    if (!string.IsNullOrWhiteSpace(oaPath.Tags))
-                    {
-                        openApiAttr.Tags = [.. oaPath.Tags.Split(',')];
-                    }
-
-                    // OperationId
-                    if (!string.IsNullOrWhiteSpace(oaPath.OperationId))
-                    {
-                        openApiAttr.OperationId = oaPath.OperationId;
-                    }
-                    // Deprecated flag (per-verb OpenAPI metadata)
-                    openApiAttr.Deprecated |= oaPath.Deprecated; // carry forward deprecated flag
-                }
-                else if (attr is OpenApiResponseRefAttribute oaRRa)
-                {
-                    openApiAttr.Responses ??= [];
-                    IOpenApiResponse response;
-                    // Determine if we inline the referenced response or use a $ref
-                    if (oaRRa.Inline)
-                    {
-                        if (Document.Components?.Responses == null || !Document.Components.Responses.TryGetValue(oaRRa.ReferenceId, out var value))
+                        // HTTP Verb
+                        var httpVerb = oaPath.HttpVerb ?? string.Empty;
+                        if (!string.IsNullOrWhiteSpace(httpVerb))
                         {
-                            throw new InvalidOperationException($"Response reference '{oaRRa.ReferenceId}' cannot be embedded because it was not found in components.");
+                            parsedVerb = HttpVerbExtensions.FromMethodString(httpVerb);
+                            routeOptions.HttpVerbs.Add(parsedVerb);
                         }
-                        if (value is not OpenApiResponse example)
+
+                        // Pattern
+                        if (!string.IsNullOrWhiteSpace(oaPath.Pattern))
                         {
-                            throw new InvalidOperationException($"Response reference '{oaRRa.ReferenceId}' cannot be embedded because it is not an OpenApiResponse.");
+                            routeOptions.Pattern = oaPath.Pattern;
+                            openApiAttr.Pattern = oaPath.Pattern;
                         }
-                        response = example.Clone();
+
+                        // Summary
+                        if (!string.IsNullOrWhiteSpace(oaPath.Summary))
+                        {
+                            openApiAttr.Summary = oaPath.Summary;
+                        }
+
+                        // Description
+                        if (!string.IsNullOrWhiteSpace(oaPath.Description))
+                        {
+                            openApiAttr.Description = oaPath.Description;
+                        }
+
+                        // Tags
+                        if (!string.IsNullOrWhiteSpace(oaPath.Tags))
+                        {
+                            openApiAttr.Tags = [.. oaPath.Tags.Split(',')];
+                        }
+
+                        // OperationId
+                        if (!string.IsNullOrWhiteSpace(oaPath.OperationId))
+                        {
+                            openApiAttr.OperationId = oaPath.OperationId;
+                        }
+                        // Deprecated flag (per-verb OpenAPI metadata)
+                        openApiAttr.Deprecated |= oaPath.Deprecated; // carry forward deprecated flag
+                    }
+                    else if (attr is OpenApiResponseRefAttribute oaRRa)
+                    {
+                        openApiAttr.Responses ??= [];
+                        IOpenApiResponse response;
+                        // Determine if we inline the referenced response or use a $ref
+                        if (oaRRa.Inline)
+                        {
+                            if (Document.Components?.Responses == null || !Document.Components.Responses.TryGetValue(oaRRa.ReferenceId, out var value))
+                            {
+                                throw new InvalidOperationException($"Response reference '{oaRRa.ReferenceId}' cannot be embedded because it was not found in components.");
+                            }
+                            if (value is not OpenApiResponse example)
+                            {
+                                throw new InvalidOperationException($"Response reference '{oaRRa.ReferenceId}' cannot be embedded because it is not an OpenApiResponse.");
+                            }
+                            response = example.Clone();
+                        }
+                        else
+                        {
+                            response = new OpenApiResponseReference(oaRRa.ReferenceId);
+                        }
+                        // Apply any description override
+                        if (oaRRa.Description is not null)
+                        {
+                            response.Description = oaRRa.Description;
+                        }
+                        if (openApiAttr.Responses.ContainsKey(oaRRa.StatusCode))
+                        {
+                            throw new InvalidOperationException($"Response for status code '{oaRRa.StatusCode}' is already defined for this operation.");
+                        }
+                        // Add to responses
+                        openApiAttr.Responses.Add(oaRRa.StatusCode, response);
+                    }
+                    else if (attr is OpenApiResponseAttribute oaRa)
+                    {
+                        // Create response inline
+                        openApiAttr.Responses ??= [];
+                        // Create a new response
+                        var response = new OpenApiResponse();
+                        // Populate from attribute
+                        if (CreateResponseFromAttribute(oaRa, response))
+                        {
+                            openApiAttr.Responses.Add(oaRa.StatusCode, response);
+                        }
+                    }
+                    else if (attr is OpenApiRequestBodyRefAttribute oaRBra)
+                    {
+                        if (oaRBra.Inline)
+                        {
+                            if (Document.Components?.RequestBodies == null || !Document.Components.RequestBodies.TryGetValue(oaRBra.ReferenceId, out var requestBody))
+                            {
+                                throw new InvalidOperationException($"RequestBody reference '{oaRBra.ReferenceId}' cannot be embedded because it was not found in components.");
+                            }
+                            if (requestBody is not OpenApiRequestBody example)
+                            {
+                                throw new InvalidOperationException($"RequestBody reference '{oaRBra.ReferenceId}' cannot be embedded because it is not an OpenApiRequestBody.");
+                            }
+                            openApiAttr.RequestBody = example.Clone();
+                        }
+                        else
+                        {
+                            openApiAttr.RequestBody = new OpenApiRequestBodyReference(oaRBra.ReferenceId);
+                        }
+                        if (oaRBra.Description is not null)
+                        {
+                            openApiAttr.RequestBody.Description = oaRBra.Description;
+                        }
+                    }
+                    else if (attr is OpenApiAuthorizationAttribute oaRBa)
+                    {
+                        openApiAttr.SecuritySchemes ??= [];
+                        // Parse policies
+                        List<string> policyList = [.. (string.IsNullOrWhiteSpace(oaRBa.Policies) ? new List<string>() : [.. oaRBa.Policies.Split(',')])
+                            .Where(p => !string.IsNullOrWhiteSpace(p))
+                            .Select(p => p.Trim())];
+
+                        // Add security requirement object for this verb
+                        // If no scheme provided, the schema is derived from the policies
+                        var securitySchemeList = Host.AddSecurityRequirementObject(oaRBa.Scheme, policyList, openApiAttr.SecuritySchemes);
+                        routeOptions.AddSecurityRequirementObject(schemes: securitySchemeList, policies: policyList);
                     }
                     else
                     {
-                        response = new OpenApiResponseReference(oaRRa.ReferenceId);
-                    }
-                    // Apply any description override
-                    if (oaRRa.Description is not null)
-                    {
-                        response.Description = oaRRa.Description;
-                    }
-                    // Add to responses
-                    openApiAttr.Responses.Add(oaRRa.StatusCode, response);
-                }
-                else if (attr is OpenApiResponseAttribute oaRa)
-                {
-                    // Create response inline
-                    openApiAttr.Responses ??= [];
-                    // Create a new response
-                    var response = new OpenApiResponse();
-                    // Populate from attribute
-                    if (CreateResponseFromAttribute(oaRa, response))
-                    {
-                        openApiAttr.Responses.Add(oaRa.StatusCode, response);
-                    }
-                }
-                else if (attr is OpenApiRequestBodyRefAttribute oaRBra)
-                {
-                    if (oaRBra.Inline)
-                    {
-                        if (Document.Components?.RequestBodies == null || !Document.Components.RequestBodies.TryGetValue(oaRBra.ReferenceId, out var requestBody))
+                        if (attr is KestrunAnnotation ka)
                         {
-                            throw new InvalidOperationException($"RequestBody reference '{oaRBra.ReferenceId}' cannot be embedded because it was not found in components.");
+                            throw new InvalidOperationException(
+                                $"Unhandled Kestrun annotation: {ka.GetType().Name}");
                         }
-                        if (requestBody is not OpenApiRequestBody example)
-                        {
-                            throw new InvalidOperationException($"RequestBody reference '{oaRBra.ReferenceId}' cannot be embedded because it is not an OpenApiRequestBody.");
-                        }
-                        openApiAttr.RequestBody = example.Clone();
-                    }
-                    else
-                    {
-                        openApiAttr.RequestBody = new OpenApiRequestBodyReference(oaRBra.ReferenceId);
-                    }
-                    if (oaRBra.Description is not null)
-                    {
-                        openApiAttr.RequestBody.Description = oaRBra.Description;
                     }
                 }
-                else if (attr is OpenApiAuthorizationAttribute oaRBa)
+                catch (InvalidOperationException ex)
                 {
-                    openApiAttr.SecuritySchemes ??= [];
-                    var policyList = oaRBa.Policies?.Where(p => !string.IsNullOrWhiteSpace(p)).ToList() ?? [];
-                    // Add security requirement object for this verb
-                    // If no scheme provided, the schema is derived from the policies
-                    var securitySchemeList = Host.AddSecurityRequirementObject(oaRBa.Scheme, policyList, openApiAttr.SecuritySchemes);
-                    routeOptions.AddSecurityRequirementObject(schemes: securitySchemeList, policies: policyList);
+                    Host.Logger.Error("Error processing OpenApiPath attribute on function '{funcName}': {message}", func.Name, ex.Message);
                 }
-                else
+                catch (Exception ex)
                 {
-                    if (attr is KestrunAnnotation ka)
-                    {
-                        throw new InvalidOperationException(
-                            $"Unhandled Kestrun annotation: {ka.GetType().Name}");
-                    }
+                    Host.Logger.Error("Error processing OpenApiPath attribute on function '{funcName}': {message}", func.Name, ex.Message);
                 }
             }
             // Process parameters for [OpenApiParameter] attributes
@@ -2712,7 +2731,10 @@ public class OpenApiDocDescriptor
             {
                 routeOptions.Pattern = "/" + func.Name;
             }
-
+            if(!string.IsNullOrWhiteSpace(openApiAttr.CorsPolicyName))
+            {
+                routeOptions.CorsPolicyName = openApiAttr.CorsPolicyName;
+            }
             // Script source
             routeOptions.ScriptCode.ScriptBlock = sb;
 

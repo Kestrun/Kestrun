@@ -6,7 +6,9 @@ param(
 
 if (-not (Get-Module Kestrun)) { Import-Module Kestrun }
 
-New-KrLogger | Add-KrSinkConsole | Set-KrLoggerLevel Debug | Register-KrLogger console -SetAsDefault | Out-Null
+New-KrLogger | Add-KrSinkConsole |
+    Set-KrLoggerLevel -Value Debug |
+    Register-KrLogger -Name 'console' -SetAsDefault 
 $srv = New-KrServer -Name 'Petstore 3.1 (Kestrun Edition)' -PassThru
 
 # --- Top-level OpenAPI ---

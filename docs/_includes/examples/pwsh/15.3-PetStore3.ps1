@@ -576,6 +576,8 @@ Add-KrOAuth2Authentication -AuthenticationScheme 'petstore_auth' `
     -SaveTokens `
     -ClaimPolicy $claimPolicy
 
+#Add-KrCorsPolicyMiddleware -AllowAll -Name '_OpenApiCorsPolicy2'
+
 #endregion
 #region ROUTES / OPERATIONS
 # =========================================================
@@ -588,6 +590,59 @@ Add-KrApiDocumentationRoute -DocumentType Redoc
 # --------------------------------------
 # /pet  (PUT, POST)
 # --------------------------------------
+
+<#
+    .SYNOPSIS
+    Update an existing pet.
+    .DESCRIPTION
+    Update an existing pet by Id.
+#>
+function updatePet {
+    [OpenApiPath(HttpVerb = 'Put' , Pattern = '/pet', Tags = 'pet',
+        Summary = 'Update an existing pet.',
+        Description = 'Update an existing pet by Id.',
+        OperationId = 'updatePet')]
+    [OpenApiResponseRefAttribute( StatusCode = '200' , ReferenceId = 'Resp_Pet_Write-OK', Inline = $true )]
+    [OpenApiResponseRefAttribute( StatusCode = '400' , ReferenceId = 'Resp_Pet_Write-BadRequest', Inline = $true )]
+    [OpenApiResponseRefAttribute( StatusCode = '404' , ReferenceId = 'Resp_Pet_Write-NotFound', Inline = $true )]
+    [OpenApiResponseRefAttribute( StatusCode = '422' , ReferenceId = 'Resp_Pet_Write-UnprocessableEntity', Inline = $true )]
+    [OpenApiResponseRefAttribute( StatusCode = 'default' , ReferenceId = 'Resp_Pet_Write-Default' )]
+    [OpenApiAuthorizationAttribute( Scheme = 'petstore_auth' , Policies = 'write:pets, read:pets' )]
+
+    [OpenApiRequestBodyRefAttribute(Description = 'Update an existent pet in the store', ReferenceId = 'PetBody' )]
+    param()
+    # Stub handler; the doc is our star tonight.
+    if ($KrRequest.Method -eq 'PUT' -or $KrRequest.Method -eq 'POST') {
+        Write-KrJsonResponse @{ ok = $true }
+    }
+}
+
+
+<#
+    .SYNOPSIS
+    Update an existing pet.
+    .DESCRIPTION
+    Update an existing pet by Id.
+#>
+function PostPet {
+    [OpenApiPath(HttpVerb = 'Post' , Pattern = '/pet', Tags = 'pet',
+        Summary = 'Add a new pet to the store.',
+        Description = 'Add a new pet to the store.',
+        OperationId = 'addPet')]
+    [OpenApiResponseRefAttribute( StatusCode = '200' , ReferenceId = 'Resp_Pet_Write-OK', Inline = $true )]
+    [OpenApiResponseRefAttribute( StatusCode = '400' , ReferenceId = 'Resp_Pet_Write-BadRequest', Inline = $true )]
+    [OpenApiResponseRefAttribute( StatusCode = '422' , ReferenceId = 'Resp_Pet_Write-UnprocessableEntity', Inline = $true )]
+    [OpenApiResponseRefAttribute( StatusCode = 'default' , ReferenceId = 'Resp_Pet_Write-Default' )]
+    # [OpenApiAuthorizationAttribute( Scheme = 'petstore_auth' , Policies = 'write:pets, read:pets' )]
+    [OpenApiRequestBodyRefAttribute(Description = 'Create a new pet in the store' , ReferenceId = 'PetBody' )]
+    param()
+    # Stub handler; the doc is our star tonight.
+    $body = Get-KrRequestBody -Type [Pet]
+    Expand-KrObject -InputObject $body -Label 'Received Pet:'
+    Write-KrJsonResponse $body -StatusCode 200
+
+}
+<#
 New-KrMapRouteBuilder -Verbs @('PUT', 'POST') -Pattern '/pet' |
     Add-KrMapRouteScriptBlock -ScriptBlock {
         # Stub handler; the doc is our star tonight.
@@ -809,12 +864,7 @@ New-KrMapRouteBuilder -Verbs @('GET', 'PUT', 'DELETE') -Pattern '/user/{username
 
     # PUT /user/{username}
     Add-KrMapRouteOpenApiInfo -Verbs 'PUT' -Summary 'Update user resource.' -Description 'This can only be done by the logged in user.' -OperationId 'updateUser' |
-    <# Add-KrMapRouteOpenApiRequestBody -Verbs 'PUT' -Description 'Update an existent user in the store' -Inline -ScriptBlock {
-        param($rb)
-        foreach ($ct in 'application/json', 'application/xml', 'application/x-www-form-urlencoded') {
-            Add-KrOpenApiRequestBodyContent -RequestBody $rb -ContentType $ct -SchemaRef 'User' | Out-Null
-        }
-    } |#>
+
     Add-KrMapRouteOpenApiResponse -Verbs 'PUT' -StatusCode '200' -ReferenceId 'Resp_UserByName_Put-OK' -Inline |
     Add-KrMapRouteOpenApiResponse -Verbs 'PUT' -StatusCode '400' -ReferenceId 'Resp_UserByName_Put-BadRequest' -Inline |
     Add-KrMapRouteOpenApiResponse -Verbs 'PUT' -StatusCode '404' -ReferenceId 'Resp_UserByName_Put-NotFound' -Inline |
@@ -830,6 +880,7 @@ New-KrMapRouteBuilder -Verbs @('GET', 'PUT', 'DELETE') -Pattern '/user/{username
 
     Build-KrMapRoute
 
+#>
 
 # =========================================================
 #                OPENAPI DOC ROUTE / BUILD

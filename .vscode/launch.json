@@ -174,7 +174,7 @@
                 "-ExecutionPolicy",
                 "Bypass",
                 "-Command",
-                "  import-module '.\\src\\PowerShell\\Kestrun\\Kestrun.psm1'; . '${file}'  "
+                "  import-module '.\\src\\PowerShell\\Kestrun\\Kestrun.psd1'; . '${file}'  "
             ],
             "cwd": "${workspaceFolder}",
             "justMyCode": true,

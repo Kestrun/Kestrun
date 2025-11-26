@@ -13,6 +13,7 @@ public sealed class OpenApiAuthorizationAttribute : KestrunAnnotation
 
     /// <summary>
     /// Optional description for the authentication requirement.
+    /// Comma-separated list of policies to apply.
     /// </summary>
-    public string[]? Policies { get; set; }
+    public string? Policies { get; set; }
 }

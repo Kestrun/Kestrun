@@ -1,7 +1,7 @@
 [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidUsingWriteHost', '')]
 param(
     [string] $Project = '.\src\CSharp\Kestrun\Kestrun.csproj',
-    [string] $Path = 'THIRD-PARTY-NOTICES.md',
+    [string] $Path = '.\THIRD-PARTY-NOTICES.md',
     [parameter(Mandatory = $true)]
     [string] $Version
 )

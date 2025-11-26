@@ -45,7 +45,7 @@ if (Test-Path $OutDir ) {
 $newMdSplat = @{
     ModuleInfo = Get-Module Kestrun
     OutputFolder = $OutDir
-    HelpVersion = "1.0.0.0"
+    HelpVersion = '1.0.0.0'
     WithModulePage = $true
     Force = $true
 }
@@ -75,7 +75,7 @@ $i = 1
 foreach ($f in $files) {
     if ($f.Name -ieq 'index.md') { continue }
 
-    $raw = Get-Content $f.FullName -Raw
+    $lines = Get-Content $f.FullName
 
     # 1. Fix MD040 - add language to bare code fences
     #    Converts:
@@ -87,16 +87,31 @@ foreach ($f in $files) {
     #       Resolve-KrPath ...
     #       ```
     #
-    #$raw = $raw -replace '```(\r?\n[\s\S]*?\r?\n)```', '```powershell$1```'
+    # 1. Fix MD040 - add language to bare code fences
+    #    Only touch opening fences that are just ``` on their own line.
+    $inFence = $false
 
-    #
-    # 2. Fix MD012 - collapse 3+ consecutive blank lines into just 2 (one empty line)
-    #
-    #$raw = $raw -replace "(\r?\n){3,}", "`r`n`r`n"
+    for ($i = 0; $i -lt $lines.Count; $i++) {
+        $line = $lines[$i]
 
-    # Title from first H1 or filename
-    # $title = ($raw -split "`n" | Where-Object { $_ -match '^\s*#\s+(.+)$' } | Select-Object -First 1)
-    # $title = if ($title) { $title -replace '^\s*#\s+', '' } else { [IO.Path]::GetFileNameWithoutExtension($f.Name) }
+        if ($line -match '^\s*```(\w+)?\s*$') {
+            $lang = $Matches[1]
+
+            if (-not $inFence) {
+                # Opening fence
+                if (-not $lang) {
+                    # Bare ``` -> add powershell
+                    $lines[$i] = '```powershell'
+                }
+                $inFence = $true
+            } else {
+                # Closing fence – leave it exactly as is
+                $inFence = $false
+            }
+        }
+    }
+
+    $raw = ($lines -join "`n")
 
     if ($raw -notmatch '^\s*---\s*$') {
         @"
@@ -108,7 +123,6 @@ render_with_liquid: false
 $($raw.Substring(5))
 "@ | Set-Content $f.FullName -NoNewline
     }
-
     $i++
 }
 

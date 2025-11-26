@@ -31,30 +31,6 @@ public static class KestrunHostManager
     public static IReadOnlyCollection<string> InstanceNames => (IReadOnlyCollection<string>)_instances.Keys;
 
     /// <summary>
-    /// Determines whether the current build is a debug build.
-    /// </summary>
-    /// <returns> True if the current build is a debug build; otherwise, false.</returns>
-    public static bool IsDebugBuild =>
-#if DEBUG
-            true;
-#else
-            false;
-#endif
-
-
-    /// <summary>
-    /// Determines whether the current distribution is a release distribution.
-    /// </summary>
-    /// <returns> True if the current distribution is a release distribution; otherwise, false.</returns>
-    public static bool IsReleaseDistribution =>
-#if RELEASE
-        true;
-#else
-         false;
-#endif
-
-
-    /// <summary>
     /// Gets or sets the root path for Kestrun operations.
     /// </summary>
     public static string? KestrunRoot

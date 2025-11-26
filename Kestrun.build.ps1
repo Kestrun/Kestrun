@@ -30,6 +30,9 @@
     .PARAMETER DotNetVerbosity
     The verbosity level for .NET commands. Valid values are 'quiet', 'minimal', 'normal', 'detailed', and 'diagnostic'.
 
+    .PARAMETER SignModule
+    Indicates whether to sign the module during the build process.
+
     .EXAMPLE
     .\Kestrun.build.ps1 -Configuration Release -Frameworks net9.0 -Version 1.0.0
     This example demonstrates how to build the Kestrun project for the Release configuration,
@@ -70,7 +73,9 @@ param(
     [Parameter(Mandatory = $false)]
     [string]
     [ValidateSet('quiet', 'minimal' , 'normal', 'detailed', 'diagnostic')]
-    $DotNetVerbosity = 'detailed'
+    $DotNetVerbosity = 'detailed',
+    [Parameter(Mandatory = $false)]
+    [switch]$SignModule
 )
 
 if (($null -eq $PSCmdlet.MyInvocation) -or ([string]::IsNullOrEmpty($PSCmdlet.MyInvocation.PSCommandPath)) -or (-not $PSCmdlet.MyInvocation.PSCommandPath.EndsWith('Invoke-Build.ps1'))) {
@@ -131,7 +136,7 @@ if ($isDebug) {
     # Silent hydration: best-effort import without noisy logs
     $upstashValue = [System.Environment]::GetEnvironmentVariable('UPSTASH_REDIS_URL')
     if ([string]::IsNullOrWhiteSpace($upstashValue) -and (Test-Path '.env.json')) {
-        try { . ./Utility/Import-EnvFile.ps1 -Path '.env.json' -Overwrite } catch { }
+        try { . ./Utility/Import-EnvFile.ps1 -Path '.env.json' -Overwrite } catch { Write-Verbose "Failed to load .env.json: $($_.Exception.Message)" }
     }
 }
 
@@ -223,6 +228,9 @@ Add-BuildTask 'Restore' {
 }, 'Nuget-CodeAnalysis'
 
 Add-BuildTask 'BuildNoPwsh' {
+    if (Get-Module -Name Kestrun) {
+        throw 'Kestrun module is currently loaded in this PowerShell session. Please close all sessions using the Kestrun module before building.'
+    }
     Write-Host '🔨 Building solution...'
     if ($Frameworks.Count -eq 1) {
         Write-Host "Building for single framework: $($Frameworks[0])" -ForegroundColor DarkCyan
@@ -310,16 +318,34 @@ Add-BuildTask 'Test-Tutorials' {
     & .\Utility\Test-TutorialDocs.ps1
 }
 
-Add-BuildTask 'Package' 'Clean', {
+Add-BuildTask 'Create-Distribution' {
+    Write-Host '📦 Creating module distribution...'
+    & .\Utility\Create-Distribution.ps1 -SignModule:$SignModule
+}
+
+Add-BuildTask 'Package' 'Build', {
     Write-Host '🚀 Starting release build...'
     $script:Configuration = 'Release'
-}, 'Restore', 'Build', 'Test', {
+
     # Retrieve the short commit SHA from Git
     #$commit = (git rev-parse --short HEAD).Trim()
     # $InformationalVersion = "$($Version)+$commit"
 
-    $out = Join-Path -Path $PWD -ChildPath 'artifacts' -AdditionalChildPath "$script:Configuration"
-    dotnet pack src/CSharp/Kestrun/Kestrun.csproj -c $script:Configuration -o (Join-Path -Path $out -ChildPath 'nuget') `
+    $out = Join-Path -Path $PWD -ChildPath 'artifacts'
+
+    if ( (Test-Path -Path $out)) {
+        Write-Host "🗑️ Cleaning existing artifacts at $out ..."
+        Remove-Item -Path $out -Recurse -Force
+    }
+    New-Item -Path $out -ItemType Directory -Force | Out-Null
+    $kestrunReleasePath = Join-Path -Path $out -ChildPath 'modules' -AdditionalChildPath 'Kestrun'
+
+    & .\Utility\Create-Distribution.ps1 -SignModule:$SignModule -ArtifactsPath $out
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host '❌ Failed to pack Kestrun' -ForegroundColor Red
+        throw 'Failed to pack Kestrun'
+    }
+    dotnet pack src/CSharp/Kestrun/Kestrun.csproj -c Release -o (Join-Path -Path $out -ChildPath 'nuget') `
         -p:Version=$Version -p:InformationalVersion=$VersionDetails.InformationalVersion `
         -p:IncludeSymbols=true -p:SymbolPackageFormat=snupkg
     if ($LASTEXITCODE -ne 0) {
@@ -328,7 +354,7 @@ Add-BuildTask 'Package' 'Clean', {
     }
     $powershellGallery = New-Item -ItemType Directory -Force -Path (Join-Path -Path $out -ChildPath 'PowershellGallery')
     $zip = Join-Path -Path $powershellGallery -ChildPath("Kestrun-PSModule-$($Version).zip")
-    Compress-Archive -Path 'src/PowerShell/Kestrun/*' -DestinationPath $zip -Force
+    Compress-Archive -Path "$kestrunReleasePath/*" -DestinationPath $zip -Force
     if ($LASTEXITCODE -ne 0) {
         Write-Host "❌ Failed to create $zip" -ForegroundColor Red
         throw "Failed to create $zip"

@@ -56,9 +56,9 @@ if (-not $inRouteRunspace) {
             [Kestrun.Utilities.AssemblyAutoLoader]::Clear($true)   # remove hook + folders
         }
     }
-    if ($IsRelease -xor [Kestrun.KestrunHostManager]::IsReleaseDistribution()) {
+    if ($IsRelease -xor [Kestrun.KestrunRuntimeInfo]::IsReleaseDistribution) {
         throw "Mismatch between module release state [$(($IsRelease ? 'release' : 'debug'))]" +
-        " and KestrunHostManager release state [$(([Kestrun.KestrunHostManager]::IsReleaseDistribution())?'release' : 'debug')]."
+        " and KestrunHostManager release state [$(([Kestrun.KestrunRuntimeInfo]::IsReleaseDistribution)?'release' : 'debug')]."
     }
 } else {
     # Assert that the assembly is loaded and load it if not

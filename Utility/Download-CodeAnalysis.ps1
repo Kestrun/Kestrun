@@ -48,7 +48,7 @@ foreach ($ver in $Versions) {
             Start-Sleep -Seconds 1
         }
         if (-not $best) {
-            throw "Failed to find a compatible TFM for package $pkg version $ver"
+            throw "Failed to find a compatible TFM for package $pkg version $ver after 3 retries. Check package availability and network connection."
         }
 
         # Copy DLLs for that TFM

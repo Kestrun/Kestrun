@@ -3,7 +3,8 @@
 [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseDeclaredVarsMoreThanAssignments', '')]
 param(
     [string]$ModuleRootPath = './src/PowerShell/Kestrun',
-    [string]$FileVersion = './version.json'
+    [string]$FileVersion = './version.json',
+    [string]$OutputPath = './src/PowerShell/Kestrun'
 )
 
 $ModuleRootPath = Resolve-Path -Path $ModuleRootPath
@@ -200,6 +201,6 @@ $module = @"
 
 "@
 
-$path = Join-Path -Path $ModuleRootPath -ChildPath 'Kestrun.psd1'
-Write-Host "📝 Creating module manifest at $($ModuleRootPath)/Kestrun.psd1"
-[System.IO.File]::WriteAllText($path, $module, [System.Text.UTF8Encoding]::new($true))
+$psd1path = Join-Path -Path $OutputPath -ChildPath 'Kestrun.psd1'
+Write-Host "📝 Creating module manifest at $psd1path"
+[System.IO.File]::WriteAllText($psd1path, $module, [System.Text.UTF8Encoding]::new($true))

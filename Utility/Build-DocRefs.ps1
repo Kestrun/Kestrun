@@ -7,8 +7,8 @@ param(
     [switch]$Clean
 )
 
-# Add Helper utility
-. ./Utility/Helper.ps1
+# Add Helper utility module
+Import-Module -Name './Utility/Modules/Helper.psm1'
 
 if ($Clean) {
     Write-Host '🧹 Cleaning up...'

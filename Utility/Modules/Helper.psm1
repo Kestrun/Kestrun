@@ -1,6 +1,14 @@
 # Kestrun.Build.psm1
 #requires -Version 7.4
 
+$moduleRootPath = Split-Path -Parent -Path (
+    Split-Path -Parent -Path (
+        Split-Path -Parent -Path $MyInvocation.MyCommand.Path
+    )
+)
+
+Get-ChildItem "$($moduleRootPath)/src/PowerShell/Kestrun/Private/Assembly/*.ps1" -Recurse | ForEach-Object { . ([System.IO.Path]::GetFullPath($_)) }
+
 # ---- Public functions ------------------------------------------------------
 
 <#
@@ -504,5 +512,98 @@ function Set-CoberturaGrouping {
     $doc.Save($CoberturaPath)
 }
 
+<#
+.SYNOPSIS
+    Removes the comment-based help block from a PowerShell script file.
+.DESCRIPTION
+    This function reads the content of a PowerShell script file, removes the comment-based help block (enclosed in <(dash) ... (dash)>),
+    collapses multiple blank lines into a single blank line, and trims leading/trailing blank lines.
+.PARAMETER Path
+    The path to the PowerShell script file.
+.OUTPUTS
+    The modified content of the script file as a string.
+#>
+function Remove-CommentHelpBlock {
+    param(
+        [string]$Path
+    )
 
+    $content = Get-Content $Path -Raw
 
+    # Normalize newlines to LF
+    $content = $content -replace "`r`n", "`n"
+    $content = $content -replace "`r", "`n"
+
+    # Strip the first <# ... #> block (comment-based help)
+    $stripped = $content -replace '<#[\s\S]*?#>', ''
+
+    # Collapse 3+ blank lines → one blank line
+    $stripped = $stripped -replace "(\n){3,}", "`n`n"
+
+    # Trim leading/trailing blank lines
+    return $stripped.Trim()
+}
+
+<#
+    .SYNOPSIS
+        Synchronizes PowerShell DLLs from the C# project output to the PowerShell module lib folder.
+    .DESCRIPTION
+        Copies compiled DLLs from the C# project output directory to the PowerShell module's lib folder,
+        ensuring that the necessary assemblies are available for the PowerShell module to function correctly.
+        It also checks for the presence of Microsoft.CodeAnalysis assemblies and downloads them if missing.
+    .PARAMETER dest
+        The destination directory where the DLLs will be copied. Default is '.\src\PowerShell\Kestrun\lib'.
+    .PARAMETER Configuration
+        The build configuration (Debug or Release). Default is 'Debug'.
+    .PARAMETER Frameworks
+        An array of target frameworks to synchronize. Default is @('net8.0', 'net9.0').
+#>
+function Sync-PowerShellDll {
+    param (
+        [Parameter()]
+        [string]$dest = '.\src\PowerShell\Kestrun\lib',
+        [Parameter()]
+        [ValidateSet('Debug', 'Release')]
+        [string]$Configuration = 'Debug',
+        [Parameter()]
+        [string[]]$Frameworks = @('net8.0', 'net9.0')
+    )
+    $src = ".\src\CSharp\Kestrun\bin\$Configuration"
+    Write-Host "📁 Preparing to copy files from $src to $dest"
+    if (-not (Test-Path -Path $dest)) {
+        New-Item -Path $dest -ItemType Directory -Force | Out-Null
+    }
+    if (-not (Test-Path -Path (Join-Path -Path $dest -ChildPath 'Microsoft.CodeAnalysis'))) {
+        Write-Host '📦 Missing CodeAnalysis (downloading)...'
+        & .\Utility\Download-CodeAnalysis.ps1 -OutputDir $dest
+    }
+    foreach ($framework in $Frameworks) {
+        $destFramework = Join-Path -Path $dest -ChildPath $framework
+        if (Test-Path -Path $destFramework) {
+            Remove-Item -Path $destFramework -Recurse -Force | Out-Null
+        }
+        New-Item -Path $destFramework -ItemType Directory -Force | Out-Null
+        $destFramework = Resolve-Path -Path $destFramework
+        $srcFramework = Resolve-Path (Join-Path -Path $src -ChildPath $framework)
+        Write-Host "📄 Copying dlls from $srcFramework to $destFramework"
+
+        # Copy files except ones starting with Microsoft.CodeAnalysis
+        Get-ChildItem -Path $srcFramework -Recurse -File |
+            Where-Object { -not ($_.Name -like 'Microsoft.CodeAnalysis*') -or
+                $_.Name -like 'Microsoft.CodeAnalysis.Razor*' } |
+            ForEach-Object {
+                if ( -not $_.DirectoryName.Contains("$([System.IO.Path]::DirectorySeparatorChar)runtimes$([System.IO.Path]::DirectorySeparatorChar)")) {
+                    $targetPath = $_.FullName.Replace($srcFramework, $destFramework)
+                    $targetDir = Split-Path $targetPath -Parent
+
+                    if (-not (Test-Path $targetDir)) {
+                        New-Item -ItemType Directory -Path $targetDir -Force | Out-Null
+                    }
+
+                    Copy-Item -Path $_.FullName -Destination $targetPath -Force
+                }
+            }
+    }
+}
+
+Export-ModuleMember -Function *

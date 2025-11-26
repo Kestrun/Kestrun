@@ -51,7 +51,6 @@ public static class KestrunHostManager
         }
     }
 
-
     /// <summary>
     /// Creates a new KestrunHost instance using the provided factory function.
     /// </summary>
@@ -299,7 +298,6 @@ public static class KestrunHostManager
             {
                 _defaultName = _instances.Keys.FirstOrDefault();
             }
-
 
             if (Log.IsEnabled(LogEventLevel.Debug))
             {

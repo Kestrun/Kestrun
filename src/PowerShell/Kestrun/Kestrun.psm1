@@ -24,7 +24,6 @@ $IsRelease = Test-Path -Path "$moduleRootPath/Private.ps1" -PathType Leaf
 if ($IsRelease) {
     # Load private functions
     . "$moduleRootPath/Private.ps1"
-
 } else {
     # Load private functions
     Get-ChildItem -Path (Join-Path -Path $moduleRootPath -ChildPath 'Private') -Filter *.ps1 -Recurse -File |
@@ -104,5 +103,5 @@ try {
     throw ("Failed to import Kestrun module: $_")
 } finally {
     # Cleanup temporary variables
-    Remove-Variable -Name 'assemblyLoadPath', 'moduleRootPath', 'netVersion', 'codeAnalysisVersion', 'inRouteRunspace' , 'sysfuncs', 'sysaliases', 'funcs', 'aliases','isRelease' -ErrorAction SilentlyContinue
+    Remove-Variable -Name 'assemblyLoadPath', 'moduleRootPath', 'netVersion', 'codeAnalysisVersion', 'inRouteRunspace' , 'sysfuncs', 'sysaliases', 'funcs', 'aliases', 'isRelease' -ErrorAction SilentlyContinue
 }

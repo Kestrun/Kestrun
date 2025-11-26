@@ -30,6 +30,9 @@
     .PARAMETER DotNetVerbosity
     The verbosity level for .NET commands. Valid values are 'quiet', 'minimal', 'normal', 'detailed', and 'diagnostic'.
 
+    .PARAMETER SignModule
+    Indicates whether to sign the module during the build process.
+
     .EXAMPLE
     .\Kestrun.build.ps1 -Configuration Release -Frameworks net9.0 -Version 1.0.0
     This example demonstrates how to build the Kestrun project for the Release configuration,
@@ -70,7 +73,9 @@ param(
     [Parameter(Mandatory = $false)]
     [string]
     [ValidateSet('quiet', 'minimal' , 'normal', 'detailed', 'diagnostic')]
-    $DotNetVerbosity = 'detailed'
+    $DotNetVerbosity = 'detailed',
+    [Parameter(Mandatory = $false)]
+    [switch]$SignModule
 )
 
 if (($null -eq $PSCmdlet.MyInvocation) -or ([string]::IsNullOrEmpty($PSCmdlet.MyInvocation.PSCommandPath)) -or (-not $PSCmdlet.MyInvocation.PSCommandPath.EndsWith('Invoke-Build.ps1'))) {
@@ -79,10 +84,8 @@ if (($null -eq $PSCmdlet.MyInvocation) -or ([string]::IsNullOrEmpty($PSCmdlet.My
     return
 }
 
-# Add Helper utility
-. ./Utility/Helper.ps1
-
-. ./Utility/Import-EnvFile.ps1
+# Add Helper utility module
+Import-Module -Name './Utility/Modules/Helper.psm1'
 
 # Quiet env handling with optional verbose debug
 $krDebug = -not [string]::IsNullOrWhiteSpace($env:KR_DEBUG_UPSTASH) -and ($env:KR_DEBUG_UPSTASH -in @('1', 'true', 'True'))
@@ -133,7 +136,7 @@ if ($isDebug) {
     # Silent hydration: best-effort import without noisy logs
     $upstashValue = [System.Environment]::GetEnvironmentVariable('UPSTASH_REDIS_URL')
     if ([string]::IsNullOrWhiteSpace($upstashValue) -and (Test-Path '.env.json')) {
-        try { . ./Utility/Import-EnvFile.ps1 -Path '.env.json' -Overwrite } catch { }
+        try { . ./Utility/Import-EnvFile.ps1 -Path '.env.json' -Overwrite } catch { Write-Verbose "Failed to load .env.json: $($_.Exception.Message)" }
     }
 }
 
@@ -187,6 +190,7 @@ Add-BuildTask Help {
     Write-Host '- Restore: Restores NuGet packages.'
     Write-Host '- Build: Builds the solution.'
     Write-Host '- Test: Runs tests and Pester tests.'
+    Write-Host '- Package: Packages the solution.'
     Write-Host '- All: Runs Clean, Build, and Test tasks in sequence.'
     Write-Host '-----------------------------------------------------'
     Write-Host '🧩 Additional Tasks:' -ForegroundColor Green
@@ -194,7 +198,6 @@ Add-BuildTask Help {
     Write-Host '- Clean-CodeAnalysis: Cleans the CodeAnalysis packages.'
     Write-Host '- Test-xUnit: Runs Kestrun DLL tests.'
     Write-Host '- Test-Pester: Runs Pester tests.'
-    Write-Host '- Package: Packages the solution.'
     Write-Host '- Manifest: Updates the Kestrun.psd1 manifest.'
     Write-Host '- New-LargeFile: Generates a large test file.'
     Write-Host '- Clean-LargeFile: Cleans the generated large test files.'
@@ -225,6 +228,9 @@ Add-BuildTask 'Restore' {
 }, 'Nuget-CodeAnalysis'
 
 Add-BuildTask 'BuildNoPwsh' {
+    if (Get-Module -Name Kestrun) {
+        throw 'Kestrun module is currently loaded in this PowerShell session. Please close all sessions using the Kestrun module before building.'
+    }
     Write-Host '🔨 Building solution...'
     if ($Frameworks.Count -eq 1) {
         Write-Host "Building for single framework: $($Frameworks[0])" -ForegroundColor DarkCyan
@@ -244,43 +250,8 @@ Add-BuildTask 'BuildNoPwsh' {
 Add-BuildTask 'Build' 'BuildNoPwsh', 'SyncPowerShellDll', { Write-Host '🚀 Build completed.' }
 
 Add-BuildTask 'SyncPowerShellDll' {
-    $dest = '.\src\PowerShell\Kestrun\lib'
-    $src = ".\src\CSharp\Kestrun\bin\$Configuration"
-    Write-Host "📁 Preparing to copy files from $src to $dest"
-    if (-not (Test-Path -Path $dest)) {
-        New-Item -Path $dest -ItemType Directory -Force | Out-Null
-    }
-    if (-not (Test-Path -Path (Join-Path -Path $dest -ChildPath 'Microsoft.CodeAnalysis'))) {
-        Write-Host '📦 Missing CodeAnalysis (downloading)...'
-        & .\Utility\Download-CodeAnalysis.ps1
-    }
-    foreach ($framework in $Frameworks) {
-        $destFramework = Join-Path -Path $dest -ChildPath $framework
-        if (Test-Path -Path $destFramework) {
-            Remove-Item -Path $destFramework -Recurse -Force | Out-Null
-        }
-        New-Item -Path $destFramework -ItemType Directory -Force | Out-Null
-        $destFramework = Resolve-Path -Path $destFramework
-        $srcFramework = Resolve-Path (Join-Path -Path $src -ChildPath $framework)
-        Write-Host "📄 Copying dlls from $srcFramework to $destFramework"
-
-        # Copy files except ones starting with Microsoft.CodeAnalysis
-        Get-ChildItem -Path $srcFramework -Recurse -File |
-            Where-Object { -not ($_.Name -like 'Microsoft.CodeAnalysis*') -or
-                $_.Name -like 'Microsoft.CodeAnalysis.Razor*' } |
-            ForEach-Object {
-                if ( -not $_.DirectoryName.Contains("$([System.IO.Path]::DirectorySeparatorChar)runtimes$([System.IO.Path]::DirectorySeparatorChar)")) {
-                    $targetPath = $_.FullName.Replace($srcFramework, $destFramework)
-                    $targetDir = Split-Path $targetPath -Parent
-
-                    if (-not (Test-Path $targetDir)) {
-                        New-Item -ItemType Directory -Path $targetDir -Force | Out-Null
-                    }
-
-                    Copy-Item -Path $_.FullName -Destination $targetPath -Force
-                }
-            }
-    }
+    Write-Host '🔄 Syncing PowerShell DLLs to src/PowerShell/Kestrun/lib...'
+    Sync-PowerShellDll -Configuration $Configuration -Frameworks $Frameworks -dest '.\src\PowerShell\Kestrun\lib'
 }
 
 Add-BuildTask 'Nuget-CodeAnalysis' {
@@ -347,16 +318,43 @@ Add-BuildTask 'Test-Tutorials' {
     & .\Utility\Test-TutorialDocs.ps1
 }
 
-Add-BuildTask 'Package' 'Clean', {
+Add-BuildTask 'Create-Distribution' {
+    Write-Host '📦 Creating module distribution...'
+    & .\Utility\Create-Distribution.ps1 -SignModule:$SignModule
+}
+
+
+Add-BuildTask 'Clear-Package' {
+    Write-Host '🧼 Clearing previous package artifacts...'
+    $out = Join-Path -Path $PWD -ChildPath 'artifacts'
+    if (Test-Path -Path $out) {
+        Remove-Item -Path $out -Recurse -Force -ErrorAction Stop
+    }
+}
+
+Add-BuildTask 'Package' 'Clear-Package', 'Build', {
     Write-Host '🚀 Starting release build...'
     $script:Configuration = 'Release'
-}, 'Restore', 'Build', 'Test', {
+
     # Retrieve the short commit SHA from Git
     #$commit = (git rev-parse --short HEAD).Trim()
     # $InformationalVersion = "$($Version)+$commit"
 
-    $out = Join-Path -Path $PWD -ChildPath 'artifacts' -AdditionalChildPath "$script:Configuration"
-    dotnet pack src/CSharp/Kestrun/Kestrun.csproj -c $script:Configuration -o (Join-Path -Path $out -ChildPath 'nuget') `
+    $out = Join-Path -Path $PWD -ChildPath 'artifacts'
+
+    if ( (Test-Path -Path $out)) {
+        Write-Host "🗑️ Cleaning existing artifacts at $out ..."
+        Remove-Item -Path $out -Recurse -Force
+    }
+    New-Item -Path $out -ItemType Directory -Force | Out-Null
+    $kestrunReleasePath = Join-Path -Path $out -ChildPath 'modules' -AdditionalChildPath 'Kestrun'
+
+    & .\Utility\Create-Distribution.ps1 -SignModule:$SignModule -ArtifactsPath $out
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host '❌ Failed to pack Kestrun' -ForegroundColor Red
+        throw 'Failed to pack Kestrun'
+    }
+    dotnet pack src/CSharp/Kestrun/Kestrun.csproj -c Release -o (Join-Path -Path $out -ChildPath 'nuget') `
         -p:Version=$Version -p:InformationalVersion=$VersionDetails.InformationalVersion `
         -p:IncludeSymbols=true -p:SymbolPackageFormat=snupkg
     if ($LASTEXITCODE -ne 0) {
@@ -365,7 +363,7 @@ Add-BuildTask 'Package' 'Clean', {
     }
     $powershellGallery = New-Item -ItemType Directory -Force -Path (Join-Path -Path $out -ChildPath 'PowershellGallery')
     $zip = Join-Path -Path $powershellGallery -ChildPath("Kestrun-PSModule-$($Version).zip")
-    Compress-Archive -Path 'src/PowerShell/Kestrun/*' -DestinationPath $zip -Force
+    Compress-Archive -Path "$kestrunReleasePath/$($VersionDetails.Version)/*" -DestinationPath $zip -Force
     if ($LASTEXITCODE -ne 0) {
         Write-Host "❌ Failed to create $zip" -ForegroundColor Red
         throw "Failed to create $zip"
@@ -396,8 +394,13 @@ Add-BuildTask 'Build_CSharp_Help' {
 Add-BuildTask 'Build-Help' {
     Write-Host '📚 Generating all Help...'
 }, 'Build_Powershell_Help', 'Build_CSharp_Help', {
-    Write-Host '📦 Creating tutorial examples zip...'
-    Compress-Archive -Path './docs/_includes/examples/pwsh/' -DestinationPath './docs/pwsh/tutorial/examples.zip'
+    $tutorialZipPath = './docs/pwsh/tutorial/examples.zip'
+    Write-Host "📦 Creating tutorial examples zip ($tutorialZipPath)..."
+    if ( (Test-Path -Path $tutorialZipPath)) {
+        Write-Verbose "🗑️ Removing existing tutorial examples zip ($tutorialZipPath)..."
+        Remove-Item -Path $tutorialZipPath -Force | Out-Null
+    }
+    Compress-Archive -Path './docs/_includes/examples/pwsh/' -DestinationPath $tutorialZipPath
 }
 
 # Clean Help will call Clean_Powershell_Help and Clean_CSharp_Help

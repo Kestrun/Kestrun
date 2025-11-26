@@ -40,8 +40,8 @@ param(
     [switch]$ResetHistory
 )
 
-# Add Helper utility
-. ./Utility/Helper.ps1
+# Add Helper utility module
+Import-Module -Name './Utility/Modules/Helper.psm1'
 
 # Clean coverage reports
 if ($Clean) {

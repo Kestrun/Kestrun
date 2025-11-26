@@ -4,8 +4,8 @@ param(
     [switch]$Force
 )
 
-# Add Helper utility
-. ./Utility/Helper.ps1
+# Add Helper utility module
+Import-Module -Name './Utility/Modules/Helper.psm1'
 
 # Where to put the final DLLs
 $BaseOut = Join-Path -Path $OutputDir -ChildPath 'Microsoft.CodeAnalysis'
@@ -37,14 +37,18 @@ foreach ($ver in $Versions) {
     New-Item -ItemType Directory -Path $TargetDir -Force | Out-Null
 
     foreach ($pkg in $Packages) {
-        Write-Host "📦 Fetching $pkg $ver"
-        $pkgFolder = Get-PackageFolder -Id $pkg -Version $ver -WorkRoot $Tmp -Force:$Force
+        for ($i = 0; $i -lt 3; $i++) {
+            Write-Host "📦 Fetching $pkg $ver"
+            $pkgFolder = Get-PackageFolder -Id $pkg -Version $ver -WorkRoot $Tmp -Force:$Force
 
-        $libFolder = Join-Path $pkgFolder 'lib'
-        $best = Get-BestTfmFolder $libFolder
+            $libFolder = Join-Path $pkgFolder 'lib'
+            $best = Get-BestTfmFolder $libFolder
+            if ($best) { break }
+            Write-Host "⚠️  TFM not found yet for $pkg $ver, retrying..." -ForegroundColor Yellow
+            Start-Sleep -Seconds 1
+        }
         if (-not $best) {
-            Write-Warning "No lib/* TFM folder found for $pkg $ver"
-            continue
+            throw "Failed to find a compatible TFM for package $pkg version $ver after 3 retries. Check package availability and network connection."
         }
 
         # Copy DLLs for that TFM

@@ -11,6 +11,22 @@ namespace Kestrun;
 public static class KestrunRuntimeInfo
 {
     /// <summary>
+    /// Determines whether the current distribution is a release distribution.
+    /// </summary>
+    /// <returns> True if the current distribution is a release distribution; otherwise, false.</returns>
+#if DEBUG
+    public static bool IsReleaseDistribution => false;
+#else
+    public static bool IsReleaseDistribution => true;
+#endif
+
+    /// <summary>
+    /// Determines whether the current build is a debug build.
+    /// </summary>
+    /// <returns> True if the current build is a debug build; otherwise, false.</returns>
+    public static bool IsDebugBuild => !IsReleaseDistribution;
+
+    /// <summary>
     /// Returns the target framework version this assembly was built against
     /// as a System.Version (e.g., 8.0, 9.0).
     /// </summary>

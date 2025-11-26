@@ -77,13 +77,15 @@ try {
         Get-ChildItem "$($moduleRootPath)/Public/*.ps1" -Recurse | ForEach-Object { . ([System.IO.Path]::GetFullPath($_)) }
     }
 
-    # Get functions from memory and compare to existing to find new functions added
-    $funcs = if ($inRouteRunspace) {
+    # get functions from memory and compare to existing to find new functions added
+    $funcs = Get-ChildItem Function: | Where-Object { $sysfuncs -notcontains $_ }
+
+    if ($inRouteRunspace) {
         # set the function by context to the current runspace
-        Get-KrCommandsByContext -AnyOf Runtime -Function $funcs
-    } else {
-        Get-ChildItem Function: | Where-Object { $sysfuncs -notcontains $_ }
+        $funcs = Get-KrCommandsByContext -AnyOf Runtime -Functions $funcs
     }
+
+    # Get functions from memory and compare to existing to find new functions added
 
     $aliases = Get-ChildItem Alias: | Where-Object { $sysaliases -notcontains $_ }
     # export the module's public functions

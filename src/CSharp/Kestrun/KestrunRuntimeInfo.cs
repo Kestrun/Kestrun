@@ -14,10 +14,10 @@ public static class KestrunRuntimeInfo
     /// Determines whether the current distribution is a release distribution.
     /// </summary>
     /// <returns> True if the current distribution is a release distribution; otherwise, false.</returns>
-#if RELEASE
-    public static bool IsReleaseDistribution => true;
-#else
+#if DEBUG
     public static bool IsReleaseDistribution => false;
+#else
+    public static bool IsReleaseDistribution => true;
 #endif
 
     /// <summary>

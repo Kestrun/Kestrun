@@ -91,8 +91,8 @@ foreach ($f in $files) {
     #    Only touch opening fences that are just ``` on their own line.
     $inFence = $false
 
-    for ($i = 0; $i -lt $lines.Count; $i++) {
-        $line = $lines[$i]
+    for ($j = 0; $j -lt $lines.Count; $j++) {
+        $line = $lines[$j]
 
         if ($line -match '^\s*```(\w+)?\s*$') {
             $lang = $Matches[1]
@@ -101,7 +101,7 @@ foreach ($f in $files) {
                 # Opening fence
                 if (-not $lang) {
                     # Bare ``` -> add powershell
-                    $lines[$i] = '```powershell'
+                    $lines[$j] = '```powershell'
                 }
                 $inFence = $true
             } else {

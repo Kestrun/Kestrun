@@ -317,8 +317,7 @@ Add-BuildTask 'Nuget-CodeAnalysis' {
     & .\Utility\Download-CodeAnalysis.ps1
 }
 
-
-
+# XUnit tests
 Add-BuildTask 'Test-xUnit' {
     Write-Host '🧪 Running Kestrun DLL tests...'
     $failures = @()
@@ -335,6 +334,7 @@ Add-BuildTask 'Test-xUnit' {
     }
 }
 
+# Formatting source code
 Add-BuildTask 'Format' {
     Write-Host '✨ Formatting code...'
     dotnet format "$SolutionPath" -v:$DotNetVerbosity
@@ -343,8 +343,7 @@ Add-BuildTask 'Format' {
         -ReformatFunctionHelp -FunctionHelpPlacement BeforeFunction -NoFooter -UseGitForCreated
 }
 
-
-
+# Pester tests
 Add-BuildTask 'Test-Pester' {
     if ($isDebug) {
         Write-Host '🔍 [TEST-PESTER DEBUG] Checking UPSTASH_REDIS_URL before running Pester tests...' -ForegroundColor Cyan
@@ -371,11 +370,6 @@ Add-BuildTask 'Test' 'Test-xUnit', 'Test-Pester'
 Add-BuildTask 'Test-Tutorials' {
     Write-Host '🧪 Running Kestrun Tutorial tests...'
     & .\Utility\Test-TutorialDocs.ps1
-}
-
-Add-BuildTask 'Create-Distribution' {
-    Write-Host '📦 Creating module distribution...'
-    & .\Utility\Create-Distribution.ps1 -SignModule:$SignModule
 }
 
 Add-BuildTask 'Package' 'Clean-Package', 'Build', {

@@ -805,7 +805,6 @@ public class MapRouteBuilder : MapRouteOptions
             // Add security requirement object for this verb
             // If no scheme provided, the schema is derived from the policies
             allSchemes = Server.AddSecurityRequirementObject(scheme, policyList, metadata.SecuritySchemes);
-
         }
         AddSecurityRequirementObject(schemes: allSchemes, policies: policyList);
 

@@ -637,33 +637,32 @@ function PostPet {
     [OpenApiRequestBodyRefAttribute(Description = 'Create a new pet in the store' , ReferenceId = 'PetBody' )]
     param()
     # Stub handler; the doc is our star tonight.
-    $body = Get-KrRequestBody -Type [Pet]
+    $body = Get-KrRequestBody #-Type [Pet]
     Expand-KrObject -InputObject $body -Label 'Received Pet:'
     Write-KrJsonResponse $body -StatusCode 200
 
 }
+
+function GetFindByStatus {
+    [OpenApiPath(HttpVerb = 'Get' , Pattern = '/pet/findByStatus', Tags = 'pet',
+        Summary = 'Finds Pets by status.',
+        Description = 'Multiple status values can be provided with comma separated strings.',
+        OperationId = 'findPetsByStatus')]
+    [OpenApiResponseRefAttribute( StatusCode = '200' , ReferenceId = 'Resp_FindByStatus-OK', Inline = $true )]
+    [OpenApiResponseRefAttribute( StatusCode = '400' , ReferenceId = 'Resp_FindByStatus-BadRequest', Inline = $true )]
+    [OpenApiResponseRefAttribute( StatusCode = 'default' , ReferenceId = 'Resp_FindByStatus-Default' )]
+    # [OpenApiAuthorizationAttribute( Scheme = 'petstore_auth' , Policies = 'write:pets, read:pets' )]
+    param(
+        [OpenApiParameterRefAttribute(ReferenceId = 'FindByStatusParams-status' )]
+        $Status
+    )
+    $status = Get-KrRequestQuery -Name 'status' -AsString   #-Type [Pet]
+    Write-Host "FindByStatus called with status='$status'"
+    Write-KrJsonResponse @(@{}) -StatusCode 200
+
+}
 <#
-New-KrMapRouteBuilder -Verbs @('PUT', 'POST') -Pattern '/pet' |
-    Add-KrMapRouteScriptBlock -ScriptBlock {
-        # Stub handler; the doc is our star tonight.
-        if ($KrRequest.Method -eq 'PUT' -or $KrRequest.Method -eq 'POST') {
-            Write-KrJsonResponse @{ ok = $true }
-        }
-    } |
-    Add-KrMapRouteOpenApiTag -Tags 'pet' |
-    Add-KrMapRouteOpenApiResponse -StatusCode '200' -ReferenceId 'Resp_Pet_Write-OK' -Inline |
-    Add-KrMapRouteOpenApiResponse -StatusCode '400' -ReferenceId 'Resp_Pet_Write-BadRequest' -Inline |
-    Add-KrMapRouteOpenApiResponse -StatusCode '422' -ReferenceId 'Resp_Pet_Write-UnprocessableEntity' -Inline |
-    Add-KrMapRouteOpenApiResponse -StatusCode 'default' -ReferenceId 'Resp_Pet_Write-Default' |
-    Add-KrMapRouteAuthorization -Schema 'petstore_auth' -Policy 'write:pets', 'read:pets' |
-    # PUT updatePet
-    Add-KrMapRouteOpenApiInfo -Verbs 'PUT' -Summary 'Update an existing pet.' -Description 'Update an existing pet by Id.' -OperationId 'updatePet' |
-    Add-KrMapRouteOpenApiRequestBody -Verbs 'PUT' -Description 'Update an existent pet in the store' -ReferenceId 'PetBody' |
-    Add-KrMapRouteOpenApiResponse -Verbs 'PUT' -StatusCode '404' -ReferenceId 'Resp_Pet_Write-NotFound' -Inline |
-    # POST addPet
-    Add-KrMapRouteOpenApiInfo -Verbs 'POST' -Summary 'Add a new pet to the store.' -Description 'Add a new pet to the store.' -OperationId 'addPet' |
-    Add-KrMapRouteOpenApiRequestBody -Verbs 'POST' -Description 'Create a new pet in the store' -ReferenceId 'PetBody' |
-    Build-KrMapRoute
+
 
 # --------------------------------------
 # /pet/findByStatus (GET) #-Schema @{ type = 'string'; @{'default' = 'available' }; }

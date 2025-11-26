@@ -103,5 +103,5 @@ try {
     throw ("Failed to import Kestrun module: $_")
 } finally {
     # Cleanup temporary variables
-    Remove-Variable -Name 'assemblyLoadPath', 'moduleRootPath', 'netVersion', 'codeAnalysisVersion', 'inRouteRunspace' , 'sysfuncs', 'sysaliases', 'funcs', 'aliases', 'isRelease' -ErrorAction SilentlyContinue
+    Remove-Variable -Name 'assemblyLoadPath', 'moduleRootPath', 'netVersion', 'codeAnalysisVersion', 'inRouteRunspace' , 'sysfuncs', 'sysaliases', 'funcs', 'aliases', 'IsRelease' -ErrorAction SilentlyContinue
 }

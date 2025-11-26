@@ -95,7 +95,7 @@ Get-ChildItem "$kestrunSrcPath/Public/*.ps1" -Recurse | ForEach-Object {
 Write-Host '🛠️ Updating module manifest...'
 & .\Utility\Update-Manifest.ps1 -ModuleRootPath $kestrunSrcPath -FileVersion $FileVersion -OutputPath $artifactsPath
 if ($LASTEXITCODE -ne 0) {
-    throw "Failed to update module manifest"
+    throw 'Failed to update module manifest'
 }
 Write-Host '📦 Copying module manifest...'
 Copy-Item -Path "$kestrunSrcPath/Kestrun.psd1" -Destination (Join-Path -Path $artifactsPath -ChildPath 'Kestrun.psd1') -Force
@@ -104,7 +104,7 @@ Copy-Item -Path "$kestrunSrcPath/Kestrun.psd1" -Destination (Join-Path -Path $ar
 Write-Host '🛠️ Building help files...'
 pwsh -NoProfile -File .\Utility\Build-Help.ps1 -ModulePath "$kestrunSrcPath/Kestrun.psd1" -XmlFolder $artifactsPath -XmlCulture 'en-US'
 if ($LASTEXITCODE -ne 0) {
-    throw "Failed to build help files"
+    throw 'Failed to build help files'
 }
 Move-Item -Path "$artifactsPath/en-US/Kestrun/Kestrun-Help.xml" -Destination "$artifactsPath/en-US/Kestrun-help.xml" -Force -ErrorAction Stop
 Remove-Item -Path "$artifactsPath/en-US/Kestrun" -Recurse -Force -ErrorAction Stop
@@ -117,7 +117,7 @@ Copy-Item -Path "$kestrunSrcPath/Formats" -Destination (Join-Path -Path $artifac
 Write-Host '📄 Generating and copying THIRD-PARTY-NOTICES.md...'
 & .\Utility\Update-ThirdPartyNotices.ps1 -Version $Version -Path (Join-Path -Path $artifactsPath -ChildPath 'THIRD-PARTY-NOTICES.md')
 if ($LASTEXITCODE -ne 0) {
-    throw "Failed to generate THIRD-PARTY-NOTICES.md"
+    throw 'Failed to generate THIRD-PARTY-NOTICES.md'
 }
 
 # 9. Copy LICENSE.txt and README.md
@@ -128,7 +128,7 @@ Copy-Item -Path './README.md' -Destination (Join-Path -Path $artifactsPath -Chil
 Write-Host '🛠️ Building Kestrun.dll and copying to module lib folder'
 $destReleaseLib = (Join-Path -Path $artifactsPath -ChildPath 'lib')
 Remove-Item -Path "$artifactsPath/lib" -Recurse -Force -ErrorAction SilentlyContinue
-dotnet build $kestrunProjectPath -c Release
+dotnet build $kestrunProjectPath -c Release -p:Version=$Version -p:InformationalVersion=$VersionDetails.InformationalVersion
 Sync-PowerShellDll -Configuration 'Release' -dest $destReleaseLib
 Write-Host "📦 DLLs copied to $destReleaseLib"
 

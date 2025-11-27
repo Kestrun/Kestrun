@@ -17,7 +17,7 @@ if (-not (Get-Module -Name Kestrun)) {
         $rootSeek = $parent
     }
     if ($rootSeek) {
-        $modulePath = Join-Path $rootSeek 'src' | Join-Path -ChildPath 'PowerShell' | Join-Path -ChildPath 'Kestrun' | Join-Path -ChildPath 'Kestrun.psm1'
+        $modulePath = Join-Path $rootSeek 'src' | Join-Path -ChildPath 'PowerShell' | Join-Path -ChildPath 'Kestrun' | Join-Path -ChildPath 'Kestrun.psd1'
         if (Test-Path $modulePath) { Import-Module $modulePath -Force }
     }
 }

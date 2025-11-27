@@ -1199,7 +1199,7 @@ public class OpenApiDocDescriptor
             parameter.Schema = CreatePropertySchema(schemaAttr, t, p);
         }
     }
-
+    //todo: unify with BuildPropertySchema with BuildSchemaForType
     private IOpenApiSchema CreatePropertySchema(OpenApiPropertyAttribute? schemaAttr, Type t, PropertyInfo p)
     {
         IOpenApiSchema paramSchema;
@@ -1278,10 +1278,10 @@ public class OpenApiDocDescriptor
                 try
                 {
                     var inst = Activator.CreateInstance(t);
-                    var def = p.GetValue(inst);
-                    if (def is not null)
+                    var val = p.GetValue(inst);
+                    if (!IsIntrinsicDefault(val, p.PropertyType))
                     {
-                        sc.Default = ToNode(def);
+                        sc.Default = ToNode(val);
                     }
                 }
                 catch { }
@@ -2507,10 +2507,17 @@ public class OpenApiDocDescriptor
                         {
                             openApiAttr.Tags = [.. oaPath.Tags.Split(',')];
                         }
-
                         // OperationId
-                        if (!string.IsNullOrWhiteSpace(oaPath.OperationId))
+                        // if not specified, default to function name
+                        // if blank, do not set
+                        if (oaPath.OperationId is null)
                         {
+                            // Default to function name if not specified
+                            openApiAttr.OperationId = func.Name;
+                        }
+                        else if (!string.IsNullOrWhiteSpace(oaPath.OperationId))
+                        {
+                            // Use specified OperationId
                             openApiAttr.OperationId = oaPath.OperationId;
                         }
                         // Deprecated flag (per-verb OpenAPI metadata)
@@ -2642,17 +2649,17 @@ public class OpenApiDocDescriptor
                     {
                         openApiAttr.Parameters ??= [];
                         IOpenApiParameter parameter;
+                        if (Document.Components?.Parameters == null || !Document.Components.Parameters.TryGetValue(oaParamRefAttr.ReferenceId, out var parameterValue))
+                        {
+                            throw new InvalidOperationException($"Parameter reference '{oaParamRefAttr.ReferenceId}' cannot be embedded because it was not found in components.");
+                        }
+                        if (parameterValue is not OpenApiParameter valueClone)
+                        {
+                            throw new InvalidOperationException($"Parameter reference '{oaParamRefAttr.ReferenceId}' is not an OpenApiParameter and cannot be inlined.");
+                        }
                         // Determine if we inline the referenced parameter or use a $ref
                         if (oaParamRefAttr.Inline)
                         {
-                            if (Document.Components?.Parameters == null || !Document.Components.Parameters.TryGetValue(oaParamRefAttr.ReferenceId, out var parameterValue))
-                            {
-                                throw new InvalidOperationException($"Parameter reference '{oaParamRefAttr.ReferenceId}' cannot be embedded because it was not found in components.");
-                            }
-                            if (parameterValue is not OpenApiParameter valueClone)
-                            {
-                                throw new InvalidOperationException($"Parameter reference '{oaParamRefAttr.ReferenceId}' is not an OpenApiParameter and cannot be inlined.");
-                            }
                             var parameterClone = valueClone.Clone();
                             // Apply any name override
                             if (!string.IsNullOrEmpty(oaParamRefAttr.Name))
@@ -2664,6 +2671,21 @@ public class OpenApiDocDescriptor
                         else
                         {
                             parameter = new OpenApiParameterReference(oaParamRefAttr.ReferenceId);
+
+                        }
+                        // Apply any name override
+                        routeOptions.PropertiesVariables ??= new StringBuilder();
+                        if (valueClone is not null)
+                        {
+                            var t = valueClone?.Schema?.Type;
+                            _ = (valueClone?.In) switch
+                            {
+                                ParameterLocation.Path => routeOptions.PropertiesVariables.Append($"${valueClone.Name}=$Context.Request.RouteValues['{valueClone.Name}']"),
+                                ParameterLocation.Query => routeOptions.PropertiesVariables.Append($"${valueClone.Name}=$Context.Request.Query['{valueClone.Name}']"),
+                                ParameterLocation.Header => routeOptions.PropertiesVariables.Append($"${valueClone.Name}=$Context.Request.Headers['{valueClone.Name}']"),
+                                ParameterLocation.Cookie => routeOptions.PropertiesVariables.Append($"${valueClone.Name}=$Context.Request.Cookies['{valueClone.Name}']"),
+                                _ => throw new InvalidOperationException($"Unsupported parameter location: {parameter.In}"),
+                            };
                         }
                         iparameter = parameter;
                         openApiAttr.Parameters.Add(parameter);
@@ -2731,7 +2753,7 @@ public class OpenApiDocDescriptor
             {
                 routeOptions.Pattern = "/" + func.Name;
             }
-            if(!string.IsNullOrWhiteSpace(openApiAttr.CorsPolicyName))
+            if (!string.IsNullOrWhiteSpace(openApiAttr.CorsPolicyName))
             {
                 routeOptions.CorsPolicyName = openApiAttr.CorsPolicyName;
             }

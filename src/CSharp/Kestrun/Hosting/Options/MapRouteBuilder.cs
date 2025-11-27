@@ -562,7 +562,7 @@ public class MapRouteBuilder : MapRouteOptions
         if (inline)
         {
             // Clone the component
-            var cloned = OpenApiComponentClone.Clone(componentParameter);
+            var cloned = componentParameter.Clone();
 
             // Set parameter name if provided
             if (!string.IsNullOrEmpty(key))

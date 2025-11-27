@@ -600,8 +600,7 @@ Add-KrApiDocumentationRoute -DocumentType Redoc
 function updatePet {
     [OpenApiPath(HttpVerb = 'Put' , Pattern = '/pet', Tags = 'pet',
         Summary = 'Update an existing pet.',
-        Description = 'Update an existing pet by Id.',
-        OperationId = 'updatePet')]
+        Description = 'Update an existing pet by Id.' )]
     [OpenApiResponseRefAttribute( StatusCode = '200' , ReferenceId = 'Resp_Pet_Write-OK', Inline = $true )]
     [OpenApiResponseRefAttribute( StatusCode = '400' , ReferenceId = 'Resp_Pet_Write-BadRequest', Inline = $true )]
     [OpenApiResponseRefAttribute( StatusCode = '404' , ReferenceId = 'Resp_Pet_Write-NotFound', Inline = $true )]
@@ -624,11 +623,10 @@ function updatePet {
     .DESCRIPTION
     Update an existing pet by Id.
 #>
-function PostPet {
+function addPet {
     [OpenApiPath(HttpVerb = 'Post' , Pattern = '/pet', Tags = 'pet',
         Summary = 'Add a new pet to the store.',
-        Description = 'Add a new pet to the store.',
-        OperationId = 'addPet')]
+        Description = 'Add a new pet to the store.')]
     [OpenApiResponseRefAttribute( StatusCode = '200' , ReferenceId = 'Resp_Pet_Write-OK', Inline = $true )]
     [OpenApiResponseRefAttribute( StatusCode = '400' , ReferenceId = 'Resp_Pet_Write-BadRequest', Inline = $true )]
     [OpenApiResponseRefAttribute( StatusCode = '422' , ReferenceId = 'Resp_Pet_Write-UnprocessableEntity', Inline = $true )]
@@ -640,14 +638,12 @@ function PostPet {
     $body = Get-KrRequestBody #-Type [Pet]
     Expand-KrObject -InputObject $body -Label 'Received Pet:'
     Write-KrJsonResponse $body -StatusCode 200
-
 }
 
-function GetFindByStatus {
+function findPetsByStatus {
     [OpenApiPath(HttpVerb = 'Get' , Pattern = '/pet/findByStatus', Tags = 'pet',
         Summary = 'Finds Pets by status.',
-        Description = 'Multiple status values can be provided with comma separated strings.',
-        OperationId = 'findPetsByStatus')]
+        Description = 'Multiple status values can be provided with comma separated strings.')]
     [OpenApiResponseRefAttribute( StatusCode = '200' , ReferenceId = 'Resp_FindByStatus-OK', Inline = $true )]
     [OpenApiResponseRefAttribute( StatusCode = '400' , ReferenceId = 'Resp_FindByStatus-BadRequest', Inline = $true )]
     [OpenApiResponseRefAttribute( StatusCode = 'default' , ReferenceId = 'Resp_FindByStatus-Default' )]
@@ -659,88 +655,118 @@ function GetFindByStatus {
     $status = Get-KrRequestQuery -Name 'status' -AsString   #-Type [Pet]
     Write-Host "FindByStatus called with status='$status'"
     Write-KrJsonResponse @(@{}) -StatusCode 200
+}
 
+function findPetsByTags {
+    [OpenApiPath(HttpVerb = 'Get' , Pattern = '/pet/findByTags', Tags = 'pet',
+        Summary = 'Finds Pets by tags.',
+        Description = 'Multiple tags can be provided with comma separated strings.')]
+    [OpenApiResponseRefAttribute( StatusCode = '200' , ReferenceId = 'Resp_FindByTags-OK', Inline = $true )]
+    [OpenApiResponseRefAttribute( StatusCode = '400' , ReferenceId = 'Resp_FindByTags-BadRequest', Inline = $true )]
+    [OpenApiResponseRefAttribute( StatusCode = 'default' , ReferenceId = 'Resp_FindByTags-Default' )]
+    # [OpenApiAuthorizationAttribute( Scheme = 'petstore_auth' , Policies = 'write:pets, read:pets' )]
+    param(
+        [OpenApiParameterRefAttribute(ReferenceId = 'FindByTagsParams-tags' )]
+        $Tags
+    )
+    $tags = Get-KrRequestQuery -Name 'tags' -AsString   #-Type [Pet]
+    Write-Host "FindByTags called with tags='$tags'"
+    Write-KrJsonResponse @(@{}) -StatusCode 200
+}
+
+<#
+    .SYNOPSIS
+    Find pet by ID.
+    .DESCRIPTION
+    Returns a single pet.
+#>
+function getPetById {
+    [OpenApiPath(HttpVerb = 'Get' , Pattern = '/pet/{petId}', Tags = 'pet',
+        Summary = 'Find pet by ID.',
+        Description = 'Returns a single pet.')]
+    [OpenApiResponseRefAttribute( StatusCode = '200' , ReferenceId = 'Resp_PetById_Get-OK', Inline = $true )]
+    [OpenApiResponseRefAttribute( StatusCode = '400' , ReferenceId = 'Resp_PetById_Get-BadRequest', Inline = $true )]
+    [OpenApiResponseRefAttribute( StatusCode = '404' , ReferenceId = 'Resp_PetById_Get-NotFound', Inline = $true )]
+    [OpenApiResponseRefAttribute( StatusCode = 'default' , ReferenceId = 'Resp_PetById_Get-Default' )]
+    # [OpenApiAuthorizationAttribute( Scheme = 'petstore_auth' , Policies = 'write:pets, read:pets' )]
+    param(
+        [OpenApiParameterRefAttribute(ReferenceId = 'petId' )]
+        $PetId
+    )
+    $petId = Get-KrRequestRouteParam -Name 'petId' -AsString   #-Type [Pet]
+    Write-Host "FindByTags called with petId='$petId'"
+    Write-KrJsonResponse @(@{}) -StatusCode 200
+}
+
+function updatePetWithForm {
+    [OpenApiPath(HttpVerb = 'Post' , Pattern = '/pet/{petId}', Tags = 'pet',
+        Summary = 'Updates a pet in the store with form data.',
+        Description = 'Updates a pet resource based on the form data.')]
+    [OpenApiResponseRefAttribute( StatusCode = '200' , ReferenceId = 'Resp_PetById_PostForm-OK', Inline = $true )]
+    [OpenApiResponseRefAttribute( StatusCode = '400' , ReferenceId = 'Resp_PetById_PostForm-BadRequest', Inline = $true )]
+    [OpenApiResponseRefAttribute( StatusCode = 'default' , ReferenceId = 'Resp_PetById_PostForm-Default' )]
+    # [OpenApiAuthorizationAttribute( Scheme = 'petstore_auth' , Policies = 'write:pets, read:pets' )]
+    param(
+        [OpenApiParameterRefAttribute(ReferenceId = 'petId')]
+        $PetId,
+        [OpenApiParameterRefAttribute(ReferenceId = 'UpdatePetWithFormParams-name' )]
+        $Name,
+        [OpenApiParameterRefAttribute(ReferenceId = 'UpdatePetWithFormParams-status' )]
+        $Status
+    )
+    $petId = Get-KrRequestRouteParam -Name 'petId' -AsString
+    $name1 = Get-KrRequestRouteParam -Name 'Name' -AsString   #-Type [Pet]
+    $status1 = Get-KrRequestRouteParam -Name 'Status' -AsString   #-Type [Pet]
+
+    Write-Host "updatePetWithForm called with name='$Name' and status='$Status', name1='$name1' and status1='$status1'"
+    Write-KrJsonResponse @(@{}) -StatusCode 200
+}
+
+
+function deletePet {
+    [OpenApiPath(HttpVerb = 'Delete' , Pattern = '/pet/{petId}', Tags = 'pet',
+        Summary = 'Delete a pet.',
+        Description = 'Delete a pet.',
+        OperationId = 'deletePet')]
+    [OpenApiResponseRefAttribute( StatusCode = '200' , ReferenceId = 'Resp_PetById_Delete-OK', Inline = $true )]
+    [OpenApiResponseRefAttribute( StatusCode = '400' , ReferenceId = 'Resp_PetById_Delete-BadRequest', Inline = $true )]
+    [OpenApiResponseRefAttribute( StatusCode = 'default' , ReferenceId = 'Resp_PetById_Delete-Default' )]
+    # [OpenApiAuthorizationAttribute( Scheme = 'petstore_auth' , Policies = 'write:pets, read:pets' )]
+    param(
+        [OpenApiParameterRefAttribute(ReferenceId = 'petId')]
+        $PetId,
+        [OpenApiParameterRefAttribute(ReferenceId = 'api_key' )]
+        $api_key
+    )
+    $petId = Get-KrRequestRouteParam -Name 'petId' -AsString
+    $api_key = Get-KrRequestHeaderParam -Name 'api_key' -AsString
+    Write-Host "deletePet called with petId='$petId' and api_key='$api_key'"
+    Write-KrJsonResponse @(@{}) -StatusCode 200
+}
+
+function uploadImage {
+    [OpenApiPath(HttpVerb = 'Post' , Pattern = '/pet/{petId}/uploadImage', Tags = 'pet',
+        Summary = 'Uploads an image.',
+        Description = 'Upload image of the pet.',
+        OperationId = 'uploadImage')]
+    [OpenApiResponseRefAttribute( StatusCode = '200' , ReferenceId = 'Resp_UploadImage-OK', Inline = $true )]
+    [OpenApiResponseRefAttribute( StatusCode = '400' , ReferenceId = 'Resp_UploadImage-BadRequest', Inline = $true )]
+    [OpenApiResponseRefAttribute( StatusCode = '404' , ReferenceId = 'Resp_UploadImage-NotFound', Inline = $true )]
+    [OpenApiResponseRefAttribute( StatusCode = 'default' , ReferenceId = 'Resp_UploadImage-Default' )]
+    # [OpenApiAuthorizationAttribute( Scheme = 'petstore_auth' , Policies = 'write:pets, read:pets' )]
+    param(
+        [OpenApiParameterRefAttribute(ReferenceId = 'UploadImageParams-petId' )]#-Key 'petId')] # TODO: Key for ReferenceId
+        $petId,
+        [OpenApiParameterRefAttribute(ReferenceId = 'UploadImageParams-additionalMetadata' )]
+        $additionalMetadata
+    )
+    $petId = Get-KrRequestRouteParam -Name 'petId' -AsString
+    $additionalMetadata = Get-KrRequestQuery -Name 'additionalMetadata' -AsString   #-Type [Pet]
+
+    Write-Host "uploadImage called with additionalMetadata='$additionalMetadata' and petId='$petId'"
+    Write-KrJsonResponse @(@{}) -StatusCode 200
 }
 <#
-
-
-# --------------------------------------
-# /pet/findByStatus (GET) #-Schema @{ type = 'string'; @{'default' = 'available' }; }
-# --------------------------------------
-New-KrMapRouteBuilder -Verbs 'GET' -Pattern '/pet/findByStatus' |
-    Add-KrMapRouteScriptBlock -ScriptBlock { Write-KrJsonResponse @() } |
-    Add-KrMapRouteOpenApiTag -Tags 'pet' |
-    Add-KrMapRouteOpenApiInfo -Summary 'Finds Pets by status.' -Description 'Multiple status values can be provided with comma separated strings.' -OperationId 'findPetsByStatus' |
-    Add-KrMapRouteAuthorization -Schema 'petstore_auth' -Policy 'write:pets', 'read:pets' |
-    Add-KrMapRouteOpenApiParameter -Verbs 'GET' -ReferenceId 'FindByStatusParams-status' |
-    Add-KrMapRouteOpenApiResponse -StatusCode '200' -ReferenceId 'Resp_FindByStatus-OK' -Inline |
-    Add-KrMapRouteOpenApiResponse -StatusCode '400' -ReferenceId 'Resp_FindByStatus-BadRequest' -Inline |
-    Add-KrMapRouteOpenApiResponse -StatusCode 'default' -ReferenceId 'Resp_FindByStatus-Default' |
-    Build-KrMapRoute
-
-# --------------------------------------
-# /pet/findByTags (GET)
-# --------------------------------------
-New-KrMapRouteBuilder -Verbs 'GET' -Pattern '/pet/findByTags' |
-    Add-KrMapRouteScriptBlock -ScriptBlock { Write-KrJsonResponse @() } |
-    Add-KrMapRouteOpenApiTag -Tags 'pet' |
-    Add-KrMapRouteOpenApiInfo -Summary 'Finds Pets by tags.' -Description 'Multiple tags can be provided with comma separated strings. Use tag1, tag2, tag3 for testing.' -OperationId 'findPetsByTags' |
-    Add-KrMapRouteAuthorization -Schema 'petstore_auth' -Policy 'write:pets', 'read:pets' |
-    Add-KrMapRouteOpenApiParameter -ReferenceId 'FindByTagsParams-tags' |
-    Add-KrMapRouteOpenApiResponse -StatusCode '200' -ReferenceId 'Resp_FindByTags-OK' -Inline |
-    Add-KrMapRouteOpenApiResponse -StatusCode '400' -ReferenceId 'Resp_FindByTags-BadRequest' -Inline |
-    Add-KrMapRouteOpenApiResponse -StatusCode 'default' -ReferenceId 'Resp_FindByTags-Default' |
-
-    Build-KrMapRoute
-
-# --------------------------------------
-# /pet/{petId} (GET, POST form, DELETE)
-# --------------------------------------
-New-KrMapRouteBuilder -Verbs @('GET', 'POST', 'DELETE') -Pattern '/pet/{petId}' |
-    Add-KrMapRouteScriptBlock -ScriptBlock { Write-KrJsonResponse @{ } } |
-    Add-KrMapRouteOpenApiTag -Tags 'pet' |
-    Add-KrMapRouteOpenApiParameter -ReferenceId 'petId' | # from Param_PetId
-    # GET getPetById
-    Add-KrMapRouteOpenApiInfo -Verbs 'GET' -Summary 'Find pet by ID.' -Description 'Returns a single pet.' -OperationId 'getPetById' |
-    Add-KrMapRouteAuthorization -Schema 'petstore_auth' -Policy 'write:pets', 'read:pets' |
-    Add-KrMapRouteAuthorization -Verbs 'GET' -Schema 'api_key' |
-    Add-KrMapRouteOpenApiResponse -Verbs 'GET' -StatusCode '200' -ReferenceId 'Resp_PetById_Get-OK' -Inline |
-    Add-KrMapRouteOpenApiResponse -Verbs 'GET' -StatusCode '400' -ReferenceId 'Resp_PetById_Get-BadRequest' -Inline |
-    Add-KrMapRouteOpenApiResponse -Verbs 'GET' -StatusCode '404' -ReferenceId 'Resp_PetById_Get-NotFound' -Inline |
-    Add-KrMapRouteOpenApiResponse -Verbs 'GET' -StatusCode 'default' -ReferenceId 'Resp_PetById_Get-Default' |
-
-    # POST updatePetWithForm (query params name, status)
-    Add-KrMapRouteOpenApiInfo -Verbs 'POST' -Summary 'Updates a pet in the store with form data.' -Description 'Updates a pet resource based on the form data.' -OperationId 'updatePetWithForm' |
-    Add-KrMapRouteOpenApiParameter -Verbs 'POST' -ReferenceId 'UpdatePetWithFormParams-name' |
-    Add-KrMapRouteOpenApiParameter -Verbs 'POST' -ReferenceId 'UpdatePetWithFormParams-status' |
-    Add-KrMapRouteOpenApiResponse -Verbs 'POST' -StatusCode '200' -ReferenceId 'Resp_PetById_PostForm-OK' -Inline |
-    Add-KrMapRouteOpenApiResponse -Verbs 'POST' -StatusCode '400' -ReferenceId 'Resp_PetById_PostForm-BadRequest' -Inline |
-    Add-KrMapRouteOpenApiResponse -Verbs 'POST' -StatusCode 'default' -ReferenceId 'Resp_PetById_PostForm-Default' |
-
-    # DELETE deletePet (header api_key optional)
-    Add-KrMapRouteOpenApiInfo -Verbs 'DELETE' -Summary 'Deletes a pet.' -Description 'Delete a pet.' -OperationId 'deletePet' |
-    Add-KrMapRouteOpenApiParameter -Verbs 'DELETE' -ReferenceId 'api_key' |
-    Add-KrMapRouteOpenApiResponse -Verbs 'DELETE' -StatusCode '200' -ReferenceId 'Resp_PetById_Delete-OK' -Inline |
-    Add-KrMapRouteOpenApiResponse -Verbs 'DELETE' -StatusCode '400' -ReferenceId 'Resp_PetById_Delete-BadRequest' -Inline |
-    Add-KrMapRouteOpenApiResponse -Verbs 'DELETE' -StatusCode 'default' -ReferenceId 'Resp_PetById_Delete-Default' |
-    Build-KrMapRoute
-
-# --------------------------------------
-# /pet/{petId}/uploadImage (POST)
-# --------------------------------------
-New-KrMapRouteBuilder -Verbs 'POST' -Pattern '/pet/{petId}/uploadImage' |
-    Add-KrMapRouteScriptBlock -ScriptBlock { Write-KrJsonResponse @{ } } |
-    Add-KrMapRouteOpenApiTag -Tags 'pet' |
-    Add-KrMapRouteAuthorization -Schema 'petstore_auth' -Policy 'write:pets', 'read:pets' |
-    Add-KrMapRouteOpenApiParameter -ReferenceId 'UploadImageParams-petId' -Key 'petId' |
-    Add-KrMapRouteOpenApiParameter -ReferenceId 'UploadImageParams-additionalMetadata' -Key 'additionalMetadata' |
-    Add-KrMapRouteOpenApiRequestBody -Inline -ReferenceId 'Upload_OctetStream' |
-    Add-KrMapRouteOpenApiInfo -Summary 'Uploads an image.' -Description 'Upload image of the pet.' -OperationId 'uploadFile' |
-    Add-KrMapRouteOpenApiResponse -StatusCode '200' -ReferenceId 'Resp_UploadImage-OK' -Inline |
-    Add-KrMapRouteOpenApiResponse -StatusCode '400' -ReferenceId 'Resp_UploadImage-BadRequest' -Inline |
-    Add-KrMapRouteOpenApiResponse -StatusCode '404' -ReferenceId 'Resp_UploadImage-NotFound' -Inline |
-    Add-KrMapRouteOpenApiResponse -StatusCode 'default' -ReferenceId 'Resp_UploadImage-Default' |
-    Build-KrMapRoute
 
 # --------------------------------------
 # /store/inventory (GET)

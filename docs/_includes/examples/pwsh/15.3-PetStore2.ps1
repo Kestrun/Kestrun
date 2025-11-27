@@ -212,10 +212,10 @@ class DeletePetHeader {
 # /pet/{petId}/uploadImage (plus optional additionalMetadata)
 [OpenApiParameterComponent(JoinClassName = '-')]
 class UploadImageParams {
-    [OpenApiParameterAttribute(In = [OaParameterLocation]::Path, Description = 'ID of pet to update', Name = 'petId')]
+    [OpenApiParameterAttribute(In = [OaParameterLocation]::Path, Description = 'ID of pet to update' )]
     [long]$petId
 
-    [OpenApiParameterAttribute(In = [OaParameterLocation]::Query, Description = 'Additional Metadata', Name = 'additionalMetadata')]
+    [OpenApiParameterAttribute(In = [OaParameterLocation]::Query, Description = 'Additional Metadata')]
     [string]$additionalMetadata
 }
 

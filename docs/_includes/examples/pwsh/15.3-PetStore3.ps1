@@ -609,11 +609,13 @@ function updatePet {
     [OpenApiAuthorizationAttribute( Scheme = 'petstore_auth' , Policies = 'write:pets, read:pets' )]
 
     [OpenApiRequestBodyRefAttribute(Description = 'Update an existent pet in the store', ReferenceId = 'PetBody' )]
-    param()
+    param(
+        [OpenApiParameterRefAttribute(ReferenceId = 'petId' )]
+        $petId
+    )
     # Stub handler; the doc is our star tonight.
-    if ($KrRequest.Method -eq 'PUT' -or $KrRequest.Method -eq 'POST') {
-        Write-KrJsonResponse @{ ok = $true }
-    }
+    Write-Host "updatePet called for petId='$petId'"
+    Write-KrJsonResponse @{ ok = $true }
 }
 
 
@@ -650,9 +652,8 @@ function findPetsByStatus {
     # [OpenApiAuthorizationAttribute( Scheme = 'petstore_auth' , Policies = 'write:pets, read:pets' )]
     param(
         [OpenApiParameterRefAttribute(ReferenceId = 'FindByStatusParams-status' )]
-        $Status
+        $status
     )
-    $status = Get-KrRequestQuery -Name 'status' -AsString   #-Type [Pet]
     Write-Host "FindByStatus called with status='$status'"
     Write-KrJsonResponse @(@{}) -StatusCode 200
 }
@@ -667,9 +668,8 @@ function findPetsByTags {
     # [OpenApiAuthorizationAttribute( Scheme = 'petstore_auth' , Policies = 'write:pets, read:pets' )]
     param(
         [OpenApiParameterRefAttribute(ReferenceId = 'FindByTagsParams-tags' )]
-        $Tags
+        $tags
     )
-    $tags = Get-KrRequestQuery -Name 'tags' -AsString   #-Type [Pet]
     Write-Host "FindByTags called with tags='$tags'"
     Write-KrJsonResponse @(@{}) -StatusCode 200
 }
@@ -690,11 +690,10 @@ function getPetById {
     [OpenApiResponseRefAttribute( StatusCode = 'default' , ReferenceId = 'Resp_PetById_Get-Default' )]
     # [OpenApiAuthorizationAttribute( Scheme = 'petstore_auth' , Policies = 'write:pets, read:pets' )]
     param(
-        [OpenApiParameterRefAttribute(ReferenceId = 'petId' )]
-        $PetId
+        [OpenApiParameterAttribute(In = [OaParameterLocation]::Path, Description = 'ID of pet to return' )]
+        [long]$petId
     )
-    $petId = Get-KrRequestRouteParam -Name 'petId' -AsString   #-Type [Pet]
-    Write-Host "FindByTags called with petId='$petId'"
+    Write-Host "getPetById called with petId='$petId'"
     Write-KrJsonResponse @(@{}) -StatusCode 200
 }
 
@@ -708,17 +707,14 @@ function updatePetWithForm {
     # [OpenApiAuthorizationAttribute( Scheme = 'petstore_auth' , Policies = 'write:pets, read:pets' )]
     param(
         [OpenApiParameterRefAttribute(ReferenceId = 'petId')]
-        $PetId,
+        $petId,
         [OpenApiParameterRefAttribute(ReferenceId = 'UpdatePetWithFormParams-name' )]
-        $Name,
+        $name,
         [OpenApiParameterRefAttribute(ReferenceId = 'UpdatePetWithFormParams-status' )]
-        $Status
+        $status
     )
-    $petId = Get-KrRequestRouteParam -Name 'petId' -AsString
-    $name1 = Get-KrRequestRouteParam -Name 'Name' -AsString   #-Type [Pet]
-    $status1 = Get-KrRequestRouteParam -Name 'Status' -AsString   #-Type [Pet]
 
-    Write-Host "updatePetWithForm called with name='$Name' and status='$Status', name1='$name1' and status1='$status1'"
+    Write-Host "updatePetWithForm called with name='$name' and status='$status',  petId='$petId'"
     Write-KrJsonResponse @(@{}) -StatusCode 200
 }
 
@@ -734,12 +730,11 @@ function deletePet {
     # [OpenApiAuthorizationAttribute( Scheme = 'petstore_auth' , Policies = 'write:pets, read:pets' )]
     param(
         [OpenApiParameterRefAttribute(ReferenceId = 'petId')]
-        $PetId,
+        $petId,
         [OpenApiParameterRefAttribute(ReferenceId = 'api_key' )]
         $api_key
     )
-    $petId = Get-KrRequestRouteParam -Name 'petId' -AsString
-    $api_key = Get-KrRequestHeaderParam -Name 'api_key' -AsString
+
     Write-Host "deletePet called with petId='$petId' and api_key='$api_key'"
     Write-KrJsonResponse @(@{}) -StatusCode 200
 }
@@ -760,8 +755,6 @@ function uploadImage {
         [OpenApiParameterRefAttribute(ReferenceId = 'UploadImageParams-additionalMetadata' )]
         $additionalMetadata
     )
-    $petId = Get-KrRequestRouteParam -Name 'petId' -AsString
-    $additionalMetadata = Get-KrRequestQuery -Name 'additionalMetadata' -AsString   #-Type [Pet]
 
     Write-Host "uploadImage called with additionalMetadata='$additionalMetadata' and petId='$petId'"
     Write-KrJsonResponse @(@{}) -StatusCode 200

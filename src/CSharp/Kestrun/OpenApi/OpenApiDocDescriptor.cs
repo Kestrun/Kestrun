@@ -13,6 +13,7 @@ using Microsoft.OpenApi.Reader;
 using System.Text;
 using System.Management.Automation;
 using Kestrun.Authentication;
+using Kestrun.Languages;
 
 namespace Kestrun.OpenApi;
 
@@ -2643,11 +2644,18 @@ public class OpenApiDocDescriptor
                             }
                             parameter.Schema = InferPrimitiveSchema(param.ParameterType);
                             openApiAttr.Parameters.Add(parameter);
+                            // Add to script code parameter injection info
+                            routeOptions.ScriptCode.Parameters.Add(new ParameterForInjectionInfo(parameter));
+                        }
+                        else
+                        {
+                            Host.Logger.Error("Error processing OpenApiParameter attribute on parameter '{paramName}' of function '{funcName}'", param.Name, func.Name);
                         }
                     }
                     else if (pAttr is OpenApiParameterRefAttribute oaParamRefAttr)
                     {
                         openApiAttr.Parameters ??= [];
+                        routeOptions.ScriptCode.Parameters ??= [];
                         IOpenApiParameter parameter;
                         if (Document.Components?.Parameters == null || !Document.Components.Parameters.TryGetValue(oaParamRefAttr.ReferenceId, out var parameterValue))
                         {
@@ -2674,18 +2682,9 @@ public class OpenApiDocDescriptor
 
                         }
                         // Apply any name override
-                        routeOptions.PropertiesVariables ??= new StringBuilder();
-                        if (valueClone is not null)
+                        if (valueClone is not null && !string.IsNullOrEmpty(valueClone.Name))
                         {
-                            var t = valueClone?.Schema?.Type;
-                            _ = (valueClone?.In) switch
-                            {
-                                ParameterLocation.Path => routeOptions.PropertiesVariables.Append($"${valueClone.Name}=$Context.Request.RouteValues['{valueClone.Name}']"),
-                                ParameterLocation.Query => routeOptions.PropertiesVariables.Append($"${valueClone.Name}=$Context.Request.Query['{valueClone.Name}']"),
-                                ParameterLocation.Header => routeOptions.PropertiesVariables.Append($"${valueClone.Name}=$Context.Request.Headers['{valueClone.Name}']"),
-                                ParameterLocation.Cookie => routeOptions.PropertiesVariables.Append($"${valueClone.Name}=$Context.Request.Cookies['{valueClone.Name}']"),
-                                _ => throw new InvalidOperationException($"Unsupported parameter location: {parameter.In}"),
-                            };
+                            routeOptions.ScriptCode.Parameters.Add(new ParameterForInjectionInfo(valueClone));
                         }
                         iparameter = parameter;
                         openApiAttr.Parameters.Add(parameter);
@@ -2698,52 +2697,6 @@ public class OpenApiDocDescriptor
                                 $"Unhandled Kestrun annotation: {ka.GetType().Name}");
                         }
                     }
-                }
-                if (iparameter is not null and OpenApiParameter pmtr)
-                {
-                    var pt = param.ParameterType;
-                    /* var allowNull = false;
-                     var underlying = Nullable.GetUnderlyingType(pt);
-                     if (underlying != null)
-                     {
-                         allowNull = true;
-                         pt = underlying;
-                     }*/
-                    IOpenApiSchema ps;
-                    if (pt.IsEnum)
-                    {
-                        ps = new OpenApiSchema { Type = JsonSchemaType.String, Enum = [.. pt.GetEnumNames().Select(n => (JsonNode)n)] };
-                    }
-                    else if (pt.IsArray)
-                    {
-                        var elem = pt.GetElementType()!;
-                        IOpenApiSchema item;
-                        if (elem.IsEnum)
-                        {
-                            item = new OpenApiSchema { Type = JsonSchemaType.String, Enum = [.. elem.GetEnumNames().Select(n => (JsonNode)n)] };
-                        }
-                        else if (IsPrimitiveLike(elem))
-                        {
-                            item = InferPrimitiveSchema(elem);
-                        }
-                        else
-                        {
-                            EnsureSchemaComponent(elem);
-                            item = new OpenApiSchemaReference(elem.Name);
-                        }
-                        ps = new OpenApiSchema { Type = JsonSchemaType.Array, Items = item };
-                    }
-                    else if (!IsPrimitiveLike(pt))
-                    {
-                        EnsureSchemaComponent(pt);
-                        ps = new OpenApiSchemaReference(pt.Name);
-                    }
-                    else
-                    {
-                        ps = InferPrimitiveSchema(pt);
-                    }
-                    // Apply any [OpenApiProperty] attribute on the parameter to the schema
-                    pmtr.Schema = ps;
                 }
             }
 
@@ -2759,7 +2712,6 @@ public class OpenApiDocDescriptor
             }
             // Script source
             routeOptions.ScriptCode.ScriptBlock = sb;
-
             // Register the route
             _ = Host.AddMapRoute(routeOptions);
         }

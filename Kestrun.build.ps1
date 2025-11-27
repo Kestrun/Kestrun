@@ -1,49 +1,49 @@
 #requires -Module InvokeBuild
 <#
-    .SYNOPSIS
+.SYNOPSIS
     Build script for Kestrun
 
-    .DESCRIPTION
+.DESCRIPTION
     This script contains the build tasks for the Kestrun project.
 
-    .PARAMETER Configuration
+.PARAMETER Configuration
     The build configuration to use (Debug or Release).
 
-    .PARAMETER Release
+.PARAMETER Release
     The release stage (Stable, ReleaseCandidate, Beta, Alpha).
 
-    .PARAMETER Frameworks
+.PARAMETER Frameworks
     The target frameworks to build for.
 
-    .PARAMETER Version
+.PARAMETER Version
     The version of the Kestrun project.
 
-    .PARAMETER Iteration
+.PARAMETER Iteration
     The iteration of the Kestrun project.
 
-    .PARAMETER FileVersion
+.PARAMETER FileVersion
     The file version to use.
 
-    .PARAMETER PesterVerbosity
+.PARAMETER PesterVerbosity
     The verbosity level for Pester tests.
 
-    .PARAMETER DotNetVerbosity
+.PARAMETER DotNetVerbosity
     The verbosity level for .NET commands. Valid values are 'quiet', 'minimal', 'normal', 'detailed', and 'diagnostic'.
 
-    .PARAMETER SignModule
+.PARAMETER SignModule
     Indicates whether to sign the module during the build process.
 
-    .EXAMPLE
-    .\Kestrun.build.ps1 -Configuration Release -Frameworks net9.0 -Version 1.0.0
+.EXAMPLE
+.\Kestrun.build.ps1 -Configuration Release -Frameworks net9.0 -Version 1.0.0
     This example demonstrates how to build the Kestrun project for the Release configuration,
     targeting the net9.0 framework, and specifying the version as 1.0.0.
 
-    .EXAMPLE
-    .\Kestrun.build.ps1 -Configuration Debug -Frameworks net8.0 -Version 1.0.0
+.EXAMPLE
+.\Kestrun.build.ps1 -Configuration Debug -Frameworks net8.0 -Version 1.0.0
     This example demonstrates how to build the Kestrun project for the Debug configuration,
     targeting the net8.0 framework, and specifying the version as 1.0.0.
 
-    .NOTES
+.NOTES
     This script is intended to be run with Invoke-Build.
 
 #>
@@ -142,6 +142,9 @@ if ($isDebug) {
 }
 
 $SolutionPath = Join-Path -Path $PSScriptRoot -ChildPath 'Kestrun.sln'
+$KestrunProjectPath = Join-Path -Path $PSScriptRoot -ChildPath 'src/CSharp/Kestrun/Kestrun.csproj'
+$KestrunAnnotationsProjectPath = Join-Path -Path $PSScriptRoot -ChildPath 'src/CSharp/Kestrun.Annotations/Kestrun.Annotations.csproj'
+$ExamplesSolutionFilter = Join-Path -Path $PSScriptRoot -ChildPath 'Examples.slnf'
 
 Write-Host '---------------------------------------------------' -ForegroundColor DarkCyan
 if (-not $Version) {
@@ -290,16 +293,47 @@ Add-BuildTask 'BuildNoPwsh' {
     }
     Write-Host '🔨 Building solution...'
     if ($Frameworks.Count -eq 1) {
+        Write-Host "Building Kestrun.Annotations for single framework: $($Frameworks[0])" -ForegroundColor DarkCyan
+        dotnet build "$KestrunAnnotationsProjectPath" -c $Configuration -f $framework -v:$DotNetVerbosity -p:Version=$Version -p:InformationalVersion=$VersionDetails.InformationalVersion
+        if ($LASTEXITCODE -ne 0) {
+            throw "dotnet build failed for Kestrun.Annotations project for framework $framework"
+        }
+        Write-Host "Building Kestrun for single framework: $($Frameworks[0])" -ForegroundColor DarkCyan
+        dotnet build "$KestrunProjectPath" -c $Configuration -f $framework -v:$DotNetVerbosity -p:Version=$Version -p:InformationalVersion=$VersionDetails.InformationalVersion
+        if ($LASTEXITCODE -ne 0) {
+            throw "dotnet build failed for Kestrun project for framework $framework"
+        }
+    } else {
+        Write-Host "Building Kestrun.Annotations for multiple frameworks: $($Frameworks -join ', ')" -ForegroundColor DarkCyan
+        dotnet build "$KestrunAnnotationsProjectPath" -c $Configuration -v:$DotNetVerbosity -p:Version=$Version -p:InformationalVersion=$VersionDetails.InformationalVersion
+        if ($LASTEXITCODE -ne 0) {
+            throw "dotnet build failed for Kestrun.Annotations project for framework $framework"
+        }
+        Write-Host "Building Kestrun for multiple frameworks: $($Frameworks -join ', ')" -ForegroundColor DarkCyan
+        dotnet build "$KestrunProjectPath" -c $Configuration -v:$DotNetVerbosity -p:Version=$Version -p:InformationalVersion=$VersionDetails.InformationalVersion
+        if ($LASTEXITCODE -ne 0) {
+            throw "dotnet build failed for Kestrun project for framework $framework"
+        }
+    }
+}
+
+Add-BuildTask 'BuildExamples' {
+    if (Get-Module -Name Kestrun) {
+        throw 'Kestrun module is currently loaded in this PowerShell session. Please close all sessions using the Kestrun module before building.'
+    }
+    Write-Host '🔨 Building solution...'
+    if ($Frameworks.Count -eq 1) {
+
         Write-Host "Building for single framework: $($Frameworks[0])" -ForegroundColor DarkCyan
-        dotnet build "$SolutionPath" -c $Configuration -f $framework -v:$DotNetVerbosity -p:Version=$Version -p:InformationalVersion=$VersionDetails.InformationalVersion
+        dotnet build "$ExamplesSolutionFilter" -c $Configuration -f $framework -v:$DotNetVerbosity -p:Version=$Version -p:InformationalVersion=$VersionDetails.InformationalVersion
         if ($LASTEXITCODE -ne 0) {
             throw "dotnet build failed for framework $framework"
         }
     } else {
-        Write-Host "Building for multiple frameworks: $($Frameworks -join ', ')" -ForegroundColor DarkCyan
-        dotnet build "$SolutionPath" -c $Configuration -v:$DotNetVerbosity -p:Version=$Version -p:InformationalVersion=$VersionDetails.InformationalVersion
+        Write-Host "Building Kestrun.Annotations for multiple frameworks: $($Frameworks -join ', ')" -ForegroundColor DarkCyan
+        dotnet build "$ExamplesSolutionFilter" -c $Configuration -v:$DotNetVerbosity -p:Version=$Version -p:InformationalVersion=$VersionDetails.InformationalVersion
         if ($LASTEXITCODE -ne 0) {
-            throw "dotnet build failed for framework $($Frameworks -join ', ')"
+            throw "dotnet build failed for Kestrun.Annotations project for framework $framework"
         }
     }
 }

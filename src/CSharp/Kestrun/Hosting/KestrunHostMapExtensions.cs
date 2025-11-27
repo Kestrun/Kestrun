@@ -470,6 +470,7 @@ public static partial class KestrunHostMapExtensions
         ApplyPolicies(host, map, options);
         ApplyCors(host, map, options);
         ApplyRequiredHost(host, map, options);
+        AddMetadata(host, map, options);
     }
 
     /// <summary>
@@ -738,7 +739,22 @@ public static partial class KestrunHostMapExtensions
         host.AddMapOptions(builder, options);
         return builder;
     }
+    /// <summary>
+    /// Adds metadata to the route from the script parameters.
+    /// </summary>
+    /// <param name="host">The Kestrun host.</param>
+    /// <param name="map">The endpoint convention builder.</param>
+    /// <param name="options">The mapping options.</param>
+    private static void AddMetadata(KestrunHost host, IEndpointConventionBuilder map, MapRouteOptions options)
+    {
+        if (options.ScriptCode is null || options.ScriptCode.Parameters is null|| options.ScriptCode.Parameters.Count == 0)
+        {
+            return;
+        }
 
+        host.Logger.Verbose("Adding metadata to route: {Pattern}", options.Pattern);
+        _ = map.WithMetadata(options.ScriptCode.Parameters);
+    }
     /// <summary>
     /// Applies short-circuiting behavior to the route.
     /// </summary>

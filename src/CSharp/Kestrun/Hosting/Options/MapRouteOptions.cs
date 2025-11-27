@@ -74,7 +74,6 @@ public class MapRouteOptions
     /// If true, throws an exception on duplicate routes.
     /// </summary>
     public bool ThrowOnDuplicate { get; set; }
-    public StringBuilder PropertiesVariables { get; internal set; }
 
     /// <summary>
     /// Returns a string representation of the MapRouteOptions.

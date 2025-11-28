@@ -67,7 +67,7 @@ function Get-KestrunModulePath {
         $root = $parent
     }
     if (-not $root) { throw 'Cannot find repository root.' }
-    $kestrun = Join-Path -Path $root.FullName -ChildPath 'src' -AdditionalChildPath 'PowerShell', 'Kestrun', 'Kestrun.psm1'
+    $kestrun = Join-Path -Path $root.FullName -ChildPath 'src' -AdditionalChildPath 'PowerShell', 'Kestrun', 'Kestrun.psd1'
     if (-not (Test-Path $kestrun)) { throw "Kestrun module not found: $kestrun" }
     return $kestrun
 }

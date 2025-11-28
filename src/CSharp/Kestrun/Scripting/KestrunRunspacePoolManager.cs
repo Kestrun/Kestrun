@@ -187,7 +187,6 @@ public sealed class KestrunRunspacePoolManager : IDisposable
         }
     }
 
-
     /// <summary>
     /// Returns a runspace to the pool for reuse, or disposes it if the pool has been disposed.
     /// </summary>
@@ -229,7 +228,6 @@ public sealed class KestrunRunspacePoolManager : IDisposable
         // Note: we do not decrement _count here, as the pool size is fixed.
         // The pool will keep the runspace open for reuse.
     }
-
 
     // ───────────────── helpers ───────────────────────────────
     /// <summary>

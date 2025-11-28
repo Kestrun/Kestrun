@@ -63,7 +63,6 @@ public static class PowerShellOpenApiClassExporter
                     n.Contains("OpenApiRequestBodyComponent", StringComparison.OrdinalIgnoreCase));
     }
 
-
     private static void AppendClass(Type type, HashSet<Type> componentSet, StringBuilder sb)
     {
         // Detect base type (for parenting)
@@ -91,7 +90,6 @@ public static class PowerShellOpenApiClassExporter
 
         _ = sb.AppendLine("}");
     }
-
 
     private static string ToPowerShellTypeName(Type t, HashSet<Type> componentSet)
     {

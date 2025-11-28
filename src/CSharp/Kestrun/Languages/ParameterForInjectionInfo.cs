@@ -24,28 +24,35 @@ public record ParameterForInjectionInfo
     public ParameterLocation? In { get; init; }
 
     /// <summary>
-    /// Constructs a ParameterForInjectionInfo with the specified properties.
+    /// Indicates whether the parameter is from the request body.
     /// </summary>
-    /// <param name="name">The name of the parameter.</param>
-    /// <param name="type">The JSON schema type of the parameter.</param>
-    /// <param name="in">The location of the parameter.</param>
-    public ParameterForInjectionInfo(string name, JsonSchemaType? type, ParameterLocation? @in)
-    {
-        Name = name;
-        Type = type;
-        In = @in;
-    }
+    public bool IsRequestBody => In is null;
 
     /// <summary>
     /// Constructs a ParameterForInjectionInfo from an OpenApiParameter.
     /// </summary>
+    /// <param name="name">The name of the parameter.</param>
     /// <param name="parameter">The OpenApiParameter to construct from.</param>
-    public ParameterForInjectionInfo(OpenApiParameter? parameter)
+    public ParameterForInjectionInfo(string name, OpenApiParameter? parameter)
     {
         ArgumentNullException.ThrowIfNull(parameter);
-        Name = parameter.Name!;
+        ArgumentException.ThrowIfNullOrWhiteSpace(name);
+        Name = name;
         Type = parameter.Schema?.Type;
         In = parameter.In;
+    }
+    /// <summary>
+    /// Constructs a ParameterForInjectionInfo from an OpenApiRequestBody.
+    /// </summary>
+    /// <param name="name">The name of the parameter.</param>
+    /// <param name="requestBody">The OpenApiRequestBody to construct from.</param>
+    public ParameterForInjectionInfo(string name, OpenApiRequestBody requestBody)
+    {
+        ArgumentNullException.ThrowIfNull(requestBody);
+        ArgumentException.ThrowIfNullOrWhiteSpace(name);
+        Name = name;
+        Type = requestBody.Content?.Values.FirstOrDefault()?.Schema?.Type;
+        In = null;
     }
 
 
@@ -71,13 +78,18 @@ public record ParameterForInjectionInfo
             foreach (var param in parameters)
             {
                 var name = param.Name;
-
+                if (logger.IsEnabled(Serilog.Events.LogEventLevel.Debug))
+                {
+                    logger.Debug("Injecting parameter '{Name}' of type '{Type}' from '{In}'.", name, param.Type, param.In);
+                }
+                // Get the raw value from the appropriate location
                 var raw = param.In switch
                 {
                     ParameterLocation.Path => context.Request.RouteValues?[name],
                     ParameterLocation.Query => (object?)context.Request.Query[name],
                     ParameterLocation.Header => (object?)context.Request.Headers[name],
                     ParameterLocation.Cookie => context.Request.Cookies[name],
+                    null => context.Request.Body,
                     _ => null,
                 };
 

@@ -2531,15 +2531,9 @@ public class OpenApiDocDescriptor
                         // Determine if we inline the referenced response or use a $ref
                         if (oaRRa.Inline)
                         {
-                            if (Document.Components?.Responses == null || !Document.Components.Responses.TryGetValue(oaRRa.ReferenceId, out var value))
-                            {
-                                throw new InvalidOperationException($"Response reference '{oaRRa.ReferenceId}' cannot be embedded because it was not found in components.");
-                            }
-                            if (value is not OpenApiResponse example)
-                            {
-                                throw new InvalidOperationException($"Response reference '{oaRRa.ReferenceId}' cannot be embedded because it is not an OpenApiResponse.");
-                            }
-                            response = example.Clone();
+
+                            var componentResponse = GetResponse(oaRRa.ReferenceId);
+                            response = componentResponse.Clone();
                         }
                         else
                         {
@@ -2570,18 +2564,12 @@ public class OpenApiDocDescriptor
                         }
                     }
                     else if (attr is OpenApiRequestBodyRefAttribute oaRBra)
-                    {
+                    {//todo: add  script code parameter injection info
+                     //  routeOptions.ScriptCode.Parameters.Add(new ParameterForInjectionInfo(parameter));
                         if (oaRBra.Inline)
                         {
-                            if (Document.Components?.RequestBodies == null || !Document.Components.RequestBodies.TryGetValue(oaRBra.ReferenceId, out var requestBody))
-                            {
-                                throw new InvalidOperationException($"RequestBody reference '{oaRBra.ReferenceId}' cannot be embedded because it was not found in components.");
-                            }
-                            if (requestBody is not OpenApiRequestBody example)
-                            {
-                                throw new InvalidOperationException($"RequestBody reference '{oaRBra.ReferenceId}' cannot be embedded because it is not an OpenApiRequestBody.");
-                            }
-                            openApiAttr.RequestBody = example.Clone();
+                            var componentRequestBody = GetRequestBody(oaRBra.ReferenceId);
+                            openApiAttr.RequestBody = componentRequestBody.Clone();
                         }
                         else
                         {
@@ -2628,24 +2616,22 @@ public class OpenApiDocDescriptor
             {
                 // Check for [OpenApiParameter] attribute on the parameter
                 var paramAttrs = param.Attributes;
-                IOpenApiParameter? iparameter = null;
                 foreach (var pAttr in paramAttrs)
                 {
                     if (pAttr is OpenApiParameterAttribute oaParamAttr)
                     {
                         openApiAttr.Parameters ??= [];
                         var parameter = new OpenApiParameter();
-                        iparameter = parameter;
                         if (CreateParameterFromAttribute(oaParamAttr, parameter))
                         {
-                            if (string.IsNullOrEmpty(parameter.Name))
-                            {
-                                parameter.Name = param.Name;
-                            }
+                            parameter.Name = !string.IsNullOrEmpty(parameter.Name) && parameter.Name != param.Name
+                                ? throw new InvalidOperationException(
+                                     $"Parameter name {parameter.Name} is different from variable name'{param.Name}'.")
+                                : param.Name;
                             parameter.Schema = InferPrimitiveSchema(param.ParameterType);
                             openApiAttr.Parameters.Add(parameter);
                             // Add to script code parameter injection info
-                            routeOptions.ScriptCode.Parameters.Add(new ParameterForInjectionInfo(parameter));
+                            routeOptions.ScriptCode.Parameters.Add(new ParameterForInjectionInfo(param.Name, parameter));
                         }
                         else
                         {
@@ -2661,33 +2647,42 @@ public class OpenApiDocDescriptor
                         {
                             throw new InvalidOperationException($"Parameter reference '{oaParamRefAttr.ReferenceId}' cannot be embedded because it was not found in components.");
                         }
-                        if (parameterValue is not OpenApiParameter valueClone)
-                        {
-                            throw new InvalidOperationException($"Parameter reference '{oaParamRefAttr.ReferenceId}' is not an OpenApiParameter and cannot be inlined.");
-                        }
+
+                        var componentParameter = GetParameter(oaParamRefAttr.ReferenceId);
                         // Determine if we inline the referenced parameter or use a $ref
                         if (oaParamRefAttr.Inline)
                         {
-                            var parameterClone = valueClone.Clone();
+                            parameter = componentParameter.Clone();
                             // Apply any name override
-                            if (!string.IsNullOrEmpty(oaParamRefAttr.Name))
+                            if (componentParameter.Name != param.Name)
                             {
-                                parameterClone.Name = oaParamRefAttr.Name;
+                                throw new InvalidOperationException(
+                                     $"Parameter name {componentParameter.Name} is different from variable name'{param.Name}'.");
                             }
-                            parameter = parameterClone;
                         }
                         else
                         {
                             parameter = new OpenApiParameterReference(oaParamRefAttr.ReferenceId);
-
                         }
                         // Apply any name override
-                        if (valueClone is not null && !string.IsNullOrEmpty(valueClone.Name))
-                        {
-                            routeOptions.ScriptCode.Parameters.Add(new ParameterForInjectionInfo(valueClone));
-                        }
-                        iparameter = parameter;
+                        routeOptions.ScriptCode.Parameters.Add(new ParameterForInjectionInfo(param.Name, componentParameter));
+
                         openApiAttr.Parameters.Add(parameter);
+
+                    }
+                    else if (pAttr is OpenApiRequestBodyRefAttribute oaRBra)
+                    {
+                        var componentRequestBody = GetRequestBody(oaRBra.ReferenceId);
+                        // Determine if we inline the referenced request body or use a $ref
+                        openApiAttr.RequestBody = oaRBra.Inline ? componentRequestBody.Clone() : new OpenApiRequestBodyReference(oaRBra.ReferenceId);
+                        // Apply any description override
+                        if (oaRBra.Description is not null)
+                        {
+                            openApiAttr.RequestBody.Description = oaRBra.Description;
+                        }
+
+                        // Add to script code parameter injection info
+                        routeOptions.ScriptCode.Parameters.Add(new ParameterForInjectionInfo(param.Name, componentRequestBody));
                     }
                     else
                     {
@@ -2715,6 +2710,41 @@ public class OpenApiDocDescriptor
             // Register the route
             _ = Host.AddMapRoute(routeOptions);
         }
+    }
+    private OpenApiParameter GetParameter(string id)
+    {
+        return Document.Components?.Parameters is { } parameters
+               && parameters.TryGetValue(id, out var p)
+               && p is OpenApiParameter op
+            ? op
+            : throw new InvalidOperationException($"Parameter '{id}' not found.");
+    }
+
+    private OpenApiRequestBody GetRequestBody(string id)
+    {
+        return Document.Components?.RequestBodies is { } requestBodies
+               && requestBodies.TryGetValue(id, out var p)
+               && p is OpenApiRequestBody op
+            ? op
+            : throw new InvalidOperationException($"RequestBody '{id}' not found.");
+    }
+
+    private OpenApiHeader GetHeader(string id)
+    {
+        return Document.Components?.Headers is { } headers
+               && headers.TryGetValue(id, out var p)
+               && p is OpenApiHeader op
+            ? op
+            : throw new InvalidOperationException($"Header '{id}' not found.");
+    }
+
+    private OpenApiResponse GetResponse(string id)
+    {
+        return Document.Components?.Responses is { } responses
+               && responses.TryGetValue(id, out var p)
+               && p is OpenApiResponse op
+            ? op
+            : throw new InvalidOperationException($"Response '{id}' not found.");
     }
 
     /// <summary>

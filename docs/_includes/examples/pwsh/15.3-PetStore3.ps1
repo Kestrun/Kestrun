@@ -598,7 +598,7 @@ Add-KrApiDocumentationRoute -DocumentType Redoc
     Update an existing pet by Id.
 #>
 function updatePet {
-    [OpenApiPath(HttpVerb = 'Put' , Pattern = '/pet', Tags = 'pet',
+    [OpenApiPath(HttpVerb = 'Put' , Pattern = '/pet/{petId}', Tags = 'pet',
         Summary = 'Update an existing pet.',
         Description = 'Update an existing pet by Id.' )]
     [OpenApiResponseRefAttribute( StatusCode = '200' , ReferenceId = 'Resp_Pet_Write-OK', Inline = $true )]
@@ -606,15 +606,18 @@ function updatePet {
     [OpenApiResponseRefAttribute( StatusCode = '404' , ReferenceId = 'Resp_Pet_Write-NotFound', Inline = $true )]
     [OpenApiResponseRefAttribute( StatusCode = '422' , ReferenceId = 'Resp_Pet_Write-UnprocessableEntity', Inline = $true )]
     [OpenApiResponseRefAttribute( StatusCode = 'default' , ReferenceId = 'Resp_Pet_Write-Default' )]
-    [OpenApiAuthorizationAttribute( Scheme = 'petstore_auth' , Policies = 'write:pets, read:pets' )]
+    #[OpenApiAuthorizationAttribute( Scheme = 'petstore_auth' , Policies = 'write:pets, read:pets' )]
 
     [OpenApiRequestBodyRefAttribute(Description = 'Update an existent pet in the store', ReferenceId = 'PetBody' )]
     param(
-        [OpenApiParameterRefAttribute(ReferenceId = 'petId' )]
-        $petId
+        [OpenApiParameterAttribute(In = [OaParameterLocation]::Path, Description = 'Update an existing pet by Id.' )]
+        [long]$petId,
+        [OpenApiRequestBodyRefAttribute(Description = 'Update an existent pet in the store', ReferenceId = 'PetBody' )]
+        $pet
     )
     # Stub handler; the doc is our star tonight.
     Write-Host "updatePet called for petId='$petId'"
+    Expand-KrObject -InputObject $pet -Label 'Received Pet:'
     Write-KrJsonResponse @{ ok = $true }
 }
 
@@ -634,12 +637,15 @@ function addPet {
     [OpenApiResponseRefAttribute( StatusCode = '422' , ReferenceId = 'Resp_Pet_Write-UnprocessableEntity', Inline = $true )]
     [OpenApiResponseRefAttribute( StatusCode = 'default' , ReferenceId = 'Resp_Pet_Write-Default' )]
     # [OpenApiAuthorizationAttribute( Scheme = 'petstore_auth' , Policies = 'write:pets, read:pets' )]
-    [OpenApiRequestBodyRefAttribute(Description = 'Create a new pet in the store' , ReferenceId = 'PetBody' )]
-    param()
+
+    param(
+        [OpenApiRequestBodyRefAttribute(Description = 'Create a new pet in the store' , ReferenceId = 'PetBody' )]
+        $pet
+    )
     # Stub handler; the doc is our star tonight.
-    $body = Get-KrRequestBody #-Type [Pet]
-    Expand-KrObject -InputObject $body -Label 'Received Pet:'
-    Write-KrJsonResponse $body -StatusCode 200
+
+    Expand-KrObject -InputObject $pet -Label 'Received Pet:'
+    Write-KrJsonResponse $pet -StatusCode 200
 }
 
 function findPetsByStatus {
@@ -667,7 +673,7 @@ function findPetsByTags {
     [OpenApiResponseRefAttribute( StatusCode = 'default' , ReferenceId = 'Resp_FindByTags-Default' )]
     # [OpenApiAuthorizationAttribute( Scheme = 'petstore_auth' , Policies = 'write:pets, read:pets' )]
     param(
-        [OpenApiParameterRefAttribute(ReferenceId = 'FindByTagsParams-tags' )]
+        [OpenApiParameterRefAttribute(ReferenceId = 'FindByTagsParams-tags' , Inline = $true)]
         $tags
     )
     Write-Host "FindByTags called with tags='$tags'"

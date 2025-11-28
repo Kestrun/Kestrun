@@ -1,12 +1,12 @@
 param()
 
-if (-not ([AppDomain]::CurrentDomain.GetAssemblies().GetName().Name -contains 'Kestrun.Annotations')) {
-    throw 'Kestrun.Annotations assembly is not loaded. Please ensure to load the module using Kestrun.psd1 and not Kestrun.psm1.'
-}
-
 # Main Kestrun module path
 # This is the root path for the Kestrun module
 $moduleRootPath = Split-Path -Parent -Path $MyInvocation.MyCommand.Path
+
+if (-not ([AppDomain]::CurrentDomain.GetAssemblies().GetName().Name -contains 'Kestrun.Annotations')) {
+    Add-Type -LiteralPath (Join-Path -Path $moduleRootPath -ChildPath 'lib' -AdditionalChildPath 'assemblies', 'Kestrun.Annotations.dll')
+}
 
 # check PowerShell version
 if ($PSVersionTable.PSVersion.Major -ne 7) {

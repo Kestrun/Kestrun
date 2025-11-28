@@ -263,15 +263,6 @@ public sealed class AuthenticationRegistry
                     cfg = (ClaimPolicyConfig?)prop.GetValue(oauth2);
                 }
             }
-            else
-            {
-                // Fallback: reflection search for ClaimPolicyConfig or ClaimPolicy of correct type
-                var prop = options.GetType().GetProperty("ClaimPolicyConfig") ?? options.GetType().GetProperty("ClaimPolicy");
-                if (prop != null && typeof(ClaimPolicyConfig).IsAssignableFrom(prop.PropertyType))
-                {
-                    cfg = (ClaimPolicyConfig?)prop.GetValue(options);
-                }
-            }
 
             if (cfg?.Policies is { Count: > 0 })
             {

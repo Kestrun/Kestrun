@@ -266,5 +266,4 @@ public static class PowerShellOpenApiClassExporter
 
         return tempPath;
     }
-
 }

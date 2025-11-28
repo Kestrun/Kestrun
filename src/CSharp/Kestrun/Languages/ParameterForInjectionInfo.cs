@@ -81,16 +81,8 @@ public record ParameterForInjectionInfo
                 {
                     logger.Debug("Injecting parameter '{Name}' of type '{Type}' from '{In}'.", name, param.Type, param.In);
                 }
-                // Get the raw value from the appropriate location
-                var raw = param.In switch
-                {
-                    ParameterLocation.Path => context.Request.RouteValues?[name],
-                    ParameterLocation.Query => (object?)context.Request.Query[name],
-                    ParameterLocation.Header => (object?)context.Request.Headers[name],
-                    ParameterLocation.Cookie => context.Request.Cookies[name],
-                    null => context.Request.Body,
-                    _ => null,
-                };
+
+                var raw = GetRawValue(param, context);
 
                 if (raw is null)
                 {
@@ -98,26 +90,7 @@ public record ParameterForInjectionInfo
                     continue;
                 }
 
-                // Normalize all cases to string or string[]
-                string? singleValue = null;
-                string?[]? multiValue = null;
-
-                switch (raw)
-                {
-                    case StringValues sv:
-                        // if multi-valued, you may want array
-                        multiValue = [.. sv];
-                        singleValue = sv.Count > 0 ? sv[0] : null;
-                        break;
-
-                    case string s:
-                        singleValue = s;
-                        break;
-
-                    default:
-                        singleValue = raw.ToString();
-                        break;
-                }
+                var (singleValue, multiValue) = NormalizeRaw(raw);
 
                 if (singleValue is null && multiValue is null)
                 {
@@ -125,19 +98,78 @@ public record ParameterForInjectionInfo
                     continue;
                 }
 
-                object? converted = param.Type switch
-                {
-                    JsonSchemaType.Integer => int.TryParse(singleValue, out var i) ? i : null,
-                    JsonSchemaType.Number => double.TryParse(singleValue, out var d) ? d : null,
-                    JsonSchemaType.Boolean => bool.TryParse(singleValue, out var b) ? b : null,
-                    JsonSchemaType.Array => multiValue ?? (singleValue is not null ? new[] { singleValue } : null),
-                    JsonSchemaType.Object => singleValue, // unless you’re deserializing JSON here
-                    JsonSchemaType.String => singleValue,
-                    _ => singleValue,
-                };
-
+                var converted = ConvertValue(param.Type, singleValue, multiValue);
                 _ = ps.AddParameter(name, converted);
             }
         }
+    }
+
+    /// <summary>
+    /// Retrieves the raw value of a parameter from the HTTP context based on its location.
+    /// </summary>
+    /// <param name="param">The parameter information.</param>
+    /// <param name="context">The current HTTP context.</param>
+    /// <returns>The raw value of the parameter.</returns>
+    private static object? GetRawValue(ParameterForInjectionInfo param, KestrunContext context)
+    {
+        return param.In switch
+        {
+            ParameterLocation.Path => context.Request.RouteValues?[param.Name],
+            ParameterLocation.Query => (object?)context.Request.Query[param.Name],
+            ParameterLocation.Header => (object?)context.Request.Headers[param.Name],
+            ParameterLocation.Cookie => context.Request.Cookies[param.Name],
+            null => context.Request.Body,
+            _ => null,
+        };
+    }
+
+    /// <summary>
+    /// Normalizes the raw parameter value into single and multi-value forms.
+    /// </summary>
+    /// <param name="raw">The raw parameter value.</param>
+    /// <returns>A tuple containing the single and multi-value forms of the parameter.</returns>
+    private static (string? single, string?[]? multi) NormalizeRaw(object raw)
+    {
+        string?[]? multiValue = null;
+
+        string? singleValue;
+        switch (raw)
+        {
+            case StringValues sv:
+                multiValue = [.. sv];
+                singleValue = sv.Count > 0 ? sv[0] : null;
+                break;
+
+            case string s:
+                singleValue = s;
+                break;
+
+            default:
+                singleValue = raw?.ToString();
+                break;
+        }
+
+        return (singleValue, multiValue);
+    }
+
+    /// <summary>
+    /// Converts the parameter value to the appropriate type based on the JSON schema type.
+    /// </summary>
+    /// <param name="type">The JSON schema type of the parameter.</param>
+    /// <param name="singleValue">The single value of the parameter.</param>
+    /// <param name="multiValue">The multi-value of the parameter.</param>
+    /// <returns>The converted parameter value.</returns>
+    private static object? ConvertValue(JsonSchemaType? type, string? singleValue, string?[]? multiValue)
+    {
+        return type switch
+        {
+            JsonSchemaType.Integer => int.TryParse(singleValue, out var i) ? i : null,
+            JsonSchemaType.Number => double.TryParse(singleValue, out var d) ? d : null,
+            JsonSchemaType.Boolean => bool.TryParse(singleValue, out var b) ? b : null,
+            JsonSchemaType.Array => multiValue ?? (singleValue is not null ? new[] { singleValue } : null),
+            JsonSchemaType.Object => singleValue,
+            JsonSchemaType.String => singleValue,
+            _ => singleValue,
+        };
     }
 }

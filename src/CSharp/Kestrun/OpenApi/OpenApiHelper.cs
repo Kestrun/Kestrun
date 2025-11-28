@@ -15,57 +15,95 @@ public static class OpenApiHelper
     /// <param name="policyList">List of security policies.</param>
     /// <param name="securitySchemes">The list of security schemes to which the security requirement will be added.</param>
     /// <returns>A list of all security schemes involved in the requirement.</returns>
-    internal static List<string> AddSecurityRequirementObject(this KestrunHost host, string? scheme, List<string> policyList, List<Dictionary<string, List<string>>> securitySchemes)
+    internal static List<string> AddSecurityRequirementObject(this KestrunHost host,
+        string? scheme, List<string> policyList,
+        List<Dictionary<string, List<string>>> securitySchemes)
     {
         ArgumentNullException.ThrowIfNull(host);
         ArgumentNullException.ThrowIfNull(policyList);
         ArgumentNullException.ThrowIfNull(securitySchemes);
-        var allSchemes = new List<string>();
-        // Ensure Security list exists:
-        // List<Dictionary<string, IEnumerable<string>>>
 
-        var tempScopesByScheme = new Dictionary<string, List<string>>();
+        var scopesByScheme = new Dictionary<string, List<string>>(StringComparer.Ordinal);
+        var allSchemes = new HashSet<string>(StringComparer.Ordinal);
 
-        // Start with the explicit schema, if any
-        if (!string.IsNullOrWhiteSpace(scheme))
+        AddExplicitScheme(scheme, scopesByScheme, allSchemes);
+        MapPoliciesToSchemes(host, policyList, scopesByScheme, allSchemes);
+
+        securitySchemes.Add(scopesByScheme);
+
+        return [.. allSchemes];
+    }
+
+    /// <summary>
+    /// Adds an explicit security scheme to the scopes dictionary and all schemes set.
+    /// </summary>
+    /// <param name="scheme">The security scheme name.</param>
+    /// <param name="scopesByScheme">The dictionary mapping schemes to their scopes.</param>
+    /// <param name="allSchemes">The set of all security schemes.</param>
+    private static void AddExplicitScheme(
+        string? scheme,
+        Dictionary<string, List<string>> scopesByScheme,
+        HashSet<string> allSchemes)
+    {
+        if (string.IsNullOrWhiteSpace(scheme))
         {
-            tempScopesByScheme[scheme] = [];
-            if (!allSchemes.Contains(scheme))
-            {
-                allSchemes.Add(scheme);
-            }
+            return;
         }
-        // For each policy, resolve schemes and map scheme -> scopes (policies)
+
+        _ = GetOrCreateScopeList(scopesByScheme, scheme);
+        _ = allSchemes.Add(scheme);
+    }
+    /// <summary>
+    /// Maps security policies to their corresponding security schemes.
+    /// </summary>
+    /// <param name="host">The Kestrun host instance.</param>
+    /// <param name="policyList">List of security policies.</param>
+    /// <param name="scopesByScheme">The dictionary mapping schemes to their scopes.</param>
+    /// <param name="allSchemes">The set of all security schemes.</param>
+    private static void MapPoliciesToSchemes(
+        KestrunHost host,
+        IEnumerable<string> policyList,
+        Dictionary<string, List<string>> scopesByScheme,
+        HashSet<string> allSchemes)
+    {
         foreach (var policy in policyList)
         {
             var schemesForPolicy = host.RegisteredAuthentications.GetSchemesByPolicy(policy);
-            if (schemesForPolicy is null) { continue; }
-
-            foreach (var sc in schemesForPolicy)
+            if (schemesForPolicy is null)
             {
-                if (!tempScopesByScheme.TryGetValue(sc, out var scopeList))
+                continue;
+            }
+
+            foreach (var schemeName in schemesForPolicy)
+            {
+                var scopeList = GetOrCreateScopeList(scopesByScheme, schemeName);
+
+                if (!scopeList.Contains(policy))
                 {
-                    scopeList = [];
-                    tempScopesByScheme[sc] = scopeList;
-                }
-                if (scopeList != null && scopeList is List<string> list && !list.Contains(policy))
-                {
-                    list.Add(policy);
+                    scopeList.Add(policy);
                 }
 
-                if (!allSchemes.Contains(sc))
-                {
-                    allSchemes.Add(sc);
-                }
+                _ = allSchemes.Add(schemeName);
             }
         }
-        // Convert List<string> -> IEnumerable<string> for the OpenAPI model
-        var securityRequirement = tempScopesByScheme.ToDictionary(
-            kvp => kvp.Key,
-            kvp => kvp.Value
-        );
+    }
 
-        securitySchemes.Add(securityRequirement);
-        return allSchemes;
+    /// <summary>
+    /// Retrieves or creates the scope list for a given security scheme.
+    /// </summary>
+    /// <param name="scopesByScheme">The dictionary mapping schemes to their scopes.</param>
+    /// <param name="schemeName">The security scheme name.</param>
+    /// <returns>The list of scopes associated with the security scheme.</returns>
+    private static List<string> GetOrCreateScopeList(
+        Dictionary<string, List<string>> scopesByScheme,
+        string schemeName)
+    {
+        if (!scopesByScheme.TryGetValue(schemeName, out var scopeList))
+        {
+            scopeList = [];
+            scopesByScheme[schemeName] = scopeList;
+        }
+
+        return scopeList;
     }
 }

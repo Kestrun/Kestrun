@@ -137,7 +137,6 @@ internal static class PowerShellDelegateBuilder
         => context.Items[KR_CONTEXT_KEY] as KestrunContext
            ?? throw new InvalidOperationException($"{KR_CONTEXT_KEY} key not found in context items.");
 
-
     ///<summary>
     /// Logs the top results from the PowerShell script output for debugging purposes.
     /// Only logs if the log level is set to Debug.

@@ -1,7 +1,6 @@
 using System.Reflection;
 using System.Runtime.Versioning;
 
-
 /// <summary>
 /// Utility class to expose information about the runtime environment
 /// that Kestrun was built for, and to gate features by TFM and runtime.

@@ -55,7 +55,6 @@ public record ParameterForInjectionInfo
         In = null;
     }
 
-
     /// <summary>
     /// Adds parameters from the HTTP context to the PowerShell instance.
     /// </summary>

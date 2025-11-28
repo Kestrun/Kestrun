@@ -2531,7 +2531,6 @@ public class OpenApiDocDescriptor
                         // Determine if we inline the referenced response or use a $ref
                         if (oaRRa.Inline)
                         {
-
                             var componentResponse = GetResponse(oaRRa.ReferenceId);
                             response = componentResponse.Clone();
                         }
@@ -2668,7 +2667,6 @@ public class OpenApiDocDescriptor
                         routeOptions.ScriptCode.Parameters.Add(new ParameterForInjectionInfo(param.Name, componentParameter));
 
                         openApiAttr.Parameters.Add(parameter);
-
                     }
                     else if (pAttr is OpenApiRequestBodyRefAttribute oaRBra)
                     {

@@ -26,7 +26,6 @@ public static class OpenApiHelper
 
         var tempScopesByScheme = new Dictionary<string, List<string>>();
 
-
         // Start with the explicit schema, if any
         if (!string.IsNullOrWhiteSpace(scheme))
         {

@@ -748,10 +748,11 @@ public class KestrunHost : IDisposable
     /// </summary>
     /// <param name="userVariables">User-defined variables to inject into the runspace pool.</param>
     /// <param name="userFunctions">User-defined functions to inject into the runspace pool.</param>
+    /// <param name="openApiClassesPath">Path to the OpenAPI class definitions to inject into the runspace pool.</param>
     /// <exception cref="InvalidOperationException">Thrown when runspace pool creation fails.</exception>
-    internal void InitializeRunspacePool(Dictionary<string, object>? userVariables, Dictionary<string, string>? userFunctions)
+    internal void InitializeRunspacePool(Dictionary<string, object>? userVariables, Dictionary<string, string>? userFunctions, string openApiClassesPath)
     {
-        _runspacePool = CreateRunspacePool(Options.MaxRunspaces, userVariables, userFunctions);
+        _runspacePool = CreateRunspacePool(Options.MaxRunspaces, userVariables, userFunctions, openApiClassesPath);
         if (_runspacePool == null)
         {
             throw new InvalidOperationException("Failed to create runspace pool.");
@@ -918,8 +919,24 @@ public class KestrunHost : IDisposable
 
         try
         {
-            InitializeRunspacePool(userVariables, userFunctions);
+            // Export OpenAPI classes from PowerShell
+            var openApiClassesPath = PowerShellOpenApiClassExporter.ExportOpenApiClasses();
+            if (Logger.IsEnabled(LogEventLevel.Debug))
+            {
+                if (string.IsNullOrWhiteSpace(openApiClassesPath))
+                {
+                    Logger.Debug("No OpenAPI classes exported from PowerShell.");
+                }
+                else
+                {
+                    Logger.Debug("Exported OpenAPI classes from PowerShell.{path}", openApiClassesPath);
+                }
+            }
+            // Initialize PowerShell runspace pool
+            InitializeRunspacePool(userVariables: userVariables, userFunctions: userFunctions, openApiClassesPath: openApiClassesPath);
+            // Configure Kestrel server
             ConfigureKestrelBase();
+            // Configure named pipe listeners if any
             ConfigureNamedPipes();
 
             // Apply Kestrel listeners and HTTPS settings
@@ -1496,8 +1513,9 @@ public class KestrunHost : IDisposable
     /// <param name="maxRunspaces">The maximum number of runspaces to create. If not specified or zero, defaults to twice the processor count.</param>
     /// <param name="userVariables">A dictionary of user-defined variables to inject into the runspace pool.</param>
     /// <param name="userFunctions">A dictionary of user-defined functions to inject into the runspace pool.</param>
+    /// <param name="openApiClassesPath">The file path to the OpenAPI class definitions to inject into the runspace pool.</param>
     /// <returns>A configured <see cref="KestrunRunspacePoolManager"/> instance.</returns>
-    public KestrunRunspacePoolManager CreateRunspacePool(int? maxRunspaces = 0, Dictionary<string, object>? userVariables = null, Dictionary<string, string>? userFunctions = null)
+    public KestrunRunspacePoolManager CreateRunspacePool(int? maxRunspaces = 0, Dictionary<string, object>? userVariables = null, Dictionary<string, string>? userFunctions = null, string? openApiClassesPath = null)
     {
         if (Logger.IsEnabled(LogEventLevel.Debug))
         {
@@ -1536,6 +1554,15 @@ public class KestrunHost : IDisposable
                     "Global variable"
                 )
             );
+        }
+        // Inject OpenAPI class definitions
+        if (!string.IsNullOrWhiteSpace(openApiClassesPath))
+        {
+            _ = iss.StartupScripts.Add(openApiClassesPath);
+            if (Logger.IsEnabled(LogEventLevel.Debug))
+            {
+                Logger.Debug("Configured OpenAPI class script at {ScriptPath}", openApiClassesPath);
+            }
         }
 
         foreach (var kvp in userVariables ?? [])
@@ -1582,7 +1609,7 @@ public class KestrunHost : IDisposable
         var maxRs = (maxRunspaces.HasValue && maxRunspaces.Value > 0) ? maxRunspaces.Value : Environment.ProcessorCount * 2;
 
         Logger.Information($"Creating runspace pool with max runspaces: {maxRs}");
-        var runspacePool = new KestrunRunspacePoolManager(this, Options?.MinRunspaces ?? 1, maxRunspaces: maxRs, initialSessionState: iss);
+        var runspacePool = new KestrunRunspacePoolManager(this, Options?.MinRunspaces ?? 1, maxRunspaces: maxRs, initialSessionState: iss, openApiClassesPath: openApiClassesPath);
         // Return the created runspace pool
         return runspacePool;
     }

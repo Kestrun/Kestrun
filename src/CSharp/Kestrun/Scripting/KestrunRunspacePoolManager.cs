@@ -15,6 +15,9 @@ public sealed class KestrunRunspacePoolManager : IDisposable
     private int _count;        // total live runspaces
     private bool _disposed;
 
+    /// <summary>
+    /// Track all runspaces ever created (for cleanup)
+    /// </summary>
     private readonly ConcurrentDictionary<Runspace, byte> _all;
 
     /// <summary>
@@ -32,6 +35,11 @@ public sealed class KestrunRunspacePoolManager : IDisposable
     public int MaxRunspaces { get; }
 
     /// <summary>
+    /// Path to the OpenAPI class definitions to be injected into each runspace.
+    /// </summary>
+    public string? OpenApiClassesPath { get; init; }
+
+    /// <summary>
     /// Thread‑affinity strategy for *future* runspaces.
     /// Default is <see cref="PSThreadOptions.ReuseThread"/>.
     /// </summary>
@@ -46,12 +54,14 @@ public sealed class KestrunRunspacePoolManager : IDisposable
     /// <param name="maxRunspaces">The maximum number of runspaces allowed in the pool.</param>
     /// <param name="initialSessionState">The initial session state for each runspace (optional).</param>
     /// <param name="threadOptions">The thread affinity strategy for runspaces (optional).</param>
+    /// <param name="openApiClassesPath">The file path to the OpenAPI class definitions to be injected into each runspace (optional).</param>
     public KestrunRunspacePoolManager(
         KestrunHost host,
         int minRunspaces,
         int maxRunspaces,
         InitialSessionState? initialSessionState = null,
-        PSThreadOptions threadOptions = PSThreadOptions.ReuseThread)
+        PSThreadOptions threadOptions = PSThreadOptions.ReuseThread,
+        string? openApiClassesPath = null)
     {
         if (host.Logger.IsEnabled(LogEventLevel.Debug))
         {
@@ -80,6 +90,9 @@ public sealed class KestrunRunspacePoolManager : IDisposable
         }
 
         _count = minRunspaces;
+
+        // Store OpenAPI classes
+        OpenApiClassesPath = openApiClassesPath;
         if (Host.Logger.IsEnabled(LogEventLevel.Debug))
         {
             Host.Logger.Debug("Warm-started pool with {Count} runspaces", _count);
@@ -153,13 +166,14 @@ public sealed class KestrunRunspacePoolManager : IDisposable
 
                 return rs;
             }
-
+            // Need a new one?—but only if we haven’t reached max.
             if (Interlocked.Increment(ref _count) <= MaxRunspaces)
             {
                 Host.Logger.Debug("Creating new runspace (async): TotalCount={Count}", _count);
                 // Runspace creation is synchronous, but we can offload to thread pool
                 return await Task.Run(CreateRunspace, cancellationToken).ConfigureAwait(false);
             }
+            // Overshot: roll back and try again.
             _ = Interlocked.Decrement(ref _count);
 
             // Wait for a runspace to be returned
@@ -218,6 +232,10 @@ public sealed class KestrunRunspacePoolManager : IDisposable
 
 
     // ───────────────── helpers ───────────────────────────────
+    /// <summary>
+    /// Creates a new PowerShell runspace with the configured initial session state and thread options.
+    /// </summary>
+    /// <returns>A new <see cref="Runspace"/> instance.</returns>
     private Runspace CreateRunspace()
     {
         if (Host.Logger.IsEnabled(LogEventLevel.Debug))
@@ -264,6 +282,21 @@ public sealed class KestrunRunspacePoolManager : IDisposable
             return;
         }
 
+        if (OpenApiClassesPath is not null)
+        {
+            try
+            {
+                File.Delete(OpenApiClassesPath);
+                if (Host.Logger.IsEnabled(LogEventLevel.Debug))
+                {
+                    Host.Logger.Debug("Deleted temporary OpenAPI classes script: {Path}", OpenApiClassesPath);
+                }
+            }
+            catch (Exception ex)
+            {
+                Host.Logger.Warning(ex, "Failed to delete temporary OpenAPI classes script: {Path}", OpenApiClassesPath);
+            }
+        }
         _disposed = true;
 
         Host.Logger.Information("Disposing RunspacePoolManager and all pooled runspaces");

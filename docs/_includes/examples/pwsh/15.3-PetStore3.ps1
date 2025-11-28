@@ -131,7 +131,7 @@ class test {
 # RequestBody: upload_OctetStream
 [OpenApiRequestBodyComponent(required = $true, ContentType = 'application/octet-stream')]
 #[OpenApiPropertyAttribute(Format = 'binary')]
-class Upload_OctetStream:OpenApiBinary {}
+class Upload_OctetStream {}
 
 # RequestBody: UserArray
 [OpenApiRequestBodyComponent(Description = 'List of user object', Required = $true)]
@@ -640,7 +640,7 @@ function addPet {
 
     param(
         [OpenApiRequestBodyRefAttribute(Description = 'Create a new pet in the store' , ReferenceId = 'PetBody' )]
-        $pet
+        [Pet] $pet
     )
     # Stub handler; the doc is our star tonight.
 
@@ -700,6 +700,8 @@ function getPetById {
         [long]$petId
     )
     Write-Host "getPetById called with petId='$petId'"
+    $pet = [Pet]::new()
+    $pet | ConvertTo-Json | Write-Host
     Write-KrJsonResponse @(@{}) -StatusCode 200
 }
 

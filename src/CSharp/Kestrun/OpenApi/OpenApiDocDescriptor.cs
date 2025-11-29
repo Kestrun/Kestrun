@@ -14,6 +14,7 @@ using System.Text;
 using System.Management.Automation;
 using Kestrun.Authentication;
 using Kestrun.Languages;
+using Kestrun.Runtime;
 
 namespace Kestrun.OpenApi;
 
@@ -374,6 +375,12 @@ public class OpenApiDocDescriptor
         return attrs.Length > 0 ? attrs[0] : null;
     }
 
+    /// <summary>
+    /// Builds and returns the schema for a given type.
+    /// </summary>
+    /// <param name="t">Type to build schema for</param>
+    /// <param name="built">Set of types already built to avoid recursion</param>
+    /// <returns>OpenApiSchema representing the type</returns>
     private IOpenApiSchema BuildSchemaForType(Type t, HashSet<Type>? built = null)
     {
         built ??= [];
@@ -792,32 +799,58 @@ public class OpenApiDocDescriptor
     /// <summary>
     /// Infers a primitive OpenApiSchema from a .NET type.
     /// </summary>
-    /// <param name="t">The .NET type to infer from.</param>
+    /// <param name="type">The .NET type to infer from.</param>
+    /// <param name="requestBodyPreferred"> Indicates if the schema is for a request body (affects certain type inferences).</param>
     /// <returns>The inferred OpenApiSchema.</returns>
-    private static OpenApiSchema InferPrimitiveSchema(Type t)
+    private OpenApiSchema InferPrimitiveSchema(Type type, bool requestBodyPreferred = false)
     {
         // Direct type mappings
-        if (PrimitiveSchemaMap.TryGetValue(t, out var schemaFactory))
+        if (PrimitiveSchemaMap.TryGetValue(type, out var schemaFactory))
         {
             return schemaFactory();
         }
 
         // Group checks for integer types
-        if (IsInt32Type(t))
+        if (IsInt32Type(type))
         {
             return new OpenApiSchema { Type = JsonSchemaType.Integer, Format = "int32" };
         }
 
-        if (IsNumericType(t))
+        if (IsNumericType(type))
         {
             return new OpenApiSchema { Type = JsonSchemaType.Number };
         }
 
-        if (IsUnsignedIntegerType(t))
+        if (IsUnsignedIntegerType(type))
         {
             return new OpenApiSchema { Type = JsonSchemaType.Integer };
         }
-
+        // Special case for PowerShell OpenAPI classes
+        if (PowerShellOpenApiClassExporter.ValidClassNames.Contains(type.Name))
+        {
+            if (requestBodyPreferred)
+            {
+                if (GetRequestBody(type.Name) is OpenApiRequestBody rb)
+                {
+                    return rb.ConvertToSchema();
+                }
+                if (GetSchema(type.Name) is OpenApiSchema schema)
+                {
+                    return schema.Clone();
+                }
+            }
+            else
+            {
+                if (GetSchema(type.Name) is OpenApiSchema schema)
+                {
+                    return schema.Clone();
+                }
+                if (GetRequestBody(type.Name) is OpenApiRequestBody rb)
+                {
+                    return rb.ConvertToSchema();
+                }
+            }
+        }
         // Fallback
         return new OpenApiSchema { Type = JsonSchemaType.String };
     }
@@ -837,7 +870,7 @@ public class OpenApiDocDescriptor
         [typeof(DateTime)] = () => new OpenApiSchema { Type = JsonSchemaType.String, Format = "date-time" },
         [typeof(DateTimeOffset)] = () => new OpenApiSchema { Type = JsonSchemaType.String, Format = "date-time" },
         [typeof(TimeSpan)] = () => new OpenApiSchema { Type = JsonSchemaType.String, Format = "duration" },
-        [typeof(byte[])] = () => new OpenApiSchema { Type = JsonSchemaType.String, Format = "byte" },
+        [typeof(byte[])] = () => new OpenApiSchema { Type = JsonSchemaType.String, Format = "binary" },
         [typeof(Uri)] = () => new OpenApiSchema { Type = JsonSchemaType.String, Format = "uri" },
         [typeof(Guid)] = () => new OpenApiSchema { Type = JsonSchemaType.String, Format = "uuid" },
         [typeof(object)] = () => new OpenApiSchema { Type = JsonSchemaType.Object },
@@ -1095,7 +1128,10 @@ public class OpenApiDocDescriptor
         return JsonValue.Create(value?.ToString() ?? string.Empty);
     }
 
-    // Ensure a schema component exists for a complex .NET type
+    /// <summary>
+    /// Ensures that a schema component exists for a complex .NET type.
+    /// </summary>
+    /// <param name="complexType">The complex .NET type.</param>
     private void EnsureSchemaComponent(Type complexType)
     {
         if (Document.Components?.Schemas != null && Document.Components.Schemas.ContainsKey(complexType.Name))
@@ -1156,7 +1192,7 @@ public class OpenApiDocDescriptor
                          (nameof(OpenApiPropertyAttribute)) or
                          (nameof(OpenApiExampleRefAttribute))
                          )
-                         .Cast<object>()
+                         .Cast<KestrunAnnotation>()
                          .ToArray();
 
             if (attrs.Length == 0) { continue; }
@@ -1296,12 +1332,11 @@ public class OpenApiDocDescriptor
         return paramSchema;
     }
 
-    private bool CreateParameterFromAttribute(object attr, OpenApiParameter parameter)
+    private bool CreateParameterFromAttribute(KestrunAnnotation attr, OpenApiParameter parameter)
     {
         switch (attr)
         {
             case OpenApiParameterAttribute param:
-
                 parameter.Description = param.Description;
                 parameter.Name = string.IsNullOrEmpty(param.Name) ? param.Key : param.Name;
                 parameter.Required = param.Required;
@@ -2453,264 +2488,333 @@ public class OpenApiDocDescriptor
 
         foreach (var func in cmdInfos)
         {
-            var sb = func.ScriptBlock;
-            var openApiAttr = new OpenAPIMetadata();
-            if (sb is null)
+            try
             {
-                continue;
-            }
-
-            // Collect any [OpenApiPath] attributes placed before param()
-            // Note: In C#, the attribute class is typically OpenApiPathAttribute; PowerShell allows [OpenApiPath] shorthand.
-            var attrs = sb.Attributes;
-            if (attrs.Count == 0)
-            {
-                continue;
-            }
-            var parsedVerb = HttpVerb.Get; // default
-            var routeOptions = new MapRouteOptions();
-
-            foreach (var attr in attrs)
-            {
-                try
+                var sb = func.ScriptBlock;
+                var openApiAttr = new OpenAPIMetadata();
+                if (sb is null)
                 {
-                    if (attr is OpenApiPath oaPath)
-                    {
-                        // HTTP Verb
-                        var httpVerb = oaPath.HttpVerb ?? string.Empty;
-                        if (!string.IsNullOrWhiteSpace(httpVerb))
-                        {
-                            parsedVerb = HttpVerbExtensions.FromMethodString(httpVerb);
-                            routeOptions.HttpVerbs.Add(parsedVerb);
-                        }
+                    continue;
+                }
 
-                        // Pattern
-                        if (!string.IsNullOrWhiteSpace(oaPath.Pattern))
-                        {
-                            routeOptions.Pattern = oaPath.Pattern;
-                            openApiAttr.Pattern = oaPath.Pattern;
-                        }
+                // Collect any [OpenApiPath] attributes placed before param()
+                // Note: In C#, the attribute class is typically OpenApiPathAttribute; PowerShell allows [OpenApiPath] shorthand.
+                var attrs = sb.Attributes;
+                if (attrs.Count == 0)
+                {
+                    continue;
+                }
+                var parsedVerb = HttpVerb.Get; // default
+                var routeOptions = new MapRouteOptions();
 
-                        // Summary
-                        if (!string.IsNullOrWhiteSpace(oaPath.Summary))
+                foreach (var attr in attrs)
+                {
+                    try
+                    {
+                        if (attr is OpenApiPath oaPath)
                         {
-                            openApiAttr.Summary = oaPath.Summary;
-                        }
+                            // HTTP Verb
+                            var httpVerb = oaPath.HttpVerb ?? string.Empty;
+                            if (!string.IsNullOrWhiteSpace(httpVerb))
+                            {
+                                parsedVerb = HttpVerbExtensions.FromMethodString(httpVerb);
+                                routeOptions.HttpVerbs.Add(parsedVerb);
+                            }
 
-                        // Description
-                        if (!string.IsNullOrWhiteSpace(oaPath.Description))
-                        {
-                            openApiAttr.Description = oaPath.Description;
-                        }
+                            // Pattern
+                            if (!string.IsNullOrWhiteSpace(oaPath.Pattern))
+                            {
+                                routeOptions.Pattern = oaPath.Pattern;
+                                openApiAttr.Pattern = oaPath.Pattern;
+                            }
 
-                        // Tags
-                        if (!string.IsNullOrWhiteSpace(oaPath.Tags))
-                        {
-                            openApiAttr.Tags = [.. oaPath.Tags.Split(',')];
+                            // Summary
+                            if (!string.IsNullOrWhiteSpace(oaPath.Summary))
+                            {
+                                openApiAttr.Summary = oaPath.Summary;
+                            }
+
+                            // Description
+                            if (!string.IsNullOrWhiteSpace(oaPath.Description))
+                            {
+                                openApiAttr.Description = oaPath.Description;
+                            }
+
+                            // Tags
+                            if (!string.IsNullOrWhiteSpace(oaPath.Tags))
+                            {
+                                openApiAttr.Tags = [.. oaPath.Tags.Split(',')];
+                            }
+                            // OperationId
+                            // if not specified, default to function name
+                            // if blank, do not set
+                            if (oaPath.OperationId is null)
+                            {
+                                // Default to function name if not specified
+                                openApiAttr.OperationId = func.Name;
+                            }
+                            else if (!string.IsNullOrWhiteSpace(oaPath.OperationId))
+                            {
+                                // Use specified OperationId
+                                openApiAttr.OperationId = oaPath.OperationId;
+                            }
+                            // Deprecated flag (per-verb OpenAPI metadata)
+                            openApiAttr.Deprecated |= oaPath.Deprecated; // carry forward deprecated flag
                         }
-                        // OperationId
-                        // if not specified, default to function name
-                        // if blank, do not set
-                        if (oaPath.OperationId is null)
+                        else if (attr is OpenApiResponseRefAttribute oaRRa)
                         {
-                            // Default to function name if not specified
-                            openApiAttr.OperationId = func.Name;
+                            openApiAttr.Responses ??= [];
+                            IOpenApiResponse response;
+                            // Determine if we inline the referenced response or use a $ref
+                            if (oaRRa.Inline)
+                            {
+                                var componentResponse = GetResponse(oaRRa.ReferenceId);
+                                response = componentResponse.Clone();
+                            }
+                            else
+                            {
+                                response = new OpenApiResponseReference(oaRRa.ReferenceId);
+                            }
+                            // Apply any description override
+                            if (oaRRa.Description is not null)
+                            {
+                                response.Description = oaRRa.Description;
+                            }
+                            if (openApiAttr.Responses.ContainsKey(oaRRa.StatusCode))
+                            {
+                                throw new InvalidOperationException($"Response for status code '{oaRRa.StatusCode}' is already defined for this operation.");
+                            }
+                            // Add to responses
+                            openApiAttr.Responses.Add(oaRRa.StatusCode, response);
                         }
-                        else if (!string.IsNullOrWhiteSpace(oaPath.OperationId))
+                        else if (attr is OpenApiResponseAttribute oaRa)
                         {
-                            // Use specified OperationId
-                            openApiAttr.OperationId = oaPath.OperationId;
+                            // Create response inline
+                            openApiAttr.Responses ??= [];
+                            // Create a new response
+                            var response = new OpenApiResponse();
+                            // Populate from attribute
+                            if (CreateResponseFromAttribute(oaRa, response))
+                            {
+                                openApiAttr.Responses.Add(oaRa.StatusCode, response);
+                            }
                         }
-                        // Deprecated flag (per-verb OpenAPI metadata)
-                        openApiAttr.Deprecated |= oaPath.Deprecated; // carry forward deprecated flag
-                    }
-                    else if (attr is OpenApiResponseRefAttribute oaRRa)
-                    {
-                        openApiAttr.Responses ??= [];
-                        IOpenApiResponse response;
-                        // Determine if we inline the referenced response or use a $ref
-                        if (oaRRa.Inline)
+                        else if (attr is OpenApiAuthorizationAttribute oaRBa)
                         {
-                            var componentResponse = GetResponse(oaRRa.ReferenceId);
-                            response = componentResponse.Clone();
-                        }
-                        else
-                        {
-                            response = new OpenApiResponseReference(oaRRa.ReferenceId);
-                        }
-                        // Apply any description override
-                        if (oaRRa.Description is not null)
-                        {
-                            response.Description = oaRRa.Description;
-                        }
-                        if (openApiAttr.Responses.ContainsKey(oaRRa.StatusCode))
-                        {
-                            throw new InvalidOperationException($"Response for status code '{oaRRa.StatusCode}' is already defined for this operation.");
-                        }
-                        // Add to responses
-                        openApiAttr.Responses.Add(oaRRa.StatusCode, response);
-                    }
-                    else if (attr is OpenApiResponseAttribute oaRa)
-                    {
-                        // Create response inline
-                        openApiAttr.Responses ??= [];
-                        // Create a new response
-                        var response = new OpenApiResponse();
-                        // Populate from attribute
-                        if (CreateResponseFromAttribute(oaRa, response))
-                        {
-                            openApiAttr.Responses.Add(oaRa.StatusCode, response);
-                        }
-                    }
-                    else if (attr is OpenApiRequestBodyRefAttribute oaRBra)
-                    {//todo: add  script code parameter injection info
-                     //  routeOptions.ScriptCode.Parameters.Add(new ParameterForInjectionInfo(parameter));
-                        if (oaRBra.Inline)
-                        {
-                            var componentRequestBody = GetRequestBody(oaRBra.ReferenceId);
-                            openApiAttr.RequestBody = componentRequestBody.Clone();
-                        }
-                        else
-                        {
-                            openApiAttr.RequestBody = new OpenApiRequestBodyReference(oaRBra.ReferenceId);
-                        }
-                        if (oaRBra.Description is not null)
-                        {
-                            openApiAttr.RequestBody.Description = oaRBra.Description;
-                        }
-                    }
-                    else if (attr is OpenApiAuthorizationAttribute oaRBa)
-                    {
-                        openApiAttr.SecuritySchemes ??= [];
-                        // Parse policies
-                        List<string> policyList = [.. (string.IsNullOrWhiteSpace(oaRBa.Policies) ? new List<string>() : [.. oaRBa.Policies.Split(',')])
+                            openApiAttr.SecuritySchemes ??= [];
+                            // Parse policies
+                            List<string> policyList = [.. (string.IsNullOrWhiteSpace(oaRBa.Policies) ? new List<string>() : [.. oaRBa.Policies.Split(',')])
                             .Where(p => !string.IsNullOrWhiteSpace(p))
                             .Select(p => p.Trim())];
 
-                        // Add security requirement object for this verb
-                        // If no scheme provided, the schema is derived from the policies
-                        var securitySchemeList = Host.AddSecurityRequirementObject(oaRBa.Scheme, policyList, openApiAttr.SecuritySchemes);
-                        routeOptions.AddSecurityRequirementObject(schemes: securitySchemeList, policies: policyList);
-                    }
-                    else
-                    {
-                        if (attr is KestrunAnnotation ka)
-                        {
-                            throw new InvalidOperationException(
-                                $"Unhandled Kestrun annotation: {ka.GetType().Name}");
-                        }
-                    }
-                }
-                catch (InvalidOperationException ex)
-                {
-                    Host.Logger.Error("Error processing OpenApiPath attribute on function '{funcName}': {message}", func.Name, ex.Message);
-                }
-                catch (Exception ex)
-                {
-                    Host.Logger.Error("Error processing OpenApiPath attribute on function '{funcName}': {message}", func.Name, ex.Message);
-                }
-            }
-            // Process parameters for [OpenApiParameter] attributes
-            foreach (var param in func.Parameters.Values)
-            {
-                // Check for [OpenApiParameter] attribute on the parameter
-                var paramAttrs = param.Attributes;
-                foreach (var pAttr in paramAttrs)
-                {
-                    if (pAttr is OpenApiParameterAttribute oaParamAttr)
-                    {
-                        openApiAttr.Parameters ??= [];
-                        var parameter = new OpenApiParameter();
-                        if (CreateParameterFromAttribute(oaParamAttr, parameter))
-                        {
-                            parameter.Name = !string.IsNullOrEmpty(parameter.Name) && parameter.Name != param.Name
-                                ? throw new InvalidOperationException(
-                                     $"Parameter name {parameter.Name} is different from variable name'{param.Name}'.")
-                                : param.Name;
-                            parameter.Schema = InferPrimitiveSchema(param.ParameterType);
-                            openApiAttr.Parameters.Add(parameter);
-                            // Add to script code parameter injection info
-                            routeOptions.ScriptCode.Parameters.Add(new ParameterForInjectionInfo(param.Name, parameter));
+                            // Add security requirement object for this verb
+                            // If no scheme provided, the schema is derived from the policies
+                            var securitySchemeList = Host.AddSecurityRequirementObject(oaRBa.Scheme, policyList, openApiAttr.SecuritySchemes);
+                            routeOptions.AddSecurityRequirementObject(schemes: securitySchemeList, policies: policyList);
                         }
                         else
                         {
-                            Host.Logger.Error("Error processing OpenApiParameter attribute on parameter '{paramName}' of function '{funcName}'", param.Name, func.Name);
-                        }
-                    }
-                    else if (pAttr is OpenApiParameterRefAttribute oaParamRefAttr)
-                    {
-                        openApiAttr.Parameters ??= [];
-                        routeOptions.ScriptCode.Parameters ??= [];
-                        IOpenApiParameter parameter;
-                        if (Document.Components?.Parameters == null || !Document.Components.Parameters.TryGetValue(oaParamRefAttr.ReferenceId, out var parameterValue))
-                        {
-                            throw new InvalidOperationException($"Parameter reference '{oaParamRefAttr.ReferenceId}' cannot be embedded because it was not found in components.");
-                        }
-
-                        var componentParameter = GetParameter(oaParamRefAttr.ReferenceId);
-                        // Determine if we inline the referenced parameter or use a $ref
-                        if (oaParamRefAttr.Inline)
-                        {
-                            parameter = componentParameter.Clone();
-                            // Apply any name override
-                            if (componentParameter.Name != param.Name)
+                            if (attr is KestrunAnnotation ka)
                             {
                                 throw new InvalidOperationException(
-                                     $"Parameter name {componentParameter.Name} is different from variable name'{param.Name}'.");
+                                    $"Unhandled Kestrun annotation: {ka.GetType().Name}");
                             }
+                        }
+                    }
+                    catch (InvalidOperationException ex)
+                    {
+                        Host.Logger.Error("Error processing OpenApiPath attribute on function '{funcName}': {message}", func.Name, ex.Message);
+                    }
+                    catch (Exception ex)
+                    {
+                        Host.Logger.Error("Error processing OpenApiPath attribute on function '{funcName}': {message}", func.Name, ex.Message);
+                    }
+                }
+                // Process parameters for [OpenApiParameter] attributes
+                foreach (var param in func.Parameters.Values)
+                {
+                    // Check for [OpenApiParameter] attribute on the parameter
+                    var paramAttrs = param.Attributes;
+                    foreach (var pAttr in paramAttrs)
+                    {
+                        if (pAttr is OpenApiParameterAttribute oaParamAttr)
+                        {
+                            openApiAttr.Parameters ??= [];
+                            var parameter = new OpenApiParameter();
+                            if (CreateParameterFromAttribute(oaParamAttr, parameter))
+                            {
+                                parameter.Name = !string.IsNullOrEmpty(parameter.Name) && parameter.Name != param.Name
+                                    ? throw new InvalidOperationException(
+                                         $"Parameter name {parameter.Name} is different from variable name'{param.Name}'.")
+                                    : param.Name;
+                                parameter.Schema = InferPrimitiveSchema(param.ParameterType);
+                                openApiAttr.Parameters.Add(parameter);
+                                // Add to script code parameter injection info
+                                routeOptions.ScriptCode.Parameters.Add(new ParameterForInjectionInfo(param.Name, parameter));
+                            }
+                            else
+                            {
+                                Host.Logger.Error("Error processing OpenApiParameter attribute on parameter '{paramName}' of function '{funcName}'", param.Name, func.Name);
+                            }
+                        }
+                        else if (pAttr is OpenApiParameterRefAttribute oaParamRefAttr)
+                        {
+                            openApiAttr.Parameters ??= [];
+                            routeOptions.ScriptCode.Parameters ??= [];
+                            IOpenApiParameter parameter;
+                            var componentParameter = GetParameter(oaParamRefAttr.ReferenceId);
+                            // Determine if we inline the referenced parameter or use a $ref
+                            if (oaParamRefAttr.Inline)
+                            {
+                                parameter = componentParameter.Clone();
+                                // Apply any name override
+                                if (componentParameter.Name != param.Name)
+                                {
+                                    throw new InvalidOperationException(
+                                         $"Parameter name {componentParameter.Name} is different from variable name'{param.Name}'.");
+                                }
+                            }
+                            else
+                            {
+                                parameter = new OpenApiParameterReference(oaParamRefAttr.ReferenceId);
+                            }
+                            // Apply any name override
+                            routeOptions.ScriptCode.Parameters.Add(new ParameterForInjectionInfo(param.Name, componentParameter));
+
+                            openApiAttr.Parameters.Add(parameter);
+                        }
+                        else if (pAttr is OpenApiRequestBodyRefAttribute oaRBra)
+                        {
+                            // if reference id is not set, default to parameter type name
+                            if (string.IsNullOrWhiteSpace(oaRBra.ReferenceId))
+                            {
+                                if (param.ParameterType.Name is "Object" or null)
+                                {
+                                    throw new InvalidOperationException("OpenApiRequestBodyRefAttribute must have a ReferenceId specified when the parameter type is 'object'.");
+                                }
+                                oaRBra.ReferenceId = param.ParameterType.Name;
+                            }
+                            else if (param.ParameterType.Name != "Object" && oaRBra.ReferenceId != param.ParameterType.Name)
+                            {
+                                throw new InvalidOperationException(
+                                     $"ReferenceId '{oaRBra.ReferenceId}' is different from parameter type name '{param.ParameterType.Name}'.");
+                            }
+
+                            // Retrieve the referenced request body
+                            var componentRequestBody = GetRequestBody(oaRBra.ReferenceId);
+                            // Determine if we inline the referenced request body or use a $ref
+                            openApiAttr.RequestBody = oaRBra.Inline ? componentRequestBody.Clone() : new OpenApiRequestBodyReference(oaRBra.ReferenceId);
+                            // Apply any description override
+                            if (oaRBra.Description is not null)
+                            {
+                                openApiAttr.RequestBody.Description = oaRBra.Description;
+                            }
+
+                            // Add to script code parameter injection info
+                            routeOptions.ScriptCode.Parameters.Add(new ParameterForInjectionInfo(param.Name, componentRequestBody));
+                        }
+                        else if (pAttr is OpenApiRequestBodyAttribute oaRBa)
+                        {
+                            var requestBody = new OpenApiRequestBody();
+                            // Infer schema for the parameter type
+                            var requestBodyPreferred = ComponentRequestBodiesExists(param.ParameterType.Name);
+
+                            IOpenApiSchema? schema = null;
+
+                            if (!requestBodyPreferred)
+                            {
+                                if (oaRBa.Inline)
+                                {
+                                    if (ComponentSchemasExists(param.ParameterType.Name))
+                                    {
+                                        // Use schema component reference
+                                        schema = new OpenApiSchemaReference(param.ParameterType.Name);
+                                    }
+                                }
+                            }
+                            // Infer primitive schema if not using component
+                            schema ??= InferPrimitiveSchema(type: param.ParameterType, requestBodyPreferred: requestBodyPreferred);
+                            if (CreateRequestBodyFromAttribute(attribute: oaRBa, requestBody: requestBody, schema: schema))
+                            {
+                                openApiAttr.RequestBody = requestBody;
+                            }
+                            // Add to script code parameter injection info
+                            routeOptions.ScriptCode.Parameters.Add(new ParameterForInjectionInfo(param.Name, requestBody));
                         }
                         else
                         {
-                            parameter = new OpenApiParameterReference(oaParamRefAttr.ReferenceId);
-                        }
-                        // Apply any name override
-                        routeOptions.ScriptCode.Parameters.Add(new ParameterForInjectionInfo(param.Name, componentParameter));
-
-                        openApiAttr.Parameters.Add(parameter);
-                    }
-                    else if (pAttr is OpenApiRequestBodyRefAttribute oaRBra)
-                    {
-                        var componentRequestBody = GetRequestBody(oaRBra.ReferenceId);
-                        // Determine if we inline the referenced request body or use a $ref
-                        openApiAttr.RequestBody = oaRBra.Inline ? componentRequestBody.Clone() : new OpenApiRequestBodyReference(oaRBra.ReferenceId);
-                        // Apply any description override
-                        if (oaRBra.Description is not null)
-                        {
-                            openApiAttr.RequestBody.Description = oaRBra.Description;
-                        }
-
-                        // Add to script code parameter injection info
-                        routeOptions.ScriptCode.Parameters.Add(new ParameterForInjectionInfo(param.Name, componentRequestBody));
-                    }
-                    else
-                    {
-                        if (pAttr is KestrunAnnotation ka)
-                        {
-                            throw new InvalidOperationException(
-                                $"Unhandled Kestrun annotation: {ka.GetType().Name}");
+                            if (pAttr is KestrunAnnotation ka)
+                            {
+                                throw new InvalidOperationException(
+                                    $"Unhandled Kestrun annotation: {ka.GetType().Name}");
+                            }
                         }
                     }
                 }
-            }
+                // Store the OpenAPI metadata for this verb
+                routeOptions.OpenAPI.Add(parsedVerb, openApiAttr);
+                // Default pattern if none provided: "/<FunctionName>"
+                if (string.IsNullOrWhiteSpace(routeOptions.Pattern))
+                {
+                    routeOptions.Pattern = "/" + func.Name;
+                }
+                if (!string.IsNullOrWhiteSpace(openApiAttr.CorsPolicyName))
+                {
+                    routeOptions.CorsPolicyName = openApiAttr.CorsPolicyName;
+                }
+                // Script source
+                routeOptions.ScriptCode.ScriptBlock = sb;
+                // Register the route
+                _ = Host.AddMapRoute(routeOptions);
 
-            routeOptions.OpenAPI.Add(parsedVerb, openApiAttr);
-            // Default pattern if none provided: "/<FunctionName>"
-            if (string.IsNullOrWhiteSpace(routeOptions.Pattern))
-            {
-                routeOptions.Pattern = "/" + func.Name;
             }
-            if (!string.IsNullOrWhiteSpace(openApiAttr.CorsPolicyName))
+            catch (Exception ex)
             {
-                routeOptions.CorsPolicyName = openApiAttr.CorsPolicyName;
+                Host.Logger.Error("Error loading OpenAPI annotated function '{funcName}': {message}", func.Name, ex.Message);
             }
-            // Script source
-            routeOptions.ScriptCode.ScriptBlock = sb;
-            // Register the route
-            _ = Host.AddMapRoute(routeOptions);
         }
     }
+
+    private static bool CreateRequestBodyFromAttribute(KestrunAnnotation attribute, OpenApiRequestBody requestBody, IOpenApiSchema schema)
+    {
+        switch (attribute)
+        {
+            case OpenApiRequestBodyAttribute request:
+                requestBody.Description = request.Description;
+                requestBody.Required = request.Required;
+                // Content
+                requestBody.Content ??= new Dictionary<string, OpenApiMediaType>(StringComparer.Ordinal);
+                var mediaType = new OpenApiMediaType();
+                // Example
+                if (request.Example is not null)
+                {
+                    mediaType.Example = ToNode(request.Example);
+                }
+                // Schema
+                mediaType.Schema = schema;
+
+                requestBody.Content[request.ContentType] = mediaType;
+                return true;
+            default:
+                return false;
+        }
+    }
+
+    private OpenApiSchema GetSchema(string id)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(id);
+        // Look up schema in components
+        return Document.Components?.Schemas is { } schemas
+               && schemas.TryGetValue(id, out var p)
+               && p is OpenApiSchema op
+            ? op
+            : throw new InvalidOperationException($"Schema '{id}' not found.");
+    }
+
     private OpenApiParameter GetParameter(string id)
     {
+        ArgumentException.ThrowIfNullOrWhiteSpace(id);
+        // Look up parameter in components
         return Document.Components?.Parameters is { } parameters
                && parameters.TryGetValue(id, out var p)
                && p is OpenApiParameter op
@@ -2720,15 +2824,37 @@ public class OpenApiDocDescriptor
 
     private OpenApiRequestBody GetRequestBody(string id)
     {
+        ArgumentException.ThrowIfNullOrWhiteSpace(id);
+        // Look up request body in components
         return Document.Components?.RequestBodies is { } requestBodies
                && requestBodies.TryGetValue(id, out var p)
                && p is OpenApiRequestBody op
             ? op
             : throw new InvalidOperationException($"RequestBody '{id}' not found.");
     }
+    /*
+        private OpenApiRequestBody? GetRequestBody(string id)
+        {
+            if (Document.Components?.RequestBodies is null)
+            {
+                return null;
+            }
+            if (Document.Components.RequestBodies.ContainsKey(id))
+            {
+                var r = Document.Components?.RequestBodies[id];
+                if (r is OpenApiRequestBody obr)
+                {
+                    return obr;
+                }
+
+            }
+            return null;
+        }*/
 
     private OpenApiHeader GetHeader(string id)
     {
+        ArgumentException.ThrowIfNullOrWhiteSpace(id);
+        // Look up header in components
         return Document.Components?.Headers is { } headers
                && headers.TryGetValue(id, out var p)
                && p is OpenApiHeader op
@@ -2738,12 +2864,39 @@ public class OpenApiDocDescriptor
 
     private OpenApiResponse GetResponse(string id)
     {
+        ArgumentException.ThrowIfNullOrWhiteSpace(id);
+        // Look up response in components
         return Document.Components?.Responses is { } responses
                && responses.TryGetValue(id, out var p)
                && p is OpenApiResponse op
             ? op
             : throw new InvalidOperationException($"Response '{id}' not found.");
     }
+
+    private bool ComponentSchemasExists(string id) =>
+        Document.Components?.Schemas?.ContainsKey(id) == true;
+
+    private bool ComponentRequestBodiesExists(string id) =>
+        Document.Components?.RequestBodies?.ContainsKey(id) == true;
+
+    private bool ComponentResponsesExists(string id) =>
+        Document.Components?.Responses?.ContainsKey(id) == true;
+    private bool ComponentParametersExists(string id) =>
+        Document.Components?.Parameters?.ContainsKey(id) == true;
+
+    private bool ComponentExamplesExists(string id) =>
+            Document.Components?.Examples?.ContainsKey(id) == true;
+
+    private bool ComponentHeadersExists(string id) =>
+            Document.Components?.Headers?.ContainsKey(id) == true;
+    private bool ComponentCallbacksExists(string id) =>
+            Document.Components?.Callbacks?.ContainsKey(id) == true;
+
+    private bool ComponentLinksExists(string id) =>
+            Document.Components?.Links?.ContainsKey(id) == true;
+    private bool ComponentPathItemsExists(string id) =>
+            Document.Components?.PathItems?.ContainsKey(id) == true;
+
 
     /// <summary>
     /// Applies a security scheme to the OpenAPI document based on the provided authentication options.

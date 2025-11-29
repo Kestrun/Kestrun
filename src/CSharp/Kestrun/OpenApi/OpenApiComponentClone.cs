@@ -97,6 +97,22 @@ public static class OpenApiComponentClone
         };
         return clone;
     }
+
+    /// <summary>
+    ///     Converts an OpenApiRequestBody to an OpenApiSchema.
+    /// </summary>
+    /// <param name="requestBody"> The OpenApiRequestBody instance to convert.</param>
+    /// <returns>An OpenApiSchema representation of the request body.</returns>
+    public static OpenApiSchema ConvertToSchema(this OpenApiRequestBody requestBody)
+    {
+        var clone = new OpenApiSchema
+        {
+            Description = requestBody.Description,
+            Properties = requestBody.Content?.Values.FirstOrDefault()?.Schema?.Properties.Clone(),
+            Extensions = requestBody.Extensions.Clone()
+        };
+        return clone;
+    }
     /// <summary>
     /// Clones an IOpenApiRequestBody instance.
     /// </summary>

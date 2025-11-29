@@ -606,21 +606,17 @@ function updatePet {
     [OpenApiResponseRefAttribute( StatusCode = '404' , ReferenceId = 'Resp_Pet_Write-NotFound', Inline = $true )]
     [OpenApiResponseRefAttribute( StatusCode = '422' , ReferenceId = 'Resp_Pet_Write-UnprocessableEntity', Inline = $true )]
     [OpenApiResponseRefAttribute( StatusCode = 'default' , ReferenceId = 'Resp_Pet_Write-Default' )]
-    #[OpenApiAuthorizationAttribute( Scheme = 'petstore_auth' , Policies = 'write:pets, read:pets' )]
-
-    [OpenApiRequestBodyRefAttribute(Description = 'Update an existent pet in the store', ReferenceId = 'PetBody' )]
     param(
         [OpenApiParameterAttribute(In = [OaParameterLocation]::Path, Description = 'Update an existing pet by Id.' )]
         [long]$petId,
-        [OpenApiRequestBodyRefAttribute(Description = 'Update an existent pet in the store', ReferenceId = 'PetBody' )]
-        $pet
+        [OpenApiRequestBodyAttribute(Description = 'Update an existent pet in the store' , Inline = $true)]
+        [Pet]$pet
     )
     # Stub handler; the doc is our star tonight.
     Write-Host "updatePet called for petId='$petId'"
     Expand-KrObject -InputObject $pet -Label 'Received Pet:'
     Write-KrJsonResponse @{ ok = $true }
 }
-
 
 <#
     .SYNOPSIS
@@ -639,7 +635,7 @@ function addPet {
     # [OpenApiAuthorizationAttribute( Scheme = 'petstore_auth' , Policies = 'write:pets, read:pets' )]
 
     param(
-        [OpenApiRequestBodyRefAttribute(Description = 'Create a new pet in the store' , ReferenceId = 'PetBody' )]
+        [OpenApiRequestBodyAttribute(Description = 'Create a new pet in the store' , Inline = $true)]
         [Pet] $pet
     )
     # Stub handler; the doc is our star tonight.
@@ -738,12 +734,12 @@ function deletePet {
     # [OpenApiAuthorizationAttribute( Scheme = 'petstore_auth' , Policies = 'write:pets, read:pets' )]
     param(
         [OpenApiParameterRefAttribute(ReferenceId = 'petId')]
-        $petId,
+        $PetId,
         [OpenApiParameterRefAttribute(ReferenceId = 'api_key' )]
-        $api_key
+        $Api_key
     )
 
-    Write-Host "deletePet called with petId='$petId' and api_key='$api_key'"
+    Write-Host "deletePet called with petId='$PetId' and api_key='$Api_key'"
     Write-KrJsonResponse @(@{}) -StatusCode 200
 }
 
@@ -759,12 +755,14 @@ function uploadImage {
     # [OpenApiAuthorizationAttribute( Scheme = 'petstore_auth' , Policies = 'write:pets, read:pets' )]
     param(
         [OpenApiParameterRefAttribute(ReferenceId = 'UploadImageParams-petId' )]#-Key 'petId')] # TODO: Key for ReferenceId
-        $petId,
+        $PetId,
         [OpenApiParameterRefAttribute(ReferenceId = 'UploadImageParams-additionalMetadata' )]
-        $additionalMetadata
+        $AdditionalMetadata,
+        [OpenApiRequestBodyAttribute(Description = 'Upload an image file' , ContentType = 'application/octet-stream' )]
+        [byte[]]$Image
     )
 
-    Write-Host "uploadImage called with additionalMetadata='$additionalMetadata' and petId='$petId'"
+    Write-Host "uploadImage called with additionalMetadata='$AdditionalMetadata' and petId='$PetId'"
     Write-KrJsonResponse @(@{}) -StatusCode 200
 }
 <#

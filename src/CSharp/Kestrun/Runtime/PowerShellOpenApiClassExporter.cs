@@ -8,6 +8,12 @@ namespace Kestrun.Runtime;
 /// </summary>
 public static class PowerShellOpenApiClassExporter
 {
+
+    /// <summary>
+    /// Holds valid class names to be used as type in the OpenAPI function definitions.
+    /// </summary>
+    public static List<string> ValidClassNames { get; } = [];
+
     /// <summary>
     /// Exports OpenAPI component classes found in loaded assemblies
     /// as PowerShell class definitions.
@@ -21,6 +27,7 @@ public static class PowerShellOpenApiClassExporter
            .ToArray();
         return ExportOpenApiClasses(assemblies);
     }
+
     /// <summary>
     /// Exports OpenAPI component classes found in the specified assemblies
     /// as PowerShell class definitions
@@ -47,13 +54,26 @@ public static class PowerShellOpenApiClassExporter
 
         foreach (var type in sorted)
         {
+            // Skip types without full name (should not happen)
+            if (type.FullName is null)
+            {
+                continue;
+            }
+            // Register valid class name
+            ValidClassNames.Add(type.FullName);
+            // Emit class definition
             AppendClass(type, componentSet, sb);
             _ = sb.AppendLine(); // blank line between classes
         }
-
+        // 4. Write to temp script file
         return WriteOpenApiTempScript(sb.ToString());
     }
 
+    /// <summary>
+    /// Determines if the specified type has an OpenAPI component attribute.
+    /// </summary>
+    /// <param name="t"></param>
+    /// <returns></returns>
     private static bool HasOpenApiComponentAttribute(Type t)
     {
         return t.GetCustomAttributes(inherit: true)
@@ -63,6 +83,12 @@ public static class PowerShellOpenApiClassExporter
                     n.Contains("OpenApiRequestBodyComponent", StringComparison.OrdinalIgnoreCase));
     }
 
+    /// <summary>
+    /// Appends the PowerShell class definition for the specified type to the StringBuilder.
+    /// </summary>
+    /// <param name="type"></param>
+    /// <param name="componentSet"></param>
+    /// <param name="sb"></param>
     private static void AppendClass(Type type, HashSet<Type> componentSet, StringBuilder sb)
     {
         // Detect base type (for parenting)
@@ -91,6 +117,12 @@ public static class PowerShellOpenApiClassExporter
         _ = sb.AppendLine("}");
     }
 
+    /// <summary>
+    /// Converts a .NET type to a PowerShell type name.
+    /// </summary>
+    /// <param name="t"></param>
+    /// <param name="componentSet"></param>
+    /// <returns></returns>
     private static string ToPowerShellTypeName(Type t, HashSet<Type> componentSet)
     {
         // Nullable<T>
@@ -157,7 +189,10 @@ public static class PowerShellOpenApiClassExporter
     /// Topologically sort types so that dependencies (property types)
     /// appear before the types that reference them.
     /// </summary>
-    private static IReadOnlyList<Type> TopologicalSortByPropertyDependencies(
+    /// <param name="types">The list of types to sort.</param>
+    /// <param name="componentSet">Set of component types for quick lookup.</param>
+    /// <returns>The sorted list of types.</returns>
+    private static List<Type> TopologicalSortByPropertyDependencies(
         List<Type> types,
         HashSet<Type> componentSet)
     {
@@ -172,6 +207,13 @@ public static class PowerShellOpenApiClassExporter
         return result;
     }
 
+    /// <summary>
+    /// Visits the type and its dependencies recursively for topological sorting.
+    /// </summary>
+    /// <param name="t">Type to visit</param>
+    /// <param name="componentSet">Set of component types</param>
+    /// <param name="visited">Dictionary tracking visited types and their mark status</param>
+    /// <param name="result">List to accumulate the sorted types</param>
     private static void Visit(
      Type t,
      HashSet<Type> componentSet,

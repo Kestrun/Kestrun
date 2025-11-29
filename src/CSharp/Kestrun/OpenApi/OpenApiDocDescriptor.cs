@@ -2766,7 +2766,6 @@ public class OpenApiDocDescriptor
                 routeOptions.ScriptCode.ScriptBlock = sb;
                 // Register the route
                 _ = Host.AddMapRoute(routeOptions);
-
             }
             catch (Exception ex)
             {
@@ -2896,7 +2895,6 @@ public class OpenApiDocDescriptor
             Document.Components?.Links?.ContainsKey(id) == true;
     private bool ComponentPathItemsExists(string id) =>
             Document.Components?.PathItems?.ContainsKey(id) == true;
-
 
     /// <summary>
     /// Applies a security scheme to the OpenAPI document based on the provided authentication options.

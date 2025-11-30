@@ -29,6 +29,13 @@ public sealed class OpenApiResponseAttribute : KestrunAnnotation
     public string? SchemaRef { get; set; }
 
     /// <summary>
+    /// Optional CLR type for the response schema.
+    /// When set, this takes precedence over SchemaRef and is
+    /// mapped via InferPrimitiveSchema / PrimitiveSchemaMap.
+    /// </summary>
+    public Type? Schema { get; set; }
+
+    /// <summary>
     /// MIME type of the response payload (default: "application/json").
     /// </summary>
     public string[] ContentTypes { get; set; } = ["application/json"];

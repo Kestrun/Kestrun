@@ -33,12 +33,12 @@ public class OpenApiAttributeTests
     private class ResponseHolder
     {
         // Use object type to prevent automatic schema inference override
-        [OpenApiResponse(Description = "Inline schema", SchemaRef = "TestPayload", ContentType = "application/json", Inline = true)]
+        [OpenApiResponse(Description = "Inline schema", SchemaRef = "TestPayload", ContentTypes = ["application/json"], Inline = true)]
         [OpenApiExampleRef(Key = "exClone", ReferenceId = "UserEx", ContentType = "application/json", Inline = true)]
         [OpenApiExampleRef(Key = "exRef", ReferenceId = "UserEx", ContentType = "application/json", Inline = false)]
         public object Inline { get; set; } = new();
 
-        [OpenApiResponse(Description = "Referenced schema", SchemaRef = "TestPayload", ContentType = "application/json", Inline = false)]
+        [OpenApiResponse(Description = "Referenced schema", SchemaRef = "TestPayload", ContentTypes = ["application/json"], Inline = false)]
         public object Ref { get; set; } = new();
     }
 

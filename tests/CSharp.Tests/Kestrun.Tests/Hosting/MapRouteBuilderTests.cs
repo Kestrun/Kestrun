@@ -18,7 +18,7 @@ public class MapRouteBuilderTests
     [OpenApiResponseComponent]
     private class ResponseComponentHolder
     {
-        [OpenApiResponse(Description = "ok", ContentType = "application/json")]
+        [OpenApiResponse(Description = "ok", ContentTypes = ["application/json"])]
         public object Ok { get; set; } = new { Value = 1 };
     }
 

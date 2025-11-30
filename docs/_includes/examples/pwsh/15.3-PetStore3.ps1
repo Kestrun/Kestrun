@@ -365,7 +365,6 @@ class Resp_PetById_Delete {
 
     [OpenApiResponseAttribute(Description = 'Invalid pet value')]
     [object]$BadRequest
-
 }
 
 # ---------- /pet/{petId}/uploadImage  (POST)
@@ -599,12 +598,6 @@ Add-KrApiDocumentationRoute -DocumentType Redoc
 # /pet  (PUT, POST)
 # --------------------------------------
 
-<#
-    .SYNOPSIS
-    Update an existing pet.
-    .DESCRIPTION
-    Update an existing pet by Id.
-#>
 function updatePet {
     [OpenApiPath(HttpVerb = 'Put' , Pattern = '/pet/{petId}', Tags = 'pet',
         Summary = 'Update an existing pet.',
@@ -619,7 +612,7 @@ function updatePet {
         [OpenApiParameterAttribute(In = [OaParameterLocation]::Path, Description = 'Update an existing pet by Id.' )]
         [long]$petId,
         [OpenApiRequestBodyAttribute(Description = 'Update an existent pet in the store' ,
-            Inline = $true, Required = $true,
+            Required = $true, Inline = $false,
             ContentType = ('application/json', 'application/xml', 'application/x-www-form-urlencoded'))]
         [Pet]$pet
     )
@@ -629,12 +622,6 @@ function updatePet {
     Write-KrJsonResponse @{ ok = $true }
 }
 
-<#
-    .SYNOPSIS
-    Update an existing pet.
-    .DESCRIPTION
-    Update an existing pet by Id.
-#>
 function addPet {
     [OpenApiPath(HttpVerb = 'Post' , Pattern = '/pet', Tags = 'pet',
         Summary = 'Add a new pet to the store.',
@@ -647,7 +634,7 @@ function addPet {
 
     param(
         [OpenApiRequestBodyAttribute(Description = 'Create a new pet in the store' ,
-            Inline = $true, Required = $true,
+            Required = $true,
             ContentType = ('application/json', 'application/xml', 'application/x-www-form-urlencoded'))]
         [Pet] $pet
     )
@@ -663,7 +650,7 @@ function findPetsByStatus {
         Description = 'Multiple status values can be provided with comma separated strings.')]
     [OpenApiResponseRefAttribute( StatusCode = '200' , ReferenceId = 'Resp_FindByStatus-OK', Inline = $true )]
     [OpenApiResponseRefAttribute( StatusCode = '400' , ReferenceId = 'Resp_FindByStatus-BadRequest', Inline = $true )]
-    [OpenApiResponseRefAttribute( StatusCode = 'default' , ReferenceId = 'Default' )]
+    [OpenApiResponseRefAttribute( StatusCode = 'default' , ReferenceId = 'Default', Inline = $true )]
     # [OpenApiAuthorizationAttribute( Scheme = 'petstore_auth' , Policies = 'write:pets, read:pets' )]
     param(
         [OpenApiParameterRefAttribute(ReferenceId = 'FindByStatusParams-status' )]
@@ -679,7 +666,7 @@ function findPetsByTags {
         Description = 'Multiple tags can be provided with comma separated strings.')]
     [OpenApiResponseRefAttribute( StatusCode = '200' , ReferenceId = 'Resp_FindByTags-OK', Inline = $true )]
     [OpenApiResponseRefAttribute( StatusCode = '400' , ReferenceId = 'Resp_FindByTags-BadRequest', Inline = $true )]
-    [OpenApiResponseRefAttribute( StatusCode = 'default' , ReferenceId = 'Default' )]
+    [OpenApiResponseRefAttribute( StatusCode = 'default' , ReferenceId = 'Default', Inline = $true )]
     # [OpenApiAuthorizationAttribute( Scheme = 'petstore_auth' , Policies = 'write:pets, read:pets' )]
     param(
         [OpenApiParameterRefAttribute(ReferenceId = 'FindByTagsParams-tags' , Inline = $true)]
@@ -689,12 +676,7 @@ function findPetsByTags {
     Write-KrJsonResponse @(@{}) -StatusCode 200
 }
 
-<#
-    .SYNOPSIS
-    Find pet by ID.
-    .DESCRIPTION
-    Returns a single pet.
-#>
+
 function getPetById {
     [OpenApiPath(HttpVerb = 'Get' , Pattern = '/pet/{petId}', Tags = 'pet',
         Summary = 'Find pet by ID.',
@@ -702,7 +684,7 @@ function getPetById {
     [OpenApiResponseRefAttribute( StatusCode = '200' , ReferenceId = 'Resp_PetById_Get-OK', Inline = $true )]
     [OpenApiResponseRefAttribute( StatusCode = '400' , ReferenceId = 'Resp_PetById_Get-BadRequest', Inline = $true )]
     [OpenApiResponseRefAttribute( StatusCode = '404' , ReferenceId = 'Resp_PetById_Get-NotFound', Inline = $true )]
-    [OpenApiResponseRefAttribute( StatusCode = 'default' , ReferenceId = 'Default' )]
+    [OpenApiResponseRefAttribute( StatusCode = 'default' , ReferenceId = 'Default', Inline = $true )]
     # [OpenApiAuthorizationAttribute( Scheme = 'petstore_auth' , Policies = 'write:pets, read:pets' )]
     param(
         [OpenApiParameterAttribute(In = [OaParameterLocation]::Path, Description = 'ID of pet to return' )]
@@ -720,7 +702,7 @@ function updatePetWithForm {
         Description = 'Updates a pet resource based on the form data.')]
     [OpenApiResponseRefAttribute( StatusCode = '200' , ReferenceId = 'Resp_PetById_PostForm-OK', Inline = $true )]
     [OpenApiResponseRefAttribute( StatusCode = '400' , ReferenceId = 'Resp_PetById_PostForm-BadRequest', Inline = $true )]
-    [OpenApiResponseRefAttribute( StatusCode = 'default' , ReferenceId = 'Default' )]
+    [OpenApiResponseRefAttribute( StatusCode = 'default' , ReferenceId = 'Default', Inline = $true )]
     # [OpenApiAuthorizationAttribute( Scheme = 'petstore_auth' , Policies = 'write:pets, read:pets' )]
     param(
         [OpenApiParameterRefAttribute(ReferenceId = 'petId')]
@@ -743,7 +725,7 @@ function deletePet {
         OperationId = 'deletePet')]
     [OpenApiResponseRefAttribute( StatusCode = '200' , ReferenceId = 'Resp_PetById_Delete-OK', Inline = $true )]
     [OpenApiResponseRefAttribute( StatusCode = '400' , ReferenceId = 'Resp_PetById_Delete-BadRequest', Inline = $true )]
-    [OpenApiResponseRefAttribute( StatusCode = 'default' , ReferenceId = 'Default' )]
+    [OpenApiResponseRefAttribute( StatusCode = 'default' , ReferenceId = 'Default', Inline = $true )]
     # [OpenApiAuthorizationAttribute( Scheme = 'petstore_auth' , Policies = 'write:pets, read:pets' )]
     param(
         [OpenApiParameterAttribute(In = [OaParameterLocation]::Header, Description = '' )]
@@ -762,7 +744,7 @@ function uploadImage {
         Description = 'Upload image of the pet.',
         OperationId = 'uploadImage')]
     [OpenApiResponseRefAttribute( StatusCode = '200' , ReferenceId = 'Resp_UploadImage-OK', Inline = $true )]
-    [OpenApiResponseRefAttribute( StatusCode = 'default' , ReferenceId = 'Default' )]
+    [OpenApiResponseRefAttribute( StatusCode = 'default' , ReferenceId = 'Default', Inline = $true )]
     # [OpenApiAuthorizationAttribute( Scheme = 'petstore_auth' , Policies = 'write:pets, read:pets' )]
     param(
         [OpenApiParameterAttribute(Description = 'ID of pet to update', In = [OaParameterLocation]::Path, Required = $true )]
@@ -781,102 +763,140 @@ function uploadImage {
 }
 
 
+# --------------------------------------
+# /store/inventory (GET)
+# --------------------------------------
 function getInventory {
     [OpenApiPath(HttpVerb = 'Get' , Pattern = '/store/inventory', Tags = 'store',
         Summary = 'Returns pet inventories by status.',
         Description = 'Returns a map of status codes to quantities.'  )]
-    [OpenApiResponseAttribute( StatusCode = '200' , SchemaRef = 'Inventory', Inline = $true )]
-    [OpenApiResponseRefAttribute( StatusCode = '400' , ReferenceId = 'Resp_PetById_Delete-BadRequest', Inline = $true )]
-    [OpenApiResponseRefAttribute( StatusCode = 'default' , ReferenceId = 'Default' )]
-    # [OpenApiAuthorizationAttribute( Scheme = 'petstore_auth' , Policies = 'write:pets, read:pets' )]
-    param(
-        [OpenApiParametefAttribute(In = [OaParameterLocation]::Header, Description = '' )]
-        [string]$Api_key,
-        [OpenApiParameterAttribute(Description = 'Pet id to delete', In = [OaParameterLocation]::Path, Required = $true )]
-        [long]$PetId
-    )
-
-    Write-Host "deletePet called with petId='$PetId' and api_key='$Api_key'"
-    Write-KrJsonResponse @(@{}) -StatusCode 200
+    [OpenApiResponseAttribute( StatusCode = '200' , Description = 'Successful operation', SchemaRef = 'Inventory', Inline = $true )]
+    [OpenApiResponseRefAttribute( StatusCode = 'default' , ReferenceId = 'Default', Inline = $true )]
+    # [OpenApiAuthorizationAttribute( Scheme = 'api_key')]
+    param()
+    Write-Host 'getInventory called'
+    Write-KrJsonResponse @{} -StatusCode 200
 }
-<#
-
-# --------------------------------------
-# /store/inventory (GET)
-# --------------------------------------
-New-KrMapRouteBuilder -Verbs 'GET' -Pattern '/store/inventory' |
-    Add-KrMapRouteScriptBlock -ScriptBlock { Write-KrJsonResponse @{} } |
-    Add-KrMapRouteOpenApiTag -Tags 'store' |
-    Add-KrMapRouteAuthorization -Schema 'api_key' |
-    Add-KrMapRouteOpenApiInfo -Summary 'Returns pet inventories by status.' -Description 'Returns a map of status codes to quantities.' -OperationId 'getInventory' |
-    Add-KrMapRouteOpenApiResponse -StatusCode '200' -ReferenceId 'Resp_Inventory-OK' -Inline |
-    Add-KrMapRouteOpenApiResponse -StatusCode 'default' -ReferenceId 'Resp_Inventory-Default' |
-    Build-KrMapRoute
 
 # --------------------------------------
 # /store/order (POST)
 # --------------------------------------
-New-KrMapRouteBuilder -Verbs 'POST' -Pattern '/store/order' |
-    Add-KrMapRouteScriptBlock -ScriptBlock { Write-KrJsonResponse @{ } } |
-    Add-KrMapRouteOpenApiTag -Tags 'store' |
-    Add-KrMapRouteOpenApiInfo -Summary 'Place an order for a pet.' -Description 'Place a new order in the store.' -OperationId 'placeOrder' |
-    Add-KrMapRouteOpenApiRequestBody -Inline -ReferenceId 'OrderBody' |
-    Add-KrMapRouteOpenApiResponse -StatusCode '200' -ReferenceId 'Resp_Order_Create-OK' -Inline |
-    Add-KrMapRouteOpenApiResponse -StatusCode '400' -ReferenceId 'Resp_Order_Create-BadRequest' -Inline |
-    Add-KrMapRouteOpenApiResponse -StatusCode '422' -ReferenceId 'Resp_Order_Create-UnprocessableEntity' -Inline |
-    Add-KrMapRouteOpenApiResponse -StatusCode 'default' -ReferenceId 'Resp_Order_Create-Default' |
+function placeOrder {
+    [OpenApiPath(HttpVerb = 'Post' , Pattern = '/store/order', Tags = 'store',
+        Summary = 'Place an order for a pet.',
+        Description = 'Place a new order in the store.'  )]
+    [OpenApiResponseAttribute( StatusCode = '200' , Description = 'Successful operation', SchemaRef = 'Order' )]
+    [OpenApiResponseAttribute( StatusCode = '400' , Description = 'Invalid input' )]
+    [OpenApiResponseAttribute( StatusCode = '422' , Description = 'Validation Exception' )]
+    [OpenApiResponseRefAttribute( StatusCode = 'default' , ReferenceId = 'Default', Inline = $true )]
 
-    Build-KrMapRoute
+    param(
+        [OpenApiRequestBodyAttribute(ContentType = ('application/json', 'application/xml', 'application/x-www-form-urlencoded'))]
+        [Order]$Order
+    )
+    Write-Host "placeOrder called with order='$Order'"
+    Write-KrJsonResponse @{} -StatusCode 200
+}
 
 # --------------------------------------
-# /store/order/{orderId} (GET, DELETE)
+# /store/order/{orderId} (GET)
 # --------------------------------------
-New-KrMapRouteBuilder -Verbs @('GET', 'DELETE') -Pattern '/store/order/{orderId}' |
-    Add-KrMapRouteScriptBlock -ScriptBlock { Write-KrJsonResponse @{ } } |
-    Add-KrMapRouteOpenApiTag -Tags 'store' |
-    Add-KrMapRouteOpenApiParameter -ReferenceId 'orderId' |
-    Add-KrMapRouteOpenApiInfo -Verbs 'GET' -Summary 'Find purchase order by ID.' `
-        -Description 'For valid response try integer IDs with value <= 5 or > 10. Other values will generate exceptions.' -OperationId 'getOrderById' |
-    Add-KrMapRouteOpenApiResponse -Verbs 'GET' -StatusCode '200' -ReferenceId 'Resp_OrderById_Get-OK' -Inline |
-    Add-KrMapRouteOpenApiResponse -Verbs 'GET' -StatusCode '400' -ReferenceId 'Resp_OrderById_Get-BadRequest' -Inline |
-    Add-KrMapRouteOpenApiResponse -Verbs 'GET' -StatusCode '404' -ReferenceId 'Resp_OrderById_Get-NotFound' -Inline |
-    Add-KrMapRouteOpenApiResponse -Verbs 'GET' -StatusCode 'default' -ReferenceId 'Resp_OrderById_Get-Default' |
+function getOrderById {
+    [OpenApiPath(HttpVerb = 'get' , Pattern = '/store/order/{orderId}', Tags = 'store',
+        Summary = 'Find purchase order by identifier.',
+        Description = 'For valid response try integer IDs with value <= 5 or > 10. Other values will generate exceptions.'  )]
+    [OpenApiResponseAttribute( StatusCode = '200' , Description = 'Successful operation', SchemaRef = 'Order', ContentTypes = ('application/json', 'application/xml'))]
+    [OpenApiResponseAttribute( StatusCode = '400' , Description = 'Invalid ID supplied' )]
+    [OpenApiResponseAttribute( StatusCode = '404' , Description = 'Order not found' )]
+    [OpenApiResponseRefAttribute( StatusCode = 'default' , ReferenceId = 'Default', Inline = $true )]
 
+    param(
+        [OpenApiParameterAttribute(Description = 'ID of order that needs to be fetched', In = [OaParameterLocation]::Path, Required = $true )]
+        [long]$orderId
+    )
+    Write-Host "getOrderById called with orderId='$orderId'"
+    $order = [Order]::new()
+    $order.id = $orderId
+    Write-KrJsonResponse $order -StatusCode 200
+}
 
-    Add-KrMapRouteOpenApiInfo -Verbs 'DELETE' -Summary 'Delete purchase order by identifier.' `
-        -Description 'For valid response try integer IDs with value < 1000. Anything above 1000 or nonintegers will generate API errors.' -OperationId 'deleteOrder' |
-    Add-KrMapRouteOpenApiResponse -Verbs 'DELETE' -StatusCode '200' -ReferenceId 'Resp_OrderById_Delete-OK' -Inline |
-    Add-KrMapRouteOpenApiResponse -Verbs 'DELETE' -StatusCode '400' -ReferenceId 'Resp_OrderById_Delete-BadRequest' -Inline |
-    Add-KrMapRouteOpenApiResponse -Verbs 'DELETE' -StatusCode '404' -ReferenceId 'Resp_OrderById_Delete-NotFound' -Inline |
-    Add-KrMapRouteOpenApiResponse -Verbs 'DELETE' -StatusCode 'default' -ReferenceId 'Resp_OrderById_Delete-Default' |
+# --------------------------------------
+# /store/order/{orderId} (DELETE)
+# --------------------------------------
+function deleteOrder {
+    [OpenApiPath(HttpVerb = 'delete' , Pattern = '/store/order/{orderId}', Tags = 'store',
+        Summary = 'Delete purchase order by identifier.',
+        Description = 'For valid response try integer IDs with value < 1000. Anything above 1000 or non-integers will generate API errors.'  )]
+    [OpenApiResponseAttribute( StatusCode = '200' , Description = 'Successful operation')]
+    [OpenApiResponseAttribute( StatusCode = '400' , Description = 'Invalid ID supplied' )]
+    [OpenApiResponseAttribute( StatusCode = '404' , Description = 'Order not found' )]
+    [OpenApiResponseRefAttribute( StatusCode = 'default' , ReferenceId = 'Default', Inline = $true )]
 
-    Build-KrMapRoute
+    param(
+        [OpenApiParameterAttribute(Description = 'ID of the order that needs to be deleted', In = [OaParameterLocation]::Path, Required = $true )]
+        [long]$orderId
+    )
+    Write-Host "deleteOrder called with orderId='$orderId'"
+    Write-KrStatusResponse -StatusCode 200
+}
 
 # --------------------------------------
 # /user (POST)
 # --------------------------------------
-New-KrMapRouteBuilder -Verbs 'POST' -Pattern '/user' |
-    Add-KrMapRouteScriptBlock -ScriptBlock { Write-KrJsonResponse @{ } } |
-    Add-KrMapRouteOpenApiTag -Tags 'user' |
-    Add-KrMapRouteOpenApiInfo -Summary 'Create user.' -Description 'This can only be done by the logged in user.' -OperationId 'createUser' |
-    Add-KrMapRouteOpenApiRequestBody -Inline -ReferenceId 'UserBody' |
-    Add-KrMapRouteOpenApiResponse -StatusCode '200' -ReferenceId 'Resp_User_Create-OK' -Inline |
-    Add-KrMapRouteOpenApiResponse -StatusCode 'default' -ReferenceId 'Resp_User_Create-Default' |
+function createUser {
+    [OpenApiPath(HttpVerb = 'post' , Pattern = '/user', Tags = 'user',
+        Summary = 'Create user.',
+        Description = 'This can only be done by the logged in user.'  )]
+    [OpenApiResponseAttribute( StatusCode = '200' , Description = 'Successful operation', SchemaRef = 'User', ContentTypes = ('application/json', 'application/xml'))]
+    [OpenApiResponseRefAttribute( StatusCode = 'default' , ReferenceId = 'Default', Inline = $true )]
 
-    Build-KrMapRoute
+    param(
+        [OpenApiRequestBodyAttribute(ContentType = ('application/json', 'application/xml', 'application/x-www-form-urlencoded'))]
+        [User]$User
+    )
+    Write-Host "createUser called with user='$User'"
+    Write-KrJsonResponse $User -StatusCode 200
+}
+
 
 # --------------------------------------
 # /user/createWithList (POST)
-# --------------------------------------
-New-KrMapRouteBuilder -Verbs 'POST' -Pattern '/user/createWithList' |
-    Add-KrMapRouteScriptBlock -ScriptBlock { Write-KrJsonResponse @() } |
-    Add-KrMapRouteOpenApiTag -Tags 'user' |
-    Add-KrMapRouteOpenApiInfo -Summary 'Creates list of users with given input array.' -Description 'Creates list of users with given input array.' -OperationId 'createUsersWithListInput' |
-    Add-KrMapRouteOpenApiRequestBody -Inline -ReferenceId 'UserArrayBody' |
-    Add-KrMapRouteOpenApiResponse -StatusCode '200' -ReferenceId 'Resp_User_CreateWithList-OK' -Inline |
-    Add-KrMapRouteOpenApiResponse -StatusCode 'default' -ReferenceId 'Resp_User_CreateWithList-Default' |
+# -------------------------------------
+function createUsersWithListInput {
+    [OpenApiPath(HttpVerb = 'post' , Pattern = '/user/createWithList', Tags = 'user',
+        Summary = 'Creates list of users with given input array.',
+        Description = 'Creates list of users with given input array.'  )]
+    [OpenApiResponseAttribute( StatusCode = '200' , Description = 'Successful operation', SchemaRef = 'User', ContentTypes = ('application/json', 'application/xml'))]
+    [OpenApiResponseRefAttribute( StatusCode = 'default' , ReferenceId = 'Default', Inline = $true )]
 
-    Build-KrMapRoute
+    param(
+        [OpenApiRequestBodyAttribute(ContentType = 'application/json', Inline = $false)]
+        [User[]]$User
+    )
+    Write-Host "createUsersWithListInput called with user='$User'"
+    Write-KrJsonResponse $User -StatusCode 200
+}
+
+function loginUser {
+    [OpenApiPath(HttpVerb = 'get' , Pattern = '/user/login', Tags = 'user',
+        Summary = 'Logs user into the system.',
+        Description = 'log user into the system.'  )]
+    [OpenApiResponseAttribute( StatusCode = '200' , Description = 'Successful operation' , Schema = [string], ContentTypes = ('application/json', 'application/xml'))]
+    [OpenApiResponseRefAttribute( StatusCode = 'default' , ReferenceId = 'Default', Inline = $true )]
+    [OpenApiHeaderAttribute(Key = 'X-Rate-Limit', Description = 'calls per hour allowed by the user')]
+    [OpenApiHeaderAttribute(Key = 'X-Expires-After', Description = 'date in UTC when token expires')]
+    param(
+        [OpenApiParameterAttribute(Description = 'The user name for login', In = [OaParameterLocation]::Query, Required = $false )]
+        [string]$username,
+
+        [OpenApiParameterAttribute(Description = 'The password for login in clear text', in = [OaParameterLocation]::Query, Required = $false )]
+        [string]$password
+    )
+    Write-Host "loginUser called with username='$username' and password='$password'"
+    Write-KrStatusResponse -StatusCode 200
+}
+<#
+
 
 # --------------------------------------
 # /user/login (GET)

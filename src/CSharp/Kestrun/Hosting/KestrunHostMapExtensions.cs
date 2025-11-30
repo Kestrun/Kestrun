@@ -747,7 +747,7 @@ public static partial class KestrunHostMapExtensions
     /// <param name="options">The mapping options.</param>
     private static void AddMetadata(KestrunHost host, IEndpointConventionBuilder map, MapRouteOptions options)
     {
-        if (options.ScriptCode is null || options.ScriptCode.Parameters is null|| options.ScriptCode.Parameters.Count == 0)
+        if (options.ScriptCode is null || options.ScriptCode.Parameters is null || options.ScriptCode.Parameters.Count == 0)
         {
             return;
         }

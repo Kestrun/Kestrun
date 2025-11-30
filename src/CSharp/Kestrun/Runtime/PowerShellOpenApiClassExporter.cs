@@ -8,7 +8,6 @@ namespace Kestrun.Runtime;
 /// </summary>
 public static class PowerShellOpenApiClassExporter
 {
-
     /// <summary>
     /// Holds valid class names to be used as type in the OpenAPI function definitions.
     /// </summary>

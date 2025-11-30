@@ -1,5 +1,6 @@
 using System.Management.Automation;
 using Kestrun.Hosting;
+using Kestrun.Hosting.Options;
 using Kestrun.Logging;
 using Kestrun.Models;
 using Kestrun.Utilities;
@@ -37,11 +38,22 @@ internal static class PowerShellDelegateBuilder
             try
             {
                 PowerShellExecutionHelpers.SetVariables(ps, arguments, log);
-
-                log.Verbose("Setting PowerShell variables for Request and Response in the runspace.");
+                if (log.IsEnabled(LogEventLevel.Verbose))
+                {
+                    log.Verbose("Setting PowerShell variables for Request and Response in the runspace.");
+                }
                 krContext = GetKestrunContext(context);
 
                 PowerShellExecutionHelpers.AddScript(ps, code);
+
+                // Extract and add parameters for injection
+                ParameterForInjectionInfo.InjectParameters(krContext, ps);
+
+                // Execute the script
+                if (log.IsEnabled(LogEventLevel.Verbose))
+                {
+                    log.Verbose("Invoking PowerShell script...");
+                }
                 var psResults = await PowerShellExecutionHelpers.InvokeAsync(ps, log, context.RequestAborted).ConfigureAwait(false);
                 LogTopResults(log, psResults);
 
@@ -56,8 +68,11 @@ internal static class PowerShellDelegateBuilder
                 {
                     return;
                 }
-
-                log.Verbose("Applying response to HttpResponse...");
+                if (log.IsEnabled(LogEventLevel.Verbose))
+                {
+                    log.Verbose("No redirect detected; applying response...");
+                    log.Verbose("Applying response to HttpResponse...");
+                }
                 await ApplyResponseAsync(context, krContext).ConfigureAwait(false);
             }
             // optional: catch client cancellation to avoid noisy logs
@@ -121,7 +136,6 @@ internal static class PowerShellDelegateBuilder
     private static KestrunContext GetKestrunContext(HttpContext context)
         => context.Items[KR_CONTEXT_KEY] as KestrunContext
            ?? throw new InvalidOperationException($"{KR_CONTEXT_KEY} key not found in context items.");
-
 
     ///<summary>
     /// Logs the top results from the PowerShell script output for debugging purposes.

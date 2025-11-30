@@ -15,7 +15,7 @@
 #>
 function Get-KrTaskState {
     [KestrunRuntimeApi('Everywhere')]
-    [CmdletBinding(defaultParameterSetName = 'Default')]
+    [CmdletBinding()]
     [OutputType([Kestrun.Tasks.TaskState])]
     param(
         [Parameter(ValueFromPipeline = $true)]

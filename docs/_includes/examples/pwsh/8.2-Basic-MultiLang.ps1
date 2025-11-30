@@ -21,12 +21,12 @@ Add-KrEndpoint -Port $Port -IPAddress $IPAddress
 
 
 # 5. C# validation logic
-Add-KrBasicAuthentication -Name 'CSharpBasic' -Realm 'CS' -AllowInsecureHttp -Code @'
+Add-KrBasicAuthentication -AuthenticationScheme 'CSharpBasic' -Realm 'CS' -AllowInsecureHttp -Code @'
     return username == "admin" && password == "password";
 '@ -CodeLanguage CSharp
 
 # 6. VB.NET validation logic
-Add-KrBasicAuthentication -Name 'VBNetBasic' -Realm 'VB' -AllowInsecureHttp -Code @'
+Add-KrBasicAuthentication -AuthenticationScheme 'VBNetBasic' -Realm 'VB' -AllowInsecureHttp -Code @'
     Return username = "admin" AndAlso password = "password"
 '@ -CodeLanguage VBNet
 

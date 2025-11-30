@@ -1,0 +1,15 @@
+{
+  "solution": {
+    "path": "Kestrun.sln",
+    "projects": [
+      "examples\\CSharp\\Authentication\\Authentication.csproj",
+      "examples\\CSharp\\Certificates\\Certificates.csproj",
+      "examples\\CSharp\\HtmlTemplate\\HtmlTemplate.csproj",
+      "examples\\CSharp\\MultiRoutes\\MultiRoutes.csproj",
+      "examples\\CSharp\\RazorSample\\RazorSample.csproj",
+      "examples\\CSharp\\Scheduling\\Scheduling.csproj",
+      "examples\\CSharp\\SharedState\\SharedState.csproj",
+      "examples\\CSharp\\SignalRDemo\\SignalRDemo.csproj"
+    ]
+  }
+}

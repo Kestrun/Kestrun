@@ -115,7 +115,7 @@ public sealed class HealthEndpointOptions
     /// <summary>
     /// Gets or sets the OpenAPI tag list applied to the endpoint metadata.
     /// </summary>
-    public string[] OpenApiTags { get; set; } = ["Health"];
+    public List<string> OpenApiTags { get; set; } = ["Health"];
 
     /// <summary>
     /// Gets or sets the OpenAPI group name applied to the endpoint metadata.

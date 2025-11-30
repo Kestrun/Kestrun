@@ -1,0 +1,39 @@
+{
+  "openapi": "3.1.1",
+  "info": {
+    "title": "Kestrun API",
+    "version": "1.0.0"
+  },
+  "paths": { },
+  "components": {
+    "links": {
+      "UserById": {
+        "operationId": "getUserById",
+        "parameters": {
+          "id": "$response.body#/id",
+          "verbose": "$request.query.verbose"
+        },
+        "requestBody": {
+          "locale": "$request.body#/locale",
+          "email": "$request.body#/email"
+        },
+        "description": "Link to fetch user details using the id from the response body.",
+        "server": {
+          "url": "https://{env}.api.example.com",
+          "description": "Target API endpoint",
+          "variables": {
+            "env": {
+              "default": "dev",
+              "description": "Environment name",
+              "enum": [
+                "dev",
+                "staging",
+                "prod"
+              ]
+            }
+          }
+        }
+      }
+    }
+  }
+}

@@ -26,7 +26,7 @@
 #>
 function Get-KrTask {
     [KestrunRuntimeApi('Everywhere')]
-    [CmdletBinding(defaultParameterSetName = 'Default')]
+    [CmdletBinding()]
     [OutputType([Kestrun.Tasks.KrTask[]])]
     [OutputType([Kestrun.Tasks.KrTask])]
     param(

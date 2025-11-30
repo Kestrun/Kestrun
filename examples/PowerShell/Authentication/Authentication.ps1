@@ -121,7 +121,7 @@ $claimConfig = New-KrClaimPolicy |
     Build-KrClaimPolicy
 
 # ── BASIC AUTHENTICATION ────────────────────────────────────────────────
-Add-KrBasicAuthentication -Name $BasicPowershellScheme -Realm 'Power-Kestrun' -AllowInsecureHttp -ScriptBlock {
+Add-KrBasicAuthentication -AuthenticationScheme $BasicPowershellScheme -Realm 'Power-Kestrun' -AllowInsecureHttp -ScriptBlock {
     param($Username, $Password)
     Write-KrLog -Level Information -Message 'Basic Authentication: User {user} is trying to authenticate.' -Values $Username
     if ($Username -eq 'admin' -and $Password -eq 'password') {
@@ -145,13 +145,13 @@ Add-KrBasicAuthentication -Name $BasicPowershellScheme -Realm 'Power-Kestrun' -A
 
 
 
-Add-KrBasicAuthentication -Name $BasicCSharpScheme -Realm 'CSharp-Kestrun' -AllowInsecureHttp -Code @'
+Add-KrBasicAuthentication -AuthenticationScheme $BasicCSharpScheme -Realm 'CSharp-Kestrun' -AllowInsecureHttp -Code @'
    // Log.Information("Validating credentials for {Username}", username);
     return username == "admin" && password == "password";
 '@ -CodeLanguage CSharp
 
 
-Add-KrBasicAuthentication -Name $BasicVBNetScheme -Realm 'VBNet-Kestrun' -AllowInsecureHttp -Code @'
+Add-KrBasicAuthentication -AuthenticationScheme $BasicVBNetScheme -Realm 'VBNet-Kestrun' -AllowInsecureHttp -Code @'
     ' Log.Information("Validating credentials for {Username}", username)
     Return username = "admin" AndAlso password = "password"
 '@ -CodeLanguage VBNet -IssueClaimsCode @'
@@ -171,11 +171,11 @@ Add-KrWindowsAuthentication
 
 
 
-Add-KrApiKeyAuthentication -Name $ApiKeySimple -AllowInsecureHttp -HeaderName 'X-Api-Key' -ExpectedKey 'my-secret-api-key'
+Add-KrApiKeyAuthentication -AuthenticationScheme $ApiKeySimple -AllowInsecureHttp -ApiKeyName 'X-Api-Key' -StaticApiKey 'my-secret-api-key'
 
 
 
-Add-KrApiKeyAuthentication -Name $ApiKeyPowerShell -AllowInsecureHttp -HeaderName 'X-Api-Key' -ScriptBlock {
+Add-KrApiKeyAuthentication -AuthenticationScheme $ApiKeyPowerShell -AllowInsecureHttp -ApiKeyName 'X-Api-Key' -ScriptBlock {
     param(
         [string]$ProvidedKey
     )
@@ -192,16 +192,16 @@ Add-KrApiKeyAuthentication -Name $ApiKeyPowerShell -AllowInsecureHttp -HeaderNam
         new System.Security.Claims.Claim("can_create", "true")          // custom claim
     };
 
-'@ -ClaimPolicyConfig $claimConfig -Logger $logger
+'@ -ClaimPolicyConfig $claimConfig
 
 
-Add-KrApiKeyAuthentication -Name $ApiKeyCSharp -AllowInsecureHttp -HeaderName 'X-Api-Key' -Code @'
+Add-KrApiKeyAuthentication -AuthenticationScheme $ApiKeyCSharp -AllowInsecureHttp -ApiKeyName 'X-Api-Key' -Code @'
     return FixedTimeEquals.Test(providedKeyBytes, "my-secret-api-key");
     // or use a simple string comparison:
     //return providedKey == "my-secret-api-key";
 '@
 
-Add-KrApiKeyAuthentication -Name $ApiKeyVBNet -AllowInsecureHttp -HeaderName 'X-Api-Key' -Code @'
+Add-KrApiKeyAuthentication -AuthenticationScheme $ApiKeyVBNet -AllowInsecureHttp -ApiKeyName 'X-Api-Key' -Code @'
     Return FixedTimeEquals.Test(providedKeyBytes, "my-secret-api-key")
     ' or use a simple string comparison:
     ' Return providedKey = "my-secret-api-key"
@@ -221,7 +221,7 @@ $result = Build-KrJWT -Builder $JwtTokenBuilder
 #$jwt     = Get-JwtToken -Result $result
 $jwtOptions = $result | Get-KrJWTValidationParameter
 
-Add-KrJWTBearerAuthentication -Name $JwtScheme -ValidationParameter $jwtOptions -ClaimPolicy $claimConfig
+Add-KrJWTBearerAuthentication -AuthenticationScheme $JwtScheme -ValidationParameter $jwtOptions -ClaimPolicy $claimConfig -MapInboundClaims
 
 
 $cookie = [Microsoft.AspNetCore.Http.CookieBuilder]::new()
@@ -232,7 +232,7 @@ $cookie.SecurePolicy = [Microsoft.AspNetCore.Http.CookieSecurePolicy]::Always
 $cookie.SameSite = [Microsoft.AspNetCore.Http.SameSiteMode]::Strict
 
 # ---- Cookies Authentication ----
-Add-KrCookiesAuthentication -Name $CookieScheme -LoginPath '/cookies/login' -LogoutPath '/cookies/logout' `
+Add-KrCookiesAuthentication -AuthenticationScheme $CookieScheme -LoginPath '/cookies/login' -LogoutPath '/cookies/logout' `
     -AccessDeniedPath '/cookies/access-denied' -SlidingExpiration -ExpireTimeSpan (New-TimeSpan -Minutes 60) `
     -ClaimPolicy $claimConfig -Cookie $cookie
 
@@ -614,4 +614,3 @@ Add-KrRouteGroup -Prefix '/secure/cookies' -AuthorizationScheme $CookieScheme {
 ********************************************
 #>
 Start-KrServer -Server $server
-

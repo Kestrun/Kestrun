@@ -3,6 +3,7 @@ using System.Text.RegularExpressions;
 using Kestrun.Hosting.Options;
 using Kestrun.Languages;
 using Kestrun.Models;
+using Kestrun.OpenApi;
 using Kestrun.Runtime;
 using Kestrun.Scripting;
 using Kestrun.TBuilder;
@@ -10,6 +11,7 @@ using Kestrun.Utilities;
 using Microsoft.AspNetCore.Antiforgery;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.Extensions.Options;
+using Microsoft.OpenApi;
 using Serilog.Events;
 
 namespace Kestrun.Hosting;
@@ -53,7 +55,7 @@ public static partial class KestrunHostMapExtensions
     /// <param name="requireSchemes">Optional array of authorization schemes required for the route.</param>
     /// <param name="map">The endpoint convention builder for further configuration.</param>
     /// <returns>The KestrunHost instance for chaining.</returns>
-    public static KestrunHost AddMapRoute(this KestrunHost host, string pattern, HttpVerb httpVerb, KestrunHandler handler, out IEndpointConventionBuilder? map, string[]? requireSchemes = null) =>
+    public static KestrunHost AddMapRoute(this KestrunHost host, string pattern, HttpVerb httpVerb, KestrunHandler handler, out IEndpointConventionBuilder? map, List<string>? requireSchemes = null) =>
     host.AddMapRoute(pattern: pattern, httpVerbs: [httpVerb], handler: handler, out map, requireSchemes: requireSchemes);
 
     /// <summary>
@@ -67,7 +69,7 @@ public static partial class KestrunHostMapExtensions
     /// <param name="map">The endpoint convention builder for further configuration.</param>
     /// <returns>The KestrunHost instance for chaining.</returns>
     public static KestrunHost AddMapRoute(this KestrunHost host, string pattern, IEnumerable<HttpVerb> httpVerbs, KestrunHandler handler,
-    out IEndpointConventionBuilder? map, string[]? requireSchemes = null)
+    out IEndpointConventionBuilder? map, List<string>? requireSchemes = null)
     {
         return host.AddMapRoute(new MapRouteOptions
         {
@@ -133,6 +135,66 @@ public static partial class KestrunHostMapExtensions
         return host;
     }
 
+    /// <summary>
+    /// Adds a route to the KestrunHost that serves OpenAPI documents based on the provided options.
+    /// </summary>
+    /// <param name="host">The KestrunHost instance.</param>
+    /// <param name="options">The OpenApiMapRouteOptions instance.</param>
+    /// <returns>The KestrunHost instance for chaining.</returns>
+    public static KestrunHost AddOpenApiMapRoute(this KestrunHost host, OpenApiMapRouteOptions options)
+    {
+        ArgumentNullException.ThrowIfNull(options);
+        ArgumentNullException.ThrowIfNull(host);
+
+        // Validate options
+        return host.AddMapRoute(options.MapOptions, async context =>
+        {
+            // Extract parameters
+            var refresh = false;
+            var docId = options.DocId;
+            var specVersion = OpenApiSpecVersion.OpenApi3_0;
+            // Try to get version and format from route values
+            var version = context.Request.RouteValues[options.VersionVarName]?.ToString() ?? options.DefaultVersion;
+            var format = context.Request.RouteValues[options.FormatVarName]?.ToString() ?? options.DefaultFormat;
+            if (context.Request.Query.TryGetValue(options.RefreshVarName, out var value))
+            {
+                _ = bool.TryParse(value, out refresh);
+            }
+            // Try to get version and format from route values
+            try
+            {
+                specVersion = OpenApiSpecVersionExtensions.FromString(version);
+                if (format is not "json" and not "yaml")
+                {
+                    throw new InvalidOperationException($"Unsupported OpenAPI format requested: {format}");
+                }
+            }
+            catch
+            {
+                host.Logger.Warning("Invalid OpenAPI version or format requested: {Version}, {Format}", version, format);
+                context.Response.StatusCode = 404; // Not Found
+                return;
+            }
+            // Refresh the document if requested
+            if (refresh)
+            {
+                host.Logger.Information("Refreshing OpenAPI document cache as requested.");
+                var doc = host.OpenApiDocumentDescriptor[docId];
+                doc.GenerateDoc();
+            }
+            // Serve the document in the requested format
+            if (format == "json")
+            {
+                var json = host.OpenApiDocumentDescriptor[docId].ToJson(specVersion);
+                await context.Response.WriteTextResponseAsync(json, 200, "application/json");
+            }
+            else
+            {
+                var yml = host.OpenApiDocumentDescriptor[docId].ToYaml(specVersion);
+                await context.Response.WriteTextResponseAsync(yml, 200, "application/yaml");
+            }
+        }, out _);
+    }
 
     /// <summary>
     /// Adds a route to the KestrunHost that executes a script block for the specified HTTP verb and pattern.
@@ -146,7 +208,7 @@ public static partial class KestrunHostMapExtensions
     /// <param name="arguments">Optional dictionary of arguments to pass to the script.</param>
     /// <returns>The KestrunHost instance for chaining.</returns>
     public static KestrunHost AddMapRoute(this KestrunHost host, string pattern, HttpVerb httpVerbs, string scriptBlock, ScriptLanguage language = ScriptLanguage.PowerShell,
-                                     string[]? requireSchemes = null,
+                                     List<string>? requireSchemes = null,
                                  Dictionary<string, object?>? arguments = null)
     {
         arguments ??= [];
@@ -179,7 +241,7 @@ public static partial class KestrunHostMapExtensions
                                 IEnumerable<HttpVerb> httpVerbs,
                                 string scriptBlock,
                                 ScriptLanguage language = ScriptLanguage.PowerShell,
-                                string[]? requireSchemes = null,
+                                List<string>? requireSchemes = null,
                                  Dictionary<string, object?>? arguments = null)
     {
         return host.AddMapRoute(new MapRouteOptions
@@ -270,7 +332,6 @@ public static partial class KestrunHostMapExtensions
         }
     }
 
-
     /// <summary>
     /// Validates the host and options for adding a map route.
     /// </summary>
@@ -303,8 +364,10 @@ public static partial class KestrunHostMapExtensions
         routeOptions = options;
         if (options.HttpVerbs.Count == 0)
         {
-            // Create a new RouteOptions with HttpVerbs set to [HttpVerb.Get]
-            routeOptions = options with { HttpVerbs = [HttpVerb.Get] };
+            // If no HTTP verbs were specified, default to GET.
+            // MapRouteOptions is not a record type here, so mutate the HttpVerbs collection
+            // (or replace it) instead of using a 'with' expression.
+            routeOptions.HttpVerbs = [HttpVerb.Get];
         }
 
         if (MapExists(host, routeOptions.Pattern, routeOptions.HttpVerbs))
@@ -375,8 +438,14 @@ public static partial class KestrunHostMapExtensions
 
         host.AddMapOptions(map, routeOptions);
 
-        foreach (var method in routeOptions.HttpVerbs.Select(v => v.ToMethodString()))
+        // Register OpenAPI metadata for each verb
+        foreach (var method in routeOptions.HttpVerbs)
         {
+            if (routeOptions.OpenAPI.TryGetValue(method, out var value))
+            {
+                ApplyOpenApiMetadata(host, map, value);
+            }
+            // Register the route to prevent duplicates
             host._registeredRoutes[(routeOptions.Pattern!, method)] = routeOptions;
         }
 
@@ -400,8 +469,8 @@ public static partial class KestrunHostMapExtensions
         ApplyAuthSchemes(host, map, options);
         ApplyPolicies(host, map, options);
         ApplyCors(host, map, options);
-        ApplyOpenApiMetadata(host, map, options);
         ApplyRequiredHost(host, map, options);
+        AddMetadata(host, map, options);
     }
 
     /// <summary>
@@ -670,7 +739,22 @@ public static partial class KestrunHostMapExtensions
         host.AddMapOptions(builder, options);
         return builder;
     }
+    /// <summary>
+    /// Adds metadata to the route from the script parameters.
+    /// </summary>
+    /// <param name="host">The Kestrun host.</param>
+    /// <param name="map">The endpoint convention builder.</param>
+    /// <param name="options">The mapping options.</param>
+    private static void AddMetadata(KestrunHost host, IEndpointConventionBuilder map, MapRouteOptions options)
+    {
+        if (options.ScriptCode is null || options.ScriptCode.Parameters is null|| options.ScriptCode.Parameters.Count == 0)
+        {
+            return;
+        }
 
+        host.Logger.Verbose("Adding metadata to route: {Pattern}", options.Pattern);
+        _ = map.WithMetadata(options.ScriptCode.Parameters);
+    }
     /// <summary>
     /// Applies short-circuiting behavior to the route.
     /// </summary>
@@ -770,7 +854,7 @@ public static partial class KestrunHostMapExtensions
     /// <param name="options">The mapping options.</param>
     private static void ApplyAuthSchemes(KestrunHost host, IEndpointConventionBuilder map, MapRouteOptions options)
     {
-        if (options.RequireSchemes is { Length: > 0 })
+        if (options.RequireSchemes is not null && options.RequireSchemes.Count != 0)
         {
             foreach (var schema in options.RequireSchemes)
             {
@@ -799,7 +883,7 @@ public static partial class KestrunHostMapExtensions
     /// <param name="options">The mapping options.</param>
     private static void ApplyPolicies(KestrunHost host, IEndpointConventionBuilder map, MapRouteOptions options)
     {
-        if (options.RequirePolicies is { Length: > 0 })
+        if (options.RequirePolicies is not null && options.RequirePolicies.Count != 0)
         {
             foreach (var policy in options.RequirePolicies)
             {
@@ -808,7 +892,7 @@ public static partial class KestrunHostMapExtensions
                     throw new ArgumentException($"Authorization policy '{policy}' is not registered.", nameof(options.RequirePolicies));
                 }
             }
-            _ = map.RequireAuthorization(options.RequirePolicies);
+            _ = map.RequireAuthorization(options.RequirePolicies.ToArray());
         }
         else
         {
@@ -839,37 +923,31 @@ public static partial class KestrunHostMapExtensions
     /// </summary>
     /// <param name="host">The Kestrun host.</param>
     /// <param name="map">The endpoint convention builder.</param>
-    /// <param name="options">The mapping options.</param>
-    private static void ApplyOpenApiMetadata(KestrunHost host, IEndpointConventionBuilder map, MapRouteOptions options)
+    /// <param name="openAPI">The OpenAPI metadata.</param>
+    private static void ApplyOpenApiMetadata(KestrunHost host, IEndpointConventionBuilder map, OpenAPIMetadata openAPI)
     {
-        if (!string.IsNullOrEmpty(options.OpenAPI.OperationId))
+        if (!string.IsNullOrEmpty(openAPI.OperationId))
         {
-            host.Logger.Verbose("Adding OpenAPI metadata for route: {Pattern} with OperationId: {OperationId}", options.Pattern, options.OpenAPI.OperationId);
-            _ = map.WithName(options.OpenAPI.OperationId);
+            host.Logger.Verbose("Adding OpenAPI metadata for route: {Pattern} with OperationId: {OperationId}", openAPI.Pattern, openAPI.OperationId);
+            _ = map.WithName(openAPI.OperationId);
         }
 
-        if (!string.IsNullOrWhiteSpace(options.OpenAPI.Summary))
+        if (!string.IsNullOrWhiteSpace(openAPI.Summary))
         {
-            host.Logger.Verbose("Adding OpenAPI summary for route: {Pattern} with Summary: {Summary}", options.Pattern, options.OpenAPI.Summary);
-            _ = map.WithSummary(options.OpenAPI.Summary);
+            host.Logger.Verbose("Adding OpenAPI summary for route: {Pattern} with Summary: {Summary}", openAPI.Pattern, openAPI.Summary);
+            _ = map.WithSummary(openAPI.Summary);
         }
 
-        if (!string.IsNullOrWhiteSpace(options.OpenAPI.Description))
+        if (!string.IsNullOrWhiteSpace(openAPI.Description))
         {
-            host.Logger.Verbose("Adding OpenAPI description for route: {Pattern} with Description: {Description}", options.Pattern, options.OpenAPI.Description);
-            _ = map.WithDescription(options.OpenAPI.Description);
+            host.Logger.Verbose("Adding OpenAPI description for route: {Pattern} with Description: {Description}", openAPI.Pattern, openAPI.Description);
+            _ = map.WithDescription(openAPI.Description);
         }
 
-        if (options.OpenAPI.Tags.Length > 0)
+        if (openAPI.Tags.Count > 0)
         {
-            host.Logger.Verbose("Adding OpenAPI tags for route: {Pattern} with Tags: {Tags}", options.Pattern, string.Join(", ", options.OpenAPI.Tags));
-            _ = map.WithTags(options.OpenAPI.Tags);
-        }
-
-        if (!string.IsNullOrWhiteSpace(options.OpenAPI.GroupName))
-        {
-            host.Logger.Verbose("Adding OpenAPI group name for route: {Pattern} with GroupName: {GroupName}", options.Pattern, options.OpenAPI.GroupName);
-            _ = map.WithGroupName(options.OpenAPI.GroupName);
+            host.Logger.Verbose("Adding OpenAPI tags for route: {Pattern} with Tags: {Tags}", openAPI.Pattern, string.Join(", ", openAPI.Tags));
+            _ = map.WithTags([.. openAPI.Tags]);
         }
     }
 
@@ -881,7 +959,7 @@ public static partial class KestrunHostMapExtensions
     /// <param name="htmlFilePath">The path to the HTML template file.</param>
     /// <param name="requireSchemes">Optional array of authorization schemes required for the route.</param>
     /// <returns>An IEndpointConventionBuilder for further configuration.</returns>
-    public static IEndpointConventionBuilder AddHtmlTemplateRoute(this KestrunHost host, string pattern, string htmlFilePath, string[]? requireSchemes = null)
+    public static IEndpointConventionBuilder AddHtmlTemplateRoute(this KestrunHost host, string pattern, string htmlFilePath, List<string>? requireSchemes = null)
     {
         return host.AddHtmlTemplateRoute(new MapRouteOptions
         {
@@ -944,6 +1022,116 @@ public static partial class KestrunHostMapExtensions
     }
 
     /// <summary>
+    /// Adds a Swagger UI route to the KestrunHost for the specified pattern and OpenAPI endpoint.
+    /// </summary>
+    /// <param name="host">The KestrunHost instance.</param>
+    /// <param name="options">The MapRouteOptions containing route configuration.</param>
+    /// <param name="openApiEndpoint">The URI of the OpenAPI endpoint.</param>
+    /// <returns>An IEndpointConventionBuilder for further configuration.</returns>
+    /// <exception cref="ArgumentException">Thrown when the provided options are invalid.</exception>
+    /// <exception cref="InvalidOperationException">Thrown when the Swagger UI route cannot be created.</exception>
+    public static IEndpointConventionBuilder AddSwaggerUiRoute(this KestrunHost host, MapRouteOptions options, Uri openApiEndpoint)
+    {
+        if (host.Logger.IsEnabled(LogEventLevel.Debug))
+        {
+            host.Logger.Debug("Adding Swagger UI route: {Pattern} for OpenAPI endpoint: {OpenApiEndpoint}", options.Pattern, openApiEndpoint);
+        }
+
+        if (options.HttpVerbs.Count != 0 &&
+            (options.HttpVerbs.Count > 1 || options.HttpVerbs.First() != HttpVerb.Get))
+        {
+            host.Logger.Error("Swagger UI routes only support GET requests. Provided HTTP verbs: {HttpVerbs}", string.Join(", ", options.HttpVerbs));
+            throw new ArgumentException("Swagger UI routes only support GET requests.", nameof(options.HttpVerbs));
+        }
+        // Set default pattern if not provided
+        if (string.IsNullOrWhiteSpace(options.Pattern))
+        {
+            options.Pattern = "/docs/swagger";
+        }
+        // Load embedded Swagger UI HTML
+        var map = AddHtmlRouteFromEmbeddedResource(host, options.Pattern, openApiEndpoint, "Kestrun.Assets.swagger-ui.html");
+
+        if (host.Logger.IsEnabled(LogEventLevel.Debug))
+        {
+            host.Logger.Debug("Mapped Swagger UI route: {Pattern} for OpenAPI endpoint: {OpenApiEndpoint}", options.Pattern, openApiEndpoint);
+        }
+        if (map is null)
+        {
+            throw new InvalidOperationException("Failed to create Swagger UI route.");
+        }
+        AddMapOptions(host, map, options);
+        return map;
+    }
+
+    /// <summary>
+    /// Adds a Redoc UI route to the KestrunHost for the specified pattern and OpenAPI endpoint.
+    /// </summary>
+    /// <param name="host">The KestrunHost instance.</param>
+    /// <param name="options">The route mapping options.</param>
+    /// <param name="openApiEndpoint">The OpenAPI endpoint URI.</param>
+    /// <returns>An IEndpointConventionBuilder for the mapped route.</returns>
+    /// <exception cref="ArgumentException">Thrown when the provided options are invalid.</exception>
+    /// <exception cref="InvalidOperationException">Thrown when the Swagger UI route cannot be created.</exception>
+    public static IEndpointConventionBuilder AddRedocUiRoute(this KestrunHost host, MapRouteOptions options, Uri openApiEndpoint)
+    {
+        if (host.Logger.IsEnabled(LogEventLevel.Debug))
+        {
+            host.Logger.Debug("Adding Redoc UI route: {Pattern} for OpenAPI endpoint: {OpenApiEndpoint}", options.Pattern, openApiEndpoint);
+        }
+
+        if (options.HttpVerbs.Count != 0 &&
+            (options.HttpVerbs.Count > 1 || options.HttpVerbs.First() != HttpVerb.Get))
+        {
+            host.Logger.Error("Redoc UI routes only support GET requests. Provided HTTP verbs: {HttpVerbs}", string.Join(", ", options.HttpVerbs));
+            throw new ArgumentException("Redoc UI routes only support GET requests.", nameof(options.HttpVerbs));
+        }
+        // Set default pattern if not provided
+        if (string.IsNullOrWhiteSpace(options.Pattern))
+        {
+            options.Pattern = "/docs/redoc";
+        }
+        // Load embedded Redoc HTML
+        var map = AddHtmlRouteFromEmbeddedResource(host, options.Pattern, openApiEndpoint, "Kestrun.Assets.redoc-ui.html");
+        if (host.Logger.IsEnabled(LogEventLevel.Debug))
+        {
+            host.Logger.Debug("Mapped Redoc UI route: {Pattern} for OpenAPI endpoint: {OpenApiEndpoint}", options.Pattern, openApiEndpoint);
+        }
+        if (map is null)
+        {
+            throw new InvalidOperationException("Failed to create Redoc UI route.");
+        }
+        AddMapOptions(host, map, options);
+        return map;
+    }
+
+    /// <summary>
+    /// Add a HTML route from an embedded resource.
+    /// </summary>
+    /// <param name="host">The KestrunHost instance.</param>
+    /// <param name="pattern">The route pattern.</param>
+    /// <param name="openApiEndpoint">The OpenAPI endpoint URI.</param>
+    /// <param name="embeddedResource">The embedded resource name.</param>
+    /// <exception cref="InvalidOperationException"></exception>
+    private static IEndpointConventionBuilder? AddHtmlRouteFromEmbeddedResource(KestrunHost host, string pattern, Uri openApiEndpoint, string embeddedResource)
+    {
+        _ = host.AddMapRoute(pattern: pattern, httpVerb: HttpVerb.Get, async (ctx) =>
+          {
+              var asm = typeof(KestrunHostMapExtensions).Assembly;
+              using var stream = asm.GetManifestResourceStream(embeddedResource)
+                  ?? throw new InvalidOperationException($"Embedded Redoc HTML not found: {embeddedResource}");
+              using var ms = new MemoryStream();
+              stream.CopyTo(ms);
+              var htmlBuffer = ms.ToArray();
+              ctx.Response.ContentType = "text/html; charset=utf-8";
+              await ctx.Response.WriteHtmlResponseAsync(htmlBuffer, new Dictionary<string, object?>
+              {
+                  { "OPENAPI_ENDPOINT", openApiEndpoint.ToString() }
+              }, ctx.Response.StatusCode);
+          }, out var map);
+        return map;
+    }
+
+    /// <summary>
     /// Checks if a route with the specified pattern and optional HTTP method exists in the KestrunHost.
     /// </summary>
     /// <param name="host">The KestrunHost instance.</param>
@@ -955,7 +1143,7 @@ public static partial class KestrunHostMapExtensions
         var methodSet = verbs.Select(v => v.ToMethodString()).ToHashSet(StringComparer.OrdinalIgnoreCase);
         return host._registeredRoutes.Keys
             .Where(k => string.Equals(k.Pattern, pattern, StringComparison.OrdinalIgnoreCase))
-            .Any(k => methodSet.Contains(k.Method));
+            .Any(k => methodSet.Contains(k.Method.ToMethodString()));
     }
 
     /// <summary>
@@ -966,8 +1154,7 @@ public static partial class KestrunHostMapExtensions
     /// <param name="verb">The optional HTTP method to check for the route.</param>
     /// <returns>True if the route exists; otherwise, false.</returns>
     public static bool MapExists(this KestrunHost host, string pattern, HttpVerb verb) =>
-        host._registeredRoutes.ContainsKey((pattern, verb.ToMethodString()));
-
+        host._registeredRoutes.ContainsKey((pattern, verb));
 
     /// <summary>
     /// Retrieves the <see cref="MapRouteOptions"/> associated with a given route pattern and HTTP verb, if registered.
@@ -994,7 +1181,7 @@ public static partial class KestrunHostMapExtensions
     /// </example>
     public static MapRouteOptions? GetMapRouteOptions(this KestrunHost host, string pattern, HttpVerb verb)
     {
-        return host._registeredRoutes.TryGetValue((pattern, verb.ToMethodString()), out var options)
+        return host._registeredRoutes.TryGetValue((pattern, verb), out var options)
             ? options
             : null;
     }
@@ -1054,7 +1241,7 @@ public static partial class KestrunHostMapExtensions
         host.AddMapOptions(map, options);
 
         // (Optional) track in your registry for consistency / duplicate checks
-        host._registeredRoutes[(options.Pattern, HttpMethods.Get)] = options;
+        host._registeredRoutes[(options.Pattern, HttpVerb.Get)] = options;
 
         host.Logger.Information("Added token endpoint: {Pattern} (GET)", options.Pattern);
         return map;
@@ -1132,7 +1319,6 @@ public static partial class KestrunHostMapExtensions
     /// </summary>
     [GeneratedRegex(@"^([^:]+):(\d+)$")]
     private static partial Regex HostPortSpecMatcher();
-
 
     /// <summary>
     /// Matches a URL that starts with "http://" or "https://", followed by a host (excluding '/', '?', or '#'), and ends with a colon.

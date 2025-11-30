@@ -16,8 +16,8 @@ public class ClaimPolicyExtensionsTests
         {
             Policies = new()
             {
-                ["Admin"] = new ClaimRule(ClaimTypes.Role, "Admin", "Owner"),
-                ["Named"] = new ClaimRule(ClaimTypes.Name, "Alice")
+                ["Admin"] = new ClaimRule(ClaimTypes.Role, string.Empty, "Admin", "Owner"),
+                ["Named"] = new ClaimRule(ClaimTypes.Name, string.Empty, "Alice")
             }
         };
 

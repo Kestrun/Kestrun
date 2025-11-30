@@ -12,6 +12,7 @@
 function Get-KrEnvironment {
     [KestrunRuntimeApi('Everywhere')]
     [CmdletBinding()]
+    [OutputType([string])]
     param()
     return [Kestrun.Runtime.EnvironmentHelper]::Name
 }

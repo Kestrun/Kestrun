@@ -1,6 +1,7 @@
 
 using System.Management.Automation;
 using System.Reflection;
+using Kestrun.Languages;
 using Kestrun.Scripting;
 
 namespace Kestrun.Hosting.Options;
@@ -53,4 +54,9 @@ public record LanguageOptions
     /// Version of the C# language to use when <see cref="Language"/> is <see cref="ScriptLanguage.CSharp"/>.
     /// </summary>
     public Microsoft.CodeAnalysis.CSharp.LanguageVersion LanguageVersion { get; set; } = Microsoft.CodeAnalysis.CSharp.LanguageVersion.CSharp12;
+
+    /// <summary>
+    /// Parameters to be injected into the script.
+    /// </summary>
+    public List<ParameterForInjectionInfo> Parameters { get; internal set; } = [];
 }

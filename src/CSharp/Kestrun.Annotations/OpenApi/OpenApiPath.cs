@@ -26,7 +26,7 @@ public sealed class OpenApiPath() : KestrunAnnotation
     /// <summary>
     /// Comma-separated tags for OpenAPI documentation.
     /// </summary>
-    public string? Tags { get; set; } // Comma-separated tags
+    public string[] Tags { get; set; } = [];
 
     /// <summary>
     /// Indicates whether the operation is deprecated in OpenAPI documentation.

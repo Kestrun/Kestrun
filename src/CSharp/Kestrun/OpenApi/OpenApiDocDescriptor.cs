@@ -452,8 +452,9 @@ public class OpenApiDocDescriptor
                 }
 
                 schema.Deprecated |= schemaAttribute.Deprecated;
-                schema.AdditionalPropertiesAllowed |= schemaAttribute.AdditionalPropertiesAllowed;
-
+                //  schema.AdditionalPropertiesAllowed |= schemaAttribute.AdditionalPropertiesAllowed;
+                // Apply additionalProperties schema if specified
+                ApplyAdditionalProperties(schema, schemaAttribute);
                 if (schemaAttribute.Example is not null)
                 {
                     schema.Example = ToNode(schemaAttribute.Example);
@@ -505,6 +506,144 @@ public class OpenApiDocDescriptor
         }
         return schema;
     }
+
+
+    private void ApplyAdditionalProperties(OpenApiSchema schema, OpenApiSchemaComponent attr)
+    {
+        // Are we only toggling the bool, or describing a full schema?
+        var hasDetails =
+            !string.IsNullOrWhiteSpace(attr.AdditionalPropertiesType) ||
+            !string.IsNullOrWhiteSpace(attr.AdditionalPropertiesFormat) ||
+            !string.IsNullOrWhiteSpace(attr.AdditionalPropertiesRef) ||
+            attr.AdditionalPropertiesClrType is not null ||
+            attr.AdditionalPropertiesIsArray ||
+            !string.IsNullOrWhiteSpace(attr.AdditionalPropertiesDescription) ||
+            (attr.AdditionalPropertiesEnum is { Length: > 0 });
+
+        if (!hasDetails)
+        {
+            // Backward-compatible: only the boolean matters
+            schema.AdditionalPropertiesAllowed |= attr.AdditionalPropertiesAllowed;
+            return;
+        }
+
+        // If user explicitly disabled additional properties, honor it
+        if (!attr.AdditionalPropertiesAllowed)
+        {
+            schema.AdditionalPropertiesAllowed = false;
+            schema.AdditionalProperties = null;
+            return;
+        }
+
+        var valueSchema = BuildAdditionalPropertiesSchema(attr);
+        if (valueSchema is null)
+        {
+            // Fallback: open dictionary, no typed schema
+            schema.AdditionalPropertiesAllowed = true;
+            schema.AdditionalProperties = null;
+            return;
+        }
+
+        schema.AdditionalPropertiesAllowed = true;
+        schema.AdditionalProperties = valueSchema;
+    }
+
+    private OpenApiSchema? BuildAdditionalPropertiesSchema(OpenApiSchemaComponent attr)
+    {
+        OpenApiSchema? valueSchema = null;
+
+        // 1) CLR type: use PrimitiveSchemaMap first, then InferPrimitiveSchema
+        if (attr.AdditionalPropertiesClrType is not null)
+        {
+            var t = attr.AdditionalPropertiesClrType;
+
+            if (PrimitiveSchemaMap.TryGetValue(t, out var factory))
+            {
+                valueSchema = factory();
+            }
+            else
+            {
+                // your existing inference logic (handles PowerShell types etc.)
+                valueSchema = InferPrimitiveSchema(t, requestBodyPreferred: false);
+            }
+        }
+        // 2) Raw type/format string: small inline mapping, no ToJsonSchemaType helper
+        else if (!string.IsNullOrWhiteSpace(attr.AdditionalPropertiesType))
+        {
+            JsonSchemaType? typeEnum = null;
+            switch (attr.AdditionalPropertiesType)
+            {
+                case "string":
+                    typeEnum = JsonSchemaType.String;
+                    break;
+                case "integer":
+                    typeEnum = JsonSchemaType.Integer;
+                    break;
+                case "number":
+                    typeEnum = JsonSchemaType.Number;
+                    break;
+                case "boolean":
+                    typeEnum = JsonSchemaType.Boolean;
+                    break;
+                case "array":
+                    typeEnum = JsonSchemaType.Array;
+                    break;
+                case "object":
+                    typeEnum = JsonSchemaType.Object;
+                    break;
+                case "null":
+                    typeEnum = JsonSchemaType.Null;
+                    break;
+            }
+
+            if (typeEnum is not null)
+            {
+                valueSchema = new OpenApiSchema
+                {
+                    Type = typeEnum,
+                    Format = attr.AdditionalPropertiesFormat
+                };
+            }
+        }
+        // 3) Ref: your OpenApiSchema doesn’t support $ref directly,
+        // so for now we can’t express this cleanly. You can later add
+        // a custom extension if you want.
+        else if (!string.IsNullOrWhiteSpace(attr.AdditionalPropertiesRef))
+        {
+            // TODO: log / ignore / custom extension
+            valueSchema = null;
+        }
+
+        if (valueSchema is null)
+        {
+            return null;
+        }
+
+        // Wrap as array if requested
+        if (attr.AdditionalPropertiesIsArray)
+        {
+            valueSchema = new OpenApiSchema
+            {
+                Type = JsonSchemaType.Array,
+                Items = valueSchema
+            };
+        }
+
+        if (!string.IsNullOrWhiteSpace(attr.AdditionalPropertiesDescription))
+        {
+            valueSchema.Description = attr.AdditionalPropertiesDescription;
+        }
+
+        // attr.AdditionalPropertiesEnum: you can wire this up later if your
+        // OpenApiSchema exposes some Enum collection; for now we skip it.
+
+        return valueSchema;
+    }
+
+
+
+
+
     /// <summary>
     /// Determines if a value is the intrinsic default for its declared type.
     /// </summary>
@@ -1614,10 +1753,13 @@ public class OpenApiDocDescriptor
         }
         if (resp.SchemaRef is not null)
         {
-            var media = GetOrAddMediaType(response, resp.ContentType);
-            media.Schema = resp.Inline
-                ? CloneSchemaOrThrow(resp.SchemaRef)
-                : new OpenApiSchemaReference(resp.SchemaRef);
+            foreach (var ct in resp.ContentTypes)
+            {
+                var media = GetOrAddMediaType(response, ct);
+                media.Schema = resp.Inline
+                    ? CloneSchemaOrThrow(resp.SchemaRef)
+                    : new OpenApiSchemaReference(resp.SchemaRef);
+            }
         }
         return true;
     }
@@ -2541,10 +2683,8 @@ public class OpenApiDocDescriptor
                             }
 
                             // Tags
-                            if (!string.IsNullOrWhiteSpace(oaPath.Tags))
-                            {
-                                openApiAttr.Tags = [.. oaPath.Tags.Split(',')];
-                            }
+                            openApiAttr.Tags = [.. oaPath.Tags];
+
                             // OperationId
                             // if not specified, default to function name
                             // if blank, do not set
@@ -2792,8 +2932,10 @@ public class OpenApiDocDescriptor
                 }
                 // Schema
                 mediaType.Schema = schema;
-
-                requestBody.Content[request.ContentType] = mediaType;
+                foreach (var contentType in request.ContentType)
+                {
+                    requestBody.Content[contentType] = mediaType;
+                }
                 return true;
             default:
                 return false;

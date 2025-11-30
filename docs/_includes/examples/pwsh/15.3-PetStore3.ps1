@@ -114,6 +114,13 @@ class Order {
     [bool]$complete
 }
 
+[OpenApiSchemaComponent(AdditionalPropertiesAllowed = $true,
+    AdditionalPropertiesType = 'integer',
+    AdditionalPropertiesFormat = 'int32',
+    Description = 'Inventory counts by status')]
+class Inventory {
+}
+
 #region COMPONENT REQUEST BODIES
 # =========================================================
 #                 COMPONENT REQUEST BODIES
@@ -332,6 +339,14 @@ class Resp_PetById_Get {
     [Error]$Default
 }
 
+[OpenApiResponseComponent( )]
+class ResponseDefault {
+
+    [OpenApiResponseAttribute(Description = 'Unexpected error')]
+    [OpenApiContentTypeAttribute(ContentType = 'application/json')]
+    [Error]$Default
+}
+
 [OpenApiResponseComponent(JoinClassName = '-')]
 class Resp_PetById_PostForm {
     [OpenApiResponseAttribute(Description = 'successful operation')]
@@ -341,10 +356,6 @@ class Resp_PetById_PostForm {
 
     [OpenApiResponseAttribute(Description = 'Invalid input')]
     [object]$BadRequest
-
-    [OpenApiResponseAttribute(Description = 'Unexpected error')]
-    [OpenApiContentTypeAttribute(ContentType = 'application/json')]
-    [Error]$Default
 }
 
 [OpenApiResponseComponent(JoinClassName = '-')]
@@ -355,9 +366,6 @@ class Resp_PetById_Delete {
     [OpenApiResponseAttribute(Description = 'Invalid pet value')]
     [object]$BadRequest
 
-    [OpenApiResponseAttribute(Description = 'Unexpected error')]
-    [OpenApiContentTypeAttribute(ContentType = 'application/json')]
-    [Error]$Default
 }
 
 # ---------- /pet/{petId}/uploadImage  (POST)
@@ -605,11 +613,14 @@ function updatePet {
     [OpenApiResponseRefAttribute( StatusCode = '400' , ReferenceId = 'Resp_Pet_Write-BadRequest', Inline = $true )]
     [OpenApiResponseRefAttribute( StatusCode = '404' , ReferenceId = 'Resp_Pet_Write-NotFound', Inline = $true )]
     [OpenApiResponseRefAttribute( StatusCode = '422' , ReferenceId = 'Resp_Pet_Write-UnprocessableEntity', Inline = $true )]
-    [OpenApiResponseRefAttribute( StatusCode = 'default' , ReferenceId = 'Resp_Pet_Write-Default' )]
+    [OpenApiResponseRefAttribute( StatusCode = 'default' , ReferenceId = 'Default', Inline = $true )]
+    # [OpenApiAuthorizationAttribute( Scheme = 'petstore_auth' , Policies = 'write:pets, read:pets' )]
     param(
         [OpenApiParameterAttribute(In = [OaParameterLocation]::Path, Description = 'Update an existing pet by Id.' )]
         [long]$petId,
-        [OpenApiRequestBodyAttribute(Description = 'Update an existent pet in the store' , Inline = $true)]
+        [OpenApiRequestBodyAttribute(Description = 'Update an existent pet in the store' ,
+            Inline = $true, Required = $true,
+            ContentType = ('application/json', 'application/xml', 'application/x-www-form-urlencoded'))]
         [Pet]$pet
     )
     # Stub handler; the doc is our star tonight.
@@ -631,11 +642,13 @@ function addPet {
     [OpenApiResponseRefAttribute( StatusCode = '200' , ReferenceId = 'Resp_Pet_Write-OK', Inline = $true )]
     [OpenApiResponseRefAttribute( StatusCode = '400' , ReferenceId = 'Resp_Pet_Write-BadRequest', Inline = $true )]
     [OpenApiResponseRefAttribute( StatusCode = '422' , ReferenceId = 'Resp_Pet_Write-UnprocessableEntity', Inline = $true )]
-    [OpenApiResponseRefAttribute( StatusCode = 'default' , ReferenceId = 'Resp_Pet_Write-Default' )]
+    [OpenApiResponseRefAttribute( StatusCode = 'default' , ReferenceId = 'Default' , Inline = $true)]
     # [OpenApiAuthorizationAttribute( Scheme = 'petstore_auth' , Policies = 'write:pets, read:pets' )]
 
     param(
-        [OpenApiRequestBodyAttribute(Description = 'Create a new pet in the store' , Inline = $true)]
+        [OpenApiRequestBodyAttribute(Description = 'Create a new pet in the store' ,
+            Inline = $true, Required = $true,
+            ContentType = ('application/json', 'application/xml', 'application/x-www-form-urlencoded'))]
         [Pet] $pet
     )
     # Stub handler; the doc is our star tonight.
@@ -650,7 +663,7 @@ function findPetsByStatus {
         Description = 'Multiple status values can be provided with comma separated strings.')]
     [OpenApiResponseRefAttribute( StatusCode = '200' , ReferenceId = 'Resp_FindByStatus-OK', Inline = $true )]
     [OpenApiResponseRefAttribute( StatusCode = '400' , ReferenceId = 'Resp_FindByStatus-BadRequest', Inline = $true )]
-    [OpenApiResponseRefAttribute( StatusCode = 'default' , ReferenceId = 'Resp_FindByStatus-Default' )]
+    [OpenApiResponseRefAttribute( StatusCode = 'default' , ReferenceId = 'Default' )]
     # [OpenApiAuthorizationAttribute( Scheme = 'petstore_auth' , Policies = 'write:pets, read:pets' )]
     param(
         [OpenApiParameterRefAttribute(ReferenceId = 'FindByStatusParams-status' )]
@@ -666,7 +679,7 @@ function findPetsByTags {
         Description = 'Multiple tags can be provided with comma separated strings.')]
     [OpenApiResponseRefAttribute( StatusCode = '200' , ReferenceId = 'Resp_FindByTags-OK', Inline = $true )]
     [OpenApiResponseRefAttribute( StatusCode = '400' , ReferenceId = 'Resp_FindByTags-BadRequest', Inline = $true )]
-    [OpenApiResponseRefAttribute( StatusCode = 'default' , ReferenceId = 'Resp_FindByTags-Default' )]
+    [OpenApiResponseRefAttribute( StatusCode = 'default' , ReferenceId = 'Default' )]
     # [OpenApiAuthorizationAttribute( Scheme = 'petstore_auth' , Policies = 'write:pets, read:pets' )]
     param(
         [OpenApiParameterRefAttribute(ReferenceId = 'FindByTagsParams-tags' , Inline = $true)]
@@ -689,7 +702,7 @@ function getPetById {
     [OpenApiResponseRefAttribute( StatusCode = '200' , ReferenceId = 'Resp_PetById_Get-OK', Inline = $true )]
     [OpenApiResponseRefAttribute( StatusCode = '400' , ReferenceId = 'Resp_PetById_Get-BadRequest', Inline = $true )]
     [OpenApiResponseRefAttribute( StatusCode = '404' , ReferenceId = 'Resp_PetById_Get-NotFound', Inline = $true )]
-    [OpenApiResponseRefAttribute( StatusCode = 'default' , ReferenceId = 'Resp_PetById_Get-Default' )]
+    [OpenApiResponseRefAttribute( StatusCode = 'default' , ReferenceId = 'Default' )]
     # [OpenApiAuthorizationAttribute( Scheme = 'petstore_auth' , Policies = 'write:pets, read:pets' )]
     param(
         [OpenApiParameterAttribute(In = [OaParameterLocation]::Path, Description = 'ID of pet to return' )]
@@ -707,7 +720,7 @@ function updatePetWithForm {
         Description = 'Updates a pet resource based on the form data.')]
     [OpenApiResponseRefAttribute( StatusCode = '200' , ReferenceId = 'Resp_PetById_PostForm-OK', Inline = $true )]
     [OpenApiResponseRefAttribute( StatusCode = '400' , ReferenceId = 'Resp_PetById_PostForm-BadRequest', Inline = $true )]
-    [OpenApiResponseRefAttribute( StatusCode = 'default' , ReferenceId = 'Resp_PetById_PostForm-Default' )]
+    [OpenApiResponseRefAttribute( StatusCode = 'default' , ReferenceId = 'Default' )]
     # [OpenApiAuthorizationAttribute( Scheme = 'petstore_auth' , Policies = 'write:pets, read:pets' )]
     param(
         [OpenApiParameterRefAttribute(ReferenceId = 'petId')]
@@ -730,16 +743,16 @@ function deletePet {
         OperationId = 'deletePet')]
     [OpenApiResponseRefAttribute( StatusCode = '200' , ReferenceId = 'Resp_PetById_Delete-OK', Inline = $true )]
     [OpenApiResponseRefAttribute( StatusCode = '400' , ReferenceId = 'Resp_PetById_Delete-BadRequest', Inline = $true )]
-    [OpenApiResponseRefAttribute( StatusCode = 'default' , ReferenceId = 'Resp_PetById_Delete-Default' )]
+    [OpenApiResponseRefAttribute( StatusCode = 'default' , ReferenceId = 'Default' )]
     # [OpenApiAuthorizationAttribute( Scheme = 'petstore_auth' , Policies = 'write:pets, read:pets' )]
     param(
-        [OpenApiParameterRefAttribute(ReferenceId = 'petId')]
-        $PetId,
-        [OpenApiParameterRefAttribute(ReferenceId = 'api_key' )]
-        $Api_key
+        [OpenApiParameterAttribute(In = [OaParameterLocation]::Header, Description = '' )]
+        [string]$Api_key,
+        [OpenApiParameterAttribute(Description = 'Pet id to delete', In = [OaParameterLocation]::Path, Required = $true )]
+        [long]$petId
     )
 
-    Write-Host "deletePet called with petId='$PetId' and api_key='$Api_key'"
+    Write-Host "deletePet called with petId='$petId' and api_key='$Api_key'"
     Write-KrJsonResponse @(@{}) -StatusCode 200
 }
 
@@ -749,20 +762,41 @@ function uploadImage {
         Description = 'Upload image of the pet.',
         OperationId = 'uploadImage')]
     [OpenApiResponseRefAttribute( StatusCode = '200' , ReferenceId = 'Resp_UploadImage-OK', Inline = $true )]
-    [OpenApiResponseRefAttribute( StatusCode = '400' , ReferenceId = 'Resp_UploadImage-BadRequest', Inline = $true )]
-    [OpenApiResponseRefAttribute( StatusCode = '404' , ReferenceId = 'Resp_UploadImage-NotFound', Inline = $true )]
-    [OpenApiResponseRefAttribute( StatusCode = 'default' , ReferenceId = 'Resp_UploadImage-Default' )]
+    [OpenApiResponseRefAttribute( StatusCode = 'default' , ReferenceId = 'Default' )]
     # [OpenApiAuthorizationAttribute( Scheme = 'petstore_auth' , Policies = 'write:pets, read:pets' )]
     param(
-        [OpenApiParameterRefAttribute(ReferenceId = 'UploadImageParams-petId' )]#-Key 'petId')] # TODO: Key for ReferenceId
-        $PetId,
-        [OpenApiParameterRefAttribute(ReferenceId = 'UploadImageParams-additionalMetadata' )]
-        $AdditionalMetadata,
+        [OpenApiParameterAttribute(Description = 'ID of pet to update', In = [OaParameterLocation]::Path, Required = $true )]
+        [long]$petId,
+
+        [OpenApiParameterAttribute(In = [OaParameterLocation]::Query, Description = 'Additional Metadata', Required = $false )]
+        [string]$AdditionalMetadata,
+
         [OpenApiRequestBodyAttribute(Description = 'Upload an image file' , ContentType = 'application/octet-stream' )]
         [byte[]]$Image
     )
 
     Write-Host "uploadImage called with additionalMetadata='$AdditionalMetadata' and petId='$PetId'"
+    Write-Host "Image size: $($Image.Length) bytes"
+    Write-KrJsonResponse @(@{}) -StatusCode 200
+}
+
+
+function getInventory {
+    [OpenApiPath(HttpVerb = 'Get' , Pattern = '/store/inventory', Tags = 'store',
+        Summary = 'Returns pet inventories by status.',
+        Description = 'Returns a map of status codes to quantities.'  )]
+    [OpenApiResponseAttribute( StatusCode = '200' , SchemaRef = 'Inventory', Inline = $true )]
+    [OpenApiResponseRefAttribute( StatusCode = '400' , ReferenceId = 'Resp_PetById_Delete-BadRequest', Inline = $true )]
+    [OpenApiResponseRefAttribute( StatusCode = 'default' , ReferenceId = 'Default' )]
+    # [OpenApiAuthorizationAttribute( Scheme = 'petstore_auth' , Policies = 'write:pets, read:pets' )]
+    param(
+        [OpenApiParametefAttribute(In = [OaParameterLocation]::Header, Description = '' )]
+        [string]$Api_key,
+        [OpenApiParameterAttribute(Description = 'Pet id to delete', In = [OaParameterLocation]::Path, Required = $true )]
+        [long]$PetId
+    )
+
+    Write-Host "deletePet called with petId='$PetId' and api_key='$Api_key'"
     Write-KrJsonResponse @(@{}) -StatusCode 200
 }
 <#

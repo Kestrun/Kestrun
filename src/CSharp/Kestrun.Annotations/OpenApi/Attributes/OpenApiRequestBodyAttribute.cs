@@ -5,14 +5,11 @@
 [AttributeUsage(AttributeTargets.Class | AttributeTargets.Property | AttributeTargets.Field, AllowMultiple = true, Inherited = false)]
 public sealed class OpenApiRequestBodyAttribute : KestrunAnnotation
 {
-    /// <summary>Optional component key override. If omitted, generator will use class/member naming rules.</summary>
-    public string? Key { get; set; }
-
     /// <summary>Description for the request body.</summary>
     public string? Description { get; set; }
 
     /// <summary>Media type. Defaults to application/json.</summary>
-    public string ContentType { get; set; } = "application/json";
+    public string[] ContentType { get; set; } = ["application/json"];
 
     /// <summary>Whether the request body is required.</summary>
     public bool Required { get; set; }

@@ -70,7 +70,7 @@ jobs:
                   echo "gh_debug=${ACTIONS_STEP_DEBUG:-false}" >> "$GITHUB_OUTPUT"
 
             - name: 🛎️ Checkout
-              uses: actions/checkout@v6
+              uses: actions/checkout@v6.0.0
 
             - name: 🧰 Install PowerShell
               uses: ./.github/actions/Install-PowerShell

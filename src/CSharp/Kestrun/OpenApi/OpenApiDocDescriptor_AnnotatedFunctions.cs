@@ -1,9 +1,14 @@
 using System.Management.Automation;
+using System.Management.Automation.Internal;
+using System.Reflection;
+using System.Text.Json.Nodes;
+using Json.Schema;
 using Kestrun.Hosting;
 using Kestrun.Hosting.Options;
 using Kestrun.Languages;
 using Kestrun.Utilities;
 using Microsoft.OpenApi;
+
 
 namespace Kestrun.OpenApi;
 
@@ -99,6 +104,7 @@ public partial class OpenApiDocDescriptor
                             }
                             // Deprecated flag (per-verb OpenAPI metadata)
                             openApiAttr.Deprecated |= oaPath.Deprecated; // carry forward deprecated flag
+
                         }
                         //TODO: handle other OpenAPI attributes like Header
                         else if (attr is OpenApiResponseRefAttribute oaRRa)
@@ -137,6 +143,37 @@ public partial class OpenApiDocDescriptor
                             if (CreateResponseFromAttribute(oaRa, response))
                             {
                                 openApiAttr.Responses.Add(oaRa.StatusCode, response);
+                            }
+                        }
+                        else if (attr is OpenApiPropertyAttribute oaPA)
+                        {
+                            if (oaPA.StatusCode is null)
+                            {
+                                continue;
+                            }
+
+                            if (openApiAttr.Responses is null || !openApiAttr.Responses.ContainsKey(oaPA.StatusCode))
+                            {
+                                throw new InvalidOperationException($"Response for status code '{oaPA.StatusCode}' is not defined for this operation.");
+                            }
+                            var res = openApiAttr.Responses[oaPA.StatusCode];
+                            if (res is OpenApiResponseReference)
+                            {
+                                throw new InvalidOperationException($"Cannot apply OpenApiPropertyAttribute to response '{oaPA.StatusCode}' because it is a reference. Use inline OpenApiResponseAttribute instead.");
+                            }
+
+                            var response = (OpenApiResponse)res;
+                            if (response.Content is null || response.Content.Count == 0)
+                            {
+                                throw new InvalidOperationException($"Cannot apply OpenApiPropertyAttribute to response '{oaPA.StatusCode}' because it has no content defined. Ensure that the response has at least one content type defined.");
+                            }
+                            foreach (var content in response.Content.Values)
+                            {
+                                if (content.Schema is null)
+                                {
+                                    throw new InvalidOperationException($"Cannot apply OpenApiPropertyAttribute to response '{oaPA.StatusCode}' because its content has no schema defined.");
+                                }
+                                ApplySchemaAttr(oaPA, content.Schema);
                             }
                         }
                         else if (attr is OpenApiAuthorizationAttribute oaRBa)
@@ -190,6 +227,10 @@ public partial class OpenApiDocDescriptor
                                 parameter.Schema = InferPrimitiveSchema(param.ParameterType);
                                 // Apply description from help if not set
                                 parameter.Description ??= help.GetParameterDescription(param.Name);
+                                foreach (var attr in param.Attributes.OfType<CmdletMetadataAttribute>())
+                                {
+                                    PowerShellAttributes.ApplyPowerShellAttributes(attr, (OpenApiSchema)parameter.Schema);
+                                }
                                 openApiAttr.Parameters.Add(parameter);
                                 // Add to script code parameter injection info
                                 routeOptions.ScriptCode.Parameters.Add(new ParameterForInjectionInfo(param.Name, parameter));

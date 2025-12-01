@@ -11,10 +11,9 @@ using Kestrun.Hosting.Options;
 using Kestrun.Utilities;
 using Microsoft.OpenApi.Reader;
 using System.Text;
-using System.Management.Automation;
 using Kestrun.Authentication;
-using Kestrun.Languages;
 using Kestrun.Runtime;
+using System.Management.Automation;
 
 namespace Kestrun.OpenApi;
 
@@ -667,13 +666,12 @@ public partial class OpenApiDocDescriptor
             {
                 m.Type = a.Type;
             }
-
+            // array flag: OR them
             // collect Required names if your attribute exposes them
             if (a.Required is { Length: > 0 })
             {
                 m.Required = [.. (m.Required ?? []).Concat(a.Required).Distinct()];
             }
-
             // carry any custom fields like XmlName if you have them
             if (!string.IsNullOrWhiteSpace(a.XmlName))
             {
@@ -727,7 +725,7 @@ public partial class OpenApiDocDescriptor
 
             return new OpenApiSchema { Type = JsonSchemaType.Array, Items = InferPrimitiveSchema(type.GetElementType() ?? typeof(object)) };
         }
-        
+
         // Special handling for PowerShell OpenAPI classes
         if (PowerShellOpenApiClassExporter.ValidClassNames.Contains(type.Name))
         {
@@ -1000,7 +998,7 @@ public partial class OpenApiDocDescriptor
         => t.IsPrimitive || t == typeof(string) || t == typeof(decimal) || t == typeof(DateTime) || t == typeof(Guid) || t == typeof(object);
     #endregion
 
-    private static JsonNode? ToNode(object? value)
+    internal static JsonNode? ToNode(object? value)
     {
         if (value is null)
         {
@@ -1233,7 +1231,7 @@ public partial class OpenApiDocDescriptor
 
             var s = new OpenApiSchema { Type = JsonSchemaType.Array, Items = itemSchema };
             ApplySchemaAttr(schemaAttr, s);
-            ApplyPowerShellValidationAttributes(p, s);
+            PowerShellAttributes.ApplyPowerShellValidationAttributes(p, s);
             if (allowNull)
             {
                 s.Type |= JsonSchemaType.Null;
@@ -1253,7 +1251,7 @@ public partial class OpenApiDocDescriptor
         {
             var s = InferPrimitiveSchema(pt);
             ApplySchemaAttr(schemaAttr, s);
-            ApplyPowerShellValidationAttributes(p, s);
+            PowerShellAttributes.ApplyPowerShellValidationAttributes(p, s);
             // If no explicit default provided via schema attribute, try to pull default from property value
             if (s is OpenApiSchema sc && sc.Default is null)
             {
@@ -1451,7 +1449,7 @@ public partial class OpenApiDocDescriptor
                 var propAttrs = p.GetCustomAttributes<OpenApiPropertyAttribute>(inherit: false).ToArray();
                 var a = MergeSchemaAttributes(propAttrs);
                 ApplySchemaAttr(a, schema);
-                ApplyPowerShellValidationAttributes(p, schema);
+                PowerShellAttributes.ApplyPowerShellValidationAttributes(p, schema);
                 if (allowNull)
                 {
                     schema.Type |= JsonSchemaType.Null;
@@ -1479,7 +1477,7 @@ public partial class OpenApiDocDescriptor
                     Items = itemSchema
                 };
                 ApplySchemaAttr(p.GetCustomAttribute<OpenApiPropertyAttribute>(), schema);
-                ApplyPowerShellValidationAttributes(p, schema);
+                PowerShellAttributes.ApplyPowerShellValidationAttributes(p, schema);
                 if (allowNull)
                 {
                     schema.Type |= JsonSchemaType.Null;
@@ -1498,7 +1496,7 @@ public partial class OpenApiDocDescriptor
                 if (sc is OpenApiSchema schema)
                 {
                     ApplySchemaAttr(p.GetCustomAttribute<OpenApiPropertyAttribute>(), schema);
-                    ApplyPowerShellValidationAttributes(p, schema);
+                    PowerShellAttributes.ApplyPowerShellValidationAttributes(p, schema);
                     if (allowNull)
                     {
                         schema.Type |= JsonSchemaType.Null;
@@ -2100,117 +2098,7 @@ public partial class OpenApiDocDescriptor
         return obj;
     }
 
-    // Map PowerShell validation attributes on properties to OpenAPI schema constraints
-    private static void ApplyPowerShellValidationAttributes(PropertyInfo p, IOpenApiSchema s)
-    {
-        if (s is not OpenApiSchema sc)
-        {
-            return; // constraints only applicable on a concrete schema, not a $ref proxy
-        }
 
-        foreach (var attr in p.GetCustomAttributes(inherit: false))
-        {
-            var atName = attr.GetType().Name;
-            switch (atName)
-            {
-                case "ValidateRangeAttribute":
-                    {
-                        var min = attr.GetType().GetProperty("MinRange")?.GetValue(attr);
-                        var max = attr.GetType().GetProperty("MaxRange")?.GetValue(attr);
-                        if (min is not null)
-                        {
-                            sc.Minimum = min.ToString();
-                        }
-                        if (max is not null)
-                        {
-                            sc.Maximum = max.ToString();
-                        }
-                        break;
-                    }
-                case "ValidateLengthAttribute":
-                    {
-                        var minLen = attr.GetType().GetProperty("MinLength")?.GetValue(attr) as int?;
-                        var maxLen = attr.GetType().GetProperty("MaxLength")?.GetValue(attr) as int?;
-                        if (minLen.HasValue && minLen.Value >= 0)
-                        {
-                            sc.MinLength = minLen.Value;
-                        }
-                        if (maxLen.HasValue && maxLen.Value >= 0)
-                        {
-                            sc.MaxLength = maxLen.Value;
-                        }
-                        break;
-                    }
-                case "ValidateSetAttribute":
-                    {
-                        var vals = attr.GetType().GetProperty("ValidValues")?.GetValue(attr) as System.Collections.IEnumerable;
-                        if (vals is not null)
-                        {
-                            var list = new List<JsonNode>();
-                            foreach (var v in vals)
-                            {
-                                var node = ToNode(v);
-                                if (node is not null)
-                                {
-                                    list.Add(node);
-                                }
-                            }
-                            if (list.Count > 0)
-                            {
-                                var existing = sc.Enum?.ToList() ?? [];
-                                existing.AddRange(list);
-                                sc.Enum = existing;
-                            }
-                        }
-                        break;
-                    }
-                case "ValidatePatternAttribute":
-                    {
-                        var pattern = attr.GetType().GetProperty("RegexPattern")?.GetValue(attr) as string;
-                        if (!string.IsNullOrWhiteSpace(pattern))
-                        {
-                            sc.Pattern = pattern;
-                        }
-                        break;
-                    }
-                case "ValidateCountAttribute":
-                    {
-                        var minItems = attr.GetType().GetProperty("MinLength")?.GetValue(attr) as int?;
-                        var maxItems = attr.GetType().GetProperty("MaxLength")?.GetValue(attr) as int?;
-                        if (minItems.HasValue && minItems.Value >= 0)
-                        {
-                            sc.MinItems = minItems.Value;
-                        }
-                        if (maxItems.HasValue && maxItems.Value >= 0)
-                        {
-                            sc.MaxItems = maxItems.Value;
-                        }
-                        break;
-                    }
-                case "ValidateNotNullOrEmptyAttribute":
-                    {
-                        // If string → minLength=1; if array → minItems=1
-                        if ((sc.Type & JsonSchemaType.String) == JsonSchemaType.String)
-                        {
-                            if (sc.MinLength is null or < 1)
-                            {
-                                sc.MinLength = 1;
-                            }
-                        }
-                        else if ((sc.Type & JsonSchemaType.Array) == JsonSchemaType.Array)
-                        {
-                            if (sc.MinItems is null or < 1)
-                            {
-                                sc.MinItems = 1;
-                            }
-                        }
-                        break;
-                    }
-                default:
-                    break;
-            }
-        }
-    }
     #region Links
     /// <summary>
     /// Builds link components from the specified type.

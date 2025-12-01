@@ -10,6 +10,12 @@
 [AttributeUsage(AttributeTargets.Property | AttributeTargets.Parameter | AttributeTargets.Class | AttributeTargets.Field, Inherited = true, AllowMultiple = true)]
 public sealed class OpenApiPropertyAttribute : KestrunAnnotation
 {
+    /// <summary>
+    /// The HTTP status code (e.g., "200", "400", "404").
+    /// This is only used when applied to method parameters to
+    /// associate the property with a specific response.
+    /// </summary>
+    public string? StatusCode { get; set; }
     // ---- Basic ----
     /// <summary>Human-friendly title for the schema.</summary>
     public string? Title { get; set; }
@@ -68,6 +74,7 @@ public sealed class OpenApiPropertyAttribute : KestrunAnnotation
     public int MaxProperties { get; set; } = -1;
     /// <summary>Min properties an object must contain.</summary>
     public int MinProperties { get; set; } = -1;
+
     /// <summary>
     /// Object-level required property names (apply this on the CLASS).
     /// </summary>
@@ -148,5 +155,8 @@ public sealed class OpenApiPropertyAttribute : KestrunAnnotation
     /// Sets unevaluatedProperties for OpenAPI Schema (null = generator decides).
     /// </summary>
     public bool UnevaluatedProperties { get; set; }
+    /// <summary>
+    /// Schema reference for AdditionalProperties as a string.
+    /// </summary>
     public string? AdditionalProperties { get; set; }
 }

@@ -256,69 +256,7 @@ class Param_Username {
 # COMPONENT: RESPONSES
 # =========================
 
-# ---------- /pet  (PUT updatePet / POST addPet)
-[OpenApiResponseComponent(JoinClassName = '-')]
-class Resp_Pet_Write {
-    # 200
-    [OpenApiResponseAttribute(Description = 'Successful operation')]
-    [OpenApiContentTypeAttribute(ContentType = 'application/json')]
-    [OpenApiContentTypeAttribute(ContentType = 'application/xml')]
-    [Pet]$OK
 
-    # 400
-    [OpenApiResponseAttribute(Description = 'Invalid ID supplied')]
-    [object]$BadRequest
-
-    # 404
-    [OpenApiResponseAttribute(Description = 'Pet not found')]
-    [object]$NotFound
-
-    # 422
-    [OpenApiResponseAttribute(Description = 'Validation exception')]
-    [object]$UnprocessableEntity
-
-    # default
-    [OpenApiResponseAttribute(Description = 'Unexpected error')]
-    [OpenApiContentTypeAttribute(ContentType = 'application/json')]
-    [Error]$Default
-}
-
-# ---------- /pet/findByStatus  (GET)
-[OpenApiResponseComponent(JoinClassName = '-')]
-class Resp_FindByStatus {
-    # 200 -> array of Pet (json+xml)
-    [OpenApiResponseAttribute(Description = 'successful operation')]
-    [OpenApiContentTypeAttribute(ContentType = 'application/json')]
-    [OpenApiContentTypeAttribute(ContentType = 'application/xml')]
-    [OpenApiPropertyAttribute()]
-    [Pet[]]$OK
-
-    # 400
-    [OpenApiResponseAttribute(Description = 'Invalid status value')]
-    [object]$BadRequest
-
-    # default
-    [OpenApiResponseAttribute(Description = 'Unexpected error')]
-    [OpenApiContentTypeAttribute(ContentType = 'application/json')]
-    [Error]$Default
-}
-
-# ---------- /pet/findByTags  (GET)
-[OpenApiResponseComponent(JoinClassName = '-')]
-class Resp_FindByTags {
-    [OpenApiResponseAttribute(Description = 'successful operation')]
-    [OpenApiContentTypeAttribute(ContentType = 'application/json')]
-    [OpenApiContentTypeAttribute(ContentType = 'application/xml')]
-    [OpenApiPropertyAttribute()]
-    [Pet[]]$OK
-
-    [OpenApiResponseAttribute(Description = 'Invalid tag value')]
-    [object]$BadRequest
-
-    [OpenApiResponseAttribute(Description = 'Unexpected error')]
-    [OpenApiContentTypeAttribute(ContentType = 'application/json')]
-    [Error]$Default
-}
 
 # ---------- /pet/{petId}  (GET getPetById, POST updatePetWithForm, DELETE deletePet)
 [OpenApiResponseComponent(JoinClassName = '-')]
@@ -604,28 +542,24 @@ Add-KrApiDocumentationRoute -DocumentType Redoc
     Update an existing pet
 .DESCRIPTION
     Update an existing pet by Id.
-.PARAMETER petId
-    Update an existing pet by Id.
 .PARAMETER pet
     Update an existent pet in the store
 #>
 function updatePet {
-    [OpenApiPath(HttpVerb = 'Put' , Pattern = '/pet/{petId}', Tags = 'pet')]
-    [OpenApiResponseRefAttribute( StatusCode = '200' , ReferenceId = 'Resp_Pet_Write-OK', Inline = $true )]
-    [OpenApiResponseRefAttribute( StatusCode = '400' , ReferenceId = 'Resp_Pet_Write-BadRequest', Inline = $true )]
-    [OpenApiResponseRefAttribute( StatusCode = '404' , ReferenceId = 'Resp_Pet_Write-NotFound', Inline = $true )]
-    [OpenApiResponseRefAttribute( StatusCode = '422' , ReferenceId = 'Resp_Pet_Write-UnprocessableEntity', Inline = $true )]
-    [OpenApiResponseRefAttribute( StatusCode = 'default' , ReferenceId = 'Default', Inline = $true )]
+    [OpenApiPath(HttpVerb = 'Put' , Pattern = '/pet', Tags = 'pet')]
+    [OpenApiResponseAttribute( StatusCode = '200' , Description = 'Successful operation' , Schema = [Pet] , ContentTypes = ('application/json', 'application/xml'))]
+    [OpenApiResponseAttribute( StatusCode = '400' , Description = 'Invalid ID supplied' )]
+    [OpenApiResponseAttribute( StatusCode = '404' , Description = 'Pet not found' )]
+    [OpenApiResponseAttribute( StatusCode = '422' , Description = 'Validation exception' )]
+    [OpenApiResponseAttribute( StatusCode = 'default' , Description = 'Unexpected error' , ContentTypes = ('application/json'))]
     # [OpenApiAuthorizationAttribute( Scheme = 'petstore_auth' , Policies = 'write:pets, read:pets' )]
     param(
-        [OpenApiParameterAttribute(In = [OaParameterLocation]::Path  )]
-        [long]$petId,
         [OpenApiRequestBodyAttribute(Required = $true, Inline = $false,
             ContentType = ('application/json', 'application/xml', 'application/x-www-form-urlencoded'))]
         [Pet]$pet
     )
     # Stub handler; the doc is our star tonight.
-    Write-Host "updatePet called for petId='$petId'"
+    Write-Host 'updatePet called'
     Expand-KrObject -InputObject $pet -Label 'Received Pet:'
     Write-KrJsonResponse @{ ok = $true }
 }
@@ -640,9 +574,9 @@ function updatePet {
 #>
 function addPet {
     [OpenApiPath(HttpVerb = 'Post' , Pattern = '/pet', Tags = 'pet')]
-    [OpenApiResponseRefAttribute( StatusCode = '200' , ReferenceId = 'Resp_Pet_Write-OK', Inline = $true )]
-    [OpenApiResponseRefAttribute( StatusCode = '400' , ReferenceId = 'Resp_Pet_Write-BadRequest', Inline = $true )]
-    [OpenApiResponseRefAttribute( StatusCode = '422' , ReferenceId = 'Resp_Pet_Write-UnprocessableEntity', Inline = $true )]
+    [OpenApiResponseAttribute( StatusCode = '200' , Description = 'Successful operation' , Schema = [Pet] , ContentTypes = ('application/json', 'application/xml'))]
+    [OpenApiResponseAttribute( StatusCode = '400' , Description = 'Invalid Input' )]
+    [OpenApiResponseAttribute( StatusCode = '422' , Description = 'Validation exception' )]
     [OpenApiResponseRefAttribute( StatusCode = 'default' , ReferenceId = 'Default' , Inline = $true)]
     # [OpenApiAuthorizationAttribute( Scheme = 'petstore_auth' , Policies = 'write:pets, read:pets' )]
 
@@ -667,13 +601,15 @@ function addPet {
 #>
 function findPetsByStatus {
     [OpenApiPath(HttpVerb = 'Get' , Pattern = '/pet/findByStatus', Tags = 'pet')]
-    [OpenApiResponseRefAttribute( StatusCode = '200' , ReferenceId = 'Resp_FindByStatus-OK', Inline = $true )]
-    [OpenApiResponseRefAttribute( StatusCode = '400' , ReferenceId = 'Resp_FindByStatus-BadRequest', Inline = $true )]
+    [OpenApiResponseAttribute( StatusCode = '200' , Description = 'successful operation', Schema = [Pet[]] , ContentTypes = ('application/json', 'application/xml') )]
+    [OpenApiResponseAttribute( StatusCode = '400' , Description = 'Invalid status value')]
     [OpenApiResponseRefAttribute( StatusCode = 'default' , ReferenceId = 'Default', Inline = $true )]
     # [OpenApiAuthorizationAttribute( Scheme = 'petstore_auth' , Policies = 'write:pets, read:pets' )]
     param(
-        [OpenApiParameterRefAttribute(ReferenceId = 'FindByStatusParams-status' )]
-        $status
+        #[OpenApiParameterRefAttribute(ReferenceId = 'FindByStatusParams-status' )]
+        [OpenApiParameterAttribute(In = [OaParameterLocation]::Query, Explode = $true)]
+        [ValidateSet('available', 'pending', 'sold')]
+        [string]$status = 'available'
     )
     Write-Host "FindByStatus called with status='$status'"
     Write-KrJsonResponse @(@{}) -StatusCode 200
@@ -689,8 +625,10 @@ function findPetsByStatus {
 #>
 function findPetsByTags {
     [OpenApiPath(HttpVerb = 'Get' , Pattern = '/pet/findByTags', Tags = 'pet')]
-    [OpenApiResponseRefAttribute( StatusCode = '200' , ReferenceId = 'Resp_FindByTags-OK', Inline = $true )]
-    [OpenApiResponseRefAttribute( StatusCode = '400' , ReferenceId = 'Resp_FindByTags-BadRequest', Inline = $true )]
+    [OpenApiResponseAttribute( StatusCode = '200' , Description = 'successful operation', Schema = [Pet[]] ,
+        ContentTypes = ('application/json', 'application/xml'))]
+
+    [OpenApiResponseAttribute( StatusCode = '400' , Description = 'Invalid tag value')]
     [OpenApiResponseRefAttribute( StatusCode = 'default' , ReferenceId = 'Default', Inline = $true )]
     # [OpenApiAuthorizationAttribute( Scheme = 'petstore_auth' , Policies = 'write:pets, read:pets' )]
     param(
@@ -808,7 +746,7 @@ function uploadImage {
         [OpenApiParameterAttribute(In = [OaParameterLocation]::Path, Required = $true )]
         [long]$petId,
 
-        [OpenApiParameterAttribute(In = [OaParameterLocation]::Query,  Required = $false )]
+        [OpenApiParameterAttribute(In = [OaParameterLocation]::Query, Required = $false )]
         [string]$AdditionalMetadata,
 
         [OpenApiRequestBodyAttribute( ContentType = 'application/octet-stream' )]

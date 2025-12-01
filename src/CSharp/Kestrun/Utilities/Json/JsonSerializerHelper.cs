@@ -14,12 +14,16 @@ public static class JsonSerializerHelper
     };
 
     /// <summary>
-    /// Serializes the given object to a JSON string.
+    /// Deserializes the given JSON string to an object of type T.
     /// </summary>
     /// <typeparam name="T"> The type of the object to deserialize to. </typeparam>
     /// <param name="json"> The JSON string to deserialize. </param>
     /// <returns> The deserialized object of type T. </returns>
-    public static T FromJson<T>(string json) => JsonSerializer.Deserialize<T>(json, Options)!;
+    public static T FromJson<T>(string json)
+    {
+        var result = JsonSerializer.Deserialize<T>(json, Options);
+        return result is null ? throw new JsonException($"Deserialization of type '{typeof(T)}' from JSON failed.") : result;
+    }
 
     /// <summary>
     /// Deserializes the given JSON string to an object of the specified type.

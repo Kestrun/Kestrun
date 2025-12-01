@@ -8,7 +8,7 @@ if (-not (Get-Module Kestrun)) { Import-Module Kestrun }
 
 New-KrLogger | Add-KrSinkConsole |
     Set-KrLoggerLevel -Value Debug |
-    Register-KrLogger -Name 'console' -SetAsDefault 
+    Register-KrLogger -Name 'console' -SetAsDefault
 $srv = New-KrServer -Name 'Petstore 3.1 (Kestrun Edition)' -PassThru
 
 # --- Top-level OpenAPI ---
@@ -214,8 +214,8 @@ class CreatePetResponse {
 }
 
 # --- Request Body ---
-[OpenApiRequestBodyComponent(Description = 'Pet creation payload', Required = $true, Inline = $true)]
-[OpenApiRequestBodyComponent(ContentType = 'application/json')]
+[OpenApiRequestBodyComponent(Description = 'Pet creation payload', Required = $true, Inline = $true,
+    ContentType = 'application/json')]
 [OpenApiExampleRefAttribute(Key = 'kitten', ReferenceId = 'NewPetExample')]
 class CreatePetBody {
     [OpenApiPropertyAttribute(MinLength = 1, Required = $true)]
@@ -238,8 +238,8 @@ class CreatePetBody {
 }
 
 # --- Request Body: JSON Merge Patch for Pet ---
-[OpenApiRequestBodyComponent(Description = 'JSON Merge Patch for updating a pet', Required = $true, Inline = $true)]
-[OpenApiRequestBodyComponent(ContentType = 'application/merge-patch+json')]
+[OpenApiRequestBodyComponent(Description = 'JSON Merge Patch for updating a pet', Required = $true, Inline = $true,
+    ContentType = 'application/merge-patch+json')]
 class PatchPetBody {
     # Minimal example payload; clients may include any subset of these fields.
     [OpenApiPropertyAttribute(Description = 'Partial fields to update')]

@@ -13,7 +13,6 @@ using Microsoft.OpenApi.Reader;
 using System.Text;
 using Kestrun.Authentication;
 using Kestrun.Runtime;
-using System.Management.Automation;
 
 namespace Kestrun.OpenApi;
 
@@ -205,17 +204,12 @@ public partial class OpenApiDocDescriptor
                 }
 
                 // Decide whether to include the operation. Prefer explicit enable, but also include when metadata is present.
-                var meta = map.OpenAPI[method];
-                if (meta is null || !meta.Enabled)
+                if (!map.OpenAPI.TryGetValue(method, out var meta) || (!meta.Enabled))
                 {
                     // Skip silent routes by default
                     continue;
                 }
-                /*   if (multipleMethods)
-                   {
-                       pathItem.Description = meta.Description;
-                       pathItem.Summary = meta.Summary;
-                   }*/
+
                 var op = BuildOperationFromMetadata(meta);
 
                 pathItem.AddOperation(HttpMethod.Parse(method.ToMethodString()), op);
@@ -1903,13 +1897,20 @@ public partial class OpenApiDocDescriptor
         var name = string.Empty;
         foreach (var attr in classAttrs)
         {
-            _ = attr switch
+            try
             {
-                OpenApiRequestBodyComponent body => ApplyRequestBodyComponent(body, ref name, requestBody, componentSchema),
-                OpenApiPropertyAttribute prop => ApplyRequestBodySchemaProperty(prop, requestBody, ref componentSchema),
-                OpenApiExampleRefAttribute ex => ApplyRequestBodyExampleRef(ex, requestBody),
-                _ => false
-            };
+                _ = attr switch
+                {
+                    OpenApiRequestBodyComponent body => ApplyRequestBodyComponent(body, ref name, requestBody, componentSchema),
+                    OpenApiPropertyAttribute prop => ApplyRequestBodySchemaProperty(prop, requestBody, ref componentSchema),
+                    OpenApiExampleRefAttribute ex => ApplyRequestBodyExampleRef(ex, requestBody),
+                    _ => false
+                };
+            }
+            catch (Exception ex)
+            {
+                throw new InvalidOperationException($"Error applying attribute '{attr.GetType().Name}' to request body of type '{t.FullName}': {ex.Message}", ex);
+            }
         }
 
         if (string.IsNullOrWhiteSpace(name))
@@ -1940,7 +1941,11 @@ public partial class OpenApiDocDescriptor
         {
             mediaType.Example = ToNode(bodyAttribute.Example);
         }
-        requestBody.Content[bodyAttribute.ContentType ?? "application/json"] = mediaType;
+
+        foreach (var ct in bodyAttribute.ContentType)
+        {
+            requestBody.Content[ct] = mediaType;
+        }
         return true;
     }
 

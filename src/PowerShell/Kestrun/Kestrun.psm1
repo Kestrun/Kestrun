@@ -4,7 +4,7 @@ param()
 # This is the root path for the Kestrun module
 $moduleRootPath = Split-Path -Parent -Path $MyInvocation.MyCommand.Path
 
-if (-not ([AppDomain]::CurrentDomain.GetAssemblies().GetName().Name -contains 'Kestrun.Annotations')) {
+if (([AppDomain]::CurrentDomain.GetAssemblies() | Where-Object { $_.GetName().Name -eq 'Kestrun.Annotations' }).Count -eq 0) {
     Add-Type -LiteralPath (Join-Path -Path $moduleRootPath -ChildPath 'lib' -AdditionalChildPath 'assemblies', 'Kestrun.Annotations.dll')
 }
 

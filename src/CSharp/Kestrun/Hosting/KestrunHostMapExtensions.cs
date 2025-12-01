@@ -163,7 +163,7 @@ public static partial class KestrunHostMapExtensions
             // Try to get version and format from route values
             try
             {
-                specVersion = OpenApiSpecVersionExtensions.FromString(version);
+                specVersion = OpenApiSpecVersionExtensions.ParseOpenApiSpecVersion(version);
                 if (format is not "json" and not "yaml")
                 {
                     throw new InvalidOperationException($"Unsupported OpenAPI format requested: {format}");

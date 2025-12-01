@@ -134,30 +134,23 @@ class test {
 class Upload_OctetStream:OpenApiBinary {}
 
 # RequestBody: UserArray
-[OpenApiRequestBodyComponent(Description = 'List of user object', Required = $true)]
-[OpenApiRequestBodyComponent(ContentType = 'application/json')]
+[OpenApiRequestBodyComponent(Description = 'List of user object', Required = $true, ContentType = 'application/json')]
 [OpenApiPropertyAttribute(Array = $true)]
 class UserArrayBody:User {}
 
 # RequestBody: User
-[OpenApiRequestBodyComponent(Description = 'Created user object', Required = $true)]
-[OpenApiRequestBodyComponent(ContentType = 'application/json')]
-[OpenApiRequestBodyComponent(ContentType = 'application/xml')]
-[OpenApiRequestBodyComponent(ContentType = 'application/x-www-form-urlencoded')]
+[OpenApiRequestBodyComponent(Description = 'Created user object', Required = $true,
+    ContentType = 'application/json', 'application/xml', 'application/x-www-form-urlencoded')]
 class UserBody:User {}
 
 # RequestBody: Pet
-[OpenApiRequestBodyComponent(Description = 'Pet object that needs to be added to the store', Required = $true)]
-[OpenApiRequestBodyComponent(ContentType = 'application/json')]
-[OpenApiRequestBodyComponent(ContentType = 'application/xml')]
-[OpenApiRequestBodyComponent(ContentType = 'application/x-www-form-urlencoded')]
+[OpenApiRequestBodyComponent(Description = 'Pet object that needs to be added to the store', Required = $true,
+    ContentType = 'application/json', 'application/xml', 'application/x-www-form-urlencoded')]
 class PetBody:Pet {}
 
 # RequestBody: Order
-[OpenApiRequestBodyComponent(required = $true)]
-[OpenApiRequestBodyComponent(ContentType = 'application/json')]
-[OpenApiRequestBodyComponent(ContentType = 'application/xml')]
-[OpenApiRequestBodyComponent(ContentType = 'application/x-www-form-urlencoded')]
+[OpenApiRequestBodyComponent(required = $true,
+    ContentType = 'application/json', 'application/xml', 'application/x-www-form-urlencoded')]
 class OrderBody:Order {
 }
 

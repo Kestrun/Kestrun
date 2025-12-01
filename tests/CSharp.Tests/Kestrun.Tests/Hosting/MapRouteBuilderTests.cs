@@ -29,7 +29,7 @@ public class MapRouteBuilderTests
         public int Id { get; set; } = 3;
     }
 
-    [OpenApiRequestBodyComponent(Key = "ReqBody", Description = "req body", ContentType = "application/json", Required = true, Example = "ex-val")]
+    [OpenApiRequestBodyComponent(Key = "ReqBody", Description = "req body", ContentType = ["application/json"], Required = true, Example = "ex-val")]
     private class RequestBodyComponentHolder
     {
         public string Name { get; set; } = "Alice";

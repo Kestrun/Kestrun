@@ -81,7 +81,7 @@ function Add-KrApiKeyAuthentication {
         [Parameter(ValueFromPipeline = $true)]
         [Kestrun.Hosting.KestrunHost]$Server,
 
-        [Parameter(Mandatory)]
+        [Parameter()]
         [string]$AuthenticationScheme = [Kestrun.Authentication.AuthenticationDefaults]::ApiKeySchemeName,
 
         [Parameter()]

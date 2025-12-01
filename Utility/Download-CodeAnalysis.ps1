@@ -1,9 +1,14 @@
 [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidUsingWriteHost', '')]
 param(
     [string]$OutputDir = './src/PowerShell/Kestrun/lib',
-    [switch]$Force
+    [switch]$Force,
+    [string]$NugetPackagePath = './.package/nuget',
+    [switch]$Clean
 )
-
+if ($Clean) {
+    # Clean temp
+    Remove-Item -Path $NugetPackagePath -Recurse -Force
+}
 # Add Helper utility module
 Import-Module -Name './Utility/Modules/Helper.psm1'
 
@@ -24,10 +29,7 @@ $Packages = @(
 )
 
 # Cross‑platform temp
-$tmpDir = [System.IO.Path]::GetTempPath()
-$Tmp = Join-Path $tmpDir '__nuget_tmp_roslyn'
-
-New-Item -ItemType Directory -Path $Tmp -Force | Out-Null
+New-Item -ItemType Directory -Path $NugetPackagePath -Force | Out-Null
 New-Item -ItemType Directory -Path $BaseOut -Force | Out-Null
 
 $missing = @{}
@@ -39,7 +41,7 @@ foreach ($ver in $Versions) {
     foreach ($pkg in $Packages) {
         for ($i = 0; $i -lt 3; $i++) {
             Write-Host "📦 Fetching $pkg $ver"
-            $pkgFolder = Get-PackageFolder -Id $pkg -Version $ver -WorkRoot $Tmp -Force:$Force
+            $pkgFolder = Get-PackageFolder -Id $pkg -Version $ver -WorkRoot $NugetPackagePath -Force:$Force
 
             $libFolder = Join-Path $pkgFolder 'lib'
             $best = Get-BestTfmFolder $libFolder
@@ -69,8 +71,7 @@ foreach ($ver in $Versions) {
     }
 }
 
-# Clean temp
-Remove-Item -Path $Tmp -Recurse -Force
+
 
 # Report summary
 $hadIssue = $false

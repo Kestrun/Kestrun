@@ -18,7 +18,7 @@ public sealed class OpenApiRequestBodyComponent : KestrunAnnotation
     /// <summary>
     /// Media type. Defaults to application/json.
     /// </summary>
-    public string ContentType { get; set; } = "application/json";
+    public string[] ContentType { get; set; } = ["application/json"];
 
     /// <summary>
     /// Whether the request body is required.

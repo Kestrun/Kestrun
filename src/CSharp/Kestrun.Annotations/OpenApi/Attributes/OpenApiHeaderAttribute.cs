@@ -5,6 +5,13 @@
 [AttributeUsage(AttributeTargets.Class | AttributeTargets.Property | AttributeTargets.Field, AllowMultiple = true, Inherited = false)]
 public sealed class OpenApiHeaderAttribute : KestrunAnnotation
 {
+    /// <summary>
+    /// The HTTP status code (e.g., "200", "400", "404").
+    /// This is only used when applied to method parameters to
+    /// associate the property with a specific response.
+    /// </summary>
+    public string? StatusCode { get; set; }
+
     /// <summary>Optional component key override. If omitted, generator will use class/member naming rules.</summary>
     public required string? Key { get; set; }
 

@@ -153,10 +153,8 @@ class AddressExample_NoApt {
 }
 
 # Request body components (class-first; one class per request body; defaults become the example)
-[OpenApiRequestBodyComponent( Description = 'Request body for creating an address', Inline = $true, Required = $true )]
-[OpenApiRequestBodyComponent( ContentType = 'application/json' )]
-[OpenApiRequestBodyComponent( ContentType = 'application/yaml' )]
-[OpenApiRequestBodyComponent( ContentType = 'application/xml' )]
+[OpenApiRequestBodyComponent( Description = 'Request body for creating an address', Inline = $true, Required = $true ,
+    ContentType = ('application/json', 'application/xml', 'application/x-www-form-urlencoded'))]
 #[OpenApiExampleRefAttribute( Key = 'demo', ReferenceId = 'X-Request-ID', Inline = $true )]
 class CreateAddressBody {
     [OpenApiPropertyAttribute(Description = 'The street address')]
@@ -191,9 +189,8 @@ class UpdateAddressBody {
     [string]$City = 'Gotham'
 }
 
-[OpenApiRequestBodyComponent( Description = 'Request body for creating a new user account', Inline = $false )]
+[OpenApiRequestBodyComponent( Description = 'Request body for creating a new user account', Inline = $false, ContentType = 'application/yaml' )]
 [OpenApiExampleRefAttribute( Key = 'userDemo', ReferenceId = 'UserExample_Basic', Inline = $false )]
-[OpenApiRequestBodyComponent( ContentType = 'application/yaml' )]
 class CreateUserBody {
     [OpenApiPropertyAttribute(Description = 'The unique username for the account')]
     [string]$Username = 'jdoe'

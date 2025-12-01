@@ -577,6 +577,16 @@ function Sync-PowerShellDll {
         [Parameter()]
         [string[]]$Frameworks = @('net8.0', 'net9.0')
     )
+    if (  (Test-Path -Path $dest)) {
+        Write-Host "🧹 Cleaning destination folder: $dest"
+        Remove-Item -Path (Join-Path -Path $dest -ChildPath '*') -Recurse -Force -ErrorAction SilentlyContinue | Out-Null
+    }
+
+    if (-not (Test-Path -Path $dest)) {
+        Write-Host "📁 Creating destination folder: $dest"
+        New-Item -Path $dest -ItemType Directory -Force | Out-Null
+    }
+
     $src = Join-Path -Path $PWD -ChildPath 'src' -AdditionalChildPath 'CSharp', 'Kestrun', 'bin', $Configuration
     Write-Host "📁 Preparing to copy files from $src to $dest"
     if (-not (Test-Path -Path $dest)) {

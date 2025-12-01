@@ -163,9 +163,9 @@ public record ParameterForInjectionInfo
     {
         return type switch
         {
-            JsonSchemaType.Integer => int.TryParse(singleValue, out var i) ? i : null,
-            JsonSchemaType.Number => double.TryParse(singleValue, out var d) ? d : null,
-            JsonSchemaType.Boolean => bool.TryParse(singleValue, out var b) ? b : null,
+            JsonSchemaType.Integer => int.TryParse(singleValue, out var i) ? (int?)i : null,
+            JsonSchemaType.Number => double.TryParse(singleValue, out var d) ? (double?)d : null,
+            JsonSchemaType.Boolean => bool.TryParse(singleValue, out var b) ? (bool?)b : null,
             JsonSchemaType.Array => multiValue ?? (singleValue is not null ? new[] { singleValue } : null),
             JsonSchemaType.Object => singleValue,
             JsonSchemaType.String => singleValue,

@@ -12,9 +12,9 @@ public static class OpenApiSpecVersionExtensions
     /// <param name="version">The string representation of the OpenAPI spec version.</param>
     /// <returns>The corresponding <see cref="OpenApiSpecVersion"/> enum value.</returns>
     /// <exception cref="ArgumentException">Thrown when the provided version string is not recognized.</exception>
-    public static OpenApiSpecVersion FromString(this string version)
+    public static OpenApiSpecVersion ParseOpenApiSpecVersion(this string version)
     {
-        var normalized = version.TrimStart('v', 'V'); // "1" or "3.1"
+        var normalized = version.TrimStart('v', 'V');  // e.g. "2.0", "3.0", "3.1"  
         return normalized switch
         {
             "2.0" => OpenApiSpecVersion.OpenApi2_0,

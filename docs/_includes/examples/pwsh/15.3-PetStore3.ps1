@@ -87,7 +87,24 @@ class Error {
     [string]$message
 }
 
-# Pet
+<#
+.SYNOPSIS
+    Pet schema
+.DESCRIPTION
+    A pet for sale in the pet store
+.PARAMETER id
+    Unique identifier for the pet
+.PARAMETER name
+    Name of the pet
+.PARAMETER category
+    Category the pet belongs to
+.PARAMETER photoUrls
+    Photo URLs of the pet
+.PARAMETER tags
+    Tags associated with the pet
+.PARAMETER status
+    Pet status in the store
+#>
 [OpenApiSchemaComponent(Required = 'name,photoUrls')]
 class Pet {
     [long]$id
@@ -125,50 +142,16 @@ class Inventory {
 # =========================================================
 #                 COMPONENT REQUEST BODIES
 # =========================================================
-[OpenApiRequestBodyComponent()]
-class test {
-    [Nullable[long]]$id
-    [OpenApiPropertyAttribute(Description = 'Quantity of items', Minimum = 1, Maximum = 200)]
-    [int]$quantity
-    [OpenApiPropertyAttribute(Description = 'Maximum items allowed', Minimum = 1, Maximum = 200)]
-    [int]$maximum = 200
-    [Pet]$pet
-    [User]$user
-}
-# RequestBody: upload_OctetStream
-[OpenApiRequestBodyComponent(required = $true, ContentType = 'application/octet-stream')]
-#[OpenApiPropertyAttribute(Format = 'binary')]
-class Upload_OctetStream {}
 
 # RequestBody: UserArray
-[OpenApiRequestBodyComponent(Description = 'List of user object', Required = $true)]
-[OpenApiRequestBodyComponent(ContentType = 'application/json')]
+[OpenApiRequestBodyComponent(Description = 'List of user object', Required = $true, ContentType = 'application/json')]
 [OpenApiPropertyAttribute(Array = $true)]
-class UserArrayBody:User {}
-
-# RequestBody: User
-[OpenApiRequestBodyComponent(Description = 'Created user object', Required = $true)]
-[OpenApiRequestBodyComponent(ContentType = 'application/json')]
-[OpenApiRequestBodyComponent(ContentType = 'application/xml')]
-[OpenApiRequestBodyComponent(ContentType = 'application/x-www-form-urlencoded')]
-class UserBody:User {}
+class UserArray:User {}
 
 # RequestBody: Pet
-[OpenApiRequestBodyComponent(Description = 'Pet object that needs to be added to the store', Required = $true)]
-[OpenApiRequestBodyComponent(ContentType = 'application/json')]
-[OpenApiRequestBodyComponent(ContentType = 'application/xml')]
-[OpenApiRequestBodyComponent(ContentType = 'application/x-www-form-urlencoded')]
+[OpenApiRequestBodyComponent(Description = 'Pet object that needs to be added to the store', Required = $true,
+    ContentType = ('application/json', 'application/xml', 'application/x-www-form-urlencoded'))]
 class PetBody:Pet {}
-
-# RequestBody: Order
-[OpenApiRequestBodyComponent(required = $true)]
-[OpenApiRequestBodyComponent(ContentType = 'application/json')]
-[OpenApiRequestBodyComponent(ContentType = 'application/xml')]
-[OpenApiRequestBodyComponent(ContentType = 'application/x-www-form-urlencoded')]
-class OrderBody:Order {
-}
-
-
 #endregion
 
 #region COMPONENT PARAMETERS
@@ -176,106 +159,11 @@ class OrderBody:Order {
 # COMPONENT: PARAMETERS
 # =========================
 
-# /pet/findByStatus?status=available|pending|sold
-[OpenApiParameterComponent(JoinClassName = '-')]
-class FindByStatusParams {
-    [OpenApiParameterAttribute(In = [OaParameterLocation]::Query, Description = 'Status values that need to be considered for filter', Explode = $true)]
-    [ValidateSet('available', 'pending', 'sold')]
-    [string]$status = 'available'
-}
-
-# /pet/findByTags?tags=tag1&tags=tag2 ...
-[OpenApiParameterComponent(JoinClassName = '-')]
-class FindByTagsParams {
-    [OpenApiParameterAttribute(In = [OaParameterLocation]::Query, Description = 'Tags to filter by', Explode = $true)]
-    [string[]]$tags
-}
-
-# /pet/{petId}
-[OpenApiParameterComponent()]
-class Param_PetId {
-    [OpenApiParameterAttribute(In = [OaParameterLocation]::Path, Description = 'ID of pet to return')]
-    [OpenApiPropertyAttribute(Format = 'int64')]
-    [long]$petId
-}
-
-# POST /pet/{petId} (form query params)
-[OpenApiParameterComponent(JoinClassName = '-')]
-class UpdatePetWithFormParams {
-    [OpenApiParameterAttribute(In = [OaParameterLocation]::Query, Description = 'Name of pet that needs to be updated')]
-    [string]$name
-
-    [OpenApiParameterAttribute(In = [OaParameterLocation]::Query, Description = 'Status of pet that needs to be updated')]
-    [string]$status
-}
-
-# DELETE /pet/{petId} (optional api_key header)
-[OpenApiParameterComponent()]
-class DeletePetHeader {
-    [OpenApiParameterAttribute(In = [OaParameterLocation]::Header, Description = '')]
-    [string]$api_key
-}
-
-# /pet/{petId}/uploadImage (plus optional additionalMetadata)
-[OpenApiParameterComponent(JoinClassName = '-')]
-class UploadImageParams {
-    [OpenApiParameterAttribute(In = [OaParameterLocation]::Path, Description = 'ID of pet to update', Name = 'petId')]
-    [long]$petId
-
-    [OpenApiParameterAttribute(In = [OaParameterLocation]::Query, Description = 'Additional Metadata', Name = 'additionalMetadata')]
-    [string]$additionalMetadata
-}
-
-# /store/order/{orderId}
-[OpenApiParameterComponent()]
-class Param_OrderId {
-    [OpenApiParameterAttribute(In = [OaParameterLocation]::Path, Description = 'ID of order that needs to be fetched')]
-    [OpenApiPropertyAttribute(Format = 'int64')]
-    [long]$orderId
-}
-
-# /user/login?username&password
-[OpenApiParameterComponent(JoinClassName = '-')]
-class LoginParams {
-    [OpenApiParameterAttribute(In = [OaParameterLocation]::Query, Description = 'The user name for login')]
-    [string]$username
-
-    [OpenApiParameterAttribute(In = [OaParameterLocation]::Query, Description = 'The password for login in clear text')]
-    [string]$password
-}
-
-# /user/{username}
-[OpenApiParameterComponent(JoinClassName = '-')]
-class Param_Username {
-    [OpenApiParameterAttribute(In = [OaParameterLocation]::Path, Description = 'The name that needs to be fetched. Use user1 for testing')]
-    [string]$username
-}
 #endregion
 #region COMPONENT RESPONSES
 # =========================
 # COMPONENT: RESPONSES
 # =========================
-
-
-
-# ---------- /pet/{petId}  (GET getPetById, POST updatePetWithForm, DELETE deletePet)
-[OpenApiResponseComponent(JoinClassName = '-')]
-class Resp_PetById_Get {
-    [OpenApiResponseAttribute(Description = 'successful operation')]
-    [OpenApiContentTypeAttribute(ContentType = 'application/json')]
-    [OpenApiContentTypeAttribute(ContentType = 'application/xml')]
-    [Pet]$OK
-
-    [OpenApiResponseAttribute(Description = 'Invalid ID supplied')]
-    [object]$BadRequest
-
-    [OpenApiResponseAttribute(Description = 'Pet not found')]
-    [object]$NotFound
-
-    [OpenApiResponseAttribute(Description = 'Unexpected error')]
-    [OpenApiContentTypeAttribute(ContentType = 'application/json')]
-    [Error]$Default
-}
 
 [OpenApiResponseComponent( )]
 class ResponseDefault {
@@ -285,215 +173,7 @@ class ResponseDefault {
     [Error]$Default
 }
 
-[OpenApiResponseComponent(JoinClassName = '-')]
-class Resp_PetById_PostForm {
-    [OpenApiResponseAttribute(Description = 'successful operation')]
-    [OpenApiContentTypeAttribute(ContentType = 'application/json')]
-    [OpenApiContentTypeAttribute(ContentType = 'application/xml')]
-    [Pet]$OK
 
-    [OpenApiResponseAttribute(Description = 'Invalid input')]
-    [object]$BadRequest
-}
-
-[OpenApiResponseComponent(JoinClassName = '-')]
-class Resp_PetById_Delete {
-    [OpenApiResponseAttribute(Description = 'Pet deleted')]
-    [object]$OK
-
-    [OpenApiResponseAttribute(Description = 'Invalid pet value')]
-    [object]$BadRequest
-}
-
-# ---------- /pet/{petId}/uploadImage  (POST)
-[OpenApiResponseComponent(JoinClassName = '-')]
-class Resp_UploadImage {
-    # TODO: Fix Inline attribute
-    [OpenApiResponseAttribute(Description = 'successful operation' )]
-    [OpenApiContentTypeAttribute(ContentType = 'application/json', Inline = $true)]
-    [ApiResponse]$OK
-
-    [OpenApiResponseAttribute(Description = 'No file uploaded')]
-    [object]$BadRequest
-
-    [OpenApiResponseAttribute(Description = 'Pet not found')]
-    [object]$NotFound
-
-    [OpenApiResponseAttribute(Description = 'Unexpected error')]
-    [OpenApiContentTypeAttribute(ContentType = 'application/json')]
-    [Error]$Default
-}
-
-# ---------- /store/inventory  (GET)
-[OpenApiResponseComponent(JoinClassName = '-')]
-class Resp_Inventory {
-    [OpenApiResponseAttribute(Description = 'successful operation')]
-    [OpenApiContentTypeAttribute(ContentType = 'application/json')]
-    [hashtable]$OK  # additionalProperties int32; you can keep as hashtable or a dedicated class if you prefer
-
-    [OpenApiResponseAttribute(Description = 'Unexpected error')]
-    [OpenApiContentTypeAttribute(ContentType = 'application/json')]
-    [Error]$Default
-}
-
-# ---------- /store/order  (POST placeOrder)
-[OpenApiResponseComponent(JoinClassName = '-')]
-class Resp_Order_Create {
-    [OpenApiResponseAttribute(Description = 'successful operation')]
-    [OpenApiContentTypeAttribute(ContentType = 'application/json')]
-    [Order]$OK
-
-    [OpenApiResponseAttribute(Description = 'Invalid input')]
-    [object]$BadRequest
-
-    [OpenApiResponseAttribute(Description = 'Validation exception')]
-    [object]$UnprocessableEntity
-
-    [OpenApiResponseAttribute(Description = 'Unexpected error')]
-    [OpenApiContentTypeAttribute(ContentType = 'application/json')]
-    [Error]$Default
-}
-
-# ---------- /store/order/{orderId}  (GET, DELETE)
-[OpenApiResponseComponent(JoinClassName = '-')]
-class Resp_OrderById_Get {
-    [OpenApiResponseAttribute(Description = 'successful operation')]
-    [OpenApiContentTypeAttribute(ContentType = 'application/json')]
-    [OpenApiContentTypeAttribute(ContentType = 'application/xml')]
-    [Order]$OK
-
-    [OpenApiResponseAttribute(Description = 'Invalid ID supplied')]
-    [object]$BadRequest
-
-    [OpenApiResponseAttribute(Description = 'Order not found')]
-    [object]$NotFound
-
-    [OpenApiResponseAttribute(Description = 'Unexpected error')]
-    [OpenApiContentTypeAttribute(ContentType = 'application/json')]
-    [Error]$Default
-}
-
-[OpenApiResponseComponent(JoinClassName = '-')]
-class Resp_OrderById_Delete {
-    [OpenApiResponseAttribute(Description = 'order deleted')]
-    [object]$OK
-
-    [OpenApiResponseAttribute(Description = 'Invalid ID supplied')]
-    [object]$BadRequest
-
-    [OpenApiResponseAttribute(Description = 'Order not found')]
-    [object]$NotFound
-
-    [OpenApiResponseAttribute(Description = 'Unexpected error')]
-    [OpenApiContentTypeAttribute(ContentType = 'application/json')]
-    [Error]$Default
-}
-
-# ---------- /user  (POST createUser)
-[OpenApiResponseComponent(JoinClassName = '-')]
-class Resp_User_Create {
-    [OpenApiResponseAttribute(Description = 'successful operation')]
-    [OpenApiContentTypeAttribute(ContentType = 'application/json')]
-    [OpenApiContentTypeAttribute(ContentType = 'application/xml')]
-    [User]$OK
-
-    [OpenApiResponseAttribute(Description = 'Unexpected error')]
-    [OpenApiContentTypeAttribute(ContentType = 'application/json')]
-    [Error]$Default
-}
-
-# ---------- /user/createWithList  (POST)
-[OpenApiResponseComponent(JoinClassName = '-')]
-class Resp_User_CreateWithList {
-    [OpenApiResponseAttribute(Description = 'Successful operation')]
-    [OpenApiContentTypeAttribute(ContentType = 'application/json')]
-    [OpenApiContentTypeAttribute(ContentType = 'application/xml')]
-    [User]$OK
-
-    [OpenApiResponseAttribute(Description = 'Unexpected error')]
-    [OpenApiContentTypeAttribute(ContentType = 'application/json')]
-    [Error]$Default
-}
-
-# ---------- /user/login  (GET) with headers
-[OpenApiResponseComponent(JoinClassName = '-')]
-class Resp_User_Login {
-    [OpenApiResponseAttribute(Description = 'successful operation')]
-    [OpenApiHeaderAttribute(Key = 'X-Rate-Limit', Description = 'calls per hour allowed by the user')]
-    [OpenApiHeaderAttribute(Key = 'X-Expires-After', Description = 'date in UTC when token expires')]
-    [OpenApiContentTypeAttribute(ContentType = 'application/xml')]
-    [OpenApiContentTypeAttribute(ContentType = 'application/json')]
-    [string]$OK
-
-    [OpenApiResponseAttribute(Description = 'Invalid username/password supplied')]
-    [object]$BadRequest
-
-    [OpenApiResponseAttribute(Description = 'Unexpected error')]
-    [OpenApiContentTypeAttribute(ContentType = 'application/json')]
-    [Error]$Default
-}
-
-# ---------- /user/logout  (GET)
-[OpenApiResponseComponent(JoinClassName = '-')]
-class Resp_User_Logout {
-    [OpenApiResponseAttribute(Description = 'successful operation')]
-    [object]$OK
-
-    [OpenApiResponseAttribute(Description = 'Unexpected error')]
-    [OpenApiContentTypeAttribute(ContentType = 'application/json')]
-    [Error]$Default
-}
-
-# ---------- /user/{username}  (GET, PUT, DELETE)
-[OpenApiResponseComponent(JoinClassName = '-')]
-class Resp_UserByName_Get {
-    [OpenApiResponseAttribute(Description = 'successful operation')]
-    [OpenApiContentTypeAttribute(ContentType = 'application/json')]
-    [OpenApiContentTypeAttribute(ContentType = 'application/xml')]
-    [User]$OK
-
-    [OpenApiResponseAttribute(Description = 'Invalid username supplied')]
-    [object]$BadRequest
-
-    [OpenApiResponseAttribute(Description = 'User not found')]
-    [object]$NotFound
-
-    [OpenApiResponseAttribute(Description = 'Unexpected error')]
-    [OpenApiContentTypeAttribute(ContentType = 'application/json')]
-    [Error]$Default
-}
-
-[OpenApiResponseComponent(JoinClassName = '-')]
-class Resp_UserByName_Put {
-    [OpenApiResponseAttribute(Description = 'successful operation')]
-    [object]$OK
-
-    [OpenApiResponseAttribute(Description = 'bad request')]
-    [object]$BadRequest
-
-    [OpenApiResponseAttribute(Description = 'user not found')]
-    [object]$NotFound
-
-    [OpenApiResponseAttribute(Description = 'Unexpected error')]
-    [OpenApiContentTypeAttribute(ContentType = 'application/json')]
-    [Error]$Default
-}
-
-[OpenApiResponseComponent(JoinClassName = '-')]
-class Resp_UserByName_Delete {
-    [OpenApiResponseAttribute(Description = 'User deleted')]
-    [object]$OK
-
-    [OpenApiResponseAttribute(Description = 'Invalid username supplied')]
-    [object]$BadRequest
-
-    [OpenApiResponseAttribute(Description = 'User not found')]
-    [object]$NotFound
-
-    [OpenApiResponseAttribute(Description = 'Unexpected error')]
-    [OpenApiContentTypeAttribute(ContentType = 'application/json')]
-    [Error]$Default
-}
 #endregion
 #region COMPONENT SECURITY SCHEMES
 
@@ -547,11 +227,11 @@ Add-KrApiDocumentationRoute -DocumentType Redoc
 #>
 function updatePet {
     [OpenApiPath(HttpVerb = 'Put' , Pattern = '/pet', Tags = 'pet')]
-    [OpenApiResponseAttribute( StatusCode = '200' , Description = 'Successful operation' , Schema = [Pet] , ContentTypes = ('application/json', 'application/xml'))]
-    [OpenApiResponseAttribute( StatusCode = '400' , Description = 'Invalid ID supplied' )]
-    [OpenApiResponseAttribute( StatusCode = '404' , Description = 'Pet not found' )]
-    [OpenApiResponseAttribute( StatusCode = '422' , Description = 'Validation exception' )]
-    [OpenApiResponseAttribute( StatusCode = 'default' , Description = 'Unexpected error' , ContentTypes = ('application/json'))]
+    [OpenApiResponseAttribute(StatusCode = '200' , Description = 'Successful operation' , Schema = [Pet] , ContentTypes = ('application/json', 'application/xml'))]
+    [OpenApiResponseAttribute(StatusCode = '400' , Description = 'Invalid ID supplied' )]
+    [OpenApiResponseAttribute(StatusCode = '404' , Description = 'Pet not found' )]
+    [OpenApiResponseAttribute(StatusCode = '422' , Description = 'Validation exception' )]
+    [OpenApiResponseAttribute(StatusCode = 'default' , Description = 'Unexpected error' , ContentTypes = ('application/json'))]
     # [OpenApiAuthorizationAttribute( Scheme = 'petstore_auth' , Policies = 'write:pets, read:pets' )]
     param(
         [OpenApiRequestBodyAttribute(Required = $true, Inline = $false,
@@ -574,9 +254,9 @@ function updatePet {
 #>
 function addPet {
     [OpenApiPath(HttpVerb = 'Post' , Pattern = '/pet', Tags = 'pet')]
-    [OpenApiResponseAttribute( StatusCode = '200' , Description = 'Successful operation' , Schema = [Pet] , ContentTypes = ('application/json', 'application/xml'))]
-    [OpenApiResponseAttribute( StatusCode = '400' , Description = 'Invalid Input' )]
-    [OpenApiResponseAttribute( StatusCode = '422' , Description = 'Validation exception' )]
+    [OpenApiResponseAttribute(StatusCode = '200' , Description = 'Successful operation' , Schema = [Pet] , ContentTypes = ('application/json', 'application/xml'))]
+    [OpenApiResponseAttribute(StatusCode = '400' , Description = 'Invalid Input' )]
+    [OpenApiResponseAttribute(StatusCode = '422' , Description = 'Validation exception' )]
     [OpenApiResponseRefAttribute( StatusCode = 'default' , ReferenceId = 'Default' , Inline = $true)]
     # [OpenApiAuthorizationAttribute( Scheme = 'petstore_auth' , Policies = 'write:pets, read:pets' )]
 
@@ -601,8 +281,8 @@ function addPet {
 #>
 function findPetsByStatus {
     [OpenApiPath(HttpVerb = 'Get' , Pattern = '/pet/findByStatus', Tags = 'pet')]
-    [OpenApiResponseAttribute( StatusCode = '200' , Description = 'successful operation', Schema = [Pet[]] , ContentTypes = ('application/json', 'application/xml') )]
-    [OpenApiResponseAttribute( StatusCode = '400' , Description = 'Invalid status value')]
+    [OpenApiResponseAttribute(StatusCode = '200' , Description = 'successful operation', Schema = [Pet[]] , ContentTypes = ('application/json', 'application/xml') )]
+    [OpenApiResponseAttribute(StatusCode = '400' , Description = 'Invalid status value')]
     [OpenApiResponseRefAttribute( StatusCode = 'default' , ReferenceId = 'Default', Inline = $true )]
     # [OpenApiAuthorizationAttribute( Scheme = 'petstore_auth' , Policies = 'write:pets, read:pets' )]
     param(
@@ -625,15 +305,15 @@ function findPetsByStatus {
 #>
 function findPetsByTags {
     [OpenApiPath(HttpVerb = 'Get' , Pattern = '/pet/findByTags', Tags = 'pet')]
-    [OpenApiResponseAttribute( StatusCode = '200' , Description = 'successful operation', Schema = [Pet[]] ,
+    [OpenApiResponseAttribute(StatusCode = '200' , Description = 'successful operation', Schema = [Pet[]] ,
         ContentTypes = ('application/json', 'application/xml'))]
 
-    [OpenApiResponseAttribute( StatusCode = '400' , Description = 'Invalid tag value')]
+    [OpenApiResponseAttribute(StatusCode = '400' , Description = 'Invalid tag value')]
     [OpenApiResponseRefAttribute( StatusCode = 'default' , ReferenceId = 'Default', Inline = $true )]
     # [OpenApiAuthorizationAttribute( Scheme = 'petstore_auth' , Policies = 'write:pets, read:pets' )]
     param(
-        [OpenApiParameterRefAttribute(ReferenceId = 'FindByTagsParams-tags' , Inline = $true)]
-        $tags
+        [OpenApiParameterAttribute(In = [OaParameterLocation]::Query, Explode = $true, Required = $false)]
+        [string[]]$tags
     )
     Write-Host "FindByTags called with tags='$tags'"
     Write-KrJsonResponse @(@{}) -StatusCode 200
@@ -649,13 +329,12 @@ function findPetsByTags {
 #>
 function getPetById {
     [OpenApiPath(HttpVerb = 'Get' , Pattern = '/pet/{petId}', Tags = 'pet')]
-    [OpenApiResponseRefAttribute( StatusCode = '200' , ReferenceId = 'Resp_PetById_Get-OK', Inline = $true )]
-    [OpenApiResponseRefAttribute( StatusCode = '400' , ReferenceId = 'Resp_PetById_Get-BadRequest', Inline = $true )]
-    [OpenApiResponseRefAttribute( StatusCode = '404' , ReferenceId = 'Resp_PetById_Get-NotFound', Inline = $true )]
+    [OpenApiResponseAttribute(StatusCode = '200' , Description = 'Successful operation', SchemaRef = 'Pet' )]
+    [OpenApiResponseAttribute( StatusCode = '404' , Description = 'Pet not found')]
     [OpenApiResponseRefAttribute( StatusCode = 'default' , ReferenceId = 'Default', Inline = $true )]
     # [OpenApiAuthorizationAttribute( Scheme = 'petstore_auth' , Policies = 'write:pets, read:pets' )]
     param(
-        [OpenApiParameterAttribute(In = [OaParameterLocation]::Path  )]
+        [OpenApiParameterAttribute(In = [OaParameterLocation]::Path , Required = $true)]
         [long]$petId
     )
     Write-Host "getPetById called with petId='$petId'"
@@ -677,17 +356,17 @@ function getPetById {
 #>
 function updatePetWithForm {
     [OpenApiPath(HttpVerb = 'Post' , Pattern = '/pet/{petId}', Tags = 'pet')]
-    [OpenApiResponseRefAttribute( StatusCode = '200' , ReferenceId = 'Resp_PetById_PostForm-OK', Inline = $true )]
-    [OpenApiResponseRefAttribute( StatusCode = '400' , ReferenceId = 'Resp_PetById_PostForm-BadRequest', Inline = $true )]
+    [OpenApiResponseAttribute( StatusCode = '200' , Description = 'successfully updated')]
+    [OpenApiResponseAttribute( StatusCode = '400' , Description = 'Invalid input')]
     [OpenApiResponseRefAttribute( StatusCode = 'default' , ReferenceId = 'Default', Inline = $true )]
     # [OpenApiAuthorizationAttribute( Scheme = 'petstore_auth' , Policies = 'write:pets, read:pets' )]
     param(
-        [OpenApiParameterRefAttribute(ReferenceId = 'petId')]
-        $petId,
-        [OpenApiParameterRefAttribute(ReferenceId = 'UpdatePetWithFormParams-name' )]
-        $name,
-        [OpenApiParameterRefAttribute(ReferenceId = 'UpdatePetWithFormParams-status' )]
-        $status
+        [OpenApiParameterAttribute(In = [OaParameterLocation]::Path  , Required = $true)]
+        [long]$petId,
+        [OpenApiParameterAttribute(In = [OaParameterLocation]::Query  )]
+        [string]$name,
+        [OpenApiParameterAttribute(In = [OaParameterLocation]::Query  )]
+        [string]  $status
     )
 
     Write-Host "updatePetWithForm called with name='$name' and status='$status',  petId='$petId'"
@@ -705,16 +384,13 @@ function updatePetWithForm {
     ID of pet to delete
 #>
 function deletePet {
-    [OpenApiPath(HttpVerb = 'Delete' , Pattern = '/pet/{petId}', Tags = 'pet',
-        Summary = 'Delete a pet.',
-        Description = 'Delete a pet.',
-        OperationId = 'deletePet')]
-    [OpenApiResponseRefAttribute( StatusCode = '200' , ReferenceId = 'Resp_PetById_Delete-OK', Inline = $true )]
-    [OpenApiResponseRefAttribute( StatusCode = '400' , ReferenceId = 'Resp_PetById_Delete-BadRequest', Inline = $true )]
+    [OpenApiPath(HttpVerb = 'Delete' , Pattern = '/pet/{petId}', Tags = 'pet')]
+    [OpenApiResponseAttribute( StatusCode = '200' , Description = "Successful operation" )]
+    [OpenApiResponseAttribute( StatusCode = '400' , Description = "Invalid pet value" )]
     [OpenApiResponseRefAttribute( StatusCode = 'default' , ReferenceId = 'Default', Inline = $true )]
     # [OpenApiAuthorizationAttribute( Scheme = 'petstore_auth' , Policies = 'write:pets, read:pets' )]
     param(
-        [OpenApiParameterAttribute(In = [OaParameterLocation]::Header )]
+        [OpenApiParameterAttribute( In = [OaParameterLocation]::Header , Required = $false )]
         [string]$Api_key,
         [OpenApiParameterAttribute( In = [OaParameterLocation]::Path, Required = $true )]
         [long]$petId
@@ -739,7 +415,7 @@ function deletePet {
 #>
 function uploadImage {
     [OpenApiPath(HttpVerb = 'Post' , Pattern = '/pet/{petId}/uploadImage', Tags = 'pet')]
-    [OpenApiResponseRefAttribute( StatusCode = '200' , ReferenceId = 'Resp_UploadImage-OK', Inline = $true )]
+    [OpenApiResponseAttribute( StatusCode = '200' , Description = 'Successful operation', SchemaRef = 'ApiResponse', Inline = $true , ContentTypes = ('application/json'))]
     [OpenApiResponseRefAttribute( StatusCode = 'default' , ReferenceId = 'Default', Inline = $true )]
     # [OpenApiAuthorizationAttribute( Scheme = 'petstore_auth' , Policies = 'write:pets, read:pets' )]
     param(
@@ -767,7 +443,7 @@ function uploadImage {
 #>
 function getInventory {
     [OpenApiPath(HttpVerb = 'Get' , Pattern = '/store/inventory', Tags = 'store')]
-    [OpenApiResponseAttribute( StatusCode = '200' , Description = 'Successful operation', SchemaRef = 'Inventory', Inline = $true )]
+    [OpenApiResponseAttribute(StatusCode = '200' , Description = 'Successful operation', SchemaRef = 'Inventory', Inline = $true )]
     [OpenApiResponseRefAttribute( StatusCode = 'default' , ReferenceId = 'Default', Inline = $true )]
     # [OpenApiAuthorizationAttribute( Scheme = 'api_key')]
     param()
@@ -785,9 +461,9 @@ function getInventory {
 #>
 function placeOrder {
     [OpenApiPath(HttpVerb = 'Post' , Pattern = '/store/order', Tags = 'store')]
-    [OpenApiResponseAttribute( StatusCode = '200' , Description = 'Successful operation', SchemaRef = 'Order' )]
-    [OpenApiResponseAttribute( StatusCode = '400' , Description = 'Invalid input' )]
-    [OpenApiResponseAttribute( StatusCode = '422' , Description = 'Validation Exception' )]
+    [OpenApiResponseAttribute(StatusCode = '200' , Description = 'Successful operation', SchemaRef = 'Order' )]
+    [OpenApiResponseAttribute(StatusCode = '400' , Description = 'Invalid input' )]
+    [OpenApiResponseAttribute(StatusCode = '422' , Description = 'Validation Exception' )]
     [OpenApiResponseRefAttribute( StatusCode = 'default' , ReferenceId = 'Default', Inline = $true )]
 
     param(
@@ -808,9 +484,9 @@ function placeOrder {
 #>
 function getOrderById {
     [OpenApiPath(HttpVerb = 'get' , Pattern = '/store/order/{orderId}', Tags = 'store')]
-    [OpenApiResponseAttribute( StatusCode = '200' , Description = 'Successful operation', SchemaRef = 'Order', ContentTypes = ('application/json', 'application/xml'))]
-    [OpenApiResponseAttribute( StatusCode = '400' , Description = 'Invalid ID supplied' )]
-    [OpenApiResponseAttribute( StatusCode = '404' , Description = 'Order not found' )]
+    [OpenApiResponseAttribute(StatusCode = '200' , Description = 'Successful operation', SchemaRef = 'Order', ContentTypes = ('application/json', 'application/xml'))]
+    [OpenApiResponseAttribute(StatusCode = '400' , Description = 'Invalid ID supplied' )]
+    [OpenApiResponseAttribute(StatusCode = '404' , Description = 'Order not found' )]
     [OpenApiResponseRefAttribute( StatusCode = 'default' , ReferenceId = 'Default', Inline = $true )]
 
     param(
@@ -833,9 +509,9 @@ function getOrderById {
 #>
 function deleteOrder {
     [OpenApiPath(HttpVerb = 'delete' , Pattern = '/store/order/{orderId}', Tags = 'store')]
-    [OpenApiResponseAttribute( StatusCode = '200' , Description = 'Successful operation')]
-    [OpenApiResponseAttribute( StatusCode = '400' , Description = 'Invalid ID supplied' )]
-    [OpenApiResponseAttribute( StatusCode = '404' , Description = 'Order not found' )]
+    [OpenApiResponseAttribute(StatusCode = '200' , Description = 'Successful operation')]
+    [OpenApiResponseAttribute(StatusCode = '400' , Description = 'Invalid ID supplied' )]
+    [OpenApiResponseAttribute(StatusCode = '404' , Description = 'Order not found' )]
     [OpenApiResponseRefAttribute( StatusCode = 'default' , ReferenceId = 'Default', Inline = $true )]
 
     param(
@@ -856,7 +532,7 @@ function deleteOrder {
 #>
 function createUser {
     [OpenApiPath(HttpVerb = 'post' , Pattern = '/user', Tags = 'user' )]
-    [OpenApiResponseAttribute( StatusCode = '200' , Description = 'Successful operation', SchemaRef = 'User', ContentTypes = ('application/json', 'application/xml'))]
+    [OpenApiResponseAttribute(StatusCode = '200' , Description = 'Successful operation', SchemaRef = 'User', ContentTypes = ('application/json', 'application/xml'))]
     [OpenApiResponseRefAttribute( StatusCode = 'default' , ReferenceId = 'Default', Inline = $true )]
 
     param(
@@ -877,7 +553,7 @@ function createUser {
 #>
 function createUsersWithListInput {
     [OpenApiPath(HttpVerb = 'post' , Pattern = '/user/createWithList', Tags = 'user' )]
-    [OpenApiResponseAttribute( StatusCode = '200' , Description = 'Successful operation', SchemaRef = 'User', ContentTypes = ('application/json', 'application/xml'))]
+    [OpenApiResponseAttribute(StatusCode = '200' , Description = 'Successful operation', SchemaRef = 'User', ContentTypes = ('application/json', 'application/xml'))]
     [OpenApiResponseRefAttribute( StatusCode = 'default' , ReferenceId = 'Default', Inline = $true )]
 
     param(
@@ -900,10 +576,9 @@ function createUsersWithListInput {
 #>
 function loginUser {
     [OpenApiPath(HttpVerb = 'get' , Pattern = '/user/login', Tags = 'user')]
-    [OpenApiResponseAttribute( StatusCode = '200' , Description = 'Successful operation' , Schema = [string], ContentTypes = ('application/json', 'application/xml'))]
+    [OpenApiResponseAttribute(StatusCode = '200' , Description = 'Successful operation' , Schema = [string], ContentTypes = ('application/json', 'application/xml'))]
+    ##   [OpenApiHeaderAttribute( StatusCode = '200' , Key = 'X-Expires-After', Description = 'date in UTC when token expires')]
     [OpenApiResponseRefAttribute( StatusCode = 'default' , ReferenceId = 'Default', Inline = $true )]
-    [OpenApiHeaderAttribute(Key = 'X-Rate-Limit', Description = 'calls per hour allowed by the user')]
-    [OpenApiHeaderAttribute(Key = 'X-Expires-After', Description = 'date in UTC when token expires')]
     param(
         [OpenApiParameterAttribute( In = [OaParameterLocation]::Query, Required = $false )]
         [string]$username,
@@ -914,70 +589,94 @@ function loginUser {
     Write-Host "loginUser called with username='$username' and password='$password'"
     Write-KrStatusResponse -StatusCode 200
 }
+
 <#
-
-
-# --------------------------------------
-# /user/login (GET)
-# --------------------------------------
-New-KrMapRouteBuilder -Verbs 'GET' -Pattern '/user/login' |
-    Add-KrMapRouteScriptBlock -ScriptBlock { Write-KrJsonResponse '' } |
-    Add-KrMapRouteOpenApiTag -Tags 'user' |
-    Add-KrMapRouteOpenApiInfo -Summary 'Logs user into the system.' -Description 'Log into the system.' -OperationId 'loginUser' |
-    Add-KrMapRouteOpenApiParameter -ReferenceId 'LoginParams-username' -Inline |
-    Add-KrMapRouteOpenApiParameter -ReferenceId 'LoginParams-password' -Inline |
-    Add-KrMapRouteOpenApiResponse -StatusCode '200' -ReferenceId 'Resp_User_Login-OK' -Inline |
-    Add-KrMapRouteOpenApiResponse -StatusCode '400' -ReferenceId 'Resp_User_Login-BadRequest' -Inline |
-    Add-KrMapRouteOpenApiResponse -StatusCode 'default' -ReferenceId 'Resp_User_Login-Default' |
-    Build-KrMapRoute
-
-# --------------------------------------
-# /user/logout (GET)
-# --------------------------------------
-New-KrMapRouteBuilder -Verbs 'GET' -Pattern '/user/logout' |
-    Add-KrMapRouteScriptBlock -ScriptBlock { Write-KrStatusResponse 200 } |
-    Add-KrMapRouteOpenApiTag -Tags 'user' |
-    Add-KrMapRouteOpenApiInfo -Summary 'Logs out current logged in user session.' -Description 'Log user out of the system.' -OperationId 'logoutUser' |
-    Add-KrMapRouteOpenApiResponse -StatusCode '200' -ReferenceId 'Resp_User_Logout-OK' -Inline |
-    Add-KrMapRouteOpenApiResponse -StatusCode 'default' -ReferenceId 'Resp_User_Logout-Default' |
-
-    Build-KrMapRoute
-
-# --------------------------------------
-# /user/{username} (GET, PUT, DELETE)
-# --------------------------------------
-New-KrMapRouteBuilder -Verbs @('GET', 'PUT', 'DELETE') -Pattern '/user/{username}' |
-    Add-KrMapRouteScriptBlock -ScriptBlock { Write-KrJsonResponse @{ } } |
-    Add-KrMapRouteOpenApiTag -Tags 'user' |
-    # parameter component
-    Add-KrMapRouteOpenApiParameter -ReferenceId 'Param_Username-username' -Inline -Key 'username' |
-
-    # GET /user/{username}
-    Add-KrMapRouteOpenApiInfo -Verbs 'GET' -Summary 'Get user by user name.' -Description 'Get user detail based on username.' -OperationId 'getUserByName' |
-    Add-KrMapRouteOpenApiResponse -Verbs 'GET' -StatusCode '200' -ReferenceId 'Resp_UserByName_Get-OK' -Inline |
-    Add-KrMapRouteOpenApiResponse -Verbs 'GET' -StatusCode '400' -ReferenceId 'Resp_UserByName_Get-BadRequest' -Inline |
-    Add-KrMapRouteOpenApiResponse -Verbs 'GET' -StatusCode '404' -ReferenceId 'Resp_UserByName_Get-NotFound' -Inline |
-    Add-KrMapRouteOpenApiResponse -Verbs 'GET' -StatusCode 'default' -ReferenceId 'Resp_UserByName_Get-Default' |
-
-    # PUT /user/{username}
-    Add-KrMapRouteOpenApiInfo -Verbs 'PUT' -Summary 'Update user resource.' -Description 'This can only be done by the logged in user.' -OperationId 'updateUser' |
-
-    Add-KrMapRouteOpenApiResponse -Verbs 'PUT' -StatusCode '200' -ReferenceId 'Resp_UserByName_Put-OK' -Inline |
-    Add-KrMapRouteOpenApiResponse -Verbs 'PUT' -StatusCode '400' -ReferenceId 'Resp_UserByName_Put-BadRequest' -Inline |
-    Add-KrMapRouteOpenApiResponse -Verbs 'PUT' -StatusCode '404' -ReferenceId 'Resp_UserByName_Put-NotFound' -Inline |
-    Add-KrMapRouteOpenApiResponse -Verbs 'PUT' -StatusCode 'default' -ReferenceId 'Resp_UserByName_Put-Default' |
-
-    # DELETE /user/{username}
-    Add-KrMapRouteOpenApiInfo -Verbs 'DELETE' -Summary 'Delete user resource.' -Description 'This can only be done by the logged in user.' -OperationId 'deleteUser' |
-    Add-KrMapRouteOpenApiResponse -Verbs 'DELETE' -StatusCode '200' -ReferenceId 'Resp_UserByName_Delete-OK' -Inline |
-    Add-KrMapRouteOpenApiResponse -Verbs 'DELETE' -StatusCode '400' -ReferenceId 'Resp_UserByName_Delete-BadRequest' -Inline |
-    Add-KrMapRouteOpenApiResponse -Verbs 'DELETE' -StatusCode '404' -ReferenceId 'Resp_UserByName_Delete-NotFound' -Inline |
-    Add-KrMapRouteOpenApiResponse -Verbs 'DELETE' -StatusCode 'default' -ReferenceId 'Resp_UserByName_Delete-Default' |
-
-
-    Build-KrMapRoute
-
+.SYNOPSIS
+    Logs out current logged in user session
+.DESCRIPTION
+    Log user out of the system.
 #>
+function logout {
+    [OpenApiPath(HttpVerb = 'get' , Pattern = '/user/logout', Tags = 'user')]
+    [OpenApiResponseAttribute(StatusCode = '200' , Description = 'Successful operation' )]
+    [OpenApiResponseRefAttribute( StatusCode = 'default' , ReferenceId = 'Default', Inline = $true )]
+    param(
+    )
+    Write-Host "logout called"
+    Write-KrStatusResponse -StatusCode 200
+}
+<#
+.SYNOPSIS
+    Get user by user name
+.DESCRIPTION
+    Get user detail by user name.
+.PARAMETER username
+    The name that needs to be fetched. Use user1 for testing
+#>
+function getUserByName {
+    [OpenApiPath(HttpVerb = 'get' , Pattern = '/user/{username}', Tags = 'user')]
+    [OpenApiResponseAttribute(StatusCode = '200' , Description = 'Successful operation', SchemaRef = 'User', ContentTypes = ('application/json', 'application/xml'))]
+    [OpenApiResponseAttribute(StatusCode = '400' , Description = 'Invalid username supplied')]
+    [OpenApiResponseAttribute(StatusCode = '404' , Description = 'User not found')]
+    [OpenApiResponseRefAttribute( StatusCode = 'default' , ReferenceId = 'Default', Inline = $true )]
+    param(
+        [OpenApiParameterAttribute( In = [OaParameterLocation]::Path, Required = $true )]
+        [string]$username
+    )
+    Write-Host "getUserByName called with username='$username'"
+    $user = [User]::new()
+    Write-KrResponse $user -StatusCode 200
+}
+
+
+<#
+.SYNOPSIS
+    Update user resource
+.DESCRIPTION
+    This can only be done by the logged in user.
+.PARAMETER username
+    name that need to be updated
+.PARAMETER user
+    Updated user object
+#>
+function updateUser {
+    [OpenApiPath(HttpVerb = 'put' , Pattern = '/user/{username}', Tags = 'user')]
+    [OpenApiResponseAttribute(StatusCode = '200' , Description = 'Successful operation')]
+    [OpenApiResponseAttribute(StatusCode = '400' , Description = 'Invalid username supplied')]
+    [OpenApiResponseAttribute(StatusCode = '404' , Description = 'User not found')]
+    [OpenApiResponseRefAttribute( StatusCode = 'default' , ReferenceId = 'Default', Inline = $true )]
+    param(
+        [OpenApiParameterAttribute( In = [OaParameterLocation]::Path, Required = $true )]
+        [string]$username,
+        [OpenApiRequestBodyAttribute(ContentType = ('application/json', 'application/xml', 'application/x-www-form-urlencoded'))]
+        [User]$User
+    )
+    Write-Host "updateUser called with username='$username'"
+    Write-KrStatusResponse -StatusCode 200
+}
+
+<#
+.SYNOPSIS
+    Delete user
+.DESCRIPTION
+    This can only be done by the logged in user.
+.PARAMETER username
+    The name that needs to be deleted
+#>
+function deleteUser {
+    [OpenApiPath(HttpVerb = 'delete' , Pattern = '/user/{username}', Tags = 'user')]
+    [OpenApiResponseAttribute(StatusCode = '200' , Description = 'User deleted')]
+    [OpenApiResponseAttribute(StatusCode = '400' , Description = 'Invalid username supplied')]
+    [OpenApiResponseAttribute(StatusCode = '404' , Description = 'User not found')]
+    [OpenApiResponseRefAttribute( StatusCode = 'default' , ReferenceId = 'Default', Inline = $true )]
+    param(
+        [OpenApiParameterAttribute( In = [OaParameterLocation]::Path, Required = $true )]
+        [string]$username
+    )
+    Write-Host "deleteUser called with username='$username'"
+    Write-KrStatusResponse -StatusCode 200
+}
+
 
 # =========================================================
 #                OPENAPI DOC ROUTE / BUILD

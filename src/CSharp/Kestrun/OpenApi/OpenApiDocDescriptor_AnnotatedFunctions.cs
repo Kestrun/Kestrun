@@ -206,10 +206,10 @@ public partial class OpenApiDocDescriptor
                     }
                 }
                 // Process parameters for [OpenApiParameter] attributes
-                foreach (var param in func.Parameters.Values)
+                foreach (var paramInfo in func.Parameters.Values)
                 {
                     // Check for [OpenApiParameter] attribute on the parameter
-                    var paramAttrs = param.Attributes;
+                    var paramAttrs = paramInfo.Attributes;
                     foreach (var pAttr in paramAttrs)
                     {
                         if (pAttr is OpenApiParameterAttribute oaParamAttr)
@@ -218,24 +218,24 @@ public partial class OpenApiDocDescriptor
                             var parameter = new OpenApiParameter();
                             if (CreateParameterFromAttribute(oaParamAttr, parameter))
                             {
-                                parameter.Name = !string.IsNullOrEmpty(parameter.Name) && parameter.Name != param.Name
+                                parameter.Name = !string.IsNullOrEmpty(parameter.Name) && parameter.Name != paramInfo.Name
                                     ? throw new InvalidOperationException(
-                                         $"Parameter name {parameter.Name} is different from variable name'{param.Name}'.")
-                                    : param.Name;
-                                parameter.Schema = InferPrimitiveSchema(param.ParameterType);
+                                         $"Parameter name {parameter.Name} is different from variable name'{paramInfo.Name}'.")
+                                    : paramInfo.Name;
+                                parameter.Schema = InferPrimitiveSchema(paramInfo.ParameterType);
                                 // Apply description from help if not set
-                                parameter.Description ??= help.GetParameterDescription(param.Name);
-                                foreach (var attr in param.Attributes.OfType<CmdletMetadataAttribute>())
+                                parameter.Description ??= help.GetParameterDescription(paramInfo.Name);
+                                foreach (var attr in paramInfo.Attributes.OfType<CmdletMetadataAttribute>())
                                 {
                                     PowerShellAttributes.ApplyPowerShellAttributes(attr, (OpenApiSchema)parameter.Schema);
                                 }
                                 openApiAttr.Parameters.Add(parameter);
                                 // Add to script code parameter injection info
-                                routeOptions.ScriptCode.Parameters.Add(new ParameterForInjectionInfo(param.Name, parameter));
+                                routeOptions.ScriptCode.Parameters.Add(new ParameterForInjectionInfo(paramInfo.Name, parameter));
                             }
                             else
                             {
-                                Host.Logger.Error("Error processing OpenApiParameter attribute on parameter '{paramName}' of function '{funcName}'", param.Name, func.Name);
+                                Host.Logger.Error("Error processing OpenApiParameter attribute on parameter '{paramName}' of function '{funcName}'", paramInfo.Name, func.Name);
                             }
                         }
                         else if (pAttr is OpenApiParameterRefAttribute oaParamRefAttr)
@@ -249,20 +249,20 @@ public partial class OpenApiDocDescriptor
                             {
                                 parameter = componentParameter.Clone();
                                 // Apply any name override
-                                if (componentParameter.Name != param.Name)
+                                if (componentParameter.Name != paramInfo.Name)
                                 {
                                     throw new InvalidOperationException(
-                                         $"Parameter name {componentParameter.Name} is different from variable name'{param.Name}'.");
+                                         $"Parameter name {componentParameter.Name} is different from variable name'{paramInfo.Name}'.");
                                 }
                                 // Apply description from help if not set
-                                parameter.Description ??= help.GetParameterDescription(param.Name);
+                                parameter.Description ??= help.GetParameterDescription(paramInfo.Name);
                             }
                             else
                             {
                                 parameter = new OpenApiParameterReference(oaParamRefAttr.ReferenceId);
                             }
                             // Apply any name override
-                            routeOptions.ScriptCode.Parameters.Add(new ParameterForInjectionInfo(param.Name, componentParameter));
+                            routeOptions.ScriptCode.Parameters.Add(new ParameterForInjectionInfo(paramInfo.Name, componentParameter));
 
                             openApiAttr.Parameters.Add(parameter);
                         }
@@ -271,16 +271,16 @@ public partial class OpenApiDocDescriptor
                             // if reference id is not set, default to parameter type name
                             if (string.IsNullOrWhiteSpace(oaRBra.ReferenceId))
                             {
-                                if (param.ParameterType.Name is "Object" or null)
+                                if (paramInfo.ParameterType.Name is "Object" or null)
                                 {
                                     throw new InvalidOperationException("OpenApiRequestBodyRefAttribute must have a ReferenceId specified when the parameter type is 'object'.");
                                 }
-                                oaRBra.ReferenceId = param.ParameterType.Name;
+                                oaRBra.ReferenceId = paramInfo.ParameterType.Name;
                             }
-                            else if (param.ParameterType.Name != "Object" && oaRBra.ReferenceId != param.ParameterType.Name)
+                            else if (paramInfo.ParameterType.Name != "Object" && oaRBra.ReferenceId != paramInfo.ParameterType.Name)
                             {
                                 throw new InvalidOperationException(
-                                     $"ReferenceId '{oaRBra.ReferenceId}' is different from parameter type name '{param.ParameterType.Name}'.");
+                                     $"ReferenceId '{oaRBra.ReferenceId}' is different from parameter type name '{paramInfo.ParameterType.Name}'.");
                             }
 
                             // Retrieve the referenced request body
@@ -289,28 +289,28 @@ public partial class OpenApiDocDescriptor
                             openApiAttr.RequestBody = oaRBra.Inline ? componentRequestBody.Clone() : new OpenApiRequestBodyReference(oaRBra.ReferenceId);
 
                             // Apply any description override
-                            openApiAttr.RequestBody.Description = (oaRBra.Description is not null) ? oaRBra.Description : help.GetParameterDescription(param.Name);
+                            openApiAttr.RequestBody.Description = (oaRBra.Description is not null) ? oaRBra.Description : help.GetParameterDescription(paramInfo.Name);
 
                             // Add to script code parameter injection info
-                            routeOptions.ScriptCode.Parameters.Add(new ParameterForInjectionInfo(param.Name, componentRequestBody));
+                            routeOptions.ScriptCode.Parameters.Add(new ParameterForInjectionInfo(paramInfo.Name, componentRequestBody));
                         }
                         else if (pAttr is OpenApiRequestBodyAttribute oaRBa)
                         {
                             var requestBody = new OpenApiRequestBody();
                             // Infer schema for the parameter type
-                            var requestBodyPreferred = ComponentRequestBodiesExists(param.ParameterType.Name);
+                            var requestBodyPreferred = ComponentRequestBodiesExists(paramInfo.ParameterType.Name);
 
                             // Infer primitive schema if not using component
-                            var schema = InferPrimitiveSchema(type: param.ParameterType, requestBodyPreferred: requestBodyPreferred, oaRBa.Inline);
+                            var schema = InferPrimitiveSchema(type: paramInfo.ParameterType, requestBodyPreferred: requestBodyPreferred, oaRBa.Inline);
                             if (CreateRequestBodyFromAttribute(attribute: oaRBa, requestBody: requestBody, schema: schema))
                             {
                                 openApiAttr.RequestBody = requestBody;
 
                                 // Apply any description override
-                                openApiAttr.RequestBody.Description ??= help.GetParameterDescription(param.Name);
+                                openApiAttr.RequestBody.Description ??= help.GetParameterDescription(paramInfo.Name);
 
                                 // Add to script code parameter injection info
-                                routeOptions.ScriptCode.Parameters.Add(new ParameterForInjectionInfo(param.Name, requestBody));
+                                routeOptions.ScriptCode.Parameters.Add(new ParameterForInjectionInfo(paramInfo.Name, requestBody));
                             }
                         }
                         else

@@ -39,20 +39,5 @@ function Get-KrAnnotatedFunctionsLoaded {
         }
         $doc = $Server.OpenApiDocumentDescriptor[$DocId]
         $doc.LoadAnnotatedFunctions( $funcs )
-        <#
-
-
-               $attr -is [OpenApiOperation] -or
-               $attr -is [OpenApiParameter] -or
-               $attr -is [OpenApiRequestBody] -or
-               $attr -is [OpenApiResponse] -or
-               $attr -is [OpenApiResponseRef] -or
-               $attr -is [OpenApiSchema] -or
-               $attr -is [OpenApiSchemaProperty] ) {
-                continue 2
-            }
-            if ($isOpenApi.Invoke($attr)) {
-                continue 2
-            }#>
     }
 }

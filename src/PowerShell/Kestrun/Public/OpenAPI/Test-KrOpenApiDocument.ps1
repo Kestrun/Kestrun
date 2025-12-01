@@ -22,7 +22,7 @@
 #>
 function Test-KrOpenApiDocument {
     [KestrunRuntimeApi('Everywhere')]
-    [OutputType([Microsoft.OpenApi.Reader.OpenApiDiagnostic])]
+    [OutputType([bool])]
     param(
         [Parameter(Mandatory = $false, ValueFromPipeline = $true)]
         [Kestrun.Hosting.KestrunHost]$Server,

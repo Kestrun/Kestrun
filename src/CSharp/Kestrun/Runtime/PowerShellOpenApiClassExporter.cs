@@ -285,7 +285,7 @@ public static class PowerShellOpenApiClassExporter
     public static string WriteOpenApiTempScript(string openApiClasses)
     {
         // Use a stable file name so multiple runspaces share the same script
-        var tempPath = Path.Combine(Path.GetTempPath(), Path.GetTempFileName() + ".ps1");
+        var tempPath = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName() + ".ps1");
 
         // Ensure directory exists
         _ = Directory.CreateDirectory(Path.GetDirectoryName(tempPath)!);

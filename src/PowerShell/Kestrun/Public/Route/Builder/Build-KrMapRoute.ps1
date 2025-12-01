@@ -55,7 +55,7 @@ function Build-KrMapRoute {
 
         if ($PassThru.IsPresent) {
             # if the PassThru switch is specified, return the modified server instance
-            return $Server
+            return $MapRouteBuilder.Server
         }
     }
 }

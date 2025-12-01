@@ -177,7 +177,6 @@ internal static class PowerShellAttributes
         return null;
     }
 
-
     private static object? ApplyNotNullOrEmpty(OpenApiSchema sc)
     {
         // string → minLength >= 1
@@ -201,7 +200,6 @@ internal static class PowerShellAttributes
         return null;
     }
 
-
     private static object? ApplyNotNullOrWhiteSpace(OpenApiSchema sc)
     {
         if (sc.Type == JsonSchemaType.String)
@@ -219,7 +217,6 @@ internal static class PowerShellAttributes
         }
         return null;
     }
-
 
     private static object? ApplyNotNull(OpenApiSchema schema) => ApplyNotNullOrEmpty(schema);
 

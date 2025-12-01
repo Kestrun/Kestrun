@@ -9,7 +9,6 @@ using Kestrun.Languages;
 using Kestrun.Utilities;
 using Microsoft.OpenApi;
 
-
 namespace Kestrun.OpenApi;
 
 public partial class OpenApiDocDescriptor

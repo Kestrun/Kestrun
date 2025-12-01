@@ -36,7 +36,6 @@ public sealed class OpenApiSchemaComponent : KestrunAnnotation
     /// </summary>
     public bool UniqueItems { get; set; }
 
-
     /// <summary>
     /// Inline examples object for the schema (optional).
     /// </summary>

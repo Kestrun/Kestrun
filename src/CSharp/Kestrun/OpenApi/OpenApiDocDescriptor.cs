@@ -560,8 +560,6 @@ public partial class OpenApiDocDescriptor
         return value.Equals(def);
     }
 
-
-
     private static OpenApiPropertyAttribute? MergeSchemaAttributes(OpenApiPropertyAttribute[] attrs)
     {
         if (attrs == null || attrs.Length == 0)
@@ -2098,7 +2096,6 @@ public partial class OpenApiDocDescriptor
         return obj;
     }
 
-
     #region Links
     /// <summary>
     /// Builds link components from the specified type.
@@ -2348,7 +2345,6 @@ public partial class OpenApiDocDescriptor
 
         Document.Components!.Callbacks[t.Name] = cb;
     }
-
 
     private static bool CreateRequestBodyFromAttribute(KestrunAnnotation attribute, OpenApiRequestBody requestBody, IOpenApiSchema schema)
     {

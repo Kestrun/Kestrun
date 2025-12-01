@@ -22,6 +22,7 @@ public partial class OpenApiDocDescriptor
         {
             try
             {
+                var help = func.GetHelp();
                 var sb = func.ScriptBlock;
                 var openApiAttr = new OpenAPIMetadata();
                 if (sb is null)
@@ -65,11 +66,19 @@ public partial class OpenApiDocDescriptor
                             {
                                 openApiAttr.Summary = oaPath.Summary;
                             }
+                            else if (!string.IsNullOrWhiteSpace(help.GetSynopsis()))
+                            {
+                                openApiAttr.Summary = help.GetSynopsis();
+                            }
 
                             // Description
                             if (!string.IsNullOrWhiteSpace(oaPath.Description))
                             {
                                 openApiAttr.Description = oaPath.Description;
+                            }
+                            else if (!string.IsNullOrWhiteSpace(help.GetDescription()))
+                            {
+                                openApiAttr.Description = help.GetDescription();
                             }
 
                             // Tags
@@ -179,6 +188,8 @@ public partial class OpenApiDocDescriptor
                                          $"Parameter name {parameter.Name} is different from variable name'{param.Name}'.")
                                     : param.Name;
                                 parameter.Schema = InferPrimitiveSchema(param.ParameterType);
+                                // Apply description from help if not set
+                                parameter.Description ??= help.GetParameterDescription(param.Name);
                                 openApiAttr.Parameters.Add(parameter);
                                 // Add to script code parameter injection info
                                 routeOptions.ScriptCode.Parameters.Add(new ParameterForInjectionInfo(param.Name, parameter));
@@ -204,6 +215,8 @@ public partial class OpenApiDocDescriptor
                                     throw new InvalidOperationException(
                                          $"Parameter name {componentParameter.Name} is different from variable name'{param.Name}'.");
                                 }
+                                // Apply description from help if not set
+                                parameter.Description ??= help.GetParameterDescription(param.Name);
                             }
                             else
                             {
@@ -235,11 +248,9 @@ public partial class OpenApiDocDescriptor
                             var componentRequestBody = GetRequestBody(oaRBra.ReferenceId);
                             // Determine if we inline the referenced request body or use a $ref
                             openApiAttr.RequestBody = oaRBra.Inline ? componentRequestBody.Clone() : new OpenApiRequestBodyReference(oaRBra.ReferenceId);
+
                             // Apply any description override
-                            if (oaRBra.Description is not null)
-                            {
-                                openApiAttr.RequestBody.Description = oaRBra.Description;
-                            }
+                            openApiAttr.RequestBody.Description = (oaRBra.Description is not null) ? oaRBra.Description : help.GetParameterDescription(param.Name);
 
                             // Add to script code parameter injection info
                             routeOptions.ScriptCode.Parameters.Add(new ParameterForInjectionInfo(param.Name, componentRequestBody));
@@ -255,9 +266,13 @@ public partial class OpenApiDocDescriptor
                             if (CreateRequestBodyFromAttribute(attribute: oaRBa, requestBody: requestBody, schema: schema))
                             {
                                 openApiAttr.RequestBody = requestBody;
+
+                                // Apply any description override
+                                openApiAttr.RequestBody.Description ??= help.GetParameterDescription(param.Name);
+
+                                // Add to script code parameter injection info
+                                routeOptions.ScriptCode.Parameters.Add(new ParameterForInjectionInfo(param.Name, requestBody));
                             }
-                            // Add to script code parameter injection info
-                            routeOptions.ScriptCode.Parameters.Add(new ParameterForInjectionInfo(param.Name, requestBody));
                         }
                         else
                         {

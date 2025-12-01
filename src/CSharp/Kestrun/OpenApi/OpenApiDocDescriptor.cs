@@ -752,7 +752,6 @@ public partial class OpenApiDocDescriptor
                         return rb.ConvertToSchema();
                     }
                 }
-
             }
             else
             {

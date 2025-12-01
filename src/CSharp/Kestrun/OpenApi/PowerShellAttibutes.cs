@@ -60,7 +60,6 @@ internal static class PowerShellAttributes
                     {
                         _ = ApplyValidateLengthAttribute((ValidateLengthAttribute)attr, sc);
                         break;
-
                     }
                 case "ValidateSetAttribute":
                     {
@@ -213,11 +212,9 @@ internal static class PowerShellAttributes
                 // No existing pattern → just require a non-whitespace character
                 sc.Pattern = @"\S";
             }
-
         }
         return null;
     }
 
     private static object? ApplyNotNull(OpenApiSchema schema) => ApplyNotNullOrEmpty(schema);
-
 }

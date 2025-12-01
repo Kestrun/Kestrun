@@ -103,7 +103,6 @@ public partial class OpenApiDocDescriptor
                             }
                             // Deprecated flag (per-verb OpenAPI metadata)
                             openApiAttr.Deprecated |= oaPath.Deprecated; // carry forward deprecated flag
-
                         }
                         //TODO: handle other OpenAPI attributes like Header
                         else if (attr is OpenApiResponseRefAttribute oaRRa)

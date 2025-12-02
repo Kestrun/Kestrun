@@ -211,6 +211,8 @@ Add-KrOAuth2Authentication -AuthenticationScheme 'petstore_auth' `
 Enable-KrConfiguration
 Add-KrApiDocumentationRoute -DocumentType Swagger
 Add-KrApiDocumentationRoute -DocumentType Redoc
+Add-KrApiDocumentationRoute -DocumentType Scalar
+Add-KrApiDocumentationRoute -DocumentType Rapidoc
 
 # --------------------------------------
 # /pet  (PUT, POST)

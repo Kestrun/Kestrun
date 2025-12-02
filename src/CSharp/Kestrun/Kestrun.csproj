@@ -118,6 +118,8 @@
         <EmbeddedResource Include="Assets\favicon.ico" />
         <EmbeddedResource Include="Assets\swagger-ui.html" LogicalName="Kestrun.Assets.swagger-ui.html" />
         <EmbeddedResource Include="Assets\redoc-ui.html" LogicalName="Kestrun.Assets.redoc-ui.html" />
+        <EmbeddedResource Include="Assets\scalar.html" LogicalName="Kestrun.Assets.scalar.html" />
+        <EmbeddedResource Include="Assets\rapidoc.html" LogicalName="Kestrun.Assets.rapidoc.html" />
     </ItemGroup>
 
     <!--───────────── Files to Include in Package ─────────────-->

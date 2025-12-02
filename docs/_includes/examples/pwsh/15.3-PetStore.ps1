@@ -168,8 +168,7 @@ class PetBody:Pet {}
 [OpenApiResponseComponent( )]
 class ResponseDefault {
 
-    [OpenApiResponseAttribute(Description = 'Unexpected error')]
-    [OpenApiContentTypeAttribute(ContentType = 'application/json')]
+    [OpenApiResponseAttribute(Description = 'Unexpected error', ContentType = 'application/json')]
     [Error]$Default
 }
 
@@ -229,11 +228,11 @@ Add-KrApiDocumentationRoute -DocumentType Rapidoc
 #>
 function updatePet {
     [OpenApiPath(HttpVerb = 'Put' , Pattern = '/pet', Tags = 'pet')]
-    [OpenApiResponseAttribute(StatusCode = '200' , Description = 'Successful operation' , Schema = [Pet] , ContentTypes = ('application/json', 'application/xml'))]
+    [OpenApiResponseAttribute(StatusCode = '200' , Description = 'Successful operation' , Schema = [Pet] , ContentType = ('application/json', 'application/xml'))]
     [OpenApiResponseAttribute(StatusCode = '400' , Description = 'Invalid ID supplied' )]
     [OpenApiResponseAttribute(StatusCode = '404' , Description = 'Pet not found' )]
     [OpenApiResponseAttribute(StatusCode = '422' , Description = 'Validation exception' )]
-    [OpenApiResponseAttribute(StatusCode = 'default' , Description = 'Unexpected error' , ContentTypes = ('application/json'))]
+    [OpenApiResponseAttribute(StatusCode = 'default' , Description = 'Unexpected error' , ContentType = ('application/json'))]
     # [OpenApiAuthorizationAttribute( Scheme = 'petstore_auth' , Policies = 'write:pets, read:pets' )]
     param(
         [OpenApiRequestBodyAttribute(Required = $true, Inline = $false,
@@ -256,7 +255,7 @@ function updatePet {
 #>
 function addPet {
     [OpenApiPath(HttpVerb = 'Post' , Pattern = '/pet', Tags = 'pet')]
-    [OpenApiResponseAttribute(StatusCode = '200' , Description = 'Successful operation' , Schema = [Pet] , ContentTypes = ('application/json', 'application/xml'))]
+    [OpenApiResponseAttribute(StatusCode = '200' , Description = 'Successful operation' , Schema = [Pet] , ContentType = ('application/json', 'application/xml'))]
     [OpenApiResponseAttribute(StatusCode = '400' , Description = 'Invalid Input' )]
     [OpenApiResponseAttribute(StatusCode = '422' , Description = 'Validation exception' )]
     [OpenApiResponseRefAttribute( StatusCode = 'default' , ReferenceId = 'Default' , Inline = $true)]
@@ -283,7 +282,7 @@ function addPet {
 #>
 function findPetsByStatus {
     [OpenApiPath(HttpVerb = 'Get' , Pattern = '/pet/findByStatus', Tags = 'pet')]
-    [OpenApiResponseAttribute(StatusCode = '200' , Description = 'successful operation', Schema = [Pet[]] , ContentTypes = ('application/json', 'application/xml') )]
+    [OpenApiResponseAttribute(StatusCode = '200' , Description = 'successful operation', Schema = [Pet[]] , ContentType = ('application/json', 'application/xml') )]
     [OpenApiResponseAttribute(StatusCode = '400' , Description = 'Invalid status value')]
     [OpenApiResponseRefAttribute( StatusCode = 'default' , ReferenceId = 'Default', Inline = $true )]
     # [OpenApiAuthorizationAttribute( Scheme = 'petstore_auth' , Policies = 'write:pets, read:pets' )]
@@ -308,7 +307,7 @@ function findPetsByStatus {
 function findPetsByTags {
     [OpenApiPath(HttpVerb = 'Get' , Pattern = '/pet/findByTags', Tags = 'pet')]
     [OpenApiResponseAttribute(StatusCode = '200' , Description = 'successful operation', Schema = [Pet[]] ,
-        ContentTypes = ('application/json', 'application/xml'))]
+        ContentType = ('application/json', 'application/xml'))]
 
     [OpenApiResponseAttribute(StatusCode = '400' , Description = 'Invalid tag value')]
     [OpenApiResponseRefAttribute( StatusCode = 'default' , ReferenceId = 'Default', Inline = $true )]
@@ -417,7 +416,7 @@ function deletePet {
 #>
 function uploadImage {
     [OpenApiPath(HttpVerb = 'Post' , Pattern = '/pet/{petId}/uploadImage', Tags = 'pet')]
-    [OpenApiResponseAttribute( StatusCode = '200' , Description = 'Successful operation', SchemaRef = 'ApiResponse', Inline = $true , ContentTypes = ('application/json'))]
+    [OpenApiResponseAttribute( StatusCode = '200' , Description = 'Successful operation', SchemaRef = 'ApiResponse', Inline = $true , ContentType = ('application/json'))]
     [OpenApiResponseRefAttribute( StatusCode = 'default' , ReferenceId = 'Default', Inline = $true )]
     # [OpenApiAuthorizationAttribute( Scheme = 'petstore_auth' , Policies = 'write:pets, read:pets' )]
     param(
@@ -486,7 +485,7 @@ function placeOrder {
 #>
 function getOrderById {
     [OpenApiPath(HttpVerb = 'get' , Pattern = '/store/order/{orderId}', Tags = 'store')]
-    [OpenApiResponseAttribute(StatusCode = '200' , Description = 'Successful operation', SchemaRef = 'Order', ContentTypes = ('application/json', 'application/xml'))]
+    [OpenApiResponseAttribute(StatusCode = '200' , Description = 'Successful operation', SchemaRef = 'Order', ContentType = ('application/json', 'application/xml'))]
     [OpenApiResponseAttribute(StatusCode = '400' , Description = 'Invalid ID supplied' )]
     [OpenApiResponseAttribute(StatusCode = '404' , Description = 'Order not found' )]
     [OpenApiResponseRefAttribute( StatusCode = 'default' , ReferenceId = 'Default', Inline = $true )]
@@ -534,7 +533,7 @@ function deleteOrder {
 #>
 function createUser {
     [OpenApiPath(HttpVerb = 'post' , Pattern = '/user', Tags = 'user' )]
-    [OpenApiResponseAttribute(StatusCode = '200' , Description = 'Successful operation', SchemaRef = 'User', ContentTypes = ('application/json', 'application/xml'))]
+    [OpenApiResponseAttribute(StatusCode = '200' , Description = 'Successful operation', SchemaRef = 'User', ContentType = ('application/json', 'application/xml'))]
     [OpenApiResponseRefAttribute( StatusCode = 'default' , ReferenceId = 'Default', Inline = $true )]
 
     param(
@@ -555,7 +554,7 @@ function createUser {
 #>
 function createUsersWithListInput {
     [OpenApiPath(HttpVerb = 'post' , Pattern = '/user/createWithList', Tags = 'user' )]
-    [OpenApiResponseAttribute(StatusCode = '200' , Description = 'Successful operation', SchemaRef = 'User', ContentTypes = ('application/json', 'application/xml'))]
+    [OpenApiResponseAttribute(StatusCode = '200' , Description = 'Successful operation', SchemaRef = 'User', ContentType = ('application/json', 'application/xml'))]
     [OpenApiResponseRefAttribute( StatusCode = 'default' , ReferenceId = 'Default', Inline = $true )]
 
     param(
@@ -578,7 +577,7 @@ function createUsersWithListInput {
 #>
 function loginUser {
     [OpenApiPath(HttpVerb = 'get' , Pattern = '/user/login', Tags = 'user')]
-    [OpenApiResponseAttribute(StatusCode = '200' , Description = 'Successful operation' , Schema = [string], ContentTypes = ('application/json', 'application/xml'))]
+    [OpenApiResponseAttribute(StatusCode = '200' , Description = 'Successful operation' , Schema = [string], ContentType = ('application/json', 'application/xml'))]
     ##   [OpenApiHeaderAttribute( StatusCode = '200' , Key = 'X-Expires-After', Description = 'date in UTC when token expires')]
     [OpenApiResponseRefAttribute( StatusCode = 'default' , ReferenceId = 'Default', Inline = $true )]
     param(
@@ -617,7 +616,7 @@ function logout {
 #>
 function getUserByName {
     [OpenApiPath(HttpVerb = 'get' , Pattern = '/user/{username}', Tags = 'user')]
-    [OpenApiResponseAttribute(StatusCode = '200' , Description = 'Successful operation', SchemaRef = 'User', ContentTypes = ('application/json', 'application/xml'))]
+    [OpenApiResponseAttribute(StatusCode = '200' , Description = 'Successful operation', SchemaRef = 'User', ContentType = ('application/json', 'application/xml'))]
     [OpenApiResponseAttribute(StatusCode = '400' , Description = 'Invalid username supplied')]
     [OpenApiResponseAttribute(StatusCode = '404' , Description = 'User not found')]
     [OpenApiResponseRefAttribute( StatusCode = 'default' , ReferenceId = 'Default', Inline = $true )]

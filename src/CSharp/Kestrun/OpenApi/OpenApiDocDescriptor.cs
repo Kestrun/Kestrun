@@ -1559,9 +1559,9 @@ public partial class OpenApiDocDescriptor
         }
 
         // If we have a schema, apply it to all declared content types
-        if (schema is not null && resp.ContentTypes is { Length: > 0 })
+        if (schema is not null && resp.ContentType is { Length: > 0 })
         {
-            foreach (var ct in resp.ContentTypes)
+            foreach (var ct in resp.ContentType)
             {
                 var media = GetOrAddMediaType(response, ct);
                 media.Schema = schema; // or schema.Clone() if you need per-media isolation

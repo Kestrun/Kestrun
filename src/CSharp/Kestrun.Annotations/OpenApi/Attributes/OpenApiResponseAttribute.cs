@@ -38,7 +38,7 @@ public sealed class OpenApiResponseAttribute : KestrunAnnotation
     /// <summary>
     /// MIME type of the response payload (default: "application/json").
     /// </summary>
-    public string[] ContentTypes { get; set; } = ["application/json"];
+    public string[] ContentType { get; set; } = ["application/json"];
 
     /// <summary>
     /// If true, the schema will be inlined rather than referenced.

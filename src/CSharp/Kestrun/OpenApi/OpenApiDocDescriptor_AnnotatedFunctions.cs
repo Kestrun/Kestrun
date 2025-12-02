@@ -1,8 +1,5 @@
 using System.Management.Automation;
 using System.Management.Automation.Internal;
-using System.Reflection;
-using System.Text.Json.Nodes;
-using Json.Schema;
 using Kestrun.Hosting;
 using Kestrun.Hosting.Options;
 using Kestrun.Languages;

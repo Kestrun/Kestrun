@@ -1377,7 +1377,6 @@ public partial class OpenApiDocDescriptor
                          (nameof(OpenApiResponseAttribute)) or
                          (nameof(OpenApiLinkRefAttribute)) or
                          (nameof(OpenApiHeaderRefAttribute)) or
-                         (nameof(OpenApiContentTypeAttribute)) or
                          (nameof(OpenApiExampleRefAttribute)))
                          .Cast<object>()
                          .ToArray();
@@ -1526,7 +1525,6 @@ public partial class OpenApiDocDescriptor
 
         return attr switch
         {
-            OpenApiContentTypeAttribute ctype => ApplyContentTypeAttribute(ctype, response),
             OpenApiResponseAttribute resp => ApplyResponseAttribute(resp, response),
             OpenApiHeaderRefAttribute href => ApplyHeaderRefAttribute(href, response),
             OpenApiLinkRefAttribute lref => ApplyLinkRefAttribute(lref, response),
@@ -1536,17 +1534,6 @@ public partial class OpenApiDocDescriptor
     }
     // --- local helpers -------------------------------------------------------
 
-    private bool ApplyContentTypeAttribute(OpenApiContentTypeAttribute ctype, OpenApiResponse response)
-    {
-        var media = GetOrAddMediaType(response, ctype.ContentType);
-        if (!string.IsNullOrEmpty(ctype.ReferenceId))
-        {
-            media.Schema = ctype.Inline
-                ? CloneSchemaOrThrow(ctype.ReferenceId)
-                : new OpenApiSchemaReference(ctype.ReferenceId);
-        }
-        return true;
-    }
 
     private bool ApplyResponseAttribute(OpenApiResponseAttribute resp, OpenApiResponse response)
     {

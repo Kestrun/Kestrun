@@ -1,5 +1,5 @@
 ﻿param(
-    [int]$Port = 5001,
+    [int]$Port = 5000,
     [IPAddress]$IPAddress = [IPAddress]::Loopback
 )
 
@@ -41,18 +41,6 @@ Add-KrOpenApiTag -Name 'Tickets' -Description 'Museum tickets for general entran
 #                      COMPONENT SCHEMAS
 # =========================================================
 
-<#
-.SYNOPSIS
-    Daily operating hours for the museum.
-.DESCRIPTION
-    Mirrors components.schemas.MuseumDailyHours.
-.PARAMETER date
-    Date the operating hours apply to (YYYY-MM-DD).
-.PARAMETER timeOpen
-    Time the museum opens on a specific date (HH:mm, 24h).
-.PARAMETER timeClose
-    Time the museum closes on a specific date (HH:mm, 24h).
-#>
 [OpenApiSchemaComponent(Description = 'Daily operating hours for the museum.', Required = 'date,timeOpen,timeClose')]
 class MuseumDailyHours {
     [datetime]$date
@@ -66,13 +54,7 @@ class MuseumDailyHours {
     [string]$timeClose
 }
 
-<#
-.SYNOPSIS
-    List of museum operating hours for consecutive days.
-.DESCRIPTION
-    This approximates components.schemas.GetMuseumHoursResponse, which in the original spec is:
-    type: array, items: MuseumDailyHours
-#>
+
 [OpenApiResponseComponent()]
 class GetMuseumHoursResponse {
 
@@ -81,22 +63,7 @@ class GetMuseumHoursResponse {
     [MuseumDailyHours[]]$GetMuseumHoursResponse
 }
 
-<#
-.SYNOPSIS
-    Request payload for creating new special events at the museum.
-.DESCRIPTION
-    Mirrors components.schemas.CreateSpecialEventRequest.
-.PARAMETER name
-    Name of the special event.
-.PARAMETER location
-    Location where the special event is held.
-.PARAMETER eventDescription
-    Description of the special event.
-.PARAMETER dates
-    List of planned dates for the special event (YYYY-MM-DD).
-.PARAMETER price
-    Price of a ticket for the special event.
-#>
+
 [OpenApiSchemaComponent(Description = 'Request payload for creating new special events at the museum.',
     Required = 'name,location,eventDescription,dates,price')]
 class CreateSpecialEventRequest {
@@ -110,23 +77,7 @@ class CreateSpecialEventRequest {
     [double]$price  # format: float
 }
 
-<#
-.SYNOPSIS
-    Request payload for updating an existing special event.
-.DESCRIPTION
-    Mirrors components.schemas.UpdateSpecialEventRequest.
-    Only included fields are updated in the event.
-.PARAMETER name
-    New name of the special event.
-.PARAMETER location
-    New location where the special event is held.
-.PARAMETER eventDescription
-    New description of the special event.
-.PARAMETER dates
-    New list of planned dates for the special event.
-.PARAMETER price
-    New price of a ticket for the special event.
-#>
+
 [OpenApiSchemaComponent(Description = 'Request payload for updating an existing special event. Only included fields are updated.')]
 class UpdateSpecialEventRequest {
     [string]$name
@@ -139,24 +90,7 @@ class UpdateSpecialEventRequest {
     [double]$price
 }
 
-<#
-.SYNOPSIS
-    Information about a special event.
-.DESCRIPTION
-    Mirrors components.schemas.SpecialEventResponse.
-.PARAMETER eventId
-    Identifier for a special event (UUID).
-.PARAMETER name
-    Name of the special event.
-.PARAMETER location
-    Location where the special event is held.
-.PARAMETER eventDescription
-    Description of the special event.
-.PARAMETER dates
-    List of planned dates for the special event.
-.PARAMETER price
-    Price of a ticket for the special event.
-#>
+
 [OpenApiSchemaComponent(Description = 'Information about a special event.',
     Required = 'eventId,name,location,eventDescription,dates,price')]
 class SpecialEventResponse {
@@ -173,12 +107,7 @@ class SpecialEventResponse {
     [double]$price
 }
 
-<#
-.SYNOPSIS
-    A list of upcoming special events.
-.DESCRIPTION
-    Mirrors components.schemas.ListSpecialEventsResponse (array of SpecialEventResponse).
-#>
+
 [OpenApiSchemaComponent(Description = 'A list of upcoming special events.')]
 class ListSpecialEventsResponse {
     # TODO: original schema is a bare array; here we wrap it in an object with "items".
@@ -186,73 +115,48 @@ class ListSpecialEventsResponse {
     [SpecialEventResponse[]]$items
 }
 
-<#
-.SYNOPSIS
-    Type of ticket being purchased.
-.DESCRIPTION
-    Mirrors components.schemas.TicketType (string enum).
-.PARAMETER ticketType
-    Type of ticket being purchased (general or event).
-#>
 [OpenApiSchemaComponent(Description = 'Type of ticket being purchased. Use `general` for regular entry and `event` for special events.')]
-class TicketTypeWrapper {
-    # TODO: original schema is a bare string enum; here we wrap it in an object.
-    [ValidateSet('event', 'general')]
-    [string]$ticketType
-}
+[OpenApiPropertyAttribute(Type = 'string', Enum = ('event', 'general'), Example = 'event')]
+class TicketType {}
 
-<#
-.SYNOPSIS
-    Request payload used for purchasing museum tickets.
-.DESCRIPTION
-    Mirrors components.schemas.BuyMuseumTicketsRequest.
-.PARAMETER ticketType
-    Type of ticket being purchased (general or event).
-.PARAMETER eventId
-    Unique identifier for a special event (required when ticketType is event).
-.PARAMETER ticketDate
-    Date that the ticket is valid for (YYYY-MM-DD).
-.PARAMETER email
-    Email address for ticket purchaser.
-.PARAMETER phone
-    Phone number for the ticket purchaser (optional).
-#>
+[OpenApiSchemaComponent(Description = 'Identifier for a special event.')]
+[OpenApiPropertyAttribute(Type = 'string', Format = 'uuid', Example = '3be6453c-03eb-4357-ae5a-984a0e574a54')]
+class EventId {}
+
+[OpenApiSchemaComponent(Description = 'Location where the special event is held.')]
+[OpenApiPropertyAttribute(Type = 'string', Example = 'Computer Room')]
+class EventLocation {}
+
+[OpenApiSchemaComponent()]
+[OpenApiPropertyAttribute(Type = 'string', Format = 'date', Example = '2023-10-29')]
+class Date {}
+
+[OpenApiSchemaComponent(Description = 'Email address for ticket purchaser.')]
+[OpenApiPropertyAttribute(Type = 'string', Format = 'email', Example = 'museum-lover@example.com')]
+class Email {}
+
+[OpenApiSchemaComponent(Description = 'Phone number for the ticket purchaser (optional).')]
+[OpenApiPropertyAttribute(Type = 'string' , Example = '+1(234)-567-8910')]
+class Phone {}
+
 [OpenApiSchemaComponent(Description = 'Request payload used for purchasing museum tickets.',
     Required = 'ticketType,ticketDate,email')]
 class BuyMuseumTicketsRequest {
-    [ValidateSet('event', 'general')]
-    [string]$ticketType
+    [TicketType]$ticketType
 
-    [OpenApiPropertyAttribute(Format = 'uuid')]
-    [string]$eventId
+    [OpenApiPropertyAttribute(Format = 'uuid', Description = "Unique identifier for a special event. Required if purchasing tickets for the museum's special events.")]
+    [EventId]$eventId
 
-    [OpenApiPropertyAttribute(Format = 'date')]
-    [string]$ticketDate
+    [OpenApiPropertyAttribute(Format = 'date', Description = 'Date that the ticket is valid for.')]
+    [Date]$ticketDate
 
     [OpenApiPropertyAttribute(Format = 'email')]
-    [string]$email
+    [Email]$email
 
-    [string]$phone
+    [Phone]$phone
 }
 
-<#
-.SYNOPSIS
-    Details for a museum ticket after a successful purchase.
-.DESCRIPTION
-    Mirrors components.schemas.BuyMuseumTicketsResponse.
-.PARAMETER message
-    Confirmation message after ticket purchase.
-.PARAMETER eventName
-    Name of the special event (for event tickets).
-.PARAMETER ticketId
-    Unique identifier for the museum ticket (UUID).
-.PARAMETER ticketType
-    Type of ticket (general or event).
-.PARAMETER ticketDate
-    Date the ticket is valid for (YYYY-MM-DD).
-.PARAMETER confirmationCode
-    Unique confirmation code used to verify ticket purchase.
-#>
+
 [OpenApiSchemaComponent(Description = 'Details for a museum ticket after a successful purchase.',
     Required = 'message,ticketId,ticketType,ticketDate,confirmationCode')]
 class BuyMuseumTicketsResponse {
@@ -272,18 +176,9 @@ class BuyMuseumTicketsResponse {
 }
 
 
-# TODO: components.schemas.GetTicketCodeResponse is a binary string (image).
-#       Kestrun does not yet support bare string/array schema components referenced by $ref.
-#       Here we model it as a class with no properties, and handle the binary response in
-<#
-.SYNOPSIS
-    Scannable ticket with QR code.
-.DESCRIPTION
-    Mirrors components.schemas.GetTicketCodeResponse (type: string, format: binary).
-#>
 [OpenApiSchemaComponent(
     Description = 'An image of a ticket with a QR code used for museum or event entry.')]
-#[OpenApiParameterAttribute(Type = 'string', Format = 'binary' )]
+[OpenApiPropertyAttribute(Type = 'string', Format = 'binary' )]
 class GetTicketCodeResponse {
 }
 
@@ -302,7 +197,7 @@ class GetTicketCodeResponse {
 
 
 [OpenApiParameterComponent()]
-class MuseoumHourParameters {
+class MuseumParameters {
     [OpenApiParameterAttribute(In = [OaParameterLocation]::Query,
         Description = 'The number of days per page.')]
     [int]$paginationLimit
@@ -314,32 +209,37 @@ class MuseoumHourParameters {
     [OpenApiParameterAttribute(In = [OaParameterLocation]::Query,
         Description = "The starting date to retrieve future operating hours from. Defaults to today's date.")]
     [datetime]$startDate
-}
 
-[OpenApiParameterComponent()]
-class EventId {
     [OpenApiParameterAttribute(In = [OaParameterLocation]::Path, Required = $true,
         Description = 'An identifier for a special event.', Example = 'dad4bce8-f5cb-4078-a211-995864315e39')]
     [guid]$eventId
-}
 
-
-
-[OpenApiParameterComponent()]
-class EndDate {
     [OpenApiParameterAttribute(In = [OaParameterLocation]::Query,
         Description = 'The end of a date range to retrieve special events for. Defaults to 7 days after startDate.')]
     [OpenApiPropertyAttribute(Format = 'date')]
     [string]$endDate
-}
 
-[OpenApiParameterComponent()]
-class TicketId {
     [OpenApiParameterAttribute(In = [OaParameterLocation]::Path, Required = $true,
         Description = 'An identifier for a ticket to a museum event. Used to generate ticket image.')]
     [Guid]$ticketId
 }
-
+<#
+[OpenApiExampleComponent()]
+class listSpecialEventsExample {
+    $summary = 'Get special event'
+    $value = @{
+        eventId = 6744a0da-4121-49cd-8479-f8cc20526495
+        name = Time Traveler Tea Party
+        location = Temporal Tearoom
+        eventDescription = Sip tea with important historical figures.
+        dates = @(
+            '2023 - 11 - 18'
+            '2023 - 11 - 25'
+            '2023 - 12 - 02'
+        )
+        price = 60
+    }
+}#>
 # =========================================================
 #                 SECURITY SCHEMES
 # =========================================================
@@ -381,22 +281,18 @@ Add-KrApiDocumentationRoute -DocumentType Elements
 # --------------------------------------
 # GET /museum-hours
 # --------------------------------------
-<#
+
+
+function getMuseumHours {
+    <#
 .SYNOPSIS
     Get museum hours.
 .DESCRIPTION
     Get upcoming museum operating hours.
-.PARAMETER startDate
-    The starting date to retrieve future operating hours from. Defaults to today's date.
-.PARAMETER page
-    The page number to retrieve.
-.PARAMETER limit
-    The number of days per page.
 #>
-function getMuseumHours {
     [OpenApiPath(HttpVerb = 'get', Pattern = '/museum-hours', Tags = 'Operations')]
 
-    [OpenApiResponseAttribute(StatusCode = '200', SchemaRef = 'GetMuseumHoursResponse' )]
+    [OpenApiResponseRefAttribute(StatusCode = '200', ReferenceId = 'GetMuseumHoursResponse' , Description = 'Success')]
     [OpenApiResponseAttribute(StatusCode = '400', Description = 'Bad request')]
     [OpenApiResponseAttribute(StatusCode = '404', Description = 'Not found')]
     # TODO: 400/404 responses are inline in museum.yml; you could introduce response components and use OpenApiResponseRefAttribute.
@@ -426,26 +322,21 @@ function getMuseumHours {
     $resp.items = $hours
     Write-KrJsonResponse $resp -StatusCode 200
 }
-
 # --------------------------------------
 # /special-events (POST Create, GET List)
 # --------------------------------------
 
-<#
+
+function createSpecialEvent {
+    <#
 .SYNOPSIS
     Create special event.
-.DESCRIPTION
-    Create a new special event at the museum.
-.PARAMETER Body
-    Request payload describing the special event to create.
 #>
-function createSpecialEvent {
     [OpenApiPath(HttpVerb = 'post', Pattern = '/special-events', Tags = 'Events')]
     # TODO: museum.yml sets security: [] here (no auth); add per-operation override when supported.
 
     [OpenApiResponseAttribute(StatusCode = '200', Description = 'success',
-        SchemaRef = 'SpecialEventResponse', Inline = $true,
-        ContentType = 'application/json')]
+        SchemaRef = 'SpecialEventResponse', ContentType = 'application/json')]
     [OpenApiResponseAttribute(StatusCode = '400', Description = 'Bad request')]
     [OpenApiResponseAttribute(StatusCode = '404', Description = 'Not found')]
 
@@ -469,57 +360,56 @@ function createSpecialEvent {
     Write-KrJsonResponse $resp -StatusCode 200
 }
 
-<#
+
+function listSpecialEvents {
+    <#
 .SYNOPSIS
     List special events.
 .DESCRIPTION
     Return a list of upcoming special events at the museum.
 .PARAMETER startDate
-    The starting date to retrieve future operating hours from. Defaults to today's date.
+    The starting date to retrieve future special events from. Defaults to today's date.
 .PARAMETER endDate
-    The end of a date range to retrieve special events for. Defaults to 7 days after startDate.
+    The ending date to retrieve future special events up to. Defaults to no end date.
 .PARAMETER page
-    The page number to retrieve.
+    The page number to retrieve. Default is 1.
 .PARAMETER limit
-    The number of days per page.
+    The number of special events per page. Default is 10, maximum is 30.
 #>
-function listSpecialEvents {
     [OpenApiPath(HttpVerb = 'get', Pattern = '/special-events', Tags = 'Events')]
     # TODO: museum.yml sets security: [] here (no auth); add per-operation override when supported.
 
-    [OpenApiResponseAttribute(StatusCode = '200', Description = 'Success',
-        SchemaRef = 'ListSpecialEventsResponse', Inline = $true,
+    [OpenApiResponseAttribute(StatusCode = '200', SchemaRef = 'ListSpecialEventsResponse' , Description = 'Success' , #examples = 'listSpecialEventsExample' ,
         ContentType = 'application/json')]
     [OpenApiResponseAttribute(StatusCode = '400', Description = 'Bad request')]
     [OpenApiResponseAttribute(StatusCode = '404', Description = 'Not found')]
 
     param(
-        [OpenApiParameterRefAttribute(ReferenceId = 'startDate')]
-        [string]$startDate,
+        [OpenApiParameterAttribute( In = [OaParameterLocation]::Query, Example = '2023-02-23')]
+        [DateTime]$startDate,
 
-        [OpenApiParameterRefAttribute(ReferenceId = 'endDate')]
-        [string]$endDate,
+        [OpenApiParameterAttribute( In = [OaParameterLocation]::Query, Example = '2023-04-18')]
+        [DateTime]$endDate,
 
-        [OpenApiParameterRefAttribute(ReferenceId = 'paginationPage')]
-        [int]$paginationPage = 1,
+        [OpenApiParameterAttribute(In = [OaParameterLocation]::Query, Example = '2')]
+        [int]$page = 1,
 
-        [OpenApiParameterRefAttribute(ReferenceId = 'paginationLimit')]
-        [int]$paginationLimit = 10
+        [OpenApiParameterAttribute(In = [OaParameterLocation]::Query, Example = '15')]
+        # TODO Enable        [OpenApiPropertyAttribute(Maximum = 30)]
+        [int]$limit = 10
     )
 
-    Write-Host "listSpecialEvents called startDate='$startDate' endDate='$endDate' page='$paginationPage' limit='$paginationLimit'"
-
-    $event = [SpecialEventResponse]::new()
-    $event.eventId = [Guid]::NewGuid().ToString()
-    $event.name = 'Sample Event'
-    $event.location = 'Main Hall'
-    $event.eventDescription = 'Sample special event description.'
-    $event.dates = @((Get-Date).ToString('yyyy-MM-dd'))
-    $event.price = 25
+    Write-Host "listSpecialEvents called startDate='$startDate' endDate='$endDate' page='$page' limit='$limit'"
+    $specialEvent = [SpecialEventResponse]::new()
+    $specialEvent.eventId = [Guid]::NewGuid().ToString()
+    $specialEvent.name = 'Sample Event'
+    $specialEvent.location = 'Main Hall'
+    $specialEvent.eventDescription = 'Sample special event description.'
+    $specialEvent.dates = @((Get-Date).ToString('yyyy-MM-dd'))
+    $specialEvent.price = 25
 
     $resp = [ListSpecialEventsResponse]::new()
-    $resp.items = @($event)
-
+    $resp.items = @($specialEvent)
     Write-KrJsonResponse $resp -StatusCode 200
 }
 
@@ -530,15 +420,14 @@ function listSpecialEvents {
 #   DELETE deleteSpecialEvent
 # --------------------------------------
 
-<#
+
+function getSpecialEvent {
+    <#
 .SYNOPSIS
     Get special event.
 .DESCRIPTION
     Get details about a special event.
-.PARAMETER eventId
-    Identifier for a special event (UUID).
 #>
-function getSpecialEvent {
     [OpenApiPath(HttpVerb = 'get', Pattern = '/special-events/{eventId}', Tags = 'Events')]
 
     [OpenApiResponseAttribute(StatusCode = '200', Description = 'Success',
@@ -554,28 +443,25 @@ function getSpecialEvent {
 
     Write-Host "getSpecialEvent called eventId='$eventId'"
 
-    $event = [SpecialEventResponse]::new()
-    $event.eventId = $eventId
-    $event.name = 'Time Traveler Tea Party'
-    $event.location = 'Temporal Tearoom'
-    $event.eventDescription = 'Sip tea with important historical figures.'
-    $event.dates = @('2023-11-18', '2023-11-25', '2023-12-02')
-    $event.price = 60
+    $specialEvent = [SpecialEventResponse]::new()
+    $specialEvent.eventId = $eventId
+    $specialEvent.name = 'Time Traveler Tea Party'
+    $specialEvent.location = 'Temporal Tearoom'
+    $specialEvent.eventDescription = 'Sip tea with important historical figures.'
+    $specialEvent.dates = @('2023-11-18', '2023-11-25', '2023-12-02')
+    $specialEvent.price = 60
 
-    Write-KrJsonResponse $event -StatusCode 200
+    Write-KrJsonResponse $specialEvent -StatusCode 200
 }
 
-<#
+
+function updateSpecialEvent {
+    <#
 .SYNOPSIS
     Update special event.
 .DESCRIPTION
     Update the details of a special event.
-.PARAMETER eventId
-    Identifier for a special event (UUID).
-.PARAMETER Body
-    Request payload with changes to apply to the special event.
 #>
-function updateSpecialEvent {
     [OpenApiPath(HttpVerb = 'patch', Pattern = '/special-events/{eventId}', Tags = 'Events')]
 
     [OpenApiResponseAttribute(StatusCode = '200', Description = 'Success',
@@ -607,15 +493,14 @@ function updateSpecialEvent {
     Write-KrJsonResponse $event -StatusCode 200
 }
 
-<#
+
+function deleteSpecialEvent {
+    <#
 .SYNOPSIS
     Delete special event.
 .DESCRIPTION
     Delete a special event from the collection. Allows museum to cancel planned events.
-.PARAMETER eventId
-    Identifier for a special event (UUID).
 #>
-function deleteSpecialEvent {
     [OpenApiPath(HttpVerb = 'delete', Pattern = '/special-events/{eventId}', Tags = 'Events')]
 
     [OpenApiResponseAttribute(StatusCode = '204', Description = 'Success - no content')]
@@ -636,7 +521,9 @@ function deleteSpecialEvent {
 # --------------------------------------
 # POST /tickets
 # --------------------------------------
-<#
+
+function buyMuseumTickets {
+    <#
 .SYNOPSIS
     Buy museum tickets.
 .DESCRIPTION
@@ -644,11 +531,10 @@ function deleteSpecialEvent {
 .PARAMETER Body
     Request payload describing the ticket purchase.
 #>
-function buyMuseumTickets {
     [OpenApiPath(HttpVerb = 'post', Pattern = '/tickets', Tags = 'Tickets')]
 
     [OpenApiResponseAttribute(StatusCode = '200', Description = 'Success',
-        SchemaRef = 'BuyMuseumTicketsResponse', Inline = $true,
+        SchemaRef = 'BuyMuseumTicketsResponse',
         ContentType = 'application/json')]
     [OpenApiResponseAttribute(StatusCode = '400', Description = 'Bad request')]
     [OpenApiResponseAttribute(StatusCode = '404', Description = 'Not found')]

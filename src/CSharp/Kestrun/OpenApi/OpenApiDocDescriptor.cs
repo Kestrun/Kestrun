@@ -753,34 +753,22 @@ public partial class OpenApiDocDescriptor
                 {
                     if (GetRequestBody(type.Name) is OpenApiRequestBody rb)
                     {
-                        return new OpenApiSchemaReference(type.Name)
-                        {
-                            Description = rb.Description,
-                        };
+                        return new OpenApiSchemaReference(type.Name);
                     }
                     if (GetSchema(type.Name) is OpenApiSchema schema)
                     {
-                        return new OpenApiSchemaReference(type.Name)
-                        {
-                            Description = schema.Description,
-                        };
+                        return new OpenApiSchemaReference(type.Name);
                     }
                 }
                 else
                 {
                     if (GetSchema(type.Name) is OpenApiSchema schema)
                     {
-                        return new OpenApiSchemaReference(type.Name)
-                        {
-                            Description = schema.Description,
-                        };
+                        return new OpenApiSchemaReference(type.Name);
                     }
                     if (GetRequestBody(type.Name) is OpenApiRequestBody rb)
                     {
-                        return new OpenApiSchemaReference(type.Name)
-                        {
-                            Description = rb.Description,
-                        };
+                        return new OpenApiSchemaReference(type.Name);
                     }
                 }
             }

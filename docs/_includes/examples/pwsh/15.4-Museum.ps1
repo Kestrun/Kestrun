@@ -73,10 +73,12 @@ class MuseumDailyHours {
     This approximates components.schemas.GetMuseumHoursResponse, which in the original spec is:
     type: array, items: MuseumDailyHours
 #>
-[OpenApiSchemaComponent(Description = 'List of museum operating hours for consecutive days.')]
+[OpenApiResponseComponent()]
 class GetMuseumHoursResponse {
+
+    [OpenApiResponseAttribute(Description = 'List of museum operating hours for consecutive days.', ContentType = 'application/json')]
     # TODO: original schema is a bare array; here we wrap it in an object with "items".
-    [MuseumDailyHours[]]$items
+    [MuseumDailyHours[]]$GetMuseumHoursResponse
 }
 
 <#
@@ -297,34 +299,31 @@ class GetTicketCodeResponse {
 # NOTE: we approximate with a class + property decorated as a parameter.
 #       The ReferenceId used by OpenApiParameterRefAttribute matches the class name.
 
-[OpenApiParameterComponent()]
-class PaginationPage {
-    [OpenApiParameterAttribute(In = [OaParameterLocation]::Query,
-        Description = 'The page number to retrieve.')]
-    [int]$page
-}
+
 
 [OpenApiParameterComponent()]
-class PaginationLimit {
+class MuseoumHourParameters {
     [OpenApiParameterAttribute(In = [OaParameterLocation]::Query,
         Description = 'The number of days per page.')]
-    [int]$limit
+    [int]$paginationLimit
+
+    [OpenApiParameterAttribute(In = [OaParameterLocation]::Query,
+        Description = 'The page number to retrieve.')]
+    [int]$paginationPage
+
+    [OpenApiParameterAttribute(In = [OaParameterLocation]::Query,
+        Description = "The starting date to retrieve future operating hours from. Defaults to today's date.")]
+    [datetime]$startDate
 }
 
 [OpenApiParameterComponent()]
 class EventId {
     [OpenApiParameterAttribute(In = [OaParameterLocation]::Path, Required = $true,
-        Description = 'An identifier for a special event.')]
-    [OpenApiPropertyAttribute(Format = 'uuid')]
-    [string]$eventId
+        Description = 'An identifier for a special event.', Example = 'dad4bce8-f5cb-4078-a211-995864315e39')]
+    [guid]$eventId
 }
 
-[OpenApiParameterComponent()]
-class StartDate {
-    [OpenApiParameterAttribute(In = [OaParameterLocation]::Query,
-        Description = "The starting date to retrieve future operating hours from. Defaults to today's date.")]
-    [datetime]$startDate
-}
+
 
 [OpenApiParameterComponent()]
 class EndDate {
@@ -338,8 +337,7 @@ class EndDate {
 class TicketId {
     [OpenApiParameterAttribute(In = [OaParameterLocation]::Path, Required = $true,
         Description = 'An identifier for a ticket to a museum event. Used to generate ticket image.')]
-    [OpenApiPropertyAttribute(Format = 'uuid')]
-    [string]$ticketId
+    [Guid]$ticketId
 }
 
 # =========================================================
@@ -398,25 +396,23 @@ Add-KrApiDocumentationRoute -DocumentType Elements
 function getMuseumHours {
     [OpenApiPath(HttpVerb = 'get', Pattern = '/museum-hours', Tags = 'Operations')]
 
-    [OpenApiResponseAttribute(StatusCode = '200', Description = 'Success',
-        SchemaRef = 'GetMuseumHoursResponse', Inline = $true,
-        ContentType = 'application/json')]
+    [OpenApiResponseAttribute(StatusCode = '200', SchemaRef = 'GetMuseumHoursResponse' )]
     [OpenApiResponseAttribute(StatusCode = '400', Description = 'Bad request')]
     [OpenApiResponseAttribute(StatusCode = '404', Description = 'Not found')]
     # TODO: 400/404 responses are inline in museum.yml; you could introduce response components and use OpenApiResponseRefAttribute.
 
     param(
-        [OpenApiParameterRefAttribute(ReferenceId = 'StartDate')]
+        [OpenApiParameterRefAttribute(ReferenceId = 'startDate')]
         [datetime]$startDate,
 
-        [OpenApiParameterRefAttribute(ReferenceId = 'PaginationPage')]
-        [int]$page = 1,
+        [OpenApiParameterRefAttribute(ReferenceId = 'paginationPage')]
+        [int]$paginationPage = 1,
 
-        [OpenApiParameterRefAttribute(ReferenceId = 'PaginationLimit')]
-        [int]$limit = 10
+        [OpenApiParameterRefAttribute(ReferenceId = 'paginationLimit')]
+        [int]$paginationLimit = 10
     )
 
-    Write-Host "getMuseumHours called startDate='$startDate' page='$page' limit='$limit'"
+    Write-Host "getMuseumHours called startDate='$startDate' page='$paginationPage' limit='$paginationLimit'"
 
     # Dummy payload approximating GetMuseumHoursResponse (wrapped object with items[]).
     $hours = @(
@@ -498,26 +494,20 @@ function listSpecialEvents {
     [OpenApiResponseAttribute(StatusCode = '404', Description = 'Not found')]
 
     param(
-        [OpenApiParameterRefAttribute(ReferenceId = 'StartDate')]
-        [OpenApiParameterAttribute(In = [OaParameterLocation]::Query)]
-        [OpenApiPropertyAttribute(Format = 'date')]
+        [OpenApiParameterRefAttribute(ReferenceId = 'startDate')]
         [string]$startDate,
 
-        [OpenApiParameterRefAttribute(ReferenceId = 'EndDate')]
-        [OpenApiParameterAttribute(In = [OaParameterLocation]::Query)]
-        [OpenApiPropertyAttribute(Format = 'date')]
+        [OpenApiParameterRefAttribute(ReferenceId = 'endDate')]
         [string]$endDate,
 
-        [OpenApiParameterRefAttribute(ReferenceId = 'PaginationPage')]
-        [OpenApiParameterAttribute(In = [OaParameterLocation]::Query)]
-        [int]$page = 1,
+        [OpenApiParameterRefAttribute(ReferenceId = 'paginationPage')]
+        [int]$paginationPage = 1,
 
-        [OpenApiParameterRefAttribute(ReferenceId = 'PaginationLimit')]
-        [OpenApiParameterAttribute(In = [OaParameterLocation]::Query)]
-        [int]$limit = 10
+        [OpenApiParameterRefAttribute(ReferenceId = 'paginationLimit')]
+        [int]$paginationLimit = 10
     )
 
-    Write-Host "listSpecialEvents called startDate='$startDate' endDate='$endDate' page='$page' limit='$limit'"
+    Write-Host "listSpecialEvents called startDate='$startDate' endDate='$endDate' page='$paginationPage' limit='$paginationLimit'"
 
     $event = [SpecialEventResponse]::new()
     $event.eventId = [Guid]::NewGuid().ToString()
@@ -558,7 +548,7 @@ function getSpecialEvent {
     [OpenApiResponseAttribute(StatusCode = '404', Description = 'Not found')]
 
     param(
-        [OpenApiParameterRefAttribute(ReferenceId = 'EventId')]
+        [OpenApiParameterRefAttribute(ReferenceId = 'eventId')]
         [Guid]$eventId
     )
 
@@ -595,10 +585,8 @@ function updateSpecialEvent {
     [OpenApiResponseAttribute(StatusCode = '404', Description = 'Not found')]
 
     param(
-        [OpenApiParameterRefAttribute(ReferenceId = 'EventId')]
-        [OpenApiParameterAttribute(In = [OaParameterLocation]::Path, Required = $true)]
-        [OpenApiPropertyAttribute(Format = 'uuid')]
-        [string]$eventId,
+        [OpenApiParameterRefAttribute(ReferenceId = 'eventId')]
+        [Guid]$eventId,
 
         [OpenApiRequestBodyAttribute(Required = $true,
             ContentType = 'application/json')]
@@ -637,7 +625,7 @@ function deleteSpecialEvent {
     # TODO: consider introducing ResponseComponents for 400/401/404 and using OpenApiResponseRefAttribute.
 
     param(
-        [OpenApiParameterRefAttribute(ReferenceId = 'EventId')]
+        [OpenApiParameterRefAttribute(ReferenceId = 'eventId')]
         [Guid]$eventId
     )
 
@@ -716,10 +704,8 @@ function getTicketCode {
     [OpenApiResponseAttribute(StatusCode = '404', Description = 'Not found')]
 
     param(
-        [OpenApiParameterRefAttribute(ReferenceId = 'TicketId')]
-        [OpenApiParameterAttribute(In = [OaParameterLocation]::Path, Required = $true)]
-        [OpenApiPropertyAttribute(Format = 'uuid')]
-        [string]$ticketId
+        [OpenApiParameterRefAttribute(ReferenceId = 'ticketId')]
+        [Guid]$ticketId
     )
 
     Write-Host "getTicketCode called ticketId='$ticketId'"

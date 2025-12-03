@@ -120,6 +120,7 @@
         <EmbeddedResource Include="Assets\redoc-ui.html" LogicalName="Kestrun.Assets.redoc-ui.html" />
         <EmbeddedResource Include="Assets\scalar.html" LogicalName="Kestrun.Assets.scalar.html" />
         <EmbeddedResource Include="Assets\rapidoc.html" LogicalName="Kestrun.Assets.rapidoc.html" />
+         <EmbeddedResource Include="Assets\elements.html" LogicalName="Kestrun.Assets.elements.html" />
     </ItemGroup>
 
     <!--───────────── Files to Include in Package ─────────────-->

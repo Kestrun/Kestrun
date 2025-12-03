@@ -212,6 +212,7 @@ Add-KrApiDocumentationRoute -DocumentType Swagger
 Add-KrApiDocumentationRoute -DocumentType Redoc
 Add-KrApiDocumentationRoute -DocumentType Scalar
 Add-KrApiDocumentationRoute -DocumentType Rapidoc
+Add-KrApiDocumentationRoute -DocumentType Elements
 
 # --------------------------------------
 # /pet  (PUT, POST)

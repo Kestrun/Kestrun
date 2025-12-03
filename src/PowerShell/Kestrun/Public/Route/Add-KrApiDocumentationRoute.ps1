@@ -12,7 +12,7 @@
         The URL path for the new API documentation route.
         Default is '/docs/redoc' for Redoc and '/docs/swagger' for Swagger UI.
     .PARAMETER DocumentType
-        The type of API documentation to add. Valid values are 'Redoc', 'Swagger', 'Scalar', and 'Rapidoc'. Default is 'Swagger'.
+        The type of API documentation to add. Valid values are 'Redoc', 'Swagger', 'Scalar', 'Rapidoc', and 'Elements'. Default is 'Swagger'.
     .PARAMETER OpenApiEndpoint
         The OpenAPI endpoint URI that the documentation UI will use to fetch the API documentation. Default is '/openapi/v3.0/openapi.json'.
     .PARAMETER PassThru
@@ -40,7 +40,7 @@ function Add-KrApiDocumentationRoute {
         [alias('Path')]
         [string]$Pattern,
         [Parameter()]
-        [ValidateSet('Redoc', 'Swagger', 'Scalar', 'Rapidoc')]
+        [ValidateSet('Redoc', 'Swagger', 'Scalar', 'Rapidoc', 'Elements')]
         [string]$DocumentType = 'Swagger',
         [Parameter()]
         [Uri]$OpenApiEndpoint = [Uri]::new('/openapi/v3.0/openapi.json', [UriKind]::Relative),
@@ -74,8 +74,12 @@ function Add-KrApiDocumentationRoute {
                 # Call the C# extension method to add the Rapidoc UI route
                 [Kestrun.Hosting.KestrunHostMapExtensions]::AddRapidocUiRoute($Server, $Options, $OpenApiEndpoint) | Out-Null
             }
+            'Elements' {
+                # Call the C# extension method to add the Elements UI route
+                [Kestrun.Hosting.KestrunHostMapExtensions]::AddElementsUiRoute($Server, $Options, $OpenApiEndpoint) | Out-Null
+            }
             default {
-                throw "Unsupported DocumentType: $DocumentType. Supported types are 'Swagger', 'Redoc', 'Scalar', and 'Rapidoc'."
+                throw "Unsupported DocumentType: $DocumentType. Supported types are 'Swagger', 'Redoc', 'Scalar', 'Rapidoc', and 'Elements'."
             }
         }
         if ($PassThru) {

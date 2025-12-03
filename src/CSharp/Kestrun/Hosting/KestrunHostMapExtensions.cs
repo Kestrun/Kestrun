@@ -1112,6 +1112,27 @@ public static partial class KestrunHostMapExtensions
     }
 
     /// <summary>
+    /// Adds an Elements UI route to the KestrunHost for the specified pattern and OpenAPI endpoint.
+    /// </summary>
+    /// <param name="host">The KestrunHost instance.</param>
+    /// <param name="options">The route mapping options.</param>
+    /// <param name="openApiEndpoint">The OpenAPI endpoint URI.</param>
+    /// <returns>An IEndpointConventionBuilder for the mapped route.</returns>
+    public static IEndpointConventionBuilder AddElementsUiRoute(
+      this KestrunHost host,
+      MapRouteOptions options,
+      Uri openApiEndpoint)
+    {
+        return AddOpenApiUiRoute(
+            host,
+            options,
+            openApiEndpoint,
+            uiName: "Elements",
+            defaultPattern: "/docs/elements",
+            resourceName: "Kestrun.Assets.elements.html");
+    }
+
+    /// <summary>
     /// Adds an OpenAPI UI route to the KestrunHost for the specified pattern and OpenAPI endpoint.
     /// </summary>
     /// <param name="host">The KestrunHost instance.</param>

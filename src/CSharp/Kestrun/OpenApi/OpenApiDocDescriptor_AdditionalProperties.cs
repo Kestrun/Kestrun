@@ -8,7 +8,7 @@ public partial class OpenApiDocDescriptor
     {
         // Are we only toggling the bool, or describing a full schema?
         var hasDetails =
-            !string.IsNullOrWhiteSpace(attr.AdditionalPropertiesType) ||
+              attr.AdditionalPropertiesType is not null ||
             !string.IsNullOrWhiteSpace(attr.AdditionalPropertiesFormat) ||
             !string.IsNullOrWhiteSpace(attr.AdditionalPropertiesRef) ||
             attr.AdditionalPropertiesClrType is not null ||
@@ -69,10 +69,10 @@ public partial class OpenApiDocDescriptor
             }
         }
         // 2) Raw type/format string: small inline mapping, no ToJsonSchemaType helper
-        else if (!string.IsNullOrWhiteSpace(attr.AdditionalPropertiesType))
+        else if (attr.AdditionalPropertiesType is not null)
         {
             JsonSchemaType? typeEnum = null;
-            switch (attr.AdditionalPropertiesType)
+            switch (attr.AdditionalPropertiesType.ToString().ToLowerInvariant())
             {
                 case "string":
                     typeEnum = JsonSchemaType.String;

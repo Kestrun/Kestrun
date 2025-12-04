@@ -393,6 +393,29 @@ public partial class OpenApiDocDescriptor
             }
             else
             {
+                foreach (var schemaComp in t.GetCustomAttributes(typeof(OpenApiPropertyAttribute)))
+                {
+                    if (schemaComp is OpenApiPropertyAttribute prop)
+                    {
+                        if (prop.Array)
+                        {
+                            var s = new OpenApiSchema
+                            {
+                                Type = JsonSchemaType.Array,
+                                Items = new OpenApiSchemaReference(t.BaseType.Name),
+                            };
+                            ApplySchemaAttr(prop, s);
+                            return s;
+                        }
+                        else
+                        {
+                            var s = new OpenApiSchemaReference(t.BaseType.Name); // Ensure base type schema is built first
+                            ApplySchemaAttr(prop, s);
+                            return s;
+                        }
+                    }
+                }
+
                 return new OpenApiSchemaReference(t.BaseType.Name); // Ensure base type schema is built first
             }
         }
@@ -426,32 +449,56 @@ public partial class OpenApiDocDescriptor
             return schema; // primitives don't go to components
         }
 
-        var clsComp = t.GetCustomAttributes(inherit: false)
-        .Where(a => a is OpenApiSchemaComponent)
-        .OrderBy(a => a is not OpenApiSchemaComponent)
-        .ToArray();
-        foreach (var a in clsComp)
+        foreach (var a in t.GetCustomAttributes(true)
+          .Where(a => a is OpenApiPropertyAttribute or OpenApiSchemaComponent))
         {
+            ApplySchemaAttr(a as OpenApiProperties, schema);
+            /*    if (a is OpenApiPropertyAttribute propAttribute)
+                {
+                    // Apply property-level attributes to the schema
+                    ApplySchemaAttr(propAttribute, schema);
+                }
+                else if (a is OpenApiSchemaComponent schemaAttribute)
+                {
+                    // Use the Key as the component name if provided
+                    if (schemaAttribute.Title is not null)
+                    {
+                        schema.Title = schemaAttribute.Title;
+                    }
+                    if (!string.IsNullOrWhiteSpace(schemaAttribute.Description))
+                    {
+                        schema.Description = schemaAttribute.Description;
+                    }
+
+                    schema.Deprecated |= schemaAttribute.Deprecated;
+                    //  schema.AdditionalPropertiesAllowed |= schemaAttribute.AdditionalPropertiesAllowed;
+                    // Apply additionalProperties schema if specified
+                    ApplyAdditionalProperties(schema, schemaAttribute);
+                    if (schemaAttribute.Example is not null)
+                    {
+                        schema.Example = ToNode(schemaAttribute.Example);
+                    }
+                    if (schemaAttribute.Examples is not null)
+                    {
+                        schema.Examples ??= [];
+                        var node = ToNode(schemaAttribute.Examples);
+                        if (node is not null)
+                        {
+                            schema.Examples.Add(node);
+                        }
+                    }
+
+                    if (schemaAttribute.Required is not null && schemaAttribute.Required.Length > 0)
+                    {
+                        schema.Required ??= new HashSet<string>(StringComparer.Ordinal);
+                        foreach (var r in schemaAttribute.Required)
+                        {
+                            _ = schema.Required.Add(r);
+                        }
+                    }
+                }*/
             if (a is OpenApiSchemaComponent schemaAttribute)
             {
-                // Use the Key as the component name if provided
-                if (schemaAttribute.Title is not null)
-                {
-                    schema.Title = schemaAttribute.Title;
-                }
-                if (!string.IsNullOrWhiteSpace(schemaAttribute.Description))
-                {
-                    schema.Description = schemaAttribute.Description;
-                }
-
-                schema.Deprecated |= schemaAttribute.Deprecated;
-                //  schema.AdditionalPropertiesAllowed |= schemaAttribute.AdditionalPropertiesAllowed;
-                // Apply additionalProperties schema if specified
-                ApplyAdditionalProperties(schema, schemaAttribute);
-                if (schemaAttribute.Example is not null)
-                {
-                    schema.Example = ToNode(schemaAttribute.Example);
-                }
                 if (schemaAttribute.Examples is not null)
                 {
                     schema.Examples ??= [];
@@ -459,17 +506,6 @@ public partial class OpenApiDocDescriptor
                     if (node is not null)
                     {
                         schema.Examples.Add(node);
-                    }
-                }
-
-                if (!string.IsNullOrWhiteSpace(schemaAttribute.Required))
-                {
-                    schema.Required ??= new HashSet<string>(StringComparer.Ordinal);
-                    var tmp = schemaAttribute.Required?
-                     .Split([','], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).ToHashSet(StringComparer.Ordinal);
-                    foreach (var r in tmp!)
-                    {
-                        _ = schema.Required.Add(r);
                     }
                 }
             }
@@ -821,9 +857,9 @@ public partial class OpenApiDocDescriptor
     /// <returns>True if the type is an unsigned integer type; otherwise, false.</returns>
     private static bool IsUnsignedIntegerType(Type t) => t == typeof(sbyte) || t == typeof(ushort) || t == typeof(uint) || t == typeof(ulong);
 
-    private static void ApplySchemaAttr(OpenApiPropertyAttribute? a, IOpenApiSchema s)
+    private static void ApplySchemaAttr(OpenApiProperties? a, IOpenApiSchema s)
     {
-        if (a == null)
+        if (a is null)
         {
             return;
         }
@@ -935,10 +971,9 @@ public partial class OpenApiDocDescriptor
                 sc.AdditionalProperties = new OpenApiSchemaReference(a.AdditionalProperties);
             }
             // nullable bool
-            if (a.AdditionalPropertiesAllowed is not null)
-            {
-                sc.AdditionalPropertiesAllowed = (bool)a.AdditionalPropertiesAllowed;
-            }
+
+            sc.AdditionalPropertiesAllowed = a.AdditionalPropertiesAllowed;
+
             sc.UnevaluatedProperties = a.UnevaluatedProperties;
             if (a.Default is not null)
             {
@@ -950,9 +985,18 @@ public partial class OpenApiDocDescriptor
                 sc.Example = ToNode(a.Example);
             }
 
-            if (a is not null && a.Enum is not null && a.Enum is { Length: > 0 })
+            if (a?.Enum is not null && a.Enum is { Length: > 0 })
             {
                 sc.Enum = [.. a.Enum.Select(ToNode).OfType<JsonNode>()];
+            }
+
+            if (a?.Required is not null && a.Required.Length > 0)
+            {
+                sc.Required ??= new HashSet<string>(StringComparer.Ordinal);
+                foreach (var r in a.Required)
+                {
+                    _ = sc.Required.Add(r);
+                }
             }
         }
         else if (s is OpenApiSchemaReference refSchema)

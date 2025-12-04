@@ -41,106 +41,153 @@ Add-KrOpenApiTag -Name 'Tickets' -Description 'Museum tickets for general entran
 #                      COMPONENT SCHEMAS
 # =========================================================
 
-[OpenApiSchemaComponent(Description = 'Daily operating hours for the museum.', Required = 'date,timeOpen,timeClose')]
+
+#TODO :GetMuseumHoursResponse missing description
+#TODO :EventDates missing description
+#TODO :ListSpecialEventsResponse missing description
+#TODO :MuseumDailyHours: ValidatePattern is not working
+[OpenApiSchemaComponent( Description = 'Daily operating hours for the museum.',
+    Required = ('date', 'timeOpen', 'timeClose'))]
 class MuseumDailyHours {
-    [datetime]$date
+    [OpenApiPropertyAttribute(Description = 'Date the operating hours apply to.', Example = '2024-12-31')]
+    [Date]$date
 
-
+    [OpenApiPropertyAttribute(Description = 'Time the museum opens on a specific date. Uses 24 hour time format (`HH:mm`).', Example = '09:00')]
     [ValidatePattern('^([01]\d|2[0-3]):([0-5]\d)$')]
     [string]$timeOpen
 
-
+    [OpenApiPropertyAttribute(Description = 'Time the museum closes on a specific date. Uses 24 hour time format (`HH:mm`).', Example = '18:00')]
     [ValidatePattern('^([01]\d|2[0-3]):([0-5]\d)$')]
     [string]$timeClose
 }
 
-
-[OpenApiResponseComponent()]
-class GetMuseumHoursResponse {
-
-    [OpenApiResponseAttribute(Description = 'List of museum operating hours for consecutive days.', ContentType = 'application/json')]
-    # TODO: original schema is a bare array; here we wrap it in an object with "items".
-    [MuseumDailyHours[]]$GetMuseumHoursResponse
-}
+[OpenApiSchemaComponent(
+    Description = 'List of museum operating hours for consecutive days.',
+    Array = $true
+)]
+class GetMuseumHoursResponse:MuseumDailyHours {}
 
 
-[OpenApiSchemaComponent(Description = 'Request payload for creating new special events at the museum.',
-    Required = 'name,location,eventDescription,dates,price')]
+[OpenApiSchemaComponent(
+    Description = 'Request payload for creating new special events at the museum.',
+    Required = ('name', 'location', 'eventDescription', 'dates', 'price')
+)]
 class CreateSpecialEventRequest {
-    [string]$name
-    [string]$location
-    [string]$eventDescription
-
-    [OpenApiPropertyAttribute(Array = $true, Format = 'date')]
-    [string[]]$dates
-
-    [double]$price  # format: float
+    [EventName]$name
+    [EventLocation]$location
+    [EventDescription]$eventDescription
+    [EventDates]$dates
+    [EventPrice]$price  # format: float
 }
 
 
-[OpenApiSchemaComponent(Description = 'Request payload for updating an existing special event. Only included fields are updated.')]
+[OpenApiSchemaComponent(
+    Description = 'Request payload for updating an existing special event. Only included fields are updated in the event.'
+)]
 class UpdateSpecialEventRequest {
-    [string]$name
-    [string]$location
-    [string]$eventDescription
-
-    [OpenApiPropertyAttribute(Array = $true, Format = 'date')]
-    [string[]]$dates
-
-    [double]$price
+    [EventName]$name
+    [EventLocation]$location
+    [EventDescription]$eventDescription
+    [EventDates]$dates
+    [EventPrice]$price
 }
 
 
-[OpenApiSchemaComponent(Description = 'Information about a special event.',
-    Required = 'eventId,name,location,eventDescription,dates,price')]
+[OpenApiSchemaComponent(  Description = 'Information about a special event.',
+    Required = ('eventId', 'name', 'location', 'eventDescription', 'dates', 'price')
+)]
 class SpecialEventResponse {
-    [OpenApiPropertyAttribute(Format = 'uuid')]
-    [string]$eventId
+    [EventId]$eventId
 
+    [EventName]$name
+    [EventLocation]$location
+    [EventDescription]$eventDescription
+    [EventDates]$dates
+    [EventPrice]$price
+}
+
+[OpenApiSchemaComponent( Description = 'Request payload for creating new special events at the museum.')]
+class SpecialEvent {
+    [OpenApiPropertyAttribute(Description = 'Name of the special event' , Example = 'Fossil lecture')]
     [string]$name
+
+    [OpenApiPropertyAttribute(Description = 'Location where the special event is held' , Example = 'Lecture theatre')]
     [string]$location
+
+    [OpenApiPropertyAttribute(Description = 'Description of the special event' ,
+        Example = 'Our panel of experts will share their favorite fossils and explain why they are so great.')]
     [string]$eventDescription
 
-    [OpenApiPropertyAttribute(Array = $true, Format = 'date')]
-    [string[]]$dates
+    [OpenApiPropertyAttribute(Description = 'List of planned dates for the special event' , Example = ('2024-03-29'))]
+    [datetime[]]$dates
 
+    [OpenApiPropertyAttribute(Description = 'List of planned dates for the special event', Example = '12.50')]
     [double]$price
 }
 
+[OpenApiSchemaComponent(Description = 'A list of upcoming special events.', Array = $true)]
+class ListSpecialEventsResponse:SpecialEventResponse {}
 
-[OpenApiSchemaComponent(Description = 'A list of upcoming special events.')]
-class ListSpecialEventsResponse {
-    # TODO: original schema is a bare array; here we wrap it in an object with "items".
-    [OpenApiPropertyAttribute(Array = $true)]
-    [SpecialEventResponse[]]$items
-}
-
-[OpenApiSchemaComponent(Description = 'Type of ticket being purchased. Use `general` for regular entry and `event` for special events.')]
-[OpenApiPropertyAttribute(Type = 'string', Enum = ('event', 'general'), Example = 'event')]
+[OpenApiSchemaComponent(
+    Description = 'Type of ticket being purchased. Use `general` for regular entry and `event` for special events.',
+    Type = 'string', Enum = ('event', 'general'), Example = 'event')]
 class TicketType {}
 
-[OpenApiSchemaComponent(Description = 'Identifier for a special event.')]
-[OpenApiPropertyAttribute(Type = 'string', Format = 'uuid', Example = '3be6453c-03eb-4357-ae5a-984a0e574a54')]
+[OpenApiSchemaComponent(
+    Description = 'Unique identifier for museum ticket. Generated when purchased.',
+    Type = 'string', Format = 'uuid', Example = 'a54a57ca-36f8-421b-a6b4-2e8f26858a4c')]
+class TicketId {}
+
+[OpenApiSchemaComponent(
+    Description = 'Confirmation message after a ticket purchase.',
+    Type = 'string', Example = 'Museum general entry ticket purchased')]
+class TicketMessage {}
+
+[OpenApiSchemaComponent(
+    Description = 'Unique confirmation code used to verify ticket purchase.',
+    Type = 'string', Example = 'ticket-event-a98c8f-7eb12')]
+class TicketConfirmation {}
+
+[OpenApiSchemaComponent(Description = 'Identifier for a special event.',
+    Type = 'string', Format = 'uuid', Example = '3be6453c-03eb-4357-ae5a-984a0e574a54'
+)]
 class EventId {}
 
-[OpenApiSchemaComponent(Description = 'Location where the special event is held.')]
-[OpenApiPropertyAttribute(Type = 'string', Example = 'Computer Room')]
+[OpenApiSchemaComponent(Description = 'Name of the special event',
+    Type = 'string', Example = 'Pirate Coding Workshop'
+)]
+class EventName {}
+
+[OpenApiSchemaComponent(Description = 'Location where the special event is held.',
+    Type = 'string', Example = 'Computer Room')]
 class EventLocation {}
 
-[OpenApiSchemaComponent()]
-[OpenApiPropertyAttribute(Type = 'string', Format = 'date', Example = '2023-10-29')]
+[OpenApiSchemaComponent(Description = 'Description of the special event',
+    Type = 'string', Example = 'Captain Blackbeard shares his love of the C...language. And possibly Arrrrr (R lang).')]
+class EventDescription {}
+
+[OpenApiSchemaComponent(Description = 'Price of a ticket for the special eventt',
+    Type = 'number', format = 'float', Example = 25)]
+class EventPrice {}
+
+[OpenApiSchemaComponent(
+    Type = 'string', Format = 'date', Example = '2023-10-29')]
 class Date {}
 
-[OpenApiSchemaComponent(Description = 'Email address for ticket purchaser.')]
-[OpenApiPropertyAttribute(Type = 'string', Format = 'email', Example = 'museum-lover@example.com')]
+[OpenApiSchemaComponent( Description = 'List of planned dates for the special event',
+    Array = $true)]
+class EventDates:Date {}
+
+[OpenApiSchemaComponent(Description = 'Email address for ticket purchaser.',
+    Type = 'string', Format = 'email', Example = 'museum-lover@example.com')]
 class Email {}
 
-[OpenApiSchemaComponent(Description = 'Phone number for the ticket purchaser (optional).')]
-[OpenApiPropertyAttribute(Type = 'string' , Example = '+1(234)-567-8910')]
+[OpenApiSchemaComponent(Description = 'Phone number for the ticket purchaser (optional).',
+    Type = 'string' , Example = '+1(234)-567-8910')]
 class Phone {}
 
 [OpenApiSchemaComponent(Description = 'Request payload used for purchasing museum tickets.',
-    Required = 'ticketType,ticketDate,email')]
+    Required = ('ticketType', 'ticketDate', 'email'))]
 class BuyMuseumTicketsRequest {
     [TicketType]$ticketType
 
@@ -158,30 +205,39 @@ class BuyMuseumTicketsRequest {
 
 
 [OpenApiSchemaComponent(Description = 'Details for a museum ticket after a successful purchase.',
-    Required = 'message,ticketId,ticketType,ticketDate,confirmationCode')]
+    Required = ('message', 'ticketId', 'ticketType', 'ticketDate', 'confirmationCode'))]
 class BuyMuseumTicketsResponse {
-    [string]$message
-    [string]$eventName
+    [TicketMessage]$message
+    [EventName]$eventName
 
-    [OpenApiPropertyAttribute(Format = 'uuid')]
-    [string]$ticketId
+    [TicketId]$ticketId
 
-    [ValidateSet('event', 'general')]
-    [string]$ticketType
+    [TicketType]$ticketType
 
-    [OpenApiPropertyAttribute(Format = 'date')]
-    [string]$ticketDate
+    [OpenApiPropertyAttribute(description = 'Date that the ticket is valid for.')]
+    [Date]$ticketDate
 
-    [string]$confirmationCode
+    [TicketConfirmation]$confirmationCode
 }
 
 
 [OpenApiSchemaComponent(
-    Description = 'An image of a ticket with a QR code used for museum or event entry.')]
-[OpenApiPropertyAttribute(Type = 'string', Format = 'binary' )]
+    Description = 'An image of a ticket with a QR code used for museum or event entry.',
+    Type = 'string', Format = 'binary' )]
 class GetTicketCodeResponse {
 }
 
+<#
+[OpenApiResponseComponent()]
+class MuseumParameters {
+    [OpenApiResponseAttribute( Description = 'Bad request')]
+    [Error]$BadRequest,
+    [OpenApiResponseAttribute( Description = 'Not found')]
+    [Error]$NotFound,
+    [OpenApiResponseAttribute( Description = 'Unauthorized')]
+    [Error]$Unauthorized
+
+}#>
 # TODO: Alias-style schemas (Date, Email, Phone, TicketId, TicketMessage, TicketConfirmation, EventId, EventName, EventLocation, EventDescription, EventDates, EventPrice)
 #       are not modeled as separate schema components here. They are flattened into properties.
 #       When Kestrun supports bare string/array schema components referenced by $ref, you can introduce them explicitly.
@@ -292,7 +348,7 @@ function getMuseumHours {
 #>
     [OpenApiPath(HttpVerb = 'get', Pattern = '/museum-hours', Tags = 'Operations')]
 
-    [OpenApiResponseRefAttribute(StatusCode = '200', ReferenceId = 'GetMuseumHoursResponse' , Description = 'Success')]
+    [OpenApiResponseAttribute(StatusCode = '200', SchemaRef = 'GetMuseumHoursResponse' , Description = 'Success')]
     [OpenApiResponseAttribute(StatusCode = '400', Description = 'Bad request')]
     [OpenApiResponseAttribute(StatusCode = '404', Description = 'Not found')]
     # TODO: 400/404 responses are inline in museum.yml; you could introduce response components and use OpenApiResponseRefAttribute.
@@ -335,7 +391,7 @@ function createSpecialEvent {
     [OpenApiPath(HttpVerb = 'post', Pattern = '/special-events', Tags = 'Events')]
     # TODO: museum.yml sets security: [] here (no auth); add per-operation override when supported.
 
-    [OpenApiResponseAttribute(StatusCode = '200', Description = 'success',
+    [OpenApiResponseAttribute(StatusCode = '200', Description = 'Created.',
         SchemaRef = 'SpecialEventResponse', ContentType = 'application/json')]
     [OpenApiResponseAttribute(StatusCode = '400', Description = 'Bad request')]
     [OpenApiResponseAttribute(StatusCode = '404', Description = 'Not found')]
@@ -431,7 +487,7 @@ function getSpecialEvent {
     [OpenApiPath(HttpVerb = 'get', Pattern = '/special-events/{eventId}', Tags = 'Events')]
 
     [OpenApiResponseAttribute(StatusCode = '200', Description = 'Success',
-        SchemaRef = 'SpecialEventResponse', Inline = $true,
+        SchemaRef = 'SpecialEventResponse' ,
         ContentType = 'application/json')]
     [OpenApiResponseAttribute(StatusCode = '400', Description = 'Bad request')]
     [OpenApiResponseAttribute(StatusCode = '404', Description = 'Not found')]
@@ -482,15 +538,15 @@ function updateSpecialEvent {
     Write-Host "updateSpecialEvent called eventId='$eventId' body:"
     $Body | ConvertTo-Json -Depth 5 | Write-Host
 
-    $event = [SpecialEventResponse]::new()
-    $event.eventId = $eventId
-    $event.name = $Body.name
-    $event.location = $Body.location
-    $event.eventDescription = $Body.eventDescription
-    $event.dates = $Body.dates
-    $event.price = $Body.price
+    $specialEvent = [SpecialEventResponse]::new()
+    $specialEvent.eventId = $eventId
+    $specialEvent.name = $Body.name
+    $specialEvent.location = $Body.location
+    $specialEvent.eventDescription = $Body.eventDescription
+    $specialEvent.dates = $Body.dates
+    $specialEvent.price = $Body.price
 
-    Write-KrJsonResponse $event -StatusCode 200
+    Write-KrJsonResponse $specialEvent -StatusCode 200
 }
 
 
@@ -572,7 +628,9 @@ function buyMuseumTickets {
 # --------------------------------------
 # GET /tickets/{ticketId}/qr
 # --------------------------------------
-<#
+
+function getTicketCode {
+    <#
 .SYNOPSIS
     Get ticket QR code.
 .DESCRIPTION
@@ -580,11 +638,10 @@ function buyMuseumTickets {
 .PARAMETER ticketId
     Identifier for a museum ticket (UUID).
 #>
-function getTicketCode {
     [OpenApiPath(HttpVerb = 'get', Pattern = '/tickets/{ticketId}/qr', Tags = 'Tickets')]
 
     [OpenApiResponseAttribute(StatusCode = '200', Description = 'Scannable event ticket in image format',
-        SchemaRef = 'GetTicketCodeResponse', Inline = $true,
+        SchemaRef = 'GetTicketCodeResponse',
         ContentType = 'image/png')]
     [OpenApiResponseAttribute(StatusCode = '400', Description = 'Bad request')]
     [OpenApiResponseAttribute(StatusCode = '404', Description = 'Not found')]

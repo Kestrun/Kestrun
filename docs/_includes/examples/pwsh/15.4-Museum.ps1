@@ -126,8 +126,8 @@ class ListSpecialEventsResponse:SpecialEventResponse {}
 
 [OpenApiSchemaComponent(
     Description = 'Type of ticket being purchased. Use `general` for regular entry and `event` for special events.',
-    Type = 'string', Enum = ('event', 'general'), Example = 'event')]
-class TicketType {}
+    Enum = ('event', 'general'), Example = 'event')]
+class TicketType:OaString {}
 
 [OpenApiSchemaComponent(
     Description = 'Unique identifier for museum ticket. Generated when purchased.',

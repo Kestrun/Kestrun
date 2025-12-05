@@ -353,14 +353,7 @@ public partial class OpenApiDocDescriptor
 
     #region Schemas
 
-    private static JsonSchemaType Map(OaSchemaType t) => t switch
-    {
-        OaSchemaType.String => JsonSchemaType.String,
-        OaSchemaType.Integer => JsonSchemaType.Integer,
-        OaSchemaType.Number => JsonSchemaType.Number,
-        OaSchemaType.Boolean => JsonSchemaType.Boolean,
-        _ => JsonSchemaType.String
-    };
+
     private static OpenApiPropertyAttribute? GetSchemaIdentity(Type t)
     {
         // inherit:true already climbs the chain until it finds the first one
@@ -379,6 +372,7 @@ public partial class OpenApiDocDescriptor
         built ??= [];
         if (t.BaseType is not null && t.BaseType != typeof(object))
         {
+
             if (typeof(IOpenApiType).IsAssignableFrom(t))
             {
                 var a = GetSchemaIdentity(t);
@@ -386,7 +380,7 @@ public partial class OpenApiDocDescriptor
                 {
                     return new OpenApiSchema
                     {
-                        Type = Map(a.Type),
+                        Type = a.Type.ToJsonSchemaType(),
                         Format = a.Format
                     };
                 }
@@ -397,19 +391,28 @@ public partial class OpenApiDocDescriptor
                 {
                     if (schemaComp is OpenApiProperties prop)
                     {
+                        var baseTypeName = t.BaseType switch
+                        {
+                            Type bt when bt == typeof(OaString) => "string",
+                            Type bt when bt == typeof(OaInteger) => "integer",
+                            Type bt when bt == typeof(OaNumber) => "number",
+                            Type bt when bt == typeof(OaBoolean) => "boolean",
+                            _ => t.BaseType.Name
+                        };
+
                         if (prop.Array)
                         {
                             var s = new OpenApiSchema
                             {
                                 Type = JsonSchemaType.Array,
-                                Items = new OpenApiSchemaReference(t.BaseType.Name),
+                                Items = new OpenApiSchemaReference(baseTypeName),
                             };
                             ApplySchemaAttr(prop, s);
                             return s;
                         }
                         else
                         {
-                            var s = new OpenApiSchemaReference(t.BaseType.Name); // Ensure base type schema is built first
+                            var s = new OpenApiSchemaReference(baseTypeName); // Ensure base type schema is built first
                             ApplySchemaAttr(prop, s);
                             return s;
                         }
@@ -744,22 +747,24 @@ public partial class OpenApiDocDescriptor
             {
                 if (requestBodyPreferred)
                 {
-                    if (GetRequestBody(type.Name) is OpenApiRequestBody rb)
+                    if (GetRequestBody(type.Name) is not null)
                     {
                         return new OpenApiSchemaReference(type.Name);
                     }
-                    if (GetSchema(type.Name) is OpenApiSchema schema)
+
+                    if (GetSchema(type.Name) is not null)
                     {
                         return new OpenApiSchemaReference(type.Name);
                     }
                 }
                 else
                 {
-                    if (GetSchema(type.Name) is OpenApiSchema schema)
+                    if (GetSchema(type.Name) is not null)
                     {
                         return new OpenApiSchemaReference(type.Name);
                     }
-                    if (GetRequestBody(type.Name) is OpenApiRequestBody rb)
+
+                    if (GetRequestBody(type.Name) is not null)
                     {
                         return new OpenApiSchemaReference(type.Name);
                     }
@@ -2386,24 +2391,6 @@ public partial class OpenApiDocDescriptor
             ? op
             : throw new InvalidOperationException($"RequestBody '{id}' not found.");
     }
-    /*
-        private OpenApiRequestBody? GetRequestBody(string id)
-        {
-            if (Document.Components?.RequestBodies is null)
-            {
-                return null;
-            }
-            if (Document.Components.RequestBodies.ContainsKey(id))
-            {
-                var r = Document.Components?.RequestBodies[id];
-                if (r is OpenApiRequestBody obr)
-                {
-                    return obr;
-                }
-
-            }
-            return null;
-        }*/
 
     private OpenApiHeader GetHeader(string id)
     {

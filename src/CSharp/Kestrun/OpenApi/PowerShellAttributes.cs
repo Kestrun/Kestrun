@@ -13,7 +13,7 @@ internal static class PowerShellAttributes
     /// </summary>
     /// <param name="attr">The CmdletMetadataAttribute to apply.</param>
     /// <param name="schema">The OpenAPI schema to modify.</param>
-    internal static void ApplyPowerShellAttributes(CmdletMetadataAttribute attr, OpenApiSchema schema)
+    internal static void ApplyPowerShellAttribute(CmdletMetadataAttribute attr, OpenApiSchema schema)
     {
         _ = attr switch
         {
@@ -35,71 +35,32 @@ internal static class PowerShellAttributes
     }
 
     /// <summary>
-    /// Applies PowerShell validation attributes to the specified schema.
+    /// Applies PowerShell validation attributes declared on a property to the specified schema.
     /// </summary>
     /// <param name="p">The property info to inspect for validation attributes.</param>
     /// <param name="s">The OpenAPI schema to apply constraints to.</param>
-    internal static void ApplyPowerShellValidationAttributes(PropertyInfo p, IOpenApiSchema s)
+    internal static void ApplyPowerShellAttributes(PropertyInfo p, IOpenApiSchema s)
     {
         if (s is not OpenApiSchema sc)
         {
-            return; // constraints only applicable on a concrete schema, not a $ref proxy
+            // constraints only applicable on a concrete schema, not a $ref proxy
+            return;
         }
 
-        foreach (var attr in p.GetCustomAttributes(inherit: false))
+        // Only pick PowerShell cmdlet metadata / validation attributes;
+        // no magic string on Type.Name needed.
+        foreach (var attr in p.GetCustomAttributes<CmdletMetadataAttribute>(inherit: false))
         {
-            var atName = attr.GetType().Name;
-            switch (atName)
-            {
-                case "ValidateRangeAttribute":
-                    {
-                        _ = ApplyValidateRangeAttribute((ValidateRangeAttribute)attr, sc);
-                        break;
-                    }
-                case "ValidateLengthAttribute":
-                    {
-                        _ = ApplyValidateLengthAttribute((ValidateLengthAttribute)attr, sc);
-                        break;
-                    }
-                case "ValidateSetAttribute":
-                    {
-                        _ = ApplyValidateSetAttribute((ValidateSetAttribute)attr, sc);
-                        break;
-                    }
-
-                case "ValidatePatternAttribute":
-                    {
-                        _ = ApplyValidatePatternAttribute((ValidatePatternAttribute)attr, sc);
-                        break;
-                    }
-
-                case "ValidateCountAttribute":
-                    {
-                        _ = ApplyValidateCountAttribute((ValidateCountAttribute)attr, sc);
-                        break;
-                    }
-
-                case "ValidateNotNullOrEmptyAttribute":
-                    {
-                        _ = ApplyNotNullOrEmpty(sc);
-                        break;
-                    }
-                case "ValidateNotNullOrWhiteSpaceAttribute":
-                    {
-                        _ = ApplyNotNullOrWhiteSpace(sc);
-                        break;
-                    }
-                case "ValidateNotNullAttribute":
-                    {
-                        _ = ApplyNotNull(sc);
-                        break;
-                    }
-                default:
-                    break;
-            }
+            ApplyPowerShellAttribute(attr, sc);
         }
     }
 
+    /// <summary>
+    /// Applies a ValidateRangeAttribute to an OpenApiSchema.
+    /// </summary>
+    /// <param name="attr">The ValidateRangeAttribute to apply.</param>
+    /// <param name="schema">The OpenApiSchema to modify.</param>
+    /// <returns>Returns always null.</returns>
     private static object? ApplyValidateRangeAttribute(ValidateRangeAttribute attr, OpenApiSchema schema)
     {
         var min = attr.MinRange;
@@ -115,6 +76,12 @@ internal static class PowerShellAttributes
         return null;
     }
 
+    /// <summary>
+    /// Applies a ValidateLengthAttribute to an OpenApiSchema.
+    /// </summary>
+    /// <param name="attr">The ValidateLengthAttribute to apply.</param>
+    /// <param name="schema">The OpenApiSchema to modify.</param>
+    /// <returns>Returns always null.</returns>
     private static object? ApplyValidateLengthAttribute(ValidateLengthAttribute attr, OpenApiSchema schema)
     {
         var minLen = attr.MinLength;
@@ -130,6 +97,12 @@ internal static class PowerShellAttributes
         return null;
     }
 
+    /// <summary>
+    /// Applies a ValidateSetAttribute to an OpenApiSchema.
+    /// </summary>
+    /// <param name="attr">The ValidateSetAttribute to apply.</param>
+    /// <param name="sc">The OpenApiSchema to modify.</param>
+    /// <returns>Returns always null.</returns>
     private static object? ApplyValidateSetAttribute(ValidateSetAttribute attr, OpenApiSchema sc)
     {
         var vals = attr.ValidValues;
@@ -153,15 +126,28 @@ internal static class PowerShellAttributes
         }
         return null;
     }
+
+    /// <summary>
+    /// Applies a ValidatePatternAttribute to an OpenApiSchema.
+    /// </summary>
+    /// <param name="attr">The ValidatePatternAttribute to apply.</param>
+    /// <param name="sc">The OpenApiSchema to modify.</param>
+    /// <returns>Returns always null.</returns>
     private static object? ApplyValidatePatternAttribute(ValidatePatternAttribute attr, OpenApiSchema sc)
     {
-        if (!string.IsNullOrWhiteSpace(sc.Pattern))
+        if (string.IsNullOrWhiteSpace(sc.Pattern))
         {
             sc.Pattern = attr.RegexPattern;
         }
         return null;
     }
 
+    /// <summary>
+    /// Applies a ValidateCountAttribute to an OpenApiSchema.
+    /// </summary>
+    /// <param name="attr">The ValidateCountAttribute to apply.</param>
+    /// <param name="sc">The OpenApiSchema to modify.</param>
+    /// <returns>Returns always null.</returns>
     private static object? ApplyValidateCountAttribute(ValidateCountAttribute attr, OpenApiSchema sc)
     {
         if (attr.MinLength >= 0)
@@ -176,6 +162,11 @@ internal static class PowerShellAttributes
         return null;
     }
 
+    /// <summary>
+    /// Applies a ValidateNotNullOrEmptyAttribute to an OpenApiSchema.
+    /// </summary>
+    /// <param name="sc">The OpenApiSchema to modify.</param>
+    /// <returns>Returns always null.</returns>
     private static object? ApplyNotNullOrEmpty(OpenApiSchema sc)
     {
         // string → minLength >= 1
@@ -199,6 +190,11 @@ internal static class PowerShellAttributes
         return null;
     }
 
+    /// <summary>
+    /// Applies a ValidateNotNullOrWhiteSpaceAttribute to an OpenApiSchema.
+    /// </summary>
+    /// <param name="sc">The OpenApiSchema to modify.</param>
+    /// <returns>Returns always null.</returns>
     private static object? ApplyNotNullOrWhiteSpace(OpenApiSchema sc)
     {
         if (sc.Type == JsonSchemaType.String)
@@ -216,5 +212,10 @@ internal static class PowerShellAttributes
         return null;
     }
 
+    /// <summary>
+    /// Applies a ValidateNotNullAttribute to an OpenApiSchema.
+    /// </summary>
+    /// <param name="schema">The OpenApiSchema to modify.</param>
+    /// <returns>Returns always null.</returns>
     private static object? ApplyNotNull(OpenApiSchema schema) => ApplyNotNullOrEmpty(schema);
 }

@@ -42,10 +42,6 @@ Add-KrOpenApiTag -Name 'Tickets' -Description 'Museum tickets for general entran
 # =========================================================
 
 
-#TODO :GetMuseumHoursResponse missing description
-#TODO :EventDates missing description
-#TODO :ListSpecialEventsResponse missing description
-#TODO :MuseumDailyHours: ValidatePattern is not working
 [OpenApiSchemaComponent( Description = 'Daily operating hours for the museum.',
     Required = ('date', 'timeOpen', 'timeClose'))]
 class MuseumDailyHours {
@@ -227,20 +223,6 @@ class BuyMuseumTicketsResponse {
 class GetTicketCodeResponse {
 }
 
-<#
-[OpenApiResponseComponent()]
-class MuseumParameters {
-    [OpenApiResponseAttribute( Description = 'Bad request')]
-    [Error]$BadRequest,
-    [OpenApiResponseAttribute( Description = 'Not found')]
-    [Error]$NotFound,
-    [OpenApiResponseAttribute( Description = 'Unauthorized')]
-    [Error]$Unauthorized
-
-}#>
-# TODO: Alias-style schemas (Date, Email, Phone, TicketId, TicketMessage, TicketConfirmation, EventId, EventName, EventLocation, EventDescription, EventDates, EventPrice)
-#       are not modeled as separate schema components here. They are flattened into properties.
-#       When Kestrun supports bare string/array schema components referenced by $ref, you can introduce them explicitly.
 
 # =========================================================
 #                 COMPONENT PARAMETERS

@@ -16,5 +16,7 @@ public enum OaSchemaType
     /// <summary>array</summary>
     Array,
     /// <summary>object</summary>
-    Object
+    Object,
+    /// <summary>null</summary>
+    Null
 }

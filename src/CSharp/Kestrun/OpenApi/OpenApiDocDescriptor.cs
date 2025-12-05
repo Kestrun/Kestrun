@@ -393,9 +393,9 @@ public partial class OpenApiDocDescriptor
             }
             else
             {
-                foreach (var schemaComp in t.GetCustomAttributes(typeof(OpenApiPropertyAttribute)))
+                foreach (var schemaComp in t.GetCustomAttributes(typeof(OpenApiProperties)))
                 {
-                    if (schemaComp is OpenApiPropertyAttribute prop)
+                    if (schemaComp is OpenApiProperties prop)
                     {
                         if (prop.Array)
                         {
@@ -453,50 +453,7 @@ public partial class OpenApiDocDescriptor
           .Where(a => a is OpenApiPropertyAttribute or OpenApiSchemaComponent))
         {
             ApplySchemaAttr(a as OpenApiProperties, schema);
-            /*    if (a is OpenApiPropertyAttribute propAttribute)
-                {
-                    // Apply property-level attributes to the schema
-                    ApplySchemaAttr(propAttribute, schema);
-                }
-                else if (a is OpenApiSchemaComponent schemaAttribute)
-                {
-                    // Use the Key as the component name if provided
-                    if (schemaAttribute.Title is not null)
-                    {
-                        schema.Title = schemaAttribute.Title;
-                    }
-                    if (!string.IsNullOrWhiteSpace(schemaAttribute.Description))
-                    {
-                        schema.Description = schemaAttribute.Description;
-                    }
 
-                    schema.Deprecated |= schemaAttribute.Deprecated;
-                    //  schema.AdditionalPropertiesAllowed |= schemaAttribute.AdditionalPropertiesAllowed;
-                    // Apply additionalProperties schema if specified
-                    ApplyAdditionalProperties(schema, schemaAttribute);
-                    if (schemaAttribute.Example is not null)
-                    {
-                        schema.Example = ToNode(schemaAttribute.Example);
-                    }
-                    if (schemaAttribute.Examples is not null)
-                    {
-                        schema.Examples ??= [];
-                        var node = ToNode(schemaAttribute.Examples);
-                        if (node is not null)
-                        {
-                            schema.Examples.Add(node);
-                        }
-                    }
-
-                    if (schemaAttribute.Required is not null && schemaAttribute.Required.Length > 0)
-                    {
-                        schema.Required ??= new HashSet<string>(StringComparer.Ordinal);
-                        foreach (var r in schemaAttribute.Required)
-                        {
-                            _ = schema.Required.Add(r);
-                        }
-                    }
-                }*/
             if (a is OpenApiSchemaComponent schemaAttribute)
             {
                 if (schemaAttribute.Examples is not null)
@@ -868,12 +825,12 @@ public partial class OpenApiDocDescriptor
         // We set common metadata when possible (Description/Title apply only to concrete schema).
         if (s is OpenApiSchema sc)
         {
-            if (!string.IsNullOrWhiteSpace(a.Title))
+            if (a.Title is not null)
             {
                 sc.Title = a.Title;
             }
 
-            if (!string.IsNullOrWhiteSpace(a.Description))
+            if (a.Description is not null)
             {
                 sc.Description = a.Description;
             }
@@ -888,6 +845,7 @@ public partial class OpenApiDocDescriptor
                     OaSchemaType.Boolean => JsonSchemaType.Boolean,
                     OaSchemaType.Array => JsonSchemaType.Array,
                     OaSchemaType.Object => JsonSchemaType.Object,
+                    OaSchemaType.Null => JsonSchemaType.Null,
                     _ => sc.Type
                 };
             }
@@ -1254,7 +1212,7 @@ public partial class OpenApiDocDescriptor
 
             var s = new OpenApiSchema { Type = JsonSchemaType.Array, Items = itemSchema };
             ApplySchemaAttr(schemaAttr, s);
-            PowerShellAttributes.ApplyPowerShellValidationAttributes(p, s);
+            PowerShellAttributes.ApplyPowerShellAttributes(p, s);
             if (allowNull)
             {
                 s.Type |= JsonSchemaType.Null;
@@ -1274,7 +1232,7 @@ public partial class OpenApiDocDescriptor
         {
             var s = InferPrimitiveSchema(pt);
             ApplySchemaAttr(schemaAttr, s);
-            PowerShellAttributes.ApplyPowerShellValidationAttributes(p, s);
+            PowerShellAttributes.ApplyPowerShellAttributes(p, s);
             // If no explicit default provided via schema attribute, try to pull default from property value
             if (s is OpenApiSchema sc && sc.Default is null)
             {
@@ -1471,7 +1429,7 @@ public partial class OpenApiDocDescriptor
                 var propAttrs = p.GetCustomAttributes<OpenApiPropertyAttribute>(inherit: false).ToArray();
                 var a = MergeSchemaAttributes(propAttrs);
                 ApplySchemaAttr(a, schema);
-                PowerShellAttributes.ApplyPowerShellValidationAttributes(p, schema);
+                PowerShellAttributes.ApplyPowerShellAttributes(p, schema);
                 if (allowNull)
                 {
                     schema.Type |= JsonSchemaType.Null;
@@ -1499,7 +1457,7 @@ public partial class OpenApiDocDescriptor
                     Items = itemSchema
                 };
                 ApplySchemaAttr(p.GetCustomAttribute<OpenApiPropertyAttribute>(), schema);
-                PowerShellAttributes.ApplyPowerShellValidationAttributes(p, schema);
+                PowerShellAttributes.ApplyPowerShellAttributes(p, schema);
                 if (allowNull)
                 {
                     schema.Type |= JsonSchemaType.Null;
@@ -1518,7 +1476,7 @@ public partial class OpenApiDocDescriptor
                 if (sc is OpenApiSchema schema)
                 {
                     ApplySchemaAttr(p.GetCustomAttribute<OpenApiPropertyAttribute>(), schema);
-                    PowerShellAttributes.ApplyPowerShellValidationAttributes(p, schema);
+                    PowerShellAttributes.ApplyPowerShellAttributes(p, schema);
                     if (allowNull)
                     {
                         schema.Type |= JsonSchemaType.Null;

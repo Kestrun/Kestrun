@@ -85,7 +85,7 @@ public partial class OpenApiDocDescriptor
         var attrs = p.GetCustomAttributes<OpenApiPropertyAttribute>(inherit: false).ToArray();
         var a = MergeSchemaAttributes(attrs);
         ApplySchemaAttr(a, s);
-        PowerShellAttributes.ApplyPowerShellValidationAttributes(p, s);
+        PowerShellAttributes.ApplyPowerShellAttributes(p, s);
         return s;
     }
 
@@ -117,7 +117,7 @@ public partial class OpenApiDocDescriptor
             Items = itemSchema
         };
         ApplySchemaAttr(p.GetCustomAttribute<OpenApiPropertyAttribute>(), s);
-        PowerShellAttributes.ApplyPowerShellValidationAttributes(p, s);
+        PowerShellAttributes.ApplyPowerShellAttributes(p, s);
         return s;
     }
 
@@ -131,7 +131,7 @@ public partial class OpenApiDocDescriptor
     {
         var prim = InferPrimitiveSchema(pt);
         ApplySchemaAttr(p.GetCustomAttribute<OpenApiPropertyAttribute>(), prim);
-        PowerShellAttributes.ApplyPowerShellValidationAttributes(p, prim);
+        PowerShellAttributes.ApplyPowerShellAttributes(p, prim);
         return prim;
     }
 }

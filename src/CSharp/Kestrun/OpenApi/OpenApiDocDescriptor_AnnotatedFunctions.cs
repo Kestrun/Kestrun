@@ -224,7 +224,7 @@ public partial class OpenApiDocDescriptor
                                 parameter.Description ??= help.GetParameterDescription(paramInfo.Name);
                                 foreach (var attr in paramInfo.Attributes.OfType<CmdletMetadataAttribute>())
                                 {
-                                    PowerShellAttributes.ApplyPowerShellAttributes(attr, (OpenApiSchema)parameter.Schema);
+                                    PowerShellAttributes.ApplyPowerShellAttribute(attr, (OpenApiSchema)parameter.Schema);
                                 }
                                 openApiAttr.Parameters.Add(parameter);
                                 // Add to script code parameter injection info

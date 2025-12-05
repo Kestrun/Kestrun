@@ -370,9 +370,18 @@ public partial class OpenApiDocDescriptor
     private IOpenApiSchema BuildSchemaForType(Type t, HashSet<Type>? built = null)
     {
         built ??= [];
+
         if (t.BaseType is not null && t.BaseType != typeof(object))
         {
 
+            OaSchemaType? baseTypeName = t.BaseType switch
+            {
+                Type bt when bt == typeof(OaString) => OaSchemaType.String,
+                Type bt when bt == typeof(OaInteger) => OaSchemaType.Integer,
+                Type bt when bt == typeof(OaNumber) => OaSchemaType.Number,
+                Type bt when bt == typeof(OaBoolean) => OaSchemaType.Boolean,
+                _ => null
+            };
             if (typeof(IOpenApiType).IsAssignableFrom(t))
             {
                 var a = GetSchemaIdentity(t);
@@ -387,39 +396,35 @@ public partial class OpenApiDocDescriptor
             }
             else
             {
+                IOpenApiSchema item = (baseTypeName is not null) ? new OpenApiSchema
+                {
+                    Type = baseTypeName?.ToJsonSchemaType()
+                } : new OpenApiSchemaReference(t.BaseType.Name);
                 foreach (var schemaComp in t.GetCustomAttributes(typeof(OpenApiProperties)))
                 {
                     if (schemaComp is OpenApiProperties prop)
                     {
-                        var baseTypeName = t.BaseType switch
-                        {
-                            Type bt when bt == typeof(OaString) => "string",
-                            Type bt when bt == typeof(OaInteger) => "integer",
-                            Type bt when bt == typeof(OaNumber) => "number",
-                            Type bt when bt == typeof(OaBoolean) => "boolean",
-                            _ => t.BaseType.Name
-                        };
 
                         if (prop.Array)
                         {
                             var s = new OpenApiSchema
                             {
                                 Type = JsonSchemaType.Array,
-                                Items = new OpenApiSchemaReference(baseTypeName),
+                                Items = item
                             };
                             ApplySchemaAttr(prop, s);
                             return s;
                         }
                         else
                         {
-                            var s = new OpenApiSchemaReference(baseTypeName); // Ensure base type schema is built first
+                            var s = item; // Ensure base type schema is built first
                             ApplySchemaAttr(prop, s);
                             return s;
                         }
                     }
                 }
 
-                return new OpenApiSchemaReference(t.BaseType.Name); // Ensure base type schema is built first
+                return item; // Ensure base type schema is built first
             }
         }
         var schema = new OpenApiSchema
@@ -981,7 +986,9 @@ public partial class OpenApiDocDescriptor
     }
 
     private static bool IsPrimitiveLike(Type t)
-        => t.IsPrimitive || t == typeof(string) || t == typeof(decimal) || t == typeof(DateTime) || t == typeof(Guid) || t == typeof(object);
+        => t.IsPrimitive || t == typeof(string) || t == typeof(decimal) || t == typeof(DateTime) ||
+        t == typeof(Guid) || t == typeof(object) || t == typeof(OaString) || t == typeof(OaInteger) ||
+         t == typeof(OaNumber) || t == typeof(OaBoolean);
     #endregion
 
     internal static JsonNode? ToNode(object? value)

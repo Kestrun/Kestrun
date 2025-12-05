@@ -131,56 +131,56 @@ class TicketType:OaString {}
 
 [OpenApiSchemaComponent(
     Description = 'Unique identifier for museum ticket. Generated when purchased.',
-    Type = 'string', Format = 'uuid', Example = 'a54a57ca-36f8-421b-a6b4-2e8f26858a4c')]
-class TicketId {}
+    Format = 'uuid', Example = 'a54a57ca-36f8-421b-a6b4-2e8f26858a4c')]
+class TicketId:OaString {}
 
 [OpenApiSchemaComponent(
     Description = 'Confirmation message after a ticket purchase.',
-    Type = 'string', Example = 'Museum general entry ticket purchased')]
-class TicketMessage {}
+    Example = 'Museum general entry ticket purchased')]
+class TicketMessage:OaString {}
 
 [OpenApiSchemaComponent(
     Description = 'Unique confirmation code used to verify ticket purchase.',
-    Type = 'string', Example = 'ticket-event-a98c8f-7eb12')]
-class TicketConfirmation {}
+    Example = 'ticket-event-a98c8f-7eb12')]
+class TicketConfirmation:OaString {}
 
 [OpenApiSchemaComponent(Description = 'Identifier for a special event.',
-    Type = 'string', Format = 'uuid', Example = '3be6453c-03eb-4357-ae5a-984a0e574a54'
+    Format = 'uuid', Example = '3be6453c-03eb-4357-ae5a-984a0e574a54'
 )]
-class EventId {}
+class eventId:OaString {}
 
 [OpenApiSchemaComponent(Description = 'Name of the special event',
-    Type = 'string', Example = 'Pirate Coding Workshop'
+    Example = 'Pirate Coding Workshop'
 )]
-class EventName {}
+class EventName:OaString {}
 
 [OpenApiSchemaComponent(Description = 'Location where the special event is held.',
-    Type = 'string', Example = 'Computer Room')]
-class EventLocation {}
+    Example = 'Computer Room')]
+class EventLocation :OaString {}
 
 [OpenApiSchemaComponent(Description = 'Description of the special event',
-    Type = 'string', Example = 'Captain Blackbeard shares his love of the C...language. And possibly Arrrrr (R lang).')]
-class EventDescription {}
+    Example = 'Captain Blackbeard shares his love of the C...language. And possibly Arrrrr (R lang).')]
+class EventDescription:OaString {}
 
 [OpenApiSchemaComponent(Description = 'Price of a ticket for the special eventt',
-    Type = 'number', format = 'float', Example = 25)]
-class EventPrice {}
+    format = 'float', Example = 25)]
+class EventPrice:OaNumber {}
 
 [OpenApiSchemaComponent(
-    Type = 'string', Format = 'date', Example = '2023-10-29')]
-class Date {}
+    Format = 'date', Example = '2023-10-29')]
+class Date:OaString {}
 
 [OpenApiSchemaComponent( Description = 'List of planned dates for the special event',
     Array = $true)]
 class EventDates:Date {}
 
 [OpenApiSchemaComponent(Description = 'Email address for ticket purchaser.',
-    Type = 'string', Format = 'email', Example = 'museum-lover@example.com')]
-class Email {}
+    Format = 'email', Example = 'museum-lover@example.com')]
+class Email :OaString {}
 
 [OpenApiSchemaComponent(Description = 'Phone number for the ticket purchaser (optional).',
-    Type = 'string' , Example = '+1(234)-567-8910')]
-class Phone {}
+    Example = '+1(234)-567-8910')]
+class Phone :OaString {}
 
 [OpenApiSchemaComponent(Description = 'Request payload used for purchasing museum tickets.',
     Required = ('ticketType', 'ticketDate', 'email'))]

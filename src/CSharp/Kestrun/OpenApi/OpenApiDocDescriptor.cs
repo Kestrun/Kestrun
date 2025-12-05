@@ -403,7 +403,6 @@ public partial class OpenApiDocDescriptor
                 {
                     if (schemaComp is OpenApiProperties prop)
                     {
-
                         if (prop.Array)
                         {
                             var s = new OpenApiSchema

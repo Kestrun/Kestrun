@@ -373,7 +373,6 @@ public partial class OpenApiDocDescriptor
 
         if (t.BaseType is not null && t.BaseType != typeof(object))
         {
-
             OaSchemaType? baseTypeName = t.BaseType switch
             {
                 Type bt when bt == typeof(OaString) => OaSchemaType.String,

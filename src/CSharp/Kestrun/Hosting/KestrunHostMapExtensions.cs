@@ -152,7 +152,7 @@ public static partial class KestrunHostMapExtensions
             // Extract parameters
             var refresh = false;
             var docId = options.DocId;
-            var specVersion = OpenApiSpecVersion.OpenApi3_0;
+            OpenApiSpecVersion specVersion;
             // Try to get version and format from route values
             var version = context.Request.RouteValues[options.VersionVarName]?.ToString() ?? options.DefaultVersion;
             var format = context.Request.RouteValues[options.FormatVarName]?.ToString() ?? options.DefaultFormat;

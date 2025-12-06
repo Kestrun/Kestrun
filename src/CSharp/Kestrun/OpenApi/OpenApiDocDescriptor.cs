@@ -186,9 +186,8 @@ public partial class OpenApiDocDescriptor
                 pathInterface = new OpenApiPathItem();
                 Document.Paths[pattern] = pathInterface;
             }
-
+            // Populate operations
             var pathItem = (OpenApiPathItem)pathInterface;
-            var multipleMethods = grp.Count() > 1;
             foreach (var kvp in grp)
             {
                 var method = kvp.Key.Method;
@@ -285,7 +284,7 @@ public partial class OpenApiDocDescriptor
                 foreach (var s in meta.Servers) { d.Servers.Add(s); }
             }
         }
-        catch { }
+        catch { Host.Logger?.Warning("Failed to set operation-level servers for OpenAPI operation {OperationId}", op.OperationId); }
 
         // Parameters (operation-level)
         try
@@ -297,7 +296,7 @@ public partial class OpenApiDocDescriptor
                 foreach (var p in meta.Parameters) { d.Parameters.Add(p); }
             }
         }
-        catch { }
+        catch { Host.Logger?.Warning("Failed to set operation-level parameters for OpenAPI operation {OperationId}", op.OperationId); }
 
         // Request body
         if (meta.RequestBody is not null)
@@ -399,26 +398,27 @@ public partial class OpenApiDocDescriptor
                 {
                     Type = baseTypeName?.ToJsonSchemaType()
                 } : new OpenApiSchemaReference(t.BaseType.Name);
-                foreach (var schemaComp in t.GetCustomAttributes(typeof(OpenApiProperties)))
+                var schemaComps = t.GetCustomAttributes<OpenApiProperties>()
+                    .Where(schemaComp => schemaComp is not null)
+                    .Cast<OpenApiProperties>();
+
+                foreach (var prop in schemaComps)
                 {
-                    if (schemaComp is OpenApiProperties prop)
+                    if (prop.Array)
                     {
-                        if (prop.Array)
+                        var s = new OpenApiSchema
                         {
-                            var s = new OpenApiSchema
-                            {
-                                Type = JsonSchemaType.Array,
-                                Items = item
-                            };
-                            ApplySchemaAttr(prop, s);
-                            return s;
-                        }
-                        else
-                        {
-                            var s = item; // Ensure base type schema is built first
-                            ApplySchemaAttr(prop, s);
-                            return s;
-                        }
+                            Type = JsonSchemaType.Array,
+                            Items = item
+                        };
+                        ApplySchemaAttr(prop, s);
+                        return s;
+                    }
+                    else
+                    {
+                        var s = item; // Ensure base type schema is built first
+                        ApplySchemaAttr(prop, s);
+                        return s;
                     }
                 }
 

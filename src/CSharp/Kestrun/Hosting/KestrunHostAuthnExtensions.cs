@@ -1248,10 +1248,9 @@ public static class KestrunHostAuthnExtensions
                 if (doc.RootElement.TryGetProperty("scopes_supported", out var scopesElement) &&
                     scopesElement.ValueKind == JsonValueKind.Array)
                 {
-                    foreach (var item in scopesElement.EnumerateArray())
+                    foreach (var scope in scopesElement.EnumerateArray().Select(item => item.GetString()).Where(s => !string.IsNullOrWhiteSpace(s)))
                     {
-                        var scope = item.GetString();
-                        if (!string.IsNullOrWhiteSpace(scope))
+                        if (scope != null)
                         {
                             _ = claimPolicy.AddPolicy(policyName: scope, claimType: "scope", Description: string.Empty, allowedValues: scope);
                         }
@@ -1291,10 +1290,10 @@ public static class KestrunHostAuthnExtensions
             opts.DocumentationId = IOpenApiAuthenticationOptions.DefaultDocumentationIds;
         }
 
-        foreach (var doc in opts.DocumentationId)
+        foreach (var docDescriptor in opts.DocumentationId
+            .Select(host.GetOrCreateOpenApiDocument)
+            .Where(docDescriptor => docDescriptor != null))
         {
-            var docDescriptor = host.GetOrCreateOpenApiDocument(doc);
-            if (docDescriptor == null) { break; }
             docDescriptor.ApplySecurityScheme(scheme, opts);
         }
     }

@@ -157,13 +157,8 @@ public static class OpenApiComponentClone
     /// <param name="extension">The OpenApiExtension to clone.</param>
     /// <returns>A new OpenApiExtension instance with the same properties as the input extension.</returns>
     /// <exception cref="InvalidOperationException">Thrown when the extension is of an unsupported type.</exception>
-    public static IOpenApiExtension Clone(this IOpenApiExtension extension)
-    {
-        return extension switch
-        {
-            _ => throw new InvalidOperationException("Unsupported IOpenApiExtension implementation.")
-        };
-    }
+    public static IOpenApiExtension Clone(this IOpenApiExtension extension) => throw new InvalidOperationException("Unsupported IOpenApiExtension implementation.");
+
     #endregion
 
     #region Header

@@ -223,12 +223,9 @@ public sealed class AuthenticationRegistry
     public IDictionary<string, OidcOptions> GetOidcOptions()
     {
         var result = new Dictionary<string, OidcOptions>(_stringComparer);
-        foreach (var kvp in _map)
+        foreach (var kvp in _map.Where(kvp => kvp.Key.type == AuthenticationType.Oidc && kvp.Value is OidcOptions))
         {
-            if (kvp.Key.type == AuthenticationType.Oidc && kvp.Value is OidcOptions oidc)
-            {
-                result[kvp.Key.schema] = oidc;
-            }
+            result[kvp.Key.schema] = (OidcOptions)kvp.Value;
         }
         return result;
     }

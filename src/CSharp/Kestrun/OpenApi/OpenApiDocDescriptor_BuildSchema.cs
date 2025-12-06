@@ -15,7 +15,10 @@ public partial class OpenApiDocDescriptor
     {
         if (Document.Components is not null && Document.Components.Schemas is not null)
         {
-            Document.Components.Schemas[t.Name] = BuildSchemaForType(t, built);
+            if (!ComponentSchemasExists(t.Name))
+            {
+                Document.Components.Schemas[t.Name] = BuildSchemaForType(t, built);
+            }
         }
     }
 
@@ -65,7 +68,7 @@ public partial class OpenApiDocDescriptor
     {
         BuildSchema(pt, built); // ensure component exists
         var refSchema = new OpenApiSchemaReference(pt.Name);
-        ApplySchemaAttr(p.GetCustomAttribute<OpenApiPropertyAttribute>(), refSchema);
+        ApplySchemaAttr(p.GetCustomAttribute<OpenApiProperties>(), refSchema);
         return refSchema;
     }
 
@@ -103,7 +106,7 @@ public partial class OpenApiDocDescriptor
 
         if (!IsPrimitiveLike(item) && !item.IsEnum)
         {
-            BuildSchema(item, built);
+            BuildSchema(item, built); // ensure component exists
             itemSchema = new OpenApiSchemaReference(item.Name);
         }
         else
@@ -116,7 +119,7 @@ public partial class OpenApiDocDescriptor
             Type = JsonSchemaType.Array,
             Items = itemSchema
         };
-        ApplySchemaAttr(p.GetCustomAttribute<OpenApiPropertyAttribute>(), s);
+        ApplySchemaAttr(p.GetCustomAttribute<OpenApiProperties>(), s);
         PowerShellAttributes.ApplyPowerShellAttributes(p, s);
         return s;
     }
@@ -130,7 +133,7 @@ public partial class OpenApiDocDescriptor
     private IOpenApiSchema BuildPrimitiveSchema(Type pt, PropertyInfo p)
     {
         var prim = InferPrimitiveSchema(pt);
-        ApplySchemaAttr(p.GetCustomAttribute<OpenApiPropertyAttribute>(), prim);
+        ApplySchemaAttr(p.GetCustomAttribute<OpenApiProperties>(), prim);
         PowerShellAttributes.ApplyPowerShellAttributes(p, prim);
         return prim;
     }

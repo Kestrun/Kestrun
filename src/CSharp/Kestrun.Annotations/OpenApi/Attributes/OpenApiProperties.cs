@@ -89,12 +89,7 @@ public abstract class OpenApiProperties : KestrunAnnotation
     /// </summary>
     public bool AdditionalPropertiesAllowed { get; set; } = true;
 
-    /// <summary>Schema reference for additionalProperties.</summary>
-    public string? AdditionalPropertiesRef { get; set; }
-    /// <summary>.NET type to infer additionalProperties schema.</summary>
-    public Type? AdditionalPropertiesType { get; set; }
-
-    // ---- Composition ----
+     // ---- Composition ----
     /// <summary>oneOf refs (by $ref).</summary>
     public string[]? OneOfRefs { get; set; }
     /// <summary>anyOf refs (by $ref).</summary>
@@ -141,48 +136,4 @@ public abstract class OpenApiProperties : KestrunAnnotation
     /// Sets unevaluatedProperties for OpenAPI Schema (null = generator decides).
     /// </summary>
     public bool UnevaluatedProperties { get; set; }
-    /// <summary>
-    /// Schema reference for AdditionalProperties as a string.
-    /// </summary>
-    public string? AdditionalProperties { get; set; }
-
-
-    /// <summary>
-    /// OpenAPI "format" for the additionalProperties value schema
-    /// (e.g. "int32", "int64", "date-time").
-    /// </summary>
-    public string? AdditionalPropertiesFormat { get; set; }
-
-
-
-    /// <summary>
-    /// If true, the additionalProperties value schema will be an array of the
-    /// specified type/ref (i.e. 'type: array' with 'items' = that schema).
-    /// </summary>
-    public bool AdditionalPropertiesIsArray { get; set; }
-
-    /// <summary>
-    /// If true, the additionalProperties value schema will be marked as nullable.
-    /// </summary>
-    public bool AdditionalPropertiesNullable { get; set; }
-
-    /// <summary>
-    /// Optional description for the additionalProperties value schema.
-    /// </summary>
-    public string? AdditionalPropertiesDescription { get; set; }
-
-    /// <summary>
-    /// Optional enum values for the additionalProperties value schema.
-    /// Typically used with 'AdditionalPropertiesType = "string"'.
-    /// </summary>
-    public string[]? AdditionalPropertiesEnum { get; set; }
-
-    /// <summary>
-    /// CLR type hint for the additionalProperties value schema.
-    /// The generator can use this to infer OpenAPI type/format or
-    /// to resolve a schema component reference when the type maps
-    /// to another annotated schema.
-    /// Ignored when <see cref="AdditionalPropertiesRef"/> is set.
-    /// </summary>
-    public Type? AdditionalPropertiesClrType { get; set; }
 }

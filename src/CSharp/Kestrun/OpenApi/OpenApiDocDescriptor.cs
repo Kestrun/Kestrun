@@ -496,7 +496,15 @@ public partial class OpenApiDocDescriptor
                 }
                 catch { /* ignore */ }
             }
-            schema.Properties[p.Name] = ps;
+            if (p.GetCustomAttribute<OpenApiAdditionalPropertiesAttribute>() is not null)
+            {
+                schema.AdditionalPropertiesAllowed = true;
+                schema.AdditionalProperties = ps;
+            }
+            else
+            {
+                schema.Properties[p.Name] = ps;
+            }
         }
         return schema;
     }
@@ -934,10 +942,6 @@ public partial class OpenApiDocDescriptor
             sc.ReadOnly = a.ReadOnly;
             sc.WriteOnly = a.WriteOnly;
             sc.Deprecated = a.Deprecated;
-            if (a.AdditionalProperties is not null)
-            {
-                sc.AdditionalProperties = new OpenApiSchemaReference(a.AdditionalProperties);
-            }
             // nullable bool
 
             sc.AdditionalPropertiesAllowed = a.AdditionalPropertiesAllowed;

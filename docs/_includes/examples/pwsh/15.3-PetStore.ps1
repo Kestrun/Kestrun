@@ -600,8 +600,8 @@ function loginUser {
 #>
 function logoutUser {
     [OpenApiPath(HttpVerb = 'get' , Pattern = '/user/logout', Tags = 'user')]
-    [OpenApiResponse(StatusCode = '200' , Description = 'Successful operation' )]
-    [OpenApiResponse( StatusCode = 'default' , Description = 'Successful operation' )]
+    [OpenApiResponse(StatusCode = '200' , Description = 'successful operation' )]
+    [OpenApiResponse( StatusCode = 'default' , Description = 'successful operation' )]
     param(
     )
     Write-Host 'logout called'

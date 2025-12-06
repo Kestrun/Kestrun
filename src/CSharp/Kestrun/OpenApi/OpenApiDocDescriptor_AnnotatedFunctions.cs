@@ -5,6 +5,7 @@ using Kestrun.Hosting.Options;
 using Kestrun.Languages;
 using Kestrun.Utilities;
 using Microsoft.OpenApi;
+using Kestrun.Extensions;
 
 namespace Kestrun.OpenApi;
 
@@ -219,7 +220,16 @@ public partial class OpenApiDocDescriptor
                                     ? throw new InvalidOperationException(
                                          $"Parameter name {parameter.Name} is different from variable name'{paramInfo.Name}'.")
                                     : paramInfo.Name;
+
                                 parameter.Schema = InferPrimitiveSchema(paramInfo.ParameterType);
+                                if (parameter.Schema is OpenApiSchema schema)
+                                {
+                                    var defaultValue = func.GetDefaultParameterValue(paramInfo.Name);
+                                    if (defaultValue is not null)
+                                    {
+                                        schema.Default = ToNode(defaultValue);
+                                    }
+                                }
                                 // Apply description from help if not set
                                 parameter.Description ??= help.GetParameterDescription(paramInfo.Name);
                                 foreach (var attr in paramInfo.Attributes.OfType<CmdletMetadataAttribute>())
@@ -340,6 +350,40 @@ public partial class OpenApiDocDescriptor
             {
                 Host.Logger.Error("Error loading OpenAPI annotated function '{funcName}': {message}", func.Name, ex.Message);
             }
+        }
+    }
+
+    /// <summary>
+    /// Creates a request body from the given attribute.
+    /// </summary>
+    /// <param name="attribute">The attribute containing request body information.</param>
+    /// <param name="requestBody">The OpenApiRequestBody object to populate.</param>
+    /// <param name="schema">The schema to associate with the request body.</param>
+    /// <returns>True if the request body was created successfully; otherwise, false.</returns>
+    private static bool CreateRequestBodyFromAttribute(KestrunAnnotation attribute, OpenApiRequestBody requestBody, IOpenApiSchema schema)
+    {
+        switch (attribute)
+        {
+            case OpenApiRequestBodyAttribute request:
+                requestBody.Description = request.Description;
+                requestBody.Required = request.Required;
+                // Content
+                requestBody.Content ??= new Dictionary<string, OpenApiMediaType>(StringComparer.Ordinal);
+                var mediaType = new OpenApiMediaType();
+                // Example
+                if (request.Example is not null)
+                {
+                    mediaType.Example = ToNode(request.Example);
+                }
+                // Schema
+                mediaType.Schema = schema;
+                foreach (var contentType in request.ContentType)
+                {
+                    requestBody.Content[contentType] = mediaType;
+                }
+                return true;
+            default:
+                return false;
         }
     }
 }

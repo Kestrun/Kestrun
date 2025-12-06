@@ -3,17 +3,12 @@
 /// to contribute entries under components.headers.
 /// </summary>
 [AttributeUsage(AttributeTargets.Class, AllowMultiple = false, Inherited = false)]
-public sealed class OpenApiRequestBodyComponent : KestrunAnnotation
+public sealed class OpenApiRequestBodyComponent : OpenApiProperties
 {
     /// <summary>
     /// Optional component key override. If omitted, generator will use class/member naming rules.
     /// </summary>
     public string? Key { get; set; }
-
-    /// <summary>
-    /// Description for the request body.
-    /// </summary>
-    public string? Description { get; set; }
 
     /// <summary>
     /// Media type. Defaults to application/json.
@@ -23,25 +18,5 @@ public sealed class OpenApiRequestBodyComponent : KestrunAnnotation
     /// <summary>
     /// Whether the request body is required.
     /// </summary>
-    public bool Required { get; set; }
-
-    /// <summary>
-    /// Inline example object for the media type (optional). If omitted and the member has a
-    /// default value, the generator will use that default as the example.
-    /// </summary>
-    public object? Example { get; set; }
-
-    /// <summary>
-    /// Reference ID of a schema defined in components.schemas to use for the request body.
-    /// If provided, the generator will use that schema for the request body. If not provided,
-    /// the generator will try to infer a schema based on the annotated class.
-    /// </summary>
-    public string? ReferenceId { get; set; }
-
-    /// <summary>
-    /// When true, emit an inline schema object instead of a $ref. If SchemaRef is provided and
-    /// a matching schema exists in components, that schema will be embedded; otherwise the generator
-    /// will try to infer an inline schema when possible.
-    /// </summary>
-    public bool Inline { get; set; }
+    public bool IsRequired { get; set; }
 }

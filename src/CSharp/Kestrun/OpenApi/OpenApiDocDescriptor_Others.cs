@@ -357,22 +357,6 @@ public partial class OpenApiDocDescriptor
             return schemaFactory();
         }
 
-        // Group checks for integer types
-        if (IsInt32Type(type))
-        {
-            return new OpenApiSchema { Type = JsonSchemaType.Integer, Format = "int32" };
-        }
-
-        if (IsNumericType(type))
-        {
-            return new OpenApiSchema { Type = JsonSchemaType.Number };
-        }
-
-        if (IsUnsignedIntegerType(type))
-        {
-            return new OpenApiSchema { Type = JsonSchemaType.Integer };
-        }
-
         // Array type handling
         if (type.Name.EndsWith("[]"))
         {
@@ -467,29 +451,24 @@ public partial class OpenApiDocDescriptor
         [typeof(Guid)] = () => new OpenApiSchema { Type = JsonSchemaType.String, Format = "uuid" },
         [typeof(object)] = () => new OpenApiSchema { Type = JsonSchemaType.Object },
         [typeof(void)] = () => new OpenApiSchema { Type = JsonSchemaType.Null },
-        [typeof(char)] = () => new OpenApiSchema { Type = JsonSchemaType.String, MaxLength = 1, MinLength = 1 }
+        [typeof(char)] = () => new OpenApiSchema { Type = JsonSchemaType.String, MaxLength = 1, MinLength = 1 },
+        [typeof(sbyte)] = () => new OpenApiSchema { Type = JsonSchemaType.Integer, Format = "int32" },
+        [typeof(byte)] = () => new OpenApiSchema { Type = JsonSchemaType.Integer, Format = "int32" },
+        [typeof(short)] = () => new OpenApiSchema { Type = JsonSchemaType.Integer, Format = "int32" },
+        [typeof(ushort)] = () => new OpenApiSchema { Type = JsonSchemaType.Integer, Format = "int32" },
+        [typeof(int)] = () => new OpenApiSchema { Type = JsonSchemaType.Integer, Format = "int32" },
+        [typeof(uint)] = () => new OpenApiSchema { Type = JsonSchemaType.Integer, Format = "int32" },
+        [typeof(long)] = () => new OpenApiSchema { Type = JsonSchemaType.Integer, Format = "int64" },
+        [typeof(ulong)] = () => new OpenApiSchema { Type = JsonSchemaType.Integer, Format = "int64" },
+        [typeof(float)] = () => new OpenApiSchema { Type = JsonSchemaType.Number, Format = "float" },
+        [typeof(double)] = () => new OpenApiSchema { Type = JsonSchemaType.Number, Format = "double" },
+        [typeof(decimal)] = () => new OpenApiSchema { Type = JsonSchemaType.Number, Format = "decimal" },
+        [typeof(OaString)] = () => new OpenApiSchema { Type = JsonSchemaType.String },
+        [typeof(OaInteger)] = () => new OpenApiSchema { Type = JsonSchemaType.Integer },
+        [typeof(OaNumber)] = () => new OpenApiSchema { Type = JsonSchemaType.Number },
+        [typeof(OaBoolean)] = () => new OpenApiSchema { Type = JsonSchemaType.Boolean }
     };
 
-    /// <summary>
-    /// Determines if the type is a 32-bit integer type (int, short, byte).
-    /// </summary>
-    /// <param name="t"> The type to check.</param>
-    /// <returns>True if the type is a 32-bit integer type; otherwise, false.</returns>
-    private static bool IsInt32Type(Type t) => t == typeof(int) || t == typeof(short) || t == typeof(byte);
-
-    /// <summary>
-    /// Determines if the type is a numeric type (float, double, decimal).
-    /// </summary>
-    /// <param name="t">The type to check.</param>
-    /// <returns>True if the type is a numeric type; otherwise, false.</returns>
-    private static bool IsNumericType(Type t) => t == typeof(float) || t == typeof(double) || t == typeof(decimal);
-
-    /// <summary>
-    /// Determines if the type is an unsigned integer type (sbyte, ushort, uint, ulong).
-    /// </summary>
-    /// <param name="t">The type to check.</param>
-    /// <returns>True if the type is an unsigned integer type; otherwise, false.</returns>
-    private static bool IsUnsignedIntegerType(Type t) => t == typeof(sbyte) || t == typeof(ushort) || t == typeof(uint) || t == typeof(ulong);
 
     private static void ApplySchemaAttr(OpenApiProperties? a, IOpenApiSchema s)
     {
@@ -1530,228 +1509,6 @@ public partial class OpenApiDocDescriptor
 
     #endregion
 
-    #region RequestBodies
-    /// <summary>
-    /// Builds request body components from the specified type.
-    /// </summary>
-    /// <param name="t">The type to build request bodies for.</param>
-    private void BuildRequestBodies(Type t)
-    {
-        Document.Components!.RequestBodies ??= new Dictionary<string, IOpenApiRequestBody>(StringComparer.Ordinal);
-        var componentSchema = BuildSchemaForType(t);
-        var requestBody = new OpenApiRequestBody();
-
-        var classAttrs = t.GetCustomAttributes(inherit: false)
-                          .Where(a => a is OpenApiRequestBodyComponent or OpenApiExampleRefAttribute or OpenApiPropertyAttribute)
-                          .OrderBy(a => a is not OpenApiRequestBodyComponent)
-                          .ToArray();
-
-        var name = string.Empty;
-        foreach (var attr in classAttrs)
-        {
-            try
-            {
-                _ = attr switch
-                {
-                    OpenApiRequestBodyComponent body => ApplyRequestBodyComponent(body, ref name, requestBody, componentSchema),
-                    OpenApiPropertyAttribute prop => ApplyRequestBodySchemaProperty(prop, requestBody, ref componentSchema),
-                    OpenApiExampleRefAttribute ex => ApplyRequestBodyExampleRef(ex, requestBody),
-                    _ => false
-                };
-            }
-            catch (Exception ex)
-            {
-                throw new InvalidOperationException($"Error applying attribute '{attr.GetType().Name}' to request body of type '{t.FullName}': {ex.Message}", ex);
-            }
-        }
-
-        if (string.IsNullOrWhiteSpace(name))
-        {
-            name = t.Name; // fallback to type name if no explicit key was provided
-        }
-        Document.Components!.RequestBodies![name] = requestBody;
-    }
-
-    // --- RequestBody helpers (extracted to reduce cyclomatic complexity) ---------
-    private bool ApplyRequestBodyComponent(OpenApiRequestBodyComponent bodyAttribute, ref string name, OpenApiRequestBody requestBody, IOpenApiSchema schema)
-    {
-        var explicitKey = GetKeyOverride(bodyAttribute);
-        if (!string.IsNullOrWhiteSpace(explicitKey))
-        {
-            name = explicitKey;
-        }
-
-        if (bodyAttribute.Description is not null)
-        {
-            requestBody.Description = bodyAttribute.Description;
-        }
-        requestBody.Required |= bodyAttribute.Required;
-        requestBody.Content ??= new Dictionary<string, OpenApiMediaType>(StringComparer.Ordinal);
-
-        var mediaType = new OpenApiMediaType { Schema = schema };
-        if (bodyAttribute.Example is not null)
-        {
-            mediaType.Example = ToNode(bodyAttribute.Example);
-        }
-
-        foreach (var ct in bodyAttribute.ContentType)
-        {
-            requestBody.Content[ct] = mediaType;
-        }
-        return true;
-    }
-
-    private bool ApplyRequestBodySchemaProperty(OpenApiPropertyAttribute schemaAttr, OpenApiRequestBody requestBody, ref IOpenApiSchema schema)
-    {
-        if (schemaAttr.Array && schema is OpenApiSchemaReference)
-        {
-            // Wrap referenced component schema in array representation
-            schema = new OpenApiSchema
-            {
-                Type = JsonSchemaType.Array,
-                Items = schema
-            };
-        }
-        ApplySchemaAttr(schemaAttr, schema);
-
-        requestBody.Content ??= new Dictionary<string, OpenApiMediaType>(StringComparer.Ordinal)
-        {
-            ["application/json"] = new OpenApiMediaType()
-        };
-        foreach (var mt in requestBody.Content.Values)
-        {
-            mt.Schema = schema;
-        }
-        return true;
-    }
-
-    private bool ApplyRequestBodyExampleRef(OpenApiExampleRefAttribute exRef, OpenApiRequestBody requestBody)
-    {
-        requestBody.Content ??= new Dictionary<string, OpenApiMediaType>(StringComparer.Ordinal);
-        var targets = ResolveExampleContentTypes(exRef, requestBody);
-        foreach (var ct in targets)
-        {
-            var mediaType = requestBody.Content.TryGetValue(ct, out var existing)
-                ? existing
-                : (requestBody.Content[ct] = new OpenApiMediaType());
-
-            mediaType.Examples ??= new Dictionary<string, IOpenApiExample>(StringComparer.Ordinal);
-            mediaType.Examples[exRef.Key] = exRef.Inline
-                ? CloneExampleOrThrow(exRef.ReferenceId)
-                : new OpenApiExampleReference(exRef.ReferenceId);
-        }
-        return true;
-    }
-
-    private IEnumerable<string> ResolveExampleContentTypes(OpenApiExampleRefAttribute exRef, OpenApiRequestBody requestBody)
-    {
-        var keys = exRef.ContentType is null ? (requestBody.Content?.Keys ?? Array.Empty<string>()) : [exRef.ContentType];
-        return keys.Count == 0 ? ["application/json"] : (IEnumerable<string>)keys;
-    }
-
-    private IOpenApiExample CloneExampleOrThrow(string referenceId)
-    {
-        return Document.Components?.Examples == null || !Document.Components.Examples.TryGetValue(referenceId, out var value)
-            ? throw new InvalidOperationException($"Example reference '{referenceId}' cannot be embedded because it was not found in components.")
-            : value is not OpenApiExample example
-            ? throw new InvalidOperationException($"Example reference '{referenceId}' cannot be embedded because it is not an OpenApiExample.")
-            : (IOpenApiExample)example.Clone();
-    }
-
-    #endregion
-
-    /// <summary>
-    /// Builds an inline schema representation from the specified type.
-    /// </summary>
-    /// <param name="t">The type to build the schema from.</param>
-    /// <returns>An inline schema representation of the specified type.</returns>
-    private IOpenApiSchema BuildInlineSchemaFromType(Type t)
-    {
-        var obj = new OpenApiSchema
-        {
-            Type = JsonSchemaType.Object,
-            Properties = new Dictionary<string, IOpenApiSchema>(StringComparer.Ordinal)
-        };
-
-        // Instantiate to capture default-initialized values from the class for property-level defaults
-        object? inst = null;
-        try { inst = Activator.CreateInstance(t); } catch { inst = null; }
-
-        const BindingFlags flags = BindingFlags.Public | BindingFlags.Instance;
-        foreach (var p in t.GetProperties(flags))
-        {
-            var pt = p.PropertyType;
-            var allowNull = false;
-            var underlying = Nullable.GetUnderlyingType(pt);
-            if (underlying != null)
-            {
-                allowNull = true;
-                pt = underlying;
-            }
-            IOpenApiSchema ps;
-            if (pt.IsEnum)
-            {
-                ps = new OpenApiSchema { Type = JsonSchemaType.String, Enum = [.. pt.GetEnumNames().Select(n => (JsonNode)n)] };
-            }
-            else if (pt.IsArray)
-            {
-                var elem = pt.GetElementType()!;
-                IOpenApiSchema item;
-                if (elem.IsEnum)
-                {
-                    item = new OpenApiSchema { Type = JsonSchemaType.String, Enum = [.. elem.GetEnumNames().Select(n => (JsonNode)n)] };
-                }
-                else if (IsPrimitiveLike(elem))
-                {
-                    item = InferPrimitiveSchema(elem);
-                }
-                else
-                {
-                    EnsureSchemaComponent(elem);
-                    item = new OpenApiSchemaReference(elem.Name);
-                }
-                ps = new OpenApiSchema { Type = JsonSchemaType.Array, Items = item };
-            }
-            else if (!IsPrimitiveLike(pt))
-            {
-                EnsureSchemaComponent(pt);
-                ps = new OpenApiSchemaReference(pt.Name);
-            }
-            else
-            {
-                ps = InferPrimitiveSchema(pt);
-            }
-
-            var schemaAttr = p.GetCustomAttributes(inherit: false)
-                              .Where(a => a.GetType().Name == nameof(OpenApiPropertyAttribute))
-                              .Cast<object>()
-                              .LastOrDefault() as OpenApiPropertyAttribute;
-            ApplySchemaAttr(schemaAttr, ps);
-            if (allowNull && ps is OpenApiSchema poss)
-            {
-                poss.Type |= JsonSchemaType.Null;
-            }
-
-            // If we have an instance and this property has a default value, and the schema is concrete,
-            // populate schema.Default (unless already set by attribute)
-            if (inst is not null && ps is OpenApiSchema concrete && concrete.Default is null)
-            {
-                try
-                {
-                    var val = p.GetValue(inst);
-                    if (val is not null)
-                    {
-                        concrete.Default = ToNode(val);
-                    }
-                }
-                catch { /* ignore */ }
-            }
-            obj.Properties[p.Name] = ps;
-        }
-
-        return obj;
-    }
-
     #region Links
     /// <summary>
     /// Builds link components from the specified type.
@@ -2002,31 +1759,5 @@ public partial class OpenApiDocDescriptor
         Document.Components!.Callbacks[t.Name] = cb;
     }
 
-    private static bool CreateRequestBodyFromAttribute(KestrunAnnotation attribute, OpenApiRequestBody requestBody, IOpenApiSchema schema)
-    {
-        switch (attribute)
-        {
-            case OpenApiRequestBodyAttribute request:
-                requestBody.Description = request.Description;
-                requestBody.Required = request.Required;
-                // Content
-                requestBody.Content ??= new Dictionary<string, OpenApiMediaType>(StringComparer.Ordinal);
-                var mediaType = new OpenApiMediaType();
-                // Example
-                if (request.Example is not null)
-                {
-                    mediaType.Example = ToNode(request.Example);
-                }
-                // Schema
-                mediaType.Schema = schema;
-                foreach (var contentType in request.ContentType)
-                {
-                    requestBody.Content[contentType] = mediaType;
-                }
-                return true;
-            default:
-                return false;
-        }
-    }
-
+    
 }

@@ -1,3 +1,4 @@
+
 param(
     [int]$Port = 5000,
     [IPAddress]$IPAddress = [IPAddress]::Loopback
@@ -10,23 +11,23 @@ if (-not (Get-Module Kestrun)) { Import-Module Kestrun }
 New-KrLogger | Add-KrSinkConsole |
     Set-KrLoggerLevel -Value Debug |
     Register-KrLogger -Name 'console' -SetAsDefault
-$srv = New-KrServer -Name 'Swagger Petstore - OpenAPI 3.0' -PassThru
+$srv = New-KrServer -Name 'Swagger Petstore - OpenAPI 3.1' -PassThru
 
 # =========================================================
 #                 TOP-LEVEL OPENAPI (3.0.4)
 # =========================================================
 
-Add-KrOpenApiInfo -Title 'Swagger Petstore - OpenAPI 3.0' `
+Add-KrOpenApiInfo -Title 'Swagger Petstore - OpenAPI 3.1' `
     -Version '1.0.12' `
     -Description @'
-This is a sample Pet Store Server based on the OpenAPI 3.0 specification.  You can find out more about
-Swagger at https://swagger.io. In the third iteration of the pet store, we've switched to the design first approach!
+This is a sample Pet Store Server based on the OpenAPI 3.1 specification.  You can find out more about Swagger at [https://swagger.io](https://swagger.io).
+In the third iteration of the pet store, we've switched to the design first approach!
 You can now help us improve the API whether it's by making changes to the definition itself or to the code.
 That way, with time, we can improve the API in general, and expose some of the new features in OAS3.
 
 Some useful links:
-- The Pet Store repository (https://github.com/swagger-api/swagger-petstore)
-- The source API definition for the Pet Store (https://github.com/swagger-api/swagger-petstore/blob/master/src/main/resources/openapi.yaml)
+- [The Pet Store repository](https://github.com/swagger-api/swagger-petstore)
+- [The source API definition for the Pet Store](https://github.com/swagger-api/swagger-petstore/blob/master/src/main/resources/openapi.yaml)
 '@ `
     -TermsOfService 'https://swagger.io/terms/'
 
@@ -40,6 +41,9 @@ Add-KrOpenApiExternalDoc -Description 'Find out more about Swagger' -Url 'https:
 Add-KrOpenApiTag -Name 'pet' -Description 'Everything about your Pets' -ExternalDocs (New-KrOpenApiExternalDoc -Description 'Find out more' -Url 'https://swagger.io')
 Add-KrOpenApiTag -Name 'store' -Description 'Access to Petstore orders' -ExternalDocs (New-KrOpenApiExternalDoc -Description 'Find out more about our store' -Url 'https://swagger.io')
 Add-KrOpenApiTag -Name 'user' -Description 'Operations about user'
+
+# Add server pointing to local instance
+Add-KrOpenApiServer -Url "http://$($IPAddress):$Port" -Description 'Local Kestrun Server'
 
 # =========================================================
 #                      COMPONENT SCHEMAS
@@ -81,7 +85,7 @@ class ApiResponse {
 }
 
 # Error
-[OpenApiSchemaComponent(Required = 'code,message')]
+[OpenApiSchemaComponent(Required = ('code', 'message'))]
 class Error {
     [string]$code
     [string]$message
@@ -105,14 +109,14 @@ class Error {
 .PARAMETER status
     Pet status in the store
 #>
-[OpenApiSchemaComponent(Required = 'name,photoUrls')]
+[OpenApiSchemaComponent(Required = ('name', 'photoUrls'))]
 class Pet {
     [long]$id
     [string]$name
     [Category]$category
-    [OpenApiPropertyAttribute()]
+    [OpenApiProperty()]
     [string[]]$photoUrls
-    [OpenApiPropertyAttribute()]
+    [OpenApiProperty()]
     [Tag[]]$tags
     [ValidateSet('available', 'pending', 'sold')]
     [string]$status
@@ -124,7 +128,7 @@ class Order {
     [long]$id
     [long]$petId
     [int]$quantity
-    [OpenApiPropertyAttribute(Format = 'date-time')]
+    [OpenApiProperty(Format = 'date-time')]
     [string]$shipDate
     [ValidateSet('placed', 'approved', 'delivered')]
     [string]$status
@@ -133,7 +137,7 @@ class Order {
 
 [OpenApiSchemaComponent( Description = 'Inventory counts by status')]
 class Inventory {
-    [OpenApiAdditionalPropertiesAttribute()]
+    [OpenApiAdditionalProperties()]
     [int]$AdditionalProperties
 }
 
@@ -143,12 +147,11 @@ class Inventory {
 # =========================================================
 
 # RequestBody: UserArray
-[OpenApiRequestBodyComponent(Description = 'List of user object', Required = $true, ContentType = 'application/json')]
-[OpenApiPropertyAttribute(Array = $true)]
+[OpenApiRequestBodyComponent(Description = 'List of user object', IsRequired = $true, ContentType = 'application/json' , Array = $true)]
 class UserArray:User {}
 
-# RequestBody: Pet
-[OpenApiRequestBodyComponent(Description = 'Pet object that needs to be added to the store', Required = $true,
+# RequestBody: PetBody
+[OpenApiRequestBodyComponent(Description = 'Pet object that needs to be added to the store', IsRequired = $true,
     ContentType = ('application/json', 'application/xml', 'application/x-www-form-urlencoded'))]
 class PetBody:Pet {}
 #endregion
@@ -167,7 +170,7 @@ class PetBody:Pet {}
 [OpenApiResponseComponent( )]
 class ResponseDefault {
 
-    [OpenApiResponseAttribute(Description = 'Unexpected error', ContentType = 'application/json')]
+    [OpenApiResponse(Description = 'Unexpected error', ContentType = 'application/json')]
     [Error]$Default
 }
 
@@ -213,11 +216,6 @@ Add-KrApiDocumentationRoute -DocumentType Scalar
 Add-KrApiDocumentationRoute -DocumentType Rapidoc
 Add-KrApiDocumentationRoute -DocumentType Elements
 
-# --------------------------------------
-# /pet  (PUT, POST)
-# --------------------------------------
-
-
 <#
 .SYNOPSIS
     Update an existing pet
@@ -228,14 +226,14 @@ Add-KrApiDocumentationRoute -DocumentType Elements
 #>
 function updatePet {
     [OpenApiPath(HttpVerb = 'Put' , Pattern = '/pet', Tags = 'pet')]
-    [OpenApiResponseAttribute(StatusCode = '200' , Description = 'Successful operation' , Schema = [Pet] , ContentType = ('application/json', 'application/xml'))]
-    [OpenApiResponseAttribute(StatusCode = '400' , Description = 'Invalid ID supplied' )]
-    [OpenApiResponseAttribute(StatusCode = '404' , Description = 'Pet not found' )]
-    [OpenApiResponseAttribute(StatusCode = '422' , Description = 'Validation exception' )]
-    [OpenApiResponseAttribute(StatusCode = 'default' , Description = 'Unexpected error' , ContentType = ('application/json'))]
-    # [OpenApiAuthorizationAttribute( Scheme = 'petstore_auth' , Policies = 'write:pets, read:pets' )]
+    [OpenApiResponse(StatusCode = '200' , Description = 'Successful operation' , Schema = [Pet] , ContentType = ('application/json', 'application/xml'))]
+    [OpenApiResponse(StatusCode = '400' , Description = 'Invalid ID supplied' )]
+    [OpenApiResponse(StatusCode = '404' , Description = 'Pet not found' )]
+    [OpenApiResponse(StatusCode = '422' , Description = 'Validation exception' )]
+    [OpenApiResponseRef(StatusCode = 'default' , ReferenceId = 'Default' , Inline = $true)]
+    [OpenApiAuthorization( Scheme = 'petstore_auth' , Policies = 'write:pets, read:pets' )]
     param(
-        [OpenApiRequestBodyAttribute(Required = $true, Inline = $false,
+        [OpenApiRequestBody(Required = $true, Inline = $false,
             ContentType = ('application/json', 'application/xml', 'application/x-www-form-urlencoded'))]
         [Pet]$pet
     )
@@ -255,14 +253,14 @@ function updatePet {
 #>
 function addPet {
     [OpenApiPath(HttpVerb = 'Post' , Pattern = '/pet', Tags = 'pet')]
-    [OpenApiResponseAttribute(StatusCode = '200' , Description = 'Successful operation' , Schema = [Pet] , ContentType = ('application/json', 'application/xml'))]
-    [OpenApiResponseAttribute(StatusCode = '400' , Description = 'Invalid Input' )]
-    [OpenApiResponseAttribute(StatusCode = '422' , Description = 'Validation exception' )]
-    [OpenApiResponseRefAttribute( StatusCode = 'default' , ReferenceId = 'Default' , Inline = $true)]
-    # [OpenApiAuthorizationAttribute( Scheme = 'petstore_auth' , Policies = 'write:pets, read:pets' )]
+    [OpenApiResponse(StatusCode = '200' , Description = 'Successful operation' , Schema = [Pet] , ContentType = ('application/json', 'application/xml'))]
+    [OpenApiResponse(StatusCode = '400' , Description = 'Invalid input' )]
+    [OpenApiResponse(StatusCode = '422' , Description = 'Validation exception' )]
+    [OpenApiResponseRef( StatusCode = 'default' , ReferenceId = 'Default' , Inline = $true)]
+    [OpenApiAuthorization( Scheme = 'petstore_auth' , Policies = 'write:pets, read:pets' )]
 
     param(
-        [OpenApiRequestBodyAttribute(Required = $true,
+        [OpenApiRequestBody(Required = $true,
             ContentType = ('application/json', 'application/xml', 'application/x-www-form-urlencoded'))]
         [Pet] $pet
     )
@@ -282,13 +280,13 @@ function addPet {
 #>
 function findPetsByStatus {
     [OpenApiPath(HttpVerb = 'Get' , Pattern = '/pet/findByStatus', Tags = 'pet')]
-    [OpenApiResponseAttribute(StatusCode = '200' , Description = 'successful operation', Schema = [Pet[]] , ContentType = ('application/json', 'application/xml') )]
-    [OpenApiResponseAttribute(StatusCode = '400' , Description = 'Invalid status value')]
-    [OpenApiResponseRefAttribute( StatusCode = 'default' , ReferenceId = 'Default', Inline = $true )]
-    # [OpenApiAuthorizationAttribute( Scheme = 'petstore_auth' , Policies = 'write:pets, read:pets' )]
+    [OpenApiResponse(StatusCode = '200' , Description = 'successful operation', Schema = [Pet[]] , ContentType = ('application/json', 'application/xml') )]
+    [OpenApiResponse(StatusCode = '400' , Description = 'Invalid status value')]
+    [OpenApiResponseRef( StatusCode = 'default' , ReferenceId = 'Default', Inline = $true )]
+    [OpenApiAuthorization( Scheme = 'petstore_auth' , Policies = 'write:pets, read:pets' )]
     param(
-        #[OpenApiParameterRefAttribute(ReferenceId = 'FindByStatusParams-status' )]
-        [OpenApiParameterAttribute(In = [OaParameterLocation]::Query, Explode = $true)]
+        #[OpenApiParameterRef(ReferenceId = 'FindByStatusParams-status' )]
+        [OpenApiParameter(In = [OaParameterLocation]::Query, Explode = $true)]
         [ValidateSet('available', 'pending', 'sold')]
         [string]$status = 'available'
     )
@@ -306,14 +304,14 @@ function findPetsByStatus {
 #>
 function findPetsByTags {
     [OpenApiPath(HttpVerb = 'Get' , Pattern = '/pet/findByTags', Tags = 'pet')]
-    [OpenApiResponseAttribute(StatusCode = '200' , Description = 'successful operation', Schema = [Pet[]] ,
+    [OpenApiResponse(StatusCode = '200' , Description = 'successful operation', Schema = [Pet[]] ,
         ContentType = ('application/json', 'application/xml'))]
 
-    [OpenApiResponseAttribute(StatusCode = '400' , Description = 'Invalid tag value')]
-    [OpenApiResponseRefAttribute( StatusCode = 'default' , ReferenceId = 'Default', Inline = $true )]
-    # [OpenApiAuthorizationAttribute( Scheme = 'petstore_auth' , Policies = 'write:pets, read:pets' )]
+    [OpenApiResponse(StatusCode = '400' , Description = 'Invalid tag value')]
+    [OpenApiResponseRef( StatusCode = 'default' , ReferenceId = 'Default', Inline = $true )]
+    [OpenApiAuthorization( Scheme = 'petstore_auth' , Policies = 'write:pets, read:pets' )]
     param(
-        [OpenApiParameterAttribute(In = [OaParameterLocation]::Query, Explode = $true, Required = $false)]
+        [OpenApiParameter(In = [OaParameterLocation]::Query, Explode = $true, Required = $false)]
         [string[]]$tags
     )
     Write-Host "FindByTags called with tags='$tags'"
@@ -330,12 +328,13 @@ function findPetsByTags {
 #>
 function getPetById {
     [OpenApiPath(HttpVerb = 'Get' , Pattern = '/pet/{petId}', Tags = 'pet')]
-    [OpenApiResponseAttribute(StatusCode = '200' , Description = 'Successful operation', SchemaRef = 'Pet' )]
-    [OpenApiResponseAttribute( StatusCode = '404' , Description = 'Pet not found')]
-    [OpenApiResponseRefAttribute( StatusCode = 'default' , ReferenceId = 'Default', Inline = $true )]
-    # [OpenApiAuthorizationAttribute( Scheme = 'petstore_auth' , Policies = 'write:pets, read:pets' )]
+    [OpenApiResponse(StatusCode = '200' , Description = 'Successful operation', SchemaRef = 'Pet' )]
+    [OpenApiResponse( StatusCode = '400' , Description = 'Invalid ID supplied')]
+    [OpenApiResponse( StatusCode = '404' , Description = 'Pet not found')]
+    [OpenApiResponseRef( StatusCode = 'default' , ReferenceId = 'Default', Inline = $true )]
+    [OpenApiAuthorization( Scheme = 'petstore_auth' , Policies = 'write:pets, read:pets' )]
     param(
-        [OpenApiParameterAttribute(In = [OaParameterLocation]::Path , Required = $true)]
+        [OpenApiParameter(In = [OaParameterLocation]::Path , Required = $true)]
         [long]$petId
     )
     Write-Host "getPetById called with petId='$petId'"
@@ -343,6 +342,7 @@ function getPetById {
     $pet | ConvertTo-Json | Write-Host
     Write-KrJsonResponse @(@{}) -StatusCode 200
 }
+
 <#
 .SYNOPSIS
     Updates a pet in the store with form data
@@ -357,16 +357,16 @@ function getPetById {
 #>
 function updatePetWithForm {
     [OpenApiPath(HttpVerb = 'Post' , Pattern = '/pet/{petId}', Tags = 'pet')]
-    [OpenApiResponseAttribute( StatusCode = '200' , Description = 'successfully updated')]
-    [OpenApiResponseAttribute( StatusCode = '400' , Description = 'Invalid input')]
-    [OpenApiResponseRefAttribute( StatusCode = 'default' , ReferenceId = 'Default', Inline = $true )]
-    # [OpenApiAuthorizationAttribute( Scheme = 'petstore_auth' , Policies = 'write:pets, read:pets' )]
+    [OpenApiResponse( StatusCode = '200' , Description = 'successfully updated')]
+    [OpenApiResponse( StatusCode = '400' , Description = 'Invalid input')]
+    [OpenApiResponseRef( StatusCode = 'default' , ReferenceId = 'Default', Inline = $true )]
+    [OpenApiAuthorization( Scheme = 'petstore_auth' , Policies = 'write:pets, read:pets' )]
     param(
-        [OpenApiParameterAttribute(In = [OaParameterLocation]::Path  , Required = $true)]
+        [OpenApiParameter(In = [OaParameterLocation]::Path  , Required = $true)]
         [long]$petId,
-        [OpenApiParameterAttribute(In = [OaParameterLocation]::Query  )]
+        [OpenApiParameter(In = [OaParameterLocation]::Query  )]
         [string]$name,
-        [OpenApiParameterAttribute(In = [OaParameterLocation]::Query  )]
+        [OpenApiParameter(In = [OaParameterLocation]::Query  )]
         [string]  $status
     )
 
@@ -378,7 +378,7 @@ function updatePetWithForm {
 .SYNOPSIS
     Deletes a pet
 .DESCRIPTION
-    Deletes a pet resource.
+    delete a pet.
 .PARAMETER Api_key
 
 .PARAMETER petId
@@ -386,21 +386,20 @@ function updatePetWithForm {
 #>
 function deletePet {
     [OpenApiPath(HttpVerb = 'Delete' , Pattern = '/pet/{petId}', Tags = 'pet')]
-    [OpenApiResponseAttribute( StatusCode = '200' , Description = "Successful operation" )]
-    [OpenApiResponseAttribute( StatusCode = '400' , Description = "Invalid pet value" )]
-    [OpenApiResponseRefAttribute( StatusCode = 'default' , ReferenceId = 'Default', Inline = $true )]
-    # [OpenApiAuthorizationAttribute( Scheme = 'petstore_auth' , Policies = 'write:pets, read:pets' )]
+    [OpenApiResponse( StatusCode = '200' , Description = 'Successful operation' )]
+    [OpenApiResponse( StatusCode = '400' , Description = 'Invalid pet value' )]
+    [OpenApiResponseRef( StatusCode = 'default' , ReferenceId = 'Default', Inline = $true )]
+    [OpenApiAuthorization( Scheme = 'petstore_auth' , Policies = 'write:pets, read:pets' )]
     param(
-        [OpenApiParameterAttribute( In = [OaParameterLocation]::Header , Required = $false )]
-        [string]$Api_key,
-        [OpenApiParameterAttribute( In = [OaParameterLocation]::Path, Required = $true )]
+        [OpenApiParameter( In = [OaParameterLocation]::Header , Required = $false )]
+        [string]$api_key,
+        [OpenApiParameter( In = [OaParameterLocation]::Path, Required = $true )]
         [long]$petId
     )
 
     Write-Host "deletePet called with petId='$petId' and api_key='$Api_key'"
     Write-KrJsonResponse @(@{}) -StatusCode 200
 }
-
 
 <#
 .SYNOPSIS
@@ -414,19 +413,19 @@ function deletePet {
 .PARAMETER Image
     Upload an image file
 #>
-function uploadImage {
+function uploadFile {
     [OpenApiPath(HttpVerb = 'Post' , Pattern = '/pet/{petId}/uploadImage', Tags = 'pet')]
-    [OpenApiResponseAttribute( StatusCode = '200' , Description = 'Successful operation', SchemaRef = 'ApiResponse', Inline = $true , ContentType = ('application/json'))]
-    [OpenApiResponseRefAttribute( StatusCode = 'default' , ReferenceId = 'Default', Inline = $true )]
-    # [OpenApiAuthorizationAttribute( Scheme = 'petstore_auth' , Policies = 'write:pets, read:pets' )]
+    [OpenApiResponse( StatusCode = '200' , Description = 'Successful operation', SchemaRef = 'ApiResponse', ContentType = ('application/json'))]
+    [OpenApiResponseRef( StatusCode = 'default' , ReferenceId = 'Default', Inline = $true )]
+    [OpenApiAuthorization( Scheme = 'petstore_auth' , Policies = 'write:pets, read:pets' )]
     param(
-        [OpenApiParameterAttribute(In = [OaParameterLocation]::Path, Required = $true )]
+        [OpenApiParameter(In = [OaParameterLocation]::Path, Required = $true )]
         [long]$petId,
 
-        [OpenApiParameterAttribute(In = [OaParameterLocation]::Query, Required = $false )]
-        [string]$AdditionalMetadata,
+        [OpenApiParameter(In = [OaParameterLocation]::Query, Required = $false )]
+        [string]$additionalMetadata,
 
-        [OpenApiRequestBodyAttribute( ContentType = 'application/octet-stream' )]
+        [OpenApiRequestBody( ContentType = 'application/octet-stream' )]
         [byte[]]$Image
     )
 
@@ -434,7 +433,6 @@ function uploadImage {
     Write-Host "Image size: $($Image.Length) bytes"
     Write-KrJsonResponse @(@{}) -StatusCode 200
 }
-
 
 <#
 .SYNOPSIS
@@ -444,9 +442,9 @@ function uploadImage {
 #>
 function getInventory {
     [OpenApiPath(HttpVerb = 'Get' , Pattern = '/store/inventory', Tags = 'store')]
-    [OpenApiResponseAttribute(StatusCode = '200' , Description = 'Successful operation', SchemaRef = 'Inventory', Inline = $true )]
-    [OpenApiResponseRefAttribute( StatusCode = 'default' , ReferenceId = 'Default', Inline = $true )]
-    # [OpenApiAuthorizationAttribute( Scheme = 'api_key')]
+    [OpenApiResponse(StatusCode = '200' , Description = 'Successful operation', SchemaRef = 'Inventory', Inline = $true )]
+    [OpenApiResponseRef( StatusCode = 'default' , ReferenceId = 'Default', Inline = $true )]
+    [OpenApiAuthorization( Scheme = 'api_key')]
     param()
     Write-Host 'getInventory called'
     Write-KrJsonResponse @{} -StatusCode 200
@@ -462,13 +460,13 @@ function getInventory {
 #>
 function placeOrder {
     [OpenApiPath(HttpVerb = 'Post' , Pattern = '/store/order', Tags = 'store')]
-    [OpenApiResponseAttribute(StatusCode = '200' , Description = 'Successful operation', SchemaRef = 'Order' )]
-    [OpenApiResponseAttribute(StatusCode = '400' , Description = 'Invalid input' )]
-    [OpenApiResponseAttribute(StatusCode = '422' , Description = 'Validation Exception' )]
-    [OpenApiResponseRefAttribute( StatusCode = 'default' , ReferenceId = 'Default', Inline = $true )]
+    [OpenApiResponse(StatusCode = '200' , Description = 'Successful operation', SchemaRef = 'Order' )]
+    [OpenApiResponse(StatusCode = '400' , Description = 'Invalid input' )]
+    [OpenApiResponse(StatusCode = '422' , Description = 'Validation Exception' )]
+    [OpenApiResponseRef( StatusCode = 'default' , ReferenceId = 'Default', Inline = $true )]
 
     param(
-        [OpenApiRequestBodyAttribute(ContentType = ('application/json', 'application/xml', 'application/x-www-form-urlencoded'))]
+        [OpenApiRequestBody(ContentType = ('application/json', 'application/xml', 'application/x-www-form-urlencoded'))]
         [Order]$Order
     )
     Write-Host "placeOrder called with order='$Order'"
@@ -485,13 +483,13 @@ function placeOrder {
 #>
 function getOrderById {
     [OpenApiPath(HttpVerb = 'get' , Pattern = '/store/order/{orderId}', Tags = 'store')]
-    [OpenApiResponseAttribute(StatusCode = '200' , Description = 'Successful operation', SchemaRef = 'Order', ContentType = ('application/json', 'application/xml'))]
-    [OpenApiResponseAttribute(StatusCode = '400' , Description = 'Invalid ID supplied' )]
-    [OpenApiResponseAttribute(StatusCode = '404' , Description = 'Order not found' )]
-    [OpenApiResponseRefAttribute( StatusCode = 'default' , ReferenceId = 'Default', Inline = $true )]
+    [OpenApiResponse(StatusCode = '200' , Description = 'Successful operation', SchemaRef = 'Order', ContentType = ('application/json', 'application/xml'))]
+    [OpenApiResponse(StatusCode = '400' , Description = 'Invalid ID supplied' )]
+    [OpenApiResponse(StatusCode = '404' , Description = 'Order not found' )]
+    [OpenApiResponseRef( StatusCode = 'default' , ReferenceId = 'Default', Inline = $true )]
 
     param(
-        [OpenApiParameterAttribute( In = [OaParameterLocation]::Path, Required = $true )]
+        [OpenApiParameter( In = [OaParameterLocation]::Path, Required = $true )]
         [long]$orderId
     )
     Write-Host "getOrderById called with orderId='$orderId'"
@@ -510,13 +508,13 @@ function getOrderById {
 #>
 function deleteOrder {
     [OpenApiPath(HttpVerb = 'delete' , Pattern = '/store/order/{orderId}', Tags = 'store')]
-    [OpenApiResponseAttribute(StatusCode = '200' , Description = 'Successful operation')]
-    [OpenApiResponseAttribute(StatusCode = '400' , Description = 'Invalid ID supplied' )]
-    [OpenApiResponseAttribute(StatusCode = '404' , Description = 'Order not found' )]
-    [OpenApiResponseRefAttribute( StatusCode = 'default' , ReferenceId = 'Default', Inline = $true )]
+    [OpenApiResponse(StatusCode = '200' , Description = 'Successful operation')]
+    [OpenApiResponse(StatusCode = '400' , Description = 'Invalid ID supplied' )]
+    [OpenApiResponse(StatusCode = '404' , Description = 'Order not found' )]
+    [OpenApiResponseRef( StatusCode = 'default' , ReferenceId = 'Default', Inline = $true )]
 
     param(
-        [OpenApiParameterAttribute( In = [OaParameterLocation]::Path, Required = $true )]
+        [OpenApiParameter( In = [OaParameterLocation]::Path, Required = $true )]
         [long]$orderId
     )
     Write-Host "deleteOrder called with orderId='$orderId'"
@@ -533,11 +531,11 @@ function deleteOrder {
 #>
 function createUser {
     [OpenApiPath(HttpVerb = 'post' , Pattern = '/user', Tags = 'user' )]
-    [OpenApiResponseAttribute(StatusCode = '200' , Description = 'Successful operation', SchemaRef = 'User', ContentType = ('application/json', 'application/xml'))]
-    [OpenApiResponseRefAttribute( StatusCode = 'default' , ReferenceId = 'Default', Inline = $true )]
+    [OpenApiResponse(StatusCode = '200' , Description = 'Successful operation', SchemaRef = 'User', ContentType = ('application/json', 'application/xml'))]
+    [OpenApiResponseRef( StatusCode = 'default' , ReferenceId = 'Default', Inline = $true )]
 
     param(
-        [OpenApiRequestBodyAttribute(ContentType = ('application/json', 'application/xml', 'application/x-www-form-urlencoded'))]
+        [OpenApiRequestBody(ContentType = ('application/json', 'application/xml', 'application/x-www-form-urlencoded'))]
         [User]$User
     )
     Write-Host "createUser called with user='$User'"
@@ -554,11 +552,11 @@ function createUser {
 #>
 function createUsersWithListInput {
     [OpenApiPath(HttpVerb = 'post' , Pattern = '/user/createWithList', Tags = 'user' )]
-    [OpenApiResponseAttribute(StatusCode = '200' , Description = 'Successful operation', SchemaRef = 'User', ContentType = ('application/json', 'application/xml'))]
-    [OpenApiResponseRefAttribute( StatusCode = 'default' , ReferenceId = 'Default', Inline = $true )]
+    [OpenApiResponse(StatusCode = '200' , Description = 'Successful operation', SchemaRef = 'User', ContentType = ('application/json', 'application/xml'))]
+    [OpenApiResponseRef( StatusCode = 'default' , ReferenceId = 'Default', Inline = $true )]
 
     param(
-        [OpenApiRequestBodyAttribute(ContentType = 'application/json', Inline = $false)]
+        [OpenApiRequestBody(ContentType = 'application/json', Inline = $false)]
         [User[]]$Users
     )
     Write-Host "createUsersWithListInput called with users='$Users'"
@@ -576,15 +574,18 @@ function createUsersWithListInput {
     The password for login in clear text
 #>
 function loginUser {
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidUsingUsernameAndPasswordParams', '')]
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidUsingPlainTextForPassword', '')]
     [OpenApiPath(HttpVerb = 'get' , Pattern = '/user/login', Tags = 'user')]
-    [OpenApiResponseAttribute(StatusCode = '200' , Description = 'Successful operation' , Schema = [string], ContentType = ('application/json', 'application/xml'))]
-    ##   [OpenApiHeaderAttribute( StatusCode = '200' , Key = 'X-Expires-After', Description = 'date in UTC when token expires')]
-    [OpenApiResponseRefAttribute( StatusCode = 'default' , ReferenceId = 'Default', Inline = $true )]
+    [OpenApiResponse(StatusCode = '200' , Description = 'Successful operation' , Schema = [string], ContentType = ('application/json', 'application/xml'))]
+    ##   [OpenApiHeader( StatusCode = '200' , Key = 'X-Expires-After', Description = 'date in UTC when token expires')]
+    [OpenApiResponse(StatusCode = '400' , Description = 'Invalid username/password supplied' )]
+    [OpenApiResponseRef( StatusCode = 'default' , ReferenceId = 'Default', Inline = $true )]
     param(
-        [OpenApiParameterAttribute( In = [OaParameterLocation]::Query, Required = $false )]
+        [OpenApiParameter( In = [OaParameterLocation]::Query, Required = $false )]
         [string]$username,
 
-        [OpenApiParameterAttribute( In = [OaParameterLocation]::Query, Required = $false )]
+        [OpenApiParameter( In = [OaParameterLocation]::Query, Required = $false )]
         [string]$password
     )
     Write-Host "loginUser called with username='$username' and password='$password'"
@@ -597,13 +598,13 @@ function loginUser {
 .DESCRIPTION
     Log user out of the system.
 #>
-function logout {
+function logoutUser {
     [OpenApiPath(HttpVerb = 'get' , Pattern = '/user/logout', Tags = 'user')]
-    [OpenApiResponseAttribute(StatusCode = '200' , Description = 'Successful operation' )]
-    [OpenApiResponseRefAttribute( StatusCode = 'default' , ReferenceId = 'Default', Inline = $true )]
+    [OpenApiResponse(StatusCode = '200' , Description = 'Successful operation' )]
+    [OpenApiResponse( StatusCode = 'default' , Description = 'Successful operation' )]
     param(
     )
-    Write-Host "logout called"
+    Write-Host 'logout called'
     Write-KrStatusResponse -StatusCode 200
 }
 <#
@@ -616,19 +617,18 @@ function logout {
 #>
 function getUserByName {
     [OpenApiPath(HttpVerb = 'get' , Pattern = '/user/{username}', Tags = 'user')]
-    [OpenApiResponseAttribute(StatusCode = '200' , Description = 'Successful operation', SchemaRef = 'User', ContentType = ('application/json', 'application/xml'))]
-    [OpenApiResponseAttribute(StatusCode = '400' , Description = 'Invalid username supplied')]
-    [OpenApiResponseAttribute(StatusCode = '404' , Description = 'User not found')]
-    [OpenApiResponseRefAttribute( StatusCode = 'default' , ReferenceId = 'Default', Inline = $true )]
+    [OpenApiResponse(StatusCode = '200' , Description = 'Successful operation', SchemaRef = 'User', ContentType = ('application/json', 'application/xml'))]
+    [OpenApiResponse(StatusCode = '400' , Description = 'Invalid username supplied')]
+    [OpenApiResponse(StatusCode = '404' , Description = 'User not found')]
+    [OpenApiResponseRef( StatusCode = 'default' , ReferenceId = 'Default', Inline = $true )]
     param(
-        [OpenApiParameterAttribute( In = [OaParameterLocation]::Path, Required = $true )]
+        [OpenApiParameter( In = [OaParameterLocation]::Path, Required = $true )]
         [string]$username
     )
     Write-Host "getUserByName called with username='$username'"
     $user = [User]::new()
     Write-KrResponse $user -StatusCode 200
 }
-
 
 <#
 .SYNOPSIS
@@ -642,17 +642,17 @@ function getUserByName {
 #>
 function updateUser {
     [OpenApiPath(HttpVerb = 'put' , Pattern = '/user/{username}', Tags = 'user')]
-    [OpenApiResponseAttribute(StatusCode = '200' , Description = 'Successful operation')]
-    [OpenApiResponseAttribute(StatusCode = '400' , Description = 'Invalid username supplied')]
-    [OpenApiResponseAttribute(StatusCode = '404' , Description = 'User not found')]
-    [OpenApiResponseRefAttribute( StatusCode = 'default' , ReferenceId = 'Default', Inline = $true )]
+    [OpenApiResponse(StatusCode = '200' , Description = 'Successful operation')]
+    [OpenApiResponse(StatusCode = '400' , Description = 'Invalid username supplied')]
+    [OpenApiResponse(StatusCode = '404' , Description = 'User not found')]
+    [OpenApiResponseRef( StatusCode = 'default' , ReferenceId = 'Default', Inline = $true )]
     param(
-        [OpenApiParameterAttribute( In = [OaParameterLocation]::Path, Required = $true )]
+        [OpenApiParameter( In = [OaParameterLocation]::Path, Required = $true )]
         [string]$username,
-        [OpenApiRequestBodyAttribute(ContentType = ('application/json', 'application/xml', 'application/x-www-form-urlencoded'))]
+        [OpenApiRequestBody(ContentType = ('application/json', 'application/xml', 'application/x-www-form-urlencoded'))]
         [User]$User
     )
-    Write-Host "updateUser called with username='$username'"
+    Write-Host "updateUser called with User='$User', username='$username'"
     Write-KrStatusResponse -StatusCode 200
 }
 
@@ -666,12 +666,12 @@ function updateUser {
 #>
 function deleteUser {
     [OpenApiPath(HttpVerb = 'delete' , Pattern = '/user/{username}', Tags = 'user')]
-    [OpenApiResponseAttribute(StatusCode = '200' , Description = 'User deleted')]
-    [OpenApiResponseAttribute(StatusCode = '400' , Description = 'Invalid username supplied')]
-    [OpenApiResponseAttribute(StatusCode = '404' , Description = 'User not found')]
-    [OpenApiResponseRefAttribute( StatusCode = 'default' , ReferenceId = 'Default', Inline = $true )]
+    [OpenApiResponse(StatusCode = '200' , Description = 'User deleted')]
+    [OpenApiResponse(StatusCode = '400' , Description = 'Invalid username supplied')]
+    [OpenApiResponse(StatusCode = '404' , Description = 'User not found')]
+    [OpenApiResponseRef( StatusCode = 'default' , ReferenceId = 'Default', Inline = $true )]
     param(
-        [OpenApiParameterAttribute( In = [OaParameterLocation]::Path, Required = $true )]
+        [OpenApiParameter( In = [OaParameterLocation]::Path, Required = $true )]
         [string]$username
     )
     Write-Host "deleteUser called with username='$username'"

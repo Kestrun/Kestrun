@@ -80,13 +80,12 @@ function Invoke-KrCookieSignOut {
 
                     # OIDC logout requires special handling
                     Write-KrLog -Level Information -Message 'Signing out from Cookie ({cookieScheme}) and OIDC ({oidcScheme}) schemes' -Values $Scheme, $AuthKind
-                    $schemeName = $KrServer.RegisteredAuthentications.ResolveAuthenticationSchemeName($Scheme, $AuthKind )
+                    $schemeName = $KrServer.RegisteredAuthentications.ResolveAuthenticationSchemeName($Scheme, $AuthKind, $true)
                     Write-KrLog -Level Debug -Message 'Resolved OIDC scheme name: {scheme}' -Values $schemeName
 
                     $Context.SignOut($schemeName) | Out-Null
-                    # Then sign out from OIDC scheme (triggers redirect to IdP logout)
                     $oidcProperties = [Microsoft.AspNetCore.Authentication.AuthenticationProperties]::new()
-                    if (-not [string]::IsNullOrEmpty($RedirectUri)  ) {
+                    if (-not [string]::IsNullOrEmpty($RedirectUri)) {
                         $oidcProperties.RedirectUri = $RedirectUri
                     }
                     $Context.SignOut($Scheme, $oidcProperties) | Out-Null

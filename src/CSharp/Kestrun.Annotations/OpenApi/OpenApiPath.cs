@@ -1,10 +1,15 @@
-namespace Kestrun.Hosting.Options;
-
 /// <summary>
-/// Metadata for OpenAPI documentation related to the route.
+/// Attribute to specify OpenAPI path metadata for a route.
 /// </summary>
-public record OpenAPIMetadata
+[AttributeUsage(AttributeTargets.Class | AttributeTargets.Method, Inherited = false, AllowMultiple = true)]
+public sealed class OpenApiPath() : KestrunAnnotation
 {
+    public string? HttpVerb { get; set; }
+    /// <summary>
+    /// The relative path for the route in OpenAPI documentation.
+    /// </summary>
+    public string? Pattern { get; init; }
+
     /// <summary>
     /// A brief summary of the route for OpenAPI documentation.
     /// </summary>
@@ -13,6 +18,7 @@ public record OpenAPIMetadata
     /// A detailed description of the route for OpenAPI documentation.
     /// </summary>
     public string? Description { get; set; }
+
     /// <summary>
     /// The unique operation ID for the route in OpenAPI documentation.
     /// </summary>
@@ -20,9 +26,10 @@ public record OpenAPIMetadata
     /// <summary>
     /// Comma-separated tags for OpenAPI documentation.
     /// </summary>
-    public string[] Tags { get; set; } = []; // Comma-separated tags
+    public string[] Tags { get; set; } = [];
+
     /// <summary>
-    /// Group name for OpenAPI documentation.
+    /// Indicates whether the operation is deprecated in OpenAPI documentation.
     /// </summary>
-    public string? GroupName { get; set; } // Group name for OpenAPI documentation
+    public bool Deprecated { get; set; }
 }

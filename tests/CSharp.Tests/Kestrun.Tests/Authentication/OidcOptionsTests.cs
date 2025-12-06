@@ -23,14 +23,14 @@ public class OidcOptionsTests
 
     [Fact]
     [Trait("Category", "Authentication")]
-    public void AuthenticationScheme_DerivedFromCookieName()
+    public void CookieScheme_DerivedFromCookieName()
     {
         // Arrange
         var options = new OidcOptions();
         options.CookieOptions.Cookie.Name = "TestOidcCookie";
 
         // Act
-        var scheme = options.AuthenticationScheme;
+        var scheme = options.CookieScheme;
 
         // Assert
         Assert.Equal("TestOidcCookie", scheme);
@@ -38,16 +38,16 @@ public class OidcOptionsTests
 
     [Fact]
     [Trait("Category", "Authentication")]
-    public void AuthenticationScheme_DefaultsWhenCookieNameNotSet()
+    public void CookieScheme_DefaultsWhenCookieNameNotSet()
     {
         // Arrange
         var options = new OidcOptions();
 
         // Act
-        var scheme = options.AuthenticationScheme;
+        var scheme = options.CookieScheme;
 
         // Assert
-        Assert.Equal(CookieAuthenticationDefaults.AuthenticationScheme, scheme);
+        Assert.Equal(CookieAuthenticationDefaults.AuthenticationScheme + "." + options.AuthenticationScheme, scheme);
     }
 
     [Fact]

@@ -79,7 +79,8 @@ public class KestrunHostEnableConfigurationTests
         var userFunctions = new Dictionary<string, string> { ["TestFunc"] = "param() { 'test' }" };
 
         // Act
-        host.InitializeRunspacePool(userVariables, userFunctions);
+        var classesPath = Kestrun.Runtime.PowerShellOpenApiClassExporter.ExportOpenApiClasses();
+        host.InitializeRunspacePool(userVariables, userFunctions, classesPath);
 
         // Assert
         Assert.NotNull(host.RunspacePool);
@@ -94,7 +95,8 @@ public class KestrunHostEnableConfigurationTests
         using var host = CreateTestHost();
 
         // Act
-        host.InitializeRunspacePool(null, null);
+        var classesPath2 = Kestrun.Runtime.PowerShellOpenApiClassExporter.ExportOpenApiClasses();
+        host.InitializeRunspacePool(null, null, classesPath2);
 
         // Assert
         Assert.NotNull(host.RunspacePool);
@@ -188,7 +190,8 @@ public class KestrunHostEnableConfigurationTests
     {
         // Arrange
         using var host = CreateTestHost();
-        host.InitializeRunspacePool(null, null);
+        var classesPath3 = Kestrun.Runtime.PowerShellOpenApiClassExporter.ExportOpenApiClasses();
+        host.InitializeRunspacePool(null, null, classesPath3);
 
         // Act & Assert (no exception means success)
         host.LogConfiguredEndpoints();

@@ -1,49 +1,49 @@
 #requires -Module InvokeBuild
 <#
-    .SYNOPSIS
+.SYNOPSIS
     Build script for Kestrun
 
-    .DESCRIPTION
+.DESCRIPTION
     This script contains the build tasks for the Kestrun project.
 
-    .PARAMETER Configuration
+.PARAMETER Configuration
     The build configuration to use (Debug or Release).
 
-    .PARAMETER Release
+.PARAMETER Release
     The release stage (Stable, ReleaseCandidate, Beta, Alpha).
 
-    .PARAMETER Frameworks
+.PARAMETER Frameworks
     The target frameworks to build for.
 
-    .PARAMETER Version
+.PARAMETER Version
     The version of the Kestrun project.
 
-    .PARAMETER Iteration
+.PARAMETER Iteration
     The iteration of the Kestrun project.
 
-    .PARAMETER FileVersion
+.PARAMETER FileVersion
     The file version to use.
 
-    .PARAMETER PesterVerbosity
+.PARAMETER PesterVerbosity
     The verbosity level for Pester tests.
 
-    .PARAMETER DotNetVerbosity
+.PARAMETER DotNetVerbosity
     The verbosity level for .NET commands. Valid values are 'quiet', 'minimal', 'normal', 'detailed', and 'diagnostic'.
 
-    .PARAMETER SignModule
+.PARAMETER SignModule
     Indicates whether to sign the module during the build process.
 
-    .EXAMPLE
-    .\Kestrun.build.ps1 -Configuration Release -Frameworks net9.0 -Version 1.0.0
+.EXAMPLE
+.\Kestrun.build.ps1 -Configuration Release -Frameworks net9.0 -Version 1.0.0
     This example demonstrates how to build the Kestrun project for the Release configuration,
     targeting the net9.0 framework, and specifying the version as 1.0.0.
 
-    .EXAMPLE
-    .\Kestrun.build.ps1 -Configuration Debug -Frameworks net8.0 -Version 1.0.0
+.EXAMPLE
+.\Kestrun.build.ps1 -Configuration Debug -Frameworks net8.0 -Version 1.0.0
     This example demonstrates how to build the Kestrun project for the Debug configuration,
     targeting the net8.0 framework, and specifying the version as 1.0.0.
 
-    .NOTES
+.NOTES
     This script is intended to be run with Invoke-Build.
 
 #>
@@ -136,11 +136,15 @@ if ($isDebug) {
     # Silent hydration: best-effort import without noisy logs
     $upstashValue = [System.Environment]::GetEnvironmentVariable('UPSTASH_REDIS_URL')
     if ([string]::IsNullOrWhiteSpace($upstashValue) -and (Test-Path '.env.json')) {
-        try { . ./Utility/Import-EnvFile.ps1 -Path '.env.json' -Overwrite } catch { Write-Verbose "Failed to load .env.json: $($_.Exception.Message)" }
+        try { . ./Utility/Import-EnvFile.ps1 -Path '.env.json' -Overwrite }
+        catch { Write-Information "⚠️ Failed to silently load .env.json: $($_.Exception.Message)" -InformationAction SilentlyContinue }
     }
 }
 
 $SolutionPath = Join-Path -Path $PSScriptRoot -ChildPath 'Kestrun.sln'
+$KestrunProjectPath = Join-Path -Path $PSScriptRoot -ChildPath 'src/CSharp/Kestrun/Kestrun.csproj'
+$KestrunAnnotationsProjectPath = Join-Path -Path $PSScriptRoot -ChildPath 'src/CSharp/Kestrun.Annotations/Kestrun.Annotations.csproj'
+$ExamplesSolutionFilter = Join-Path -Path $PSScriptRoot -ChildPath 'Examples.slnf'
 
 Write-Host '---------------------------------------------------' -ForegroundColor DarkCyan
 if (-not $Version) {
@@ -213,15 +217,71 @@ Add-BuildTask Help {
     Write-Host '- Clean-Coverage: Cleans the code coverage reports.'
     Write-Host '- Normalize-LineEndings: Normalizes line endings to LF in .ps1, .psm1, and .cs files.'
     Write-Host '- Test-Tutorials: Runs tests on tutorial documentation.'
+    Write-Host '- Deep-Clean: Cleans all build artifacts.'
+    Write-Host '- Clean-Package: Cleans the package output directories.'
     Write-Host '-----------------------------------------------------'
 }
 
-Add-BuildTask 'Clean' 'Clean-CodeAnalysis', 'Clean-Help', {
-    Write-Host '🧹 Cleaning solution...'
-    foreach ($framework in $Frameworks) {
-        dotnet clean "$SolutionPath" -c $Configuration -f $framework -v:$DotNetVerbosity
-    }
+Add-BuildTask 'Clean' 'Clean-CodeAnalysis', 'Clean-Help', 'Clean-Dotnet', 'Clean-PowerShellLib', {
+    Write-Host '✅ Clean completed.'
 }
+
+Add-BuildTask 'Clean-PowerShellLib' {
+    Write-Host '🧹 Cleaning PowerShell library...'
+    if (Test-Path -Path './src/PowerShell/Kestrun/lib') {
+        Remove-Item -Recurse -Force './src/PowerShell/Kestrun/lib' -ErrorAction SilentlyContinue
+    }
+    Write-Host '✅ PowerShell library Clean completed.'
+}
+
+Add-BuildTask 'Clean-Dotnet' {
+    Write-Host '🧹 Cleaning solutions...'
+    dotnet clean "$SolutionPath" -c $Configuration -v:$DotNetVerbosity
+    Write-Host '✅ Solutions Clean completed.'
+}
+
+Add-BuildTask 'CleanObj' {
+    Write-Host '🧹 Cleaning obj folders...'
+    if (Test-Path -Path '.\src\CSharp\Kestrun.Annotations\obj') {
+        Remove-Item -Recurse -Force '.\src\CSharp\Kestrun.Annotations\obj' -ErrorAction SilentlyContinue
+    }
+    if (Test-Path -Path '.\src\CSharp\Kestrun\obj') {
+        Remove-Item -Recurse -Force '.\src\CSharp\Kestrun\obj' -ErrorAction SilentlyContinue
+    }
+    Write-Host '✅ Obj clean completed.'
+}
+Add-BuildTask 'CleanBin' {
+    Write-Host '🧹 Cleaning bin folders...'
+    if (Test-Path -Path '.\src\CSharp\Kestrun.Annotations\bin') {
+        Remove-Item -Recurse -Force '.\src\CSharp\Kestrun.Annotations\bin' -ErrorAction SilentlyContinue
+    }
+    if (Test-Path -Path '.\src\CSharp\Kestrun\bin') {
+        Remove-Item -Recurse -Force '.\src\CSharp\Kestrun\bin' -ErrorAction SilentlyContinue
+    }
+    Write-Host '✅ Bin clean completed.'
+}
+
+Add-BuildTask 'Clean-Package' {
+    Write-Host '🧼 Clearing previous package artifacts...'
+    $out = Join-Path -Path $PWD -ChildPath 'artifacts'
+    if (Test-Path -Path $out) {
+        Remove-Item -Path $out -Recurse -Force -ErrorAction Stop
+    }
+    Write-Host '✅ Package clean completed.'
+}
+
+Add-BuildTask 'Clean-CodeAnalysis' {
+    Write-Host '🧼 Cleaning CodeAnalysis packages...'
+    if (Test-Path -Path './src/PowerShell/Kestrun/lib/Microsoft.CodeAnalysis/') {
+        Remove-Item -Path './src/PowerShell/Kestrun/lib/Microsoft.CodeAnalysis/' -Force -Recurse -ErrorAction SilentlyContinue
+    }
+    Write-Host '✅ CodeAnalysis clean completed.'
+}
+
+Add-BuildTask 'Deep-Clean' 'Clean', 'CleanObj', 'CleanBin' , 'Clean-Package', {
+    Write-Host '🧼 Deep cleaning completed.'
+}
+
 Add-BuildTask 'Restore' {
     Write-Host '📦 Restoring packages...'
     dotnet restore "$SolutionPath" -v:$DotNetVerbosity
@@ -233,16 +293,47 @@ Add-BuildTask 'BuildNoPwsh' {
     }
     Write-Host '🔨 Building solution...'
     if ($Frameworks.Count -eq 1) {
+        Write-Host "Building Kestrun.Annotations for single framework: $($Frameworks[0])" -ForegroundColor DarkCyan
+        dotnet build "$KestrunAnnotationsProjectPath" -c $Configuration -f $framework -v:$DotNetVerbosity -p:Version=$Version -p:InformationalVersion=$VersionDetails.InformationalVersion
+        if ($LASTEXITCODE -ne 0) {
+            throw "dotnet build failed for Kestrun.Annotations project for framework $framework"
+        }
+        Write-Host "Building Kestrun for single framework: $($Frameworks[0])" -ForegroundColor DarkCyan
+        dotnet build "$KestrunProjectPath" -c $Configuration -f $framework -v:$DotNetVerbosity -p:Version=$Version -p:InformationalVersion=$VersionDetails.InformationalVersion
+        if ($LASTEXITCODE -ne 0) {
+            throw "dotnet build failed for Kestrun project for framework $framework"
+        }
+    } else {
+        Write-Host "Building Kestrun.Annotations for multiple frameworks: $($Frameworks -join ', ')" -ForegroundColor DarkCyan
+        dotnet build "$KestrunAnnotationsProjectPath" -c $Configuration -v:$DotNetVerbosity -p:Version=$Version -p:InformationalVersion=$VersionDetails.InformationalVersion
+        if ($LASTEXITCODE -ne 0) {
+            throw "dotnet build failed for Kestrun.Annotations project for framework $framework"
+        }
+        Write-Host "Building Kestrun for multiple frameworks: $($Frameworks -join ', ')" -ForegroundColor DarkCyan
+        dotnet build "$KestrunProjectPath" -c $Configuration -v:$DotNetVerbosity -p:Version=$Version -p:InformationalVersion=$VersionDetails.InformationalVersion
+        if ($LASTEXITCODE -ne 0) {
+            throw "dotnet build failed for Kestrun project for framework $framework"
+        }
+    }
+}
+
+Add-BuildTask 'BuildExamples' {
+    if (Get-Module -Name Kestrun) {
+        throw 'Kestrun module is currently loaded in this PowerShell session. Please close all sessions using the Kestrun module before building.'
+    }
+    Write-Host '🔨 Building solution...'
+    if ($Frameworks.Count -eq 1) {
+
         Write-Host "Building for single framework: $($Frameworks[0])" -ForegroundColor DarkCyan
-        dotnet build "$SolutionPath" -c $Configuration -f $framework -v:$DotNetVerbosity -p:Version=$Version -p:InformationalVersion=$VersionDetails.InformationalVersion
+        dotnet build "$ExamplesSolutionFilter" -c $Configuration -f $framework -v:$DotNetVerbosity -p:Version=$Version -p:InformationalVersion=$VersionDetails.InformationalVersion
         if ($LASTEXITCODE -ne 0) {
             throw "dotnet build failed for framework $framework"
         }
     } else {
-        Write-Host "Building for multiple frameworks: $($Frameworks -join ', ')" -ForegroundColor DarkCyan
-        dotnet build "$SolutionPath" -c $Configuration -v:$DotNetVerbosity -p:Version=$Version -p:InformationalVersion=$VersionDetails.InformationalVersion
+        Write-Host "Building Kestrun.Annotations for multiple frameworks: $($Frameworks -join ', ')" -ForegroundColor DarkCyan
+        dotnet build "$ExamplesSolutionFilter" -c $Configuration -v:$DotNetVerbosity -p:Version=$Version -p:InformationalVersion=$VersionDetails.InformationalVersion
         if ($LASTEXITCODE -ne 0) {
-            throw "dotnet build failed for framework $($Frameworks -join ', ')"
+            throw "dotnet build failed for Kestrun.Annotations project for framework $framework"
         }
     }
 }
@@ -252,6 +343,7 @@ Add-BuildTask 'Build' 'BuildNoPwsh', 'SyncPowerShellDll', { Write-Host '🚀 Bui
 Add-BuildTask 'SyncPowerShellDll' {
     Write-Host '🔄 Syncing PowerShell DLLs to src/PowerShell/Kestrun/lib...'
     Sync-PowerShellDll -Configuration $Configuration -Frameworks $Frameworks -dest '.\src\PowerShell\Kestrun\lib'
+    Write-Host '🚀 PowerShell DLL synchronization completed.'
 }
 
 Add-BuildTask 'Nuget-CodeAnalysis' {
@@ -259,11 +351,7 @@ Add-BuildTask 'Nuget-CodeAnalysis' {
     & .\Utility\Download-CodeAnalysis.ps1
 }
 
-Add-BuildTask 'Clean-CodeAnalysis' {
-    Write-Host '🧼 Cleaning CodeAnalysis packages...'
-    Remove-Item -Path './src/PowerShell/Kestrun/lib/Microsoft.CodeAnalysis/' -Force -Recurse -ErrorAction SilentlyContinue
-}
-
+# XUnit tests
 Add-BuildTask 'Test-xUnit' {
     Write-Host '🧪 Running Kestrun DLL tests...'
     $failures = @()
@@ -280,6 +368,7 @@ Add-BuildTask 'Test-xUnit' {
     }
 }
 
+# Formatting source code
 Add-BuildTask 'Format' {
     Write-Host '✨ Formatting code...'
     dotnet format "$SolutionPath" -v:$DotNetVerbosity
@@ -288,8 +377,7 @@ Add-BuildTask 'Format' {
         -ReformatFunctionHelp -FunctionHelpPlacement BeforeFunction -NoFooter -UseGitForCreated
 }
 
-
-
+# Pester tests
 Add-BuildTask 'Test-Pester' {
     if ($isDebug) {
         Write-Host '🔍 [TEST-PESTER DEBUG] Checking UPSTASH_REDIS_URL before running Pester tests...' -ForegroundColor Cyan
@@ -318,21 +406,7 @@ Add-BuildTask 'Test-Tutorials' {
     & .\Utility\Test-TutorialDocs.ps1
 }
 
-Add-BuildTask 'Create-Distribution' {
-    Write-Host '📦 Creating module distribution...'
-    & .\Utility\Create-Distribution.ps1 -SignModule:$SignModule
-}
-
-
-Add-BuildTask 'Clear-Package' {
-    Write-Host '🧼 Clearing previous package artifacts...'
-    $out = Join-Path -Path $PWD -ChildPath 'artifacts'
-    if (Test-Path -Path $out) {
-        Remove-Item -Path $out -Recurse -Force -ErrorAction Stop
-    }
-}
-
-Add-BuildTask 'Package' 'Clear-Package', 'Build', {
+Add-BuildTask 'Package' 'Clean-Package', 'Build', {
     Write-Host '🚀 Starting release build...'
     $script:Configuration = 'Release'
 

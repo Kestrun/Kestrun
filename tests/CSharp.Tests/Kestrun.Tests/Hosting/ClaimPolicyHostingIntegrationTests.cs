@@ -20,8 +20,8 @@ public class ClaimPolicyHostingIntegrationTests
         {
             Policies = new()
             {
-                ["MustBeAdmin"] = new ClaimRule(ClaimTypes.Role, "Admin"),
-                ["NamedAlice"] = new ClaimRule(ClaimTypes.Name, "Alice")
+                ["MustBeAdmin"] = new ClaimRule(ClaimTypes.Role, string.Empty, "Admin"),
+                ["NamedAlice"] = new ClaimRule(ClaimTypes.Name, string.Empty, "Alice")
             }
         };
 
@@ -29,7 +29,7 @@ public class ClaimPolicyHostingIntegrationTests
             scheme: "BasicX",
             configure: opts =>
             {
-                opts.RequireHttps = false; // keep defaults simple
+                opts.AllowInsecureHttp = false; // keep defaults simple
                 opts.ClaimPolicyConfig = cfg;
             });
 
@@ -59,16 +59,16 @@ public class ClaimPolicyHostingIntegrationTests
         {
             Policies = new()
             {
-                ["AllowUserBob"] = new ClaimRule(ClaimTypes.Name, "Bob")
+                ["AllowUserBob"] = new ClaimRule(ClaimTypes.Name, string.Empty, "Bob")
             }
         };
 
         _ = host.AddApiKeyAuthentication(
-            scheme: "ApiKeyX",
-            configure: opts =>
+            authenticationScheme: "ApiKeyX",
+            configureOptions: opts =>
             {
-                opts.RequireHttps = false;
-                opts.ExpectedKey = "ignored-for-test";
+                opts.AllowInsecureHttp = false;
+                opts.StaticApiKey = "ignored-for-test";
                 opts.ClaimPolicyConfig = cfg;
             });
 

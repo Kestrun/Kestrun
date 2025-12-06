@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Kestrun API Docs (Redoc)</title>
+
+    <!-- Optional: fonts like in Redoc docs -->
+    <link
+        href="https://fonts.googleapis.com/css?family=Montserrat:300,400,700|Roboto:300,400,700"
+        rel="stylesheet"
+    />
+
+    <style>
+        html, body {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+        }
+
+        body {
+            font-family: "Roboto", sans-serif;
+        }
+
+        #redoc-container {
+            height: 100vh;
+        }
+    </style>
+</head>
+
+<body>
+    <!-- Redoc will render into this element -->
+    <redoc
+        id="redoc-container"
+        spec-url="{{OPENAPI_ENDPOINT}}"
+    ></redoc>
+
+    <!-- Redoc standalone bundle from CDN -->
+    <script src="https://cdn.redoc.ly/redoc/latest/bundles/redoc.standalone.js"></script>
+</body>
+
+</html>

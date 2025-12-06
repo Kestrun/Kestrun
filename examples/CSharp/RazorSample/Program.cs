@@ -54,7 +54,7 @@ server.AddResponseCompression(options =>
     options.Providers.Add<BrotliCompressionProvider>();
 }).AddPowerShellRuntime()
 
-.AddBasicAuthentication(BasicPowershellScheme, opts =>
+.AddBasicAuthentication(BasicPowershellScheme, "PowerShell Basic Authentication", opts =>
 {
     opts.Realm = "Power-Kestrun";
 
@@ -74,7 +74,7 @@ server.AddResponseCompression(options =>
         """
     };
     opts.Base64Encoded = true;            // default anyway
-    opts.RequireHttps = false;           // example
+    opts.AllowInsecureHttp = false;           // example
 })
 .AddMapRoute("/assets/report", HttpVerb.Get, async ctx =>
 {

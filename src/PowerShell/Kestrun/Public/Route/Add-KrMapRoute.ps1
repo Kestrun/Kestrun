@@ -75,7 +75,7 @@ function Add-KrMapRoute {
         [Parameter(ParameterSetName = 'Code')]
         [Parameter(ParameterSetName = 'CodeFilePath')]
         [Alias('Method')]
-        [Kestrun.Utilities.HttpVerb[]]$Verbs = @([Kestrun.Utilities.HttpVerb]::Get),
+        [Kestrun.Utilities.HttpVerb[]]$Verbs = @('Get'),
 
         [Parameter(ParameterSetName = 'ScriptBlock')]
         [Parameter(ParameterSetName = 'Code')]
@@ -176,10 +176,10 @@ function Add-KrMapRoute {
                 $Options.AllowAnonymous = $true
             } else {
                 if ($null -ne $AuthorizationScheme) {
-                    $Options.RequireSchemes = $AuthorizationScheme
+                    $Options.RequireSchemes.AddRange($AuthorizationScheme) | Out-Null
                 }
                 if ($null -ne $AuthorizationPolicy) {
-                    $Options.RequirePolicies = $AuthorizationPolicy
+                    $Options.RequirePolicies.AddRange($AuthorizationPolicy) | Out-Null
                 }
             }
 

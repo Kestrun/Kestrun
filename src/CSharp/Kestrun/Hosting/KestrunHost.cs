@@ -21,6 +21,7 @@ using Kestrun.Authentication;
 using Kestrun.Health;
 using Kestrun.Tasks;
 using Kestrun.Runtime;
+using Kestrun.OpenApi;
 
 namespace Kestrun.Hosting;
 
@@ -118,7 +119,7 @@ public class KestrunHost : IDisposable
     private readonly object _healthProbeLock = new();
 #endif
 
-    internal readonly Dictionary<(string Pattern, string Method), MapRouteOptions> _registeredRoutes =
+    internal readonly Dictionary<(string Pattern, HttpVerb Method), MapRouteOptions> _registeredRoutes =
     new(new RouteKeyComparer());
 
     //internal readonly Dictionary<(string Scheme, string Type), AuthenticationSchemeOptions> _registeredAuthentications =
@@ -171,11 +172,10 @@ public class KestrunHost : IDisposable
     /// </summary>
     public System.Collections.Stack RouteGroupStack { get; } = new();
 
-
     /// <summary>
     /// Gets the registered routes in the Kestrun host.
     /// </summary>
-    public Dictionary<(string, string), MapRouteOptions> RegisteredRoutes => _registeredRoutes;
+    public Dictionary<(string, HttpVerb), MapRouteOptions> RegisteredRoutes => _registeredRoutes;
 
     /// <summary>
     /// Gets the registered authentication schemes in the Kestrun host.
@@ -244,6 +244,11 @@ public class KestrunHost : IDisposable
             _forwardedHeaderOptions = value;
         }
     }
+
+    /// <summary>
+    /// Gets the OpenAPI document descriptor for configuring OpenAPI generation.
+    /// </summary>
+    public Dictionary<string, OpenApiDocDescriptor> OpenApiDocumentDescriptor { get; } = [];
 
     #endregion
 
@@ -323,6 +328,32 @@ public class KestrunHost : IDisposable
 
     #region Helpers
 
+    /// <summary>
+    /// Gets the OpenAPI document descriptor for the specified document ID.
+    /// </summary>
+    /// <param name="docId">The ID of the OpenAPI document.</param>
+    /// <returns>The OpenAPI document descriptor.</returns>
+    public OpenApiDocDescriptor GetOrCreateOpenApiDocument(string docId)
+    {
+        if (string.IsNullOrWhiteSpace(docId))
+        {
+            throw new ArgumentException("Document ID cannot be null or whitespace.", nameof(docId));
+        }
+        // Check if descriptor already exists
+        if (OpenApiDocumentDescriptor.TryGetValue(docId, out var descriptor))
+        {
+            if (Logger.IsEnabled(LogEventLevel.Debug))
+            {
+                Logger.Debug("OpenAPI document descriptor for ID '{DocId}' already exists. Returning existing descriptor.", docId);
+            }
+        }
+        else
+        {
+            descriptor = new OpenApiDocDescriptor(this, docId);
+            OpenApiDocumentDescriptor[docId] = descriptor;
+        }
+        return descriptor;
+    }
 
     /// <summary>
     /// Logs constructor arguments at Debug level for diagnostics.
@@ -435,7 +466,6 @@ public class KestrunHost : IDisposable
     }
     #endregion
 
-
     #region Health Probes
 
     /// <summary>
@@ -532,7 +562,6 @@ public class KestrunHost : IDisposable
 
     #endregion
 
-
     #region ListenerOptions
 
     /// <summary>
@@ -593,7 +622,6 @@ public class KestrunHost : IDisposable
     public void ConfigureListener(
     int port,
     bool useConnectionLogging = false) => _ = ConfigureListener(port: port, ipAddress: null, x509Certificate: null, protocols: HttpProtocols.Http1, useConnectionLogging: useConnectionLogging);
-
 
     /// <summary>
     /// Configures listeners for the Kestrun host by resolving the specified host name to IP addresses and binding to each address.
@@ -692,7 +720,6 @@ public class KestrunHost : IDisposable
 
     #region Configuration
 
-
     /// <summary>
     /// Validates if configuration can be applied and returns early if already configured.
     /// </summary>
@@ -721,10 +748,11 @@ public class KestrunHost : IDisposable
     /// </summary>
     /// <param name="userVariables">User-defined variables to inject into the runspace pool.</param>
     /// <param name="userFunctions">User-defined functions to inject into the runspace pool.</param>
+    /// <param name="openApiClassesPath">Path to the OpenAPI class definitions to inject into the runspace pool.</param>
     /// <exception cref="InvalidOperationException">Thrown when runspace pool creation fails.</exception>
-    internal void InitializeRunspacePool(Dictionary<string, object>? userVariables, Dictionary<string, string>? userFunctions)
+    internal void InitializeRunspacePool(Dictionary<string, object>? userVariables, Dictionary<string, string>? userFunctions, string openApiClassesPath)
     {
-        _runspacePool = CreateRunspacePool(Options.MaxRunspaces, userVariables, userFunctions);
+        _runspacePool = CreateRunspacePool(Options.MaxRunspaces, userVariables, userFunctions, openApiClassesPath);
         if (_runspacePool == null)
         {
             throw new InvalidOperationException("Failed to create runspace pool.");
@@ -891,8 +919,24 @@ public class KestrunHost : IDisposable
 
         try
         {
-            InitializeRunspacePool(userVariables, userFunctions);
+            // Export OpenAPI classes from PowerShell
+            var openApiClassesPath = PowerShellOpenApiClassExporter.ExportOpenApiClasses();
+            if (Logger.IsEnabled(LogEventLevel.Debug))
+            {
+                if (string.IsNullOrWhiteSpace(openApiClassesPath))
+                {
+                    Logger.Debug("No OpenAPI classes exported from PowerShell.");
+                }
+                else
+                {
+                    Logger.Debug("Exported OpenAPI classes from PowerShell.{path}", openApiClassesPath);
+                }
+            }
+            // Initialize PowerShell runspace pool
+            InitializeRunspacePool(userVariables: userVariables, userFunctions: userFunctions, openApiClassesPath: openApiClassesPath);
+            // Configure Kestrel server
             ConfigureKestrelBase();
+            // Configure named pipe listeners if any
             ConfigureNamedPipes();
 
             // Apply Kestrel listeners and HTTPS settings
@@ -1271,9 +1315,6 @@ public class KestrunHost : IDisposable
         });
     }
 
-
-
-
     /// <summary>
     /// Adds a PowerShell runtime to the application.
     /// This middleware allows you to execute PowerShell scripts in response to HTTP requests.
@@ -1464,8 +1505,6 @@ public class KestrunHost : IDisposable
 
     #endregion
 
-
-
     #region Runspace Pool Management
 
     /// <summary>
@@ -1474,8 +1513,9 @@ public class KestrunHost : IDisposable
     /// <param name="maxRunspaces">The maximum number of runspaces to create. If not specified or zero, defaults to twice the processor count.</param>
     /// <param name="userVariables">A dictionary of user-defined variables to inject into the runspace pool.</param>
     /// <param name="userFunctions">A dictionary of user-defined functions to inject into the runspace pool.</param>
+    /// <param name="openApiClassesPath">The file path to the OpenAPI class definitions to inject into the runspace pool.</param>
     /// <returns>A configured <see cref="KestrunRunspacePoolManager"/> instance.</returns>
-    public KestrunRunspacePoolManager CreateRunspacePool(int? maxRunspaces = 0, Dictionary<string, object>? userVariables = null, Dictionary<string, string>? userFunctions = null)
+    public KestrunRunspacePoolManager CreateRunspacePool(int? maxRunspaces = 0, Dictionary<string, object>? userVariables = null, Dictionary<string, string>? userFunctions = null, string? openApiClassesPath = null)
     {
         if (Logger.IsEnabled(LogEventLevel.Debug))
         {
@@ -1514,6 +1554,15 @@ public class KestrunHost : IDisposable
                     "Global variable"
                 )
             );
+        }
+        // Inject OpenAPI class definitions
+        if (!string.IsNullOrWhiteSpace(openApiClassesPath))
+        {
+            _ = iss.StartupScripts.Add(openApiClassesPath);
+            if (Logger.IsEnabled(LogEventLevel.Debug))
+            {
+                Logger.Debug("Configured OpenAPI class script at {ScriptPath}", openApiClassesPath);
+            }
         }
 
         foreach (var kvp in userVariables ?? [])
@@ -1560,14 +1609,12 @@ public class KestrunHost : IDisposable
         var maxRs = (maxRunspaces.HasValue && maxRunspaces.Value > 0) ? maxRunspaces.Value : Environment.ProcessorCount * 2;
 
         Logger.Information($"Creating runspace pool with max runspaces: {maxRs}");
-        var runspacePool = new KestrunRunspacePoolManager(this, Options?.MinRunspaces ?? 1, maxRunspaces: maxRs, initialSessionState: iss);
+        var runspacePool = new KestrunRunspacePoolManager(this, Options?.MinRunspaces ?? 1, maxRunspaces: maxRs, initialSessionState: iss, openApiClassesPath: openApiClassesPath);
         // Return the created runspace pool
         return runspacePool;
     }
 
-
     #endregion
-
 
     #region Disposable
 
@@ -1592,7 +1639,6 @@ public class KestrunHost : IDisposable
     #endregion
 
     #region Script Validation
-
 
     #endregion
 }

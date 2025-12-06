@@ -26,7 +26,6 @@ public class MixedVerbAntiforgeryTests
         var result = (bool)ShouldValidateCsrfMethod.Invoke(null, [opts, ctx])!;
         return result;
     }
-
     private static MapRouteOptions MixedFormRoute(bool disable = false) => new()
     {
         Pattern = "/form",
@@ -54,20 +53,20 @@ public class MixedVerbAntiforgeryTests
         var route = MixedFormRoute();
         Assert.True(InvokeShouldValidate(route, HttpMethods.Post));
     }
-
     [Fact]
     public void Put_Patch_Delete_TriggerValidation_WhenConfigured()
     {
-        var route = MixedFormRoute() with { HttpVerbs = [HttpVerb.Get, HttpVerb.Put, HttpVerb.Patch, HttpVerb.Delete] };
+        var route = MixedFormRoute();
+        route.HttpVerbs = [HttpVerb.Get, HttpVerb.Put, HttpVerb.Patch, HttpVerb.Delete];
         Assert.True(InvokeShouldValidate(route, HttpMethods.Put));
         Assert.True(InvokeShouldValidate(route, HttpMethods.Patch));
         Assert.True(InvokeShouldValidate(route, HttpMethods.Delete));
     }
-
     [Fact]
     public void UnsafeVerbNotConfigured_DoesNotTrigger()
     {
-        var route = MixedFormRoute() with { HttpVerbs = [HttpVerb.Get] }; // only GET configured
+        var route = MixedFormRoute();
+        route.HttpVerbs = [HttpVerb.Get]; // only GET configured
         Assert.False(InvokeShouldValidate(route, HttpMethods.Post)); // POST not part of route
     }
 

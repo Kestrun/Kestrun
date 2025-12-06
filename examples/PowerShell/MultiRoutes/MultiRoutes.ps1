@@ -118,7 +118,7 @@ Add-KrCompressionMiddleware -EnableForHttps -MimeTypes @('text/plain', 'text/htm
 
 
 
-Add-KrBasicAuthentication -Name 'BasicAuth' -ScriptBlock {
+Add-KrBasicAuthentication -AuthenticationScheme 'BasicAuth' -ScriptBlock {
     param($username, $password)
     Write-KrLog -Level Information -Message 'Basic Authentication: User {0} is trying to authenticate.' -Values $username
     if ($username -eq 'admin' -and $password -eq 'password') {

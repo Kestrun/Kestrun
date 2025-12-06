@@ -65,7 +65,7 @@ $options.Scope.Add('email') | Out-Null
 $options.TokenValidationParameters.NameClaimType = 'name'
 
 # 5) OAuth2 scheme (AUTH CHALLENGE) — signs into the 'Cookies' scheme above
-Add-KrOpenIdConnectAuthentication -Options $options -Name 'Okta'
+Add-KrOpenIdConnectAuthentication -AuthenticationScheme 'Okta' -Options $options
 
 # 6) Finalize configuration
 Enable-KrConfiguration

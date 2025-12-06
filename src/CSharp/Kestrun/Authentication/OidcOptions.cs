@@ -1,3 +1,5 @@
+using Kestrun.Claims;
+using Kestrun.Hosting;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.OpenIdConnect;
@@ -7,12 +9,18 @@ namespace Kestrun.Authentication;
 /// <summary>
 /// Options for OpenID Connect authentication.
 /// </summary>
-public class OidcOptions : OpenIdConnectOptions
+public class OidcOptions : OpenIdConnectOptions, IOpenApiAuthenticationOptions, IAuthenticationHostOptions, IOAuthCommonOptions
 {
     /// <summary>
     /// Options for cookie authentication.
     /// </summary>
-    public CookieAuthenticationOptions CookieOptions { get; }
+    public CookieAuthOptions CookieOptions { get; }
+
+    /// <summary>
+    /// Gets the cookie authentication scheme name.
+    /// </summary>
+    public string CookieScheme =>
+    CookieOptions.Cookie.Name ?? (CookieAuthenticationDefaults.AuthenticationScheme + "." + AuthenticationScheme);
 
     /// <summary>
     /// JSON Web Key (JWK) for token validation.
@@ -26,24 +34,50 @@ public class OidcOptions : OpenIdConnectOptions
     public string PushedAuthorizationBehavior { get; set; } = "Disable";
 #endif
 
+    /// <inheritdoc/>
+    public bool GlobalScheme { get; set; }
+
+    /// <inheritdoc/>
+    public string? Description { get; set; }
+
+    /// <inheritdoc/>
+    public string? DisplayName { get; set; }
+
+    /// <inheritdoc/>
+    public string[] DocumentationId { get; set; } = [];
+
+    /// <inheritdoc/>
+#pragma warning disable IDE0370 // Remove unnecessary suppression
+    public KestrunHost Host { get; set; } = default!;
+#pragma warning restore IDE0370 // Remove unnecessary suppression
+
+    private Serilog.ILogger? _logger;
+    /// <inheritdoc/>
+    public Serilog.ILogger Logger
+    {
+        get => _logger ?? (Host is null ? Serilog.Log.Logger : Host.Logger); set => _logger = value;
+    }
+
     /// <summary>
     /// Initializes a new instance of the <see cref="OidcOptions"/> class.
     /// </summary>
     public OidcOptions()
     {
-        CookieOptions = new CookieAuthenticationOptions
+        CookieOptions = new CookieAuthOptions()
         {
             SlidingExpiration = true
         };
     }
 
     /// <summary>
-    /// Gets the authentication scheme.
+    /// Gets or sets the authentication scheme name.
     /// </summary>
-    public string AuthenticationScheme => CookieOptions.Cookie.Name is not null
-            ? CookieOptions.Cookie.Name
-            : CookieAuthenticationDefaults.AuthenticationScheme;
+    public string AuthenticationScheme { get; set; } = AuthenticationDefaults.OidcSchemeName;
 
+    /// <summary>
+    /// Configuration for claim policy enforcement.
+    /// </summary>
+    public ClaimPolicyConfig? ClaimPolicy { get; set; }
     /// <summary>
     /// Helper to copy values from a user-supplied OidcOptions instance to the instance
     /// created by the framework inside AddOpenIdConnect().
@@ -53,6 +87,12 @@ public class OidcOptions : OpenIdConnectOptions
     {
         ApplyTo((OpenIdConnectOptions)target);
         target.JwkJson = JwkJson;
+        // OpenAPI / documentation properties
+        target.GlobalScheme = GlobalScheme;
+        target.Description = Description;
+        target.DisplayName = DisplayName;
+        target.DocumentationId = DocumentationId;
+        target.Host = Host;
     }
 
     /// <summary>

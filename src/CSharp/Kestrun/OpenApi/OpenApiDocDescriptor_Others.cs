@@ -391,7 +391,7 @@ public partial class OpenApiDocDescriptor
     }
 
     #endregion
-
+    #region Callbacks
     private void BuildCallbacks(Type t)
     {
         Document.Components!.Callbacks ??= new Dictionary<string, IOpenApiCallback>(StringComparer.Ordinal);
@@ -467,4 +467,5 @@ public partial class OpenApiDocDescriptor
 
         Document.Components!.Callbacks[t.Name] = cb;
     }
+    #endregion
 }

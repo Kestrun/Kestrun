@@ -1,6 +1,5 @@
 using System.Management.Automation;
 using Kestrun.Hosting;
-using Kestrun.Hosting.Options;
 using Kestrun.Logging;
 using Kestrun.Models;
 using Kestrun.Utilities;

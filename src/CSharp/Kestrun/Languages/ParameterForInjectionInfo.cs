@@ -1,8 +1,12 @@
 
+using System.Collections;
 using System.Management.Automation;
+using System.Text.Json;
 using Kestrun.Models;
 using Microsoft.Extensions.Primitives;
 using Microsoft.OpenApi;
+using YamlDotNet.Serialization;
+using YamlDotNet.Serialization.NamingConventions;
 
 namespace Kestrun.Languages;
 /// <summary>
@@ -14,6 +18,12 @@ public record ParameterForInjectionInfo
     /// The name of the parameter.
     /// </summary>
     public string Name { get; init; }
+
+    /// <summary>
+    /// The .NET type of the parameter.
+    /// </summary>
+    public Type ParameterType { get; }
+
     /// <summary>
     /// The JSON schema type of the parameter.
     /// </summary>
@@ -28,30 +38,43 @@ public record ParameterForInjectionInfo
     /// </summary>
     public bool IsRequestBody => In is null;
 
+
     /// <summary>
     /// Constructs a ParameterForInjectionInfo from an OpenApiParameter.
     /// </summary>
-    /// <param name="name">The name of the parameter.</param>
+    /// <param name="paramInfo">The parameter metadata.</param>
     /// <param name="parameter">The OpenApiParameter to construct from.</param>
-    public ParameterForInjectionInfo(string name, OpenApiParameter? parameter)
+    public ParameterForInjectionInfo(ParameterMetadata paramInfo, OpenApiParameter? parameter)
     {
         ArgumentNullException.ThrowIfNull(parameter);
-        ArgumentException.ThrowIfNullOrWhiteSpace(name);
-        Name = name;
+        ArgumentNullException.ThrowIfNull(paramInfo);
+        Name = paramInfo.Name;
+        ParameterType = paramInfo.ParameterType;
         Type = parameter.Schema?.Type;
         In = parameter.In;
     }
     /// <summary>
     /// Constructs a ParameterForInjectionInfo from an OpenApiRequestBody.
     /// </summary>
-    /// <param name="name">The name of the parameter.</param>
+    /// <param name="paramInfo">The parameter metadata.</param>
     /// <param name="requestBody">The OpenApiRequestBody to construct from.</param>
-    public ParameterForInjectionInfo(string name, OpenApiRequestBody requestBody)
+    public ParameterForInjectionInfo(ParameterMetadata paramInfo, OpenApiRequestBody requestBody)
     {
         ArgumentNullException.ThrowIfNull(requestBody);
-        ArgumentException.ThrowIfNullOrWhiteSpace(name);
-        Name = name;
+        ArgumentNullException.ThrowIfNull(paramInfo);
+        Name = paramInfo.Name;
+        ParameterType = paramInfo.ParameterType;
         Type = requestBody.Content?.Values.FirstOrDefault()?.Schema?.Type;
+        var schema = requestBody.Content?.Values.FirstOrDefault()?.Schema;
+        if (schema is OpenApiSchemaReference)
+        {
+            Type = JsonSchemaType.Object;
+        }
+        else if (schema is OpenApiSchema sch)
+        {
+            Type = sch.Type;
+        }
+
         In = null;
     }
 
@@ -98,7 +121,7 @@ public record ParameterForInjectionInfo
                     continue;
                 }
 
-                var converted = ConvertValue(param.Type, singleValue, multiValue);
+                var converted = ConvertValue(context, param, singleValue, multiValue);
                 _ = ps.AddParameter(name, converted);
             }
         }
@@ -155,21 +178,108 @@ public record ParameterForInjectionInfo
     /// <summary>
     /// Converts the parameter value to the appropriate type based on the JSON schema type.
     /// </summary>
-    /// <param name="type">The JSON schema type of the parameter.</param>
+    /// <param name="context">The current HTTP context.</param>
+    /// <param name="param">The parameter information.</param>
     /// <param name="singleValue">The single value of the parameter.</param>
     /// <param name="multiValue">The multi-value of the parameter.</param>
     /// <returns>The converted parameter value.</returns>
-    private static object? ConvertValue(JsonSchemaType? type, string? singleValue, string?[]? multiValue)
+    private static object? ConvertValue(KestrunContext context, ParameterForInjectionInfo param,
+    string? singleValue, string?[]? multiValue)
     {
-        return type switch
+        // Convert based on schema type
+        return param.Type switch
         {
             JsonSchemaType.Integer => int.TryParse(singleValue, out var i) ? (int?)i : null,
             JsonSchemaType.Number => double.TryParse(singleValue, out var d) ? (double?)d : null,
             JsonSchemaType.Boolean => bool.TryParse(singleValue, out var b) ? (bool?)b : null,
-            JsonSchemaType.Array => multiValue ?? (singleValue is not null ? new[] { singleValue } : null),
-            JsonSchemaType.Object => singleValue,
+            JsonSchemaType.Array =>
+                // keep your existing behaviour for query/header multi-values
+                multiValue ?? (singleValue is not null ? new[] { singleValue } : null),
+            JsonSchemaType.Object =>
+                ConvertBodyBasedOnContentType(context.Request.ContentType ?? "application/json", singleValue ?? ""),
             JsonSchemaType.String => singleValue,
             _ => singleValue,
         };
+    }
+//todo: test Yaml and XML bodies
+    private static object? ConvertBodyBasedOnContentType(string contentType, string body)
+    {
+        if (contentType.Contains("json", StringComparison.OrdinalIgnoreCase))
+        {
+            return ConvertJsonToHashtable(body);
+        }
+
+        if (contentType.Contains("yaml", StringComparison.OrdinalIgnoreCase) ||
+            contentType.Contains("yml", StringComparison.OrdinalIgnoreCase))
+        {
+            return ConvertYamlToHashtable(body);
+        }
+
+        // xml, form, etc. later
+        return body;
+    }
+
+
+    private static readonly IDeserializer YamlDeserializer =
+    new DeserializerBuilder()
+        .WithNamingConvention(CamelCaseNamingConvention.Instance)
+        .Build();
+
+    private static object? ConvertYamlToHashtable(string yaml)
+    {
+        if (string.IsNullOrWhiteSpace(yaml))
+        {
+            return null;
+        }
+
+        // Top-level YAML mapping → Hashtable
+        var ht = YamlDeserializer.Deserialize<Hashtable>(yaml);
+        return ht;
+    }
+    private static object? ConvertJsonToHashtable(string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json))
+        {
+            return null;
+        }
+
+        using var doc = JsonDocument.Parse(json);
+        return JsonElementToClr(doc.RootElement);
+    }
+
+    private static object? JsonElementToClr(JsonElement element)
+    {
+        return element.ValueKind switch
+        {
+            JsonValueKind.Object => ToHashtable(element),
+            JsonValueKind.Array => ToArray(element),
+            JsonValueKind.String => element.GetString(),
+            JsonValueKind.Number => element.TryGetInt64(out var l) ? l : element.GetDouble(),
+            JsonValueKind.True => true,
+            JsonValueKind.False => false,
+            JsonValueKind.Null => null,
+            JsonValueKind.Undefined => null,
+            _ => null
+        };
+    }
+
+    private static Hashtable ToHashtable(JsonElement element)
+    {
+        var ht = new Hashtable(StringComparer.OrdinalIgnoreCase);
+        foreach (var prop in element.EnumerateObject())
+        {
+            ht[prop.Name] = JsonElementToClr(prop.Value);
+        }
+        return ht;
+    }
+
+    private static object?[] ToArray(JsonElement element)
+    {
+        var list = new List<object?>();
+        foreach (var item in element.EnumerateArray())
+        {
+            list.Add(JsonElementToClr(item));
+        }
+        return [.. list];
     }
 }

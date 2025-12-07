@@ -238,7 +238,7 @@ public partial class OpenApiDocDescriptor
                                 }
                                 openApiAttr.Parameters.Add(parameter);
                                 // Add to script code parameter injection info
-                                routeOptions.ScriptCode.Parameters.Add(new ParameterForInjectionInfo(paramInfo.Name, parameter));
+                                routeOptions.ScriptCode.Parameters.Add(new ParameterForInjectionInfo(paramInfo, parameter));
                             }
                             else
                             {
@@ -269,7 +269,7 @@ public partial class OpenApiDocDescriptor
                                 parameter = new OpenApiParameterReference(oaParamRefAttr.ReferenceId);
                             }
                             // Apply any name override
-                            routeOptions.ScriptCode.Parameters.Add(new ParameterForInjectionInfo(paramInfo.Name, componentParameter));
+                            routeOptions.ScriptCode.Parameters.Add(new ParameterForInjectionInfo(paramInfo, componentParameter));
 
                             openApiAttr.Parameters.Add(parameter);
                         }
@@ -299,7 +299,7 @@ public partial class OpenApiDocDescriptor
                             openApiAttr.RequestBody.Description = (oaRBra.Description is not null) ? oaRBra.Description : help.GetParameterDescription(paramInfo.Name);
 
                             // Add to script code parameter injection info
-                            routeOptions.ScriptCode.Parameters.Add(new ParameterForInjectionInfo(paramInfo.Name, componentRequestBody));
+                            routeOptions.ScriptCode.Parameters.Add(new ParameterForInjectionInfo(paramInfo, componentRequestBody));
                         }
                         else if (pAttr is OpenApiRequestBodyAttribute oaRBa)
                         {
@@ -317,7 +317,7 @@ public partial class OpenApiDocDescriptor
                                 openApiAttr.RequestBody.Description ??= help.GetParameterDescription(paramInfo.Name);
 
                                 // Add to script code parameter injection info
-                                routeOptions.ScriptCode.Parameters.Add(new ParameterForInjectionInfo(paramInfo.Name, requestBody));
+                                routeOptions.ScriptCode.Parameters.Add(new ParameterForInjectionInfo(paramInfo, requestBody));
                             }
                         }
                         else
@@ -329,6 +329,20 @@ public partial class OpenApiDocDescriptor
                             }
                         }
                     }
+                }
+                openApiAttr.Responses ??= [];
+                if (openApiAttr.Responses.Count == 0)
+                {
+                    // If no responses defined, add default 200 response
+                    openApiAttr.Responses.Add("200", new OpenApiResponse
+                    {
+                        Description = "Ok"
+                    });
+                    // Also add default error response
+                    openApiAttr.Responses.Add("default", new OpenApiResponse
+                    {
+                        Description = "Unexpected error"
+                    });
                 }
                 // Store the OpenAPI metadata for this verb
                 routeOptions.OpenAPI.Add(parsedVerb, openApiAttr);

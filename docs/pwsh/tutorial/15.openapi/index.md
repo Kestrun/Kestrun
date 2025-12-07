@@ -2,23 +2,66 @@
 title: OpenApi
 parent: Tutorials
 nav_order: 15
+has_children: true
 ---
 
-# Introduction to OpenApi
+# OpenAPI Specification
 
-> 🚧 **Work in Progress**
->
-> This page is currently under development. Content will be expanded with guides, examples, and best practices soon.
-> Thank you for your patience while we build it out.
+Build self-documenting REST APIs using OpenAPI 3.1 specification with component schemas, request bodies, responses, and parameters.
+
+## Tutorials
+
+Browse the step-by-step guides below to learn OpenAPI features in Kestrun:
+
+1. **[Hello World](./1.Hello-World.md)** — Create a simple OpenAPI spec with a single endpoint
+2. **[Component Schemas](./2.Component-Schemas.md)** — Define reusable request and response schemas
+3. **[RequestBody Components](./3.RequestBody-Components.md)** — Create reusable request body components
+4. **[Parameter Components](./4.Parameter-Components.md)** — Define reusable query and path parameters
+5. **[Response Components](./5.Response-Components.md)** — Create consistent response structures
+6. **[Complete Components](./6.Complete-Components.md)** — Combine all component types in a full API
 
 ## Quick start: run the samples
 
 From the repository root:
 
 ```powershell
-# 1) Multiple content types
-pwsh .\examples\PowerShell\Tutorial\2-Multiple-Content-Types.ps1
+# 1) Hello World - minimal OpenAPI spec
+pwsh .\docs\_includes\examples\pwsh\15.1-OpenAPI-Hello-World.ps1
 
-# 2) Multi-language routes (PS/C#/VB)
-pwsh .\examples\PowerShell\Tutorial\3-Multi-Language-Routes.ps1
+# 2) Component schemas - request/response definitions
+pwsh .\docs\_includes\examples\pwsh\15.2-OpenAPI-Component-Schema.ps1
+
+# 3) RequestBody components - reusable request structures
+pwsh .\docs\_includes\examples\pwsh\15.3-OpenAPI-RequestBody-Component.ps1
+
+# 4) Parameter components - reusable query/path parameters
+pwsh .\docs\_includes\examples\pwsh\15.4-OpenAPI-Parameter-Component.ps1
+
+# 5) Response components - reusable response structures
+pwsh .\docs\_includes\examples\pwsh\15.5-OpenAPI-Response-Component.ps1
+
+# 6) Complete components - full API with all component types
+pwsh .\docs\_includes\examples\pwsh\15.6-OpenAPI-RequestBody-Response-Component.ps1
 ```
+
+## Key Concepts
+
+- **OpenAPI 3.1 Specification**: Industry-standard API documentation format
+- **Component Schemas**: Reusable data structures defined once and referenced multiple times
+- **RequestBody Components**: Standardized request payloads across endpoints
+- **Parameter Components**: Consistent query string, path, header, and cookie parameters
+- **Response Components**: Uniform response structures for success and error cases
+- **Swagger UI**: Interactive API documentation and testing interface
+- **Code Generation**: Use OpenAPI specs to generate client SDKs
+
+## Documentation Routes
+
+Kestrun provides multiple documentation viewers for your OpenAPI spec:
+
+- **Swagger UI** — Classic, feature-rich interactive documentation
+- **ReDoc** — Clean, responsive documentation layout
+- **Scalar** — Modern, beautiful API explorer
+- **RapidOC** — Fast, performant alternative
+- **Elements** — StopLight Elements API viewer
+
+Visit `http://localhost:5000/swagger`, `/redoc`, `/scalar`, `/rapidoc`, or `/elements` to view the documentation (paths vary by script).

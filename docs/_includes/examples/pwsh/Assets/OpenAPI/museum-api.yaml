@@ -1,0 +1,496 @@
+openapi: '3.1.1'
+info:
+  title: Redocly Museum API
+  description: "An imaginary, but delightful Museum API for interacting with museum services and information.\nBuilt with love by Redocly."
+  contact:
+    url: https://redocly.com/docs/cli/
+    email: team@redocly.com
+  license:
+    name: MIT
+    url: https://opensource.org/license/mit/
+  version: 1.0.0
+servers:
+  - url: https://api.fake-museum-example.com/v1
+paths:
+  /tickets:
+    post:
+      tags:
+        - Tickets
+      summary: Buy museum tickets.
+      description: Purchase museum tickets for general entry or special events.
+      operationId: buyMuseumTickets
+      requestBody:
+        description: Request payload describing the ticket purchase.
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BuyMuseumTicketsRequest'
+        required: true
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BuyMuseumTicketsResponse'
+        '400':
+          description: Bad request
+        '404':
+          description: Not found
+  /special-events:
+    post:
+      tags:
+        - Events
+      summary: Create special event.
+      operationId: createSpecialEvent
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateSpecialEventRequest'
+        required: true
+      responses:
+        '200':
+          description: Created.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SpecialEventResponse'
+        '400':
+          description: Bad request
+        '404':
+          description: Not found
+    get:
+      tags:
+        - Events
+      summary: List special events.
+      description: Return a list of upcoming special events at the museum.
+      operationId: listSpecialEvents
+      parameters:
+        - name: startDate
+          in: query
+          description: The starting date to retrieve future special events from. Defaults to today's date.
+          schema:
+            type: string
+            format: date-time
+          example: '2023-02-23'
+        - name: endDate
+          in: query
+          description: The ending date to retrieve future special events up to. Defaults to no end date.
+          schema:
+            type: string
+            format: date-time
+          example: '2023-04-18'
+        - name: page
+          in: query
+          description: The page number to retrieve. Default is 1.
+          schema:
+            type: integer
+            format: int32
+            default: 1
+          example: '2'
+        - name: limit
+          in: query
+          description: 'The number of special events per page. Default is 10, maximum is 30.'
+          schema:
+            type: integer
+            format: int32
+            default: 10
+          example: '15'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListSpecialEventsResponse'
+        '400':
+          description: Bad request
+        '404':
+          description: Not found
+  '/special-events/{eventId}':
+    delete:
+      tags:
+        - Events
+      summary: Delete special event.
+      description: Delete a special event from the collection. Allows museum to cancel planned events.
+      operationId: deleteSpecialEvent
+      parameters:
+        - $ref: '#/components/parameters/eventId'
+      responses:
+        '204':
+          description: Success - no content
+        '400':
+          description: Bad request
+        '401':
+          description: Unauthorized
+        '404':
+          description: Not found
+    get:
+      tags:
+        - Events
+      summary: Get special event.
+      description: Get details about a special event.
+      operationId: getSpecialEvent
+      parameters:
+        - $ref: '#/components/parameters/eventId'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SpecialEventResponse'
+        '400':
+          description: Bad request
+        '404':
+          description: Not found
+    patch:
+      tags:
+        - Events
+      summary: Update special event.
+      description: Update the details of a special event.
+      operationId: updateSpecialEvent
+      parameters:
+        - $ref: '#/components/parameters/eventId'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateSpecialEventRequest'
+        required: true
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SpecialEventResponse'
+        '400':
+          description: Bad request
+        '404':
+          description: Not found
+  /museum-hours:
+    get:
+      tags:
+        - Operations
+      summary: Get museum hours.
+      description: Get upcoming museum operating hours.
+      operationId: getMuseumHours
+      parameters:
+        - $ref: '#/components/parameters/startDate'
+        - $ref: '#/components/parameters/paginationPage'
+        - $ref: '#/components/parameters/paginationLimit'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GetMuseumHoursResponse'
+        '400':
+          description: Bad request
+        '404':
+          description: Not found
+  '/tickets/{ticketId}/qr':
+    get:
+      tags:
+        - Tickets
+      summary: Get ticket QR code.
+      description: Return an image of your ticket with scannable QR code. Used for event entry.
+      operationId: getTicketCode
+      parameters:
+        - $ref: '#/components/parameters/ticketId'
+      responses:
+        '200':
+          description: Scannable event ticket in image format
+          content:
+            image/png:
+              schema:
+                $ref: '#/components/schemas/GetTicketCodeResponse'
+        '400':
+          description: Bad request
+        '404':
+          description: Not found
+components:
+  schemas:
+    Date:
+      type: string
+      format: date
+      example: '2023-10-29'
+    MuseumDailyHours:
+      required:
+        - date
+        - timeOpen
+        - timeClose
+      type: object
+      properties:
+        date:
+          description: Date the operating hours apply to.
+          $ref: '#/components/schemas/Date'
+        timeOpen:
+          pattern: '^([01]\d|2[0-3]):([0-5]\d)$'
+          type: string
+          description: Time the museum opens on a specific date. Uses 24 hour time format (`HH:mm`).
+          example: '09:00'
+        timeClose:
+          pattern: '^([01]\d|2[0-3]):([0-5]\d)$'
+          type: string
+          description: Time the museum closes on a specific date. Uses 24 hour time format (`HH:mm`).
+          example: '18:00'
+      description: Daily operating hours for the museum.
+    GetMuseumHoursResponse:
+      type: array
+      items:
+        $ref: '#/components/schemas/MuseumDailyHours'
+      description: List of museum operating hours for consecutive days.
+    EventName:
+      type: string
+      description: Name of the special event
+      example: Pirate Coding Workshop
+    EventLocation:
+      type: string
+      description: Location where the special event is held.
+      example: Computer Room
+    EventDescription:
+      type: string
+      description: Description of the special event
+      example: Captain Blackbeard shares his love of the C...language. And possibly Arrrrr (R lang).
+    EventDates:
+      type: array
+      items:
+        $ref: '#/components/schemas/Date'
+      description: List of planned dates for the special event
+    EventPrice:
+      type: number
+      description: Price of a ticket for the special eventt
+      format: float
+      example: 25
+    CreateSpecialEventRequest:
+      required:
+        - name
+        - location
+        - eventDescription
+        - dates
+        - price
+      type: object
+      properties:
+        name:
+          $ref: '#/components/schemas/EventName'
+        location:
+          $ref: '#/components/schemas/EventLocation'
+        eventDescription:
+          $ref: '#/components/schemas/EventDescription'
+        dates:
+          $ref: '#/components/schemas/EventDates'
+        price:
+          $ref: '#/components/schemas/EventPrice'
+      description: Request payload for creating new special events at the museum.
+    UpdateSpecialEventRequest:
+      type: object
+      properties:
+        name:
+          $ref: '#/components/schemas/EventName'
+        location:
+          $ref: '#/components/schemas/EventLocation'
+        eventDescription:
+          $ref: '#/components/schemas/EventDescription'
+        dates:
+          $ref: '#/components/schemas/EventDates'
+        price:
+          $ref: '#/components/schemas/EventPrice'
+      description: Request payload for updating an existing special event. Only included fields are updated in the event.
+    eventId:
+      type: string
+      description: Identifier for a special event.
+      format: uuid
+      example: 3be6453c-03eb-4357-ae5a-984a0e574a54
+    SpecialEventResponse:
+      required:
+        - eventId
+        - name
+        - location
+        - eventDescription
+        - dates
+        - price
+      type: object
+      properties:
+        eventId:
+          $ref: '#/components/schemas/eventId'
+        name:
+          $ref: '#/components/schemas/EventName'
+        location:
+          $ref: '#/components/schemas/EventLocation'
+        eventDescription:
+          $ref: '#/components/schemas/EventDescription'
+        dates:
+          $ref: '#/components/schemas/EventDates'
+        price:
+          $ref: '#/components/schemas/EventPrice'
+      description: Information about a special event.
+    SpecialEvent:
+      type: object
+      properties:
+        name:
+          type: string
+          description: Name of the special event
+          example: Fossil lecture
+        location:
+          type: string
+          description: Location where the special event is held
+          example: Lecture theatre
+        eventDescription:
+          type: string
+          description: Description of the special event
+          example: Our panel of experts will share their favorite fossils and explain why they are so great.
+        dates:
+          type: array
+          items:
+            type: string
+            format: date-time
+          description: List of planned dates for the special event
+          example: '2024-03-29'
+        price:
+          type: number
+          description: List of planned dates for the special event
+          format: double
+          example: '12.50'
+      description: Request payload for creating new special events at the museum.
+    ListSpecialEventsResponse:
+      type: array
+      items:
+        $ref: '#/components/schemas/SpecialEventResponse'
+      description: A list of upcoming special events.
+    TicketType:
+      enum:
+        - event
+        - general
+      type: string
+      description: Type of ticket being purchased. Use `general` for regular entry and `event` for special events.
+      example: event
+    TicketId:
+      type: string
+      description: Unique identifier for museum ticket. Generated when purchased.
+      format: uuid
+      example: a54a57ca-36f8-421b-a6b4-2e8f26858a4c
+    TicketMessage:
+      type: string
+      description: Confirmation message after a ticket purchase.
+      example: Museum general entry ticket purchased
+    TicketConfirmation:
+      type: string
+      description: Unique confirmation code used to verify ticket purchase.
+      example: ticket-event-a98c8f-7eb12
+    Email:
+      type: string
+      description: Email address for ticket purchaser.
+      format: email
+      example: museum-lover@example.com
+    Phone:
+      type: string
+      description: Phone number for the ticket purchaser (optional).
+      example: +1(234)-567-8910
+    BuyMuseumTicketsRequest:
+      required:
+        - ticketType
+        - ticketDate
+        - email
+      type: object
+      properties:
+        ticketType:
+          $ref: '#/components/schemas/TicketType'
+        eventId:
+          description: Unique identifier for a special event. Required if purchasing tickets for the museum's special events.
+          $ref: '#/components/schemas/eventId'
+        ticketDate:
+          description: Date that the ticket is valid for.
+          $ref: '#/components/schemas/Date'
+        email:
+          $ref: '#/components/schemas/Email'
+        phone:
+          $ref: '#/components/schemas/Phone'
+      description: Request payload used for purchasing museum tickets.
+    BuyMuseumTicketsResponse:
+      required:
+        - message
+        - ticketId
+        - ticketType
+        - ticketDate
+        - confirmationCode
+      type: object
+      properties:
+        message:
+          $ref: '#/components/schemas/TicketMessage'
+        eventName:
+          $ref: '#/components/schemas/EventName'
+        ticketId:
+          $ref: '#/components/schemas/TicketId'
+        ticketType:
+          $ref: '#/components/schemas/TicketType'
+        ticketDate:
+          description: Date that the ticket is valid for.
+          $ref: '#/components/schemas/Date'
+        confirmationCode:
+          $ref: '#/components/schemas/TicketConfirmation'
+      description: Details for a museum ticket after a successful purchase.
+    GetTicketCodeResponse:
+      type: string
+      description: An image of a ticket with a QR code used for museum or event entry.
+      format: binary
+  parameters:
+    paginationLimit:
+      name: paginationLimit
+      in: query
+      description: The number of days per page.
+      schema:
+        type: integer
+        format: int32
+    paginationPage:
+      name: paginationPage
+      in: query
+      description: The page number to retrieve.
+      schema:
+        type: integer
+        format: int32
+    startDate:
+      name: startDate
+      in: query
+      description: The starting date to retrieve future operating hours from. Defaults to today's date.
+      schema:
+        type: string
+        format: date-time
+    eventId:
+      name: eventId
+      in: path
+      description: An identifier for a special event.
+      required: true
+      schema:
+        type: string
+        format: uuid
+      example: dad4bce8-f5cb-4078-a211-995864315e39
+    endDate:
+      name: endDate
+      in: query
+      description: The end of a date range to retrieve special events for. Defaults to 7 days after startDate.
+      schema:
+        type: string
+        format: date
+    ticketId:
+      name: ticketId
+      in: path
+      description: An identifier for a ticket to a museum event. Used to generate ticket image.
+      required: true
+      schema:
+        type: string
+        format: uuid
+  securitySchemes:
+    MuseumPlaceholderAuth:
+      type: http
+      scheme: basic
+tags:
+  - name: Operations
+    description: Operational information about the museum.
+  - name: Events
+    description: Special events hosted by the Museum.
+  - name: Tickets
+    description: Museum tickets for general entrance or special events.

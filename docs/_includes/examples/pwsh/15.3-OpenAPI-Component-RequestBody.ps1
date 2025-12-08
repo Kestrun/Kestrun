@@ -115,7 +115,7 @@ function createProduct {
     )
 
     if (-not $body.productName -or -not $body.price) {
-        Write-KrJsonResponse @{error = 'productName and price are required' } -StatusCode 400
+        Write-KrResponse @{error = 'productName and price are required' } -StatusCode 400
         return
     }
 

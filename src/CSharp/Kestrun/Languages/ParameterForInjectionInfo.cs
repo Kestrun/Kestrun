@@ -75,7 +75,6 @@ public record ParameterForInjectionInfo
         {
             Type = sch.Type;
         }
-
         In = null;
     }
 

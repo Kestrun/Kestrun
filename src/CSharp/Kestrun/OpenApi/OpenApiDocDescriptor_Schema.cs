@@ -346,10 +346,9 @@ public partial class OpenApiDocDescriptor
     /// Infers a primitive OpenApiSchema from a .NET type.
     /// </summary>
     /// <param name="type">The .NET type to infer from.</param>
-    /// <param name="requestBodyPreferred"> Indicates if the schema is for a request body (affects certain type inferences).</param>
     /// <param name="inline">Indicates if the schema should be inlined.</param>
     /// <returns>The inferred OpenApiSchema.</returns>
-    private IOpenApiSchema InferPrimitiveSchema(Type type, bool requestBodyPreferred = false, bool inline = false)
+    private IOpenApiSchema InferPrimitiveSchema(Type type, bool inline = false)
     {
         // Direct type mappings
         if (PrimitiveSchemaMap.TryGetValue(type, out var schemaFactory))
@@ -376,54 +375,24 @@ public partial class OpenApiDocDescriptor
             if (inline)
             {
                 // Special case for PowerShell OpenAPI classes
-                if (requestBodyPreferred)
+                if (GetSchema(type.Name) is OpenApiSchema schema)
                 {
-                    if (GetRequestBody(type.Name) is OpenApiRequestBody rb)
-                    {
-                        return rb.ConvertToSchema();
-                    }
-                    if (GetSchema(type.Name) is OpenApiSchema schema)
-                    {
-                        return schema.Clone();
-                    }
+                    return schema.Clone();
                 }
                 else
                 {
-                    if (GetSchema(type.Name) is OpenApiSchema schema)
-                    {
-                        return schema.Clone();
-                    }
-                    if (GetRequestBody(type.Name) is OpenApiRequestBody rb)
-                    {
-                        return rb.ConvertToSchema();
-                    }
+                    Host.Logger.Warning("Schema for PowerShell OpenAPI class '{typeName}' not found. Defaulting to string schema.", type.Name);
                 }
             }
             else
             {
-                if (requestBodyPreferred)
+                if (GetSchema(type.Name) is not null)
                 {
-                    if (GetRequestBody(type.Name) is not null)
-                    {
-                        return new OpenApiSchemaReference(type.Name);
-                    }
-
-                    if (GetSchema(type.Name) is not null)
-                    {
-                        return new OpenApiSchemaReference(type.Name);
-                    }
+                    return new OpenApiSchemaReference(type.Name);
                 }
                 else
                 {
-                    if (GetSchema(type.Name) is not null)
-                    {
-                        return new OpenApiSchemaReference(type.Name);
-                    }
-
-                    if (GetRequestBody(type.Name) is not null)
-                    {
-                        return new OpenApiSchemaReference(type.Name);
-                    }
+                    Host.Logger.Warning("Schema for PowerShell OpenAPI class '{typeName}' not found. Defaulting to string schema.", type.Name);
                 }
             }
         }

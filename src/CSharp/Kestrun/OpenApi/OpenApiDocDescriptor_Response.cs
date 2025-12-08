@@ -239,8 +239,7 @@ public partial class OpenApiDocDescriptor
         // 1) Type-based schema (new behavior)
         if (resp.Schema is not null)
         {
-            // For responses, requestBodyPreferred = false so we prefer component schema over requestBody
-            schema = InferPrimitiveSchema(resp.Schema, requestBodyPreferred: false, inline: resp.Inline);
+            schema = InferPrimitiveSchema(resp.Schema, inline: resp.Inline);
         }
 
         // 2) Component reference (existing behavior)

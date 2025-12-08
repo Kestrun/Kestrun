@@ -303,21 +303,39 @@ public partial class OpenApiDocDescriptor
                         }
                         else if (pAttr is OpenApiRequestBodyAttribute oaRBa)
                         {
-                            var requestBody = new OpenApiRequestBody();
                             // Infer schema for the parameter type
                             var requestBodyPreferred = ComponentRequestBodiesExists(paramInfo.ParameterType.Name);
-
-                            // Infer primitive schema if not using component
-                            var schema = InferPrimitiveSchema(type: paramInfo.ParameterType, requestBodyPreferred: requestBodyPreferred, oaRBa.Inline);
-                            if (CreateRequestBodyFromAttribute(attribute: oaRBa, requestBody: requestBody, schema: schema))
+                            if (requestBodyPreferred)
                             {
-                                openApiAttr.RequestBody = requestBody;
-
-                                // Apply any description override
+                                var componentRequestBody = GetRequestBody(paramInfo.ParameterType.Name);
+                                if (oaRBa.Inline)
+                                {
+                                    // Clone the component request body
+                                    openApiAttr.RequestBody = componentRequestBody.Clone();
+                                }
+                                else
+                                {
+                                    // Use a reference to the component request body
+                                    openApiAttr.RequestBody = new OpenApiRequestBodyReference(paramInfo.ParameterType.Name);
+                                }
                                 openApiAttr.RequestBody.Description ??= help.GetParameterDescription(paramInfo.Name);
+                                routeOptions.ScriptCode.Parameters.Add(new ParameterForInjectionInfo(paramInfo, componentRequestBody));
+                            }
+                            else
+                            {
+                                var requestBody = new OpenApiRequestBody();
+                                var schema = InferPrimitiveSchema(type: paramInfo.ParameterType, inline: oaRBa.Inline);
 
-                                // Add to script code parameter injection info
-                                routeOptions.ScriptCode.Parameters.Add(new ParameterForInjectionInfo(paramInfo, requestBody));
+                                if (CreateRequestBodyFromAttribute(attribute: oaRBa, requestBody: requestBody, schema: schema))
+                                {
+                                    openApiAttr.RequestBody = requestBody;
+
+                                    // Apply any description override
+                                    openApiAttr.RequestBody.Description ??= help.GetParameterDescription(paramInfo.Name);
+
+                                    // Add to script code parameter injection info
+                                    routeOptions.ScriptCode.Parameters.Add(new ParameterForInjectionInfo(paramInfo, requestBody));
+                                }
                             }
                         }
                         else

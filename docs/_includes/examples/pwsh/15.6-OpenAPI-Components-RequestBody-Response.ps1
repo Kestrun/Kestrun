@@ -187,7 +187,7 @@ function createOrder {
     Write-KrResponse $response -StatusCode 201
 }
 
-# GET /orders/{orderId}: Retrieve order
+
 <#
 .SYNOPSIS
     Get an order by ID.
@@ -195,6 +195,8 @@ function createOrder {
     Retrieves order details using the OrderResponse component.
 .PARAMETER orderId
     The order ID to retrieve
+.NOTES
+    GET /orders/{orderId}: Get order
 #>
 function getOrder {
     [OpenApiPath(HttpVerb = 'get', Pattern = '/orders/{orderId}')]
@@ -202,7 +204,7 @@ function getOrder {
     [OpenApiResponse(StatusCode = '400', Description = 'Invalid order ID', Schema = [ErrorDetail], ContentType = ('application/json', 'application/xml'))]
     param(
         [OpenApiParameter(In = [OaParameterLocation]::Path, Required = $true)]
-        [string]$orderId
+        [Guid]$orderId
     )
 
     # Validate UUID format
@@ -249,15 +251,15 @@ function updateOrder {
     [OpenApiResponse(StatusCode = '200', Description = 'Order updated successfully', Schema = [OrderResponse], ContentType = ('application/json', 'application/xml'))]
     [OpenApiResponse(StatusCode = '400', Description = 'Invalid input', Schema = [ErrorDetail], ContentType = ('application/json', 'application/xml'))]
     param(
-        [OpenApiParameter(In = [OaParameterLocation]::Path, Required = $true)]
-        [string]$orderId,
+        [OpenApiParameter(In = [OaParameterLocation]::Path, Required = $true, Example = 'a54a57ca-36f8-421b-a6b4-2e8f26858a4c')]
+        [guid]$orderId,
         [OpenApiRequestBody(ContentType = ('application/json', 'application/xml', 'application/x-www-form-urlencoded'))]
         [CreateOrderRequestBody]$body
     )
-
+Expand-KrObject $body
     # Validate quantity if provided
     if ($body.quantity -and [int]$body.quantity -le 0) {
-        $myError =[ErrorDetail] @{
+        $myError = [ErrorDetail] @{
             code = 'INVALID_QUANTITY'
             message = 'Quantity must be greater than zero'
             field = 'quantity'

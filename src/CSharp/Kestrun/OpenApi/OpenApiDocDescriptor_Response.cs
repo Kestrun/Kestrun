@@ -97,85 +97,7 @@ public partial class OpenApiDocDescriptor
             {
                 ["application/json"] = new OpenApiMediaType()
             };
-            var pt = p.PropertyType;
-            IOpenApiSchema iSchema;
-            var allowNull = false;
-            var underlying = Nullable.GetUnderlyingType(pt);
-            if (underlying != null)
-            {
-                allowNull = true;
-                pt = underlying;
-            }
-
-            if (pt.IsEnum)
-            {
-                var schema = new OpenApiSchema
-                {
-                    Type = JsonSchemaType.String,
-                    Enum = [.. pt.GetEnumNames().Select(n => (JsonNode)n)]
-                };
-                var propAttrs = p.GetCustomAttributes<OpenApiPropertyAttribute>(inherit: false).ToArray();
-                var a = MergeSchemaAttributes(propAttrs);
-                ApplySchemaAttr(a, schema);
-                PowerShellAttributes.ApplyPowerShellAttributes(p, schema);
-                if (allowNull)
-                {
-                    schema.Type |= JsonSchemaType.Null;
-                }
-                iSchema = schema;
-            }
-            else if (pt.IsArray)
-            {
-                var item = pt.GetElementType()!;
-                IOpenApiSchema itemSchema;
-
-                if (!IsPrimitiveLike(item) && !item.IsEnum)
-                {
-                    // then reference it
-                    itemSchema = new OpenApiSchemaReference(item.Name);
-                }
-                else
-                {
-                    itemSchema = InferPrimitiveSchema(item);
-                }
-                var schema = new OpenApiSchema
-                {
-                    // then build the array schema
-                    Type = JsonSchemaType.Array,
-                    Items = itemSchema
-                };
-                ApplySchemaAttr(p.GetCustomAttribute<OpenApiPropertyAttribute>(), schema);
-                PowerShellAttributes.ApplyPowerShellAttributes(p, schema);
-                if (allowNull)
-                {
-                    schema.Type |= JsonSchemaType.Null;
-                }
-                iSchema = schema;
-            }
-            else if (!IsPrimitiveLike(pt))
-            {
-                EnsureSchemaComponent(pt);
-
-                iSchema = new OpenApiSchemaReference(pt.Name);
-            }
-            else
-            {
-                var sc = InferPrimitiveSchema(pt);
-                if (sc is OpenApiSchema schema)
-                {
-                    ApplySchemaAttr(p.GetCustomAttribute<OpenApiPropertyAttribute>(), schema);
-                    PowerShellAttributes.ApplyPowerShellAttributes(p, schema);
-                    if (allowNull)
-                    {
-                        schema.Type |= JsonSchemaType.Null;
-                    }
-                    iSchema = schema;
-                }
-                else
-                {
-                    iSchema = sc;
-                }
-            }
+            var iSchema = GetAttributeValue(p);
 
             // Set schema to $ref of property type
             foreach (var a in response.Content.Values)
@@ -185,6 +107,94 @@ public partial class OpenApiDocDescriptor
         }
     }
 
+    /// <summary>
+    /// Gets the OpenAPI schema for a property based on its attributes and type.
+    /// </summary>
+    /// <param name="p"> The property info to get the schema for.</param>
+    /// <returns> The OpenAPI schema for the property.</returns>
+    private IOpenApiSchema GetAttributeValue(PropertyInfo p)
+    {
+        var pt = p.PropertyType;
+        IOpenApiSchema iSchema;
+        var allowNull = false;
+        var underlying = Nullable.GetUnderlyingType(pt);
+        if (underlying != null)
+        {
+            allowNull = true;
+            pt = underlying;
+        }
+
+        if (pt.IsEnum)
+        {
+            var schema = new OpenApiSchema
+            {
+                Type = JsonSchemaType.String,
+                Enum = [.. pt.GetEnumNames().Select(n => (JsonNode)n)]
+            };
+            var propAttrs = p.GetCustomAttributes<OpenApiPropertyAttribute>(inherit: false).ToArray();
+            var a = MergeSchemaAttributes(propAttrs);
+            ApplySchemaAttr(a, schema);
+            PowerShellAttributes.ApplyPowerShellAttributes(p, schema);
+            if (allowNull)
+            {
+                schema.Type |= JsonSchemaType.Null;
+            }
+            iSchema = schema;
+        }
+        else if (pt.IsArray)
+        {
+            var item = pt.GetElementType()!;
+            IOpenApiSchema itemSchema;
+
+            if (!IsPrimitiveLike(item) && !item.IsEnum)
+            {
+                // then reference it
+                itemSchema = new OpenApiSchemaReference(item.Name);
+            }
+            else
+            {
+                itemSchema = InferPrimitiveSchema(item);
+            }
+            var schema = new OpenApiSchema
+            {
+                // then build the array schema
+                Type = JsonSchemaType.Array,
+                Items = itemSchema
+            };
+            ApplySchemaAttr(p.GetCustomAttribute<OpenApiPropertyAttribute>(), schema);
+            PowerShellAttributes.ApplyPowerShellAttributes(p, schema);
+            if (allowNull)
+            {
+                schema.Type |= JsonSchemaType.Null;
+            }
+            iSchema = schema;
+        }
+        else if (!IsPrimitiveLike(pt))
+        {
+            EnsureSchemaComponent(pt);
+
+            iSchema = new OpenApiSchemaReference(pt.Name);
+        }
+        else
+        {
+            var sc = InferPrimitiveSchema(pt);
+            if (sc is OpenApiSchema schema)
+            {
+                ApplySchemaAttr(p.GetCustomAttribute<OpenApiPropertyAttribute>(), schema);
+                PowerShellAttributes.ApplyPowerShellAttributes(p, schema);
+                if (allowNull)
+                {
+                    schema.Type |= JsonSchemaType.Null;
+                }
+                iSchema = schema;
+            }
+            else
+            {
+                iSchema = sc;
+            }
+        }
+        return iSchema;
+    }
     /// <summary>
     /// Gets the name override from an attribute, if present.
     /// </summary>
@@ -247,17 +257,6 @@ public partial class OpenApiDocDescriptor
         }
 
         return true;
-        /*    if (resp.SchemaRef is not null)
-            {
-                foreach (var ct in resp.ContentTypes)
-                {
-                    var media = GetOrAddMediaType(response, ct);
-                    media.Schema = resp.Inline
-                        ? CloneSchemaOrThrow(resp.SchemaRef)
-                        : new OpenApiSchemaReference(resp.SchemaRef);
-                }
-            }
-            return true;*/
     }
 
     private bool ApplyHeaderRefAttribute(OpenApiHeaderRefAttribute href, OpenApiResponse response)

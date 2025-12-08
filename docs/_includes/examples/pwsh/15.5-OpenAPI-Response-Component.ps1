@@ -3,8 +3,6 @@
     [IPAddress]$IPAddress = [IPAddress]::Loopback
 )
 
-if (-not (Get-Module Kestrun)) { Import-Module Kestrun }
-
 # --- Logging / Server ---
 
 New-KrLogger | Add-KrSinkConsole |
@@ -21,8 +19,6 @@ Add-KrOpenApiInfo -Title 'Response Component API' `
     -Version '1.0.0' `
     -Description 'Demonstrates reusable response components.'
 
-Add-KrOpenApiContact -Email 'support@example.com'
-Add-KrOpenApiServer -Url "http://$($IPAddress):$Port" -Description 'Local Server'
 
 # =========================================================
 #                      COMPONENT SCHEMAS
@@ -77,25 +73,35 @@ class SuccessResponse {
 #          COMPONENT RESPONSES (Reusable)
 # =========================================================
 
-# Success response component
-[OpenApiResponseComponent(Description = 'Success response')]
-class ResponseSuccess {
-    [OpenApiResponse(Description = 'Operation completed successfully', ContentType = 'application/json')]
-    [SuccessResponse]$Default
+# Response component for common success responses (200, 201)
+[OpenApiResponseComponent(JoinClassName = '-', Description = 'Success responses')]
+class SuccessResponses {
+    [OpenApiResponseAttribute(Description = 'Operation completed successfully', ContentType = ('application/json', 'application/xml'))]
+    [SuccessResponse]$OK
+
+    [OpenApiResponseAttribute(Description = 'Resource created successfully' , ContentType = ('application/json', 'application/xml'))]
+    [SuccessResponse]$Created
 }
 
-# Error response component (400/401/500)
-[OpenApiResponseComponent(Description = 'Error response')]
-class ResponseError {
-    [OpenApiResponse(Description = 'Client error (400, 401, 403)', ContentType = 'application/json')]
-    [ErrorResponse]$Default
+
+# Response component for common error responses (400, 404)
+[OpenApiResponseComponent(JoinClassName = '-', Description = 'Error responses')]
+class ErrorResponses {
+    [OpenApiResponseAttribute(Description = 'Bad request - validation failed', ContentType = ('application/json', 'application/xml'))]
+    [ErrorResponse]$BadRequest
+
+    [OpenApiResponseAttribute(Description = 'Resource not found', ContentType = ('application/json', 'application/xml'))]
+    [ErrorResponse]$NotFound
 }
 
-# Article response component
-[OpenApiResponseComponent(Description = 'Article response')]
-class ResponseArticle {
-    [OpenApiResponse(Description = 'Article data', ContentType = 'application/json')]
-    [Article]$Default
+# Response component for article responses
+[OpenApiResponseComponent(JoinClassName = '-', Description = 'Article responses')]
+class ArticleResponses {
+    [OpenApiResponseAttribute(Description = 'Article retrieved successfully', ContentType = ('application/json', 'application/xml'))]
+    [Article]$OK
+
+    [OpenApiResponseAttribute(Description = 'Article not found', ContentType = ('application/json', 'application/xml'))]
+    [ErrorResponse]$NotFound
 }
 
 # =========================================================
@@ -118,7 +124,12 @@ Add-KrApiDocumentationRoute -DocumentType Redoc
 #>
 function getArticle {
     [OpenApiPath(HttpVerb = 'get', Pattern = '/articles/{articleId}')]
-    param([int]$articleId)
+    [OpenApiResponseRefAttribute(StatusCode = '200', ReferenceId = 'ArticleResponses-OK')]
+    [OpenApiResponseRefAttribute(StatusCode = '404', ReferenceId = 'ArticleResponses-NotFound')]
+    param(
+        [OpenApiParameter(In = [OaParameterLocation]::Path, Required = $true, Description = 'Article ID to retrieve')]
+        [int]$articleId
+    )
 
     # Validate ID
     if ($articleId -le 0) {
@@ -133,7 +144,7 @@ function getArticle {
     }
 
     # Mock article data
-    $article = @{
+    $article = [Article]@{
         id = $articleId
         title = 'Getting Started with OpenAPI'
         content = 'OpenAPI is a specification for building APIs...'
@@ -141,7 +152,7 @@ function getArticle {
         author = 'John Doe'
     }
 
-    Write-KrJsonResponse $article -StatusCode 200
+    Write-KrResponse $article -StatusCode 200
 }
 
 # POST article endpoint
@@ -155,11 +166,11 @@ function getArticle {
 #>
 function createArticle {
     [OpenApiPath(HttpVerb = 'post', Pattern = '/articles')]
-    [OpenApiResponse(StatusCode = '201', Description = 'Article created successfully', ContentType = ('application/json', 'application/xml'))]
-    [OpenApiResponse(StatusCode = '400', Description = 'Validation failed')]
+    [OpenApiResponseRefAttribute(StatusCode = '201', ReferenceId = 'SuccessResponses-Created')]
+    [OpenApiResponseRefAttribute(StatusCode = '400', ReferenceId = 'ErrorResponses-BadRequest')]
     param(
         [OpenApiRequestBody(ContentType = ('application/json', 'application/xml', 'application/x-www-form-urlencoded'))]
-        [PSCustomObject]$body
+        [Article]$body
     )
 
     # Validate
@@ -175,13 +186,13 @@ function createArticle {
     }
 
     # Success response
-    $success = @{
+    $success = [SuccessResponse]@{
         id = [System.Guid]::NewGuid().ToString()
         message = 'Article created successfully'
         timestamp = (Get-Date).ToUniversalTime().ToString('o')
     }
 
-    Write-KrJsonResponse $success -StatusCode 201
+    Write-KrResponse $success -StatusCode 201
 }
 
 # DELETE article endpoint
@@ -195,17 +206,20 @@ function createArticle {
 #>
 function deleteArticle {
     [OpenApiPath(HttpVerb = 'delete', Pattern = '/articles/{articleId}')]
-    [OpenApiResponse(StatusCode = '200', Description = 'Article deleted successfully', ContentType = ('application/json', 'application/xml'))]
-    [OpenApiResponse(StatusCode = '404', Description = 'Article not found')]
-    param([int]$articleId)
+    [OpenApiResponseRefAttribute(StatusCode = '200', ReferenceId = 'SuccessResponses-OK')]
+    [OpenApiResponseRefAttribute(StatusCode = '404', ReferenceId = 'ErrorResponses-NotFound')]
+    param(
+        [OpenApiParameter(In = [OaParameterLocation]::Path, Required = $true, Description = 'Article ID to delete')]
+        [int]$articleId
+    )
 
-    $success = @{
+    $success = [SuccessResponse]@{
         id = [System.Guid]::NewGuid().ToString()
         message = "Article $articleId deleted successfully"
         timestamp = (Get-Date).ToUniversalTime().ToString('o')
     }
 
-    Write-KrJsonResponse $success -StatusCode 200
+    Write-KrResponse $success -StatusCode 200
 }
 
 # =========================================================
@@ -213,9 +227,6 @@ function deleteArticle {
 # =========================================================
 
 Add-KrOpenApiRoute
-
-Build-KrOpenApiDocument
-Test-KrOpenApiDocument
 
 # =========================================================
 #                      RUN SERVER

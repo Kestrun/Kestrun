@@ -134,8 +134,8 @@ Add-KrApiDocumentationRoute -DocumentType Redoc
 #>
 function createOrder {
     [OpenApiPath(HttpVerb = 'post', Pattern = '/orders')]
-    [OpenApiResponse(StatusCode = '201', Description = 'Order created successfully', ContentType = ('application/json', 'application/xml'))]
-    [OpenApiResponse(StatusCode = '400', Description = 'Invalid input')]
+    [OpenApiResponse(StatusCode = '201', Description = 'Order created successfully', Schema = [OrderResponse], ContentType = ('application/json', 'application/xml'))]
+    [OpenApiResponse(StatusCode = '400', Description = 'Invalid input', Schema = [ErrorDetail], ContentType = ('application/json', 'application/xml'))]
     param(
         [OpenApiRequestBody(ContentType = ('application/json', 'application/xml', 'application/x-www-form-urlencoded'))]
         [CreateOrderRequestBody]$body
@@ -191,8 +191,8 @@ function createOrder {
 #>
 function getOrder {
     [OpenApiPath(HttpVerb = 'get', Pattern = '/orders/{orderId}')]
-    [OpenApiResponse(StatusCode = '200', Description = 'Order found', ContentType = ('application/json', 'application/xml'))]
-    [OpenApiResponse(StatusCode = '400', Description = 'Invalid order ID')]
+    [OpenApiResponse(StatusCode = '200', Description = 'Order found', Schema = [OrderResponse], ContentType = ('application/json', 'application/xml'))]
+    [OpenApiResponse(StatusCode = '400', Description = 'Invalid order ID', Schema = [ErrorDetail], ContentType = ('application/json', 'application/xml'))]
     param(
         [OpenApiParameter(In = [OaParameterLocation]::Path, Required = $true)]
         [string]$orderId
@@ -237,8 +237,8 @@ function getOrder {
 #>
 function updateOrder {
     [OpenApiPath(HttpVerb = 'put', Pattern = '/orders/{orderId}')]
-    [OpenApiResponse(StatusCode = '200', Description = 'Order updated successfully', ContentType = ('application/json', 'application/xml'))]
-    [OpenApiResponse(StatusCode = '400', Description = 'Invalid input')]
+    [OpenApiResponse(StatusCode = '200', Description = 'Order updated successfully', Schema = [OrderResponse], ContentType = ('application/json', 'application/xml'))]
+    [OpenApiResponse(StatusCode = '400', Description = 'Invalid input', Schema = [ErrorDetail], ContentType = ('application/json', 'application/xml'))]
     param(
         [OpenApiParameter(In = [OaParameterLocation]::Path, Required = $true)]
         [string]$orderId,

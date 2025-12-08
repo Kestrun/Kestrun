@@ -82,10 +82,10 @@ Add-KrApiDocumentationRoute -DocumentType Redoc
 #>
 function createUser {
     [OpenApiPath(HttpVerb = 'post', Pattern = '/users')]
-    [OpenApiResponse(StatusCode = '201', Description = 'User created successfully', Schema = [UserResponse], ContentType = ('application/json', 'application/xml'))]
+    [OpenApiResponse(StatusCode = '201', Description = 'User created successfully', Schema = [UserResponse], ContentType = ('application/json', 'application/xml', 'application/yaml'))]
     [OpenApiResponse(StatusCode = '400', Description = 'Invalid input')]
     param(
-        [OpenApiRequestBody(ContentType = ('application/json', 'application/xml','application/yaml', 'application/x-www-form-urlencoded'))]
+        [OpenApiRequestBody(ContentType = ('application/json', 'application/xml', 'application/yaml', 'application/x-www-form-urlencoded'))]
         [CreateUserRequest]$body
     )
 
@@ -119,7 +119,7 @@ function createUser {
 #>
 function getUser {
     [OpenApiPath(HttpVerb = 'get', Pattern = '/users/{userId}')]
-    [OpenApiResponse(StatusCode = '200', Description = 'User found', Schema = [UserResponse], ContentType = ('application/json', 'application/xml','application/yaml', 'application/x-www-form-urlencoded'))]
+    [OpenApiResponse(StatusCode = '200', Description = 'User found', Schema = [UserResponse], ContentType = ('application/json', 'application/xml', 'application/yaml'))]
     [OpenApiResponse(StatusCode = '404', Description = 'User not found')]
     param(
         [OpenApiParameter(In = [OaParameterLocation]::Path, Required = $true)]

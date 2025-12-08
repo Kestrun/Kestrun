@@ -58,6 +58,11 @@ public static class PowerShellOpenApiClassExporter
             {
                 continue;
             }
+            if (ValidClassNames.Contains(type.FullName))
+            {
+                // Already registered remove old entry
+                _ = ValidClassNames.Remove(type.FullName);
+            }
             // Register valid class name
             ValidClassNames.Add(type.FullName);
             // Emit class definition

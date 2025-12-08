@@ -43,8 +43,13 @@ public partial class OpenApiDocDescriptor
         ArgumentNullException.ThrowIfNull(docId);
         Host = host;
         DocumentId = docId;
+        HasBeenGenerated = false;
     }
 
+    /// <summary>
+    /// Indicates whether the OpenAPI document has been generated at least once.
+    /// </summary>
+    public bool HasBeenGenerated { get; private set; }
     /// <summary>
     /// Generates an OpenAPI document from the provided schema types.
     /// </summary>
@@ -104,6 +109,7 @@ public partial class OpenApiDocDescriptor
         GenerateComponents();
         // Finally, build paths from registered routes
         BuildPathsFromRegisteredRoutes(Host.RegisteredRoutes);
+        HasBeenGenerated = true;
     }
 
     /// <summary>

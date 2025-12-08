@@ -3,7 +3,6 @@
     [IPAddress]$IPAddress = [IPAddress]::Loopback
 )
 
-if (-not (Get-Module Kestrun)) { Import-Module Kestrun }
 
 # --- Logging / Server ---
 
@@ -13,6 +12,7 @@ New-KrLogger | Add-KrSinkConsole |
 
 $srv = New-KrServer -Name 'OpenAPI RequestBody Component' -PassThru
 
+Add-KrEndpoint -Port $Port -IPAddress $IPAddress
 # =========================================================
 #                 TOP-LEVEL OPENAPI
 # =========================================================
@@ -21,15 +21,15 @@ Add-KrOpenApiInfo -Title 'RequestBody Component API' `
     -Version '1.0.0' `
     -Description 'Demonstrates reusable request body components.'
 
-Add-KrOpenApiContact -Email 'support@example.com'
-Add-KrOpenApiServer -Url "http://$($IPAddress):$Port" -Description 'Local Server'
-
 # =========================================================
 #                      COMPONENT SCHEMAS
 # =========================================================
 
 [OpenApiSchemaComponent(Required = ('productName', 'price'))]
 class Product {
+    [OpenApiPropertyAttribute(Description = 'Unique product identifier', Format = 'int64', Example = 1)]
+    [long]$id
+
     [OpenApiPropertyAttribute(Description = 'Product name', Example = 'Laptop')]
     [string]$productName
 
@@ -41,21 +41,9 @@ class Product {
 
     [OpenApiPropertyAttribute(Description = 'Stock quantity', Minimum = 0, Example = 50)]
     [int]$stock
-}
 
-[OpenApiSchemaComponent(Required = ('productName', 'price'))]
-class UpdateProduct {
-    [OpenApiPropertyAttribute(Description = 'Product name', Example = 'Laptop Pro')]
-    [string]$productName
-
-    [OpenApiPropertyAttribute(Description = 'Product price', Format = 'double', Example = 1299.99)]
-    [double]$price
-
-    [OpenApiPropertyAttribute(Description = 'Product description')]
-    [string]$description
-
-    [OpenApiPropertyAttribute(Description = 'Stock quantity', Minimum = 0)]
-    [int]$stock
+    [OpenApiPropertyAttribute(Description = 'Creation timestamp', Format = 'date-time', Example = '2024-01-01T12:00:00Z')]
+    [string]$createdAt
 }
 
 # =========================================================
@@ -68,15 +56,30 @@ class UpdateProduct {
     IsRequired = $true,
     ContentType = ('application/json', 'application/x-www-form-urlencoded')
 )]
-class CreateProductRequest:Product {}
+class CreateProductRequest:Product {
+
+}
 
 # UpdateProductRequest: RequestBody component that wraps UpdateProduct schema
 [OpenApiRequestBodyComponent(
     Description = 'Product update payload.',
     IsRequired = $true,
-    ContentType = 'application/json'
+    ContentType = 'application/json',
+    Required = ('productName', 'price')
 )]
-class UpdateProductRequest:UpdateProduct {}
+class UpdateProductRequest {
+    [OpenApiPropertyAttribute(Description = 'Product name', Example = 'Laptop Pro')]
+    [string]$productName
+
+    [OpenApiPropertyAttribute(Description = 'Product price', Format = 'double', Example = 1299.99)]
+    [double]$price
+
+    [OpenApiPropertyAttribute(Description = 'Product description')]
+    [string]$description
+
+    [OpenApiPropertyAttribute(Description = 'Stock quantity', Minimum = 0)]
+    [int]$stock
+}
 
 # =========================================================
 #                 ROUTES / OPERATIONS
@@ -98,10 +101,10 @@ Add-KrApiDocumentationRoute -DocumentType Redoc
 #>
 function createProduct {
     [OpenApiPath(HttpVerb = 'post', Pattern = '/products')]
-    [OpenApiResponse(StatusCode = '201', Description = 'Product created successfully', ContentType = ('application/json', 'application/xml'))]
+    [OpenApiResponse(StatusCode = '201', Description = 'Product created successfully', Schema = [Product], ContentType = ('application/json', 'application/xml', 'application/x-www-form-urlencoded'))]
     [OpenApiResponse(StatusCode = '400', Description = 'Invalid input')]
     param(
-        [OpenApiRequestBody(ContentType = ('application/json', 'application/xml', 'application/x-www-form-urlencoded'))]
+        [OpenApiRequestBodyRef(ReferenceId = 'CreateProductRequest')]
         [CreateProductRequest]$body
     )
 
@@ -110,7 +113,7 @@ function createProduct {
         return
     }
 
-    $response = @{
+    $response =  [Product]@{
         id = 1
         productName = $body.productName
         price = $body.price
@@ -119,7 +122,7 @@ function createProduct {
         createdAt = (Get-Date).ToUniversalTime().ToString('o')
     }
 
-    Write-KrJsonResponse $response -StatusCode 201
+    Write-KrResponse $response -StatusCode 201
 }
 
 # PUT endpoint: Update product using UpdateProductRequest component
@@ -135,14 +138,14 @@ function createProduct {
 #>
 function updateProduct {
     [OpenApiPath(HttpVerb = 'put', Pattern = '/products/{productId}')]
-    [OpenApiResponse(StatusCode = '200', Description = 'Product updated successfully', ContentType = ('application/json', 'application/xml'))]
+    [OpenApiResponse(StatusCode = '200', Description = 'Product updated successfully', Schema = [Product], ContentType = ('application/json', 'application/xml', 'application/x-www-form-urlencoded'))]
     [OpenApiResponse(StatusCode = '400', Description = 'Invalid input')]
     [OpenApiResponse(StatusCode = '404', Description = 'Product not found')]
     param(
         [OpenApiParameter(In = [OaParameterLocation]::Path, Required = $true)]
         [int]$productId,
-        [OpenApiRequestBody(ContentType = ('application/json', 'application/xml', 'application/x-www-form-urlencoded'))]
-        [UpdateProductRequest]$body
+        [OpenApiRequestBodyRef(ReferenceId = 'UpdateProductRequest')]
+        $body
     )
 
     if (-not $body.productName -or -not $body.price) {
@@ -150,7 +153,7 @@ function updateProduct {
         return
     }
 
-    $response = @{
+    $response = [Product]@{
         id = $productId
         productName = $body.productName
         price = $body.price
@@ -159,7 +162,7 @@ function updateProduct {
         updatedAt = (Get-Date).ToUniversalTime().ToString('o')
     }
 
-    Write-KrJsonResponse $response -StatusCode 200
+    Write-KrResponse $response -StatusCode 200
 }
 
 # =========================================================
@@ -175,5 +178,5 @@ Test-KrOpenApiDocument
 #                      RUN SERVER
 # =========================================================
 
-Add-KrEndpoint -Port $Port -IPAddress $IPAddress
+
 Start-KrServer -Server $srv -CloseLogsOnExit

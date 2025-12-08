@@ -3,8 +3,6 @@
     [IPAddress]$IPAddress = [IPAddress]::Loopback
 )
 
-if (-not (Get-Module Kestrun)) { Import-Module Kestrun }
-
 # --- Logging / Server ---
 
 New-KrLogger | Add-KrSinkConsole |
@@ -13,6 +11,7 @@ New-KrLogger | Add-KrSinkConsole |
 
 $srv = New-KrServer -Name 'OpenAPI Parameter Component' -PassThru
 
+Add-KrEndpoint -Port $Port -IPAddress $IPAddress
 # =========================================================
 #                 TOP-LEVEL OPENAPI
 # =========================================================
@@ -21,9 +20,6 @@ Add-KrOpenApiInfo -Title 'Parameter Component API' `
     -Version '1.0.0' `
     -Description 'Demonstrates reusable parameter components.'
 
-Add-KrOpenApiContact -Email 'support@example.com'
-Add-KrOpenApiServer -Url "http://$($IPAddress):$Port" -Description 'Local Server'
-
 # =========================================================
 #                 COMPONENT PARAMETERS
 # =========================================================
@@ -31,27 +27,65 @@ Add-KrOpenApiServer -Url "http://$($IPAddress):$Port" -Description 'Local Server
 # Define reusable parameter components using class attributes
 [OpenApiParameterComponent()]
 class PaginationParameters {
-    [OpenApiPropertyAttribute(Description = 'Page number', Minimum = 1, Example = 1)]
+    [OpenApiParameter(In = [OaParameterLocation]::Query, Description = 'Page number')]
+
+    [OpenApiPropertyAttribute(Minimum = 1, Example = 1)]
     [int]$page
 
-    [OpenApiPropertyAttribute(Description = 'Items per page', Minimum = 1, Maximum = 100, Example = 20)]
+    [OpenApiParameter(In = [OaParameterLocation]::Query, Description = 'Items per page')]
+    [OpenApiPropertyAttribute(Minimum = 1, Maximum = 100, Example = 20)]
     [int]$limit
 
-    [OpenApiPropertyAttribute(Description = 'Sort field (name, date, price)', Example = 'date')]
+    [OpenApiParameter(In = [OaParameterLocation]::Query, Description = 'Sort field (name, date, price)')]
+    [OpenApiPropertyAttribute(Example = 'date')]
     [ValidateSet('name', 'date', 'price')]
     [string]$sortBy
-}
 
-[OpenApiParameterComponent()]
-class FilterParameters {
-    [OpenApiPropertyAttribute(Description = 'Filter by category', Example = 'electronics')]
+    [OpenApiParameter(In = [OaParameterLocation]::Query, Description = 'Filter by category')]
+    [OpenApiPropertyAttribute(Example = 'electronics')]
     [string]$category
 
-    [OpenApiPropertyAttribute(Description = 'Filter by minimum price', Format = 'double', Example = 100)]
+    [OpenApiParameter(In = [OaParameterLocation]::Query, Description = 'Filter by minimum price')]
+    [OpenApiPropertyAttribute(Format = 'double', Example = 100)]
     [double]$minPrice
 
-    [OpenApiPropertyAttribute(Description = 'Filter by maximum price', Format = 'double', Example = 5000)]
+    [OpenApiParameter(In = [OaParameterLocation]::Query, Description = 'Filter by maximum price')]
+    [OpenApiPropertyAttribute(Format = 'double', Example = 5000)]
     [double]$maxPrice
+}
+
+# =========================================================
+#                      COMPONENT SCHEMAS
+# =========================================================
+
+[OpenApiSchemaComponent()]
+class ProductItem {
+    [OpenApiPropertyAttribute(Description = 'Product ID', Format = 'int64', Example = 1)]
+    [long]$id
+
+    [OpenApiPropertyAttribute(Description = 'Product name', Example = 'Laptop')]
+    [string]$name
+
+    [OpenApiPropertyAttribute(Description = 'Product category', Example = 'electronics')]
+    [string]$category
+
+    [OpenApiPropertyAttribute(Description = 'Product price', Format = 'double', Example = 999.99)]
+    [double]$price
+}
+
+[OpenApiSchemaComponent()]
+class ProductListResponse {
+    [OpenApiPropertyAttribute(Description = 'Current page number', Example = 1)]
+    [int]$page
+
+    [OpenApiPropertyAttribute(Description = 'Items per page', Example = 20)]
+    [int]$limit
+
+    [OpenApiPropertyAttribute(Description = 'Total number of items', Example = 5)]
+    [int]$total
+
+    [OpenApiPropertyAttribute(Description = 'List of products')]
+    [ProductItem[]]$items
 }
 
 # =========================================================
@@ -84,9 +118,27 @@ Add-KrApiDocumentationRoute -DocumentType Redoc
 #>
 function listProducts {
     [OpenApiPath(HttpVerb = 'get', Pattern = '/products')]
-    [OpenApiResponse(StatusCode = '200', Description = 'List of products', ContentType = ('application/json', 'application/xml'))]
+    [OpenApiResponse(StatusCode = '200', Description = 'List of products', Schema = [ProductListResponse], ContentType = ('application/json', 'application/xml'))]
     [OpenApiResponse(StatusCode = '400', Description = 'Invalid parameters')]
-    param([int]$page = 1, [int]$limit = 20, [string]$sortBy = 'date', [string]$category, [double]$minPrice, [double]$maxPrice)
+    param(
+        [OpenApiParameterRef(ReferenceId = 'page')]
+        [int]$page = 1,
+
+        [OpenApiParameterRef(ReferenceId = 'limit')]
+        [int]$limit = 20,
+
+        [OpenApiParameterRef(ReferenceId = 'sortBy')]
+        [string]$sortBy = 'date',
+
+        [OpenApiParameterRef(ReferenceId = 'category')]
+        [string]$category,
+
+        [OpenApiParameterRef(ReferenceId = 'minPrice')]
+        [double]$minPrice,
+
+        [OpenApiParameterRef(ReferenceId = 'maxPrice')]
+        [double]$maxPrice
+    )
 
     # Mock product data
     $allProducts = @(
@@ -122,14 +174,25 @@ function listProducts {
     $skip = ($page - 1) * $limit
     $paged = $filtered | Select-Object -Skip $skip -First $limit
 
-    $response = @{
+    # Convert to ProductItem array
+    $productItems = $paged | ForEach-Object {
+        [ProductItem]@{
+            id = $_.id
+            name = $_.name
+            category = $_.category
+            price = $_.price
+        }
+    }
+
+    # Build typed response
+    $response = [ProductListResponse]@{
         page = $page
         limit = $limit
         total = $filtered.Count
-        items = $paged
+        items = $productItems
     }
 
-    Write-KrJsonResponse $response -StatusCode 200
+    Write-KrResponse $response -StatusCode 200
 }
 
 # =========================================================
@@ -138,12 +201,8 @@ function listProducts {
 
 Add-KrOpenApiRoute
 
-Build-KrOpenApiDocument
-Test-KrOpenApiDocument
-
 # =========================================================
 #                      RUN SERVER
 # =========================================================
 
-Add-KrEndpoint -Port $Port -IPAddress $IPAddress
 Start-KrServer -Server $srv -CloseLogsOnExit

@@ -149,6 +149,10 @@ public class KestrunResponse(KestrunRequest request, int bodyAsyncThreshold = 81
         {
             return true;
         }
+        if (type == "application/x-www-form-urlencoded")
+        {
+            return true;
+        }
 
         // Include structured types using XML or JSON suffixes
         if (type.EndsWith("xml", StringComparison.OrdinalIgnoreCase) ||
@@ -403,6 +407,10 @@ public class KestrunResponse(KestrunRequest request, int bodyAsyncThreshold = 81
         {
             await WriteXmlResponseAsync(inputObject: inputObject, statusCode: statusCode, contentType: ContentType);
         }
+        else if (ContentType.Contains("application/x-www-form-urlencoded"))
+        {
+            await WriteFormUrlEncodedResponseAsync(inputObject: inputObject, statusCode: statusCode);
+        }
         else
         {
             await WriteTextResponseAsync(inputObject: inputObject?.ToString() ?? string.Empty, statusCode: statusCode);
@@ -593,6 +601,35 @@ public class KestrunResponse(KestrunRequest request, int bodyAsyncThreshold = 81
         Body = await Task.Run(() => inputObject?.ToString() ?? string.Empty);
         ContentType = string.IsNullOrEmpty(contentType) ? $"text/plain; charset={Encoding.WebName}" : contentType;
         StatusCode = statusCode;
+    }
+
+    /// <summary>
+    /// Writes a form-urlencoded response with the specified input object, status code, and optional content type.
+    /// Automatically converts the input object to a Dictionary{string, string} using <see cref="ObjectToDictionaryConverter"/>.
+    /// </summary>
+    /// <param name="inputObject">The object to be converted to form-urlencoded data. Can be a dictionary, enumerable, or any object with public properties.</param>
+    /// <param name="statusCode">The HTTP status code for the response. Defaults to 200 OK.</param>
+    public void WriteFormUrlEncodedResponse(object? inputObject, int statusCode = StatusCodes.Status200OK) =>
+        WriteFormUrlEncodedResponseAsync(inputObject, statusCode).GetAwaiter().GetResult();
+
+    /// <summary>
+    /// Asynchronously writes a form-urlencoded response with the specified input object, status code, and optional content type.
+    /// Automatically converts the input object to a Dictionary{string, string} using <see cref="ObjectToDictionaryConverter"/>.
+    /// </summary>
+    /// <param name="inputObject">The object to be converted to form-urlencoded data. Can be a dictionary, enumerable, or any object with public properties.</param>
+    /// <param name="statusCode">The HTTP status code for the response. Defaults to 200 OK.</param>
+    public async Task WriteFormUrlEncodedResponseAsync(object? inputObject, int statusCode = StatusCodes.Status200OK)
+    {
+        if (inputObject is null)
+        {
+            throw new ArgumentNullException(nameof(inputObject), "Input object cannot be null for form-urlencoded response.");
+        }
+
+        var dictionary = ObjectToDictionaryConverter.ToDictionary(inputObject);
+        var formContent = new FormUrlEncodedContent(dictionary);
+        var encodedString = await formContent.ReadAsStringAsync();
+
+        await WriteTextResponseAsync(encodedString, statusCode, "application/x-www-form-urlencoded");
     }
 
     /// <summary>

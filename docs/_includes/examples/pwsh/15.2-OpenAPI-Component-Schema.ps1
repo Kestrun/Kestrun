@@ -3,15 +3,14 @@
     [IPAddress]$IPAddress = [IPAddress]::Loopback
 )
 
-if (-not (Get-Module Kestrun)) { Import-Module Kestrun }
-
 # --- Logging / Server ---
-
 New-KrLogger | Add-KrSinkConsole |
     Set-KrLoggerLevel -Value Debug |
     Register-KrLogger -Name 'console' -SetAsDefault
 
 $srv = New-KrServer -Name 'OpenAPI Component Schema' -PassThru
+
+Add-KrEndpoint -Port $Port -IPAddress $IPAddress
 
 # =========================================================
 #                 TOP-LEVEL OPENAPI
@@ -20,9 +19,6 @@ $srv = New-KrServer -Name 'OpenAPI Component Schema' -PassThru
 Add-KrOpenApiInfo -Title 'Component Schema API' `
     -Version '1.0.0' `
     -Description 'Demonstrates reusable component schemas passed as parameters and returned as responses.'
-
-Add-KrOpenApiContact -Email 'support@example.com'
-Add-KrOpenApiServer -Url "http://localhost:$Port" -Description 'Local Server'
 
 # =========================================================
 #                      COMPONENT SCHEMAS
@@ -89,7 +85,7 @@ function createUser {
     [OpenApiResponse(StatusCode = '201', Description = 'User created successfully', Schema = [UserResponse], ContentType = ('application/json', 'application/xml'))]
     [OpenApiResponse(StatusCode = '400', Description = 'Invalid input')]
     param(
-        [OpenApiRequestBody(ContentType = ('application/json', 'application/xml', 'application/x-www-form-urlencoded'))]
+        [OpenApiRequestBody(ContentType = ('application/json', 'application/xml','application/yaml', 'application/x-www-form-urlencoded'))]
         [CreateUserRequest]$body
     )
 
@@ -109,7 +105,7 @@ function createUser {
         createdAt = (Get-Date).ToUniversalTime().ToString('o')
     }
 
-    Write-KrJsonResponse $response -StatusCode 201
+    Write-KrResponse $response -StatusCode 201
 }
 
 # GET endpoint: Return a user by ID as UserResponse
@@ -123,7 +119,7 @@ function createUser {
 #>
 function getUser {
     [OpenApiPath(HttpVerb = 'get', Pattern = '/users/{userId}')]
-    [OpenApiResponse(StatusCode = '200', Description = 'User found', Schema = [UserResponse], ContentType = ('application/json', 'application/xml'))]
+    [OpenApiResponse(StatusCode = '200', Description = 'User found', Schema = [UserResponse], ContentType = ('application/json', 'application/xml','application/yaml', 'application/x-www-form-urlencoded'))]
     [OpenApiResponse(StatusCode = '404', Description = 'User not found')]
     param(
         [OpenApiParameter(In = [OaParameterLocation]::Path, Required = $true)]
@@ -139,7 +135,7 @@ function getUser {
     $response.age = 30
     $response.createdAt = (Get-Date).AddDays(-1).ToUniversalTime().ToString('o')
 
-    Write-KrJsonResponse $response -StatusCode 200
+    Write-KrResponse $response -StatusCode 200
 }
 
 # =========================================================
@@ -155,5 +151,5 @@ Test-KrOpenApiDocument
 #                      RUN SERVER
 # =========================================================
 
-Add-KrEndpoint -Port $Port -IPAddress $IPAddress
+
 Start-KrServer -Server $srv -CloseLogsOnExit

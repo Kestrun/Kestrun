@@ -2,6 +2,7 @@
 using System.Collections;
 using System.Management.Automation;
 using System.Text.Json;
+using System.Xml.Linq;
 using Kestrun.Models;
 using Microsoft.Extensions.Primitives;
 using Microsoft.OpenApi;
@@ -104,24 +105,45 @@ public record ParameterForInjectionInfo
                 {
                     logger.Debug("Injecting parameter '{Name}' of type '{Type}' from '{In}'.", name, param.Type, param.In);
                 }
-
-                var raw = GetRawValue(param, context);
-
-                if (raw is null)
+                // Initialize the converted value
+                object? converted = null;
+                if (context.Request.Form is not null && context.Request.HasFormContentType)
                 {
-                    _ = ps.AddParameter(name, null);
-                    continue;
+                    // For form data, convert the entire form to a hashtable
+                    converted = ConvertFormToHashtable(context.Request.Form);
+                }
+                else
+                {
+                    // Retrieve the raw value from the HTTP context
+                    var raw = GetRawValue(param, context);
+
+                    if (raw is null)
+                    {
+                        _ = ps.AddParameter(name, null);
+                        continue;
+                    }
+
+                    if (logger.IsEnabled(Serilog.Events.LogEventLevel.Debug))
+                    {
+                        logger.Debug("Raw value for parameter '{Name}': {RawValue}", name, raw);
+                    }
+
+                    var (singleValue, multiValue) = NormalizeRaw(raw);
+
+                    if (singleValue is null && multiValue is null)
+                    {
+                        _ = ps.AddParameter(name, null);
+                        continue;
+                    }
+                    // Convert the value based on the parameter's JSON schema type
+                    converted = ConvertValue(context, param, singleValue, multiValue);
                 }
 
-                var (singleValue, multiValue) = NormalizeRaw(raw);
-
-                if (singleValue is null && multiValue is null)
+                if (logger.IsEnabled(Serilog.Events.LogEventLevel.Debug))
                 {
-                    _ = ps.AddParameter(name, null);
-                    continue;
+                    logger.Debug("Adding parameter '{Name}': {ConvertedValue}", name, converted);
                 }
-
-                var converted = ConvertValue(context, param, singleValue, multiValue);
+                // Add the converted parameter to the PowerShell instance
                 _ = ps.AddParameter(name, converted);
             }
         }
@@ -141,7 +163,10 @@ public record ParameterForInjectionInfo
             ParameterLocation.Query => (object?)context.Request.Query[param.Name],
             ParameterLocation.Header => (object?)context.Request.Headers[param.Name],
             ParameterLocation.Cookie => context.Request.Cookies[param.Name],
-            null => context.Request.Body,
+            null => (context.Request.Form is not null && context.Request.HasFormContentType) ?
+                    context.Request.Form :
+                    context.Request.Body,
+
             _ => null,
         };
     }
@@ -196,28 +221,41 @@ public record ParameterForInjectionInfo
                 // keep your existing behaviour for query/header multi-values
                 multiValue ?? (singleValue is not null ? new[] { singleValue } : null),
             JsonSchemaType.Object =>
-                ConvertBodyBasedOnContentType(context.Request.ContentType ?? "application/json", singleValue ?? ""),
+                ConvertBodyBasedOnContentType(context, singleValue ?? ""),
             JsonSchemaType.String => singleValue,
             _ => singleValue,
         };
     }
-//todo: test Yaml and XML bodies
-    private static object? ConvertBodyBasedOnContentType(string contentType, string body)
+    //todo: test Yaml and XML bodies
+    private static object? ConvertBodyBasedOnContentType(
+       KestrunContext context,
+       string rawBodyString)
     {
-        if (contentType.Contains("json", StringComparison.OrdinalIgnoreCase))
+        var contentType = context.Request.ContentType?.ToLowerInvariant() ?? "";
+
+        if (contentType.Contains("json"))
         {
-            return ConvertJsonToHashtable(body);
+            return ConvertJsonToHashtable(rawBodyString);
         }
 
-        if (contentType.Contains("yaml", StringComparison.OrdinalIgnoreCase) ||
-            contentType.Contains("yml", StringComparison.OrdinalIgnoreCase))
+        if (contentType.Contains("yaml") || contentType.Contains("yml"))
         {
-            return ConvertYamlToHashtable(body);
+            return ConvertYamlToHashtable(rawBodyString);
         }
 
-        // xml, form, etc. later
-        return body;
+        if (contentType.Contains("xml"))
+        {
+            return ConvertXmlToHashtable(rawBodyString);
+        }
+
+        if (contentType.Contains("application/x-www-form-urlencoded"))
+        {
+            return ConvertFormToHashtable(context.Request.Form);
+        }
+
+        return rawBodyString; // fallback
     }
+
 
 
     private static readonly IDeserializer YamlDeserializer =
@@ -225,7 +263,7 @@ public record ParameterForInjectionInfo
         .WithNamingConvention(CamelCaseNamingConvention.Instance)
         .Build();
 
-    private static object? ConvertYamlToHashtable(string yaml)
+    private static Hashtable? ConvertYamlToHashtable(string yaml)
     {
         if (string.IsNullOrWhiteSpace(yaml))
         {
@@ -281,5 +319,78 @@ public record ParameterForInjectionInfo
             list.Add(JsonElementToClr(item));
         }
         return [.. list];
+    }
+
+    private static object? ConvertXmlToHashtable(string xml)
+    {
+        if (string.IsNullOrWhiteSpace(xml))
+        {
+            return null;
+        }
+
+        var root = XElement.Parse(xml);
+        return XElementToClr(root);
+    }
+
+    private static object? XElementToClr(XElement element)
+    {
+        // If element has no children and no attributes → return primitive string
+        if (!element.HasElements && !element.HasAttributes)
+        {
+            var trimmed = element.Value?.Trim();
+            return string.IsNullOrWhiteSpace(trimmed) ? null : trimmed;
+        }
+
+        var ht = new Hashtable(StringComparer.OrdinalIgnoreCase);
+
+        // Attributes as @name entries
+        foreach (var attr in element.Attributes())
+        {
+            ht["@" + attr.Name.LocalName] = attr.Value;
+        }
+
+        // Children
+        var childGroups = element.Elements().GroupBy(e => e.Name.LocalName);
+
+        foreach (var group in childGroups)
+        {
+            var key = group.Key;
+            var items = group.ToList();
+
+            if (items.Count == 1)
+            {
+                // Single element → convert directly
+                ht[key] = XElementToClr(items[0]);
+            }
+            else
+            {
+                // Multiple elements with same name → array
+                var arr = new object?[items.Count];
+                for (var i = 0; i < items.Count; i++)
+                {
+                    arr[i] = XElementToClr(items[i]);
+                }
+
+                ht[key] = arr;
+            }
+        }
+
+        return ht;
+    }
+    private static Hashtable? ConvertFormToHashtable(Dictionary<string, string>? form)
+    {
+        if (form is null || form.Count == 0)
+        {
+            return null;
+        }
+        var ht = new Hashtable(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var kvp in form)
+        {
+            // x-www-form-urlencoded in your case has a single value per key
+            ht[kvp.Key] = kvp.Value;
+        }
+
+        return ht;
     }
 }

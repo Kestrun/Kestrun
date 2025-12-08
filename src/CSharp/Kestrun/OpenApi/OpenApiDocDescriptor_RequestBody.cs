@@ -20,8 +20,12 @@ public partial class OpenApiDocDescriptor
         // Apply request body component attribute if present
         var name = ApplyRequestBodyComponent(t.GetCustomAttribute<OpenApiRequestBodyComponent>(), requestBody, componentSchema);
 
-        // Apply example references if any
-        ApplyRequestBodyExampleRef(t.GetCustomAttribute<OpenApiExampleRefAttribute>(), requestBody);
+        // Apply example references if any (handle multiple attributes)
+        var exampleRefs = t.GetCustomAttributes<OpenApiExampleRefAttribute>();
+        foreach (var exRef in exampleRefs)
+        {
+            ApplyRequestBodyExampleRef(exRef, requestBody);
+        }
 
         if (string.IsNullOrWhiteSpace(name))
         {

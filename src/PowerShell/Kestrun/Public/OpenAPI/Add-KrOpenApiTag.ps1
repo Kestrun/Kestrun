@@ -28,9 +28,9 @@ function Add-KrOpenApiTag {
         [Kestrun.Hosting.KestrunHost]$Server,
         [Parameter()]
         [string[]]$DocId = [Kestrun.Authentication.IOpenApiAuthenticationOptions]::DefaultDocumentationIds,
-        [Parameter(Mandatory)]
+        [Parameter(Mandatory = $true)]
         [string]$Name,
-        [Parameter(Mandatory)]
+        [Parameter()]
         [string]$Description,
         [Parameter()]
         [Microsoft.OpenApi.OpenApiExternalDocs]$ExternalDocs

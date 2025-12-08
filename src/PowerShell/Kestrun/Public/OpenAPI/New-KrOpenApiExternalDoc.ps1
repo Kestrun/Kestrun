@@ -19,7 +19,7 @@ function New-KrOpenApiExternalDoc {
     [KestrunRuntimeApi('Everywhere')]
     [OutputType([Microsoft.OpenApi.OpenApiExternalDocs])]
     param(
-        [Parameter(Mandatory)]
+        [Parameter()]
         [string]$Description,
         [Parameter(Mandatory = $true)]
         [Uri]$Url
@@ -30,9 +30,7 @@ function New-KrOpenApiExternalDoc {
     if ($PsBoundParameters.ContainsKey('Description')) {
         $externalDocs.Description = $Description
     }
-    if ($PsBoundParameters.ContainsKey('Url')) {
-        $externalDocs.Url = $Url
-    }
+    $externalDocs.Url = $Url
 
     return $externalDocs
 }

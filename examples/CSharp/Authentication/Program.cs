@@ -120,11 +120,11 @@ var tokenBuilder = JwtTokenBuilder.New()
 var builderResult = tokenBuilder.Build();
 
 var claimConfig = new ClaimPolicyBuilder().
-AddPolicy(policyName: "CanDelete", claimType: "can_delete", Description: "Can Delete", allowedValues: "true").
-AddPolicy(policyName: "CanRead", claimType: "can_read", Description: "Can Read", allowedValues: "true").
-AddPolicy(policyName: "CanWrite", claimType: "can_write", Description: "Can Write", allowedValues: "true").
-AddPolicy(policyName: "CanCreate", claimType: "can_create", Description: "Can Create", allowedValues: "true").
-AddPolicy(policyName: "Admin", claimType: UserIdentityClaim.Role, Description: "Admin", allowedValues: "admin").
+AddPolicy(policyName: "CanDelete", claimType: "can_delete", description: "Can Delete", allowedValues: "true").
+AddPolicy(policyName: "CanRead", claimType: "can_read", description: "Can Read", allowedValues: "true").
+AddPolicy(policyName: "CanWrite", claimType: "can_write", description: "Can Write", allowedValues: "true").
+AddPolicy(policyName: "CanCreate", claimType: "can_create", description: "Can Create", allowedValues: "true").
+AddPolicy(policyName: "Admin", claimType: UserIdentityClaim.Role, description: "Admin", allowedValues: "admin").
 Build();
 
 /// Add compression

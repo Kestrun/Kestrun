@@ -70,19 +70,20 @@ public partial class OpenApiDocDescriptor
 
     private bool ComponentResponsesExists(string id) =>
         Document.Components?.Responses?.ContainsKey(id) == true;
+
     private bool ComponentParametersExists(string id) =>
         Document.Components?.Parameters?.ContainsKey(id) == true;
 
     private bool ComponentExamplesExists(string id) =>
-            Document.Components?.Examples?.ContainsKey(id) == true;
+        Document.Components?.Examples?.ContainsKey(id) == true;
 
     private bool ComponentHeadersExists(string id) =>
-            Document.Components?.Headers?.ContainsKey(id) == true;
+        Document.Components?.Headers?.ContainsKey(id) == true;
     private bool ComponentCallbacksExists(string id) =>
-            Document.Components?.Callbacks?.ContainsKey(id) == true;
+        Document.Components?.Callbacks?.ContainsKey(id) == true;
 
     private bool ComponentLinksExists(string id) =>
-            Document.Components?.Links?.ContainsKey(id) == true;
+        Document.Components?.Links?.ContainsKey(id) == true;
     private bool ComponentPathItemsExists(string id) =>
-            Document.Components?.PathItems?.ContainsKey(id) == true;
+        Document.Components?.PathItems?.ContainsKey(id) == true;
 }

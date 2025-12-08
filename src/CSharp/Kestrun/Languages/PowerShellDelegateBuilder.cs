@@ -69,8 +69,7 @@ internal static class PowerShellDelegateBuilder
                 }
                 if (log.IsEnabled(LogEventLevel.Verbose))
                 {
-                    log.Verbose("No redirect detected; applying response...");
-                    log.Verbose("Applying response to HttpResponse...");
+                    log.Verbose("No redirect detected; applying response to HttpResponse...");
                 }
                 await ApplyResponseAsync(context, krContext).ConfigureAwait(false);
             }

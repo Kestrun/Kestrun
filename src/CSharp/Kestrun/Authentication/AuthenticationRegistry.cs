@@ -167,10 +167,10 @@ public sealed class AuthenticationRegistry
     /// </summary>
     /// <param name="schema">The schema to match for the authentication scheme.</param>
     /// <param name="type">The HTTP type to match for the authentication scheme.</param>
-    /// <param name="CookiesSchemeName">If true, returns the cookie scheme name for cookie-based options.</param>
+    /// <param name="cookiesSchemeName">If true, returns the cookie scheme name for cookie-based options.</param>
     /// <returns>The authentication scheme name.</returns>
     /// <exception cref="KeyNotFoundException">Thrown when no authentication options are registered for the specified schema and type.</exception>
-    public string ResolveAuthenticationSchemeName(string schema, AuthenticationType type, bool CookiesSchemeName)
+    public string ResolveAuthenticationSchemeName(string schema, AuthenticationType type, bool cookiesSchemeName)
     {
         if (!TryGet(schema, type, out var options))
         {
@@ -179,8 +179,8 @@ public sealed class AuthenticationRegistry
         // determine scheme name based on options type
         return options switch
         {
-            OAuth2Options oauth2Opts => CookiesSchemeName ? oauth2Opts.CookieScheme : oauth2Opts.AuthenticationScheme,
-            OidcOptions oidcOpts => CookiesSchemeName ? oidcOpts.CookieScheme : oidcOpts.AuthenticationScheme,
+            OAuth2Options oauth2Opts => cookiesSchemeName ? oauth2Opts.CookieScheme : oauth2Opts.AuthenticationScheme,
+            OidcOptions oidcOpts => cookiesSchemeName ? oidcOpts.CookieScheme : oidcOpts.AuthenticationScheme,
             BasicAuthenticationOptions => schema,
             JwtBearerOptions => schema,
             CookieAuthenticationOptions => schema,
@@ -320,8 +320,8 @@ public sealed class AuthenticationRegistry
         private readonly StringComparer _cmp = cmp;
 
         public bool Equals((string schema, AuthenticationType type) x, (string schema, AuthenticationType type) y)
-            => _cmp.Equals(x.schema, y.schema) && _cmp.Equals(x.type, y.type);
+            => _cmp.Equals(x.schema, y.schema) && x.type == y.type;
         public int GetHashCode((string schema, AuthenticationType type) obj)
-            => HashCode.Combine(_cmp.GetHashCode(obj.schema), _cmp.GetHashCode(obj.type));
+            => HashCode.Combine(_cmp.GetHashCode(obj.schema), obj.type.GetHashCode());
     }
 }

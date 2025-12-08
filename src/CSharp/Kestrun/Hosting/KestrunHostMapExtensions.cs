@@ -1215,7 +1215,8 @@ public static partial class KestrunHostMapExtensions
           {
               var asm = typeof(KestrunHostMapExtensions).Assembly;
               using var stream = asm.GetManifestResourceStream(embeddedResource)
-                  ?? throw new InvalidOperationException($"Embedded Redoc HTML not found: {embeddedResource}");
+                    ?? throw new InvalidOperationException($"Embedded HTML resource not found: {embeddedResource}");
+
               using var ms = new MemoryStream();
               stream.CopyTo(ms);
               var htmlBuffer = ms.ToArray();

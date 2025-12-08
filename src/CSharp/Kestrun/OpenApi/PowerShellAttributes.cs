@@ -170,21 +170,16 @@ internal static class PowerShellAttributes
     private static object? ApplyNotNullOrEmpty(OpenApiSchema sc)
     {
         // string → minLength >= 1
-        if (sc.Type == JsonSchemaType.String)
+        if (sc.Type == JsonSchemaType.String && (sc.MinLength is null or < 1))
         {
-            if (sc.MinLength is null or < 1)
-            {
-                sc.MinLength = 1;
-            }
+            sc.MinLength = 1;
         }
 
+
         // array → minItems >= 1
-        if (sc.Type == JsonSchemaType.Array)
+        if (sc.Type == JsonSchemaType.Array && (sc.MinItems is null or < 1))
         {
-            if (sc.MinItems is null or < 1)
-            {
-                sc.MinItems = 1;
-            }
+            sc.MinItems = 1;
         }
 
         return null;

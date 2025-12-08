@@ -929,7 +929,7 @@ public class KestrunHost : IDisposable
                 }
                 else
                 {
-                    Logger.Debug("Exported OpenAPI classes from PowerShell.{path}", openApiClassesPath);
+                    Logger.Debug("Exported OpenAPI classes from PowerShell: {path}", openApiClassesPath);
                 }
             }
             // Initialize PowerShell runspace pool

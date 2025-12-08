@@ -148,28 +148,30 @@ public partial class OpenApiDocDescriptor
                                 continue;
                             }
 
-                            if (openApiAttr.Responses is null || !openApiAttr.Responses.ContainsKey(oaPA.StatusCode))
+                            if (openApiAttr.Responses is null || !openApiAttr.Responses.TryGetValue(oaPA.StatusCode, out var res))
                             {
                                 throw new InvalidOperationException($"Response for status code '{oaPA.StatusCode}' is not defined for this operation.");
                             }
-                            var res = openApiAttr.Responses[oaPA.StatusCode];
+
                             if (res is OpenApiResponseReference)
                             {
                                 throw new InvalidOperationException($"Cannot apply OpenApiPropertyAttribute to response '{oaPA.StatusCode}' because it is a reference. Use inline OpenApiResponseAttribute instead.");
                             }
-
-                            var response = (OpenApiResponse)res;
-                            if (response.Content is null || response.Content.Count == 0)
+                            // Apply property attribute to the response schema
+                            if (res is OpenApiResponse response)
                             {
-                                throw new InvalidOperationException($"Cannot apply OpenApiPropertyAttribute to response '{oaPA.StatusCode}' because it has no content defined. Ensure that the response has at least one content type defined.");
-                            }
-                            foreach (var content in response.Content.Values)
-                            {
-                                if (content.Schema is null)
+                                if (response.Content is null || response.Content.Count == 0)
                                 {
-                                    throw new InvalidOperationException($"Cannot apply OpenApiPropertyAttribute to response '{oaPA.StatusCode}' because its content has no schema defined.");
+                                    throw new InvalidOperationException($"Cannot apply OpenApiPropertyAttribute to response '{oaPA.StatusCode}' because it has no content defined. Ensure that the response has at least one content type defined.");
                                 }
-                                ApplySchemaAttr(oaPA, content.Schema);
+                                foreach (var content in response.Content.Values)
+                                {
+                                    if (content.Schema is null)
+                                    {
+                                        throw new InvalidOperationException($"Cannot apply OpenApiPropertyAttribute to response '{oaPA.StatusCode}' because its content has no schema defined.");
+                                    }
+                                    ApplySchemaAttr(oaPA, content.Schema);
+                                }
                             }
                         }
                         else if (attr is OpenApiAuthorizationAttribute oaRBa)
@@ -218,7 +220,7 @@ public partial class OpenApiDocDescriptor
                             {
                                 parameter.Name = !string.IsNullOrEmpty(parameter.Name) && parameter.Name != paramInfo.Name
                                     ? throw new InvalidOperationException(
-                                         $"Parameter name {parameter.Name} is different from variable name'{paramInfo.Name}'.")
+                                         $"Parameter name {parameter.Name} is different from variable name: '{paramInfo.Name}'.")
                                     : paramInfo.Name;
 
                                 parameter.Schema = InferPrimitiveSchema(paramInfo.ParameterType);
@@ -259,7 +261,7 @@ public partial class OpenApiDocDescriptor
                                 if (componentParameter.Name != paramInfo.Name)
                                 {
                                     throw new InvalidOperationException(
-                                         $"Parameter name {componentParameter.Name} is different from variable name'{paramInfo.Name}'.");
+                                         $"Parameter name {componentParameter.Name} is different from variable name: '{paramInfo.Name}'.");
                                 }
                                 // Apply description from help if not set
                                 parameter.Description ??= help.GetParameterDescription(paramInfo.Name);

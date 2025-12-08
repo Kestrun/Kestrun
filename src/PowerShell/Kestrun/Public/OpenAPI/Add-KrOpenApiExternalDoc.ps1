@@ -25,7 +25,7 @@ function Add-KrOpenApiExternalDoc {
         [Kestrun.Hosting.KestrunHost]$Server,
         [Parameter()]
         [string[]]$DocId = [Kestrun.Authentication.IOpenApiAuthenticationOptions]::DefaultDocumentationIds,
-        [Parameter(Mandatory)]
+        [Parameter(Mandatory = $true)]
         [string]$Description,
         [Parameter(Mandatory = $true)]
         [Uri]$Url

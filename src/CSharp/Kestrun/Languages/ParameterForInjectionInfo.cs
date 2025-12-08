@@ -3,6 +3,7 @@ using System.Collections;
 using System.Management.Automation;
 using System.Text.Json;
 using System.Xml.Linq;
+using Kestrun.Logging;
 using Kestrun.Models;
 using Microsoft.Extensions.Primitives;
 using Microsoft.OpenApi;
@@ -140,7 +141,7 @@ public record ParameterForInjectionInfo
 
                 if (logger.IsEnabled(Serilog.Events.LogEventLevel.Debug))
                 {
-                    logger.Debug("Adding parameter '{Name}': {ConvertedValue}", name, converted);
+                    logger.DebugSanitized("Adding parameter '{Name}': {ConvertedValue}", name, converted);
                 }
                 // Add the converted parameter to the PowerShell instance
                 _ = ps.AddParameter(name, converted);

@@ -1043,7 +1043,7 @@ public static class KestrunHostAuthnExtensions
                     {
                         logger.Debug("OAuth2 scope added: {Scope}", scope);
                     }
-                    _ = claimPolicyBuilder.AddPolicy(policyName: scope, claimType: "scope", Description: string.Empty, allowedValues: scope);
+                    _ = claimPolicyBuilder.AddPolicy(policyName: scope, claimType: "scope", description: string.Empty, allowedValues: scope);
                 }
                 configureOptions.ClaimPolicy = claimPolicyBuilder.Build();
             }
@@ -1068,7 +1068,7 @@ public static class KestrunHostAuthnExtensions
                     var claimPolicyBuilder = new ClaimPolicyBuilder();
                     foreach (var scope in missingScopes)
                     {
-                        _ = claimPolicyBuilder.AddPolicy(policyName: scope, claimType: "scope", Description: string.Empty, allowedValues: scope);
+                        _ = claimPolicyBuilder.AddPolicy(policyName: scope, claimType: "scope", description: string.Empty, allowedValues: scope);
                         if (logger.IsEnabled(LogEventLevel.Debug))
                         {
                             logger.Debug("OAuth2 scope added to claim policy: {Scope}", scope);
@@ -1252,7 +1252,7 @@ public static class KestrunHostAuthnExtensions
                     {
                         if (scope != null)
                         {
-                            _ = claimPolicy.AddPolicy(policyName: scope, claimType: "scope", Description: string.Empty, allowedValues: scope);
+                            _ = claimPolicy.AddPolicy(policyName: scope, claimType: "scope", description: string.Empty, allowedValues: scope);
                         }
                     }
                 }
@@ -1262,7 +1262,7 @@ public static class KestrunHostAuthnExtensions
                 // Normal path: configuration object had scopes
                 foreach (var scope in scopes)
                 {
-                    _ = claimPolicy.AddPolicy(policyName: scope, claimType: "scope", Description: string.Empty, allowedValues: scope);
+                    _ = claimPolicy.AddPolicy(policyName: scope, claimType: "scope", description: string.Empty, allowedValues: scope);
                 }
             }
             return claimPolicy.Build();

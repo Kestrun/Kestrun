@@ -1,9 +1,14 @@
-﻿param(
+﻿<#
+    Sample: OpenAPI RequestBody & Response Components
+    Purpose: Demonstrate complete components integration with request bodies and response schemas.
+    File:    15.6-OpenAPI-Components-RequestBody-Response.ps1
+    Notes:   Shows component wrapping, CRUD operations, and complete error handling.
+#>
+param(
     [int]$Port = 5000,
     [IPAddress]$IPAddress = [IPAddress]::Loopback
 )
 
-if (-not (Get-Module Kestrun)) { Import-Module Kestrun }
 
 # --- Logging / Server ---
 
@@ -21,8 +26,6 @@ Add-KrOpenApiInfo -Title 'Complete Components API' `
     -Version '1.0.0' `
     -Description 'Demonstrates complete reusable components: request bodies and responses together.'
 
-Add-KrOpenApiContact -Email 'support@example.com'
-Add-KrOpenApiServer -Url "http://$($IPAddress):$Port" -Description 'Local Server'
 
 Add-KrOpenApiTag -Name 'orders' -Description 'Order management operations'
 
@@ -33,13 +36,13 @@ Add-KrOpenApiTag -Name 'orders' -Description 'Order management operations'
 # Request schema for creating an order
 [OpenApiSchemaComponent(Required = ('productId', 'quantity'))]
 class CreateOrderRequest {
-    [OpenApiPropertyAttribute(Description = 'Product ID', Format = 'int64', Example = 1)]
+    [OpenApiPropertyAttribute(Description = 'Product ID', Example = 1)]
     [long]$productId
 
     [OpenApiPropertyAttribute(Description = 'Quantity ordered', Minimum = 1, Example = 5)]
     [int]$quantity
 
-    [OpenApiPropertyAttribute(Description = 'Customer email', Format = 'email')]
+    [OpenApiPropertyAttribute(Description = 'Customer email', Format = 'email', Example = 'customer@example.com')]
     [string]$customerEmail
 
     [OpenApiPropertyAttribute(Description = 'Shipping address')]
@@ -49,8 +52,8 @@ class CreateOrderRequest {
 # Response schema for order data
 [OpenApiSchemaComponent(Required = ('orderId', 'productId', 'quantity', 'status', 'totalPrice'))]
 class OrderResponse {
-    [OpenApiPropertyAttribute(Description = 'Order ID', Format = 'uuid', Example = 'a54a57ca-36f8-421b-a6b4-2e8f26858a4c')]
-    [string]$orderId
+    [OpenApiPropertyAttribute(Description = 'Order ID', Example = 'a54a57ca-36f8-421b-a6b4-2e8f26858a4c')]
+    [Guid]$orderId
 
     [OpenApiPropertyAttribute(Description = 'Product ID', Format = 'int64', Example = 1)]
     [long]$productId
@@ -58,7 +61,8 @@ class OrderResponse {
     [OpenApiPropertyAttribute(Description = 'Quantity ordered', Example = 5)]
     [int]$quantity
 
-    [OpenApiPropertyAttribute(Description = 'Order status', ValidateSet = ('pending', 'processing', 'shipped', 'delivered'))]
+    [OpenApiPropertyAttribute(Description = 'Order status'  )]
+    [ValidateSet('pending', 'processing', 'shipped', 'delivered')]
     [string]$status
 
     [OpenApiPropertyAttribute(Description = 'Total price', Format = 'double', Example = 499.95)]
@@ -122,7 +126,7 @@ Enable-KrConfiguration
 Add-KrApiDocumentationRoute -DocumentType Swagger
 Add-KrApiDocumentationRoute -DocumentType Redoc
 
-# POST /orders: Create order
+
 <#
 .SYNOPSIS
     Create a new order.
@@ -131,6 +135,9 @@ Add-KrApiDocumentationRoute -DocumentType Redoc
     Returns OrderResponse on success or ErrorDetail on failure.
 .PARAMETER body
     Order creation request using CreateOrderRequestBody component
+.NOTES
+    Tags: orders
+    POST /orders: Create order
 #>
 function createOrder {
     [OpenApiPath(HttpVerb = 'post', Pattern = '/orders')]
@@ -143,31 +150,31 @@ function createOrder {
 
     # Validate required fields
     if (-not $body.productId -or -not $body.quantity) {
-        $error = @{
+        $myError = [ErrorDetail] @{
             code = 'MISSING_FIELDS'
             message = 'productId and quantity are required'
             field = 'productId,quantity'
         }
-        Write-KrJsonResponse $error -StatusCode 400
+        Write-KrResponse $myError -StatusCode 400
         return
     }
 
     # Validate quantity
     if ([int]$body.quantity -le 0) {
-        $error = @{
+        $myError = [ErrorDetail]@{
             code = 'INVALID_QUANTITY'
             message = 'Quantity must be greater than zero'
             field = 'quantity'
             details = "Provided: $($body.quantity)"
         }
-        Write-KrJsonResponse $error -StatusCode 400
+        Write-KrResponse $myError -StatusCode 400
         return
     }
 
     # Create order response
     $unitPrice = 99.99
     $totalPrice = [int]$body.quantity * $unitPrice
-    $response = @{
+    $response = [OrderResponse] @{
         orderId = [System.Guid]::NewGuid().ToString()
         productId = [long]$body.productId
         quantity = [int]$body.quantity
@@ -177,7 +184,7 @@ function createOrder {
         expectedDelivery = (Get-Date).AddDays(5).ToString('yyyy-MM-dd')
     }
 
-    Write-KrJsonResponse $response -StatusCode 201
+    Write-KrResponse $response -StatusCode 201
 }
 
 # GET /orders/{orderId}: Retrieve order
@@ -200,18 +207,18 @@ function getOrder {
 
     # Validate UUID format
     if (-not [System.Guid]::TryParse($orderId, [ref][System.Guid]::Empty)) {
-        $error = @{
+        $myError = [ErrorDetail] @{
             code = 'INVALID_ORDER_ID'
             message = 'Invalid order ID format'
             field = 'orderId'
             details = 'Order ID must be a valid UUID'
         }
-        Write-KrJsonResponse $error -StatusCode 400
+        Write-KrResponse $myError -StatusCode 400
         return
     }
 
     # Mock order data
-    $response = @{
+    $response = [OrderResponse]@{
         orderId = $orderId
         productId = 1
         quantity = 5
@@ -221,10 +228,10 @@ function getOrder {
         expectedDelivery = (Get-Date).AddDays(4).ToString('yyyy-MM-dd')
     }
 
-    Write-KrJsonResponse $response -StatusCode 200
+    Write-KrResponse $response -StatusCode 200
 }
 
-# PUT /orders/{orderId}: Update order
+
 <#
 .SYNOPSIS
     Update an existing order.
@@ -234,6 +241,8 @@ function getOrder {
     The order ID to update
 .PARAMETER body
     Updated order data
+.NOTES
+    PUT /orders/{orderId}: Update order
 #>
 function updateOrder {
     [OpenApiPath(HttpVerb = 'put', Pattern = '/orders/{orderId}')]
@@ -248,19 +257,19 @@ function updateOrder {
 
     # Validate quantity if provided
     if ($body.quantity -and [int]$body.quantity -le 0) {
-        $error = @{
+        $myError =[ErrorDetail] @{
             code = 'INVALID_QUANTITY'
             message = 'Quantity must be greater than zero'
             field = 'quantity'
         }
-        Write-KrJsonResponse $error -StatusCode 400
+        Write-KrResponse $myError -StatusCode 400
         return
     }
 
     # Updated response
     $unitPrice = 99.99
     $quantity = $body.quantity -as [int] ? [int]$body.quantity : 5
-    $response = @{
+    $response = [OrderResponse]@{
         orderId = $orderId
         productId = $body.productId -as [long] ? [long]$body.productId : 1
         quantity = $quantity
@@ -270,7 +279,7 @@ function updateOrder {
         expectedDelivery = (Get-Date).AddDays(4).ToString('yyyy-MM-dd')
     }
 
-    Write-KrJsonResponse $response -StatusCode 200
+    Write-KrResponse $response -StatusCode 200
 }
 
 # =========================================================

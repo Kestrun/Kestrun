@@ -72,7 +72,8 @@ public partial class OpenApiDocDescriptor
                         customName = oaRa.Key;
                     }
                 }
-                if (CreateResponseFromAttribute(a, response))
+                var schema = GetAttributeValue(p);
+                if (CreateResponseFromAttribute(a, response, schema))
                 {
                     hasResponseDef = true;
                 }
@@ -91,19 +92,6 @@ public partial class OpenApiDocDescriptor
             Document.Components!.Responses![key] = response;
             // Skip inferring schema/content for object-typed properties
             if (p.PropertyType.Name == "Object") { continue; }
-
-            // If no schema/content was defined via attributes, infer from property type
-            response.Content ??= new Dictionary<string, OpenApiMediaType>(StringComparer.Ordinal)
-            {
-                ["application/json"] = new OpenApiMediaType()
-            };
-            var iSchema = GetAttributeValue(p);
-
-            // Set schema to $ref of property type
-            foreach (var a in response.Content.Values)
-            {
-                a.Schema = iSchema;
-            }
         }
     }
 
@@ -206,14 +194,21 @@ public partial class OpenApiDocDescriptor
         return t.GetProperty("Key")?.GetValue(attr) as string;
     }
 
-    private bool CreateResponseFromAttribute(object attr, OpenApiResponse response)
+    /// <summary>
+    /// Creates or modifies an OpenApiResponse based on the provided attribute.
+    /// </summary>
+    /// <param name="attr"> The attribute to apply.</param>
+    /// <param name="response"> The OpenApiResponse to modify.</param>
+    /// <param name="iSchema"> An optional schema to apply.</param>
+    /// <returns>True if the response was modified; otherwise, false.</returns>
+    private bool CreateResponseFromAttribute(object attr, OpenApiResponse response, IOpenApiSchema? iSchema = null)
     {
         ArgumentNullException.ThrowIfNull(attr);
         ArgumentNullException.ThrowIfNull(response);
 
         return attr switch
         {
-            OpenApiResponseAttribute resp => ApplyResponseAttribute(resp, response),
+            OpenApiResponseAttribute resp => ApplyResponseAttribute(resp, response, iSchema),
             OpenApiHeaderRefAttribute href => ApplyHeaderRefAttribute(href, response),
             OpenApiLinkRefAttribute lref => ApplyLinkRefAttribute(lref, response),
             OpenApiExampleRefAttribute exRef => ApplyExampleRefAttribute(exRef, response),
@@ -222,22 +217,32 @@ public partial class OpenApiDocDescriptor
     }
     // --- local helpers -------------------------------------------------------
 
-
-    private bool ApplyResponseAttribute(OpenApiResponseAttribute resp, OpenApiResponse response)
+    /// <summary>
+    /// Applies an OpenApiResponseAttribute to an OpenApiResponse.
+    /// </summary>
+    /// <param name="resp">The OpenApiResponseAttribute to apply.</param>
+    /// <param name="response">The OpenApiResponse to modify.</param>
+    /// <param name="schema">An optional schema to apply.</param>
+    /// <returns>True if the response was modified; otherwise, false.</returns>
+    private bool ApplyResponseAttribute(OpenApiResponseAttribute resp, OpenApiResponse response, IOpenApiSchema? schema)
     {
         if (!string.IsNullOrEmpty(resp.Description))
         {
             response.Description = resp.Description;
         }
+        if (resp.Schema is null && resp.SchemaRef is null && schema is not null)
+        {
+            // If no schema or schemaRef defined in attribute, but we have a schema from property, use it
+            resp.SchemaRef = schema is OpenApiSchemaReference schRef ? schRef.Reference.Id : null;
+        }
 
-        // Decide which schema to use
-        IOpenApiSchema? schema = null;
         // 1) Type-based schema (new behavior)
         if (resp.Schema is not null)
         {
             // For responses, requestBodyPreferred = false so we prefer component schema over requestBody
             schema = InferPrimitiveSchema(resp.Schema, requestBodyPreferred: false, inline: resp.Inline);
         }
+
         // 2) Component reference (existing behavior)
         else if (resp.SchemaRef is not null)
         {
@@ -259,13 +264,13 @@ public partial class OpenApiDocDescriptor
         return true;
     }
 
-    private bool ApplyHeaderRefAttribute(OpenApiHeaderRefAttribute href, OpenApiResponse response)
+    private static bool ApplyHeaderRefAttribute(OpenApiHeaderRefAttribute href, OpenApiResponse response)
     {
         (response.Headers ??= new Dictionary<string, IOpenApiHeader>(StringComparer.Ordinal))[href.Key] = new OpenApiHeaderReference(href.ReferenceId);
         return true;
     }
 
-    private bool ApplyLinkRefAttribute(OpenApiLinkRefAttribute lref, OpenApiResponse response)
+    private static bool ApplyLinkRefAttribute(OpenApiLinkRefAttribute lref, OpenApiResponse response)
     {
         (response.Links ??= new Dictionary<string, IOpenApiLink>(StringComparer.Ordinal))[lref.Key] = new OpenApiLinkReference(lref.ReferenceId);
         return true;

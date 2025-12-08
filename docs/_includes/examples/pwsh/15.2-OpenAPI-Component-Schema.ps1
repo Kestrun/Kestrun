@@ -1,4 +1,10 @@
-﻿param(
+﻿<#
+    Sample: OpenAPI Component Schemas
+    Purpose: Demonstrate reusable component schemas for request and response payloads.
+    File:    15.2-OpenAPI-Component-Schema.ps1
+    Notes:   Shows schema component definition with required fields, property attributes, and content type negotiation.
+#>
+param(
     [int]$Port = 5000,
     [IPAddress]$IPAddress = [IPAddress]::Loopback
 )

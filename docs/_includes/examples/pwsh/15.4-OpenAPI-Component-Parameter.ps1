@@ -1,4 +1,10 @@
-﻿param(
+﻿<#
+    Sample: OpenAPI Parameter Components
+    Purpose: Demonstrate reusable parameter components for pagination, filtering, and sorting.
+    File:    15.4-OpenAPI-Component-Parameter.ps1
+    Notes:   Shows parameter location (Query), combined parameter components, and typed responses.
+#>
+param(
     [int]$Port = 5000,
     [IPAddress]$IPAddress = [IPAddress]::Loopback
 )

@@ -1,4 +1,10 @@
-﻿param(
+﻿<#
+    Sample: OpenAPI RequestBody Components
+    Purpose: Demonstrate reusable request body components with multiple content types.
+    File:    15.3-OpenAPI-Component-RequestBody.ps1
+    Notes:   Shows class inheritance, component wrapping, and content type negotiation.
+#>
+param(
     [int]$Port = 5000,
     [IPAddress]$IPAddress = [IPAddress]::Loopback
 )
@@ -113,7 +119,7 @@ function createProduct {
         return
     }
 
-    $response =  [Product]@{
+    $response = [Product]@{
         id = 1
         productName = $body.productName
         price = $body.price

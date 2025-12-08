@@ -1,4 +1,10 @@
-﻿param(
+﻿<#
+    Sample: OpenAPI Response Components
+    Purpose: Demonstrate reusable response components with multiple response types per component.
+    File:    15.5-OpenAPI-Component-Response.ps1
+    Notes:   Shows inline responses, generic object responses, and schema references within attributes.
+#>
+param(
     [int]$Port = 5000,
     [IPAddress]$IPAddress = [IPAddress]::Loopback
 )
@@ -95,13 +101,16 @@ class ErrorResponses {
 }
 
 # Response component for article responses
-[OpenApiResponseComponent(JoinClassName = '-', Description = 'Article responses')]
+[OpenApiResponseComponent( Description = 'Article responses')]
 class ArticleResponses {
-    [OpenApiResponseAttribute(Description = 'Article retrieved successfully', ContentType = ('application/json', 'application/xml'))]
-    [Article]$OK
+    [OpenApiResponseAttribute(Description = 'Article retrieved successfully', ContentType = ('application/json', 'application/xml'), inline = $true)]
+    [Article]$ArticleResponsesOK
 
-    [OpenApiResponseAttribute(Description = 'Article not found', ContentType = ('application/json', 'application/xml'))]
-    [ErrorResponse]$NotFound
+    [OpenApiResponseAttribute(Description = 'Article not found', Schema = [ErrorResponse], ContentType = ('application/json', 'application/xml'))]
+    $ArticleResponsesNotFound
+
+    [OpenApiResponseAttribute()]
+    $objectResponse
 }
 
 # =========================================================
@@ -113,7 +122,7 @@ Enable-KrConfiguration
 Add-KrApiDocumentationRoute -DocumentType Swagger
 Add-KrApiDocumentationRoute -DocumentType Redoc
 
-# GET article endpoint
+
 <#
 .SYNOPSIS
     Get article by ID.
@@ -121,11 +130,13 @@ Add-KrApiDocumentationRoute -DocumentType Redoc
     Retrieves a single article. Returns Article on success or ErrorResponse on failure.
 .PARAMETER articleId
     The article ID to retrieve
+.NOTES
+    GET article endpoint
 #>
 function getArticle {
     [OpenApiPath(HttpVerb = 'get', Pattern = '/articles/{articleId}')]
-    [OpenApiResponseRefAttribute(StatusCode = '200', ReferenceId = 'ArticleResponses-OK')]
-    [OpenApiResponseRefAttribute(StatusCode = '404', ReferenceId = 'ArticleResponses-NotFound')]
+    [OpenApiResponseRefAttribute(StatusCode = '200', ReferenceId = 'ArticleResponsesOK')]
+    [OpenApiResponseRefAttribute(StatusCode = '404', ReferenceId = 'ArticleResponsesNotFound')]
     param(
         [OpenApiParameter(In = [OaParameterLocation]::Path, Required = $true, Description = 'Article ID to retrieve')]
         [int]$articleId
@@ -133,13 +144,13 @@ function getArticle {
 
     # Validate ID
     if ($articleId -le 0) {
-        $error = @{
+        $myError = @{
             statusCode = 400
             message = 'Invalid article ID'
             code = 'INVALID_ID'
             details = 'Article ID must be a positive integer'
         }
-        Write-KrJsonResponse $error -StatusCode 400
+        Write-KrJsonResponse $myError -StatusCode 400
         return
     }
 
@@ -155,7 +166,8 @@ function getArticle {
     Write-KrResponse $article -StatusCode 200
 }
 
-# POST article endpoint
+
+
 <#
 .SYNOPSIS
     Create a new article.
@@ -163,6 +175,8 @@ function getArticle {
     Creates a new article and returns success response or error.
 .PARAMETER body
     Article data (title and content required)
+.NOTES
+    POST article endpoint
 #>
 function createArticle {
     [OpenApiPath(HttpVerb = 'post', Pattern = '/articles')]
@@ -175,13 +189,13 @@ function createArticle {
 
     # Validate
     if (-not $body.title -or -not $body.content) {
-        $error = @{
+        $myError = @{
             statusCode = 400
             message = 'Validation failed'
             code = 'VALIDATION_ERROR'
             details = 'title and content are required'
         }
-        Write-KrJsonResponse $error -StatusCode 400
+        Write-KrJsonResponse $myError -StatusCode 400
         return
     }
 

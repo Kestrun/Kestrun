@@ -10,10 +10,7 @@ namespace Kestrun.OpenApi;
 /// </summary>
 public partial class OpenApiDocDescriptor
 {
-
     #region Schemas
-
-
     private static OpenApiPropertyAttribute? GetSchemaIdentity(Type t)
     {
         // inherit:true already climbs the chain until it finds the first one

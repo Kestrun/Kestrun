@@ -61,8 +61,7 @@ public class OpenApiRequestBodyAttributeTests
         Assert.Equal("User body", body.Description);
         Assert.True(body.Required);
         Assert.NotNull(body.Content);
-        Assert.True(body.Content.ContainsKey("application/json"));
-        var media = body.Content["application/json"];
+        Assert.True(body.Content.TryGetValue("application/json", out var media));
         Assert.NotNull(media.Schema);
         _ = Assert.IsType<Microsoft.OpenApi.OpenApiSchema>(media.Schema);
         Assert.NotNull(media.Example);
@@ -88,8 +87,8 @@ public class OpenApiRequestBodyAttributeTests
         Assert.Contains("UserBodyWithExamples", bodies.Keys);
         var body = (Microsoft.OpenApi.OpenApiRequestBody)bodies["UserBodyWithExamples"];
         Assert.NotNull(body.Content);
-        Assert.True(body.Content.ContainsKey("application/json"));
-        var media = body.Content["application/json"];
+        Assert.True(body.Content.TryGetValue("application/json", out var media));
+        Assert.NotNull(media.Schema);
         Assert.NotNull(media.Schema);
         _ = Assert.IsType<Microsoft.OpenApi.OpenApiSchema>(media.Schema);
         Assert.NotNull(media.Examples);

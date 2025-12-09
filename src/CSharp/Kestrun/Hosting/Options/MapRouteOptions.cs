@@ -1,4 +1,3 @@
-using System.Text;
 using Kestrun.Utilities;
 
 namespace Kestrun.Hosting.Options;
@@ -107,6 +106,11 @@ public class MapRouteOptions
             {
                 RequirePolicies.AddRange(policies);
             }
+        }
+        // If no schemes were provided but policies were, preserve policies
+        if (schemes is null or { Count: 0 } && policies is not null and { Count: > 0 })
+        {
+            RequirePolicies.AddRange(policies);
         }
     }
 }

@@ -79,9 +79,8 @@ public class OpenApiAttributeTests
 
         // Inline response: ensure content dictionary and media type present
         Assert.NotNull(inlineResp.Content);
-        Assert.True(inlineResp.Content.ContainsKey("application/json"));
-        var inlineSchema = inlineResp.Content["application/json"].Schema;
-        Assert.NotNull(inlineSchema);
+        Assert.True(inlineResp.Content.TryGetValue("application/json", out var mediaType));
+        var inlineSchema = mediaType.Schema;
         var concrete = Assert.IsType<Microsoft.OpenApi.OpenApiSchema>(inlineSchema);
         // Ensure clone (new instance) vs referenced component
         Assert.NotNull(descriptor.Document.Components.Schemas);
@@ -101,8 +100,8 @@ public class OpenApiAttributeTests
 
         // Referenced response: schema is a reference wrapper
         Assert.NotNull(refResp.Content);
-        Assert.True(refResp.Content.ContainsKey("application/json"));
-        var refSchema = refResp.Content["application/json"].Schema;
+        Assert.True(refResp.Content.TryGetValue("application/json", out mediaType));
+        var refSchema = mediaType.Schema;
         _ = Assert.IsType<Microsoft.OpenApi.OpenApiSchemaReference>(refSchema);
     }
 

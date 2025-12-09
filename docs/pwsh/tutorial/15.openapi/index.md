@@ -19,6 +19,8 @@ Browse the step-by-step guides below to learn OpenAPI features in Kestrun:
 4. **[Parameter Components](./4.Parameter-Components.md)** — Define reusable query and path parameters
 5. **[Response Components](./5.Response-Components.md)** — Create consistent response structures
 6. **[Complete Components](./6.Complete-Components.md)** — Combine all component types in a full API
+7. **[Tags and External Docs](./7.Tags-and-Docs.md)** — Group operations and attach documentation links
+8. **[Document Information](./8.Document-Info.md)** — Populate title, contact, license, and server metadata
 
 ## Quick start: run the samples
 
@@ -32,16 +34,22 @@ pwsh .\docs\_includes\examples\pwsh\15.1-OpenAPI-Hello-World.ps1
 pwsh .\docs\_includes\examples\pwsh\15.2-OpenAPI-Component-Schema.ps1
 
 # 3) RequestBody components - reusable request structures
-pwsh .\docs\_includes\examples\pwsh\15.3-OpenAPI-RequestBody-Component.ps1
+pwsh .\docs\_includes\examples\pwsh\15.3-OpenAPI-Component-RequestBody.ps1
 
 # 4) Parameter components - reusable query/path parameters
-pwsh .\docs\_includes\examples\pwsh\15.4-OpenAPI-Parameter-Component.ps1
+pwsh .\docs\_includes\examples\pwsh\15.4-OpenAPI-Component-Parameter.ps1
 
 # 5) Response components - reusable response structures
-pwsh .\docs\_includes\examples\pwsh\15.5-OpenAPI-Response-Component.ps1
+pwsh .\docs\_includes\examples\pwsh\15.5-OpenAPI-Component-Response.ps1
 
 # 6) Complete components - full API with all component types
-pwsh .\docs\_includes\examples\pwsh\15.6-OpenAPI-RequestBody-Response-Component.ps1
+pwsh .\docs\_includes\examples\pwsh\15.6-OpenAPI-Components-RequestBody-Response.ps1
+
+# 7) Tags and external docs - group operations and link docs
+pwsh .\docs\_includes\examples\pwsh\15.7-OpenAPI-Tags.ps1
+
+# 8) Document info - contact, license, servers
+pwsh .\docs\_includes\examples\pwsh\15.8-OpenAPI-Document-Info.ps1
 ```
 
 ## Key Concepts

@@ -256,7 +256,7 @@ function updateOrder {
         [OpenApiRequestBody(ContentType = ('application/json', 'application/xml', 'application/x-www-form-urlencoded'))]
         [CreateOrderRequestBody]$body
     )
-Expand-KrObject $body
+
     # Validate quantity if provided
     if ($body.quantity -and [int]$body.quantity -le 0) {
         $myError = [ErrorDetail] @{

@@ -203,7 +203,7 @@ function Start-ExampleScript {
     $importKestrunModule = @"
 # Ensure Kestrun module is imported
 if (-not (Get-Module -Name Kestrun)) {
-     if (Test-Path -Path '$kestrunModulePath' -PathType Leaf) {
+    if (Test-Path -Path '$kestrunModulePath' -PathType Leaf) {
         Import-Module '$kestrunModulePath' -Force -ErrorAction Stop
     } else {
         throw "Kestrun module not found at $kestrunModulePath"
@@ -211,15 +211,35 @@ if (-not (Get-Module -Name Kestrun)) {
 }
 "@
 
-    $pattern = '(?ms)^\s*param\s*\(.*?\)'
+    #$pattern = '(?ms)^\s*param\s*\(.*?\)'
+    <#  $pattern = '(?ms)^\s*param\s*\(.*?\)'
 
     $content = [System.Text.RegularExpressions.Regex]::Replace(
         $content,
         $pattern,
         { param($m) $m.Value + "`n`n" + $importKestrunModule },
         1  # replace only first occurrence
-    )
+    )#>
 
+    $pattern = '(?ms)^\s*param\s*\(.*?\)'
+    $regex = [regex]::new($pattern)
+
+    $content = $regex.Replace(
+        $content,
+        [System.Text.RegularExpressions.MatchEvaluator] {
+            param($m)
+            $m.Value + "`n`n" + $importKestrunModule
+        },
+        1  # <- now this *really is* "only first occurrence"
+    )
+    # Check if it already starts with the exact header
+    if ($content.TrimStart().StartsWith('using module Kestrun')) {
+        Write-Verbose 'The file already contains the required header.'
+        return
+    } else {
+        # Prepend the header
+        $content = "using module Kestrun`n" + $content
+    }
     if (-not $content.Contains('-Pattern "/shutdown"')) {
         # Inject shutdown endpoint for legacy scripts (first occurrence of Start-KrServer)
 

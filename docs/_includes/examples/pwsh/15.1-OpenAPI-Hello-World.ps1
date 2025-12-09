@@ -11,6 +11,7 @@ New-KrLogger | Add-KrSinkConsole |
 
 $srv = New-KrServer -Name 'OpenAPI Hello World' -PassThru
 
+Add-KrEndpoint -Port $Port -IPAddress $IPAddress
 # =========================================================
 #                 TOP-LEVEL OPENAPI
 # =========================================================
@@ -52,12 +53,8 @@ function getGreeting {
 
 Add-KrOpenApiRoute  # Default pattern '/openapi/{version}/openapi.{format}'
 
-Build-KrOpenApiDocument
-Test-KrOpenApiDocument
-
 # =========================================================
 #                      RUN SERVER
 # =========================================================
 
-Add-KrEndpoint -Port $Port -IPAddress $IPAddress
 Start-KrServer -Server $srv -CloseLogsOnExit

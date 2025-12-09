@@ -18,11 +18,14 @@ if (-not (Get-Module -Name Kestrun)) {
     }
     if ($rootSeek) {
         $modulePath = Join-Path $rootSeek 'src' | Join-Path -ChildPath 'PowerShell' | Join-Path -ChildPath 'Kestrun' | Join-Path -ChildPath 'Kestrun.psd1'
-        if (Test-Path $modulePath) { Import-Module $modulePath -Force }
+        try {
+            if (Test-Path $modulePath) { Import-Module $modulePath -Force }
+        } catch {
+            Write-Warning "Failed to import Kestrun module from $($modulePath) : $_"
+        }
     }
 }
-
-<#
+    <#
 .SYNOPSIS
     Locate the tutorial examples directory.
 .DESCRIPTION
@@ -32,22 +35,22 @@ if (-not (Get-Module -Name Kestrun)) {
 .OUTPUTS
     String path to examples directory.
 #>
-function Get-TutorialExamplesDirectory {
-    [CmdletBinding()]
-    param()
-    $root = (Get-Item (Split-Path -Parent $PSCommandPath))
-    while ($root -and -not (Test-Path (Join-Path $root.FullName 'Kestrun.sln'))) {
-        $parent = Get-Item (Split-Path -Parent $root.FullName) -ErrorAction SilentlyContinue
-        if (-not $parent -or $parent.FullName -eq $root.FullName) { break }
-        $root = $parent
+    function Get-TutorialExamplesDirectory {
+        [CmdletBinding()]
+        param()
+        $root = (Get-Item (Split-Path -Parent $PSCommandPath))
+        while ($root -and -not (Test-Path (Join-Path $root.FullName 'Kestrun.sln'))) {
+            $parent = Get-Item (Split-Path -Parent $root.FullName) -ErrorAction SilentlyContinue
+            if (-not $parent -or $parent.FullName -eq $root.FullName) { break }
+            $root = $parent
+        }
+        if (-not $root) { throw 'Cannot find repository root.' }
+        $examples = Join-Path (Join-Path (Join-Path (Join-Path $root.FullName 'docs') '_includes') 'examples') 'pwsh'
+        if (-not (Test-Path $examples)) { throw "Examples directory not found: $examples" }
+        return $examples
     }
-    if (-not $root) { throw 'Cannot find repository root.' }
-    $examples = Join-Path (Join-Path (Join-Path (Join-Path $root.FullName 'docs') '_includes') 'examples') 'pwsh'
-    if (-not (Test-Path $examples)) { throw "Examples directory not found: $examples" }
-    return $examples
-}
 
-<#
+    <#
 .SYNOPSIS
     Get the full path to the Kestrun PowerShell module.
 .DESCRIPTION
@@ -57,22 +60,22 @@ function Get-TutorialExamplesDirectory {
 .OUTPUTS
     String full path to Kestrun.psm1.
 #>
-function Get-KestrunModulePath {
-    [CmdletBinding()]
-    param()
-    $root = (Get-Item (Split-Path -Parent $PSCommandPath))
-    while ($root -and -not (Test-Path (Join-Path $root.FullName 'Kestrun.sln'))) {
-        $parent = Get-Item (Split-Path -Parent $root.FullName) -ErrorAction SilentlyContinue
-        if (-not $parent -or $parent.FullName -eq $root.FullName) { break }
-        $root = $parent
+    function Get-KestrunModulePath {
+        [CmdletBinding()]
+        param()
+        $root = (Get-Item (Split-Path -Parent $PSCommandPath))
+        while ($root -and -not (Test-Path (Join-Path $root.FullName 'Kestrun.sln'))) {
+            $parent = Get-Item (Split-Path -Parent $root.FullName) -ErrorAction SilentlyContinue
+            if (-not $parent -or $parent.FullName -eq $root.FullName) { break }
+            $root = $parent
+        }
+        if (-not $root) { throw 'Cannot find repository root.' }
+        $kestrun = Join-Path -Path $root.FullName -ChildPath 'src' -AdditionalChildPath 'PowerShell', 'Kestrun', 'Kestrun.psm1'
+        if (-not (Test-Path $kestrun)) { throw "Kestrun module not found: $kestrun" }
+        return $kestrun
     }
-    if (-not $root) { throw 'Cannot find repository root.' }
-    $kestrun = Join-Path -Path $root.FullName -ChildPath 'src' -AdditionalChildPath 'PowerShell', 'Kestrun', 'Kestrun.psd1'
-    if (-not (Test-Path $kestrun)) { throw "Kestrun module not found: $kestrun" }
-    return $kestrun
-}
 
-<#
+    <#
 .SYNOPSIS
     Get a free TCP port on localhost.
 .DESCRIPTION
@@ -80,38 +83,38 @@ function Get-KestrunModulePath {
 .OUTPUTS
     Integer port number.
 #>
-function Get-FreeTcpPort {
-    [CmdletBinding()]
-    param(
-        [int]$FallbackPort = 5000,
-        [int]$MaxPort = 64000
-    )
-    try {
-        $retryCount = 0
-        $listener = $null
-        do {
+    function Get-FreeTcpPort {
+        [CmdletBinding()]
+        param(
+            [int]$FallbackPort = 5000,
+            [int]$MaxPort = 64000
+        )
+        try {
+            $retryCount = 0
+            $listener = $null
+            do {
+                if ($null -ne $listener) {
+                    $listener.Stop()
+                    $listener.Dispose()
+                }
+                $listener = [System.Net.Sockets.TcpListener]::new([System.Net.IPAddress]::Loopback, 0)
+                $listener.Start()
+                $port = ($listener.LocalEndpoint).Port
+                $retryCount++
+            } until ($port -lt $MaxPort -or $retryCount -ge 5)
+        } catch {
+            $port = $FallbackPort # fallback
+            Write-Warning "Failed to get free TCP port: $_ (using fallback port $FallbackPort)"
+        } finally {
             if ($null -ne $listener) {
                 $listener.Stop()
                 $listener.Dispose()
             }
-            $listener = [System.Net.Sockets.TcpListener]::new([System.Net.IPAddress]::Loopback, 0)
-            $listener.Start()
-            $port = ($listener.LocalEndpoint).Port
-            $retryCount++
-        } until ($port -lt $MaxPort -or $retryCount -ge 5)
-    } catch {
-        $port = $FallbackPort # fallback
-        Write-Warning "Failed to get free TCP port: $_ (using fallback port $FallbackPort)"
-    } finally {
-        if ($null -ne $listener) {
-            $listener.Stop()
-            $listener.Dispose()
         }
+        return $port
     }
-    return $port
-}
 
-<#
+    <#
 .SYNOPSIS
     Get the full path to a tutorial example script by name.
 .DESCRIPTION
@@ -122,16 +125,16 @@ function Get-FreeTcpPort {
 .OUTPUTS
     String full path to the example script.
 #>
-function Get-ExampleScriptPath {
-    [CmdletBinding()] param([Parameter(Mandatory)][string]$Name)
-    $examples = Get-TutorialExamplesDirectory
-    $full = Join-Path $examples $Name
-    if (-not (Test-Path $full)) { throw "Example script not found: $Name" }
-    return $full
-}
+    function Get-ExampleScriptPath {
+        [CmdletBinding()] param([Parameter(Mandatory)][string]$Name)
+        $examples = Get-TutorialExamplesDirectory
+        $full = Join-Path $examples $Name
+        if (-not (Test-Path $full)) { throw "Example script not found: $Name" }
+        return $full
+    }
 
 
-<#
+    <#
 .SYNOPSIS
     Start a tutorial example script in a background process on a free TCP port.
 .DESCRIPTION
@@ -163,44 +166,44 @@ function Get-ExampleScriptPath {
     - ExitedEarly: Boolean indicating if the process exited before startup completed.
     - Ready: Boolean indicating if the example is ready to accept connections.
 #>
-function Start-ExampleScript {
-    [CmdletBinding(SupportsShouldProcess, defaultParameterSetName = 'Name')]
-    param(
-        [Parameter(Mandatory = $true, ParameterSetName = 'Name')]
-        [string]$Name,
-        [Parameter(Mandatory = $true, ParameterSetName = 'ScriptBlock')]
-        [scriptblock]$ScriptBlock,
-        [int]$Port,
-        [int]$StartupTimeoutSeconds = 40,
-        [int]$HttpProbeDelayMs = 150,
-        [switch]$FromRootDirectory,
-        [string[]]$EnvironmentVariables = @('UPSTASH_REDIS_URL')
-    )
-    if (-not $Port) { $Port = Get-FreeTcpPort }
-    if ($PSCmdlet.ParameterSetName -eq 'Name') {
-        if ( $FromRootDirectory ) {
-            $root = Resolve-Path "$PSScriptRoot\..\..\.."
-            $path = Join-Path $root $Name
-            if (-not (Test-Path $path)) { throw "Example script not found: $Name" }
+    function Start-ExampleScript {
+        [CmdletBinding(SupportsShouldProcess, defaultParameterSetName = 'Name')]
+        param(
+            [Parameter(Mandatory = $true, ParameterSetName = 'Name')]
+            [string]$Name,
+            [Parameter(Mandatory = $true, ParameterSetName = 'ScriptBlock')]
+            [scriptblock]$ScriptBlock,
+            [int]$Port,
+            [int]$StartupTimeoutSeconds = 40,
+            [int]$HttpProbeDelayMs = 150,
+            [switch]$FromRootDirectory,
+            [string[]]$EnvironmentVariables = @('UPSTASH_REDIS_URL')
+        )
+        if (-not $Port) { $Port = Get-FreeTcpPort }
+        if ($PSCmdlet.ParameterSetName -eq 'Name') {
+            if ( $FromRootDirectory ) {
+                $root = Resolve-Path "$PSScriptRoot\..\..\.."
+                $path = Join-Path $root $Name
+                if (-not (Test-Path $path)) { throw "Example script not found: $Name" }
+            } else {
+                $path = Get-ExampleScriptPath -Name $Name
+            }
+            $scriptDir = Split-Path -Parent $path
+            $originalLocation = Get-Location
+            # Push current location so relative file references (Assets/...) resolve inside example
+            Push-Location -Path $scriptDir
+            $content = Get-Content -Path $path -Raw
+            $pushedLocation = $true
         } else {
-            $path = Get-ExampleScriptPath -Name $Name
+            $content = $ScriptBlock.ToString()
+            $pushedLocation = $false
+            $scriptDir = $PSScriptRoot
+            $originalLocation = $scriptDir
         }
-        $scriptDir = Split-Path -Parent $path
-        $originalLocation = Get-Location
-        # Push current location so relative file references (Assets/...) resolve inside example
-        Push-Location -Path $scriptDir
-        $content = Get-Content -Path $path -Raw
-        $pushedLocation = $true
-    } else {
-        $content = $ScriptBlock.ToString()
-        $pushedLocation = $false
-        $scriptDir = $PSScriptRoot
-        $originalLocation = $scriptDir
-    }
-    $serverIp = 'localhost' # Use loopback for safety
+        $serverIp = 'localhost' # Use loopback for safety
 
-    $kestrunModulePath = Get-KestrunModulePath
-    $importKestrunModule = @"
+        $kestrunModulePath = Get-KestrunModulePath
+        <# $importKestrunModule = @"
 # Ensure Kestrun module is imported
 if (-not (Get-Module -Name Kestrun)) {
     if (Test-Path -Path '$kestrunModulePath' -PathType Leaf) {
@@ -211,15 +214,6 @@ if (-not (Get-Module -Name Kestrun)) {
 }
 "@
 
-    #$pattern = '(?ms)^\s*param\s*\(.*?\)'
-    <#  $pattern = '(?ms)^\s*param\s*\(.*?\)'
-
-    $content = [System.Text.RegularExpressions.Regex]::Replace(
-        $content,
-        $pattern,
-        { param($m) $m.Value + "`n`n" + $importKestrunModule },
-        1  # replace only first occurrence
-    )#>
 
     $pattern = '(?ms)^\s*param\s*\(.*?\)'
     $regex = [regex]::new($pattern)
@@ -239,136 +233,147 @@ if (-not (Get-Module -Name Kestrun)) {
     } else {
         # Prepend the header
         $content = "using module Kestrun`n" + $content
-    }
-    if (-not $content.Contains('-Pattern "/shutdown"')) {
-        # Inject shutdown endpoint for legacy scripts (first occurrence of Start-KrServer)
+    }#>
+        if (-not $content.Contains('-Pattern "/shutdown"')) {
+            # Inject shutdown endpoint for legacy scripts (first occurrence of Start-KrServer)
 
-        $content = [System.Text.RegularExpressions.Regex]::Replace(
-            $content,
-            '\bStart-KrServer\b', @'
+            $content = [System.Text.RegularExpressions.Regex]::Replace(
+                $content,
+                '\bStart-KrServer\b', @'
 Add-KrMapRoute -Verbs Get -Pattern "/shutdown" -ScriptBlock { Stop-KrServer }
 Add-KrMapRoute -Verbs Get -Pattern "/online" -ScriptBlock { write-KrTextResponse -InputObject 'OK' -StatusCode 200 }
 Start-KrServer
 '@
-            , 1 # only first occurrence
-        )
-    }
-
-
-    # Adjust Initialize-KrRoot if present to the example script directory
-    if ( $content.Contains('Initialize-KrRoot -Path $PSScriptRoot')) {
-        $content = $content.Replace('Initialize-KrRoot -Path $PSScriptRoot', "Initialize-KrRoot -Path '$scriptDir'")
-    }
-    $tempDir = [System.IO.Path]::GetTempPath()
-    # Generate a unique file name for the temp script
-    $fileNameWithoutExtension = ([string]::IsNullOrEmpty($Name)) ? 'ScriptBlockExample' : [IO.Path]::GetFileNameWithoutExtension((Split-Path -Leaf $Name))
-
-    # Write modified legacy content to temp file
-    $tmp = Join-Path $tempDir ('kestrun-example-' + $fileNameWithoutExtension + '-' + [System.IO.Path]::GetRandomFileName() + '.ps1')
-    Set-Content -Path $tmp -Value $content -Encoding UTF8
-
-    $stdOut = Join-Path $tempDir ('kestrun-example-' + $fileNameWithoutExtension + '-' + [System.IO.Path]::GetRandomFileName() + '.out.log')
-    $stdErr = Join-Path $tempDir ('kestrun-example-' + $fileNameWithoutExtension + '-' + [System.IO.Path]::GetRandomFileName() + '.err.log')
-    $argList = @('-NoLogo', '-NoProfile', '-File', $tmp, '-Port', $Port)
-
-    # Build environment variables for the child process (including UPSTASH_REDIS_URL if set in parent)
-    $environment = @{}
-    # Copy current environment variables
-    foreach ($key in [System.Environment]::GetEnvironmentVariables().Keys) {
-        if ($EnvironmentVariables -contains $key) {
-            $environment[$key] = [System.Environment]::GetEnvironmentVariable($key)
+                , 1 # only first occurrence
+            )
         }
-    }
-    # Create process start parameters
-    $param = @{
-        FilePath = 'pwsh'
-        WorkingDirectory = $scriptDir
-        ArgumentList = $argList
-        PassThru = $true
-        RedirectStandardOutput = $stdOut
-        RedirectStandardError = $stdErr
-        Environment = $environment
-    }
 
-    # Prevent spawned process from inheriting the test runner's console window on Windows (avoids unwanted UI popups during automated tests)
-    if ($IsWindows) { $param.WindowStyle = 'Hidden' }
-    # Start the process
-    $proc = Start-Process @param
 
-    # Wait for the process to start accepting connections or timeout
-    $deadline = [DateTime]::UtcNow.AddSeconds($StartupTimeoutSeconds)
-    $ready = $false
-    $attempt = 0
-    Start-Sleep -Seconds 1 # Initial delay before probing
-    while ([DateTime]::UtcNow -lt $deadline -and -not $ready) {
-        if ($proc.HasExited) { break }
-        $attempt++
-        # Optional lightweight HTTP/HTTPS probe of '/' and '/online' endpoints to detect readiness
-        $probeUrls = @(
-            "http://$serverIp`:$Port/online",
-            "https://$serverIp`:$Port/online",
-            "http://$serverIp`:$Port/",
-            "https://$serverIp`:$Port/"
-        )
-        foreach ($url in $probeUrls) {
-            try {
-                $probe = Get-HttpHeadersRaw -Uri $url -Insecure -AsHashtable
-                if ($probe.StatusCode -ge 200 -and $probe.StatusCode -lt 600) {
-                    $ready = $true
-                    break
-                }
-            } catch {
-                $script:errorMessage = $_.Exception.Message
+        # Adjust Initialize-KrRoot if present to the example script directory
+        if ( $content.Contains('Initialize-KrRoot -Path $PSScriptRoot')) {
+            $content = $content.Replace('Initialize-KrRoot -Path $PSScriptRoot', "Initialize-KrRoot -Path '$scriptDir'")
+        }
+        $tempDir = [System.IO.Path]::GetTempPath()
+        # Generate a unique file name for the temp script
+        $fileNameWithoutExtension = ([string]::IsNullOrEmpty($Name)) ? 'ScriptBlockExample' : [IO.Path]::GetFileNameWithoutExtension((Split-Path -Leaf $Name))
+
+        # Write modified legacy content to temp file
+        $scriptToRun = Join-Path $tempDir ('kestrun-example-' + $fileNameWithoutExtension + '-' + [System.IO.Path]::GetRandomFileName() + '.ps1')
+        Set-Content -Path $scriptToRun -Value $content -Encoding UTF8
+
+        $stdOut = Join-Path $tempDir ('kestrun-example-' + $fileNameWithoutExtension + '-' + [System.IO.Path]::GetRandomFileName() + '.out.log')
+        $stdErr = Join-Path $tempDir ('kestrun-example-' + $fileNameWithoutExtension + '-' + [System.IO.Path]::GetRandomFileName() + '.err.log')
+        #   $argList = @('-NoLogo', '-NoProfile', '-File', $scriptToRun, '-Port', $Port)
+
+        # Build environment variables for the child process (including UPSTASH_REDIS_URL if set in parent)
+        $environment = @{}
+        # Copy current environment variables
+        foreach ($key in [System.Environment]::GetEnvironmentVariables().Keys) {
+            if ($EnvironmentVariables -contains $key) {
+                $environment[$key] = [System.Environment]::GetEnvironmentVariable($key)
             }
         }
-        Start-Sleep -Milliseconds $HttpProbeDelayMs
-    }
-    $exited = $proc.HasExited
-    if (-not $ready -and -not $exited) {
-        if ($errorMessage) {
-            Write-Warning "Example $Name not accepting connections on port $Port after timeout. Last probe error: $errorMessage. Continuing; requests may fail."
-        } else {
-            Write-Warning "Example $Name not accepting connections on port $Port after timeout. Continuing; requests may fail."
+
+        # This becomes: pwsh -NoLogo -NoProfile -Command "Import-Module Kestrun; . 'C:\...\myscript.ps1'"
+        $argList = @(
+            '-NoLogo'
+            '-NoProfile'
+            '-Command'
+            "Import-Module '$kestrunModulePath'; . '$scriptToRun'"
+        )
+
+        # Create process start parameters
+        $param = @{
+            FilePath = 'pwsh'
+            WorkingDirectory = $scriptDir
+            ArgumentList = $argList
+            PassThru = $true
+            RedirectStandardOutput = $stdOut
+            RedirectStandardError = $stdErr
+            Environment = $environment
+        }
+
+
+
+        # Prevent spawned process from inheriting the test runner's console window on Windows (avoids unwanted UI popups during automated tests)
+        if ($IsWindows) { $param.WindowStyle = 'Hidden' }
+        # Start the process
+        $proc = Start-Process @param
+
+        # Wait for the process to start accepting connections or timeout
+        $deadline = [DateTime]::UtcNow.AddSeconds($StartupTimeoutSeconds)
+        $ready = $false
+        $attempt = 0
+        Start-Sleep -Seconds 1 # Initial delay before probing
+        while ([DateTime]::UtcNow -lt $deadline -and -not $ready) {
+            if ($proc.HasExited) { break }
+            $attempt++
+            # Optional lightweight HTTP/HTTPS probe of '/' and '/online' endpoints to detect readiness
+            $probeUrls = @(
+                "http://$serverIp`:$Port/online",
+                "https://$serverIp`:$Port/online",
+                "http://$serverIp`:$Port/",
+                "https://$serverIp`:$Port/"
+            )
+            foreach ($url in $probeUrls) {
+                try {
+                    $probe = Get-HttpHeadersRaw -Uri $url -Insecure -AsHashtable
+                    if ($probe.StatusCode -ge 200 -and $probe.StatusCode -lt 600) {
+                        $ready = $true
+                        break
+                    }
+                } catch {
+                    $script:errorMessage = $_.Exception.Message
+                }
+            }
+            Start-Sleep -Milliseconds $HttpProbeDelayMs
+        }
+        $exited = $proc.HasExited
+        if (-not $ready -and -not $exited) {
+            if ($errorMessage) {
+                Write-Warning "Example $Name not accepting connections on port $Port after timeout. Last probe error: $errorMessage. Continuing; requests may fail."
+            } else {
+                Write-Warning "Example $Name not accepting connections on port $Port after timeout. Continuing; requests may fail."
+            }
+        }
+
+        if ($exited) {
+            Write-Warning "Example $Name process exited early with code $($proc.ExitCode). Capturing logs."
+            if (Test-Path $stdErr) { Write-Warning ('stderr: ' + (Get-Content $stdErr -Raw)) }
+            if (Test-Path $stdOut) { Write-Verbose ('stdout: ' + (Get-Content $stdOut -Raw)) -Verbose }
+        }
+
+        # Heuristic: detect HTTPS usage if listener line includes cert/self-signed flags
+        $usesHttps = $false
+        if (($content -match 'Add-KrEndpoint[^\n]*-SelfSignedCert') -or
+            ($content -match 'Add-KrEndpoint[^\n]*-CertPath') -or
+            ($content -match 'Add-KrEndpoint[^\n]*-X509Certificate')
+        ) {
+            $usesHttps = $true
+        }
+
+        Start-Sleep -Seconds 2 # Allow some time for server to stabilize
+
+        return [pscustomobject]@{
+            Name = $Name
+            Url = ('{0}://{1}:{2}' -f ($usesHttps ? 'https' : 'http'), $serverIp, $Port)
+            Host = $serverIp
+            Port = $Port
+            TempPath = $tmp
+            Process = $proc
+            Content = $content
+            StdOut = $stdOut
+            StdErr = $stdErr
+            ExitedEarly = $exited
+            Ready = $ready
+            ScriptDirectory = $scriptDir
+            OriginalLocation = $originalLocation
+            PushedLocation = $pushedLocation
+            Https = $usesHttps
         }
     }
 
-    if ($exited) {
-        Write-Warning "Example $Name process exited early with code $($proc.ExitCode). Capturing logs."
-        if (Test-Path $stdErr) { Write-Warning ('stderr: ' + (Get-Content $stdErr -Raw)) }
-        if (Test-Path $stdOut) { Write-Verbose ('stdout: ' + (Get-Content $stdOut -Raw)) -Verbose }
-    }
-
-    # Heuristic: detect HTTPS usage if listener line includes cert/self-signed flags
-    $usesHttps = $false
-    if (($content -match 'Add-KrEndpoint[^\n]*-SelfSignedCert') -or
-        ($content -match 'Add-KrEndpoint[^\n]*-CertPath') -or
-        ($content -match 'Add-KrEndpoint[^\n]*-X509Certificate')
-    ) {
-        $usesHttps = $true
-    }
-
-    Start-Sleep -Seconds 2 # Allow some time for server to stabilize
-
-    return [pscustomobject]@{
-        Name = $Name
-        Url = ('{0}://{1}:{2}' -f ($usesHttps ? 'https' : 'http'), $serverIp, $Port)
-        Host = $serverIp
-        Port = $Port
-        TempPath = $tmp
-        Process = $proc
-        Content = $content
-        StdOut = $stdOut
-        StdErr = $stdErr
-        ExitedEarly = $exited
-        Ready = $ready
-        ScriptDirectory = $scriptDir
-        OriginalLocation = $originalLocation
-        PushedLocation = $pushedLocation
-        Https = $usesHttps
-    }
-}
-
-<#
+    <#
 .SYNOPSIS
     Stop a running tutorial example script instance.
 .DESCRIPTION
@@ -377,28 +382,28 @@ Start-KrServer
 .PARAMETER Instance
     The object returned by Start-ExampleScript representing the running instance to stop.
 #>
-function Stop-ExampleScript {
-    [CmdletBinding(SupportsShouldProcess)] param([Parameter(Mandatory)]$Instance)
-    $shutdown = "http://127.0.0.1:$($Instance.Port)/shutdown"
-    try { Invoke-WebRequest -Uri $shutdown -UseBasicParsing -TimeoutSec 3 -ErrorAction Stop | Out-Null } catch {
-        try {
-            Write-Debug "Initial shutdown failed, retrying with HTTPS: $($_.Exception.Message)"
-            $shutdown = "https://127.0.0.1:$($Instance.Port)/shutdown"
-            Invoke-WebRequest -Uri $shutdown -UseBasicParsing -TimeoutSec 3 -ErrorAction Stop -SkipCertificateCheck | Out-Null
-        } catch {
-            Write-Debug "Shutdown failed: $($_.Exception.Message)"
-        }
-    } finally {
-        if (-not $Instance.Process.HasExited) { $Instance.Process | Stop-Process -Force }
-        $Instance.Process.Dispose()
-        Remove-Item -Path $Instance.TempPath -Force -ErrorAction SilentlyContinue
-        if ($Instance.PushedLocation) {
-            try { Pop-Location -ErrorAction Stop } catch { Write-Warning "Pop-Location failed: $($_.Exception.Message)" }
+    function Stop-ExampleScript {
+        [CmdletBinding(SupportsShouldProcess)] param([Parameter(Mandatory)]$Instance)
+        $shutdown = "http://127.0.0.1:$($Instance.Port)/shutdown"
+        try { Invoke-WebRequest -Uri $shutdown -UseBasicParsing -TimeoutSec 3 -ErrorAction Stop | Out-Null } catch {
+            try {
+                Write-Debug "Initial shutdown failed, retrying with HTTPS: $($_.Exception.Message)"
+                $shutdown = "https://127.0.0.1:$($Instance.Port)/shutdown"
+                Invoke-WebRequest -Uri $shutdown -UseBasicParsing -TimeoutSec 3 -ErrorAction Stop -SkipCertificateCheck | Out-Null
+            } catch {
+                Write-Debug "Shutdown failed: $($_.Exception.Message)"
+            }
+        } finally {
+            if (-not $Instance.Process.HasExited) { $Instance.Process | Stop-Process -Force }
+            $Instance.Process.Dispose()
+            Remove-Item -Path $Instance.TempPath -Force -ErrorAction SilentlyContinue
+            if ($Instance.PushedLocation) {
+                try { Pop-Location -ErrorAction Stop } catch { Write-Warning "Pop-Location failed: $($_.Exception.Message)" }
+            }
         }
     }
-}
 
-<#
+    <#
 .SYNOPSIS
     Extract route patterns from example script content.
 .DESCRIPTION
@@ -409,16 +414,16 @@ function Stop-ExampleScript {
 .OUTPUTS
     Array of unique route pattern strings.
 #>
-function Get-ExampleRoutePattern {
-    [CmdletBinding()] param([Parameter(Mandatory)][string]$ScriptContent)
-    $routes = @()
-    # Support both -Pattern and -Path parameters for route definitions
-    $pattern = 'Add-KrMapRoute\b[^\n\r]*?-(?:Pattern|Path)\s+"([^"]+)"'
-    foreach ($m in [regex]::Matches($ScriptContent, $pattern)) { $routes += $m.Groups[1].Value }
-    $routes | Where-Object { $_ -and $_ -ne '/shutdown' } | Sort-Object -Unique
-}
+    function Get-ExampleRoutePattern {
+        [CmdletBinding()] param([Parameter(Mandatory)][string]$ScriptContent)
+        $routes = @()
+        # Support both -Pattern and -Path parameters for route definitions
+        $pattern = 'Add-KrMapRoute\b[^\n\r]*?-(?:Pattern|Path)\s+"([^"]+)"'
+        foreach ($m in [regex]::Matches($ScriptContent, $pattern)) { $routes += $m.Groups[1].Value }
+        $routes | Where-Object { $_ -and $_ -ne '/shutdown' } | Sort-Object -Unique
+    }
 
-<#
+    <#
 .SYNOPSIS
     Convert a route pattern to a full URL using the provided port.
 .DESCRIPTION
@@ -435,20 +440,20 @@ function Get-ExampleRoutePattern {
 .OUTPUTS
     String full URL (e.g. 'http://127.0.0.1:5000/items/sample').
 #>
-function Convert-RouteToUrl {
-    [CmdletBinding()]
-    [outputtype([string])]
-    param(
-        [string]$Scheme = 'http',
-        [string]$Server = '127.0.0.1',
-        [string]$Route,
-        [int]$Port)
-    $r = [regex]::Replace($Route, '{\*?[^}]+}', 'sample')
-    if (-not $r.StartsWith('/')) { $r = '/' + $r }
-    return "$($Scheme)://$($Server):$Port$r"
-}
+    function Convert-RouteToUrl {
+        [CmdletBinding()]
+        [outputtype([string])]
+        param(
+            [string]$Scheme = 'http',
+            [string]$Server = '127.0.0.1',
+            [string]$Route,
+            [int]$Port)
+        $r = [regex]::Replace($Route, '{\*?[^}]+}', 'sample')
+        if (-not $r.StartsWith('/')) { $r = '/' + $r }
+        return "$($Scheme)://$($Server):$Port$r"
+    }
 
-<#
+    <#
 .SYNOPSIS
     Test all routes defined in an example script for 200 response.
 .DESCRIPTION
@@ -474,60 +479,60 @@ function Convert-RouteToUrl {
 .OUTPUTS
     None. Uses Pester assertions to validate each route.
 #>
-function Test-ExampleRouteSet {
-    [CmdletBinding()] param(
-        [Parameter(Mandatory)]$Instance,
-        [string[]] $SkipPatterns = @('favicon', 'redirect', 'error', 'login', 'logout'),
-        [hashtable] $CustomInvokers,
-        [hashtable] $ContentExpectations,
-        [switch] $AssertBodyNotEmpty
-    )
-    $routes = Get-ExampleRoutePattern -ScriptContent $Instance.Content
-    foreach ($r in $routes) {
-        if ($SkipPatterns | Where-Object { $r -match $_ }) { continue }
-        if ($r -match '{\*[^}]*}') { continue } # Skip wildcard routes for simplicity
-        $url = Convert-RouteToUrl -Route $r -Port $Instance.Port
-        $method = 'Get'
-        $body = $null
-        $headers = @{}
-        if ($r -like '/input/{value}' -or $r -like '/{value}') { $url = $url -replace 'sample$', 'demoValue'; $method = 'Get' }
+    function Test-ExampleRouteSet {
+        [CmdletBinding()] param(
+            [Parameter(Mandatory)]$Instance,
+            [string[]] $SkipPatterns = @('favicon', 'redirect', 'error', 'login', 'logout'),
+            [hashtable] $CustomInvokers,
+            [hashtable] $ContentExpectations,
+            [switch] $AssertBodyNotEmpty
+        )
+        $routes = Get-ExampleRoutePattern -ScriptContent $Instance.Content
+        foreach ($r in $routes) {
+            if ($SkipPatterns | Where-Object { $r -match $_ }) { continue }
+            if ($r -match '{\*[^}]*}') { continue } # Skip wildcard routes for simplicity
+            $url = Convert-RouteToUrl -Route $r -Port $Instance.Port
+            $method = 'Get'
+            $body = $null
+            $headers = @{}
+            if ($r -like '/input/{value}' -or $r -like '/{value}') { $url = $url -replace 'sample$', 'demoValue'; $method = 'Get' }
 
-        if ($CustomInvokers -and $CustomInvokers.ContainsKey($r)) {
-            & $CustomInvokers[$r] -Url $url -Port $Instance.Port -Route $r | Out-Null
-            continue
-        }
-
-        Write-Verbose "Testing $($Instance.Name): $r -> $url ($method)"
-        if ($Instance.Https) {
-            $url = $url -replace '^http:', 'https:'
-            $invokeParams = @{ Uri = $url; UseBasicParsing = $true; TimeoutSec = 8; Method = $method; Headers = $headers; Body = $body; SkipCertificateCheck = $true }
-        } else {
-            $invokeParams = @{ Uri = $url; UseBasicParsing = $true; TimeoutSec = 8; Method = $method; Headers = $headers; Body = $body }
-        }
-        $resp = Invoke-WebRequest @invokeParams
-        if ($resp.StatusCode -ne 200) { throw "Route $r returned status $($resp.StatusCode)" }
-
-        # Content assertions
-        if ($ContentExpectations -and $ContentExpectations.ContainsKey($r)) {
-            $exp = $ContentExpectations[$r]
-            if ($exp -is [string]) {
-                ($resp.Content -like "*${exp}*") | Should -BeTrue -Because "Body should contain expected substring for route $r"
-            } elseif ($exp -is [scriptblock]) {
-                & $exp -Response $resp -Route $r -Instance $Instance
-            } elseif ($exp -is [hashtable]) {
-                if ($exp.ContainsKey('Contains')) { ($resp.Content -like "*${($exp.Contains)}*") | Should -BeTrue }
-                if ($exp.ContainsKey('Regex')) { $resp.Content | Should -Match $exp.Regex }
-                if ($exp.ContainsKey('Exact')) { $resp.Content | Should -Be $exp.Exact }
-            } else {
-                Write-Warning "Unsupported expectation type for route $($r): $($exp.GetType().FullName)"
+            if ($CustomInvokers -and $CustomInvokers.ContainsKey($r)) {
+                & $CustomInvokers[$r] -Url $url -Port $Instance.Port -Route $r | Out-Null
+                continue
             }
-        } elseif ($AssertBodyNotEmpty) {
-            ($resp.Content -and ($resp.Content.Trim().Length -gt 0)) | Should -BeTrue -Because "Body should not be empty for route $r"
+
+            Write-Verbose "Testing $($Instance.Name): $r -> $url ($method)"
+            if ($Instance.Https) {
+                $url = $url -replace '^http:', 'https:'
+                $invokeParams = @{ Uri = $url; UseBasicParsing = $true; TimeoutSec = 8; Method = $method; Headers = $headers; Body = $body; SkipCertificateCheck = $true }
+            } else {
+                $invokeParams = @{ Uri = $url; UseBasicParsing = $true; TimeoutSec = 8; Method = $method; Headers = $headers; Body = $body }
+            }
+            $resp = Invoke-WebRequest @invokeParams
+            if ($resp.StatusCode -ne 200) { throw "Route $r returned status $($resp.StatusCode)" }
+
+            # Content assertions
+            if ($ContentExpectations -and $ContentExpectations.ContainsKey($r)) {
+                $exp = $ContentExpectations[$r]
+                if ($exp -is [string]) {
+                    ($resp.Content -like "*${exp}*") | Should -BeTrue -Because "Body should contain expected substring for route $r"
+                } elseif ($exp -is [scriptblock]) {
+                    & $exp -Response $resp -Route $r -Instance $Instance
+                } elseif ($exp -is [hashtable]) {
+                    if ($exp.ContainsKey('Contains')) { ($resp.Content -like "*${($exp.Contains)}*") | Should -BeTrue }
+                    if ($exp.ContainsKey('Regex')) { $resp.Content | Should -Match $exp.Regex }
+                    if ($exp.ContainsKey('Exact')) { $resp.Content | Should -Be $exp.Exact }
+                } else {
+                    Write-Warning "Unsupported expectation type for route $($r): $($exp.GetType().FullName)"
+                }
+            } elseif ($AssertBodyNotEmpty) {
+                ($resp.Content -and ($resp.Content.Trim().Length -gt 0)) | Should -BeTrue -Because "Body should not be empty for route $r"
+            }
         }
     }
-}
 
-<#
+    <#
 .SYNOPSIS
     Issue an HTTP request and validate status and optional content expectations.
 .DESCRIPTION
@@ -562,42 +567,42 @@ function Test-ExampleRouteSet {
     If ReturnRaw is set, returns the Invoke-WebRequest response object; otherwise returns nothing on
     success. Throws on failure.
 #>
-# Region: Assertion utilities
-function Invoke-ExampleRequest {
-    [CmdletBinding()] param(
-        [Parameter(Mandatory)] [string] $Uri,
-        [ValidateSet('Get', 'Post', 'Put', 'Patch', 'Delete', 'Head')] [string] $Method = 'Get',
-        [int] $ExpectStatus = 200,
-        [string] $ContentTypeContains,
-        [string] $BodyContains,
-        [object] $Body,
-        [string] $ContentType,
-        [hashtable] $Headers,
-        [switch] $ReturnRaw,
-        [int] $RetryCount = 1,
-        [int] $RetryDelayMs = 250
-    )
-    $lastErr = $null
-    for ($i = 0; $i -le $RetryCount; $i++) {
-        try {
-            $invokeParams = @{ Uri = $Uri; Method = $Method; UseBasicParsing = $true; TimeoutSec = 8 }
-            if ($Uri -like 'https://*') { $invokeParams.SkipCertificateCheck = $true }
-            if ($Headers) { $invokeParams.Headers = $Headers }
-            if ($Body) { $invokeParams.Body = $Body }
-            if ($ContentType) { $invokeParams.ContentType = $ContentType }
-            $resp = Invoke-WebRequest @invokeParams
-            $resp.StatusCode | Should -Be $ExpectStatus
-            if ($ContentTypeContains) { ($resp.Headers['Content-Type'] -join ';') | Should -Match $ContentTypeContains }
-            if ($BodyContains) { ($resp.Content -like "*${BodyContains}*") | Should -BeTrue -Because "Body should contain substring '${BodyContains}'" }
-            if ($ReturnRaw) { return $resp } else { return }
-        } catch {
-            $lastErr = $_
-            if ($i -lt $RetryCount) { Start-Sleep -Milliseconds $RetryDelayMs; continue } else { throw $lastErr }
+    # Region: Assertion utilities
+    function Invoke-ExampleRequest {
+        [CmdletBinding()] param(
+            [Parameter(Mandatory)] [string] $Uri,
+            [ValidateSet('Get', 'Post', 'Put', 'Patch', 'Delete', 'Head')] [string] $Method = 'Get',
+            [int] $ExpectStatus = 200,
+            [string] $ContentTypeContains,
+            [string] $BodyContains,
+            [object] $Body,
+            [string] $ContentType,
+            [hashtable] $Headers,
+            [switch] $ReturnRaw,
+            [int] $RetryCount = 1,
+            [int] $RetryDelayMs = 250
+        )
+        $lastErr = $null
+        for ($i = 0; $i -le $RetryCount; $i++) {
+            try {
+                $invokeParams = @{ Uri = $Uri; Method = $Method; UseBasicParsing = $true; TimeoutSec = 8 }
+                if ($Uri -like 'https://*') { $invokeParams.SkipCertificateCheck = $true }
+                if ($Headers) { $invokeParams.Headers = $Headers }
+                if ($Body) { $invokeParams.Body = $Body }
+                if ($ContentType) { $invokeParams.ContentType = $ContentType }
+                $resp = Invoke-WebRequest @invokeParams
+                $resp.StatusCode | Should -Be $ExpectStatus
+                if ($ContentTypeContains) { ($resp.Headers['Content-Type'] -join ';') | Should -Match $ContentTypeContains }
+                if ($BodyContains) { ($resp.Content -like "*${BodyContains}*") | Should -BeTrue -Because "Body should contain substring '${BodyContains}'" }
+                if ($ReturnRaw) { return $resp } else { return }
+            } catch {
+                $lastErr = $_
+                if ($i -lt $RetryCount) { Start-Sleep -Milliseconds $RetryDelayMs; continue } else { throw $lastErr }
+            }
         }
     }
-}
 
-<#
+    <#
 .SYNOPSIS
     Assert that a JSON field has the expected value.
 .DESCRIPTION
@@ -610,18 +615,18 @@ function Invoke-ExampleRequest {
 .PARAMETER Expected
     The expected value of the field (string comparison).
 #>
-function Assert-JsonFieldValue {
-    [CmdletBinding()] param(
-        [Parameter(Mandatory)][string]$Json,
-        [Parameter(Mandatory)][string]$Field,
-        [Parameter(Mandatory)][string]$Expected
-    )
-    $obj = $Json | ConvertFrom-Json -ErrorAction Stop
-    $actual = $obj.$Field
-    $actual | Should -Be $Expected
-}
+    function Assert-JsonFieldValue {
+        [CmdletBinding()] param(
+            [Parameter(Mandatory)][string]$Json,
+            [Parameter(Mandatory)][string]$Field,
+            [Parameter(Mandatory)][string]$Expected
+        )
+        $obj = $Json | ConvertFrom-Json -ErrorAction Stop
+        $actual = $obj.$Field
+        $actual | Should -Be $Expected
+    }
 
-<#
+    <#
 .SYNOPSIS
     Assert that a YAML string contains a key with the expected value.
 .DESCRIPTION
@@ -634,30 +639,30 @@ function Assert-JsonFieldValue {
 .PARAMETER Expected
     The expected value for the key.
 #>
-function Assert-YamlContainsKeyValue {
-    [CmdletBinding()] param(
-        [Parameter(Mandatory)][object]$Yaml,
-        [Parameter(Mandatory)][string]$Key,
-        [Parameter(Mandatory)][string]$Expected
-    )
-    $NUMERIC_LINE_DETECTION_THRESHOLD = 0.6
-    $text = if ($Yaml -is [string]) { $Yaml } else { ($Yaml | Out-String) }
-    # Normalize numeric-per-line payload (observed in YAML response) to characters
-    $lines = ($text -split "`r?`n") | Where-Object { $_ -ne '' }
-    $digitLines = $lines | Where-Object { $_ -match '^[0-9]+$' }
-    if ($digitLines.Count -gt 0 -and $digitLines.Count -ge ($lines.Count * $NUMERIC_LINE_DETECTION_THRESHOLD)) {
-        try {
-            $chars = $digitLines | ForEach-Object { [char][int]$_ }
-            $text = -join $chars
-        } catch {
-            Write-Debug ("Failed to normalize numeric YAML lines. Exception type: $($_.Exception.GetType().FullName). Message: $($_.Exception.Message). Input: " + ($digitLines -join ', '))
+    function Assert-YamlContainsKeyValue {
+        [CmdletBinding()] param(
+            [Parameter(Mandatory)][object]$Yaml,
+            [Parameter(Mandatory)][string]$Key,
+            [Parameter(Mandatory)][string]$Expected
+        )
+        $NUMERIC_LINE_DETECTION_THRESHOLD = 0.6
+        $text = if ($Yaml -is [string]) { $Yaml } else { ($Yaml | Out-String) }
+        # Normalize numeric-per-line payload (observed in YAML response) to characters
+        $lines = ($text -split "`r?`n") | Where-Object { $_ -ne '' }
+        $digitLines = $lines | Where-Object { $_ -match '^[0-9]+$' }
+        if ($digitLines.Count -gt 0 -and $digitLines.Count -ge ($lines.Count * $NUMERIC_LINE_DETECTION_THRESHOLD)) {
+            try {
+                $chars = $digitLines | ForEach-Object { [char][int]$_ }
+                $text = -join $chars
+            } catch {
+                Write-Debug ("Failed to normalize numeric YAML lines. Exception type: $($_.Exception.GetType().FullName). Message: $($_.Exception.Message). Input: " + ($digitLines -join ', '))
+            }
         }
+        $pattern = "^\s*${Key}:\s*${Expected}\s*$"
+        ($text -split "`n") | Where-Object { $_ -match $pattern } | Should -Not -BeNullOrEmpty -Because "YAML should contain '${Key}: ${Expected}'"
     }
-    $pattern = "^\s*${Key}:\s*${Expected}\s*$"
-    ($text -split "`n") | Where-Object { $_ -match $pattern } | Should -Not -BeNullOrEmpty -Because "YAML should contain '${Key}: ${Expected}'"
-}
 
-<#
+    <#
 .SYNOPSIS
     Unified content assertion for a route.
 .DESCRIPTION
@@ -687,46 +692,46 @@ function Assert-YamlContainsKeyValue {
 .PARAMETER ReturnResponse
     Return the underlying Invoke-WebRequest result (for chaining) instead of nothing.
 #>
-function Assert-RouteContent {
+    function Assert-RouteContent {
 
-    [CmdletBinding()] param(
-        [Parameter(Mandatory)][string]$Uri,
-        [ValidateSet('Get', 'Post', 'Put', 'Patch', 'Delete', 'Head')][string]$Method = 'Get',
-        [int]$ExpectStatus = 200,
-        [string]$Exact,
-        [string]$Contains,
-        [string]$Regex,
-        [string]$JsonField,
-        [string]$JsonValue,
-        [string]$YamlKey,
-        [string]$YamlValue,
-        [hashtable]$Headers,
-        [string]$ContentType,
-        [object]$Body,
-        [switch]$ReturnResponse
-    )
-    if (-not ($Exact -or $Contains -or $Regex -or ($JsonField -and $JsonValue) -or ($YamlKey -and $YamlValue))) {
-        throw 'Assert-RouteContent: Provide one of Exact/Contains/Regex or JsonField+JsonValue or YamlKey+YamlValue.'
+        [CmdletBinding()] param(
+            [Parameter(Mandatory)][string]$Uri,
+            [ValidateSet('Get', 'Post', 'Put', 'Patch', 'Delete', 'Head')][string]$Method = 'Get',
+            [int]$ExpectStatus = 200,
+            [string]$Exact,
+            [string]$Contains,
+            [string]$Regex,
+            [string]$JsonField,
+            [string]$JsonValue,
+            [string]$YamlKey,
+            [string]$YamlValue,
+            [hashtable]$Headers,
+            [string]$ContentType,
+            [object]$Body,
+            [switch]$ReturnResponse
+        )
+        if (-not ($Exact -or $Contains -or $Regex -or ($JsonField -and $JsonValue) -or ($YamlKey -and $YamlValue))) {
+            throw 'Assert-RouteContent: Provide one of Exact/Contains/Regex or JsonField+JsonValue or YamlKey+YamlValue.'
+        }
+        $invokeParams = @{ Uri = $Uri; Method = $Method; UseBasicParsing = $true; TimeoutSec = 10 }
+        if ($Uri -like 'https://*') { $invokeParams.SkipCertificateCheck = $true }
+        if ($Headers) { $invokeParams.Headers = $Headers }
+        if ($Body) { $invokeParams.Body = $Body }
+        if ($ContentType) { $invokeParams.ContentType = $ContentType }
+        $resp = Invoke-WebRequest @invokeParams
+        $resp.StatusCode | Should -Be $ExpectStatus
+        $text = $resp.Content
+
+        if ($Exact) { $text | Should -Be $Exact }
+        if ($Contains) { ($text -like "*${Contains}*") | Should -BeTrue -Because "Body should contain '${Contains}'" }
+        if ($Regex) { $text | Should -Match $Regex }
+        if ($JsonField -and $JsonValue) { Assert-JsonFieldValue -Json $text -Field $JsonField -Expected $JsonValue }
+        if ($YamlKey -and $YamlValue) { Assert-YamlContainsKeyValue -Yaml $text -Key $YamlKey -Expected $YamlValue }
+
+        if ($ReturnResponse) { return $resp }
     }
-    $invokeParams = @{ Uri = $Uri; Method = $Method; UseBasicParsing = $true; TimeoutSec = 10 }
-    if ($Uri -like 'https://*') { $invokeParams.SkipCertificateCheck = $true }
-    if ($Headers) { $invokeParams.Headers = $Headers }
-    if ($Body) { $invokeParams.Body = $Body }
-    if ($ContentType) { $invokeParams.ContentType = $ContentType }
-    $resp = Invoke-WebRequest @invokeParams
-    $resp.StatusCode | Should -Be $ExpectStatus
-    $text = $resp.Content
 
-    if ($Exact) { $text | Should -Be $Exact }
-    if ($Contains) { ($text -like "*${Contains}*") | Should -BeTrue -Because "Body should contain '${Contains}'" }
-    if ($Regex) { $text | Should -Match $Regex }
-    if ($JsonField -and $JsonValue) { Assert-JsonFieldValue -Json $text -Field $JsonField -Expected $JsonValue }
-    if ($YamlKey -and $YamlValue) { Assert-YamlContainsKeyValue -Yaml $text -Key $YamlKey -Expected $YamlValue }
-
-    if ($ReturnResponse) { return $resp }
-}
-
-<#
+    <#
 .SYNOPSIS
     Normalize ISO 8601 instant strings in JSON to have exactly 7 fractional second digits.
 .DESCRIPTION
@@ -738,27 +743,27 @@ function Assert-RouteContent {
 .OUTPUTS
     The input string with normalized ISO 8601 instant strings.
 #>
-function Format-IsoInstant {
-    param([string]$StringToNormalize)
+    function Format-IsoInstant {
+        param([string]$StringToNormalize)
 
-    # Match ISO 8601 instants with optional fractional seconds and a TZ
-    $pattern = '(?<base>\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})(?:\.(?<frac>\d{1,7}))?(?<tz>Z|[+-]\d{2}:\d{2})'
+        # Match ISO 8601 instants with optional fractional seconds and a TZ
+        $pattern = '(?<base>\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})(?:\.(?<frac>\d{1,7}))?(?<tz>Z|[+-]\d{2}:\d{2})'
 
-    return [regex]::Replace($StringToNormalize, $pattern, {
-            param($m) # <-- use the Match object, not $Matches
-            $base = $m.Groups['base'].Value
-            $tz = $m.Groups['tz'].Value
-            $frac = if ($m.Groups['frac'].Success) {
-                $m.Groups['frac'].Value.PadRight(7, '0').Substring(0, 7)
-            } else {
-                '0000000'
-            }
-            "$base.$frac$tz"
-        })
-}
+        return [regex]::Replace($StringToNormalize, $pattern, {
+                param($m) # <-- use the Match object, not $Matches
+                $base = $m.Groups['base'].Value
+                $tz = $m.Groups['tz'].Value
+                $frac = if ($m.Groups['frac'].Success) {
+                    $m.Groups['frac'].Value.PadRight(7, '0').Substring(0, 7)
+                } else {
+                    '0000000'
+                }
+                "$base.$frac$tz"
+            })
+    }
 
 
-<#
+    <#
 .SYNOPSIS
     Compare two objects deeply by converting them to JSON and comparing the strings.
 .DESCRIPTION
@@ -774,22 +779,22 @@ function Format-IsoInstant {
     Compare-Deep -Expected $obj1 -Actual $obj2
     # This will pass as the objects are deeply equivalent.
 #>
-function Compare-Deep {
-    param(
-        [Parameter()][AllowNull()]$Expected,
-        [Parameter()][AllowNull()]$Actual
-    )
+    function Compare-Deep {
+        param(
+            [Parameter()][AllowNull()]$Expected,
+            [Parameter()][AllowNull()]$Actual
+        )
 
-    $expectedJson = ($Expected | ConvertTo-Json -Depth 99 -Compress).Replace("`r`n", "`n").Replace('\r\n', '\n')
-    $actualJson = ($Actual | ConvertTo-Json -Depth 99 -Compress).Replace("`r`n", "`n").Replace('\r\n', '\n')
+        $expectedJson = ($Expected | ConvertTo-Json -Depth 99 -Compress).Replace("`r`n", "`n").Replace('\r\n', '\n')
+        $actualJson = ($Actual | ConvertTo-Json -Depth 99 -Compress).Replace("`r`n", "`n").Replace('\r\n', '\n')
 
-    $actualJson = Format-IsoInstant $actualJson
-    $expectedJson = Format-IsoInstant $expectedJson
+        $actualJson = Format-IsoInstant $actualJson
+        $expectedJson = Format-IsoInstant $expectedJson
 
-    $actualJson | Should -BeExactly $expectedJson
-}
+        $actualJson | Should -BeExactly $expectedJson
+    }
 
-<#
+    <#
 .SYNOPSIS
   Compares two strings while normalizing line endings.
 
@@ -818,15 +823,15 @@ function Compare-Deep {
 .NOTES
   This function ensures that strings with different line-ending formats are treated as equal if their content is otherwise identical.
 #>
-function Compare-StringRnLn {
-    param (
-        [string]$InputString1,
-        [string]$InputString2
-    )
-    return ($InputString1.Trim() -replace "`r`n|`n|`r", "`n") -eq ($InputString2.Trim() -replace "`r`n|`n|`r", "`n")
-}
+    function Compare-StringRnLn {
+        param (
+            [string]$InputString1,
+            [string]$InputString2
+        )
+        return ($InputString1.Trim() -replace "`r`n|`n|`r", "`n") -eq ($InputString2.Trim() -replace "`r`n|`n|`r", "`n")
+    }
 
-<#
+    <#
 .SYNOPSIS
   Converts a PSCustomObject into an ordered hashtable.
 
@@ -854,14 +859,14 @@ function Compare-StringRnLn {
 .NOTES
   This function preserves key order and supports recursive conversion of nested objects and collections.
 #>
-function Convert-PsCustomObjectToOrderedHashtable {
-    [CmdletBinding()]
-    param (
-        [Parameter(Mandatory = $true, ValueFromPipeline = $true)]
-        [PSCustomObject]$InputObject
-    )
-    begin {
-        <#
+    function Convert-PsCustomObjectToOrderedHashtable {
+        [CmdletBinding()]
+        param (
+            [Parameter(Mandatory = $true, ValueFromPipeline = $true)]
+            [PSCustomObject]$InputObject
+        )
+        begin {
+            <#
             .SYNOPSIS
                 Converts a PSCustomObject to an ordered hashtable.
             .DESCRIPTION
@@ -883,50 +888,50 @@ function Convert-PsCustomObjectToOrderedHashtable {
             .NOTES
                 This function preserves key order and supports recursive conversion of nested objects and collections.
         #>
-        function Convert-ObjectRecursively {
-            param (
-                [Parameter(Mandatory = $true)]
-                [System.Object]
-                $InputObject
-            )
+            function Convert-ObjectRecursively {
+                param (
+                    [Parameter(Mandatory = $true)]
+                    [System.Object]
+                    $InputObject
+                )
 
-            # Initialize an ordered dictionary
-            $orderedHashtable = [ordered]@{}
+                # Initialize an ordered dictionary
+                $orderedHashtable = [ordered]@{}
 
-            # Loop through each property of the PSCustomObject
-            foreach ($property in $InputObject.PSObject.Properties) {
-                # Check if the property value is a PSCustomObject
-                if ($property.Value -is [PSCustomObject]) {
-                    # Recursively convert the nested PSCustomObject
-                    $orderedHashtable[$property.Name] = Convert-ObjectRecursively -InputObject $property.Value
-                } elseif ($property.Value -is [System.Collections.IEnumerable] -and -not ($property.Value -is [string])) {
-                    # If the value is a collection, check each element
-                    $convertedCollection = @()
-                    foreach ($item in $property.Value) {
-                        if ($item -is [PSCustomObject]) {
-                            $convertedCollection += Convert-ObjectRecursively -InputObject $item
-                        } else {
-                            $convertedCollection += $item
+                # Loop through each property of the PSCustomObject
+                foreach ($property in $InputObject.PSObject.Properties) {
+                    # Check if the property value is a PSCustomObject
+                    if ($property.Value -is [PSCustomObject]) {
+                        # Recursively convert the nested PSCustomObject
+                        $orderedHashtable[$property.Name] = Convert-ObjectRecursively -InputObject $property.Value
+                    } elseif ($property.Value -is [System.Collections.IEnumerable] -and -not ($property.Value -is [string])) {
+                        # If the value is a collection, check each element
+                        $convertedCollection = @()
+                        foreach ($item in $property.Value) {
+                            if ($item -is [PSCustomObject]) {
+                                $convertedCollection += Convert-ObjectRecursively -InputObject $item
+                            } else {
+                                $convertedCollection += $item
+                            }
                         }
+                        $orderedHashtable[$property.Name] = $convertedCollection
+                    } else {
+                        # Add the property name and value to the ordered hashtable
+                        $orderedHashtable[$property.Name] = $property.Value
                     }
-                    $orderedHashtable[$property.Name] = $convertedCollection
-                } else {
-                    # Add the property name and value to the ordered hashtable
-                    $orderedHashtable[$property.Name] = $property.Value
                 }
-            }
 
-            # Return the resulting ordered hashtable
-            return $orderedHashtable
+                # Return the resulting ordered hashtable
+                return $orderedHashtable
+            }
+        }
+        process {
+            # Call the recursive helper function for each input object
+            Convert-ObjectRecursively -InputObject $InputObject
         }
     }
-    process {
-        # Call the recursive helper function for each input object
-        Convert-ObjectRecursively -InputObject $InputObject
-    }
-}
 
-<#
+    <#
 .SYNOPSIS
   Compares two hashtables to determine if they are equal.
 
@@ -957,12 +962,12 @@ function Convert-PsCustomObjectToOrderedHashtable {
   # Returns: $false
 
 #>
-function Compare-Hashtable {
-    param (
-        [object]$Hashtable1,
-        [object]$Hashtable2
-    )
-    <#
+    function Compare-Hashtable {
+        param (
+            [object]$Hashtable1,
+            [object]$Hashtable2
+        )
+        <#
         .SYNOPSIS
             Compares two values for equality.
         .DESCRIPTION
@@ -975,66 +980,66 @@ function Compare-Hashtable {
             [bool]
             Returns `$true` if the values are equal, otherwise returns `$false`.
     #>
-    function Compare-Value($value1, $value2) {
-        # Check if both values are hashtables
-        if ((($value1 -is [hashtable] -or $value1 -is [System.Collections.Specialized.OrderedDictionary]) -and
-                ($value2 -is [hashtable] -or $value2 -is [System.Collections.Specialized.OrderedDictionary]))) {
-            return Compare-Hashtable -Hashtable1 $value1 -Hashtable2 $value2
-        }
-        # Check if both values are arrays
-        elseif (($value1 -is [Object[]]) -and ($value2 -is [Object[]])) {
-            if ($value1.Count -ne $value2.Count) {
-                return $false
+        function Compare-Value($value1, $value2) {
+            # Check if both values are hashtables
+            if ((($value1 -is [hashtable] -or $value1 -is [System.Collections.Specialized.OrderedDictionary]) -and
+                    ($value2 -is [hashtable] -or $value2 -is [System.Collections.Specialized.OrderedDictionary]))) {
+                return Compare-Hashtable -Hashtable1 $value1 -Hashtable2 $value2
             }
-            for ($i = 0; $i -lt $value1.Count; $i++) {
-                $found = $false
-                for ($j = 0; $j -lt $value2.Count; $j++) {
-                    if ( Compare-Value $value1[$i] $value2[$j]) {
-                        $found = $true
-                    }
-                }
-                if ($found -eq $false) {
+            # Check if both values are arrays
+            elseif (($value1 -is [Object[]]) -and ($value2 -is [Object[]])) {
+                if ($value1.Count -ne $value2.Count) {
                     return $false
                 }
+                for ($i = 0; $i -lt $value1.Count; $i++) {
+                    $found = $false
+                    for ($j = 0; $j -lt $value2.Count; $j++) {
+                        if ( Compare-Value $value1[$i] $value2[$j]) {
+                            $found = $true
+                        }
+                    }
+                    if ($found -eq $false) {
+                        return $false
+                    }
+                }
+                return $true
+            } else {
+                if ($value1 -is [string] -and $value2 -is [string]) {
+                    return  Compare-StringRnLn $value1 $value2
+                }
+                # Check if the values are equal
+                return $value1 -eq $value2
             }
-            return $true
-        } else {
-            if ($value1 -is [string] -and $value2 -is [string]) {
-                return  Compare-StringRnLn $value1 $value2
-            }
-            # Check if the values are equal
-            return $value1 -eq $value2
         }
-    }
 
-    $keys1 = $Hashtable1.Keys
-    $keys2 = $Hashtable2.Keys
+        $keys1 = $Hashtable1.Keys
+        $keys2 = $Hashtable2.Keys
 
-    # Check if both hashtables have the same keys
-    if ($keys1.Count -ne $keys2.Count) {
-        return $false
-    }
-
-    foreach ($key in $keys1) {
-        if (! ($Hashtable2.Keys -contains $key)) {
+        # Check if both hashtables have the same keys
+        if ($keys1.Count -ne $keys2.Count) {
             return $false
         }
 
-        if ($Hashtable2[$key] -is [hashtable] -or $Hashtable2[$key] -is [System.Collections.Specialized.OrderedDictionary]) {
-            if (! (Compare-Hashtable -Hashtable1 $Hashtable1[$key] -Hashtable2 $Hashtable2[$key])) {
+        foreach ($key in $keys1) {
+            if (! ($Hashtable2.Keys -contains $key)) {
                 return $false
             }
-        } elseif (!(Compare-Value $Hashtable1[$key] $Hashtable2[$key])) {
-            return $false
+
+            if ($Hashtable2[$key] -is [hashtable] -or $Hashtable2[$key] -is [System.Collections.Specialized.OrderedDictionary]) {
+                if (! (Compare-Hashtable -Hashtable1 $Hashtable1[$key] -Hashtable2 $Hashtable2[$key])) {
+                    return $false
+                }
+            } elseif (!(Compare-Value $Hashtable1[$key] $Hashtable2[$key])) {
+                return $false
+            }
         }
+
+        return $true
     }
 
-    return $true
-}
 
 
-
-<#
+    <#
 .SYNOPSIS
     Retrieves Server-Sent Events (SSE) from a target server.
 
@@ -1069,73 +1074,73 @@ function Compare-Hashtable {
     For internal or test use; not intended as a fully resilient production SSE client.
 
 #>
-function Get-SseEvent {
-    param(
-        [string]$BaseUrl,
-        [string]$MetaEndpoint = '/sse'
-    )
-    # 1. One client, shared cookies
-    $handler = [System.Net.Http.HttpClientHandler]::new()
-    $handler.UseCookies = $true
-    $handler.CookieContainer = [System.Net.CookieContainer]::new()
-    $client = [System.Net.Http.HttpClient]::new($handler)
-    $client.Timeout = [timespan]::FromMinutes(10)      # infinite-ish
+    function Get-SseEvent {
+        param(
+            [string]$BaseUrl,
+            [string]$MetaEndpoint = '/sse'
+        )
+        # 1. One client, shared cookies
+        $handler = [System.Net.Http.HttpClientHandler]::new()
+        $handler.UseCookies = $true
+        $handler.CookieContainer = [System.Net.CookieContainer]::new()
+        $client = [System.Net.Http.HttpClient]::new($handler)
+        $client.Timeout = [timespan]::FromMinutes(10)      # infinite-ish
 
-    # 2. Discover stream URL  (GET /sse returns  { Sse = @{ Url = '/sse_events' } })
-    $metaRaw = $client.GetStringAsync("$BaseUrl$MetaEndpoint").Result
-    $meta = $metaRaw | ConvertFrom-Json
-    # Be flexible with casing: Sse/url vs sse/url
-    $metaSse = $meta.Sse
-    if (-not $metaSse -and $meta.sse) { $metaSse = $meta.sse }
-    $metaUrl = $metaSse.Url
-    if (-not $metaUrl -and $metaSse.url) { $metaUrl = $metaSse.url }
-    $sseUri = $metaUrl
-    if ([System.Uri]::IsWellFormedUriString($metaUrl, 'Absolute')) {
+        # 2. Discover stream URL  (GET /sse returns  { Sse = @{ Url = '/sse_events' } })
+        $metaRaw = $client.GetStringAsync("$BaseUrl$MetaEndpoint").Result
+        $meta = $metaRaw | ConvertFrom-Json
+        # Be flexible with casing: Sse/url vs sse/url
+        $metaSse = $meta.Sse
+        if (-not $metaSse -and $meta.sse) { $metaSse = $meta.sse }
+        $metaUrl = $metaSse.Url
+        if (-not $metaUrl -and $metaSse.url) { $metaUrl = $metaSse.url }
         $sseUri = $metaUrl
-    } else {
-        # Ensure the base ends with a slash, then combine
-        $base = if ($BaseUrl.EndsWith('/')) { $BaseUrl } else { "$BaseUrl/" }
-        $sseUri = [System.Uri]::new($base + ($metaUrl ?? '').TrimStart('/'))
+        if ([System.Uri]::IsWellFormedUriString($metaUrl, 'Absolute')) {
+            $sseUri = $metaUrl
+        } else {
+            # Ensure the base ends with a slash, then combine
+            $base = if ($BaseUrl.EndsWith('/')) { $BaseUrl } else { "$BaseUrl/" }
+            $sseUri = [System.Uri]::new($base + ($metaUrl ?? '').TrimStart('/'))
+        }
+
+
+        # 3. Open the stream (HTTP/1.1 avoids rare HTTP/2 flush issues)
+        $req = [System.Net.Http.HttpRequestMessage]::new('GET', $sseUri)
+        $req.Version = [Version]::new(1, 1)
+        $req.VersionPolicy = [System.Net.Http.HttpVersionPolicy]::RequestVersionExact
+        $req.Headers.Accept.Add([System.Net.Http.Headers.MediaTypeWithQualityHeaderValue]::new('text/event-stream'))
+        $resp = $client.SendAsync($req, [System.Net.Http.HttpCompletionOption]::ResponseHeadersRead).Result
+        $reader = [System.IO.StreamReader]::new($resp.Content.ReadAsStreamAsync().Result)
+
+        # 4. Parse frames (default = "message")
+        $events = @()
+        $evtName = 'message'
+        $evtData = ''
+        while ($true) {
+            $line = $reader.ReadLine(); if ($null -eq $line) { break }
+            if ($line -eq '') {
+                if ($evtData) {
+                    $events += [pscustomobject]@{Event = $evtName; Data = $evtData }
+                    $evtName = 'message'; $evtData = ''
+                }
+                continue
+            }
+            if ($line.StartsWith('event:')) { $evtName = $line.Substring(6).Trim() }
+            elseif ($line.StartsWith('data:')) {
+                if ($evtData) {
+                    $evtData += "`n"
+                }
+                $evtData += $line.Substring(5).Trim()
+            }
+        }
+
+        try { $reader.Dispose() } catch {}
+        try { $resp.Dispose() } catch {}
+        try { $client.Dispose() } catch {}
+        return $events
     }
 
-
-    # 3. Open the stream (HTTP/1.1 avoids rare HTTP/2 flush issues)
-    $req = [System.Net.Http.HttpRequestMessage]::new('GET', $sseUri)
-    $req.Version = [Version]::new(1, 1)
-    $req.VersionPolicy = [System.Net.Http.HttpVersionPolicy]::RequestVersionExact
-    $req.Headers.Accept.Add([System.Net.Http.Headers.MediaTypeWithQualityHeaderValue]::new('text/event-stream'))
-    $resp = $client.SendAsync($req, [System.Net.Http.HttpCompletionOption]::ResponseHeadersRead).Result
-    $reader = [System.IO.StreamReader]::new($resp.Content.ReadAsStreamAsync().Result)
-
-    # 4. Parse frames (default = "message")
-    $events = @()
-    $evtName = 'message'
-    $evtData = ''
-    while ($true) {
-        $line = $reader.ReadLine(); if ($null -eq $line) { break }
-        if ($line -eq '') {
-            if ($evtData) {
-                $events += [pscustomobject]@{Event = $evtName; Data = $evtData }
-                $evtName = 'message'; $evtData = ''
-            }
-            continue
-        }
-        if ($line.StartsWith('event:')) { $evtName = $line.Substring(6).Trim() }
-        elseif ($line.StartsWith('data:')) {
-            if ($evtData) {
-                $evtData += "`n"
-            }
-            $evtData += $line.Substring(5).Trim()
-        }
-    }
-
-    try { $reader.Dispose() } catch {}
-    try { $resp.Dispose() } catch {}
-    try { $client.Dispose() } catch {}
-    return $events
-}
-
-<#
+    <#
 .SYNOPSIS
     Connects to a SignalR hub and captures messages.
 .DESCRIPTION
@@ -1183,164 +1188,164 @@ function Get-SseEvent {
     This function requires .NET 5+ / PowerShell 7+ for full compatibility.
     It is intended for internal or test use and may not handle all edge cases of the SignalR protocol.
 #>
-function Get-SignalRMessage {
-    [CmdletBinding()]
-    param(
-        [Parameter(Mandatory)] [string]$BaseUrl,           # e.g., http://localhost:5000
-        [string]$HubPath = '/hubs/kestrun',                 # default hub path
-        [int]$Count = 5,                                    # max messages to collect
-        [int]$TimeoutSeconds = 30,                          # overall timeout
-        [string[]]$Targets,                                 # filter by hub method names (e.g., 'ReceiveEvent')
-        [scriptblock]$OnConnected,                          # optional callback invoked after handshake, before receive loop
-        [object]$OnConnectedArg                             # optional argument passed to OnConnected
-    )
+    function Get-SignalRMessage {
+        [CmdletBinding()]
+        param(
+            [Parameter(Mandatory)] [string]$BaseUrl,           # e.g., http://localhost:5000
+            [string]$HubPath = '/hubs/kestrun',                 # default hub path
+            [int]$Count = 5,                                    # max messages to collect
+            [int]$TimeoutSeconds = 30,                          # overall timeout
+            [string[]]$Targets,                                 # filter by hub method names (e.g., 'ReceiveEvent')
+            [scriptblock]$OnConnected,                          # optional callback invoked after handshake, before receive loop
+            [object]$OnConnectedArg                             # optional argument passed to OnConnected
+        )
 
-    function Get-PropValue($obj, [string]$name) {
-        if ($null -eq $obj) { return $null }
-        if ($obj -is [hashtable]) {
-            $key = $obj.Keys | Where-Object { $_ -is [string] -and $_.ToString() -ieq $name } | Select-Object -First 1
-            if ($null -ne $key) { return $obj[$key] }
+        function Get-PropValue($obj, [string]$name) {
+            if ($null -eq $obj) { return $null }
+            if ($obj -is [hashtable]) {
+                $key = $obj.Keys | Where-Object { $_ -is [string] -and $_.ToString() -ieq $name } | Select-Object -First 1
+                if ($null -ne $key) { return $obj[$key] }
+                return $null
+            }
+            $prop = $obj.PSObject.Properties | Where-Object { $_.Name -ieq $name } | Select-Object -First 1
+            if ($prop) { return $prop.Value }
             return $null
         }
-        $prop = $obj.PSObject.Properties | Where-Object { $_.Name -ieq $name } | Select-Object -First 1
-        if ($prop) { return $prop.Value }
-        return $null
-    }
 
-    # Build negotiate URL
-    $negotiateUrl = "$BaseUrl$HubPath/negotiate?negotiateVersion=1"
-    $http = [System.Net.Http.HttpClient]::new()
-    try {
-        $negRaw = $http.PostAsync($negotiateUrl, [System.Net.Http.StringContent]::new('')).Result.Content.ReadAsStringAsync().Result
-    } catch {
-        throw ('Negotiate failed for {0}: {1}' -f $negotiateUrl, $_.Exception.Message)
-    } finally {
-        try { $http.Dispose() } catch {}
-    }
-    $neg = $negRaw | ConvertFrom-Json
-    # Prefer connectionToken when present; fall back to connectionId
-    $connToken = Get-PropValue $neg 'connectionToken'
-    if (-not $connToken) { $connToken = Get-PropValue $neg 'ConnectionToken' }
-    if (-not $connToken) { $connToken = Get-PropValue $neg 'connectionId' }
-    if (-not $connToken) { $connToken = Get-PropValue $neg 'ConnectionId' }
-    if (-not $connToken) { throw "Negotiate did not return connectionToken/connectionId. Payload: $negRaw" }
+        # Build negotiate URL
+        $negotiateUrl = "$BaseUrl$HubPath/negotiate?negotiateVersion=1"
+        $http = [System.Net.Http.HttpClient]::new()
+        try {
+            $negRaw = $http.PostAsync($negotiateUrl, [System.Net.Http.StringContent]::new('')).Result.Content.ReadAsStringAsync().Result
+        } catch {
+            throw ('Negotiate failed for {0}: {1}' -f $negotiateUrl, $_.Exception.Message)
+        } finally {
+            try { $http.Dispose() } catch {}
+        }
+        $neg = $negRaw | ConvertFrom-Json
+        # Prefer connectionToken when present; fall back to connectionId
+        $connToken = Get-PropValue $neg 'connectionToken'
+        if (-not $connToken) { $connToken = Get-PropValue $neg 'ConnectionToken' }
+        if (-not $connToken) { $connToken = Get-PropValue $neg 'connectionId' }
+        if (-not $connToken) { $connToken = Get-PropValue $neg 'ConnectionId' }
+        if (-not $connToken) { throw "Negotiate did not return connectionToken/connectionId. Payload: $negRaw" }
 
-    # Optional redirect URL and access token
-    $redirectUrl = Get-PropValue $neg 'url'
-    if (-not $redirectUrl) { $redirectUrl = Get-PropValue $neg 'Url' }
-    $accessToken = Get-PropValue $neg 'accessToken'
-    if (-not $accessToken) { $accessToken = Get-PropValue $neg 'AccessToken' }
+        # Optional redirect URL and access token
+        $redirectUrl = Get-PropValue $neg 'url'
+        if (-not $redirectUrl) { $redirectUrl = Get-PropValue $neg 'Url' }
+        $accessToken = Get-PropValue $neg 'accessToken'
+        if (-not $accessToken) { $accessToken = Get-PropValue $neg 'AccessToken' }
 
-    # Build WebSocket URL
-    if ($redirectUrl) {
-        # Replace http/https with ws/wss
-        if ($redirectUrl -like 'http*') {
-            $wsUri = $redirectUrl -replace '^https', 'wss' -replace '^http', 'ws'
+        # Build WebSocket URL
+        if ($redirectUrl) {
+            # Replace http/https with ws/wss
+            if ($redirectUrl -like 'http*') {
+                $wsUri = $redirectUrl -replace '^https', 'wss' -replace '^http', 'ws'
+            } else {
+                # Relative redirect URL; resolve against BaseUrl
+                $baseUri = [System.Uri]$BaseUrl
+                $combined = [System.Uri]::new($baseUri, $redirectUrl)
+                $wsUri = $combined.AbsoluteUri -replace '^https', 'wss' -replace '^http', 'ws'
+            }
+            # If negotiate url already contains id or other params, append if missing
+            if ($wsUri -notmatch '[?&]id=') { $wsUri = ('{0}{1}id={2}' -f $wsUri, ($wsUri -match '\?' ? '&' : '?'), $connToken) }
         } else {
-            # Relative redirect URL; resolve against BaseUrl
-            $baseUri = [System.Uri]$BaseUrl
-            $combined = [System.Uri]::new($baseUri, $redirectUrl)
-            $wsUri = $combined.AbsoluteUri -replace '^https', 'wss' -replace '^http', 'ws'
-        }
-        # If negotiate url already contains id or other params, append if missing
-        if ($wsUri -notmatch '[?&]id=') { $wsUri = ('{0}{1}id={2}' -f $wsUri, ($wsUri -match '\?' ? '&' : '?'), $connToken) }
-    } else {
-        $uri = [System.Uri]$BaseUrl
-        $wsScheme = if ($uri.Scheme -eq 'https') { 'wss' } else { 'ws' }
-        $wsUri = '{0}://{1}{2}?id={3}' -f $wsScheme, $uri.Authority, $HubPath, $connToken
-    }
-
-    $socket = [System.Net.WebSockets.ClientWebSocket]::new()
-    $cts = [System.Threading.CancellationTokenSource]::new([TimeSpan]::FromSeconds($TimeoutSeconds))
-    $encoding = [System.Text.Encoding]::UTF8
-    $recordSep = [char]0x1e
-
-    try {
-        if ($accessToken) {
-            $socket.Options.SetRequestHeader('Authorization', 'Bearer ' + $accessToken)
-        }
-        $socket.ConnectAsync([System.Uri]$wsUri, $cts.Token).Wait()
-
-        # Handshake: {"protocol":"json","version":1}\x1e
-        $handshake = '{"protocol":"json","version":1}' + $recordSep
-        $hsBuf = $encoding.GetBytes($handshake)
-        $handshakeSeg = [ArraySegment[byte]]::new($hsBuf)
-        $socket.SendAsync($handshakeSeg, [System.Net.WebSockets.WebSocketMessageType]::Text, $true, $cts.Token).Wait()
-
-        # Allow caller to trigger HTTP routes or hub actions once connected
-        if ($OnConnected) {
-            try {
-                if ($PSBoundParameters.ContainsKey('OnConnectedArg')) { & $OnConnected $OnConnectedArg }
-                else { & $OnConnected }
-            } catch { Write-Warning ('OnConnected callback failed: {0}' -f $_.Exception.Message) }
+            $uri = [System.Uri]$BaseUrl
+            $wsScheme = if ($uri.Scheme -eq 'https') { 'wss' } else { 'ws' }
+            $wsUri = '{0}://{1}{2}?id={3}' -f $wsScheme, $uri.Authority, $HubPath, $connToken
         }
 
-        $messages = @()
-        $buffer = New-Object byte[] 8192
-        $sb = [System.Text.StringBuilder]::new()
+        $socket = [System.Net.WebSockets.ClientWebSocket]::new()
+        $cts = [System.Threading.CancellationTokenSource]::new([TimeSpan]::FromSeconds($TimeoutSeconds))
+        $encoding = [System.Text.Encoding]::UTF8
+        $recordSep = [char]0x1e
 
-        $targetFilter = if ($null -eq $Targets) { @() } else { @($Targets) }
-        $hasFilter = ($targetFilter -is [array] -and $targetFilter.Length -gt 0)
-        while ($messages.Count -lt $Count -and $socket.State -eq [System.Net.WebSockets.WebSocketState]::Open -and -not $cts.IsCancellationRequested) {
-            [System.Net.WebSockets.WebSocketReceiveResult] $recvResult = $socket.ReceiveAsync([ArraySegment[byte]]::new($buffer), $cts.Token).Result
-
-            $bytes = 0
-            try {
-                $bytes = [int]($recvResult.Count)
-            } catch {
-                # Fallback: if property not available, skip processing this iteration
-                continue
+        try {
+            if ($accessToken) {
+                $socket.Options.SetRequestHeader('Authorization', 'Bearer ' + $accessToken)
             }
+            $socket.ConnectAsync([System.Uri]$wsUri, $cts.Token).Wait()
 
-            if ($bytes -le 0) { continue }
-            $chunk = $encoding.GetString($buffer, 0, $bytes)
-            $sb.Append($chunk) | Out-Null
+            # Handshake: {"protocol":"json","version":1}\x1e
+            $handshake = '{"protocol":"json","version":1}' + $recordSep
+            $hsBuf = $encoding.GetBytes($handshake)
+            $handshakeSeg = [ArraySegment[byte]]::new($hsBuf)
+            $socket.SendAsync($handshakeSeg, [System.Net.WebSockets.WebSocketMessageType]::Text, $true, $cts.Token).Wait()
 
-            # Messages are delimited by 0x1E
-            $text = $sb.ToString()
-            $parts = $text.Split($recordSep)
-            # Keep the last (possibly incomplete) segment in the StringBuilder
-            if ($parts.Length -gt 0) {
-                $sb.Clear() | Out-Null
-                $sb.Append($parts[-1]) | Out-Null
-            }
-
-            for ($i = 0; $i -lt $parts.Length - 1; $i++) {
-                $msg = $parts[$i]
-                if (-not $msg) { continue }
+            # Allow caller to trigger HTTP routes or hub actions once connected
+            if ($OnConnected) {
                 try {
-                    $json = $msg | ConvertFrom-Json
+                    if ($PSBoundParameters.ContainsKey('OnConnectedArg')) { & $OnConnected $OnConnectedArg }
+                    else { & $OnConnected }
+                } catch { Write-Warning ('OnConnected callback failed: {0}' -f $_.Exception.Message) }
+            }
+
+            $messages = @()
+            $buffer = New-Object byte[] 8192
+            $sb = [System.Text.StringBuilder]::new()
+
+            $targetFilter = if ($null -eq $Targets) { @() } else { @($Targets) }
+            $hasFilter = ($targetFilter -is [array] -and $targetFilter.Length -gt 0)
+            while ($messages.Count -lt $Count -and $socket.State -eq [System.Net.WebSockets.WebSocketState]::Open -and -not $cts.IsCancellationRequested) {
+                [System.Net.WebSockets.WebSocketReceiveResult] $recvResult = $socket.ReceiveAsync([ArraySegment[byte]]::new($buffer), $cts.Token).Result
+
+                $bytes = 0
+                try {
+                    $bytes = [int]($recvResult.Count)
                 } catch {
+                    # Fallback: if property not available, skip processing this iteration
                     continue
                 }
 
-                # SignalR handshake returns {} — ignore. We only want invocation messages (type == 1)
-                $type = Get-PropValue $json 'type'
-                if ($type -ne 1) { continue }
+                if ($bytes -le 0) { continue }
+                $chunk = $encoding.GetString($buffer, 0, $bytes)
+                $sb.Append($chunk) | Out-Null
 
-                $target = Get-PropValue $json 'target'
-                $invArgs = Get-PropValue $json 'arguments'
-                if ($hasFilter -and -not ($targetFilter -contains $target)) { continue }
-
-                $messages += [pscustomobject]@{
-                    Target = $target
-                    Arguments = $invArgs
-                    Raw = $msg
+                # Messages are delimited by 0x1E
+                $text = $sb.ToString()
+                $parts = $text.Split($recordSep)
+                # Keep the last (possibly incomplete) segment in the StringBuilder
+                if ($parts.Length -gt 0) {
+                    $sb.Clear() | Out-Null
+                    $sb.Append($parts[-1]) | Out-Null
                 }
 
-                if ($messages.Count -ge $Count) { break }
+                for ($i = 0; $i -lt $parts.Length - 1; $i++) {
+                    $msg = $parts[$i]
+                    if (-not $msg) { continue }
+                    try {
+                        $json = $msg | ConvertFrom-Json
+                    } catch {
+                        continue
+                    }
+
+                    # SignalR handshake returns {} — ignore. We only want invocation messages (type == 1)
+                    $type = Get-PropValue $json 'type'
+                    if ($type -ne 1) { continue }
+
+                    $target = Get-PropValue $json 'target'
+                    $invArgs = Get-PropValue $json 'arguments'
+                    if ($hasFilter -and -not ($targetFilter -contains $target)) { continue }
+
+                    $messages += [pscustomobject]@{
+                        Target = $target
+                        Arguments = $invArgs
+                        Raw = $msg
+                    }
+
+                    if ($messages.Count -ge $Count) { break }
+                }
             }
+
+            return $messages
+        } finally {
+            try { if ($socket.State -eq [System.Net.WebSockets.WebSocketState]::Open) { $socket.CloseAsync([System.Net.WebSockets.WebSocketCloseStatus]::NormalClosure, 'done', $cts.Token).Wait() } } catch {}
+            try { $socket.Dispose() } catch {}
+            try { $cts.Dispose() } catch {}
         }
-
-        return $messages
-    } finally {
-        try { if ($socket.State -eq [System.Net.WebSockets.WebSocketState]::Open) { $socket.CloseAsync([System.Net.WebSockets.WebSocketCloseStatus]::NormalClosure, 'done', $cts.Token).Wait() } } catch {}
-        try { $socket.Dispose() } catch {}
-        try { $cts.Dispose() } catch {}
     }
-}
 
-<#
+    <#
 .SYNOPSIS
   Minimal, curl-backed replacement for Invoke-WebRequest that can
   stream very large responses (≫2 GB) on Windows, Linux, and macOS.
@@ -1402,272 +1407,272 @@ function Get-SignalRMessage {
   For very large file downloads, use the -UseRangeDownload parameter to avoid
   memory issues and improve reliability.
 #>
-function Invoke-CurlRequest {
+    function Invoke-CurlRequest {
 
-    [CmdletBinding(DefaultParameterSetName = 'Default')]
-    param(
-        [Parameter(Mandatory, Position = 0)]
-        [string]
-        $Url,
+        [CmdletBinding(DefaultParameterSetName = 'Default')]
+        param(
+            [Parameter(Mandatory, Position = 0)]
+            [string]
+            $Url,
 
-        [Parameter()]
-        [string]
-        $OutFile,
+            [Parameter()]
+            [string]
+            $OutFile,
 
-        [Parameter()]
-        [hashtable]
-        $Headers,
+            [Parameter()]
+            [hashtable]
+            $Headers,
 
-        [Parameter()]
-        [switch]
-        $PassThru,
+            [Parameter()]
+            [switch]
+            $PassThru,
 
-        [Parameter()]
-        [string]
-        $DownloadDir,
+            [Parameter()]
+            [string]
+            $DownloadDir,
 
-        [Parameter(ParameterSetName = 'Default')]
-        [Parameter(ParameterSetName = 'Etag')]
-        [Parameter(ParameterSetName = 'IfModifiedSince')]
-        [ValidateSet('gzip', 'deflate', 'br')]
-        [string]
-        $AcceptEncoding,
+            [Parameter(ParameterSetName = 'Default')]
+            [Parameter(ParameterSetName = 'Etag')]
+            [Parameter(ParameterSetName = 'IfModifiedSince')]
+            [ValidateSet('gzip', 'deflate', 'br')]
+            [string]
+            $AcceptEncoding,
 
-        [Parameter(Mandatory = $true, ParameterSetName = 'RangeDownload')]
-        [switch]
-        $UseRangeDownload,
+            [Parameter(Mandatory = $true, ParameterSetName = 'RangeDownload')]
+            [switch]
+            $UseRangeDownload,
 
-        [Parameter( ParameterSetName = 'RangeDownload')]
-        [long]
-        $RangeSize = 1GB,
+            [Parameter( ParameterSetName = 'RangeDownload')]
+            [long]
+            $RangeSize = 1GB,
 
-        [Parameter(Mandatory = $true, ParameterSetName = 'Etag')]
-        [string]
-        $ETag,
+            [Parameter(Mandatory = $true, ParameterSetName = 'Etag')]
+            [string]
+            $ETag,
 
-        [Parameter(Mandatory = $true, ParameterSetName = 'IfModifiedSince')]
-        [datetime]
-        $IfModifiedSince,
+            [Parameter(Mandatory = $true, ParameterSetName = 'IfModifiedSince')]
+            [datetime]
+            $IfModifiedSince,
 
-        [Parameter()]
-        [switch]
-        $SkipCertificateCheck
+            [Parameter()]
+            [switch]
+            $SkipCertificateCheck
 
-    )
-
-    # ------------------------------------------------------------
-    # Handle range downloads
-    # ------------------------------------------------------------
-    if ($UseRangeDownload) {
-        # Locate the real curl binary (cross-platform, bypass alias)
-        if ($PSEdition -eq 'Desktop' -or $IsWindows) { $curlCmd = 'curl.exe' } else { $curlCmd = 'curl' }
-
-        # First get the content length with a HEAD request
-        $tmpHdr = [IO.Path]::GetTempFileName()
-        $headArgs = @(
-            '--silent', '--show-error',
-            '--location',
-            '--head', # HEAD request only
-            '--dump-header', $tmpHdr,
-            '--write-out', '%{http_code}',
-            '--url', $Url
         )
 
-        $statusLine = & $curlCmd @headArgs
-        if ($LASTEXITCODE) {
-            throw "curl HEAD request failed with code $LASTEXITCODE"
+        # ------------------------------------------------------------
+        # Handle range downloads
+        # ------------------------------------------------------------
+        if ($UseRangeDownload) {
+            # Locate the real curl binary (cross-platform, bypass alias)
+            if ($PSEdition -eq 'Desktop' -or $IsWindows) { $curlCmd = 'curl.exe' } else { $curlCmd = 'curl' }
+
+            # First get the content length with a HEAD request
+            $tmpHdr = [IO.Path]::GetTempFileName()
+            $headArgs = @(
+                '--silent', '--show-error',
+                '--location',
+                '--head', # HEAD request only
+                '--dump-header', $tmpHdr,
+                '--write-out', '%{http_code}',
+                '--url', $Url
+            )
+
+            $statusLine = & $curlCmd @headArgs
+            if ($LASTEXITCODE) {
+                throw "curl HEAD request failed with code $LASTEXITCODE"
+            }
+
+            # Parse headers from HEAD response
+            $hdrHash = @{}
+            foreach ($line in Get-Content $tmpHdr) {
+                if ([string]::IsNullOrWhiteSpace($line)) { continue }
+                if ($line -match '^(?<k>[^:]+):\s*(?<v>.+)$') {
+                    $hdrHash[$matches.k.Trim()] = $matches.v.Trim()
+                }
+            }
+            Remove-Item $tmpHdr -Force
+
+            if (-not $hdrHash.ContainsKey('Content-Length')) {
+                throw 'Server does not provide Content-Length header, cannot use range downloads'
+            }
+
+            $length = [int64]$hdrHash['Content-Length']
+            if (-not $DownloadDir) {
+                if ($OutFile) {
+                    $DownloadDir = Split-Path -Path $OutFile -Parent
+                } else {
+                    $DownloadDir = [IO.Path]::GetTempPath()
+                }
+            }
+
+            # Create download directory if it doesn't exist
+            if (-not (Test-Path -Path $DownloadDir)) {
+                New-Item -Path $DownloadDir -ItemType Directory -Force | Out-Null
+            }
+
+            # Calculate parts and download each range
+            $parts = 0..[math]::Floor(($length - 1) / $RangeSize) | ForEach-Object {
+                $start = $_ * $RangeSize
+                $end = [math]::Min($length - 1, $start + $RangeSize - 1)
+                $part = Join-Path -Path $DownloadDir -ChildPath "part$_.bin"
+
+                # Download this range using curl directly (avoid recursion)
+                $rangeArgs = @(
+                    '--silent', '--show-error',
+                    '--location',
+                    '--output', $part,
+                    '-H', "Range: bytes=$start-$end",
+                    '--url', $Url
+                )
+
+                # Add any additional headers
+                if ($Headers) {
+                    foreach ($k in $Headers.Keys) {
+                        $rangeArgs += @('-H', "$($k): $($Headers[$k])")
+                    }
+                }
+
+                & $curlCmd @rangeArgs
+                if ($LASTEXITCODE) {
+                    throw "curl range request failed with code $LASTEXITCODE"
+                }
+                $part
+            }
+
+            # Join all parts into final file
+            $joined = if ($OutFile) { $OutFile } else { Join-Path -Path $DownloadDir -ChildPath 'joined.tmp' }
+            $out = [System.IO.File]::Create($joined)
+            try {
+                foreach ($p in $parts) {
+                    $bytes = [System.IO.File]::ReadAllBytes($p)
+                    $out.Write($bytes, 0, $bytes.Length)
+                    Remove-Item $p -Force
+                }
+            } finally {
+                $out.Dispose()
+            }
+
+            if ($PassThru) {
+                return [PSCustomObject]@{
+                    StatusCode = 200
+                    Headers = $hdrHash
+                    OutFile = $joined
+                }
+            }
+            return
         }
 
-        # Parse headers from HEAD response
+        # ------------------------------------------------------------
+        # Normal (non-range) download logic
+        # ------------------------------------------------------------
+
+        # Locate the real curl binary (cross-platform, bypass alias)
+        if ($PSEdition -eq 'Desktop' -or $IsWindows) { $curlCmd = 'curl.exe' } else { $curlCmd = 'curl' }
+        # ------------------------------------------------------------
+        # Prep temporary files
+        # ------------------------------------------------------------
+        $tmpHdr = [IO.Path]::GetTempFileName()
+        $tmpBody = if ($OutFile) { $OutFile } else { [IO.Path]::GetTempFileName() }
+
+        # ------------------------------------------------------------
+        # Build argument list
+        # ------------------------------------------------------------
+        $arguments = @(
+            '--silent', '--show-error', # quiet transfer, still show errors
+            '--location', # follow 3xx
+            '--dump-header', $tmpHdr, # capture headers
+            '--output', $tmpBody, # stream body
+            '--write-out', '%{http_code}'    # print status at the end
+        )
+
+        if ($SkipCertificateCheck) {
+            $arguments += '--insecure'  # skip TLS cert validation
+        }
+        # If Accept-Encoding is specified, add it to the request and use --compressed.
+        # curl will automatically handle decompression only if --compressed is used (which happens when Accept-Encoding is set).
+        if ($AcceptEncoding) {
+            if ($null -eq $Headers) {
+                $Headers = @{}
+            }
+            $Headers['Accept-Encoding'] = $AcceptEncoding
+            $arguments += @('--compressed')  # curl will handle Accept-Encoding
+        }
+
+        # if Etag header is set, we will add it to the request.
+        # This is used for conditional requests.
+        if ($ETag) {
+            if ($PSEdition -eq 'Desktop' ) {
+                $arguments += @('-H', "If-None-Match: ""$ETag""")
+            } else {
+                $arguments += @('-H', "If-None-Match: $ETag")
+            }
+        }
+
+        # IfModifiedSince header
+        # If the header is not set, we will not add it to the request.
+        if ($IfModifiedSince) {
+            $arguments += @('-H', "If-Modified-Since: $($IfModifiedSince.ToString('R'))")
+        }
+
+        # Add any additional headers
+        if ($Headers) {
+            foreach ($k in $Headers.Keys) {
+                $arguments += @('-H', ('{0}: {1}' -f $k, $Headers[$k]))
+            }
+        }
+
+        $arguments += '--url', $Url
+
+        # ------------------------------------------------------------
+        # Run curl
+        # ------------------------------------------------------------
+        if ($PSEdition -eq 'Desktop') {
+            $statusLine = cmd /c $curlCmd @arguments
+        } else {
+            $statusLine = & $curlCmd @arguments
+        }
+        if ($LASTEXITCODE) {
+            throw "curl exited with code $LASTEXITCODE"
+        }
+        $statusCode = [int]$statusLine
+
+        # ------------------------------------------------------------
+        # Parse headers
+        # ------------------------------------------------------------
         $hdrHash = @{}
         foreach ($line in Get-Content $tmpHdr) {
-            if ([string]::IsNullOrWhiteSpace($line)) { continue }
+            if ([string]::IsNullOrWhiteSpace($line)) { break }
             if ($line -match '^(?<k>[^:]+):\s*(?<v>.+)$') {
                 $hdrHash[$matches.k.Trim()] = $matches.v.Trim()
             }
         }
+
+        # Clean up temporary header file
         Remove-Item $tmpHdr -Force
 
-        if (-not $hdrHash.ContainsKey('Content-Length')) {
-            throw 'Server does not provide Content-Length header, cannot use range downloads'
-        }
-
-        $length = [int64]$hdrHash['Content-Length']
-        if (-not $DownloadDir) {
-            if ($OutFile) {
-                $DownloadDir = Split-Path -Path $OutFile -Parent
-            } else {
-                $DownloadDir = [IO.Path]::GetTempPath()
-            }
-        }
-
-        # Create download directory if it doesn't exist
-        if (-not (Test-Path -Path $DownloadDir)) {
-            New-Item -Path $DownloadDir -ItemType Directory -Force | Out-Null
-        }
-
-        # Calculate parts and download each range
-        $parts = 0..[math]::Floor(($length - 1) / $RangeSize) | ForEach-Object {
-            $start = $_ * $RangeSize
-            $end = [math]::Min($length - 1, $start + $RangeSize - 1)
-            $part = Join-Path -Path $DownloadDir -ChildPath "part$_.bin"
-
-            # Download this range using curl directly (avoid recursion)
-            $rangeArgs = @(
-                '--silent', '--show-error',
-                '--location',
-                '--output', $part,
-                '-H', "Range: bytes=$start-$end",
-                '--url', $Url
-            )
-
-            # Add any additional headers
-            if ($Headers) {
-                foreach ($k in $Headers.Keys) {
-                    $rangeArgs += @('-H', "$($k): $($Headers[$k])")
-                }
-            }
-
-            & $curlCmd @rangeArgs
-            if ($LASTEXITCODE) {
-                throw "curl range request failed with code $LASTEXITCODE"
-            }
-            $part
-        }
-
-        # Join all parts into final file
-        $joined = if ($OutFile) { $OutFile } else { Join-Path -Path $DownloadDir -ChildPath 'joined.tmp' }
-        $out = [System.IO.File]::Create($joined)
-        try {
-            foreach ($p in $parts) {
-                $bytes = [System.IO.File]::ReadAllBytes($p)
-                $out.Write($bytes, 0, $bytes.Length)
-                Remove-Item $p -Force
-            }
-        } finally {
-            $out.Dispose()
-        }
-
+        # ------------------------------------------------------------
+        # Build response object (if requested)
+        # ------------------------------------------------------------
         if ($PassThru) {
-            return [PSCustomObject]@{
-                StatusCode = 200
+            $raw = if (-not $OutFile) { [IO.File]::ReadAllBytes($tmpBody) }
+            $content = if ($raw) { [Text.Encoding]::UTF8.GetString($raw) }
+
+            [PSCustomObject]@{
+                StatusCode = $statusCode
                 Headers = $hdrHash
-                OutFile = $joined
+                RawContent = $raw
+                Content = $content
             }
         }
-        return
-    }
 
-    # ------------------------------------------------------------
-    # Normal (non-range) download logic
-    # ------------------------------------------------------------
-
-    # Locate the real curl binary (cross-platform, bypass alias)
-    if ($PSEdition -eq 'Desktop' -or $IsWindows) { $curlCmd = 'curl.exe' } else { $curlCmd = 'curl' }
-    # ------------------------------------------------------------
-    # Prep temporary files
-    # ------------------------------------------------------------
-    $tmpHdr = [IO.Path]::GetTempFileName()
-    $tmpBody = if ($OutFile) { $OutFile } else { [IO.Path]::GetTempFileName() }
-
-    # ------------------------------------------------------------
-    # Build argument list
-    # ------------------------------------------------------------
-    $arguments = @(
-        '--silent', '--show-error', # quiet transfer, still show errors
-        '--location', # follow 3xx
-        '--dump-header', $tmpHdr, # capture headers
-        '--output', $tmpBody, # stream body
-        '--write-out', '%{http_code}'    # print status at the end
-    )
-
-    if ($SkipCertificateCheck) {
-        $arguments += '--insecure'  # skip TLS cert validation
-    }
-    # If Accept-Encoding is specified, add it to the request and use --compressed.
-    # curl will automatically handle decompression only if --compressed is used (which happens when Accept-Encoding is set).
-    if ($AcceptEncoding) {
-        if ($null -eq $Headers) {
-            $Headers = @{}
-        }
-        $Headers['Accept-Encoding'] = $AcceptEncoding
-        $arguments += @('--compressed')  # curl will handle Accept-Encoding
-    }
-
-    # if Etag header is set, we will add it to the request.
-    # This is used for conditional requests.
-    if ($ETag) {
-        if ($PSEdition -eq 'Desktop' ) {
-            $arguments += @('-H', "If-None-Match: ""$ETag""")
-        } else {
-            $arguments += @('-H', "If-None-Match: $ETag")
+        # Clean up temporary body file if we created one
+        if (-not $OutFile -and -not $PassThru) {
+            Remove-Item $tmpBody -Force
         }
     }
 
-    # IfModifiedSince header
-    # If the header is not set, we will not add it to the request.
-    if ($IfModifiedSince) {
-        $arguments += @('-H', "If-Modified-Since: $($IfModifiedSince.ToString('R'))")
-    }
-
-    # Add any additional headers
-    if ($Headers) {
-        foreach ($k in $Headers.Keys) {
-            $arguments += @('-H', ('{0}: {1}' -f $k, $Headers[$k]))
-        }
-    }
-
-    $arguments += '--url', $Url
-
-    # ------------------------------------------------------------
-    # Run curl
-    # ------------------------------------------------------------
-    if ($PSEdition -eq 'Desktop') {
-        $statusLine = cmd /c $curlCmd @arguments
-    } else {
-        $statusLine = & $curlCmd @arguments
-    }
-    if ($LASTEXITCODE) {
-        throw "curl exited with code $LASTEXITCODE"
-    }
-    $statusCode = [int]$statusLine
-
-    # ------------------------------------------------------------
-    # Parse headers
-    # ------------------------------------------------------------
-    $hdrHash = @{}
-    foreach ($line in Get-Content $tmpHdr) {
-        if ([string]::IsNullOrWhiteSpace($line)) { break }
-        if ($line -match '^(?<k>[^:]+):\s*(?<v>.+)$') {
-            $hdrHash[$matches.k.Trim()] = $matches.v.Trim()
-        }
-    }
-
-    # Clean up temporary header file
-    Remove-Item $tmpHdr -Force
-
-    # ------------------------------------------------------------
-    # Build response object (if requested)
-    # ------------------------------------------------------------
-    if ($PassThru) {
-        $raw = if (-not $OutFile) { [IO.File]::ReadAllBytes($tmpBody) }
-        $content = if ($raw) { [Text.Encoding]::UTF8.GetString($raw) }
-
-        [PSCustomObject]@{
-            StatusCode = $statusCode
-            Headers = $hdrHash
-            RawContent = $raw
-            Content = $content
-        }
-    }
-
-    # Clean up temporary body file if we created one
-    if (-not $OutFile -and -not $PassThru) {
-        Remove-Item $tmpBody -Force
-    }
-}
-
-<#
+    <#
 .SYNOPSIS
     Helper function to find a header in a case-insensitive manner.
 .DESCRIPTION
@@ -1679,12 +1684,12 @@ function Invoke-CurlRequest {
 .OUTPUTS
     The value of the header if found, otherwise $null.
 #>
-function Find-Header($hdrs, [string]$name) {
-    foreach ($k in $hdrs.Keys) { if ($k -ieq $name) { return $hdrs[$k] } }
-    return $null
-}
+    function Find-Header($hdrs, [string]$name) {
+        foreach ($k in $hdrs.Keys) { if ($k -ieq $name) { return $hdrs[$k] } }
+        return $null
+    }
 
-<#
+    <#
 .SYNOPSIS
     Probe a route with and without gzip to capture size and encoding differences.
 .DESCRIPTION
@@ -1697,47 +1702,47 @@ function Find-Header($hdrs, [string]$name) {
 .OUTPUTS
     PSCustomObject with properties: Path, RawEncoding, GzipEncoding, RawLength, GzipLength, Raw, Gz
 #>
-function Get-CompressionProbe {
-    [CmdletBinding()] param(
-        [Parameter(Mandatory)][object]$Instance,
-        [Parameter(Mandatory)][string]$Path,
-        [switch]$UseCurlFallback
-    )
-    if (-not $Path.StartsWith('/')) { $Path = '/' + $Path }
-    $base = $Instance.Url
-    $insecure = $base -like 'https://*'
-    # Raw (no Accept-Encoding header)
-    $raw = Get-HttpHeadersRaw -Uri "$base$Path" -IncludeBody -Insecure:$insecure -NoAcceptEncoding
-    # Gzip
-    $gz = Get-HttpHeadersRaw -Uri "$base$Path" -IncludeBody -Insecure:$insecure -AcceptEncoding 'gzip'
+    function Get-CompressionProbe {
+        [CmdletBinding()] param(
+            [Parameter(Mandatory)][object]$Instance,
+            [Parameter(Mandatory)][string]$Path,
+            [switch]$UseCurlFallback
+        )
+        if (-not $Path.StartsWith('/')) { $Path = '/' + $Path }
+        $base = $Instance.Url
+        $insecure = $base -like 'https://*'
+        # Raw (no Accept-Encoding header)
+        $raw = Get-HttpHeadersRaw -Uri "$base$Path" -IncludeBody -Insecure:$insecure -NoAcceptEncoding
+        # Gzip
+        $gz = Get-HttpHeadersRaw -Uri "$base$Path" -IncludeBody -Insecure:$insecure -AcceptEncoding 'gzip'
 
 
-    $rawEncoding = Find-Header $raw.Headers 'Content-Encoding'
-    $gzEncoding = Find-Header $gz.Headers 'Content-Encoding'
-    $rawLen = if (Find-Header $raw.Headers 'Content-Length') { [int](Find-Header $raw.Headers 'Content-Length') } else { $raw.BodyLength }
-    $gzLen = if (Find-Header $gz.Headers 'Content-Length') { [int](Find-Header $gz.Headers 'Content-Length') } else { $gz.BodyLength }
+        $rawEncoding = Find-Header $raw.Headers 'Content-Encoding'
+        $gzEncoding = Find-Header $gz.Headers 'Content-Encoding'
+        $rawLen = if (Find-Header $raw.Headers 'Content-Length') { [int](Find-Header $raw.Headers 'Content-Length') } else { $raw.BodyLength }
+        $gzLen = if (Find-Header $gz.Headers 'Content-Length') { [int](Find-Header $gz.Headers 'Content-Length') } else { $gz.BodyLength }
 
-    # Optional curl fallback for edge cases
-    if ($UseCurlFallback -and -not $gzEncoding) {
-        try {
-            $curlGz = Invoke-CurlRequest -Url "$base$Path" -AcceptEncoding gzip -PassThru -SkipCertificateCheck:$insecure
-            if ($curlGz.Headers.ContainsKey('Content-Encoding')) { $gzEncoding = $curlGz.Headers['Content-Encoding'] }
-            if ($curlGz.Headers.ContainsKey('Content-Length')) { $gzLen = [int]$curlGz.Headers['Content-Length'] } elseif ($curlGz.RawContent) { $gzLen = $curlGz.RawContent.Length }
-        } catch { Write-Verbose "Curl fallback (gzip) failed: $($_.Exception.Message)" -Verbose }
+        # Optional curl fallback for edge cases
+        if ($UseCurlFallback -and -not $gzEncoding) {
+            try {
+                $curlGz = Invoke-CurlRequest -Url "$base$Path" -AcceptEncoding gzip -PassThru -SkipCertificateCheck:$insecure
+                if ($curlGz.Headers.ContainsKey('Content-Encoding')) { $gzEncoding = $curlGz.Headers['Content-Encoding'] }
+                if ($curlGz.Headers.ContainsKey('Content-Length')) { $gzLen = [int]$curlGz.Headers['Content-Length'] } elseif ($curlGz.RawContent) { $gzLen = $curlGz.RawContent.Length }
+            } catch { Write-Verbose "Curl fallback (gzip) failed: $($_.Exception.Message)" -Verbose }
+        }
+
+        [pscustomobject]@{
+            Path = $Path
+            RawEncoding = $rawEncoding
+            GzipEncoding = $gzEncoding
+            RawLength = $rawLen
+            GzipLength = $gzLen
+            Raw = $raw
+            Gz = $gz
+        }
     }
 
-    [pscustomobject]@{
-        Path = $Path
-        RawEncoding = $rawEncoding
-        GzipEncoding = $gzEncoding
-        RawLength = $rawLen
-        GzipLength = $gzLen
-        Raw = $raw
-        Gz = $gz
-    }
-}
-
-<#
+    <#
 .SYNOPSIS
     Fetches raw HTTP headers from a specified URI using low-level sockets.
 .DESCRIPTION
@@ -1757,184 +1762,184 @@ function Get-CompressionProbe {
 .NOTES
     This function uses low-level socket programming to fetch headers and does not rely on higher-level HTTP libraries.
 #>
-function Get-HttpHeadersRaw {
-    [CmdletBinding()]
-    [OutputType([string], [hashtable], [System.Collections.Specialized.OrderedDictionary])]
-    param(
-        [Parameter(Mandatory)]
-        [string]$Uri,
-        [string]$HostOverride,
-        [switch]$Insecure,
-        [switch]$AsHashtable,
-        [switch]$IncludeBody,
-        [string]$AcceptEncoding,
-        [switch]$NoAcceptEncoding
-    )
+    function Get-HttpHeadersRaw {
+        [CmdletBinding()]
+        [OutputType([string], [hashtable], [System.Collections.Specialized.OrderedDictionary])]
+        param(
+            [Parameter(Mandatory)]
+            [string]$Uri,
+            [string]$HostOverride,
+            [switch]$Insecure,
+            [switch]$AsHashtable,
+            [switch]$IncludeBody,
+            [string]$AcceptEncoding,
+            [switch]$NoAcceptEncoding
+        )
 
-    $u = [Uri]$Uri
-    if ($u.Scheme -notin @('http', 'https')) {
-        throw "Unsupported scheme '$($u.Scheme)'. Use http or https."
-    }
-
-    $targetHost = if ($HostOverride) { $HostOverride } else { $u.Host }
-    $port = if ($u.IsDefaultPort) { if ($u.Scheme -eq 'https') { 443 } else { 80 } } else { $u.Port }
-    $path = if ([string]::IsNullOrEmpty($u.PathAndQuery)) { '/' } else { $u.PathAndQuery }
-    $crlf = "`r`n"
-
-    $client = [System.Net.Sockets.TcpClient]::new()
-    $client.Connect($u.Host, $port)   # connect to endpoint (IP or host)
-    $netStream = $client.GetStream()
-    $stream = $null
-
-    try {
-        if ($u.Scheme -eq 'https') {
-            $cb = if ($Insecure) {
-                [System.Net.Security.RemoteCertificateValidationCallback] { param($s, $c, $ch, $e) $true }
-            } else { $null }
-
-            $ssl = [System.Net.Security.SslStream]::new($netStream, $false, $cb)
-            $proto = [System.Security.Authentication.SslProtocols]::Tls12 -bor `
-                [System.Security.Authentication.SslProtocols]::Tls13
-            # SNI uses targetHost (can be different from the IP/endpoint you connect to)
-            $ssl.AuthenticateAsClient($targetHost, $null, $proto, $false)
-            $stream = $ssl
-        } else {
-            $stream = $netStream
+        $u = [Uri]$Uri
+        if ($u.Scheme -notin @('http', 'https')) {
+            throw "Unsupported scheme '$($u.Scheme)'. Use http or https."
         }
 
-        # Determine Accept-Encoding header logic
-        $aeHeader = $null
-        if (-not $NoAcceptEncoding) {
-            if ($PSBoundParameters.ContainsKey('AcceptEncoding')) {
-                if ($AcceptEncoding -and $AcceptEncoding.Trim().Length -gt 0) {
-                    $aeHeader = "Accept-Encoding: $AcceptEncoding$crlf"
+        $targetHost = if ($HostOverride) { $HostOverride } else { $u.Host }
+        $port = if ($u.IsDefaultPort) { if ($u.Scheme -eq 'https') { 443 } else { 80 } } else { $u.Port }
+        $path = if ([string]::IsNullOrEmpty($u.PathAndQuery)) { '/' } else { $u.PathAndQuery }
+        $crlf = "`r`n"
+
+        $client = [System.Net.Sockets.TcpClient]::new()
+        $client.Connect($u.Host, $port)   # connect to endpoint (IP or host)
+        $netStream = $client.GetStream()
+        $stream = $null
+
+        try {
+            if ($u.Scheme -eq 'https') {
+                $cb = if ($Insecure) {
+                    [System.Net.Security.RemoteCertificateValidationCallback] { param($s, $c, $ch, $e) $true }
+                } else { $null }
+
+                $ssl = [System.Net.Security.SslStream]::new($netStream, $false, $cb)
+                $proto = [System.Security.Authentication.SslProtocols]::Tls12 -bor `
+                    [System.Security.Authentication.SslProtocols]::Tls13
+                # SNI uses targetHost (can be different from the IP/endpoint you connect to)
+                $ssl.AuthenticateAsClient($targetHost, $null, $proto, $false)
+                $stream = $ssl
+            } else {
+                $stream = $netStream
+            }
+
+            # Determine Accept-Encoding header logic
+            $aeHeader = $null
+            if (-not $NoAcceptEncoding) {
+                if ($PSBoundParameters.ContainsKey('AcceptEncoding')) {
+                    if ($AcceptEncoding -and $AcceptEncoding.Trim().Length -gt 0) {
+                        $aeHeader = "Accept-Encoding: $AcceptEncoding$crlf"
+                    } else {
+                        # Explicit empty string means omit header
+                        $aeHeader = ''
+                    }
                 } else {
-                    # Explicit empty string means omit header
-                    $aeHeader = ''
+                    # default list (broad) if not overridden
+                    $aeHeader = "Accept-Encoding: gzip, deflate, br$crlf"
                 }
             } else {
-                # default list (broad) if not overridden
-                $aeHeader = "Accept-Encoding: gzip, deflate, br$crlf"
+                $aeHeader = ''
             }
-        } else {
-            $aeHeader = ''
-        }
 
-        $request = "GET $path HTTP/1.1$crlf" +
-        "Host: $targetHost$crlf" +
-        ($aeHeader) +
-        "Connection: close$crlf" +
-        $crlf
+            $request = "GET $path HTTP/1.1$crlf" +
+            "Host: $targetHost$crlf" +
+            ($aeHeader) +
+            "Connection: close$crlf" +
+            $crlf
 
-        $utf8 = [Text.Encoding]::UTF8
-        $reqBytes = [Text.Encoding]::ASCII.GetBytes($request)
-        $stream.Write($reqBytes, 0, $reqBytes.Length)
+            $utf8 = [Text.Encoding]::UTF8
+            $reqBytes = [Text.Encoding]::ASCII.GetBytes($request)
+            $stream.Write($reqBytes, 0, $reqBytes.Length)
 
-        # Read entire response into memory (connection: close => server will close)
-        $buf = [byte[]]::new(8192)
-        $ms = [System.IO.MemoryStream]::new()
-        while (($n = $stream.Read($buf, 0, $buf.Length)) -gt 0) {
-            $ms.Write($buf, 0, $n)
-        }
-        $all = $ms.ToArray()
-
-        # Locate CRLFCRLF separator between headers and body
-        $sep = -1
-        for ($i = 0; $i -le $all.Length - 4; $i++) {
-            if (($all[$i] -eq 13) -and ($all[$i + 1] -eq 10) -and ($all[$i + 2] -eq 13) -and ($all[$i + 3] -eq 10)) {
-                $sep = $i; break
+            # Read entire response into memory (connection: close => server will close)
+            $buf = [byte[]]::new(8192)
+            $ms = [System.IO.MemoryStream]::new()
+            while (($n = $stream.Read($buf, 0, $buf.Length)) -gt 0) {
+                $ms.Write($buf, 0, $n)
             }
-        }
+            $all = $ms.ToArray()
 
-        if ($sep -lt 0) {
-            # No header terminator found; return raw text or a simple bag
-            $rawText = $utf8.GetString($all)
-            if ($AsHashtable -or $IncludeBody) {
-                return [ordered]@{ 'Status-Line' = '(unknown)'; 'Raw' = $rawText }
+            # Locate CRLFCRLF separator between headers and body
+            $sep = -1
+            for ($i = 0; $i -le $all.Length - 4; $i++) {
+                if (($all[$i] -eq 13) -and ($all[$i + 1] -eq 10) -and ($all[$i + 2] -eq 13) -and ($all[$i + 3] -eq 10)) {
+                    $sep = $i; break
+                }
+            }
+
+            if ($sep -lt 0) {
+                # No header terminator found; return raw text or a simple bag
+                $rawText = $utf8.GetString($all)
+                if ($AsHashtable -or $IncludeBody) {
+                    return [ordered]@{ 'Status-Line' = '(unknown)'; 'Raw' = $rawText }
+                } else {
+                    return $rawText
+                }
+            }
+
+            $headerBytes = $all[0..($sep + 3)]
+            $bodyBytes = if ($sep + 4 -lt $all.Length) { $all[($sep + 4)..($all.Length - 1)] } else { [byte[]]@() }
+            $headerText = $utf8.GetString($headerBytes)
+
+            if ($IncludeBody) {
+                # Structured return: ordered Headers + raw Body bytes + StatusCode + BodyLength
+                $headersOrdered = [ordered]@{}
+                $lines = $headerText -split "`r`n"
+                if ($lines.Length -gt 0) { $headersOrdered['Status-Line'] = $lines[0] }
+                for ($j = 1; $j -lt $lines.Length; $j++) {
+                    $line = $lines[$j]
+                    if ([string]::IsNullOrWhiteSpace($line)) { continue }
+                    $idx = $line.IndexOf(':')
+                    if ($idx -ge 0) {
+                        $k = $line.Substring(0, $idx)
+                        $v = $line.Substring($idx + 1).TrimStart()
+                        if ($headersOrdered.Contains($k)) {
+                            $existing = $headersOrdered[$k]
+                            if ($existing -is [System.Collections.IList]) {
+                                $existing.Add($v) | Out-Null
+                            } else {
+                                $headersOrdered[$k] = [System.Collections.ArrayList]@($existing, $v)
+                            }
+                        } else {
+                            $headersOrdered[$k] = $v
+                        }
+                    }
+                }
+                $statusCode = $null
+                if ($headersOrdered['Status-Line'] -match 'HTTP/\d\.\d\s+(\d{3})') { $statusCode = [int]$matches[1] }
+                return [pscustomobject]@{
+                    Headers = $headersOrdered
+                    Body = $bodyBytes
+                    StatusCode = $statusCode
+                    BodyLength = $bodyBytes.Length
+                }
+            }
+
+            if ($AsHashtable) {
+                $ht = [ordered]@{}
+                $lines = $headerText -split "`r`n"
+                if ($lines.Length -gt 0) {
+                    $ht['Status-Line'] = $lines[0]
+                    $ht['StatusCode'] = if ($lines[0] -match 'HTTP/\d\.\d\s+(\d{3})') { [int]$matches[1] } else { $null }
+                    $ht['Version'] = if ($lines[0] -match 'HTTP/(\d\.\d)') { $matches[1] } else { $null }
+                }
+                for ($j = 1; $j -lt $lines.Length; $j++) {
+                    $line = $lines[$j]
+                    if ([string]::IsNullOrWhiteSpace($line)) { continue }
+                    $idx = $line.IndexOf(':')
+                    if ($idx -ge 0) {
+                        $k = $line.Substring(0, $idx)
+                        $v = $line.Substring($idx + 1).TrimStart()
+                        if ($ht.Contains($k)) {
+                            $existing = $ht[$k]
+                            if ($existing -is [System.Collections.IList]) {
+                                $existing.Add($v) | Out-Null
+                            } else {
+                                $ht[$k] = [System.Collections.ArrayList]@($existing, $v)
+                            }
+                        } else {
+                            $ht[$k] = $v
+                        }
+                    }
+                }
+                return $ht
             } else {
-                return $rawText
+                return $headerText
             }
+        } finally {
+            if ($stream) { $stream.Dispose() }
+            if ($netStream) { $netStream.Dispose() }
+            if ($client) { $client.Dispose() }
         }
-
-        $headerBytes = $all[0..($sep + 3)]
-        $bodyBytes = if ($sep + 4 -lt $all.Length) { $all[($sep + 4)..($all.Length - 1)] } else { [byte[]]@() }
-        $headerText = $utf8.GetString($headerBytes)
-
-        if ($IncludeBody) {
-            # Structured return: ordered Headers + raw Body bytes + StatusCode + BodyLength
-            $headersOrdered = [ordered]@{}
-            $lines = $headerText -split "`r`n"
-            if ($lines.Length -gt 0) { $headersOrdered['Status-Line'] = $lines[0] }
-            for ($j = 1; $j -lt $lines.Length; $j++) {
-                $line = $lines[$j]
-                if ([string]::IsNullOrWhiteSpace($line)) { continue }
-                $idx = $line.IndexOf(':')
-                if ($idx -ge 0) {
-                    $k = $line.Substring(0, $idx)
-                    $v = $line.Substring($idx + 1).TrimStart()
-                    if ($headersOrdered.Contains($k)) {
-                        $existing = $headersOrdered[$k]
-                        if ($existing -is [System.Collections.IList]) {
-                            $existing.Add($v) | Out-Null
-                        } else {
-                            $headersOrdered[$k] = [System.Collections.ArrayList]@($existing, $v)
-                        }
-                    } else {
-                        $headersOrdered[$k] = $v
-                    }
-                }
-            }
-            $statusCode = $null
-            if ($headersOrdered['Status-Line'] -match 'HTTP/\d\.\d\s+(\d{3})') { $statusCode = [int]$matches[1] }
-            return [pscustomobject]@{
-                Headers = $headersOrdered
-                Body = $bodyBytes
-                StatusCode = $statusCode
-                BodyLength = $bodyBytes.Length
-            }
-        }
-
-        if ($AsHashtable) {
-            $ht = [ordered]@{}
-            $lines = $headerText -split "`r`n"
-            if ($lines.Length -gt 0) {
-                $ht['Status-Line'] = $lines[0]
-                $ht['StatusCode'] = if ($lines[0] -match 'HTTP/\d\.\d\s+(\d{3})') { [int]$matches[1] } else { $null }
-                $ht['Version'] = if ($lines[0] -match 'HTTP/(\d\.\d)') { $matches[1] } else { $null }
-            }
-            for ($j = 1; $j -lt $lines.Length; $j++) {
-                $line = $lines[$j]
-                if ([string]::IsNullOrWhiteSpace($line)) { continue }
-                $idx = $line.IndexOf(':')
-                if ($idx -ge 0) {
-                    $k = $line.Substring(0, $idx)
-                    $v = $line.Substring($idx + 1).TrimStart()
-                    if ($ht.Contains($k)) {
-                        $existing = $ht[$k]
-                        if ($existing -is [System.Collections.IList]) {
-                            $existing.Add($v) | Out-Null
-                        } else {
-                            $ht[$k] = [System.Collections.ArrayList]@($existing, $v)
-                        }
-                    } else {
-                        $ht[$k] = $v
-                    }
-                }
-            }
-            return $ht
-        } else {
-            return $headerText
-        }
-    } finally {
-        if ($stream) { $stream.Dispose() }
-        if ($netStream) { $netStream.Dispose() }
-        if ($client) { $client.Dispose() }
     }
-}
 
 
 
-<#
+    <#
 .SYNOPSIS
     Attempt Brotli decompression if available.
 .DESCRIPTION
@@ -1948,23 +1953,23 @@ function Get-HttpHeadersRaw {
 .NOTES
     This function will not throw; it returns $null on failure.
 #>
-function ConvertFrom-BrotliCompression([byte[]]$data) {
-    try {
-        $brotliType = [type]::GetType('System.IO.Compression.BrotliStream, System.IO.Compression.Brotli')
-        if (-not $brotliType) { return $null }
-        # Brotli magic isn't fixed like gzip; quick attempt only if not gzip
-        if ($data.Length -lt 3) { return $null }
-        # Heuristic: if gzip test fails and size > 20, try brotli
-        $ms = [IO.MemoryStream]::new($data)
-        $br = [System.IO.Compression.BrotliStream]::new($ms, [IO.Compression.CompressionMode]::Decompress)
-        $out = [IO.MemoryStream]::new(); $buf = New-Object byte[] 4096
-        while (($n = $br.Read($buf, 0, $buf.Length)) -gt 0) { $out.Write($buf, 0, $n) }
-        $br.Dispose(); $ms.Dispose()
-        $res = $out.ToArray(); $out.Dispose(); return $res
-    } catch { return $null }
-}
+    function ConvertFrom-BrotliCompression([byte[]]$data) {
+        try {
+            $brotliType = [type]::GetType('System.IO.Compression.BrotliStream, System.IO.Compression.Brotli')
+            if (-not $brotliType) { return $null }
+            # Brotli magic isn't fixed like gzip; quick attempt only if not gzip
+            if ($data.Length -lt 3) { return $null }
+            # Heuristic: if gzip test fails and size > 20, try brotli
+            $ms = [IO.MemoryStream]::new($data)
+            $br = [System.IO.Compression.BrotliStream]::new($ms, [IO.Compression.CompressionMode]::Decompress)
+            $out = [IO.MemoryStream]::new(); $buf = New-Object byte[] 4096
+            while (($n = $br.Read($buf, 0, $buf.Length)) -gt 0) { $out.Write($buf, 0, $n) }
+            $br.Dispose(); $ms.Dispose()
+            $res = $out.ToArray(); $out.Dispose(); return $res
+        } catch { return $null }
+    }
 
-<#
+    <#
 .SYNOPSIS
     Attempt Gzip decompression of a byte array.
 .DESCRIPTION
@@ -1977,20 +1982,20 @@ function ConvertFrom-BrotliCompression([byte[]]$data) {
 .NOTES
     This function will not throw; it returns $null on failure.
 #>
-function ConvertFrom-GzipCompression([byte[]]$data) {
-    try {
-        if ($data.Length -lt 2) { return $null }
-        if ($data[0] -ne 0x1F -or $data[1] -ne 0x8B) { return $null }
-        $ms = [IO.MemoryStream]::new($data)
-        $gz = [IO.Compression.GZipStream]::new($ms, [IO.Compression.CompressionMode]::Decompress)
-        $out = [IO.MemoryStream]::new(); $buf = New-Object byte[] 4096
-        while (($n = $gz.Read($buf, 0, $buf.Length)) -gt 0) { $out.Write($buf, 0, $n) }
-        $gz.Dispose(); $ms.Dispose()
-        $res = $out.ToArray(); $out.Dispose(); return $res
-    } catch { return $null }
-}
+    function ConvertFrom-GzipCompression([byte[]]$data) {
+        try {
+            if ($data.Length -lt 2) { return $null }
+            if ($data[0] -ne 0x1F -or $data[1] -ne 0x8B) { return $null }
+            $ms = [IO.MemoryStream]::new($data)
+            $gz = [IO.Compression.GZipStream]::new($ms, [IO.Compression.CompressionMode]::Decompress)
+            $out = [IO.MemoryStream]::new(); $buf = New-Object byte[] 4096
+            while (($n = $gz.Read($buf, 0, $buf.Length)) -gt 0) { $out.Write($buf, 0, $n) }
+            $gz.Dispose(); $ms.Dispose()
+            $res = $out.ToArray(); $out.Dispose(); return $res
+        } catch { return $null }
+    }
 
-<#
+    <#
 .SYNOPSIS
     Decode HTTP chunked transfer encoding from raw byte array.
 .DESCRIPTION
@@ -2003,42 +2008,42 @@ function ConvertFrom-GzipCompression([byte[]]$data) {
 .NOTES
     This function will not throw; it returns the original data on failure or if not chunked
 #>
-function ConvertFrom-ChunkedEncoding([byte[]]$data) {
-    try {
-        $asciiSample = [Text.Encoding]::ASCII.GetString($data, 0, [Math]::Min(64, $data.Length))
-        if ($asciiSample -notmatch '^[0-9A-Fa-f]{1,6}\r\n') { return $data } # fast reject
-        # Walk the structure; abort if anything inconsistent
-        $pos = 0
-        $decoded = [IO.MemoryStream]::new()
-        while ($pos -lt $data.Length) {
-            # read size line
-            $lineBytes = New-Object System.Collections.Generic.List[byte]
+    function ConvertFrom-ChunkedEncoding([byte[]]$data) {
+        try {
+            $asciiSample = [Text.Encoding]::ASCII.GetString($data, 0, [Math]::Min(64, $data.Length))
+            if ($asciiSample -notmatch '^[0-9A-Fa-f]{1,6}\r\n') { return $data } # fast reject
+            # Walk the structure; abort if anything inconsistent
+            $pos = 0
+            $decoded = [IO.MemoryStream]::new()
             while ($pos -lt $data.Length) {
-                if ($data[$pos] -eq 13 -and ($pos + 1) -lt $data.Length -and $data[$pos + 1] -eq 10) { $pos += 2; break }
-                $lineBytes.Add($data[$pos]); $pos++
-                if ($lineBytes.Count -gt 8) { return $data } # unlikely a valid size line if too long
+                # read size line
+                $lineBytes = New-Object System.Collections.Generic.List[byte]
+                while ($pos -lt $data.Length) {
+                    if ($data[$pos] -eq 13 -and ($pos + 1) -lt $data.Length -and $data[$pos + 1] -eq 10) { $pos += 2; break }
+                    $lineBytes.Add($data[$pos]); $pos++
+                    if ($lineBytes.Count -gt 8) { return $data } # unlikely a valid size line if too long
+                }
+                if ($lineBytes.Count -eq 0) { return $data }
+                $sizeHex = [Text.Encoding]::ASCII.GetString($lineBytes.ToArray())
+                if ([string]::IsNullOrWhiteSpace($sizeHex)) { return $data }
+                $sizeRef = [ref]0
+                if (-not [int]::TryParse($sizeHex, [System.Globalization.NumberStyles]::HexNumber, $null, $sizeRef)) { return $data }
+                $chunkSize = $sizeRef.Value
+                if ($chunkSize -eq 0) {
+                    # Optionally skip any trailing headers (CRLF sequences) but we stop here
+                    return $decoded.ToArray()
+                }
+                if ($pos + $chunkSize -gt $data.Length) { return $data }
+                $decoded.Write($data, $pos, $chunkSize)
+                $pos += $chunkSize
+                # Skip trailing CRLF after each chunk
+                if ($pos + 1 -lt $data.Length -and $data[$pos] -eq 13 -and $data[$pos + 1] -eq 10) { $pos += 2 }
             }
-            if ($lineBytes.Count -eq 0) { return $data }
-            $sizeHex = [Text.Encoding]::ASCII.GetString($lineBytes.ToArray())
-            if ([string]::IsNullOrWhiteSpace($sizeHex)) { return $data }
-            $sizeRef = [ref]0
-            if (-not [int]::TryParse($sizeHex, [System.Globalization.NumberStyles]::HexNumber, $null, $sizeRef)) { return $data }
-            $chunkSize = $sizeRef.Value
-            if ($chunkSize -eq 0) {
-                # Optionally skip any trailing headers (CRLF sequences) but we stop here
-                return $decoded.ToArray()
-            }
-            if ($pos + $chunkSize -gt $data.Length) { return $data }
-            $decoded.Write($data, $pos, $chunkSize)
-            $pos += $chunkSize
-            # Skip trailing CRLF after each chunk
-            if ($pos + 1 -lt $data.Length -and $data[$pos] -eq 13 -and $data[$pos + 1] -eq 10) { $pos += 2 }
-        }
-        $dec = $decoded.ToArray(); $decoded.Dispose(); return $dec
-    } catch { return $data }
-}
+            $dec = $decoded.ToArray(); $decoded.Dispose(); return $dec
+        } catch { return $data }
+    }
 
-<#
+    <#
 .SYNOPSIS
     Decode raw HTTP response body bytes that may be chunked and/or compressed.
 .DESCRIPTION
@@ -2053,42 +2058,41 @@ function ConvertFrom-ChunkedEncoding([byte[]]$data) {
 .OUTPUTS
     [string] decoded textual representation (UTF8 preferred; Latin1 fallback)
 #>
-function Convert-BytesToStringWithGzipScan {
-    param(
-        [byte[]]$Bytes,
-        [switch]$ReturnDiagnostics
-    )
-    if (-not $Bytes) { return '' }
+    function Convert-BytesToStringWithGzipScan {
+        param(
+            [byte[]]$Bytes,
+            [switch]$ReturnDiagnostics
+        )
+        if (-not $Bytes) { return '' }
 
-    $originalLen = $Bytes.Length
-    $diagnostics = [ordered]@{ OriginalLength = $originalLen }
+        $originalLen = $Bytes.Length
+        $diagnostics = [ordered]@{ OriginalLength = $originalLen }
 
 
 
-    $maybeChunked = ConvertFrom-ChunkedEncoding $Bytes
-    if ($maybeChunked -ne $Bytes) { $diagnostics['ChunkedDecoded'] = $true; $diagnostics['AfterChunkLength'] = $maybeChunked.Length } else { $diagnostics['ChunkedDecoded'] = $false }
-    $Bytes = $maybeChunked
+        $maybeChunked = ConvertFrom-ChunkedEncoding $Bytes
+        if ($maybeChunked -ne $Bytes) { $diagnostics['ChunkedDecoded'] = $true; $diagnostics['AfterChunkLength'] = $maybeChunked.Length } else { $diagnostics['ChunkedDecoded'] = $false }
+        $Bytes = $maybeChunked
 
-    $decodedBytes = $null
-    $gzipBytes = ConvertFrom-GzipCompression $Bytes
-    if ($gzipBytes) { $decodedBytes = $gzipBytes; $diagnostics['GzipDecoded'] = $true }
-    else {
-        $brotliBytes = ConvertFrom-BrotliCompression $Bytes
-        if ($brotliBytes) { $decodedBytes = $brotliBytes; $diagnostics['BrotliDecoded'] = $true }
-        else { $decodedBytes = $Bytes; $diagnostics['GzipDecoded'] = $false; $diagnostics['BrotliDecoded'] = $false }
+        $decodedBytes = $null
+        $gzipBytes = ConvertFrom-GzipCompression $Bytes
+        if ($gzipBytes) { $decodedBytes = $gzipBytes; $diagnostics['GzipDecoded'] = $true }
+        else {
+            $brotliBytes = ConvertFrom-BrotliCompression $Bytes
+            if ($brotliBytes) { $decodedBytes = $brotliBytes; $diagnostics['BrotliDecoded'] = $true }
+            else { $decodedBytes = $Bytes; $diagnostics['GzipDecoded'] = $false; $diagnostics['BrotliDecoded'] = $false }
+        }
+
+        # Choose encoding: prefer UTF8, fallback Latin1 if invalid
+        $text = $null
+        try {
+            $text = [Text.Encoding]::UTF8.GetString($decodedBytes)
+            # Validate by re-encoding (detect replacement char  or � not reliably) but assume fine
+        } catch {
+            $text = [Text.Encoding]::GetEncoding('ISO-8859-1').GetString($decodedBytes)
+            $diagnostics['Latin1Fallback'] = $true
+        }
+
+        if ($ReturnDiagnostics) { return [pscustomobject]@{ Text = $text; Meta = $diagnostics } }
+        return $text
     }
-
-    # Choose encoding: prefer UTF8, fallback Latin1 if invalid
-    $text = $null
-    try {
-        $text = [Text.Encoding]::UTF8.GetString($decodedBytes)
-        # Validate by re-encoding (detect replacement char  or � not reliably) but assume fine
-    } catch {
-        $text = [Text.Encoding]::GetEncoding('ISO-8859-1').GetString($decodedBytes)
-        $diagnostics['Latin1Fallback'] = $true
-    }
-
-    if ($ReturnDiagnostics) { return [pscustomobject]@{ Text = $text; Meta = $diagnostics } }
-    return $text
-}
-

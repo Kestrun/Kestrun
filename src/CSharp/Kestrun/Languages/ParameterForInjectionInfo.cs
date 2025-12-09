@@ -217,9 +217,7 @@ public record ParameterForInjectionInfo
             JsonSchemaType.Integer => int.TryParse(singleValue, out var i) ? (int?)i : null,
             JsonSchemaType.Number => double.TryParse(singleValue, out var d) ? (double?)d : null,
             JsonSchemaType.Boolean => bool.TryParse(singleValue, out var b) ? (bool?)b : null,
-            JsonSchemaType.Array =>
-                // keep your existing behaviour for query/header multi-values
-                multiValue ?? (singleValue is not null ? new[] { singleValue } : null),
+            JsonSchemaType.Array => multiValue ?? (singleValue is not null ? new[] { singleValue } : null), // keep your existing behaviour for query/header multi-values
             JsonSchemaType.Object =>
                 ConvertBodyBasedOnContentType(context, singleValue ?? ""),
             JsonSchemaType.String => singleValue,

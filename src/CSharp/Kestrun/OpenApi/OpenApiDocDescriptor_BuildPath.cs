@@ -199,5 +199,4 @@ public partial class OpenApiDocDescriptor
 
         return op;
     }
-
 }

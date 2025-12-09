@@ -109,14 +109,14 @@ internal static class PowerShellAttributes
         if (vals is not null)
         {
             var list = new List<JsonNode>();
-            foreach (var v in vals)
+            foreach (var node in vals.Select(OpenApiDocDescriptor.ToNode))
             {
-                var node = OpenApiDocDescriptor.ToNode(v);
                 if (node is not null)
                 {
                     list.Add(node);
                 }
             }
+
             if (list.Count > 0)
             {
                 var existing = sc.Enum?.ToList() ?? [];

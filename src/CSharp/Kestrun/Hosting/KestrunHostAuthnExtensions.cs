@@ -520,7 +520,7 @@ public static class KestrunHostAuthnExtensions
                   // Copy relevant properties from provided options instance to the framework-created one
                   configureOptions.ApplyTo(opts);
                   host.Logger.Debug(
-                           "Configured JWT Authentication using scheme {Scheme}  )",
+                           "Configured JWT Authentication using scheme {Scheme}.",
                            authenticationScheme);
               }
             );
@@ -696,7 +696,7 @@ public static class KestrunHostAuthnExtensions
     {
         if (host.Logger.IsEnabled(LogEventLevel.Debug))
         {
-            host.Logger.Debug("Adding Cookie Authentication with scheme: {Scheme}", authenticationScheme);
+            host.Logger.Debug("Adding Windows Authentication with scheme: {Scheme}", authenticationScheme);
         }
         // Ensure the scheme is not null
         ArgumentNullException.ThrowIfNull(host);
@@ -1011,7 +1011,7 @@ public static class KestrunHostAuthnExtensions
                     configureOptions.ApplyTo(oauthOpts);
                     if (host.Logger.IsEnabled(LogEventLevel.Debug))
                     {
-                        host.Logger.Debug("Configured OpenID Connect with   ClientId: {ClientId}, Scopes: {Scopes}",
+                        host.Logger.Debug("Configured OpenID Connect with ClientId: {ClientId}, Scopes: {Scopes}",
                           oauthOpts.ClientId, string.Join(", ", oauthOpts.Scope));
                     }
                 });

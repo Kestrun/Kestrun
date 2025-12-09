@@ -100,8 +100,6 @@ public class PowerShellOpenApiClassExporterTests
         tagsProp.SetGetMethod(getTags);
         tagsProp.SetSetMethod(setTags);
 
-        var petTypeCreated = petType.CreateType()!;
-
         return asmBuilder;
     }
 

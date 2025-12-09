@@ -29,7 +29,7 @@ function Add-KrOpenApiLicense {
         [string[]]$DocId = [Kestrun.Authentication.IOpenApiAuthenticationOptions]::DefaultDocumentationIds,
         [Parameter(Mandatory)]
         [string]$Name,
-        [Parameter(Mandatory)]
+        [Parameter()]
         [Uri]$Url,
         [Parameter()]
         [string]$Identifier
@@ -50,9 +50,9 @@ function Add-KrOpenApiLicense {
                 # Initialize the License object if null
                 $docDescriptor.Document.Info.License = [Microsoft.OpenApi.OpenApiLicense]::new()
             }
-            if ($PsBoundParameters.ContainsKey('Name')) {
-                $docDescriptor.Document.Info.License.Name = $Name
-            }
+            # Set the license information
+            $docDescriptor.Document.Info.License.Name = $Name
+            # Set optional properties if provided
             if ($PsBoundParameters.ContainsKey('Url')) {
                 $docDescriptor.Document.Info.License.Url = $Url
             }

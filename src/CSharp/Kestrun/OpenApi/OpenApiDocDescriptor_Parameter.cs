@@ -34,7 +34,7 @@ public partial class OpenApiDocDescriptor
             {
                 if (classAttrs.Length > 1)
                 {
-                    throw new InvalidOperationException($"Type '{t.FullName}' has multiple [OpenApiResponseComponent] attributes. Only one is allowed per class.");
+                    throw new InvalidOperationException($"Type '{t.FullName}' has multiple [OpenApiParameterComponent] attributes. Only one is allowed per class.");
                 }
                 // Apply any class-level [OpenApiResponseComponent] attributes first
                 if (classAttrs[0] is OpenApiParameterComponent classRespAttr)

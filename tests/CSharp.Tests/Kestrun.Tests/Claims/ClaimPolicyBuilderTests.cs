@@ -54,7 +54,7 @@ public class ClaimPolicyBuilderTests
         // Whitespace -> ArgumentException
         _ = Assert.Throws<ArgumentException>(() => builder.AddPolicy(" ", "type", string.Empty, "v"));
 
-        var rule = new ClaimRule("type", "v");
+        var rule = new ClaimRule("type", string.Empty, "v");
         _ = Assert.ThrowsAny<ArgumentException>(() => builder.AddPolicy(null!, rule));
         _ = Assert.Throws<ArgumentException>(() => builder.AddPolicy("", rule));
     }

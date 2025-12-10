@@ -1517,12 +1517,30 @@ public class KestrunHost : IDisposable
     /// <returns>A configured <see cref="KestrunRunspacePoolManager"/> instance.</returns>
     public KestrunRunspacePoolManager CreateRunspacePool(int? maxRunspaces = 0, Dictionary<string, object>? userVariables = null, Dictionary<string, string>? userFunctions = null, string? openApiClassesPath = null)
     {
+        LogCreateRunspacePool(maxRunspaces);
+
+        var iss = BuildInitialSessionState(openApiClassesPath);
+        AddHostVariables(iss);
+        AddSharedVariables(iss);
+        AddUserVariables(iss, userVariables);
+        AddUserFunctions(iss, userFunctions);
+
+        var maxRs = ResolveMaxRunspaces(maxRunspaces);
+
+        Logger.Information("Creating runspace pool with max runspaces: {MaxRunspaces}", maxRs);
+        return new KestrunRunspacePoolManager(this, Options?.MinRunspaces ?? 1, maxRunspaces: maxRs, initialSessionState: iss, openApiClassesPath: openApiClassesPath);
+    }
+
+    private void LogCreateRunspacePool(int? maxRunspaces)
+    {
         if (Logger.IsEnabled(LogEventLevel.Debug))
         {
             Logger.Debug("CreateRunspacePool() called: {@MaxRunspaces}", maxRunspaces);
         }
+    }
 
-        // Create a default InitialSessionState with an unrestricted policy:
+    private InitialSessionState BuildInitialSessionState(string? openApiClassesPath)
+    {
         var iss = InitialSessionState.CreateDefault();
 
         if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
@@ -1530,12 +1548,37 @@ public class KestrunHost : IDisposable
             // On Windows, we can use the full .NET Framework modules
             iss.ExecutionPolicy = ExecutionPolicy.Unrestricted;
         }
-        foreach (var p in _modulePaths)
+
+        ImportModulePaths(iss);
+        AddOpenApiStartupScript(iss, openApiClassesPath);
+
+        return iss;
+    }
+
+    private void ImportModulePaths(InitialSessionState iss)
+    {
+        foreach (var path in _modulePaths)
         {
-            iss.ImportPSModule([p]);
+            iss.ImportPSModule([path]);
+        }
+    }
+
+    private void AddOpenApiStartupScript(InitialSessionState iss, string? openApiClassesPath)
+    {
+        if (string.IsNullOrWhiteSpace(openApiClassesPath))
+        {
+            return;
         }
 
-        // Inject 'KrServer' variable to provide access to the host instance
+        _ = iss.StartupScripts.Add(openApiClassesPath);
+        if (Logger.IsEnabled(LogEventLevel.Debug))
+        {
+            Logger.Debug("Configured OpenAPI class script at {ScriptPath}", openApiClassesPath);
+        }
+    }
+
+    private void AddHostVariables(InitialSessionState iss)
+    {
         iss.Variables.Add(
             new SessionStateVariableEntry(
                 "KrServer",
@@ -1543,10 +1586,12 @@ public class KestrunHost : IDisposable
                 "The Kestrun Server Host (KestrunHost) instance"
             )
         );
-        // Inject global variables into all runspaces
+    }
+
+    private void AddSharedVariables(InitialSessionState iss)
+    {
         foreach (var kvp in SharedState.Snapshot())
         {
-            // kvp.Key = "Visits", kvp.Value = 0
             iss.Variables.Add(
                 new SessionStateVariableEntry(
                     kvp.Key,
@@ -1555,17 +1600,16 @@ public class KestrunHost : IDisposable
                 )
             );
         }
-        // Inject OpenAPI class definitions
-        if (!string.IsNullOrWhiteSpace(openApiClassesPath))
+    }
+
+    private static void AddUserVariables(InitialSessionState iss, IReadOnlyDictionary<string, object>? userVariables)
+    {
+        if (userVariables is null)
         {
-            _ = iss.StartupScripts.Add(openApiClassesPath);
-            if (Logger.IsEnabled(LogEventLevel.Debug))
-            {
-                Logger.Debug("Configured OpenAPI class script at {ScriptPath}", openApiClassesPath);
-            }
+            return;
         }
 
-        foreach (var kvp in userVariables ?? [])
+        foreach (var kvp in userVariables)
         {
             if (kvp.Value is PSVariable psVar)
             {
@@ -1576,43 +1620,43 @@ public class KestrunHost : IDisposable
                         psVar.Description ?? "User-defined variable"
                     )
                 );
+                continue;
             }
-            else
-            {
-                iss.Variables.Add(
-                    new SessionStateVariableEntry(
-                        kvp.Key,
-                        kvp.Value,
-                        "User-defined variable"
-                    )
-                );
-            }
+
+            iss.Variables.Add(
+                new SessionStateVariableEntry(
+                    kvp.Key,
+                    kvp.Value,
+                    "User-defined variable"
+                )
+            );
+        }
+    }
+
+    private static void AddUserFunctions(InitialSessionState iss, IReadOnlyDictionary<string, string>? userFunctions)
+    {
+        if (userFunctions is null)
+        {
+            return;
         }
 
-        foreach (var r in userFunctions ?? [])
+        foreach (var function in userFunctions)
         {
-            var name = r.Key;
-            var def = r.Value;
-
-            // Use the string-based ctor available in 7.4 ref/net8.0
             var entry = new SessionStateFunctionEntry(
-                name,
-                def,
-                ScopedItemOptions.ReadOnly,   // or ScopedItemOptions.None if you want them mutable
+                function.Key,
+                function.Value,
+                ScopedItemOptions.ReadOnly,
                 helpFile: null
             );
 
             iss.Commands.Add(entry);
         }
-
-        // Determine max runspaces
-        var maxRs = (maxRunspaces.HasValue && maxRunspaces.Value > 0) ? maxRunspaces.Value : Environment.ProcessorCount * 2;
-
-        Logger.Information($"Creating runspace pool with max runspaces: {maxRs}");
-        var runspacePool = new KestrunRunspacePoolManager(this, Options?.MinRunspaces ?? 1, maxRunspaces: maxRs, initialSessionState: iss, openApiClassesPath: openApiClassesPath);
-        // Return the created runspace pool
-        return runspacePool;
     }
+
+    private static int ResolveMaxRunspaces(int? maxRunspaces) =>
+        (maxRunspaces.HasValue && maxRunspaces.Value > 0)
+            ? maxRunspaces.Value
+            : Environment.ProcessorCount * 2;
 
     #endregion
 

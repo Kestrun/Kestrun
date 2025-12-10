@@ -1027,67 +1027,114 @@ public static class KestrunHostAuthnExtensions
     /// <param name="logger">The logger for debug output.</param>
     private static void ConfigureScopes(IOAuthCommonOptions configureOptions, Serilog.ILogger logger)
     {
+        if (configureOptions.Scope is null)
+        {
+            return;
+        }
+
+        if (configureOptions.Scope.Count == 0)
+        {
+            BackfillScopesFromClaimPolicy(configureOptions, logger);
+            return;
+        }
+
+        LogConfiguredScopes(configureOptions.Scope, logger);
+
         if (configureOptions.ClaimPolicy is null)
         {
-            if (configureOptions.Scope is not null && configureOptions.Scope.Count > 0)
-            {
-                if (logger.IsEnabled(LogEventLevel.Debug))
-                {
-                    logger.Debug("OAuth2 scopes configured: {Scopes}", string.Join(", ", configureOptions.Scope));
-                }
-
-                var claimPolicyBuilder = new ClaimPolicyBuilder();
-                foreach (var scope in configureOptions.Scope)
-                {
-                    if (logger.IsEnabled(LogEventLevel.Debug))
-                    {
-                        logger.Debug("OAuth2 scope added: {Scope}", scope);
-                    }
-                    _ = claimPolicyBuilder.AddPolicy(policyName: scope, claimType: "scope", description: string.Empty, allowedValues: scope);
-                }
-                configureOptions.ClaimPolicy = claimPolicyBuilder.Build();
-            }
+            configureOptions.ClaimPolicy = BuildClaimPolicyFromScopes(configureOptions.Scope, logger);
+            return;
         }
-        else if (configureOptions.Scope is not null)
+
+        AddMissingScopesToClaimPolicy(configureOptions.Scope, configureOptions.ClaimPolicy, logger);
+    }
+
+    private static ClaimPolicyConfig BuildClaimPolicyFromScopes(ICollection<string> scopes, Serilog.ILogger logger)
+    {
+        var claimPolicyBuilder = new ClaimPolicyBuilder();
+        foreach (var scope in scopes)
         {
-            if (configureOptions.Scope.Count > 0)
-            {
-                if (logger.IsEnabled(LogEventLevel.Debug))
-                {
-                    logger.Debug("OAuth2 scopes configured: {Scopes}", string.Join(", ", configureOptions.Scope));
-                }
-                var missingScopes = configureOptions.Scope
-                    .Where(s => !configureOptions.ClaimPolicy.Policies.ContainsKey(s))
-                    .ToList();
-                if (missingScopes.Count > 0)
-                {
-                    if (logger.IsEnabled(LogEventLevel.Debug))
-                    {
-                        logger.Debug("Adding missing OAuth2 scopes to claim policy: {Scopes}", string.Join(", ", missingScopes));
-                    }
-                    var claimPolicyBuilder = new ClaimPolicyBuilder();
-                    foreach (var scope in missingScopes)
-                    {
-                        _ = claimPolicyBuilder.AddPolicy(policyName: scope, claimType: "scope", description: string.Empty, allowedValues: scope);
-                        if (logger.IsEnabled(LogEventLevel.Debug))
-                        {
-                            logger.Debug("OAuth2 scope added to claim policy: {Scope}", scope);
-                        }
-                    }
-                    configureOptions.ClaimPolicy.AddPolicies(claimPolicyBuilder.Policies);
-                }
-            }
-            else
-            {
-                foreach (var policy in configureOptions.ClaimPolicy.PolicyNames)
-                {
-                    if (logger.IsEnabled(LogEventLevel.Debug))
-                    {
-                        logger.Debug("OAuth2 claim policy configured: {Policy}", policy);
-                    }
-                    configureOptions.Scope.Add(policy);
-                }
-            }
+            LogScopeAdded(logger, scope);
+            _ = claimPolicyBuilder.AddPolicy(policyName: scope, claimType: "scope", description: string.Empty, allowedValues: scope);
+        }
+
+        return claimPolicyBuilder.Build();
+    }
+
+    private static void AddMissingScopesToClaimPolicy(ICollection<string> scopes, ClaimPolicyConfig claimPolicy, Serilog.ILogger logger)
+    {
+        var missingScopes = scopes
+            .Where(s => !claimPolicy.Policies.ContainsKey(s))
+            .ToList();
+
+        if (missingScopes.Count == 0)
+        {
+            return;
+        }
+
+        LogMissingScopes(missingScopes, logger);
+
+        var claimPolicyBuilder = new ClaimPolicyBuilder();
+        foreach (var scope in missingScopes)
+        {
+            _ = claimPolicyBuilder.AddPolicy(policyName: scope, claimType: "scope", description: string.Empty, allowedValues: scope);
+            LogScopeAddedToClaimPolicy(logger, scope);
+        }
+
+        claimPolicy.AddPolicies(claimPolicyBuilder.Policies);
+    }
+
+    private static void BackfillScopesFromClaimPolicy(IOAuthCommonOptions configureOptions, Serilog.ILogger logger)
+    {
+        if (configureOptions.ClaimPolicy is null)
+        {
+            return;
+        }
+
+        foreach (var policy in configureOptions.ClaimPolicy.PolicyNames)
+        {
+            LogClaimPolicyConfigured(logger, policy);
+            configureOptions.Scope?.Add(policy);
+        }
+    }
+
+    private static void LogScopeAdded(Serilog.ILogger logger, string scope)
+    {
+        if (logger.IsEnabled(LogEventLevel.Debug))
+        {
+            logger.Debug("OAuth2 scope added: {Scope}", scope);
+        }
+    }
+
+    private static void LogScopeAddedToClaimPolicy(Serilog.ILogger logger, string scope)
+    {
+        if (logger.IsEnabled(LogEventLevel.Debug))
+        {
+            logger.Debug("OAuth2 scope added to claim policy: {Scope}", scope);
+        }
+    }
+
+    private static void LogMissingScopes(IEnumerable<string> missingScopes, Serilog.ILogger logger)
+    {
+        if (logger.IsEnabled(LogEventLevel.Debug))
+        {
+            logger.Debug("Adding missing OAuth2 scopes to claim policy: {Scopes}", string.Join(", ", missingScopes));
+        }
+    }
+
+    private static void LogConfiguredScopes(IEnumerable<string> scopes, Serilog.ILogger logger)
+    {
+        if (logger.IsEnabled(LogEventLevel.Debug))
+        {
+            logger.Debug("OAuth2 scopes configured: {Scopes}", string.Join(", ", scopes));
+        }
+    }
+
+    private static void LogClaimPolicyConfigured(Serilog.ILogger logger, string policy)
+    {
+        if (logger.IsEnabled(LogEventLevel.Debug))
+        {
+            logger.Debug("OAuth2 claim policy configured: {Policy}", policy);
         }
     }
 

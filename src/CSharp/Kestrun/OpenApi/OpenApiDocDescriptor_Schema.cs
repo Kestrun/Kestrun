@@ -28,66 +28,23 @@ public partial class OpenApiDocDescriptor
     {
         built ??= [];
 
+        // Handle custom base type derivations first
         if (t.BaseType is not null && t.BaseType != typeof(object))
         {
-            OaSchemaType? baseTypeName = t.BaseType switch
+            var baseTypeSchema = BuildBaseTypeSchema(t);
+            if (baseTypeSchema is not null)
             {
-                Type bt when bt == typeof(OaString) => OaSchemaType.String,
-                Type bt when bt == typeof(OaInteger) => OaSchemaType.Integer,
-                Type bt when bt == typeof(OaNumber) => OaSchemaType.Number,
-                Type bt when bt == typeof(OaBoolean) => OaSchemaType.Boolean,
-                _ => null
-            };
-            if (typeof(IOpenApiType).IsAssignableFrom(t))
-            {
-                var a = GetSchemaIdentity(t);
-                if (a is not null)
-                {
-                    return new OpenApiSchema
-                    {
-                        Type = a.Type.ToJsonSchemaType(),
-                        Format = a.Format
-                    };
-                }
-            }
-            else
-            {
-                IOpenApiSchema item = (baseTypeName is not null) ? new OpenApiSchema
-                {
-                    Type = baseTypeName?.ToJsonSchemaType()
-                } : new OpenApiSchemaReference(t.BaseType.Name);
-                var schemaComps = t.GetCustomAttributes<OpenApiProperties>()
-                    .Where(schemaComp => schemaComp is not null)
-                    .Cast<OpenApiProperties>();
-
-                foreach (var prop in schemaComps)
-                {
-                    if (prop.Array)
-                    {
-                        var s = new OpenApiSchema
-                        {
-                            Type = JsonSchemaType.Array,
-                            Items = item
-                        };
-                        ApplySchemaAttr(prop, s);
-                        return s;
-                    }
-                    else
-                    {
-                        var s = item; // Ensure base type schema is built first
-                        ApplySchemaAttr(prop, s);
-                        return s;
-                    }
-                }
-
-                return item; // Ensure base type schema is built first
+                return baseTypeSchema;
             }
         }
+
         var schema = new OpenApiSchema
         {
             Type = JsonSchemaType.Object,
             Properties = new Dictionary<string, IOpenApiSchema>(StringComparer.Ordinal)
         };
+
+        // Prevent infinite recursion
         if (built.Contains(t))
         {
             return schema;
@@ -95,74 +52,200 @@ public partial class OpenApiDocDescriptor
 
         _ = built.Add(t);
 
+        // Handle enum types
         if (t.IsEnum)
         {
-            if (Document.Components is not null && Document.Components.Schemas is not null)
-            {
-                Document.Components.Schemas[t.Name] = new OpenApiSchema
-                {
-                    Type = JsonSchemaType.String,
-                    Enum = [.. t.GetEnumNames().Select(n => (JsonNode)n)]
-                };
-            }
+            RegisterEnumSchema(t);
             return schema;
         }
 
+        // Early return for primitive types
         if (IsPrimitiveLike(t))
         {
-            return schema; // primitives don't go to components
+            return schema;
         }
 
-        foreach (var a in t.GetCustomAttributes(true)
+        // Apply type-level attributes
+        ApplyTypeAttributes(t, schema);
+
+        // Process properties with default value capture
+        ProcessTypeProperties(t, schema, built);
+
+        return schema;
+    }
+
+    /// <summary>
+    /// Builds schema for custom base type derivations.
+    /// </summary>
+    ///  <param name="t">Type to build schema for</param>
+    /// <returns>OpenApiSchema representing the base type derivation, or null if not applicable</returns>
+    private IOpenApiSchema? BuildBaseTypeSchema(Type t)
+    {
+        // Determine if the base type is a known OpenAPI primitive type
+        OaSchemaType? baseTypeName = t.BaseType switch
+        {
+            Type bt when bt == typeof(OaString) => OaSchemaType.String,
+            Type bt when bt == typeof(OaInteger) => OaSchemaType.Integer,
+            Type bt when bt == typeof(OaNumber) => OaSchemaType.Number,
+            Type bt when bt == typeof(OaBoolean) => OaSchemaType.Boolean,
+            _ => null
+        };
+
+        if (typeof(IOpenApiType).IsAssignableFrom(t))
+        {
+            return BuildOpenApiTypeSchema(t);
+        }
+        // Fallback to custom base type schema building
+        return BuildCustomBaseTypeSchema(t, baseTypeName);
+    }
+
+    /// <summary>
+    /// Builds schema for types implementing IOpenApiType.
+    /// </summary>
+    private static OpenApiSchema? BuildOpenApiTypeSchema(Type t)
+    {
+        var attr = GetSchemaIdentity(t);
+        return attr is not null
+            ? new OpenApiSchema
+            {
+                Type = attr.Type.ToJsonSchemaType(),
+                Format = attr.Format
+            }
+            : null;
+    }
+
+    /// <summary>
+    /// Builds schema for types with custom base types.
+    /// </summary>
+    private IOpenApiSchema BuildCustomBaseTypeSchema(Type t, OaSchemaType? baseTypeName)
+    {
+        IOpenApiSchema baseSchema = baseTypeName is not null
+            ? new OpenApiSchema { Type = baseTypeName?.ToJsonSchemaType() }
+            : new OpenApiSchemaReference(t.BaseType!.Name);
+
+        var schemaComps = t.GetCustomAttributes<OpenApiProperties>()
+            .Where(schemaComp => schemaComp is not null)
+            .Cast<OpenApiProperties>();
+
+        foreach (var prop in schemaComps)
+        {
+            return BuildPropertyFromAttribute(prop, baseSchema);
+        }
+
+        return baseSchema;
+    }
+
+    /// <summary>
+    /// Builds a property schema from an OpenApiProperties attribute.
+    /// </summary>
+    private static IOpenApiSchema BuildPropertyFromAttribute(OpenApiProperties prop, IOpenApiSchema baseSchema)
+    {
+        var schema = prop.Array
+            ? new OpenApiSchema { Type = JsonSchemaType.Array, Items = baseSchema }
+            : baseSchema;
+
+        ApplySchemaAttr(prop, schema);
+        return schema;
+    }
+
+    /// <summary>
+    /// Registers an enum type schema in the document components.
+    /// </summary>
+    private void RegisterEnumSchema(Type enumType)
+    {
+        if (Document.Components?.Schemas is not null)
+        {
+            Document.Components.Schemas[enumType.Name] = new OpenApiSchema
+            {
+                Type = JsonSchemaType.String,
+                Enum = [.. enumType.GetEnumNames().Select(n => (JsonNode)n)]
+            };
+        }
+    }
+
+    /// <summary>
+    /// Applies type-level attributes to a schema.
+    /// </summary>
+    private static void ApplyTypeAttributes(Type t, OpenApiSchema schema)
+    {
+        foreach (var attr in t.GetCustomAttributes(true)
           .Where(a => a is OpenApiPropertyAttribute or OpenApiSchemaComponent))
         {
-            ApplySchemaAttr(a as OpenApiProperties, schema);
+            ApplySchemaAttr(attr as OpenApiProperties, schema);
 
-            if (a is OpenApiSchemaComponent schemaAttribute)
+            if (attr is OpenApiSchemaComponent schemaAttribute && schemaAttribute.Examples is not null)
             {
-                if (schemaAttribute.Examples is not null)
+                schema.Examples ??= [];
+                var node = ToNode(schemaAttribute.Examples);
+                if (node is not null)
                 {
-                    schema.Examples ??= [];
-                    var node = ToNode(schemaAttribute.Examples);
-                    if (node is not null)
-                    {
-                        schema.Examples.Add(node);
-                    }
+                    schema.Examples.Add(node);
                 }
             }
         }
+    }
 
-        // Create an instance to capture default-initialized property values
-        object? inst = null;
-        try { inst = Activator.CreateInstance(t); } catch { inst = null; }
+    /// <summary>
+    /// Processes all properties of a type and builds their schemas.
+    /// </summary>
+    private void ProcessTypeProperties(Type t, OpenApiSchema schema, HashSet<Type> built)
+    {
+        var instance = TryCreateTypeInstance(t);
 
-        foreach (var p in t.GetProperties(BindingFlags.Public | BindingFlags.Instance))
+        foreach (var prop in t.GetProperties(BindingFlags.Public | BindingFlags.Instance))
         {
-            var ps = BuildPropertySchema(p, built);
-            // If this is a concrete schema and no explicit default is set, try to use the property default value
-            if (inst is not null && ps is OpenApiSchema concrete && concrete.Default is null)
-            {
-                try
-                {
-                    var val = p.GetValue(inst);
-                    if (!IsIntrinsicDefault(val, p.PropertyType))
-                    {
-                        concrete.Default = ToNode(val);
-                    }
-                }
-                catch { /* ignore */ }
-            }
-            if (p.GetCustomAttribute<OpenApiAdditionalPropertiesAttribute>() is not null)
+            var propSchema = BuildPropertySchema(prop, built);
+            CapturePropertyDefault(instance, prop, propSchema);
+
+            if (prop.GetCustomAttribute<OpenApiAdditionalPropertiesAttribute>() is not null)
             {
                 schema.AdditionalPropertiesAllowed = true;
-                schema.AdditionalProperties = ps;
+                schema.AdditionalProperties = propSchema;
             }
             else
             {
-                schema.Properties[p.Name] = ps;
+                schema.Properties?.Add(prop.Name, propSchema);
             }
         }
-        return schema;
+    }
+
+    /// <summary>
+    /// Attempts to create an instance of a type to capture default values.
+    /// </summary>
+    private static object? TryCreateTypeInstance(Type t)
+    {
+        try
+        {
+            return Activator.CreateInstance(t);
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Captures the default value of a property if not already set.
+    /// </summary>
+    private void CapturePropertyDefault(object? instance, PropertyInfo prop, IOpenApiSchema propSchema)
+    {
+        if (instance is null || propSchema is not OpenApiSchema concrete || concrete.Default is not null)
+        {
+            return;
+        }
+
+        try
+        {
+            var value = prop.GetValue(instance);
+            if (!IsIntrinsicDefault(value, prop.PropertyType))
+            {
+                concrete.Default = ToNode(value);
+            }
+        }
+        catch
+        {
+            // Ignore failures when capturing defaults
+        }
     }
 
     /// <summary>

@@ -36,16 +36,16 @@ class PaginationParameters {
     [OpenApiParameter(In = [OaParameterLocation]::Query, Description = 'Page number')]
 
     [OpenApiPropertyAttribute(Minimum = 1, Example = 1)]
-    [int]$page
+    [int]$page=1
 
     [OpenApiParameter(In = [OaParameterLocation]::Query, Description = 'Items per page')]
     [OpenApiPropertyAttribute(Minimum = 1, Maximum = 100, Example = 20)]
-    [int]$limit
+    [int]$limit=20
 
     [OpenApiParameter(In = [OaParameterLocation]::Query, Description = 'Sort field (name, date, price)')]
     [OpenApiPropertyAttribute(Example = 'date')]
     [ValidateSet('name', 'date', 'price')]
-    [string]$sortBy
+    [string]$sortBy='date'
 
     [OpenApiParameter(In = [OaParameterLocation]::Query, Description = 'Filter by category')]
     [OpenApiPropertyAttribute(Example = 'electronics')]
@@ -128,13 +128,13 @@ function listProducts {
     [OpenApiResponse(StatusCode = '400', Description = 'Invalid parameters')]
     param(
         [OpenApiParameterRef(ReferenceId = 'page')]
-        [int]$page = 1,
+        [int]$page,
 
         [OpenApiParameterRef(ReferenceId = 'limit')]
-        [int]$limit = 20,
+        [int]$limit,
 
         [OpenApiParameterRef(ReferenceId = 'sortBy')]
-        [string]$sortBy = 'date',
+        [string]$sortBy,
 
         [OpenApiParameterRef(ReferenceId = 'category')]
         [string]$category,

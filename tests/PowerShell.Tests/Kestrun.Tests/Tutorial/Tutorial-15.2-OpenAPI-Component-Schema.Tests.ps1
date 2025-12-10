@@ -1,6 +1,8 @@
 ﻿param()
 Describe 'Example 15.2 OpenAPI Component Schema' -Tag 'Tutorial', 'Slow' {
-    BeforeAll { . (Join-Path $PSScriptRoot '..\PesterHelpers.ps1'); $script:instance = Start-ExampleScript -Name '15.2-OpenAPI-Component-Schema.ps1' }
+    BeforeAll {
+        . (Join-Path $PSScriptRoot '..\PesterHelpers.ps1')
+        $script:instance = Start-ExampleScript -Name '15.2-OpenAPI-Component-Schema.ps1' }
     AfterAll { if ($script:instance) { Stop-ExampleScript -Instance $script:instance } }
 
     It 'Create User (POST)' {
@@ -37,7 +39,7 @@ Describe 'Example 15.2 OpenAPI Component Schema' -Tag 'Tutorial', 'Slow' {
     }
 
     It 'Check OpenAPI Schemas' {
-        $result = Invoke-WebRequest -Uri "$($script:instance.Url)/openapi/v1/openapi.json" -SkipCertificateCheck -SkipHttpErrorCheck
+        $result = Invoke-WebRequest -Uri "$($script:instance.Url)/openapi/v3.1/openapi.json" -SkipCertificateCheck -SkipHttpErrorCheck
         $json = $result.Content | ConvertFrom-Json
         $json.components.schemas.CreateUserRequest | Should -Not -BeNullOrEmpty
         $json.components.schemas.UserResponse | Should -Not -BeNullOrEmpty

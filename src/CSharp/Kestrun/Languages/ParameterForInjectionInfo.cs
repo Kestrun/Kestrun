@@ -2,6 +2,7 @@
 using System.Collections;
 using System.Management.Automation;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using System.Xml.Linq;
 using Kestrun.Logging;
 using Kestrun.Models;
@@ -30,6 +31,12 @@ public record ParameterForInjectionInfo
     /// The JSON schema type of the parameter.
     /// </summary>
     public JsonSchemaType? Type { get; init; }
+
+    /// <summary>
+    /// The default value of the parameter.
+    /// </summary>
+    public JsonNode? DefaultValue { get; }
+
     /// <summary>
     /// The location of the parameter.
     /// </summary>
@@ -53,6 +60,7 @@ public record ParameterForInjectionInfo
         Name = paramInfo.Name;
         ParameterType = paramInfo.ParameterType;
         Type = parameter.Schema?.Type;
+        DefaultValue = parameter.Schema?.Default;
         In = parameter.In;
     }
     /// <summary>
@@ -75,6 +83,7 @@ public record ParameterForInjectionInfo
         else if (schema is OpenApiSchema sch)
         {
             Type = sch.Type;
+            DefaultValue = sch.Default;
         }
         In = null;
     }
@@ -119,8 +128,15 @@ public record ParameterForInjectionInfo
 
                     if (raw is null)
                     {
-                        _ = ps.AddParameter(name, null);
-                        continue;
+                        if (param.DefaultValue is not null)
+                        {
+                            raw = param.DefaultValue.GetValue<object>();
+                        }
+                        else
+                        {
+                            _ = ps.AddParameter(name, null);
+                            continue;
+                        }
                     }
 
                     if (logger.IsEnabled(Serilog.Events.LogEventLevel.Debug))
@@ -159,10 +175,25 @@ public record ParameterForInjectionInfo
     {
         return param.In switch
         {
-            ParameterLocation.Path => context.Request.RouteValues?[param.Name],
-            ParameterLocation.Query => (object?)context.Request.Query[param.Name],
-            ParameterLocation.Header => (object?)context.Request.Headers[param.Name],
-            ParameterLocation.Cookie => context.Request.Cookies[param.Name],
+            ParameterLocation.Path =>
+            context.Request.RouteValues.TryGetValue(param.Name, out var routeVal)
+                ? routeVal
+                : null,
+
+            ParameterLocation.Query =>
+                context.Request.Query.TryGetValue(param.Name, out var queryVal)
+                    ? (string?)queryVal
+                    : null,
+
+            ParameterLocation.Header =>
+                context.Request.Headers.TryGetValue(param.Name, out var headerVal)
+                    ? (string?)headerVal
+                    : null,
+
+            ParameterLocation.Cookie =>
+                context.Request.Cookies.TryGetValue(param.Name, out var cookieVal)
+                    ? cookieVal
+                    : null,
             null => (context.Request.Form is not null && context.Request.HasFormContentType) ?
                     context.Request.Form :
                     context.Request.Body,

@@ -1,6 +1,9 @@
 ﻿param()
 Describe 'Example 15.6 OpenAPI Components RequestBody & Response' -Tag 'Tutorial', 'Slow' {
-    BeforeAll { . (Join-Path $PSScriptRoot '..\PesterHelpers.ps1'); $script:instance = Start-ExampleScript -Name '15.6-OpenAPI-Components-RequestBody-Response.ps1' }
+    BeforeAll {
+        . (Join-Path $PSScriptRoot '..\PesterHelpers.ps1');
+        $script:instance = Start-ExampleScript -Name '15.6-OpenAPI-Components-RequestBody-Response.ps1'
+    }
     AfterAll { if ($script:instance) { Stop-ExampleScript -Instance $script:instance } }
 
     It 'Create Order (POST)' {
@@ -27,9 +30,9 @@ Describe 'Example 15.6 OpenAPI Components RequestBody & Response' -Tag 'Tutorial
     }
 
     It 'Check OpenAPI Components' {
-        $result = Invoke-WebRequest -Uri "$($script:instance.Url)/openapi/v1/openapi.json" -SkipCertificateCheck -SkipHttpErrorCheck
+        $result = Invoke-WebRequest -Uri "$($script:instance.Url)/openapi/v3.1/openapi.json" -SkipCertificateCheck -SkipHttpErrorCheck
         $json = $result.Content | ConvertFrom-Json
         $json.components.requestBodies.CreateOrderRequestBody | Should -Not -BeNullOrEmpty
-        $json.components.responses.OrderResponseComponent | Should -Not -BeNullOrEmpty
+        $json.components.responses.'OrderResponseComponent-Default' | Should -Not -BeNullOrEmpty
     }
 }

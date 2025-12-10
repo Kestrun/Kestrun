@@ -12,10 +12,10 @@ Describe 'Example 15.5 OpenAPI Component Response' -Tag 'Tutorial', 'Slow' {
     }
 
     It 'Get Article (GET NotFound)' {
-        $result = Invoke-WebRequest -Uri "$($script:instance.Url)/articles/999" -SkipCertificateCheck -SkipHttpErrorCheck
-        $result.StatusCode | Should -Be 404
+        $result = Invoke-WebRequest -Uri "$($script:instance.Url)/articles/-2" -SkipCertificateCheck -SkipHttpErrorCheck
+        $result.StatusCode | Should -Be 400
         $json = $result.Content | ConvertFrom-Json
-        $json.code | Should -Be 'ARTICLE_NOT_FOUND'
+        $json.code | Should -Be 'INVALID_ID'
     }
 
     It 'Create Article (POST)' {
@@ -32,7 +32,7 @@ Describe 'Example 15.5 OpenAPI Component Response' -Tag 'Tutorial', 'Slow' {
     }
 
     It 'Check OpenAPI Responses' {
-        $result = Invoke-WebRequest -Uri "$($script:instance.Url)/openapi/v1/openapi.json" -SkipCertificateCheck -SkipHttpErrorCheck
+        $result = Invoke-WebRequest -Uri "$($script:instance.Url)/openapi/v3.1/openapi.json" -SkipCertificateCheck -SkipHttpErrorCheck
         $json = $result.Content | ConvertFrom-Json
         $json.components.responses.'SuccessResponses-OK' | Should -Not -BeNullOrEmpty
         $json.components.responses.'ErrorResponses-NotFound' | Should -Not -BeNullOrEmpty

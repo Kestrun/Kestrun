@@ -17,6 +17,7 @@ New-KrLogger | Add-KrSinkConsole |
 
 $srv = New-KrServer -Name 'OpenAPI Response Component' -PassThru
 
+Add-KrEndpoint -Port $Port -IPAddress $IPAddress
 # =========================================================
 #                 TOP-LEVEL OPENAPI
 # =========================================================
@@ -106,8 +107,8 @@ class ArticleResponses {
     [OpenApiResponseAttribute(Description = 'Article retrieved successfully', ContentType = ('application/json', 'application/xml'), inline = $true)]
     [Article]$ArticleResponsesOK
 
-    [OpenApiResponseAttribute(Description = 'Article not found', Schema = [ErrorResponse], ContentType = ('application/json', 'application/xml'))]
-    $ArticleResponsesNotFound
+    [OpenApiResponseAttribute(Description = 'Article not found', ContentType = ('application/json', 'application/xml'))]
+    [ErrorResponse] $ArticleResponsesNotFound
 
     [OpenApiResponseAttribute()]
     $objectResponse
@@ -246,5 +247,4 @@ Add-KrOpenApiRoute
 #                      RUN SERVER
 # =========================================================
 
-Add-KrEndpoint -Port $Port -IPAddress $IPAddress
 Start-KrServer -Server $srv -CloseLogsOnExit

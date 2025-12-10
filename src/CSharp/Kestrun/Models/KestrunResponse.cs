@@ -19,6 +19,7 @@ using CsvHelper;
 using System.Reflection;
 using Microsoft.Net.Http.Headers;
 using Kestrun.Utilities.Yaml;
+using Kestrun.Hosting.Options;
 
 namespace Kestrun.Models;
 
@@ -116,12 +117,35 @@ public class KestrunResponse(KestrunRequest request, int bodyAsyncThreshold = 81
     /// <returns>The value of the header if found; otherwise, null.</returns>
     public string? GetHeader(string key) => Headers.TryGetValue(key, out var value) ? value : null;
 
-    private string DetermineContentType(string? contentType, string defaultType = "text/plain")
+    /// <summary>
+    /// Determines the appropriate content type for the response based on the provided content type and default type.
+    /// </summary>
+    /// <param name="contentType">The initial content type to consider.</param>
+    /// <param name="defaultType">The default content type to use if none is provided or found.</param>
+    /// <returns>The determined content type to use for the response.</returns>
+    private string DetermineContentType(string? contentType, string? defaultType = null)
     {
         if (string.IsNullOrWhiteSpace(contentType))
         {
-            _ = Request.Headers.TryGetValue("Accept", out var acceptHeader);
-            contentType = (acceptHeader ?? defaultType).ToLowerInvariant();
+            if (Request.Headers.TryGetValue("Accept", out var acceptHeader))
+            {
+                contentType = acceptHeader.ToLowerInvariant();
+            }
+            else
+            {
+                if (string.IsNullOrWhiteSpace(defaultType))
+                {
+                    var dft = Context.GetEndpoint()?
+                    .Metadata
+                    .FirstOrDefault(m => m is DefaultResponseContentType)
+                    as DefaultResponseContentType;
+                    contentType = dft?.ContentType ?? "text/html";
+                }
+                else
+                {
+                    contentType = defaultType;
+                }
+            }
         }
 
         return contentType;

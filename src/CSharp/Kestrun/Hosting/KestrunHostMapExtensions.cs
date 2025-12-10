@@ -754,6 +754,7 @@ public static partial class KestrunHostMapExtensions
 
         host.Logger.Verbose("Adding metadata to route: {Pattern}", options.Pattern);
         _ = map.WithMetadata(options.ScriptCode.Parameters);
+        _ = map.WithMetadata(new DefaultResponseContentType(options.DefaultResponseContentType));
     }
     /// <summary>
     /// Applies short-circuiting behavior to the route.

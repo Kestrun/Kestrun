@@ -56,6 +56,11 @@ public class MapRouteOptions
     public string[]? Endpoints { get; set; } = [];
 
     /// <summary>
+    /// Default response content type for this route.
+    /// </summary>
+    public string DefaultResponseContentType { get; set; } = "http/text"; // Default response content type for this route
+
+    /// <summary>
     /// OpenAPI metadata for this route.
     /// </summary>
     public Dictionary<HttpVerb, OpenAPIMetadata> OpenAPI { get; set; } = []; // OpenAPI metadata for this route

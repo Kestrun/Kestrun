@@ -50,6 +50,9 @@ class Product {
 
     [OpenApiPropertyAttribute(Description = 'Creation timestamp', Format = 'date-time', Example = '2024-01-01T12:00:00Z')]
     [string]$createdAt
+
+    [OpenApiPropertyAttribute(Description = 'Update timestamp', Example = '2024-01-01T12:00:00Z')]
+    [datetime]$updatedAt
 }
 
 # =========================================================

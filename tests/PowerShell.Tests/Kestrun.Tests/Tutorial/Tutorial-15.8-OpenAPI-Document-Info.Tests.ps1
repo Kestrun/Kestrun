@@ -4,14 +4,14 @@ Describe 'Example 15.8 OpenAPI Document Info' -Tag 'Tutorial', 'Slow' {
     AfterAll { if ($script:instance) { Stop-ExampleScript -Instance $script:instance } }
 
     It 'Check OpenAPI Info' {
-        $result = Invoke-WebRequest -Uri "$($script:instance.Url)/openapi/v1/openapi.json" -SkipCertificateCheck -SkipHttpErrorCheck
+        $result = Invoke-WebRequest -Uri "$($script:instance.Url)/openapi/v3.1/openapi.json" -SkipCertificateCheck -SkipHttpErrorCheck
         $result.StatusCode | Should -Be 200
         $json = $result.Content | ConvertFrom-Json
 
         $info = $json.info
-        $info.title | Should -Be 'Custom API Title'
-        $info.version | Should -Be '2.5.0'
-        $info.description | Should -Be 'Detailed API description.'
+        $info.title | Should -Be 'Document Info API'
+        $info.version | Should -Be '1.0.0'
+        $info.description | Should -Be "Shows how to populate document metadata."
 
         $info.contact.name | Should -Be 'API Support'
         $info.contact.email | Should -Be 'support@example.com'

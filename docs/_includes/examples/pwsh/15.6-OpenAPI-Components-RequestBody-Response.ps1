@@ -17,7 +17,7 @@ New-KrLogger | Add-KrSinkConsole |
     Register-KrLogger -Name 'console' -SetAsDefault
 
 $srv = New-KrServer -Name 'OpenAPI RequestBody & Response Components' -PassThru
-
+Add-KrEndpoint -Port $Port -IPAddress $IPAddress
 # =========================================================
 #                 TOP-LEVEL OPENAPI
 # =========================================================
@@ -104,14 +104,14 @@ class ErrorDetail {
 class CreateOrderRequestBody:CreateOrderRequest {}
 
 # OrderResponse: ResponseComponent
-[OpenApiResponseComponent(Description = 'Order data')]
+[OpenApiResponseComponent(JoinClassName = '-', Description = 'Order data')]
 class OrderResponseComponent {
     [OpenApiResponse(Description = 'Order successfully retrieved or created', ContentType = 'application/json')]
     [OrderResponse]$Default
 }
 
 # ErrorResponse: ResponseComponent (reusable for multiple error codes)
-[OpenApiResponseComponent(Description = 'Error response')]
+[OpenApiResponseComponent(JoinClassName = '-', Description = 'Error response')]
 class ErrorResponseComponent {
     [OpenApiResponse(Description = 'Request validation error', ContentType = 'application/json')]
     [ErrorDetail]$Default
@@ -297,5 +297,4 @@ Test-KrOpenApiDocument
 #                      RUN SERVER
 # =========================================================
 
-Add-KrEndpoint -Port $Port -IPAddress $IPAddress
 Start-KrServer -Server $srv -CloseLogsOnExit

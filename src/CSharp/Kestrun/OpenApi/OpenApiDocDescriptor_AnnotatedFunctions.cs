@@ -377,6 +377,9 @@ public partial class OpenApiDocDescriptor
                 }
                 // Script source
                 routeOptions.ScriptCode.ScriptBlock = sb;
+
+                // Default response content type for API routes
+                routeOptions.DefaultResponseContentType = "application/json";
                 // Register the route
                 _ = Host.AddMapRoute(routeOptions);
             }

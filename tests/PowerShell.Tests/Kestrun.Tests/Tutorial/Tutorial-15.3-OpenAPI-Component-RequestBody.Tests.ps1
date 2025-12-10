@@ -1,7 +1,7 @@
 ﻿param()
 Describe 'Example 15.3 OpenAPI Component RequestBody' -Tag 'Tutorial', 'Slow' {
     BeforeAll { . (Join-Path $PSScriptRoot '..\PesterHelpers.ps1');
-    $script:instance = Start-ExampleScript -Name '15.3-OpenAPI-Component-RequestBody.ps1' }
+        $script:instance = Start-ExampleScript -Name '15.3-OpenAPI-Component-RequestBody.ps1' }
     AfterAll { if ($script:instance) { Stop-ExampleScript -Instance $script:instance } }
 
     It 'Create Product (POST)' {
@@ -32,7 +32,8 @@ Describe 'Example 15.3 OpenAPI Component RequestBody' -Tag 'Tutorial', 'Slow' {
     }
 
     It 'Check OpenAPI RequestBodies' {
-        $result = Invoke-WebRequest -Uri "$($script:instance.Url)/openapi/v1/openapi.json" -SkipCertificateCheck -SkipHttpErrorCheck
+        $result = Invoke-WebRequest -Uri "$($script:instance.Url)/openapi/v3.1/openapi.json" -SkipCertificateCheck -SkipHttpErrorCheck
+        $result.StatusCode | Should -Be 200
         $json = $result.Content | ConvertFrom-Json
         $json.components.requestBodies.CreateProductRequest | Should -Not -BeNullOrEmpty
         $json.components.requestBodies.UpdateProductRequest | Should -Not -BeNullOrEmpty

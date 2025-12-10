@@ -150,7 +150,8 @@ Diagnostics:
 ## Anti-patterns
 
 - Storing large objects or many keys in session. Prefer a database or cache directly; keep session small and fast.
-- Long, blocking operations between session reads/writes. This increases lock hold time and serializes concurrent requests for the same session.
+- Long, blocking operations between session reads/writes.
+    This increases lock hold time and serializes concurrent requests for the same session.
 - Using session for cross-user or global data. Session is per-client; use shared state or a cache/DB for global data.
 - Putting secrets or credentials in session. Prefer secure stores/claims; session is meant for transient, non-sensitive values.
 - Relying on session to enforce authentication. Use proper auth middleware; session can carry minimal identity context only.

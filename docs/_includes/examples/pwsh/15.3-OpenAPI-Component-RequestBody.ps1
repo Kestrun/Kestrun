@@ -1,4 +1,4 @@
-﻿<#
+<#
     Sample: OpenAPI RequestBody Components
     Purpose: Demonstrate reusable request body components with multiple content types.
     File:    15.3-OpenAPI-Component-RequestBody.ps1

@@ -1,4 +1,4 @@
-﻿param()
+param()
 Describe 'Example 15.4 OpenAPI Component Parameter' -Tag 'Tutorial', 'Slow' {
     BeforeAll { . (Join-Path $PSScriptRoot '..\PesterHelpers.ps1'); $script:instance = Start-ExampleScript -Name '15.4-OpenAPI-Component-Parameter.ps1' }
     AfterAll { if ($script:instance) { Stop-ExampleScript -Instance $script:instance } }

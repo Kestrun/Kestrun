@@ -1,4 +1,4 @@
-﻿<#
+<#
     .SYNOPSIS
         Writes key/value data to the HTTP response body as application/x-www-form-urlencoded.
     .DESCRIPTION

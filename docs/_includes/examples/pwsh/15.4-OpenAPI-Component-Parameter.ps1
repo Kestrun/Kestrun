@@ -1,4 +1,4 @@
-﻿<#
+<#
     Sample: OpenAPI Parameter Components
     Purpose: Demonstrate reusable parameter components for pagination, filtering, and sorting.
     File:    15.4-OpenAPI-Component-Parameter.ps1

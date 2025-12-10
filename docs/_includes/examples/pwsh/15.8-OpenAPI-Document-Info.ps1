@@ -1,4 +1,4 @@
-﻿<#
+<#
     Sample: OpenAPI Document Information
     Purpose: Demonstrate how to populate document-level metadata including title, version, contact, license, and servers.
     File:    15.8-OpenAPI-Document-Info.ps1

@@ -1,4 +1,4 @@
-﻿<#
+<#
     Sample: OpenAPI RequestBody & Response Components
     Purpose: Demonstrate complete components integration with request bodies and response schemas.
     File:    15.6-OpenAPI-Components-RequestBody-Response.ps1

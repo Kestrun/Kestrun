@@ -1,4 +1,4 @@
-﻿<#
+<#
     Sample: OpenAPI Response Components
     Purpose: Demonstrate reusable response components with multiple response types per component.
     File:    15.5-OpenAPI-Component-Response.ps1

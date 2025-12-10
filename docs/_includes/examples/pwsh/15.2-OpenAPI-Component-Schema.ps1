@@ -1,4 +1,4 @@
-﻿<#
+<#
     Sample: OpenAPI Component Schemas
     Purpose: Demonstrate reusable component schemas for request and response payloads.
     File:    15.2-OpenAPI-Component-Schema.ps1

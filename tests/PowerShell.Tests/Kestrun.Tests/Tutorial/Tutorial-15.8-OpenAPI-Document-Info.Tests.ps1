@@ -1,4 +1,4 @@
-﻿param()
+param()
 Describe 'Example 15.8 OpenAPI Document Info' -Tag 'Tutorial', 'Slow' {
     BeforeAll { . (Join-Path $PSScriptRoot '..\PesterHelpers.ps1'); $script:instance = Start-ExampleScript -Name '15.8-OpenAPI-Document-Info.ps1' }
     AfterAll { if ($script:instance) { Stop-ExampleScript -Instance $script:instance } }

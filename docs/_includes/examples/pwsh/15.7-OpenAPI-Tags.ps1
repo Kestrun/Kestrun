@@ -1,4 +1,4 @@
-﻿<#
+<#
     Sample: OpenAPI Tags and External Documentation
     Purpose: Demonstrate organizing operations with tags and linking external documentation to tags.
     File:    15.7-OpenAPI-Tags.ps1

@@ -1,4 +1,4 @@
-﻿param()
+param()
 Describe 'Example 15.5 OpenAPI Component Response' -Tag 'Tutorial', 'Slow' {
     BeforeAll { . (Join-Path $PSScriptRoot '..\PesterHelpers.ps1'); $script:instance = Start-ExampleScript -Name '15.5-OpenAPI-Component-Response.ps1' }
     AfterAll { if ($script:instance) { Stop-ExampleScript -Instance $script:instance } }

@@ -1,4 +1,4 @@
-﻿param()
+param()
 Describe 'Example 15.6 OpenAPI Components RequestBody & Response' -Tag 'Tutorial', 'Slow' {
     BeforeAll {
         . (Join-Path $PSScriptRoot '..\PesterHelpers.ps1');

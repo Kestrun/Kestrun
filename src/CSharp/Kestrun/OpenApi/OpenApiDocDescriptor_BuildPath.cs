@@ -89,7 +89,14 @@ public partial class OpenApiDocDescriptor
                         }
                     }
                 }
-                catch { /* tolerate differing model shapes */ }
+                catch (Exception ex)
+                {
+                    if (Host.Logger.IsEnabled(Serilog.Events.LogEventLevel.Debug))
+                    {
+                        // Tolerate differing model shapes, but log for diagnostics
+                        Host.Logger.Debug(ex, "Tolerated exception in path-level OpenAPI metadata assignment for pattern {Pattern}", pattern);
+                    }
+                }
             }
         }
     }

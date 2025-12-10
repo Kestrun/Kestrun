@@ -22,57 +22,13 @@ public static class ObjectToDictionaryConverter
     /// </remarks>
     public static Dictionary<string, string> ToDictionary(object? data)
     {
-        var dict = new Dictionary<string, string>();
-
-        if (data is null)
+        return data switch
         {
-            return dict;
-        }
-
-        // Handle IDictionary
-        if (data is IDictionary idict)
-        {
-            foreach (DictionaryEntry entry in idict)
-            {
-                var key = entry.Key?.ToString() ?? string.Empty;
-                if (!string.IsNullOrWhiteSpace(key))
-                {
-                    dict[key] = entry.Value?.ToString() ?? string.Empty;
-                }
-            }
-            return dict;
-        }
-
-        // Handle IEnumerable (but not string)
-        if (data is IEnumerable and not string)
-        {
-            var enumerable = (IEnumerable)data;
-            var index = 0;
-            foreach (var item in enumerable)
-            {
-                dict[$"item[{index}]"] = item?.ToString() ?? string.Empty;
-                index++;
-            }
-            return dict;
-        }
-
-        // Handle arbitrary objects: extract public properties
-        var properties = data.GetType().GetProperties(BindingFlags.Public | BindingFlags.Instance | BindingFlags.IgnoreCase);
-        foreach (var prop in properties)
-        {
-            try
-            {
-                var value = prop.GetValue(data);
-                dict[prop.Name] = value?.ToString() ?? string.Empty;
-            }
-            catch
-            {
-                // Skip properties that throw on access
-                dict[prop.Name] = string.Empty;
-            }
-        }
-
-        return dict;
+            null => [],
+            IDictionary dictionary => FromDictionaryToString(dictionary),
+            IEnumerable enumerable when data is not string => FromEnumerableToString(enumerable),
+            _ => FromObjectPropertiesToString(data)
+        };
     }
 
     /// <summary>
@@ -85,56 +41,126 @@ public static class ObjectToDictionaryConverter
     /// </remarks>
     public static Dictionary<string, object?> ToDictionaryObject(object? data)
     {
-        var dict = new Dictionary<string, object?>();
-
-        if (data is null)
+        return data switch
         {
-            return dict;
-        }
+            null => [],
+            IDictionary dictionary => FromDictionaryToObject(dictionary),
+            IEnumerable enumerable when data is not string => FromEnumerableToObject(enumerable),
+            _ => FromObjectPropertiesToObject(data)
+        };
+    }
 
-        // Handle IDictionary
-        if (data is IDictionary idict)
-        {
-            foreach (DictionaryEntry entry in idict)
-            {
-                var key = entry.Key?.ToString() ?? string.Empty;
-                if (!string.IsNullOrWhiteSpace(key))
-                {
-                    dict[key] = entry.Value;
-                }
-            }
-            return dict;
-        }
+    private static Dictionary<string, string> FromDictionaryToString(IDictionary source)
+    {
+        var dict = new Dictionary<string, string>();
 
-        // Handle IEnumerable (but not string)
-        if (data is IEnumerable and not string)
+        foreach (DictionaryEntry entry in source)
         {
-            var enumerable = (IEnumerable)data;
-            var index = 0;
-            foreach (var item in enumerable)
+            var key = entry.Key?.ToString();
+            if (string.IsNullOrWhiteSpace(key))
             {
-                dict[$"item[{index}]"] = item;
-                index++;
+                continue;
             }
-            return dict;
-        }
 
-        // Handle arbitrary objects: extract public properties
-        var properties = data.GetType().GetProperties(BindingFlags.Public | BindingFlags.Instance | BindingFlags.IgnoreCase);
-        foreach (var prop in properties)
-        {
-            try
-            {
-                var value = prop.GetValue(data);
-                dict[prop.Name] = value;
-            }
-            catch
-            {
-                // Skip properties that throw on access
-                dict[prop.Name] = null;
-            }
+            dict[key] = entry.Value?.ToString() ?? string.Empty;
         }
 
         return dict;
+    }
+
+    private static Dictionary<string, string> FromEnumerableToString(IEnumerable source)
+    {
+        var dict = new Dictionary<string, string>();
+        var index = 0;
+
+        foreach (var item in source)
+        {
+            dict[$"item[{index}]"] = item?.ToString() ?? string.Empty;
+            index++;
+        }
+
+        return dict;
+    }
+
+    private static Dictionary<string, string> FromObjectPropertiesToString(object source)
+    {
+        var dict = new Dictionary<string, string>();
+        var properties = source.GetType().GetProperties(BindingFlags.Public | BindingFlags.Instance | BindingFlags.IgnoreCase);
+
+        foreach (var prop in properties)
+        {
+            dict[prop.Name] = GetPropertyStringValue(prop, source);
+        }
+
+        return dict;
+    }
+
+    private static string GetPropertyStringValue(PropertyInfo property, object source)
+    {
+        try
+        {
+            return property.GetValue(source)?.ToString() ?? string.Empty;
+        }
+        catch
+        {
+            return string.Empty;
+        }
+    }
+
+    private static Dictionary<string, object?> FromDictionaryToObject(IDictionary source)
+    {
+        var dict = new Dictionary<string, object?>();
+
+        foreach (DictionaryEntry entry in source)
+        {
+            var key = entry.Key?.ToString();
+            if (string.IsNullOrWhiteSpace(key))
+            {
+                continue;
+            }
+
+            dict[key] = entry.Value;
+        }
+
+        return dict;
+    }
+
+    private static Dictionary<string, object?> FromEnumerableToObject(IEnumerable source)
+    {
+        var dict = new Dictionary<string, object?>();
+        var index = 0;
+
+        foreach (var item in source)
+        {
+            dict[$"item[{index}]"] = item;
+            index++;
+        }
+
+        return dict;
+    }
+
+    private static Dictionary<string, object?> FromObjectPropertiesToObject(object source)
+    {
+        var dict = new Dictionary<string, object?>();
+        var properties = source.GetType().GetProperties(BindingFlags.Public | BindingFlags.Instance | BindingFlags.IgnoreCase);
+
+        foreach (var prop in properties)
+        {
+            dict[prop.Name] = GetPropertyObjectValue(prop, source);
+        }
+
+        return dict;
+    }
+
+    private static object? GetPropertyObjectValue(PropertyInfo property, object source)
+    {
+        try
+        {
+            return property.GetValue(source);
+        }
+        catch
+        {
+            return null;
+        }
     }
 }

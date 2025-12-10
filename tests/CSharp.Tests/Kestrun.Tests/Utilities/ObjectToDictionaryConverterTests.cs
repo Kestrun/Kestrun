@@ -1,3 +1,4 @@
+using System;
 using Kestrun.Utilities;
 using System.Collections;
 using Xunit;
@@ -106,6 +107,19 @@ public class ObjectToDictionaryConverterTests
 
     [Fact]
     [Trait("Category", "Utilities")]
+    public void ToDictionary_WithThrowingProperty_ReturnsEmptyStringForThrowingMember()
+    {
+        var input = new ThrowingPropertyObject();
+
+        var result = ObjectToDictionaryConverter.ToDictionary(input);
+
+        Assert.Equal("ok", result["Name"]);
+        Assert.True(result.ContainsKey("Throwing"));
+        Assert.Equal(string.Empty, result["Throwing"]);
+    }
+
+    [Fact]
+    [Trait("Category", "Utilities")]
     public void ToDictionaryObject_WithHashtable_PreservesObjectValues()
     {
         var expectedObj = new object();
@@ -155,6 +169,19 @@ public class ObjectToDictionaryConverterTests
         Assert.True((bool)result["Active"]!);
     }
 
+    [Fact]
+    [Trait("Category", "Utilities")]
+    public void ToDictionaryObject_WithThrowingProperty_ReturnsNullForThrowingMember()
+    {
+        var input = new ThrowingPropertyObject();
+
+        var result = ObjectToDictionaryConverter.ToDictionaryObject(input);
+
+        Assert.Equal("ok", result["Name"]);
+        Assert.True(result.ContainsKey("Throwing"));
+        Assert.Null(result["Throwing"]);
+    }
+
     // Test helper classes
     private class TestObject
     {
@@ -168,5 +195,11 @@ public class ObjectToDictionaryConverterTests
         public string Name { get; set; } = string.Empty;
         public int Count { get; set; }
         public bool Active { get; set; }
+    }
+
+    private class ThrowingPropertyObject
+    {
+        public string Name => "ok";
+        public string Throwing => throw new InvalidOperationException("boom");
     }
 }

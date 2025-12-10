@@ -47,7 +47,6 @@ public record ParameterForInjectionInfo
     /// </summary>
     public bool IsRequestBody => In is null;
 
-
     /// <summary>
     /// Constructs a ParameterForInjectionInfo from an OpenApiParameter.
     /// </summary>
@@ -284,8 +283,6 @@ public record ParameterForInjectionInfo
 
         return rawBodyString; // fallback
     }
-
-
 
     private static readonly IDeserializer YamlDeserializer =
     new DeserializerBuilder()

@@ -25,7 +25,6 @@ public partial class OpenApiDocDescriptor
     /// </summary>
     public OpenApiDocument Document { get; private set; } = new OpenApiDocument { Components = new OpenApiComponents() };
 
-
     /// <summary>
     /// Security requirements for the OpenAPI document.
     /// </summary>

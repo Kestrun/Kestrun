@@ -435,7 +435,6 @@ public partial class OpenApiDocDescriptor
         [typeof(OaBoolean)] = () => new OpenApiSchema { Type = JsonSchemaType.Boolean }
     };
 
-
     private static void ApplySchemaAttr(OpenApiProperties? a, IOpenApiSchema s)
     {
         if (a is null)

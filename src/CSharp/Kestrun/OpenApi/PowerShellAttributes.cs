@@ -175,7 +175,6 @@ internal static class PowerShellAttributes
             sc.MinLength = 1;
         }
 
-
         // array → minItems >= 1
         if (sc.Type == JsonSchemaType.Array && (sc.MinItems is null or < 1))
         {

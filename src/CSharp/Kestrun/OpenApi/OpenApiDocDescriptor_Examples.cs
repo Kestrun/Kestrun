@@ -74,7 +74,13 @@ public partial class OpenApiDocDescriptor
         return ex;
     }
 
-
+    /// <summary>
+    /// Applies an OpenApiExampleRefAttribute to the specified OpenApiHeader.
+    /// </summary>
+    /// <param name="exRef">The OpenApiExampleRefAttribute to apply.</param>
+    /// <param name="header">The OpenApiHeader to which the example reference will be applied.</param>
+    /// <returns>True if the example reference was successfully applied; otherwise, false.</returns>
+    /// <exception cref="InvalidOperationException"></exception>
     private static bool ApplyExampleRefAttribute(OpenApiExampleRefAttribute exRef, OpenApiHeader header)
     {
         header.Examples ??= new Dictionary<string, IOpenApiExample>(StringComparer.Ordinal);
@@ -86,6 +92,13 @@ public partial class OpenApiDocDescriptor
         return true;
     }
 
+    /// <summary>
+    /// Applies an OpenApiExampleAttribute to the specified OpenApiHeader.
+    /// </summary>
+    /// <param name="ex">The OpenApiExampleAttribute to apply.</param>
+    /// <param name="header">The OpenApiHeader to which the example will be applied.</param>
+    /// <returns>True if the example was successfully applied; otherwise, false.</returns>
+    /// <exception cref="InvalidOperationException">Thrown if the example key is null or already exists in the header.</exception>
     private static bool ApplyInlineExampleAttribute(OpenApiExampleAttribute ex, OpenApiHeader header)
     {
         if (ex.Key is null)

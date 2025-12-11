@@ -227,7 +227,7 @@ public partial class OpenApiDocDescriptor
     /// <summary>
     /// Captures the default value of a property if not already set.
     /// </summary>
-    private void CapturePropertyDefault(object? instance, PropertyInfo prop, IOpenApiSchema propSchema)
+    private static void CapturePropertyDefault(object? instance, PropertyInfo prop, IOpenApiSchema propSchema)
     {
         if (instance is null || propSchema is not OpenApiSchema concrete || concrete.Default is not null)
         {
@@ -505,7 +505,13 @@ public partial class OpenApiDocDescriptor
         return new OpenApiSchema { Type = JsonSchemaType.String };
     }
 
-    private IOpenApiSchema InferArraySchema(Type type, bool inline)
+    /// <summary>
+    /// Infers an array OpenApiSchema from a .NET array type.
+    /// </summary>
+    /// <param name="type">The .NET array type to infer from.</param>
+    /// <param name="inline">Indicates if the schema should be inlined.</param>
+    /// <returns>The inferred OpenApiSchema.</returns>
+    private OpenApiSchema InferArraySchema(Type type, bool inline)
     {
         var typeName = type.Name[..^2];
         if (ComponentSchemasExists(typeName))
@@ -598,158 +604,240 @@ public partial class OpenApiDocDescriptor
 
         // Most models implement OpenApiSchema (concrete) OR OpenApiSchemaReference.
         // We set common metadata when possible (Description/Title apply only to concrete schema).
-        if (ioaSchema is OpenApiSchema sc)
+        if (ioaSchema is OpenApiSchema concreteSchema)
         {
-            if (oaProperties.Title is not null)
-            {
-                sc.Title = oaProperties.Title;
-            }
-
-            if (oaProperties.Description is not null)
-            {
-                sc.Description = oaProperties.Description;
-            }
-
-            if (oaProperties.Type != OaSchemaType.None)
-            {
-                sc.Type = oaProperties.Type switch
-                {
-                    OaSchemaType.String => JsonSchemaType.String,
-                    OaSchemaType.Number => JsonSchemaType.Number,
-                    OaSchemaType.Integer => JsonSchemaType.Integer,
-                    OaSchemaType.Boolean => JsonSchemaType.Boolean,
-                    OaSchemaType.Array => JsonSchemaType.Array,
-                    OaSchemaType.Object => JsonSchemaType.Object,
-                    OaSchemaType.Null => JsonSchemaType.Null,
-                    _ => sc.Type
-                };
-            }
-            if (oaProperties.Nullable)
-            {
-                sc.Type |= JsonSchemaType.Null;
-            }
-
-            if (!string.IsNullOrWhiteSpace(oaProperties.Format))
-            {
-                sc.Format = oaProperties.Format;
-            }
-
-            if (oaProperties.MultipleOf.HasValue)
-            {
-                sc.MultipleOf = oaProperties.MultipleOf;
-            }
-
-            if (!string.IsNullOrWhiteSpace(oaProperties.Maximum))
-            {
-                sc.Maximum = oaProperties.Maximum;
-                if (oaProperties.ExclusiveMaximum)
-                {
-                    sc.ExclusiveMaximum = oaProperties.Maximum;
-                }
-            }
-            if (!string.IsNullOrWhiteSpace(oaProperties.Minimum))
-            {
-                sc.Minimum = oaProperties.Minimum;
-                if (oaProperties.ExclusiveMinimum)
-                {
-                    sc.ExclusiveMinimum = oaProperties.Minimum;
-                }
-            }
-
-            if (oaProperties.MaxLength >= 0)
-            {
-                sc.MaxLength = oaProperties.MaxLength;
-            }
-
-            if (oaProperties.MinLength >= 0)
-            {
-                sc.MinLength = oaProperties.MinLength;
-            }
-
-            if (!string.IsNullOrWhiteSpace(oaProperties.Pattern))
-            {
-                sc.Pattern = oaProperties.Pattern;
-            }
-
-            if (oaProperties.MaxItems >= 0)
-            {
-                sc.MaxItems = oaProperties.MaxItems;
-            }
-
-            if (oaProperties.MinItems >= 0)
-            {
-                sc.MinItems = oaProperties.MinItems;
-            }
-
-            if (oaProperties.UniqueItems)
-            {
-                sc.UniqueItems = true;
-            }
-
-            if (oaProperties.MaxProperties >= 0)
-            {
-                sc.MaxProperties = oaProperties.MaxProperties;
-            }
-
-            if (oaProperties.MinProperties >= 0)
-            {
-                sc.MinProperties = oaProperties.MinProperties;
-            }
-
-            sc.ReadOnly = oaProperties.ReadOnly;
-            sc.WriteOnly = oaProperties.WriteOnly;
-            sc.Deprecated = oaProperties.Deprecated;
-            // nullable bool
-
-            sc.AdditionalPropertiesAllowed = oaProperties.AdditionalPropertiesAllowed;
-
-            sc.UnevaluatedProperties = oaProperties.UnevaluatedProperties;
-            if (oaProperties.Default is not null)
-            {
-                sc.Default = ToNode(oaProperties.Default);
-            }
-
-            if (oaProperties.Example is not null)
-            {
-                sc.Example = ToNode(oaProperties.Example);
-            }
-
-            if (oaProperties?.Enum is not null && oaProperties.Enum is { Length: > 0 })
-            {
-                sc.Enum = [.. oaProperties.Enum.Select(ToNode).OfType<JsonNode>()];
-            }
-
-            if (oaProperties?.Required is not null && oaProperties.Required.Length > 0)
-            {
-                sc.Required ??= new HashSet<string>(StringComparer.Ordinal);
-                foreach (var r in oaProperties.Required)
-                {
-                    _ = sc.Required.Add(r);
-                }
-            }
+            ApplyConcreteSchemaAttributes(oaProperties, concreteSchema);
+            return;
         }
-        else if (ioaSchema is OpenApiSchemaReference refSchema)
+
+        if (ioaSchema is OpenApiSchemaReference refSchema)
         {
-            // Description/Title can live on a reference proxy in v2 (and serialize alongside $ref)
-            if (!string.IsNullOrWhiteSpace(oaProperties.Description))
-            {
-                refSchema.Description = oaProperties.Description;
-            }
-
-            if (!string.IsNullOrWhiteSpace(oaProperties.Title))
-            {
-                refSchema.Title = oaProperties.Title;
-            }
-
-            // Example/Default/Enum aren’t typically set on the ref node itself;
-            // attach such metadata to the component target instead if you need it.
+            ApplyReferenceSchemaAttributes(oaProperties, refSchema);
         }
     }
 
+    /// <summary>
+    /// Applies concrete schema attributes to an OpenApiSchema.
+    /// </summary>
+    /// <param name="properties">The OpenApiProperties containing attributes to apply.</param>
+    /// <param name="schema">The OpenApiSchema to apply attributes to.</param>
+    private static void ApplyConcreteSchemaAttributes(OpenApiProperties properties, OpenApiSchema schema)
+    {
+        ApplyTitleAndDescription(properties, schema);
+        ApplySchemaType(properties, schema);
+        ApplyFormatAndNumericBounds(properties, schema);
+        ApplyLengthAndPattern(properties, schema);
+        ApplyCollectionConstraints(properties, schema);
+        ApplyFlags(properties, schema);
+        ApplyExamplesAndDefaults(properties, schema);
+    }
+
+    /// <summary>
+    /// Applies title and description to an OpenApiSchema.
+    /// </summary>
+    /// <param name="properties">The OpenApiProperties containing attributes to apply.</param>
+    /// <param name="schema">The OpenApiSchema to apply attributes to.</param>
+    private static void ApplyTitleAndDescription(OpenApiProperties properties, OpenApiSchema schema)
+    {
+        if (properties.Title is not null)
+        {
+            schema.Title = properties.Title;
+        }
+
+        if (properties.Description is not null)
+        {
+            schema.Description = properties.Description;
+        }
+    }
+
+    /// <summary>
+    /// Applies schema type and nullability to an OpenApiSchema.
+    /// </summary>
+    /// <param name="properties">The OpenApiProperties containing attributes to apply.</param>
+    /// <param name="schema">The OpenApiSchema to apply attributes to.</param>
+    private static void ApplySchemaType(OpenApiProperties properties, OpenApiSchema schema)
+    {
+        if (properties.Type != OaSchemaType.None)
+        {
+            schema.Type = properties.Type switch
+            {
+                OaSchemaType.String => JsonSchemaType.String,
+                OaSchemaType.Number => JsonSchemaType.Number,
+                OaSchemaType.Integer => JsonSchemaType.Integer,
+                OaSchemaType.Boolean => JsonSchemaType.Boolean,
+                OaSchemaType.Array => JsonSchemaType.Array,
+                OaSchemaType.Object => JsonSchemaType.Object,
+                OaSchemaType.Null => JsonSchemaType.Null,
+                _ => schema.Type
+            };
+        }
+
+        if (properties.Nullable)
+        {
+            schema.Type |= JsonSchemaType.Null;
+        }
+    }
+
+    /// <summary>
+    /// Applies format and numeric bounds to an OpenApiSchema.
+    /// </summary>
+    /// <param name="properties">The OpenApiProperties containing attributes to apply.</param>
+    /// <param name="schema"></param>
+    private static void ApplyFormatAndNumericBounds(OpenApiProperties properties, OpenApiSchema schema)
+    {
+        if (!string.IsNullOrWhiteSpace(properties.Format))
+        {
+            schema.Format = properties.Format;
+        }
+
+        if (properties.MultipleOf.HasValue)
+        {
+            schema.MultipleOf = properties.MultipleOf;
+        }
+
+        if (!string.IsNullOrWhiteSpace(properties.Maximum))
+        {
+            schema.Maximum = properties.Maximum;
+            if (properties.ExclusiveMaximum)
+            {
+                schema.ExclusiveMaximum = properties.Maximum;
+            }
+        }
+
+        if (!string.IsNullOrWhiteSpace(properties.Minimum))
+        {
+            schema.Minimum = properties.Minimum;
+            if (properties.ExclusiveMinimum)
+            {
+                schema.ExclusiveMinimum = properties.Minimum;
+            }
+        }
+    }
+
+    /// <summary>
+    /// Applies length and pattern constraints to an OpenApiSchema.
+    /// </summary>
+    /// <param name="properties">The OpenApiProperties containing attributes to apply.</param>
+    /// <param name="schema"></param>
+    private static void ApplyLengthAndPattern(OpenApiProperties properties, OpenApiSchema schema)
+    {
+        if (properties.MaxLength >= 0)
+        {
+            schema.MaxLength = properties.MaxLength;
+        }
+
+        if (properties.MinLength >= 0)
+        {
+            schema.MinLength = properties.MinLength;
+        }
+
+        if (!string.IsNullOrWhiteSpace(properties.Pattern))
+        {
+            schema.Pattern = properties.Pattern;
+        }
+    }
+
+    /// <summary>
+    /// Applies collection constraints to an OpenApiSchema.
+    /// </summary>
+    /// <param name="properties">The OpenApiProperties containing attributes to apply.</param>
+    /// <param name="schema">The OpenApiSchema to apply attributes to.</param>
+    private static void ApplyCollectionConstraints(OpenApiProperties properties, OpenApiSchema schema)
+    {
+        if (properties.MaxItems >= 0)
+        {
+            schema.MaxItems = properties.MaxItems;
+        }
+
+        if (properties.MinItems >= 0)
+        {
+            schema.MinItems = properties.MinItems;
+        }
+
+        if (properties.UniqueItems)
+        {
+            schema.UniqueItems = true;
+        }
+
+        if (properties.MaxProperties >= 0)
+        {
+            schema.MaxProperties = properties.MaxProperties;
+        }
+
+        if (properties.MinProperties >= 0)
+        {
+            schema.MinProperties = properties.MinProperties;
+        }
+    }
+
+    private static void ApplyFlags(OpenApiProperties properties, OpenApiSchema schema)
+    {
+        schema.ReadOnly = properties.ReadOnly;
+        schema.WriteOnly = properties.WriteOnly;
+        schema.Deprecated = properties.Deprecated;
+        schema.AdditionalPropertiesAllowed = properties.AdditionalPropertiesAllowed;
+        schema.UnevaluatedProperties = properties.UnevaluatedProperties;
+    }
+
+    private static void ApplyExamplesAndDefaults(OpenApiProperties properties, OpenApiSchema schema)
+    {
+        if (properties.Default is not null)
+        {
+            schema.Default = ToNode(properties.Default);
+        }
+
+        if (properties.Example is not null)
+        {
+            schema.Example = ToNode(properties.Example);
+        }
+
+        if (properties.Enum is { Length: > 0 })
+        {
+            schema.Enum = [.. properties.Enum.Select(ToNode).OfType<JsonNode>()];
+        }
+
+        if (properties.Required is { Length: > 0 })
+        {
+            schema.Required ??= new HashSet<string>(StringComparer.Ordinal);
+            foreach (var r in properties.Required)
+            {
+                _ = schema.Required.Add(r);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Applies reference schema attributes to an OpenApiSchemaReference.
+    /// </summary>
+    /// <param name="properties">The OpenApiProperties containing attributes to apply.</param>
+    /// <param name="reference">The OpenApiSchemaReference to apply attributes to.</param>
+    private static void ApplyReferenceSchemaAttributes(OpenApiProperties properties, OpenApiSchemaReference reference)
+    {
+        // Description/Title can live on a reference proxy in v2 (and serialize alongside $ref)
+        if (!string.IsNullOrWhiteSpace(properties.Description))
+        {
+            reference.Description = properties.Description;
+        }
+
+        if (!string.IsNullOrWhiteSpace(properties.Title))
+        {
+            reference.Title = properties.Title;
+        }
+
+        // Example/Default/Enum aren’t typically set on the ref node itself;
+        // attach such metadata to the component target instead if you need it.
+    }
+
+    /// <summary>
+    /// Determines if a type is considered primitive-like for schema generation.
+    /// </summary>
+    /// <param name="t">The type to check.</param>
+    /// <returns>True if the type is considered primitive-like; otherwise, false.</returns>
     private static bool IsPrimitiveLike(Type t)
         => t.IsPrimitive || t == typeof(string) || t == typeof(decimal) || t == typeof(DateTime) ||
         t == typeof(Guid) || t == typeof(object) || t == typeof(OaString) || t == typeof(OaInteger) ||
          t == typeof(OaNumber) || t == typeof(OaBoolean);
+
     #endregion
 
     /// <summary>

@@ -172,8 +172,6 @@ public partial class OpenApiDocDescriptor
     /// <returns>An IOpenApiSchema representing the property's schema.</returns>
     private IOpenApiSchema CreatePropertySchema(OpenApiPropertyAttribute? schemaAttr, Type t, PropertyInfo p)
     {
-        IOpenApiSchema paramSchema;
-
         var pt = p.PropertyType;
         var allowNull = false;
         var underlying = Nullable.GetUnderlyingType(pt);
@@ -182,88 +180,148 @@ public partial class OpenApiDocDescriptor
             allowNull = true;
             pt = underlying;
         }
-        // ENUM → string + enum list
+        // enums first
         if (pt.IsEnum)
         {
-            var s = new OpenApiSchema
-            {
-                Type = JsonSchemaType.String,
-                Enum = [.. pt.GetEnumNames().Select(n => (JsonNode)n)]
-            };
-            ApplySchemaAttr(schemaAttr, s);
-            if (allowNull)
-            {
-                s.Type |= JsonSchemaType.Null;
-            }
-            paramSchema = s;
+            return CreateEnumSchema(pt, schemaAttr, allowNull);
         }
-        // ARRAY → array with item schema
-        else if (pt.IsArray)
+        // check for array after enum to handle enum arrays
+        if (pt.IsArray)
         {
-            var elem = pt.GetElementType()!;
-            IOpenApiSchema itemSchema;
-            if (!IsPrimitiveLike(elem) && !elem.IsEnum)
-            {
-                // ensure a component schema exists for the complex element and $ref it
-                EnsureSchemaComponent(elem);
-                itemSchema = new OpenApiSchemaReference(elem.Name);
-            }
-            else
-            {
-                itemSchema = elem.IsEnum
-                    ? new OpenApiSchema
-                    {
-                        Type = JsonSchemaType.String,
-                        Enum = [.. elem.GetEnumNames().Select(n => (JsonNode)n)]
-                    }
-                    : InferPrimitiveSchema(elem);
-            }
+            return CreateArraySchema(pt, p, schemaAttr, allowNull);
+        }
+        // complex types
+        if (!IsPrimitiveLike(pt))
+        {
+            return CreateComplexSchema(pt, schemaAttr);
+        }
+        // primitive types
+        return CreatePrimitiveSchema(pt, t, p, schemaAttr, allowNull);
+    }
 
-            var s = new OpenApiSchema { Type = JsonSchemaType.Array, Items = itemSchema };
-            ApplySchemaAttr(schemaAttr, s);
-            PowerShellAttributes.ApplyPowerShellAttributes(p, s);
-            if (allowNull)
-            {
-                s.Type |= JsonSchemaType.Null;
-            }
-            paramSchema = s;
-        }
-        // COMPLEX → ensure component + $ref
-        else if (!IsPrimitiveLike(pt))
+    /// <summary>
+    /// Creates an OpenAPI schema for an enum property.
+    /// </summary>
+    /// <param name="pt">The enum type of the property</param>
+    /// <param name="schemaAttr">Optional OpenApiPropertyAttribute for the property</param>
+    /// <param name="allowNull">Indicates if the property allows null values</param>
+    /// <returns>An IOpenApiSchema representing the enum property</returns>
+    private static IOpenApiSchema CreateEnumSchema(Type pt, OpenApiPropertyAttribute? schemaAttr, bool allowNull)
+    {
+        var s = new OpenApiSchema
         {
-            EnsureSchemaComponent(pt);
-            var r = new OpenApiSchemaReference(pt.Name);
-            ApplySchemaAttr(schemaAttr, r);
-            paramSchema = r;
+            Type = JsonSchemaType.String,
+            Enum = [.. pt.GetEnumNames().Select(n => (JsonNode)n)]
+        };
+        ApplySchemaAttr(schemaAttr, s);
+        if (allowNull)
+        {
+            s.Type |= JsonSchemaType.Null;
         }
-        // PRIMITIVE
+        return s;
+    }
+
+    /// <summary>
+    /// Creates an OpenAPI schema for an array property.
+    /// </summary>
+    /// <param name="pt">The array type of the property</param>
+    /// <param name="p">The PropertyInfo representing the property</param>
+    /// <param name="schemaAttr">Optional OpenApiPropertyAttribute for the property</param>
+    /// <param name="allowNull">Indicates if the property allows null values</param>
+    /// <returns>An IOpenApiSchema representing the array property</returns>
+    private IOpenApiSchema CreateArraySchema(Type pt, PropertyInfo p, OpenApiPropertyAttribute? schemaAttr, bool allowNull)
+    {
+        var elem = pt.GetElementType()!;
+        IOpenApiSchema itemSchema;
+        if (!IsPrimitiveLike(elem) && !elem.IsEnum)
+        {
+            // ensure a component schema exists for the complex element and $ref it
+            EnsureSchemaComponent(elem);
+            itemSchema = new OpenApiSchemaReference(elem.Name);
+        }
         else
         {
-            var s = InferPrimitiveSchema(pt);
-            ApplySchemaAttr(schemaAttr, s);
-            PowerShellAttributes.ApplyPowerShellAttributes(p, s);
-            // If no explicit default provided via schema attribute, try to pull default from property value
-            if (s is OpenApiSchema sc && sc.Default is null)
-            {
-                try
+            itemSchema = elem.IsEnum
+                ? new OpenApiSchema
                 {
-                    var inst = Activator.CreateInstance(t);
-                    var val = p.GetValue(inst);
-                    if (!IsIntrinsicDefault(val, p.PropertyType))
-                    {
-                        sc.Default = ToNode(val);
-                    }
+                    Type = JsonSchemaType.String,
+                    Enum = [.. elem.GetEnumNames().Select(n => (JsonNode)n)]
                 }
-                catch { }
+                : InferPrimitiveSchema(elem);
+        }
 
-                if (allowNull)
+        var s = new OpenApiSchema { Type = JsonSchemaType.Array, Items = itemSchema };
+        ApplySchemaAttr(schemaAttr, s);
+        PowerShellAttributes.ApplyPowerShellAttributes(p, s);
+        if (allowNull)
+        {
+            s.Type |= JsonSchemaType.Null;
+        }
+        return s;
+    }
+
+    /// <summary>
+    /// Creates an OpenAPI schema for a complex property.
+    /// </summary>
+    /// <param name="pt">The complex type of the property</param>
+    /// <param name="schemaAttr">Optional OpenApiPropertyAttribute for the property</param>
+    /// <returns>An IOpenApiSchema representing the complex property</returns>
+    private IOpenApiSchema CreateComplexSchema(Type pt, OpenApiPropertyAttribute? schemaAttr)
+    {
+        EnsureSchemaComponent(pt);
+        var r = new OpenApiSchemaReference(pt.Name);
+        ApplySchemaAttr(schemaAttr, r);
+        return r;
+    }
+
+    /// <summary>
+    /// Creates an OpenAPI schema for a primitive property.
+    /// </summary>
+    /// <param name="pt">The primitive type of the property</param>
+    /// <param name="t">The containing type</param>
+    /// <param name="p">The PropertyInfo representing the property</param>
+    /// <param name="schemaAttr">Optional OpenApiPropertyAttribute for the property</param>
+    /// <param name="allowNull">Indicates if the property allows null values</param>
+    /// <returns>An IOpenApiSchema representing the primitive property</returns>
+    private IOpenApiSchema CreatePrimitiveSchema(Type pt, Type t, PropertyInfo p, OpenApiPropertyAttribute? schemaAttr, bool allowNull)
+    {
+        var s = InferPrimitiveSchema(pt);
+        ApplySchemaAttr(schemaAttr, s);
+        PowerShellAttributes.ApplyPowerShellAttributes(p, s);
+        // If no explicit default provided via schema attribute, try to pull default from property value
+        if (s is OpenApiSchema sc && sc.Default is null)
+        {
+            TryApplyDefaultValue(t, p, sc);
+
+            if (allowNull)
+            {
+                sc.Type |= JsonSchemaType.Null;
+            }
+        }
+        return s;
+    }
+
+    /// <summary>
+    /// Tries to apply the default value of a property to the given OpenApiSchema.
+    /// </summary>
+    /// <param name="t">Type containing the property</param>
+    /// <param name="p">PropertyInfo of the property</param>
+    /// <param name="sc">OpenApiSchema to apply the default value to</param>
+    private static void TryApplyDefaultValue(Type t, PropertyInfo p, OpenApiSchema sc)
+    {
+        try
+        {
+            var inst = Activator.CreateInstance(t);
+            if (inst != null)
+            {
+                var val = p.GetValue(inst);
+                if (!IsIntrinsicDefault(val, p.PropertyType))
                 {
-                    sc.Type |= JsonSchemaType.Null;
+                    sc.Default = ToNode(val);
                 }
             }
-            paramSchema = s;
         }
-        return paramSchema;
+        catch { }
     }
 
     private bool CreateParameterFromAttribute(KestrunAnnotation attr, OpenApiParameter parameter)

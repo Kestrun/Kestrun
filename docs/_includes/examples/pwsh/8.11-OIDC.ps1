@@ -245,7 +245,7 @@ if ($UseJwtAuth) {
         }
         Write-KrLog -Level Debug -Message 'Using ResponseMode: {responseMode}' -Values $modeConfig.ResponseMode
     }
-<#
+    <#
     # The './Assets/certs/client-jwt-cert.key' file contains the RSA private key in PEM format
     # The corresponding public key certificate is in './Assets/certs/client-jwt-cert.pem'
     # The Duende demo server is pre-configured to trust this key for the 'interactive.confidential.jwt' client.
@@ -275,7 +275,7 @@ if ($UseJwtAuth) {
 
     #   $oidcOptions.JwkJson = ($clientAssertionJwkJson | ConvertTo-Json -Compress)
     #>
-    Add-KrOpenIdConnectAuthentication -Name 'oidc' -Options $oidcOptions
+    Add-KrOpenIdConnectAuthentication -AuthenticationScheme 'oidc' -Options $oidcOptions
 
 } else {
     # Standard configuration with client secret

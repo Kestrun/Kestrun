@@ -1,19 +1,46 @@
 using System.Security.Claims;
 using System.Text;
 using Kestrun.Claims;
+using Kestrun.Hosting;
 using Microsoft.AspNetCore.Authentication;
+using Microsoft.OpenApi;
 
 namespace Kestrun.Authentication;
 
 /// <summary>
 /// Options for API key authentication, including header names, validation, and claims issuance.
 /// </summary>
-public class ApiKeyAuthenticationOptions : AuthenticationSchemeOptions, IAuthenticationCommonOptions
+public class ApiKeyAuthenticationOptions() : AuthenticationSchemeOptions, IAuthenticationCommonOptions, IAuthenticationHostOptions, IOpenApiAuthenticationOptions
 {
+    /// <inheritdoc/>
+    public string? DisplayName { get; set; }
+    /// <inheritdoc/>
+    public bool GlobalScheme { get; set; }
+
+    /// <inheritdoc/>
+    public string? Description { get; set; }
+
+    /// <inheritdoc/>
+    public string[] DocumentationId { get; set; } = [];
+
+    /// <inheritdoc/>
+    public KestrunHost Host { get; set; } = default!;
+
+    private Serilog.ILogger? _logger;
+    /// <inheritdoc/>
+    public Serilog.ILogger Logger
+    {
+        get => _logger ?? (Host is null ? Serilog.Log.Logger : Host.Logger); set => _logger = value;
+    }
     /// <summary>
-    /// Name of the header to look for the API key.
+    /// Name of to look for the API key.
     /// </summary>
-    public string HeaderName { get; set; } = "X-Api-Key";
+    public string ApiKeyName { get; set; } = "X-Api-Key";
+
+    /// <summary>
+    /// Location to look for the API key.
+    /// </summary>
+    public ParameterLocation In { get; set; } = ParameterLocation.Header;
 
     /// <summary>
     /// Other headers to try if the primary one is missing.
@@ -35,23 +62,17 @@ public class ApiKeyAuthenticationOptions : AuthenticationSchemeOptions, IAuthent
     /// <para>Defaults to null.</para>
     /// <para>Use this for simple scenarios where you have a known key.</para>
     /// </summary>
-    public string? ExpectedKey { get; set; }
+    public string? StaticApiKey { get; set; }
 
     /// <summary>
-    /// Gets the expected API key as a UTF-8 byte array, or null if <see cref="ExpectedKey"/> is not set.
+    /// Gets the expected API key as a UTF-8 byte array, or null if <see cref="StaticApiKey"/> is not set.
     /// </summary>
-    public byte[]? ExpectedKeyBytes => ExpectedKey is not null ? Encoding.UTF8.GetBytes(ExpectedKey) : null;
+    public byte[]? StaticApiKeyAsBytes => StaticApiKey is not null ? Encoding.UTF8.GetBytes(StaticApiKey) : null;
 
     /// <summary>
-    /// Logger for this authentication scheme.
-    /// <para>Defaults to Serilog's global logger.</para>
+    /// If true, allows API key authentication over insecure HTTP connections.
     /// </summary>
-    public Serilog.ILogger Logger { get; set; } = Serilog.Log.ForContext<ApiKeyAuthenticationOptions>();
-
-    /// <summary>
-    /// If true, requires HTTPS for API key requests.
-    /// </summary>
-    public bool RequireHttps { get; set; } = true;
+    public bool AllowInsecureHttp { get; set; }
 
     /// <summary>
     /// If true, includes the <c>WWW-Authenticate</c> header in 401 responses.
@@ -105,4 +126,38 @@ public class ApiKeyAuthenticationOptions : AuthenticationSchemeOptions, IAuthent
     /// Each policy can specify a claim type and allowed values.
     /// </remarks>
     public ClaimPolicyConfig? ClaimPolicyConfig { get; set; }
+
+    /// <summary>
+    /// Helper to copy values from a user-supplied ApiKeyAuthenticationOptions instance to the instance
+    /// created by the framework inside AddApiKey(). Reassigning the local variable (opts = source) would
+    /// not work because only the local reference changes – the framework keeps the original instance
+    /// </summary>
+    /// <param name="target">The target instance to which values will be copied. </param>
+    public void ApplyTo(ApiKeyAuthenticationOptions target)
+    {
+        // Copy base AuthenticationSchemeOptions properties
+        target.ClaimsIssuer = ClaimsIssuer;
+        target.EventsType = EventsType;
+        target.Events = Events;
+        target.ApiKeyName = ApiKeyName;
+        target.In = In;
+        target.AdditionalHeaderNames = AdditionalHeaderNames;
+        target.AllowQueryStringFallback = AllowQueryStringFallback;
+        target.StaticApiKey = StaticApiKey;
+        target.AllowInsecureHttp = AllowInsecureHttp;
+        target.EmitChallengeHeader = EmitChallengeHeader;
+        target.ChallengeHeaderFormat = ChallengeHeaderFormat;
+        target.ValidateKeyAsync = ValidateKeyAsync;
+        target.ValidateCodeSettings = ValidateCodeSettings;
+        target.IssueClaims = IssueClaims;
+        target.IssueClaimsCodeSettings = IssueClaimsCodeSettings;
+        target.ClaimPolicyConfig = ClaimPolicyConfig;
+
+        // Copy IAuthenticationHostOptions properties
+        target.Host = Host;
+        // OpenAPI / documentation properties(IOpenApiAuthenticationOptions)
+        target.GlobalScheme = GlobalScheme;
+        target.Description = Description;
+        target.DocumentationId = DocumentationId;
+    }
 }

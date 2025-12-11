@@ -137,15 +137,15 @@ public class DiskSpaceProbeTests
     [Trait("Category", "Health")]
     public async Task CheckAsync_WithInvalidPath_ReturnsUnhealthyStatus()
     {
-        // Arrange - using a path that likely doesn't exist
-        var probe = new DiskSpaceProbe("disk-check", [], "Z:\\NonExistentPath\\Test");
+        // Arrange - using a truly invalid path (UNC path without server, which has no drive root)
+        // This ensures GetPathRoot returns null or empty, causing ResolveDrive to return null
+        var probe = new DiskSpaceProbe("disk-check", [], "\\invalid");
 
         // Act
         var result = await probe.CheckAsync();
 
         // Assert
         Assert.Equal(ProbeStatus.Unhealthy, result.Status);
-        // Message can vary across machines (not ready vs not found); just ensure we have a message
         Assert.False(string.IsNullOrWhiteSpace(result.Description));
     }
 

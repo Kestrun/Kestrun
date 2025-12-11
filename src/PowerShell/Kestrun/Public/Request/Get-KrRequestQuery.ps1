@@ -33,7 +33,7 @@
 #>
 function Get-KrRequestQuery {
     [KestrunRuntimeApi('Route')]
-    [CmdletBinding(defaultParameterSetName = 'default')]
+    [CmdletBinding(DefaultParameterSetName = 'Default')]
     [OutputType([string])]
     [OutputType([int])]
     [OutputType([bool])]
@@ -47,6 +47,7 @@ function Get-KrRequestQuery {
         [switch]$AsInt,
 
         [Parameter(parameterSetName = 'Bool')]
+        [Alias('AsBoolean')]
         [switch]$AsBool,
 
         [Parameter(parameterSetName = 'Double')]
@@ -82,4 +83,3 @@ function Get-KrRequestQuery {
         Write-KrOutsideRouteWarning
     }
 }
-

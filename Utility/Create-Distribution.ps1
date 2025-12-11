@@ -1,4 +1,4 @@
-﻿param(
+param(
     [Parameter()]
     [string]$FileVersion = './version.json',
     [Parameter()]
@@ -13,6 +13,7 @@ if (-not (Test-Path -Path $FileVersion)) {
     throw "Version file $FileVersion not found"
 }
 $kestrunProjectPath = './src/CSharp/Kestrun/Kestrun.csproj'
+$kestrunAnnotationsProjectPath = './src/CSharp/Kestrun.Annotations/Kestrun.Annotations.csproj'
 $kestrunSrcPath = './src/PowerShell/Kestrun'
 if (-not (Test-Path -Path "$kestrunSrcPath/Kestrun.psm1" -PathType Leaf)) {
     throw 'Kestrun.psm1 file not found in expected location'
@@ -37,8 +38,11 @@ if (-not (Test-Path -Path "$kestrunSrcPath/en-US/Kestrun/Kestrun-Help.xml" -Path
 # Add Helper utility module
 Import-Module -Name './Utility/Modules/Helper.psm1'
 
+# Get version info
 $Version = Get-Version -FileVersion $FileVersion -VersionOnly
+$VersionDetails = Get-Version -FileVersion $FileVersion -Details
 
+# Prepare output path
 $artifactsPath = Join-Path -Path $ArtifactsPath -ChildPath 'modules' -AdditionalChildPath 'Kestrun', $Version
 if (Test-Path -Path $artifactsPath) {
     Write-Host "🧹 Cleaning existing distribution at $artifactsPath"
@@ -46,6 +50,7 @@ if (Test-Path -Path $artifactsPath) {
 }
 New-Item -Path $artifactsPath -ItemType Directory -Force | Out-Null
 
+# Paths to key files
 $psm1Path = Join-Path -Path $artifactsPath -ChildPath 'Kestrun.psm1'
 $privateModulePath = Join-Path -Path $artifactsPath -ChildPath 'Private.ps1'
 $routePublicPath = Join-Path -Path $artifactsPath -ChildPath 'Public-Route.ps1'
@@ -93,7 +98,7 @@ Get-ChildItem "$kestrunSrcPath/Public/*.ps1" -Recurse | ForEach-Object {
 }
 # 5. Build the module manifest
 Write-Host '🛠️ Updating module manifest...'
-& .\Utility\Update-Manifest.ps1 -ModuleRootPath $kestrunSrcPath -FileVersion $FileVersion -OutputPath $artifactsPath
+pwsh -NoProfile -File .\Utility\Update-Manifest.ps1 -ModuleRootPath $kestrunSrcPath -FileVersion $FileVersion -OutputPath $artifactsPath
 if ($LASTEXITCODE -ne 0) {
     throw 'Failed to update module manifest'
 }
@@ -124,10 +129,14 @@ if ($LASTEXITCODE -ne 0) {
 Copy-Item -Path './LICENSE.txt' -Destination (Join-Path -Path $artifactsPath -ChildPath 'LICENSE.txt') -Force
 Copy-Item -Path './README.md' -Destination (Join-Path -Path $artifactsPath -ChildPath 'README.md') -Force
 
-# 10. Build and copy the DLLs
-Write-Host '🛠️ Building Kestrun.dll and copying to module lib folder'
+# 10. Build Kestrun.Annotations.dll and Kestrun.dll, copy to module lib folder
+Write-Host '🛠️ Building KestrunKestrun.Annotations.DLL and copying to module lib folder...'
 $destReleaseLib = (Join-Path -Path $artifactsPath -ChildPath 'lib')
 Remove-Item -Path "$artifactsPath/lib" -Recurse -Force -ErrorAction SilentlyContinue
+dotnet build $kestrunAnnotationsProjectPath -c Release -p:Version=$Version -p:InformationalVersion=$VersionDetails.InformationalVersion
+
+# Build Kestrun.dll
+Write-Host '🛠️ Building Kestrun.dll and copying to module lib folder'
 dotnet build $kestrunProjectPath -c Release -p:Version=$Version -p:InformationalVersion=$VersionDetails.InformationalVersion
 Sync-PowerShellDll -Configuration 'Release' -dest $destReleaseLib
 Write-Host "📦 DLLs copied to $destReleaseLib"

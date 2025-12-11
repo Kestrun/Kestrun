@@ -37,8 +37,8 @@ public class ClaimPolicyPostConfigurerTests
         {
             Policies = new()
             {
-                ["P1"] = new ClaimRule(ClaimTypes.Role, "Admin"),
-                ["P2"] = new ClaimRule(ClaimTypes.Name, "Alice")
+                ["P1"] = new ClaimRule(ClaimTypes.Role, string.Empty, "Admin"),
+                ["P2"] = new ClaimRule(ClaimTypes.Name, string.Empty, "Alice")
             }
         };
 

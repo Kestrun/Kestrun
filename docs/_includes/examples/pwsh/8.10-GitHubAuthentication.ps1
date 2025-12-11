@@ -4,7 +4,7 @@
     Based on: 8.10-GitHubAuthentication.ps1, simplified and focused on GitHub.
 
     Notes:
-      - This registers three schemes when using Add-KrGitHubAuthentication -Name 'GitHub':
+      - This registers three schemes when using Add-KrGitHubAuthentication -AuthenticationScheme 'GitHub':
           1. 'GitHub'          → OAuth challenge (remote login) scheme
       - PKCE is enabled and tokens are saved to the cookie session.
       - Email claim is optionally enriched from /user/emails when permitted by scope and consent.
@@ -51,7 +51,7 @@ Add-KrEndpoint -Port $Port -IPAddress $IPAddress -SelfSignedCert
 # 4) GitHub auth (adds 'GitHub', 'GitHub.Cookies', 'GitHub.Policy')
 #    Customize callback if your GitHub App uses a different path (e.g. '/signin-oauth').
 #    To disable email enrichment: add -DisableEmailEnrichment
-Add-KrGitHubAuthentication -Name 'GitHub' -ClientId $ClientId -ClientSecret $ClientSecret -CallbackPath $CallbackPath
+Add-KrGitHubAuthentication -AuthenticationScheme 'GitHub' -ClientId $ClientId -ClientSecret $ClientSecret -CallbackPath $CallbackPath
 
 # 5) Finalize configuration
 Enable-KrConfiguration

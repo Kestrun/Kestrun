@@ -16,7 +16,6 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Negotiate;
 using Kestrun.Claims;
-using Microsoft.AspNetCore.Authentication.Cookies;
 using Kestrun.Hosting.Options;          // ISecurityTokenValidator
 
 
@@ -121,11 +120,11 @@ var tokenBuilder = JwtTokenBuilder.New()
 var builderResult = tokenBuilder.Build();
 
 var claimConfig = new ClaimPolicyBuilder().
-AddPolicy("CanDelete", "can_delete", "true").
-AddPolicy("CanRead", "can_read", "true").
-AddPolicy("CanWrite", "can_write", "true").
-AddPolicy("CanCreate", "can_create", "true").
-AddPolicy("Admin", UserIdentityClaim.Role, "admin").
+AddPolicy(policyName: "CanDelete", claimType: "can_delete", description: "Allows user to delete resources", allowedValues: "true").
+AddPolicy(policyName: "CanRead", claimType: "can_read", description: "Allows user to read resources", allowedValues: "true").
+AddPolicy(policyName: "CanWrite", claimType: "can_write", description: "Allows user to modify resources", allowedValues: "true").
+AddPolicy(policyName: "CanCreate", claimType: "can_create", description: "Allows user to create new resources", allowedValues: "true").
+AddPolicy(policyName: "Admin", claimType: UserIdentityClaim.Role, description: "Grants administrative privileges", allowedValues: "admin").
 Build();
 
 /// Add compression
@@ -149,7 +148,7 @@ server.AddResponseCompression(options =>
 .AddPowerShellRuntime()
 
 /// ── BASIC AUTHENTICATION – POWERSHELL CODE ─────────────────────────────
-.AddBasicAuthentication(BasicPowershellScheme, opts =>
+.AddBasicAuthentication(BasicPowershellScheme, "PowerShell Basic Authentication", opts =>
 {
     opts.Realm = "Power-Kestrun";
 
@@ -235,13 +234,13 @@ server.AddResponseCompression(options =>
 
 
     opts.Base64Encoded = true;            // default anyway
-    opts.RequireHttps = false;           // example
+    opts.AllowInsecureHttp = false;           // example
     opts.ClaimPolicyConfig = claimConfig;
 }
 )
 
 /// ── BASIC AUTHENTICATION – NATIVE C# CODE ──────────────────────────────
-   .AddBasicAuthentication(BasicNativeScheme, opts =>
+   .AddBasicAuthentication(BasicNativeScheme, "Native Basic Authentication", opts =>
    {
        opts.Realm = "Native-Kestrun";
        opts.ValidateCredentialsAsync = async (_, username, password) =>
@@ -277,7 +276,7 @@ server.AddResponseCompression(options =>
    })
 
 /// ── BASIC AUTHENTICATION – C# CODE ────────────────────────────────────
-   .AddBasicAuthentication(BasicCSharpScheme, opts =>
+   .AddBasicAuthentication(BasicCSharpScheme, "CSharp Basic Authentication", opts =>
    {
        opts.Realm = "CSharp-Kestrun";
        opts.ValidateCodeSettings = new AuthenticationCodeSettings
@@ -291,7 +290,7 @@ server.AddResponseCompression(options =>
    }
    )
 /// ── BASIC AUTHENTICATION – C# CODE ────────────────────────────────────
-   .AddBasicAuthentication(BasicVBNetScheme, opts =>
+   .AddBasicAuthentication(BasicVBNetScheme, "VBNet Basic Authentication", opts =>
    {
        opts.Realm = "VBNet-Kestrun";
        opts.ValidateCodeSettings = new AuthenticationCodeSettings
@@ -329,16 +328,16 @@ server.AddResponseCompression(options =>
    .AddWindowsAuthentication()
 
 /// ── API KEY AUTHENTICATION – SIMPLE STRING MATCHING ────────────────────
-   .AddApiKeyAuthentication(ApiKeySimple, opts =>
+   .AddApiKeyAuthentication(ApiKeySimple, "Simple API Key Authentication", opts =>
    {
-       opts.HeaderName = "X-Api-Key";
-       opts.ExpectedKey = "my-secret-api-key";
+       opts.ApiKeyName = "X-Api-Key";
+       opts.StaticApiKey = "my-secret-api-key";
    })
 
 /// ── API KEY AUTHENTICATION – POWERSHELL CODE ───────────────────────────
-   .AddApiKeyAuthentication(ApiKeyPowerShell, opts =>
+   .AddApiKeyAuthentication(ApiKeyPowerShell, "PowerShell API Key Authentication", opts =>
    {
-       opts.HeaderName = "X-Api-Key";
+       opts.ApiKeyName = "X-Api-Key";
        opts.ValidateCodeSettings = new AuthenticationCodeSettings
        {
            Language = ScriptLanguage.PowerShell,
@@ -379,9 +378,9 @@ server.AddResponseCompression(options =>
        opts.ClaimPolicyConfig = claimConfig;
    })
 /// ── API KEY AUTHENTICATION – C# CODE ───────────────────────────────────
-   .AddApiKeyAuthentication(ApiKeyCSharp, opts =>
+   .AddApiKeyAuthentication(ApiKeyCSharp, "CSharp API Key Authentication", opts =>
    {
-       opts.HeaderName = "X-Api-Key";
+       opts.ApiKeyName = "X-Api-Key";
        opts.ValidateCodeSettings = new AuthenticationCodeSettings
        {
            Language = ScriptLanguage.CSharp,
@@ -393,9 +392,9 @@ server.AddResponseCompression(options =>
            ExtraImports = ["System.Text"]
        };
    })
-   .AddApiKeyAuthentication(ApiKeyVBNet, opts =>
+   .AddApiKeyAuthentication(ApiKeyVBNet, "VBNet API Key Authentication", opts =>
    {
-       opts.HeaderName = "X-Api-Key";
+       opts.ApiKeyName = "X-Api-Key";
        opts.ValidateCodeSettings = new AuthenticationCodeSettings
        {
            Language = ScriptLanguage.VBNet,
@@ -408,10 +407,16 @@ server.AddResponseCompression(options =>
        };
    })
 /// ── JWT AUTHENTICATION – C# CODE ───────────────────────────────────────
+
    .AddJwtBearerAuthentication(
-       scheme: JwtScheme,
-        validationParameters: builderResult.GetValidationParameters(),
-        claimPolicy: claimConfig
+       authenticationScheme: JwtScheme,
+         displayName: "JWT Bearer Authentication",
+         configureOptions: new JwtAuthOptions
+         {
+             Host = server,
+             TokenValidationParameters = builderResult.GetValidationParameters(),
+             ClaimPolicy = claimConfig
+         }
     )
 
 /// ── COOKIE AUTHENTICATION – C# CODE ────────────────────────────────────
@@ -433,8 +438,9 @@ server.AddResponseCompression(options =>
       claimPolicy: claimConfig
 );*/
 .AddCookieAuthentication(
-       scheme: CookieScheme,
-       configure: new CookieAuthenticationOptions
+       authenticationScheme: CookieScheme,
+         displayName: "Cookie Authentication",
+       configureOptions: new CookieAuthOptions
        {
            Cookie = new CookieBuilder
            {

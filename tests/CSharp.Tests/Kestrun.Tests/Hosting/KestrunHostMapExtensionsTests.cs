@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.IdentityModel.Tokens;
 using Xunit;
 using Kestrun.Utilities;
+using Kestrun.Authentication;
 
 namespace KestrunTests.Hosting;
 
@@ -97,7 +98,7 @@ public class KestrunHostMapExtensionsTests
     {
         var host = new KestrunHost("TestApp", AppContext.BaseDirectory);
         // Ensure auth services exist so HasAuthScheme can resolve provider
-        _ = host.AddBasicAuthentication("InitAuth", _ => { });
+        _ = host.AddBasicAuthentication("InitAuth", "Init Basic Authentication", _ => { });
         host.EnableConfiguration();
 
         var options = new MapRouteOptions
@@ -122,7 +123,7 @@ public class KestrunHostMapExtensionsTests
         var host = new KestrunHost("TestApp", AppContext.BaseDirectory);
 
         // Register a basic auth scheme
-        _ = host.AddBasicAuthentication("BasicX", _ => { });
+        _ = host.AddBasicAuthentication("BasicX", "BasicX Basic Authentication", _ => { });
         host.EnableConfiguration();
 
         var options = new MapRouteOptions
@@ -194,7 +195,12 @@ public class KestrunHostMapExtensionsTests
             }
         };
 
-        _ = host.AddJwtBearerAuthentication("BearerX", tvp, claimPolicy: cfg);
+        _ = host.AddJwtBearerAuthentication("BearerX", displayName: "BearerX", configureOptions: new JwtAuthOptions
+        {
+            Host = host,
+            TokenValidationParameters = tvp,
+            ClaimPolicy = cfg
+        });
         host.EnableConfiguration();
 
         var options = new MapRouteOptions

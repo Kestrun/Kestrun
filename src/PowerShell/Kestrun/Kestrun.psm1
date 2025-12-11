@@ -1,8 +1,12 @@
 param()
-# Main Kestrun module path
 
+# Main Kestrun module path
 # This is the root path for the Kestrun module
 $moduleRootPath = Split-Path -Parent -Path $MyInvocation.MyCommand.Path
+
+if (([AppDomain]::CurrentDomain.GetAssemblies() | Where-Object { $_.GetName().Name -eq 'Kestrun.Annotations' }).Count -eq 0) {
+    Add-Type -LiteralPath (Join-Path -Path $moduleRootPath -ChildPath 'lib' -AdditionalChildPath 'assemblies', 'Kestrun.Annotations.dll')
+}
 
 # check PowerShell version
 if ($PSVersionTable.PSVersion.Major -ne 7) {
@@ -19,9 +23,8 @@ switch ($PSVersionTable.PSVersion.Minor) {
     6 { $netVersion = 'net9.0'; $codeAnalysisVersion = '4.14.0' }
     default { $netVersion = 'net9.0'; $codeAnalysisVersion = '4.14.0' }
 }
-
-$IsRelease = Test-Path -Path "$moduleRootPath/Private.ps1" -PathType Leaf
-if ($IsRelease) {
+# Determine if this is a release distribution
+if ( ([KestrunAnnotationsRuntimeInfo]::IsReleaseDistribution)) {
     # Load private functions
     . "$moduleRootPath/Private.ps1"
 } else {
@@ -55,10 +58,6 @@ if (-not $inRouteRunspace) {
             [Kestrun.Utilities.AssemblyAutoLoader]::Clear($true)   # remove hook + folders
         }
     }
-    if ($IsRelease -ne [Kestrun.KestrunRuntimeInfo]::IsReleaseDistribution) {
-        throw "Mismatch between module release state [$(($IsRelease ? 'release' : 'debug'))]" +
-        " and KestrunHostManager release state [$(([Kestrun.KestrunRuntimeInfo]::IsReleaseDistribution)?'release' : 'debug')]."
-    }
 } else {
     # Assert that the assembly is loaded and load it if not
     Assert-KrAssemblyLoaded (Join-Path -Path $assemblyLoadPath -ChildPath 'Kestrun.dll')
@@ -69,7 +68,7 @@ try {
     if (-not ([AppDomain]::CurrentDomain.GetAssemblies() | Where-Object { $_.GetName().Name -eq 'Kestrun' } )) {
         throw 'Kestrun assembly is not loaded.'
     }
-    if ($IsRelease) {
+    if ([KestrunAnnotationsRuntimeInfo]::IsReleaseDistribution) {
         . "$moduleRootPath/Public-Route.ps1"
         . "$moduleRootPath/Public-Definition.ps1"
     } else {
@@ -84,7 +83,6 @@ try {
         # set the function by context to the current runspace
         $funcs = Get-KrCommandsByContext -AnyOf Runtime -Functions $funcs
     }
-
 
     $aliases = Get-ChildItem Alias: | Where-Object { $sysaliases -notcontains $_ }
     # export the module's public functions
@@ -104,5 +102,5 @@ try {
     throw ("Failed to import Kestrun module: $_")
 } finally {
     # Cleanup temporary variables
-    Remove-Variable -Name 'assemblyLoadPath', 'moduleRootPath', 'netVersion', 'codeAnalysisVersion', 'inRouteRunspace' , 'sysfuncs', 'sysaliases', 'funcs', 'aliases', 'IsRelease' -ErrorAction SilentlyContinue
+    Remove-Variable -Name 'assemblyLoadPath', 'moduleRootPath', 'netVersion', 'codeAnalysisVersion', 'inRouteRunspace' , 'sysfuncs', 'sysaliases', 'funcs', 'aliases' -ErrorAction SilentlyContinue
 }

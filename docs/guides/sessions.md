@@ -80,7 +80,8 @@ Clear-KrSession
 1. The session cookie (for Kestrun samples, `Kr.Session`) stores only a random session ID.
 2. On first access to `ISession` in a request, the middleware loads a small key/value dictionary from the configured `IDistributedCache` using that ID.
 3. Your code reads/writes values through `ISession` (byte[], with helpers for strings/ints in PowerShell).
-4. At the end of the request, if the session was accessed and changed, the middleware writes the updated dictionary back to the cache and ensures the cookie is set.
+4. At the end of the request, if the session was accessed and changed,
+the middleware writes the updated dictionary back to the cache and ensures the cookie is set.
 5. Sliding expiration: Reading/writing can extend `IdleTimeout`; on inactivity beyond `IdleTimeout`,
 the session is abandoned and a new one will be created on next access.
 
@@ -150,7 +151,8 @@ Diagnostics:
 ## Anti-patterns
 
 - Storing large objects or many keys in session. Prefer a database or cache directly; keep session small and fast.
-- Long, blocking operations between session reads/writes. This increases lock hold time and serializes concurrent requests for the same session.
+- Long, blocking operations between session reads/writes.
+    This increases lock hold time and serializes concurrent requests for the same session.
 - Using session for cross-user or global data. Session is per-client; use shared state or a cache/DB for global data.
 - Putting secrets or credentials in session. Prefer secure stores/claims; session is meant for transient, non-sensitive values.
 - Relying on session to enforce authentication. Use proper auth middleware; session can carry minimal identity context only.

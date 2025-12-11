@@ -1,0 +1,303 @@
+using Microsoft.OpenApi;
+using Kestrun.Hosting.Options;
+using Kestrun.Utilities;
+
+namespace Kestrun.OpenApi;
+
+/// <summary>
+/// Generates OpenAPI v2 (Swagger) documents from C# types decorated with OpenApiSchema attributes.
+/// </summary>
+public partial class OpenApiDocDescriptor
+{
+    /// <summary>
+    /// Populates Document.Paths from the registered routes using OpenAPI metadata on each route.
+    /// </summary>
+    /// <param name="routes">The registered routes with OpenAPI metadata.</param>
+    private void BuildPathsFromRegisteredRoutes(Dictionary<(string Pattern, HttpVerb Method), MapRouteOptions> routes)
+    {
+        if (routes is null || routes.Count == 0)
+        {
+            return;
+        }
+        Document.Paths = [];
+
+        var groups = routes
+            .GroupBy(kvp => kvp.Key.Pattern, StringComparer.Ordinal)
+            .Where(g => !string.IsNullOrWhiteSpace(g.Key))
+            .Where(g => g.Any(kvp => kvp.Value?.OpenAPI?.Count > 0));
+
+        foreach (var grp in groups)
+        {
+            ProcessRouteGroup(grp);
+        }
+    }
+
+    /// <summary>
+    /// Processes a group of routes sharing the same pattern to build the corresponding OpenAPI path item.
+    /// </summary>
+    /// <param name="grp">The group of routes sharing the same pattern. </param>
+    private void ProcessRouteGroup(IGrouping<string, KeyValuePair<(string Pattern, HttpVerb Method), MapRouteOptions>> grp)
+    {
+        var pattern = grp.Key;
+        var pathItem = GetOrCreatePathItem(pattern);
+        OpenAPICommonMetadata? pathMeta = null;
+
+        foreach (var kvp in grp)
+        {
+            pathMeta = ProcessRouteOperation(kvp, pathItem, pathMeta);
+        }
+
+        if (pathMeta is not null)
+        {
+            ApplyPathLevelMetadata(pathItem, pathMeta, pattern);
+        }
+    }
+    /// <summary>
+    /// Retrieves or creates an OpenApiPathItem for the specified pattern.
+    /// </summary>
+    /// <param name="pattern">The route pattern.</param>
+    /// <returns>The corresponding OpenApiPathItem.</returns>
+    private OpenApiPathItem GetOrCreatePathItem(string pattern)
+    {
+        Document.Paths ??= [];
+        if (!Document.Paths.TryGetValue(pattern, out var pathInterface) || pathInterface is null)
+        {
+            pathInterface = new OpenApiPathItem();
+            Document.Paths[pattern] = pathInterface;
+        }
+        return (OpenApiPathItem)pathInterface;
+    }
+
+    /// <summary>
+    /// Processes a single route operation and adds it to the OpenApiPathItem.
+    /// </summary>
+    /// <param name="kvp">The key-value pair representing the route pattern, HTTP method, and route options.</param>
+    /// <param name="pathItem">The OpenApiPathItem to which the operation will be added.</param>
+    /// <param name="currentPathMeta">The current path-level OpenAPI metadata.</param>
+    /// <returns>The updated path-level OpenAPI metadata.</returns>
+    private OpenAPICommonMetadata? ProcessRouteOperation(KeyValuePair<(string Pattern, HttpVerb Method), MapRouteOptions> kvp, OpenApiPathItem pathItem, OpenAPICommonMetadata? currentPathMeta)
+    {
+        var method = kvp.Key.Method;
+        var map = kvp.Value;
+
+        if (map is null || map.OpenAPI.Count == 0)
+        {
+            return currentPathMeta;
+        }
+
+        if ((map.PathLevelOpenAPIMetadata is not null) && (currentPathMeta is null))
+        {
+            currentPathMeta = map.PathLevelOpenAPIMetadata;
+        }
+
+        if (map.OpenAPI.TryGetValue(method, out var meta) && meta.Enabled)
+        {
+            var op = BuildOperationFromMetadata(meta);
+            pathItem.AddOperation(HttpMethod.Parse(method.ToMethodString()), op);
+        }
+
+        return currentPathMeta;
+    }
+
+    /// <summary>
+    /// Applies path-level OpenAPI metadata to the given OpenApiPathItem.
+    /// </summary>
+    /// <param name="pathItem">The OpenApiPathItem to which the metadata will be applied.</param>
+    /// <param name="pathMeta">The path-level OpenAPI metadata.</param>
+    /// <param name="pattern">The route pattern associated with the path item.</param>
+    private void ApplyPathLevelMetadata(OpenApiPathItem pathItem, OpenAPICommonMetadata pathMeta, string pattern)
+    {
+        pathItem.Description = pathMeta.Description;
+        pathItem.Summary = pathMeta.Summary;
+        try
+        {
+            ApplyPathLevelServers(pathItem, pathMeta);
+            ApplyPathLevelParameters(pathItem, pathMeta);
+        }
+        catch (Exception ex)
+        {
+            if (Host.Logger.IsEnabled(Serilog.Events.LogEventLevel.Debug))
+            {
+                Host.Logger.Debug(ex, "Tolerated exception in path-level OpenAPI metadata assignment for pattern {Pattern}", pattern);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Applies server information from path-level metadata to the OpenApiPathItem.
+    /// </summary>
+    /// <param name="pathItem">The OpenApiPathItem to modify.</param>
+    /// <param name="pathMeta">The path-level OpenAPI metadata containing server information.</param>
+    private static void ApplyPathLevelServers(OpenApiPathItem pathItem, OpenAPICommonMetadata pathMeta)
+    {
+        if (pathMeta.Servers is { Count: > 0 })
+        {
+            dynamic dPath = pathItem;
+            if (dPath.Servers == null) { dPath.Servers = new List<OpenApiServer>(); }
+            foreach (var s in pathMeta.Servers)
+            {
+                dPath.Servers.Add(s);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Applies parameter information from path-level metadata to the OpenApiPathItem.
+    /// </summary>
+    /// <param name="pathItem">The OpenApiPathItem to modify.</param>
+    /// <param name="pathMeta">The path-level OpenAPI metadata containing parameter information.</param>
+    private static void ApplyPathLevelParameters(OpenApiPathItem pathItem, OpenAPICommonMetadata pathMeta)
+    {
+        if (pathMeta.Parameters is { Count: > 0 })
+        {
+            dynamic dPath = pathItem;
+            if (dPath.Parameters == null) { dPath.Parameters = new List<IOpenApiParameter>(); }
+            foreach (var p in pathMeta.Parameters)
+            {
+                dPath.Parameters.Add(p);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Builds an OpenApiOperation from OpenAPIMetadata.
+    /// </summary>
+    /// <param name="meta">The OpenAPIMetadata to build from.</param>
+    /// <returns>The constructed OpenApiOperation.</returns>
+    private OpenApiOperation BuildOperationFromMetadata(OpenAPIMetadata meta)
+    {
+        var op = new OpenApiOperation
+        {
+            OperationId = string.IsNullOrWhiteSpace(meta.OperationId) ? null : meta.OperationId,
+            Summary = string.IsNullOrWhiteSpace(meta.Summary) ? null : meta.Summary,
+            Description = string.IsNullOrWhiteSpace(meta.Description) ? null : meta.Description,
+            Deprecated = meta.Deprecated,
+            ExternalDocs = meta.ExternalDocs,
+            RequestBody = meta.RequestBody,
+            Responses = meta.Responses ?? new OpenApiResponses { ["200"] = new OpenApiResponse { Description = "Success" } }
+        };
+
+        ApplyTags(op, meta);
+        ApplyServers(op, meta);
+        ApplyParameters(op, meta);
+        ApplyCallbacks(op, meta);
+        ApplySecurity(op, meta);
+
+        return op;
+    }
+
+    /// <summary>
+    /// Applies tags from metadata to the OpenApiOperation.
+    /// </summary>
+    /// <param name="op">The OpenApiOperation to modify.</param>
+    /// <param name="meta">The OpenAPIMetadata containing tags.</param>
+    private static void ApplyTags(OpenApiOperation op, OpenAPIMetadata meta)
+    {
+        if (meta.Tags.Count > 0)
+        {
+            op.Tags = new HashSet<OpenApiTagReference>();
+            foreach (var t in meta.Tags ?? [])
+            {
+                _ = op.Tags.Add(new OpenApiTagReference(t));
+            }
+        }
+    }
+
+    /// <summary>
+    /// Applies server information from metadata to the OpenApiOperation.
+    /// </summary>
+    /// <param name="op">The OpenApiOperation to modify.</param>
+    /// <param name="meta">The OpenAPIMetadata containing server information.</param>
+    private void ApplyServers(OpenApiOperation op, OpenAPIMetadata meta)
+    {
+        try
+        {
+            if (meta.Servers is { Count: > 0 })
+            {
+                dynamic d = op;
+                if (d.Servers == null) { d.Servers = new List<OpenApiServer>(); }
+                foreach (var s in meta.Servers) { d.Servers.Add(s); }
+            }
+        }
+        catch (Exception ex)
+        {
+            Host.Logger.Warning(ex, "Failed to set operation-level servers for OpenAPI operation {OperationId}", op.OperationId);
+        }
+    }
+
+    /// <summary>
+    /// Applies parameter information from metadata to the OpenApiOperation.
+    /// </summary>
+    /// <param name="op">The OpenApiOperation to modify.</param>
+    /// <param name="meta">The OpenAPIMetadata containing parameter information.</param>
+    private void ApplyParameters(OpenApiOperation op, OpenAPIMetadata meta)
+    {
+        try
+        {
+            if (meta.Parameters is { Count: > 0 })
+            {
+                dynamic d = op;
+                if (d.Parameters == null) { d.Parameters = new List<IOpenApiParameter>(); }
+                foreach (var p in meta.Parameters) { d.Parameters.Add(p); }
+            }
+        }
+        catch { Host.Logger?.Warning("Failed to set operation-level parameters for OpenAPI operation {OperationId}", op.OperationId); }
+    }
+
+    /// <summary>
+    /// Applies callback information from metadata to the OpenApiOperation.
+    /// </summary>
+    /// <param name="op">The OpenApiOperation to modify.</param>
+    /// <param name="meta">The OpenAPIMetadata containing callback information.</param>
+    private static void ApplyCallbacks(OpenApiOperation op, OpenAPIMetadata meta)
+    {
+        if (meta.Callbacks is not null && meta.Callbacks.Count > 0)
+        {
+            op.Callbacks = new Dictionary<string, IOpenApiCallback>(meta.Callbacks);
+        }
+    }
+
+    /// <summary>
+    /// Applies security requirement information from metadata to the OpenApiOperation.
+    /// </summary>
+    /// <param name="op">The OpenApiOperation to modify.</param>
+    /// <param name="meta">The OpenAPIMetadata containing security requirement information.</param>
+    private void ApplySecurity(OpenApiOperation op, OpenAPIMetadata meta)
+    {
+        if (meta.SecuritySchemes is not null && meta.SecuritySchemes.Count != 0)
+        {
+            op.Security ??= [];
+
+            var seen = new HashSet<string>(StringComparer.Ordinal);
+
+            foreach (var schemeName in meta.SecuritySchemes
+                         .SelectMany(d => d.Keys)
+                         .Distinct())
+            {
+                if (!seen.Add(schemeName))
+                {
+                    continue;
+                }
+                // Gather scopes for this scheme
+                var scopesForScheme = meta.SecuritySchemes
+                    .SelectMany(dict => dict)
+                    .Where(kv => kv.Key == schemeName)
+                    .SelectMany(kv => kv.Value)
+                    .Distinct()
+                    .ToList();
+                // Build requirement
+                var requirement = new OpenApiSecurityRequirement
+                {
+                    [new OpenApiSecuritySchemeReference(schemeName, Document)] = scopesForScheme
+                };
+
+                op.Security.Add(requirement);
+            }
+        }
+        else if (meta.SecuritySchemes is not null && meta.SecuritySchemes.Count == 0)
+        {
+            // Explicitly anonymous for this operation (overrides Document.Security)
+            op.Security = [];
+        }
+    }
+}

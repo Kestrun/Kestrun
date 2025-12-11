@@ -1,4 +1,4 @@
-[CmdletBinding(DefaultParameterSetName = 'Default')]
+[CmdletBinding()]
 param(
     [Parameter()] [string]$Framework = "net9.0",
     [Parameter()] [string]$Configuration = "Release",

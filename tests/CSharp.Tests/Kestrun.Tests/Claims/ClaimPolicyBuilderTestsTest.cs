@@ -14,7 +14,7 @@ public class ClaimPolicyBuilderTestsTest
     public void AddPolicy_WithEnum_Uses_ToClaimUri_Mapping_UsesStaticArray()
     {
         var builder = new ClaimPolicyBuilder()
-            .AddPolicy("RolePolicy", UserIdentityClaim.Role, ManagerAllowed);
+            .AddPolicy("RolePolicy", UserIdentityClaim.Role, string.Empty, ManagerAllowed);
 
         var rule = builder.Policies["RolePolicy"];
         Assert.Equal(ClaimTypes.Role, rule.ClaimType);

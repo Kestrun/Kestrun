@@ -36,7 +36,7 @@
 #>
 function Get-KrRequestHeader {
     [KestrunRuntimeApi('Route')]
-    [CmdletBinding(defaultParameterSetName = 'default')]
+    [CmdletBinding(DefaultParameterSetName = 'Default')]
     [OutputType([string])]
     [OutputType([int])]
     [OutputType([bool])]
@@ -50,6 +50,7 @@ function Get-KrRequestHeader {
         [switch]$AsInt,
 
         [Parameter(parameterSetName = 'Bool')]
+        [Alias('AsBoolean')]
         [switch]$AsBool,
 
         [Parameter(parameterSetName = 'Double')]
@@ -79,10 +80,10 @@ function Get-KrRequestHeader {
         if ($AsString) {
             return $value.ToString()
         }
+        # Default: return as-is (string or array of strings)
         return $value
     } else {
         # Outside of route context
         Write-KrOutsideRouteWarning
     }
 }
-

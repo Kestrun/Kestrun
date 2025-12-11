@@ -12,7 +12,7 @@ public class JwtAuthenticationOptionsTest
     [Fact]
     public void Can_Set_And_Get_ValidationParameters()
     {
-        var options = new JwtAuthenticationOptions();
+        var options = new JwtAuthOptions();
         var parameters = new TokenValidationParameters();
         options.ValidationParameters = parameters;
         Assert.Same(parameters, options.ValidationParameters);
@@ -21,7 +21,7 @@ public class JwtAuthenticationOptionsTest
     [Fact]
     public void Can_Set_And_Get_ClaimPolicy()
     {
-        var options = new JwtAuthenticationOptions();
+        var options = new JwtAuthOptions();
         var policy = new ClaimPolicyConfig();
         options.ClaimPolicy = policy;
         Assert.Same(policy, options.ClaimPolicy);
@@ -30,14 +30,14 @@ public class JwtAuthenticationOptionsTest
     [Fact]
     public void IssueClaims_Default_Is_Null()
     {
-        var options = new JwtAuthenticationOptions();
+        var options = new JwtAuthOptions();
         Assert.Null(options.IssueClaims);
     }
 
     [Fact]
     public async Task Can_Set_And_Invoke_IssueClaims()
     {
-        var options = new JwtAuthenticationOptions();
+        var options = new JwtAuthOptions();
         var httpContext = new DefaultHttpContext();
         options.IssueClaims = (_, _) =>
         {
@@ -53,14 +53,14 @@ public class JwtAuthenticationOptionsTest
     [Fact]
     public void IssueClaimsCodeSettings_Default_NotNull()
     {
-        var options = new JwtAuthenticationOptions();
+        var options = new JwtAuthOptions();
         Assert.NotNull(options.IssueClaimsCodeSettings);
     }
 
     [Fact]
     public void Can_Set_And_Get_ClaimPolicyConfig()
     {
-        var options = new JwtAuthenticationOptions();
+        var options = new JwtAuthOptions();
         var config = new ClaimPolicyConfig();
         options.ClaimPolicyConfig = config;
         Assert.Same(config, options.ClaimPolicyConfig);

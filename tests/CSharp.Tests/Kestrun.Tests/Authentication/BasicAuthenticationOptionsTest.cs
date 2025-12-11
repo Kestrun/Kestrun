@@ -49,7 +49,7 @@ public class BasicAuthenticationOptionsTest
     public void Default_RequireHttps_IsTrue()
     {
         var options = new BasicAuthenticationOptions();
-        Assert.True(options.RequireHttps);
+        Assert.False(options.AllowInsecureHttp);
     }
 
     [Fact]

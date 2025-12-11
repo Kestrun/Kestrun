@@ -9,7 +9,7 @@ namespace Kestrun.Scripting;
 /// <param name="lang">The script language to associate with the method or delegate.</param>
 [AttributeUsage(AttributeTargets.Method | AttributeTargets.Delegate,
              AllowMultiple = false)]
-public sealed class ScriptLanguageAttribute(ScriptLanguage lang) : Attribute
+public sealed class ScriptLanguageAttribute(ScriptLanguage lang) : KestrunAnnotation
 {
     /// <summary>
     /// Gets the script language associated with this attribute.

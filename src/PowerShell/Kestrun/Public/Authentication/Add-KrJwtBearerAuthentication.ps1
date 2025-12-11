@@ -5,9 +5,19 @@
         Configures the Kestrun server to use JWT Bearer authentication for incoming requests.
     .PARAMETER Server
         The Kestrun server instance to configure.
-    .PARAMETER Name
+    .PARAMETER AuthenticationScheme
         The name of the authentication scheme.
         This name is used to identify the authentication scheme in the Kestrun server configuration.
+    .PARAMETER DisplayName
+        The display name for the authentication scheme.
+        This name is shown in user interfaces and documentation.
+    .PARAMETER DocId
+        The documentation IDs to associate with this authentication scheme in OpenAPI documentation.
+    .PARAMETER Description
+        A description of the JWT Bearer authentication scheme.
+    .PARAMETER Options
+        An instance of Kestrun.Authentication.JwtAuthOptions containing the JWT Bearer authentication configuration.
+        This parameter is mandatory when using the 'Options' parameter set.
     .PARAMETER ValidationParameter
         The token validation parameters used to validate incoming JWT tokens.
         This parameter is mandatory when using the 'ValParamOption' parameter set.
@@ -19,6 +29,9 @@
     .PARAMETER ValidIssuers
         An array of valid issuers for the JWT tokens.
         This parameter is used to validate the issuer of incoming tokens.
+    .PARAMETER ValidAudience
+        The valid audience for the JWT tokens.
+        This parameter is used to validate the audience of incoming tokens.
     .PARAMETER ValidAudiences
         An array of valid audiences for the JWT tokens.
         This parameter is used to validate the audience of incoming tokens.
@@ -43,9 +56,10 @@
         The amount of time the token validation should allow for clock skew.
     .PARAMETER DoesNotRequireExpirationTime
         A switch parameter that, when specified, indicates that expiration time validation is not required.
-    .PARAMETER ValidAudience
-        The valid audience for the JWT tokens.
-        This parameter is used to validate the audience of incoming tokens.
+    .PARAMETER MapInboundClaims
+        A switch parameter that, when specified, maps inbound claims to Microsoft identity model claims.
+    .PARAMETER SaveToken
+        A switch parameter that, when specified, saves the token in the authentication properties after a successful authentication.
     .PARAMETER PassThru
         A switch parameter that, when specified, returns the Kestrun server instance.
     .EXAMPLE
@@ -74,8 +88,20 @@ function Add-KrJWTBearerAuthentication {
         [Parameter(Mandatory = $false, ValueFromPipeline)]
         [Kestrun.Hosting.KestrunHost]$Server,
 
-        [Parameter(Mandatory = $true)]
-        [string]$Name,
+        [Parameter()]
+        [string]$AuthenticationScheme = [Kestrun.Authentication.AuthenticationDefaults]::JwtBearerAuthenticationSchemeName,
+
+        [Parameter()]
+        [string]$DisplayName = [Kestrun.Authentication.AuthenticationDefaults]::JwtBearerDisplayName,
+
+        [Parameter()]
+        [string[]]$DocId = [Kestrun.Authentication.IOpenApiAuthenticationOptions]::DefaultDocumentationIds,
+
+        [Parameter(ParameterSetName = 'Items')]
+        [string] $Description,
+
+        [Parameter(Mandatory = $true, ParameterSetName = 'Options')]
+        [Kestrun.Authentication.JwtAuthOptions]$Options,
 
         [Parameter(Mandatory = $true, ParameterSetName = 'ValParamOption')]
         [Microsoft.IdentityModel.Tokens.TokenValidationParameters]$ValidationParameter,
@@ -111,6 +137,13 @@ function Add-KrJWTBearerAuthentication {
         [Microsoft.IdentityModel.Tokens.SecurityKey[]]$IssuerSigningKeys,
         [Parameter(ParameterSetName = 'Items')]
         [TimeSpan]$ClockSkew,
+        [Parameter(ParameterSetName = 'Items')]
+        [Parameter(ParameterSetName = 'ValParamOption')]
+        [switch]$MapInboundClaims,
+        [Parameter(ParameterSetName = 'Items')]
+        [Parameter(ParameterSetName = 'ValParamOption')]
+        [switch]$SaveToken,
+
         [Parameter()]
         [switch]$PassThru
     )
@@ -119,33 +152,48 @@ function Add-KrJWTBearerAuthentication {
         $Server = Resolve-KestrunServer -Server $Server
     }
     process {
-        if ($PSCmdlet.ParameterSetName -ne 'ValParamOption') {
-            $ValidationParameter = [Microsoft.IdentityModel.Tokens.TokenValidationParameters]::new()
-            if ($PSBoundParameters.ContainsKey('ValidIssuer')) { $ValidationParameter.ValidIssuer = $ValidIssuer }
-            if ($PSBoundParameters.ContainsKey('ValidIssuers')) { $ValidationParameter.ValidIssuers = $ValidIssuers }
-            if ($PSBoundParameters.ContainsKey('ValidAudience')) { $ValidationParameter.ValidAudience = $ValidAudience }
-            if ($PSBoundParameters.ContainsKey('ValidAudiences')) { $ValidationParameter.ValidAudiences = $ValidAudiences }
-            if ($PSBoundParameters.ContainsKey('ValidAlgorithms')) { $ValidationParameter.ValidAlgorithms = $ValidAlgorithms }
-            if ($PSBoundParameters.ContainsKey('SkipValidateIssuer')) { $ValidationParameter.ValidateIssuer = -not $SkipValidateIssuer.IsPresent }
-            if ($PSBoundParameters.ContainsKey('SkipValidateAudience')) { $ValidationParameter.ValidateAudience = -not $SkipValidateAudience.IsPresent }
-            if ($PSBoundParameters.ContainsKey('SkipValidateLifetime')) { $ValidationParameter.ValidateLifetime = -not $SkipValidateLifetime.IsPresent }
-            if ($PSBoundParameters.ContainsKey('ValidateIssuerSigningKey')) { $ValidationParameter.ValidateIssuerSigningKey = $ValidateIssuerSigningKey.IsPresent }
+        # Build Options only when not provided directly
+        if ($PSCmdlet.ParameterSetName -ne 'Options') {
+            $Options = [Kestrun.Authentication.JwtAuthOptions]::new()
 
-            if ($PSBoundParameters.ContainsKey('RequireExpirationTime')) { $ValidationParameter.RequireExpirationTime = -not $DoesNotRequireExpirationTime.IsPresent }
-            if ($PSBoundParameters.ContainsKey('RequireSignedTokens')) { $ValidationParameter.RequireSignedTokens = -not$DoesNotRequireSignedTokens.IsPresent }
+            # Build ValidationParameter only when not provided directly
+            if ($PSCmdlet.ParameterSetName -ne 'ValParamOption') {
+                $ValidationParameter = [Microsoft.IdentityModel.Tokens.TokenValidationParameters]::new()
+                if ($PSBoundParameters.ContainsKey('ValidIssuer')) { $ValidationParameter.ValidIssuer = $ValidIssuer }
+                if ($PSBoundParameters.ContainsKey('ValidIssuers')) { $ValidationParameter.ValidIssuers = $ValidIssuers }
+                if ($PSBoundParameters.ContainsKey('ValidAudience')) { $ValidationParameter.ValidAudience = $ValidAudience }
+                if ($PSBoundParameters.ContainsKey('ValidAudiences')) { $ValidationParameter.ValidAudiences = $ValidAudiences }
+                if ($PSBoundParameters.ContainsKey('ValidAlgorithms')) { $ValidationParameter.ValidAlgorithms = $ValidAlgorithms }
+                if ($PSBoundParameters.ContainsKey('SkipValidateIssuer')) { $ValidationParameter.ValidateIssuer = -not $SkipValidateIssuer.IsPresent }
+                if ($PSBoundParameters.ContainsKey('SkipValidateAudience')) { $ValidationParameter.ValidateAudience = -not $SkipValidateAudience.IsPresent }
+                if ($PSBoundParameters.ContainsKey('SkipValidateLifetime')) { $ValidationParameter.ValidateLifetime = -not $SkipValidateLifetime.IsPresent }
+                if ($PSBoundParameters.ContainsKey('ValidateIssuerSigningKey')) { $ValidationParameter.ValidateIssuerSigningKey = $ValidateIssuerSigningKey.IsPresent }
 
-            if ($PSBoundParameters.ContainsKey('IssuerSigningKey')) { $ValidationParameter.IssuerSigningKey = $IssuerSigningKey }
-            if ($PSBoundParameters.ContainsKey('IssuerSigningKeys')) { $ValidationParameter.IssuerSigningKeys = $IssuerSigningKeys }
+                if ($PSBoundParameters.ContainsKey('RequireExpirationTime')) { $ValidationParameter.RequireExpirationTime = -not $DoesNotRequireExpirationTime.IsPresent }
+                if ($PSBoundParameters.ContainsKey('RequireSignedTokens')) { $ValidationParameter.RequireSignedTokens = -not$DoesNotRequireSignedTokens.IsPresent }
 
-            if ($PSBoundParameters.ContainsKey('ClockSkew')) { $ValidationParameter.ClockSkew = $ClockSkew }
+                if ($PSBoundParameters.ContainsKey('IssuerSigningKey')) { $ValidationParameter.IssuerSigningKey = $IssuerSigningKey }
+                if ($PSBoundParameters.ContainsKey('IssuerSigningKeys')) { $ValidationParameter.IssuerSigningKeys = $IssuerSigningKeys }
+
+                if ($PSBoundParameters.ContainsKey('ClockSkew')) { $ValidationParameter.ClockSkew = $ClockSkew }
+                if (-not ([string]::IsNullOrWhiteSpace($Description))) { $Options.Description = $Description }
+                # Map inbound claims
+                $ValidationParameter.MapInboundClaims = $MapInboundClaims.IsPresent
+                # Save token
+                $Options.SaveToken = $SaveToken.IsPresent
+            }
+
+            $Options.TokenValidationParameters = $ValidationParameter
+            # OpenAPI documentation IDs
+            $Options.DocumentationId = $DocId
+            # Claim policy
+            $Options.ClaimPolicy = $ClaimPolicy
         }
-
         [Kestrun.Hosting.KestrunHostAuthnExtensions]::AddJwtBearerAuthentication(
-            $Server, $Name, $ValidationParameter, $null, $ClaimPolicy) | Out-Null
+            $Server, $AuthenticationScheme, $DisplayName, $Options ) | Out-Null
         if ($PassThru.IsPresent) {
             # if the PassThru switch is specified, return the modified server instance
             return $Server
         }
     }
 }
-

@@ -84,7 +84,7 @@ public sealed class PowerShellRunspaceMiddleware(RequestDelegate next, KestrunRu
                 {
                     if (Log.IsEnabled(LogEventLevel.Debug))
                     {
-                        Log.Debug("OnCompleted: Returning runspace to pool: {RunspaceId}", ps.Runspace.InstanceId);
+                        Log.Debug("OnCompleted: Returning runspace to pool: {RunspaceId} {name} {id}", ps.Runspace.InstanceId, ps.Runspace.Name, ps.Runspace.Id);
                     }
                     _pool.Release(ps.Runspace);
                 }

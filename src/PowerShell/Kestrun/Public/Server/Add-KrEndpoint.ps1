@@ -79,6 +79,10 @@ function Add-KrEndpoint {
     begin {
         # Ensure the server instance is resolved
         $Server = Resolve-KestrunServer -Server $Server
+        if ($Server.IsConfigured) {
+            throw "Cannot add endpoint to a server that is already configured. Please create a new server instance."
+        }
+        # Validate mutually exclusive parameters
         if ($null -ne $IPAddress) {
             if (-not [string]::IsNullOrEmpty($HostName)) {
                 throw "Cannot specify both IPAddress and HostName. Please choose one."

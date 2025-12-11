@@ -1,4 +1,20 @@
 {
+    "workbench.colorCustomizations": {
+        "activityBar.background": "#053634",
+        "activityBar.foreground": "#eff1f3",
+        //"sideBar.background": "#064a48",
+        //"sideBar.foreground": "#eff1f3",
+        //"editor.background": "#0a3635",
+        //"editor.foreground": "#eff1f3",
+        //"panel.background": "#064a48",
+        //"panel.foreground": "#eff1f3",
+        "titleBar.activeBackground": "#053634",
+        "titleBar.activeForeground": "#eff1f3",
+        "statusBar.background": "#065f5a",
+        "statusBar.foreground": "#eff1f3",
+        "statusBar.noFolderBackground": "#065f5a",
+        "statusBar.debuggingBackground": "#330a0a"
+    },
     "editor.tabSize": 4,
     "editor.insertSpaces": true,
     "editor.formatOnSave": true,

@@ -113,11 +113,20 @@
         <InvariantGlobalization>false</InvariantGlobalization>
     </PropertyGroup>
 
+    <!--───────────── Files to Embed in the DLL ─────────────-->
+    <ItemGroup>
+        <EmbeddedResource Include="Assets\favicon.ico" />
+        <EmbeddedResource Include="Assets\swagger-ui.html" LogicalName="Kestrun.Assets.swagger-ui.html" />
+        <EmbeddedResource Include="Assets\redoc-ui.html" LogicalName="Kestrun.Assets.redoc-ui.html" />
+        <EmbeddedResource Include="Assets\scalar.html" LogicalName="Kestrun.Assets.scalar.html" />
+        <EmbeddedResource Include="Assets\rapidoc.html" LogicalName="Kestrun.Assets.rapidoc.html" />
+         <EmbeddedResource Include="Assets\elements.html" LogicalName="Kestrun.Assets.elements.html" />
+    </ItemGroup>
+
     <!--───────────── Files to Include in Package ─────────────-->
     <ItemGroup>
         <!-- README will show on NuGet.org page -->
         <None Include="../../../README.md" Pack="true" PackagePath="\" />
-        <EmbeddedResource Include="Assets\favicon.ico" />
         <None Include="Assets\kestrun_128x128.png" Pack="true" PackagePath="Assets\" />
         <None Include="../../../LICENSE.txt" Pack="true" PackagePath="\" />
         <None Include="../../../THIRD-PARTY-NOTICES.md" Pack="true" PackagePath="\" />
@@ -236,6 +245,8 @@
     -->
 
         <!-- Utilities -->
+        <PackageReference Include="Microsoft.OpenApi" Version="2.3.10" />
+
         <PackageReference Include="CsvHelper" Version="33.1.0" />
         <PackageReference Include="Cronos" Version="0.11.1" />
         <PackageReference Include="PeterO.Cbor" Version="4.5.5" />
@@ -247,6 +258,9 @@
     <PackageReference Include="Microsoft.SourceLink.GitHub" Version="1.1.1" PrivateAssets="All" />-->
 
 
+    </ItemGroup>
+    <ItemGroup>
+        <ProjectReference Include="..\Kestrun.Annotations\Kestrun.Annotations.csproj" />
     </ItemGroup>
     <!--
   <Target Name="CopyToPowerShellLib" AfterTargets="Build" Condition="'$(Configuration)' == 'Debug'">

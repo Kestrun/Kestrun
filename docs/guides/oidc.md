@@ -98,7 +98,7 @@ New-KrServer -Name 'OIDC'
 Add-KrEndpoint -Port 5000 -IPAddress ([IPAddress]::Loopback) -SelfSignedCert
 
 # Register OIDC (adds 'oidc', 'oidc.Cookies', 'oidc.Policy')
-Add-KrOpenIdConnectAuthentication -Name 'oidc' -Options $options
+Add-KrOpenIdConnectAuthentication -AuthenticationScheme 'oidc' -Options $options
 
 Enable-KrConfiguration
 
@@ -139,7 +139,7 @@ $options.Scope.Clear(); $options.Scope.Add('openid'); $options.Scope.Add('profil
 New-KrServer -Name 'OIDC AzureAD'
 Add-KrEndpoint -Port 5000 -IPAddress ([IPAddress]::Loopback) -SelfSignedCert
 
-Add-KrOpenIdConnectAuthentication -Name 'azuread' -Options $options
+Add-KrOpenIdConnectAuthentication -AuthenticationScheme 'azuread' -Options $options
 
 Enable-KrConfiguration
 

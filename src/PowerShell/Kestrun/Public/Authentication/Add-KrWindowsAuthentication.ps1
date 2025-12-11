@@ -7,6 +7,16 @@
         This enables the server to use Kerberos or NTLM for authentication.
     .PARAMETER Server
         The Kestrun server instance to configure.
+        If not specified, the current server instance is used.
+    .PARAMETER AuthenticationScheme
+        The name of the Windows authentication scheme (default is 'Negotiate').
+    .PARAMETER DisplayName
+        The display name for the authentication scheme.
+    .PARAMETER Description
+        A description of the Windows authentication scheme.
+    .PARAMETER Options
+        The Windows authentication options to configure.
+        If not specified, default options are used.
     .PARAMETER PassThru
         If specified, returns the modified server instance after adding the authentication.
     .EXAMPLE
@@ -25,6 +35,18 @@ function Add-KrWindowsAuthentication {
         [Parameter(Mandatory = $false, ValueFromPipeline)]
         [Kestrun.Hosting.KestrunHost]$Server,
 
+        [Parameter(Mandatory = $false)]
+        [string]$AuthenticationScheme = [Kestrun.Authentication.AuthenticationDefaults]::WindowsSchemeName,
+
+        [Parameter()]
+        [string]$DisplayName = [Kestrun.Authentication.AuthenticationDefaults]::WindowsDisplayName,
+
+        [Parameter(Mandatory = $false)]
+        [string]$Description,
+
+        [Parameter(Mandatory = $false)]
+        [Kestrun.Authentication.WindowsAuthOptions]$Options,
+
         [Parameter()]
         [switch]$PassThru
     )
@@ -33,8 +55,15 @@ function Add-KrWindowsAuthentication {
         $Server = Resolve-KestrunServer -Server $Server
     }
     process {
+        if ( $null -eq $Options ) {
+            # Build options from individual parameters if not provided
+            $Options = [Kestrun.Authentication.WindowsAuthOptions]::new()
+        }
+
+        if ($Description) { $Options.Description = $Description }
+
         # Add Windows authentication to the server instance ---
-        [Kestrun.Hosting.KestrunHostAuthnExtensions]::AddWindowsAuthentication($Server) | Out-Null
+        [Kestrun.Hosting.KestrunHostAuthnExtensions]::AddWindowsAuthentication($Server, $AuthenticationScheme, $DisplayName, $Options) | Out-Null
         if ($PassThru.IsPresent) {
             # if the PassThru switch is specified, return the modified server instance
             return $Server

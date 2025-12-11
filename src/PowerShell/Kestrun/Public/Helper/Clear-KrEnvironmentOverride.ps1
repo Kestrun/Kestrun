@@ -17,9 +17,10 @@
 function Clear-KrEnvironmentOverride {
     [KestrunRuntimeApi('Everywhere')]
     [CmdletBinding(SupportsShouldProcess)]
+    [OutputType([string])]
     param()
     if ($PSCmdlet.ShouldProcess('Kestrun Environment', 'Clear override')) {
         [Kestrun.Runtime.EnvironmentHelper]::ClearOverride()
-        [Kestrun.Runtime.EnvironmentHelper]::Name
+        return [Kestrun.Runtime.EnvironmentHelper]::Name
     }
 }

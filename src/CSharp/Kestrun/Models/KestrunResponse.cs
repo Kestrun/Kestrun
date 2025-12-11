@@ -19,6 +19,7 @@ using CsvHelper;
 using System.Reflection;
 using Microsoft.Net.Http.Headers;
 using Kestrun.Utilities.Yaml;
+using Kestrun.Hosting.Options;
 
 namespace Kestrun.Models;
 
@@ -76,7 +77,6 @@ public class KestrunResponse(KestrunRequest request, int bodyAsyncThreshold = 81
     /// </summary>
     public List<string>? Cookies { get; set; } // For Set-Cookie headers
 
-
     /// <summary>
     /// Text encoding for textual MIME types.
     /// </summary>
@@ -117,13 +117,35 @@ public class KestrunResponse(KestrunRequest request, int bodyAsyncThreshold = 81
     /// <returns>The value of the header if found; otherwise, null.</returns>
     public string? GetHeader(string key) => Headers.TryGetValue(key, out var value) ? value : null;
 
-    private string DetermineContentType(string? contentType, string defaultType = "text/plain")
+    /// <summary>
+    /// Determines the appropriate content type for the response based on the provided content type and default type.
+    /// </summary>
+    /// <param name="contentType">The initial content type to consider.</param>
+    /// <param name="defaultType">The default content type to use if none is provided or found.</param>
+    /// <returns>The determined content type to use for the response.</returns>
+    private string DetermineContentType(string? contentType, string? defaultType = null)
     {
         if (string.IsNullOrWhiteSpace(contentType))
         {
-            _ = Request.Headers.TryGetValue("Accept", out var acceptHeader);
-            contentType = (acceptHeader ?? defaultType)
-                                 .ToLowerInvariant();
+            if (Request.Headers.TryGetValue("Accept", out var acceptHeader))
+            {
+                contentType = acceptHeader.ToLowerInvariant();
+            }
+            else
+            {
+                if (string.IsNullOrWhiteSpace(defaultType))
+                {
+                    var dft = Context.GetEndpoint()?
+                    .Metadata
+                    .FirstOrDefault(m => m is DefaultResponseContentType)
+                    as DefaultResponseContentType;
+                    contentType = dft?.ContentType ?? "text/html";
+                }
+                else
+                {
+                    contentType = defaultType;
+                }
+            }
         }
 
         return contentType;
@@ -148,6 +170,10 @@ public class KestrunResponse(KestrunRequest request, int bodyAsyncThreshold = 81
         }
 
         if (type.StartsWith("text/", StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+        if (type == "application/x-www-form-urlencoded")
         {
             return true;
         }
@@ -405,6 +431,10 @@ public class KestrunResponse(KestrunRequest request, int bodyAsyncThreshold = 81
         {
             await WriteXmlResponseAsync(inputObject: inputObject, statusCode: statusCode, contentType: ContentType);
         }
+        else if (ContentType.Contains("application/x-www-form-urlencoded"))
+        {
+            await WriteFormUrlEncodedResponseAsync(inputObject: inputObject, statusCode: statusCode);
+        }
         else
         {
             await WriteTextResponseAsync(inputObject: inputObject?.ToString() ?? string.Empty, statusCode: statusCode);
@@ -598,6 +628,35 @@ public class KestrunResponse(KestrunRequest request, int bodyAsyncThreshold = 81
     }
 
     /// <summary>
+    /// Writes a form-urlencoded response with the specified input object, status code, and optional content type.
+    /// Automatically converts the input object to a Dictionary{string, string} using <see cref="ObjectToDictionaryConverter"/>.
+    /// </summary>
+    /// <param name="inputObject">The object to be converted to form-urlencoded data. Can be a dictionary, enumerable, or any object with public properties.</param>
+    /// <param name="statusCode">The HTTP status code for the response. Defaults to 200 OK.</param>
+    public void WriteFormUrlEncodedResponse(object? inputObject, int statusCode = StatusCodes.Status200OK) =>
+        WriteFormUrlEncodedResponseAsync(inputObject, statusCode).GetAwaiter().GetResult();
+
+    /// <summary>
+    /// Asynchronously writes a form-urlencoded response with the specified input object, status code, and optional content type.
+    /// Automatically converts the input object to a Dictionary{string, string} using <see cref="ObjectToDictionaryConverter"/>.
+    /// </summary>
+    /// <param name="inputObject">The object to be converted to form-urlencoded data. Can be a dictionary, enumerable, or any object with public properties.</param>
+    /// <param name="statusCode">The HTTP status code for the response. Defaults to 200 OK.</param>
+    public async Task WriteFormUrlEncodedResponseAsync(object? inputObject, int statusCode = StatusCodes.Status200OK)
+    {
+        if (inputObject is null)
+        {
+            throw new ArgumentNullException(nameof(inputObject), "Input object cannot be null for form-urlencoded response.");
+        }
+
+        var dictionary = ObjectToDictionaryConverter.ToDictionary(inputObject);
+        var formContent = new FormUrlEncodedContent(dictionary);
+        var encodedString = await formContent.ReadAsStringAsync();
+
+        await WriteTextResponseAsync(encodedString, statusCode, "application/x-www-form-urlencoded");
+    }
+
+    /// <summary>
     /// Writes an HTTP redirect response with the specified URL and optional message.
     /// </summary>
     /// <param name="url">The URL to redirect to.</param>
@@ -634,8 +693,6 @@ public class KestrunResponse(KestrunRequest request, int bodyAsyncThreshold = 81
             _ = Headers.Remove("Content-Length");
         }
     }
-
-
 
     /// <summary>
     /// Writes a binary response with the specified data, status code, and content type.
@@ -742,7 +799,6 @@ public class KestrunResponse(KestrunRequest request, int bodyAsyncThreshold = 81
       int statusCode = StatusCodes.Status500InternalServerError,
       string? contentType = null,
       string? details = null) => WriteErrorResponseAsync(message, statusCode, contentType, details).GetAwaiter().GetResult();
-
 
     /// <summary>
     /// Asynchronously writes an error response based on an exception.
@@ -939,8 +995,6 @@ public class KestrunResponse(KestrunRequest request, int bodyAsyncThreshold = 81
         return sb.ToString();
     }
 
-
-
     /// <summary>
     /// Resolves a dotted path like “Request.Path” through nested dictionaries
     /// and/or object properties (case-insensitive).
@@ -1046,6 +1100,29 @@ public class KestrunResponse(KestrunRequest request, int bodyAsyncThreshold = 81
     }
 
     /// <summary>
+    /// Asynchronously writes an HTML response, rendering the provided template byte array and replacing placeholders with values from the given dictionary.
+    /// </summary>
+    /// <param name="template">The HTML template byte array.</param>
+    /// <param name="vars">A dictionary of variables to replace in the template.</param>
+    /// <param name="statusCode">The HTTP status code for the response.</param>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    public async Task WriteHtmlResponseAsync(
+    byte[] template,
+    IReadOnlyDictionary<string, object?>? vars,
+    int statusCode = 200) => await WriteHtmlResponseAsync(Encoding.GetString(template), vars, statusCode);
+
+    /// <summary>
+    /// Writes an HTML response, rendering the provided template byte array and replacing placeholders with values from the given dictionary.
+    /// </summary>
+    /// <param name="template">The HTML template byte array.</param>
+    /// <param name="vars">A dictionary of variables to replace in the template.</param>
+    /// <param name="statusCode">The HTTP status code for the response.</param>
+    public void WriteHtmlResponse(
+         byte[] template,
+         IReadOnlyDictionary<string, object?>? vars,
+         int statusCode = 200) => WriteHtmlResponseAsync(Encoding.GetString(template), vars, statusCode).GetAwaiter().GetResult();
+
+    /// <summary>
     /// Asynchronously reads an HTML file, merges in placeholders from the provided dictionary, and writes the result as a response.
     /// </summary>
     /// <param name="filePath">The path to the HTML file to read.</param>
@@ -1070,7 +1147,6 @@ public class KestrunResponse(KestrunRequest request, int bodyAsyncThreshold = 81
         var template = await File.ReadAllTextAsync(filePath);
         WriteHtmlResponseAsync(template, vars, statusCode).GetAwaiter().GetResult();
     }
-
 
     /// <summary>
     /// Renders the given HTML string with placeholders and writes it as a response.

@@ -1,4 +1,6 @@
 
+using Kestrun.Claims;
+using Kestrun.Hosting;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.OAuth;
@@ -8,29 +10,80 @@ namespace Kestrun.Authentication;
 /// <summary>
 /// Options for OAuth2 authentication.
 /// </summary>
-public class OAuth2Options : OAuthOptions
+public class OAuth2Options : OAuthOptions, IOpenApiAuthenticationOptions, IAuthenticationHostOptions, IOAuthCommonOptions
 {
     /// <summary>
     /// Options for cookie authentication.
     /// </summary>
-    public CookieAuthenticationOptions CookieOptions { get; }
+    public CookieAuthOptions CookieOptions { get; }
+
+    /// <inheritdoc/>
+    public bool GlobalScheme { get; set; }
+
+    /// <inheritdoc/>
+    public string? Description { get; set; }
+
+    /// <inheritdoc/>
+    public string? DisplayName { get; set; }
+
+    /// <inheritdoc/>
+    public string[] DocumentationId { get; set; } = [];
+
+    /// <inheritdoc/>
+#pragma warning disable IDE0370 // Remove unnecessary suppression
+    public KestrunHost Host { get; set; } = default!;
+#pragma warning restore IDE0370 // Remove unnecessary suppression
 
     /// <summary>
     /// Initializes a new instance of the <see cref="OAuth2Options"/> class.
     /// </summary>
     public OAuth2Options()
     {
-        CookieOptions = new CookieAuthenticationOptions
+        CookieOptions = new CookieAuthOptions()
         {
             SlidingExpiration = true
         };
     }
     /// <summary>
-    /// Gets the authentication scheme.
+    /// Gets or sets the authentication scheme name.
     /// </summary>
-    public string AuthenticationScheme => CookieOptions.Cookie.Name is not null
-            ? CookieOptions.Cookie.Name
-            : CookieAuthenticationDefaults.AuthenticationScheme;
+    public string AuthenticationScheme { get; set; } = AuthenticationDefaults.OAuth2SchemeName;
+
+    /// <summary>
+    /// Gets the cookie authentication scheme name.
+    /// </summary>
+    public string CookieScheme =>
+    CookieOptions.Cookie.Name ?? (CookieAuthenticationDefaults.AuthenticationScheme + "." + AuthenticationScheme);
+
+    /// <summary>
+    /// Configuration for claim policy enforcement.
+    /// </summary>
+    public ClaimPolicyConfig? ClaimPolicy { get; set; }
+
+    private Serilog.ILogger? _logger;
+    /// <inheritdoc/>
+    public Serilog.ILogger Logger
+    {
+        get => _logger ?? (Host is null ? Serilog.Log.Logger : Host.Logger); set => _logger = value;
+    }
+
+    /// <summary>
+    /// Helper to copy values from a user-supplied OAuth2Options instance to the instance
+    /// created by the framework inside AddOAuth(). Reassigning the local variable (opts = source) would
+    /// not work because only the local reference changes – the framework keeps the original instance.
+    /// </summary>
+    /// <param name="target">The target OAuth2Options instance to copy values to.</param>
+    public void ApplyTo(OAuth2Options target)
+    {
+        ApplyTo((OAuthOptions)target);
+        CookieOptions.ApplyTo(target.CookieOptions);
+        // OpenAPI / documentation properties
+        target.GlobalScheme = GlobalScheme;
+        target.Description = Description;
+        target.DisplayName = DisplayName;
+        target.DocumentationId = DocumentationId;
+        target.Host = Host;
+    }
 
     /// <summary>
     /// Apply these options to the target <see cref="OAuthOptions"/> instance.

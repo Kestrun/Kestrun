@@ -9,19 +9,28 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 Write-Debug '[TutorialHelper] Loading helper script' -Verbose
 
-if (-not (Get-Module -Name Kestrun)) {
-    $rootSeek = Split-Path -Parent $PSCommandPath
-    while ($rootSeek -and -not (Test-Path (Join-Path $rootSeek 'Kestrun.sln'))) {
-        $parent = Split-Path -Parent $rootSeek
-        if ($parent -eq $rootSeek) { break }
-        $rootSeek = $parent
+<#
+.SYNOPSIS
+    Locate the repository root directory.
+.DESCRIPTION
+    Walks up the directory tree from the current script location to find the repository root
+    (identified by presence of Kestrun.sln).
+    Throws if the root cannot be found.
+.OUTPUTS
+    String path to repository root directory.
+#>
+function Get-ProjectRootDirectory {
+    [CmdletBinding()]
+    param()
+    $root = (Get-Item (Split-Path -Parent $PSCommandPath))
+    while ($root -and -not (Test-Path (Join-Path $root.FullName 'Kestrun.sln'))) {
+        $parent = Get-Item (Split-Path -Parent $root.FullName) -ErrorAction SilentlyContinue
+        if (-not $parent -or $parent.FullName -eq $root.FullName) { break }
+        $root = $parent
     }
-    if ($rootSeek) {
-        $modulePath = Join-Path $rootSeek 'src' | Join-Path -ChildPath 'PowerShell' | Join-Path -ChildPath 'Kestrun' | Join-Path -ChildPath 'Kestrun.psd1'
-        if (Test-Path $modulePath) { Import-Module $modulePath -Force }
-    }
+    if (-not $root) { throw 'Cannot find repository root.' }
+    return $root.FullName
 }
-
 <#
 .SYNOPSIS
     Locate the tutorial examples directory.
@@ -200,26 +209,7 @@ function Start-ExampleScript {
     $serverIp = 'localhost' # Use loopback for safety
 
     $kestrunModulePath = Get-KestrunModulePath
-    $importKestrunModule = @"
-# Ensure Kestrun module is imported
-if (-not (Get-Module -Name Kestrun)) {
-     if (Test-Path -Path '$kestrunModulePath' -PathType Leaf) {
-        Import-Module '$kestrunModulePath' -Force -ErrorAction Stop
-    } else {
-        throw "Kestrun module not found at $kestrunModulePath"
-    }
-}
-"@
-
-    $pattern = '(?ms)^\s*param\s*\(.*?\)'
-
-    $content = [System.Text.RegularExpressions.Regex]::Replace(
-        $content,
-        $pattern,
-        { param($m) $m.Value + "`n`n" + $importKestrunModule },
-        1  # replace only first occurrence
-    )
-
+    # Inject /shutdown and /online endpoints if not already present
     if (-not $content.Contains('-Pattern "/shutdown"')) {
         # Inject shutdown endpoint for legacy scripts (first occurrence of Start-KrServer)
 
@@ -227,7 +217,7 @@ if (-not (Get-Module -Name Kestrun)) {
             $content,
             '\bStart-KrServer\b', @'
 Add-KrMapRoute -Verbs Get -Pattern "/shutdown" -ScriptBlock { Stop-KrServer }
-Add-KrMapRoute -Verbs Get -Pattern "/online" -ScriptBlock { write-KrTextResponse -InputObject 'OK' -StatusCode 200 }
+Add-KrMapRoute -Verbs Get -Pattern "/online" -ScriptBlock { Write-KrTextResponse -InputObject 'OK' -StatusCode 200 }
 Start-KrServer
 '@
             , 1 # only first occurrence
@@ -244,12 +234,12 @@ Start-KrServer
     $fileNameWithoutExtension = ([string]::IsNullOrEmpty($Name)) ? 'ScriptBlockExample' : [IO.Path]::GetFileNameWithoutExtension((Split-Path -Leaf $Name))
 
     # Write modified legacy content to temp file
-    $tmp = Join-Path $tempDir ('kestrun-example-' + $fileNameWithoutExtension + '-' + [System.IO.Path]::GetRandomFileName() + '.ps1')
-    Set-Content -Path $tmp -Value $content -Encoding UTF8
+    $scriptToRun = Join-Path $tempDir ('kestrun-example-' + $fileNameWithoutExtension + '-' + [System.IO.Path]::GetRandomFileName() + '.ps1')
+    Set-Content -Path $scriptToRun -Value $content -Encoding UTF8
 
     $stdOut = Join-Path $tempDir ('kestrun-example-' + $fileNameWithoutExtension + '-' + [System.IO.Path]::GetRandomFileName() + '.out.log')
     $stdErr = Join-Path $tempDir ('kestrun-example-' + $fileNameWithoutExtension + '-' + [System.IO.Path]::GetRandomFileName() + '.err.log')
-    $argList = @('-NoLogo', '-NoProfile', '-File', $tmp, '-Port', $Port)
+    #   $argList = @('-NoLogo', '-NoProfile', '-File', $scriptToRun, '-Port', $Port)
 
     # Build environment variables for the child process (including UPSTASH_REDIS_URL if set in parent)
     $environment = @{}
@@ -259,6 +249,15 @@ Start-KrServer
             $environment[$key] = [System.Environment]::GetEnvironmentVariable($key)
         }
     }
+
+    # This becomes: pwsh -NoLogo -NoProfile -Command "Import-Module Kestrun; . 'C:\...\myscript.ps1'"
+    $argList = @(
+        '-NoLogo'
+        '-NoProfile'
+        '-Command'
+        "Import-Module '$kestrunModulePath'; . '$scriptToRun' -Port $Port"
+    )
+
     # Create process start parameters
     $param = @{
         FilePath = 'pwsh'
@@ -269,6 +268,8 @@ Start-KrServer
         RedirectStandardError = $stdErr
         Environment = $environment
     }
+
+
 
     # Prevent spawned process from inheriting the test runner's console window on Windows (avoids unwanted UI popups during automated tests)
     if ($IsWindows) { $param.WindowStyle = 'Hidden' }
@@ -334,7 +335,7 @@ Start-KrServer
         Url = ('{0}://{1}:{2}' -f ($usesHttps ? 'https' : 'http'), $serverIp, $Port)
         Host = $serverIp
         Port = $Port
-        TempPath = $tmp
+        TempPath = $scriptToRun
         Process = $proc
         Content = $content
         StdOut = $stdOut
@@ -1109,9 +1110,9 @@ function Get-SseEvent {
         }
     }
 
-    try { $reader.Dispose() } catch {}
-    try { $resp.Dispose() } catch {}
-    try { $client.Dispose() } catch {}
+    try { $reader.Dispose() } catch { Write-Warning ("Failed to dispose SSE reader: $($_.Exception.Message)") }
+    try { $resp.Dispose() } catch { Write-Warning ("Failed to dispose SSE response: $($_.Exception.Message)") }
+    try { $client.Dispose() } catch { Write-Warning ("Failed to dispose SSE client: $($_.Exception.Message)") }
     return $events
 }
 
@@ -2072,3 +2073,39 @@ function Convert-BytesToStringWithGzipScan {
     return $text
 }
 
+<#
+.SYNOPSIS
+    Normalize JSON string by parsing and re-serializing with consistent formatting.
+.DESCRIPTION
+    This function takes a JSON string, parses it into an object, and then re-serializes it
+    using ConvertTo-Json with -Compress to produce a normalized representation.
+.PARAMETER Json
+    The input JSON string to normalize.
+.OUTPUTS
+    A normalized JSON string.
+#>
+function Get-NormalizedJson {
+    [CmdletBinding()]
+    [outputtype([string])]
+    param(
+        [Parameter(Mandatory)]
+        [string]$Json
+    )
+    $obj = $Json | ConvertFrom-Json -Depth 100
+    $newJson = $obj | ConvertTo-Json -Depth 100 -Compress
+    return $newJson.Replace("\r\n", "\n")
+}
+
+
+# Load Kestrun module from src/PowerShell/Kestrun if not already loaded
+if (-not (Get-Module -Name Kestrun)) {
+    $ProjectRoot = Get-ProjectRootDirectory
+    if ($ProjectRoot) {
+        $modulePath = Join-Path -Path $ProjectRoot -ChildPath 'src' | Join-Path -ChildPath 'PowerShell' | Join-Path -ChildPath 'Kestrun' | Join-Path -ChildPath 'Kestrun.psd1'
+        try {
+            if (Test-Path $modulePath) { Import-Module $modulePath -Force }
+        } catch {
+            Write-Warning "Failed to import Kestrun module from $($modulePath) : $_"
+        }
+    }
+}

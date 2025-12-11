@@ -11,7 +11,7 @@ public class ClaimPolicyBuilderTests
     public void AddPolicy_WithString_AddsPolicy_WithValues()
     {
         var builder = new ClaimPolicyBuilder()
-            .AddPolicy("Admin", "role", "admin", "owner");
+            .AddPolicy("Admin", "role", string.Empty, "admin", "owner");
 
         // Case-insensitive key lookup
         Assert.True(builder.Policies.ContainsKey("ADMIN"));
@@ -26,7 +26,7 @@ public class ClaimPolicyBuilderTests
     public void AddPolicy_WithEnum_Uses_ToClaimUri_Mapping()
     {
         var builder = new ClaimPolicyBuilder()
-            .AddPolicy("RolePolicy", UserIdentityClaim.Role, "Manager");
+            .AddPolicy("RolePolicy", UserIdentityClaim.Role, string.Empty, "Manager");
 
         var rule = builder.Policies["RolePolicy"];
         Assert.Equal(ClaimTypes.Role, rule.ClaimType);
@@ -50,11 +50,11 @@ public class ClaimPolicyBuilderTests
     {
         var builder = new ClaimPolicyBuilder();
         // Null -> ArgumentNullException (a subtype of ArgumentException)
-        _ = Assert.ThrowsAny<ArgumentException>(() => builder.AddPolicy(null!, "type", "v"));
+        _ = Assert.ThrowsAny<ArgumentException>(() => builder.AddPolicy(null!, "type", string.Empty, "v"));
         // Whitespace -> ArgumentException
-        _ = Assert.Throws<ArgumentException>(() => builder.AddPolicy(" ", "type", "v"));
+        _ = Assert.Throws<ArgumentException>(() => builder.AddPolicy(" ", "type", string.Empty, "v"));
 
-        var rule = new ClaimRule("type", "v");
+        var rule = new ClaimRule("type", string.Empty, "v");
         _ = Assert.ThrowsAny<ArgumentException>(() => builder.AddPolicy(null!, rule));
         _ = Assert.Throws<ArgumentException>(() => builder.AddPolicy("", rule));
     }
@@ -65,9 +65,9 @@ public class ClaimPolicyBuilderTests
     {
         var builder = new ClaimPolicyBuilder();
         // Null -> ArgumentNullException (a subtype of ArgumentException)
-        _ = Assert.ThrowsAny<ArgumentException>(() => builder.AddPolicy("P", null!, "v"));
+        _ = Assert.ThrowsAny<ArgumentException>(() => builder.AddPolicy("P", null!, string.Empty, "v"));
         // Whitespace -> ArgumentException
-        _ = Assert.Throws<ArgumentException>(() => builder.AddPolicy("P", " ", "v"));
+        _ = Assert.Throws<ArgumentException>(() => builder.AddPolicy("P", " ", string.Empty, "v"));
     }
 
     [Fact]
@@ -76,9 +76,9 @@ public class ClaimPolicyBuilderTests
     {
         var builder = new ClaimPolicyBuilder();
         // No values
-        _ = Assert.Throws<ArgumentException>(() => builder.AddPolicy("P", "type"));
+        _ = Assert.Throws<ArgumentException>(() => builder.AddPolicy("P", "type", string.Empty));
         // Null array explicitly
-        _ = Assert.Throws<ArgumentException>(() => builder.AddPolicy("P", "type", (string[])(object)null!));
+        _ = Assert.Throws<ArgumentException>(() => builder.AddPolicy("P", "type", string.Empty, (string[])(object)null!));
     }
 
     [Fact]
@@ -86,8 +86,8 @@ public class ClaimPolicyBuilderTests
     public void AddPolicy_Throws_On_EmptyOrNull_AllowedValues_For_EnumOverload()
     {
         var builder = new ClaimPolicyBuilder();
-        _ = Assert.Throws<ArgumentException>(() => builder.AddPolicy("P", UserIdentityClaim.Name));
-        _ = Assert.Throws<ArgumentException>(() => builder.AddPolicy("P", UserIdentityClaim.Name, (string[])(object)null!));
+        _ = Assert.Throws<ArgumentException>(() => builder.AddPolicy("P", UserIdentityClaim.Name, string.Empty));
+        _ = Assert.Throws<ArgumentException>(() => builder.AddPolicy("P", UserIdentityClaim.Name, string.Empty, (string[])(object)null!));
     }
 
     [Fact]
@@ -95,7 +95,7 @@ public class ClaimPolicyBuilderTests
     public void AddPolicy_Throws_On_Null_Rule()
     {
         var builder = new ClaimPolicyBuilder();
-        _ = Assert.Throws<ArgumentNullException>(() => builder.AddPolicy("P", (ClaimRule)null!));
+        _ = Assert.Throws<ArgumentNullException>(() => builder.AddPolicy("P", null!));
     }
 
     [Fact]
@@ -103,8 +103,8 @@ public class ClaimPolicyBuilderTests
     public void Policies_AreCaseInsensitive_And_LastWriteWins()
     {
         var builder = new ClaimPolicyBuilder()
-            .AddPolicy("PolicyX", "t1", "a")
-            .AddPolicy("policyx", "t2", "b");
+            .AddPolicy("PolicyX", "t1", string.Empty, "a")
+            .AddPolicy("policyx", "t2", string.Empty, "b");
 
         Assert.True(builder.Policies.ContainsKey("POLICYX"));
         var rule = builder.Policies["PolicyX"];
@@ -117,12 +117,12 @@ public class ClaimPolicyBuilderTests
     public void Build_Returns_Independent_CaseInsensitive_Dictionary()
     {
         var builder = new ClaimPolicyBuilder()
-            .AddPolicy("Admin", ClaimTypes.Role, "admin");
+            .AddPolicy("Admin", ClaimTypes.Role, string.Empty, "admin");
 
         var config = builder.Build();
 
         // Independence: subsequent changes to builder shouldn't affect config
-        _ = builder.AddPolicy("Other", ClaimTypes.Name, "bob");
+        _ = builder.AddPolicy("Other", ClaimTypes.Name, string.Empty, "bob");
 
         Assert.True(config.Policies.ContainsKey("ADMIN")); // case-insensitive dictionary
         Assert.False(config.Policies.ContainsKey("Other"));

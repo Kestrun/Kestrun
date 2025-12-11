@@ -47,10 +47,16 @@ function Start-KrServer {
             $hasConsole = $true
             $writeConsole = -not $Quiet.IsPresent
         } catch {
-            Write-KrLog -Level Information -Message "No console available; running in non-interactive mode."
+            Write-KrLog -Level Information -Message 'No console available; running in non-interactive mode.'
         }
     }
     process {
+        # Generate OpenAPI documents if not already generated
+        foreach ( $doc in $Server.OpenApiDocumentDescriptor.Keys ) {
+            if ( -not $Server.OpenApiDocumentDescriptor[$doc].HasBeenGenerated ) {
+                Build-KrOpenApiDocument -Server $Server -DocId $doc
+            }
+        }
         # Start the Kestrel server
         if ( -not $Quiet.IsPresent ) {
             Write-Host "Starting Kestrun server '$($Server.ApplicationName)' ..."

@@ -36,7 +36,7 @@ jobs:
             matrix:
                 language: [csharp, actions]
         steps:
-            - uses: actions/checkout@v6.0.0
+            - uses: actions/checkout@v6.0.1
 
             - name: Initialize CodeQL
               uses: github/codeql-action/init@v4
@@ -82,7 +82,7 @@ jobs:
             contents: read
             security-events: write
         steps:
-            - uses: actions/checkout@v6.0.0
+            - uses: actions/checkout@v6.0.1
 
             - name: Run PSScriptAnalyzer with settings
               id: pssa

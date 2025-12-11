@@ -96,24 +96,12 @@ public class MapRouteOptions
     /// <param name="policies">the authorization policies required for this route</param>
     public void AddSecurityRequirementObject(List<string>? schemes, List<string>? policies)
     {
-        if (schemes is null or { Count: 0 })
+        if (schemes is { Count: > 0 })
         {
-            if (policies is null or { Count: 0 })
-            {
-                return;
-            }
-        }
-        else
-        {
-            // Add schemes to RequireSchemes if any
             RequireSchemes.AddRange(schemes);
-            if (policies is not null and { Count: > 0 })
-            {
-                RequirePolicies.AddRange(policies);
-            }
         }
-        // If no schemes were provided but policies were, preserve policies
-        if (schemes is null or { Count: 0 } && policies is not null and { Count: > 0 })
+
+        if (policies is { Count: > 0 })
         {
             RequirePolicies.AddRange(policies);
         }

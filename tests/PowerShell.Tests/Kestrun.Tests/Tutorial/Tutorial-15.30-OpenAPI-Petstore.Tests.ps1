@@ -3,12 +3,6 @@ Describe 'OpenAPI Petstore Example' -Tag 'OpenApi', 'Slow' {
     BeforeAll {
         . (Join-Path $PSScriptRoot '..\PesterHelpers.ps1')
         $script:instance = Start-ExampleScript -Name '15.30-PetStore.ps1'
-        function Get-NormalizedJson {
-            param([string]$Json)
-            $obj = $Json | ConvertFrom-Json -Depth 100
-            $obj | ConvertTo-Json -Depth 100 -Compress
-        }
-        $script:repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\\..\\..\\..')).Path
     }
 
     AfterAll {
@@ -20,7 +14,8 @@ Describe 'OpenAPI Petstore Example' -Tag 'OpenApi', 'Slow' {
         $result.StatusCode | Should -Be 200
 
         $actualNormalized = Get-NormalizedJson $result.Content
-        $expectedPath = Join-Path $script:repoRoot 'docs\\_includes\\examples\\pwsh\\Assets\\OpenAPI\\petstore-api.json'
+        $expectedPath = Join-Path -Path (Get-TutorialExamplesDirectory) -ChildPath 'Assets' -AdditionalChildPath 'OpenAPI', 'petstore-api.json'
+
         $expectedContent = Get-Content -Path $expectedPath -Raw
         $expectedNormalized = Get-NormalizedJson $expectedContent
 

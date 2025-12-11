@@ -9,21 +9,27 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 Write-Debug '[TutorialHelper] Loading helper script' -Verbose
 
-if (-not (Get-Module -Name Kestrun)) {
-    $rootSeek = Split-Path -Parent $PSCommandPath
-    while ($rootSeek -and -not (Test-Path (Join-Path $rootSeek 'Kestrun.sln'))) {
-        $parent = Split-Path -Parent $rootSeek
-        if ($parent -eq $rootSeek) { break }
-        $rootSeek = $parent
+<#
+.SYNOPSIS
+    Locate the repository root directory.
+.DESCRIPTION
+    Walks up the directory tree from the current script location to find the repository root
+    (identified by presence of Kestrun.sln).
+    Throws if the root cannot be found.
+.OUTPUTS
+    String path to repository root directory.
+#>
+function Get-ProjectRootDirectory {
+    [CmdletBinding()]
+    param()
+    $root = (Get-Item (Split-Path -Parent $PSCommandPath))
+    while ($root -and -not (Test-Path (Join-Path $root.FullName 'Kestrun.sln'))) {
+        $parent = Get-Item (Split-Path -Parent $root.FullName) -ErrorAction SilentlyContinue
+        if (-not $parent -or $parent.FullName -eq $root.FullName) { break }
+        $root = $parent
     }
-    if ($rootSeek) {
-        $modulePath = Join-Path $rootSeek 'src' | Join-Path -ChildPath 'PowerShell' | Join-Path -ChildPath 'Kestrun' | Join-Path -ChildPath 'Kestrun.psd1'
-        try {
-            if (Test-Path $modulePath) { Import-Module $modulePath -Force }
-        } catch {
-            Write-Warning "Failed to import Kestrun module from $($modulePath) : $_"
-        }
-    }
+    if (-not $root) { throw 'Cannot find repository root.' }
+    return $root.FullName
 }
 <#
 .SYNOPSIS
@@ -1104,9 +1110,9 @@ function Get-SseEvent {
         }
     }
 
-    try { $reader.Dispose() } catch {}
-    try { $resp.Dispose() } catch {}
-    try { $client.Dispose() } catch {}
+    try { $reader.Dispose() } catch { Write-Warning ("Failed to dispose SSE reader: $($_.Exception.Message)") }
+    try { $resp.Dispose() } catch { Write-Warning ("Failed to dispose SSE response: $($_.Exception.Message)") }
+    try { $client.Dispose() } catch { Write-Warning ("Failed to dispose SSE client: $($_.Exception.Message)") }
     return $events
 }
 
@@ -2065,4 +2071,38 @@ function Convert-BytesToStringWithGzipScan {
 
     if ($ReturnDiagnostics) { return [pscustomobject]@{ Text = $text; Meta = $diagnostics } }
     return $text
+}
+
+<#
+.SYNOPSIS
+    Normalize JSON string by parsing and re-serializing with consistent formatting.
+.DESCRIPTION
+    This function takes a JSON string, parses it into an object, and then re-serializes it
+    using ConvertTo-Json with -Compress to produce a normalized representation.
+.PARAMETER Json
+    The input JSON string to normalize.
+.OUTPUTS
+    A normalized JSON string.
+#>
+function Get-NormalizedJson {
+    param(
+        [Parameter(Mandatory)]
+        [string]$Json
+    )
+    $obj = $Json | ConvertFrom-Json -Depth 100
+    $obj | ConvertTo-Json -Depth 100 -Compress
+}
+
+
+# Load Kestrun module from src/PowerShell/Kestrun if not already loaded
+if (-not (Get-Module -Name Kestrun)) {
+    $ProjectRoot = Get-ProjectRootDirectory
+    if ($ProjectRoot) {
+        $modulePath = Join-Path -Path $ProjectRoot -ChildPath 'src' | Join-Path -ChildPath 'PowerShell' | Join-Path -ChildPath 'Kestrun' | Join-Path -ChildPath 'Kestrun.psd1'
+        try {
+            if (Test-Path $modulePath) { Import-Module $modulePath -Force }
+        } catch {
+            Write-Warning "Failed to import Kestrun module from $($modulePath) : $_"
+        }
+    }
 }

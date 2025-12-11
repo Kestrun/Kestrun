@@ -16,91 +16,161 @@ public partial class OpenApiDocDescriptor
     /// <exception cref="InvalidOperationException">Thrown when the type has multiple [OpenApiResponseComponent] attributes.</exception>
     private void BuildParameters(Type t)
     {
-        string? defaultDescription = null;
-        string? joinClassName = null;
         Document.Components!.Parameters ??= new Dictionary<string, IOpenApiParameter>(StringComparer.Ordinal);
 
+        var (defaultDescription, joinClassName) = GetClassLevelMetadata(t);
         const BindingFlags flags = BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly;
 
         foreach (var p in t.GetProperties(flags))
         {
-            var parameter = new OpenApiParameter();
-            var classAttrs = t.GetCustomAttributes(inherit: false).
-                            Where(a => a.GetType().Name is
-                            nameof(OpenApiParameterComponent))
-                            .Cast<object>()
-                            .ToArray();
-            if (classAttrs.Length > 0)
-            {
-                if (classAttrs.Length > 1)
-                {
-                    throw new InvalidOperationException($"Type '{t.FullName}' has multiple [OpenApiParameterComponent] attributes. Only one is allowed per class.");
-                }
-                // Apply any class-level [OpenApiResponseComponent] attributes first
-                if (classAttrs[0] is OpenApiParameterComponent classRespAttr)
-                {
-                    if (!string.IsNullOrEmpty(classRespAttr.Description))
-                    {
-                        defaultDescription = classRespAttr.Description;
-                    }
-                    if (!string.IsNullOrEmpty(classRespAttr.JoinClassName))
-                    {
-                        joinClassName = t.FullName + classRespAttr.JoinClassName;
-                    }
-                }
-            }
-
-            var attrs = p.GetCustomAttributes(inherit: false)
-                         .Where(a => a.GetType().Name is
-                         (nameof(OpenApiParameterAttribute)) or
-                         (nameof(OpenApiPropertyAttribute)) or
-                         (nameof(OpenApiExampleRefAttribute))
-                         )
-                         .Cast<KestrunAnnotation>()
-                         .ToArray();
-
-            if (attrs.Length == 0) { continue; }
-            var hasResponseDef = false;
-            var customName = string.Empty;
-            foreach (var a in attrs)
-            {
-                if (a is OpenApiParameterAttribute oaRa)
-                {
-                    if (!string.IsNullOrWhiteSpace(oaRa.Key))
-                    {
-                        customName = oaRa.Key;
-                    }
-                }
-                if (CreateParameterFromAttribute(a, parameter))
-                {
-                    hasResponseDef = true;
-                }
-            }
-            if (!hasResponseDef)
-            {
-                continue;
-            }
-            var tname = string.IsNullOrWhiteSpace(customName) ? p.Name : customName!;
-            var key = joinClassName is not null ? $"{joinClassName}{tname}" : tname;
-            if (string.IsNullOrWhiteSpace(parameter.Name))
-            {
-                parameter.Name = tname;
-            }
-            if (parameter.Description is null && defaultDescription is not null)
-            {
-                parameter.Description = defaultDescription;
-            }
-            Document.Components.Parameters[key] = parameter;
-
-            var schemaAttr = (OpenApiPropertyAttribute?)p.GetCustomAttributes(inherit: false)
-                              .Where(a => a.GetType().Name == "OpenApiPropertyAttribute")
-                              .Cast<object>()
-                              .LastOrDefault();
-            // Build and assign the parameter schema
-            parameter.Schema = CreatePropertySchema(schemaAttr, t, p);
+            ProcessPropertyForParameter(p, t, defaultDescription, joinClassName);
         }
     }
-    //todo: unify with BuildPropertySchema with BuildSchemaForType
+
+    /// <summary>
+    /// Retrieves class-level OpenAPI metadata from the given type.
+    /// </summary>
+    /// <param name="t">The type to retrieve metadata from.</param>
+    /// <returns>A tuple containing the description and join class name, if any.</returns>
+    private static (string? Description, string? JoinClassName) GetClassLevelMetadata(Type t)
+    {
+        string? description = null;
+        string? joinClassName = null;
+
+        var classAttrs = t.GetCustomAttributes(inherit: false)
+            .Where(a => a.GetType().Name == nameof(OpenApiParameterComponent))
+            .Cast<object>()
+            .ToArray();
+
+        if (classAttrs.Length > 1)
+        {
+            throw new InvalidOperationException($"Type '{t.FullName}' has multiple [OpenApiParameterComponent] attributes. Only one is allowed per class.");
+        }
+
+        if (classAttrs.Length == 1 && classAttrs[0] is OpenApiParameterComponent attr)
+        {
+            if (!string.IsNullOrEmpty(attr.Description))
+            {
+                description = attr.Description;
+            }
+            if (!string.IsNullOrEmpty(attr.JoinClassName))
+            {
+                joinClassName = t.FullName + attr.JoinClassName;
+            }
+        }
+
+        return (description, joinClassName);
+    }
+
+    /// <summary>
+    /// Processes a property to create and register an OpenAPI parameter if applicable.
+    /// </summary>
+    /// <param name="p">The PropertyInfo representing the property.</param>
+    /// <param name="t">The type that declares the property.</param>
+    /// <param name="defaultDescription">A default description to apply if the parameter's description is not set.</param>
+    /// <param name="joinClassName">An optional string to join with the class name for unique key generation.</param>
+    private void ProcessPropertyForParameter(PropertyInfo p, Type t, string? defaultDescription, string? joinClassName)
+    {
+        var parameter = new OpenApiParameter();
+        var attrs = GetParameterAttributes(p);
+
+        if (attrs.Length == 0)
+        {
+            return;
+        }
+
+        var (hasResponseDef, customName) = ApplyParameterAttributes(parameter, attrs);
+
+        if (hasResponseDef)
+        {
+            FinalizeAndRegisterParameter(parameter, p, t, customName, defaultDescription, joinClassName);
+        }
+    }
+
+    /// <summary>
+    /// Retrieves parameter-related attributes from a property.
+    /// </summary>
+    /// <param name="p">The PropertyInfo representing the property.</param>
+    /// <returns>An array of KestrunAnnotation attributes related to parameters.</returns>
+
+    private static KestrunAnnotation[] GetParameterAttributes(PropertyInfo p)
+    {
+        return
+        [
+            .. p.GetCustomAttributes(inherit: false)
+             .Where(a => a.GetType().Name is
+                 nameof(OpenApiParameterAttribute) or
+                 nameof(OpenApiPropertyAttribute) or
+                 nameof(OpenApiExampleRefAttribute)
+             )
+             .Cast<KestrunAnnotation>()
+        ];
+    }
+
+    /// <summary>
+    /// Applies parameter-related attributes to the given OpenApiParameter.
+    /// </summary>
+    /// <param name="parameter">The OpenApiParameter to apply attributes to.</param>
+    /// <param name="attrs">An array of KestrunAnnotation attributes to apply.</param>
+    /// <returns>A tuple indicating if a response definition was found and a custom name, if any.</returns>
+    private (bool HasResponseDef, string CustomName) ApplyParameterAttributes(OpenApiParameter parameter, KestrunAnnotation[] attrs)
+    {
+        var hasResponseDef = false;
+        var customName = string.Empty;
+
+        foreach (var a in attrs)
+        {
+            if (a is OpenApiParameterAttribute oaRa && !string.IsNullOrWhiteSpace(oaRa.Key))
+            {
+                customName = oaRa.Key;
+            }
+
+            if (CreateParameterFromAttribute(a, parameter))
+            {
+                hasResponseDef = true;
+            }
+        }
+        return (hasResponseDef, customName);
+    }
+
+    /// <summary>
+    /// Finalizes and registers the OpenAPI parameter in the document components.
+    /// </summary>
+    /// <param name="parameter">The OpenApiParameter to finalize and register.</param>
+    /// <param name="p">The PropertyInfo representing the property.</param>
+    /// <param name="t">The type that declares the property.</param>
+    /// <param name="customName">A custom name for the parameter, if specified.</param>
+    /// <param name="defaultDescription">A default description to apply if the parameter's description is not set.</param>
+    /// <param name="joinClassName">An optional string to join with the class name for unique key generation.</param>
+    private void FinalizeAndRegisterParameter(OpenApiParameter parameter, PropertyInfo p, Type t, string customName, string? defaultDescription, string? joinClassName)
+    {
+        var tname = string.IsNullOrWhiteSpace(customName) ? p.Name : customName;
+        var key = joinClassName is not null ? $"{joinClassName}{tname}" : tname;
+
+        if (string.IsNullOrWhiteSpace(parameter.Name))
+        {
+            parameter.Name = tname;
+        }
+        if (parameter.Description is null && defaultDescription is not null)
+        {
+            parameter.Description = defaultDescription;
+        }
+
+        _ = (Document.Components?.Parameters![key] = parameter);
+
+        var schemaAttr = (OpenApiPropertyAttribute?)p.GetCustomAttributes(inherit: false)
+                          .LastOrDefault(a => a.GetType().Name == nameof(OpenApiPropertyAttribute));
+
+        parameter.Schema = CreatePropertySchema(schemaAttr, t, p);
+    }
+
+    /// <summary>
+    /// Creates an OpenAPI schema for a property based on its type and any associated OpenApiPropertyAttribute.
+    /// </summary>
+    /// <param name="schemaAttr">The OpenApiPropertyAttribute associated with the property, if any.</param>
+    /// <param name="t">The type that declares the property.</param>
+    /// <param name="p">The PropertyInfo representing the property.</param>
+    /// <returns>An IOpenApiSchema representing the property's schema.</returns>
     private IOpenApiSchema CreatePropertySchema(OpenApiPropertyAttribute? schemaAttr, Type t, PropertyInfo p)
     {
         IOpenApiSchema paramSchema;

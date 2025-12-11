@@ -1,4 +1,3 @@
-
 <#
 .SYNOPSIS
     Creates a new OpenAPI Link object.

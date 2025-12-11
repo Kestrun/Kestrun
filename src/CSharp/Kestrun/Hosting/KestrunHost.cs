@@ -584,13 +584,18 @@ public class KestrunHost : IDisposable
         {
             Logger.Debug("ConfigureListener port={Port}, ipAddress={IPAddress}, protocols={Protocols}, useConnectionLogging={UseConnectionLogging}, certificate supplied={HasCert}", port, ipAddress, protocols, useConnectionLogging, x509Certificate != null);
         }
-
+        // Validate state
+        if (IsConfigured)
+        {
+            throw new InvalidOperationException("Cannot configure listeners after configuration is applied.");
+        }
+        // Validate protocols
         if (protocols == HttpProtocols.Http1AndHttp2AndHttp3 && !CcUtilities.PreviewFeaturesEnabled())
         {
             Logger.Warning("Http3 is not supported in this version of Kestrun. Using Http1 and Http2 only.");
             protocols = HttpProtocols.Http1AndHttp2;
         }
-
+        // Add listener
         Options.Listeners.Add(new ListenerOptions
         {
             IPAddress = ipAddress ?? IPAddress.Any,
@@ -752,12 +757,9 @@ public class KestrunHost : IDisposable
     /// <exception cref="InvalidOperationException">Thrown when runspace pool creation fails.</exception>
     internal void InitializeRunspacePool(Dictionary<string, object>? userVariables, Dictionary<string, string>? userFunctions, string openApiClassesPath)
     {
-        _runspacePool = CreateRunspacePool(Options.MaxRunspaces, userVariables, userFunctions, openApiClassesPath);
-        if (_runspacePool == null)
-        {
+        _runspacePool =
+            CreateRunspacePool(Options.MaxRunspaces, userVariables, userFunctions, openApiClassesPath) ??
             throw new InvalidOperationException("Failed to create runspace pool.");
-        }
-
         if (Logger.IsEnabled(LogEventLevel.Verbose))
         {
             Logger.Verbose("Runspace pool created with max runspaces: {MaxRunspaces}", Options.MaxRunspaces);

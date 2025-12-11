@@ -1,7 +1,7 @@
 param()
 Describe 'Example 15.1 OpenAPI Hello World' -Tag 'Tutorial', 'Slow' {
     BeforeAll { . (Join-Path $PSScriptRoot '..\PesterHelpers.ps1');
-    $script:instance = Start-ExampleScript -Name '15.1-OpenAPI-Hello-World.ps1' }
+        $script:instance = Start-ExampleScript -Name '15.1-OpenAPI-Hello-World.ps1' }
     AfterAll { if ($script:instance) { Stop-ExampleScript -Instance $script:instance } }
 
     It 'Get greeting' {
@@ -25,7 +25,7 @@ Describe 'Example 15.1 OpenAPI Hello World' -Tag 'Tutorial', 'Slow' {
         $result.Content | Should -BeLike '*swagger-ui*'
     }
 
-       It 'Get Redoc UI' {
+    It 'Get Redoc UI' {
         $result = Invoke-WebRequest -Uri "$($script:instance.Url)/docs/redoc" -SkipCertificateCheck -SkipHttpErrorCheck
         $result.StatusCode | Should -Be 200
         $result.Content | Should -BeLike '*Redoc*'

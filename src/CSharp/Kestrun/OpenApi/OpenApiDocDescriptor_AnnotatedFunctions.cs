@@ -26,7 +26,7 @@ public partial class OpenApiDocDescriptor
             {
                 var help = func.GetHelp();
                 var sb = func.ScriptBlock;
-                var openApiAttr = new OpenAPIMetadata();
+                var openApiMetadata = new OpenAPIMetadata();
                 if (sb is null)
                 {
                     continue;
@@ -60,31 +60,31 @@ public partial class OpenApiDocDescriptor
                             if (!string.IsNullOrWhiteSpace(oaPath.Pattern))
                             {
                                 routeOptions.Pattern = oaPath.Pattern;
-                                openApiAttr.Pattern = oaPath.Pattern;
+                                openApiMetadata.Pattern = oaPath.Pattern;
                             }
 
                             // Summary
                             if (!string.IsNullOrWhiteSpace(oaPath.Summary))
                             {
-                                openApiAttr.Summary = oaPath.Summary;
+                                openApiMetadata.Summary = oaPath.Summary;
                             }
                             else if (!string.IsNullOrWhiteSpace(help.GetSynopsis()))
                             {
-                                openApiAttr.Summary = help.GetSynopsis();
+                                openApiMetadata.Summary = help.GetSynopsis();
                             }
 
                             // Description
                             if (!string.IsNullOrWhiteSpace(oaPath.Description))
                             {
-                                openApiAttr.Description = oaPath.Description;
+                                openApiMetadata.Description = oaPath.Description;
                             }
                             else if (!string.IsNullOrWhiteSpace(help.GetDescription()))
                             {
-                                openApiAttr.Description = help.GetDescription();
+                                openApiMetadata.Description = help.GetDescription();
                             }
 
                             // Tags
-                            openApiAttr.Tags = [.. oaPath.Tags];
+                            openApiMetadata.Tags = [.. oaPath.Tags];
 
                             // OperationId
                             // if not specified, default to function name
@@ -92,20 +92,20 @@ public partial class OpenApiDocDescriptor
                             if (oaPath.OperationId is null)
                             {
                                 // Default to function name if not specified
-                                openApiAttr.OperationId = func.Name;
+                                openApiMetadata.OperationId = func.Name;
                             }
                             else if (!string.IsNullOrWhiteSpace(oaPath.OperationId))
                             {
                                 // Use specified OperationId
-                                openApiAttr.OperationId = oaPath.OperationId;
+                                openApiMetadata.OperationId = oaPath.OperationId;
                             }
                             // Deprecated flag (per-verb OpenAPI metadata)
-                            openApiAttr.Deprecated |= oaPath.Deprecated; // carry forward deprecated flag
+                            openApiMetadata.Deprecated |= oaPath.Deprecated; // carry forward deprecated flag
                         }
                         //TODO: handle other OpenAPI attributes like Header
                         else if (attr is OpenApiResponseRefAttribute oaRRa)
                         {
-                            openApiAttr.Responses ??= [];
+                            openApiMetadata.Responses ??= [];
                             IOpenApiResponse response;
                             // Determine if we inline the referenced response or use a $ref
                             if (oaRRa.Inline)
@@ -122,23 +122,23 @@ public partial class OpenApiDocDescriptor
                             {
                                 response.Description = oaRRa.Description;
                             }
-                            if (openApiAttr.Responses.ContainsKey(oaRRa.StatusCode))
+                            if (openApiMetadata.Responses.ContainsKey(oaRRa.StatusCode))
                             {
                                 throw new InvalidOperationException($"Response for status code '{oaRRa.StatusCode}' is already defined for this operation.");
                             }
                             // Add to responses
-                            openApiAttr.Responses.Add(oaRRa.StatusCode, response);
+                            openApiMetadata.Responses.Add(oaRRa.StatusCode, response);
                         }
                         else if (attr is OpenApiResponseAttribute oaRa)
                         {
                             // Create response inline
-                            openApiAttr.Responses ??= [];
+                            openApiMetadata.Responses ??= [];
                             // Create a new response
                             var response = new OpenApiResponse();
                             // Populate from attribute
                             if (CreateResponseFromAttribute(oaRa, response))
                             {
-                                openApiAttr.Responses.Add(oaRa.StatusCode, response);
+                                openApiMetadata.Responses.Add(oaRa.StatusCode, response);
                             }
                         }
                         else if (attr is OpenApiPropertyAttribute oaPA)
@@ -148,7 +148,7 @@ public partial class OpenApiDocDescriptor
                                 continue;
                             }
 
-                            if (openApiAttr.Responses is null || !openApiAttr.Responses.TryGetValue(oaPA.StatusCode, out var res))
+                            if (openApiMetadata.Responses is null || !openApiMetadata.Responses.TryGetValue(oaPA.StatusCode, out var res))
                             {
                                 throw new InvalidOperationException($"Response for status code '{oaPA.StatusCode}' is not defined for this operation.");
                             }
@@ -176,7 +176,7 @@ public partial class OpenApiDocDescriptor
                         }
                         else if (attr is OpenApiAuthorizationAttribute oaRBa)
                         {
-                            openApiAttr.SecuritySchemes ??= [];
+                            openApiMetadata.SecuritySchemes ??= [];
                             // Parse policies
                             List<string> policyList = [.. (string.IsNullOrWhiteSpace(oaRBa.Policies) ? new List<string>() : [.. oaRBa.Policies.Split(',')])
                             .Where(p => !string.IsNullOrWhiteSpace(p))
@@ -184,7 +184,7 @@ public partial class OpenApiDocDescriptor
 
                             // Add security requirement object for this verb
                             // If no scheme provided, the schema is derived from the policies
-                            var securitySchemeList = Host.AddSecurityRequirementObject(oaRBa.Scheme, policyList, openApiAttr.SecuritySchemes);
+                            var securitySchemeList = Host.AddSecurityRequirementObject(oaRBa.Scheme, policyList, openApiMetadata.SecuritySchemes);
                             routeOptions.AddSecurityRequirementObject(schemes: securitySchemeList, policies: policyList);
                         }
                         else
@@ -214,14 +214,16 @@ public partial class OpenApiDocDescriptor
                     {
                         if (pAttr is OpenApiParameterAttribute oaParamAttr)
                         {
-                            openApiAttr.Parameters ??= [];
+                            openApiMetadata.Parameters ??= [];
                             var parameter = new OpenApiParameter();
                             if (CreateParameterFromAttribute(oaParamAttr, parameter))
                             {
-                                parameter.Name = !string.IsNullOrEmpty(parameter.Name) && parameter.Name != paramInfo.Name
-                                    ? throw new InvalidOperationException(
-                                         $"Parameter name {parameter.Name} is different from variable name: '{paramInfo.Name}'.")
-                                    : paramInfo.Name;
+                                if (!string.IsNullOrEmpty(parameter.Name) && parameter.Name != paramInfo.Name)
+                                {
+                                    throw new InvalidOperationException(
+                                        $"Parameter name {parameter.Name} is different from variable name: '{paramInfo.Name}'.");
+                                }
+                                parameter.Name = paramInfo.Name;
 
                                 parameter.Schema = InferPrimitiveSchema(paramInfo.ParameterType);
                                 if (parameter.Schema is OpenApiSchema schema)
@@ -238,7 +240,7 @@ public partial class OpenApiDocDescriptor
                                 {
                                     PowerShellAttributes.ApplyPowerShellAttribute(attr, (OpenApiSchema)parameter.Schema);
                                 }
-                                openApiAttr.Parameters.Add(parameter);
+                                openApiMetadata.Parameters.Add(parameter);
                                 // Add to script code parameter injection info
                                 routeOptions.ScriptCode.Parameters.Add(new ParameterForInjectionInfo(paramInfo, parameter));
                             }
@@ -249,7 +251,7 @@ public partial class OpenApiDocDescriptor
                         }
                         else if (pAttr is OpenApiParameterRefAttribute oaParamRefAttr)
                         {
-                            openApiAttr.Parameters ??= [];
+                            openApiMetadata.Parameters ??= [];
                             routeOptions.ScriptCode.Parameters ??= [];
                             IOpenApiParameter parameter;
                             var componentParameter = GetParameter(oaParamRefAttr.ReferenceId);
@@ -273,7 +275,7 @@ public partial class OpenApiDocDescriptor
                             // Apply any name override
                             routeOptions.ScriptCode.Parameters.Add(new ParameterForInjectionInfo(paramInfo, componentParameter));
 
-                            openApiAttr.Parameters.Add(parameter);
+                            openApiMetadata.Parameters.Add(parameter);
                         }
                         else if (pAttr is OpenApiRequestBodyRefAttribute oaRBra)
                         {
@@ -295,10 +297,10 @@ public partial class OpenApiDocDescriptor
                             // Retrieve the referenced request body
                             var componentRequestBody = GetRequestBody(oaRBra.ReferenceId);
                             // Determine if we inline the referenced request body or use a $ref
-                            openApiAttr.RequestBody = oaRBra.Inline ? componentRequestBody.Clone() : new OpenApiRequestBodyReference(oaRBra.ReferenceId);
+                            openApiMetadata.RequestBody = oaRBra.Inline ? componentRequestBody.Clone() : new OpenApiRequestBodyReference(oaRBra.ReferenceId);
 
                             // Apply any description override
-                            openApiAttr.RequestBody.Description = (oaRBra.Description is not null) ? oaRBra.Description : help.GetParameterDescription(paramInfo.Name);
+                            openApiMetadata.RequestBody.Description = (oaRBra.Description is not null) ? oaRBra.Description : help.GetParameterDescription(paramInfo.Name);
 
                             // Add to script code parameter injection info
                             routeOptions.ScriptCode.Parameters.Add(new ParameterForInjectionInfo(paramInfo, componentRequestBody));
@@ -313,14 +315,14 @@ public partial class OpenApiDocDescriptor
                                 if (oaRBa.Inline)
                                 {
                                     // Clone the component request body
-                                    openApiAttr.RequestBody = componentRequestBody.Clone();
+                                    openApiMetadata.RequestBody = componentRequestBody.Clone();
                                 }
                                 else
                                 {
                                     // Use a reference to the component request body
-                                    openApiAttr.RequestBody = new OpenApiRequestBodyReference(paramInfo.ParameterType.Name);
+                                    openApiMetadata.RequestBody = new OpenApiRequestBodyReference(paramInfo.ParameterType.Name);
                                 }
-                                openApiAttr.RequestBody.Description ??= help.GetParameterDescription(paramInfo.Name);
+                                openApiMetadata.RequestBody.Description ??= help.GetParameterDescription(paramInfo.Name);
                                 routeOptions.ScriptCode.Parameters.Add(new ParameterForInjectionInfo(paramInfo, componentRequestBody));
                             }
                             else
@@ -330,10 +332,10 @@ public partial class OpenApiDocDescriptor
 
                                 if (CreateRequestBodyFromAttribute(attribute: oaRBa, requestBody: requestBody, schema: schema))
                                 {
-                                    openApiAttr.RequestBody = requestBody;
+                                    openApiMetadata.RequestBody = requestBody;
 
                                     // Apply any description override
-                                    openApiAttr.RequestBody.Description ??= help.GetParameterDescription(paramInfo.Name);
+                                    openApiMetadata.RequestBody.Description ??= help.GetParameterDescription(paramInfo.Name);
 
                                     // Add to script code parameter injection info
                                     routeOptions.ScriptCode.Parameters.Add(new ParameterForInjectionInfo(paramInfo, requestBody));
@@ -350,30 +352,30 @@ public partial class OpenApiDocDescriptor
                         }
                     }
                 }
-                openApiAttr.Responses ??= [];
-                if (openApiAttr.Responses.Count == 0)
+                openApiMetadata.Responses ??= [];
+                if (openApiMetadata.Responses.Count == 0)
                 {
                     // If no responses defined, add default 200 response
-                    openApiAttr.Responses.Add("200", new OpenApiResponse
+                    openApiMetadata.Responses.Add("200", new OpenApiResponse
                     {
                         Description = "Ok"
                     });
                     // Also add default error response
-                    openApiAttr.Responses.Add("default", new OpenApiResponse
+                    openApiMetadata.Responses.Add("default", new OpenApiResponse
                     {
                         Description = "Unexpected error"
                     });
                 }
                 // Store the OpenAPI metadata for this verb
-                routeOptions.OpenAPI.Add(parsedVerb, openApiAttr);
+                routeOptions.OpenAPI.Add(parsedVerb, openApiMetadata);
                 // Default pattern if none provided: "/<FunctionName>"
                 if (string.IsNullOrWhiteSpace(routeOptions.Pattern))
                 {
                     routeOptions.Pattern = "/" + func.Name;
                 }
-                if (!string.IsNullOrWhiteSpace(openApiAttr.CorsPolicyName))
+                if (!string.IsNullOrWhiteSpace(openApiMetadata.CorsPolicyName))
                 {
-                    routeOptions.CorsPolicyName = openApiAttr.CorsPolicyName;
+                    routeOptions.CorsPolicyName = openApiMetadata.CorsPolicyName;
                 }
                 // Script source
                 routeOptions.ScriptCode.ScriptBlock = sb;

@@ -302,6 +302,11 @@ public partial class OpenApiDocDescriptor
         return value.Equals(def);
     }
 
+    /// <summary>
+    /// Merges multiple OpenApiPropertyAttribute instances into one.
+    /// </summary>
+    /// <param name="attrs">An array of OpenApiPropertyAttribute instances to merge.</param>
+    /// <returns>A single OpenApiPropertyAttribute instance representing the merged attributes.</returns>
     private static OpenApiPropertyAttribute? MergeSchemaAttributes(OpenApiPropertyAttribute[] attrs)
     {
         if (attrs == null || attrs.Length == 0)
@@ -318,108 +323,156 @@ public partial class OpenApiDocDescriptor
 
         foreach (var a in attrs)
         {
-            // strings: last non-empty wins
-            if (!string.IsNullOrWhiteSpace(a.Title))
-            {
-                m.Title = a.Title;
-            }
-
-            if (!string.IsNullOrWhiteSpace(a.Description))
-            {
-                m.Description = a.Description;
-            }
-
-            if (!string.IsNullOrWhiteSpace(a.Format))
-            {
-                m.Format = a.Format;
-            }
-
-            if (!string.IsNullOrWhiteSpace(a.Pattern))
-            {
-                m.Pattern = a.Pattern;
-            }
-
-            if (!string.IsNullOrWhiteSpace(a.Maximum))
-            {
-                m.Maximum = a.Maximum;
-            }
-
-            if (!string.IsNullOrWhiteSpace(a.Minimum))
-            {
-                m.Minimum = a.Minimum;
-            }
-
-            // enums/arrays: concatenate
-            if (a.Enum is { Length: > 0 })
-            {
-                m.Enum = [.. m.Enum ?? [], .. a.Enum];
-            }
-
-            // defaults/examples: last non-null wins
-            if (a.Default is not null)
-            {
-                m.Default = a.Default;
-            }
-
-            if (a.Example is not null)
-            {
-                m.Example = a.Example;
-            }
-
-            // numbers: prefer explicitly set (>=0 if you used sentinel; or HasValue if nullable)
-            if (a.MaxLength >= 0)
-            {
-                m.MaxLength = a.MaxLength;
-            }
-
-            if (a.MinLength >= 0)
-            {
-                m.MinLength = a.MinLength;
-            }
-
-            if (a.MaxItems >= 0)
-            {
-                m.MaxItems = a.MaxItems;
-            }
-
-            if (a.MinItems >= 0)
-            {
-                m.MinItems = a.MinItems;
-            }
-
-            if (a.MultipleOf is not null)
-            {
-                m.MultipleOf = a.MultipleOf;
-            }
-
-            // booleans: OR them
-            m.Nullable |= a.Nullable;
-            m.ReadOnly |= a.ReadOnly;
-            m.WriteOnly |= a.WriteOnly;
-            m.Deprecated |= a.Deprecated;
-            m.UniqueItems |= a.UniqueItems;
-            m.ExclusiveMaximum |= a.ExclusiveMaximum;
-            m.ExclusiveMinimum |= a.ExclusiveMinimum;
-
-            // type override: last non-None wins
-            if (a.Type != OaSchemaType.None)
-            {
-                m.Type = a.Type;
-            }
-            // array flag: OR them
-            // collect Required names if your attribute exposes them
-            if (a.Required is { Length: > 0 })
-            {
-                m.Required = [.. (m.Required ?? []).Concat(a.Required).Distinct()];
-            }
-            // carry any custom fields like XmlName if you have them
-            if (!string.IsNullOrWhiteSpace(a.XmlName))
-            {
-                m.XmlName = a.XmlName;
-            }
+            MergeStringProperties(m, a);
+            MergeEnumAndCollections(m, a);
+            MergeNumericProperties(m, a);
+            MergeBooleanProperties(m, a);
+            MergeTypeAndRequired(m, a);
+            MergeCustomFields(m, a);
         }
 
         return m;
+    }
+
+    /// <summary>
+    /// Merges string properties where the last non-empty value wins.
+    /// </summary>
+    /// <param name="merged">The merged OpenApiPropertyAttribute to update.</param>
+    /// <param name="attr">The OpenApiPropertyAttribute to merge from.</param>
+    private static void MergeStringProperties(OpenApiPropertyAttribute merged, OpenApiPropertyAttribute attr)
+    {
+        if (!string.IsNullOrWhiteSpace(attr.Title))
+        {
+            merged.Title = attr.Title;
+        }
+
+        if (!string.IsNullOrWhiteSpace(attr.Description))
+        {
+            merged.Description = attr.Description;
+        }
+
+        if (!string.IsNullOrWhiteSpace(attr.Format))
+        {
+            merged.Format = attr.Format;
+        }
+
+        if (!string.IsNullOrWhiteSpace(attr.Pattern))
+        {
+            merged.Pattern = attr.Pattern;
+        }
+
+        if (!string.IsNullOrWhiteSpace(attr.Maximum))
+        {
+            merged.Maximum = attr.Maximum;
+        }
+
+        if (!string.IsNullOrWhiteSpace(attr.Minimum))
+        {
+            merged.Minimum = attr.Minimum;
+        }
+    }
+
+    /// <summary>
+    /// Merges enum and collection properties.
+    /// </summary>
+    /// <param name="merged">The merged OpenApiPropertyAttribute to update.</param>
+    /// <param name="attr">The OpenApiPropertyAttribute to merge from.</param>
+    private static void MergeEnumAndCollections(OpenApiPropertyAttribute merged, OpenApiPropertyAttribute attr)
+    {
+        if (attr.Enum is { Length: > 0 })
+        {
+            merged.Enum = [.. merged.Enum ?? [], .. attr.Enum];
+        }
+
+        if (attr.Default is not null)
+        {
+            merged.Default = attr.Default;
+        }
+
+        if (attr.Example is not null)
+        {
+            merged.Example = attr.Example;
+        }
+    }
+
+    /// <summary>
+    /// Merges numeric properties where values >= 0 are considered explicitly set.
+    /// </summary>
+    /// <param name="merged">The merged OpenApiPropertyAttribute to update.</param>
+    /// <param name="attr">The OpenApiPropertyAttribute to merge from.</param>
+    private static void MergeNumericProperties(OpenApiPropertyAttribute merged, OpenApiPropertyAttribute attr)
+    {
+        if (attr.MaxLength >= 0)
+        {
+            merged.MaxLength = attr.MaxLength;
+        }
+
+        if (attr.MinLength >= 0)
+        {
+            merged.MinLength = attr.MinLength;
+        }
+
+        if (attr.MaxItems >= 0)
+        {
+            merged.MaxItems = attr.MaxItems;
+        }
+
+        if (attr.MinItems >= 0)
+        {
+            merged.MinItems = attr.MinItems;
+        }
+
+        if (attr.MultipleOf is not null)
+        {
+            merged.MultipleOf = attr.MultipleOf;
+        }
+    }
+
+    /// <summary>
+    /// Merges boolean properties using OR logic.
+    /// </summary>
+    /// <param name="merged">The merged OpenApiPropertyAttribute to update.</param>
+    /// <param name="attr">The OpenApiPropertyAttribute to merge from.</param>
+    private static void MergeBooleanProperties(OpenApiPropertyAttribute merged, OpenApiPropertyAttribute attr)
+    {
+        merged.Nullable |= attr.Nullable;
+        merged.ReadOnly |= attr.ReadOnly;
+        merged.WriteOnly |= attr.WriteOnly;
+        merged.Deprecated |= attr.Deprecated;
+        merged.UniqueItems |= attr.UniqueItems;
+        merged.ExclusiveMaximum |= attr.ExclusiveMaximum;
+        merged.ExclusiveMinimum |= attr.ExclusiveMinimum;
+    }
+
+    /// <summary>
+    /// Merges type and required properties.
+    /// </summary>
+    /// <param name="merged">The merged OpenApiPropertyAttribute to update.</param>
+    /// <param name="attr">The OpenApiPropertyAttribute to merge from.</param>
+    private static void MergeTypeAndRequired(OpenApiPropertyAttribute merged, OpenApiPropertyAttribute attr)
+    {
+        if (attr.Type != OaSchemaType.None)
+        {
+            merged.Type = attr.Type;
+        }
+
+        if (attr.Required is { Length: > 0 })
+        {
+            merged.Required = [.. (merged.Required ?? []).Concat(attr.Required).Distinct()];
+        }
+    }
+
+    /// <summary>
+    /// Merges custom fields like XmlName.
+    /// </summary>
+    /// <param name="merged">The merged OpenApiPropertyAttribute to update.</param>
+    /// <param name="attr">The OpenApiPropertyAttribute to merge from.</param>
+    private static void MergeCustomFields(OpenApiPropertyAttribute merged, OpenApiPropertyAttribute attr)
+    {
+        if (!string.IsNullOrWhiteSpace(attr.XmlName))
+        {
+            merged.XmlName = attr.XmlName;
+        }
     }
 
     /// <summary>
@@ -518,30 +571,35 @@ public partial class OpenApiDocDescriptor
         [typeof(OaBoolean)] = () => new OpenApiSchema { Type = JsonSchemaType.Boolean }
     };
 
-    private static void ApplySchemaAttr(OpenApiProperties? a, IOpenApiSchema s)
+    /// <summary>
+    /// Applies schema attributes to an OpenAPI schema.
+    /// </summary>
+    /// <param name="oaProperties">The OpenApiProperties containing attributes to apply.</param>
+    /// <param name="ioaSchema">The OpenAPI schema to apply attributes to.</param>
+    private static void ApplySchemaAttr(OpenApiProperties? oaProperties, IOpenApiSchema ioaSchema)
     {
-        if (a is null)
+        if (oaProperties is null)
         {
             return;
         }
 
         // Most models implement OpenApiSchema (concrete) OR OpenApiSchemaReference.
         // We set common metadata when possible (Description/Title apply only to concrete schema).
-        if (s is OpenApiSchema sc)
+        if (ioaSchema is OpenApiSchema sc)
         {
-            if (a.Title is not null)
+            if (oaProperties.Title is not null)
             {
-                sc.Title = a.Title;
+                sc.Title = oaProperties.Title;
             }
 
-            if (a.Description is not null)
+            if (oaProperties.Description is not null)
             {
-                sc.Description = a.Description;
+                sc.Description = oaProperties.Description;
             }
 
-            if (a.Type != OaSchemaType.None)
+            if (oaProperties.Type != OaSchemaType.None)
             {
-                sc.Type = a.Type switch
+                sc.Type = oaProperties.Type switch
                 {
                     OaSchemaType.String => JsonSchemaType.String,
                     OaSchemaType.Number => JsonSchemaType.Number,
@@ -553,121 +611,121 @@ public partial class OpenApiDocDescriptor
                     _ => sc.Type
                 };
             }
-            if (a.Nullable)
+            if (oaProperties.Nullable)
             {
                 sc.Type |= JsonSchemaType.Null;
             }
 
-            if (!string.IsNullOrWhiteSpace(a.Format))
+            if (!string.IsNullOrWhiteSpace(oaProperties.Format))
             {
-                sc.Format = a.Format;
+                sc.Format = oaProperties.Format;
             }
 
-            if (a.MultipleOf.HasValue)
+            if (oaProperties.MultipleOf.HasValue)
             {
-                sc.MultipleOf = a.MultipleOf;
+                sc.MultipleOf = oaProperties.MultipleOf;
             }
 
-            if (!string.IsNullOrWhiteSpace(a.Maximum))
+            if (!string.IsNullOrWhiteSpace(oaProperties.Maximum))
             {
-                sc.Maximum = a.Maximum;
-                if (a.ExclusiveMaximum)
+                sc.Maximum = oaProperties.Maximum;
+                if (oaProperties.ExclusiveMaximum)
                 {
-                    sc.ExclusiveMaximum = a.Maximum;
+                    sc.ExclusiveMaximum = oaProperties.Maximum;
                 }
             }
-            if (!string.IsNullOrWhiteSpace(a.Minimum))
+            if (!string.IsNullOrWhiteSpace(oaProperties.Minimum))
             {
-                sc.Minimum = a.Minimum;
-                if (a.ExclusiveMinimum)
+                sc.Minimum = oaProperties.Minimum;
+                if (oaProperties.ExclusiveMinimum)
                 {
-                    sc.ExclusiveMinimum = a.Minimum;
+                    sc.ExclusiveMinimum = oaProperties.Minimum;
                 }
             }
 
-            if (a.MaxLength >= 0)
+            if (oaProperties.MaxLength >= 0)
             {
-                sc.MaxLength = a.MaxLength;
+                sc.MaxLength = oaProperties.MaxLength;
             }
 
-            if (a.MinLength >= 0)
+            if (oaProperties.MinLength >= 0)
             {
-                sc.MinLength = a.MinLength;
+                sc.MinLength = oaProperties.MinLength;
             }
 
-            if (!string.IsNullOrWhiteSpace(a.Pattern))
+            if (!string.IsNullOrWhiteSpace(oaProperties.Pattern))
             {
-                sc.Pattern = a.Pattern;
+                sc.Pattern = oaProperties.Pattern;
             }
 
-            if (a.MaxItems >= 0)
+            if (oaProperties.MaxItems >= 0)
             {
-                sc.MaxItems = a.MaxItems;
+                sc.MaxItems = oaProperties.MaxItems;
             }
 
-            if (a.MinItems >= 0)
+            if (oaProperties.MinItems >= 0)
             {
-                sc.MinItems = a.MinItems;
+                sc.MinItems = oaProperties.MinItems;
             }
 
-            if (a.UniqueItems)
+            if (oaProperties.UniqueItems)
             {
                 sc.UniqueItems = true;
             }
 
-            if (a.MaxProperties >= 0)
+            if (oaProperties.MaxProperties >= 0)
             {
-                sc.MaxProperties = a.MaxProperties;
+                sc.MaxProperties = oaProperties.MaxProperties;
             }
 
-            if (a.MinProperties >= 0)
+            if (oaProperties.MinProperties >= 0)
             {
-                sc.MinProperties = a.MinProperties;
+                sc.MinProperties = oaProperties.MinProperties;
             }
 
-            sc.ReadOnly = a.ReadOnly;
-            sc.WriteOnly = a.WriteOnly;
-            sc.Deprecated = a.Deprecated;
+            sc.ReadOnly = oaProperties.ReadOnly;
+            sc.WriteOnly = oaProperties.WriteOnly;
+            sc.Deprecated = oaProperties.Deprecated;
             // nullable bool
 
-            sc.AdditionalPropertiesAllowed = a.AdditionalPropertiesAllowed;
+            sc.AdditionalPropertiesAllowed = oaProperties.AdditionalPropertiesAllowed;
 
-            sc.UnevaluatedProperties = a.UnevaluatedProperties;
-            if (a.Default is not null)
+            sc.UnevaluatedProperties = oaProperties.UnevaluatedProperties;
+            if (oaProperties.Default is not null)
             {
-                sc.Default = ToNode(a.Default);
+                sc.Default = ToNode(oaProperties.Default);
             }
 
-            if (a.Example is not null)
+            if (oaProperties.Example is not null)
             {
-                sc.Example = ToNode(a.Example);
+                sc.Example = ToNode(oaProperties.Example);
             }
 
-            if (a?.Enum is not null && a.Enum is { Length: > 0 })
+            if (oaProperties?.Enum is not null && oaProperties.Enum is { Length: > 0 })
             {
-                sc.Enum = [.. a.Enum.Select(ToNode).OfType<JsonNode>()];
+                sc.Enum = [.. oaProperties.Enum.Select(ToNode).OfType<JsonNode>()];
             }
 
-            if (a?.Required is not null && a.Required.Length > 0)
+            if (oaProperties?.Required is not null && oaProperties.Required.Length > 0)
             {
                 sc.Required ??= new HashSet<string>(StringComparer.Ordinal);
-                foreach (var r in a.Required)
+                foreach (var r in oaProperties.Required)
                 {
                     _ = sc.Required.Add(r);
                 }
             }
         }
-        else if (s is OpenApiSchemaReference refSchema)
+        else if (ioaSchema is OpenApiSchemaReference refSchema)
         {
             // Description/Title can live on a reference proxy in v2 (and serialize alongside $ref)
-            if (!string.IsNullOrWhiteSpace(a.Description))
+            if (!string.IsNullOrWhiteSpace(oaProperties.Description))
             {
-                refSchema.Description = a.Description;
+                refSchema.Description = oaProperties.Description;
             }
 
-            if (!string.IsNullOrWhiteSpace(a.Title))
+            if (!string.IsNullOrWhiteSpace(oaProperties.Title))
             {
-                refSchema.Title = a.Title;
+                refSchema.Title = oaProperties.Title;
             }
 
             // Example/Default/Enum aren’t typically set on the ref node itself;
@@ -681,6 +739,12 @@ public partial class OpenApiDocDescriptor
          t == typeof(OaNumber) || t == typeof(OaBoolean);
     #endregion
 
+
+    /// <summary>
+    /// Converts a .NET object to a JsonNode representation.
+    /// </summary>
+    /// <param name="value">The .NET object to convert.</param>
+    /// <returns>A JsonNode representing the object, or null if the object is null.</returns>
     internal static JsonNode? ToNode(object? value)
     {
         if (value is null)

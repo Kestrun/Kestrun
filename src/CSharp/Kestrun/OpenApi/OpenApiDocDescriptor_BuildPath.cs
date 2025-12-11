@@ -141,7 +141,10 @@ public partial class OpenApiDocDescriptor
                 foreach (var s in meta.Servers) { d.Servers.Add(s); }
             }
         }
-        catch { Host.Logger?.Warning("Failed to set operation-level servers for OpenAPI operation {OperationId}", op.OperationId); }
+        catch (Exception ex)
+        {
+            Host.Logger.Warning(ex, "Failed to set operation-level servers for OpenAPI operation {OperationId}", op.OperationId);
+        }
 
         // Parameters (operation-level)
         try

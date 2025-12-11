@@ -58,7 +58,7 @@ public class MapRouteOptions
     /// <summary>
     /// Default response content type for this route.
     /// </summary>
-    public string DefaultResponseContentType { get; set; } = "http/text"; // Default response content type for this route
+    public string DefaultResponseContentType { get; set; } = "text/html"; // Default response content type for this route
 
     /// <summary>
     /// OpenAPI metadata for this route.

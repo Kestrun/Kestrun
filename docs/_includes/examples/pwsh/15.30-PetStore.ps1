@@ -12,7 +12,7 @@ New-KrLogger | Add-KrSinkConsole |
     Set-KrLoggerLevel -Value Debug |
     Register-KrLogger -Name 'console' -SetAsDefault
 $srv = New-KrServer -Name 'Swagger Petstore - OpenAPI 3.1' -PassThru
-
+Add-KrEndpoint -Port $Port -IPAddress $IPAddress
 # =========================================================
 #                 TOP-LEVEL OPENAPI (3.0.4)
 # =========================================================
@@ -43,7 +43,7 @@ Add-KrOpenApiTag -Name 'store' -Description 'Access to Petstore orders' -Externa
 Add-KrOpenApiTag -Name 'user' -Description 'Operations about user'
 
 # Add server pointing to local instance
-Add-KrOpenApiServer -Url "http://$($IPAddress):$Port" -Description 'Local Kestrun Server'
+Add-KrOpenApiServer -Url "/" -Description 'Local Kestrun Server'
 
 # =========================================================
 #                      COMPONENT SCHEMAS
@@ -695,7 +695,7 @@ Test-KrOpenApiDocument
 
 #region RUN SERVER
 # Optional: run server (your call, you deliciously decisive creature)
-Add-KrEndpoint -Port $Port -IPAddress $IPAddress
+
 Start-KrServer -Server $srv -CloseLogsOnExit
 #endregion
 #endregion

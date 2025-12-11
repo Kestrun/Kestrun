@@ -365,8 +365,6 @@ public static partial class KestrunHostMapExtensions
         if (options.HttpVerbs.Count == 0)
         {
             // If no HTTP verbs were specified, default to GET.
-            // MapRouteOptions is not a record type here, so mutate the HttpVerbs collection
-            // (or replace it) instead of using a 'with' expression.
             routeOptions.HttpVerbs = [HttpVerb.Get];
         }
 

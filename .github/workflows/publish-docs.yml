@@ -15,7 +15,7 @@ jobs:
         runs-on: ubuntu-latest
         steps:
             - name: 🛎️ Checkout
-              uses: actions/checkout@v6
+              uses: actions/checkout@v6.0.1
 
             - name: 🧰 Setup .NET 8/9
               uses: actions/setup-dotnet@v5
@@ -74,7 +74,7 @@ jobs:
                   path: site
 
             - name: 🔁 Checkout target site repo
-              uses: actions/checkout@v6
+              uses: actions/checkout@v6.0.1
               with:
                   repository: ${{ env.TARGET_REPO }}
                   token: ${{ secrets.PAGES_DEPLOY_TOKEN }} # PAT with write access to target repo

@@ -38,7 +38,7 @@ jobs:
         outputs:
             proceed: ${{ steps.check.outputs.proceed }}
         steps:
-            - uses: actions/checkout@v6
+            - uses: actions/checkout@v6.0.1
               with:
                   fetch-depth: 0
             - id: check
@@ -77,7 +77,7 @@ jobs:
             UPSTASH_REDIS_URL: ${{ secrets.UPSTASH_REDIS_URL }}
         steps:
             - name: 🛎️ Checkout
-              uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5 pin
+              uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v5 pin
 
             - name: 🧰 Setup .NET 8 & 9
               uses: actions/setup-dotnet@740310365d5065c44c30d213e7963107ebfd22d5 # v4.3.1 pin
@@ -147,7 +147,7 @@ jobs:
             UPSTASH_REDIS_URL: ${{ secrets.UPSTASH_REDIS_URL }}
         steps:
             - name: 🛎️ Checkout
-              uses: actions/checkout@v6
+              uses: actions/checkout@v6.0.1
 
             - name: 🧰 Setup .NET 8 & 9
               uses: actions/setup-dotnet@740310365d5065c44c30d213e7963107ebfd22d5 # v4.3.1 pin
@@ -235,7 +235,7 @@ jobs:
         steps:
             # Source repo (no creds persisted)
             - name: 🛎️ Checkout (source repo)
-              uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd
+              uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8
               with:
                   persist-credentials: false
 
@@ -266,7 +266,7 @@ jobs:
 
             # Coverage site repo (we'll set remote with PAT ourselves)
             - name: 📥 Checkout coverage site repo (for in-place output + history)
-              uses: actions/checkout@v6
+              uses: actions/checkout@v6.0.1
               with:
                   repository: ${{ env.DEST_REPO }}
                   path: coverage-site

@@ -739,7 +739,6 @@ public partial class OpenApiDocDescriptor
          t == typeof(OaNumber) || t == typeof(OaBoolean);
     #endregion
 
-
     /// <summary>
     /// Converts a .NET object to a JsonNode representation.
     /// </summary>

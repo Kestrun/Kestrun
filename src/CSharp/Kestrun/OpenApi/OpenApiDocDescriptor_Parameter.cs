@@ -324,58 +324,23 @@ public partial class OpenApiDocDescriptor
         catch { }
     }
 
+    /// <summary>
+    /// Creates an OpenAPI parameter from a given attribute.
+    /// </summary>
+    /// <param name="attr">The attribute to create the parameter from</param>
+    /// <param name="parameter">The OpenApiParameter object to populate</param>
+    /// <returns>True if the parameter was created successfully, otherwise false</returns>
+    /// <exception cref="InvalidOperationException">Thrown when an example reference cannot be embedded due to missing or invalid components.</exception>
     private bool CreateParameterFromAttribute(KestrunAnnotation attr, OpenApiParameter parameter)
     {
         switch (attr)
         {
             case OpenApiParameterAttribute param:
-                parameter.Description = param.Description;
-                parameter.Name = string.IsNullOrEmpty(param.Name) ? param.Key : param.Name;
-                parameter.Required = param.Required;
-                parameter.Deprecated = param.Deprecated;
-                parameter.AllowEmptyValue = param.AllowEmptyValue;
-                if (param.Explode)
-                {
-                    parameter.Explode = param.Explode;
-                }
-                parameter.AllowReserved = param.AllowReserved;
-                if (!string.IsNullOrEmpty(param.In))
-                {
-                    parameter.In = param.In.ToOpenApiParameterLocation();
-                    if (parameter.In == ParameterLocation.Path)
-                    {
-                        parameter.Required = true; // path parameters must be required
-                    }
-                }
-
-                if (param.Style is not null)
-                {
-                    parameter.Style = param.Style.ToParameterStyle();
-                }
-                if (param.Example is not null)
-                {
-                    parameter.Example = ToNode(param.Example);
-                }
+                ApplyParameterAttribute(param, parameter);
                 break;
 
             case OpenApiExampleRefAttribute exRef:
-                parameter.Examples ??= new Dictionary<string, IOpenApiExample>(StringComparer.Ordinal);
-                if (exRef.Inline)
-                {
-                    if (Document.Components?.Examples == null || !Document.Components.Examples.TryGetValue(exRef.ReferenceId, out var value))
-                    {
-                        throw new InvalidOperationException($"Example reference '{exRef.ReferenceId}' cannot be embedded because it was not found in components.");
-                    }
-                    if (value is not OpenApiExample example)
-                    {
-                        throw new InvalidOperationException($"Example reference '{exRef.ReferenceId}' cannot be embedded because it is not an OpenApiExample.");
-                    }
-                    parameter.Examples[exRef.Key] = example.Clone();
-                }
-                else
-                {
-                    parameter.Examples[exRef.Key] = new OpenApiExampleReference(exRef.ReferenceId);
-                }
+                ApplyExampleRefAttribute(exRef, parameter);
                 break;
 
             default:
@@ -383,5 +348,66 @@ public partial class OpenApiDocDescriptor
         }
         return true;
     }
-    // ---- local helpers ----
+
+    /// <summary>
+    /// Applies an OpenApiParameterAttribute to an OpenApiParameter.
+    /// </summary>
+    /// <param name="param">The OpenApiParameterAttribute to apply</param>
+    /// <param name="parameter">The OpenApiParameter to modify</param>
+    private static void ApplyParameterAttribute(OpenApiParameterAttribute param, OpenApiParameter parameter)
+    {
+        parameter.Description = param.Description;
+        parameter.Name = string.IsNullOrEmpty(param.Name) ? param.Key : param.Name;
+        parameter.Required = param.Required;
+        parameter.Deprecated = param.Deprecated;
+        parameter.AllowEmptyValue = param.AllowEmptyValue;
+        if (param.Explode)
+        {
+            parameter.Explode = param.Explode;
+        }
+        parameter.AllowReserved = param.AllowReserved;
+        if (!string.IsNullOrEmpty(param.In))
+        {
+            parameter.In = param.In.ToOpenApiParameterLocation();
+            if (parameter.In == ParameterLocation.Path)
+            {
+                parameter.Required = true; // path parameters must be required
+            }
+        }
+
+        if (param.Style is not null)
+        {
+            parameter.Style = param.Style.ToParameterStyle();
+        }
+        if (param.Example is not null)
+        {
+            parameter.Example = ToNode(param.Example);
+        }
+    }
+
+    /// <summary>
+    /// Applies an example reference attribute to an OpenAPI parameter.
+    /// </summary>
+    /// <param name="exRef">The OpenApiExampleRefAttribute to apply</param>
+    /// <param name="parameter">The OpenApiParameter to modify</param>
+    private void ApplyExampleRefAttribute(OpenApiExampleRefAttribute exRef, OpenApiParameter parameter)
+    {
+        parameter.Examples ??= new Dictionary<string, IOpenApiExample>(StringComparer.Ordinal);
+        if (exRef.Inline)
+        {
+            if (Document.Components?.Examples == null || !Document.Components.Examples.TryGetValue(exRef.ReferenceId, out var value))
+            {
+                throw new InvalidOperationException($"Example reference '{exRef.ReferenceId}' cannot be embedded because it was not found in components.");
+            }
+            if (value is not OpenApiExample example)
+            {
+                throw new InvalidOperationException($"Example reference '{exRef.ReferenceId}' cannot be embedded because it is not an OpenApiExample.");
+            }
+            parameter.Examples[exRef.Key] = example.Clone();
+        }
+        else
+        {
+            parameter.Examples[exRef.Key] = new OpenApiExampleReference(exRef.ReferenceId);
+        }
+    }
 }

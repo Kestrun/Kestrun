@@ -76,15 +76,14 @@ public partial class OpenApiDocDescriptor
 
     private static object[] GetPropertyResponseAttributes(PropertyInfo p)
     {
-        return p.GetCustomAttributes(inherit: false)
+        return [.. p.GetCustomAttributes(inherit: false)
              .Where(a => a.GetType().Name is
                  nameof(OpenApiResponseAttribute) or
                  nameof(OpenApiLinkRefAttribute) or
                  nameof(OpenApiHeaderRefAttribute) or
                  nameof(OpenApiExampleRefAttribute)
              )
-             .Cast<object>()
-             .ToArray();
+             .Cast<object>()];
     }
 
     private (bool HasResponseDef, string CustomName) ApplyPropertyAttributesToResponse(PropertyInfo p, object[] attrs, OpenApiResponse response)
@@ -136,22 +135,22 @@ public partial class OpenApiDocDescriptor
             allowNull = true;
             pt = underlying;
         }
-
+        // enum type
         if (pt.IsEnum)
         {
-            return OpenApiDocDescriptor.GetEnumSchema(p, pt, allowNull);
+            return GetEnumSchema(p, pt, allowNull);
         }
-
+        // array type
         if (pt.IsArray)
         {
             return GetArraySchema(p, pt, allowNull);
         }
-
+        // complex type
         if (!IsPrimitiveLike(pt))
         {
             return GetComplexSchema(pt);
         }
-
+        // primitive type
         return GetPrimitiveSchema(p, pt, allowNull);
     }
 

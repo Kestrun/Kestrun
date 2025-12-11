@@ -15,84 +15,110 @@ public partial class OpenApiDocDescriptor
     /// <param name="t">The type to build responses for.</param>
     private void BuildResponses(Type t)
     {
-        string? defaultDescription = null;
-        string? joinClassName = null;
         // Ensure Responses dictionary exists
         Document.Components!.Responses ??= new Dictionary<string, IOpenApiResponse>(StringComparer.Ordinal);
 
-        // Scan properties for response-related attributes
+        var (defaultDescription, joinClassName) = GetClassLevelResponseMetadata(t);
         const BindingFlags flags = BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly;
 
         foreach (var p in t.GetProperties(flags))
         {
-            var response = new OpenApiResponse();
-            var classAttrs = t.GetCustomAttributes(inherit: false).
-                                Where(a => a.GetType().Name is
-                                nameof(OpenApiResponseComponent))
-                                .Cast<object>()
-                                .ToArray();
-            if (classAttrs.Length > 0)
-            {
-                if (classAttrs.Length > 1)
-                {
-                    throw new InvalidOperationException($"Type '{t.FullName}' has multiple [OpenApiResponseComponent] attributes. Only one is allowed per class.");
-                }
-                // Apply any class-level [OpenApiResponseComponent] attributes first
-                if (classAttrs[0] is OpenApiResponseComponent classRespAttr)
-                {
-                    if (!string.IsNullOrEmpty(classRespAttr.Description))
-                    {
-                        defaultDescription = classRespAttr.Description;
-                    }
-                    if (!string.IsNullOrEmpty(classRespAttr.JoinClassName))
-                    {
-                        joinClassName = t.FullName + classRespAttr.JoinClassName;
-                    }
-                }
-            }
-            var attrs = p.GetCustomAttributes(inherit: false)
-                         .Where(a => a.GetType().Name is
-                         (nameof(OpenApiResponseAttribute)) or
-                         (nameof(OpenApiLinkRefAttribute)) or
-                         (nameof(OpenApiHeaderRefAttribute)) or
-                         (nameof(OpenApiExampleRefAttribute)))
-                         .Cast<object>()
-                         .ToArray();
-
-            if (attrs.Length == 0) { continue; }
-            var hasResponseDef = false;
-            var customName = string.Empty;
-            // Support multiple attributes per property
-            foreach (var a in attrs)
-            {
-                if (a is OpenApiResponseAttribute oaRa)
-                {
-                    if (!string.IsNullOrWhiteSpace(oaRa.Key))
-                    {
-                        customName = oaRa.Key;
-                    }
-                }
-                var schema = GetAttributeValue(p);
-                if (CreateResponseFromAttribute(a, response, schema))
-                {
-                    hasResponseDef = true;
-                }
-            }
-            if (!hasResponseDef)
-            {
-                continue;
-            }
-            var tname = string.IsNullOrWhiteSpace(customName) ? p.Name : customName!;
-            var key = joinClassName is not null ? $"{joinClassName}{tname}" : tname;
-            if (response.Description is null && defaultDescription is not null)
-            {
-                response.Description = defaultDescription;
-            }
-            // Apply default description if none set
-            Document.Components!.Responses![key] = response;
-            // Skip inferring schema/content for object-typed properties
-            if (p.PropertyType.Name == "Object") { continue; }
+            ProcessPropertyForResponse(p, defaultDescription, joinClassName);
         }
+    }
+
+    private static (string? Description, string? JoinClassName) GetClassLevelResponseMetadata(Type t)
+    {
+        string? description = null;
+        string? joinClassName = null;
+
+        var classAttrs = t.GetCustomAttributes(inherit: false)
+            .Where(a => a.GetType().Name == nameof(OpenApiResponseComponent))
+            .Cast<object>()
+            .ToArray();
+
+        if (classAttrs.Length > 1)
+        {
+            throw new InvalidOperationException($"Type '{t.FullName}' has multiple [OpenApiResponseComponent] attributes. Only one is allowed per class.");
+        }
+
+        if (classAttrs.Length == 1 && classAttrs[0] is OpenApiResponseComponent attr)
+        {
+            if (!string.IsNullOrEmpty(attr.Description))
+            {
+                description = attr.Description;
+            }
+            if (!string.IsNullOrEmpty(attr.JoinClassName))
+            {
+                joinClassName = t.FullName + attr.JoinClassName;
+            }
+        }
+
+        return (description, joinClassName);
+    }
+
+    private void ProcessPropertyForResponse(PropertyInfo p, string? defaultDescription, string? joinClassName)
+    {
+        var attrs = GetPropertyResponseAttributes(p);
+        if (attrs.Length == 0)
+        {
+            return;
+        }
+
+        var response = new OpenApiResponse();
+        var (hasResponseDef, customName) = ApplyPropertyAttributesToResponse(p, attrs, response);
+
+        if (hasResponseDef)
+        {
+            RegisterResponse(response, p, customName, defaultDescription, joinClassName);
+        }
+    }
+
+    private static object[] GetPropertyResponseAttributes(PropertyInfo p)
+    {
+        return p.GetCustomAttributes(inherit: false)
+             .Where(a => a.GetType().Name is
+                 nameof(OpenApiResponseAttribute) or
+                 nameof(OpenApiLinkRefAttribute) or
+                 nameof(OpenApiHeaderRefAttribute) or
+                 nameof(OpenApiExampleRefAttribute)
+             )
+             .Cast<object>()
+             .ToArray();
+    }
+
+    private (bool HasResponseDef, string CustomName) ApplyPropertyAttributesToResponse(PropertyInfo p, object[] attrs, OpenApiResponse response)
+    {
+        var hasResponseDef = false;
+        var customName = string.Empty;
+
+        foreach (var a in attrs)
+        {
+            if (a is OpenApiResponseAttribute oaRa && !string.IsNullOrWhiteSpace(oaRa.Key))
+            {
+                customName = oaRa.Key;
+            }
+
+            var schema = GetAttributeValue(p);
+            if (CreateResponseFromAttribute(a, response, schema))
+            {
+                hasResponseDef = true;
+            }
+        }
+        return (hasResponseDef, customName);
+    }
+
+    private void RegisterResponse(OpenApiResponse response, PropertyInfo p, string customName, string? defaultDescription, string? joinClassName)
+    {
+        var tname = string.IsNullOrWhiteSpace(customName) ? p.Name : customName;
+        var key = joinClassName is not null ? $"{joinClassName}{tname}" : tname;
+
+        if (response.Description is null && defaultDescription is not null)
+        {
+            response.Description = defaultDescription;
+        }
+
+        Document.Components!.Responses![key] = response;
     }
 
     /// <summary>
@@ -103,7 +129,6 @@ public partial class OpenApiDocDescriptor
     private IOpenApiSchema GetAttributeValue(PropertyInfo p)
     {
         var pt = p.PropertyType;
-        IOpenApiSchema iSchema;
         var allowNull = false;
         var underlying = Nullable.GetUnderlyingType(pt);
         if (underlying != null)
@@ -114,75 +139,98 @@ public partial class OpenApiDocDescriptor
 
         if (pt.IsEnum)
         {
-            var schema = new OpenApiSchema
-            {
-                Type = JsonSchemaType.String,
-                Enum = [.. pt.GetEnumNames().Select(n => (JsonNode)n)]
-            };
-            var propAttrs = p.GetCustomAttributes<OpenApiPropertyAttribute>(inherit: false).ToArray();
-            var a = MergeSchemaAttributes(propAttrs);
-            ApplySchemaAttr(a, schema);
-            PowerShellAttributes.ApplyPowerShellAttributes(p, schema);
-            if (allowNull)
-            {
-                schema.Type |= JsonSchemaType.Null;
-            }
-            iSchema = schema;
+            return OpenApiDocDescriptor.GetEnumSchema(p, pt, allowNull);
         }
-        else if (pt.IsArray)
-        {
-            var item = pt.GetElementType()!;
-            IOpenApiSchema itemSchema;
 
-            if (!IsPrimitiveLike(item) && !item.IsEnum)
-            {
-                // then reference it
-                itemSchema = new OpenApiSchemaReference(item.Name);
-            }
-            else
-            {
-                itemSchema = InferPrimitiveSchema(item);
-            }
-            var schema = new OpenApiSchema
-            {
-                // then build the array schema
-                Type = JsonSchemaType.Array,
-                Items = itemSchema
-            };
+        if (pt.IsArray)
+        {
+            return GetArraySchema(p, pt, allowNull);
+        }
+
+        if (!IsPrimitiveLike(pt))
+        {
+            return GetComplexSchema(pt);
+        }
+
+        return GetPrimitiveSchema(p, pt, allowNull);
+    }
+
+    /// <summary>
+    /// Creates an OpenAPI schema for an enum property.
+    /// </summary>
+    /// <param name="p"> The property info.</param>
+    /// <param name="pt"> The property type.</param>
+    /// <param name="allowNull"> Indicates if null is allowed.</param>
+    /// <returns> The OpenAPI schema.</returns>
+    private static IOpenApiSchema GetEnumSchema(PropertyInfo p, Type pt, bool allowNull)
+    {
+        var schema = new OpenApiSchema
+        {
+            Type = JsonSchemaType.String,
+            Enum = [.. pt.GetEnumNames().Select(n => (JsonNode)n)]
+        };
+        var propAttrs = p.GetCustomAttributes<OpenApiPropertyAttribute>(inherit: false).ToArray();
+        var a = MergeSchemaAttributes(propAttrs);
+        ApplySchemaAttr(a, schema);
+        PowerShellAttributes.ApplyPowerShellAttributes(p, schema);
+        if (allowNull)
+        {
+            schema.Type |= JsonSchemaType.Null;
+        }
+        return schema;
+    }
+
+    private IOpenApiSchema GetArraySchema(PropertyInfo p, Type pt, bool allowNull)
+    {
+        var item = pt.GetElementType()!;
+        IOpenApiSchema itemSchema;
+
+        if (!IsPrimitiveLike(item) && !item.IsEnum)
+        {
+            // then reference it
+            itemSchema = new OpenApiSchemaReference(item.Name);
+        }
+        else
+        {
+            itemSchema = InferPrimitiveSchema(item);
+        }
+        var schema = new OpenApiSchema
+        {
+            // then build the array schema
+            Type = JsonSchemaType.Array,
+            Items = itemSchema
+        };
+        ApplySchemaAttr(p.GetCustomAttribute<OpenApiPropertyAttribute>(), schema);
+        PowerShellAttributes.ApplyPowerShellAttributes(p, schema);
+        if (allowNull)
+        {
+            schema.Type |= JsonSchemaType.Null;
+        }
+        return schema;
+    }
+
+    private IOpenApiSchema GetComplexSchema(Type pt)
+    {
+        EnsureSchemaComponent(pt);
+        return new OpenApiSchemaReference(pt.Name);
+    }
+
+    private IOpenApiSchema GetPrimitiveSchema(PropertyInfo p, Type pt, bool allowNull)
+    {
+        var sc = InferPrimitiveSchema(pt);
+        if (sc is OpenApiSchema schema)
+        {
             ApplySchemaAttr(p.GetCustomAttribute<OpenApiPropertyAttribute>(), schema);
             PowerShellAttributes.ApplyPowerShellAttributes(p, schema);
             if (allowNull)
             {
                 schema.Type |= JsonSchemaType.Null;
             }
-            iSchema = schema;
+            return schema;
         }
-        else if (!IsPrimitiveLike(pt))
-        {
-            EnsureSchemaComponent(pt);
-
-            iSchema = new OpenApiSchemaReference(pt.Name);
-        }
-        else
-        {
-            var sc = InferPrimitiveSchema(pt);
-            if (sc is OpenApiSchema schema)
-            {
-                ApplySchemaAttr(p.GetCustomAttribute<OpenApiPropertyAttribute>(), schema);
-                PowerShellAttributes.ApplyPowerShellAttributes(p, schema);
-                if (allowNull)
-                {
-                    schema.Type |= JsonSchemaType.Null;
-                }
-                iSchema = schema;
-            }
-            else
-            {
-                iSchema = sc;
-            }
-        }
-        return iSchema;
+        return sc;
     }
+
     /// <summary>
     /// Gets the name override from an attribute, if present.
     /// </summary>

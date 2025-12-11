@@ -92,7 +92,6 @@ public partial class OpenApiDocDescriptor
     /// </summary>
     /// <param name="p">The PropertyInfo representing the property.</param>
     /// <returns>An array of KestrunAnnotation attributes related to parameters.</returns>
-
     private static KestrunAnnotation[] GetParameterAttributes(PropertyInfo p)
     {
         return

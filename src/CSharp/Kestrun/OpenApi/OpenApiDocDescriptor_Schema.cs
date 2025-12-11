@@ -492,44 +492,57 @@ public partial class OpenApiDocDescriptor
         // Array type handling
         if (type.Name.EndsWith("[]"))
         {
-            var typeName = type.Name[..^2];
-            if (ComponentSchemasExists(typeName))
-            {
-                IOpenApiSchema? items = inline ? GetSchema(typeName).Clone() : new OpenApiSchemaReference(typeName);
-                return new OpenApiSchema { Type = JsonSchemaType.Array, Items = items };
-            }
-
-            return new OpenApiSchema { Type = JsonSchemaType.Array, Items = InferPrimitiveSchema(type.GetElementType() ?? typeof(object)) };
+            return InferArraySchema(type, inline);
         }
 
         // Special handling for PowerShell OpenAPI classes
         if (PowerShellOpenApiClassExporter.ValidClassNames.Contains(type.Name))
         {
-            if (inline)
+            return InferPowerShellClassSchema(type, inline);
+        }
+
+        // Fallback
+        return new OpenApiSchema { Type = JsonSchemaType.String };
+    }
+
+    private IOpenApiSchema InferArraySchema(Type type, bool inline)
+    {
+        var typeName = type.Name[..^2];
+        if (ComponentSchemasExists(typeName))
+        {
+            IOpenApiSchema? items = inline ? GetSchema(typeName).Clone() : new OpenApiSchemaReference(typeName);
+            return new OpenApiSchema { Type = JsonSchemaType.Array, Items = items };
+        }
+
+        return new OpenApiSchema { Type = JsonSchemaType.Array, Items = InferPrimitiveSchema(type.GetElementType() ?? typeof(object)) };
+    }
+
+    /// <summary>
+    /// Infers a PowerShell OpenAPI class schema.
+    /// </summary>
+    /// <param name="type">The .NET type representing the PowerShell OpenAPI class.</param>
+    /// <param name="inline">Indicates if the schema should be inlined.</param>
+    /// <returns>The inferred OpenApiSchema.</returns>
+    private IOpenApiSchema InferPowerShellClassSchema(Type type, bool inline)
+    {
+        var schema = GetSchema(type.Name);
+
+        if (inline)
+        {
+            if (schema is OpenApiSchema concreteSchema)
             {
-                // Special case for PowerShell OpenAPI classes
-                if (GetSchema(type.Name) is OpenApiSchema schema)
-                {
-                    return schema.Clone();
-                }
-                else
-                {
-                    Host.Logger.Warning("Schema for PowerShell OpenAPI class '{typeName}' not found. Defaulting to string schema.", type.Name);
-                }
-            }
-            else
-            {
-                if (GetSchema(type.Name) is not null)
-                {
-                    return new OpenApiSchemaReference(type.Name);
-                }
-                else
-                {
-                    Host.Logger.Warning("Schema for PowerShell OpenAPI class '{typeName}' not found. Defaulting to string schema.", type.Name);
-                }
+                return concreteSchema.Clone();
             }
         }
-        // Fallback
+        else
+        {
+            if (schema is not null)
+            {
+                return new OpenApiSchemaReference(type.Name);
+            }
+        }
+
+        Host.Logger.Warning("Schema for PowerShell OpenAPI class '{typeName}' not found. Defaulting to string schema.", type.Name);
         return new OpenApiSchema { Type = JsonSchemaType.String };
     }
 

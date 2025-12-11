@@ -273,43 +273,69 @@ public partial class OpenApiDocDescriptor
     /// <returns>True if the response was modified; otherwise, false.</returns>
     private bool ApplyResponseAttribute(OpenApiResponseAttribute resp, OpenApiResponse response, IOpenApiSchema? schema)
     {
+        ApplyDescription(resp, response);
+        schema = ResolveResponseSchema(resp, schema);
+        ApplySchemaToContentTypes(resp, response, schema);
+        return true;
+    }
+
+    private static void ApplyDescription(OpenApiResponseAttribute resp, OpenApiResponse response)
+    {
         if (!string.IsNullOrEmpty(resp.Description))
         {
             response.Description = resp.Description;
         }
-        if (resp.Schema is null && resp.SchemaRef is null && schema is not null)
-        {
-            // If no schema or schemaRef defined in attribute, but we have a schema from property, use it
-            resp.SchemaRef = schema is OpenApiSchemaReference schRef ? schRef.Reference.Id : null;
-        }
+    }
 
-        // 1) Type-based schema (new behavior)
+    private IOpenApiSchema? ResolveResponseSchema(OpenApiResponseAttribute resp, IOpenApiSchema? propertySchema)
+    {
+        // 1) Type-based schema
         if (resp.Schema is not null)
         {
-            schema = InferPrimitiveSchema(resp.Schema, inline: resp.Inline);
+            return InferPrimitiveSchema(resp.Schema, inline: resp.Inline);
         }
 
-        // 2) Component reference (existing behavior)
-        else if (resp.SchemaRef is not null)
+        // 2) Explicit Component reference
+        if (resp.SchemaRef is not null)
         {
-            schema = resp.Inline
-                ? CloneSchemaOrThrow(resp.SchemaRef)
-                : new OpenApiSchemaReference(resp.SchemaRef);
+            return ResolveSchemaRef(resp.SchemaRef, resp.Inline);
         }
 
-        // If we have a schema, apply it to all declared content types
+        // 3) Fallback to property schema reference if available
+        if (propertySchema is OpenApiSchemaReference refSchema && refSchema.Reference.Id is not null)
+        {
+            return ResolveSchemaRef(refSchema.Reference.Id, resp.Inline);
+        }
+
+        // 4) Fallback to existing property schema (primitive/concrete)
+        return propertySchema;
+    }
+
+    private IOpenApiSchema ResolveSchemaRef(string refId, bool inline)
+    {
+        return inline
+            ? CloneSchemaOrThrow(refId)
+            : new OpenApiSchemaReference(refId);
+    }
+
+    private void ApplySchemaToContentTypes(OpenApiResponseAttribute resp, OpenApiResponse response, IOpenApiSchema? schema)
+    {
         if (schema is not null && resp.ContentType is { Length: > 0 })
         {
             foreach (var ct in resp.ContentType)
             {
                 var media = GetOrAddMediaType(response, ct);
-                media.Schema = schema; // or schema.Clone() if you need per-media isolation
+                media.Schema = schema;
             }
         }
-
-        return true;
     }
 
+    /// <summary>
+    /// Applies a header reference attribute to an OpenAPI response.
+    /// </summary>
+    /// <param name="href">The header reference attribute.</param>
+    /// <param name="response">The OpenAPI response to modify.</param>
+    /// <returns>True if the header reference was applied; otherwise, false.</returns>
     private static bool ApplyHeaderRefAttribute(OpenApiHeaderRefAttribute href, OpenApiResponse response)
     {
         (response.Headers ??= new Dictionary<string, IOpenApiHeader>(StringComparer.Ordinal))[href.Key] = new OpenApiHeaderReference(href.ReferenceId);

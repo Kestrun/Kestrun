@@ -1,4 +1,4 @@
-﻿param()
+param()
 Describe 'OpenAPI Museum Example' -Tag 'OpenApi', 'Slow' {
     BeforeAll {
         . (Join-Path $PSScriptRoot '..\PesterHelpers.ps1')

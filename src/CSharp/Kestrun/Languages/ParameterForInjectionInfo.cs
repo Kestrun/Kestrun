@@ -94,74 +94,89 @@ public record ParameterForInjectionInfo
     /// <param name="ps">The PowerShell instance to which parameters will be added.</param>
     internal static void InjectParameters(KestrunContext context, PowerShell ps)
     {
-        var parameters = context.HttpContext.GetEndpoint()?
+        if (context.HttpContext.GetEndpoint()?
                .Metadata
-               .FirstOrDefault(m => m is List<ParameterForInjectionInfo>)
-               as List<ParameterForInjectionInfo>;
-        var logger = context.Host.Logger;
-        if (parameters is not null)
+               .FirstOrDefault(m => m is List<ParameterForInjectionInfo>) is not List<ParameterForInjectionInfo> parameters)
         {
-            if (logger.IsEnabled(Serilog.Events.LogEventLevel.Debug))
+            return;
+        }
+
+        var logger = context.Host.Logger;
+        if (logger.IsEnabled(Serilog.Events.LogEventLevel.Debug))
+        {
+            logger.Debug("Injecting {Count} parameters into PowerShell script.", parameters.Count);
+        }
+
+        foreach (var param in parameters)
+        {
+            InjectSingleParameter(context, ps, param);
+        }
+    }
+
+    /// <summary>
+    /// Injects a single parameter into the PowerShell instance based on its location and type.
+    /// </summary>
+    /// <param name="context">The current Kestrun context.</param>
+    /// <param name="ps">The PowerShell instance to inject parameters into.</param>
+    /// <param name="param">The parameter information to inject.</param>
+    private static void InjectSingleParameter(KestrunContext context, PowerShell ps, ParameterForInjectionInfo param)
+    {
+        var logger = context.Host.Logger;
+        var name = param.Name;
+
+        if (logger.IsEnabled(Serilog.Events.LogEventLevel.Debug))
+        {
+            logger.Debug("Injecting parameter '{Name}' of type '{Type}' from '{In}'.", name, param.Type, param.In);
+        }
+
+        object? converted;
+        var shouldLog = true;
+
+        converted = context.Request.Form is not null && context.Request.HasFormContentType
+            ? ConvertFormToHashtable(context.Request.Form)
+            : GetParameterValueFromContext(context, param, out shouldLog);
+
+        if (shouldLog && logger.IsEnabled(Serilog.Events.LogEventLevel.Debug))
+        {
+            logger.DebugSanitized("Adding parameter '{Name}': {ConvertedValue}", name, converted);
+        }
+
+        _ = ps.AddParameter(name, converted);
+    }
+
+    private static object? GetParameterValueFromContext(KestrunContext context, ParameterForInjectionInfo param, out bool shouldLog)
+    {
+        shouldLog = true;
+        var logger = context.Host.Logger;
+        var raw = GetRawValue(param, context);
+
+        if (raw is null)
+        {
+            if (param.DefaultValue is not null)
             {
-                logger.Debug("Injecting {Count} parameters into PowerShell script.", parameters.Count);
+                raw = param.DefaultValue.GetValue<object>();
             }
-
-            foreach (var param in parameters)
+            else
             {
-                var name = param.Name;
-                if (logger.IsEnabled(Serilog.Events.LogEventLevel.Debug))
-                {
-                    logger.Debug("Injecting parameter '{Name}' of type '{Type}' from '{In}'.", name, param.Type, param.In);
-                }
-                // Initialize the converted value
-                object? converted = null;
-                if (context.Request.Form is not null && context.Request.HasFormContentType)
-                {
-                    // For form data, convert the entire form to a hashtable
-                    converted = ConvertFormToHashtable(context.Request.Form);
-                }
-                else
-                {
-                    // Retrieve the raw value from the HTTP context
-                    var raw = GetRawValue(param, context);
-
-                    if (raw is null)
-                    {
-                        if (param.DefaultValue is not null)
-                        {
-                            raw = param.DefaultValue.GetValue<object>();
-                        }
-                        else
-                        {
-                            _ = ps.AddParameter(name, null);
-                            continue;
-                        }
-                    }
-
-                    if (logger.IsEnabled(Serilog.Events.LogEventLevel.Debug))
-                    {
-                        logger.Debug("Raw value for parameter '{Name}': {RawValue}", name, raw);
-                    }
-
-                    var (singleValue, multiValue) = NormalizeRaw(raw);
-
-                    if (singleValue is null && multiValue is null)
-                    {
-                        _ = ps.AddParameter(name, null);
-                        continue;
-                    }
-                    // Convert the value based on the parameter's JSON schema type
-                    converted = ConvertValue(context, param, singleValue, multiValue);
-                }
-
-                if (logger.IsEnabled(Serilog.Events.LogEventLevel.Debug))
-                {
-                    logger.DebugSanitized("Adding parameter '{Name}': {ConvertedValue}", name, converted);
-                }
-                // Add the converted parameter to the PowerShell instance
-                _ = ps.AddParameter(name, converted);
+                shouldLog = false;
+                return null;
             }
         }
+
+        if (logger.IsEnabled(Serilog.Events.LogEventLevel.Debug))
+        {
+            logger.Debug("Raw value for parameter '{Name}': {RawValue}", param.Name, raw);
+        }
+
+        var (singleValue, multiValue) = NormalizeRaw(raw);
+
+        if (singleValue is null && multiValue is null)
+        {
+            shouldLog = false;
+            return null;
+        }
+
+        return ConvertValue(context, param, singleValue, multiValue);
     }
 
     /// <summary>

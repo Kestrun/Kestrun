@@ -21,6 +21,12 @@ Browse the step-by-step guides below to learn OpenAPI features in Kestrun:
 6. **[Complete Components](./6.Complete-Components.md)** — Combine all component types in a full API
 7. **[Tags and External Docs](./7.Tags-and-Docs.md)** — Group operations and attach documentation links
 8. **[Document Information](./8.Document-Info.md)** — Populate title, contact, license, and server metadata
+9. **[Component Headers](./9.Component-Headers.md)** — Define reusable response headers (Planned)
+10. **[Component Links](./10.Component-Links.md)** — Define operation links (Planned)
+11. **[Component Callbacks](./11.Component-Callbacks.md)** — Define asynchronous callbacks (Planned)
+12. **[WebHooks](./12.WebHooks.md)** — Define top-level webhooks (Planned)
+13. **[Redocly Museum API](./13.Museum-API.md)** — Full implementation of the Redocly Museum API
+14. **[Swagger Petstore](./14.Petstore-API.md)** — Full implementation of the Swagger Petstore API
 
 ## Quick start: run the samples
 

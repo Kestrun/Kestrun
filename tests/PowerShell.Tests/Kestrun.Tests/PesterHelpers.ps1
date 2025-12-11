@@ -2085,12 +2085,15 @@ function Convert-BytesToStringWithGzipScan {
     A normalized JSON string.
 #>
 function Get-NormalizedJson {
+    [CmdletBinding()]
+    [outputtype([string])]
     param(
         [Parameter(Mandatory)]
         [string]$Json
     )
     $obj = $Json | ConvertFrom-Json -Depth 100
-    $obj | ConvertTo-Json -Depth 100 -Compress
+    $newJson = $obj | ConvertTo-Json -Depth 100 -Compress
+    return $newJson.Replace("\r\n", "\n")
 }
 
 

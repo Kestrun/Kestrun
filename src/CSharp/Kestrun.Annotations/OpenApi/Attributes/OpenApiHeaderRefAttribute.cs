@@ -1,8 +1,8 @@
 /// <summary>
-/// Place on a property or field to indicate it is a link reference.
+/// Place on a property or field to indicate it is a header reference.
 /// </summary>
-/// <param name="key">The local name under response.links</param>
-/// <param name="refId">The components/links id</param>
+/// <param name="key">The local name under response.headers</param>
+/// <param name="refId">The components/headers id</param>
 [AttributeUsage(AttributeTargets.Field | AttributeTargets.Property, AllowMultiple = true)]
 public sealed class OpenApiHeaderRefAttribute : KestrunAnnotation
 {

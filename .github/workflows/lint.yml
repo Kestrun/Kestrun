@@ -68,12 +68,12 @@ jobs:
               run: |
                   echo "Running dotnet format (verify)..."
                   set -e
-                  if ! dotnet format .\src\CSharp\Kestrun\Kestrun.csproj --verify-no-changes --no-restore > format.log 2>&1; then
+                  if ! dotnet format ./src/CSharp/Kestrun/Kestrun.csproj --verify-no-changes --no-restore > format.log 2>&1; then
                     echo "has_changes=true" >> $GITHUB_OUTPUT
                     echo "Formatting differences detected." >&2
                     # Generate patch file with suggested changes
                     echo "Generating patch..."
-                    dotnet format .\src\CSharp\Kestrun\Kestrun.csproj --no-restore || true
+                    dotnet format ./src/CSharp/Kestrun/Kestrun.csproj --no-restore || true
                     git diff > formatting.patch || true
                     exit 1
                   else

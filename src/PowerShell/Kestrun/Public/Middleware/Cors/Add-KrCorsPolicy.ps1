@@ -68,20 +68,26 @@ function Add-KrCorsPolicy {
     }
 
     process {
+        if ($AllowAll.IsPresent -and $PSBoundParameters.ContainsKey('Builder')) {
+            throw 'Do not pipe a builder when using -AllowAll. Use -AllowAll without a builder.'
+        }
+
         if ($AllowAll.IsPresent) {
+            # Allow all origins, methods, and headers
             if ([string]::IsNullOrEmpty($Name)) {
                 [Kestrun.Hosting.KestrunSecurityMiddlewareExtensions]::AddCorsDefaultPolicyAllowAll($Server) | Out-Null
             } else {
                 [Kestrun.Hosting.KestrunSecurityMiddlewareExtensions]::AddCorsPolicyAllowAll($Server, $Name) | Out-Null
             }
         } else {
+            # Use the provided builder to add the CORS policy
             if ([string]::IsNullOrEmpty($Name)) {
                 [Kestrun.Hosting.KestrunSecurityMiddlewareExtensions]::AddCorsDefaultPolicy($Server, $Builder) | Out-Null
             } else {
                 [Kestrun.Hosting.KestrunSecurityMiddlewareExtensions]::AddCorsPolicy($Server, $Name, $Builder) | Out-Null
             }
         }
-
+        # Pass the builder through the pipeline if requested
         if ($PassThru.IsPresent) {
             return $Builder
         }

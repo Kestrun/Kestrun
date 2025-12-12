@@ -130,16 +130,65 @@ public static class KestrunSecurityMiddlewareExtensions
         return host.Use(app => app.UseAntiforgery());
     }
 
+    /// <summary>
+    /// Adds a default CORS policy to the application using the specified <see cref="CorsPolicyBuilder"/>.
+    /// </summary>
+    /// <param name="host"> The KestrunHost instance to configure.</param>
+    /// <param name="builder">The CORS policy builder to use for the default policy.</param>
+    /// <returns>The current KestrunHost instance.</returns>
+    public static KestrunHost AddCorsDefaultPolicy(this KestrunHost host, CorsPolicyBuilder builder)
+    {
+        ArgumentNullException.ThrowIfNull(builder);
+
+        _ = host.AddService(services =>
+        {
+            _ = services.AddCors(options =>
+            {
+                options.AddDefaultPolicy(builder.Build());
+            });
+        });
+
+        return host;
+    }
+
+    /// <summary>
+    /// Adds a default CORS policy to the application using the specified configuration delegate.
+    /// </summary>
+    /// <param name="host"> The KestrunHost instance to configure.</param>
+    /// <param name="buildPolicy">An action to configure the CORS policy.</param>
+    /// <returns>The current KestrunHost instance.</returns>
+    public static KestrunHost AddCorsDefaultPolicy(this KestrunHost host, Action<CorsPolicyBuilder> buildPolicy)
+    {
+        ArgumentNullException.ThrowIfNull(buildPolicy);
+
+        _ = host.AddService(services =>
+        {
+            _ = services.AddCors(options => options.AddDefaultPolicy(buildPolicy));
+        });
+
+        return host;
+    }
 
     /// <summary>
     /// Adds a CORS policy named "AllowAll" that allows any origin, method, and header.
     /// </summary>
     /// <param name="host">The KestrunHost instance to configure.</param>
+    /// <param name="policyName">The name to store/apply the policy under.</param>
     /// <returns>The current KestrunHost instance.</returns>
-    public static KestrunHost AddCorsAllowAll(this KestrunHost host) =>
-        host.AddCors("AllowAll", b => b.AllowAnyOrigin()
+    public static KestrunHost AddCorsAllowAll(this KestrunHost host, string policyName) =>
+        host.AddCors(policyName, b => b.AllowAnyOrigin()
                                   .AllowAnyMethod()
                                   .AllowAnyHeader());
+
+    /// <summary>
+    /// Adds a default CORS policy that allows any origin, method, and header.
+    /// </summary>
+    /// <param name="host">The KestrunHost instance to configure.</param>
+    /// <returns>The current KestrunHost instance.</returns>
+    public static KestrunHost AddCorsDefaultPolicyAllowAll(this KestrunHost host) =>
+        host.AddCorsDefaultPolicy(b => b.AllowAnyOrigin()
+                                    .AllowAnyMethod()
+                                    .AllowAnyHeader());
 
     /// <summary>
     /// Registers a named CORS policy that was already composed with a

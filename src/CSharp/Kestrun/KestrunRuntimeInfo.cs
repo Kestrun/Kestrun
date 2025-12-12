@@ -27,35 +27,6 @@ public static class KestrunRuntimeInfo
     public static bool IsDebugBuild => !IsReleaseDistribution;
 
     /// <summary>
-    /// Returns the target framework version this assembly was built against
-    /// as a System.Version (e.g., 8.0, 9.0).
-    /// </summary>
-    public static Version GetBuiltTargetFrameworkVersion()
-    {
-        var asm = typeof(KestrunRuntimeInfo).Assembly;
-        var tfm = asm.GetCustomAttribute<TargetFrameworkAttribute>()?.FrameworkName;
-        if (string.IsNullOrEmpty(tfm))
-        {
-            return new Version(0, 0);
-        }
-
-        var key = "Version=";
-        var idx = tfm.IndexOf(key, StringComparison.OrdinalIgnoreCase);
-        if (idx >= 0)
-        {
-            var ver = tfm[(idx + key.Length)..].TrimStart('v');
-            if (Version.TryParse(ver, out var parsed))
-            {
-                return parsed;
-            }
-        }
-
-        return new Version(0, 0);
-    }
-
-    // --- Feature gating ---
-
-    /// <summary>
     /// Built-in Kestrun feature keys. Add more as you gate new APIs by TFM.
     /// </summary>
     public enum KnownFeature
@@ -168,7 +139,7 @@ public static class KestrunRuntimeInfo
 
     private static bool IsAtLeast(Version min)
     {
-        var built = GetBuiltTargetFrameworkVersion();
+        var built = KestrunAnnotationsRuntimeInfo.GetBuiltTargetFrameworkVersion();
         return built >= min;
     }
 

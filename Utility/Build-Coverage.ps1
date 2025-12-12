@@ -1,10 +1,10 @@
-[CmdletBinding()]
+[CmdletBinding(DefaultParameterSetName = 'Default')]
 param(
-    [Parameter()] [string]$Framework = "net9.0",
-    [Parameter()] [string]$Configuration = "Release",
-    [Parameter()] [string]$TestProject = ".\tests\CSharp.Tests\Kestrun.Tests\KestrunTests.csproj",
-    [Parameter()] [string]$CoverageDir = ".\coverage",
-    [Parameter()] [string]$PesterPath = ".\tests\PowerShell.Tests\Kestrun.Tests",
+    [Parameter()] [string]$Framework = 'net9.0',
+    [Parameter()] [string]$Configuration = 'Release',
+    [Parameter()] [string]$TestProject = '.\tests\CSharp.Tests\Kestrun.Tests\KestrunTests.csproj',
+    [Parameter()] [string]$CoverageDir = '.\coverage',
+    [Parameter()] [string]$PesterPath = '.\tests\PowerShell.Tests\Kestrun.Tests',
 
     [Parameter(Mandatory = $true, ParameterSetName = 'Clean')]
     [switch]$Clean,
@@ -13,19 +13,19 @@ param(
     [switch]$ReportGenerator,
 
     [Parameter(ParameterSetName = 'Report')]
-    [string]$ReportDir = "./coverage/report", # where HTML lands
+    [string]$ReportDir = './coverage/report', # where HTML lands
 
     [Parameter(ParameterSetName = 'Report')]
-    [string]$ReportTypes = "Html;TextSummary;Cobertura;Badges",
+    [string]$ReportTypes = 'Html;TextSummary;Cobertura;Badges',
 
     [Parameter(ParameterSetName = 'Report')]
-    [string]$AssemblyFilters = "+Kestrun*;+Kestrun.PowerShell*;-*.Tests;-testhost*;-xunit*",
+    [string]$AssemblyFilters = '+Kestrun*;+Kestrun.PowerShell*;-*.Tests;-testhost*;-xunit*',
 
     [Parameter(ParameterSetName = 'Report')]
-    [string]$ClassFilters = "-*.Modules.PSDiagnostics.*",
+    [string]$ClassFilters = '-*.Modules.PSDiagnostics.*',
 
     [Parameter(ParameterSetName = 'Report')]
-    [string]$FileFilters = "-**/Generated/**;-**/*.g.cs",
+    [string]$FileFilters = '-**/Generated/**;-**/*.g.cs',
 
     [Parameter(ParameterSetName = 'Report')]
     [switch]$OpenWhenDone,
@@ -46,10 +46,10 @@ Import-Module -Name './Utility/Modules/Helper.psm1'
 # Clean coverage reports
 if ($Clean) {
     if (Test-Path $CoverageDir) {
-        Write-Host "🧹 Cleaning coverage report..."
+        Write-Host '🧹 Cleaning coverage report...'
         Remove-Item -Path $CoverageDir -Recurse -Force
     } else {
-        Write-Host "🧹 No coverage report found to clean."
+        Write-Host '🧹 No coverage report found to clean.'
     }
     return
 }
@@ -62,7 +62,7 @@ Write-Host "📦 Using ASP.NET runtime: $aspnet"
 $binDir = Join-Path (Split-Path $TestProject -Parent) "bin\$Configuration\$Framework"
 New-Item -ItemType Directory -Force -Path $binDir | Out-Null
 
-Write-Host "📂 Copying ASP.NET runtime assemblies..."
+Write-Host '📂 Copying ASP.NET runtime assemblies...'
 Copy-Item -Path (Join-Path $aspnet '*') -Destination $binDir -Recurse -Force
 
 # Prepare coverage folders
@@ -77,15 +77,15 @@ $resultsDir = Join-Path $CoverageDir "raw\$Framework"
 New-Item -ItemType Directory -Force -Path $resultsDir | Out-Null
 $coverageFile = Join-Path $CoverageDir "csharp.$Framework.cobertura.xml"
 
-Write-Host "🧹 Cleaning previous builds..."
+Write-Host '🧹 Cleaning previous builds...'
 dotnet clean $TestProject --configuration $Configuration | Out-Host
 
-Write-Host "🧪 Running tests with XPlat DataCollector..."
+Write-Host '🧪 Running tests with XPlat DataCollector...'
 dotnet test $TestProject `
     --configuration $Configuration `
     --framework $Framework `
     --collect:"XPlat Code Coverage" `
-    --logger "trx;LogFileName=test-results.trx" `
+    --logger 'trx;LogFileName=test-results.trx' `
     --results-directory "$resultsDir" | Out-Host
 
 Write-Host "🗂️ Scanning for Cobertura files in $resultsDir..."
@@ -151,7 +151,7 @@ if ($ReportGenerator) {
     }
 
     $rg = Install-ReportGenerator
-    if (-not $rg) { throw "❌ ReportGenerator not found." }
+    if (-not $rg) { throw '❌ ReportGenerator not found.' }
 
     if (-not (Test-Path $ReportDir)) { New-Item -ItemType Directory -Force -Path $ReportDir | Out-Null }
     $ReportDir = Resolve-Path -Path $ReportDir
@@ -167,15 +167,15 @@ if ($ReportGenerator) {
     if ($includePwsh) { $reportFiles += $pesterCoverageFile }
 
     # Debug: show exactly what we feed RG
-    Write-Host "🧾 Report inputs:"; $reportFiles | ForEach-Object { Write-Host "  • $_" }
+    Write-Host '🧾 Report inputs:'; $reportFiles | ForEach-Object { Write-Host "  • $_" }
 
     $reportsArg = '"' + ($reportFiles -join ';') + '"'
-    $title = "Kestrun — " + ($(if ($includePwsh) { "Combined" } else { "C#" })) + " Coverage"
+    $title = 'Kestrun — ' + ($(if ($includePwsh) { 'Combined' } else { 'C#' })) + ' Coverage'
 
     # --- filters: avoid excluding Pester ---
     if (-not $PSBoundParameters.ContainsKey('AssemblyFilters')) {
         # safer default: exclude tests & infra, but don't force +Kestrun*
-        $AssemblyFilters = "-*.Tests;-testhost*;-xunit*"
+        $AssemblyFilters = '-*.Tests;-testhost*;-xunit*'
     }
 
     # Build a friendly tag
@@ -209,13 +209,13 @@ if ($ReportGenerator) {
     # Open report in browser
 
     if ($OpenWhenDone) {
-        $index = Join-Path $ReportDir "index.html"
+        $index = Join-Path $ReportDir 'index.html'
         if (Test-Path $index) {
             if ($IsWindows) { Start-Process $index }
             elseif ($IsMacOS) { & open $index }
             else { & xdg-open $index }
         }
     }
-    $index = Join-Path $ReportDir "index.html"
+    $index = Join-Path $ReportDir 'index.html'
     if (Test-Path $index) { Write-Host "`n✅ All done. Coverage is glowing in $index ✨" -ForegroundColor Magenta }
 }

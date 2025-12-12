@@ -245,7 +245,7 @@
     -->
 
         <!-- Utilities -->
-        <PackageReference Include="Microsoft.OpenApi" Version="2.3.10" />
+        <PackageReference Include="Microsoft.OpenApi" Version="3.0.2" />
 
         <PackageReference Include="CsvHelper" Version="33.1.0" />
         <PackageReference Include="Cronos" Version="0.11.1" />

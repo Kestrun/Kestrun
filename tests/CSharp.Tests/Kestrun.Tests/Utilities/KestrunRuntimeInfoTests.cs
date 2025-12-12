@@ -8,7 +8,7 @@ public class KestrunRuntimeInfoTests
     [Trait("Category", "Utilities")]
     public void BuiltTargetFrameworkVersion_IsNonZero()
     {
-        var ver = KestrunAnnotationsRuntimeInfo.GetBuiltTargetFrameworkVersion();
+        var ver = Kestrun.KestrunRuntimeInfo.GetBuiltTargetFrameworkVersion();
         // Library targets net8.0;net9.0 so either 8.x or 9.x depending on compiled TFM
         Assert.True(ver.Major >= 8, $"Expected major >= 8 but got {ver}");
     }

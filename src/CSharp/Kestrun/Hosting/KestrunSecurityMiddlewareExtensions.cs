@@ -175,8 +175,8 @@ public static class KestrunSecurityMiddlewareExtensions
     /// <param name="host">The KestrunHost instance to configure.</param>
     /// <param name="policyName">The name to store/apply the policy under.</param>
     /// <returns>The current KestrunHost instance.</returns>
-    public static KestrunHost AddCorsAllowAll(this KestrunHost host, string policyName) =>
-        host.AddCors(policyName, b => b.AllowAnyOrigin()
+    public static KestrunHost AddCorsPolicyAllowAll(this KestrunHost host, string policyName) =>
+        host.AddCorsPolicy(policyName, b => b.AllowAnyOrigin()
                                   .AllowAnyMethod()
                                   .AllowAnyHeader());
 
@@ -201,7 +201,7 @@ public static class KestrunSecurityMiddlewareExtensions
     ///     Callers typically chain <c>.WithOrigins()</c>, <c>.WithMethods()</c>,
     ///     etc. before passing it here.
     /// </param>
-    public static KestrunHost AddCors(this KestrunHost host, string policyName, CorsPolicyBuilder builder)
+    public static KestrunHost AddCorsPolicy(this KestrunHost host, string policyName, CorsPolicyBuilder builder)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(policyName);
         ArgumentNullException.ThrowIfNull(builder);
@@ -228,7 +228,7 @@ public static class KestrunSecurityMiddlewareExtensions
     /// <param name="buildPolicy">An action to configure the CORS policy.</param>
     /// <returns>The current KestrunHost instance.</returns>
     /// <exception cref="ArgumentException">Thrown when the policy name is null or whitespace.</exception>
-    public static KestrunHost AddCors(this KestrunHost host, string policyName, Action<CorsPolicyBuilder> buildPolicy)
+    public static KestrunHost AddCorsPolicy(this KestrunHost host, string policyName, Action<CorsPolicyBuilder> buildPolicy)
     {
         if (host.Logger.IsEnabled(LogEventLevel.Debug))
         {

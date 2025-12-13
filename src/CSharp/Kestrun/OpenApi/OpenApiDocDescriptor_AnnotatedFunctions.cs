@@ -156,8 +156,10 @@ public partial class OpenApiDocDescriptor
         metadata.OperationId = oaPath.OperationId is null
             ? func.Name
             : string.IsNullOrWhiteSpace(oaPath.OperationId) ? metadata.OperationId : oaPath.OperationId;
+        // Apply deprecated flag if specified
         metadata.Deprecated |= oaPath.Deprecated;
-
+        // Apply Cors policy name if specified
+        metadata.CorsPolicyName = oaPath.CorsPolicy;
         return parsedVerb;
     }
 

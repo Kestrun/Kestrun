@@ -1,3 +1,12 @@
+<#
+    Sample:  Sample Muststore Application with Reusable Request Headers and Multiple Content Types
+    Purpose: To demonstrate the use of reusable request headers and handling multiple content types in a Muststore application.
+    File:    15.13-Museum.ps1
+    Notes:   This script demonstrates how to create a Muststore application that handles multiple content types and
+             uses reusable request headers. It includes functions for creating, updating, and deleting special events,
+             as well as purchasing museum tickets and retrieving ticket QR codes.
+#>
+
 param(
     [int]$Port = 5000,
     [IPAddress]$IPAddress = [IPAddress]::Loopback

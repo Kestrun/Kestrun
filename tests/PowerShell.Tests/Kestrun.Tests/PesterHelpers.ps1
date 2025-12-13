@@ -2093,7 +2093,7 @@ function Get-NormalizedJson {
     )
     $obj = $Json | ConvertFrom-Json -Depth 100
     $newJson = $obj | ConvertTo-Json -Depth 100 -Compress
-    return $newJson.Replace("\r\n", "\n")
+    return $newJson.Replace('\r\n', '\n')
 }
 
 
@@ -2108,4 +2108,66 @@ if (-not (Get-Module -Name Kestrun)) {
             Write-Warning "Failed to import Kestrun module from $($modulePath) : $_"
         }
     }
+}
+
+<#
+.SYNOPSIS
+    Invoke a CORS request to the specified path with the given Origin header.
+.DESCRIPTION
+    This function sends an HTTP request to the specified path with the given Origin header.
+    It supports both simple and preflight CORS requests.
+.PARAMETER Method
+    The HTTP method to use for the request (GET, POST, PUT, DELETE, OPTIONS).
+.PARAMETER Path
+    The relative path to the endpoint.
+.PARAMETER Origin
+    The Origin header value to include in the request.  This is required for CORS requests.
+.PARAMETER PreflightMethod
+    The HTTP method to use for the preflight request (if applicable).
+#>
+function Invoke-CorsRequest {
+    param(
+        [Parameter(Mandatory)][ValidateSet('GET', 'POST', 'PUT', 'DELETE', 'OPTIONS')]
+        [string]$Method,
+
+        [Parameter(Mandatory)]
+        [string]$Path,
+
+        [Parameter(Mandatory)]
+        [string]$Origin,
+
+        [string]$PreflightMethod,
+        [string[]]$PreflightHeaders,
+
+        [string]$Body,
+        [string]$ContentType = 'application/json'
+    )
+
+    $headers = @{ Origin = $Origin }
+
+    if ($Method -eq 'OPTIONS') {
+        if ($PreflightMethod) {
+            $headers['Access-Control-Request-Method'] = $PreflightMethod
+        }
+        if ($PreflightHeaders -and $PreflightHeaders.Count -gt 0) {
+            $headers['Access-Control-Request-Headers'] = ($PreflightHeaders -join ', ')
+        }
+    }
+
+    $uri = "$($script:instance.Url)$Path"
+
+    $params = @{
+        Uri = $uri
+        Method = $Method
+        Headers = $headers
+        SkipCertificateCheck = $true
+        SkipHttpErrorCheck = $true
+    }
+
+    if ($Body) {
+        $params.Body = $Body
+        $params.ContentType = $ContentType
+    }
+
+    Invoke-WebRequest @params
 }

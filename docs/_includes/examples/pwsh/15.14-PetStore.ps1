@@ -1,3 +1,11 @@
+<#
+    Sample: Petstore with Components
+    Purpose: To demonstrate the use of reusable request header components with multiple content types in a sample Petstore application.
+    File:    15.14-PetStore.ps1
+    Notes:   This sample demonstrates how to use reusable request header components with multiple content types.
+     It includes a variety of operations and schemas, including user management, pet management, and order processing.
+     The sample also includes security schemes for API key and OAuth2 authentication.
+#>
 
 param(
     [int]$Port = 5000,
@@ -43,7 +51,7 @@ Add-KrOpenApiTag -Name 'store' -Description 'Access to Petstore orders' -Externa
 Add-KrOpenApiTag -Name 'user' -Description 'Operations about user'
 
 # Add server pointing to local instance
-Add-KrOpenApiServer -Url "/" -Description 'Local Kestrun Server'
+Add-KrOpenApiServer -Url '/' -Description 'Local Kestrun Server'
 
 # =========================================================
 #                      COMPONENT SCHEMAS

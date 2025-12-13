@@ -133,7 +133,7 @@ public record ParameterForInjectionInfo
         var shouldLog = true;
 
         converted = context.Request.Form is not null && context.Request.HasFormContentType
-            ? ConvertFormToHashtable(context.Request.Form)
+            ? ConvertFormToValue(context.Request.Form, param)
             : GetParameterValueFromContext(context, param, out shouldLog);
 
         if (shouldLog && logger.IsEnabled(Serilog.Events.LogEventLevel.Debug))
@@ -418,12 +418,19 @@ public record ParameterForInjectionInfo
 
         return ht;
     }
+
+    /// <summary>
+    /// Converts a form dictionary to a hashtable.
+    /// </summary>
+    /// <param name="form">The form dictionary to convert.</param>
+    /// <returns>A hashtable representing the form data.</returns>
     private static Hashtable? ConvertFormToHashtable(Dictionary<string, string>? form)
     {
         if (form is null || form.Count == 0)
         {
             return null;
         }
+
         var ht = new Hashtable(StringComparer.OrdinalIgnoreCase);
 
         foreach (var kvp in form)
@@ -433,5 +440,26 @@ public record ParameterForInjectionInfo
         }
 
         return ht;
+    }
+
+
+    private static object? ConvertFormToValue(Dictionary<string, string>? form, ParameterForInjectionInfo param)
+    {
+        if (form is null || form.Count == 0)
+        {
+            return null;
+        }
+        if (param.Type is JsonSchemaType.Integer or JsonSchemaType.Number or JsonSchemaType.Boolean or JsonSchemaType.Array or JsonSchemaType.String)
+        {
+            if (form.Count == 1)
+            {
+                return form.First().Key;
+            }
+            else
+            {
+                return null; // or handle as needed
+            }
+        }
+        return ConvertFormToHashtable(form);
     }
 }

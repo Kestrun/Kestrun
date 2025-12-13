@@ -165,8 +165,8 @@ public static class KestrunSecurityMiddlewareExtensions
         {
             _ = services.AddCors(options => options.AddDefaultPolicy(buildPolicy));
         });
-
-        return host;
+        host.CorsPolicyDefined = true;
+        return host;//.Use(app => app.UseCors());
     }
 
     /// <summary>
@@ -215,8 +215,9 @@ public static class KestrunSecurityMiddlewareExtensions
             });
         });
 
+        host.CorsPolicyDefined = true;
         // 2️⃣ Middleware‑time application
-        return host.Use(app => app.UseCors(policyName));
+        return host;
     }
 
     /// <summary>
@@ -230,25 +231,19 @@ public static class KestrunSecurityMiddlewareExtensions
     /// <exception cref="ArgumentException">Thrown when the policy name is null or whitespace.</exception>
     public static KestrunHost AddCorsPolicy(this KestrunHost host, string policyName, Action<CorsPolicyBuilder> buildPolicy)
     {
+        ArgumentNullException.ThrowIfNull(host);
+        ArgumentException.ThrowIfNullOrWhiteSpace(policyName);
+
         if (host.Logger.IsEnabled(LogEventLevel.Debug))
         {
             host.Logger.Debug("Adding CORS policy: {PolicyName}", policyName);
         }
 
-        if (string.IsNullOrWhiteSpace(policyName))
-        {
-            throw new ArgumentException("Policy name required.", nameof(policyName));
-        }
-
         ArgumentNullException.ThrowIfNull(buildPolicy);
+        var builder = new CorsPolicyBuilder();
+        buildPolicy(builder);
 
-        _ = host.AddService(s =>
-        {
-            _ = s.AddCors(o => o.AddPolicy(policyName, buildPolicy));
-        });
-
-        // apply only that policy
-        return host.Use(app => app.UseCors(policyName));
+        return host.AddCorsPolicy(policyName, builder);
     }
 
     /// <summary>

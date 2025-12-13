@@ -4,7 +4,7 @@ Describe 'CORS Multi-Policy Multi-API' -Tag 'Tutorial', 'Slow' {
 
     BeforeAll {
         . (Join-Path $PSScriptRoot '..\PesterHelpers.ps1')
-        $script:instance = Start-ExampleScript -Name '10-8-Cors-Multipolicy.ps1'
+        $script:instance = Start-ExampleScript -Name '10.8-Cors-Multipolicy.ps1'
 
         # Pick origins:
         # - Allowed UI origin should match what your sample configured for PublicRead/AdminWrite/default.
@@ -95,7 +95,7 @@ Describe 'CORS Multi-Policy Multi-API' -Tag 'Tutorial', 'Slow' {
         It 'POST /orders should emit Allow-Origin for allowed UI origin (AdminWrite)' {
             # Your createOrder signature appears to bind productId directly.
             # If your endpoint expects JSON body instead, adjust to match your sample.
-            $body = 'productId=1'
+            $body = '1'
 
             $res = Invoke-CorsRequest -Method POST -Path '/orders' -Origin $allowedUiOrigin -Body $body -ContentType 'application/x-www-form-urlencoded'
             $res.StatusCode | Should -BeIn @(201, 400)  # 201 for valid, 400 if binding differs

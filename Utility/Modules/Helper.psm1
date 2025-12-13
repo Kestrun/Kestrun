@@ -623,19 +623,25 @@ function Sync-PowerShellDll {
                 }
             }
     }
-    # Additionally, copy Kestrun.Annotations.dll and .pdb to PowerShell lib/assemblies
-    $annotationSrc = Join-Path -Path $PWD -ChildPath 'src' -AdditionalChildPath 'CSharp', 'Kestrun.Annotations' , 'bin', $Configuration, 'net8.0'
-    $annotationDest = Join-Path -Path $dest -ChildPath 'assemblies'
-    Write-Host "📄 Copying Kestrun.Annotations.dll from $annotationSrc to $annotationDest"
-    # Create destination directory if it doesn't exist
-    if (-not (Test-Path -Path $annotationDest)) {
-        New-Item -Path $annotationDest -ItemType Directory -Force | Out-Null
-    }
-    # Copy the DLL and PDB files
-    Copy-Item -Path (Join-Path -Path $annotationSrc -ChildPath 'Kestrun.Annotations.dll') -Destination (Join-Path -Path $annotationDest -ChildPath 'Kestrun.Annotations.dll') -Force
-
-    if ($Configuration -eq 'Debug' -and (Test-Path -Path (Join-Path -Path $annotationSrc -ChildPath 'Kestrun.Annotations.pdb'))) {
-        Copy-Item -Path (Join-Path -Path $annotationSrc -ChildPath 'Kestrun.Annotations.pdb') -Destination (Join-Path -Path $annotationDest -ChildPath 'Kestrun.Annotations.pdb') -Force
+    # Additionally, copy Kestrun.Annotations.dll and .pdb to PowerShell lib for each framework
+    foreach ($framework in $Frameworks) {
+        $annotationSrc = Join-Path -Path $PWD -ChildPath 'src' -AdditionalChildPath 'CSharp', 'Kestrun.Annotations' , 'bin', $Configuration, $framework
+        $annotationDest = Join-Path -Path $dest -ChildPath $framework
+        Write-Host "📄 Copying Kestrun.Annotations.dll from $annotationSrc to $annotationDest"
+        
+        # Copy the DLL file if it exists
+        $annotationDllPath = Join-Path -Path $annotationSrc -ChildPath 'Kestrun.Annotations.dll'
+        if (Test-Path -Path $annotationDllPath) {
+            Copy-Item -Path $annotationDllPath -Destination (Join-Path -Path $annotationDest -ChildPath 'Kestrun.Annotations.dll') -Force
+            
+            # Copy PDB file for Debug builds
+            if ($Configuration -eq 'Debug') {
+                $annotationPdbPath = Join-Path -Path $annotationSrc -ChildPath 'Kestrun.Annotations.pdb'
+                if (Test-Path -Path $annotationPdbPath) {
+                    Copy-Item -Path $annotationPdbPath -Destination (Join-Path -Path $annotationDest -ChildPath 'Kestrun.Annotations.pdb') -Force
+                }
+            }
+        }
     }
 }
 

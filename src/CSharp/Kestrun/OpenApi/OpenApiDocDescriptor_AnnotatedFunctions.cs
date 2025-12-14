@@ -159,7 +159,7 @@ public partial class OpenApiDocDescriptor
         // Apply deprecated flag if specified
         metadata.Deprecated |= oaPath.Deprecated;
         // Apply Cors policy name if specified
-        metadata.CorsPolicyName = oaPath.CorsPolicy;
+        metadata.CorsPolicy = oaPath.CorsPolicy;
         return parsedVerb;
     }
 
@@ -564,9 +564,9 @@ public partial class OpenApiDocDescriptor
             routeOptions.Pattern = "/" + func.Name;
         }
 
-        if (!string.IsNullOrWhiteSpace(metadata.CorsPolicyName))
+        if (!string.IsNullOrWhiteSpace(metadata.CorsPolicy))
         {
-            routeOptions.CorsPolicyName = metadata.CorsPolicyName;
+            routeOptions.CorsPolicy = metadata.CorsPolicy;
         }
 
         routeOptions.ScriptCode.ScriptBlock = sb;

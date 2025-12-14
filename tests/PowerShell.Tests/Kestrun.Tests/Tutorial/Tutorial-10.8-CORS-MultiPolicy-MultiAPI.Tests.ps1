@@ -12,8 +12,8 @@ Describe 'CORS Multi-Policy Multi-API' -Tag 'Tutorial', 'Slow' {
         # - Partner origin is whatever you configured for PartnerOnly.
         #
         # If your sample uses different values, just tweak these two lines.
-        $script:allowedUiOrigin = $script:instance.Url.TrimEnd('/')   # e.g. http://127.0.0.1:5000
-        $script:partnerOrigin = 'http://127.0.0.1:5000'            # matches your sample default PartnerOrigin
+        $script:allowedUiOrigin = $script:instance.Url.TrimEnd('/')   # e.g. http://localhost:5000
+        $script:partnerOrigin = 'http://localhost:5000'            # matches your sample default PartnerOrigin
     }
 
     AfterAll {

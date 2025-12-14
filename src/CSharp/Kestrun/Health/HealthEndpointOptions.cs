@@ -80,7 +80,7 @@ public sealed class HealthEndpointOptions
     /// <summary>
     /// Gets or sets the name of a CORS policy to apply, if any.
     /// </summary>
-    public string? CorsPolicyName { get; set; }
+    public string? CorsPolicy { get; set; }
 
     /// <summary>
     /// Gets or sets the name of an ASP.NET Core rate limiting policy to apply, if any.
@@ -173,7 +173,7 @@ public sealed class HealthEndpointOptions
         ThrowOnDuplicate = ThrowOnDuplicate,
         RequireSchemes = [.. RequireSchemes],
         RequirePolicies = [.. RequirePolicies],
-        CorsPolicyName = CorsPolicyName,
+        CorsPolicy = CorsPolicy,
         RateLimitPolicyName = RateLimitPolicyName,
         ShortCircuit = ShortCircuit,
         ShortCircuitStatusCode = ShortCircuitStatusCode,

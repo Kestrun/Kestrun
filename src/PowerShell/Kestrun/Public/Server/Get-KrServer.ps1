@@ -37,7 +37,7 @@
 #>
 function Get-KrServer {
     [KestrunRuntimeApi('Everywhere')]
-    [CmdletBinding()]
+    [CmdletBinding(defaultParameterSetName = 'Default')]
     [OutputType([Kestrun.Hosting.KestrunHost])]
     [OutputType([DateTime])]
     [OutputType([TimeSpan])]

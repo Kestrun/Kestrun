@@ -51,7 +51,7 @@ public static class KestrunHostHealthExtensions
             DisableAntiforgery = true,
             RequireSchemes = [.. merged.RequireSchemes],
             RequirePolicies = [.. merged.RequirePolicies],
-            CorsPolicyName = merged.CorsPolicyName ?? string.Empty,
+            CorsPolicy = merged.CorsPolicy ?? string.Empty,
             RateLimitPolicyName = merged.RateLimitPolicyName,
             ShortCircuit = merged.ShortCircuit,
             ShortCircuitStatusCode = merged.ShortCircuitStatusCode,
@@ -148,7 +148,7 @@ public static class KestrunHostHealthExtensions
         target.RequirePolicies = source.RequirePolicies is { Length: > 0 } policies
             ? [.. policies]
             : Array.Empty<string>();
-        target.CorsPolicyName = source.CorsPolicyName;
+        target.CorsPolicy = source.CorsPolicy;
         target.RateLimitPolicyName = source.RateLimitPolicyName;
         target.ShortCircuit = source.ShortCircuit;
         target.ShortCircuitStatusCode = source.ShortCircuitStatusCode;

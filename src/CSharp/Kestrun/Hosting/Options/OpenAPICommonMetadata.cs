@@ -46,7 +46,7 @@ public record OpenAPICommonMetadata
     /// <summary>
     /// The name of the CORS policy to apply to this route.
     /// </summary>
-    public string? CorsPolicyName { get; set; }
+    public string? CorsPolicy { get; set; }
 
     /// <summary>
     /// An alternative server array to service this operation.

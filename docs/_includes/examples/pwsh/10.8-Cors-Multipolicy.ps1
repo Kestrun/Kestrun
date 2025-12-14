@@ -10,7 +10,7 @@
 param(
     [int]$Port = 5000,
     [IPAddress]$IPAddress = [IPAddress]::Loopback,
-    [string]$PartnerOrigin = 'http://127.0.0.1:5000'
+    [string]$PartnerOrigin = 'http://localhost:5000'
 )
 
 if (-not (Get-Module Kestrun)) { Import-Module Kestrun }
@@ -24,9 +24,10 @@ New-KrLogger | Add-KrSinkConsole |
 New-KrServer -Name 'Swagger Petstore - OpenAPI 3.1'
 Add-KrEndpoint -Port $Port -IPAddress $IPAddress
 
-
-
-$uiOrigin = "http://$($IPAddress.ToString()):$UiPort"
+# Align the UI/API origins to the active listener port so CORS policies match test requests.
+# Use 'localhost' to match what test clients typically send as Origin header.
+$ApiPort = $Port
+$uiOrigin = "http://localhost:$ApiPort"
 # Expose OpenAPI (adjust to your OpenAPI enablement)
 Add-KrOpenApiInfo -Title 'CORS Multi-Policy Sample' -Version '1.0.0' `
     -Description 'Sample: Multiple CORS policies + multiple APIs + intentional browser CORS failures.'
@@ -262,7 +263,7 @@ function corsTestUi {
 <body>
   <h1>Kestrun CORS Multi-Policy Demo</h1>
   <p><b>UI Origin:</b> $uiOrigin</p>
-  <p><b>API Origin:</b> http://127.0.0.1:$ApiPort</p>
+  <p><b>API Origin:</b> http://localhost:$ApiPort</p>
 
   <div>
     <button onclick="callApi('GET', '/products')">GET /products (should succeed)</button>
@@ -277,7 +278,7 @@ function corsTestUi {
   <pre id="out"></pre>
 
 <script>
-const apiBase = 'http://127.0.0.1:$ApiPort';
+const apiBase = 'http://localhost:$ApiPort';
 
 function log(msg) {
   document.getElementById('out').textContent = msg;

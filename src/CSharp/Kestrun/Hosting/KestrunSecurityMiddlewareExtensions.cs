@@ -148,6 +148,9 @@ public static class KestrunSecurityMiddlewareExtensions
             });
         });
 
+        // Flag that a CORS policy exists so the middleware is activated.
+        host.CorsPolicyDefined = true;
+
         return host;
     }
 

@@ -25,7 +25,7 @@ public class MapRouteOptions
     /// <summary>
     /// Name of the CORS policy to apply, if any.
     /// </summary>
-    public string CorsPolicyName { get; set; } = string.Empty; // Name of the CORS policy to apply, if any
+    public string CorsPolicy { get; set; } = string.Empty; // Name of the CORS policy to apply, if any
     /// <summary>
     /// If true, short-circuits the pipeline after this route.
     /// </summary>

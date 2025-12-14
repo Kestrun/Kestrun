@@ -906,10 +906,10 @@ public static partial class KestrunHostMapExtensions
     /// <param name="options">The mapping options.</param>
     private static void ApplyCors(KestrunHost host, IEndpointConventionBuilder map, MapRouteOptions options)
     {
-        if (!string.IsNullOrWhiteSpace(options.CorsPolicyName))
+        if (!string.IsNullOrWhiteSpace(options.CorsPolicy))
         {
-            host.Logger.Verbose("Applying CORS policy: {CorsPolicyName} to route: {Pattern}", options.CorsPolicyName, options.Pattern);
-            _ = map.RequireCors(options.CorsPolicyName);
+            host.Logger.Verbose("Applying CORS policy: {CorsPolicy} to route: {Pattern}", options.CorsPolicy, options.Pattern);
+            _ = map.RequireCors(options.CorsPolicy);
         }
         else
         {

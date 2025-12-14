@@ -448,10 +448,11 @@ public record ParameterForInjectionInfo
         {
             return null;
         }
-        if (param.Type is JsonSchemaType.Integer or JsonSchemaType.Number or JsonSchemaType.Boolean or JsonSchemaType.Array or JsonSchemaType.String)
-        {
-            return form.Count == 1 ? form.First().Key : null;
-        }
-        return ConvertFormToHashtable(form);
+
+        // If the parameter is a simple type, return the first key if there's only one key-value pair
+        // and it's a simple type (not an object or array)
+        return param.Type is JsonSchemaType.Integer or JsonSchemaType.Number or JsonSchemaType.Boolean or JsonSchemaType.Array or JsonSchemaType.String
+            ? form.Count == 1 ? form.First().Key : null
+            : ConvertFormToHashtable(form);
     }
 }

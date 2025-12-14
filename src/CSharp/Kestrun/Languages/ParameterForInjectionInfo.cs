@@ -450,14 +450,7 @@ public record ParameterForInjectionInfo
         }
         if (param.Type is JsonSchemaType.Integer or JsonSchemaType.Number or JsonSchemaType.Boolean or JsonSchemaType.Array or JsonSchemaType.String)
         {
-            if (form.Count == 1)
-            {
-                return form.First().Key;
-            }
-            else
-            {
-                return null; // or handle as needed
-            }
+            return form.Count == 1 ? form.First().Key : null;
         }
         return ConvertFormToHashtable(form);
     }

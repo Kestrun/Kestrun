@@ -1,4 +1,4 @@
-﻿<#
+<#
 .SYNOPSIS
     Sets the methods for a CORS policy in a .NET Core application.
 .DESCRIPTION

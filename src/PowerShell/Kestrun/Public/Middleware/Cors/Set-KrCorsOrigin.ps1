@@ -1,4 +1,4 @@
-﻿<#
+<#
 .SYNOPSIS
     Sets the CORS origin for a given CorsPolicyBuilder object.
 .DESCRIPTION

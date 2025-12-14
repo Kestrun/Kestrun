@@ -1,4 +1,4 @@
-﻿<#
+<#
 .SYNOPSIS
     Sets the preflight max age for CORS policies in ASP.NET Core.
 .DESCRIPTION

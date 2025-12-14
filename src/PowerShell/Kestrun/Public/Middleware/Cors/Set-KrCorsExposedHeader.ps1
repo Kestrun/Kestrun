@@ -1,4 +1,4 @@
-﻿<#
+<#
 .SYNOPSIS
     Set exposed headers for a CORS policy builder.
 .DESCRIPTION

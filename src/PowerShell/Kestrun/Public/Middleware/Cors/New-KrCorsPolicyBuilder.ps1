@@ -1,4 +1,4 @@
-﻿<#
+<#
 .SYNOPSIS
     Creates a new CORS policy builder.
 .DESCRIPTION

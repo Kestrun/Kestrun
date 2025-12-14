@@ -1,4 +1,4 @@
-﻿<#
+<#
 .SYNOPSIS
     Set CORS headers for a given CORS policy builder.
 .DESCRIPTION

@@ -28,7 +28,7 @@ Core goals:
 | Security | Host Filtering | [Tutorial](./6.Host-Filtering) |
 | Upcoming | Rate Limiting | Planned |
 | Upcoming | Compression | Planned |
-| Upcoming | CORS | Planned |
+| Security | CORS | [Tutorial](./8.Cors) |
 
 ## Quick Start: Antiforgery
 
@@ -64,13 +64,14 @@ Planned middleware will appear here as they are implemented. Contributions welco
 | HSTS & HTTPS Redirection | ✅ Implemented | [Tutorial](./4.Https-Hsts) + [Guide](/guides/hsts) |
 | Rate Limiting | ⏳ Planned | TBD |
 | Compression | ⏳ Planned | TBD |
-| CORS | ⏳ Planned | TBD |
+| CORS | ✅ Implemented | [Tutorial](./8.Cors) + [Guide](/guides/cors) |
 | Request Metrics | Ideation | TBD |
 
 ## Next Steps
 
 - Read the [Antiforgery Protection](./1.Antiforgery) chapter
 - Explore [Host Filtering](./6.Host-Filtering)
+- Learn CORS policies in [CORS](./8.Cors)
 - Learn about [HTTPS and HSTS Security](./4.Https-Hsts)
 - Explore [Sessions](../19.Session/1.Sessions)
 - Review caching in [Responses: Caching & Revalidation](/pwsh/tutorial/9.Responses/8.Caching)

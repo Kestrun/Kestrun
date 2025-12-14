@@ -84,38 +84,39 @@ Stop the server with Ctrl+C in the terminal.
 | 32    | Responses: Content Negotiation| [Content Negotiation][ch-resp-negotiation]| [Script][sc-resp-9]             | Auto format selection via Accept   |
 | 33    | Responses: Low-Level Stream   | [Low-Level Response][ch-resp-lowlevel]    | [Script][sc-resp-10]            | Raw stream writing                  |
 | 34    | Middleware: Antiforgery       | [Antiforgery Protection][ch-mw-antiforgery] | [Script][sc-mw-antiforgery]   | CSRF token + cookie validation      |
-| 35    | Authentication: Basic (PS)    | [Basic (PS)][ch-auth-basic-ps]            | [Script][sc-auth-basic-ps]      | Basic scheme script block           |
-| 36    | Authentication: Basic (C#/VB) | [Basic (C#/VB)][ch-auth-basic-multi]      | [Script][sc-auth-basic-multi]   | Multi-language validation           |
-| 37    | Authentication: API Key       | [API Key][ch-auth-apikey]                 | [Script][sc-auth-apikey]        | Header key variants                 |
-| 38    | Authentication: JWT           | [JWT Tokens][ch-auth-jwt]                 | [Script][sc-auth-jwt]           | Issue & validate bearer             |
-| 39    | Authentication: Cookies       | [Cookies][ch-auth-cookies]                | [Script][sc-auth-cookies]       | Session cookie login                |
-| 40    | Authentication: Windows       | [Windows Authentication][ch-auth-windows] | [Script][sc-auth-windows]       | Integrated Windows auth             |
-| 41    | Authentication: Claims        | [Claims & Policies][ch-auth-claims]       | [Script][sc-auth-claims]        | Claim policy enforcement            |
-| 42    | Authentication: Multiple      | [Multiple Schemes][ch-auth-multi-schemes] | [Script][sc-auth-multi-schemes] | Combine schemes                     |
-| 43    | Authentication: Full Demo     | [Full Auth Demo][ch-auth-full]            | [Script][sc-auth-full]          | Integrated auth server              |
-| 44    | Server Configuration: Limits  | [Server Limits][ch-scfg-limits]           | [Script][sc-scfg-limits]        | Size & rate limits                  |
-| 45    | Server Configuration: Options | [Server Options][ch-scfg-options]         | [Script][sc-scfg-options]       | Headers & runspaces                 |
-| 46    | Lifecycle: Start/Stop         | [Start / Stop][ch-life-startstop]         | [Script][sc-life-startstop]     | Non-blocking lifecycle              |
-| 47    | Demo: Full Server             | [Full Server Demo][ch-demo-full]          | [Script][sc-demo-full]          | Integrated scenario                 |
-| 48    | Health: Quickstart            | [Health Quickstart][ch-health-quick]      | [Script][sc-health-1]           | Endpoint + basic probes             |
-| 49    | Health: Script Probe          | [Script Probe][ch-health-script]          | [Script][sc-health-2]           | Custom latency script               |
-| 50    | Health: HTTP Probe            | [HTTP Probe][ch-health-http]              | [Script][sc-health-3]           | Internal route check                |
-| 51    | Health: Process Probe         | [Process Probe][ch-health-process]        | [Script][sc-health-4]           | External tool validation            |
-| 52    | Health: C# Inline Probe       | [C# Inline Probe][ch-health-csharp]       | [Script][sc-health-5]           | Inline .NET logic                   |
-| 53    | Health: Disk Probe            | [Disk Probe][ch-health-disk]              | [Script][sc-health-6]           | Disk space thresholds               |
-| 54    | Scheduler: Quickstart         | [Scheduling Quickstart][ch-sched-quick]   | [Script][sc-sched-quick]        | Enable scheduler, jobs, report      |
-| 55    | Scheduler: CRON               | [Scheduling with CRON][ch-sched-cron]     | [Script][sc-sched-cron]         | CRON expressions with seconds       |
-| 56    | Scheduler: Report             | [Scheduling Report][ch-sched-report]      | [Script][sc-sched-report]       | Report endpoint and timezone        |
-| 57    | Status Code Pages: Default    | [Default Status Pages][ch-status-default] | [Script][sc-status-1]           | Basic error page middleware         |
-| 58    | Status Code Pages: Options    | [Custom Options][ch-status-options]       | [Script][sc-status-2]           | StatusCodePagesOptions config       |
-| 59    | Status Code Pages: Handler    | [Custom Handler][ch-status-handler]       | [Script][sc-status-3]           | Delegate function handling          |
-| 60    | Status Code Pages: Script     | [PowerShell Script][ch-status-script]     | [Script][sc-status-4]           | PowerShell error page generation    |
-| 61    | Status Code Pages: Format     | [Content Format][ch-status-format]        | [Script][sc-status-5]           | Custom content type & body format   |
-| 62    | Status Code Pages: Redirects  | [Redirect Pages][ch-status-redirects]     | [Script][sc-status-6]           | Redirect to error page URLs         |
-| 63    | Status Code Pages: Re-execute | [Re-execute Pipeline][ch-status-reexec]   | [Script][sc-status-7]           | Re-execute with alternate paths     |
-| 64    | Middleware: Sessions          | [Sessions][ch-mw-sessions]                | [Script][sc-mw-sessions]        | Cookie-based session state          |
-| 65    | Middleware: Sessions (Redis)  | [Sessions with Redis][ch-mw-sessions-redis] | [Script][sc-mw-sessions-redis] | Redis-backed session storage        |
-| 66    | Middleware: Sessions (SQL)    | [Sessions with SQL Server][ch-mw-sessions-sql] | [Script][sc-mw-sessions-sql] | SQL-backed session storage          |
+| 35    | Middleware: CORS              | [CORS Policies][ch-mw-cors]                 | [Script][sc-mw-cors]           | Cross-origin rules & preflight      |
+| 36    | Authentication: Basic (PS)    | [Basic (PS)][ch-auth-basic-ps]            | [Script][sc-auth-basic-ps]      | Basic scheme script block           |
+| 37    | Authentication: Basic (C#/VB) | [Basic (C#/VB)][ch-auth-basic-multi]      | [Script][sc-auth-basic-multi]   | Multi-language validation           |
+| 38    | Authentication: API Key       | [API Key][ch-auth-apikey]                 | [Script][sc-auth-apikey]        | Header key variants                 |
+| 39    | Authentication: JWT           | [JWT Tokens][ch-auth-jwt]                 | [Script][sc-auth-jwt]           | Issue & validate bearer             |
+| 40    | Authentication: Cookies       | [Cookies][ch-auth-cookies]                | [Script][sc-auth-cookies]       | Session cookie login                |
+| 41    | Authentication: Windows       | [Windows Authentication][ch-auth-windows] | [Script][sc-auth-windows]       | Integrated Windows auth             |
+| 42    | Authentication: Claims        | [Claims & Policies][ch-auth-claims]       | [Script][sc-auth-claims]        | Claim policy enforcement            |
+| 43    | Authentication: Multiple      | [Multiple Schemes][ch-auth-multi-schemes] | [Script][sc-auth-multi-schemes] | Combine schemes                     |
+| 44    | Authentication: Full Demo     | [Full Auth Demo][ch-auth-full]            | [Script][sc-auth-full]          | Integrated auth server              |
+| 45    | Server Configuration: Limits  | [Server Limits][ch-scfg-limits]           | [Script][sc-scfg-limits]        | Size & rate limits                  |
+| 46    | Server Configuration: Options | [Server Options][ch-scfg-options]         | [Script][sc-scfg-options]       | Headers & runspaces                 |
+| 47    | Lifecycle: Start/Stop         | [Start / Stop][ch-life-startstop]         | [Script][sc-life-startstop]     | Non-blocking lifecycle              |
+| 48    | Demo: Full Server             | [Full Server Demo][ch-demo-full]          | [Script][sc-demo-full]          | Integrated scenario                 |
+| 49    | Health: Quickstart            | [Health Quickstart][ch-health-quick]      | [Script][sc-health-1]           | Endpoint + basic probes             |
+| 50    | Health: Script Probe          | [Script Probe][ch-health-script]          | [Script][sc-health-2]           | Custom latency script               |
+| 51    | Health: HTTP Probe            | [HTTP Probe][ch-health-http]              | [Script][sc-health-3]           | Internal route check                |
+| 52    | Health: Process Probe         | [Process Probe][ch-health-process]        | [Script][sc-health-4]           | External tool validation            |
+| 53    | Health: C# Inline Probe       | [C# Inline Probe][ch-health-csharp]       | [Script][sc-health-5]           | Inline .NET logic                   |
+| 54    | Health: Disk Probe            | [Disk Probe][ch-health-disk]              | [Script][sc-health-6]           | Disk space thresholds               |
+| 55    | Scheduler: Quickstart         | [Scheduling Quickstart][ch-sched-quick]   | [Script][sc-sched-quick]        | Enable scheduler, jobs, report      |
+| 56    | Scheduler: CRON               | [Scheduling with CRON][ch-sched-cron]     | [Script][sc-sched-cron]         | CRON expressions with seconds       |
+| 57    | Scheduler: Report             | [Scheduling Report][ch-sched-report]      | [Script][sc-sched-report]       | Report endpoint and timezone        |
+| 58    | Status Code Pages: Default    | [Default Status Pages][ch-status-default] | [Script][sc-status-1]           | Basic error page middleware         |
+| 59    | Status Code Pages: Options    | [Custom Options][ch-status-options]       | [Script][sc-status-2]           | StatusCodePagesOptions config       |
+| 60    | Status Code Pages: Handler    | [Custom Handler][ch-status-handler]       | [Script][sc-status-3]           | Delegate function handling          |
+| 61    | Status Code Pages: Script     | [PowerShell Script][ch-status-script]     | [Script][sc-status-4]           | PowerShell error page generation    |
+| 62    | Status Code Pages: Format     | [Content Format][ch-status-format]        | [Script][sc-status-5]           | Custom content type & body format   |
+| 63    | Status Code Pages: Redirects  | [Redirect Pages][ch-status-redirects]     | [Script][sc-status-6]           | Redirect to error page URLs         |
+| 64    | Status Code Pages: Re-execute | [Re-execute Pipeline][ch-status-reexec]   | [Script][sc-status-7]           | Re-execute with alternate paths     |
+| 65    | Middleware: Sessions          | [Sessions][ch-mw-sessions]                | [Script][sc-mw-sessions]        | Cookie-based session state          |
+| 66    | Middleware: Sessions (Redis)  | [Sessions with Redis][ch-mw-sessions-redis] | [Script][sc-mw-sessions-redis] | Redis-backed session storage        |
+| 67    | Middleware: Sessions (SQL)    | [Sessions with SQL Server][ch-mw-sessions-sql] | [Script][sc-mw-sessions-sql] | SQL-backed session storage          |
 
 Static chapters and scripts are all linked directly above for quick navigation.
 
@@ -162,6 +163,7 @@ Static chapters and scripts are all linked directly above for quick navigation.
 [ch-resp-negotiation]: ./9.Responses/9.Content-Negotiation
 [ch-resp-lowlevel]: ./9.Responses/10.Low-Level-Response
 [ch-mw-antiforgery]: ./10.middleware/1.Antiforgery
+[ch-mw-cors]: ./10.middleware/8.Cors
 [ch-scfg-limits]: ./13.server-configuration/1.Server-Limits
 [ch-scfg-options]: ./13.server-configuration/2.Server-Options
 [ch-life-startstop]: ./14.lifecycle/1.Start-Stop
@@ -182,9 +184,9 @@ Static chapters and scripts are all linked directly above for quick navigation.
 [ch-status-format]: /guides/statuscodepages
 [ch-status-redirects]: /guides/statuscodepages
 [ch-status-reexec]: /guides/statuscodepages
-[ch-mw-sessions]: ./19.Session/1.Sessions
-[ch-mw-sessions-redis]: ./19.Session/2.Sessions-Redis
-[ch-mw-sessions-sql]: ./19.Session/3.Sessions-Sql
+[ch-mw-sessions]: ./19.Sessions/1.Sessions
+[ch-mw-sessions-redis]: ./19.Sessions/2.Sessions-Redis
+[ch-mw-sessions-sql]: ./19.Sessions/3.Sessions-Sql
 [sc-hello]: /pwsh/tutorial/examples/1.1-Hello-World.ps1
 [sc-content]: /pwsh/tutorial/examples/2.1-Multiple-Content-Types.ps1
 [sc-multilang]: /pwsh/tutorial/examples/2.2-Multi-Language-Routes.ps1
@@ -228,6 +230,7 @@ Static chapters and scripts are all linked directly above for quick navigation.
 [sc-resp-9]: /pwsh/tutorial/examples/9.9-Content-Negotiation.ps1
 [sc-resp-10]: /pwsh/tutorial/examples/9.10-Low-Level-Response.ps1
 [sc-mw-antiforgery]: /pwsh/tutorial/examples/10.1-Antiforgery.ps1
+[sc-mw-cors]: /pwsh/tutorial/examples/10.8-Cors-Multipolicy.ps1
 [sc-scfg-limits]: /pwsh/tutorial/examples/13.1-Server-Limits.ps1
 [sc-scfg-options]: /pwsh/tutorial/examples/13.2-Server-Options.ps1
 [sc-life-startstop]: /pwsh/tutorial/examples/15.1-Start-Stop.ps1

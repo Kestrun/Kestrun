@@ -35,7 +35,7 @@ function _KrMerge-MRO {
         HttpVerbs = if ($null -ne $Child.HttpVerbs -and ($Child.HttpVerbs.Count -gt 0)) { $Child.HttpVerbs } else { $Parent.HttpVerbs }
         RequireSchemes = _KrMerge-Unique $Parent.RequireSchemes $Child.RequireSchemes
         RequirePolicies = _KrMerge-Unique $Parent.RequirePolicies $Child.RequirePolicies
-        CorsPolicyName = if ($Child.CorsPolicyName) { $Child.CorsPolicyName } else { $Parent.CorsPolicyName }
+        CorsPolicy = if ($Child.CorsPolicy) { $Child.CorsPolicy } else { $Parent.CorsPolicy }
         OpenAPI = if ($Child.OpenAPI) { $Child.OpenAPI } else { $Parent.OpenAPI }
         ThrowOnDuplicate = $Child.ThrowOnDuplicate -or $Parent.ThrowOnDuplicate
         ScriptCode = @{

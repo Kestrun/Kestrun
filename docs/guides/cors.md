@@ -121,8 +121,6 @@ New-KrCorsPolicyBuilder |
 This emits `Access-Control-Expose-Headers: X-Total-Count, X-Page-Number` so browser JavaScript
 can read those headers from responses.
 
-```
-
 ### C# Patterns
 
 - **Default allow-all (use with caution)**:

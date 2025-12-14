@@ -22,7 +22,7 @@
     Optional list of authentication schemes required to access the endpoint.
 .PARAMETER RequirePolicies
     Optional list of authorization policies required to access the endpoint.
-.PARAMETER CorsPolicyName
+.PARAMETER CorsPolicy
     Optional ASP.NET Core CORS policy name applied to the endpoint.
 .PARAMETER RateLimitPolicyName
     Optional ASP.NET Core rate limiting policy name applied to the endpoint.
@@ -84,7 +84,7 @@ function Add-KrHealthEndpoint {
 
         [string[]]$RequirePolicies,
 
-        [string]$CorsPolicyName,
+        [string]$CorsPolicy,
 
         [string]$RateLimitPolicyName,
 
@@ -156,8 +156,8 @@ function Add-KrHealthEndpoint {
             $options.RequirePolicies = @($RequirePolicies)
         }
 
-        if ($PSBoundParameters.ContainsKey('CorsPolicyName')) {
-            $options.CorsPolicyName = $CorsPolicyName
+        if ($PSBoundParameters.ContainsKey('CorsPolicy')) {
+            $options.CorsPolicy = $CorsPolicy
         }
 
         if ($PSBoundParameters.ContainsKey('RateLimitPolicyName')) {

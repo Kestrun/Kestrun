@@ -76,11 +76,11 @@ public class MapRouteOptionsTests
 
     [Fact]
     [Trait("Category", "Hosting")]
-    public void CorsPolicyName_CanBeSet()
+    public void CorsPolicy_CanBeSet()
     {
-        var options = new MapRouteOptions { CorsPolicyName = "AllowAll" };
+        var options = new MapRouteOptions { CorsPolicy = "AllowAll" };
 
-        Assert.Equal("AllowAll", options.CorsPolicyName);
+        Assert.Equal("AllowAll", options.CorsPolicy);
     }
 
     [Fact]

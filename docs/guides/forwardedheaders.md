@@ -155,7 +155,7 @@ Consult your provider’s documentation for the exact outbound IP ranges and upd
 
 ## Related
 
-- PowerShell tutorial: [Forwarded Headers](/pwsh/tutorial/10.middleware/7.Forwarded-Headers)
+- PowerShell tutorial: [Forwarded Headers](/pwsh/tutorial/15.middleware/7.Forwarded-Headers)
 - Cmdlet: [Add-KrForwardedHeader](/pwsh/cmdlets/Add-KrForwardedHeader)
 - Guide: [HSTS & HTTPS](/guides/hsts)
 - ASP.NET Core docs: [Forwarded Headers Middleware](https://learn.microsoft.com/aspnet/core/host-and-deploy/proxy-load-balancer)

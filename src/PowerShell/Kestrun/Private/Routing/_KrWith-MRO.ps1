@@ -30,7 +30,7 @@ function _KrWith-MRO {
         ExtraRefs = $Base.ExtraRefs
         RequireSchemes = $Base.RequireSchemes
         RequirePolicies = $Base.RequirePolicies
-        CorsPolicyName = $Base.CorsPolicyName
+        CorsPolicy = $Base.CorsPolicy
         Arguments = $Base.Arguments
         OpenAPI = $Base.OpenAPI
         ThrowOnDuplicate = $Base.ThrowOnDuplicate

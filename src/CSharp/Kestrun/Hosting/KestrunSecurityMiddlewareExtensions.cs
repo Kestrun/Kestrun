@@ -38,7 +38,6 @@ public static class KestrunSecurityMiddlewareExtensions
         return host.Use(app => app.UseRateLimiter());
     }
 
-
     /// <summary>
     /// Adds rate limiting to the application using the specified configuration delegate.
     /// </summary>
@@ -69,8 +68,6 @@ public static class KestrunSecurityMiddlewareExtensions
             _ = app.UseRateLimiter();
         });
     }
-
-
 
     /// <summary>
     /// Adds antiforgery protection to the application.
@@ -130,16 +127,97 @@ public static class KestrunSecurityMiddlewareExtensions
         return host.Use(app => app.UseAntiforgery());
     }
 
+    /// <summary>
+    /// Adds a default CORS policy to the application using the specified <see cref="CorsPolicyBuilder"/>.
+    /// </summary>
+    /// <param name="host"> The KestrunHost instance to configure.</param>
+    /// <param name="builder">The CORS policy builder to use for the default policy.</param>
+    /// <returns>The current KestrunHost instance.</returns>
+    public static KestrunHost AddCorsDefaultPolicy(this KestrunHost host, CorsPolicyBuilder builder)
+    {
+        ArgumentNullException.ThrowIfNull(builder);
+        // The name of the default policy is hardcoded here.
+        const string defaultPolicyName = "__DefaultPolicy__";
+        // Service‑time registration
+        _ = host.AddService(services =>
+        {
+            _ = services.AddCors(options =>
+            {
+                options.AddDefaultPolicy(builder.Build());
+            });
+        });
+
+        // Add the policy name to the list of defined policies
+        host.AddCorsPolicyName(defaultPolicyName);
+
+        return host;
+    }
+
+    /// <summary>
+    /// Adds a named CORS policy to the application.
+    /// </summary>
+    /// <param name="host">The KestrunHost instance to configure.</param>
+    /// <param name="policyName">The name to store/apply the policy under.</param>
+    private static void AddCorsPolicyName(this KestrunHost host, string policyName)
+    {
+        if (host.Logger.IsEnabled(LogEventLevel.Debug))
+        {
+            host.Logger.Debug("Adding CORS policy: {PolicyName}", policyName);
+        }
+        if (host.DefinedCorsPolicyNames.Contains(policyName))
+        {
+            if (host.Logger.IsEnabled(LogEventLevel.Warning))
+            {
+                host.Logger.Warning("CORS policy '{PolicyName}' is already defined.", policyName);
+            }
+        }
+        else
+        {
+            host.DefinedCorsPolicyNames.Add(policyName);
+        }
+    }
+    /// <summary>
+    /// Adds a default CORS policy to the application using the specified configuration delegate.
+    /// </summary>
+    /// <param name="host"> The KestrunHost instance to configure.</param>
+    /// <param name="buildPolicy">An action to configure the CORS policy.</param>
+    /// <returns>The current KestrunHost instance.</returns>
+    public static KestrunHost AddCorsDefaultPolicy(this KestrunHost host, Action<CorsPolicyBuilder> buildPolicy)
+    {
+        ArgumentNullException.ThrowIfNull(buildPolicy);
+        // The name of the default policy is hardcoded here.
+        const string defaultPolicyName = "__DefaultPolicy__";
+
+        _ = host.AddService(services =>
+        {
+            _ = services.AddCors(options => options.AddDefaultPolicy(buildPolicy));
+        });
+
+        // Add the policy name to the list of defined policies
+        host.AddCorsPolicyName(defaultPolicyName);
+        return host;
+    }
 
     /// <summary>
     /// Adds a CORS policy named "AllowAll" that allows any origin, method, and header.
     /// </summary>
     /// <param name="host">The KestrunHost instance to configure.</param>
+    /// <param name="policyName">The name to store/apply the policy under.</param>
     /// <returns>The current KestrunHost instance.</returns>
-    public static KestrunHost AddCorsAllowAll(this KestrunHost host) =>
-        host.AddCors("AllowAll", b => b.AllowAnyOrigin()
+    public static KestrunHost AddCorsPolicyAllowAll(this KestrunHost host, string policyName) =>
+        host.AddCorsPolicy(policyName, b => b.AllowAnyOrigin()
                                   .AllowAnyMethod()
                                   .AllowAnyHeader());
+
+    /// <summary>
+    /// Adds a default CORS policy that allows any origin, method, and header.
+    /// </summary>
+    /// <param name="host">The KestrunHost instance to configure.</param>
+    /// <returns>The current KestrunHost instance.</returns>
+    public static KestrunHost AddCorsDefaultPolicyAllowAll(this KestrunHost host) =>
+        host.AddCorsDefaultPolicy(b => b.AllowAnyOrigin()
+                                    .AllowAnyMethod()
+                                    .AllowAnyHeader());
 
     /// <summary>
     /// Registers a named CORS policy that was already composed with a
@@ -152,12 +230,12 @@ public static class KestrunSecurityMiddlewareExtensions
     ///     Callers typically chain <c>.WithOrigins()</c>, <c>.WithMethods()</c>,
     ///     etc. before passing it here.
     /// </param>
-    public static KestrunHost AddCors(this KestrunHost host, string policyName, CorsPolicyBuilder builder)
+    public static KestrunHost AddCorsPolicy(this KestrunHost host, string policyName, CorsPolicyBuilder builder)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(policyName);
         ArgumentNullException.ThrowIfNull(builder);
 
-        // 1️⃣ Service‑time registration
+        // Service‑time registration
         _ = host.AddService(services =>
         {
             _ = services.AddCors(options =>
@@ -166,8 +244,11 @@ public static class KestrunSecurityMiddlewareExtensions
             });
         });
 
+        // Add the policy name to the list of defined policies
+        host.AddCorsPolicyName(policyName);
+
         // 2️⃣ Middleware‑time application
-        return host.Use(app => app.UseCors(policyName));
+        return host;
     }
 
     /// <summary>
@@ -179,27 +260,21 @@ public static class KestrunSecurityMiddlewareExtensions
     /// <param name="buildPolicy">An action to configure the CORS policy.</param>
     /// <returns>The current KestrunHost instance.</returns>
     /// <exception cref="ArgumentException">Thrown when the policy name is null or whitespace.</exception>
-    public static KestrunHost AddCors(this KestrunHost host, string policyName, Action<CorsPolicyBuilder> buildPolicy)
+    public static KestrunHost AddCorsPolicy(this KestrunHost host, string policyName, Action<CorsPolicyBuilder> buildPolicy)
     {
+        ArgumentNullException.ThrowIfNull(host);
+        ArgumentException.ThrowIfNullOrWhiteSpace(policyName);
+
         if (host.Logger.IsEnabled(LogEventLevel.Debug))
         {
             host.Logger.Debug("Adding CORS policy: {PolicyName}", policyName);
         }
 
-        if (string.IsNullOrWhiteSpace(policyName))
-        {
-            throw new ArgumentException("Policy name required.", nameof(policyName));
-        }
-
         ArgumentNullException.ThrowIfNull(buildPolicy);
+        var builder = new CorsPolicyBuilder();
+        buildPolicy(builder);
 
-        _ = host.AddService(s =>
-        {
-            _ = s.AddCors(o => o.AddPolicy(policyName, buildPolicy));
-        });
-
-        // apply only that policy
-        return host.Use(app => app.UseCors(policyName));
+        return host.AddCorsPolicy(policyName, builder);
     }
 
     /// <summary>

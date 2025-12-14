@@ -18,7 +18,7 @@ public class HealthEndpointOptionsTests
             ThrowOnDuplicate = true,
             RequireSchemes = ["https"],
             RequirePolicies = ["admin"],
-            CorsPolicyName = "cors",
+            CorsPolicy = "cors",
             RateLimitPolicyName = "rate",
             ShortCircuit = true,
             ShortCircuitStatusCode = 418,
@@ -41,7 +41,7 @@ public class HealthEndpointOptionsTests
         Assert.Equal(options.ThrowOnDuplicate, clone.ThrowOnDuplicate);
         Assert.Equal(options.RequireSchemes, clone.RequireSchemes);
         Assert.Equal(options.RequirePolicies, clone.RequirePolicies);
-        Assert.Equal(options.CorsPolicyName, clone.CorsPolicyName);
+        Assert.Equal(options.CorsPolicy, clone.CorsPolicy);
         Assert.Equal(options.RateLimitPolicyName, clone.RateLimitPolicyName);
         Assert.Equal(options.ShortCircuit, clone.ShortCircuit);
         Assert.Equal(options.ShortCircuitStatusCode, clone.ShortCircuitStatusCode);

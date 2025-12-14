@@ -88,8 +88,8 @@ public class KestrunHttpMiddlewareExtensionsTests
     public void AddCorsAllowAll_RegistersAllowAllPolicy()
     {
         var host = CreateHost(out var middleware);
-        _ = host.AddCorsAllowAll();
-        Assert.True(middleware.Count > 0);
+        _ = host.AddCorsDefaultPolicyAllowAll();
+        Assert.True(host.CorsPolicyDefined);
     }
 
     [Fact]
@@ -98,8 +98,8 @@ public class KestrunHttpMiddlewareExtensionsTests
     {
         var host = CreateHost(out var middleware);
         var builder = new CorsPolicyBuilder().AllowAnyOrigin();
-        _ = host.AddCors("TestPolicy", builder);
-        Assert.True(middleware.Count > 0);
+        _ = host.AddCorsPolicy("TestPolicy", builder);
+        Assert.True(host.CorsPolicyDefined);
     }
 
     [Fact]
@@ -107,8 +107,8 @@ public class KestrunHttpMiddlewareExtensionsTests
     public void AddCors_WithPolicyAction_RegistersPolicy()
     {
         var host = CreateHost(out var middleware);
-        _ = host.AddCors("TestPolicy", b => b.AllowAnyOrigin().AllowAnyHeader());
-        Assert.True(middleware.Count > 0);
+        _ = host.AddCorsPolicy("TestPolicy", b => b.AllowAnyOrigin().AllowAnyHeader());
+        Assert.True(host.CorsPolicyDefined);
     }
 
     [Fact]
@@ -143,7 +143,7 @@ public class KestrunHttpMiddlewareExtensionsTests
     public void AddCors_WithNullPolicyName_Throws()
     {
         var host = CreateHost(out _);
-        _ = Assert.Throws<ArgumentException>(() => host.AddCors(null!, b => b.AllowAnyOrigin()));
+        _ = Assert.Throws<ArgumentNullException>(() => host.AddCorsPolicy(null!, b => b.AllowAnyOrigin()));
     }
 
     [Fact]
@@ -151,7 +151,7 @@ public class KestrunHttpMiddlewareExtensionsTests
     public void AddCors_WithEmptyPolicyName_Throws()
     {
         var host = CreateHost(out _);
-        _ = Assert.Throws<ArgumentException>(() => host.AddCors("", b => b.AllowAnyOrigin()));
+        _ = Assert.Throws<ArgumentException>(() => host.AddCorsPolicy("", b => b.AllowAnyOrigin()));
     }
 
     [Fact]
@@ -159,7 +159,7 @@ public class KestrunHttpMiddlewareExtensionsTests
     public void AddCors_WithNullBuilder_Throws()
     {
         var host = CreateHost(out _);
-        _ = Assert.Throws<ArgumentNullException>(() => host.AddCors("Test", (CorsPolicyBuilder)null!));
+        _ = Assert.Throws<ArgumentNullException>(() => host.AddCorsPolicy("Test", (CorsPolicyBuilder)null!));
     }
 
     [Fact]
@@ -167,7 +167,7 @@ public class KestrunHttpMiddlewareExtensionsTests
     public void AddCors_WithNullBuildPolicy_Throws()
     {
         var host = CreateHost(out _);
-        _ = Assert.Throws<ArgumentNullException>(() => host.AddCors("Test", (Action<CorsPolicyBuilder>)null!));
+        _ = Assert.Throws<ArgumentNullException>(() => host.AddCorsPolicy("Test", (Action<CorsPolicyBuilder>)null!));
     }
 
     [Fact]

@@ -27,6 +27,8 @@
         An optional array of authorization schemes that the route requires.
     .PARAMETER AuthorizationPolicy
         An optional array of authorization policies that the route requires.
+    .PARAMETER CorsPolicy
+        An optional CORS policy name that the route requires.
     .PARAMETER AllowAnonymous
         If specified, allows anonymous access to the route. it's mutually exclusive with AuthorizationScheme and AuthorizationPolicy.
     .PARAMETER ExtraImports
@@ -110,6 +112,11 @@ function Add-KrMapRoute {
         [Parameter(ParameterSetName = 'ScriptBlock')]
         [Parameter(ParameterSetName = 'Code')]
         [Parameter(ParameterSetName = 'CodeFilePath')]
+        [string]$CorsPolicy,
+
+        [Parameter(ParameterSetName = 'ScriptBlock')]
+        [Parameter(ParameterSetName = 'Code')]
+        [Parameter(ParameterSetName = 'CodeFilePath')]
         [switch]$AllowAnonymous,
 
         [Parameter(ParameterSetName = 'Code')]
@@ -182,7 +189,9 @@ function Add-KrMapRoute {
                     $Options.RequirePolicies.AddRange($AuthorizationPolicy) | Out-Null
                 }
             }
-
+            if (-not [string]::IsNullOrEmpty($CorsPolicy)) {
+                $Options.CorsPolicy = $CorsPolicy
+            }
             # Endpoints
             if ($null -ne $Endpoints -and $Endpoints.Count -gt 0) {
                 $Options.Endpoints = $Endpoints

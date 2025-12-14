@@ -198,6 +198,16 @@ public class KestrunHost : IDisposable
     public bool DefaultHost { get; internal set; }
 
     /// <summary>
+    /// The list of CORS policy names that have been defined in the KestrunHost instance.
+    /// </summary>
+    public List<string> DefinedCorsPolicyNames { get; } = [];
+
+    /// <summary>
+    /// Gets or sets a value indicating whether CORS (Cross-Origin Resource Sharing) is enabled.
+    /// </summary>
+    public bool CorsPolicyDefined => DefinedCorsPolicyNames.Count > 0;
+
+    /// <summary>
     /// Gets or sets the status code options for configuring status code pages.
     /// </summary>
     public StatusCodeOptions? StatusCodeOptions
@@ -1051,11 +1061,53 @@ public class KestrunHost : IDisposable
     /// </summary>
     private void ConfigureBuiltInMiddleware()
     {
-        _ = _app!.UseRouting();
+        // Configure routing
+        ConfigureRouting();
+        // Configure CORS
+        ConfigureCors();
+        // Configure exception handling
         ConfigureExceptionHandling();
+        // Configure forwarded headers
         ConfigureForwardedHeaders();
+        // Configure status code pages
         ConfigureStatusCodePages();
+        // Configure PowerShell runtime
         ConfigurePowerShellRuntime();
+    }
+
+    /// <summary>
+    /// Configures routing middleware.
+    /// </summary>
+    private void ConfigureRouting()
+    {
+        if (Logger.IsEnabled(LogEventLevel.Debug))
+        {
+            Logger.Debug("Enabling routing middleware.");
+        }
+        _ = _app!.UseRouting();
+        if (Logger.IsEnabled(LogEventLevel.Debug))
+        {
+            Logger.Debug("Routing middleware is enabled.");
+        }
+    }
+
+    /// <summary>
+    /// Configures CORS middleware if a CORS policy is defined.
+    /// </summary>
+    private void ConfigureCors()
+    {
+        if (CorsPolicyDefined)
+        {
+            if (Logger.IsEnabled(LogEventLevel.Debug))
+            {
+                Logger.Debug("Enabling CORS middleware.");
+            }
+            _ = _app!.UseCors();
+            if (Logger.IsEnabled(LogEventLevel.Debug))
+            {
+                Logger.Debug("CORS middleware is enabled.");
+            }
+        }
     }
 
     /// <summary>
@@ -1067,11 +1119,15 @@ public class KestrunHost : IDisposable
         {
             if (Logger.IsEnabled(LogEventLevel.Debug))
             {
-                Logger.Debug("Exception handling middleware is enabled.");
+                Logger.Debug("Enabling exception handling middleware.");
             }
             _ = ExceptionOptions.DeveloperExceptionPageOptions is not null
                 ? _app!.UseDeveloperExceptionPage(ExceptionOptions.DeveloperExceptionPageOptions)
                 : _app!.UseExceptionHandler(ExceptionOptions);
+            if (Logger.IsEnabled(LogEventLevel.Debug))
+            {
+                Logger.Debug("Exception handling middleware is enabled.");
+            }
         }
     }
 
@@ -1084,9 +1140,13 @@ public class KestrunHost : IDisposable
         {
             if (Logger.IsEnabled(LogEventLevel.Debug))
             {
-                Logger.Debug("Forwarded headers middleware is enabled.");
+                Logger.Debug("Enabling forwarded headers middleware.");
             }
             _ = _app!.UseForwardedHeaders(ForwardedHeaderOptions);
+            if (Logger.IsEnabled(LogEventLevel.Debug))
+            {
+                Logger.Debug("Forwarded headers middleware is enabled.");
+            }
         }
     }
 
@@ -1101,9 +1161,13 @@ public class KestrunHost : IDisposable
         {
             if (Logger.IsEnabled(LogEventLevel.Debug))
             {
-                Logger.Debug("Status code pages middleware is enabled.");
+                Logger.Debug("Enabling status code pages middleware.");
             }
             _ = _app!.UseStatusCodePages(StatusCodeOptions);
+            if (Logger.IsEnabled(LogEventLevel.Debug))
+            {
+                Logger.Debug("Status code pages middleware is enabled.");
+            }
         }
     }
 
@@ -1117,17 +1181,23 @@ public class KestrunHost : IDisposable
         {
             if (Logger.IsEnabled(LogEventLevel.Debug))
             {
-                Logger.Debug("PowerShell middleware is enabled.");
+                Logger.Debug("Enabling PowerShell middleware.");
             }
 
             if (_runspacePool is null)
             {
                 throw new InvalidOperationException("Runspace pool is not initialized. Call EnableConfiguration first.");
             }
+
             Logger.Information("Adding PowerShell runtime");
             _ = _app!.UseLanguageRuntime(
                     ScriptLanguage.PowerShell,
                     b => b.UsePowerShellRunspace(_runspacePool));
+
+            if (Logger.IsEnabled(LogEventLevel.Debug))
+            {
+                Logger.Debug("PowerShell middleware is enabled.");
+            }
         }
     }
 
@@ -1380,21 +1450,6 @@ public class KestrunHost : IDisposable
                    .Use(app => app.MapGrpcService<TService>());
         }
     */
-
-    /*   public KestrunHost AddSwagger()
-       {
-           AddService(s =>
-           {
-               s.AddEndpointsApiExplorer();
-               s.AddSwaggerGen();
-           });
-           //  ⚠️ Swagger’s middleware normally goes first in the pipeline
-           return Use(app =>
-           {
-               app.UseSwagger();
-               app.UseSwaggerUI();
-           });
-       }*/
 
     // Add as many tiny helpers as you wish:
     // • AddAuthentication(jwt => { … })

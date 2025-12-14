@@ -152,6 +152,6 @@ Most machine endpoints (health, metrics, diagnostics) disable antiforgery while 
 | Can't update existing route | Builder no longer accessible | Re-map route with new options |
 
 > Host header safety: If your app is reachable directly (not only behind a trusted reverse proxy),
-> consider enabling Host Filtering to allow only expected hostnames. See the tutorial: [Host Filtering](/pwsh/tutorial/10.middleware/6.Host-Filtering).
+> consider enabling Host Filtering to allow only expected hostnames. See the tutorial: [Host Filtering](/pwsh/tutorial/15.middleware/6.Host-Filtering).
 
 Return to the [Guides index](./index).

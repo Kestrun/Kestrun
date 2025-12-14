@@ -15,7 +15,7 @@ clean PowerShell cmdlets:
 
 Use this guide for architecture details, configuration matrix, SPA / form integration patterns, and troubleshooting.
 
-> For a quick hands-on tutorial, see: [Tutorial – Antiforgery Protection](/pwsh/tutorial/10.middleware/1.Antiforgery)
+> For a quick hands-on tutorial, see: [Tutorial – Antiforgery Protection](/pwsh/tutorial/15.middleware/1.Antiforgery)
 
 ## 1. Threat Model
 
@@ -268,7 +268,7 @@ Capability Gate Reference:
 
 ## 10. Related Docs
 
-- Tutorial: [Antiforgery Protection](/pwsh/tutorial/10.middleware/1.Antiforgery)
+- Tutorial: [Antiforgery Protection](/pwsh/tutorial/15.middleware/1.Antiforgery)
 - Cmdlet: [Add-KrAntiforgeryMiddleware](/pwsh/cmdlets/Add-KrAntiforgeryMiddleware)
 - Cmdlet: [Add-KrAntiforgeryTokenRoute](/pwsh/cmdlets/Add-KrAntiforgeryTokenRoute)
 - OWASP CSRF: <https://owasp.org/www-community/attacks/csrf>

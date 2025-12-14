@@ -181,8 +181,8 @@ host.AddCorsPolicy("TrustedAdmin", b =>
 
 See the tutorial for a multi-policy setup with a browser test UI:
 
-- [CORS Middleware Tutorial](../pwsh/tutorial/10.middleware/8.Cors.md)
-- Full script include: [`docs/_includes/examples/pwsh/10.8-Cors-Multipolicy.ps1`](../_includes/examples/pwsh/10.8-Cors-Multipolicy.ps1)
+- [CORS Middleware Tutorial](../pwsh/tutorial/15.middleware/8.Cors.md)
+- Full script include: [`docs/_includes/examples/pwsh/15.8-Cors-Multipolicy.ps1`](../_includes/examples/pwsh/15.8-Cors-Multipolicy.ps1)
 
 ## References
 

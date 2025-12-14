@@ -162,8 +162,8 @@ Static chapters and scripts are all linked directly above for quick navigation.
 [ch-resp-caching]: ./9.Responses/8.Caching
 [ch-resp-negotiation]: ./9.Responses/9.Content-Negotiation
 [ch-resp-lowlevel]: ./9.Responses/10.Low-Level-Response
-[ch-mw-antiforgery]: ./10.middleware/1.Antiforgery
-[ch-mw-cors]: ./10.middleware/8.Cors
+[ch-mw-antiforgery]: ./15.middleware/1.Antiforgery
+[ch-mw-cors]: ./15.middleware/8.Cors
 [ch-scfg-limits]: ./13.server-configuration/1.Server-Limits
 [ch-scfg-options]: ./13.server-configuration/2.Server-Options
 [ch-life-startstop]: ./14.lifecycle/1.Start-Stop
@@ -229,8 +229,8 @@ Static chapters and scripts are all linked directly above for quick navigation.
 [sc-resp-8]: /pwsh/tutorial/examples/9.8-Caching.ps1
 [sc-resp-9]: /pwsh/tutorial/examples/9.9-Content-Negotiation.ps1
 [sc-resp-10]: /pwsh/tutorial/examples/9.10-Low-Level-Response.ps1
-[sc-mw-antiforgery]: /pwsh/tutorial/examples/10.1-Antiforgery.ps1
-[sc-mw-cors]: /pwsh/tutorial/examples/10.8-Cors-Multipolicy.ps1
+[sc-mw-antiforgery]: /pwsh/tutorial/examples/15.1-Antiforgery.ps1
+[sc-mw-cors]: /pwsh/tutorial/examples/15.8-Cors-Multipolicy.ps1
 [sc-scfg-limits]: /pwsh/tutorial/examples/13.1-Server-Limits.ps1
 [sc-scfg-options]: /pwsh/tutorial/examples/13.2-Server-Options.ps1
 [sc-life-startstop]: /pwsh/tutorial/examples/15.1-Start-Stop.ps1

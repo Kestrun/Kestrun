@@ -189,7 +189,7 @@ function Add-KrMapRoute {
                     $Options.RequirePolicies.AddRange($AuthorizationPolicy) | Out-Null
                 }
             }
-            if ([string]::IsNullOrEmpty($CorsPolicy)) {
+            if (-not [string]::IsNullOrEmpty($CorsPolicy)) {
                 $Options.CorsPolicy = $CorsPolicy
             }
             # Endpoints

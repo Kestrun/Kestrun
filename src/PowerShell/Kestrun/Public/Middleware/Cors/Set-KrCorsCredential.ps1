@@ -22,6 +22,7 @@
 #>
 function Set-KrCorsCredential {
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseShouldProcessForStateChangingFunctions', '')]
+    [KestrunRuntimeApi('Definition')]
     [CmdletBinding(DefaultParameterSetName = 'Allow')]
     [OutputType([Microsoft.AspNetCore.Cors.Infrastructure.CorsPolicyBuilder])]
     param(
@@ -41,7 +42,11 @@ function Set-KrCorsCredential {
             # This will throw later at runtime too, but it’s nicer to catch early:
             # AllowCredentials + AllowAnyOrigin is invalid.
             $Builder.AllowCredentials() | Out-Null
-        } elseif ($Disallow) {
+        }
+
+        if ($Disallow) {
+            # This will throw later at runtime too, but it’s nicer to catch early:
+            # DisallowCredentials + AllowAnyOrigin is invalid.
             $Builder.DisallowCredentials() | Out-Null
         }
 

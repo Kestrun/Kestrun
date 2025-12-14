@@ -1,7 +1,7 @@
 ﻿<#
     Sample:  OpenAPI 3.1.0 sample script demonstrating CORS policies with multiple policies in a Kestrun API server.
     Purpose: To demonstrate how to configure and test multiple CORS policies in a multi-API scenario.
-    File:    10-8-Cors-MultiPolicy.ps1
+    File:    10.8-Cors-MultiPolicy.ps1
     Notes:   This script shows how to configure CORS policies for different API endpoints and test browser CORS behaviors.
              It includes sample functions for listing products, getting product details by ID, retrieving partner inventory levels,
              creating and deleting orders, and a UI server for testing CORS behaviors.

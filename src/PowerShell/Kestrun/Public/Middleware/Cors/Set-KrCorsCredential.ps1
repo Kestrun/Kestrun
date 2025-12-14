@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Set the CORS credentials policy for a given CorsPolicyBuilder object.
 .DESCRIPTION
@@ -36,15 +36,13 @@ function Set-KrCorsCredential {
         [switch]$Disallow
     )
     process {
-        if ($Allow -and $Disallow) { throw 'Choose -Allow or -Disallow, not both.' }
-
-        if ($Allow) {
+        if ($Allow.IsPresent) {
             # This will throw later at runtime too, but it’s nicer to catch early:
             # AllowCredentials + AllowAnyOrigin is invalid.
             $Builder.AllowCredentials() | Out-Null
         }
 
-        if ($Disallow) {
+        if ($Disallow.IsPresent) {
             # This will throw later at runtime too, but it’s nicer to catch early:
             # DisallowCredentials + AllowAnyOrigin is invalid.
             $Builder.DisallowCredentials() | Out-Null

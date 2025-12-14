@@ -77,6 +77,7 @@ New-KrCorsPolicyBuilder |
     Set-KrCorsMethod -Any |
     Set-KrCorsHeader -Any |
     Add-KrCorsPolicy -Default
+```
 
 ### Preflight max age (cache OPTIONS)
 

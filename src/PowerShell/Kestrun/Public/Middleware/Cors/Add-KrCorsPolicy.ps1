@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Adds a CORS policy to the Kestrun server.
 .DESCRIPTION
@@ -22,7 +22,8 @@
 .EXAMPLE
     Add-KrCorsPolicy -Server $server -Default -AllowAll
 .EXAMPLE
-    Add-KrCorsPolicy -Server $server -Default -Name 'MyCORSPolicy'
+     New-KrCorsPolicyBuilder | Set-KrCorsExposedHeader -Headers 'X-Total-Count','X-Page-Number'|
+        Add-KrCorsPolicy -Server $server -Name 'MyCORSPolicy'
 .NOTES
     This function is part of the Kestrun runtime API and is used to configure CORS policies for the Kestrun server.
 #>
@@ -58,8 +59,8 @@ function Add-KrCorsPolicy {
         [switch]$AllowAll,
 
         # Pipeline continuation
-        [Parameter()]
-        [Alias('PassBuilder')]
+        [Parameter(ValueFromPipeline = $true, ParameterSetName = 'Named')]
+        [Parameter(ValueFromPipeline = $true, ParameterSetName = 'Default')]
         [switch]$PassThru
     )
 

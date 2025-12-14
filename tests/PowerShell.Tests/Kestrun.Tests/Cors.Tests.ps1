@@ -1,4 +1,4 @@
-param()
+﻿param()
 
 BeforeAll {
     . (Join-Path $PSScriptRoot '.\PesterHelpers.ps1')
@@ -9,7 +9,7 @@ Describe 'CORS Advanced Features' -Tag 'Integration', 'CORS' {
     Context 'Multiple Origins Support' {
 
         BeforeAll {
-            $script:instance = Start-ExampleScript -Scriptblock {
+            $script:instance = Start-ExampleScript -ScriptBlock {
                 param(
                     [int]$Port = 5000,
                     [IPAddress]$IPAddress = [IPAddress]::Loopback
@@ -66,7 +66,7 @@ Describe 'CORS Advanced Features' -Tag 'Integration', 'CORS' {
     Context 'Credentials Support' {
 
         BeforeAll {
-            $script:instance = Start-ExampleScript -Scriptblock {
+            $script:instance = Start-ExampleScript -ScriptBlock {
                 param(
                     [int]$Port = 5000,
                     [IPAddress]$IPAddress = [IPAddress]::Loopback
@@ -116,7 +116,7 @@ Describe 'CORS Advanced Features' -Tag 'Integration', 'CORS' {
     Context 'Exposed Headers' {
 
         BeforeAll {
-            $script:instance = Start-ExampleScript -Scriptblock {
+            $script:instance = Start-ExampleScript -ScriptBlock {
                 param(
                     [int]$Port = 5000,
                     [IPAddress]$IPAddress = [IPAddress]::Loopback
@@ -171,7 +171,7 @@ Describe 'CORS Advanced Features' -Tag 'Integration', 'CORS' {
     Context 'Preflight Max Age' {
 
         BeforeAll {
-            $script:instance = Start-ExampleScript -Scriptblock {
+            $script:instance = Start-ExampleScript -ScriptBlock {
                 param(
                     [int]$Port = 5000,
                     [IPAddress]$IPAddress = [IPAddress]::Loopback
@@ -227,7 +227,7 @@ Describe 'CORS Advanced Features' -Tag 'Integration', 'CORS' {
     Context 'Complex Method and Header Combinations' {
 
         BeforeAll {
-            $script:instance = Start-ExampleScript -Scriptblock {
+            $script:instance = Start-ExampleScript -ScriptBlock {
                 param(
                     [int]$Port = 5000,
                     [IPAddress]$IPAddress = [IPAddress]::Loopback
@@ -305,7 +305,7 @@ Describe 'CORS Advanced Features' -Tag 'Integration', 'CORS' {
     Context 'AllowAll Policy Variants' {
 
         BeforeAll {
-            $script:instance = Start-ExampleScript -Scriptblock {
+            $script:instance = Start-ExampleScript -ScriptBlock {
                 param(
                     [int]$Port = 5000,
                     [IPAddress]$IPAddress = [IPAddress]::Loopback
@@ -364,7 +364,7 @@ Describe 'CORS Advanced Features' -Tag 'Integration', 'CORS' {
     Context 'Default Policy Fallback' {
 
         BeforeAll {
-            $script:instance = Start-ExampleScript -Scriptblock {
+            $script:instance = Start-ExampleScript -ScriptBlock {
                 param(
                     [int]$Port = 5000,
                     [IPAddress]$IPAddress = [IPAddress]::Loopback

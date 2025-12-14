@@ -103,7 +103,6 @@ Enable-KrConfiguration
 Add-KrApiDocumentationRoute -DocumentType Swagger
 Add-KrApiDocumentationRoute -DocumentType Redoc
 
-# GET endpoint with reusable parameter components
 <#
 .SYNOPSIS
     List products with filters and pagination.

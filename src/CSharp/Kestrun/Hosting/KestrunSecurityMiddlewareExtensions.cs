@@ -38,7 +38,6 @@ public static class KestrunSecurityMiddlewareExtensions
         return host.Use(app => app.UseRateLimiter());
     }
 
-
     /// <summary>
     /// Adds rate limiting to the application using the specified configuration delegate.
     /// </summary>
@@ -69,8 +68,6 @@ public static class KestrunSecurityMiddlewareExtensions
             _ = app.UseRateLimiter();
         });
     }
-
-
 
     /// <summary>
     /// Adds antiforgery protection to the application.

@@ -1446,7 +1446,6 @@ public class KestrunHost : IDisposable
         }
     */
 
-
     // Add as many tiny helpers as you wish:
     // • AddAuthentication(jwt => { … })
     // • AddSignalR()

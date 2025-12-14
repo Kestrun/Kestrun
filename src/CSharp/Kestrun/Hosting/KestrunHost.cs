@@ -198,9 +198,14 @@ public class KestrunHost : IDisposable
     public bool DefaultHost { get; internal set; }
 
     /// <summary>
+    /// The list of CORS policy names that have been defined in the KestrunHost instance.
+    /// </summary>
+    public List<string> DefinedCorsPolicyNames { get; } = [];
+
+    /// <summary>
     /// Gets or sets a value indicating whether CORS (Cross-Origin Resource Sharing) is enabled.
     /// </summary>
-    public bool CorsPolicyDefined { get; internal set; }
+    public bool CorsPolicyDefined => DefinedCorsPolicyNames.Count > 0;
 
     /// <summary>
     /// Gets or sets the status code options for configuring status code pages.

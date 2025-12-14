@@ -77,6 +77,50 @@ New-KrCorsPolicyBuilder |
     Set-KrCorsMethod -Any |
     Set-KrCorsHeader -Any |
     Add-KrCorsPolicy -Default
+
+### Preflight max age (cache OPTIONS)
+
+Reduce browser preflight (OPTIONS) frequency by declaring a max age.
+You can specify the duration directly via `-Seconds`, or pass a `TimeSpan`.
+
+```powershell
+# 2 hours via seconds
+New-KrCorsPolicyBuilder |
+    Set-KrCorsOrigin -Origins 'http://localhost:3000' |
+    Set-KrCorsMethod -Methods GET, POST, PUT |
+    Set-KrCorsHeader -Any |
+    Set-KrCorsPreflightMaxAge -Seconds 7200 |
+    Add-KrCorsPolicy -Name 'WithMaxAge'
+
+# Equivalent using TimeSpan
+New-KrCorsPolicyBuilder |
+    Set-KrCorsOrigin -Origins 'http://localhost:3000' |
+    Set-KrCorsMethod -Methods GET, POST, PUT |
+    Set-KrCorsHeader -Any |
+    Set-KrCorsPreflightMaxAge -MaxAge (New-TimeSpan -Hours 2) |
+    Add-KrCorsPolicy -Name 'WithMaxAge'
+```
+
+Browsers honor `Access-Control-Max-Age` but may cap or ignore large values.
+
+### Expose custom headers (browser access)
+
+Browsers only expose a small set of safe response headers to JavaScript.
+To read application-specific headers from `fetch()`/XHR responses (e.g., pagination counts),
+add them to the expose list using `Set-KrCorsExposedHeader`.
+
+```powershell
+New-KrCorsPolicyBuilder |
+    Set-KrCorsOrigin -Origins 'http://localhost:3000' |
+    Set-KrCorsMethod -Any |
+    Set-KrCorsHeader -Any |
+    Set-KrCorsExposedHeader -Headers 'X-Total-Count','X-Page-Number' |
+    Add-KrCorsPolicy -Name 'WithExposedHeaders'
+```
+
+This emits `Access-Control-Expose-Headers: X-Total-Count, X-Page-Number` so browser JavaScript
+can read those headers from responses.
+
 ```
 
 ### C# Patterns
@@ -108,6 +152,8 @@ host.AddCorsPolicy("TrustedAdmin", b =>
     b.WithOrigins("https://admin.example.com")
      .WithMethods("GET", "POST", "DELETE")
      .AllowAnyHeader()
+    .WithExposedHeaders("X-Total-Count", "X-Page-Number")
+    .SetPreflightMaxAge(TimeSpan.FromHours(2))
      .AllowCredentials();
 });
 ```
@@ -146,6 +192,8 @@ See the tutorial for a multi-policy setup with a browser test UI:
 - [Set-KrCorsOrigin](/pwsh/cmdlets/Set-KrCorsOrigin)
 - [Set-KrCorsMethod](/pwsh/cmdlets/Set-KrCorsMethod)
 - [Set-KrCorsHeader](/pwsh/cmdlets/Set-KrCorsHeader)
+- [Set-KrCorsExposedHeader](/pwsh/cmdlets/Set-KrCorsExposedHeader)
+- [Set-KrCorsPreflightMaxAge](/pwsh/cmdlets/Set-KrCorsPreflightMaxAge)
 - [Add-KrCorsPolicy](/pwsh/cmdlets/Add-KrCorsPolicy)
 - [Add-KrMapRoute](/pwsh/cmdlets/Add-KrMapRoute)
 

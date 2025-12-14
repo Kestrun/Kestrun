@@ -908,12 +908,22 @@ public static partial class KestrunHostMapExtensions
     {
         if (!string.IsNullOrWhiteSpace(options.CorsPolicy))
         {
+            if (!host.DefinedCorsPolicyNames.Contains(options.CorsPolicy))
+            {
+                throw new ArgumentException($"CORS policy '{options.CorsPolicy}' is not registered.");
+            }
             host.Logger.Verbose("Applying CORS policy: {CorsPolicy} to route: {Pattern}", options.CorsPolicy, options.Pattern);
             _ = map.RequireCors(options.CorsPolicy);
+            return;
+        }
+        // No per-route policy requested.
+        if (host.CorsPolicyDefined)
+        {
+            host.Logger.Verbose("No per-route CORS policy set for route: {Pattern}; default CORS policy will apply.", options.Pattern);
         }
         else
         {
-            host.Logger.Debug("No CORS policy applied for route: {Pattern}", options.Pattern);
+            host.Logger.Debug("No CORS policy configured for route: {Pattern}", options.Pattern);
         }
     }
 

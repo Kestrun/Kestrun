@@ -1093,7 +1093,6 @@ public class KestrunHost : IDisposable
     {
         if (CorsPolicyDefined)
         {
-
             if (Logger.IsEnabled(LogEventLevel.Debug))
             {
                 Logger.Debug("Enabling CORS middleware.");

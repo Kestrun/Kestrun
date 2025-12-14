@@ -25,7 +25,7 @@ Describe 'CORS Advanced Features' -Tag 'Integration', 'CORS' {
                     Set-KrCorsHeader -Any |
                     Add-KrCorsPolicy -Name 'MultiOrigin'
 
-                Add-KrMapRoute -Verbs Get -Pattern '/data' -Scriptblock {
+                Add-KrMapRoute -Verbs Get, Options -Pattern '/data' -ScriptBlock {
                     Write-KrJsonResponse @{ message = 'Data from multi-origin endpoint' }
                 } -CorsPolicy 'MultiOrigin'
 
@@ -82,7 +82,7 @@ Describe 'CORS Advanced Features' -Tag 'Integration', 'CORS' {
                     Set-KrCorsCredentials -Allow |
                     Add-KrCorsPolicy -Name 'WithCredentials'
 
-                Add-KrMapRoute -Verbs Get -Pattern '/secure' -Scriptblock {
+                Add-KrMapRoute -Verbs Get, Options -Pattern '/secure' -ScriptBlock {
                     Write-KrJsonResponse @{ authenticated = $true }
                 } -CorsPolicy 'WithCredentials'
 
@@ -92,7 +92,7 @@ Describe 'CORS Advanced Features' -Tag 'Integration', 'CORS' {
         }
 
         AfterAll {
-            if ($script:instance) { Stop-ExampleScript -Instance $script:instance  }
+            if ($script:instance) { Stop-ExampleScript -Instance $script:instance }
         }
 
         It 'Includes Access-Control-Allow-Credentials header' {
@@ -132,13 +132,9 @@ Describe 'CORS Advanced Features' -Tag 'Integration', 'CORS' {
                     Set-KrCorsExposedHeaders -Headers 'X-Total-Count', 'X-Page-Number' |
                     Add-KrCorsPolicy -Name 'WithExposedHeaders'
 
-                Add-KrMapRoute -Verbs Get -Pattern '/list' -Scriptblock {
-                    [Microsoft.AspNetCore.Http.HeaderDictionaryExtensions]::Append(
-                        $Context.Response.Headers, 'X-Total-Count', '42'
-                    )
-                    [Microsoft.AspNetCore.Http.HeaderDictionaryExtensions]::Append(
-                        $Context.Response.Headers, 'X-Page-Number', '1'
-                    )
+                Add-KrMapRoute -Verbs Get, Options -Pattern '/list' -ScriptBlock {
+                    $Context.Response.Headers.Add('X-Total-Count', '42')
+                    $Context.Response.Headers.Add('X-Page-Number', '1')
                     Write-KrJsonResponse @( @{ id = 1 }, @{ id = 2 } )
                 } -CorsPolicy 'WithExposedHeaders'
 
@@ -148,7 +144,7 @@ Describe 'CORS Advanced Features' -Tag 'Integration', 'CORS' {
         }
 
         AfterAll {
-            if ($script:instance) { Stop-ExampleScript -Instance $script:instance  }
+            if ($script:instance) { Stop-ExampleScript -Instance $script:instance }
         }
 
         It 'Exposes custom headers in CORS response' {
@@ -191,7 +187,7 @@ Describe 'CORS Advanced Features' -Tag 'Integration', 'CORS' {
                     Set-KrCorsPreflightMaxAge -Seconds 7200 |
                     Add-KrCorsPolicy -Name 'WithMaxAge'
 
-                Add-KrMapRoute -Verbs Post -Pattern '/update' -Scriptblock {
+                Add-KrMapRoute -Verbs Post, Options -Pattern '/update' -ScriptBlock {
                     Write-KrJsonResponse @{ updated = $true }
                 } -CorsPolicy 'WithMaxAge'
 
@@ -201,7 +197,7 @@ Describe 'CORS Advanced Features' -Tag 'Integration', 'CORS' {
         }
 
         AfterAll {
-            if ($script:instance) { Stop-ExampleScript -Instance $script:instance  }
+            if ($script:instance) { Stop-ExampleScript -Instance $script:instance }
         }
 
         It 'Includes Access-Control-Max-Age header in preflight response' {
@@ -246,7 +242,7 @@ Describe 'CORS Advanced Features' -Tag 'Integration', 'CORS' {
                     Set-KrCorsHeader -Headers 'Content-Type', 'Authorization', 'X-Api-Key' |
                     Add-KrCorsPolicy -Name 'RestrictedWritePolicy'
 
-                Add-KrMapRoute -Verbs Post, Put, Patch -Pattern '/api/resource' -Scriptblock {
+                Add-KrMapRoute -Verbs Post, Put, Patch, Options -Pattern '/api/resource' -ScriptBlock {
                     $method = $Context.Request.Method
                     Write-KrJsonResponse @{ method = $method; status = 'processed' }
                 } -CorsPolicy 'RestrictedWritePolicy'
@@ -320,7 +316,7 @@ Describe 'CORS Advanced Features' -Tag 'Integration', 'CORS' {
                 # AllowAll as default policy
                 Add-KrCorsPolicy -Default -AllowAll
 
-                Add-KrMapRoute -Verbs Get, Post -Pattern '/public' -Scriptblock {
+                Add-KrMapRoute -Verbs Get, Post, Options -Pattern '/public' -ScriptBlock {
                     Write-KrJsonResponse @{ access = 'public' }
                 }
 
@@ -330,7 +326,7 @@ Describe 'CORS Advanced Features' -Tag 'Integration', 'CORS' {
         }
 
         AfterAll {
-            if ($script:instance) { Stop-ExampleScript -Instance $script:instance  }
+            if ($script:instance) { Stop-ExampleScript -Instance $script:instance }
         }
 
         It 'AllowAll responds with wildcard origin' {
@@ -383,7 +379,7 @@ Describe 'CORS Advanced Features' -Tag 'Integration', 'CORS' {
                     Add-KrCorsPolicy -Name 'ExistingPolicy'
 
                 # Route references non-existent policy - should fail at runtime
-                Add-KrMapRoute -Verbs Get -Pattern '/misconfig' -Scriptblock {
+                Add-KrMapRoute -Verbs Get, Options -Pattern '/misconfig' -ScriptBlock {
                     Write-KrJsonResponse @{ test = 'data' }
                 } -CorsPolicy 'NonExistentPolicy'
 
@@ -393,7 +389,7 @@ Describe 'CORS Advanced Features' -Tag 'Integration', 'CORS' {
         }
 
         AfterAll {
-            if ($script:instance) { Stop-ExampleScript -Instance $script:instance  }
+            if ($script:instance) { Stop-ExampleScript -Instance $script:instance }
         }
 
         It 'Returns 500 when policy is not found' {
@@ -422,7 +418,7 @@ Describe 'CORS Advanced Features' -Tag 'Integration', 'CORS' {
                     Add-KrCorsPolicy -Default
 
                 # Route without explicit policy should use default
-                Add-KrMapRoute -Verbs Get -Pattern '/default-route' -Scriptblock {
+                Add-KrMapRoute -Verbs Get, Options -Pattern '/default-route' -ScriptBlock {
                     Write-KrJsonResponse @{ usedDefault = $true }
                 }
 
@@ -432,7 +428,7 @@ Describe 'CORS Advanced Features' -Tag 'Integration', 'CORS' {
         }
 
         AfterAll {
-            if ($script:instance) { Stop-ExampleScript -Instance $script:instance  }
+            if ($script:instance) { Stop-ExampleScript -Instance $script:instance }
         }
 
         It 'Uses default policy when no policy specified on route' {

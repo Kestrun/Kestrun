@@ -18,7 +18,7 @@
 .OUTPUTS
     Microsoft.AspNetCore.Cors.Infrastructure.CorsPolicyBuilder
 .NOTES
-    This function is part of the Kraken PowerShell module and is used to configure CORS policies in
+    This function is part of the Kestrun PowerShell module and is used to configure CORS policies in
 #>
 function Set-KrCorsHeader {
     [KestrunRuntimeApi('Definition')]

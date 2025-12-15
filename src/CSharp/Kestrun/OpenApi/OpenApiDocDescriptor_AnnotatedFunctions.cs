@@ -6,7 +6,6 @@ using Kestrun.Hosting.Options;
 using Kestrun.Languages;
 using Kestrun.Utilities;
 using Microsoft.OpenApi;
-using Kestrun.Extensions;
 
 namespace Kestrun.OpenApi;
 

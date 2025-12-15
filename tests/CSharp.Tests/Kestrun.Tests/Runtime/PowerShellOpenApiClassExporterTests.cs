@@ -1,6 +1,5 @@
 using System.Reflection;
 using System.Reflection.Emit;
-using Kestrun.OpenApi;
 using Kestrun.Runtime;
 using Xunit;
 
@@ -23,7 +22,7 @@ public class PowerShellOpenApiClassExporterTests
 
         // Base component class: [OpenApiSchemaComponent]
         var baseType = moduleBuilder.DefineType("PetBase", TypeAttributes.Public | TypeAttributes.Class);
-        baseType.SetCustomAttribute(Cab<OpenApiSchemaComponent>(Array.Empty<object?>()));
+        baseType.SetCustomAttribute(Cab<OpenApiSchemaComponent>([]));
         // Base property
         var idField = baseType.DefineField("_Id", typeof(int), FieldAttributes.Private);
         var idProp = baseType.DefineProperty("Id", PropertyAttributes.None, typeof(int), Type.EmptyTypes);
@@ -32,7 +31,7 @@ public class PowerShellOpenApiClassExporterTests
         ilGetId.Emit(OpCodes.Ldarg_0);
         ilGetId.Emit(OpCodes.Ldfld, idField);
         ilGetId.Emit(OpCodes.Ret);
-        var setId = baseType.DefineMethod("set_Id", MethodAttributes.Public | MethodAttributes.SpecialName | MethodAttributes.HideBySig, null, new[] { typeof(int) });
+        var setId = baseType.DefineMethod("set_Id", MethodAttributes.Public | MethodAttributes.SpecialName | MethodAttributes.HideBySig, null, [typeof(int)]);
         var ilSetId = setId.GetILGenerator();
         ilSetId.Emit(OpCodes.Ldarg_0);
         ilSetId.Emit(OpCodes.Ldarg_1);
@@ -44,7 +43,7 @@ public class PowerShellOpenApiClassExporterTests
 
         // Dependent component class: [OpenApiSchemaComponent]
         var ownerType = moduleBuilder.DefineType("Owner", TypeAttributes.Public | TypeAttributes.Class);
-        ownerType.SetCustomAttribute(Cab<OpenApiSchemaComponent>(Array.Empty<object?>()));
+        ownerType.SetCustomAttribute(Cab<OpenApiSchemaComponent>([]));
         // Owner.Name:string
         var nameField = ownerType.DefineField("_Name", typeof(string), FieldAttributes.Private);
         var nameProp = ownerType.DefineProperty("Name", PropertyAttributes.None, typeof(string), Type.EmptyTypes);
@@ -53,7 +52,7 @@ public class PowerShellOpenApiClassExporterTests
         ilGetName.Emit(OpCodes.Ldarg_0);
         ilGetName.Emit(OpCodes.Ldfld, nameField);
         ilGetName.Emit(OpCodes.Ret);
-        var setName = ownerType.DefineMethod("set_Name", MethodAttributes.Public | MethodAttributes.SpecialName | MethodAttributes.HideBySig, null, new[] { typeof(string) });
+        var setName = ownerType.DefineMethod("set_Name", MethodAttributes.Public | MethodAttributes.SpecialName | MethodAttributes.HideBySig, null, [typeof(string)]);
         var ilSetName = setName.GetILGenerator();
         ilSetName.Emit(OpCodes.Ldarg_0);
         ilSetName.Emit(OpCodes.Ldarg_1);
@@ -65,7 +64,7 @@ public class PowerShellOpenApiClassExporterTests
 
         // Main component with inheritance and property dependencies
         var petType = moduleBuilder.DefineType("Pet", TypeAttributes.Public | TypeAttributes.Class, baseTypeCreated);
-        petType.SetCustomAttribute(Cab<OpenApiSchemaComponent>(Array.Empty<object?>()));
+        petType.SetCustomAttribute(Cab<OpenApiSchemaComponent>([]));
         // Pet.Owner: Owner
         var ownerField = petType.DefineField("_Owner", ownerTypeCreated, FieldAttributes.Private);
         var ownerProp2 = petType.DefineProperty("Owner", PropertyAttributes.None, ownerTypeCreated, Type.EmptyTypes);
@@ -74,7 +73,7 @@ public class PowerShellOpenApiClassExporterTests
         ilGetOwner.Emit(OpCodes.Ldarg_0);
         ilGetOwner.Emit(OpCodes.Ldfld, ownerField);
         ilGetOwner.Emit(OpCodes.Ret);
-        var setOwner = petType.DefineMethod("set_Owner", MethodAttributes.Public | MethodAttributes.SpecialName | MethodAttributes.HideBySig, null, new[] { ownerTypeCreated });
+        var setOwner = petType.DefineMethod("set_Owner", MethodAttributes.Public | MethodAttributes.SpecialName | MethodAttributes.HideBySig, null, [ownerTypeCreated]);
         var ilSetOwner = setOwner.GetILGenerator();
         ilSetOwner.Emit(OpCodes.Ldarg_0);
         ilSetOwner.Emit(OpCodes.Ldarg_1);
@@ -91,7 +90,7 @@ public class PowerShellOpenApiClassExporterTests
         ilGetTags.Emit(OpCodes.Ldarg_0);
         ilGetTags.Emit(OpCodes.Ldfld, tagsField);
         ilGetTags.Emit(OpCodes.Ret);
-        var setTags = petType.DefineMethod("set_Tags", MethodAttributes.Public | MethodAttributes.SpecialName | MethodAttributes.HideBySig, null, new[] { typeof(string[]) });
+        var setTags = petType.DefineMethod("set_Tags", MethodAttributes.Public | MethodAttributes.SpecialName | MethodAttributes.HideBySig, null, [typeof(string[])]);
         var ilSetTags = setTags.GetILGenerator();
         ilSetTags.Emit(OpCodes.Ldarg_0);
         ilSetTags.Emit(OpCodes.Ldarg_1);
@@ -110,7 +109,7 @@ public class PowerShellOpenApiClassExporterTests
     public void ExportOpenApiClasses_WritesScript_WithExpectedClassShapes()
     {
         var asm = BuildDynamicAssemblyWithComponents();
-        var path = PowerShellOpenApiClassExporter.ExportOpenApiClasses(new[] { asm });
+        var path = PowerShellOpenApiClassExporter.ExportOpenApiClasses([asm]);
 
         Assert.True(File.Exists(path));
         var content = File.ReadAllText(path);

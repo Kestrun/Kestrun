@@ -14,10 +14,18 @@ public static class KestrunHostSignalRExtensions
     /// <returns>The count of connected clients, or null if SignalR hub/connection tracking is not configured.</returns>
     public static int? GetConnectedClientCount(this KestrunHost host)
     {
-        var svcProvider = host.App?.Services;
-        return svcProvider == null
-            ? null
-            : svcProvider.GetService(typeof(IConnectionTracker)) is IConnectionTracker tracker ? tracker.ConnectedCount : (int?)null;
+        try
+        {
+            var svcProvider = host.App?.Services;
+            return svcProvider == null
+                ? null
+                : svcProvider.GetService(typeof(IConnectionTracker)) is IConnectionTracker tracker ? tracker.ConnectedCount : null;
+        }
+        catch (InvalidOperationException)
+        {
+            // App not built yet
+            return null;
+        }
     }
 
     /// <summary>
@@ -36,26 +44,35 @@ public static class KestrunHostSignalRExtensions
             return await ctx.BroadcastLogAsync(level, message, cancellationToken).ConfigureAwait(false);
         }
         // Fallback to service resolution when no HttpContext
-        var svcProvider = host.App?.Services;
-        if (svcProvider == null)
-        {
-            host.Logger.Warning("No service provider available to resolve IRealtimeBroadcaster.");
-            return false;
-        }
-        if (svcProvider.GetService(typeof(IRealtimeBroadcaster)) is not IRealtimeBroadcaster broadcaster)
-        {
-            host.Logger.Warning("IRealtimeBroadcaster service is not registered. Make sure SignalR is configured with KestrunHub.");
-            return false;
-        }
         try
         {
-            await broadcaster.BroadcastLogAsync(level, message, cancellationToken).ConfigureAwait(false);
-            host.Logger.Debug("Broadcasted log message via SignalR: {Level} - {Message}", level, message);
-            return true;
+            var svcProvider = host.App?.Services;
+            if (svcProvider == null)
+            {
+                host.Logger.Warning("No service provider available to resolve IRealtimeBroadcaster.");
+                return false;
+            }
+            if (svcProvider.GetService(typeof(IRealtimeBroadcaster)) is not IRealtimeBroadcaster broadcaster)
+            {
+                host.Logger.Warning("IRealtimeBroadcaster service is not registered. Make sure SignalR is configured with KestrunHub.");
+                return false;
+            }
+            try
+            {
+                await broadcaster.BroadcastLogAsync(level, message, cancellationToken).ConfigureAwait(false);
+                host.Logger.Debug("Broadcasted log message via SignalR: {Level} - {Message}", level, message);
+                return true;
+            }
+            catch (Exception ex)
+            {
+                host.Logger.Error(ex, "Failed to broadcast log message: {Level} - {Message}", level, message);
+                return false;
+            }
         }
-        catch (Exception ex)
+        catch (InvalidOperationException)
         {
-            host.Logger.Error(ex, "Failed to broadcast log message: {Level} - {Message}", level, message);
+            // App not built yet
+            host.Logger.Warning("WebApplication is not built yet. Call Build() first.");
             return false;
         }
     }
@@ -75,26 +92,35 @@ public static class KestrunHostSignalRExtensions
             var ctx = new Models.KestrunContext(host, httpContext);
             return await ctx.BroadcastEventAsync(eventName, data, cancellationToken).ConfigureAwait(false);
         }
-        var svcProvider = host.App?.Services;
-        if (svcProvider == null)
-        {
-            host.Logger.Warning("No service provider available to resolve IRealtimeBroadcaster.");
-            return false;
-        }
-        if (svcProvider.GetService(typeof(IRealtimeBroadcaster)) is not IRealtimeBroadcaster broadcaster)
-        {
-            host.Logger.Warning("IRealtimeBroadcaster service is not registered. Make sure SignalR is configured with KestrunHub.");
-            return false;
-        }
         try
         {
-            await broadcaster.BroadcastEventAsync(eventName, data, cancellationToken).ConfigureAwait(false);
-            host.Logger.Debug("Broadcasted event via SignalR: {EventName}", eventName);
-            return true;
+            var svcProvider = host.App?.Services;
+            if (svcProvider == null)
+            {
+                host.Logger.Warning("No service provider available to resolve IRealtimeBroadcaster.");
+                return false;
+            }
+            if (svcProvider.GetService(typeof(IRealtimeBroadcaster)) is not IRealtimeBroadcaster broadcaster)
+            {
+                host.Logger.Warning("IRealtimeBroadcaster service is not registered. Make sure SignalR is configured with KestrunHub.");
+                return false;
+            }
+            try
+            {
+                await broadcaster.BroadcastEventAsync(eventName, data, cancellationToken).ConfigureAwait(false);
+                host.Logger.Debug("Broadcasted event via SignalR: {EventName}", eventName);
+                return true;
+            }
+            catch (Exception ex)
+            {
+                host.Logger.Error(ex, "Failed to broadcast event: {EventName}", eventName);
+                return false;
+            }
         }
-        catch (Exception ex)
+        catch (InvalidOperationException)
         {
-            host.Logger.Error(ex, "Failed to broadcast event: {EventName}", eventName);
+            // App not built yet
+            host.Logger.Warning("WebApplication is not built yet. Call Build() first.");
             return false;
         }
     }
@@ -115,26 +141,35 @@ public static class KestrunHostSignalRExtensions
             var ctx = new Models.KestrunContext(host, httpContext);
             return await ctx.BroadcastToGroupAsync(groupName, method, message, cancellationToken).ConfigureAwait(false);
         }
-        var svcProvider = host.App?.Services;
-        if (svcProvider == null)
-        {
-            host.Logger.Warning("No service provider available to resolve IRealtimeBroadcaster.");
-            return false;
-        }
-        if (svcProvider.GetService(typeof(IRealtimeBroadcaster)) is not IRealtimeBroadcaster broadcaster)
-        {
-            host.Logger.Warning("IRealtimeBroadcaster service is not registered. Make sure SignalR is configured with KestrunHub.");
-            return false;
-        }
         try
         {
-            await broadcaster.BroadcastToGroupAsync(groupName, method, message, cancellationToken).ConfigureAwait(false);
-            host.Logger.Debug("Broadcasted to group {GroupName} via method {Method}", groupName, method);
-            return true;
+            var svcProvider = host.App?.Services;
+            if (svcProvider == null)
+            {
+                host.Logger.Warning("No service provider available to resolve IRealtimeBroadcaster.");
+                return false;
+            }
+            if (svcProvider.GetService(typeof(IRealtimeBroadcaster)) is not IRealtimeBroadcaster broadcaster)
+            {
+                host.Logger.Warning("IRealtimeBroadcaster service is not registered. Make sure SignalR is configured with KestrunHub.");
+                return false;
+            }
+            try
+            {
+                await broadcaster.BroadcastToGroupAsync(groupName, method, message, cancellationToken).ConfigureAwait(false);
+                host.Logger.Debug("Broadcasted to group {GroupName} via method {Method}", groupName, method);
+                return true;
+            }
+            catch (Exception ex)
+            {
+                host.Logger.Error(ex, "Failed to broadcast to group {GroupName}", groupName);
+                return false;
+            }
         }
-        catch (Exception ex)
+        catch (InvalidOperationException)
         {
-            host.Logger.Error(ex, "Failed to broadcast to group {GroupName}", groupName);
+            // App not built yet
+            host.Logger.Warning("WebApplication is not built yet. Call Build() first.");
             return false;
         }
     }

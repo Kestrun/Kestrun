@@ -1,6 +1,6 @@
 ---
 title: Guides
-nav_order: 1
+nav_order: 30
 ---
 
 # Guides

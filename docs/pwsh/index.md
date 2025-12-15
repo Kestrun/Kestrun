@@ -1,6 +1,6 @@
 ---
 title: PowerShell
-nav_order: 2
+nav_order: 10
 ---
 
 # Powershell Documentation

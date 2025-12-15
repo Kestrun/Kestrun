@@ -1,7 +1,7 @@
 using System.Management.Automation;
 using System.Management.Automation.Language;
 
-namespace Kestrun.Extensions;
+namespace Kestrun.OpenApi;
 
 /// <summary>
 /// Extension methods for FunctionInfo.

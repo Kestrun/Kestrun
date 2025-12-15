@@ -233,7 +233,7 @@ Static chapters and scripts are all linked directly above for quick navigation.
 [sc-mw-cors]: /pwsh/tutorial/examples/15.8-Cors-Multipolicy.ps1
 [sc-scfg-limits]: /pwsh/tutorial/examples/13.1-Server-Limits.ps1
 [sc-scfg-options]: /pwsh/tutorial/examples/13.2-Server-Options.ps1
-[sc-life-startstop]: /pwsh/tutorial/examples/15.1-Start-Stop.ps1
+[sc-life-startstop]: /pwsh/tutorial/examples/14.1-Start-Stop.ps1
 [sc-demo-full]: /pwsh/tutorial/examples/14.1-Full-Demo.ps1
 [sc-health-1]: /pwsh/tutorial/examples/16.1-Health-Quickstart.ps1
 [sc-health-2]: /pwsh/tutorial/examples/16.2-Health-Script-Probe.ps1

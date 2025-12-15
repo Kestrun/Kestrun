@@ -94,8 +94,8 @@ jobs:
                   generate_release_notes: true
                   prerelease: ${{ steps.semver.outputs.prerelease }}
                   files: |
-                      artifacts/Release/nuget/*.nupkg
-                      artifacts/Release/nuget/*.snupkg
-                      artifacts/Release/PowershellGallery/*.zip
+                      artifacts/nuget/*.nupkg
+                      artifacts/nuget/*.snupkg
+                      artifacts/PowershellGallery/*.zip
               env:
                   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

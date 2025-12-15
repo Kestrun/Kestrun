@@ -294,7 +294,7 @@ public class KestrunHttpMiddlewareExtensionsAdditionalTests
 
         // Assert
         Assert.NotNull(host.DefaultCacheControl);
-        Assert.Equal(cacheControl.ToString(), host.DefaultCacheControl!.ToString());
+        Assert.Equal(cacheControl.ToString(), host.DefaultCacheControl.ToString());
     }
 
     [Fact]
@@ -304,7 +304,10 @@ public class KestrunHttpMiddlewareExtensionsAdditionalTests
         // Arrange
         var host = CreateHost(out _);
         var delegateCalled = false;
-        Action<ResponseCachingOptions>? cfg = opts => delegateCalled = true;
+        void cfg(ResponseCachingOptions opts)
+        {
+            delegateCalled = true;
+        }
 
         // Act
         KestrunHttpMiddlewareExtensions.ValidateCachingInput(host, cfg, null);

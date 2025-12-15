@@ -1,6 +1,5 @@
 using System.Reflection;
 using System.Reflection.Emit;
-using Kestrun.OpenApi;
 using Kestrun.Runtime;
 using Xunit;
 

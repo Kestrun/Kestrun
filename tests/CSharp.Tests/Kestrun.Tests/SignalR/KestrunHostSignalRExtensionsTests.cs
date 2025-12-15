@@ -1,6 +1,5 @@
 using Kestrun.Hosting;
 using Kestrun.SignalR;
-using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.DependencyInjection;
 using Moq;
 using Serilog;
@@ -42,14 +41,14 @@ public class KestrunHostSignalRExtensionsTests
     public void GetConnectedClientCount_ReturnsNullWhenTrackerNotRegistered()
     {
         // Arrange
-        _mockConnectionTracker.Setup(ct => ct.ConnectedCount).Returns(0);
+        _ = _mockConnectionTracker.Setup(ct => ct.ConnectedCount).Returns(0);
 
         using var host = new KestrunHost("TestApp", Log.Logger);
-        host.AddService(services =>
+        _ = host.AddService(services =>
         {
             // Don't register tracker - so it won't be found
         });
-        host.Build();
+        _ = host.Build();
 
         // Act
         var result = host.GetConnectedClientCount();
@@ -62,20 +61,20 @@ public class KestrunHostSignalRExtensionsTests
     public void GetConnectedClientCount_ReturnsCountWhenTrackerRegistered()
     {
         // Arrange
-        _mockConnectionTracker.Setup(ct => ct.ConnectedCount).Returns(5);
+        _ = _mockConnectionTracker.Setup(ct => ct.ConnectedCount).Returns(5);
 
         using var host = new KestrunHost("TestApp", Log.Logger);
-        host.AddService(services =>
+        _ = host.AddService(services =>
         {
-            services.AddSingleton(_mockConnectionTracker.Object);
+            _ = services.AddSingleton(_mockConnectionTracker.Object);
         });
-        host.Build();
+        _ = host.Build();
 
         // Act
         var result = host.GetConnectedClientCount();
 
         // Assert
-        Assert.NotNull(result);
+        _ = Assert.NotNull(result);
         Assert.Equal(5, result);
     }
 
@@ -83,20 +82,20 @@ public class KestrunHostSignalRExtensionsTests
     public void GetConnectedClientCount_ReturnsZeroWhenNoClientsConnected()
     {
         // Arrange
-        _mockConnectionTracker.Setup(ct => ct.ConnectedCount).Returns(0);
+        _ = _mockConnectionTracker.Setup(ct => ct.ConnectedCount).Returns(0);
 
         using var host = new KestrunHost("TestApp", Log.Logger);
-        host.AddService(services =>
+        _ = host.AddService(services =>
         {
-            services.AddSingleton(_mockConnectionTracker.Object);
+            _ = services.AddSingleton(_mockConnectionTracker.Object);
         });
-        host.Build();
+        _ = host.Build();
 
         // Act
         var result = host.GetConnectedClientCount();
 
         // Assert
-        Assert.NotNull(result);
+        _ = Assert.NotNull(result);
         Assert.Equal(0, result);
     }
 
@@ -122,11 +121,11 @@ public class KestrunHostSignalRExtensionsTests
     {
         // Arrange
         using var host = new KestrunHost("TestApp", Log.Logger);
-        host.AddService(services =>
+        _ = host.AddService(services =>
         {
             // Don't register broadcaster
         });
-        host.Build();
+        _ = host.Build();
 
         // Act
         var result = await host.BroadcastLogAsync("Information", "Test message");
@@ -139,15 +138,15 @@ public class KestrunHostSignalRExtensionsTests
     public async Task BroadcastLogAsync_SuccessfullySendsLog()
     {
         // Arrange
-        _mockBroadcaster.Setup(b => b.BroadcastLogAsync("Warning", "Test warning", It.IsAny<CancellationToken>()))
+        _ = _mockBroadcaster.Setup(b => b.BroadcastLogAsync("Warning", "Test warning", It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
 
         using var host = new KestrunHost("TestApp", Log.Logger);
-        host.AddService(services =>
+        _ = host.AddService(services =>
         {
-            services.AddSingleton(_mockBroadcaster.Object);
+            _ = services.AddSingleton(_mockBroadcaster.Object);
         });
-        host.Build();
+        _ = host.Build();
 
         // Act
         var result = await host.BroadcastLogAsync("Warning", "Test warning");
@@ -161,15 +160,15 @@ public class KestrunHostSignalRExtensionsTests
     public async Task BroadcastLogAsync_HandlesBroadcasterException()
     {
         // Arrange
-        _mockBroadcaster.Setup(b => b.BroadcastLogAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+        _ = _mockBroadcaster.Setup(b => b.BroadcastLogAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .Throws(new Exception("Broadcast failed"));
 
         using var host = new KestrunHost("TestApp", Log.Logger);
-        host.AddService(services =>
+        _ = host.AddService(services =>
         {
-            services.AddSingleton(_mockBroadcaster.Object);
+            _ = services.AddSingleton(_mockBroadcaster.Object);
         });
-        host.Build();
+        _ = host.Build();
 
         // Act
         var result = await host.BroadcastLogAsync("Error", "Test error");
@@ -186,15 +185,15 @@ public class KestrunHostSignalRExtensionsTests
     public async Task BroadcastLogAsync_SupportsMultipleLevels(string level)
     {
         // Arrange
-        _mockBroadcaster.Setup(b => b.BroadcastLogAsync(level, It.IsAny<string>(), It.IsAny<CancellationToken>()))
+        _ = _mockBroadcaster.Setup(b => b.BroadcastLogAsync(level, It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
 
         using var host = new KestrunHost("TestApp", Log.Logger);
-        host.AddService(services =>
+        _ = host.AddService(services =>
         {
-            services.AddSingleton(_mockBroadcaster.Object);
+            _ = services.AddSingleton(_mockBroadcaster.Object);
         });
-        host.Build();
+        _ = host.Build();
 
         // Act
         var result = await host.BroadcastLogAsync(level, "Test message");
@@ -225,11 +224,11 @@ public class KestrunHostSignalRExtensionsTests
     {
         // Arrange
         using var host = new KestrunHost("TestApp", Log.Logger);
-        host.AddService(services =>
+        _ = host.AddService(services =>
         {
             // Don't register broadcaster
         });
-        host.Build();
+        _ = host.Build();
 
         // Act
         var result = await host.BroadcastEventAsync("TestEvent");
@@ -244,15 +243,15 @@ public class KestrunHostSignalRExtensionsTests
         // Arrange
         var eventData = new { eventId = 456 };
 
-        _mockBroadcaster.Setup(b => b.BroadcastEventAsync("CustomEvent", eventData, It.IsAny<CancellationToken>()))
+        _ = _mockBroadcaster.Setup(b => b.BroadcastEventAsync("CustomEvent", eventData, It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
 
         using var host = new KestrunHost("TestApp", Log.Logger);
-        host.AddService(services =>
+        _ = host.AddService(services =>
         {
-            services.AddSingleton(_mockBroadcaster.Object);
+            _ = services.AddSingleton(_mockBroadcaster.Object);
         });
-        host.Build();
+        _ = host.Build();
 
         // Act
         var result = await host.BroadcastEventAsync("CustomEvent", eventData);
@@ -266,15 +265,15 @@ public class KestrunHostSignalRExtensionsTests
     public async Task BroadcastEventAsync_WithNullData_SuccessfullyBroadcasts()
     {
         // Arrange
-        _mockBroadcaster.Setup(b => b.BroadcastEventAsync("SimpleEvent", null, It.IsAny<CancellationToken>()))
+        _ = _mockBroadcaster.Setup(b => b.BroadcastEventAsync("SimpleEvent", null, It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
 
         using var host = new KestrunHost("TestApp", Log.Logger);
-        host.AddService(services =>
+        _ = host.AddService(services =>
         {
-            services.AddSingleton(_mockBroadcaster.Object);
+            _ = services.AddSingleton(_mockBroadcaster.Object);
         });
-        host.Build();
+        _ = host.Build();
 
         // Act
         var result = await host.BroadcastEventAsync("SimpleEvent");
@@ -288,15 +287,15 @@ public class KestrunHostSignalRExtensionsTests
     public async Task BroadcastEventAsync_HandlesBroadcasterException()
     {
         // Arrange
-        _mockBroadcaster.Setup(b => b.BroadcastEventAsync(It.IsAny<string>(), It.IsAny<object>(), It.IsAny<CancellationToken>()))
+        _ = _mockBroadcaster.Setup(b => b.BroadcastEventAsync(It.IsAny<string>(), It.IsAny<object>(), It.IsAny<CancellationToken>()))
             .Throws(new Exception("Broadcast failed"));
 
         using var host = new KestrunHost("TestApp", Log.Logger);
-        host.AddService(services =>
+        _ = host.AddService(services =>
         {
-            services.AddSingleton(_mockBroadcaster.Object);
+            _ = services.AddSingleton(_mockBroadcaster.Object);
         });
-        host.Build();
+        _ = host.Build();
 
         // Act
         var result = await host.BroadcastEventAsync("FailingEvent");
@@ -327,11 +326,11 @@ public class KestrunHostSignalRExtensionsTests
     {
         // Arrange
         using var host = new KestrunHost("TestApp", Log.Logger);
-        host.AddService(services =>
+        _ = host.AddService(services =>
         {
             // Don't register broadcaster
         });
-        host.Build();
+        _ = host.Build();
 
         // Act
         var result = await host.BroadcastToGroupAsync("TestGroup", "Method", null);
@@ -344,15 +343,15 @@ public class KestrunHostSignalRExtensionsTests
     public async Task BroadcastToGroupAsync_SuccessfullyBroadcasts()
     {
         // Arrange
-        _mockBroadcaster.Setup(b => b.BroadcastToGroupAsync("AdminGroup", "UpdateUsers", It.IsAny<object>(), It.IsAny<CancellationToken>()))
+        _ = _mockBroadcaster.Setup(b => b.BroadcastToGroupAsync("AdminGroup", "UpdateUsers", It.IsAny<object>(), It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
 
         using var host = new KestrunHost("TestApp", Log.Logger);
-        host.AddService(services =>
+        _ = host.AddService(services =>
         {
-            services.AddSingleton(_mockBroadcaster.Object);
+            _ = services.AddSingleton(_mockBroadcaster.Object);
         });
-        host.Build();
+        _ = host.Build();
 
         var adminData = new { userId = 789 };
 
@@ -368,15 +367,15 @@ public class KestrunHostSignalRExtensionsTests
     public async Task BroadcastToGroupAsync_WithNullMessage_SuccessfullyBroadcasts()
     {
         // Arrange
-        _mockBroadcaster.Setup(b => b.BroadcastToGroupAsync("NotifyGroup", "OnNotify", null, It.IsAny<CancellationToken>()))
+        _ = _mockBroadcaster.Setup(b => b.BroadcastToGroupAsync("NotifyGroup", "OnNotify", null, It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
 
         using var host = new KestrunHost("TestApp", Log.Logger);
-        host.AddService(services =>
+        _ = host.AddService(services =>
         {
-            services.AddSingleton(_mockBroadcaster.Object);
+            _ = services.AddSingleton(_mockBroadcaster.Object);
         });
-        host.Build();
+        _ = host.Build();
 
         // Act
         var result = await host.BroadcastToGroupAsync("NotifyGroup", "OnNotify", null);
@@ -390,15 +389,15 @@ public class KestrunHostSignalRExtensionsTests
     public async Task BroadcastToGroupAsync_HandlesBroadcasterException()
     {
         // Arrange
-        _mockBroadcaster.Setup(b => b.BroadcastToGroupAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<object>(), It.IsAny<CancellationToken>()))
+        _ = _mockBroadcaster.Setup(b => b.BroadcastToGroupAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<object>(), It.IsAny<CancellationToken>()))
             .Throws(new Exception("Group broadcast failed"));
 
         using var host = new KestrunHost("TestApp", Log.Logger);
-        host.AddService(services =>
+        _ = host.AddService(services =>
         {
-            services.AddSingleton(_mockBroadcaster.Object);
+            _ = services.AddSingleton(_mockBroadcaster.Object);
         });
-        host.Build();
+        _ = host.Build();
 
         // Act
         var result = await host.BroadcastToGroupAsync("FailingGroup", "Method", "data");
@@ -414,15 +413,15 @@ public class KestrunHostSignalRExtensionsTests
     public async Task BroadcastToGroupAsync_SupportsMultipleGroups(string groupName)
     {
         // Arrange
-        _mockBroadcaster.Setup(b => b.BroadcastToGroupAsync(groupName, It.IsAny<string>(), It.IsAny<object>(), It.IsAny<CancellationToken>()))
+        _ = _mockBroadcaster.Setup(b => b.BroadcastToGroupAsync(groupName, It.IsAny<string>(), It.IsAny<object>(), It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
 
         using var host = new KestrunHost("TestApp", Log.Logger);
-        host.AddService(services =>
+        _ = host.AddService(services =>
         {
-            services.AddSingleton(_mockBroadcaster.Object);
+            _ = services.AddSingleton(_mockBroadcaster.Object);
         });
-        host.Build();
+        _ = host.Build();
 
         // Act
         var result = await host.BroadcastToGroupAsync(groupName, "Notify", "message");

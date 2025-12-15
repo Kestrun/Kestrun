@@ -254,25 +254,30 @@ public class InMemoryConnectionTrackerTests
     {
         // Arrange
         var tracker = new InMemoryConnectionTracker();
-        var tasks = new List<Task>();
+        var connectTasks = new List<Task>();
+        var disconnectTasks = new List<Task>();
 
-        // Act - Connect 50, disconnect 25
+        // Act - First, connect 50 in parallel
         for (var i = 0; i < 50; i++)
         {
             var connId = $"conn{i}";
-            tasks.Add(Task.Run(() => tracker.OnConnected(connId)));
+            connectTasks.Add(Task.Run(() => tracker.OnConnected(connId)));
         }
 
+        // Wait for all connections to complete
+        await Task.WhenAll([.. connectTasks]);
+
+        // Then disconnect 25 in parallel
         for (var i = 0; i < 25; i++)
         {
             var connId = $"conn{i}";
-            tasks.Add(Task.Run(() => tracker.OnDisconnected(connId)));
+            disconnectTasks.Add(Task.Run(() => tracker.OnDisconnected(connId)));
         }
 
-        await Task.WhenAll([.. tasks]);
+        await Task.WhenAll([.. disconnectTasks]);
 
-        // Assert - Should have approximately 25 remaining connections (wider range for timing variations)
-        Assert.InRange(tracker.ConnectedCount, 23, 27);
+        // Assert - Should have exactly 25 remaining connections
+        Assert.Equal(25, tracker.ConnectedCount);
     }
 
     [Fact]

@@ -217,7 +217,7 @@ jobs:
 
             - name: 📤 Upload diagnostics on failure
               if: failure()
-              uses: actions/upload-artifact@v5
+              uses: actions/upload-artifact@v6
               with:
                   name: diagnostics-${{ matrix.os }}-pwsh-${{ matrix.pwsh }}-${{ strategy.job-index }}
                   path: |

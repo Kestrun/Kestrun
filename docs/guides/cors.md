@@ -1,7 +1,8 @@
 ---
 layout: default
 title: CORS
-nav_order: 22
+parent: Guides
+nav_order: 40
 ---
 
 # CORS

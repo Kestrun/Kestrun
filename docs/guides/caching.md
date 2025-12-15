@@ -1,7 +1,7 @@
 ---
 title: HTTP Caching
 parent: Guides
-nav_order: 40
+nav_order: 20
 ---
 
 # HTTP Caching in Kestrun

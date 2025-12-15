@@ -1,7 +1,7 @@
 ---
 title: OpenID Connect (OIDC)
 parent: Guides
-nav_order: 41
+nav_order: 120
 ---
 
 # OpenID Connect (OIDC)

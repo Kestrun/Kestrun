@@ -1,7 +1,7 @@
 ---
 layout: default
 title: Response Compression
-nav_order: 240
+nav_order: 40
 parent: Guides
 ---
 

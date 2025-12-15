@@ -2,7 +2,7 @@
 layout: default
 title: HSTS and HTTPS Redirection
 parent: Guides
-nav_order: 6
+nav_order: 80
 ---
 
 # HSTS and HTTPS Redirection

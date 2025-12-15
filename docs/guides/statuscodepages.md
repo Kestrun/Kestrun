@@ -2,7 +2,7 @@
 layout: default
 parent: Guides
 title: Status Code Pages Middleware
-nav_order: 80
+nav_order: 180
 ---
 
 # Status Code Pages Middleware

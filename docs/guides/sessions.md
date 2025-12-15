@@ -2,7 +2,7 @@
 layout: default
 title: Client Sessions
 parent: Guides
-nav_order: 70
+nav_order: 160
 ---
 
 # Client Sessions

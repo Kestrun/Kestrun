@@ -1,7 +1,7 @@
 ---
 title: Kestrun Logging
 parent: Guides
-nav_order: 30
+nav_order: 100
 ---
 
 # Kestrun Logging

@@ -2,7 +2,7 @@
 layout: default
 title: Certificates Management
 parent: Guides
-nav_order: 45
+nav_order: 30
 ---
 
 # Certificates & JWK Management

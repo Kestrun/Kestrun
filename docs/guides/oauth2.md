@@ -1,7 +1,7 @@
 ---
 title: OAuth 2.0
 parent: Guides
-nav_order: 42
+nav_order: 110
 ---
 
 # OAuth 2.0

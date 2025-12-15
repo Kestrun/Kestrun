@@ -1,7 +1,7 @@
 ---
 title: Antiforgery (CSRF) Protection
 parent: Guides
-nav_order: 50
+nav_order: 10
 ---
 
 # Antiforgery (CSRF) Deep Dive

@@ -1,7 +1,7 @@
 ---
 title: JWT Tokens
 parent: Guides
-nav_order: 40
+nav_order: 90
 ---
 
 # JSON Web Tokens (JWT)

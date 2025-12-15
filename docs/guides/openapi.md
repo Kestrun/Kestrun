@@ -1,7 +1,7 @@
 ---
 title: OpenAPI Generation
 parent: Guides
-nav_order: 41
+nav_order: 130
 ---
 
 # OpenAPI Generation

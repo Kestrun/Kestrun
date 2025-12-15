@@ -1,7 +1,7 @@
 ---
 title: Health Monitoring
 parent: Guides
-nav_order: 35
+nav_order: 70
 ---
 
 # Health Monitoring & Probes

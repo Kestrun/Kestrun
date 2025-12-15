@@ -2,7 +2,7 @@
 layout: default
 title: Scheduling
 parent: Guides
-nav_order: 65
+nav_order: 150
 ---
 
 # Kestrun Scheduling (Jobs & CRON)

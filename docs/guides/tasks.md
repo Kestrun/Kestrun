@@ -2,7 +2,7 @@
 layout: default
 title: Ad-hoc Tasks
 parent: Guides
-nav_order: 60
+nav_order: 190
 ---
 
 # Ad-hoc Tasks (Background Script Execution)

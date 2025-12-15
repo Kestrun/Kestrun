@@ -2,7 +2,7 @@
 layout: default
 title: ExceptionHandling
 parent: Guides
-nav_order: 55
+nav_order: 50
 ---
 
 # Exception Handling

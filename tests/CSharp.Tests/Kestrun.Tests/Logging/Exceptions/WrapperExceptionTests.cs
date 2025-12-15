@@ -1,5 +1,3 @@
-using System.Management.Automation;
-using Kestrun.Logging.Data;
 using Kestrun.Logging.Exceptions;
 using Xunit;
 
@@ -123,7 +121,7 @@ public class WrapperExceptionTests
     public void ToString_WithNullInnerException_ReturnsEmptyString()
     {
         // Arrange
-        var exception = new WrapperException("Message", null);
+        var exception = new WrapperException("Message", null!);
 
         // Act
         var result = exception.ToString();
@@ -154,7 +152,7 @@ public class WrapperExceptionTests
         var exception = new WrapperException("Test");
 
         // Assert
-        Assert.IsAssignableFrom<Exception>(exception);
+        _ = Assert.IsAssignableFrom<Exception>(exception);
     }
 
     [Fact]
@@ -180,7 +178,7 @@ public class WrapperExceptionTests
     public void MessageConstructor_WithNullMessage_CreatesException()
     {
         // Act & Assert - null message should be allowed (base Exception allows it)
-        var exception = new WrapperException(null);
+        var exception = new WrapperException(null!);
         Assert.NotNull(exception); // Exception was created successfully
     }
 
@@ -192,7 +190,7 @@ public class WrapperExceptionTests
         var message = "Wrapper message";
 
         // Act
-        var exception = new WrapperException(message, null);
+        var exception = new WrapperException(message, null!);
 
         // Assert
         Assert.Equal(message, exception.Message);

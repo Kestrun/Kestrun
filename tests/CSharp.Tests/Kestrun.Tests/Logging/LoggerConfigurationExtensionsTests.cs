@@ -85,7 +85,7 @@ public class LoggerConfigurationExtensionsTests
                 .Register("test-logger");
 
             Assert.NotNull(logger);
-            Assert.IsAssignableFrom<Serilog.ILogger>(logger);
+            _ = Assert.IsAssignableFrom<ILogger>(logger);
         }
         finally
         {

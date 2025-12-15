@@ -88,7 +88,7 @@ public class WriteFormUrlEncodedResponseTests
     {
         var response = CreateKestrunResponse();
 
-        Assert.Throws<ArgumentNullException>(() => response.WriteFormUrlEncodedResponse(null));
+        _ = Assert.Throws<ArgumentNullException>(() => response.WriteFormUrlEncodedResponse(null));
     }
 
     [Fact]
@@ -152,7 +152,7 @@ public class WriteFormUrlEncodedResponseTests
     {
         var response = CreateKestrunResponse();
 
-        await Assert.ThrowsAsync<ArgumentNullException>(() => response.WriteFormUrlEncodedResponseAsync(null));
+        _ = await Assert.ThrowsAsync<ArgumentNullException>(() => response.WriteFormUrlEncodedResponseAsync(null));
     }
 
     [Fact]

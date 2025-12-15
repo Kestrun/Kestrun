@@ -113,11 +113,12 @@ public class PaddingTests
     public void Properties_CanBeModified()
     {
         // Arrange
-        var padding = new Padding(5);
-
-        // Act
-        padding.Left = 10;
-        padding.Right = 3;
+        var padding = new Padding(5)
+        {
+            // Act
+            Left = 10,
+            Right = 3
+        };
 
         // Assert
         Assert.Equal(10, padding.Left);
@@ -148,7 +149,7 @@ public class RowTests
     public void Constructor_WithStringValues_CreatesCells()
     {
         // Act
-        var row = new Row(1, false, new[] { "header", "data" });
+        var row = new Row(1, false, ["header", "data"]);
 
         // Assert
         Assert.Equal(2, row.Cells.Count);
@@ -169,18 +170,16 @@ public class RowTests
 
     [Fact]
     [Trait("Category", "Logging")]
-    public void Constructor_WithNullValues_ThrowsArgumentException()
-    {
+    public void Constructor_WithNullValues_ThrowsArgumentException() =>
         // Act & Assert
-        Assert.Throws<ArgumentException>(() => new Row(0, false, (string[])null));
-    }
+        _ = Assert.Throws<ArgumentException>(() => new Row(0, false, null!));
 
     [Fact]
     [Trait("Category", "Logging")]
     public void Constructor_WithObjectsContainingNull_ConvertNullToPlaceholder()
     {
         // Act
-        var row = new Row(0, false, "text", null, "more");
+        var row = new Row(0, false, "text", null!, "more");
 
         // Assert
         Assert.Equal(3, row.Cells.Count);
@@ -228,10 +227,11 @@ public class RowTests
     public void DisableTopGrid_CanBeSet()
     {
         // Arrange
-        var row = new Row(0, false, "data");
-
-        // Act
-        row.DisableTopGrid = true;
+        var row = new Row(0, false, "data")
+        {
+            // Act
+            DisableTopGrid = true
+        };
 
         // Assert
         Assert.True(row.DisableTopGrid);
@@ -254,7 +254,7 @@ public class RowTests
     public void Constructor_WithEmptyValues_CreatesSingleCell()
     {
         // Act & Assert - Empty values should create an empty cells collection or throw
-        var row = new Row(0, false, new string[] { });
+        var row = new Row(0, false, []);
         Assert.NotNull(row.Cells);
         // Empty array should create an empty or minimal cells collection
     }
@@ -504,7 +504,7 @@ public class TableTests
         var table = new Table();
 
         // Act & Assert - Should not throw
-        table.AddRow("before", (string?)null, "after");
+        table.AddRow("before", null!, "after");
         var output = table.Render();
         Assert.NotEmpty(output);
     }

@@ -82,7 +82,7 @@ public class LoggerManagerTests
         {
             LoggerManager.Clear();
             var logger = new LoggerConfiguration().CreateLogger();
-            LoggerManager.Register("test", logger, setAsDefault: true);
+            _ = LoggerManager.Register("test", logger, setAsDefault: true);
 
             Assert.Same(logger, LoggerManager.DefaultLogger);
         }
@@ -120,7 +120,7 @@ public class LoggerManagerTests
         {
             LoggerManager.Clear();
             var logger = new LoggerConfiguration().CreateLogger();
-            LoggerManager.Register("mylogger", logger, setAsDefault: true);
+            _ = LoggerManager.Register("mylogger", logger, setAsDefault: true);
 
             Assert.Equal("mylogger", LoggerManager.DefaultLoggerName);
         }
@@ -141,8 +141,8 @@ public class LoggerManagerTests
             LoggerManager.Clear();
             var logger1 = new LoggerConfiguration().CreateLogger();
             var logger2 = new LoggerConfiguration().CreateLogger();
-            LoggerManager.Register("first", logger1, setAsDefault: true);
-            LoggerManager.Register("second", logger2, setAsDefault: false);
+            _ = LoggerManager.Register("first", logger1, setAsDefault: true);
+            _ = LoggerManager.Register("second", logger2, setAsDefault: false);
 
             LoggerManager.DefaultLoggerName = "second";
             Assert.Same(logger2, Log.Logger);
@@ -163,7 +163,7 @@ public class LoggerManagerTests
         {
             LoggerManager.Clear();
 
-            Assert.Throws<ArgumentException>(() => LoggerManager.DefaultLoggerName = "nonexistent");
+            _ = Assert.Throws<ArgumentException>(() => LoggerManager.DefaultLoggerName = "nonexistent");
         }
         finally
         {
@@ -181,7 +181,7 @@ public class LoggerManagerTests
         LoggerManager.SetLevelSwitch("test", LogEventLevel.Warning);
         var level = LoggerManager.GetLevelSwitch("test");
 
-        Assert.NotNull(level);
+        _ = Assert.NotNull(level);
         Assert.Equal(LogEventLevel.Warning, level.Value);
     }
 
@@ -195,7 +195,7 @@ public class LoggerManagerTests
         LoggerManager.SetLevelSwitch("logger", LogEventLevel.Debug);
 
         var level = LoggerManager.GetLevelSwitch("logger");
-        Assert.NotNull(level);
+        _ = Assert.NotNull(level);
         Assert.Equal(LogEventLevel.Debug, level.Value);
     }
 
@@ -236,7 +236,7 @@ public class LoggerManagerTests
     {
         LoggerManager.Clear();
         var logger = new LoggerConfiguration().CreateLogger();
-        LoggerManager.Register("test", logger);
+        _ = LoggerManager.Register("test", logger);
 
         var result = LoggerManager.CloseAndFlush("test");
 
@@ -261,7 +261,7 @@ public class LoggerManagerTests
     {
         LoggerManager.Clear();
         var logger = new LoggerConfiguration().CreateLogger();
-        LoggerManager.Register("test", logger);
+        _ = LoggerManager.Register("test", logger);
 
         var result = LoggerManager.CloseAndFlush(logger);
 
@@ -286,7 +286,7 @@ public class LoggerManagerTests
     {
         LoggerManager.Clear();
         var logger = new LoggerConfiguration().CreateLogger();
-        LoggerManager.Register("mylogger", logger);
+        _ = LoggerManager.Register("mylogger", logger);
 
         var name = LoggerManager.GetName(logger);
 
@@ -311,7 +311,7 @@ public class LoggerManagerTests
     {
         LoggerManager.Clear();
         var logger = new LoggerConfiguration().CreateLogger();
-        LoggerManager.Register("test", logger);
+        _ = LoggerManager.Register("test", logger);
 
         var found = LoggerManager.TryGetName(logger, out var name);
 
@@ -338,7 +338,7 @@ public class LoggerManagerTests
     {
         LoggerManager.Clear();
         var logger = new LoggerConfiguration().CreateLogger();
-        LoggerManager.Register("test", logger);
+        _ = LoggerManager.Register("test", logger);
 
         Assert.True(LoggerManager.Contains("test"));
     }
@@ -358,7 +358,7 @@ public class LoggerManagerTests
     {
         LoggerManager.Clear();
         var logger = new LoggerConfiguration().CreateLogger();
-        LoggerManager.Register("test", logger);
+        _ = LoggerManager.Register("test", logger);
 
         Assert.True(LoggerManager.Contains(logger));
     }
@@ -380,7 +380,7 @@ public class LoggerManagerTests
         LoggerManager.Clear();
         var config = LoggerManager.New("test");
         var logger = config.CreateLogger();
-        LoggerManager.Register("test", logger);
+        _ = LoggerManager.Register("test", logger);
 
         Assert.True(LoggerManager.Contains(config));
     }
@@ -391,7 +391,7 @@ public class LoggerManagerTests
     {
         LoggerManager.Clear();
         var logger = new LoggerConfiguration().CreateLogger();
-        LoggerManager.Register("test", logger);
+        _ = LoggerManager.Register("test", logger);
 
         var retrieved = LoggerManager.Get("test");
 

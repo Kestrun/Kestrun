@@ -55,7 +55,7 @@ public class HostingExtensionsTests
         KestrunHost? host = null;
 
         // Act & Assert
-        await Assert.ThrowsAsync<ArgumentNullException>(() =>
+        _ = await Assert.ThrowsAsync<ArgumentNullException>(() =>
             host!.RunUntilShutdownAsync(stopToken: CancellationToken.None));
     }
 
@@ -64,9 +64,9 @@ public class HostingExtensionsTests
     public void RunUntilShutdownAsync_ConsoleEncodingParameterWorks()
     {
         // Test that the Encoding parameter type is correctly recognized
-        var host = new Moq.Mock<KestrunHost>("test", Moq.Mock.Of<Serilog.ILogger>());
+        _ = new Moq.Mock<KestrunHost>("test", Moq.Mock.Of<Serilog.ILogger>());
         var encoding = Encoding.UTF8;
-        var cts = new CancellationTokenSource(TimeSpan.FromMilliseconds(1));
+        _ = new CancellationTokenSource(TimeSpan.FromMilliseconds(1));
 
         // This test mainly ensures no compilation errors with parameter types
         Assert.NotNull(encoding);

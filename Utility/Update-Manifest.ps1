@@ -7,6 +7,9 @@ param(
     [string]$OutputPath = './src/PowerShell/Kestrun'
 )
 
+# Add Helper utility module
+Import-Module -Name './Utility/Modules/Helper.psm1'
+
 $ModuleRootPath = Resolve-Path -Path $ModuleRootPath
 
 Write-Host "📂 Current directory: $PWD"
@@ -42,7 +45,7 @@ if (-not (Test-Path -Path './version.json')) {
     throw "File version file not found: $FileVersion"
 }
 $versionData = Get-Content -Path $FileVersion | ConvertFrom-Json
-$Version = $versionData.Version
+$Version = Get-Version -FileVersion $FileVersion -VersionOnly
 $Release = $versionData.Release
 $ReleaseIteration = ([string]::IsNullOrEmpty($versionData.Iteration))  ? $Release : "$Release$($versionData.Iteration)"
 

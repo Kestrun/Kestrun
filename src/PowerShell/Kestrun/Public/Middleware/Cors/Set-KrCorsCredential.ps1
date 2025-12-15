@@ -1,4 +1,4 @@
-﻿<#
+<#
 .SYNOPSIS
     Set the CORS credentials policy for a given CorsPolicyBuilder object.
 .DESCRIPTION

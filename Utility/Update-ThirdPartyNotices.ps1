@@ -1,12 +1,42 @@
 [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidUsingWriteHost', '')]
 param(
+    [Parameter()]
     [string] $Project = '.\src\CSharp\Kestrun\Kestrun.csproj',
+    [Parameter()]
     [string] $Path = '.\THIRD-PARTY-NOTICES.md',
-    [parameter(Mandatory = $true)]
-    [string] $Version
+    [Parameter()]
+    [string] $FileVersion = './version.json'
 )
 Write-Host '📄 Generating third-party notices...'
-$nugetLicenses = nuget-license -i $Project -o markdown |
+
+# Add Helper utility module
+Import-Module -Name './Utility/Modules/Helper.psm1'
+
+# Ensure dotnet is available
+if (-not (Get-Command dotnet -ErrorAction SilentlyContinue)) {
+    throw "The 'dotnet' CLI is not available on PATH. Install .NET SDK first."
+}
+
+# Ensure dotnet-project-licenses tool is installed
+if (-not (Get-Command dotnet-project-licenses -ErrorAction SilentlyContinue)) {
+    Write-Host "📦 'dotnet-project-licenses' not found. Installing as a global tool..."
+    dotnet tool install --global dotnet-project-licenses
+
+    if ($LASTEXITCODE -ne 0) {
+        throw "Failed to install 'dotnet-project-licenses' as a global tool."
+    }
+
+    # Re-check so we fail early if PATH/shims aren’t usable in this session
+    if (-not (Get-Command dotnet-project-licenses -ErrorAction SilentlyContinue)) {
+        throw "'dotnet-project-licenses' was installed, but the command is still not available on PATH in this session."
+    }
+}
+
+# Get current version from version.json
+$Version = Get-Version -FileVersion $FileVersion
+
+# Get the licenses in markdown format
+$nugetLicenses = dotnet-project-licenses -i $Project -o markdown |
     Where-Object { $_ -notmatch '^\|\s+\|' } | # drop lines like "|    |..." with only whitespace between pipes
     ForEach-Object {
         if ($_ -match '^\|') {

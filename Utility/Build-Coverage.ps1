@@ -1,6 +1,6 @@
 [CmdletBinding(DefaultParameterSetName = 'Default')]
 param(
-    [Parameter()] [string]$Framework = 'net9.0',
+    [Parameter()] [string]$Framework = 'net8.0',
     [Parameter()] [string]$Configuration = 'Release',
     [Parameter()] [string]$TestProject = '.\tests\CSharp.Tests\Kestrun.Tests\KestrunTests.csproj',
     [Parameter()] [string]$CoverageDir = '.\coverage',
@@ -79,6 +79,9 @@ $coverageFile = Join-Path $CoverageDir "csharp.$Framework.cobertura.xml"
 
 Write-Host '🧹 Cleaning previous builds...'
 dotnet clean $TestProject --configuration $Configuration | Out-Host
+
+Write-Host '🚀 Building project...'
+Invoke-Build Build -Configuration $Configuration -Framework $Framework
 
 Write-Host '🧪 Running tests with XPlat DataCollector...'
 dotnet test $TestProject `

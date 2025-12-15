@@ -23,10 +23,16 @@ switch ($PSVersionTable.PSVersion.Minor) {
     6 { $netVersion = 'net9.0'; $codeAnalysisVersion = '4.14.0' }
     default { $netVersion = 'net9.0'; $codeAnalysisVersion = '4.14.0' }
 }
+
+$publicRoutePath = (Join-Path -Path $moduleRootPath -ChildPath 'Public-Route.ps1')
+$publicDefinitionPath = (Join-Path -Path $moduleRootPath -ChildPath 'Public-Definition.ps1')
+$privatePath = (Join-Path -Path $moduleRootPath -ChildPath 'Private.ps1')
+$SignModuleFile = ((Test-Path $publicRoutePath) -and (Test-Path $publicDefinitionPath) -and (Test-Path $privatePath))
+
 # Determine if this is a release distribution
-if ( ([KestrunAnnotationsRuntimeInfo]::IsReleaseDistribution)) {
+if ( ([KestrunAnnotationsRuntimeInfo]::IsReleaseDistribution) -and $SignModuleFile) {
     # Load private functions
-    . "$moduleRootPath/Private.ps1"
+    . "$privatePath"
 } else {
     # Load private functions
     Get-ChildItem -Path (Join-Path -Path $moduleRootPath -ChildPath 'Private') -Filter *.ps1 -Recurse -File |
@@ -68,9 +74,9 @@ try {
     if (-not ([AppDomain]::CurrentDomain.GetAssemblies() | Where-Object { $_.GetName().Name -eq 'Kestrun' } )) {
         throw 'Kestrun assembly is not loaded.'
     }
-    if ([KestrunAnnotationsRuntimeInfo]::IsReleaseDistribution) {
-        . "$moduleRootPath/Public-Route.ps1"
-        . "$moduleRootPath/Public-Definition.ps1"
+    if ([KestrunAnnotationsRuntimeInfo]::IsReleaseDistribution -and $SignModuleFile) {
+        . "$publicRoutePath"
+        . "$publicDefinitionPath"
     } else {
         # load public functions
         Get-ChildItem "$($moduleRootPath)/Public/*.ps1" -Recurse | ForEach-Object { . ([System.IO.Path]::GetFullPath($_)) }

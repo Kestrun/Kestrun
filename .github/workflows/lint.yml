@@ -83,7 +83,7 @@ jobs:
 
             - name: 📦 Upload formatting patch artifact
               if: ${{ failure() && steps.verify.outputs.has_changes == 'true' }}
-              uses: actions/upload-artifact@v5
+              uses: actions/upload-artifact@v6
               with:
                   name: formatting-diff
                   path: |
@@ -124,7 +124,7 @@ jobs:
 
             - name: 📦 Upload PSScriptAnalyzer results
               if: ${{ failure() && steps.psa.outputs.has_ps_issues == 'true' }}
-              uses: actions/upload-artifact@v5
+              uses: actions/upload-artifact@v6
               with:
                   name: psa-results
                   path: psa-results.json

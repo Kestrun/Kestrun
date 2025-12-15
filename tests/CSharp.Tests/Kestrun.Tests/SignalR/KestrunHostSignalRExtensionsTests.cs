@@ -43,7 +43,7 @@ public class KestrunHostSignalRExtensionsTests
     {
         // Arrange
         _mockConnectionTracker.Setup(ct => ct.ConnectedCount).Returns(0);
-        
+
         using var host = new KestrunHost("TestApp", Log.Logger);
         host.AddService(services =>
         {

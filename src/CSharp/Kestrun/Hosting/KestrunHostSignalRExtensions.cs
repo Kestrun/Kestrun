@@ -19,7 +19,7 @@ public static class KestrunHostSignalRExtensions
             var svcProvider = host.App?.Services;
             return svcProvider == null
                 ? null
-                : svcProvider.GetService(typeof(IConnectionTracker)) is IConnectionTracker tracker ? tracker.ConnectedCount : (int?)null;
+                : svcProvider.GetService(typeof(IConnectionTracker)) is IConnectionTracker tracker ? tracker.ConnectedCount : null;
         }
         catch (InvalidOperationException)
         {

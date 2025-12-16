@@ -439,7 +439,7 @@ function Set-CoberturaGrouping {
 
     $removed = 0
     foreach ($pkg in $packages) {
-        # collect classes to remove (can’t safely delete while iterating)
+        # collect classes to remove (can't safely delete while iterating)
         $toRemove = New-Object System.Collections.Generic.List[System.Xml.XmlElement]
         foreach ($cls in @($pkg.classes.class)) {
             $fileNorm = Normalize $cls.filename
@@ -458,7 +458,7 @@ function Set-CoberturaGrouping {
             if ($m.Success) {
                 $rel = $rel.Substring($m.Index).TrimStart('/')
             } else {
-                # try to trim by base path if it’s in the string
+                # try to trim by base path if it's in the string
                 if ($baseNorm -and $rel.IndexOf($baseNorm, [StringComparison]::OrdinalIgnoreCase) -ge 0) {
                     $rel = $rel.Substring($rel.IndexOf($baseNorm, [StringComparison]::OrdinalIgnoreCase) + $baseNorm.Length)
                 } else {
@@ -475,7 +475,7 @@ function Set-CoberturaGrouping {
             $first = $parts[0]
             if ($FolderRenameMap.ContainsKey($first)) { $first = [string]$FolderRenameMap[$first] }
 
-            # if we’re grouping by root, enforce allowlist (drop 'lib', etc.)
+            # if we're grouping by root, enforce allowlist (drop 'lib', etc.)
             if ($GroupByFirstFolder -and $AllowedFirstFolders.Count -gt 0) {
                 if (-not ($AllowedFirstFolders | ForEach-Object { $_.ToLower() } | Where-Object { $_ -eq $first.ToLower() })) {
                     $toRemove.Add($cls); continue
@@ -605,13 +605,36 @@ function Sync-PowerShellDll {
         $destFramework = Resolve-Path -Path $destFramework
         $srcFramework = Resolve-Path (Join-Path -Path $src -ChildPath $framework)
         Write-Host "📄 Copying dlls from $srcFramework to $destFramework"
+        $cultureDirs = @(
+            'cs', 'de', 'es', 'fr', 'it', 'ja', 'ko', 'pl',
+            'pt-BR', 'ru', 'tr', 'zh-Hans', 'zh-Hant'
+        )
 
-        # Copy files except ones starting with Microsoft.CodeAnalysis
+        # Normalize src root once
+        $sep = [System.IO.Path]::DirectorySeparatorChar
+        $srcRoot = (Resolve-Path $srcFramework).Path.TrimEnd($sep)
+
         Get-ChildItem -Path $srcFramework -Recurse -File |
-            Where-Object { -not ($_.Name -like 'Microsoft.CodeAnalysis*') -or
-                $_.Name -like 'Microsoft.CodeAnalysis.Razor*' -or $_.Name -like 'Kestrun.Annotations.dll' } |
+            Where-Object {
+                $full = $_.FullName
+
+                # Get path *relative* to $srcFramework and split into segments
+                $rel = $full.Substring($srcRoot.Length).TrimStart($sep, '/')
+                $parts = $rel -split '[\\/]'
+
+                # True if any segment is one of the culture directory names
+                $isCulturePath = $parts | Where-Object { $_ -in $cultureDirs }
+
+                -not (
+                    ($_.Name -like 'Microsoft.CodeAnalysis*' -and $_.Name -notlike 'Microsoft.CodeAnalysis.Razor*') -or
+                    $_.Name -eq 'Kestrun.Annotations.dll' -or
+                    $full -like "*$sep" + 'ref' + "$sep*" -or # any path segment "\ref\"
+                    $full -like "*$sep" + 'refs' + "$sep*" -or # any path segment "\refs\"
+                    $isCulturePath                               # any culture dir anywhere in the path
+                )
+            } |
             ForEach-Object {
-                if ( -not $_.DirectoryName.Contains("$([System.IO.Path]::DirectorySeparatorChar)runtimes$([System.IO.Path]::DirectorySeparatorChar)")) {
+                if (-not $_.DirectoryName.Contains("$sep" + 'runtimes' + "$sep")) {
                     $targetPath = $_.FullName.Replace($srcFramework, $destFramework)
                     $targetDir = Split-Path $targetPath -Parent
 
@@ -622,6 +645,7 @@ function Sync-PowerShellDll {
                     Copy-Item -Path $_.FullName -Destination $targetPath -Force
                 }
             }
+
     }
     # Additionally, copy Kestrun.Annotations.dll and .pdb to PowerShell lib/assemblies
     $annotationSrc = Join-Path -Path $PWD -ChildPath 'src' -AdditionalChildPath 'CSharp', 'Kestrun.Annotations' , 'bin', $Configuration, 'net8.0'

@@ -280,7 +280,7 @@ public sealed class KestrunRunspacePoolManager : IDisposable
             return;
         }
 
-        if (OpenApiClassesPath is not null)
+        if (!string.IsNullOrWhiteSpace(OpenApiClassesPath))
         {
             try
             {

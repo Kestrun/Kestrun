@@ -42,7 +42,8 @@ function Add-KrPowerShellRazorPagesRuntime {
         if ([string]::IsNullOrWhiteSpace($PathPrefix)) {
             [Kestrun.Hosting.KestrunHostRazorExtensions]::AddPowerShellRazorPages($Server) | Out-Null
         } else {
-            [Kestrun.Hosting.KestrunHostRazorExtensions]::AddPowerShellRazorPages($Server, [Microsoft.AspNetCore.Http.PathString]::new($PathPrefix)) | Out-Null
+            # Add PowerShell support for Razor Pages with a path prefix
+            [Kestrun.Hosting.KestrunHostRazorExtensions]::AddPowerShellRazorPages($Server, $PathPrefix) | Out-Null
         }
 
         if ($PassThru.IsPresent) {

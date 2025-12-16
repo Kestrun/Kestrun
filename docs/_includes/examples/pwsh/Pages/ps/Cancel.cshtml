@@ -1,0 +1,56 @@
+@page
+@model Kestrun.Razor.PwshKestrunModel
+@{
+    Layout = null;
+    dynamic data = Model.Data ?? new { Started = false, Aborted = false, Message = "No model", Seconds = 0, Steps = 0 };
+}
+
+<!doctype html>
+<html>
+
+<head>
+    <meta charset="utf-8" />
+    <title>Cancellation test</title>
+</head>
+
+<body style="font-family: sans-serif; margin: 2rem;">
+    <h1>PowerShell cancellation test</h1>
+
+    <p>
+        This page runs a long PowerShell loop and reports progress.
+        Start it, then abort the request (close tab / cancel curl) and watch server logs.
+    </p>
+
+    <form method="get">
+        <label>Seconds:
+            <input name="seconds" type="number" value="@(data.Seconds)" min="1" max="600" />
+        </label>
+        <label>Step ms:
+            <input name="stepMs" type="number" value="@(data.StepMs ?? 500)" min="10" max="5000" />
+        </label>
+        <button type="submit">Start</button>
+    </form>
+
+    <hr />
+
+    <h2>Result</h2>
+    <ul>
+        <li><strong>Started:</strong> @data.Started</li>
+        <li><strong>Aborted observed in script:</strong> @data.Aborted</li>
+        <li><strong>Seconds requested:</strong> @data.Seconds</li>
+        <li><strong>Steps executed:</strong> @data.Steps</li>
+        <li><strong>Message:</strong> @data.Message</li>
+    </ul>
+
+    @if (data.Progress != null)
+    {
+        <h3>Progress log (from script)</h3>
+        <pre style="padding:1rem; background:#111; color:#ddd; white-space:pre-wrap;">@data.Progress</pre>
+    }
+
+    <p style="margin-top:2rem; color:#666;">
+        Tip: try <code>/Cancel?seconds=120&amp;stepMs=500</code> and then cancel the client request.
+    </p>
+</body>
+
+</html>

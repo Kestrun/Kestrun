@@ -100,11 +100,30 @@ public static class PowerShellRazorPage
                 PrepareSession(ps, context);
                 await AddScriptFromFileAsync(ps, psfile, context.RequestAborted);
                 LogExecution(psfile);
-                var psResults = await InvokePowerShellAsync(ps).ConfigureAwait(false);
+                //var psResults = await InvokePowerShellAsync(ps).ConfigureAwait(false);
+                PSDataCollection<PSObject> psResults;
+                try
+                {
+                    psResults = await PowerShellInvoke.InvokeWithRequestAbortAsync(
+                        ps,
+                        context.RequestAborted,
+                        onAbortLog: () => Log.Debug("Request aborted; stopping PowerShell pipeline for {Path}", context.Request.Path)
+                    ).ConfigureAwait(false);
+                }
+                catch (OperationCanceledException) when (context.RequestAborted.IsCancellationRequested)
+                {
+                    // Client went away; don’t try to write an error response.
+                    return;
+                }
                 LogResultsCount(psResults.Count);
 
                 SetModelIfPresent(ps, context);
-
+                // Continue the pipeline unless cancelled
+                if (context.RequestAborted.IsCancellationRequested)
+                {
+                    return;
+                }
+                // Check for errors
                 if (HasErrors(ps))
                 {
                     await HandleErrorsAsync(context, ps);

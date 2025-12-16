@@ -96,4 +96,3 @@ function Resolve-KrPath {
         return $full
     }
 }
-

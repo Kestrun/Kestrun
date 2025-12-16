@@ -210,8 +210,6 @@ Add-KrOAuth2Authentication -AuthenticationScheme 'petstore_auth' `
     -SaveTokens `
     -ClaimPolicy $claimPolicy
 
-#Add-KrCorsPolicyMiddleware -AllowAll -Name '_OpenApiCorsPolicy2'
-
 #endregion
 #region ROUTES / OPERATIONS
 # =========================================================

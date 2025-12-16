@@ -1,0 +1,24 @@
+@page
+@using Kestrun.Razor
+@model PwshKestrunModel
+@{
+    Layout = null;
+    // Model.Data is whatever the .ps1 script put in $Model
+    dynamic data = Model.Data ?? new { Submitted = false, Name = "", Email = "" };
+    bool submitted = data != null && data.Submitted == true;
+}
+
+<h1>Contact Form (PowerShell)</h1>
+
+@if (submitted && data != null)
+{
+    <p>Thank you, <strong>@data.Name</strong>! We'll email you at <em>@data.Email</em>.</p>
+}
+else
+{
+    <form method="post">
+        <label>Name: <input name="name" /></label><br />
+        <label>Email: <input name="email" /></label><br />
+        <button type="submit">Submit</button>
+    </form>
+}

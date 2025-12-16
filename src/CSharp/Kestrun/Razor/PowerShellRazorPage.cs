@@ -282,9 +282,10 @@ public static class PowerShellRazorPage
         }
     }
 
-    private static Task<PSDataCollection<PSObject>> InvokePowerShellAsync(PowerShell ps)
-        => ps.InvokeAsync();
-
+    /// <summary>
+    /// Logs the count of results returned by the PowerShell script.
+    /// </summary>
+    /// <param name="count">The number of results returned by the PowerShell script.</param>
     private static void LogResultsCount(int count)
     {
         if (Log.IsEnabled(LogEventLevel.Debug))
@@ -293,6 +294,11 @@ public static class PowerShellRazorPage
         }
     }
 
+    /// <summary>
+    /// Sets the model in the HttpContext if present in the PowerShell session.
+    /// </summary>
+    /// <param name="ps">The PowerShell instance.</param>
+    /// <param name="context">The HTTP context.</param>
     private static void SetModelIfPresent(PowerShell ps, HttpContext context)
     {
         var model = ps.Runspace.SessionStateProxy.GetVariable("Model");

@@ -53,7 +53,7 @@ internal static class PowerShellDelegateBuilder
                 {
                     log.Verbose("Invoking PowerShell script...");
                 }
-                var psResults = await PowerShellExecutionHelpers.InvokeAsync(ps, log, context.RequestAborted).ConfigureAwait(false);
+                var psResults = await ps.InvokeAsync(log, context.RequestAborted).ConfigureAwait(false);
                 LogTopResults(log, psResults);
 
                 if (await HandleErrorsIfAnyAsync(context, ps).ConfigureAwait(false))

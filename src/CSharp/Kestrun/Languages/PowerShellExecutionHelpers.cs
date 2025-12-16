@@ -40,7 +40,7 @@ internal static class PowerShellExecutionHelpers
     /// Invokes the configured PowerShell pipeline asynchronously with cooperative cancellation.
     /// Cancellation attempts to stop the pipeline gracefully.
     /// </summary>
-    internal static async Task<PSDataCollection<PSObject>> InvokeAsync(PowerShell ps, Serilog.ILogger log, CancellationToken ct)
+    internal static async Task<PSDataCollection<PSObject>> InvokeAsync(this PowerShell ps, Serilog.ILogger log, CancellationToken ct)
     {
         if (log.IsEnabled(LogEventLevel.Verbose))
         {
@@ -53,12 +53,20 @@ internal static class PowerShellExecutionHelpers
             try { shell.Stop(); } catch { /* ignored */ }
         }, ps);
 
-        var results = await ps.InvokeAsync().ConfigureAwait(false);
-
-        if (log.IsEnabled(LogEventLevel.Verbose))
+        try
         {
-            log.Verbose("PowerShell script executed with {Count} results.", results.Count);
+            var results = await ps.InvokeAsync().ConfigureAwait(false);
+
+            if (log.IsEnabled(LogEventLevel.Verbose))
+            {
+                log.Verbose("PowerShell script executed with {Count} results.", results.Count);
+            }
+            return results;
         }
-        return results;
+        catch (System.Management.Automation.PipelineStoppedException) when (ct.IsCancellationRequested)
+        {
+            // Convert PipelineStoppedException to OperationCanceledException when cancellation was requested
+            throw new OperationCanceledException("PowerShell pipeline was stopped due to cancellation.", ct);
+        }
     }
 }

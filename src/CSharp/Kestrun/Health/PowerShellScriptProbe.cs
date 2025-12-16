@@ -103,7 +103,7 @@ internal sealed class PowerShellScriptProbe(
     /// <returns>A task representing the asynchronous operation, with a list of PSObject as the result.</returns>
     private async Task<IReadOnlyList<PSObject>> InvokeScriptAsync(PowerShell ps, CancellationToken ct)
     {
-        var output = await PowerShellExecutionHelpers.InvokeAsync(ps, Logger, ct).ConfigureAwait(false);
+        var output = await ps.InvokeAsync(Logger, ct).ConfigureAwait(false);
         if (Logger.IsEnabled(LogEventLevel.Debug))
         {
             Logger.Debug("PowerShellScriptProbe {Probe} received {Count} output objects", Name, output.Count);

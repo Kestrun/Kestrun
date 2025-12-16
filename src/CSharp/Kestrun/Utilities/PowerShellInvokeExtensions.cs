@@ -18,11 +18,7 @@ internal static class PowerShellInvokeExtensions
         CancellationToken requestAborted,
         Action? onAbortLog = null)
     {
-        // If already aborted, don’t even start.
-        if (requestAborted.IsCancellationRequested)
-        {
-            throw new OperationCanceledException(requestAborted);
-        }
+        requestAborted.ThrowIfCancellationRequested();
 
         // If the request aborts, stop the PS pipeline.
         using var reg = requestAborted.Register(() =>

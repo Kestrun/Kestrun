@@ -7,6 +7,7 @@ using System.Security.Claims;
 using Kestrun.Hosting;
 using Kestrun.Languages;
 using Kestrun.Models;
+using Kestrun.Utilities;
 using Microsoft.AspNetCore.Authentication;
 
 namespace Kestrun.Authentication;
@@ -147,8 +148,24 @@ public interface IAuthHandler
             {
                 _ = ps.AddParameter(kvp.Key, kvp.Value);
             }
-
-            var psResults = await ps.InvokeAsync().ConfigureAwait(false);
+            PSDataCollection<PSObject> psResults;
+            try
+            {
+                psResults = await ps.InvokeWithRequestAbortAsync(
+                    context.RequestAborted,
+                    onAbortLog: () => logger.Debug("Request aborted; stopping PowerShell pipeline for {Path}", context.Request.Path)
+                ).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException) when (context.RequestAborted.IsCancellationRequested)
+            {
+                if (logger.IsEnabled(Serilog.Events.LogEventLevel.Debug))
+                {
+                    logger.Debug("PowerShell pipeline cancelled due to request abortion for {Path}", context.Request.Path);
+                }
+                // Treat as cancellation, not an error.
+                return false;
+            }
+            // var psResults = await ps.InvokeAsync().ConfigureAwait(false);
 
             if (psResults.Count == 0 || psResults[0] == null || psResults[0].BaseObject is not bool isValid)
             {
@@ -300,11 +317,11 @@ public interface IAuthHandler
     /// Issues claims for a user by executing a PowerShell script.
     /// </summary>
     /// <param name="code">The PowerShell script code used to issue claims.</param>
-    /// <param name="ctx">The HTTP context containing the PowerShell runspace.</param>
+    /// <param name="context">The HTTP context containing the PowerShell runspace.</param>
     /// <param name="identity">The username for which to issue claims.</param>
     /// <param name="logger">The logger instance for logging.</param>
     /// <returns>A task representing the asynchronous operation, with a collection of issued claims.</returns>
-    static async Task<IEnumerable<Claim>> IssueClaimsPowerShellAsync(string? code, HttpContext ctx, string identity, Serilog.ILogger logger)
+    static async Task<IEnumerable<Claim>> IssueClaimsPowerShellAsync(string? code, HttpContext context, string identity, Serilog.ILogger logger)
     {
         if (string.IsNullOrWhiteSpace(identity))
         {
@@ -318,10 +335,27 @@ public interface IAuthHandler
 
         try
         {
-            var ps = GetPowerShell(ctx);
+            var ps = GetPowerShell(context);
             _ = ps.AddScript(code, useLocalScope: true).AddParameter("identity", identity);
 
-            var psResults = await ps.InvokeAsync().ConfigureAwait(false);
+            //  var psResults = await ps.InvokeAsync().ConfigureAwait(false);
+            PSDataCollection<PSObject> psResults;
+            try
+            {
+                psResults = await ps.InvokeWithRequestAbortAsync(
+                    context.RequestAborted,
+                    onAbortLog: () => logger.Debug("Request aborted; stopping PowerShell pipeline for {Path}", context.Request.Path)
+                ).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException) when (context.RequestAborted.IsCancellationRequested)
+            {
+                if (logger.IsEnabled(Serilog.Events.LogEventLevel.Debug))
+                {
+                    logger.Debug("PowerShell pipeline cancelled due to request abortion for {Path}", context.Request.Path);
+                }
+                // Treat as cancellation, not an error.
+                return [];
+            }
             if (psResults is null || psResults.Count == 0)
             {
                 return [];

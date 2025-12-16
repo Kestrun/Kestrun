@@ -1,7 +1,6 @@
 @page
 @model Kestrun.Razor.PwshKestrunModel
 @{
-    Layout = null;
     dynamic data = Model.Data ?? new { Started = false, Aborted = false, Message = "No model", Seconds = 0, Steps = 0 };
 }
 

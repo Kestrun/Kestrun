@@ -63,7 +63,7 @@ internal static class PowerShellExecutionHelpers
             }
             return results;
         }
-        catch (System.Management.Automation.PipelineStoppedException) when (ct.IsCancellationRequested)
+        catch (PipelineStoppedException) when (ct.IsCancellationRequested)
         {
             // Convert PipelineStoppedException to OperationCanceledException when cancellation was requested
             throw new OperationCanceledException("PowerShell pipeline was stopped due to cancellation.", ct);

@@ -1,0 +1,104 @@
+@{
+    // IMPORTANT:
+    // Do NOT set Layout here (layouts must not have layouts)
+    // Do NOT assume a model exists
+    var title = ViewData["Title"] as string ?? "Kestrun • Razor + PowerShell";
+}
+
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>@title</title>
+
+    <style>
+        body {
+            margin: 0;
+            font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+            background: #0b1020;
+            color: #e7eaf3;
+        }
+
+        header {
+            background: rgba(255,255,255,0.06);
+            border-bottom: 1px solid rgba(255,255,255,0.08);
+            padding: 1rem 1.25rem;
+        }
+
+        main {
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 1.5rem;
+        }
+
+        nav a {
+            margin-right: 1rem;
+            color: #9ad1ff;
+            text-decoration: none;
+        }
+
+        nav a:hover {
+            text-decoration: underline;
+        }
+
+        footer {
+            margin-top: 3rem;
+            padding-top: 1rem;
+            border-top: 1px solid rgba(255,255,255,0.08);
+            color: rgba(231,234,243,0.7);
+            font-size: 0.9rem;
+        }
+
+        .card {
+            background: rgba(255,255,255,0.06);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 10px;
+            padding: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        code, pre {
+            background: rgba(0,0,0,0.35);
+            padding: 0.25rem 0.4rem;
+            border-radius: 6px;
+        }
+
+        pre {
+            padding: 0.8rem;
+            overflow-x: auto;
+        }
+    </style>
+</head>
+
+<body>
+    <header>
+        <div style="max-width:1000px; margin:0 auto; display:flex; justify-content:space-between; align-items:center;">
+            <div>
+                <strong>Kestrun</strong><br />
+                <span style="font-size:0.85rem; opacity:0.8;">
+                    Razor Pages + PowerShell
+                </span>
+            </div>
+
+            <nav>
+                <a href="./">Home</a>
+                <a href="./About">About</a>
+                <a href="./Status">Status</a>
+                <a href="./Quotes">Quotes</a>
+                <a href="./Contact">Contact</a>
+                <a href="./AppInfo">App Info</a>
+                <a href="./Cancel">Cancel</a>
+            </nav>
+        </div>
+    </header>
+
+    <main>
+        @RenderBody()
+
+        <footer>
+            Served at @DateTime.UtcNow.ToString("u")
+        </footer>
+    </main>
+</body>
+</html>

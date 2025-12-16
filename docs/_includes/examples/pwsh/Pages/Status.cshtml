@@ -1,0 +1,27 @@
+@page
+@model Kestrun.Razor.PwshKestrunModel
+@{
+    ViewData["Title"] = "Status • Kestrun";
+    dynamic d = Model.Data ?? new { NowUtc = "", Method = "", Path = "", RemoteIp = "", Headers = "" };
+}
+
+<div class="card">
+    <h1>Status</h1>
+    <p class="muted">A quick peek at request + runtime data.</p>
+</div>
+
+<div class="grid">
+    <div class="card">
+        <h2>Request</h2>
+        <ul>
+            <li><strong>UTC:</strong> @d.NowUtc</li>
+            <li><strong>Method:</strong> @d.Method</li>
+            <li><strong>Path:</strong> @d.Path</li>
+            <li><strong>Remote IP:</strong> @d.RemoteIp</li>
+        </ul>
+    </div>
+    <div class="card">
+        <h2>Headers (subset)</h2>
+        <pre>@d.Headers</pre>
+    </div>
+</div>

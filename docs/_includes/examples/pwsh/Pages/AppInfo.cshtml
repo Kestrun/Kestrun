@@ -1,0 +1,51 @@
+@page
+@model Kestrun.Razor.PwshKestrunModel
+@{
+    ViewData["Title"] = "Application Info";
+
+     dynamic d = Model.Data ?? new {
+        App = (object)null,
+        Flags = (IDictionary<string, object>)new Dictionary<string, object>(),
+        Motd = ""
+    };
+
+}
+
+<div class="card">
+    <h1>Application Info</h1>
+    <p class="muted">Values defined in the main server script.</p>
+</div>
+
+@if (d.App != null)
+{
+    <div class="card">
+        <h2>App</h2>
+        <ul>
+            <li><strong>Name:</strong> @d.App.Name</li>
+            <li><strong>Environment:</strong> @d.App.Environment</li>
+            <li><strong>Version:</strong> @d.App.Version</li>
+            <li><strong>Started (UTC):</strong> @d.App.StartedUtc</li>
+        </ul>
+    </div>
+}
+
+@if (d.Flags != null)
+{
+    <div class="card">
+        <h2>Feature Flags</h2>
+        <ul>
+            @foreach (var k in d.Flags.Keys)
+            {
+                <li><strong>@k</strong>: @d.Flags[k]</li>
+            }
+        </ul>
+    </div>
+}
+
+@if (!string.IsNullOrEmpty(d.Motd))
+{
+    <div class="card">
+        <h2>Message of the Day</h2>
+        <pre>@d.Motd</pre>
+    </div>
+}

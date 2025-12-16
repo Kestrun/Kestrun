@@ -1,0 +1,46 @@
+@page
+@model Kestrun.Razor.PwshKestrunModel
+@{
+    ViewData["Title"] = "Contact • Kestrun";
+    dynamic d = Model.Data ?? new { Submitted = false, Name = "", Message = "", Error = "" };
+}
+
+<div class="card">
+    <h1>Contact</h1>
+    <p class="muted">A simple form handled by PowerShell.</p>
+</div>
+
+@if (d.Submitted == true)
+{
+    <div class="card">
+        <h2>Thanks, @d.Name!</h2>
+        <p>Message received:</p>
+        <pre>@d.Message</pre>
+        <a href="./Contact">Send another</a>
+    </div>
+}
+else
+{
+    if (d.Error != null && d.Error != "")
+    {
+        <div class="card" style="border-color: rgba(255,70,70,0.35);">
+            <strong>Oops:</strong> @d.Error
+        </div>
+    }
+
+    <div class="card">
+        <form method="post">
+            <label>Name</label>
+            <input name="name" value="@(d.Name)" />
+
+            <div style="height:0.8rem;"></div>
+
+            <label>Message</label>
+            <textarea name="message" rows="5">@(d.Message)</textarea>
+
+            <div style="height:0.8rem;"></div>
+
+            <button type="submit">Send</button>
+        </form>
+    </div>
+}

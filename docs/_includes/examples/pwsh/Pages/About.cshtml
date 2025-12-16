@@ -1,0 +1,21 @@
+@page
+@model Kestrun.Razor.PwshKestrunModel
+@{
+    ViewData["Title"] = "About • Kestrun";
+    dynamic d = Model.Data ?? new { Project = "Kestrun", Blurb = "No model", Features = new string[0] };
+}
+
+<div class="card">
+    <h1>About @d.Project</h1>
+    <p class="muted">@d.Blurb</p>
+</div>
+
+<div class="card">
+    <h2>Features in this sample</h2>
+    <ul>
+        @foreach (var f in d.Features)
+        {
+            <li>@f</li>
+        }
+    </ul>
+</div>

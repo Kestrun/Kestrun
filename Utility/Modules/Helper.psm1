@@ -623,13 +623,15 @@ function Sync-PowerShellDll {
                 $parts = $rel -split '[\\/]'
 
                 # True if any segment is one of the culture directory names
-                $isCulturePath = $parts | Where-Object { $_ -in $cultureDirs }
+                $isCulturePath = ($parts | Where-Object { $_ -in $cultureDirs }).Count -gt 0
 
                 -not (
                     ($_.Name -like 'Microsoft.CodeAnalysis*' -and $_.Name -notlike 'Microsoft.CodeAnalysis.Razor*') -or
                     $_.Name -eq 'Kestrun.Annotations.dll' -or
-                    $full -like "*$sep" + 'ref' + "$sep*" -or # any path segment "\ref\"
-                    $full -like "*$sep" + 'refs' + "$sep*" -or # any path segment "\refs\"
+                    #$full -like "*$sep" + 'ref' + "$sep*" -or # any path segment "\ref\"
+                    #$full -like "*$sep" + 'refs' + "$sep*" -or # any path segment "\refs\"
+                    $parts -contains 'ref' -or # any path segment "\ref\"
+                    $parts -contains 'refs' -or # any path segment "\refs\"
                     $isCulturePath                               # any culture dir anywhere in the path
                 )
             } |
@@ -645,7 +647,6 @@ function Sync-PowerShellDll {
                     Copy-Item -Path $_.FullName -Destination $targetPath -Force
                 }
             }
-
     }
     # Additionally, copy Kestrun.Annotations.dll and .pdb to PowerShell lib/assemblies
     $annotationSrc = Join-Path -Path $PWD -ChildPath 'src' -AdditionalChildPath 'CSharp', 'Kestrun.Annotations' , 'bin', $Configuration, 'net8.0'

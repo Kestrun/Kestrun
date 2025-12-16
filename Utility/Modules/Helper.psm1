@@ -626,8 +626,7 @@ function Sync-PowerShellDll {
                 $isCulturePath = $parts | Where-Object { $_ -in $cultureDirs }
 
                 -not (
-                    $_.Name -like 'Microsoft.CodeAnalysis*' -or
-                    $_.Name -like 'Microsoft.CodeAnalysis.Razor*' -or
+                    ($_.Name -like 'Microsoft.CodeAnalysis*' -and $_.Name -notlike 'Microsoft.CodeAnalysis.Razor*') -or
                     $_.Name -eq 'Kestrun.Annotations.dll' -or
                     $full -like "*$sep" + 'ref' + "$sep*" -or # any path segment "\ref\"
                     $full -like "*$sep" + 'refs' + "$sep*" -or # any path segment "\refs\"

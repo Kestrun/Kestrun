@@ -4,7 +4,7 @@ namespace Kestrun.Utilities;
 /// <summary>
 /// Utilities for invoking PowerShell with cancellation support.
 /// </summary>
-internal static class PowerShellInvoke
+internal static class PowerShellInvokeExtensions
 {
     /// <summary>
     /// Invokes a PowerShell instance asynchronously, supporting cancellation via a CancellationToken.
@@ -14,7 +14,7 @@ internal static class PowerShellInvoke
     /// <param name="onAbortLog">Optional action to log when an abort is requested.</param>
     /// <returns>A task representing the asynchronous operation, with the PowerShell results.</returns>
     public static async Task<PSDataCollection<PSObject>> InvokeWithRequestAbortAsync(
-        PowerShell ps,
+        this PowerShell ps,
         CancellationToken requestAborted,
         Action? onAbortLog = null)
     {

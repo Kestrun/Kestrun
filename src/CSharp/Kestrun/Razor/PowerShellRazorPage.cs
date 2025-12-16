@@ -51,26 +51,31 @@ public static class PowerShellRazorPage
     {
         ArgumentNullException.ThrowIfNull(app);
         ArgumentNullException.ThrowIfNull(pool);
+        // Log setup
+        var logger = pool.Host.Logger;
+        // Check if Debug level is enabled once
+        var isDebugLevelEnabled = logger.IsEnabled(LogEventLevel.Debug);
 
-        if (Log.IsEnabled(LogEventLevel.Debug))
+        // Log middleware configuration
+        if (isDebugLevelEnabled)
         {
-            Log.Debug("Configuring PowerShell Razor Pages middleware");
+            logger.Debug("Configuring PowerShell Razor Pages middleware");
         }
 
         var env = app.ApplicationServices.GetRequiredService<IHostEnvironment>();
         var pagesRoot = Path.Combine(env.ContentRootPath, "Pages");
-        Log.Information("Using Pages directory: {Path}", pagesRoot);
+        logger.Information("Using Pages directory: {Path}", pagesRoot);
         if (!Directory.Exists(pagesRoot))
         {
-            Log.Warning("Pages directory not found: {Path}", pagesRoot);
+            logger.Warning("Pages directory not found: {Path}", pagesRoot);
         }
 
         // MUST run before MapRazorPages()
         _ = app.Use(async (context, next) =>
         {
-            if (Log.IsEnabled(LogEventLevel.Debug))
+            if (isDebugLevelEnabled)
             {
-                Log.Debug("Processing PowerShell Razor Page request for {Path}", context.Request.Path);
+                logger.Debug("Processing PowerShell Razor Page request for {Path}", context.Request.Path);
             }
 
             var relPath = GetRelativePath(context);
@@ -104,14 +109,17 @@ public static class PowerShellRazorPage
                 PSDataCollection<PSObject> psResults;
                 try
                 {
-                    psResults = await PowerShellInvoke.InvokeWithRequestAbortAsync(
-                        ps,
+                    psResults = await ps.InvokeWithRequestAbortAsync(
                         context.RequestAborted,
-                        onAbortLog: () => Log.Debug("Request aborted; stopping PowerShell pipeline for {Path}", context.Request.Path)
+                        onAbortLog: () => logger.Debug("Request aborted; stopping PowerShell pipeline for {Path}", context.Request.Path)
                     ).ConfigureAwait(false);
                 }
                 catch (OperationCanceledException) when (context.RequestAborted.IsCancellationRequested)
                 {
+                    if (isDebugLevelEnabled)
+                    {
+                        logger.Debug("PowerShell pipeline cancelled due to request abortion for {Path}", context.Request.Path);
+                    }
                     // Client went away; don’t try to write an error response.
                     return;
                 }
@@ -133,14 +141,14 @@ public static class PowerShellRazorPage
                 LogStreamsIfAny(ps);
 
                 await next(); // continue the pipeline
-                if (Log.IsEnabled(LogEventLevel.Debug))
+                if (isDebugLevelEnabled)
                 {
-                    Log.Debug("PowerShell Razor Page completed for {Path}", context.Request.Path);
+                    logger.Debug("PowerShell Razor Page completed for {Path}", context.Request.Path);
                 }
             }
             catch (Exception ex)
             {
-                Log.Error(ex, "Error occurred in PowerShell Razor Page middleware for {Path}", context.Request.Path);
+                logger.Error(ex, "Error occurred in PowerShell Razor Page middleware for {Path}", context.Request.Path);
             }
             finally
             {

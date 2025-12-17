@@ -44,10 +44,12 @@ public static class PowerShellRazorPage
     /// </summary>
     /// <param name="app">The <see cref="WebApplication"/> pipeline.</param>
     /// <param name="pool">Kestrun’s shared <see cref="KestrunRunspacePoolManager"/>.</param>
+    /// <param name="rootPath">Optional root path for Razor Pages. Defaults to 'Pages'.</param>
     /// <returns><paramref name="app"/> for fluent chaining.</returns>
     public static IApplicationBuilder UsePowerShellRazorPages(
         this IApplicationBuilder app,
-        KestrunRunspacePoolManager pool)
+        KestrunRunspacePoolManager pool,
+        string? rootPath = null)
     {
         ArgumentNullException.ThrowIfNull(app);
         ArgumentNullException.ThrowIfNull(pool);
@@ -63,7 +65,9 @@ public static class PowerShellRazorPage
         }
 
         var env = app.ApplicationServices.GetRequiredService<IHostEnvironment>();
-        var pagesRoot = Path.Combine(env.ContentRootPath, "Pages");
+        var pagesRoot = string.IsNullOrWhiteSpace(rootPath)
+            ? Path.Combine(env.ContentRootPath, "Pages")
+            : rootPath;
         logger.Information("Using Pages directory: {Path}", pagesRoot);
         if (!Directory.Exists(pagesRoot))
         {

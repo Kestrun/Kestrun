@@ -27,14 +27,14 @@ New-KrServer -Name 'RazorPages'
 Add-KrEndpoint -Port $Port -IPAddress $IPAddress
 
 # Add a Razor Pages handler to the server
-Add-KrPowerShellRazorPagesRuntime #-PathPrefix '/Assets'
+Add-KrPowerShellRazorPagesRuntime -RootPath './Assets/Pages'
 
 # Application-wide metadata (AVAILABLE TO ALL RUNSPACES)
 $AppInfo = [pscustomobject]@{
     Name = 'Kestrun Razor Demo'
     Environment = 'Development'
     StartedUtc = [DateTime]::UtcNow
-    Version = '0.9.0-preview'
+    Version = Get-KrVersion -AsString
 }
 
 Write-KrLog -Level Information -Message "Starting Kestrun RazorPages server '{name}' version {version} in {environment} environment on {ipaddress}:{port}" `

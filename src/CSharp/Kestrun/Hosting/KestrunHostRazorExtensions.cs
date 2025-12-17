@@ -106,12 +106,36 @@ public static class KestrunHostRazorExtensions
                 host.Logger.Debug("Adding PowerShell Razor Pages to the service with route prefix: {RoutePrefix}", routePrefix);
             }
 
-            _ = services.AddRazorPages().AddRazorRuntimeCompilation();
+            // Track whether rootPath was originally null or empty
+            var isDefaultPath = string.IsNullOrWhiteSpace(rootPath);
 
+            // Determine the root path for Razor Pages (for file provider)
+            if (isDefaultPath)
+            {
+                rootPath = Path.Combine(env.ContentRootPath, "Pages");
+            }
 
-            // ── NEW: feed Roslyn every assembly already loaded ──────────
-            //      var env = builder.Environment;                  // or app.Environment
-            rootPath ??= Path.Combine(env.ContentRootPath, "Pages");
+            // Configure Razor Pages with the root directory
+            var mvcBuilder = services.AddRazorPages();
+
+            // Set the RootDirectory only if a custom rootPath was provided
+            if (!isDefaultPath && !string.IsNullOrWhiteSpace(rootPath))
+            {
+                _ = mvcBuilder.AddRazorPagesOptions(opts =>
+                {
+                    opts.RootDirectory = "/" + Path.GetRelativePath(env.ContentRootPath, rootPath).Replace("\\", "/");
+                });
+            }
+
+            // Apply any additional custom configuration
+            if (cfg != null)
+            {
+                _ = mvcBuilder.AddRazorPagesOptions(cfg);
+            }
+
+            _ = mvcBuilder.AddRazorRuntimeCompilation();
+
+            // ── Feed Roslyn every assembly already loaded ──────────
 
             _ = services.Configure<MvcRazorRuntimeCompilationOptions>(opts =>
             {
@@ -151,7 +175,7 @@ public static class KestrunHostRazorExtensions
                 // ── /ps  (or whatever prefix) ──────────────────────────────
                 _ = app.Map(routePrefix.Value, branch =>
                 {
-                    _ = branch.UsePowerShellRazorPages(host.RunspacePool);   // bridge
+                    _ = branch.UsePowerShellRazorPages(host.RunspacePool, rootPath);   // bridge
                     _ = branch.UseRouting();                             // add routing
                     _ = branch.UseEndpoints(e => e.MapRazorPages());     // map pages
                 });
@@ -159,7 +183,7 @@ public static class KestrunHostRazorExtensions
             else
             {
                 // ── mounted at root ────────────────────────────────────────
-                _ = app.UsePowerShellRazorPages(host.RunspacePool);          // bridge
+                _ = app.UsePowerShellRazorPages(host.RunspacePool, rootPath);          // bridge
                 _ = app.UseRouting();                                    // add routing
                 _ = app.UseEndpoints(e => e.MapRazorPages());            // map pages
             }

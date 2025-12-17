@@ -27,14 +27,14 @@ New-KrServer -Name 'RazorPages'
 Add-KrEndpoint -Port $Port -IPAddress $IPAddress -SelfSignedCertificate
 
 # Add a Razor Pages handler to the server
-Add-KrPowerShellRazorPagesRuntime  -PathPrefix '/ps' #-RootPath './Pa'
+Add-KrPowerShellRazorPagesRuntime -RootPath './Assets/Pages'
 
 # Application-wide metadata (AVAILABLE TO ALL RUNSPACES)
 $AppInfo = [pscustomobject]@{
-    Name = 'Kestrun Razor Demo'
+    Name = 'Kestrun Razor Demo with Antiforgery'
     Environment = 'Development'
     StartedUtc = [DateTime]::UtcNow
-    Version = '0.9.0-preview'
+    Version = Get-KrVersion -AsString
 }
 
 Write-KrLog -Level Information -Message "Starting Kestrun RazorPages server '{name}' version {version} in {environment} environment on {ipaddress}:{port}" `
@@ -76,13 +76,16 @@ Enable-KrConfiguration
 Add-KrAntiforgeryTokenRoute -Path '/csrf-token'
 
 Add-KrMapRoute -Verbs Post -Pattern '/api/operation/start' {
+    # Start a long-running operation as a Task and report progress via SignalR
     $seconds = Get-KrRequestQuery -Name 'seconds' -AsInt
-    Write-Host $seconds
+    # Default to 30 seconds if not specified or invalid
     if ($seconds -le 0) { $seconds = 30 }
 
+    # Define steps
     $stepMs = 500
     $steps = [Math]::Ceiling(($seconds * 1000.0) / $stepMs)
 
+    # Start the task
     $taskId = New-KrTask -ScriptBlock {
         Send-KrSignalREvent -EventName 'OperationProgress' -Data @{
             TaskId = $TaskId
@@ -102,9 +105,9 @@ Add-KrMapRoute -Verbs Post -Pattern '/api/operation/start' {
                 }
                 return
             }
-
+            # Sleep to simulate work
             Start-Sleep -Milliseconds $stepMs
-
+            # Report progress
             Send-KrSignalREvent -EventName 'OperationProgress' -Data @{
                 TaskId = $TaskId
                 Progress = [int]($i * 100 / $steps)
@@ -112,7 +115,7 @@ Add-KrMapRoute -Verbs Post -Pattern '/api/operation/start' {
                 Timestamp = (Get-Date)
             }
         }
-
+        # Report completion
         Send-KrSignalREvent -EventName 'OperationComplete' -Data @{
             TaskId = $TaskId
             Progress = 100

@@ -7,6 +7,7 @@
 
 <!doctype html>
 <html lang="en">
+
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -21,8 +22,8 @@
         }
 
         header {
-            background: rgba(255,255,255,0.06);
-            border-bottom: 1px solid rgba(255,255,255,0.08);
+            background: rgba(255, 255, 255, 0.06);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
             padding: 1rem 1.25rem;
         }
 
@@ -45,21 +46,22 @@
         footer {
             margin-top: 3rem;
             padding-top: 1rem;
-            border-top: 1px solid rgba(255,255,255,0.08);
-            color: rgba(231,234,243,0.7);
+            border-top: 1px solid rgba(255, 255, 255, 0.08);
+            color: rgba(231, 234, 243, 0.7);
             font-size: 0.9rem;
         }
 
         .card {
-            background: rgba(255,255,255,0.06);
-            border: 1px solid rgba(255,255,255,0.08);
+            background: rgba(255, 255, 255, 0.06);
+            border: 1px solid rgba(255, 255, 255, 0.08);
             border-radius: 10px;
             padding: 1rem;
             margin-bottom: 1rem;
         }
 
-        code, pre {
-            background: rgba(0,0,0,0.35);
+        code,
+        pre {
+            background: rgba(0, 0, 0, 0.35);
             padding: 0.25rem 0.4rem;
             border-radius: 6px;
         }
@@ -82,13 +84,13 @@
             </div>
 
             <nav>
-                <a href="./">Home</a>
-                <a href="./About">About</a>
-                <a href="./Status">Status</a>
-                <a href="./Quotes">Quotes</a>
-                <a href="./Contact">Contact</a>
-                <a href="./AppInfo">App Info</a>
-                <a href="./Cancel">Cancel</a>
+                <a href="@Context.Request.PathBase/">Home</a>
+                <a href="@Context.Request.PathBase/About">About</a>
+                <a href="@Context.Request.PathBase/Status">Status</a>
+                <a href="@Context.Request.PathBase/Quotes">Quotes</a>
+                <a href="@Context.Request.PathBase/Contact">Contact</a>
+                <a href="@Context.Request.PathBase/AppInfo">App Info</a>
+                <a href="@Context.Request.PathBase/Cancel">Cancel</a>
             </nav>
         </div>
     </header>
@@ -101,4 +103,5 @@
         </footer>
     </main>
 </body>
+
 </html>

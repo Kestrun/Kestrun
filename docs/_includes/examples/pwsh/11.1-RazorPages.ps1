@@ -1,6 +1,6 @@
 <#
-    Sample Kestrun Server on how to configure a static file server.
-    These examples demonstrate how to configure static routes with directory browsing in a Kestrun server.
+    Sample Kestrun Server showing PowerShell-backed Razor Pages.
+    This example demonstrates enabling the Razor Pages runtime and serving pages from a root folder.
     FileName: 11.1-RazorPages.ps1
 #>
 
@@ -60,7 +60,7 @@ Write-KrLog -Level Information -Message 'Message of the Day: {motd}' -Values $Mo
 
 # Enable Kestrun configuration
 Enable-KrConfiguration
-# Requires Add-KrSignalRHubMiddleware and Add-KrTasksService before Enable-KrConfiguration :contentReference[oaicite:2]{index=2}
+
 
 # Start the server asynchronously
 Start-KrServer

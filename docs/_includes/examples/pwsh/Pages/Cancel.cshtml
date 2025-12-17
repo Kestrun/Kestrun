@@ -1,43 +1,59 @@
 @page
 @model Kestrun.Razor.PwshKestrunModel
-@{
+@{ 
+    dynamic d = Model.Data ?? new { HasAntiforgery = false, Seconds = 30 };
+    bool enabled = d.HasAntiforgery == true;
 }
 
 <!doctype html>
 <html>
 <head>
     <meta charset="utf-8" />
-    <title>Cancel / Progress (SignalR)</title>
+    <title>Cancel (SignalR + Antiforgery)</title>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
 
     <style>
         body { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; margin: 2rem; line-height: 1.4; }
         .row { display:flex; gap:1rem; flex-wrap:wrap; align-items:center; }
-        .card { border: 1px solid #ddd; border-radius: 12px; padding: 1rem; max-width: 900px; }
+        .card { border: 1px solid #ddd; border-radius: 12px; padding: 1rem; max-width: 980px; margin-bottom: 1rem; }
         .muted { color:#666; }
-        .log { white-space: pre-wrap; background:#111; color:#ddd; padding:1rem; border-radius: 12px; min-height: 220px; }
+        .log { white-space: pre-wrap; background:#111; color:#ddd; padding:1rem; border-radius: 12px; min-height: 240px; max-height: 60vh; overflow:auto; }
         button { padding: .55rem .9rem; border-radius: 10px; border: 1px solid #ccc; background: #fafafa; cursor:pointer; }
         button:disabled { opacity:.55; cursor:not-allowed; }
         input { padding: .45rem .6rem; border-radius: 10px; border: 1px solid #ccc; width: 8rem; }
-        .pill { display:inline-block; padding:.2rem .5rem; border-radius: 999px; border:1px solid #ddd; background:#f6f6f6; }
+        code { background:#f6f6f6; padding:.15rem .35rem; border-radius: 6px; }
+        .pill { display:inline-block; padding:.2rem .55rem; border-radius: 999px; border:1px solid #ddd; background:#f6f6f6; }
     </style>
 
-    <!-- SignalR client (browser) -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/8.0.7/signalr.min.js"></script>
-
+    @if (enabled)
+    {
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/8.0.7/signalr.min.js"></script>
+    }
 </head>
 
 <body>
+
+@if (!enabled)
+{
+    <div class="card">
+        <h1>Cancel demo unavailable</h1>
+        <p class="muted">
+            This page is shown only when Antiforgery is enabled on the server
+            (<code>$KrServer.Antiforgery -ne $null</code>).
+        </p>
+    </div>
+}
+else
+{
     <h1>Cancellation + Live Progress</h1>
     <p class="muted">
-        This page starts a background operation, then listens for SignalR events and updates the UI as progress arrives.
-        Hub URL: <span class="pill">/hubs/kestrun</span> :contentReference[oaicite:2]{index=2}
+        SignalR hub: <span class="pill">/hubs/kestrun</span> • CSRF token: <span class="pill">/csrf-token</span>
     </p>
 
     <div class="card">
         <div class="row">
             <label>Seconds:
-                <input id="seconds" type="number" min="1" max="600" value="30" />
+                <input id="seconds" type="number" min="1" max="600" value="@(d.Seconds)" />
             </label>
 
             <button id="btnStart">Start</button>
@@ -48,58 +64,121 @@
         </div>
 
         <p class="muted" style="margin-top:.75rem">
-            Expected server pieces:
-            <span class="pill">POST /api/operation/start?seconds=...</span> (returns JSON with <code>TaskId</code>)
-            and broadcasts <code>OperationProgress</code>/<code>OperationComplete</code> via <code>Send-KrSignalREvent</code>. :contentReference[oaicite:3]{index=3}
-            <br />
-            Optional cancel route:
-            <span class="pill">GET /tasks/cancel?id=...</span> (Tasks tutorial sample uses <code>Stop-KrTask</code>). :contentReference[oaicite:4]{index=4}
+            Start: <code>POST /api/operation/start?seconds=...</code><br />
+            Cancel: <code>POST /tasks/cancel?id=...</code><br />
+            Header: <code>X-CSRF-TOKEN</code> (token from <code>/csrf-token</code>)
         </p>
     </div>
 
-    <h2 style="margin-top:1.5rem">Live log</h2>
-    <div id="log" class="log"></div>
+    <div class="card">
+        <h2>Live log</h2>
+        <div id="log" class="log"></div>
+    </div>
 
     <script>
         (function () {
-            const hubUrl = "/hubs/kestrun";                 // tutorial default :contentReference[oaicite:5]{index=5}
-            const startUrl = (s) => "/api/operation/start?seconds=" + encodeURIComponent(s); // SignalR tutorial sample route :contentReference[oaicite:6]{index=6}
-            const cancelUrl = (id) => "/tasks/cancel?id=" + encodeURIComponent(id);          // Tasks tutorial sample route :contentReference[oaicite:7]{index=7}
+            // Paths match your server script
+            const hubUrl = "/hubs/kestrun";
+            const csrfUrl = "/csrf-token";
+            const csrfHeaderName = "X-CSRF-TOKEN";
+
+            const startUrl  = (s)  => "/api/operation/start?seconds=" + encodeURIComponent(s);
+            const cancelUrl = (id) => "/tasks/cancel?id=" + encodeURIComponent(id);
 
             const elSeconds = document.getElementById("seconds");
-            const elStart = document.getElementById("btnStart");
-            const elCancel = document.getElementById("btnCancel");
-            const elTaskId = document.getElementById("taskId");
-            const elState = document.getElementById("state");
-            const elLog = document.getElementById("log");
+            const elStart   = document.getElementById("btnStart");
+            const elCancel  = document.getElementById("btnCancel");
+            const elTaskId  = document.getElementById("taskId");
+            const elState   = document.getElementById("state");
+            const elLog     = document.getElementById("log");
 
             let currentTaskId = null;
+            let csrfToken = null;
 
             function log(line) {
                 const ts = new Date().toISOString();
-                elLog.textContent += `[${ts}] ${line}\n`;
+                elLog.textContent += "[" + ts + "] " + line + "\n";
                 elLog.scrollTop = elLog.scrollHeight;
             }
 
-            function setState(s) {
-                elState.textContent = s;
-            }
+            function setState(s) { elState.textContent = s; }
 
-            // Defensive parsing: supports either (eventName, data) or a single object payload.
-            function normalizeEvent(args) {
-                // args can be: [eventName, data] OR [payloadObject]
-                if (!args || args.length === 0) return { name: null, data: null };
+            async function ensureCsrf() {
+                if (csrfToken) return csrfToken;
 
-                if (args.length >= 2 && typeof args[0] === "string") {
-                    return { name: args[0], data: args[1] };
+                const resp = await fetch(csrfUrl, { method: "GET", credentials: "same-origin" });
+                if (!resp.ok) {
+                    const t = await resp.text();
+                    throw new Error("CSRF token fetch failed: HTTP " + resp.status + " " + t);
                 }
 
-                const payload = args[0];
-                if (!payload) return { name: null, data: null };
+                const json = await resp.json();
+                csrfToken =
+                    json.Token ||
+                    json.token ||
+                    json.RequestToken ||
+                    json.requestToken ||
+                    json.CsrfToken ||
+                    json.csrfToken ||
+                    null;
 
-                const name = payload.EventName || payload.eventName || payload.Name || payload.name || null;
-                const data = payload.Data || payload.data || payload.Payload || payload.payload || payload;
-                return { name, data };
+                if (!csrfToken) {
+                    throw new Error("CSRF token missing in /csrf-token response: " + JSON.stringify(json));
+                }
+
+                log("CSRF token obtained");
+                return csrfToken;
+            }
+
+            async function postJson(url, bodyObj) {
+                const token = await ensureCsrf();
+
+                const resp = await fetch(url, {
+                    method: "POST",
+                    credentials: "same-origin",
+                    headers: {
+                        "Content-Type": "application/json",
+                        [csrfHeaderName]: token
+                    },
+                    body: JSON.stringify(bodyObj || {})
+                });
+
+                if (!resp.ok) {
+                    const t = await resp.text();
+                    throw new Error("POST failed: HTTP " + resp.status + " " + t);
+                }
+
+                return await resp.json();
+            }
+
+            function handleProgress(data) {
+                const d = data || {};
+                const taskId = d.TaskId || d.taskId || null;
+
+                // Only filter if message includes a task id
+                if (currentTaskId && taskId && taskId !== currentTaskId) return;
+
+                setState("running");
+                log((d.Progress != null ? d.Progress : "?") + "%: " + (d.Message || ""));
+            }
+
+            function handleComplete(data) {
+                const d = data || {};
+                const taskId = d.TaskId || d.taskId || null;
+
+                if (currentTaskId && taskId && taskId !== currentTaskId) return;
+
+                setState("completed");
+                log((d.Progress != null ? d.Progress : "?") + "%: " + (d.Message || ""));
+
+                elStart.disabled = false;
+                elCancel.disabled = true;
+            }
+
+            function normalizeEvent(payload) {
+                const name = payload && (payload.EventName || payload.eventName || payload.Name || payload.name);
+                const data = payload && (payload.Data || payload.data || payload);
+                return { name: name, data: data };
             }
 
             const connection = new signalR.HubConnectionBuilder()
@@ -107,30 +186,18 @@
                 .withAutomaticReconnect()
                 .build();
 
-            connection.on("ReceiveEvent", function () {
-                const ev = normalizeEvent(arguments);
+            // ✅ Direct delivery style
+            connection.on("OperationProgress", handleProgress);
+            connection.on("OperationComplete", handleComplete);
+
+            // ✅ Wrapper delivery style
+            connection.on("ReceiveEvent", function (payload) {
+                const ev = normalizeEvent(payload);
                 if (!ev.name) return;
 
-                // Expecting messages like:
-                // OperationProgress: { TaskId, Progress, Step, Message, Timestamp } :contentReference[oaicite:8]{index=8}
-                // OperationComplete: { TaskId, Progress, Message, Timestamp }      :contentReference[oaicite:9]{index=9}
-                const d = ev.data || {};
-                const taskId = d.TaskId || d.taskId || null;
-
-                // If we’re running a task, only show messages for *that* task.
-                if (currentTaskId && taskId && taskId !== currentTaskId) return;
-
-                if (ev.name === "OperationProgress") {
-                    setState("running");
-                    log(`progress ${d.Progress ?? "?"}%: ${d.Message ?? "(no message)"}`);
-                } else if (ev.name === "OperationComplete") {
-                    setState("completed");
-                    log(`complete ${d.Progress ?? "?"}%: ${d.Message ?? "(no message)"}`);
-                    elStart.disabled = false;
-                    elCancel.disabled = true;
-                } else {
-                    log(`event ${ev.name}: ` + JSON.stringify(d));
-                }
+                if (ev.name === "OperationProgress") handleProgress(ev.data);
+                else if (ev.name === "OperationComplete") handleComplete(ev.data);
+                else log("event " + ev.name + ": " + JSON.stringify(ev.data || payload));
             });
 
             async function ensureConnected() {
@@ -139,7 +206,7 @@
                 log("SignalR connected");
             }
 
-            elStart.addEventListener("click", async () => {
+            elStart.addEventListener("click", async function () {
                 elLog.textContent = "";
                 setState("starting");
                 elStart.disabled = true;
@@ -149,16 +216,14 @@
 
                     const seconds = parseInt(elSeconds.value, 10) || 30;
 
-                    // Start background work (server should return JSON { Success, TaskId, Message } :contentReference[oaicite:10]{index=10}
-                    const resp = await fetch(startUrl(seconds), { method: "POST" });
-                    const json = await resp.json();
-
+                    const json = await postJson(startUrl(seconds), {});
                     currentTaskId = json.TaskId || json.taskId || json.id || null;
+
                     elTaskId.textContent = currentTaskId || "(unknown)";
                     elCancel.disabled = !currentTaskId;
 
                     setState("running");
-                    log(json.Message || "started");
+                    log(json.Message || ("Task started (TaskId=" + currentTaskId + ")"));
                 } catch (e) {
                     setState("error");
                     log("ERROR starting: " + (e && e.message ? e.message : e));
@@ -167,20 +232,16 @@
                 }
             });
 
-            elCancel.addEventListener("click", async () => {
+            elCancel.addEventListener("click", async function () {
                 if (!currentTaskId) return;
 
                 setState("cancelling");
                 elCancel.disabled = true;
 
                 try {
-                    // Tasks tutorial sample uses /tasks/cancel?id=... and Stop-KrTask :contentReference[oaicite:11]{index=11}
-                    const resp = await fetch(cancelUrl(currentTaskId), { method: "GET" });
-                    if (!resp.ok) throw new Error("Cancel failed: HTTP " + resp.status);
-
-                    log("cancel requested");
+                    const json = await postJson(cancelUrl(currentTaskId), {});
+                    log(json.Message || "Cancel requested");
                     setState("cancel requested");
-                    // You’ll typically see a completion/cancelled message via SignalR shortly after.
                 } catch (e) {
                     setState("cancel error");
                     log("ERROR cancelling: " + (e && e.message ? e.message : e));
@@ -188,9 +249,11 @@
                 }
             });
 
-            // Auto-connect early (nice UX)
+            // Warm up: connect + token early
             ensureConnected().catch(err => log("SignalR connect failed: " + err));
+            ensureCsrf().catch(err => log("CSRF init failed: " + err));
         })();
     </script>
+}
 </body>
 </html>

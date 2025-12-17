@@ -6,6 +6,8 @@
         It can be used to serve dynamic web pages using Razor syntax with PowerShell code blocks.
     .PARAMETER Server
         The Kestrun server instance to which the PowerShell Razor Pages service will be added.
+    .PARAMETER RootPath
+        The root directory for the Razor Pages. If not specified, the default 'Pages' directory under the content root will be used.
     .PARAMETER PathPrefix
         An optional path prefix for the Razor Pages. If specified, the Razor Pages will be served under this path.
     .PARAMETER PassThru
@@ -28,7 +30,10 @@ function Add-KrPowerShellRazorPagesRuntime {
         [Kestrun.Hosting.KestrunHost]$Server,
 
         [Parameter()]
-        [string]$PathPrefix,
+        [string]$RootPath = $null,
+
+        [Parameter()]
+        [string]$PathPrefix = $null,
 
         [Parameter()]
         [switch]$PassThru
@@ -38,13 +43,11 @@ function Add-KrPowerShellRazorPagesRuntime {
         $Server = Resolve-KestrunServer -Server $Server
     }
     process {
-
-        if ([string]::IsNullOrWhiteSpace($PathPrefix)) {
-            [Kestrun.Hosting.KestrunHostRazorExtensions]::AddPowerShellRazorPages($Server) | Out-Null
-        } else {
-            # Add PowerShell support for Razor Pages with a path prefix
-            [Kestrun.Hosting.KestrunHostRazorExtensions]::AddPowerShellRazorPages($Server, $PathPrefix) | Out-Null
+        if (-not ([string]::IsNullOrEmpty($RootPath))) {
+            $RootPath = (Resolve-KrPath -Path $RootPath)
         }
+        #Add PowerShell support for Razor Pages with a path prefix
+        [Kestrun.Hosting.KestrunHostRazorExtensions]::AddPowerShellRazorPages($Server, $RootPath, $PathPrefix) | Out-Null
 
         if ($PassThru.IsPresent) {
             # if the PassThru switch is specified, return the modified server instance

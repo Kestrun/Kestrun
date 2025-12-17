@@ -1,4 +1,7 @@
-﻿$Model = [pscustomobject]@{
+﻿[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseDeclaredVarsMoreThanAssignments', '')]
+param()
+
+$Model = [pscustomobject]@{
     Welcome = "Welcome to Kestrun ✨"
     Tagline = "A tiny site rendered by Razor, powered by PowerShell models."
     Tips    = @(

@@ -19,14 +19,20 @@
 function Expand-KrObject {
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidUsingWriteHost', '')]
     [KestrunRuntimeApi('Everywhere')]
-    [CmdletBinding()]
+    [CmdletBinding(defaultParameterSetName = 'Console')]
+    [OutputType([string])]
     param(
         [Parameter(Position = 0, ValueFromPipeline = $true)]
         [object] $InputObject,
-        [Parameter()]
+
+        [Parameter(ParameterSetName = 'Console')]
         [System.ConsoleColor] $ForegroundColor,
+
         [Parameter()]
-        [string] $Label
+        [string] $Label,
+
+        [Parameter(ParameterSetName = 'PassThru')]
+        [switch]$PassThru
     )
 
     process {
@@ -40,6 +46,11 @@ function Expand-KrObject {
         }
         if ($Label) {
             $InputObject = "`tName: $Label $InputObject"
+        }
+
+        # Return the object if PassThru is specified
+        if ($PassThru) {
+            return $InputObject
         }
 
         if ($ForegroundColor) {

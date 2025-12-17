@@ -60,6 +60,8 @@ function Add-KrEndpoint {
         [SecureString]$CertPassword = $null,
 
         [Parameter(ParameterSetName = 'SelfSignedCert')]
+        [alias('SelfSigned')]
+        [alias('SelfSignedCertificate')]
         [switch]$SelfSignedCert,
 
         [Parameter(Mandatory = $true, ParameterSetName = 'x509Certificate')]

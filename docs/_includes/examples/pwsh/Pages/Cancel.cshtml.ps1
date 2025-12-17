@@ -1,6 +1,7 @@
-﻿param()
+﻿[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseDeclaredVarsMoreThanAssignments', '')]
+param()
 
-# Defaults for the UI
 $Model = [pscustomobject]@{
-    Seconds = 30
+    HasAntiforgery = ($null -ne $KrServer.AntiforgeryOptions)
+    Seconds        = 30
 }

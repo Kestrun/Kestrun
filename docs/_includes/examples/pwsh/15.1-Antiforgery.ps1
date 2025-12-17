@@ -26,7 +26,7 @@ Add-KrAntiforgeryMiddleware -CookieName '.Kestrun.AntiXSRF' -HeaderName 'X-CSRF-
 Enable-KrConfiguration
 
 # Add token endpoint
-Add-KrAntiforgeryTokenRoute -Path '/csrf-token' | Out-Null
+Add-KrAntiforgeryTokenRoute -Path '/csrf-token'
 
 # ----- Sample routes (GETs don’t need tokens; they’re safe by convention) -----
 Add-KrMapRoute -Verbs Get -Path '/hello' -ScriptBlock {

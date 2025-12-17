@@ -42,7 +42,6 @@ function Send-KrSignalREvent {
             if ($null -ne $Context) {
                 # Prefer the centralized KestrunContext implementation when inside a route
                 if ($Context.BroadcastEvent($EventName, $Data, [System.Threading.CancellationToken]::None)) {
-                    Write-KrLog -Level Debug -Message "Broadcasted event: $EventName - $Data"
                     return
                 } else {
                     Write-KrLog -Level Error -Message 'Failed to broadcast event: Unknown error'
@@ -57,12 +56,11 @@ function Send-KrSignalREvent {
             if ($null -ne $Server) {
                 $task = [Kestrun.Hosting.KestrunHostSignalRExtensions]::BroadcastEventAsync($Server, $EventName, $Data, $null, [System.Threading.CancellationToken]::None)
                 $null = $task.GetAwaiter().GetResult()
-                Write-KrLog -Level Debug -Message "Broadcasted event (host fallback): $EventName - $Data"
             } else {
                 Write-KrOutsideRouteWarning
             }
         } catch {
-            Write-KrLog -Level Error -Message "Failed to broadcast event: $_" -Exception $_.Exception
+            Write-KrLog -Level Error -Message 'Failed to broadcast event: {error}' -Values $_.Exception.Message -Exception $_.Exception
         }
     }
 }

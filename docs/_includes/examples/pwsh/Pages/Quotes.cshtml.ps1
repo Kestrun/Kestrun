@@ -1,4 +1,7 @@
-﻿$quotes = @(
+﻿[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseDeclaredVarsMoreThanAssignments', '')]
+param()
+
+$quotes = @(
     @{ Quote="Simplicity is prerequisite for reliability."; Author="Edsger W. Dijkstra" },
     @{ Quote="Make it work, make it right, make it fast."; Author="Kent Beck" },
     @{ Quote="Programs must be written for people to read."; Author="Harold Abelson" },

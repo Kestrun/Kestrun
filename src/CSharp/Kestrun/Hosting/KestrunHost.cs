@@ -22,6 +22,7 @@ using Kestrun.Health;
 using Kestrun.Tasks;
 using Kestrun.Runtime;
 using Kestrun.OpenApi;
+using Microsoft.AspNetCore.Antiforgery;
 
 namespace Kestrun.Hosting;
 
@@ -254,6 +255,11 @@ public class KestrunHost : IDisposable
             _forwardedHeaderOptions = value;
         }
     }
+
+    /// <summary>
+    /// Gets the antiforgery options for configuring antiforgery token generation and validation.
+    /// </summary>
+    public AntiforgeryOptions? AntiforgeryOptions { get; set; }
 
     /// <summary>
     /// Gets the OpenAPI document descriptor for configuring OpenAPI generation.

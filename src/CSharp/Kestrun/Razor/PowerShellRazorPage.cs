@@ -3,6 +3,7 @@ using Kestrun.Scripting;
 using Kestrun.Utilities;
 using Serilog;
 using Serilog.Events;
+using Kestrun.Logging;
 
 namespace Kestrun.Razor;
 
@@ -79,7 +80,7 @@ public static class PowerShellRazorPage
         {
             if (isDebugLevelEnabled)
             {
-                logger.Debug("Processing PowerShell Razor Page request for {Path}", context.Request.Path);
+                logger.DebugSanitized("Processing PowerShell Razor Page request for {Path}", context.Request.Path);
             }
 
             var relPath = GetRelativePath(context);
@@ -115,14 +116,14 @@ public static class PowerShellRazorPage
                 {
                     psResults = await ps.InvokeWithRequestAbortAsync(
                         context.RequestAborted,
-                        onAbortLog: () => logger.Debug("Request aborted; stopping PowerShell pipeline for {Path}", context.Request.Path)
+                        onAbortLog: () => logger.DebugSanitized("Request aborted; stopping PowerShell pipeline for {Path}", context.Request.Path)
                     ).ConfigureAwait(false);
                 }
                 catch (OperationCanceledException) when (context.RequestAborted.IsCancellationRequested)
                 {
                     if (isDebugLevelEnabled)
                     {
-                        logger.Debug("PowerShell pipeline cancelled due to request abortion for {Path}", context.Request.Path);
+                        logger.DebugSanitized("PowerShell pipeline cancelled due to request abortion for {Path}", context.Request.Path);
                     }
                     // Client went away; don’t try to write an error response.
                     return;
@@ -147,12 +148,12 @@ public static class PowerShellRazorPage
                 await next(); // continue the pipeline
                 if (isDebugLevelEnabled)
                 {
-                    logger.Debug("PowerShell Razor Page completed for {Path}", context.Request.Path);
+                    logger.DebugSanitized("PowerShell Razor Page completed for {Path}", context.Request.Path);
                 }
             }
             catch (Exception ex)
             {
-                logger.Error(ex, "Error occurred in PowerShell Razor Page middleware for {Path}", context.Request.Path);
+                logger.ErrorSanitized(ex, "Error occurred in PowerShell Razor Page middleware for {Path}", context.Request.Path);
             }
             finally
             {

@@ -6,6 +6,7 @@ using System.Management.Automation;
 using System.Security.Claims;
 using Kestrun.Hosting;
 using Kestrun.Languages;
+using Kestrun.Logging;
 using Kestrun.Models;
 using Kestrun.Utilities;
 using Microsoft.AspNetCore.Authentication;
@@ -153,14 +154,14 @@ public interface IAuthHandler
             {
                 psResults = await ps.InvokeWithRequestAbortAsync(
                     context.RequestAborted,
-                    onAbortLog: () => logger.Debug("Request aborted; stopping PowerShell pipeline for {Path}", context.Request.Path)
+                    onAbortLog: () => logger.DebugSanitized("Request aborted; stopping PowerShell pipeline for {Path}", context.Request.Path)
                 ).ConfigureAwait(false);
             }
             catch (OperationCanceledException) when (context.RequestAborted.IsCancellationRequested)
             {
                 if (logger.IsEnabled(Serilog.Events.LogEventLevel.Debug))
                 {
-                    logger.Debug("PowerShell pipeline cancelled due to request abortion for {Path}", context.Request.Path);
+                    logger.DebugSanitized("PowerShell pipeline cancelled due to request abortion for {Path}", context.Request.Path);
                 }
                 // Treat as cancellation, not an error.
                 return false;
@@ -344,14 +345,14 @@ public interface IAuthHandler
             {
                 psResults = await ps.InvokeWithRequestAbortAsync(
                     context.RequestAborted,
-                    onAbortLog: () => logger.Debug("Request aborted; stopping PowerShell pipeline for {Path}", context.Request.Path)
+                    onAbortLog: () => logger.DebugSanitized("Request aborted; stopping PowerShell pipeline for {Path}", context.Request.Path)
                 ).ConfigureAwait(false);
             }
             catch (OperationCanceledException) when (context.RequestAborted.IsCancellationRequested)
             {
                 if (logger.IsEnabled(Serilog.Events.LogEventLevel.Debug))
                 {
-                    logger.Debug("PowerShell pipeline cancelled due to request abortion for {Path}", context.Request.Path);
+                    logger.DebugSanitized("PowerShell pipeline cancelled due to request abortion for {Path}", context.Request.Path);
                 }
                 // Treat as cancellation, not an error.
                 return [];

@@ -67,7 +67,7 @@ public class KestrunHostRazorExtensionsTests
     {
         var host = new KestrunHost("TestApp", AppContext.BaseDirectory);
         var opts = new RazorPagesOptions { RootDirectory = "/PSPages" };
-        var ex = Record.Exception(() => host.AddPowerShellRazorPages(routePrefix: "/ps", cfg: opts));
+        var ex = Record.Exception(() => host.AddPowerShellRazorPages(rootPath: null, routePrefix: "/ps", cfg: opts));
         Assert.Null(ex);
     }
 }

@@ -58,7 +58,6 @@ internal static class JobFactory
     public static Func<CancellationToken, Task> Create(
         JobConfig config, FileInfo fileInfo) => CreateAsync(config, fileInfo).GetAwaiter().GetResult();
 
-
     /* ----------------  PowerShell  ---------------- */
     private static Func<CancellationToken, Task> PowerShellJob(
        JobConfig config)

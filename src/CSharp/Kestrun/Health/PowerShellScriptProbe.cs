@@ -466,7 +466,6 @@ internal sealed class PowerShellScriptProbe(
             return true;
         }
 
-
         switch (value?.ToLowerInvariant())
         {
             case ProbeStatusLabels.STATUS_OK:

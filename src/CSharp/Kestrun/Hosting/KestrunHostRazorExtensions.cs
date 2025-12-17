@@ -81,7 +81,6 @@ public static class KestrunHostRazorExtensions
     public static KestrunHost AddPowerShellRazorPages(this KestrunHost host, string? rootPath) =>
         AddPowerShellRazorPages(host: host, rootPath: rootPath, routePrefix: null, cfg: null as RazorPagesOptions);
 
-
     /// <summary>
     /// Adds PowerShell Razor Pages to the application.
     /// This middleware allows you to serve Razor Pages using PowerShell scripts.
@@ -194,7 +193,6 @@ public static class KestrunHostRazorExtensions
             }
         });
     }
-
 
     /// <summary>
     /// Adds Razor Pages to the application.

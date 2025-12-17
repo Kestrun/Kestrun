@@ -2,7 +2,6 @@
 using System.Text;
 using Serilog.Events;
 
-
 namespace Kestrun.Logging;
 
 /// <summary>
@@ -27,7 +26,6 @@ public static class LoggerExtensions
         var sanitized = propertyValues.Select(SanitizeObject).ToArray();
         log.Debug(messageTemplate, sanitized);
     }
-
 
     /// <summary>
     /// Writes a sanitized debug log event with an exception, removing control characters from string property values.
@@ -64,7 +62,6 @@ public static class LoggerExtensions
         var sanitized = propertyValues.Select(SanitizeObject).ToArray();
         log.Debug(exception, messageTemplate, sanitized);
     }
-
 
     /// <summary>
     /// Sanitizes an object by stripping control characters if it's a string.

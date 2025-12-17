@@ -13,7 +13,6 @@ using Microsoft.AspNetCore.Authentication;
 
 namespace Kestrun.Authentication;
 
-
 /// <summary>
 /// Defines common options for authentication, including code validation, claim issuance, and claim policy configuration.
 /// </summary>
@@ -299,7 +298,6 @@ public interface IAuthHandler
         };
     }
 
-
     /// <summary>
     /// Builds a PowerShell-based function for issuing claims for a user.
     /// </summary>
@@ -439,7 +437,6 @@ public interface IAuthHandler
         return false;
     }
 
-
     /// <summary>
     /// Builds a C#-based function for issuing claims for a user.
     /// </summary>
@@ -485,7 +482,6 @@ public interface IAuthHandler
                 : [];
         };
     }
-
 
     /// <summary>
     /// Builds a VB.NET-based function for issuing claims for a user.

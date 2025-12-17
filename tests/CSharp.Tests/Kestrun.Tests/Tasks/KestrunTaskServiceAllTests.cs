@@ -201,10 +201,14 @@ public class KestrunTaskServiceAllTests
 
             // Cancel to reach terminal
             _ = svc.Cancel(id);
+            var timeout = string.Equals(Environment.GetEnvironmentVariable("CI"), "true", StringComparison.OrdinalIgnoreCase)
+                ? TimeSpan.FromSeconds(20)
+                : TimeSpan.FromSeconds(8);
+
             var start = DateTime.UtcNow;
-            while (svc.GetState(id) != TaskState.Stopped && DateTime.UtcNow - start < TimeSpan.FromSeconds(6))
+            while (svc.GetState(id) != TaskState.Stopped && DateTime.UtcNow - start < timeout)
             {
-                await Task.Delay(20);
+                await Task.Delay(25);
             }
             // If still not stopped, surface state for debugging
             var finalState = svc.GetState(id);

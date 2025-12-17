@@ -10,6 +10,8 @@
         The color to use for the output text in the console. If not specified, defaults to the console's current foreground color.
     .PARAMETER Label
         An optional label to prefix the output. This can be used to provide context or a name for the object being displayed.
+    .PARAMETER PassThru
+        If specified, the function will return the formatted string instead of writing it to the console.
     .EXAMPLE
         Expand-KrObject -InputObject $myObject -ForegroundColor Cyan -Label "My Object"
         Displays the $myObject with a cyan foreground color and prefixes it with "My Object".
@@ -68,4 +70,3 @@ function Expand-KrObject {
         }
     }
 }
-

@@ -307,7 +307,7 @@ public class KestrunRunspacePoolManagerTests : IDisposable
         // Act
         for (var i = 0; i < 10; i++)
         {
-            tasks.Add(Task.Run(() => manager.Acquire()));
+            tasks.Add(Task.Run(manager.Acquire));
         }
 
         var runspaces = await Task.WhenAll(tasks);

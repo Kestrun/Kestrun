@@ -182,14 +182,14 @@ public class KestrunTaskServiceAllTests
 
             Assert.False(svc.Remove("missing"));
 
-            var code = "$i=0; while($true){ Start-Sleep -Milliseconds 200; $i++ }";
-            var lang = new LanguageOptions { Language = ScriptLanguage.PowerShell, Code = code };
+            // Use a short-running C# task so the transition to a terminal state is deterministic.
+            // PowerShell cancellation timing can vary significantly across platforms/agents.
+            var code = "await Task.Delay(500); return 1;";
+            var lang = new LanguageOptions { Language = ScriptLanguage.CSharp, Code = code };
             var id = svc.Create(null, lang, false, null, null);
             Assert.True(svc.Start(id));
 
-            // CI (Linux) sometimes cancels before the worker has flipped state to Running.
-            // Wait briefly for transition out of NotStarted to avoid a race where cancellation
-            // happens pre-execution and state never updates to Stopped within the timeout.
+            // Wait briefly for the task to leave NotStarted so we can assert remove fails when not terminal.
             var spin = DateTime.UtcNow;
             while (svc.GetState(id) == TaskState.NotStarted && DateTime.UtcNow - spin < TimeSpan.FromSeconds(2))
             {
@@ -199,20 +199,15 @@ public class KestrunTaskServiceAllTests
             // Not terminal yet → cannot remove
             Assert.False(svc.Remove(id));
 
-            // Cancel to reach terminal
-            _ = svc.Cancel(id);
-            var timeout = string.Equals(Environment.GetEnvironmentVariable("CI"), "true", StringComparison.OrdinalIgnoreCase)
-                ? TimeSpan.FromSeconds(20)
-                : TimeSpan.FromSeconds(8);
-
+            // Wait until terminal
             var start = DateTime.UtcNow;
-            while (svc.GetState(id) != TaskState.Stopped && DateTime.UtcNow - start < timeout)
+            while (svc.GetState(id) != TaskState.Completed && DateTime.UtcNow - start < TimeSpan.FromSeconds(6))
             {
                 await Task.Delay(25);
             }
-            // If still not stopped, surface state for debugging
+            // If still not completed, surface state for debugging
             var finalState = svc.GetState(id);
-            Assert.True(finalState == TaskState.Stopped, $"Expected Stopped, got {finalState}");
+            Assert.True(finalState == TaskState.Completed, $"Expected Completed, got {finalState}");
             Assert.True(svc.Remove(id));
             Assert.Null(svc.Get(id));
         }

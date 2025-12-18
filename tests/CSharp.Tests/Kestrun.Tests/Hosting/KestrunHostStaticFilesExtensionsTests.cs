@@ -90,7 +90,7 @@ public class KestrunHostStaticFilesExtensionsTests
     public void AddStaticFiles_WithCustomFileProvider_SetsProvider()
     {
         var host = CreateHost(out var middleware);
-        var provider = new PhysicalFileProvider(AppContext.BaseDirectory);
+        using var provider = new PhysicalFileProvider(AppContext.BaseDirectory);
         _ = host.AddStaticFiles(o => o.FileProvider = provider);
         Assert.True(middleware.Count > 0);
     }

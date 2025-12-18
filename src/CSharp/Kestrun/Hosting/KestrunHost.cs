@@ -320,12 +320,15 @@ public partial class KestrunHost : IDisposable
         // If we derive ContentRootPath from a missing/deleted directory, CreateBuilder throws.
         // We therefore (a) choose an existing directory when possible and (b) retry with a stable fallback
         // to keep host creation resilient in CI where test ordering/parallelism can surface this.
-        WebApplicationOptions CreateWebAppOptions(string contentRootPath) => new()
+        WebApplicationOptions CreateWebAppOptions(string contentRootPath)
         {
-            ContentRootPath = contentRootPath,
-            Args = args ?? [],
-            EnvironmentName = EnvironmentHelper.Name
-        };
+            return new()
+            {
+                ContentRootPath = contentRootPath,
+                Args = args ?? [],
+                EnvironmentName = EnvironmentHelper.Name
+            };
+        }
 
         var contentRootPath = GetSafeContentRootPath(kestrunRoot);
 

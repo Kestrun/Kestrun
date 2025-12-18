@@ -9,27 +9,26 @@ using Serilog.Events;
 namespace Kestrun.Hosting;
 
 /// <summary>
-/// Provides extension methods for adding PowerShell and Razor Pages to a KestrunHost.
+/// Provides extension methods for adding PowerShell and Razor Pages to a Kestrun
 /// </summary>
-public static class KestrunHostRazorExtensions
+public partial class KestrunHost
 {
     /// <summary>
     /// Adds PowerShell Razor Pages to the application.
     /// This middleware allows you to serve Razor Pages using PowerShell scripts.
     /// </summary>
-    /// <param name="host">The KestrunHost instance to add Razor Pages to.</param>
     /// <param name="rootPath">The root directory for the Razor Pages.</param>
     /// <param name="routePrefix">The route prefix to use for the PowerShell Razor Pages.</param>
     /// <param name="cfg">Configuration options for the Razor Pages.</param>
     /// <returns>The current KestrunHost instance.</returns>
-    public static KestrunHost AddPowerShellRazorPages(this KestrunHost host, string? rootPath, PathString? routePrefix, RazorPagesOptions? cfg)
+    public KestrunHost AddPowerShellRazorPages(string? rootPath, PathString? routePrefix, RazorPagesOptions? cfg)
     {
-        if (host.Logger.IsEnabled(LogEventLevel.Debug))
+        if (Logger.IsEnabled(LogEventLevel.Debug))
         {
-            host.Logger.Debug("Adding PowerShell Razor Pages with route prefix: {RoutePrefix}, config: {@Config}", routePrefix, cfg);
+            Logger.Debug("Adding PowerShell Razor Pages with route prefix: {RoutePrefix}, config: {@Config}", routePrefix, cfg);
         }
 
-        return AddPowerShellRazorPages(host, rootPath, routePrefix, dest =>
+        return AddPowerShellRazorPages(rootPath, routePrefix, dest =>
             {
                 if (cfg != null)
                 {
@@ -49,60 +48,55 @@ public static class KestrunHostRazorExtensions
     /// Adds PowerShell Razor Pages to the application.
     /// This middleware allows you to serve Razor Pages using PowerShell scripts.
     /// </summary>
-    /// <param name="host">The KestrunHost instance to add Razor Pages to.</param>
     /// <param name="routePrefix">The route prefix to use for the PowerShell Razor Pages.</param>
     /// <returns>The current KestrunHost instance.</returns>
-    public static KestrunHost AddPowerShellRazorPages(this KestrunHost host, PathString? routePrefix) =>
-        AddPowerShellRazorPages(host: host, rootPath: null, routePrefix: routePrefix, cfg: null as RazorPagesOptions);
+    public KestrunHost AddPowerShellRazorPages(PathString? routePrefix) =>
+        AddPowerShellRazorPages(rootPath: null, routePrefix: routePrefix, cfg: null as RazorPagesOptions);
 
     /// <summary>
     /// Adds PowerShell Razor Pages to the application.
     /// </summary>
-    /// <param name="host">The KestrunHost instance to add Razor Pages to.</param>
     /// <param name="rootPath">The root directory for the Razor Pages.</param>
     /// <param name="routePrefix">The route prefix to use for the PowerShell Razor Pages.</param>
     /// <returns>The current KestrunHost instance.</returns>
-    public static KestrunHost AddPowerShellRazorPages(this KestrunHost host, string? rootPath, PathString? routePrefix) =>
-            AddPowerShellRazorPages(host: host, rootPath: rootPath, routePrefix: routePrefix, cfg: null as RazorPagesOptions);
+    public KestrunHost AddPowerShellRazorPages(string? rootPath, PathString? routePrefix) =>
+            AddPowerShellRazorPages(rootPath: rootPath, routePrefix: routePrefix, cfg: null as RazorPagesOptions);
 
     /// <summary>
     /// Adds PowerShell Razor Pages to the application with default configuration and no route prefix.
     /// </summary>
-    /// <param name="host">The KestrunHost instance to add Razor Pages to.</param>
     /// <returns>The current KestrunHost instance.</returns>
-    public static KestrunHost AddPowerShellRazorPages(this KestrunHost host) =>
-        AddPowerShellRazorPages(host: host, rootPath: null, routePrefix: null, cfg: null as RazorPagesOptions);
+    public KestrunHost AddPowerShellRazorPages() =>
+        AddPowerShellRazorPages(rootPath: null, routePrefix: null, cfg: null as RazorPagesOptions);
 
     /// <summary>
     /// Adds PowerShell Razor Pages to the application.
     /// </summary>
-    /// <param name="host">The KestrunHost instance to add Razor Pages to.</param>
     /// <param name="rootPath">The root directory for the Razor Pages.</param>
     /// <returns>The current KestrunHost instance.</returns>
-    public static KestrunHost AddPowerShellRazorPages(this KestrunHost host, string? rootPath) =>
-        AddPowerShellRazorPages(host: host, rootPath: rootPath, routePrefix: null, cfg: null as RazorPagesOptions);
+    public KestrunHost AddPowerShellRazorPages(string? rootPath) =>
+        AddPowerShellRazorPages(rootPath: rootPath, routePrefix: null, cfg: null as RazorPagesOptions);
 
     /// <summary>
     /// Adds PowerShell Razor Pages to the application.
     /// This middleware allows you to serve Razor Pages using PowerShell scripts.
     /// </summary>
-    /// <param name="host">The KestrunHost instance to add Razor Pages to.</param>
     /// <param name="rootPath">The root directory for the Razor Pages.</param>
     /// <param name="routePrefix">The route prefix to use for the PowerShell Razor Pages.</param>
     /// <param name="cfg">Configuration options for the Razor Pages.</param>
     /// <returns>The current KestrunHost instance.</returns>
-    public static KestrunHost AddPowerShellRazorPages(this KestrunHost host, string? rootPath, PathString? routePrefix, Action<RazorPagesOptions>? cfg = null)
+    public KestrunHost AddPowerShellRazorPages(string? rootPath, PathString? routePrefix, Action<RazorPagesOptions>? cfg = null)
     {
-        LogAddPowerShellRazorPages(host, routePrefix, cfg);
+        LogAddPowerShellRazorPages(routePrefix, cfg);
 
-        var env = host.Builder.Environment;
+        var env = Builder.Environment;
         var isDefaultPath = string.IsNullOrWhiteSpace(rootPath);
         var pagesRootPath = ResolvePagesRootPath(env.ContentRootPath, rootPath, isDefaultPath);
         var rootDirectory = ResolveRazorRootDirectory(env.ContentRootPath, pagesRootPath, isDefaultPath);
 
-        _ = host.AddService(services =>
+        _ = AddService(services =>
         {
-            LogAddPowerShellRazorPagesService(host, routePrefix);
+            LogAddPowerShellRazorPagesService(routePrefix);
 
             var mvcBuilder = ConfigureRazorPages(services, rootDirectory, cfg);
             _ = mvcBuilder.AddRazorRuntimeCompilation();
@@ -110,67 +104,63 @@ public static class KestrunHostRazorExtensions
             ConfigureRuntimeCompilationReferences(services, pagesRootPath);
         });
 
-        return host.Use(app =>
+        return Use(app =>
         {
-            ArgumentNullException.ThrowIfNull(host.RunspacePool);
-            LogAddPowerShellRazorPagesMiddleware(host, routePrefix);
+            ArgumentNullException.ThrowIfNull(RunspacePool);
+            LogAddPowerShellRazorPagesMiddleware(routePrefix);
 
-            MapPowerShellRazorPages(app, host.RunspacePool, pagesRootPath, routePrefix);
+            MapPowerShellRazorPages(app, RunspacePool, pagesRootPath, routePrefix);
 
-            LogAddPowerShellRazorPagesMiddlewareAdded(host, routePrefix);
+            LogAddPowerShellRazorPagesMiddlewareAdded(routePrefix);
         });
     }
 
     /// <summary>
     /// Logs that PowerShell Razor Pages are being added.
     /// </summary>
-    /// <param name="host">The current host.</param>
     /// <param name="routePrefix">Optional route prefix for mounting Razor Pages.</param>
     /// <param name="cfg">Optional Razor Pages configuration delegate.</param>
-    private static void LogAddPowerShellRazorPages(KestrunHost host, PathString? routePrefix, Action<RazorPagesOptions>? cfg)
+    private void LogAddPowerShellRazorPages(PathString? routePrefix, Action<RazorPagesOptions>? cfg)
     {
-        if (host.Logger.IsEnabled(LogEventLevel.Debug))
+        if (Logger.IsEnabled(LogEventLevel.Debug))
         {
-            host.Logger.Debug("Adding PowerShell Razor Pages with route prefix: {RoutePrefix}, config: {@Config}", routePrefix, cfg);
+            Logger.Debug("Adding PowerShell Razor Pages with route prefix: {RoutePrefix}, config: {@Config}", routePrefix, cfg);
         }
     }
 
     /// <summary>
     /// Logs that PowerShell Razor Pages services are being added.
     /// </summary>
-    /// <param name="host">The current host.</param>
     /// <param name="routePrefix">Optional route prefix for mounting Razor Pages.</param>
-    private static void LogAddPowerShellRazorPagesService(KestrunHost host, PathString? routePrefix)
+    private void LogAddPowerShellRazorPagesService(PathString? routePrefix)
     {
-        if (host.Logger.IsEnabled(LogEventLevel.Debug))
+        if (Logger.IsEnabled(LogEventLevel.Debug))
         {
-            host.Logger.Debug("Adding PowerShell Razor Pages to the service with route prefix: {RoutePrefix}", routePrefix);
+            Logger.Debug("Adding PowerShell Razor Pages to the service with route prefix: {RoutePrefix}", routePrefix);
         }
     }
 
     /// <summary>
     /// Logs that PowerShell Razor Pages middleware is being added.
     /// </summary>
-    /// <param name="host">The current host.</param>
     /// <param name="routePrefix">Optional route prefix for mounting Razor Pages.</param>
-    private static void LogAddPowerShellRazorPagesMiddleware(KestrunHost host, PathString? routePrefix)
+    private void LogAddPowerShellRazorPagesMiddleware(PathString? routePrefix)
     {
-        if (host.Logger.IsEnabled(LogEventLevel.Debug))
+        if (Logger.IsEnabled(LogEventLevel.Debug))
         {
-            host.Logger.Debug("Adding PowerShell Razor Pages middleware with route prefix: {RoutePrefix}", routePrefix);
+            Logger.Debug("Adding PowerShell Razor Pages middleware with route prefix: {RoutePrefix}", routePrefix);
         }
     }
 
     /// <summary>
     /// Logs that PowerShell Razor Pages middleware has been added.
     /// </summary>
-    /// <param name="host">The current host.</param>
     /// <param name="routePrefix">Optional route prefix for mounting Razor Pages.</param>
-    private static void LogAddPowerShellRazorPagesMiddlewareAdded(KestrunHost host, PathString? routePrefix)
+    private void LogAddPowerShellRazorPagesMiddlewareAdded(PathString? routePrefix)
     {
-        if (host.Logger.IsEnabled(LogEventLevel.Debug))
+        if (Logger.IsEnabled(LogEventLevel.Debug))
         {
-            host.Logger.Debug("PowerShell Razor Pages middleware added with route prefix: {RoutePrefix}", routePrefix);
+            Logger.Debug("PowerShell Razor Pages middleware added with route prefix: {RoutePrefix}", routePrefix);
         }
     }
 
@@ -181,7 +171,7 @@ public static class KestrunHostRazorExtensions
     /// <param name="rootPath">Optional explicit Pages root path.</param>
     /// <param name="isDefaultPath">Whether <paramref name="rootPath"/> was not provided.</param>
     /// <returns>The resolved Pages root path.</returns>
-    private static string ResolvePagesRootPath(string contentRootPath, string? rootPath, bool isDefaultPath)
+    private string ResolvePagesRootPath(string contentRootPath, string? rootPath, bool isDefaultPath)
     {
         return isDefaultPath
             ? Path.Combine(contentRootPath, "Pages")
@@ -195,7 +185,7 @@ public static class KestrunHostRazorExtensions
     /// <param name="pagesRootPath">The resolved Pages root filesystem path.</param>
     /// <param name="isDefaultPath">Whether the Pages root is the default path.</param>
     /// <returns>The RootDirectory value to apply, or <c>null</c> if no override should be applied.</returns>
-    private static string? ResolveRazorRootDirectory(string contentRootPath, string pagesRootPath, bool isDefaultPath)
+    private string? ResolveRazorRootDirectory(string contentRootPath, string pagesRootPath, bool isDefaultPath)
     {
         if (isDefaultPath)
         {
@@ -236,7 +226,7 @@ public static class KestrunHostRazorExtensions
     /// </summary>
     /// <param name="services">The service collection.</param>
     /// <param name="pagesRootPath">The resolved Pages directory path.</param>
-    private static void ConfigureRuntimeCompilationReferences(IServiceCollection services, string pagesRootPath)
+    private void ConfigureRuntimeCompilationReferences(IServiceCollection services, string pagesRootPath)
     {
         _ = services.Configure<MvcRazorRuntimeCompilationOptions>(opts =>
         {
@@ -250,7 +240,7 @@ public static class KestrunHostRazorExtensions
     /// Adds already-loaded managed assemblies as Roslyn reference paths.
     /// </summary>
     /// <param name="opts">Runtime compilation options to update.</param>
-    private static void AddLoadedAssemblyReferences(MvcRazorRuntimeCompilationOptions opts)
+    private void AddLoadedAssemblyReferences(MvcRazorRuntimeCompilationOptions opts)
     {
         foreach (var asm in AppDomain.CurrentDomain.GetAssemblies()
             .Where(a => !a.IsDynamic && IsManaged(a.Location)))
@@ -263,7 +253,7 @@ public static class KestrunHostRazorExtensions
     /// Adds managed DLLs from the shared framework directory as Roslyn reference paths.
     /// </summary>
     /// <param name="opts">Runtime compilation options to update.</param>
-    private static void AddSharedFrameworkReferences(MvcRazorRuntimeCompilationOptions opts)
+    private void AddSharedFrameworkReferences(MvcRazorRuntimeCompilationOptions opts)
     {
         var coreDir = Path.GetDirectoryName(typeof(object).Assembly.Location)!;
         foreach (var dll in Directory.EnumerateFiles(coreDir, "*.dll").Where(IsManaged))
@@ -277,7 +267,7 @@ public static class KestrunHostRazorExtensions
     /// </summary>
     /// <param name="opts">Runtime compilation options to update.</param>
     /// <param name="pagesRootPath">The resolved Pages directory path.</param>
-    private static void AddPagesFileProviderIfExists(MvcRazorRuntimeCompilationOptions opts, string pagesRootPath)
+    private void AddPagesFileProviderIfExists(MvcRazorRuntimeCompilationOptions opts, string pagesRootPath)
     {
         if (Directory.Exists(pagesRootPath))
         {
@@ -292,7 +282,7 @@ public static class KestrunHostRazorExtensions
     /// <param name="pool">The runspace pool manager for PowerShell execution.</param>
     /// <param name="pagesRootPath">The resolved Pages directory path.</param>
     /// <param name="routePrefix">Optional route prefix for mounting Razor Pages.</param>
-    private static void MapPowerShellRazorPages(IApplicationBuilder app, KestrunRunspacePoolManager pool, string pagesRootPath, PathString? routePrefix)
+    private void MapPowerShellRazorPages(IApplicationBuilder app, KestrunRunspacePoolManager pool, string pagesRootPath, PathString? routePrefix)
     {
         if (routePrefix.HasValue)
         {
@@ -314,22 +304,21 @@ public static class KestrunHostRazorExtensions
     /// <summary>
     /// Adds Razor Pages to the application.
     /// </summary>
-    /// <param name="host">The KestrunHost instance to add Razor Pages to.</param>
     /// <param name="cfg">The configuration options for Razor Pages.</param>
     /// <returns>The current KestrunHost instance.</returns>
-    public static KestrunHost AddRazorPages(this KestrunHost host, RazorPagesOptions? cfg)
+    public KestrunHost AddRazorPages(RazorPagesOptions? cfg)
     {
-        if (host.Logger.IsEnabled(LogEventLevel.Debug))
+        if (Logger.IsEnabled(LogEventLevel.Debug))
         {
-            host.Logger.Debug("Adding Razor Pages from source: {Source}", cfg);
+            Logger.Debug("Adding Razor Pages from source: {Source}", cfg);
         }
 
         if (cfg == null)
         {
-            return host.AddRazorPages(); // no config, use defaults
+            return AddRazorPages(); // no config, use defaults
         }
 
-        return host.AddRazorPages(dest =>
+        return AddRazorPages(dest =>
             {
                 // simple value properties are fine
                 dest.RootDirectory = cfg.RootDirectory;
@@ -347,17 +336,16 @@ public static class KestrunHostRazorExtensions
     /// This overload allows you to specify configuration options.
     /// If you need to configure Razor Pages options, use the other overload.
     /// </summary>
-    /// <param name="host">The KestrunHost instance to add Razor Pages to.</param>
     /// <param name="cfg">The configuration options for Razor Pages.</param>
     /// <returns>The current KestrunHost instance.</returns>
-    public static KestrunHost AddRazorPages(this KestrunHost host, Action<RazorPagesOptions>? cfg = null)
+    public KestrunHost AddRazorPages(Action<RazorPagesOptions>? cfg = null)
     {
-        if (host.Logger.IsEnabled(LogEventLevel.Debug))
+        if (Logger.IsEnabled(LogEventLevel.Debug))
         {
-            host.Logger.Debug("Adding Razor Pages with configuration: {Config}", cfg);
+            Logger.Debug("Adding Razor Pages with configuration: {Config}", cfg);
         }
 
-        return host.AddService(services =>
+        return AddService(services =>
         {
             var mvc = services.AddRazorPages();         // returns IMvcBuilder
 
@@ -372,7 +360,7 @@ public static class KestrunHostRazorExtensions
     }
 
     // helper: true  ⇢ file contains managed metadata
-    private static bool IsManaged(string path)
+    private bool IsManaged(string path)
     {
         try { _ = AssemblyName.GetAssemblyName(path); return true; }
         catch { return false; }          // native ⇒ BadImageFormatException

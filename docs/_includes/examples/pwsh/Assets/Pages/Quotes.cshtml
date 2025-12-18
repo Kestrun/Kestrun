@@ -1,0 +1,18 @@
+@page
+@model Kestrun.Razor.PwshKestrunModel
+@{
+    ViewData["Title"] = "Quotes • Kestrun";
+    dynamic d = Model.Data ?? new { Quote = "No quote", Author = "", Seed = "" };
+}
+
+<div class="card">
+    <h1>Quote of the moment</h1>
+    <blockquote style="margin:0; font-size:1.2rem;">
+        “@d.Quote”
+        <div class="muted" style="margin-top:0.6rem;">— @d.Author</div>
+    </blockquote>
+</div>
+
+<div class="card">
+    <p class="muted">Refresh to get a new one. Seed: <code>@d.Seed</code></p>
+</div>

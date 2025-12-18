@@ -40,12 +40,17 @@ internal static class PowerShellExecutionHelpers
     /// Invokes the configured PowerShell pipeline asynchronously with cooperative cancellation.
     /// Cancellation attempts to stop the pipeline gracefully.
     /// </summary>
-    internal static async Task<PSDataCollection<PSObject>> InvokeAsync(PowerShell ps, Serilog.ILogger log, CancellationToken ct)
+    internal static async Task<PSDataCollection<PSObject>> InvokeAsync(this PowerShell ps, Serilog.ILogger log, CancellationToken ct)
     {
         if (log.IsEnabled(LogEventLevel.Verbose))
         {
             log.Verbose("Executing PowerShell script...");
         }
+
+        // If cancellation is already requested before the pipeline starts, do not invoke at all.
+        // On some platforms/runtimes, calling Stop() before invocation begins is a no-op and
+        // the pipeline may still start and run indefinitely.
+        ct.ThrowIfCancellationRequested();
 
         using var registration = ct.Register(static state =>
         {
@@ -53,12 +58,29 @@ internal static class PowerShellExecutionHelpers
             try { shell.Stop(); } catch { /* ignored */ }
         }, ps);
 
-        var results = await ps.InvokeAsync().ConfigureAwait(false);
-
-        if (log.IsEnabled(LogEventLevel.Verbose))
+        try
         {
-            log.Verbose("PowerShell script executed with {Count} results.", results.Count);
+            var invokeTask = ps.InvokeAsync();
+
+            // If cancellation is requested during the short window between registration and invocation,
+            // attempt to stop immediately.
+            if (ct.IsCancellationRequested)
+            {
+                try { ps.Stop(); } catch { /* ignored */ }
+            }
+
+            var results = await invokeTask.ConfigureAwait(false);
+
+            if (log.IsEnabled(LogEventLevel.Verbose))
+            {
+                log.Verbose("PowerShell script executed with {Count} results.", results.Count);
+            }
+            return results;
         }
-        return results;
+        catch (PipelineStoppedException) when (ct.IsCancellationRequested)
+        {
+            // Convert PipelineStoppedException to OperationCanceledException when cancellation was requested
+            throw new OperationCanceledException("PowerShell pipeline was stopped due to cancellation.", ct);
+        }
     }
 }

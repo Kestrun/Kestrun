@@ -120,6 +120,9 @@ public static class KestrunSecurityMiddlewareExtensions
         // Service side
         _ = host.AddService(services =>
         {
+            var options = new AntiforgeryOptions();
+            setupAction?.Invoke(options);
+            host.AntiforgeryOptions = options;
             _ = setupAction == null ? services.AddAntiforgery() : services.AddAntiforgery(setupAction);
         });
 

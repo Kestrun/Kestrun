@@ -1,0 +1,39 @@
+@page
+@model Kestrun.Razor.PwshKestrunModel
+@{
+    ViewData["Title"] = "Home • Kestrun";
+    dynamic d = Model.Data ?? new { Welcome = "Hello!", Tagline = "No model", Tips = new string[0] };
+}
+
+<div class="card">
+    <h1>@d.Welcome</h1>
+    <p class="muted">@d.Tagline</p>
+</div>
+
+<div class="grid">
+    <div class="card">
+        <h2>What this demo shows</h2>
+        <ul>
+            <li>Razor renders HTML.</li>
+            <li>PowerShell prepares a model via <code>$Model</code>.</li>
+            <li>Model flows through <code>HttpContext.Items["PageModel"]</code>.</li>
+        </ul>
+    </div>
+
+    <div class="card">
+        <h2>Quick tips</h2>
+        @if (d.Tips != null && d.Tips.Length > 0)
+        {
+            <ul>
+                @foreach (var t in d.Tips)
+                {
+                    <li>@t</li>
+                }
+            </ul>
+        }
+        else
+        {
+            <p class="muted">No tips available.</p>
+        }
+    </div>
+</div>

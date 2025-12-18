@@ -5,6 +5,7 @@ using Kestrun.Scripting;
 using Kestrun.Utilities;
 using Microsoft.CodeAnalysis.CSharp;
 using Serilog.Events;
+using Kestrun.Languages;
 
 namespace Kestrun.Scheduling;
 
@@ -57,7 +58,6 @@ internal static class JobFactory
     public static Func<CancellationToken, Task> Create(
         JobConfig config, FileInfo fileInfo) => CreateAsync(config, fileInfo).GetAwaiter().GetResult();
 
-
     /* ----------------  PowerShell  ---------------- */
     private static Func<CancellationToken, Task> PowerShellJob(
        JobConfig config)
@@ -90,7 +90,8 @@ internal static class JobFactory
                 using var reg = ct.Register(() => ps.Stop());
 
                 // Wait for the PowerShell script to complete
-                var psResults = await ps.InvokeAsync().WaitAsync(ct).ConfigureAwait(false);
+                //  var psResults = await ps.InvokeAsync().WaitAsync(ct).ConfigureAwait(false);
+                var psResults = await ps.InvokeAsync(log, ct).ConfigureAwait(false);
 
                 log.Verbose($"PowerShell script executed with {psResults.Count} results.");
                 if (log.IsEnabled(LogEventLevel.Debug))

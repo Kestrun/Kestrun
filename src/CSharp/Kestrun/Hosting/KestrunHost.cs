@@ -22,13 +22,14 @@ using Kestrun.Health;
 using Kestrun.Tasks;
 using Kestrun.Runtime;
 using Kestrun.OpenApi;
+using Microsoft.AspNetCore.Antiforgery;
 
 namespace Kestrun.Hosting;
 
 /// <summary>
 /// Provides hosting and configuration for the Kestrun application, including service registration, middleware setup, and runspace pool management.
 /// </summary>
-public class KestrunHost : IDisposable
+public partial class KestrunHost : IDisposable
 {
     #region Fields
     internal WebApplicationBuilder Builder { get; }
@@ -256,6 +257,11 @@ public class KestrunHost : IDisposable
     }
 
     /// <summary>
+    /// Gets the antiforgery options for configuring antiforgery token generation and validation.
+    /// </summary>
+    public AntiforgeryOptions? AntiforgeryOptions { get; set; }
+
+    /// <summary>
     /// Gets the OpenAPI document descriptor for configuring OpenAPI generation.
     /// </summary>
     public Dictionary<string, OpenApiDocDescriptor> OpenApiDocumentDescriptor { get; } = [];
@@ -308,12 +314,37 @@ public class KestrunHost : IDisposable
         AddKestrunModulePathIfMissing(modulePathsObj);
 
         // ④ WebApplicationBuilder
-        Builder = WebApplication.CreateBuilder(new WebApplicationOptions()
+        // NOTE:
+        // ASP.NET Core's WebApplicationBuilder validates that ContentRootPath exists.
+        // On Unix/macOS, the process current working directory (CWD) can be deleted by tests or external code.
+        // If we derive ContentRootPath from a missing/deleted directory, CreateBuilder throws.
+        // We therefore (a) choose an existing directory when possible and (b) retry with a stable fallback
+        // to keep host creation resilient in CI where test ordering/parallelism can surface this.
+        WebApplicationOptions CreateWebAppOptions(string contentRootPath)
         {
-            ContentRootPath = string.IsNullOrWhiteSpace(kestrunRoot) ? Directory.GetCurrentDirectory() : kestrunRoot,
-            Args = args ?? [],
-            EnvironmentName = EnvironmentHelper.Name
-        });
+            return new()
+            {
+                ContentRootPath = contentRootPath,
+                Args = args ?? [],
+                EnvironmentName = EnvironmentHelper.Name
+            };
+        }
+
+        var contentRootPath = GetSafeContentRootPath(kestrunRoot);
+
+        try
+        {
+            Builder = WebApplication.CreateBuilder(CreateWebAppOptions(contentRootPath));
+        }
+        catch (ArgumentException ex) when (
+            string.Equals(ex.ParamName, "contentRootPath", StringComparison.OrdinalIgnoreCase) &&
+            !string.Equals(contentRootPath, AppContext.BaseDirectory, StringComparison.Ordinal))
+        {
+            // The selected content root may have been deleted between resolution and builder initialization
+            // (TOCTOU race) or the process CWD may have become invalid. Fall back to a stable path so host
+            // creation does not fail.
+            Builder = WebApplication.CreateBuilder(CreateWebAppOptions(AppContext.BaseDirectory));
+        }
         // Enable Serilog for the host
         _ = Builder.Host.UseSerilog();
 
@@ -332,7 +363,7 @@ public class KestrunHost : IDisposable
         // ⑥ Add user-provided module paths
         AddUserModulePaths(modulePathsObj);
 
-        Logger.Information("Current working directory: {CurrentDirectory}", Directory.GetCurrentDirectory());
+        Logger.Information("Current working directory: {CurrentDirectory}", GetSafeCurrentDirectory());
     }
     #endregion
 
@@ -389,7 +420,7 @@ public class KestrunHost : IDisposable
             return;
         }
 
-        if (!string.Equals(Directory.GetCurrentDirectory(), kestrunRoot, StringComparison.Ordinal))
+        if (!string.Equals(GetSafeCurrentDirectory(), kestrunRoot, StringComparison.Ordinal))
         {
             Directory.SetCurrentDirectory(kestrunRoot);
             Logger.Information("Changed current directory to Kestrun root: {KestrunRoot}", kestrunRoot);
@@ -400,6 +431,39 @@ public class KestrunHost : IDisposable
         }
 
         KestrunRoot = kestrunRoot;
+    }
+
+    private static string GetSafeContentRootPath(string? kestrunRoot)
+    {
+        var candidate = !string.IsNullOrWhiteSpace(kestrunRoot)
+            ? kestrunRoot
+            : GetSafeCurrentDirectory();
+
+        // WebApplication.CreateBuilder requires that ContentRootPath exists.
+        // On Unix/macOS, getcwd() can fail (or return a path that was deleted) if the CWD was removed.
+        // This can happen in tests that use temp directories and delete them after constructing a host.
+        // Guard here to avoid injecting a non-existent content root into ASP.NET Core.
+        return Directory.Exists(candidate)
+            ? candidate
+            : AppContext.BaseDirectory;
+    }
+
+    private static string GetSafeCurrentDirectory()
+    {
+        try
+        {
+            return Directory.GetCurrentDirectory();
+        }
+        catch (Exception ex) when (
+            ex is IOException or
+            UnauthorizedAccessException or
+            DirectoryNotFoundException or
+            FileNotFoundException)
+        {
+            // On Unix/macOS, getcwd() can fail with ENOENT if the CWD was deleted.
+            // Fall back to the app base directory to keep host creation resilient.
+            return AppContext.BaseDirectory;
+        }
     }
 
     /// <summary>
@@ -1206,7 +1270,7 @@ public class KestrunHost : IDisposable
     /// </summary>
     private void LogApplicationInfo()
     {
-        Logger.Information("CWD: {CWD}", Directory.GetCurrentDirectory());
+        Logger.Information("CWD: {CWD}", GetSafeCurrentDirectory());
         Logger.Information("ContentRoot: {Root}", _app!.Environment.ContentRootPath);
         LogPagesDirectory();
     }

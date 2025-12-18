@@ -64,8 +64,8 @@ internal static class TaskJobFactory
                 vars["TaskId"] = config.TaskId;
                 PowerShellExecutionHelpers.SetVariables(ps, vars, log);
                 using var reg = ct.Register(() => ps.Stop());
-                var results = await ps.InvokeAsync().WaitAsync(ct).ConfigureAwait(false);
-
+                //  var results = await ps.InvokeAsync().WaitAsync(ct).ConfigureAwait(false);
+                var results = await ps.InvokeAsync(log, ct).ConfigureAwait(false);
                 // Collect pipeline output (base objects) as an object[]
                 var output = results.Count == 0
                     ? null

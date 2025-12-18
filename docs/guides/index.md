@@ -25,6 +25,7 @@ Deeper, cross-cutting subjects (logging, deployment, performance, etc.).
 | [Scheduling](./scheduling) | Background jobs via intervals and CRON (PS & C#) |
 | [Sessions](./sessions) | Cookie-based per-client state across requests |
 | [Tasks](./tasks) | On-demand background work with progress and results |
+| [Razor Pages](./razor) | PowerShell-backed Razor Pages with per-request models |
 | [Status Code Pages](./statuscodepages) | Friendly error pages and re-execution flows |
 | [Certificates](./certificates) | Generate, import, export, and validate X.509 |
 

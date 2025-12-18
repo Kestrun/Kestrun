@@ -96,5 +96,11 @@
         # Opinionated toggles
         PSAvoidUsingWriteHost = @{ Enable = $false }
         PSUseApprovedVerbs = @{ Enable = $true }
+
+        PSUseDeclaredVarsMoreThanAssignments = @{
+            Exclude = @(
+                '*.cshtml.ps1'
+            )
+        }
     }
 }

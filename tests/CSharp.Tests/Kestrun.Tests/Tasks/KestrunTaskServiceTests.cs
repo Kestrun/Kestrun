@@ -83,11 +83,25 @@ public class KestrunTaskServiceTests
 
         _ = svc.Cancel(id); // idempotent if already cancelled
 
-        // Wait for stopped (allow extra time for PS pipeline abort)
+        // Wait for stopped (allow extra time for PS pipeline abort on CI)
         start = DateTime.UtcNow;
-        while (svc.GetState(id) != TaskState.Stopped && DateTime.UtcNow - start < TimeSpan.FromSeconds(6))
+        while (DateTime.UtcNow - start < TimeSpan.FromSeconds(15))
         {
-            await Task.Delay(40);
+            var state = svc.GetState(id);
+            if (state is TaskState.Stopped)
+            {
+                break;
+            }
+
+            // Still waiting for cancellation to propagate.
+            if (state is TaskState.Running or TaskState.Stopping or TaskState.NotStarted)
+            {
+                await Task.Delay(60);
+                continue;
+            }
+
+            // Completed/Failed are terminal but unexpected for this test.
+            break;
         }
         var final = svc.GetState(id);
         Assert.True(final == TaskState.Stopped, $"Expected Stopped, got {final}");

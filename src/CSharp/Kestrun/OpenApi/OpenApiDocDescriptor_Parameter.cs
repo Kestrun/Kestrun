@@ -155,7 +155,7 @@ public partial class OpenApiDocDescriptor
             parameter.Description = defaultDescription;
         }
 
-        _ = (Document.Components?.Parameters![key] = parameter);
+        Document.Components!.Parameters![key] = parameter;
 
         var schemaAttr = (OpenApiPropertyAttribute?)p.GetCustomAttributes(inherit: false)
                           .LastOrDefault(a => a.GetType().Name == nameof(OpenApiPropertyAttribute));

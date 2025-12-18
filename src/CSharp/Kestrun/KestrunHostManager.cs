@@ -43,8 +43,23 @@ public static class KestrunHostManager
                 throw new ArgumentException("Kestrun root path cannot be null or empty.", nameof(value));
             }
 
-            if (Directory.GetCurrentDirectory() != value)
+            // NOTE:
+            // On Unix/macOS, Directory.GetCurrentDirectory() can throw if the process CWD was deleted.
+            // We still want to allow setting KestrunRoot (and attempt to set CWD) in that scenario.
+            try
             {
+                if (Directory.GetCurrentDirectory() != value)
+                {
+                    Directory.SetCurrentDirectory(value);
+                }
+            }
+            catch (Exception ex) when (ex is IOException
+                                       || ex is UnauthorizedAccessException
+                                       || ex is DirectoryNotFoundException
+                                       || ex is FileNotFoundException)
+            {
+                // If the current working directory is missing/unavailable (common on Unix when deleted),
+                // we can still attempt to set it to the provided root.
                 Directory.SetCurrentDirectory(value);
             }
             _kestrunRoot = value;

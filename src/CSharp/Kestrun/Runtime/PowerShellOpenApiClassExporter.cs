@@ -47,7 +47,11 @@ public static class PowerShellOpenApiClassExporter
 
         // 2. Topologically sort by "uses other component as property type"
         var sorted = TopologicalSortByPropertyDependencies(componentTypes, componentSet);
-
+        // nothing to export
+        if (sorted.Count == 0)
+        {
+            return string.Empty;
+        }
         // 3. Emit PowerShell classes
         var sb = new StringBuilder();
 

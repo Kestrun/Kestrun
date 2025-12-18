@@ -16,6 +16,34 @@ public class KestrunHostTest
 {
     [Fact]
     [Trait("Category", "Hosting")]
+    public void Constructor_DoesNotThrow_WhenCurrentDirectoryIsMissing_OnUnix()
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            // Windows typically prevents deleting the current directory; skip scenario.
+            return;
+        }
+
+        var logger = new LoggerConfiguration().CreateLogger();
+        var originalCwd = Directory.GetCurrentDirectory();
+
+        var tempDir = Directory.CreateTempSubdirectory("kestrun-cwd-");
+        try
+        {
+            Directory.SetCurrentDirectory(tempDir.FullName);
+            tempDir.Delete(recursive: true);
+
+            // Should not throw even though CWD is now invalid.
+            _ = new KestrunHost("TestApp", logger);
+        }
+        finally
+        {
+            Directory.SetCurrentDirectory(originalCwd);
+        }
+    }
+
+    [Fact]
+    [Trait("Category", "Hosting")]
     public void Constructor_SetsApplicationName_WhenProvided()
     {
         var logger = new LoggerConfiguration().CreateLogger();

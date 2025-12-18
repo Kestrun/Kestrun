@@ -38,6 +38,8 @@ try {
     exit 1
 }
 
+Initialize-KrRoot -Path $PSScriptRoot
+# Create a new logger
 New-KrLogger |
     Set-KrLoggerLevel -Value Debug |
     Add-KrSinkFile -Path '.\logs\razor.log' -RollingInterval Hour |
@@ -64,7 +66,6 @@ Add-KrCompressionMiddleware -EnableForHttps -MimeTypes @(
 
 Add-KrPowerShellRazorPagesRuntime
 
-Add-KrCorsPolicyMiddleware -Name 'AllowAll' -AllowAnyOrigin -AllowAnyMethod -AllowAnyHeader
 Add-KrFileServerMiddleware -RequestPath '/assets' -EnableDirectoryBrowsing
 
 Add-KrStaticFilesMiddleware -RequestPath '/static'

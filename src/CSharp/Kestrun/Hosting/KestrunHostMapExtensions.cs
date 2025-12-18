@@ -1321,6 +1321,7 @@ public static partial class KestrunHostMapExtensions
             DisableAntiforgery = true,
             AllowAnonymous = true,
         };
+
         // OpenAPI = new() { Summary = "Get CSRF token", Description = "Returns antiforgery request token and header name." }
 
         // Map directly and write directly (no KestrunResponse.ApplyTo)

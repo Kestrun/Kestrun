@@ -4,168 +4,48 @@ parent: Tutorials
 nav_order: 12
 ---
 
-# PowerShell-backed Razor Pages
+# Razor Pages Tutorials
 
-> 🚧 **Work in Progress**
->
-> This page is currently under development. Content will be expanded with guides, examples, and best practices soon.
-> Thank you for your patience while we build it out.
-> *Dynamic ASP.NET Core UI powered by PowerShell scripts — all inside **Kestrun***
-> Plus: how to collect form data both from PowerShell and C# Razor Pages
+Render ASP.NET Core Razor Pages while building per-request models in PowerShell.
 
----
+Kestrun can run a sibling PowerShell script (for example, `Index.cshtml.ps1`) before Razor renders the matching `.cshtml` file.
+Use `Add-KrPowerShellRazorPagesRuntime` to enable the runtime and point it at your pages folder.
 
-## 1. Overview
+## How it works
 
-Kestrun lets you pair a regular **`.cshtml`** Razor view with a sibling **PowerShell script**.
-During a single HTTP request the pipeline looks like this:
+During a single HTTP request the flow looks like this:
 
 ```text
 ┌───────────────┐
 │  Browser      │  GET /Hello
 └────┬──────────┘
-     │
+    │
 ┌────▼──────────┐
 │ PS-Razor MW   │  ① runs Hello.cshtml.ps1
-│ (UsePower… )  │     – builds $Model
+│ (Kestrun)     │     – builds $Model
 └────┬──────────┘
-     │  sets HttpContext.Items["PageModel"]
+    │  attaches model for Razor
 ┌────▼──────────┐
 │ Razor engine  │  ② renders Hello.cshtml
-│ (MapRazorPages)│    – @model PowerShellPageModel
+│ (Razor Pages) │    – reads Model.Data
 └────┬──────────┘
-     │
+    │
 ┌────▼──────────┐
 │   Response    │  HTML sent back
 └───────────────┘
 ```
 
-### Advantages
+## Chapters
 
-- **Zero compile step** — change the `.ps1` file, hit *F5*, refresh.
-- **Full access to Kestrun abstractions** (`$Context.Request`, `$Context.Response`, loggers, DI).
-- **Razor tooling** — syntax highlighting, IntelliSense, TagHelpers, layout views, etc.
+| # | Topic | Summary |
+|---|-------|---------|
+| 1 | [Razor Pages Quickstart](./1.RazorPages-Quickstart) | Serve a small set of pages from a folder and share app-wide state across page scripts |
+| 2 | [Razor Pages with Antiforgery](./2.RazorPages-Antiforgery) | Protect unsafe endpoints using cookie + header antiforgery tokens, and expose a token endpoint |
+| 3 | [Pages Reference](./Pages/index) | Walk through each `.cshtml` and `.cshtml.ps1` file included in the sample site |
 
----
+Return to the [Tutorial Index](../index).
 
-## 2. Folder & naming convention
-
-```folder
-MyApp/
-└─ Pages/
-   ├─ Hello.cshtml         ← Razor markup
-   ├─ Hello.cshtml.ps1     ← PowerShell executed first
-   ├─ ps/
-   │  └─ Form.cshtml       ← PS form view
-   │  └─ Form.cshtml.ps1   ← PS form handler
-   ├─ cs/
-   │  └─ Form.cshtml       ← C# form view
-   │  └─ Form.cshtml.cs    ← C# form PageModel
-   └─ _Layout.cshtml       ← optional shared layout
-```
-
-- URL rule: `/Pages/Hello.cshtml` → **`/Hello`**
-- Sub-folders map to path segments (`/ps/Form` → `/ps/Form`, `/cs/Form` → `/cs/Form`).
-
----
-
-## 3. Enabling the middleware
-
-```csharp
-var server = new KestrunHost("MySite", kestRunRoot, [modulePath]);
-
-server.ConfigureKestrel(opts => { /* … */ });
-server.ApplyConfiguration();   // wires middleware
-
-/*
-  Inside ApplyConfiguration():
-    app.UseStaticFiles();
-    app.UsePowerShellRazorPages(runspacePool);  // 👈 must come before
-    app.UseRouting();
-    app.MapRazorPages();
-*/
-```
-
-> **Important:** `UsePowerShellRazorPages()` **must appear before** `MapRazorPages()` so `$Model` is ready when Razor runs.
-
----
-
-## 4. Writing your first page
-
-### 4.1 `Pages/Hello.cshtml`
-
-```razor
-@page
-@model Kestrun.PowerShellPageModel
-
-@{
-    Layout = null;
-    var data = Model.Data
-              ?? new { Title = "Fallback", UserName = "Guest" };
-}
-
-<!DOCTYPE html>
-<h1>@data.Title</h1>
-<p>Welcome, @data.UserName!</p>
-<p>Served at @DateTime.UtcNow:u</p>
-```
-
-### 4.2 `Pages/Hello.cshtml.ps1`
-
-```powershell
-<# Executed **before** Razor renders #>
-
-param($Context)
-
-# Build your model however you like:
-$Model = [pscustomobject]@{
-    Title    = 'PowerShell-backed Razor Page'
-    UserName = 'Alice'
-}
-
-# Helpers available in script:
-#   $Context.Request   – KestrunRequest
-#   $Context.Response  – KestrunResponse
-#   $Services  – IServiceProvider
-#   $Log       – Serilog.ILogger
-```
-
----
-
-### 4.2 What variables are available in the script?
-
-| Name                    | Type                     | Purpose                                               |
-|-------------------------|--------------------------|-------------------------------------------------------|
-| **`$Context.Request`**  | `KestrunRequest`         | Strong-typed wrapper over `HttpRequest` with helpers. |
-| **`$Context.Response`** | `KestrunResponse`        | Convenience builder (status, headers, cookies…).      |
-| **`$Services`**         | `IServiceProvider`       | Resolve any DI singleton/scoped service.              |
-| **`$Log`**              | `Serilog.ILogger`        | Logger scoped to the current request.                 |
-| **`$Model`**            | `object` (you create it) | Anything serialisable / anonymous / PSCustomObject.   |
-
-Return values are ignored; simply assign to `$Model`.
-
----
-
-## 5. Working with Forms
-
-### 5.1 Add a `_ViewImports.cshtml`
-
-Create **`Pages/_ViewImports.cshtml`** (alongside `ps/` and `cs/`):
-
-```razor
-@using RazorSample.Pages
-@using Kestrun
-@addTagHelper *, Microsoft.AspNetCore.Mvc.TagHelpers
-@namespace RazorSample.Pages
-```
-
-- **`@addTagHelper *, Microsoft.AspNetCore.Mvc.TagHelpers`** enables `<form asp-for>` and auto-injects antiforgery tokens.
-- **`@using`** brings your PageModels and `PowerShellPageModel` into scope.
-- **`@namespace`** sets the default C# namespace for views.
-
-### 5.2 PowerShell-backed form example
-
-#### `Pages/ps/Form.cshtml`
+### `Pages/ps/Form.cshtml`
 
 ```razor
 @page

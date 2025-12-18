@@ -67,6 +67,61 @@ public class IAuthHandlerTest
     }
 
     [Fact]
+    public async Task ValidatePowerShellAsync_ReturnsFalse_WhenPowerShellInstanceMissing()
+    {
+        // Arrange
+        var context = new DefaultHttpContext();
+        // Don't set PS_INSTANCE in context
+        var loggerMock = new Mock<ILogger>();
+        var credentials = new Dictionary<string, string> { { "username", "u" }, { "password", "p" } };
+
+        var result = await IAuthHandler.ValidatePowerShellAsync("return $true", context, credentials, loggerMock.Object);
+
+        // Assert
+        Assert.False(result);
+    }
+
+    [Fact]
+    public async Task ValidatePowerShellAsync_ReturnsFalse_WhenResultIsNotBoolean()
+    {
+        // Arrange
+        var context = new DefaultHttpContext();
+        using var runspace = System.Management.Automation.Runspaces.RunspaceFactory.CreateRunspace();
+        runspace.Open();
+        using var ps = PowerShell.Create();
+        ps.Runspace = runspace;
+        context.Items["PS_INSTANCE"] = ps;
+        var loggerMock = new Mock<ILogger>();
+        var credentials = new Dictionary<string, string> { { "username", "u" }, { "password", "p" } };
+
+        // Code that returns a string instead of boolean
+        var result = await IAuthHandler.ValidatePowerShellAsync("return 'not a boolean'", context, credentials, loggerMock.Object);
+
+        // Assert
+        Assert.False(result);
+    }
+
+    [Fact]
+    public async Task ValidatePowerShellAsync_ReturnsFalse_WhenResultIsEmpty()
+    {
+        // Arrange
+        var context = new DefaultHttpContext();
+        using var runspace = System.Management.Automation.Runspaces.RunspaceFactory.CreateRunspace();
+        runspace.Open();
+        using var ps = PowerShell.Create();
+        ps.Runspace = runspace;
+        context.Items["PS_INSTANCE"] = ps;
+        var loggerMock = new Mock<ILogger>();
+        var credentials = new Dictionary<string, string> { { "username", "u" }, { "password", "p" } };
+
+        // Code that returns nothing
+        var result = await IAuthHandler.ValidatePowerShellAsync("# empty script", context, credentials, loggerMock.Object);
+
+        // Assert
+        Assert.False(result);
+    }
+
+    [Fact]
     public async Task IssueClaimsPowerShellAsync_ReturnsEmpty_WhenIdentityIsNull()
     {
         // Arrange

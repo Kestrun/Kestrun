@@ -60,7 +60,7 @@ public static class LoggerExtensions
         }
 
         var sanitized = propertyValues.Select(SanitizeObject).ToArray();
-        log.Debug(exception, messageTemplate, sanitized);
+        log.Error(exception, messageTemplate, sanitized);
     }
 
     /// <summary>

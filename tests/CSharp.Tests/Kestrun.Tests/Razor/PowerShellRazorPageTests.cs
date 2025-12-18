@@ -99,7 +99,11 @@ public class PowerShellRazorPageTests
         }
         finally
         {
-            try { tmpRoot.Delete(recursive: true); } catch { }
+            try { tmpRoot.Delete(recursive: true); }
+            catch
+            {
+                // Intentionally ignored: test cleanup should not fail the test
+            }
         }
     }
 
@@ -138,7 +142,11 @@ public class PowerShellRazorPageTests
         }
         finally
         {
-            try { tmpRoot.Delete(recursive: true); } catch { }
+            try { tmpRoot.Delete(recursive: true); }
+            catch
+            {
+                // Intentionally ignored: test cleanup should not fail the test
+            }
         }
     }
 
@@ -180,7 +188,11 @@ public class PowerShellRazorPageTests
         }
         finally
         {
-            try { tmpRoot.Delete(recursive: true); } catch { }
+            try { tmpRoot.Delete(recursive: true); }
+            catch
+            {
+                // Intentionally ignored: test cleanup should not fail the test
+            }
         }
     }
 
@@ -226,7 +238,11 @@ public class PowerShellRazorPageTests
         }
         finally
         {
-            try { tmpRoot.Delete(recursive: true); } catch { }
+            try { tmpRoot.Delete(recursive: true); }
+            catch
+            {
+                // Intentionally ignored: test cleanup should not fail the test
+            }
         }
     }
 
@@ -271,7 +287,11 @@ public class PowerShellRazorPageTests
         }
         finally
         {
-            try { tmpRoot.Delete(recursive: true); } catch { }
+            try { tmpRoot.Delete(recursive: true); }
+            catch
+            {
+                // Intentionally ignored: test cleanup should not fail the test
+            }
         }
     }
 
@@ -319,7 +339,11 @@ public class PowerShellRazorPageTests
         }
         finally
         {
-            try { tmpRoot.Delete(recursive: true); } catch { }
+            try { tmpRoot.Delete(recursive: true); }
+            catch
+            {
+                // Intentionally ignored: test cleanup should not fail the test
+            }
         }
     }
 
@@ -356,7 +380,11 @@ public class PowerShellRazorPageTests
         }
         finally
         {
-            try { tmpRoot.Delete(recursive: true); } catch { }
+            try { tmpRoot.Delete(recursive: true); }
+            catch
+            {
+                // Intentionally ignored: test cleanup should not fail the test
+            }
         }
     }
 }

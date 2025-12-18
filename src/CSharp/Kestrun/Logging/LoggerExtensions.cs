@@ -81,7 +81,7 @@ public static class LoggerExtensions
     /// <returns>The sanitized string.</returns>
     private static string SanitizeString(string input)
     {
-        var sb = new StringBuilder(input.Length);
+        var sb = new StringBuilder(input.Length).Append('"');
         foreach (var c in input)
         {
             if (char.IsControl(c))
@@ -91,6 +91,7 @@ public static class LoggerExtensions
 
             _ = sb.Append(c);
         }
+        _ = sb.Append('"');
         return sb.ToString();
     }
 }

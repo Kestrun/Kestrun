@@ -47,6 +47,11 @@ internal static class PowerShellExecutionHelpers
             log.Verbose("Executing PowerShell script...");
         }
 
+        // If cancellation is already requested before the pipeline starts, do not invoke at all.
+        // On some platforms/runtimes, calling Stop() before invocation begins is a no-op and
+        // the pipeline may still start and run indefinitely.
+        ct.ThrowIfCancellationRequested();
+
         using var registration = ct.Register(static state =>
         {
             var shell = (PowerShell)state!;
@@ -55,7 +60,16 @@ internal static class PowerShellExecutionHelpers
 
         try
         {
-            var results = await ps.InvokeAsync().ConfigureAwait(false);
+            var invokeTask = ps.InvokeAsync();
+
+            // If cancellation is requested during the short window between registration and invocation,
+            // attempt to stop immediately.
+            if (ct.IsCancellationRequested)
+            {
+                try { ps.Stop(); } catch { /* ignored */ }
+            }
+
+            var results = await invokeTask.ConfigureAwait(false);
 
             if (log.IsEnabled(LogEventLevel.Verbose))
             {

@@ -316,7 +316,7 @@ public partial class KestrunHost : IDisposable
         // ④ WebApplicationBuilder
         Builder = WebApplication.CreateBuilder(new WebApplicationOptions()
         {
-            ContentRootPath = string.IsNullOrWhiteSpace(kestrunRoot) ? Directory.GetCurrentDirectory() : kestrunRoot,
+            ContentRootPath = GetSafeContentRootPath(kestrunRoot),
             Args = args ?? [],
             EnvironmentName = EnvironmentHelper.Name
         });
@@ -338,7 +338,7 @@ public partial class KestrunHost : IDisposable
         // ⑥ Add user-provided module paths
         AddUserModulePaths(modulePathsObj);
 
-        Logger.Information("Current working directory: {CurrentDirectory}", Directory.GetCurrentDirectory());
+        Logger.Information("Current working directory: {CurrentDirectory}", GetSafeCurrentDirectory());
     }
     #endregion
 
@@ -395,7 +395,7 @@ public partial class KestrunHost : IDisposable
             return;
         }
 
-        if (!string.Equals(Directory.GetCurrentDirectory(), kestrunRoot, StringComparison.Ordinal))
+        if (!string.Equals(GetSafeCurrentDirectory(), kestrunRoot, StringComparison.Ordinal))
         {
             Directory.SetCurrentDirectory(kestrunRoot);
             Logger.Information("Changed current directory to Kestrun root: {KestrunRoot}", kestrunRoot);
@@ -406,6 +406,34 @@ public partial class KestrunHost : IDisposable
         }
 
         KestrunRoot = kestrunRoot;
+    }
+
+    private static string GetSafeContentRootPath(string? kestrunRoot)
+    {
+        if (!string.IsNullOrWhiteSpace(kestrunRoot))
+        {
+            return kestrunRoot;
+        }
+
+        return GetSafeCurrentDirectory();
+    }
+
+    private static string GetSafeCurrentDirectory()
+    {
+        try
+        {
+            return Directory.GetCurrentDirectory();
+        }
+        catch (Exception ex) when (
+            ex is IOException or
+            UnauthorizedAccessException or
+            DirectoryNotFoundException or
+            FileNotFoundException)
+        {
+            // On Unix/macOS, getcwd() can fail with ENOENT if the CWD was deleted.
+            // Fall back to the app base directory to keep host creation resilient.
+            return AppContext.BaseDirectory;
+        }
     }
 
     /// <summary>
@@ -1212,7 +1240,7 @@ public partial class KestrunHost : IDisposable
     /// </summary>
     private void LogApplicationInfo()
     {
-        Logger.Information("CWD: {CWD}", Directory.GetCurrentDirectory());
+        Logger.Information("CWD: {CWD}", GetSafeCurrentDirectory());
         Logger.Information("ContentRoot: {Root}", _app!.Environment.ContentRootPath);
         LogPagesDirectory();
     }

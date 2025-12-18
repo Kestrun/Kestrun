@@ -78,87 +78,7 @@ public static class PowerShellRazorPage
         // MUST run before MapRazorPages()
         _ = app.Use(async (context, next) =>
         {
-            if (isDebugLevelEnabled)
-            {
-                logger.DebugSanitized("Processing PowerShell Razor Page request for {Path}", context.Request.Path);
-            }
-
-            var relPath = GetRelativePath(context);
-            if (relPath is null)
-            {
-                await next();
-                return;
-            }
-
-            var (view, psfile, csfile) = BuildCandidatePaths(pagesRoot, relPath);
-            if (HasCodeBehind(csfile))
-            {
-                await next();
-                return;
-            }
-
-            if (!FilesExist(view, psfile))
-            {
-                await next();
-                return;
-            }
-
-            PowerShell? ps = null;
-            try
-            {
-                ps = CreatePowerShell(pool);
-                PrepareSession(ps, context);
-                await AddScriptFromFileAsync(ps, psfile, context.RequestAborted);
-                LogExecution(psfile);
-                //var psResults = await InvokePowerShellAsync(ps).ConfigureAwait(false);
-                PSDataCollection<PSObject> psResults;
-                try
-                {
-                    psResults = await ps.InvokeWithRequestAbortAsync(
-                        context.RequestAborted,
-                        onAbortLog: () => logger.DebugSanitized("Request aborted; stopping PowerShell pipeline for {Path}", context.Request.Path)
-                    ).ConfigureAwait(false);
-                }
-                catch (OperationCanceledException) when (context.RequestAborted.IsCancellationRequested)
-                {
-                    if (isDebugLevelEnabled)
-                    {
-                        logger.DebugSanitized("PowerShell pipeline cancelled due to request abortion for {Path}", context.Request.Path);
-                    }
-                    // Client went away; don’t try to write an error response.
-                    return;
-                }
-                LogResultsCount(psResults.Count);
-
-                SetModelIfPresent(ps, context);
-                // Continue the pipeline unless cancelled
-                if (context.RequestAborted.IsCancellationRequested)
-                {
-                    return;
-                }
-                // Check for errors
-                if (HasErrors(ps))
-                {
-                    await HandleErrorsAsync(context, ps);
-                    return;
-                }
-
-                LogStreamsIfAny(ps);
-
-                await next(); // continue the pipeline
-                if (isDebugLevelEnabled)
-                {
-                    logger.DebugSanitized("PowerShell Razor Page completed for {Path}", context.Request.Path);
-                }
-            }
-            catch (Exception ex)
-            {
-                logger.ErrorSanitized(ex, "Error occurred in PowerShell Razor Page middleware for {Path}", context.Request.Path);
-            }
-            finally
-            {
-                ReturnRunspaceAndDispose(ps, pool);
-            }
+            await ProcessPowerShellRazorPageRequestAsync(context, next, pagesRoot, pool, logger, isDebugLevelEnabled).ConfigureAwait(false);
         });
 
         // static files & routing can be added earlier in pipeline
@@ -167,6 +87,146 @@ public static class PowerShellRazorPage
         _ = app.UseEndpoints(e => e.MapRazorPages());
         return app;
     }
+
+    /// <summary>
+    /// Processes a PowerShell Razor Page request by evaluating path conditions, executing the PowerShell script, and managing the response.
+    /// </summary>
+    /// <param name="context">The HTTP context for the current request.</param>
+    /// <param name="next">The next middleware in the pipeline.</param>
+    /// <param name="pagesRoot">The root directory for Razor Pages.</param>
+    /// <param name="pool">The runspace pool manager for PowerShell execution.</param>
+    /// <param name="logger">The logger instance for diagnostic output.</param>
+    /// <param name="isDebugLevelEnabled">Flag indicating if debug-level logging is enabled.</param>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    private static async Task ProcessPowerShellRazorPageRequestAsync(
+        HttpContext context, RequestDelegate next, string pagesRoot,
+        KestrunRunspacePoolManager pool, Serilog.ILogger logger, bool isDebugLevelEnabled)
+    {
+        if (isDebugLevelEnabled)
+        {
+            logger.DebugSanitized("Processing PowerShell Razor Page request for {Path}", context.Request.Path);
+        }
+
+        var relPath = GetRelativePath(context);
+        if (relPath is null)
+        {
+            await next(context);
+            return;
+        }
+
+        var (view, psfile, csfile) = BuildCandidatePaths(pagesRoot, relPath);
+
+        // Skip if code-behind or files don't exist
+        if (ShouldSkipProcessing(csfile, view, psfile))
+        {
+            await next(context);
+            return;
+        }
+
+        // Execute the PowerShell script and handle response
+        await ExecutePowerShellRazorPageAsync(context, next, psfile, pool, logger, isDebugLevelEnabled);
+    }
+
+    /// <summary>
+    /// Determines whether to skip processing based on code-behind presence or file existence.
+    /// </summary>
+    /// <param name="codeBehindFile">The path to the potential C# code-behind file.</param>
+    /// <param name="viewFile">The path to the Razor view file.</param>
+    /// <param name="powershellFile">The path to the PowerShell script file.</param>
+    /// <returns>True if processing should be skipped; otherwise, false.</returns>
+    private static bool ShouldSkipProcessing(string codeBehindFile, string viewFile, string powershellFile) =>
+        HasCodeBehind(codeBehindFile) || !FilesExist(viewFile, powershellFile);
+
+    /// <summary>
+    /// Executes a PowerShell Razor Page script and processes the response.
+    /// </summary>
+    /// <param name="context">The HTTP context for the current request.</param>
+    /// <param name="next">The next middleware in the pipeline.</param>
+    /// <param name="psFilePath">The path to the PowerShell script file to execute.</param>
+    /// <param name="pool">The runspace pool manager for PowerShell execution.</param>
+    /// <param name="logger">The logger instance for diagnostic output.</param>
+    /// <param name="isDebugLevelEnabled">Flag indicating if debug-level logging is enabled.</param>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    private static async Task ExecutePowerShellRazorPageAsync(
+        HttpContext context, RequestDelegate next, string psFilePath,
+        KestrunRunspacePoolManager pool, Serilog.ILogger logger, bool isDebugLevelEnabled)
+    {
+        PowerShell? ps = null;
+        try
+        {
+            ps = CreatePowerShell(pool);
+            PrepareSession(ps, context);
+            await AddScriptFromFileAsync(ps, psFilePath, context.RequestAborted);
+            LogExecution(psFilePath);
+
+            var psResults = await InvokePowerShellWithAbortAsync(ps, context, logger, isDebugLevelEnabled).ConfigureAwait(false);
+            if (psResults is null)
+            {
+                return;
+            }
+
+            // Process results and continue pipeline
+            LogResultsCount(psResults.Count);
+            SetModelIfPresent(ps, context);
+
+            if (context.RequestAborted.IsCancellationRequested)
+            {
+                return;
+            }
+
+            if (HasErrors(ps))
+            {
+                await HandleErrorsAsync(context, ps);
+                return;
+            }
+
+            LogStreamsIfAny(ps);
+            await next(context);
+
+            if (isDebugLevelEnabled)
+            {
+                logger.DebugSanitized("PowerShell Razor Page completed for {Path}", context.Request.Path);
+            }
+        }
+        catch (Exception ex)
+        {
+            logger.ErrorSanitized(ex, "Error occurred in PowerShell Razor Page middleware for {Path}", context.Request.Path);
+        }
+        finally
+        {
+            ReturnRunspaceAndDispose(ps, pool);
+        }
+    }
+
+    /// <summary>
+    /// Invokes a PowerShell instance with request cancellation support.
+    /// </summary>
+    /// <param name="ps">The PowerShell instance to invoke.</param>
+    /// <param name="context">The HTTP context containing the cancellation token.</param>
+    /// <param name="logger">The logger instance for diagnostic output.</param>
+    /// <param name="isDebugLevelEnabled">Flag indicating if debug-level logging is enabled.</param>
+    /// <returns>A collection of PowerShell results, or null if the request was cancelled or an error occurred.</returns>
+    private static async Task<PSDataCollection<PSObject>?> InvokePowerShellWithAbortAsync(
+        PowerShell ps, HttpContext context, Serilog.ILogger logger, bool isDebugLevelEnabled)
+    {
+        try
+        {
+            return await ps.InvokeWithRequestAbortAsync(
+                context.RequestAborted,
+                onAbortLog: () => logger.DebugSanitized("Request aborted; stopping PowerShell pipeline for {Path}", context.Request.Path)
+            ).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (context.RequestAborted.IsCancellationRequested)
+        {
+            if (isDebugLevelEnabled)
+            {
+                logger.DebugSanitized("PowerShell pipeline cancelled due to request abortion for {Path}", context.Request.Path);
+            }
+            // Client went away; don't try to write an error response.
+            return null;
+        }
+    }
+
     /// <summary>
     /// Gets the relative path for the PowerShell Razor Page from the HTTP context.
     /// </summary>
@@ -365,3 +425,4 @@ public static class PowerShellRazorPage
         ps.Dispose();
     }
 }
+

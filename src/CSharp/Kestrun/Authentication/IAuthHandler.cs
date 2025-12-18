@@ -120,65 +120,117 @@ public interface IAuthHandler
     {
         try
         {
-            if (!context.Items.ContainsKey("PS_INSTANCE"))
-            {
-                throw new InvalidOperationException("PowerShell runspace not found in context items. Ensure PowerShellRunspaceMiddleware is registered.");
-            }
-            // Validate that the credentials dictionary is not null or empty
-            if (credentials == null || credentials.Count == 0)
-            {
-                logger.Warning("Credentials are null or empty.");
-                return false;
-            }
-            // Validate that the code is not null or empty
-            if (string.IsNullOrEmpty(code))
-            {
-                throw new InvalidOperationException("PowerShell authentication code is null or empty.");
-            }
-            // Retrieve the PowerShell instance from the context
-            var ps = context.Items["PS_INSTANCE"] as PowerShell
-                  ?? throw new InvalidOperationException("PowerShell instance not found in context items.");
-            if (ps.Runspace == null)
-            {
-                throw new InvalidOperationException("PowerShell runspace is not set. Ensure PowerShellRunspaceMiddleware is registered.");
-            }
+            ValidatePowerShellInputs(code, context, credentials, logger);
+            var ps = GetPowerShellForValidation(context);
 
             _ = ps.AddScript(code, useLocalScope: true);
             foreach (var kvp in credentials)
             {
                 _ = ps.AddParameter(kvp.Key, kvp.Value);
             }
-            PSDataCollection<PSObject> psResults;
-            try
-            {
-                psResults = await ps.InvokeWithRequestAbortAsync(
-                    context.RequestAborted,
-                    onAbortLog: () => logger.DebugSanitized("Request aborted; stopping PowerShell pipeline for {Path}", context.Request.Path)
-                ).ConfigureAwait(false);
-            }
-            catch (OperationCanceledException) when (context.RequestAborted.IsCancellationRequested)
-            {
-                if (logger.IsEnabled(Serilog.Events.LogEventLevel.Debug))
-                {
-                    logger.DebugSanitized("PowerShell pipeline cancelled due to request abortion for {Path}", context.Request.Path);
-                }
-                // Treat as cancellation, not an error.
-                return false;
-            }
-            // var psResults = await ps.InvokeAsync().ConfigureAwait(false);
 
-            if (psResults.Count == 0 || psResults[0] == null || psResults[0].BaseObject is not bool isValid)
-            {
-                logger.Error("PowerShell script did not return a valid boolean result.");
-                return false;
-            }
-            return isValid;
+            var psResults = await ExecutePowerShellScriptAsync(ps, context, logger).ConfigureAwait(false);
+
+            return ValidatePowerShellResult(psResults, logger);
         }
         catch (Exception ex)
         {
             logger.Error(ex, "Error during validating PowerShell authentication.");
             return false;
         }
+    }
+
+    /// <summary>
+    /// Validates that all required inputs for PowerShell authentication are present and valid.
+    /// </summary>
+    /// <param name="code">The PowerShell script code to validate.</param>
+    /// <param name="context">The HTTP context containing the PowerShell runspace.</param>
+    /// <param name="credentials">The credentials dictionary to validate.</param>
+    /// <param name="logger">The logger instance for logging warnings.</param>
+    /// <exception cref="InvalidOperationException">Thrown when required inputs are missing or invalid.</exception>
+    private static void ValidatePowerShellInputs(string? code, HttpContext context, Dictionary<string, string>? credentials, Serilog.ILogger logger)
+    {
+        if (!context.Items.ContainsKey("PS_INSTANCE"))
+        {
+            throw new InvalidOperationException("PowerShell runspace not found in context items. Ensure PowerShellRunspaceMiddleware is registered.");
+        }
+
+        if (credentials == null || credentials.Count == 0)
+        {
+            logger.Warning("Credentials are null or empty.");
+            throw new InvalidOperationException("Credentials are null or empty.");
+        }
+
+        if (string.IsNullOrEmpty(code))
+        {
+            throw new InvalidOperationException("PowerShell authentication code is null or empty.");
+        }
+    }
+
+    /// <summary>
+    /// Retrieves and validates the PowerShell instance from the HTTP context.
+    /// </summary>
+    /// <param name="context">The HTTP context containing the PowerShell instance.</param>
+    /// <returns>The validated PowerShell instance.</returns>
+    /// <exception cref="InvalidOperationException">Thrown when the PowerShell instance or runspace is not found or invalid.</exception>
+    private static PowerShell GetPowerShellForValidation(HttpContext context)
+    {
+        var ps = context.Items["PS_INSTANCE"] as PowerShell
+              ?? throw new InvalidOperationException("PowerShell instance not found in context items.");
+
+        return ps.Runspace == null
+            ? throw new InvalidOperationException("PowerShell runspace is not set. Ensure PowerShellRunspaceMiddleware is registered.")
+            : ps;
+    }
+
+    /// <summary>
+    /// Executes the PowerShell script with support for request cancellation.
+    /// </summary>
+    /// <param name="ps">The PowerShell instance to execute.</param>
+    /// <param name="context">The HTTP context containing cancellation token and request information.</param>
+    /// <param name="logger">The logger instance for logging debug information.</param>
+    /// <returns>A collection of PowerShell objects returned from script execution.</returns>
+    /// <exception cref="OperationCanceledException">Thrown when the request is cancelled.</exception>
+    private static async ValueTask<PSDataCollection<PSObject>> ExecutePowerShellScriptAsync(PowerShell ps, HttpContext context, Serilog.ILogger logger)
+    {
+        try
+        {
+            return await ps.InvokeWithRequestAbortAsync(
+                context.RequestAborted,
+                onAbortLog: () => logger.DebugSanitized("Request aborted; stopping PowerShell pipeline for {Path}", context.Request.Path)
+            ).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (context.RequestAborted.IsCancellationRequested)
+        {
+            if (logger.IsEnabled(Serilog.Events.LogEventLevel.Debug))
+            {
+                logger.DebugSanitized("PowerShell pipeline cancelled due to request abortion for {Path}", context.Request.Path);
+            }
+            throw;
+        }
+    }
+
+    /// <summary>
+    /// Validates and extracts the boolean result from PowerShell script execution.
+    /// </summary>
+    /// <param name="psResults">The collection of PowerShell objects returned from script execution.</param>
+    /// <param name="logger">The logger instance for logging errors.</param>
+    /// <returns>The boolean result from the PowerShell script, or false if the result is invalid.</returns>
+    private static bool ValidatePowerShellResult(PSDataCollection<PSObject>? psResults, Serilog.ILogger logger)
+    {
+        if (psResults == null || psResults.Count == 0)
+        {
+            logger.Error("PowerShell script did not return a valid boolean result.");
+            return false;
+        }
+
+        if (psResults[0]?.BaseObject is not bool isValid)
+        {
+            logger.Error("PowerShell script did not return a valid boolean result.");
+            return false;
+        }
+
+        return isValid;
     }
 
     /// <summary>

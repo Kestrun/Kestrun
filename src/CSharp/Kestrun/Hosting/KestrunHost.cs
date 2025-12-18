@@ -29,7 +29,7 @@ namespace Kestrun.Hosting;
 /// <summary>
 /// Provides hosting and configuration for the Kestrun application, including service registration, middleware setup, and runspace pool management.
 /// </summary>
-public class KestrunHost : IDisposable
+public partial class KestrunHost : IDisposable
 {
     #region Fields
     internal WebApplicationBuilder Builder { get; }

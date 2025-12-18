@@ -81,14 +81,13 @@ public class KestrunHostRazorExtensionsTests
     public void AddPowerShellRazorPages_Default_AddsPagesFileProvider_WhenPagesDirectoryExists()
     {
         var tmpRoot = Directory.CreateTempSubdirectory("kestrun_host_pages_");
-        KestrunHost? host = null;
-        PhysicalFileProvider? providerToDispose = null;
+
         try
         {
             var pagesDir = Path.Combine(tmpRoot.FullName, "Pages");
             _ = Directory.CreateDirectory(pagesDir);
 
-            host = new KestrunHost("TestApp", tmpRoot.FullName);
+            using var host = new KestrunHost("TestApp", tmpRoot.FullName);
             _ = host.AddPowerShellRazorPages();
             host.EnableConfiguration();
 
@@ -97,12 +96,10 @@ public class KestrunHostRazorExtensionsTests
             var options = app.Services.GetRequiredService<IOptions<MvcRazorRuntimeCompilationOptions>>().Value;
             Assert.Contains(options.FileProviders, fp => IsPhysicalProviderFor(fp, pagesDir));
 
-            providerToDispose = TryGetPhysicalProviderFor(options.FileProviders, pagesDir);
+            using var providerToDispose = TryGetPhysicalProviderFor(options.FileProviders, pagesDir);
         }
         finally
         {
-            host?.Dispose();
-            providerToDispose?.Dispose();
             TryDeleteDirectory(tmpRoot);
         }
     }
@@ -112,14 +109,13 @@ public class KestrunHostRazorExtensionsTests
     public void AddPowerShellRazorPages_CustomRoot_AddsPagesFileProvider_WhenDirectoryExists()
     {
         var tmpRoot = Directory.CreateTempSubdirectory("kestrun_host_pages_custom_");
-        KestrunHost? host = null;
-        PhysicalFileProvider? providerToDispose = null;
+
         try
         {
             var customPagesDir = Path.Combine(tmpRoot.FullName, "MyPages");
             _ = Directory.CreateDirectory(customPagesDir);
 
-            host = new KestrunHost("TestApp", tmpRoot.FullName);
+            using var host = new KestrunHost("TestApp", tmpRoot.FullName);
             _ = host.AddPowerShellRazorPages(rootPath: customPagesDir, routePrefix: null);
             host.EnableConfiguration();
 
@@ -128,12 +124,10 @@ public class KestrunHostRazorExtensionsTests
             var options = app.Services.GetRequiredService<IOptions<MvcRazorRuntimeCompilationOptions>>().Value;
             Assert.Contains(options.FileProviders, fp => IsPhysicalProviderFor(fp, customPagesDir));
 
-            providerToDispose = TryGetPhysicalProviderFor(options.FileProviders, customPagesDir);
+            using var providerToDispose = TryGetPhysicalProviderFor(options.FileProviders, customPagesDir);
         }
         finally
         {
-            host?.Dispose();
-            providerToDispose?.Dispose();
             TryDeleteDirectory(tmpRoot);
         }
     }

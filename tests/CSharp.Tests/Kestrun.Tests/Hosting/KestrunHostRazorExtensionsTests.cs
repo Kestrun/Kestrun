@@ -10,6 +10,7 @@ using Xunit;
 
 namespace KestrunTests.Hosting;
 
+[Collection("WorkingDirectorySerial")]
 public class KestrunHostRazorExtensionsTests
 {
     [Fact]
@@ -80,6 +81,7 @@ public class KestrunHostRazorExtensionsTests
     [Trait("Category", "Hosting")]
     public void AddPowerShellRazorPages_Default_AddsPagesFileProvider_WhenPagesDirectoryExists()
     {
+        var originalCwd = Directory.GetCurrentDirectory();
         var tmpRoot = Directory.CreateTempSubdirectory("kestrun_host_pages_");
 
         try
@@ -100,6 +102,7 @@ public class KestrunHostRazorExtensionsTests
         }
         finally
         {
+            Directory.SetCurrentDirectory(originalCwd);
             TryDeleteDirectory(tmpRoot);
         }
     }
@@ -108,6 +111,7 @@ public class KestrunHostRazorExtensionsTests
     [Trait("Category", "Hosting")]
     public void AddPowerShellRazorPages_CustomRoot_AddsPagesFileProvider_WhenDirectoryExists()
     {
+        var originalCwd = Directory.GetCurrentDirectory();
         var tmpRoot = Directory.CreateTempSubdirectory("kestrun_host_pages_custom_");
 
         try
@@ -128,6 +132,7 @@ public class KestrunHostRazorExtensionsTests
         }
         finally
         {
+            Directory.SetCurrentDirectory(originalCwd);
             TryDeleteDirectory(tmpRoot);
         }
     }

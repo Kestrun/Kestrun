@@ -314,12 +314,27 @@ public partial class KestrunHost : IDisposable
         AddKestrunModulePathIfMissing(modulePathsObj);
 
         // ④ WebApplicationBuilder
-        Builder = WebApplication.CreateBuilder(new WebApplicationOptions()
+        WebApplicationOptions CreateWebAppOptions(string contentRootPath) => new()
         {
-            ContentRootPath = GetSafeContentRootPath(kestrunRoot),
+            ContentRootPath = contentRootPath,
             Args = args ?? [],
             EnvironmentName = EnvironmentHelper.Name
-        });
+        };
+
+        var contentRootPath = GetSafeContentRootPath(kestrunRoot);
+
+        try
+        {
+            Builder = WebApplication.CreateBuilder(CreateWebAppOptions(contentRootPath));
+        }
+        catch (ArgumentException ex) when (
+            string.Equals(ex.ParamName, "contentRootPath", StringComparison.OrdinalIgnoreCase) &&
+            !string.Equals(contentRootPath, AppContext.BaseDirectory, StringComparison.Ordinal))
+        {
+            // The selected content root may have been deleted between resolution and builder initialization.
+            // Fall back to a stable path so host creation does not fail.
+            Builder = WebApplication.CreateBuilder(CreateWebAppOptions(AppContext.BaseDirectory));
+        }
         // Enable Serilog for the host
         _ = Builder.Host.UseSerilog();
 
@@ -410,12 +425,16 @@ public partial class KestrunHost : IDisposable
 
     private static string GetSafeContentRootPath(string? kestrunRoot)
     {
-        if (!string.IsNullOrWhiteSpace(kestrunRoot))
-        {
-            return kestrunRoot;
-        }
+        var candidate = !string.IsNullOrWhiteSpace(kestrunRoot)
+            ? kestrunRoot
+            : GetSafeCurrentDirectory();
 
-        return GetSafeCurrentDirectory();
+        // WebApplication.CreateBuilder requires that ContentRootPath exists.
+        // On Unix/macOS, tests or external code can delete the process CWD (or do so concurrently),
+        // so guard against a non-existent candidate.
+        return Directory.Exists(candidate)
+            ? candidate
+            : AppContext.BaseDirectory;
     }
 
     private static string GetSafeCurrentDirectory()

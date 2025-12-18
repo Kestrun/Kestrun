@@ -85,7 +85,7 @@ runs:
           if [[ "$DEB_ARCH" == "amd64" ]]; then
             # Use .deb only for amd64
             if [[ "${PREVIEW_MODE:-}" == "true" ]]; then
-              PKG="powershell-preview_${REQUESTED_VERSION}-1.deb_${DEB_ARCH}.deb"
+              PKG="powershell_${REQUESTED_VERSION}-1.deb_${DEB_ARCH}.deb"
             else
               PKG="powershell_${REQUESTED_VERSION}-1.deb_${DEB_ARCH}.deb"
             fi

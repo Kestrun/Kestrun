@@ -121,6 +121,9 @@ public class KestrunResponse(KestrunRequest request, int bodyAsyncThreshold = 81
                                    || ex is DirectoryNotFoundException
                                    || ex is FileNotFoundException)
         {
+            // On Unix/macOS, getcwd() can throw if the process CWD was deleted.
+            // We use AppContext.BaseDirectory as a stable fallback to avoid crashing in diagnostics
+            // and when resolving relative paths.
             return AppContext.BaseDirectory;
         }
     }
@@ -233,6 +236,10 @@ public class KestrunResponse(KestrunRequest request, int bodyAsyncThreshold = 81
             throw new ArgumentException("File path cannot be null or empty.", nameof(filePath));
         }
 
+        // IMPORTANT:
+        // - Path.GetFullPath(relative) uses the process CWD.
+        // - If the CWD is missing/deleted (can occur in CI/test scenarios), GetFullPath can fail.
+        // Resolve relative paths against a safe, existing base directory instead.
         var fullPath = Path.IsPathRooted(filePath)
             ? Path.GetFullPath(filePath)
             : Path.GetFullPath(filePath, GetSafeCurrentDirectoryOrBaseDirectory());

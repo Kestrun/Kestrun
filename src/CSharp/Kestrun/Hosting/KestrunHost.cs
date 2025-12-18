@@ -314,6 +314,12 @@ public partial class KestrunHost : IDisposable
         AddKestrunModulePathIfMissing(modulePathsObj);
 
         // ④ WebApplicationBuilder
+        // NOTE:
+        // ASP.NET Core's WebApplicationBuilder validates that ContentRootPath exists.
+        // On Unix/macOS, the process current working directory (CWD) can be deleted by tests or external code.
+        // If we derive ContentRootPath from a missing/deleted directory, CreateBuilder throws.
+        // We therefore (a) choose an existing directory when possible and (b) retry with a stable fallback
+        // to keep host creation resilient in CI where test ordering/parallelism can surface this.
         WebApplicationOptions CreateWebAppOptions(string contentRootPath) => new()
         {
             ContentRootPath = contentRootPath,
@@ -331,8 +337,9 @@ public partial class KestrunHost : IDisposable
             string.Equals(ex.ParamName, "contentRootPath", StringComparison.OrdinalIgnoreCase) &&
             !string.Equals(contentRootPath, AppContext.BaseDirectory, StringComparison.Ordinal))
         {
-            // The selected content root may have been deleted between resolution and builder initialization.
-            // Fall back to a stable path so host creation does not fail.
+            // The selected content root may have been deleted between resolution and builder initialization
+            // (TOCTOU race) or the process CWD may have become invalid. Fall back to a stable path so host
+            // creation does not fail.
             Builder = WebApplication.CreateBuilder(CreateWebAppOptions(AppContext.BaseDirectory));
         }
         // Enable Serilog for the host
@@ -430,8 +437,9 @@ public partial class KestrunHost : IDisposable
             : GetSafeCurrentDirectory();
 
         // WebApplication.CreateBuilder requires that ContentRootPath exists.
-        // On Unix/macOS, tests or external code can delete the process CWD (or do so concurrently),
-        // so guard against a non-existent candidate.
+        // On Unix/macOS, getcwd() can fail (or return a path that was deleted) if the CWD was removed.
+        // This can happen in tests that use temp directories and delete them after constructing a host.
+        // Guard here to avoid injecting a non-existent content root into ASP.NET Core.
         return Directory.Exists(candidate)
             ? candidate
             : AppContext.BaseDirectory;

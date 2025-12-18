@@ -10,6 +10,9 @@ using Xunit;
 
 namespace KestrunTests.Hosting;
 
+// These tests create/delete temp directories and construct KestrunHost with a temp root.
+// KestrunHost may set the process CWD to that root; if the directory is deleted without restoring
+// the original CWD, later tests can fail on Unix/macOS when getcwd() or ContentRootPath validation runs.
 [Collection("WorkingDirectorySerial")]
 public class KestrunHostRazorExtensionsTests
 {
@@ -81,6 +84,7 @@ public class KestrunHostRazorExtensionsTests
     [Trait("Category", "Hosting")]
     public void AddPowerShellRazorPages_Default_AddsPagesFileProvider_WhenPagesDirectoryExists()
     {
+        // Capture CWD up front; KestrunHost(tmpRoot) may change it.
         var originalCwd = Directory.GetCurrentDirectory();
         var tmpRoot = Directory.CreateTempSubdirectory("kestrun_host_pages_");
 
@@ -102,6 +106,7 @@ public class KestrunHostRazorExtensionsTests
         }
         finally
         {
+            // Restore CWD before deleting the temp root to avoid leaving the process in a deleted directory.
             Directory.SetCurrentDirectory(originalCwd);
             TryDeleteDirectory(tmpRoot);
         }
@@ -111,6 +116,7 @@ public class KestrunHostRazorExtensionsTests
     [Trait("Category", "Hosting")]
     public void AddPowerShellRazorPages_CustomRoot_AddsPagesFileProvider_WhenDirectoryExists()
     {
+        // Capture CWD up front; KestrunHost(tmpRoot) may change it.
         var originalCwd = Directory.GetCurrentDirectory();
         var tmpRoot = Directory.CreateTempSubdirectory("kestrun_host_pages_custom_");
 
@@ -132,6 +138,7 @@ public class KestrunHostRazorExtensionsTests
         }
         finally
         {
+            // Restore CWD before deleting the temp root to avoid leaving the process in a deleted directory.
             Directory.SetCurrentDirectory(originalCwd);
             TryDeleteDirectory(tmpRoot);
         }

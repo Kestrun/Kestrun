@@ -1,6 +1,6 @@
 @page
 @model Kestrun.Razor.PwshKestrunModel
-@{ 
+@{
     dynamic d = Model.Data ?? new { HasAntiforgery = false, Seconds = 30 };
     bool enabled = d.HasAntiforgery == true;
 }
@@ -246,6 +246,9 @@ else
                     setState("cancel error");
                     log("ERROR cancelling: " + (e && e.message ? e.message : e));
                     elCancel.disabled = false;
+                }finally {
+                    // Allow restart
+                    elStart.disabled = false;
                 }
             });
 

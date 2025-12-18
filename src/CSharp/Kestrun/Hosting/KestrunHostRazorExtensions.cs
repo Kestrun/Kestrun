@@ -1,5 +1,6 @@
 using System.Reflection;
 using Kestrun.Razor;
+using Kestrun.Scripting;
 using Microsoft.AspNetCore.Mvc.Razor.RuntimeCompilation;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.Extensions.FileProviders;
@@ -92,106 +93,222 @@ public static class KestrunHostRazorExtensions
     /// <returns>The current KestrunHost instance.</returns>
     public static KestrunHost AddPowerShellRazorPages(this KestrunHost host, string? rootPath, PathString? routePrefix, Action<RazorPagesOptions>? cfg = null)
     {
-        if (host.Logger.IsEnabled(LogEventLevel.Debug))
-        {
-            host.Logger.Debug("Adding PowerShell Razor Pages with route prefix: {RoutePrefix}, config: {@Config}", routePrefix, cfg);
-        }
+        LogAddPowerShellRazorPages(host, routePrefix, cfg);
+
+        var env = host.Builder.Environment;
+        var isDefaultPath = string.IsNullOrWhiteSpace(rootPath);
+        var pagesRootPath = ResolvePagesRootPath(env.ContentRootPath, rootPath, isDefaultPath);
+        var rootDirectory = ResolveRazorRootDirectory(env.ContentRootPath, pagesRootPath, isDefaultPath);
 
         _ = host.AddService(services =>
         {
-            var env = host.Builder.Environment;
-            if (host.Logger.IsEnabled(LogEventLevel.Debug))
-            {
-                host.Logger.Debug("Adding PowerShell Razor Pages to the service with route prefix: {RoutePrefix}", routePrefix);
-            }
+            LogAddPowerShellRazorPagesService(host, routePrefix);
 
-            // Track whether rootPath was originally null or empty
-            var isDefaultPath = string.IsNullOrWhiteSpace(rootPath);
-
-            // Determine the root path for Razor Pages (for file provider)
-            if (isDefaultPath)
-            {
-                rootPath = Path.Combine(env.ContentRootPath, "Pages");
-            }
-
-            // Configure Razor Pages with the root directory
-            var mvcBuilder = services.AddRazorPages();
-
-            // Set the RootDirectory only if a custom rootPath was provided
-            if (!isDefaultPath && !string.IsNullOrWhiteSpace(rootPath))
-            {
-                _ = mvcBuilder.AddRazorPagesOptions(opts =>
-                {
-                    opts.RootDirectory = "/" + Path.GetRelativePath(env.ContentRootPath, rootPath).Replace("\\", "/");
-                });
-            }
-
-            // Apply any additional custom configuration
-            if (cfg != null)
-            {
-                _ = mvcBuilder.AddRazorPagesOptions(cfg);
-            }
-
+            var mvcBuilder = ConfigureRazorPages(services, rootDirectory, cfg);
             _ = mvcBuilder.AddRazorRuntimeCompilation();
 
-            // ── Feed Roslyn every assembly already loaded ──────────
-
-            _ = services.Configure<MvcRazorRuntimeCompilationOptions>(opts =>
-            {
-                // 1️⃣  everything that’s already loaded and managed
-                foreach (var asm in AppDomain.CurrentDomain.GetAssemblies()
-                                    .Where(a => !a.IsDynamic && IsManaged(a.Location)))
-                {
-                    opts.AdditionalReferencePaths.Add(asm.Location);
-                }
-
-                // 2️⃣  managed DLLs from the .NET-8 shared-framework folder
-                var coreDir = Path.GetDirectoryName(typeof(object).Assembly.Location)!;   // e.g. …\dotnet\shared\Microsoft.NETCore.App\8.0.x
-                foreach (var dll in Directory.EnumerateFiles(coreDir, "*.dll")
-                                                .Where(IsManaged))
-                {
-                    opts.AdditionalReferencePaths.Add(dll);
-                }
-
-                // 3️⃣  (optional) watch your project’s Pages folder so edits hot-reload
-                if (Directory.Exists(rootPath))
-                {
-                    opts.FileProviders.Add(new PhysicalFileProvider(rootPath));
-                }
-            });
+            ConfigureRuntimeCompilationReferences(services, pagesRootPath);
         });
 
         return host.Use(app =>
         {
             ArgumentNullException.ThrowIfNull(host.RunspacePool);
-            if (host.Logger.IsEnabled(LogEventLevel.Debug))
-            {
-                host.Logger.Debug("Adding PowerShell Razor Pages middleware with route prefix: {RoutePrefix}", routePrefix);
-            }
+            LogAddPowerShellRazorPagesMiddleware(host, routePrefix);
 
-            if (routePrefix.HasValue)
-            {
-                // ── /ps  (or whatever prefix) ──────────────────────────────
-                _ = app.Map(routePrefix.Value, branch =>
-                {
-                    _ = branch.UsePowerShellRazorPages(host.RunspacePool, rootPath);   // bridge
-                    _ = branch.UseRouting();                             // add routing
-                    _ = branch.UseEndpoints(e => e.MapRazorPages());     // map pages
-                });
-            }
-            else
-            {
-                // ── mounted at root ────────────────────────────────────────
-                _ = app.UsePowerShellRazorPages(host.RunspacePool, rootPath);          // bridge
-                _ = app.UseRouting();                                    // add routing
-                _ = app.UseEndpoints(e => e.MapRazorPages());            // map pages
-            }
+            MapPowerShellRazorPages(app, host.RunspacePool, pagesRootPath, routePrefix);
 
-            if (host.Logger.IsEnabled(LogEventLevel.Debug))
-            {
-                host.Logger.Debug("PowerShell Razor Pages middleware added with route prefix: {RoutePrefix}", routePrefix);
-            }
+            LogAddPowerShellRazorPagesMiddlewareAdded(host, routePrefix);
         });
+    }
+
+    /// <summary>
+    /// Logs that PowerShell Razor Pages are being added.
+    /// </summary>
+    /// <param name="host">The current host.</param>
+    /// <param name="routePrefix">Optional route prefix for mounting Razor Pages.</param>
+    /// <param name="cfg">Optional Razor Pages configuration delegate.</param>
+    private static void LogAddPowerShellRazorPages(KestrunHost host, PathString? routePrefix, Action<RazorPagesOptions>? cfg)
+    {
+        if (host.Logger.IsEnabled(LogEventLevel.Debug))
+        {
+            host.Logger.Debug("Adding PowerShell Razor Pages with route prefix: {RoutePrefix}, config: {@Config}", routePrefix, cfg);
+        }
+    }
+
+    /// <summary>
+    /// Logs that PowerShell Razor Pages services are being added.
+    /// </summary>
+    /// <param name="host">The current host.</param>
+    /// <param name="routePrefix">Optional route prefix for mounting Razor Pages.</param>
+    private static void LogAddPowerShellRazorPagesService(KestrunHost host, PathString? routePrefix)
+    {
+        if (host.Logger.IsEnabled(LogEventLevel.Debug))
+        {
+            host.Logger.Debug("Adding PowerShell Razor Pages to the service with route prefix: {RoutePrefix}", routePrefix);
+        }
+    }
+
+    /// <summary>
+    /// Logs that PowerShell Razor Pages middleware is being added.
+    /// </summary>
+    /// <param name="host">The current host.</param>
+    /// <param name="routePrefix">Optional route prefix for mounting Razor Pages.</param>
+    private static void LogAddPowerShellRazorPagesMiddleware(KestrunHost host, PathString? routePrefix)
+    {
+        if (host.Logger.IsEnabled(LogEventLevel.Debug))
+        {
+            host.Logger.Debug("Adding PowerShell Razor Pages middleware with route prefix: {RoutePrefix}", routePrefix);
+        }
+    }
+
+    /// <summary>
+    /// Logs that PowerShell Razor Pages middleware has been added.
+    /// </summary>
+    /// <param name="host">The current host.</param>
+    /// <param name="routePrefix">Optional route prefix for mounting Razor Pages.</param>
+    private static void LogAddPowerShellRazorPagesMiddlewareAdded(KestrunHost host, PathString? routePrefix)
+    {
+        if (host.Logger.IsEnabled(LogEventLevel.Debug))
+        {
+            host.Logger.Debug("PowerShell Razor Pages middleware added with route prefix: {RoutePrefix}", routePrefix);
+        }
+    }
+
+    /// <summary>
+    /// Resolves the filesystem path used as the Pages root.
+    /// </summary>
+    /// <param name="contentRootPath">The application content root path.</param>
+    /// <param name="rootPath">Optional explicit Pages root path.</param>
+    /// <param name="isDefaultPath">Whether <paramref name="rootPath"/> was not provided.</param>
+    /// <returns>The resolved Pages root path.</returns>
+    private static string ResolvePagesRootPath(string contentRootPath, string? rootPath, bool isDefaultPath)
+    {
+        return isDefaultPath
+            ? Path.Combine(contentRootPath, "Pages")
+            : rootPath!;
+    }
+
+    /// <summary>
+    /// Resolves the Razor Pages <see cref="RazorPagesOptions.RootDirectory"/> value.
+    /// </summary>
+    /// <param name="contentRootPath">The application content root path.</param>
+    /// <param name="pagesRootPath">The resolved Pages root filesystem path.</param>
+    /// <param name="isDefaultPath">Whether the Pages root is the default path.</param>
+    /// <returns>The RootDirectory value to apply, or <c>null</c> if no override should be applied.</returns>
+    private static string? ResolveRazorRootDirectory(string contentRootPath, string pagesRootPath, bool isDefaultPath)
+    {
+        if (isDefaultPath)
+        {
+            return null;
+        }
+
+        var relative = Path.GetRelativePath(contentRootPath, pagesRootPath)
+            .Replace("\\", "/");
+        return "/" + relative;
+    }
+
+    /// <summary>
+    /// Configures Razor Pages and applies optional RootDirectory and user configuration.
+    /// </summary>
+    /// <param name="services">The service collection.</param>
+    /// <param name="rootDirectory">Optional Razor Pages root directory (virtual path) to apply.</param>
+    /// <param name="cfg">Optional user configuration delegate for Razor Pages options.</param>
+    /// <returns>The MVC builder instance.</returns>
+    private static IMvcBuilder ConfigureRazorPages(IServiceCollection services, string? rootDirectory, Action<RazorPagesOptions>? cfg)
+    {
+        var mvcBuilder = services.AddRazorPages();
+
+        if (!string.IsNullOrWhiteSpace(rootDirectory))
+        {
+            _ = mvcBuilder.AddRazorPagesOptions(opts => opts.RootDirectory = rootDirectory);
+        }
+
+        if (cfg != null)
+        {
+            _ = mvcBuilder.AddRazorPagesOptions(cfg);
+        }
+
+        return mvcBuilder;
+    }
+
+    /// <summary>
+    /// Configures runtime compilation reference paths and optional file watching for the Pages directory.
+    /// </summary>
+    /// <param name="services">The service collection.</param>
+    /// <param name="pagesRootPath">The resolved Pages directory path.</param>
+    private static void ConfigureRuntimeCompilationReferences(IServiceCollection services, string pagesRootPath)
+    {
+        _ = services.Configure<MvcRazorRuntimeCompilationOptions>(opts =>
+        {
+            AddLoadedAssemblyReferences(opts);
+            AddSharedFrameworkReferences(opts);
+            AddPagesFileProviderIfExists(opts, pagesRootPath);
+        });
+    }
+
+    /// <summary>
+    /// Adds already-loaded managed assemblies as Roslyn reference paths.
+    /// </summary>
+    /// <param name="opts">Runtime compilation options to update.</param>
+    private static void AddLoadedAssemblyReferences(MvcRazorRuntimeCompilationOptions opts)
+    {
+        foreach (var asm in AppDomain.CurrentDomain.GetAssemblies()
+            .Where(a => !a.IsDynamic && IsManaged(a.Location)))
+        {
+            opts.AdditionalReferencePaths.Add(asm.Location);
+        }
+    }
+
+    /// <summary>
+    /// Adds managed DLLs from the shared framework directory as Roslyn reference paths.
+    /// </summary>
+    /// <param name="opts">Runtime compilation options to update.</param>
+    private static void AddSharedFrameworkReferences(MvcRazorRuntimeCompilationOptions opts)
+    {
+        var coreDir = Path.GetDirectoryName(typeof(object).Assembly.Location)!;
+        foreach (var dll in Directory.EnumerateFiles(coreDir, "*.dll").Where(IsManaged))
+        {
+            opts.AdditionalReferencePaths.Add(dll);
+        }
+    }
+
+    /// <summary>
+    /// Adds a file provider for the Pages directory so Razor runtime compilation can watch changes.
+    /// </summary>
+    /// <param name="opts">Runtime compilation options to update.</param>
+    /// <param name="pagesRootPath">The resolved Pages directory path.</param>
+    private static void AddPagesFileProviderIfExists(MvcRazorRuntimeCompilationOptions opts, string pagesRootPath)
+    {
+        if (Directory.Exists(pagesRootPath))
+        {
+            opts.FileProviders.Add(new PhysicalFileProvider(pagesRootPath));
+        }
+    }
+
+    /// <summary>
+    /// Maps PowerShell Razor Pages middleware either at the application root or under a route prefix.
+    /// </summary>
+    /// <param name="app">The application builder.</param>
+    /// <param name="pool">The runspace pool manager for PowerShell execution.</param>
+    /// <param name="pagesRootPath">The resolved Pages directory path.</param>
+    /// <param name="routePrefix">Optional route prefix for mounting Razor Pages.</param>
+    private static void MapPowerShellRazorPages(IApplicationBuilder app, KestrunRunspacePoolManager pool, string pagesRootPath, PathString? routePrefix)
+    {
+        if (routePrefix.HasValue)
+        {
+            _ = app.Map(routePrefix.Value, branch =>
+            {
+                _ = branch.UsePowerShellRazorPages(pool, pagesRootPath);
+                _ = branch.UseRouting();
+                _ = branch.UseEndpoints(e => e.MapRazorPages());
+            });
+
+            return;
+        }
+
+        _ = app.UsePowerShellRazorPages(pool, pagesRootPath);
+        _ = app.UseRouting();
+        _ = app.UseEndpoints(e => e.MapRazorPages());
     }
 
     /// <summary>

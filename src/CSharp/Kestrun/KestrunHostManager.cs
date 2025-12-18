@@ -54,9 +54,9 @@ public static class KestrunHostManager
                 }
             }
             catch (Exception ex) when (ex is IOException
-                                       || ex is UnauthorizedAccessException
-                                       || ex is DirectoryNotFoundException
-                                       || ex is FileNotFoundException)
+                                       or UnauthorizedAccessException
+                                       or DirectoryNotFoundException
+                                       or FileNotFoundException)
             {
                 // If the current working directory is missing/unavailable (common on Unix when deleted),
                 // we can still attempt to set it to the provided root.

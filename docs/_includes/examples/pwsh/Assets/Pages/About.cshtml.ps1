@@ -1,4 +1,4 @@
-﻿$Model = [pscustomobject]@{
+$Model = [pscustomobject]@{
     Project  = "Kestrun"
     Blurb    = "This sample uses Razor Pages for templating and PowerShell scripts as per-page model providers."
     Features = @(

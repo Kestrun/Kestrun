@@ -117,9 +117,9 @@ public class KestrunResponse(KestrunRequest request, int bodyAsyncThreshold = 81
             return Directory.GetCurrentDirectory();
         }
         catch (Exception ex) when (ex is IOException
-                                   || ex is UnauthorizedAccessException
-                                   || ex is DirectoryNotFoundException
-                                   || ex is FileNotFoundException)
+                                   or UnauthorizedAccessException
+                                   or DirectoryNotFoundException
+                                   or FileNotFoundException)
         {
             // On Unix/macOS, getcwd() can throw if the process CWD was deleted.
             // We use AppContext.BaseDirectory as a stable fallback to avoid crashing in diagnostics

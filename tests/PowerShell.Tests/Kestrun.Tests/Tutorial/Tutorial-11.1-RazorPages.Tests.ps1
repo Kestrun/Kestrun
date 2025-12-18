@@ -1,4 +1,4 @@
-﻿param()
+param()
 
 Describe 'Example 11.1-RazorPages' -Tag 'Tutorial' {
     BeforeAll {

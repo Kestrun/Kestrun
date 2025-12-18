@@ -1,4 +1,4 @@
-﻿<#
+<#
 .SYNOPSIS
     Retrieves the Kestrun module version information.
 .DESCRIPTION

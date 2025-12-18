@@ -15,9 +15,9 @@ public class KestrunHostManagerTests
             return Directory.GetCurrentDirectory();
         }
         catch (Exception ex) when (ex is IOException
-                                   || ex is UnauthorizedAccessException
-                                   || ex is DirectoryNotFoundException
-                                   || ex is FileNotFoundException)
+                                   or UnauthorizedAccessException
+                                   or DirectoryNotFoundException
+                                   or FileNotFoundException)
         {
             return AppContext.BaseDirectory;
         }

@@ -2171,3 +2171,45 @@ function Invoke-CorsRequest {
 
     Invoke-WebRequest @params
 }
+
+<#
+.SYNOPSIS
+    Retrieve a CSRF token from the specified instance URL using the provided web session.
+.DESCRIPTION
+    This function sends a GET request to the /csrf-token endpoint of the specified instance URL
+    using the provided web session. It expects a JSON response containing a CSRF token and
+    validates the response status code and token presence.
+.PARAMETER InstanceUrl
+    The base URL of the instance to retrieve the CSRF token from.
+.PARAMETER Session
+    The web request session to use for the request.
+.OUTPUTS
+    The CSRF token as a string.
+#>
+function Get-CsrfToken {
+    param(
+        [Parameter(Mandatory)]
+        [string]$InstanceUrl,
+        [Parameter(Mandatory)]
+        [Microsoft.PowerShell.Commands.WebRequestSession]$Session
+    )
+
+    $p = @{
+        Uri = "$InstanceUrl/csrf-token"
+        Method = 'Get'
+        UseBasicParsing = $true
+        TimeoutSec = 12
+        WebSession = $Session
+        SkipHttpErrorCheck = $true
+        SkipCertificateCheck = $true
+    }
+
+    $resp = Invoke-WebRequest @p
+    $resp.StatusCode | Should -Be 200
+
+    $payload = $resp.Content | ConvertFrom-Json -ErrorAction Stop
+    $payload.token | Should -Not -BeNullOrEmpty
+    ($payload.headerName ?? 'X-CSRF-TOKEN') | Should -Be 'X-CSRF-TOKEN'
+
+    return $payload.token
+}

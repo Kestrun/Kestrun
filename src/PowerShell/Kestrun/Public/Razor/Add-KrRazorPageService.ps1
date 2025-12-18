@@ -62,7 +62,7 @@ function Add-KrRazorPageService {
             }
         }
 
-        $Server.AddRazorPages($Server, $Options) | Out-Null
+        $Server.AddRazorPages($Options) | Out-Null
 
         if ($PassThru.IsPresent) {
             # if the PassThru switch is specified, return the modified server instance

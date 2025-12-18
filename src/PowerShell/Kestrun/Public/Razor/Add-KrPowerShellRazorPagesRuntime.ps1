@@ -47,7 +47,7 @@ function Add-KrPowerShellRazorPagesRuntime {
             $RootPath = (Resolve-KrPath -Path $RootPath)
         }
         # Add PowerShell support for Razor Pages with a path prefix
-        $Server.AddPowerShellRazorPages($Server, $RootPath, $PathPrefix) | Out-Null
+        $Server.AddPowerShellRazorPages($RootPath, $PathPrefix) | Out-Null
 
         if ($PassThru.IsPresent) {
             # if the PassThru switch is specified, return the modified server instance

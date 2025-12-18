@@ -8,10 +8,25 @@ namespace KestrunTests.Hosting;
 [Collection("SharedStateSerial")]
 public class KestrunHostManagerTests
 {
+    private static string GetSafeStartDirectory()
+    {
+        try
+        {
+            return Directory.GetCurrentDirectory();
+        }
+        catch (Exception ex) when (ex is IOException
+                                   || ex is UnauthorizedAccessException
+                                   || ex is DirectoryNotFoundException
+                                   || ex is FileNotFoundException)
+        {
+            return AppContext.BaseDirectory;
+        }
+    }
+
     private static string LocateDevModule()
     {
         // Walk upwards to find src/PowerShell/Kestrun/Kestrun.psm1 from current directory
-        var current = Directory.GetCurrentDirectory();
+        var current = GetSafeStartDirectory();
         while (!string.IsNullOrEmpty(current))
         {
             var candidate = Path.Combine(current, "src", "PowerShell", "Kestrun", "Kestrun.psm1");
@@ -28,7 +43,7 @@ public class KestrunHostManagerTests
     {
         var module = LocateDevModule();
         // Provide kestrunRoot to keep constructor quiet and avoid chdir
-        var root = Directory.GetCurrentDirectory();
+        var root = GetSafeStartDirectory();
         return new KestrunHost(name, Log.Logger, root, [module]);
     }
 
@@ -37,14 +52,14 @@ public class KestrunHostManagerTests
         // Destroy all instances and reset default
         KestrunHostManager.DestroyAll();
         // Ensure root is set to current directory so Create won't throw
-        KestrunHostManager.KestrunRoot = Directory.GetCurrentDirectory();
+        KestrunHostManager.KestrunRoot = GetSafeStartDirectory();
     }
 
     [Fact]
     [Trait("Category", "Hosting")]
     public void KestrunRoot_Set_Validates_And_Sets_Cwd_When_Different()
     {
-        var cwd = Directory.GetCurrentDirectory();
+        var cwd = GetSafeStartDirectory();
         try
         {
             // Setting to current dir should be a no-op

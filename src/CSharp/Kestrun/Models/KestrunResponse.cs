@@ -110,6 +110,23 @@ public class KestrunResponse(KestrunRequest request, int bodyAsyncThreshold = 81
     #endregion
 
     #region Helpers
+    private static string GetSafeCurrentDirectoryOrBaseDirectory()
+    {
+        try
+        {
+            return Directory.GetCurrentDirectory();
+        }
+        catch (Exception ex) when (ex is IOException
+                                   || ex is UnauthorizedAccessException
+                                   || ex is DirectoryNotFoundException
+                                   || ex is FileNotFoundException)
+        {
+            return AppContext.BaseDirectory;
+        }
+    }
+
+    private static string GetSafeCurrentDirectoryForLogging() => GetSafeCurrentDirectoryOrBaseDirectory();
+
     /// <summary>
     /// Retrieves the value of the specified header from the response headers.
     /// </summary>
@@ -208,7 +225,7 @@ public class KestrunResponse(KestrunRequest request, int bodyAsyncThreshold = 81
         if (Log.IsEnabled(LogEventLevel.Debug))
         {
             Log.Debug("Writing file response,FilePath={FilePath} StatusCode={StatusCode}, ContentType={ContentType}, CurrentDirectory={CurrentDirectory}",
-                filePath, statusCode, contentType, Directory.GetCurrentDirectory());
+                filePath, statusCode, contentType, GetSafeCurrentDirectoryForLogging());
         }
 
         if (string.IsNullOrEmpty(filePath))
@@ -216,15 +233,17 @@ public class KestrunResponse(KestrunRequest request, int bodyAsyncThreshold = 81
             throw new ArgumentException("File path cannot be null or empty.", nameof(filePath));
         }
 
-        if (!File.Exists(filePath))
+        var fullPath = Path.IsPathRooted(filePath)
+            ? Path.GetFullPath(filePath)
+            : Path.GetFullPath(filePath, GetSafeCurrentDirectoryOrBaseDirectory());
+
+        if (!File.Exists(fullPath))
         {
             StatusCode = StatusCodes.Status404NotFound;
             Body = $"File not found: {filePath}";
             ContentType = $"text/plain; charset={Encoding.WebName}";
             return;
         }
-        // 1. Make sure you have an absolute file path
-        var fullPath = Path.GetFullPath(filePath);
 
         // 2. Extract the directory to use as the "root"
         var directory = Path.GetDirectoryName(fullPath)
@@ -237,7 +256,7 @@ public class KestrunResponse(KestrunRequest request, int bodyAsyncThreshold = 81
 
         // Create a physical file provider for the directory
         var physicalProvider = new PhysicalFileProvider(directory);
-        var fi = physicalProvider.GetFileInfo(Path.GetFileName(filePath));
+        var fi = physicalProvider.GetFileInfo(Path.GetFileName(fullPath));
         var provider = new FileExtensionContentTypeProvider();
         contentType ??= provider.TryGetContentType(fullPath, out var ct)
                 ? ct

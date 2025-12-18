@@ -57,7 +57,9 @@ public class HttpProbeTests
     public async Task HttpProbe_Exception_IsUnhealthy()
     {
         var http = new HttpClient(new FaultHandler());
-        var probe = new HttpProbe("http-x", ["live"], http, "http://unit-test/health", TimeSpan.FromMilliseconds(50));
+        // Use a generous timeout here: this test is specifically about the exception path.
+        // Very small timeouts can race into the timeout handler on loaded CI agents before the handler executes.
+        var probe = new HttpProbe("http-x", ["live"], http, "http://unit-test/health", TimeSpan.FromSeconds(5));
         var result = await probe.CheckAsync();
         Assert.Equal(ProbeStatus.Unhealthy, result.Status);
         Assert.Contains("Exception:", result.Description);

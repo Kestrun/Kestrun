@@ -182,21 +182,22 @@ public class KestrunTaskServiceAllTests
 
             Assert.False(svc.Remove("missing"));
 
-            // Use a short-running C# task so the transition to a terminal state is deterministic.
-            // PowerShell cancellation timing can vary significantly across platforms/agents.
-            var code = "await Task.Delay(500); return 1;";
+            // Use a long enough delay so the task will be Running (not terminal)
+            // when we assert that Remove() fails for non-terminal tasks.
+            var code = "await Task.Delay(2000); return 1;";
             var lang = new LanguageOptions { Language = ScriptLanguage.CSharp, Code = code };
             var id = svc.Create(null, lang, false, null, null);
             Assert.True(svc.Start(id));
 
-            // Wait briefly for the task to leave NotStarted so we can assert remove fails when not terminal.
+            // Wait until Running so we know it is non-terminal.
             var spin = DateTime.UtcNow;
-            while (svc.GetState(id) == TaskState.NotStarted && DateTime.UtcNow - spin < TimeSpan.FromSeconds(2))
+            while (svc.GetState(id) != TaskState.Running && DateTime.UtcNow - spin < TimeSpan.FromSeconds(3))
             {
                 await Task.Delay(25);
             }
 
-            // Not terminal yet → cannot remove
+            var stateWhenRemoving = svc.GetState(id);
+            Assert.True(stateWhenRemoving == TaskState.Running, $"Expected Running before Remove assertion, got {stateWhenRemoving}");
             Assert.False(svc.Remove(id));
 
             // Wait until terminal

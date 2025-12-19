@@ -365,27 +365,37 @@ public partial class OpenApiDocDescriptor
         foreach (var ct in targets)
         {
             var media = GetOrAddMediaType(response, ct);
-            // Add example reference
-            if (exRef.Inline)
+            if (media is OpenApiMediaType concreteMedia)
             {
-                if (Document.Components?.Examples == null || !Document.Components.Examples.TryGetValue(exRef.ReferenceId, out var value))
+                concreteMedia.Examples ??= new Dictionary<string, IOpenApiExample>(StringComparer.Ordinal);
+                // Add example reference
+                if (exRef.Inline)
                 {
-                    throw new InvalidOperationException($"Example reference '{exRef.ReferenceId}' cannot be embedded because it was not found in components.");
+                    if (Document.Components?.Examples == null || !Document.Components.Examples.TryGetValue(exRef.ReferenceId, out var value))
+                    {
+                        throw new InvalidOperationException($"Example reference '{exRef.ReferenceId}' cannot be embedded because it was not found in components.");
+                    }
+                    if (value is not OpenApiExample example)
+                    {
+                        throw new InvalidOperationException($"Example reference '{exRef.ReferenceId}' cannot be embedded because it is not an OpenApiExample.");
+                    }
+                    concreteMedia.Examples[exRef.Key] = example.Clone();
                 }
-                if (value is not OpenApiExample example)
+                else
                 {
-                    throw new InvalidOperationException($"Example reference '{exRef.ReferenceId}' cannot be embedded because it is not an OpenApiExample.");
+                    concreteMedia.Examples[exRef.Key] = new OpenApiExampleReference(exRef.ReferenceId);
                 }
-                _ = (media.Examples?[exRef.Key] = example.Clone());
-            }
-            else
-            {
-                _ = (media.Examples?[exRef.Key] = new OpenApiExampleReference(exRef.ReferenceId));
             }
         }
         return true;
     }
 
+    /// <summary>
+    /// Gets or adds a media type to the response for the specified content type.
+    /// </summary>
+    /// <param name="resp">The OpenAPI response object.</param>
+    /// <param name="contentType">The content type for the media type.</param>
+    /// <returns>The media type associated with the specified content type.</returns>
     private IOpenApiMediaType GetOrAddMediaType(OpenApiResponse resp, string contentType)
     {
         resp.Content ??= new Dictionary<string, IOpenApiMediaType>(StringComparer.Ordinal);

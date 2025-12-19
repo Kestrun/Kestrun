@@ -94,9 +94,16 @@ public partial class OpenApiDocDescriptor
             var mediaType = requestBody.Content.TryGetValue(ct, out var existing)
                 ? existing
                 : (requestBody.Content[ct] = new OpenApiMediaType());
-            _ = mediaType.Examples?[exRef.Key] = exRef.Inline
-                      ? CloneExampleOrThrow(exRef.ReferenceId)
-                      : new OpenApiExampleReference(exRef.ReferenceId);
+
+            if (mediaType is not OpenApiMediaType concreteMedia)
+            {
+                throw new InvalidOperationException($"Expected OpenApiMediaType for content type '{ct}', got '{mediaType.GetType().FullName}'.");
+            }
+
+            concreteMedia.Examples ??= new Dictionary<string, IOpenApiExample>(StringComparer.Ordinal);
+            concreteMedia.Examples[exRef.Key] = exRef.Inline
+                ? CloneExampleOrThrow(exRef.ReferenceId)
+                : new OpenApiExampleReference(exRef.ReferenceId);
         }
     }
     /// <summary>

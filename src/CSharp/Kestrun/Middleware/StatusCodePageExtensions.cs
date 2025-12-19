@@ -92,18 +92,30 @@ public static class StatusCodePageExtensions
     }
     private static bool HasValue(string? s) => !string.IsNullOrWhiteSpace(s);
 
-    private static string? NormalizeQuery(string? query)
+    /// <summary>
+    /// Normalizes the query string to ensure it starts with '?' if not empty.
+    /// </summary>
+    /// <param name="query">The query string.</param>
+    /// <returns>The normalized query string.</returns>
+    private static string NormalizeQuery(string? query)
     {
-        if (!HasValue(query))
+        if (query is null)
         {
-            return query;
+            return string.Empty;
         }
-        var q = query!.Trim();
-        return q.StartsWith('?') ? q : "?" + q;
+
+        var q = query.Trim();
+        return q.Length > 0 && q[0] == '?'
+            ? q
+            : "?" + q;
     }
 
-    // Escape curly braces for String.Format safety, but preserve the {0} placeholder used for status code.
-    // If the template already contains escaped braces ({{ or }}), assume it is pre-escaped and skip.
+    /// <summary>
+    /// Escape curly braces for String.Format safety, but preserve the {0} placeholder used for status code.
+    /// </summary>
+    /// <param name="bodyFormat">The body format string to escape.</param>
+    /// <returns>The escaped body format string.</returns>
+    /// <remarks>If the template already contains escaped braces ({{ or }}), assume it is pre-escaped and skip.</remarks>
     private static string EscapeTemplate(string bodyFormat)
     {
         if (bodyFormat.Contains("{{", StringComparison.Ordinal) || bodyFormat.Contains("}}", StringComparison.Ordinal))

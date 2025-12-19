@@ -222,6 +222,7 @@ public static class KestrunHostAuthnExtensions
     /// <param name="displayName">The display name for the authentication scheme.</param>
     /// <param name="documentationId">Documentation IDs for the authentication scheme.</param>
     /// <param name="description">A description of the authentication scheme.</param>
+    /// <param name="deprecated">If true, marks the authentication scheme as deprecated in OpenAPI documentation.</param>
     /// <param name="clientId">GitHub OAuth App Client ID.</param>
     /// <param name="clientSecret">GitHub OAuth App Client Secret.</param>
     /// <param name="callbackPath">The callback path for OAuth redirection (e.g. "/signin-github").</param>
@@ -232,6 +233,7 @@ public static class KestrunHostAuthnExtensions
         string? displayName,
         string[]? documentationId,
         string? description,
+        bool deprecated,
         string clientId,
         string clientSecret,
         string callbackPath)
@@ -243,6 +245,7 @@ public static class KestrunHostAuthnExtensions
         {
             opts.Description = description;
         }
+        opts.Deprecated = deprecated;
         opts.Events = new OAuthEvents
         {
             OnCreatingTicket = async context =>

@@ -291,14 +291,14 @@ public static class OpenApiComponentClone
     /// </summary>
     /// <param name="content">The dictionary to clone.</param>
     /// <returns>A new dictionary with cloned OpenApiMediaType instances.</returns>
-    public static IDictionary<string, OpenApiMediaType>? Clone(this IDictionary<string, OpenApiMediaType>? content)
+    public static IDictionary<string, IOpenApiMediaType>? Clone(this IDictionary<string, IOpenApiMediaType>? content)
     {
         if (content == null)
         {
             return null;
         }
 
-        var clone = new Dictionary<string, OpenApiMediaType>();
+        var clone = new Dictionary<string, IOpenApiMediaType>();
         foreach (var kvp in content)
         {
             clone[kvp.Key] = kvp.Value.Clone();
@@ -307,22 +307,43 @@ public static class OpenApiComponentClone
     }
 
     /// <summary>
-    /// Clones an OpenApiMediaType instance.
+    /// Clones an IOpenApiMediaType instance.
     /// </summary>
-    /// <param name="mediaType">The OpenApiMediaType to clone.</param>
-    /// <returns>A new OpenApiMediaType instance with the same properties as the input mediaType.</returns>
-    public static OpenApiMediaType Clone(this OpenApiMediaType mediaType)
+    /// <param name="mediaType"> The IOpenApiMediaType instance to clone.</param>
+    /// <returns>A cloned IOpenApiMediaType instance.</returns>
+    /// <exception cref="InvalidOperationException">Thrown when the IOpenApiMediaType implementation is unsupported.</exception>
+    public static IOpenApiMediaType Clone(this IOpenApiMediaType mediaType)
     {
-        var clone = new OpenApiMediaType
+        // Determine the actual type of IOpenApiParameter and clone accordingly
+        return mediaType switch
         {
-            Schema = mediaType.Schema?.Clone(),
-            Example = mediaType.Example != null ? JsonNodeClone(mediaType.Example) : null,
-            Examples = mediaType.Examples.Clone(),
-            Encoding = mediaType.Encoding != null ? new Dictionary<string, OpenApiEncoding>(mediaType.Encoding) : null,
-            Extensions = mediaType.Extensions.Clone()
+            OpenApiMediaType media => media.Clone(),
+            OpenApiMediaTypeReference mediaRef => mediaRef.Clone(),
+            _ => throw new InvalidOperationException("Unsupported IOpenApiMediaType implementation."),
         };
+    }
+    /// <summary>
+    /// Clones an OpenApiMediaTypeReference instance.
+    /// </summary>
+    /// <param name="mediaType"> The OpenApiMediaTypeReference instance to clone.</param>
+    /// <returns>A cloned OpenApiMediaTypeReference instance.</returns>
+    public static OpenApiMediaTypeReference Clone(this OpenApiMediaTypeReference mediaType)
+    {
+        var clone = new OpenApiMediaTypeReference(mediaType.Reference.Id!);
         return clone;
     }
+
+    /// <summary>
+    /// Clones an OpenApiMediaType instance.
+    /// </summary>
+    /// <param name="mediaType">The OpenApiMediaType instance to clone.</param>
+    /// <returns>A cloned OpenApiMediaType instance.</returns>
+    public static OpenApiMediaType Clone(this OpenApiMediaType mediaType)
+    {
+        var clone = new OpenApiMediaType(mediaType);
+        return clone;
+    }
+
     #endregion
     #region Example
     /// <summary>

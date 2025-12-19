@@ -13,6 +13,8 @@
     Display name for the authentication scheme.
 .PARAMETER Description
     A description of the GitHub authentication scheme.
+.PARAMETER Deprecated
+    If specified, marks the authentication scheme as deprecated in OpenAPI documentation.
 .PARAMETER DocId
     Documentation IDs for the authentication scheme.
 .PARAMETER ClientId
@@ -50,6 +52,9 @@ function Add-KrGitHubAuthentication {
         [Parameter()]
         [string]$Description,
 
+        [Parameter()]
+        [switch] $Deprecated,
+
         [Parameter(Mandatory = $true)]
         [string]$ClientId,
         [Parameter(Mandatory = $true)]
@@ -67,6 +72,7 @@ function Add-KrGitHubAuthentication {
             $DisplayName,
             $DocId,
             $Description,
+            $Deprecated.IsPresent,
             $ClientId,
             $ClientSecret,
             $CallbackPath

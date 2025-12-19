@@ -1,4 +1,4 @@
-openapi: '3.1.1'
+openapi: '3.1.2'
 info:
   title: Redocly Museum API
   description: "An imaginary, but delightful Museum API for interacting with museum services and information.\nBuilt with love by Redocly."

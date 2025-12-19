@@ -325,7 +325,10 @@ public partial class OpenApiDocDescriptor
             foreach (var ct in resp.ContentType)
             {
                 var media = GetOrAddMediaType(response, ct);
-                media.Schema = schema;
+                if (media is OpenApiMediaType mediaType)
+                {
+                    mediaType.Schema = schema;
+                }
             }
         }
     }
@@ -348,44 +351,48 @@ public partial class OpenApiDocDescriptor
         return true;
     }
 
+    /// <summary>
+    /// Applies an example reference attribute to an OpenAPI response.
+    /// </summary>
+    /// <param name="exRef">The example reference attribute.</param>
+    /// <param name="response">The OpenAPI response to modify.</param>
+    /// <returns>True if the example reference was applied; otherwise, false.</returns>
+    /// <exception cref="InvalidOperationException">Thrown if the example reference cannot be embedded because it was not found in components or is not an OpenApiExample.</exception>
     private bool ApplyExampleRefAttribute(OpenApiExampleRefAttribute exRef, OpenApiResponse response)
+    {
+        foreach (var contentType in ResolveExampleTargets(exRef, response))
+        {
+            if (GetOrAddMediaType(response, contentType) is not OpenApiMediaType media)
+            {
+                continue;
+            }
+
+            media.Examples ??= new Dictionary<string, IOpenApiExample>(StringComparer.Ordinal);
+            media.Examples[exRef.Key] = exRef.Inline
+                ? CloneExampleOrThrow(exRef.ReferenceId)
+                : new OpenApiExampleReference(exRef.ReferenceId);
+        }
+        return true;
+    }
+
+    private static IEnumerable<string> ResolveExampleTargets(OpenApiExampleRefAttribute exRef, OpenApiResponse response)
     {
         var targets = exRef.ContentType is null
             ? (IEnumerable<string>)(response.Content?.Keys ?? Array.Empty<string>())
             : [exRef.ContentType];
 
-        if (!targets.Any())
-        {
-            targets = ["application/json"];
-        }
-
-        foreach (var ct in targets)
-        {
-            var media = GetOrAddMediaType(response, ct);
-            media.Examples ??= new Dictionary<string, IOpenApiExample>(StringComparer.Ordinal);
-            if (exRef.Inline)
-            {
-                if (Document.Components?.Examples == null || !Document.Components.Examples.TryGetValue(exRef.ReferenceId, out var value))
-                {
-                    throw new InvalidOperationException($"Example reference '{exRef.ReferenceId}' cannot be embedded because it was not found in components.");
-                }
-                if (value is not OpenApiExample example)
-                {
-                    throw new InvalidOperationException($"Example reference '{exRef.ReferenceId}' cannot be embedded because it is not an OpenApiExample.");
-                }
-                media.Examples[exRef.Key] = example.Clone();
-            }
-            else
-            {
-                media.Examples[exRef.Key] = new OpenApiExampleReference(exRef.ReferenceId);
-            }
-        }
-        return true;
+        return targets.Any() ? targets : ["application/json"];
     }
 
-    private OpenApiMediaType GetOrAddMediaType(OpenApiResponse resp, string contentType)
+    /// <summary>
+    /// Gets or adds a media type to the response for the specified content type.
+    /// </summary>
+    /// <param name="resp">The OpenAPI response object.</param>
+    /// <param name="contentType">The content type for the media type.</param>
+    /// <returns>The media type associated with the specified content type.</returns>
+    private IOpenApiMediaType GetOrAddMediaType(OpenApiResponse resp, string contentType)
     {
-        resp.Content ??= new Dictionary<string, OpenApiMediaType>(StringComparer.Ordinal);
+        resp.Content ??= new Dictionary<string, IOpenApiMediaType>(StringComparer.Ordinal);
         if (!resp.Content.TryGetValue(contentType, out var media))
         {
             media = resp.Content[contentType] = new OpenApiMediaType();

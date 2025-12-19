@@ -27,6 +27,9 @@ public class OAuth2Options : OAuthOptions, IOpenApiAuthenticationOptions, IAuthe
     public string? DisplayName { get; set; }
 
     /// <inheritdoc/>
+    public bool Deprecated { get; set; }
+
+    /// <inheritdoc/>
     public string[] DocumentationId { get; set; } = [];
 
     /// <inheritdoc/>
@@ -83,6 +86,8 @@ public class OAuth2Options : OAuthOptions, IOpenApiAuthenticationOptions, IAuthe
         target.DisplayName = DisplayName;
         target.DocumentationId = DocumentationId;
         target.Host = Host;
+        target.ClaimPolicy = ClaimPolicy;
+        target.Deprecated = Deprecated;
     }
 
     /// <summary>

@@ -29,12 +29,17 @@ public class WindowsAuthOptions : NegotiateOptions, IOpenApiAuthenticationOption
     /// </summary>
     public WindowsAuthProtocol Protocol { get; set; } = WindowsAuthProtocol.Negotiate;
 
+    /// <inheritdoc/>
     private Serilog.ILogger? _logger;
+
     /// <inheritdoc/>
     public Serilog.ILogger Logger
     {
         get => _logger ?? (Host is null ? Serilog.Log.Logger : Host.Logger); set => _logger = value;
     }
+
+    /// <inheritdoc/>
+    public bool Deprecated { get; set; }
 
     /// <summary>
     /// Helper to copy values from a user-supplied WindowsAuthOptions instance to the instance
@@ -48,6 +53,7 @@ public class WindowsAuthOptions : NegotiateOptions, IOpenApiAuthenticationOption
         target.DocumentationId = DocumentationId;
         target.DisplayName = DisplayName;
         target.Host = Host;
+        target.Deprecated = Deprecated;
     }
 
     /// <summary>

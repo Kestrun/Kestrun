@@ -1,3 +1,5 @@
+using Microsoft.OpenApi;
+
 namespace Kestrun.OpenApi;
 
 /// <summary>
@@ -47,4 +49,9 @@ public sealed class OpenApiComponentSet
     /// Security scheme types available for reuse in the specification.
     /// </summary>
     public IReadOnlyList<Type> SecuritySchemeTypes { get; init; } = [];
+
+    /// <summary>
+    /// Media type types available for reuse in the specification.
+    /// </summary>
+    public IReadOnlyList<Type> MediaType { get; init; } = [];
 }

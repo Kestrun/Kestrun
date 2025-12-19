@@ -28,6 +28,9 @@ public class CookieAuthOptions : CookieAuthenticationOptions, IOpenApiAuthentica
     /// <inheritdoc/>
     public KestrunHost Host { get; set; } = default!;
 
+    /// <inheritdoc/>
+    public bool Deprecated { get; set; }
+
     private Serilog.ILogger? _logger;
     /// <inheritdoc/>
     public Serilog.ILogger Logger
@@ -53,6 +56,7 @@ public class CookieAuthOptions : CookieAuthenticationOptions, IOpenApiAuthentica
         target.DocumentationId = DocumentationId;
         target.DisplayName = DisplayName;
         target.Host = Host;
+        target.Deprecated = Deprecated;
     }
 
     /// <summary>

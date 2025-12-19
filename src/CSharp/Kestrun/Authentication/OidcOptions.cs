@@ -78,6 +78,10 @@ public class OidcOptions : OpenIdConnectOptions, IOpenApiAuthenticationOptions, 
     /// Configuration for claim policy enforcement.
     /// </summary>
     public ClaimPolicyConfig? ClaimPolicy { get; set; }
+
+    /// <inheritdoc/>
+    public bool Deprecated { get; set; }
+
     /// <summary>
     /// Helper to copy values from a user-supplied OidcOptions instance to the instance
     /// created by the framework inside AddOpenIdConnect().

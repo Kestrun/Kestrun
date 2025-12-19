@@ -127,6 +127,9 @@ public class ApiKeyAuthenticationOptions() : AuthenticationSchemeOptions, IAuthe
     /// </remarks>
     public ClaimPolicyConfig? ClaimPolicyConfig { get; set; }
 
+    /// <inheritdoc/>
+    public bool Deprecated { get; set; }
+
     /// <summary>
     /// Helper to copy values from a user-supplied ApiKeyAuthenticationOptions instance to the instance
     /// created by the framework inside AddApiKey(). Reassigning the local variable (opts = source) would
@@ -159,5 +162,7 @@ public class ApiKeyAuthenticationOptions() : AuthenticationSchemeOptions, IAuthe
         target.GlobalScheme = GlobalScheme;
         target.Description = Description;
         target.DocumentationId = DocumentationId;
+        target.DisplayName = DisplayName;
+        target.Deprecated = Deprecated;
     }
 }

@@ -25,6 +25,9 @@ public partial class BasicAuthenticationOptions : AuthenticationSchemeOptions, I
     /// <inheritdoc/>
     public KestrunHost Host { get; set; } = default!;
 
+    /// <inheritdoc/>
+    public bool Deprecated { get; set; }
+
     private Serilog.ILogger? _logger;
     /// <inheritdoc/>
     public Serilog.ILogger Logger
@@ -133,5 +136,7 @@ public partial class BasicAuthenticationOptions : AuthenticationSchemeOptions, I
         target.GlobalScheme = GlobalScheme;
         target.Description = Description;
         target.DocumentationId = DocumentationId;
+        target.DisplayName = DisplayName;
+        target.Deprecated = Deprecated;
     }
 }

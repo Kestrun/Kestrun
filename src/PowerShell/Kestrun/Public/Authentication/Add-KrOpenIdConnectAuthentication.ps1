@@ -13,6 +13,8 @@
     The display name for the authentication scheme (default is the OpenID Connect default display name).
 .PARAMETER Description
     A description of the OpenID Connect authentication scheme.
+.PARAMETER Deprecated
+    If specified, marks the authentication scheme as deprecated in OpenAPI documentation.
 .PARAMETER Authority
     The OpenID Connect authority URL.
 .PARAMETER ClientId
@@ -62,6 +64,9 @@ function Add-KrOpenIdConnectAuthentication {
 
         [Parameter(Mandatory = $false)]
         [string]$Description,
+
+        [Parameter(Mandatory = $false)]
+        [switch]$Deprecated,
 
         [Parameter(Mandatory = $false)]
         [string]$Authority,
@@ -124,6 +129,11 @@ function Add-KrOpenIdConnectAuthentication {
         if ($ClaimPolicy) { $Options.ClaimPolicy = $ClaimPolicy }
         if ($ResponseType) { $Options.ResponseType = $ResponseType }
         if ($Description) { $Options.Description = $Description }
+
+        # Set the Deprecated option
+        $Options.Deprecated = $Deprecated.IsPresent
+
+        # Set other switches
         $Options.SaveTokens = $SaveTokens.IsPresent
         $Options.UsePkce = $UsePkce.IsPresent
         $Options.GetClaimsFromUserInfoEndpoint = $GetClaimsFromUserInfoEndpoint.IsPresent

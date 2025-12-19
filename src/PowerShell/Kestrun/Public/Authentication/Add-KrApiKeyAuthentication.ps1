@@ -11,6 +11,8 @@
         The display name of the API key authentication scheme.
     .PARAMETER Description
         A description of the API key authentication scheme.
+    .PARAMETER Deprecated
+        If specified, marks the authentication scheme as deprecated in OpenAPI documentation.
     .PARAMETER DocId
         The documentation IDs to associate with this authentication scheme in OpenAPI documentation.
     .PARAMETER Options
@@ -92,6 +94,12 @@ function Add-KrApiKeyAuthentication {
         [Parameter(Mandatory = $false, ParameterSetName = 'StaticKey')]
         [Parameter(Mandatory = $false, ParameterSetName = 'CodeFile')]
         [string]$Description,
+
+        [Parameter(Mandatory = $false, ParameterSetName = 'ScriptBlock')]
+        [Parameter(Mandatory = $false, ParameterSetName = 'CodeInline')]
+        [Parameter(Mandatory = $false, ParameterSetName = 'StaticKey')]
+        [Parameter(Mandatory = $false, ParameterSetName = 'CodeFile')]
+        [switch]$Deprecated,
 
         [Parameter()]
         [string[]]$DocId = [Kestrun.Authentication.IOpenApiAuthenticationOptions]::DefaultDocumentationIds,
@@ -216,6 +224,7 @@ function Add-KrApiKeyAuthentication {
 
             $Options.EmitChallengeHeader = $EmitChallengeHeader.IsPresent
 
+            $Options.Deprecated = $Deprecated.IsPresent
 
             if ($PSBoundParameters.ContainsKey('ChallengeHeaderFormat')) {
                 $Options.ChallengeHeaderFormat = $ChallengeHeaderFormat

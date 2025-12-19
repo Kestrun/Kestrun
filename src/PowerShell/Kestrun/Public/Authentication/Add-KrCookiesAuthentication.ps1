@@ -11,6 +11,8 @@
     The display name for the authentication scheme.
 .PARAMETER Description
     A description of the cookie authentication scheme.
+.PARAMETER Deprecated
+    If specified, marks the authentication scheme as deprecated in OpenAPI documentation.
 .PARAMETER DocId
     Documentation IDs for the authentication scheme.
 .PARAMETER Options
@@ -72,6 +74,9 @@ function Add-KrCookiesAuthentication {
         [Parameter(ParameterSetName = 'Items')]
         [string] $Description,
 
+        [Parameter(ParameterSetName = 'Items')]
+        [string] $Deprecated,
+
         [Parameter(Mandatory = $true, ParameterSetName = 'Options')]
         [Microsoft.AspNetCore.Authentication.Cookies.CookieAuthenticationOptions]$Options,
 
@@ -113,6 +118,9 @@ function Add-KrCookiesAuthentication {
             if (-not ([string]::IsNullOrWhiteSpace($Description))) {
                 $Options.Description = $Description
             }
+            # Set the Deprecated option
+            $Options.Deprecated = $Deprecated.IsPresent
+
             # OpenAPI documentation IDs
             $Options.DocumentationId = $DocId
         }

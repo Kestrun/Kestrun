@@ -14,6 +14,8 @@
         The display name for the authentication scheme.
     .PARAMETER Description
         A description of the Windows authentication scheme.
+    .PARAMETER Deprecated
+        If specified, marks the authentication scheme as deprecated in OpenAPI documentation.
     .PARAMETER Options
         The Windows authentication options to configure.
         If not specified, default options are used.
@@ -45,6 +47,9 @@ function Add-KrWindowsAuthentication {
         [string]$Description,
 
         [Parameter(Mandatory = $false)]
+        [switch]$Deprecated,
+
+        [Parameter(Mandatory = $false)]
         [Kestrun.Authentication.WindowsAuthOptions]$Options,
 
         [Parameter()]
@@ -61,6 +66,9 @@ function Add-KrWindowsAuthentication {
         }
 
         if ($Description) { $Options.Description = $Description }
+
+        # Set the Deprecated option
+        $Options.Deprecated = $Deprecated.IsPresent
 
         # Add Windows authentication to the server instance ---
         [Kestrun.Hosting.KestrunHostAuthnExtensions]::AddWindowsAuthentication($Server, $AuthenticationScheme, $DisplayName, $Options) | Out-Null

@@ -588,7 +588,7 @@ public partial class OpenApiDocDescriptor
                 requestBody.Description = request.Description;
                 requestBody.Required = request.Required;
                 // Content
-                requestBody.Content ??= new Dictionary<string, OpenApiMediaType>(StringComparer.Ordinal);
+                requestBody.Content ??= new Dictionary<string, IOpenApiMediaType>(StringComparer.Ordinal);
                 var mediaType = new OpenApiMediaType();
                 // Example
                 if (request.Example is not null)

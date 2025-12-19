@@ -60,7 +60,7 @@ public partial class OpenApiDocDescriptor
             requestBody.Description = bodyAttribute.Description;
         }
         requestBody.Required |= bodyAttribute.IsRequired;
-        requestBody.Content ??= new Dictionary<string, OpenApiMediaType>(StringComparer.Ordinal);
+        requestBody.Content ??= new Dictionary<string, IOpenApiMediaType>(StringComparer.Ordinal);
 
         var mediaType = new OpenApiMediaType { Schema = schema };
         if (bodyAttribute.Example is not null)
@@ -87,18 +87,16 @@ public partial class OpenApiDocDescriptor
         {
             return;
         }
-        requestBody.Content ??= new Dictionary<string, OpenApiMediaType>(StringComparer.Ordinal);
+        requestBody.Content ??= new Dictionary<string, IOpenApiMediaType>(StringComparer.Ordinal);
         var targets = ResolveExampleContentTypes(exRef, requestBody);
         foreach (var ct in targets)
         {
             var mediaType = requestBody.Content.TryGetValue(ct, out var existing)
                 ? existing
                 : (requestBody.Content[ct] = new OpenApiMediaType());
-
-            mediaType.Examples ??= new Dictionary<string, IOpenApiExample>(StringComparer.Ordinal);
-            mediaType.Examples[exRef.Key] = exRef.Inline
-                ? CloneExampleOrThrow(exRef.ReferenceId)
-                : new OpenApiExampleReference(exRef.ReferenceId);
+            _ = mediaType.Examples?[exRef.Key] = exRef.Inline
+                      ? CloneExampleOrThrow(exRef.ReferenceId)
+                      : new OpenApiExampleReference(exRef.ReferenceId);
         }
     }
     /// <summary>

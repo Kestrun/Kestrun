@@ -40,6 +40,9 @@ public class JwtAuthOptions : JwtBearerOptions, IOpenApiAuthenticationOptions, I
     /// <inheritdoc/>
     public string[] DocumentationId { get; set; } = [];
 
+      /// <inheritdoc/>
+    public bool Deprecated { get; set; }
+
     /// <inheritdoc/>
     public KestrunHost Host { get; set; } = default!;
 
@@ -90,6 +93,9 @@ public class JwtAuthOptions : JwtBearerOptions, IOpenApiAuthenticationOptions, I
         target.DisplayName = DisplayName;
         target.Host = Host;
         target.ClaimPolicy = ClaimPolicy;
+        target.IssueClaims = IssueClaims;
+        target.IssueClaimsCodeSettings = IssueClaimsCodeSettings;
+        target.Deprecated = Deprecated;
     }
 
     /// <summary>

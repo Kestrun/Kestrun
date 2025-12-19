@@ -12,6 +12,8 @@
     The display name for the authentication scheme (e.g., 'GitHub Login').
 .PARAMETER Description
     A description of the OAuth authentication scheme.
+.PARAMETER Deprecated
+    If specified, marks the authentication scheme as deprecated in OpenAPI documentation.
 .PARAMETER ClientId
     The OAuth client ID.
 .PARAMETER ClientSecret
@@ -54,6 +56,9 @@ function Add-KrOAuth2Authentication {
 
         [Parameter(Mandatory = $false)]
         [string]$Description,
+
+        [Parameter(Mandatory = $false)]
+        [switch]$Deprecated,
 
         [Parameter(Mandatory = $false)]
         [string]$ClientId,
@@ -103,6 +108,10 @@ function Add-KrOAuth2Authentication {
         if ($ClaimPolicy) { $Options.ClaimPolicy = $ClaimPolicy }
         if ($Description) { $Options.Description = $Description }
 
+        # Set the Deprecated option
+        $Options.Deprecated = $Deprecated.IsPresent
+
+        # Set other switches
         $Options.SaveTokens = $SaveTokens.IsPresent
         $Options.UsePkce = $UsePkce.IsPresent
 

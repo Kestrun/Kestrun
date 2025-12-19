@@ -1,5 +1,5 @@
 param()
-Describe 'Example 10.6 OpenAPI Components RequestBody & Response' -Tag 'Tutorial', 'Slow' {
+Describe 'Example 10.6 OpenAPI Components RequestBody & Response' -Tag 'OpenApi', 'Tutorial', 'Slow' {
     BeforeAll {
         . (Join-Path $PSScriptRoot '..\PesterHelpers.ps1');
         $script:instance = Start-ExampleScript -Name '10.6-OpenAPI-Components-RequestBody-Response.ps1'

@@ -40,7 +40,8 @@ public partial class OpenApiDocDescriptor
         {
             Type = SecuritySchemeType.Http,
             Scheme = options.Protocol == WindowsAuthProtocol.Ntlm ? "ntlm" : "negotiate",
-            Description = options.Description
+            Description = options.Description,
+            Deprecated = options.Deprecated
         };
     }
 
@@ -64,7 +65,8 @@ public partial class OpenApiDocDescriptor
             Type = SecuritySchemeType.OpenIdConnect,
             OpenIdConnectUrl = new Uri(discoveryUrl, UriKind.Absolute),
             // Description comes from AuthenticationSchemeOptions base class
-            Description = options.Description
+            Description = options.Description,
+            Deprecated = options.Deprecated
         };
     }
 
@@ -105,7 +107,8 @@ public partial class OpenApiDocDescriptor
         {
             Type = SecuritySchemeType.OAuth2,
             Flows = flows,
-            Description = options.Description
+            Description = options.Description,
+            Deprecated = options.Deprecated
         };
     }
     /// <summary>
@@ -119,7 +122,8 @@ public partial class OpenApiDocDescriptor
             Type = SecuritySchemeType.ApiKey,
             Name = options.ApiKeyName,
             In = options.In,
-            Description = options.Description
+            Description = options.Description,
+            Deprecated = options.Deprecated
         };
     }
 
@@ -135,7 +139,8 @@ public partial class OpenApiDocDescriptor
             Type = SecuritySchemeType.ApiKey,
             Name = options.Cookie.Name,
             In = ParameterLocation.Cookie,
-            Description = options.Description
+            Description = options.Description,
+            Deprecated = options.Deprecated
         };
     }
 
@@ -151,7 +156,8 @@ public partial class OpenApiDocDescriptor
             Type = SecuritySchemeType.Http,
             Scheme = "bearer",
             BearerFormat = "JWT",
-            Description = options.Description
+            Description = options.Description,
+            Deprecated = options.Deprecated
         };
     }
 
@@ -165,7 +171,8 @@ public partial class OpenApiDocDescriptor
         {
             Type = SecuritySchemeType.Http,
             Scheme = "basic",
-            Description = options.Description
+            Description = options.Description,
+            Deprecated = options.Deprecated
         };
     }
 

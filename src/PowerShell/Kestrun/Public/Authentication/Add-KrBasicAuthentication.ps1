@@ -11,6 +11,8 @@
         The display name of the basic authentication scheme.
     .PARAMETER Description
         A description of the basic authentication scheme.
+    .PARAMETER Deprecated
+        If specified, marks the authentication scheme as deprecated in OpenAPI documentation.
     .PARAMETER DocId
         The documentation IDs to associate with this authentication scheme.
     .PARAMETER Options
@@ -95,6 +97,20 @@ function Add-KrBasicAuthentication {
         [Parameter(ParameterSetName = 'v3_i2')]
         [Parameter(ParameterSetName = 'v3_i3')]
         [string]$Description,
+
+        [Parameter(ParameterSetName = 'v1')]
+        [Parameter(ParameterSetName = 'v1_i1')]
+        [Parameter(ParameterSetName = 'v1_i2')]
+        [Parameter(ParameterSetName = 'v1_i3')]
+        [Parameter(ParameterSetName = 'v2')]
+        [Parameter(ParameterSetName = 'v2_i1')]
+        [Parameter(ParameterSetName = 'v2_i2')]
+        [Parameter(ParameterSetName = 'v2_i3')]
+        [Parameter(ParameterSetName = 'v3')]
+        [Parameter(ParameterSetName = 'v3_i1')]
+        [Parameter(ParameterSetName = 'v3_i2')]
+        [Parameter(ParameterSetName = 'v3_i3')]
+        [switch]$Deprecated,
 
         [Parameter(Mandatory = $true, ParameterSetName = 'v1')]
         [Parameter(Mandatory = $true, ParameterSetName = 'v1_i1')]
@@ -303,6 +319,9 @@ function Add-KrBasicAuthentication {
             if (-not ([string]::IsNullOrWhiteSpace($Description))) {
                 $Options.Description = $Description
             }
+
+            # Set the Deprecated option
+            $Options.Deprecated = $Deprecated.IsPresent
 
             $Options.AllowInsecureHttp = $AllowInsecureHttp.IsPresent
 

@@ -8,7 +8,6 @@ namespace Kestrun.OpenApi;
 /// </summary>
 public static class OpenApiComponentClone
 {
-
     #region Parameter
     /// <summary>
     /// Clones an OpenApiParameterReference instance.

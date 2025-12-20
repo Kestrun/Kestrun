@@ -1,6 +1,8 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
-        <TargetFrameworks>net8.0;net9.0</TargetFrameworks>
+
+        <Net10Tfm Condition="'$(EnableNet10)' == 'true'">;net10.0</Net10Tfm>
+        <TargetFrameworks>net8.0;net9.0$(Net10Tfm)</TargetFrameworks>
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
         <PreserveCompilationContext>true</PreserveCompilationContext>

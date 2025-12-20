@@ -39,13 +39,13 @@
     <ItemGroup>
         <ProjectReference Include="../../../src/CSharp/Kestrun/Kestrun.csproj" />
     </ItemGroup>
-     <ItemGroup>
+    <ItemGroup>
         <!-- Build Kestrun.Annotations as part of the solution, but do NOT reference its output -->
-        <ProjectReference Include="..\Kestrun.Annotations\Kestrun.Annotations.csproj" ReferenceOutputAssembly="false" />
+        <ProjectReference Include="../../../src/CSharp/Kestrun.Annotations/Kestrun.Annotations.csproj" ReferenceOutputAssembly="false" />
 
         <!-- Always reference the net8.0 compiled assembly -->
         <Reference Include="Kestrun.Annotations">
-            <HintPath>..\Kestrun.Annotations\bin\$(Configuration)\net8.0\Kestrun.Annotations.dll</HintPath>
+            <HintPath>../../../src/CSharp/Kestrun.Annotations/bin/$(Configuration)/net8.0/Kestrun.Annotations.dll</HintPath>
             <Private>true</Private>
         </Reference>
     </ItemGroup>

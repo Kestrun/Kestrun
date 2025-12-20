@@ -66,10 +66,12 @@ You can find guides, API references, and usage examples to help you get started 
   **For Building:**
 
   - [.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8.0) **AND**
+
     [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0)
     (solution multi-targets net8.0 + net10.0; net9.0 available via `-Frameworks` parameter)
   - **PowerShell 7.4+** (7.4 / 7.5 run on .NET 8; 7.6 preview runs on .NET 10)
-  - **Invoke-Build** and **Pester** PowerShell modules:
+
+- **Invoke-Build** and **Pester** PowerShell modules:
 
   ```powershell
   Install-PSResource -Name 'InvokeBuild','Pester' -Scope CurrentUser
@@ -91,7 +93,7 @@ You can find guides, API references, and usage examples to help you get started 
   Download PowerShell from the official
   [PowerShell Releases](https://github.com/PowerShell/PowerShell/releases).
 
-  ### Verify installation
+### Verify installation
 
   ```powershell
   # List SDKs (expect 8.x and 9.x if building from source)
@@ -114,7 +116,7 @@ You can find guides, API references, and usage examples to help you get started 
 
   If something is missing, install the matching ASP.NET Core Runtime from the download links above.
 
-  ### Build & Run
+### Build & Run
 
   Clone the repository:
 

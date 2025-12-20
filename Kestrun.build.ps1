@@ -308,7 +308,7 @@ Add-BuildTask 'BuildNoPwsh' {
     $enableNet10 = ($Frameworks -contains 'net10.0')
     if ($Frameworks.Count -eq 1) {
         $framework = $Frameworks[0]
-        Write-Host "Building Kestrun for single framework: $framework)" -ForegroundColor DarkCyan
+        Write-Host "Building Kestrun for single framework: $framework" -ForegroundColor DarkCyan
         dotnet build "$KestrunProjectPath" -c $Configuration -f $framework -v:$DotNetVerbosity -p:Version=$Version -p:InformationalVersion=$VersionDetails.InformationalVersion -p:EnableNet10=$enableNet10
         if ($LASTEXITCODE -ne 0) {
             throw "dotnet build failed for Kestrun project for framework $framework"

@@ -29,7 +29,10 @@ function Add-KrAspNetCoreType {
         throw "ASP.NET Core shared framework not found at $baseDir."
     }
     $versionDirs = Get-ChildItem -Path $baseDir -Directory | Where-Object { $_.Name -like "$($versionNumber).*" } | Sort-Object Name -Descending
+
+    # Try each version directory until we find one with all required assemblies
     foreach ($verDir in $versionDirs) {
+        # Collect required assemblies
         $assemblies = @()
 
         Get-ChildItem -Path $verDir.FullName -Filter '*.dll' |
@@ -41,6 +44,9 @@ function Add-KrAspNetCoreType {
                     $assemblies += $_.Name
                 }
             }
+
+        Write-Verbose "Collected assemblies: $($assemblies -join ', ')"
+        # Check if all required assemblies are present
         $allFound = $true
         foreach ($asm in $assemblies) {
             $asmPath = Join-Path -Path $verDir.FullName -ChildPath $asm
@@ -50,7 +56,9 @@ function Add-KrAspNetCoreType {
                 break
             }
         }
+        # If all assemblies are found, load them
         if ($allFound) {
+            # Load all assemblies
             $result = $true
             foreach ($asm in $assemblies) {
                 $asmPath = Join-Path -Path $verDir.FullName -ChildPath $asm
@@ -59,6 +67,7 @@ function Add-KrAspNetCoreType {
             Write-Verbose "Loaded ASP.NET Core assemblies from $($verDir.FullName)"
             return $result
         }
+        # If we reach here, not all assemblies were found in this version directory
         return $false
     }
 

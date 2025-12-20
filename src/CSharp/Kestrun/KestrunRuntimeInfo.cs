@@ -27,6 +27,16 @@ public static class KestrunRuntimeInfo
     public static bool IsDebugBuild => !IsReleaseDistribution;
 
     /// <summary>
+    /// Gets or sets the ASP.NET Core version detected at runtime.
+    /// </summary>
+    public static string? AspNetCoreVersion { get; set; }
+
+    /// <summary>
+    /// Gets the Kestrun root path as set in the KestrunHostManager.
+    /// </summary>
+    public static string? KestrunRoot => KestrunHostManager.KestrunRoot;
+
+    /// <summary>
     /// Returns the target framework version this assembly was built against
     /// as a System.Version (e.g., 8.0, 9.0).
     /// </summary>

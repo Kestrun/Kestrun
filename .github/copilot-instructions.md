@@ -13,7 +13,7 @@ Kestrun is a hybrid web framework combining ASP.NET Core (Kestrel) with PowerShe
 
 ### 2. Multi-Target Framework Build
 ```xml
-<TargetFrameworks>net8.0;net9.0</TargetFrameworks>
+<TargetFrameworks>net8.0;net9.0;net10.0</TargetFrameworks>
 ```
 - PowerShell 7.4/7.5 → .NET 8.0
 - PowerShell 7.6+ → .NET 9.0

@@ -32,11 +32,15 @@ function Add-KrAspNetCoreType {
     foreach ($verDir in $versionDirs) {
         $assemblies = @()
 
-        Get-ChildItem -Path $verDir.FullName -Filter 'Microsoft.*.dll' | ForEach-Object {
-            if ($assemblies -notcontains $_.Name) {
-                $assemblies += $_.Name
+        Get-ChildItem -Path $verDir.FullName -Filter '*.dll' |
+            Where-Object {
+                $_.Name -like 'Microsoft.*.dll' -or
+                $_.Name -eq 'System.IO.Pipelines.dll'
+            } | ForEach-Object {
+                if ($assemblies -notcontains $_.Name) {
+                    $assemblies += $_.Name
+                }
             }
-        }
         $allFound = $true
         foreach ($asm in $assemblies) {
             $asmPath = Join-Path -Path $verDir.FullName -ChildPath $asm

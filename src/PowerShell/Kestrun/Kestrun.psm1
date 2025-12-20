@@ -12,6 +12,7 @@ if (([AppDomain]::CurrentDomain.GetAssemblies() | Where-Object { $_.GetName().Na
 if ($PSVersionTable.PSVersion.Major -ne 7) {
     throw 'Unsupported PowerShell version. Please use PowerShell 7.4.'
 }
+<#
 # Check PowerShell minor version
 switch ($PSVersionTable.PSVersion.Minor) {
     0 { throw 'Unsupported PowerShell version. Please use PowerShell 7.4.' }
@@ -22,6 +23,24 @@ switch ($PSVersionTable.PSVersion.Minor) {
     5 { $netVersion = 'net8.0'; $codeAnalysisVersion = '4.11.0' }
     6 { $netVersion = 'net9.0'; $codeAnalysisVersion = '4.14.0' }
     default { $netVersion = 'net9.0'; $codeAnalysisVersion = '4.14.0' }
+}
+    #>
+
+
+# Pick TFM by actual runtime (not PS minor)
+$fx = [System.Runtime.InteropServices.RuntimeInformation]::FrameworkDescription
+
+if ($fx -match '\.NET\s+10\.') {
+    $netVersion = 'net10.0'
+    $codeAnalysisVersion = '4.11.0'   # keep consistent with your csproj net10 group
+} elseif ($fx -match '\.NET\s+9\.') {
+    $netVersion = ($PSVersionTable.PSVersion.Major -eq 7 -and $PSVersionTable.PSVersion.Minor -eq 5)?'net8.0': 'net9.0'  # force downgrade for pwsh 7.5
+    $codeAnalysisVersion = '4.11.0'   # matches your net9 group
+} elseif ($fx -match '\.NET\s+8\.') {
+    $netVersion = 'net8.0'
+    $codeAnalysisVersion = '4.9.2'    # matches your net8 group
+} else {
+    throw "Unsupported .NET runtime host: $fx. Please use pwsh on .NET 8/9/10."
 }
 
 $publicRoutePath = (Join-Path -Path $moduleRootPath -ChildPath 'Public-Route.ps1')
@@ -40,7 +59,7 @@ if ( ([KestrunAnnotationsRuntimeInfo]::IsReleaseDistribution) -and $SignModuleFi
 }
 # only import public functions
 $sysfuncs = Get-ChildItem Function:
-
+#'c:\Program Files\dotnet\shared\Microsoft.AspNetCore.App\9.0.11\Microsoft.Extensions.DependencyInjection.Abstractions.dll'
 # only import public alias
 $sysaliases = Get-ChildItem Alias:
 
@@ -53,7 +72,7 @@ $inRouteRunspace = $null -ne $ExecutionContext.SessionState.PSVariable.GetValue(
 if (-not $inRouteRunspace) {
     # Usage
     if ((Add-KrAspNetCoreType -Version $netVersion ) -and
-        (Add-KrCodeAnalysisType -ModuleRootPath $moduleRootPath -Version $codeAnalysisVersion )) {
+        (Add-KrCodeAnalysisType -ModuleRootPath $moduleRootPath -Version $codeAnalysisVersion)) {
 
         # Assert that the assembly is loaded and load it if not
         if ( Assert-KrAssemblyLoaded -AssemblyPath (Join-Path -Path $assemblyLoadPath -ChildPath 'Kestrun.dll')) {

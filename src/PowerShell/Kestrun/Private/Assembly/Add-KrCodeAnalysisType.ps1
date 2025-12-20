@@ -17,18 +17,17 @@ function Add-KrCodeAnalysisType {
         [Parameter(Mandatory = $true)]
         [string]$Version
     )
-    $passVerbose = $PSCmdlet.MyInvocation.BoundParameters['Verbose']
     $codeAnalysisassemblyLoadPath = Join-Path -Path $ModuleRootPath -ChildPath 'lib' -AdditionalChildPath 'Microsoft.CodeAnalysis', $Version
     return(
-        (Assert-KrAssemblyLoaded -AssemblyPath (Join-Path -Path "$codeAnalysisassemblyLoadPath" -ChildPath 'Microsoft.CodeAnalysis.dll') -Verbose:$passVerbose) -and
-        (Assert-KrAssemblyLoaded -AssemblyPath (Join-Path -Path "$codeAnalysisassemblyLoadPath" -ChildPath 'Microsoft.CodeAnalysis.Workspaces.dll') -Verbose:$passVerbose) -and
-        (Assert-KrAssemblyLoaded -AssemblyPath (Join-Path -Path "$codeAnalysisassemblyLoadPath" -ChildPath 'Microsoft.CodeAnalysis.CSharp.dll') -Verbose:$passVerbose) -and
-        (Assert-KrAssemblyLoaded -AssemblyPath (Join-Path -Path "$codeAnalysisassemblyLoadPath" -ChildPath 'Microsoft.CodeAnalysis.CSharp.Scripting.dll') -Verbose:$passVerbose) -and
-        #Assert-KrAssemblyLoaded -AssemblyPath (Join-Path -Path "$codeAnalysisassemblyLoadPath" -ChildPath "Microsoft.CodeAnalysis.Razor.dll") -Verbose:$passVerbose
-        (Assert-KrAssemblyLoaded -AssemblyPath (Join-Path -Path "$codeAnalysisassemblyLoadPath" -ChildPath 'Microsoft.CodeAnalysis.VisualBasic.dll') -Verbose:$passVerbose) -and
-        (Assert-KrAssemblyLoaded -AssemblyPath (Join-Path -Path "$codeAnalysisassemblyLoadPath" -ChildPath 'Microsoft.CodeAnalysis.VisualBasic.Workspaces.dll') -Verbose:$passVerbose) -and
-        (Assert-KrAssemblyLoaded -AssemblyPath (Join-Path -Path "$codeAnalysisassemblyLoadPath" -ChildPath 'Microsoft.CodeAnalysis.CSharp.Workspaces.dll') -Verbose:$passVerbose) -and
-        (Assert-KrAssemblyLoaded -AssemblyPath (Join-Path -Path "$codeAnalysisassemblyLoadPath" -ChildPath 'Microsoft.CodeAnalysis.Scripting.dll') -Verbose:$passVerbose)
+        (Assert-KrAssemblyLoaded -AssemblyPath (Join-Path -Path "$codeAnalysisassemblyLoadPath" -ChildPath 'Microsoft.CodeAnalysis.dll')) -and
+        (Assert-KrAssemblyLoaded -AssemblyPath (Join-Path -Path "$codeAnalysisassemblyLoadPath" -ChildPath 'Microsoft.CodeAnalysis.Workspaces.dll')) -and
+        (Assert-KrAssemblyLoaded -AssemblyPath (Join-Path -Path "$codeAnalysisassemblyLoadPath" -ChildPath 'Microsoft.CodeAnalysis.CSharp.dll')) -and
+        (Assert-KrAssemblyLoaded -AssemblyPath (Join-Path -Path "$codeAnalysisassemblyLoadPath" -ChildPath 'Microsoft.CodeAnalysis.CSharp.Scripting.dll')) -and
+        #Assert-KrAssemblyLoaded -AssemblyPath (Join-Path -Path "$codeAnalysisassemblyLoadPath" -ChildPath "Microsoft.CodeAnalysis.Razor.dll")
+        (Assert-KrAssemblyLoaded -AssemblyPath (Join-Path -Path "$codeAnalysisassemblyLoadPath" -ChildPath 'Microsoft.CodeAnalysis.VisualBasic.dll')) -and
+        (Assert-KrAssemblyLoaded -AssemblyPath (Join-Path -Path "$codeAnalysisassemblyLoadPath" -ChildPath 'Microsoft.CodeAnalysis.VisualBasic.Workspaces.dll')) -and
+        (Assert-KrAssemblyLoaded -AssemblyPath (Join-Path -Path "$codeAnalysisassemblyLoadPath" -ChildPath 'Microsoft.CodeAnalysis.CSharp.Workspaces.dll')) -and
+        (Assert-KrAssemblyLoaded -AssemblyPath (Join-Path -Path "$codeAnalysisassemblyLoadPath" -ChildPath 'Microsoft.CodeAnalysis.Scripting.dll'))
     )
 }
 

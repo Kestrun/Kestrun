@@ -62,7 +62,7 @@ param(
     [string]$Release = 'Beta',
     [Parameter(Mandatory = $false)]
     [ValidateSet('net8.0', 'net9.0', 'net10.0')]
-    [string[]]$Frameworks = @('net8.0', 'net9.0'),
+    [string[]]$Frameworks = @('net8.0', 'net10.0'),
     [Parameter(Mandatory = $false)]
     [ValidateSet('net8.0', 'net9.0', 'net10.0')]
     [string] $AnnotationFramework = 'net8.0',

@@ -85,6 +85,7 @@ jobs:
                   dotnet-version: |
                       8.0.x
                       9.0.x
+                      10.0.x
 
             # Non-interactive PSResource install (trust PSGallery)
             - name: 🧰 Install Invoke-Build & Pester (trusted, non-interactive)
@@ -155,6 +156,7 @@ jobs:
                   dotnet-version: |
                       8.0.x
                       9.0.x
+                      10.0.x
 
             # Non-interactive PSResource install (trust PSGallery)
             - name: 🧰 Install Invoke-Build & Pester (trusted, non-interactive)
@@ -245,6 +247,7 @@ jobs:
                   dotnet-version: |
                       8.0.x
                       9.0.x
+                      10.0.x
 
             # Non-interactive PSResource install (trust PSGallery)
             - name: 🧰 Install Invoke-Build & Pester (trusted, non-interactive)

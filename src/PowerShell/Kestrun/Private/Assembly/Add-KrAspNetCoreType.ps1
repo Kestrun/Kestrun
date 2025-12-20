@@ -31,49 +31,50 @@ function Add-KrAspNetCoreType {
     $versionDirs = Get-ChildItem -Path $baseDir -Directory | Where-Object { $_.Name -like "$($versionNumber).*" } | Sort-Object Name -Descending
 
     # Try each version directory until we find one with all required assemblies
-    foreach ($verDir in $versionDirs) {
-        # Collect required assemblies
-        $assemblies = @()
+    $verDir = $versionDirs | Select-Object -First 1
+    if (-not $verDir) {
+        Write-Error "Could not find ASP.NET Core assemblies for version $Version in $baseDir."
+        Write-Warning "Please download the Runtime $Version from https://dotnet.microsoft.com/en-us/download/dotnet/$versionNumber.0"
 
-        Get-ChildItem -Path $verDir.FullName -Filter '*.dll' |
-            Where-Object {
-                $_.Name -like 'Microsoft.*.dll' -or
-                $_.Name -eq 'System.IO.Pipelines.dll'
-            } | ForEach-Object {
-                if ($assemblies -notcontains $_.Name) {
-                    $assemblies += $_.Name
-                }
-            }
-
-        Write-Verbose "Collected assemblies: $($assemblies -join ', ')"
-        # Check if all required assemblies are present
-        $allFound = $true
-        foreach ($asm in $assemblies) {
-            $asmPath = Join-Path -Path $verDir.FullName -ChildPath $asm
-            if (-not (Test-Path -Path $asmPath)) {
-                Write-Verbose "Assembly $asm not found in $($verDir.FullName)"
-                $allFound = $false
-                break
-            }
-        }
-        # If all assemblies are found, load them
-        if ($allFound) {
-            # Load all assemblies
-            $result = $true
-            foreach ($asm in $assemblies) {
-                $asmPath = Join-Path -Path $verDir.FullName -ChildPath $asm
-                $result = $result -and (Assert-KrAssemblyLoaded -AssemblyPath $asmPath)
-            }
-            Write-Verbose "Loaded ASP.NET Core assemblies from $($verDir.FullName)"
-            return $result
-        }
-        # If we reach here, not all assemblies were found in this version directory
-        return $false
+        throw "Microsoft.AspNetCore.App version $Version not found in $baseDir."
     }
 
-    Write-Error "Could not find ASP.NET Core assemblies for version $Version in $baseDir."
-    Write-Warning "Please download the Runtime $Version from https://dotnet.microsoft.com/en-us/download/dotnet/$versionNumber.0"
+    # Collect required assemblies
+    $assemblies = @()
 
-    throw "Microsoft.AspNetCore.App version $Version not found in $baseDir."
+    Get-ChildItem -Path $verDir.FullName -Filter '*.dll' |
+        Where-Object {
+            $_.Name -like 'Microsoft.*.dll' -or
+            $_.Name -eq 'System.IO.Pipelines.dll'
+        } | ForEach-Object {
+            if ($assemblies -notcontains $_.Name) {
+                $assemblies += $_.Name
+            }
+        }
+
+    Write-Verbose "Collected assemblies: $($assemblies -join ', ')"
+
+    # Check if all required assemblies are present
+    $allFound = $true
+    foreach ($asm in $assemblies) {
+        $asmPath = Join-Path -Path $verDir.FullName -ChildPath $asm
+        if (-not (Test-Path -Path $asmPath)) {
+            Write-Verbose "Assembly $asm not found in $($verDir.FullName)"
+            $allFound = $false
+            break
+        }
+    }
+
+    if (-not $allFound) { return $false }
+
+    # Load all assemblies
+    $result = $true
+    foreach ($asm in $assemblies) {
+        $asmPath = Join-Path -Path $verDir.FullName -ChildPath $asm
+        $result = $result -and (Assert-KrAssemblyLoaded -AssemblyPath $asmPath)
+    }
+
+    Write-Verbose "Loaded ASP.NET Core assemblies from $($verDir.FullName)"
+    return $result
 }
 

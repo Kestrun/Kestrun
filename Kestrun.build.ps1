@@ -317,7 +317,7 @@ Add-BuildTask 'BuildNoPwsh' {
         Write-Host "Building Kestrun for multiple frameworks: $($Frameworks -join ', ')" -ForegroundColor DarkCyan
         dotnet build "$KestrunProjectPath" -c $Configuration -v:$DotNetVerbosity -p:Version=$Version -p:InformationalVersion=$VersionDetails.InformationalVersion -p:EnableNet10=$enableNet10
         if ($LASTEXITCODE -ne 0) {
-            throw "dotnet build failed for Kestrun project for framework $framework"
+            throw "dotnet build failed for Kestrun project for framework $($Frameworks -join ', ')"
         }
     }
 }

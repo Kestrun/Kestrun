@@ -305,17 +305,16 @@ Add-BuildTask 'BuildNoPwsh' {
         throw "dotnet build failed for Kestrun.Annotations project for framework $AnnotationFramework"
     }
     # Build Kestrun project for each specified framework
-    $enableNet10 = ($Frameworks -contains 'net10.0')
     if ($Frameworks.Count -eq 1) {
         $framework = $Frameworks[0]
         Write-Host "Building Kestrun for single framework: $framework" -ForegroundColor DarkCyan
-        dotnet build "$KestrunProjectPath" -c $Configuration -f $framework -v:$DotNetVerbosity -p:Version=$Version -p:InformationalVersion=$VersionDetails.InformationalVersion -p:EnableNet10=$enableNet10
+        dotnet build "$KestrunProjectPath" -c $Configuration -f $framework -v:$DotNetVerbosity -p:Version=$Version -p:InformationalVersion=$VersionDetails.InformationalVersion
         if ($LASTEXITCODE -ne 0) {
             throw "dotnet build failed for Kestrun project for framework $framework"
         }
     } else {
         Write-Host "Building Kestrun for multiple frameworks: $($Frameworks -join ', ')" -ForegroundColor DarkCyan
-        dotnet build "$KestrunProjectPath" -c $Configuration -v:$DotNetVerbosity -p:Version=$Version -p:InformationalVersion=$VersionDetails.InformationalVersion -p:EnableNet10=$enableNet10
+        dotnet build "$KestrunProjectPath" -c $Configuration -v:$DotNetVerbosity -p:Version=$Version -p:InformationalVersion=$VersionDetails.InformationalVersion
         if ($LASTEXITCODE -ne 0) {
             throw "dotnet build failed for Kestrun project for framework $($Frameworks -join ', ')"
         }

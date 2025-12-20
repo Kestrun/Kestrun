@@ -66,7 +66,6 @@ if ( ([KestrunAnnotationsRuntimeInfo]::IsReleaseDistribution) -and $SignModuleFi
 
 # only import public functions
 $sysfuncs = Get-ChildItem Function:
-#'c:\Program Files\dotnet\shared\Microsoft.AspNetCore.App\9.0.11\Microsoft.Extensions.DependencyInjection.Abstractions.dll'
 # only import public alias
 $sysaliases = Get-ChildItem Alias:
 

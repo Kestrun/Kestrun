@@ -66,8 +66,8 @@ You can find guides, API references, and usage examples to help you get started 
   **For Building:**
 
   - [.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8.0) **AND**
-    [.NET 9 SDK](https://dotnet.microsoft.com/download/dotnet/9.0)
-    (solution multi-targets net8.0 + net9.0 +net10.0)
+    [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0)
+    (solution multi-targets net8.0 + net10.0; net9.0 available via `-Frameworks` parameter)
   - **PowerShell 7.4+** (7.4 / 7.5 run on .NET 8; 7.6 preview runs on .NET 10)
   - **Invoke-Build** and **Pester** PowerShell modules:
 

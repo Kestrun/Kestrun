@@ -9,14 +9,15 @@ Kestrun is a hybrid web framework combining ASP.NET Core (Kestrel) with PowerShe
 ### 1. Dual Implementation Strategy
 - **C# Core** (`src/CSharp/Kestrun/`): High-performance ASP.NET Core host with extensible middleware
 - **PowerShell Module** (`src/PowerShell/Kestrun/`): Fluent cmdlet API wrapping C# functionality
-- Both share the same `Kestrun.dll` compiled library in `lib/net8.0/` and `lib/net9.0/`
+- Both share the same `Kestrun.dll` compiled library in `lib/net8.0/`, `lib/net9.0/`, and `lib/net10.0/`
 
 ### 2. Multi-Target Framework Build
 ```xml
 <TargetFrameworks>net8.0;net9.0;net10.0</TargetFrameworks>
 ```
 - PowerShell 7.4/7.5 → .NET 8.0
-- PowerShell 7.6+ → .NET 9.0
+- PowerShell 7.6+ → .NET 10.0
+- net9.0 available via explicit `-Frameworks` parameter
 - Conditional package references per framework
 
 ### 3. Script Engine Integration

@@ -4,7 +4,7 @@ title: Build & Environment
 parent: Contributing
 nav_order: 1
 ---
-
+<!-- markdownlint-disable-file MD033 -->
 # Build & Environment
 
 This page explains how to set up your environment and build Kestrun from source.

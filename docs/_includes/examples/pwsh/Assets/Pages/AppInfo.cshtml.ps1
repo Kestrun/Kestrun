@@ -21,8 +21,6 @@ try {
 }
 $proc = [System.Diagnostics.Process]::GetCurrentProcess()
 
-$a = @{}
-
 $environment = if ($null -eq $webEnv) {
     @{
         EnvironmentName = 'Unknown'
@@ -61,7 +59,7 @@ $Model | Add-Member -Force -NotePropertyName Process -NotePropertyValue ([pscust
         PID = $proc.Id
         StartTime = try { $proc.StartTime.ToUniversalTime().ToString('o') } catch { $null } # ISO 8601 UTC
     })
-    
+
 $kestrelAsm = [Microsoft.AspNetCore.Server.Kestrel.Core.KestrelServer].Assembly
 $kestrelName = $kestrelAsm.GetName()
 

@@ -1,5 +1,3 @@
-using Microsoft.OpenApi;
-
 namespace Kestrun.OpenApi;
 
 /// <summary>

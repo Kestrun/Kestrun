@@ -66,10 +66,12 @@ You can find guides, API references, and usage examples to help you get started 
   **For Building:**
 
   - [.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8.0) **AND**
-    [.NET 9 SDK](https://dotnet.microsoft.com/download/dotnet/9.0)
-    (solution multi-targets net8.0 + net9.0)
-  - **PowerShell 7.4+** (7.4 / 7.5 run on .NET 8; 7.6 preview runs on .NET 9)
-  - **Invoke-Build** and **Pester** PowerShell modules:
+
+    [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0)
+    (solution multi-targets net8.0 + net10.0; net9.0 available via `-Frameworks` parameter)
+  - **PowerShell 7.4+** (7.4 / 7.5 run on .NET 8; 7.6 preview runs on .NET 10)
+
+  **Invoke-Build** and **Pester** PowerShell modules:
 
   ```powershell
   Install-PSResource -Name 'InvokeBuild','Pester' -Scope CurrentUser
@@ -83,7 +85,7 @@ You can find guides, API references, and usage examples to help you get started 
   | PowerShell Version | Install (Run-only) | Rationale |
   |--------------------|--------------------|-----------|
   | 7.4 / 7.5 | [.NET 8 ASP.NET Core Runtime](https://dotnet.microsoft.com/download/dotnet/8.0) | Bundles Microsoft.NETCore.App + Microsoft.AspNetCore.App 8.x |
-  | 7.6 (preview) | [.NET 9 ASP.NET Core Runtime](https://dotnet.microsoft.com/download/dotnet/9.0) | Preview runtime aligning with PS 7.6 build |
+  | 7.6 (preview) | [.NET 10 ASP.NET Core Runtime](https://dotnet.microsoft.com/download/dotnet/10.0) | Preview runtime aligning with PS 7.6 build |
 
   Installing the **.NET SDK** already gives you the corresponding runtimes. For run-only scenarios the
   **ASP.NET Core Runtime** alone is sufficient (it includes the base .NET runtime).
@@ -91,7 +93,7 @@ You can find guides, API references, and usage examples to help you get started 
   Download PowerShell from the official
   [PowerShell Releases](https://github.com/PowerShell/PowerShell/releases).
 
-  ### Verify installation
+### Verify installation
 
   ```powershell
   # List SDKs (expect 8.x and 9.x if building from source)
@@ -108,11 +110,13 @@ You can find guides, API references, and usage examples to help you get started 
   Microsoft.AspNetCore.App 8.0.x
   Microsoft.NETCore.App 9.0.x
   Microsoft.AspNetCore.App 9.0.x
+  Microsoft.NETCore.App 10.0.x
+  Microsoft.AspNetCore.App 10.0.x
   ```
 
   If something is missing, install the matching ASP.NET Core Runtime from the download links above.
 
-  ### Build & Run
+### Build & Run
 
   Clone the repository:
 

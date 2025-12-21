@@ -1,11 +1,11 @@
-﻿<Project Sdk="Microsoft.NET.Sdk.Web">
+<Project Sdk="Microsoft.NET.Sdk.Web">
     <PropertyGroup>
         <ProjectRoot>..\..\..\</ProjectRoot>
     </PropertyGroup>
     <!--───────────── Global Build Configuration ─────────────-->
     <PropertyGroup>
         <!-- Target .NET version -->
-        <TargetFrameworks>net8.0;net9.0</TargetFrameworks>
+        <TargetFrameworks>net8.0;net9.0;net10.0</TargetFrameworks>
 
         <LangVersion>Preview</LangVersion>        <!-- or 12.0 / latest -->
 
@@ -47,8 +47,6 @@
         <!-- <NoWarn>1591</NoWarn> -->
 
         <!-- Assembly versioning -->
-
-
 
 
         <EpochDate>2020-01-01</EpochDate>
@@ -120,7 +118,7 @@
         <EmbeddedResource Include="Assets\redoc-ui.html" LogicalName="Kestrun.Assets.redoc-ui.html" />
         <EmbeddedResource Include="Assets\scalar.html" LogicalName="Kestrun.Assets.scalar.html" />
         <EmbeddedResource Include="Assets\rapidoc.html" LogicalName="Kestrun.Assets.rapidoc.html" />
-         <EmbeddedResource Include="Assets\elements.html" LogicalName="Kestrun.Assets.elements.html" />
+        <EmbeddedResource Include="Assets\elements.html" LogicalName="Kestrun.Assets.elements.html" />
     </ItemGroup>
 
     <!--───────────── Files to Include in Package ─────────────-->
@@ -132,7 +130,7 @@
         <None Include="../../../THIRD-PARTY-NOTICES.md" Pack="true" PackagePath="\" />
     </ItemGroup>
     <!--───────────── NuGet Dependencies ─────────────-->
-
+    <!-- Net 8.0 -->
     <ItemGroup Condition=" '$(TargetFramework)' == 'net8.0' ">
         <!-- Logging -->
         <PackageReference Include="Serilog.AspNetCore" Version="8.0.3" />
@@ -147,23 +145,26 @@
         <!-- Serilog -->
         <PackageReference Include="Serilog.Sinks.Http" Version="9.1.0" />
 
-        <!-- Hosting & DI
-        <PackageReference Include="Microsoft.Extensions.Hosting" Version="8.0.1" />
-        <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" Version="8.0.1" />
-        <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="8.0.1" />
-        <PackageReference Include="Microsoft.Extensions.Logging.Console" Version="8.0.1" />
-        <PackageReference Include="Microsoft.Extensions.Primitives" Version="8.0.0" />-->
+        <!-- Caching -->
         <PackageReference Include="Microsoft.Extensions.Caching.SqlServer" Version="8.0.22" />
         <PackageReference Include="Microsoft.Extensions.Caching.StackExchangeRedis" Version="8.0.22" />
         <!-- Scripting Engines -->
         <PackageReference Include="Microsoft.PowerShell.SDK" Version="7.4.13" />
 
+        <!-- Roslyn Scripting -->
+        <PackageReference Include="Microsoft.CodeAnalysis" Version="4.9.2" />
+        <PackageReference Include="Microsoft.CodeAnalysis.CSharp.Workspaces" Version="4.9.2" />
+        <PackageReference Include="Microsoft.CodeAnalysis.CSharp.Scripting" Version="4.9.2" />
+        <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.9.2" />
+        <PackageReference Include="Microsoft.CodeAnalysis.Scripting.Common" Version="4.9.2" />
+        <PackageReference Include="Microsoft.CodeAnalysis.VisualBasic" Version="4.9.2" />
+        <PackageReference Include="Microsoft.CodeAnalysis.VisualBasic.Workspaces" Version="4.9.2" />
     </ItemGroup>
 
+    <!-- Net 9.0 -->
     <ItemGroup Condition=" '$(TargetFramework)' == 'net9.0' ">
         <!-- Logging -->
         <PackageReference Include="Serilog.AspNetCore" Version="9.0.0" />
-
 
         <!-- Microsoft.AspNetCore -->
         <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="9.0.11" />
@@ -175,34 +176,11 @@
         <!-- Serilog -->
         <PackageReference Include="Serilog.Sinks.Http" Version="9.2.0" />
 
-        <!-- Hosting & DI
-        <PackageReference Include="Microsoft.Extensions.Hosting" Version="9.0.11" />
-        <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" Version="9.0.11" />
-        <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="9.0.11" />
-        <PackageReference Include="Microsoft.Extensions.Logging.Console" Version="9.0.11" />
-        <PackageReference Include="Microsoft.Extensions.Primitives" Version="9.0.11" />-->
+        <!-- Caching -->
         <PackageReference Include="Microsoft.Extensions.Caching.SqlServer" Version="9.0.11" />
         <PackageReference Include="Microsoft.Extensions.Caching.StackExchangeRedis" Version="9.0.11" />
         <!-- Scripting Engines -->
         <PackageReference Include="Microsoft.PowerShell.SDK" Version="7.5.4" />
-    </ItemGroup>
-
-    <ItemGroup Condition=" '$(TargetFramework)' == 'net8.0' ">
-
-        <!-- Roslyn Scripting -->
-        <PackageReference Include="Microsoft.CodeAnalysis" Version="4.9.2" />
-        <PackageReference Include="Microsoft.CodeAnalysis.CSharp.Workspaces" Version="4.9.2" />
-        <PackageReference Include="Microsoft.CodeAnalysis.CSharp.Scripting" Version="4.9.2" />
-        <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.9.2" />
-
-        <PackageReference Include="Microsoft.CodeAnalysis.Scripting.Common" Version="4.9.2" />
-        <PackageReference Include="Microsoft.CodeAnalysis.VisualBasic" Version="4.9.2" />
-        <PackageReference Include="Microsoft.CodeAnalysis.VisualBasic.Workspaces" Version="4.9.2" />
-    </ItemGroup>
-
-
-
-    <ItemGroup Condition=" '$(TargetFramework)' == 'net9.0' ">
 
         <!-- Roslyn Scripting -->
         <PackageReference Include="Microsoft.CodeAnalysis" Version="4.11.0" />
@@ -213,14 +191,51 @@
         <PackageReference Include="Microsoft.CodeAnalysis.Scripting.Common" Version="4.11.0" />
         <PackageReference Include="Microsoft.CodeAnalysis.VisualBasic" Version="4.11.0" />
         <PackageReference Include="Microsoft.CodeAnalysis.VisualBasic.Workspaces" Version="4.11.0" />
+
     </ItemGroup>
+
+    <!-- Net 10.0 -->
+    <ItemGroup Condition=" '$(TargetFramework)' == 'net10.0' ">
+        <!-- Logging -->
+        <PackageReference Include="Serilog.AspNetCore" Version="9.0.0" />
+
+        <!-- Microsoft.AspNetCore -->
+        <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.1" />
+        <PackageReference Include="Microsoft.AspNetCore.Authentication.Certificate" Version="10.0.1" />
+        <PackageReference Include="Microsoft.AspNetCore.Authentication.OpenIdConnect" Version="10.0.1" />
+        <PackageReference Include="Microsoft.AspNetCore.Mvc.Razor.RuntimeCompilation" Version="10.0.1" />
+        <PackageReference Include="Microsoft.AspNetCore.Authentication.Negotiate" Version="10.0.0" />
+
+        <!-- Serilog -->
+        <PackageReference Include="Serilog.Sinks.Http" Version="9.2.0" />
+
+        <!-- Caching -->
+        <PackageReference Include="Microsoft.Extensions.Caching.SqlServer" Version="10.0.1" />
+        <PackageReference Include="Microsoft.Extensions.Caching.StackExchangeRedis" Version="10.0.1" />
+        <!-- Scripting Engines -->
+        <PackageReference Include="Microsoft.PowerShell.SDK" Version="7.5.4" />
+
+        <!-- Roslyn Scripting -->
+        <PackageReference Include="Microsoft.CodeAnalysis" Version="4.14.0" />
+        <PackageReference Include="Microsoft.CodeAnalysis.CSharp.Workspaces" Version="4.14.0" />
+        <PackageReference Include="Microsoft.CodeAnalysis.CSharp.Scripting" Version="4.14.0" />
+        <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.14.0" />
+
+        <PackageReference Include="Microsoft.CodeAnalysis.Scripting.Common" Version="4.14.0" />
+        <PackageReference Include="Microsoft.CodeAnalysis.VisualBasic" Version="4.14.0" />
+        <PackageReference Include="Microsoft.CodeAnalysis.VisualBasic.Workspaces" Version="4.14.0" />
+
+    </ItemGroup>
+
+    <!-- Razor -->
     <ItemGroup>
         <PackageReference Include="Microsoft.CodeAnalysis.Razor" Version="6.0.36" />
-        <PackageReference Include="Microsoft.CodeAnalysis.NetAnalyzers" Version="9.0.0">
-            <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
-            <PrivateAssets>all</PrivateAssets>
-        </PackageReference>
-        <!-- Logging -->
+
+    </ItemGroup>
+
+    <!-- Logging -->
+    <ItemGroup>
+        <PackageReference Include="Azure.Identity" Version="1.17.1" />
         <PackageReference Include="Serilog" Version="4.3.0" />
         <PackageReference Include="Serilog.Enrichers.Environment" Version="3.0.1" />
         <PackageReference Include="Serilog.Exceptions" Version="8.4.0" />
@@ -238,7 +253,7 @@
         <!-- Scripting Engines -->
         <PackageReference Include="Microsoft.ClearScript.V8" Version="7.5.0" />
 
-        <PackageReference Include="Microsoft.CodeAnalysis.Analyzers" Version="4.14.0" />
+        <PackageReference Include="Microsoft.CodeAnalysis.Analyzers" Version="3.11.0" />
         <PackageReference Include="pythonnet" Version="3.0.5" />
         <!-- Not Implemented Yet
     <PackageReference Include="FSharp.Compiler.Service" Version="43.9.300" />
@@ -260,17 +275,17 @@
 
     </ItemGroup>
     <ItemGroup>
-        <ProjectReference Include="..\Kestrun.Annotations\Kestrun.Annotations.csproj" />
-    </ItemGroup>
-    <!--
-  <Target Name="CopyToPowerShellLib" AfterTargets="Build" Condition="'$(Configuration)' == 'Debug'">
-    <ItemGroup>
-      <KestrunOutputFiles Include="$(OutputPath)*.*" Exclude="$(OutputPath)Microsoft.CodeAnalysis*.*" />
+        <!-- Build Kestrun.Annotations as part of the solution, but do NOT reference its output -->
+        <ProjectReference Include="..\Kestrun.Annotations\Kestrun.Annotations.csproj" ReferenceOutputAssembly="false" />
+
+        <!-- Always reference the net8.0 compiled assembly -->
+        <Reference Include="Kestrun.Annotations">
+            <HintPath>..\Kestrun.Annotations\bin\$(Configuration)\net8.0\Kestrun.Annotations.dll</HintPath>
+            <Private>true</Private>
+        </Reference>
     </ItemGroup>
 
-    <Copy SourceFiles="@(KestrunOutputFiles)" DestinationFolder="$(ProjectRoot)\src\PowerShell\Kestrun\lib\$(TargetFramework)\" SkipUnchangedFiles="true" />
-  </Target>
--->
+    <!--───────────── Custom Build Targets ─────────────-->
     <Target Name="CopyPowerShellModuleOnPublish" AfterTargets="Publish">
         <!-- Copy PowerShell module files (excluding lib) to $(ProjectRoot)publish -->
         <ItemGroup>

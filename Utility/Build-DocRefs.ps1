@@ -17,7 +17,7 @@ if ($Clean) {
     return
 }
 $ErrorActionPreference = 'Stop'
-$major = if ($Tfm -like 'net8.*') { '8' } else { '9' }
+$major = if ($Tfm -like 'net8.*') { '8' } elseif ($Tfm -like 'net9.*') { '9' } elseif ($Tfm -like 'net10.*') { '10' } else { throw "Unsupported TFM: $Tfm" }
 
 Write-Host "🏗️ Building $Project for $Tfm..."
 dotnet build $Project -c Release -f $Tfm | Out-Host

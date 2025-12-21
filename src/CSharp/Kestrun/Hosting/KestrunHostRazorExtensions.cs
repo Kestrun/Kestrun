@@ -8,6 +8,15 @@ using Serilog.Events;
 
 namespace Kestrun.Hosting;
 
+// Kestrun uses Razor runtime compilation intentionally to support
+// PowerShell-backed Razor pages (dynamic execution model).
+// .NET 10 marks runtime compilation obsolete (ASPDEPR003); we suppress here by design.
+// Track removal/alternative: https://aka.ms/aspnet/deprecate/003
+
+#if NET10_0_OR_GREATER
+#pragma warning disable ASPDEPR003
+#endif
+
 /// <summary>
 /// Provides extension methods for adding PowerShell and Razor Pages to a Kestrun
 /// </summary>
@@ -220,7 +229,6 @@ public partial class KestrunHost
 
         return mvcBuilder;
     }
-
     /// <summary>
     /// Configures runtime compilation reference paths and optional file watching for the Pages directory.
     /// </summary>
@@ -267,7 +275,7 @@ public partial class KestrunHost
     /// </summary>
     /// <param name="opts">Runtime compilation options to update.</param>
     /// <param name="pagesRootPath">The resolved Pages directory path.</param>
-    private void AddPagesFileProviderIfExists(MvcRazorRuntimeCompilationOptions opts, string pagesRootPath)
+    private static void AddPagesFileProviderIfExists(MvcRazorRuntimeCompilationOptions opts, string pagesRootPath)
     {
         if (Directory.Exists(pagesRootPath))
         {
@@ -366,3 +374,7 @@ public partial class KestrunHost
         catch { return false; }          // native ⇒ BadImageFormatException
     }
 }
+
+#if NET10_0_OR_GREATER
+#pragma warning restore ASPDEPR003
+#endif

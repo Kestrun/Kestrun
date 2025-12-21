@@ -180,6 +180,24 @@
             "justMyCode": true,
             "console": "integratedTerminal"
         },
+
+              {
+            "name": "Launch pwsh (preview) with script (bootstrap)",
+            "type": "coreclr",
+            "request": "launch",
+            "program": "C:\\Program Files\\PowerShell\\7-preview\\pwsh.exe",
+            "args": [
+                "-NoLogo",
+                "-NoProfile",
+                "-ExecutionPolicy",
+                "Bypass",
+                "-Command",
+                "  import-module '.\\src\\PowerShell\\Kestrun\\Kestrun.psd1'; . '${file}'  "
+            ],
+            "cwd": "${workspaceFolder}",
+            "justMyCode": true,
+            "console": "integratedTerminal"
+        },
         {
             "name": "PowerShell Launch Current File",
             "type": "PowerShell",

@@ -566,16 +566,33 @@ function Remove-CommentHelpBlock {
     The build configuration (Debug or Release). Default is 'Debug'.
 .PARAMETER Frameworks
     An array of target frameworks to synchronize. Default is @('net8.0', 'net9.0').
+.PARAMETER PowerShellHome
+    The path to the PowerShell installation to scan for existing DLLs. Default is $PSHOME.
+.PARAMETER ScanPowerShellHomeRecursively
+    A switch indicating whether to scan the PowerShell home directory recursively for existing DLLs.
+.EXAMPLE
+    Sync-PowerShellDll -dest '.\src\PowerShell\Kestrun\lib' -Configuration 'Release' -Frameworks @('net8.0', 'net9.0')
+    This will synchronize the DLLs from the Release build output for net8.0 and net9.0 to the specified lib folder.
+.OUTPUTS
+    None. The function performs file operations to copy DLLs to the specified destination.
 #>
 function Sync-PowerShellDll {
     param (
         [Parameter()]
         [string]$dest = '.\src\PowerShell\Kestrun\lib',
+
         [Parameter()]
         [ValidateSet('Debug', 'Release')]
         [string]$Configuration = 'Debug',
+
         [Parameter()]
-        [string[]]$Frameworks = @('net8.0', 'net9.0')
+        [string[]]$Frameworks = @('net8.0', 'net9.0'),
+
+        [Parameter()]
+        [string]$PowerShellHome = $PSHOME,
+
+        [Parameter()]
+        [switch]$ScanPowerShellHomeRecursively
     )
     if (  (Test-Path -Path $dest)) {
         Write-Host "🧹 Cleaning destination folder: $dest"
@@ -587,6 +604,27 @@ function Sync-PowerShellDll {
         New-Item -Path $dest -ItemType Directory -Force | Out-Null
     }
 
+    # Build a fast lookup of DLLs already provided by PowerShell
+    $psDllNames = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
+
+    if (Test-Path -Path $PowerShellHome) {
+        $scanPath = (Resolve-Path $PowerShellHome).Path
+        $gciParams = @{
+            Path = $scanPath
+            Filter = '*.dll'
+            File = $true
+            ErrorAction = 'SilentlyContinue'
+        }
+        if ($ScanPowerShellHomeRecursively) { $gciParams.Recurse = $true }
+
+        Get-ChildItem @gciParams | ForEach-Object { [void]$psDllNames.Add($_.Name) }
+
+        Write-Host ('🔎 PowerShellHome scan: {0} DLL names indexed from {1}' -f $psDllNames.Count, $scanPath)
+    } else {
+        Write-Warning "PowerShellHome '$PowerShellHome' not found; skip-list will be empty."
+    }
+
+    # Get list of PowerShell core DLL names to skip copying
     $src = Join-Path -Path $PWD -ChildPath 'src' -AdditionalChildPath 'CSharp', 'Kestrun', 'bin', $Configuration
     Write-Host "📁 Preparing to copy files from $src to $dest"
     if (-not (Test-Path -Path $dest)) {
@@ -636,16 +674,23 @@ function Sync-PowerShellDll {
                 )
             } |
             ForEach-Object {
-                if (-not $_.DirectoryName.Contains("$sep" + 'runtimes' + "$sep")) {
-                    $targetPath = $_.FullName.Replace($srcFramework, $destFramework)
-                    $targetDir = Split-Path $targetPath -Parent
+                # Skip anything under runtimes
+                if ($_.DirectoryName.Contains("$sep" + 'runtimes' + "$sep")) { return }
 
-                    if (-not (Test-Path $targetDir)) {
-                        New-Item -ItemType Directory -Path $targetDir -Force | Out-Null
-                    }
-
-                    Copy-Item -Path $_.FullName -Destination $targetPath -Force
+                # Skip DLLs that PowerShell already ships
+                if ($_.Extension -ieq '.dll' -and $psDllNames.Contains($_.Name)) {
+                    if ($VerboseSkips) { Write-Host "⏭️  Skipping (in PSHOME): $($_.Name)" }
+                    return
                 }
+
+                $targetPath = $_.FullName.Replace($srcFramework, $destFramework)
+                $targetDir = Split-Path $targetPath -Parent
+
+                if (-not (Test-Path $targetDir)) {
+                    New-Item -ItemType Directory -Path $targetDir -Force | Out-Null
+                }
+
+                Copy-Item -Path $_.FullName -Destination $targetPath -Force
             }
     }
     # Additionally, copy Kestrun.Annotations.dll and .pdb to PowerShell lib/assemblies

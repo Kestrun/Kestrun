@@ -62,7 +62,7 @@ param(
     [string]$Release = 'Beta',
     [Parameter(Mandatory = $false)]
     [ValidateSet('net8.0', 'net9.0', 'net10.0')]
-    [string[]]$Frameworks = @('net8.0', 'net9.0'),
+    [string[]]$Frameworks = @('net8.0', 'net10.0'),
     [Parameter(Mandatory = $false)]
     [ValidateSet('net8.0', 'net9.0', 'net10.0')]
     [string] $AnnotationFramework = 'net8.0',
@@ -304,15 +304,13 @@ Add-BuildTask 'BuildNoPwsh' {
     if ($LASTEXITCODE -ne 0) {
         throw "dotnet build failed for Kestrun.Annotations project for framework $AnnotationFramework"
     }
-    if ($Frameworks.Count -eq 1) {
-        Write-Host "Building Kestrun for single framework: $($Frameworks[0])" -ForegroundColor DarkCyan
+    # Build Kestrun project for each specified framework
+
+    Write-Host "Building Kestrun for multiple frameworks: $($Frameworks -join ', ')" -ForegroundColor DarkCyan
+    foreach ($framework in $Frameworks) {
+        Write-Host "  - Target Framework: $framework" -ForegroundColor DarkCyan
         dotnet build "$KestrunProjectPath" -c $Configuration -f $framework -v:$DotNetVerbosity -p:Version=$Version -p:InformationalVersion=$VersionDetails.InformationalVersion
-        if ($LASTEXITCODE -ne 0) {
-            throw "dotnet build failed for Kestrun project for framework $framework"
-        }
-    } else {
-        Write-Host "Building Kestrun for multiple frameworks: $($Frameworks -join ', ')" -ForegroundColor DarkCyan
-        dotnet build "$KestrunProjectPath" -c $Configuration -v:$DotNetVerbosity -p:Version=$Version -p:InformationalVersion=$VersionDetails.InformationalVersion
+
         if ($LASTEXITCODE -ne 0) {
             throw "dotnet build failed for Kestrun project for framework $framework"
         }

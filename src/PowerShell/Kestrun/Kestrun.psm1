@@ -1,4 +1,15 @@
-param()
+param(
+    [string] $AspNetCoreVersion
+)
+
+$KrAspNetCoreVersion = if ([System.String]::IsNullOrWhiteSpace($AspNetCoreVersion)) {
+    $null
+} else {
+    if ($AspNetCoreVersion -notin @('net8.0', 'net9.0', 'net10.0')) {
+        throw "Invalid ASP.NET Core version specified: $AspNetCoreVersion. Valid values are 'net8.0', 'net9.0', 'net10.0'."
+    }
+    $AspNetCoreVersion
+}
 
 # Main Kestrun module path
 # This is the root path for the Kestrun module
@@ -12,16 +23,30 @@ if (([AppDomain]::CurrentDomain.GetAssemblies() | Where-Object { $_.GetName().Na
 if ($PSVersionTable.PSVersion.Major -ne 7) {
     throw 'Unsupported PowerShell version. Please use PowerShell 7.4.'
 }
-# Check PowerShell minor version
-switch ($PSVersionTable.PSVersion.Minor) {
-    0 { throw 'Unsupported PowerShell version. Please use PowerShell 7.4.' }
-    1 { throw 'Unsupported PowerShell version. Please use PowerShell 7.4.' }
-    2 { throw 'Unsupported PowerShell version. Please use PowerShell 7.4.' }
-    3 { throw 'Unsupported PowerShell version. Please use PowerShell 7.4.' }
-    4 { $netVersion = 'net8.0'; $codeAnalysisVersion = '4.9.2' }
-    5 { $netVersion = 'net8.0'; $codeAnalysisVersion = '4.11.0' }
-    6 { $netVersion = 'net9.0'; $codeAnalysisVersion = '4.14.0' }
-    default { $netVersion = 'net9.0'; $codeAnalysisVersion = '4.14.0' }
+
+# Pick TFM by actual runtime (not PS minor)
+$fx = [System.Runtime.InteropServices.RuntimeInformation]::FrameworkDescription
+
+if ($fx -match '\.NET\s+10\.') {
+    if ([string]::IsNullOrWhiteSpace($KrAspNetCoreVersion)) {
+        # Default to net10.0 for .NET 10 runtime
+        $KrAspNetCoreVersion = 'net10.0'
+    }
+    $codeAnalysisVersion = '4.14.0'   # keep consistent with your csproj net10 group
+} elseif ($fx -match '\.NET\s+9\.') {
+    if ([string]::IsNullOrWhiteSpace($KrAspNetCoreVersion)) {
+        # Default to net8.0 for PowerShell 7.5 on .NET 9 runtime
+        $KrAspNetCoreVersion = ($PSVersionTable.PSVersion.Major -eq 7 -and $PSVersionTable.PSVersion.Minor -eq 5) ? 'net8.0' : 'net9.0'  # force downgrade for pwsh 7.5
+    }
+    $codeAnalysisVersion = '4.11.0'   # matches your net9 group
+} elseif ($fx -match '\.NET\s+8\.') {
+    if ([string]::IsNullOrWhiteSpace($KrAspNetCoreVersion)) {
+        # Default to net8.0 for .NET 8 runtime
+        $KrAspNetCoreVersion = 'net8.0'
+    }
+    $codeAnalysisVersion = '4.9.2'    # matches your net8 group
+} else {
+    throw "Unsupported .NET runtime host: $fx. Please use pwsh on .NET 8/9/10."
 }
 
 $publicRoutePath = (Join-Path -Path $moduleRootPath -ChildPath 'Public-Route.ps1')
@@ -38,26 +63,26 @@ if ( ([KestrunAnnotationsRuntimeInfo]::IsReleaseDistribution) -and $SignModuleFi
     Get-ChildItem -Path (Join-Path -Path $moduleRootPath -ChildPath 'Private') -Filter *.ps1 -Recurse -File |
         ForEach-Object { . ([System.IO.Path]::GetFullPath($_)) }
 }
+
 # only import public functions
 $sysfuncs = Get-ChildItem Function:
-
 # only import public alias
 $sysaliases = Get-ChildItem Alias:
 
 # Compute assembly load path ONCE so both branches see it
-$assemblyLoadPath = Join-Path -Path (Join-Path -Path $moduleRootPath -ChildPath 'lib') -ChildPath $netVersion
+$assemblyLoadPath = Join-Path -Path (Join-Path -Path $moduleRootPath -ChildPath 'lib') -ChildPath $KrAspNetCoreVersion
 
 # Determine if we are in a route runspace by checking for the KrServer variable
 $inRouteRunspace = $null -ne $ExecutionContext.SessionState.PSVariable.GetValue('KrServer')
 
 if (-not $inRouteRunspace) {
     # Usage
-    if ((Add-KrAspNetCoreType -Version $netVersion ) -and
-        (Add-KrCodeAnalysisType -ModuleRootPath $moduleRootPath -Version $codeAnalysisVersion )) {
+    if ((Add-KrAspNetCoreType -Version $KrAspNetCoreVersion ) -and
+        (Add-KrCodeAnalysisType -ModuleRootPath $moduleRootPath -Version $codeAnalysisVersion)) {
 
         # Assert that the assembly is loaded and load it if not
         if ( Assert-KrAssemblyLoaded -AssemblyPath (Join-Path -Path $assemblyLoadPath -ChildPath 'Kestrun.dll')) {
-            # Load & register your DLL folders (as before):
+            # Load & register the DLL folders
             [Kestrun.Utilities.AssemblyAutoLoader]::PreloadAll($false, @($assemblyLoadPath))
 
             # When the runspace or script is finished:
@@ -103,6 +128,7 @@ try {
     if (-not $inRouteRunspace) {
         # Set the Kestrun root path for the host manager
         [Kestrun.KestrunHostManager]::KestrunRoot = $PWD
+        [Kestrun.KestrunRuntimeInfo]::AspNetCoreVersion = $KrAspNetCoreVersion
     }
 } catch {
     throw ("Failed to import Kestrun module: $_")

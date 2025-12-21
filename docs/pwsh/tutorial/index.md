@@ -17,12 +17,12 @@ Step-by-step guides to build and ship with Kestrun. This index lists runnable sa
 | PowerShell Version | Install (Run Samples) | Notes |
 |--------------------|-----------------------|-------|
 | 7.4 / 7.5 | [.NET 8 ASP.NET Core Runtime](https://dotnet.microsoft.com/download/dotnet/8.0) | Bundles base runtime + ASP.NET Core |
-| 7.6 (preview) | [.NET 9 ASP.NET Core Runtime](https://dotnet.microsoft.com/download/dotnet/9.0) | Preview – updates frequently |
+| 7.6 (preview) | [.NET 10 ASP.NET Core Runtime](https://dotnet.microsoft.com/download/dotnet/10.0) | Preview – updates frequently |
 
 If you already have the **.NET SDK** for those versions installed you don't need to install the runtime separately.
 
 - Kestrun module: installed or available from this repository at `src/PowerShell/Kestrun/Kestrun.psm1`
-- Supported OS: same as .NET 8/9 (Windows, Linux, macOS), including ARM/ARM64
+- Supported OS: same as .NET 8/10 (Windows, Linux, macOS), including ARM/ARM64
 
 Verify (optional):
 
@@ -30,7 +30,7 @@ Verify (optional):
 dotnet --list-runtimes | Where-Object { $_ -match 'Microsoft.(AspNetCore|NETCore).App' }
 ```
 
-You should see `Microsoft.AspNetCore.App 8.0.x` (and 9.0.x if using PS 7.6 preview).
+You should see `Microsoft.AspNetCore.App 8.0.x` (and 10.0.x if using PS 7.6 preview).
 
 ## Quick start: run the samples
 

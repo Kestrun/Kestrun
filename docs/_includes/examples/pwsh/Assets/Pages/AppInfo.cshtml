@@ -1,14 +1,34 @@
 @page
 @model Kestrun.Razor.PwshKestrunModel
+@using Microsoft.AspNetCore.Html
+
+@functions {
+    public static IHtmlContent Fallback(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return new HtmlString("<span class=\"muted-value\">(not configured)</span>");
+
+        return new HtmlString(System.Net.WebUtility.HtmlEncode(value));
+    }
+}
+
 @{
     ViewData["Title"] = "Application Info";
 
-     dynamic d = Model.Data ?? new {
+    dynamic d = Model.Data ?? new
+    {
         App = (object)null,
         Flags = (IDictionary<string, object>)new Dictionary<string, object>(),
-        Motd = ""
+        Motd = "",
+        Host = (object)null,
+        Environment = (object)null,
+        DotNet = (object)null,
+        Kestrel = (object)null,
+        Roslyn = (object)null,
+        OS = (object)null,
+        Process = (object)null,
+        PowerShell = (object)null
     };
-
 }
 
 <div class="card">
@@ -25,6 +45,155 @@
             <li><strong>Environment:</strong> @d.App.Environment</li>
             <li><strong>Version:</strong> @d.App.Version</li>
             <li><strong>Started (UTC):</strong> @d.App.StartedUtc</li>
+        </ul>
+    </div>
+}
+
+@if (d.Environment != null)
+{
+
+
+    <div class="card">
+        <h2>Environment</h2>
+        <ul>
+            <li>
+                <strong>ASP.NET Core:</strong>
+                @Fallback((string)d.Environment.EnvironmentName)
+            </li>
+
+            <li>
+                <strong>Host application:</strong>
+                @Fallback((string)d.Environment.ApplicationName)
+            </li>
+
+            <li>
+                <strong>Content root:</strong>
+                @Fallback((string)d.Environment.ContentRootPath)
+            </li>
+
+            <li>
+                <strong>Web root:</strong>
+                @Fallback((string)d.Environment.WebRootPath)
+            </li>
+
+            <li>
+                <strong>Machine:</strong>
+                @d.Environment.MachineName
+            </li>
+
+            <li>
+                <strong>User:</strong>
+                @d.Environment.UserName
+            </li>
+
+            <li>
+                <strong>Web root provider:</strong>
+                @Fallback((string)d.Environment.WebRootFileProvider)
+            </li>
+        </ul>
+    </div>
+}
+
+
+@if (d.DotNet != null)
+{
+    <div class="card">
+        <h2>.NET</h2>
+        <ul>
+            <li><strong>Runtime:</strong> @d.DotNet.Runtime</li>
+            <li><strong>Process arch:</strong> @d.DotNet.ProcessArch</li>
+            <li><strong>OS arch:</strong> @d.DotNet.OSArch</li>
+        </ul>
+    </div>
+}
+
+@if (d.Kestrel != null)
+{
+    <div class="card">
+        <h2>Kestrel</h2>
+        <ul>
+            <li><strong>Version:</strong> @d.Kestrel.Version</li>
+            <li>
+                <strong>Assembly:</strong>
+                <div class="muted wrap">@d.Kestrel.Location</div>
+            </li>
+        </ul>
+    </div>
+}
+
+@if (d.Roslyn != null)
+{
+    void Row(string label, dynamic asm)
+    {
+        <li>
+            <strong>@label:</strong>
+            @if (asm == null)
+            {
+                <span class="muted-value">(not loaded)</span>
+            }
+            else
+            {
+                <span>@asm.Version</span>
+                <div class="muted wrap">@asm.Location</div>
+            }
+        </li>
+    ;
+    }
+
+    <div class="card">
+        <h2>Roslyn</h2>
+        <ul>
+            @{
+                Row("Microsoft.CodeAnalysis", d.Roslyn.Core);
+                Row("Microsoft.CodeAnalysis.CSharp", d.Roslyn.CSharp);
+                Row("Microsoft.CodeAnalysis.Scripting", d.Roslyn.Scripting);
+                Row("Microsoft.CodeAnalysis.CSharp.Scripting", d.Roslyn.CSharpScript);
+            }
+        </ul>
+    </div>
+}
+
+@if (d.PowerShell != null)
+{
+    <div class="card">
+        <h2>PowerShell</h2>
+        <ul>
+            <li><strong>Edition:</strong> @d.PowerShell.Edition</li>
+            <li><strong>Version:</strong> @d.PowerShell.Version</li>
+            <li><strong>Platform:</strong> @d.PowerShell.Platform</li>
+            <li><strong>OS:</strong> @d.PowerShell.OS</li>
+
+            @if (!string.IsNullOrEmpty(d.PowerShell.RemotingProto))
+            {
+                <li><strong>Remoting protocol:</strong> @d.PowerShell.RemotingProto</li>
+            }
+
+            @if (!string.IsNullOrEmpty(d.PowerShell.Serialization))
+            {
+                <li><strong>Serialization:</strong> @d.PowerShell.Serialization</li>
+            }
+        </ul>
+    </div>
+}
+
+@if (d.OS != null)
+{
+    <div class="card">
+        <h2>OS</h2>
+        <ul>
+            <li><strong>Description:</strong> @d.OS.Description</li>
+            <li><strong>Container:</strong> @d.OS.IsContainer</li>
+        </ul>
+    </div>
+}
+
+@if (d.Process != null)
+{
+    <div class="card">
+        <h2>Process</h2>
+        <ul>
+            <li><strong>PID:</strong> @d.Process.PID</li>
+            <li><strong>Start time (UTC):</strong> @d.Process.StartTime</li>
         </ul>
     </div>
 }

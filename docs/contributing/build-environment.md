@@ -4,7 +4,7 @@ title: Build & Environment
 parent: Contributing
 nav_order: 1
 ---
-
+<!-- markdownlint-disable-file MD033 -->
 # Build & Environment
 
 This page explains how to set up your environment and build Kestrun from source.
@@ -13,20 +13,22 @@ This page explains how to set up your environment and build Kestrun from source.
 
 | Component | Required | Notes |
 |-----------|----------|-------|
-| PowerShell | 7.4 / 7.5 / 7.6 (preview) | 7.4/7.5 run on .NET 8; 7.6 preview runs on .NET 9 |
-| .NET 8 SDK | Yes (build) | Provides SDK + runtimes (net8.0) |
-| .NET 9 SDK | Yes (build) | Provides SDK + runtimes (net9.0 preview) |
-| ASP.NET Core Runtime 8 | Run-only (optional) | If not building; matches PS 7.4 / 7.5 |
-| ASP.NET Core Runtime 9 | Run-only (optional) | If not building; matches PS 7.6 preview |
+| PowerShell | 7.4 / 7.5 / 7.6  | 7.4/7.5 run on .NET 8; 7.6 runs on .NET 10 |
+| .NET 8 SDK |  No (build) | |
+| .NET 10 SDK | Yes (build) | Provides SDK  |
+| .NET 9 SDK | No (build) |  |
+| ASP.NET Core Runtime 8 | Run-only  | Required for PS 7.4 / 7.5 |
+| ASP.NET Core Runtime 9 | Run-only (optional) | Required only if explicitly called in 7.6 |
+| ASP.NET Core Runtime 10 | Run-only   | Required for PS 7.6  |
 | InvokeBuild | Yes | Task orchestration (`Install-PSResource`) |
 | Pester | Yes | PowerShell tests |
 
 Official download landing pages (always use these for latest secure patches):
 
-| Purpose | .NET 8 | .NET 9 |
+| Purpose | .NET 8 | .NET 10 |
 |---------|--------|--------|
-| SDK | [.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8.0) | [.NET 9 SDK](https://dotnet.microsoft.com/download/dotnet/9.0) |
-| ASP.NET Core Runtime | [.NET 8 ASP.NET Core](https://dotnet.microsoft.com/download/dotnet/8.0) | [.NET 9 ASP.NET Core](https://dotnet.microsoft.com/download/dotnet/9.0) |
+| SDK | [.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8.0) | [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0) |
+| ASP.NET Core Runtime | [.NET 8 ASP.NET Core](https://dotnet.microsoft.com/download/dotnet/8.0) | [.NET 10 ASP.NET Core](https://dotnet.microsoft.com/download/dotnet/10.0) |
 
 PowerShell releases: [GitHub PowerShell Releases](https://github.com/PowerShell/PowerShell/releases)
 
@@ -48,8 +50,10 @@ Expected (abbreviated):
 ```text
 Microsoft.NETCore.App 8.0.x
 Microsoft.AspNetCore.App 8.0.x
-Microsoft.NETCore.App 9.0.x (if installed)
-Microsoft.AspNetCore.App 9.0.x (if installed)
+Microsoft.NETCore.App 10.0.x
+Microsoft.AspNetCore.App 10.0.x
+Microsoft.NETCore.App 9.0.x (optional)
+Microsoft.AspNetCore.App 9.0.x (optional)
 ```
 
 ## 2. Clone
@@ -71,7 +75,7 @@ Optional parameters (see `Kestrun.build.ps1`):
 | Parameter | Purpose | Example |
 |-----------|---------|---------|
 | `-Configuration` | Debug/Release | `Invoke-Build Build -Configuration Release` |
-| `-Frameworks` | Target TFMs | `Invoke-Build Build -Frameworks net8.0,net9.0` |
+| `-Frameworks` | Target TFMs | `Invoke-Build Build -Frameworks net8.0,net10.0` (default)<br/>`Invoke-Build Build -Frameworks net8.0,net9.0,net10.0` (all) |
 | `-FileVersion` | Version file path | `Invoke-Build Build -FileVersion ./version.json` |
 
 ## 4. Run Examples

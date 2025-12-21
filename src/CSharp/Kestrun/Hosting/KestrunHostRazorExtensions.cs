@@ -234,7 +234,6 @@ public partial class KestrunHost
             AddSharedFrameworkReferences(opts);
             AddPagesFileProviderIfExists(opts, pagesRootPath);
         });
-
     }
 
     /// <summary>

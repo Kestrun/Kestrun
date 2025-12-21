@@ -77,13 +77,10 @@ jobs:
               with:
                   Version: ${{ matrix.pwsh }}
 
-            - name: 🧰 Setup .NET 8/9
+            - name: 🧰 Setup .NET 10
               uses: actions/setup-dotnet@v5
               with:
-                  dotnet-version: |
-                      8.0.x
-                      9.0.x
-                      10.0.x
+                  dotnet-version: "10.0.x"
 
             # 🔊 Only enable super-verbose logs in debug runs
             - name: 🔧 Enable debug flags

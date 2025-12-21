@@ -220,7 +220,7 @@ public partial class KestrunHost
 
         return mvcBuilder;
     }
-
+#pragma warning disable ASPDEPR003
     /// <summary>
     /// Configures runtime compilation reference paths and optional file watching for the Pages directory.
     /// </summary>
@@ -234,6 +234,7 @@ public partial class KestrunHost
             AddSharedFrameworkReferences(opts);
             AddPagesFileProviderIfExists(opts, pagesRootPath);
         });
+
     }
 
     /// <summary>
@@ -267,14 +268,14 @@ public partial class KestrunHost
     /// </summary>
     /// <param name="opts">Runtime compilation options to update.</param>
     /// <param name="pagesRootPath">The resolved Pages directory path.</param>
-    private void AddPagesFileProviderIfExists(MvcRazorRuntimeCompilationOptions opts, string pagesRootPath)
+    private static void AddPagesFileProviderIfExists(MvcRazorRuntimeCompilationOptions opts, string pagesRootPath)
     {
         if (Directory.Exists(pagesRootPath))
         {
             opts.FileProviders.Add(new PhysicalFileProvider(pagesRootPath));
         }
     }
-
+#pragma warning restore ASPDEPR003
     /// <summary>
     /// Maps PowerShell Razor Pages middleware either at the application root or under a route prefix.
     /// </summary>

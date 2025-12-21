@@ -45,14 +45,11 @@ jobs:
             # queries: security-extended  # optional: stricter rules
 
             # Build C# so your DLLs exist (good for your optional import check)
-            - name: 🧰 Setup .NET 8/9
+            - name: 🧰 Setup .NET 10
               if: matrix.language == 'csharp'
               uses: actions/setup-dotnet@v5
               with:
-                  dotnet-version: |
-                      8.0.x
-                      9.0.x
-                      10.0.x
+                  dotnet-version: "10.0.x"
 
             - name: 🧰 Install Invoke-Build
               if: matrix.language == 'csharp'

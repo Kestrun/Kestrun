@@ -40,7 +40,7 @@ public class JwtAuthOptions : JwtBearerOptions, IOpenApiAuthenticationOptions, I
     /// <inheritdoc/>
     public string[] DocumentationId { get; set; } = [];
 
-      /// <inheritdoc/>
+    /// <inheritdoc/>
     public bool Deprecated { get; set; }
 
     /// <inheritdoc/>

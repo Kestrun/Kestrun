@@ -10,6 +10,15 @@ using Xunit;
 
 namespace KestrunTests.Hosting;
 
+// Kestrun uses Razor runtime compilation intentionally to support
+// PowerShell-backed Razor pages (dynamic execution model).
+// .NET 10 marks runtime compilation obsolete (ASPDEPR003); we suppress here by design.
+// Track removal/alternative: https://aka.ms/aspnet/deprecate/003
+
+#if NET10_0_OR_GREATER
+#pragma warning disable ASPDEPR003
+#endif
+
 // These tests create/delete temp directories and construct KestrunHost with a temp root.
 // KestrunHost may set the process CWD to that root; if the directory is deleted without restoring
 // the original CWD, later tests can fail on Unix/macOS when getcwd() or ContentRootPath validation runs.
@@ -198,3 +207,7 @@ public class KestrunHostRazorExtensionsTests
     private static bool IsPhysicalProviderFor(IFileProvider provider, string expectedRoot) =>
         provider is PhysicalFileProvider pfp && IsPhysicalProviderFor(pfp, expectedRoot);
 }
+
+#if NET10_0_OR_GREATER
+#pragma warning restore ASPDEPR003
+#endif

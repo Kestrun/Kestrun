@@ -85,7 +85,7 @@ public class JwtTokenBuilderAdditionalTests
         var req = new CertificateRequest("CN=NoPrivKey", ecdsa, HashAlgorithmName.SHA256);
         var cert = req.CreateSelfSigned(DateTimeOffset.UtcNow, DateTimeOffset.UtcNow.AddMinutes(1));
         // Export public only to drop private key
-#if NET9_0
+#if NET9_0_OR_GREATER
         var publicOnly = X509CertificateLoader.LoadCertificate(cert.Export(X509ContentType.Cert));
 #else
         var publicOnly = new X509Certificate2(cert.Export(X509ContentType.Cert));

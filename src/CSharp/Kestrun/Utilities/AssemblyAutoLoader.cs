@@ -158,11 +158,11 @@ public static class AssemblyAutoLoader
             // Load the assembly from the specified path (Core-friendly)
             return AssemblyLoadContext.Default.LoadFromAssemblyPath(Path.GetFullPath(path));
         }
-        catch
+        catch (Exception ex)
         {
             if (_verbose)
             {
-                Console.WriteLine($"Failed to load assembly: {path}");
+                Console.WriteLine($"Failed to load assembly: {path}. Exception: {ex.Message}");
             }
             // Swallow – we don’t block startup because of one bad DLL
             return null;

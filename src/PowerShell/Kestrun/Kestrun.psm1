@@ -82,7 +82,7 @@ if (-not $inRouteRunspace) {
 
         # Assert that the assembly is loaded and load it if not
         if ( Assert-KrAssemblyLoaded -AssemblyPath (Join-Path -Path $assemblyLoadPath -ChildPath 'Kestrun.dll')) {
-            # Load & register your DLL folders (as before):
+            # Load & register the DLL folders
             [Kestrun.Utilities.AssemblyAutoLoader]::PreloadAll($false, @($assemblyLoadPath))
 
             # When the runspace or script is finished:

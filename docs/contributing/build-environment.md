@@ -17,9 +17,9 @@ This page explains how to set up your environment and build Kestrun from source.
 | .NET 8 SDK |  No (build) | |
 | .NET 10 SDK | Yes (build) | Provides SDK  |
 | .NET 9 SDK | No (build) |  |
-| ASP.NET Core Runtime 8 | Run-only  | If not building; matches PS 7.4 / 7.5 |
-| ASP.NET Core Runtime 9 | Run-only (optional) | Only if explicitly called in 7.6 |
-| ASP.NET Core Runtime 10 | Run-only   | If not building; matches PS 7.6  |
+| ASP.NET Core Runtime 8 | Run-only  | Required for PS 7.4 / 7.5 |
+| ASP.NET Core Runtime 9 | Run-only (optional) | Required only if explicitly called in 7.6 |
+| ASP.NET Core Runtime 10 | Run-only   | Required for PS 7.6  |
 | InvokeBuild | Yes | Task orchestration (`Install-PSResource`) |
 | Pester | Yes | PowerShell tests |
 

@@ -32,7 +32,7 @@ if ($fx -match '\.NET\s+10\.') {
         # Default to net10.0 for .NET 10 runtime
         $KrAspNetCoreVersion = 'net10.0'
     }
-    $codeAnalysisVersion = '4.11.0'   # keep consistent with your csproj net10 group
+    $codeAnalysisVersion = '4.14.0'   # keep consistent with your csproj net10 group
 } elseif ($fx -match '\.NET\s+9\.') {
     if ([string]::IsNullOrWhiteSpace($KrAspNetCoreVersion)) {
         # Default to net8.0 for PowerShell 7.5 on .NET 9 runtime

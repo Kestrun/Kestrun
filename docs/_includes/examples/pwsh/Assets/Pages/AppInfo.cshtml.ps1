@@ -1,5 +1,26 @@
 [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseDeclaredVarsMoreThanAssignments', '')]
 param()
+
+function Get-AsmInfo {
+    param([Parameter(Mandatory)][string]$TypeName)
+
+    try {
+        $t = [Type]::GetType($TypeName, $false)
+        if (-not $t) { return $null }
+
+        $asm = $t.Assembly
+        $name = $asm.GetName()
+
+        return [pscustomobject]@{
+            Name = $name.Name
+            Version = $name.Version.ToString()
+            Location = $asm.Location
+        }
+    } catch {
+        return $null
+    }
+}
+
 # These variables EXIST because they were defined
 # before Enable-KrConfiguration in the main script
 
@@ -79,4 +100,24 @@ $Model | Add-Member -Force -NotePropertyName PowerShell -NotePropertyValue ([psc
         OS = $psVersion.OS
         Platform = $psVersion.Platform
     })
+
+
+
+# Roslyn assemblies (best-effort; some may be absent if you don't use scripting)
+$roslyn = [ordered]@{
+    Core = Get-AsmInfo 'Microsoft.CodeAnalysis.SyntaxNode, Microsoft.CodeAnalysis'
+    CSharp = Get-AsmInfo 'Microsoft.CodeAnalysis.CSharp.CSharpSyntaxNode, Microsoft.CodeAnalysis.CSharp'
+    Scripting = Get-AsmInfo 'Microsoft.CodeAnalysis.Scripting.Script, Microsoft.CodeAnalysis.Scripting'
+    CSharpScript = Get-AsmInfo 'Microsoft.CodeAnalysis.CSharp.Scripting.CSharpScript, Microsoft.CodeAnalysis.CSharp.Scripting'
+}
+
+# Only add if at least one component exists
+if ($roslyn.Values | Where-Object { $_ -ne $null } | Select-Object -First 1) {
+    $Model | Add-Member -Force -NotePropertyName Roslyn -NotePropertyValue ([pscustomobject]@{
+            Core = $roslyn.Core
+            CSharp = $roslyn.CSharp
+            Scripting = $roslyn.Scripting
+            CSharpScript = $roslyn.CSharpScript
+        })
+}
 

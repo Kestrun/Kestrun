@@ -36,7 +36,7 @@ if ($fx -match '\.NET\s+10\.') {
 } elseif ($fx -match '\.NET\s+9\.') {
     if ([string]::IsNullOrWhiteSpace($KrAspNetCoreVersion)) {
         # Default to net8.0 for PowerShell 7.5 on .NET 9 runtime
-        $KrAspNetCoreVersion = ($PSVersionTable.PSVersion.Major -eq 7 -and $PSVersionTable.PSVersion.Minor -eq 5)?'net8.0': 'net9.0'  # force downgrade for pwsh 7.5
+        $KrAspNetCoreVersion = ($PSVersionTable.PSVersion.Major -eq 7 -and $PSVersionTable.PSVersion.Minor -eq 5) ? 'net8.0' : 'net9.0'  # force downgrade for pwsh 7.5
     }
     $codeAnalysisVersion = '4.11.0'   # matches your net9 group
 } elseif ($fx -match '\.NET\s+8\.') {

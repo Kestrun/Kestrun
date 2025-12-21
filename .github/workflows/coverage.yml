@@ -79,12 +79,10 @@ jobs:
             - name: 🛎️ Checkout
               uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v5 pin
 
-            - name: 🧰 Setup .NET 8 & 9
+            - name: 🧰 Setup .NET
               uses: actions/setup-dotnet@740310365d5065c44c30d213e7963107ebfd22d5 # v4.3.1 pin
               with:
-                  dotnet-version: |
-                      8.0.x
-                      9.0.x
+                  dotnet-version: "10.0.x"
 
             # Non-interactive PSResource install (trust PSGallery)
             - name: 🧰 Install Invoke-Build & Pester (trusted, non-interactive)
@@ -149,12 +147,10 @@ jobs:
             - name: 🛎️ Checkout
               uses: actions/checkout@v6.0.1
 
-            - name: 🧰 Setup .NET 8 & 9
+            - name: 🧰 Setup .NET
               uses: actions/setup-dotnet@740310365d5065c44c30d213e7963107ebfd22d5 # v4.3.1 pin
               with:
-                  dotnet-version: |
-                      8.0.x
-                      9.0.x
+                  dotnet-version: "10.0.x"
 
             # Non-interactive PSResource install (trust PSGallery)
             - name: 🧰 Install Invoke-Build & Pester (trusted, non-interactive)
@@ -239,12 +235,10 @@ jobs:
               with:
                   persist-credentials: false
 
-            - name: 🧰 Setup .NET 8 & 9
+            - name: 🧰 Setup .NET
               uses: actions/setup-dotnet@740310365d5065c44c30d213e7963107ebfd22d5
               with:
-                  dotnet-version: |
-                      8.0.x
-                      9.0.x
+                  dotnet-version: "10.0.x"
 
             # Non-interactive PSResource install (trust PSGallery)
             - name: 🧰 Install Invoke-Build & Pester (trusted, non-interactive)

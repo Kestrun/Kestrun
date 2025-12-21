@@ -675,7 +675,7 @@ function Sync-PowerShellDll {
             } |
             ForEach-Object {
                 # Skip anything under runtimes
-                if (-not $_.DirectoryName.Contains("$sep" + 'runtimes' + "$sep")) { return }
+                if ($_.DirectoryName.Contains("$sep" + 'runtimes' + "$sep")) { return }
 
                 # Skip DLLs that PowerShell already ships
                 if ($_.Extension -ieq '.dll' -and $psDllNames.Contains($_.Name)) {

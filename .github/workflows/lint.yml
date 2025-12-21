@@ -50,7 +50,7 @@ jobs:
                   if [[ $NEED_DOTNET -eq 0 ]]; then echo "No C# project-related changes detected; dotnet format will be skipped."; fi
                   if [[ $NEED_PS -eq 0 ]]; then echo "No PowerShell script/module changes detected; PS lint will be skipped."; fi
 
-            - name: 🧰 Setup .NET 8 & 9
+            - name: 🧰 Setup .NET
               if: ${{ steps.changed.outputs.need_dotnet != '0' || !inputs.is_pr }}
               uses: actions/setup-dotnet@v5
               with:

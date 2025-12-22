@@ -410,4 +410,7 @@ public partial class OpenApiDocDescriptor
             parameter.Examples[exRef.Key] = new OpenApiExampleReference(exRef.ReferenceId);
         }
     }
+
+
+ 
 }

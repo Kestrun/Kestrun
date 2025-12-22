@@ -232,7 +232,211 @@ class BuyMuseumTicketsResponse {
 class GetTicketCodeResponse {
 }
 
+#region Examples
+# =========================================================
+#                 COMPONENT EXAMPLES
+# =========================================================
 
+# --- Ticket purchase examples ---
+New-KrOpenApiExample -Summary 'General entry ticket' -Value ([ordered]@{
+        ticketType = 'general'
+        ticketDate = '2023-09-07'
+        email = 'todd@example.com'
+    }) | Add-KrOpenApiComponent -Name 'BuyGeneralTicketsRequestExample'
+
+# --- Event ticket purchase examples ---
+New-KrOpenApiExample -Summary 'Special event ticket' -Value ([ordered]@{
+        ticketType = 'general'  # keeping exactly as your YAML even if it looks odd
+        eventId = 'dad4bce8-f5cb-4078-a211-995864315e39'
+        ticketDate = '2023-09-05'
+        email = 'todd@example.com'
+    }) | Add-KrOpenApiComponent -Name 'BuyEventTicketsRequestExample'
+
+# --- Ticket purchase response examples ---
+New-KrOpenApiExample -Summary 'General entry ticket' -Value ([ordered]@{
+        message = 'Museum general entry ticket purchased'
+        ticketId = '382c0820-0530-4f4b-99af-13811ad0f17a'
+        ticketType = 'general'
+        ticketDate = '2023-09-07'
+        confirmationCode = 'ticket-general-e5e5c6-dce78'
+    }) | Add-KrOpenApiComponent -Name 'BuyGeneralTicketsResponseExample'
+
+# --- Ticket purchase response examples ---
+New-KrOpenApiExample -Summary 'Special event ticket' -Value ([ordered]@{
+        message = 'Museum special event ticket purchased'
+        ticketId = 'b811f723-17b2-44f7-8952-24b03e43d8a9'
+        eventName = 'Mermaid Treasure Identification and Analysis'
+        ticketType = 'event'
+        ticketDate = '2023-09-05'
+        confirmationCode = 'ticket-event-9c55eg-8v82a'
+    }) | Add-KrOpenApiComponent -Name 'BuyEventTicketsResponseExample'
+
+# --- Special events examples ---
+
+New-KrOpenApiExample -Summary 'Create special event' -Value ([ordered]@{
+        name = 'Mermaid Treasure Identification and Analysis'
+        location = 'Under the seaaa 🦀 🎶 🌊.'
+        eventDescription = @'
+Join us as we review and classify a rare collection of 20
+thingamabobs, gadgets, gizmos, whoosits, and whatsits, kindly donated
+by Ariel.
+'@.Trim()
+        dates = @('2023-09-05', '2023-09-08')
+        price = 0
+    }) | Add-KrOpenApiComponent -Name 'CreateSpecialEventRequestExample'
+
+New-KrOpenApiExample -Summary 'Special event created' -Value ([ordered]@{
+        eventId = 'dad4bce8-f5cb-4078-a211-995864315e39'
+        name = 'Mermaid Treasure Identification and Analysis'
+        location = 'Under the seaaa 🦀 🎶 🌊.'
+        eventDescription = @'
+Join us as we review and classify a rare collection of 20
+thingamabobs, gadgets, gizmos, whoosits, and whatsits, kindly donated
+by Ariel.
+'@.Trim()
+        dates = @('2023-09-05', '2023-09-08')
+        price = 30
+    }) | Add-KrOpenApiComponent -Name 'CreateSpecialEventResponseExample'
+
+New-KrOpenApiExample -Summary 'Get special event' -Value ([ordered]@{
+        eventId = '6744a0da-4121-49cd-8479-f8cc20526495'
+        name = 'Time Traveler Tea Party'
+        location = 'Temporal Tearoom'
+        eventDescription = 'Sip tea with important historical figures.'
+        dates = @('2023-11-18', '2023-11-25', '2023-12-02')
+        price = 60
+    }) | Add-KrOpenApiComponent -Name 'GetSpecialEventResponseExample'
+
+New-KrOpenApiExample -Summary 'List of special events' -Value @(
+    [ordered]@{
+        eventId = 'f3e0e76e-e4a8-466e-ab9c-ae36c15b8e97'
+        name = 'Sasquatch Ballet'
+        location = 'Seattle... probably'
+        eventDescription = @'
+They're big, they're hairy, but they're also graceful. Come learn
+how the biggest feet can have the lightest touch.
+'@.Trim()
+        dates = @('2023-12-15', '2023-12-22')
+        price = 40
+    }
+    [ordered]@{
+        eventId = '2f14374a-9c65-4ee5-94b7-fba66d893483'
+        name = 'Solar Telescope Demonstration'
+        location = 'Far from the sun.'
+        eventDescription = 'Look at the sun without going blind!'
+        dates = @('2023-09-07', '2023-09-14')
+        price = 50
+    }
+    [ordered]@{
+        eventId = '6aaa61ba-b2aa-4868-b803-603dbbf7bfdb'
+        name = 'Cook like a Caveman'
+        location = 'Fire Pit on East side'
+        eventDescription = 'Learn to cook on an open flame.'
+        dates = @('2023-11-10', '2023-11-17', '2023-11-24')
+        price = 5
+    }
+    [ordered]@{
+        eventId = '602b75e1-5696-4ab8-8c7a-f9e13580f910'
+        name = 'Underwater Basket Weaving'
+        location = 'Rec Center Pool next door.'
+        eventDescription = 'Learn to weave baskets underwater.'
+        dates = @('2023-09-12', '2023-09-15')
+        price = 15
+    }
+    [ordered]@{
+        eventId = 'dad4bce8-f5cb-4078-a211-995864315e39'
+        name = 'Mermaid Treasure Identification and Analysis'
+        location = 'Room Sea-12'
+        eventDescription = @'
+Join us as we review and classify a rare collection of 20
+thingamabobs, gadgets, gizmos, whoosits, and whatsits — kindly
+donated by Ariel.
+'@.Trim()
+        dates = @('2023-09-05', '2023-09-08')
+        price = 30
+    }
+    [ordered]@{
+        eventId = '6744a0da-4121-49cd-8479-f8cc20526495'
+        name = 'Time Traveler Tea Party'
+        location = 'Temporal Tearoom'
+        eventDescription = 'Sip tea with important historical figures.'
+        dates = @('2023-11-18', '2023-11-25', '2023-12-02')
+        price = 60
+    }
+    [ordered]@{
+        eventId = '3be6453c-03eb-4357-ae5a-984a0e574a54'
+        name = 'Pirate Coding Workshop'
+        location = 'Computer Room'
+        eventDescription = @'
+Captain Blackbeard shares his love of the C...language. And possibly
+Arrrrr (R lang).
+'@.Trim()
+        dates = @('2023-10-29', '2023-10-30', '2023-10-31')
+        price = 45
+    }
+    [ordered]@{
+        eventId = '9d90d29a-2af5-4206-97d9-9ea9ceadcb78'
+        name = 'Llama Street Art Through the Ages'
+        location = 'Auditorium'
+        eventDescription = "Llama street art?! Alpaca my bags -- let's go!"
+        dates = @('2023-10-29', '2023-10-30', '2023-10-31')
+        price = 45
+    }
+    [ordered]@{
+        eventId = 'a3c7b2c4-b5fb-4ef7-9322-00a919864957'
+        name = 'The Great Parrot Debate'
+        location = 'Outdoor Amphitheatre'
+        eventDescription = 'See leading parrot minds discuss important geopolitical issues.'
+        dates = @('2023-11-03', '2023-11-10')
+        price = 35
+    }
+    [ordered]@{
+        eventId = 'b92d46b7-4c5d-422b-87a5-287767e26f29'
+        name = 'Eat a Bunch of Corn'
+        location = 'Cafeteria'
+        eventDescription = 'We accidentally bought too much corn. Please come eat it.'
+        dates = @('2023-11-10', '2023-11-17', '2023-11-24')
+        price = 5
+    }
+) | Add-KrOpenApiComponent -Name 'ListSpecialEventsResponseExample'
+
+New-KrOpenApiExample -Summary 'Update special event request' -Value ([ordered]@{
+        location = 'On the beach.'
+        price = 15
+    }) | Add-KrOpenApiComponent -Name 'UpdateSpecialEventRequestExample'
+
+New-KrOpenApiExample -Summary 'Update special event' -Value ([ordered]@{
+        eventId = 'dad4bce8-f5cb-4078-a211-995864315e39'
+        name = 'Mermaid Treasure Identification and Analysis'
+        location = 'On the beach.'
+        eventDescription = @'
+Join us as we review and classify a rare collection of 20
+thingamabobs, gadgets, gizmos, whoosits, and whatsits, kindly donated
+by Ariel.
+'@.Trim()
+        dates = @('2023-09-05', '2023-09-08')
+        price = 15
+    }) | Add-KrOpenApiComponent -Name 'UpdateSpecialEventResponseExample'
+
+# --- Museum hours example ---
+$museumHoursValue = @(
+    [ordered]@{ date = '2023-09-11'; timeOpen = '09:00'; timeClose = '18:00' }
+    [ordered]@{ date = '2023-09-12'; timeOpen = '09:00'; timeClose = '18:00' }
+    [ordered]@{ date = '2023-09-13'; timeOpen = '09:00'; timeClose = '18:00' }
+    [ordered]@{ date = '2023-09-14'; timeOpen = '09:00'; timeClose = '18:00' }
+    [ordered]@{ date = '2023-09-15'; timeOpen = '10:00'; timeClose = '16:00' }
+    [ordered]@{ date = '2023-09-18'; timeOpen = '09:00'; timeClose = '18:00' }
+    [ordered]@{ date = '2023-09-19'; timeOpen = '09:00'; timeClose = '18:00' }
+    [ordered]@{ date = '2023-09-20'; timeOpen = '09:00'; timeClose = '18:00' }
+    [ordered]@{ date = '2023-09-21'; timeOpen = '09:00'; timeClose = '18:00' }
+    [ordered]@{ date = '2023-09-22'; timeOpen = '10:00'; timeClose = '16:00' }
+)
+
+New-KrOpenApiExample -Summary 'Get hours response' -Value $museumHoursValue |
+    Add-KrOpenApiComponent -Name 'GetMuseumHoursResponseExample'
+
+#endregion
+#region Parameters
 # =========================================================
 #                 COMPONENT PARAMETERS
 # =========================================================
@@ -287,6 +491,8 @@ class listSpecialEventsExample {
         price = 60
     }
 }#>
+
+#endregion
 # =========================================================
 #                 SECURITY SCHEMES
 # =========================================================
@@ -340,6 +546,7 @@ function getMuseumHours {
     [OpenApiPath(HttpVerb = 'get', Pattern = '/museum-hours', Tags = 'Operations')]
 
     [OpenApiResponseAttribute(StatusCode = '200', SchemaRef = 'GetMuseumHoursResponse' , Description = 'Success')]
+    [OpenApiResponseExampleRefAttribute(StatusCode = '200', Key = 'default_example', ReferenceId = 'GetMuseumHoursResponseExample')]
     [OpenApiResponseAttribute(StatusCode = '400', Description = 'Bad request')]
     [OpenApiResponseAttribute(StatusCode = '404', Description = 'Not found')]
     # TODO: 400/404 responses are inline in museum.yml; you could introduce response components and use OpenApiResponseRefAttribute.
@@ -382,14 +589,14 @@ function createSpecialEvent {
     [OpenApiPath(HttpVerb = 'post', Pattern = '/special-events', Tags = 'Events')]
     # TODO: museum.yml sets security: [] here (no auth); add per-operation override when supported.
 
-    [OpenApiResponseAttribute(StatusCode = '200', Description = 'Created.',
-        SchemaRef = 'SpecialEventResponse', ContentType = 'application/json')]
+    [OpenApiResponseAttribute(StatusCode = '201', Description = 'Created.', SchemaRef = 'SpecialEventResponse')]
+    [OpenApiResponseExampleRefAttribute(StatusCode = '201', Key = 'default_example', ReferenceId = 'CreateSpecialEventResponseExample')]
     [OpenApiResponseAttribute(StatusCode = '400', Description = 'Bad request')]
     [OpenApiResponseAttribute(StatusCode = '404', Description = 'Not found')]
 
     param(
-        [OpenApiRequestBodyAttribute(Required = $true,
-            ContentType = 'application/json')]
+        [OpenApiRequestBodyAttribute(Required = $true, ContentType = 'application/json')]
+        [OpenApiRequestBodyExampleRefAttribute( Key = 'default_example', ReferenceId = 'CreateSpecialEventRequestExample')]
         [CreateSpecialEventRequest]$Body
     )
 
@@ -426,8 +633,8 @@ function listSpecialEvents {
     [OpenApiPath(HttpVerb = 'get', Pattern = '/special-events', Tags = 'Events')]
     # TODO: museum.yml sets security: [] here (no auth); add per-operation override when supported.
 
-    [OpenApiResponseAttribute(StatusCode = '200', SchemaRef = 'ListSpecialEventsResponse' , Description = 'Success' , #examples = 'listSpecialEventsExample' ,
-        ContentType = 'application/json')]
+    [OpenApiResponseAttribute(StatusCode = '200', SchemaRef = 'ListSpecialEventsResponse' , Description = 'Success')]
+    [OpenApiResponseExampleRefAttribute(StatusCode = '200', Key = 'default_example', ReferenceId = 'ListSpecialEventsResponseExample')]
     [OpenApiResponseAttribute(StatusCode = '400', Description = 'Bad request')]
     [OpenApiResponseAttribute(StatusCode = '404', Description = 'Not found')]
 
@@ -477,9 +684,8 @@ function getSpecialEvent {
 #>
     [OpenApiPath(HttpVerb = 'get', Pattern = '/special-events/{eventId}', Tags = 'Events')]
 
-    [OpenApiResponseAttribute(StatusCode = '200', Description = 'Success',
-        SchemaRef = 'SpecialEventResponse' ,
-        ContentType = 'application/json')]
+    [OpenApiResponseAttribute(StatusCode = '200', Description = 'Success', SchemaRef = 'SpecialEventResponse')]
+    [OpenApiResponseExampleRefAttribute(StatusCode = '200', Key = 'default_example', ReferenceId = 'GetSpecialEventResponseExample')]
     [OpenApiResponseAttribute(StatusCode = '400', Description = 'Bad request')]
     [OpenApiResponseAttribute(StatusCode = '404', Description = 'Not found')]
 
@@ -511,9 +717,8 @@ function updateSpecialEvent {
 #>
     [OpenApiPath(HttpVerb = 'patch', Pattern = '/special-events/{eventId}', Tags = 'Events')]
 
-    [OpenApiResponseAttribute(StatusCode = '200', Description = 'Success',
-        Schema = [SpecialEventResponse],
-        ContentType = 'application/json')]
+    [OpenApiResponseAttribute(StatusCode = '200', Description = 'Success', Schema = [SpecialEventResponse])]
+    [OpenApiResponseExampleRefAttribute(StatusCode = '200', Key = 'default_example', ReferenceId = 'UpdateSpecialEventResponseExample')]
     [OpenApiResponseAttribute(StatusCode = '400', Description = 'Bad request')]
     [OpenApiResponseAttribute(StatusCode = '404', Description = 'Not found')]
 
@@ -521,8 +726,8 @@ function updateSpecialEvent {
         [OpenApiParameterRefAttribute(ReferenceId = 'eventId')]
         [Guid]$eventId,
 
-        [OpenApiRequestBodyAttribute(Required = $true,
-            ContentType = 'application/json')]
+        [OpenApiRequestBodyAttribute(Required = $true, ContentType = 'application/json')]
+        [OpenApiRequestBodyExampleRefAttribute( Key = 'default_example', ReferenceId = 'UpdateSpecialEventRequestExample')]
         [UpdateSpecialEventRequest]$Body
     )
 
@@ -580,15 +785,16 @@ function buyMuseumTickets {
 #>
     [OpenApiPath(HttpVerb = 'post', Pattern = '/tickets', Tags = 'Tickets')]
 
-    [OpenApiResponseAttribute(StatusCode = '200', Description = 'Success',
-        SchemaRef = 'BuyMuseumTicketsResponse',
-        ContentType = 'application/json')]
+    [OpenApiResponseAttribute(StatusCode = '200', Description = 'Success', SchemaRef = 'BuyMuseumTicketsResponse')]
+    [OpenApiResponseExampleRefAttribute(StatusCode = '200', Key = 'general_entry', ReferenceId = 'BuyGeneralTicketsResponseExample')]
+    [OpenApiResponseExampleRefAttribute(StatusCode = '200', Key = 'event_entry', ReferenceId = 'BuyEventTicketsResponseExample')]
     [OpenApiResponseAttribute(StatusCode = '400', Description = 'Bad request')]
     [OpenApiResponseAttribute(StatusCode = '404', Description = 'Not found')]
 
     param(
-        [OpenApiRequestBodyAttribute(Required = $true,
-            ContentType = 'application/json')]
+        [OpenApiRequestBodyAttribute(Required = $true, ContentType = 'application/json')]
+        [OpenApiRequestBodyExampleRefAttribute( Key = 'general_entry', ReferenceId = 'BuyGeneralTicketsRequestExample')]
+        [OpenApiRequestBodyExampleRefAttribute( Key = 'event_entry', ReferenceId = 'BuyEventTicketsRequestExample')]
         [BuyMuseumTicketsRequest]$Body
     )
 

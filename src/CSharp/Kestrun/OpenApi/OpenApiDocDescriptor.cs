@@ -31,6 +31,11 @@ public partial class OpenApiDocDescriptor
     public IDictionary<string, OpenApiSecurityRequirement> SecurityRequirement { get; private set; } = new Dictionary<string, OpenApiSecurityRequirement>();
 
     /// <summary>
+    /// Inline components specific to this OpenAPI document.
+    /// </summary>
+    public OpenApiComponents InlineComponents { get; }
+
+    /// <summary>
     /// Initializes a new instance of the OpenApiDocDescriptor.
     /// </summary>
     /// <param name="host">The Kestrun host.</param>
@@ -43,6 +48,7 @@ public partial class OpenApiDocDescriptor
         Host = host;
         DocumentId = docId;
         HasBeenGenerated = false;
+        InlineComponents = new OpenApiComponents();
     }
 
     /// <summary>

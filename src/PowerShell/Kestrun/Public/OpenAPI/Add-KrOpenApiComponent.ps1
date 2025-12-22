@@ -28,9 +28,10 @@ function Add-KrOpenApiComponent {
     param(
         [Parameter(Mandatory = $false )]
         [Kestrun.Hosting.KestrunHost]$Server,
+
         [Parameter()]
         [string[]]$DocId = [Kestrun.Authentication.IOpenApiAuthenticationOptions]::DefaultDocumentationIds,
-        # Can come from -Name or from a property on the pipeline object (Name/Key/Id).
+
         [Parameter(Mandatory = $true, ValueFromPipelineByPropertyName = $true)]
         [Alias('Key', 'Id')]
         [ValidatePattern('^[A-Za-z0-9\.\-_]+$')]
@@ -56,7 +57,10 @@ function Add-KrOpenApiComponent {
             } elseif ($Component -is [Microsoft.OpenApi.OpenApiLink]) {
                 $docDescriptor.AddComponentLink($Name, $Component, $IfExists)
             } else {
-                throw [System.ArgumentException] "Unsupported component type: $($Component.GetType().FullName). Supported types are OpenApiExample and OpenApiLink."
+                throw  [System.ArgumentException]::new(
+                    "Unsupported component type: $($Component.GetType().FullName). Supported types are OpenApiExample and OpenApiLink.",
+                    'Component'
+                )
             }
         }
     }

@@ -95,6 +95,9 @@ public partial class OpenApiDocDescriptor
                     case OpenApiResponseAttribute responseAttr:
                         ApplyResponseAttribute(openApiMetadata, responseAttr);
                         break;
+                    case OpenApiResponseExampleRefAttribute responseAttr:
+                        ApplyResponseAttribute(openApiMetadata, responseAttr);
+                        break;
                     case OpenApiPropertyAttribute propertyAttr:
                         ApplyPropertyAttribute(openApiMetadata, propertyAttr);
                         break;
@@ -211,13 +214,14 @@ public partial class OpenApiDocDescriptor
     /// </summary>
     /// <param name="metadata">The OpenAPI metadata to update.</param>
     /// <param name="attribute">The OpenApiResponse attribute containing response details.</param>
-    private void ApplyResponseAttribute(OpenAPIMetadata metadata, OpenApiResponseAttribute attribute)
+    private void ApplyResponseAttribute(OpenAPIMetadata metadata, IOpenApiResponseAttribute attribute)
     {
         metadata.Responses ??= [];
-        var response = new OpenApiResponse();
+        var response = metadata.Responses.TryGetValue(attribute.StatusCode, out var value) ? value as OpenApiResponse : new OpenApiResponse();
+
         if (CreateResponseFromAttribute(attribute, response))
         {
-            metadata.Responses.Add(attribute.StatusCode, response);
+            _ = metadata.Responses.TryAdd(attribute.StatusCode, response);
         }
     }
 
@@ -309,6 +313,9 @@ public partial class OpenApiDocDescriptor
                         break;
                     case OpenApiRequestBodyAttribute requestBodyAttr:
                         ApplyRequestBodyAttribute(help, routeOptions, openApiMetadata, paramInfo, requestBodyAttr);
+                        break;
+                    case OpenApiRequestBodyExampleRefAttribute requestBodyExampleRefAttr:
+                        //ApplyRequestBodyExampleRefAttribute(openApiMetadata, paramInfo, requestBodyExampleRefAttr);
                         break;
                     case KestrunAnnotation ka:
                         throw new InvalidOperationException($"Unhandled Kestrun annotation: {ka.GetType().Name}");

@@ -41,6 +41,49 @@ public partial class OpenApiDocDescriptor
             }
         }
     }
+    /// <summary>
+    /// Adds a component example to the OpenAPI document.
+    /// </summary>
+    /// <param name="name">The name of the example component.</param>
+    /// <param name="example">The example component to add.</param>
+    /// <param name="ifExists">The conflict resolution strategy if an example with the same name already exists.</param>
+    public void AddComponentExample(
+        string name,
+        OpenApiExample example,
+        OpenApiComponentConflictResolution ifExists = OpenApiComponentConflictResolution.Overwrite
+    )
+    {
+        ArgumentNullException.ThrowIfNull(name);
+        ArgumentNullException.ThrowIfNull(example);
+        // Ensure Components object exists
+        Document.Components ??= new OpenApiComponents();
+        // Ensure Examples dictionary exists
+        Document.Components.Examples ??= new Dictionary<string, IOpenApiExample>(StringComparer.Ordinal);
+
+        var examples = Document.Components.Examples;
+        // Handle conflict resolution
+        switch (ifExists)
+        {
+            case OpenApiComponentConflictResolution.Error:
+                if (!examples.TryAdd(name, example))
+                {
+                    throw new InvalidOperationException(
+                        $"An OpenAPI example component named '{name}' already exists.");
+                }
+                return;
+
+            case OpenApiComponentConflictResolution.Ignore:
+                _ = examples.TryAdd(name, example);
+                return;
+
+            case OpenApiComponentConflictResolution.Overwrite:
+                examples[name] = example;
+                return;
+
+            default:
+                throw new ArgumentOutOfRangeException(nameof(ifExists), ifExists, null);
+        }
+    }
 
     /// <summary>
     /// Creates an OpenApiExample from the specified attribute.
@@ -119,4 +162,6 @@ public partial class OpenApiDocDescriptor
         };
         return true;
     }
+
+
 }

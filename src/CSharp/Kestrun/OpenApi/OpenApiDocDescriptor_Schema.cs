@@ -845,7 +845,7 @@ public partial class OpenApiDocDescriptor
     /// </summary>
     /// <param name="value">The .NET object to convert.</param>
     /// <returns>A JsonNode representing the object, or null if the object is null.</returns>
-    internal static JsonNode? ToNode(object? value)
+    public static JsonNode? ToNode(object? value)
     {
         if (value is null)
         {

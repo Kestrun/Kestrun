@@ -54,14 +54,14 @@ Add-KrOpenApiTag -Name 'Tickets' -Description 'Museum tickets for general entran
 [OpenApiSchemaComponent( Description = 'Daily operating hours for the museum.',
     Required = ('date', 'timeOpen', 'timeClose'))]
 class MuseumDailyHours {
-    [OpenApiPropertyAttribute(Description = 'Date the operating hours apply to.', Example = '2024-12-31')]
+    [OpenApiProperty(Description = 'Date the operating hours apply to.', Example = '2024-12-31')]
     [Date]$date
 
-    [OpenApiPropertyAttribute(Description = 'Time the museum opens on a specific date. Uses 24 hour time format (`HH:mm`).', Example = '09:00')]
+    [OpenApiProperty(Description = 'Time the museum opens on a specific date. Uses 24 hour time format (`HH:mm`).', Example = '09:00')]
     [ValidatePattern('^([01]\d|2[0-3]):([0-5]\d)$')]
     [string]$timeOpen
 
-    [OpenApiPropertyAttribute(Description = 'Time the museum closes on a specific date. Uses 24 hour time format (`HH:mm`).', Example = '18:00')]
+    [OpenApiProperty(Description = 'Time the museum closes on a specific date. Uses 24 hour time format (`HH:mm`).', Example = '18:00')]
     [ValidatePattern('^([01]\d|2[0-3]):([0-5]\d)$')]
     [string]$timeClose
 }
@@ -113,20 +113,20 @@ class SpecialEventResponse {
 
 [OpenApiSchemaComponent( Description = 'Request payload for creating new special events at the museum.')]
 class SpecialEvent {
-    [OpenApiPropertyAttribute(Description = 'Name of the special event' , Example = 'Fossil lecture')]
+    [OpenApiProperty(Description = 'Name of the special event' , Example = 'Fossil lecture')]
     [string]$name
 
-    [OpenApiPropertyAttribute(Description = 'Location where the special event is held' , Example = 'Lecture theatre')]
+    [OpenApiProperty(Description = 'Location where the special event is held' , Example = 'Lecture theatre')]
     [string]$location
 
-    [OpenApiPropertyAttribute(Description = 'Description of the special event' ,
+    [OpenApiProperty(Description = 'Description of the special event' ,
         Example = 'Our panel of experts will share their favorite fossils and explain why they are so great.')]
     [string]$eventDescription
 
-    [OpenApiPropertyAttribute(Description = 'List of planned dates for the special event' , Example = ('2024-03-29'))]
+    [OpenApiProperty(Description = 'List of planned dates for the special event' , Example = ('2024-03-29'))]
     [datetime[]]$dates
 
-    [OpenApiPropertyAttribute(Description = 'List of planned dates for the special event', Example = '12.50')]
+    [OpenApiProperty(Description = 'List of planned dates for the special event', Example = '12.50')]
     [double]$price
 }
 
@@ -196,13 +196,13 @@ class Phone :OaString {}
 class BuyMuseumTicketsRequest {
     [TicketType]$ticketType
 
-    [OpenApiPropertyAttribute(Format = 'uuid', Description = "Unique identifier for a special event. Required if purchasing tickets for the museum's special events.")]
+    [OpenApiProperty(Format = 'uuid', Description = "Unique identifier for a special event. Required if purchasing tickets for the museum's special events.")]
     [EventId]$eventId
 
-    [OpenApiPropertyAttribute(Format = 'date', Description = 'Date that the ticket is valid for.')]
+    [OpenApiProperty(Format = 'date', Description = 'Date that the ticket is valid for.')]
     [Date]$ticketDate
 
-    [OpenApiPropertyAttribute(Format = 'email')]
+    [OpenApiProperty(Format = 'email')]
     [Email]$email
 
     [Phone]$phone
@@ -219,7 +219,7 @@ class BuyMuseumTicketsResponse {
 
     [TicketType]$ticketType
 
-    [OpenApiPropertyAttribute(description = 'Date that the ticket is valid for.')]
+    [OpenApiProperty(description = 'Date that the ticket is valid for.')]
     [Date]$ticketDate
 
     [TicketConfirmation]$confirmationCode
@@ -435,6 +435,14 @@ $museumHoursValue = @(
 New-KrOpenApiExample -Summary 'Get hours response' -Value $museumHoursValue |
     Add-KrOpenApiComponent -Name 'GetMuseumHoursResponseExample'
 
+
+New-KrOpenApiExample -Summary 'Common today ticket date' -Value (Get-Date).ToString('yyyy-MM-dd')|  Add-KrOpenApiComponent -Name 'TodayParameter'
+
+New-KrOpenApiExample -Summary 'Common next Saturday ticket date' -Value (Get-Date).AddDays(6 - [int](Get-Date).DayOfWeek).ToString('yyyy-MM-dd')|  Add-KrOpenApiComponent -Name 'NextSaturdayParameter'
+New-KrOpenApiExample -Summary 'Common next Sunday ticket date' -Value (Get-Date).AddDays(7 - [int](Get-Date).DayOfWeek).ToString('yyyy-MM-dd')|  Add-KrOpenApiComponent -Name 'NextSundayParameter'
+New-KrOpenApiExample -Summary 'Common next Monday ticket date' -Value (Get-Date).AddDays(8 - [int](Get-Date).DayOfWeek).ToString('yyyy-MM-dd')|  Add-KrOpenApiComponent -Name 'NextMondayParameter'
+New-KrOpenApiExample -Summary 'Common next Friday ticket date' -Value (Get-Date).AddDays(12 - [int](Get-Date).DayOfWeek).ToString('yyyy-MM-dd')|  Add-KrOpenApiComponent -Name 'NextFridayParameter'
+
 #endregion
 #region Parameters
 # =========================================================
@@ -449,28 +457,28 @@ New-KrOpenApiExample -Summary 'Get hours response' -Value $museumHoursValue |
 
 [OpenApiParameterComponent()]
 class MuseumParameters {
-    [OpenApiParameterAttribute(In = [OaParameterLocation]::Query,
+    [OpenApiParameter(In = [OaParameterLocation]::Query,
         Description = 'The number of days per page.')]
     [int]$paginationLimit
 
-    [OpenApiParameterAttribute(In = [OaParameterLocation]::Query,
+    [OpenApiParameter(In = [OaParameterLocation]::Query,
         Description = 'The page number to retrieve.')]
     [int]$paginationPage
 
-    [OpenApiParameterAttribute(In = [OaParameterLocation]::Query,
+    [OpenApiParameter(In = [OaParameterLocation]::Query,
         Description = "The starting date to retrieve future operating hours from. Defaults to today's date.")]
     [datetime]$startDate
 
-    [OpenApiParameterAttribute(In = [OaParameterLocation]::Path, Required = $true,
+    [OpenApiParameter(In = [OaParameterLocation]::Path, Required = $true,
         Description = 'An identifier for a special event.', Example = 'dad4bce8-f5cb-4078-a211-995864315e39')]
     [guid]$eventId
 
-    [OpenApiParameterAttribute(In = [OaParameterLocation]::Query,
+    [OpenApiParameter(In = [OaParameterLocation]::Query,
         Description = 'The end of a date range to retrieve special events for. Defaults to 7 days after startDate.')]
-    [OpenApiPropertyAttribute(Format = 'date')]
+    [OpenApiProperty(Format = 'date')]
     [string]$endDate
 
-    [OpenApiParameterAttribute(In = [OaParameterLocation]::Path, Required = $true,
+    [OpenApiParameter(In = [OaParameterLocation]::Path, Required = $true,
         Description = 'An identifier for a ticket to a museum event. Used to generate ticket image.')]
     [Guid]$ticketId
 }
@@ -545,20 +553,20 @@ function getMuseumHours {
 #>
     [OpenApiPath(HttpVerb = 'get', Pattern = '/museum-hours', Tags = 'Operations')]
 
-    [OpenApiResponseAttribute(StatusCode = '200', SchemaRef = 'GetMuseumHoursResponse' , Description = 'Success')]
-    [OpenApiResponseExampleRefAttribute(StatusCode = '200', Key = 'default_example', ReferenceId = 'GetMuseumHoursResponseExample')]
-    [OpenApiResponseAttribute(StatusCode = '400', Description = 'Bad request')]
-    [OpenApiResponseAttribute(StatusCode = '404', Description = 'Not found')]
+    [OpenApiResponse(StatusCode = '200', SchemaRef = 'GetMuseumHoursResponse' , Description = 'Success')]
+    [OpenApiResponseExampleRef(StatusCode = '200', Key = 'default_example', ReferenceId = 'GetMuseumHoursResponseExample')]
+    [OpenApiResponse(StatusCode = '400', Description = 'Bad request')]
+    [OpenApiResponse(StatusCode = '404', Description = 'Not found')]
     # TODO: 400/404 responses are inline in museum.yml; you could introduce response components and use OpenApiResponseRefAttribute.
 
     param(
-        [OpenApiParameterRefAttribute(ReferenceId = 'startDate')]
+        [OpenApiParameterRef(ReferenceId = 'startDate')]
         [datetime]$startDate,
 
-        [OpenApiParameterRefAttribute(ReferenceId = 'paginationPage')]
+        [OpenApiParameterRef(ReferenceId = 'paginationPage')]
         [int]$paginationPage = 1,
 
-        [OpenApiParameterRefAttribute(ReferenceId = 'paginationLimit')]
+        [OpenApiParameterRef(ReferenceId = 'paginationLimit')]
         [int]$paginationLimit = 10
     )
 
@@ -589,14 +597,14 @@ function createSpecialEvent {
     [OpenApiPath(HttpVerb = 'post', Pattern = '/special-events', Tags = 'Events')]
     # TODO: museum.yml sets security: [] here (no auth); add per-operation override when supported.
 
-    [OpenApiResponseAttribute(StatusCode = '201', Description = 'Created.', SchemaRef = 'SpecialEventResponse')]
-    [OpenApiResponseExampleRefAttribute(StatusCode = '201', Key = 'default_example', ReferenceId = 'CreateSpecialEventResponseExample')]
-    [OpenApiResponseAttribute(StatusCode = '400', Description = 'Bad request')]
-    [OpenApiResponseAttribute(StatusCode = '404', Description = 'Not found')]
+    [OpenApiResponse(StatusCode = '201', Description = 'Created.', SchemaRef = 'SpecialEventResponse')]
+    [OpenApiResponseExampleRef(StatusCode = '201', Key = 'default_example', ReferenceId = 'CreateSpecialEventResponseExample')]
+    [OpenApiResponse(StatusCode = '400', Description = 'Bad request')]
+    [OpenApiResponse(StatusCode = '404', Description = 'Not found')]
 
     param(
-        [OpenApiRequestBodyAttribute(Required = $true, ContentType = 'application/json')]
-        [OpenApiRequestBodyExampleRefAttribute( Key = 'default_example', ReferenceId = 'CreateSpecialEventRequestExample')]
+        [OpenApiRequestBody(Required = $true, ContentType = 'application/json')]
+        [OpenApiRequestBodyExampleRef( Key = 'default_example', ReferenceId = 'CreateSpecialEventRequestExample')]
         [CreateSpecialEventRequest]$Body
     )
 
@@ -633,23 +641,29 @@ function listSpecialEvents {
     [OpenApiPath(HttpVerb = 'get', Pattern = '/special-events', Tags = 'Events')]
     # TODO: museum.yml sets security: [] here (no auth); add per-operation override when supported.
 
-    [OpenApiResponseAttribute(StatusCode = '200', SchemaRef = 'ListSpecialEventsResponse' , Description = 'Success')]
-    [OpenApiResponseExampleRefAttribute(StatusCode = '200', Key = 'default_example', ReferenceId = 'ListSpecialEventsResponseExample')]
-    [OpenApiResponseAttribute(StatusCode = '400', Description = 'Bad request')]
-    [OpenApiResponseAttribute(StatusCode = '404', Description = 'Not found')]
+    [OpenApiResponse(StatusCode = '200', SchemaRef = 'ListSpecialEventsResponse' , Description = 'Success')]
+    [OpenApiResponseExampleRef(StatusCode = '200', Key = 'default_example', ReferenceId = 'ListSpecialEventsResponseExample')]
+    [OpenApiResponse(StatusCode = '400', Description = 'Bad request')]
+    [OpenApiResponse(StatusCode = '404', Description = 'Not found')]
 
     param(
-        [OpenApiParameterAttribute( In = [OaParameterLocation]::Query, Example = '2023-02-23')]
+        # TODO Remove OpenApiParameterExampleRef and re-enable Example.
+        [OpenApiParameter( In = [OaParameterLocation]::Query)]#, Example = '2023-02-23')]
+        [OpenApiParameterExampleRef( Key = 'today', ReferenceId = 'TodayParameter')]
+        [OpenApiParameterExampleRef( Key = 'nextSaturday', ReferenceId = 'NextSaturdayParameter')]
+        [OpenApiParameterExampleRef( Key = 'nextSunday', ReferenceId = 'NextSundayParameter')]
+        [OpenApiParameterExampleRef( Key = 'nextMonday', ReferenceId = 'NextMondayParameter')]
+        [OpenApiParameterExampleRef( Key = 'nextFriday', ReferenceId = 'NextFridayParameter')]
         [DateTime]$startDate,
 
-        [OpenApiParameterAttribute( In = [OaParameterLocation]::Query, Example = '2023-04-18')]
+        [OpenApiParameter( In = [OaParameterLocation]::Query, Example = '2023-04-18')]
         [DateTime]$endDate,
 
-        [OpenApiParameterAttribute(In = [OaParameterLocation]::Query, Example = '2')]
+        [OpenApiParameter(In = [OaParameterLocation]::Query, Example = '2')]
         [int]$page = 1,
 
-        [OpenApiParameterAttribute(In = [OaParameterLocation]::Query, Example = '15')]
-        # TODO Enable        [OpenApiPropertyAttribute(Maximum = 30)]
+        [OpenApiParameter(In = [OaParameterLocation]::Query, Example = '15')]
+        # TODO Enable        [OpenApiProperty(Maximum = 30)]
         [int]$limit = 10
     )
 
@@ -684,13 +698,13 @@ function getSpecialEvent {
 #>
     [OpenApiPath(HttpVerb = 'get', Pattern = '/special-events/{eventId}', Tags = 'Events')]
 
-    [OpenApiResponseAttribute(StatusCode = '200', Description = 'Success', SchemaRef = 'SpecialEventResponse')]
-    [OpenApiResponseExampleRefAttribute(StatusCode = '200', Key = 'default_example', ReferenceId = 'GetSpecialEventResponseExample')]
-    [OpenApiResponseAttribute(StatusCode = '400', Description = 'Bad request')]
-    [OpenApiResponseAttribute(StatusCode = '404', Description = 'Not found')]
+    [OpenApiResponse(StatusCode = '200', Description = 'Success', SchemaRef = 'SpecialEventResponse')]
+    [OpenApiResponseExampleRef(StatusCode = '200', Key = 'default_example', ReferenceId = 'GetSpecialEventResponseExample')]
+    [OpenApiResponse(StatusCode = '400', Description = 'Bad request')]
+    [OpenApiResponse(StatusCode = '404', Description = 'Not found')]
 
     param(
-        [OpenApiParameterRefAttribute(ReferenceId = 'eventId')]
+        [OpenApiParameterRef(ReferenceId = 'eventId')]
         [Guid]$eventId
     )
 
@@ -717,17 +731,17 @@ function updateSpecialEvent {
 #>
     [OpenApiPath(HttpVerb = 'patch', Pattern = '/special-events/{eventId}', Tags = 'Events')]
 
-    [OpenApiResponseAttribute(StatusCode = '200', Description = 'Success', Schema = [SpecialEventResponse])]
-    [OpenApiResponseExampleRefAttribute(StatusCode = '200', Key = 'default_example', ReferenceId = 'UpdateSpecialEventResponseExample')]
-    [OpenApiResponseAttribute(StatusCode = '400', Description = 'Bad request')]
-    [OpenApiResponseAttribute(StatusCode = '404', Description = 'Not found')]
+    [OpenApiResponse(StatusCode = '200', Description = 'Success', Schema = [SpecialEventResponse])]
+    [OpenApiResponseExampleRef(StatusCode = '200', Key = 'default_example', ReferenceId = 'UpdateSpecialEventResponseExample')]
+    [OpenApiResponse(StatusCode = '400', Description = 'Bad request')]
+    [OpenApiResponse(StatusCode = '404', Description = 'Not found')]
 
     param(
-        [OpenApiParameterRefAttribute(ReferenceId = 'eventId')]
+        [OpenApiParameterRef(ReferenceId = 'eventId')]
         [Guid]$eventId,
 
-        [OpenApiRequestBodyAttribute(Required = $true, ContentType = 'application/json')]
-        [OpenApiRequestBodyExampleRefAttribute( Key = 'default_example', ReferenceId = 'UpdateSpecialEventRequestExample')]
+        [OpenApiRequestBody(Required = $true, ContentType = 'application/json')]
+        [OpenApiRequestBodyExampleRef( Key = 'default_example', ReferenceId = 'UpdateSpecialEventRequestExample')]
         [UpdateSpecialEventRequest]$Body
     )
 
@@ -755,14 +769,14 @@ function deleteSpecialEvent {
 #>
     [OpenApiPath(HttpVerb = 'delete', Pattern = '/special-events/{eventId}', Tags = 'Events')]
 
-    [OpenApiResponseAttribute(StatusCode = '204', Description = 'Success - no content')]
-    [OpenApiResponseAttribute(StatusCode = '400', Description = 'Bad request')]
-    [OpenApiResponseAttribute(StatusCode = '401', Description = 'Unauthorized')]
-    [OpenApiResponseAttribute(StatusCode = '404', Description = 'Not found')]
+    [OpenApiResponse(StatusCode = '204', Description = 'Success - no content')]
+    [OpenApiResponse(StatusCode = '400', Description = 'Bad request')]
+    [OpenApiResponse(StatusCode = '401', Description = 'Unauthorized')]
+    [OpenApiResponse(StatusCode = '404', Description = 'Not found')]
     # TODO: consider introducing ResponseComponents for 400/401/404 and using OpenApiResponseRefAttribute.
 
     param(
-        [OpenApiParameterRefAttribute(ReferenceId = 'eventId')]
+        [OpenApiParameterRef(ReferenceId = 'eventId')]
         [Guid]$eventId
     )
 
@@ -785,16 +799,16 @@ function buyMuseumTickets {
 #>
     [OpenApiPath(HttpVerb = 'post', Pattern = '/tickets', Tags = 'Tickets')]
 
-    [OpenApiResponseAttribute(StatusCode = '200', Description = 'Success', SchemaRef = 'BuyMuseumTicketsResponse')]
-    [OpenApiResponseExampleRefAttribute(StatusCode = '200', Key = 'general_entry', ReferenceId = 'BuyGeneralTicketsResponseExample')]
-    [OpenApiResponseExampleRefAttribute(StatusCode = '200', Key = 'event_entry', ReferenceId = 'BuyEventTicketsResponseExample')]
-    [OpenApiResponseAttribute(StatusCode = '400', Description = 'Bad request')]
-    [OpenApiResponseAttribute(StatusCode = '404', Description = 'Not found')]
+    [OpenApiResponse(StatusCode = '200', Description = 'Success', SchemaRef = 'BuyMuseumTicketsResponse')]
+    [OpenApiResponseExampleRef(StatusCode = '200', Key = 'general_entry', ReferenceId = 'BuyGeneralTicketsResponseExample')]
+    [OpenApiResponseExampleRef(StatusCode = '200', Key = 'event_entry', ReferenceId = 'BuyEventTicketsResponseExample')]
+    [OpenApiResponse(StatusCode = '400', Description = 'Bad request')]
+    [OpenApiResponse(StatusCode = '404', Description = 'Not found')]
 
     param(
-        [OpenApiRequestBodyAttribute(Required = $true, ContentType = 'application/json')]
-        [OpenApiRequestBodyExampleRefAttribute( Key = 'general_entry', ReferenceId = 'BuyGeneralTicketsRequestExample')]
-        [OpenApiRequestBodyExampleRefAttribute( Key = 'event_entry', ReferenceId = 'BuyEventTicketsRequestExample')]
+        [OpenApiRequestBody(Required = $true, ContentType = 'application/json')]
+        [OpenApiRequestBodyExampleRef( Key = 'general_entry', ReferenceId = 'BuyGeneralTicketsRequestExample')]
+        [OpenApiRequestBodyExampleRef( Key = 'event_entry', ReferenceId = 'BuyEventTicketsRequestExample')]
         [BuyMuseumTicketsRequest]$Body
     )
 
@@ -837,14 +851,14 @@ function getTicketCode {
 #>
     [OpenApiPath(HttpVerb = 'get', Pattern = '/tickets/{ticketId}/qr', Tags = 'Tickets')]
 
-    [OpenApiResponseAttribute(StatusCode = '200', Description = 'Scannable event ticket in image format',
+    [OpenApiResponse(StatusCode = '200', Description = 'Scannable event ticket in image format',
         SchemaRef = 'GetTicketCodeResponse',
         ContentType = 'image/png')]
-    [OpenApiResponseAttribute(StatusCode = '400', Description = 'Bad request')]
-    [OpenApiResponseAttribute(StatusCode = '404', Description = 'Not found')]
+    [OpenApiResponse(StatusCode = '400', Description = 'Bad request')]
+    [OpenApiResponse(StatusCode = '404', Description = 'Not found')]
 
     param(
-        [OpenApiParameterRefAttribute(ReferenceId = 'ticketId')]
+        [OpenApiParameterRef(ReferenceId = 'ticketId')]
         [Guid]$ticketId
     )
 

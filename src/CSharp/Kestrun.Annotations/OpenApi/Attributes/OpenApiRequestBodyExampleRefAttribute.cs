@@ -1,9 +1,9 @@
 /// <summary>
-/// Declares a reusable example on a specific media type of a response,
+/// Declares a reusable example reference for a request body,
 /// mapping a local example key to a components/examples reference.
 /// </summary>
 /// <remarks>
-/// Create an example reference specifying the media type.
+/// Create a request body example reference, optionally specifying the media type.
 /// </remarks>
 [AttributeUsage(AttributeTargets.Parameter, AllowMultiple = true)]
 public sealed class OpenApiRequestBodyExampleRefAttribute : KestrunAnnotation, IOpenApiExampleAttribute

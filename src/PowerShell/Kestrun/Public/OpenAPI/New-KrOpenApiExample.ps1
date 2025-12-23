@@ -16,18 +16,18 @@
 .PARAMETER SerializedValue
     The serialized representation of the DataValue. In OpenAPI 3.1, it serializes as x-oai-serializedValue.
 .EXAMPLE
-    $example = New-KrOpenApiComponentExample -Summary "User Example" -Description "An example of a user object." -Value @{ id = 1; name = "John Doe" }
+    $example = New-KrOpenApiExample -Summary "User Example" -Description "An example of a user object." -Value @{ id = 1; name = "John Doe" }
     This example creates a new OpenAPI Component Example with a summary, description, and a value.
 .EXAMPLE
-    $example = New-KrOpenApiComponentExample -Summary "External Example" -ExternalValue "http://example.com/example.json"
+    $example = New-KrOpenApiExample -Summary "External Example" -ExternalValue "http://example.com/example.json"
     This example creates a new OpenAPI Component Example that references an external example.
 .EXAMPLE
     $dataValue = @{ id = 2; name = "Jane Doe" }
-    $example = New-KrOpenApiComponentExample -Summary "Data Value Example" -DataValue $dataValue -SerializedValue '{"id":2,"name":"Jane Doe"}'
+    $example = New-KrOpenApiExample -Summary "Data Value Example" -DataValue $dataValue -SerializedValue '{"id":2,"name":"Jane Doe"}'
     This example creates a new OpenAPI Component Example using the DataValue and SerializedValue parameters.
 .EXAMPLE
     $dataValue = @{ id = 3; name = "Alice" }
-    $example = New-KrOpenApiComponentExample -Summary "Auto Serialized Value Example" -DataValue $dataValue
+    $example = New-KrOpenApiExample -Summary "Auto Serialized Value Example" -DataValue $dataValue
     This example creates a new OpenAPI Component Example using the DataValue parameter and automatically serializes it to JSON for the SerializedValue.
 .NOTES
 #>

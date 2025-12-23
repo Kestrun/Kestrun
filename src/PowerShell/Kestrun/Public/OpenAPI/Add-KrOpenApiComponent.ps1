@@ -14,7 +14,7 @@
 .PARAMETER IfExists
     Specifies the conflict resolution strategy if a component with the same name already exists in the document. Options are Overwrite, Ignore, or Error. Defaults to Overwrite.
 .EXAMPLE
-    $example = New-KrOpenApiComponentExample -Summary "User Example" -Description "An example of a user object." -Value @{ id = 1; name = "John Doe" }
+    $example = New-KrOpenApiExample -Summary "User Example" -Description "An example of a user object." -Value @{ id = 1; name = "John Doe" }
     Add-KrOpenApiComponent -Name "UserExample" -Component $example -DocId "MyApiDoc"
     This example creates a new OpenAPI Component Example and adds it to the "MyApiDoc" OpenAPI document.
 .EXAMPLE

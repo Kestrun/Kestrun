@@ -168,7 +168,7 @@ class EventLocation :OaString {}
     Example = 'Captain Blackbeard shares his love of the C...language. And possibly Arrrrr (R lang).')]
 class EventDescription:OaString {}
 
-[OpenApiSchemaComponent(Description = 'Price of a ticket for the special eventt',
+[OpenApiSchemaComponent(Description = 'Price of a ticket for the special event',
     format = 'float', Example = 25)]
 class EventPrice:OaNumber {}
 

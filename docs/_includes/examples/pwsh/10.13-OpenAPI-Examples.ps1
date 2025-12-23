@@ -1,7 +1,7 @@
 ﻿<#
     Sample: OpenAPI Examples (Components + Inline) - Attribute-driven
     Purpose: Demonstrate example components + inline examples referenced by attributes.
-    File:    10.3-OpenAPI-Examples-Component-Inline.ps1
+    File:    10.13-OpenAPI-Examples.ps1
     Notes:   - Component examples (components/examples) are referenced via *ExampleRef attributes.
              - Inline examples are stored via Add-KrOpenApiInline and referenced via *ExampleRef too,
                but are copied inline (no $ref) when applied.

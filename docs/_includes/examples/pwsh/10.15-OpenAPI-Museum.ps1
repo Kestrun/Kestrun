@@ -1,7 +1,7 @@
 <#
     Sample:  Sample Museum Application with Reusable Request Headers and Multiple Content Types
     Purpose: To demonstrate the use of reusable request headers and handling multiple content types in a Museum application.
-    File:    10.13-Museum.ps1
+    File:    10.15-OpenAPI-Museum.ps1
     Notes:   This script demonstrates how to create a Museum application that handles multiple content types and
              uses reusable request headers. It includes functions for creating, updating, and deleting special events,
              as well as purchasing museum tickets and retrieving ticket QR codes.

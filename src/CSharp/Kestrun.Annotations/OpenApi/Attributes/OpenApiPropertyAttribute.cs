@@ -7,7 +7,7 @@
 /// <item><description>Property (member-level): set description, format, constraints, enum, etc.</description></item>
 /// </list>
 /// </summary>
-[AttributeUsage(AttributeTargets.Parameter | AttributeTargets.Field, AllowMultiple = false, Inherited = false)]
+[AttributeUsage(AttributeTargets.Parameter | AttributeTargets.Field | AttributeTargets.Property, AllowMultiple = false, Inherited = false)]
 public sealed class OpenApiPropertyAttribute : OpenApiProperties
 {
     /// <summary>

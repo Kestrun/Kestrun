@@ -53,9 +53,9 @@ function Add-KrOpenApiInline {
             $docDescriptor = $Server.GetOrCreateOpenApiDocument($doc)
 
             if ($Element -is [Microsoft.OpenApi.OpenApiExample]) {
-                $docDescriptor.AddComponentExample($Name, $Element, $IfExists)
+                $docDescriptor.AddInlineExample($Name, $Element, $IfExists)
             } elseif ($Element -is [Microsoft.OpenApi.OpenApiLink]) {
-                $docDescriptor.AddComponentLink($Name, $Element, $IfExists)
+                $docDescriptor.AddInlineLink($Name, $Element, $IfExists)
             } else {
                 throw [System.ArgumentException]::new(
                     "Unsupported inline element type: $($Element.GetType().FullName). Supported: OpenApiExample, OpenApiLink.",

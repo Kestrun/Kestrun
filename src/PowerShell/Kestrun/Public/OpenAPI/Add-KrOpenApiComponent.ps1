@@ -21,6 +21,14 @@
     $link = New-KrOpenApiLink -OperationId "getUser" -Description "Link to get user details" -Parameters @{ "userId" = "$response.body#/id" }
     Add-KrOpenApiComponent -Name "GetUserLink" -Component $link -DocId "MyApiDoc"
     This example creates a new OpenAPI Link and adds it to the "MyApiDoc" OpenAPI document.
+.EXAMPLE
+    New-KrOpenApiExample -Summary "Product Example" -Value @{ id = 101; name = "Widget"; price = 9.99 } | Add-KrOpenApiComponent -Name "ProductExample" -DocId "ECommerceApi"
+    This example creates a new OpenAPI Component Example for a product and pipes it directly to the Add-KrOpenApiComponent cmdlet to add it to the "ECommerceApi" document.
+.EXAMPLE
+    New-KrOpenApiLink -OperationId "getOrder" -Description "Link to get order details" -Parameters @{ "orderId" = "$response.body#/id" } | Add-KrOpenApiComponent -Name "GetOrderLink" -DocId "ECommerceApi"
+    This example creates a new OpenAPI Link for getting order details and pipes it directly to the Add-KrOpenApiComponent cmdlet to add it to the "ECommerceApi" document.
+.OUTPUTS
+    None
 #>
 function Add-KrOpenApiComponent {
     [KestrunRuntimeApi('Everywhere')]

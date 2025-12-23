@@ -5,7 +5,6 @@ namespace Kestrun.OpenApi;
 
 public partial class OpenApiDocDescriptor
 {
-
     /// <summary>
     /// Adds an inline example to the OpenAPI document.
     /// </summary>
@@ -19,32 +18,10 @@ public partial class OpenApiDocDescriptor
     OpenApiExample example,
     OpenApiComponentConflictResolution ifExists = OpenApiComponentConflictResolution.Overwrite)
     {
-        ArgumentNullException.ThrowIfNull(name);
-        ArgumentNullException.ThrowIfNull(example);
-
         InlineComponents.Examples ??= new Dictionary<string, IOpenApiExample>(StringComparer.Ordinal);
-
-        switch (ifExists)
-        {
-            case OpenApiComponentConflictResolution.Error:
-                if (!InlineComponents.Examples.TryAdd(name, example))
-                {
-                    throw new InvalidOperationException($"An inline example named '{name}' already exists.");
-                }
-
-                return;
-
-            case OpenApiComponentConflictResolution.Ignore:
-                _ = InlineComponents.Examples.TryAdd(name, example);
-                return;
-
-            case OpenApiComponentConflictResolution.Overwrite:
-                InlineComponents.Examples[name] = example;
-                return;
-
-            default:
-                throw new ArgumentOutOfRangeException(nameof(ifExists), ifExists, null);
-        }
+        AddInlineComponent(InlineComponents.Examples, name,
+                    example, ifExists,
+                    OpenApiComponentKind.Examples);
     }
 
     /// <summary>
@@ -60,33 +37,60 @@ public partial class OpenApiDocDescriptor
         OpenApiLink link,
         OpenApiComponentConflictResolution ifExists = OpenApiComponentConflictResolution.Overwrite)
     {
-        ArgumentNullException.ThrowIfNull(name);
-        ArgumentNullException.ThrowIfNull(link);
-
         InlineComponents.Links ??= new Dictionary<string, IOpenApiLink>(StringComparer.Ordinal);
+        AddInlineComponent(InlineComponents.Links, name,
+                           link, ifExists,
+                           OpenApiComponentKind.Links);
+    }
+
+    /// <summary>
+    /// Adds a component to the inline components of the OpenAPI document.
+    /// </summary>
+    /// <typeparam name="T">The type of the component to add. </typeparam>
+    /// <param name="components">The dictionary of components to which the new component will be added.</param>
+    /// <param name="name">The name of the component to add.</param>
+    /// <param name="value">The component value to add.</param>
+    /// <param name="ifExists">Specifies the behavior if a component with the same name already exists.</param>
+    /// <param name="componentKind">The kind of component being added.</param>
+    /// <exception cref="InvalidOperationException">Thrown if a component with the same name already exists and ifExists is set to Error.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">Thrown if the ifExists parameter has an invalid value.</exception>
+    private static void AddInlineComponent<T>(
+        IDictionary<string, T> components,
+        string name,
+        T value,
+        OpenApiComponentConflictResolution ifExists,
+        OpenApiComponentKind componentKind)
+        where T : class
+    {
+
+        ArgumentNullException.ThrowIfNull(components);
+        ArgumentNullException.ThrowIfNull(name);
+        ArgumentNullException.ThrowIfNull(value);
 
         switch (ifExists)
         {
             case OpenApiComponentConflictResolution.Error:
-                if (!InlineComponents.Links.TryAdd(name, link))
+                if (!components.TryAdd(name, value))
                 {
-                    throw new InvalidOperationException($"An inline link named '{name}' already exists.");
+                    var kind = componentKind.ToInlineLabel();
+                    throw new InvalidOperationException(
+                        $"An inline {kind} named '{name}' already exists.");
                 }
-
                 return;
 
             case OpenApiComponentConflictResolution.Ignore:
-                _ = InlineComponents.Links.TryAdd(name, link);
+                _ = components.TryAdd(name, value);
                 return;
 
             case OpenApiComponentConflictResolution.Overwrite:
-                InlineComponents.Links[name] = link;
+                components[name] = value;
                 return;
 
             default:
                 throw new ArgumentOutOfRangeException(nameof(ifExists), ifExists, null);
         }
     }
+
     /// <summary>
     /// Checks if an element with the specified name exists in the given component kind.
     /// </summary>

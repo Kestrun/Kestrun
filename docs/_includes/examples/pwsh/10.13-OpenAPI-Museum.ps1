@@ -27,11 +27,8 @@ Add-KrEndpoint -Port $Port -IPAddress $IPAddress
 # =========================================================
 
 Add-KrOpenApiInfo -Title 'Redocly Museum API' `
-    -Version '1.0.0' `
-    -Description @'
-An imaginary, but delightful Museum API for interacting with museum services and information.
-Built with love by Redocly.
-'@
+    -Version '1.1.1' `
+    -Description 'Imaginary, but delightful Museum API for interacting with museum services and information. Built with love by Redocly.'
 
 Add-KrOpenApiContact -Email 'team@redocly.com' -Url 'https://redocly.com/docs/cli/'
 Add-KrOpenApiLicense -Name 'MIT' -Url 'https://opensource.org/license/mit/'
@@ -481,24 +478,7 @@ class MuseumParameters {
     [OpenApiParameter(In = [OaParameterLocation]::Path, Required = $true,
         Description = 'An identifier for a ticket to a museum event. Used to generate ticket image.')]
     [Guid]$ticketId
-}
-<#
-[OpenApiExampleComponent()]
-class listSpecialEventsExample {
-    $summary = 'Get special event'
-    $value = @{
-        eventId = 6744a0da-4121-49cd-8479-f8cc20526495
-        name = Time Traveler Tea Party
-        location = Temporal Tearoom
-        eventDescription = Sip tea with important historical figures.
-        dates = @(
-            '2023 - 11 - 18'
-            '2023 - 11 - 25'
-            '2023 - 12 - 02'
-        )
-        price = 60
-    }
-}#>
+} 
 
 #endregion
 # =========================================================

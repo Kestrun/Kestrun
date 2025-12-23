@@ -77,3 +77,44 @@ public enum OpenApiComponentKind
     /// </summary>
     MediaTypes
 }
+/// <summary>
+/// Extension methods for <see cref="OpenApiComponentKind"/>.
+/// </summary>
+public static class OpenApiComponentKindExtensions
+{
+    /// <summary>
+    /// Converts the component kind to its inline label form.
+    /// </summary>
+    /// <param name="kind"> The kind of OpenAPI component.</param>
+    /// <returns>The inline label corresponding to the component kind.</returns>
+    public static string ToInlineLabel(this OpenApiComponentKind kind) => kind switch
+    {
+        OpenApiComponentKind.Schemas => "schema",
+        OpenApiComponentKind.Responses => "response",
+        OpenApiComponentKind.Parameters => "parameter",
+        OpenApiComponentKind.Examples => "example",
+        OpenApiComponentKind.RequestBodies => "request body",
+        OpenApiComponentKind.Headers => "header",
+        OpenApiComponentKind.SecuritySchemes => "security scheme",
+        OpenApiComponentKind.Links => "link",
+        OpenApiComponentKind.Callbacks => "callback",
+        OpenApiComponentKind.PathItems => "path item",
+        OpenApiComponentKind.MediaTypes => "media type",
+        _ => kind.ToString()
+    };
+    /// <summary>
+    /// Determines if the specified component kind supports inline definitions.
+    /// </summary>
+    /// <param name="kind">The kind of OpenAPI component.</param>
+    /// <returns>True if the component kind supports inline definitions; otherwise, false.</returns>
+    public static bool SupportsInline(this OpenApiComponentKind kind) => kind switch
+    {
+        OpenApiComponentKind.Examples => true,
+        OpenApiComponentKind.Links => true,
+        OpenApiComponentKind.Parameters => true,
+        OpenApiComponentKind.Headers => true,
+        OpenApiComponentKind.MediaTypes => true,
+        _ => false
+    };
+
+}

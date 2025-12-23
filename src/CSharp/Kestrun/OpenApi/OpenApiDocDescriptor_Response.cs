@@ -376,9 +376,9 @@ public partial class OpenApiDocDescriptor
         return true;
     }
 
-    private bool ApplyExampleRefAttribute(OpenApiResponseExampleRefAttribute exRef, OpenApiResponse response)
+    private bool ApplyExampleRefAttribute(OpenApiResponseExampleRefAttribute attribute, OpenApiResponse response)
     {
-        foreach (var contentType in ResolveExampleTargets(exRef, response))
+        foreach (var contentType in ResolveExampleTargets(attribute, response))
         {
             if (GetOrAddMediaType(response, contentType) is not OpenApiMediaType media)
             {
@@ -386,9 +386,8 @@ public partial class OpenApiDocDescriptor
             }
 
             media.Examples ??= new Dictionary<string, IOpenApiExample>(StringComparer.Ordinal);
-            media.Examples[exRef.Key] = exRef.Inline
-                ? CloneExampleOrThrow(exRef.ReferenceId)
-                : new OpenApiExampleReference(exRef.ReferenceId);
+            // Clone or reference the example
+            _ = TryAddExample(media.Examples, attribute);
         }
         return true;
     }

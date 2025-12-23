@@ -444,7 +444,7 @@ public partial class OpenApiDocDescriptor
         metadata.Parameters.Add(parameter);
     }
 
-    private static void ApplyParameterExampleRefAttribute(
+    private void ApplyParameterExampleRefAttribute(
        OpenAPIMetadata metadata,
        ParameterMetadata paramInfo,
        OpenApiParameterExampleRefAttribute attribute)
@@ -465,10 +465,13 @@ public partial class OpenApiDocDescriptor
         if (parameter is OpenApiParameter opp)
         {
             opp.Examples ??= new Dictionary<string, IOpenApiExample>();
-            // Add the example reference
-            _ = opp.Examples.TryAdd(attribute.ReferenceId, new OpenApiExampleReference(attribute.ReferenceId));
+            // Clone or reference the example
+            _ = TryAddExample(opp.Examples, attribute);
         }
     }
+
+
+
     #endregion
     #region Request Body Handlers
     /// <summary>
@@ -566,7 +569,7 @@ public partial class OpenApiDocDescriptor
     /// <param name="metadata">The OpenAPI metadata to update.</param>
     /// <param name="attribute">The OpenApiRequestBodyExampleRef attribute containing example reference details.</param>
     /// <exception cref="InvalidOperationException">Thrown when the request body or its content is not properly defined.</exception>
-    private static void ApplyRequestBodyExampleRefAttribute(
+    private void ApplyRequestBodyExampleRefAttribute(
        OpenAPIMetadata metadata,
        OpenApiRequestBodyExampleRefAttribute attribute)
     {
@@ -586,7 +589,8 @@ public partial class OpenApiDocDescriptor
             if (mediaType is OpenApiMediaType oamt)
             {
                 oamt.Examples ??= new Dictionary<string, IOpenApiExample>();
-                _ = oamt.Examples.TryAdd(attribute.ReferenceId, new OpenApiExampleReference(attribute.ReferenceId));
+                // Clone or reference the example
+                _ = TryAddExample(oamt.Examples, attribute);
             }
         }
     }

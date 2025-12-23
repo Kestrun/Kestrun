@@ -6,7 +6,7 @@
 /// Create an example reference specifying the media type.
 /// </remarks>
 [AttributeUsage(AttributeTargets.Class | AttributeTargets.Field | AttributeTargets.Property, AllowMultiple = true)]
-public sealed class OpenApiResponseExampleRefAttribute : KestrunAnnotation, IOpenApiResponseAttribute
+public sealed class OpenApiResponseExampleRefAttribute : KestrunAnnotation, IOpenApiResponseAttribute, IOpenApiExampleAttribute
 {
     /// <summary>
     /// The HTTP status code for the response.

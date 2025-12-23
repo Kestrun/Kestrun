@@ -163,5 +163,30 @@ public partial class OpenApiDocDescriptor
         return true;
     }
 
-
+    /// <summary>
+    /// Tries to add an example to the given examples dictionary based on the provided attribute.
+    /// </summary>
+    /// <param name="examples">The dictionary of examples to add to.</param>
+    /// <param name="attribute">The example attribute containing reference details.</param>
+    /// <returns>True if the example was added successfully; otherwise, false.</returns>
+    /// <exception cref="InvalidOperationException"></exception>
+    private bool TryAddExample(IDictionary<string, IOpenApiExample> examples, IOpenApiExampleAttribute attribute)
+    {
+        if (TryGetInline(name: attribute.ReferenceId, kind: OpenApiComponentKind.Examples, out OpenApiExample? example))
+        {
+            // If InlineComponents, clone the example
+            return examples.TryAdd(attribute.Key, example!.Clone());
+        }
+        else if (TryGetComponent(name: attribute.ReferenceId, kind: OpenApiComponentKind.Examples, out example))
+        {
+            // if in main components, reference it or clone based on Inline flag
+            IOpenApiExample oaExample = attribute.Inline ? example!.Clone() : new OpenApiExampleReference(attribute.ReferenceId);
+            return examples.TryAdd(attribute.Key, oaExample);
+        }
+        else
+        {
+            throw new InvalidOperationException(
+                $"Example with ReferenceId '{attribute.ReferenceId}' not found in components or inline components.");
+        }
+    }
 }

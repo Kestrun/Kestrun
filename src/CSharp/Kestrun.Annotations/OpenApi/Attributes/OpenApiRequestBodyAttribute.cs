@@ -2,7 +2,7 @@
 /// Specifies metadata for an OpenAPI Request Body component. Can be applied to classes,
 /// properties, or fields to contribute entries under components.requestBodies.
 /// </summary>
-[AttributeUsage(AttributeTargets.Class | AttributeTargets.Property | AttributeTargets.Field, AllowMultiple = true, Inherited = false)]
+[AttributeUsage(AttributeTargets.Parameter, AllowMultiple = false, Inherited = false)]
 public sealed class OpenApiRequestBodyAttribute : KestrunAnnotation
 {
     /// <summary>Description for the request body.</summary>

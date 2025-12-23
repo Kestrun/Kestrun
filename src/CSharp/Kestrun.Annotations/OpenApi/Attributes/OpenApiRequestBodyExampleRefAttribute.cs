@@ -5,7 +5,7 @@
 /// <remarks>
 /// Create an example reference specifying the media type.
 /// </remarks>
-[AttributeUsage(AttributeTargets.Class | AttributeTargets.Field | AttributeTargets.Property, AllowMultiple = true)]
+[AttributeUsage(AttributeTargets.Parameter, AllowMultiple = true)]
 public sealed class OpenApiRequestBodyExampleRefAttribute : KestrunAnnotation, IOpenApiExampleAttribute
 {
     /// <summary>Local name under content[contentType].examples</summary>

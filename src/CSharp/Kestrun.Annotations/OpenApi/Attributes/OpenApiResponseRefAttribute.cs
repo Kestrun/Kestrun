@@ -3,7 +3,7 @@
 /// </summary>
 /// <param name="statusCode">The HTTP status code for the response.</param>
 /// <param name="refId">The components/responses id</param>
-[AttributeUsage(AttributeTargets.Field | AttributeTargets.Property, AllowMultiple = true)]
+[AttributeUsage(AttributeTargets.Method, AllowMultiple = true, Inherited = false)]
 public sealed class OpenApiResponseRefAttribute : KestrunAnnotation, IOpenApiResponseAttribute
 {
     /// <summary>

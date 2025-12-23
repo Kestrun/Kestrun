@@ -3,7 +3,7 @@
 /// </summary>
 /// <param name="name">The name of the parameter.</param>
 /// <param name="referenceId">The components/parameters id.</param>
-[AttributeUsage(AttributeTargets.Field | AttributeTargets.Property, AllowMultiple = true)]
+[AttributeUsage(AttributeTargets.Parameter, AllowMultiple = true, Inherited = false)]
 public sealed class OpenApiParameterRefAttribute : KestrunAnnotation
 {
     /// <summary>

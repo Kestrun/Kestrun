@@ -19,7 +19,7 @@ public partial class OpenApiDocDescriptor
     OpenApiComponentConflictResolution ifExists = OpenApiComponentConflictResolution.Overwrite)
     {
         InlineComponents.Examples ??= new Dictionary<string, IOpenApiExample>(StringComparer.Ordinal);
-        AddInlineComponent(InlineComponents.Examples, name,
+        AddComponent(InlineComponents.Examples, name,
                     example, ifExists,
                     OpenApiComponentKind.Examples);
     }
@@ -38,7 +38,7 @@ public partial class OpenApiDocDescriptor
         OpenApiComponentConflictResolution ifExists = OpenApiComponentConflictResolution.Overwrite)
     {
         InlineComponents.Links ??= new Dictionary<string, IOpenApiLink>(StringComparer.Ordinal);
-        AddInlineComponent(InlineComponents.Links, name,
+        AddComponent(InlineComponents.Links, name,
                            link, ifExists,
                            OpenApiComponentKind.Links);
     }
@@ -54,7 +54,7 @@ public partial class OpenApiDocDescriptor
     /// <param name="componentKind">The kind of component being added.</param>
     /// <exception cref="InvalidOperationException">Thrown if a component with the same name already exists and ifExists is set to Error.</exception>
     /// <exception cref="ArgumentOutOfRangeException">Thrown if the ifExists parameter has an invalid value.</exception>
-    private static void AddInlineComponent<T>(
+    private static void AddComponent<T>(
         IDictionary<string, T> components,
         string name,
         T value,
@@ -74,7 +74,7 @@ public partial class OpenApiDocDescriptor
                 {
                     var kind = componentKind.ToInlineLabel();
                     throw new InvalidOperationException(
-                        $"An inline {kind} named '{name}' already exists.");
+                        $"A component {kind} named '{name}' already exists.");
                 }
                 return;
 

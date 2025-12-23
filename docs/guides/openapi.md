@@ -332,11 +332,22 @@ Access the UI at `/swagger`, `/redoc`, etc., and the raw JSON at `/openapi/v1/op
 | **`[OpenApiParameterComponent]`** | Class | `Description`, `JoinClassName` |
 | **`[OpenApiHeaderComponent]`** | Class | `Description`, `JoinClassName` |
 | **`[OpenApiExampleComponent]`** | Class | `Key`, `Summary`, `Description`, `ExternalValue` |
-| **`[OpenApiPropertyAttribute]`** | Property | `Description`, `Example`, `Format`, `Required`, `Enum`, `Minimum`, `Maximum`, `Default` |
-| **`[OpenApiParameter]`** | Property | `In` (Query/Header/Path/Cookie), `Name`, `Required`, `Description`, `Style`, `Explode` |
-| **`[OpenApiPath]`** | Function | `HttpVerb`, `Pattern`, `Summary`, `Description`, `Tags`, `OperationId` |
-| **`[OpenApiResponse]`** | Function | `StatusCode`, `Description`, `Schema` (Type), `SchemaRef` (String), `ContentType` |
-| **`[OpenApiRequestBody]`** | Function | `Reference`, `Description`, `ContentType`, `Required`, `Example` |
+| **`[OpenApiPropertyAttribute]`** | Parameter/Field | `Description`, `Example`, `Format`, `Required`, `Enum`, `Minimum`, `Maximum`, `Default` |
+| **`[OpenApiParameter]`** | Parameter/Field | `In` (Query/Header/Path/Cookie), `Name`, `Required`, `Description`, `Style`, `Explode` |
+| **`[OpenApiRequestBodyExampleRef]`** | Parameter | `Key`, `ReferenceId`, `ContentType`, `Inline` |
+| **`[OpenApiResponseExampleRef]`** | Method | `StatusCode`, `Key`, `ReferenceId`, `ContentType`, `Inline` |
+| **`[OpenApiParameterExampleRef]`** | Parameter | `Key`, `ReferenceId`, `Inline` |
+| **`[OpenApiPath]`** | Method | `HttpVerb`, `Pattern`, `Summary`, `Description`, `Tags`, `OperationId`, `Deprecated`, `CorsPolicy` |
+| **`[OpenApiResponse]`** | Method | `StatusCode`, `Description`, `Schema` (Type), `SchemaRef` (String), `ContentType`, `Key`, `Inline` |
+| **`[OpenApiRequestBody]`** | Parameter | `Description`, `ContentType`, `Required`, `Example`, `Inline` |
+
+### ExampleRef usage (components vs inline)
+
+- Use `New-KrOpenApiExample | Add-KrOpenApiComponent` to store examples under `components/examples` and reference them with `ReferenceId`.
+- Use `New-KrOpenApiExample | Add-KrOpenApiInline` for reusable snippets that are copied inline when `Inline = $true` on `*ExampleRef`.
+- `ContentType` (optional) lets you scope an example to a specific media type; omit to apply to all.
+- `Key` becomes the entry name under `content[contentType].examples[key]`.
+- Set `Inline = $true` to force embedding (no `$ref`) even when the source example lives in `components/examples`.
 
 ### Common Properties (`OpenApiProperties`)
 

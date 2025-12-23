@@ -431,15 +431,6 @@ $museumHoursValue = @(
 
 New-KrOpenApiExample -Summary 'Get hours response' -Value $museumHoursValue |
     Add-KrOpenApiComponent -Name 'GetMuseumHoursResponseExample'
-
-
-New-KrOpenApiExample -Summary 'Common today ticket date' -Value (Get-Date).ToString('yyyy-MM-dd')|  Add-KrOpenApiComponent -Name 'TodayParameter'
-
-New-KrOpenApiExample -Summary 'Common next Saturday ticket date' -Value (Get-Date).AddDays(6 - [int](Get-Date).DayOfWeek).ToString('yyyy-MM-dd')|  Add-KrOpenApiComponent -Name 'NextSaturdayParameter'
-New-KrOpenApiExample -Summary 'Common next Sunday ticket date' -Value (Get-Date).AddDays(7 - [int](Get-Date).DayOfWeek).ToString('yyyy-MM-dd')|  Add-KrOpenApiComponent -Name 'NextSundayParameter'
-New-KrOpenApiExample -Summary 'Common next Monday ticket date' -Value (Get-Date).AddDays(8 - [int](Get-Date).DayOfWeek).ToString('yyyy-MM-dd')|  Add-KrOpenApiComponent -Name 'NextMondayParameter'
-New-KrOpenApiExample -Summary 'Common next Friday ticket date' -Value (Get-Date).AddDays(12 - [int](Get-Date).DayOfWeek).ToString('yyyy-MM-dd')|  Add-KrOpenApiComponent -Name 'NextFridayParameter'
-
 #endregion
 #region Parameters
 # =========================================================
@@ -449,9 +440,6 @@ New-KrOpenApiExample -Summary 'Common next Friday ticket date' -Value (Get-Date)
 # These model components.parameters from museum.yml.
 # NOTE: we approximate with a class + property decorated as a parameter.
 #       The ReferenceId used by OpenApiParameterRefAttribute matches the class name.
-
-
-
 [OpenApiParameterComponent()]
 class MuseumParameters {
     [OpenApiParameter(In = [OaParameterLocation]::Query,
@@ -478,7 +466,7 @@ class MuseumParameters {
     [OpenApiParameter(In = [OaParameterLocation]::Path, Required = $true,
         Description = 'An identifier for a ticket to a museum event. Used to generate ticket image.')]
     [Guid]$ticketId
-} 
+}
 
 #endregion
 # =========================================================
@@ -627,13 +615,8 @@ function listSpecialEvents {
     [OpenApiResponse(StatusCode = '404', Description = 'Not found')]
 
     param(
-        # TODO Remove OpenApiParameterExampleRef and re-enable Example.
-        [OpenApiParameter( In = [OaParameterLocation]::Query)]#, Example = '2023-02-23')]
-        [OpenApiParameterExampleRef( Key = 'today', ReferenceId = 'TodayParameter')]
-        [OpenApiParameterExampleRef( Key = 'nextSaturday', ReferenceId = 'NextSaturdayParameter')]
-        [OpenApiParameterExampleRef( Key = 'nextSunday', ReferenceId = 'NextSundayParameter')]
-        [OpenApiParameterExampleRef( Key = 'nextMonday', ReferenceId = 'NextMondayParameter')]
-        [OpenApiParameterExampleRef( Key = 'nextFriday', ReferenceId = 'NextFridayParameter')]
+        [OpenApiParameter( In = [OaParameterLocation]::Query, Example = '2023-02-23')]
+
         [DateTime]$startDate,
 
         [OpenApiParameter( In = [OaParameterLocation]::Query, Example = '2023-04-18')]

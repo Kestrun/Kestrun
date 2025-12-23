@@ -27,6 +27,7 @@ Browse the step-by-step guides below to learn OpenAPI features in Kestrun:
 12. **[WebHooks](./12.WebHooks.md)** — Define top-level webhooks (Planned)
 13. **[Redocly Museum API](./13.Museum-API.md)** — Full implementation of the Redocly Museum API
 14. **[Swagger Petstore](./14.Petstore-API.md)** — Full implementation of the Swagger Petstore API
+15. **[Examples](./15.Examples.md)** — Component and inline examples for requests, responses, and parameters
 
 ## Quick start: run the samples
 
@@ -56,6 +57,9 @@ pwsh .\docs\_includes\examples\pwsh\10.7-OpenAPI-Tags.ps1
 
 # 8) Document info - contact, license, servers
 pwsh .\docs\_includes\examples\pwsh\10.8-OpenAPI-Document-Info.ps1
+
+# 9) Examples - component + inline examples
+pwsh .\docs\_includes\examples\pwsh\10.15-OpenAPI-Examples.ps1
 ```
 
 ## Key Concepts

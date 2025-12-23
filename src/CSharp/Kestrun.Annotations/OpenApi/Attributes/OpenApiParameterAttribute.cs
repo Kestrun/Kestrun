@@ -2,7 +2,7 @@
 /// OpenAPI Parameter metadata for query/path/header/cookie items.
 /// Apply on properties inside a class marked with <see cref="OpenApiModelKindAttribute"/> = Parameters.
 /// </summary>
-[AttributeUsage(AttributeTargets.Property | AttributeTargets.Parameter, AllowMultiple = false)]
+[AttributeUsage(AttributeTargets.Parameter | AttributeTargets.Field, AllowMultiple = true, Inherited = false)]
 public sealed class OpenApiParameterAttribute : KestrunAnnotation
 {
     /// <summary>Where the parameter lives (query/header/path/cookie).</summary>

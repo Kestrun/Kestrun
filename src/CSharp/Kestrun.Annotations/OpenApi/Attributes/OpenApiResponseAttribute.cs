@@ -3,8 +3,8 @@
 /// Specifies metadata for an OpenAPI response object.
 /// Can be attached to PowerShell or C# classes representing reusable responses.
 /// </summary>
-[AttributeUsage(AttributeTargets.Class | AttributeTargets.Property | AttributeTargets.Field, AllowMultiple = true, Inherited = false)]
-public sealed class OpenApiResponseAttribute : KestrunAnnotation
+[AttributeUsage(AttributeTargets.Method | AttributeTargets.Field | AttributeTargets.Property, AllowMultiple = true, Inherited = false)]
+public sealed class OpenApiResponseAttribute : KestrunAnnotation, IOpenApiResponseAttribute
 {
     /// <summary>
     /// Optional component name override for components.responses key.

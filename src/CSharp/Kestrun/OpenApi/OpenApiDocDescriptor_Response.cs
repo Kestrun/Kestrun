@@ -248,7 +248,7 @@ public partial class OpenApiDocDescriptor
     /// <param name="response"> The OpenApiResponse to modify.</param>
     /// <param name="iSchema"> An optional schema to apply.</param>
     /// <returns>True if the response was modified; otherwise, false.</returns>
-    private bool CreateResponseFromAttribute(object attr, OpenApiResponse response, IOpenApiSchema? iSchema = null)
+    private bool CreateResponseFromAttribute(object attr, OpenApiResponse? response, IOpenApiSchema? iSchema = null)
     {
         ArgumentNullException.ThrowIfNull(attr);
         ArgumentNullException.ThrowIfNull(response);
@@ -259,6 +259,7 @@ public partial class OpenApiDocDescriptor
             OpenApiHeaderRefAttribute href => ApplyHeaderRefAttribute(href, response),
             OpenApiLinkRefAttribute lref => ApplyLinkRefAttribute(lref, response),
             OpenApiExampleRefAttribute exRef => ApplyExampleRefAttribute(exRef, response),
+            OpenApiResponseExampleRefAttribute exRef => ApplyExampleRefAttribute(exRef, response),
             _ => false
         };
     }
@@ -375,7 +376,32 @@ public partial class OpenApiDocDescriptor
         return true;
     }
 
+    private bool ApplyExampleRefAttribute(OpenApiResponseExampleRefAttribute attribute, OpenApiResponse response)
+    {
+        foreach (var contentType in ResolveExampleTargets(attribute, response))
+        {
+            if (GetOrAddMediaType(response, contentType) is not OpenApiMediaType media)
+            {
+                continue;
+            }
+
+            media.Examples ??= new Dictionary<string, IOpenApiExample>(StringComparer.Ordinal);
+            // Clone or reference the example
+            _ = TryAddExample(media.Examples, attribute);
+        }
+        return true;
+    }
+
     private static IEnumerable<string> ResolveExampleTargets(OpenApiExampleRefAttribute exRef, OpenApiResponse response)
+    {
+        var targets = exRef.ContentType is null
+            ? (IEnumerable<string>)(response.Content?.Keys ?? Array.Empty<string>())
+            : [exRef.ContentType];
+
+        return targets.Any() ? targets : ["application/json"];
+    }
+
+    private static IEnumerable<string> ResolveExampleTargets(OpenApiResponseExampleRefAttribute exRef, OpenApiResponse response)
     {
         var targets = exRef.ContentType is null
             ? (IEnumerable<string>)(response.Content?.Keys ?? Array.Empty<string>())

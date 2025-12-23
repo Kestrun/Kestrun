@@ -95,6 +95,9 @@ public partial class OpenApiDocDescriptor
                     case OpenApiResponseAttribute responseAttr:
                         ApplyResponseAttribute(openApiMetadata, responseAttr);
                         break;
+                    case OpenApiResponseExampleRefAttribute responseAttr:
+                        ApplyResponseAttribute(openApiMetadata, responseAttr);
+                        break;
                     case OpenApiPropertyAttribute propertyAttr:
                         ApplyPropertyAttribute(openApiMetadata, propertyAttr);
                         break;
@@ -211,13 +214,13 @@ public partial class OpenApiDocDescriptor
     /// </summary>
     /// <param name="metadata">The OpenAPI metadata to update.</param>
     /// <param name="attribute">The OpenApiResponse attribute containing response details.</param>
-    private void ApplyResponseAttribute(OpenAPIMetadata metadata, OpenApiResponseAttribute attribute)
+    private void ApplyResponseAttribute(OpenAPIMetadata metadata, IOpenApiResponseAttribute attribute)
     {
         metadata.Responses ??= [];
-        var response = new OpenApiResponse();
-        if (CreateResponseFromAttribute(attribute, response))
+        var response = metadata.Responses.TryGetValue(attribute.StatusCode, out var value) ? value as OpenApiResponse : new OpenApiResponse();
+        if (response is not null && CreateResponseFromAttribute(attribute, response))
         {
-            metadata.Responses.Add(attribute.StatusCode, response);
+            _ = metadata.Responses.TryAdd(attribute.StatusCode, response);
         }
     }
 
@@ -294,6 +297,7 @@ public partial class OpenApiDocDescriptor
     {
         foreach (var paramInfo in func.Parameters.Values)
         {
+            // First pass for parameter and request body attributes
             foreach (var attribute in paramInfo.Attributes)
             {
                 switch (attribute)
@@ -310,6 +314,31 @@ public partial class OpenApiDocDescriptor
                     case OpenApiRequestBodyAttribute requestBodyAttr:
                         ApplyRequestBodyAttribute(help, routeOptions, openApiMetadata, paramInfo, requestBodyAttr);
                         break;
+                    case OpenApiRequestBodyExampleRefAttribute:
+                    case OpenApiParameterExampleRefAttribute:
+                        // Do nothing here; handled later
+                        break;
+                    case KestrunAnnotation ka:
+                        throw new InvalidOperationException($"Unhandled Kestrun annotation: {ka.GetType().Name}");
+                }
+            }
+            // Second pass for example references
+            foreach (var attribute in paramInfo.Attributes)
+            {
+                switch (attribute)
+                {
+                    case OpenApiParameterAttribute:
+                    case OpenApiParameterRefAttribute:
+                    case OpenApiRequestBodyRefAttribute:
+                    case OpenApiRequestBodyAttribute:
+                        // Already handled
+                        break;
+                    case OpenApiRequestBodyExampleRefAttribute requestBodyExampleRefAttr:
+                        ApplyRequestBodyExampleRefAttribute(openApiMetadata, requestBodyExampleRefAttr);
+                        break;
+                    case OpenApiParameterExampleRefAttribute parameterExampleRefAttr:
+                        ApplyParameterExampleRefAttribute(openApiMetadata, paramInfo, parameterExampleRefAttr);
+                        break;
                     case KestrunAnnotation ka:
                         throw new InvalidOperationException($"Unhandled Kestrun annotation: {ka.GetType().Name}");
                 }
@@ -317,6 +346,7 @@ public partial class OpenApiDocDescriptor
         }
     }
 
+    #region Parameter Handlers
     /// <summary>
     /// Applies the OpenApiParameter attribute to the function's OpenAPI metadata.
     /// </summary>
@@ -411,6 +441,33 @@ public partial class OpenApiDocDescriptor
         metadata.Parameters.Add(parameter);
     }
 
+    private void ApplyParameterExampleRefAttribute(
+       OpenAPIMetadata metadata,
+       ParameterMetadata paramInfo,
+       OpenApiParameterExampleRefAttribute attribute)
+    {
+        var parameters = metadata.Parameters
+        ?? throw new InvalidOperationException(
+            "OpenApiParameterExampleRefAttribute must follow OpenApiParameterAttribute or OpenApiParameterRefAttribute.");
+
+        var parameter = parameters.FirstOrDefault(p => p.Name == paramInfo.Name)
+        ?? throw new InvalidOperationException(
+            $"OpenApiParameterExampleRefAttribute requires the parameter '{paramInfo.Name}' to be defined.");
+        if (parameter is OpenApiParameterReference)
+        {
+            throw new InvalidOperationException(
+                "Cannot apply OpenApiParameterExampleRefAttribute to a parameter reference.");
+        }
+        if (parameter is OpenApiParameter opp)
+        {
+            opp.Examples ??= new Dictionary<string, IOpenApiExample>();
+            // Clone or reference the example
+            _ = TryAddExample(opp.Examples, attribute);
+        }
+    }
+
+    #endregion
+    #region Request Body Handlers
     /// <summary>
     /// Applies the OpenApiRequestBodyRef attribute to the function's OpenAPI metadata.
     /// </summary>
@@ -501,6 +558,33 @@ public partial class OpenApiDocDescriptor
     }
 
     /// <summary>
+    /// Applies the OpenApiRequestBodyExampleRef attribute to the function's OpenAPI metadata.
+    /// </summary>
+    /// <param name="metadata">The OpenAPI metadata to update.</param>
+    /// <param name="attribute">The OpenApiRequestBodyExampleRef attribute containing example reference details.</param>
+    /// <exception cref="InvalidOperationException">Thrown when the request body or its content is not properly defined.</exception>
+    private void ApplyRequestBodyExampleRefAttribute(
+       OpenAPIMetadata metadata,
+       OpenApiRequestBodyExampleRefAttribute attribute)
+    {
+        var requestBody = metadata.RequestBody
+        ?? throw new InvalidOperationException(
+            "OpenApiRequestBodyExampleRefAttribute must follow OpenApiRequestBodyAttribute or OpenApiRequestBodyRefAttribute.");
+
+        if (requestBody.Content is null)
+        {
+            throw new InvalidOperationException(
+                "OpenApiRequestBodyExampleRefAttribute requires the request body to have content defined.");
+        }
+
+        foreach (var oamt in requestBody.Content.Values.OfType<OpenApiMediaType>())
+        {
+            oamt.Examples ??= new Dictionary<string, IOpenApiExample>();
+            _ = TryAddExample(oamt.Examples, attribute);
+        }
+    }
+
+    /// <summary>
     /// Applies the preferred request body from components to the function's OpenAPI metadata.
     /// </summary>
     /// <param name="help">The comment help information.</param>
@@ -524,7 +608,7 @@ public partial class OpenApiDocDescriptor
         metadata.RequestBody.Description ??= help.GetParameterDescription(paramInfo.Name);
         routeOptions.ScriptCode.Parameters.Add(new ParameterForInjectionInfo(paramInfo, componentRequestBody));
     }
-
+    #endregion
     /// <summary>
     /// Ensures that the OpenAPIMetadata has default responses defined.
     /// </summary>

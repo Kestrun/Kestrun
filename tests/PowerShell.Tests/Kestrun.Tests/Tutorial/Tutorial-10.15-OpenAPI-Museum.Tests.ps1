@@ -2,7 +2,7 @@ param()
 Describe 'OpenAPI Museum Example' -Tag 'OpenApi', 'Slow' {
     BeforeAll {
         . (Join-Path $PSScriptRoot '..\PesterHelpers.ps1')
-        $script:instance = Start-ExampleScript -Name '10.13-OpenAPI-Museum.ps1'
+        $script:instance = Start-ExampleScript -Name '10.15-OpenAPI-Museum.ps1'
     }
 
     AfterAll {

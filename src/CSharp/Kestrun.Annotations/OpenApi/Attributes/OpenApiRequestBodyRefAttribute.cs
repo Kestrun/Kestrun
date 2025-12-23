@@ -3,7 +3,7 @@
 /// </summary>
 /// <param name="statusCode">The HTTP status code for the request body.</param>
 /// <param name="refId">The components/requests id</param>
-[AttributeUsage(AttributeTargets.Field | AttributeTargets.Property, AllowMultiple = true)]
+[AttributeUsage(AttributeTargets.Parameter, AllowMultiple = false)]
 public sealed class OpenApiRequestBodyRefAttribute : KestrunAnnotation
 {
     public required string StatusCode { get; set; }

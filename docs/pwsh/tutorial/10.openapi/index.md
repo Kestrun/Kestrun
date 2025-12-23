@@ -25,8 +25,9 @@ Browse the step-by-step guides below to learn OpenAPI features in Kestrun:
 10. **[Component Links](./10.Component-Links.md)** — Define operation links (Planned)
 11. **[Component Callbacks](./11.Component-Callbacks.md)** — Define asynchronous callbacks (Planned)
 12. **[WebHooks](./12.WebHooks.md)** — Define top-level webhooks (Planned)
-13. **[Redocly Museum API](./13.Museum-API.md)** — Full implementation of the Redocly Museum API
+13. **[Examples](./13.Examples.md)** — Component and inline examples for requests, responses, and parameters
 14. **[Swagger Petstore](./14.Petstore-API.md)** — Full implementation of the Swagger Petstore API
+15. **[Redocly Museum API](./15.Museum-API.md)** — Full implementation of the Redocly Museum API
 
 ## Quick start: run the samples
 
@@ -56,6 +57,9 @@ pwsh .\docs\_includes\examples\pwsh\10.7-OpenAPI-Tags.ps1
 
 # 8) Document info - contact, license, servers
 pwsh .\docs\_includes\examples\pwsh\10.8-OpenAPI-Document-Info.ps1
+
+# 9) Examples - component + inline examples
+pwsh .\docs\_includes\examples\pwsh\10.13-OpenAPI-Examples.ps1
 ```
 
 ## Key Concepts

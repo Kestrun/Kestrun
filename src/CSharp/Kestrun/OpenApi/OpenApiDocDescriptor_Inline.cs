@@ -62,7 +62,6 @@ public partial class OpenApiDocDescriptor
         OpenApiComponentKind componentKind)
         where T : class
     {
-
         ArgumentNullException.ThrowIfNull(components);
         ArgumentNullException.ThrowIfNull(name);
         ArgumentNullException.ThrowIfNull(value);
@@ -347,8 +346,6 @@ public partial class OpenApiDocDescriptor
         }
     }
 
-
-
     /// <summary>
     /// Tries to get a value from a dictionary.
     /// </summary>
@@ -379,6 +376,4 @@ public partial class OpenApiDocDescriptor
         throw new InvalidOperationException(
             $"Component kind '{kind}' does not match requested type '{typeof(T).Name}'.");
     }
-
-
 }

@@ -449,7 +449,6 @@ public partial class OpenApiDocDescriptor
        ParameterMetadata paramInfo,
        OpenApiParameterExampleRefAttribute attribute)
     {
-
         var parameters = metadata.Parameters
         ?? throw new InvalidOperationException(
             "OpenApiParameterExampleRefAttribute must follow OpenApiParameterAttribute or OpenApiParameterRefAttribute.");
@@ -469,8 +468,6 @@ public partial class OpenApiDocDescriptor
             _ = TryAddExample(opp.Examples, attribute);
         }
     }
-
-
 
     #endregion
     #region Request Body Handlers

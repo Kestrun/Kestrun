@@ -580,15 +580,12 @@ public partial class OpenApiDocDescriptor
                 "OpenApiRequestBodyExampleRefAttribute requires the request body to have content defined.");
         }
 
-        foreach (var mediaType in requestBody.Content.Values)
+        foreach (var oamt in requestBody.Content.Values.OfType<OpenApiMediaType>())
         {
-            if (mediaType is OpenApiMediaType oamt)
-            {
-                oamt.Examples ??= new Dictionary<string, IOpenApiExample>();
-                // Clone or reference the example
-                _ = TryAddExample(oamt.Examples, attribute);
-            }
+            oamt.Examples ??= new Dictionary<string, IOpenApiExample>();
+            _ = TryAddExample(oamt.Examples, attribute);
         }
+
     }
 
     /// <summary>

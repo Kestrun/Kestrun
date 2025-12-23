@@ -6,6 +6,10 @@
 [AttributeUsage(AttributeTargets.Field | AttributeTargets.Property, AllowMultiple = true)]
 public sealed class OpenApiLinkRefAttribute : KestrunAnnotation
 {
+    /// <summary>
+    /// The HTTP status code for the response.
+    /// </summary>
+    public string? StatusCode { get; set; }
     public required string Key { get; set; }      // local name under response.links
     public required string ReferenceId { get; set; } // components/links id
 }

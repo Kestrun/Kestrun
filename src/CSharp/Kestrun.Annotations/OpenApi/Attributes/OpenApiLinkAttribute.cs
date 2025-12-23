@@ -5,6 +5,10 @@
 public sealed class OpenApiLinkAttribute : KestrunAnnotation
 {
     /// <summary>
+    /// The HTTP status code for the response.
+    /// </summary>
+    public string? StatusCode { get; set; }
+    /// <summary>
     /// Override the parameter name (default: property name).
     /// </summary>
     public string? Key { get; set; }

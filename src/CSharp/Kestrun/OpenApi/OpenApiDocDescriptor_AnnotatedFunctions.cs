@@ -573,7 +573,6 @@ public partial class OpenApiDocDescriptor
        OpenAPIMetadata metadata,
        OpenApiRequestBodyExampleRefAttribute attribute)
     {
-
         var requestBody = metadata.RequestBody
         ?? throw new InvalidOperationException(
             "OpenApiRequestBodyExampleRefAttribute must follow OpenApiRequestBodyAttribute or OpenApiRequestBodyRefAttribute.");

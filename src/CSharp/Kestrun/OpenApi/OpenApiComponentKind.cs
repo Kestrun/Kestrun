@@ -116,5 +116,4 @@ public static class OpenApiComponentKindExtensions
         OpenApiComponentKind.MediaTypes => true,
         _ => false
     };
-
 }

@@ -1,3 +1,6 @@
+/// <summary>
+/// Interface for OpenAPI Example Reference attributes.
+/// </summary>
 public interface IOpenApiExampleAttribute
 {
     /// <summary>Local name under content[contentType].examples</summary>

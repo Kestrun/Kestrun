@@ -1,8 +1,6 @@
 /// <summary>
-/// Place on a property or field to indicate it is a response reference.
+/// Interface for OpenAPI Response attributes.
 /// </summary>
-/// <param name="statusCode">The HTTP status code for the response.</param>
-/// <param name="refId">The components/responses id</param>
 public interface IOpenApiResponseAttribute
 {
     /// <summary>

@@ -144,17 +144,41 @@ public partial class OpenApiDocDescriptor
         }
 
         ValidateComponentType<T>(kind);
-        var dict = GetComponentDictionary(components, kind);
 
-        if (dict is not null && dict.TryGetValue(name, out var component))
+        // NOTE: We intentionally avoid trying to up-cast IDictionary<string, TSpecific>
+        // to IDictionary<string, object> because generic dictionaries are invariant.
+        return kind switch
         {
-            value = (T)component;
-            return true;
+            OpenApiComponentKind.Schemas => TryGetAndCast(components.Schemas, name, out value),
+            OpenApiComponentKind.Responses => TryGetAndCast(components.Responses, name, out value),
+            OpenApiComponentKind.Parameters => TryGetAndCast(components.Parameters, name, out value),
+            OpenApiComponentKind.Examples => TryGetAndCast(components.Examples, name, out value),
+            OpenApiComponentKind.RequestBodies => TryGetAndCast(components.RequestBodies, name, out value),
+            OpenApiComponentKind.Headers => TryGetAndCast(components.Headers, name, out value),
+            OpenApiComponentKind.SecuritySchemes => TryGetAndCast(components.SecuritySchemes, name, out value),
+            OpenApiComponentKind.Links => TryGetAndCast(components.Links, name, out value),
+            OpenApiComponentKind.Callbacks => TryGetAndCast(components.Callbacks, name, out value),
+            OpenApiComponentKind.PathItems => TryGetAndCast(components.PathItems, name, out value),
+            OpenApiComponentKind.MediaTypes => TryGetAndCast(components.MediaTypes, name, out value),
+            _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, null)
+        };
+
+        static bool TryGetAndCast<TSpecific>(
+            IDictionary<string, TSpecific>? dict,
+            string componentName,
+            out T? component)
+            where TSpecific : class
+        {
+            if (TryGet(dict, componentName, out var specific) && specific is not null)
+            {
+                component = (T)(object)specific;
+                return true;
+            }
+
+            component = null;
+            return false;
         }
-
-        return false;
     }
-
 
     /// <summary>
     /// Validates that the specified type T matches the expected type for the given OpenApiComponentKind.
@@ -184,31 +208,6 @@ public partial class OpenApiDocDescriptor
         {
             ThrowTypeMismatch<T>(kind);
         }
-    }
-
-    /// <summary>
-    /// Gets the dictionary of components for the specified OpenApiComponentKind.
-    /// </summary>
-    /// <param name="components">The OpenAPI components object.</param>
-    /// <param name="kind">The OpenAPI component kind.</param>
-    /// <returns>The dictionary of components for the specified kind.</returns>
-    private static IDictionary<string, object>? GetComponentDictionary(OpenApiComponents components, OpenApiComponentKind kind)
-    {
-        return kind switch
-        {
-            OpenApiComponentKind.Schemas => (IDictionary<string, object>?)components.Schemas,
-            OpenApiComponentKind.Responses => (IDictionary<string, object>?)components.Responses,
-            OpenApiComponentKind.Parameters => (IDictionary<string, object>?)components.Parameters,
-            OpenApiComponentKind.Examples => (IDictionary<string, object>?)components.Examples,
-            OpenApiComponentKind.RequestBodies => (IDictionary<string, object>?)components.RequestBodies,
-            OpenApiComponentKind.Headers => (IDictionary<string, object>?)components.Headers,
-            OpenApiComponentKind.SecuritySchemes => (IDictionary<string, object>?)components.SecuritySchemes,
-            OpenApiComponentKind.Links => (IDictionary<string, object>?)components.Links,
-            OpenApiComponentKind.Callbacks => (IDictionary<string, object>?)components.Callbacks,
-            OpenApiComponentKind.PathItems => (IDictionary<string, object>?)components.PathItems,
-            OpenApiComponentKind.MediaTypes => (IDictionary<string, object>?)components.MediaTypes,
-            _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, null)
-        };
     }
 
     /// <summary>

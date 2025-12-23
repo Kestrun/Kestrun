@@ -43,6 +43,15 @@ Add-KrOpenApiTag -Name 'Tickets' -Description 'Museum tickets for general entran
 
 # TODO: x-tagGroups (Plan your visit / Purchases) not modeled yet. Add tag-group extension support later.
 
+
+New-KrOpenApiLink -OperationId 'getMuseumHours' -Description 'Link to get museum hours.'  |
+    Add-KrOpenApiComponent -Name 'GetMuseumHoursLink'
+
+New-KrOpenApiLink `
+    -OperationId 'updateUser' `
+    -Description 'Take user from response and send it to update operation' `
+    -Parameters @{ userId = '$response.body#/id' } `
+    -RequestBody '$response.body#/user' | Add-KrOpenApiComponent -Name 'updateUserLink'
 # =========================================================
 #                      COMPONENT SCHEMAS
 # =========================================================

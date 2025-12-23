@@ -455,7 +455,7 @@
       },
       "EventPrice": {
         "type": "number",
-        "description": "Price of a ticket for the special eventt",
+        "description": "Price of a ticket for the special event",
         "format": "float",
         "example": 25
       },

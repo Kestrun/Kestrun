@@ -218,12 +218,9 @@ public partial class OpenApiDocDescriptor
     {
         metadata.Responses ??= [];
         var response = metadata.Responses.TryGetValue(attribute.StatusCode, out var value) ? value as OpenApiResponse : new OpenApiResponse();
-        if (response is not null)
+        if (response is not null && CreateResponseFromAttribute(attribute, response))
         {
-            if (CreateResponseFromAttribute(attribute, response))
-            {
-                _ = metadata.Responses.TryAdd(attribute.StatusCode, response);
-            }
+            _ = metadata.Responses.TryAdd(attribute.StatusCode, response);
         }
     }
 
@@ -585,7 +582,6 @@ public partial class OpenApiDocDescriptor
             oamt.Examples ??= new Dictionary<string, IOpenApiExample>();
             _ = TryAddExample(oamt.Examples, attribute);
         }
-
     }
 
     /// <summary>

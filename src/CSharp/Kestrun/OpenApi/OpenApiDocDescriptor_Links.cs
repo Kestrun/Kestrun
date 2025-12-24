@@ -64,7 +64,6 @@ public partial class OpenApiDocDescriptor
 
     private bool ApplyLinkRefAttribute(OpenApiResponseLinkRefAttribute attribute, OpenApiResponse response)
     {
-
         response.Links ??= new Dictionary<string, IOpenApiLink>();
         // Clone or reference the example
         _ = TryAddLink(response.Links, attribute);

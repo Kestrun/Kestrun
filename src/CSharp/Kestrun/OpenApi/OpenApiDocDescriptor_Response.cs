@@ -352,8 +352,6 @@ public partial class OpenApiDocDescriptor
          return true;
      }*/
 
-
-
     /// <summary>
     /// Applies an example reference attribute to an OpenAPI response.
     /// </summary>
@@ -411,8 +409,6 @@ public partial class OpenApiDocDescriptor
 
         return targets.Any() ? targets : ["application/json"];
     }
-
-
 
     /// <summary>
     /// Gets or adds a media type to the response for the specified content type.

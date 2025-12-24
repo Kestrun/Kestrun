@@ -587,7 +587,18 @@ public partial class OpenApiDocDescriptor
         [typeof(OaString)] = () => new OpenApiSchema { Type = JsonSchemaType.String },
         [typeof(OaInteger)] = () => new OpenApiSchema { Type = JsonSchemaType.Integer },
         [typeof(OaNumber)] = () => new OpenApiSchema { Type = JsonSchemaType.Number },
-        [typeof(OaBoolean)] = () => new OpenApiSchema { Type = JsonSchemaType.Boolean }
+        [typeof(OaBoolean)] = () => new OpenApiSchema { Type = JsonSchemaType.Boolean },
+        [typeof(OpenApiString)] = () => new OpenApiSchema { Type = JsonSchemaType.String },
+        [typeof(OpenApiUuid)] = () => new OpenApiSchema { Type = JsonSchemaType.String, Format = "uuid" },
+        [typeof(OpenApiDate)] = () => new OpenApiSchema { Type = JsonSchemaType.String, Format = "date" },
+        [typeof(OpenApiDateTime)] = () => new OpenApiSchema { Type = JsonSchemaType.String, Format = "date-time" },
+        [typeof(OpenApiEmail)] = () => new OpenApiSchema { Type = JsonSchemaType.String, Format = "email" },
+        [typeof(OpenApiBinary)] = () => new OpenApiSchema { Type = JsonSchemaType.String, Format = "binary" },
+        [typeof(OpenApiInt32)] = () => new OpenApiSchema { Type = JsonSchemaType.Integer, Format = "int32" },
+        [typeof(OpenApiInt64)] = () => new OpenApiSchema { Type = JsonSchemaType.Integer, Format = "int64" },
+        [typeof(OpenApiFloat)] = () => new OpenApiSchema { Type = JsonSchemaType.Number, Format = "float" },
+        [typeof(OpenApiDouble)] = () => new OpenApiSchema { Type = JsonSchemaType.Number, Format = "double" },
+        [typeof(OpenApiBoolean)] = () => new OpenApiSchema { Type = JsonSchemaType.Boolean, Format = "boolean" },
     };
 
     /// <summary>

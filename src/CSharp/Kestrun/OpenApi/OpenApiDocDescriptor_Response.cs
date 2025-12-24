@@ -256,7 +256,7 @@ public partial class OpenApiDocDescriptor
         return attr switch
         {
             OpenApiResponseAttribute resp => ApplyResponseAttribute(resp, response, iSchema),
-            OpenApiHeaderRefAttribute href => ApplyHeaderRefAttribute(href, response),
+            OpenApiResponseHeaderRefAttribute href => ApplyHeaderRefAttribute(href, response),
             OpenApiResponseLinkRefAttribute lref => ApplyLinkRefAttribute(lref, response),
             OpenApiExampleRefAttribute exRef => ApplyExampleRefAttribute(exRef, response),
             OpenApiResponseExampleRefAttribute exRef => ApplyExampleRefAttribute(exRef, response),
@@ -340,7 +340,7 @@ public partial class OpenApiDocDescriptor
     /// <param name="href">The header reference attribute.</param>
     /// <param name="response">The OpenAPI response to modify.</param>
     /// <returns>True if the header reference was applied; otherwise, false.</returns>
-    private static bool ApplyHeaderRefAttribute(OpenApiHeaderRefAttribute href, OpenApiResponse response)
+    private static bool ApplyHeaderRefAttribute(OpenApiResponseHeaderRefAttribute href, OpenApiResponse response)
     {
         (response.Headers ??= new Dictionary<string, IOpenApiHeader>(StringComparer.Ordinal))[href.Key] = new OpenApiHeaderReference(href.ReferenceId);
         return true;

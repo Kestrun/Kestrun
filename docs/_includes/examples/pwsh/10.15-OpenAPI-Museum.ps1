@@ -43,15 +43,6 @@ Add-KrOpenApiTag -Name 'Tickets' -Description 'Museum tickets for general entran
 
 # TODO: x-tagGroups (Plan your visit / Purchases) not modeled yet. Add tag-group extension support later.
 
-
-New-KrOpenApiLink -OperationId 'getMuseumHours' -Description 'Link to get museum hours.' |
-    Add-KrOpenApiComponent -Name 'GetMuseumHoursLink'
-
-New-KrOpenApiLink `
-    -OperationId 'updateUser' `
-    -Description 'Take user from response and send it to update operation' `
-    -Parameters @{ userId = '$response.body#/id' } `
-    -RequestBody '$response.body#/user' | Add-KrOpenApiComponent -Name 'updateUserLink'
 # =========================================================
 #                      COMPONENT SCHEMAS
 # =========================================================
@@ -520,6 +511,7 @@ Add-KrApiDocumentationRoute -DocumentType Elements
 # GET /museum-hours
 # --------------------------------------
 
+
 function getMuseumHours {
     <#
 .SYNOPSIS
@@ -531,8 +523,6 @@ function getMuseumHours {
 
     [OpenApiResponse(StatusCode = '200', SchemaRef = 'GetMuseumHoursResponse' , Description = 'Success')]
     [OpenApiResponseExampleRef(StatusCode = '200', Key = 'default_example', ReferenceId = 'GetMuseumHoursResponseExample')]
-    [OpenApiResponseLinkRef(StatusCode = '200', Key = 'GetMuseumHoursLink', ReferenceId = 'GetMuseumHoursLink')]
-    [OpenApiResponseLinkRef(StatusCode = '200', Key = 'updateUserLink', ReferenceId = 'updateUserLink')]
     [OpenApiResponse(StatusCode = '400', Description = 'Bad request')]
     [OpenApiResponse(StatusCode = '404', Description = 'Not found')]
     # TODO: 400/404 responses are inline in museum.yml; you could introduce response components and use OpenApiResponseRefAttribute.
@@ -566,7 +556,6 @@ function getMuseumHours {
 # --------------------------------------
 # /special-events (POST Create, GET List)
 # --------------------------------------
-
 
 function createSpecialEvent {
     <#

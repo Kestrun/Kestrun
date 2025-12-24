@@ -59,30 +59,46 @@ function Get-KrAssignedVariable {
 
         # Figure out how far “up” that is compared to the original call stack
         $scopeUp = ($allFrames.IndexOf($frame)) + 1
-        if ($scopeUp -lt 1) { throw "Parent frame not found." }
+        if ($scopeUp -lt 1) { throw 'Parent frame not found.' }
 
         # prefer its live ScriptBlock; if null, rebuild from file
         $ScriptBlock = $frame.InvocationInfo.MyCommand.ScriptBlock
         if (-not $ScriptBlock -and $frame.ScriptName) {
             $ScriptBlock = [scriptblock]::Create((Get-Content -Raw -LiteralPath $frame.ScriptName))
         }
-        if (-not $ScriptBlock) { throw "Parent frame has no scriptblock or script file to parse." }
+        if (-not $ScriptBlock) { throw 'Parent frame has no scriptblock or script file to parse.' }
     }
 
     if (-not $ScriptBlock) {
-        throw "No scriptblock provided. Use -FromParent or pass a ScriptBlock."
+        throw 'No scriptblock provided. Use -FromParent or pass a ScriptBlock.'
     }
-    $ast = ($ScriptBlock.Ast).ToString()
+    # Use the original script text so offsets match exactly
+    $scriptText = $ScriptBlock.Ast.Extent.Text
 
-    $endstring = $ast.IndexOf("Enable-KrConfiguration", [StringComparison]::OrdinalIgnoreCase)
-    if ($endstring -lt 0) {
-        throw "The provided scriptblock does not appear to contain 'Enable-KrConfiguration' call."
+    # Find the first *actual command* invocation named Enable-KrConfiguration
+    $enableCmd = $ScriptBlock.Ast.FindAll({
+            param($node)
+
+            if ($node -isnot [System.Management.Automation.Language.CommandAst]) { return $false }
+
+            $name = $node.GetCommandName()
+            return $name -and ($name -ieq 'Enable-KrConfiguration')
+        }, $true) | Select-Object -First 1
+
+    if (-not $enableCmd) {
+        throw 'The provided scriptblock does not appear to contain an Enable-KrConfiguration command invocation.'
     }
-    $ast = $ast.Substring(0, $endstring).Trim()
-    if ($ast.StartsWith('{')) {
-        $ast += "`n}"
+
+    # Cut everything before that command
+    $pre = $scriptText.Substring(0, $enableCmd.Extent.StartOffset).TrimEnd()
+
+    # Preserve your brace-closing hack
+    if ($pre.TrimStart().StartsWith('{')) {
+        $pre += "`n}"
     }
-    $ScriptBlock = [scriptblock]::Create($ast)
+
+    $ScriptBlock = [scriptblock]::Create($pre)
+
 
 
     <#

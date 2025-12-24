@@ -49,7 +49,7 @@ function New-KrOpenApiLink {
 
     # Extra safety: parameter sets should prevent this, but keep it robust.
     if (-not [string]::IsNullOrWhiteSpace($OperationId) -and -not [string]::IsNullOrWhiteSpace($OperationRef)) {
-        throw "OperationId and OperationRef are mutually exclusive in an OpenAPI Link."
+        throw 'OperationId and OperationRef are mutually exclusive in an OpenAPI Link.'
     }
 
     $link = [Microsoft.OpenApi.OpenApiLink]::new()
@@ -64,7 +64,7 @@ function New-KrOpenApiLink {
 
     switch ($PSCmdlet.ParameterSetName) {
         'ByOperationRef' { $link.OperationRef = $OperationRef }
-        'ByOperationId'  { $link.OperationId  = $OperationId  }
+        'ByOperationId' { $link.OperationId = $OperationId }
     }
 
     # RequestBody: runtime expression string OR literal object
@@ -72,10 +72,9 @@ function New-KrOpenApiLink {
         $rbWrapper = [Microsoft.OpenApi.RuntimeExpressionAnyWrapper]::new()
 
         if ($RequestBody -is [string] -and -not [string]::IsNullOrWhiteSpace($RequestBody)) {
-            $rbWrapper.Any = [Microsoft.OpenApi.RuntimeExpression]::Build([string]$RequestBody)
+            $rbWrapper.Expression = [Microsoft.OpenApi.RuntimeExpression]::Build($RequestBody)
             $link.RequestBody = $rbWrapper
-        }
-        elseif ($RequestBody -isnot [string]) {
+        } elseif ($RequestBody -isnot [string]) {
             $rbWrapper.Any = [Kestrun.OpenApi.OpenApiJsonNodeFactory]::FromObject($RequestBody)
             $link.RequestBody = $rbWrapper
         }
@@ -90,7 +89,7 @@ function New-KrOpenApiLink {
             $pWrapper = [Microsoft.OpenApi.RuntimeExpressionAnyWrapper]::new()
 
             if ($value -is [string]) {
-                $pWrapper.Any = [Microsoft.OpenApi.RuntimeExpression]::Build([string]$value)
+                $pWrapper.Expression = [Microsoft.OpenApi.RuntimeExpression]::Build($value)
             } else {
                 $pWrapper.Any = [Kestrun.OpenApi.OpenApiJsonNodeFactory]::FromObject($value)
             }

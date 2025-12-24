@@ -98,6 +98,9 @@ public partial class OpenApiDocDescriptor
                     case OpenApiResponseExampleRefAttribute responseAttr:
                         ApplyResponseAttribute(openApiMetadata, responseAttr);
                         break;
+                    case OpenApiResponseLinkRefAttribute linkRefAttr:
+                        ApplyResponseLinkAttribute(openApiMetadata, linkRefAttr);
+                        break;
                     case OpenApiPropertyAttribute propertyAttr:
                         ApplyPropertyAttribute(openApiMetadata, propertyAttr);
                         break;

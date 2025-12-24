@@ -552,10 +552,10 @@ function getMuseumHours {
     $resp.items = $hours
     Write-KrJsonResponse $resp -StatusCode 200
 }
+
 # --------------------------------------
 # /special-events (POST Create, GET List)
 # --------------------------------------
-
 
 function createSpecialEvent {
     <#

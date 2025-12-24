@@ -302,6 +302,48 @@ Defines individual parameters if not using a component.
 [OpenApiParameter(Name = 'id', In = 'path', Required = $true, Type = [long])]
 ```
 
+### 9.5 Links (Operation Relationships)
+
+OpenAPI **links** describe how a successful response from one operation can be used as input to another.
+In Kestrun you typically:
+
+1. Create a reusable link component with `New-KrOpenApiLink`
+2. Store it under `components/links` using `Add-KrOpenApiComponent`
+3. Reference it from an operation response using `OpenApiResponseLinkRef`
+
+#### 9.5.1 Define link components
+
+```powershell
+# Use values from the current response to build the next call.
+New-KrOpenApiLink -OperationId 'getUser' -Description 'Fetch the user resource.' `
+    -Parameters @{ userId = '$response.body#/id' } |
+    Add-KrOpenApiComponent -Name 'GetUserLink'
+
+New-KrOpenApiLink -OperationId 'updateUser' -Description 'Update the user resource.' `
+    -Parameters @{ userId = '$response.body#/id' } `
+    -RequestBody '$response.body#/user' |
+    Add-KrOpenApiComponent -Name 'UpdateUserLink'
+```
+
+#### 9.5.2 Apply links to responses
+
+```powershell
+function createUser {
+    [OpenApiPath(HttpVerb = 'post', Pattern = '/users', Tags = 'Users')]
+    [OpenApiResponse(StatusCode = '201', Description = 'Created')]
+    [OpenApiResponseLinkRef(StatusCode = '201', Key = 'get', ReferenceId = 'GetUserLink')]
+    [OpenApiResponseLinkRef(StatusCode = '201', Key = 'update', ReferenceId = 'UpdateUserLink')]
+    param()
+}
+```
+
+#### 9.5.3 Expression mapping quick notes
+
+- `OperationId` should match the OpenAPI operation id for the target endpoint (in Kestrun examples, this is typically the function name).
+- `Parameters` maps parameter names (e.g., `userId`) to runtime expressions like `$response.body#/id`.
+- `RequestBody` can also be mapped from the response using expressions like `$response.body#/user`.
+- In the generated OpenAPI JSON, link components appear under `components.links`, and references appear under `responses[status].links`.
+
 ---
 
 ## 10. Building and Viewing
@@ -386,7 +428,7 @@ These properties are available on `[OpenApiSchemaComponent]`, `[OpenApiPropertyA
 | **Inheritance** | ✅ Supported | PowerShell class inheritance works for schemas |
 | **Generics** | 🚧 Partial | Use `Array = $true` for lists |
 | **Webhooks** | ❌ Planned | Not yet implemented |
-| **Links** | ❌ Planned | Not yet implemented |
+| **Links** | ✅ Supported | Use `New-KrOpenApiLink` + `Add-KrOpenApiComponent`, then reference via `OpenApiResponseLinkRef` |
 | **Extensions (x-*)** | ❌ Planned | Not yet implemented |
 
 ---

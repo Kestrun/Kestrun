@@ -257,7 +257,7 @@ public partial class OpenApiDocDescriptor
         {
             OpenApiResponseAttribute resp => ApplyResponseAttribute(resp, response, iSchema),
             OpenApiHeaderRefAttribute href => ApplyHeaderRefAttribute(href, response),
-            OpenApiLinkRefAttribute lref => ApplyLinkRefAttribute(lref, response),
+            OpenApiResponseLinkRefAttribute lref => ApplyLinkRefAttribute(lref, response),
             OpenApiExampleRefAttribute exRef => ApplyExampleRefAttribute(exRef, response),
             OpenApiResponseExampleRefAttribute exRef => ApplyExampleRefAttribute(exRef, response),
             _ => false
@@ -346,11 +346,11 @@ public partial class OpenApiDocDescriptor
         return true;
     }
 
-    private static bool ApplyLinkRefAttribute(OpenApiLinkRefAttribute lref, OpenApiResponse response)
-    {
-        (response.Links ??= new Dictionary<string, IOpenApiLink>(StringComparer.Ordinal))[lref.Key] = new OpenApiLinkReference(lref.ReferenceId);
-        return true;
-    }
+    /* private static bool ApplyLinkRefAttribute(OpenApiLinkRefAttribute lref, OpenApiResponse response)
+     {
+         (response.Links ??= new Dictionary<string, IOpenApiLink>(StringComparer.Ordinal))[lref.Key] = new OpenApiLinkReference(lref.ReferenceId);
+         return true;
+     }*/
 
     /// <summary>
     /// Applies an example reference attribute to an OpenAPI response.

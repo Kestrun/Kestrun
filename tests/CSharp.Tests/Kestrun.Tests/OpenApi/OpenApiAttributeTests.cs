@@ -21,6 +21,22 @@ public class OpenApiAttributeTests
         public int Age { get; set; } = 30;
     }
 
+    [OpenApiHeader(
+        Key = "X-Custom",
+        Description = "Custom header",
+        Required = true,
+        Deprecated = true,
+        AllowEmptyValue = true,
+        Explode = true,
+        AllowReserved = true,
+        Type = "string",
+        SchemaRef = "TestPayload",
+        ExampleRef = "UserEx",
+        Example = "inlineVal")]
+    private class CustomHeaderComponent
+    {
+    }
+
 
     // Response holder with inline vs reference schema and example refs
     [OpenApiResponseComponent(Description = "Default response description")]
@@ -44,6 +60,16 @@ public class OpenApiAttributeTests
     {
         var host = new KestrunHost("TestApp", Log.Logger);
         var descriptor = host.GetOrCreateOpenApiDocument("doc1");
+
+        descriptor.AddComponentExample(
+            "UserEx",
+            new Microsoft.OpenApi.OpenApiExample
+            {
+                Summary = "User example",
+                Description = "Example used by tests",
+                Value = OpenApiDocDescriptor.ToNode(new { Name = "Alice", Age = 30 })
+            });
+
         var set = new OpenApiComponentSet
         {
             SchemaTypes = [typeof(TestPayload)],
@@ -94,9 +120,20 @@ public class OpenApiAttributeTests
     {
         var host = new KestrunHost("TestApp", Log.Logger);
         var descriptor = host.GetOrCreateOpenApiDocument("doc2");
+
+        descriptor.AddComponentExample(
+            "UserEx",
+            new Microsoft.OpenApi.OpenApiExample
+            {
+                Summary = "User example",
+                Description = "Example used by tests",
+                Value = OpenApiDocDescriptor.ToNode(new { Name = "Alice", Age = 30 })
+            });
+
         var set = new OpenApiComponentSet
         {
-            SchemaTypes = [typeof(TestPayload)]
+            SchemaTypes = [typeof(TestPayload)],
+            HeaderTypes = [typeof(CustomHeaderComponent)]
         };
         descriptor.GenerateComponents(set);
 
@@ -118,11 +155,9 @@ public class OpenApiAttributeTests
 
         // Examples: reference + inline
         Assert.NotNull(header.Examples);
-        _ = Assert.IsType<Microsoft.OpenApi.OpenApiExampleReference>(header.Examples["hdrExRef"]);
-        _ = Assert.IsType<Microsoft.OpenApi.OpenApiExample>(header.Examples["hdrInline"]);
-        var inlineEx = (Microsoft.OpenApi.OpenApiExample)header.Examples["hdrInline"];
-        Assert.Equal("Inline summary", inlineEx.Summary);
-        Assert.Equal("Inline desc", inlineEx.Description);
+        _ = Assert.IsType<Microsoft.OpenApi.OpenApiExampleReference>(header.Examples["exampleRef"]);
+        _ = Assert.IsType<Microsoft.OpenApi.OpenApiExample>(header.Examples["example"]);
+        var inlineEx = (Microsoft.OpenApi.OpenApiExample)header.Examples["example"];
         Assert.Equal("inlineVal", inlineEx.Value?.ToString());
     }
 }

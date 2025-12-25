@@ -67,6 +67,16 @@ public class OpenApiRequestBodyAttributeTests
     {
         var host = new KestrunHost("ReqBodyTest2", Log.Logger);
         var descriptor = host.GetOrCreateOpenApiDocument("rb2");
+
+        descriptor.AddComponentExample(
+            "UserEx",
+            new Microsoft.OpenApi.OpenApiExample
+            {
+                Summary = "User example",
+                Description = "Example used by tests",
+                Value = OpenApiDocDescriptor.ToNode(new { Name = "Alice", Age = 42 })
+            });
+
         var set = new OpenApiComponentSet
         {
             SchemaTypes = [typeof(UserPayload)],

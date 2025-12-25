@@ -70,6 +70,7 @@ public partial class OpenApiDocDescriptor
 #endif
         ProcessComponentTypes(components.ResponseTypes, () => Document.Components.Responses ??= new Dictionary<string, IOpenApiResponse>(StringComparer.Ordinal), BuildResponses);
         ProcessComponentTypes(components.RequestBodyTypes, () => Document.Components.RequestBodies ??= new Dictionary<string, IOpenApiRequestBody>(StringComparer.Ordinal), BuildRequestBodies);
+        ProcessComponentTypes(components.HeaderTypes, () => Document.Components.Headers ??= new Dictionary<string, IOpenApiHeader>(StringComparer.Ordinal), BuildHeaders);
     }
 
     /// <summary>

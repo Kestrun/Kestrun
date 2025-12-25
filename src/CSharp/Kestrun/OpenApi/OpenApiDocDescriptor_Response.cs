@@ -371,7 +371,6 @@ public partial class OpenApiDocDescriptor
         return response.Headers.TryAdd(href.Key, header);
     }
 
-
     /* private static bool ApplyLinkRefAttribute(OpenApiLinkRefAttribute lref, OpenApiResponse response)
      {
          (response.Links ??= new Dictionary<string, IOpenApiLink>(StringComparer.Ordinal))[lref.Key] = new OpenApiLinkReference(lref.ReferenceId);

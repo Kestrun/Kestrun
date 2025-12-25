@@ -163,7 +163,6 @@ public partial class OpenApiDocDescriptor
                         OpenApiComponentKind.Headers);
     }
 
-
     private void ApplyResponseHeaderAttribute(OpenAPIMetadata metadata, IOpenApiResponseHeaderAttribute attribute)
     {
         if (attribute.StatusCode is null)
@@ -181,7 +180,6 @@ public partial class OpenApiDocDescriptor
             _ = metadata.Responses.TryAdd(attribute.StatusCode, response);
         }
     }
-
 
     private bool TryAddHeader(IDictionary<string, IOpenApiHeader> headers, OpenApiResponseHeaderRefAttribute attribute)
     {

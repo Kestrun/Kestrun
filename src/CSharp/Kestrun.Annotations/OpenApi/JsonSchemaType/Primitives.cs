@@ -53,7 +53,6 @@ public class OpenApiInt32 : IOpenApiType { }
 [OpenApiSchemaComponent(Type = OaSchemaType.Integer, Format = "int64")]
 public class OpenApiInt64 : IOpenApiType { }
 
-
 [OpenApiSchemaComponent(Type = OaSchemaType.Number)]
 public class OpenApiNumber : IOpenApiType { }
 [OpenApiSchemaComponent(Type = OaSchemaType.Number, Format = "float")]
@@ -64,8 +63,6 @@ public class OpenApiDouble : IOpenApiType { }
 
 [OpenApiSchemaComponent(Type = OaSchemaType.Boolean)]
 public class OpenApiBoolean : IOpenApiType { }
-
-
 
 /// <summary>
 ///  OpenAPI Schema primitive/object kinds.

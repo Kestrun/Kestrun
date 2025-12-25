@@ -607,7 +607,6 @@ public partial class OpenApiDocDescriptor
         [typeof(OpenApiXml)] = () => new OpenApiSchema { Type = JsonSchemaType.String, Format = "xml" },
         [typeof(OpenApiYaml)] = () => new OpenApiSchema { Type = JsonSchemaType.String, Format = "yaml" },
 
-
         [typeof(OpenApiInteger)] = () => new OpenApiSchema { Type = JsonSchemaType.Integer },
         [typeof(OpenApiInt32)] = () => new OpenApiSchema { Type = JsonSchemaType.Integer, Format = "int32" },
         [typeof(OpenApiInt64)] = () => new OpenApiSchema { Type = JsonSchemaType.Integer, Format = "int64" },

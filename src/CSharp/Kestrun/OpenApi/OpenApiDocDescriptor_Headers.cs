@@ -240,7 +240,7 @@ public partial class OpenApiDocDescriptor
     {
         Document.Components ??= new OpenApiComponents();
         // Ensure Examples dictionary exists
-        // Ensure Headers dictionary exists
+        Document.Components.Headers ??= new Dictionary<string, IOpenApiHeader>(StringComparer.Ordinal);
         AddComponent(Document.Components.Headers, name,
                         header, ifExists,
                         OpenApiComponentKind.Headers);

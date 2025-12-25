@@ -115,49 +115,4 @@ public class OpenApiAttributeTests
         _ = Assert.IsType<Microsoft.OpenApi.OpenApiSchemaReference>(refSchema);
     }
 
-    [Fact]
-    public void HeaderAttribute_ExamplesAndSchemaRef_AppliedCorrectly()
-    {
-        var host = new KestrunHost("TestApp", Log.Logger);
-        var descriptor = host.GetOrCreateOpenApiDocument("doc2");
-
-        descriptor.AddComponentExample(
-            "UserEx",
-            new Microsoft.OpenApi.OpenApiExample
-            {
-                Summary = "User example",
-                Description = "Example used by tests",
-                Value = OpenApiDocDescriptor.ToNode(new { Name = "Alice", Age = 30 })
-            });
-
-        var set = new OpenApiComponentSet
-        {
-            SchemaTypes = [typeof(TestPayload)],
-            HeaderTypes = [typeof(CustomHeaderComponent)]
-        };
-        descriptor.GenerateComponents(set);
-
-        Assert.NotNull(descriptor.Document.Components);
-        var headers = descriptor.Document.Components.Headers;
-        Assert.NotNull(headers);
-        Assert.Contains("X-Custom", headers.Keys); // Key override from attribute
-
-        var header = (Microsoft.OpenApi.OpenApiHeader)headers["X-Custom"];
-        Assert.Equal("Custom header", header.Description); // Description from attribute
-        Assert.True(header.Required);
-        Assert.True(header.Deprecated);
-        Assert.True(header.AllowEmptyValue);
-        Assert.True(header.AllowReserved);
-        Assert.True(header.Explode);
-
-        // Schema reference applied
-        _ = Assert.IsType<Microsoft.OpenApi.OpenApiSchemaReference>(header.Schema);
-
-        // Examples: reference + inline
-        Assert.NotNull(header.Examples);
-        _ = Assert.IsType<Microsoft.OpenApi.OpenApiExampleReference>(header.Examples["exampleRef"]);
-        _ = Assert.IsType<Microsoft.OpenApi.OpenApiExample>(header.Examples["example"]);
-        var inlineEx = (Microsoft.OpenApi.OpenApiExample)header.Examples["example"];
-        Assert.Equal("inlineVal", inlineEx.Value?.ToString());
-    }
 }

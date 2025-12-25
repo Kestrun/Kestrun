@@ -107,8 +107,8 @@ public partial class OpenApiDocDescriptor
                     case OpenApiAuthorizationAttribute authAttr:
                         ApplyAuthorizationAttribute(routeOptions, openApiMetadata, authAttr);
                         break;
-                    case OpenApiResponseHeaderRefAttribute responseHeaderRefAttr:
-                        ApplyResponseHeaderRefAttribute(openApiMetadata, responseHeaderRefAttr);
+                    case IOpenApiResponseHeaderAttribute responseHeaderAttr:
+                        ApplyResponseHeaderAttribute(openApiMetadata, responseHeaderAttr);
                         break;
                     case KestrunAnnotation ka:
                         throw new InvalidOperationException($"Unhandled Kestrun annotation: {ka.GetType().Name}");

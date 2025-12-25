@@ -1,8 +1,6 @@
 using System.Collections;
 using System.Reflection;
-using System.Text.Json;
 using Kestrun.Hosting.Options;
-using Kestrun.Runtime;
 using Microsoft.OpenApi;
 
 namespace Kestrun.OpenApi;
@@ -310,7 +308,7 @@ public partial class OpenApiDocDescriptor
     }
 
 
-    private void ApplyResponseHeaderRefAttribute(OpenAPIMetadata metadata, OpenApiResponseHeaderRefAttribute attribute)
+    private void ApplyResponseHeaderAttribute(OpenAPIMetadata metadata, IOpenApiResponseHeaderAttribute attribute)
     {
         if (attribute.StatusCode is null)
         {
@@ -325,6 +323,27 @@ public partial class OpenApiDocDescriptor
         if (response is not null && CreateResponseFromAttribute(attribute, response))
         {
             _ = metadata.Responses.TryAdd(attribute.StatusCode, response);
+        }
+    }
+
+
+    private bool TryAddHeader(IDictionary<string, IOpenApiHeader> headers, OpenApiResponseHeaderRefAttribute attribute)
+    {
+        if (TryGetInline(name: attribute.ReferenceId, kind: OpenApiComponentKind.Headers, out OpenApiHeader? header))
+        {
+            // If InlineComponents, clone the example
+            return headers.TryAdd(attribute.Key, header!.Clone());
+        }
+        else if (TryGetComponent(name: attribute.ReferenceId, kind: OpenApiComponentKind.Headers, out header))
+        {
+            // if in main components, reference it or clone based on Inline flag
+            IOpenApiHeader oaHeader = attribute.Inline ? header!.Clone() : new OpenApiHeaderReference(attribute.ReferenceId);
+            return headers.TryAdd(attribute.Key, oaHeader);
+        }
+        else
+        {
+            throw new InvalidOperationException(
+                $"Header with ReferenceId '{attribute.ReferenceId}' not found in components or inline components.");
         }
     }
 }

@@ -98,7 +98,7 @@ New-KrOpenApiHeader -Description 'Header with object schema' -Schema [CreateUser
 Add-KrApiDocumentationRoute -DocumentType Swagger
 Add-KrApiDocumentationRoute -DocumentType Redoc
 
-# POST endpoint: Accept CreateUserRequest, return UserResponse
+
 <#
 .SYNOPSIS
     Create a new user.
@@ -106,12 +106,16 @@ Add-KrApiDocumentationRoute -DocumentType Redoc
     Accepts user information and returns the created user with an assigned ID.
 .PARAMETER body
     User creation request payload
+.NOTES
+    Returns 201 Created with UserResponse schema and a custom header.
+    POST endpoint: Accept CreateUserRequest, return UserResponse
 #>
 function createUser {
     [OpenApiPath(HttpVerb = 'post', Pattern = '/users')]
     [OpenApiResponse(StatusCode = '201', Description = 'User created successfully', Schema = [UserResponse], ContentType = ('application/json', 'application/xml', 'application/yaml'))]
     [OpenApiResponseHeaderRef(StatusCode = '201', key = 'X-User-Header', ReferenceId = 'CreateUserRequest-Header')]
     [OpenApiResponse(StatusCode = '400', Description = 'Invalid input')]
+    [OpenApiResponseHeader(StatusCode = '400', key = 'X-User-Header2', Description = 'Date of error', SchemaType = [OpenApiDate])]
     param(
         [OpenApiRequestBody(ContentType = ('application/json', 'application/xml', 'application/yaml', 'application/x-www-form-urlencoded'))]
         [CreateUserRequest]$body
@@ -149,6 +153,7 @@ function getUser {
     [OpenApiPath(HttpVerb = 'get', Pattern = '/users/{userId}')]
     [OpenApiResponse(StatusCode = '200', Description = 'User found', Schema = [UserResponse], ContentType = ('application/json', 'application/xml', 'application/yaml'))]
     [OpenApiResponseHeaderRef(StatusCode = '200', key = 'X-Custom-Header', ReferenceId = 'Header-With-Examples')]
+    [OpenApiResponseHeaderRef(StatusCode = '200', key = 'X-User-Header', ReferenceId = 'CreateUserRequest-Header' , Inline = $true)]
     [OpenApiResponse(StatusCode = '404', Description = 'User not found')]
     param(
         [OpenApiParameter(In = [OaParameterLocation]::Path, Required = $true)]

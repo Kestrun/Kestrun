@@ -254,11 +254,11 @@ public partial class OpenApiDocDescriptor
     {
         if (attribute.StatusCode is null)
         {
-            throw new InvalidOperationException("OpenApiResponseHeaderRefAttribute must have a StatusCode specified to associate the header reference with a response.");
+            throw new InvalidOperationException($"{attribute.GetType().Name} must have a StatusCode specified to associate the header with a response.");
         }
         if (attribute.Key is null)
         {
-            throw new InvalidOperationException("OpenApiResponseHeaderRefAttribute must have a Key specified to define the header name under response.headers.");
+            throw new InvalidOperationException("Response header attributes must have a Key specified to define the header name under response.headers.");
         }
         metadata.Responses ??= [];
         var response = metadata.Responses.TryGetValue(attribute.StatusCode, out var value) ? value as OpenApiResponse : new OpenApiResponse();
@@ -279,7 +279,7 @@ public partial class OpenApiDocDescriptor
     {
         if (TryGetInline(name: attribute.ReferenceId, kind: OpenApiComponentKind.Headers, out OpenApiHeader? header))
         {
-            // If InlineComponents, clone the example
+            // If InlineComponents, clone the header
             return headers.TryAdd(attribute.Key, header!.Clone());
         }
         else if (TryGetComponent(name: attribute.ReferenceId, kind: OpenApiComponentKind.Headers, out header))

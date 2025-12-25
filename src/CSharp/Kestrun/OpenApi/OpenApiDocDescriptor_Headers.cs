@@ -269,7 +269,7 @@ public partial class OpenApiDocDescriptor
         if (TryGetInline(name: attribute.ReferenceId, kind: OpenApiComponentKind.Headers, out OpenApiHeader? header))
         {
             // If InlineComponents, clone the example
-            // If InlineComponents, clone the header
+            return headers.TryAdd(attribute.Key, header!.Clone());
         }
         else if (TryGetComponent(name: attribute.ReferenceId, kind: OpenApiComponentKind.Headers, out header))
         {

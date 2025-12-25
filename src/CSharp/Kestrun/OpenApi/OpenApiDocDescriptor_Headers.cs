@@ -10,7 +10,6 @@ namespace Kestrun.OpenApi;
 /// </summary>
 public partial class OpenApiDocDescriptor
 {
-
     /// <summary>
     /// Creates a new OpenApiHeader with the specified properties.
     /// </summary>

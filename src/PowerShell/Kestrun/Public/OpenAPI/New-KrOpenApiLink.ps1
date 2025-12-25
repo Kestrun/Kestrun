@@ -35,8 +35,10 @@ function New-KrOpenApiLink {
         [ValidateNotNullOrEmpty()]
         [string]$OperationId,
 
+        [Parameter()]
         [string]$Description,
 
+        [Parameter()]
         # Accept a prebuilt OpenAPI server (use New-KrOpenApiServer)
         [Microsoft.OpenApi.OpenApiServer] $Server,
 

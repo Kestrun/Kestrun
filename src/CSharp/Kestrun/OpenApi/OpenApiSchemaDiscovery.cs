@@ -20,12 +20,10 @@ public static class OpenApiSchemaDiscovery
             ParameterTypes = GetTypesWithAttribute(assemblies, typeof(OpenApiParameterComponent)),
             SchemaTypes = GetSchemaTypes(assemblies),
             ResponseTypes = GetTypesWithAttribute(assemblies, typeof(OpenApiResponseComponent)),
-            HeaderTypes = GetTypesWithAttribute(assemblies, typeof(OpenApiHeaderComponent)),
-            ExampleTypes = GetTypesWithAttribute(assemblies, typeof(OpenApiExampleComponent)),
             RequestBodyTypes = GetTypesWithAttribute(assemblies, typeof(OpenApiRequestBodyComponent)),
+            HeaderTypes = GetTypesWithAttribute(assemblies, typeof(OpenApiHeaderAttribute)),
 #if EXTENDED_OPENAPI
             SecuritySchemeTypes = GetTypesWithAttribute(assemblies, typeof(OpenApiSecuritySchemeComponent)),
-            LinkTypes = GetTypesWithAttribute(assemblies, typeof(OpenApiLinkComponent)),
             CallbackTypes = GetTypesWithKind(assemblies, OpenApiModelKind.Callback),
             PathItemTypes = GetTypesWithKind(assemblies, OpenApiModelKind.PathItem)
 #endif

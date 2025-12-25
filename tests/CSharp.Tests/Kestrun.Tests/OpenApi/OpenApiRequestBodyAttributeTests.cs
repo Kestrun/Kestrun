@@ -17,11 +17,7 @@ public class OpenApiRequestBodyAttributeTests
         public int Age { get; set; } = 42;
     }
 
-    [OpenApiExampleComponent(Key = "UserEx", Summary = "User example", Description = "Example user")]
-    private class UserExample
-    {
-        public string Name { get; set; } = "Bob";
-    }
+
 
     [OpenApiRequestBodyComponent(Key = "UserBody", Description = "User body", ContentType = ["application/json"], IsRequired = true, Example = "AlicePayload")]
     private class RequestBodyHolderBasic
@@ -46,8 +42,7 @@ public class OpenApiRequestBodyAttributeTests
         var set = new OpenApiComponentSet
         {
             SchemaTypes = [typeof(UserPayload)],
-            RequestBodyTypes = [typeof(RequestBodyHolderBasic)],
-            ExampleTypes = [typeof(UserExample)]
+            RequestBodyTypes = [typeof(RequestBodyHolderBasic)]
         };
 
         descriptor.GenerateComponents(set);
@@ -72,11 +67,20 @@ public class OpenApiRequestBodyAttributeTests
     {
         var host = new KestrunHost("ReqBodyTest2", Log.Logger);
         var descriptor = host.GetOrCreateOpenApiDocument("rb2");
+
+        descriptor.AddComponentExample(
+            "UserEx",
+            new Microsoft.OpenApi.OpenApiExample
+            {
+                Summary = "User example",
+                Description = "Example used by tests",
+                Value = OpenApiDocDescriptor.ToNode(new { Name = "Alice", Age = 42 })
+            });
+
         var set = new OpenApiComponentSet
         {
             SchemaTypes = [typeof(UserPayload)],
-            RequestBodyTypes = [typeof(RequestBodyHolderWithExamples)],
-            ExampleTypes = [typeof(UserExample)]
+            RequestBodyTypes = [typeof(RequestBodyHolderWithExamples)]
         };
 
         descriptor.GenerateComponents(set);

@@ -584,7 +584,8 @@ function loginUser {
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidUsingPlainTextForPassword', '')]
     [OpenApiPath(HttpVerb = 'get' , Pattern = '/user/login', Tags = 'user')]
     [OpenApiResponse(StatusCode = '200' , Description = 'Successful operation' , Schema = [string], ContentType = ('application/json', 'application/xml'))]
-    ##   [OpenApiHeader( StatusCode = '200' , Key = 'X-Expires-After', Description = 'date in UTC when token expires')]
+    [OpenApiResponseHeader( StatusCode = '200' , Key = 'X-Rate-Limit', Description = 'calls per hour allowed by the user', Schema = [OpenApiInt32])]
+    [OpenApiResponseHeader( StatusCode = '200' , Key = 'X-Expires-After', Description = 'date in UTC when token expires', Schema = [OpenApiDateTime])]
     [OpenApiResponse(StatusCode = '400' , Description = 'Invalid username/password supplied' )]
     [OpenApiResponseRef( StatusCode = 'default' , ReferenceId = 'Default', Inline = $true )]
     param(

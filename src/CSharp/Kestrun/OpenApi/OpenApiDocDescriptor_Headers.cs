@@ -39,14 +39,9 @@ public partial class OpenApiDocDescriptor
         Type? schema = null,
         Hashtable? content = null)
     {
-        if (schema is null && content is null)
-        {
-            schema = typeof(string);
-        }
-        if (schema is not null && content is not null)
-        {
-            throw new InvalidOperationException("Cannot specify both schema and content for an OpenApiHeader.");
-        }
+        schema = ResolveHeaderSchema(schema, content);
+        ThrowIfBothSchemaAndContentProvided(schema, content);
+
         var header = new OpenApiHeader
         {
             Description = string.IsNullOrWhiteSpace(description) ? null : description,
@@ -58,91 +53,178 @@ public partial class OpenApiDocDescriptor
             AllowReserved = allowReserved,
             Example = OpenApiJsonNodeFactory.FromObject(example)
         };
+
+        ApplyHeaderSchema(header, schema);
+        ApplyHeaderExamples(header, examples);
+        ApplyHeaderContent(header, content);
+
+        return header;
+    }
+
+    /// <summary>
+    /// Resolves the schema for an OpenApiHeader.
+    /// </summary>
+    /// <param name="schema">The schema of the header.</param>
+    /// <param name="content">The content of the header.</param>
+    /// <returns>The resolved schema type.</returns>
+    private static Type? ResolveHeaderSchema(Type? schema, Hashtable? content)
+    {
+        return schema is null && content is null
+            ? typeof(string)
+            : schema;
+    }
+
+    /// <summary>
+    /// Throws an exception if both schema and content are provided for an OpenApiHeader.
+    /// </summary>
+    /// <param name="schema">The schema of the header.</param>
+    /// <param name="content">The content of the header.</param>
+    /// <exception cref="InvalidOperationException">Thrown when both schema and content are provided.</exception>
+    private static void ThrowIfBothSchemaAndContentProvided(Type? schema, Hashtable? content)
+    {
+        if (schema is not null && content is not null)
+        {
+            throw new InvalidOperationException("Cannot specify both schema and content for an OpenApiHeader.");
+        }
+    }
+
+    /// <summary>
+    /// Applies schema to the given OpenApiHeader.
+    /// </summary>
+    /// <param name="header">The OpenApiHeader to which the schema will be applied.</param>
+    /// <param name="schema">The schema to apply to the header.</param>
+    private void ApplyHeaderSchema(OpenApiHeader header, Type? schema)
+    {
         if (schema is not null)
         {
             header.Schema = InferPrimitiveSchema(schema);
         }
+    }
+
+    /// <summary>
+    /// Applies examples to the given OpenApiHeader from a PowerShell hashtable.
+    /// </summary>
+    /// <param name="header">The OpenApiHeader to which examples will be applied.</param>
+    /// <param name="examples">A hashtable representing the examples to apply.</param>
+    /// <exception cref="InvalidOperationException">Thrown when example keys are not strings or values are invalid.</exception>
+    private void ApplyHeaderExamples(OpenApiHeader header, Hashtable? examples)
+    {
         // Multi examples from PowerShell hashtable
-        if (examples is not null && examples.Count > 0)
+        if (examples is null || examples.Count == 0)
         {
-            header.Examples ??= new Dictionary<string, IOpenApiExample>(StringComparer.Ordinal);
-
-            foreach (var lkey in examples.Keys)
-            {
-                if (lkey is not string key)
-                {
-                    throw new InvalidOperationException("Header examples keys must be strings.");
-                }
-                var value = examples[key];
-                if (value is IOpenApiExample ex)
-                {
-                    header.Examples[key] = ex;
-                }
-                else if (value is string exempleref)
-                {
-                    if (TryGetInline(name: exempleref, kind: OpenApiComponentKind.Examples, out OpenApiExample? lexemple))
-                    {
-                        // If InlineComponents, clone the example
-                        header.Examples[key] = lexemple!.Clone();
-                    }
-                    else if (TryGetComponent(name: exempleref, kind: OpenApiComponentKind.Examples, out lexemple))
-                    {
-                        // if in main components, reference it or clone based on Inline flag
-                        header.Examples[key] = new OpenApiExampleReference(exempleref);
-                    }
-                    else
-                    {
-                        throw new InvalidOperationException(
-                            $"Example with ReferenceId '{exempleref}' not found in components or inline components.");
-                    }
-                }
-                else
-                {
-                    throw new InvalidOperationException("Header examples values must be OpenApiExample or OpenApiExampleReference instances or example reference name strings.");
-                }
-            }
+            return;
         }
 
+        header.Examples ??= new Dictionary<string, IOpenApiExample>(StringComparer.Ordinal);
+
+        foreach (var rawKey in examples.Keys)
+        {
+            if (rawKey is not string key)
+            {
+                throw new InvalidOperationException("Header examples keys must be strings.");
+            }
+
+            header.Examples[key] = ResolveHeaderExampleValue(examples[key]);
+        }
+    }
+
+    /// <summary>
+    /// Resolves an example value for a header example entry.
+    /// </summary>
+    /// <param name="value">The example value, which can be an IOpenApiExample or a reference string.</param>
+    /// <returns>The resolved IOpenApiExample.</returns>
+    /// <exception cref="InvalidOperationException">Thrown when the example value is invalid or not found.</exception>
+    private IOpenApiExample ResolveHeaderExampleValue(object? value)
+    {
+        if (value is IOpenApiExample example)
+        {
+            return example;
+        }
+
+        if (value is string exampleRef)
+        {
+            if (TryGetInline(name: exampleRef, kind: OpenApiComponentKind.Examples, out OpenApiExample? inlineExample))
+            {
+                // If InlineComponents, clone the example
+                return inlineExample!.Clone();
+            }
+
+            if (TryGetComponent(name: exampleRef, kind: OpenApiComponentKind.Examples, out OpenApiExample? componentExample))
+            {
+                // if in main components, reference it
+                _ = componentExample;
+                return new OpenApiExampleReference(exampleRef);
+            }
+
+            throw new InvalidOperationException(
+                $"Example with ReferenceId '{exampleRef}' not found in components or inline components.");
+        }
+
+        throw new InvalidOperationException(
+            "Header examples values must be OpenApiExample or OpenApiExampleReference instances or example reference name strings.");
+    }
+
+    /// <summary>
+    /// Applies content to the given OpenApiHeader from a PowerShell hashtable.
+    /// </summary>
+    /// <param name="header">The OpenApiHeader to which content will be applied.</param>
+    /// <param name="content">A hashtable representing the content to apply.</param>
+    /// <exception cref="InvalidOperationException">Thrown when content keys are not valid media type strings.</exception>
+
+    private void ApplyHeaderContent(OpenApiHeader header, Hashtable? content)
+    {
         // Header content (media type map) from PowerShell hashtable
-        if (content is not null && content.Count > 0)
+        if (content is null || content.Count == 0)
         {
-            header.Content ??= new Dictionary<string, IOpenApiMediaType>(StringComparer.Ordinal);
-            foreach (var lkey in content.Keys)
-            {
-                if (lkey is not string key)
-                {
-                    throw new InvalidOperationException("Header content keys must be media type strings.");
-                }
-                var value = content[key];
-                if (value is IOpenApiMediaType mt)
-                {
-                    header.Content[key] = mt;
-                }
-                else if (value is string mediaRef)
-                {
-                    if (TryGetInline(name: mediaRef, kind: OpenApiComponentKind.MediaTypes, out OpenApiMediaType? lmediatype))
-                    {
-                        // If InlineComponents, clone the example
-                        header.Content[key] = lmediatype!.Clone();
-                    }
-                    else if (TryGetComponent(name: mediaRef, kind: OpenApiComponentKind.MediaTypes, out lmediatype))
-                    {
-                        // if in main components, reference it or clone based on Inline flag
-                        header.Content[key] = lmediatype!.Clone();
-                    }
-                    else
-                    {
-                        throw new InvalidOperationException(
-                            $"MediaType with ReferenceId '{mediaRef}' not found in components or inline components.");
-                    }
-                }
-                else
-                {
-                    throw new InvalidOperationException("Header content values must be OpenApiMediaType instances or media type reference name strings.");
-                }
-            }
+            return;
         }
-        return header;
+
+        header.Content ??= new Dictionary<string, IOpenApiMediaType>(StringComparer.Ordinal);
+
+        foreach (var rawKey in content.Keys)
+        {
+            if (rawKey is not string key)
+            {
+                throw new InvalidOperationException("Header content keys must be media type strings.");
+            }
+
+            header.Content[key] = ResolveHeaderMediaTypeValue(content[key]);
+        }
+    }
+
+    /// <summary>
+    /// Resolves a media type value for a header content entry.
+    /// </summary>
+    /// <param name="value">The media type value, which can be an IOpenApiMediaType or a reference string.</param>
+    /// <returns>The resolved IOpenApiMediaType.</returns>
+    /// <exception cref="InvalidOperationException">Thrown when the media type value is invalid or not found.</exception>
+    private IOpenApiMediaType ResolveHeaderMediaTypeValue(object? value)
+    {
+        if (value is IOpenApiMediaType mediaType)
+        {
+            return mediaType;
+        }
+
+        if (value is string mediaRef)
+        {
+            if (TryGetInline(name: mediaRef, kind: OpenApiComponentKind.MediaTypes, out OpenApiMediaType? inlineMediaType))
+            {
+                // If InlineComponents, clone the media type
+                return inlineMediaType!.Clone();
+            }
+
+            if (TryGetComponent(name: mediaRef, kind: OpenApiComponentKind.MediaTypes, out OpenApiMediaType? componentMediaType))
+            {
+                // if in main components, clone it
+                return componentMediaType!.Clone();
+            }
+
+            throw new InvalidOperationException(
+                $"MediaType with ReferenceId '{mediaRef}' not found in components or inline components.");
+        }
+
+        throw new InvalidOperationException(
+            "Header content values must be OpenApiMediaType instances or media type reference name strings.");
     }
 
     /// <summary>

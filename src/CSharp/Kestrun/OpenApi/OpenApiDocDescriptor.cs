@@ -63,13 +63,9 @@ public partial class OpenApiDocDescriptor
     internal void GenerateComponents(OpenApiComponentSet components)
     {
         Document.Components ??= new OpenApiComponents();
-
-        ProcessComponentTypes(components.ExampleTypes, () => Document.Components.Examples ??= new Dictionary<string, IOpenApiExample>(StringComparer.Ordinal), BuildExamples);
         ProcessComponentTypes(components.SchemaTypes, () => Document.Components.Schemas ??= new Dictionary<string, IOpenApiSchema>(StringComparer.Ordinal), t => BuildSchema(t));
-        ProcessComponentTypes(components.HeaderTypes, () => Document.Components.Headers ??= new Dictionary<string, IOpenApiHeader>(StringComparer.Ordinal), BuildHeaders);
         ProcessComponentTypes(components.ParameterTypes, () => Document.Components.Parameters ??= new Dictionary<string, IOpenApiParameter>(StringComparer.Ordinal), BuildParameters);
 #if EXTENDED_OPENAPI
-        ProcessComponentTypes(components.LinkTypes, () => Document.Components.Links ??= new Dictionary<string, IOpenApiLink>(StringComparer.Ordinal), BuildLinks);
         ProcessComponentTypes(components.CallbackTypes, () => Document.Components.Callbacks ??= new Dictionary<string, IOpenApiCallback>(StringComparer.Ordinal), BuildCallbacks);
 #endif
         ProcessComponentTypes(components.ResponseTypes, () => Document.Components.Responses ??= new Dictionary<string, IOpenApiResponse>(StringComparer.Ordinal), BuildResponses);

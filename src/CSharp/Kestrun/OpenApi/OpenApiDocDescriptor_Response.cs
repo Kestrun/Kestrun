@@ -364,7 +364,7 @@ public partial class OpenApiDocDescriptor
             allowReserved: href.AllowReserved,
             example: href.Example,
             examples: null,
-            schema: href.SchemaType,
+            schema: href.Schema,
             content: null
         );
         // add header to response

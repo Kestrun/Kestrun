@@ -21,12 +21,6 @@ public class OpenApiAttributeTests
         public int Age { get; set; } = 30;
     }
 
-    // Example component referenced by example refs
-    [OpenApiExampleComponent(Key = "UserEx", Summary = "User example", Description = "Example user payload")]
-    private class UserExample
-    {
-        public string Name { get; set; } = "Alice";
-    }
 
     // Response holder with inline vs reference schema and example refs
     [OpenApiResponseComponent(Description = "Default response description")]
@@ -42,15 +36,6 @@ public class OpenApiAttributeTests
         public object Ref { get; set; } = new();
     }
 
-    // Header holder with header attribute + inline & reference examples
-    [OpenApiHeaderComponent(Description = "Default header description")]
-    private class HeaderHolder
-    {
-        [OpenApiHeader(Key = "X-Custom", Description = "Custom header", Required = true, Deprecated = true, AllowEmptyValue = true, AllowReserved = true, Explode = true, Type = "string", SchemaRef = "TestPayload", Example = "hello")]
-        [OpenApiExampleRef(Key = "hdrExRef", ReferenceId = "UserEx")]
-        [OpenApiExample(Key = "hdrInline", Summary = "Inline summary", Description = "Inline desc", Value = "inlineVal")]
-        public string Custom { get; set; } = "default";
-    }
 
     // ---------------------------------------------------------------------------
 
@@ -62,8 +47,7 @@ public class OpenApiAttributeTests
         var set = new OpenApiComponentSet
         {
             SchemaTypes = [typeof(TestPayload)],
-            ResponseTypes = [typeof(ResponseHolder)],
-            ExampleTypes = [typeof(UserExample)]
+            ResponseTypes = [typeof(ResponseHolder)]
         };
 
         descriptor.GenerateComponents(set);
@@ -112,9 +96,7 @@ public class OpenApiAttributeTests
         var descriptor = host.GetOrCreateOpenApiDocument("doc2");
         var set = new OpenApiComponentSet
         {
-            SchemaTypes = [typeof(TestPayload)],
-            HeaderTypes = [typeof(HeaderHolder)],
-            ExampleTypes = [typeof(UserExample)]
+            SchemaTypes = [typeof(TestPayload)]
         };
         descriptor.GenerateComponents(set);
 
@@ -130,7 +112,6 @@ public class OpenApiAttributeTests
         Assert.True(header.AllowEmptyValue);
         Assert.True(header.AllowReserved);
         Assert.True(header.Explode);
-        Assert.Equal("hello", header.Example?.ToString());
 
         // Schema reference applied
         _ = Assert.IsType<Microsoft.OpenApi.OpenApiSchemaReference>(header.Schema);

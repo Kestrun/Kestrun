@@ -40,5 +40,5 @@ public sealed class OpenApiResponseHeaderAttribute : KestrunAnnotation, IOpenApi
     /// <summary>
     /// Type of the schema for the header value.
     /// </summary>
-    public Type? SchemaType { get; set; }
+    public Type? Schema { get; set; }
 }

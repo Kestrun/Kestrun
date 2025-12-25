@@ -115,7 +115,7 @@ function createUser {
     [OpenApiResponse(StatusCode = '201', Description = 'User created successfully', Schema = [UserResponse], ContentType = ('application/json', 'application/xml', 'application/yaml'))]
     [OpenApiResponseHeaderRef(StatusCode = '201', key = 'X-User-Header', ReferenceId = 'CreateUserRequest-Header')]
     [OpenApiResponse(StatusCode = '400', Description = 'Invalid input')]
-    [OpenApiResponseHeader(StatusCode = '400', key = 'X-User-Header2', Description = 'Date of error', SchemaType = [OpenApiDate])]
+    [OpenApiResponseHeader(StatusCode = '400', key = 'X-User-Header2', Description = 'Date of error', Schema = [OpenApiDate])]
     param(
         [OpenApiRequestBody(ContentType = ('application/json', 'application/xml', 'application/yaml', 'application/x-www-form-urlencoded'))]
         [CreateUserRequest]$body

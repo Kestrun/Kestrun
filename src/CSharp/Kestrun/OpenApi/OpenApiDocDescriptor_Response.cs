@@ -256,7 +256,8 @@ public partial class OpenApiDocDescriptor
         return attr switch
         {
             OpenApiResponseAttribute resp => ApplyResponseAttribute(resp, response, iSchema),
-            OpenApiHeaderRefAttribute href => ApplyHeaderRefAttribute(href, response),
+            OpenApiResponseHeaderRefAttribute href => ApplyHeaderRefAttribute(href, response),
+            OpenApiResponseHeaderAttribute head => ApplyHeaderAttribute(head, response),
             OpenApiResponseLinkRefAttribute lref => ApplyLinkRefAttribute(lref, response),
             OpenApiExampleRefAttribute exRef => ApplyExampleRefAttribute(exRef, response),
             OpenApiResponseExampleRefAttribute exRef => ApplyExampleRefAttribute(exRef, response),
@@ -340,10 +341,34 @@ public partial class OpenApiDocDescriptor
     /// <param name="href">The header reference attribute.</param>
     /// <param name="response">The OpenAPI response to modify.</param>
     /// <returns>True if the header reference was applied; otherwise, false.</returns>
-    private static bool ApplyHeaderRefAttribute(OpenApiHeaderRefAttribute href, OpenApiResponse response)
+    private bool ApplyHeaderRefAttribute(OpenApiResponseHeaderRefAttribute href, OpenApiResponse response)
     {
-        (response.Headers ??= new Dictionary<string, IOpenApiHeader>(StringComparer.Ordinal))[href.Key] = new OpenApiHeaderReference(href.ReferenceId);
-        return true;
+        // ensure headers dictionary
+        response.Headers ??= new Dictionary<string, IOpenApiHeader>(StringComparer.Ordinal);
+        // create header reference
+        return TryAddHeader(response.Headers, href);
+    }
+
+    private bool ApplyHeaderAttribute(OpenApiResponseHeaderAttribute href, OpenApiResponse response)
+    {
+        // ensure headers dictionary
+        response.Headers ??= new Dictionary<string, IOpenApiHeader>(StringComparer.Ordinal);
+        // create header from attribute
+        var header = NewOpenApiHeader(
+            description: href.Description,
+            required: href.Required,
+            deprecated: href.Deprecated,
+            allowEmptyValue: href.AllowEmptyValue,
+            style: href.Style != null ? ((OaParameterStyle)href.Style).ToOpenApi() : null,
+            explode: href.Explode,
+            allowReserved: href.AllowReserved,
+            example: href.Example,
+            examples: null,
+            schema: href.Schema,
+            content: null
+        );
+        // add header to response
+        return response.Headers.TryAdd(href.Key, header);
     }
 
     /* private static bool ApplyLinkRefAttribute(OpenApiLinkRefAttribute lref, OpenApiResponse response)

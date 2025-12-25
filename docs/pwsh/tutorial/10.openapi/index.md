@@ -21,8 +21,8 @@ Browse the step-by-step guides below to learn OpenAPI features in Kestrun:
 6. **[Complete Components](./6.Complete-Components.md)** — Combine all component types in a full API
 7. **[Tags and External Docs](./7.Tags-and-Docs.md)** — Group operations and attach documentation links
 8. **[Document Information](./8.Document-Info.md)** — Populate title, contact, license, and server metadata
-9. **[Component Headers](./9.Component-Headers.md)** — Define reusable response headers (Planned)
-10. **[Component Links](./10.Component-Links.md)** — Define operation links (Planned)
+9. **[Component Headers](./9.Component-Headers.md)** — Define reusable response headers
+10. **[Component Links](./10.Component-Links.md)** — Define operation links
 11. **[Component Callbacks](./11.Component-Callbacks.md)** — Define asynchronous callbacks (Planned)
 12. **[WebHooks](./12.WebHooks.md)** — Define top-level webhooks (Planned)
 13. **[Examples](./13.Examples.md)** — Component and inline examples for requests, responses, and parameters
@@ -58,7 +58,13 @@ pwsh .\docs\_includes\examples\pwsh\10.7-OpenAPI-Tags.ps1
 # 8) Document info - contact, license, servers
 pwsh .\docs\_includes\examples\pwsh\10.8-OpenAPI-Document-Info.ps1
 
-# 9) Examples - component + inline examples
+# 9) Component headers - reusable response headers
+pwsh .\docs\_includes\examples\pwsh\10.9-OpenAPI-Component-Header.ps1
+
+# 10) Component links - operation relationships
+pwsh .\docs\_includes\examples\pwsh\10.10-OpenAPI-Component-Link.ps1
+
+# 13) Examples - component + inline examples
 pwsh .\docs\_includes\examples\pwsh\10.13-OpenAPI-Examples.ps1
 ```
 

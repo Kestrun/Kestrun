@@ -587,7 +587,35 @@ public partial class OpenApiDocDescriptor
         [typeof(OaString)] = () => new OpenApiSchema { Type = JsonSchemaType.String },
         [typeof(OaInteger)] = () => new OpenApiSchema { Type = JsonSchemaType.Integer },
         [typeof(OaNumber)] = () => new OpenApiSchema { Type = JsonSchemaType.Number },
-        [typeof(OaBoolean)] = () => new OpenApiSchema { Type = JsonSchemaType.Boolean }
+        [typeof(OaBoolean)] = () => new OpenApiSchema { Type = JsonSchemaType.Boolean },
+
+        [typeof(OpenApiString)] = () => new OpenApiSchema { Type = JsonSchemaType.String },
+        [typeof(OpenApiUuid)] = () => new OpenApiSchema { Type = JsonSchemaType.String, Format = "uuid" },
+        [typeof(OpenApiDate)] = () => new OpenApiSchema { Type = JsonSchemaType.String, Format = "date" },
+        [typeof(OpenApiDateTime)] = () => new OpenApiSchema { Type = JsonSchemaType.String, Format = "date-time" },
+        [typeof(OpenApiEmail)] = () => new OpenApiSchema { Type = JsonSchemaType.String, Format = "email" },
+        [typeof(OpenApiBinary)] = () => new OpenApiSchema { Type = JsonSchemaType.String, Format = "binary" },
+        [typeof(OpenApiHostname)] = () => new OpenApiSchema { Type = JsonSchemaType.String, Format = "hostname" },
+        [typeof(OpenApiIpv4)] = () => new OpenApiSchema { Type = JsonSchemaType.String, Format = "ipv4" },
+        [typeof(OpenApiIpv6)] = () => new OpenApiSchema { Type = JsonSchemaType.String, Format = "ipv6" },
+        [typeof(OpenApiUri)] = () => new OpenApiSchema { Type = JsonSchemaType.String, Format = "uri" },
+        [typeof(OpenApiUrl)] = () => new OpenApiSchema { Type = JsonSchemaType.String, Format = "url" },
+        [typeof(OpenApiByte)] = () => new OpenApiSchema { Type = JsonSchemaType.String, Format = "byte" },
+        [typeof(OpenApiPassword)] = () => new OpenApiSchema { Type = JsonSchemaType.String, Format = "password" },
+        [typeof(OpenApiRegex)] = () => new OpenApiSchema { Type = JsonSchemaType.String, Format = "regex" },
+        [typeof(OpenApiJson)] = () => new OpenApiSchema { Type = JsonSchemaType.String, Format = "json" },
+        [typeof(OpenApiXml)] = () => new OpenApiSchema { Type = JsonSchemaType.String, Format = "xml" },
+        [typeof(OpenApiYaml)] = () => new OpenApiSchema { Type = JsonSchemaType.String, Format = "yaml" },
+
+        [typeof(OpenApiInteger)] = () => new OpenApiSchema { Type = JsonSchemaType.Integer },
+        [typeof(OpenApiInt32)] = () => new OpenApiSchema { Type = JsonSchemaType.Integer, Format = "int32" },
+        [typeof(OpenApiInt64)] = () => new OpenApiSchema { Type = JsonSchemaType.Integer, Format = "int64" },
+
+        [typeof(OpenApiNumber)] = () => new OpenApiSchema { Type = JsonSchemaType.Number },
+        [typeof(OpenApiFloat)] = () => new OpenApiSchema { Type = JsonSchemaType.Number, Format = "float" },
+        [typeof(OpenApiDouble)] = () => new OpenApiSchema { Type = JsonSchemaType.Number, Format = "double" },
+
+        [typeof(OpenApiBoolean)] = () => new OpenApiSchema { Type = JsonSchemaType.Boolean, Format = "boolean" },
     };
 
     /// <summary>

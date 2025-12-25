@@ -29,27 +29,6 @@ Add-KrOpenApiInfo -Title 'Examples API' `
     -Version '1.0.0' `
     -Description 'Demonstrates OpenAPI example components and Kestrun inline examples applied via attributes.'
 
-Enable-KrConfiguration
-Add-KrApiDocumentationRoute -DocumentType Swagger
-Add-KrApiDocumentationRoute -DocumentType Redoc
-
-# =========================================================
-#                  HELPERS (DATES)
-# =========================================================
-
-function Convert-ToIsoDate {
-    param([datetime]$Date)
-    $Date.ToString('yyyy-MM-dd')
-}
-
-function Get-NextDayOfWeek {
-    param([System.DayOfWeek]$Day)
-    $now = Get-Date
-    $delta = (([int]$Day - [int]$now.DayOfWeek) + 7) % 7
-    if ($delta -eq 0) { $delta = 7 } # force next, not today
-    $now.AddDays($delta)
-}
-
 # =========================================================
 #                      SCHEMAS (small)
 # =========================================================
@@ -98,6 +77,31 @@ class MuseumDailyHours {
 
 [OpenApiSchemaComponent(Description = 'List of museum hours', Array = $true)]
 class GetMuseumHoursResponse : MuseumDailyHours {}
+
+# =========================================================
+#               OPENAPI EXAMPLES (components + inline)
+# =========================================================
+Enable-KrConfiguration
+Add-KrApiDocumentationRoute -DocumentType Swagger
+Add-KrApiDocumentationRoute -DocumentType Redoc
+
+# =========================================================
+#                  HELPERS (DATES)
+# =========================================================
+
+function Convert-ToIsoDate {
+    param([datetime]$Date)
+    $Date.ToString('yyyy-MM-dd')
+}
+
+function Get-NextDayOfWeek {
+    param([System.DayOfWeek]$Day)
+    $now = Get-Date
+    $delta = (([int]$Day - [int]$now.DayOfWeek) + 7) % 7
+    if ($delta -eq 0) { $delta = 7 } # force next, not today
+    $now.AddDays($delta)
+}
+
 
 # =========================================================
 #                 EXAMPLES (components vs inline)

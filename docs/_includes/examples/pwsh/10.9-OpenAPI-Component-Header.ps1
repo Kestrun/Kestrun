@@ -1,20 +1,26 @@
 <#
     Sample: OpenAPI Header Components
-    Purpose: Demonstrate reusable request header components with multiple content types.
+    Purpose: Demonstrate reusable *response header components* and referencing them from responses.
     File:    10.9-OpenAPI-Component-Header.ps1
-    Notes:   Shows class inheritance, component wrapping, and content type negotiation.
+    Notes:
+      - Defines header components under components/headers via New-KrOpenApiHeader | Add-KrOpenApiComponent
+      - Applies them to responses via OpenApiResponseHeaderRef (component $ref or Inline clone)
+      - Uses OpenApiResponseHeader for one-off inline response headers
+      - Sets headers at runtime via $Context.Response.Headers
 #>
 param(
     [int]$Port = 5000,
     [IPAddress]$IPAddress = [IPAddress]::Loopback
 )
 
+if (-not (Get-Module Kestrun)) { Import-Module Kestrun }
+
 # --- Logging / Server ---
 New-KrLogger | Add-KrSinkConsole |
     Set-KrLoggerLevel -Value Debug |
     Register-KrLogger -Name 'console' -SetAsDefault
 
-$srv = New-KrServer -Name 'OpenAPI Component Schema' -PassThru
+$srv = New-KrServer -Name 'OpenAPI Component Headers' -PassThru
 
 Add-KrEndpoint -Port $Port -IPAddress $IPAddress
 
@@ -22,73 +28,141 @@ Add-KrEndpoint -Port $Port -IPAddress $IPAddress
 #                 TOP-LEVEL OPENAPI
 # =========================================================
 
-Add-KrOpenApiInfo -Title 'Component Schema API' `
+Add-KrOpenApiInfo -Title 'Component Headers API' `
     -Version '1.0.0' `
-    -Description 'Demonstrates reusable component schemas passed as parameters and returned as responses.'
+    -Description 'Demonstrates reusable response header components (correlation, location, etag, rate-limit, retry-after) and inline headers.'
+
+Add-KrOpenApiTag -Name 'Users' -Description 'User CRUD operations.'
+Add-KrOpenApiTag -Name 'Operational' -Description 'Operational behaviors (rate limit / retry).'
 
 # =========================================================
 #                      COMPONENT SCHEMAS
 # =========================================================
 
-# Request schema: User input for creating a user
-[OpenApiSchemaComponent(Required = ('firstName', 'lastName', 'email'))]
+[OpenApiSchemaComponent(Description = 'Create user request', Required = ('firstName', 'lastName', 'email'))]
 class CreateUserRequest {
-    [OpenApiPropertyAttribute(Description = 'First name of the user', Example = 'John')]
-    [string]$firstName
-
-    [OpenApiPropertyAttribute(Description = 'Last name of the user', Example = 'Doe')]
-    [string]$lastName
-
-    [OpenApiPropertyAttribute(Description = 'Email address', Format = 'email', Example = 'john.doe@example.com')]
-    [string]$email
-
-    [OpenApiPropertyAttribute(Description = 'User age', Minimum = 0, Maximum = 150, Example = 30)]
-    [int]$age
-}
-
-# Response schema: User data returned from server
-[OpenApiSchemaComponent(Required = ('id', 'firstName', 'lastName', 'email'))]
-class UserResponse {
-    [OpenApiPropertyAttribute(Description = 'Unique user identifier', Format = 'int64', Example = 1)]
-    [long]$id
-
-    [OpenApiPropertyAttribute(Description = 'First name', Example = 'John')]
+    [OpenApiPropertyAttribute(Description = 'First name', Example = 'Jane')]
     [string]$firstName
 
     [OpenApiPropertyAttribute(Description = 'Last name', Example = 'Doe')]
     [string]$lastName
 
-    [OpenApiPropertyAttribute(Description = 'Email address', Format = 'email', Example = 'john.doe@example.com')]
+    [OpenApiPropertyAttribute(Description = 'Email address', Format = 'email', Example = 'jane.doe@example.com')]
+    [string]$email
+}
+
+[OpenApiSchemaComponent(Description = 'User resource', Required = ('id', 'firstName', 'lastName', 'email', 'updatedAt'))]
+class UserResponse {
+    [OpenApiPropertyAttribute(Description = 'Unique user identifier', Format = 'int64', Example = 1)]
+    [long]$id
+
+    [OpenApiPropertyAttribute(Description = 'First name', Example = 'Jane')]
+    [string]$firstName
+
+    [OpenApiPropertyAttribute(Description = 'Last name', Example = 'Doe')]
+    [string]$lastName
+
+    [OpenApiPropertyAttribute(Description = 'Email address', Format = 'email', Example = 'jane.doe@example.com')]
     [string]$email
 
-    [OpenApiPropertyAttribute(Description = 'User age', Example = 30)]
-    [int]$age
-
-    [OpenApiPropertyAttribute(Description = 'ISO 8601 creation timestamp', Format = 'date-time')]
-    [string]$createdAt
+    [OpenApiPropertyAttribute(Description = 'ISO 8601 update timestamp', Format = 'date-time')]
+    [string]$updatedAt
 }
+
+# =========================================================
+#                IN-MEMORY STORE (THREAD-SAFE)
+# =========================================================
+
+# Variables defined before Enable-KrConfiguration are automatically available to routes.
+# Because routes may execute concurrently, shared mutable state must be thread-safe.
+$Users = [hashtable]::Synchronized(@{})
+$UserCounters = [hashtable]::Synchronized(@{ NextUserId = 0 })
+$ThrottleCounters = [hashtable]::Synchronized(@{})  # key: ip string, value: count
+
+function New-DemoCorrelationId {
+    [Guid]::NewGuid().ToString()
+}
+
+function Get-ClientKey {
+    $ip = $Context.Connection.RemoteIpAddress
+    if ($null -eq $ip) { return 'unknown' }
+    return $ip.ToString()
+}
+
+function Should-Throttle {
+    # Demo throttle: allow first 3 requests per client, then return 429.
+    $key = Get-ClientKey
+
+    [System.Threading.Monitor]::Enter($ThrottleCounters.SyncRoot)
+    try {
+        if (-not $ThrottleCounters.ContainsKey($key)) { $ThrottleCounters[$key] = 0 }
+        $ThrottleCounters[$key] = [int]$ThrottleCounters[$key] + 1
+        return ([int]$ThrottleCounters[$key] -gt 3)
+    } finally {
+        [System.Threading.Monitor]::Exit($ThrottleCounters.SyncRoot)
+    }
+}
+
+function Set-DemoOperationalHeaders {
+    param(
+        [Parameter(Mandatory)]
+        [int]$Limit,
+        [Parameter(Mandatory)]
+        [int]$Remaining,
+        [Parameter(Mandatory)]
+        [int]$ResetSeconds,
+        [Parameter(Mandatory)]
+        [string]$CorrelationId
+    )
+
+    $Context.Response.Headers['X-Correlation-Id'] = $CorrelationId
+    $Context.Response.Headers['X-RateLimit-Limit'] = "$Limit"
+    $Context.Response.Headers['X-RateLimit-Remaining'] = "$Remaining"
+    $Context.Response.Headers['X-RateLimit-Reset'] = "$ResetSeconds"
+}
+
 # =========================================================
 Enable-KrConfiguration
 
 # =========================================================
-#                 COMPONENT HEADERS
+#                 COMPONENT HEADERS (reusable)
 # =========================================================
-New-KrOpenApiHeader -Description 'Date Header' -Schema [OpenApiDate] | Add-KrOpenApiComponent -Name 'Date-Header'
 
-New-KrOpenApiHeader -Description 'Custom Header' -Required -Schema ([string]) | Add-KrOpenApiComponent -Name 'X-Custom-Header'
-
-<#$content = @{
-    'application/json' = New-KrOpenApiMediaType -Schema ([hashtable])
+# Correlation id (traceability)
+$correlationExamples = @{
+    'uuid' = New-KrOpenApiExample -Summary 'Correlation id' -Value '7b2a8e5d-0d7c-4f0a-9b3c-3f9d0b8ad7b1'
 }
-New-KrOpenApiHeader -Description 'JSON Header' -Content $content | Add-KrOpenApiComponent -Name 'Json-Custom-Header'
-#>
-$examples = @{
-    'example1' = New-KrOpenApiExample -Summary 'Example 1' -Value 'Value1'
-    'example2' = New-KrOpenApiExample -Summary 'Example 2' -Value 'Value2'
-}
-New-KrOpenApiHeader -Description 'Header with Examples' -Examples $examples -Schema [string] | Add-KrOpenApiComponent -Name 'Header-With-Examples'
+New-KrOpenApiHeader `
+    -Description 'Correlation id for tracing the request across services.' `
+    -Schema ([string]) `
+    -Required `
+    -Examples $correlationExamples |
+    Add-KrOpenApiComponent -Name 'X-Correlation-Id'
 
-New-KrOpenApiHeader -Description 'Header with object schema' -Schema [CreateUserRequest] | Add-KrOpenApiComponent -Name 'CreateUserRequest-Header'
+# Location header for 201 Created
+New-KrOpenApiHeader `
+    -Description 'Canonical URI of the created resource.' `
+    -Schema ([string]) `
+    -Required |
+    Add-KrOpenApiComponent -Name 'Location'
+
+# ETag header for caching / optimistic concurrency
+$etagExamples = @{
+    'weak' = New-KrOpenApiExample -Summary 'Weak ETag' -Value 'W/"user-1-v3"'
+}
+New-KrOpenApiHeader `
+    -Description 'Entity tag representing the current version of the resource.' `
+    -Schema ([string]) `
+    -Examples $etagExamples |
+    Add-KrOpenApiComponent -Name 'ETag'
+
+# Simple rate limit headers (demo)
+New-KrOpenApiHeader -Description 'Maximum requests allowed in the current window.' -Schema ([int]) | Add-KrOpenApiComponent -Name 'X-RateLimit-Limit'
+New-KrOpenApiHeader -Description 'Remaining requests in the current window.' -Schema ([int]) | Add-KrOpenApiComponent -Name 'X-RateLimit-Remaining'
+New-KrOpenApiHeader -Description 'Seconds until the window resets.' -Schema ([int]) | Add-KrOpenApiComponent -Name 'X-RateLimit-Reset'
+
+# Retry-After for 429 Too Many Requests
+New-KrOpenApiHeader -Description 'Seconds to wait before retrying the request.' -Schema ([int]) | Add-KrOpenApiComponent -Name 'Retry-After'
 # =========================================================
 #                 ROUTES / OPERATIONS
 # =========================================================
@@ -97,8 +171,6 @@ New-KrOpenApiHeader -Description 'Header with object schema' -Schema [CreateUser
 
 Add-KrApiDocumentationRoute -DocumentType Swagger
 Add-KrApiDocumentationRoute -DocumentType Redoc
-
-
 <#
 .SYNOPSIS
     Create a new user.
@@ -111,33 +183,61 @@ Add-KrApiDocumentationRoute -DocumentType Redoc
     POST endpoint: Accept CreateUserRequest, return UserResponse
 #>
 function createUser {
-    [OpenApiPath(HttpVerb = 'post', Pattern = '/users')]
-    [OpenApiResponse(StatusCode = '201', Description = 'User created successfully', Schema = [UserResponse], ContentType = ('application/json', 'application/xml', 'application/yaml'))]
-    [OpenApiResponseHeaderRef(StatusCode = '201', key = 'X-User-Header', ReferenceId = 'CreateUserRequest-Header')]
+    [OpenApiPath(HttpVerb = 'post', Pattern = '/users', Tags = 'Users')]
+    [OpenApiResponse(StatusCode = '201', Description = 'Created', Schema = [UserResponse], ContentType = ('application/json'))]
+    [OpenApiResponseHeaderRef(StatusCode = '201', Key = 'X-Correlation-Id', ReferenceId = 'X-Correlation-Id')]
+    [OpenApiResponseHeaderRef(StatusCode = '201', Key = 'Location', ReferenceId = 'Location')]
+    [OpenApiResponseHeaderRef(StatusCode = '201', Key = 'ETag', ReferenceId = 'ETag')]
+    [OpenApiResponseHeaderRef(StatusCode = '201', Key = 'X-RateLimit-Limit', ReferenceId = 'X-RateLimit-Limit')]
+    [OpenApiResponseHeaderRef(StatusCode = '201', Key = 'X-RateLimit-Remaining', ReferenceId = 'X-RateLimit-Remaining')]
+    [OpenApiResponseHeaderRef(StatusCode = '201', Key = 'X-RateLimit-Reset', ReferenceId = 'X-RateLimit-Reset')]
+
     [OpenApiResponse(StatusCode = '400', Description = 'Invalid input')]
-    [OpenApiResponseHeader(StatusCode = '400', key = 'X-User-Header2', Description = 'Date of error', Schema = [OpenApiDate])]
+    [OpenApiResponseHeader(StatusCode = '400', Key = 'X-Error-Code', Description = 'Machine-readable error code.', Schema = ([string]))]
+
+    [OpenApiResponse(StatusCode = '429', Description = 'Too many requests')]
+    [OpenApiResponseHeaderRef(StatusCode = '429', Key = 'Retry-After', ReferenceId = 'Retry-After')]
     param(
         [OpenApiRequestBody(ContentType = ('application/json', 'application/xml', 'application/yaml', 'application/x-www-form-urlencoded'))]
         [CreateUserRequest]$body
     )
 
-    # Simple validation
-    if (-not $body.firstName -or -not $body.lastName -or -not $body.email) {
-        Write-KrJsonResponse @{error = 'firstName, lastName, and email are required' } -StatusCode 400
+    $correlationId = New-DemoCorrelationId
+    Set-DemoOperationalHeaders -Limit 3 -Remaining 1 -ResetSeconds 60 -CorrelationId $correlationId
+
+    if (Should-Throttle) {
+        $Context.Response.Headers['Retry-After'] = '30'
+        Write-KrJsonResponse @{ error = 'Too many requests'; retryAfterSeconds = 30 } -StatusCode 429
         return
     }
 
-    # Create response
-    $response = @{
-        id = 1
-        firstName = $body.firstName
-        lastName = $body.lastName
-        email = $body.email
-        age = $body.age -as [int]
-        createdAt = (Get-Date).ToUniversalTime().ToString('o')
+    # Simple validation
+    if (-not $body.firstName -or -not $body.lastName -or -not $body.email) {
+        $Context.Response.Headers['X-Error-Code'] = 'VALIDATION_FAILED'
+        Write-KrJsonResponse @{ error = 'firstName, lastName, and email are required' } -StatusCode 400
+        return
     }
 
-    Write-KrResponse $response -StatusCode 201
+    $newId = Update-KrSynchronizedCounter -Table $UserCounters -Key 'NextUserId' -By 1
+
+    $user = [UserResponse]::new()
+    $user.id = [long]$newId
+    $user.firstName = $body.firstName
+    $user.lastName = $body.lastName
+    $user.email = $body.email
+    $user.updatedAt = (Get-Date).ToUniversalTime().ToString('o')
+
+    [System.Threading.Monitor]::Enter($Users.SyncRoot)
+    try {
+        $Users[[string]$newId] = $user
+    } finally {
+        [System.Threading.Monitor]::Exit($Users.SyncRoot)
+    }
+
+    $Context.Response.Headers['Location'] = "/users/$newId"
+    $Context.Response.Headers['ETag'] = "W/`"user-$newId-v1`""
+
+    Write-KrResponse $user -StatusCode 201
 }
 
 # GET endpoint: Return a user by ID as UserResponse
@@ -150,26 +250,87 @@ function createUser {
     The user ID to retrieve
 #>
 function getUser {
-    [OpenApiPath(HttpVerb = 'get', Pattern = '/users/{userId}')]
-    [OpenApiResponse(StatusCode = '200', Description = 'User found', Schema = [UserResponse], ContentType = ('application/json', 'application/xml', 'application/yaml'))]
-    [OpenApiResponseHeaderRef(StatusCode = '200', key = 'X-Custom-Header', ReferenceId = 'Header-With-Examples')]
-    [OpenApiResponseHeaderRef(StatusCode = '200', key = 'X-User-Header', ReferenceId = 'CreateUserRequest-Header' , Inline = $true)]
+    [OpenApiPath(HttpVerb = 'get', Pattern = '/users/{userId}', Tags = 'Users')]
+    [OpenApiResponse(StatusCode = '200', Description = 'Found', Schema = [UserResponse], ContentType = ('application/json'))]
+    [OpenApiResponseHeaderRef(StatusCode = '200', Key = 'X-Correlation-Id', ReferenceId = 'X-Correlation-Id')]
+    [OpenApiResponseHeaderRef(StatusCode = '200', Key = 'ETag', ReferenceId = 'ETag')]
+    [OpenApiResponseHeaderRef(StatusCode = '200', Key = 'X-RateLimit-Limit', ReferenceId = 'X-RateLimit-Limit')]
+    [OpenApiResponseHeaderRef(StatusCode = '200', Key = 'X-RateLimit-Remaining', ReferenceId = 'X-RateLimit-Remaining')]
+    [OpenApiResponseHeaderRef(StatusCode = '200', Key = 'X-RateLimit-Reset', ReferenceId = 'X-RateLimit-Reset')]
+
+    [OpenApiResponse(StatusCode = '404', Description = 'User not found')]
+    [OpenApiResponseHeader(StatusCode = '404', Key = 'X-Error-Code', Description = 'Machine-readable error code.', Schema = ([string]))]
+
+    [OpenApiResponse(StatusCode = '429', Description = 'Too many requests')]
+    [OpenApiResponseHeaderRef(StatusCode = '429', Key = 'Retry-After', ReferenceId = 'Retry-After')]
+    param(
+        [OpenApiParameter(In = [OaParameterLocation]::Path, Required = $true)]
+        [int]$userId
+    )
+
+    $correlationId = New-DemoCorrelationId
+    Set-DemoOperationalHeaders -Limit 3 -Remaining 1 -ResetSeconds 60 -CorrelationId $correlationId
+
+    if (Should-Throttle) {
+        $Context.Response.Headers['Retry-After'] = '30'
+        Write-KrJsonResponse @{ error = 'Too many requests'; retryAfterSeconds = 30 } -StatusCode 429
+        return
+    }
+
+    $found = $null
+    [System.Threading.Monitor]::Enter($Users.SyncRoot)
+    try {
+        $found = $Users[[string]$userId]
+    } finally {
+        [System.Threading.Monitor]::Exit($Users.SyncRoot)
+    }
+
+    if ($null -eq $found) {
+        $Context.Response.Headers['X-Error-Code'] = 'USER_NOT_FOUND'
+        Write-KrJsonResponse @{ error = "User '$userId' not found" } -StatusCode 404
+        return
+    }
+
+    $v = [int]([DateTimeOffset]::UtcNow.ToUnixTimeSeconds() % 10)
+    $Context.Response.Headers['ETag'] = "W/`"user-$userId-v$v`""
+
+    Write-KrResponse $found -StatusCode 200
+}
+
+function deleteUser {
+    [OpenApiPath(HttpVerb = 'delete', Pattern = '/users/{userId}', Tags = 'Users')]
+    [OpenApiResponse(StatusCode = '204', Description = 'Deleted')]
+    [OpenApiResponseHeaderRef(StatusCode = '204', Key = 'X-Correlation-Id', ReferenceId = 'X-Correlation-Id')]
+    [OpenApiResponseHeaderRef(StatusCode = '204', Key = 'X-RateLimit-Limit', ReferenceId = 'X-RateLimit-Limit')]
+    [OpenApiResponseHeaderRef(StatusCode = '204', Key = 'X-RateLimit-Remaining', ReferenceId = 'X-RateLimit-Remaining')]
+    [OpenApiResponseHeaderRef(StatusCode = '204', Key = 'X-RateLimit-Reset', ReferenceId = 'X-RateLimit-Reset')]
+
     [OpenApiResponse(StatusCode = '404', Description = 'User not found')]
     param(
         [OpenApiParameter(In = [OaParameterLocation]::Path, Required = $true)]
         [int]$userId
     )
 
-    # Mock user data
-    [UserResponse]$response = [UserResponse]::new()
-    $response.id = $userId
-    $response.firstName = 'John'
-    $response.lastName = 'Doe'
-    $response.email = 'john.doe@example.com'
-    $response.age = 30
-    $response.createdAt = (Get-Date).AddDays(-1).ToUniversalTime().ToString('o')
+    $correlationId = New-DemoCorrelationId
+    Set-DemoOperationalHeaders -Limit 3 -Remaining 1 -ResetSeconds 60 -CorrelationId $correlationId
 
-    Write-KrResponse $response -StatusCode 200
+    $removed = $false
+    [System.Threading.Monitor]::Enter($Users.SyncRoot)
+    try {
+        if ($Users.ContainsKey([string]$userId)) {
+            $Users.Remove([string]$userId) | Out-Null
+            $removed = $true
+        }
+    } finally {
+        [System.Threading.Monitor]::Exit($Users.SyncRoot)
+    }
+
+    if (-not $removed) {
+        Write-KrJsonResponse @{ error = "User '$userId' not found" } -StatusCode 404
+        return
+    }
+
+    Write-KrTextResponse '' -StatusCode 204
 }
 
 # =========================================================

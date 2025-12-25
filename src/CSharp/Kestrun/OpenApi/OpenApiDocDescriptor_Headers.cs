@@ -1,5 +1,4 @@
 using System.Collections;
-using System.Reflection;
 using Kestrun.Hosting.Options;
 using Microsoft.OpenApi;
 
@@ -170,7 +169,6 @@ public partial class OpenApiDocDescriptor
     /// <param name="header">The OpenApiHeader to which content will be applied.</param>
     /// <param name="content">A hashtable representing the content to apply.</param>
     /// <exception cref="InvalidOperationException">Thrown when content keys are not valid media type strings.</exception>
-
     private void ApplyHeaderContent(OpenApiHeader header, Hashtable? content)
     {
         // Header content (media type map) from PowerShell hashtable
@@ -239,13 +237,19 @@ public partial class OpenApiDocDescriptor
     OpenApiComponentConflictResolution ifExists = OpenApiComponentConflictResolution.Overwrite)
     {
         Document.Components ??= new OpenApiComponents();
-        // Ensure Examples dictionary exists
+        // Ensure headers dictionary exists
         Document.Components.Headers ??= new Dictionary<string, IOpenApiHeader>(StringComparer.Ordinal);
         AddComponent(Document.Components.Headers, name,
                         header, ifExists,
                         OpenApiComponentKind.Headers);
     }
 
+    /// <summary>
+    /// Applies an OpenApiResponseHeaderAttribute to the given OpenAPIMetadata.
+    /// </summary>
+    /// <param name="metadata">The OpenAPIMetadata to apply the attribute to.</param>
+    /// <param name="attribute">The OpenApiResponseHeaderAttribute containing header information.</param>
+    /// <exception cref="InvalidOperationException">Thrown when the attribute is missing required information or is invalid.</exception>
     private void ApplyResponseHeaderAttribute(OpenAPIMetadata metadata, IOpenApiResponseHeaderAttribute attribute)
     {
         if (attribute.StatusCode is null)
@@ -264,6 +268,13 @@ public partial class OpenApiDocDescriptor
         }
     }
 
+    /// <summary>
+    /// Tries to add a header to the given headers dictionary based on the provided attribute.
+    /// </summary>
+    /// <param name="headers"> The dictionary of headers to add to. </param>
+    /// <param name="attribute"> The attribute containing header reference information. </param>
+    /// <returns> True if the header was added successfully; otherwise, false. </returns>
+    /// <exception cref="InvalidOperationException"> Thrown if the header reference ID is not found in components or inline components. </exception>
     private bool TryAddHeader(IDictionary<string, IOpenApiHeader> headers, OpenApiResponseHeaderRefAttribute attribute)
     {
         if (TryGetInline(name: attribute.ReferenceId, kind: OpenApiComponentKind.Headers, out OpenApiHeader? header))

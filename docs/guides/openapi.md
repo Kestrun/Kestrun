@@ -302,7 +302,67 @@ Defines individual parameters if not using a component.
 [OpenApiParameter(Name = 'id', In = 'path', Required = $true, Type = [long])]
 ```
 
-### 9.5 Links (Operation Relationships)
+### 9.5 Headers (Reusable Response Headers)
+
+OpenAPI **headers** let you document response headers returned by an operation.
+In Kestrun you can define reusable header components and then reference them from responses.
+
+#### 9.5.1 Define header components
+
+```powershell
+New-KrOpenApiHeader \
+    -Description 'Correlation id for tracing the request across services.' \
+    -Schema ([string]) \
+    -Required |
+    Add-KrOpenApiComponent -Name 'X-Correlation-Id'
+
+New-KrOpenApiHeader \
+    -Description 'Canonical URI of the created resource.' \
+    -Schema ([string]) \
+    -Required |
+    Add-KrOpenApiComponent -Name 'Location'
+```
+
+This produces entries under `components.headers` in the generated OpenAPI document.
+
+#### 9.5.2 Apply header components to responses
+
+Use `OpenApiResponseHeaderRef` on a route function to attach a header component to a specific status code.
+
+```powershell
+function createUser {
+    [OpenApiPath(HttpVerb = 'post', Pattern = '/users', Tags = 'Users')]
+    [OpenApiResponse(StatusCode = '201', Description = 'Created')]
+    [OpenApiResponseHeaderRef(StatusCode = '201', Key = 'X-Correlation-Id', ReferenceId = 'X-Correlation-Id')]
+    [OpenApiResponseHeaderRef(StatusCode = '201', Key = 'Location', ReferenceId = 'Location')]
+    param()
+}
+```
+
+In the generated OpenAPI JSON, references appear under `responses[status].headers` as `$ref` values.
+
+#### 9.5.3 Inline one-off response headers
+
+If you don’t need reuse, define a header inline:
+
+```powershell
+[OpenApiResponse(StatusCode = '400', Description = 'Invalid input')]
+[OpenApiResponseHeader(StatusCode = '400', Key = 'X-Error-Code', Description = 'Machine-readable error code.', Schema = ([string]))]
+```
+
+#### 9.5.4 Set runtime header values
+
+Documenting a header does not set it automatically. Set the actual header values in the route:
+
+```powershell
+$Context.Response.Headers['X-Correlation-Id'] = [Guid]::NewGuid().ToString()
+$Context.Response.Headers['Location'] = "/users/$id"
+$Context.Response.Headers['ETag'] = "W/`"user-$id-v1`""
+```
+
+> **Note:** If your routes call helper functions, define those functions before `Enable-KrConfiguration` so they are captured and injected into route runspaces.
+
+### 9.6 Links (Operation Relationships)
 
 OpenAPI **links** describe how a successful response from one operation can be used as input to another.
 In Kestrun you typically:
@@ -311,7 +371,7 @@ In Kestrun you typically:
 2. Store it under `components/links` using `Add-KrOpenApiComponent`
 3. Reference it from an operation response using `OpenApiResponseLinkRef`
 
-#### 9.5.1 Define link components
+#### 9.6.1 Define link components
 
 ```powershell
 # Use values from the current response to build the next call.
@@ -325,7 +385,7 @@ New-KrOpenApiLink -OperationId 'updateUser' -Description 'Update the user resour
     Add-KrOpenApiComponent -Name 'UpdateUserLink'
 ```
 
-#### 9.5.2 Apply links to responses
+#### 9.6.2 Apply links to responses
 
 ```powershell
 function createUser {
@@ -337,7 +397,7 @@ function createUser {
 }
 ```
 
-#### 9.5.3 Expression mapping quick notes
+#### 9.6.3 Expression mapping quick notes
 
 - `OperationId` should match the OpenAPI operation id for the target endpoint (in Kestrun examples, this is typically the function name).
 - `Parameters` maps parameter names (e.g., `userId`) to runtime expressions like `$response.body#/id`.

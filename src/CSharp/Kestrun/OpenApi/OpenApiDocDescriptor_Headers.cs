@@ -251,11 +251,11 @@ public partial class OpenApiDocDescriptor
         if (attribute.StatusCode is null)
         {
             throw new InvalidOperationException("OpenApiResponseHeaderRefAttribute must have a StatusCode specified to associate the header reference with a response.");
+            throw new InvalidOperationException("Response header attributes must have a StatusCode specified to associate the header with a response.");
         }
         if (attribute.Key is null)
         {
-            throw new InvalidOperationException("OpenApiResponseHeaderRefAttribute must have a Key specified to define the header name under response.headers.");
-        }
+            throw new InvalidOperationException("Response header attributes must have a Key specified to define the header name under response.headers.");
         metadata.Responses ??= [];
         var response = metadata.Responses.TryGetValue(attribute.StatusCode, out var value) ? value as OpenApiResponse : new OpenApiResponse();
         if (response is not null && CreateResponseFromAttribute(attribute, response))

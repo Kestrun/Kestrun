@@ -1,4 +1,4 @@
-﻿<#
+<#
     Sample: OpenAPI Examples (Components + Inline) - Attribute-driven
     Purpose: Demonstrate example components + inline examples referenced by attributes.
     File:    10.13-OpenAPI-Examples.ps1

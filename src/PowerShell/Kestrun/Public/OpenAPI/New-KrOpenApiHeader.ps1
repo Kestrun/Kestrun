@@ -1,4 +1,4 @@
-﻿<#
+<#
 .SYNOPSIS
     Creates a new OpenAPI Header object.
 .DESCRIPTION
@@ -127,7 +127,7 @@ function New-KrOpenApiHeader {
         }
     }
     process {
-        # Add the server to the specified OpenAPI documents
+        # Create a new OpenAPI header for the specified document(s) and return it
         foreach ($doc in $DocId) {
             $docDescriptor = $Server.GetOrCreateOpenApiDocument($doc)
             $header = $docDescriptor.NewOpenApiHeader(

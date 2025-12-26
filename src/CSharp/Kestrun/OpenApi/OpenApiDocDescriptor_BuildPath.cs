@@ -85,7 +85,6 @@ public partial class OpenApiDocDescriptor
 
         var op = BuildOperationFromMetadata(openapiMetadata);
         webhookPathItem.AddOperation(HttpMethod.Parse(method.ToMethodString()), op);
-
     }
     /// <summary>
     /// Processes a group of routes sharing the same pattern to build the corresponding OpenAPI path item.

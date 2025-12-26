@@ -29,8 +29,10 @@ Focus areas:
 | **Request Body**     | A class decorated with `[OpenApiRequestBodyComponent]`. Defines payload structure. |
 | **Response**         | A class decorated with `[OpenApiResponseComponent]`. Defines response structure. |
 | **Parameter**        | A class decorated with `[OpenApiParameterComponent]`. Defines reusable parameters. |
+| **Webhook**          | A top-level OpenAPI webhook entry describing an outgoing event notification your API may send to subscribers. |
 | **Property Attribute**| `[OpenApiPropertyAttribute]` on class properties defines validation, examples, and descriptions. |
 | **Route Attribute**  | `[OpenApiPath]` on functions defines the HTTP method and route pattern. |
+| **Webhook Attribute**| `[OpenApiWebhook]` on functions defines a webhook and its request body schema for an event notification. |
 
 ---
 
@@ -86,6 +88,61 @@ Add-KrOpenApiRoute
 Build-KrOpenApiDocument
 Start-KrServer -Server $srv
 ```
+
+---
+
+## 3.1 Webhooks (Top-level event notifications)
+
+OpenAPI **webhooks** document event notifications that your API may send to **subscribers**.
+They are **top-level** in the OpenAPI document under `webhooks` (OpenAPI 3.1).
+
+This is different from **callbacks**, which are tied to a specific API operation.
+
+> **Note:** OpenAPI webhooks describe the payloads and contract, but do not define how consumers subscribe.
+> Subscription management is usually modeled as regular API endpoints (e.g. `POST /subscriptions`).
+
+### 3.1.1 Define webhook payload schemas
+
+Define payloads as schema components so webhook request bodies can reference them:
+
+```powershell
+[OpenApiSchemaComponent(Required = ('event_id', 'event_type', 'timestamp', 'data'))]
+class OrderEventPayload {
+    [OpenApiPropertyAttribute(Description = 'Unique identifier for this event', Format = 'uuid')]
+    [string]$event_id
+
+    [OpenApiPropertyAttribute(Description = 'Event type', Example = 'order.created')]
+    [string]$event_type
+
+    [OpenApiPropertyAttribute(Description = 'When the event occurred', Format = 'date-time')]
+    [datetime]$timestamp
+
+    [OpenApiPropertyAttribute(Description = 'Event payload')]
+    [hashtable]$data
+}
+```
+
+### 3.1.2 Declare webhooks
+
+Declare a webhook using `[OpenApiWebhook()]` and attach a request body using `[OpenApiRequestBody()]`:
+
+```powershell
+function orderCreatedWebhook {
+    [OpenApiWebhook(HttpVerb = 'post', Pattern = '/webhooks/order.created')]
+    param(
+        [OpenApiRequestBody(Description = 'Order creation event payload')]
+        [OrderEventPayload]$Body
+    )
+}
+```
+
+### 3.1.3 Generate & view
+
+1. Register OpenAPI generation: `Add-KrOpenApiRoute`
+1. Build and validate: `Build-KrOpenApiDocument` and `Test-KrOpenApiDocument`
+1. Fetch the document and confirm `webhooks` exists:
+
+   - `/openapi/v3.1/openapi.json`
 
 ---
 
@@ -442,6 +499,7 @@ Access the UI at `/swagger`, `/redoc`, etc., and the raw JSON at `/openapi/v1/op
 | **`[OpenApiPath]`** | Method | `HttpVerb`, `Pattern`, `Summary`, `Description`, `Tags`, `OperationId`, `Deprecated`, `CorsPolicy` |
 | **`[OpenApiResponse]`** | Method | `StatusCode`, `Description`, `Schema` (Type), `SchemaRef` (String), `ContentType`, `Key`, `Inline` |
 | **`[OpenApiRequestBody]`** | Parameter | `Description`, `ContentType`, `Required`, `Example`, `Inline` |
+| **`[OpenApiWebhook]`** | Method | `HttpVerb`, `Pattern` |
 
 ### ExampleRef usage (components vs inline)
 
@@ -487,7 +545,7 @@ These properties are available on `[OpenApiSchemaComponent]`, `[OpenApiPropertyA
 | **Examples** | ✅ Supported | Use `[OpenApiExampleComponent]` classes |
 | **Inheritance** | ✅ Supported | PowerShell class inheritance works for schemas |
 | **Generics** | 🚧 Partial | Use `Array = $true` for lists |
-| **Webhooks** | ❌ Planned | Not yet implemented |
+| **Webhooks** | ✅ Supported | Use `[OpenApiWebhook]` on functions (top-level `webhooks` in OpenAPI 3.1) |
 | **Links** | ✅ Supported | Use `New-KrOpenApiLink` + `Add-KrOpenApiComponent`, then reference via `OpenApiResponseLinkRef` |
 | **Extensions (x-*)** | ❌ Planned | Not yet implemented |
 

@@ -32,6 +32,10 @@ public partial class OpenApiDocDescriptor
         }
     }
 
+    /// <summary>
+    /// Populates Document.Webhooks from the registered webhooks using OpenAPI metadata on each webhook.
+    /// </summary>
+    /// <param name="Metadata"> The dictionary containing webhook patterns, HTTP methods, and their associated OpenAPI metadata.</param>
     private void BuildWebhooks(Dictionary<(string Pattern, HttpVerb Method), OpenAPIMetadata> Metadata)
     {
         if (Metadata is null || Metadata.Count == 0)
@@ -46,15 +50,18 @@ public partial class OpenApiDocDescriptor
 
         foreach (var grp in groups)
         {
-            ProcessRouteGroup(grp);
+            ProcessWebhookGroup(grp);
         }
     }
 
-    private void ProcessRouteGroup(IGrouping<string, KeyValuePair<(string Pattern, HttpVerb Method), OpenAPIMetadata>> grp)
+    /// <summary>
+    /// Processes a group of webhooks sharing the same pattern to build the corresponding OpenAPI webhook path item.
+    /// </summary>
+    /// <param name="grp">The group of webhooks sharing the same pattern. </param>
+    private void ProcessWebhookGroup(IGrouping<string, KeyValuePair<(string Pattern, HttpVerb Method), OpenAPIMetadata>> grp)
     {
         var pattern = grp.Key;
         var webhookPathItem = GetOrCreateWebhookItem(pattern);
-        OpenAPICommonMetadata? pathMeta = null;
 
         foreach (var kvp in grp)
         {
@@ -62,16 +69,16 @@ public partial class OpenApiDocDescriptor
             {
                 continue;
             }
-            pathMeta = ProcessWebhookOperation(kvp, webhookPathItem, pathMeta);
-        }
-
-        if (pathMeta is not null)
-        {
-            ApplyPathLevelMetadata(webhookPathItem, pathMeta, pattern);
+            ProcessWebhookOperation(kvp, webhookPathItem);
         }
     }
 
-    private OpenAPICommonMetadata? ProcessWebhookOperation(KeyValuePair<(string Pattern, HttpVerb Method), OpenAPIMetadata> kvp, OpenApiPathItem webhookPathItem, OpenAPICommonMetadata? currentPathMeta)
+    /// <summary>
+    /// Processes a single webhook operation and adds it to the OpenApiPathItem.
+    /// </summary>
+    /// <param name="kvp"> The key-value pair representing the webhook pattern, HTTP method, and OpenAPI metadata.</param>
+    /// <param name="webhookPathItem"> The OpenApiPathItem to which the operation will be added.</param>
+    private void ProcessWebhookOperation(KeyValuePair<(string Pattern, HttpVerb Method), OpenAPIMetadata> kvp, OpenApiPathItem webhookPathItem)
     {
         var method = kvp.Key.Method;
         var openapiMetadata = kvp.Value;
@@ -79,7 +86,6 @@ public partial class OpenApiDocDescriptor
         var op = BuildOperationFromMetadata(openapiMetadata);
         webhookPathItem.AddOperation(HttpMethod.Parse(method.ToMethodString()), op);
 
-        return currentPathMeta;
     }
     /// <summary>
     /// Processes a group of routes sharing the same pattern to build the corresponding OpenAPI path item.

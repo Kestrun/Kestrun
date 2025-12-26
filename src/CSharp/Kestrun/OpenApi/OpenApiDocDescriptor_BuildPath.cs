@@ -32,7 +32,6 @@ public partial class OpenApiDocDescriptor
         }
     }
 
-
     private void BuildWebhooks(Dictionary<(string Pattern, HttpVerb Method), OpenAPIMetadata> Metadata)
     {
         if (Metadata is null || Metadata.Count == 0)
@@ -71,7 +70,6 @@ public partial class OpenApiDocDescriptor
             ApplyPathLevelMetadata(webhookPathItem, pathMeta, pattern);
         }
     }
-
 
     private OpenAPICommonMetadata? ProcessWebhookOperation(KeyValuePair<(string Pattern, HttpVerb Method), OpenAPIMetadata> kvp, OpenApiPathItem webhookPathItem, OpenAPICommonMetadata? currentPathMeta)
     {
@@ -129,7 +127,6 @@ public partial class OpenApiDocDescriptor
         }
         return (OpenApiPathItem)pathInterface;
     }
-
 
     /// <summary>
     /// Processes a single route operation and adds it to the OpenApiPathItem.

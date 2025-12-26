@@ -85,7 +85,18 @@ internal static class PsScriptBlockValidation
     /// <returns>True if the param() block is the last element; otherwise, false.</returns>
     internal static bool IsParamLast(ScriptBlock scriptBlock)
     {
-        var ast = scriptBlock.Ast;
-        return ast is FunctionDefinitionAst funcDefAst && IsParamLast(funcDefAst.Body);
+        var ast = scriptBlock?.Ast;
+
+        if (ast is FunctionDefinitionAst funcDefAst)
+        {
+            return IsParamLast(funcDefAst.Body);
+        }
+
+        if (ast is ScriptBlockAst sbAst)
+        {
+            return IsParamLast(sbAst);
+        }
+
+        return false;
     }
 }

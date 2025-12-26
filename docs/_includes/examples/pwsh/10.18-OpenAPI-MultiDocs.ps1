@@ -48,9 +48,9 @@ Add-KrApiDocumentationRoute -DocumentType Redoc
 
 <#
 .SYNOPSIS
-    Get greeting message(Webhook).
+    Get greeting message (Webhook).
 .DESCRIPTION
-    Returns a simple greeting message(Webhook).
+    Returns a simple greeting message (Webhook).
 #>
 function getGreetingWebHook {
     [OpenApiWebhook(HttpVerb = 'get' , Pattern = '/greeting' , DocumentId = 'WebHookDoc' )]

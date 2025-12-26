@@ -78,4 +78,10 @@ public record OpenAPIMetadata : OpenAPICommonMetadata
     /// Indicates whether this metadata represents an OpenAPI path.
     /// </summary>
     public bool IsOpenApiPath { get => !_isOpenApiWebhook; internal set => _isOpenApiWebhook = !value; }
+
+    /// <summary>
+    /// The IDs of the OpenAPI document this metadata belongs to.
+    /// if null, it belongs to all documents.
+    /// </summary>
+    public string[]? DocumentId { get; set; }
 }

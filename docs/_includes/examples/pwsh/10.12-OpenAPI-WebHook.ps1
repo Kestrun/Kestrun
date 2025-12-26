@@ -27,6 +27,10 @@ Add-KrOpenApiInfo -Title 'Hello World API' `
     -Version '1.0.0' `
     -Description 'A simple OpenAPI 3.1 example with a single endpoint.'
 
+Add-KrOpenApiInfo -Title 'Hello World API' `
+    -Version '1.0.0' `
+    -Description 'A simple OpenAPI 3.1 example with a single endpoint.' -DocId 'WebHookDoc'
+
 Add-KrOpenApiContact -Email 'support@example.com'
 # Add Server info
 Add-KrOpenApiServer -Url "http://$($IPAddress):$Port" -Description 'Local Server'
@@ -44,20 +48,31 @@ Add-KrApiDocumentationRoute -DocumentType Redoc
 
 <#
 .SYNOPSIS
+    Get greeting message(Webhook).
+.DESCRIPTION
+    Returns a simple greeting message(Webhook).
+#>
+function getGreetingWebHook {
+    [OpenApiWebhook(HttpVerb = 'get' , Pattern = '/greeting' , DocumentId = 'WebHookDoc' )]
+    param()
+}
+
+<#
+.SYNOPSIS
     Get greeting message.
 .DESCRIPTION
     Returns a simple greeting message.
 #>
 function getGreeting {
-    [OpenApiWebhook(HttpVerb = 'get' , Pattern = '/greeting' )]
+    [OpenApiPath(HttpVerb = 'get' , Pattern = '/greeting' )]
     param()
+    Write-KrTextResponse -Text 'Hello, World!' -StatusCode 200
 }
-
 # =========================================================
 #                OPENAPI DOC ROUTE / BUILD
 # =========================================================
-
-Add-KrOpenApiRoute  # Default pattern '/openapi/{version}/openapi.{format}'
+Add-KrOpenApiRoute
+Add-KrOpenApiRoute -DocumentId 'WebHookDoc' # Default pattern '/openapi/{version}/openapi.{format}'
 
 # =========================================================
 #                      RUN SERVER

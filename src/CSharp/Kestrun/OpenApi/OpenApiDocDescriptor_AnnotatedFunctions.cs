@@ -169,6 +169,10 @@ public partial class OpenApiDocDescriptor
             : string.IsNullOrWhiteSpace(oaPath.OperationId) ? metadata.OperationId : oaPath.OperationId;
         // Apply deprecated flag if specified
         metadata.Deprecated |= oaPath.Deprecated;
+        // Apply document ID if specified
+        metadata.DocumentId = oaPath.DocumentId;
+
+        // Determine if it's a path or webhook
         if (oaPath is OpenApiPath oaPathConcrete)
         {
             metadata.IsOpenApiPath = true;
@@ -661,6 +665,7 @@ public partial class OpenApiDocDescriptor
         MapRouteOptions routeOptions,
         HttpVerb parsedVerb)
     {
+        metadata.DocumentId ??= Host.OpenApiDocumentIds;
         if (metadata.IsOpenApiPath)
         {
             routeOptions.OpenAPI.Add(parsedVerb, metadata);
@@ -681,8 +686,18 @@ public partial class OpenApiDocDescriptor
         }
         else if (metadata.IsOpenApiWebhook)
         {
-            // routeOptions.ScriptCode.ScriptBlock = sb;
-            _ = Host.OpenApiDocumentDescriptor[Authentication.IOpenApiAuthenticationOptions.DefaultSchemeName].WebHook[(metadata.Pattern, parsedVerb)] = metadata;
+            foreach (var docId in metadata.DocumentId)
+            {
+                if (!Host.OpenApiDocumentDescriptor.TryGetValue(docId, out var docdesc))
+                {
+                    throw new InvalidOperationException($"The OpenAPI document ID '{docId}' specified in the OpenApiWebhook attribute does not exist in the Kestrun host.");
+                }
+                if (!PsScriptBlockValidation.IsParamLast(sb))
+                {
+                    throw new InvalidOperationException($"The ScriptBlock for webhook function '{func.Name}' must contain only a param() block with no executable statements.");
+                }
+                _ = docdesc.WebHook.TryAdd((metadata.Pattern, parsedVerb), metadata);
+            }
         }
     }
 

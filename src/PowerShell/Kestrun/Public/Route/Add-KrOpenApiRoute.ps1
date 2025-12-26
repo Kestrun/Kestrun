@@ -11,6 +11,8 @@
     .PARAMETER Pattern
         The URL path for the new OpenAPI map route.
         Default is '/openapi/{version}/openapi.{format}'.
+    .PARAMETER DocId
+        The OpenAPI document ID to be served by this route.
     .PARAMETER SpecVersion
         An array of OpenAPI specification versions to support (e.g., OpenApi2_0 or OpenApi3_0).
     .PARAMETER VersionVarName
@@ -45,23 +47,36 @@ function Add-KrOpenApiRoute {
     param(
         [Parameter(Mandatory = $false, ValueFromPipeline = $true)]
         [Kestrun.Hosting.KestrunHost]$Server,
+
         [Parameter()]
         [Kestrun.Hosting.Options.MapRouteOptions]$Options,
+
         [Parameter()]
         [alias('Path')]
         [string]$Pattern,
+
+        [Parameter()]
+        [Alias('DocumentId')]
+        [string]$DocId = [Kestrun.Authentication.IOpenApiAuthenticationOptions]::DefaultSchemeName,
+
         [Parameter()]
         [Microsoft.OpenApi.OpenApiSpecVersion[]]$SpecVersion,
+
         [Parameter()]
         [string]$VersionVarName,
+
         [Parameter()]
         [string]$FormatVarName,
+
         [Parameter()]
         [string]$RefreshVarName,
+
         [Parameter()]
         [string]$DefaultFormat,
+
         [Parameter()]
         [string]$DefaultVersion,
+
         [Parameter()]
         [switch]$PassThru
     )
@@ -95,6 +110,9 @@ function Add-KrOpenApiRoute {
         }
         if ($PsBoundParameters.ContainsKey('SpecVersion')) {
             $OpenApiMapRouteOptions.SpecVersions = $SpecVersion
+        }
+        if ($PsBoundParameters.ContainsKey('DocId')) {
+            $OpenApiMapRouteOptions.DocId = $DocId
         }
 
         # Call the C# extension method to add the OpenAPI map route

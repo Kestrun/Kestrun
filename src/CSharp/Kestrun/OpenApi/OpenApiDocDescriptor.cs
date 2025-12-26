@@ -119,7 +119,7 @@ public partial class OpenApiDocDescriptor
         GenerateComponents();
         // Finally, build paths from registered routes
         BuildPathsFromRegisteredRoutes(Host.RegisteredRoutes);
-        BuildWebhooks(Host.OpenApiDocumentDescriptor[Authentication.IOpenApiAuthenticationOptions.DefaultSchemeName].WebHook);
+        BuildWebhooks(WebHook);
         HasBeenGenerated = true;
     }
 

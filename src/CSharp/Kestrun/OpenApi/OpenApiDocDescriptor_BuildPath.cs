@@ -59,6 +59,10 @@ public partial class OpenApiDocDescriptor
 
         foreach (var kvp in grp)
         {
+            if (kvp.Value.DocumentId is not null && !kvp.Value.DocumentId.Contains(DocumentId))
+            {
+                continue;
+            }
             pathMeta = ProcessWebhookOperation(kvp, webhookPathItem, pathMeta);
         }
 
@@ -74,14 +78,8 @@ public partial class OpenApiDocDescriptor
         var method = kvp.Key.Method;
         var openapiMetadata = kvp.Value;
 
-        //  if (map is null || map.OpenAPI.Count == 0)
-        // {
-        //    return currentPathMeta;
-        /// } 
-
         var op = BuildOperationFromMetadata(openapiMetadata);
         webhookPathItem.AddOperation(HttpMethod.Parse(method.ToMethodString()), op);
-
 
         return currentPathMeta;
     }
@@ -157,6 +155,10 @@ public partial class OpenApiDocDescriptor
 
         if (map.OpenAPI.TryGetValue(method, out var meta) && meta.Enabled)
         {
+            if (meta.DocumentId is not null && !meta.DocumentId.Contains(DocumentId))
+            {
+                return currentPathMeta;
+            }
             var op = BuildOperationFromMetadata(meta);
             pathItem.AddOperation(HttpMethod.Parse(method.ToMethodString()), op);
         }

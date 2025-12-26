@@ -87,16 +87,8 @@ internal static class PsScriptBlockValidation
     {
         var ast = scriptBlock?.Ast;
 
-        if (ast is FunctionDefinitionAst funcDefAst)
-        {
-            return IsParamLast(funcDefAst.Body);
-        }
-
-        if (ast is ScriptBlockAst sbAst)
-        {
-            return IsParamLast(sbAst);
-        }
-
-        return false;
+        return ast is FunctionDefinitionAst funcDefAst
+            ? IsParamLast(funcDefAst.Body)
+            : ast is ScriptBlockAst sbAst && IsParamLast(sbAst);
     }
 }

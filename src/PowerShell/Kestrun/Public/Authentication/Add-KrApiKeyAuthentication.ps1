@@ -102,7 +102,7 @@ function Add-KrApiKeyAuthentication {
         [switch]$Deprecated,
 
         [Parameter()]
-        [string[]]$DocId = [Kestrun.Authentication.IOpenApiAuthenticationOptions]::DefaultDocumentationIds,
+        [string[]]$DocId = [Kestrun.OpenApi.OpenApiDocDescriptor]::DefaultDocumentationIds,
 
         # 1. Direct options
         [Parameter(Mandatory = $true, ParameterSetName = 'Options')]

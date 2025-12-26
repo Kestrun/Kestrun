@@ -38,7 +38,7 @@ function Get-KrOpenApiDocument {
         [Kestrun.Hosting.KestrunHost]$Server,
 
         [Parameter()]
-        [string]$DocId = [Kestrun.Authentication.IOpenApiAuthenticationOptions]::DefaultSchemeName,
+        [string]$DocId = [Kestrun.OpenApi.OpenApiDocDescriptor]::DefaultDocumentationId,
 
         [Parameter()]
         [Microsoft.OpenApi.OpenApiSpecVersion]$Version = [Microsoft.OpenApi.OpenApiSpecVersion]::OpenApi3_1,

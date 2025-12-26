@@ -2,6 +2,8 @@ using Microsoft.OpenApi;
 using Kestrun.Hosting;
 using Microsoft.OpenApi.Reader;
 using System.Text;
+using Kestrun.Hosting.Options;
+using Kestrun.Utilities;
 
 namespace Kestrun.OpenApi;
 
@@ -10,6 +12,15 @@ namespace Kestrun.OpenApi;
 /// </summary>
 public partial class OpenApiDocDescriptor
 {
+    /// <summary>
+    /// Default documentation identifier.
+    /// </summary>
+    public const string DefaultDocumentationId = "Default";
+
+    /// <summary>
+    /// Default documentation identifiers for OpenAPI authentication schemes.
+    /// </summary>
+    public static readonly string[] DefaultDocumentationIds = ["Default"];
     /// <summary>
     /// The Kestrun host providing registered routes.
     /// </summary>
@@ -34,6 +45,11 @@ public partial class OpenApiDocDescriptor
     /// Inline components specific to this OpenAPI document.
     /// </summary>
     public OpenApiComponents InlineComponents { get; }
+
+    /// <summary>
+    /// OpenAPI metadata for webhooks associated with this document.
+    /// </summary>
+    public Dictionary<(string Pattern, HttpVerb Method), OpenAPIMetadata> WebHook { get; set; } = []; // OpenAPI metadata for this route
 
     /// <summary>
     /// Initializes a new instance of the OpenApiDocDescriptor.
@@ -112,6 +128,7 @@ public partial class OpenApiDocDescriptor
         GenerateComponents();
         // Finally, build paths from registered routes
         BuildPathsFromRegisteredRoutes(Host.RegisteredRoutes);
+        BuildWebhooks(WebHook);
         HasBeenGenerated = true;
     }
 

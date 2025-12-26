@@ -89,6 +89,9 @@ public partial class OpenApiDocDescriptor
                     case OpenApiPath path:
                         parsedVerb = ApplyPathAttribute(func, help, routeOptions, openApiMetadata, parsedVerb, path);
                         break;
+                    case OpenApiWebhook webhook:
+                        parsedVerb = ApplyPathAttribute(func, help, routeOptions, openApiMetadata, parsedVerb, webhook);
+                        break;
                     case OpenApiResponseRefAttribute responseRef:
                         ApplyResponseRefAttribute(openApiMetadata, responseRef);
                         break;
@@ -143,7 +146,7 @@ public partial class OpenApiDocDescriptor
         MapRouteOptions routeOptions,
         OpenAPIMetadata metadata,
         HttpVerb parsedVerb,
-        OpenApiPath oaPath)
+        IOpenApiPath oaPath)
     {
         var httpVerb = oaPath.HttpVerb ?? string.Empty;
         if (!string.IsNullOrWhiteSpace(httpVerb))
@@ -166,8 +169,24 @@ public partial class OpenApiDocDescriptor
             : string.IsNullOrWhiteSpace(oaPath.OperationId) ? metadata.OperationId : oaPath.OperationId;
         // Apply deprecated flag if specified
         metadata.Deprecated |= oaPath.Deprecated;
-        // Apply Cors policy name if specified
-        metadata.CorsPolicy = oaPath.CorsPolicy;
+        // Apply document ID if specified
+        metadata.DocumentId = oaPath.DocumentId;
+
+        // Determine if it's a path or webhook
+        if (oaPath is OpenApiPath oaPathConcrete)
+        {
+            metadata.IsOpenApiPath = true;
+            if (!string.IsNullOrWhiteSpace(oaPathConcrete.CorsPolicy))
+            {  // Apply Cors policy name if specified
+                routeOptions.CorsPolicy = oaPathConcrete.CorsPolicy;
+            }
+            metadata.IsOpenApiPath = true;
+        }
+        else if (oaPath is OpenApiWebhook)
+        {
+            metadata.IsOpenApiWebhook = true;
+        }
+
         return parsedVerb;
     }
 
@@ -646,21 +665,40 @@ public partial class OpenApiDocDescriptor
         MapRouteOptions routeOptions,
         HttpVerb parsedVerb)
     {
-        routeOptions.OpenAPI.Add(parsedVerb, metadata);
-
-        if (string.IsNullOrWhiteSpace(routeOptions.Pattern))
+        metadata.DocumentId ??= Host.OpenApiDocumentIds;
+        if (metadata.IsOpenApiPath)
         {
-            routeOptions.Pattern = "/" + func.Name;
-        }
+            routeOptions.OpenAPI.Add(parsedVerb, metadata);
 
-        if (!string.IsNullOrWhiteSpace(metadata.CorsPolicy))
+            if (string.IsNullOrWhiteSpace(routeOptions.Pattern))
+            {
+                routeOptions.Pattern = "/" + func.Name;
+            }
+
+            if (!string.IsNullOrWhiteSpace(metadata.CorsPolicy))
+            {
+                routeOptions.CorsPolicy = metadata.CorsPolicy;
+            }
+
+            routeOptions.ScriptCode.ScriptBlock = sb;
+            routeOptions.DefaultResponseContentType = "application/json";
+            _ = Host.AddMapRoute(routeOptions);
+        }
+        else if (metadata.IsOpenApiWebhook)
         {
-            routeOptions.CorsPolicy = metadata.CorsPolicy;
+            foreach (var docId in metadata.DocumentId)
+            {
+                if (!Host.OpenApiDocumentDescriptor.TryGetValue(docId, out var docdesc))
+                {
+                    throw new InvalidOperationException($"The OpenAPI document ID '{docId}' specified in the OpenApiWebhook attribute does not exist in the Kestrun host.");
+                }
+                if (!PsScriptBlockValidation.IsParamLast(sb))
+                {
+                    throw new InvalidOperationException($"The ScriptBlock for webhook function '{func.Name}' must contain only a param() block with no executable statements.");
+                }
+                _ = docdesc.WebHook.TryAdd((metadata.Pattern, parsedVerb), metadata);
+            }
         }
-
-        routeOptions.ScriptCode.ScriptBlock = sb;
-        routeOptions.DefaultResponseContentType = "application/json";
-        _ = Host.AddMapRoute(routeOptions);
     }
 
     /// <summary>

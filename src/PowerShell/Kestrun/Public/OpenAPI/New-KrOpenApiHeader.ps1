@@ -61,7 +61,7 @@ function New-KrOpenApiHeader {
         [Kestrun.Hosting.KestrunHost]$Server,
 
         [Parameter()]
-        [string[]]$DocId = [Kestrun.Authentication.IOpenApiAuthenticationOptions]::DefaultDocumentationIds,
+        [string[]]$DocId = [Kestrun.OpenApi.OpenApiDocDescriptor]::DefaultDocumentationIds,
 
         [Parameter()]
         [string]$Description,

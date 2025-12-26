@@ -14,6 +14,7 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.AspNetCore.Authentication.OpenIdConnect;
 using Microsoft.IdentityModel.Protocols;
 using Microsoft.IdentityModel.Protocols.OpenIdConnect;
+using Kestrun.OpenApi;
 
 namespace Kestrun.Hosting;
 
@@ -1337,7 +1338,7 @@ public static class KestrunHostAuthnExtensions
         // Apply to specified documentation IDs or all if none specified
         if (opts.DocumentationId == null || opts.DocumentationId.Length == 0)
         {
-            opts.DocumentationId = IOpenApiAuthenticationOptions.DefaultDocumentationIds;
+            opts.DocumentationId = OpenApiDocDescriptor.DefaultDocumentationIds;
         }
 
         foreach (var docDescriptor in opts.DocumentationId

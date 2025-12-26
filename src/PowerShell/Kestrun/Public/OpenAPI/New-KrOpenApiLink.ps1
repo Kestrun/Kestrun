@@ -26,6 +26,7 @@ function New-KrOpenApiLink {
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseShouldProcessForStateChangingFunctions', '')]
     [KestrunRuntimeApi('Definition')]
     [CmdletBinding(DefaultParameterSetName = 'ByOperationId')]
+    [OutputType([Microsoft.OpenApi.OpenApiLink])]
     param(
         [Parameter(Mandatory = $true, ParameterSetName = 'ByOperationRef')]
         [ValidateNotNullOrEmpty()]

@@ -186,43 +186,8 @@ public partial class OpenApiDocDescriptor
                 throw new InvalidOperationException("Header content keys must be media type strings.");
             }
 
-            header.Content[key] = ResolveHeaderMediaTypeValue(content[key]);
+            header.Content[key] = ResolveMediaTypeValue(content[key]);
         }
-    }
-
-    /// <summary>
-    /// Resolves a media type value for a header content entry.
-    /// </summary>
-    /// <param name="value">The media type value, which can be an IOpenApiMediaType or a reference string.</param>
-    /// <returns>The resolved IOpenApiMediaType.</returns>
-    /// <exception cref="InvalidOperationException">Thrown when the media type value is invalid or not found.</exception>
-    private IOpenApiMediaType ResolveHeaderMediaTypeValue(object? value)
-    {
-        if (value is IOpenApiMediaType mediaType)
-        {
-            return mediaType;
-        }
-
-        if (value is string mediaRef)
-        {
-            if (TryGetInline(name: mediaRef, kind: OpenApiComponentKind.MediaTypes, out OpenApiMediaType? inlineMediaType))
-            {
-                // If InlineComponents, clone the media type
-                return inlineMediaType!.Clone();
-            }
-
-            if (TryGetComponent(name: mediaRef, kind: OpenApiComponentKind.MediaTypes, out OpenApiMediaType? componentMediaType))
-            {
-                // if in main components, clone it
-                return componentMediaType!.Clone();
-            }
-
-            throw new InvalidOperationException(
-                $"MediaType with ReferenceId '{mediaRef}' not found in components or inline components.");
-        }
-
-        throw new InvalidOperationException(
-            "Header content values must be OpenApiMediaType instances or media type reference name strings.");
     }
 
     /// <summary>

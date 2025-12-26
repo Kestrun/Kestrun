@@ -45,6 +45,8 @@ class ErrorResponse {
     [OpenApiPropertyAttribute(Description = 'Additional error details')]
     [string]$details
 }
+ 
+
 
 [OpenApiSchemaComponent(Required = ('id', 'title', 'content'))]
 class Article {

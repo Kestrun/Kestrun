@@ -1,3 +1,4 @@
+using System.Collections;
 using System.Reflection;
 using System.Text.Json.Nodes;
 using Microsoft.OpenApi;
@@ -463,5 +464,118 @@ public partial class OpenApiDocDescriptor
 
         throw new InvalidOperationException(
             $"Schema reference '{refId}' cannot be embedded because it was not found in components.");
+    }
+
+
+    /// <summary>
+    /// Creates a new OpenApiResponse with the specified parameters.
+    /// </summary>
+    /// <param name="summary">A brief summary of the response.</param>
+    /// <param name="description">A detailed description of the response.</param>
+    /// <param name="Headers">A hashtable representing the headers of the response.</param>
+    /// <param name="Links">A hashtable representing the links of the response.</param>
+    /// <param name="content">A hashtable representing the content of the response.</param>
+    /// <returns>A new instance of OpenApiResponse with the specified properties.</returns>
+    public OpenApiResponse NewOpenApiResponse(
+            string? summary = null,
+            string? description = null,
+            Hashtable? Headers = null,
+            Hashtable? Links = null,
+            Hashtable? content = null
+            )
+    {
+
+        var response = new OpenApiResponse
+        {
+            Description = string.IsNullOrWhiteSpace(description) ? null : description,
+            Summary = string.IsNullOrWhiteSpace(summary) ? null : summary,
+        };
+
+        ApplyResponseContent(response, content);
+        ApplyResponseHeaders(response, Headers);
+        ApplyResponseLinks(response, Links);
+
+        return response;
+    }
+
+    private void ApplyResponseLinks(OpenApiResponse response, Hashtable? links)
+    {
+        // Response content (media type map) from PowerShell hashtable
+        if (links is null || links.Count == 0)
+        {
+            return;
+        }
+
+        response.Links ??= new Dictionary<string, IOpenApiLink>(StringComparer.Ordinal);
+
+        foreach (var rawKey in links.Keys)
+        {
+            if (rawKey is not string key)
+            {
+                throw new InvalidOperationException("Link keys must be strings.");
+            }
+
+            response.Links[key] = ResolveLinkTypeValue(links[key]);
+        }
+    }
+    private void ApplyResponseHeaders(OpenApiResponse response, Hashtable? headers)
+    {
+        // Response content (media type map) from PowerShell hashtable
+        if (headers is null || headers.Count == 0)
+        {
+            return;
+        }
+
+        response.Headers ??= new Dictionary<string, IOpenApiHeader>(StringComparer.Ordinal);
+
+        foreach (var rawKey in headers.Keys)
+        {
+            if (rawKey is not string key)
+            {
+                throw new InvalidOperationException("Header keys must be strings.");
+            }
+
+            response.Headers[key] = ResolveHeaderTypeValue(headers[key]);
+        }
+    }
+
+    private void ApplyResponseContent(OpenApiResponse response, Hashtable? content)
+    {
+        // Response content (media type map) from PowerShell hashtable
+        if (content is null || content.Count == 0)
+        {
+            return;
+        }
+
+        response.Content ??= new Dictionary<string, IOpenApiMediaType>(StringComparer.Ordinal);
+
+        foreach (var rawKey in content.Keys)
+        {
+            if (rawKey is not string key)
+            {
+                throw new InvalidOperationException("Content keys must be media type strings.");
+            }
+
+            response.Content[key] = ResolveMediaTypeValue(content[key]);
+        }
+    }
+
+    /// <summary>
+    /// Adds a response component to the OpenAPI document.
+    /// </summary>
+    /// <param name="name">The name of the response component.</param>
+    /// <param name="response">The OpenApiResponse object to add.</param>
+    /// <param name="ifExists">Specifies the conflict resolution strategy if a component with the same name already exists.</param>
+    public void AddComponentResponse(
+        string name,
+        OpenApiResponse response,
+        OpenApiComponentConflictResolution ifExists = OpenApiComponentConflictResolution.Overwrite)
+    {
+        Document.Components ??= new OpenApiComponents();
+        // Ensure headers dictionary exists
+        Document.Components.Responses ??= new Dictionary<string, IOpenApiResponse>(StringComparer.Ordinal);
+        AddComponent(Document.Components.Responses, name,
+                      response, ifExists,
+                        OpenApiComponentKind.Responses);
     }
 }

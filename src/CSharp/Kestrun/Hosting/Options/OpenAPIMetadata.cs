@@ -67,4 +67,15 @@ public record OpenAPIMetadata : OpenAPICommonMetadata
     /// The list of values includes alternative security requirement objects that can be used.
     /// </summary>
     public List<Dictionary<string, List<string>>>? SecuritySchemes { get; set; }
+
+    private bool _isOpenApiWebhook;
+
+    /// <summary>
+    /// Indicates whether this metadata represents an OpenAPI webhook.
+    /// </summary>
+    public bool IsOpenApiWebhook { get => _isOpenApiWebhook; internal set => _isOpenApiWebhook = value; }
+    /// <summary>
+    /// Indicates whether this metadata represents an OpenAPI path.
+    /// </summary>
+    public bool IsOpenApiPath { get => !_isOpenApiWebhook; internal set => _isOpenApiWebhook = !value; }
 }

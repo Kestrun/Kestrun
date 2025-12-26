@@ -32,6 +32,59 @@ public partial class OpenApiDocDescriptor
         }
     }
 
+
+    private void BuildWebhooks(Dictionary<(string Pattern, HttpVerb Method), OpenAPIMetadata> Metadata)
+    {
+        if (Metadata is null || Metadata.Count == 0)
+        {
+            return;
+        }
+        Document.Webhooks = new Dictionary<string, IOpenApiPathItem>();
+
+        var groups = Metadata
+            .GroupBy(kvp => kvp.Key.Pattern, StringComparer.Ordinal)
+            .Where(g => !string.IsNullOrWhiteSpace(g.Key));
+
+        foreach (var grp in groups)
+        {
+            ProcessRouteGroup(grp);
+        }
+    }
+
+    private void ProcessRouteGroup(IGrouping<string, KeyValuePair<(string Pattern, HttpVerb Method), OpenAPIMetadata>> grp)
+    {
+        var pattern = grp.Key;
+        var webhookPathItem = GetOrCreateWebhookItem(pattern);
+        OpenAPICommonMetadata? pathMeta = null;
+
+        foreach (var kvp in grp)
+        {
+            pathMeta = ProcessWebhookOperation(kvp, webhookPathItem, pathMeta);
+        }
+
+        if (pathMeta is not null)
+        {
+            ApplyPathLevelMetadata(webhookPathItem, pathMeta, pattern);
+        }
+    }
+
+
+    private OpenAPICommonMetadata? ProcessWebhookOperation(KeyValuePair<(string Pattern, HttpVerb Method), OpenAPIMetadata> kvp, OpenApiPathItem webhookPathItem, OpenAPICommonMetadata? currentPathMeta)
+    {
+        var method = kvp.Key.Method;
+        var openapiMetadata = kvp.Value;
+
+        //  if (map is null || map.OpenAPI.Count == 0)
+        // {
+        //    return currentPathMeta;
+        /// } 
+
+        var op = BuildOperationFromMetadata(openapiMetadata);
+        webhookPathItem.AddOperation(HttpMethod.Parse(method.ToMethodString()), op);
+
+
+        return currentPathMeta;
+    }
     /// <summary>
     /// Processes a group of routes sharing the same pattern to build the corresponding OpenAPI path item.
     /// </summary>
@@ -67,6 +120,18 @@ public partial class OpenApiDocDescriptor
         }
         return (OpenApiPathItem)pathInterface;
     }
+
+    private OpenApiPathItem GetOrCreateWebhookItem(string pattern)
+    {
+        Document.Webhooks ??= new Dictionary<string, IOpenApiPathItem>(StringComparer.Ordinal);
+        if (!Document.Webhooks.TryGetValue(pattern, out var pathInterface) || pathInterface is null)
+        {
+            pathInterface = new OpenApiPathItem();
+            Document.Webhooks[pattern] = pathInterface;
+        }
+        return (OpenApiPathItem)pathInterface;
+    }
+
 
     /// <summary>
     /// Processes a single route operation and adds it to the OpenApiPathItem.

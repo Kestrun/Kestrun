@@ -2,8 +2,9 @@
 /// Attribute to specify OpenAPI path metadata for a route.
 /// </summary>
 [AttributeUsage(AttributeTargets.Method, Inherited = false, AllowMultiple = true)]
-public sealed class OpenApiPath() : KestrunAnnotation, IOpenApiPath
+public sealed class OpenApiWebhook() : KestrunAnnotation, IOpenApiPath
 {
+    ///
     public string? HttpVerb { get; set; }
     /// <summary>
     /// The relative path for the route in OpenAPI documentation.
@@ -32,9 +33,4 @@ public sealed class OpenApiPath() : KestrunAnnotation, IOpenApiPath
     /// Indicates whether the operation is deprecated in OpenAPI documentation.
     /// </summary>
     public bool Deprecated { get; set; }
-
-    /// <summary>
-    /// The CORS policy name for the route in OpenAPI documentation.
-    /// </summary>
-    public string? CorsPolicy { get; set; }
 }

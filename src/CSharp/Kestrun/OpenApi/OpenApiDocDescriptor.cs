@@ -12,7 +12,6 @@ namespace Kestrun.OpenApi;
 /// </summary>
 public partial class OpenApiDocDescriptor
 {
-
     /// <summary>
     /// Default documentation identifier.
     /// </summary>

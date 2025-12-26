@@ -11,7 +11,9 @@
         The context mask for the specified function.
 #>
 function Get-KrFunctionContextMask {
-    param([System.Management.Automation.FunctionInfo]$Function)
+    param(
+        [System.Management.Automation.FunctionInfo]$Function
+    )
 
     if (-not $Function.ScriptBlock) { return 0 }
 

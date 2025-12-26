@@ -1,3 +1,4 @@
+using System.Collections;
 using System.Reflection;
 using System.Text.Json.Nodes;
 using Microsoft.OpenApi;
@@ -409,5 +410,105 @@ public partial class OpenApiDocDescriptor
         {
             parameter.Examples[exRef.Key] = new OpenApiExampleReference(exRef.ReferenceId);
         }
+    }
+
+
+    /// <summary>
+    /// Creates a new OpenAPI parameter with the specified properties.
+    /// </summary>
+    /// <param name="name">The name of the parameter.</param>
+    /// <param name="in">The location of the parameter.</param>
+    /// <param name="description">An optional description of the parameter.</param>
+    /// <param name="required">Indicates if the parameter is required.</param>
+    /// <param name="deprecated">Indicates if the parameter is deprecated.</param>
+    /// <param name="allowEmptyValue">Indicates if the parameter allows empty values.</param>
+    /// <param name="style">The style of the parameter.</param>
+    /// <param name="explode">Indicates if the parameter should be exploded.</param>
+    /// <param name="allowReserved">Indicates if the parameter allows reserved characters.</param>
+    /// <param name="schema">The schema type of the parameter.</param>
+    /// <param name="example">An optional example value for the parameter.</param>
+    /// <param name="examples">A hashtable of multiple examples for the parameter.</param>
+    /// <returns>The newly created OpenApiParameter.</returns>
+    public OpenApiParameter NewOpenApiParameter(
+        string name,
+        ParameterLocation @in,
+        string? description = null,
+        bool required = false,
+        bool deprecated = false,
+        bool allowEmptyValue = false,
+        ParameterStyle? style = null,
+        bool explode = false,
+        bool allowReserved = false,
+        Type? schema = null,
+        object? example = null,
+        Hashtable? examples = null
+        )
+    {
+        schema = ResolveSchema(schema);
+
+        var parameter = new OpenApiParameter
+        {
+            Name = name,
+            In = @in,
+            Description = string.IsNullOrWhiteSpace(description) ? null : description,
+            Required = required,
+            Deprecated = deprecated,
+            AllowEmptyValue = allowEmptyValue,
+            Style = style,
+            Explode = explode,
+            AllowReserved = allowReserved,
+            Example = OpenApiJsonNodeFactory.FromObject(example),
+            Schema = schema is not null ? InferPrimitiveSchema(schema) : null
+        };
+
+        ApplyParameterExamples(parameter, examples);
+
+        return parameter;
+    }
+    /// <summary>
+    /// Applies multiple examples to an OpenAPI parameter from a hashtable.
+    /// </summary>
+    /// <param name="parameter">The OpenApiParameter to modify</param>
+    /// <param name="examples">A hashtable containing example keys and values</param>
+    /// <exception cref="InvalidOperationException">Thrown when an example key is not a string.</exception>
+    private void ApplyParameterExamples(OpenApiParameter parameter, Hashtable? examples)
+    {
+        // Multi examples from PowerShell hashtable
+        if (examples is null || examples.Count == 0)
+        {
+            return;
+        }
+
+        parameter.Examples ??= new Dictionary<string, IOpenApiExample>(StringComparer.Ordinal);
+
+        foreach (var rawKey in examples.Keys)
+        {
+            if (rawKey is not string key)
+            {
+                throw new InvalidOperationException("Header examples keys must be strings.");
+            }
+
+            parameter.Examples[key] = ResolveExamplesValue(examples[key]);
+        }
+    }
+
+    /// <summary>
+    /// Adds a parameter to the OpenAPI document components.
+    /// </summary>
+    /// <param name="name">The name of the parameter component.</param>
+    /// <param name="parameter">The OpenApiParameter object to add.</param>
+    /// <param name="ifExists">Conflict resolution strategy if the parameter already exists.</param>
+    public void AddComponentParameter(
+        string name,
+        OpenApiParameter parameter,
+        OpenApiComponentConflictResolution ifExists = OpenApiComponentConflictResolution.Overwrite
+    )
+    {
+        Document.Components ??= new OpenApiComponents();
+        // Ensure headers dictionary exists
+        Document.Components.Parameters ??= new Dictionary<string, IOpenApiParameter>(StringComparer.Ordinal);
+        AddComponent(Document.Components.Parameters, name,
+                        parameter, ifExists,
+                        OpenApiComponentKind.Parameters);
     }
 }

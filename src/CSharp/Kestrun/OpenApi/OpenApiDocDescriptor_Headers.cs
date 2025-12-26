@@ -38,8 +38,11 @@ public partial class OpenApiDocDescriptor
         Type? schema = null,
         Hashtable? content = null)
     {
-        schema = ResolveHeaderSchema(schema, content);
-        ThrowIfBothSchemaAndContentProvided(schema, content);
+        schema = ResolveSchema(schema, content);
+        if (schema is not null && content is not null)
+        {
+            throw new InvalidOperationException("Cannot specify both schema and content for an OpenApiHeader.");
+        }
 
         var header = new OpenApiHeader
         {
@@ -50,10 +53,10 @@ public partial class OpenApiDocDescriptor
             Style = style,
             Explode = explode,
             AllowReserved = allowReserved,
-            Example = OpenApiJsonNodeFactory.FromObject(example)
+            Example = OpenApiJsonNodeFactory.FromObject(example),
+            Schema = schema is not null ? InferPrimitiveSchema(schema) : null
         };
 
-        ApplyHeaderSchema(header, schema);
         ApplyHeaderExamples(header, examples);
         ApplyHeaderContent(header, content);
 
@@ -66,39 +69,14 @@ public partial class OpenApiDocDescriptor
     /// <param name="schema">The schema of the header.</param>
     /// <param name="content">The content of the header.</param>
     /// <returns>The resolved schema type.</returns>
-    private static Type? ResolveHeaderSchema(Type? schema, Hashtable? content)
+    private static Type? ResolveSchema(Type? schema, Hashtable? content = null)
     {
         return schema is null && content is null
             ? typeof(string)
             : schema;
     }
 
-    /// <summary>
-    /// Throws an exception if both schema and content are provided for an OpenApiHeader.
-    /// </summary>
-    /// <param name="schema">The schema of the header.</param>
-    /// <param name="content">The content of the header.</param>
-    /// <exception cref="InvalidOperationException">Thrown when both schema and content are provided.</exception>
-    private static void ThrowIfBothSchemaAndContentProvided(Type? schema, Hashtable? content)
-    {
-        if (schema is not null && content is not null)
-        {
-            throw new InvalidOperationException("Cannot specify both schema and content for an OpenApiHeader.");
-        }
-    }
 
-    /// <summary>
-    /// Applies schema to the given OpenApiHeader.
-    /// </summary>
-    /// <param name="header">The OpenApiHeader to which the schema will be applied.</param>
-    /// <param name="schema">The schema to apply to the header.</param>
-    private void ApplyHeaderSchema(OpenApiHeader header, Type? schema)
-    {
-        if (schema is not null)
-        {
-            header.Schema = InferPrimitiveSchema(schema);
-        }
-    }
 
     /// <summary>
     /// Applies examples to the given OpenApiHeader from a PowerShell hashtable.
@@ -123,7 +101,7 @@ public partial class OpenApiDocDescriptor
                 throw new InvalidOperationException("Header examples keys must be strings.");
             }
 
-            header.Examples[key] = ResolveHeaderExampleValue(examples[key]);
+            header.Examples[key] = ResolveExamplesValue(examples[key]);
         }
     }
 
@@ -133,7 +111,7 @@ public partial class OpenApiDocDescriptor
     /// <param name="value">The example value, which can be an IOpenApiExample or a reference string.</param>
     /// <returns>The resolved IOpenApiExample.</returns>
     /// <exception cref="InvalidOperationException">Thrown when the example value is invalid or not found.</exception>
-    private IOpenApiExample ResolveHeaderExampleValue(object? value)
+    private IOpenApiExample ResolveExamplesValue(object? value)
     {
         if (value is IOpenApiExample example)
         {

@@ -66,6 +66,8 @@ function Add-KrOpenApiComponent {
                 $docDescriptor.AddComponentLink($Name, $Component, $IfExists)
             } elseif ($Component -is [Microsoft.OpenApi.OpenApiHeader]) {
                 $docDescriptor.AddComponentHeader($Name, $Component, $IfExists)
+            }elseif ($Component -is [Microsoft.OpenApi.OpenApiParameter]) {
+                $docDescriptor.AddComponentParameter($Name, $Component, $IfExists)
             } else {
                 throw  [System.ArgumentException]::new(
                     "Unsupported component type: $($Component.GetType().FullName). Supported types are OpenApiExample, OpenApiLink, and OpenApiHeader..",

@@ -31,6 +31,7 @@ Add-KrOpenApiInfo -Title 'Parameter Component API' `
 # =========================================================
 
 # Define reusable parameter components using class attributes
+
 [OpenApiParameterComponent()]
 class PaginationParameters {
     [OpenApiParameter(In = [OaParameterLocation]::Query, Description = 'Page number')]
@@ -60,6 +61,19 @@ class PaginationParameters {
     [double]$maxPrice
 }
 
+
+<#
+New-KrOpenApiParameter -Name 'page' -In 'query' -Description 'Page number' -Schema [int]
+New-KrOpenApiParameter -Name 'limit' -In 'query' -Description 'Items per page' -Schema [int] -Example 20
+New-KrOpenApiParameter -Name 'sortBy' -In 'query' -Description 'Sort field (name, date, price)' -Schema [string] -Example 'date'
+New-KrOpenApiParameter -Name 'category' -In 'query' -Description 'Filter by category' -Schema [string]
+New-KrOpenApiParameter -Name 'minPrice' -In 'query' -Description 'Filter by minimum price' -Schema [double]
+New-KrOpenApiParameter -Name 'maxPrice' -In 'query' -Description 'Filter by maximum price' -Schema [double]
+#>
+
+[OpenApiParameter(In = [OaParameterLocation]::Query, Description = 'Items per page')]
+[OpenApiPropertyAttribute(Minimum = 1, Maximum = 100, Example = 20)]
+[int]$myLimit = 20
 # =========================================================
 #                      COMPONENT SCHEMAS
 # =========================================================

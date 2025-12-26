@@ -1,8 +1,8 @@
 <#
-    Sample: OpenAPI WebHook
-    Purpose: Demonstrate webhook components with multiple content types.
+    Sample: OpenAPI Multi-Document
+    Purpose: Demonstrate multiple OpenAPI documents (default + webhook) in a single server.
     File:    10.18-OpenAPI-MultiDocs.ps1
-    Notes:   Shows class inheritance, component wrapping, and content type negotiation.
+    Notes:   Shows multi-document OpenAPI configuration and routing for both standard paths and webhooks.
 #>
 
 param(

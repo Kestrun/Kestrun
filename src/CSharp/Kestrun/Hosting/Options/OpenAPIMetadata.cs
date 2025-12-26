@@ -81,7 +81,7 @@ public record OpenAPIMetadata : OpenAPICommonMetadata
 
     /// <summary>
     /// The IDs of the OpenAPI document this metadata belongs to.
-    /// if null, it belongs to all documents.
+    /// If null, it belongs to all documents.
     /// </summary>
     public string[]? DocumentId { get; set; }
 }

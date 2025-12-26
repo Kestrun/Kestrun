@@ -12,6 +12,16 @@ namespace Kestrun.OpenApi;
 /// </summary>
 public partial class OpenApiDocDescriptor
 {
+
+    /// <summary>
+    /// Default documentation identifier.
+    /// </summary>
+    public const string DefaultDocumentationId = "Default";
+
+    /// <summary>
+    /// Default documentation identifiers for OpenAPI authentication schemes.
+    /// </summary>
+    public static readonly string[] DefaultDocumentationIds = ["Default"];
     /// <summary>
     /// The Kestrun host providing registered routes.
     /// </summary>

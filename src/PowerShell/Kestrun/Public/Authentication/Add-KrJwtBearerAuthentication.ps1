@@ -97,7 +97,7 @@ function Add-KrJWTBearerAuthentication {
         [string]$DisplayName = [Kestrun.Authentication.AuthenticationDefaults]::JwtBearerDisplayName,
 
         [Parameter()]
-        [string[]]$DocId = [Kestrun.Authentication.IOpenApiAuthenticationOptions]::DefaultDocumentationIds,
+        [string[]]$DocId = [Kestrun.OpenApi.OpenApiDocDescriptor]::DefaultDocumentationIds,
 
         [Parameter(ParameterSetName = 'Items')]
         [string] $Description,

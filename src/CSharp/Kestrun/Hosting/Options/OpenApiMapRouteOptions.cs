@@ -1,3 +1,4 @@
+using Kestrun.OpenApi;
 using Microsoft.OpenApi;
 
 namespace Kestrun.Hosting.Options;
@@ -19,7 +20,7 @@ public record OpenApiMapRouteOptions
             //MapOptions.Pattern = "/openapi/{version:regex(^v(2\\.0|3\\.0(\\.\\d+)?|3\\.1(\\.\\d+)?)$)}/{file:regex(^([a-zA-Z0-9_-]+\\.)?(json|yaml)$)}";
             MapOptions.Pattern = "/openapi/{version}/openapi.{format}";
         }
-        _documentId = Authentication.IOpenApiAuthenticationOptions.DefaultSchemeName;
+        _documentId = OpenApiDocDescriptor.DefaultDocumentationId;
     }
 
     /// <summary>
@@ -67,7 +68,7 @@ public record OpenApiMapRouteOptions
         set
         {
             _documentId = value;
-            if (value != Authentication.IOpenApiAuthenticationOptions.DefaultSchemeName &&
+            if (value != OpenApiDocDescriptor.DefaultDocumentationId &&
                 MapOptions.Pattern == "/openapi/{version}/openapi.{format}")
             {
                 MapOptions.Pattern = "/openapi/{documentId}/{version}/openapi.{format}";

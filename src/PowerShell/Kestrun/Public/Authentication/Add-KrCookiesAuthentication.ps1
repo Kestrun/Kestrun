@@ -69,7 +69,7 @@ function Add-KrCookiesAuthentication {
         [string]$DisplayName = [Kestrun.Authentication.AuthenticationDefaults]::CookiesDisplayName,
 
         [Parameter()]
-        [string[]]$DocId = [Kestrun.Authentication.IOpenApiAuthenticationOptions]::DefaultDocumentationIds,
+        [string[]]$DocId = [Kestrun.OpenApi.OpenApiDocDescriptor]::DefaultDocumentationIds,
 
         [Parameter(ParameterSetName = 'Items')]
         [string] $Description,

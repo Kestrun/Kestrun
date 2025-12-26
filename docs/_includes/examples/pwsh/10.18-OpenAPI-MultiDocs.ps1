@@ -1,7 +1,7 @@
 <#
     Sample: OpenAPI WebHook
     Purpose: Demonstrate webhook components with multiple content types.
-    File:    10.12-OpenAPI-WebHook.ps1
+    File:    10.18-OpenAPI-MultiDocs.ps1
     Notes:   Shows class inheritance, component wrapping, and content type negotiation.
 #>
 
@@ -27,6 +27,10 @@ Add-KrOpenApiInfo -Title 'Hello World API' `
     -Version '1.0.0' `
     -Description 'A simple OpenAPI 3.1 example with a single endpoint.'
 
+Add-KrOpenApiInfo -Title 'Hello World API' `
+    -Version '1.0.0' `
+    -Description 'A simple OpenAPI 3.1 example with a single endpoint.' -DocId 'WebHookDoc'
+
 Add-KrOpenApiContact -Email 'support@example.com'
 # Add Server info
 Add-KrOpenApiServer -Url "http://$($IPAddress):$Port" -Description 'Local Server'
@@ -49,7 +53,7 @@ Add-KrApiDocumentationRoute -DocumentType Redoc
     Returns a simple greeting message(Webhook).
 #>
 function getGreetingWebHook {
-    [OpenApiWebhook(HttpVerb = 'get' , Pattern = '/greeting')]
+    [OpenApiWebhook(HttpVerb = 'get' , Pattern = '/greeting' , DocumentId = 'WebHookDoc' )]
     param()
 }
 
@@ -68,6 +72,7 @@ function getGreeting {
 #                OPENAPI DOC ROUTE / BUILD
 # =========================================================
 Add-KrOpenApiRoute
+Add-KrOpenApiRoute -DocumentId 'WebHookDoc' # Default pattern '/openapi/{version}/openapi.{format}'
 
 # =========================================================
 #                      RUN SERVER

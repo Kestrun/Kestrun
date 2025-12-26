@@ -57,7 +57,7 @@ function Add-KrOpenApiRoute {
 
         [Parameter()]
         [Alias('DocumentId')]
-        [string]$DocId = [Kestrun.Authentication.IOpenApiAuthenticationOptions]::DefaultSchemeName,
+        [string]$DocId = [Kestrun.OpenApi.OpenApiDocDescriptor]::DefaultDocumentationId,
 
         [Parameter()]
         [Microsoft.OpenApi.OpenApiSpecVersion[]]$SpecVersion,

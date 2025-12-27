@@ -131,10 +131,16 @@ public partial class OpenApiDocDescriptor
     {
         // First, generate components
         GenerateComponents();
+
+        // Then, generate webhooks
+        BuildWebhooks(WebHook);
+
+        // Then, generate callbacks
+        BuildCallbacks(Callbacks);
+
         // Finally, build paths from registered routes
         BuildPathsFromRegisteredRoutes(Host.RegisteredRoutes);
-        BuildWebhooks(WebHook);
-        BuildCallbacks(Callbacks);
+
         HasBeenGenerated = true;
     }
 

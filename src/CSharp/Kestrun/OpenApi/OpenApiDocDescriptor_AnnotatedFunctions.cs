@@ -19,12 +19,33 @@ public partial class OpenApiDocDescriptor
     public void LoadAnnotatedFunctions(List<FunctionInfo> cmdInfos)
     {
         ArgumentNullException.ThrowIfNull(cmdInfos);
+        var callbacks = cmdInfos
+            .Where(f => f.ScriptBlock.Attributes?.Any(a => a is OpenApiCallbackAttribute) == true);
 
-        foreach (var func in cmdInfos)
+        var others = cmdInfos
+            .Where(f => f.ScriptBlock.Attributes?.All(a => a is not OpenApiCallbackAttribute) != false);
+        // (equivalent to NOT having any callback attribute)
+
+        foreach (var func in callbacks)
         {
             ProcessFunction(func);
         }
+
+        BuildCallbacks(Callbacks);
+        foreach (var func in others)
+        {
+            ProcessFunction(func);
+        }
+        /*       var sorted = cmdInfos
+          .OrderByDescending(f => f.ScriptBlock.Attributes?.Any(a => a is OpenApiCallbackAttribute) == true);
+      // Process callbacks first to ensure they are available for reference
+      foreach (var func in sorted)
+      {
+          ProcessFunction(func);
+          BuildCallbacks(Callbacks);
+      }*/
     }
+
 
     /// <summary>
     /// Processes a single PowerShell function, extracting OpenAPI annotations and configuring the host accordingly.
@@ -86,13 +107,13 @@ public partial class OpenApiDocDescriptor
             {
                 switch (attr)
                 {
-                    case OpenApiPath path:
+                    case OpenApiPathAttribute path:
                         parsedVerb = ApplyPathAttribute(func, help, routeOptions, openApiMetadata, parsedVerb, path);
                         break;
-                    case OpenApiWebhook webhook:
+                    case OpenApiWebhookAttribute webhook:
                         parsedVerb = ApplyPathAttribute(func, help, routeOptions, openApiMetadata, parsedVerb, webhook);
                         break;
-                    case OpenApiCallback callbackOperation:
+                    case OpenApiCallbackAttribute callbackOperation:
                         parsedVerb = ApplyPathAttribute(func, help, routeOptions, openApiMetadata, parsedVerb, callbackOperation);
                         break;
                     case OpenApiResponseRefAttribute responseRef:
@@ -115,6 +136,9 @@ public partial class OpenApiDocDescriptor
                         break;
                     case IOpenApiResponseHeaderAttribute responseHeaderAttr:
                         ApplyResponseHeaderAttribute(openApiMetadata, responseHeaderAttr);
+                        break;
+                    case OpenApiCallbackRefAttribute callbackRefAttr:
+                        ApplyCallbackRefAttribute(openApiMetadata, callbackRefAttr);
                         break;
                     case KestrunAnnotation ka:
                         throw new InvalidOperationException($"Unhandled Kestrun annotation: {ka.GetType().Name}");
@@ -149,7 +173,7 @@ public partial class OpenApiDocDescriptor
         MapRouteOptions routeOptions,
         OpenAPIMetadata metadata,
         HttpVerb parsedVerb,
-        IOpenApiPath oaPath)
+        IOpenApiPathAttribute oaPath)
     {
         var httpVerb = oaPath.HttpVerb ?? string.Empty;
         if (!string.IsNullOrWhiteSpace(httpVerb))
@@ -173,7 +197,7 @@ public partial class OpenApiDocDescriptor
         metadata.DocumentId = oaPath.DocumentId;
 
         // Determine if it's a path or webhook
-        if (oaPath is OpenApiPath oaPathConcrete)
+        if (oaPath is OpenApiPathAttribute oaPathConcrete)
         {
             metadata.Pattern = oaPath.Pattern;
             metadata.PathLikeKind = OpenApiPathLikeKind.Path;
@@ -185,7 +209,7 @@ public partial class OpenApiDocDescriptor
           ? func.Name
           : string.IsNullOrWhiteSpace(oaPath.OperationId) ? metadata.OperationId : oaPath.OperationId;
         }
-        else if (oaPath is OpenApiWebhook)
+        else if (oaPath is OpenApiWebhookAttribute)
         {
             metadata.Pattern = oaPath.Pattern;
             metadata.PathLikeKind = OpenApiPathLikeKind.Webhook;
@@ -193,7 +217,7 @@ public partial class OpenApiDocDescriptor
           ? func.Name
           : string.IsNullOrWhiteSpace(oaPath.OperationId) ? metadata.OperationId : oaPath.OperationId;
         }
-        else if (oaPath is OpenApiCallback oaCallback)
+        else if (oaPath is OpenApiCallbackAttribute oaCallback)
         {
             // Callbacks are neither paths nor webhooks
             metadata.PathLikeKind = OpenApiPathLikeKind.Callback;

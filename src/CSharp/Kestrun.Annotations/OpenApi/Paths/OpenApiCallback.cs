@@ -2,7 +2,7 @@
 /// Attribute to specify OpenAPI path metadata for a route.
 /// </summary>
 [AttributeUsage(AttributeTargets.Method, Inherited = false, AllowMultiple = true)]
-public sealed class OpenApiCallback() : KestrunAnnotation, IOpenApiPath
+public sealed class OpenApiCallbackAttribute : KestrunAnnotation, IOpenApiPathAttribute
 {
     /// <summary>
     /// The callback expression for the OpenAPI callback object.

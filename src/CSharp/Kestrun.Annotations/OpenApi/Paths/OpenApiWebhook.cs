@@ -2,7 +2,7 @@
 /// Attribute to specify OpenAPI path metadata for a route.
 /// </summary>
 [AttributeUsage(AttributeTargets.Method, Inherited = false, AllowMultiple = true)]
-public sealed class OpenApiWebhook() : KestrunAnnotation, IOpenApiPath
+public sealed class OpenApiWebhookAttribute : KestrunAnnotation, IOpenApiPathAttribute
 {
     /// <inheritdoc/>
     public string? HttpVerb { get; set; }

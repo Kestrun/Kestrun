@@ -105,22 +105,32 @@ public partial class OpenApiDocDescriptor
             ProcessWebhookOperation(kvp, webhookPathItem);
         }
     }
-    private void ProcessCallbackOperation(KeyValuePair<(string Pattern, HttpVerb Method), OpenAPIMetadata> kvp, Microsoft.OpenApi.OpenApiCallback callbackItem)
+    /// <summary>
+    /// Processes a single callback operation and adds it to the OpenApiCallback.
+    /// </summary>
+    /// <param name="kvp"> The key-value pair representing the callback pattern, HTTP method, and OpenAPI metadata.</param>
+    /// <param name="callbackItem"> The OpenApiCallback to which the operation will be added.</param>
+    /// <exception cref="InvalidOperationException"> Thrown when the required Expression property is missing in the OpenAPI metadata.</exception>
+    private void ProcessCallbackOperation(KeyValuePair<(string Pattern, HttpVerb Method), OpenAPIMetadata> kvp, OpenApiCallback callbackItem)
     {
+        callbackItem.PathItems ??= [];
         var method = kvp.Key.Method;
         var openapiMetadata = kvp.Value;
         if (openapiMetadata.Expression is null)
         {
             throw new InvalidOperationException($"Callback OpenAPI metadata for pattern '{kvp.Key.Pattern}' and method '{method}' is missing the required Expression property.");
         }
+        // Check if the path item for this expression already exists
         var expr = openapiMetadata.Expression;
-        //RuntimeExpression.Build("{$request.body#/callbackUrls/status}/order/status/{orderId}");
-
-        var op = BuildOperationFromMetadata(openapiMetadata);
-        var pathItem = new OpenApiPathItem();
-        pathItem.AddOperation(HttpMethod.Parse(method.ToMethodString()), op);
-
-        callbackItem.AddPathItem(expr, pathItem);
+        // Only add the path item if it doesn't already exist
+        if (!callbackItem.PathItems.ContainsKey(expr))
+        {
+            var op = BuildOperationFromMetadata(openapiMetadata);
+            var pathItem = new OpenApiPathItem();
+            pathItem.AddOperation(HttpMethod.Parse(method.ToMethodString()), op);
+            // Add the new path item to the callback
+            callbackItem.PathItems.Add(expr, pathItem);
+        }
     }
     /// <summary>
     /// Processes a single webhook operation and adds it to the OpenApiPathItem.
@@ -183,17 +193,17 @@ public partial class OpenApiDocDescriptor
     }
 
 
-    private Microsoft.OpenApi.OpenApiCallback GetOrCreateCallbackItem(string pattern)
+    private OpenApiCallback GetOrCreateCallbackItem(string pattern)
     {
         Document.Components ??= new OpenApiComponents();
         Document.Components.Callbacks ??= new Dictionary<string, IOpenApiCallback>(StringComparer.Ordinal);
 
         if (!Document.Components.Callbacks.TryGetValue(pattern, out var pathInterface) || pathInterface is null)
         {
-            pathInterface = new Microsoft.OpenApi.OpenApiCallback();
+            pathInterface = new OpenApiCallback();
             Document.Components.Callbacks[pattern] = pathInterface;
         }
-        return (Microsoft.OpenApi.OpenApiCallback)pathInterface;
+        return (OpenApiCallback)pathInterface;
     }
     /// <summary>
     /// Processes a single route operation and adds it to the OpenApiPathItem.

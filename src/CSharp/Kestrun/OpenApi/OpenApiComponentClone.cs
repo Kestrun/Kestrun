@@ -533,6 +533,49 @@ public static class OpenApiComponentClone
         return clone;
     }
     #endregion
+
+    #region Callback
+    /// <summary>
+    /// Clones an IOpenApiCallback instance.
+    /// </summary>
+    /// <param name="callback">The IOpenApiCallback to clone.</param>
+    /// <returns>A new IOpenApiCallback instance with the same properties as the input callback.</returns>
+    /// <exception cref="InvalidOperationException">Thrown when the callback is of an unsupported type.</exception>
+    public static IOpenApiCallback Clone(this IOpenApiCallback callback) =>
+    callback switch
+    {
+        OpenApiCallback callbackObj => callbackObj.Clone(),
+        OpenApiCallbackReference callbackRef => callbackRef.Clone(),
+        _ => throw new InvalidOperationException("Unsupported IOpenApiCallback implementation.")
+    };
+
+    /// <summary>
+    /// Clones an OpenApiCallback instance.
+    /// </summary>
+    /// <param name="callback">The OpenApiCallback to clone.</param>
+    /// <returns>A new OpenApiCallback instance with the same properties as the input callback.</returns>
+    public static OpenApiCallback Clone(this OpenApiCallback callback)
+    {
+        var clone = new OpenApiCallback
+        {
+            PathItems = callback?.PathItems != null ? new(callback.PathItems) : null,
+            Extensions = callback?.Extensions.Clone()
+        };
+        return clone;
+    }
+
+    /// <summary>
+    /// Clones an OpenApiCallbackReference instance.
+    /// </summary>
+    /// <param name="callback">The OpenApiCallbackReference to clone.</param>
+    /// <returns>A new OpenApiCallbackReference instance with the same properties as the input callback .</returns>
+    public static OpenApiCallbackReference Clone(this OpenApiCallbackReference callback)
+    {
+        var clone = new OpenApiCallbackReference(callback.Reference.Id!);
+        return clone;
+    }
+
+    #endregion
     #region Link
     /// <summary>
     /// Clones a dictionary of IOpenApiLink instances.

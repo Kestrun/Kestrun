@@ -44,19 +44,6 @@ Add-KrApiDocumentationRoute -DocumentType Redoc
 
 <#
 .SYNOPSIS
-    Get greeting message.
-.DESCRIPTION
-    Returns a simple greeting message.
-
-function getGreeting {
-    [OpenApiPath(HttpVerb = 'get' , Pattern = '/greeting' )]
-    param()
-    Write-KrTextResponse -Text 'Hello, World!' -StatusCode 200
-}
-#>
-
-<#
-.SYNOPSIS
     Payment Status Callback (component)
 .DESCRIPTION
     Provider calls the consumer back when a payment status changes.
@@ -79,6 +66,22 @@ function paymentStatusCallback {
         [string] $Body
     )
 }
+
+<#
+.SYNOPSIS
+    Get greeting message.
+.DESCRIPTION
+    Returns a simple greeting message.
+#>
+function getGreeting {
+    [OpenApiPath(HttpVerb = 'get' , Pattern = '/greeting' )]
+    [OpenApiCallbackRef( Key = 'paymentStatusCallback', ReferenceId = 'paymentStatusCallback')]
+    param()
+    Write-KrTextResponse -Text 'Hello, World!' -StatusCode 200
+}
+
+
+
 
 
 

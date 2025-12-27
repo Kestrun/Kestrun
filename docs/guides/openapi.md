@@ -638,8 +638,8 @@ These properties are available on `[OpenApiSchemaComponent]`, `[OpenApiPropertyA
 | **Request Bodies** | ✅ Supported | Use `[OpenApiRequestBodyComponent]` classes |
 | **Responses** | ✅ Supported | Use `[OpenApiResponseComponent]` classes |
 | **Parameters** | ✅ Supported | Use `[OpenApiParameterComponent]` classes |
-| **Headers** | ✅ Supported | Use `[OpenApiHeaderComponent]` classes |
-| **Examples** | ✅ Supported | Use `[OpenApiExampleComponent]` classes |
+| **Headers** | ✅ Supported | Use `New-KrOpenApiHeader` + `Add-KrOpenApiComponent`, then reference via `OpenApiResponseHeaderRef` |
+| **Examples** | ✅ Supported | Use `New-KrOpenApiExample` + `Add-KrOpenApiComponent`, then reference via `OpenApiResponseExampleRef` / `OpenApiRequestBodyExampleRef` / `OpenApiParameterExampleRef` |
 | **Inheritance** | ✅ Supported | PowerShell class inheritance works for schemas |
 | **Generics** | 🚧 Partial | Use `Array = $true` for lists |
 | **Webhooks** | ✅ Supported | Use `[OpenApiWebhook]` on functions (top-level `webhooks` in OpenAPI 3.1) |

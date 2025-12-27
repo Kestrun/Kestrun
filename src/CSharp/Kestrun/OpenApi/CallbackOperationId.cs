@@ -8,8 +8,8 @@ namespace Kestrun.OpenApi;
 /// </summary>
 internal static partial class CallbackOperationId
 {
-    private static readonly Regex NonIdChars = MyRegex();
-    private static readonly Regex MultiUnderscore = MyRegex1();
+    private static readonly Regex NonIdChars = NonAlphanumericCharsRegex();
+    private static readonly Regex MultiUnderscore = MultipleUnderscoresRegex();
 
     /// <summary>
     /// Generates a standardized operation ID for an OpenAPI callback based on the callback name, HTTP verb, and route pattern.
@@ -161,7 +161,7 @@ internal static partial class CallbackOperationId
     }
 
     [GeneratedRegex(@"[^A-Za-z0-9_]+", RegexOptions.Compiled)]
-    private static partial Regex MyRegex();
+    private static partial Regex NonAlphanumericCharsRegex();
     [GeneratedRegex(@"_+", RegexOptions.Compiled)]
-    private static partial Regex MyRegex1();
+    private static partial Regex MultipleUnderscoresRegex();
 }

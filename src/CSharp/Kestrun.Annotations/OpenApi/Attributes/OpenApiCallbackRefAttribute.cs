@@ -7,7 +7,7 @@ public sealed class OpenApiCallbackRefAttribute : KestrunAnnotation
     public required string Key { get; set; }
 
     /// <summary>
-    /// The components/responses id
+    /// The components/callbacks id (the ID of the callback component to reference).
     /// </summary>
     public required string ReferenceId { get; set; }
 

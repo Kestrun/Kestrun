@@ -131,7 +131,18 @@ internal static partial class CallbackOperationId
             // Example: "{request.body#/x}" -> "{$request.body#/x}"
             if (expression.Length >= 2 && expression[1] != '$')
             {
-                expression = "{$" + expression[1..];
+                // Prefer to explicitly preserve the closing brace, if present.
+                // Well-formed case: "{inner}" -> "{$inner}"
+                if (expression[^1] == '}')
+                {
+                    var inner = expression.Length > 2 ? expression[1..^1] : string.Empty;
+                    expression = "{$" + inner + "}";
+                }
+                else
+                {
+                    // Malformed case without trailing '}' – fall back to prior behavior
+                    expression = "{$" + expression[1..];
+                }
             }
         }
         else

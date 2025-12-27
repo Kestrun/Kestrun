@@ -180,12 +180,14 @@ public partial class OpenApiDocDescriptor
             parsedVerb = HttpVerbExtensions.FromMethodString(httpVerb);
             routeOptions.HttpVerbs.Add(parsedVerb);
         }
-        if (string.IsNullOrWhiteSpace(oaPath.Pattern))
+
+        var pattern = oaPath.Pattern;
+        if (string.IsNullOrWhiteSpace(pattern))
         {
             throw new InvalidOperationException("OpenApiPath attribute must specify a non-empty Pattern property.");
         }
         // Apply pattern, summary, description, tags
-        routeOptions.Pattern = oaPath.Pattern;
+        routeOptions.Pattern = pattern;
         metadata.Summary = ChooseFirstNonEmpty(oaPath.Summary, help.GetSynopsis());
         metadata.Description = ChooseFirstNonEmpty(oaPath.Description, help.GetDescription());
         metadata.Tags = [.. oaPath.Tags];
@@ -195,46 +197,96 @@ public partial class OpenApiDocDescriptor
         // Apply document ID if specified
         metadata.DocumentId = oaPath.DocumentId;
 
-        // Determine if it's a path or webhook
-        if (oaPath is OpenApiPathAttribute oaPathConcrete)
+        switch (oaPath)
         {
-            metadata.Pattern = oaPath.Pattern;
-            metadata.PathLikeKind = OpenApiPathLikeKind.Path;
-            if (!string.IsNullOrWhiteSpace(oaPathConcrete.CorsPolicy))
-            {  // Apply Cors policy name if specified
-                routeOptions.CorsPolicy = oaPathConcrete.CorsPolicy;
-            }
-            metadata.OperationId = oaPath.OperationId is null
-          ? func.Name
-          : string.IsNullOrWhiteSpace(oaPath.OperationId) ? metadata.OperationId : oaPath.OperationId;
-        }
-        else if (oaPath is OpenApiWebhookAttribute)
-        {
-            metadata.Pattern = oaPath.Pattern;
-            metadata.PathLikeKind = OpenApiPathLikeKind.Webhook;
-            metadata.OperationId = oaPath.OperationId is null
-          ? func.Name
-          : string.IsNullOrWhiteSpace(oaPath.OperationId) ? metadata.OperationId : oaPath.OperationId;
-        }
-        else if (oaPath is OpenApiCallbackAttribute oaCallback)
-        {
-            // Callbacks are neither paths nor webhooks
-            metadata.PathLikeKind = OpenApiPathLikeKind.Callback;
-            if (string.IsNullOrWhiteSpace(oaCallback.Expression))
-            {
-                throw new InvalidOperationException("OpenApiCallback attribute must specify a non-empty Expression property.");
-            }
-            // Callbacks must have an expression
-            metadata.Expression = CallbackOperationId.BuildCallbackKey(oaCallback.Expression, oaPath.Pattern);
-            metadata.Inline = oaCallback.Inline;
-            //  RuntimeExpression.Build($"{{{oaPath.Pattern}}}{oaCallback.Expression}");
-            metadata.Pattern = func.Name;
-            metadata.OperationId = oaPath.OperationId is null
-          ? CallbackOperationId.FromLastSegment(func.Name, httpVerb, oaCallback.Expression)
-          : string.IsNullOrWhiteSpace(oaPath.OperationId) ? CallbackOperationId.FromLastSegment(func.Name, httpVerb, oaCallback.Expression) : oaPath.OperationId;
+            case OpenApiPathAttribute oaPathConcrete:
+                ApplyPathLikePath(func, routeOptions, metadata, oaPathConcrete, pattern);
+                break;
+            case OpenApiWebhookAttribute oaWebhook:
+                ApplyPathLikeWebhook(func, metadata, oaWebhook, pattern);
+                break;
+            case OpenApiCallbackAttribute oaCallback:
+                ApplyPathLikeCallback(func, metadata, oaCallback, httpVerb, pattern);
+                break;
         }
 
         return parsedVerb;
+    }
+
+    /// <summary>
+    /// Applies the OpenApiPath attribute to the function's route options and metadata for a standard path.
+    /// </summary>
+    /// <param name="func">The function information.</param>
+    /// <param name="routeOptions">The route options to configure.</param>
+    /// <param name="metadata">The OpenAPI metadata to populate.</param>
+    /// <param name="oaPath">The OpenApiPath attribute instance.</param>
+    /// <param name="pattern">The route pattern.</param>
+    private static void ApplyPathLikePath(
+        FunctionInfo func,
+        MapRouteOptions routeOptions,
+        OpenAPIPathMetadata metadata,
+        OpenApiPathAttribute oaPath,
+        string pattern)
+    {
+        metadata.Pattern = pattern;
+        metadata.PathLikeKind = OpenApiPathLikeKind.Path;
+        if (!string.IsNullOrWhiteSpace(oaPath.CorsPolicy))
+        {
+            // Apply Cors policy name if specified
+            routeOptions.CorsPolicy = oaPath.CorsPolicy;
+        }
+
+        metadata.OperationId = oaPath.OperationId is null
+            ? func.Name
+            : string.IsNullOrWhiteSpace(oaPath.OperationId) ? metadata.OperationId : oaPath.OperationId;
+    }
+    /// <summary>
+    /// Applies the OpenApiWebhook attribute to the function's OpenAPI metadata.
+    /// </summary>
+    /// <param name="func">The function information.</param>
+    /// <param name="metadata">The OpenAPI metadata to populate.</param>
+    /// <param name="oaPath">The OpenApiWebhook attribute instance.</param>
+    /// <param name="pattern">The route pattern.</param>
+    private static void ApplyPathLikeWebhook(FunctionInfo func, OpenAPIPathMetadata metadata, OpenApiWebhookAttribute oaPath, string pattern)
+    {
+        metadata.Pattern = pattern;
+        metadata.PathLikeKind = OpenApiPathLikeKind.Webhook;
+        metadata.OperationId = oaPath.OperationId is null
+            ? func.Name
+            : string.IsNullOrWhiteSpace(oaPath.OperationId) ? metadata.OperationId : oaPath.OperationId;
+    }
+
+    /// <summary>
+    /// Applies the OpenApiCallback attribute to the function's OpenAPI metadata.
+    /// </summary>
+    /// <param name="func">The function information.</param>
+    /// <param name="metadata">The OpenAPI metadata to populate.</param>
+    /// <param name="oaCallback">The OpenApiCallback attribute instance.</param>
+    /// <param name="httpVerb">The HTTP verb associated with the callback.</param>
+    /// <param name="callbackPattern">The callback route pattern.</param>
+    /// <exception cref="InvalidOperationException">Thrown when the Expression property of the OpenApiCallback attribute is null or whitespace.</exception>
+    private static void ApplyPathLikeCallback(
+        FunctionInfo func,
+        OpenAPIPathMetadata metadata,
+        OpenApiCallbackAttribute oaCallback,
+        string httpVerb,
+        string callbackPattern)
+    {
+        // Callbacks are neither paths nor webhooks
+        metadata.PathLikeKind = OpenApiPathLikeKind.Callback;
+        if (string.IsNullOrWhiteSpace(oaCallback.Expression))
+        {
+            throw new InvalidOperationException("OpenApiCallback attribute must specify a non-empty Expression property.");
+        }
+        // Callbacks must have an expression
+        metadata.Expression = CallbackOperationId.BuildCallbackKey(oaCallback.Expression, callbackPattern);
+        metadata.Inline = oaCallback.Inline;
+        metadata.Pattern = func.Name;
+        metadata.OperationId = oaCallback.OperationId is null
+            ? CallbackOperationId.FromLastSegment(func.Name, httpVerb, oaCallback.Expression)
+            : string.IsNullOrWhiteSpace(oaCallback.OperationId)
+                ? CallbackOperationId.FromLastSegment(func.Name, httpVerb, oaCallback.Expression)
+                : oaCallback.OperationId;
     }
 
     /// <summary>
@@ -720,7 +772,7 @@ public partial class OpenApiDocDescriptor
         HttpVerb parsedVerb)
     {
         metadata.DocumentId ??= Host.OpenApiDocumentIds;
-        var documentIds = metadata.DocumentId!;
+        var documentIds = metadata.DocumentId;
         if (metadata.IsOpenApiPath)
         {
             FinalizePathRouteOptions(func, sb, metadata, routeOptions, parsedVerb);

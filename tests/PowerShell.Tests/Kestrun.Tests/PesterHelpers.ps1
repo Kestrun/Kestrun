@@ -1210,7 +1210,7 @@ function Get-SignalRMessage {
     } catch {
         throw ('Negotiate failed for {0}: {1}' -f $negotiateUrl, $_.Exception.Message)
     } finally {
-        try { $http.Dispose() } catch { Write-Warning ("Failed to dispose HttpClient: $($_.Exception.Message)") }
+        try { $http.Dispose() } catch { Write-Warning ('Failed to dispose HttpClient: {0}' -f $_.Exception.Message) }
     }
     $neg = $negRaw | ConvertFrom-Json
     # Prefer connectionToken when present; fall back to connectionId

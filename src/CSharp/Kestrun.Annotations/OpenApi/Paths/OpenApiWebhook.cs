@@ -1,5 +1,5 @@
 /// <summary>
-/// Attribute to specify OpenAPI path metadata for a route.
+/// Attribute to specify OpenAPI metadata for a webhook (top-level event notification), not a standard API route.
 /// </summary>
 [AttributeUsage(AttributeTargets.Method, Inherited = false, AllowMultiple = true)]
 public sealed class OpenApiWebhookAttribute : KestrunAnnotation, IOpenApiPathAttribute

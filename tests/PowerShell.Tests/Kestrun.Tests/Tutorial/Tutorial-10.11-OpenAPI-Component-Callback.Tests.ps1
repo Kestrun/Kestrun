@@ -77,49 +77,6 @@ Describe 'Example 10.11 Component Callback' -Tag 'Tutorial', 'OpenApi', 'Slow' {
         $callbackKeys | Should -Contain 'reservation'
         $callbackKeys | Should -Contain 'shippingOrder'
 
-        function Get-CallbackRequestSchemaRefs {
-            param(
-                [Parameter(Mandatory)][hashtable]$Doc,
-                [Parameter(Mandatory)]$Callback
-            )
-
-            # Resolve callback references (e.g. {"$ref":"#/components/callbacks/reservationCallback"})
-            if ($Callback.ContainsKey('$ref')) {
-                $ref = [string]$Callback['$ref']
-                if ($ref -match '^#/components/callbacks/(?<name>.+)$') {
-                    $callbackName = $Matches['name']
-                    $Callback = $Doc.components.callbacks[$callbackName]
-                }
-            }
-
-            if ($null -eq $Callback) { return @() }
-
-            $refs = @()
-
-            foreach ($expressionKey in $Callback.Keys) {
-                $pathItems = $Callback[$expressionKey]
-                foreach ($pathKey in $pathItems.Keys) {
-                    $pathItem = $pathItems[$pathKey]
-
-                    # Path item object: { post: { requestBody: { content: ... } } }
-                    $postOp = $pathKey
-                    if ($null -eq $postOp) { continue }
-
-                    $content = $pathItem.requestBody.content
-                    if ($null -eq $content) { continue }
-
-                    foreach ($ct in $content.Keys) {
-                        $schema = $content[$ct].schema
-                        if ($null -ne $schema -and $schema.ContainsKey('$ref')) {
-                            $refs += $schema['$ref']
-                        }
-                    }
-                }
-            }
-
-            return $refs
-        }
-
         @(
             (Get-CallbackRequestSchemaRefs -Doc $doc -Callback $post.callbacks.paymentStatus),
             (Get-CallbackRequestSchemaRefs -Doc $doc -Callback $post.callbacks.reservation),
@@ -140,4 +97,3 @@ Describe 'Example 10.11 Component Callback' -Tag 'Tutorial', 'OpenApi', 'Slow' {
         $get.description | Should -Match 'retrieve a payment'
     }
 }
-

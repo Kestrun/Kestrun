@@ -1176,7 +1176,21 @@ function Get-SignalRMessage {
         [object]$OnConnectedArg                             # optional argument passed to OnConnected
     )
 
+
     function Get-PropValue($obj, [string]$name) {
+        <#
+    .SYNOPSIS
+        Retrieves a property value from an object or hashtable, case-insensitively.
+    .DESCRIPTION
+        This helper function extracts a property value from a given object or hashtable,
+        performing a case-insensitive search for the property name.
+    .PARAMETER obj
+        The object or hashtable from which to retrieve the property value.
+    .PARAMETER name
+        The name of the property to retrieve (case-insensitive).
+    .OUTPUTS
+        The value of the specified property, or $null if not found.
+    #>
         if ($null -eq $obj) { return $null }
         if ($obj -is [hashtable]) {
             $key = $obj.Keys | Where-Object { $_ -is [string] -and $_.ToString() -ieq $name } | Select-Object -First 1
@@ -1196,7 +1210,7 @@ function Get-SignalRMessage {
     } catch {
         throw ('Negotiate failed for {0}: {1}' -f $negotiateUrl, $_.Exception.Message)
     } finally {
-        try { $http.Dispose() } catch {}
+        try { $http.Dispose() } catch { Write-Warning ("Failed to dispose HttpClient: $($_.Exception.Message)") }
     }
     $neg = $negRaw | ConvertFrom-Json
     # Prefer connectionToken when present; fall back to connectionId
@@ -1315,9 +1329,13 @@ function Get-SignalRMessage {
 
         return $messages
     } finally {
-        try { if ($socket.State -eq [System.Net.WebSockets.WebSocketState]::Open) { $socket.CloseAsync([System.Net.WebSockets.WebSocketCloseStatus]::NormalClosure, 'done', $cts.Token).Wait() } } catch {}
-        try { $socket.Dispose() } catch {}
-        try { $cts.Dispose() } catch {}
+        try {
+            if ($socket.State -eq [System.Net.WebSockets.WebSocketState]::Open) {
+                $socket.CloseAsync([System.Net.WebSockets.WebSocketCloseStatus]::NormalClosure, 'done', $cts.Token).Wait()
+            }
+        } catch { Write-Warning ("Failed to close SignalR socket: $($_.Exception.Message)") }
+        try { $socket.Dispose() } catch { Write-Warning ("Failed to dispose SignalR socket: $($_.Exception.Message)") }
+        try { $cts.Dispose() } catch { Write-Warning ("Failed to dispose SignalR CTS: $($_.Exception.Message)") }
     }
 }
 
@@ -1770,7 +1788,7 @@ function Get-HttpHeadersRaw {
     try {
         if ($u.Scheme -eq 'https') {
             $cb = if ($Insecure) {
-                [System.Net.Security.RemoteCertificateValidationCallback] { param($s, $c, $ch, $e) $true }
+                [System.Net.Security.RemoteCertificateValidationCallback] { $true }
             } else { $null }
 
             $ssl = [System.Net.Security.SslStream]::new($netStream, $false, $cb)
@@ -2212,4 +2230,61 @@ function Get-CsrfToken {
     ($payload.headerName ?? 'X-CSRF-TOKEN') | Should -Be 'X-CSRF-TOKEN'
 
     return $payload.token
+}
+
+<#
+.SYNOPSIS
+    Extract schema $ref strings from callback request bodies in an OpenAPI document.
+.DESCRIPTION
+    This function processes a callback object from an OpenAPI document and extracts all schema
+    $ref strings found in the request bodies of the operations defined within the callback.
+.PARAMETER Doc
+    The OpenAPI document as a hashtable or PSCustomObject.
+.PARAMETER Callback
+    The callback object to process, which may be a reference or an inline definition.
+.OUTPUTS
+    An array of schema $ref strings found in the callback request bodies.
+#>
+function Get-CallbackRequestSchemaRefs {
+    param(
+        [Parameter(Mandatory)][System.Collections.IDictionary]$Doc,
+        [Parameter(Mandatory)]$Callback
+    )
+
+    # Resolve callback references (e.g. {"$ref":"#/components/callbacks/reservationCallback"})
+    if ($Callback -is [System.Collections.IDictionary] -and (@($Callback.Keys) -contains '$ref')) {
+        $ref = [string]$Callback['$ref']
+        if ($ref -match '^#/components/callbacks/(?<name>.+)$') {
+            $callbackName = $Matches['name']
+            $Callback = $Doc.components.callbacks[$callbackName]
+        }
+    }
+
+    if ($null -eq $Callback) { return @() }
+
+    $refs = @()
+
+    foreach ($expressionKey in $Callback.Keys) {
+        $pathItems = $Callback[$expressionKey]
+        foreach ($pathKey in $pathItems.Keys) {
+            # Here $pathKey is the HTTP verb (typically 'post') and the value is the operation object.
+            $operation = $pathItems[$pathKey]
+            if ($null -eq $operation) { continue }
+
+            $requestBody = $operation['requestBody']
+            if ($null -eq $requestBody) { continue }
+
+            $content = $requestBody['content']
+            if ($null -eq $content) { continue }
+
+            foreach ($ct in $content.Keys) {
+                $schema = $content[$ct]['schema']
+                if ($null -ne $schema -and ($schema -is [System.Collections.IDictionary]) -and (@($schema.Keys) -contains '$ref')) {
+                    $refs += [string]$schema['$ref']
+                }
+            }
+        }
+    }
+
+    return $refs
 }

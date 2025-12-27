@@ -36,14 +36,6 @@ public partial class OpenApiDocDescriptor
         {
             ProcessFunction(func);
         }
-        /*       var sorted = cmdInfos
-          .OrderByDescending(f => f.ScriptBlock.Attributes?.Any(a => a is OpenApiCallbackAttribute) == true);
-      // Process callbacks first to ensure they are available for reference
-      foreach (var func in sorted)
-      {
-          ProcessFunction(func);
-          BuildCallbacks(Callbacks);
-      }*/
     }
 
     /// <summary>

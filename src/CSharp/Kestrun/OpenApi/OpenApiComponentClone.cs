@@ -568,7 +568,7 @@ public static class OpenApiComponentClone
     /// Clones an OpenApiCallbackReference instance.
     /// </summary>
     /// <param name="callback">The OpenApiCallbackReference to clone.</param>
-    /// <returns>A new OpenApiCallbackReference instance with the same properties as the input callback .</returns>
+    /// <returns>A new OpenApiCallbackReference instance with the same properties as the input callback.</returns>
     public static OpenApiCallbackReference Clone(this OpenApiCallbackReference callback)
     {
         var clone = new OpenApiCallbackReference(callback.Reference.Id!);

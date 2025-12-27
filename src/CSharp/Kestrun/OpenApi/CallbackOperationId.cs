@@ -40,8 +40,8 @@ internal static partial class CallbackOperationId
 
         // Example: "/order/status/{orderId}" -> "order_status_orderId"
         var suffix = pattern.Trim();
-        suffix = suffix.StartsWith("/") ? suffix[1..] : suffix;
-        suffix = suffix.Replace("/", "_")
+        suffix = suffix.StartsWith('/') ? suffix[1..] : suffix;
+        suffix = suffix.Replace('/', '_')
                        .Replace("{", "")
                        .Replace("}", "");
 

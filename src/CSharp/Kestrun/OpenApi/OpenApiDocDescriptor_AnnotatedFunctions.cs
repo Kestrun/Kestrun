@@ -681,6 +681,7 @@ public partial class OpenApiDocDescriptor
         routeOptions.ScriptCode.Parameters.Add(new ParameterForInjectionInfo(paramInfo, componentRequestBody));
     }
     #endregion
+
     /// <summary>
     /// Ensures that the OpenAPIPathMetadata has default responses defined.
     /// </summary>
@@ -719,53 +720,116 @@ public partial class OpenApiDocDescriptor
         HttpVerb parsedVerb)
     {
         metadata.DocumentId ??= Host.OpenApiDocumentIds;
+        var documentIds = metadata.DocumentId!;
         if (metadata.IsOpenApiPath)
         {
-            routeOptions.OpenAPI.Add(parsedVerb, metadata);
-
-            if (string.IsNullOrWhiteSpace(routeOptions.Pattern))
-            {
-                routeOptions.Pattern = "/" + func.Name;
-            }
-
-            if (!string.IsNullOrWhiteSpace(metadata.CorsPolicy))
-            {
-                routeOptions.CorsPolicy = metadata.CorsPolicy;
-            }
-
-            routeOptions.ScriptCode.ScriptBlock = sb;
-            routeOptions.DefaultResponseContentType = "application/json";
-            _ = Host.AddMapRoute(routeOptions);
+            FinalizePathRouteOptions(func, sb, metadata, routeOptions, parsedVerb);
+            return;
         }
-        else if (metadata.IsOpenApiWebhook)
+
+        if (metadata.IsOpenApiWebhook)
         {
-            foreach (var docId in metadata.DocumentId)
-            {
-                if (!Host.OpenApiDocumentDescriptor.TryGetValue(docId, out var docdesc))
-                {
-                    throw new InvalidOperationException($"The OpenAPI document ID '{docId}' specified in the OpenApiWebhook attribute does not exist in the Kestrun host.");
-                }
-                if (!PsScriptBlockValidation.IsParamLast(sb))
-                {
-                    throw new InvalidOperationException($"The ScriptBlock for webhook function '{func.Name}' must contain only a param() block with no executable statements.");
-                }
-                _ = docdesc.WebHook.TryAdd((metadata.Pattern, parsedVerb), metadata);
-            }
+            RegisterWebhook(func, sb, metadata, parsedVerb, documentIds);
+            return;
         }
-        else if (metadata.IsOpenApiCallback)
+
+        if (metadata.IsOpenApiCallback)
         {
-            foreach (var docId in metadata.DocumentId)
-            {
-                if (!Host.OpenApiDocumentDescriptor.TryGetValue(docId, out var docdesc))
-                {
-                    throw new InvalidOperationException($"The OpenAPI document ID '{docId}' specified in the OpenApiCallback attribute does not exist in the Kestrun host.");
-                }
-                if (!PsScriptBlockValidation.IsParamLast(sb))
-                {
-                    throw new InvalidOperationException($"The ScriptBlock for callback function '{func.Name}' must contain only a param() block with no executable statements.");
-                }
-                _ = docdesc.Callbacks.TryAdd((metadata.Pattern, parsedVerb), metadata);
-            }
+            RegisterCallback(func, sb, metadata, parsedVerb, documentIds);
+        }
+    }
+
+    /// <summary>
+    /// Finalizes the route options for a standard OpenAPI path.
+    /// </summary>
+    /// <param name="func">The function information.</param>
+    /// <param name="sb">The script block.</param>
+    /// <param name="metadata">The OpenAPI metadata.</param>
+    /// <param name="routeOptions">The route options to update.</param>
+    /// <param name="parsedVerb">The HTTP verb parsed from the function.</param>
+    private void FinalizePathRouteOptions(
+        FunctionInfo func,
+        ScriptBlock sb,
+        OpenAPIPathMetadata metadata,
+        MapRouteOptions routeOptions,
+        HttpVerb parsedVerb)
+    {
+        routeOptions.OpenAPI.Add(parsedVerb, metadata);
+
+        if (string.IsNullOrWhiteSpace(routeOptions.Pattern))
+        {
+            routeOptions.Pattern = "/" + func.Name;
+        }
+
+        if (!string.IsNullOrWhiteSpace(metadata.CorsPolicy))
+        {
+            routeOptions.CorsPolicy = metadata.CorsPolicy;
+        }
+
+        routeOptions.ScriptCode.ScriptBlock = sb;
+        routeOptions.DefaultResponseContentType = "application/json";
+        _ = Host.AddMapRoute(routeOptions);
+    }
+    /// <summary>
+    /// Registers a webhook in the OpenAPI document descriptors.
+    /// </summary>
+    /// <param name="func">The function information.</param>
+    /// <param name="sb">The script block.</param>
+    /// <param name="metadata">The OpenAPI path metadata.</param>
+    /// <param name="parsedVerb">The HTTP verb parsed from the function.</param>
+    /// <param name="documentIds">The collection of OpenAPI document IDs.</param>
+    private void RegisterWebhook(FunctionInfo func, ScriptBlock sb, OpenAPIPathMetadata metadata, HttpVerb parsedVerb, IEnumerable<string> documentIds)
+    {
+        EnsureParamOnlyScriptBlock(func, sb, kind: "webhook");
+        foreach (var docId in documentIds)
+        {
+            var docdesc = GetDocDescriptorOrThrow(docId, attributeName: "OpenApiWebhook");
+            _ = docdesc.WebHook.TryAdd((metadata.Pattern, parsedVerb), metadata);
+        }
+    }
+    /// <summary>
+    /// Registers a callback in the OpenAPI document descriptors.
+    /// </summary>
+    /// <param name="func">The function information.</param>
+    /// <param name="sb">The script block.</param>
+    /// <param name="metadata">The OpenAPI path metadata.</param>
+    /// <param name="parsedVerb">The HTTP verb parsed from the function.</param>
+    /// <param name="documentIds">The collection of OpenAPI document IDs.</param>
+    private void RegisterCallback(FunctionInfo func, ScriptBlock sb, OpenAPIPathMetadata metadata, HttpVerb parsedVerb, IEnumerable<string> documentIds)
+    {
+        EnsureParamOnlyScriptBlock(func, sb, kind: "callback");
+        foreach (var docId in documentIds)
+        {
+            var docdesc = GetDocDescriptorOrThrow(docId, attributeName: "OpenApiCallback");
+            _ = docdesc.Callbacks.TryAdd((metadata.Pattern, parsedVerb), metadata);
+        }
+    }
+
+    /// <summary>
+    /// Retrieves the OpenApiDocDescriptor for the specified document ID or throws an exception if not found.
+    /// </summary>
+    /// <param name="docId">The document ID to look up.</param>
+    /// <param name="attributeName">The name of the attribute requesting the document.</param>
+    /// <returns>The corresponding OpenApiDocDescriptor.</returns>
+    private OpenApiDocDescriptor GetDocDescriptorOrThrow(string docId, string attributeName)
+    {
+        return Host.OpenApiDocumentDescriptor.TryGetValue(docId, out var docdesc)
+            ? docdesc
+            : throw new InvalidOperationException($"The OpenAPI document ID '{docId}' specified in the {attributeName} attribute does not exist in the Kestrun host.");
+    }
+
+    /// <summary>
+    /// Ensures that the ScriptBlock contains only a param() block with no executable statements.
+    /// </summary>
+    /// <param name="func">The function information.</param>
+    /// <param name="sb">The ScriptBlock to validate.</param>
+    /// <param name="kind">The kind of function (e.g., "webhook" or "callback").</param>
+    /// <exception cref="InvalidOperationException">Thrown if the ScriptBlock contains executable statements other than a param() block.</exception>
+    private static void EnsureParamOnlyScriptBlock(FunctionInfo func, ScriptBlock sb, string kind)
+    {
+        if (!PsScriptBlockValidation.IsParamLast(sb))
+        {
+            throw new InvalidOperationException($"The ScriptBlock for {kind} function '{func.Name}' must contain only a param() block with no executable statements.");
         }
     }
 

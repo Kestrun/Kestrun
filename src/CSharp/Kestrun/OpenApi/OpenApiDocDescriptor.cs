@@ -52,7 +52,7 @@ public partial class OpenApiDocDescriptor
     public Dictionary<(string Pattern, HttpVerb Method), OpenAPIPathMetadata> WebHook { get; set; } = [];
 
     /// <summary>
-    /// OpenAPI metadata  forcallbacks associated with this document.
+    /// OpenAPI metadata for callbacks associated with this document.
     /// </summary>
     public Dictionary<(string Pattern, HttpVerb Method), OpenAPIPathMetadata> Callbacks { get; set; } = [];
 

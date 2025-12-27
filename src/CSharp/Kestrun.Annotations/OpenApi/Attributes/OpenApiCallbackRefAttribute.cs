@@ -12,7 +12,7 @@ public sealed class OpenApiCallbackRefAttribute : KestrunAnnotation
     public required string ReferenceId { get; set; }
 
     /// <summary>
-    /// If true, the schema will be inlined rather than referenced.
+    /// If true, the callback will be inlined rather than referenced.
     /// </summary>
     public bool Inline { get; set; }
 }

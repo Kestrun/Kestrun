@@ -274,11 +274,9 @@ public partial class OpenApiDocDescriptor
         metadata.Expression = CallbackOperationId.BuildCallbackKey(oaCallback.Expression, callbackPattern);
         metadata.Inline = oaCallback.Inline;
         metadata.Pattern = func.Name;
-        metadata.OperationId = oaCallback.OperationId is null
-            ? CallbackOperationId.FromLastSegment(func.Name, httpVerb, oaCallback.Expression)
-            : string.IsNullOrWhiteSpace(oaCallback.OperationId)
-                ? CallbackOperationId.FromLastSegment(func.Name, httpVerb, oaCallback.Expression)
-                : oaCallback.OperationId;
+        metadata.OperationId = string.IsNullOrWhiteSpace(oaCallback.OperationId)
+           ? CallbackOperationId.FromLastSegment(func.Name, httpVerb, oaCallback.Expression)
+           : oaCallback.OperationId;
     }
 
     /// <summary>

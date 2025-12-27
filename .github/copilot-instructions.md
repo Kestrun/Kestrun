@@ -402,3 +402,7 @@ Please include:
 - Repro steps and expected vs. actual behavior
 - Versions: OS, PowerShell (must be 7.4+), .NET SDK
 - Logs, stack traces, and minimal code samples
+
+
+## Openapi example instructions
+Comment-based help (SYNOPSIS/DESCRIPTION/PARAMETER) are used by kestrun to fill the OpenAPI summary/description for each route.

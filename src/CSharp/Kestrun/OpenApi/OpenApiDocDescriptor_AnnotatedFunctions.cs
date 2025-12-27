@@ -20,7 +20,8 @@ public partial class OpenApiDocDescriptor
     {
         ArgumentNullException.ThrowIfNull(cmdInfos);
         var callbacks = cmdInfos
-            .Where(f => f.ScriptBlock.Attributes?.Any(a => a is OpenApiCallbackAttribute) == true);
+              .Where(f => f.ScriptBlock.Attributes == null
+                        || !f.ScriptBlock.Attributes.Any(a => a is OpenApiCallbackAttribute));
 
         var others = cmdInfos
             .Where(f => f.ScriptBlock.Attributes?.All(a => a is not OpenApiCallbackAttribute) != false);

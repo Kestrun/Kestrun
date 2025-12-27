@@ -128,8 +128,8 @@ public partial class OpenApiDocDescriptor
     /// <summary>
     /// Generates the OpenAPI document by processing components and building paths and webhooks.
     /// </summary>
-    /// <marks> BuildCallbacks is already handled elsewhere. </marks>
-    /// <marks> This method sets HasBeenGenerated to true after generation.</marks>
+    /// <remarks>BuildCallbacks is already handled elsewhere.</remarks>
+    /// <remarks>This method sets HasBeenGenerated to true after generation.</remarks> 
     public void GenerateDoc()
     {
         // First, generate components

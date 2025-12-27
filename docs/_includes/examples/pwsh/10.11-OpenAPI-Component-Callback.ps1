@@ -116,16 +116,18 @@ class ShippingOrderCreatedEvent {
     [string]$shippingOrderId
 }
 
-# =========================================================
-#                 ROUTES / OPERATIONS
-# =========================================================
 
+# =========================================================
+#                 ENABLE KR CONFIGURATION
+# =========================================================
 Enable-KrConfiguration
 
 Add-KrApiDocumentationRoute -DocumentType Swagger
 Add-KrApiDocumentationRoute -DocumentType Redoc
 
-# Callback component definitions for payment-related events
+# =========================================================
+#                 CALLBACKS COMPONENTS
+# =========================================================
 
 <#
 .SYNOPSIS
@@ -203,6 +205,10 @@ function shippingOrderCallback {
         [ShippingOrderCreatedEvent]$Body
     )
 }
+
+# =========================================================
+#                 ROUTES / OPERATIONS
+# =========================================================
 
 <#
 .SYNOPSIS

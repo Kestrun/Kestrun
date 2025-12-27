@@ -1,9 +1,13 @@
 /// <summary>
-/// Attribute to specify OpenAPI path metadata for a route.
+/// Specifies OpenAPI callback metadata for a Kestrun function.
 /// </summary>
 [AttributeUsage(AttributeTargets.Method, Inherited = false, AllowMultiple = true)]
-public sealed class OpenApiPathAttribute : KestrunAnnotation, IOpenApiPathAttribute
+public sealed class OpenApiCallbackAttribute : KestrunAnnotation, IOpenApiPathAttribute
 {
+    /// <summary>
+    /// The callback expression for the OpenAPI callback object.
+    /// </summary>
+    public string? Expression { get; init; }
     /// <inheritdoc/>
     public string? HttpVerb { get; set; }
 
@@ -29,7 +33,7 @@ public sealed class OpenApiPathAttribute : KestrunAnnotation, IOpenApiPathAttrib
     public string[]? DocumentId { get; set; }
 
     /// <summary>
-    /// The CORS policy name for the route in OpenAPI documentation.
+    /// Indicates whether the callback should be inlined within the parent OpenAPI document.
     /// </summary>
-    public string? CorsPolicy { get; set; }
+    public bool Inline { get; set; }
 }

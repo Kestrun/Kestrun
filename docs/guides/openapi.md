@@ -29,9 +29,11 @@ Focus areas:
 | **Request Body**     | A class decorated with `[OpenApiRequestBodyComponent]`. Defines payload structure. |
 | **Response**         | A class decorated with `[OpenApiResponseComponent]`. Defines response structure. |
 | **Parameter**        | A class decorated with `[OpenApiParameterComponent]`. Defines reusable parameters. |
+| **Callback**         | An operation-scoped async notification defined under `paths.{path}.{verb}.callbacks` (OpenAPI 3.1). |
 | **Webhook**          | A top-level OpenAPI webhook entry describing an outgoing event notification your API may send to subscribers. |
 | **Property Attribute**| `[OpenApiPropertyAttribute]` on class properties defines validation, examples, and descriptions. |
 | **Route Attribute**  | `[OpenApiPath]` on functions defines the HTTP method and route pattern. |
+| **Callback Attribute**| `[OpenApiCallback]` / `[OpenApiCallbackRef]` on functions describe callback requests the API may send as part of an operation. |
 | **Webhook Attribute**| `[OpenApiWebhook]` on functions defines a webhook and its request body schema for an event notification. |
 
 ---
@@ -146,6 +148,99 @@ function orderCreatedWebhook {
 
 ---
 
+## 3.2 Callbacks (Operation-scoped async notifications)
+
+OpenAPI **callbacks** document requests that your API may send **as part of handling a specific operation**.
+They live under `paths.{path}.{verb}.callbacks` and are typically driven by a **callback URL supplied by the client**
+(often inside the request body).
+
+This is different from **webhooks**, which are **top-level** event notifications that are not tied to a single operation.
+
+### 3.2.1 Typical pattern (PowerShell)
+
+1. The client calls an operation like `POST /v1/payments` and includes callback URLs in the request body.
+2. The API documents one or more callback requests using:
+   - `[OpenApiCallback]` to declare the callback operation
+   - `[OpenApiCallbackRef]` to attach it to the main operation under `callbacks`
+
+In Kestrun, callbacks can be declared inline or as reusable callback components under `components.callbacks`.
+
+### 3.2.2 Example (payment create + callbacks)
+
+```powershell
+# Callback event payload
+[OpenApiSchemaComponent(Required = ('eventId', 'timestamp', 'paymentId', 'status'))]
+class PaymentStatusChangedEvent {
+    [OpenApiPropertyAttribute(Format = 'uuid')]
+    [string]$eventId
+
+    [OpenApiPropertyAttribute(Format = 'date-time')]
+    [datetime]$timestamp
+
+    [OpenApiPropertyAttribute(Example = 'PAY-12345678')]
+    [string]$paymentId
+
+    [ValidateSet('authorized', 'captured', 'failed')]
+    [string]$status
+}
+
+<#
+.SYNOPSIS
+    Payment Status Callback (component)
+.DESCRIPTION
+    Provider calls the consumer back when a payment status changes.
+.PARAMETER paymentId
+    The ID of the payment
+.PARAMETER Body
+    The callback event payload
+#>
+function paymentStatusCallback {
+    [OpenApiCallback(
+        Expression = '$request.body#/callbackUrls/status',
+        HttpVerb = 'post',
+        Pattern = '/v1/payments/{paymentId}/status',
+        Inline = $true
+    )]
+    param(
+        [OpenApiParameter(In = 'path', Required = $true)]
+        [string]$paymentId,
+
+        [OpenApiRequestBody(ContentType = 'application/json')]
+        [PaymentStatusChangedEvent]$Body
+    )
+}
+
+<#
+.SYNOPSIS
+    Create a payment.
+.DESCRIPTION
+    Creates a new payment and documents callbacks.
+.PARAMETER body
+    Payment creation request including callback URLs.
+#>
+function createPayment {
+    [OpenApiPath(HttpVerb = 'post', Pattern = '/v1/payments')]
+    [OpenApiResponse(StatusCode = '201', Description = 'Payment created')]
+    [OpenApiCallbackRef(Key = 'paymentStatus', ReferenceId = 'paymentStatusCallback', Inline = $true)]
+    param(
+        [OpenApiRequestBody(ContentType = 'application/json')]
+        [object]$body
+    )
+
+    Write-KrJsonResponse @{ paymentId = 'PAY-12345678'; status = 'pending' } -StatusCode 201
+}
+```
+
+### 3.2.3 Generate & view
+
+1. Register OpenAPI generation: `Add-KrOpenApiRoute`
+1. Build and validate: `Build-KrOpenApiDocument` and `Test-KrOpenApiDocument`
+1. Fetch the document and confirm callbacks exist:
+
+   - `/openapi/v3.1/openapi.json`
+
+For a complete runnable example, see the tutorial sample `10.11-OpenAPI-Component-Callback.ps1`.
+
 ## 4. Component Schemas
 
 Use `[OpenApiSchemaComponent]` to define reusable data models.
@@ -214,7 +309,7 @@ class ProductSchema {
 class CreateProductRequest : ProductSchema {}
 ```
 
-**Usage in Route:**
+### Usage in Route (Request Bodies)
 
 ```powershell
 function createProduct {
@@ -242,7 +337,7 @@ class ErrorResponse {
 }
 ```
 
-**Usage in Route:**
+### Usage in Route (Responses)
 
 ```powershell
 function getProduct {
@@ -272,7 +367,7 @@ class PaginationParams {
 }
 ```
 
-**Usage in Route:**
+### Usage in Route (Parameters)
 
 ```powershell
 function listItems {
@@ -472,7 +567,7 @@ function createUser {
 5. **Test**: `Test-KrOpenApiDocument`
 6. **Start**: `Start-KrServer ...`
 
-Access the UI at `/swagger`, `/redoc`, etc., and the raw JSON at `/openapi/v1/openapi.json`.
+Access the UI at `/swagger`, `/redoc`, etc., and the raw JSON at `/openapi/v3.1/openapi.json`.
 
 > **Note on CORS**: If you plan to host the Swagger UI or other documentation viewers on a different domain or port than your API, you must enable
 > Cross-Origin Resource Sharing (CORS) in your Kestrun server configuration to allow the browser to fetch the `openapi.json` file.
@@ -499,6 +594,8 @@ Access the UI at `/swagger`, `/redoc`, etc., and the raw JSON at `/openapi/v1/op
 | **`[OpenApiPath]`** | Method | `HttpVerb`, `Pattern`, `Summary`, `Description`, `Tags`, `OperationId`, `Deprecated`, `CorsPolicy` |
 | **`[OpenApiResponse]`** | Method | `StatusCode`, `Description`, `Schema` (Type), `SchemaRef` (String), `ContentType`, `Key`, `Inline` |
 | **`[OpenApiRequestBody]`** | Parameter | `Description`, `ContentType`, `Required`, `Example`, `Inline` |
+| **`[OpenApiCallback]`** | Method | `Expression`, `HttpVerb`, `Pattern`, `Inline` |
+| **`[OpenApiCallbackRef]`** | Method | `Key`, `ReferenceId`, `Inline` |
 | **`[OpenApiWebhook]`** | Method | `HttpVerb`, `Pattern` |
 
 ### ExampleRef usage (components vs inline)
@@ -541,11 +638,12 @@ These properties are available on `[OpenApiSchemaComponent]`, `[OpenApiPropertyA
 | **Request Bodies** | ✅ Supported | Use `[OpenApiRequestBodyComponent]` classes |
 | **Responses** | ✅ Supported | Use `[OpenApiResponseComponent]` classes |
 | **Parameters** | ✅ Supported | Use `[OpenApiParameterComponent]` classes |
-| **Headers** | ✅ Supported | Use `[OpenApiHeaderComponent]` classes |
-| **Examples** | ✅ Supported | Use `[OpenApiExampleComponent]` classes |
+| **Headers** | ✅ Supported | Use `New-KrOpenApiHeader` + `Add-KrOpenApiComponent`, then reference via `OpenApiResponseHeaderRef` |
+| **Examples** | ✅ Supported | Use `New-KrOpenApiExample` + `Add-KrOpenApiComponent`, then reference via `OpenApiResponseExampleRef` / `OpenApiRequestBodyExampleRef` / `OpenApiParameterExampleRef` |
 | **Inheritance** | ✅ Supported | PowerShell class inheritance works for schemas |
 | **Generics** | 🚧 Partial | Use `Array = $true` for lists |
 | **Webhooks** | ✅ Supported | Use `[OpenApiWebhook]` on functions (top-level `webhooks` in OpenAPI 3.1) |
+| **Callbacks** | ✅ Supported | Use `[OpenApiCallback]` + `[OpenApiCallbackRef]` (operation-scoped `callbacks`) |
 | **Links** | ✅ Supported | Use `New-KrOpenApiLink` + `Add-KrOpenApiComponent`, then reference via `OpenApiResponseLinkRef` |
 | **Extensions (x-*)** | ❌ Planned | Not yet implemented |
 

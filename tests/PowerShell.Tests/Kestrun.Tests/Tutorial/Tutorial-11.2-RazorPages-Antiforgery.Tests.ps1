@@ -1,11 +1,11 @@
 param()
+BeforeAll {
+    . (Join-Path $PSScriptRoot '..\PesterHelpers.ps1')
+}
 
 Describe 'Example 11.2-RazorPages-Antiforgery' -Tag 'Tutorial' {
     BeforeAll {
-        . (Join-Path $PSScriptRoot '..\PesterHelpers.ps1')
         $script:instance = Start-ExampleScript -Name '11.2-RazorPages-Antiforgery.ps1'
-
-       
     }
 
     AfterAll {

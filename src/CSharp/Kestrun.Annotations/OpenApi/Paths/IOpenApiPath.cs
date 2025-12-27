@@ -1,4 +1,4 @@
-public interface IOpenApiPath
+public interface IOpenApiPathAttribute
 {
     string? HttpVerb { get; set; }
     /// <summary>

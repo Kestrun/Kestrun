@@ -49,7 +49,12 @@ public partial class OpenApiDocDescriptor
     /// <summary>
     /// OpenAPI metadata for webhooks associated with this document.
     /// </summary>
-    public Dictionary<(string Pattern, HttpVerb Method), OpenAPIMetadata> WebHook { get; set; } = []; // OpenAPI metadata for this route
+    public Dictionary<(string Pattern, HttpVerb Method), OpenAPIPathMetadata> WebHook { get; set; } = [];
+
+    /// <summary>
+    /// OpenAPI metadata for callbacks associated with this document.
+    /// </summary>
+    public Dictionary<(string Pattern, HttpVerb Method), OpenAPIPathMetadata> Callbacks { get; set; } = [];
 
     /// <summary>
     /// Initializes a new instance of the OpenApiDocDescriptor.
@@ -119,16 +124,23 @@ public partial class OpenApiDocDescriptor
         var components = OpenApiSchemaDiscovery.GetOpenApiTypesAuto();
         GenerateComponents(components);
     }
+
     /// <summary>
-    /// Generates the OpenAPI document by processing components and registered routes.
+    /// Generates the OpenAPI document by processing components and building paths and webhooks.
     /// </summary>
+    /// <remarks>BuildCallbacks is already handled elsewhere.</remarks>
+    /// <remarks>This method sets HasBeenGenerated to true after generation.</remarks> 
     public void GenerateDoc()
     {
         // First, generate components
         GenerateComponents();
+
+        // Then, generate webhooks
+        BuildWebhooks(WebHook);
+
         // Finally, build paths from registered routes
         BuildPathsFromRegisteredRoutes(Host.RegisteredRoutes);
-        BuildWebhooks(WebHook);
+
         HasBeenGenerated = true;
     }
 

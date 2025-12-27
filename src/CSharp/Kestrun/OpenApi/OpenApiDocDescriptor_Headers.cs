@@ -245,12 +245,12 @@ public partial class OpenApiDocDescriptor
     }
 
     /// <summary>
-    /// Applies an OpenApiResponseHeaderAttribute to the given OpenAPIMetadata.
+    /// Applies an OpenApiResponseHeaderAttribute to the given OpenAPIPathMetadata.
     /// </summary>
-    /// <param name="metadata">The OpenAPIMetadata to apply the attribute to.</param>
+    /// <param name="metadata">The OpenAPIPathMetadata to apply the attribute to.</param>
     /// <param name="attribute">The OpenApiResponseHeaderAttribute containing header information.</param>
     /// <exception cref="InvalidOperationException">Thrown when the attribute is missing required information or is invalid.</exception>
-    private void ApplyResponseHeaderAttribute(OpenAPIMetadata metadata, IOpenApiResponseHeaderAttribute attribute)
+    private void ApplyResponseHeaderAttribute(OpenAPIPathMetadata metadata, IOpenApiResponseHeaderAttribute attribute)
     {
         if (attribute.StatusCode is null)
         {

@@ -124,9 +124,12 @@ public partial class OpenApiDocDescriptor
         var components = OpenApiSchemaDiscovery.GetOpenApiTypesAuto();
         GenerateComponents(components);
     }
+
     /// <summary>
-    /// Generates the OpenAPI document by processing components and registered routes.
+    /// Generates the OpenAPI document by processing components and building paths and webhooks.
     /// </summary>
+    /// <marks> BuildCallbacks is already handled elsewhere. </marks>
+    /// <marks> This method sets HasBeenGenerated to true after generation.</marks>
     public void GenerateDoc()
     {
         // First, generate components
@@ -134,9 +137,6 @@ public partial class OpenApiDocDescriptor
 
         // Then, generate webhooks
         BuildWebhooks(WebHook);
-
-        // Then, generate callbacks
-     //   BuildCallbacks(Callbacks);
 
         // Finally, build paths from registered routes
         BuildPathsFromRegisteredRoutes(Host.RegisteredRoutes);

@@ -35,7 +35,7 @@ public partial class OpenApiDocDescriptor
                 metadata.Callbacks.Add(attribute.Key, reference);
             }
         }
-        if (callback is null)
+        else
         {
             throw new InvalidOperationException($"Callback component '{attribute.ReferenceId}' not found for OpenApiCallbackRefAttribute.");
         }

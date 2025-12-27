@@ -125,7 +125,7 @@ Enable-KrConfiguration
 Add-KrApiDocumentationRoute -DocumentType Swagger
 Add-KrApiDocumentationRoute -DocumentType Redoc
 
-# Simple GET endpoint with a text response
+# Callback component definitions for payment-related events
 
 <#
 .SYNOPSIS

@@ -47,7 +47,7 @@ function Add-KrGitHubAuthentication {
         [string]$DisplayName = [Kestrun.Authentication.AuthenticationDefaults]::GitHubDisplayName,
 
         [Parameter()]
-        [string[]]$DocId = [Kestrun.Authentication.IOpenApiAuthenticationOptions]::DefaultDocumentationIds,
+        [string[]]$DocId = [Kestrun.OpenApi.OpenApiDocDescriptor]::DefaultDocumentationIds,
 
         [Parameter()]
         [string]$Description,

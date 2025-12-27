@@ -61,7 +61,7 @@ function New-KrOpenApiHeader {
         [Kestrun.Hosting.KestrunHost]$Server,
 
         [Parameter()]
-        [string[]]$DocId = [Kestrun.Authentication.IOpenApiAuthenticationOptions]::DefaultDocumentationIds,
+        [string[]]$DocId = [Kestrun.OpenApi.OpenApiDocDescriptor]::DefaultDocumentationIds,
 
         [Parameter()]
         [string]$Description,
@@ -100,30 +100,7 @@ function New-KrOpenApiHeader {
         # Ensure the server instance is resolved
         $Server = Resolve-KestrunServer -Server $Server
         if ($PSCmdlet.ParameterSetName -eq 'Schema' -and $null -ne $Schema) {
-            if ($Schema -is [type]) {
-                # ok
-            } elseif ($Schema -is [string]) {
-                $s = $Schema.Trim()
-
-                # Require PowerShell type-literal form: [TypeName] or [Namespace.TypeName]
-                # Disallow generics, arrays, scripts, whitespace, operators, etc.
-                if ($s -notmatch '^\[[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z_][A-Za-z0-9_]*)*\]$') {
-                    throw "Invalid -Schema '$Schema'. Only type literals like '[OpenApiDate]' are allowed."
-                }
-
-                # Optional: reject some known-dangerous tokens defensively (belt + suspenders)
-                if ($s -match '[\s;|&`$(){}<>]') {
-                    throw "Invalid -Schema '$Schema'. Disallowed characters detected."
-                }
-
-                $Schema = Invoke-Expression $s
-
-                if ($Schema -isnot [type]) {
-                    throw "Invalid -Schema '$Schema'. Evaluation did not produce a [Type]."
-                }
-            } else {
-                throw "Invalid -Schema type '$($Schema.GetType().FullName)'. Use ([string]) or 'System.String'."
-            }
+            $Schema = Resolve-KrSchemaTypeLiteral -Schema $Schema
         }
     }
     process {

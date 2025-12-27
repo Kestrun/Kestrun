@@ -23,7 +23,7 @@ Browse the step-by-step guides below to learn OpenAPI features in Kestrun:
 8. **[Document Information](./8.Document-Info.md)** — Populate title, contact, license, and server metadata
 9. **[Component Headers](./9.Component-Headers.md)** — Define reusable response headers
 10. **[Component Links](./10.Component-Links.md)** — Define operation links
-11. **[Component Callbacks](./11.Component-Callbacks.md)** — Define asynchronous callbacks (Planned)
+11. **[Component Callbacks](./11.Component-Callbacks.md)** — Define asynchronous callbacks
 12. **[WebHooks](./12.WebHooks.md)** — Define top-level webhooks (Planned)
 13. **[Examples](./13.Examples.md)** — Component and inline examples for requests, responses, and parameters
 14. **[Swagger Petstore](./14.Petstore-API.md)** — Full implementation of the Swagger Petstore API

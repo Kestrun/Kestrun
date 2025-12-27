@@ -266,6 +266,10 @@ public partial class KestrunHost : IDisposable
     /// </summary>
     public Dictionary<string, OpenApiDocDescriptor> OpenApiDocumentDescriptor { get; } = [];
 
+    /// <summary>
+    /// Gets the IDs of all OpenAPI documents configured in the Kestrun host.
+    /// </summary>
+    public string[] OpenApiDocumentIds => [.. OpenApiDocumentDescriptor.Keys];
     #endregion
 
     // Accepts optional module paths (from PowerShell)

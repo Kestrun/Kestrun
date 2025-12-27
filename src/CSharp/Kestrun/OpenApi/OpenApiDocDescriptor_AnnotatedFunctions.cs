@@ -19,8 +19,20 @@ public partial class OpenApiDocDescriptor
     public void LoadAnnotatedFunctions(List<FunctionInfo> cmdInfos)
     {
         ArgumentNullException.ThrowIfNull(cmdInfos);
+        var callbacks = cmdInfos
+                .Where(f => f.ScriptBlock.Attributes?.All(a => a is OpenApiCallbackAttribute) != false);
 
-        foreach (var func in cmdInfos)
+        var others = cmdInfos
+            .Where(f => f.ScriptBlock.Attributes?.All(a => a is not OpenApiCallbackAttribute) != false);
+        // (equivalent to NOT having any callback attribute)
+
+        foreach (var func in callbacks)
+        {
+            ProcessFunction(func);
+        }
+
+        BuildCallbacks(Callbacks);
+        foreach (var func in others)
         {
             ProcessFunction(func);
         }
@@ -47,7 +59,7 @@ public partial class OpenApiDocDescriptor
                 return;
             }
 
-            var openApiMetadata = new OpenAPIMetadata();
+            var openApiMetadata = new OpenAPIPathMetadata();
             var routeOptions = new MapRouteOptions();
             var parsedVerb = ProcessFunctionAttributes(func, help!, attrs, routeOptions, openApiMetadata);
 
@@ -76,7 +88,7 @@ public partial class OpenApiDocDescriptor
         CommentHelpInfo help,
         IReadOnlyCollection<Attribute> attrs,
         MapRouteOptions routeOptions,
-        OpenAPIMetadata openApiMetadata)
+        OpenAPIPathMetadata openApiMetadata)
     {
         var parsedVerb = HttpVerb.Get;
 
@@ -86,8 +98,14 @@ public partial class OpenApiDocDescriptor
             {
                 switch (attr)
                 {
-                    case OpenApiPath path:
+                    case OpenApiPathAttribute path:
                         parsedVerb = ApplyPathAttribute(func, help, routeOptions, openApiMetadata, parsedVerb, path);
+                        break;
+                    case OpenApiWebhookAttribute webhook:
+                        parsedVerb = ApplyPathAttribute(func, help, routeOptions, openApiMetadata, parsedVerb, webhook);
+                        break;
+                    case OpenApiCallbackAttribute callbackOperation:
+                        parsedVerb = ApplyPathAttribute(func, help, routeOptions, openApiMetadata, parsedVerb, callbackOperation);
                         break;
                     case OpenApiResponseRefAttribute responseRef:
                         ApplyResponseRefAttribute(openApiMetadata, responseRef);
@@ -109,6 +127,9 @@ public partial class OpenApiDocDescriptor
                         break;
                     case IOpenApiResponseHeaderAttribute responseHeaderAttr:
                         ApplyResponseHeaderAttribute(openApiMetadata, responseHeaderAttr);
+                        break;
+                    case OpenApiCallbackRefAttribute callbackRefAttr:
+                        ApplyCallbackRefAttribute(openApiMetadata, callbackRefAttr);
                         break;
                     case KestrunAnnotation ka:
                         throw new InvalidOperationException($"Unhandled Kestrun annotation: {ka.GetType().Name}");
@@ -141,9 +162,9 @@ public partial class OpenApiDocDescriptor
         FunctionInfo func,
         CommentHelpInfo help,
         MapRouteOptions routeOptions,
-        OpenAPIMetadata metadata,
+        OpenAPIPathMetadata metadata,
         HttpVerb parsedVerb,
-        OpenApiPath oaPath)
+        IOpenApiPathAttribute oaPath)
     {
         var httpVerb = oaPath.HttpVerb ?? string.Empty;
         if (!string.IsNullOrWhiteSpace(httpVerb))
@@ -152,23 +173,110 @@ public partial class OpenApiDocDescriptor
             routeOptions.HttpVerbs.Add(parsedVerb);
         }
 
-        if (!string.IsNullOrWhiteSpace(oaPath.Pattern))
+        var pattern = oaPath.Pattern;
+        if (string.IsNullOrWhiteSpace(pattern))
         {
-            routeOptions.Pattern = oaPath.Pattern;
-            metadata.Pattern = oaPath.Pattern;
+            throw new InvalidOperationException("OpenApiPath attribute must specify a non-empty Pattern property.");
         }
-
+        // Apply pattern, summary, description, tags
+        routeOptions.Pattern = pattern;
         metadata.Summary = ChooseFirstNonEmpty(oaPath.Summary, help.GetSynopsis());
         metadata.Description = ChooseFirstNonEmpty(oaPath.Description, help.GetDescription());
         metadata.Tags = [.. oaPath.Tags];
+
+        // Apply deprecated flag if specified
+        metadata.Deprecated |= oaPath.Deprecated;
+        // Apply document ID if specified
+        metadata.DocumentId = oaPath.DocumentId;
+
+        switch (oaPath)
+        {
+            case OpenApiPathAttribute oaPathConcrete:
+                ApplyPathLikePath(func, routeOptions, metadata, oaPathConcrete, pattern);
+                break;
+            case OpenApiWebhookAttribute oaWebhook:
+                ApplyPathLikeWebhook(func, metadata, oaWebhook, pattern);
+                break;
+            case OpenApiCallbackAttribute oaCallback:
+                ApplyPathLikeCallback(func, metadata, oaCallback, httpVerb, pattern);
+                break;
+        }
+
+        return parsedVerb;
+    }
+
+    /// <summary>
+    /// Applies the OpenApiPath attribute to the function's route options and metadata for a standard path.
+    /// </summary>
+    /// <param name="func">The function information.</param>
+    /// <param name="routeOptions">The route options to configure.</param>
+    /// <param name="metadata">The OpenAPI metadata to populate.</param>
+    /// <param name="oaPath">The OpenApiPath attribute instance.</param>
+    /// <param name="pattern">The route pattern.</param>
+    private static void ApplyPathLikePath(
+        FunctionInfo func,
+        MapRouteOptions routeOptions,
+        OpenAPIPathMetadata metadata,
+        OpenApiPathAttribute oaPath,
+        string pattern)
+    {
+        metadata.Pattern = pattern;
+        metadata.PathLikeKind = OpenApiPathLikeKind.Path;
+        if (!string.IsNullOrWhiteSpace(oaPath.CorsPolicy))
+        {
+            // Apply Cors policy name if specified
+            routeOptions.CorsPolicy = oaPath.CorsPolicy;
+        }
+
         metadata.OperationId = oaPath.OperationId is null
             ? func.Name
             : string.IsNullOrWhiteSpace(oaPath.OperationId) ? metadata.OperationId : oaPath.OperationId;
-        // Apply deprecated flag if specified
-        metadata.Deprecated |= oaPath.Deprecated;
-        // Apply Cors policy name if specified
-        metadata.CorsPolicy = oaPath.CorsPolicy;
-        return parsedVerb;
+    }
+    /// <summary>
+    /// Applies the OpenApiWebhook attribute to the function's OpenAPI metadata.
+    /// </summary>
+    /// <param name="func">The function information.</param>
+    /// <param name="metadata">The OpenAPI metadata to populate.</param>
+    /// <param name="oaPath">The OpenApiWebhook attribute instance.</param>
+    /// <param name="pattern">The route pattern.</param>
+    private static void ApplyPathLikeWebhook(FunctionInfo func, OpenAPIPathMetadata metadata, OpenApiWebhookAttribute oaPath, string pattern)
+    {
+        metadata.Pattern = pattern;
+        metadata.PathLikeKind = OpenApiPathLikeKind.Webhook;
+        metadata.OperationId = oaPath.OperationId is null
+            ? func.Name
+            : string.IsNullOrWhiteSpace(oaPath.OperationId) ? metadata.OperationId : oaPath.OperationId;
+    }
+
+    /// <summary>
+    /// Applies the OpenApiCallback attribute to the function's OpenAPI metadata.
+    /// </summary>
+    /// <param name="func">The function information.</param>
+    /// <param name="metadata">The OpenAPI metadata to populate.</param>
+    /// <param name="oaCallback">The OpenApiCallback attribute instance.</param>
+    /// <param name="httpVerb">The HTTP verb associated with the callback.</param>
+    /// <param name="callbackPattern">The callback route pattern.</param>
+    /// <exception cref="InvalidOperationException">Thrown when the Expression property of the OpenApiCallback attribute is null or whitespace.</exception>
+    private static void ApplyPathLikeCallback(
+        FunctionInfo func,
+        OpenAPIPathMetadata metadata,
+        OpenApiCallbackAttribute oaCallback,
+        string httpVerb,
+        string callbackPattern)
+    {
+        // Callbacks are neither paths nor webhooks
+        metadata.PathLikeKind = OpenApiPathLikeKind.Callback;
+        if (string.IsNullOrWhiteSpace(oaCallback.Expression))
+        {
+            throw new InvalidOperationException("OpenApiCallback attribute must specify a non-empty Expression property.");
+        }
+        // Callbacks must have an expression
+        metadata.Expression = CallbackOperationId.BuildCallbackKey(oaCallback.Expression, callbackPattern);
+        metadata.Inline = oaCallback.Inline;
+        metadata.Pattern = func.Name;
+        metadata.OperationId = string.IsNullOrWhiteSpace(oaCallback.OperationId)
+           ? CallbackOperationId.FromLastSegment(func.Name, httpVerb, oaCallback.Expression)
+           : oaCallback.OperationId;
     }
 
     /// <summary>
@@ -195,7 +303,7 @@ public partial class OpenApiDocDescriptor
     /// <param name="value">The string to normalize.</param>
     /// <returns>The normalized string.</returns>
     private static string? NormalizeNewlines(string? value) => value?.Replace("\r\n", "\n");
-    private void ApplyResponseRefAttribute(OpenAPIMetadata metadata, OpenApiResponseRefAttribute attribute)
+    private void ApplyResponseRefAttribute(OpenAPIPathMetadata metadata, OpenApiResponseRefAttribute attribute)
     {
         metadata.Responses ??= [];
         IOpenApiResponse response = attribute.Inline
@@ -220,7 +328,7 @@ public partial class OpenApiDocDescriptor
     /// </summary>
     /// <param name="metadata">The OpenAPI metadata to update.</param>
     /// <param name="attribute">The OpenApiResponse attribute containing response details.</param>
-    private void ApplyResponseAttribute(OpenAPIMetadata metadata, IOpenApiResponseAttribute attribute)
+    private void ApplyResponseAttribute(OpenAPIPathMetadata metadata, IOpenApiResponseAttribute attribute)
     {
         metadata.Responses ??= [];
         var response = metadata.Responses.TryGetValue(attribute.StatusCode, out var value) ? value as OpenApiResponse : new OpenApiResponse();
@@ -236,7 +344,7 @@ public partial class OpenApiDocDescriptor
     /// <param name="metadata">The OpenAPI metadata to update.</param>
     /// <param name="attribute">The OpenApiProperty attribute containing property details.</param>
     /// <exception cref="InvalidOperationException"></exception>
-    private static void ApplyPropertyAttribute(OpenAPIMetadata metadata, OpenApiPropertyAttribute attribute)
+    private static void ApplyPropertyAttribute(OpenAPIPathMetadata metadata, OpenApiPropertyAttribute attribute)
     {
         if (attribute.StatusCode is null)
         {
@@ -272,7 +380,7 @@ public partial class OpenApiDocDescriptor
         }
     }
 
-    private void ApplyAuthorizationAttribute(MapRouteOptions routeOptions, OpenAPIMetadata metadata, OpenApiAuthorizationAttribute attribute)
+    private void ApplyAuthorizationAttribute(MapRouteOptions routeOptions, OpenAPIPathMetadata metadata, OpenApiAuthorizationAttribute attribute)
     {
         metadata.SecuritySchemes ??= [];
         var policyList = BuildPolicyList(attribute.Policies);
@@ -299,7 +407,7 @@ public partial class OpenApiDocDescriptor
         FunctionInfo func,
         CommentHelpInfo help,
         MapRouteOptions routeOptions,
-        OpenAPIMetadata openApiMetadata)
+        OpenAPIPathMetadata openApiMetadata)
     {
         foreach (var paramInfo in func.Parameters.Values)
         {
@@ -366,7 +474,7 @@ public partial class OpenApiDocDescriptor
         FunctionInfo func,
         CommentHelpInfo help,
         MapRouteOptions routeOptions,
-        OpenAPIMetadata metadata,
+        OpenAPIPathMetadata metadata,
         ParameterMetadata paramInfo,
         OpenApiParameterAttribute attribute)
     {
@@ -418,7 +526,7 @@ public partial class OpenApiDocDescriptor
     private void ApplyParameterRefAttribute(
         CommentHelpInfo help,
         MapRouteOptions routeOptions,
-        OpenAPIMetadata metadata,
+        OpenAPIPathMetadata metadata,
         ParameterMetadata paramInfo,
         OpenApiParameterRefAttribute attribute)
     {
@@ -448,7 +556,7 @@ public partial class OpenApiDocDescriptor
     }
 
     private void ApplyParameterExampleRefAttribute(
-       OpenAPIMetadata metadata,
+       OpenAPIPathMetadata metadata,
        ParameterMetadata paramInfo,
        OpenApiParameterExampleRefAttribute attribute)
     {
@@ -485,7 +593,7 @@ public partial class OpenApiDocDescriptor
     private void ApplyRequestBodyRefAttribute(
         CommentHelpInfo help,
         MapRouteOptions routeOptions,
-        OpenAPIMetadata metadata,
+        OpenAPIPathMetadata metadata,
         ParameterMetadata paramInfo,
         OpenApiRequestBodyRefAttribute attribute)
     {
@@ -538,7 +646,7 @@ public partial class OpenApiDocDescriptor
     private void ApplyRequestBodyAttribute(
         CommentHelpInfo help,
         MapRouteOptions routeOptions,
-        OpenAPIMetadata metadata,
+        OpenAPIPathMetadata metadata,
         ParameterMetadata paramInfo,
         OpenApiRequestBodyAttribute attribute)
     {
@@ -570,7 +678,7 @@ public partial class OpenApiDocDescriptor
     /// <param name="attribute">The OpenApiRequestBodyExampleRef attribute containing example reference details.</param>
     /// <exception cref="InvalidOperationException">Thrown when the request body or its content is not properly defined.</exception>
     private void ApplyRequestBodyExampleRefAttribute(
-       OpenAPIMetadata metadata,
+       OpenAPIPathMetadata metadata,
        OpenApiRequestBodyExampleRefAttribute attribute)
     {
         var requestBody = metadata.RequestBody
@@ -601,7 +709,7 @@ public partial class OpenApiDocDescriptor
     private void ApplyPreferredRequestBody(
         CommentHelpInfo help,
         MapRouteOptions routeOptions,
-        OpenAPIMetadata metadata,
+        OpenAPIPathMetadata metadata,
         ParameterMetadata paramInfo,
         OpenApiRequestBodyAttribute attribute)
     {
@@ -615,20 +723,27 @@ public partial class OpenApiDocDescriptor
         routeOptions.ScriptCode.Parameters.Add(new ParameterForInjectionInfo(paramInfo, componentRequestBody));
     }
     #endregion
+
     /// <summary>
-    /// Ensures that the OpenAPIMetadata has default responses defined.
+    /// Ensures that the OpenAPIPathMetadata has default responses defined.
     /// </summary>
     /// <param name="metadata">The OpenAPI metadata to update.</param>
-    private static void EnsureDefaultResponses(OpenAPIMetadata metadata)
+    private static void EnsureDefaultResponses(OpenAPIPathMetadata metadata)
     {
         metadata.Responses ??= [];
         if (metadata.Responses.Count > 0)
         {
             return;
         }
-
-        metadata.Responses.Add("200", new OpenApiResponse { Description = "Ok" });
-        metadata.Responses.Add("default", new OpenApiResponse { Description = "Unexpected error" });
+        if (metadata.IsOpenApiCallback)
+        {
+            metadata.Responses.Add("204", new OpenApiResponse { Description = "Accepted" });
+        }
+        else
+        {
+            metadata.Responses.Add("200", new OpenApiResponse { Description = "Ok" });
+            metadata.Responses.Add("default", new OpenApiResponse { Description = "Unexpected error" });
+        }
     }
 
     /// <summary>
@@ -642,7 +757,42 @@ public partial class OpenApiDocDescriptor
     private void FinalizeRouteOptions(
         FunctionInfo func,
         ScriptBlock sb,
-        OpenAPIMetadata metadata,
+        OpenAPIPathMetadata metadata,
+        MapRouteOptions routeOptions,
+        HttpVerb parsedVerb)
+    {
+        metadata.DocumentId ??= Host.OpenApiDocumentIds;
+        var documentIds = metadata.DocumentId;
+        if (metadata.IsOpenApiPath)
+        {
+            FinalizePathRouteOptions(func, sb, metadata, routeOptions, parsedVerb);
+            return;
+        }
+
+        if (metadata.IsOpenApiWebhook)
+        {
+            RegisterWebhook(func, sb, metadata, parsedVerb, documentIds);
+            return;
+        }
+
+        if (metadata.IsOpenApiCallback)
+        {
+            RegisterCallback(func, sb, metadata, parsedVerb, documentIds);
+        }
+    }
+
+    /// <summary>
+    /// Finalizes the route options for a standard OpenAPI path.
+    /// </summary>
+    /// <param name="func">The function information.</param>
+    /// <param name="sb">The script block.</param>
+    /// <param name="metadata">The OpenAPI metadata.</param>
+    /// <param name="routeOptions">The route options to update.</param>
+    /// <param name="parsedVerb">The HTTP verb parsed from the function.</param>
+    private void FinalizePathRouteOptions(
+        FunctionInfo func,
+        ScriptBlock sb,
+        OpenAPIPathMetadata metadata,
         MapRouteOptions routeOptions,
         HttpVerb parsedVerb)
     {
@@ -661,6 +811,68 @@ public partial class OpenApiDocDescriptor
         routeOptions.ScriptCode.ScriptBlock = sb;
         routeOptions.DefaultResponseContentType = "application/json";
         _ = Host.AddMapRoute(routeOptions);
+    }
+    /// <summary>
+    /// Registers a webhook in the OpenAPI document descriptors.
+    /// </summary>
+    /// <param name="func">The function information.</param>
+    /// <param name="sb">The script block.</param>
+    /// <param name="metadata">The OpenAPI path metadata.</param>
+    /// <param name="parsedVerb">The HTTP verb parsed from the function.</param>
+    /// <param name="documentIds">The collection of OpenAPI document IDs.</param>
+    private void RegisterWebhook(FunctionInfo func, ScriptBlock sb, OpenAPIPathMetadata metadata, HttpVerb parsedVerb, IEnumerable<string> documentIds)
+    {
+        EnsureParamOnlyScriptBlock(func, sb, kind: "webhook");
+        foreach (var docId in documentIds)
+        {
+            var docdesc = GetDocDescriptorOrThrow(docId, attributeName: "OpenApiWebhook");
+            _ = docdesc.WebHook.TryAdd((metadata.Pattern, parsedVerb), metadata);
+        }
+    }
+    /// <summary>
+    /// Registers a callback in the OpenAPI document descriptors.
+    /// </summary>
+    /// <param name="func">The function information.</param>
+    /// <param name="sb">The script block.</param>
+    /// <param name="metadata">The OpenAPI path metadata.</param>
+    /// <param name="parsedVerb">The HTTP verb parsed from the function.</param>
+    /// <param name="documentIds">The collection of OpenAPI document IDs.</param>
+    private void RegisterCallback(FunctionInfo func, ScriptBlock sb, OpenAPIPathMetadata metadata, HttpVerb parsedVerb, IEnumerable<string> documentIds)
+    {
+        EnsureParamOnlyScriptBlock(func, sb, kind: "callback");
+        foreach (var docId in documentIds)
+        {
+            var docdesc = GetDocDescriptorOrThrow(docId, attributeName: "OpenApiCallback");
+            _ = docdesc.Callbacks.TryAdd((metadata.Pattern, parsedVerb), metadata);
+        }
+    }
+
+    /// <summary>
+    /// Retrieves the OpenApiDocDescriptor for the specified document ID or throws an exception if not found.
+    /// </summary>
+    /// <param name="docId">The document ID to look up.</param>
+    /// <param name="attributeName">The name of the attribute requesting the document.</param>
+    /// <returns>The corresponding OpenApiDocDescriptor.</returns>
+    private OpenApiDocDescriptor GetDocDescriptorOrThrow(string docId, string attributeName)
+    {
+        return Host.OpenApiDocumentDescriptor.TryGetValue(docId, out var docdesc)
+            ? docdesc
+            : throw new InvalidOperationException($"The OpenAPI document ID '{docId}' specified in the {attributeName} attribute does not exist in the Kestrun host.");
+    }
+
+    /// <summary>
+    /// Ensures that the ScriptBlock contains only a param() block with no executable statements.
+    /// </summary>
+    /// <param name="func">The function information.</param>
+    /// <param name="sb">The ScriptBlock to validate.</param>
+    /// <param name="kind">The kind of function (e.g., "webhook" or "callback").</param>
+    /// <exception cref="InvalidOperationException">Thrown if the ScriptBlock contains executable statements other than a param() block.</exception>
+    private static void EnsureParamOnlyScriptBlock(FunctionInfo func, ScriptBlock sb, string kind)
+    {
+        if (!PsScriptBlockValidation.IsParamLast(sb))
+        {
+            throw new InvalidOperationException($"The ScriptBlock for {kind} function '{func.Name}' must contain only a param() block with no executable statements.");
+        }
     }
 
     /// <summary>

@@ -402,3 +402,78 @@ Please include:
 - Repro steps and expected vs. actual behavior
 - Versions: OS, PowerShell (must be 7.4+), .NET SDK
 - Logs, stack traces, and minimal code samples
+
+
+## OpenAPI (Kestrun implementation)
+
+Kestrun can generate an OpenAPI 3.1 document from PowerShell and C# route definitions.
+
+### PowerShell: quick start
+
+Minimum setup (typical example script pattern):
+
+```powershell
+# OpenAPI metadata
+Add-KrOpenApiInfo -Title 'My API' -Version '1.0.0'
+Add-KrOpenApiServer -Url 'http://127.0.0.1:5000' -Description 'Local'
+
+# Expose OpenAPI JSON endpoints
+Add-KrOpenApiRoute
+
+# (Optional) Swagger / Redoc UI routes
+Add-KrApiDocumentationRoute
+```
+
+Validation helpers (recommended in examples/tests):
+
+```powershell
+$doc = Build-KrOpenApiDocument
+Test-KrOpenApiDocument -Document $doc
+```
+
+Common URLs when running examples:
+
+- OpenAPI JSON: `/openapi/v3.1/openapi.json`
+- Swagger UI: `/swagger`
+- ReDoc: `/redoc`
+
+### Modeling operations
+
+- Use `[OpenApiPath(...)]` on the route function to describe the operation.
+- Prefer `[OpenApiParameter(...)]` for path/query/header parameters.
+- Prefer `[OpenApiRequestBody(...)]` on the *body parameter* (not on the function) when you need request-body metadata.
+- Use `[OpenApiResponse(...)]` to describe response status codes and schemas.
+
+### Schema components (PowerShell class-based)
+
+To register reusable schemas under `components.schemas`, decorate PowerShell classes with:
+
+- `[OpenApiSchemaComponent(...)]`
+- `[OpenApiPropertyAttribute(...)]` on properties
+
+If you reference a type in request/response and it is not showing up in `components.schemas`, it usually means the class was not marked as a schema component.
+
+### Callbacks vs webhooks
+
+- **Callbacks** are operation-scoped, live under `paths.{path}.{verb}.callbacks`.
+  - Use `[OpenApiCallback]` (inline) or `[OpenApiCallbackRef]` (reference) patterns.
+  - Callback URLs are typically provided by the client (e.g., in the request body) and can be expressed with runtime expressions.
+
+- **Webhooks** are top-level OpenAPI 3.1 event notifications, live under `webhooks` (not `components.webhooks`).
+  - Use `[OpenApiWebhook]` to declare webhook operations.
+
+### Comment-based help → OpenAPI summary/description
+
+Comment-based help blocks are used by Kestrun to populate OpenAPI `summary`/`description` and parameter descriptions.
+
+- Use standard PowerShell help format: `<# ... #>` (not `<#+ ... #>`).
+- Provide `.SYNOPSIS`, `.DESCRIPTION`, and `.PARAMETER` sections on the route function.
+- Avoid duplicating the same text in attribute `Summary=`/`Description=` unless you need an override.
+
+### Testing OpenAPI examples (PowerShell)
+
+- Prefer Pester tests under `tests/PowerShell.Tests/`.
+- Use the shared harness in `tests/PowerShell.Tests/Kestrun.Tests/PesterHelpers.ps1`:
+  - `Start-ExampleScript` to run an example script on a free port
+  - `Stop-ExampleScript -Instance ...` to stop it
+  - Assert OpenAPI via `Invoke-RestMethod http://localhost:$port/openapi/v3.1/openapi.json`

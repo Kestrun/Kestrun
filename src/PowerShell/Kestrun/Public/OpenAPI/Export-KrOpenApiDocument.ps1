@@ -26,7 +26,7 @@ function Export-KrOpenApiDocument {
         [Parameter(Mandatory = $false, ValueFromPipeline = $true)]
         [Kestrun.Hosting.KestrunHost]$Server,
         [Parameter()]
-        [string]$DocId = [Kestrun.Authentication.IOpenApiAuthenticationOptions]::DefaultSchemeName,
+        [string]$DocId = [Kestrun.OpenApi.OpenApiDocDescriptor]::DefaultDocumentationId,
         [Parameter(Mandatory = $false)]
         [ValidateSet('Json', 'Yaml')]
         [string]$Format = 'Json',

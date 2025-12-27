@@ -11,11 +11,6 @@ public interface IOpenApiAuthenticationOptions
     const string DefaultSchemeName = "Default";
 
     /// <summary>
-    /// Default documentation identifiers for OpenAPI authentication schemes.
-    /// </summary>
-    static readonly string[] DefaultDocumentationIds = ["Default"];
-
-    /// <summary>
     /// If true, this security scheme is applied globally in OpenAPI documentation.
     /// </summary>
     bool GlobalScheme { get; set; }

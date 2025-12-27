@@ -30,7 +30,7 @@ function Add-KrOpenApiInline {
         [Kestrun.Hosting.KestrunHost]$Server,
 
         [Parameter()]
-        [string[]]$DocId = [Kestrun.Authentication.IOpenApiAuthenticationOptions]::DefaultDocumentationIds,
+        [string[]]$DocId = [Kestrun.OpenApi.OpenApiDocDescriptor]::DefaultDocumentationIds,
 
         [Parameter(Mandatory = $true, ValueFromPipelineByPropertyName = $true)]
         [Alias('Key', 'Id')]

@@ -79,7 +79,7 @@ function Add-KrBasicAuthentication {
         [string]$DisplayName = [Kestrun.Authentication.AuthenticationDefaults]::BasicAuthenticationDisplayName,
 
         [Parameter()]
-        [string[]]$DocId = [Kestrun.Authentication.IOpenApiAuthenticationOptions]::DefaultDocumentationIds,
+        [string[]]$DocId = [Kestrun.OpenApi.OpenApiDocDescriptor]::DefaultDocumentationIds,
 
         [Parameter(Mandatory = $true, ParameterSetName = 'Options')]
         [Kestrun.Authentication.BasicAuthenticationOptions]$Options,

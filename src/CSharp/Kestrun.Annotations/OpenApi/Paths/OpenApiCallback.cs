@@ -1,5 +1,5 @@
 /// <summary>
-/// Attribute to specify OpenAPI callback path metadata for an operation-scoped asynchronous notification, not a standard API route.
+/// Specifies OpenAPI callback metadata for a Kestrun function.
 /// </summary>
 [AttributeUsage(AttributeTargets.Method, Inherited = false, AllowMultiple = true)]
 public sealed class OpenApiCallbackAttribute : KestrunAnnotation, IOpenApiPathAttribute

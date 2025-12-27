@@ -97,14 +97,32 @@ public partial class OpenApiDocDescriptor
         }
         // Check if the path item for this expression already exists
         var expr = openapiMetadata.Expression;
+        var httpMethod = HttpMethod.Parse(method.ToMethodString());
         // Only add the path item if it doesn't already exist
-        if (!callbackItem.PathItems.ContainsKey(expr))
+        if (!callbackItem.PathItems.TryGetValue(expr, out var iPathItem))
         {
             var op = BuildOperationFromMetadata(openapiMetadata);
             var pathItem = new OpenApiPathItem();
-            pathItem.AddOperation(HttpMethod.Parse(method.ToMethodString()), op);
+            pathItem.AddOperation(httpMethod, op);
             // Add the new path item to the callback
             callbackItem.PathItems.Add(expr, pathItem);
+        }
+        else
+        {
+            if (iPathItem is OpenApiPathItem pathItem)
+            {
+                if (pathItem.Operations is not null && pathItem.Operations.ContainsKey(httpMethod))
+                {
+                    // Operation for this method already exists; skip adding
+                    return;
+                }
+                var op = BuildOperationFromMetadata(openapiMetadata);
+                pathItem.AddOperation(httpMethod, op);
+            }
+            else
+            {
+                throw new InvalidOperationException($"Existing path item for expression '{expr.Expression}' is not of type OpenApiPathItem.");
+            }
         }
     }
 

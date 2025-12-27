@@ -2267,7 +2267,8 @@ function Get-CallbackRequestSchemaRefs {
     foreach ($expressionKey in $Callback.Keys) {
         $pathItems = $Callback[$expressionKey]
         foreach ($pathKey in $pathItems.Keys) {
-            # Here $pathKey is the HTTP verb (typically 'post') and the value is the operation object.
+            # Here $expressionKey is the runtime expression (e.g. '{$request.body#/callbackUrls/status}'),
+            # and $pathKey is the HTTP verb (typically 'post'); the value is the operation object.
             $operation = $pathItems[$pathKey]
             if ($null -eq $operation) { continue }
 

@@ -32,4 +32,9 @@ public sealed class OpenApiCallbackAttribute : KestrunAnnotation, IOpenApiPathAt
     /// <inheritdoc/>
     public string[]? DocumentId { get; set; }
 
+    /// <summary>
+    /// Indicates whether the callback should be inlined within the parent OpenAPI document.
+    /// </summary>
+    public bool Inline { get; set; }
+
 }

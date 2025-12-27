@@ -933,7 +933,7 @@ public static partial class KestrunHostMapExtensions
     /// <param name="host">The Kestrun host.</param>
     /// <param name="map">The endpoint convention builder.</param>
     /// <param name="openAPI">The OpenAPI metadata.</param>
-    private static void ApplyOpenApiMetadata(KestrunHost host, IEndpointConventionBuilder map, OpenAPIMetadata openAPI)
+    private static void ApplyOpenApiMetadata(KestrunHost host, IEndpointConventionBuilder map, OpenAPIPathMetadata openAPI)
     {
         if (!string.IsNullOrEmpty(openAPI.OperationId))
         {

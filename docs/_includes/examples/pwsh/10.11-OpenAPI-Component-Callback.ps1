@@ -56,10 +56,11 @@ function paymentStatusCallback {
     [OpenApiCallback(
         Expression = '$request.body#/callbackUrls/status',
         HttpVerb = 'post',
-        Pattern = '/v1/payments/{paymentId}/status'
+        Pattern = '/v1/payments/{paymentId}/status',
+        Inline = $true
     )]
     param(
-        [OpenApiParameter(Name = 'paymentId', In = 'path', Required = $true)]
+        [OpenApiParameter( In = 'path', Required = $true)]
         [string] $paymentId,
 
         [OpenApiRequestBody()]
@@ -67,6 +68,56 @@ function paymentStatusCallback {
     )
 }
 
+
+<#
+.SYNOPSIS
+    Reservation Callback (component)
+.DESCRIPTION
+    Provider calls the consumer back when a reservation is made.
+.PARAMETER orderId
+    The ID of the order
+.PARAMETER Body
+    The callback event payload
+#>
+function reservationCallback {
+    [OpenApiCallback(
+        Expression = '$request.body#/callbackUrls/reservation',
+        HttpVerb = 'post',
+        Pattern = '/v1/orders/{orderId}/reservation'
+    )]
+    param(
+        [OpenApiParameter( In = 'path', Required = $true)]
+        [string] $orderId,
+
+        [OpenApiRequestBody()]
+        [string] $Body
+    )
+}
+
+<#
+.SYNOPSIS
+    Shipping Order Callback (component)
+.DESCRIPTION
+    Provider calls the consumer back when a shipping order is created.
+.PARAMETER orderId
+    The ID of the order
+.PARAMETER Body
+    The callback event payload
+#>
+function shippingOrderCallback {
+    [OpenApiCallback(
+        Expression = '$request.body#/callbackUrls/shippingOrder',
+        HttpVerb = 'post',
+        Pattern = '/v1/orders/{orderId}/shippingOrder'
+    )]
+    param(
+        [OpenApiParameter( In = 'path', Required = $true)]
+        [string] $orderId,
+
+        [OpenApiRequestBody()]
+        [string] $Body
+    )
+}
 <#
 .SYNOPSIS
     Get greeting message.
@@ -76,13 +127,11 @@ function paymentStatusCallback {
 function getGreeting {
     [OpenApiPath(HttpVerb = 'get' , Pattern = '/greeting' )]
     [OpenApiCallbackRef( Key = 'paymentStatusCallback', ReferenceId = 'paymentStatusCallback')]
+    [OpenApiCallbackRef( Key = 'reservationCallback', ReferenceId = 'reservationCallback')]
+    [OpenApiCallbackRef( Key = 'shippingOrderCallback', ReferenceId = 'shippingOrderCallback', Inline = $true)]
     param()
     Write-KrTextResponse -Text 'Hello, World!' -StatusCode 200
 }
-
-
-
-
 
 
 # =========================================================

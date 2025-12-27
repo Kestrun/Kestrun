@@ -44,7 +44,7 @@ public partial class OpenApiDocDescriptor
         }
     }
 
-    private void ApplyResponseLinkAttribute(OpenAPIMetadata metadata, OpenApiResponseLinkRefAttribute attribute)
+    private void ApplyResponseLinkAttribute(OpenAPIPathMetadata metadata, OpenApiResponseLinkRefAttribute attribute)
     {
         if (attribute.StatusCode is null)
         {

@@ -63,7 +63,7 @@ public class MapRouteOptions
     /// <summary>
     /// OpenAPI metadata for this route.
     /// </summary>
-    public Dictionary<HttpVerb, OpenAPIMetadata> OpenAPI { get; set; } = []; // OpenAPI metadata for this route
+    public Dictionary<HttpVerb, OpenAPIPathMetadata> OpenAPI { get; set; } = []; // OpenAPI metadata for this route
 
     /// <summary>
     /// Path-level OpenAPI common metadata for this route.

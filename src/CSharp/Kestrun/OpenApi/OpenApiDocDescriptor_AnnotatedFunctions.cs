@@ -68,7 +68,7 @@ public partial class OpenApiDocDescriptor
                 return;
             }
 
-            var openApiMetadata = new OpenAPIMetadata();
+            var openApiMetadata = new OpenAPIPathMetadata();
             var routeOptions = new MapRouteOptions();
             var parsedVerb = ProcessFunctionAttributes(func, help!, attrs, routeOptions, openApiMetadata);
 
@@ -97,7 +97,7 @@ public partial class OpenApiDocDescriptor
         CommentHelpInfo help,
         IReadOnlyCollection<Attribute> attrs,
         MapRouteOptions routeOptions,
-        OpenAPIMetadata openApiMetadata)
+        OpenAPIPathMetadata openApiMetadata)
     {
         var parsedVerb = HttpVerb.Get;
 
@@ -171,7 +171,7 @@ public partial class OpenApiDocDescriptor
         FunctionInfo func,
         CommentHelpInfo help,
         MapRouteOptions routeOptions,
-        OpenAPIMetadata metadata,
+        OpenAPIPathMetadata metadata,
         HttpVerb parsedVerb,
         IOpenApiPathAttribute oaPath)
     {
@@ -227,7 +227,7 @@ public partial class OpenApiDocDescriptor
             }
             // Callbacks must have an expression
             metadata.Expression = CallbackOperationId.BuildCallbackKey(oaCallback.Expression, oaPath.Pattern);
-
+            metadata.Inline = oaCallback.Inline;
             //  RuntimeExpression.Build($"{{{oaPath.Pattern}}}{oaCallback.Expression}");
             metadata.Pattern = func.Name;
             metadata.OperationId = oaPath.OperationId is null
@@ -262,7 +262,7 @@ public partial class OpenApiDocDescriptor
     /// <param name="value">The string to normalize.</param>
     /// <returns>The normalized string.</returns>
     private static string? NormalizeNewlines(string? value) => value?.Replace("\r\n", "\n");
-    private void ApplyResponseRefAttribute(OpenAPIMetadata metadata, OpenApiResponseRefAttribute attribute)
+    private void ApplyResponseRefAttribute(OpenAPIPathMetadata metadata, OpenApiResponseRefAttribute attribute)
     {
         metadata.Responses ??= [];
         IOpenApiResponse response = attribute.Inline
@@ -287,7 +287,7 @@ public partial class OpenApiDocDescriptor
     /// </summary>
     /// <param name="metadata">The OpenAPI metadata to update.</param>
     /// <param name="attribute">The OpenApiResponse attribute containing response details.</param>
-    private void ApplyResponseAttribute(OpenAPIMetadata metadata, IOpenApiResponseAttribute attribute)
+    private void ApplyResponseAttribute(OpenAPIPathMetadata metadata, IOpenApiResponseAttribute attribute)
     {
         metadata.Responses ??= [];
         var response = metadata.Responses.TryGetValue(attribute.StatusCode, out var value) ? value as OpenApiResponse : new OpenApiResponse();
@@ -303,7 +303,7 @@ public partial class OpenApiDocDescriptor
     /// <param name="metadata">The OpenAPI metadata to update.</param>
     /// <param name="attribute">The OpenApiProperty attribute containing property details.</param>
     /// <exception cref="InvalidOperationException"></exception>
-    private static void ApplyPropertyAttribute(OpenAPIMetadata metadata, OpenApiPropertyAttribute attribute)
+    private static void ApplyPropertyAttribute(OpenAPIPathMetadata metadata, OpenApiPropertyAttribute attribute)
     {
         if (attribute.StatusCode is null)
         {
@@ -339,7 +339,7 @@ public partial class OpenApiDocDescriptor
         }
     }
 
-    private void ApplyAuthorizationAttribute(MapRouteOptions routeOptions, OpenAPIMetadata metadata, OpenApiAuthorizationAttribute attribute)
+    private void ApplyAuthorizationAttribute(MapRouteOptions routeOptions, OpenAPIPathMetadata metadata, OpenApiAuthorizationAttribute attribute)
     {
         metadata.SecuritySchemes ??= [];
         var policyList = BuildPolicyList(attribute.Policies);
@@ -366,7 +366,7 @@ public partial class OpenApiDocDescriptor
         FunctionInfo func,
         CommentHelpInfo help,
         MapRouteOptions routeOptions,
-        OpenAPIMetadata openApiMetadata)
+        OpenAPIPathMetadata openApiMetadata)
     {
         foreach (var paramInfo in func.Parameters.Values)
         {
@@ -433,7 +433,7 @@ public partial class OpenApiDocDescriptor
         FunctionInfo func,
         CommentHelpInfo help,
         MapRouteOptions routeOptions,
-        OpenAPIMetadata metadata,
+        OpenAPIPathMetadata metadata,
         ParameterMetadata paramInfo,
         OpenApiParameterAttribute attribute)
     {
@@ -485,7 +485,7 @@ public partial class OpenApiDocDescriptor
     private void ApplyParameterRefAttribute(
         CommentHelpInfo help,
         MapRouteOptions routeOptions,
-        OpenAPIMetadata metadata,
+        OpenAPIPathMetadata metadata,
         ParameterMetadata paramInfo,
         OpenApiParameterRefAttribute attribute)
     {
@@ -515,7 +515,7 @@ public partial class OpenApiDocDescriptor
     }
 
     private void ApplyParameterExampleRefAttribute(
-       OpenAPIMetadata metadata,
+       OpenAPIPathMetadata metadata,
        ParameterMetadata paramInfo,
        OpenApiParameterExampleRefAttribute attribute)
     {
@@ -552,7 +552,7 @@ public partial class OpenApiDocDescriptor
     private void ApplyRequestBodyRefAttribute(
         CommentHelpInfo help,
         MapRouteOptions routeOptions,
-        OpenAPIMetadata metadata,
+        OpenAPIPathMetadata metadata,
         ParameterMetadata paramInfo,
         OpenApiRequestBodyRefAttribute attribute)
     {
@@ -605,7 +605,7 @@ public partial class OpenApiDocDescriptor
     private void ApplyRequestBodyAttribute(
         CommentHelpInfo help,
         MapRouteOptions routeOptions,
-        OpenAPIMetadata metadata,
+        OpenAPIPathMetadata metadata,
         ParameterMetadata paramInfo,
         OpenApiRequestBodyAttribute attribute)
     {
@@ -637,7 +637,7 @@ public partial class OpenApiDocDescriptor
     /// <param name="attribute">The OpenApiRequestBodyExampleRef attribute containing example reference details.</param>
     /// <exception cref="InvalidOperationException">Thrown when the request body or its content is not properly defined.</exception>
     private void ApplyRequestBodyExampleRefAttribute(
-       OpenAPIMetadata metadata,
+       OpenAPIPathMetadata metadata,
        OpenApiRequestBodyExampleRefAttribute attribute)
     {
         var requestBody = metadata.RequestBody
@@ -668,7 +668,7 @@ public partial class OpenApiDocDescriptor
     private void ApplyPreferredRequestBody(
         CommentHelpInfo help,
         MapRouteOptions routeOptions,
-        OpenAPIMetadata metadata,
+        OpenAPIPathMetadata metadata,
         ParameterMetadata paramInfo,
         OpenApiRequestBodyAttribute attribute)
     {
@@ -683,10 +683,10 @@ public partial class OpenApiDocDescriptor
     }
     #endregion
     /// <summary>
-    /// Ensures that the OpenAPIMetadata has default responses defined.
+    /// Ensures that the OpenAPIPathMetadata has default responses defined.
     /// </summary>
     /// <param name="metadata">The OpenAPI metadata to update.</param>
-    private static void EnsureDefaultResponses(OpenAPIMetadata metadata)
+    private static void EnsureDefaultResponses(OpenAPIPathMetadata metadata)
     {
         metadata.Responses ??= [];
         if (metadata.Responses.Count > 0)
@@ -715,7 +715,7 @@ public partial class OpenApiDocDescriptor
     private void FinalizeRouteOptions(
         FunctionInfo func,
         ScriptBlock sb,
-        OpenAPIMetadata metadata,
+        OpenAPIPathMetadata metadata,
         MapRouteOptions routeOptions,
         HttpVerb parsedVerb)
     {

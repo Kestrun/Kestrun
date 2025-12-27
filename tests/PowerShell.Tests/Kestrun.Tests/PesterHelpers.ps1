@@ -1176,9 +1176,7 @@ function Get-SignalRMessage {
         [object]$OnConnectedArg                             # optional argument passed to OnConnected
     )
 
-
-    function Get-PropValue($obj, [string]$name) {
-        <#
+    <#
     .SYNOPSIS
         Retrieves a property value from an object or hashtable, case-insensitively.
     .DESCRIPTION
@@ -1191,6 +1189,8 @@ function Get-SignalRMessage {
     .OUTPUTS
         The value of the specified property, or $null if not found.
     #>
+    function Get-PropValue($obj, [string]$name) {
+
         if ($null -eq $obj) { return $null }
         if ($obj -is [hashtable]) {
             $key = $obj.Keys | Where-Object { $_ -is [string] -and $_.ToString() -ieq $name } | Select-Object -First 1

@@ -9,7 +9,6 @@ namespace Kestrun.OpenApi;
 /// </summary>
 public partial class OpenApiDocDescriptor
 {
-
     /// <summary>
     /// Populates Document.Webhooks from the registered webhooks using OpenAPI metadata on each webhook.
     /// </summary>

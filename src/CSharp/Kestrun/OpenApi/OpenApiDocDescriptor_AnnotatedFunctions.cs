@@ -46,7 +46,6 @@ public partial class OpenApiDocDescriptor
       }*/
     }
 
-
     /// <summary>
     /// Processes a single PowerShell function, extracting OpenAPI annotations and configuring the host accordingly.
     /// </summary>

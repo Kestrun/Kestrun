@@ -102,7 +102,6 @@ internal static partial class CallbackOperationId
         return $"{callbackName}__{verb}__{last}";
     }
 
-
     /// <summary>
     /// Builds the callback key from the runtime expression and the pattern.
     /// </summary>

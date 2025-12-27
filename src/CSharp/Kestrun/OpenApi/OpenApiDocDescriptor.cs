@@ -49,7 +49,12 @@ public partial class OpenApiDocDescriptor
     /// <summary>
     /// OpenAPI metadata for webhooks associated with this document.
     /// </summary>
-    public Dictionary<(string Pattern, HttpVerb Method), OpenAPIMetadata> WebHook { get; set; } = []; // OpenAPI metadata for this route
+    public Dictionary<(string Pattern, HttpVerb Method), OpenAPIMetadata> WebHook { get; set; } = [];
+
+    /// <summary>
+    /// OpenAPI metadata  forcallbacks associated with this document.
+    /// </summary>
+    public Dictionary<(string Pattern, HttpVerb Method), OpenAPIMetadata> Callbacks { get; set; } = [];
 
     /// <summary>
     /// Initializes a new instance of the OpenApiDocDescriptor.
@@ -129,6 +134,7 @@ public partial class OpenApiDocDescriptor
         // Finally, build paths from registered routes
         BuildPathsFromRegisteredRoutes(Host.RegisteredRoutes);
         BuildWebhooks(WebHook);
+        BuildCallbacks(Callbacks);
         HasBeenGenerated = true;
     }
 

@@ -92,6 +92,9 @@ public partial class OpenApiDocDescriptor
                     case OpenApiWebhook webhook:
                         parsedVerb = ApplyPathAttribute(func, help, routeOptions, openApiMetadata, parsedVerb, webhook);
                         break;
+                    case OpenApiCallback callbackOperation:
+                        parsedVerb = ApplyPathAttribute(func, help, routeOptions, openApiMetadata, parsedVerb, callbackOperation);
+                        break;
                     case OpenApiResponseRefAttribute responseRef:
                         ApplyResponseRefAttribute(openApiMetadata, responseRef);
                         break;
@@ -154,19 +157,16 @@ public partial class OpenApiDocDescriptor
             parsedVerb = HttpVerbExtensions.FromMethodString(httpVerb);
             routeOptions.HttpVerbs.Add(parsedVerb);
         }
-
-        if (!string.IsNullOrWhiteSpace(oaPath.Pattern))
+        if (string.IsNullOrWhiteSpace(oaPath.Pattern))
         {
-            routeOptions.Pattern = oaPath.Pattern;
-            metadata.Pattern = oaPath.Pattern;
+            throw new InvalidOperationException("OpenApiPath attribute must specify a non-empty Pattern property.");
         }
-
+        // Apply pattern, summary, description, tags
+        routeOptions.Pattern = oaPath.Pattern;
         metadata.Summary = ChooseFirstNonEmpty(oaPath.Summary, help.GetSynopsis());
         metadata.Description = ChooseFirstNonEmpty(oaPath.Description, help.GetDescription());
         metadata.Tags = [.. oaPath.Tags];
-        metadata.OperationId = oaPath.OperationId is null
-            ? func.Name
-            : string.IsNullOrWhiteSpace(oaPath.OperationId) ? metadata.OperationId : oaPath.OperationId;
+
         // Apply deprecated flag if specified
         metadata.Deprecated |= oaPath.Deprecated;
         // Apply document ID if specified
@@ -175,16 +175,40 @@ public partial class OpenApiDocDescriptor
         // Determine if it's a path or webhook
         if (oaPath is OpenApiPath oaPathConcrete)
         {
-            metadata.IsOpenApiPath = true;
+            metadata.Pattern = oaPath.Pattern;
+            metadata.PathLikeKind = OpenApiPathLikeKind.Path;
             if (!string.IsNullOrWhiteSpace(oaPathConcrete.CorsPolicy))
             {  // Apply Cors policy name if specified
                 routeOptions.CorsPolicy = oaPathConcrete.CorsPolicy;
             }
-            metadata.IsOpenApiPath = true;
+            metadata.OperationId = oaPath.OperationId is null
+          ? func.Name
+          : string.IsNullOrWhiteSpace(oaPath.OperationId) ? metadata.OperationId : oaPath.OperationId;
         }
         else if (oaPath is OpenApiWebhook)
         {
-            metadata.IsOpenApiWebhook = true;
+            metadata.Pattern = oaPath.Pattern;
+            metadata.PathLikeKind = OpenApiPathLikeKind.Webhook;
+            metadata.OperationId = oaPath.OperationId is null
+          ? func.Name
+          : string.IsNullOrWhiteSpace(oaPath.OperationId) ? metadata.OperationId : oaPath.OperationId;
+        }
+        else if (oaPath is OpenApiCallback oaCallback)
+        {
+            // Callbacks are neither paths nor webhooks
+            metadata.PathLikeKind = OpenApiPathLikeKind.Callback;
+            if (string.IsNullOrWhiteSpace(oaCallback.Expression))
+            {
+                throw new InvalidOperationException("OpenApiCallback attribute must specify a non-empty Expression property.");
+            }
+            // Callbacks must have an expression
+            metadata.Expression = CallbackOperationId.BuildCallbackKey(oaCallback.Expression, oaPath.Pattern);
+
+            //  RuntimeExpression.Build($"{{{oaPath.Pattern}}}{oaCallback.Expression}");
+            metadata.Pattern = func.Name;
+            metadata.OperationId = oaPath.OperationId is null
+          ? CallbackOperationId.FromLastSegment(func.Name, httpVerb, oaCallback.Expression)
+          : string.IsNullOrWhiteSpace(oaPath.OperationId) ? CallbackOperationId.FromLastSegment(func.Name, httpVerb, oaCallback.Expression) : oaPath.OperationId;
         }
 
         return parsedVerb;
@@ -645,9 +669,15 @@ public partial class OpenApiDocDescriptor
         {
             return;
         }
-
-        metadata.Responses.Add("200", new OpenApiResponse { Description = "Ok" });
-        metadata.Responses.Add("default", new OpenApiResponse { Description = "Unexpected error" });
+        if (metadata.IsOpenApiCallback)
+        {
+            metadata.Responses.Add("204", new OpenApiResponse { Description = "Accepted" });
+        }
+        else
+        {
+            metadata.Responses.Add("200", new OpenApiResponse { Description = "Ok" });
+            metadata.Responses.Add("default", new OpenApiResponse { Description = "Unexpected error" });
+        }
     }
 
     /// <summary>
@@ -697,6 +727,21 @@ public partial class OpenApiDocDescriptor
                     throw new InvalidOperationException($"The ScriptBlock for webhook function '{func.Name}' must contain only a param() block with no executable statements.");
                 }
                 _ = docdesc.WebHook.TryAdd((metadata.Pattern, parsedVerb), metadata);
+            }
+        }
+        else if (metadata.IsOpenApiCallback)
+        {
+            foreach (var docId in metadata.DocumentId)
+            {
+                if (!Host.OpenApiDocumentDescriptor.TryGetValue(docId, out var docdesc))
+                {
+                    throw new InvalidOperationException($"The OpenAPI document ID '{docId}' specified in the OpenApiCallback attribute does not exist in the Kestrun host.");
+                }
+                if (!PsScriptBlockValidation.IsParamLast(sb))
+                {
+                    throw new InvalidOperationException($"The ScriptBlock for callback function '{func.Name}' must contain only a param() block with no executable statements.");
+                }
+                _ = docdesc.Callbacks.TryAdd((metadata.Pattern, parsedVerb), metadata);
             }
         }
     }

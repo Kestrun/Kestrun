@@ -1,3 +1,4 @@
+using Kestrun.OpenApi;
 using Microsoft.OpenApi;
 
 namespace Kestrun.Hosting.Options;
@@ -68,20 +69,34 @@ public record OpenAPIMetadata : OpenAPICommonMetadata
     /// </summary>
     public List<Dictionary<string, List<string>>>? SecuritySchemes { get; set; }
 
-    private bool _isOpenApiWebhook;
+    /// <summary>
+    /// The kind of OpenAPI path-like object represented by this metadata.
+    /// </summary>
+    public OpenApiPathLikeKind? PathLikeKind { get; set; }
 
     /// <summary>
     /// Indicates whether this metadata represents an OpenAPI webhook.
     /// </summary>
-    public bool IsOpenApiWebhook { get => _isOpenApiWebhook; internal set => _isOpenApiWebhook = value; }
+    public bool IsOpenApiWebhook => PathLikeKind == OpenApiPathLikeKind.Webhook;
+
     /// <summary>
     /// Indicates whether this metadata represents an OpenAPI path.
     /// </summary>
-    public bool IsOpenApiPath { get => !_isOpenApiWebhook; internal set => _isOpenApiWebhook = !value; }
+    public bool IsOpenApiPath => PathLikeKind == OpenApiPathLikeKind.Path;
+
+    /// <summary>
+    /// Indicates whether this metadata represents an OpenAPI callback.
+    /// </summary>
+    public bool IsOpenApiCallback => PathLikeKind == OpenApiPathLikeKind.Callback;
 
     /// <summary>
     /// The IDs of the OpenAPI document this metadata belongs to.
     /// If null, it belongs to all documents.
     /// </summary>
     public string[]? DocumentId { get; set; }
+
+    /// <summary>
+    /// The callback expression for the OpenAPI callback object.
+    /// </summary>
+    public RuntimeExpression? Expression { get; set; }
 }

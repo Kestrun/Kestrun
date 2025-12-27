@@ -54,6 +54,39 @@ public partial class OpenApiDocDescriptor
         }
     }
 
+    private void BuildCallbacks(Dictionary<(string Pattern, HttpVerb Method), OpenAPIMetadata> Metadata)
+    {
+        if (Metadata is null || Metadata.Count == 0)
+        {
+            return;
+        }
+        //   Document.Components ??= new OpenApiComponents();
+        //    Document.Components.Callbacks ??= new Dictionary<string, IOpenApiCallback>(StringComparer.Ordinal);
+
+        var groups = Metadata
+            .GroupBy(kvp => kvp.Key.Pattern, StringComparer.Ordinal)
+            .Where(g => !string.IsNullOrWhiteSpace(g.Key));
+
+        foreach (var grp in groups)
+        {
+            ProcessCallbacksGroup(grp);
+        }
+    }
+
+    private void ProcessCallbacksGroup(IGrouping<string, KeyValuePair<(string Pattern, HttpVerb Method), OpenAPIMetadata>> grp)
+    {
+        var pattern = grp.Key;
+        var callbackItem = GetOrCreateCallbackItem(pattern);
+
+        foreach (var kvp in grp)
+        {
+            if (kvp.Value.DocumentId is not null && !kvp.Value.DocumentId.Contains(DocumentId))
+            {
+                continue;
+            }
+            ProcessCallbackOperation(kvp, callbackItem);
+        }
+    }
     /// <summary>
     /// Processes a group of webhooks sharing the same pattern to build the corresponding OpenAPI webhook path item.
     /// </summary>
@@ -72,7 +105,23 @@ public partial class OpenApiDocDescriptor
             ProcessWebhookOperation(kvp, webhookPathItem);
         }
     }
+    private void ProcessCallbackOperation(KeyValuePair<(string Pattern, HttpVerb Method), OpenAPIMetadata> kvp, Microsoft.OpenApi.OpenApiCallback callbackItem)
+    {
+        var method = kvp.Key.Method;
+        var openapiMetadata = kvp.Value;
+        if (openapiMetadata.Expression is null)
+        {
+            throw new InvalidOperationException($"Callback OpenAPI metadata for pattern '{kvp.Key.Pattern}' and method '{method}' is missing the required Expression property.");
+        }
+        var expr = openapiMetadata.Expression;
+        //RuntimeExpression.Build("{$request.body#/callbackUrls/status}/order/status/{orderId}");
 
+        var op = BuildOperationFromMetadata(openapiMetadata);
+        var pathItem = new OpenApiPathItem();
+        pathItem.AddOperation(HttpMethod.Parse(method.ToMethodString()), op);
+
+        callbackItem.AddPathItem(expr, pathItem);
+    }
     /// <summary>
     /// Processes a single webhook operation and adds it to the OpenApiPathItem.
     /// </summary>
@@ -133,6 +182,19 @@ public partial class OpenApiDocDescriptor
         return (OpenApiPathItem)pathInterface;
     }
 
+
+    private Microsoft.OpenApi.OpenApiCallback GetOrCreateCallbackItem(string pattern)
+    {
+        Document.Components ??= new OpenApiComponents();
+        Document.Components.Callbacks ??= new Dictionary<string, IOpenApiCallback>(StringComparer.Ordinal);
+
+        if (!Document.Components.Callbacks.TryGetValue(pattern, out var pathInterface) || pathInterface is null)
+        {
+            pathInterface = new Microsoft.OpenApi.OpenApiCallback();
+            Document.Components.Callbacks[pattern] = pathInterface;
+        }
+        return (Microsoft.OpenApi.OpenApiCallback)pathInterface;
+    }
     /// <summary>
     /// Processes a single route operation and adds it to the OpenApiPathItem.
     /// </summary>

@@ -398,6 +398,11 @@ Add-KrOpenApiLicense -Name 'MIT' -Url 'https://opensource.org/licenses/MIT'
 Add-KrOpenApiServer -Url 'https://api.example.com' -Description 'Production'
 Add-KrOpenApiServer -Url "http://localhost:5000" -Description 'Local'
 
+# Servers can also be templated with variables (e.g. per-environment URLs)
+$serverVars = New-KrOpenApiServerVariable -Name 'env' -Default 'dev' -Enum @('dev', 'staging', 'prod') -Description 'Deployment environment'
+Add-KrOpenApiServer -Url 'https://{env}.api.example.com' -Description 'Environment-specific endpoint' -Variables $serverVars
+Add-KrOpenApiServer -Url '/' -Description 'Self'
+
 # Tags (Grouping)
 Add-KrOpenApiTag -Name 'Users' -Description 'User management'
 Add-KrOpenApiTag -Name 'Products' -Description 'Product catalog'

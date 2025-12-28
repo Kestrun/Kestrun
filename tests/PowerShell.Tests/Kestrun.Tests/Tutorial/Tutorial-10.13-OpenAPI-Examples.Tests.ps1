@@ -12,20 +12,111 @@ Describe 'Example 10.13 OpenAPI Examples' -Tag 'OpenApi', 'Tutorial', 'Slow' {
         if ($script:instance) { Stop-ExampleScript -Instance $script:instance }
     }
 
-    It 'Buy ticket (POST) returns 201' {
-        $body = @{
-            ticketType = 'general'
-            ticketDate = '2023-09-07'
-            email = 'todd@example.com'
-        } | ConvertTo-Json
+    It 'Buy ticket (POST) accepts multiple request content types' -TestCases @(
+        @{
+            ContentType = 'application/json'
+            Body = (@{
+                    ticketType = 'general'
+                    ticketDate = '2023-09-07'
+                    email = 'todd@example.com'
+                } | ConvertTo-Json)
+        }
+        @{
+            ContentType = 'application/x-www-form-urlencoded'
+            Body = 'ticketType=general&ticketDate=2023-09-07&email=todd%40example.com'
+        }
+        @{
+            ContentType = 'application/xml'
+            Body = @'
+<BuyTicketRequest>
+  <ticketType>general</ticketType>
+  <ticketDate>2023-09-07</ticketDate>
+  <email>todd@example.com</email>
+</BuyTicketRequest>
+'@
+        }
+        @{
+            ContentType = 'application/yaml'
+            Body = @'
+ticketType: general
+ticketDate: 2023-09-07
+email: todd@example.com
+'@
+        }
+    ) {
+        param($ContentType, $Body)
 
-        $result = Invoke-WebRequest -Uri "$($script:instance.Url)/tickets" -Method Post -Body $body -ContentType 'application/json' -SkipCertificateCheck -SkipHttpErrorCheck
+        $result = Invoke-WebRequest -Uri "$($script:instance.Url)/tickets" -Method Post -Body $Body -ContentType $ContentType -SkipCertificateCheck -SkipHttpErrorCheck
         $result.StatusCode | Should -Be 201
 
+        # Default response should be JSON (no Accept header set).
         $json = $result.Content | ConvertFrom-Json
         $json.ticketType | Should -Be 'general'
         $json.ticketDate | Should -Be '2023-09-07'
         $json.ticketId | Should -Not -BeNullOrEmpty
+    }
+
+    It 'Buy ticket (POST) responds with requested content type' -TestCases @(
+        @{ Accept = 'application/json' }
+        @{ Accept = 'application/xml' }
+        @{ Accept = 'application/yaml' }
+        @{ Accept = 'application/x-www-form-urlencoded' }
+    ) {
+        param($Accept)
+
+        # Send a JSON body (request parsing is covered by the request Content-Type test).
+        $body = (@{
+                ticketType = 'general'
+                ticketDate = '2023-09-07'
+                email = 'todd@example.com'
+            } | ConvertTo-Json)
+
+        $result = Invoke-WebRequest -Uri "$($script:instance.Url)/tickets" -Method Post -Body $body -ContentType 'application/json' -Headers @{ Accept = $Accept } -SkipCertificateCheck -SkipHttpErrorCheck
+        $result.StatusCode | Should -Be 201
+
+        # Content-Type can include charset, so match on prefix.
+        $result.Headers.'Content-Type' | Should -Match "^$([regex]::Escape($Accept))"
+
+        # For some content types, Invoke-WebRequest returns a byte/int array in .Content.
+        $contentText = if ($result.Content -is [string]) {
+            $result.Content
+        } elseif ($result.Content -is [System.Array]) {
+            [System.Text.Encoding]::UTF8.GetString([byte[]]$result.Content)
+        } else {
+            $result.Content.ToString()
+        }
+
+        switch ($Accept) {
+            'application/json' {
+                $json = $contentText | ConvertFrom-Json
+                $json.ticketType | Should -Be 'general'
+                $json.ticketDate | Should -Be '2023-09-07'
+                $json.ticketId | Should -Not -BeNullOrEmpty
+                $json.message | Should -Be 'Museum general entry ticket purchased'
+            }
+            'application/xml' {
+                [xml]$xml = $contentText
+                ($xml.SelectSingleNode('//*[local-name()="ticketType"]').InnerText) | Should -Be 'general'
+                ($xml.SelectSingleNode('//*[local-name()="ticketDate"]').InnerText) | Should -Be '2023-09-07'
+                ($xml.SelectSingleNode('//*[local-name()="ticketId"]').InnerText) | Should -Not -BeNullOrEmpty
+                ($xml.SelectSingleNode('//*[local-name()="message"]').InnerText) | Should -Be 'Museum general entry ticket purchased'
+            }
+            'application/yaml' {
+                $yaml = $contentText | ConvertFrom-KrYaml
+                $yaml.ticketType | Should -Be 'general'
+                $yaml.ticketDate | Should -Be '2023-09-07'
+                $yaml.ticketId | Should -Not -BeNullOrEmpty
+                $yaml.message | Should -Be 'Museum general entry ticket purchased'
+            }
+            'application/x-www-form-urlencoded' {
+                $pairs = [Microsoft.AspNetCore.WebUtilities.QueryHelpers]::ParseQuery($contentText)
+
+                $pairs.ticketType | Should -Be 'general'
+                $pairs.ticketDate | Should -Be '2023-09-07'
+                $pairs.ticketId | Should -Not -BeNullOrEmpty
+                $pairs.message | Should -Be 'Museum general entry ticket purchased'
+            }
+        }
     }
 
     It 'Get museum hours (GET) returns 200' {
@@ -56,14 +147,28 @@ Describe 'Example 10.13 OpenAPI Examples' -Tag 'OpenApi', 'Tutorial', 'Slow' {
         $doc.components.examples.BuyGeneralTicketsResponseExample | Should -Not -BeNullOrEmpty
         $doc.components.examples.GetMuseumHoursResponseExample | Should -Not -BeNullOrEmpty
 
-        # Request example ref on POST /tickets
         $postTicket = $doc.paths.'/tickets'.post
-        $reqRef = $postTicket.requestBody.content.'application/json'.examples.general_entry.'$ref'
-        $reqRef | Should -Be '#/components/examples/BuyGeneralTicketsRequestExample'
 
-        # Response example ref on POST /tickets (201)
-        $respRef = $postTicket.responses.'201'.content.'application/json'.examples.general_entry.'$ref'
-        $respRef | Should -Be '#/components/examples/BuyGeneralTicketsResponseExample'
+        $contentTypes = @(
+            'application/json'
+            'application/xml'
+            'application/x-www-form-urlencoded'
+            'application/yaml'
+        )
+
+        foreach ($ct in $contentTypes) {
+            # Request content types exist
+            $postTicket.requestBody.content.$ct | Should -Not -BeNullOrEmpty
+
+            # Request example ref exists for each content type
+            $postTicket.requestBody.content.$ct.examples.general_entry.'$ref' | Should -Be '#/components/examples/BuyGeneralTicketsRequestExample'
+
+            # Response content types exist
+            $postTicket.responses.'201'.content.$ct | Should -Not -BeNullOrEmpty
+
+            # Response example ref exists for each content type
+            $postTicket.responses.'201'.content.$ct.examples.general_entry.'$ref' | Should -Be '#/components/examples/BuyGeneralTicketsResponseExample'
+        }
 
         # Response example ref on GET /museum-hours (200)
         $hoursRef = $doc.paths.'/museum-hours'.get.responses.'200'.content.'application/json'.examples.default_example.'$ref'

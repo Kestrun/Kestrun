@@ -27,8 +27,8 @@ public class OpenApiRequestBodyAttributeTests
     }
 
     [OpenApiRequestBodyComponent(Key = "UserBodyWithExamples", Description = "User body with examples", ContentType = ["application/json"], IsRequired = false)]
-    [OpenApiExampleRef(Key = "exClone", ReferenceId = "UserEx", ContentType = "application/json", Inline = true)]
-    [OpenApiExampleRef(Key = "exRef", ReferenceId = "UserEx", ContentType = "application/json", Inline = false)]
+    [OpenApiExampleRef(Key = "exClone", ReferenceId = "UserEx", ContentType = ["application/json"], Inline = true)]
+    [OpenApiExampleRef(Key = "exRef", ReferenceId = "UserEx", ContentType = ["application/json"], Inline = false)]
     private class RequestBodyHolderWithExamples
     {
         public string Name { get; set; } = "Bob";

@@ -406,7 +406,7 @@ Please include:
 
 ## OpenAPI (Kestrun implementation)
 
-Kestrun can generate an OpenAPI 3.1 document from PowerShell and C# route definitions.
+Kestrun can generate OpenAPI documents (v3.0 / v3.1 / v3.2) from PowerShell and C# route definitions.
 
 ### PowerShell: quick start
 
@@ -437,12 +437,37 @@ Common URLs when running examples:
 - Swagger UI: `/swagger`
 - ReDoc: `/redoc`
 
+### Document metadata (info/license)
+
+- Prefer `Add-KrOpenApiInfo` for `info.title`, `info.version`, etc.
+- `info.license` supports either a URL or an SPDX identifier:
+  - Use `Add-KrOpenApiLicense -Name 'Apache 2.0' -Url 'https://…'` when you want a link.
+  - Use `Add-KrOpenApiLicense -Name 'Apache 2.0' -Identifier 'Apache-2.0'` when you want an SPDX ID (OpenAPI 3.1+ / 3.2 use `license.identifier`).
+
+### Servers and server variables
+
+- Use `Add-KrOpenApiServer -Url` to populate `servers[]`.
+- For templated servers (`https://{env}.api.example.com`), use variables via `New-KrOpenApiServerVariable` and pass them to `Add-KrOpenApiServer -Variables`.
+- Keep server variables consistent across v3.0/v3.1/v3.2 documents when examples/tests validate all versions.
+
 ### Modeling operations
 
 - Use `[OpenApiPath(...)]` on the route function to describe the operation.
 - Prefer `[OpenApiParameter(...)]` for path/query/header parameters.
 - Prefer `[OpenApiRequestBody(...)]` on the *body parameter* (not on the function) when you need request-body metadata.
 - Use `[OpenApiResponse(...)]` to describe response status codes and schemas.
+
+### Examples and multi-content types (request/response)
+
+- If an operation accepts multiple request body content types, model them explicitly under `requestBody.content` (e.g. `application/json`, `application/xml`, `application/yaml`, `application/x-www-form-urlencoded`).
+- If an operation can respond with multiple formats, model them under `responses['200'|'201'].content` for each media type.
+- If you want to reuse examples, prefer component examples + `$ref` (e.g. `#/components/examples/...`) to avoid duplication across multiple media types.
+
+### Response content negotiation (PowerShell routes)
+
+- `Write-KrJsonResponse` always returns JSON (it does not negotiate).
+- Use `Write-KrResponse -InputObject ...` when the response should negotiate based on the request `Accept` header.
+- Negotiated types include JSON/XML/YAML/form-url-encoded (when supported by the C# response pipeline).
 
 ### Schema components (PowerShell class-based)
 
@@ -477,3 +502,9 @@ Comment-based help blocks are used by Kestrun to populate OpenAPI `summary`/`des
   - `Start-ExampleScript` to run an example script on a free port
   - `Stop-ExampleScript -Instance ...` to stop it
   - Assert OpenAPI via `Invoke-RestMethod http://localhost:$port/openapi/v3.1/openapi.json`
+
+#### Testing gotchas (content negotiation + examples)
+
+- The tutorial test harness executes scripts from `docs/pwsh/tutorial/examples` (not `docs/_includes/examples`). Keep those copies in sync when changing tutorial behavior.
+- When validating negotiated responses with `Invoke-WebRequest`, YAML and `application/x-www-form-urlencoded` bodies may arrive as a byte/int array; decode as UTF-8 before asserting content.
+- If you add/modify documentation UI routes via `Add-KrApiDocumentationRoute`, ensure the UI is pointed at the intended OpenAPI endpoint (e.g. `-OpenApiEndpoint '/openapi/v3.1/openapi.json'`) when the example exposes multiple specs.

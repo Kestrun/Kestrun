@@ -31,8 +31,10 @@ function New-KrOpenApiServerVariable {
 
         [Parameter()]
         [string] $Default,
+
         [Parameter()]
         [string[]] $Enum,
+
         [Parameter()]
         [string] $Description
     )

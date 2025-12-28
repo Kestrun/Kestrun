@@ -421,7 +421,7 @@ public partial class OpenApiDocDescriptor
     {
         var targets = exRef.ContentType is null
             ? (IEnumerable<string>)(response.Content?.Keys ?? Array.Empty<string>())
-            : [exRef.ContentType];
+            : exRef.ContentType;
 
         return targets.Any() ? targets : ["application/json"];
     }
@@ -430,7 +430,7 @@ public partial class OpenApiDocDescriptor
     {
         var targets = exRef.ContentType is null
             ? (IEnumerable<string>)(response.Content?.Keys ?? Array.Empty<string>())
-            : [exRef.ContentType];
+            : exRef.ContentType;
 
         return targets.Any() ? targets : ["application/json"];
     }

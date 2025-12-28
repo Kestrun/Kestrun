@@ -19,7 +19,7 @@ public sealed class OpenApiResponseExampleRefAttribute : KestrunAnnotation, IOpe
     public required string ReferenceId { get; set; }
 
     /// <summary>Media type bucket (e.g., application/json, application/xml)</summary>
-    public string? ContentType { get; set; }
+    public string[]? ContentType { get; set; }
 
     /// <summary>
     /// When true, embeds the example directly instead of referencing it.

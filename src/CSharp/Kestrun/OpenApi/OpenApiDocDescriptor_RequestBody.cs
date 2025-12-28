@@ -114,7 +114,7 @@ public partial class OpenApiDocDescriptor
     /// <returns>The list of content types to apply the example references to.</returns>
     private static IEnumerable<string> ResolveExampleContentTypes(OpenApiExampleRefAttribute exRef, OpenApiRequestBody requestBody)
     {
-        var keys = exRef.ContentType is null ? (requestBody.Content?.Keys ?? Array.Empty<string>()) : [exRef.ContentType];
+        var keys = exRef.ContentType is null ? (requestBody.Content?.Keys ?? Array.Empty<string>()) : exRef.ContentType;
         return keys.Count == 0 ? ["application/json"] : (IEnumerable<string>)keys;
     }
 

@@ -50,11 +50,6 @@ function Add-KrOpenApiLicense {
     begin {
         # Ensure the server instance is resolved
         $Server = Resolve-KestrunServer -Server $Server
-
-        # SPDX-ish license expression regex:
-        # - allows LICENSEID, LICENSEID+, ( ... ), AND/OR, and "WITH exception"
-        # - avoids URLs
-        $script:SpdxExpressionRegex = '^(?!.*:\/\/)(?:\(?\s*[A-Za-z0-9.-]+[+]?(?:\s+WITH\s+[A-Za-z0-9.-]+)?\s*\)?)(?:\s+(?:AND|OR)\s+(?:\(?\s*[A-Za-z0-9.-]+[+]?(?:\s+WITH\s+[A-Za-z0-9.-]+)?\s*\)?))*$'
     }
     process {
 

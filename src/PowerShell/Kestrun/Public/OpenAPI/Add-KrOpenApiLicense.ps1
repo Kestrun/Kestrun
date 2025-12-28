@@ -28,7 +28,7 @@
 #>
 function Add-KrOpenApiLicense {
     [KestrunRuntimeApi('Definition')]
-    [CmdletBinding(DefaultParameterSetName = 'WithUrl')]
+    [CmdletBinding(DefaultParameterSetName = 'Default')]
     param(
         [Parameter(Mandatory = $false, ValueFromPipeline = $true)]
         [Kestrun.Hosting.KestrunHost]$Server,

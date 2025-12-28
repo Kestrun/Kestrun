@@ -53,7 +53,7 @@ function Add-KrOpenApiLicense {
     }
     process {
 
-        # Add the server to the specified OpenAPI documents
+        # Add the license information to the specified OpenAPI documents
         foreach ($doc in $DocId) {
             $docDescriptor = $Server.GetOrCreateOpenApiDocument($doc)
 

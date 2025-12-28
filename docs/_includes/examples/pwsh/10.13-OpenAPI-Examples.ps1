@@ -82,8 +82,11 @@ class GetMuseumHoursResponse : MuseumDailyHours {}
 #               OPENAPI EXAMPLES (components + inline)
 # =========================================================
 Enable-KrConfiguration
-Add-KrApiDocumentationRoute -DocumentType Swagger
-Add-KrApiDocumentationRoute -DocumentType Redoc
+Add-KrApiDocumentationRoute -DocumentType Swagger -OpenApiEndpoint '/openapi/v3.1/openapi.json'
+Add-KrApiDocumentationRoute -DocumentType Redoc -OpenApiEndpoint '/openapi/v3.1/openapi.json'
+Add-KrApiDocumentationRoute -DocumentType Elements -OpenApiEndpoint '/openapi/v3.1/openapi.json'
+Add-KrApiDocumentationRoute -DocumentType Rapidoc -OpenApiEndpoint '/openapi/v3.1/openapi.json'
+Add-KrApiDocumentationRoute -DocumentType Scalar -OpenApiEndpoint '/openapi/v3.1/openapi.json'
 
 # =========================================================
 #                  HELPERS (DATES)
@@ -151,11 +154,15 @@ function buyTicket {
     #>
     [OpenApiPath(HttpVerb = 'post', Pattern = '/tickets')]
 
-    [OpenApiResponse(StatusCode = '201', Description = 'Ticket purchased', ContentType = 'application/json', Schema = [BuyTicketResponse])]
+    [OpenApiResponse(StatusCode = '201', Description = 'Ticket purchased',
+        ContentType = ('application/json', 'application/xml', 'application/x-www-form-urlencoded', 'application/yaml'),
+        Schema = [BuyTicketResponse])]
     [OpenApiResponseExampleRef(StatusCode = '201', Key = 'general_entry', ReferenceId = 'BuyGeneralTicketsResponseExample')]
     param(
-        [OpenApiRequestBody(Required = $true, ContentType = 'application/json' )]
-        [OpenApiRequestBodyExampleRef(Key = 'general_entry', ReferenceId = 'BuyGeneralTicketsRequestExample')]
+        [OpenApiRequestBody(Required = $true,
+            ContentType = ('application/json', 'application/xml', 'application/x-www-form-urlencoded', 'application/yaml') )]
+        [OpenApiRequestBodyExampleRef(Key = 'general_entry', ReferenceId = 'BuyGeneralTicketsRequestExample' ,
+            ContentType = ('application/json', 'application/xml', 'application/x-www-form-urlencoded', 'application/yaml'))]
         [BuyTicketRequest]$Body
     )
 
@@ -166,7 +173,7 @@ function buyTicket {
     $resp.ticketDate = $Body.ticketDate
     $resp.confirmationCode = 'ticket-general-e5e5c6-dce78'
 
-    Write-KrJsonResponse $resp -StatusCode 201
+    Write-KrResponse -InputObject $resp -StatusCode 201
 }
 
 function getMuseumHours {

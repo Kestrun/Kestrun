@@ -66,7 +66,6 @@ class Product {
     ContentType = ('application/json', 'application/x-www-form-urlencoded')
 )]
 class CreateProductRequest:Product {
-
 }
 
 # UpdateProductRequest: RequestBody component that wraps UpdateProduct schema
@@ -99,7 +98,6 @@ Enable-KrConfiguration
 Add-KrApiDocumentationRoute -DocumentType Swagger
 Add-KrApiDocumentationRoute -DocumentType Redoc
 
-# POST endpoint: Create product using CreateProductRequest component
 <#
 .SYNOPSIS
     Create a new product.
@@ -134,7 +132,6 @@ function createProduct {
     Write-KrResponse $response -StatusCode 201
 }
 
-# PUT endpoint: Update product using UpdateProductRequest component
 <#
 .SYNOPSIS
     Update an existing product.

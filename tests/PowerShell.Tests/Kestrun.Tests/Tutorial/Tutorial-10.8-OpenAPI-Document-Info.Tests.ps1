@@ -44,6 +44,23 @@ Describe 'Example 10.8 OpenAPI Document Info' -Tag 'OpenApi', 'Tutorial', 'Slow'
         $info.license.name | Should -Be 'Apache 2.0'
         $info.license.ContainsKey('identifier') | Should -BeFalse
         $info.license.ContainsKey('url') | Should -BeFalse
+
+        $servers = $json.servers
+        $servers.Count | Should -BeGreaterOrEqual 4
+
+        $serverUrls = $servers | ForEach-Object { $_.url }
+        $serverUrls | Should -Contain 'https://{env}.api.example.com'
+        $serverUrls | Should -Contain 'https://api.example.com'
+        $serverUrls | Should -Contain 'https://staging-api.example.com'
+        $serverUrls | Should -Contain '/'
+
+        $envServer = $servers | Where-Object { $_.url -eq 'https://{env}.api.example.com' } | Select-Object -First 1
+        $envServer.description | Should -Be 'Environment-specific endpoint'
+        $envServer.variables.env.default | Should -Be 'dev'
+        $envServer.variables.env.enum | Should -Contain 'dev'
+        $envServer.variables.env.enum | Should -Contain 'staging'
+        $envServer.variables.env.enum | Should -Contain 'prod'
+        $envServer.variables.env.description | Should -Be 'Deployment environment'
     }
 
     It 'Check OpenAPI 3.1 Info' {
@@ -62,6 +79,23 @@ Describe 'Example 10.8 OpenAPI Document Info' -Tag 'OpenApi', 'Tutorial', 'Slow'
         $info.license.name | Should -Be 'Apache 2.0'
         $info.license.identifier | Should -Be 'Apache-2.0'
         $info.license.ContainsKey('url') | Should -BeFalse
+
+        $servers = $json.servers
+        $servers.Count | Should -BeGreaterOrEqual 4
+
+        $serverUrls = $servers | ForEach-Object { $_.url }
+        $serverUrls | Should -Contain 'https://{env}.api.example.com'
+        $serverUrls | Should -Contain 'https://api.example.com'
+        $serverUrls | Should -Contain 'https://staging-api.example.com'
+        $serverUrls | Should -Contain '/'
+
+        $envServer = $servers | Where-Object { $_.url -eq 'https://{env}.api.example.com' } | Select-Object -First 1
+        $envServer.description | Should -Be 'Environment-specific endpoint'
+        $envServer.variables.env.default | Should -Be 'dev'
+        $envServer.variables.env.enum | Should -Contain 'dev'
+        $envServer.variables.env.enum | Should -Contain 'staging'
+        $envServer.variables.env.enum | Should -Contain 'prod'
+        $envServer.variables.env.description | Should -Be 'Deployment environment'
     }
 
     It 'Check OpenAPI 3.2 Info' {
@@ -80,6 +114,23 @@ Describe 'Example 10.8 OpenAPI Document Info' -Tag 'OpenApi', 'Tutorial', 'Slow'
         $info.license.name | Should -Be 'Apache 2.0'
         $info.license.identifier | Should -Be 'Apache-2.0'
         $info.license.ContainsKey('url') | Should -BeFalse
+
+        $servers = $json.servers
+        $servers.Count | Should -BeGreaterOrEqual 4
+
+        $serverUrls = $servers | ForEach-Object { $_.url }
+        $serverUrls | Should -Contain 'https://{env}.api.example.com'
+        $serverUrls | Should -Contain 'https://api.example.com'
+        $serverUrls | Should -Contain 'https://staging-api.example.com'
+        $serverUrls | Should -Contain '/'
+
+        $envServer = $servers | Where-Object { $_.url -eq 'https://{env}.api.example.com' } | Select-Object -First 1
+        $envServer.description | Should -Be 'Environment-specific endpoint'
+        $envServer.variables.env.default | Should -Be 'dev'
+        $envServer.variables.env.enum | Should -Contain 'dev'
+        $envServer.variables.env.enum | Should -Contain 'staging'
+        $envServer.variables.env.enum | Should -Contain 'prod'
+        $envServer.variables.env.description | Should -Be 'Deployment environment'
     }
 }
 

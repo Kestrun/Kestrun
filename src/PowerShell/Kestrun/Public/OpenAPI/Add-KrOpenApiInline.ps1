@@ -23,7 +23,7 @@
     This example creates a new OpenAPI Inline Link and adds it to the "MyApiDoc" OpenAPI document.
 #>
 function Add-KrOpenApiInline {
-    [KestrunRuntimeApi('Everywhere')]
+    [KestrunRuntimeApi('Definition')]
     [CmdletBinding()]
     param(
         [Parameter(Mandatory = $false )]

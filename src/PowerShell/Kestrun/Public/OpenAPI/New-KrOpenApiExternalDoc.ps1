@@ -16,7 +16,7 @@
 #>
 function New-KrOpenApiExternalDoc {
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseShouldProcessForStateChangingFunctions', '')]
-    [KestrunRuntimeApi('Everywhere')]
+    [KestrunRuntimeApi('Definition')]
     [OutputType([Microsoft.OpenApi.OpenApiExternalDocs])]
     param(
         [Parameter()]

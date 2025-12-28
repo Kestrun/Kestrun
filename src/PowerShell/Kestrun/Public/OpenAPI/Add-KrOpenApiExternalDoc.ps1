@@ -19,7 +19,7 @@
     This cmdlet is part of the OpenAPI module.
 #>
 function Add-KrOpenApiExternalDoc {
-    [KestrunRuntimeApi('Everywhere')]
+    [KestrunRuntimeApi('Definition')]
     param(
         [Parameter(Mandatory = $false, ValueFromPipeline = $true)]
         [Kestrun.Hosting.KestrunHost]$Server,

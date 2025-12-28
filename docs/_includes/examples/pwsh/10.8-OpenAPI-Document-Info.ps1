@@ -27,7 +27,7 @@ Add-KrOpenApiInfo -Title 'Document Info API' -Version '1.0.0' -Description 'Show
 
 # Add contact and license information
 Add-KrOpenApiContact -Name 'API Support' -Email 'support@example.com' -Url 'https://example.com/support'
-Add-KrOpenApiLicense -Name 'MIT' -Url 'https://opensource.org/licenses/MIT' -Identifier 'MIT'
+Add-KrOpenApiLicense -Name 'Apache 2.0' -Identifier 'Apache-2.0'
 
 # Configure server endpoints with optional environment variable substitution
 $serverVars = New-KrOpenApiServerVariable -Name 'env' -Default 'dev' -Enum @('dev', 'staging', 'prod') -Description 'Deployment environment'
@@ -65,7 +65,9 @@ function getApiInfo {
         version = $OpenInfo.info.version
         termsOfService = $OpenInfo.info.termsOfService
         contact = $OpenInfo.info.contact.email
-        license = $OpenInfo.info.license.name
+        licenseName = $OpenInfo.info.license.name
+        licenseIdentifier = $OpenInfo.info.license.identifier
+        licenseUrl = $OpenInfo.info.license.url
     }
     Write-KrJsonResponse -InputObject $info -StatusCode 200
 }

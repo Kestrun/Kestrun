@@ -23,7 +23,7 @@
     This cmdlet is part of the Kestrun OpenAPI module.
 #>
 function Add-KrOpenApiServer {
-    [KestrunRuntimeApi('Everywhere')]
+    [KestrunRuntimeApi('Definition')]
     param(
         [Parameter(Mandatory = $false, ValueFromPipeline = $true)]
         [Kestrun.Hosting.KestrunHost]$Server,

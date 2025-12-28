@@ -33,7 +33,7 @@
 #>
 function New-KrOpenApiExample {
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseShouldProcessForStateChangingFunctions', '')]
-    [KestrunRuntimeApi('Everywhere')]
+    [KestrunRuntimeApi('Definition')]
     [CmdletBinding(DefaultParameterSetName = 'Value')]
     [OutputType([Microsoft.OpenApi.OpenApiExample])]
     param(

@@ -389,7 +389,10 @@ Add-KrOpenApiInfo -Title 'My API' -Version '1.0.0' -Description 'API Description
 
 # Contact & License
 Add-KrOpenApiContact -Name 'Support' -Email 'help@example.com'
+
+# License can be expressed either as a URL (common) or an SPDX identifier (OpenAPI 3.1/3.2)
 Add-KrOpenApiLicense -Name 'MIT' -Url 'https://opensource.org/licenses/MIT'
+# Add-KrOpenApiLicense -Name 'Apache 2.0' -Identifier 'Apache-2.0'
 
 # Servers
 Add-KrOpenApiServer -Url 'https://api.example.com' -Description 'Production'

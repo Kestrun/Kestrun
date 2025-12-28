@@ -31,7 +31,7 @@
     None
 #>
 function Add-KrOpenApiComponent {
-    [KestrunRuntimeApi('Everywhere')]
+    [KestrunRuntimeApi('Definition')]
     [CmdletBinding()]
     param(
         [Parameter(Mandatory = $false )]

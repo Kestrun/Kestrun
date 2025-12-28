@@ -11,27 +11,40 @@
 .PARAMETER Name
     The name of the license.
 .PARAMETER Url
-    The URL of the license.
+    The URL of the license. This parameter is used in the 'WithUrl' parameter set and is mutually exclusive with the 'Identifier' parameter.
 .PARAMETER Identifier
-    The SPDX identifier of the license.
+    The SPDX identifier of the license. This parameter is used in the 'WithIdentifier' parameter set and is mutually exclusive with the 'Url' parameter.
 .EXAMPLE
     # Add license information to the default document
-    Add-KrOpenApiLicense -Name 'MIT License' -Url 'https://opensource.org/licenses/MIT' -Identifier 'MIT'
+    Add-KrOpenApiLicense -Name 'MIT License' -Url 'https://opensource.org/licenses/MIT'
+.EXAMPLE
+    # Add license information using SPDX identifier to the default document
+    Add-KrOpenApiLicense -Name 'Apache 2.0' -Identifier 'Apache-2.0'
+.EXAMPLE
+    # Add license information using URL to the default document
+    Add-KrOpenApiLicense -Name 'GPLv3' -Url 'https://www.gnu.org/licenses/gpl-3.0.en.html' -DocId 'customDoc1','customDoc2'
 .NOTES
     This cmdlet is part of the OpenAPI module.
 #>
 function Add-KrOpenApiLicense {
-    [KestrunRuntimeApi('Everywhere')]
+    [KestrunRuntimeApi('Definition')]
+    [CmdletBinding(DefaultParameterSetName = 'Default')]
     param(
         [Parameter(Mandatory = $false, ValueFromPipeline = $true)]
         [Kestrun.Hosting.KestrunHost]$Server,
+
         [Parameter()]
         [string[]]$DocId = [Kestrun.OpenApi.OpenApiDocDescriptor]::DefaultDocumentationIds,
-        [Parameter(Mandatory)]
+
+        [Parameter(Mandatory = $true)]
         [string]$Name,
-        [Parameter()]
+
+        [Parameter(Mandatory = $true, ParameterSetName = 'WithUrl')]
         [Uri]$Url,
-        [Parameter()]
+
+        [Parameter(Mandatory = $true, ParameterSetName = 'WithIdentifier')]
+        [ValidateNotNullOrEmpty()]
+        [ValidatePattern('^(?!\s)(?!.*\s$)(?!.*:\/\/)(?:\(?\s*[A-Za-z0-9.-]+[+]?(?:\s+WITH\s+[A-Za-z0-9.-]+)?\s*\)?)(?:\s+(?:AND|OR)\s+(?:\(?\s*[A-Za-z0-9.-]+[+]?(?:\s+WITH\s+[A-Za-z0-9.-]+)?\s*\)?))*$')]
         [string]$Identifier
     )
     begin {
@@ -39,24 +52,26 @@ function Add-KrOpenApiLicense {
         $Server = Resolve-KestrunServer -Server $Server
     }
     process {
-        # Add the server to the specified OpenAPI documents
+
+        # Add the license information to the specified OpenAPI documents
         foreach ($doc in $DocId) {
             $docDescriptor = $Server.GetOrCreateOpenApiDocument($doc)
-            if ($null -eq $docDescriptor.Document.Info) {
-                # Initialize the Info object if null
-                $docDescriptor.Document.Info = [Microsoft.OpenApi.OpenApiInfo]::new()
-            }
-            if ($null -eq $docDescriptor.Document.Info.License) {
-                # Initialize the License object if null
-                $docDescriptor.Document.Info.License = [Microsoft.OpenApi.OpenApiLicense]::new()
-            }
+
+            # Initialize the Info object if null
+            $docDescriptor.Document.Info ??= [Microsoft.OpenApi.OpenApiInfo]::new()
+
+            # Initialize the License object if null
+            $docDescriptor.Document.Info.License ??= [Microsoft.OpenApi.OpenApiLicense]::new()
+
             # Set the license information
             $docDescriptor.Document.Info.License.Name = $Name
             # Set optional properties if provided
-            if ($PsBoundParameters.ContainsKey('Url')) {
+            if ($PSCmdlet.ParameterSetName -eq 'WithUrl') {
                 $docDescriptor.Document.Info.License.Url = $Url
             }
-            if ($PsBoundParameters.ContainsKey('Identifier')) {
+
+            if ($PSCmdlet.ParameterSetName -eq 'WithIdentifier') {
+                # Assign the SPDX identifier
                 $docDescriptor.Document.Info.License.Identifier = $Identifier
             }
         }

@@ -20,7 +20,7 @@
 #>
 function New-KrOpenApiServerVariable {
     [Diagnostics.CodeAnalysis.SuppressMessage('PSUseShouldProcessForStateChangingFunctions', '')]
-    [KestrunRuntimeApi('Everywhere')]
+    [KestrunRuntimeApi('Definition')]
     [CmdletBinding()]
     param(
         [Parameter(ValueFromPipeline = $true, Position = 0)]

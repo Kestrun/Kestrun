@@ -2,7 +2,7 @@ using Kestrun.Launcher;
 using System.Reflection;
 
 // Parse command-line arguments
-var parsedArgs = Args.Parse(Environment.GetCommandLineArgs().Skip(1).ToArray());
+var parsedArgs = Args.Parse([.. Environment.GetCommandLineArgs().Skip(1)]);
 
 // Show help
 if (parsedArgs.Help)
@@ -83,17 +83,17 @@ static void ShowVersion()
     var assembly = Assembly.GetExecutingAssembly();
     var version = assembly.GetName().Version;
     var informationalVersion = assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion;
-    
+
     Console.WriteLine($"kestrun-launcher version {informationalVersion ?? version?.ToString() ?? "unknown"}");
 }
 
 static async Task<int> RunApp(Args args)
 {
     Console.WriteLine($"Running Kestrun app from: {args.AppPath}");
-    
+
     // Resolve the app path
     var appPath = Path.GetFullPath(args.AppPath!);
-    
+
     // Check if it's a PowerShell script or a directory
     if (File.Exists(appPath) && Path.GetExtension(appPath).Equals(".ps1", StringComparison.OrdinalIgnoreCase))
     {
@@ -125,7 +125,7 @@ static async Task<int> RunApp(Args args)
 static string? FindStartupScript(string directory)
 {
     var candidates = new[] { "server.ps1", "start.ps1", "main.ps1", "app.ps1" };
-    
+
     foreach (var candidate in candidates)
     {
         var scriptPath = Path.Combine(directory, candidate);
@@ -134,78 +134,78 @@ static string? FindStartupScript(string directory)
             return scriptPath;
         }
     }
-    
+
     return null;
 }
 
 static async Task<int> InstallService(Args args)
 {
     Console.WriteLine($"Installing service '{args.ServiceName}' for app: {args.AppPath}");
-    
+
     var appPath = Path.GetFullPath(args.AppPath!);
     var launcher = Assembly.GetExecutingAssembly().Location;
     var serviceName = args.ServiceName!;
-    
+
     // Use sc.exe to create the service
     var arguments = $"create \"{serviceName}\" binPath= \"\\\"{launcher}\\\" run \\\"{appPath}\\\"\" start= auto";
-    
+
     var result = await ServiceController.ExecuteCommand("sc.exe", arguments);
-    
+
     if (result == 0)
     {
         Console.WriteLine($"Service '{serviceName}' installed successfully.");
         Console.WriteLine($"Use 'kestrun-launcher start -n {serviceName}' to start the service.");
     }
-    
+
     return result;
 }
 
 static async Task<int> UninstallService(Args args)
 {
     Console.WriteLine($"Uninstalling service '{args.ServiceName}'...");
-    
-    var serviceName = args.ServiceName!;
-    
+
+    var serviceName = args.ServiceName;
+
     // Stop the service first if it's running
-    await ServiceController.ExecuteCommand("sc.exe", $"stop \"{serviceName}\"");
-    
+    _ = await ServiceController.ExecuteCommand("sc.exe", $"stop \"{serviceName}\"");
+
     // Delete the service
     var result = await ServiceController.ExecuteCommand("sc.exe", $"delete \"{serviceName}\"");
-    
+
     if (result == 0)
     {
         Console.WriteLine($"Service '{serviceName}' uninstalled successfully.");
     }
-    
+
     return result;
 }
 
 static async Task<int> StartService(Args args)
 {
     Console.WriteLine($"Starting service '{args.ServiceName}'...");
-    
-    var serviceName = args.ServiceName!;
+
+    var serviceName = args.ServiceName;
     var result = await ServiceController.ExecuteCommand("sc.exe", $"start \"{serviceName}\"");
-    
+
     if (result == 0)
     {
         Console.WriteLine($"Service '{serviceName}' started successfully.");
     }
-    
+
     return result;
 }
 
 static async Task<int> StopService(Args args)
 {
     Console.WriteLine($"Stopping service '{args.ServiceName}'...");
-    
-    var serviceName = args.ServiceName!;
+
+    var serviceName = args.ServiceName;
     var result = await ServiceController.ExecuteCommand("sc.exe", $"stop \"{serviceName}\"");
-    
+
     if (result == 0)
     {
         Console.WriteLine($"Service '{serviceName}' stopped successfully.");
     }
-    
+
     return result;
 }

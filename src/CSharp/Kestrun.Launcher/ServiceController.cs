@@ -23,37 +23,37 @@ public static class ServiceController
                 UseShellExecute = false,
                 CreateNoWindow = true
             };
-            
+
             using var process = new Process { StartInfo = processStartInfo };
-            
+
             // Capture output
             var outputBuilder = new System.Text.StringBuilder();
             var errorBuilder = new System.Text.StringBuilder();
-            
+
             process.OutputDataReceived += (sender, args) =>
             {
                 if (args.Data != null)
                 {
-                    outputBuilder.AppendLine(args.Data);
+                    _ = outputBuilder.AppendLine(args.Data);
                     Console.WriteLine(args.Data);
                 }
             };
-            
+
             process.ErrorDataReceived += (sender, args) =>
             {
                 if (args.Data != null)
                 {
-                    errorBuilder.AppendLine(args.Data);
+                    _ = errorBuilder.AppendLine(args.Data);
                     Console.Error.WriteLine(args.Data);
                 }
             };
-            
-            process.Start();
+
+            _ = process.Start();
             process.BeginOutputReadLine();
             process.BeginErrorReadLine();
-            
+
             await process.WaitForExitAsync();
-            
+
             return process.ExitCode;
         }
         catch (Exception ex)

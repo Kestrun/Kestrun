@@ -147,8 +147,15 @@ static async Task<int> InstallService(Args args)
     var launcher = Assembly.GetExecutingAssembly().Location;
     var serviceName = args.ServiceName!;
 
+    // Build the command line arguments for the service
+    var cmdArgs = $"run \\\"{appPath}\\\"";
+    if (!string.IsNullOrEmpty(args.KestrunModulePath))
+    {
+        cmdArgs += $" -k \\\"{args.KestrunModulePath}\\\"";
+    }
+
     // Use sc.exe to create the service
-    var arguments = $"create \"{serviceName}\" binPath= \"\\\"{launcher}\\\" run \\\"{appPath}\\\"\" start= auto";
+    var arguments = $"create \"{serviceName}\" binPath= \"\\\"{launcher}\\\" {cmdArgs}\" start= auto";
 
     var result = await ServiceController.ExecuteCommand("sc.exe", arguments);
 

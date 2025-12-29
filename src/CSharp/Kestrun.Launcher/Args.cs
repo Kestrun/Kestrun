@@ -141,6 +141,16 @@ public class Args
             }
         }
 
+        // Validate Kestrun module path if specified
+        if (!string.IsNullOrEmpty(KestrunModulePath))
+        {
+            if (!File.Exists(KestrunModulePath))
+            {
+                error = $"Kestrun module path does not exist: {KestrunModulePath}";
+                return false;
+            }
+        }
+
         return true;
     }
 }

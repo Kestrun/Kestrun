@@ -346,4 +346,24 @@ public class ArgsTests
         // Assert
         Assert.Equal("/path/to/module", parsed.KestrunModulePath);
     }
+
+    [Fact]
+    public void Validate_InvalidKestrunModulePath_ReturnsFalse()
+    {
+        // Arrange
+        var tempDir = Path.GetTempPath();
+        var parsed = new Args 
+        { 
+            Command = LauncherCommand.Run,
+            AppPath = tempDir,
+            KestrunModulePath = "/non/existent/module.psd1"
+        };
+
+        // Act
+        var isValid = parsed.Validate(out var error);
+
+        // Assert
+        Assert.False(isValid);
+        Assert.Contains("Kestrun module path does not exist", error);
+    }
 }

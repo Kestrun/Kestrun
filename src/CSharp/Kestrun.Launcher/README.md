@@ -4,7 +4,7 @@ A command-line tool for running and managing Kestrun applications as standalone 
 
 ## Overview
 
-`kestrun-launcher` is a .NET 10.0 executable that provides a simple interface for:
+`kestrun-launcher` is a .NET executable (supporting .NET 8.0, 9.0, and 10.0) that provides a simple interface for:
 - Running PowerShell-based Kestrun applications
 - Installing Kestrun apps as Windows services
 - Managing Windows services (start, stop, uninstall)
@@ -24,7 +24,7 @@ cd src/CSharp/Kestrun.Launcher
 dotnet build -c Release
 ```
 
-The executable will be in `bin/Release/net10.0/kestrun-launcher.exe` (Windows) or `kestrun-launcher` (Linux/macOS).
+The executable will be in `bin/Release/net8.0/`, `bin/Release/net9.0/`, or `bin/Release/net10.0/` depending on your .NET SDK version.
 
 ## Usage
 
@@ -149,9 +149,9 @@ The launcher consists of:
 
 ## Requirements
 
-- .NET 10.0 Runtime
+- .NET 8.0, 9.0, or 10.0 Runtime
 - Windows (for service management features)
-- PowerShell 7.5+ (bundled via Microsoft.PowerShell.SDK)
+- PowerShell 7.4+ (bundled via Microsoft.PowerShell.SDK)
 
 ## Limitations
 

@@ -12,10 +12,10 @@ This directory contains a simple example app for testing the `kestrun-launcher` 
 
 ```powershell
 # Run the app
-dotnet run --project ../../../src/CSharp/Kestrun.Launcher -- run ./server.ps1
+dotnet run --project ../../../src/CSharp/Kestrun.Launcher --framework net8.0 -- run ./server.ps1
 
-# Or using the built executable
-../../../src/CSharp/Kestrun.Launcher/bin/Debug/net10.0/kestrun-launcher run ./server.ps1
+# Or using the built executable (framework version depends on your .NET SDK)
+../../../src/CSharp/Kestrun.Launcher/bin/Debug/net8.0/kestrun-launcher run ./server.ps1
 ```
 
 ### Install as Windows Service (Windows only)

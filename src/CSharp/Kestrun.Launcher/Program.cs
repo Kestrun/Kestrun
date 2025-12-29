@@ -111,7 +111,7 @@ static async Task<int> RunApp(Args args)
         else
         {
             Console.Error.WriteLine($"No startup script found in: {appPath}");
-            Console.Error.WriteLine("Expected: server.ps1, start.ps1, or main.ps1");
+            Console.Error.WriteLine("Expected: server.ps1, start.ps1, main.ps1, or app.ps1");
             return 1;
         }
     }

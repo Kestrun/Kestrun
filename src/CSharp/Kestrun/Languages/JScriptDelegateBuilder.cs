@@ -30,8 +30,8 @@ internal static class JScriptDelegateBuilder
 
         return async context =>
         {
-            var krRequest = await KestrunRequest.NewRequest(context);
-            var krResponse = new KestrunResponse(krRequest);
+            var krContext = new KestrunContext(host, context);
+            var krResponse = krContext.Response;
             engine.Script.handle(context, krResponse);
 
             if (!string.IsNullOrEmpty(krResponse.RedirectUrl))

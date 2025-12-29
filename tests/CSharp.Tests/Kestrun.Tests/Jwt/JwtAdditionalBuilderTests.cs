@@ -62,7 +62,7 @@ public class JwtAdditionalBuilderTests
 
     [Fact]
     [Trait("Category", "Jwt")]
-    public async Task RenewJwt_FromContext_ParsesBearerAndRenews()
+    public void RenewJwt_FromContext_ParsesBearerAndRenews()
     {
         var sign = B64Url([.. Enumerable.Repeat((byte)0x22, 32)]);
         var b = JwtTokenBuilder.New()
@@ -76,10 +76,8 @@ public class JwtAdditionalBuilderTests
 
         var http = new DefaultHttpContext();
         http.Request.Headers["Authorization"] = "Bearer " + original;
-        var req = await KestrunRequest.NewRequest(http);
-        var resp = new KestrunResponse(req);
         var host = new Kestrun.Hosting.KestrunHost("Tests", Serilog.Log.Logger);
-        var ctx = new KestrunContext(host, req, resp, http);
+        var ctx = new KestrunContext(host, http);
 
         var renewed = b.RenewJwt(ctx, TimeSpan.FromMinutes(2));
         Assert.False(string.IsNullOrWhiteSpace(renewed));
@@ -91,7 +89,7 @@ public class JwtAdditionalBuilderTests
 
     [Fact]
     [Trait("Category", "Jwt")]
-    public async Task RenewJwt_FromContext_NoBearer_ReturnsEmpty()
+    public void RenewJwt_FromContext_NoBearer_ReturnsEmpty()
     {
         var sign = B64Url([.. Enumerable.Repeat((byte)0x33, 32)]);
         var b = JwtTokenBuilder.New()
@@ -101,10 +99,8 @@ public class JwtAdditionalBuilderTests
             .SignWithSecret(sign);
 
         var http = new DefaultHttpContext();
-        var req = await KestrunRequest.NewRequest(http);
-        var resp = new KestrunResponse(req);
         var host = new Kestrun.Hosting.KestrunHost("Tests", Serilog.Log.Logger);
-        var ctx = new KestrunContext(host, req, resp, http);
+        var ctx = new KestrunContext(host, http);
 
         var renewed = b.RenewJwt(ctx, TimeSpan.FromMinutes(1));
         Assert.Equal(string.Empty, renewed);

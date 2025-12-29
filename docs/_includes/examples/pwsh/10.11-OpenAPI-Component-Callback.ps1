@@ -30,7 +30,7 @@ Add-KrOpenApiInfo -Title 'Hello World API' `
 
 Add-KrOpenApiContact -Email 'support@example.com'
 # Add Server info
-Add-KrOpenApiServer -Url "http://localhost:$Port" -Description 'Local Server'
+#Add-KrOpenApiServer -Url "http://$IPAddress:$Port" -Description 'Local Server'
 
 # =========================================================
 #                 COMPONENT SCHEMAS
@@ -227,10 +227,14 @@ function createPayment {
     [OpenApiCallbackRef(Key = 'reservation', ReferenceId = 'reservationCallback')]
     [OpenApiCallbackRef(Key = 'shippingOrder', ReferenceId = 'shippingOrderCallback')]
     param(
+        [OpenApiParameter(In = 'query', Required = $true)]
+        [string]$paymentId='pay-12345678',
+        [OpenApiParameter(In = 'query', Required = $true)]
+        [string]$orderId='ord-12345678',
         [OpenApiRequestBody(ContentType = 'application/json')]
         [CreatePaymentRequest]$body
     )
-
+    Write-Host "PaymentId: $paymentId"
     if (-not $body -or -not $body.amount -or -not $body.currency -or -not $body.callbackUrls) {
         Write-KrJsonResponse @{ error = 'amount, currency, and callbackUrls are required' } -StatusCode 400
         return

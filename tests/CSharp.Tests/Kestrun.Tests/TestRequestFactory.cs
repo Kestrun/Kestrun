@@ -1,5 +1,7 @@
 using Kestrun.Models;
+using Kestrun.Hosting;
 using Microsoft.AspNetCore.Http;
+using Serilog;
 
 namespace KestrunTests;
 
@@ -8,6 +10,8 @@ namespace KestrunTests;
 /// </summary>
 internal static class TestRequestFactory
 {
+    private static readonly Lazy<KestrunHost> _host = new(() => new KestrunHost("Tests", Log.Logger));
+
     internal static KestrunRequest Create(
         string method = "GET",
         string path = "/",
@@ -49,5 +53,47 @@ internal static class TestRequestFactory
 
         // Use public async factory
         return KestrunRequest.NewRequestSync(ctx);
+    }
+
+    internal static KestrunContext CreateContext(
+        string method = "GET",
+        string path = "/",
+        Dictionary<string, string>? headers = null,
+        string body = "",
+        Dictionary<string, string>? form = null,
+        Action<DefaultHttpContext>? configureContext = null)
+    {
+        var ctx = new DefaultHttpContext();
+        ctx.Request.Method = method;
+        ctx.Request.Path = path;
+
+        // Add headers
+        if (headers != null)
+        {
+            foreach (var kv in headers)
+            {
+                ctx.Request.Headers[kv.Key] = kv.Value;
+            }
+        }
+
+        // Add form if provided
+        if (form != null && form.Count > 0)
+        {
+            var formCollection = new FormCollection(form.ToDictionary(k => k.Key, v => new Microsoft.Extensions.Primitives.StringValues(v.Value)));
+            ctx.Request.ContentType = "application/x-www-form-urlencoded";
+            ctx.Request.Form = formCollection;
+        }
+
+        // Body
+        if (!string.IsNullOrEmpty(body))
+        {
+            var bytes = System.Text.Encoding.UTF8.GetBytes(body);
+            ctx.Request.Body = new MemoryStream(bytes);
+            ctx.Request.ContentLength = bytes.Length;
+        }
+
+        configureContext?.Invoke(ctx);
+
+        return new KestrunContext(_host.Value, ctx);
     }
 }

@@ -13,9 +13,7 @@ public class WriteFormUrlEncodedResponseTests
 
     private static KestrunResponse CreateKestrunResponse()
     {
-        var httpContext = new DefaultHttpContext();
-        var request = KestrunRequest.NewRequestSync(httpContext);
-        return new KestrunResponse(request);
+        return TestRequestFactory.CreateContext().Response;
     }
 
     [Fact]

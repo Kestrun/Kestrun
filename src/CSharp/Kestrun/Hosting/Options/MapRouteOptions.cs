@@ -1,3 +1,4 @@
+using Kestrun.Callback;
 using Kestrun.Utilities;
 
 namespace Kestrun.Hosting.Options;
@@ -78,6 +79,11 @@ public class MapRouteOptions
     /// If true, throws an exception on duplicate routes.
     /// </summary>
     public bool ThrowOnDuplicate { get; set; }
+
+    /// <summary>
+    /// Callback requests associated with this route.
+    /// </summary>
+    public List<CallbackPlan> CallbackPlan { get; set; } = [];
 
     /// <summary>
     /// Returns a string representation of the MapRouteOptions.

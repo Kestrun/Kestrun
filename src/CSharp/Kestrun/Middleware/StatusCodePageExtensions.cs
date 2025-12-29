@@ -153,13 +153,7 @@ public static class StatusCodePageExtensions
             ps.Runspace = runspace;
 
             // Build Kestrun abstractions and inject into context for PS delegate to use
-            var req = await KestrunRequest.NewRequest(httpContext);
-            var res = new KestrunResponse(req)
-            {
-                StatusCode = httpContext.Response.StatusCode
-            };
-            var kr = new KestrunContext(pool.Host, req, res, httpContext);
-
+            var kr = new KestrunContext(pool.Host, httpContext);
             httpContext.Items[PowerShellDelegateBuilder.PS_INSTANCE_KEY] = ps;
             httpContext.Items[PowerShellDelegateBuilder.KR_CONTEXT_KEY] = kr;
             var ss = ps.Runspace.SessionStateProxy;

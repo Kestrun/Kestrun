@@ -2,7 +2,9 @@
 
 using System.Collections;
 using System.Security.Claims;
+using Kestrun.Hosting.Options;
 using Kestrun.SignalR;
+using Kestrun.Utilities;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Http.Features;
 
@@ -19,28 +21,6 @@ public sealed record KestrunContext
     /// It initializes the KestrunRequest and KestrunResponse based on the provided HttpContext
     /// </summary>
     /// <param name="host">The Kestrun host.</param>
-    /// <param name="request">The Kestrun request.</param>
-    /// <param name="response">The Kestrun response.</param>
-    /// <param name="httpContext">The associated HTTP context.</param>
-    public KestrunContext(Hosting.KestrunHost host, KestrunRequest request, KestrunResponse response, HttpContext httpContext)
-    {
-        ArgumentNullException.ThrowIfNull(host);
-        ArgumentNullException.ThrowIfNull(request);
-        ArgumentNullException.ThrowIfNull(response);
-        ArgumentNullException.ThrowIfNull(httpContext);
-
-        Host = host;
-        Request = request;
-        Response = response;
-        HttpContext = httpContext;
-    }
-
-    /// <summary>
-    /// Initializes a new instance of the <see cref="KestrunContext"/> class.
-    /// This constructor is used when creating a new KestrunContext from an existing HTTP context.
-    /// It initializes the KestrunRequest and KestrunResponse based on the provided HttpContext
-    /// </summary>
-    /// <param name="host">The Kestrun host.</param>
     /// <param name="httpContext">The associated HTTP context.</param>
     public KestrunContext(Hosting.KestrunHost host, HttpContext httpContext)
     {
@@ -49,9 +29,35 @@ public sealed record KestrunContext
 
         Host = host;
         HttpContext = httpContext;
-
+        // Initialize TraceIdentifier, Request, and Response
+        TraceIdentifier = HttpContext.TraceIdentifier;
         Request = KestrunRequest.NewRequestSync(HttpContext);
-        Response = new KestrunResponse(Request);
+
+        // Ensure contexts created via this constructor always have a valid response.
+        Response = new KestrunResponse(this, 8192);
+        var routeEndpoint = Request.HttpContext.GetEndpoint() as RouteEndpoint
+     ?? throw new InvalidOperationException("No route endpoint found for the current request.");
+
+        var pattern = routeEndpoint.RoutePattern.RawText
+                   ?? routeEndpoint.RoutePattern.ToString(); // fallback
+
+        if (string.IsNullOrEmpty(pattern))
+        {
+            throw new InvalidOperationException("Route pattern is null or empty for the current request.");
+        }
+        var verb = HttpVerbExtensions.FromMethodString(Request.Method);
+
+        if (!Host.RegisteredRoutes.TryGetValue((pattern, verb), out var options))
+        {
+            // default options
+            options = new MapRouteOptions()
+            {
+                Pattern = pattern,
+                HttpVerbs = [verb]
+            };
+        }
+
+        MapRouteOptions = options;
     }
 
     /// <summary>
@@ -65,11 +71,16 @@ public sealed record KestrunContext
     /// <summary>
     /// The Kestrun response associated with this context.
     /// </summary>
-    public KestrunResponse Response { get; init; }
+    public KestrunResponse Response { get; private set; }
     /// <summary>
     /// The ASP.NET Core HTTP context associated with this Kestrun context.
     /// </summary>
     public HttpContext HttpContext { get; init; }
+
+    /// <summary>
+    /// Gets the route options associated with this response.
+    /// </summary>
+    public MapRouteOptions MapRouteOptions { get; init; }
     /// <summary>
     /// Returns the ASP.NET Core session if the Session middleware is active; otherwise null.
     /// </summary>
@@ -107,6 +118,17 @@ public sealed record KestrunContext
     /// Gets the connection information for the current HTTP context.
     /// </summary>
     public ConnectionInfo Connection => HttpContext.Connection;
+
+    /// <summary>
+    /// Gets the trace identifier for the current HTTP context.
+    /// </summary>
+    public string TraceIdentifier { get; init; }
+
+
+    /// <summary>
+    /// A dictionary to hold  parameters passed by user for use within the KestrunContext.
+    /// </summary>
+    public ResolvedRequestParameters Parameters { get; internal set; } = new ResolvedRequestParameters();
 
     /// <summary>
     /// Returns a string representation of the KestrunContext, including path, user, and session status.

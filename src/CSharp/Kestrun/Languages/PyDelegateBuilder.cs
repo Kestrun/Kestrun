@@ -87,10 +87,10 @@ internal static class PyDelegateBuilder
         {
             try
             {
-                using var _ = Py.GIL();       // enter GIL for *this* request
-                var krRequest = await KestrunRequest.NewRequest(context);
-                var krResponse = new KestrunResponse(krRequest);
-
+                using var _ = Py.GIL();       // enter GIL for *this* request thread
+                // Create Kestrun abstractions and inject into context for Python handler to use
+                var krContext = new KestrunContext(host, context);
+                var krResponse = krContext.Response;
                 // Call the Python handler (Python → .NET marshal is automatic)
                 pyHandle(context, krResponse, context);
 

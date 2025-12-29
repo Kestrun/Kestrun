@@ -37,11 +37,11 @@ public partial class OpenApiDocDescriptor
             IOpenApiLink oaLink = attribute.Inline ? link!.Clone() : new OpenApiLinkReference(attribute.ReferenceId);
             return links.TryAdd(attribute.Key, oaLink);
         }
-        else
+        else if (attribute.Inline)
         {
-            throw new InvalidOperationException(
-                $"Example with ReferenceId '{attribute.ReferenceId}' not found in components or inline components.");
+            throw new InvalidOperationException($"Inline link component with ID '{attribute.ReferenceId}' not found.");
         }
+        return false;
     }
 
     private void ApplyResponseLinkAttribute(OpenAPIPathMetadata metadata, OpenApiResponseLinkRefAttribute attribute)

@@ -23,6 +23,7 @@ using Kestrun.Tasks;
 using Kestrun.Runtime;
 using Kestrun.OpenApi;
 using Microsoft.AspNetCore.Antiforgery;
+using Kestrun.Callback;
 
 namespace Kestrun.Hosting;
 
@@ -360,6 +361,9 @@ public partial class KestrunHost : IDisposable
         // ASP.NET Core registers Microsoft.Extensions.Logging.ILogger by default; we also bind Serilog.ILogger
         // to the same instance so constructors like `KestrunHub(Serilog.ILogger logger)` resolve properly.
         _ = Builder.Services.AddSingleton(Logger);
+
+        // Register Callback services
+        _ = CallbackServiceRegistration.RegisterServices(Builder.Services);
 
         // ⑤ Options
         InitializeOptions(appName);

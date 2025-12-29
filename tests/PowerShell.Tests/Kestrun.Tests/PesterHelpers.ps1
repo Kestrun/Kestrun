@@ -93,7 +93,7 @@ function Get-FreeTcpPort {
     [CmdletBinding()]
     param(
         [int]$FallbackPort = 5000,
-        [int]$MaxPort = 64000
+        [int]$MaxPort = 50000
     )
     try {
         $retryCount = 0

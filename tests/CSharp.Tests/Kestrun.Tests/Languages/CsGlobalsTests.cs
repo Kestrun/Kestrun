@@ -24,8 +24,9 @@ public class CsGlobalsTests
     {
         var g = new Dictionary<string, object?>();
         var http = new DefaultHttpContext();
-        var req = TestRequestFactory.Create();
-        var res = new KestrunResponse(req);
+        var krCtx = TestRequestFactory.CreateContext();
+        var req = krCtx.Request;
+        var res = krCtx.Response;
         var host = new Kestrun.Hosting.KestrunHost("Tests", Serilog.Log.Logger);
         var ctx = new KestrunContext(host, req, res, http);
 
@@ -40,8 +41,9 @@ public class CsGlobalsTests
         var g = new Dictionary<string, object?>();
         var l = new Dictionary<string, object?> { ["x"] = 1 };
         var http = new DefaultHttpContext();
-        var req = TestRequestFactory.Create();
-        var res = new KestrunResponse(req);
+        var krCtx = TestRequestFactory.CreateContext();
+        var req = krCtx.Request;
+        var res = krCtx.Response;
         var host = new Kestrun.Hosting.KestrunHost("Tests", Serilog.Log.Logger);
         var ctx = new KestrunContext(host, req, res, http);
 

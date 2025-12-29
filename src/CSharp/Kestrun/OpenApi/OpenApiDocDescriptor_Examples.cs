@@ -45,10 +45,10 @@ public partial class OpenApiDocDescriptor
             IOpenApiExample oaExample = attribute.Inline ? example!.Clone() : new OpenApiExampleReference(attribute.ReferenceId);
             return examples.TryAdd(attribute.Key, oaExample);
         }
-        else
+        else if (attribute.Inline)
         {
-            throw new InvalidOperationException(
-                $"Example with ReferenceId '{attribute.ReferenceId}' not found in components or inline components.");
+            throw new InvalidOperationException($"Inline example component with ID '{attribute.ReferenceId}' not found.");
         }
+        return false;
     }
 }

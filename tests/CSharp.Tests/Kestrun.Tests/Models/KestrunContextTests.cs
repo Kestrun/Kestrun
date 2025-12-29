@@ -11,8 +11,9 @@ public class KestrunContextTests
 {
     private static KestrunContext NewContext(DefaultHttpContext http)
     {
-        var req = TestRequestFactory.Create(path: http.Request.Path.HasValue ? http.Request.Path.Value : "/");
-        var res = new KestrunResponse(req);
+        var krCtx = TestRequestFactory.CreateContext(path: http.Request.Path.HasValue ? http.Request.Path.Value : "/");
+        var req = krCtx.Request;
+        var res = krCtx.Response;
         var host = new KestrunHost("Tests", AppContext.BaseDirectory);
         return new KestrunContext(host, req, res, http);
     }

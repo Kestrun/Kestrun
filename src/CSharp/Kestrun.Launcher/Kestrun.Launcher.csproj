@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <OutputType>Exe</OutputType>
+        <TargetFrameworks>net10.0</TargetFrameworks>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+        <AssemblyName>kestrun-launcher</AssemblyName>
+        <RootNamespace>Kestrun.Launcher</RootNamespace>
+        <IsPackable>true</IsPackable>
+        <PackAsTool>true</PackAsTool>
+        <ToolCommandName>kestrun-launcher</ToolCommandName>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\Kestrun\Kestrun.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <PackageReference Include="Microsoft.PowerShell.SDK" Version="7.5.4" />
+        <PackageReference Include="System.ServiceProcess.ServiceController" Version="9.0.10" />
+        <PackageReference Include="Microsoft.Extensions.Hosting" Version="9.0.10" />
+        <PackageReference Include="Microsoft.Extensions.Hosting.WindowsServices" Version="9.0.10" />
+    </ItemGroup>
+
+</Project>

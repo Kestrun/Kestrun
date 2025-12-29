@@ -33,12 +33,8 @@ public static class PowerShellRunner
             // Set execution policy to allow scripts
             initialSessionState.ExecutionPolicy = Microsoft.PowerShell.ExecutionPolicy.Bypass;
 
-            // Set working directory to script directory
-            var scriptDirectory = Path.GetDirectoryName(fullPath);
-            if (!string.IsNullOrEmpty(scriptDirectory))
-            {
-                Environment.CurrentDirectory = scriptDirectory;
-            }
+            // Keep the current working directory (user's path) rather than changing to script directory
+            // This allows scripts to access files relative to where the user ran the command
 
             // Create runspace
             using var runspace = RunspaceFactory.CreateRunspace(initialSessionState);

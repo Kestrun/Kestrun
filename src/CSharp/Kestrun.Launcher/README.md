@@ -144,7 +144,7 @@ The launcher uses the Microsoft.PowerShell.SDK to run PowerShell scripts in-proc
 
 - Full access to PowerShell cmdlets and modules
 - Execution policy is set to `Bypass` by default
-- Working directory is set to the script's directory
+- Working directory remains the user's current directory (where the command was run)
 - Output streams (Error, Warning, Verbose, Debug) are captured and displayed
 - **Kestrun module is auto-imported** from default locations unless a custom path is specified
 

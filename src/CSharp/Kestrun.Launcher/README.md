@@ -86,6 +86,7 @@ kestrun-launcher uninstall -n MyKestrunService
 
 - `-p, --path <path>` - Path to the Kestrun app folder or script
 - `-n, --service-name <name>` - Service name (required for service commands)
+- `-k, --kestrun-module <path>` - Path to Kestrun module (optional, auto-detected by default)
 - `-h, --help` - Show help message
 - `-v, --version` - Show version information
 
@@ -129,6 +130,14 @@ kestrun-launcher stop -n MyKestrunApp
 kestrun-launcher uninstall -n MyKestrunApp
 ```
 
+### Example 3: Use a Custom Kestrun Module Path
+
+If the Kestrun module is in a non-standard location:
+
+```bash
+kestrun-launcher run ./my-app -k /path/to/Kestrun/Kestrun.psd1
+```
+
 ## PowerShell Integration
 
 The launcher uses the Microsoft.PowerShell.SDK to run PowerShell scripts in-process. This means:
@@ -137,6 +146,7 @@ The launcher uses the Microsoft.PowerShell.SDK to run PowerShell scripts in-proc
 - Execution policy is set to `Bypass` by default
 - Working directory is set to the script's directory
 - Output streams (Error, Warning, Verbose, Debug) are captured and displayed
+- **Kestrun module is auto-imported** from default locations unless a custom path is specified
 
 ## Architecture
 
@@ -163,7 +173,8 @@ The launcher consists of:
 
 ### Script Not Found
 
-If the launcher reports "No startup script found", ensure your app directory contains one of:
+If the launcher reports "No startup script found", ensure your app directory contains one of these files (checked in this order):
+- `serve.ps1` (highest priority)
 - `server.ps1`
 - `start.ps1`
 - `main.ps1`

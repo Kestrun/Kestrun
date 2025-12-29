@@ -8,6 +8,7 @@ public class Args
     public string? AppPath { get; set; }
     public LauncherCommand Command { get; set; } = LauncherCommand.Run;
     public string? ServiceName { get; set; }
+    public string? KestrunModulePath { get; set; }
     public bool Help { get; set; }
     public bool Version { get; set; }
 
@@ -75,6 +76,14 @@ public class Args
                     if (i + 1 < args.Length)
                     {
                         parsed.AppPath = args[++i];
+                    }
+                    break;
+
+                case "--kestrun-module":
+                case "-k":
+                    if (i + 1 < args.Length)
+                    {
+                        parsed.KestrunModulePath = args[++i];
                     }
                     break;
 

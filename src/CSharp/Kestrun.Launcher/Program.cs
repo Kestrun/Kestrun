@@ -67,6 +67,7 @@ static void ShowHelp()
     Console.WriteLine("OPTIONS:");
     Console.WriteLine("  -p, --path <path>       Path to the Kestrun app folder or script");
     Console.WriteLine("  -n, --service-name <name>  Service name (required for service commands)");
+    Console.WriteLine("  -k, --kestrun-module <path>  Path to Kestrun module (optional, auto-detected by default)");
     Console.WriteLine("  -h, --help              Show this help message");
     Console.WriteLine("  -v, --version           Show version information");
     Console.WriteLine();
@@ -98,7 +99,7 @@ static async Task<int> RunApp(Args args)
     if (File.Exists(appPath) && Path.GetExtension(appPath).Equals(".ps1", StringComparison.OrdinalIgnoreCase))
     {
         // Run PowerShell script
-        return await PowerShellRunner.RunScript(appPath);
+        return await PowerShellRunner.RunScript(appPath, args.KestrunModulePath);
     }
     else if (Directory.Exists(appPath))
     {
@@ -106,12 +107,12 @@ static async Task<int> RunApp(Args args)
         var startupScript = FindStartupScript(appPath);
         if (startupScript != null)
         {
-            return await PowerShellRunner.RunScript(startupScript);
+            return await PowerShellRunner.RunScript(startupScript, args.KestrunModulePath);
         }
         else
         {
             Console.Error.WriteLine($"No startup script found in: {appPath}");
-            Console.Error.WriteLine("Expected: server.ps1, start.ps1, main.ps1, or app.ps1");
+            Console.Error.WriteLine("Expected: serve.ps1, server.ps1, start.ps1, main.ps1, or app.ps1");
             return 1;
         }
     }
@@ -124,7 +125,7 @@ static async Task<int> RunApp(Args args)
 
 static string? FindStartupScript(string directory)
 {
-    var candidates = new[] { "server.ps1", "start.ps1", "main.ps1", "app.ps1" };
+    var candidates = new[] { "serve.ps1", "server.ps1", "start.ps1", "main.ps1", "app.ps1" };
 
     foreach (var candidate in candidates)
     {

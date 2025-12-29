@@ -320,4 +320,30 @@ public class ArgsTests
         Assert.True(isValid);
         Assert.Null(error);
     }
+
+    [Fact]
+    public void Parse_KestrunModulePath_SetsKestrunModulePath()
+    {
+        // Arrange
+        var args = new[] { "run", "/path/to/app", "--kestrun-module", "/path/to/module" };
+
+        // Act
+        var parsed = Args.Parse(args);
+
+        // Assert
+        Assert.Equal("/path/to/module", parsed.KestrunModulePath);
+    }
+
+    [Fact]
+    public void Parse_KestrunModulePathShortForm_SetsKestrunModulePath()
+    {
+        // Arrange
+        var args = new[] { "run", "/path/to/app", "-k", "/path/to/module" };
+
+        // Act
+        var parsed = Args.Parse(args);
+
+        // Assert
+        Assert.Equal("/path/to/module", parsed.KestrunModulePath);
+    }
 }

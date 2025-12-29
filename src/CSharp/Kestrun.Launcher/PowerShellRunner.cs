@@ -128,7 +128,7 @@ public static class PowerShellRunner
     {
         try
         {
-            string? modulePath = customModulePath;
+            var modulePath = customModulePath;
 
             // If no custom path specified, try to find the default module
             if (string.IsNullOrEmpty(modulePath))

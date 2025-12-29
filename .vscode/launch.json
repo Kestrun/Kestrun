@@ -1,6 +1,22 @@
 {
     "version": "0.2.0",
     "configurations": [
+        {
+            "name": "C#: Kestrun.Launcher Debug (coreclr)",
+            "type": "coreclr",
+            "request": "launch",
+            "preLaunchTask": "build Kestrun.Launcher",
+            "program": "${workspaceFolder}\\src\\CSharp\\Kestrun.Launcher\\bin\\Debug\\net10.0\\kestrun-launcher.exe",
+            "cwd": "${workspaceFolder}/src/CSharp/Kestrun.Launcher",
+            "args": [
+                "run",
+                ".\\docs\\_includes\\examples\\pwsh\\1.1-Hello-World.ps1",
+                "-k",
+                ".\\src\\PowerShell\\Kestrun\\kestrun.psd1"
+            ],
+            "stopAtEntry": false,
+            "console": "integratedTerminal"
+        },
 
         {
             "name": "PowerShell: Launch MultiRoutes.ps1",
@@ -181,7 +197,7 @@
             "console": "integratedTerminal"
         },
 
-              {
+        {
             "name": "Launch pwsh (preview) with script (bootstrap)",
             "type": "coreclr",
             "request": "launch",

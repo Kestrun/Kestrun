@@ -39,7 +39,7 @@ public class CreateRunspacePoolTests
 
     [Fact]
     [Trait("Category", "Hosting")]
-    public void Adds_OpenApi_StartupScript()
+    public void Adds_OpenApi_StartupScript_ForPs1()
     {
         const string scriptPath = "C:/temp/openapi.ps1";
         using var host = new KestrunHost("Tests", Logger);
@@ -47,6 +47,19 @@ public class CreateRunspacePoolTests
 
         var iss = GetInitialSessionState(pool);
         Assert.Contains(scriptPath, iss.StartupScripts);
+    }
+
+    [Fact]
+    [Trait("Category", "Hosting")]
+    public void Adds_OpenApi_Assembly_ForDll()
+    {
+        const string dllPath = "C:/temp/openapi.dll";
+        using var host = new KestrunHost("Tests", Logger);
+        using var pool = host.CreateRunspacePool(1, openApiClassesPath: dllPath);
+
+        var iss = GetInitialSessionState(pool);
+        Assert.Contains(iss.Assemblies, a => string.Equals(a.FileName, dllPath, StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(dllPath, iss.StartupScripts);
     }
 
     [Fact]

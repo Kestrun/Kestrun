@@ -1695,6 +1695,18 @@ public partial class KestrunHost : IDisposable
             return;
         }
 
+        // New behavior: compiled OpenAPI classes ship as a DLL so type identity is stable across runspaces.
+        if (string.Equals(Path.GetExtension(openApiClassesPath), ".dll", StringComparison.OrdinalIgnoreCase))
+        {
+            iss.Assemblies.Add(new SessionStateAssemblyEntry(openApiClassesPath));
+            if (Logger.IsEnabled(LogEventLevel.Debug))
+            {
+                Logger.Debug("Configured OpenAPI classes assembly at {AssemblyPath}", openApiClassesPath);
+            }
+            return;
+        }
+
+        // Back-compat: legacy .ps1 startup script
         _ = iss.StartupScripts.Add(openApiClassesPath);
         if (Logger.IsEnabled(LogEventLevel.Debug))
         {

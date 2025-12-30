@@ -284,10 +284,14 @@ public sealed class KestrunRunspacePoolManager : IDisposable
         {
             try
             {
-                File.Delete(OpenApiClassesPath);
-                if (Host.Logger.IsEnabled(LogEventLevel.Debug))
+                // Only delete legacy temp scripts. Compiled assemblies are cached by hash and must remain stable.
+                if (string.Equals(Path.GetExtension(OpenApiClassesPath), ".ps1", StringComparison.OrdinalIgnoreCase))
                 {
-                    Host.Logger.Debug("Deleted temporary OpenAPI classes script: {Path}", OpenApiClassesPath);
+                    File.Delete(OpenApiClassesPath);
+                    if (Host.Logger.IsEnabled(LogEventLevel.Debug))
+                    {
+                        Host.Logger.Debug("Deleted temporary OpenAPI classes script: {Path}", OpenApiClassesPath);
+                    }
                 }
             }
             catch (Exception ex)

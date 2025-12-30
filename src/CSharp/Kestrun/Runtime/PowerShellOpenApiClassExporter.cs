@@ -281,7 +281,6 @@ public static class PowerShellOpenApiClassExporter
         return (t.FullName ?? t.Name).Replace('+', '.');
     }
 
-
     private static string ToCSharpGenericTypeName(Type t, IReadOnlySet<Type> componentSet)
     {
         // Generic type definition name (strip arity: `1, `2, ...)

@@ -496,7 +496,7 @@ public partial class OpenApiDocDescriptor
         }
 
         // Special handling for PowerShell OpenAPI classes
-        if (PowerShellOpenApiClassExporter.ValidClassNames.Contains(type.Name))
+        if (PowerShellOpenApiClassExporter.IsValidClassName(type.Name))
         {
             return InferPowerShellClassSchema(type, inline);
         }

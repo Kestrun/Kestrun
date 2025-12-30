@@ -17,6 +17,37 @@ public static class PowerShellOpenApiClassExporter
     /// </summary>
     public static List<string> ValidClassNames { get; } = [];
 
+#if NET9_0_OR_GREATER
+    private static readonly Lock ValidClassNamesLock = new();
+#else
+    private static readonly object ValidClassNamesLock = new();
+#endif
+
+    /// <summary>
+    /// Thread-safe lookup for <see cref="ValidClassNames"/>.
+    /// </summary>
+    public static bool IsValidClassName(string? name)
+    {
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            return false;
+        }
+
+        lock (ValidClassNamesLock)
+        {
+            // Stored values are case-sensitive C# identifiers.
+            for (var i = 0; i < ValidClassNames.Count; i++)
+            {
+                if (string.Equals(ValidClassNames[i], name, StringComparison.Ordinal))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+    }
+
     /// <summary>
     /// Exports OpenAPI component classes found in loaded assemblies
     /// into a compiled assembly.
@@ -153,6 +184,8 @@ public static class PowerShellOpenApiClassExporter
         _ = sb.AppendLine("// ================================================");
         _ = sb.AppendLine();
 
+        var classNames = new HashSet<string>(StringComparer.Ordinal);
+
         foreach (var type in sortedTypes)
         {
             // Skip types without full name (should not happen)
@@ -161,17 +194,17 @@ public static class PowerShellOpenApiClassExporter
                 continue;
             }
 
-            if (ValidClassNames.Contains(type.FullName))
-            {
-                // Already registered remove old entry
-                _ = ValidClassNames.Remove(type.FullName);
-            }
-
-            // Register valid class name
-            ValidClassNames.Add(type.FullName);
+            // Register the generated class identifier (global namespace).
+            _ = classNames.Add(type.Name);
 
             AppendCSharpClass(type, componentSet, sb);
             _ = sb.AppendLine();
+        }
+
+        lock (ValidClassNamesLock)
+        {
+            ValidClassNames.Clear();
+            ValidClassNames.AddRange(classNames);
         }
 
         return sb.ToString();

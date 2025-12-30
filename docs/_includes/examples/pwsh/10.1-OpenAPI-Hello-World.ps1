@@ -22,7 +22,7 @@ Add-KrOpenApiInfo -Title 'Hello World API' `
 
 Add-KrOpenApiContact -Email 'support@example.com'
 # Add Server info
-Add-KrOpenApiServer -Url "http://$($IPAddress):$Port" -Description 'Local Server'
+#Add-KrOpenApiServer -Url "http://$($IPAddress):$Port" -Description 'Local Server'
 
 # =========================================================
 #                 ROUTES / OPERATIONS

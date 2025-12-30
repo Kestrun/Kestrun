@@ -19,6 +19,32 @@ if (parsedArgs.Version)
 }
 
 // Validate arguments
+if (!string.IsNullOrEmpty(parsedArgs.AppPath))
+{
+    try
+    {
+        parsedArgs.AppPath = Path.GetFullPath(parsedArgs.AppPath);
+    }
+    catch (Exception ex)
+    {
+        Console.Error.WriteLine($"Error: Invalid app path '{parsedArgs.AppPath}': {ex.Message}");
+        return 1;
+    }
+}
+
+if (!string.IsNullOrEmpty(parsedArgs.KestrunModulePath))
+{
+    try
+    {
+        parsedArgs.KestrunModulePath = Path.GetFullPath(parsedArgs.KestrunModulePath);
+    }
+    catch (Exception ex)
+    {
+        Console.Error.WriteLine($"Error: Invalid Kestrun module path '{parsedArgs.KestrunModulePath}': {ex.Message}");
+        return 1;
+    }
+}
+
 if (!parsedArgs.Validate(out var error))
 {
     Console.Error.WriteLine($"Error: {error}");
@@ -144,14 +170,15 @@ static async Task<int> InstallService(Args args)
     Console.WriteLine($"Installing service '{args.ServiceName}' for app: {args.AppPath}");
 
     var appPath = Path.GetFullPath(args.AppPath!);
+    var modulePath = string.IsNullOrEmpty(args.KestrunModulePath) ? null : Path.GetFullPath(args.KestrunModulePath);
     var launcher = Assembly.GetExecutingAssembly().Location;
     var serviceName = args.ServiceName!;
 
     // Build the command line arguments for the service
     var cmdArgs = $"run \\\"{appPath}\\\"";
-    if (!string.IsNullOrEmpty(args.KestrunModulePath))
+    if (!string.IsNullOrEmpty(modulePath))
     {
-        cmdArgs += $" -k \\\"{args.KestrunModulePath}\\\"";
+        cmdArgs += $" -k \\\"{modulePath}\\\"";
     }
 
     // Use sc.exe to create the service

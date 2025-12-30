@@ -33,6 +33,29 @@ public static class PowerShellRunner
             // Set execution policy to allow scripts
             initialSessionState.ExecutionPolicy = Microsoft.PowerShell.ExecutionPolicy.Bypass;
 
+            // Resolve and import the Kestrun module before creating the runspace
+            var modulePath = ResolveKestrunModulePath(kestrunModulePath);
+            if (!string.IsNullOrEmpty(modulePath))
+            {
+                initialSessionState.ImportPSModule([modulePath]);
+                Console.WriteLine($"Kestrun module imported from: {modulePath}");
+            }
+            else if (!string.IsNullOrEmpty(kestrunModulePath))
+            {
+                try
+                {
+                    Console.WriteLine($"Warning: Kestrun module path not found: {Path.GetFullPath(kestrunModulePath)}");
+                }
+                catch
+                {
+                    Console.WriteLine($"Warning: Kestrun module path not found: {kestrunModulePath}");
+                }
+            }
+            else
+            {
+                Console.WriteLine("Warning: Kestrun module not imported. Continuing without it.");
+            }
+
             // Keep the current working directory (user's path) rather than changing to script directory
             // This allows scripts to access files relative to where the user ran the command
 
@@ -43,13 +66,6 @@ public static class PowerShellRunner
             // Create PowerShell instance
             using var powershell = PowerShell.Create();
             powershell.Runspace = runspace;
-
-            // Import Kestrun module
-            var moduleImported = await ImportKestrunModule(powershell, kestrunModulePath);
-            if (!moduleImported)
-            {
-                Console.WriteLine("Warning: Kestrun module not imported. Continuing without it.");
-            }
 
             // Add the script
             _ = powershell.AddScript($". '{fullPath}'");
@@ -124,49 +140,22 @@ public static class PowerShellRunner
     /// <summary>
     /// Import the Kestrun PowerShell module
     /// </summary>
-    private static async Task<bool> ImportKestrunModule(PowerShell powershell, string? customModulePath)
+    private static string? ResolveKestrunModulePath(string? customModulePath)
     {
-        try
+        if (!string.IsNullOrEmpty(customModulePath))
         {
-            var modulePath = customModulePath;
-
-            // If no custom path specified, try to find the default module
-            if (string.IsNullOrEmpty(modulePath))
+            try
             {
-                modulePath = FindDefaultKestrunModule();
+                var candidate = Path.GetFullPath(customModulePath);
+                return File.Exists(candidate) ? candidate : null;
             }
-
-            if (string.IsNullOrEmpty(modulePath))
+            catch
             {
-                return false;
+                return null;
             }
-
-            // Import the module
-            powershell.Commands.Clear();
-            _ = powershell.AddCommand("Import-Module")
-                         .AddParameter("Name", modulePath)
-                         .AddParameter("Force", true);
-
-            var results = await Task.Run(() => powershell.Invoke());
-
-            if (powershell.HadErrors)
-            {
-                Console.WriteLine($"Warning: Failed to import Kestrun module from: {modulePath}");
-                foreach (var error in powershell.Streams.Error)
-                {
-                    Console.WriteLine($"  {error}");
-                }
-                return false;
-            }
-
-            Console.WriteLine($"Kestrun module imported from: {modulePath}");
-            return true;
         }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"Warning: Exception importing Kestrun module: {ex.Message}");
-            return false;
-        }
+
+        return FindDefaultKestrunModule();
     }
 
     /// <summary>
@@ -205,7 +194,7 @@ public static class PowerShellRunner
             var paths = psModulePath.Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries);
             foreach (var path in paths)
             {
-                var moduleManifest = Path.Combine(path, "Kestrun", "Kestrun.psd1");
+                var moduleManifest = Path.GetFullPath(Path.Combine(path, "Kestrun", "Kestrun.psd1"));
                 if (File.Exists(moduleManifest))
                 {
                     return moduleManifest;

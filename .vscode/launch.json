@@ -7,10 +7,10 @@
             "request": "launch",
             "preLaunchTask": "build Kestrun.Launcher",
             "program": "${workspaceFolder}\\src\\CSharp\\Kestrun.Launcher\\bin\\Debug\\net10.0\\kestrun-launcher.exe",
-            "cwd": "${workspaceFolder}/src/CSharp/Kestrun.Launcher",
+            "cwd": "${workspaceFolder}",
             "args": [
                 "run",
-                ".\\docs\\_includes\\examples\\pwsh\\1.1-Hello-World.ps1",
+                ".\\docs\\_includes\\examples\\pwsh\\10.1-OpenAPI-Hello-World.ps1",
                 "-k",
                 ".\\src\\PowerShell\\Kestrun\\kestrun.psd1"
             ],

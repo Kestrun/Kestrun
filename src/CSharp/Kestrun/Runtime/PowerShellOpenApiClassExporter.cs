@@ -89,6 +89,8 @@ public static class PowerShellOpenApiClassExporter
         var componentTypes = assemblies
             .SelectMany(a => TryGetTypes(a, logger))
             .Where(t => t.IsClass && !t.IsAbstract)
+            // Exclude Kestrun.Annotations types (marker primitives, etc.)
+            .Where(t => !IsKestrunAnnotationsType(t))
             .Where(HasOpenApiComponentAttribute)
             .GroupBy(t => t.FullName ?? t.Name, StringComparer.Ordinal)
             .Select(g => g.First())
@@ -142,7 +144,8 @@ public static class PowerShellOpenApiClassExporter
         // Always include Kestrun assemblies.
         if (name.StartsWith("Kestrun", StringComparison.OrdinalIgnoreCase))
         {
-            return true;
+            // We don't export component classes from Kestrun.Annotations; scanning it only adds noise.
+            return !string.Equals(name, "Kestrun.Annotations", StringComparison.OrdinalIgnoreCase);
         }
 
         // Include user/app assemblies that reference Kestrun.Annotations (they can contain [OpenApiSchemaComponent] types).
@@ -156,6 +159,12 @@ public static class PowerShellOpenApiClassExporter
         {
             return false;
         }
+    }
+
+    private static bool IsKestrunAnnotationsType(Type type)
+    {
+        var asmName = type.Assembly.GetName().Name;
+        return string.Equals(asmName, "Kestrun.Annotations", StringComparison.OrdinalIgnoreCase);
     }
 
     private static IEnumerable<Type> TryGetTypes(Assembly assembly, Serilog.ILogger logger)
@@ -278,6 +287,34 @@ public static class PowerShellOpenApiClassExporter
         [typeof(DateTime)] = "System.DateTime",
         [typeof(DateTimeOffset)] = "System.DateTimeOffset",
         [typeof(Guid)] = "System.Guid",
+        [typeof(OpenApiString)] = "string",
+        [typeof(OpenApiUuid)] = "System.Guid",
+        [typeof(OpenApiDate)] = "System.DateTime",
+        [typeof(OpenApiDateTime)] = "System.DateTime",
+        [typeof(OpenApiEmail)] = "string",
+        [typeof(OpenApiBinary)] = "byte[]",
+        [typeof(OpenApiHostname)] = "string",
+        [typeof(OpenApiIpv4)] = "System.Net.IPAddress",
+        [typeof(OpenApiIpv6)] = "System.Net.IPAddress",
+        [typeof(OpenApiUri)] = "System.Uri",
+        [typeof(OpenApiUrl)] = "System.Uri",
+        [typeof(OpenApiByte)] = "byte",
+        [typeof(OpenApiPassword)] = "string",
+        [typeof(OpenApiRegex)] = "System.Text.RegularExpressions.Regex",
+        [typeof(OpenApiJson)] = "string",
+        [typeof(OpenApiXml)] = "string",
+        [typeof(OpenApiYaml)] = "string",
+        [typeof(OpenApiInteger)] = "int",
+        [typeof(OpenApiInt32)] = "System.Int32",
+        [typeof(OpenApiInt64)] = "System.Int64",
+        [typeof(OpenApiNumber)] = "double",
+        [typeof(OpenApiDouble)] = "double",
+        [typeof(OpenApiFloat)] = "single",
+        [typeof(OpenApiBoolean)] = "bool",
+        [typeof(OaString)] = "string",
+        [typeof(OaInteger)] = "int",
+        [typeof(OaBoolean)] = "bool",
+        [typeof(OaNumber)] = "double",
     };
 
     private static string ToCSharpTypeName(Type t, IReadOnlySet<Type> componentSet)
@@ -523,6 +560,7 @@ public static class PowerShellOpenApiClassExporter
 
         try
         {
+            File.WriteAllText("output.cs", source);
             logger.Information("Compiling OpenAPI component classes to cached DLL: {Path}", outputPath);
             CompileCSharpToDll(source, tmpPath, assemblyName: $"Kestrun.OpenApiClasses.{hash}");
 

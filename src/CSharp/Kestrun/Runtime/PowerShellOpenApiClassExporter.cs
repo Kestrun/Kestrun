@@ -309,7 +309,7 @@ public static class PowerShellOpenApiClassExporter
         [typeof(OpenApiInt64)] = "System.Int64",
         [typeof(OpenApiNumber)] = "double",
         [typeof(OpenApiDouble)] = "double",
-        [typeof(OpenApiFloat)] = "single",
+        [typeof(OpenApiFloat)] = "float",
         [typeof(OpenApiBoolean)] = "bool",
         [typeof(OaString)] = "string",
         [typeof(OaInteger)] = "int",

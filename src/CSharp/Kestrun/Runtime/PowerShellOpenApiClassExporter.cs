@@ -27,7 +27,19 @@ public static class PowerShellOpenApiClassExporter
         // Scan all loaded assemblies; callers may define component classes in scripts, modules, or compiled DLLs.
         // We de-dupe types later to avoid collisions.
         var assemblies = AppDomain.CurrentDomain.GetAssemblies().ToArray();
-        return ExportOpenApiClasses(assemblies);
+        return ExportOpenApiClasses(assemblies, logger: null);
+    }
+
+    /// <summary>
+    /// Exports OpenAPI component classes found in loaded assemblies
+    /// into a compiled assembly.
+    /// </summary>
+    /// <param name="logger">Optional logger for diagnostics.</param>
+    /// <returns>The path to the compiled assembly containing the class definitions.</returns>
+    public static string ExportOpenApiClasses(Serilog.ILogger? logger)
+    {
+        var assemblies = AppDomain.CurrentDomain.GetAssemblies().ToArray();
+        return ExportOpenApiClasses(assemblies, logger);
     }
 
     /// <summary>
@@ -35,17 +47,30 @@ public static class PowerShellOpenApiClassExporter
     /// into a compiled assembly.
     /// </summary>
     /// <param name="assemblies">The assemblies to scan for OpenAPI component classes.</param>
+    /// <param name="logger">Optional logger for diagnostics.</param>
     /// <returns>The path to the compiled assembly containing the class definitions.</returns>
-    public static string ExportOpenApiClasses(Assembly[] assemblies)
+    public static string ExportOpenApiClasses(Assembly[] assemblies, Serilog.ILogger? logger = null)
     {
+        logger ??= Serilog.Log.Logger;
+
+        if (logger.IsEnabled(Serilog.Events.LogEventLevel.Debug))
+        {
+            logger.Debug("Exporting OpenAPI component classes: scanning {AssemblyCount} assemblies", assemblies.Length);
+        }
+
         // 1. Collect all component classes
         var componentTypes = assemblies
-            .SelectMany(TryGetTypes)
+            .SelectMany(a => TryGetTypes(a, logger))
             .Where(t => t.IsClass && !t.IsAbstract)
             .Where(HasOpenApiComponentAttribute)
             .GroupBy(t => t.FullName ?? t.Name, StringComparer.Ordinal)
             .Select(g => g.First())
             .ToList();
+
+        if (logger.IsEnabled(Serilog.Events.LogEventLevel.Debug))
+        {
+            logger.Debug("Discovered {ComponentTypeCount} OpenAPI component type(s)", componentTypes.Count);
+        }
 
         // For quick lookup when choosing type names
         var componentSet = new HashSet<Type>(componentTypes);
@@ -55,16 +80,25 @@ public static class PowerShellOpenApiClassExporter
         // nothing to export
         if (sorted.Count == 0)
         {
+            if (logger.IsEnabled(Serilog.Events.LogEventLevel.Debug))
+            {
+                logger.Debug("No OpenAPI component types found; exporter returning empty path");
+            }
             return string.Empty;
         }
         // 3. Emit C# classes
         var source = GenerateCSharpSource(sorted, componentSet);
 
+        if (logger.IsEnabled(Serilog.Events.LogEventLevel.Debug))
+        {
+            logger.Debug("Generated OpenAPI C# source for {ClassCount} type(s); length={SourceLength}", sorted.Count, source.Length);
+        }
+
         // 4. Compile into a stable, cached DLL per runtime TFM
-        return CompileToCachedAssembly(source);
+        return CompileToCachedAssembly(source, logger);
     }
 
-    private static IEnumerable<Type> TryGetTypes(Assembly assembly)
+    private static IEnumerable<Type> TryGetTypes(Assembly assembly, Serilog.ILogger logger)
     {
         try
         {
@@ -72,10 +106,12 @@ public static class PowerShellOpenApiClassExporter
         }
         catch (ReflectionTypeLoadException ex)
         {
+            logger.Warning(ex, "Failed to load some types from assembly {AssemblyName}", assembly.FullName);
             return ex.Types.Where(t => t is not null)!;
         }
-        catch
+        catch (Exception ex)
         {
+            logger.Warning(ex, "Failed to enumerate types from assembly {AssemblyName}", assembly.FullName);
             return [];
         }
     }
@@ -371,7 +407,7 @@ public static class PowerShellOpenApiClassExporter
         return componentSet.Contains(propertyType) ? propertyType : null;
     }
 
-    private static string CompileToCachedAssembly(string source)
+    private static string CompileToCachedAssembly(string source, Serilog.ILogger logger)
     {
         var hashInput = StripLeadingCommentHeader(source);
         var hash = ComputeSha256Hex(hashInput);
@@ -386,9 +422,20 @@ public static class PowerShellOpenApiClassExporter
         using var mutex = new Mutex(initiallyOwned: false, name: mutexName);
         var mutexHeld = false;
 
+        if (logger.IsEnabled(Serilog.Events.LogEventLevel.Debug))
+        {
+            logger.Debug("OpenAPI class assembly cache key: tfm={Tfm} sha256={Hash}", tfm, hash);
+            logger.Debug("OpenAPI class assembly cache path: {Path}", outputPath);
+        }
+
         try
         {
-            mutexHeld = mutex.WaitOne(TimeSpan.FromMinutes(2));
+            mutexHeld = mutex.WaitOne(TimeSpan.FromSeconds(30));
+
+            if (!mutexHeld)
+            {
+                logger.Warning("Timed out waiting for OpenAPI class assembly build mutex {MutexName}; proceeding best-effort", mutexName);
+            }
 
             // Re-check inside the lock.
             if (!File.Exists(outputPath))
@@ -398,14 +445,23 @@ public static class PowerShellOpenApiClassExporter
                 var tmpPath = outputPath + "." + Environment.ProcessId + ".tmp";
                 try
                 {
+                    logger.Information("Compiling OpenAPI component classes to cached DLL: {Path}", outputPath);
                     CompileCSharpToDll(source, tmpPath, assemblyName: $"Kestrun.OpenApiClasses.{hash}");
 
                     // Atomic publish.
                     File.Move(tmpPath, outputPath);
+                    if (logger.IsEnabled(Serilog.Events.LogEventLevel.Debug))
+                    {
+                        logger.Debug("Published OpenAPI class assembly: {Path}", outputPath);
+                    }
                 }
                 catch (IOException)
                 {
                     // Another process likely published first.
+                    if (logger.IsEnabled(Serilog.Events.LogEventLevel.Debug))
+                    {
+                        logger.Debug("OpenAPI class assembly publish race detected; another process likely wrote {Path}", outputPath);
+                    }
                     try
                     {
                         if (File.Exists(tmpPath))
@@ -419,6 +475,13 @@ public static class PowerShellOpenApiClassExporter
                     }
                 }
             }
+            else
+            {
+                if (logger.IsEnabled(Serilog.Events.LogEventLevel.Debug))
+                {
+                    logger.Debug("OpenAPI class assembly cache hit: {Path}", outputPath);
+                }
+            }
         }
         finally
         {
@@ -429,12 +492,12 @@ public static class PowerShellOpenApiClassExporter
         }
 
         // Ensure the assembly is loaded into the process so all runspaces can resolve the types.
-        LoadIntoDefaultAssemblyLoadContextIfNeeded(outputPath);
+        LoadIntoDefaultAssemblyLoadContextIfNeeded(outputPath, logger);
 
         return outputPath;
     }
 
-    private static void LoadIntoDefaultAssemblyLoadContextIfNeeded(string assemblyPath)
+    private static void LoadIntoDefaultAssemblyLoadContextIfNeeded(string assemblyPath, Serilog.ILogger logger)
     {
         try
         {
@@ -450,10 +513,18 @@ public static class PowerShellOpenApiClassExporter
 
             // Load into Default ALC to keep a single type identity across the process.
             _ = AssemblyLoadContext.Default.LoadFromAssemblyPath(assemblyPath);
+            if (logger.IsEnabled(Serilog.Events.LogEventLevel.Debug))
+            {
+                logger.Debug("Loaded OpenAPI class assembly into default ALC: {Path}", assemblyPath);
+            }
         }
-        catch
+        catch (Exception ex)
         {
             // Best-effort: runspaces may still load via InitialSessionState.Assemblies.
+            if (logger.IsEnabled(Serilog.Events.LogEventLevel.Debug))
+            {
+                logger.Debug(ex, "Failed to load OpenAPI class assembly into default ALC: {Path}", assemblyPath);
+            }
         }
     }
 

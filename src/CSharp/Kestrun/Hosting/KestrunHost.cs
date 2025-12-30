@@ -1000,7 +1000,7 @@ public partial class KestrunHost : IDisposable
         try
         {
             // Export OpenAPI classes from PowerShell
-            var openApiClassesPath = PowerShellOpenApiClassExporter.ExportOpenApiClasses();
+            var openApiClassesPath = PowerShellOpenApiClassExporter.ExportOpenApiClasses(Logger);
             if (Logger.IsEnabled(LogEventLevel.Debug))
             {
                 if (string.IsNullOrWhiteSpace(openApiClassesPath))

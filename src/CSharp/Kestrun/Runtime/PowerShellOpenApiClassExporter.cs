@@ -455,7 +455,11 @@ public static class PowerShellOpenApiClassExporter
                     }
                     catch
                     {
-                        /* ignore */
+                        // ignore
+                        if (logger.IsEnabled(Serilog.Events.LogEventLevel.Debug))
+                        {
+                            logger.Debug("Failed to delete temporary OpenAPI class assembly file: {Path}", tmpPath);
+                        }
                     }
                 }
             }
@@ -471,7 +475,17 @@ public static class PowerShellOpenApiClassExporter
         {
             if (mutexHeld)
             {
-                try { mutex.ReleaseMutex(); } catch { /* ignore */ }
+                try
+                {
+                    mutex.ReleaseMutex();
+                }
+                catch
+                {
+                    if (logger.IsEnabled(Serilog.Events.LogEventLevel.Debug))
+                    {
+                        logger.Debug("Failed to release OpenAPI class assembly build mutex: {MutexName}", mutexName);
+                    }
+                }
             }
         }
 
@@ -628,13 +642,11 @@ public static class PowerShellOpenApiClassExporter
         }
 
         var paths = tpa.Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-        foreach (var p in paths)
+        // Some entries might not exist in constrained environments.
+        foreach (var p in paths.Where(p => File.Exists(p)))
         {
-            // Some entries might not exist in constrained environments.
-            if (File.Exists(p))
-            {
-                refs.Add(MetadataReference.CreateFromFile(p));
-            }
+            // Add as MetadataReference
+            refs.Add(MetadataReference.CreateFromFile(p));
         }
 
         return refs;

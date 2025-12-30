@@ -21,25 +21,9 @@ public static class PowerShellOpenApiClassExporter
     /// Exports OpenAPI component classes found in loaded assemblies
     /// into a compiled assembly.
     /// </summary>
+    /// <param name="logger">Logger for diagnostics.</param>
     /// <returns>The path to the compiled assembly containing the class definitions.</returns>
-    public static string ExportOpenApiClasses()
-    {
-        // Scan only assemblies that are likely to contain OpenAPI component types.
-        // Enumerating all loaded framework assemblies is noisy and can trigger type-load issues.
-        var loadedAssemblies = AppDomain.CurrentDomain.GetAssemblies();
-        var assemblies = loadedAssemblies
-            .Where(ShouldScanAssemblyForComponents)
-            .ToArray();
-        return ExportOpenApiClasses(assemblies, logger: null);
-    }
-
-    /// <summary>
-    /// Exports OpenAPI component classes found in loaded assemblies
-    /// into a compiled assembly.
-    /// </summary>
-    /// <param name="logger">Optional logger for diagnostics.</param>
-    /// <returns>The path to the compiled assembly containing the class definitions.</returns>
-    public static string ExportOpenApiClasses(Serilog.ILogger? logger)
+    public static string ExportOpenApiClasses(Serilog.ILogger logger)
     {
         var assemblies = AppDomain.CurrentDomain.GetAssemblies()
             .Where(ShouldScanAssemblyForComponents)
@@ -52,11 +36,12 @@ public static class PowerShellOpenApiClassExporter
     /// into a compiled assembly.
     /// </summary>
     /// <param name="assemblies">The assemblies to scan for OpenAPI component classes.</param>
-    /// <param name="logger">Optional logger for diagnostics.</param>
+    /// <param name="logger">Logger for diagnostics.</param>
     /// <returns>The path to the compiled assembly containing the class definitions.</returns>
-    public static string ExportOpenApiClasses(Assembly[] assemblies, Serilog.ILogger? logger = null)
+    public static string ExportOpenApiClasses(Assembly[] assemblies, Serilog.ILogger logger)
     {
-        logger ??= Serilog.Log.Logger;
+        ArgumentNullException.ThrowIfNull(logger);
+        ArgumentNullException.ThrowIfNull(assemblies);
 
         if (logger.IsEnabled(Serilog.Events.LogEventLevel.Debug))
         {
@@ -139,6 +124,8 @@ public static class PowerShellOpenApiClassExporter
 
     private static IEnumerable<Type> TryGetTypes(Assembly assembly, Serilog.ILogger logger)
     {
+        ArgumentNullException.ThrowIfNull(logger);
+        ArgumentNullException.ThrowIfNull(assembly);
         try
         {
             return assembly.GetTypes();

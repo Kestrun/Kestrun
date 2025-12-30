@@ -73,7 +73,7 @@ public class OpenApiClassAssemblyRunspaceIntegrationTests
     public void RunspacePool_Loads_CompiledOpenApiClassesAssembly_And_ResolvesTypes()
     {
         var asm = BuildDynamicAssemblyWithComponents();
-        var dllPath = PowerShellOpenApiClassExporter.ExportOpenApiClasses([asm]);
+        var dllPath = PowerShellOpenApiClassExporter.ExportOpenApiClasses([asm], Serilog.Log.Logger);
         Assert.False(string.IsNullOrWhiteSpace(dllPath));
         Assert.True(File.Exists(dllPath));
         Assert.EndsWith(".dll", dllPath, StringComparison.OrdinalIgnoreCase);

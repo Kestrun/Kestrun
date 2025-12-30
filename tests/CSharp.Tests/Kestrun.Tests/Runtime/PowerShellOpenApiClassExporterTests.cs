@@ -39,7 +39,7 @@ public class PowerShellOpenApiClassExporterTests
         ilSetId.Emit(OpCodes.Ret);
         idProp.SetGetMethod(getId);
         idProp.SetSetMethod(setId);
-        var baseTypeCreated = baseType.CreateType()!;
+        var baseTypeCreated = baseType.CreateType();
 
         // Dependent component class: [OpenApiSchemaComponent]
         var ownerType = moduleBuilder.DefineType("Owner", TypeAttributes.Public | TypeAttributes.Class);
@@ -60,7 +60,7 @@ public class PowerShellOpenApiClassExporterTests
         ilSetName.Emit(OpCodes.Ret);
         nameProp.SetGetMethod(getName);
         nameProp.SetSetMethod(setName);
-        var ownerTypeCreated = ownerType.CreateType()!;
+        var ownerTypeCreated = ownerType.CreateType();
 
         // Main component with inheritance and property dependencies
         var petType = moduleBuilder.DefineType("Pet", TypeAttributes.Public | TypeAttributes.Class, baseTypeCreated);
@@ -164,7 +164,7 @@ public class PowerShellOpenApiClassExporterTests
     public void ExportOpenApiClasses_CompilesDll_WithExpectedTypeShapes()
     {
         var asm = BuildDynamicAssemblyWithComponents();
-        var path = PowerShellOpenApiClassExporter.ExportOpenApiClasses([asm]);
+        var path = PowerShellOpenApiClassExporter.ExportOpenApiClasses([asm], Serilog.Log.Logger);
 
         Assert.True(File.Exists(path));
 
@@ -197,7 +197,7 @@ public class PowerShellOpenApiClassExporterTests
         Assert.Equal(typeof(string[]), tagsProp.PropertyType);
 
         // Cache behavior: second call should return same path for same source
-        var path2 = PowerShellOpenApiClassExporter.ExportOpenApiClasses([asm]);
+        var path2 = PowerShellOpenApiClassExporter.ExportOpenApiClasses([asm], Serilog.Log.Logger);
         Assert.Equal(path, path2);
     }
 
@@ -206,7 +206,7 @@ public class PowerShellOpenApiClassExporterTests
     {
         var asm = BuildDynamicAssemblyWithAnnotationTypeProperties();
 
-        var path = PowerShellOpenApiClassExporter.ExportOpenApiClasses([asm]);
+        var path = PowerShellOpenApiClassExporter.ExportOpenApiClasses([asm], Serilog.Log.Logger);
         Assert.True(File.Exists(path));
 
         var compiled = Assembly.LoadFrom(path);

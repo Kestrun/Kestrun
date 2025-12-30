@@ -105,6 +105,61 @@ public class PowerShellOpenApiClassExporterTests
         return asmBuilder;
     }
 
+    private static Assembly BuildDynamicAssemblyWithAnnotationTypeProperties()
+    {
+        var asmName = new AssemblyName("Dynamic.OpenApiComponents.WithAnnotations");
+        var asmBuilder = AssemblyBuilder.DefineDynamicAssembly(asmName, AssemblyBuilderAccess.Run);
+        var moduleBuilder = asmBuilder.DefineDynamicModule("Main");
+
+        static CustomAttributeBuilder Cab<T>(params object?[] args)
+        {
+            var ctor = typeof(T).GetConstructors().First();
+            return new CustomAttributeBuilder(ctor, args);
+        }
+
+        // Component class: [OpenApiSchemaComponent]
+        var typeBuilder = moduleBuilder.DefineType("UsesAnnotationTypes", TypeAttributes.Public | TypeAttributes.Class);
+        typeBuilder.SetCustomAttribute(Cab<OpenApiSchemaComponent>([]));
+
+        // UsesAnnotationTypes.Kind : OaString
+        var kindField = typeBuilder.DefineField("_Kind", typeof(OaString), FieldAttributes.Private);
+        var kindProp = typeBuilder.DefineProperty("Kind", PropertyAttributes.None, typeof(OaString), Type.EmptyTypes);
+        var getKind = typeBuilder.DefineMethod("get_Kind", MethodAttributes.Public | MethodAttributes.SpecialName | MethodAttributes.HideBySig, typeof(OaString), Type.EmptyTypes);
+        var ilGetKind = getKind.GetILGenerator();
+        ilGetKind.Emit(OpCodes.Ldarg_0);
+        ilGetKind.Emit(OpCodes.Ldfld, kindField);
+        ilGetKind.Emit(OpCodes.Ret);
+        var setKind = typeBuilder.DefineMethod("set_Kind", MethodAttributes.Public | MethodAttributes.SpecialName | MethodAttributes.HideBySig, null, [typeof(OaString)]);
+        var ilSetKind = setKind.GetILGenerator();
+        ilSetKind.Emit(OpCodes.Ldarg_0);
+        ilSetKind.Emit(OpCodes.Ldarg_1);
+        ilSetKind.Emit(OpCodes.Stfld, kindField);
+        ilSetKind.Emit(OpCodes.Ret);
+        kindProp.SetGetMethod(getKind);
+        kindProp.SetSetMethod(setKind);
+
+        // UsesAnnotationTypes.Amount : OaNumber
+        var amountField = typeBuilder.DefineField("_Amount", typeof(OaNumber), FieldAttributes.Private);
+        var amountProp = typeBuilder.DefineProperty("Amount", PropertyAttributes.None, typeof(OaNumber), Type.EmptyTypes);
+        var getAmount = typeBuilder.DefineMethod("get_Amount", MethodAttributes.Public | MethodAttributes.SpecialName | MethodAttributes.HideBySig, typeof(OaNumber), Type.EmptyTypes);
+        var ilGetAmount = getAmount.GetILGenerator();
+        ilGetAmount.Emit(OpCodes.Ldarg_0);
+        ilGetAmount.Emit(OpCodes.Ldfld, amountField);
+        ilGetAmount.Emit(OpCodes.Ret);
+        var setAmount = typeBuilder.DefineMethod("set_Amount", MethodAttributes.Public | MethodAttributes.SpecialName | MethodAttributes.HideBySig, null, [typeof(OaNumber)]);
+        var ilSetAmount = setAmount.GetILGenerator();
+        ilSetAmount.Emit(OpCodes.Ldarg_0);
+        ilSetAmount.Emit(OpCodes.Ldarg_1);
+        ilSetAmount.Emit(OpCodes.Stfld, amountField);
+        ilSetAmount.Emit(OpCodes.Ret);
+        amountProp.SetGetMethod(getAmount);
+        amountProp.SetSetMethod(setAmount);
+
+        _ = typeBuilder.CreateType();
+
+        return asmBuilder;
+    }
+
     [Fact]
     public void ExportOpenApiClasses_CompilesDll_WithExpectedTypeShapes()
     {
@@ -144,5 +199,21 @@ public class PowerShellOpenApiClassExporterTests
         // Cache behavior: second call should return same path for same source
         var path2 = PowerShellOpenApiClassExporter.ExportOpenApiClasses([asm]);
         Assert.Equal(path, path2);
+    }
+
+    [Fact]
+    public void ExportOpenApiClasses_CompilesDll_WhenPropertyTypesComeFromKestrunAnnotations()
+    {
+        var asm = BuildDynamicAssemblyWithAnnotationTypeProperties();
+
+        var path = PowerShellOpenApiClassExporter.ExportOpenApiClasses([asm]);
+        Assert.True(File.Exists(path));
+
+        var compiled = Assembly.LoadFrom(path);
+        var t = compiled.GetType("UsesAnnotationTypes", throwOnError: true)!;
+
+        // These are emitted as simple names (global namespace) and should compile once Kestrun.Annotations.dll is referenced.
+        Assert.Equal("OaString", t.GetProperty("Kind")!.PropertyType.Name);
+        Assert.Equal("OaNumber", t.GetProperty("Amount")!.PropertyType.Name);
     }
 }

@@ -575,7 +575,7 @@ public static class PowerShellOpenApiClassExporter
         var parseOptions = new CSharpParseOptions(LanguageVersion.Latest);
         var syntaxTree = CSharpSyntaxTree.ParseText(source, parseOptions);
 
-        var references = GetTrustedPlatformAssemblyReferences();
+        var references = GetCompilationReferences();
         var compilation = CSharpCompilation.Create(
             assemblyName,
             [syntaxTree],
@@ -594,6 +594,44 @@ public static class PowerShellOpenApiClassExporter
                 .Select(d => d.ToString());
             throw new InvalidOperationException("Failed to compile OpenAPI classes assembly: " + string.Join(Environment.NewLine, diags));
         }
+    }
+
+    private static List<MetadataReference> GetCompilationReferences()
+    {
+        // The runtime TPA list covers the framework, but not app-specific assemblies.
+        // Generated OpenAPI classes can reference types from Kestrun/Kestrun.Annotations (and other loaded libs),
+        // so include all currently loaded, file-backed assemblies as Roslyn references.
+        var refs = GetTrustedPlatformAssemblyReferences();
+        var seenPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var r in refs.OfType<PortableExecutableReference>())
+        {
+            if (!string.IsNullOrWhiteSpace(r.FilePath))
+            {
+                _ = seenPaths.Add(r.FilePath);
+            }
+        }
+
+        foreach (var asm in AppDomain.CurrentDomain.GetAssemblies())
+        {
+            if (asm.IsDynamic)
+            {
+                continue;
+            }
+
+            var location = asm.Location;
+            if (string.IsNullOrWhiteSpace(location) || !File.Exists(location))
+            {
+                continue;
+            }
+
+            if (seenPaths.Add(location))
+            {
+                refs.Add(MetadataReference.CreateFromFile(location));
+            }
+        }
+
+        return refs;
     }
 
     private static List<MetadataReference> GetTrustedPlatformAssemblyReferences()

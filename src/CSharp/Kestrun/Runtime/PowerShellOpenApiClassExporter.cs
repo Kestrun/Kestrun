@@ -502,7 +502,7 @@ public static class PowerShellOpenApiClassExporter
             var alreadyLoaded = AppDomain.CurrentDomain.GetAssemblies()
                 .Any(a => !a.IsDynamic &&
                          !string.IsNullOrWhiteSpace(a.Location) &&
-                         string.Equals(a.Location, assemblyPath, StringComparison.OrdinalIgnoreCase));
+                         string.Equals(a.Location, assemblyPath, GetPathComparison()));
 
             if (alreadyLoaded)
             {
@@ -525,6 +525,13 @@ public static class PowerShellOpenApiClassExporter
             }
         }
     }
+
+    /// <summary>
+    /// Gets the appropriate string comparison mode for file paths based on the operating system.
+    /// </summary>
+    /// <returns>OrdinalIgnoreCase on Windows, Ordinal on other platforms.</returns>
+    private static StringComparison GetPathComparison() =>
+        OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
 
     private static string StripLeadingCommentHeader(string source)
     {

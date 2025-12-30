@@ -676,21 +676,21 @@ public static class PowerShellOpenApiClassExporter
             var errors = result.Diagnostics
                 .Where(d => d.Severity == DiagnosticSeverity.Error)
                 .ToList();
-            
+
             var errorCount = errors.Count;
-            var errorSummary = errorCount == 1 
-                ? "1 compilation error" 
+            var errorSummary = errorCount == 1
+                ? "1 compilation error"
                 : $"{errorCount} compilation errors";
-            
+
             var errorDetails = string.Join(
                 Environment.NewLine,
                 errors.Take(MaxCompilationErrorsToShow).Select(d => d.ToString()));
-            
+
             var errorPrefix = $"Failed to compile OpenAPI classes assembly ({errorSummary}";
             var errorMessage = errorCount > MaxCompilationErrorsToShow
                 ? $"{errorPrefix}, showing first {MaxCompilationErrorsToShow}):{Environment.NewLine}{errorDetails}"
                 : $"{errorPrefix}):{Environment.NewLine}{errorDetails}";
-            
+
             throw new InvalidOperationException(errorMessage);
         }
     }

@@ -327,11 +327,7 @@ public static class PowerShellOpenApiClassExporter
     /// <param name="componentSet">Set of component types</param>
     /// <param name="visited">Dictionary tracking visited types and their mark status</param>
     /// <param name="result">List to accumulate the sorted types</param>
-    private static void Visit(
-     Type t,
-     HashSet<Type> componentSet,
-     Dictionary<Type, bool> visited,
-     List<Type> result)
+    private static void Visit(Type t, HashSet<Type> componentSet, Dictionary<Type, bool> visited, List<Type> result)
     {
         if (visited.TryGetValue(t, out var perm))
         {
@@ -374,6 +370,13 @@ public static class PowerShellOpenApiClassExporter
         result.Add(t);
     }
 
+    /// <summary>
+    /// Determines if the property type is a dependency on another component type.
+    /// Unwraps Nullable and arrays to find the underlying type.
+    /// </summary>
+    /// <param name="propertyType">The property type to check.</param>
+    /// <param name="componentSet">Set of component types for lookup.</param>
+    /// <returns>The component type if it's a dependency; otherwise, null.</returns>
     private static Type? GetComponentDependencyType(Type propertyType, HashSet<Type> componentSet)
     {
         // Unwrap Nullable
@@ -391,6 +394,12 @@ public static class PowerShellOpenApiClassExporter
         return componentSet.Contains(propertyType) ? propertyType : null;
     }
 
+    /// <summary>
+    /// Compiles the C# source code into a cached assembly DLL.
+    /// </summary>
+    /// <param name="source">The C# source code to compile.</param>
+    /// <param name="logger">Logger for diagnostics.</param>
+    /// <returns>The path to the compiled assembly DLL.</returns>
     private static string CompileToCachedAssembly(string source, Serilog.ILogger logger)
     {
         var hashInput = StripLeadingCommentHeader(source);
@@ -400,99 +409,138 @@ public static class PowerShellOpenApiClassExporter
         var outputDir = Path.Combine(Path.GetTempPath(), "Kestrun", "OpenApiClasses", tfm);
         var outputPath = Path.Combine(outputDir, hash + ".dll");
 
-        // Concurrency: the same hash may be requested from multiple threads/processes.
-        // Use a named mutex to ensure only one writer compiles a given outputPath.
-        var mutexName = $"Global\\Kestrun.OpenApiClasses.{tfm}.{hash}";
-        using var mutex = new Mutex(initiallyOwned: false, name: mutexName);
-        var mutexHeld = false;
+        var isDebug = logger.IsEnabled(Serilog.Events.LogEventLevel.Debug);
 
-        if (logger.IsEnabled(Serilog.Events.LogEventLevel.Debug))
+        if (isDebug)
         {
             logger.Debug("OpenAPI class assembly cache key: tfm={Tfm} sha256={Hash}", tfm, hash);
             logger.Debug("OpenAPI class assembly cache path: {Path}", outputPath);
         }
 
+        // Fast path: already built
+        if (File.Exists(outputPath))
+        {
+            if (isDebug)
+            {
+                logger.Debug("OpenAPI class assembly cache hit: {Path}", outputPath);
+            }
+
+            LoadIntoDefaultAssemblyLoadContextIfNeeded(outputPath, logger);
+            return outputPath;
+        }
+
+        var mutexName = $"Global\\Kestrun.OpenApiClasses.{tfm}.{hash}";
+        using var mutex = new Mutex(initiallyOwned: false, name: mutexName);
+
+        var mutexHeld = false;
         try
         {
             mutexHeld = mutex.WaitOne(TimeSpan.FromSeconds(30));
-
             if (!mutexHeld)
             {
-                logger.Warning("Timed out waiting for OpenAPI class assembly build mutex {MutexName}; proceeding best-effort", mutexName);
+                logger.Warning(
+                    "Timed out waiting for OpenAPI class assembly build mutex {MutexName}; proceeding best-effort",
+                    mutexName);
             }
 
-            // Re-check inside the lock.
+            // Re-check inside the lock/best-effort region.
             if (!File.Exists(outputPath))
             {
                 _ = Directory.CreateDirectory(outputDir);
-
-                var tmpPath = outputPath + "." + Environment.ProcessId + ".tmp";
-                try
-                {
-                    logger.Information("Compiling OpenAPI component classes to cached DLL: {Path}", outputPath);
-                    CompileCSharpToDll(source, tmpPath, assemblyName: $"Kestrun.OpenApiClasses.{hash}");
-
-                    // Atomic publish.
-                    File.Move(tmpPath, outputPath);
-                    if (logger.IsEnabled(Serilog.Events.LogEventLevel.Debug))
-                    {
-                        logger.Debug("Published OpenAPI class assembly: {Path}", outputPath);
-                    }
-                }
-                catch (IOException)
-                {
-                    // Another process likely published first.
-                    if (logger.IsEnabled(Serilog.Events.LogEventLevel.Debug))
-                    {
-                        logger.Debug("OpenAPI class assembly publish race detected; another process likely wrote {Path}", outputPath);
-                    }
-                    try
-                    {
-                        if (File.Exists(tmpPath))
-                        {
-                            File.Delete(tmpPath);
-                        }
-                    }
-                    catch
-                    {
-                        // ignore
-                        if (logger.IsEnabled(Serilog.Events.LogEventLevel.Debug))
-                        {
-                            logger.Debug("Failed to delete temporary OpenAPI class assembly file: {Path}", tmpPath);
-                        }
-                    }
-                }
+                CompileAndPublishCachedAssembly(source, outputPath, hash, logger, isDebug);
             }
-            else
+            else if (isDebug)
             {
-                if (logger.IsEnabled(Serilog.Events.LogEventLevel.Debug))
-                {
-                    logger.Debug("OpenAPI class assembly cache hit: {Path}", outputPath);
-                }
+                logger.Debug("OpenAPI class assembly cache hit: {Path}", outputPath);
             }
         }
         finally
         {
             if (mutexHeld)
             {
-                try
-                {
-                    mutex.ReleaseMutex();
-                }
-                catch
-                {
-                    if (logger.IsEnabled(Serilog.Events.LogEventLevel.Debug))
-                    {
-                        logger.Debug("Failed to release OpenAPI class assembly build mutex: {MutexName}", mutexName);
-                    }
-                }
+                ReleaseMutexSafely(mutex, mutexName, logger, isDebug);
             }
         }
 
-        // Ensure the assembly is loaded into the process so all runspaces can resolve the types.
         LoadIntoDefaultAssemblyLoadContextIfNeeded(outputPath, logger);
-
         return outputPath;
+    }
+
+    /// <summary>
+    /// Compiles the C# source code to a temporary DLL and publishes it atomically to the output path.
+    /// </summary>
+    /// <param name="source">The C# source code to compile.</param>
+    /// <param name="outputPath">The final output path for the compiled DLL.</param>
+    /// <param name="hash">The hash of the source code (used for assembly name).</param>
+    /// <param name="logger">Logger for diagnostics.</param>
+    /// <param name="isDebug">Indicates if debug logging is enabled.</param>
+    private static void CompileAndPublishCachedAssembly(
+        string source,
+        string outputPath,
+        string hash,
+        Serilog.ILogger logger,
+        bool isDebug)
+    {
+        var tmpPath = outputPath + "." + Environment.ProcessId + ".tmp";
+
+        try
+        {
+            logger.Information("Compiling OpenAPI component classes to cached DLL: {Path}", outputPath);
+            CompileCSharpToDll(source, tmpPath, assemblyName: $"Kestrun.OpenApiClasses.{hash}");
+
+            // Atomic publish.
+            File.Move(tmpPath, outputPath);
+
+            if (isDebug)
+            {
+                logger.Debug("Published OpenAPI class assembly: {Path}", outputPath);
+            }
+        }
+        catch (IOException)
+        {
+            // Another process likely published first.
+            if (isDebug)
+            {
+                logger.Debug(
+                    "OpenAPI class assembly publish race detected; another process likely wrote {Path}",
+                    outputPath);
+            }
+
+            TryDeleteTempFile(tmpPath, logger, isDebug);
+        }
+    }
+
+    private static void TryDeleteTempFile(string tmpPath, Serilog.ILogger logger, bool isDebug)
+    {
+        try
+        {
+            if (File.Exists(tmpPath))
+            {
+                File.Delete(tmpPath);
+            }
+        }
+        catch
+        {
+            if (isDebug)
+            {
+                logger.Debug("Failed to delete temporary OpenAPI class assembly file: {Path}", tmpPath);
+            }
+        }
+    }
+
+    private static void ReleaseMutexSafely(Mutex mutex, string mutexName, Serilog.ILogger logger, bool isDebug)
+    {
+        try
+        {
+            mutex.ReleaseMutex();
+        }
+        catch
+        {
+            if (isDebug)
+            {
+                logger.Debug("Failed to release OpenAPI class assembly build mutex: {MutexName}", mutexName);
+            }
+        }
     }
 
     private static void LoadIntoDefaultAssemblyLoadContextIfNeeded(string assemblyPath, Serilog.ILogger logger)

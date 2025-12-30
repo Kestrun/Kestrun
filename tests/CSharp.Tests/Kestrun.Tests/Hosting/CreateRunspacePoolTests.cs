@@ -46,7 +46,8 @@ public class CreateRunspacePoolTests
         using var pool = host.CreateRunspacePool(1, openApiClassesPath: scriptPath);
 
         var iss = GetInitialSessionState(pool);
-        Assert.Contains(scriptPath, iss.StartupScripts);
+        var expected = NormalizePathForComparison(scriptPath);
+        Assert.Contains(iss.StartupScripts, p => string.Equals(NormalizePathForComparison(p), expected, PathComparison));
     }
 
     [Fact]
@@ -58,8 +59,35 @@ public class CreateRunspacePoolTests
         using var pool = host.CreateRunspacePool(1, openApiClassesPath: dllPath);
 
         var iss = GetInitialSessionState(pool);
-        Assert.Contains(iss.Assemblies, a => string.Equals(a.FileName, dllPath, StringComparison.OrdinalIgnoreCase));
-        Assert.DoesNotContain(dllPath, iss.StartupScripts);
+        var expected = NormalizePathForComparison(dllPath);
+        Assert.Contains(
+            iss.Assemblies,
+            a => string.Equals(NormalizePathForComparison(a.FileName), expected, PathComparison)
+                 || string.Equals(NormalizePathForComparison(a.Name), expected, PathComparison)
+        );
+        Assert.DoesNotContain(iss.StartupScripts, p => string.Equals(NormalizePathForComparison(p), expected, PathComparison));
+    }
+
+    private static StringComparison PathComparison =>
+        OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
+
+    private static string NormalizePathForComparison(string? path)
+    {
+        if (string.IsNullOrWhiteSpace(path))
+        {
+            return string.Empty;
+        }
+
+        // Normalize separators and attempt to canonicalize.
+        // Path.GetFullPath() also normalizes "C:/" -> "C:\\" on Windows.
+        try
+        {
+            return Path.GetFullPath(path);
+        }
+        catch
+        {
+            return path.Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar);
+        }
     }
 
     [Fact]

@@ -41,7 +41,7 @@ public class CreateRunspacePoolTests
     [Trait("Category", "Hosting")]
     public void Adds_OpenApi_StartupScript_ForPs1()
     {
-        const string scriptPath = "C:/temp/openapi.ps1";
+        var scriptPath = Path.Combine(Path.GetTempPath(), "openapi.ps1");
         using var host = new KestrunHost("Tests", Logger);
         using var pool = host.CreateRunspacePool(1, openApiClassesPath: scriptPath);
 
@@ -54,7 +54,7 @@ public class CreateRunspacePoolTests
     [Trait("Category", "Hosting")]
     public void Adds_OpenApi_Assembly_ForDll()
     {
-        const string dllPath = "C:/temp/openapi.dll";
+        var dllPath = Path.Combine(Path.GetTempPath(), "openapi.dll");
         using var host = new KestrunHost("Tests", Logger);
         using var pool = host.CreateRunspacePool(1, openApiClassesPath: dllPath);
 

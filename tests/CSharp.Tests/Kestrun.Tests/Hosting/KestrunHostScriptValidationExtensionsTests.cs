@@ -137,7 +137,8 @@ public class KestrunHostScriptValidationExtensionsTests
         // Simulate exception by passing an invalid assembly reference (null)
         // Simulate exception by passing an invalid assembly reference (bad path)
         Assembly? badAsm = null;
-        try { badAsm = Assembly.LoadFile("C:/this/does/not/exist.dll"); } catch { }
+        var nonExistentAssemblyPath = Path.Combine(Path.GetTempPath(), "kestrun-tests", "does-not-exist", $"{Guid.NewGuid():N}.dll");
+        try { badAsm = Assembly.LoadFile(nonExistentAssemblyPath); } catch { }
         if (badAsm is null)
         {
             // If Assembly.LoadFile fails, pass null to extraRefs and expect no diagnostics (since we can't simulate the error)

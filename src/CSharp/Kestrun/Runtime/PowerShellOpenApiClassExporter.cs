@@ -13,6 +13,11 @@ namespace Kestrun.Runtime;
 public static class PowerShellOpenApiClassExporter
 {
     /// <summary>
+    /// Maximum number of compilation errors to include in error messages.
+    /// </summary>
+    private const int MaxCompilationErrorsToShow = 5;
+
+    /// <summary>
     /// Holds valid class names to be used as type in the OpenAPI function definitions.
     /// </summary>
     public static List<string> ValidClassNames { get; } = [];
@@ -668,10 +673,25 @@ public static class PowerShellOpenApiClassExporter
 
         if (!result.Success)
         {
-            var diags = result.Diagnostics
+            var errors = result.Diagnostics
                 .Where(d => d.Severity == DiagnosticSeverity.Error)
-                .Select(d => d.ToString());
-            throw new InvalidOperationException("Failed to compile OpenAPI classes assembly: " + string.Join(Environment.NewLine, diags));
+                .ToList();
+            
+            var errorCount = errors.Count;
+            var errorSummary = errorCount == 1 
+                ? "1 compilation error" 
+                : $"{errorCount} compilation errors";
+            
+            var errorDetails = string.Join(
+                Environment.NewLine,
+                errors.Take(MaxCompilationErrorsToShow).Select(d => d.ToString()));
+            
+            var errorPrefix = $"Failed to compile OpenAPI classes assembly ({errorSummary}";
+            var errorMessage = errorCount > MaxCompilationErrorsToShow
+                ? $"{errorPrefix}, showing first {MaxCompilationErrorsToShow}):{Environment.NewLine}{errorDetails}"
+                : $"{errorPrefix}):{Environment.NewLine}{errorDetails}";
+            
+            throw new InvalidOperationException(errorMessage);
         }
     }
 

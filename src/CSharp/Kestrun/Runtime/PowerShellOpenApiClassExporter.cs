@@ -24,9 +24,12 @@ public static class PowerShellOpenApiClassExporter
     /// <returns>The path to the compiled assembly containing the class definitions.</returns>
     public static string ExportOpenApiClasses()
     {
-        // Scan all loaded assemblies; callers may define component classes in scripts, modules, or compiled DLLs.
-        // We de-dupe types later to avoid collisions.
-        var assemblies = AppDomain.CurrentDomain.GetAssemblies().ToArray();
+        // Scan only assemblies that are likely to contain OpenAPI component types.
+        // Enumerating all loaded framework assemblies is noisy and can trigger type-load issues.
+        var loadedAssemblies = AppDomain.CurrentDomain.GetAssemblies();
+        var assemblies = loadedAssemblies
+            .Where(ShouldScanAssemblyForComponents)
+            .ToArray();
         return ExportOpenApiClasses(assemblies, logger: null);
     }
 
@@ -38,7 +41,9 @@ public static class PowerShellOpenApiClassExporter
     /// <returns>The path to the compiled assembly containing the class definitions.</returns>
     public static string ExportOpenApiClasses(Serilog.ILogger? logger)
     {
-        var assemblies = AppDomain.CurrentDomain.GetAssemblies().ToArray();
+        var assemblies = AppDomain.CurrentDomain.GetAssemblies()
+            .Where(ShouldScanAssemblyForComponents)
+            .ToArray();
         return ExportOpenApiClasses(assemblies, logger);
     }
 
@@ -55,7 +60,8 @@ public static class PowerShellOpenApiClassExporter
 
         if (logger.IsEnabled(Serilog.Events.LogEventLevel.Debug))
         {
-            logger.Debug("Exporting OpenAPI component classes: scanning {AssemblyCount} assemblies", assemblies.Length);
+            var totalLoaded = AppDomain.CurrentDomain.GetAssemblies().Length;
+            logger.Debug("Exporting OpenAPI component classes: scanning {AssemblyCount} assemblies (of {TotalLoaded} loaded)", assemblies.Length, totalLoaded);
         }
 
         // 1. Collect all component classes
@@ -96,6 +102,39 @@ public static class PowerShellOpenApiClassExporter
 
         // 4. Compile into a stable, cached DLL per runtime TFM
         return CompileToCachedAssembly(source, logger);
+    }
+
+    private static bool ShouldScanAssemblyForComponents(Assembly assembly)
+    {
+        if (assembly.IsDynamic)
+        {
+            // Dynamic assemblies are commonly used in tests and may contain runtime-defined components.
+            return true;
+        }
+
+        var name = assembly.GetName().Name;
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            return false;
+        }
+
+        // Always include Kestrun assemblies.
+        if (name.StartsWith("Kestrun", StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        // Include user/app assemblies that reference Kestrun.Annotations (they can contain [OpenApiSchemaComponent] types).
+        try
+        {
+            return assembly
+                .GetReferencedAssemblies()
+                .Any(r => string.Equals(r.Name, "Kestrun.Annotations", StringComparison.OrdinalIgnoreCase));
+        }
+        catch
+        {
+            return false;
+        }
     }
 
     private static IEnumerable<Type> TryGetTypes(Assembly assembly, Serilog.ILogger logger)

@@ -371,7 +371,6 @@ public static class PowerShellOpenApiClassExporter
         return componentSet.Contains(propertyType) ? propertyType : null;
     }
 
-
     private static string CompileToCachedAssembly(string source)
     {
         var hashInput = StripLeadingCommentHeader(source);

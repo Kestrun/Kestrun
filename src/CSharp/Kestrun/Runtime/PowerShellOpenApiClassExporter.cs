@@ -227,77 +227,35 @@ public static class PowerShellOpenApiClassExporter
         _ = sb.AppendLine("}");
     }
 
-    /// <summary>
-    /// Converts a .NET type to a C# type name suitable for code generation.
-    /// </summary>
-    /// <param name="t"></param>
-    /// <param name="componentSet"></param>
-    /// <returns></returns>
-    private static string ToCSharpTypeName(Type t, HashSet<Type> componentSet)
+    private static readonly IReadOnlyDictionary<Type, string> TypeAliases = new Dictionary<Type, string>
+    {
+        [typeof(long)] = "long",
+        [typeof(int)] = "int",
+        [typeof(bool)] = "bool",
+        [typeof(string)] = "string",
+        [typeof(double)] = "double",
+        [typeof(float)] = "float",
+        [typeof(decimal)] = "decimal",
+        [typeof(object)] = "object",
+        [typeof(DateTime)] = "System.DateTime",
+        [typeof(DateTimeOffset)] = "System.DateTimeOffset",
+        [typeof(Guid)] = "System.Guid",
+    };
+
+    private static string ToCSharpTypeName(Type t, IReadOnlySet<Type> componentSet)
     {
         // Nullable<T>
-        if (Nullable.GetUnderlyingType(t) is Type underlying)
+        var underlying = Nullable.GetUnderlyingType(t);
+        if (underlying is not null)
         {
-            // For reference types, nullable annotations are optional; for value types use '?'.
-            return underlying.IsValueType
-                ? $"{ToCSharpTypeName(underlying, componentSet)}?"
-                : ToCSharpTypeName(underlying, componentSet);
+            var inner = ToCSharpTypeName(underlying, componentSet);
+            return underlying.IsValueType ? $"{inner}?" : inner;
         }
 
-        // Primitive mappings
-        if (t == typeof(long))
+        // Direct mappings (primitives, well-known types)
+        if (TypeAliases.TryGetValue(t, out var alias))
         {
-            return "long";
-        }
-
-        if (t == typeof(int))
-        {
-            return "int";
-        }
-
-        if (t == typeof(bool))
-        {
-            return "bool";
-        }
-
-        if (t == typeof(string))
-        {
-            return "string";
-        }
-
-        if (t == typeof(double))
-        {
-            return "double";
-        }
-
-        if (t == typeof(float))
-        {
-            return "float";
-        }
-
-        if (t == typeof(decimal))
-        {
-            return "decimal";
-        }
-
-        if (t == typeof(object))
-        {
-            return "object";
-        }
-
-        if (t == typeof(DateTime))
-        {
-            return "System.DateTime";
-        }
-
-        if (t == typeof(DateTimeOffset))
-        {
-            return "System.DateTimeOffset";
-        }
-
-        if (t == typeof(Guid))
-        {
-            return "System.Guid";
+            return alias;
         }
 
         // Arrays
@@ -307,23 +265,24 @@ public static class PowerShellOpenApiClassExporter
             return $"{element}[]";
         }
 
-        // If the property type is itself one of the OpenAPI component classes,
-        // use its *simple* name (Pet, User, Tag, Category, etc.)
+        // OpenAPI component classes => simple name
         if (componentSet.Contains(t))
         {
             return t.Name;
         }
 
+        // Generics
         if (t.IsGenericType)
         {
             return ToCSharpGenericTypeName(t, componentSet);
         }
 
-        // Fallback for other reference types
+        // Fallback
         return (t.FullName ?? t.Name).Replace('+', '.');
     }
 
-    private static string ToCSharpGenericTypeName(Type t, HashSet<Type> componentSet)
+
+    private static string ToCSharpGenericTypeName(Type t, IReadOnlySet<Type> componentSet)
     {
         // Generic type definition name (strip arity: `1, `2, ...)
         var def = t.GetGenericTypeDefinition();

@@ -212,8 +212,8 @@ public class PowerShellOpenApiClassExporterTests
         var compiled = Assembly.LoadFrom(path);
         var t = compiled.GetType("UsesAnnotationTypes", throwOnError: true)!;
 
-        // These are emitted as simple names (global namespace) and should compile once Kestrun.Annotations.dll is referenced.
-        Assert.Equal("OaString", t.GetProperty("Kind")!.PropertyType.Name);
-        Assert.Equal("OaNumber", t.GetProperty("Amount")!.PropertyType.Name);
+        // Scalar wrapper / marker types are flattened to primitives for PowerShell friendliness.
+        Assert.Equal(typeof(string), t.GetProperty("Kind")!.PropertyType);
+        Assert.Equal(typeof(double), t.GetProperty("Amount")!.PropertyType);
     }
 }

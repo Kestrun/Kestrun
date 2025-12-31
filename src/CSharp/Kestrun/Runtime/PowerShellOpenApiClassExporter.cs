@@ -200,10 +200,42 @@ public static class PowerShellOpenApiClassExporter
 
         var classNames = new HashSet<string>(StringComparer.Ordinal);
 
+        // Precompute which component types are hideable scalar wrappers.
+        var hideable = new HashSet<Type>();
+        foreach (var t in sortedTypes)
+        {
+            if (IsHideableScalarWrapperComponent(t))
+            {
+                _ = hideable.Add(t);
+            }
+        }
+
+        // Avoid hiding scalar wrappers that are used as a base type by another component we will emit.
+        // Only consider bases referenced by *non-hidden* emitted components.
+        var baseTypesUsed = new HashSet<Type>();
+        foreach (var t in sortedTypes)
+        {
+            if (hideable.Contains(t))
+            {
+                continue;
+            }
+
+            if (t.BaseType is not null && t.BaseType != typeof(object))
+            {
+                _ = baseTypesUsed.Add(t.BaseType);
+            }
+        }
+
         foreach (var type in sortedTypes)
         {
             // Skip types without full name (should not happen)
             if (type.FullName is null)
+            {
+                continue;
+            }
+
+            // Hide scalar wrapper components (derived from known scalar markers) and resolve their usage to the CLR type.
+            if (hideable.Contains(type) && !baseTypesUsed.Contains(type))
             {
                 continue;
             }
@@ -252,9 +284,12 @@ public static class PowerShellOpenApiClassExporter
 
         if (baseType != null && baseType != typeof(object))
         {
-            // Use C#-friendly type name for the base
-            var baseCsName = ToCSharpTypeName(baseType, componentSet);
-            baseClause = $" : {baseCsName}";
+            // Use inheritance-safe type name for the base.
+            var baseCsName = ToCSharpInheritanceTypeName(baseType, componentSet);
+            if (!string.IsNullOrWhiteSpace(baseCsName))
+            {
+                baseClause = $" : {baseCsName}";
+            }
         }
 
         // Global namespace on purpose: PowerShell class FullName is typically unqualified.
@@ -267,7 +302,7 @@ public static class PowerShellOpenApiClassExporter
 
         foreach (var p in props)
         {
-            var csType = ToCSharpTypeName(p.PropertyType, componentSet);
+            var csType = ToCSharpPropertyTypeName(p.PropertyType, componentSet);
             _ = sb.AppendLine($"    public {csType} {p.Name} {{ get; set; }}");
         }
 
@@ -354,6 +389,236 @@ public static class PowerShellOpenApiClassExporter
 
         // Fallback
         return (t.FullName ?? t.Name).Replace('+', '.');
+    }
+
+    private static string ToCSharpPropertyTypeName(Type t, IReadOnlySet<Type> componentSet)
+    {
+        // Nullable<T>
+        var underlying = Nullable.GetUnderlyingType(t);
+        if (underlying is not null)
+        {
+            var inner = ToCSharpPropertyTypeName(underlying, componentSet);
+            return underlying.IsValueType ? $"{inner}?" : inner;
+        }
+
+        // Arrays
+        if (t.IsArray)
+        {
+            var element = ToCSharpPropertyTypeName(t.GetElementType()!, componentSet);
+            return $"{element}[]";
+        }
+
+        // Flatten scalar wrapper components (e.g., TicketMessage : OaString) to primitives
+        // so PowerShell can work with simple values.
+        return componentSet.Contains(t) && TryGetScalarComponentClrAlias(t, out var scalarAlias)
+            ? scalarAlias
+            : ToCSharpTypeName(t, componentSet);
+    }
+
+    private static string? ToCSharpInheritanceTypeName(Type baseType, IReadOnlySet<Type> componentSet)
+    {
+        // Component-to-component inheritance stays as named types.
+        if (componentSet.Contains(baseType))
+        {
+            return baseType.Name;
+        }
+
+        // Never inherit from primitives/sealed framework types (e.g., string).
+        if (baseType.IsSealed || baseType.IsPrimitive)
+        {
+            return null;
+        }
+
+        // Keep Kestrun.Annotations marker types as types (not aliased to primitives).
+        if (IsKestrunAnnotationsType(baseType))
+        {
+            return (baseType.FullName ?? baseType.Name).Replace('+', '.');
+        }
+
+        // Fallback.
+        var candidate = ToCSharpTypeName(baseType, componentSet);
+        return string.Equals(candidate, "string", StringComparison.Ordinal)
+               || string.Equals(candidate, "int", StringComparison.Ordinal)
+               || string.Equals(candidate, "long", StringComparison.Ordinal)
+               || string.Equals(candidate, "double", StringComparison.Ordinal)
+               || string.Equals(candidate, "float", StringComparison.Ordinal)
+               || string.Equals(candidate, "decimal", StringComparison.Ordinal)
+               || string.Equals(candidate, "bool", StringComparison.Ordinal)
+            ? null
+            : candidate;
+    }
+
+    private static bool TryGetScalarComponentClrAlias(Type type, out string alias)
+    {
+        alias = string.Empty;
+
+        // Only consider simple wrapper classes (no declared properties).
+        var hasDeclaredProps = type.GetProperties(BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly).Length > 0;
+        if (hasDeclaredProps)
+        {
+            return false;
+        }
+
+        // Prefer explicit OpenApiSchemaComponent metadata (Type/Format) when present.
+        if (TryGetOpenApiSchemaComponentInfo(type, out var schemaType, out var format))
+        {
+            if (TryMapSchemaTypeAndFormatToClr(schemaType, format, out alias))
+            {
+                return true;
+            }
+        }
+
+        // Otherwise, infer from base-type chain.
+        var current = type;
+        while (current.BaseType is not null && current.BaseType != typeof(object))
+        {
+            var baseType = current.BaseType;
+
+            // If the base is a known OpenAPI/annotation scalar type, use its CLR alias.
+            if (TypeAliases.TryGetValue(baseType, out var baseAlias) && !string.IsNullOrWhiteSpace(baseAlias))
+            {
+                alias = baseAlias;
+                return true;
+            }
+
+            // Match by base type name so this works even if types live in the global namespace.
+            var baseName = baseType.Name;
+            if (string.Equals(baseName, nameof(OaString), StringComparison.Ordinal))
+            {
+                alias = "string";
+                return true;
+            }
+
+            if (string.Equals(baseName, nameof(OaNumber), StringComparison.Ordinal))
+            {
+                alias = "double";
+                return true;
+            }
+
+            if (string.Equals(baseName, nameof(OaInteger), StringComparison.Ordinal))
+            {
+                alias = "int";
+                return true;
+            }
+
+            if (string.Equals(baseName, nameof(OaBoolean), StringComparison.Ordinal))
+            {
+                alias = "bool";
+                return true;
+            }
+
+            current = baseType;
+        }
+
+        return false;
+    }
+
+    private static bool IsHideableScalarWrapperComponent(Type type)
+    {
+        if (!HasOpenApiComponentAttribute(type))
+        {
+            return false;
+        }
+
+        // Only hide wrappers (no declared properties).
+        var hasDeclaredProps = type.GetProperties(BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly).Length > 0;
+        if (hasDeclaredProps)
+        {
+            return false;
+        }
+
+        // If we can resolve to a CLR scalar, we can hide the wrapper class.
+        return TryGetScalarComponentClrAlias(type, out _);
+    }
+
+    private static bool TryGetOpenApiSchemaComponentInfo(Type type, out string schemaType, out string? format)
+    {
+        schemaType = string.Empty;
+        format = null;
+
+        // Attribute type lives in Kestrun.Annotations; keep this reflection-based.
+        var attr = type
+            .GetCustomAttributes(inherit: true)
+            .FirstOrDefault(a => a.GetType().Name.Contains("OpenApiSchemaComponent", StringComparison.OrdinalIgnoreCase));
+
+        if (attr is null)
+        {
+            return false;
+        }
+
+        var attrType = attr.GetType();
+        var typeProp = attrType.GetProperty("Type");
+        var formatProp = attrType.GetProperty("Format");
+
+        var typeValue = typeProp?.GetValue(attr);
+        if (typeValue is null)
+        {
+            return false;
+        }
+
+        schemaType = typeValue.ToString() ?? string.Empty;
+        format = formatProp?.GetValue(attr) as string;
+        return !string.IsNullOrWhiteSpace(schemaType);
+    }
+
+    private static bool TryMapSchemaTypeAndFormatToClr(string schemaType, string? format, out string alias)
+    {
+        alias = string.Empty;
+
+        var st = schemaType.Trim();
+        var fmt = format?.Trim();
+
+        if (st.Equals("String", StringComparison.OrdinalIgnoreCase))
+        {
+            if (fmt is null)
+            {
+                alias = "string";
+                return true;
+            }
+
+            if (fmt.Equals("uuid", StringComparison.OrdinalIgnoreCase))
+            {
+                alias = "System.Guid";
+                return true;
+            }
+
+            if (fmt.Equals("date", StringComparison.OrdinalIgnoreCase) || fmt.Equals("date-time", StringComparison.OrdinalIgnoreCase))
+            {
+                alias = "System.DateTime";
+                return true;
+            }
+
+            if (fmt.Equals("binary", StringComparison.OrdinalIgnoreCase))
+            {
+                alias = "byte[]";
+                return true;
+            }
+
+            // Default for other string formats.
+            alias = "string";
+            return true;
+        }
+
+        if (st.Equals("Integer", StringComparison.OrdinalIgnoreCase))
+        {
+            // Keep it simple; int covers most PS usage.
+            alias = "int";
+            return true;
+        }
+
+        if (st.Equals("Number", StringComparison.OrdinalIgnoreCase))
+        {
+            alias = "double";
+            return true;
+        }
+
+        if (st.Equals("Boolean", StringComparison.OrdinalIgnoreCase))
+        {
+            alias = "bool";
+            return true;
+        }
+
+        return false;
     }
 
     private static string ToCSharpGenericTypeName(Type t, IReadOnlySet<Type> componentSet)
@@ -483,12 +748,13 @@ public static class PowerShellOpenApiClassExporter
 
         var outputDir = Path.Combine(Path.GetTempPath(), "Kestrun", "OpenApiClasses", tfm);
         var outputPath = Path.Combine(outputDir, hash + ".dll");
-
+        var sourcePath = Path.Combine(outputDir, hash + ".cs");
         var isDebug = logger.IsEnabled(Serilog.Events.LogEventLevel.Debug);
 
         if (isDebug)
         {
             logger.Debug("OpenAPI class assembly cache key: tfm={Tfm} sha256={Hash}", tfm, hash);
+            logger.Debug("OpenAPI class assembly cache source path: {Path}", sourcePath);
             logger.Debug("OpenAPI class assembly cache path: {Path}", outputPath);
         }
 
@@ -522,6 +788,7 @@ public static class PowerShellOpenApiClassExporter
             if (!File.Exists(outputPath))
             {
                 _ = Directory.CreateDirectory(outputDir);
+                File.WriteAllText(sourcePath, source, Encoding.UTF8);
                 CompileAndPublishCachedAssembly(source, outputPath, hash, logger, isDebug);
             }
             else if (isDebug)
@@ -560,7 +827,7 @@ public static class PowerShellOpenApiClassExporter
 
         try
         {
-            File.WriteAllText("output.cs", source);
+
             logger.Information("Compiling OpenAPI component classes to cached DLL: {Path}", outputPath);
             CompileCSharpToDll(source, tmpPath, assemblyName: $"Kestrun.OpenApiClasses.{hash}");
 

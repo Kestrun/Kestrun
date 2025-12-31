@@ -1,6 +1,8 @@
 using Kestrun.Languages;
 using Kestrun.Models;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Routing;
+using Microsoft.AspNetCore.Routing.Patterns;
 using Xunit;
 
 namespace KestrunTests.Languages;
@@ -24,11 +26,10 @@ public class CsGlobalsTests
     {
         var g = new Dictionary<string, object?>();
         var http = new DefaultHttpContext();
-        var krCtx = TestRequestFactory.CreateContext();
-        var req = krCtx.Request;
-        var res = krCtx.Response;
+        http.Request.Method = "GET";
+        http.SetEndpoint(new RouteEndpoint(_ => Task.CompletedTask, RoutePatternFactory.Parse("/"), 0, EndpointMetadataCollection.Empty, "TestEndpoint"));
         var host = new Kestrun.Hosting.KestrunHost("Tests", Serilog.Log.Logger);
-        var ctx = new KestrunContext(host, req, res, http);
+        var ctx = new KestrunContext(host, http);
 
         var globals = new CsGlobals(g, ctx);
         Assert.Same(ctx, globals.Context);
@@ -41,11 +42,10 @@ public class CsGlobalsTests
         var g = new Dictionary<string, object?>();
         var l = new Dictionary<string, object?> { ["x"] = 1 };
         var http = new DefaultHttpContext();
-        var krCtx = TestRequestFactory.CreateContext();
-        var req = krCtx.Request;
-        var res = krCtx.Response;
+        http.Request.Method = "GET";
+        http.SetEndpoint(new RouteEndpoint(_ => Task.CompletedTask, RoutePatternFactory.Parse("/"), 0, EndpointMetadataCollection.Empty, "TestEndpoint"));
         var host = new Kestrun.Hosting.KestrunHost("Tests", Serilog.Log.Logger);
-        var ctx = new KestrunContext(host, req, res, http);
+        var ctx = new KestrunContext(host, http);
 
         var globals = new CsGlobals(g, ctx, l);
         Assert.Same(g, globals.Globals);

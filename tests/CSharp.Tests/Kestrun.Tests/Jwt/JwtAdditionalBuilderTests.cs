@@ -75,6 +75,9 @@ public class JwtAdditionalBuilderTests
         var original = b.Build().Token();
 
         var http = new DefaultHttpContext();
+        http.Request.Method = "GET";
+        http.Request.Path = "/jwt/renew";
+        TestRequestFactory.EnsureRoutedHttpContext(http);
         http.Request.Headers["Authorization"] = "Bearer " + original;
         var host = new Kestrun.Hosting.KestrunHost("Tests", Serilog.Log.Logger);
         var ctx = new KestrunContext(host, http);
@@ -99,6 +102,9 @@ public class JwtAdditionalBuilderTests
             .SignWithSecret(sign);
 
         var http = new DefaultHttpContext();
+        http.Request.Method = "GET";
+        http.Request.Path = "/jwt/renew";
+        TestRequestFactory.EnsureRoutedHttpContext(http);
         var host = new Kestrun.Hosting.KestrunHost("Tests", Serilog.Log.Logger);
         var ctx = new KestrunContext(host, http);
 

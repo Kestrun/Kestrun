@@ -13,6 +13,7 @@ public class DelegateBuilderTests
         var http = new DefaultHttpContext();
         http.Request.Method = "GET";
         http.Request.Path = "/test";
+        TestRequestFactory.EnsureRoutedHttpContext(http);
         var log = new Mock<ILogger>(MockBehavior.Loose).Object;
         return (http, log);
     }

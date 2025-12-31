@@ -35,17 +35,22 @@ public sealed record KestrunContext
 
         // Ensure contexts created via this constructor always have a valid response.
         Response = new KestrunResponse(this, 8192);
-        var routeEndpoint = Request.HttpContext.GetEndpoint() as RouteEndpoint
-     ?? throw new InvalidOperationException("No route endpoint found for the current request.");
+        // Routing metadata may not always be available (e.g., middleware/tests/exception handlers).
+        // Fall back to the request path if no RouteEndpoint is present.
+        var routeEndpoint = Request.HttpContext.GetEndpoint() as RouteEndpoint;
 
-        var pattern = routeEndpoint.RoutePattern.RawText
-                   ?? routeEndpoint.RoutePattern.ToString(); // fallback
+        var pattern = routeEndpoint?.RoutePattern.RawText
+                   ?? routeEndpoint?.RoutePattern.ToString()
+                   ?? (HttpContext.Request.Path.HasValue ? HttpContext.Request.Path.Value : "/");
 
-        if (string.IsNullOrEmpty(pattern))
+        if (string.IsNullOrWhiteSpace(pattern))
         {
-            throw new InvalidOperationException("Route pattern is null or empty for the current request.");
+            pattern = "/";
         }
-        var verb = HttpVerbExtensions.FromMethodString(Request.Method);
+
+        var verb = string.IsNullOrWhiteSpace(Request.Method)
+            ? HttpVerb.Get
+            : HttpVerbExtensions.FromMethodString(Request.Method);
 
         if (!Host.RegisteredRoutes.TryGetValue((pattern, verb), out var options))
         {

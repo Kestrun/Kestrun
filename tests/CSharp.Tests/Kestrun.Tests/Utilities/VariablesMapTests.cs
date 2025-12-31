@@ -13,6 +13,7 @@ public class VariablesMapTests
         var http = new DefaultHttpContext();
         http.Request.Method = "GET";
         http.Request.Path = "/hello";
+        TestRequestFactory.EnsureRoutedHttpContext(http);
         http.Features.Set<ISessionFeature>(new SessionFeature { Session = new DummySession() });
         http.Request.Headers.UserAgent = "xunit";
 

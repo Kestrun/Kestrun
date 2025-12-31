@@ -1,6 +1,8 @@
 using Kestrun.Models;
 using Kestrun.Hosting;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Routing;
+using Microsoft.AspNetCore.Routing.Patterns;
 using Serilog;
 
 namespace KestrunTests;
@@ -11,6 +13,32 @@ namespace KestrunTests;
 internal static class TestRequestFactory
 {
     private static readonly Lazy<KestrunHost> _host = new(() => new KestrunHost("Tests", Log.Logger));
+
+    private static RouteEndpoint CreateTestEndpoint(string? pattern)
+    {
+        var p = string.IsNullOrWhiteSpace(pattern) ? "/" : pattern;
+        var routePattern = RoutePatternFactory.Parse(p);
+        RequestDelegate requestDelegate = _ => Task.CompletedTask;
+        return new RouteEndpoint(requestDelegate, routePattern, order: 0, metadata: EndpointMetadataCollection.Empty, displayName: "TestEndpoint");
+    }
+
+    internal static void EnsureRoutedHttpContext(DefaultHttpContext http, string? pattern = null)
+    {
+        if (string.IsNullOrWhiteSpace(http.Request.Method))
+        {
+            http.Request.Method = "GET";
+        }
+
+        if (!http.Request.Path.HasValue)
+        {
+            http.Request.Path = "/";
+        }
+
+        if (http.GetEndpoint() is not RouteEndpoint)
+        {
+            http.SetEndpoint(CreateTestEndpoint(pattern ?? http.Request.Path.Value));
+        }
+    }
 
     internal static KestrunRequest Create(
         string method = "GET",
@@ -66,6 +94,8 @@ internal static class TestRequestFactory
         var ctx = new DefaultHttpContext();
         ctx.Request.Method = method;
         ctx.Request.Path = path;
+
+        EnsureRoutedHttpContext(ctx, pattern: path);
 
         // Add headers
         if (headers != null)

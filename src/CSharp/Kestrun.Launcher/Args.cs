@@ -11,6 +11,7 @@ public class Args
     public string? KestrunModulePath { get; set; }
     public bool Help { get; set; }
     public bool Version { get; set; }
+    public bool Debugger { get; set; }
 
     /// <summary>
     /// Parse command-line arguments
@@ -25,6 +26,10 @@ public class Args
 
             switch (arg.ToLowerInvariant())
             {
+                case "-d":
+                case "--debugger":
+                    parsed.Debugger = true;
+                    break;
                 case "-h":
                 case "--help":
                     parsed.Help = true;

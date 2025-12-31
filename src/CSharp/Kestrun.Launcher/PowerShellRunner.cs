@@ -1,5 +1,6 @@
 using System.Management.Automation;
 using System.Management.Automation.Runspaces;
+using System.Reflection;
 
 namespace Kestrun.Launcher;
 
@@ -159,47 +160,60 @@ public static class PowerShellRunner
     }
 
     /// <summary>
-    /// Find the default Kestrun module path
+    /// Locates the Kestrun module path.
+    /// It first attempts to find the module in the development environment by searching upwards from the current directory
+    /// If not found, it will then check the production environment using PowerShell.
     /// </summary>
-    private static string? FindDefaultKestrunModule()
+    /// <returns>The full path to the Kestrun module if found, otherwise null.</returns>
+    public static string? FindDefaultKestrunModule()
     {
-        // Try to find the module relative to the launcher executable
-        var launcherDir = AppContext.BaseDirectory;
+        // 1. Try development search
+        var asm = Assembly.GetExecutingAssembly();
+        var dllPath = asm.Location;
+        // Get full InformationalVersion
+        var fullVersion = asm.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion;
 
-        // Common relative paths from the launcher to the Kestrun module
-        var relativePaths = new[]
-        {
-            // When built from source: bin/Debug/netX.0 -> src/PowerShell/Kestrun
-            "../../../src/PowerShell/Kestrun/Kestrun.psd1",
-            "../../../../src/PowerShell/Kestrun/Kestrun.psd1",
-            "../../../../../src/PowerShell/Kestrun/Kestrun.psd1",
-            // When installed as a tool
-            "../../PowerShell/Kestrun/Kestrun.psd1",
-            "../PowerShell/Kestrun/Kestrun.psd1"
-        };
+        // Strip build metadata if present (everything after and including '+')
+        var semver = fullVersion?.Split('+')[0];
 
-        foreach (var relativePath in relativePaths)
+        var devPath = FindFileUpwards(Path.GetDirectoryName(dllPath)!, Path.Combine("src", "PowerShell", "Kestrun", "Kestrun.psd1"));
+
+        if (devPath != null)
         {
-            var fullPath = Path.GetFullPath(Path.Combine(launcherDir, relativePath));
-            if (File.Exists(fullPath))
-            {
-                return fullPath;
-            }
+            Console.WriteLine("🌿 Development module found.");
+            return devPath;
         }
-
-        // Try looking in PSModulePath
-        var psModulePath = Environment.GetEnvironmentVariable("PSModulePath");
-        if (!string.IsNullOrEmpty(psModulePath))
+        if (semver == null)
         {
-            var paths = psModulePath.Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries);
-            foreach (var path in paths)
+            Console.Error.WriteLine("🚫 Unable to determine assembly version for Kestrun module lookup.");
+            return null;
+        }
+        Console.WriteLine($"🔍 Searching for Kestrun PowerShell module version: {semver}");
+
+
+        Console.Error.WriteLine("🚫 Kestrun.psm1 not found in any known location.");
+        return null;
+    }
+
+    /// <summary>
+    /// Finds a file upwards from the current directory.
+    /// </summary>
+    /// <param name="startDir">The starting directory to search from.</param>
+    /// <param name="relativeTarget">The relative path of the target file.</param>
+    /// <returns>The full path to the file if found, otherwise null.</returns>
+    private static string? FindFileUpwards(string startDir, string relativeTarget)
+    {
+        var current = startDir;
+
+        while (current != null)
+        {
+            var candidate = Path.Combine(current, relativeTarget);
+            if (File.Exists(candidate))
             {
-                var moduleManifest = Path.GetFullPath(Path.Combine(path, "Kestrun", "Kestrun.psd1"));
-                if (File.Exists(moduleManifest))
-                {
-                    return moduleManifest;
-                }
+                return candidate;
             }
+
+            current = Path.GetDirectoryName(current);
         }
 
         return null;

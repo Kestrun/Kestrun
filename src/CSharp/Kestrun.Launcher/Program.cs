@@ -1,9 +1,13 @@
 using Kestrun.Launcher;
 using System.Reflection;
 
+
 // Parse command-line arguments
 var parsedArgs = Args.Parse([.. Environment.GetCommandLineArgs().Skip(1)]);
-
+if (parsedArgs.Debugger)
+{
+    _ = ProcessHelper.WaitForDebugger();
+}
 // Show help
 if (parsedArgs.Help)
 {
@@ -180,6 +184,7 @@ static async Task<int> InstallService(Args args)
     {
         cmdArgs += $" -k \\\"{modulePath}\\\"";
     }
+
 
     // Use sc.exe to create the service
     var arguments = $"create \"{serviceName}\" binPath= \"\\\"{launcher}\\\" {cmdArgs}\" start= auto";

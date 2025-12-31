@@ -1,4 +1,3 @@
-using Kestrun.Models;
 using Microsoft.AspNetCore.Http;
 using Moq;
 using Serilog;
@@ -41,7 +40,7 @@ public class DelegateBuilderTests
     {
         var (http, log) = MakeCtx();
         var krCtx = TestRequestFactory.CreateContext();
-        var req = krCtx.Request;
+        _ = krCtx.Request;
         var kr = krCtx.Response;
         kr.WriteRedirectResponse("/elsewhere");
 

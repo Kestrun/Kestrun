@@ -256,6 +256,9 @@ Before submitting your PR, please confirm you’ve covered the essentials:
 
 - [ ] **Linked to issue** with `Fixes #NN` or `Refs #NN`.
 
+**CRITICAL**
+Follow the Contributing guidelines in the CONTRIBUTING.md file for detailed instructions on PR structure, testing, and documentation.
+
 ## 📝 Style & Quality
 
 ### C\#

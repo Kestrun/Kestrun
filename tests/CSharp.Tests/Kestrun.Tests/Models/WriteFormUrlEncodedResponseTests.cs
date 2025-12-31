@@ -11,10 +11,7 @@ public class WriteFormUrlEncodedResponseTests
     static WriteFormUrlEncodedResponseTests() =>
         Log.Logger = new LoggerConfiguration().MinimumLevel.Debug().CreateLogger();
 
-    private static KestrunResponse CreateKestrunResponse()
-    {
-        return TestRequestFactory.CreateContext().Response;
-    }
+    private static KestrunResponse CreateKestrunResponse() => TestRequestFactory.CreateContext().Response;
 
     [Fact]
     [Trait("Category", "Models")]

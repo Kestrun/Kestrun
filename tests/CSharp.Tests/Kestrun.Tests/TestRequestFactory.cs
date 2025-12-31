@@ -18,7 +18,7 @@ internal static class TestRequestFactory
     {
         var p = string.IsNullOrWhiteSpace(pattern) ? "/" : pattern;
         var routePattern = RoutePatternFactory.Parse(p);
-        RequestDelegate requestDelegate = _ => Task.CompletedTask;
+        static Task requestDelegate(HttpContext _) => Task.CompletedTask;
         return new RouteEndpoint(requestDelegate, routePattern, order: 0, metadata: EndpointMetadataCollection.Empty, displayName: "TestEndpoint");
     }
 

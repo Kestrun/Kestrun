@@ -4,7 +4,6 @@ using Kestrun.Models;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.AspNetCore.Routing.Patterns;
-using Moq;
 using Serilog;
 using System.Management.Automation;
 using System.Management.Automation.Runspaces;

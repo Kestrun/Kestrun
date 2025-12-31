@@ -17,14 +17,15 @@ public static class PowerShellOpenApiClassExporter
     /// Exports OpenAPI component classes found in loaded assemblies
     /// as PowerShell class definitions.
     /// </summary>
+    /// <param name="userCallbacks">Optional user-defined functions to include in the export.</param>
     /// <returns>The path to the temporary PowerShell script containing the class definitions.</returns>
-    public static string ExportOpenApiClasses()
+    public static string ExportOpenApiClasses(Dictionary<string, string>? userCallbacks)
     {
         var assemblies = AppDomain.CurrentDomain.GetAssemblies()
            .Where(a => a.FullName is not null &&
                     a.FullName.Contains("PowerShell Class Assembly"))
            .ToArray();
-        return ExportOpenApiClasses(assemblies);
+        return ExportOpenApiClasses(assemblies: assemblies, userCallbacks: userCallbacks);
     }
 
     /// <summary>
@@ -32,8 +33,9 @@ public static class PowerShellOpenApiClassExporter
     /// as PowerShell class definitions
     /// </summary>
     /// <param name="assemblies">The assemblies to scan for OpenAPI component classes.</param>
+    ///  <param name="userCallbacks"> Optional user-defined functions to include in the export.</param>
     /// <returns>The path to the temporary PowerShell script containing the class definitions.</returns>
-    public static string ExportOpenApiClasses(Assembly[] assemblies)
+    public static string ExportOpenApiClasses(Assembly[] assemblies, Dictionary<string, string>? userCallbacks)
     {
         // 1. Collect all component classes
         var componentTypes = assemblies
@@ -47,12 +49,15 @@ public static class PowerShellOpenApiClassExporter
 
         // 2. Topologically sort by "uses other component as property type"
         var sorted = TopologicalSortByPropertyDependencies(componentTypes, componentSet);
+        var hasCallbacks = userCallbacks is not null && userCallbacks.Count > 0;
+
         // nothing to export
-        if (sorted.Count == 0)
+        if (sorted.Count == 0 && !hasCallbacks)
         {
             return string.Empty;
         }
-        // 3. Emit PowerShell classes
+
+        // 3. Emit PowerShell classes (and optional callback functions)
         var sb = new StringBuilder();
 
         foreach (var type in sorted)
@@ -73,8 +78,94 @@ public static class PowerShellOpenApiClassExporter
             AppendClass(type, componentSet, sb);
             _ = sb.AppendLine(); // blank line between classes
         }
+
+        if (hasCallbacks)
+        {
+            _ = sb.AppendLine("# ================================================");
+            _ = sb.AppendLine("#   Kestrun User Callback Functions (attributes removed)");
+            _ = sb.AppendLine("# ================================================");
+            _ = sb.AppendLine();
+
+            foreach (var kvp in userCallbacks!.OrderBy(k => k.Key, StringComparer.OrdinalIgnoreCase))
+            {
+                var name = kvp.Key;
+                var definition = kvp.Value ?? string.Empty;
+
+                // FunctionInfo.Definition is typically the body (no 'function name { }' wrapper)
+                var functionScript = $"function {name} {{\n{definition}\n}}";
+                var stripped = StripPowerShellAttributeBlocks(functionScript);
+                _ = sb.AppendLine(stripped);
+                _ = sb.AppendLine();
+            }
+        }
         // 4. Write to temp script file
         return WriteOpenApiTempScript(sb.ToString());
+    }
+
+    private static string StripPowerShellAttributeBlocks(string script)
+    {
+        if (string.IsNullOrWhiteSpace(script))
+        {
+            return string.Empty;
+        }
+
+        var sb = new StringBuilder(script.Length);
+        var i = 0;
+        while (i < script.Length)
+        {
+            var ch = script[i];
+            if (ch != '[')
+            {
+                _ = sb.Append(ch);
+                i++;
+                continue;
+            }
+
+            // Capture a full bracket block, handling nested [ ... ] (e.g. generic type constraints)
+            var start = i;
+            var depth = 0;
+            var j = i;
+            while (j < script.Length)
+            {
+                var cj = script[j];
+                if (cj == '[')
+                {
+                    depth++;
+                }
+                else if (cj == ']')
+                {
+                    depth--;
+                    if (depth == 0)
+                    {
+                        j++; // include closing ']'
+                        break;
+                    }
+                }
+                j++;
+            }
+
+            // If unbalanced, just emit the rest
+            if (depth != 0)
+            {
+                _ = sb.Append(script.AsSpan(i));
+                break;
+            }
+
+            var block = script.AsSpan(start, j - start);
+
+            // Attribute blocks always include parentheses in our usage (e.g. [OpenApiPath(...)], [Parameter()]).
+            // Keep type constraints like [string], [int], [MyType], [MyType[]], [List[string]].
+            if (block.IndexOf('(') >= 0)
+            {
+                i = j;
+                continue;
+            }
+
+            _ = sb.Append(block);
+            i = j;
+        }
+
+        return sb.ToString();
     }
 
     /// <summary>
@@ -109,7 +200,7 @@ public static class PowerShellOpenApiClassExporter
             var basePsName = ToPowerShellTypeName(baseType, componentSet);
             baseClause = $" : {basePsName}";
         }
-
+        _ = sb.AppendLine("[NoRunspaceAffinity()]");
         _ = sb.AppendLine($"class {type.Name}{baseClause} {{");
 
         // Only properties *declared* on this type (no inherited ones)

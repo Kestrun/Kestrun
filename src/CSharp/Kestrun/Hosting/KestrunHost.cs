@@ -994,7 +994,7 @@ public partial class KestrunHost : IDisposable
     /// <summary>
     /// Applies the configured options to the Kestrel server and initializes the runspace pool.
     /// </summary>
-    public void EnableConfiguration(Dictionary<string, object>? userVariables = null, Dictionary<string, string>? userFunctions = null)
+    public void EnableConfiguration(Dictionary<string, object>? userVariables = null, Dictionary<string, string>? userFunctions = null, Dictionary<string, string>? userCallbacks = null)
     {
         if (!ValidateConfiguration())
         {
@@ -1004,7 +1004,7 @@ public partial class KestrunHost : IDisposable
         try
         {
             // Export OpenAPI classes from PowerShell
-            var openApiClassesPath = PowerShellOpenApiClassExporter.ExportOpenApiClasses();
+            var openApiClassesPath = PowerShellOpenApiClassExporter.ExportOpenApiClasses(userCallbacks: userCallbacks);
             if (Logger.IsEnabled(LogEventLevel.Debug))
             {
                 if (string.IsNullOrWhiteSpace(openApiClassesPath))

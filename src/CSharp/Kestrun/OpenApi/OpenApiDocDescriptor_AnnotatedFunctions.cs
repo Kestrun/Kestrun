@@ -840,7 +840,7 @@ public partial class OpenApiDocDescriptor
     /// <param name="documentIds">The collection of OpenAPI document IDs.</param>
     private void RegisterCallback(FunctionInfo func, ScriptBlock sb, OpenAPIPathMetadata metadata, HttpVerb parsedVerb, IEnumerable<string> documentIds)
     {
-        EnsureParamOnlyScriptBlock(func, sb, kind: "callback");
+        // EnsureParamOnlyScriptBlock(func, sb, kind: "callback");
         foreach (var docId in documentIds)
         {
             var docdesc = GetDocDescriptorOrThrow(docId, attributeName: "OpenApiCallback");

@@ -82,7 +82,7 @@ public static class PowerShellOpenApiClassExporter
         if (hasCallbacks)
         {
             _ = sb.AppendLine("# ================================================");
-            _ = sb.AppendLine("#   Kestrun User Callback Functions (attributes removed)");
+            _ = sb.AppendLine("#   Kestrun User Callback Functions");
             _ = sb.AppendLine("# ================================================");
             _ = sb.AppendLine();
 
@@ -94,12 +94,43 @@ public static class PowerShellOpenApiClassExporter
                 // FunctionInfo.Definition is typically the body (no 'function name { }' wrapper)
                 var functionScript = $"function {name} {{\n{definition}\n}}";
                 var stripped = StripPowerShellAttributeBlocks(functionScript);
-                _ = sb.AppendLine(stripped);
+                var normalized = NormalizeBlankLines(stripped);
+                _ = sb.AppendLine(normalized);
                 _ = sb.AppendLine();
             }
         }
         // 4. Write to temp script file
         return WriteOpenApiTempScript(sb.ToString());
+    }
+
+    private static string NormalizeBlankLines(string script)
+    {
+        if (string.IsNullOrWhiteSpace(script))
+        {
+            return string.Empty;
+        }
+
+        // Normalize newlines first
+        script = script.Replace("\r\n", "\n").Replace("\r", "\n");
+
+        var lines = script.Split('\n');
+        var sb = new StringBuilder(script.Length);
+
+        for (var idx = 0; idx < lines.Length; idx++)
+        {
+            var line = lines[idx].TrimEnd();
+            var isBlank = string.IsNullOrWhiteSpace(line);
+
+            // For callback function export we want compact output:
+            // drop ALL whitespace-only lines (attribute stripping leaves many single blank lines).
+            if (!isBlank)
+            {
+                _ = sb.AppendLine(line);
+            }
+        }
+
+        // Trim trailing newlines
+        return sb.ToString().TrimEnd();
     }
 
     private static string StripPowerShellAttributeBlocks(string script)

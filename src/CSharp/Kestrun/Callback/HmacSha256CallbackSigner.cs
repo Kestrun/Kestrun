@@ -20,6 +20,10 @@ public sealed class HmacSha256CallbackSigner(string secret) : ICallbackSigner
     /// <param name="r">The callback request containing signing information.</param>
     public void Sign(HttpRequestMessage msg, CallbackRequest r)
     {
+        if (r.Body == null)
+        {
+            throw new InvalidOperationException("Cannot sign callback request with null body.");
+        }
         // Body must be already set
         var hash = new HMACSHA256(_key).ComputeHash(r.Body);
         var signature = Convert.ToHexString(hash).ToLowerInvariant();

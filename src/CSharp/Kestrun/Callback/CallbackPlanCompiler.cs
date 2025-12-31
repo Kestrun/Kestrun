@@ -5,12 +5,12 @@ namespace Kestrun.Callback;
 /// <summary>
 /// Represents a plan for executing a callback operation.
 /// </summary>
-/// <param name="CallbackId"></param>
-/// <param name="UrlTemplate"></param>
-/// <param name="Method"></param>
-/// <param name="OperationId"></param>
-/// <param name="PathParams"></param>
-/// <param name="Body"></param>
+/// <param name="CallbackId">The identifier for the callback</param>
+/// <param name="UrlTemplate">The URL template for the callback</param>
+/// <param name="Method"> The HTTP method for the callback</param>
+/// <param name="OperationId"> The operation identifier for the callback</param>
+/// <param name="PathParams"> The list of path parameters for the callback</param>
+/// <param name="Body">The body plan for the callback</param>
 public sealed record CallbackPlan(
     string CallbackId,                       // "paymentStatus"
     string UrlTemplate,                      // "{$request.body#/callbackUrls/status}/v1/payments/{paymentId}/status"
@@ -18,6 +18,20 @@ public sealed record CallbackPlan(
     string OperationId,                      // paymentStatusCallback__post__status
     IReadOnlyList<CallbackParamPlan> PathParams,
     CallbackBodyPlan? Body                  // schema info (ref) + media type
+);
+
+/// <summary>
+/// Represents an execution plan for a callback, including resolved parameters.
+/// </summary>
+/// <param name="CallbackId">The identifier for the callback</param>
+/// <param name="Plan">The callback plan</param>
+/// <param name="BodyParameterName">The name of the body parameter, if any</param>
+/// <param name="Parameters">The resolved parameters for the callback</param>
+public sealed record CallBackExecutionPlan(
+    string CallbackId,
+    CallbackPlan Plan,
+    string? BodyParameterName,
+    Dictionary<string, object?> Parameters
 );
 
 /// <summary>

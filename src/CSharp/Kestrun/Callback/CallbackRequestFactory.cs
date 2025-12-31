@@ -38,27 +38,27 @@ public static partial class CallbackRequestFactory
     /// <summary>
     /// Creates a list of <see cref="CallbackRequest"/> instances from the given callback plans and runtime context.
     /// </summary>
-    /// <param name="plan">The callback plan to create a request from.</param>
+    /// <param name="executionPlan">The callback plan to create a request from.</param>
     /// <param name="ctx">The callback runtime context providing values for tokens and JSON data.</param>
     /// <param name="urlResolver">The URL resolver to resolve callback URLs.</param>
     /// <param name="bodySerializer">The body serializer to serialize callback request bodies.</param>
     /// <param name="options">The callback dispatch options.</param>
     /// <returns>A list of created <see cref="CallbackRequest"/> instances.</returns>
     public static CallbackRequest FromPlan(
-        CallbackPlan plan,
+        CallBackExecutionPlan executionPlan,
         KestrunContext ctx,
         ICallbackUrlResolver urlResolver,
         ICallbackBodySerializer bodySerializer,
         CallbackDispatchOptions options)
     {
-        ArgumentNullException.ThrowIfNull(plan);
+        ArgumentNullException.ThrowIfNull(executionPlan);
         ArgumentNullException.ThrowIfNull(ctx);
         ArgumentNullException.ThrowIfNull(urlResolver);
         ArgumentNullException.ThrowIfNull(bodySerializer);
         ArgumentNullException.ThrowIfNull(options);
 
         var correlationId = ctx.TraceIdentifier;
-
+        var plan = executionPlan.Plan;
         // 1) Extract placeholder names from the template
         var templateParamNames = ExtractTemplateParams(plan.UrlTemplate);
 
@@ -96,6 +96,10 @@ public static partial class CallbackRequestFactory
             ["Idempotency-Key"] = idempotencyKey,
             ["X-Kestrun-CallbackId"] = plan.CallbackId
         };
+        // Add body
+        var bodyBytes = (executionPlan.BodyParameterName == null) ?
+            null :
+            System.Text.Json.JsonSerializer.SerializeToUtf8Bytes(executionPlan.Parameters[executionPlan.BodyParameterName]);
 
         return new CallbackRequest(
             callbackId: plan.CallbackId,
@@ -104,7 +108,7 @@ public static partial class CallbackRequestFactory
             httpMethod: plan.Method.Method.ToUpperInvariant(),
             headers: headers,
             contentType: contentType,
-            body: body,
+            body: bodyBytes,
             correlationId: correlationId,
             idempotencyKey: idempotencyKey,
             timeout: options.DefaultTimeout,

@@ -34,7 +34,7 @@ public class CallbackRequest
     /// <summary>
     /// The body of the callback request
     /// </summary>
-    public byte[] Body { get; set; }
+    public byte[]? Body { get; set; }
     /// <summary>
     /// Trace or correlation identifier
     /// </summary>
@@ -86,7 +86,7 @@ public class CallbackRequest
        string httpMethod,
        IDictionary<string, string> headers,
        string contentType,
-       byte[] body,
+       byte[]? body,
        string correlationId,
        string idempotencyKey,
        TimeSpan timeout,

@@ -152,7 +152,26 @@ function paymentStatusCallback {
         [OpenApiRequestBody(ContentType = 'application/json')]
         [PaymentStatusChangedEvent]$Body
     )
+    if ($null -eq $Context -or $null -eq $Context.Response) {
+        if (Test-KrLogger) {
+            Write-KrLog -Level Warning -Message '{function} must be called inside a route script with Callback enabled.' -Values $FunctionName
+        } else {
+            Write-Warning -Message "$FunctionName must be called inside a route script with Callback enabled."
+        }
+        return
+    }
+    Write-Host "Defined paymentStatusCallback for PaymentId: $paymentId"
+    $params = [System.Collections.Generic.Dictionary[string, object]]::new()
+    $params['paymentId'] = $paymentId
+    $params['Body'] = $Body
+    $bodyParameterName = 'Body'
+
+    $Context.Response.AddCallbackParameters(
+        $MyInvocation.MyCommand.Name,
+        $bodyParameterName,
+        $params)
 }
+
 
 
 <#
@@ -203,7 +222,7 @@ function shippingOrderCallback {
         [OpenApiRequestBody(ContentType = 'application/json')]
         [ShippingOrderCreatedEvent]$Body
     )
-    write-Host "Defined shippingOrderCallback for OrderId: $orderId"
+    Write-Host "Defined shippingOrderCallback for OrderId: $orderId"
 }
 
 # =========================================================
@@ -213,6 +232,9 @@ Enable-KrConfiguration
 
 Add-KrApiDocumentationRoute -DocumentType Swagger
 Add-KrApiDocumentationRoute -DocumentType Redoc
+Add-KrApiDocumentationRoute -DocumentType Scalar
+Add-KrApiDocumentationRoute -DocumentType Rapidoc
+Add-KrApiDocumentationRoute -DocumentType Elements
 
 # =========================================================
 #                 ROUTES / OPERATIONS
@@ -232,21 +254,23 @@ function createPayment {
     [OpenApiResponse(StatusCode = '201', Description = 'Payment created', Schema = [CreatePaymentResponse], ContentType = 'application/json')]
     [OpenApiResponse(StatusCode = '400', Description = 'Invalid input')]
     [OpenApiCallbackRef(Key = 'paymentStatus', ReferenceId = 'paymentStatusCallback', Inline = $true)]
-    [OpenApiCallbackRef(Key = 'reservation', ReferenceId = 'reservationCallback')]
-    [OpenApiCallbackRef(Key = 'shippingOrder', ReferenceId = 'shippingOrderCallback')]
+    #[OpenApiCallbackRef(Key = 'reservation', ReferenceId = 'reservationCallback')]
+    # [OpenApiCallbackRef(Key = 'shippingOrder', ReferenceId = 'shippingOrderCallback')]
     param(
-        [OpenApiParameter(In = 'query', Required = $true)]
-        [string]$paymentId = 'pay-12345678',
+
         [OpenApiParameter(In = 'query', Required = $true)]
         [string]$orderId = 'ord-12345678',
         [OpenApiRequestBody(ContentType = 'application/json')]
         [CreatePaymentRequest]$body
     )
-    Write-Host "PaymentId: $paymentId OrderId: $orderId"
+
     if (-not $body -or -not $body.amount -or -not $body.currency -or -not $body.callbackUrls) {
         Write-KrJsonResponse @{ error = 'amount, currency, and callbackUrls are required' } -StatusCode 400
         return
     }
+
+    $paymentId = 'PAY-' + ([guid]::NewGuid().ToString('N').Substring(0, 8))
+    Write-Host "PaymentId: $paymentId OrderId: $orderId"
     # Create callback events payloads
     $shippingOrderEvent = [ShippingOrderCreatedEvent]@{
         eventId = [guid]::NewGuid().ToString()
@@ -270,15 +294,16 @@ function createPayment {
     }
 
     Expand-KrObject $shippingOrderEvent -Label 'ShippingOrderCreatedEvent'
-    Expand-KrObject $reservationEvent -Label 'ReservationCreatedEvent'
-    Expand-KrObject $paymentStatusChangedEvent -Label 'PaymentStatusChangedEvent'
+    #  Expand-KrObject $reservationEvent -Label 'ReservationCreatedEvent'
+    # Expand-KrObject $paymentStatusChangedEvent -Label 'PaymentStatusChangedEvent'
 
-    shippingOrderCallback -OrderId $orderId -Body $shippingOrderEvent
+    #shippingOrderCallback -OrderId $orderId -Body $shippingOrderEvent
 
 
-    reservationCallback -OrderId $orderId -Body $reservationEvent
+    #reservationCallback -OrderId $orderId -Body $reservationEvent
 
     paymentStatusCallback -PaymentId $paymentId -Body $paymentStatusChangedEvent
+    Write-Host "Created payment for Amount: $($body.amount) $($body.currency)"
 
 
     $paymentId = 'PAY-' + ([guid]::NewGuid().ToString('N').Substring(0, 8))

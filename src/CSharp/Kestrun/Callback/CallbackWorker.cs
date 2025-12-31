@@ -18,14 +18,14 @@ public sealed class CallbackWorker(
     InMemoryCallbackQueue queue,
     ICallbackSender sender,
     ICallbackRetryPolicy retry,
-    ILogger<CallbackWorker> log,
+    Serilog.ILogger log,
     ICallbackStore? store = null) : BackgroundService
 {
     private readonly ChannelReader<CallbackRequest> _reader = queue.Channel.Reader;
     private readonly ICallbackSender _sender = sender;
     private readonly ICallbackRetryPolicy _retry = retry;
     private readonly ICallbackStore? _store = store; // optional
-    private readonly ILogger<CallbackWorker> _log = log;
+    private readonly Serilog.ILogger _log = log;
 
     /// <summary>
     /// Executes the background service.
@@ -34,10 +34,21 @@ public sealed class CallbackWorker(
     /// <returns> A task that represents the background service execution.</returns>
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        await foreach (var req in _reader.ReadAllAsync(stoppingToken))
+        try
         {
-            // Fire-and-limit concurrency via Task.Run? Better: use a SemaphoreSlim
-            _ = ProcessOne(req, stoppingToken);
+            await foreach (var req in _reader.ReadAllAsync(stoppingToken))
+            {
+                // Fire-and-limit concurrency via Task.Run? Better: use a SemaphoreSlim
+                _ = ProcessOne(req, stoppingToken);
+            }
+        }
+        catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+        {
+            // Graceful shutdown
+            if (_log.IsEnabled(Serilog.Events.LogEventLevel.Information))
+            {
+                _log.Information("CallbackWorker is stopping due to cancellation.");
+            }
         }
     }
 
@@ -114,7 +125,7 @@ public sealed class CallbackWorker(
             await _store.MarkFailedPermanentAsync(req, result, ct);
         }
 
-        _log.LogWarning("Callback failed permanently {CallbackId} after {Attempts} attempts. Last error: {Err}",
+        _log.Warning("Callback failed permanently {CallbackId} after {Attempts} attempts. Last error: {Err}",
             req.CallbackId, req.Attempt + 1, result.ErrorMessage);
     }
 

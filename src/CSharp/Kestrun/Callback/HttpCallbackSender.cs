@@ -33,9 +33,11 @@ public sealed class HttpCallbackSender(HttpClient http, ICallbackSigner? signer 
         _ = msg.Headers.TryAddWithoutValidation("X-Correlation-Id", r.CorrelationId);
         _ = msg.Headers.TryAddWithoutValidation("Idempotency-Key", r.IdempotencyKey);
 
-        msg.Content = new ByteArrayContent(r.Body);
-        msg.Content.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(r.ContentType);
-
+        if (r.Body != null)
+        {
+            msg.Content = new ByteArrayContent(r.Body);
+            msg.Content.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(r.ContentType);
+        }
         _signer?.Sign(msg, r); // HMAC signature etc.
 
         try

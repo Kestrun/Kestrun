@@ -22,8 +22,6 @@ using Microsoft.Net.Http.Headers;
 using Kestrun.Utilities.Yaml;
 using Kestrun.Hosting.Options;
 using Kestrun.Callback;
-using System.Net.Sockets;
-using System.Security.Authentication;
 
 namespace Kestrun.Models;
 
@@ -43,8 +41,11 @@ public class KestrunResponse
     /// <summary>
     ///     Gets the list of callback requests associated with this response.
     /// </summary>
-    public List<CallbackPlan> CallbackPlan => MapRouteOptions.CallbackPlan;
+    public List<CallBackExecutionPlan> CallbackPlan { get; } = [];
 
+
+
+    private Serilog.ILogger Logger => KrContext.Host.Logger;
     /// <summary>
     /// Gets the route options associated with this response.
     /// </summary>
@@ -246,6 +247,34 @@ public class KestrunResponse
 
         // Common application types where charset makes sense
         return TextBasedMimeTypes.Contains(type);
+    }
+    /// <summary>
+    /// Adds callback parameters for the specified callback ID, body, and parameters.
+    /// </summary>
+    /// <param name="callbackId">The identifier for the callback</param>
+    /// <param name="bodyParameterName">The name of the body parameter, if any</param>
+    /// <param name="parameters">The parameters for the callback</param>
+    public void AddCallbackParameters(string callbackId, string? bodyParameterName, Dictionary<string, object?> parameters)
+    {
+        if (MapRouteOptions.CallbackPlan is null || MapRouteOptions.CallbackPlan.Count == 0)
+        {
+            return;
+        }
+        var plan = MapRouteOptions.CallbackPlan.FirstOrDefault(p => p.CallbackId == callbackId);
+        if (plan is null)
+        {
+            Logger.Warning("CallbackPlan '{id}' not found.", callbackId);
+            return;
+        }
+        // Create a new execution plan
+        var newExecutionPlan = new CallBackExecutionPlan(
+            CallbackId: callbackId,
+            Plan: plan,
+            BodyParameterName: bodyParameterName,
+            Parameters: parameters
+        );
+
+        CallbackPlan.Add(newExecutionPlan);
     }
     #endregion
 

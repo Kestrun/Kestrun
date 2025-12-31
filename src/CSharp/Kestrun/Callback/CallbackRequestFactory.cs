@@ -1,5 +1,6 @@
 using Kestrun.Models;
 using System.Text.RegularExpressions;
+using Serilog.Events;
 namespace Kestrun.Callback;
 
 /// <summary>
@@ -59,6 +60,18 @@ public static partial class CallbackRequestFactory
 
         var correlationId = ctx.TraceIdentifier;
         var plan = executionPlan.Plan;
+        // Build callback runtime context:
+        // - Start with request-derived vars/body (for {$request.body#/...} runtime expressions)
+        // - Overlay callback execution-plan parameters (for {token} placeholders like {paymentId})
+        var requestRt = CallbackRuntimeContextFactory.FromHttpContext(ctx);
+        var mergedVars = new Dictionary<string, object?>(requestRt.Vars, StringComparer.OrdinalIgnoreCase);
+        foreach (var (name, value) in executionPlan.Parameters)
+        {
+            mergedVars[name] = value;
+        }
+
+        var rt = requestRt with { Vars = mergedVars };
+
         // 1) Extract placeholder names from the template
         var templateParamNames = ExtractTemplateParams(plan.UrlTemplate);
 
@@ -68,12 +81,12 @@ public static partial class CallbackRequestFactory
             .OrderBy(n => n, StringComparer.OrdinalIgnoreCase)
             .Select(n =>
             {
-                if (!ctx.Parameters.Parameters.TryGetValue(n, out var resolved))
+                if (!mergedVars.TryGetValue(n, out var resolved) || resolved is null)
                 {
                     return null;
                 }
 
-                var s = resolved.Value?.ToString();
+                var s = resolved.ToString();
                 return string.IsNullOrWhiteSpace(s) ? null : $"{n}={s}";
             })
             .Where(x => x is not null)
@@ -85,11 +98,11 @@ public static partial class CallbackRequestFactory
 
         var idempotencyKey = $"{idSeed}:{plan.CallbackId}:{plan.OperationId}";
 
-        var rt = CallbackRuntimeContextFactory.FromHttpContext(ctx);
         var targetUrl = urlResolver.Resolve(plan.UrlTemplate, rt);
 
         var (contentType, body) = bodySerializer.Serialize(plan, rt);
-
+        //Todo: Add option to override content type?
+        //Todo: Add custom headers
         var headers = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
         {
             ["X-Correlation-Id"] = correlationId,
@@ -100,7 +113,22 @@ public static partial class CallbackRequestFactory
         var bodyBytes = (executionPlan.BodyParameterName == null) ?
             null :
             System.Text.Json.JsonSerializer.SerializeToUtf8Bytes(executionPlan.Parameters[executionPlan.BodyParameterName]);
+        if (ctx.Logger.IsEnabled(LogEventLevel.Debug))
+        {
+            ctx.Logger.Debug("Created CallbackRequest: CallbackId={CallbackId}, OperationId={OperationId}, TargetUrl={TargetUrl}, HttpMethod={HttpMethod}, ContentType={ContentType}, BodyLength={BodyLength}, CorrelationId={CorrelationId}, IdempotencyKey={IdempotencyKey}",
+                plan.CallbackId,
+                plan.OperationId,
+                targetUrl,
+                plan.Method.Method.ToUpperInvariant(),
+                contentType,
+                bodyBytes?.Length ?? 0,
+                correlationId,
+                idempotencyKey);
 
+            ctx.Logger.Debug("CallbackRequest Headers: {Headers}", headers);
+            ctx.Logger.Debug("CallbackRequest Body: {Body}", bodyBytes is null ? "<null>" : System.Text.Encoding.UTF8.GetString(bodyBytes));
+        }
+        // Create CallbackRequest
         return new CallbackRequest(
             callbackId: plan.CallbackId,
             operationId: plan.OperationId,

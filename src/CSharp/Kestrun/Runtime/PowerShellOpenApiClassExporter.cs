@@ -91,10 +91,12 @@ public static class PowerShellOpenApiClassExporter
                 var name = kvp.Key;
                 var definition = kvp.Value ?? string.Empty;
 
-                // FunctionInfo.Definition is typically the body (no 'function name { }' wrapper)
-                var functionScript = $"function {name} {{\n{definition}\n}}";
-                var stripped = StripPowerShellAttributeBlocks(functionScript);
-                var normalized = NormalizeBlankLines(stripped);
+                // Emit a standardized callback function wrapper:
+                // - keeps parameter type constraints
+                // - strips OpenAPI/Parameter attributes
+                // - builds $params and calls $Context.Response.AddCallbackParameters(...)
+                var functionScript = BuildCallbackFunctionStub(name, definition);
+                var normalized = NormalizeBlankLines(functionScript);
                 _ = sb.AppendLine(normalized);
                 _ = sb.AppendLine();
             }
@@ -131,6 +133,294 @@ public static class PowerShellOpenApiClassExporter
 
         // Trim trailing newlines
         return sb.ToString().TrimEnd();
+    }
+
+    private static string BuildCallbackFunctionStub(string functionName, string definition)
+    {
+        var (paramBlock, paramNames, bodyParamName) = TryExtractParamInfo(definition);
+
+        // Fall back to a no-param function if we can't parse anything.
+        var strippedParamBlock = StripPowerShellAttributeBlocks(paramBlock);
+        strippedParamBlock = NormalizeBlankLines(strippedParamBlock);
+
+        // Ensure we always have a param(...) block for consistent output.
+        if (string.IsNullOrWhiteSpace(strippedParamBlock))
+        {
+            strippedParamBlock = "param()";
+            paramNames = [];
+        }
+
+        var sb = new StringBuilder();
+        _ = sb.AppendLine($"function {functionName} {{");
+
+        // Normalize indentation:
+        // - "param(" line: 4 spaces
+        // - parameter lines: 8 spaces
+        // - closing ")": 4 spaces
+        foreach (var rawLine in strippedParamBlock.Replace("\r\n", "\n").Replace("\r", "\n").Split('\n'))
+        {
+            var l = rawLine.Trim();
+            if (l.Length == 0)
+            {
+                continue;
+            }
+
+            if (l.Equals(")", StringComparison.Ordinal))
+            {
+                _ = sb.Append("    ").AppendLine(l);
+                continue;
+            }
+
+            if (l.StartsWith("param", StringComparison.OrdinalIgnoreCase))
+            {
+                _ = sb.Append("    ").AppendLine(l);
+                continue;
+            }
+
+            _ = sb.Append("        ").AppendLine(l);
+        }
+
+        _ = sb.AppendLine("    $FunctionName = $MyInvocation.MyCommand.Name");
+        _ = sb.AppendLine("    if ($null -eq $Context -or $null -eq $Context.Response) {");
+        _ = sb.AppendLine("        if (Test-KrLogger) {");
+        _ = sb.AppendLine("            Write-KrLog -Level Warning -Message '{function} must be called inside a route script with Callback enabled.' -Values $FunctionName");
+        _ = sb.AppendLine("        } else {");
+        _ = sb.AppendLine("            Write-Warning -Message \"$FunctionName must be called inside a route script with Callback enabled.\"");
+        _ = sb.AppendLine("        }");
+        _ = sb.AppendLine("        return");
+        _ = sb.AppendLine("    }");
+        _ = sb.AppendLine("    Write-KrLog -Level Information -Message 'Defined callback function {CallbackFunction}' -Values $FunctionName");
+        _ = sb.AppendLine("    $params = [System.Collections.Generic.Dictionary[string, object]]::new()");
+
+        foreach (var p in paramNames)
+        {
+            // Use the exact casing captured from the param block; dictionary keys are case-insensitive in C#.
+            _ = sb.AppendLine($"    $params['{p}'] = ${p}");
+        }
+
+        _ = sb.AppendLine(bodyParamName is { Length: > 0 }
+            ? $"    $bodyParameterName = '{bodyParamName}'"
+            : "    $bodyParameterName = $null");
+
+        _ = sb.AppendLine();
+        _ = sb.AppendLine("    $Context.Response.AddCallbackParameters(");
+        _ = sb.AppendLine("        $MyInvocation.MyCommand.Name,");
+        _ = sb.AppendLine("        $bodyParameterName,");
+        _ = sb.AppendLine("        $params)");
+        _ = sb.AppendLine("}");
+
+        return sb.ToString();
+    }
+
+    private static (string ParamBlock, List<string> ParamNames, string? BodyParamName) TryExtractParamInfo(string definition)
+    {
+        if (string.IsNullOrWhiteSpace(definition))
+        {
+            return (string.Empty, [], null);
+        }
+
+        // Try to isolate the param(...) block from a FunctionInfo.Definition string.
+        var paramBlock = ExtractPowerShellParamBlock(definition);
+        if (string.IsNullOrWhiteSpace(paramBlock))
+        {
+            return (string.Empty, [], null);
+        }
+
+        // Identify the request body parameter name (prefer OpenApiRequestBody attribute if present)
+        // Example: [OpenApiRequestBody(...)] [PaymentStatusChangedEvent]$Body
+        var bodyParamName = ExtractBodyParameterName(paramBlock);
+
+        // Strip attribute blocks so we keep only type constraints + $paramName
+        var stripped = StripPowerShellAttributeBlocks(paramBlock);
+        var paramNames = ExtractParamNamesFromStrippedParamBlock(stripped);
+
+        // If we didn't find OpenApiRequestBody, default to Body if present.
+        if (string.IsNullOrWhiteSpace(bodyParamName) && paramNames.Any(p => string.Equals(p, "Body", StringComparison.OrdinalIgnoreCase)))
+        {
+            bodyParamName = paramNames.First(p => string.Equals(p, "Body", StringComparison.OrdinalIgnoreCase));
+        }
+
+        return (paramBlock, paramNames, bodyParamName);
+    }
+
+    private static string ExtractPowerShellParamBlock(string definition)
+    {
+        // Find 'param' keyword and capture the matching parentheses.
+        // This is a lightweight parser that handles strings to avoid counting parens inside quotes.
+        var s = definition;
+        var idx = s.IndexOf("param", StringComparison.OrdinalIgnoreCase);
+        if (idx < 0)
+        {
+            return string.Empty;
+        }
+
+        // Find the opening '(' after param
+        var open = s.IndexOf('(', idx);
+        if (open < 0)
+        {
+            return string.Empty;
+        }
+
+        var depth = 0;
+        var inSingle = false;
+        var inDouble = false;
+
+        for (var i = open; i < s.Length; i++)
+        {
+            var ch = s[i];
+
+            if (inSingle)
+            {
+                // PowerShell single-quote escape is doubled ''
+                if (ch == '\'' && i + 1 < s.Length && s[i + 1] == '\'')
+                {
+                    i++;
+                    continue;
+                }
+                if (ch == '\'')
+                {
+                    inSingle = false;
+                }
+                continue;
+            }
+
+            if (inDouble)
+            {
+                // handle PowerShell escape `" within double quotes
+                if (ch == '`' && i + 1 < s.Length)
+                {
+                    i++;
+                    continue;
+                }
+                if (ch == '"')
+                {
+                    inDouble = false;
+                }
+                continue;
+            }
+
+            if (ch == '\'')
+            {
+                inSingle = true;
+                continue;
+            }
+
+            if (ch == '"')
+            {
+                inDouble = true;
+                continue;
+            }
+
+            if (ch == '(')
+            {
+                depth++;
+            }
+            else if (ch == ')')
+            {
+                depth--;
+                if (depth == 0)
+                {
+                    // Include 'param' keyword through closing ')'
+                    return s.Substring(idx, i - idx + 1);
+                }
+            }
+        }
+
+        return string.Empty;
+    }
+
+    private static string? ExtractBodyParameterName(string paramBlock)
+    {
+        // Very targeted heuristic: if [OpenApiRequestBody(...)] is present, pick the following $name.
+        // This keeps the exporter decoupled from PowerShell AST dependencies.
+        var marker = "OpenApiRequestBody";
+        var idx = paramBlock.IndexOf(marker, StringComparison.OrdinalIgnoreCase);
+        if (idx < 0)
+        {
+            return null;
+        }
+
+        // Search forward for '$' then capture identifier
+        for (var i = idx; i < paramBlock.Length; i++)
+        {
+            if (paramBlock[i] != '$')
+            {
+                continue;
+            }
+
+            var start = i + 1;
+            var end = start;
+            while (end < paramBlock.Length)
+            {
+                var ch = paramBlock[end];
+                if (!(char.IsLetterOrDigit(ch) || ch == '_'))
+                {
+                    break;
+                }
+                end++;
+            }
+
+            if (end > start)
+            {
+                return paramBlock[start..end];
+            }
+        }
+
+        return null;
+    }
+
+    private static List<string> ExtractParamNamesFromStrippedParamBlock(string strippedParamBlock)
+    {
+        // Parse variable names only from within param(...)
+        // We expect declarations like: [string]$paymentId,
+        if (string.IsNullOrWhiteSpace(strippedParamBlock))
+        {
+            return [];
+        }
+
+        var names = new List<string>();
+        var s = strippedParamBlock;
+
+        for (var i = 0; i < s.Length; i++)
+        {
+            if (s[i] != '$')
+            {
+                continue;
+            }
+
+            var start = i + 1;
+            var end = start;
+            if (start >= s.Length)
+            {
+                continue;
+            }
+
+            if (!(char.IsLetter(s[start]) || s[start] == '_'))
+            {
+                continue;
+            }
+
+            end++;
+            while (end < s.Length)
+            {
+                var ch = s[end];
+                if (!(char.IsLetterOrDigit(ch) || ch == '_'))
+                {
+                    break;
+                }
+                end++;
+            }
+
+            var name = s[start..end];
+            if (!names.Contains(name, StringComparer.OrdinalIgnoreCase))
+            {
+                names.Add(name);
+            }
+
+            i = end - 1;
+        }
+
+        return names;
     }
 
     private static string StripPowerShellAttributeBlocks(string script)
@@ -429,6 +719,8 @@ public static class PowerShellOpenApiClassExporter
         .Append("#   Timestamp: ").Append(DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm:ss")).Append('Z').AppendLine()
         .AppendLine("# ================================================")
         .AppendLine()
+        .AppendLine("[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSProvideCommentHelp', '')]")
+        .AppendLine("param()")
         .AppendLine(openApiClasses);
 
         // Save using UTF-8 without BOM

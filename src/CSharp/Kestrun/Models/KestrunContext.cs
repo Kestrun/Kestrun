@@ -64,6 +64,11 @@ public sealed record KestrunContext
     /// The Kestrun host associated with this context.
     /// </summary>
     public Hosting.KestrunHost Host { get; init; }
+
+    /// <summary>
+    /// The logger associated with the Kestrun host.
+    /// </summary>
+    public Serilog.ILogger Logger => Host.Logger;
     /// <summary>
     /// The Kestrun request associated with this context.
     /// </summary>
@@ -150,23 +155,23 @@ public sealed record KestrunContext
 
         if (svcProvider == null)
         {
-            Host.Logger.Warning("No service provider available to resolve IRealtimeBroadcaster.");
+            Logger.Warning("No service provider available to resolve IRealtimeBroadcaster.");
             return false;
         }
         if (svcProvider.GetService(typeof(IRealtimeBroadcaster)) is not IRealtimeBroadcaster broadcaster)
         {
-            Host.Logger.Warning("IRealtimeBroadcaster service is not registered. Make sure SignalR is configured with KestrunHub.");
+            Logger.Warning("IRealtimeBroadcaster service is not registered. Make sure SignalR is configured with KestrunHub.");
             return false;
         }
         try
         {
             await broadcaster.BroadcastLogAsync(level, message, cancellationToken);
-            Host.Logger.Debug("Broadcasted log message via SignalR: {Level} - {Message}", level, message);
+            Logger.Debug("Broadcasted log message via SignalR: {Level} - {Message}", level, message);
             return true;
         }
         catch (Exception ex)
         {
-            Host.Logger.Error(ex, "Failed to broadcast log message: {Level} - {Message}", level, message);
+            Logger.Error(ex, "Failed to broadcast log message: {Level} - {Message}", level, message);
             return false;
         }
     }
@@ -195,23 +200,23 @@ public sealed record KestrunContext
 
         if (svcProvider == null)
         {
-            Host.Logger.Warning("No service provider available to resolve IRealtimeBroadcaster.");
+            Logger.Warning("No service provider available to resolve IRealtimeBroadcaster.");
             return false;
         }
         if (svcProvider.GetService(typeof(IRealtimeBroadcaster)) is not IRealtimeBroadcaster broadcaster)
         {
-            Host.Logger.Warning("IRealtimeBroadcaster service is not registered. Make sure SignalR is configured with KestrunHub.");
+            Logger.Warning("IRealtimeBroadcaster service is not registered. Make sure SignalR is configured with KestrunHub.");
             return false;
         }
         try
         {
             await broadcaster.BroadcastEventAsync(eventName, data, cancellationToken);
-            Host.Logger.Debug("Broadcasted event via SignalR: {EventName} - {Data}", eventName, data);
+            Logger.Debug("Broadcasted event via SignalR: {EventName} - {Data}", eventName, data);
             return true;
         }
         catch (Exception ex)
         {
-            Host.Logger.Error(ex, "Failed to broadcast event: {EventName} - {Data}", eventName, data);
+            Logger.Error(ex, "Failed to broadcast event: {EventName} - {Data}", eventName, data);
             return false;
         }
     }
@@ -241,23 +246,23 @@ public sealed record KestrunContext
 
         if (svcProvider == null)
         {
-            Host.Logger.Warning("No service provider available to resolve IRealtimeBroadcaster.");
+            Logger.Warning("No service provider available to resolve IRealtimeBroadcaster.");
             return false;
         }
         if (svcProvider.GetService(typeof(IRealtimeBroadcaster)) is not IRealtimeBroadcaster broadcaster)
         {
-            Host.Logger.Warning("IRealtimeBroadcaster service is not registered. Make sure SignalR is configured with KestrunHub.");
+            Logger.Warning("IRealtimeBroadcaster service is not registered. Make sure SignalR is configured with KestrunHub.");
             return false;
         }
         try
         {
             await broadcaster.BroadcastToGroupAsync(groupName, method, message, cancellationToken);
-            Host.Logger.Debug("Broadcasted log message to group via SignalR: {GroupName} - {Method} - {Message}", groupName, method, message);
+            Logger.Debug("Broadcasted log message to group via SignalR: {GroupName} - {Method} - {Message}", groupName, method, message);
             return true;
         }
         catch (Exception ex)
         {
-            Host.Logger.Error(ex, "Failed to broadcast log message: {GroupName} - {Method} - {Message}", groupName, method, message);
+            Logger.Error(ex, "Failed to broadcast log message: {GroupName} - {Method} - {Message}", groupName, method, message);
             return false;
         }
     }

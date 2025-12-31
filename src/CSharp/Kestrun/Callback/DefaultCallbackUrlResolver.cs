@@ -66,13 +66,10 @@ public sealed partial class DefaultCallbackUrlResolver : ICallbackUrlResolver
         {
             var name = m.Groups["name"].Value;
 
-            if (!ctx.Vars.TryGetValue(name, out var v) || v is null)
-            {
-                throw new InvalidOperationException(
-                    $"Callback url requires token '{name}' but it was not found in runtime Vars.");
-            }
-
-            return Uri.EscapeDataString(v.ToString()!);
+            return !ctx.Vars.TryGetValue(name, out var v) || v is null
+                ? throw new InvalidOperationException(
+                    $"Callback url requires token '{name}' but it was not found in runtime Vars.")
+                : Uri.EscapeDataString(v.ToString()!);
         });
 
         // 3) Make Uri
@@ -80,14 +77,11 @@ public sealed partial class DefaultCallbackUrlResolver : ICallbackUrlResolver
         {
             return abs;
         }
-
-        if (ctx.DefaultBaseUri is null)
-        {
-            throw new InvalidOperationException(
-                $"Callback url resolved to '{s}' (not absolute) and DefaultBaseUri is null.");
-        }
-
-        return new Uri(ctx.DefaultBaseUri, s);
+        // Relative Uri: combine with DefaultBaseUri
+        return ctx.DefaultBaseUri is null
+            ? throw new InvalidOperationException(
+                $"Callback url resolved to '{s}' (not absolute) and DefaultBaseUri is null.")
+            : new Uri(ctx.DefaultBaseUri, s);
     }
 
     // Minimal JSON Pointer resolver (RFC 6901-ish)
@@ -98,7 +92,7 @@ public sealed partial class DefaultCallbackUrlResolver : ICallbackUrlResolver
             return root;
         }
 
-        if (!pointer.StartsWith("/", StringComparison.Ordinal))
+        if (!pointer.StartsWith('/'))
         {
             throw new FormatException($"Invalid JSON pointer '{pointer}'.");
         }

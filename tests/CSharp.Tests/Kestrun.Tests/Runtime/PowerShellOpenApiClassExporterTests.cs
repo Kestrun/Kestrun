@@ -160,6 +160,58 @@ public class PowerShellOpenApiClassExporterTests
         return asmBuilder;
     }
 
+    private static Assembly BuildDynamicAssemblyWithArraySchemaComponents()
+    {
+        var asmName = new AssemblyName("Dynamic.OpenApiComponents.WithArraySchemas");
+        var asmBuilder = AssemblyBuilder.DefineDynamicAssembly(asmName, AssemblyBuilderAccess.Run);
+        var moduleBuilder = asmBuilder.DefineDynamicModule("Main");
+
+        static CustomAttributeBuilder CabSchemaComponent(Action<List<PropertyInfo>, List<object?>>? configure = null)
+        {
+            var ctor = typeof(OpenApiSchemaComponent).GetConstructors().First();
+            var props = new List<PropertyInfo>();
+            var values = new List<object?>();
+            configure?.Invoke(props, values);
+            return new CustomAttributeBuilder(ctor, [], props.ToArray(), values.ToArray());
+        }
+
+        // Item component (object)
+        var itemType = moduleBuilder.DefineType("MuseumDailyHours", TypeAttributes.Public | TypeAttributes.Class);
+        itemType.SetCustomAttribute(CabSchemaComponent());
+        _ = itemType.CreateType();
+
+        // Array component: inherits item type and is flagged Array=true
+        var arrayType = moduleBuilder.DefineType("GetMuseumHoursResponse", TypeAttributes.Public | TypeAttributes.Class, itemType);
+        arrayType.SetCustomAttribute(CabSchemaComponent((props, values) =>
+        {
+            props.Add(typeof(OpenApiProperties).GetProperty(nameof(OpenApiProperties.Array))!);
+            values.Add(true);
+        }));
+        _ = arrayType.CreateType();
+
+        // Scalar wrapper base with format=date (should be hidden)
+        var dateWrapper = moduleBuilder.DefineType("Date", TypeAttributes.Public | TypeAttributes.Class, typeof(OaString));
+        dateWrapper.SetCustomAttribute(CabSchemaComponent((props, values) =>
+        {
+            props.Add(typeof(OpenApiProperties).GetProperty(nameof(OpenApiProperties.Type))!);
+            values.Add(OaSchemaType.String);
+            props.Add(typeof(OpenApiProperties).GetProperty(nameof(OpenApiProperties.Format))!);
+            values.Add("date");
+        }));
+        var dateWrapperCreated = dateWrapper.CreateType();
+
+        // Array component inheriting the scalar wrapper (item type should become DateTime)
+        var dates = moduleBuilder.DefineType("EventDates", TypeAttributes.Public | TypeAttributes.Class, dateWrapperCreated);
+        dates.SetCustomAttribute(CabSchemaComponent((props, values) =>
+        {
+            props.Add(typeof(OpenApiProperties).GetProperty(nameof(OpenApiProperties.Array))!);
+            values.Add(true);
+        }));
+        _ = dates.CreateType();
+
+        return asmBuilder;
+    }
+
     [Fact]
     public void ExportOpenApiClasses_CompilesDll_WithExpectedTypeShapes()
     {
@@ -215,5 +267,33 @@ public class PowerShellOpenApiClassExporterTests
         // Scalar wrapper / marker types are flattened to primitives for PowerShell friendliness.
         Assert.Equal(typeof(string), t.GetProperty("Kind")!.PropertyType);
         Assert.Equal(typeof(double), t.GetProperty("Amount")!.PropertyType);
+    }
+
+    [Fact]
+    public void ExportOpenApiClasses_EmitsArraySchemaComponents_AsNamedListTypes()
+    {
+        var asm = BuildDynamicAssemblyWithArraySchemaComponents();
+
+        var path = PowerShellOpenApiClassExporter.ExportOpenApiClasses([asm], Serilog.Log.Logger);
+        Assert.True(File.Exists(path));
+
+        var compiled = Assembly.LoadFrom(path);
+
+        var dailyHours = compiled.GetType("MuseumDailyHours", throwOnError: true)!;
+        var getMuseumHoursResponse = compiled.GetType("GetMuseumHoursResponse", throwOnError: true)!;
+
+        var expectedBase = typeof(List<>).MakeGenericType(dailyHours);
+        Assert.Equal(expectedBase, getMuseumHoursResponse.BaseType);
+
+        // IEnumerable<T> ctor should exist for easy PowerShell casting.
+        var ienum = typeof(IEnumerable<>).MakeGenericType(dailyHours);
+        Assert.NotNull(getMuseumHoursResponse.GetConstructor([ienum]));
+
+        // Scalar wrapper base should be hidden, but the array component should still exist and use CLR item type.
+        Assert.Null(compiled.GetType("Date", throwOnError: false));
+
+        var eventDates = compiled.GetType("EventDates", throwOnError: true)!;
+        var expectedDateListBase = typeof(List<>).MakeGenericType(typeof(DateTime));
+        Assert.Equal(expectedDateListBase, eventDates.BaseType);
     }
 }

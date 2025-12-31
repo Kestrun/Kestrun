@@ -220,6 +220,13 @@ public static class PowerShellOpenApiClassExporter
                 continue;
             }
 
+            // Array schema components do not use their PowerShell base-type as an emitted C# base type.
+            // Do not keep scalar wrapper bases alive just because an array component inherits from them.
+            if (IsOpenApiSchemaComponentArray(t))
+            {
+                continue;
+            }
+
             if (t.BaseType is not null && t.BaseType != typeof(object))
             {
                 _ = baseTypesUsed.Add(t.BaseType);
@@ -278,6 +285,22 @@ public static class PowerShellOpenApiClassExporter
     /// <param name="sb"></param>
     private static void AppendCSharpClass(Type type, HashSet<Type> componentSet, StringBuilder sb)
     {
+        // Schema components flagged as Array are emitted as a collection type.
+        // This makes the component itself represent an array schema in OpenAPI.
+        if (IsOpenApiSchemaComponentArray(type))
+        {
+            var itemType = type.BaseType is not null && type.BaseType != typeof(object)
+                ? ToCSharpPropertyTypeName(type.BaseType, componentSet)
+                : "object";
+
+            _ = sb.AppendLine($"public class {type.Name} : global::System.Collections.Generic.List<{itemType}>");
+            _ = sb.AppendLine("{");
+            _ = sb.AppendLine($"    public {type.Name}() {{ }}");
+            _ = sb.AppendLine($"    public {type.Name}(global::System.Collections.Generic.IEnumerable<{itemType}> items) : base(items) {{ }}");
+            _ = sb.AppendLine("}");
+            return;
+        }
+
         // Detect base type (for parenting)
         var baseType = type.BaseType;
         var baseClause = string.Empty;
@@ -452,6 +475,12 @@ public static class PowerShellOpenApiClassExporter
     {
         alias = string.Empty;
 
+        // Array components are not scalars.
+        if (IsOpenApiSchemaComponentArray(type))
+        {
+            return false;
+        }
+
         // Only consider simple wrapper classes (no declared properties).
         var hasDeclaredProps = type.GetProperties(BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly).Length > 0;
         if (hasDeclaredProps)
@@ -460,7 +489,7 @@ public static class PowerShellOpenApiClassExporter
         }
 
         // Prefer explicit OpenApiSchemaComponent metadata (Type/Format) when present.
-        if (TryGetOpenApiSchemaComponentInfo(type, out var schemaType, out var format))
+        if (TryGetOpenApiSchemaComponentInfo(type, out var schemaType, out var format, out _))
         {
             if (TryMapSchemaTypeAndFormatToClr(schemaType, format, out alias))
             {
@@ -520,6 +549,12 @@ public static class PowerShellOpenApiClassExporter
             return false;
         }
 
+        // Array components should remain named collection types.
+        if (IsOpenApiSchemaComponentArray(type))
+        {
+            return false;
+        }
+
         // Only hide wrappers (no declared properties).
         var hasDeclaredProps = type.GetProperties(BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly).Length > 0;
         if (hasDeclaredProps)
@@ -531,10 +566,11 @@ public static class PowerShellOpenApiClassExporter
         return TryGetScalarComponentClrAlias(type, out _);
     }
 
-    private static bool TryGetOpenApiSchemaComponentInfo(Type type, out string schemaType, out string? format)
+    private static bool TryGetOpenApiSchemaComponentInfo(Type type, out string schemaType, out string? format, out bool isArray)
     {
         schemaType = string.Empty;
         format = null;
+        isArray = false;
 
         // Attribute type lives in Kestrun.Annotations; keep this reflection-based.
         var attr = type
@@ -549,6 +585,13 @@ public static class PowerShellOpenApiClassExporter
         var attrType = attr.GetType();
         var typeProp = attrType.GetProperty("Type");
         var formatProp = attrType.GetProperty("Format");
+        var arrayProp = attrType.GetProperty("Array");
+
+        var arrayValue = arrayProp?.GetValue(attr);
+        if (arrayValue is bool b)
+        {
+            isArray = b;
+        }
 
         var typeValue = typeProp?.GetValue(attr);
         if (typeValue is null)
@@ -560,6 +603,9 @@ public static class PowerShellOpenApiClassExporter
         format = formatProp?.GetValue(attr) as string;
         return !string.IsNullOrWhiteSpace(schemaType);
     }
+
+    private static bool IsOpenApiSchemaComponentArray(Type type) =>
+        TryGetOpenApiSchemaComponentInfo(type, out _, out _, out var isArray) && isArray;
 
     private static bool TryMapSchemaTypeAndFormatToClr(string schemaType, string? format, out string alias)
     {

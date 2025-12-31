@@ -121,9 +121,6 @@ class ShippingOrderCreatedEvent {
     [string]$shippingOrderId
 }
 
-
-
-
 # =========================================================
 #                 CALLBACKS COMPONENTS
 # =========================================================
@@ -377,7 +374,7 @@ function reservation {
     The callback event payload.
 #>
 function shippingorder {
-    [OpenApiPath(HttpVerb = 'post', Pattern = '/callbacks/shippingOrder/v1/orders/{orderId}/shippingOrder')]
+    [OpenApiPath(HttpVerb = 'post', Pattern = '/callbacks/shipping-order/v1/orders/{orderId}/shippingOrder')]
     [OpenApiResponse(StatusCode = '204', Description = 'Accepted')]
     param(
         [OpenApiParameter(In = 'path', Required = $true)]

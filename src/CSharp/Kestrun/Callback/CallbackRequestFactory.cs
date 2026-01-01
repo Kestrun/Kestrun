@@ -139,8 +139,7 @@ public static partial class CallbackRequestFactory
             body: bodyBytes,
             correlationId: correlationId,
             idempotencyKey: idempotencyKey,
-            timeout: options.DefaultTimeout,
-            signatureKeyId: options.SignatureKeyId
+            timeout: options.DefaultTimeout
         );
     }
 

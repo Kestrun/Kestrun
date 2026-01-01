@@ -5,15 +5,32 @@ namespace Kestrun.Callback;
 /// <remarks>
 /// Initializes a new instance of the <see cref="DefaultCallbackRetryPolicy"/> class.
 /// </remarks>
-/// <param name="maxAttempts"> The maximum number of retry attempts. Default is 8. </param>
-/// <param name="baseSeconds"> The base delay in seconds for exponential backoff. Default is 1 second. </param>
-/// <param name="maxMinutes"> The maximum delay in minutes for capping backoff. Default is 5 minutes. </param>
-public sealed class DefaultCallbackRetryPolicy(int maxAttempts = 8, int baseSeconds = 1, int maxMinutes = 5) : ICallbackRetryPolicy
+
+public sealed class DefaultCallbackRetryPolicy : ICallbackRetryPolicy
 {
-    private readonly int _maxAttempts = maxAttempts;
-    private readonly TimeSpan _baseDelay = TimeSpan.FromSeconds(baseSeconds);
-    private readonly TimeSpan _maxDelay = TimeSpan.FromMinutes(maxMinutes);
+    private readonly int _maxAttempts;
+    private readonly TimeSpan _baseDelay;
+    private readonly TimeSpan _maxDelay;
     private readonly Random _rng = new();
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="DefaultCallbackRetryPolicy"/> class with the specified options.
+    /// </summary>
+    /// <param name="options"> The options to configure the retry policy. </param>
+    public DefaultCallbackRetryPolicy(CallbackDispatchOptions? options)
+    {
+        if (options == null)
+        {
+            _maxAttempts = 3;
+            _baseDelay = TimeSpan.FromSeconds(2);
+            _maxDelay = TimeSpan.FromSeconds(30);
+            return;
+        }
+        _maxAttempts = options.MaxAttempts;
+        _baseDelay = options.BaseDelay;
+        _maxDelay = options.MaxDelay;
+    }
+
 
     /// <summary>
     /// Evaluates the given callback request and result to determine the retry decision.

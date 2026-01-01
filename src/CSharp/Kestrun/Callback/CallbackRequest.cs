@@ -60,10 +60,6 @@ public class CallbackRequest
     /// Timeout duration for the callback request
     /// </summary>
     public TimeSpan Timeout { get; set; }
-    /// <summary>
-    /// Identifier for the signature key, if signing
-    /// </summary>
-    public string? SignatureKeyId { get; set; }   // if signing
 
     /// <summary>
     /// Initializes a new instance of the <see cref="CallbackRequest"/> class.
@@ -78,7 +74,6 @@ public class CallbackRequest
     /// <param name="correlationId"></param>
     /// <param name="idempotencyKey"></param>
     /// <param name="timeout"></param>
-    /// <param name="signatureKeyId"></param>
     public CallbackRequest(
        string callbackId,
        string operationId,
@@ -89,8 +84,7 @@ public class CallbackRequest
        byte[]? body,
        string correlationId,
        string idempotencyKey,
-       TimeSpan timeout,
-       string? signatureKeyId = null)
+       TimeSpan timeout)
     {
         CallbackId = callbackId;
         OperationId = operationId;
@@ -108,6 +102,5 @@ public class CallbackRequest
         CreatedAt = DateTimeOffset.UtcNow;
         NextAttemptAt = CreatedAt;
         Timeout = timeout;
-        SignatureKeyId = signatureKeyId;
     }
 }

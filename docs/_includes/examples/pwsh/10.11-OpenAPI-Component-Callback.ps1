@@ -29,13 +29,16 @@ Add-KrOpenApiInfo -Title 'Hello World API' `
     -Description 'Demonstrates OpenAPI callbacks (async notifications) using component references and inline callbacks.'
 
 Add-KrOpenApiContact -Email 'support@example.com'
+
+# Enable Kestrun callback automation middleware
+Add-KrAddCallbacksAutomation
+
 # Add Server info
 #Add-KrOpenApiServer -Url "http://$IPAddress:$Port" -Description 'Local Server'
 
 # =========================================================
 #                 COMPONENT SCHEMAS
 # =========================================================
-[NoRunspaceAffinity()]
 [OpenApiSchemaComponent(Description = 'Callback URLs supplied by the client for async notifications.', Required = ('status', 'reservation', 'shippingOrder'))]
 class CallbackUrls {
     [OpenApiPropertyAttribute(Description = 'Callback URL for payment status updates.', Format = 'uri', Example = 'https://client.example.com/callbacks/payment-status')]
@@ -48,7 +51,6 @@ class CallbackUrls {
     [string]$shippingOrder
 }
 
-[NoRunspaceAffinity()]
 [OpenApiSchemaComponent(Description = 'Request payload to create a payment. Includes callback URLs for async updates.', Required = ('amount', 'currency', 'callbackUrls'))]
 class CreatePaymentRequest {
     [OpenApiPropertyAttribute(Description = 'Payment amount', Example = 129.99, Minimum = 0)]
@@ -61,7 +63,6 @@ class CreatePaymentRequest {
     [CallbackUrls]$callbackUrls
 }
 
-[NoRunspaceAffinity()]
 [OpenApiSchemaComponent(Description = 'Response returned after creating a payment.', Required = ('paymentId', 'status'))]
 class CreatePaymentResponse {
     [OpenApiPropertyAttribute(Description = 'Payment identifier', Example = 'PAY-12345678')]
@@ -72,7 +73,6 @@ class CreatePaymentResponse {
     [string]$status
 }
 
-[NoRunspaceAffinity()]
 [OpenApiSchemaComponent(Description = 'Callback event payload for payment status changes.', Required = ('eventId', 'timestamp', 'paymentId', 'status'))]
 class PaymentStatusChangedEvent {
     [OpenApiPropertyAttribute(Description = 'Event identifier', Format = 'uuid')]
@@ -89,7 +89,6 @@ class PaymentStatusChangedEvent {
     [string]$status
 }
 
-[NoRunspaceAffinity()]
 [OpenApiSchemaComponent(Description = 'Callback event payload for reservation creation.', Required = ('eventId', 'timestamp', 'orderId', 'reservationId'))]
 class ReservationCreatedEvent {
     [OpenApiPropertyAttribute(Description = 'Event identifier', Format = 'uuid')]
@@ -105,7 +104,6 @@ class ReservationCreatedEvent {
     [string]$reservationId
 }
 
-[NoRunspaceAffinity()]
 [OpenApiSchemaComponent(Description = 'Callback event payload for shipping order creation.', Required = ('eventId', 'timestamp', 'orderId', 'shippingOrderId'))]
 class ShippingOrderCreatedEvent {
     [OpenApiPropertyAttribute(Description = 'Event identifier', Format = 'uuid')]

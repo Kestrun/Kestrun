@@ -363,7 +363,7 @@ public partial class KestrunHost : IDisposable
         _ = Builder.Services.AddSingleton(Logger);
 
         // Register Callback services
-        _ = CallbackServiceRegistration.RegisterServices(Builder.Services);
+        //_ = CallbackServiceRegistration.RegisterServices(Builder.Services);
 
         // ⑤ Options
         InitializeOptions(appName);
@@ -643,7 +643,52 @@ public partial class KestrunHost : IDisposable
     }
 
     #endregion
+    #region OpenAPI
 
+    /// <summary>
+    /// Adds callback automation middleware to the Kestrun host.
+    /// </summary>
+    /// <param name="options">Optional callback dispatch options.</param>
+    /// <returns>The updated Kestrun host.</returns>
+    public KestrunHost AddCallbacksAutomation(CallbackDispatchOptions? options = null)
+    {
+        if (Logger.IsEnabled(LogEventLevel.Debug))
+        {
+            Logger.Debug(
+                "Adding callback automation middleware (custom configuration supplied: {HasConfig})",
+                options != null);
+        }
+        options ??= new CallbackDispatchOptions();
+        if (Logger.IsEnabled(LogEventLevel.Debug))
+        {
+            Logger.Debug("Adding response compression with options: {@Options}", options);
+        }
+
+        _ = AddService(services =>
+        {
+            _ = services.AddSingleton(options ?? new CallbackDispatchOptions());
+            _ = services.AddSingleton<InMemoryCallbackQueue>();
+            _ = services.AddSingleton<ICallbackDispatcher, InMemoryCallbackDispatcher>();
+            _ = services.AddHostedService<InMemoryCallbackDispatchWorker>();
+            _ = services.AddHttpClient("kestrun-callbacks", c =>
+            {
+                c.Timeout = options?.DefaultTimeout ?? TimeSpan.FromSeconds(30);
+            });
+            _ = services.AddSingleton<ICallbackRetryPolicy>(sp =>
+                {
+                    return new DefaultCallbackRetryPolicy(options);
+                });
+
+            _ = services.AddSingleton<ICallbackUrlResolver, DefaultCallbackUrlResolver>();
+            _ = services.AddSingleton<ICallbackBodySerializer, JsonCallbackBodySerializer>();
+
+            _ = services.AddHttpClient<ICallbackSender, HttpCallbackSender>();
+
+            _ = services.AddHostedService<CallbackWorker>();
+        });
+        return this;
+    }
+    #endregion
     #region ListenerOptions
 
     /// <summary>

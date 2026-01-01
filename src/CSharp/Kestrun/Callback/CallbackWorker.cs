@@ -22,6 +22,7 @@ public sealed class CallbackWorker(
     ICallbackStore? store = null) : BackgroundService
 {
     private readonly ChannelReader<CallbackRequest> _reader = queue.Channel.Reader;
+    private readonly ChannelWriter<CallbackRequest> _writer = queue.Channel.Writer;
     private readonly ICallbackSender _sender = sender;
     private readonly ICallbackRetryPolicy _retry = retry;
     private readonly ICallbackStore? _store = store; // optional
@@ -134,9 +135,6 @@ public sealed class CallbackWorker(
     /// <param name="req"> The callback request to enqueue again.</param>
     /// <param name="ct"> The cancellation token.</param>
     /// <returns> A task that represents the asynchronous operation.</returns>
-    /// <exception cref="NotImplementedException"></exception>
-    private async Task EnqueueAgain(CallbackRequest req, CancellationToken ct) =>
-        // if using in-memory, you need access to writer; if durable, you don't.
-        // assume in-memory for this snippet.
-        throw new NotImplementedException();
+    private async Task EnqueueAgain(CallbackRequest req, CancellationToken ct)
+        => await _writer.WriteAsync(req, ct).ConfigureAwait(false);
 }

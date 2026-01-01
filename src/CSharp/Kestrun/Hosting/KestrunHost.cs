@@ -362,9 +362,6 @@ public partial class KestrunHost : IDisposable
         // to the same instance so constructors like `KestrunHub(Serilog.ILogger logger)` resolve properly.
         _ = Builder.Services.AddSingleton(Logger);
 
-        // Register Callback services
-        //_ = CallbackServiceRegistration.RegisterServices(Builder.Services);
-
         // ⑤ Options
         InitializeOptions(appName);
 
@@ -661,7 +658,7 @@ public partial class KestrunHost : IDisposable
         options ??= new CallbackDispatchOptions();
         if (Logger.IsEnabled(LogEventLevel.Debug))
         {
-            Logger.Debug("Adding response compression with options: {@Options}", options);
+            Logger.Debug("Adding callback automation middleware with options: {@Options}", options);
         }
 
         _ = AddService(services =>

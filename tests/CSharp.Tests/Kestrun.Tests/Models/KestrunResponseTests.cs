@@ -75,7 +75,8 @@ public partial class KestrunResponseTests
         await res.ApplyTo(http.Response);
 
         http.Response.Body.Position = 0;
-        var text = new StreamReader(http.Response.Body, Encoding.UTF8).ReadToEnd();
+        using var reader = new StreamReader(http.Response.Body, Encoding.UTF8);
+        var text = reader.ReadToEnd();
         Assert.Equal("hello", text);
         Assert.Equal("text/plain; charset=" + res.AcceptCharset.WebName, http.Response.ContentType);
     }

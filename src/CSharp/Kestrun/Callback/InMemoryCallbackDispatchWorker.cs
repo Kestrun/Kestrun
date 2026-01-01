@@ -72,17 +72,7 @@ public sealed class InMemoryCallbackDispatchWorker(
 
         if (req.Body is not null)
         {
-            // If Body is byte[] (your case), use ByteArrayContent
-            if (req.Body is byte[] bytes)
-            {
-                msg.Content = new ByteArrayContent(bytes);
-            }
-            else
-            {
-                // Fallback: stringify
-                msg.Content = new StringContent(req.Body.ToString() ?? "", Encoding.UTF8);
-            }
-
+            msg.Content = new ByteArrayContent(req.Body);
             // Set Content-Type explicitly (avoids overload confusion)
             if (!string.IsNullOrWhiteSpace(req.ContentType))
             {

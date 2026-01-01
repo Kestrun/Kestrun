@@ -39,9 +39,7 @@ public sealed record KestrunContext
         // Fall back to the request path if no RouteEndpoint is present.
         var routeEndpoint = Request.HttpContext.GetEndpoint() as RouteEndpoint;
 
-        var pattern = routeEndpoint?.RoutePattern.RawText
-                   ?? routeEndpoint?.RoutePattern.ToString()
-                   ?? (HttpContext.Request.Path.HasValue ? HttpContext.Request.Path.Value : "/");
+        var pattern = routeEndpoint?.RoutePattern.RawText;
 
         if (string.IsNullOrWhiteSpace(pattern))
         {

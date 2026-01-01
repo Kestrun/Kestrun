@@ -16,11 +16,11 @@ public class InMemoryCallbackDispatchWorkerTests
     {
         var queue = new InMemoryCallbackQueue();
 
-        var handler = new CapturingHttpMessageHandler((req, _) =>
-        {
-            // We only care that the request is constructed correctly.
-            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK));
-        });
+        using var handler = new CapturingHttpMessageHandler((req, _) =>
+          {
+              // We only care that the request is constructed correctly.
+              return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK));
+          });
 
         var http = new HttpClient(handler);
         var factory = new FakeHttpClientFactory(http);

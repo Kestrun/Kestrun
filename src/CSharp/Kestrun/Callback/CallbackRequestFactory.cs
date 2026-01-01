@@ -96,8 +96,8 @@ public static partial class CallbackRequestFactory
         var idempotencyKey = $"{idSeed}:{plan.CallbackId}:{plan.OperationId}";
 
         var targetUrl = urlResolver.Resolve(plan.UrlTemplate, rt);
-
-        var (contentType, body) = bodySerializer.Serialize(plan, rt);
+        //Todo: Add option to override content type?
+        var (contentType, _) = bodySerializer.Serialize(plan, rt);
         //Todo: Add option to override content type?
         //Todo: Add custom headers
         var headers = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)

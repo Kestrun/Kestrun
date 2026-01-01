@@ -270,7 +270,8 @@ $opts.MaxDelay = [TimeSpan]::FromSeconds(60)
 Add-KrAddCallbacksAutomation -Options $opts
 ```
 
-At runtime, invoking a callback function (e.g. `paymentStatusCallback -PaymentId ... -Body ...`) will resolve the callback URL from the callback `Expression` (typically a client-supplied URL in the request body), expand `{tokens}` from the callback `Pattern`, and dispatch the request.
+At runtime, invoking a callback function (e.g. `paymentStatusCallback -PaymentId ... -Body ...`) will resolve the callback URL from the callback `Expression`
+(typically a client-supplied URL in the request body), expand `{tokens}` from the callback `Pattern`, and dispatch the request.
 
 #### 3.2.3.1 How callback URLs are resolved
 

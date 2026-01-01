@@ -39,18 +39,8 @@ public sealed partial class DefaultCallbackUrlResolver : ICallbackUrlResolver
                 throw new InvalidOperationException(
                     $"Callback url uses request.body pointer '{ptr}' but the request body is null.");
             }
-
             // Convert typed object -> JsonElement (on demand)
-            JsonElement root;
-            try
-            {
-                root = JsonSerializer.SerializeToElement(ctx.CallbackPayload);
-            }
-            catch (Exception ex)
-            {
-                throw new InvalidOperationException(
-                    $"Failed to serialize request body for evaluating pointer '{ptr}'.", ex);
-            }
+            var root = SerializePayloadToJsonElement(ctx.CallbackPayload, ptr);
 
             var value = ResolveJsonPointer(root, ptr);
 
@@ -62,15 +52,7 @@ public sealed partial class DefaultCallbackUrlResolver : ICallbackUrlResolver
         });
 
         // 2) Replace {token} placeholders from Vars
-        s = Token.Replace(s, m =>
-        {
-            var name = m.Groups["name"].Value;
-
-            return !ctx.Vars.TryGetValue(name, out var v) || v is null
-                ? throw new InvalidOperationException(
-                    $"Callback url requires token '{name}' but it was not found in runtime Vars.")
-                : Uri.EscapeDataString(v.ToString()!);
-        });
+        s = ReplaceTokens(s, ctx);
 
         // 3) Make Uri
         if (Uri.TryCreate(s, UriKind.Absolute, out var abs))
@@ -89,6 +71,41 @@ public sealed partial class DefaultCallbackUrlResolver : ICallbackUrlResolver
             : new Uri(ctx.DefaultBaseUri, s);
     }
 
+    /// Replaces {token} placeholders in the input string using values from the callback runtime context.
+    /// <param name="input">The input string containing {token} placeholders.</param>
+    /// <param name="ctx">The callback runtime context providing values for tokens.</param>
+    /// <returns>The input string with all {token} placeholders replaced with their corresponding values.</returns>
+    private static string ReplaceTokens(string input, CallbackRuntimeContext ctx)
+    {
+        return Token.Replace(input, m =>
+        {
+            var name = m.Groups["name"].Value;
+
+            return !ctx.Vars.TryGetValue(name, out var v) || v is null
+                ? throw new InvalidOperationException(
+                    $"Callback url requires token '{name}' but it was not found in runtime Vars.")
+                : Uri.EscapeDataString(v.ToString()!);
+        });
+    }
+
+    /// <summary>
+    /// Serializes the given payload object to a JsonElement for JSON Pointer resolution.
+    /// </summary>
+    /// <param name="payload">The payload object to serialize.</param>
+    /// <param name="ptr">The JSON Pointer string (for error context).</param>
+    /// <returns>The serialized JsonElement.</returns>
+    private static JsonElement SerializePayloadToJsonElement(object payload, string ptr)
+    {
+        try
+        {
+            return JsonSerializer.SerializeToElement(payload);
+        }
+        catch (Exception ex)
+        {
+            throw new InvalidOperationException(
+                $"Failed to serialize request body for evaluating pointer '{ptr}'.", ex);
+        }
+    }
     // Minimal JSON Pointer resolver (RFC 6901-ish)
     private static JsonElement ResolveJsonPointer(JsonElement root, string pointer)
     {

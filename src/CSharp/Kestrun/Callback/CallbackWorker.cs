@@ -114,7 +114,25 @@ public sealed class CallbackWorker(
             _ = Task.Delay(decision.Delay, ct).ContinueWith(async _ =>
             {
                 // ignore exceptions if shutting down
-                try { await EnqueueAgain(req, ct); } catch { }
+                try { await EnqueueAgain(req, ct); }
+                catch (OperationCanceledException)
+                {
+                    // expected during shutdown; no further action required
+                    if (_log.IsEnabled(Serilog.Events.LogEventLevel.Debug))
+                    {
+                        _log.Debug("Callback {CallbackId} re-enqueue skipped due to shutdown.",
+                            req.CallbackId);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    if (_log.IsEnabled(Serilog.Events.LogEventLevel.Debug))
+                    {
+                        _log.Debug(ex,
+                            "Failed to re-enqueue callback {CallbackId} during retry scheduling.",
+                            req.CallbackId);
+                    }
+                }
             }, TaskScheduler.Default);
 
             return;

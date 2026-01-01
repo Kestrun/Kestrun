@@ -75,7 +75,12 @@ public sealed partial class DefaultCallbackUrlResolver : ICallbackUrlResolver
         // 3) Make Uri
         if (Uri.TryCreate(s, UriKind.Absolute, out var abs))
         {
-            return abs;
+            // On Unix, a leading-slash path like "/v1/foo" parses as an absolute file URI (file:///v1/foo).
+            // Callback URLs are expected to be HTTP(S). Treat file URIs from leading-slash inputs as relative.
+            if (!(abs.Scheme == Uri.UriSchemeFile && s.StartsWith('/', StringComparison.Ordinal)))
+            {
+                return abs;
+            }
         }
         // Relative Uri: combine with DefaultBaseUri
         return ctx.DefaultBaseUri is null

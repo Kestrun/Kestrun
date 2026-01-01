@@ -1,4 +1,4 @@
-﻿<#
+<#
 .SYNOPSIS
     Tests whether a given PowerShell function has a specified attribute applied.
 .DESCRIPTION

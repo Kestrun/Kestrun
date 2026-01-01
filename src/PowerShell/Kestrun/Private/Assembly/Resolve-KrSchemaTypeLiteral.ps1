@@ -1,4 +1,4 @@
-﻿
+
 <#
 .SYNOPSIS
     Safely resolves a schema input to a .NET [Type], supporting generics and arrays.

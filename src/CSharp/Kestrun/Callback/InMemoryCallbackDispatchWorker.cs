@@ -1,7 +1,6 @@
 using System.Net.Http.Headers;
 using System.Net.Sockets;
 using System.Security.Authentication;
-using System.Text;
 
 namespace Kestrun.Callback;
 

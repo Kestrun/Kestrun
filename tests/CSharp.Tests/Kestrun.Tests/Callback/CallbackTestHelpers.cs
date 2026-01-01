@@ -1,25 +1,17 @@
 using System.Net;
-using System.Net.Http;
-using System.Threading;
-using System.Threading.Tasks;
 
 namespace KestrunTests.Callback;
 
-internal sealed class CapturingHttpMessageHandler : HttpMessageHandler
+internal sealed class CapturingHttpMessageHandler(Func<HttpRequestMessage, CancellationToken, Task<HttpResponseMessage>> handler) : HttpMessageHandler
 {
-    private readonly Func<HttpRequestMessage, CancellationToken, Task<HttpResponseMessage>> _handler;
-
-    public CapturingHttpMessageHandler(Func<HttpRequestMessage, CancellationToken, Task<HttpResponseMessage>> handler)
-    {
-        _handler = handler;
-    }
+    private readonly Func<HttpRequestMessage, CancellationToken, Task<HttpResponseMessage>> _handler = handler;
 
     public TaskCompletionSource<HttpRequestMessage> SeenRequest { get; } =
         new(TaskCreationOptions.RunContinuationsAsynchronously);
 
     protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
     {
-        SeenRequest.TrySetResult(request);
+        _ = SeenRequest.TrySetResult(request);
         return await _handler(request, cancellationToken).ConfigureAwait(false);
     }
 
@@ -27,14 +19,9 @@ internal sealed class CapturingHttpMessageHandler : HttpMessageHandler
         => new((_, __) => Task.FromResult(new HttpResponseMessage(statusCode)));
 }
 
-internal sealed class FakeHttpClientFactory : IHttpClientFactory
+internal sealed class FakeHttpClientFactory(HttpClient client) : IHttpClientFactory
 {
-    private readonly HttpClient _client;
-
-    public FakeHttpClientFactory(HttpClient client)
-    {
-        _client = client;
-    }
+    private readonly HttpClient _client = client;
 
     public HttpClient CreateClient(string name) => _client;
 }

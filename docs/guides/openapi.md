@@ -231,7 +231,41 @@ function createPayment {
 }
 ```
 
-### 3.2.3 Generate & view
+### 3.2.3 Enabling callback automation (PowerShell)
+
+The OpenAPI callback metadata describes callback requests your API *may* send.
+To actually dispatch those callback HTTP requests at runtime from PowerShell, enable Kestrun's callback automation middleware:
+
+```powershell
+# Enable Kestrun callback automation middleware (retries/timeouts)
+Add-KrAddCallbacksAutomation
+
+# Ensure configuration runs after your callback functions are defined,
+# so Kestrun can discover and register them.
+Enable-KrConfiguration
+```
+
+You can configure dispatch behavior either via individual parameters:
+
+```powershell
+Add-KrAddCallbacksAutomation -DefaultTimeout 30 -MaxAttempts 5 -BaseDelay 2 -MaxDelay 60
+```
+
+…or by passing a typed options object:
+
+```powershell
+$opts = [Kestrun.Callback.CallbackDispatchOptions]::new()
+$opts.DefaultTimeout = [TimeSpan]::FromSeconds(30)
+$opts.MaxAttempts = 5
+$opts.BaseDelay = [TimeSpan]::FromSeconds(2)
+$opts.MaxDelay = [TimeSpan]::FromSeconds(60)
+
+Add-KrAddCallbacksAutomation -Options $opts
+```
+
+At runtime, invoking a callback function (e.g. `paymentStatusCallback -PaymentId ... -Body ...`) will resolve the callback URL from the callback `Expression` (typically a client-supplied URL in the request body), expand `{tokens}` from the callback `Pattern`, and dispatch the request.
+
+### 3.2.4 Generate & view
 
 1. Register OpenAPI generation: `Add-KrOpenApiRoute`
 1. Build and validate: `Build-KrOpenApiDocument` and `Test-KrOpenApiDocument`

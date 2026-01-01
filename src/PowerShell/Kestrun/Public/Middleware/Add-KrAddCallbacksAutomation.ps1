@@ -7,7 +7,7 @@
     .PARAMETER Server
         The Kestrun host instance to which the middleware will be added. If not specified, the current host instance will be used.
     .PARAMETER Options
-        An instance of HttpsRedirectionOptions to configure the HTTPS redirection middleware.
+        An instance of CallbackDispatchOptions to configure callback dispatch behavior.
     .PARAMETER DefaultTimeout
         The default timeout in seconds for callback operations. Used when Options is not provided.
     .PARAMETER MaxAttempts

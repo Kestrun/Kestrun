@@ -66,57 +66,6 @@ function Enable-KrConfiguration {
             }
         }
 
-        function Test-KrFunctionHasAttribute {
-            [CmdletBinding()]
-            param(
-                [Parameter(Mandatory = $true)]
-                [System.Management.Automation.CommandInfo]$Command,
-
-                [Parameter(Mandatory = $true)]
-                [ValidateNotNullOrEmpty()]
-                [string]$AttributeNameRegex
-            )
-            try {
-                $sb = $Command.ScriptBlock
-                if (-not $sb) {
-                    return $false
-                }
-
-                # Prefer runtime attributes: this is what PowerShell actually binds
-                foreach ($a in @($sb.Attributes)) {
-                    $t = $a.GetType()
-                    if ($t.Name -match $AttributeNameRegex -or $t.FullName -match $AttributeNameRegex) {
-                        return $true
-                    }
-                }
-
-                # Fallback: parse the definition and scan AttributeAst nodes
-                $def = $Command.Definition
-                if (-not $def) {
-                    return $false
-                }
-
-                $tokens = $null
-                $parseErrors = $null
-                $ast = [System.Management.Automation.Language.Parser]::ParseInput($def, [ref]$tokens, [ref]$parseErrors)
-
-                if ($parseErrors -and $parseErrors.Count -gt 0) {
-                    return $false
-                }
-
-                $found = $ast.FindAll({
-                        param($n)
-                        $n -is [System.Management.Automation.Language.AttributeAst] -and
-                        ($n.TypeName?.Name -match $AttributeNameRegex)
-                    }, $true)
-
-                return ($found.Count -gt 0)
-            } catch {
-                return $false
-            }
-            return $false
-        }
-
         # AUTO: collect session-defined functions present now
         $fx = @( Get-Command -CommandType Function | Where-Object { -not $_.Module } )
 

@@ -112,6 +112,11 @@ public static partial class CallbackRequestFactory
             System.Text.Json.JsonSerializer.SerializeToUtf8Bytes(executionPlan.Parameters[executionPlan.BodyParameterName]);
         if (ctx.Logger.IsEnabled(LogEventLevel.Debug))
         {
+            // Sanitize idempotency key for logging
+            var safeIdempotencyKeyForLog = idempotencyKey
+            .Replace("\r", string.Empty)
+            .Replace("\n", string.Empty);
+            // Log details
             ctx.Logger.Debug("Created CallbackRequest: CallbackId={CallbackId}, OperationId={OperationId}, TargetUrl={TargetUrl}, HttpMethod={HttpMethod}, ContentType={ContentType}, BodyLength={BodyLength}, CorrelationId={CorrelationId}, IdempotencyKey={IdempotencyKey}",
                 plan.CallbackId,
                 plan.OperationId,
@@ -120,7 +125,7 @@ public static partial class CallbackRequestFactory
                 contentType,
                 bodyBytes?.Length ?? 0,
                 correlationId,
-                idempotencyKey);
+                safeIdempotencyKeyForLog);
 
             ctx.Logger.Debug("CallbackRequest Headers: {Headers}", headers);
             ctx.Logger.Debug("CallbackRequest Body: {Body}", bodyBytes is null ? "<null>" : System.Text.Encoding.UTF8.GetString(bodyBytes));

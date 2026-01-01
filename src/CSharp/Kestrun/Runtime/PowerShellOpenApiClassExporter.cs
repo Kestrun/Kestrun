@@ -105,6 +105,11 @@ public static class PowerShellOpenApiClassExporter
         return WriteOpenApiTempScript(sb.ToString());
     }
 
+    /// <summary>
+    /// Normalizes blank lines in the provided PowerShell script.
+    /// </summary>
+    /// <param name="script">The PowerShell script as a string.</param>
+    /// <returns>A string with normalized blank lines.</returns>
     private static string NormalizeBlankLines(string script)
     {
         if (string.IsNullOrWhiteSpace(script))
@@ -135,6 +140,12 @@ public static class PowerShellOpenApiClassExporter
         return sb.ToString().TrimEnd();
     }
 
+    /// <summary>
+    /// Builds a PowerShell function stub for a user-defined callback function.
+    /// </summary>
+    /// <param name="functionName"> The name of the callback function. </param>
+    /// <param name="definition"> The PowerShell function definition as a string. </param>
+    /// <returns>A string containing the standardized PowerShell function stub.</returns>
     private static string BuildCallbackFunctionStub(string functionName, string definition)
     {
         var (paramBlock, paramNames, bodyParamName) = TryExtractParamInfo(definition);
@@ -243,85 +254,73 @@ public static class PowerShellOpenApiClassExporter
         return (paramBlock, paramNames, bodyParamName);
     }
 
+    /// <summary>
+    /// States for scanning PowerShell script for quoted segments.
+    /// </summary>
+    private enum ScanState
+    {
+        /// <summary>
+        /// Normal scanning state (not inside quotes).
+        /// </summary>
+        Normal,
+        /// <summary>
+        /// Inside single-quoted string segment.
+        /// </summary>
+        SingleQuoted,
+        /// <summary>
+        /// Inside double-quoted string segment.
+        /// </summary>
+        DoubleQuoted
+    }
+
+    /// <summary>
+    /// Extracts the parameter block from a PowerShell function definition.
+    /// </summary>
+    /// <param name="definition"> The PowerShell function definition string. </param>
+    /// <returns>The parameter block string including the 'param(...)' syntax; or an empty string if not found.</returns>
     private static string ExtractPowerShellParamBlock(string definition)
     {
-        // Find 'param' keyword and capture the matching parentheses.
-        // This is a lightweight parser that handles strings to avoid counting parens inside quotes.
-        var s = definition;
-        var idx = s.IndexOf("param", StringComparison.OrdinalIgnoreCase);
+        if (string.IsNullOrEmpty(definition))
+        {
+            return string.Empty;
+        }
+
+        var idx = definition.IndexOf("param", StringComparison.OrdinalIgnoreCase);
         if (idx < 0)
         {
             return string.Empty;
         }
 
-        // Find the opening '(' after param
-        var open = s.IndexOf('(', idx);
+        var open = definition.IndexOf('(', idx);
         if (open < 0)
         {
             return string.Empty;
         }
 
         var depth = 0;
-        var inSingle = false;
-        var inDouble = false;
+        var state = ScanState.Normal;
 
-        for (var i = open; i < s.Length; i++)
+        for (var i = open; i < definition.Length; i++)
         {
-            var ch = s[i];
-
-            if (inSingle)
+            if (TryConsumeQuoted(definition, ref i, ref state))
             {
-                // PowerShell single-quote escape is doubled ''
-                if (ch == '\'' && i + 1 < s.Length && s[i + 1] == '\'')
-                {
-                    i++;
-                    continue;
-                }
-                if (ch == '\'')
-                {
-                    inSingle = false;
-                }
                 continue;
             }
 
-            if (inDouble)
-            {
-                // handle PowerShell escape `" within double quotes
-                if (ch == '`' && i + 1 < s.Length)
-                {
-                    i++;
-                    continue;
-                }
-                if (ch == '"')
-                {
-                    inDouble = false;
-                }
-                continue;
-            }
-
-            if (ch == '\'')
-            {
-                inSingle = true;
-                continue;
-            }
-
-            if (ch == '"')
-            {
-                inDouble = true;
-                continue;
-            }
+            var ch = definition[i];
 
             if (ch == '(')
             {
                 depth++;
+                continue;
             }
-            else if (ch == ')')
+
+            if (ch == ')')
             {
                 depth--;
                 if (depth == 0)
                 {
-                    // Include 'param' keyword through closing ')'
-                    return s.Substring(idx, i - idx + 1);
+                    return definition.Substring(idx, i - idx + 1);
                 }
             }
         }
@@ -329,6 +328,67 @@ public static class PowerShellOpenApiClassExporter
         return string.Empty;
     }
 
+    /// <summary>
+    /// Tries to consume a quoted segment in the PowerShell script.
+    /// </summary>
+    /// <param name="s"> The input string to scan. </param>
+    /// <param name="i"> The current index in the string, passed by reference and updated as the quoted segment is consumed. </param>
+    /// <param name="state"> The current scanning state, passed by reference and updated based on quote handling. </param>
+    /// <returns>True if a quoted segment was consumed; otherwise, false.</returns>
+    private static bool TryConsumeQuoted(string s, ref int i, ref ScanState state)
+    {
+        var ch = s[i];
+
+        // Enter quote states
+        if (state == ScanState.Normal)
+        {
+            if (ch == '\'') { state = ScanState.SingleQuoted; return true; }
+            if (ch == '"') { state = ScanState.DoubleQuoted; return true; }
+            return false;
+        }
+
+        // Inside single quotes: '' is an escaped single quote
+        if (state == ScanState.SingleQuoted)
+        {
+            if (ch == '\'' && i + 1 < s.Length && s[i + 1] == '\'')
+            {
+                i++; // consume second '
+                return true;
+            }
+
+            if (ch == '\'')
+            {
+                state = ScanState.Normal;
+            }
+
+            return true;
+        }
+
+        // Inside double quotes: backtick escapes the next char
+        if (state == ScanState.DoubleQuoted)
+        {
+            if (ch == '`' && i + 1 < s.Length)
+            {
+                i++; // skip escaped char
+                return true;
+            }
+
+            if (ch == '"')
+            {
+                state = ScanState.Normal;
+            }
+
+            return true;
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// Extracts the name of the body parameter from the parameter block, if annotated with [OpenApiRequestBody].
+    /// </summary>
+    /// <param name="paramBlock"> The parameter block string to search within. </param>
+    /// <returns>The name of the body parameter if found; otherwise, null.</returns>
     private static string? ExtractBodyParameterName(string paramBlock)
     {
         // Very targeted heuristic: if [OpenApiRequestBody(...)] is present, pick the following $name.

@@ -134,7 +134,6 @@ public sealed record KestrunContext
     /// </summary>
     public string TraceIdentifier { get; init; }
 
-
     /// <summary>
     /// A dictionary to hold  parameters passed by user for use within the KestrunContext.
     /// </summary>
@@ -145,7 +144,6 @@ public sealed record KestrunContext
     /// </summary>
     public override string ToString()
         => $"KestrunContext{{ Host={Host}, Path={HttpContext.Request.Path}, User={User?.Identity?.Name ?? "<anon>"}, HasSession={HasSession} }}";
-
 
     /// <summary>
     /// Asynchronously broadcasts a log message to all connected SignalR clients using the IRealtimeBroadcaster service.
@@ -191,7 +189,6 @@ public sealed record KestrunContext
     public bool BroadcastLog(string level, string message, CancellationToken cancellationToken = default) =>
         BroadcastLogAsync(level, message, cancellationToken).GetAwaiter().GetResult();
 
-
     /// <summary>
     /// Asynchronously broadcasts a custom event to all connected SignalR clients using the IRealtimeBroadcaster service.
     /// </summary>
@@ -235,7 +232,6 @@ public sealed record KestrunContext
     /// <returns>True if the event was broadcast successfully; otherwise, false.</returns>
     public bool BroadcastEvent(string eventName, object? data, CancellationToken cancellationToken = default) =>
       BroadcastEventAsync(eventName, data, cancellationToken).GetAwaiter().GetResult();
-
 
     /// <summary>
     /// Asynchronously broadcasts a message to a specific group of SignalR clients using the IRealtimeBroadcaster service.

@@ -3,7 +3,6 @@ namespace Kestrun.Callback;
 /// <summary>
 /// Represents a request to perform a callback operation.
 /// </summary>
-
 public class CallbackRequest
 {
     /// <summary>

@@ -8,9 +8,6 @@ namespace Kestrun.Callback;
 /// </summary>
 public static partial class CallbackRequestFactory
 {
-
-
-
     private static readonly Regex TemplateParamRegex =
         TemplateParameterRegex();
     // - captures {id} and also {id:int} style constraints (keeps "id")

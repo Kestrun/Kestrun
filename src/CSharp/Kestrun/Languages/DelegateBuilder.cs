@@ -63,7 +63,6 @@ internal static class DelegateBuilder
         return (globals, Context.Response, Context);
     }
 
-
     /// <summary>
     /// Decides the VB return type string that matches TResult.
     /// </summary>

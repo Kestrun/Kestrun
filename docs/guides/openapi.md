@@ -165,6 +165,13 @@ This is different from **webhooks**, which are **top-level** event notifications
 
 In Kestrun, callbacks can be declared inline or as reusable callback components under `components.callbacks`.
 
+At runtime, callback URLs are resolved from a **URL template** that can contain:
+
+- A request-body runtime expression like `{$request.body#/callbackUrls/status}` (typically a client-supplied base URL)
+- Token placeholders like `{paymentId}` (populated from callback function parameters)
+
+When you invoke a callback function, Kestrun resolves the final URL, serializes the callback body, and sends the HTTP request.
+
 ### 3.2.2 Example (payment create + callbacks)
 
 ```powershell
@@ -264,6 +271,55 @@ Add-KrAddCallbacksAutomation -Options $opts
 ```
 
 At runtime, invoking a callback function (e.g. `paymentStatusCallback -PaymentId ... -Body ...`) will resolve the callback URL from the callback `Expression` (typically a client-supplied URL in the request body), expand `{tokens}` from the callback `Pattern`, and dispatch the request.
+
+#### 3.2.3.1 How callback URLs are resolved
+
+The callback URL is built by combining:
+
+1. The client-provided value referenced by your callback `Expression` (for example, `$request.body#/callbackUrls/status`)
+2. The callback `Pattern` (for example, `/v1/payments/{paymentId}/status`)
+3. Token values (for example, `{paymentId}`) taken from the callback function parameters by name
+
+If the resolved URL is **absolute** (e.g. `https://client.example.com/...`), it is used as-is.
+If it is **relative**, Kestrun will combine it with a default base URI (derived from the current request).
+
+If a required token (like `{paymentId}`) is missing, callback dispatch will fail with an error indicating the missing token.
+
+#### 3.2.3.2 Using callbacks inside an operation
+
+Callbacks are tied to a specific operation because they typically depend on the **same request body** that supplied the callback URLs.
+A common pattern is:
+
+1. Accept callback URLs in the operation request body.
+2. Perform your main work.
+3. Invoke one or more callback functions with the required path tokens and body payload.
+
+Example shape of the request body (client side):
+
+```powershell
+$body = @{
+    amount = 129.99
+    currency = 'USD'
+    callbackUrls = @{
+        # Base URLs that the server can append the callback pattern to
+        status = 'https://client.example.com/callbacks/payment-status'
+        reservation = 'https://client.example.com/callbacks/reservation'
+        shippingOrder = 'https://client.example.com/callbacks/shipping-order'
+    }
+} | ConvertTo-Json -Depth 10
+
+Invoke-RestMethod -Uri 'http://127.0.0.1:5000/v1/payments' -Method Post -ContentType 'application/json' -Body $body
+```
+
+Example callback invocation (server side, inside your route function):
+
+```powershell
+# ... after you compute $paymentId, $orderId, and create payload objects
+
+paymentStatusCallback -PaymentId $paymentId -Body $paymentStatusChangedEvent
+reservationCallback -OrderId $orderId -Body $reservationEvent
+shippingOrderCallback -OrderId $orderId -Body $shippingOrderEvent
+```
 
 ### 3.2.4 Generate & view
 

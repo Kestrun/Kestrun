@@ -23,6 +23,7 @@ using Kestrun.Tasks;
 using Kestrun.Runtime;
 using Kestrun.OpenApi;
 using Microsoft.AspNetCore.Antiforgery;
+using Kestrun.Callback;
 
 namespace Kestrun.Hosting;
 
@@ -639,7 +640,52 @@ public partial class KestrunHost : IDisposable
     }
 
     #endregion
+    #region OpenAPI
 
+    /// <summary>
+    /// Adds callback automation middleware to the Kestrun host.
+    /// </summary>
+    /// <param name="options">Optional callback dispatch options.</param>
+    /// <returns>The updated Kestrun host.</returns>
+    public KestrunHost AddCallbacksAutomation(CallbackDispatchOptions? options = null)
+    {
+        if (Logger.IsEnabled(LogEventLevel.Debug))
+        {
+            Logger.Debug(
+                "Adding callback automation middleware (custom configuration supplied: {HasConfig})",
+                options != null);
+        }
+        options ??= new CallbackDispatchOptions();
+        if (Logger.IsEnabled(LogEventLevel.Debug))
+        {
+            Logger.Debug("Adding callback automation middleware with options: {@Options}", options);
+        }
+
+        _ = AddService(services =>
+        {
+            _ = services.AddSingleton(options ?? new CallbackDispatchOptions());
+            _ = services.AddSingleton<InMemoryCallbackQueue>();
+            _ = services.AddSingleton<ICallbackDispatcher, InMemoryCallbackDispatcher>();
+            _ = services.AddHostedService<InMemoryCallbackDispatchWorker>();
+            _ = services.AddHttpClient("kestrun-callbacks", c =>
+            {
+                c.Timeout = options?.DefaultTimeout ?? TimeSpan.FromSeconds(30);
+            });
+            _ = services.AddSingleton<ICallbackRetryPolicy>(sp =>
+                {
+                    return new DefaultCallbackRetryPolicy(options);
+                });
+
+            _ = services.AddSingleton<ICallbackUrlResolver, DefaultCallbackUrlResolver>();
+            _ = services.AddSingleton<ICallbackBodySerializer, JsonCallbackBodySerializer>();
+
+            _ = services.AddHttpClient<ICallbackSender, HttpCallbackSender>();
+
+            _ = services.AddHostedService<CallbackWorker>();
+        });
+        return this;
+    }
+    #endregion
     #region ListenerOptions
 
     /// <summary>
@@ -990,7 +1036,7 @@ public partial class KestrunHost : IDisposable
     /// <summary>
     /// Applies the configured options to the Kestrel server and initializes the runspace pool.
     /// </summary>
-    public void EnableConfiguration(Dictionary<string, object>? userVariables = null, Dictionary<string, string>? userFunctions = null)
+    public void EnableConfiguration(Dictionary<string, object>? userVariables = null, Dictionary<string, string>? userFunctions = null, Dictionary<string, string>? userCallbacks = null)
     {
         if (!ValidateConfiguration())
         {
@@ -1000,7 +1046,7 @@ public partial class KestrunHost : IDisposable
         try
         {
             // Export OpenAPI classes from PowerShell
-            var openApiClassesPath = PowerShellOpenApiClassExporter.ExportOpenApiClasses();
+            var openApiClassesPath = PowerShellOpenApiClassExporter.ExportOpenApiClasses(userCallbacks: userCallbacks);
             if (Logger.IsEnabled(LogEventLevel.Debug))
             {
                 if (string.IsNullOrWhiteSpace(openApiClassesPath))

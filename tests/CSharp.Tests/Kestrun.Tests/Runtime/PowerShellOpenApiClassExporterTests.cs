@@ -109,7 +109,7 @@ public class PowerShellOpenApiClassExporterTests
     public void ExportOpenApiClasses_WritesScript_WithExpectedClassShapes()
     {
         var asm = BuildDynamicAssemblyWithComponents();
-        var path = PowerShellOpenApiClassExporter.ExportOpenApiClasses([asm]);
+        var path = PowerShellOpenApiClassExporter.ExportOpenApiClasses(assemblies: [asm], userCallbacks: null);
 
         Assert.True(File.Exists(path));
         var content = File.ReadAllText(path);

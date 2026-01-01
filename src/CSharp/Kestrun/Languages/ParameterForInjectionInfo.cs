@@ -2,7 +2,6 @@
 using System.Collections;
 using System.Management.Automation;
 using System.Text.Json;
-using System.Text.Json.Nodes;
 using System.Xml.Linq;
 using Kestrun.Logging;
 using Kestrun.Models;
@@ -12,52 +11,22 @@ using YamlDotNet.Serialization;
 using YamlDotNet.Serialization.NamingConventions;
 
 namespace Kestrun.Languages;
+
 /// <summary>
 /// Information about a parameter to be injected into a script.
 /// </summary>
-public record ParameterForInjectionInfo
+public class ParameterForInjectionInfo : ParameterForInjectionInfoBase
 {
-    /// <summary>
-    /// The name of the parameter.
-    /// </summary>
-    public string Name { get; init; }
-
-    /// <summary>
-    /// The .NET type of the parameter.
-    /// </summary>
-    public Type ParameterType { get; }
-
-    /// <summary>
-    /// The JSON schema type of the parameter.
-    /// </summary>
-    public JsonSchemaType? Type { get; init; }
-
-    /// <summary>
-    /// The default value of the parameter.
-    /// </summary>
-    public JsonNode? DefaultValue { get; }
-
-    /// <summary>
-    /// The location of the parameter.
-    /// </summary>
-    public ParameterLocation? In { get; init; }
-
-    /// <summary>
-    /// Indicates whether the parameter is from the request body.
-    /// </summary>
-    public bool IsRequestBody => In is null;
-
     /// <summary>
     /// Constructs a ParameterForInjectionInfo from an OpenApiParameter.
     /// </summary>
     /// <param name="paramInfo">The parameter metadata.</param>
     /// <param name="parameter">The OpenApiParameter to construct from.</param>
-    public ParameterForInjectionInfo(ParameterMetadata paramInfo, OpenApiParameter? parameter)
+    public ParameterForInjectionInfo(ParameterMetadata paramInfo, OpenApiParameter? parameter) :
+        base(paramInfo.Name, paramInfo.ParameterType)
     {
         ArgumentNullException.ThrowIfNull(parameter);
         ArgumentNullException.ThrowIfNull(paramInfo);
-        Name = paramInfo.Name;
-        ParameterType = paramInfo.ParameterType;
         Type = parameter.Schema?.Type;
         DefaultValue = parameter.Schema?.Default;
         In = parameter.In;
@@ -67,12 +36,11 @@ public record ParameterForInjectionInfo
     /// </summary>
     /// <param name="paramInfo">The parameter metadata.</param>
     /// <param name="requestBody">The OpenApiRequestBody to construct from.</param>
-    public ParameterForInjectionInfo(ParameterMetadata paramInfo, OpenApiRequestBody requestBody)
+    public ParameterForInjectionInfo(ParameterMetadata paramInfo, OpenApiRequestBody requestBody) :
+        base(paramInfo.Name, paramInfo.ParameterType)
     {
         ArgumentNullException.ThrowIfNull(requestBody);
         ArgumentNullException.ThrowIfNull(paramInfo);
-        Name = paramInfo.Name;
-        ParameterType = paramInfo.ParameterType;
         Type = requestBody.Content?.Values.FirstOrDefault()?.Schema?.Type;
         var schema = requestBody.Content?.Values.FirstOrDefault()?.Schema;
         if (schema is OpenApiSchemaReference)
@@ -142,6 +110,14 @@ public record ParameterForInjectionInfo
         }
 
         _ = ps.AddParameter(name, converted);
+        if (param.IsRequestBody)
+        {
+            context.Parameters.Body = new ParameterForInjectionResolved(param, converted);
+        }
+        else
+        {
+            context.Parameters.Parameters[name] = new ParameterForInjectionResolved(param, converted);
+        }
     }
 
     private static object? GetParameterValueFromContext(KestrunContext context, ParameterForInjectionInfo param, out bool shouldLog)

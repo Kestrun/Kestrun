@@ -24,9 +24,7 @@ internal static class DelegateBuilder
         Dictionary<string, object?>? args)
     {
         var log = host.Logger;
-        var krRequest = await KestrunRequest.NewRequest(ctx).ConfigureAwait(false);
-        var krResponse = new KestrunResponse(krRequest);
-        var Context = new KestrunContext(host, krRequest, krResponse, ctx);
+        var Context = new KestrunContext(host, ctx);
         if (log.IsEnabled(LogEventLevel.Debug))
         {
             log.DebugSanitized("Kestrun context created for {Path}", ctx.Request.Path);
@@ -62,9 +60,8 @@ internal static class DelegateBuilder
 
         // Create a new CsGlobals instance with the current context and shared state
         var globals = new CsGlobals(glob, Context);
-        return (globals, krResponse, Context);
+        return (globals, Context.Response, Context);
     }
-
 
     /// <summary>
     /// Decides the VB return type string that matches TResult.

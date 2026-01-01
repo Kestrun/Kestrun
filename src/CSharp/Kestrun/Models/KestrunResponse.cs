@@ -1,4 +1,5 @@
 
+using System.Diagnostics.CodeAnalysis;
 using System.Xml.Linq;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Serialization;
@@ -20,6 +21,7 @@ using System.Reflection;
 using Microsoft.Net.Http.Headers;
 using Kestrun.Utilities.Yaml;
 using Kestrun.Hosting.Options;
+using Kestrun.Callback;
 
 namespace Kestrun.Models;
 
@@ -29,10 +31,27 @@ namespace Kestrun.Models;
 /// <remarks>
 /// Initializes a new instance of the <see cref="KestrunResponse"/> class with the specified request and optional body async threshold.
 /// </remarks>
-/// <param name="request">The associated <see cref="KestrunRequest"/> for this response.</param>
-/// <param name="bodyAsyncThreshold">The threshold in bytes for using async body write operations. Defaults to 8192.</param>
-public class KestrunResponse(KestrunRequest request, int bodyAsyncThreshold = 8192)
+public class KestrunResponse
 {
+    /// <summary>
+    /// Flag indicating whether callbacks have already been enqueued.
+    /// </summary>
+    internal int CallbacksEnqueuedFlag; // 0 = no, 1 = yes
+
+    /// <summary>
+    ///     Gets the list of callback requests associated with this response.
+    /// </summary>
+    public List<CallBackExecutionPlan> CallbackPlan { get; } = [];
+
+    private Serilog.ILogger Logger => KrContext.Host.Logger;
+    /// <summary>
+    /// Gets the route options associated with this response.
+    /// </summary>
+    public MapRouteOptions MapRouteOptions => KrContext.MapRouteOptions;
+    /// <summary>
+    /// Gets the associated KestrunContext for this response.
+    /// </summary>
+    public required KestrunContext KrContext { get; init; }
     /// <summary>
     /// A set of MIME types that are considered text-based for response content.
     /// </summary>
@@ -49,13 +68,28 @@ public class KestrunResponse(KestrunRequest request, int bodyAsyncThreshold = 81
     };
 
     /// <summary>
+    /// Initializes a new instance of the <see cref="KestrunResponse"/> class.
+    /// </summary>
+    /// <param name="krContext">The associated <see cref="KestrunContext"/> for this response.</param>
+    /// <param name="bodyAsyncThreshold">The threshold in bytes for using async body write operations. Defaults to 8192.</param>
+    [SetsRequiredMembers]
+    public KestrunResponse(KestrunContext krContext, int bodyAsyncThreshold = 8192)
+    {
+        KrContext = krContext;
+        BodyAsyncThreshold = bodyAsyncThreshold;
+        Request = KrContext.Request ?? throw new ArgumentNullException(nameof(KrContext));
+        AcceptCharset = KrContext.Request.Headers.TryGetValue("Accept-Charset", out var value) ? Encoding.GetEncoding(value) : Encoding.UTF8; // Default to UTF-8 if null
+        StatusCode = KrContext.HttpContext.Response.StatusCode;
+    }
+
+    /// <summary>
     /// Gets the <see cref="HttpContext"/> associated with the response.
     /// </summary>
-    public HttpContext Context => Request.HttpContext;
+    public HttpContext Context => KrContext.HttpContext;
     /// <summary>
     /// Gets or sets the HTTP status code for the response.
     /// </summary>
-    public int StatusCode { get; set; } = request.HttpContext.Response.StatusCode;
+    public int StatusCode { get; set; }
     /// <summary>
     /// Gets or sets the collection of HTTP headers for the response.
     /// </summary>
@@ -89,17 +123,17 @@ public class KestrunResponse(KestrunRequest request, int bodyAsyncThreshold = 81
     /// <summary>
     /// Gets the associated KestrunRequest for this response.
     /// </summary>
-    public KestrunRequest Request { get; private set; } = request ?? throw new ArgumentNullException(nameof(request));
+    public required KestrunRequest Request { get; init; }
 
     /// <summary>
     /// Global text encoding for all responses. Defaults to UTF-8.
     /// </summary>
-    public Encoding AcceptCharset { get; private set; } = request.Headers.TryGetValue("Accept-Charset", out var value) ? Encoding.GetEncoding(value) : Encoding.UTF8; // Default to UTF-8 if null
+    public required Encoding AcceptCharset { get; init; }
 
     /// <summary>
     /// If the response body is larger than this threshold (in bytes), async write will be used.
     /// </summary>
-    public int BodyAsyncThreshold { get; set; } = bodyAsyncThreshold;
+    public required int BodyAsyncThreshold { get; init; }
 
     /// <summary>
     /// Cache-Control header value for the response.
@@ -209,6 +243,34 @@ public class KestrunResponse(KestrunRequest request, int bodyAsyncThreshold = 81
 
         // Common application types where charset makes sense
         return TextBasedMimeTypes.Contains(type);
+    }
+    /// <summary>
+    /// Adds callback parameters for the specified callback ID, body, and parameters.
+    /// </summary>
+    /// <param name="callbackId">The identifier for the callback</param>
+    /// <param name="bodyParameterName">The name of the body parameter, if any</param>
+    /// <param name="parameters">The parameters for the callback</param>
+    public void AddCallbackParameters(string callbackId, string? bodyParameterName, Dictionary<string, object?> parameters)
+    {
+        if (MapRouteOptions.CallbackPlan is null || MapRouteOptions.CallbackPlan.Count == 0)
+        {
+            return;
+        }
+        var plan = MapRouteOptions.CallbackPlan.FirstOrDefault(p => p.CallbackId == callbackId);
+        if (plan is null)
+        {
+            Logger.Warning("CallbackPlan '{id}' not found.", callbackId);
+            return;
+        }
+        // Create a new execution plan
+        var newExecutionPlan = new CallBackExecutionPlan(
+            CallbackId: callbackId,
+            Plan: plan,
+            BodyParameterName: bodyParameterName,
+            Parameters: parameters
+        );
+
+        CallbackPlan.Add(newExecutionPlan);
     }
     #endregion
 
@@ -1207,6 +1269,7 @@ public class KestrunResponse(KestrunRequest request, int bodyAsyncThreshold = 81
     #endregion
 
     #region Apply to HttpResponse
+
     /// <summary>
     /// Applies the current KestrunResponse to the specified HttpResponse, setting status, headers, cookies, and writing the body.
     /// </summary>
@@ -1239,6 +1302,9 @@ public class KestrunResponse(KestrunRequest request, int bodyAsyncThreshold = 81
             EnsureStatus(response);
             ApplyHeadersAndCookies(response);
             ApplyCachingHeaders(response);
+
+            await TryEnqueueCallbacks();
+
             if (Body is not null)
             {
                 EnsureContentType(response);
@@ -1261,6 +1327,69 @@ public class KestrunResponse(KestrunRequest request, int bodyAsyncThreshold = 81
             Console.WriteLine($"Error applying response: {ex.Message}");
             // Optionally, you can log the exception or handle it as needed
             throw;
+        }
+    }
+
+    /// <summary>
+    /// Attempts to enqueue any registered callback requests using the ICallbackDispatcher service.
+    /// </summary>
+    private async ValueTask TryEnqueueCallbacks()
+    {
+        if (CallbackPlan.Count == 0)
+        {
+            return;
+        }
+
+        // Prevent multiple enqueues
+        if (Interlocked.Exchange(ref CallbacksEnqueuedFlag, 1) == 1)
+        {
+            return;
+        }
+
+        var log = KrContext.Host.Logger;
+        if (log.IsEnabled(LogEventLevel.Information))
+        {
+            log.Information("Enqueuing {Count} callbacks for dispatch.", CallbackPlan.Count);
+        }
+
+        try
+        {
+            var httpCtx = KrContext.HttpContext;
+
+            // Resolve DI services while request is alive
+            var dispatcher = httpCtx.RequestServices.GetService<ICallbackDispatcher>();
+            if (dispatcher is null)
+            {
+                log.Warning("Callbacks present but no ICallbackDispatcher registered. Count={Count}", CallbackPlan.Count);
+                return;
+            }
+
+            var urlResolver = httpCtx.RequestServices.GetRequiredService<ICallbackUrlResolver>();
+            var serializer = httpCtx.RequestServices.GetRequiredService<ICallbackBodySerializer>();
+            var options = httpCtx.RequestServices.GetService<CallbackDispatchOptions>() ?? new CallbackDispatchOptions();
+
+            foreach (var plan in CallbackPlan)
+            {
+                try
+                {
+                    var req = CallbackRequestFactory.FromPlan(plan, KrContext, urlResolver, serializer, options);
+
+                    if (log.IsEnabled(LogEventLevel.Debug))
+                    {
+                        log.Debug("Enqueue callback. CallbackId={CallbackId} Url={Url}", req.CallbackId, req.TargetUrl);
+                    }
+
+                    await dispatcher.EnqueueAsync(req, CancellationToken.None).ConfigureAwait(false);
+                }
+                catch (Exception ex)
+                {
+                    log.Error(ex, "Failed to enqueue callback. CallbackId={CallbackId}", plan.CallbackId);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            log.Error(ex, "Unexpected error while scheduling callbacks.");
         }
     }
 

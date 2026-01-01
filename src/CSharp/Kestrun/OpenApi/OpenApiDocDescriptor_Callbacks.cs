@@ -1,3 +1,4 @@
+using Kestrun.Callback;
 using Kestrun.Hosting.Options;
 using Kestrun.Utilities;
 using Microsoft.OpenApi;
@@ -35,9 +36,15 @@ public partial class OpenApiDocDescriptor
                 metadata.Callbacks.Add(attribute.Key, reference);
             }
         }
-        else
+        else if (attribute.Inline)
         {
-            throw new InvalidOperationException($"Callback component '{attribute.ReferenceId}' not found for OpenApiCallbackRefAttribute.");
+            throw new InvalidOperationException($"Inline callback component with ID '{attribute.ReferenceId}' not found.");
+        }
+
+        if (callback is not null)
+        {
+            // Compile and store the CallbackPlan for this callback
+            metadata.MapOptions.CallbackPlan.AddRange(CallbackPlanCompiler.Compile(callback, attribute.ReferenceId));
         }
     }
 

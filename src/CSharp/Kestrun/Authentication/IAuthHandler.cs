@@ -274,10 +274,8 @@ public interface IAuthHandler
             {
                 log.Debug("Running C# authentication script with variables: {Variables}", vars);
             }
-            // --- Kestrun plumbing -------------------------------------------------
-            var krReq = await KestrunRequest.NewRequest(ctx);
-            var krRes = new KestrunResponse(krReq);
-            var kCtx = new KestrunContext(host, krReq, krRes, ctx);
+            // Create Kestrun context
+            var kCtx = new KestrunContext(host, ctx);
             // ---------------------------------------------------------------------
             var globalsDict = new Dictionary<string, object?>(
                     vars, StringComparer.OrdinalIgnoreCase);
@@ -332,11 +330,7 @@ public interface IAuthHandler
                 log.Debug("Running VB.NET authentication script with variables: {Variables}", vars);
             }
 
-            // --- Kestrun plumbing -------------------------------------------------
-            var krReq = await KestrunRequest.NewRequest(ctx);
-            var krRes = new KestrunResponse(krReq);
-            var kCtx = new KestrunContext(host, krReq, krRes, ctx);
-            // ---------------------------------------------------------------------
+            var kCtx = new KestrunContext(host, ctx);
 
             // Merge shared state + user variables
             var globals = new CsGlobals(
@@ -521,9 +515,7 @@ public interface IAuthHandler
 
         return async (ctx, identity) =>
         {
-            var krRequest = await KestrunRequest.NewRequest(ctx);
-            var krResponse = new KestrunResponse(krRequest);
-            var context = new KestrunContext(host, krRequest, krResponse, ctx);
+            var context = new KestrunContext(host, ctx);
             var globals = new CsGlobals(host.SharedState.Snapshot(), context, new Dictionary<string, object?>
             {
                 { "identity", identity }
@@ -568,9 +560,7 @@ public interface IAuthHandler
 
         return async (ctx, identity) =>
         {
-            var krRequest = await KestrunRequest.NewRequest(ctx);
-            var krResponse = new KestrunResponse(krRequest);
-            var context = new KestrunContext(host, krRequest, krResponse, ctx);
+            var context = new KestrunContext(host, ctx);
             var glob = new CsGlobals(host.SharedState.Snapshot(), context, new Dictionary<string, object?>
             {
                 { "identity", identity }

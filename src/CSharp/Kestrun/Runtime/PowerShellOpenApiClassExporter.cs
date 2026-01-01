@@ -17,14 +17,15 @@ public static class PowerShellOpenApiClassExporter
     /// Exports OpenAPI component classes found in loaded assemblies
     /// as PowerShell class definitions.
     /// </summary>
+    /// <param name="userCallbacks">Optional user-defined functions to include in the export.</param>
     /// <returns>The path to the temporary PowerShell script containing the class definitions.</returns>
-    public static string ExportOpenApiClasses()
+    public static string ExportOpenApiClasses(Dictionary<string, string>? userCallbacks)
     {
         var assemblies = AppDomain.CurrentDomain.GetAssemblies()
            .Where(a => a.FullName is not null &&
                     a.FullName.Contains("PowerShell Class Assembly"))
            .ToArray();
-        return ExportOpenApiClasses(assemblies);
+        return ExportOpenApiClasses(assemblies: assemblies, userCallbacks: userCallbacks);
     }
 
     /// <summary>
@@ -32,8 +33,9 @@ public static class PowerShellOpenApiClassExporter
     /// as PowerShell class definitions
     /// </summary>
     /// <param name="assemblies">The assemblies to scan for OpenAPI component classes.</param>
+    ///  <param name="userCallbacks"> Optional user-defined functions to include in the export.</param>
     /// <returns>The path to the temporary PowerShell script containing the class definitions.</returns>
-    public static string ExportOpenApiClasses(Assembly[] assemblies)
+    public static string ExportOpenApiClasses(Assembly[] assemblies, Dictionary<string, string>? userCallbacks)
     {
         // 1. Collect all component classes
         var componentTypes = assemblies
@@ -47,12 +49,15 @@ public static class PowerShellOpenApiClassExporter
 
         // 2. Topologically sort by "uses other component as property type"
         var sorted = TopologicalSortByPropertyDependencies(componentTypes, componentSet);
+        var hasCallbacks = userCallbacks is not null && userCallbacks.Count > 0;
+
         // nothing to export
-        if (sorted.Count == 0)
+        if (sorted.Count == 0 && !hasCallbacks)
         {
             return string.Empty;
         }
-        // 3. Emit PowerShell classes
+
+        // 3. Emit PowerShell classes (and optional callback functions)
         var sb = new StringBuilder();
 
         foreach (var type in sorted)
@@ -73,8 +78,475 @@ public static class PowerShellOpenApiClassExporter
             AppendClass(type, componentSet, sb);
             _ = sb.AppendLine(); // blank line between classes
         }
+
+        if (hasCallbacks)
+        {
+            _ = sb.AppendLine("# ================================================");
+            _ = sb.AppendLine("#   Kestrun User Callback Functions");
+            _ = sb.AppendLine("# ================================================");
+            _ = sb.AppendLine();
+
+            foreach (var kvp in userCallbacks!.OrderBy(k => k.Key, StringComparer.OrdinalIgnoreCase))
+            {
+                var name = kvp.Key;
+                var definition = kvp.Value ?? string.Empty;
+
+                // Emit a standardized callback function wrapper:
+                // - keeps parameter type constraints
+                // - strips OpenAPI/Parameter attributes
+                // - builds $params and calls $Context.Response.AddCallbackParameters(...)
+                var functionScript = BuildCallbackFunctionStub(name, definition);
+                var normalized = NormalizeBlankLines(functionScript);
+                _ = sb.AppendLine(normalized);
+                _ = sb.AppendLine();
+            }
+        }
         // 4. Write to temp script file
         return WriteOpenApiTempScript(sb.ToString());
+    }
+
+    /// <summary>
+    /// Normalizes blank lines in the provided PowerShell script.
+    /// </summary>
+    /// <param name="script">The PowerShell script as a string.</param>
+    /// <returns>A string with normalized blank lines.</returns>
+    private static string NormalizeBlankLines(string script)
+    {
+        if (string.IsNullOrWhiteSpace(script))
+        {
+            return string.Empty;
+        }
+
+        // Normalize newlines first
+        script = script.Replace("\r\n", "\n").Replace("\r", "\n");
+
+        var lines = script.Split('\n');
+        var sb = new StringBuilder(script.Length);
+
+        for (var idx = 0; idx < lines.Length; idx++)
+        {
+            var line = lines[idx].TrimEnd();
+            var isBlank = string.IsNullOrWhiteSpace(line);
+
+            // For callback function export we want compact output:
+            // drop ALL whitespace-only lines (attribute stripping leaves many single blank lines).
+            if (!isBlank)
+            {
+                _ = sb.AppendLine(line);
+            }
+        }
+
+        // Trim trailing newlines
+        return sb.ToString().TrimEnd();
+    }
+
+    /// <summary>
+    /// Builds a PowerShell function stub for a user-defined callback function.
+    /// </summary>
+    /// <param name="functionName"> The name of the callback function. </param>
+    /// <param name="definition"> The PowerShell function definition as a string. </param>
+    /// <returns>A string containing the standardized PowerShell function stub.</returns>
+    private static string BuildCallbackFunctionStub(string functionName, string definition)
+    {
+        var (paramBlock, paramNames, bodyParamName) = TryExtractParamInfo(definition);
+
+        // Fall back to a no-param function if we can't parse anything.
+        var strippedParamBlock = StripPowerShellAttributeBlocks(paramBlock);
+        strippedParamBlock = NormalizeBlankLines(strippedParamBlock);
+
+        // Ensure we always have a param(...) block for consistent output.
+        if (string.IsNullOrWhiteSpace(strippedParamBlock))
+        {
+            strippedParamBlock = "param()";
+            paramNames = [];
+        }
+
+        var sb = new StringBuilder();
+        _ = sb.AppendLine($"function {functionName} {{");
+
+        // Normalize indentation:
+        // - "param(" line: 4 spaces
+        // - parameter lines: 8 spaces
+        // - closing ")": 4 spaces
+        foreach (var rawLine in strippedParamBlock.Replace("\r\n", "\n").Replace("\r", "\n").Split('\n'))
+        {
+            var l = rawLine.Trim();
+            if (l.Length == 0)
+            {
+                continue;
+            }
+
+            if (l.Equals(")", StringComparison.Ordinal))
+            {
+                _ = sb.Append("    ").AppendLine(l);
+                continue;
+            }
+
+            if (l.StartsWith("param", StringComparison.OrdinalIgnoreCase))
+            {
+                _ = sb.Append("    ").AppendLine(l);
+                continue;
+            }
+
+            _ = sb.Append("        ").AppendLine(l);
+        }
+
+        _ = sb.AppendLine("    $FunctionName = $MyInvocation.MyCommand.Name");
+        _ = sb.AppendLine("    if ($null -eq $Context -or $null -eq $Context.Response) {");
+        _ = sb.AppendLine("        if (Test-KrLogger) {");
+        _ = sb.AppendLine("            Write-KrLog -Level Warning -Message '{function} must be called inside a route script with Callback enabled.' -Values $FunctionName");
+        _ = sb.AppendLine("        } else {");
+        _ = sb.AppendLine("            Write-Warning -Message \"$FunctionName must be called inside a route script with Callback enabled.\"");
+        _ = sb.AppendLine("        }");
+        _ = sb.AppendLine("        return");
+        _ = sb.AppendLine("    }");
+        _ = sb.AppendLine("    Write-KrLog -Level Information -Message 'Defined callback function {CallbackFunction}' -Values $FunctionName");
+        _ = sb.AppendLine("    $params = [System.Collections.Generic.Dictionary[string, object]]::new()");
+
+        foreach (var p in paramNames)
+        {
+            // Use the exact casing captured from the param block; dictionary keys are case-insensitive in C#.
+            _ = sb.AppendLine($"    $params['{p}'] = ${p}");
+        }
+
+        _ = sb.AppendLine(bodyParamName is { Length: > 0 }
+            ? $"    $bodyParameterName = '{bodyParamName}'"
+            : "    $bodyParameterName = $null");
+
+        _ = sb.AppendLine();
+        _ = sb.AppendLine("    $Context.Response.AddCallbackParameters(");
+        _ = sb.AppendLine("        $MyInvocation.MyCommand.Name,");
+        _ = sb.AppendLine("        $bodyParameterName,");
+        _ = sb.AppendLine("        $params)");
+        _ = sb.AppendLine("}");
+
+        return sb.ToString();
+    }
+
+    private static (string ParamBlock, List<string> ParamNames, string? BodyParamName) TryExtractParamInfo(string definition)
+    {
+        if (string.IsNullOrWhiteSpace(definition))
+        {
+            return (string.Empty, [], null);
+        }
+
+        // Try to isolate the param(...) block from a FunctionInfo.Definition string.
+        var paramBlock = ExtractPowerShellParamBlock(definition);
+        if (string.IsNullOrWhiteSpace(paramBlock))
+        {
+            return (string.Empty, [], null);
+        }
+
+        // Identify the request body parameter name (prefer OpenApiRequestBody attribute if present)
+        // Example: [OpenApiRequestBody(...)] [PaymentStatusChangedEvent]$Body
+        var bodyParamName = ExtractBodyParameterName(paramBlock);
+
+        // Strip attribute blocks so we keep only type constraints + $paramName
+        var stripped = StripPowerShellAttributeBlocks(paramBlock);
+        var paramNames = ExtractParamNamesFromStrippedParamBlock(stripped);
+
+        // If we didn't find OpenApiRequestBody, default to Body if present.
+        if (string.IsNullOrWhiteSpace(bodyParamName) && paramNames.Any(p => string.Equals(p, "Body", StringComparison.OrdinalIgnoreCase)))
+        {
+            bodyParamName = paramNames.First(p => string.Equals(p, "Body", StringComparison.OrdinalIgnoreCase));
+        }
+
+        return (paramBlock, paramNames, bodyParamName);
+    }
+
+    /// <summary>
+    /// States for scanning PowerShell script for quoted segments.
+    /// </summary>
+    private enum ScanState
+    {
+        /// <summary>
+        /// Normal scanning state (not inside quotes).
+        /// </summary>
+        Normal,
+        /// <summary>
+        /// Inside single-quoted string segment.
+        /// </summary>
+        SingleQuoted,
+        /// <summary>
+        /// Inside double-quoted string segment.
+        /// </summary>
+        DoubleQuoted
+    }
+
+    /// <summary>
+    /// Extracts the parameter block from a PowerShell function definition.
+    /// </summary>
+    /// <param name="definition"> The PowerShell function definition string. </param>
+    /// <returns>The parameter block string including the 'param(...)' syntax; or an empty string if not found.</returns>
+    private static string ExtractPowerShellParamBlock(string definition)
+    {
+        if (string.IsNullOrEmpty(definition))
+        {
+            return string.Empty;
+        }
+
+        var idx = definition.IndexOf("param", StringComparison.OrdinalIgnoreCase);
+        if (idx < 0)
+        {
+            return string.Empty;
+        }
+
+        var open = definition.IndexOf('(', idx);
+        if (open < 0)
+        {
+            return string.Empty;
+        }
+
+        var depth = 0;
+        var state = ScanState.Normal;
+
+        for (var i = open; i < definition.Length; i++)
+        {
+            if (TryConsumeQuoted(definition, ref i, ref state))
+            {
+                continue;
+            }
+
+            var ch = definition[i];
+
+            if (ch == '(')
+            {
+                depth++;
+                continue;
+            }
+
+            if (ch == ')')
+            {
+                depth--;
+                if (depth == 0)
+                {
+                    return definition.Substring(idx, i - idx + 1);
+                }
+            }
+        }
+
+        return string.Empty;
+    }
+
+    /// <summary>
+    /// Tries to consume a quoted segment in the PowerShell script.
+    /// </summary>
+    /// <param name="s"> The input string to scan. </param>
+    /// <param name="i"> The current index in the string, passed by reference and updated as the quoted segment is consumed. </param>
+    /// <param name="state"> The current scanning state, passed by reference and updated based on quote handling. </param>
+    /// <returns>True if a quoted segment was consumed; otherwise, false.</returns>
+    private static bool TryConsumeQuoted(string s, ref int i, ref ScanState state)
+    {
+        var ch = s[i];
+
+        // Enter quote states
+        if (state == ScanState.Normal)
+        {
+            if (ch == '\'') { state = ScanState.SingleQuoted; return true; }
+            if (ch == '"') { state = ScanState.DoubleQuoted; return true; }
+            return false;
+        }
+
+        // Inside single quotes: '' is an escaped single quote
+        if (state == ScanState.SingleQuoted)
+        {
+            if (ch == '\'' && i + 1 < s.Length && s[i + 1] == '\'')
+            {
+                i++; // consume second '
+                return true;
+            }
+
+            if (ch == '\'')
+            {
+                state = ScanState.Normal;
+            }
+
+            return true;
+        }
+
+        // Inside double quotes: backtick escapes the next char
+        if (state == ScanState.DoubleQuoted)
+        {
+            if (ch == '`' && i + 1 < s.Length)
+            {
+                i++; // skip escaped char
+                return true;
+            }
+
+            if (ch == '"')
+            {
+                state = ScanState.Normal;
+            }
+
+            return true;
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// Extracts the name of the body parameter from the parameter block, if annotated with [OpenApiRequestBody].
+    /// </summary>
+    /// <param name="paramBlock"> The parameter block string to search within. </param>
+    /// <returns>The name of the body parameter if found; otherwise, null.</returns>
+    private static string? ExtractBodyParameterName(string paramBlock)
+    {
+        // Very targeted heuristic: if [OpenApiRequestBody(...)] is present, pick the following $name.
+        // This keeps the exporter decoupled from PowerShell AST dependencies.
+        var marker = "OpenApiRequestBody";
+        var idx = paramBlock.IndexOf(marker, StringComparison.OrdinalIgnoreCase);
+        if (idx < 0)
+        {
+            return null;
+        }
+
+        // Search forward for '$' then capture identifier
+        for (var i = idx; i < paramBlock.Length; i++)
+        {
+            if (paramBlock[i] != '$')
+            {
+                continue;
+            }
+
+            var start = i + 1;
+            var end = start;
+            while (end < paramBlock.Length)
+            {
+                var ch = paramBlock[end];
+                if (!(char.IsLetterOrDigit(ch) || ch == '_'))
+                {
+                    break;
+                }
+                end++;
+            }
+
+            if (end > start)
+            {
+                return paramBlock[start..end];
+            }
+        }
+
+        return null;
+    }
+
+    private static List<string> ExtractParamNamesFromStrippedParamBlock(string strippedParamBlock)
+    {
+        // Parse variable names only from within param(...)
+        // We expect declarations like: [string]$paymentId,
+        if (string.IsNullOrWhiteSpace(strippedParamBlock))
+        {
+            return [];
+        }
+
+        var names = new List<string>();
+        var s = strippedParamBlock;
+
+        for (var i = 0; i < s.Length; i++)
+        {
+            if (s[i] != '$')
+            {
+                continue;
+            }
+
+            var start = i + 1;
+            var end = start;
+            if (start >= s.Length)
+            {
+                continue;
+            }
+
+            if (!(char.IsLetter(s[start]) || s[start] == '_'))
+            {
+                continue;
+            }
+
+            end++;
+            while (end < s.Length)
+            {
+                var ch = s[end];
+                if (!(char.IsLetterOrDigit(ch) || ch == '_'))
+                {
+                    break;
+                }
+                end++;
+            }
+
+            var name = s[start..end];
+            if (!names.Contains(name, StringComparer.OrdinalIgnoreCase))
+            {
+                names.Add(name);
+            }
+
+            i = end - 1;
+        }
+
+        return names;
+    }
+
+    private static string StripPowerShellAttributeBlocks(string script)
+    {
+        if (string.IsNullOrWhiteSpace(script))
+        {
+            return string.Empty;
+        }
+
+        var sb = new StringBuilder(script.Length);
+        var i = 0;
+        while (i < script.Length)
+        {
+            var ch = script[i];
+            if (ch != '[')
+            {
+                _ = sb.Append(ch);
+                i++;
+                continue;
+            }
+
+            // Capture a full bracket block, handling nested [ ... ] (e.g. generic type constraints)
+            var start = i;
+            var depth = 0;
+            var j = i;
+            while (j < script.Length)
+            {
+                var cj = script[j];
+                if (cj == '[')
+                {
+                    depth++;
+                }
+                else if (cj == ']')
+                {
+                    depth--;
+                    if (depth == 0)
+                    {
+                        j++; // include closing ']'
+                        break;
+                    }
+                }
+                j++;
+            }
+
+            // If unbalanced, just emit the rest
+            if (depth != 0)
+            {
+                _ = sb.Append(script.AsSpan(i));
+                break;
+            }
+
+            var block = script.AsSpan(start, j - start);
+
+            // Attribute blocks always include parentheses in our usage (e.g. [OpenApiPath(...)], [Parameter()]).
+            // Keep type constraints like [string], [int], [MyType], [MyType[]], [List[string]].
+            if (block.IndexOf('(') >= 0)
+            {
+                i = j;
+                continue;
+            }
+
+            _ = sb.Append(block);
+            i = j;
+        }
+
+        return sb.ToString();
     }
 
     /// <summary>
@@ -109,7 +581,7 @@ public static class PowerShellOpenApiClassExporter
             var basePsName = ToPowerShellTypeName(baseType, componentSet);
             baseClause = $" : {basePsName}";
         }
-
+        _ = sb.AppendLine("[NoRunspaceAffinity()]");
         _ = sb.AppendLine($"class {type.Name}{baseClause} {{");
 
         // Only properties *declared* on this type (no inherited ones)
@@ -307,6 +779,8 @@ public static class PowerShellOpenApiClassExporter
         .Append("#   Timestamp: ").Append(DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm:ss")).Append('Z').AppendLine()
         .AppendLine("# ================================================")
         .AppendLine()
+        .AppendLine("[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSProvideCommentHelp', '')]")
+        .AppendLine("param()")
         .AppendLine(openApiClasses);
 
         // Save using UTF-8 without BOM

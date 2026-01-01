@@ -12,15 +12,18 @@ public record OpenAPIPathMetadata : OpenAPICommonMetadata
     /// Initializes a new instance of the <see cref="OpenAPIPathMetadata"/> class with the specified pattern.
     /// </summary>
     /// <param name="pattern">The route pattern.</param>
-    public OpenAPIPathMetadata(string pattern)
-        : base(pattern)
+    /// <param name="mapOptions">The route mapping options.</param>
+    public OpenAPIPathMetadata(string pattern, MapRouteOptions mapOptions)
+        : base(pattern, mapOptions)
     {
     }
 
     /// <summary>
     /// Initializes a new instance of the <see cref="OpenAPIPathMetadata"/> class.
     /// </summary>
-    public OpenAPIPathMetadata()
+    /// <param name="mapOptions">The route mapping options.</param>
+    public OpenAPIPathMetadata(MapRouteOptions mapOptions)
+        : base(mapOptions)
     {
     }
     /// <summary>

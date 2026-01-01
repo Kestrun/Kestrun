@@ -57,7 +57,7 @@ public static class KestrunHostHealthExtensions
             ShortCircuitStatusCode = merged.ShortCircuitStatusCode,
             ThrowOnDuplicate = merged.ThrowOnDuplicate,
         };
-        mapOptions.OpenAPI.Add(HttpVerb.Get, new OpenAPIPathMetadata(pattern: merged.Pattern)
+        mapOptions.OpenAPI.Add(HttpVerb.Get, new OpenAPIPathMetadata(pattern: merged.Pattern, mapOptions: mapOptions)
         {
             Summary = merged.OpenApiSummary,
             Description = merged.OpenApiDescription,
@@ -217,17 +217,16 @@ public static class KestrunHostHealthExtensions
                 logger: endpointLogger,
                 ct: context.RequestAborted).ConfigureAwait(false);
 
-            var request = await KestrunRequest.NewRequest(context).ConfigureAwait(false);
-            var response = new KestrunResponse(request)
+            var krContext = new KestrunContext(host, context);
+            var response = krContext.Response;
+            response.CacheControl = new CacheControlHeaderValue
             {
-                CacheControl = new CacheControlHeaderValue
-                {
-                    NoCache = true,
-                    NoStore = true,
-                    MustRevalidate = true,
-                    MaxAge = TimeSpan.Zero
-                }
+                NoCache = true,
+                NoStore = true,
+                MustRevalidate = true,
+                MaxAge = TimeSpan.Zero
             };
+
             context.Response.Headers.Pragma = "no-cache";
             context.Response.Headers.Expires = "0";
 

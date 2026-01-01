@@ -3,6 +3,8 @@ using Kestrun.Models;
 using Kestrun.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Features;
+using Microsoft.AspNetCore.Routing;
+using Microsoft.AspNetCore.Routing.Patterns;
 using Xunit;
 
 namespace KestrunTests.Models;
@@ -11,10 +13,17 @@ public class KestrunContextTests
 {
     private static KestrunContext NewContext(DefaultHttpContext http)
     {
-        var req = TestRequestFactory.Create(path: http.Request.Path.HasValue ? http.Request.Path.Value : "/");
-        var res = new KestrunResponse(req);
         var host = new KestrunHost("Tests", AppContext.BaseDirectory);
-        return new KestrunContext(host, req, res, http);
+
+        if (string.IsNullOrWhiteSpace(http.Request.Method))
+        {
+            http.Request.Method = "GET";
+        }
+
+        // KestrunContext(host, HttpContext) requires a RouteEndpoint.
+        http.SetEndpoint(new RouteEndpoint(_ => Task.CompletedTask, RoutePatternFactory.Parse(http.Request.Path.HasValue ? http.Request.Path.Value! : "/"), 0, EndpointMetadataCollection.Empty, "TestEndpoint"));
+
+        return new KestrunContext(host, http);
     }
 
     [Fact]

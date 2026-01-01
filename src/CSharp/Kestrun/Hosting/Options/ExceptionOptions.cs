@@ -72,8 +72,6 @@ public sealed class ExceptionOptions : ExceptionHandlerOptions
     public Func<Exception, int>? LegacyStatusCodeSelector { get; set; }
 #endif
 
-
-
     private RequestDelegate BuildScriptExceptionHandler(ExceptionOptions o, RequestDelegate compiled)
     {
         return async httpContext =>
@@ -94,10 +92,8 @@ public sealed class ExceptionOptions : ExceptionHandlerOptions
             ps.Runspace = runspace;
 
             // Build Kestrun abstractions and inject for the script to consume
-            var req = await KestrunRequest.NewRequest(httpContext);
-            var res = new KestrunResponse(req) { StatusCode = httpContext.Response.StatusCode };
-            var kr = new KestrunContext(Host, req, res, httpContext);
 
+            var kr = new KestrunContext(Host, httpContext);
             httpContext.Items[PowerShellDelegateBuilder.PS_INSTANCE_KEY] = ps;
             httpContext.Items[PowerShellDelegateBuilder.KR_CONTEXT_KEY] = kr;
             ps.Runspace.SessionStateProxy.SetVariable("Context", kr);

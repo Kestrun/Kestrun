@@ -8,8 +8,8 @@ namespace KestrunTests.Models;
 
 public partial class KestrunResponseTests
 {
-    private static KestrunRequest MakeReq(string accept = "application/json") =>
-        TestRequestFactory.Create(path: "/test", headers: new Dictionary<string, string> { { "Accept", accept } });
+    private static KestrunContext MakeCtx(string accept = "application/json") =>
+        TestRequestFactory.CreateContext(path: "/test", headers: new Dictionary<string, string> { { "Accept", accept } });
 
     [Theory]
     [InlineData("text/plain", true)]
@@ -28,8 +28,8 @@ public partial class KestrunResponseTests
     [Trait("Category", "Models")]
     public async Task WriteResponse_Chooses_Json_For_Accept()
     {
-        var req = MakeReq("application/json");
-        var res = new KestrunResponse(req);
+        var ctx = MakeCtx("application/json");
+        var res = ctx.Response;
 
         await res.WriteResponseAsync(new { Name = "alice" }, StatusCodes.Status201Created);
 
@@ -43,14 +43,12 @@ public partial class KestrunResponseTests
     [Trait("Category", "Models")]
     public async Task ApplyTo_Sets_ContentDisposition_With_FileName()
     {
-        var req = MakeReq();
-        var res = new KestrunResponse(req)
+        var ctx = MakeCtx();
+        var res = ctx.Response;
+        res.ContentDisposition = new ContentDispositionOptions
         {
-            ContentDisposition = new ContentDispositionOptions
-            {
-                Type = ContentDispositionType.Attachment,
-                FileName = "report.txt"
-            }
+            Type = ContentDispositionType.Attachment,
+            FileName = "report.txt"
         };
         await res.WriteTextResponseAsync("body");
 
@@ -66,45 +64,44 @@ public partial class KestrunResponseTests
     [Trait("Category", "Models")]
     public async Task ApplyTo_Writes_String_Body()
     {
-        var req = MakeReq();
-        var res = new KestrunResponse(req);
+        var krCtx = MakeCtx();
+        var res = krCtx.Response;
         await res.WriteTextResponseAsync("hello", StatusCodes.Status200OK, "text/plain");
 
-        var ctx = new DefaultHttpContext();
+        var http = new DefaultHttpContext();
         using var ms = new MemoryStream();
-        ctx.Response.Body = ms;
+        http.Response.Body = ms;
 
-        await res.ApplyTo(ctx.Response);
+        await res.ApplyTo(http.Response);
 
-        ctx.Response.Body.Position = 0;
-        var text = new StreamReader(ctx.Response.Body, Encoding.UTF8).ReadToEnd();
+        http.Response.Body.Position = 0;
+        using var reader = new StreamReader(http.Response.Body, Encoding.UTF8);
+        var text = reader.ReadToEnd();
         Assert.Equal("hello", text);
-        Assert.Equal("text/plain; charset=" + res.AcceptCharset.WebName, ctx.Response.ContentType);
+        Assert.Equal("text/plain; charset=" + res.AcceptCharset.WebName, http.Response.ContentType);
     }
 
     [Fact]
     [Trait("Category", "Models")]
     public async Task ApplyTo_Writes_Bytes_Body()
     {
-        var req = MakeReq();
-        var res = new KestrunResponse(req)
-        {
-            Body = Encoding.UTF8.GetBytes("bin"),
-            ContentType = "application/octet-stream"
-        };
+        var krCtx = MakeCtx();
+        var res = krCtx.Response;
+        res.Body = Encoding.UTF8.GetBytes("bin");
+        res.ContentType = "application/octet-stream";
 
-        var ctx = new DefaultHttpContext();
+        var http = new DefaultHttpContext();
         using var ms = new MemoryStream();
-        ctx.Response.Body = ms;
+        http.Response.Body = ms;
 
-        await res.ApplyTo(ctx.Response);
+        await res.ApplyTo(http.Response);
 
-        ctx.Response.Body.Position = 0;
+        http.Response.Body.Position = 0;
         var buf = new byte[3];
-        _ = ctx.Response.Body.Read(buf, 0, 3);
+        _ = http.Response.Body.Read(buf, 0, 3);
         Assert.Equal("bin", Encoding.UTF8.GetString(buf));
     }
-    private static KestrunResponse NewRes() => new(TestRequestFactory.Create());
+    private static KestrunResponse NewRes() => TestRequestFactory.CreateContext().Response;
 
     [Fact]
     [Trait("Category", "Models")]
@@ -367,8 +364,8 @@ public partial class KestrunResponseTests
     [Trait("Category", "Models")]
     public async Task WriteErrorResponse_Text_Includes_Details()
     {
-        var req = MakeReq("text/plain");
-        var res = new KestrunResponse(req);
+        var ctx = MakeCtx("text/plain");
+        var res = ctx.Response;
         await res.WriteErrorResponseAsync("oops", details: "more info");
 
         Assert.Equal(StatusCodes.Status500InternalServerError, res.StatusCode);
@@ -382,8 +379,8 @@ public partial class KestrunResponseTests
     [Trait("Category", "Models")]
     public async Task WriteErrorResponse_Json_Includes_Details_Field()
     {
-        var req = MakeReq("application/json");
-        var res = new KestrunResponse(req);
+        var ctx = MakeCtx("application/json");
+        var res = ctx.Response;
         await res.WriteErrorResponseAsync("boom", details: "xyz");
 
         var body = Assert.IsType<string>(res.Body);
@@ -395,8 +392,8 @@ public partial class KestrunResponseTests
     [Trait("Category", "Models")]
     public async Task WriteErrorResponse_Json_Default_Is_HumanReadable()
     {
-        var req = MakeReq("application/json");
-        var res = new KestrunResponse(req);
+        var ctx = MakeCtx("application/json");
+        var res = ctx.Response;
         await res.WriteErrorResponseAsync("error happened", details: "more");
         var body = Assert.IsType<string>(res.Body);
         // Human readable JSON should contain newlines and indentation for properties
@@ -409,8 +406,8 @@ public partial class KestrunResponseTests
     [Trait("Category", "Models")]
     public async Task WriteErrorResponse_Yaml_Includes_Details_Field()
     {
-        var req = MakeReq("application/yaml");
-        var res = new KestrunResponse(req);
+        var ctx = MakeCtx("application/yaml");
+        var res = ctx.Response;
         await res.WriteErrorResponseAsync("boom", contentType: "application/yaml", details: "xyz");
 
         var body = Assert.IsType<string>(res.Body);
@@ -422,8 +419,8 @@ public partial class KestrunResponseTests
     [Trait("Category", "Models")]
     public async Task WriteErrorResponse_Xml_Includes_Details_Field()
     {
-        var req = MakeReq("application/xml");
-        var res = new KestrunResponse(req);
+        var ctx = MakeCtx("application/xml");
+        var res = ctx.Response;
         await res.WriteErrorResponseAsync("boom", contentType: "application/xml", details: "xyz");
 
         var body = Assert.IsType<string>(res.Body);
@@ -480,11 +477,9 @@ public partial class KestrunResponseTests
 
         try
         {
-            var req = MakeReq("text/plain");
-            var res = new KestrunResponse(req)
-            {
-                ContentDisposition = new ContentDispositionOptions { Type = ContentDispositionType.Attachment }
-            };
+            var krCtx = MakeCtx("text/plain");
+            var res = krCtx.Response;
+            res.ContentDisposition = new ContentDispositionOptions { Type = ContentDispositionType.Attachment };
 
             res.WriteFileResponse(temp, contentType: null);
 
@@ -584,8 +579,8 @@ public partial class KestrunResponseTests
     [InlineData("application/xml", "<Status>500</Status>")]
     public async Task WriteErrorResponse_Respects_Accept_ContentType_For_Message(string accept, string marker)
     {
-        var req = MakeReq(accept);
-        var res = new KestrunResponse(req);
+        var ctx = MakeCtx(accept);
+        var res = ctx.Response;
         await res.WriteErrorResponseAsync("oops");
 
         Assert.Equal(StatusCodes.Status500InternalServerError, res.StatusCode);
@@ -598,8 +593,8 @@ public partial class KestrunResponseTests
     [Trait("Category", "Models")]
     public async Task WriteErrorResponse_Text_Fallback_When_Accept_TextPlain()
     {
-        var req = MakeReq("text/plain");
-        var res = new KestrunResponse(req);
+        var ctx = MakeCtx("text/plain");
+        var res = ctx.Response;
         await res.WriteErrorResponseAsync("uh oh", statusCode: 418);
 
         Assert.Equal(418, res.StatusCode);
@@ -613,8 +608,8 @@ public partial class KestrunResponseTests
     [Trait("Category", "Models")]
     public async Task WriteErrorResponse_FromException_Includes_Or_Omits_Stack_Based_On_Flag()
     {
-        var req = MakeReq("text/plain");
-        var res = new KestrunResponse(req);
+        var ctx = MakeCtx("text/plain");
+        var res = ctx.Response;
 
         await res.WriteErrorResponseAsync(new InvalidOperationException("broken"), includeStack: false);
         var bodyNoStack = Assert.IsType<string>(res.Body);
@@ -633,9 +628,8 @@ public partial class KestrunResponseTests
         ctx.Request.Headers["Accept"] = "text/plain";
         ctx.Request.Headers["Accept-Charset"] = "utf-16";
 
-        var req = TestRequestFactory.Create(headers: ctx.Request.Headers.ToDictionary(k => k.Key, v => v.Value.ToString()), form: []);
-
-        var res = new KestrunResponse(req);
+        var krCtx = TestRequestFactory.CreateContext(headers: ctx.Request.Headers.ToDictionary(k => k.Key, v => v.Value.ToString()), form: []);
+        var res = krCtx.Response;
         await res.WriteTextResponseAsync("hi");
 
         var http = new DefaultHttpContext();
@@ -656,12 +650,9 @@ public partial class KestrunResponseTests
         ctx.Request.Headers["Accept"] = "text/plain";
         ctx.Request.Headers["Accept-Charset"] = "iso-8859-1";
 
-        var req = TestRequestFactory.Create(headers: ctx.Request.Headers.ToDictionary(k => k.Key, v => v.Value.ToString()), form: []);
-
-        var res = new KestrunResponse(req)
-        {
-            Encoding = Encoding.GetEncoding("iso-8859-1")
-        };
+        var krCtx = TestRequestFactory.CreateContext(headers: ctx.Request.Headers.ToDictionary(k => k.Key, v => v.Value.ToString()), form: []);
+        var res = krCtx.Response;
+        res.Encoding = Encoding.GetEncoding("iso-8859-1");
         await res.WriteTextResponseAsync("café");
 
         var http = new DefaultHttpContext();

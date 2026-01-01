@@ -9,7 +9,7 @@ public class OpenAPIMetadataTests
     [Trait("Category", "Hosting")]
     public void DefaultConstructor_InitializesProperties()
     {
-        var metadata = new OpenAPIPathMetadata(pattern: "/test");
+        var metadata = new OpenAPIPathMetadata(pattern: "/test", mapOptions: new MapRouteOptions());
 
         Assert.Null(metadata.Summary);
         Assert.Null(metadata.Description);
@@ -22,7 +22,7 @@ public class OpenAPIMetadataTests
     [Trait("Category", "Hosting")]
     public void Summary_CanBeSet()
     {
-        var metadata = new OpenAPIPathMetadata(pattern: "/test") { Summary = "Test summary" };
+        var metadata = new OpenAPIPathMetadata(pattern: "/test", mapOptions: new MapRouteOptions()) { Summary = "Test summary" };
 
         Assert.Equal("Test summary", metadata.Summary);
     }
@@ -31,7 +31,7 @@ public class OpenAPIMetadataTests
     [Trait("Category", "Hosting")]
     public void Description_CanBeSet()
     {
-        var metadata = new OpenAPIPathMetadata(pattern: "/test") { Description = "Test description" };
+        var metadata = new OpenAPIPathMetadata(pattern: "/test", mapOptions: new MapRouteOptions()) { Description = "Test description" };
 
         Assert.Equal("Test description", metadata.Description);
     }
@@ -40,7 +40,7 @@ public class OpenAPIMetadataTests
     [Trait("Category", "Hosting")]
     public void OperationId_CanBeSet()
     {
-        var metadata = new OpenAPIPathMetadata(pattern: "/test") { OperationId = "GetUsers" };
+        var metadata = new OpenAPIPathMetadata(pattern: "/test", mapOptions: new MapRouteOptions()) { OperationId = "GetUsers" };
 
         Assert.Equal("GetUsers", metadata.OperationId);
     }
@@ -49,7 +49,7 @@ public class OpenAPIMetadataTests
     [Trait("Category", "Hosting")]
     public void Tags_CanBeSet()
     {
-        var metadata = new OpenAPIPathMetadata(pattern: "/test") { Tags = ["users", "api"] };
+        var metadata = new OpenAPIPathMetadata(pattern: "/test", mapOptions: new MapRouteOptions()) { Tags = ["users", "api"] };
 
         Assert.Equal(2, metadata.Tags.Count);
         Assert.Contains("users", metadata.Tags);
@@ -62,8 +62,9 @@ public class OpenAPIMetadataTests
     {
         // Share the same Tags reference to ensure record equality
         var sharedTags = new List<string>();
+        var mapOptions = new MapRouteOptions();
 
-        var metadata1 = new OpenAPIPathMetadata(pattern: "/test")
+        var metadata1 = new OpenAPIPathMetadata(pattern: "/test", mapOptions: mapOptions)
         {
             Summary = "Test",
             OperationId = "Op1",
@@ -73,7 +74,7 @@ public class OpenAPIMetadataTests
             Tags = sharedTags,
             Responses = null
         };
-        var metadata2 = new OpenAPIPathMetadata(pattern: "/test")
+        var metadata2 = new OpenAPIPathMetadata(pattern: "/test", mapOptions: mapOptions)
         {
             Summary = "Test",
             OperationId = "Op1",
@@ -90,8 +91,8 @@ public class OpenAPIMetadataTests
     [Trait("Category", "Hosting")]
     public void RecordEquality_DifferentValues_ReturnsFalse()
     {
-        var metadata1 = new OpenAPIPathMetadata(pattern: "/test1") { Summary = "Test1" };
-        var metadata2 = new OpenAPIPathMetadata(pattern: "/test2") { Summary = "Test2" };
+        var metadata1 = new OpenAPIPathMetadata(pattern: "/test1", mapOptions: new MapRouteOptions()) { Summary = "Test1" };
+        var metadata2 = new OpenAPIPathMetadata(pattern: "/test2", mapOptions: new MapRouteOptions()) { Summary = "Test2" };
         Assert.NotEqual(metadata1, metadata2);
     }
 }

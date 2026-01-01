@@ -8,20 +8,28 @@ namespace Kestrun.Hosting.Options;
 public record OpenAPICommonMetadata
 {
     /// <summary>
+    /// The route mapping options associated with this metadata.
+    /// </summary>
+    public MapRouteOptions MapOptions { get; init; }
+    /// <summary>
     /// Initializes a new instance of the <see cref="OpenAPICommonMetadata"/> class with the specified pattern.
     /// </summary>
     /// <param name="pattern">The route pattern.</param>
-    public OpenAPICommonMetadata(string pattern)
+    /// <param name="mapOptions">The route mapping options.</param>
+    public OpenAPICommonMetadata(string pattern, MapRouteOptions mapOptions)
     {
         Pattern = pattern;
+        MapOptions = mapOptions;
         Enabled = true;
     }
     /// <summary>
     /// Initializes a new instance of the <see cref="OpenAPICommonMetadata"/> class.
     /// </summary>
-    public OpenAPICommonMetadata()
+    /// <param name="mapOptions">The route mapping options.</param>
+    public OpenAPICommonMetadata(MapRouteOptions mapOptions)
     {
         Pattern = "/";
+        MapOptions = mapOptions;
         Enabled = true;
     }
     /// <summary>

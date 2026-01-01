@@ -65,6 +65,7 @@ function Enable-KrConfiguration {
                 }
             }
         }
+
         # AUTO: collect session-defined functions present now
         $fx = @( Get-Command -CommandType Function | Where-Object { -not $_.Module } )
 
@@ -86,15 +87,38 @@ function Enable-KrConfiguration {
         }
 
         # Create a dictionary of function names to their definitions
+        # NOTE: exclude OpenAPI metadata functions (OpenApiPath/OpenApiWebhook/OpenApiCallback)
+        # from the general function map; they are handled separately.
         $fxMap = $null
         if ($fx -and $fx.Count -gt 0) {
+            $fxUser = @($fx | Where-Object { -not (Test-KrFunctionHasAttribute -Command $_ -AttributeNameRegex 'OpenApi(Path|Webhook|Callback)') })
             $fxMap = [System.Collections.Generic.Dictionary[string, string]]::new([System.StringComparer]::OrdinalIgnoreCase)
-            foreach ($f in $fx) { $fxMap[$f.Name] = $f.Definition }
+            foreach ($f in $fxUser) { $fxMap[$f.Name] = $f.Definition }
         }
+
+        # Create a dictionary of OpenAPI callback function names to their definitions
+        $fxCallBack = $null
+        if ($fx -and $fx.Count -gt 0) {
+            $cb = @($fx | Where-Object { Test-KrFunctionHasAttribute -Command $_ -AttributeNameRegex 'OpenApiCallback' })
+            if ($cb -and $cb.Count -gt 0) {
+                $fxCallBack = [System.Collections.Generic.Dictionary[string, string]]::new([System.StringComparer]::OrdinalIgnoreCase)
+                foreach ($f in $cb) { $fxCallBack[$f.Name] = $f.Definition }
+            }
+        }
+
+        if ($Server.Logger -and $Server.Logger.IsEnabled([Serilog.Events.LogEventLevel]::Debug)) {
+            $callbackNames = @()
+            if ($fxCallBack) {
+                $callbackNames = @($fxCallBack.Keys)
+                [System.Array]::Sort($callbackNames, [System.StringComparer]::OrdinalIgnoreCase)
+            }
+            Write-KrLog -Level Debug -Logger $Server.Logger -Message 'Detected {CallbackCount} OpenAPI callback function(s): {CallbackNames}' -Values ($callbackNames.Count), ($callbackNames -join ', ')
+        }
+
         Write-KrLog -Level Debug -Logger $Server.Logger -Message 'Enabling Kestrun server configuration with {VarCount} variables and {FuncCount} functions.' -Values $vars.Count, ($fxMap?.Count ?? 0)
         # Apply the configuration to the server
         # Set the user-defined variables in the server configuration
-        $Server.EnableConfiguration($vars, $fxMap) | Out-Null
+        $Server.EnableConfiguration($vars, $fxMap, $fxCallBack) | Out-Null
 
         Write-KrLog -Level Information -Logger $Server.Logger -Message 'Kestrun server configuration enabled successfully.'
 

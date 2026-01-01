@@ -288,10 +288,10 @@ public partial class OpenApiDocDescriptor
             IOpenApiHeader oaHeader = attribute.Inline ? header!.Clone() : new OpenApiHeaderReference(attribute.ReferenceId);
             return headers.TryAdd(attribute.Key, oaHeader);
         }
-        else
+        else if (attribute.Inline)
         {
-            throw new InvalidOperationException(
-                $"Header with ReferenceId '{attribute.ReferenceId}' not found in components or inline components.");
+            throw new InvalidOperationException($"Inline header component with ID '{attribute.ReferenceId}' not found.");
         }
+        return false;
     }
 }

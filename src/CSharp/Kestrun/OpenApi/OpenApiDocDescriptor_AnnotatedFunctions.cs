@@ -58,9 +58,10 @@ public partial class OpenApiDocDescriptor
             {
                 return;
             }
-
-            var openApiMetadata = new OpenAPIPathMetadata();
+            // Create route options and OpenAPI metadata
             var routeOptions = new MapRouteOptions();
+            var openApiMetadata = new OpenAPIPathMetadata(mapOptions: routeOptions);
+            // Process attributes to populate route options and OpenAPI metadata
             var parsedVerb = ProcessFunctionAttributes(func, help!, attrs, routeOptions, openApiMetadata);
 
             ProcessParameters(func, help!, routeOptions, openApiMetadata);

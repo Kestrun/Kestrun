@@ -2,7 +2,8 @@ using Kestrun.Hosting;
 using Kestrun.Languages;
 using Kestrun.Models;
 using Microsoft.AspNetCore.Http;
-using Moq;
+using Microsoft.AspNetCore.Routing;
+using Microsoft.AspNetCore.Routing.Patterns;
 using Serilog;
 using System.Management.Automation;
 using System.Management.Automation.Runspaces;
@@ -12,17 +13,14 @@ namespace KestrunTests.Languages;
 
 public class PowerShellDelegateBuilderTests
 {
-    private static (DefaultHttpContext http, KestrunContext krContext) MakeContext()
+    private static (DefaultHttpContext http, KestrunContext krContext) MakeContext(KestrunHost host)
     {
         var http = new DefaultHttpContext();
         http.Request.Method = "GET";
         http.Request.Path = "/";
+        http.SetEndpoint(new RouteEndpoint(_ => Task.CompletedTask, RoutePatternFactory.Parse("/"), 0, EndpointMetadataCollection.Empty, "TestEndpoint"));
 
-        // Build Kestrun context
-        var req = TestRequestFactory.Create(method: http.Request.Method, path: http.Request.Path);
-        var res = new KestrunResponse(req);
-        var host = new KestrunHost("Tests", Log.Logger);
-        var kr = new KestrunContext(host, req, res, http);
+        var kr = new KestrunContext(host, http);
         http.Items[PowerShellDelegateBuilder.KR_CONTEXT_KEY] = kr;
         return (http, kr);
     }
@@ -32,8 +30,7 @@ public class PowerShellDelegateBuilderTests
     public async Task Build_ExecutesScript_AndAppliesDefaultResponse()
     {
         var host = new KestrunHost("Tests", Log.Logger);
-        var log = new Mock<ILogger>(MockBehavior.Loose).Object;
-        var (http, kr) = MakeContext();
+        var (http, kr) = MakeContext(host);
 
         // Prepare PowerShell with an open runspace
         using var runspace = RunspaceFactory.CreateRunspace();

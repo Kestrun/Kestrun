@@ -96,4 +96,53 @@ Describe 'Example 10.11 Component Callback' -Tag 'Tutorial', 'OpenApi', 'Slow' {
         $get.summary | Should -Be 'Get payment.'
         $get.description | Should -Match 'retrieve a payment'
     }
+
+    It 'Callback automation dispatches callbacks to provided URLs' {
+        # Point the callbackUrls back at this same local server.
+        # The callback URL template appends the callback pattern (e.g. /v1/payments/{paymentId}/status)
+        # to these base URLs.
+        $base = $script:instance.Url
+
+        $body = [ordered]@{
+            amount = 129.99
+            currency = 'USD'
+            callbackUrls = [ordered]@{
+                status = "$base/callbacks/payment-status"
+                reservation = "$base/callbacks/reservation"
+                shippingOrder = "$base/callbacks/shipping-order"
+            }
+        } | ConvertTo-Json -Depth 10
+
+        $result = Invoke-WebRequest -Uri "$($script:instance.Url)/v1/payments" -Method Post -Body $body -ContentType 'application/json' -SkipCertificateCheck -SkipHttpErrorCheck
+        $result.StatusCode | Should -Be 201
+
+        # Callback dispatch happens during the request; allow a small window for the internal HTTP calls
+        # and the receiver routes to write to stdout.
+        $deadline = [DateTime]::UtcNow.AddSeconds(15)
+        $stdout = ''
+        do {
+            Start-Sleep -Milliseconds 250
+            if (Test-Path $script:instance.StdOut) {
+                $stdout = Get-Content -Path $script:instance.StdOut -Raw -ErrorAction SilentlyContinue
+            }
+        } while (
+            [DateTime]::UtcNow -lt $deadline -and
+            (
+                $stdout -notmatch 'Created CallbackRequest:.*CallbackId=paymentStatus' -or
+                $stdout -notmatch 'Created CallbackRequest:.*CallbackId=reservation' -or
+                $stdout -notmatch 'Created CallbackRequest:.*CallbackId=shippingOrder' -or
+                $stdout -notmatch 'Received payment status callback' -or
+                $stdout -notmatch 'Received reservation callback' -or
+                $stdout -notmatch 'Received shipping order callback'
+            )
+        )
+
+        $stdout | Should -Match 'Created CallbackRequest:.*CallbackId=paymentStatus'
+        $stdout | Should -Match 'Created CallbackRequest:.*CallbackId=reservation'
+        $stdout | Should -Match 'Created CallbackRequest:.*CallbackId=shippingOrder'
+
+        $stdout | Should -Match 'Received payment status callback'
+        $stdout | Should -Match 'Received reservation callback'
+        $stdout | Should -Match 'Received shipping order callback'
+    }
 }

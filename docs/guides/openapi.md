@@ -284,6 +284,11 @@ The callback URL is built by combining:
 If the resolved URL is **absolute** (e.g. `https://client.example.com/...`), it is used as-is.
 If it is **relative**, Kestrun will combine it with a default base URI (derived from the current request).
 
+> **Warning:** When callback URLs come from client-supplied data (for example, `{$request.body#/callbackUrls/status}`), using them as-is can introduce
+> server-side request forgery (SSRF) risks. A malicious client could point callback URLs at internal services or metadata endpoints
+> (such as `http://169.254.169.254/` or private admin APIs), causing your server to make HTTP(S) requests into your internal network.
+> In production, always validate and constrain callback targets (for example, by using a strict host/protocol allowlist via your callback
+> dispatch options or a custom `ICallbackUrlResolver`, and by rejecting callback URLs that are not on approved domains or schemes).
 If a required token (like `{paymentId}`) is missing, callback dispatch will fail with an error indicating the missing token.
 
 #### 3.2.3.2 Using callbacks inside an operation

@@ -104,7 +104,6 @@ public sealed class CallbackWorker(
             req.Attempt++;
             req.NextAttemptAt = decision.NextAttemptAt;
 
-
             if (_store is not null)
             {
                 await _store.MarkRetryScheduledAsync(req, result, ct);

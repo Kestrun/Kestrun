@@ -72,8 +72,6 @@ public sealed class ExceptionOptions : ExceptionHandlerOptions
     public Func<Exception, int>? LegacyStatusCodeSelector { get; set; }
 #endif
 
-
-
     private RequestDelegate BuildScriptExceptionHandler(ExceptionOptions o, RequestDelegate compiled)
     {
         return async httpContext =>

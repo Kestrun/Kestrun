@@ -43,8 +43,6 @@ public class KestrunResponse
     /// </summary>
     public List<CallBackExecutionPlan> CallbackPlan { get; } = [];
 
-
-
     private Serilog.ILogger Logger => KrContext.Host.Logger;
     /// <summary>
     /// Gets the route options associated with this response.
@@ -83,7 +81,6 @@ public class KestrunResponse
         AcceptCharset = KrContext.Request.Headers.TryGetValue("Accept-Charset", out var value) ? Encoding.GetEncoding(value) : Encoding.UTF8; // Default to UTF-8 if null
         StatusCode = KrContext.HttpContext.Response.StatusCode;
     }
-
 
     /// <summary>
     /// Gets the <see cref="HttpContext"/> associated with the response.
@@ -132,7 +129,6 @@ public class KestrunResponse
     /// Global text encoding for all responses. Defaults to UTF-8.
     /// </summary>
     public required Encoding AcceptCharset { get; init; }
-
 
     /// <summary>
     /// If the response body is larger than this threshold (in bytes), async write will be used.
@@ -1333,7 +1329,6 @@ public class KestrunResponse
             throw;
         }
     }
-
 
     /// <summary>
     /// Attempts to enqueue any registered callback requests using the ICallbackDispatcher service.

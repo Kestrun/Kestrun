@@ -5,7 +5,6 @@ namespace Kestrun.Callback;
 /// <remarks>
 /// Initializes a new instance of the <see cref="DefaultCallbackRetryPolicy"/> class.
 /// </remarks>
-
 public sealed class DefaultCallbackRetryPolicy : ICallbackRetryPolicy
 {
     private readonly int _maxAttempts;
@@ -30,7 +29,6 @@ public sealed class DefaultCallbackRetryPolicy : ICallbackRetryPolicy
         _baseDelay = options.BaseDelay;
         _maxDelay = options.MaxDelay;
     }
-
 
     /// <summary>
     /// Evaluates the given callback request and result to determine the retry decision.

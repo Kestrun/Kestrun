@@ -17,7 +17,6 @@ namespace Kestrun.Languages;
 /// </summary>
 public class ParameterForInjectionInfo : ParameterForInjectionInfoBase
 {
-
     /// <summary>
     /// Constructs a ParameterForInjectionInfo from an OpenApiParameter.
     /// </summary>

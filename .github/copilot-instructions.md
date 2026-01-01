@@ -490,6 +490,36 @@ If you reference a type in request/response and it is not showing up in `compone
 - **Webhooks** are top-level OpenAPI 3.1 event notifications, live under `webhooks` (not `components.webhooks`).
   - Use `[OpenApiWebhook]` to declare webhook operations.
 
+### Callback automation (runtime dispatch)
+
+OpenAPI callback attributes describe callbacks in the **OpenAPI document**.
+If you want callback functions to actually **dispatch HTTP callback requests at runtime** from PowerShell, enable callback automation middleware:
+
+```powershell
+# Enable callback automation middleware (retries/timeouts)
+Add-KrAddCallbacksAutomation
+
+# Ensure configuration runs after callback functions are defined
+Enable-KrConfiguration
+```
+
+**URL template resolution rules (PowerShell callbacks):**
+
+- Callback URL templates can include a request-body runtime expression like `{$request.body#/callbackUrls/status}`.
+  - This uses a JSON pointer into the *current request body* (the operation request), so callbacks are typically invoked inside the operation that received those callback URLs.
+- Callback URL templates can include `{token}` placeholders (e.g. `{paymentId}`), filled from callback function parameters by name.
+- The resolved URL must be absolute, or Kestrun must have a default base URI to combine relative URLs.
+- If a required token is missing, dispatch fails with an error indicating the missing token.
+
+**Configuring dispatch:**
+
+- Use `Add-KrAddCallbacksAutomation -DefaultTimeout <sec> -MaxAttempts <n> -BaseDelay <sec> -MaxDelay <sec>` for simple setups.
+- Or pass `[Kestrun.Callback.CallbackDispatchOptions]` via `-Options` when you need a typed object.
+
+**Testing guidance:**
+
+- Prefer exercising callback dispatch end-to-end in Pester tutorial tests by posting `callbackUrls.*` that point to a local receiver and asserting dispatch/receiver logs.
+
 ### Comment-based help → OpenAPI summary/description
 
 Comment-based help blocks are used by Kestrun to populate OpenAPI `summary`/`description` and parameter descriptions.

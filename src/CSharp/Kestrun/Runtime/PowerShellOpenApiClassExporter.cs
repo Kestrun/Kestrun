@@ -642,6 +642,38 @@ public static class PowerShellOpenApiClassExporter
         }
 
         // Primitive mappings
+        if (ResolvePrimitiveTypeName(t) is string primitiveName)
+        {
+            return primitiveName;
+        }
+
+        // Arrays
+        if (t.IsArray)
+        {
+            var element = ToPowerShellTypeName(t.GetElementType()!, componentSet, collapseOpenApiValueTypes);
+            return $"{element}[]";
+        }
+
+        // If the property type is itself one of the OpenAPI component classes,
+        // use its *simple* name (Pet, User, Tag, Category, etc.)
+        if (componentSet.Contains(t))
+        {
+            return t.Name;
+        }
+
+        // Fallback for other reference types (you can change to t.Name if you prefer)
+        return t.FullName ?? t.Name;
+    }
+
+
+/// <summary>
+    /// Resolves the PowerShell type name for common .NET primitive types.
+    /// </summary>
+    /// <param name="t">The .NET type to resolve.</param>
+    /// <returns>The PowerShell type name if the type is a recognized primitive; otherwise, null.</returns>
+    private static string? ResolvePrimitiveTypeName(Type t)
+    {
+        // Primitive mappings
         if (t == typeof(long))
         {
             return "long";
@@ -676,25 +708,8 @@ public static class PowerShellOpenApiClassExporter
         {
             return "object";
         }
-
-        // Arrays
-        if (t.IsArray)
-        {
-            var element = ToPowerShellTypeName(t.GetElementType()!, componentSet, collapseOpenApiValueTypes);
-            return $"{element}[]";
-        }
-
-        // If the property type is itself one of the OpenAPI component classes,
-        // use its *simple* name (Pet, User, Tag, Category, etc.)
-        if (componentSet.Contains(t))
-        {
-            return t.Name;
-        }
-
-        // Fallback for other reference types (you can change to t.Name if you prefer)
-        return t.FullName ?? t.Name;
+        return null;
     }
-
     private static bool TryGetOpenApiValueUnderlyingType(Type t, out Type? underlyingType)
     {
         underlyingType = null;

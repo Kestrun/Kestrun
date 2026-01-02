@@ -665,51 +665,44 @@ public static class PowerShellOpenApiClassExporter
         return t.FullName ?? t.Name;
     }
 
-
-/// <summary>
+    /// <summary>
     /// Resolves the PowerShell type name for common .NET primitive types.
     /// </summary>
     /// <param name="t">The .NET type to resolve.</param>
     /// <returns>The PowerShell type name if the type is a recognized primitive; otherwise, null.</returns>
     private static string? ResolvePrimitiveTypeName(Type t)
     {
-        // Primitive mappings
-        if (t == typeof(long))
+        // Unwrap nullable types first
+        if (t.IsGenericType && t.GetGenericTypeDefinition() == typeof(Nullable<>))
         {
-            return "long";
+            t = Nullable.GetUnderlyingType(t)!;
         }
 
-        if (t == typeof(int))
+        return t switch
         {
-            return "int";
-        }
-
-        if (t == typeof(bool))
-        {
-            return "bool";
-        }
-
-        if (t == typeof(string))
-        {
-            return "string";
-        }
-
-        if (t == typeof(double))
-        {
-            return "double";
-        }
-
-        if (t == typeof(float))
-        {
-            return "single";
-        }
-
-        if (t == typeof(object))
-        {
-            return "object";
-        }
-        return null;
+            { } when t == typeof(bool) => "bool",
+            { } when t == typeof(byte) => "byte",
+            { } when t == typeof(sbyte) => "sbyte",
+            { } when t == typeof(short) => "short",
+            { } when t == typeof(ushort) => "ushort",
+            { } when t == typeof(int) => "int",
+            { } when t == typeof(uint) => "uint",
+            { } when t == typeof(long) => "long",
+            { } when t == typeof(ulong) => "ulong",
+            { } when t == typeof(float) => "float",
+            { } when t == typeof(double) => "double",
+            { } when t == typeof(decimal) => "decimal",
+            { } when t == typeof(char) => "char",
+            { } when t == typeof(string) => "string",
+            { } when t == typeof(object) => "object",
+            { } when t == typeof(DateTime) => "datetime",
+            { } when t == typeof(Guid) => "guid",
+            { } when t == typeof(byte[]) => "byte[]",
+            _ => null
+        };
     }
+
+
     private static bool TryGetOpenApiValueUnderlyingType(Type t, out Type? underlyingType)
     {
         underlyingType = null;

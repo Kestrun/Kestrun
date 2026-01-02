@@ -612,22 +612,10 @@ public static class PowerShellOpenApiClassExporter
             return $"Nullable[{ToPowerShellTypeName(underlying, componentSet, collapseToUnderlyingPrimitives)}]";
         }
 
-        // OpenAPI schema component array wrappers:
-        // Some PowerShell OpenAPI schemas are modeled as a component class with Array=$true,
-        // typically inheriting from the element schema type (e.g. EventDates : Date).
-        // When referenced as a property type, we want the PowerShell type constraint to be
-        // the element array (e.g. [Date[]]) instead of the wrapper class ([EventDates]).
-        // IMPORTANT: this must run before OpenApiValue<T> collapsing so wrappers don't lose their array-ness.
-        if (collapseToUnderlyingPrimitives && componentSet.Contains(t) && TryGetArrayComponentElementType(t, out var elementType) && elementType is not null)
+        // OpenAPI schema component array wrappers
+        if (ResolveElementArrayType(t, componentSet, collapseToUnderlyingPrimitives) is string arrayTypeName)
         {
-            // Guard against pathological self-references.
-            if (elementType == t)
-            {
-                return t.Name;
-            }
-
-            var elementPsName = ToPowerShellTypeName(elementType, componentSet, collapseToUnderlyingPrimitives);
-            return $"{elementPsName}[]";
+            return arrayTypeName;
         }
 
         // OpenAPI primitive wrappers (PowerShell-friendly):
@@ -665,6 +653,36 @@ public static class PowerShellOpenApiClassExporter
         return t.FullName ?? t.Name;
     }
 
+    /// <summary>
+    /// Resolves the PowerShell type name for OpenAPI array wrapper components.
+    /// </summary>
+    /// <param name="t">The .NET type to resolve.</param>
+    /// <param name="componentSet">The set of known OpenAPI component types.</param>
+    /// <param name="collapseToUnderlyingPrimitives">When true, types derived from OpenApiValue&lt;T&gt; are emitted as their underlying primitive (e.g., string/double/bool/long).</param>
+    /// <returns>The PowerShell type name for the array element if applicable; otherwise, null.</returns>
+    private static string? ResolveElementArrayType(Type t, HashSet<Type> componentSet, bool collapseToUnderlyingPrimitives)
+    {
+        // OpenAPI schema component array wrappers:
+        // Some PowerShell OpenAPI schemas are modeled as a component class with Array=$true,
+        // typically inheriting from the element schema type (e.g. EventDates : Date).
+        // When referenced as a property type, we want the PowerShell type constraint to be
+        // the element array (e.g. [Date[]]) instead of the wrapper class ([EventDates]).
+        // IMPORTANT: this must run before OpenApiValue<T> collapsing so wrappers don't lose their array-ness.
+        if (collapseToUnderlyingPrimitives && componentSet.Contains(t) && TryGetArrayComponentElementType(t, out var elementType) && elementType is not null)
+        {
+            // Guard against pathological self-references.
+            if (elementType == t)
+            {
+                return t.Name;
+            }
+
+            var elementPsName = ToPowerShellTypeName(elementType, componentSet, collapseToUnderlyingPrimitives);
+            return $"{elementPsName}[]";
+        }
+        return null;
+    }
+
+    // Mapping of .NET primitive types to PowerShell type names.
     private static readonly Dictionary<Type, string> PrimitiveTypeAliases =
          new()
          {

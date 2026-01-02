@@ -11,11 +11,29 @@ namespace Kestrun.OpenApi;
 public partial class OpenApiDocDescriptor
 {
     #region Schemas
-    private static OpenApiPropertyAttribute? GetSchemaIdentity(Type t)
+    private static OpenApiProperties? GetSchemaIdentity(Type t)
     {
-        // inherit:true already climbs the chain until it finds the first one
-        var attrs = (OpenApiPropertyAttribute[])t.GetCustomAttributes(typeof(OpenApiPropertyAttribute), inherit: true);
-        return attrs.Length > 0 ? attrs[0] : null;
+        // Prefer OpenApiPropertyAttribute (it supports operation/property-level overrides),
+        // but fall back to any OpenApiProperties-derived attribute (e.g., OpenApiSchemaComponent).
+        var propAttrs = (OpenApiPropertyAttribute[])t.GetCustomAttributes(typeof(OpenApiPropertyAttribute), inherit: true);
+        if (propAttrs.Length > 0)
+        {
+            return propAttrs[0];
+        }
+
+        // Note: OpenApiSchemaComponent is Inherited=false, so inherit:true won't climb.
+        // We walk the base chain manually to allow schemas deriving from OpenApi* primitives
+        // (or from a base schema component) to inherit the underlying identity.
+        for (var current = t; current is not null && current != typeof(object); current = current.BaseType)
+        {
+            var schemaAttrs = current.GetCustomAttributes(inherit: false).OfType<OpenApiProperties>().ToArray();
+            if (schemaAttrs.Length > 0)
+            {
+                return schemaAttrs[0];
+            }
+        }
+
+        return null;
     }
 
     /// <summary>
@@ -81,17 +99,29 @@ public partial class OpenApiDocDescriptor
     /// <returns>OpenApiSchema representing the base type derivation, or null if not applicable</returns>
     private IOpenApiSchema? BuildBaseTypeSchema(Type t)
     {
+        var primitivesAssembly = typeof(OpenApiString).Assembly;
+
         // Determine if the base type is a known OpenAPI primitive type
         OaSchemaType? baseTypeName = t.BaseType switch
         {
-            Type bt when bt == typeof(OaString) => OaSchemaType.String,
-            Type bt when bt == typeof(OaInteger) => OaSchemaType.Integer,
-            Type bt when bt == typeof(OaNumber) => OaSchemaType.Number,
-            Type bt when bt == typeof(OaBoolean) => OaSchemaType.Boolean,
+            Type bt when bt == typeof(OpenApiString) => OaSchemaType.String,
+            Type bt when bt == typeof(OpenApiInteger) => OaSchemaType.Integer,
+            Type bt when bt == typeof(OpenApiNumber) => OaSchemaType.Number,
+            Type bt when bt == typeof(OpenApiBoolean) => OaSchemaType.Boolean,
             _ => null
         };
 
-        if (typeof(IOpenApiType).IsAssignableFrom(t))
+        // If a type derives from one of our OpenApi* primitives, treat it as that primitive schema
+        // and then apply any attributes on the derived type.
+        if (baseTypeName is not null)
+        {
+            return BuildCustomBaseTypeSchema(t, baseTypeName);
+        }
+
+        // Only treat built-in OpenApi* primitives (and their variants) as raw OpenApi types.
+        // User-defined schema components (including array wrappers like EventDates : Date)
+        // should fall through to BuildCustomBaseTypeSchema so we can emit $ref + array items.
+        if (t.Assembly == primitivesAssembly && typeof(IOpenApiType).IsAssignableFrom(t))
         {
             return BuildOpenApiTypeSchema(t);
         }
@@ -584,11 +614,6 @@ public partial class OpenApiDocDescriptor
         [typeof(float)] = () => new OpenApiSchema { Type = JsonSchemaType.Number, Format = "float" },
         [typeof(double)] = () => new OpenApiSchema { Type = JsonSchemaType.Number, Format = "double" },
         [typeof(decimal)] = () => new OpenApiSchema { Type = JsonSchemaType.Number, Format = "decimal" },
-        [typeof(OaString)] = () => new OpenApiSchema { Type = JsonSchemaType.String },
-        [typeof(OaInteger)] = () => new OpenApiSchema { Type = JsonSchemaType.Integer },
-        [typeof(OaNumber)] = () => new OpenApiSchema { Type = JsonSchemaType.Number },
-        [typeof(OaBoolean)] = () => new OpenApiSchema { Type = JsonSchemaType.Boolean },
-
         [typeof(OpenApiString)] = () => new OpenApiSchema { Type = JsonSchemaType.String },
         [typeof(OpenApiUuid)] = () => new OpenApiSchema { Type = JsonSchemaType.String, Format = "uuid" },
         [typeof(OpenApiDate)] = () => new OpenApiSchema { Type = JsonSchemaType.String, Format = "date" },
@@ -863,8 +888,9 @@ public partial class OpenApiDocDescriptor
     /// <returns>True if the type is considered primitive-like; otherwise, false.</returns>
     private static bool IsPrimitiveLike(Type t)
         => t.IsPrimitive || t == typeof(string) || t == typeof(decimal) || t == typeof(DateTime) ||
-        t == typeof(Guid) || t == typeof(object) || t == typeof(OaString) || t == typeof(OaInteger) ||
-         t == typeof(OaNumber) || t == typeof(OaBoolean);
+        t == typeof(Guid) || t == typeof(object) ||
+        t == typeof(OpenApiString) || t == typeof(OpenApiInteger) ||
+        t == typeof(OpenApiNumber) || t == typeof(OpenApiBoolean);
 
     #endregion
 

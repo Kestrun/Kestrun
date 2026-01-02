@@ -25,6 +25,8 @@ public abstract class OpenApiValue<T>(T value) : IOpenApiType
 [OpenApiSchemaComponent(Type = OaSchemaType.String)]
 public class OpenApiString(string value) : OpenApiValue<string>(value)
 {
+    public OpenApiString() : this(string.Empty) { }
+
     public static implicit operator string(OpenApiString s)
     {
         return s.Value;
@@ -39,6 +41,8 @@ public class OpenApiString(string value) : OpenApiValue<string>(value)
 [OpenApiSchemaComponent(Type = OaSchemaType.String, Format = "uuid")]
 public class OpenApiUuid(string value) : OpenApiString(value)
 {
+    public OpenApiUuid() : this(string.Empty) { }
+
     public static implicit operator OpenApiUuid(string s)
     {
         return new(s);
@@ -48,6 +52,8 @@ public class OpenApiUuid(string value) : OpenApiString(value)
 [OpenApiSchemaComponent(Type = OaSchemaType.String, Format = "date")]
 public class OpenApiDate(string value) : OpenApiString(value)
 {
+    public OpenApiDate() : this(string.Empty) { }
+
     public static implicit operator OpenApiDate(string s)
     {
         return new(s);
@@ -57,6 +63,8 @@ public class OpenApiDate(string value) : OpenApiString(value)
 [OpenApiSchemaComponent(Type = OaSchemaType.String, Format = "date-time")]
 public class OpenApiDateTime(string value) : OpenApiString(value)
 {
+    public OpenApiDateTime() : this(string.Empty) { }
+
     public static implicit operator OpenApiDateTime(string s)
     {
         return new(s);
@@ -66,6 +74,8 @@ public class OpenApiDateTime(string value) : OpenApiString(value)
 [OpenApiSchemaComponent(Type = OaSchemaType.String, Format = "email")]
 public class OpenApiEmail(string value) : OpenApiString(value)
 {
+    public OpenApiEmail() : this(string.Empty) { }
+
     public static implicit operator OpenApiEmail(string s)
     {
         return new(s);
@@ -76,6 +86,8 @@ public class OpenApiEmail(string value) : OpenApiString(value)
 [OpenApiSchemaComponent(Type = OaSchemaType.String, Format = "binary")]
 public class OpenApiBinary(byte[] value) : OpenApiValue<byte[]>(value)
 {
+    public OpenApiBinary() : this([]) { }
+
     public static implicit operator byte[](OpenApiBinary b)
     {
         return b.Value;
@@ -92,6 +104,8 @@ public class OpenApiBinary(byte[] value) : OpenApiValue<byte[]>(value)
 [OpenApiSchemaComponent(Type = OaSchemaType.String, Format = "hostname")]
 public class OpenApiHostname(string value) : OpenApiString(value)
 {
+    public OpenApiHostname() : this(string.Empty) { }
+
     public static implicit operator OpenApiHostname(string s)
     {
         return new(s);
@@ -101,6 +115,8 @@ public class OpenApiHostname(string value) : OpenApiString(value)
 [OpenApiSchemaComponent(Type = OaSchemaType.String, Format = "ipv4")]
 public class OpenApiIpv4(string value) : OpenApiString(value)
 {
+    public OpenApiIpv4() : this(string.Empty) { }
+
     public static implicit operator OpenApiIpv4(string s)
     {
         return new(s);
@@ -110,6 +126,8 @@ public class OpenApiIpv4(string value) : OpenApiString(value)
 [OpenApiSchemaComponent(Type = OaSchemaType.String, Format = "ipv6")]
 public class OpenApiIpv6(string value) : OpenApiString(value)
 {
+    public OpenApiIpv6() : this(string.Empty) { }
+
     public static implicit operator OpenApiIpv6(string s)
     {
         return new(s);
@@ -119,6 +137,8 @@ public class OpenApiIpv6(string value) : OpenApiString(value)
 [OpenApiSchemaComponent(Type = OaSchemaType.String, Format = "uri")]
 public class OpenApiUri(string value) : OpenApiString(value)
 {
+    public OpenApiUri() : this(string.Empty) { }
+
     public static implicit operator OpenApiUri(string s)
     {
         return new(s);
@@ -128,6 +148,8 @@ public class OpenApiUri(string value) : OpenApiString(value)
 [OpenApiSchemaComponent(Type = OaSchemaType.String, Format = "url")]
 public class OpenApiUrl(string value) : OpenApiString(value)
 {
+    public OpenApiUrl() : this(string.Empty) { }
+
     public static implicit operator OpenApiUrl(string s)
     {
         return new(s);
@@ -140,6 +162,8 @@ public class OpenApiUrl(string value) : OpenApiString(value)
 [OpenApiSchemaComponent(Type = OaSchemaType.String, Format = "byte")]
 public class OpenApiByte(byte[] value) : OpenApiValue<byte[]>(value)
 {
+    public OpenApiByte() : this([]) { }
+
     public static implicit operator byte[](OpenApiByte b)
     {
         return b.Value;
@@ -156,6 +180,8 @@ public class OpenApiByte(byte[] value) : OpenApiValue<byte[]>(value)
 [OpenApiSchemaComponent(Type = OaSchemaType.String, Format = "password")]
 public class OpenApiPassword(string value) : OpenApiString(value)
 {
+    public OpenApiPassword() : this(string.Empty) { }
+
     public static implicit operator OpenApiPassword(string s)
     {
         return new(s);
@@ -165,6 +191,8 @@ public class OpenApiPassword(string value) : OpenApiString(value)
 [OpenApiSchemaComponent(Type = OaSchemaType.String, Format = "regex")]
 public class OpenApiRegex(string value) : OpenApiString(value)
 {
+    public OpenApiRegex() : this(string.Empty) { }
+
     public static implicit operator OpenApiRegex(string s)
     {
         return new(s);
@@ -174,6 +202,8 @@ public class OpenApiRegex(string value) : OpenApiString(value)
 [OpenApiSchemaComponent(Type = OaSchemaType.String, Format = "json")]
 public class OpenApiJson(string value) : OpenApiString(value)
 {
+    public OpenApiJson() : this(string.Empty) { }
+
     public static implicit operator OpenApiJson(string s)
     {
         return new(s);
@@ -183,6 +213,8 @@ public class OpenApiJson(string value) : OpenApiString(value)
 [OpenApiSchemaComponent(Type = OaSchemaType.String, Format = "xml")]
 public class OpenApiXml(string value) : OpenApiString(value)
 {
+    public OpenApiXml() : this(string.Empty) { }
+
     public static implicit operator OpenApiXml(string s)
     {
         return new(s);
@@ -192,6 +224,8 @@ public class OpenApiXml(string value) : OpenApiString(value)
 [OpenApiSchemaComponent(Type = OaSchemaType.String, Format = "yaml")]
 public class OpenApiYaml(string value) : OpenApiString(value)
 {
+    public OpenApiYaml() : this(string.Empty) { }
+
     public static implicit operator OpenApiYaml(string s)
     {
         return new(s);
@@ -203,6 +237,8 @@ public class OpenApiYaml(string value) : OpenApiString(value)
 [OpenApiSchemaComponent(Type = OaSchemaType.Integer)]
 public class OpenApiInteger(long value) : OpenApiValue<long>(value)
 {
+    public OpenApiInteger() : this(0) { }
+
     public static implicit operator long(OpenApiInteger x)
     {
         return x.Value;
@@ -217,6 +253,8 @@ public class OpenApiInteger(long value) : OpenApiValue<long>(value)
 [OpenApiSchemaComponent(Type = OaSchemaType.Integer, Format = "int32")]
 public class OpenApiInt32(int value) : OpenApiValue<int>(value)
 {
+    public OpenApiInt32() : this(0) { }
+
     public static implicit operator int(OpenApiInt32 x)
     {
         return x.Value;
@@ -231,6 +269,8 @@ public class OpenApiInt32(int value) : OpenApiValue<int>(value)
 [OpenApiSchemaComponent(Type = OaSchemaType.Integer, Format = "int64")]
 public class OpenApiInt64(long value) : OpenApiValue<long>(value)
 {
+    public OpenApiInt64() : this(0) { }
+
     public static implicit operator long(OpenApiInt64 x)
     {
         return x.Value;
@@ -245,6 +285,8 @@ public class OpenApiInt64(long value) : OpenApiValue<long>(value)
 [OpenApiSchemaComponent(Type = OaSchemaType.Number)]
 public class OpenApiNumber(double value) : OpenApiValue<double>(value)
 {
+    public OpenApiNumber() : this(0d) { }
+
     public static implicit operator double(OpenApiNumber x)
     {
         return x.Value;
@@ -259,6 +301,8 @@ public class OpenApiNumber(double value) : OpenApiValue<double>(value)
 [OpenApiSchemaComponent(Type = OaSchemaType.Number, Format = "float")]
 public class OpenApiFloat(float value) : OpenApiValue<float>(value)
 {
+    public OpenApiFloat() : this(0f) { }
+
     public static implicit operator float(OpenApiFloat x)
     {
         return x.Value;
@@ -273,6 +317,8 @@ public class OpenApiFloat(float value) : OpenApiValue<float>(value)
 [OpenApiSchemaComponent(Type = OaSchemaType.Number, Format = "double")]
 public class OpenApiDouble(double value) : OpenApiValue<double>(value)
 {
+    public OpenApiDouble() : this(0d) { }
+
     public static implicit operator double(OpenApiDouble x)
     {
         return x.Value;
@@ -287,6 +333,8 @@ public class OpenApiDouble(double value) : OpenApiValue<double>(value)
 [OpenApiSchemaComponent(Type = OaSchemaType.Boolean)]
 public class OpenApiBoolean(bool value) : OpenApiValue<bool>(value)
 {
+    public OpenApiBoolean() : this(false) { }
+
     public static implicit operator bool(OpenApiBoolean x)
     {
         return x.Value;
@@ -298,68 +346,3 @@ public class OpenApiBoolean(bool value) : OpenApiValue<bool>(value)
     }
 }
 
-// ——— Schema kind markers (your existing “Oa*” types) ———
-
-/// <summary>OpenAPI Schema primitive/object kinds.</summary>
-public class OaString : OpenApiValue<string>
-{
-    public OaString(string value) : base(value) { }
-    public OaString() : base("") { }
-    public static implicit operator string(OaString x)
-    {
-        return x.Value;
-    }
-
-    public static implicit operator OaString(string x)
-    {
-        return new(x);
-    }
-}
-
-/// <summary>OpenAPI Schema primitive/object kinds.</summary>
-public class OaNumber : OpenApiValue<double>
-{
-    public OaNumber(double value) : base(value) { }
-    public OaNumber() : base(0) { }
-    public static implicit operator double(OaNumber x)
-    {
-        return x.Value;
-    }
-
-    public static implicit operator OaNumber(double x)
-    {
-        return new(x);
-    }
-}
-
-/// <summary>OpenAPI Schema primitive/object kinds.</summary>
-public class OaInteger : OpenApiValue<long>
-{
-    public OaInteger(long value) : base(value) { }
-    public OaInteger() : base(0) { }
-    public static implicit operator long(OaInteger x)
-    {
-        return x.Value;
-    }
-
-    public static implicit operator OaInteger(long x)
-    {
-        return new(x);
-    }
-}
-
-/// <summary>OpenAPI Schema primitive/object kinds.</summary>
-public class OaBoolean : OpenApiValue<bool>
-{
-    public OaBoolean(bool value) : base(value) { }
-    public OaBoolean() : base(false) { }
-    public static implicit operator bool(OaBoolean x)
-    {
-        return x.Value;
-    }
-
-    public static implicit operator OaBoolean(bool x)
-    {
-        return new(x);
-    }
-}

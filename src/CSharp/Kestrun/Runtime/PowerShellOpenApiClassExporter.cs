@@ -632,7 +632,7 @@ public static class PowerShellOpenApiClassExporter
 
         // OpenAPI primitive wrappers (PowerShell-friendly):
         // Many schemas are represented as classes deriving from OpenApiValue<T>
-        // (e.g. OaString/OaNumber/OaBoolean/OaInteger, OpenApiDate, etc.).
+        // (e.g. OpenApiString/OpenApiNumber/OpenApiBoolean/OpenApiInteger, OpenApiDate, etc.).
         // When such a schema is referenced as a property type, we want the *real*
         // PowerShell primitive type constraint (string/double/bool/long) rather than
         // the wrapper class name.

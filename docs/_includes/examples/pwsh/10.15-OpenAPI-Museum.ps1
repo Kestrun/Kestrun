@@ -32,7 +32,7 @@ Add-KrOpenApiInfo -Title 'Redocly Museum API' `
 
 Add-KrOpenApiContact -Email 'team@redocly.com' -Url 'https://redocly.com/docs/cli/'
 Add-KrOpenApiLicense -Name 'MIT' -Url 'https://opensource.org/license/mit/'
-#Add-KrOpenApiServer -Url 'https://api.fake-museum-example.com/v1'
+Add-KrOpenApiServer -Url 'https://api.fake-museum-example.com/v1'
 
 # TODO: info.x-logo is not modeled yet (url + altText). Add an extension attribute when available.
 
@@ -52,7 +52,7 @@ Add-KrOpenApiTag -Name 'Tickets' -Description 'Museum tickets for general entran
     Required = ('date', 'timeOpen', 'timeClose'))]
 class MuseumDailyHours {
     [OpenApiProperty(Description = 'Date the operating hours apply to.', Example = '2024-12-31')]
-    [DateTime]$date
+    [Date]$date
 
     [OpenApiProperty(Description = 'Time the museum opens on a specific date. Uses 24 hour time format (`HH:mm`).', Example = '09:00')]
     [ValidatePattern('^([01]\d|2[0-3]):([0-5]\d)$')]
@@ -133,48 +133,48 @@ class ListSpecialEventsResponse:SpecialEventResponse {}
 [OpenApiSchemaComponent(
     Description = 'Type of ticket being purchased. Use `general` for regular entry and `event` for special events.',
     Enum = ('event', 'general'), Example = 'event')]
-class TicketType:OaString {}
+class TicketType:OpenApiString {}
 
 [OpenApiSchemaComponent(
     Description = 'Unique identifier for museum ticket. Generated when purchased.',
     Format = 'uuid', Example = 'a54a57ca-36f8-421b-a6b4-2e8f26858a4c')]
-class TicketId:OaString {}
+class TicketId:OpenApiString {}
 
 [OpenApiSchemaComponent(
     Description = 'Confirmation message after a ticket purchase.',
     Example = 'Museum general entry ticket purchased')]
-class TicketMessage:OaString {}
+class TicketMessage:OpenApiString {}
 
 [OpenApiSchemaComponent(
     Description = 'Unique confirmation code used to verify ticket purchase.',
     Example = 'ticket-event-a98c8f-7eb12')]
-class TicketConfirmation:OaString {}
+class TicketConfirmation:OpenApiString {}
 
 [OpenApiSchemaComponent(Description = 'Identifier for a special event.',
     Format = 'uuid', Example = '3be6453c-03eb-4357-ae5a-984a0e574a54'
 )]
-class eventId:OaString {}
+class eventId:OpenApiString {}
 
 [OpenApiSchemaComponent(Description = 'Name of the special event',
     Example = 'Pirate Coding Workshop'
 )]
-class EventName:OaString {}
+class EventName:OpenApiString {}
 
 [OpenApiSchemaComponent(Description = 'Location where the special event is held.',
     Example = 'Computer Room')]
-class EventLocation :OaString {}
+class EventLocation :OpenApiString {}
 
 [OpenApiSchemaComponent(Description = 'Description of the special event',
     Example = 'Captain Blackbeard shares his love of the C...language. And possibly Arrrrr (R lang).')]
-class EventDescription:OaString {}
+class EventDescription:OpenApiString {}
 
 [OpenApiSchemaComponent(Description = 'Price of a ticket for the special event',
     format = 'float', Example = 25)]
-class EventPrice:OaNumber {}
+class EventPrice:OpenApiNumber {}
 
 [OpenApiSchemaComponent(
     Format = 'date', Example = '2023-10-29')]
-class Date:OaString {}
+class Date:OpenApiString {}
 
 [OpenApiSchemaComponent( Description = 'List of planned dates for the special event',
     Array = $true)]
@@ -182,11 +182,11 @@ class EventDates:Date {}
 
 [OpenApiSchemaComponent(Description = 'Email address for ticket purchaser.',
     Format = 'email', Example = 'museum-lover@example.com')]
-class Email :OaString {}
+class Email :OpenApiString {}
 
 [OpenApiSchemaComponent(Description = 'Phone number for the ticket purchaser (optional).',
     Example = '+1(234)-567-8910')]
-class Phone :OaString {}
+class Phone :OpenApiString {}
 
 [OpenApiSchemaComponent(Description = 'Request payload used for purchasing museum tickets.',
     Required = ('ticketType', 'ticketDate', 'email'))]
@@ -196,8 +196,8 @@ class BuyMuseumTicketsRequest {
     [OpenApiProperty(Format = 'uuid', Description = "Unique identifier for a special event. Required if purchasing tickets for the museum's special events.")]
     [EventId]$eventId
 
-    [OpenApiProperty(Format = 'date', Description = 'Date that the ticket is valid for.')]
-    [DateTime]$ticketDate
+    [OpenApiProperty(Description = 'Date that the ticket is valid for.')]
+    [Date]$ticketDate
 
     [OpenApiProperty(Format = 'email')]
     [Email]$email
@@ -217,7 +217,7 @@ class BuyMuseumTicketsResponse {
     [TicketType]$ticketType
 
     [OpenApiProperty(description = 'Date that the ticket is valid for.')]
-    [DateTime]$ticketDate
+    [Date]$ticketDate
 
     [TicketConfirmation]$confirmationCode
 }

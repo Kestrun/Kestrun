@@ -108,7 +108,7 @@ public class PowerShellOpenApiClassExporterTests
         // Any property typed as EventDates should be emitted as [Date[]].
 
         // Date component
-        var dateType = moduleBuilder.DefineType("Date", TypeAttributes.Public | TypeAttributes.Class, typeof(OaString));
+        var dateType = moduleBuilder.DefineType("Date", TypeAttributes.Public | TypeAttributes.Class, typeof(OpenApiString));
         dateType.SetCustomAttribute(Cab<OpenApiSchemaComponent>([]));
         var dateTypeCreated = dateType.CreateType()!;
 
@@ -141,8 +141,8 @@ public class PowerShellOpenApiClassExporterTests
         datesProp.SetGetMethod(getDates);
         datesProp.SetSetMethod(setDates);
 
-        // EventPrice : OaNumber (should map to [double])
-        var eventPriceType = moduleBuilder.DefineType("EventPrice", TypeAttributes.Public | TypeAttributes.Class, typeof(OaNumber));
+        // EventPrice : OpenApiNumber (should map to [double])
+        var eventPriceType = moduleBuilder.DefineType("EventPrice", TypeAttributes.Public | TypeAttributes.Class, typeof(OpenApiNumber));
         eventPriceType.SetCustomAttribute(Cab<OpenApiSchemaComponent>([]));
         var eventPriceTypeCreated = eventPriceType.CreateType()!;
 
@@ -203,7 +203,7 @@ public class PowerShellOpenApiClassExporterTests
         Assert.DoesNotContain("[EventDates]$Dates", content);
         Assert.DoesNotContain("[Date[]]$Dates", content);
 
-        // Primitive collapsing: EventPrice : OaNumber => [double]
+        // Primitive collapsing: EventPrice : OpenApiNumber => [double]
         Assert.Contains("[double]$Price", content);
         Assert.DoesNotContain("[EventPrice]$Price", content);
     }

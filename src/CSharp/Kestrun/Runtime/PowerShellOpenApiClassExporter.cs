@@ -665,6 +665,30 @@ public static class PowerShellOpenApiClassExporter
         return t.FullName ?? t.Name;
     }
 
+
+    private static readonly Dictionary<Type, string> PrimitiveTypeAliases =
+         new()
+         {
+             [typeof(bool)] = "bool",
+             [typeof(byte)] = "byte",
+             [typeof(sbyte)] = "sbyte",
+             [typeof(short)] = "short",
+             [typeof(ushort)] = "ushort",
+             [typeof(int)] = "int",
+             [typeof(uint)] = "uint",
+             [typeof(long)] = "long",
+             [typeof(ulong)] = "ulong",
+             [typeof(float)] = "float",
+             [typeof(double)] = "double",
+             [typeof(decimal)] = "decimal",
+             [typeof(char)] = "char",
+             [typeof(string)] = "string",
+             [typeof(object)] = "object",
+             [typeof(DateTime)] = "datetime",
+             [typeof(Guid)] = "guid",
+             [typeof(byte[])] = "byte[]"
+         };
+
     /// <summary>
     /// Resolves the PowerShell type name for common .NET primitive types.
     /// </summary>
@@ -672,34 +696,10 @@ public static class PowerShellOpenApiClassExporter
     /// <returns>The PowerShell type name if the type is a recognized primitive; otherwise, null.</returns>
     private static string? ResolvePrimitiveTypeName(Type t)
     {
-        // Unwrap nullable types first
-        if (t.IsGenericType && t.GetGenericTypeDefinition() == typeof(Nullable<>))
-        {
-            t = Nullable.GetUnderlyingType(t)!;
-        }
+        // unwrap nullable if needed
+        t = Nullable.GetUnderlyingType(t) ?? t;
 
-        return t switch
-        {
-            { } when t == typeof(bool) => "bool",
-            { } when t == typeof(byte) => "byte",
-            { } when t == typeof(sbyte) => "sbyte",
-            { } when t == typeof(short) => "short",
-            { } when t == typeof(ushort) => "ushort",
-            { } when t == typeof(int) => "int",
-            { } when t == typeof(uint) => "uint",
-            { } when t == typeof(long) => "long",
-            { } when t == typeof(ulong) => "ulong",
-            { } when t == typeof(float) => "float",
-            { } when t == typeof(double) => "double",
-            { } when t == typeof(decimal) => "decimal",
-            { } when t == typeof(char) => "char",
-            { } when t == typeof(string) => "string",
-            { } when t == typeof(object) => "object",
-            { } when t == typeof(DateTime) => "datetime",
-            { } when t == typeof(Guid) => "guid",
-            { } when t == typeof(byte[]) => "byte[]",
-            _ => null
-        };
+        return PrimitiveTypeAliases.TryGetValue(t, out var alias) ? alias : null;
     }
 
     private static bool TryGetOpenApiValueUnderlyingType(Type t, out Type? underlyingType)

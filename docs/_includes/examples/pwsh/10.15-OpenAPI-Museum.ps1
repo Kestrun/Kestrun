@@ -32,7 +32,7 @@ Add-KrOpenApiInfo -Title 'Redocly Museum API' `
 
 Add-KrOpenApiContact -Email 'team@redocly.com' -Url 'https://redocly.com/docs/cli/'
 Add-KrOpenApiLicense -Name 'MIT' -Url 'https://opensource.org/license/mit/'
-Add-KrOpenApiServer -Url 'https://api.fake-museum-example.com/v1'
+#Add-KrOpenApiServer -Url 'https://api.fake-museum-example.com/v1'
 
 # TODO: info.x-logo is not modeled yet (url + altText). Add an extension attribute when available.
 
@@ -52,7 +52,7 @@ Add-KrOpenApiTag -Name 'Tickets' -Description 'Museum tickets for general entran
     Required = ('date', 'timeOpen', 'timeClose'))]
 class MuseumDailyHours {
     [OpenApiProperty(Description = 'Date the operating hours apply to.', Example = '2024-12-31')]
-    [Date]$date
+    [DateTime]$date
 
     [OpenApiProperty(Description = 'Time the museum opens on a specific date. Uses 24 hour time format (`HH:mm`).', Example = '09:00')]
     [ValidatePattern('^([01]\d|2[0-3]):([0-5]\d)$')]
@@ -197,7 +197,7 @@ class BuyMuseumTicketsRequest {
     [EventId]$eventId
 
     [OpenApiProperty(Format = 'date', Description = 'Date that the ticket is valid for.')]
-    [Date]$ticketDate
+    [DateTime]$ticketDate
 
     [OpenApiProperty(Format = 'email')]
     [Email]$email
@@ -217,7 +217,7 @@ class BuyMuseumTicketsResponse {
     [TicketType]$ticketType
 
     [OpenApiProperty(description = 'Date that the ticket is valid for.')]
-    [Date]$ticketDate
+    [DateTime]$ticketDate
 
     [TicketConfirmation]$confirmationCode
 }
@@ -543,13 +543,13 @@ function getMuseumHours {
     # Dummy payload approximating GetMuseumHoursResponse (wrapped object with items[]).
     $hours = @(
         [MuseumDailyHours]@{
-            date = (if ($startDate) { $startDate } else { (Get-Date).ToString('yyyy-MM-dd') })
+            date = $(if ($startDate) { $startDate } else { (Get-Date).ToString('yyyy-MM-dd') })
             timeOpen = '09:00'
             timeClose = '18:00'
         }
     )
-    $resp = [GetMuseumHoursResponse]::new()
-    $resp.items = $hours
+    $resp = @()
+    $resp += $hours
     Write-KrJsonResponse $resp -StatusCode 200
 }
 

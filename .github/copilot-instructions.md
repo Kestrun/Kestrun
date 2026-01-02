@@ -481,6 +481,58 @@ To register reusable schemas under `components.schemas`, decorate PowerShell cla
 
 If you reference a type in request/response and it is not showing up in `components.schemas`, it usually means the class was not marked as a schema component.
 
+### Primitive schema types (OpenApiString / OpenApiNumber / ...)
+
+Kestrun includes OpenAPI **primitive wrapper types** that are treated as primitives by the generator:
+
+- `OpenApiString`
+- `OpenApiInteger`
+- `OpenApiNumber`
+- `OpenApiBoolean`
+
+Use these wrappers as a base class to create **reusable primitive schema components**.
+
+#### When to use native types vs primitive components
+
+- Use native types (`[string]`, `[int]`, `[datetime]`, etc.) when you just need an inline primitive schema.
+- Use a derived OpenApi primitive component when you need a named reusable schema under `components.schemas` and `$ref` references.
+
+#### Pattern: define a reusable primitive component
+
+Define a PowerShell class that inherits from an OpenApi primitive wrapper and decorate it with `[OpenApiSchemaComponent]`:
+
+```powershell
+[OpenApiSchemaComponent(Format = 'date', Example = '2023-10-29')]
+class Date : OpenApiString {}
+```
+
+Then use it as a property type anywhere you want `$ref`:
+
+```powershell
+[OpenApiSchemaComponent(Required = ('ticketDate'))]
+class BuyTicketRequest {
+    [OpenApiProperty(Description = 'Date that the ticket is valid for.')]
+    [Date]$ticketDate
+}
+```
+
+#### Arrays of reusable primitives
+
+To model an array of a reusable primitive, define another schema component with `Array = $true` and inherit from the primitive component:
+
+```powershell
+[OpenApiSchemaComponent(Description = 'List of planned dates', Array = $true)]
+class EventDates : Date {}
+```
+
+#### Rules / gotchas (important)
+
+- Do **not** expect the base primitive wrappers themselves (like `OpenApiString`) to appear in `components.schemas`.
+  Only your **derived** types that are marked with `[OpenApiSchemaComponent]` should become components.
+- If you want a `date` (not `date-time`) field represented via `$ref`, use a component like `[Date]` rather than `[datetime]`.
+- Put `Format`/`Example`/`Enum` on the **component** (`[OpenApiSchemaComponent(...)]`) so you don't have to repeat metadata on every property.
+- If a derived primitive component is missing from `components.schemas`, first verify it has `[OpenApiSchemaComponent]`.
+
 ### Callbacks vs webhooks
 
 - **Callbacks** are operation-scoped, live under `paths.{path}.{verb}.callbacks`.

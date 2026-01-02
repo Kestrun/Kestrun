@@ -7,6 +7,46 @@ namespace KestrunTests.Runtime;
 
 public class PowerShellOpenApiClassExporterTests
 {
+    // Static component types for ToPowerShellTypeName coverage (simpler than Reflection.Emit)
+    [OpenApiSchemaComponent]
+    private sealed class TypeNameCoverageComponent
+    {
+        public bool Bool { get; set; }
+        public byte Byte { get; set; }
+        public sbyte SByte { get; set; }
+        public short Short { get; set; }
+        public ushort UShort { get; set; }
+        public int Int { get; set; }
+        public uint UInt { get; set; }
+        public long Long { get; set; }
+        public ulong ULong { get; set; }
+        public float Float { get; set; }
+        public double Double { get; set; }
+        public decimal Decimal { get; set; }
+        public char Char { get; set; }
+        public string String { get; set; } = string.Empty;
+        public object Object { get; set; } = new();
+        public DateTime DateTime { get; set; }
+        public Guid Guid { get; set; }
+        public byte[] Bytes { get; set; } = [];
+
+        // Nullable branch
+        public int? NullableInt { get; set; }
+        public Guid? NullableGuid { get; set; }
+
+        // Arrays branch
+        public int[] Ints { get; set; } = [];
+
+        // Fallback branch (not a primitive alias and not a component)
+        public System.Net.IPAddress? Address { get; set; }
+
+        // OpenApiValue<T> collapsing branch
+        public OpenApiString? WrappedString { get; set; }
+        public OpenApiInteger? WrappedInteger { get; set; }
+        public OpenApiNumber? WrappedNumber { get; set; }
+        public OpenApiBoolean? WrappedBoolean { get; set; }
+    }
+
     private static Assembly BuildDynamicAssemblyWithComponents()
     {
         var asmName = new AssemblyName("Dynamic.OpenApiComponents");
@@ -206,5 +246,133 @@ public class PowerShellOpenApiClassExporterTests
         // Primitive collapsing: EventPrice : OpenApiNumber => [double]
         Assert.Contains("[double]$Price", content);
         Assert.DoesNotContain("[EventPrice]$Price", content);
+    }
+
+    [Fact]
+    public void ExportOpenApiClasses_ExportsCallbackFunctionStubs_StripsAttributes_AndDetectsBodyParameter()
+    {
+        var callbacks = new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            // Intentionally unsorted casing; exporter sorts by key with OrdinalIgnoreCase
+            ["zetaCallback"] = @"
+function zetaCallback {
+    [OpenApiCallback(Expression = '$request.body#/callbackUrls/status', HttpVerb = 'post', Pattern = '/v1/payments/{paymentId}/status', Inline = $true)]
+    param(
+        [OpenApiParameter(In = 'path', Required = $true)]
+        [string]$paymentId,
+
+        [OpenApiRequestBody(ContentType = 'application/json')]
+        [PaymentStatusChangedEvent]$Payload
+    )
+    Write-Host 'ignored'
+}
+",
+            ["AlphaCallback"] = @"
+function AlphaCallback {
+    param(
+        [Parameter(Mandatory = $true)]
+        [int]$Count
+    )
+}
+"
+        };
+
+        var path = PowerShellOpenApiClassExporter.ExportOpenApiClasses(assemblies: [], userCallbacks: callbacks);
+
+        Assert.True(File.Exists(path));
+        var content = File.ReadAllText(path);
+
+        Assert.Contains("Kestrun User Callback Functions", content);
+
+        // Ensure callback block is sorted case-insensitively: AlphaCallback before zetaCallback
+        var alphaIdx = content.IndexOf("function AlphaCallback", StringComparison.Ordinal);
+        var zetaIdx = content.IndexOf("function zetaCallback", StringComparison.Ordinal);
+        Assert.True(alphaIdx >= 0, "AlphaCallback not found");
+        Assert.True(zetaIdx >= 0, "zetaCallback not found");
+        Assert.True(alphaIdx < zetaIdx, "Callbacks not sorted by name");
+
+        // Attributes should be stripped from the param block
+        Assert.DoesNotContain("OpenApiCallback", content);
+        Assert.DoesNotContain("OpenApiParameter", content);
+        Assert.DoesNotContain("OpenApiRequestBody", content);
+        Assert.DoesNotContain("Parameter(", content);
+
+        // But type constraints should remain
+        Assert.Contains("[string]$paymentId", content);
+        Assert.Contains("[PaymentStatusChangedEvent]$Payload", content);
+        Assert.Contains("[int]$Count", content);
+
+        // Body parameter should be the one annotated with OpenApiRequestBody
+        Assert.Contains("$bodyParameterName = 'Payload'", content);
+
+        // Wrapper should always call AddCallbackParameters
+        Assert.Contains("$Context.Response.AddCallbackParameters(", content);
+    }
+
+    [Fact]
+    public void ExportOpenApiClasses_ExportsCallbackFunctionStub_WithEmptyParamBlock_WhenNoParamFound()
+    {
+        var callbacks = new Dictionary<string, string>
+        {
+            ["noParamCallback"] = "function noParamCallback { Write-Host 'hi' }"
+        };
+
+        var path = PowerShellOpenApiClassExporter.ExportOpenApiClasses(assemblies: [], userCallbacks: callbacks);
+
+        Assert.True(File.Exists(path));
+        var content = File.ReadAllText(path);
+
+        Assert.Contains("function noParamCallback", content);
+        Assert.Contains("param()", content);
+        Assert.Contains("$bodyParameterName = $null", content);
+        Assert.Contains("$Context.Response.AddCallbackParameters(", content);
+    }
+
+    [Fact]
+    public void ExportOpenApiClasses_MapsPrimitiveAliases_Nullables_Arrays_Fallback_AndOpenApiWrappers()
+    {
+        var asm = typeof(TypeNameCoverageComponent).Assembly;
+        var path = PowerShellOpenApiClassExporter.ExportOpenApiClasses(assemblies: [asm], userCallbacks: null);
+
+        Assert.True(File.Exists(path));
+        var content = File.ReadAllText(path);
+
+        Assert.Contains("class TypeNameCoverageComponent", content);
+
+        // Primitive aliases
+        Assert.Contains("[bool]$Bool", content);
+        Assert.Contains("[byte]$Byte", content);
+        Assert.Contains("[sbyte]$SByte", content);
+        Assert.Contains("[short]$Short", content);
+        Assert.Contains("[ushort]$UShort", content);
+        Assert.Contains("[int]$Int", content);
+        Assert.Contains("[uint]$UInt", content);
+        Assert.Contains("[long]$Long", content);
+        Assert.Contains("[ulong]$ULong", content);
+        Assert.Contains("[float]$Float", content);
+        Assert.Contains("[double]$Double", content);
+        Assert.Contains("[decimal]$Decimal", content);
+        Assert.Contains("[char]$Char", content);
+        Assert.Contains("[string]$String", content);
+        Assert.Contains("[object]$Object", content);
+        Assert.Contains("[datetime]$DateTime", content);
+        Assert.Contains("[guid]$Guid", content);
+        Assert.Contains("[byte[]]$Bytes", content);
+
+        // Nullable
+        Assert.Contains("[Nullable[int]]$NullableInt", content);
+        Assert.Contains("[Nullable[guid]]$NullableGuid", content);
+
+        // Arrays
+        Assert.Contains("[int[]]$Ints", content);
+
+        // Fallback
+        Assert.Contains("[System.Net.IPAddress]$Address", content);
+
+        // OpenApiValue<T> collapsing
+        Assert.Contains("[string]$WrappedString", content);
+        Assert.Contains("[long]$WrappedInteger", content);
+        Assert.Contains("[double]$WrappedNumber", content);
+        Assert.Contains("[bool]$WrappedBoolean", content);
     }
 }

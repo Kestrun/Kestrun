@@ -540,7 +540,7 @@ function getMuseumHours {
 
     Write-Host "getMuseumHours called startDate='$startDate' page='$paginationPage' limit='$paginationLimit'"
 
-    # Dummy payload approximating GetMuseumHoursResponse (wrapped object with items[]).
+    # Dummy payload approximating GetMuseumHoursResponse: a plain array of MuseumDailyHours objects.
     $hours = @(
         [MuseumDailyHours]@{
             date = $(if ($startDate) { $startDate } else { (Get-Date).ToString('yyyy-MM-dd') })

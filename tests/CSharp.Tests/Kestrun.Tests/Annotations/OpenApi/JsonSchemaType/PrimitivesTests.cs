@@ -7,6 +7,8 @@ namespace KestrunTests.Annotations.OpenApi.JsonSchemaType;
 
 public class PrimitivesTests
 {
+    private sealed class NullableStringValue(string? value) : OpenApiValue<string?>(value) { }
+
     [Fact]
     public void OpenApiString_DefaultCtor_IsEmpty_AndRawValueMatches()
     {
@@ -55,6 +57,34 @@ public class PrimitivesTests
     }
 
     [Fact]
+    public void OpenApiInt32_Int64_Float_Double_ImplicitConversions_Work()
+    {
+        OpenApiInt32 i32 = 42;
+        int i32v = i32;
+
+        OpenApiInt64 i64 = 42000000000L;
+        long i64v = i64;
+
+        OpenApiFloat f = 1.25f;
+        float fv = f;
+
+        OpenApiDouble d = 2.5d;
+        double dv = d;
+
+        Assert.Equal(42, i32.Value);
+        Assert.Equal(42, i32v);
+
+        Assert.Equal(42000000000L, i64.Value);
+        Assert.Equal(42000000000L, i64v);
+
+        Assert.Equal(1.25f, f.Value);
+        Assert.Equal(1.25f, fv);
+
+        Assert.Equal(2.5d, d.Value);
+        Assert.Equal(2.5d, dv);
+    }
+
+    [Fact]
     public void OpenApiBinary_ImplicitConversions_Work_AndToStringIsFriendly()
     {
         var bytes = new byte[] { 1, 2, 3 };
@@ -83,12 +113,42 @@ public class PrimitivesTests
     }
 
     [Fact]
+    public void OpenApiHostname_Password_Regex_Json_Yaml_ImplicitFromString_Works()
+    {
+        OpenApiHostname host = "api.example.com";
+        OpenApiPassword pass = "secret";
+        OpenApiRegex regex = "^a+$";
+        OpenApiJson json = /*lang=json,strict*/ "{\"x\":1}";
+        OpenApiYaml yaml = "x: 1";
+
+        Assert.Equal("api.example.com", host.Value);
+        Assert.Equal("secret", pass.Value);
+        Assert.Equal("^a+$", regex.Value);
+        Assert.Equal(/*lang=json,strict*/ "{\"x\":1}", json.Value);
+        Assert.Equal("x: 1", yaml.Value);
+
+        // All of these inherit OpenApiString.
+        Assert.Equal(host.Value, host.RawValue);
+        Assert.Equal(pass.Value, pass.ToString());
+    }
+
+    [Fact]
     public void OpenApiIpv4_FromIPAddress_RejectsNonIpv4()
     {
         var ipv6 = IPAddress.IPv6Loopback;
 
         var ex = Assert.Throws<ArgumentException>(() => new OpenApiIpv4(ipv6));
         Assert.Contains("IPv4", ex.Message);
+    }
+
+    [Fact]
+    public void OpenApiIpv4_FromIPAddress_AcceptsIpv4()
+    {
+        var ipv4 = IPAddress.Parse("127.0.0.1");
+        var v = new OpenApiIpv4(ipv4);
+
+        Assert.Equal("127.0.0.1", v.Value);
+        Assert.Equal("127.0.0.1", v.RawValue);
     }
 
     [Fact]
@@ -109,6 +169,16 @@ public class PrimitivesTests
 
         var ex = Assert.Throws<ArgumentException>(() => new OpenApiIpv6(mapped));
         Assert.Contains("IPv4-mapped", ex.Message);
+    }
+
+    [Fact]
+    public void OpenApiIpv6_FromIPAddress_AcceptsRealIpv6()
+    {
+        var ipv6 = IPAddress.Parse("2001:db8::1");
+        var v = new OpenApiIpv6(ipv6);
+
+        Assert.Equal("2001:db8::1", v.Value);
+        Assert.Equal("2001:db8::1", v.RawValue);
     }
 
     [Fact]
@@ -139,6 +209,15 @@ public class PrimitivesTests
     }
 
     [Fact]
+    public void OpenApiXml_FromString_UsesSameValue()
+    {
+        OpenApiXml x = "<a />";
+
+        Assert.Equal("<a />", x.Value);
+        Assert.Equal("<a />", x.RawValue);
+    }
+
+    [Fact]
     public void FormatSpecificOpenApiStrings_ConstructAndConvert()
     {
         OpenApiUuid uuid = "a54a57ca-36f8-421b-a6b4-2e8f26858a4c";
@@ -154,5 +233,15 @@ public class PrimitivesTests
         // These inherit OpenApiString so ToString/RawValue should behave like a string wrapper.
         Assert.Equal(date.Value, date.ToString());
         Assert.Equal(dt.Value, dt.RawValue);
+    }
+
+    [Fact]
+    public void OpenApiValue_ToString_HandlesNullValue()
+    {
+        var v = new NullableStringValue(null);
+
+        Assert.Null(v.Value);
+        Assert.Null(v.RawValue);
+        Assert.Equal(string.Empty, v.ToString());
     }
 }

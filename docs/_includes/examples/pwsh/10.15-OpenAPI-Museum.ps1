@@ -169,7 +169,7 @@ class EventLocation :OpenApiString {}
 class EventDescription:OpenApiString {}
 
 [OpenApiSchemaComponent(Description = 'Price of a ticket for the special event',
-    format = 'float', Example = 25)]
+    Format = 'float', Example = 25)]
 class EventPrice:OpenApiNumber {}
 
 [OpenApiSchemaComponent(

@@ -665,7 +665,6 @@ public static class PowerShellOpenApiClassExporter
         return t.FullName ?? t.Name;
     }
 
-
     private static readonly Dictionary<Type, string> PrimitiveTypeAliases =
          new()
          {

@@ -191,7 +191,6 @@ public class OpenApiIpv6(string value) : OpenApiString(value)
     }
 }
 
-
 /// <summary>
 /// OpenAPI string/uri format.
 /// </summary>
@@ -244,7 +243,6 @@ public class OpenApiByte(byte[] value) : OpenApiValue<byte[]>(value)
     }
     public override string ToString() => $"base64(byte[{Value.Length}])";
 }
-
 
 /// <summary>
 /// OpenAPI string/password format.

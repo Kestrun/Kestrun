@@ -133,48 +133,48 @@ class ListSpecialEventsResponse:SpecialEventResponse {}
 [OpenApiSchemaComponent(
     Description = 'Type of ticket being purchased. Use `general` for regular entry and `event` for special events.',
     Enum = ('event', 'general'), Example = 'event')]
-class TicketType:OaString {}
+class TicketType:OpenApiString {}
 
 [OpenApiSchemaComponent(
     Description = 'Unique identifier for museum ticket. Generated when purchased.',
     Format = 'uuid', Example = 'a54a57ca-36f8-421b-a6b4-2e8f26858a4c')]
-class TicketId:OaString {}
+class TicketId:OpenApiString {}
 
 [OpenApiSchemaComponent(
     Description = 'Confirmation message after a ticket purchase.',
     Example = 'Museum general entry ticket purchased')]
-class TicketMessage:OaString {}
+class TicketMessage:OpenApiString {}
 
 [OpenApiSchemaComponent(
     Description = 'Unique confirmation code used to verify ticket purchase.',
     Example = 'ticket-event-a98c8f-7eb12')]
-class TicketConfirmation:OaString {}
+class TicketConfirmation:OpenApiString {}
 
 [OpenApiSchemaComponent(Description = 'Identifier for a special event.',
     Format = 'uuid', Example = '3be6453c-03eb-4357-ae5a-984a0e574a54'
 )]
-class eventId:OaString {}
+class eventId:OpenApiString {}
 
 [OpenApiSchemaComponent(Description = 'Name of the special event',
     Example = 'Pirate Coding Workshop'
 )]
-class EventName:OaString {}
+class EventName:OpenApiString {}
 
 [OpenApiSchemaComponent(Description = 'Location where the special event is held.',
     Example = 'Computer Room')]
-class EventLocation :OaString {}
+class EventLocation :OpenApiString {}
 
 [OpenApiSchemaComponent(Description = 'Description of the special event',
     Example = 'Captain Blackbeard shares his love of the C...language. And possibly Arrrrr (R lang).')]
-class EventDescription:OaString {}
+class EventDescription:OpenApiString {}
 
 [OpenApiSchemaComponent(Description = 'Price of a ticket for the special event',
-    format = 'float', Example = 25)]
-class EventPrice:OaNumber {}
+    Format = 'float', Example = 25)]
+class EventPrice:OpenApiNumber {}
 
 [OpenApiSchemaComponent(
     Format = 'date', Example = '2023-10-29')]
-class Date:OaString {}
+class Date:OpenApiString {}
 
 [OpenApiSchemaComponent( Description = 'List of planned dates for the special event',
     Array = $true)]
@@ -182,11 +182,11 @@ class EventDates:Date {}
 
 [OpenApiSchemaComponent(Description = 'Email address for ticket purchaser.',
     Format = 'email', Example = 'museum-lover@example.com')]
-class Email :OaString {}
+class Email :OpenApiString {}
 
 [OpenApiSchemaComponent(Description = 'Phone number for the ticket purchaser (optional).',
     Example = '+1(234)-567-8910')]
-class Phone :OaString {}
+class Phone :OpenApiString {}
 
 [OpenApiSchemaComponent(Description = 'Request payload used for purchasing museum tickets.',
     Required = ('ticketType', 'ticketDate', 'email'))]
@@ -196,7 +196,7 @@ class BuyMuseumTicketsRequest {
     [OpenApiProperty(Format = 'uuid', Description = "Unique identifier for a special event. Required if purchasing tickets for the museum's special events.")]
     [EventId]$eventId
 
-    [OpenApiProperty(Format = 'date', Description = 'Date that the ticket is valid for.')]
+    [OpenApiProperty(Description = 'Date that the ticket is valid for.')]
     [Date]$ticketDate
 
     [OpenApiProperty(Format = 'email')]
@@ -540,16 +540,16 @@ function getMuseumHours {
 
     Write-Host "getMuseumHours called startDate='$startDate' page='$paginationPage' limit='$paginationLimit'"
 
-    # Dummy payload approximating GetMuseumHoursResponse (wrapped object with items[]).
+    # Dummy payload approximating GetMuseumHoursResponse: a plain array of MuseumDailyHours objects.
     $hours = @(
         [MuseumDailyHours]@{
-            date = (if ($startDate) { $startDate } else { (Get-Date).ToString('yyyy-MM-dd') })
+            date = $(if ($startDate) { $startDate } else { (Get-Date).ToString('yyyy-MM-dd') })
             timeOpen = '09:00'
             timeClose = '18:00'
         }
     )
-    $resp = [GetMuseumHoursResponse]::new()
-    $resp.items = $hours
+    $resp = @()
+    $resp += $hours
     Write-KrJsonResponse $resp -StatusCode 200
 }
 

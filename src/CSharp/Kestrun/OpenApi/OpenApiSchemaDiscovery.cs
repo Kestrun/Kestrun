@@ -46,10 +46,14 @@ public static class OpenApiSchemaDiscovery
 
     private static Type[] GetSchemaTypes(System.Reflection.Assembly[] assemblies)
     {
+        var primitivesAssembly = typeof(OpenApiString).Assembly;
+
         return [.. assemblies.SelectMany(asm => asm.GetTypes())
             .Where(t => t.IsClass && !t.IsAbstract &&
-                    !typeof(IOpenApiType).IsAssignableFrom(t) &&
-                    t.IsDefined(typeof(OpenApiSchemaComponent), true))];
+                    t.IsDefined(typeof(OpenApiSchemaComponent), true) &&
+                    // Exclude built-in OpenApi* primitives from auto-discovered components,
+                    // but keep user-defined schema components that inherit those primitives.
+                    !(t.Assembly == primitivesAssembly && typeof(IOpenApiType).IsAssignableFrom(t)))];
     }
 
 #if EXTENDED_OPENAPI

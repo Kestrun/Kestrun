@@ -578,7 +578,7 @@ public static class PowerShellOpenApiClassExporter
         if (baseType != null && baseType != typeof(object))
         {
             // Use PS-friendly type name for the base
-            var basePsName = ToPowerShellTypeName(baseType, componentSet);
+            var basePsName = ToPowerShellTypeName(baseType, componentSet, collapseToUnderlyingPrimitives: false);
             baseClause = $" : {basePsName}";
         }
         _ = sb.AppendLine("[NoRunspaceAffinity()]");
@@ -590,7 +590,7 @@ public static class PowerShellOpenApiClassExporter
 
         foreach (var p in props)
         {
-            var psType = ToPowerShellTypeName(p.PropertyType, componentSet);
+            var psType = ToPowerShellTypeName(p.PropertyType, componentSet, collapseToUnderlyingPrimitives: true);
             _ = sb.AppendLine($"    [{psType}]${p.Name}");
         }
 
@@ -602,55 +602,43 @@ public static class PowerShellOpenApiClassExporter
     /// </summary>
     /// <param name="t"></param>
     /// <param name="componentSet"></param>
+    /// <param name="collapseToUnderlyingPrimitives">When true, types derived from OpenApiValue&lt;T&gt; are emitted as their underlying primitive (e.g., string/double/bool/long).</param>
     /// <returns></returns>
-    private static string ToPowerShellTypeName(Type t, HashSet<Type> componentSet)
+    private static string ToPowerShellTypeName(Type t, HashSet<Type> componentSet, bool collapseToUnderlyingPrimitives)
     {
         // Nullable<T>
         if (Nullable.GetUnderlyingType(t) is Type underlying)
         {
-            return $"Nullable[{ToPowerShellTypeName(underlying, componentSet)}]";
+            return $"Nullable[{ToPowerShellTypeName(underlying, componentSet, collapseToUnderlyingPrimitives)}]";
+        }
+
+        // OpenAPI schema component array wrappers
+        if (ResolveElementArrayType(t, componentSet, collapseToUnderlyingPrimitives) is string arrayTypeName)
+        {
+            return arrayTypeName;
+        }
+
+        // OpenAPI primitive wrappers (PowerShell-friendly):
+        // Many schemas are represented as classes deriving from OpenApiValue<T>
+        // (e.g. OpenApiString/OpenApiNumber/OpenApiBoolean/OpenApiInteger, OpenApiDate, etc.).
+        // When such a schema is referenced as a property type, we want the *real*
+        // PowerShell primitive type constraint (string/double/bool/long) rather than
+        // the wrapper class name.
+        if (collapseToUnderlyingPrimitives && TryGetOpenApiValueUnderlyingType(t, out var openApiValueUnderlying) && openApiValueUnderlying is not null)
+        {
+            return ToPowerShellTypeName(openApiValueUnderlying, componentSet, collapseToUnderlyingPrimitives);
         }
 
         // Primitive mappings
-        if (t == typeof(long))
+        if (ResolvePrimitiveTypeName(t) is string primitiveName)
         {
-            return "long";
-        }
-
-        if (t == typeof(int))
-        {
-            return "int";
-        }
-
-        if (t == typeof(bool))
-        {
-            return "bool";
-        }
-
-        if (t == typeof(string))
-        {
-            return "string";
-        }
-
-        if (t == typeof(double))
-        {
-            return "double";
-        }
-
-        if (t == typeof(float))
-        {
-            return "single";
-        }
-
-        if (t == typeof(object))
-        {
-            return "object";
+            return primitiveName;
         }
 
         // Arrays
         if (t.IsArray)
         {
-            var element = ToPowerShellTypeName(t.GetElementType()!, componentSet);
+            var element = ToPowerShellTypeName(t.GetElementType()!, componentSet, collapseToUnderlyingPrimitives);
             return $"{element}[]";
         }
 
@@ -663,6 +651,140 @@ public static class PowerShellOpenApiClassExporter
 
         // Fallback for other reference types (you can change to t.Name if you prefer)
         return t.FullName ?? t.Name;
+    }
+
+    /// <summary>
+    /// Resolves the PowerShell type name for OpenAPI array wrapper components.
+    /// </summary>
+    /// <param name="t">The .NET type to resolve.</param>
+    /// <param name="componentSet">The set of known OpenAPI component types.</param>
+    /// <param name="collapseToUnderlyingPrimitives">When true, types derived from OpenApiValue&lt;T&gt; are emitted as their underlying primitive (e.g., string/double/bool/long).</param>
+    /// <returns>The PowerShell type name for the array element if applicable; otherwise, null.</returns>
+    private static string? ResolveElementArrayType(Type t, HashSet<Type> componentSet, bool collapseToUnderlyingPrimitives)
+    {
+        // OpenAPI schema component array wrappers:
+        // Some PowerShell OpenAPI schemas are modeled as a component class with Array=$true,
+        // typically inheriting from the element schema type (e.g. EventDates : Date).
+        // When referenced as a property type, we want the PowerShell type constraint to be
+        // the element array (e.g. [Date[]]) instead of the wrapper class ([EventDates]).
+        // IMPORTANT: this must run before OpenApiValue<T> collapsing so wrappers don't lose their array-ness.
+        if (collapseToUnderlyingPrimitives && componentSet.Contains(t) && TryGetArrayComponentElementType(t, out var elementType) && elementType is not null)
+        {
+            // Guard against pathological self-references.
+            if (elementType == t)
+            {
+                return t.Name;
+            }
+
+            var elementPsName = ToPowerShellTypeName(elementType, componentSet, collapseToUnderlyingPrimitives);
+            return $"{elementPsName}[]";
+        }
+        return null;
+    }
+
+    // Mapping of .NET primitive types to PowerShell type names.
+    private static readonly Dictionary<Type, string> PrimitiveTypeAliases =
+         new()
+         {
+             [typeof(bool)] = "bool",
+             [typeof(byte)] = "byte",
+             [typeof(sbyte)] = "sbyte",
+             [typeof(short)] = "short",
+             [typeof(ushort)] = "ushort",
+             [typeof(int)] = "int",
+             [typeof(uint)] = "uint",
+             [typeof(long)] = "long",
+             [typeof(ulong)] = "ulong",
+             [typeof(float)] = "float",
+             [typeof(double)] = "double",
+             [typeof(decimal)] = "decimal",
+             [typeof(char)] = "char",
+             [typeof(string)] = "string",
+             [typeof(object)] = "object",
+             [typeof(DateTime)] = "datetime",
+             [typeof(Guid)] = "guid",
+             [typeof(byte[])] = "byte[]"
+         };
+
+    /// <summary>
+    /// Resolves the PowerShell type name for common .NET primitive types.
+    /// </summary>
+    /// <param name="t">The .NET type to resolve.</param>
+    /// <returns>The PowerShell type name if the type is a recognized primitive; otherwise, null.</returns>
+    private static string? ResolvePrimitiveTypeName(Type t)
+    {
+        // unwrap nullable if needed
+        t = Nullable.GetUnderlyingType(t) ?? t;
+
+        return PrimitiveTypeAliases.TryGetValue(t, out var alias) ? alias : null;
+    }
+
+    private static bool TryGetOpenApiValueUnderlyingType(Type t, out Type? underlyingType)
+    {
+        underlyingType = null;
+
+        // Walk base types looking for OpenApiValue<T> (by name to avoid hard coupling).
+        // OpenApiValue<T> lives in Kestrun.Annotations and is in the global namespace.
+        var current = t;
+
+        while (current is not null && current != typeof(object))
+        {
+            if (current.IsGenericType)
+            {
+                var def = current.GetGenericTypeDefinition();
+                if (string.Equals(def.Name, "OpenApiValue`1", StringComparison.Ordinal))
+                {
+                    underlyingType = current.GetGenericArguments()[0];
+                    return true;
+                }
+            }
+
+            current = current.BaseType;
+        }
+
+        return false;
+    }
+
+    private static bool TryGetArrayComponentElementType(Type componentType, out Type? elementType)
+    {
+        elementType = null;
+
+        // We don't take a hard dependency on the annotation type here; this exporter
+        // may reflect PowerShell-generated assemblies. We detect the attribute by name
+        // and then read common properties via reflection.
+        var attr = componentType
+            .GetCustomAttributes(inherit: false)
+            .FirstOrDefault(a => a.GetType().Name.Contains("OpenApiSchemaComponent", StringComparison.OrdinalIgnoreCase));
+
+        if (attr is null)
+        {
+            return false;
+        }
+
+        var attrType = attr.GetType();
+        var arrayProp = attrType.GetProperty("Array");
+        if (arrayProp?.GetValue(attr) is not bool isArray || !isArray)
+        {
+            return false;
+        }
+
+        // Prefer explicit ItemsType if provided.
+        var itemsTypeProp = attrType.GetProperty("ItemsType");
+        if (itemsTypeProp?.GetValue(attr) is Type itemsType)
+        {
+            elementType = itemsType;
+            return true;
+        }
+
+        // Common PowerShell pattern: wrapper inherits from element schema.
+        var baseType = componentType.BaseType;
+        if (baseType is not null && baseType != typeof(object))
+        {
+            elementType = baseType;
+            return true;
+        }
+
+        return false;
     }
 
     /// <summary>

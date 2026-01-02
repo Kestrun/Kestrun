@@ -301,13 +301,65 @@ public class OpenApiBoolean(bool value) : OpenApiValue<bool>(value)
 // ——— Schema kind markers (your existing “Oa*” types) ———
 
 /// <summary>OpenAPI Schema primitive/object kinds.</summary>
-public class OaString { }
+public class OaString : OpenApiValue<string>
+{
+    public OaString(string value) : base(value) { }
+    public OaString() : base("") { }
+    public static implicit operator string(OaString x)
+    {
+        return x.Value;
+    }
+
+    public static implicit operator OaString(string x)
+    {
+        return new(x);
+    }
+}
 
 /// <summary>OpenAPI Schema primitive/object kinds.</summary>
-public class OaNumber { }
+public class OaNumber : OpenApiValue<double>
+{
+    public OaNumber(double value) : base(value) { }
+    public OaNumber() : base(0) { }
+    public static implicit operator double(OaNumber x)
+    {
+        return x.Value;
+    }
+
+    public static implicit operator OaNumber(double x)
+    {
+        return new(x);
+    }
+}
 
 /// <summary>OpenAPI Schema primitive/object kinds.</summary>
-public class OaInteger { }
+public class OaInteger : OpenApiValue<long>
+{
+    public OaInteger(long value) : base(value) { }
+    public OaInteger() : base(0) { }
+    public static implicit operator long(OaInteger x)
+    {
+        return x.Value;
+    }
+
+    public static implicit operator OaInteger(long x)
+    {
+        return new(x);
+    }
+}
 
 /// <summary>OpenAPI Schema primitive/object kinds.</summary>
-public class OaBoolean { }
+public class OaBoolean : OpenApiValue<bool>
+{
+    public OaBoolean(bool value) : base(value) { }
+    public OaBoolean() : base(false) { }
+    public static implicit operator bool(OaBoolean x)
+    {
+        return x.Value;
+    }
+
+    public static implicit operator OaBoolean(bool x)
+    {
+        return new(x);
+    }
+}

@@ -611,6 +611,23 @@ public static class PowerShellOpenApiClassExporter
             return $"Nullable[{ToPowerShellTypeName(underlying, componentSet)}]";
         }
 
+        // OpenAPI schema component array wrappers:
+        // Some PowerShell OpenAPI schemas are modeled as a component class with Array=$true,
+        // typically inheriting from the element schema type (e.g. EventDates : Date).
+        // When referenced as a property type, we want the PowerShell type constraint to be
+        // the element array (e.g. [Date[]]) instead of the wrapper class ([EventDates]).
+        if (componentSet.Contains(t) && TryGetArrayComponentElementType(t, out var elementType) && elementType is not null)
+        {
+            // Guard against pathological self-references.
+            if (elementType == t)
+            {
+                return t.Name;
+            }
+
+            var elementPsName = ToPowerShellTypeName(elementType, componentSet);
+            return $"{elementPsName}[]";
+        }
+
         // Primitive mappings
         if (t == typeof(long))
         {
@@ -663,6 +680,48 @@ public static class PowerShellOpenApiClassExporter
 
         // Fallback for other reference types (you can change to t.Name if you prefer)
         return t.FullName ?? t.Name;
+    }
+
+    private static bool TryGetArrayComponentElementType(Type componentType, out Type? elementType)
+    {
+        elementType = null;
+
+        // We don't take a hard dependency on the annotation type here; this exporter
+        // may reflect PowerShell-generated assemblies. We detect the attribute by name
+        // and then read common properties via reflection.
+        var attr = componentType
+            .GetCustomAttributes(inherit: false)
+            .FirstOrDefault(a => a.GetType().Name.Contains("OpenApiSchemaComponent", StringComparison.OrdinalIgnoreCase));
+
+        if (attr is null)
+        {
+            return false;
+        }
+
+        var attrType = attr.GetType();
+        var arrayProp = attrType.GetProperty("Array");
+        if (arrayProp?.GetValue(attr) is not bool isArray || !isArray)
+        {
+            return false;
+        }
+
+        // Prefer explicit ItemsType if provided.
+        var itemsTypeProp = attrType.GetProperty("ItemsType");
+        if (itemsTypeProp?.GetValue(attr) is Type itemsType)
+        {
+            elementType = itemsType;
+            return true;
+        }
+
+        // Common PowerShell pattern: wrapper inherits from element schema.
+        var baseType = componentType.BaseType;
+        if (baseType is not null && baseType != typeof(object))
+        {
+            elementType = baseType;
+            return true;
+        }
+
+        return false;
     }
 
     /// <summary>

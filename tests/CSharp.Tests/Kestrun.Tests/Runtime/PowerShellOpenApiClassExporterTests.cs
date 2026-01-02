@@ -102,6 +102,46 @@ public class PowerShellOpenApiClassExporterTests
         // Finalize the Pet type so it can be loaded by reflection
         _ = petType.CreateType();
 
+        // ---------------------------------------------------------
+        // Array-wrapper schema component pattern:
+        //   [OpenApiSchemaComponent(Array=true)] class EventDates : Date {}
+        // Any property typed as EventDates should be emitted as [Date[]].
+
+        // Date component
+        var dateType = moduleBuilder.DefineType("Date", TypeAttributes.Public | TypeAttributes.Class);
+        dateType.SetCustomAttribute(Cab<OpenApiSchemaComponent>([]));
+        var dateTypeCreated = dateType.CreateType()!;
+
+        // EventDates component: Array = true, inherits from Date
+        var eventDatesType = moduleBuilder.DefineType("EventDates", TypeAttributes.Public | TypeAttributes.Class, dateTypeCreated);
+        {
+            var ctor = typeof(OpenApiSchemaComponent).GetConstructors().First();
+            var arrayProp = typeof(OpenApiSchemaComponent).GetProperty("Array")!;
+            var cabArray = new CustomAttributeBuilder(ctor, [], [arrayProp], [true]);
+            eventDatesType.SetCustomAttribute(cabArray);
+        }
+        var eventDatesTypeCreated = eventDatesType.CreateType()!;
+
+        // UpdateSpecialEventRequest component referencing EventDates
+        var updateType = moduleBuilder.DefineType("UpdateSpecialEventRequest", TypeAttributes.Public | TypeAttributes.Class);
+        updateType.SetCustomAttribute(Cab<OpenApiSchemaComponent>([]));
+        var datesField = updateType.DefineField("_Dates", eventDatesTypeCreated, FieldAttributes.Private);
+        var datesProp = updateType.DefineProperty("Dates", PropertyAttributes.None, eventDatesTypeCreated, Type.EmptyTypes);
+        var getDates = updateType.DefineMethod("get_Dates", MethodAttributes.Public | MethodAttributes.SpecialName | MethodAttributes.HideBySig, eventDatesTypeCreated, Type.EmptyTypes);
+        var ilGetDates = getDates.GetILGenerator();
+        ilGetDates.Emit(OpCodes.Ldarg_0);
+        ilGetDates.Emit(OpCodes.Ldfld, datesField);
+        ilGetDates.Emit(OpCodes.Ret);
+        var setDates = updateType.DefineMethod("set_Dates", MethodAttributes.Public | MethodAttributes.SpecialName | MethodAttributes.HideBySig, null, [eventDatesTypeCreated]);
+        var ilSetDates = setDates.GetILGenerator();
+        ilSetDates.Emit(OpCodes.Ldarg_0);
+        ilSetDates.Emit(OpCodes.Ldarg_1);
+        ilSetDates.Emit(OpCodes.Stfld, datesField);
+        ilSetDates.Emit(OpCodes.Ret);
+        datesProp.SetGetMethod(getDates);
+        datesProp.SetSetMethod(setDates);
+        _ = updateType.CreateType();
+
         return asmBuilder;
     }
 
@@ -133,5 +173,11 @@ public class PowerShellOpenApiClassExporterTests
 
         // Array mapping
         Assert.Contains("[string[]]$Tags", content);
+
+        // Array-wrapper mapping: EventDates should render as Date[] when referenced
+        Assert.Contains("class EventDates : Date {", content);
+        Assert.Contains("class UpdateSpecialEventRequest {", content);
+        Assert.Contains("[Date[]]$Dates", content);
+        Assert.DoesNotContain("[EventDates]$Dates", content);
     }
 }

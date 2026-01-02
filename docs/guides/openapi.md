@@ -382,6 +382,54 @@ To define a schema that is a list of other objects, use inheritance and the `Arr
 class UserList : User {}
 ```
 
+### 4.4 Primitive Schema Components (OpenApiString / OpenApiNumber / ...)
+
+Kestrun supports two common ways to model **primitive** values in OpenAPI:
+
+1. Use a native PowerShell/.NET type (e.g. `[string]`, `[int]`, `[datetime]`).
+2. Create a **reusable primitive schema component** by deriving from Kestrun's OpenAPI primitive wrapper types:
+   - `OpenApiString`
+   - `OpenApiInteger`
+   - `OpenApiNumber`
+   - `OpenApiBoolean`
+
+Use option (2) when you want:
+
+- A named, reusable component under `components.schemas`.
+- Other schemas to reference it via `$ref`.
+- A single place to define `format`, `enum`, and/or `example` for a primitive.
+
+#### 4.4.1 Example: reusable `Date` primitive
+
+Define a schema component that represents an OpenAPI `string` with `format: date`:
+
+```powershell
+[OpenApiSchemaComponent(Format = 'date', Example = '2023-10-29')]
+class Date : OpenApiString {}
+```
+
+Use it in your other schemas to produce `$ref` references:
+
+```powershell
+[OpenApiSchemaComponent(Required = ('ticketDate'))]
+class BuyTicketRequest {
+    [OpenApiProperty(Description = 'Date that the ticket is valid for.')]
+    [Date]$ticketDate
+}
+```
+
+#### 4.4.2 Arrays of primitives
+
+If you want an array of a reusable primitive, define another component with `Array = $true` and inherit from the primitive component:
+
+```powershell
+[OpenApiSchemaComponent(Description = 'List of planned dates', Array = $true)]
+class EventDates : Date {}
+```
+
+> **Tip:** If you *don’t* need a reusable component (no `$ref`), use the native type directly
+> (e.g. `[datetime]` / `[datetime[]]`) and set `Format`/`Example` on the property with `[OpenApiProperty]`.
+
 ---
 
 ## 5. Component Request Bodies

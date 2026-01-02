@@ -108,7 +108,7 @@ public class PowerShellOpenApiClassExporterTests
         // Any property typed as EventDates should be emitted as [Date[]].
 
         // Date component
-        var dateType = moduleBuilder.DefineType("Date", TypeAttributes.Public | TypeAttributes.Class);
+        var dateType = moduleBuilder.DefineType("Date", TypeAttributes.Public | TypeAttributes.Class, typeof(OaString));
         dateType.SetCustomAttribute(Cab<OpenApiSchemaComponent>([]));
         var dateTypeCreated = dateType.CreateType()!;
 
@@ -140,6 +140,28 @@ public class PowerShellOpenApiClassExporterTests
         ilSetDates.Emit(OpCodes.Ret);
         datesProp.SetGetMethod(getDates);
         datesProp.SetSetMethod(setDates);
+
+        // EventPrice : OaNumber (should map to [double])
+        var eventPriceType = moduleBuilder.DefineType("EventPrice", TypeAttributes.Public | TypeAttributes.Class, typeof(OaNumber));
+        eventPriceType.SetCustomAttribute(Cab<OpenApiSchemaComponent>([]));
+        var eventPriceTypeCreated = eventPriceType.CreateType()!;
+
+        var priceField = updateType.DefineField("_Price", eventPriceTypeCreated, FieldAttributes.Private);
+        var priceProp = updateType.DefineProperty("Price", PropertyAttributes.None, eventPriceTypeCreated, Type.EmptyTypes);
+        var getPrice = updateType.DefineMethod("get_Price", MethodAttributes.Public | MethodAttributes.SpecialName | MethodAttributes.HideBySig, eventPriceTypeCreated, Type.EmptyTypes);
+        var ilGetPrice = getPrice.GetILGenerator();
+        ilGetPrice.Emit(OpCodes.Ldarg_0);
+        ilGetPrice.Emit(OpCodes.Ldfld, priceField);
+        ilGetPrice.Emit(OpCodes.Ret);
+        var setPrice = updateType.DefineMethod("set_Price", MethodAttributes.Public | MethodAttributes.SpecialName | MethodAttributes.HideBySig, null, [eventPriceTypeCreated]);
+        var ilSetPrice = setPrice.GetILGenerator();
+        ilSetPrice.Emit(OpCodes.Ldarg_0);
+        ilSetPrice.Emit(OpCodes.Ldarg_1);
+        ilSetPrice.Emit(OpCodes.Stfld, priceField);
+        ilSetPrice.Emit(OpCodes.Ret);
+        priceProp.SetGetMethod(getPrice);
+        priceProp.SetSetMethod(setPrice);
+
         _ = updateType.CreateType();
 
         return asmBuilder;
@@ -177,7 +199,12 @@ public class PowerShellOpenApiClassExporterTests
         // Array-wrapper mapping: EventDates should render as Date[] when referenced
         Assert.Contains("class EventDates : Date {", content);
         Assert.Contains("class UpdateSpecialEventRequest {", content);
-        Assert.Contains("[Date[]]$Dates", content);
+        Assert.Contains("[string[]]$Dates", content);
         Assert.DoesNotContain("[EventDates]$Dates", content);
+        Assert.DoesNotContain("[Date[]]$Dates", content);
+
+        // Primitive collapsing: EventPrice : OaNumber => [double]
+        Assert.Contains("[double]$Price", content);
+        Assert.DoesNotContain("[EventPrice]$Price", content);
     }
 }

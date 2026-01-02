@@ -702,7 +702,6 @@ public static class PowerShellOpenApiClassExporter
         };
     }
 
-
     private static bool TryGetOpenApiValueUnderlyingType(Type t, out Type? underlyingType)
     {
         underlyingType = null;

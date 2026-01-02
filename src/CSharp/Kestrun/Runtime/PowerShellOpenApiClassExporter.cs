@@ -578,7 +578,7 @@ public static class PowerShellOpenApiClassExporter
         if (baseType != null && baseType != typeof(object))
         {
             // Use PS-friendly type name for the base
-            var basePsName = ToPowerShellTypeName(baseType, componentSet, collapseOpenApiValueTypes: false);
+            var basePsName = ToPowerShellTypeName(baseType, componentSet, collapseToUnderlyingPrimitives: false);
             baseClause = $" : {basePsName}";
         }
         _ = sb.AppendLine("[NoRunspaceAffinity()]");
@@ -590,7 +590,7 @@ public static class PowerShellOpenApiClassExporter
 
         foreach (var p in props)
         {
-            var psType = ToPowerShellTypeName(p.PropertyType, componentSet, collapseOpenApiValueTypes: true);
+            var psType = ToPowerShellTypeName(p.PropertyType, componentSet, collapseToUnderlyingPrimitives: true);
             _ = sb.AppendLine($"    [{psType}]${p.Name}");
         }
 
@@ -602,14 +602,14 @@ public static class PowerShellOpenApiClassExporter
     /// </summary>
     /// <param name="t"></param>
     /// <param name="componentSet"></param>
-    /// <param name="collapseOpenApiValueTypes">When true, types derived from OpenApiValue&lt;T&gt; are emitted as their underlying primitive (e.g., string/double/bool/long).</param>
+    /// <param name="collapseToUnderlyingPrimitives">When true, types derived from OpenApiValue&lt;T&gt; are emitted as their underlying primitive (e.g., string/double/bool/long).</param>
     /// <returns></returns>
-    private static string ToPowerShellTypeName(Type t, HashSet<Type> componentSet, bool collapseOpenApiValueTypes)
+    private static string ToPowerShellTypeName(Type t, HashSet<Type> componentSet, bool collapseToUnderlyingPrimitives)
     {
         // Nullable<T>
         if (Nullable.GetUnderlyingType(t) is Type underlying)
         {
-            return $"Nullable[{ToPowerShellTypeName(underlying, componentSet, collapseOpenApiValueTypes)}]";
+            return $"Nullable[{ToPowerShellTypeName(underlying, componentSet, collapseToUnderlyingPrimitives)}]";
         }
 
         // OpenAPI schema component array wrappers:
@@ -618,7 +618,7 @@ public static class PowerShellOpenApiClassExporter
         // When referenced as a property type, we want the PowerShell type constraint to be
         // the element array (e.g. [Date[]]) instead of the wrapper class ([EventDates]).
         // IMPORTANT: this must run before OpenApiValue<T> collapsing so wrappers don't lose their array-ness.
-        if (collapseOpenApiValueTypes && componentSet.Contains(t) && TryGetArrayComponentElementType(t, out var elementType) && elementType is not null)
+        if (collapseToUnderlyingPrimitives && componentSet.Contains(t) && TryGetArrayComponentElementType(t, out var elementType) && elementType is not null)
         {
             // Guard against pathological self-references.
             if (elementType == t)
@@ -626,7 +626,7 @@ public static class PowerShellOpenApiClassExporter
                 return t.Name;
             }
 
-            var elementPsName = ToPowerShellTypeName(elementType, componentSet, collapseOpenApiValueTypes);
+            var elementPsName = ToPowerShellTypeName(elementType, componentSet, collapseToUnderlyingPrimitives);
             return $"{elementPsName}[]";
         }
 
@@ -636,9 +636,9 @@ public static class PowerShellOpenApiClassExporter
         // When such a schema is referenced as a property type, we want the *real*
         // PowerShell primitive type constraint (string/double/bool/long) rather than
         // the wrapper class name.
-        if (collapseOpenApiValueTypes && TryGetOpenApiValueUnderlyingType(t, out var openApiValueUnderlying) && openApiValueUnderlying is not null)
+        if (collapseToUnderlyingPrimitives && TryGetOpenApiValueUnderlyingType(t, out var openApiValueUnderlying) && openApiValueUnderlying is not null)
         {
-            return ToPowerShellTypeName(openApiValueUnderlying, componentSet, collapseOpenApiValueTypes);
+            return ToPowerShellTypeName(openApiValueUnderlying, componentSet, collapseToUnderlyingPrimitives);
         }
 
         // Primitive mappings
@@ -650,7 +650,7 @@ public static class PowerShellOpenApiClassExporter
         // Arrays
         if (t.IsArray)
         {
-            var element = ToPowerShellTypeName(t.GetElementType()!, componentSet, collapseOpenApiValueTypes);
+            var element = ToPowerShellTypeName(t.GetElementType()!, componentSet, collapseToUnderlyingPrimitives);
             return $"{element}[]";
         }
 

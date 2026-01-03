@@ -1,4 +1,5 @@
 using System.Collections;
+using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Management.Automation;
 using Kestrun.Languages;
@@ -36,7 +37,7 @@ public class ParameterForInjectionInfoTests
                         _ => Task.CompletedTask,
                         RoutePatternFactory.Parse(path),
                         order: 0,
-                        metadata: new EndpointMetadataCollection(parameters),
+                        metadata: new EndpointMetadataCollection((object)parameters),
                         displayName: "TestEndpoint"));
             });
     }
@@ -93,8 +94,8 @@ public class ParameterForInjectionInfoTests
     public void Ctor_FromOpenApiParameter_ThrowsOnNulls()
     {
         var metadata = new ParameterMetadata("id", typeof(int));
-        Assert.Throws<ArgumentNullException>(() => new ParameterForInjectionInfo(metadata, (OpenApiParameter?)null!));
-        Assert.Throws<ArgumentNullException>(() => new ParameterForInjectionInfo((ParameterMetadata)null!, new OpenApiParameter()));
+        _ = Assert.Throws<ArgumentNullException>(() => new ParameterForInjectionInfo(metadata, (OpenApiParameter?)null!));
+        _ = Assert.Throws<ArgumentNullException>(() => new ParameterForInjectionInfo(null!, new OpenApiParameter()));
     }
 
     [Fact]
@@ -106,7 +107,7 @@ public class ParameterForInjectionInfoTests
 
         var requestBody = new OpenApiRequestBody
         {
-            Content = new Dictionary<string, OpenApiMediaType>
+            Content = new Dictionary<string, IOpenApiMediaType>
             {
                 ["application/json"] = new OpenApiMediaType
                 {
@@ -137,11 +138,11 @@ public class ParameterForInjectionInfoTests
 
         var requestBody = new OpenApiRequestBody
         {
-            Content = new Dictionary<string, OpenApiMediaType>
+            Content = new Dictionary<string, IOpenApiMediaType>
             {
                 ["application/json"] = new OpenApiMediaType
                 {
-                    Schema = new OpenApiSchemaReference()
+                    Schema = new OpenApiSchemaReference("TestSchema")
                 }
             }
         };
@@ -209,7 +210,7 @@ public class ParameterForInjectionInfoTests
         var metadata = new ParameterMetadata("body", typeof(object));
         var requestBody = new OpenApiRequestBody
         {
-            Content = new Dictionary<string, OpenApiMediaType>
+            Content = new Dictionary<string, IOpenApiMediaType>
             {
                 ["application/json"] = new OpenApiMediaType
                 {
@@ -219,11 +220,12 @@ public class ParameterForInjectionInfoTests
         };
         var p = new ParameterForInjectionInfo(metadata, requestBody);
 
+        var jsonBody = JsonSerializer.Serialize(new { a = 1, b = "x" });
         var ctx = CreateContextWithEndpointParameters(
-            new List<ParameterForInjectionInfo> { p },
+            [p],
             method: "POST",
             path: "/",
-            body: "{\"a\":1,\"b\":\"x\"}",
+            body: jsonBody,
             configureContext: http => http.Request.ContentType = "application/json");
 
         using var ps = PowerShell.Create();
@@ -231,10 +233,9 @@ public class ParameterForInjectionInfoTests
 
         ParameterForInjectionInfo.InjectParameters(ctx, ps);
 
-        Assert.NotNull(ctx.Parameters.Body);
-        Assert.True(ctx.Parameters.Body!.Value is Hashtable);
-        var ht = (Hashtable)ctx.Parameters.Body.Value!;
-        Assert.Equal(1L, ht["a"]);
+        var bodyResolved = Assert.IsType<ParameterForInjectionResolved>(ctx.Parameters.Body);
+        var ht = Assert.IsType<Hashtable>(bodyResolved.Value);
+        Assert.Equal(1L, Convert.ToInt64(ht["a"]));
         Assert.Equal("x", ht["b"]);
     }
 
@@ -245,7 +246,7 @@ public class ParameterForInjectionInfoTests
         var metadata = new ParameterMetadata("body", typeof(object));
         var requestBody = new OpenApiRequestBody
         {
-            Content = new Dictionary<string, OpenApiMediaType>
+            Content = new Dictionary<string, IOpenApiMediaType>
             {
                 ["application/yaml"] = new OpenApiMediaType
                 {
@@ -256,7 +257,7 @@ public class ParameterForInjectionInfoTests
         var p = new ParameterForInjectionInfo(metadata, requestBody);
 
         var ctx = CreateContextWithEndpointParameters(
-            new List<ParameterForInjectionInfo> { p },
+            [p],
             method: "POST",
             path: "/",
             body: "a: 1\nb: test\n",
@@ -267,8 +268,8 @@ public class ParameterForInjectionInfoTests
 
         ParameterForInjectionInfo.InjectParameters(ctx, ps);
 
-        Assert.NotNull(ctx.Parameters.Body);
-        var ht = Assert.IsType<Hashtable>(ctx.Parameters.Body!.Value);
+        var bodyResolved = Assert.IsType<ParameterForInjectionResolved>(ctx.Parameters.Body);
+        var ht = Assert.IsType<Hashtable>(bodyResolved.Value);
         Assert.Equal(1, Convert.ToInt32(ht["a"]));
         Assert.Equal("test", ht["b"]);
     }
@@ -280,7 +281,7 @@ public class ParameterForInjectionInfoTests
         var metadata = new ParameterMetadata("body", typeof(object));
         var requestBody = new OpenApiRequestBody
         {
-            Content = new Dictionary<string, OpenApiMediaType>
+            Content = new Dictionary<string, IOpenApiMediaType>
             {
                 ["application/xml"] = new OpenApiMediaType
                 {
@@ -291,7 +292,7 @@ public class ParameterForInjectionInfoTests
         var p = new ParameterForInjectionInfo(metadata, requestBody);
 
         var ctx = CreateContextWithEndpointParameters(
-            new List<ParameterForInjectionInfo> { p },
+            [p],
             method: "POST",
             path: "/",
             body: "<root><a>1</a><b>test</b></root>",
@@ -302,8 +303,8 @@ public class ParameterForInjectionInfoTests
 
         ParameterForInjectionInfo.InjectParameters(ctx, ps);
 
-        Assert.NotNull(ctx.Parameters.Body);
-        var ht = Assert.IsType<Hashtable>(ctx.Parameters.Body!.Value);
+        var bodyResolved = Assert.IsType<ParameterForInjectionResolved>(ctx.Parameters.Body);
+        var ht = Assert.IsType<Hashtable>(bodyResolved.Value);
         Assert.Equal("1", ht["a"]);
         Assert.Equal("test", ht["b"]);
     }

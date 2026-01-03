@@ -17,16 +17,21 @@ namespace Kestrun.Languages;
 /// </summary>
 public class ParameterForInjectionInfo : ParameterForInjectionInfoBase
 {
+    private static ParameterMetadata Validate(ParameterMetadata? paramInfo)
+    {
+        ArgumentNullException.ThrowIfNull(paramInfo);
+        return paramInfo;
+    }
+
     /// <summary>
     /// Constructs a ParameterForInjectionInfo from an OpenApiParameter.
     /// </summary>
     /// <param name="paramInfo">The parameter metadata.</param>
     /// <param name="parameter">The OpenApiParameter to construct from.</param>
     public ParameterForInjectionInfo(ParameterMetadata paramInfo, OpenApiParameter? parameter) :
-        base(paramInfo.Name, paramInfo.ParameterType)
+        base(Validate(paramInfo).Name, Validate(paramInfo).ParameterType)
     {
         ArgumentNullException.ThrowIfNull(parameter);
-        ArgumentNullException.ThrowIfNull(paramInfo);
         Type = parameter.Schema?.Type;
         DefaultValue = parameter.Schema?.Default;
         In = parameter.In;
@@ -37,10 +42,9 @@ public class ParameterForInjectionInfo : ParameterForInjectionInfoBase
     /// <param name="paramInfo">The parameter metadata.</param>
     /// <param name="requestBody">The OpenApiRequestBody to construct from.</param>
     public ParameterForInjectionInfo(ParameterMetadata paramInfo, OpenApiRequestBody requestBody) :
-        base(paramInfo.Name, paramInfo.ParameterType)
+        base(Validate(paramInfo).Name, Validate(paramInfo).ParameterType)
     {
         ArgumentNullException.ThrowIfNull(requestBody);
-        ArgumentNullException.ThrowIfNull(paramInfo);
         Type = requestBody.Content?.Values.FirstOrDefault()?.Schema?.Type;
         var schema = requestBody.Content?.Values.FirstOrDefault()?.Schema;
         if (schema is OpenApiSchemaReference)

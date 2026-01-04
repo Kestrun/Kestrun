@@ -275,7 +275,7 @@ public static class OpenApiComponentAnnotationScanner
 
         foreach (var block in blocks)
         {
-            var statements = block.FindAll(n => n is StatementAst, searchNestedScriptBlocks: false)
+            var statements = block.FindAll(n => n is StatementAst sa && sa.Parent == block, searchNestedScriptBlocks: false)
                                   .Cast<StatementAst>()
                                   .OrderBy(s => s.Extent.StartOffset)
                                   .ToList();
@@ -284,6 +284,27 @@ public static class OpenApiComponentAnnotationScanner
 
             foreach (var st in statements)
             {
+                // Inline attributed declaration, e.g.
+                //   [OpenApiParameterComponent(...)]
+                //   [int]$limit
+                // PowerShell parses this as a single attributed expression statement.
+                if (TryExtractInlineAttributedDeclaration(st, attributeTypeFilter, componentNameArgument, out var componentName, out var attrs))
+                {
+                    if (!dict.TryGetValue(componentName, out var list))
+                    {
+                        list = [];
+                        dict[componentName] = list;
+                    }
+
+                    foreach (var a in attrs)
+                    {
+                        list.Add(ToInfo(a));
+                    }
+
+                    pending.Clear();
+                    continue;
+                }
+
                 var parsedAttrs = TryParseStandaloneAttributeLine(st.Extent.Text);
                 if (parsedAttrs.Count > 0)
                 {
@@ -305,15 +326,15 @@ public static class OpenApiComponentAnnotationScanner
                 {
                     var varName = lhsVar.VariablePath.UserPath;
 
-                    var componentName =
+                    var resolvedComponentName =
                         pending.Select(a => TryGetComponentName(a, componentNameArgument))
                                .FirstOrDefault(s => !string.IsNullOrWhiteSpace(s))
                         ?? varName;
 
-                    if (!dict.TryGetValue(componentName, out var list))
+                    if (!dict.TryGetValue(resolvedComponentName, out var list))
                     {
                         list = [];
-                        dict[componentName] = list;
+                        dict[resolvedComponentName] = list;
                     }
 
                     foreach (var a in pending)
@@ -332,15 +353,15 @@ public static class OpenApiComponentAnnotationScanner
                     {
                         var varName = declaredVar.VariablePath.UserPath;
 
-                        var componentName =
+                        var resolvedComponentName =
                             pending.Select(a => TryGetComponentName(a, componentNameArgument))
                                    .FirstOrDefault(s => !string.IsNullOrWhiteSpace(s))
                             ?? varName;
 
-                        if (!dict.TryGetValue(componentName, out var list))
+                        if (!dict.TryGetValue(resolvedComponentName, out var list))
                         {
                             list = [];
-                            dict[componentName] = list;
+                            dict[resolvedComponentName] = list;
                         }
 
                         foreach (var a in pending)
@@ -362,6 +383,62 @@ public static class OpenApiComponentAnnotationScanner
             }
 
         }
+    }
+
+    private static bool TryExtractInlineAttributedDeclaration(
+        StatementAst statement,
+        IReadOnlyCollection<string>? attributeTypeFilter,
+        string componentNameArgument,
+        out string componentName,
+        out IReadOnlyList<AttributeAst> attributes)
+    {
+        componentName = string.Empty;
+        attributes = [];
+
+        var expr = statement switch
+        {
+            CommandExpressionAst ce => ce.Expression,
+            PipelineAst p when p.PipelineElements is { Count: 1 } && p.PipelineElements[0] is CommandExpressionAst ce => ce.Expression,
+            _ => null
+        };
+
+        if (expr is null)
+        {
+            return false;
+        }
+
+        // Collect matching attributes from the attributed-expression chain.
+        var found = new List<AttributeAst>();
+        var cursor = expr;
+        while (cursor is AttributedExpressionAst aex)
+        {
+            if (aex.Attribute is AttributeAst attr && IsMatchingAttribute(attr, attributeTypeFilter))
+            {
+                found.Add(attr);
+            }
+            cursor = aex.Child;
+        }
+
+        if (found.Count == 0)
+        {
+            return false;
+        }
+
+        // Find the declared variable, e.g. [int]$x or [Nullable[guid]]$id
+        var declaredVar = TryGetDeclaredVariable(expr);
+        if (declaredVar is null)
+        {
+            return false;
+        }
+
+        var varName = declaredVar.VariablePath.UserPath;
+        componentName =
+            found.Select(a => TryGetComponentName(a, componentNameArgument))
+                 .FirstOrDefault(s => !string.IsNullOrWhiteSpace(s))
+            ?? varName;
+
+        attributes = found;
+        return true;
     }
 
     /// <summary>
@@ -455,33 +532,6 @@ public static class OpenApiComponentAnnotationScanner
     }
 
     /// <summary>
-    /// Gets standalone attributes from an expression AST.
-    /// </summary>
-    /// <param name="expr">The expression AST to extract standalone attributes from.</param>
-    /// <returns>An enumerable of standalone AttributeAst instances.</returns>
-    /// <remarks>
-    /// This method traverses the expression AST to find attributes that are not directly associated with a specific expression,
-    /// effectively capturing attributes that stand alone and apply to subsequent statements.
-    /// Handles:
-    ///   [ComponentParameter(...)]
-    ///   [A()][B()]   (nested AttributedExpressionAst)
-    /// Ignores type constraints like [int] (TypeConstraintAst)
-    /// </remarks>
-    private static IEnumerable<AttributeAst> GetStandaloneAttributes(ExpressionAst expr)
-    {
-
-        while (expr is AttributedExpressionAst aex)
-        {
-            if (aex.Attribute is AttributeAst attr)
-            {
-                yield return attr;
-            }
-
-            expr = aex.Child;
-        }
-    }
-
-    /// <summary>
     /// Tries to get the declared variable from an expression AST.
     /// </summary>
     /// <param name="expr">The expression AST to extract the declared variable from.</param>
@@ -497,9 +547,23 @@ public static class OpenApiComponentAnnotationScanner
     {
         // Matches: [int]$param1   (and similar type constraints)
         // Returns the VariableExpressionAst if the final child is a variable.
-        while (expr is AttributedExpressionAst aex)
+        while (true)
         {
-            expr = aex.Child;
+            // [SomeAttribute()][int]$x  (attributes on the expression)
+            if (expr is AttributedExpressionAst aex)
+            {
+                expr = aex.Child;
+                continue;
+            }
+
+            // [int]$x  (type constraint / cast)
+            if (expr is ConvertExpressionAst cex)
+            {
+                expr = cex.Child;
+                continue;
+            }
+
+            break;
         }
 
         return expr as VariableExpressionAst;

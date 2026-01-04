@@ -451,11 +451,11 @@ New-KrOpenApiExample -Summary 'Get hours response' -Value $museumHoursValue |
 
 [OpenApiParameterComponent(In = 'Query',
     Description = "The starting date to retrieve future operating hours from. Defaults to today's date.")]
-[datetime]$startDate
+[Nullable[datetime]]$startDate
 
 [OpenApiParameterComponent(In = 'Path', Required = $true,
-    OpenApiParameterComponent = 'An identifier for a special event.', Example = 'dad4bce8-f5cb-4078-a211-995864315e39')]
-[guid]$eventId
+    Description = 'An identifier for a special event.', Example = 'dad4bce8-f5cb-4078-a211-995864315e39')]
+[Nullable[guid]]$eventId
 
 [OpenApiParameterComponent(In = 'Query',
     Description = 'The end of a date range to retrieve special events for. Defaults to 7 days after startDate.')]
@@ -464,7 +464,7 @@ New-KrOpenApiExample -Summary 'Get hours response' -Value $museumHoursValue |
 
 [OpenApiParameter(In = [OaParameterLocation]::Path, Required = $true,
     Description = 'An identifier for a ticket to a museum event. Used to generate ticket image.')]
-[Guid]$ticketId
+[Nullable[guid]]$ticketId
 
 #endregion
 # =========================================================

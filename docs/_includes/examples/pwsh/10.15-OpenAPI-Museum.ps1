@@ -440,33 +440,31 @@ New-KrOpenApiExample -Summary 'Get hours response' -Value $museumHoursValue |
 # These model components.parameters from museum.yml.
 # NOTE: we approximate with a class + property decorated as a parameter.
 #       The ReferenceId used by OpenApiParameterRefAttribute matches the class name.
-[OpenApiParameterComponent()]
-class MuseumParameters {
-    [OpenApiParameter(In = [OaParameterLocation]::Query,
-        Description = 'The number of days per page.')]
-    [int]$paginationLimit
 
-    [OpenApiParameter(In = [OaParameterLocation]::Query,
-        Description = 'The page number to retrieve.')]
-    [int]$paginationPage
+[OpenApiParameterComponent(In = 'Query',
+    Description = 'The number of days per page.')]
+[int]$paginationLimit
 
-    [OpenApiParameter(In = [OaParameterLocation]::Query,
-        Description = "The starting date to retrieve future operating hours from. Defaults to today's date.")]
-    [datetime]$startDate
+[OpenApiParameterComponent(In = 'Query',
+    Description = 'The page number to retrieve.')]
+[int]$paginationPage
 
-    [OpenApiParameter(In = [OaParameterLocation]::Path, Required = $true,
-        Description = 'An identifier for a special event.', Example = 'dad4bce8-f5cb-4078-a211-995864315e39')]
-    [guid]$eventId
+[OpenApiParameterComponent(In = 'Query',
+    Description = "The starting date to retrieve future operating hours from. Defaults to today's date.")]
+[datetime]$startDate
 
-    [OpenApiParameter(In = [OaParameterLocation]::Query,
-        Description = 'The end of a date range to retrieve special events for. Defaults to 7 days after startDate.')]
-    [OpenApiProperty(Format = 'date')]
-    [string]$endDate
+[OpenApiParameterComponent(In = 'Path', Required = $true,
+    OpenApiParameterComponent = 'An identifier for a special event.', Example = 'dad4bce8-f5cb-4078-a211-995864315e39')]
+[guid]$eventId
 
-    [OpenApiParameter(In = [OaParameterLocation]::Path, Required = $true,
-        Description = 'An identifier for a ticket to a museum event. Used to generate ticket image.')]
-    [Guid]$ticketId
-}
+[OpenApiParameterComponent(In = 'Query',
+    Description = 'The end of a date range to retrieve special events for. Defaults to 7 days after startDate.')]
+[OpenApiParameterComponent(Format = 'date')]
+[string]$endDate
+
+[OpenApiParameter(In = [OaParameterLocation]::Path, Required = $true,
+    Description = 'An identifier for a ticket to a museum event. Used to generate ticket image.')]
+[Guid]$ticketId
 
 #endregion
 # =========================================================

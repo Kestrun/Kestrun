@@ -52,20 +52,12 @@ function Enable-KrConfiguration {
             }
         }
         Write-KrLog -Level Debug -Logger $Server.Logger -Message 'Collected {VarCount} user-defined variables for server configuration.' -Values $vars.Count
-        $callerPath = $null
-        $selfPath = $PSCommandPath
-        foreach ($f in Get-PSCallStack) {
-            $p = $f.InvocationInfo.ScriptName
-            if ($p) {
-                $rp = $null
-                try { $tmp = Resolve-Path -LiteralPath $p -ErrorAction Stop; $rp = $tmp.ProviderPath } catch { Write-Debug "Failed to resolve path '$p': $_" }
-                if ($rp -and (!$selfPath -or $rp -ne (Resolve-Path -LiteralPath $selfPath).ProviderPath)) {
-                    $callerPath = $rp
-                    break
-                }
-            }
-        }
 
+        # AUTO: determine caller script path to filter session-defined functions
+        $callerPath = [Kestrun.KestrunHostManager]::EntryScriptPath
+        if ([string]::IsNullOrEmpty($callerPath)) {
+            throw 'KestrunHostManager is not properly initialized. EntryScriptPath is not set.'
+        }
         # AUTO: collect session-defined functions present now
         $fx = @( Get-Command -CommandType Function | Where-Object { -not $_.Module } )
 

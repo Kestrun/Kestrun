@@ -2,21 +2,33 @@
 /// Specifies metadata for an OpenAPI Parameter object. Can be applied to classes
 /// to contribute entries under components.parameters.
 /// </summary>
-[AttributeUsage(AttributeTargets.Class, AllowMultiple = false, Inherited = false)]
+[AttributeUsage(AttributeTargets.Class | AttributeTargets.Struct | AttributeTargets.Property, AllowMultiple = false, Inherited = false)]
 public sealed class OpenApiParameterComponent : KestrunAnnotation
 {
+    public OaParameterLocation In { get; set; } = OaParameterLocation.Query;
+    /// <summary>Override the parameter name (default: property name).</summary>
+    public string? Name { get; set; }
     /// <summary>
-    /// Optional delimiter used by generators for naming component keys that are
-    /// derived from member names (e.g., parameters from properties within a class).
-    /// When set and applicable (e.g., for Parameter kinds), generators may name
-    /// a member-driven component as "ClassName{JoinClassName}MemberName" instead
-    /// of just "MemberName".
-    /// Example: JoinClassName = "-" => AddressParameter-OK
-    /// </summary>
-    public string? JoinClassName { get; set; }
-
-    /// <summary>
-    /// Optional default description for the parameter components.
+    /// Optional description for the parameter.
     /// </summary>
     public string? Description { get; set; }
+    /// <summary>Override the parameter name (default: property name).</summary>
+    public string? Key { get; set; }
+    /// <summary>Marks the parameter as required.</summary>
+    public bool Required { get; set; }
+    /// <summary>Marks the parameter as deprecated.</summary>
+    public bool Deprecated { get; set; }
+    /// <summary>Allow empty value (query only).</summary>
+    public bool AllowEmptyValue { get; set; }
+    /// <summary>Serialization style hint.</summary>
+    public OaParameterStyle? Style { get; set; }
+    /// <summary>Explode hint for structured values.</summary>
+    public bool Explode { get; set; }
+    /// <summary>Allow reserved characters unescaped (query only).</summary>
+    public bool AllowReserved { get; set; }
+    /// <summary>Example value (single example).</summary>
+    public object? Example { get; set; }
+
+    // Todo: Remove it
+    public string? JoinClassName { get; set; }
 }

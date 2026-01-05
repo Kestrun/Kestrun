@@ -15,6 +15,17 @@
       Resolve current values from variable:<scope>:<name> and include Type/Value.
     .PARAMETER DefaultScope
       Scope to assume when the LHS had no explicit scope (default: Local).
+    .PARAMETER ExcludeVariables
+      Array of variable names to exclude from the results.
+    .OUTPUTS
+      PSCustomObject with properties: Name, ScopeHint, ProviderPath, Source, Operator,
+        Type, Value.
+    .EXAMPLE
+      Get-KrAssignedVariable -FromParent -ResolveValues
+      Scans the currently executing scriptblock for assigned variables and resolves their values.
+    .NOTES
+      This function is used by Enable-KrConfiguration to capture user-defined variables
+      from the caller script and inject them into the Kestrun server's shared state.
 #>
 function Get-KrAssignedVariable {
     [CmdletBinding(DefaultParameterSetName = 'Given')]
@@ -34,14 +45,46 @@ function Get-KrAssignedVariable {
         [Parameter(ParameterSetName = 'FromParent')]
         [string[]]$ExcludeModules = @('Kestrun'),
 
+        [Parameter()]
         [switch]$IncludeSetVariable,
+
+        [Parameter()]
         [switch]$ResolveValues,
+
+        [Parameter()]
+        [switch]$AsDictionary,
+
+        [Parameter()]
         [ValidateSet('Local', 'Script', 'Global')]
-        [string]$DefaultScope = 'Script'
+        [string]$DefaultScope = 'Script',
+
+        [Parameter()]
+        [string[]]$ExcludeVariables
     )
+
+    $excludeSet = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
+    $excludeList = if ($null -ne $ExcludeVariables) { $ExcludeVariables } else { @() }
+    foreach ($ev in $excludeList) {
+        if ([string]::IsNullOrWhiteSpace($ev)) { continue }
+        $n = $ev.Trim()
+        if ($n.StartsWith('$')) { $n = $n.Substring(1) }
+        if (-not [string]::IsNullOrWhiteSpace($n)) {
+            [void]$excludeSet.Add($n)
+        }
+    }
 
     $rows = [System.Collections.Generic.List[object]]::new()
 
+    <#
+    .SYNOPSIS
+         Extracts the variable name and scope from a VariablePath.
+    .DESCRIPTION
+         This function analyzes a VariablePath object to determine the variable's name and scope.
+    .PARAMETER variablePath
+         The VariablePath object to analyze.
+    .OUTPUTS
+         PSCustomObject with properties: Name, ScopeHint, ProviderPath.
+    #>
     function _GetScopeAndNameFromVariablePath([System.Management.Automation.VariablePath] $variablePath) {
         $raw = $variablePath.UserPath
         if (-not $raw) {
@@ -78,6 +121,19 @@ function Get-KrAssignedVariable {
         }
     }
 
+    <#
+    .SYNOPSIS
+        Attempts to resolve the value of a variable by name and scope.
+    .DESCRIPTION
+        This function tries to get the value of a variable from the specified scope.
+        If -ResolveValues is not specified, it returns $null.
+    .PARAMETER name
+        The name of the variable to resolve.
+    .PARAMETER scopeHint
+        The scope hint (Local, Script, Global) to use for resolution.
+    .OUTPUTS
+        The value of the variable if found; otherwise, $null.
+    #>
     function _TryResolveValue([string] $name, [string] $scopeHint) {
         if (-not $ResolveValues.IsPresent) {
             return $null
@@ -99,6 +155,18 @@ function Get-KrAssignedVariable {
         }
     }
 
+    <#
+    .SYNOPSIS
+        Attempts to extract the initializer value from an assignment AST node.
+    .DESCRIPTION
+        This function analyzes an AssignmentStatementAst to extract the value being assigned,
+        if possible. It supports simple constant expressions, arrays, hashtables, and some
+        common expression types.
+    .PARAMETER assignmentAst
+        The AssignmentStatementAst node to analyze.
+    .OUTPUTS
+        The extracted value if resolvable; otherwise, $null.
+    #>
     function _TryGetInitializerValueFromAssignment([System.Management.Automation.Language.AssignmentStatementAst] $assignmentAst) {
         if (-not $ResolveValues.IsPresent) {
             return $null
@@ -317,6 +385,7 @@ function Get-KrAssignedVariable {
         $p = $node.Parent
         while ($p) {
             if ($p -is [System.Management.Automation.Language.FunctionDefinitionAst]) { return $true }
+            if ($p -is [System.Management.Automation.Language.ScriptBlockAst]) { break }
             $p = $p.Parent
         }
         return $false
@@ -346,6 +415,7 @@ function Get-KrAssignedVariable {
 
         $info = _GetScopeAndNameFromVariablePath $varAst.VariablePath
         if (-not $info) { continue }
+        if ($excludeSet.Contains($info.Name)) { continue }
 
         $val = _TryResolveValue -name $info.Name -scopeHint $info.ScopeHint
         if ($null -eq $val) {
@@ -386,6 +456,7 @@ function Get-KrAssignedVariable {
         $varExpr = [System.Management.Automation.Language.VariableExpressionAst]$c.Child
         $info = _GetScopeAndNameFromVariablePath $varExpr.VariablePath
         if (-not $info) { continue }
+        if ($excludeSet.Contains($info.Name)) { continue }
 
         $declaredType = $c.Type.TypeName.FullName
         $val = _TryResolveValue -name $info.Name -scopeHint $info.ScopeHint
@@ -409,17 +480,29 @@ function Get-KrAssignedVariable {
             $cmd = $c.GetCommandName()
             if ($cmd -notin 'Set-Variable', 'New-Variable') { continue }
             $named = @{}
-            foreach ($e in $c.CommandElements) {
-                if ($e -is [System.Management.Automation.Language.CommandParameterAst] -and $e.ParameterName -in 'Name', 'Scope') {
-                    $arg = $e.Argument
-                    if ($arg -is [System.Management.Automation.Language.StringConstantExpressionAst]) {
-                        $named[$e.ParameterName] = $arg.Value
+
+            for ($i = 0; $i -lt $c.CommandElements.Count; $i++) {
+                $e = $c.CommandElements[$i]
+                if ($e -isnot [System.Management.Automation.Language.CommandParameterAst]) { continue }
+                if ($e.ParameterName -notin 'Name', 'Scope') { continue }
+
+                $argAst = $e.Argument
+                if (-not $argAst -and ($i + 1) -lt $c.CommandElements.Count) {
+                    $next = $c.CommandElements[$i + 1]
+                    if ($next -is [System.Management.Automation.Language.StringConstantExpressionAst]) {
+                        $argAst = $next
+                        $i++
                     }
+                }
+
+                if ($argAst -is [System.Management.Automation.Language.StringConstantExpressionAst]) {
+                    $named[$e.ParameterName] = $argAst.Value
                 }
             }
             if ($named.ContainsKey('Name')) {
                 $name = $named['Name']
-                $scope = $named['Scope'] ?? $DefaultScope
+                if ($excludeSet.Contains($name)) { continue }
+                $scope = if ($named.ContainsKey('Scope') -and -not [string]::IsNullOrWhiteSpace($named['Scope'])) { $named['Scope'] } else { $DefaultScope }
                 $provider = "variable:$($scope):$name"
                 $val = $null; $type = $null
                 if ($ResolveValues) {
@@ -444,5 +527,15 @@ function Get-KrAssignedVariable {
     }
 
     # keep last occurrence per (ScopeHint, Name)
-    $rows | Group-Object ScopeHint, Name | ForEach-Object { $_.Group[-1] }
+    $final = @($rows | Group-Object ScopeHint, Name | ForEach-Object { $_.Group[-1] })
+
+    if ($AsDictionary.IsPresent) {
+        $dict = [System.Collections.Generic.Dictionary[string, object]]::new([System.StringComparer]::OrdinalIgnoreCase)
+        foreach ($v in $final) {
+            $dict[$v.Name] = $v.Value
+        }
+        return $dict
+    }
+
+    return $final
 }

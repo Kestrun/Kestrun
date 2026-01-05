@@ -1051,11 +1051,31 @@ public partial class KestrunHost : IDisposable
 
         try
         {
-
+            // Scan for OpenAPI component annotations in the main script
             ComponentAnnotations = OpenApiComponentAnnotationScanner.ScanFromPath(
               mainPath: KestrunHostManager.EntryScriptPath,
               userVariables: userVariables
-          );
+            );
+
+            // Inject user variables into shared state
+            if (userVariables is not null)
+            {
+                foreach (var key in userVariables.Keys)
+                {
+                    if (SharedState.Set(name: key, value: userVariables[key], allowsValueType: true))
+                    {
+                        if (Logger.IsEnabled(LogEventLevel.Verbose))
+                        {
+                            Logger.Verbose("Set shared state variable '{Key}' from user variables.", key);
+                        }
+                    }
+                    else
+                    {
+                        Logger.Warning("Failed to set shared state variable '{Key}' from user variables.", key);
+                    }
+                }
+            }
+
             // Export OpenAPI classes from PowerShell
             var openApiClassesPath = PowerShellOpenApiClassExporter.ExportOpenApiClasses(userCallbacks: userCallbacks);
             if (Logger.IsEnabled(LogEventLevel.Debug))

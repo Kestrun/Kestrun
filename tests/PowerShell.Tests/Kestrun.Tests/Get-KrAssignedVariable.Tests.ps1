@@ -1,4 +1,7 @@
-﻿Describe 'Get-KrAssignedVariable' {
+﻿[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseDeclaredVarsMoreThanAssignments', '')]
+param()
+
+Describe 'Get-KrAssignedVariable' {
     BeforeAll {
         . "$PSScriptRoot/../../../src/PowerShell/Kestrun/Private/Variable/Get-KrAssignedVariables.ps1"
     }
@@ -14,13 +17,103 @@
             )
         }
 
-        ($vars | Where-Object Name -eq 'declOnly').Count | Should -Be 1
-        ($vars | Where-Object Name -eq 'declOnly').Type | Should -Be 'int'
+        ($vars | Where-Object Name -EQ 'declOnly').Count | Should -Be 1
+        ($vars | Where-Object Name -EQ 'declOnly').Type | Should -Be 'int'
 
-        ($vars | Where-Object Name -eq 'assigned').Count | Should -Be 1
-        ($vars | Where-Object Name -eq 'assigned').Value | Should -Be 42
+        ($vars | Where-Object Name -EQ 'assigned').Count | Should -Be 1
+        ($vars | Where-Object Name -EQ 'assigned').Value | Should -Be 42
 
-        ($vars | Where-Object Name -eq 'museumHoursValue').Count | Should -Be 1
-        (($vars | Where-Object Name -eq 'museumHoursValue').Value.Count) | Should -Be 2
+        ($vars | Where-Object Name -EQ 'museumHoursValue').Count | Should -Be 1
+        (($vars | Where-Object Name -EQ 'museumHoursValue').Value.Count) | Should -Be 2
+    }
+
+    It 'excludes variables listed in -ExcludeVariables' {
+        $vars = Get-KrAssignedVariable -ResolveValues -ExcludeVariables @('skipMe', '$skipMe2') -ScriptBlock {
+            $keepMe = 1
+            $skipMe = 2
+            [int]$skipMe2
+        }
+
+        ($vars.Name -contains 'skipMe') | Should -BeFalse
+        ($vars.Name -contains 'skipMe2') | Should -BeFalse
+        ($vars.Name -contains 'keepMe') | Should -BeTrue
+    }
+
+    It 'treats -ExcludeVariables as case-insensitive strict names' {
+        $vars = Get-KrAssignedVariable -ResolveValues -ExcludeVariables @('SKIPME') -ScriptBlock {
+            $skipMe = 123
+            $keepMe = 456
+        }
+
+        ($vars.Name -contains 'skipMe') | Should -BeFalse
+        ($vars.Name -contains 'keepMe') | Should -BeTrue
+    }
+
+    It 'excludes Set-Variable/New-Variable when -IncludeSetVariable is used' {
+        $vars = Get-KrAssignedVariable -ResolveValues -IncludeSetVariable -ExcludeVariables @('hidden') -ScriptBlock {
+            Set-Variable -Name 'hidden' -Value 1
+            New-Variable -Name 'visible' -Value 2
+        }
+
+        ($vars.Name -contains 'hidden') | Should -BeFalse
+        ($vars.Name -contains 'visible') | Should -BeTrue
+    }
+
+    It 'keeps last occurrence per (ScopeHint, Name)' {
+        $vars = Get-KrAssignedVariable -ResolveValues -ScriptBlock {
+            $x = 1
+            $x = 2
+        }
+
+        ($vars | Where-Object Name -EQ 'x').Count | Should -Be 1
+        ($vars | Where-Object Name -EQ 'x').Value | Should -Be 2
+    }
+
+    It 'captures explicit scope prefixes on assignments' {
+        $vars = Get-KrAssignedVariable -ResolveValues -ScriptBlock {
+            $local:foo = 1
+            $script:bar = 2
+        }
+
+        ($vars | Where-Object Name -EQ 'foo').ScopeHint | Should -Be 'Local'
+        ($vars | Where-Object Name -EQ 'foo').Value | Should -Be 1
+
+        ($vars | Where-Object Name -EQ 'bar').ScopeHint | Should -Be 'Script'
+        ($vars | Where-Object Name -EQ 'bar').Value | Should -Be 2
+    }
+
+    It 'captures non-Equals assignment operators (no initializer extraction)' {
+        $vars = Get-KrAssignedVariable -ResolveValues -ScriptBlock {
+            $x += 1
+            $y = 2
+        }
+
+        ($vars.Name -contains 'x') | Should -BeTrue
+        ($vars | Where-Object Name -EQ 'x').Operator | Should -Be 'PlusEquals'
+        ($vars | Where-Object Name -EQ 'x').Value | Should -Be $null
+
+        ($vars.Name -contains 'y') | Should -BeTrue
+    }
+
+    It 'captures complex typed declaration-only variables' {
+        $vars = Get-KrAssignedVariable -ResolveValues -ScriptBlock {
+            [Nullable[datetime]]$startDate
+        }
+
+        ($vars | Where-Object Name -EQ 'startDate').Count | Should -Be 1
+        ($vars | Where-Object Name -EQ 'startDate').Type | Should -Be 'Nullable[datetime]'
+        ($vars | Where-Object Name -EQ 'startDate').Value | Should -Be $null
+    }
+
+    It 'can return a Dictionary for C# interop (-AsDictionary)' {
+        $dict = Get-KrAssignedVariable -ResolveValues -AsDictionary -ScriptBlock {
+            $a = 1
+            $b = 'two'
+            $a = 3
+        }
+
+        $dict.GetType().FullName | Should -Match '^System\.Collections\.Generic\.Dictionary`2\[\[System\.String, System\.Private\.CoreLib'
+        $dict['a'] | Should -Be 3
+        $dict['b'] | Should -Be 'two'
     }
 }

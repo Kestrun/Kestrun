@@ -42,16 +42,9 @@ function Enable-KrConfiguration {
         $Server = Resolve-KestrunServer -Server $Server
     }
     process {
-        $Variables = Get-KrAssignedVariable -FromParent -ResolveValues -IncludeSetVariable
+        $variables = Get-KrAssignedVariable -FromParent -ResolveValues -IncludeSetVariable -ExcludeVariables $ExcludeVariables -AsDictionary
 
-        # Build user variable map as before
-        $vars = [System.Collections.Generic.Dictionary[string, object]]::new()
-        foreach ($v in $Variables) {
-            if ($ExcludeVariables -notcontains $v.Name) {
-                $null = $Server.SharedState.Set($v.Name, $v.Value, $true)
-            }
-        }
-        Write-KrLog -Level Debug -Logger $Server.Logger -Message 'Collected {VarCount} user-defined variables for server configuration.' -Values $vars.Count
+        Write-KrLog -Level Debug -Logger $Server.Logger -Message 'Collected {VarCount} user-defined variables for server configuration.' -Values $variables.Count
 
         # AUTO: determine caller script path to filter session-defined functions
         $callerPath = [Kestrun.KestrunHostManager]::EntryScriptPath
@@ -107,10 +100,10 @@ function Enable-KrConfiguration {
             Write-KrLog -Level Debug -Logger $Server.Logger -Message 'Detected {CallbackCount} OpenAPI callback function(s): {CallbackNames}' -Values ($callbackNames.Count), ($callbackNames -join ', ')
         }
 
-        Write-KrLog -Level Debug -Logger $Server.Logger -Message 'Enabling Kestrun server configuration with {VarCount} variables and {FuncCount} functions.' -Values $vars.Count, ($fxMap?.Count ?? 0)
+        Write-KrLog -Level Debug -Logger $Server.Logger -Message 'Enabling Kestrun server configuration with {VarCount} variables and {FuncCount} functions.' -Values $variables.Count, ($fxMap?.Count ?? 0)
         # Apply the configuration to the server
         # Set the user-defined variables in the server configuration
-        $Server.EnableConfiguration($vars, $fxMap, $fxCallBack) | Out-Null
+        $Server.EnableConfiguration($variables, $fxMap, $fxCallBack) | Out-Null
 
         Write-KrLog -Level Information -Logger $Server.Logger -Message 'Kestrun server configuration enabled successfully.'
 

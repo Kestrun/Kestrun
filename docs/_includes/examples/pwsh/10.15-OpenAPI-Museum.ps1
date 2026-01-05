@@ -443,10 +443,11 @@ New-KrOpenApiExample -Summary 'Get hours response' -Value $museumHoursValue |
 
 [OpenApiParameterComponent(In = 'Query',
     Description = 'The number of days per page.')]
-[int]$paginationLimit
+[int]$paginationLimit = 20
 
 [OpenApiParameterComponent(In = 'Query',
     Description = 'The page number to retrieve.')]
+[OpenApiPropertyAttribute(Description = 'User age', Minimum = 0, Maximum = 150, Example = 30)]
 [int]$paginationPage
 
 [OpenApiParameterComponent(In = 'Query',
@@ -459,8 +460,7 @@ New-KrOpenApiExample -Summary 'Get hours response' -Value $museumHoursValue |
 
 [OpenApiParameterComponent(In = 'Query',
     Description = 'The end of a date range to retrieve special events for. Defaults to 7 days after startDate.')]
-[OpenApiParameterComponent(Format = 'date')]
-[string]$endDate
+[Nullable[datetime]]$endDate
 
 [OpenApiParameter(In = [OaParameterLocation]::Path, Required = $true,
     Description = 'An identifier for a ticket to a museum event. Used to generate ticket image.')]

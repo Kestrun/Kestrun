@@ -1,35 +1,8 @@
 using System.Management.Automation;
 using System.Management.Automation.Language;
+using System.Reflection;
 
 namespace Kestrun.OpenApi;
-
-/// <summary>
-/// Represents a single attribute annotation extracted from PowerShell script source.
-/// </summary>
-/// <param name="TypeName">The full type name of the attribute, e.g. "Kestrun.OpenApi.ComponentParameterAttribute".</param>
-/// <param name="PositionalArguments">The list of positional arguments provided to the attribute.</param>
-/// <param name="NamedArguments">The dictionary of named arguments provided to the attribute.</param>
-/// <param name="Source">The source location information for the attribute annotation.</param>
-public sealed record AttributeInfo(
-    string TypeName,
-    IReadOnlyList<string> PositionalArguments,
-    IReadOnlyDictionary<string, string> NamedArguments,
-    SourceLocation Source
-);
-
-/// <summary>
-/// Source location information for an attribute annotation.
-/// </summary>
-/// <param name="File">The file path where the attribute is located, or null if unknown.</param>
-/// <param name="Line">The line number in the file where the attribute is located.</param>
-/// <param name="Column">The column number in the line where the attribute starts.</param>
-/// <param name="Text">The text content of the attribute annotation.</param>
-public sealed record SourceLocation(
-    string? File,
-    int Line,
-    int Column,
-    string Text
-);
 
 /// <summary>
 /// Scans PowerShell script files for OpenAPI component annotations defined via attributes.
@@ -37,23 +10,49 @@ public sealed record SourceLocation(
 public static class OpenApiComponentAnnotationScanner
 {
     /// <summary>
+    /// Represents a variable discovered in script, along with its OpenAPI annotations and metadata.
+    /// </summary>
+    public sealed class AnnotatedVariable
+    {
+        /// <summary>Annotations attached to the variable.</summary>
+        public List<KestrunAnnotation> Annotations { get; } = [];
+
+        /// <summary>The declared variable type if present (e.g. from <c>[int]$x</c> or <c>[int]$x = 1</c>).</summary>
+        public Type? VariableType { get; set; }
+
+        /// <summary>The declared variable type name as written in script (best-effort).</summary>
+        public string? VariableTypeName { get; set; }
+
+        /// <summary>The initializer value if it can be evaluated (best-effort).</summary>
+        public object? InitialValue { get; set; }
+
+        /// <summary>The initializer expression text (always available when an initializer exists).</summary>
+        public string? InitialValueExpression { get; set; }
+    }
+
+    /// <summary>
     /// Scan starting from the running script (via $PSCommandPath) or a provided mainPath,
     /// follow dot-sourced files, and extract "standalone attribute line applies to next variable assignment" annotations.
     /// </summary>
     /// <param name="engine">The PowerShell engine intrinsics.</param>
     /// <param name="mainPath">Optional main script file path to start scanning from. If null, uses the running script path ($PSCommandPath).</param>
+    /// <param name="userVariables">Optional dictionary of user variables to consider during scanning.</param>
     /// <param name="attributeTypeFilter">Optional filter of attribute type names to include. If null or empty, includes all.</param>
     /// <param name="componentNameArgument">The name of the attribute argument to use as component name.</param>
     /// <param name="maxFiles">Maximum number of files to scan to prevent cycles.</param>
     /// <exception cref="InvalidOperationException">Thrown if no running script path is found and no mainPath is provided.</exception>
-    /// <returns>A dictionary mapping component names to lists of extracted attribute annotations.</returns>
+    /// <returns>
+    /// A dictionary keyed by variable name. Each value contains the collected annotations,
+    /// the declared variable type (if any), and the initializer value/expression (if any).
+    /// </returns>
     /// <remarks>
     /// This method performs a breadth-first traversal of the script files starting from mainPath or $PSCommandPath,
     /// following dot-sourced includes and extracting attribute annotations that precede variable assignments.
     /// </remarks>
-    public static Dictionary<string, List<AttributeInfo>> ScanFromRunningScriptOrPath(
+    public static Dictionary<string, AnnotatedVariable> ScanFromRunningScriptOrPath(
         EngineIntrinsics engine,
         string? mainPath = null,
+            Dictionary<string, object>? userVariables = null,
         IReadOnlyCollection<string>? attributeTypeFilter = null,
         string componentNameArgument = "Name",
         int maxFiles = 200)
@@ -69,31 +68,36 @@ public static class OpenApiComponentAnnotationScanner
 
         entry = Path.GetFullPath(entry);
 
-        return ScanFromPath(entry, attributeTypeFilter, componentNameArgument, maxFiles);
+        return ScanFromPath(entry, userVariables, attributeTypeFilter, componentNameArgument, maxFiles);
     }
 
     /// <summary>
     /// Scan starting from a main script file path.
     /// </summary>
     /// <param name="mainPath">The main script file path to start scanning from.</param>
+    /// <param name="userVariables">Optional dictionary of user variables to consider during scanning.</param>
     /// <param name="attributeTypeFilter">Optional filter of attribute type names to include. If null or empty, includes all.</param>
     /// <param name="componentNameArgument">The name of the attribute argument to use as component name.</param>
     /// <param name="maxFiles">Maximum number of files to scan to prevent cycles.</param>
-    /// <returns>A dictionary mapping component names to lists of extracted attribute annotations.</returns>
+    /// <returns>
+    /// A dictionary keyed by variable name. Each value contains the collected annotations,
+    /// the declared variable type (if any), and the initializer value/expression (if any).
+    /// </returns>
     /// <exception cref="InvalidOperationException">Thrown if the maximum number of files is exceeded while following dot-sourced scripts.</exception>
     /// <remarks>
     /// This method performs a breadth-first traversal of the script files starting from mainPath,
     /// following dot-sourced includes and extracting attribute annotations that precede variable assignments.
     /// </remarks>
-    public static Dictionary<string, List<AttributeInfo>> ScanFromPath(
+    public static Dictionary<string, AnnotatedVariable> ScanFromPath(
         string mainPath,
+        Dictionary<string, object>? userVariables = null,
         IReadOnlyCollection<string>? attributeTypeFilter = null,
         string componentNameArgument = "Name",
         int maxFiles = 200)
     {
         mainPath = Path.GetFullPath(mainPath);
 
-        var dict = new Dictionary<string, List<AttributeInfo>>(StringComparer.OrdinalIgnoreCase);
+        var variables = new Dictionary<string, AnnotatedVariable>(StringComparer.OrdinalIgnoreCase);
 
         var visited = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var queue = new Queue<string>();
@@ -114,7 +118,7 @@ public static class OpenApiComponentAnnotationScanner
             // If you care, you can log parse errors:
             // foreach (var e in errors) Console.Error.WriteLine($"{file}:{e.Extent.StartLineNumber}:{e.Message}");
 
-            ExtractAnnotationsFromAst(ast, dict, attributeTypeFilter, componentNameArgument);
+            ExtractAnnotationsFromAst(ast, variables, attributeTypeFilter, componentNameArgument);
 
             foreach (var inc in FindDotSourcedFiles(ast, file))
             {
@@ -130,7 +134,7 @@ public static class OpenApiComponentAnnotationScanner
             }
         }
 
-        return dict;
+        return variables;
     }
 
     // ---------------- Parsing ----------------
@@ -245,13 +249,13 @@ public static class OpenApiComponentAnnotationScanner
     /// Extracts attribute annotations from a ScriptBlockAst and populates the provided dictionary.
     /// </summary>
     /// <param name="scriptAst">The ScriptBlockAst to extract annotations from.</param>
-    /// <param name="dict">The dictionary to populate with extracted annotations.</param>
+    /// <param name="variables">The dictionary to populate with extracted annotations.</param>
     /// <param name="attributeTypeFilter">Optional filter for attribute types to include.</param>
     /// <param name="componentNameArgument">The argument name to use for component names.</param>
     /// <param name="strict">If true, clears pending annotations on non-matching statements.</param>
     private static void ExtractAnnotationsFromAst(
         ScriptBlockAst scriptAst,
-        Dictionary<string, List<AttributeInfo>> dict,
+        Dictionary<string, AnnotatedVariable> variables,
         IReadOnlyCollection<string>? attributeTypeFilter,
         string componentNameArgument,
         bool strict = true)
@@ -284,21 +288,50 @@ public static class OpenApiComponentAnnotationScanner
 
             foreach (var st in statements)
             {
+                // Inline attributed assignment, e.g.
+                //   [OpenApiParameterComponent(...)]
+                //   [int]$limit = 20
+                // PowerShell can parse this as a single AssignmentStatementAst with attributes on the LHS expression.
+                if (st is AssignmentStatementAst inlineAssign &&
+                    TryExtractInlineAttributedAssignment(inlineAssign, attributeTypeFilter, out var inlineVarName, out var inlineVarType, out var inlineVarTypeName, out var inlineAttrs))
+                {
+                    var (initValue, initExpr) = EvaluateValueStatement(inlineAssign.Right);
+                    var entry = GetOrCreateVariable(variables, inlineVarName);
+                    entry.VariableType ??= inlineVarType;
+                    entry.VariableTypeName ??= inlineVarTypeName;
+                    entry.InitialValue ??= initValue;
+                    entry.InitialValueExpression ??= initExpr;
+
+                    foreach (var a in inlineAttrs)
+                    {
+                        var ka = TryCreateKestrunAnnotation(a, defaultComponentName: inlineVarName, componentNameArgument);
+                        if (ka is not null)
+                        {
+                            entry.Annotations.Add(ka);
+                        }
+                    }
+
+                    pending.Clear();
+                    continue;
+                }
+
                 // Inline attributed declaration, e.g.
                 //   [OpenApiParameterComponent(...)]
                 //   [int]$limit
                 // PowerShell parses this as a single attributed expression statement.
-                if (TryExtractInlineAttributedDeclaration(st, attributeTypeFilter, componentNameArgument, out var componentName, out var attrs))
+                if (TryExtractInlineAttributedDeclaration(st, attributeTypeFilter, out var varName, out var varType, out var varTypeName, out var attrs))
                 {
-                    if (!dict.TryGetValue(componentName, out var list))
-                    {
-                        list = [];
-                        dict[componentName] = list;
-                    }
+                    var entry = GetOrCreateVariable(variables, varName);
+                    entry.VariableType ??= varType;
+                    entry.VariableTypeName ??= varTypeName;
 
                     foreach (var a in attrs)
                     {
-                        list.Add(ToInfo(a));
+                        var ka = TryCreateKestrunAnnotation(a, defaultComponentName: varName, componentNameArgument);
+                        if (ka is not null)
+                        {
+                            entry.Annotations.Add(ka);
+                        }
                     }
 
                     pending.Clear();
@@ -319,54 +352,55 @@ public static class OpenApiComponentAnnotationScanner
                 }
 
 
-                // Next variable assignment attaches pending annotations
-                if (pending.Count > 0 &&
-                    st is AssignmentStatementAst assign &&
-                    assign.Left is VariableExpressionAst lhsVar)
+                // Variable assignment:
+                // - If we have pending annotations, attach them here.
+                // - If the variable was already discovered via inline attributed declaration, also capture type/initializer here.
+                if (st is AssignmentStatementAst assign &&
+                    TryGetAssignmentTarget(assign.Left, out var targetVarName, out var targetVarType, out var targetVarTypeName))
                 {
-                    var varName = lhsVar.VariablePath.UserPath;
-
-                    var resolvedComponentName =
-                        pending.Select(a => TryGetComponentName(a, componentNameArgument))
-                               .FirstOrDefault(s => !string.IsNullOrWhiteSpace(s))
-                        ?? varName;
-
-                    if (!dict.TryGetValue(resolvedComponentName, out var list))
+                    var shouldCapture = pending.Count > 0 || variables.ContainsKey(targetVarName);
+                    if (shouldCapture)
                     {
-                        list = [];
-                        dict[resolvedComponentName] = list;
-                    }
+                        var (initValue, initExpr) = EvaluateValueStatement(assign.Right);
+                        var entry = GetOrCreateVariable(variables, targetVarName);
+                        entry.VariableType ??= targetVarType;
+                        entry.VariableTypeName ??= targetVarTypeName;
+                        entry.InitialValue ??= initValue;
+                        entry.InitialValueExpression ??= initExpr;
 
-                    foreach (var a in pending)
-                    {
-                        list.Add(ToInfo(a)); // recommend passing file in, since Extent.File is often null
-                    }
+                        if (pending.Count > 0)
+                        {
+                            foreach (var a in pending)
+                            {
+                                var ka = TryCreateKestrunAnnotation(a, defaultComponentName: targetVarName, componentNameArgument);
+                                if (ka is not null)
+                                {
+                                    entry.Annotations.Add(ka);
+                                }
+                            }
 
-                    pending.Clear();
-                    continue;
+                            pending.Clear();
+                        }
+
+                        continue;
+                    }
                 }
                 // Declaration-only variable (no assignment), e.g. [int]$param1
                 if (pending.Count > 0 && st is CommandExpressionAst declExpr)
                 {
-                    var declaredVar = TryGetDeclaredVariable(declExpr.Expression);
-                    if (declaredVar is not null)
+                    if (TryGetDeclaredVariableInfo(declExpr.Expression, out var declaredVarName, out var declaredVarType, out var declaredVarTypeName))
                     {
-                        var varName = declaredVar.VariablePath.UserPath;
-
-                        var resolvedComponentName =
-                            pending.Select(a => TryGetComponentName(a, componentNameArgument))
-                                   .FirstOrDefault(s => !string.IsNullOrWhiteSpace(s))
-                            ?? varName;
-
-                        if (!dict.TryGetValue(resolvedComponentName, out var list))
-                        {
-                            list = [];
-                            dict[resolvedComponentName] = list;
-                        }
+                        var entry = GetOrCreateVariable(variables, declaredVarName);
+                        entry.VariableType ??= declaredVarType;
+                        entry.VariableTypeName ??= declaredVarTypeName;
 
                         foreach (var a in pending)
                         {
-                            list.Add(ToInfo(a));
+                            var ka = TryCreateKestrunAnnotation(a, defaultComponentName: declaredVarName, componentNameArgument);
+                            if (ka is not null)
+                            {
+                                entry.Annotations.Add(ka);
+                            }
                         }
 
                         pending.Clear();
@@ -385,14 +419,28 @@ public static class OpenApiComponentAnnotationScanner
         }
     }
 
+    private static AnnotatedVariable GetOrCreateVariable(Dictionary<string, AnnotatedVariable> variables, string varName)
+    {
+        if (!variables.TryGetValue(varName, out var entry))
+        {
+            entry = new AnnotatedVariable();
+            variables[varName] = entry;
+        }
+
+        return entry;
+    }
+
     private static bool TryExtractInlineAttributedDeclaration(
         StatementAst statement,
         IReadOnlyCollection<string>? attributeTypeFilter,
-        string componentNameArgument,
-        out string componentName,
+        out string variableName,
+        out Type? variableType,
+        out string? variableTypeName,
         out IReadOnlyList<AttributeAst> attributes)
     {
-        componentName = string.Empty;
+        variableName = string.Empty;
+        variableType = null;
+        variableTypeName = null;
         attributes = [];
 
         var expr = statement switch
@@ -424,21 +472,451 @@ public static class OpenApiComponentAnnotationScanner
             return false;
         }
 
-        // Find the declared variable, e.g. [int]$x or [Nullable[guid]]$id
-        var declaredVar = TryGetDeclaredVariable(expr);
-        if (declaredVar is null)
+        if (!TryGetDeclaredVariableInfo(expr, out variableName, out variableType, out variableTypeName))
         {
             return false;
         }
 
-        var varName = declaredVar.VariablePath.UserPath;
-        componentName =
-            found.Select(a => TryGetComponentName(a, componentNameArgument))
-                 .FirstOrDefault(s => !string.IsNullOrWhiteSpace(s))
-            ?? varName;
+        attributes = found;
+        return true;
+    }
+
+    private static bool TryExtractInlineAttributedAssignment(
+        AssignmentStatementAst assignment,
+        IReadOnlyCollection<string>? attributeTypeFilter,
+        out string variableName,
+        out Type? variableType,
+        out string? variableTypeName,
+        out IReadOnlyList<AttributeAst> attributes)
+    {
+        variableName = string.Empty;
+        variableType = null;
+        variableTypeName = null;
+        attributes = [];
+
+        // Collect matching attributes from the left-hand attributed-expression chain.
+        var found = new List<AttributeAst>();
+        var cursor = assignment.Left;
+        while (cursor is AttributedExpressionAst aex)
+        {
+            if (aex.Attribute is AttributeAst attr && IsMatchingAttribute(attr, attributeTypeFilter))
+            {
+                found.Add(attr);
+            }
+            cursor = aex.Child;
+        }
+
+        if (found.Count == 0)
+        {
+            return false;
+        }
+
+        if (!TryGetDeclaredVariableInfo(assignment.Left, out variableName, out variableType, out variableTypeName))
+        {
+            return false;
+        }
 
         attributes = found;
         return true;
+    }
+
+    private static bool TryGetAssignmentTarget(ExpressionAst left, out string variableName, out Type? variableType, out string? variableTypeName)
+        // Assignment can be: $x = 1   or   [int]$x = 1
+        => TryGetDeclaredVariableInfo(left, out variableName, out variableType, out variableTypeName);
+
+    private static bool TryGetDeclaredVariableInfo(ExpressionAst expr, out string variableName, out Type? variableType, out string? variableTypeName)
+    {
+        variableName = string.Empty;
+        variableType = null;
+        variableTypeName = null;
+
+        var cursor = expr;
+        var attributedTypeNames = new List<string>();
+        while (cursor is AttributedExpressionAst aex)
+        {
+            if (!string.IsNullOrWhiteSpace(aex.Attribute?.TypeName?.FullName))
+            {
+                attributedTypeNames.Add(aex.Attribute.TypeName.FullName);
+            }
+            cursor = aex.Child;
+        }
+
+        // At this point we may have a ConvertExpressionAst ([int]$x) or a VariableExpressionAst ($x)
+        if (cursor is ConvertExpressionAst cex)
+        {
+            variableTypeName = cex.Type.TypeName.FullName;
+            variableType = ResolvePowerShellTypeName(variableTypeName);
+            cursor = cex.Child;
+        }
+
+        // There may still be attributes (e.g. nested convert) - unwrap again defensively
+        while (cursor is AttributedExpressionAst aex2)
+        {
+            cursor = aex2.Child;
+        }
+
+        if (cursor is VariableExpressionAst v)
+        {
+            variableName = v.VariablePath.UserPath;
+
+            // PowerShell sometimes represents type constraints like [Nullable[datetime]]$x as another
+            // attributed-expression rather than a ConvertExpressionAst. If we didn't get a type above,
+            // try to infer it from the last non-annotation attribute type name.
+            if (variableType is null && variableTypeName is null && attributedTypeNames.Count > 0)
+            {
+                for (var i = attributedTypeNames.Count - 1; i >= 0; i--)
+                {
+                    var tn = attributedTypeNames[i];
+                    var t = ResolvePowerShellTypeName(tn);
+                    if (t is null)
+                    {
+                        continue;
+                    }
+
+                    if (typeof(KestrunAnnotation).IsAssignableFrom(t))
+                    {
+                        continue;
+                    }
+
+                    variableTypeName = tn;
+                    variableType = t;
+                    break;
+                }
+            }
+
+            return !string.IsNullOrWhiteSpace(variableName);
+        }
+
+        return false;
+    }
+
+    private static Type? ResolvePowerShellTypeName(string? name)
+    {
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            return null;
+        }
+
+        // Best-effort resolution via PowerShell's own type name resolver.
+        // This handles common accelerators and PowerShell syntax like Nullable[datetime].
+        try
+        {
+            var psType = new PSTypeName(name.Trim()).Type;
+            if (psType is not null)
+            {
+                return psType;
+            }
+        }
+        catch
+        {
+            // Ignore and fall back to our heuristic mapping.
+        }
+
+        // Common accelerators
+        var lowered = name.Trim();
+        return lowered.ToLowerInvariant() switch
+        {
+            "int" => typeof(int),
+            "long" => typeof(long),
+            "double" => typeof(double),
+            "float" => typeof(float),
+            "decimal" => typeof(decimal),
+            "bool" => typeof(bool),
+            "string" => typeof(string),
+            "datetime" => typeof(DateTime),
+            "guid" => typeof(Guid),
+            "ipaddress" => typeof(System.Net.IPAddress),
+            "hashtable" => typeof(System.Collections.Hashtable),
+            "object" => typeof(object),
+            _ => ResolveTypeFromName(NormalizePowerShellTypeName(lowered))
+        };
+    }
+
+    private static string NormalizePowerShellTypeName(string name)
+    {
+        // Handle Nullable[T]
+        if (name.StartsWith("nullable[", StringComparison.OrdinalIgnoreCase) && name.EndsWith(']'))
+        {
+            var inner = name[9..^1];
+            var innerType = ResolvePowerShellTypeName(inner);
+            if (innerType is not null && innerType.IsValueType)
+            {
+                return typeof(Nullable<>).MakeGenericType(innerType).FullName!;
+            }
+        }
+
+        // Handle array syntax: datetime[]
+        if (name.EndsWith("[]", StringComparison.Ordinal))
+        {
+            var inner = name[..^2];
+            var innerType = ResolvePowerShellTypeName(inner);
+            if (innerType is not null)
+            {
+                return innerType.MakeArrayType().FullName!;
+            }
+        }
+
+        return name;
+    }
+
+    private static (object? Value, string? Expression) EvaluateValueStatement(StatementAst statement)
+    {
+        // RHS of assignment is a StatementAst. Try to extract a single expression from it.
+        var expr = statement switch
+        {
+            CommandExpressionAst ce => ce.Expression,
+            PipelineAst p when p.PipelineElements is { Count: 1 } && p.PipelineElements[0] is CommandExpressionAst ce => ce.Expression,
+            _ => null
+        };
+
+        if (expr is null)
+        {
+            var raw = statement.Extent.Text.Trim();
+            return (string.IsNullOrWhiteSpace(raw) ? null : raw, string.IsNullOrWhiteSpace(raw) ? null : raw);
+        }
+
+        var value = EvaluateArgumentExpression(expr);
+        var text = expr.Extent.Text.Trim();
+        return (value, string.IsNullOrWhiteSpace(text) ? null : text);
+    }
+
+    private static KestrunAnnotation? TryCreateKestrunAnnotation(
+        AttributeAst attr,
+        string defaultComponentName,
+        string componentNameArgument)
+    {
+        var annotationType = ResolveKestrunAnnotationType(attr);
+        if (annotationType is null)
+        {
+            return null;
+        }
+
+        if (Activator.CreateInstance(annotationType) is not KestrunAnnotation instance)
+        {
+            return null;
+        }
+
+        // Apply named arguments as property setters.
+        foreach (var na in attr.NamedArguments ?? Enumerable.Empty<NamedAttributeArgumentAst>())
+        {
+            ApplyNamedArgument(instance, na);
+        }
+
+        // If the annotation supports a component-name argument, apply a default when not specified.
+        // This preserves the previous behavior where the variable name becomes the component key.
+        ApplyDefaultComponentName(instance, defaultComponentName, componentNameArgument);
+
+        return instance;
+    }
+
+    private static void ApplyDefaultComponentName(KestrunAnnotation annotation, string defaultComponentName, string componentNameArgument)
+    {
+        if (string.IsNullOrWhiteSpace(defaultComponentName))
+        {
+            return;
+        }
+
+        var t = annotation.GetType();
+        var prop = t.GetProperty(componentNameArgument, BindingFlags.Instance | BindingFlags.Public | BindingFlags.IgnoreCase);
+        if (prop is null || prop.PropertyType != typeof(string) || !prop.CanWrite)
+        {
+            return;
+        }
+
+        var current = prop.GetValue(annotation) as string;
+        if (!string.IsNullOrWhiteSpace(current))
+        {
+            return;
+        }
+
+        prop.SetValue(annotation, defaultComponentName);
+    }
+
+    private static void ApplyNamedArgument(KestrunAnnotation annotation, NamedAttributeArgumentAst na)
+    {
+        var t = annotation.GetType();
+        var prop = t.GetProperty(na.ArgumentName, BindingFlags.Instance | BindingFlags.Public | BindingFlags.IgnoreCase);
+        if (prop is null || !prop.CanWrite)
+        {
+            return;
+        }
+
+        var raw = EvaluateArgumentExpression(na.Argument);
+        var converted = ConvertToPropertyType(raw, prop.PropertyType);
+        prop.SetValue(annotation, converted);
+    }
+
+    private static object? EvaluateArgumentExpression(ExpressionAst expr) => expr switch
+    {
+        StringConstantExpressionAst s => s.Value,
+        ExpandableStringExpressionAst e => e.Value,
+        ConstantExpressionAst c => c.Value,
+        VariableExpressionAst v => EvaluateVariableExpression(v),
+        MemberExpressionAst me => TryEvaluateMemberExpression(me) ?? me.Extent.Text.Trim(),
+        TypeExpressionAst te => ResolveTypeFromName(te.TypeName.FullName) is { } t ? t : te.TypeName.FullName,
+        _ => expr.Extent.Text.Trim()
+    };
+
+    private static object? EvaluateVariableExpression(VariableExpressionAst v)
+    {
+        var name = v.VariablePath.UserPath;
+        if (string.Equals(name, "null", StringComparison.OrdinalIgnoreCase))
+        {
+            return null;
+        }
+        if (string.Equals(name, "true", StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+        if (string.Equals(name, "false", StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        // Unknown variable, preserve source text (e.g. $foo)
+        return v.Extent.Text.Trim();
+    }
+
+    private static object? TryEvaluateMemberExpression(MemberExpressionAst me)
+    {
+        // Common pattern in scripts: [SomeType]::Member
+        if (me.Expression is not TypeExpressionAst te)
+        {
+            return null;
+        }
+
+        var type = ResolveTypeFromName(te.TypeName.FullName);
+        if (type is null)
+        {
+            return null;
+        }
+
+        var memberName = me.Member.Extent.Text.Trim().Trim('"', '\'');
+        if (type.IsEnum)
+        {
+            try
+            {
+                return Enum.Parse(type, memberName, ignoreCase: true);
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        const BindingFlags Flags = BindingFlags.Public | BindingFlags.Static | BindingFlags.IgnoreCase;
+        var f = type.GetField(memberName, Flags);
+        if (f is not null)
+        {
+            return f.GetValue(null);
+        }
+        var p = type.GetProperty(memberName, Flags);
+        return p?.GetValue(null);
+    }
+
+    private static object? ConvertToPropertyType(object? raw, Type propertyType)
+    {
+        if (raw is null)
+        {
+            return null;
+        }
+
+        var targetType = Nullable.GetUnderlyingType(propertyType) ?? propertyType;
+
+        if (targetType.IsInstanceOfType(raw))
+        {
+            return raw;
+        }
+
+        // Enums
+        if (targetType.IsEnum)
+        {
+            return raw is string s
+                ? Enum.Parse(targetType, s, ignoreCase: true)
+                : Enum.ToObject(targetType, raw);
+        }
+
+        // Booleans can show up as "$true" / "$false" when we fall back to Extent.Text
+        if (targetType == typeof(bool) && raw is string bs)
+        {
+            if (string.Equals(bs, "$true", StringComparison.OrdinalIgnoreCase) || string.Equals(bs, "true", StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+            if (string.Equals(bs, "$false", StringComparison.OrdinalIgnoreCase) || string.Equals(bs, "false", StringComparison.OrdinalIgnoreCase))
+            {
+                return false;
+            }
+        }
+
+        try
+        {
+            return Convert.ChangeType(raw, targetType);
+        }
+        catch
+        {
+            // If we can't strongly convert, keep the raw value (often a string) rather than failing the scan.
+            return raw;
+        }
+    }
+
+    private static Type? ResolveKestrunAnnotationType(AttributeAst attr)
+    {
+        // PowerShell attribute syntax allows omitting the 'Attribute' suffix.
+        var shortName = attr.TypeName.Name;
+
+        // If a namespace-qualified name is present, try it directly.
+        var fullName = attr.TypeName.FullName;
+
+        var type = ResolveTypeFromName(fullName);
+        type ??= ResolveTypeFromName(shortName);
+        if (type is null && !shortName.EndsWith("Attribute", StringComparison.OrdinalIgnoreCase))
+        {
+            type ??= ResolveTypeFromName(shortName + "Attribute");
+        }
+
+        return type is not null && typeof(KestrunAnnotation).IsAssignableFrom(type) ? type : null;
+    }
+
+    private static Type? ResolveTypeFromName(string name)
+    {
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            return null;
+        }
+
+        // Try Type.GetType first (works for assembly-qualified names)
+        var t = Type.GetType(name, throwOnError: false, ignoreCase: true);
+        if (t is not null)
+        {
+            return t;
+        }
+
+        // Search loaded assemblies (best-effort)
+        foreach (var asm in AppDomain.CurrentDomain.GetAssemblies())
+        {
+            t = asm.GetType(name, throwOnError: false, ignoreCase: true);
+            if (t is not null)
+            {
+                return t;
+            }
+
+            // Also allow matching by short type name.
+            try
+            {
+                t = asm.GetTypes().FirstOrDefault(x => string.Equals(x.Name, name, StringComparison.OrdinalIgnoreCase));
+                if (t is not null)
+                {
+                    return t;
+                }
+            }
+            catch
+            {
+                // Some dynamic/reflection-only assemblies can throw on GetTypes(). Ignore.
+            }
+        }
+
+        return null;
     }
 
     /// <summary>
@@ -457,116 +935,6 @@ public static class OpenApiComponentAnnotationScanner
         // Compare short type name: [ComponentParameter] or [Namespace.ComponentParameter]
         var shortName = attr.TypeName.Name;
         return filter.Any(x => string.Equals(x, shortName, StringComparison.OrdinalIgnoreCase));
-    }
-
-    /// <summary>
-    /// Tries to get the component name from the attribute arguments.
-    /// </summary>
-    /// <param name="attr">The attribute to extract the component name from.</param>
-    /// <param name="componentNameArgument">The name of the argument that specifies the component name.</param>
-    /// <returns>The component name if found; otherwise, null.</returns>
-    private static string? TryGetComponentName(AttributeAst attr, string componentNameArgument)
-    {
-        // 1) Named argument: Name='limit'
-        foreach (var na in attr.NamedArguments ?? Enumerable.Empty<NamedAttributeArgumentAst>())
-        {
-            if (string.Equals(na.ArgumentName, componentNameArgument, StringComparison.OrdinalIgnoreCase))
-            {
-                var raw = na.Argument.Extent.Text.Trim();
-                return Unquote(raw);
-            }
-        }
-
-        // 2) First positional: [ComponentParameter('limit')]
-        if (attr.PositionalArguments is not null && attr.PositionalArguments.Count > 0)
-        {
-            var raw = attr.PositionalArguments[0].Extent.Text.Trim();
-            return Unquote(raw);
-        }
-
-        return null;
-    }
-
-    /// <summary>
-    /// Removes surrounding quotes from a string if present.
-    /// </summary>
-    /// <param name="raw">The string to unquote.</param>
-    /// <returns>The unquoted string if quotes were present; otherwise, the original string.</returns>
-    private static string Unquote(string raw)
-    {
-        if (raw.Length >= 2)
-        {
-            if ((raw[0] == '\'' && raw[^1] == '\'') || (raw[0] == '"' && raw[^1] == '"'))
-            {
-                return raw[1..^1];
-            }
-        }
-        return raw;
-    }
-
-    private static AttributeInfo ToInfo(AttributeAst attr)
-    {
-        var positional = (attr.PositionalArguments ?? Enumerable.Empty<ExpressionAst>())
-            .Select(a => a.Extent.Text.Trim())
-            .ToList();
-
-        var named = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-        foreach (var na in attr.NamedArguments ?? Enumerable.Empty<NamedAttributeArgumentAst>())
-        {
-            named[na.ArgumentName] = na.Argument.Extent.Text.Trim();
-        }
-
-        var src = new SourceLocation(
-            File: attr.Extent.File, // often null when parsing from text; you can set your own if you want
-            Line: attr.Extent.StartLineNumber,
-            Column: attr.Extent.StartColumnNumber,
-            Text: attr.Extent.Text.Trim()
-        );
-
-        return new AttributeInfo(
-            TypeName: attr.TypeName.FullName,
-            PositionalArguments: positional,
-            NamedArguments: named,
-            Source: src
-        );
-    }
-
-    /// <summary>
-    /// Tries to get the declared variable from an expression AST.
-    /// </summary>
-    /// <param name="expr">The expression AST to extract the declared variable from.</param>
-    /// <returns>The declared VariableExpressionAst if found; otherwise, null.</returns>
-    /// <remarks>
-    /// This method traverses the expression AST to find a variable declaration,
-    /// effectively capturing cases where a variable is declared without an assignment.
-    /// Handles:
-    ///   [int]$param1   (and similar type constraints)
-    /// Returns the VariableExpressionAst if the final child is a variable.
-    /// </remarks>
-    private static VariableExpressionAst? TryGetDeclaredVariable(ExpressionAst expr)
-    {
-        // Matches: [int]$param1   (and similar type constraints)
-        // Returns the VariableExpressionAst if the final child is a variable.
-        while (true)
-        {
-            // [SomeAttribute()][int]$x  (attributes on the expression)
-            if (expr is AttributedExpressionAst aex)
-            {
-                expr = aex.Child;
-                continue;
-            }
-
-            // [int]$x  (type constraint / cast)
-            if (expr is ConvertExpressionAst cex)
-            {
-                expr = cex.Child;
-                continue;
-            }
-
-            break;
-        }
-
-        return expr as VariableExpressionAst;
     }
 
     /// <summary>

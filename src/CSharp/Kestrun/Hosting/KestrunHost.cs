@@ -210,6 +210,11 @@ public partial class KestrunHost : IDisposable
     public bool CorsPolicyDefined => DefinedCorsPolicyNames.Count > 0;
 
     /// <summary>
+    /// Gets the scanned OpenAPI component annotations from PowerShell scripts.
+    /// </summary>
+    public Dictionary<string, OpenApiComponentAnnotationScanner.AnnotatedVariable>? ComponentAnnotations { get; private set; }
+
+    /// <summary>
     /// Gets or sets the status code options for configuring status code pages.
     /// </summary>
     public StatusCodeOptions? StatusCodeOptions
@@ -1033,6 +1038,7 @@ public partial class KestrunHost : IDisposable
         throw new InvalidOperationException("Failed to apply configuration.", ex);
     }
 
+
     /// <summary>
     /// Applies the configured options to the Kestrel server and initializes the runspace pool.
     /// </summary>
@@ -1045,6 +1051,11 @@ public partial class KestrunHost : IDisposable
 
         try
         {
+
+            ComponentAnnotations = OpenApiComponentAnnotationScanner.ScanFromPath(
+              mainPath: KestrunHostManager.EntryScriptPath,
+              userVariables: userVariables
+          );
             // Export OpenAPI classes from PowerShell
             var openApiClassesPath = PowerShellOpenApiClassExporter.ExportOpenApiClasses(userCallbacks: userCallbacks);
             if (Logger.IsEnabled(LogEventLevel.Debug))

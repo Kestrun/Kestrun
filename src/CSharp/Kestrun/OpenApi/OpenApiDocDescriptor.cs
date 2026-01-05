@@ -123,13 +123,19 @@ public partial class OpenApiDocDescriptor
     {
         var components = OpenApiSchemaDiscovery.GetOpenApiTypesAuto();
         GenerateComponents(components);
-        var map = OpenApiComponentAnnotationScanner.ScanFromPath(
-            mainPath: KestrunHostManager.EntryScriptPath,
-            attributeTypeFilter: [nameof(OpenApiParameterComponent)]
-        );
-        foreach (var kvp in map.Keys)
+        var annotations = Host.ComponentAnnotations;
+        if (annotations is null)
         {
-            Console.WriteLine($"Discovered component parameter type: {kvp}");
+            Host.Logger.Warning("No OpenAPI component annotations were found in the host.");
+            return;
+        }
+        foreach (var (variableName, variable) in annotations)
+        {
+            Console.WriteLine($"Discovered component annotations for '{variableName}' ({variable.VariableTypeName ?? "<unknown>"})");
+            foreach (var annotation in variable.Annotations)
+            {
+                Console.WriteLine($"  - {annotation.GetType().Name}");
+            }
         }
     }
 

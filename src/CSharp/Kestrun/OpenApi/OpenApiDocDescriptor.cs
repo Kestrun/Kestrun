@@ -129,8 +129,48 @@ public partial class OpenApiDocDescriptor
             Host.Logger.Warning("No OpenAPI component annotations were found in the host.");
             return;
         }
+
         foreach (var (variableName, variable) in annotations)
         {
+            //  FinalizeAndRegisterParameter(parameter, variable, );
+
+            foreach (var annotation in variable.Annotations.OfType<OpenApiParameterComponent>())
+            {
+
+                Document.Components!.Parameters ??= new Dictionary<string, IOpenApiParameter>(StringComparer.Ordinal);
+                var parameter = new OpenApiParameter
+                {
+                    AllowEmptyValue = annotation.AllowEmptyValue,
+                    Description = annotation.Description,
+                    In = annotation.In.ToOpenApi(),
+                    Name = annotation.Name ?? variableName,
+                    Style = annotation.Style?.ToOpenApi(),
+
+                    AllowReserved = annotation.AllowReserved,
+                    Required = annotation.Required,
+                    Example = OpenApiJsonNodeFactory.FromObject(annotation.Example)
+                };
+                // Explode defaults to true for "form" and "cookie" styles
+                if (annotation.Explode || (parameter.Style is ParameterStyle.Form or ParameterStyle.Cookie))
+                {
+                    parameter.Explode = true;
+                }
+
+                if (variable.VariableType != null)
+                {
+                    parameter.Schema = InferPrimitiveSchema(variable.VariableType);
+                    if (parameter.Schema is OpenApiSchema schema)
+                    {
+                        ApplyConcreteSchemaAttributes(annotation, schema);
+
+                        if (variable.InitialValue != null)
+                        {
+                            schema.Default = OpenApiJsonNodeFactory.FromObject(variable.InitialValue);
+                        }
+                    }
+                }
+                Document.Components.Parameters[parameter.Name] = parameter;
+            }
             Console.WriteLine($"Discovered component annotations for '{variableName}' ({variable.VariableTypeName ?? "<unknown>"})");
             foreach (var annotation in variable.Annotations)
             {

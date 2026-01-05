@@ -93,7 +93,7 @@ class ApiResponse {
 }
 
 # Error
-[OpenApiSchemaComponent(Required = ('code', 'message'))]
+[OpenApiSchemaComponent(RequiredProperties = ('code', 'message'))]
 class Error {
     [string]$code
     [string]$message
@@ -117,7 +117,7 @@ class Error {
 .PARAMETER status
     Pet status in the store
 #>
-[OpenApiSchemaComponent(Required = ('name', 'photoUrls'))]
+[OpenApiSchemaComponent(RequiredProperties = ('name', 'photoUrls'))]
 class Pet {
     [long]$id
     [string]$name
@@ -155,11 +155,11 @@ class Inventory {
 # =========================================================
 
 # RequestBody: UserArray
-[OpenApiRequestBodyComponent(Description = 'List of user object', IsRequired = $true, ContentType = 'application/json' , Array = $true)]
+[OpenApiRequestBodyComponent(Description = 'List of user object', Required = $true, ContentType = 'application/json' , Array = $true)]
 class UserArray:User {}
 
 # RequestBody: PetBody
-[OpenApiRequestBodyComponent(Description = 'Pet object that needs to be added to the store', IsRequired = $true,
+[OpenApiRequestBodyComponent(Description = 'Pet object that needs to be added to the store', Required = $true,
     ContentType = ('application/json', 'application/xml', 'application/x-www-form-urlencoded'))]
 class PetBody:Pet {}
 #endregion

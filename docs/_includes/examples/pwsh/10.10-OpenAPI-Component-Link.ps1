@@ -58,7 +58,7 @@ New-KrOpenApiLink -OperationId 'deleteUser' -Description 'Delete the created/ret
 #                      COMPONENT SCHEMAS
 # =========================================================
 
-[OpenApiSchemaComponent(Description = 'User payload (create/update).', Required = ('firstName', 'lastName', 'email'))]
+[OpenApiSchemaComponent(Description = 'User payload (create/update).', RequiredProperties = ('firstName', 'lastName', 'email'))]
 class UserPayload {
     [OpenApiProperty(Description = 'First name', Example = 'John')]
     [string]$firstName
@@ -72,7 +72,7 @@ class UserPayload {
 
 [OpenApiSchemaComponent(
     Description = 'Response payload for user operations. Contains an id and nested user object for link mapping.',
-    Required = ('id', 'user')
+    RequiredProperties = ('id', 'user')
 )]
 class UserResourceResponse {
     [OpenApiProperty(Format = 'int32', Description = 'User identifier.', Example = 123)]

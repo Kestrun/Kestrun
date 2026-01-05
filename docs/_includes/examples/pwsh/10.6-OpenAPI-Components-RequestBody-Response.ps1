@@ -34,7 +34,7 @@ Add-KrOpenApiTag -Name 'orders' -Description 'Order management operations'
 # =========================================================
 
 # Request schema for creating an order
-[OpenApiSchemaComponent(Required = ('productId', 'quantity'))]
+[OpenApiSchemaComponent(RequiredProperties = ('productId', 'quantity'))]
 class CreateOrderRequest {
     [OpenApiPropertyAttribute(Description = 'Product ID', Example = 1)]
     [long]$productId
@@ -50,7 +50,7 @@ class CreateOrderRequest {
 }
 
 # Response schema for order data
-[OpenApiSchemaComponent(Required = ('orderId', 'productId', 'quantity', 'status', 'totalPrice'))]
+[OpenApiSchemaComponent(RequiredProperties = ('orderId', 'productId', 'quantity', 'status', 'totalPrice'))]
 class OrderResponse {
     [OpenApiPropertyAttribute(Description = 'Order ID', Example = 'a54a57ca-36f8-421b-a6b4-2e8f26858a4c')]
     [Guid]$orderId
@@ -76,7 +76,7 @@ class OrderResponse {
 }
 
 # Error response schema
-[OpenApiSchemaComponent(Required = ('code', 'message'))]
+[OpenApiSchemaComponent(RequiredProperties = ('code', 'message'))]
 class ErrorDetail {
     [OpenApiPropertyAttribute(Description = 'Error code', Example = 'INVALID_QUANTITY')]
     [string]$code
@@ -98,7 +98,7 @@ class ErrorDetail {
 # CreateOrderRequest: RequestBody component
 [OpenApiRequestBodyComponent(
     Description = 'Order creation payload',
-    IsRequired = $true,
+    Required = $true,
     ContentType = 'application/json'
 )]
 class CreateOrderRequestBody:CreateOrderRequest {}

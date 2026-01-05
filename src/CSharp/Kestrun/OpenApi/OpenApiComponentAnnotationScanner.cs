@@ -740,7 +740,7 @@ public static class OpenApiComponentAnnotationScanner
             "datetime" => typeof(DateTime),
             "guid" => typeof(Guid),
             "ipaddress" => typeof(System.Net.IPAddress),
-            "hashtable" => typeof(System.Collections.Hashtable),
+            "hashtable" => typeof(Hashtable),
             "object" => typeof(object),
             _ => ResolveTypeFromName(NormalizePowerShellTypeName(lowered))
         };

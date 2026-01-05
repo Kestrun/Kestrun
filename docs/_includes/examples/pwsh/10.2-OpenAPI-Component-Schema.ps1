@@ -31,7 +31,7 @@ Add-KrOpenApiInfo -Title 'Component Schema API' `
 # =========================================================
 
 # Request schema: User input for creating a user
-[OpenApiSchemaComponent(Required = ('firstName', 'lastName', 'email'))]
+[OpenApiSchemaComponent(RequiredProperties = ('firstName', 'lastName', 'email'))]
 class CreateUserRequest {
     [OpenApiPropertyAttribute(Description = 'First name of the user', Example = 'John')]
     [string]$firstName
@@ -47,7 +47,7 @@ class CreateUserRequest {
 }
 
 # Response schema: User data returned from server
-[OpenApiSchemaComponent(Required = ('id', 'firstName', 'lastName', 'email'))]
+[OpenApiSchemaComponent(RequiredProperties = ('id', 'firstName', 'lastName', 'email'))]
 class UserResponse {
     [OpenApiPropertyAttribute(Description = 'Unique user identifier', Format = 'int64', Example = 1)]
     [long]$id

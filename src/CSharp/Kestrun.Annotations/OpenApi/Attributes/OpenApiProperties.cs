@@ -3,7 +3,7 @@
 /// Rich OpenAPI schema metadata for a property or a class.
 /// Apply to:
 /// <list type="bullet">
-/// <item><description>Class (object-level): set <see cref="Required"/> array, XML hints, discriminator, etc.</description></item>
+/// <item><description>Class (object-level): set <see cref="RequiredProperties"/> array, XML hints, discriminator, etc.</description></item>
 /// <item><description>Property (member-level): set description, format, constraints, enum, etc.</description></item>
 /// </list>
 /// </summary>
@@ -72,7 +72,7 @@ public abstract class OpenApiProperties : KestrunAnnotation
     /// <summary>
     /// Object-level required property names (apply this on the CLASS).
     /// </summary>
-    public string[]? Required { get; set; }
+    public string[]? RequiredProperties { get; set; }
 
     // ---- Enum ----
     /// <summary>Allowed constant values for the schema.</summary>

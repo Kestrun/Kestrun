@@ -59,7 +59,7 @@ public partial class OpenApiDocDescriptor
         {
             requestBody.Description = bodyAttribute.Description;
         }
-        requestBody.Required |= bodyAttribute.IsRequired;
+        requestBody.Required |= bodyAttribute.Required;
         requestBody.Content ??= new Dictionary<string, IOpenApiMediaType>(StringComparer.Ordinal);
 
         var mediaType = new OpenApiMediaType { Schema = schema };

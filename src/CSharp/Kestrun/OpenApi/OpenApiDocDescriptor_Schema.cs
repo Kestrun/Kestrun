@@ -486,9 +486,9 @@ public partial class OpenApiDocDescriptor
             merged.Type = attr.Type;
         }
 
-        if (attr.Required is { Length: > 0 })
+        if (attr.RequiredProperties is { Length: > 0 })
         {
-            merged.Required = [.. (merged.Required ?? []).Concat(attr.Required).Distinct()];
+            merged.RequiredProperties = [.. (merged.RequiredProperties ?? []).Concat(attr.RequiredProperties).Distinct()];
         }
     }
 
@@ -849,10 +849,10 @@ public partial class OpenApiDocDescriptor
             schema.Enum = [.. properties.Enum.Select(ToNode).OfType<JsonNode>()];
         }
 
-        if (properties.Required is { Length: > 0 })
+        if (properties.RequiredProperties is { Length: > 0 })
         {
             schema.Required ??= new HashSet<string>(StringComparer.Ordinal);
-            foreach (var r in properties.Required)
+            foreach (var r in properties.RequiredProperties)
             {
                 _ = schema.Required.Add(r);
             }

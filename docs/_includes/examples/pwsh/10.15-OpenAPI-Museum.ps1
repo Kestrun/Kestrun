@@ -49,7 +49,7 @@ Add-KrOpenApiTag -Name 'Tickets' -Description 'Museum tickets for general entran
 
 
 [OpenApiSchemaComponent( Description = 'Daily operating hours for the museum.',
-    Required = ('date', 'timeOpen', 'timeClose'))]
+    RequiredProperties = ('date', 'timeOpen', 'timeClose'))]
 class MuseumDailyHours {
     [OpenApiProperty(Description = 'Date the operating hours apply to.', Example = '2024-12-31')]
     [Date]$date
@@ -72,7 +72,7 @@ class GetMuseumHoursResponse:MuseumDailyHours {}
 
 [OpenApiSchemaComponent(
     Description = 'Request payload for creating new special events at the museum.',
-    Required = ('name', 'location', 'eventDescription', 'dates', 'price')
+    RequiredProperties = ('name', 'location', 'eventDescription', 'dates', 'price')
 )]
 class CreateSpecialEventRequest {
     [EventName]$name
@@ -96,7 +96,7 @@ class UpdateSpecialEventRequest {
 
 
 [OpenApiSchemaComponent(  Description = 'Information about a special event.',
-    Required = ('eventId', 'name', 'location', 'eventDescription', 'dates', 'price')
+    RequiredProperties = ('eventId', 'name', 'location', 'eventDescription', 'dates', 'price')
 )]
 class SpecialEventResponse {
     [EventId]$eventId
@@ -189,7 +189,7 @@ class Email :OpenApiString {}
 class Phone :OpenApiString {}
 
 [OpenApiSchemaComponent(Description = 'Request payload used for purchasing museum tickets.',
-    Required = ('ticketType', 'ticketDate', 'email'))]
+    RequiredProperties = ('ticketType', 'ticketDate', 'email'))]
 class BuyMuseumTicketsRequest {
     [TicketType]$ticketType
 
@@ -207,7 +207,7 @@ class BuyMuseumTicketsRequest {
 
 
 [OpenApiSchemaComponent(Description = 'Details for a museum ticket after a successful purchase.',
-    Required = ('message', 'ticketId', 'ticketType', 'ticketDate', 'confirmationCode'))]
+    RequiredProperties = ('message', 'ticketId', 'ticketType', 'ticketDate', 'confirmationCode'))]
 class BuyMuseumTicketsResponse {
     [TicketMessage]$message
     [EventName]$eventName
@@ -446,8 +446,7 @@ New-KrOpenApiExample -Summary 'Get hours response' -Value $museumHoursValue |
 [int]$paginationLimit = 20
 
 [OpenApiParameterComponent(In = 'Query',
-    Description = 'The page number to retrieve.')]
-[OpenApiPropertyAttribute(Description = 'User age', Minimum = 0, Maximum = 150, Example = 30)]
+    Description = 'The page number to retrieve.' , Minimum = 0, Maximum = 150, Example = 30)]
 [int]$paginationPage
 
 [OpenApiParameterComponent(In = 'Query',

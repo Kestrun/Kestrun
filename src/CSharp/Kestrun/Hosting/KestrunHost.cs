@@ -32,6 +32,8 @@ namespace Kestrun.Hosting;
 /// </summary>
 public partial class KestrunHost : IDisposable
 {
+    private const string KestrunVariableMarkerKey = "__kestrunVariable";
+
     #region Fields
     internal WebApplicationBuilder Builder { get; }
 
@@ -1075,7 +1077,8 @@ public partial class KestrunHost : IDisposable
                         continue;
                     }
 
-                    if (SharedState.Set(name: key, value: userVariables[key], allowsValueType: true))
+                    var sharedValue = UnwrapKestrunVariableValue(userVariables[key]);
+                    if (SharedState.Set(name: key, value: sharedValue, allowsValueType: true))
                     {
                         if (Logger.IsEnabled(LogEventLevel.Verbose))
                         {
@@ -1831,7 +1834,7 @@ public partial class KestrunHost : IDisposable
                 iss.Variables.Add(
                     new SessionStateVariableEntry(
                         kvp.Key,
-                        psVar.Value,
+                        UnwrapKestrunVariableValue(psVar.Value),
                         psVar.Description ?? "User-defined variable"
                     )
                 );
@@ -1841,11 +1844,69 @@ public partial class KestrunHost : IDisposable
             iss.Variables.Add(
                 new SessionStateVariableEntry(
                     kvp.Key,
-                    kvp.Value,
+                    UnwrapKestrunVariableValue(kvp.Value),
                     "User-defined variable"
                 )
             );
         }
+    }
+
+    private static object? UnwrapKestrunVariableValue(object? raw)
+    {
+        if (raw is null)
+        {
+            return null;
+        }
+
+        if (raw is PSObject pso)
+        {
+            raw = pso.BaseObject;
+        }
+
+        if (raw is not System.Collections.IDictionary dict)
+        {
+            return raw;
+        }
+
+        if (!TryGetDictionaryValueIgnoreCase(dict, KestrunVariableMarkerKey, out var markerObj))
+        {
+            return raw;
+        }
+
+        var isMarked = markerObj switch
+        {
+            bool b => b,
+            PSObject psMarker when psMarker.BaseObject is bool b => b,
+            _ => false
+        };
+
+        return !isMarked
+            ? raw
+            : (TryGetDictionaryValueIgnoreCase(dict, "Value", out var valueObj)
+                ? (valueObj is PSObject psValue ? psValue.BaseObject : valueObj)
+                : null);
+    }
+
+    private static bool TryGetDictionaryValueIgnoreCase(System.Collections.IDictionary dict, string key, out object? value)
+    {
+        value = null;
+
+        if (dict.Contains(key))
+        {
+            value = dict[key];
+            return true;
+        }
+
+        foreach (System.Collections.DictionaryEntry de in dict)
+        {
+            if (de.Key is string s && string.Equals(s, key, StringComparison.OrdinalIgnoreCase))
+            {
+                value = de.Value;
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private static void AddUserFunctions(InitialSessionState iss, IReadOnlyDictionary<string, string>? userFunctions)

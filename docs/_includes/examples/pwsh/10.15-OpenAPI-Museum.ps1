@@ -21,6 +21,8 @@ New-KrLogger | Add-KrSinkConsole |
     Register-KrLogger -Name 'console' -SetAsDefault
 
 $srv = New-KrServer -Name 'Redocly Museum API' -PassThru
+
+$srv2 = @(2, 2)
 Add-KrEndpoint -Port $Port -IPAddress $IPAddress
 # =========================================================
 #                 TOP-LEVEL OPENAPI (3.1.0)

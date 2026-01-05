@@ -6,6 +6,18 @@ Describe 'Get-KrAssignedVariable' {
         . "$PSScriptRoot/../../../src/PowerShell/Kestrun/Private/Variable/Get-KrAssignedVariables.ps1"
     }
 
+    It 'resolves non-constant values with -FromParent (caller scope)' {
+        function __KrTestCaller {
+            $srv = [pscustomobject]@{ Name = 'Demo'; Value = 123 }
+            return Get-KrAssignedVariable -FromParent -ResolveValues -AsDictionary
+        }
+
+        $vars = __KrTestCaller
+        $vars.ContainsKey('srv') | Should -BeTrue
+        $vars['srv'].Name | Should -Be 'Demo'
+        $vars['srv'].Value | Should -Be 123
+    }
+
     It 'captures typed declaration-only variables (no assignment)' {
         $vars = Get-KrAssignedVariable -ResolveValues -ScriptBlock {
             [int]$declOnly
@@ -17,13 +29,14 @@ Describe 'Get-KrAssignedVariable' {
             )
         }
 
-        ($vars | Where-Object Name -EQ 'declOnly').Count | Should -Be 1
-        ($vars | Where-Object Name -EQ 'declOnly').Type | Should -Be 'int'
+        @($vars | Where-Object Name -EQ 'declOnly').Count | Should -Be 1
+        ($vars | Where-Object Name -EQ 'declOnly').Type | Should -Be ([int])
+        ($vars | Where-Object Name -EQ 'declOnly').IsNullable | Should -BeFalse
 
-        ($vars | Where-Object Name -EQ 'assigned').Count | Should -Be 1
+        @($vars | Where-Object Name -EQ 'assigned').Count | Should -Be 1
         ($vars | Where-Object Name -EQ 'assigned').Value | Should -Be 42
 
-        ($vars | Where-Object Name -EQ 'museumHoursValue').Count | Should -Be 1
+        @($vars | Where-Object Name -EQ 'museumHoursValue').Count | Should -Be 1
         (($vars | Where-Object Name -EQ 'museumHoursValue').Value.Count) | Should -Be 2
     }
 
@@ -65,7 +78,7 @@ Describe 'Get-KrAssignedVariable' {
             $x = 2
         }
 
-        ($vars | Where-Object Name -EQ 'x').Count | Should -Be 1
+        @($vars | Where-Object Name -EQ 'x').Count | Should -Be 1
         ($vars | Where-Object Name -EQ 'x').Value | Should -Be 2
     }
 
@@ -100,8 +113,10 @@ Describe 'Get-KrAssignedVariable' {
             [Nullable[datetime]]$startDate
         }
 
-        ($vars | Where-Object Name -EQ 'startDate').Count | Should -Be 1
-        ($vars | Where-Object Name -EQ 'startDate').Type | Should -Be 'Nullable[datetime]'
+        @($vars | Where-Object Name -EQ 'startDate').Count | Should -Be 1
+        ($vars | Where-Object Name -EQ 'startDate').Type | Should -Be ([datetime])
+        ($vars | Where-Object Name -EQ 'startDate').DeclaredType | Should -Be 'Nullable[datetime]'
+        ($vars | Where-Object Name -EQ 'startDate').IsNullable | Should -BeTrue
         ($vars | Where-Object Name -EQ 'startDate').Value | Should -Be $null
     }
 
@@ -112,8 +127,42 @@ Describe 'Get-KrAssignedVariable' {
             $a = 3
         }
 
-        $dict.GetType().FullName | Should -Match '^System\.Collections\.Generic\.Dictionary`2\[\[System\.String, System\.Private\.CoreLib'
+        $dict.GetType().FullName | Should -Match '^System\.Collections\.Generic\.Dictionary`2\[\[System\.String, (System\.Private\.CoreLib|mscorlib)'
         $dict['a'] | Should -Be 3
         $dict['b'] | Should -Be 'two'
+    }
+
+    It 'wraps typed assigned variables in -AsDictionary (metadata available even when value is non-null)' {
+        $dict = Get-KrAssignedVariable -ResolveValues -AsDictionary -ScriptBlock {
+            [int]$paginationLimit = 20
+        }
+
+        $dict.ContainsKey('paginationLimit') | Should -BeTrue
+        $meta = $dict['paginationLimit']
+        ($meta -is [System.Collections.IDictionary]) | Should -BeTrue
+
+        $meta['__kestrunVariable'] | Should -BeTrue
+        $meta['Value'] | Should -Be 20
+        $meta['DeclaredType'] | Should -Be 'int'
+        ($meta['Type'] -is [System.Type]) | Should -BeTrue
+        $meta['Type'] | Should -Be ([int])
+        $meta['IsNullable'] | Should -BeFalse
+    }
+
+    It 'preserves declared type metadata in -AsDictionary for typed declaration-only variables' {
+        $dict = Get-KrAssignedVariable -ResolveValues -AsDictionary -ScriptBlock {
+            [Nullable[datetime]]$startDate
+        }
+
+        $dict.ContainsKey('startDate') | Should -BeTrue
+        $meta = $dict['startDate']
+        ($meta -is [System.Collections.IDictionary]) | Should -BeTrue
+
+        $meta['__kestrunVariable'] | Should -BeTrue
+        $meta['Value'] | Should -Be $null
+        $meta['DeclaredType'] | Should -Be 'Nullable[datetime]'
+        ($meta['Type'] -is [System.Type]) | Should -BeTrue
+        $meta['Type'] | Should -Be ([datetime])
+        $meta['IsNullable'] | Should -BeTrue
     }
 }

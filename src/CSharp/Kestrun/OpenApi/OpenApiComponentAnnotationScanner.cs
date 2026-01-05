@@ -10,6 +10,8 @@ namespace Kestrun.OpenApi;
 /// </summary>
 public static class OpenApiComponentAnnotationScanner
 {
+    private const string KestrunVariableMarkerKey = "__kestrunVariable";
+
     /// <summary>
     /// Represents a variable discovered in script, along with its OpenAPI annotations and metadata.
     /// </summary>
@@ -238,6 +240,30 @@ public static class OpenApiComponentAnnotationScanner
                 raw = pso.BaseObject;
             }
 
+            // Handle the PowerShell-side metadata wrapper used by Get-KrAssignedVariable -AsDictionary
+            // for typed declaration-only (and typed-null) variables.
+            if (TryUnwrapKestrunVariableMetadata(raw, out var unwrappedValue, out var declaredTypeName, out var typeFromField, out var typeName))
+            {
+                raw = unwrappedValue;
+
+                // If runtime value is null, we still want to preserve declared type information.
+                if (!string.IsNullOrWhiteSpace(declaredTypeName))
+                {
+                    entry.VariableTypeName ??= declaredTypeName;
+                    entry.VariableType ??= ResolvePowerShellTypeName(declaredTypeName);
+                }
+                else if (typeFromField is not null)
+                {
+                    entry.VariableType ??= typeFromField;
+                    entry.VariableTypeName ??= typeFromField.FullName;
+                }
+                else if (!string.IsNullOrWhiteSpace(typeName))
+                {
+                    entry.VariableTypeName ??= typeName;
+                    entry.VariableType ??= ResolvePowerShellTypeName(typeName);
+                }
+            }
+
             entry.InitialValue = raw;
             entry.InitialValueExpression ??= raw is null ? "$null" : raw.ToString();
 
@@ -249,6 +275,105 @@ public static class OpenApiComponentAnnotationScanner
                 entry.VariableTypeName ??= raw.GetType().FullName;
             }
         }
+    }
+
+    private static bool TryUnwrapKestrunVariableMetadata(object? raw, out object? value, out string? declaredTypeName, out Type? typeFromField, out string? typeName)
+    {
+        value = raw;
+        declaredTypeName = null;
+        typeFromField = null;
+        typeName = null;
+
+        if (raw is null)
+        {
+            return false;
+        }
+
+        if (raw is PSObject pso)
+        {
+            raw = pso.BaseObject;
+        }
+
+        if (raw is not IDictionary dict)
+        {
+            return false;
+        }
+
+        if (!TryGetDictionaryValueIgnoreCase(dict, KestrunVariableMarkerKey, out var markerObj))
+        {
+            return false;
+        }
+
+        var isMarked = markerObj switch
+        {
+            bool b => b,
+            PSObject p when p.BaseObject is bool b => b,
+            _ => false
+        };
+
+        if (!isMarked)
+        {
+            return false;
+        }
+
+        if (TryGetDictionaryValueIgnoreCase(dict, "Value", out var valueObj))
+        {
+            value = valueObj is PSObject p ? p.BaseObject : valueObj;
+        }
+
+        if (TryGetDictionaryValueIgnoreCase(dict, "DeclaredType", out var declaredObj))
+        {
+            declaredTypeName = declaredObj switch
+            {
+                string s => s,
+                PSObject p when p.BaseObject is string s => s,
+                _ => null
+            };
+        }
+
+        if (TryGetDictionaryValueIgnoreCase(dict, "Type", out var typeObj))
+        {
+            switch (typeObj)
+            {
+                case Type t:
+                    typeFromField = t;
+                    break;
+                case PSObject p when p.BaseObject is Type t:
+                    typeFromField = t;
+                    break;
+                case string s:
+                    typeName = s;
+                    break;
+                case PSObject p when p.BaseObject is string s:
+                    typeName = s;
+                    break;
+            }
+        }
+
+        return true;
+    }
+
+    private static bool TryGetDictionaryValueIgnoreCase(IDictionary dict, string key, out object? value)
+    {
+        value = null;
+
+        // Fast path: many IDictionary implementations (Hashtable) are case-insensitive.
+        if (dict.Contains(key))
+        {
+            value = dict[key];
+            return true;
+        }
+
+        foreach (DictionaryEntry de in dict)
+        {
+            if (de.Key is string s && string.Equals(s, key, StringComparison.OrdinalIgnoreCase))
+            {
+                value = de.Value;
+                return true;
+            }
+        }
+
+        return false;
     }
 
     // ---------------- Parsing ----------------

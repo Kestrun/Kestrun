@@ -141,11 +141,40 @@ function Get-KrAssignedVariable {
 
         # When using -FromParent, prefer numeric scope resolution so we can see the caller's values.
         if ($FromParent.IsPresent) {
-            try {
-                return Get-Variable -Name $name -Scope $scopeUp -ValueOnly -ErrorAction SilentlyContinue
-            } catch {
-                return $null
+            # Use Get-Variable (not provider) so we can distinguish "not found" from "$null".
+            # Scope depth can vary depending on wrapper frames (VS Code, Invoke-Command, etc.).
+            # Try a small window around the computed scopeUp first, then scan a bounded range.
+            $scopeCandidates = [System.Collections.Generic.List[int]]::new()
+
+            if ($scopeUp -ge 0) {
+                $scopeCandidates.Add([int]$scopeUp)
             }
+            if ($scopeUp -ge 0) {
+                $scopeCandidates.Add([int]($scopeUp + 1))
+            }
+            if ($scopeUp -gt 0) {
+                $scopeCandidates.Add([int]($scopeUp - 1))
+            }
+
+            $maxAdditionalScopes = 25
+            $start = [Math]::Max(1, [int]($scopeUp - 2))
+            $end = [Math]::Max($start, [int]($scopeUp + $maxAdditionalScopes))
+            for ($s = $start; $s -le $end; $s++) {
+                $scopeCandidates.Add([int]$s)
+            }
+
+            foreach ($s in ($scopeCandidates | Select-Object -Unique)) {
+                try {
+                    $v = Get-Variable -Name $name -Scope $s -ErrorAction SilentlyContinue
+                    if ($null -ne $v) {
+                        return $v.Value
+                    }
+                } catch {
+                    # ignore
+                }
+            }
+
+            return $null
         }
 
         try {
@@ -311,6 +340,34 @@ function Get-KrAssignedVariable {
         return $null
     }
 
+    function _GetTypeInfoFromDeclaredType([string] $declaredType) {
+        $underlyingName = $declaredType
+        $isNullable = $false
+
+        if (-not [string]::IsNullOrWhiteSpace($declaredType)) {
+            # Typical PowerShell nullable syntax: Nullable[datetime]
+            if ($declaredType -match '^(System\.)?Nullable(`1)?\[(?<inner>.+)\]$') {
+                $underlyingName = $Matches.inner
+                $isNullable = $true
+            }
+        }
+
+        $resolvedType = $null
+        if (-not [string]::IsNullOrWhiteSpace($underlyingName)) {
+            try {
+                $resolvedType = [System.Management.Automation.PSTypeName]::new($underlyingName).Type
+            } catch {
+                $resolvedType = $null
+            }
+        }
+
+        return [pscustomobject]@{
+            Type = $resolvedType
+            DeclaredType = $declaredType
+            IsNullable = $isNullable
+        }
+    }
+
     # ---------- resolve $ScriptBlock source ----------
     if ($FromParent.IsPresent) {
         $allFrames = Get-PSCallStack
@@ -328,8 +385,9 @@ function Get-KrAssignedVariable {
         $frame = $frames | Select-Object -Skip ($Up - 1) -First 1
         if (-not $frame) { throw "No parent frame found (Up=$Up)." }
 
-        # Figure out how far “up” that is compared to the original call stack
-        $scopeUp = ($allFrames.IndexOf($frame)) + 1
+        # Numeric scope depth for Get-Variable (0=this function, 1=caller, ...).
+        # The frame index in Get-PSCallStack already matches the numeric scope depth.
+        $scopeUp = $allFrames.IndexOf($frame)
         if ($scopeUp -lt 1) { throw 'Parent frame not found.' }
 
         # prefer its live ScriptBlock; if null, rebuild from file
@@ -408,6 +466,24 @@ function Get-KrAssignedVariable {
         { param($n) $n -is [System.Management.Automation.Language.AssignmentStatementAst] }, $true)
 
     foreach ($a in $assignAsts) {
+        $declaredType = $null
+        $typeInfo = $null
+
+        # If assignment target is typed ([int]$x = 1), capture the declared type from the LHS.
+        $lhsConvert = $a.Left.Find(
+            {
+                param($n)
+                $n -is [System.Management.Automation.Language.ConvertExpressionAst] -and
+                $n.Child -is [System.Management.Automation.Language.VariableExpressionAst]
+            },
+            $true
+        ) | Select-Object -First 1
+
+        if ($lhsConvert -and $lhsConvert.Type -and $lhsConvert.Type.TypeName) {
+            $declaredType = $lhsConvert.Type.TypeName.FullName
+            $typeInfo = _GetTypeInfoFromDeclaredType -declaredType $declaredType
+        }
+
         $varAst = $a.Left.Find(
             { param($n) $n -is [System.Management.Automation.Language.VariableExpressionAst] }, $true
         ) | Select-Object -First 1
@@ -423,7 +499,14 @@ function Get-KrAssignedVariable {
             # fall back to reading simple constant initializers directly from the AST.
             $val = _TryGetInitializerValueFromAssignment -assignmentAst $a
         }
-        $type = if ($null -ne $val) { $val.GetType().FullName } else { $null }
+
+        $type = $null
+        if ($null -ne $val) {
+            $type = $val.GetType()
+        } elseif ($typeInfo -and $null -ne $typeInfo.Type) {
+            # If value is $null but LHS is typed, surface the underlying declared type.
+            $type = $typeInfo.Type
+        }
 
         [void]$rows.Add([pscustomobject]@{
                 Name = $info.Name
@@ -432,6 +515,8 @@ function Get-KrAssignedVariable {
                 Source = 'Assignment'
                 Operator = $a.Operator.ToString()
                 Type = $type
+                DeclaredType = if ($typeInfo) { $typeInfo.DeclaredType } else { $null }
+                IsNullable = if ($typeInfo) { $typeInfo.IsNullable } else { $null }
                 Value = $val
             })
     }
@@ -459,6 +544,7 @@ function Get-KrAssignedVariable {
         if ($excludeSet.Contains($info.Name)) { continue }
 
         $declaredType = $c.Type.TypeName.FullName
+        $typeInfo = _GetTypeInfoFromDeclaredType -declaredType $declaredType
         $val = _TryResolveValue -name $info.Name -scopeHint $info.ScopeHint
 
         [void]$rows.Add([pscustomobject]@{
@@ -467,7 +553,9 @@ function Get-KrAssignedVariable {
                 ProviderPath = $info.ProviderPath
                 Source = 'Declaration'
                 Operator = $null
-                Type = $declaredType
+                Type = $typeInfo.Type
+                DeclaredType = $typeInfo.DeclaredType
+                IsNullable = $typeInfo.IsNullable
                 Value = $val
             })
     }
@@ -508,7 +596,7 @@ function Get-KrAssignedVariable {
                 if ($ResolveValues) {
                     try {
                         $val = (Get-Item -EA SilentlyContinue $provider).Value
-                        if ($null -ne $val) { $type = $val.GetType().FullName }
+                        if ($null -ne $val) { $type = $val.GetType() }
                     } catch {
                         Write-Warning "Failed to resolve variable '$name' in scope '$scope': $_"
                     }
@@ -520,6 +608,8 @@ function Get-KrAssignedVariable {
                     Source = $cmd
                     Operator = $null
                     Type = $type
+                    DeclaredType = $null
+                    IsNullable = $null
                     Value = $val
                 } | ForEach-Object { [void]$rows.Add($_) }
             }
@@ -532,7 +622,22 @@ function Get-KrAssignedVariable {
     if ($AsDictionary.IsPresent) {
         $dict = [System.Collections.Generic.Dictionary[string, object]]::new([System.StringComparer]::OrdinalIgnoreCase)
         foreach ($v in $final) {
-            $dict[$v.Name] = $v.Value
+            # Preserve declared type/nullable metadata for declaration-only (and typed-null) variables.
+            # Typed variables (i.e., DeclaredType present) are wrapped so C# can see Type/IsNullable
+            # even when the runtime value is non-null (e.g. [int]$paginationLimit = 20).
+            # Untyped variables keep the old behavior (value only).
+            $wrap = -not [string]::IsNullOrWhiteSpace($v.DeclaredType)
+            if ($wrap) {
+                $meta = [System.Collections.Generic.Dictionary[string, object]]::new([System.StringComparer]::OrdinalIgnoreCase)
+                $meta['__kestrunVariable'] = $true
+                $meta['Value'] = $v.Value
+                $meta['Type'] = $v.Type
+                $meta['DeclaredType'] = $v.DeclaredType
+                $meta['IsNullable'] = $v.IsNullable
+                $dict[$v.Name] = $meta
+            } else {
+                $dict[$v.Name] = $v.Value
+            }
         }
         return $dict
     }

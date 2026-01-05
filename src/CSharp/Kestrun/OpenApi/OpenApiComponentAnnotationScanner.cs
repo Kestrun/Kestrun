@@ -1,6 +1,7 @@
 using System.Management.Automation;
 using System.Management.Automation.Language;
 using System.Reflection;
+using System.Collections;
 
 namespace Kestrun.OpenApi;
 
@@ -52,7 +53,7 @@ public static class OpenApiComponentAnnotationScanner
     public static Dictionary<string, AnnotatedVariable> ScanFromRunningScriptOrPath(
         EngineIntrinsics engine,
         string? mainPath = null,
-            Dictionary<string, object>? userVariables = null,
+        object? userVariables = null,
         IReadOnlyCollection<string>? attributeTypeFilter = null,
         string componentNameArgument = "Name",
         int maxFiles = 200)
@@ -90,7 +91,7 @@ public static class OpenApiComponentAnnotationScanner
     /// </remarks>
     public static Dictionary<string, AnnotatedVariable> ScanFromPath(
         string mainPath,
-        Dictionary<string, object>? userVariables = null,
+        object? userVariables = null,
         IReadOnlyCollection<string>? attributeTypeFilter = null,
         string componentNameArgument = "Name",
         int maxFiles = 200)
@@ -134,7 +135,120 @@ public static class OpenApiComponentAnnotationScanner
             }
         }
 
+        MergeUserVariables(variables, userVariables);
+
         return variables;
+    }
+
+    private static void MergeUserVariables(Dictionary<string, AnnotatedVariable> variables, object? userVariables)
+    {
+        if (userVariables is null)
+        {
+            return;
+        }
+
+        // Normalize keys: allow "$name" or "name"; case-insensitive.
+        var normalized = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase);
+
+        if (userVariables is IDictionary nonGeneric)
+        {
+            if (nonGeneric.Count == 0)
+            {
+                return;
+            }
+
+            foreach (DictionaryEntry entry in nonGeneric)
+            {
+                if (entry.Key is not string key || string.IsNullOrWhiteSpace(key))
+                {
+                    continue;
+                }
+
+                var k = key.Trim();
+                if (k.StartsWith("$", StringComparison.Ordinal))
+                {
+                    k = k[1..];
+                }
+
+                if (!string.IsNullOrWhiteSpace(k))
+                {
+                    normalized[k] = entry.Value;
+                }
+            }
+
+        }
+        else if (userVariables is IEnumerable<KeyValuePair<string, object>> generic)
+        {
+            foreach (var kvp in generic)
+            {
+                if (string.IsNullOrWhiteSpace(kvp.Key))
+                {
+                    continue;
+                }
+
+                var k = kvp.Key.Trim();
+                if (k.StartsWith("$", StringComparison.Ordinal))
+                {
+                    k = k[1..];
+                }
+
+                if (!string.IsNullOrWhiteSpace(k))
+                {
+                    normalized[k] = kvp.Value;
+                }
+            }
+        }
+        else if (userVariables is IEnumerable<KeyValuePair<string, object?>> genericNullable)
+        {
+            foreach (var kvp in genericNullable)
+            {
+                if (string.IsNullOrWhiteSpace(kvp.Key))
+                {
+                    continue;
+                }
+
+                var k = kvp.Key.Trim();
+                if (k.StartsWith("$", StringComparison.Ordinal))
+                {
+                    k = k[1..];
+                }
+
+                if (!string.IsNullOrWhiteSpace(k))
+                {
+                    normalized[k] = kvp.Value;
+                }
+            }
+        }
+        else
+        {
+            // Unknown shape; ignore.
+            return;
+        }
+
+        foreach (var (varName, entry) in variables)
+        {
+            if (!normalized.TryGetValue(varName, out var raw))
+            {
+                continue;
+            }
+
+            // Unwrap PSObject if present.
+            if (raw is PSObject pso)
+            {
+                raw = pso.BaseObject;
+            }
+
+            entry.InitialValue = raw;
+            entry.InitialValueExpression ??= raw is null ? "$null" : raw.ToString();
+
+            // Only infer type from runtime value when it's non-null.
+            // If the variable is typed but currently $null, keep the AST-derived type.
+            if (raw is not null)
+            {
+                entry.VariableType = raw.GetType();
+                entry.VariableTypeName ??= raw.GetType().FullName;
+            }
+        }
     }
 
     // ---------------- Parsing ----------------

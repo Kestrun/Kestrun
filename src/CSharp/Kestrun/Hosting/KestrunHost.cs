@@ -1054,14 +1054,27 @@ public partial class KestrunHost : IDisposable
             // Scan for OpenAPI component annotations in the main script
             ComponentAnnotations = OpenApiComponentAnnotationScanner.ScanFromPath(
               mainPath: KestrunHostManager.EntryScriptPath,
-              userVariables: userVariables
+                            userVariables: userVariables
             );
+
+            var componentVariableNames = ComponentAnnotations is null
+                    ? new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+                    : new HashSet<string>(ComponentAnnotations.Keys, StringComparer.OrdinalIgnoreCase);
 
             // Inject user variables into shared state
             if (userVariables is not null)
             {
                 foreach (var key in userVariables.Keys)
                 {
+                    if (componentVariableNames.Contains(key))
+                    {
+                        if (Logger.IsEnabled(LogEventLevel.Verbose))
+                        {
+                            Logger.Verbose("Skipping shared state variable '{Key}' (OpenAPI component variable).", key);
+                        }
+                        continue;
+                    }
+
                     if (SharedState.Set(name: key, value: userVariables[key], allowsValueType: true))
                     {
                         if (Logger.IsEnabled(LogEventLevel.Verbose))

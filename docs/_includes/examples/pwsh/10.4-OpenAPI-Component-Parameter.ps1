@@ -27,42 +27,6 @@ Add-KrOpenApiInfo -Title 'Parameter Component API' `
     -Description 'Demonstrates reusable parameter components.'
 
 # =========================================================
-#                 COMPONENT PARAMETERS
-# =========================================================
-
-# Define reusable parameter components using class attributes
-New-KrOpenApiExample -Summary 'Product Item Example' -Value ([ordered]@{
-        id = 1; name = 'Laptop'; category = 'electronics'; price = 999.99
-    }) | Add-KrOpenApiComponent -Name 'ProductItemExample'
-
-
-[OpenApiParameterComponent(In = 'header', Description = 'Product item in header',
-    ContentType = 'application/json' , Required = $true)]
-[OpenApiParameterExampleRefAttribute(ReferenceId = 'ProductItemExample', Key = 'application/json')]
-[ProductItem]$productItems
-
-[OpenApiParameterComponent(In = [OaParameterLocation]::Query, Description = 'Page number',
-    Minimum = 1, Example = 1)]
-[int]$page = 1
-
-[OpenApiParameterComponent(In = [OaParameterLocation]::Query, Description = 'Items per page',
-    Minimum = 1, Maximum = 100, Example = 20)]
-[int]$limit = 20
-
-[OpenApiParameterComponent(In = [OaParameterLocation]::Query, Description = 'Sort field (name, date, price)', Example = 'date')]
-[ValidateSet('name', 'date', 'price')]
-[string]$sortBy = 'date'
-
-[OpenApiParameterComponent(In = [OaParameterLocation]::Query, Description = 'Filter by category', Example = 'electronics')]
-[string]$category
-
-[OpenApiParameterComponent(In = [OaParameterLocation]::Query, Description = 'Filter by minimum price', Example = 100)]
-[double]$minPrice
-
-[OpenApiParameterComponent(In = 'Query', Description = 'Filter by maximum price', Example = 5000)]
-[double]$maxPrice
-
-# =========================================================
 #                      COMPONENT SCHEMAS
 # =========================================================
 
@@ -95,6 +59,41 @@ class ProductListResponse {
     [OpenApiPropertyAttribute(Description = 'List of products')]
     [ProductItem[]]$items
 }
+
+# =========================================================
+#                 COMPONENT PARAMETERS
+# =========================================================
+
+# Define reusable parameter components by decorating PowerShell variables
+New-KrOpenApiExample -Summary 'Product Item Example' -Value ([ordered]@{
+        id = 1; name = 'Laptop'; category = 'electronics'; price = 999.99
+    }) | Add-KrOpenApiComponent -Name 'ProductItemExample'
+
+[OpenApiParameterComponent(In = 'header', Description = 'Product item in header',
+    ContentType = 'application/json' , Required = $true)]
+[OpenApiParameterExampleRefAttribute(ReferenceId = 'ProductItemExample', Key = 'application/json')]
+[ProductItem]$productItems
+
+[OpenApiParameterComponent(In = [OaParameterLocation]::Query, Description = 'Page number',
+    Minimum = 1, Example = 1)]
+[int]$page = 1
+
+[OpenApiParameterComponent(In = [OaParameterLocation]::Query, Description = 'Items per page',
+    Minimum = 1, Maximum = 100, Example = 20)]
+[int]$limit = 20
+
+[OpenApiParameterComponent(In = [OaParameterLocation]::Query, Description = 'Sort field (name, date, price)', Example = 'date')]
+[ValidateSet('name', 'date', 'price')]
+[string]$sortBy = 'date'
+
+[OpenApiParameterComponent(In = [OaParameterLocation]::Query, Description = 'Filter by category', Example = 'electronics')]
+[string]$category
+
+[OpenApiParameterComponent(In = [OaParameterLocation]::Query, Description = 'Filter by minimum price', Example = 100)]
+[double]$minPrice
+
+[OpenApiParameterComponent(In = 'Query', Description = 'Filter by maximum price', Example = 5000)]
+[double]$maxPrice
 
 # =========================================================
 #                 ROUTES / OPERATIONS

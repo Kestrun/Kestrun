@@ -28,7 +28,7 @@ Focus areas:
 | **Schema Component** | A PowerShell class decorated with `[OpenApiSchemaComponent]`. Defines data structure. |
 | **Request Body**     | A class decorated with `[OpenApiRequestBodyComponent]`. Defines payload structure. |
 | **Response**         | A class decorated with `[OpenApiResponseComponent]`. Defines response structure. |
-| **Parameter**        | A class decorated with `[OpenApiParameterComponent]`. Defines reusable parameters. |
+| **Parameter**        | A PowerShell parameter/variable decorated with `[OpenApiParameterComponent]`. Defines reusable parameters. |
 | **Callback**         | An operation-scoped async notification defined under `paths.{path}.{verb}.callbacks` (OpenAPI 3.1). |
 | **Webhook**          | A top-level OpenAPI webhook entry describing an outgoing event notification your API may send to subscribers. |
 | **Property Attribute**| `[OpenApiPropertyAttribute]` on class properties defines validation, examples, and descriptions. |
@@ -496,19 +496,14 @@ function getProduct {
 
 ## 7. Component Parameters
 
-Use `[OpenApiParameterComponent]` to group reusable parameters (Query, Header, Cookie).
+Use `[OpenApiParameterComponent]` to define reusable parameter components (Query, Header, Cookie).
 
 ```powershell
-[OpenApiParameterComponent()]
-class PaginationParams {
-    [OpenApiParameter(In = [OaParameterLocation]::Query, Description = 'Page number')]
-    [OpenApiPropertyAttribute(Minimum = 1, Default = 1)]
-    [int]$page
+[OpenApiParameterComponent(In = [OaParameterLocation]::Query, Description = 'Page number', Minimum = 1, Example = 1)]
+[int]$page = 1
 
-    [OpenApiParameter(In = [OaParameterLocation]::Query, Description = 'Items per page')]
-    [OpenApiPropertyAttribute(Minimum = 1, Maximum = 100, Default = 20)]
-    [int]$limit
-}
+[OpenApiParameterComponent(In = [OaParameterLocation]::Query, Description = 'Items per page', Minimum = 1, Maximum = 100, Example = 20)]
+[int]$limit = 20
 ```
 
 ### Usage in Route (Parameters)
@@ -516,8 +511,13 @@ class PaginationParams {
 ```powershell
 function listItems {
     [OpenApiPath(HttpVerb = 'get', Pattern = '/items')]
-    [OpenApiParameter(Reference = 'PaginationParams')]
-    param()
+    param(
+        [OpenApiParameterRef(ReferenceId = 'page')]
+        [int]$page,
+
+        [OpenApiParameterRef(ReferenceId = 'limit')]
+        [int]$limit
+    )
 }
 ```
 
@@ -735,7 +735,7 @@ Access the UI at `/swagger`, `/redoc`, etc., and the raw JSON at `/openapi/v3.1/
 | **`[OpenApiSchemaComponent]`** | Class | `Key`, `Examples`, `Required`, `Description`, `Array` |
 | **`[OpenApiRequestBodyComponent]`** | Class | `Key`, `ContentType`, `IsRequired`, `Description` |
 | **`[OpenApiResponseComponent]`** | Class | `Description`, `JoinClassName` |
-| **`[OpenApiParameterComponent]`** | Class | `Description`, `JoinClassName` |
+| **`[OpenApiParameterComponent]`** | Parameter | `In`, `Description`, `Required`, `ContentType`, `Example`, `Minimum`, `Maximum`, `Default` |
 | **`[OpenApiHeaderComponent]`** | Class | `Description`, `JoinClassName` |
 | **`[OpenApiExampleComponent]`** | Class | `Key`, `Summary`, `Description`, `ExternalValue` |
 | **`[OpenApiPropertyAttribute]`** | Parameter/Field | `Description`, `Example`, `Format`, `Required`, `Enum`, `Minimum`, `Maximum`, `Default` |
@@ -789,7 +789,7 @@ These properties are available on `[OpenApiSchemaComponent]`, `[OpenApiPropertyA
 | **Schemas** | ✅ Supported | Use `[OpenApiSchemaComponent]` classes |
 | **Request Bodies** | ✅ Supported | Use `[OpenApiRequestBodyComponent]` classes |
 | **Responses** | ✅ Supported | Use `[OpenApiResponseComponent]` classes |
-| **Parameters** | ✅ Supported | Use `[OpenApiParameterComponent]` classes |
+| **Parameters** | ✅ Supported | Define components with `[OpenApiParameterComponent]`, reference via `[OpenApiParameterRef]` |
 | **Headers** | ✅ Supported | Use `New-KrOpenApiHeader` + `Add-KrOpenApiComponent`, then reference via `OpenApiResponseHeaderRef` |
 | **Examples** | ✅ Supported | Use `New-KrOpenApiExample` + `Add-KrOpenApiComponent`, then reference via `OpenApiResponseExampleRef` / `OpenApiRequestBodyExampleRef` / `OpenApiParameterExampleRef` |
 | **Inheritance** | ✅ Supported | PowerShell class inheritance works for schemas |

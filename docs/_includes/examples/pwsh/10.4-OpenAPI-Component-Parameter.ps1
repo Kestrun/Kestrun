@@ -1,8 +1,8 @@
 <#
     Sample: OpenAPI Parameter Components
-    Purpose: Demonstrate reusable parameter components for pagination, filtering, and sorting.
+    Purpose: Demonstrate reusable OpenAPI parameter components across multiple endpoints.
     File:    10.4-OpenAPI-Component-Parameter.ps1
-    Notes:   Shows parameter location (Query), combined parameter components, and typed responses.
+    Notes:   Shows Query/Path/Header/Cookie parameters, parameter examples, and parameters with ContentType.
 #>
 param(
     [int]$Port = 5000,
@@ -24,13 +24,30 @@ Add-KrEndpoint -Port $Port -IPAddress $IPAddress
 
 Add-KrOpenApiInfo -Title 'Parameter Component API' `
     -Version '1.0.0' `
-    -Description 'Demonstrates reusable parameter components.'
+    -Description 'Mini product catalog API demonstrating reusable OpenAPI parameter components.'
 
 # =========================================================
 #                      COMPONENT SCHEMAS
 # =========================================================
 
-[OpenApiSchemaComponent()]
+[OpenApiSchemaComponent(Required = ('name', 'category', 'price'))]
+class CreateProductRequest {
+    [OpenApiPropertyAttribute(Description = 'Product name', Example = 'USB-C Dock')]
+    [ValidateNotNullOrEmpty()]
+    [string]$name
+
+    [OpenApiPropertyAttribute(Description = 'Product category', Example = 'electronics')]
+    [ValidateSet('electronics', 'office', 'accessories', 'other')]
+    [string]$category
+
+    [OpenApiPropertyAttribute(Description = 'Unit price', Format = 'double', Example = 159.99, Minimum = 0.01)]
+    [double]$price
+
+    [OpenApiPropertyAttribute(Description = 'Optional tags', Example = @('usb-c', 'dock'))]
+    [string[]]$tags
+}
+
+[OpenApiSchemaComponent(Required = ('id', 'name', 'category', 'price'))]
 class ProductItem {
     [OpenApiPropertyAttribute(Description = 'Product ID', Format = 'int64', Example = 1)]
     [long]$id
@@ -43,57 +60,137 @@ class ProductItem {
 
     [OpenApiPropertyAttribute(Description = 'Product price', Format = 'double', Example = 999.99)]
     [double]$price
+
+    [OpenApiPropertyAttribute(Description = 'Product tags', Example = @('work', 'portable'))]
+    [string[]]$tags
 }
 
 [OpenApiSchemaComponent()]
 class ProductListResponse {
-    [OpenApiPropertyAttribute(Description = 'Current page number', Example = 1)]
+    [OpenApiPropertyAttribute(Description = 'Current page number', Example = 1, Minimum = 1)]
     [int]$page
 
-    [OpenApiPropertyAttribute(Description = 'Items per page', Example = 20)]
+    [OpenApiPropertyAttribute(Description = 'Items per page', Example = 20, Minimum = 1, Maximum = 100)]
     [int]$limit
 
-    [OpenApiPropertyAttribute(Description = 'Total number of items', Example = 5)]
+    [OpenApiPropertyAttribute(Description = 'Total number of items matching the filters', Example = 5)]
     [int]$total
 
     [OpenApiPropertyAttribute(Description = 'List of products')]
     [ProductItem[]]$items
+}
+dotne
+[OpenApiSchemaComponent(Required = ('message'))]
+class ErrorResponse {
+    [OpenApiPropertyAttribute(Description = 'Human-readable error message', Example = 'Product not found')]
+    [string]$message
+}
+
+[OpenApiSchemaComponent()]
+class ClientContext {
+    [OpenApiPropertyAttribute(Description = 'Client application name', Example = 'docs-sample')]
+    [string]$app
+
+    [OpenApiPropertyAttribute(Description = 'Client app version', Example = '1.2.3')]
+    [string]$version
+
+    [OpenApiPropertyAttribute(Description = 'Locale / language hint', Example = 'en-US')]
+    [string]$locale
+}
+
+[OpenApiSchemaComponent(Required = ('name'))]
+class CategoryItem {
+    [OpenApiPropertyAttribute(Description = 'Category name', Example = 'electronics')]
+    [string]$name
+
+    [OpenApiPropertyAttribute(Description = 'Number of products in this category', Example = 3, Minimum = 0)]
+    [int]$count
+}
+
+[OpenApiSchemaComponent()]
+class CategoryListResponse {
+    [OpenApiPropertyAttribute(Description = 'List of categories')]
+    [CategoryItem[]]$items
 }
 
 # =========================================================
 #                 COMPONENT PARAMETERS
 # =========================================================
 
-# Define reusable parameter components by decorating PowerShell variables
-New-KrOpenApiExample -Summary 'Product Item Example' -Value ([ordered]@{
-        id = 1; name = 'Laptop'; category = 'electronics'; price = 999.99
-    }) | Add-KrOpenApiComponent -Name 'ProductItemExample'
+# Reusable examples
+New-KrOpenApiExample -Summary 'Correlation id example' -Value '2f2d68c2-9b7a-4b5c-8b1d-0fdff2a4b9a3' |
+    Add-KrOpenApiInline -Name 'CorrelationIdExample'
 
-[OpenApiParameterComponent(In = 'header', Description = 'Product item in header',
-    ContentType = 'application/json' , Required = $true)]
-[OpenApiParameterExampleRefAttribute(ReferenceId = 'ProductItemExample', Key = 'application/json')]
-[ProductItem]$productItems
+New-KrOpenApiExample -Summary 'Client context example' -Value ([ordered]@{ app = 'docs-sample'; version = '1.2.3'; locale = 'en-US' }) |
+    Add-KrOpenApiComponent -Name 'ClientContextExample'
 
-[OpenApiParameterComponent(In = [OaParameterLocation]::Query, Description = 'Page number',
-    Minimum = 1, Example = 1)]
+New-KrOpenApiExample -Summary 'Create product example' -Value ([ordered]@{ name = 'USB-C Dock'; category = 'electronics'; price = 159.99; tags = @('usb-c', 'dock') }) |
+    Add-KrOpenApiComponent -Name 'CreateProductRequestExample'
+
+New-KrOpenApiExample -Summary 'Sort by price example' -Value 'price' |
+    Add-KrOpenApiInline -Name 'SortByPriceExample'
+
+# Header params
+[OpenApiParameterComponent(In = 'Header', Description = 'Correlation id for tracing a request through logs.')]
+[OpenApiParameterExampleRef(Key = 'default', ReferenceId = 'CorrelationIdExample')]
+[string]$correlationId
+
+# Header parameter using ContentType + schema (OpenAPI parameters can define content)
+[OpenApiParameterComponent(In = 'Header', ContentType = 'application/json', Description = 'Optional client context as a JSON header.')]
+[OpenApiParameterExampleRef(Key = 'example', ReferenceId = 'ClientContextExample')]
+[ClientContext]$clientContext
+
+# Cookie params
+[OpenApiParameterComponent(In = 'Cookie', Description = 'Tenant identifier (multi-tenant demo).', Example = 'demo')]
+[string]$tenantId
+
+# Path params
+[OpenApiParameterComponent(In = 'Path', Required = $true, Description = 'Product id.', Minimum = 1, Example = 1)]
+[long]$productId
+
+# Query params (list)
+[OpenApiParameterComponent(In = 'Query', Description = 'Page number', Minimum = 1, Example = 1)]
 [int]$page = 1
 
-[OpenApiParameterComponent(In = [OaParameterLocation]::Query, Description = 'Items per page',
-    Minimum = 1, Maximum = 100, Example = 20)]
+[OpenApiParameterComponent(In = 'Query', Description = 'Items per page', Minimum = 1, Maximum = 100, Example = 20)]
 [int]$limit = 20
 
-[OpenApiParameterComponent(In = [OaParameterLocation]::Query, Description = 'Sort field (name, date, price)', Example = 'date')]
-[ValidateSet('name', 'date', 'price')]
-[string]$sortBy = 'date'
+[OpenApiParameterComponent(In = 'Query', Description = 'Sort field (name, price)', Example = 'price')]
+[OpenApiParameterExampleRef(Key = 'price', ReferenceId = 'SortByPriceExample')]
+[ValidateSet('name', 'price')]
+[string]$sortBy = 'name'
 
-[OpenApiParameterComponent(In = [OaParameterLocation]::Query, Description = 'Filter by category', Example = 'electronics')]
+[OpenApiParameterComponent(In = 'Query', Description = 'Filter by category', Example = 'electronics')]
+[ValidateSet('electronics', 'office', 'accessories', 'other')]
 [string]$category
 
-[OpenApiParameterComponent(In = [OaParameterLocation]::Query, Description = 'Filter by minimum price', Example = 100)]
+[OpenApiParameterComponent(In = 'Query', Description = 'Filter by minimum price', Example = 100, Minimum = 0)]
 [double]$minPrice
 
-[OpenApiParameterComponent(In = 'Query', Description = 'Filter by maximum price', Example = 5000)]
+[OpenApiParameterComponent(In = 'Query', Description = 'Filter by maximum price', Example = 5000, Minimum = 0)]
 [double]$maxPrice
+
+# Query params (create)
+[OpenApiParameterComponent(In = 'Query', Description = 'Validate request only (does not persist).', Example = $false)]
+[bool]$dryRun = $false
+
+# Query params (categories)
+[OpenApiParameterComponent(In = 'Query', Description = 'Include per-category product counts.', Example = $true)]
+[bool]$includeCounts = $true
+
+# =========================================================
+#                 SHARED IN-MEMORY STORE
+# =========================================================
+
+$Products = [System.Collections.Concurrent.ConcurrentDictionary[long, ProductItem]]::new()
+$ProductIds = [System.Collections.Concurrent.ConcurrentDictionary[string, long]]::new()
+$ProductIds['NextId'] = 5
+
+$Products[1] = [ProductItem]@{ id = 1; name = 'Laptop'; category = 'electronics'; price = 999.99; tags = @('work', 'portable') }
+$Products[2] = [ProductItem]@{ id = 2; name = 'Mouse'; category = 'accessories'; price = 29.99; tags = @('usb') }
+$Products[3] = [ProductItem]@{ id = 3; name = 'Keyboard'; category = 'accessories'; price = 79.99; tags = @('mechanical') }
+$Products[4] = [ProductItem]@{ id = 4; name = 'Monitor'; category = 'electronics'; price = 299.99; tags = @('4k') }
+$Products[5] = [ProductItem]@{ id = 5; name = 'Desk Lamp'; category = 'office'; price = 49.99; tags = @('led') }
 
 # =========================================================
 #                 ROUTES / OPERATIONS
@@ -123,10 +220,19 @@ Add-KrApiDocumentationRoute -DocumentType Redoc
     Maximum price filter (filter component)
 #>
 function listProducts {
-    [OpenApiPath(HttpVerb = 'get', Pattern = '/products')]
+    [OpenApiPath(HttpVerb = 'get', Pattern = '/v1/products', Summary = 'List products')]
     [OpenApiResponse(StatusCode = '200', Description = 'List of products', Schema = [ProductListResponse], ContentType = ('application/json', 'application/xml'))]
     [OpenApiResponse(StatusCode = '400', Description = 'Invalid parameters')]
     param(
+        [OpenApiParameterRef(ReferenceId = 'correlationId')]
+        [string]$correlationId,
+
+        [OpenApiParameterRef(ReferenceId = 'clientContext')]
+        [ClientContext]$clientContext,
+
+        [OpenApiParameterRef(ReferenceId = 'tenantId')]
+        [string]$tenantId,
+
         [OpenApiParameterRef(ReferenceId = 'page')]
         [int]$page,
 
@@ -146,31 +252,29 @@ function listProducts {
         [double]$maxPrice
     )
 
-    # Mock product data
-    $allProducts = @(
-        @{ id = 1; name = 'Laptop'; category = 'electronics'; price = 999.99 }
-        @{ id = 2; name = 'Mouse'; category = 'electronics'; price = 29.99 }
-        @{ id = 3; name = 'Keyboard'; category = 'electronics'; price = 79.99 }
-        @{ id = 4; name = 'Monitor'; category = 'electronics'; price = 299.99 }
-        @{ id = 5; name = 'Desk Lamp'; category = 'office'; price = 49.99 }
-    )
+    if (-not [string]::IsNullOrWhiteSpace($correlationId)) {
+        $Context.Response.Headers['correlationId'] = $correlationId
+    }
+
+    # Read shared store
+    $allProducts = $Products.Values
 
     # Apply filters
     $filtered = $allProducts
     if ($category) {
         $filtered = $filtered | Where-Object { $_.category -eq $category }
     }
-    if ($minPrice) {
+    if ($PSBoundParameters.ContainsKey('minPrice')) {
         $filtered = $filtered | Where-Object { $_.price -ge [double]$minPrice }
     }
-    if ($maxPrice) {
+    if ($PSBoundParameters.ContainsKey('maxPrice')) {
         $filtered = $filtered | Where-Object { $_.price -le [double]$maxPrice }
     }
 
     # Sort
     if ($sortBy -eq 'price') {
         $filtered = $filtered | Sort-Object -Property price
-    } elseif ($sortBy -eq 'name') {
+    } else {
         $filtered = $filtered | Sort-Object -Property name
     }
 
@@ -180,13 +284,14 @@ function listProducts {
     $skip = ($page - 1) * $limit
     $paged = $filtered | Select-Object -Skip $skip -First $limit
 
-    # Convert to ProductItem array
+    # Convert to ProductItem array (ensure typed for OpenAPI)
     $productItems = $paged | ForEach-Object {
         [ProductItem]@{
             id = $_.id
             name = $_.name
             category = $_.category
             price = $_.price
+            tags = $_.tags
         }
     }
 
@@ -199,6 +304,148 @@ function listProducts {
     }
 
     Write-KrResponse $response -StatusCode 200
+}
+
+<#
+.SYNOPSIS
+    Get a product by id.
+.DESCRIPTION
+    Retrieves a single product from the in-memory catalog.
+.PARAMETER productId
+    Product id (path parameter component).
+#>
+function getProduct {
+    [OpenApiPath(HttpVerb = 'get', Pattern = '/v1/products/{productId}', Summary = 'Get product')]
+    [OpenApiResponse(StatusCode = '200', Description = 'The product', Schema = [ProductItem], ContentType = ('application/json', 'application/xml'))]
+    [OpenApiResponse(StatusCode = '404', Description = 'Not found', Schema = [ErrorResponse])]
+    param(
+        [OpenApiParameterRef(ReferenceId = 'correlationId')]
+        [string]$correlationId,
+
+        [OpenApiParameterRef(ReferenceId = 'tenantId')]
+        [string]$tenantId,
+
+        [OpenApiParameterRef(ReferenceId = 'productId')]
+        [long]$productId
+    )
+
+    if (-not [string]::IsNullOrWhiteSpace($correlationId)) {
+        $Context.Response.Headers['correlationId'] = $correlationId
+    }
+
+    $item = $null
+    if (-not $Products.TryGetValue($productId, [ref]$item)) {
+        Write-KrResponse ([ErrorResponse]@{ message = 'Product not found' }) -StatusCode 404
+        return
+    }
+
+    Write-KrResponse $item -StatusCode 200
+}
+
+<#
+.SYNOPSIS
+    Create a product.
+.DESCRIPTION
+    Validates and creates a product in the in-memory catalog.
+.PARAMETER body
+    The product creation payload.
+.PARAMETER dryRun
+    If true, validates the request but does not persist.
+#>
+function createProduct {
+    [OpenApiPath(HttpVerb = 'post', Pattern = '/v1/products', Summary = 'Create product')]
+    [OpenApiResponse(StatusCode = '201', Description = 'Created product', Schema = [ProductItem], ContentType = ('application/json', 'application/xml'))]
+    [OpenApiResponse(StatusCode = '400', Description = 'Invalid request', Schema = [ErrorResponse])]
+    param(
+        [OpenApiParameterRef(ReferenceId = 'correlationId')]
+        [string]$correlationId,
+
+        [OpenApiParameterRef(ReferenceId = 'tenantId')]
+        [string]$tenantId,
+
+        [OpenApiParameterRef(ReferenceId = 'dryRun')]
+        [bool]$dryRun,
+
+        [OpenApiRequestBody(ContentType = 'application/json', Required = $true, Description = 'Product create request')]
+        [OpenApiRequestBodyExampleRef(Key = 'default', ReferenceId = 'CreateProductRequestExample')]
+        [CreateProductRequest]$body
+    )
+
+    if (-not [string]::IsNullOrWhiteSpace($correlationId)) {
+        $Context.Response.Headers['correlationId'] = $correlationId
+    }
+
+    if ([string]::IsNullOrWhiteSpace($body.name)) {
+        Write-KrResponse ([ErrorResponse]@{ message = 'name is required' }) -StatusCode 400
+        return
+    }
+
+    if ($body.price -le 0) {
+        Write-KrResponse ([ErrorResponse]@{ message = 'price must be > 0' }) -StatusCode 400
+        return
+    }
+
+    if ($dryRun) {
+        $preview = [ProductItem]@{
+            id = 0
+            name = $body.name
+            category = $body.category
+            price = $body.price
+            tags = $body.tags
+        }
+        Write-KrResponse $preview -StatusCode 201
+        return
+    }
+
+    $newId = $ProductIds.AddOrUpdate('NextId', 1, { param($k, $v) $v + 1 })
+    $created = [ProductItem]@{
+        id = [long]$newId
+        name = $body.name
+        category = $body.category
+        price = $body.price
+        tags = $body.tags
+    }
+
+    $Products[[long]$newId] = $created
+    $Context.Response.Headers['Location'] = "/v1/products/$newId"
+
+    Write-KrResponse $created -StatusCode 201
+}
+
+<#
+.SYNOPSIS
+    List categories.
+.DESCRIPTION
+    Lists distinct categories from the current catalog.
+.PARAMETER includeCounts
+    When true, include counts per category.
+#>
+function listCategories {
+    [OpenApiPath(HttpVerb = 'get', Pattern = '/v1/categories', Summary = 'List categories')]
+    [OpenApiResponse(StatusCode = '200', Description = 'Category list', Schema = [CategoryListResponse], ContentType = ('application/json', 'application/xml'))]
+    param(
+        [OpenApiParameterRef(ReferenceId = 'correlationId')]
+        [string]$correlationId,
+
+        [OpenApiParameterRef(ReferenceId = 'includeCounts')]
+        [bool]$includeCounts
+    )
+
+    if (-not [string]::IsNullOrWhiteSpace($correlationId)) {
+        $Context.Response.Headers['correlationId'] = $correlationId
+    }
+
+    $values = $Products.Values
+    $groups = $values | Group-Object -Property category | Sort-Object -Property Name
+
+    $items = foreach ($g in $groups) {
+        [CategoryItem]@{
+            name = $g.Name
+            count = if ($includeCounts) { $g.Count } else { 0 }
+        }
+    }
+
+    Write-KrResponse ([CategoryListResponse]@{ items = $items }) -StatusCode 200
 }
 
 # =========================================================

@@ -4,7 +4,7 @@ Describe 'Example 10.4 OpenAPI Component Parameter' -Tag 'OpenApi', 'Tutorial', 
     AfterAll { if ($script:instance) { Stop-ExampleScript -Instance $script:instance } }
 
     It 'List Products (GET Default)' {
-        $result = Invoke-WebRequest -Uri "$($script:instance.Url)/products" -SkipCertificateCheck -SkipHttpErrorCheck
+        $result = Invoke-WebRequest -Uri "$($script:instance.Url)/v1/products" -SkipCertificateCheck -SkipHttpErrorCheck
         $result.StatusCode | Should -Be 200
         $json = $result.Content | ConvertFrom-Json
         $json.page | Should -Be 1
@@ -13,7 +13,7 @@ Describe 'Example 10.4 OpenAPI Component Parameter' -Tag 'OpenApi', 'Tutorial', 
     }
 
     It 'List Products (All Parameters)' {
-        $result = Invoke-WebRequest -Uri "$($script:instance.Url)/products?page=3&limit=30&sortBy=date&category=electronics&minPrice=100&maxPrice=5000" -SkipCertificateCheck -SkipHttpErrorCheck
+        $result = Invoke-WebRequest -Uri "$($script:instance.Url)/v1/products?page=3&limit=30&sortBy=price&category=electronics&minPrice=100&maxPrice=5000" -SkipCertificateCheck -SkipHttpErrorCheck
         $result.StatusCode | Should -Be 200
         $json = $result.Content | ConvertFrom-Json
         $json.page | Should -Be 3
@@ -21,7 +21,7 @@ Describe 'Example 10.4 OpenAPI Component Parameter' -Tag 'OpenApi', 'Tutorial', 
     }
 
     It 'List Products (GET Paged)' {
-        $result = Invoke-WebRequest -Uri "$($script:instance.Url)/products?page=2&limit=5" -SkipCertificateCheck -SkipHttpErrorCheck
+        $result = Invoke-WebRequest -Uri "$($script:instance.Url)/v1/products?page=2&limit=5" -SkipCertificateCheck -SkipHttpErrorCheck
         $result.StatusCode | Should -Be 200
         $json = $result.Content | ConvertFrom-Json
         $json.page | Should -Be 2

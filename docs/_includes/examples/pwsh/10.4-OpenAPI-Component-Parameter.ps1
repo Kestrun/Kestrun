@@ -163,8 +163,8 @@ New-KrOpenApiExample -Summary 'Sort by price example' -Value 'price' |
 [string]$sortBy = 'name'
 
 [OpenApiParameterComponent(In = 'Query', Description = 'Filter by category', Example = 'electronics')]
-[ValidateSet('electronics', 'office', 'accessories', 'other')]
-[string]$category = 'other'
+[ValidateSet('electronics', 'office', 'accessories', 'other', $null)]
+[string]$category = NoDefault
 
 [OpenApiParameterComponent(In = 'Query', Description = 'Filter by minimum price', Example = 100, Minimum = 0)]
 [double]$minPrice = NoDefault
@@ -260,16 +260,20 @@ function listProducts {
 
     # Read shared store
     $allProducts = $Products.Values
-
+    Expand-KrObject -InputObject $allProducts -Label "All Products"
     # Apply filters
     $filtered = $allProducts
     if ($category) {
+        Write-KrLog -Level Debug -Message "Filtering by category: {category}" -Values $category
         $filtered = $filtered | Where-Object { $_.category -eq $category }
     }
-    if ($PSBoundParameters.ContainsKey('minPrice')) {
+    #if ($PSBoundParameters.ContainsKey('minPrice')) {
+    if ( $minPrice -gt 0) {
+        Write-KrLog -Level Debug -Message "Filtering by minPrice: {minPrice}" -Values $minPrice
         $filtered = $filtered | Where-Object { $_.price -ge [double]$minPrice }
     }
-    if ($PSBoundParameters.ContainsKey('maxPrice')) {
+    if ($maxPrice -gt 0) {
+        Write-KrLog -Level Debug -Message "Filtering by maxPrice: {maxPrice}" -Values $maxPrice
         $filtered = $filtered | Where-Object { $_.price -le [double]$maxPrice }
     }
 
@@ -284,8 +288,9 @@ function listProducts {
     $page = [int]$page
     $limit = [int]$limit
     $skip = ($page - 1) * $limit
+    Expand-KrObject -InputObject $filtered -Label "Filtered Products"
     $paged = $filtered | Select-Object -Skip $skip -First $limit
-
+    Expand-KrObject -InputObject $paged -Label "Products Page $page (Limit $limit)"
     # Convert to ProductItem array (ensure typed for OpenAPI)
     $productItems = $paged | ForEach-Object {
         [ProductItem]@{
@@ -296,7 +301,7 @@ function listProducts {
             tags = $_.tags
         }
     }
-
+    Expand-KrObject -InputObject $productItems -Label "Product Items"
     # Build typed response
     $response = [ProductListResponse]@{
         page = $page
@@ -304,7 +309,7 @@ function listProducts {
         total = $filtered.Count
         items = $productItems
     }
-
+    Expand-KrObject -InputObject $response -Label "Response Object"
     Write-KrResponse $response -StatusCode 200
 }
 

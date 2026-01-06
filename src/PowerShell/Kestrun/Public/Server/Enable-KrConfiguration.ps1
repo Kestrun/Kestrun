@@ -42,7 +42,8 @@ function Enable-KrConfiguration {
         $Server = Resolve-KestrunServer -Server $Server
     }
     process {
-        $variables = Get-KrAssignedVariable -FromParent -ResolveValues -IncludeSetVariable -ExcludeVariables $ExcludeVariables -AsDictionary
+        # Collect assigned variables from the parent scope, resolving their values
+        $variables = Get-KrAssignedVariable -FromParent -ResolveValues -IncludeSetVariable -ExcludeVariables $ExcludeVariables -AsDictionary -WithoutAttributesOnly
 
         Write-KrLog -Level Debug -Logger $Server.Logger -Message 'Collected {VarCount} user-defined variables for server configuration.' -Values $variables.Count
 

@@ -634,8 +634,12 @@ function Get-KrAssignedVariable {
             # Typed variables (i.e., DeclaredType present) are wrapped so C# can see Type/IsNullable
             # even when the runtime value is non-null (e.g. [int]$paginationLimit = 20).
             # Untyped variables keep the old behavior (value only).
-            $wrap = -not [string]::IsNullOrWhiteSpace($v.DeclaredType) -and (-not $WithoutAttributesOnly.IsPresent)
+            $wrap = -not [string]::IsNullOrWhiteSpace($v.DeclaredType)
             if ($wrap) {
+                # Skip variables defined with attributes when -WithoutAttributesOnly is specified
+                if ($WithoutAttributesOnly.IsPresent) {
+                    continue;
+                }
                 $meta = [System.Collections.Generic.Dictionary[string, object]]::new([System.StringComparer]::OrdinalIgnoreCase)
                 $meta['__kestrunVariable'] = $true
                 $meta['Value'] = $v.Value

@@ -31,6 +31,15 @@ Add-KrOpenApiInfo -Title 'Parameter Component API' `
 # =========================================================
 
 # Define reusable parameter components using class attributes
+New-KrOpenApiExample -Summary 'Product Item Example' -Value ([ordered]@{
+        id = 1; name = 'Laptop'; category = 'electronics'; price = 999.99
+    }) | Add-KrOpenApiComponent -Name 'ProductItemExample'
+
+
+[OpenApiParameterComponent(In = 'header', Description = 'Product item in header',
+    ContentType = 'application/json' , Required = $true)]
+[OpenApiParameterExampleRefAttribute(ReferenceId = 'ProductItemExample', Key = 'application/json')]
+[ProductItem]$productItems
 
 [OpenApiParameterComponent(In = [OaParameterLocation]::Query, Description = 'Page number',
     Minimum = 1, Example = 1)]
@@ -52,7 +61,6 @@ Add-KrOpenApiInfo -Title 'Parameter Component API' `
 
 [OpenApiParameterComponent(In = 'Query', Description = 'Filter by maximum price', Example = 5000)]
 [double]$maxPrice
-
 
 # =========================================================
 #                      COMPONENT SCHEMAS

@@ -116,38 +116,75 @@ public partial class OpenApiDocDescriptor
             buildAction(type);
         }
     }
-    private OpenApiParameter GetOrCreateParameterItem(string pattern, bool inline)
-    {
-        IDictionary<string, IOpenApiParameter> parameters;
-        // Determine whether to use inline components or document components
-        if (inline)
-        {
-            // Use inline components
-            InlineComponents.Parameters ??= new Dictionary<string, IOpenApiParameter>(StringComparer.Ordinal);
-            parameters = InlineComponents.Parameters;
-        }
-        else
-        {
-            // Use document components
-            Document.Components ??= new OpenApiComponents();
-            Document.Components.Parameters ??= new Dictionary<string, IOpenApiParameter>(StringComparer.Ordinal);
-            parameters = Document.Components.Parameters;
-        }
-        // Retrieve or create the callback item
-        if (!parameters.TryGetValue(pattern, out var pathInterface) || pathInterface is null)
-        {
-            // Create a new OpenApiParameter if it doesn't exist
-            pathInterface = new OpenApiParameter();
-            parameters[pattern] = pathInterface;
-        }
-        // return the callback item
-        return (OpenApiParameter)pathInterface;
-    }
 
     /// <summary>
     /// Generates the OpenAPI document by auto-discovering component types.
     /// </summary>
     public void GenerateComponents()
+    {
+        // Auto-discover OpenAPI component types
+        var components = OpenApiSchemaDiscovery.GetOpenApiTypesAuto();
+
+        // Generate components from the discovered types
+        GenerateComponents(components);
+
+        // Process variable annotations from the host
+        ProcessVariableAnnotations(Host.ComponentAnnotations);
+    }
+
+    /// <summary>
+    /// Processes variable annotations to build OpenAPI components.
+    /// </summary>
+    /// <param name="annotations">A dictionary of variable names to their annotated variables.</param>
+    private void ProcessVariableAnnotations(Dictionary<string, OpenApiComponentAnnotationScanner.AnnotatedVariable>? annotations)
+    {
+        if (annotations is null || annotations.Count == 0)
+        {
+            Host.Logger.Warning("No OpenAPI component annotations were found in the host.");
+            return;
+        }
+        foreach (var (variableName, variable) in annotations)
+        {
+            if (variable?.Annotations is null || variable.Annotations.Count == 0)
+            {
+                continue;
+            }
+
+            DispatchComponentAnnotations(variableName, variable);
+        }
+    }
+
+    /// <summary>
+    /// Dispatches component annotations for a given variable.
+    /// </summary>
+    /// <param name="variableName">The name of the variable.</param>
+    /// <param name="variable">The annotated variable containing annotations.</param>
+    private void DispatchComponentAnnotations(string variableName, OpenApiComponentAnnotationScanner.AnnotatedVariable variable)
+    {
+        foreach (var annotation in variable.Annotations)
+        {
+            switch (annotation)
+            {
+                case OpenApiParameterComponent paramComponent:
+                    ProcessParameterComponent(variableName, variable, paramComponent);
+                    break;
+
+                case OpenApiParameterExampleRefAttribute exampleRef:
+                    ProcessParameterExampleRef(variableName, exampleRef);
+                    break;
+
+                // future:
+                // case OpenApiHeaderComponent header:
+                //     ProcessHeaderComponent(variableName, variable, header);
+                //     break;
+
+                default:
+                    break;
+            }
+        }
+    }
+
+    public void GenerateComponents2()
     {
         var components = OpenApiSchemaDiscovery.GetOpenApiTypesAuto();
         GenerateComponents(components);
@@ -160,9 +197,6 @@ public partial class OpenApiDocDescriptor
 
         foreach (var (variableName, variable) in annotations)
         {
-            //  FinalizeAndRegisterParameter(parameter, variable, );
-
-
             foreach (var annotation in variable.Annotations)
             {
                 if (annotation is OpenApiParameterComponent parameterAnnotation)

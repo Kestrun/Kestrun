@@ -1,6 +1,3 @@
-
-using System.Reflection;
-using System.Text.Json.Nodes;
 using Microsoft.OpenApi;
 
 namespace Kestrun.OpenApi;
@@ -412,5 +409,201 @@ public partial class OpenApiDocDescriptor
         {
             parameter.Examples[exRef.Key] = new OpenApiExampleReference(exRef.ReferenceId);
         }
+    }
+
+    #region Parameter Component Processing
+    /// <summary>
+    /// Processes a parameter component annotation to create or update an OpenAPI parameter.
+    /// </summary>
+    /// <param name="variableName">The name of the variable associated with the parameter</param>
+    /// <param name="variable">The annotated variable containing metadata about the parameter</param>
+    /// <param name="parameterAnnotation">The parameter component annotation</param>
+    private void ProcessParameterComponent(
+      string variableName,
+      OpenApiComponentAnnotationScanner.AnnotatedVariable variable,
+      OpenApiParameterComponent parameterAnnotation)
+    {
+        var parameter = GetOrCreateParameterItem(variableName, parameterAnnotation.Inline);
+
+        ApplyParameterCommonFields(parameter, variableName, parameterAnnotation);
+
+        // Explode defaults to true for "form" and "cookie" styles
+        if (parameterAnnotation.Explode || (parameter.Style is ParameterStyle.Form or ParameterStyle.Cookie))
+        {
+            parameter.Explode = true;
+        }
+
+        TryApplyVariableTypeSchema(parameter, variable, parameterAnnotation);
+    }
+
+    /// <summary>
+    /// Applies common fields from a parameter component annotation to an OpenAPI parameter.
+    /// </summary>
+    /// <param name="parameter">The OpenApiParameter to modify</param>
+    /// <param name="variableName">The name of the variable associated with the parameter</param>
+    /// <param name="parameterAnnotation">The parameter component annotation</param>
+    private static void ApplyParameterCommonFields(
+        OpenApiParameter parameter,
+        string variableName,
+        OpenApiParameterComponent parameterAnnotation)
+    {
+        parameter.AllowEmptyValue = parameterAnnotation.AllowEmptyValue;
+        parameter.Description = parameterAnnotation.Description;
+        parameter.In = parameterAnnotation.In.ToOpenApi();
+        parameter.Name = parameterAnnotation.Name ?? variableName;
+        parameter.Style = parameterAnnotation.Style?.ToOpenApi();
+        parameter.AllowReserved = parameterAnnotation.AllowReserved;
+        parameter.Required = parameterAnnotation.Required;
+        parameter.Example = OpenApiJsonNodeFactory.FromObject(parameterAnnotation.Example);
+        parameter.Deprecated = parameterAnnotation.Deprecated;
+    }
+
+    /// <summary>
+    /// Tries to apply the variable type schema to an OpenAPI parameter.
+    /// </summary>
+    /// <param name="parameter">The OpenApiParameter to modify</param>
+    /// <param name="variable">The annotated variable containing metadata about the parameter</param>
+    /// <param name="parameterAnnotation">The parameter component annotation</param>
+    private void TryApplyVariableTypeSchema(
+         OpenApiParameter parameter,
+       OpenApiComponentAnnotationScanner.AnnotatedVariable variable,
+        OpenApiParameterComponent parameterAnnotation)
+    {
+        if (variable.VariableType is null)
+        {
+            return;
+        }
+        var iSchema = InferPrimitiveSchema(variable.VariableType);
+        if (iSchema is OpenApiSchema schema)
+        {
+            //Todo: add powershell attribute support
+            //PowerShellAttributes.ApplyPowerShellAttributes(variable.PropertyInfo, schema);
+            // Apply any schema attributes from the parameter annotation
+            ApplyConcreteSchemaAttributes(parameterAnnotation, schema);
+            // Try to set default value from the variable initial value if not already set
+            if (variable.InitialValue is not null)
+            {
+                schema.Default = OpenApiJsonNodeFactory.FromObject(variable.InitialValue);
+            }
+        }
+
+        // Either Schema OR Content, depending on ContentType
+        if (string.IsNullOrWhiteSpace(parameterAnnotation.ContentType))
+        {
+            parameter.Schema = iSchema;
+            return;
+        }
+        // Use Content
+        parameter.Content ??= new Dictionary<string, IOpenApiMediaType>(StringComparer.Ordinal);
+        parameter.Content[parameterAnnotation.ContentType] = new OpenApiMediaType { Schema = iSchema };
+    }
+
+    /// <summary>
+    /// Processes a parameter example reference annotation to add an example to an OpenAPI parameter.
+    /// </summary>
+    /// <param name="variableName">The name of the variable associated with the parameter</param>
+    /// <param name="exampleRef">The example reference attribute</param>
+    private void ProcessParameterExampleRef(string variableName, OpenApiParameterExampleRefAttribute exampleRef)
+    {
+        //  var parameter = GetOrCreateParameterItem(variableName, inline: false);
+        if (TryGetParameterItem(variableName, out var parameter))
+        {
+            // Ensure parameter has either Schema or Content
+            if (parameter is null || (parameter.Schema is null && parameter.Content is null))
+            {
+                throw new InvalidOperationException($"Parameter '{variableName}' must have a schema or content defined before adding an example.");
+            }
+            // Add example to either Schema or Content
+            if (parameter.Content is null)
+            {
+                parameter.Examples ??= new Dictionary<string, IOpenApiExample>(StringComparer.Ordinal);
+                // Try to add the example reference
+                _ = TryAddExample(parameter.Examples, exampleRef);
+            }
+            else
+            {
+                foreach (var iMediaType in parameter.Content.Values)
+                {
+                    // Try to add the example reference to each media type
+                    if (iMediaType is OpenApiMediaType mediaType)
+                    {
+                        // Ensure Examples dictionary exists
+                        mediaType.Examples ??= new Dictionary<string, IOpenApiExample>(StringComparer.Ordinal);
+                        // Try to add the example reference
+                        _ = TryAddExample(mediaType.Examples, exampleRef);
+                    }
+                    else if (iMediaType is OpenApiMediaTypeReference)
+                    {
+                        // Cannot add example reference to a media type reference
+                        throw new InvalidOperationException($"Cannot add example reference to media type reference in parameter '{variableName}'.");
+                    }
+                    else
+                    {
+                        // Unknown media type
+                        throw new InvalidOperationException($"Unknown media type in parameter '{variableName}'.");
+                    }
+                }
+            }
+        }
+        else
+        {
+            // Parameter not found
+            throw new InvalidOperationException($"Parameter '{variableName}' not found when trying to add example reference.");
+        }
+    }
+
+    #endregion
+
+    /// <summary>
+    /// Gets or creates an OpenAPI parameter item in either inline or document components.
+    /// </summary>
+    /// <param name="parameterName">The name of the parameter.</param>
+    /// <param name="inline">Whether to use inline components or document components.</param>
+    /// <returns>The OpenApiParameter item.</returns>
+    private OpenApiParameter GetOrCreateParameterItem(string parameterName, bool inline)
+    {
+        IDictionary<string, IOpenApiParameter> parameters;
+        // Determine whether to use inline components or document components
+        if (inline)
+        {
+            // Use inline components
+            InlineComponents.Parameters ??= new Dictionary<string, IOpenApiParameter>(StringComparer.Ordinal);
+            parameters = InlineComponents.Parameters;
+        }
+        else
+        {
+            // Use document components
+            Document.Components ??= new OpenApiComponents();
+            Document.Components.Parameters ??= new Dictionary<string, IOpenApiParameter>(StringComparer.Ordinal);
+            parameters = Document.Components.Parameters;
+        }
+        // Retrieve or create the parameter item
+        if (!parameters.TryGetValue(parameterName, out var parameterInterface) || parameterInterface is null)
+        {
+            // Create a new OpenApiParameter if it doesn't exist
+            parameterInterface = new OpenApiParameter();
+            parameters[parameterName] = parameterInterface;
+        }
+        // return the parameter item
+        return (OpenApiParameter)parameterInterface;
+    }
+
+    /// <summary>
+    /// Tries to get a parameter by name from either inline or document components.
+    /// </summary>
+    /// <param name="parameterName">The name of the parameter to retrieve.</param>
+    /// <param name="parameter">The retrieved parameter if found; otherwise, null.</param>
+    /// <returns>True if the parameter was found; otherwise, false.</returns>
+    private bool TryGetParameterItem(string parameterName, out OpenApiParameter? parameter)
+    {
+        if (TryGetInline(name: parameterName, kind: OpenApiComponentKind.Parameters, out parameter))
+        {
+            return true;
+        }
+        else if (TryGetComponent(name: parameterName, kind: OpenApiComponentKind.Parameters, out parameter))
+        {
+            return true;
+        }
+        return false;
     }
 }

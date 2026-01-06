@@ -1,3 +1,4 @@
+
 using System.Reflection;
 using System.Text.Json.Nodes;
 using Microsoft.OpenApi;
@@ -9,6 +10,7 @@ namespace Kestrun.OpenApi;
 /// </summary>
 public partial class OpenApiDocDescriptor
 {
+#if EXTENDED_OPENAPI
     /// <summary>
     /// Builds OpenAPI parameters from a given type's properties.
     /// </summary>
@@ -323,6 +325,7 @@ public partial class OpenApiDocDescriptor
         }
         catch { }
     }
+#endif
 
     /// <summary>
     /// Creates an OpenAPI parameter from a given attribute.

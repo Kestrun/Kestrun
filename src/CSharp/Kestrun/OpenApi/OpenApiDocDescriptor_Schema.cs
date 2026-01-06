@@ -504,6 +504,14 @@ public partial class OpenApiDocDescriptor
             merged.XmlName = attr.XmlName;
         }
     }
+    private static OpenApiSchema MakeNullable(OpenApiSchema schema, bool isNullable)
+    {
+        if (isNullable)
+        {
+            schema.Type |= JsonSchemaType.Null;
+        }
+        return schema;
+    }
 
     /// <summary>
     /// Infers a primitive OpenApiSchema from a .NET type.
@@ -513,10 +521,17 @@ public partial class OpenApiDocDescriptor
     /// <returns>The inferred OpenApiSchema.</returns>
     private IOpenApiSchema InferPrimitiveSchema(Type type, bool inline = false)
     {
+        var nullable = false;
+        if (type.IsGenericType && type.GetGenericTypeDefinition() == typeof(Nullable<>)
+            && type.GetGenericArguments().Length == 1)
+        {
+            type = type.GetGenericArguments()[0];
+            nullable = true;
+        }
         // Direct type mappings
         if (PrimitiveSchemaMap.TryGetValue(type, out var schemaFactory))
         {
-            return schemaFactory();
+            return MakeNullable(schemaFactory(), nullable);
         }
 
         // Array type handling
@@ -696,10 +711,12 @@ public partial class OpenApiDocDescriptor
         {
             schema.Title = properties.Title;
         }
-
-        if (properties.Description is not null)
+        if (properties is not OpenApiParameterComponent)
         {
-            schema.Description = properties.Description;
+            if (properties.Description is not null)
+            {
+                schema.Description = properties.Description;
+            }
         }
     }
 
@@ -827,9 +844,12 @@ public partial class OpenApiDocDescriptor
     {
         schema.ReadOnly = properties.ReadOnly;
         schema.WriteOnly = properties.WriteOnly;
-        schema.Deprecated = properties.Deprecated;
         schema.AdditionalPropertiesAllowed = properties.AdditionalPropertiesAllowed;
         schema.UnevaluatedProperties = properties.UnevaluatedProperties;
+        if (properties is not OpenApiParameterComponent)
+        {
+            schema.Deprecated = properties.Deprecated;
+        }
     }
 
     private static void ApplyExamplesAndDefaults(OpenApiProperties properties, OpenApiSchema schema)
@@ -838,8 +858,7 @@ public partial class OpenApiDocDescriptor
         {
             schema.Default = ToNode(properties.Default);
         }
-
-        if (properties.Example is not null)
+        if (properties.Example is not null && properties is not OpenApiParameterComponent)
         {
             schema.Example = ToNode(properties.Example);
         }

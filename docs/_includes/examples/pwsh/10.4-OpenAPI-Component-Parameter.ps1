@@ -31,34 +31,28 @@ Add-KrOpenApiInfo -Title 'Parameter Component API' `
 # =========================================================
 
 # Define reusable parameter components using class attributes
-[OpenApiParameterComponent()]
-class PaginationParameters {
-    [OpenApiParameter(In = [OaParameterLocation]::Query, Description = 'Page number')]
 
-    [OpenApiPropertyAttribute(Minimum = 1, Example = 1)]
-    [int]$page = 1
+[OpenApiParameterComponent(In = [OaParameterLocation]::Query, Description = 'Page number',
+    Minimum = 1, Example = 1)]
+[int]$page = 1
 
-    [OpenApiParameter(In = [OaParameterLocation]::Query, Description = 'Items per page')]
-    [OpenApiPropertyAttribute(Minimum = 1, Maximum = 100, Example = 20)]
-    [int]$limit = 20
+[OpenApiParameterComponent(In = [OaParameterLocation]::Query, Description = 'Items per page',
+    Minimum = 1, Maximum = 100, Example = 20)]
+[int]$limit = 20
 
-    [OpenApiParameter(In = [OaParameterLocation]::Query, Description = 'Sort field (name, date, price)')]
-    [OpenApiPropertyAttribute(Example = 'date')]
-    [ValidateSet('name', 'date', 'price')]
-    [string]$sortBy = 'date'
+[OpenApiParameterComponent(In = [OaParameterLocation]::Query, Description = 'Sort field (name, date, price)', Example = 'date')]
+[ValidateSet('name', 'date', 'price')]
+[string]$sortBy = 'date'
 
-    [OpenApiParameter(In = [OaParameterLocation]::Query, Description = 'Filter by category')]
-    [OpenApiPropertyAttribute(Example = 'electronics')]
-    [string]$category
+[OpenApiParameterComponent(In = [OaParameterLocation]::Query, Description = 'Filter by category', Example = 'electronics')]
+[string]$category
 
-    [OpenApiParameter(In = [OaParameterLocation]::Query, Description = 'Filter by minimum price')]
-    [OpenApiPropertyAttribute(Format = 'double', Example = 100)]
-    [double]$minPrice
+[OpenApiParameterComponent(In = [OaParameterLocation]::Query, Description = 'Filter by minimum price', Example = 100)]
+[double]$minPrice
 
-    [OpenApiParameter(In = [OaParameterLocation]::Query, Description = 'Filter by maximum price')]
-    [OpenApiPropertyAttribute(Format = 'double', Example = 5000)]
-    [double]$maxPrice
-}
+[OpenApiParameterComponent(In = 'Query', Description = 'Filter by maximum price', Example = 5000)]
+[double]$maxPrice
+
 
 # =========================================================
 #                      COMPONENT SCHEMAS
@@ -211,4 +205,3 @@ Add-KrOpenApiRoute
 # =========================================================
 
 Start-KrServer -Server $srv -CloseLogsOnExit
-

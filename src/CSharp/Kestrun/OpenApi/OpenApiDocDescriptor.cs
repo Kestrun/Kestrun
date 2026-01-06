@@ -85,8 +85,9 @@ public partial class OpenApiDocDescriptor
     {
         Document.Components ??= new OpenApiComponents();
         ProcessComponentTypes(components.SchemaTypes, () => Document.Components.Schemas ??= new Dictionary<string, IOpenApiSchema>(StringComparer.Ordinal), t => BuildSchema(t));
-        ProcessComponentTypes(components.ParameterTypes, () => Document.Components.Parameters ??= new Dictionary<string, IOpenApiParameter>(StringComparer.Ordinal), BuildParameters);
 #if EXTENDED_OPENAPI
+        ProcessComponentTypes(components.ParameterTypes, () => Document.Components.Parameters ??= new Dictionary<string, IOpenApiParameter>(StringComparer.Ordinal), BuildParameters);
+
         ProcessComponentTypes(components.CallbackTypes, () => Document.Components.Callbacks ??= new Dictionary<string, IOpenApiCallback>(StringComparer.Ordinal), BuildCallbacks);
 #endif
         ProcessComponentTypes(components.ResponseTypes, () => Document.Components.Responses ??= new Dictionary<string, IOpenApiResponse>(StringComparer.Ordinal), BuildResponses);
@@ -115,6 +116,33 @@ public partial class OpenApiDocDescriptor
             buildAction(type);
         }
     }
+    private OpenApiParameter GetOrCreateParameterItem(string pattern, bool inline)
+    {
+        IDictionary<string, IOpenApiParameter> parameters;
+        // Determine whether to use inline components or document components
+        if (inline)
+        {
+            // Use inline components
+            InlineComponents.Parameters ??= new Dictionary<string, IOpenApiParameter>(StringComparer.Ordinal);
+            parameters = InlineComponents.Parameters;
+        }
+        else
+        {
+            // Use document components
+            Document.Components ??= new OpenApiComponents();
+            Document.Components.Parameters ??= new Dictionary<string, IOpenApiParameter>(StringComparer.Ordinal);
+            parameters = Document.Components.Parameters;
+        }
+        // Retrieve or create the callback item
+        if (!parameters.TryGetValue(pattern, out var pathInterface) || pathInterface is null)
+        {
+            // Create a new OpenApiParameter if it doesn't exist
+            pathInterface = new OpenApiParameter();
+            parameters[pattern] = pathInterface;
+        }
+        // return the callback item
+        return (OpenApiParameter)pathInterface;
+    }
 
     /// <summary>
     /// Generates the OpenAPI document by auto-discovering component types.
@@ -134,47 +162,62 @@ public partial class OpenApiDocDescriptor
         {
             //  FinalizeAndRegisterParameter(parameter, variable, );
 
-            foreach (var annotation in variable.Annotations.OfType<OpenApiParameterComponent>())
+
+            foreach (var annotation in variable.Annotations)
             {
-
-                Document.Components!.Parameters ??= new Dictionary<string, IOpenApiParameter>(StringComparer.Ordinal);
-                var parameter = new OpenApiParameter
+                if (annotation is OpenApiParameterComponent parameterAnnotation)
                 {
-                    AllowEmptyValue = annotation.AllowEmptyValue,
-                    Description = annotation.Description,
-                    In = annotation.In.ToOpenApi(),
-                    Name = annotation.Name ?? variableName,
-                    Style = annotation.Style?.ToOpenApi(),
+                    // Process OpenApiParameterComponent annotations
+                    // foreach (var annotation in variable.Annotations
+                    var parameter = GetOrCreateParameterItem(variableName, parameterAnnotation.Inline);
 
-                    AllowReserved = annotation.AllowReserved,
-                    Required = annotation.Required,
-                    Example = OpenApiJsonNodeFactory.FromObject(annotation.Example)
-                };
-                // Explode defaults to true for "form" and "cookie" styles
-                if (annotation.Explode || (parameter.Style is ParameterStyle.Form or ParameterStyle.Cookie))
-                {
-                    parameter.Explode = true;
-                }
-
-                if (variable.VariableType != null)
-                {
-                    parameter.Schema = InferPrimitiveSchema(variable.VariableType);
-                    if (parameter.Schema is OpenApiSchema schema)
+                    parameter.AllowEmptyValue = parameterAnnotation.AllowEmptyValue;
+                    parameter.Description = parameterAnnotation.Description;
+                    parameter.In = parameterAnnotation.In.ToOpenApi();
+                    parameter.Name = parameterAnnotation.Name ?? variableName;
+                    parameter.Style = parameterAnnotation.Style?.ToOpenApi();
+                    parameter.AllowReserved = parameterAnnotation.AllowReserved;
+                    parameter.Required = parameterAnnotation.Required;
+                    parameter.Example = OpenApiJsonNodeFactory.FromObject(parameterAnnotation.Example);
+                    parameter.Deprecated = parameterAnnotation.Deprecated;
+                    // Explode defaults to true for "form" and "cookie" styles
+                    if (parameterAnnotation.Explode || (parameter.Style is ParameterStyle.Form or ParameterStyle.Cookie))
                     {
-                        ApplyConcreteSchemaAttributes(annotation, schema);
+                        parameter.Explode = true;
+                    }
 
-                        if (variable.InitialValue != null)
+                    if (variable.VariableType != null)
+                    {
+                        if (InferPrimitiveSchema(variable.VariableType) is OpenApiSchema schema)
                         {
-                            schema.Default = OpenApiJsonNodeFactory.FromObject(variable.InitialValue);
+                            ApplyConcreteSchemaAttributes(parameterAnnotation, schema);
+
+                            if (variable.InitialValue != null)
+                            {
+                                schema.Default = OpenApiJsonNodeFactory.FromObject(variable.InitialValue);
+                            }
+                            if (string.IsNullOrWhiteSpace(parameterAnnotation.ContentType))
+                            {
+                                parameter.Schema = schema;
+                            }
+                            else
+                            {
+                                parameter.Content ??= new Dictionary<string, IOpenApiMediaType>(StringComparer.Ordinal);
+                                parameter.Content[parameterAnnotation.ContentType] = new OpenApiMediaType
+                                {
+                                    Schema = schema
+                                };
+                            }
                         }
                     }
                 }
-                Document.Components.Parameters[parameter.Name] = parameter;
-            }
-            Console.WriteLine($"Discovered component annotations for '{variableName}' ({variable.VariableTypeName ?? "<unknown>"})");
-            foreach (var annotation in variable.Annotations)
-            {
-                Console.WriteLine($"  - {annotation.GetType().Name}");
+                if (annotation is OpenApiParameterExampleRefAttribute exampleRefAttribute)
+                {
+                    // Process OpenApiCallbackRefAttribute annotations
+                    var parameter = GetOrCreateParameterItem(variableName, false);
+
+                    _ = TryAddExample(parameter.Examples ??= new Dictionary<string, IOpenApiExample>(), exampleRefAttribute);
+                }
             }
         }
     }

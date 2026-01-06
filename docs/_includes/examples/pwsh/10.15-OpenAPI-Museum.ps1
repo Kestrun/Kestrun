@@ -443,15 +443,24 @@ New-KrOpenApiExample -Summary 'Get hours response' -Value $museumHoursValue |
 # NOTE: we approximate with a class + property decorated as a parameter.
 #       The ReferenceId used by OpenApiParameterRefAttribute matches the class name.
 
+
+
+
+New-KrOpenApiExample -Summary 'Pagination limit example' -Value (10) | Add-KrOpenApiInline -Name 'PaginationLimitExample'
+New-KrOpenApiExample -Summary 'Pagination limit Extra example' -Value (100) | Add-KrOpenApiComponent -Name 'PaginationLimitExampleExtra'
+
+
 [OpenApiParameterComponent(In = 'Query',
     Description = 'The number of days per page.')]
+[OpenApiParameterExampleRef( Key = 'default_example', ReferenceId = 'PaginationLimitExample')]
+[OpenApiParameterExampleRef( Key = 'extra_example', ReferenceId = 'PaginationLimitExampleExtra' , Inline = $true)]
 [int]$paginationLimit = 20
 
 [OpenApiParameterComponent(In = 'Query',
     Description = 'The page number to retrieve.' , Minimum = 0, Maximum = 150, Example = 30)]
 [int]$paginationPage
 
-[OpenApiParameterComponent(In = 'Query',
+[OpenApiParameterComponent(In = 'Query', ContentType = 'application/json',
     Description = "The starting date to retrieve future operating hours from. Defaults to today's date.")]
 [Nullable[datetime]]$startDate
 
@@ -463,7 +472,7 @@ New-KrOpenApiExample -Summary 'Get hours response' -Value $museumHoursValue |
     Description = 'The end of a date range to retrieve special events for. Defaults to 7 days after startDate.')]
 [Nullable[datetime]]$endDate
 
-[OpenApiParameter(In = [OaParameterLocation]::Path, Required = $true,
+[OpenApiParameterComponent(In = [OaParameterLocation]::Path, Required = $true,
     Description = 'An identifier for a ticket to a museum event. Used to generate ticket image.')]
 [Nullable[guid]]$ticketId
 

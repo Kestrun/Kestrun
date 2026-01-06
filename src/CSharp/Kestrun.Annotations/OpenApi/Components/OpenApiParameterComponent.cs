@@ -24,6 +24,12 @@ public sealed class OpenApiParameterComponent : OpenApiProperties
     public bool Explode { get; set; }
     /// <summary>Allow reserved characters unescaped (query only).</summary>
     public bool AllowReserved { get; set; }
-    // Todo: Remove it
-    public string? JoinClassName { get; set; }
+    /// <summary>
+    /// Indicates that the parameter definition should be inlined
+    /// into the operation rather than being a reusable component.
+    /// </summary>
+    public bool Inline { get; set; }
+
+    /// <summary>The key is the media type. Will use content instead of schema.</summary>
+    public string? ContentType { get; set; }
 }

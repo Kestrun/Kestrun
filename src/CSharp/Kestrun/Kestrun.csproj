@@ -174,7 +174,7 @@
         <PackageReference Include="Microsoft.AspNetCore.Authentication.Negotiate" Version="9.0.11" />
 
         <!-- Serilog -->
-        <PackageReference Include="Serilog.Sinks.Http" Version="9.2.0" />
+        <PackageReference Include="Serilog.Sinks.Http" Version="9.2.1" />
 
         <!-- Caching -->
         <PackageReference Include="Microsoft.Extensions.Caching.SqlServer" Version="9.0.11" />
@@ -207,7 +207,7 @@
         <PackageReference Include="Microsoft.AspNetCore.Authentication.Negotiate" Version="10.0.0" />
 
         <!-- Serilog -->
-        <PackageReference Include="Serilog.Sinks.Http" Version="9.2.0" />
+        <PackageReference Include="Serilog.Sinks.Http" Version="9.2.1" />
 
         <!-- Caching -->
         <PackageReference Include="Microsoft.Extensions.Caching.SqlServer" Version="10.0.1" />

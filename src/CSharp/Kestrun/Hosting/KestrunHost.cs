@@ -1044,6 +1044,9 @@ public partial class KestrunHost : IDisposable
     /// <summary>
     /// Applies the configured options to the Kestrel server and initializes the runspace pool.
     /// </summary>
+    /// <param name="userVariables">User-defined variables to inject into the runspace pool.</param>
+    /// <param name="userFunctions">User-defined functions to inject into the runspace pool.</param>
+    /// <param name="userCallbacks">User-defined callback functions for OpenAPI classes.</param>
     public void EnableConfiguration(Dictionary<string, object>? userVariables = null, Dictionary<string, string>? userFunctions = null, Dictionary<string, string>? userCallbacks = null)
     {
         if (!ValidateConfiguration())
@@ -1054,43 +1057,7 @@ public partial class KestrunHost : IDisposable
         try
         {
             // Scan for OpenAPI component annotations in the main script
-            ComponentAnnotations = OpenApiComponentAnnotationScanner.ScanFromPath(
-              mainPath: KestrunHostManager.EntryScriptPath,
-                            userVariables: userVariables
-            );
-
-            var componentVariableNames = ComponentAnnotations is null
-                    ? new HashSet<string>(StringComparer.OrdinalIgnoreCase)
-                    : new HashSet<string>(ComponentAnnotations.Keys, StringComparer.OrdinalIgnoreCase);
-
-            // Inject user variables into shared state
-            if (userVariables is not null)
-            {
-                foreach (var key in userVariables.Keys)
-                {
-                    if (componentVariableNames.Contains(key))
-                    {
-                        if (Logger.IsEnabled(LogEventLevel.Verbose))
-                        {
-                            Logger.Verbose("Skipping shared state variable '{Key}' (OpenAPI component variable).", key);
-                        }
-                        continue;
-                    }
-
-                    var sharedValue = UnwrapKestrunVariableValue(userVariables[key]);
-                    if (SharedState.Set(name: key, value: sharedValue, allowsValueType: true))
-                    {
-                        if (Logger.IsEnabled(LogEventLevel.Verbose))
-                        {
-                            Logger.Verbose("Set shared state variable '{Key}' from user variables.", key);
-                        }
-                    }
-                    else
-                    {
-                        Logger.Warning("Failed to set shared state variable '{Key}' from user variables.", key);
-                    }
-                }
-            }
+            ComponentAnnotations = OpenApiComponentAnnotationScanner.ScanFromPath(mainPath: KestrunHostManager.EntryScriptPath);
 
             // Export OpenAPI classes from PowerShell
             var openApiClassesPath = PowerShellOpenApiClassExporter.ExportOpenApiClasses(userCallbacks: userCallbacks);

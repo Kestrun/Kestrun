@@ -481,7 +481,7 @@ public partial class OpenApiDocDescriptor
             // Apply any schema attributes from the parameter annotation
             ApplyConcreteSchemaAttributes(parameterAnnotation, schema);
             // Try to set default value from the variable initial value if not already set
-            if (variable.InitialValue is not null)
+            if (!variable.NoDefault)
             {
                 schema.Default = OpenApiJsonNodeFactory.FromObject(variable.InitialValue);
             }

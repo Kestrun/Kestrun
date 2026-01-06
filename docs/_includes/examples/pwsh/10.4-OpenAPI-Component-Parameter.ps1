@@ -130,23 +130,25 @@ New-KrOpenApiExample -Summary 'Create product example' -Value ([ordered]@{ name 
 New-KrOpenApiExample -Summary 'Sort by price example' -Value 'price' |
     Add-KrOpenApiInline -Name 'SortByPriceExample'
 
+# Query params (create)
+
 # Header params
 [OpenApiParameterComponent(In = 'Header', Description = 'Correlation id for tracing a request through logs.')]
 [OpenApiParameterExampleRef(Key = 'default', ReferenceId = 'CorrelationIdExample')]
-[string]$correlationId= $null
+[string]$correlationId = NoDefault
 
 # Header parameter using ContentType + schema (OpenAPI parameters can define content)
 [OpenApiParameterComponent(In = 'Header', ContentType = 'application/json', Description = 'Optional client context as a JSON header.')]
 [OpenApiParameterExampleRef(Key = 'example', ReferenceId = 'ClientContextExample')]
-[ClientContext]$clientContext= $null
+[ClientContext]$clientContext = NoDefault
 
 # Cookie params
 [OpenApiParameterComponent(In = 'Cookie', Description = 'Tenant identifier (multi-tenant demo).', Example = 'demo')]
-[string]$tenantId
+[string]$tenantId = NoDefault
 
 # Path params
 [OpenApiParameterComponent(In = 'Path', Required = $true, Description = 'Product id.', Minimum = 1, Example = 1)]
-[long]$productId = $null
+[long]$productId = NoDefault
 
 # Query params (list)
 [OpenApiParameterComponent(In = 'Query', Description = 'Page number', Minimum = 1, Example = 1)]
@@ -162,13 +164,13 @@ New-KrOpenApiExample -Summary 'Sort by price example' -Value 'price' |
 
 [OpenApiParameterComponent(In = 'Query', Description = 'Filter by category', Example = 'electronics')]
 [ValidateSet('electronics', 'office', 'accessories', 'other')]
-[string]$category
+[string]$category = 'other'
 
 [OpenApiParameterComponent(In = 'Query', Description = 'Filter by minimum price', Example = 100, Minimum = 0)]
-[double]$minPrice = $null
+[double]$minPrice = NoDefault
 
 [OpenApiParameterComponent(In = 'Query', Description = 'Filter by maximum price', Example = 5000, Minimum = 0)]
-[double]$maxPrice = $null
+[double]$maxPrice = NoDefault
 
 # Query params (create)
 [OpenApiParameterComponent(In = 'Query', Description = 'Validate request only (does not persist).', Example = $false)]
@@ -333,7 +335,7 @@ function getProduct {
         $Context.Response.Headers['correlationId'] = $correlationId
     }
 
-    $item = $null
+    $item = NoDefault
     if (-not $Products.TryGetValue($productId, [ref]$item)) {
         Write-KrResponse ([ErrorResponse]@{ message = 'Product not found' }) -StatusCode 404
         return

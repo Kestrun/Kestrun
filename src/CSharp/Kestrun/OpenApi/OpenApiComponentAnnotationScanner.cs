@@ -10,8 +10,6 @@ namespace Kestrun.OpenApi;
 /// </summary>
 public static class OpenApiComponentAnnotationScanner
 {
-    private const string KestrunVariableMarkerKey = "__kestrunVariable";
-
     /// <summary>
     /// Represents a variable discovered in script, along with its OpenAPI annotations and metadata.
     /// </summary>
@@ -31,6 +29,8 @@ public static class OpenApiComponentAnnotationScanner
 
         /// <summary>The initializer expression text (always available when an initializer exists).</summary>
         public string? InitialValueExpression { get; set; }
+        /// <summary>Indicates whether the variable was declared with no default (e.g. <c>$x = [NoDefault]</c>).</summary>
+        public bool NoDefault { get; internal set; }
     }
 
     /// <summary>
@@ -39,7 +39,6 @@ public static class OpenApiComponentAnnotationScanner
     /// </summary>
     /// <param name="engine">The PowerShell engine intrinsics.</param>
     /// <param name="mainPath">Optional main script file path to start scanning from. If null, uses the running script path ($PSCommandPath).</param>
-    /// <param name="userVariables">Optional dictionary of user variables to consider during scanning.</param>
     /// <param name="attributeTypeFilter">Optional filter of attribute type names to include. If null or empty, includes all.</param>
     /// <param name="componentNameArgument">The name of the attribute argument to use as component name.</param>
     /// <param name="maxFiles">Maximum number of files to scan to prevent cycles.</param>
@@ -55,7 +54,6 @@ public static class OpenApiComponentAnnotationScanner
     public static Dictionary<string, AnnotatedVariable> ScanFromRunningScriptOrPath(
         EngineIntrinsics engine,
         string? mainPath = null,
-        object? userVariables = null,
         IReadOnlyCollection<string>? attributeTypeFilter = null,
         string componentNameArgument = "Name",
         int maxFiles = 200)
@@ -71,14 +69,13 @@ public static class OpenApiComponentAnnotationScanner
 
         entry = Path.GetFullPath(entry);
 
-        return ScanFromPath(entry, userVariables, attributeTypeFilter, componentNameArgument, maxFiles);
+        return ScanFromPath(entry, attributeTypeFilter, componentNameArgument, maxFiles);
     }
 
     /// <summary>
     /// Scan starting from a main script file path.
     /// </summary>
     /// <param name="mainPath">The main script file path to start scanning from.</param>
-    /// <param name="userVariables">Optional dictionary of user variables to consider during scanning.</param>
     /// <param name="attributeTypeFilter">Optional filter of attribute type names to include. If null or empty, includes all.</param>
     /// <param name="componentNameArgument">The name of the attribute argument to use as component name.</param>
     /// <param name="maxFiles">Maximum number of files to scan to prevent cycles.</param>
@@ -93,7 +90,6 @@ public static class OpenApiComponentAnnotationScanner
     /// </remarks>
     public static Dictionary<string, AnnotatedVariable> ScanFromPath(
         string mainPath,
-        object? userVariables = null,
         IReadOnlyCollection<string>? attributeTypeFilter = null,
         string componentNameArgument = "Name",
         int maxFiles = 200)
@@ -137,243 +133,7 @@ public static class OpenApiComponentAnnotationScanner
             }
         }
 
-        MergeUserVariables(variables, userVariables);
-
         return variables;
-    }
-
-    private static void MergeUserVariables(Dictionary<string, AnnotatedVariable> variables, object? userVariables)
-    {
-        if (userVariables is null)
-        {
-            return;
-        }
-
-        // Normalize keys: allow "$name" or "name"; case-insensitive.
-        var normalized = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase);
-
-        if (userVariables is IDictionary nonGeneric)
-        {
-            if (nonGeneric.Count == 0)
-            {
-                return;
-            }
-
-            foreach (DictionaryEntry entry in nonGeneric)
-            {
-                if (entry.Key is not string key || string.IsNullOrWhiteSpace(key))
-                {
-                    continue;
-                }
-
-                var k = key.Trim();
-                if (k.StartsWith("$", StringComparison.Ordinal))
-                {
-                    k = k[1..];
-                }
-
-                if (!string.IsNullOrWhiteSpace(k))
-                {
-                    normalized[k] = entry.Value;
-                }
-            }
-
-        }
-        else if (userVariables is IEnumerable<KeyValuePair<string, object>> generic)
-        {
-            foreach (var kvp in generic)
-            {
-                if (string.IsNullOrWhiteSpace(kvp.Key))
-                {
-                    continue;
-                }
-
-                var k = kvp.Key.Trim();
-                if (k.StartsWith("$", StringComparison.Ordinal))
-                {
-                    k = k[1..];
-                }
-
-                if (!string.IsNullOrWhiteSpace(k))
-                {
-                    normalized[k] = kvp.Value;
-                }
-            }
-        }
-        else if (userVariables is IEnumerable<KeyValuePair<string, object?>> genericNullable)
-        {
-            foreach (var kvp in genericNullable)
-            {
-                if (string.IsNullOrWhiteSpace(kvp.Key))
-                {
-                    continue;
-                }
-
-                var k = kvp.Key.Trim();
-                if (k.StartsWith("$", StringComparison.Ordinal))
-                {
-                    k = k[1..];
-                }
-
-                if (!string.IsNullOrWhiteSpace(k))
-                {
-                    normalized[k] = kvp.Value;
-                }
-            }
-        }
-        else
-        {
-            // Unknown shape; ignore.
-            return;
-        }
-
-        foreach (var (varName, entry) in variables)
-        {
-            if (!normalized.TryGetValue(varName, out var raw))
-            {
-                continue;
-            }
-
-            // Unwrap PSObject if present.
-            if (raw is PSObject pso)
-            {
-                raw = pso.BaseObject;
-            }
-
-            // Handle the PowerShell-side metadata wrapper used by Get-KrAssignedVariable -AsDictionary
-            // for typed declaration-only (and typed-null) variables.
-            if (TryUnwrapKestrunVariableMetadata(raw, out var unwrappedValue, out var declaredTypeName, out var typeFromField, out var typeName))
-            {
-                raw = unwrappedValue;
-
-                // If runtime value is null, we still want to preserve declared type information.
-                if (!string.IsNullOrWhiteSpace(declaredTypeName))
-                {
-                    entry.VariableTypeName ??= declaredTypeName;
-                    entry.VariableType ??= ResolvePowerShellTypeName(declaredTypeName);
-                }
-                else if (typeFromField is not null)
-                {
-                    entry.VariableType ??= typeFromField;
-                    entry.VariableTypeName ??= typeFromField.FullName;
-                }
-                else if (!string.IsNullOrWhiteSpace(typeName))
-                {
-                    entry.VariableTypeName ??= typeName;
-                    entry.VariableType ??= ResolvePowerShellTypeName(typeName);
-                }
-            }
-
-            entry.InitialValue = raw;
-            entry.InitialValueExpression ??= raw is null ? "$null" : raw.ToString();
-
-            // Only infer type from runtime value when it's non-null.
-            // If the variable is typed but currently $null, keep the AST-derived type.
-            if (raw is not null)
-            {
-                entry.VariableType = raw.GetType();
-                entry.VariableTypeName ??= raw.GetType().FullName;
-            }
-        }
-    }
-
-    private static bool TryUnwrapKestrunVariableMetadata(object? raw, out object? value, out string? declaredTypeName, out Type? typeFromField, out string? typeName)
-    {
-        value = raw;
-        declaredTypeName = null;
-        typeFromField = null;
-        typeName = null;
-
-        if (raw is null)
-        {
-            return false;
-        }
-
-        if (raw is PSObject pso)
-        {
-            raw = pso.BaseObject;
-        }
-
-        if (raw is not IDictionary dict)
-        {
-            return false;
-        }
-
-        if (!TryGetDictionaryValueIgnoreCase(dict, KestrunVariableMarkerKey, out var markerObj))
-        {
-            return false;
-        }
-
-        var isMarked = markerObj switch
-        {
-            bool b => b,
-            PSObject p when p.BaseObject is bool b => b,
-            _ => false
-        };
-
-        if (!isMarked)
-        {
-            return false;
-        }
-
-        if (TryGetDictionaryValueIgnoreCase(dict, "Value", out var valueObj))
-        {
-            value = valueObj is PSObject p ? p.BaseObject : valueObj;
-        }
-
-        if (TryGetDictionaryValueIgnoreCase(dict, "DeclaredType", out var declaredObj))
-        {
-            declaredTypeName = declaredObj switch
-            {
-                string s => s,
-                PSObject p when p.BaseObject is string s => s,
-                _ => null
-            };
-        }
-
-        if (TryGetDictionaryValueIgnoreCase(dict, "Type", out var typeObj))
-        {
-            switch (typeObj)
-            {
-                case Type t:
-                    typeFromField = t;
-                    break;
-                case PSObject p when p.BaseObject is Type t:
-                    typeFromField = t;
-                    break;
-                case string s:
-                    typeName = s;
-                    break;
-                case PSObject p when p.BaseObject is string s:
-                    typeName = s;
-                    break;
-            }
-        }
-
-        return true;
-    }
-
-    private static bool TryGetDictionaryValueIgnoreCase(IDictionary dict, string key, out object? value)
-    {
-        value = null;
-
-        // Fast path: many IDictionary implementations (Hashtable) are case-insensitive.
-        if (dict.Contains(key))
-        {
-            value = dict[key];
-            return true;
-        }
-
-        foreach (DictionaryEntry de in dict)
-        {
-            if (de.Key is string s && string.Equals(s, key, StringComparison.OrdinalIgnoreCase))
-            {
-                value = de.Value;
-                return true;
-            }
-        }
-
-        return false;
     }
 
     // ---------------- Parsing ----------------
@@ -538,9 +298,17 @@ public static class OpenApiComponentAnnotationScanner
                     var entry = GetOrCreateVariable(variables, inlineVarName);
                     entry.VariableType ??= inlineVarType;
                     entry.VariableTypeName ??= inlineVarTypeName;
-                    entry.InitialValue ??= initValue;
-                    entry.InitialValueExpression ??= initExpr;
 
+                    if (initExpr != "NoDefault")
+                    {
+                        entry.NoDefault = false;
+                        entry.InitialValue ??= initValue;
+                        entry.InitialValueExpression ??= initExpr;
+                    }
+                    else
+                    {
+                        entry.NoDefault = true;
+                    }
                     foreach (var a in inlineAttrs)
                     {
                         var ka = TryCreateKestrunAnnotation(a, defaultComponentName: inlineVarName, componentNameArgument);

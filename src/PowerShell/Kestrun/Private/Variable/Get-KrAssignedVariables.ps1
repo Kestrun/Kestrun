@@ -17,6 +17,8 @@
       Scope to assume when the LHS had no explicit scope (default: Local).
     .PARAMETER ExcludeVariables
       Array of variable names to exclude from the results.
+    .PARAMETER WithoutAttributesOnly
+      If specified, only include variables that were defined without attributes.
     .OUTPUTS
       PSCustomObject with properties: Name, ScopeHint, ProviderPath, Source, Operator,
         Type, Value.
@@ -29,6 +31,8 @@
 #>
 function Get-KrAssignedVariable {
     [CmdletBinding(DefaultParameterSetName = 'Given')]
+    [OutputType([object[]])]
+    [OutputType([System.Collections.Generic.Dictionary[string, object]])]
     param(
         [Parameter(ParameterSetName = 'Given', Position = 0)]
         [scriptblock]$ScriptBlock,
@@ -59,7 +63,10 @@ function Get-KrAssignedVariable {
         [string]$DefaultScope = 'Script',
 
         [Parameter()]
-        [string[]]$ExcludeVariables
+        [string[]]$ExcludeVariables,
+
+        [Parameter()]
+        [switch]$WithoutAttributesOnly
     )
 
     $excludeSet = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
@@ -171,6 +178,7 @@ function Get-KrAssignedVariable {
                     }
                 } catch {
                     # ignore
+                    Write-krLog -Level Verbose -Message "Variable '$name' not found at scope depth $s."
                 }
             }
 
@@ -626,7 +634,7 @@ function Get-KrAssignedVariable {
             # Typed variables (i.e., DeclaredType present) are wrapped so C# can see Type/IsNullable
             # even when the runtime value is non-null (e.g. [int]$paginationLimit = 20).
             # Untyped variables keep the old behavior (value only).
-            $wrap = -not [string]::IsNullOrWhiteSpace($v.DeclaredType)
+            $wrap = -not [string]::IsNullOrWhiteSpace($v.DeclaredType) -and (-not $WithoutAttributesOnly.IsPresent)
             if ($wrap) {
                 $meta = [System.Collections.Generic.Dictionary[string, object]]::new([System.StringComparer]::OrdinalIgnoreCase)
                 $meta['__kestrunVariable'] = $true

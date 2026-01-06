@@ -458,23 +458,23 @@ New-KrOpenApiExample -Summary 'Pagination limit Extra example' -Value (100) | Ad
 
 [OpenApiParameterComponent(In = 'Query',
     Description = 'The page number to retrieve.' , Minimum = 0, Maximum = 150, Example = 30)]
-[int]$paginationPage
+[int]$paginationPage = NoDefault
 
 [OpenApiParameterComponent(In = 'Query', ContentType = 'application/json',
     Description = "The starting date to retrieve future operating hours from. Defaults to today's date.")]
-[Nullable[datetime]]$startDate
+[Nullable[datetime]]$startDate = NoDefault
 
 [OpenApiParameterComponent(In = 'Path', Required = $true,
     Description = 'An identifier for a special event.', Example = 'dad4bce8-f5cb-4078-a211-995864315e39')]
-[Nullable[guid]]$eventId
+[Nullable[guid]]$eventId = NoDefault
 
 [OpenApiParameterComponent(In = 'Query',
     Description = 'The end of a date range to retrieve special events for. Defaults to 7 days after startDate.')]
-[Nullable[datetime]]$endDate
+[Nullable[datetime]]$endDate = NoDefault
 
 [OpenApiParameterComponent(In = [OaParameterLocation]::Path, Required = $true,
     Description = 'An identifier for a ticket to a museum event. Used to generate ticket image.')]
-[Nullable[guid]]$ticketId
+[Nullable[guid]]$ticketId = NoDefault
 
 #endregion
 # =========================================================

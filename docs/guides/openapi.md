@@ -498,12 +498,18 @@ function getProduct {
 
 Use `[OpenApiParameterComponent]` to define reusable parameter components (Query, Header, Cookie).
 
+> **Note:** Component parameter variables must have an explicit value.
+> Use `= NoDefault` when you do not want a default associated with the parameter.
+
 ```powershell
 [OpenApiParameterComponent(In = [OaParameterLocation]::Query, Description = 'Page number', Minimum = 1, Example = 1)]
 [int]$page = 1
 
 [OpenApiParameterComponent(In = [OaParameterLocation]::Query, Description = 'Items per page', Minimum = 1, Maximum = 100, Example = 20)]
 [int]$limit = 20
+
+[OpenApiParameterComponent(In = 'Header', Description = 'Optional correlation id for tracing', Example = '2f2d68c2-9b7a-4b5c-8b1d-0fdff2a4b9a3')]
+[string]$correlationId = NoDefault
 ```
 
 ### Usage in Route (Parameters)

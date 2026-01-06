@@ -30,7 +30,7 @@ Add-KrOpenApiInfo -Title 'Parameter Component API' `
 #                      COMPONENT SCHEMAS
 # =========================================================
 
-[OpenApiSchemaComponent(Required = ('name', 'category', 'price'))]
+[OpenApiSchemaComponent(RequiredProperties = ('name', 'category', 'price'))]
 class CreateProductRequest {
     [OpenApiPropertyAttribute(Description = 'Product name', Example = 'USB-C Dock')]
     [ValidateNotNullOrEmpty()]
@@ -43,11 +43,11 @@ class CreateProductRequest {
     [OpenApiPropertyAttribute(Description = 'Unit price', Format = 'double', Example = 159.99, Minimum = 0.01)]
     [double]$price
 
-    [OpenApiPropertyAttribute(Description = 'Optional tags', Example = @('usb-c', 'dock'))]
+    [OpenApiPropertyAttribute(Description = 'Optional tags', Example = ('usb-c', 'dock'))]
     [string[]]$tags
 }
 
-[OpenApiSchemaComponent(Required = ('id', 'name', 'category', 'price'))]
+[OpenApiSchemaComponent(RequiredProperties = ('id', 'name', 'category', 'price'))]
 class ProductItem {
     [OpenApiPropertyAttribute(Description = 'Product ID', Format = 'int64', Example = 1)]
     [long]$id
@@ -61,7 +61,7 @@ class ProductItem {
     [OpenApiPropertyAttribute(Description = 'Product price', Format = 'double', Example = 999.99)]
     [double]$price
 
-    [OpenApiPropertyAttribute(Description = 'Product tags', Example = @('work', 'portable'))]
+    [OpenApiPropertyAttribute(Description = 'Product tags', Example = ('work', 'portable'))]
     [string[]]$tags
 }
 
@@ -79,8 +79,8 @@ class ProductListResponse {
     [OpenApiPropertyAttribute(Description = 'List of products')]
     [ProductItem[]]$items
 }
-dotne
-[OpenApiSchemaComponent(Required = ('message'))]
+
+[OpenApiSchemaComponent(RequiredProperties = ('message'))]
 class ErrorResponse {
     [OpenApiPropertyAttribute(Description = 'Human-readable error message', Example = 'Product not found')]
     [string]$message
@@ -98,7 +98,7 @@ class ClientContext {
     [string]$locale
 }
 
-[OpenApiSchemaComponent(Required = ('name'))]
+[OpenApiSchemaComponent(RequiredProperties = ('name'))]
 class CategoryItem {
     [OpenApiPropertyAttribute(Description = 'Category name', Example = 'electronics')]
     [string]$name
@@ -133,12 +133,12 @@ New-KrOpenApiExample -Summary 'Sort by price example' -Value 'price' |
 # Header params
 [OpenApiParameterComponent(In = 'Header', Description = 'Correlation id for tracing a request through logs.')]
 [OpenApiParameterExampleRef(Key = 'default', ReferenceId = 'CorrelationIdExample')]
-[string]$correlationId
+[string]$correlationId= $null
 
 # Header parameter using ContentType + schema (OpenAPI parameters can define content)
 [OpenApiParameterComponent(In = 'Header', ContentType = 'application/json', Description = 'Optional client context as a JSON header.')]
 [OpenApiParameterExampleRef(Key = 'example', ReferenceId = 'ClientContextExample')]
-[ClientContext]$clientContext
+[ClientContext]$clientContext= $null
 
 # Cookie params
 [OpenApiParameterComponent(In = 'Cookie', Description = 'Tenant identifier (multi-tenant demo).', Example = 'demo')]
@@ -146,7 +146,7 @@ New-KrOpenApiExample -Summary 'Sort by price example' -Value 'price' |
 
 # Path params
 [OpenApiParameterComponent(In = 'Path', Required = $true, Description = 'Product id.', Minimum = 1, Example = 1)]
-[long]$productId
+[long]$productId = $null
 
 # Query params (list)
 [OpenApiParameterComponent(In = 'Query', Description = 'Page number', Minimum = 1, Example = 1)]
@@ -165,10 +165,10 @@ New-KrOpenApiExample -Summary 'Sort by price example' -Value 'price' |
 [string]$category
 
 [OpenApiParameterComponent(In = 'Query', Description = 'Filter by minimum price', Example = 100, Minimum = 0)]
-[double]$minPrice
+[double]$minPrice = $null
 
 [OpenApiParameterComponent(In = 'Query', Description = 'Filter by maximum price', Example = 5000, Minimum = 0)]
-[double]$maxPrice
+[double]$maxPrice = $null
 
 # Query params (create)
 [OpenApiParameterComponent(In = 'Query', Description = 'Validate request only (does not persist).', Example = $false)]

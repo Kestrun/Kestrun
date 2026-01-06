@@ -59,7 +59,7 @@ flowchart LR
 
 ```powershell
 # 1. Define a Schema
-[OpenApiSchemaComponent(Required = ('name'))]
+[OpenApiSchemaComponent(RequiredProperties = ('name'))]
 class Pet {
     [OpenApiPropertyAttribute(Description = 'Pet ID', Example = 1)]
     [long]$id
@@ -108,7 +108,7 @@ This is different from **callbacks**, which are tied to a specific API operation
 Define payloads as schema components so webhook request bodies can reference them:
 
 ```powershell
-[OpenApiSchemaComponent(Required = ('event_id', 'event_type', 'timestamp', 'data'))]
+[OpenApiSchemaComponent(RequiredProperties = ('event_id', 'event_type', 'timestamp', 'data'))]
 class OrderEventPayload {
     [OpenApiPropertyAttribute(Description = 'Unique identifier for this event', Format = 'uuid')]
     [string]$event_id
@@ -176,7 +176,7 @@ When you invoke a callback function, Kestrun resolves the final URL, serializes 
 
 ```powershell
 # Callback event payload
-[OpenApiSchemaComponent(Required = ('eventId', 'timestamp', 'paymentId', 'status'))]
+[OpenApiSchemaComponent(RequiredProperties = ('eventId', 'timestamp', 'paymentId', 'status'))]
 class PaymentStatusChangedEvent {
     [OpenApiPropertyAttribute(Format = 'uuid')]
     [string]$eventId
@@ -344,7 +344,7 @@ Use `[OpenApiSchemaComponent]` to define reusable data models.
 ### 4.1 Basic Schema
 
 ```powershell
-[OpenApiSchemaComponent(Required = ('username', 'email'))]
+[OpenApiSchemaComponent(RequiredProperties = ('username', 'email'))]
 class User {
     [OpenApiPropertyAttribute(Description = 'Unique ID', Format = 'int64', Example = 1)]
     [long]$id
@@ -411,7 +411,7 @@ class Date : OpenApiString {}
 Use it in your other schemas to produce `$ref` references:
 
 ```powershell
-[OpenApiSchemaComponent(Required = ('ticketDate'))]
+[OpenApiSchemaComponent(RequiredProperties = ('ticketDate'))]
 class BuyTicketRequest {
     [OpenApiProperty(Description = 'Date that the ticket is valid for.')]
     [Date]$ticketDate
@@ -438,7 +438,7 @@ Use `[OpenApiRequestBodyComponent]` to define reusable request payloads. You can
 
 ```powershell
 # Define the base schema
-[OpenApiSchemaComponent(Required = ('name', 'price'))]
+[OpenApiSchemaComponent(RequiredProperties = ('name', 'price'))]
 class ProductSchema {
     [string]$name
     [double]$price

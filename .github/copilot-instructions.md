@@ -509,7 +509,7 @@ class Date : OpenApiString {}
 Then use it as a property type anywhere you want `$ref`:
 
 ```powershell
-[OpenApiSchemaComponent(Required = ('ticketDate'))]
+[OpenApiSchemaComponent(RequiredProperties = ('ticketDate'))]
 class BuyTicketRequest {
     [OpenApiProperty(Description = 'Date that the ticket is valid for.')]
     [Date]$ticketDate

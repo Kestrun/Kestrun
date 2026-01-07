@@ -522,12 +522,45 @@ function Get-KrAssignedVariable {
         return $false
     }
 
+    <#
+    .SYNOPSIS
+        Checks if a variable expression is decorated with attributes.
+    .DESCRIPTION
+        PowerShell variable declarations/assignments may be wrapped in an AttributedExpressionAst
+        when attributes are present, e.g. [ValidateNotNull()][int]$Foo = 1.
+        This helper walks parent nodes to detect that wrapper.
+    .PARAMETER node
+        The AST node to inspect (typically the LHS or ConvertExpressionAst).
+    .OUTPUTS
+        [bool] Returns true if attributes are present; otherwise false.
+    #>
+    function _HasAttributes([System.Management.Automation.Language.Ast] $node) {
+        $p = $node
+        while ($p) {
+            if ($p -is [System.Management.Automation.Language.AttributedExpressionAst]) {
+                # Note: AttributedExpressionAst stores a single attribute in the `Attribute` property.
+                # Multiple attributes are represented as nested AttributedExpressionAst nodes.
+                # Type constraints like [int] are represented as TypeConstraintAst and should NOT
+                # count as "attributes" for -WithoutAttributesOnly filtering.
+                if ($p.Attribute -is [System.Management.Automation.Language.AttributeAst]) {
+                    return $true
+                }
+                # Otherwise, it's a type constraint (e.g. [int]); keep walking up because
+                # there may be an outer AttributedExpressionAst with a real attribute.
+            }
+            if ($p -is [System.Management.Automation.Language.ScriptBlockAst]) { break }
+            $p = $p.Parent
+        }
+        return $false
+    }
+
     $assignAsts = $ScriptBlock.Ast.FindAll(
         { param($n) $n -is [System.Management.Automation.Language.AssignmentStatementAst] }, $true)
 
     foreach ($a in $assignAsts) {
         $declaredType = $null
         $typeInfo = $null
+        $hasAttributes = _HasAttributes $a.Left
 
         # If assignment target is typed ([int]$x = 1), capture the declared type from the LHS.
         $lhsConvert = $a.Left.Find(
@@ -577,6 +610,7 @@ function Get-KrAssignedVariable {
                 Type = $type
                 DeclaredType = if ($typeInfo) { $typeInfo.DeclaredType } else { $null }
                 IsNullable = if ($typeInfo) { $typeInfo.IsNullable } else { $null }
+                HasAttributes = $hasAttributes
                 Value = $val
             })
     }
@@ -598,6 +632,8 @@ function Get-KrAssignedVariable {
             continue
         }
 
+        $hasAttributes = _HasAttributes $c
+
         $varExpr = [System.Management.Automation.Language.VariableExpressionAst]$c.Child
         $info = _GetScopeAndNameFromVariablePath $varExpr.VariablePath
         if (-not $info) { continue }
@@ -616,6 +652,7 @@ function Get-KrAssignedVariable {
                 Type = $typeInfo.Type
                 DeclaredType = $typeInfo.DeclaredType
                 IsNullable = $typeInfo.IsNullable
+                HasAttributes = $hasAttributes
                 Value = $val
             })
     }
@@ -670,6 +707,7 @@ function Get-KrAssignedVariable {
                     Type = $type
                     DeclaredType = $null
                     IsNullable = $null
+                    HasAttributes = $false
                     Value = $val
                 } | ForEach-Object { [void]$rows.Add($_) }
             }
@@ -678,6 +716,10 @@ function Get-KrAssignedVariable {
 
     # keep last occurrence per (ScopeHint, Name)
     $final = @($rows | Group-Object ScopeHint, Name | ForEach-Object { $_.Group[-1] })
+
+    if ($WithoutAttributesOnly.IsPresent) {
+        $final = @($final | Where-Object { -not $_.HasAttributes })
+    }
 
     if ($AsDictionary.IsPresent) {
         $dict = [System.Collections.Generic.Dictionary[string, object]]::new([System.StringComparer]::OrdinalIgnoreCase)
@@ -688,10 +730,6 @@ function Get-KrAssignedVariable {
             # Untyped variables keep the old behavior (value only).
             $wrap = -not [string]::IsNullOrWhiteSpace($v.DeclaredType)
             if ($wrap) {
-                # Skip variables defined with attributes when -WithoutAttributesOnly is specified
-                if ($WithoutAttributesOnly.IsPresent) {
-                    continue;
-                }
                 $meta = [System.Collections.Generic.Dictionary[string, object]]::new([System.StringComparer]::OrdinalIgnoreCase)
                 $meta['__kestrunVariable'] = $true
                 $meta['Value'] = $v.Value

@@ -165,4 +165,78 @@ Describe 'Get-KrAssignedVariable' {
         $meta['Type'] | Should -Be ([datetime])
         $meta['IsNullable'] | Should -BeTrue
     }
+
+    It 'detects validation attributes on typed assignment variables' {
+        $vars = Get-KrAssignedVariable -ResolveValues -ScriptBlock {
+            [int]$Port = 5000
+            [ValidateNotNull()][int]$Foo = 1
+        }
+
+        ($vars | Where-Object Name -EQ 'Port').DeclaredType | Should -Be 'int'
+        ($vars | Where-Object Name -EQ 'Port').HasAttributes | Should -BeFalse
+
+        ($vars | Where-Object Name -EQ 'Foo').DeclaredType | Should -Be 'int'
+        ($vars | Where-Object Name -EQ 'Foo').HasAttributes | Should -BeTrue
+    }
+
+    It 'detects validation attributes on typed declaration-only variables' {
+        $vars = Get-KrAssignedVariable -ResolveValues -ScriptBlock {
+            [ValidateNotNull()][int]$Foo
+            [int]$Bar
+        }
+
+        ($vars | Where-Object Name -EQ 'Foo').DeclaredType | Should -Be 'int'
+        ($vars | Where-Object Name -EQ 'Foo').HasAttributes | Should -BeTrue
+
+        ($vars | Where-Object Name -EQ 'Bar').DeclaredType | Should -Be 'int'
+        ($vars | Where-Object Name -EQ 'Bar').HasAttributes | Should -BeFalse
+    }
+
+    It 'treats type constraints like [int] as not having attributes' {
+        $vars = Get-KrAssignedVariable -ResolveValues -ScriptBlock {
+            [int]$Port = 5000
+        }
+
+        ($vars | Where-Object Name -EQ 'Port').HasAttributes | Should -BeFalse
+    }
+
+    It 'filters only attributed variables when -WithoutAttributesOnly is used (list output)' {
+        $vars = Get-KrAssignedVariable -ResolveValues -WithoutAttributesOnly -ScriptBlock {
+            [int]$Port = 5000
+            [ValidateNotNull()][int]$Foo = 1
+            $Baz = 3
+        }
+
+        ($vars.Name -contains 'Port') | Should -BeTrue
+        ($vars.Name -contains 'Baz') | Should -BeTrue
+        ($vars.Name -contains 'Foo') | Should -BeFalse
+    }
+
+    It 'filters only attributed variables when -WithoutAttributesOnly is used (-AsDictionary)' {
+        $dict = Get-KrAssignedVariable -ResolveValues -AsDictionary -WithoutAttributesOnly -ScriptBlock {
+            [int]$Port = 5000
+            [ValidateNotNull()][int]$Foo = 1
+            $Baz = 3
+        }
+
+        $dict.ContainsKey('Port') | Should -BeTrue
+        $dict.ContainsKey('Baz') | Should -BeTrue
+        $dict.ContainsKey('Foo') | Should -BeFalse
+
+        # Typed, no-attribute variables still wrap metadata
+        $meta = $dict['Port']
+        ($meta -is [System.Collections.IDictionary]) | Should -BeTrue
+        $meta['DeclaredType'] | Should -Be 'int'
+        $meta['Value'] | Should -Be 5000
+    }
+
+    It 'treats multiple validation attributes as attributes and filters them' {
+        $vars = Get-KrAssignedVariable -ResolveValues -WithoutAttributesOnly -ScriptBlock {
+            [ValidateNotNull()][ValidatePattern('^x$')][string]$Foo = 'x'
+            [string]$Bar = 'y'
+        }
+
+        ($vars.Name -contains 'Foo') | Should -BeFalse
+        ($vars.Name -contains 'Bar') | Should -BeTrue
+    }
 }

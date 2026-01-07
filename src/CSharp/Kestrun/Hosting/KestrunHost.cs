@@ -1105,7 +1105,6 @@ public partial class KestrunHost : IDisposable
     /// <returns>True if all variables were successfully applied; otherwise, false.</returns>
     private bool ApplyUserVarsToState(Dictionary<string, object>? userVariables)
     {
-
         var statusSet = true;
         if (userVariables is not null)
         {

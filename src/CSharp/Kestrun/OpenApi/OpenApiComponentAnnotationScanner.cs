@@ -2,6 +2,9 @@ using System.Management.Automation;
 using System.Management.Automation.Language;
 using System.Reflection;
 using System.Collections;
+using System.Management.Automation;
+using System.Management.Automation.Internal;
+
 
 namespace Kestrun.OpenApi;
 
@@ -311,7 +314,7 @@ public static class OpenApiComponentAnnotationScanner
                     }
                     foreach (var a in inlineAttrs)
                     {
-                        var ka = TryCreateKestrunAnnotation(a, defaultComponentName: inlineVarName, componentNameArgument);
+                        var ka = TryCreateAnnotation(a, defaultComponentName: inlineVarName, componentNameArgument);
                         if (ka is not null)
                         {
                             entry.Annotations.Add(ka);
@@ -334,7 +337,7 @@ public static class OpenApiComponentAnnotationScanner
 
                     foreach (var a in attrs)
                     {
-                        var ka = TryCreateKestrunAnnotation(a, defaultComponentName: varName, componentNameArgument);
+                        var ka = TryCreateAnnotation(a, defaultComponentName: varName, componentNameArgument);
                         if (ka is not null)
                         {
                             entry.Annotations.Add(ka);
@@ -379,7 +382,7 @@ public static class OpenApiComponentAnnotationScanner
                         {
                             foreach (var a in pending)
                             {
-                                var ka = TryCreateKestrunAnnotation(a, defaultComponentName: targetVarName, componentNameArgument);
+                                var ka = TryCreateAnnotation(a, defaultComponentName: targetVarName, componentNameArgument);
                                 if (ka is not null)
                                 {
                                     entry.Annotations.Add(ka);
@@ -403,7 +406,7 @@ public static class OpenApiComponentAnnotationScanner
 
                         foreach (var a in pending)
                         {
-                            var ka = TryCreateKestrunAnnotation(a, defaultComponentName: declaredVarName, componentNameArgument);
+                            var ka = TryCreateAnnotation(a, defaultComponentName: declaredVarName, componentNameArgument);
                             if (ka is not null)
                             {
                                 entry.Annotations.Add(ka);
@@ -687,6 +690,24 @@ public static class OpenApiComponentAnnotationScanner
         return (value, string.IsNullOrWhiteSpace(text) ? null : text);
     }
 
+
+
+    private static KestrunAnnotation? TryCreateAnnotation(
+        AttributeAst attr,
+        string defaultComponentName,
+        string componentNameArgument)
+    {
+        var attribute = TryCreateKestrunAnnotation(attr, defaultComponentName, componentNameArgument);
+        if (attribute is not null)
+        {
+            return attribute;
+        }
+
+        attribute = TryCmdletMetadataAttribute(attr);
+
+        return attribute;
+
+    }
     private static KestrunAnnotation? TryCreateKestrunAnnotation(
         AttributeAst attr,
         string defaultComponentName,
@@ -716,7 +737,160 @@ public static class OpenApiComponentAnnotationScanner
         return instance;
     }
 
-    private static void ApplyDefaultComponentName(KestrunAnnotation annotation, string defaultComponentName, string componentNameArgument)
+    /// <summary>
+    /// Tries to evaluate an expression AST to a constant-like value.
+    /// </summary>
+    /// <param name="expr"> The expression AST to evaluate. </param>
+    /// <returns>The constant-like value if evaluation is successful; otherwise, null.</returns>
+    private static object? TryGetConstantLikeValue(ExpressionAst? expr)
+    {
+        if (expr is null)
+        {
+            return null;
+        }
+
+        // 1) Plain constants: 0, 123, $true, etc.
+        if (expr is ConstantExpressionAst c)
+        {
+            return c.Value;
+        }
+
+        // 2) Plain strings: 'abc'
+        if (expr is StringConstantExpressionAst s)
+        {
+            return s.Value;
+        }
+
+        // 3) [int]::MaxValue  (static member on a type)
+        if (expr is MemberExpressionAst me && me.Static)
+        {
+            if (me.Expression is TypeExpressionAst te)
+            {
+                var targetType = te.TypeName.GetReflectionType(); // resolves [int] to System.Int32, etc.
+                if (targetType is null)
+                {
+                    return null;
+                }
+
+                var memberName = (me.Member as StringConstantExpressionAst)?.Value
+                                 ?? (me.Member as ConstantExpressionAst)?.Value?.ToString();
+
+                if (string.IsNullOrWhiteSpace(memberName))
+                {
+                    return null;
+                }
+
+                const BindingFlags flags = BindingFlags.Public | BindingFlags.Static | BindingFlags.FlattenHierarchy;
+
+                // Try property first (MaxValue is a property on numeric types)
+                var prop = targetType.GetProperty(memberName, flags);
+                if (prop is not null)
+                {
+                    return prop.GetValue(null);
+                }
+
+                // Then field (covers other patterns)
+                var field = targetType.GetField(memberName, flags);
+                if (field is not null)
+                {
+                    return field.GetValue(null);
+                }
+            }
+        }
+
+        return null;
+    }
+
+    private static KestrunAnnotation? TryCmdletMetadataAttribute(
+            AttributeAst attr)
+    {
+        var annotationType = ResolveCmdletMetadataAttributeType(attr);
+        if (annotationType is null)
+        {
+            return null;
+        }
+
+        var instance = new InternalPowershellAttribute();
+        switch (annotationType.Name) // <-- no GetType().Name
+        {
+            case nameof(ValidateRangeAttribute):
+                {
+                    var minObj = TryGetConstantLikeValue(attr.PositionalArguments.ElementAtOrDefault(0));
+                    var maxObj = TryGetConstantLikeValue(attr.PositionalArguments.ElementAtOrDefault(1));
+
+                    instance.MinRange = minObj?.ToString();
+                    instance.MaxRange = maxObj?.ToString();
+                    break;
+                }
+
+            case nameof(ValidateLengthAttribute):
+                {
+                    var minObj = TryGetConstantLikeValue(attr.PositionalArguments.ElementAtOrDefault(0));
+                    var maxObj = TryGetConstantLikeValue(attr.PositionalArguments.ElementAtOrDefault(1));
+                    if (int.TryParse(minObj?.ToString(), out var minLength))
+                    {
+                        instance.MinLength = minLength;
+                    }
+
+                    if (int.TryParse(maxObj?.ToString(), out var maxLength))
+                    {
+                        instance.MaxLength = maxLength;
+                    }
+
+                    break;
+                }
+            case nameof(ValidateSetAttribute):
+                {
+                    // PowerShell: [ValidateSet('a','b')] is positional arguments
+                    instance.AllowedValues = [.. attr.PositionalArguments
+                    .Select(a => TryGetConstantLikeValue(a)?.ToString() ?? string.Empty)
+                    .Where(s => !string.IsNullOrEmpty(s))];
+                    break;
+                }
+
+            case nameof(ValidatePatternAttribute):
+                {
+                    // PowerShell: [ValidatePattern('regex')]
+                    var patternObj = TryGetConstantLikeValue(attr.PositionalArguments.ElementAtOrDefault(0));
+                    instance.RegexPattern = patternObj?.ToString();
+                    break;
+                }
+
+            case nameof(ValidateCountAttribute):
+                {
+                    // PowerShell: [ValidateCount(min, max)]
+                    var minObj = TryGetConstantLikeValue(attr.PositionalArguments.ElementAtOrDefault(0));
+                    var maxObj = TryGetConstantLikeValue(attr.PositionalArguments.ElementAtOrDefault(1));
+
+                    if (int.TryParse(minObj?.ToString(), out var minCount))
+                    {
+                        instance.MinItems = minCount;
+                    }
+
+                    if (int.TryParse(maxObj?.ToString(), out var maxCount))
+                    {
+                        instance.MaxItems = maxCount;
+                    }
+
+                    break;
+                }
+
+            case nameof(ValidateNotNullOrEmptyAttribute):
+                instance.ValidateNotNullOrEmptyAttribute = true;
+                break;
+
+            case nameof(ValidateNotNullAttribute):
+                instance.ValidateNotNullAttribute = true;
+                break;
+
+            case nameof(ValidateNotNullOrWhiteSpaceAttribute):
+                instance.ValidateNotNullOrWhiteSpaceAttribute = true;
+                break;
+        }
+
+        return instance;
+    }
+    private static void ApplyDefaultComponentName(Attribute annotation, string defaultComponentName, string componentNameArgument)
     {
         if (string.IsNullOrWhiteSpace(defaultComponentName))
         {
@@ -752,6 +926,8 @@ public static class OpenApiComponentAnnotationScanner
         var converted = ConvertToPropertyType(raw, prop.PropertyType);
         prop.SetValue(annotation, converted);
     }
+
+
 
     private static object? EvaluateArgumentExpression(ExpressionAst expr) => expr switch
     {
@@ -867,6 +1043,11 @@ public static class OpenApiComponentAnnotationScanner
         }
     }
 
+    /// <summary>
+    /// Resolves a KestrunAnnotation-derived type from an AttributeAst.
+    /// </summary>
+    /// <param name="attr">The AttributeAst to resolve the type from.</param>
+    /// <returns>The resolved type if found; otherwise, null.</returns>
     private static Type? ResolveKestrunAnnotationType(AttributeAst attr)
     {
         // PowerShell attribute syntax allows omitting the 'Attribute' suffix.
@@ -882,7 +1063,33 @@ public static class OpenApiComponentAnnotationScanner
             type ??= ResolveTypeFromName(shortName + "Attribute");
         }
 
-        return type is not null && typeof(KestrunAnnotation).IsAssignableFrom(type) ? type : null;
+        return type is not null &&
+            typeof(KestrunAnnotation).IsAssignableFrom(type) ? type : null;
+    }
+
+    /// <summary>
+    /// Resolves a CmdletMetadataAttribute-derived type from an AttributeAst.
+    /// </summary>
+    /// <param name="attr">The AttributeAst to resolve the type from.</param>
+    /// <returns>The resolved type if found; otherwise, null.</returns>
+    private static Type? ResolveCmdletMetadataAttributeType(AttributeAst attr)
+    {
+        // PowerShell attribute syntax allows omitting the 'Attribute' suffix.
+        var shortName = attr.TypeName.Name;
+
+        // If a namespace-qualified name is present, try it directly.
+        var fullName = attr.TypeName.FullName;
+
+        var type = ResolveTypeFromName(fullName);
+        type ??= ResolveTypeFromName(shortName);
+        if (type is null && !shortName.EndsWith("Attribute", StringComparison.OrdinalIgnoreCase))
+        {
+            type ??= ResolveTypeFromName(shortName + "Attribute");
+        }
+
+        return type is not null &&
+            typeof(CmdletMetadataAttribute).IsAssignableFrom(type)
+             ? type : null;
     }
 
     private static Type? ResolveTypeFromName(string name)

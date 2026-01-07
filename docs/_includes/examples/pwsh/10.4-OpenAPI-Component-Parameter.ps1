@@ -131,6 +131,9 @@ New-KrOpenApiExample -Summary 'Sort by price example' -Value 'price' |
     Add-KrOpenApiInline -Name 'SortByPriceExample'
 
 # Query params (create)
+[OpenApiParameterComponent(In = 'Path', Required = $true, Description = 'Product id.', Minimum = 1, Example = 1)]
+[ValidateRange(0, [int]::MaxValue)]
+[long]$productId2 = NoDefault
 
 # Header params
 [OpenApiParameterComponent(In = 'Header', Description = 'Correlation id for tracing a request through logs.')]
@@ -141,7 +144,7 @@ New-KrOpenApiExample -Summary 'Sort by price example' -Value 'price' |
 [OpenApiParameterComponent(In = 'Header', ContentType = 'application/json', Description = 'Optional client context as a JSON header.')]
 [OpenApiParameterExampleRef(Key = 'example', ReferenceId = 'ClientContextExample')]
 [ClientContext]$clientContext = NoDefault
-
+ 
 # Cookie params
 [OpenApiParameterComponent(In = 'Cookie', Description = 'Tenant identifier (multi-tenant demo).', Example = 'demo')]
 [string]$tenantId = NoDefault

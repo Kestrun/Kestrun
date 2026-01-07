@@ -1,3 +1,4 @@
+using System.Text.Json.Nodes;
 using Microsoft.OpenApi;
 
 namespace Kestrun.OpenApi;
@@ -551,6 +552,83 @@ public partial class OpenApiDocDescriptor
             throw new InvalidOperationException($"Parameter '{variableName}' not found when trying to add example reference.");
         }
     }
+    private void ProcessPowerShellAttribute(string variableName, OpenApiComponentAnnotationScanner.AnnotatedVariable variable, InternalPowershellAttribute powershellAttribute)
+    {
+        if (TryGetParameterItem(variableName, out var parameter))
+        {
+            if (parameter is null || (parameter.Schema is null && parameter.Content is null))
+            {
+                throw new InvalidOperationException($"Parameter '{variableName}' must have a schema or content defined before adding the powershell property.");
+            }
+            // Add example to either Schema or Content
+            if (parameter.Content is null)
+            {
+                var schema = (OpenApiSchema)parameter.Schema!;
+                if (powershellAttribute.MaxItems.HasValue)
+                {
+                    schema.MaxItems = powershellAttribute.MaxItems;
+                }
+                if (powershellAttribute.MinItems.HasValue)
+                {
+                    schema.MinItems = powershellAttribute.MinItems;
+                }
+                if (string.IsNullOrEmpty(powershellAttribute.MinRange))
+                {
+                    schema.Minimum = powershellAttribute.MinRange;
+                }
+                if (string.IsNullOrEmpty(powershellAttribute.MaxRange))
+                {
+                    schema.Minimum = powershellAttribute.MaxRange;
+                }
+                if (powershellAttribute.MinLength.HasValue)
+                {
+                    schema.MinLength = powershellAttribute.MinLength;
+                }
+                if (powershellAttribute.MaxLength.HasValue)
+                {
+                    schema.MinLength = powershellAttribute.MaxLength;
+                }
+                if (!string.IsNullOrEmpty(powershellAttribute.RegexPattern))
+                {
+                    schema.Pattern = powershellAttribute.RegexPattern;
+                }
+                if (powershellAttribute.AllowedValues is not null && powershellAttribute.AllowedValues.Count > 0)
+                {
+                    _ = PowerShellAttributes.ApplyValidateSetAttribute(powershellAttribute.AllowedValues, schema);
+                    /*     string[] s = [.. powershellAttribute.AllowedValues];
+
+                         var enumNode = OpenApiJsonNodeFactory.FromObject(s);
+                         if (enumNode is JsonArray arr)
+                         {
+                             schema.Enum = [.. arr
+                                 .Where(n => n is not null)
+                                 .Select(n => JsonValue.Create(n!.ToString()!)!) // ensure JsonNode type
+                                 .Cast<JsonNode>()];
+                         } */
+                }
+                if (powershellAttribute.ValidateNotNullOrEmptyAttribute is not null)
+                {
+                    _ = PowerShellAttributes.ApplyNotNullOrEmpty(schema);
+                }
+
+                if (powershellAttribute.ValidateNotNullAttribute is not null)
+                {
+                    _ = PowerShellAttributes.ApplyNotNull(schema);
+                }
+                if (powershellAttribute.ValidateNotNullOrWhiteSpaceAttribute is not null)
+                {
+                    _ = PowerShellAttributes.ApplyNotNullOrWhiteSpace(schema);
+                }
+            }
+            else
+            { }
+        }
+        else
+        {
+            // Parameter not found
+            throw new InvalidOperationException($"Parameter '{variableName}' not found when trying to add example reference.");
+        }
+    }
 
     #endregion
 
@@ -606,4 +684,6 @@ public partial class OpenApiDocDescriptor
         }
         return false;
     }
+
+
 }

@@ -219,7 +219,7 @@ function Add-KrHealthEndpoint {
             $options.Compress = $Compress.IsPresent
         }
 
-        $result = [Kestrun.Hosting.KestrunHostHealthExtensions]::AddHealthEndpoint($Server, $options)
+        $result = $Server.AddHealthEndpoint($Server, $options)
 
         if ($PassThru.IsPresent) {
             return $result

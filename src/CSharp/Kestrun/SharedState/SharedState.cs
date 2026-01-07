@@ -44,7 +44,8 @@ public partial class SharedState
     {
         ValidateName(name);
         ValidateValue(name, value, allowsValueType);
-        return _store.TryAdd(name, value);
+        _ = _store.AddOrUpdate(name, value, (_, _) => value);
+        return true;
     }
 
     /// <summary>

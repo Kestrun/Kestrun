@@ -1055,8 +1055,12 @@ public partial class KestrunHost : IDisposable
 
         try
         {
-            // Scan for OpenAPI component annotations in the main script
-            ComponentAnnotations = OpenApiComponentAnnotationScanner.ScanFromPath(mainPath: KestrunHostManager.EntryScriptPath);
+            // Scan for OpenAPI component annotations in the main script.
+            // In C#-only scenarios (including xUnit tests), there may be no PowerShell entry script.
+            ComponentAnnotations = !string.IsNullOrWhiteSpace(KestrunHostManager.EntryScriptPath)
+                && File.Exists(KestrunHostManager.EntryScriptPath)
+            ? OpenApiComponentAnnotationScanner.ScanFromPath(mainPath: KestrunHostManager.EntryScriptPath)
+            : null;
 
             // Export OpenAPI classes from PowerShell
             var openApiClassesPath = PowerShellOpenApiClassExporter.ExportOpenApiClasses(userCallbacks: userCallbacks);

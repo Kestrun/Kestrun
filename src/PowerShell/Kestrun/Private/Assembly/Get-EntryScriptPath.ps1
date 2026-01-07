@@ -18,7 +18,9 @@ function Get-EntryScriptPath {
     $self = $PSCommandPath ? (Resolve-Path -LiteralPath $PSCommandPath).ProviderPath : $null
 
     # Take the last real script caller in the stack
-    foreach ($f in [System.Linq.Enumerable]::Reverse((Get-PSCallStack))) {
+    $stack = @(Get-PSCallStack)
+    [System.Array]::Reverse($stack)
+    foreach ($f in $stack) {
         $p = $f.InvocationInfo.ScriptName
         if (-not $p) { continue }
 

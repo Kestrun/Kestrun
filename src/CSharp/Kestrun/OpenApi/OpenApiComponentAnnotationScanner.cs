@@ -545,26 +545,72 @@ public static class OpenApiComponentAnnotationScanner
 
         var (initValue, initExpr) = EvaluateValueStatement(assign.Right);
         var entry = GetOrCreateVariable(variables, targetVarName);
-        entry.VariableType ??= targetVarType;
-        entry.VariableTypeName ??= targetVarTypeName;
-        entry.InitialValue ??= initValue;
-        entry.InitialValueExpression ??= initExpr;
 
-        if (pending.Count > 0)
+        ApplyVariableTypeInfo(entry, targetVarType, targetVarTypeName);
+        ApplyInitializerValues(entry, initValue, initExpr);
+        ApplyPendingAnnotations(entry, pending, targetVarName, componentNameArgument);
+
+        pending.Clear();
+        return true;
+    }
+
+    /// <summary>
+    /// Applies variable type information to an AnnotatedVariable entry.
+    /// </summary>
+    /// <param name="entry">The entry to modify.</param>
+    /// <param name="variableType">The variable type to apply.</param>
+    /// <param name="variableTypeName">The variable type name to apply.</param>
+    private static void ApplyVariableTypeInfo(AnnotatedVariable entry, Type? variableType, string? variableTypeName)
+    {
+        entry.VariableType ??= variableType;
+        entry.VariableTypeName ??= variableTypeName;
+    }
+
+    /// <summary>
+    /// Applies initializer values to an AnnotatedVariable entry, handling default/no-default cases.
+    /// </summary>
+    /// <param name="entry">The entry to modify.</param>
+    /// <param name="initValue">The initial value to apply.</param>
+    /// <param name="initExpr">The initial value expression to apply.</param>
+    private static void ApplyInitializerValues(AnnotatedVariable entry, object? initValue, string? initExpr)
+    {
+        if (initExpr == "NoDefault")
         {
-            foreach (var a in pending)
-            {
-                var ka = TryCreateAnnotation(a, defaultComponentName: targetVarName, componentNameArgument);
-                if (ka is not null)
-                {
-                    entry.Annotations.Add(ka);
-                }
-            }
-
-            pending.Clear();
+            entry.NoDefault = true;
+            return;
         }
 
-        return true;
+        entry.NoDefault = false;
+        entry.InitialValue ??= initValue;
+        entry.InitialValueExpression ??= initExpr;
+    }
+
+    /// <summary>
+    /// Applies pending standalone attributes to an AnnotatedVariable entry.
+    /// </summary>
+    /// <param name="entry">The entry to modify.</param>
+    /// <param name="pending">The pending attributes to apply.</param>
+    /// <param name="targetVarName">The variable name used as default component name.</param>
+    /// <param name="componentNameArgument">The argument name to use for component names.</param>
+    private static void ApplyPendingAnnotations(
+        AnnotatedVariable entry,
+        List<AttributeAst> pending,
+        string targetVarName,
+        string componentNameArgument)
+    {
+        if (pending.Count == 0)
+        {
+            return;
+        }
+
+        foreach (var a in pending)
+        {
+            var ka = TryCreateAnnotation(a, defaultComponentName: targetVarName, componentNameArgument);
+            if (ka is not null)
+            {
+                entry.Annotations.Add(ka);
+            }
+        }
     }
 
     /// <summary>

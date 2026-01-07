@@ -265,71 +265,138 @@ public partial class OpenApiDocDescriptor
     /// <exception cref="InvalidOperationException">Thrown if the parameter does not have a schema or content defined before adding the PowerShell property.</exception>
     private void ProcessPowerShellAttribute(string variableName, InternalPowershellAttribute powershellAttribute)
     {
-        if (TryGetParameterItem(variableName, out var parameter))
+        if (!TryGetParameterItem(variableName, out var parameter))
         {
-            if (parameter is null || (parameter.Schema is null && parameter.Content is null))
-            {
-                throw new InvalidOperationException($"Parameter '{variableName}' must have a schema or content defined before adding the powershell property.");
-            }
-            // Add example to either Schema or Content
-            if (parameter.Content is null)
-            {
-                var schema = (OpenApiSchema)parameter.Schema!;
-                if (powershellAttribute.MaxItems.HasValue)
-                {
-                    schema.MaxItems = powershellAttribute.MaxItems;
-                }
-                if (powershellAttribute.MinItems.HasValue)
-                {
-                    schema.MinItems = powershellAttribute.MinItems;
-                }
-                if (!string.IsNullOrEmpty(powershellAttribute.MinRange))
-                {
-                    schema.Minimum = powershellAttribute.MinRange;
-                }
-                if (!string.IsNullOrEmpty(powershellAttribute.MaxRange))
-                {
-                    schema.Maximum = powershellAttribute.MaxRange;
-                }
-                if (powershellAttribute.MinLength.HasValue)
-                {
-                    schema.MinLength = powershellAttribute.MinLength;
-                }
-                if (powershellAttribute.MaxLength.HasValue)
-                {
-                    schema.MaxLength = powershellAttribute.MaxLength;
-                }
-                if (!string.IsNullOrEmpty(powershellAttribute.RegexPattern))
-                {
-                    schema.Pattern = powershellAttribute.RegexPattern;
-                }
-                if (powershellAttribute.AllowedValues is not null && powershellAttribute.AllowedValues.Count > 0)
-                {
-                    _ = PowerShellAttributes.ApplyValidateSetAttribute(powershellAttribute.AllowedValues, schema);
-                }
-                if (powershellAttribute.ValidateNotNullOrEmptyAttribute is not null)
-                {
-                    _ = PowerShellAttributes.ApplyNotNullOrEmpty(schema);
-                }
-
-                if (powershellAttribute.ValidateNotNullAttribute is not null)
-                {
-                    _ = PowerShellAttributes.ApplyNotNull(schema);
-                }
-                if (powershellAttribute.ValidateNotNullOrWhiteSpaceAttribute is not null)
-                {
-                    _ = PowerShellAttributes.ApplyNotNullOrWhiteSpace(schema);
-                }
-            }
-            else
-            {
-                Host.Logger.Warning($"Powershell attribute processing is not supported for parameter '{variableName}' with content.");
-            }
-        }
-        else
-        {
-            // Parameter not found
             throw new InvalidOperationException($"Parameter '{variableName}' not found when trying to add example reference.");
+        }
+
+        if (parameter is null || (parameter.Schema is null && parameter.Content is null))
+        {
+            throw new InvalidOperationException($"Parameter '{variableName}' must have a schema or content defined before adding the powershell property.");
+        }
+
+        if (parameter.Content is not null)
+        {
+            Host.Logger.Warning($"Powershell attribute processing is not supported for parameter '{variableName}' with content.");
+            return;
+        }
+
+        var schema = (OpenApiSchema)parameter.Schema!;
+        ApplyPowerShellAttributesToSchema(schema, powershellAttribute);
+    }
+
+    /// <summary>
+    /// Applies PowerShell validation attributes to an OpenAPI schema.
+    /// </summary>
+    /// <param name="schema">The OpenAPI schema to modify.</param>
+    /// <param name="powershellAttribute">The PowerShell attribute containing validation constraints.</param>
+    private static void ApplyPowerShellAttributesToSchema(OpenApiSchema schema, InternalPowershellAttribute powershellAttribute)
+    {
+        ApplyItemConstraints(schema, powershellAttribute);
+        ApplyRangeConstraints(schema, powershellAttribute);
+        ApplyLengthConstraints(schema, powershellAttribute);
+        ApplyPatternConstraints(schema, powershellAttribute);
+        ApplyAllowedValuesConstraints(schema, powershellAttribute);
+        ApplyNullabilityConstraints(schema, powershellAttribute);
+    }
+
+    /// <summary>
+    /// Applies item count constraints (MinItems, MaxItems) to a schema.
+    /// </summary>
+    /// <param name="schema">The schema to modify.</param>
+    /// <param name="powershellAttribute">The PowerShell attribute containing constraints.</param>
+    private static void ApplyItemConstraints(OpenApiSchema schema, InternalPowershellAttribute powershellAttribute)
+    {
+        if (powershellAttribute.MaxItems.HasValue)
+        {
+            schema.MaxItems = powershellAttribute.MaxItems;
+        }
+        if (powershellAttribute.MinItems.HasValue)
+        {
+            schema.MinItems = powershellAttribute.MinItems;
+        }
+    }
+
+    /// <summary>
+    /// Applies range constraints (Minimum, Maximum) to a schema.
+    /// </summary>
+    /// <param name="schema">The schema to modify.</param>
+    /// <param name="powershellAttribute">The PowerShell attribute containing constraints.</param>
+    private static void ApplyRangeConstraints(OpenApiSchema schema, InternalPowershellAttribute powershellAttribute)
+    {
+        if (!string.IsNullOrEmpty(powershellAttribute.MinRange))
+        {
+            schema.Minimum = powershellAttribute.MinRange;
+        }
+        if (!string.IsNullOrEmpty(powershellAttribute.MaxRange))
+        {
+            schema.Maximum = powershellAttribute.MaxRange;
+        }
+    }
+
+    /// <summary>
+    /// Applies length constraints (MinLength, MaxLength) to a schema.
+    /// </summary>
+    /// <param name="schema">The schema to modify.</param>
+    /// <param name="powershellAttribute">The PowerShell attribute containing constraints.</param>
+    private static void ApplyLengthConstraints(OpenApiSchema schema, InternalPowershellAttribute powershellAttribute)
+    {
+        if (powershellAttribute.MinLength.HasValue)
+        {
+            schema.MinLength = powershellAttribute.MinLength;
+        }
+        if (powershellAttribute.MaxLength.HasValue)
+        {
+            schema.MaxLength = powershellAttribute.MaxLength;
+        }
+    }
+
+    /// <summary>
+    /// Applies pattern constraints (regex) to a schema.
+    /// </summary>
+    /// <param name="schema">The schema to modify.</param>
+    /// <param name="powershellAttribute">The PowerShell attribute containing constraints.</param>
+    private static void ApplyPatternConstraints(OpenApiSchema schema, InternalPowershellAttribute powershellAttribute)
+    {
+        if (!string.IsNullOrEmpty(powershellAttribute.RegexPattern))
+        {
+            schema.Pattern = powershellAttribute.RegexPattern;
+        }
+    }
+
+    /// <summary>
+    /// Applies allowed values (enum) constraints to a schema.
+    /// </summary>
+    /// <param name="schema">The schema to modify.</param>
+    /// <param name="powershellAttribute">The PowerShell attribute containing constraints.</param>
+    private static void ApplyAllowedValuesConstraints(OpenApiSchema schema, InternalPowershellAttribute powershellAttribute)
+    {
+        if (powershellAttribute.AllowedValues is not null && powershellAttribute.AllowedValues.Count > 0)
+        {
+            _ = PowerShellAttributes.ApplyValidateSetAttribute(powershellAttribute.AllowedValues, schema);
+        }
+    }
+
+    /// <summary>
+    /// Applies nullability constraints (ValidateNotNull, ValidateNotNullOrEmpty, ValidateNotNullOrWhiteSpace) to a schema.
+    /// </summary>
+    /// <param name="schema">The schema to modify.</param>
+    /// <param name="powershellAttribute">The PowerShell attribute containing constraints.</param>
+    private static void ApplyNullabilityConstraints(OpenApiSchema schema, InternalPowershellAttribute powershellAttribute)
+    {
+        if (powershellAttribute.ValidateNotNullOrEmptyAttribute is not null)
+        {
+            _ = PowerShellAttributes.ApplyNotNullOrEmpty(schema);
+        }
+
+        if (powershellAttribute.ValidateNotNullAttribute is not null)
+        {
+            _ = PowerShellAttributes.ApplyNotNull(schema);
+        }
+
+        if (powershellAttribute.ValidateNotNullOrWhiteSpaceAttribute is not null)
+        {
+            _ = PowerShellAttributes.ApplyNotNullOrWhiteSpace(schema);
         }
     }
 

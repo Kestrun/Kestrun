@@ -13,11 +13,6 @@
     },
     "version": "1.1.1"
   },
-  "servers": [
-    {
-      "url": "https://api.fake-museum-example.com/v1"
-    }
-  ],
   "paths": {
     "/tickets": {
       "post": {
@@ -716,7 +711,7 @@
         "description": "The starting date to retrieve future operating hours from. Defaults to today's date.",
         "schema": {
           "type": "string",
-          "format": "date-time"
+          "format": "date"
         }
       },
       "eventId": {

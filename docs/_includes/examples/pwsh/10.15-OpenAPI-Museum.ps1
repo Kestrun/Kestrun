@@ -21,8 +21,6 @@ New-KrLogger | Add-KrSinkConsole |
     Register-KrLogger -Name 'console' -SetAsDefault
 
 $srv = New-KrServer -Name 'Redocly Museum API' -PassThru
-
-$srv2 = @(2, 2)
 Add-KrEndpoint -Port $Port -IPAddress $IPAddress
 # =========================================================
 #                 TOP-LEVEL OPENAPI (3.1.0)
@@ -34,7 +32,6 @@ Add-KrOpenApiInfo -Title 'Redocly Museum API' `
 
 Add-KrOpenApiContact -Email 'team@redocly.com' -Url 'https://redocly.com/docs/cli/'
 Add-KrOpenApiLicense -Name 'MIT' -Url 'https://opensource.org/license/mit/'
-Add-KrOpenApiServer -Url 'https://api.fake-museum-example.com/v1'
 
 # TODO: info.x-logo is not modeled yet (url + altText). Add an extension attribute when available.
 
@@ -443,38 +440,29 @@ New-KrOpenApiExample -Summary 'Get hours response' -Value $museumHoursValue |
 # NOTE: we approximate with a class + property decorated as a parameter.
 #       The ReferenceId used by OpenApiParameterRefAttribute matches the class name.
 
-
-
-
-New-KrOpenApiExample -Summary 'Pagination limit example' -Value (10) | Add-KrOpenApiInline -Name 'PaginationLimitExample'
-New-KrOpenApiExample -Summary 'Pagination limit Extra example' -Value (100) | Add-KrOpenApiComponent -Name 'PaginationLimitExampleExtra'
-
-
 [OpenApiParameterComponent(In = 'Query',
     Description = 'The number of days per page.')]
-[OpenApiParameterExampleRef( Key = 'default_example', ReferenceId = 'PaginationLimitExample')]
-[OpenApiParameterExampleRef( Key = 'extra_example', ReferenceId = 'PaginationLimitExampleExtra' , Inline = $true)]
-[int]$paginationLimit = 20
+[int]$paginationLimit = NoDefault
 
-[OpenApiParameterComponent(In = 'Query',
-    Description = 'The page number to retrieve.' , Minimum = 0, Maximum = 150, Example = 30)]
+[OpenApiParameterComponent(In = 'Query', Description = 'The page number to retrieve.')]
 [int]$paginationPage = NoDefault
 
-[OpenApiParameterComponent(In = 'Query', ContentType = 'application/json',
-    Description = "The starting date to retrieve future operating hours from. Defaults to today's date.")]
-[Nullable[datetime]]$startDate = NoDefault
+[OpenApiParameterComponent(In = 'Query',
+    Description = "The starting date to retrieve future operating hours from. Defaults to today's date." )]
+[OpenApiDate]$startDate = NoDefault
 
 [OpenApiParameterComponent(In = 'Path', Required = $true,
     Description = 'An identifier for a special event.', Example = 'dad4bce8-f5cb-4078-a211-995864315e39')]
-[Nullable[guid]]$eventId = NoDefault
+[guid]$eventId = NoDefault
 
 [OpenApiParameterComponent(In = 'Query',
     Description = 'The end of a date range to retrieve special events for. Defaults to 7 days after startDate.')]
-[Nullable[datetime]]$endDate = NoDefault
+[OpenApiDate]$endDate = NoDefault
 
-[OpenApiParameterComponent(In = [OaParameterLocation]::Path, Required = $true,
+[OpenApiParameterComponent(In = 'Path', Required = $true,
     Description = 'An identifier for a ticket to a museum event. Used to generate ticket image.')]
-[Nullable[guid]]$ticketId = NoDefault
+[Guid]$ticketId = NoDefault
+
 
 #endregion
 # =========================================================

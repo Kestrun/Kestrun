@@ -1,4 +1,4 @@
-﻿<#
+<#
 .SYNOPSIS
     Gets the path of the entry script that invoked the current script.
 .DESCRIPTION

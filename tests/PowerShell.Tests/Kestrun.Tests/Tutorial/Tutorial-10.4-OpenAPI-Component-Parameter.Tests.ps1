@@ -1,7 +1,15 @@
 param()
+BeforeAll {
+    . (Join-Path $PSScriptRoot '..\PesterHelpers.ps1')
+}
+
 Describe 'Example 10.4 OpenAPI Component Parameter' -Tag 'OpenApi', 'Tutorial', 'Slow' {
-    BeforeAll { . (Join-Path $PSScriptRoot '..\PesterHelpers.ps1'); $script:instance = Start-ExampleScript -Name '10.4-OpenAPI-Component-Parameter.ps1' }
-    AfterAll { if ($script:instance) { Stop-ExampleScript -Instance $script:instance } }
+    BeforeAll {
+        $script:instance = Start-ExampleScript -Name '10.4-OpenAPI-Component-Parameter.ps1'
+    }
+    AfterAll {
+        if ($script:instance) { Stop-ExampleScript -Instance $script:instance }
+    }
 
     It 'List Products (GET Default)' {
         $result = Invoke-WebRequest -Uri "$($script:instance.Url)/v1/products" -SkipCertificateCheck -SkipHttpErrorCheck
@@ -34,6 +42,19 @@ Describe 'Example 10.4 OpenAPI Component Parameter' -Tag 'OpenApi', 'Tutorial', 
         $json = $result.Content | ConvertFrom-Json
         $json.components.parameters.page | Should -Not -BeNullOrEmpty
         $json.components.parameters.limit | Should -Not -BeNullOrEmpty
+    }
+
+    It 'OpenAPI output matches 10.4 fixture JSON' {
+        $result = Invoke-WebRequest -Uri "$($script:instance.Url)/openapi/v3.1/openapi.json" -SkipCertificateCheck -SkipHttpErrorCheck
+        $result.StatusCode | Should -Be 200
+
+        $actualNormalized = Get-NormalizedJson $result.Content
+        $expectedPath = Join-Path -Path (Get-TutorialExamplesDirectory) -ChildPath 'Assets' -AdditionalChildPath 'OpenAPI', '10.4-Parameters.json'
+
+        $expectedContent = Get-Content -Path $expectedPath -Raw
+        $expectedNormalized = Get-NormalizedJson $expectedContent
+
+        $actualNormalized | Should -Be $expectedNormalized
     }
 }
 

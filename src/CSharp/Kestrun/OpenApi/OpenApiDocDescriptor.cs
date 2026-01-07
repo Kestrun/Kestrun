@@ -174,7 +174,7 @@ public partial class OpenApiDocDescriptor
                     break;
                 case InternalPowershellAttribute powershellAttribute:
                     // Process PowerShell attribute to modify the schema
-                    ProcessPowerShellAttribute(variableName, variable, powershellAttribute);
+                    ProcessPowerShellAttribute(variableName, powershellAttribute);
                     break;
                 // future:
                 // case OpenApiHeaderComponent header:
@@ -187,7 +187,7 @@ public partial class OpenApiDocDescriptor
         }
     }
 
-   
+
     /// <summary>
     /// Generates the OpenAPI document by processing components and building paths and webhooks.
     /// </summary>

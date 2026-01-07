@@ -1,4 +1,3 @@
-using System.Text.Json.Nodes;
 using Microsoft.OpenApi;
 
 namespace Kestrun.OpenApi;
@@ -552,7 +551,7 @@ public partial class OpenApiDocDescriptor
             throw new InvalidOperationException($"Parameter '{variableName}' not found when trying to add example reference.");
         }
     }
-    private void ProcessPowerShellAttribute(string variableName, OpenApiComponentAnnotationScanner.AnnotatedVariable variable, InternalPowershellAttribute powershellAttribute)
+    private void ProcessPowerShellAttribute(string variableName, InternalPowershellAttribute powershellAttribute)
     {
         if (TryGetParameterItem(variableName, out var parameter))
         {
@@ -572,13 +571,13 @@ public partial class OpenApiDocDescriptor
                 {
                     schema.MinItems = powershellAttribute.MinItems;
                 }
-                if (string.IsNullOrEmpty(powershellAttribute.MinRange))
+                if (!string.IsNullOrEmpty(powershellAttribute.MinRange))
                 {
                     schema.Minimum = powershellAttribute.MinRange;
                 }
-                if (string.IsNullOrEmpty(powershellAttribute.MaxRange))
+                if (!string.IsNullOrEmpty(powershellAttribute.MaxRange))
                 {
-                    schema.Minimum = powershellAttribute.MaxRange;
+                    schema.Maximum = powershellAttribute.MaxRange;
                 }
                 if (powershellAttribute.MinLength.HasValue)
                 {
@@ -586,7 +585,7 @@ public partial class OpenApiDocDescriptor
                 }
                 if (powershellAttribute.MaxLength.HasValue)
                 {
-                    schema.MinLength = powershellAttribute.MaxLength;
+                    schema.MaxLength = powershellAttribute.MaxLength;
                 }
                 if (!string.IsNullOrEmpty(powershellAttribute.RegexPattern))
                 {
@@ -595,16 +594,6 @@ public partial class OpenApiDocDescriptor
                 if (powershellAttribute.AllowedValues is not null && powershellAttribute.AllowedValues.Count > 0)
                 {
                     _ = PowerShellAttributes.ApplyValidateSetAttribute(powershellAttribute.AllowedValues, schema);
-                    /*     string[] s = [.. powershellAttribute.AllowedValues];
-
-                         var enumNode = OpenApiJsonNodeFactory.FromObject(s);
-                         if (enumNode is JsonArray arr)
-                         {
-                             schema.Enum = [.. arr
-                                 .Where(n => n is not null)
-                                 .Select(n => JsonValue.Create(n!.ToString()!)!) // ensure JsonNode type
-                                 .Cast<JsonNode>()];
-                         } */
                 }
                 if (powershellAttribute.ValidateNotNullOrEmptyAttribute is not null)
                 {

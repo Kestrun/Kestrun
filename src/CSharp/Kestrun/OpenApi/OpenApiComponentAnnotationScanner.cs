@@ -2,7 +2,6 @@ using System.Management.Automation;
 using System.Management.Automation.Language;
 using System.Reflection;
 using System.Collections;
-using System.Management.Automation;
 using System.Management.Automation.Internal;
 
 

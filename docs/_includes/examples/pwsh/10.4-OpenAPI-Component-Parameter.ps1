@@ -131,9 +131,6 @@ New-KrOpenApiExample -Summary 'Sort by price example' -Value 'price' |
     Add-KrOpenApiInline -Name 'SortByPriceExample'
 
 # Query params (create)
-[OpenApiParameterComponent(In = 'Path', Required = $true, Description = 'Product id.', Minimum = 1, Example = 1)]
-[ValidateRange(0, [int]::MaxValue)]
-[long]$productId2 = NoDefault
 
 # Header params
 [OpenApiParameterComponent(In = 'Header', Description = 'Correlation id for tracing a request through logs.')]
@@ -144,7 +141,7 @@ New-KrOpenApiExample -Summary 'Sort by price example' -Value 'price' |
 [OpenApiParameterComponent(In = 'Header', ContentType = 'application/json', Description = 'Optional client context as a JSON header.')]
 [OpenApiParameterExampleRef(Key = 'example', ReferenceId = 'ClientContextExample')]
 [ClientContext]$clientContext = NoDefault
- 
+
 # Cookie params
 [OpenApiParameterComponent(In = 'Cookie', Description = 'Tenant identifier (multi-tenant demo).', Example = 'demo')]
 [string]$tenantId = NoDefault
@@ -154,7 +151,8 @@ New-KrOpenApiExample -Summary 'Sort by price example' -Value 'price' |
 [long]$productId = NoDefault
 
 # Query params (list)
-[OpenApiParameterComponent(In = 'Query', Description = 'Page number', Minimum = 1, Example = 1)]
+[OpenApiParameterComponent(In = 'Query', Description = 'Page number', Example = 1)]
+[ValidateRange(0, 1000)]
 [int]$page = 1
 
 [OpenApiParameterComponent(In = 'Query', Description = 'Items per page', Minimum = 1, Maximum = 100, Example = 20)]
@@ -260,23 +258,24 @@ function listProducts {
     if (-not [string]::IsNullOrWhiteSpace($correlationId)) {
         $Context.Response.Headers['correlationId'] = $correlationId
     }
-
+    write-KrLog -Level Debug -Message 'TenantId: {tenantId}' -Values $tenantId
+    Expand-KrObject -InputObject $clientContext -Label 'Client Context'
     # Read shared store
     $allProducts = $Products.Values
-    Expand-KrObject -InputObject $allProducts -Label "All Products"
+    Expand-KrObject -InputObject $allProducts -Label 'All Products'
     # Apply filters
     $filtered = $allProducts
     if ($category) {
-        Write-KrLog -Level Debug -Message "Filtering by category: {category}" -Values $category
+        Write-KrLog -Level Debug -Message 'Filtering by category: {category}' -Values $category
         $filtered = $filtered | Where-Object { $_.category -eq $category }
     }
-    #if ($PSBoundParameters.ContainsKey('minPrice')) {
+
     if ( $minPrice -gt 0) {
-        Write-KrLog -Level Debug -Message "Filtering by minPrice: {minPrice}" -Values $minPrice
+        Write-KrLog -Level Debug -Message 'Filtering by minPrice: {minPrice}' -Values $minPrice
         $filtered = $filtered | Where-Object { $_.price -ge [double]$minPrice }
     }
     if ($maxPrice -gt 0) {
-        Write-KrLog -Level Debug -Message "Filtering by maxPrice: {maxPrice}" -Values $maxPrice
+        Write-KrLog -Level Debug -Message 'Filtering by maxPrice: {maxPrice}' -Values $maxPrice
         $filtered = $filtered | Where-Object { $_.price -le [double]$maxPrice }
     }
 
@@ -291,7 +290,7 @@ function listProducts {
     $page = [int]$page
     $limit = [int]$limit
     $skip = ($page - 1) * $limit
-    Expand-KrObject -InputObject $filtered -Label "Filtered Products"
+    Expand-KrObject -InputObject $filtered -Label 'Filtered Products'
     $paged = $filtered | Select-Object -Skip $skip -First $limit
     Expand-KrObject -InputObject $paged -Label "Products Page $page (Limit $limit)"
     # Convert to ProductItem array (ensure typed for OpenAPI)
@@ -304,7 +303,7 @@ function listProducts {
             tags = $_.tags
         }
     }
-    Expand-KrObject -InputObject $productItems -Label "Product Items"
+    Expand-KrObject -InputObject $productItems -Label 'Product Items'
     # Build typed response
     $response = [ProductListResponse]@{
         page = $page
@@ -312,7 +311,7 @@ function listProducts {
         total = $filtered.Count
         items = $productItems
     }
-    Expand-KrObject -InputObject $response -Label "Response Object"
+    Expand-KrObject -InputObject $response -Label 'Response Object'
     Write-KrResponse $response -StatusCode 200
 }
 

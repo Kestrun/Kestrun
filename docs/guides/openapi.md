@@ -498,8 +498,11 @@ function getProduct {
 
 Use `[OpenApiParameterComponent]` to define reusable parameter components (Query, Header, Cookie).
 
-> **Note:** Component parameter variables must have an explicit value.
-> Use `= NoDefault` when you do not want a default associated with the parameter.
+> **Important (defaults):** Component parameter variables must have an explicit value.
+>
+> - Assign a real value (e.g. `= 20`) when you want an OpenAPI `schema.default`.
+> - Use `= NoDefault` when you do not want any OpenAPI default emitted.
+> - Avoid using `= $null` as a “no default” marker; `$null` is still a value and may be treated as a default.
 
 ```powershell
 [OpenApiParameterComponent(In = [OaParameterLocation]::Query, Description = 'Page number', Minimum = 1, Example = 1)]
@@ -509,6 +512,28 @@ Use `[OpenApiParameterComponent]` to define reusable parameter components (Query
 [int]$limit = 20
 
 [OpenApiParameterComponent(In = 'Header', Description = 'Optional correlation id for tracing', Example = '2f2d68c2-9b7a-4b5c-8b1d-0fdff2a4b9a3')]
+[string]$correlationId = NoDefault
+```
+
+### Using PowerShell Attributes to Shape Parameters
+
+In addition to metadata on `[OpenApiParameterComponent(...)]`, you can decorate the component variable/parameter with standard PowerShell validation attributes.
+When possible, Kestrun reflects these into the generated OpenAPI parameter schema.
+
+```powershell
+# Enum (OpenAPI: schema.enum)
+[OpenApiParameterComponent(In = 'Query', Description = 'Sort field')]
+[ValidateSet('name', 'price')]
+[string]$sortBy = 'name'
+
+# Range (OpenAPI: schema.minimum / schema.maximum)
+[OpenApiParameterComponent(In = 'Query', Description = 'Items per page', Example = 20)]
+[ValidateRange(1, 100)]
+[int]$limit = 20
+
+# Pattern (OpenAPI: schema.pattern)
+[OpenApiParameterComponent(In = 'Header', Description = 'Correlation id')]
+[ValidatePattern('^[0-9a-fA-F-]{36}$')]
 [string]$correlationId = NoDefault
 ```
 

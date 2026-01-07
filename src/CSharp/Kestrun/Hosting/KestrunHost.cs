@@ -1821,6 +1821,11 @@ public partial class KestrunHost : IDisposable
         }
     }
 
+    /// <summary>
+    /// Unwraps a Kestrun variable value if it is wrapped in a dictionary with a specific marker.
+    /// </summary>
+    /// <param name="raw">The raw variable value to unwrap.</param>
+    /// <returns>The unwrapped variable value, or the original value if not wrapped.</returns>
     private static object? UnwrapKestrunVariableValue(object? raw)
     {
         if (raw is null)
@@ -1828,34 +1833,53 @@ public partial class KestrunHost : IDisposable
             return null;
         }
 
-        if (raw is PSObject pso)
-        {
-            raw = pso.BaseObject;
-        }
+        // unwrap PSObject if needed
+        raw = UnwrapPsObject(raw);
 
+        // check for dictionary
         if (raw is not System.Collections.IDictionary dict)
         {
             return raw;
         }
 
+        // check for marker key
         if (!TryGetDictionaryValueIgnoreCase(dict, KestrunVariableMarkerKey, out var markerObj))
         {
             return raw;
         }
 
-        var isMarked = markerObj switch
+        // check if marker is enabled
+        if (!IsKestrunVariableMarkerEnabled(markerObj))
+        {
+            return raw;
+        }
+
+        // extract the "Value" entry
+        return TryGetDictionaryValueIgnoreCase(dict, "Value", out var valueObj)
+            ? UnwrapPsObject(valueObj)
+            : null;
+    }
+
+    /// <summary>
+    /// Unwraps a PowerShell <see cref="PSObject"/> by returning its <see cref="PSObject.BaseObject"/>.
+    /// </summary>
+    /// <param name="raw">The value to unwrap.</param>
+    /// <returns>The underlying base object when <paramref name="raw"/> is a <see cref="PSObject"/>, otherwise <paramref name="raw"/>.</returns>
+    private static object? UnwrapPsObject(object? raw)
+        => raw is PSObject pso ? pso.BaseObject : raw;
+
+    /// <summary>
+    /// Determines whether the Kestrun variable marker is enabled.
+    /// </summary>
+    /// <param name="markerObj">The marker value (typically a boolean or a PowerShell-wrapped boolean).</param>
+    /// <returns><c>true</c> if the marker indicates the value is wrapped; otherwise, <c>false</c>.</returns>
+    private static bool IsKestrunVariableMarkerEnabled(object? markerObj)
+        => markerObj switch
         {
             bool b => b,
             PSObject psMarker when psMarker.BaseObject is bool b => b,
             _ => false
         };
-
-        return !isMarked
-            ? raw
-            : (TryGetDictionaryValueIgnoreCase(dict, "Value", out var valueObj)
-                ? (valueObj is PSObject psValue ? psValue.BaseObject : valueObj)
-                : null);
-    }
 
     private static bool TryGetDictionaryValueIgnoreCase(System.Collections.IDictionary dict, string key, out object? value)
     {

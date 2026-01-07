@@ -184,56 +184,85 @@ public partial class OpenApiDocDescriptor
     /// <summary>
     /// Processes a parameter example reference annotation to add an example to an OpenAPI parameter.
     /// </summary>
-    /// <param name="variableName">The name of the variable associated with the parameter</param>
-    /// <param name="exampleRef">The example reference attribute</param>
+    /// <param name="variableName">The name of the variable associated with the parameter.</param>
+    /// <param name="exampleRef">The example reference attribute.</param>
+    /// <exception cref="InvalidOperationException">Thrown when the parameter does not exist, lacks schema/content, or media types are unsupported.</exception>
     private void ProcessParameterExampleRef(string variableName, OpenApiParameterExampleRefAttribute exampleRef)
     {
-        //  var parameter = GetOrCreateParameterItem(variableName, inline: false);
-        if (TryGetParameterItem(variableName, out var parameter))
+        if (!TryGetParameterItem(variableName, out var parameter))
         {
-            // Ensure parameter has either Schema or Content
-            if (parameter is null || (parameter.Schema is null && parameter.Content is null))
-            {
-                throw new InvalidOperationException($"Parameter '{variableName}' must have a schema or content defined before adding an example.");
-            }
-            // Add example to either Schema or Content
-            if (parameter.Content is null)
-            {
-                parameter.Examples ??= new Dictionary<string, IOpenApiExample>(StringComparer.Ordinal);
-                // Try to add the example reference
-                _ = TryAddExample(parameter.Examples, exampleRef);
-            }
-            else
-            {
-                foreach (var iMediaType in parameter.Content.Values)
-                {
-                    // Try to add the example reference to each media type
-                    if (iMediaType is OpenApiMediaType mediaType)
-                    {
-                        // Ensure Examples dictionary exists
-                        mediaType.Examples ??= new Dictionary<string, IOpenApiExample>(StringComparer.Ordinal);
-                        // Try to add the example reference
-                        _ = TryAddExample(mediaType.Examples, exampleRef);
-                    }
-                    else if (iMediaType is OpenApiMediaTypeReference)
-                    {
-                        // Cannot add example reference to a media type reference
-                        throw new InvalidOperationException($"Cannot add example reference to media type reference in parameter '{variableName}'.");
-                    }
-                    else
-                    {
-                        // Unknown media type
-                        throw new InvalidOperationException($"Unknown media type in parameter '{variableName}'.");
-                    }
-                }
-            }
-        }
-        else
-        {
-            // Parameter not found
             throw new InvalidOperationException($"Parameter '{variableName}' not found when trying to add example reference.");
         }
+
+        ValidateParameterHasSchemaOrContent(variableName, parameter);
+
+        if (parameter!.Content is null)
+        {
+            AddExampleToParameterExamples(parameter, exampleRef);
+            return;
+        }
+
+        AddExamplesToContentMediaTypes(parameter, exampleRef, variableName);
     }
+
+    /// <summary>
+    /// Validates that the parameter exists and has either Schema or Content defined.
+    /// </summary>
+    /// <param name="variableName">The variable name associated with the parameter.</param>
+    /// <param name="parameter">The parameter to validate.</param>
+    /// <exception cref="InvalidOperationException">Thrown if the parameter is null or lacks both Schema and Content.</exception>
+    private static void ValidateParameterHasSchemaOrContent(string variableName, OpenApiParameter? parameter)
+    {
+        if (parameter is null || (parameter.Schema is null && parameter.Content is null))
+        {
+            throw new InvalidOperationException($"Parameter '{variableName}' must have a schema or content defined before adding an example.");
+        }
+    }
+
+    /// <summary>
+    /// Ensures the parameter Examples dictionary exists and attempts to add the example reference.
+    /// </summary>
+    /// <param name="parameter">The OpenAPI parameter to modify.</param>
+    /// <param name="exampleRef">The example reference attribute.</param>
+    private void AddExampleToParameterExamples(OpenApiParameter parameter, OpenApiParameterExampleRefAttribute exampleRef)
+    {
+        parameter.Examples ??= new Dictionary<string, IOpenApiExample>(StringComparer.Ordinal);
+        _ = TryAddExample(parameter.Examples, exampleRef);
+    }
+
+    /// <summary>
+    /// Iterates the parameter's content media types and adds the example reference to each concrete media type.
+    /// </summary>
+    /// <param name="parameter">The OpenAPI parameter with content.</param>
+    /// <param name="exampleRef">The example reference attribute.</param>
+    /// <param name="variableName">The variable name used for error messages.</param>
+    /// <exception cref="InvalidOperationException">Thrown when encountering a media type reference or an unknown media type.</exception>
+    private void AddExamplesToContentMediaTypes(OpenApiParameter parameter, OpenApiParameterExampleRefAttribute exampleRef, string variableName)
+    {
+        foreach (var iMediaType in parameter.Content!.Values)
+        {
+            if (iMediaType is OpenApiMediaType mediaType)
+            {
+                mediaType.Examples ??= new Dictionary<string, IOpenApiExample>(StringComparer.Ordinal);
+                _ = TryAddExample(mediaType.Examples, exampleRef);
+                continue;
+            }
+
+            if (iMediaType is OpenApiMediaTypeReference)
+            {
+                throw new InvalidOperationException($"Cannot add example reference to media type reference in parameter '{variableName}'.");
+            }
+
+            throw new InvalidOperationException($"Unknown media type in parameter '{variableName}'.");
+        }
+    }
+
+    /// <summary>
+    /// Processes a PowerShell attribute to add validation constraints to an OpenAPI parameter.
+    /// </summary>
+    /// <param name="variableName">The name of the variable associated with the parameter</param>
+    /// <param name="powershellAttribute">The PowerShell attribute containing validation constraints</param>
+    /// <exception cref="InvalidOperationException">Thrown if the parameter does not have a schema or content defined before adding the PowerShell property.</exception>
     private void ProcessPowerShellAttribute(string variableName, InternalPowershellAttribute powershellAttribute)
     {
         if (TryGetParameterItem(variableName, out var parameter))

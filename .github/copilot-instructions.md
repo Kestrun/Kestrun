@@ -143,6 +143,16 @@ Context.Response.WriteFileResponse(), Context.Response.WriteTextResponse()
 
 ## Common Patterns to Follow
 
+## Complexity & Documentation Rules
+
+### Cyclomatic complexity
+- Keep functions/methods at a maximum cyclomatic complexity of **15**.
+- If a function exceeds 15, simplify/refactor it (prefer early returns, guard clauses, and small focused helpers).
+
+### Documentation when refactoring
+- When you introduce new helper functions/methods as part of a complexity reduction, **each new helper must include XML documentation** (`/// <summary>`, params, returns as applicable).
+- Add brief inline comments only where they clarify non-obvious intent (avoid redundant comments).
+
 When adding new features:
 1. **Implement C# core first** in appropriate namespace under `src/CSharp/Kestrun/`
 2. **Create PowerShell wrapper** with `Kr` prefix in `src/PowerShell/Kestrun/Public/`

@@ -173,6 +173,32 @@ public static class OpenApiComponentAnnotationScanner
         foreach (var cmd in commands)
         {
             var elems = cmd.CommandElements;
+            // Dot-sourcing in the PowerShell AST is represented via InvocationOperator = TokenKind.Dot,
+            // and the dot token is NOT part of CommandElements.
+            // Example: . "$PSScriptRoot\\a.ps1" => CommandElements[0] is the path expression.
+            if (cmd.InvocationOperator == TokenKind.Dot)
+            {
+                if (elems.Count < 1)
+                {
+                    continue;
+                }
+
+                var rawDot = TryGetSimpleString(elems[0]);
+                if (rawDot is null)
+                {
+                    continue;
+                }
+
+                var resolvedDot = ResolveDotSourcedPath(rawDot, baseDir);
+                if (resolvedDot is not null)
+                {
+                    yield return resolvedDot;
+                }
+
+                continue;
+            }
+
+            // Back-compat / best-effort: some AST shapes could represent '.' as a command element.
             if (elems.Count < 2)
             {
                 continue;

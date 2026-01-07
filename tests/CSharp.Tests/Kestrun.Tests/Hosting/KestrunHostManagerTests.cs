@@ -8,6 +8,8 @@ namespace KestrunTests.Hosting;
 [Collection("SharedStateSerial")]
 public class KestrunHostManagerTests
 {
+    private const string EntryScriptPath = "tests.ps1";
+
     private static string GetSafeStartDirectory()
     {
         try
@@ -81,14 +83,14 @@ public class KestrunHostManagerTests
     public void Create_WithFactory_And_Default_Selection_Works()
     {
         Reset();
-        var h1 = KestrunHostManager.Create("h1", () => NewHost("h1"), setAsDefault: true);
+        var h1 = KestrunHostManager.Create("h1", EntryScriptPath, () => NewHost("h1"), setAsDefault: true);
         Assert.Same(h1, KestrunHostManager.Default);
         Assert.Contains("h1", KestrunHostManager.InstanceNames);
         Assert.True(KestrunHostManager.Contains("h1"));
         Assert.Same(h1, KestrunHostManager.Get("h1"));
 
         // Duplicate name throws
-        _ = Assert.Throws<InvalidOperationException>(() => KestrunHostManager.Create("h1", () => NewHost("h1")));
+        _ = Assert.Throws<InvalidOperationException>(() => KestrunHostManager.Create("h1", EntryScriptPath, () => NewHost("h1")));
     }
 
     [Fact]
@@ -98,7 +100,7 @@ public class KestrunHostManagerTests
         Reset();
         var module = LocateDevModule();
         // Create overload with logger and module paths
-        var h2 = KestrunHostManager.Create("h2", Log.Logger, [module], setAsDefault: true);
+        var h2 = KestrunHostManager.Create("h2", Log.Logger, EntryScriptPath, [module], setAsDefault: true);
         Assert.Same(h2, KestrunHostManager.Default);
         Assert.Equal(h2, KestrunHostManager.Get("h2"));
     }
@@ -108,8 +110,8 @@ public class KestrunHostManagerTests
     public void SetDefault_And_TryGet_Get_Behavior()
     {
         Reset();
-        _ = KestrunHostManager.Create("a", () => NewHost("a"));
-        _ = KestrunHostManager.Create("b", () => NewHost("b"));
+        _ = KestrunHostManager.Create("a", EntryScriptPath, () => NewHost("a"));
+        _ = KestrunHostManager.Create("b", EntryScriptPath, () => NewHost("b"));
 
         KestrunHostManager.SetDefault("b");
         Assert.Equal("b", KestrunHostManager.Default?.Options.ApplicationName);
@@ -128,7 +130,7 @@ public class KestrunHostManagerTests
     public async Task IsRunning_And_Stop_On_Missing_Do_Not_Throw()
     {
         Reset();
-        _ = KestrunHostManager.Create("srv", () => NewHost("srv"));
+        _ = KestrunHostManager.Create("srv", EntryScriptPath, () => NewHost("srv"));
         Assert.False(KestrunHostManager.IsRunning("srv"));
 
         // Stop on missing name should be a no-op
@@ -144,8 +146,8 @@ public class KestrunHostManagerTests
     public async Task StopAllAsync_Does_Not_Throw_For_Unstarted_Hosts()
     {
         Reset();
-        _ = KestrunHostManager.Create("x", () => NewHost("x"));
-        _ = KestrunHostManager.Create("y", () => NewHost("y"));
+        _ = KestrunHostManager.Create("x", EntryScriptPath, () => NewHost("x"));
+        _ = KestrunHostManager.Create("y", EntryScriptPath, () => NewHost("y"));
         await KestrunHostManager.StopAllAsync();
     }
 
@@ -154,8 +156,8 @@ public class KestrunHostManagerTests
     public void Destroy_And_DestroyAll_Update_Default()
     {
         Reset();
-        _ = KestrunHostManager.Create("first", () => NewHost("first"), setAsDefault: true);
-        _ = KestrunHostManager.Create("second", () => NewHost("second"));
+        _ = KestrunHostManager.Create("first", EntryScriptPath, () => NewHost("first"), setAsDefault: true);
+        _ = KestrunHostManager.Create("second", EntryScriptPath, () => NewHost("second"));
 
         // Destroy default should reassign default to remaining or null
         KestrunHostManager.Destroy("first");

@@ -4,7 +4,6 @@ using System.Reflection;
 using System.Collections;
 using System.Management.Automation.Internal;
 
-
 namespace Kestrun.OpenApi;
 
 /// <summary>
@@ -386,7 +385,6 @@ public static class OpenApiComponentAnnotationScanner
                     continue;
                 }
 
-
                 // Variable assignment:
                 // - If we have pending annotations, attach them here.
                 // - If the variable was already discovered via inline attributed declaration, also capture type/initializer here.
@@ -440,14 +438,12 @@ public static class OpenApiComponentAnnotationScanner
                     continue;
                 }
 
-
                 // strict: anything else clears pending
                 if (strict && pending.Count > 0)
                 {
                     pending.Clear();
                 }
             }
-
         }
     }
 
@@ -712,8 +708,6 @@ public static class OpenApiComponentAnnotationScanner
         return (value, string.IsNullOrWhiteSpace(text) ? null : text);
     }
 
-
-
     private static KestrunAnnotation? TryCreateAnnotation(
         AttributeAst attr,
         string defaultComponentName,
@@ -728,7 +722,6 @@ public static class OpenApiComponentAnnotationScanner
         attribute = TryCmdletMetadataAttribute(attr);
 
         return attribute;
-
     }
     private static KestrunAnnotation? TryCreateKestrunAnnotation(
         AttributeAst attr,
@@ -945,8 +938,6 @@ public static class OpenApiComponentAnnotationScanner
         var converted = ConvertToPropertyType(raw, prop.PropertyType);
         prop.SetValue(annotation, converted);
     }
-
-
 
     private static object? EvaluateArgumentExpression(ExpressionAst expr) => expr switch
     {

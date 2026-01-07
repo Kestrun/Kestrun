@@ -1040,7 +1040,6 @@ public partial class KestrunHost : IDisposable
         throw new InvalidOperationException("Failed to apply configuration.", ex);
     }
 
-
     /// <summary>
     /// Applies the configured options to the Kestrel server and initializes the runspace pool.
     /// </summary>

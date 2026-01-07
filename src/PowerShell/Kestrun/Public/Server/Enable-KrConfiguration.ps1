@@ -43,7 +43,7 @@ function Enable-KrConfiguration {
     }
     process {
         # Collect assigned variables from the parent scope, resolving their values
-        $variables = Get-KrAssignedVariable -FromParent -ResolveValues -IncludeSetVariable -ExcludeVariables $ExcludeVariables -AsDictionary -WithoutAttributesOnly
+        $variables = Get-KrAssignedVariable -FromParent -ResolveValues -IncludeSetVariable -ExcludeVariables $ExcludeVariables -OutputStructure StringObjectMap -WithoutAttributesOnly
 
         Write-KrLog -Level Debug -Logger $Server.Logger -Message 'Collected {VarCount} user-defined variables for server configuration.' -Values $variables.Count
 

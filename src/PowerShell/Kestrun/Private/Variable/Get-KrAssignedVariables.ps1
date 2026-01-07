@@ -19,6 +19,9 @@
       Array of variable names to exclude from the results.
     .PARAMETER WithoutAttributesOnly
       If specified, only include variables that were defined without attributes.
+    .PARAMETER OutputStructure
+      Output format: 'Array' (list of objects), 'Dictionary' (name->object), or
+      'StringObjectMap' (name->value).
     .OUTPUTS
       PSCustomObject with properties: Name, ScopeHint, ProviderPath, Source, Operator,
         Type, Value.
@@ -56,7 +59,8 @@ function Get-KrAssignedVariable {
         [switch]$ResolveValues,
 
         [Parameter()]
-        [switch]$AsDictionary,
+        [ValidateSet('Array', 'Dictionary', 'StringObjectMap')]
+        [string]$OutputStructure = 'Array',
 
         [Parameter()]
         [ValidateSet('Local', 'Script', 'Global')]
@@ -720,29 +724,38 @@ function Get-KrAssignedVariable {
     if ($WithoutAttributesOnly.IsPresent) {
         $final = @($final | Where-Object { -not $_.HasAttributes })
     }
-
-    if ($AsDictionary.IsPresent) {
-        $dict = [System.Collections.Generic.Dictionary[string, object]]::new([System.StringComparer]::OrdinalIgnoreCase)
-        foreach ($v in $final) {
-            # Preserve declared type/nullable metadata for declaration-only (and typed-null) variables.
-            # Typed variables (i.e., DeclaredType present) are wrapped so C# can see Type/IsNullable
-            # even when the runtime value is non-null (e.g. [int]$paginationLimit = 20).
-            # Untyped variables keep the old behavior (value only).
-            $wrap = -not [string]::IsNullOrWhiteSpace($v.DeclaredType)
-            if ($wrap) {
-                $meta = [System.Collections.Generic.Dictionary[string, object]]::new([System.StringComparer]::OrdinalIgnoreCase)
-                $meta['__kestrunVariable'] = $true
-                $meta['Value'] = $v.Value
-                $meta['Type'] = $v.Type
-                $meta['DeclaredType'] = $v.DeclaredType
-                $meta['IsNullable'] = $v.IsNullable
-                $dict[$v.Name] = $meta
-            } else {
+    switch ($OutputStructure) {
+        'Dictionary' {
+            $dict = [System.Collections.Generic.Dictionary[string, object]]::new([System.StringComparer]::OrdinalIgnoreCase)
+            foreach ($v in $final) {
+                # Preserve declared type/nullable metadata for declaration-only (and typed-null) variables.
+                # Typed variables (i.e., DeclaredType present) are wrapped so C# can see Type/IsNullable
+                # even when the runtime value is non-null (e.g. [int]$paginationLimit = 20).
+                # Untyped variables keep the old behavior (value only).
+                $wrap = -not [string]::IsNullOrWhiteSpace($v.DeclaredType)
+                if ($wrap) {
+                    $meta = [System.Collections.Generic.Dictionary[string, object]]::new([System.StringComparer]::OrdinalIgnoreCase)
+                    $meta['__kestrunVariable'] = $true
+                    $meta['Value'] = $v.Value
+                    $meta['Type'] = $v.Type
+                    $meta['DeclaredType'] = $v.DeclaredType
+                    $meta['IsNullable'] = $v.IsNullable
+                    $dict[$v.Name] = $meta
+                } else {
+                    $dict[$v.Name] = $v.Value
+                }
+            }
+            return $dict
+        }
+        'StringObjectMap' {
+            $dict = [System.Collections.Generic.Dictionary[string, object]]::new([System.StringComparer]::OrdinalIgnoreCase)
+            foreach ($v in $final) {
                 $dict[$v.Name] = $v.Value
             }
+            return $dict
         }
-        return $dict
+        default {
+            return $final
+        }
     }
-
-    return $final
 }

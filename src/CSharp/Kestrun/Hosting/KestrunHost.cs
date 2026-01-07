@@ -1055,6 +1055,13 @@ public partial class KestrunHost : IDisposable
 
         try
         {
+            if (Logger.IsEnabled(LogEventLevel.Debug))
+            {
+                Logger.Debug("Applying configuration to KestrunHost.");
+            }
+            // Inject user variables into shared state
+            _ = ApplyUserVarsToState(userVariables);
+
             // Scan for OpenAPI component annotations in the main script.
             // In C#-only scenarios (including xUnit tests), there may be no PowerShell entry script.
             ComponentAnnotations = !string.IsNullOrWhiteSpace(KestrunHostManager.EntryScriptPath)
@@ -1063,20 +1070,9 @@ public partial class KestrunHost : IDisposable
             : null;
 
             // Export OpenAPI classes from PowerShell
-            var openApiClassesPath = PowerShellOpenApiClassExporter.ExportOpenApiClasses(userCallbacks: userCallbacks);
-            if (Logger.IsEnabled(LogEventLevel.Debug))
-            {
-                if (string.IsNullOrWhiteSpace(openApiClassesPath))
-                {
-                    Logger.Debug("No OpenAPI classes exported from PowerShell.");
-                }
-                else
-                {
-                    Logger.Debug("Exported OpenAPI classes from PowerShell: {path}", openApiClassesPath);
-                }
-            }
+            var openApiClassesPath = ExportOpenApiClasses(userCallbacks);
             // Initialize PowerShell runspace pool
-            InitializeRunspacePool(userVariables: userVariables, userFunctions: userFunctions, openApiClassesPath: openApiClassesPath);
+            InitializeRunspacePool(userVariables: null, userFunctions: userFunctions, openApiClassesPath: openApiClassesPath);
             // Configure Kestrel server
             ConfigureKestrelBase();
             // Configure named pipe listeners if any
@@ -1100,6 +1096,47 @@ public partial class KestrunHost : IDisposable
         {
             HandleConfigurationError(ex);
         }
+    }
+
+    /// <summary>
+    /// Applies user-defined variables to the shared state.
+    /// </summary>
+    /// <param name="userVariables">User-defined variables to inject into the shared state.</param>
+    /// <returns>True if all variables were successfully applied; otherwise, false.</returns>
+    private bool ApplyUserVarsToState(Dictionary<string, object>? userVariables)
+    {
+
+        var statusSet = true;
+        if (userVariables is not null)
+        {
+            foreach (var v in userVariables)
+            {
+                statusSet &= SharedState.Set(v.Key, v.Value, true);
+            }
+        }
+        return statusSet;
+    }
+
+    /// <summary>
+    /// Exports OpenAPI classes from PowerShell.
+    /// </summary>
+    /// <param name="userCallbacks">User-defined callbacks for OpenAPI class export.</param>
+    private string ExportOpenApiClasses(Dictionary<string, string>? userCallbacks)
+    {
+        // Export OpenAPI classes from PowerShell
+        var openApiClassesPath = PowerShellOpenApiClassExporter.ExportOpenApiClasses(userCallbacks: userCallbacks);
+        if (Logger.IsEnabled(LogEventLevel.Debug))
+        {
+            if (string.IsNullOrWhiteSpace(openApiClassesPath))
+            {
+                Logger.Debug("No OpenAPI classes exported from PowerShell.");
+            }
+            else
+            {
+                Logger.Debug("Exported OpenAPI classes from PowerShell: {path}", openApiClassesPath);
+            }
+        }
+        return openApiClassesPath;
     }
 
     /// <summary>

@@ -815,8 +815,18 @@ public static class OpenApiComponentAnnotationScanner
         return true;
     }
 
+    /// <summary>
+    ///     Tries to extract the assignment target variable information from the left-hand side of an assignment.
+    /// </summary>
+    /// <param name="left">The left-hand side expression of the assignment.</param>
+    /// <param name="variableName">Output variable name if found.</param>
+    /// <param name="variableType">Output variable type if declared.</param>
+    /// <param name="variableTypeName">Output variable type name as written in script if declared.</param>
+    /// <returns><c>true</c> if a variable declaration was found; otherwise <c>false</c>.</returns>
+    /// <remarks>
+    /// Assignment can be: $x = 1   or   [int]$x = 1
+    /// </remarks>
     private static bool TryGetAssignmentTarget(ExpressionAst left, out string variableName, out Type? variableType, out string? variableTypeName)
-        // Assignment can be: $x = 1   or   [int]$x = 1
         => TryGetDeclaredVariableInfo(left, out variableName, out variableType, out variableTypeName);
 
     /// <summary>

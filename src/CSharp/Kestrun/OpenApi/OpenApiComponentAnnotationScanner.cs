@@ -274,6 +274,10 @@ public static class OpenApiComponentAnnotationScanner
         t = t.Replace("$PSScriptRoot", baseDir, StringComparison.OrdinalIgnoreCase);
         t = t.Replace("$PWD", Directory.GetCurrentDirectory(), StringComparison.OrdinalIgnoreCase);
 
+        // Normalize path separators to the platform-appropriate separator
+        // This handles cases where PowerShell code uses backslashes on Unix-like systems
+        t = t.Replace('\\', Path.DirectorySeparatorChar).Replace('/', Path.DirectorySeparatorChar);
+
         // Relative -> baseDir
         if (!Path.IsPathRooted(t))
         {
@@ -626,6 +630,16 @@ public static class OpenApiComponentAnnotationScanner
         return entry;
     }
 
+    /// <summary>
+    /// Tries to extract inline attributed variable declaration information from a statement AST.
+    /// </summary>
+    /// <param name="statement">The statement AST to inspect.</param>
+    /// <param name="attributeTypeFilter">Optional filter for attribute types to include.</param>
+    /// <param name="variableName">Output variable name if found.</param>
+    /// <param name="variableType">Output variable type if declared.</param>
+    /// <param name="variableTypeName">Output variable type name as written in script if declared.</param>
+    /// <param name="attributes">Output list of matching attributes found.</param>
+    /// <returns><c>true</c> if matching attributes were found; otherwise <c>false</c>.</returns>
     private static bool TryExtractInlineAttributedDeclaration(
         StatementAst statement,
         IReadOnlyCollection<string>? attributeTypeFilter,
@@ -639,30 +653,18 @@ public static class OpenApiComponentAnnotationScanner
         variableTypeName = null;
         attributes = [];
 
-        var expr = statement switch
+        if (!TryExtractExpressionFromStatement(statement, out var expr))
         {
-            CommandExpressionAst ce => ce.Expression,
-            PipelineAst p when p.PipelineElements is { Count: 1 } && p.PipelineElements[0] is CommandExpressionAst ce => ce.Expression,
-            _ => null
-        };
+            return false;
+        }
 
+        // Check for attributed-expression chain
         if (expr is null)
         {
             return false;
         }
 
-        // Collect matching attributes from the attributed-expression chain.
-        var found = new List<AttributeAst>();
-        var cursor = expr;
-        while (cursor is AttributedExpressionAst aex)
-        {
-            if (aex.Attribute is AttributeAst attr && IsMatchingAttribute(attr, attributeTypeFilter))
-            {
-                found.Add(attr);
-            }
-            cursor = aex.Child;
-        }
-
+        var found = CollectMatchingAttributesFromChain(expr, attributeTypeFilter);
         if (found.Count == 0)
         {
             return false;
@@ -677,6 +679,57 @@ public static class OpenApiComponentAnnotationScanner
         return true;
     }
 
+    /// <summary>
+    /// Tries to extract an expression from a statement AST, handling CommandExpression and Pipeline variants.
+    /// </summary>
+    /// <param name="statement">The statement AST to extract from.</param>
+    /// <param name="expr">The extracted expression if found.</param>
+    /// <returns><c>true</c> if an expression was successfully extracted; otherwise <c>false</c>.</returns>
+    private static bool TryExtractExpressionFromStatement(StatementAst statement, out ExpressionAst? expr)
+    {
+        expr = statement switch
+        {
+            CommandExpressionAst ce => ce.Expression,
+            PipelineAst p when p.PipelineElements is { Count: 1 } && p.PipelineElements[0] is CommandExpressionAst ce => ce.Expression,
+            _ => null
+        };
+
+        return expr is not null;
+    }
+
+    /// <summary>
+    /// Collects matching attributes from an attributed-expression chain.
+    /// </summary>
+    /// <param name="expr">The expression to traverse.</param>
+    /// <param name="attributeTypeFilter">Optional filter for attribute types to include.</param>
+    /// <returns>A list of matching attributes found in the chain.</returns>
+    private static List<AttributeAst> CollectMatchingAttributesFromChain(ExpressionAst expr, IReadOnlyCollection<string>? attributeTypeFilter)
+    {
+        var found = new List<AttributeAst>();
+        var cursor = expr;
+
+        while (cursor is AttributedExpressionAst aex)
+        {
+            if (aex.Attribute is AttributeAst attr && IsMatchingAttribute(attr, attributeTypeFilter))
+            {
+                found.Add(attr);
+            }
+            cursor = aex.Child;
+        }
+
+        return found;
+    }
+
+    /// <summary>
+    /// Tries to extract inline attributed variable assignment information from an assignment AST.
+    /// </summary>
+    /// <param name="assignment">The assignment statement AST to inspect.</param>
+    /// <param name="attributeTypeFilter">Optional filter for attribute types to include.</param>
+    /// <param name="variableName">Output variable name if found.</param>
+    /// <param name="variableType">Output variable type if declared.</param>
+    /// <param name="variableTypeName">Output variable type name as written in script if declared.</param>
+    /// <param name="attributes">Output list of matching attributes found.</param>
+    /// <returns><c>true</c> if matching attributes were found; otherwise <c>false</c>.</returns>
     private static bool TryExtractInlineAttributedAssignment(
         AssignmentStatementAst assignment,
         IReadOnlyCollection<string>? attributeTypeFilter,
@@ -1078,24 +1131,61 @@ public static class OpenApiComponentAnnotationScanner
             return false;
         }
 
-        const BindingFlags flags = BindingFlags.Public | BindingFlags.Static | BindingFlags.FlattenHierarchy;
+        if (TryGetReflectedPropertyValue(targetType, memberName, out value))
+        {
+            return true;
+        }
 
-        // Try property first (MaxValue is a property on numeric types)
+        if (TryGetReflectedFieldValue(targetType, memberName, out value))
+        {
+            return true;
+        }
+
+        // Unsupported member type
+        return false;
+    }
+
+    /// <summary>
+    /// Tries to retrieve and invoke a public static property from a type.
+    /// </summary>
+    /// <param name="targetType">The type to inspect.</param>
+    /// <param name="memberName">The property name to retrieve.</param>
+    /// <param name="value">The property value if found and invoked.</param>
+    /// <returns><c>true</c> if the property was found and its value retrieved; otherwise <c>false</c>.</returns>
+    private static bool TryGetReflectedPropertyValue(Type targetType, string memberName, out object? value)
+    {
+        const BindingFlags flags = BindingFlags.Public | BindingFlags.Static | BindingFlags.FlattenHierarchy;
         var prop = targetType.GetProperty(memberName, flags);
+
         if (prop is not null)
         {
             value = prop.GetValue(null);
             return true;
         }
 
-        // Then field (covers other patterns)
+        value = null;
+        return false;
+    }
+
+    /// <summary>
+    /// Tries to retrieve and invoke a public static field from a type.
+    /// </summary>
+    /// <param name="targetType">The type to inspect.</param>
+    /// <param name="memberName">The field name to retrieve.</param>
+    /// <param name="value">The field value if found and invoked.</param>
+    /// <returns><c>true</c> if the field was found and its value retrieved; otherwise <c>false</c>.</returns>
+    private static bool TryGetReflectedFieldValue(Type targetType, string memberName, out object? value)
+    {
+        const BindingFlags flags = BindingFlags.Public | BindingFlags.Static | BindingFlags.FlattenHierarchy;
         var field = targetType.GetField(memberName, flags);
+
         if (field is not null)
         {
             value = field.GetValue(null);
             return true;
         }
 
+        value = null;
         return false;
     }
 

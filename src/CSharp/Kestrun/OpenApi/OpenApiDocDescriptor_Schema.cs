@@ -711,12 +711,9 @@ public partial class OpenApiDocDescriptor
         {
             schema.Title = properties.Title;
         }
-        if (properties is not OpenApiParameterComponent)
+        if (properties is not OpenApiParameterComponent && properties.Description is not null)
         {
-            if (properties.Description is not null)
-            {
-                schema.Description = properties.Description;
-            }
+            schema.Description = properties.Description;
         }
     }
 

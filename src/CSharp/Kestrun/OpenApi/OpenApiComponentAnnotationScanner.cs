@@ -421,26 +421,23 @@ public static class OpenApiComponentAnnotationScanner
                     }
                 }
                 // Declaration-only variable (no assignment), e.g. [int]$param1
-                if (pending.Count > 0 && st is CommandExpressionAst declExpr)
+                if (pending.Count > 0 && st is CommandExpressionAst declExpr && TryGetDeclaredVariableInfo(declExpr.Expression, out var declaredVarName, out var declaredVarType, out var declaredVarTypeName))
                 {
-                    if (TryGetDeclaredVariableInfo(declExpr.Expression, out var declaredVarName, out var declaredVarType, out var declaredVarTypeName))
+                    var entry = GetOrCreateVariable(variables, declaredVarName);
+                    entry.VariableType ??= declaredVarType;
+                    entry.VariableTypeName ??= declaredVarTypeName;
+
+                    foreach (var a in pending)
                     {
-                        var entry = GetOrCreateVariable(variables, declaredVarName);
-                        entry.VariableType ??= declaredVarType;
-                        entry.VariableTypeName ??= declaredVarTypeName;
-
-                        foreach (var a in pending)
+                        var ka = TryCreateAnnotation(a, defaultComponentName: declaredVarName, componentNameArgument);
+                        if (ka is not null)
                         {
-                            var ka = TryCreateAnnotation(a, defaultComponentName: declaredVarName, componentNameArgument);
-                            if (ka is not null)
-                            {
-                                entry.Annotations.Add(ka);
-                            }
+                            entry.Annotations.Add(ka);
                         }
-
-                        pending.Clear();
-                        continue;
                     }
+
+                    pending.Clear();
+                    continue;
                 }
 
 
@@ -787,39 +784,36 @@ public static class OpenApiComponentAnnotationScanner
         }
 
         // 3) [int]::MaxValue  (static member on a type)
-        if (expr is MemberExpressionAst me && me.Static)
+        if (expr is MemberExpressionAst me && me.Static && me.Expression is TypeExpressionAst te)
         {
-            if (me.Expression is TypeExpressionAst te)
+            var targetType = te.TypeName.GetReflectionType(); // resolves [int] to System.Int32, etc.
+            if (targetType is null)
             {
-                var targetType = te.TypeName.GetReflectionType(); // resolves [int] to System.Int32, etc.
-                if (targetType is null)
-                {
-                    return null;
-                }
+                return null;
+            }
 
-                var memberName = (me.Member as StringConstantExpressionAst)?.Value
-                                 ?? (me.Member as ConstantExpressionAst)?.Value?.ToString();
+            var memberName = (me.Member as StringConstantExpressionAst)?.Value
+                             ?? (me.Member as ConstantExpressionAst)?.Value?.ToString();
 
-                if (string.IsNullOrWhiteSpace(memberName))
-                {
-                    return null;
-                }
+            if (string.IsNullOrWhiteSpace(memberName))
+            {
+                return null;
+            }
 
-                const BindingFlags flags = BindingFlags.Public | BindingFlags.Static | BindingFlags.FlattenHierarchy;
+            const BindingFlags flags = BindingFlags.Public | BindingFlags.Static | BindingFlags.FlattenHierarchy;
 
-                // Try property first (MaxValue is a property on numeric types)
-                var prop = targetType.GetProperty(memberName, flags);
-                if (prop is not null)
-                {
-                    return prop.GetValue(null);
-                }
+            // Try property first (MaxValue is a property on numeric types)
+            var prop = targetType.GetProperty(memberName, flags);
+            if (prop is not null)
+            {
+                return prop.GetValue(null);
+            }
 
-                // Then field (covers other patterns)
-                var field = targetType.GetField(memberName, flags);
-                if (field is not null)
-                {
-                    return field.GetValue(null);
-                }
+            // Then field (covers other patterns)
+            var field = targetType.GetField(memberName, flags);
+            if (field is not null)
+            {
+                return field.GetValue(null);
             }
         }
 
@@ -1088,8 +1082,7 @@ public static class OpenApiComponentAnnotationScanner
             type ??= ResolveTypeFromName(shortName + "Attribute");
         }
 
-        return type is not null &&
-            typeof(KestrunAnnotation).IsAssignableFrom(type) ? type : null;
+        return typeof(KestrunAnnotation).IsAssignableFrom(type) ? type : null;
     }
 
     /// <summary>
@@ -1112,8 +1105,7 @@ public static class OpenApiComponentAnnotationScanner
             type ??= ResolveTypeFromName(shortName + "Attribute");
         }
 
-        return type is not null &&
-            typeof(CmdletMetadataAttribute).IsAssignableFrom(type)
+        return typeof(CmdletMetadataAttribute).IsAssignableFrom(type)
              ? type : null;
     }
 

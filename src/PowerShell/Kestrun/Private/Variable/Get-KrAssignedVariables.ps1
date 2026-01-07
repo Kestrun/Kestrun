@@ -222,6 +222,16 @@ function Get-KrAssignedVariable {
             }
         }
 
+        <#
+        .SYNOPSIS
+            Evaluates a StatementAst to extract its value.
+        .DESCRIPTION
+            This function analyzes a StatementAst node to extract its value, if possible.
+        .PARAMETER s
+            The StatementAst node to analyze.
+        .OUTPUTS
+            The extracted value if resolvable; otherwise, $null.
+        #>
         function _EvalStatement([System.Management.Automation.Language.StatementAst] $s) {
             if ($null -eq $s) { return $null }
 
@@ -238,6 +248,17 @@ function Get-KrAssignedVariable {
             return $null
         }
 
+        <#
+        .SYNOPSIS
+            Evaluates a key or value part of a hashtable or key-value pair.
+        .DESCRIPTION
+            This function analyzes an AST node representing a key or value part
+            to extract its value, if possible.
+        .PARAMETER node
+            The AST node to analyze.
+        .OUTPUTS
+            The extracted value if resolvable; otherwise, $null.
+        #>
         function _EvalKeyValuePart($node) {
             if ($null -eq $node) { return $null }
 
@@ -251,7 +272,16 @@ function Get-KrAssignedVariable {
 
             return $null
         }
-
+        <#
+        .SYNOPSIS
+            Evaluates an ExpressionAst to extract its value.
+        .DESCRIPTION
+            This function analyzes an ExpressionAst node to extract its value, if possible.
+        .PARAMETER e
+            The ExpressionAst node to analyze.
+        .OUTPUTS
+            The extracted value if resolvable; otherwise, $null.
+        #>
         function _EvalExpr([System.Management.Automation.Language.ExpressionAst] $e) {
             if ($null -eq $e) { return $null }
 
@@ -348,6 +378,17 @@ function Get-KrAssignedVariable {
         return $null
     }
 
+    <#
+    .SYNOPSIS
+        Extracts type information from a declared type string.
+    .DESCRIPTION
+        This function analyzes a declared type string to determine the underlying type,
+        whether it is nullable, and returns relevant metadata.
+    .PARAMETER declaredType
+        The declared type string to analyze.
+    .OUTPUTS
+        PSCustomObject with properties: Type, DeclaredType, IsNullable.
+    #>
     function _GetTypeInfoFromDeclaredType([string] $declaredType) {
         $underlyingName = $declaredType
         $isNullable = $false
@@ -457,6 +498,17 @@ function Get-KrAssignedVariable {
         return $false
     }
 
+    <#
+    .SYNOPSIS
+         Checks if a given AST node is inside an assignment.
+    .DESCRIPTION
+         This function traverses the parent nodes of the given AST node to determine if it is
+         located within an assignment statement.
+    .PARAMETER node
+         The AST node to check.
+    .OUTPUTS
+         [bool] Returns true if the node is inside an assignment, false otherwise.
+    #>
     function _IsInAssignment([System.Management.Automation.Language.Ast] $node) {
         # IMPORTANT: AST parent chains can escape the scanned ScriptBlockAst
         # (e.g. when the scriptblock literal is part of an outer assignment).

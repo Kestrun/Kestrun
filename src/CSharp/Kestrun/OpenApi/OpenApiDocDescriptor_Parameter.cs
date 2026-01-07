@@ -293,7 +293,9 @@ public partial class OpenApiDocDescriptor
                 }
             }
             else
-            { }
+            {
+                Host.Logger.Warning($"Powershell attribute processing is not supported for parameter '{variableName}' with content.");
+            }
         }
         else
         {

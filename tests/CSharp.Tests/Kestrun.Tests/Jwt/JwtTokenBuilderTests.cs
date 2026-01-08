@@ -71,7 +71,7 @@ public partial class JwtTokenBuilderTests
         var jwkPub = $"{{\"kty\":\"RSA\",\"n\":\"{n}\",\"e\":\"{e}\"}}";
 
         var sign = B64Url([.. Enumerable.Repeat((byte)0xCC, 32)]);
-        var b = JwtTokenBuilder.New().WithIssuer("iss").WithAudience("aud").WithSubject("sub").SignWithSecret(sign).EncryptWithJwkJson(jwkPub);
+        var b = JwtTokenBuilder.New().WithIssuer("iss").WithAudience("aud").WithSubject("sub").SignWithSecret(sign).EncryptWithJwkJson(jwkPub, keyAlg: "RSA-OAEP", encAlg: "A256CBC-HS512");
         var token = b.Build().Token();
         Assert.False(string.IsNullOrWhiteSpace(token));
     }

@@ -28,7 +28,7 @@ Focus areas:
 | **Schema Component** | A PowerShell class decorated with `[OpenApiSchemaComponent]`. Defines data structure. |
 | **Request Body**     | A class decorated with `[OpenApiRequestBodyComponent]`. Defines payload structure. |
 | **Response**         | A class decorated with `[OpenApiResponseComponent]`. Defines response structure. |
-| **Parameter**        | A class decorated with `[OpenApiParameterComponent]`. Defines reusable parameters. |
+| **Parameter**        | A PowerShell parameter/variable decorated with `[OpenApiParameterComponent]`. Defines reusable parameters. |
 | **Callback**         | An operation-scoped async notification defined under `paths.{path}.{verb}.callbacks` (OpenAPI 3.1). |
 | **Webhook**          | A top-level OpenAPI webhook entry describing an outgoing event notification your API may send to subscribers. |
 | **Property Attribute**| `[OpenApiPropertyAttribute]` on class properties defines validation, examples, and descriptions. |
@@ -59,7 +59,7 @@ flowchart LR
 
 ```powershell
 # 1. Define a Schema
-[OpenApiSchemaComponent(Required = ('name'))]
+[OpenApiSchemaComponent(RequiredProperties = ('name'))]
 class Pet {
     [OpenApiPropertyAttribute(Description = 'Pet ID', Example = 1)]
     [long]$id
@@ -108,7 +108,7 @@ This is different from **callbacks**, which are tied to a specific API operation
 Define payloads as schema components so webhook request bodies can reference them:
 
 ```powershell
-[OpenApiSchemaComponent(Required = ('event_id', 'event_type', 'timestamp', 'data'))]
+[OpenApiSchemaComponent(RequiredProperties = ('event_id', 'event_type', 'timestamp', 'data'))]
 class OrderEventPayload {
     [OpenApiPropertyAttribute(Description = 'Unique identifier for this event', Format = 'uuid')]
     [string]$event_id
@@ -176,7 +176,7 @@ When you invoke a callback function, Kestrun resolves the final URL, serializes 
 
 ```powershell
 # Callback event payload
-[OpenApiSchemaComponent(Required = ('eventId', 'timestamp', 'paymentId', 'status'))]
+[OpenApiSchemaComponent(RequiredProperties = ('eventId', 'timestamp', 'paymentId', 'status'))]
 class PaymentStatusChangedEvent {
     [OpenApiPropertyAttribute(Format = 'uuid')]
     [string]$eventId
@@ -344,7 +344,7 @@ Use `[OpenApiSchemaComponent]` to define reusable data models.
 ### 4.1 Basic Schema
 
 ```powershell
-[OpenApiSchemaComponent(Required = ('username', 'email'))]
+[OpenApiSchemaComponent(RequiredProperties = ('username', 'email'))]
 class User {
     [OpenApiPropertyAttribute(Description = 'Unique ID', Format = 'int64', Example = 1)]
     [long]$id
@@ -411,7 +411,7 @@ class Date : OpenApiString {}
 Use it in your other schemas to produce `$ref` references:
 
 ```powershell
-[OpenApiSchemaComponent(Required = ('ticketDate'))]
+[OpenApiSchemaComponent(RequiredProperties = ('ticketDate'))]
 class BuyTicketRequest {
     [OpenApiProperty(Description = 'Date that the ticket is valid for.')]
     [Date]$ticketDate
@@ -438,7 +438,7 @@ Use `[OpenApiRequestBodyComponent]` to define reusable request payloads. You can
 
 ```powershell
 # Define the base schema
-[OpenApiSchemaComponent(Required = ('name', 'price'))]
+[OpenApiSchemaComponent(RequiredProperties = ('name', 'price'))]
 class ProductSchema {
     [string]$name
     [double]$price
@@ -496,19 +496,45 @@ function getProduct {
 
 ## 7. Component Parameters
 
-Use `[OpenApiParameterComponent]` to group reusable parameters (Query, Header, Cookie).
+Use `[OpenApiParameterComponent]` to define reusable parameter components (Query, Header, Cookie).
+
+> **Important (defaults):** Component parameter variables must have an explicit value.
+>
+> - Assign a real value (e.g. `= 20`) when you want an OpenAPI `schema.default`.
+> - Use `= NoDefault` when you do not want any OpenAPI default emitted.
+> - Avoid using `= $null` as a “no default” marker; `$null` is still a value and may be treated as a default.
 
 ```powershell
-[OpenApiParameterComponent()]
-class PaginationParams {
-    [OpenApiParameter(In = [OaParameterLocation]::Query, Description = 'Page number')]
-    [OpenApiPropertyAttribute(Minimum = 1, Default = 1)]
-    [int]$page
+[OpenApiParameterComponent(In = [OaParameterLocation]::Query, Description = 'Page number', Minimum = 1, Example = 1)]
+[int]$page = 1
 
-    [OpenApiParameter(In = [OaParameterLocation]::Query, Description = 'Items per page')]
-    [OpenApiPropertyAttribute(Minimum = 1, Maximum = 100, Default = 20)]
-    [int]$limit
-}
+[OpenApiParameterComponent(In = [OaParameterLocation]::Query, Description = 'Items per page', Minimum = 1, Maximum = 100, Example = 20)]
+[int]$limit = 20
+
+[OpenApiParameterComponent(In = 'Header', Description = 'Optional correlation id for tracing', Example = '2f2d68c2-9b7a-4b5c-8b1d-0fdff2a4b9a3')]
+[string]$correlationId = NoDefault
+```
+
+### Using PowerShell Attributes to Shape Parameters
+
+In addition to metadata on `[OpenApiParameterComponent(...)]`, you can decorate the component variable/parameter with standard PowerShell validation attributes.
+When possible, Kestrun reflects these into the generated OpenAPI parameter schema.
+
+```powershell
+# Enum (OpenAPI: schema.enum)
+[OpenApiParameterComponent(In = 'Query', Description = 'Sort field')]
+[ValidateSet('name', 'price')]
+[string]$sortBy = 'name'
+
+# Range (OpenAPI: schema.minimum / schema.maximum)
+[OpenApiParameterComponent(In = 'Query', Description = 'Items per page', Example = 20)]
+[ValidateRange(1, 100)]
+[int]$limit = 20
+
+# Pattern (OpenAPI: schema.pattern)
+[OpenApiParameterComponent(In = 'Header', Description = 'Correlation id')]
+[ValidatePattern('^[0-9a-fA-F-]{36}$')]
+[string]$correlationId = NoDefault
 ```
 
 ### Usage in Route (Parameters)
@@ -516,8 +542,13 @@ class PaginationParams {
 ```powershell
 function listItems {
     [OpenApiPath(HttpVerb = 'get', Pattern = '/items')]
-    [OpenApiParameter(Reference = 'PaginationParams')]
-    param()
+    param(
+        [OpenApiParameterRef(ReferenceId = 'page')]
+        [int]$page,
+
+        [OpenApiParameterRef(ReferenceId = 'limit')]
+        [int]$limit
+    )
 }
 ```
 
@@ -735,7 +766,7 @@ Access the UI at `/swagger`, `/redoc`, etc., and the raw JSON at `/openapi/v3.1/
 | **`[OpenApiSchemaComponent]`** | Class | `Key`, `Examples`, `Required`, `Description`, `Array` |
 | **`[OpenApiRequestBodyComponent]`** | Class | `Key`, `ContentType`, `IsRequired`, `Description` |
 | **`[OpenApiResponseComponent]`** | Class | `Description`, `JoinClassName` |
-| **`[OpenApiParameterComponent]`** | Class | `Description`, `JoinClassName` |
+| **`[OpenApiParameterComponent]`** | Parameter | `In`, `Description`, `Required`, `ContentType`, `Example`, `Minimum`, `Maximum`, `Default` |
 | **`[OpenApiHeaderComponent]`** | Class | `Description`, `JoinClassName` |
 | **`[OpenApiExampleComponent]`** | Class | `Key`, `Summary`, `Description`, `ExternalValue` |
 | **`[OpenApiPropertyAttribute]`** | Parameter/Field | `Description`, `Example`, `Format`, `Required`, `Enum`, `Minimum`, `Maximum`, `Default` |
@@ -789,7 +820,7 @@ These properties are available on `[OpenApiSchemaComponent]`, `[OpenApiPropertyA
 | **Schemas** | ✅ Supported | Use `[OpenApiSchemaComponent]` classes |
 | **Request Bodies** | ✅ Supported | Use `[OpenApiRequestBodyComponent]` classes |
 | **Responses** | ✅ Supported | Use `[OpenApiResponseComponent]` classes |
-| **Parameters** | ✅ Supported | Use `[OpenApiParameterComponent]` classes |
+| **Parameters** | ✅ Supported | Define components with `[OpenApiParameterComponent]`, reference via `[OpenApiParameterRef]` |
 | **Headers** | ✅ Supported | Use `New-KrOpenApiHeader` + `Add-KrOpenApiComponent`, then reference via `OpenApiResponseHeaderRef` |
 | **Examples** | ✅ Supported | Use `New-KrOpenApiExample` + `Add-KrOpenApiComponent`, then reference via `OpenApiResponseExampleRef` / `OpenApiRequestBodyExampleRef` / `OpenApiParameterExampleRef` |
 | **Inheritance** | ✅ Supported | PowerShell class inheritance works for schemas |

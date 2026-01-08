@@ -31,6 +31,10 @@ public static class KestrunHostManager
     public static IReadOnlyCollection<string> InstanceNames => (IReadOnlyCollection<string>)_instances.Keys;
 
     /// <summary>
+    /// Gets the path of the entry script that invoked the KestrunHostManager.
+    /// </summary>
+    public static string EntryScriptPath { get; private set; } = string.Empty;
+    /// <summary>
     /// Gets or sets the root path for Kestrun operations.
     /// </summary>
     public static string? KestrunRoot
@@ -70,11 +74,12 @@ public static class KestrunHostManager
     /// Creates a new KestrunHost instance using the provided factory function.
     /// </summary>
     /// <param name="name">The name of the KestrunHost instance to create.</param>
+    /// <param name="entryScriptPath">The path of the entry script that invoked this creation.</param>
     /// <param name="factory">A factory function that returns a new KestrunHost instance.</param>
     /// <param name="setAsDefault">Whether to set this instance as the default.</param>
     /// <param name="enablePowershellMiddleware">Whether to enable PowerShell middleware for this instance.</param>
     /// <returns>The created KestrunHost instance.</returns>
-    public static KestrunHost Create(string name, Func<KestrunHost> factory, bool setAsDefault = false, bool enablePowershellMiddleware = false)
+    public static KestrunHost Create(string name, string entryScriptPath, Func<KestrunHost> factory, bool setAsDefault = false, bool enablePowershellMiddleware = false)
     {
         if (string.IsNullOrWhiteSpace(name))
         {
@@ -95,6 +100,9 @@ public static class KestrunHostManager
             _defaultName = name;
         }
 
+        // Set the entry script path
+        EntryScriptPath = entryScriptPath;
+
         return host;
     }
 
@@ -102,24 +110,26 @@ public static class KestrunHostManager
     /// Creates a new KestrunHost instance with the specified name and optional module paths, using the default logger.
     /// </summary>
     /// <param name="name">The name of the KestrunHost instance to create.</param>
+    /// <param name="entryScriptPath">The path of the entry script that invoked this creation.</param>
     /// <param name="modulePathsObj">Optional array of module paths to load.</param>
     /// <param name="setAsDefault">Whether to set this instance as the default.</param>
     /// <param name="enablePowershellMiddleware">Whether to enable PowerShell middleware for this instance.</param>
     /// <returns>The created KestrunHost instance.</returns>
-    public static KestrunHost Create(string name,
+    public static KestrunHost Create(string name, string entryScriptPath,
          string[]? modulePathsObj = null, bool setAsDefault = false, bool enablePowershellMiddleware = false) =>
-         Create(name, Log.Logger, modulePathsObj, setAsDefault, enablePowershellMiddleware);
+         Create(name, Log.Logger, entryScriptPath, modulePathsObj, setAsDefault, enablePowershellMiddleware);
 
     /// <summary>
     /// Creates a new KestrunHost instance with the specified name, logger, root path, and optional module paths.
     /// </summary>
     /// <param name="name">The name of the KestrunHost instance to create.</param>
     /// <param name="logger">The Serilog logger to use for the host.</param>
+    /// <param name="entryScriptPath">The path of the entry script that invoked this creation.</param>
     /// <param name="modulePathsObj">Optional array of module paths to load.</param>
     /// <param name="setAsDefault">Whether to set this instance as the default.</param>
     /// <param name="enablePowershellMiddleware">Whether to enable PowerShell middleware for this instance.</param>
     /// <returns>The created KestrunHost instance.</returns>
-    public static KestrunHost Create(string name, Serilog.ILogger logger,
+    public static KestrunHost Create(string name, Serilog.ILogger logger, string entryScriptPath,
          string[]? modulePathsObj = null, bool setAsDefault = false, bool enablePowershellMiddleware = false)
     {
         if (string.IsNullOrWhiteSpace(name))
@@ -149,6 +159,9 @@ public static class KestrunHostManager
         {
             _defaultName = name;
         }
+
+        // Set the entry script path
+        EntryScriptPath = entryScriptPath;
 
         return host;
     }

@@ -39,7 +39,7 @@ Add-KrAddCallbacksAutomation
 # =========================================================
 #                 COMPONENT SCHEMAS
 # =========================================================
-[OpenApiSchemaComponent(Description = 'Callback URLs supplied by the client for async notifications.', Required = ('status', 'reservation', 'shippingOrder'))]
+[OpenApiSchemaComponent(Description = 'Callback URLs supplied by the client for async notifications.', RequiredProperties = ('status', 'reservation', 'shippingOrder'))]
 class CallbackUrls {
     [OpenApiPropertyAttribute(Description = 'Callback URL for payment status updates.', Format = 'uri', Example = 'https://client.example.com/callbacks/payment-status')]
     [string]$status
@@ -51,7 +51,7 @@ class CallbackUrls {
     [string]$shippingOrder
 }
 
-[OpenApiSchemaComponent(Description = 'Request payload to create a payment. Includes callback URLs for async updates.', Required = ('amount', 'currency', 'callbackUrls'))]
+[OpenApiSchemaComponent(Description = 'Request payload to create a payment. Includes callback URLs for async updates.', RequiredProperties = ('amount', 'currency', 'callbackUrls'))]
 class CreatePaymentRequest {
     [OpenApiPropertyAttribute(Description = 'Payment amount', Example = 129.99, Minimum = 0)]
     [double]$amount
@@ -63,7 +63,7 @@ class CreatePaymentRequest {
     [CallbackUrls]$callbackUrls
 }
 
-[OpenApiSchemaComponent(Description = 'Response returned after creating a payment.', Required = ('paymentId', 'status'))]
+[OpenApiSchemaComponent(Description = 'Response returned after creating a payment.', RequiredProperties = ('paymentId', 'status'))]
 class CreatePaymentResponse {
     [OpenApiPropertyAttribute(Description = 'Payment identifier', Example = 'PAY-12345678')]
     [string]$paymentId
@@ -73,7 +73,7 @@ class CreatePaymentResponse {
     [string]$status
 }
 
-[OpenApiSchemaComponent(Description = 'Callback event payload for payment status changes.', Required = ('eventId', 'timestamp', 'paymentId', 'status'))]
+[OpenApiSchemaComponent(Description = 'Callback event payload for payment status changes.', RequiredProperties = ('eventId', 'timestamp', 'paymentId', 'status'))]
 class PaymentStatusChangedEvent {
     [OpenApiPropertyAttribute(Description = 'Event identifier', Format = 'uuid')]
     [string]$eventId
@@ -89,7 +89,7 @@ class PaymentStatusChangedEvent {
     [string]$status
 }
 
-[OpenApiSchemaComponent(Description = 'Callback event payload for reservation creation.', Required = ('eventId', 'timestamp', 'orderId', 'reservationId'))]
+[OpenApiSchemaComponent(Description = 'Callback event payload for reservation creation.', RequiredProperties = ('eventId', 'timestamp', 'orderId', 'reservationId'))]
 class ReservationCreatedEvent {
     [OpenApiPropertyAttribute(Description = 'Event identifier', Format = 'uuid')]
     [string]$eventId
@@ -104,7 +104,7 @@ class ReservationCreatedEvent {
     [string]$reservationId
 }
 
-[OpenApiSchemaComponent(Description = 'Callback event payload for shipping order creation.', Required = ('eventId', 'timestamp', 'orderId', 'shippingOrderId'))]
+[OpenApiSchemaComponent(Description = 'Callback event payload for shipping order creation.', RequiredProperties = ('eventId', 'timestamp', 'orderId', 'shippingOrderId'))]
 class ShippingOrderCreatedEvent {
     [OpenApiPropertyAttribute(Description = 'Event identifier', Format = 'uuid')]
     [string]$eventId

@@ -39,7 +39,7 @@ Add-KrOpenApiTag -Name 'Operational' -Description 'Operational behaviors (rate l
 #                      COMPONENT SCHEMAS
 # =========================================================
 
-[OpenApiSchemaComponent(Description = 'Create user request', Required = ('firstName', 'lastName', 'email'))]
+[OpenApiSchemaComponent(Description = 'Create user request', RequiredProperties = ('firstName', 'lastName', 'email'))]
 class CreateUserRequest {
     [OpenApiPropertyAttribute(Description = 'First name', Example = 'Jane')]
     [string]$firstName
@@ -51,7 +51,7 @@ class CreateUserRequest {
     [string]$email
 }
 
-[OpenApiSchemaComponent(Description = 'User resource', Required = ('id', 'firstName', 'lastName', 'email', 'updatedAt'))]
+[OpenApiSchemaComponent(Description = 'User resource', RequiredProperties = ('id', 'firstName', 'lastName', 'email', 'updatedAt'))]
 class UserResponse {
     [OpenApiPropertyAttribute(Description = 'Unique user identifier', Format = 'int64', Example = 1)]
     [long]$id

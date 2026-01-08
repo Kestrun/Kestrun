@@ -143,6 +143,16 @@ Context.Response.WriteFileResponse(), Context.Response.WriteTextResponse()
 
 ## Common Patterns to Follow
 
+## Complexity & Documentation Rules
+
+### Cyclomatic complexity
+- Keep functions/methods at a maximum cyclomatic complexity of **15**.
+- If a function exceeds 15, simplify/refactor it (prefer early returns, guard clauses, and small focused helpers).
+
+### Documentation when refactoring
+- When you introduce new helper functions/methods as part of a complexity reduction, **each new helper must include XML documentation** (`/// <summary>`, params, returns as applicable).
+- Add brief inline comments only where they clarify non-obvious intent (avoid redundant comments).
+
 When adding new features:
 1. **Implement C# core first** in appropriate namespace under `src/CSharp/Kestrun/`
 2. **Create PowerShell wrapper** with `Kr` prefix in `src/PowerShell/Kestrun/Public/`
@@ -456,9 +466,108 @@ Common URLs when running examples:
 ### Modeling operations
 
 - Use `[OpenApiPath(...)]` on the route function to describe the operation.
-- Prefer `[OpenApiParameter(...)]` for path/query/header parameters.
-- Prefer `[OpenApiRequestBody(...)]` on the *body parameter* (not on the function) when you need request-body metadata.
 - Use `[OpenApiResponse(...)]` to describe response status codes and schemas.
+- Prefer `[OpenApiRequestBody(...)]` on the *body parameter* (not on the function) when you need request-body metadata.
+
+#### Parameter components (reusable parameters)
+
+Kestrun supports **reusable parameter components** declared on PowerShell variables and referenced in route functions via `[OpenApiParameterRef]`.
+
+**Defining parameter components:**
+
+```powershell
+# Declare a reusable parameter component on a variable
+[OpenApiParameterComponent(In = 'Query', Description = 'Page number', Example = 1)]
+[ValidateRange(1, 1000)]
+[int]$page = 1
+
+[OpenApiParameterComponent(In = 'Header', Description = 'Correlation id for request tracing')]
+[string]$correlationId = NoDefault
+
+[OpenApiParameterComponent(In = 'Path', Required = $true, Description = 'Product identifier', Minimum = 1)]
+[long]$productId = NoDefault
+```
+
+**Critical rules for parameter component variables:**
+
+1. **Assignment is REQUIRED**: Every parameter component variable **must** have an explicit assignment.
+2. **Use `NoDefault` when no OpenAPI default should be generated**:
+   - Assign `= NoDefault` when the parameter has no default value in the OpenAPI spec.
+   - Do **not** use `$null` or omit the assignment.
+3. **Assign a concrete default value when appropriate**:
+   - `[int]$page = 1` → OpenAPI `schema.default: 1`
+   - `[string]$sortBy = 'name'` → OpenAPI `schema.default: 'name'`
+
+**Referencing parameter components in routes:**
+
+```powershell
+function listProducts {
+    [OpenApiPath(HttpVerb = 'get', Pattern = '/v1/products')]
+    param(
+        [OpenApiParameterRef(ReferenceId = 'page')]
+        [int]$page,
+
+        [OpenApiParameterRef(ReferenceId = 'correlationId')]
+        [string]$correlationId,
+
+        [OpenApiParameterRef(ReferenceId = 'productId')]
+        [long]$productId
+    )
+    # ...
+}
+```
+
+**Using PowerShell validation attributes to shape parameter schemas:**
+
+PowerShell validation attributes automatically map to OpenAPI schema constraints:
+
+- `[ValidateRange(min, max)]` → `schema.minimum`, `schema.maximum`
+- `[ValidateSet('a', 'b', 'c')]` → `schema.enum`
+- `[ValidatePattern('regex')]` → `schema.pattern`
+- `[ValidateLength(min, max)]` → `schema.minLength`, `schema.maxLength`
+- `[ValidateCount(min, max)]` → `schema.minItems`, `schema.maxItems`
+- `[ValidateNotNullOrEmpty()]` → `schema.minLength: 1`
+
+Example combining attributes:
+
+```powershell
+[OpenApiParameterComponent(In = 'Query', Description = 'Sort field')]
+[ValidateSet('name', 'price', 'category')]
+[string]$sortBy = 'name'
+```
+
+Generates OpenAPI:
+
+```yaml
+parameters:
+  sortBy:
+    in: query
+    schema:
+      type: string
+      enum: [name, price, category]
+      default: name
+```
+
+**Parameter content-type (advanced):**
+
+Parameters can define content rather than a simple schema (useful for complex header payloads):
+
+```powershell
+[OpenApiParameterComponent(In = 'Header', ContentType = 'application/json', Description = 'Client context')]
+[ClientContext]$clientContext = NoDefault
+```
+
+This generates:
+
+```yaml
+parameters:
+  clientContext:
+    in: header
+    content:
+      application/json:
+        schema:
+          $ref: '#/components/schemas/ClientContext'
+```
 
 ### Examples and multi-content types (request/response)
 
@@ -509,7 +618,7 @@ class Date : OpenApiString {}
 Then use it as a property type anywhere you want `$ref`:
 
 ```powershell
-[OpenApiSchemaComponent(Required = ('ticketDate'))]
+[OpenApiSchemaComponent(RequiredProperties = ('ticketDate'))]
 class BuyTicketRequest {
     [OpenApiProperty(Description = 'Date that the ticket is valid for.')]
     [Date]$ticketDate

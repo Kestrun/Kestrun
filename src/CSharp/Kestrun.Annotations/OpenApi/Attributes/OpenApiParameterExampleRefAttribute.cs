@@ -5,11 +5,11 @@
 /// <remarks>
 /// Create an example reference specifying the media type.
 /// </remarks>
-[AttributeUsage(AttributeTargets.Parameter, AllowMultiple = true, Inherited = false)]
+[AttributeUsage(AttributeTargets.Parameter, AllowMultiple = false, Inherited = false)]
 public sealed class OpenApiParameterExampleRefAttribute : KestrunAnnotation, IOpenApiExampleAttribute
 {
     /// <summary>Local name under content[contentType].examples</summary>
-    public required string Key { get; set; }
+    public string Key { get; set; } = "application/json";
 
     /// <summary>Id under #/components/examples/{ReferenceId}</summary>
     public required string ReferenceId { get; set; }

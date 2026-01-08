@@ -32,6 +32,8 @@ namespace Kestrun.Hosting;
 /// </summary>
 public partial class KestrunHost : IDisposable
 {
+    private const string KestrunVariableMarkerKey = "__kestrunVariable";
+
     #region Fields
     internal WebApplicationBuilder Builder { get; }
 
@@ -208,6 +210,11 @@ public partial class KestrunHost : IDisposable
     /// Gets or sets a value indicating whether CORS (Cross-Origin Resource Sharing) is enabled.
     /// </summary>
     public bool CorsPolicyDefined => DefinedCorsPolicyNames.Count > 0;
+
+    /// <summary>
+    /// Gets the scanned OpenAPI component annotations from PowerShell scripts.
+    /// </summary>
+    public Dictionary<string, OpenApiComponentAnnotationScanner.AnnotatedVariable>? ComponentAnnotations { get; private set; }
 
     /// <summary>
     /// Gets or sets the status code options for configuring status code pages.
@@ -1036,6 +1043,9 @@ public partial class KestrunHost : IDisposable
     /// <summary>
     /// Applies the configured options to the Kestrel server and initializes the runspace pool.
     /// </summary>
+    /// <param name="userVariables">User-defined variables to inject into the runspace pool.</param>
+    /// <param name="userFunctions">User-defined functions to inject into the runspace pool.</param>
+    /// <param name="userCallbacks">User-defined callback functions for OpenAPI classes.</param>
     public void EnableConfiguration(Dictionary<string, object>? userVariables = null, Dictionary<string, string>? userFunctions = null, Dictionary<string, string>? userCallbacks = null)
     {
         if (!ValidateConfiguration())
@@ -1045,21 +1055,24 @@ public partial class KestrunHost : IDisposable
 
         try
         {
-            // Export OpenAPI classes from PowerShell
-            var openApiClassesPath = PowerShellOpenApiClassExporter.ExportOpenApiClasses(userCallbacks: userCallbacks);
             if (Logger.IsEnabled(LogEventLevel.Debug))
             {
-                if (string.IsNullOrWhiteSpace(openApiClassesPath))
-                {
-                    Logger.Debug("No OpenAPI classes exported from PowerShell.");
-                }
-                else
-                {
-                    Logger.Debug("Exported OpenAPI classes from PowerShell: {path}", openApiClassesPath);
-                }
+                Logger.Debug("Applying configuration to KestrunHost.");
             }
+            // Inject user variables into shared state
+            _ = ApplyUserVarsToState(userVariables);
+
+            // Scan for OpenAPI component annotations in the main script.
+            // In C#-only scenarios (including xUnit tests), there may be no PowerShell entry script.
+            ComponentAnnotations = !string.IsNullOrWhiteSpace(KestrunHostManager.EntryScriptPath)
+                && File.Exists(KestrunHostManager.EntryScriptPath)
+            ? OpenApiComponentAnnotationScanner.ScanFromPath(mainPath: KestrunHostManager.EntryScriptPath)
+            : null;
+
+            // Export OpenAPI classes from PowerShell
+            var openApiClassesPath = ExportOpenApiClasses(userCallbacks);
             // Initialize PowerShell runspace pool
-            InitializeRunspacePool(userVariables: userVariables, userFunctions: userFunctions, openApiClassesPath: openApiClassesPath);
+            InitializeRunspacePool(userVariables: null, userFunctions: userFunctions, openApiClassesPath: openApiClassesPath);
             // Configure Kestrel server
             ConfigureKestrelBase();
             // Configure named pipe listeners if any
@@ -1083,6 +1096,46 @@ public partial class KestrunHost : IDisposable
         {
             HandleConfigurationError(ex);
         }
+    }
+
+    /// <summary>
+    /// Applies user-defined variables to the shared state.
+    /// </summary>
+    /// <param name="userVariables">User-defined variables to inject into the shared state.</param>
+    /// <returns>True if all variables were successfully applied; otherwise, false.</returns>
+    private bool ApplyUserVarsToState(Dictionary<string, object>? userVariables)
+    {
+        var statusSet = true;
+        if (userVariables is not null)
+        {
+            foreach (var v in userVariables)
+            {
+                statusSet &= SharedState.Set(v.Key, v.Value, true);
+            }
+        }
+        return statusSet;
+    }
+
+    /// <summary>
+    /// Exports OpenAPI classes from PowerShell.
+    /// </summary>
+    /// <param name="userCallbacks">User-defined callbacks for OpenAPI class export.</param>
+    private string ExportOpenApiClasses(Dictionary<string, string>? userCallbacks)
+    {
+        // Export OpenAPI classes from PowerShell
+        var openApiClassesPath = PowerShellOpenApiClassExporter.ExportOpenApiClasses(userCallbacks: userCallbacks);
+        if (Logger.IsEnabled(LogEventLevel.Debug))
+        {
+            if (string.IsNullOrWhiteSpace(openApiClassesPath))
+            {
+                Logger.Debug("No OpenAPI classes exported from PowerShell.");
+            }
+            else
+            {
+                Logger.Debug("Exported OpenAPI classes from PowerShell: {path}", openApiClassesPath);
+            }
+        }
+        return openApiClassesPath;
     }
 
     /// <summary>
@@ -1787,7 +1840,7 @@ public partial class KestrunHost : IDisposable
                 iss.Variables.Add(
                     new SessionStateVariableEntry(
                         kvp.Key,
-                        psVar.Value,
+                        UnwrapKestrunVariableValue(psVar.Value),
                         psVar.Description ?? "User-defined variable"
                     )
                 );
@@ -1797,11 +1850,93 @@ public partial class KestrunHost : IDisposable
             iss.Variables.Add(
                 new SessionStateVariableEntry(
                     kvp.Key,
-                    kvp.Value,
+                    UnwrapKestrunVariableValue(kvp.Value),
                     "User-defined variable"
                 )
             );
         }
+    }
+
+    /// <summary>
+    /// Unwraps a Kestrun variable value if it is wrapped in a dictionary with a specific marker.
+    /// </summary>
+    /// <param name="raw">The raw variable value to unwrap.</param>
+    /// <returns>The unwrapped variable value, or the original value if not wrapped.</returns>
+    private static object? UnwrapKestrunVariableValue(object? raw)
+    {
+        if (raw is null)
+        {
+            return null;
+        }
+
+        // unwrap PSObject if needed
+        raw = UnwrapPsObject(raw);
+
+        // check for dictionary
+        if (raw is not System.Collections.IDictionary dict)
+        {
+            return raw;
+        }
+
+        // check for marker key
+        if (!TryGetDictionaryValueIgnoreCase(dict, KestrunVariableMarkerKey, out var markerObj))
+        {
+            return raw;
+        }
+
+        // check if marker is enabled
+        if (!IsKestrunVariableMarkerEnabled(markerObj))
+        {
+            return raw;
+        }
+
+        // extract the "Value" entry
+        return TryGetDictionaryValueIgnoreCase(dict, "Value", out var valueObj)
+            ? UnwrapPsObject(valueObj)
+            : null;
+    }
+
+    /// <summary>
+    /// Unwraps a PowerShell <see cref="PSObject"/> by returning its <see cref="PSObject.BaseObject"/>.
+    /// </summary>
+    /// <param name="raw">The value to unwrap.</param>
+    /// <returns>The underlying base object when <paramref name="raw"/> is a <see cref="PSObject"/>, otherwise <paramref name="raw"/>.</returns>
+    private static object? UnwrapPsObject(object? raw)
+        => raw is PSObject pso ? pso.BaseObject : raw;
+
+    /// <summary>
+    /// Determines whether the Kestrun variable marker is enabled.
+    /// </summary>
+    /// <param name="markerObj">The marker value (typically a boolean or a PowerShell-wrapped boolean).</param>
+    /// <returns><c>true</c> if the marker indicates the value is wrapped; otherwise, <c>false</c>.</returns>
+    private static bool IsKestrunVariableMarkerEnabled(object? markerObj)
+        => markerObj switch
+        {
+            bool b => b,
+            PSObject psMarker when psMarker.BaseObject is bool b => b,
+            _ => false
+        };
+
+    private static bool TryGetDictionaryValueIgnoreCase(System.Collections.IDictionary dict, string key, out object? value)
+    {
+        value = null;
+
+        if (dict.Contains(key))
+        {
+            value = dict[key];
+            return true;
+        }
+
+        foreach (System.Collections.DictionaryEntry de in dict)
+        {
+            if (de.Key is string s && string.Equals(s, key, StringComparison.OrdinalIgnoreCase))
+            {
+                value = de.Value;
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private static void AddUserFunctions(InitialSessionState iss, IReadOnlyDictionary<string, string>? userFunctions)

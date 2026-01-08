@@ -13,6 +13,8 @@
     -AsHashtable switch to get a hashtable instead.
 .PARAMETER Yaml
     The YAML string to convert. This parameter is mandatory and accepts input from the pipeline.
+.PARAMETER YamlBytes
+    The YAML content as a byte array to convert. This parameter is mandatory when using the 'Bytes' parameter set.
 .PARAMETER AllDocuments
     If specified, all documents in a multi-document YAML stream will be returned as an array. By default, only the first document is returned.
 .PARAMETER UseMergingParser
@@ -55,17 +57,31 @@
     # Outputs a PSCustomObject with merged properties for 'development' and 'test' sections
     # using the 'defaults' anchor.
     $obj | Format-List
+.EXAMPLE
+    $yamlBytes = [System.Text.Encoding]::UTF8.GetBytes(@"
+    name: John
+    age: 30
+    "@)
+    $obj = ConvertFrom-KrYaml -YamlBytes $yamlBytes
+    # Outputs a PSCustomObject with properties Name and Age.
 .NOTES
     This cmdlet requires PowerShell 7.0 or later.
     It uses the Kestrun.Utilities.Yaml library for YAML deserialization.
 #>
 function ConvertFrom-KrYaml {
     [KestrunRuntimeApi('Everywhere')]
-    [CmdletBinding()]
+    [CmdletBinding(DefaultParameterSetName = 'String')]
     param(
-        [Parameter(Mandatory = $false, ValueFromPipeline = $true, Position = 0)]
+        [Parameter(Mandatory = $true, ValueFromPipeline = $true, Position = 0 , ParameterSetName = 'String')]
         [string]$Yaml,
+
+        [Parameter(Mandatory = $true, ParameterSetName = 'Bytes')]
+        [byte[]]$YamlBytes,
+
+        [Parameter()]
         [switch]$AllDocuments = $false,
+
+        [Parameter()]
         [switch]$UseMergingParser = $false
     )
 
@@ -73,11 +89,21 @@ function ConvertFrom-KrYaml {
         $builder = [System.Text.StringBuilder]::new()
     }
     process {
-        if ($Yaml -is [string]) {
+        if ($PSCmdlet.ParameterSetName -eq 'Bytes') {
+            $str = [System.Text.Encoding]::UTF8.GetString($YamlBytes)
             if ($builder.Length -gt 0) {
                 [void]$builder.Append("`n")
             }
-            [void]$builder.Append($Yaml)
+            [void]$builder.Append($str)
+            return
+        } elseif ($PSCmdlet.ParameterSetName -eq 'String') {
+            if ($Yaml -is [string]) {
+                if ($builder.Length -gt 0) {
+                    [void]$builder.Append("`n")
+                }
+                [void]$builder.Append($Yaml)
+            }
+            return
         }
     }
 

@@ -1514,7 +1514,7 @@ public static class OpenApiComponentAnnotationScanner
             type ??= ResolveTypeFromName(shortName + "Attribute");
         }
 
-        return typeof(KestrunAnnotation).IsAssignableFrom(type) ? type : null;
+        return type is not null && typeof(KestrunAnnotation).IsAssignableFrom(type) ? type : null;
     }
 
     /// <summary>

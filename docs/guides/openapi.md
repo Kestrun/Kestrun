@@ -637,12 +637,210 @@ Defines individual parameters if not using a component.
 [OpenApiParameter(Name = 'id', In = 'path', Required = $true, Type = [long])]
 ```
 
-### 9.5 Headers (Reusable Response Headers)
+### 9.4.1 HTTP QUERY Method (OpenAPI 3.2+)
+
+The HTTP `QUERY` method is a semantically clearer alternative to `GET` for search/filter operations that require a request body.
+It combines safe semantics (like GET) with structured payloads (like POST).
+
+**OpenAPI 3.2+ Support:**
+
+- Kestrun generates operations under `paths['/pattern'].query` when you use `HttpVerb = 'query'`.
+- Full support for request body, query parameters, responses, and all standard decorators.
+
+**Backward Compatibility (OpenAPI 3.0 / 3.1):**
+
+- The `QUERY` method is not part of OpenAPI 3.0 or 3.1 specifications.
+- Kestrun automatically generates a fallback extension `x-oai-additionalOperations.QUERY` for these versions.
+- Consumers can still understand and invoke the operation via the extension.
+
+#### 9.4.1.1 Example: Product Search with QUERY
+
+Define reusable parameter and schema components:
+
+```powershell
+# Reusable pagination parameters
+[OpenApiParameterComponent(In = 'Query', Description = 'Page number')]
+[ValidateRange(1, 1000)]
+[int]$page = 1
+
+[OpenApiParameterComponent(In = 'Query', Description = 'Page size')]
+[ValidateRange(1, 100)]
+[int]$pageSize = 25
+
+# Request schema
+[OpenApiSchemaComponent(RequiredProperties = ('id', 'name', 'price'))]
+class Product {
+    [OpenApiPropertyAttribute(Description = 'Product ID', Example = 101)]
+    [long]$id
+
+    [OpenApiPropertyAttribute(Description = 'Product name', Example = 'Laptop')]
+    [string]$name
+
+    [OpenApiPropertyAttribute(Description = 'Price', Example = 999.99)]
+    [double]$price
+}
+
+# Filter schema
+[OpenApiSchemaComponent()]
+class ProductSearchFilters {
+    [OpenApiPropertyAttribute(Description = 'Search query', Example = 'laptop')]
+    [string]$q
+
+    [OpenApiPropertyAttribute(Description = 'Min price', Example = 500)]
+    [double]$minPrice
+}
+```
+
+Define the route with `HttpVerb = 'query'`:
+
+```powershell
+<#
+.SYNOPSIS
+    Search products using HTTP QUERY.
+.DESCRIPTION
+    Demonstrates the QUERY method with structured request body filters
+    and standard query parameters for pagination.
+#>
+function searchProducts {
+    [OpenApiPath(HttpVerb = 'query', Pattern = '/products/search')]
+    [OpenApiResponse(StatusCode = '200', Description = 'Paginated results')]
+    param(
+        [OpenApiParameterRef(ReferenceId = 'page')]
+        [int]$page,
+
+        [OpenApiParameterRef(ReferenceId = 'pageSize')]
+        [int]$pageSize,
+
+        [OpenApiRequestBody(Description = 'Search filters')]
+        [ProductSearchFilters]$filters
+    )
+
+    # ... filter logic ...
+    $result = @{
+        page = $page
+        pageSize = $pageSize
+        total = 42
+        items = @([Product]@{ id = 101; name = 'Laptop'; price = 999.99 })
+    }
+
+    Write-KrResponse -InputObject $result -StatusCode 200
+}
+```
+
+#### 9.4.1.2 Generated OpenAPI
+
+**OpenAPI 3.2 JSON:**
+
+```json
+{
+  "paths": {
+    "/products/search": {
+      "query": {
+        "summary": "Search products using HTTP QUERY.",
+        "operationId": "searchProducts",
+        "parameters": [
+          { "$ref": "#/components/parameters/page" },
+          { "$ref": "#/components/parameters/pageSize" }
+        ],
+        "requestBody": {
+          "description": "Search filters",
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/ProductSearchFilters" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Paginated results",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "items": { "type": "array", "items": { "$ref": "#/components/schemas/Product" } }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+**OpenAPI 3.0 / 3.1 JSON (Fallback via x-oai-additionalOperations):**
+
+```json
+{
+  "paths": {
+    "/products/search": {
+      "x-oai-additionalOperations": {
+        "QUERY": {
+          "summary": "Search products using HTTP QUERY.",
+          "operationId": "searchProducts",
+          "parameters": [
+            { "$ref": "#/components/parameters/page" },
+            { "$ref": "#/components/parameters/pageSize" }
+          ],
+          "requestBody": {
+            "description": "Search filters",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ProductSearchFilters" } } }
+          },
+          "responses": { "200": { "description": "Paginated results", ... } }
+        }
+      }
+    }
+  }
+}
+```
+
+#### 9.4.1.3 Client Usage
+
+**curl / PowerShell:**
+
+```powershell
+$body = @{
+    q = 'laptop'
+    minPrice = 500
+} | ConvertTo-Json
+
+Invoke-WebRequest -Uri 'http://api.example.com/products/search?page=1&pageSize=10' `
+    -CustomMethod 'QUERY' `
+    -ContentType 'application/json' `
+    -Body $body
+```
+
+**JavaScript / Fetch:**
+
+```javascript
+const response = await fetch('http://api.example.com/products/search?page=1&pageSize=10', {
+    method: 'QUERY',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ q: 'laptop', minPrice: 500 })
+});
+```
+
+#### 9.4.1.4 When to Use QUERY vs GET/POST
+
+| Method | Request Body | Semantics | Use Case |
+| :--- | :--- | :--- | :--- |
+| **GET** | ❌ No | Safe, idempotent, cacheable | Simple retrieval, no complex filters |
+| **POST** | ✅ Yes | Unsafe, creates resource | Create, modify, complex transformations |
+| **QUERY** (3.2+) | ✅ Yes | Safe, idempotent (like GET) | **Search/filter with complex criteria** |
+
+Use `QUERY` when you have complex search filters that don't fit cleanly in query parameters but want GET-like semantics (safe, repeatable, semantically correct).
+
+---
+
+### 9.6 Headers (Reusable Response Headers)
 
 OpenAPI **headers** let you document response headers returned by an operation.
 In Kestrun you can define reusable header components and then reference them from responses.
 
-#### 9.5.1 Define header components
+#### 9.6.1 Define header components
 
 ```powershell
 New-KrOpenApiHeader \
@@ -660,7 +858,7 @@ New-KrOpenApiHeader \
 
 This produces entries under `components.headers` in the generated OpenAPI document.
 
-#### 9.5.2 Apply header components to responses
+#### 9.6.2 Apply header components to responses
 
 Use `OpenApiResponseHeaderRef` on a route function to attach a header component to a specific status code.
 
@@ -676,7 +874,7 @@ function createUser {
 
 In the generated OpenAPI JSON, references appear under `responses[status].headers` as `$ref` values.
 
-#### 9.5.3 Inline one-off response headers
+#### 9.6.3 Inline one-off response headers
 
 If you don’t need reuse, define a header inline:
 
@@ -685,7 +883,7 @@ If you don’t need reuse, define a header inline:
 [OpenApiResponseHeader(StatusCode = '400', Key = 'X-Error-Code', Description = 'Machine-readable error code.', Schema = ([string]))]
 ```
 
-#### 9.5.4 Set runtime header values
+#### 9.6.4 Set runtime header values
 
 Documenting a header does not set it automatically. Set the actual header values in the route:
 
@@ -697,7 +895,7 @@ $Context.Response.Headers['ETag'] = "W/`"user-$id-v1`""
 
 > **Note:** If your routes call helper functions, define those functions before `Enable-KrConfiguration` so they are captured and injected into route runspaces.
 
-### 9.6 Links (Operation Relationships)
+### 9.7 Links (Operation Relationships)
 
 OpenAPI **links** describe how a successful response from one operation can be used as input to another.
 In Kestrun you typically:
@@ -706,7 +904,7 @@ In Kestrun you typically:
 2. Store it under `components/links` using `Add-KrOpenApiComponent`
 3. Reference it from an operation response using `OpenApiResponseLinkRef`
 
-#### 9.6.1 Define link components
+#### 9.7.1 Define link components
 
 ```powershell
 # Use values from the current response to build the next call.
@@ -720,7 +918,7 @@ New-KrOpenApiLink -OperationId 'updateUser' -Description 'Update the user resour
     Add-KrOpenApiComponent -Name 'UpdateUserLink'
 ```
 
-#### 9.6.2 Apply links to responses
+#### 9.7.2 Apply links to responses
 
 ```powershell
 function createUser {
@@ -732,7 +930,7 @@ function createUser {
 }
 ```
 
-#### 9.6.3 Expression mapping quick notes
+#### 9.7.3 Expression mapping quick notes
 
 - `OperationId` should match the OpenAPI operation id for the target endpoint (in Kestrun examples, this is typically the function name).
 - `Parameters` maps parameter names (e.g., `userId`) to runtime expressions like `$response.body#/id`.
@@ -741,7 +939,7 @@ function createUser {
 
 ---
 
-## 10. Building and Viewing
+## 11. Building and Viewing
 
 1. **Enable Configuration**: `Enable-KrConfiguration`
 2. **Register Viewers**: `Add-KrApiDocumentationRoute -DocumentType Swagger` (or Redoc, Scalar, etc.)
@@ -757,7 +955,7 @@ Access the UI at `/swagger`, `/redoc`, etc., and the raw JSON at `/openapi/v3.1/
 
 ---
 
-## 11. Component Reference
+## 12. Component Reference
 
 ### Attribute Usage Matrix
 
@@ -813,7 +1011,7 @@ These properties are available on `[OpenApiSchemaComponent]`, `[OpenApiPropertyA
 
 ---
 
-## 12. Feature Matrix
+## 13. Feature Matrix
 
 | Feature | Status | Notes |
 | :--- | :--- | :--- |
@@ -832,7 +1030,7 @@ These properties are available on `[OpenApiSchemaComponent]`, `[OpenApiPropertyA
 
 ---
 
-## 13. External References
+## 14. External References
 
 For deeper understanding of the underlying standards and tools:
 

@@ -34,8 +34,8 @@ public class PowerShellInvokeExtensionsTests
                 System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static);
 
         Assert.NotNull(method);
-        Assert.True(method!.IsPublic);
-        Assert.True(method!.IsStatic);
+        Assert.True(method.IsPublic);
+        Assert.True(method.IsStatic);
     }
 
     [Fact]
@@ -48,7 +48,7 @@ public class PowerShellInvokeExtensionsTests
                 System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static);
 
         Assert.NotNull(method);
-        var returnType = method!.ReturnType;
+        var returnType = method.ReturnType;
 
         // Check if it's Task<> with PSDataCollection<PSObject>
         Assert.True(returnType.IsGenericType);
@@ -65,7 +65,7 @@ public class PowerShellInvokeExtensionsTests
                 System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static);
 
         Assert.NotNull(method);
-        var parameters = method!.GetParameters();
+        var parameters = method.GetParameters();
 
         Assert.Equal(3, parameters.Length);
         Assert.Equal("ps", parameters[0].Name);
@@ -86,7 +86,7 @@ public class PowerShellInvokeExtensionsTests
                 System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static);
 
         Assert.NotNull(method);
-        var firstParam = method!.GetParameters()[0];
+        var firstParam = method.GetParameters()[0];
         Assert.Equal(typeof(PowerShell), firstParam.ParameterType);
         Assert.Equal("ps", firstParam.Name);
     }

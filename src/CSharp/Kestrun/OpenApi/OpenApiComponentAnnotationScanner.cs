@@ -14,10 +14,15 @@ public static class OpenApiComponentAnnotationScanner
     /// <summary>
     /// Represents a variable discovered in script, along with its OpenAPI annotations and metadata.
     /// </summary>
-    public sealed class AnnotatedVariable
+    public sealed class AnnotatedVariable(string name)
     {
         /// <summary>Annotations attached to the variable.</summary>
         public List<KestrunAnnotation> Annotations { get; } = [];
+
+        /// <summary>
+        /// The variable name.
+        /// </summary>
+        public string Name { get; set; } = name;
 
         /// <summary>The declared variable type if present (e.g. from <c>[int]$x</c> or <c>[int]$x = 1</c>).</summary>
         public Type? VariableType { get; set; }
@@ -669,7 +674,7 @@ public static class OpenApiComponentAnnotationScanner
     {
         if (!variables.TryGetValue(varName, out var entry))
         {
-            entry = new AnnotatedVariable();
+            entry = new AnnotatedVariable(varName);
             variables[varName] = entry;
         }
 

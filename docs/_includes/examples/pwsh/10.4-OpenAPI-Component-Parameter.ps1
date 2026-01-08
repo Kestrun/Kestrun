@@ -380,6 +380,7 @@ function createProduct {
         [CreateProductRequest]$body
     )
 
+    Write-KrLog -Level Debug -Message 'Creating product for tenant: {tenantId}' -Values $tenantId
     if (-not [string]::IsNullOrWhiteSpace($correlationId)) {
         $Context.Response.Headers['correlationId'] = $correlationId
     }

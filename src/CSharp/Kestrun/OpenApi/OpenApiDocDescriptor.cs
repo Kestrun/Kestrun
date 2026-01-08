@@ -150,31 +150,33 @@ public partial class OpenApiDocDescriptor
                 continue;
             }
 
-            DispatchComponentAnnotations(variableName, variable);
+            DispatchComponentAnnotations( variable);
         }
     }
 
     /// <summary>
     /// Dispatches component annotations for a given variable.
     /// </summary>
-    /// <param name="variableName">The name of the variable.</param>
     /// <param name="variable">The annotated variable containing annotations.</param>
-    private void DispatchComponentAnnotations(string variableName, OpenApiComponentAnnotationScanner.AnnotatedVariable variable)
+    private void DispatchComponentAnnotations(  OpenApiComponentAnnotationScanner.AnnotatedVariable variable)
     {
         foreach (var annotation in variable.Annotations)
         {
             switch (annotation)
             {
                 case OpenApiParameterComponent paramComponent:
-                    ProcessParameterComponent(variableName, variable, paramComponent);
+                    ProcessParameterComponent(variable, paramComponent);
                     break;
 
                 case OpenApiParameterExampleRefAttribute exampleRef:
-                    ProcessParameterExampleRef(variableName, exampleRef);
+                    ProcessParameterExampleRef(variable.Name, exampleRef);
                     break;
                 case InternalPowershellAttribute powershellAttribute:
                     // Process PowerShell attribute to modify the schema
-                    ProcessPowerShellAttribute(variableName, powershellAttribute);
+                    ProcessPowerShellAttribute(variable.Name, powershellAttribute);
+                    break;
+                case OpenApiResponseComponent responseComponent:
+                    ProcessResponseComponent( variable, responseComponent);
                     break;
                 // future:
                 // case OpenApiHeaderComponent header:
@@ -185,6 +187,89 @@ public partial class OpenApiDocDescriptor
                     break;
             }
         }
+    }
+
+    private void ProcessResponseComponent(
+      OpenApiComponentAnnotationScanner.AnnotatedVariable variable,
+      OpenApiResponseComponent responseDescriptor)
+    {
+        var response = GetOrCreateResponseItem(variable.Name, responseDescriptor.Inline);
+
+        ApplyResponseCommonFields(response, responseDescriptor);
+
+        TryApplyVariableTypeSchema(response, variable, responseDescriptor);
+    }
+
+    private void TryApplyVariableTypeSchema(
+        OpenApiResponse response,
+        OpenApiComponentAnnotationScanner.AnnotatedVariable variable,
+        OpenApiResponseComponent responseDescriptor)
+    {
+        if (variable.VariableType is null)
+        {
+            return;
+        }
+        var iSchema = InferPrimitiveSchema(variable.VariableType);
+        if (iSchema is OpenApiSchema schema)
+        {
+            //Todo: add powershell attribute support
+            //PowerShellAttributes.ApplyPowerShellAttributes(variable.PropertyInfo, schema);
+            // Apply any schema attributes from the parameter annotation
+            ApplyConcreteSchemaAttributes(responseDescriptor, schema);
+            // Try to set default value from the variable initial value if not already set
+            if (!variable.NoDefault)
+            {
+                schema.Default = OpenApiJsonNodeFactory.FromObject(variable.InitialValue);
+            }
+        }
+
+        // Either Schema OR Content, depending on ContentType
+        if (responseDescriptor.ContentType.Length == 0)
+        {
+            throw new InvalidOperationException($"Response component '{variable.Name}' must specify at least one ContentType.");
+        }
+        // Use Content
+        response.Content ??= new Dictionary<string, IOpenApiMediaType>(StringComparer.Ordinal);
+        foreach (var contentType in responseDescriptor.ContentType)
+        {
+            response.Content[contentType] = new OpenApiMediaType { Schema = iSchema };
+        }
+    }
+
+    private static void ApplyResponseCommonFields(
+        OpenApiResponse response,
+        OpenApiResponseComponent responseDescriptor)
+    {
+        response.Summary = responseDescriptor.Summary;
+        response.Description = responseDescriptor.Description;
+    }
+
+    private OpenApiResponse GetOrCreateResponseItem(string responseName, bool inline)
+    {
+        IDictionary<string, IOpenApiResponse> responses;
+        // Determine whether to use inline components or document components
+        if (inline)
+        {
+            // Use inline components
+            InlineComponents.Responses ??= new Dictionary<string, IOpenApiResponse>(StringComparer.Ordinal);
+            responses = InlineComponents.Responses;
+        }
+        else
+        {
+            // Use document components
+            Document.Components ??= new OpenApiComponents();
+            Document.Components.Responses ??= new Dictionary<string, IOpenApiResponse>(StringComparer.Ordinal);
+            responses = Document.Components.Responses;
+        }
+        // Retrieve or create the response item
+        if (!responses.TryGetValue(responseName, out var responseInterface) || responseInterface is null)
+        {
+            // Create a new OpenApiResponse if it doesn't exist
+            responseInterface = new OpenApiResponse();
+            responses[responseName] = responseInterface;
+        }
+        // return the response item
+        return (OpenApiResponse)responseInterface;
     }
 
     /// <summary>

@@ -81,38 +81,34 @@ class SuccessResponse {
 # =========================================================
 
 # Response component for common success responses (200, 201)
-[OpenApiResponseComponent(JoinClassName = '-', Description = 'Success responses')]
-class SuccessResponses {
-    [OpenApiResponseAttribute(Description = 'Operation completed successfully', ContentType = ('application/json', 'application/xml'))]
-    [SuccessResponse]$OK
 
-    [OpenApiResponseAttribute(Description = 'Resource created successfully' , ContentType = ('application/json', 'application/xml'))]
-    [SuccessResponse]$Created
-}
+[OpenApiResponseComponent(Description = 'Operation completed successfully', ContentType = ('application/json', 'application/xml'))]
+[SuccessResponse]$OK
+
+[OpenApiResponseComponent(Description = 'Resource created successfully' , ContentType = ('application/json', 'application/xml'))]
+[SuccessResponse]$Created
 
 
 # Response component for common error responses (400, 404)
-[OpenApiResponseComponent(JoinClassName = '-', Description = 'Error responses')]
-class ErrorResponses {
-    [OpenApiResponseAttribute(Description = 'Bad request - validation failed', ContentType = ('application/json', 'application/xml'))]
-    [ErrorResponse]$BadRequest
+[OpenApiResponseComponent(Description = 'Bad request - validation failed', ContentType = ('application/json', 'application/xml'))]
+[ErrorResponse]$BadRequest
 
-    [OpenApiResponseAttribute(Description = 'Resource not found', ContentType = ('application/json', 'application/xml'))]
-    [ErrorResponse]$NotFound
-}
+[OpenApiResponseComponent(Description = 'Resource not found', ContentType = ('application/json', 'application/xml'))]
+[ErrorResponse]$NotFound
+
 
 # Response component for article responses
-[OpenApiResponseComponent( Description = 'Article responses')]
-class ArticleResponses {
-    [OpenApiResponseAttribute(Description = 'Article retrieved successfully', ContentType = ('application/json', 'application/xml'), inline = $true)]
-    [Article]$ArticleResponsesOK
 
-    [OpenApiResponseAttribute(Description = 'Article not found', ContentType = ('application/json', 'application/xml'))]
-    [ErrorResponse] $ArticleResponsesNotFound
+[OpenApiResponseComponent(Description = 'Article retrieved successfully', ContentType = ('application/json', 'application/xml'), inline = $true)]
+[Article]$ArticleResponsesOK
 
-    [OpenApiResponseAttribute()]
-    $objectResponse
-}
+[OpenApiResponseComponent(Description = 'Article not found', ContentType = ('application/json', 'application/xml'))]
+[ErrorResponse] $ArticleResponsesNotFound
+
+[OpenApiResponseComponent()]
+$objectResponse
+
+
 
 # =========================================================
 #                 ROUTES / OPERATIONS
@@ -181,8 +177,8 @@ function getArticle {
 #>
 function createArticle {
     [OpenApiPath(HttpVerb = 'post', Pattern = '/articles')]
-    [OpenApiResponseRefAttribute(StatusCode = '201', ReferenceId = 'SuccessResponses-Created')]
-    [OpenApiResponseRefAttribute(StatusCode = '400', ReferenceId = 'ErrorResponses-BadRequest')]
+    [OpenApiResponseRefAttribute(StatusCode = '201', ReferenceId = 'Created')]
+    [OpenApiResponseRefAttribute(StatusCode = '400', ReferenceId = 'BadRequest')]
     param(
         [OpenApiRequestBody(ContentType = ('application/json', 'application/xml', 'application/x-www-form-urlencoded'))]
         [Article]$body
@@ -221,8 +217,8 @@ function createArticle {
 #>
 function deleteArticle {
     [OpenApiPath(HttpVerb = 'delete', Pattern = '/articles/{articleId}')]
-    [OpenApiResponseRefAttribute(StatusCode = '200', ReferenceId = 'SuccessResponses-OK')]
-    [OpenApiResponseRefAttribute(StatusCode = '404', ReferenceId = 'ErrorResponses-NotFound')]
+    [OpenApiResponseRefAttribute(StatusCode = '200', ReferenceId = 'OK')]
+    [OpenApiResponseRefAttribute(StatusCode = '404', ReferenceId = 'NotFound')]
     param(
         [OpenApiParameter(In = [OaParameterLocation]::Path, Required = $true, Description = 'Article ID to delete')]
         [int]$articleId

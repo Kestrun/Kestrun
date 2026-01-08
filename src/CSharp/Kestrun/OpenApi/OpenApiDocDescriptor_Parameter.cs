@@ -98,25 +98,23 @@ public partial class OpenApiDocDescriptor
     /// <summary>
     /// Processes a parameter component annotation to create or update an OpenAPI parameter.
     /// </summary>
-    /// <param name="variableName">The name of the variable associated with the parameter</param>
     /// <param name="variable">The annotated variable containing metadata about the parameter</param>
-    /// <param name="parameterAnnotation">The parameter component annotation</param>
+    /// <param name="parameterDescriptor">The parameter component annotation</param>
     private void ProcessParameterComponent(
-      string variableName,
       OpenApiComponentAnnotationScanner.AnnotatedVariable variable,
-      OpenApiParameterComponent parameterAnnotation)
+      OpenApiParameterComponent parameterDescriptor)
     {
-        var parameter = GetOrCreateParameterItem(variableName, parameterAnnotation.Inline);
+        var parameter = GetOrCreateParameterItem(variable.Name, parameterDescriptor.Inline);
 
-        ApplyParameterCommonFields(parameter, variableName, parameterAnnotation);
+        ApplyParameterCommonFields(parameter, variable.Name, parameterDescriptor);
 
         // Explode defaults to true for "form" and "cookie" styles
-        if (parameterAnnotation.Explode || (parameter.Style is ParameterStyle.Form or ParameterStyle.Cookie))
+        if (parameterDescriptor.Explode || (parameter.Style is ParameterStyle.Form or ParameterStyle.Cookie))
         {
             parameter.Explode = true;
         }
 
-        TryApplyVariableTypeSchema(parameter, variable, parameterAnnotation);
+        TryApplyVariableTypeSchema(parameter, variable, parameterDescriptor);
     }
 
     /// <summary>
@@ -133,7 +131,7 @@ public partial class OpenApiDocDescriptor
         parameter.AllowEmptyValue = parameterAnnotation.AllowEmptyValue;
         parameter.Description = parameterAnnotation.Description;
         parameter.In = parameterAnnotation.In.ToOpenApi();
-        parameter.Name = parameterAnnotation.Name ?? variableName;
+      //  parameter.Name = variableName;
         parameter.Style = parameterAnnotation.Style?.ToOpenApi();
         parameter.AllowReserved = parameterAnnotation.AllowReserved;
         parameter.Required = parameterAnnotation.Required;

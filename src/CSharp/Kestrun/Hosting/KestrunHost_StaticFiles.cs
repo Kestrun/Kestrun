@@ -78,7 +78,6 @@ public partial class KestrunHost
         });
     }
 
-
     /// <summary>
     /// Copies static file options from one object to another.
     /// </summary>

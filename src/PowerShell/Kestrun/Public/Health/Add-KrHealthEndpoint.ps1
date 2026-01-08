@@ -219,7 +219,7 @@ function Add-KrHealthEndpoint {
             $options.Compress = $Compress.IsPresent
         }
 
-        $result = $Server.AddHealthEndpoint($Server, $options)
+        $result = $Server.AddHealthEndpoint($options)
 
         if ($PassThru.IsPresent) {
             return $result

@@ -24,6 +24,8 @@ using Kestrun.Runtime;
 using Kestrun.OpenApi;
 using Microsoft.AspNetCore.Antiforgery;
 using Kestrun.Callback;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace Kestrun.Hosting;
 
@@ -32,6 +34,20 @@ namespace Kestrun.Hosting;
 /// </summary>
 public partial class KestrunHost : IDisposable
 {
+    #region Static Members
+    private static readonly JsonSerializerOptions JsonOptions;
+
+    static KestrunHost()
+    {
+        JsonOptions = new JsonSerializerOptions(JsonSerializerDefaults.Web)
+        {
+            DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
+            WriteIndented = false
+        };
+        JsonOptions.Converters.Add(new JsonStringEnumConverter());
+    }
+    #endregion
+
     #region Fields
     internal WebApplicationBuilder Builder { get; }
 

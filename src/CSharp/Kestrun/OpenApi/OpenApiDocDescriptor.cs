@@ -85,12 +85,6 @@ public partial class OpenApiDocDescriptor
     {
         Document.Components ??= new OpenApiComponents();
         ProcessComponentTypes(components.SchemaTypes, () => Document.Components.Schemas ??= new Dictionary<string, IOpenApiSchema>(StringComparer.Ordinal), t => BuildSchema(t));
-#if EXTENDED_OPENAPI
-        ProcessComponentTypes(components.ParameterTypes, () => Document.Components.Parameters ??= new Dictionary<string, IOpenApiParameter>(StringComparer.Ordinal), BuildParameters);
-
-        ProcessComponentTypes(components.CallbackTypes, () => Document.Components.Callbacks ??= new Dictionary<string, IOpenApiCallback>(StringComparer.Ordinal), BuildCallbacks);
-#endif
-        ProcessComponentTypes(components.ResponseTypes, () => Document.Components.Responses ??= new Dictionary<string, IOpenApiResponse>(StringComparer.Ordinal), BuildResponses);
         ProcessComponentTypes(components.RequestBodyTypes, () => Document.Components.RequestBodies ??= new Dictionary<string, IOpenApiRequestBody>(StringComparer.Ordinal), BuildRequestBodies);
     }
 
@@ -143,14 +137,14 @@ public partial class OpenApiDocDescriptor
             Host.Logger.Warning("No OpenAPI component annotations were found in the host.");
             return;
         }
-        foreach (var (variableName, variable) in annotations)
+        foreach (var variable in annotations.Values)
         {
             if (variable?.Annotations is null || variable.Annotations.Count == 0)
             {
                 continue;
             }
 
-            DispatchComponentAnnotations( variable);
+            DispatchComponentAnnotations(variable);
         }
     }
 
@@ -158,7 +152,7 @@ public partial class OpenApiDocDescriptor
     /// Dispatches component annotations for a given variable.
     /// </summary>
     /// <param name="variable">The annotated variable containing annotations.</param>
-    private void DispatchComponentAnnotations(  OpenApiComponentAnnotationScanner.AnnotatedVariable variable)
+    private void DispatchComponentAnnotations(OpenApiComponentAnnotationScanner.AnnotatedVariable variable)
     {
         foreach (var annotation in variable.Annotations)
         {
@@ -176,7 +170,16 @@ public partial class OpenApiDocDescriptor
                     ProcessPowerShellAttribute(variable.Name, powershellAttribute);
                     break;
                 case OpenApiResponseComponent responseComponent:
-                    ProcessResponseComponent( variable, responseComponent);
+                    ProcessResponseComponent(variable, responseComponent);
+                    break;
+                case OpenApiResponseHeaderRefAttribute headerRef:
+                    ProcessResponseHeaderRef(variable.Name, headerRef);
+                    break;
+                case OpenApiResponseLinkRefAttribute linkRef:
+                    ProcessResponseLinkRef(variable.Name, linkRef);
+                    break;
+                case OpenApiResponseExampleRefAttribute exampleRef:
+                    ProcessResponseExampleRef(variable.Name, exampleRef);
                     break;
                 // future:
                 // case OpenApiHeaderComponent header:
@@ -187,17 +190,6 @@ public partial class OpenApiDocDescriptor
                     break;
             }
         }
-    }
-
-    private void ProcessResponseComponent(
-      OpenApiComponentAnnotationScanner.AnnotatedVariable variable,
-      OpenApiResponseComponent responseDescriptor)
-    {
-        var response = GetOrCreateResponseItem(variable.Name, responseDescriptor.Inline);
-
-        ApplyResponseCommonFields(response, responseDescriptor);
-
-        TryApplyVariableTypeSchema(response, variable, responseDescriptor);
     }
 
     private void TryApplyVariableTypeSchema(
@@ -240,37 +232,17 @@ public partial class OpenApiDocDescriptor
         OpenApiResponse response,
         OpenApiResponseComponent responseDescriptor)
     {
-        response.Summary = responseDescriptor.Summary;
-        response.Description = responseDescriptor.Description;
+        if (response.Summary is not null)
+        {
+            response.Summary = responseDescriptor.Summary;
+        }
+        if (responseDescriptor.Description is not null)
+        {
+            response.Description = responseDescriptor.Description;
+        }
     }
 
-    private OpenApiResponse GetOrCreateResponseItem(string responseName, bool inline)
-    {
-        IDictionary<string, IOpenApiResponse> responses;
-        // Determine whether to use inline components or document components
-        if (inline)
-        {
-            // Use inline components
-            InlineComponents.Responses ??= new Dictionary<string, IOpenApiResponse>(StringComparer.Ordinal);
-            responses = InlineComponents.Responses;
-        }
-        else
-        {
-            // Use document components
-            Document.Components ??= new OpenApiComponents();
-            Document.Components.Responses ??= new Dictionary<string, IOpenApiResponse>(StringComparer.Ordinal);
-            responses = Document.Components.Responses;
-        }
-        // Retrieve or create the response item
-        if (!responses.TryGetValue(responseName, out var responseInterface) || responseInterface is null)
-        {
-            // Create a new OpenApiResponse if it doesn't exist
-            responseInterface = new OpenApiResponse();
-            responses[responseName] = responseInterface;
-        }
-        // return the response item
-        return (OpenApiResponse)responseInterface;
-    }
+
 
     /// <summary>
     /// Generates the OpenAPI document by processing components and building paths and webhooks.

@@ -76,4 +76,36 @@ public class OpenApiComponentAnnotationScannerTests
             try { Directory.Delete(tempDir, recursive: true); } catch { /* best-effort */ }
         }
     }
+
+    [Fact]
+    [Trait("Category", "OpenAPI")]
+    public void ScanFromPath_ConvertsArrayArguments_ForArrayTypedAnnotationProperties()
+    {
+        var tempDir = Path.Combine(Path.GetTempPath(), "kestrun-tests-" + Guid.NewGuid().ToString("N"));
+        _ = Directory.CreateDirectory(tempDir);
+
+        try
+        {
+            var mainPath = Path.Combine(tempDir, "main.ps1");
+
+            // PowerShell attribute array syntax (comma expression) inside parentheses.
+            File.WriteAllText(mainPath,
+                "[OpenApiResponseComponent(Description = 'Operation completed successfully', ContentType = ('application/json', 'application/xml'))]\n" +
+                "[object]$OK\n");
+
+            var result = OpenApiComponentAnnotationScanner.ScanFromPath(mainPath);
+
+            Assert.True(result.ContainsKey("OK"));
+            var ok = result["OK"];
+            Assert.NotNull(ok);
+            Assert.NotEmpty(ok.Annotations);
+
+            var responseComponent = ok.Annotations.OfType<OpenApiResponseComponent>().Single();
+            Assert.Equal(new[] { "application/json", "application/xml" }, responseComponent.ContentType);
+        }
+        finally
+        {
+            try { Directory.Delete(tempDir, recursive: true); } catch { /* best-effort */ }
+        }
+    }
 }

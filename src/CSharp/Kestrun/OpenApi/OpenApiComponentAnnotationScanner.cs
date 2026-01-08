@@ -1382,11 +1382,30 @@ public static class OpenApiComponentAnnotationScanner
 
         var raw = EvaluateArgumentExpression(na.Argument);
         var converted = ConvertToPropertyType(raw, prop.PropertyType);
-        prop.SetValue(annotation, converted);
+        try
+        {
+            // Avoid failing configuration due to a best-effort scan conversion.
+            if (converted is not null)
+            {
+                var targetType = Nullable.GetUnderlyingType(prop.PropertyType) ?? prop.PropertyType;
+                if (!targetType.IsInstanceOfType(converted) && !targetType.IsAssignableFrom(converted.GetType()))
+                {
+                    return;
+                }
+            }
+
+            prop.SetValue(annotation, converted);
+        }
+        catch
+        {
+            // Best-effort: ignore conversion/set failures.
+        }
     }
 
     private static object? EvaluateArgumentExpression(ExpressionAst expr) => expr switch
     {
+        ArrayLiteralAst a => a.Elements.Select(EvaluateArgumentExpression).ToArray(),
+        ParenExpressionAst p => EvaluateParenExpression(p),
         StringConstantExpressionAst s => s.Value,
         ExpandableStringExpressionAst e => e.Value,
         ConstantExpressionAst c => c.Value,
@@ -1395,6 +1414,18 @@ public static class OpenApiComponentAnnotationScanner
         TypeExpressionAst te => ResolveTypeFromName(te.TypeName.FullName) is { } t ? t : te.TypeName.FullName,
         _ => expr.Extent.Text.Trim()
     };
+
+    private static object? EvaluateParenExpression(ParenExpressionAst p)
+    {
+        // Parenthesized values frequently appear in attribute args: ContentType = ('a','b')
+        // In the AST, these often surface as a pipeline containing a CommandExpressionAst.
+        if (p.Pipeline is PipelineAst pipeline && pipeline.PipelineElements is { Count: 1 } elems && elems[0] is CommandExpressionAst ce)
+        {
+            return EvaluateArgumentExpression(ce.Expression);
+        }
+        // Fallback: return the raw text inside the parentheses.
+        return p.Extent.Text.Trim();
+    }
 
     private static object? EvaluateVariableExpression(VariableExpressionAst v)
     {
@@ -1461,6 +1492,67 @@ public static class OpenApiComponentAnnotationScanner
         }
 
         var targetType = Nullable.GetUnderlyingType(propertyType) ?? propertyType;
+
+        // Arrays (e.g. string[] ContentType)
+        if (targetType.IsArray)
+        {
+            var elementType = targetType.GetElementType() ?? typeof(object);
+
+            // If already the right array type, keep it.
+            if (targetType.IsInstanceOfType(raw))
+            {
+                return raw;
+            }
+
+            // If we only have a string representation like "('a','b')", do a lightweight parse.
+            // This is a fallback for cases where the AST evaluator returns Extent.Text.
+            if (raw is string listText && elementType == typeof(string))
+            {
+                var t = listText.Trim();
+                if ((t.StartsWith("@(", StringComparison.Ordinal) || t.StartsWith("(", StringComparison.Ordinal)) && t.EndsWith(")", StringComparison.Ordinal) && t.Contains(',', StringComparison.Ordinal))
+                {
+                    var inner = t.StartsWith("@(", StringComparison.Ordinal) ? t[2..^1] : t[1..^1];
+                    var parts = inner
+                        .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                        .Select(p => p.Trim().Trim('\'', '"'))
+                        .Where(p => !string.IsNullOrWhiteSpace(p))
+                        .ToArray();
+
+                    if (parts.Length > 0)
+                    {
+                        return parts;
+                    }
+                }
+
+                // Treat scalar string as a single-element array.
+                return new[] { listText };
+            }
+
+            // Convert IEnumerable -> array (but don't treat string as IEnumerable<char>).
+            if (raw is IEnumerable enumerable and not string)
+            {
+                var items = new List<object?>();
+                foreach (var item in enumerable)
+                {
+                    items.Add(item);
+                }
+
+                var arr = Array.CreateInstance(elementType, items.Count);
+                for (var i = 0; i < items.Count; i++)
+                {
+                    var convertedItem = ConvertToPropertyType(items[i], elementType);
+                    arr.SetValue(convertedItem, i);
+                }
+
+                return arr;
+            }
+
+            // Scalar -> single-element array
+            var single = ConvertToPropertyType(raw, elementType);
+            var singleArr = Array.CreateInstance(elementType, 1);
+            singleArr.SetValue(single, 0);
+            return singleArr;
+        }
 
         if (targetType.IsInstanceOfType(raw))
         {

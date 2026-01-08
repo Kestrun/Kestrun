@@ -106,7 +106,7 @@ public partial class OpenApiDocDescriptor
     {
         var parameter = GetOrCreateParameterItem(variable.Name, parameterDescriptor.Inline);
 
-        ApplyParameterCommonFields(parameter, variable.Name, parameterDescriptor);
+        ApplyParameterCommonFields(parameter, parameterDescriptor);
 
         // Explode defaults to true for "form" and "cookie" styles
         if (parameterDescriptor.Explode || (parameter.Style is ParameterStyle.Form or ParameterStyle.Cookie))
@@ -121,17 +121,14 @@ public partial class OpenApiDocDescriptor
     /// Applies common fields from a parameter component annotation to an OpenAPI parameter.
     /// </summary>
     /// <param name="parameter">The OpenApiParameter to modify</param>
-    /// <param name="variableName">The name of the variable associated with the parameter</param>
     /// <param name="parameterAnnotation">The parameter component annotation</param>
     private static void ApplyParameterCommonFields(
         OpenApiParameter parameter,
-        string variableName,
         OpenApiParameterComponent parameterAnnotation)
     {
         parameter.AllowEmptyValue = parameterAnnotation.AllowEmptyValue;
         parameter.Description = parameterAnnotation.Description;
         parameter.In = parameterAnnotation.In.ToOpenApi();
-      //  parameter.Name = variableName;
         parameter.Style = parameterAnnotation.Style?.ToOpenApi();
         parameter.AllowReserved = parameterAnnotation.AllowReserved;
         parameter.Required = parameterAnnotation.Required;
@@ -439,17 +436,31 @@ public partial class OpenApiDocDescriptor
     /// </summary>
     /// <param name="parameterName">The name of the parameter to retrieve.</param>
     /// <param name="parameter">The retrieved parameter if found; otherwise, null.</param>
+    /// <param name="isInline">Indicates whether the parameter was found in inline components.</param>
     /// <returns>True if the parameter was found; otherwise, false.</returns>
-    private bool TryGetParameterItem(string parameterName, out OpenApiParameter? parameter)
+    private bool TryGetParameterItem(string parameterName, out OpenApiParameter? parameter, out bool isInline)
     {
         if (TryGetInline(name: parameterName, kind: OpenApiComponentKind.Parameters, out parameter))
         {
+            isInline = true;
             return true;
         }
         else if (TryGetComponent(name: parameterName, kind: OpenApiComponentKind.Parameters, out parameter))
         {
+            isInline = false;
             return true;
         }
+        parameter = null;
+        isInline = false;
         return false;
     }
+
+    /// <summary>
+    /// Tries to get a parameter by name from either inline or document components.
+    /// </summary>
+    /// <param name="parameterName">The name of the parameter to retrieve.</param>
+    /// <param name="parameter">The retrieved parameter if found; otherwise, null.</param>
+    /// <returns>True if the parameter was found; otherwise, false.</returns>
+    private bool TryGetParameterItem(string parameterName, out OpenApiParameter? parameter) =>
+    TryGetParameterItem(parameterName, out parameter, out _);
 }

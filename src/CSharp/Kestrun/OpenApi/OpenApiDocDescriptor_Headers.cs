@@ -294,4 +294,23 @@ public partial class OpenApiDocDescriptor
         }
         return false;
     }
+
+    /// <summary>
+    /// Tries to get an OpenApiHeader item from inline or main components.
+    /// </summary>
+    /// <param name="headerName"> The name of the header to retrieve. </param>
+    /// <param name="header"> The retrieved OpenApiHeader if found; otherwise, null. </param>
+    /// <returns> True if the header was found; otherwise, false. </returns>
+    private bool TryGetHeaderItem(string headerName, out OpenApiHeader? header)
+    {
+        if (TryGetInline(name: headerName, kind: OpenApiComponentKind.Headers, out header))
+        {
+            return true;
+        }
+        else if (TryGetComponent(name: headerName, kind: OpenApiComponentKind.Headers, out header))
+        {
+            return true;
+        }
+        return false;
+    }
 }

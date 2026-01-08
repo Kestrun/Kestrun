@@ -76,6 +76,39 @@ class SuccessResponse {
     [string]$timestamp
 }
 
+New-KrOpenApiExample -Summary 'General entry ticket' -Value ([ordered]@{
+        ticketType = 'general'
+        ticketDate = '2023-09-07'
+        email = 'todd@example.com'
+    }) | Add-KrOpenApiComponent -Name 'BuyGeneralTicketsRequestExample'
+
+New-KrOpenApiExample -Summary 'Get hours response' -Value @(
+    [ordered]@{ date = '2023-09-11'; timeOpen = '09:00'; timeClose = '18:00' }
+    [ordered]@{ date = '2023-09-12'; timeOpen = '09:00'; timeClose = '18:00' }
+    [ordered]@{ date = '2023-09-13'; timeOpen = '09:00'; timeClose = '18:00' }
+) | Add-KrOpenApiComponent -Name 'GetMuseumHoursResponseExample'
+# =========================================================
+#                  COMPONENT HEADERS
+# =========================================================
+New-KrOpenApiHeader `
+    -Description 'Correlation id for tracing the request across services.' `
+    -Schema ([string]) `
+    -Required `
+    -Examples $correlationExamples |
+    Add-KrOpenApiComponent -Name 'X-Correlation-Id'
+
+
+# Link component: use id from response body to fetch the user resource.
+New-KrOpenApiLink -OperationId 'getUser' -Description 'Get the created/returned user.' `
+    -Parameters @{ userId = '$response.body#/id' } |
+    Add-KrOpenApiComponent -Name 'GetUserLink'
+
+
+# Link component: use id from response body and pass the nested user object as request body.
+New-KrOpenApiLink -OperationId 'updateUser' -Description 'Update the created/returned user.' `
+    -Parameters @{ userId = '$response.body#/id' } `
+    -RequestBody '$response.body#/user' |
+    Add-KrOpenApiComponent -Name 'UpdateUserLink'
 # =========================================================
 #          COMPONENT RESPONSES (Reusable)
 # =========================================================
@@ -83,14 +116,22 @@ class SuccessResponse {
 # Response component for common success responses (200, 201)
 
 [OpenApiResponseComponent(Description = 'Operation completed successfully', ContentType = ('application/json', 'application/xml'))]
+[OpenApiResponseHeaderRef( Key = 'X-Correlation-Id', ReferenceId = 'X-Correlation-Id')]
+[OpenApiResponseLinkRef(Key = 'get', ReferenceId = 'GetUserLink')]
+[OpenApiResponseLinkRef( Key = 'update', ReferenceId = 'UpdateUserLink')]
+[OpenApiResponseExampleRef(Key = 'general_entry', ReferenceId = 'BuyGeneralTicketsRequestExample' , ContentType = ('application/json', 'application/xml'))]
 [SuccessResponse]$OK
 
 [OpenApiResponseComponent(Description = 'Resource created successfully' , ContentType = ('application/json', 'application/xml'))]
+[OpenApiResponseHeaderRef( Key = 'X-Correlation-Id', ReferenceId = 'X-Correlation-Id')]
+[OpenApiResponseExampleRef(Key = 'something', ReferenceId = 'GetMuseumHoursResponseExample' , ContentType = ('application/json', 'application/xml') )]
 [SuccessResponse]$Created
 
 
 # Response component for common error responses (400, 404)
 [OpenApiResponseComponent(Description = 'Bad request - validation failed', ContentType = ('application/json', 'application/xml'))]
+[OpenApiResponseLinkRef(Key = 'get', ReferenceId = 'GetUserLink')]
+[OpenApiResponseLinkRef( Key = 'update', ReferenceId = 'UpdateUserLink')]
 [ErrorResponse]$BadRequest
 
 [OpenApiResponseComponent(Description = 'Resource not found', ContentType = ('application/json', 'application/xml'))]
@@ -105,8 +146,12 @@ class SuccessResponse {
 [OpenApiResponseComponent(Description = 'Article not found', ContentType = ('application/json', 'application/xml'))]
 [ErrorResponse] $ArticleResponsesNotFound
 
-[OpenApiResponseComponent()]
+[OpenApiResponseComponent(Description = 'Generic object response')]
 $objectResponse
+
+[OpenApiResponseComponent(Description = 'A generic integer response')]
+[int]$intResponse
+
 
 
 

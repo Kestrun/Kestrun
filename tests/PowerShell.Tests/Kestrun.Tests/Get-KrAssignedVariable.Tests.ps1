@@ -9,7 +9,7 @@ Describe 'Get-KrAssignedVariable' {
     It 'resolves non-constant values with -FromParent (caller scope)' {
         function __KrTestCaller {
             $srv = [pscustomobject]@{ Name = 'Demo'; Value = 123 }
-            return Get-KrAssignedVariable -FromParent -ResolveValues -AsDictionary
+            return Get-KrAssignedVariable -FromParent -ResolveValues -OutputStructure 'Dictionary'
         }
 
         $vars = __KrTestCaller
@@ -120,8 +120,8 @@ Describe 'Get-KrAssignedVariable' {
         ($vars | Where-Object Name -EQ 'startDate').Value | Should -Be $null
     }
 
-    It 'can return a Dictionary for C# interop (-AsDictionary)' {
-        $dict = Get-KrAssignedVariable -ResolveValues -AsDictionary -ScriptBlock {
+    It 'can return a Dictionary for C# interop (-OutputStructure ''Dictionary'')' {
+        $dict = Get-KrAssignedVariable -ResolveValues -OutputStructure 'Dictionary' -ScriptBlock {
             $a = 1
             $b = 'two'
             $a = 3
@@ -132,8 +132,8 @@ Describe 'Get-KrAssignedVariable' {
         $dict['b'] | Should -Be 'two'
     }
 
-    It 'wraps typed assigned variables in -AsDictionary (metadata available even when value is non-null)' {
-        $dict = Get-KrAssignedVariable -ResolveValues -AsDictionary -ScriptBlock {
+    It 'wraps typed assigned variables in -OutputStructure ''Dictionary'' (metadata available even when value is non-null)' {
+        $dict = Get-KrAssignedVariable -ResolveValues -OutputStructure 'Dictionary' -ScriptBlock {
             [int]$paginationLimit = 20
         }
 
@@ -149,8 +149,8 @@ Describe 'Get-KrAssignedVariable' {
         $meta['IsNullable'] | Should -BeFalse
     }
 
-    It 'preserves declared type metadata in -AsDictionary for typed declaration-only variables' {
-        $dict = Get-KrAssignedVariable -ResolveValues -AsDictionary -ScriptBlock {
+    It 'preserves declared type metadata in -OutputStructure ''Dictionary'' for typed declaration-only variables' {
+        $dict = Get-KrAssignedVariable -ResolveValues -OutputStructure 'Dictionary' -ScriptBlock {
             [Nullable[datetime]]$startDate
         }
 
@@ -212,8 +212,8 @@ Describe 'Get-KrAssignedVariable' {
         ($vars.Name -contains 'Foo') | Should -BeFalse
     }
 
-    It 'filters only attributed variables when -WithoutAttributesOnly is used (-AsDictionary)' {
-        $dict = Get-KrAssignedVariable -ResolveValues -AsDictionary -WithoutAttributesOnly -ScriptBlock {
+    It 'filters only attributed variables when -WithoutAttributesOnly is used (-OutputStructure ''Dictionary'')' {
+        $dict = Get-KrAssignedVariable -ResolveValues -OutputStructure 'Dictionary' -WithoutAttributesOnly -ScriptBlock {
             [int]$Port = 5000
             [ValidateNotNull()][int]$Foo = 1
             $Baz = 3
@@ -238,5 +238,222 @@ Describe 'Get-KrAssignedVariable' {
 
         ($vars.Name -contains 'Foo') | Should -BeFalse
         ($vars.Name -contains 'Bar') | Should -BeTrue
+    }
+
+    Context 'OutputStructure StringObjectMap' {
+        It 'returns a simple Dictionary with just values (no metadata wrapping)' {
+            $dict = Get-KrAssignedVariable -ResolveValues -OutputStructure 'StringObjectMap' -ScriptBlock {
+                [int]$Port = 5000
+                $Name = 'MyServer'
+                [Nullable[datetime]]$StartDate
+            }
+
+            $dict.GetType().FullName | Should -Match '^System\.Collections\.Generic\.Dictionary`2\[\[System\.String, (System\.Private\.CoreLib|mscorlib)'
+            $dict.Count | Should -Be 3
+
+            # Should be raw values, not wrapped metadata
+            $dict['Port'] | Should -Be 5000
+            $dict['Name'] | Should -Be 'MyServer'
+            $dict['StartDate'] | Should -Be $null
+
+            # Should NOT have metadata structure
+            ($dict['Port'] -is [System.Collections.IDictionary]) | Should -BeFalse
+            ($dict['Port'] -is [int]) | Should -BeTrue
+        }
+
+        It 'handles typed variables without wrapping metadata' {
+            $dict = Get-KrAssignedVariable -ResolveValues -OutputStructure 'StringObjectMap' -ScriptBlock {
+                [int]$paginationLimit = 20
+                [ValidateNotNull()][string]$Foo = 'bar'
+            }
+
+            $dict['paginationLimit'] | Should -Be 20
+            $dict['Foo'] | Should -Be 'bar'
+
+            # No metadata wrapping
+            ($dict['paginationLimit'] -is [int]) | Should -BeTrue
+            ($dict['Foo'] -is [string]) | Should -BeTrue
+        }
+
+        It 'handles declaration-only typed variables (value is null)' {
+            $dict = Get-KrAssignedVariable -ResolveValues -OutputStructure 'StringObjectMap' -ScriptBlock {
+                [Nullable[datetime]]$startDate
+                [int]$count
+            }
+
+            $dict.ContainsKey('startDate') | Should -BeTrue
+            $dict.ContainsKey('count') | Should -BeTrue
+            $dict['startDate'] | Should -Be $null
+            # Declaration-only variables resolve to $null, not default type values
+            $dict['count'] | Should -Be $null
+        }
+
+        It 'handles untyped variables' {
+            $dict = Get-KrAssignedVariable -ResolveValues -OutputStructure 'StringObjectMap' -ScriptBlock {
+                $x = 1
+                $y = 'two'
+                $z = @(1, 2, 3)
+            }
+
+            $dict['x'] | Should -Be 1
+            $dict['y'] | Should -Be 'two'
+            $dict['z'].Count | Should -Be 3
+        }
+
+        It 'respects -ExcludeVariables' {
+            $dict = Get-KrAssignedVariable -ResolveValues -OutputStructure 'StringObjectMap' -ExcludeVariables @('skip') -ScriptBlock {
+                $keep = 1
+                $skip = 2
+            }
+
+            $dict.ContainsKey('keep') | Should -BeTrue
+            $dict.ContainsKey('skip') | Should -BeFalse
+        }
+
+        It 'respects -WithoutAttributesOnly' {
+            $dict = Get-KrAssignedVariable -ResolveValues -OutputStructure 'StringObjectMap' -WithoutAttributesOnly -ScriptBlock {
+                [int]$Port = 5000
+                [ValidateNotNull()][string]$Foo = 'bar'
+            }
+
+            $dict.ContainsKey('Port') | Should -BeTrue
+            $dict.ContainsKey('Foo') | Should -BeFalse
+            $dict['Port'] | Should -Be 5000
+        }
+
+        It 'handles complex values like arrays and hashtables' {
+            $dict = Get-KrAssignedVariable -ResolveValues -OutputStructure 'StringObjectMap' -ScriptBlock {
+                $arr = @(1, 2, 3)
+                $hash = @{ key = 'value' }
+            }
+
+            $dict['arr'].Count | Should -Be 3
+            $dict['hash']['key'] | Should -Be 'value'
+        }
+
+        It 'keeps last occurrence when variable is assigned multiple times' {
+            $dict = Get-KrAssignedVariable -ResolveValues -OutputStructure 'StringObjectMap' -ScriptBlock {
+                $x = 1
+                $x = 2
+                $x = 3
+            }
+
+            $dict['x'] | Should -Be 3
+        }
+    }
+
+    Context 'OutputStructure coverage - all three formats' {
+        It 'Array format returns full metadata objects' {
+            $result = Get-KrAssignedVariable -ResolveValues -OutputStructure 'Array' -ScriptBlock {
+                [int]$Port = 5000
+            }
+
+            $result | Should -BeOfType [PSCustomObject]
+            $result.Name | Should -Be 'Port'
+            $result.Value | Should -Be 5000
+            $result.DeclaredType | Should -Be 'int'
+            $result.Type | Should -Be ([int])
+        }
+
+        It 'Dictionary format wraps typed variables, raw values for untyped' {
+            $result = Get-KrAssignedVariable -ResolveValues -OutputStructure 'Dictionary' -ScriptBlock {
+                [int]$Typed = 1
+                $Untyped = 2
+            }
+
+            # Typed variable wrapped
+            ($result['Typed'] -is [System.Collections.IDictionary]) | Should -BeTrue
+            $result['Typed']['__kestrunVariable'] | Should -BeTrue
+            $result['Typed']['Value'] | Should -Be 1
+
+            # Untyped variable direct value
+            $result['Untyped'] | Should -Be 2
+        }
+
+        It 'StringObjectMap format returns raw values only (no wrapping)' {
+            $result = Get-KrAssignedVariable -ResolveValues -OutputStructure 'StringObjectMap' -ScriptBlock {
+                [int]$Typed = 1
+                $Untyped = 2
+            }
+
+            # Both return raw values
+            $result['Typed'] | Should -Be 1
+            $result['Untyped'] | Should -Be 2
+
+            # No wrapping
+            ($result['Typed'] -is [System.Collections.IDictionary]) | Should -BeFalse
+        }
+    }
+
+    Context 'OutputStructure - additional permutations' {
+        It 'defaults to Array when -OutputStructure is omitted' {
+            $result = Get-KrAssignedVariable -ResolveValues -ScriptBlock {
+                [int]$Port = 5000
+            }
+
+            # Should emit metadata objects (array of PSCustomObject)
+            @($result).Count | Should -BeGreaterThan 0
+            (@($result)[0] -is [pscustomobject]) | Should -BeTrue
+            (@($result)[0]).Name | Should -Be 'Port'
+        }
+
+        It 'throws for invalid -OutputStructure value' {
+            { Get-KrAssignedVariable -ResolveValues -OutputStructure 'InvalidChoice' -ScriptBlock { $x = 1 } } | Should -Throw
+        }
+
+        It 'supports -FromParent with OutputStructure Array' {
+            function __KrTestCallerArray {
+                $srv = [pscustomobject]@{ Name = 'Demo'; Value = 123 }
+                return Get-KrAssignedVariable -FromParent -ResolveValues -OutputStructure 'Array'
+            }
+
+            $vars = __KrTestCallerArray
+            $srvMeta = $vars | Where-Object Name -EQ 'srv'
+            @($srvMeta).Count | Should -Be 1
+            $srvMeta.Value.Name | Should -Be 'Demo'
+            $srvMeta.Value.Value | Should -Be 123
+        }
+
+        It 'supports -FromParent with OutputStructure StringObjectMap' {
+            function __KrTestCallerSOM {
+                $srv = [pscustomobject]@{ Name = 'Demo'; Value = 123 }
+                return Get-KrAssignedVariable -FromParent -ResolveValues -OutputStructure 'StringObjectMap'
+            }
+
+            $vars = __KrTestCallerSOM
+            $vars.ContainsKey('srv') | Should -BeTrue
+            $vars['srv'].Name | Should -Be 'Demo'
+            $vars['srv'].Value | Should -Be 123
+        }
+
+        It 'respects -ExcludeVariables with OutputStructure Dictionary' {
+            $dict = Get-KrAssignedVariable -ResolveValues -OutputStructure 'Dictionary' -ExcludeVariables @('skip') -ScriptBlock {
+                $keep = 1
+                $skip = 2
+            }
+
+            $dict.ContainsKey('keep') | Should -BeTrue
+            $dict.ContainsKey('skip') | Should -BeFalse
+        }
+
+        It 'respects -IncludeSetVariable with OutputStructure StringObjectMap' {
+            $dict = Get-KrAssignedVariable -ResolveValues -OutputStructure 'StringObjectMap' -IncludeSetVariable -ExcludeVariables @('hidden') -ScriptBlock {
+                Set-Variable -Name 'hidden' -Value 1
+                New-Variable -Name 'visible' -Value 2
+            }
+
+            $dict.ContainsKey('hidden') | Should -BeFalse
+            $dict.ContainsKey('visible') | Should -BeTrue
+        }
+
+        It 'filters attributed variables with -WithoutAttributesOnly in Array output' {
+            $vars = Get-KrAssignedVariable -ResolveValues -OutputStructure 'Array' -WithoutAttributesOnly -ScriptBlock {
+                [int]$Port = 5000
+                [ValidateNotNull()][int]$Foo = 1
+            }
+
+            ($vars.Name -contains 'Port') | Should -BeTrue
+            ($vars.Name -contains 'Foo') | Should -BeFalse
+        }
     }
 }

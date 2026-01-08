@@ -211,8 +211,10 @@ public class RateLimiterOptionsExtensionsTests
     {
         // Arrange
         var target = new RateLimiterOptions();
-        var source = new RateLimiterOptions();
-        source.OnRejected = null;
+        var source = new RateLimiterOptions
+        {
+            OnRejected = null
+        };
 
         // Act & Assert - Should not throw when OnRejected is null
         target.CopyFrom(source);
@@ -229,9 +231,10 @@ public class RateLimiterOptionsExtensionsTests
     {
         // Arrange
         var target = new RateLimiterOptions();
-        var source = new RateLimiterOptions();
-
-        source.RejectionStatusCode = 503;
+        var source = new RateLimiterOptions
+        {
+            RejectionStatusCode = 503
+        };
 
         Func<OnRejectedContext, CancellationToken, ValueTask> onRejected = async (context, ct) =>
         {
@@ -254,11 +257,15 @@ public class RateLimiterOptionsExtensionsTests
     public void CopyFrom_PreservesExistingTargetProperties()
     {
         // Arrange
-        var target = new RateLimiterOptions();
-        target.RejectionStatusCode = 400;
+        var target = new RateLimiterOptions
+        {
+            RejectionStatusCode = 400
+        };
 
-        var source = new RateLimiterOptions();
-        source.RejectionStatusCode = 429;
+        var source = new RateLimiterOptions
+        {
+            RejectionStatusCode = 429
+        };
 
         // Act
         target.CopyFrom(source);

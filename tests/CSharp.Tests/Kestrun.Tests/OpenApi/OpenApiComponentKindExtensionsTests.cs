@@ -17,10 +17,7 @@ public sealed class OpenApiComponentKindExtensionsTests
     [InlineData(OpenApiComponentKind.Callbacks, "callback")]
     [InlineData(OpenApiComponentKind.PathItems, "path item")]
     [InlineData(OpenApiComponentKind.MediaTypes, "media type")]
-    public void ToInlineLabel_MapsKnownKinds(OpenApiComponentKind kind, string expected)
-    {
-        Assert.Equal(expected, kind.ToInlineLabel());
-    }
+    public void ToInlineLabel_MapsKnownKinds(OpenApiComponentKind kind, string expected) => Assert.Equal(expected, kind.ToInlineLabel());
 
     [Theory]
     [InlineData(OpenApiComponentKind.Examples, true)]
@@ -34,8 +31,5 @@ public sealed class OpenApiComponentKindExtensionsTests
     [InlineData(OpenApiComponentKind.SecuritySchemes, false)]
     [InlineData(OpenApiComponentKind.Callbacks, false)]
     [InlineData(OpenApiComponentKind.PathItems, false)]
-    public void SupportsInline_MatchesSpec(OpenApiComponentKind kind, bool expected)
-    {
-        Assert.Equal(expected, kind.SupportsInline());
-    }
+    public void SupportsInline_MatchesSpec(OpenApiComponentKind kind, bool expected) => Assert.Equal(expected, kind.SupportsInline());
 }

@@ -1,6 +1,3 @@
-using System;
-using System.Collections.Generic;
-using System.IO;
 using Kestrun.OpenApi;
 using Xunit;
 
@@ -13,7 +10,7 @@ public class OpenApiComponentAnnotationScannerTests
     public void ScanFromPath_FollowsDotSourcingAndCapturesVariables()
     {
         var tempDir = Path.Combine(Path.GetTempPath(), "kestrun-tests-" + Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(tempDir);
+        _ = Directory.CreateDirectory(tempDir);
 
         try
         {
@@ -59,7 +56,7 @@ public class OpenApiComponentAnnotationScannerTests
     public void ScanFromPath_MarksNoDefaultWhenInitializerIsNoDefault()
     {
         var tempDir = Path.Combine(Path.GetTempPath(), "kestrun-tests-" + Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(tempDir);
+        _ = Directory.CreateDirectory(tempDir);
 
         try
         {

@@ -270,7 +270,7 @@ public class PowerShellModuleLocatorTests
     {
         // Create a temp directory and delete it to test edge case
         var root = Directory.CreateTempSubdirectory();
-        var startPath = root.FullName;
+        _ = root.FullName;
         root.Delete();
 
         // The method should handle gracefully (either return null or throw reasonable exception)

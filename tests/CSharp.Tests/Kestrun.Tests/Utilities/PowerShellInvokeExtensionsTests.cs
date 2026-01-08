@@ -101,13 +101,13 @@ public class PowerShellInvokeExtensionsTests
     {
         // Arrange
         using var ps = PowerShell.Create();
-        ps.AddScript("Write-Host 'test'");
+        _ = ps.AddScript("Write-Host 'test'");
 
         var cts = new CancellationTokenSource();
         cts.Cancel();
 
         // Act & Assert
-        await Assert.ThrowsAsync<OperationCanceledException>(() =>
+        _ = await Assert.ThrowsAsync<OperationCanceledException>(() =>
             ps.InvokeWithRequestAbortAsync(cts.Token));
     }
 
@@ -117,7 +117,7 @@ public class PowerShellInvokeExtensionsTests
     {
         // Arrange
         using var ps = PowerShell.Create();
-        ps.AddScript("@(1, 2, 3)");
+        _ = ps.AddScript("@(1, 2, 3)");
 
         var cts = new CancellationTokenSource();
 
@@ -135,7 +135,7 @@ public class PowerShellInvokeExtensionsTests
     {
         // Arrange
         using var ps = PowerShell.Create();
-        ps.AddScript("'hello'");
+        _ = ps.AddScript("'hello'");
 
         // Act
         var result = await ps.InvokeWithRequestAbortAsync(default);
@@ -154,7 +154,7 @@ public class PowerShellInvokeExtensionsTests
     {
         // Arrange
         using var ps = PowerShell.Create();
-        ps.AddScript("'test'");
+        _ = ps.AddScript("'test'");
         var cts = new CancellationTokenSource();
 
         // Act & Assert - should not throw with null callback
@@ -168,11 +168,14 @@ public class PowerShellInvokeExtensionsTests
     {
         // Arrange
         using var ps = PowerShell.Create();
-        ps.AddScript("'test'");
+        _ = ps.AddScript("'test'");
         var cts = new CancellationTokenSource();
         var callbackInvoked = false;
 
-        void OnAbortLog() => callbackInvoked = true;
+        void OnAbortLog()
+        {
+            callbackInvoked = true;
+        }
 
         // Act
         var result = await ps.InvokeWithRequestAbortAsync(cts.Token, onAbortLog: OnAbortLog);
@@ -192,7 +195,7 @@ public class PowerShellInvokeExtensionsTests
     {
         // Arrange
         using var ps = PowerShell.Create();
-        ps.AddScript("1 + 1");
+        _ = ps.AddScript("1 + 1");
         var cts = new CancellationTokenSource();
 
         // Act
@@ -200,7 +203,7 @@ public class PowerShellInvokeExtensionsTests
 
         // Assert
         Assert.NotNull(result);
-        Assert.Single(result);
+        _ = Assert.Single(result);
         Assert.Equal(2, result[0].BaseObject);
     }
 
@@ -210,7 +213,7 @@ public class PowerShellInvokeExtensionsTests
     {
         // Arrange
         using var ps = PowerShell.Create();
-        ps.AddScript("1..3");
+        _ = ps.AddScript("1..3");
         var cts = new CancellationTokenSource();
 
         // Act
@@ -227,7 +230,7 @@ public class PowerShellInvokeExtensionsTests
     {
         // Arrange
         using var ps = PowerShell.Create();
-        ps.AddScript("# Just a comment, no output");
+        _ = ps.AddScript("# Just a comment, no output");
         var cts = new CancellationTokenSource();
 
         // Act
@@ -249,12 +252,12 @@ public class PowerShellInvokeExtensionsTests
     {
         // Arrange
         using var ps = PowerShell.Create();
-        ps.AddScript("throw 'Test error'");
+        _ = ps.AddScript("throw 'Test error'");
         var cts = new CancellationTokenSource();
 
         // Act & Assert
         // PowerShell script errors throw RuntimeException
-        _ = await Assert.ThrowsAsync<System.Management.Automation.RuntimeException>(() =>
+        _ = await Assert.ThrowsAsync<RuntimeException>(() =>
             ps.InvokeWithRequestAbortAsync(cts.Token));
     }
 
@@ -268,7 +271,7 @@ public class PowerShellInvokeExtensionsTests
     {
         // Arrange
         using var ps = PowerShell.Create();
-        ps.AddScript("'test'");
+        _ = ps.AddScript("'test'");
         var cts = new CancellationTokenSource();
 
         // Act
@@ -292,7 +295,7 @@ public class PowerShellInvokeExtensionsTests
         var ps = PowerShell.Create();
         try
         {
-            ps.AddScript("'extension method test'");
+            _ = ps.AddScript("'extension method test'");
             var cts = new CancellationTokenSource();
 
             // Act - call as extension method

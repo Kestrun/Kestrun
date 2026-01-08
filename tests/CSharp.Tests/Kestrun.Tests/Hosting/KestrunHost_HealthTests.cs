@@ -1,7 +1,6 @@
 using Kestrun.Health;
 using Kestrun.Hosting;
 using Kestrun.Hosting.Options;
-using Kestrun.Models;
 using Kestrun.Scripting;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
@@ -95,7 +94,7 @@ public class KestrunHost_HealthTests
         // Assert
         Assert.NotNull(result);
         // Verify middleware was queued for deferred execution
-        Assert.Single(middleware);
+        _ = Assert.Single(middleware);
     }
 
     [Fact]
@@ -164,7 +163,7 @@ public class KestrunHost_HealthTests
         // Act & Assert
         var ex = Assert.Throws<System.Reflection.TargetInvocationException>(() =>
             method!.Invoke(null, [null!, target]));
-        Assert.IsType<ArgumentNullException>(ex.InnerException);
+        _ = Assert.IsType<ArgumentNullException>(ex.InnerException);
     }
 
     [Fact]
@@ -179,7 +178,7 @@ public class KestrunHost_HealthTests
         // Act & Assert
         var ex = Assert.Throws<System.Reflection.TargetInvocationException>(() =>
             method!.Invoke(null, [source, null!]));
-        Assert.IsType<ArgumentNullException>(ex.InnerException);
+        _ = Assert.IsType<ArgumentNullException>(ex.InnerException);
     }
 
     [Fact]
@@ -352,7 +351,7 @@ public class KestrunHost_HealthTests
         var result = (string[])method!.Invoke(null, [context.Request])!;
 
         // Assert
-        Assert.Single(result);
+        _ = Assert.Single(result);
         Assert.Equal("database", result[0]);
     }
 
@@ -453,7 +452,7 @@ public class KestrunHost_HealthTests
         var result = (string[])method!.Invoke(null, [context.Request])!;
 
         // Assert
-        Assert.Single(result);
+        _ = Assert.Single(result);
         Assert.Equal("database", result[0], StringComparer.OrdinalIgnoreCase);
     }
 

@@ -34,7 +34,7 @@ public sealed class OpenApiComponentCloneTests
     {
         var mock = new Mock<IOpenApiParameter>();
 
-        _ = Assert.Throws<InvalidOperationException>(() => mock.Object.Clone());
+        _ = Assert.Throws<InvalidOperationException>(mock.Object.Clone);
     }
 
     [Fact]

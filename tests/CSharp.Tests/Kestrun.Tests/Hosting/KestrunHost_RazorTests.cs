@@ -23,7 +23,7 @@ namespace KestrunTests.Hosting;
 // KestrunHost may set the process CWD to that root; if the directory is deleted without restoring
 // the original CWD, later tests can fail on Unix/macOS when getcwd() or ContentRootPath validation runs.
 [Collection("WorkingDirectorySerial")]
-public class KestrunHostRazorExtensionsTests
+public class KestrunHost_RazorTests
 {
     [Fact]
     [Trait("Category", "Hosting")]

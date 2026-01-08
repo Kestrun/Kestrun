@@ -38,7 +38,7 @@ function Add-KrFaviconMiddleware {
         $Server = Resolve-KestrunServer -Server $Server
     }
     process {
-        [Kestrun.Hosting.KestrunHostStaticFilesExtensions]::AddFavicon($Server, $IconPath) | Out-Null
+        $Server.AddFavicon($IconPath) | Out-Null
 
         if ($PassThru.IsPresent) {
             # if the PassThru switch is specified, return the modified server instance
@@ -46,4 +46,3 @@ function Add-KrFaviconMiddleware {
         }
     }
 }
-

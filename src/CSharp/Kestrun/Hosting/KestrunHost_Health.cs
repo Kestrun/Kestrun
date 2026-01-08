@@ -4,39 +4,22 @@ using Kestrun.Models;
 using Kestrun.Scripting;
 using Kestrun.Utilities;
 using Microsoft.Net.Http.Headers;
-using System.Text.Json;
-using System.Text.Json.Serialization;
 
 namespace Kestrun.Hosting;
 
 /// <summary>
 /// Adds health-check specific helpers to <see cref="KestrunHost"/>.
 /// </summary>
-public static class KestrunHostHealthExtensions
+public partial class KestrunHost
 {
-    private static readonly JsonSerializerOptions JsonOptions;
-
-    static KestrunHostHealthExtensions()
-    {
-        JsonOptions = new JsonSerializerOptions(JsonSerializerDefaults.Web)
-        {
-            DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
-            WriteIndented = false
-        };
-        JsonOptions.Converters.Add(new JsonStringEnumConverter());
-    }
-
     /// <summary>
     /// Registers a GET endpoint (default <c>/health</c>) that aggregates the state of all registered probes.
     /// </summary>
-    /// <param name="host">The host to configure.</param>
     /// <param name="configure">Optional action to mutate the default endpoint options.</param>
     /// <returns>The <see cref="KestrunHost"/> instance for fluent chaining.</returns>
-    public static KestrunHost AddHealthEndpoint(this KestrunHost host, Action<HealthEndpointOptions>? configure = null)
+    public KestrunHost AddHealthEndpoint(Action<HealthEndpointOptions>? configure = null)
     {
-        ArgumentNullException.ThrowIfNull(host);
-
-        var merged = host.Options.Health?.Clone() ?? new HealthEndpointOptions();
+        var merged = Options.Health?.Clone() ?? new HealthEndpointOptions();
         configure?.Invoke(merged);
 
         var mapOptions = new MapRouteOptions
@@ -68,36 +51,37 @@ public static class KestrunHostHealthExtensions
         // Auto-register endpoint only when enabled
         if (!merged.AutoRegisterEndpoint)
         {
-            host.Logger.Debug("Health endpoint AutoRegisterEndpoint=false; skipping automatic mapping for pattern {Pattern}", merged.Pattern);
-            return host;
+            Logger.Debug("Health endpoint AutoRegisterEndpoint=false; skipping automatic mapping for pattern {Pattern}", merged.Pattern);
+            return this;
         }
 
         // If the app pipeline is already built/configured, map immediately; otherwise defer until build
-        if (host.IsConfigured)
+        if (IsConfigured)
         {
-            MapHealthEndpointImmediate(host, merged, mapOptions);
-            return host;
+            MapHealthEndpointImmediate(merged, mapOptions);
+            return this;
         }
 
-        return host.Use(app => MapHealthEndpointImmediate(host, merged, mapOptions));
+        return Use(app => MapHealthEndpointImmediate(merged, mapOptions));
     }
 
     /// <summary>
     /// Registers a GET endpoint (default <c>/health</c>) using a pre-configured <see cref="HealthEndpointOptions"/> instance.
     /// </summary>
-    /// <param name="host">The host to configure.</param>
     /// <param name="options">A fully configured options object.</param>
     /// <returns>The <see cref="KestrunHost"/> instance for fluent chaining.</returns>
-    public static KestrunHost AddHealthEndpoint(this KestrunHost host, HealthEndpointOptions options)
+    public KestrunHost AddHealthEndpoint(HealthEndpointOptions options)
     {
-        ArgumentNullException.ThrowIfNull(host);
         ArgumentNullException.ThrowIfNull(options);
 
-        return host.AddHealthEndpoint(dest => CopyHealthEndpointOptions(options, dest));
+        return AddHealthEndpoint(dest => CopyHealthEndpointOptions(options, dest));
     }
 
-    // ApplyConventions removed; unified with KestrunHostMapExtensions.AddMapOptions
-
+    /// <summary>
+    /// Extracts tags from the HTTP request query parameters.
+    /// </summary>
+    /// <param name="request">The HTTP request containing query parameters.</param>
+    /// <returns>An array of extracted tags.</returns>
     private static string[] ExtractTags(HttpRequest request)
     {
         var collected = new List<string>();
@@ -130,6 +114,11 @@ public static class KestrunHostHealthExtensions
                            .Distinct(StringComparer.OrdinalIgnoreCase)];
     }
 
+    /// <summary>
+    /// Copies health endpoint options from source to target.
+    /// </summary>
+    /// <param name="source">The source HealthEndpointOptions instance.</param>
+    /// <param name="target">The target HealthEndpointOptions instance.</param>
     private static void CopyHealthEndpointOptions(HealthEndpointOptions source, HealthEndpointOptions target)
     {
         ArgumentNullException.ThrowIfNull(source);
@@ -138,16 +127,16 @@ public static class KestrunHostHealthExtensions
         target.Pattern = source.Pattern;
         target.DefaultTags = source.DefaultTags is { Length: > 0 } tags
             ? [.. tags]
-            : Array.Empty<string>();
+            : [];
         target.AllowAnonymous = source.AllowAnonymous;
         target.TreatDegradedAsUnhealthy = source.TreatDegradedAsUnhealthy;
         target.ThrowOnDuplicate = source.ThrowOnDuplicate;
         target.RequireSchemes = source.RequireSchemes is { Length: > 0 } schemes
             ? [.. schemes]
-            : Array.Empty<string>();
+            : [];
         target.RequirePolicies = source.RequirePolicies is { Length: > 0 } policies
             ? [.. policies]
-            : Array.Empty<string>();
+            : [];
         target.CorsPolicy = source.CorsPolicy;
         target.RateLimitPolicyName = source.RateLimitPolicyName;
         target.ShortCircuit = source.ShortCircuit;
@@ -157,7 +146,7 @@ public static class KestrunHostHealthExtensions
         target.OpenApiOperationId = source.OpenApiOperationId;
         target.OpenApiTags = source.OpenApiTags is { Count: > 0 } openApiTags
             ? [.. openApiTags]
-            : new List<string>();
+            : [];
         target.OpenApiGroupName = source.OpenApiGroupName;
         target.MaxDegreeOfParallelism = source.MaxDegreeOfParallelism;
         target.ProbeTimeout = source.ProbeTimeout;
@@ -181,33 +170,32 @@ public static class KestrunHostHealthExtensions
     /// <summary>
     /// Maps the health endpoint immediately.
     /// </summary>
-    /// <param name="host">The KestrunHost instance.</param>
     /// <param name="merged">The merged HealthEndpointOptions instance.</param>
     /// <param name="mapOptions">The route mapping options.</param>
     /// <exception cref="InvalidOperationException">Thrown if a route with the same pattern and HTTP verb already exists and ThrowOnDuplicate is true.</exception>
-    private static void MapHealthEndpointImmediate(KestrunHost host, HealthEndpointOptions merged, MapRouteOptions mapOptions)
+    private void MapHealthEndpointImmediate(HealthEndpointOptions merged, MapRouteOptions mapOptions)
     {
-        if (host.MapExists(mapOptions.Pattern!, HttpVerb.Get))
+        if (this.MapExists(mapOptions.Pattern!, HttpVerb.Get))
         {
             var message = $"Route '{mapOptions.Pattern}' (GET) already exists. Skipping health endpoint registration.";
             if (merged.ThrowOnDuplicate)
             {
                 throw new InvalidOperationException(message);
             }
-            host.Logger.Warning(message);
+            Logger.Warning(message);
             return;
         }
 
-        // Acquire WebApplication (throws if Build() truly has not executed yet). Using host.App here allows
+        // Acquire WebApplication (throws if Build() truly has not executed yet). Using App here allows
         // early AddHealthEndpoint calls before EnableConfiguration via deferred middleware.
-        var endpoints = host.App;
-        var endpointLogger = host.Logger.ForContext("HealthEndpoint", merged.Pattern);
+        var endpoints = App;
+        var endpointLogger = Logger.ForContext("HealthEndpoint", merged.Pattern);
 
         var map = endpoints.MapMethods(merged.Pattern, [HttpMethods.Get], async context =>
         {
             var requestTags = ExtractTags(context.Request);
             var tags = requestTags.Length > 0 ? requestTags : merged.DefaultTags;
-            var snapshot = host.GetHealthProbesSnapshot();
+            var snapshot = GetHealthProbesSnapshot();
 
             var report = await HealthProbeRunner.RunAsync(
                 probes: snapshot,
@@ -217,7 +205,7 @@ public static class KestrunHostHealthExtensions
                 logger: endpointLogger,
                 ct: context.RequestAborted).ConfigureAwait(false);
 
-            var krContext = new KestrunContext(host, context);
+            var krContext = new KestrunContext(this, context);
             var response = krContext.Response;
             response.CacheControl = new CacheControlHeaderValue
             {
@@ -259,8 +247,8 @@ public static class KestrunHostHealthExtensions
             await response.ApplyTo(context.Response).ConfigureAwait(false);
         }).WithMetadata(new ScriptLanguageAttribute(ScriptLanguage.Native));
 
-        host.AddMapOptions(map, mapOptions);
-        host._registeredRoutes[(mapOptions.Pattern!, HttpVerb.Get)] = mapOptions;
-        host.Logger.Information("Registered health endpoint at {Pattern}", mapOptions.Pattern);
+        this.AddMapOptions(map, mapOptions);
+        _registeredRoutes[(mapOptions.Pattern!, HttpVerb.Get)] = mapOptions;
+        Logger.Information("Registered health endpoint at {Pattern}", mapOptions.Pattern);
     }
 }

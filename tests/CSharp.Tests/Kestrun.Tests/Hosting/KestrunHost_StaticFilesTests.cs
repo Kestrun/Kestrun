@@ -7,7 +7,7 @@ using Xunit;
 
 namespace KestrunTests.Hosting;
 
-public class KestrunHostStaticFilesExtensionsTests
+public class KestrunHost_StaticFilesTests
 {
     private KestrunHost CreateHost(out List<Action<IApplicationBuilder>> middleware)
     {
@@ -171,15 +171,15 @@ public class KestrunHostStaticFilesExtensionsTests
     [Trait("Category", "Hosting")]
     public void AddDirectoryBrowser_Method_IsDefined_WithExpectedSignature()
     {
-        var extType = typeof(KestrunHostStaticFilesExtensions);
-        var method = extType.GetMethod(
+        var hostType = typeof(KestrunHost);
+        var method = hostType.GetMethod(
             "AddDirectoryBrowser",
-            BindingFlags.Public | BindingFlags.Static,
+            BindingFlags.Public | BindingFlags.Instance,
             null,
-            [typeof(KestrunHost), typeof(string)],
+            [typeof(string)],
             null);
 
         Assert.NotNull(method);
-        Assert.True(method.IsStatic);
+        Assert.False(method!.IsStatic);
     }
 }

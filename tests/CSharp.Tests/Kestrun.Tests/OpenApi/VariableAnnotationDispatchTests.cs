@@ -1,5 +1,3 @@
-using System;
-using System.Collections.Generic;
 using System.Reflection;
 using Kestrun.Hosting;
 using Kestrun.OpenApi;
@@ -33,7 +31,7 @@ public class VariableAnnotationDispatchTests
             BindingFlags.Instance | BindingFlags.NonPublic);
 
         Assert.NotNull(method);
-        _ = method!.Invoke(descriptor, new object?[] { annotations });
+        _ = method!.Invoke(descriptor, [annotations]);
     }
 
     [Fact]
@@ -45,7 +43,7 @@ public class VariableAnnotationDispatchTests
         descriptor.Document.Components ??= new OpenApiComponents();
 
         InvokeProcessVariableAnnotations(descriptor, null);
-        InvokeProcessVariableAnnotations(descriptor, new Dictionary<string, OpenApiComponentAnnotationScanner.AnnotatedVariable>());
+        InvokeProcessVariableAnnotations(descriptor, []);
     }
 
     [Fact]
@@ -118,7 +116,7 @@ public class VariableAnnotationDispatchTests
 
         var ex = Assert.Throws<TargetInvocationException>(() => InvokeProcessVariableAnnotations(descriptor, dict));
         Assert.NotNull(ex.InnerException);
-        Assert.IsType<InvalidOperationException>(ex.InnerException);
+        _ = Assert.IsType<InvalidOperationException>(ex.InnerException);
     }
 
     [Fact]

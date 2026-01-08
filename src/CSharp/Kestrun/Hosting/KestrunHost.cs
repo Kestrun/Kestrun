@@ -24,6 +24,8 @@ using Kestrun.Runtime;
 using Kestrun.OpenApi;
 using Microsoft.AspNetCore.Antiforgery;
 using Kestrun.Callback;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace Kestrun.Hosting;
 
@@ -33,6 +35,20 @@ namespace Kestrun.Hosting;
 public partial class KestrunHost : IDisposable
 {
     private const string KestrunVariableMarkerKey = "__kestrunVariable";
+
+    #region Static Members
+    private static readonly JsonSerializerOptions JsonOptions;
+
+    static KestrunHost()
+    {
+        JsonOptions = new JsonSerializerOptions(JsonSerializerDefaults.Web)
+        {
+            DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
+            WriteIndented = false
+        };
+        JsonOptions.Converters.Add(new JsonStringEnumConverter());
+    }
+    #endregion
 
     #region Fields
     internal WebApplicationBuilder Builder { get; }
@@ -1590,7 +1606,7 @@ public partial class KestrunHost : IDisposable
             _ = s.AddSignalR().AddJsonProtocol(opts =>
             {
                 // Avoid failures when payloads contain cycles; our sanitizer should prevent most, this is a safety net.
-                opts.PayloadSerializerOptions.ReferenceHandler = System.Text.Json.Serialization.ReferenceHandler.IgnoreCycles;
+                opts.PayloadSerializerOptions.ReferenceHandler = ReferenceHandler.IgnoreCycles;
             });
             // Register IRealtimeBroadcaster as singleton if it's the KestrunHub
             if (typeof(T) == typeof(SignalR.KestrunHub))

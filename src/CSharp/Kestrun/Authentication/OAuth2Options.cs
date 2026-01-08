@@ -32,8 +32,8 @@ public class OAuth2Options : OAuthOptions, IOpenApiAuthenticationOptions, IAuthe
     /// <inheritdoc/>
     public string[] DocumentationId { get; set; } = [];
 
-    /// <inheritdoc/>
 #pragma warning disable IDE0370 // Remove unnecessary suppression
+    /// <inheritdoc/>
     public KestrunHost Host { get; set; } = default!;
 #pragma warning restore IDE0370 // Remove unnecessary suppression
 

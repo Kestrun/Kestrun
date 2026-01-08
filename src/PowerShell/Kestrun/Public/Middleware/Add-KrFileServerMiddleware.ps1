@@ -196,10 +196,10 @@ function Add-KrFileServerMiddleware {
             if ($PSBoundParameters.ContainsKey('MustRevalidate')) { $cacheControl.MustRevalidate = $MustRevalidate.IsPresent }
             if ($PSBoundParameters.ContainsKey('ProxyRevalidate')) { $cacheControl.ProxyRevalidate = $ProxyRevalidate.IsPresent }
             # Add the file server to the server with caching options
-            [Kestrun.Hosting.KestrunHostStaticFilesExtensions]::AddFileServer($Server, $Options, $cacheControl) | Out-Null
+            $Server.AddFileServer( $Options, $cacheControl) | Out-Null
         } else {
             # Add the file server to the server without caching options
-            [Kestrun.Hosting.KestrunHostStaticFilesExtensions]::AddFileServer($Server, $Options) | Out-Null
+            $Server.AddFileServer( $Options) | Out-Null
         }
 
         if ($PassThru.IsPresent) {
@@ -208,4 +208,3 @@ function Add-KrFileServerMiddleware {
         }
     }
 }
-

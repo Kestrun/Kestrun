@@ -77,8 +77,11 @@ public sealed class DefaultCallbackRetryPolicy : ICallbackRetryPolicy
     /// </summary>
     /// <param name="r">The callback result to evaluate.</param>
     /// <returns>True if the result indicates a permanent failure; otherwise, false.</returns>
+    /// <remarks>
+    /// Permanent failures are those that should not be retried.
+    /// could treat repeated 401/403 as permanent immediately
+    /// </remarks>
     private static bool IsPermanentFailure(CallbackResult r) =>
-        // could treat repeated 401/403 as permanent immediately
         r.StatusCode is 400 or 401 or 403 or 404 or 409 or 422;
 
     /// <summary>

@@ -106,6 +106,7 @@ public partial class OpenApiDocDescriptor
                 : new OpenApiExampleReference(exRef.ReferenceId);
         }
     }
+
     /// <summary>
     /// Resolves the content types to apply example references to.
     /// </summary>

@@ -1553,7 +1553,7 @@ public partial class KestrunHost : IDisposable
             _ = s.AddSignalR().AddJsonProtocol(opts =>
             {
                 // Avoid failures when payloads contain cycles; our sanitizer should prevent most, this is a safety net.
-                opts.PayloadSerializerOptions.ReferenceHandler = System.Text.Json.Serialization.ReferenceHandler.IgnoreCycles;
+                opts.PayloadSerializerOptions.ReferenceHandler = ReferenceHandler.IgnoreCycles;
             });
             // Register IRealtimeBroadcaster as singleton if it's the KestrunHub
             if (typeof(T) == typeof(SignalR.KestrunHub))

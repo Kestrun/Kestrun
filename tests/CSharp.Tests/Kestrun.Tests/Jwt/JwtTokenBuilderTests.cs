@@ -5,7 +5,7 @@ using Xunit;
 
 namespace KestrunTests.Jwt;
 
-public class JwtTokenBuilderTests
+public partial class JwtTokenBuilderTests
 {
     [Theory]
     [InlineData(32, "HS256")] // 256-bit
@@ -18,6 +18,62 @@ public class JwtTokenBuilderTests
         var res = b.Build();
         Assert.Equal(expectedAlg, b.Algorithm);
         Assert.Contains(expectedAlg, res.GetValidationParameters().ValidAlgorithms);
+    }
+
+    [Fact]
+    [Trait("Category", "Jwt")]
+    public void SignWithJwkJson_oct_Auto_Uses_HS256()
+    {
+        var key = Enumerable.Repeat((byte)0xAA, 32).ToArray();
+        var b64u = B64Url(key);
+        var jwk = $"{{\"kty\":\"oct\",\"k\":\"{b64u}\"}}";
+
+        var b = JwtTokenBuilder.New().WithIssuer("iss").WithAudience("aud").WithSubject("sub").SignWithJwkJson(jwk);
+        var res = b.Build();
+        Assert.Equal("HS256", b.Algorithm);
+        Assert.False(string.IsNullOrWhiteSpace(res.Token()));
+    }
+
+    [Fact]
+    [Trait("Category", "Jwt")]
+    public void SignWithJwkJson_oct_Incompatible_Alg_Throws()
+    {
+        var key = Enumerable.Repeat((byte)0xBB, 32).ToArray();
+        var b64u = B64Url(key);
+        var jwk = $"{{\"kty\":\"oct\",\"k\":\"{b64u}\"}}";
+
+        var b = JwtTokenBuilder.New().WithIssuer("iss").WithAudience("aud").WithSubject("sub").SignWithJwkJson(jwk, JwtAlgorithm.RS256);
+        _ = Assert.Throws<NotSupportedException>(b.Build);
+    }
+
+    [Fact]
+    [Trait("Category", "Jwt")]
+    public void SignWithJwkJson_RSA_Incompatible_Alg_Throws()
+    {
+        using var rsa = RSA.Create(2048);
+        var p = rsa.ExportParameters(false);
+        var n = B64Url(p.Modulus!);
+        var e = B64Url(p.Exponent!);
+        var jwkRsa = $"{{\"kty\":\"RSA\",\"n\":\"{n}\",\"e\":\"{e}\"}}";
+
+        var b = JwtTokenBuilder.New().WithIssuer("iss").WithAudience("aud").WithSubject("sub").SignWithJwkJson(jwkRsa, JwtAlgorithm.HS256);
+        _ = Assert.Throws<NotSupportedException>(b.Build);
+    }
+
+    [Fact]
+    [Trait("Category", "Jwt")]
+    public void EncryptWithJwkJson_RSA_Public_Builds_Token()
+    {
+        using var rsa = RSA.Create(2048);
+        var p = rsa.ExportParameters(false);
+        var n = B64Url(p.Modulus!);
+        var e = B64Url(p.Exponent!);
+        var jwkPub = $"{{\"kty\":\"RSA\",\"n\":\"{n}\",\"e\":\"{e}\"}}";
+
+        var sign = B64Url([.. Enumerable.Repeat((byte)0xCC, 32)]);
+        var b = JwtTokenBuilder.New().WithIssuer("iss").WithAudience("aud").WithSubject("sub").SignWithSecret(sign).EncryptWithJwkJson(jwkPub);
+        var token = b.Build().Token();
+        Assert.False(string.IsNullOrWhiteSpace(token));
     }
 
     [Fact]

@@ -106,8 +106,10 @@ function New-KrServer {
             }
         }
         $enablePowershellMiddleware = -not $DisablePowershellMiddleware.IsPresent
+        # Get the path of the entry script that invoked this function
+        $entryScriptPath = Get-EntryScriptPath
 
-        $server = [Kestrun.KestrunHostManager]::Create($Name, $Logger, [string[]] $modulePaths, $Default.IsPresent, $enablePowershellMiddleware)
+        $server = [Kestrun.KestrunHostManager]::Create($Name, $Logger, $entryScriptPath, [string[]] $modulePaths, $Default.IsPresent, $enablePowershellMiddleware)
         if ($PassThru.IsPresent) {
             # if the PassThru switch is specified, return the modified server instance
             return $Server

@@ -2,21 +2,34 @@
 /// Specifies metadata for an OpenAPI Parameter object. Can be applied to classes
 /// to contribute entries under components.parameters.
 /// </summary>
-[AttributeUsage(AttributeTargets.Class, AllowMultiple = false, Inherited = false)]
-public sealed class OpenApiParameterComponent : KestrunAnnotation
+[AttributeUsage(AttributeTargets.Class | AttributeTargets.Struct | AttributeTargets.Property, AllowMultiple = false, Inherited = false)]
+public sealed class OpenApiParameterComponent : OpenApiProperties
 {
-    /// <summary>
-    /// Optional delimiter used by generators for naming component keys that are
-    /// derived from member names (e.g., parameters from properties within a class).
-    /// When set and applicable (e.g., for Parameter kinds), generators may name
-    /// a member-driven component as "ClassName{JoinClassName}MemberName" instead
-    /// of just "MemberName".
-    /// Example: JoinClassName = "-" => AddressParameter-OK
-    /// </summary>
-    public string? JoinClassName { get; set; }
+    public OaParameterLocation In { get; set; } = OaParameterLocation.Query;
+    /// <summary>Override the parameter name (default: property name).</summary>
+    public string? Name { get; set; }
+    /// <summary>Override the parameter name (default: property name).</summary>
+    public string? Key { get; set; }
 
     /// <summary>
-    /// Optional default description for the parameter components.
+    /// Whether the parameter is required.
     /// </summary>
-    public string? Description { get; set; }
+    public bool Required { get; set; }
+
+    /// <summary>Allow empty value (query only).</summary>
+    public bool AllowEmptyValue { get; set; }
+    /// <summary>Serialization style hint.</summary>
+    public OaParameterStyle? Style { get; set; }
+    /// <summary>Explode hint for structured values.</summary>
+    public bool Explode { get; set; }
+    /// <summary>Allow reserved characters unescaped (query only).</summary>
+    public bool AllowReserved { get; set; }
+    /// <summary>
+    /// Indicates that the parameter definition should be inlined
+    /// into the operation rather than being a reusable component.
+    /// </summary>
+    public bool Inline { get; set; }
+
+    /// <summary>The key is the media type. Will use content instead of schema.</summary>
+    public string? ContentType { get; set; }
 }

@@ -18,5 +18,5 @@ public sealed class OpenApiRequestBodyComponent : OpenApiProperties
     /// <summary>
     /// Whether the request body is required.
     /// </summary>
-    public bool IsRequired { get; set; }
+    public bool Required { get; set; }
 }

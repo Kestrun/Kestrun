@@ -32,8 +32,14 @@ public partial class OpenApiDocDescriptor
     /// <param name="attribute">The example attribute containing reference details.</param>
     /// <returns>True if the example was added successfully; otherwise, false.</returns>
     /// <exception cref="InvalidOperationException"></exception>
-    private bool TryAddExample(IDictionary<string, IOpenApiExample> examples, IOpenApiExampleAttribute attribute)
+    private bool TryAddExample(IDictionary<string, IOpenApiExample>? examples, IOpenApiExampleAttribute attribute)
     {
+        // If no examples dictionary, cannot add
+        if (examples is null)
+        {
+            return false;
+        }
+        // Try to get the example from inline components first
         if (TryGetInline(name: attribute.ReferenceId, kind: OpenApiComponentKind.Examples, out OpenApiExample? example))
         {
             // If InlineComponents, clone the example

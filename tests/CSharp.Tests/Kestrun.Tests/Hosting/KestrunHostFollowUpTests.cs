@@ -10,6 +10,8 @@ namespace KestrunTests.Hosting;
 [Collection("SharedStateSerial")]
 public class KestrunHostFollowUpTests
 {
+    private const string EntryScriptPath = "tests.ps1";
+
     private sealed class SwitchReset(string name, bool prev) : IDisposable
     {
         private readonly string _name = name;
@@ -44,8 +46,8 @@ public class KestrunHostFollowUpTests
     public async Task StopAllAsync_With_Canceled_Token_Completes()
     {
         Reset();
-        _ = KestrunHostManager.Create("s1", () => NewHost("s1"));
-        _ = KestrunHostManager.Create("s2", () => NewHost("s2"));
+        _ = KestrunHostManager.Create("s1", EntryScriptPath, () => NewHost("s1"));
+        _ = KestrunHostManager.Create("s2", EntryScriptPath, () => NewHost("s2"));
         using var cts = new CancellationTokenSource();
         cts.Cancel();
         await KestrunHostManager.StopAllAsync(cts.Token);
@@ -56,9 +58,9 @@ public class KestrunHostFollowUpTests
     public void Destroy_Default_Reassigns_To_Existing_Instance()
     {
         Reset();
-        _ = KestrunHostManager.Create("aa", () => NewHost("aa"), setAsDefault: true);
-        _ = KestrunHostManager.Create("bb", () => NewHost("bb"));
-        _ = KestrunHostManager.Create("cc", () => NewHost("cc"));
+        _ = KestrunHostManager.Create("aa", EntryScriptPath, () => NewHost("aa"), setAsDefault: true);
+        _ = KestrunHostManager.Create("bb", EntryScriptPath, () => NewHost("bb"));
+        _ = KestrunHostManager.Create("cc", EntryScriptPath, () => NewHost("cc"));
 
         KestrunHostManager.Destroy("aa");
 
@@ -87,7 +89,7 @@ public class KestrunHostFollowUpTests
             field.SetValue(null, null);
 
             var module = LocateDevModule();
-            _ = Assert.Throws<InvalidOperationException>(() => KestrunHostManager.Create("noRoot", Log.Logger, [module]));
+            _ = Assert.Throws<InvalidOperationException>(() => KestrunHostManager.Create("noRoot", Log.Logger, EntryScriptPath, [module]));
         }
         finally
         {
@@ -140,7 +142,7 @@ public class KestrunHostFollowUpTests
     {
         Reset();
         var name = "disp";
-        _ = KestrunHostManager.Create(name, () => NewHost(name));
+        _ = KestrunHostManager.Create(name, EntryScriptPath, () => NewHost(name));
         var host = KestrunHostManager.Get(name)!;
         host.Dispose();
 
@@ -153,8 +155,8 @@ public class KestrunHostFollowUpTests
     public void Duplicate_Create_Throws()
     {
         Reset();
-        _ = KestrunHostManager.Create("dup", () => NewHost("dup"));
-        _ = Assert.Throws<InvalidOperationException>(() => KestrunHostManager.Create("dup", () => NewHost("dup")));
+        _ = KestrunHostManager.Create("dup", EntryScriptPath, () => NewHost("dup"));
+        _ = Assert.Throws<InvalidOperationException>(() => KestrunHostManager.Create("dup", EntryScriptPath, () => NewHost("dup")));
     }
 
     [Fact]
@@ -179,8 +181,8 @@ public class KestrunHostFollowUpTests
     public void SetDefault_Changes_Default_Instance()
     {
         Reset();
-        _ = KestrunHostManager.Create("a", () => NewHost("a"));
-        _ = KestrunHostManager.Create("b", () => NewHost("b"));
+        _ = KestrunHostManager.Create("a", EntryScriptPath, () => NewHost("a"));
+        _ = KestrunHostManager.Create("b", EntryScriptPath, () => NewHost("b"));
         KestrunHostManager.SetDefault("b");
         var def = KestrunHostManager.Default;
         Assert.NotNull(def);
@@ -193,7 +195,7 @@ public class KestrunHostFollowUpTests
     {
         Reset();
         Assert.False(KestrunHostManager.Contains("c1"));
-        _ = KestrunHostManager.Create("c1", () => NewHost("c1"));
+        _ = KestrunHostManager.Create("c1", EntryScriptPath, () => NewHost("c1"));
         Assert.True(KestrunHostManager.Contains("c1"));
         KestrunHostManager.Destroy("c1");
         Assert.False(KestrunHostManager.Contains("c1"));
@@ -204,7 +206,7 @@ public class KestrunHostFollowUpTests
     public void TryGet_Returns_Host_When_Exists_And_Null_When_Missing()
     {
         Reset();
-        _ = KestrunHostManager.Create("t1", () => NewHost("t1"));
+        _ = KestrunHostManager.Create("t1", EntryScriptPath, () => NewHost("t1"));
         var found = KestrunHostManager.TryGet("t1", out var host1);
         Assert.True(found);
         Assert.NotNull(host1);

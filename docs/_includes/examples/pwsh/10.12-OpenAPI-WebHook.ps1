@@ -42,7 +42,7 @@ Add-KrOpenApiServer -Url "http://$($IPAddress):$Port" -Description 'Local Develo
 # Order Event Payload
 [OpenApiSchemaComponent(
     Description = 'Webhook payload for order-related events.',
-    Required = ('event_id', 'event_type', 'timestamp', 'data')
+    RequiredProperties = ('event_id', 'event_type', 'timestamp', 'data')
 )]
 class OrderEventPayload {
     [OpenApiProperty(Description = 'Unique identifier for this event', Format = 'uuid')]
@@ -60,7 +60,7 @@ class OrderEventPayload {
 
 [OpenApiSchemaComponent(
     Description = 'Order details for webhook events.',
-    Required = ('order_id', 'customer_id', 'status', 'total_amount', 'currency', 'items')
+    RequiredProperties = ('order_id', 'customer_id', 'status', 'total_amount', 'currency', 'items')
 )]
 class OrderData {
     [OpenApiProperty(Description = 'Unique order identifier', Example = 'ORD-abc12345')]
@@ -85,7 +85,7 @@ class OrderData {
 
 [OpenApiSchemaComponent(
     Description = 'Individual item in an order.',
-    Required = ('product_id', 'product_name', 'quantity', 'unit_price')
+    RequiredProperties = ('product_id', 'product_name', 'quantity', 'unit_price')
 )]
 class OrderItem {
     [OpenApiProperty(Description = 'Product identifier', Example = 'PROD-001')]
@@ -104,7 +104,7 @@ class OrderItem {
 # Payment Event Payload
 [OpenApiSchemaComponent(
     Description = 'Webhook payload for payment-related events.',
-    Required = ('event_id', 'event_type', 'timestamp', 'data')
+    RequiredProperties = ('event_id', 'event_type', 'timestamp', 'data')
 )]
 class PaymentEventPayload {
     [OpenApiProperty(Description = 'Unique identifier for this event', Format = 'uuid')]
@@ -122,7 +122,7 @@ class PaymentEventPayload {
 
 [OpenApiSchemaComponent(
     Description = 'Payment transaction details for webhook events.',
-    Required = ('payment_id', 'order_id', 'customer_id', 'amount', 'currency', 'status', 'payment_method', 'transaction_id')
+    RequiredProperties = ('payment_id', 'order_id', 'customer_id', 'amount', 'currency', 'status', 'payment_method', 'transaction_id')
 )]
 class PaymentData {
     [OpenApiProperty(Description = 'Unique payment identifier', Example = 'PAY-xyz98765')]
@@ -154,7 +154,7 @@ class PaymentData {
 # Inventory Event Payload
 [OpenApiSchemaComponent(
     Description = 'Webhook payload for inventory-related events.',
-    Required = ('event_id', 'event_type', 'timestamp', 'data')
+    RequiredProperties = ('event_id', 'event_type', 'timestamp', 'data')
 )]
 class InventoryEventPayload {
     [OpenApiProperty(Description = 'Unique identifier for this event', Format = 'uuid')]
@@ -172,7 +172,7 @@ class InventoryEventPayload {
 
 [OpenApiSchemaComponent(
     Description = 'Inventory level details for webhook events.',
-    Required = ('product_id', 'product_name', 'sku', 'current_stock', 'threshold')
+    RequiredProperties = ('product_id', 'product_name', 'sku', 'current_stock', 'threshold')
 )]
 class InventoryData {
     [OpenApiProperty(Description = 'Product identifier', Example = 'PROD-001')]

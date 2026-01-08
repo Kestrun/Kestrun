@@ -85,8 +85,9 @@ public partial class OpenApiDocDescriptor
     {
         Document.Components ??= new OpenApiComponents();
         ProcessComponentTypes(components.SchemaTypes, () => Document.Components.Schemas ??= new Dictionary<string, IOpenApiSchema>(StringComparer.Ordinal), t => BuildSchema(t));
-        ProcessComponentTypes(components.ParameterTypes, () => Document.Components.Parameters ??= new Dictionary<string, IOpenApiParameter>(StringComparer.Ordinal), BuildParameters);
 #if EXTENDED_OPENAPI
+        ProcessComponentTypes(components.ParameterTypes, () => Document.Components.Parameters ??= new Dictionary<string, IOpenApiParameter>(StringComparer.Ordinal), BuildParameters);
+
         ProcessComponentTypes(components.CallbackTypes, () => Document.Components.Callbacks ??= new Dictionary<string, IOpenApiCallback>(StringComparer.Ordinal), BuildCallbacks);
 #endif
         ProcessComponentTypes(components.ResponseTypes, () => Document.Components.Responses ??= new Dictionary<string, IOpenApiResponse>(StringComparer.Ordinal), BuildResponses);
@@ -121,15 +122,76 @@ public partial class OpenApiDocDescriptor
     /// </summary>
     public void GenerateComponents()
     {
+        // Auto-discover OpenAPI component types
         var components = OpenApiSchemaDiscovery.GetOpenApiTypesAuto();
+
+        // Generate components from the discovered types
         GenerateComponents(components);
+
+        // Process variable annotations from the host
+        ProcessVariableAnnotations(Host.ComponentAnnotations);
+    }
+
+    /// <summary>
+    /// Processes variable annotations to build OpenAPI components.
+    /// </summary>
+    /// <param name="annotations">A dictionary of variable names to their annotated variables.</param>
+    private void ProcessVariableAnnotations(Dictionary<string, OpenApiComponentAnnotationScanner.AnnotatedVariable>? annotations)
+    {
+        if (annotations is null || annotations.Count == 0)
+        {
+            Host.Logger.Warning("No OpenAPI component annotations were found in the host.");
+            return;
+        }
+        foreach (var (variableName, variable) in annotations)
+        {
+            if (variable?.Annotations is null || variable.Annotations.Count == 0)
+            {
+                continue;
+            }
+
+            DispatchComponentAnnotations(variableName, variable);
+        }
+    }
+
+    /// <summary>
+    /// Dispatches component annotations for a given variable.
+    /// </summary>
+    /// <param name="variableName">The name of the variable.</param>
+    /// <param name="variable">The annotated variable containing annotations.</param>
+    private void DispatchComponentAnnotations(string variableName, OpenApiComponentAnnotationScanner.AnnotatedVariable variable)
+    {
+        foreach (var annotation in variable.Annotations)
+        {
+            switch (annotation)
+            {
+                case OpenApiParameterComponent paramComponent:
+                    ProcessParameterComponent(variableName, variable, paramComponent);
+                    break;
+
+                case OpenApiParameterExampleRefAttribute exampleRef:
+                    ProcessParameterExampleRef(variableName, exampleRef);
+                    break;
+                case InternalPowershellAttribute powershellAttribute:
+                    // Process PowerShell attribute to modify the schema
+                    ProcessPowerShellAttribute(variableName, powershellAttribute);
+                    break;
+                // future:
+                // case OpenApiHeaderComponent header:
+                //     ProcessHeaderComponent(variableName, variable, header);
+                //     break;
+
+                default:
+                    break;
+            }
+        }
     }
 
     /// <summary>
     /// Generates the OpenAPI document by processing components and building paths and webhooks.
     /// </summary>
     /// <remarks>BuildCallbacks is already handled elsewhere.</remarks>
-    /// <remarks>This method sets HasBeenGenerated to true after generation.</remarks> 
+    /// <remarks>This method sets HasBeenGenerated to true after generation.</remarks>
     public void GenerateDoc()
     {
         // First, generate components

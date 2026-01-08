@@ -31,7 +31,7 @@ Add-KrOpenApiInfo -Title 'Response Component API' `
 #                      COMPONENT SCHEMAS
 # =========================================================
 
-[OpenApiSchemaComponent(Required = ('statusCode', 'message'))]
+[OpenApiSchemaComponent(RequiredProperties = ('statusCode', 'message'))]
 class ErrorResponse {
     [OpenApiPropertyAttribute(Description = 'HTTP status code', Example = 400)]
     [int]$statusCode
@@ -46,7 +46,7 @@ class ErrorResponse {
     [string]$details
 }
 
-[OpenApiSchemaComponent(Required = ('id', 'title', 'content'))]
+[OpenApiSchemaComponent(RequiredProperties = ('id', 'title', 'content'))]
 class Article {
     [OpenApiPropertyAttribute(Description = 'Article ID', Format = 'int64', Example = 1)]
     [long]$id
@@ -64,7 +64,7 @@ class Article {
     [string]$author
 }
 
-[OpenApiSchemaComponent(Required = ('id', 'message', 'timestamp'))]
+[OpenApiSchemaComponent(RequiredProperties = ('id', 'message', 'timestamp'))]
 class SuccessResponse {
     [OpenApiPropertyAttribute(Description = 'Operation ID', Format = 'uuid')]
     [string]$id

@@ -32,7 +32,6 @@ Add-KrOpenApiInfo -Title 'Redocly Museum API' `
 
 Add-KrOpenApiContact -Email 'team@redocly.com' -Url 'https://redocly.com/docs/cli/'
 Add-KrOpenApiLicense -Name 'MIT' -Url 'https://opensource.org/license/mit/'
-Add-KrOpenApiServer -Url 'https://api.fake-museum-example.com/v1'
 
 # TODO: info.x-logo is not modeled yet (url + altText). Add an extension attribute when available.
 
@@ -49,7 +48,7 @@ Add-KrOpenApiTag -Name 'Tickets' -Description 'Museum tickets for general entran
 
 
 [OpenApiSchemaComponent( Description = 'Daily operating hours for the museum.',
-    Required = ('date', 'timeOpen', 'timeClose'))]
+    RequiredProperties = ('date', 'timeOpen', 'timeClose'))]
 class MuseumDailyHours {
     [OpenApiProperty(Description = 'Date the operating hours apply to.', Example = '2024-12-31')]
     [Date]$date
@@ -72,7 +71,7 @@ class GetMuseumHoursResponse:MuseumDailyHours {}
 
 [OpenApiSchemaComponent(
     Description = 'Request payload for creating new special events at the museum.',
-    Required = ('name', 'location', 'eventDescription', 'dates', 'price')
+    RequiredProperties = ('name', 'location', 'eventDescription', 'dates', 'price')
 )]
 class CreateSpecialEventRequest {
     [EventName]$name
@@ -96,7 +95,7 @@ class UpdateSpecialEventRequest {
 
 
 [OpenApiSchemaComponent(  Description = 'Information about a special event.',
-    Required = ('eventId', 'name', 'location', 'eventDescription', 'dates', 'price')
+    RequiredProperties = ('eventId', 'name', 'location', 'eventDescription', 'dates', 'price')
 )]
 class SpecialEventResponse {
     [EventId]$eventId
@@ -189,7 +188,7 @@ class Email :OpenApiString {}
 class Phone :OpenApiString {}
 
 [OpenApiSchemaComponent(Description = 'Request payload used for purchasing museum tickets.',
-    Required = ('ticketType', 'ticketDate', 'email'))]
+    RequiredProperties = ('ticketType', 'ticketDate', 'email'))]
 class BuyMuseumTicketsRequest {
     [TicketType]$ticketType
 
@@ -207,7 +206,7 @@ class BuyMuseumTicketsRequest {
 
 
 [OpenApiSchemaComponent(Description = 'Details for a museum ticket after a successful purchase.',
-    Required = ('message', 'ticketId', 'ticketType', 'ticketDate', 'confirmationCode'))]
+    RequiredProperties = ('message', 'ticketId', 'ticketType', 'ticketDate', 'confirmationCode'))]
 class BuyMuseumTicketsResponse {
     [TicketMessage]$message
     [EventName]$eventName
@@ -440,33 +439,30 @@ New-KrOpenApiExample -Summary 'Get hours response' -Value $museumHoursValue |
 # These model components.parameters from museum.yml.
 # NOTE: we approximate with a class + property decorated as a parameter.
 #       The ReferenceId used by OpenApiParameterRefAttribute matches the class name.
-[OpenApiParameterComponent()]
-class MuseumParameters {
-    [OpenApiParameter(In = [OaParameterLocation]::Query,
-        Description = 'The number of days per page.')]
-    [int]$paginationLimit
 
-    [OpenApiParameter(In = [OaParameterLocation]::Query,
-        Description = 'The page number to retrieve.')]
-    [int]$paginationPage
+[OpenApiParameterComponent(In = 'Query',
+    Description = 'The number of days per page.')]
+[int]$paginationLimit = NoDefault
 
-    [OpenApiParameter(In = [OaParameterLocation]::Query,
-        Description = "The starting date to retrieve future operating hours from. Defaults to today's date.")]
-    [datetime]$startDate
+[OpenApiParameterComponent(In = 'Query', Description = 'The page number to retrieve.')]
+[int]$paginationPage = NoDefault
 
-    [OpenApiParameter(In = [OaParameterLocation]::Path, Required = $true,
-        Description = 'An identifier for a special event.', Example = 'dad4bce8-f5cb-4078-a211-995864315e39')]
-    [guid]$eventId
+[OpenApiParameterComponent(In = 'Query',
+    Description = "The starting date to retrieve future operating hours from. Defaults to today's date." )]
+[OpenApiDate]$startDate = NoDefault
 
-    [OpenApiParameter(In = [OaParameterLocation]::Query,
-        Description = 'The end of a date range to retrieve special events for. Defaults to 7 days after startDate.')]
-    [OpenApiProperty(Format = 'date')]
-    [string]$endDate
+[OpenApiParameterComponent(In = 'Path', Required = $true,
+    Description = 'An identifier for a special event.', Example = 'dad4bce8-f5cb-4078-a211-995864315e39')]
+[guid]$eventId = NoDefault
 
-    [OpenApiParameter(In = [OaParameterLocation]::Path, Required = $true,
-        Description = 'An identifier for a ticket to a museum event. Used to generate ticket image.')]
-    [Guid]$ticketId
-}
+[OpenApiParameterComponent(In = 'Query',
+    Description = 'The end of a date range to retrieve special events for. Defaults to 7 days after startDate.')]
+[OpenApiDate]$endDate = NoDefault
+
+[OpenApiParameterComponent(In = 'Path', Required = $true,
+    Description = 'An identifier for a ticket to a museum event. Used to generate ticket image.')]
+[Guid]$ticketId = NoDefault
+
 
 #endregion
 # =========================================================

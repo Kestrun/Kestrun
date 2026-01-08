@@ -33,7 +33,7 @@ Add-KrOpenApiInfo -Title 'Examples API' `
 #                      SCHEMAS (small)
 # =========================================================
 
-[OpenApiSchemaComponent(Description = 'Ticket purchase request.', Required = ('ticketType', 'ticketDate', 'email'))]
+[OpenApiSchemaComponent(Description = 'Ticket purchase request.', RequiredProperties = ('ticketType', 'ticketDate', 'email'))]
 class BuyTicketRequest {
     [OpenApiProperty(Description = 'Ticket type', Example = 'general')]
     [string]$ticketType
@@ -45,7 +45,7 @@ class BuyTicketRequest {
     [string]$email
 }
 
-[OpenApiSchemaComponent(Description = 'Ticket purchase response.', Required = ('message', 'ticketId', 'ticketType', 'ticketDate', 'confirmationCode'))]
+[OpenApiSchemaComponent(Description = 'Ticket purchase response.', RequiredProperties = ('message', 'ticketId', 'ticketType', 'ticketDate', 'confirmationCode'))]
 class BuyTicketResponse {
     [OpenApiProperty(Example = 'Museum general entry ticket purchased')]
     [string]$message
@@ -63,7 +63,7 @@ class BuyTicketResponse {
     [string]$confirmationCode
 }
 
-[OpenApiSchemaComponent(Description = 'Museum daily hours', Required = ('date', 'timeOpen', 'timeClose'))]
+[OpenApiSchemaComponent(Description = 'Museum daily hours', RequiredProperties = ('date', 'timeOpen', 'timeClose'))]
 class MuseumDailyHours {
     [OpenApiProperty(Format = 'date', Example = '2023-09-11')]
     [string]$date

@@ -19,7 +19,6 @@ public partial class KestrunHost
     /// <returns>The <see cref="KestrunHost"/> instance for fluent chaining.</returns>
     public KestrunHost AddHealthEndpoint(Action<HealthEndpointOptions>? configure = null)
     {
-
         var merged = Options.Health?.Clone() ?? new HealthEndpointOptions();
         configure?.Invoke(merged);
 

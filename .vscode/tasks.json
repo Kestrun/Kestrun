@@ -91,6 +91,16 @@
 			],
 			"problemMatcher": "$msCompile"
 		},
+        	{
+			"label": "build Kestrun.Launcher",
+			"command": "dotnet",
+			"type": "process",
+			"args": [
+				"build",
+				"${workspaceFolder}/src/CSharp/Kestrun.Launcher/Kestrun.Launcher.csproj"
+			],
+			"problemMatcher": "$msCompile"
+		},
 		{
 			"label": "build Kestrun library (utilities)",
 			"type": "shell",

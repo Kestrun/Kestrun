@@ -72,10 +72,10 @@ function ConvertFrom-KrYaml {
     [KestrunRuntimeApi('Everywhere')]
     [CmdletBinding(DefaultParameterSetName = 'String')]
     param(
-        [Parameter(Mandatory = $true, ValueFromPipeline = $true, Position = 0 , ParameterSetName = 'String')]
+        [Parameter(ValueFromPipeline = $true, Position = 0 , ParameterSetName = 'String')]
         [string]$Yaml,
 
-        [Parameter(Mandatory = $true, ParameterSetName = 'Bytes')]
+        [Parameter(ParameterSetName = 'Bytes')]
         [byte[]]$YamlBytes,
 
         [Parameter()]
@@ -95,7 +95,6 @@ function ConvertFrom-KrYaml {
                 [void]$builder.Append("`n")
             }
             [void]$builder.Append($str)
-            return
         } elseif ($PSCmdlet.ParameterSetName -eq 'String') {
             if ($Yaml -is [string]) {
                 if ($builder.Length -gt 0) {
@@ -103,7 +102,6 @@ function ConvertFrom-KrYaml {
                 }
                 [void]$builder.Append($Yaml)
             }
-            return
         }
     }
 

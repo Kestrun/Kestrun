@@ -28,9 +28,13 @@ Describe 'Example 10.19 OpenAPI HTTP QUERY Product Search' -Tag 'OpenApi', 'Tuto
         $result.StatusCode | Should -Be 200
         # Some formats may return byte arrays; normalize to string for basic assertions
         $content = $result.Content
-        
-        # convert byte[] to pscustomobject
-        $yaml = ConvertFrom-KrYaml -YamlBytes $content
+
+        $yaml = if ($content -is [byte[]]) {
+            # convert byte[] to pscustomobject
+            ConvertFrom-KrYaml -YamlBytes $content
+        } else {
+            ConvertFrom-KrYaml -Yaml $content
+        }
         $yaml.page | Should -Be 1
         $yaml.pageSize | Should -Be 2
         ($yaml.total -ge 1) | Should -BeTrue

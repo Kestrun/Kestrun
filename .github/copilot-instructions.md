@@ -50,6 +50,13 @@ Invoke-Build SyncPowerShellDll     # Copies from bin/ to src/PowerShell/Kestrun/
 - Use `run_task` tool with IDs like `"build MultiRoutes"`, `"build Authentication"`
 - All tasks use `dotnet build` with solution-relative paths
 
+#### Task Argument Binding (PowerShell)
+- `New-KrTask -Arguments @{ ... }` injects values into the task runspace as **PowerShell variables** (e.g. `@{ seconds = 10 }` becomes `$seconds`), not as positional args.
+- Avoid `param(...)` at the top of `-ScriptBlock` when relying on `-Arguments`, because `param()` binds from `$args` and can shadow the injected variables (leading to tasks that end immediately).
+- Preferred pattern:
+  - Reference injected variables directly inside the scriptblock (`$seconds`, `$name`, …)
+  - Or explicitly read from a variable you set via `-Arguments`.
+
 ### Testing Strategy
 ```powershell
 # C# tests via xUnit

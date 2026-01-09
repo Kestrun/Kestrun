@@ -21,7 +21,7 @@ public class KestrunContextTests
         }
 
         // KestrunContext(host, HttpContext) requires a RouteEndpoint.
-        http.SetEndpoint(new RouteEndpoint(_ => Task.CompletedTask, RoutePatternFactory.Parse(http.Request.Path.HasValue ? http.Request.Path.Value! : "/"), 0, EndpointMetadataCollection.Empty, "TestEndpoint"));
+        http.SetEndpoint(new RouteEndpoint(_ => Task.CompletedTask, RoutePatternFactory.Parse(http.Request.Path.HasValue ? http.Request.Path.Value : "/"), 0, EndpointMetadataCollection.Empty, "TestEndpoint"));
 
         return new KestrunContext(host, http);
     }

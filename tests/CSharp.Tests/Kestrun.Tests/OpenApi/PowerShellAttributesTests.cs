@@ -49,7 +49,7 @@ public class PowerShellAttributesTests
         PowerShellAttributes.ApplyPowerShellAttributes(GetProp(nameof(AttributeModel.SortBy)), schema);
 
         Assert.NotNull(schema.Enum);
-        var values = schema.Enum!.Select(n => n.ToString().Trim('"')).ToArray();
+        var values = schema.Enum.Select(n => n.ToString().Trim('"')).ToArray();
         Assert.Contains("name", values);
         Assert.Contains("price", values);
     }

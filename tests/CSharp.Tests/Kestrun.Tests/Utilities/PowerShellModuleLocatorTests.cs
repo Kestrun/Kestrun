@@ -192,7 +192,7 @@ public class PowerShellModuleLocatorTests
             BindingFlags.NonPublic | BindingFlags.Static);
 
         Assert.NotNull(method);
-        Assert.Equal(typeof(string[]), method!.ReturnType);
+        Assert.Equal(typeof(string[]), method.ReturnType);
     }
 
     [Fact]
@@ -207,7 +207,7 @@ public class PowerShellModuleLocatorTests
 
         try
         {
-            var result = (string[]?)method!.Invoke(null, null);
+            var result = (string[]?)method.Invoke(null, null);
             Assert.NotNull(result);
             // Result can be empty array if pwsh is not found or returns empty paths
             // Both are valid outcomes
@@ -242,8 +242,8 @@ public class PowerShellModuleLocatorTests
             BindingFlags.Public | BindingFlags.Static);
 
         Assert.NotNull(method);
-        Assert.True(method!.IsPublic);
-        Assert.True(method!.IsStatic);
+        Assert.True(method.IsPublic);
+        Assert.True(method.IsStatic);
     }
 
     [Fact]
@@ -255,7 +255,7 @@ public class PowerShellModuleLocatorTests
             BindingFlags.Public | BindingFlags.Static);
 
         Assert.NotNull(method);
-        var returnType = method!.ReturnType;
+        var returnType = method.ReturnType;
         Assert.True(returnType == typeof(string) || (returnType.IsGenericType &&
             returnType.GetGenericTypeDefinition() == typeof(Nullable<>)));
     }
@@ -296,7 +296,7 @@ public class PowerShellModuleLocatorTests
                 BindingFlags.NonPublic | BindingFlags.Static);
 
             Assert.NotNull(method);
-            var found = (string?)method!.Invoke(null, [specialDir.FullName, "test-file_2.txt"]);
+            var found = (string?)method.Invoke(null, [specialDir.FullName, "test-file_2.txt"]);
             Assert.NotNull(found);
             Assert.Equal(Path.GetFullPath(file), Path.GetFullPath(found));
         }

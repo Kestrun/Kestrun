@@ -31,7 +31,7 @@ public class VariableAnnotationDispatchTests
             BindingFlags.Instance | BindingFlags.NonPublic);
 
         Assert.NotNull(method);
-        _ = method!.Invoke(descriptor, [annotations]);
+        _ = method.Invoke(descriptor, [annotations]);
     }
 
     [Fact]
@@ -82,7 +82,7 @@ public class VariableAnnotationDispatchTests
         InvokeProcessVariableAnnotations(descriptor, dict);
 
         Assert.NotNull(descriptor.Document.Components.Parameters);
-        Assert.True(descriptor.Document.Components.Parameters!.ContainsKey("limit"));
+        Assert.True(descriptor.Document.Components.Parameters.ContainsKey("limit"));
 
         var param = Assert.IsType<OpenApiParameter>(descriptor.Document.Components.Parameters["limit"]);
         var schema = Assert.IsType<OpenApiSchema>(param.Schema);
@@ -143,6 +143,6 @@ public class VariableAnnotationDispatchTests
         InvokeProcessVariableAnnotations(descriptor, dict);
 
         Assert.NotNull(descriptor.Document.Components.Parameters);
-        Assert.False(descriptor.Document.Components.Parameters!.ContainsKey("ignored"));
+        Assert.False(descriptor.Document.Components.Parameters.ContainsKey("ignored"));
     }
 }

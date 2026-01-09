@@ -18,9 +18,9 @@ public sealed class OpenApiDocDescriptorComponentsTests
 
         var components = d.Document.Components;
         Assert.NotNull(components);
-        var examples = components!.Examples;
+        var examples = components.Examples;
         Assert.NotNull(examples);
-        var stored = Assert.IsType<OpenApiExample>(examples!["ex"]);
+        var stored = Assert.IsType<OpenApiExample>(examples["ex"]);
         Assert.Equal("two", stored.Summary);
     }
 
@@ -34,9 +34,9 @@ public sealed class OpenApiDocDescriptorComponentsTests
 
         var components = d.Document.Components;
         Assert.NotNull(components);
-        var examples = components!.Examples;
+        var examples = components.Examples;
         Assert.NotNull(examples);
-        var stored = Assert.IsType<OpenApiExample>(examples!["ex"]);
+        var stored = Assert.IsType<OpenApiExample>(examples["ex"]);
         Assert.Equal("one", stored.Summary);
     }
 
@@ -62,9 +62,9 @@ public sealed class OpenApiDocDescriptorComponentsTests
 
         var components = d.Document.Components;
         Assert.NotNull(components);
-        var links = components!.Links;
+        var links = components.Links;
         Assert.NotNull(links);
-        var stored = Assert.IsType<OpenApiLink>(links!["lnk"]);
+        var stored = Assert.IsType<OpenApiLink>(links["lnk"]);
         Assert.Equal("one", stored.Description);
 
         _ = Assert.Throws<InvalidOperationException>(() =>

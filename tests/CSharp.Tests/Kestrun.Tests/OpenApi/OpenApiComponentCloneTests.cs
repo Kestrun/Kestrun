@@ -149,7 +149,7 @@ public sealed class OpenApiComponentCloneTests
 
         Assert.Equal("body", schema.Description);
         Assert.NotNull(schema.Properties);
-        Assert.True(schema.Properties!.ContainsKey("name"));
+        Assert.True(schema.Properties.ContainsKey("name"));
     }
 
     [Fact]

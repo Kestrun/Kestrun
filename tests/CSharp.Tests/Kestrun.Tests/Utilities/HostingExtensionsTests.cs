@@ -25,7 +25,7 @@ public class HostingExtensionsTests
 
         Assert.NotNull(method);
         // Check return type is Task
-        Assert.Equal(typeof(Task), method!.ReturnType);
+        Assert.Equal(typeof(Task), method.ReturnType);
     }
 
     [Fact]
@@ -38,7 +38,7 @@ public class HostingExtensionsTests
                 System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static);
 
         Assert.NotNull(method);
-        var parameters = method!.GetParameters();
+        var parameters = method.GetParameters();
 
         // Should have: this (KestrunHost), configureConsole, consoleEncoding, onStarted, onShutdownError, stopToken
         Assert.True(parameters.Length >= 5);
@@ -59,8 +59,8 @@ public class HostingExtensionsTests
                 System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static);
 
         Assert.NotNull(method);
-        Assert.True(method!.IsPublic);
-        Assert.True(method!.IsStatic);
+        Assert.True(method.IsPublic);
+        Assert.True(method.IsStatic);
     }
 
     [Fact]
@@ -73,7 +73,7 @@ public class HostingExtensionsTests
                 System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static);
 
         Assert.NotNull(method);
-        var firstParam = method!.GetParameters()[0];
+        var firstParam = method.GetParameters()[0];
         Assert.Equal(typeof(KestrunHost), firstParam.ParameterType);
         Assert.Equal("server", firstParam.Name);
     }
@@ -92,7 +92,7 @@ public class HostingExtensionsTests
                 System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static);
 
         Assert.NotNull(method);
-        var firstParam = method!.GetParameters()[0];
+        var firstParam = method.GetParameters()[0];
         Assert.Equal(typeof(KestrunHost), firstParam.ParameterType);
     }
 
@@ -106,7 +106,7 @@ public class HostingExtensionsTests
                 System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static);
 
         Assert.NotNull(method);
-        var configureConsoleParam = method!.GetParameters().First(p => p.Name == "configureConsole");
+        var configureConsoleParam = method.GetParameters().First(p => p.Name == "configureConsole");
         Assert.Equal(typeof(bool), configureConsoleParam.ParameterType);
     }
 
@@ -120,7 +120,7 @@ public class HostingExtensionsTests
                 System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static);
 
         Assert.NotNull(method);
-        var encodingParam = method!.GetParameters().First(p => p.Name == "consoleEncoding");
+        var encodingParam = method.GetParameters().First(p => p.Name == "consoleEncoding");
         Assert.Equal(typeof(Encoding), encodingParam.ParameterType);
     }
 
@@ -134,7 +134,7 @@ public class HostingExtensionsTests
                 System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static);
 
         Assert.NotNull(method);
-        var onStartedParam = method!.GetParameters().First(p => p.Name == "onStarted");
+        var onStartedParam = method.GetParameters().First(p => p.Name == "onStarted");
         Assert.Equal(typeof(Action), onStartedParam.ParameterType);
     }
 
@@ -148,7 +148,7 @@ public class HostingExtensionsTests
                 System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static);
 
         Assert.NotNull(method);
-        var onErrorParam = method!.GetParameters().First(p => p.Name == "onShutdownError");
+        var onErrorParam = method.GetParameters().First(p => p.Name == "onShutdownError");
         Assert.Equal(typeof(Action<Exception>), onErrorParam.ParameterType);
     }
 
@@ -162,7 +162,7 @@ public class HostingExtensionsTests
                 System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static);
 
         Assert.NotNull(method);
-        var stopTokenParam = method!.GetParameters().First(p => p.Name == "stopToken");
+        var stopTokenParam = method.GetParameters().First(p => p.Name == "stopToken");
         Assert.Equal(typeof(CancellationToken), stopTokenParam.ParameterType);
     }
 
@@ -176,7 +176,7 @@ public class HostingExtensionsTests
                 System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static);
 
         Assert.NotNull(method);
-        Assert.Equal(typeof(Task), method!.ReturnType);
+        Assert.Equal(typeof(Task), method.ReturnType);
     }
 
     #endregion
@@ -205,7 +205,7 @@ public class HostingExtensionsTests
                 System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static);
 
         Assert.NotNull(method);
-        var encodingParam = method!.GetParameters().First(p => p.Name == "consoleEncoding");
+        var encodingParam = method.GetParameters().First(p => p.Name == "consoleEncoding");
 
         // Check if it has a default value
         Assert.True(encodingParam.HasDefaultValue);
@@ -221,8 +221,8 @@ public class HostingExtensionsTests
                 System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static);
 
         Assert.NotNull(method);
-        var onStartedParam = method!.GetParameters().First(p => p.Name == "onStarted");
-        var onErrorParam = method!.GetParameters().First(p => p.Name == "onShutdownError");
+        var onStartedParam = method.GetParameters().First(p => p.Name == "onStarted");
+        var onErrorParam = method.GetParameters().First(p => p.Name == "onShutdownError");
 
         // Both should have default values
         Assert.True(onStartedParam.HasDefaultValue);
@@ -243,7 +243,7 @@ public class HostingExtensionsTests
                 System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static);
 
         Assert.NotNull(method);
-        var configureConsoleParam = method!.GetParameters().First(p => p.Name == "configureConsole");
+        var configureConsoleParam = method.GetParameters().First(p => p.Name == "configureConsole");
         Assert.True(configureConsoleParam.HasDefaultValue);
         Assert.Equal(true, configureConsoleParam.DefaultValue);
     }
@@ -258,7 +258,7 @@ public class HostingExtensionsTests
                 System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static);
 
         Assert.NotNull(method);
-        var stopTokenParam = method!.GetParameters().First(p => p.Name == "stopToken");
+        var stopTokenParam = method.GetParameters().First(p => p.Name == "stopToken");
         Assert.True(stopTokenParam.HasDefaultValue);
     }
 
@@ -310,7 +310,7 @@ public class HostingExtensionsTests
         Assert.NotNull(method);
         // In a real scenario, you could read the XML documentation
         // For now, just verify the method exists and is properly named
-        Assert.NotNull(method!.Name);
+        Assert.NotNull(method.Name);
     }
 
     #endregion

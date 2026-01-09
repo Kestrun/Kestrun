@@ -16,41 +16,52 @@ Import-Module -Name './Utility/Modules/Helper.psm1'
 if (-not (Get-Command dotnet -ErrorAction SilentlyContinue)) {
     throw "The 'dotnet' CLI is not available on PATH. Install .NET SDK first."
 }
-
-# Ensure dotnet-project-licenses tool is installed
-if (-not (Get-Command dotnet-project-licenses -ErrorAction SilentlyContinue)) {
-    Write-Host "📦 'dotnet-project-licenses' not found. Installing as a global tool..."
-    dotnet tool install --global dotnet-project-licenses
-
-    if ($LASTEXITCODE -ne 0) {
-        throw "Failed to install 'dotnet-project-licenses' as a global tool."
-    }
-
-    # Re-check so we fail early if PATH/shims aren’t usable in this session
+try {
+    $prevRollForward = $env:DOTNET_ROLL_FORWARD
+    $env:DOTNET_ROLL_FORWARD = 'LatestMajor'
+    # Ensure dotnet-project-licenses tool is installed
     if (-not (Get-Command dotnet-project-licenses -ErrorAction SilentlyContinue)) {
-        throw "'dotnet-project-licenses' was installed, but the command is still not available on PATH in this session."
+        Write-Host "📦 'dotnet-project-licenses' not found. Installing as a global tool..."
+        dotnet tool install --global dotnet-project-licenses
+
+        if ($LASTEXITCODE -ne 0) {
+            throw "Failed to install 'dotnet-project-licenses' as a global tool."
+        }
+
+        # Re-check so we fail early if PATH/shims aren’t usable in this session
+        if (-not (Get-Command dotnet-project-licenses -ErrorAction SilentlyContinue)) {
+            throw "'dotnet-project-licenses' was installed, but the command is still not available on PATH in this session."
+        }
     }
-}
 
-# Get current version from version.json
-$Version = Get-Version -FileVersion $FileVersion
 
-# Get the licenses in markdown format
-$nugetLicenses = dotnet-project-licenses -i $Project -o markdown |
-    Where-Object { $_ -notmatch '^\|\s+\|' } | # drop lines like "|    |..." with only whitespace between pipes
-    ForEach-Object {
-        if ($_ -match '^\|') {
-            $cols = $_ -split '\|'
-            if ($cols.Length -ge 4) {
-                # remove the two trailing "Error" / "Error Context" columns (they're before the final empty slot)
-                ($cols[0..($cols.Length - 4)] + $cols[-1]) -join '|'
+    # Get current version from version.json
+    $Version = Get-Version -FileVersion $FileVersion
+
+    # Get the licenses in markdown format
+    $nugetLicenses = dotnet-project-licenses -i $Project -o markdown |
+        Where-Object { $_ -notmatch '^\|\s+\|' } | # drop lines like "|    |..." with only whitespace between pipes
+        ForEach-Object {
+            if ($_ -match '^\|') {
+                $cols = $_ -split '\|'
+                if ($cols.Length -ge 4) {
+                    # remove the two trailing "Error" / "Error Context" columns (they're before the final empty slot)
+                    ($cols[0..($cols.Length - 4)] + $cols[-1]) -join '|'
+                } else {
+                    $_
+                }
             } else {
                 $_
             }
-        } else {
-            $_
         }
+
+} finally {
+    if ($null -ne $prevRollForward) {
+        $env:DOTNET_ROLL_FORWARD = $prevRollForward
+    } else {
+        Remove-Item Env:\DOTNET_ROLL_FORWARD -ErrorAction SilentlyContinue
     }
+}
 # Compose a soft, compliant introduction
 
 
@@ -73,6 +84,8 @@ $kestrunHeader = @"
   Do not modify manually; changes will be overwritten.
 -->
 <!-- markdownlint-disable MD034 -->
+<!-- markdownlint-disable MD013 -->
+
 # Kestrun - Third-Party Notices
 
 **License:** [MIT](https://licenses.nuget.org/MIT) (SPDX: MIT)
@@ -89,7 +102,7 @@ $sb = [System.Text.StringBuilder]::new()
 # Add a note about the generation of this file
 foreach ($line in $nugetLicenses ) {
     $null = $sb.AppendLine()
-    $null = $sb.Append( ($line -replace 'ΓÇô', '-' -replace '┬⌐', '© '
+    $null = $sb.Append( ($line.TrimEnd() -replace 'ΓÇô', '-' -replace '┬⌐', '© '
             #-replace 'https://licenses.nuget.org/MIT', '[MIT](https://licenses.nuget.org/MIT)' `
             #-replace 'https://licenses.nuget.org/Apache-2.0', '[Apache-2.0](https://opensource.org/license/apache-2-0/)')
         )
@@ -99,7 +112,6 @@ foreach ($line in $nugetLicenses ) {
 
 # --- Manual additions for source-included components (e.g., Cloudbase) ---
 $manualSection = @'
-
 ---
 
 ## Manually Added Notices
@@ -131,7 +143,7 @@ $manualSection += @'
 '@
 
 # Combine everything
-$kestrunHeader + "`n" + ($sb.ToString()) + "`n" + $manualSection | Set-Content -Path $Path -Encoding UTF8
+$kestrunHeader + ($sb.ToString()) + "`n" + $manualSection | Set-Content -Path $Path -Encoding UTF8
 
 Write-Host "✅ Third-party notices generated at: $Path" -ForegroundColor Green
 Write-Host '🔍 Please review the generated file for compliance with third-party licenses.'

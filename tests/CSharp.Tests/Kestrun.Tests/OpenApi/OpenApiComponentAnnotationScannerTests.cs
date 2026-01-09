@@ -95,8 +95,7 @@ public class OpenApiComponentAnnotationScannerTests
 
             var result = OpenApiComponentAnnotationScanner.ScanFromPath(mainPath);
 
-            Assert.True(result.ContainsKey("OK"));
-            var ok = result["OK"];
+            Assert.True(result.TryGetValue("OK", out var ok));
             Assert.NotNull(ok);
             Assert.NotEmpty(ok.Annotations);
 

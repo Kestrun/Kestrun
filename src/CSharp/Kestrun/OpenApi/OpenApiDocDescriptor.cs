@@ -232,7 +232,7 @@ public partial class OpenApiDocDescriptor
         OpenApiResponse response,
         OpenApiResponseComponent responseDescriptor)
     {
-        if (response.Summary is not null)
+        if (responseDescriptor.Summary is not null)
         {
             response.Summary = responseDescriptor.Summary;
         }

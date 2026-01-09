@@ -12,11 +12,10 @@ public sealed class OpenApiParameterComponent : OpenApiProperties
     private new string? Title { get; set; }
 #pragma warning restore IDE0051
 
+    /// <summary>
+    /// The location of the parameter.
+    /// </summary>
     public OaParameterLocation In { get; set; } = OaParameterLocation.Query;
-    /// <summary>Override the parameter name (default: property name).</summary>
-   // public string? Name { get; set; }
-    /// <summary>Override the parameter name (default: property name).</summary>
-   // public string? Key { get; set; }
 
     /// <summary>
     /// Whether the parameter is required.

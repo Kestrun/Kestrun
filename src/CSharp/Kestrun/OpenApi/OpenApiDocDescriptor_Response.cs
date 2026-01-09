@@ -240,7 +240,7 @@ public partial class OpenApiDocDescriptor
     {
         if (attribute.StatusCode != "default")
         {
-            throw new InvalidOperationException("Response example references can have a status code.");
+            throw new InvalidOperationException("Response example references cannot have a status code.");
         }
         if (attribute.Key is null)
         {
@@ -257,7 +257,7 @@ public partial class OpenApiDocDescriptor
     {
         if (attribute.StatusCode != "default")
         {
-            throw new InvalidOperationException("Response link references can have a status code.");
+            throw new InvalidOperationException("Response link references cannot have a status code.");
         }
         if (attribute.Key is null)
         {
@@ -274,7 +274,7 @@ public partial class OpenApiDocDescriptor
     {
         if (attribute.StatusCode != "default")
         {
-            throw new InvalidOperationException("Response header references can have a status code.");
+            throw new InvalidOperationException("Response header references cannot have a status code.");
         }
         if (attribute.Key is null)
         {

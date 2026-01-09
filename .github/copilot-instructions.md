@@ -728,7 +728,6 @@ const response = await fetch('http://api.example.com/v1/products/search?page=1&p
 
 See the complete tutorial example at [docs/pwsh/tutorial/10.19-Product-Search-Query.md](/docs/pwsh/tutorial/10.19-Product-Search-Query.md) and the guide section in [docs/guides/openapi.md#941-http-query-method-openapi-32](/docs/guides/openapi.md#941-http-query-method-openapi-32).
 
-````
 
 ### Callback automation (runtime dispatch)
 

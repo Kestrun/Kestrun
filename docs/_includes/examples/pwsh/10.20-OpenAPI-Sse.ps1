@@ -68,25 +68,105 @@ Add-KrMapRoute -Verbs Get -Pattern '/' {
   <style>
     body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; margin: 24px; }
     code { background: #f5f5f5; padding: 2px 6px; border-radius: 4px; }
+        .row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin: 12px 0; }
+        input { padding: 6px 8px; width: 110px; }
+        button { padding: 8px 10px; }
     pre { background: #0b1020; color: #e6edf3; padding: 12px; border-radius: 8px; overflow: auto; height: 320px; }
   </style>
 </head>
 <body>
   <h1>Kestrun SSE Demo (OpenAPI)</h1>
-  <p>SSE stream: <code>/sse</code> | OpenAPI: <code>/openapi/v3.1/openapi.json</code> | Swagger: <code>/swagger</code></p>
+  <p>SSE stream: <code>/sse</code> | OpenAPI: <code>/openapi/v3.2/openapi.json</code> | Swagger: <code>/docs/swagger</code></p>
+
+    <div class="row">
+        <label>Count <input id="count" type="number" min="1" max="1000" value="30" /></label>
+        <label>Interval (ms) <input id="intervalMs" type="number" min="100" max="60000" value="1000" /></label>
+        <button id="btnStart">Start</button>
+        <button id="btnPause" disabled>Pause</button>
+        <button id="btnStop" disabled>Stop</button>
+    </div>
+
   <pre id="log"></pre>
 
   <script>
-    const logEl = document.getElementById('log');
-    const append = (line) => { logEl.textContent += line + "\n"; logEl.scrollTop = logEl.scrollHeight; };
+        const logEl = document.getElementById('log');
+        const countEl = document.getElementById('count');
+        const intervalEl = document.getElementById('intervalMs');
+        const btnStart = document.getElementById('btnStart');
+        const btnPause = document.getElementById('btnPause');
+        const btnStop = document.getElementById('btnStop');
 
-    const url = '/sse?count=30&intervalMs=1000';
-    append(`Connecting to ${url} ...`);
+        let es = null;
+        let paused = false;
 
-    const es = new EventSource(url);
-    es.addEventListener('connected', (evt) => append(`connected: ${evt.data}`));
-    es.addEventListener('tick', (evt) => append(`tick: ${evt.data}`));
-    es.onerror = () => append('SSE error (server closed connection?)');
+        const append = (line) => { logEl.textContent += line + "\n"; logEl.scrollTop = logEl.scrollHeight; };
+
+        function start() {
+            if (es) {
+                append('Already connected');
+                return;
+            }
+
+            const count = Number(countEl.value || 30);
+            const intervalMs = Number(intervalEl.value || 1000);
+            const url = `/sse?count=${encodeURIComponent(count)}&intervalMs=${encodeURIComponent(intervalMs)}`;
+            append(`Connecting to ${url} ...`);
+
+            es = new EventSource(url);
+
+            es.onopen = () => {
+                append('SSE connected');
+                btnStart.disabled = true;
+                btnStop.disabled = false;
+                btnPause.disabled = false;
+                paused = false;
+                btnPause.textContent = 'Pause';
+            };
+
+            es.addEventListener('connected', (evt) => append(`connected: ${evt.data}`));
+            es.addEventListener('tick', (evt) => {
+                if (!paused) {
+                    append(`tick: ${evt.data}`);
+                }
+            });
+            es.addEventListener('complete', (evt) => {
+                append(`complete: ${evt.data}`);
+                stop();
+            });
+
+            es.onerror = () => {
+                // EventSource reports "error" when the server closes the stream.
+                // Close to avoid retry spam when the server ended the stream.
+                append('SSE error (stream closed)');
+                stop();
+            };
+        }
+
+        function togglePause() {
+            if (!es) {
+                return;
+            }
+            paused = !paused;
+            btnPause.textContent = paused ? 'Resume' : 'Pause';
+            append(paused ? 'Paused (still connected)' : 'Resumed');
+        }
+
+        function stop() {
+            if (es) {
+                es.close();
+                es = null;
+            }
+            paused = false;
+            btnStart.disabled = false;
+            btnStop.disabled = true;
+            btnPause.disabled = true;
+            btnPause.textContent = 'Pause';
+            append('SSE disconnected');
+        }
+
+        btnStart.addEventListener('click', start);
+        btnPause.addEventListener('click', togglePause);
+        btnStop.addEventListener('click', stop);
   </script>
 </body>
 </html>
@@ -147,6 +227,18 @@ function GetSseStream {
         }
 
         Start-Sleep -Milliseconds $intervalMs
+    }
+
+    $complete = @{
+        message = 'Stream complete'
+        total = $count
+        serverTime = (Get-Date)
+    } | ConvertTo-Json -Compress
+
+    try {
+        Write-KrSseEvent -Event 'complete' -Data $complete
+    } catch {
+        # Client may have disconnected; ignore.
     }
 }
 

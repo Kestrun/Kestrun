@@ -7,8 +7,8 @@
     - Write-KrSseEvent
 #>
 param(
-    [int]$Port = 5000,
-    [IPAddress]$IPAddress = [IPAddress]::Loopback
+  [int]$Port = 5000,
+  [IPAddress]$IPAddress = [IPAddress]::Loopback
 )
 
 if (-not (Get-Module Kestrun)) { Import-Module Kestrun }
@@ -18,8 +18,8 @@ Initialize-KrRoot -Path $PSScriptRoot
 
 ## 1. Logging
 New-KrLogger |
-    Set-KrLoggerLevel -Value Debug |
-    Add-KrSinkConsole | Register-KrLogger -Name 'SseDemo' -SetAsDefault
+  Set-KrLoggerLevel -Value Debug |
+  Add-KrSinkConsole | Register-KrLogger -Name 'SseDemo' -SetAsDefault
 
 ## 2. Create Server
 New-KrServer -Name 'Kestrun SSE Demo'
@@ -34,7 +34,7 @@ Enable-KrConfiguration
 
 # Simple home page with an EventSource client
 Add-KrMapRoute -Verbs Get -Pattern '/' {
-    $html = @'
+  $html = @'
 <!doctype html>
 <html lang="en">
 <head>
@@ -57,8 +57,9 @@ Add-KrMapRoute -Verbs Get -Pattern '/' {
   <div class="row">
     <label>Count <input id="count" type="number" min="1" max="1000" value="30" /></label>
     <label>Interval (ms) <input id="intervalMs" type="number" min="100" max="60000" value="1000" /></label>
-    <button id="btnConnect">Connect</button>
-    <button id="btnDisconnect" disabled>Disconnect</button>
+    <button id="btnStart">Start</button>
+    <button id="btnPause" disabled>Pause</button>
+    <button id="btnStop" disabled>Stop</button>
   </div>
 
   <p>Tip: you can also test with curl:</p>
@@ -71,17 +72,24 @@ Add-KrMapRoute -Verbs Get -Pattern '/' {
     const logEl = document.getElementById('log');
     const countEl = document.getElementById('count');
     const intervalEl = document.getElementById('intervalMs');
-    const btnConnect = document.getElementById('btnConnect');
-    const btnDisconnect = document.getElementById('btnDisconnect');
+    const btnStart = document.getElementById('btnStart');
+    const btnPause = document.getElementById('btnPause');
+    const btnStop = document.getElementById('btnStop');
 
     let es = null;
+    let paused = false;
 
     function append(line) {
       logEl.textContent += line + "\n";
       logEl.scrollTop = logEl.scrollHeight;
     }
 
-    function connect() {
+    function start() {
+      if (es) {
+        append('Already connected');
+        return;
+      }
+
       const count = Number(countEl.value || 30);
       const intervalMs = Number(intervalEl.value || 1000);
       const url = `/sse?count=${encodeURIComponent(count)}&intervalMs=${encodeURIComponent(intervalMs)}`;
@@ -91,84 +99,124 @@ Add-KrMapRoute -Verbs Get -Pattern '/' {
 
       es.onopen = () => {
         append('SSE connected');
-        btnConnect.disabled = true;
-        btnDisconnect.disabled = false;
+        btnStart.disabled = true;
+        btnStop.disabled = false;
+        btnPause.disabled = false;
+        paused = false;
+        btnPause.textContent = 'Pause';
       };
 
       es.onmessage = (evt) => {
-        append(`message: ${evt.data}`);
+        if (!paused) {
+          append(`message: ${evt.data}`);
+        }
       };
 
       es.addEventListener('tick', (evt) => {
-        append(`tick: ${evt.data}`);
+        if (!paused) {
+          append(`tick: ${evt.data}`);
+        }
       });
 
       es.addEventListener('connected', (evt) => {
         append(`connected: ${evt.data}`);
       });
 
+      es.addEventListener('complete', (evt) => {
+        append(`complete: ${evt.data}`);
+        stop();
+      });
+
       es.onerror = () => {
-        append('SSE error (server closed connection?)');
-        disconnect();
+        // EventSource fires "error" when the server closes the stream.
+        // In this demo, we close after receiving a "complete" event.
+        append('SSE error (stream closed)');
+        stop();
       };
     }
 
-    function disconnect() {
+    function togglePause() {
+      if (!es) {
+        return;
+      }
+
+      paused = !paused;
+      btnPause.textContent = paused ? 'Resume' : 'Pause';
+      append(paused ? 'Paused (still connected)' : 'Resumed');
+    }
+
+    function stop() {
       if (es) {
         es.close();
         es = null;
       }
-      btnConnect.disabled = false;
-      btnDisconnect.disabled = true;
+      paused = false;
+      btnStart.disabled = false;
+      btnStop.disabled = true;
+      btnPause.disabled = true;
+      btnPause.textContent = 'Pause';
       append('SSE disconnected');
     }
 
-    btnConnect.addEventListener('click', connect);
-    btnDisconnect.addEventListener('click', disconnect);
+    btnStart.addEventListener('click', start);
+    btnPause.addEventListener('click', togglePause);
+    btnStop.addEventListener('click', stop);
   </script>
 </body>
 </html>
 '@
 
-    Write-KrHtmlResponse -Template $html -StatusCode 200
+  Write-KrHtmlResponse -Template $html -StatusCode 200
 }
 
 # SSE stream endpoint (per connection)
 Add-KrMapRoute -Verbs Get -Pattern '/sse' {
-    $count = Get-KrRequestQuery -Name 'count' -AsInt
-    if ($count -le 0) { $count = 30 }
+  $count = Get-KrRequestQuery -Name 'count' -AsInt
+  if ($count -le 0) { $count = 30 }
 
-    $intervalMs = Get-KrRequestQuery -Name 'intervalMs' -AsInt
-    if ($intervalMs -le 0) { $intervalMs = 1000 }
+  $intervalMs = Get-KrRequestQuery -Name 'intervalMs' -AsInt
+  if ($intervalMs -le 0) { $intervalMs = 1000 }
 
-    Start-KrSseResponse
+  Start-KrSseResponse
 
-    $connected = @{
-        message = 'Connected to Kestrun SSE stream'
-        serverTime = (Get-Date)
-        count = $count
-        intervalMs = $intervalMs
+  $connected = @{
+    message = 'Connected to Kestrun SSE stream'
+    serverTime = (Get-Date)
+    count = $count
+    intervalMs = $intervalMs
+  } | ConvertTo-Json -Compress
+
+  Write-KrSseEvent -Event 'connected' -Data $connected -retryMs 2000
+
+  for ($i = 1; $i -le $count; $i++) {
+    $payload = @{
+      i = $i
+      total = $count
+      timestamp = (Get-Date)
     } | ConvertTo-Json -Compress
 
-    Write-KrSseEvent -Event 'connected' -Data $connected -retryMs 2000
-
-    for ($i = 1; $i -le $count; $i++) {
-        $payload = @{
-            i = $i
-            total = $count
-            timestamp = (Get-Date)
-        } | ConvertTo-Json -Compress
-
-        try {
-            Write-KrSseEvent -Event 'tick' -Data $payload -id "$i"
-        } catch {
-            # Most common cause: client disconnected.
-            Write-KrLog -Level Debug -Message 'SSE write failed (client disconnected?): {Error}' -Values $_
-            break
-        }
-
-        Start-Sleep -Milliseconds $intervalMs
+    try {
+      Write-KrSseEvent -Event 'tick' -Data $payload -id "$i"
+    } catch {
+      # Most common cause: client disconnected.
+      Write-KrLog -Level Debug -Message 'SSE write failed (client disconnected?): {Error}' -Values $_
+      break
     }
+
+    Start-Sleep -Milliseconds $intervalMs
+  }
+
+  $complete = @{
+    message = 'Stream complete'
+    total = $count
+    serverTime = (Get-Date)
+  } | ConvertTo-Json -Compress
+
+  try {
+    Write-KrSseEvent -Event 'complete' -Data $complete
+  } catch {
+    # Client may have disconnected; ignore.
+  }
 }
 
 ## 6. Start Server

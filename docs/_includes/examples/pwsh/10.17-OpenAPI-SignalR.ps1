@@ -241,8 +241,6 @@ function StartOperation {
     Write-KrLog -Level Information -Message 'Starting long operation for {seconds} seconds' -Values $seconds
 
     $id = New-KrTask -ScriptBlock {
-        param([int]$seconds)
-
         for ($i = 1; $i -le $seconds; $i++) {
             Start-Sleep -Seconds 1
 

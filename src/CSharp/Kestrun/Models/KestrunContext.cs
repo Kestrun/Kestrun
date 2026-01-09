@@ -272,10 +272,9 @@ public sealed record KestrunContext
     /// <param name="groupName">The name of the group to broadcast the message to.</param>
     /// <param name="method">The name of the method to invoke on the client.</param>
     /// <param name="message">The message to broadcast.</param>
-    /// <param name="cancellationToken">Optional: Cancellation token.</param>
     /// <returns></returns>
-    public bool BroadcastToGroup(string groupName, string method, object? message, CancellationToken cancellationToken = default) =>
-      BroadcastToGroupAsync(groupName, method, message, cancellationToken).GetAwaiter().GetResult();
+    public bool BroadcastToGroup(string groupName, string method, object? message) =>
+      BroadcastToGroupAsync(groupName, method, message, default).GetAwaiter().GetResult();
 
     /// <summary>
     /// Synchronous wrapper for HttpContext.ChallengeAsync.
@@ -382,4 +381,75 @@ public sealed record KestrunContext
         // Call SignOut with the constructed AuthenticationProperties
         SignOut(scheme, authProps);
     }
+    #region Sse Helpers
+    /// <summary>
+    /// Starts a Server-Sent Events (SSE) response by setting the appropriate headers.
+    /// </summary>
+    public void StartSse()
+    {
+        HttpContext.Response.Headers.CacheControl = "no-cache";
+        HttpContext.Response.Headers.Connection = "keep-alive";
+        HttpContext.Response.Headers["X-Accel-Buffering"] = "no"; // helps with nginx
+        HttpContext.Response.ContentType = "text/event-stream";
+    }
+
+    /// <summary>
+    /// Writes a Server-Sent Event (SSE) to the response stream.
+    /// </summary>
+    /// <param name="event">The event type</param>
+    /// <param name="data"> </param>
+    /// <param name="id"> </param>
+    /// <param name="retryMs">Reconnection time in milliseconds</param>
+    /// <param name="ct">Cancellation token</param>
+    /// <returns></returns>
+    public async Task WriteSseEventAsync(
+        string? @event,
+        string data,
+        string? id = null,
+        int? retryMs = null,
+        CancellationToken ct = default)
+    {
+        // SSE fields are line based
+        if (retryMs is not null)
+        {
+            await HttpContext.Response.WriteAsync($"retry: {retryMs}\n", ct);
+        }
+
+        if (id is not null)
+        {
+            await HttpContext.Response.WriteAsync($"id: {id}\n", ct);
+        }
+
+        if (!string.IsNullOrWhiteSpace(@event))
+        {
+            await HttpContext.Response.WriteAsync($"event: {@event}\n", ct);
+        }
+
+        // data can be multi-line; each line must be prefixed with "data: "
+        using (var sr = new StringReader(data))
+        {
+            string? line;
+            while ((line = sr.ReadLine()) is not null)
+            {
+                await HttpContext.Response.WriteAsync($"data: {line}\n", ct);
+            }
+        }
+
+        await HttpContext.Response.WriteAsync("\n", ct);          // end of event
+        await HttpContext.Response.Body.FlushAsync(ct);          // important!
+    }
+
+    /// <summary>
+    /// Synchronous wrapper for WriteSseEventAsync.
+    /// </summary>
+    /// <param name="event">The name of the event.</param>
+    /// <param name="data">The data payload of the event.</param>
+    /// <param name="id"> The event ID.</param>
+    /// <param name="retryMs">Reconnection time in milliseconds</param>
+    /// <returns></returns>
+    public void WriteSseEvent(
+      string? @event, string data, string? id = null, int? retryMs = null) =>
+        WriteSseEventAsync(@event, data, id, retryMs, CancellationToken.None).GetAwaiter().GetResult();
+
+    #endregion
 }

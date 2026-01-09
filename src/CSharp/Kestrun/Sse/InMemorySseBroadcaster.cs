@@ -76,7 +76,7 @@ public sealed class InMemorySseBroadcaster(Serilog.ILogger logger) : ISseBroadca
     {
         if (_clients.TryRemove(clientId, out var channel))
         {
-            channel.Writer.TryComplete();
+            _ = channel.Writer.TryComplete();
             _logger.Debug("SSE client removed: {ClientId} (total={Count})", clientId, ConnectedCount);
         }
     }

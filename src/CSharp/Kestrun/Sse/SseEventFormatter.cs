@@ -52,9 +52,7 @@ public static class SseEventFormatter
     /// </summary>
     /// <param name="comment">Comment text.</param>
     /// <returns>A formatted SSE comment payload string.</returns>
-    public static string FormatComment(string comment)
-    {
+    public static string FormatComment(string comment) =>
         // Comment lines start with ':'
-        return $": {comment}\n\n";
-    }
+        $": {comment}\n\n";
 }

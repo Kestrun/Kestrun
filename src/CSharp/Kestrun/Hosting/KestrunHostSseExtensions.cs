@@ -1,9 +1,9 @@
 using Kestrun.Sse;
-using Microsoft.AspNetCore.Builder;
-using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Routing;
-using Microsoft.Extensions.DependencyInjection;
+using Kestrun.Hosting.Options;
+using Kestrun.Scripting;
+using Kestrun.Utilities;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.OpenApi;
 using System.Text.Json;
 using System.Threading.Channels;
 
@@ -25,6 +25,11 @@ public static class KestrunHostSseExtensions
     {
         ArgumentNullException.ThrowIfNull(host);
 
+        if (!host.MapExists(path, HttpVerb.Get))
+        {
+            RegisterSseBroadcastRouteForOpenApi(host, path);
+        }
+
         return host
             .AddService(services =>
             {
@@ -32,6 +37,52 @@ public static class KestrunHostSseExtensions
                 services.TryAddSingleton<ISseBroadcaster, InMemorySseBroadcaster>();
             })
             .Use(app => ((IEndpointRouteBuilder)app).MapGet(path, httpContext => HandleSseBroadcastConnectAsync(host, httpContext, keepAliveSeconds)));
+    }
+
+    /// <summary>
+    /// Registers the broadcast SSE endpoint in the host's route registry with OpenAPI metadata.
+    /// This allows the OpenAPI generator to include the endpoint even though it is mapped directly
+    /// through ASP.NET Core endpoint routing (not via <c>AddMapRoute</c>).
+    /// </summary>
+    /// <param name="host">The Kestrun host.</param>
+    /// <param name="path">The broadcast SSE endpoint path.</param>
+    private static void RegisterSseBroadcastRouteForOpenApi(KestrunHost host, string path)
+    {
+        var routeOptions = new MapRouteOptions
+        {
+            Pattern = path,
+            HttpVerbs = [HttpVerb.Get],
+            ScriptCode = new LanguageOptions
+            {
+                Language = ScriptLanguage.Native,
+                Code = string.Empty
+            }
+        };
+
+        var meta = new OpenAPIPathMetadata(pattern: path, mapOptions: routeOptions)
+        {
+            OperationId = "GetSseBroadcast",
+            Summary = "Broadcast SSE stream",
+            Description = "Opens a Server-Sent Events (text/event-stream) connection that receives server-side broadcast events.",
+            Tags = ["SSE"],
+            Responses = new OpenApiResponses
+            {
+                ["200"] = new OpenApiResponse
+                {
+                    Description = "SSE stream (text/event-stream)",
+                    Content = new Dictionary<string, IOpenApiMediaType>(StringComparer.Ordinal)
+                    {
+                        ["text/event-stream"] = new OpenApiMediaType
+                        {
+                            ItemSchema = new OpenApiSchema { Type = JsonSchemaType.String }
+                        }
+                    }
+                }
+            }
+        };
+
+        routeOptions.OpenAPI[HttpVerb.Get] = meta;
+        host._registeredRoutes[(path, HttpVerb.Get)] = routeOptions;
     }
 
     /// <summary>
@@ -102,8 +153,7 @@ public static class KestrunHostSseExtensions
     /// <param name="keepAliveSeconds">Keep-alive interval in seconds.</param>
     private static async Task HandleSseBroadcastConnectAsync(KestrunHost host, HttpContext httpContext, int keepAliveSeconds)
     {
-        var broadcaster = httpContext.RequestServices.GetService(typeof(ISseBroadcaster)) as ISseBroadcaster;
-        if (broadcaster == null)
+        if (httpContext.RequestServices.GetService(typeof(ISseBroadcaster)) is not ISseBroadcaster broadcaster)
         {
             httpContext.Response.StatusCode = StatusCodes.Status500InternalServerError;
             await httpContext.Response.WriteAsync("SSE broadcaster is not configured.", httpContext.RequestAborted).ConfigureAwait(false);
@@ -134,7 +184,7 @@ public static class KestrunHostSseExtensions
     private static async Task PumpSseAsync(HttpContext httpContext, ChannelReader<string> reader, int keepAliveSeconds)
     {
         var ct = httpContext.RequestAborted;
-        Task? keepAliveTask = keepAliveSeconds > 0
+        var keepAliveTask = keepAliveSeconds > 0
             ? Task.Delay(TimeSpan.FromSeconds(keepAliveSeconds), ct)
             : null;
 

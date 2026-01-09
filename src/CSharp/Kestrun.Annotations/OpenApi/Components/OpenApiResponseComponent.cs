@@ -1,6 +1,6 @@
 /// <summary>
-/// Specifies metadata for an OpenAPI Response object. Can be applied to classes
-/// to contribute entries under components.responses.
+/// Specifies metadata for an OpenAPI Response object. Can be applied to variables
+/// (properties) to contribute entries under components.responses.
 /// </summary>
 [AttributeUsage(AttributeTargets.Class | AttributeTargets.Struct | AttributeTargets.Property, AllowMultiple = false, Inherited = false)]
 public sealed class OpenApiResponseComponent : OpenApiProperties

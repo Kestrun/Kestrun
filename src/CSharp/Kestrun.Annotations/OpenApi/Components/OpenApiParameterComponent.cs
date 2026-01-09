@@ -16,6 +16,11 @@ public sealed class OpenApiParameterComponent : OpenApiProperties
     }
 
     /// <summary>
+    /// The local name under components.parameters.
+    /// </summary>
+    public string? Key { get; set; }
+
+    /// <summary>
     /// The location of the parameter.
     /// </summary>
     public OaParameterLocation In { get; set; } = OaParameterLocation.Query;

@@ -204,7 +204,6 @@ class BuyMuseumTicketsRequest {
     [Phone]$phone
 }
 
-
 [OpenApiSchemaComponent(Description = 'Details for a museum ticket after a successful purchase.',
     RequiredProperties = ('message', 'ticketId', 'ticketType', 'ticketDate', 'confirmationCode'))]
 class BuyMuseumTicketsResponse {
@@ -220,7 +219,6 @@ class BuyMuseumTicketsResponse {
 
     [TicketConfirmation]$confirmationCode
 }
-
 
 [OpenApiSchemaComponent(
     Description = 'An image of a ticket with a QR code used for museum or event entry.',

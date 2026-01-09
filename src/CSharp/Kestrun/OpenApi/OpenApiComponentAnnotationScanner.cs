@@ -1396,10 +1396,15 @@ public static class OpenApiComponentAnnotationScanner
 
             prop.SetValue(annotation, converted);
         }
-        catch
+        catch (Exception ex)
         {
-            // Swallow exceptions from invalid property sets during best-effort scan.
-            Serilog.Log.Debug("Failed to set property '{PropertyName}' on annotation '{AnnotationType}' with value '{Value}'", na.ArgumentName, annotation.GetType().Name, na.Argument);
+            // Log and continue on invalid property sets during best-effort scan.
+            Serilog.Log.Warning(
+                ex,
+                "Failed to set property '{PropertyName}' on annotation '{AnnotationType}' with value expression '{ValueExpression}'",
+                na.ArgumentName,
+                annotation.GetType().Name,
+                na.Argument);
         }
     }
 

@@ -104,7 +104,8 @@ public partial class OpenApiDocDescriptor
       OpenApiComponentAnnotationScanner.AnnotatedVariable variable,
       OpenApiParameterComponent parameterDescriptor)
     {
-        var parameter = GetOrCreateParameterItem(variable.Name, parameterDescriptor.Inline);
+        var key = parameterDescriptor.Key ?? variable.Name;
+        var parameter = GetOrCreateParameterItem(key, parameterDescriptor.Inline);
 
         ApplyParameterCommonFields(parameter, parameterDescriptor);
 
@@ -113,7 +114,8 @@ public partial class OpenApiDocDescriptor
         {
             parameter.Explode = true;
         }
-
+        // Set the parameter name from the variable name
+        parameter.Name = variable.Name;
         TryApplyVariableTypeSchema(parameter, variable, parameterDescriptor);
     }
 

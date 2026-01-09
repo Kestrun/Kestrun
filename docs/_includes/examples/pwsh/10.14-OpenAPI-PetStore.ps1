@@ -175,12 +175,8 @@ class PetBody:Pet {}
 # COMPONENT: RESPONSES
 # =========================
 
-[OpenApiResponseComponent( )]
-class ResponseDefault {
-
-    [OpenApiResponse(Description = 'Unexpected error', ContentType = 'application/json')]
-    [Error]$Default
-}
+[OpenApiResponseComponent(Description = 'Unexpected error', ContentType = 'application/json')]
+[Error]$Default = NoDefault
 
 
 #endregion

@@ -2,12 +2,14 @@
     Sample: OpenAPI Response Components
     Purpose: Demonstrate reusable response components with multiple response types per component.
     File:    10.5-OpenAPI-Component-Response.ps1
-    Notes:   Shows inline responses, generic object responses, and schema references within attributes.
+    Notes:   Uses the variable-based response component pattern.
 #>
 param(
     [int]$Port = 5000,
     [IPAddress]$IPAddress = [IPAddress]::Loopback
 )
+
+if (-not (Get-Module Kestrun)) { Import-Module Kestrun }
 
 # --- Logging / Server ---
 
@@ -25,6 +27,8 @@ Add-KrEndpoint -Port $Port -IPAddress $IPAddress
 Add-KrOpenApiInfo -Title 'Response Component API' `
     -Version '1.0.0' `
     -Description 'Demonstrates reusable response components.'
+
+Add-KrOpenApiTag -Name 'Articles' -Description 'Article CRUD operations.'
 
 
 # =========================================================
@@ -66,8 +70,8 @@ class Article {
 
 [OpenApiSchemaComponent(RequiredProperties = ('id', 'message', 'timestamp'))]
 class SuccessResponse {
-    [OpenApiPropertyAttribute(Description = 'Operation ID', Format = 'uuid')]
-    [string]$id
+    [OpenApiPropertyAttribute(Description = 'Operation ID', Format = 'int64')]
+    [long]$id
 
     [OpenApiPropertyAttribute(Description = 'Success message', Example = 'Resource created successfully')]
     [string]$message
@@ -76,20 +80,13 @@ class SuccessResponse {
     [string]$timestamp
 }
 
-New-KrOpenApiExample -Summary 'General entry ticket' -Value ([ordered]@{
-        ticketType = 'general'
-        ticketDate = '2023-09-07'
-        email = 'todd@example.com'
-    }) | Add-KrOpenApiComponent -Name 'BuyGeneralTicketsRequestExample'
+# =========================================================
+#                COMPONENT EXAMPLES / HEADERS / LINKS
+# =========================================================
 
-New-KrOpenApiExample -Summary 'Get hours response' -Value @(
-    [ordered]@{ date = '2023-09-11'; timeOpen = '09:00'; timeClose = '18:00' }
-    [ordered]@{ date = '2023-09-12'; timeOpen = '09:00'; timeClose = '18:00' }
-    [ordered]@{ date = '2023-09-13'; timeOpen = '09:00'; timeClose = '18:00' }
-) | Add-KrOpenApiComponent -Name 'GetMuseumHoursResponseExample'
-# =========================================================
-#                  COMPONENT HEADERS
-# =========================================================
+$correlationExamples = @{
+    'uuid' = New-KrOpenApiExample -Summary 'Correlation id' -Value '7b2a8e5d-0d7c-4f0a-9b3c-3f9d0b8ad7b1'
+}
 New-KrOpenApiHeader `
     -Description 'Correlation id for tracing the request across services.' `
     -Schema ([string]) `
@@ -97,60 +94,78 @@ New-KrOpenApiHeader `
     -Examples $correlationExamples |
     Add-KrOpenApiComponent -Name 'X-Correlation-Id'
 
+New-KrOpenApiExample -Summary 'Article created response' -Value ([ordered]@{
+        id = 1
+        message = 'Article created successfully'
+        timestamp = '2026-01-08T00:00:00Z'
+    }) | Add-KrOpenApiComponent -Name 'ArticleCreatedResponseExample'
 
-# Link component: use id from response body to fetch the user resource.
-New-KrOpenApiLink -OperationId 'getUser' -Description 'Get the created/returned user.' `
-    -Parameters @{ userId = '$response.body#/id' } |
-    Add-KrOpenApiComponent -Name 'GetUserLink'
+New-KrOpenApiExample -Summary 'Bad request error' -Value ([ordered]@{
+        statusCode = 400
+        message = 'Validation failed'
+        code = 'VALIDATION_ERROR'
+        details = 'title and content are required'
+    }) | Add-KrOpenApiComponent -Name 'BadRequestErrorExample'
 
+New-KrOpenApiExample -Summary 'Not found error' -Value ([ordered]@{
+        statusCode = 404
+        message = 'Article not found'
+        code = 'NOT_FOUND'
+        details = 'No article exists with id 404'
+    }) | Add-KrOpenApiComponent -Name 'NotFoundErrorExample'
 
-# Link component: use id from response body and pass the nested user object as request body.
-New-KrOpenApiLink -OperationId 'updateUser' -Description 'Update the created/returned user.' `
-    -Parameters @{ userId = '$response.body#/id' } `
-    -RequestBody '$response.body#/user' |
-    Add-KrOpenApiComponent -Name 'UpdateUserLink'
+New-KrOpenApiLink -OperationId 'getArticle' -Description 'Get the returned/created article.' `
+    -Parameters @{ articleId = '$response.body#/id' } |
+    Add-KrOpenApiComponent -Name 'GetArticleLink'
+
+New-KrOpenApiLink -OperationId 'deleteArticle' -Description 'Delete the returned/created article.' `
+    -Parameters @{ articleId = '$response.body#/id' } |
+    Add-KrOpenApiComponent -Name 'DeleteArticleLink'
+
 # =========================================================
 #          COMPONENT RESPONSES (Reusable)
 # =========================================================
 
-# Response component for common success responses (200, 201)
-
 [OpenApiResponseComponent(Description = 'Operation completed successfully', ContentType = ('application/json', 'application/xml'))]
-[OpenApiResponseHeaderRef( Key = 'X-Correlation-Id', ReferenceId = 'X-Correlation-Id')]
-[OpenApiResponseLinkRef(Key = 'get', ReferenceId = 'GetUserLink')]
-[OpenApiResponseLinkRef( Key = 'update', ReferenceId = 'UpdateUserLink')]
-[OpenApiResponseExampleRef(Key = 'general_entry', ReferenceId = 'BuyGeneralTicketsRequestExample' , ContentType = ('application/json', 'application/xml'))]
-[SuccessResponse]$OK
+[OpenApiResponseHeaderRef(Key = 'X-Correlation-Id', ReferenceId = 'X-Correlation-Id')]
+[OpenApiResponseLinkRef(Key = 'get', ReferenceId = 'GetArticleLink')]
+[OpenApiResponseLinkRef(Key = 'delete', ReferenceId = 'DeleteArticleLink')]
+[SuccessResponse]$OK = NoDefault
 
-[OpenApiResponseComponent(Description = 'Resource created successfully' , ContentType = ('application/json', 'application/xml'))]
-[OpenApiResponseHeaderRef( Key = 'X-Correlation-Id', ReferenceId = 'X-Correlation-Id')]
-[OpenApiResponseExampleRef(Key = 'something', ReferenceId = 'GetMuseumHoursResponseExample' , ContentType = ('application/json', 'application/xml') )]
-[SuccessResponse]$Created
+[OpenApiResponseComponent(Description = 'Resource created successfully', ContentType = ('application/json', 'application/xml'))]
+[OpenApiResponseHeaderRef(Key = 'X-Correlation-Id', ReferenceId = 'X-Correlation-Id')]
+[OpenApiResponseLinkRef(Key = 'get', ReferenceId = 'GetArticleLink')]
+[OpenApiResponseLinkRef(Key = 'delete', ReferenceId = 'DeleteArticleLink')]
+[OpenApiResponseExampleRef(Key = 'default', ReferenceId = 'ArticleCreatedResponseExample', ContentType = ('application/json', 'application/xml'))]
+[SuccessResponse]$Created = NoDefault
 
-
-# Response component for common error responses (400, 404)
 [OpenApiResponseComponent(Description = 'Bad request - validation failed', ContentType = ('application/json', 'application/xml'))]
-[OpenApiResponseLinkRef(Key = 'get', ReferenceId = 'GetUserLink')]
-[OpenApiResponseLinkRef( Key = 'update', ReferenceId = 'UpdateUserLink')]
-[ErrorResponse]$BadRequest
+[OpenApiResponseHeaderRef(Key = 'X-Correlation-Id', ReferenceId = 'X-Correlation-Id')]
+[OpenApiResponseExampleRef(Key = 'default', ReferenceId = 'BadRequestErrorExample', ContentType = ('application/json', 'application/xml'))]
+[ErrorResponse]$BadRequest = NoDefault
 
 [OpenApiResponseComponent(Description = 'Resource not found', ContentType = ('application/json', 'application/xml'))]
-[ErrorResponse]$NotFound
+[OpenApiResponseHeaderRef(Key = 'X-Correlation-Id', ReferenceId = 'X-Correlation-Id')]
+[OpenApiResponseExampleRef(Key = 'default', ReferenceId = 'NotFoundErrorExample', ContentType = ('application/json', 'application/xml'))]
+[ErrorResponse]$NotFound = NoDefault
 
-
-# Response component for article responses
-
-[OpenApiResponseComponent(Description = 'Article retrieved successfully', ContentType = ('application/json', 'application/xml'), inline = $true)]
-[Article]$ArticleResponsesOK
+[OpenApiResponseComponent(Description = 'Article retrieved successfully', ContentType = ('application/json', 'application/xml'), Inline = $true)]
+[OpenApiResponseHeaderRef(Key = 'X-Correlation-Id', ReferenceId = 'X-Correlation-Id')]
+[OpenApiResponseLinkRef(Key = 'delete', ReferenceId = 'DeleteArticleLink')]
+[Article]$ArticleResponsesOK = NoDefault
 
 [OpenApiResponseComponent(Description = 'Article not found', ContentType = ('application/json', 'application/xml'))]
-[ErrorResponse] $ArticleResponsesNotFound
+[OpenApiResponseHeaderRef(Key = 'X-Correlation-Id', ReferenceId = 'X-Correlation-Id')]
+[OpenApiResponseExampleRef(Key = 'default', ReferenceId = 'NotFoundErrorExample', ContentType = ('application/json', 'application/xml'))]
+[ErrorResponse]$ArticleResponsesNotFound = NoDefault
 
-[OpenApiResponseComponent(Description = 'Generic object response')]
-$objectResponse
+[OpenApiResponseComponent(Description = 'Generic object response', ContentType = ('application/json', 'application/xml'))]
+[OpenApiResponseHeaderRef(Key = 'X-Correlation-Id', ReferenceId = 'X-Correlation-Id')]
+$objectResponse = NoDefault
 
-[OpenApiResponseComponent(Description = 'A generic integer response')]
-[int]$intResponse
+[OpenApiResponseComponent(Description = 'A generic integer response', ContentType = ('application/json', 'application/xml'))]
+[OpenApiResponseHeaderRef(Key = 'X-Correlation-Id', ReferenceId = 'X-Correlation-Id')]
+[int]$intResponse = NoDefault
 
 
 
@@ -178,21 +193,35 @@ Add-KrApiDocumentationRoute -DocumentType Redoc
 function getArticle {
     [OpenApiPath(HttpVerb = 'get', Pattern = '/articles/{articleId}')]
     [OpenApiResponseRefAttribute(StatusCode = '200', ReferenceId = 'ArticleResponsesOK')]
+    [OpenApiResponseRefAttribute(StatusCode = '400', ReferenceId = 'BadRequest')]
     [OpenApiResponseRefAttribute(StatusCode = '404', ReferenceId = 'ArticleResponsesNotFound')]
     param(
         [OpenApiParameter(In = [OaParameterLocation]::Path, Required = $true, Description = 'Article ID to retrieve')]
         [int]$articleId
     )
 
+    $Context.Response.Headers['X-Correlation-Id'] = ([Guid]::NewGuid().ToString())
+
     # Validate ID
     if ($articleId -le 0) {
-        $myError = @{
+        $myError = [ErrorResponse]@{
             statusCode = 400
             message = 'Invalid article ID'
             code = 'INVALID_ID'
             details = 'Article ID must be a positive integer'
         }
         Write-KrJsonResponse $myError -StatusCode 400
+        return
+    }
+
+    if ($articleId -eq 404) {
+        $myError = [ErrorResponse]@{
+            statusCode = 404
+            message = 'Article not found'
+            code = 'NOT_FOUND'
+            details = "No article exists with id $articleId"
+        }
+        Write-KrJsonResponse $myError -StatusCode 404
         return
     }
 
@@ -229,9 +258,11 @@ function createArticle {
         [Article]$body
     )
 
+    $Context.Response.Headers['X-Correlation-Id'] = ([Guid]::NewGuid().ToString())
+
     # Validate
     if (-not $body.title -or -not $body.content) {
-        $myError = @{
+        $myError = [ErrorResponse]@{
             statusCode = 400
             message = 'Validation failed'
             code = 'VALIDATION_ERROR'
@@ -243,7 +274,7 @@ function createArticle {
 
     # Success response
     $success = [SuccessResponse]@{
-        id = [System.Guid]::NewGuid().ToString()
+        id = 1
         message = 'Article created successfully'
         timestamp = (Get-Date).ToUniversalTime().ToString('o')
     }
@@ -263,14 +294,39 @@ function createArticle {
 function deleteArticle {
     [OpenApiPath(HttpVerb = 'delete', Pattern = '/articles/{articleId}')]
     [OpenApiResponseRefAttribute(StatusCode = '200', ReferenceId = 'OK')]
+    [OpenApiResponseRefAttribute(StatusCode = '400', ReferenceId = 'BadRequest')]
     [OpenApiResponseRefAttribute(StatusCode = '404', ReferenceId = 'NotFound')]
     param(
         [OpenApiParameter(In = [OaParameterLocation]::Path, Required = $true, Description = 'Article ID to delete')]
         [int]$articleId
     )
 
+    $Context.Response.Headers['X-Correlation-Id'] = ([Guid]::NewGuid().ToString())
+
+    if ($articleId -le 0) {
+        $myError = [ErrorResponse]@{
+            statusCode = 400
+            message = 'Invalid article ID'
+            code = 'INVALID_ID'
+            details = 'Article ID must be a positive integer'
+        }
+        Write-KrJsonResponse $myError -StatusCode 400
+        return
+    }
+
+    if ($articleId -eq 404) {
+        $myError = [ErrorResponse]@{
+            statusCode = 404
+            message = 'Article not found'
+            code = 'NOT_FOUND'
+            details = "No article exists with id $articleId"
+        }
+        Write-KrJsonResponse $myError -StatusCode 404
+        return
+    }
+
     $success = [SuccessResponse]@{
-        id = [System.Guid]::NewGuid().ToString()
+        id = $articleId
         message = "Article $articleId deleted successfully"
         timestamp = (Get-Date).ToUniversalTime().ToString('o')
     }
@@ -283,6 +339,9 @@ function deleteArticle {
 # =========================================================
 
 Add-KrOpenApiRoute
+
+Build-KrOpenApiDocument
+Test-KrOpenApiDocument
 
 # =========================================================
 #                      RUN SERVER

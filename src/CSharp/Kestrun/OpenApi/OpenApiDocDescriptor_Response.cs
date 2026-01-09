@@ -289,7 +289,7 @@ public partial class OpenApiDocDescriptor
 
     private void ProcessResponseComponent(
       OpenApiComponentAnnotationScanner.AnnotatedVariable variable,
-      OpenApiResponseComponent responseDescriptor)
+      OpenApiResponseComponentAttribute responseDescriptor)
     {
         var response = GetOrCreateResponseItem(variable.Name, responseDescriptor.Inline);
 

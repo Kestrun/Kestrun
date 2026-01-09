@@ -158,7 +158,7 @@ public partial class OpenApiDocDescriptor
         {
             switch (annotation)
             {
-                case OpenApiParameterComponent paramComponent:
+                case OpenApiParameterComponentAttribute paramComponent:
                     ProcessParameterComponent(variable, paramComponent);
                     break;
 
@@ -169,7 +169,7 @@ public partial class OpenApiDocDescriptor
                     // Process PowerShell attribute to modify the schema
                     ProcessPowerShellAttribute(variable.Name, powershellAttribute);
                     break;
-                case OpenApiResponseComponent responseComponent:
+                case OpenApiResponseComponentAttribute responseComponent:
                     ProcessResponseComponent(variable, responseComponent);
                     break;
                 case OpenApiResponseHeaderRefAttribute headerRef:
@@ -195,7 +195,7 @@ public partial class OpenApiDocDescriptor
     private void TryApplyVariableTypeSchema(
         OpenApiResponse response,
         OpenApiComponentAnnotationScanner.AnnotatedVariable variable,
-        OpenApiResponseComponent responseDescriptor)
+        OpenApiResponseComponentAttribute responseDescriptor)
     {
         if (variable.VariableType is null)
         {
@@ -228,7 +228,7 @@ public partial class OpenApiDocDescriptor
 
     private static void ApplyResponseCommonFields(
         OpenApiResponse response,
-        OpenApiResponseComponent responseDescriptor)
+        OpenApiResponseComponentAttribute responseDescriptor)
     {
         if (responseDescriptor.Summary is not null)
         {

@@ -2,8 +2,8 @@
 /// Specifies metadata for an OpenAPI Response object. Can be applied to variables
 /// (properties) to contribute entries under components.responses.
 /// </summary>
-[AttributeUsage(AttributeTargets.Class | AttributeTargets.Struct | AttributeTargets.Property, AllowMultiple = false, Inherited = false)]
-public sealed class OpenApiResponseComponent : OpenApiProperties
+[AttributeUsage(AttributeTargets.Parameter, AllowMultiple = false, Inherited = false)]
+public sealed class OpenApiResponseComponentAttribute : OpenApiProperties
 {
     /// <summary>
     /// Title is not supported for response components.
@@ -12,7 +12,7 @@ public sealed class OpenApiResponseComponent : OpenApiProperties
     public new string? Title
     {
         get => base.Title;
-        set => throw new NotSupportedException("Title is not supported for OpenApiResponseComponent.");
+        set => throw new NotSupportedException("Title is not supported for OpenApiResponseComponentAttribute.");
     }
 
     /// <summary>

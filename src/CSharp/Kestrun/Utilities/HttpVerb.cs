@@ -21,6 +21,7 @@ namespace Kestrun.Utilities;
 /// RFC 7233 - HTTP/1.1 Range Requests
 /// RFC 7234 - HTTP/1.1 Caching
 /// RFC 7235 - HTTP/1.1 Authentication
+/// RFC 9535 - QUERY Method for HTTP
 /// </remarks>
 [Flags]
 public enum HttpVerb

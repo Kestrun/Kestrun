@@ -154,7 +154,7 @@ public enum HttpVerb
     /// <summary>
     /// Represents the HTTP ORDERPATCH method (WebDAV).
     /// </summary>
-    OrderPatch = 1 << 30,
+    OrderPatch = 1 << 30
 }
 
 /// <summary>

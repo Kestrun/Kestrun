@@ -26,8 +26,9 @@ File: [`pwsh/tutorial/examples/10.19-OpenAPI-Hello-Query.ps1`][10.19-OpenAPI-Hel
 3. **Parameter Components**: Define reusable pagination parameters using `[OpenApiParameterComponent]` attribute with validation constraints (e.g., `ValidateRange`).
 
 4. **Schema Components**: Define request and response schemas as PowerShell classes:
-   - `Product`: Represents items with id, name, price, and stock properties.
-   - `ProductSearchRequest`: Captures filters like `q` (query), `category`, `minPrice`, `maxPrice`, and `inStock`.
+
+    - `Product`: Represents items with id, name, price, and stock properties.
+    - `ProductSearchRequest`: Captures filters like `q` (query), `category`, `minPrice`, `maxPrice`, and `inStock`.
 
 5. **Route Function with QUERY**: Create a function decorated with
    `[OpenApiPath(HttpVerb = 'query', Pattern = '/v1/products/search')]` to define the HTTP QUERY
@@ -44,14 +45,14 @@ File: [`pwsh/tutorial/examples/10.19-OpenAPI-Hello-Query.ps1`][10.19-OpenAPI-Hel
 9. **Pagination**: Calculate offset/limit using page and pageSize, then return a slice of results.
 
 10. **Negotiated Response**: Use [Write-KrResponse][Write-KrResponse] (not `Write-KrJsonResponse`) to enable content negotiation based on the `Accept` header
-(JSON, YAML, XML).
+    (JSON, YAML, XML).
 
 11. **Configuration**: Call [Enable-KrConfiguration][Enable-KrConfiguration] to commit all staged changes and inject helper functions into route runspaces.
 
 12. **Documentation Routes**: Register UI viewers with [Add-KrApiDocumentationRoute][Add-KrApiDocumentationRoute] (Swagger, ReDoc, RapiDoc, Scalar, Elements).
 
 13. **OpenAPI Route**: Register the OpenAPI document endpoint with [Add-KrOpenApiRoute][Add-KrOpenApiRoute],
-specifying `DefaultVersion '3.2'` for modern OpenAPI support.
+    specifying `DefaultVersion '3.2'` for modern OpenAPI support.
 
 14. **Start Server**: Call [Start-KrServer][Start-KrServer] to begin accepting requests.
 
@@ -65,7 +66,7 @@ Import-Module .\src\PowerShell\Kestrun\Kestrun.psd1 -Force
 .\docs\_includes\examples\pwsh\10.19-OpenAPI-Hello-Query.ps1 -Port 5000
 ```
 
-Then open [**http://127.0.0.1:5000/docs/swagger**](http://127.0.0.1:5000/docs/swagger) in your browser to 
+Then open [**http://127.0.0.1:5000/docs/swagger**](http://127.0.0.1:5000/docs/swagger) in your browser to
 view the interactive API documentation.
 
 ### Test the QUERY endpoint
@@ -103,31 +104,31 @@ Stop the server with Ctrl+C.
 
 ## Troubleshooting
 
-- **Port already in use**: Choose a different port with `-Port 5001` or similar.
-- **QUERY not recognized**: Ensure PowerShell 7.4+ (which supports `-CustomMethod 'QUERY'` in `Invoke-WebRequest`).
-- **OpenAPI spec mismatch**: Verify `HttpVerb = 'query'` in the function's `[OpenApiPath]` attribute; OpenAPI 3.2 uses `query` (lowercase) as the operation key.
-- **No documentation UIs**: Check that [Add-KrApiDocumentationRoute][Add-KrApiDocumentationRoute] is called *before* [Enable-KrConfiguration][Enable-KrConfiguration].
-- **Negotiated response returns JSON only**: Ensure you use [Write-KrResponse][Write-KrResponse]
-  (not `Write-KrJsonResponse`); the latter forces JSON regardless of `Accept` header.
+-   **Port already in use**: Choose a different port with `-Port 5001` or similar.
+-   **QUERY not recognized**: Ensure PowerShell 7.4+ (which supports `-CustomMethod 'QUERY'` in `Invoke-WebRequest`).
+-   **OpenAPI spec mismatch**: Verify `HttpVerb = 'query'` in the function's `[OpenApiPath]` attribute; OpenAPI 3.2 uses `query` (lowercase) as the operation key.
+-   **No documentation UIs**: Check that [Add-KrApiDocumentationRoute][Add-KrApiDocumentationRoute] is called _before_ [Enable-KrConfiguration][Enable-KrConfiguration].
+-   **Negotiated response returns JSON only**: Ensure you use [Write-KrResponse][Write-KrResponse]
+    (not `Write-KrJsonResponse`); the latter forces JSON regardless of `Accept` header.
 
 ## References
 
-- [New-KrServer][New-KrServer]
-- [Add-KrEndpoint][Add-KrEndpoint]
-- [Add-KrOpenApiInfo][Add-KrOpenApiInfo]
-- [Add-KrApiDocumentationRoute][Add-KrApiDocumentationRoute]
-- [Add-KrOpenApiRoute][Add-KrOpenApiRoute]
-- [Enable-KrConfiguration][Enable-KrConfiguration]
-- [Write-KrResponse][Write-KrResponse]
-- [Start-KrServer][Start-KrServer]
-- [OpenAPI-Guide][OpenAPI-Guide]
+-   [New-KrServer][New-KrServer]
+-   [Add-KrEndpoint][Add-KrEndpoint]
+-   [Add-KrOpenApiInfo][Add-KrOpenApiInfo]
+-   [Add-KrApiDocumentationRoute][Add-KrApiDocumentationRoute]
+-   [Add-KrOpenApiRoute][Add-KrOpenApiRoute]
+-   [Enable-KrConfiguration][Enable-KrConfiguration]
+-   [Write-KrResponse][Write-KrResponse]
+-   [Start-KrServer][Start-KrServer]
+-   [OpenAPI-Guide][OpenAPI-Guide]
 
 ### Previous / Next
 
 {: .fs-4 .fw-500}
 
-Previous: *None*
-Next: *None*
+Previous: _None_
+Next: _None_
 
 [10.19-OpenAPI-Hello-Query.ps1]: /pwsh/tutorial/examples/10.19-OpenAPI-Hello-Query.ps1
 [New-KrServer]: /pwsh/cmdlets/New-KrServer

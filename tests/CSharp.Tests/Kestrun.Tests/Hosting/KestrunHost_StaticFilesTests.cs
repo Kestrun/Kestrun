@@ -180,6 +180,6 @@ public class KestrunHost_StaticFilesTests
             null);
 
         Assert.NotNull(method);
-        Assert.False(method!.IsStatic);
+        Assert.False(method.IsStatic);
     }
 }

@@ -204,8 +204,6 @@ public partial class OpenApiDocDescriptor
         var iSchema = InferPrimitiveSchema(variable.VariableType);
         if (iSchema is OpenApiSchema schema)
         {
-            //Todo: add powershell attribute support
-            //PowerShellAttributes.ApplyPowerShellAttributes(variable.PropertyInfo, schema);
             // Apply any schema attributes from the parameter annotation
             ApplyConcreteSchemaAttributes(responseDescriptor, schema);
             // Try to set default value from the variable initial value if not already set

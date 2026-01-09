@@ -1398,7 +1398,8 @@ public static class OpenApiComponentAnnotationScanner
         }
         catch
         {
-            // Best-effort: ignore conversion/set failures.
+            // Swallow exceptions from invalid property sets during best-effort scan.
+            Serilog.Log.Debug("Failed to set property '{PropertyName}' on annotation '{AnnotationType}' with value '{Value}'", na.ArgumentName, annotation.GetType().Name, na.Argument);
         }
     }
 

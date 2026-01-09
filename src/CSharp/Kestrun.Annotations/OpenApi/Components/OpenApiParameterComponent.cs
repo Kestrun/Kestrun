@@ -8,11 +8,11 @@ public sealed class OpenApiParameterComponent : OpenApiProperties
     /// <summary>
     /// Title is not supported for parameter components.
     /// </summary>
-    [System.Obsolete("Title is not supported for parameter components.", error: false)]
+    [Obsolete("Title is not supported for parameter components.", error: false)]
     public new string? Title
     {
         get => base.Title;
-        set => throw new System.NotSupportedException("Title is not supported for OpenApiParameterComponent.");
+        set => throw new NotSupportedException("Title is not supported for OpenApiParameterComponent.");
     }
 
     /// <summary>

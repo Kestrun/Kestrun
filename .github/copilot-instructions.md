@@ -691,6 +691,84 @@ class EventDates : Date {}
 - **Webhooks** are top-level OpenAPI 3.1 event notifications, live under `webhooks` (not `components.webhooks`).
   - Use `[OpenApiWebhook]` to declare webhook operations.
 
+### HTTP QUERY Method (OpenAPI 3.2+)
+
+The HTTP `QUERY` method is a semantically clearer alternative to `GET` for search/filter operations that require a request body.
+It combines safe semantics (like GET) with structured payloads (like POST).
+
+**When to use QUERY:**
+
+- Complex search filters that don't fit cleanly in query parameters.
+- Want GET-like semantics (safe, idempotent, repeatable).
+- Need to send structured data (filters, facets, advanced criteria) in request body.
+- Example: Product search with multiple filter dimensions, date ranges, category selections.
+
+**Implementation:**
+
+Use `HttpVerb = 'query'` in the `[OpenApiPath]` attribute:
+
+```powershell
+function searchProducts {
+    [OpenApiPath(HttpVerb = 'query', Pattern = '/v1/products/search')]
+    [OpenApiResponse(StatusCode = '200', Description = 'Paginated results')]
+    param(
+        [OpenApiParameterRef(ReferenceId = 'page')]
+        [int]$page,
+
+        [OpenApiParameterRef(ReferenceId = 'pageSize')]
+        [int]$pageSize,
+
+        [OpenApiRequestBody(Description = 'Search filters')]
+        [ProductSearchRequest]$filters
+    )
+
+    # Filter logic and return results
+    Write-KrResponse -InputObject $result -StatusCode 200
+}
+```
+
+**OpenAPI Generation:**
+
+- **OpenAPI 3.2+**: Operations appear under `paths['/pattern'].query` (native `query` HTTP verb support).
+- **OpenAPI 3.0 / 3.1**: Operations appear under `paths['/pattern'].x-oai-additionalOperations.QUERY` (fallback extension).
+  - This allows consumers to understand and invoke QUERY operations even in systems that only support OpenAPI 3.0/3.1.
+
+**Client Usage:**
+
+```powershell
+# PowerShell 7.4+
+$body = @{
+    q = 'laptop'
+    minPrice = 500
+    maxPrice = 2000
+} | ConvertTo-Json
+
+Invoke-WebRequest -Uri 'http://api.example.com/v1/products/search?page=1&pageSize=10' `
+    -CustomMethod 'QUERY' `
+    -ContentType 'application/json' `
+    -Body $body
+```
+
+```javascript
+// JavaScript
+const response = await fetch('http://api.example.com/v1/products/search?page=1&pageSize=10', {
+    method: 'QUERY',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ q: 'laptop', minPrice: 500, maxPrice: 2000 })
+});
+```
+
+**Decision Matrix (QUERY vs GET vs POST):**
+
+| Method | Request Body | Semantics | Use Case |
+| :--- | :--- | :--- | :--- |
+| **GET** | ❌ No | Safe, idempotent, cacheable | Simple retrieval, no complex filters |
+| **POST** | ✅ Yes | Unsafe, creates resource | Create, modify, complex transformations |
+| **QUERY** (3.2+) | ✅ Yes | Safe, idempotent (like GET) | **Search/filter with complex criteria** |
+
+See the complete tutorial example at [docs/pwsh/tutorial/10.19-Product-Search-Query.md](/docs/pwsh/tutorial/10.19-Product-Search-Query.md) and the guide section in [docs/guides/openapi.md#941-http-query-method-openapi-32](/docs/guides/openapi.md#941-http-query-method-openapi-32).
+
+
 ### Callback automation (runtime dispatch)
 
 OpenAPI callback attributes describe callbacks in the **OpenAPI document**.
@@ -742,3 +820,132 @@ Comment-based help blocks are used by Kestrun to populate OpenAPI `summary`/`des
 - The tutorial test harness executes scripts from `docs/pwsh/tutorial/examples` (not `docs/_includes/examples`). Keep those copies in sync when changing tutorial behavior.
 - When validating negotiated responses with `Invoke-WebRequest`, YAML and `application/x-www-form-urlencoded` bodies may arrive as a byte/int array; decode as UTF-8 before asserting content.
 - If you add/modify documentation UI routes via `Add-KrApiDocumentationRoute`, ensure the UI is pointed at the intended OpenAPI endpoint (e.g. `-OpenApiEndpoint '/openapi/v3.1/openapi.json'`) when the example exposes multiple specs.
+
+---
+
+## Tutorial Authoring Guidelines
+
+When generating or modifying tutorial documentation pages under `docs/pwsh/tutorial/*`, follow these strict directives:
+
+### Core Requirements
+
+1. **File Naming**: Use pattern `N.Title.md` (e.g., `6.Redirects.md`) in the appropriate section folder.
+2. **Front Matter**: Include YAML fields: `title`, `parent`, `nav_order`, `layout: default`.
+3. **H1 Heading**: Must exactly match the `title` value in front matter.
+4. **Introduction**: One sentence describing the tutorial's purpose immediately after the H1.
+5. **Required Sections** (in order):
+   - `## Full source` — References and includes the example script
+   - `## Step-by-step` — Numbered list (1–8 steps) describing script actions
+   - `## Try it` — Executable examples (curl + PowerShell alternatives)
+   - Feature-specific explanatory sections (optional, e.g., `## Redirect Types`)
+   - `## References` — Links to all cmdlets and related guides
+   - `---` followed by `### Previous / Next` navigation block with `{: .fs-4 .fw-500}`
+
+6. **Include Directive**: In `## Full source`, use `{% include examples/pwsh/FILENAME.ps1 %}` to embed the example.
+7. **Script References**: Define link references at the bottom for the example script path.
+8. **Navigation**: Append `### Previous / Next` with links to adjacent tutorials (or `_None_` if at section boundary).
+
+### Formatting Standards
+
+- **Code Fences**: Always include language identifiers: `powershell`, `json`, `yaml`, `markdown`.
+- **Step List**: Capitalize first word or use format `ComponentName: description`.
+- **Line Length**: Keep lines under ~160 characters.
+- **Inline Formatting**: Use backticks for cmdlets, routes, and file names.
+- **Avoid HTML**: Use plain Markdown only.
+
+### Health-Specific Notes
+
+When authoring Health probe tutorials:
+
+- Use `New-KrProbeResult` instead of direct constructors.
+- Ensure `## References` includes endpoint cmdlets, probe cmdlets, and `[Health Guide](/guides/health)`.
+- Wrap JSON output in fenced `json` blocks.
+- Mention tag filtering, degraded status, or timeouts only if present in the code.
+
+### Redirect / Response Pattern Notes
+
+- Redirect examples must call `Write-KrRedirectResponse`.
+- Always show at least one route mapping and complete server startup sequence.
+
+### Verification Checklist
+
+Before completing a tutorial, verify:
+
+- [ ] Filename matches `N.Title.md` pattern
+- [ ] Front matter valid and complete
+- [ ] H1 matches title exactly
+- [ ] Intro sentence present
+- [ ] `## Full source` includes correct include path
+- [ ] Script reference link definition at bottom
+- [ ] `## Step-by-step` numbered (1–n)
+- [ ] `## Try it` with executable examples
+- [ ] All used cmdlets in `## References`
+- [ ] Health page includes Health guide link (if applicable)
+- [ ] Navigation block has valid adjacent links (or `_None_`)
+- [ ] No placeholder tokens remain (TITLE, SECTION_PARENT, NUMBER, etc.)
+- [ ] All code fences have language identifiers
+- [ ] Passes `.\Utility\Test-TutorialDocs.ps1 -Path "docs/pwsh/tutorial/N.Title.md"`
+
+### Standard Template
+
+```markdown
+---
+title: TITLE
+parent: SECTION_PARENT
+nav_order: NUMBER
+layout: default
+---
+
+# TITLE
+
+One sentence purpose statement.
+
+## Full source
+
+File: [`pwsh/tutorial/examples/SECTION.NUMBER-slug.ps1`][SECTION.NUMBER-slug.ps1]
+
+\`\`\`powershell
+{% include examples/pwsh/SECTION.NUMBER-slug.ps1 %}
+\`\`\`
+
+## Step-by-step
+
+1. Component: Brief description of action.
+2. Component: Brief description of action.
+
+## Try it
+
+\`\`\`powershell
+curl -i http://127.0.0.1:5000/route
+\`\`\`
+
+## Key Points
+
+- Point 1
+- Point 2
+
+## References
+
+- [Cmdlet-Name][Cmdlet-Name]
+- [Guide-Name][Guide-Link]
+
+---
+
+### Previous / Next
+
+{: .fs-4 .fw-500}
+
+Previous: [Previous-Title](./prev-file)
+Next: [Next-Title](./next-file)
+
+[SECTION.NUMBER-slug.ps1]: /pwsh/tutorial/examples/SECTION.NUMBER-slug.ps1
+[Cmdlet-Name]: /pwsh/cmdlets/Cmdlet-Name
+[Guide-Link]: /guides/guide-name
+```
+
+### Important Notes
+
+- Maintain ordering: Title → Intro → Full source → Step-by-step → Try it → Feature blocks → (Key Points / Troubleshooting optional) → References → Navigation → Link refs.
+- Do not omit `## Full source`, `## Step-by-step`, `## References`, or navigation unless explicitly instructed.
+- Use imperative, consistent style; avoid redundant commentary.
+- If conventions change, update this section and `docs/contributing/tutorial-template.md`.

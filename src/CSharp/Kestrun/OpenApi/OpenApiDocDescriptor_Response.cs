@@ -328,7 +328,6 @@ public partial class OpenApiDocDescriptor
         return (OpenApiResponse)responseInterface;
     }
 
-
     /// <summary>
     /// Tries to get a response item by name from either inline or document components.
     /// </summary>

@@ -242,8 +242,6 @@ public partial class OpenApiDocDescriptor
         }
     }
 
-
-
     /// <summary>
     /// Generates the OpenAPI document by processing components and building paths and webhooks.
     /// </summary>

@@ -1509,7 +1509,7 @@ public static class OpenApiComponentAnnotationScanner
             if (raw is string listText && elementType == typeof(string))
             {
                 var t = listText.Trim();
-                if ((t.StartsWith("@(", StringComparison.Ordinal) || t.StartsWith("(", StringComparison.Ordinal)) && t.EndsWith(")", StringComparison.Ordinal) && t.Contains(',', StringComparison.Ordinal))
+                if ((t.StartsWith("@(", StringComparison.Ordinal) || t.StartsWith('(')) && t.EndsWith(')') && t.Contains(',', StringComparison.Ordinal))
                 {
                     var inner = t.StartsWith("@(", StringComparison.Ordinal) ? t[2..^1] : t[1..^1];
                     var parts = inner

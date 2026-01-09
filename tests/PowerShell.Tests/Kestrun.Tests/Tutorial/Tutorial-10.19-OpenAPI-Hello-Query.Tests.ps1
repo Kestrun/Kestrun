@@ -1,4 +1,4 @@
-﻿param()
+param()
 Describe 'Example 10.19 OpenAPI HTTP QUERY Product Search' -Tag 'OpenApi', 'Tutorial', 'Slow' {
     BeforeAll {
         . (Join-Path $PSScriptRoot '..\PesterHelpers.ps1')

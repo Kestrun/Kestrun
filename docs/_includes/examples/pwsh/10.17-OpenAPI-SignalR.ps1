@@ -56,9 +56,7 @@ Add-KrOpenApiInfo -Title 'Kestrun SignalR Demo API' `
 [ValidateNotNullOrEmpty()]
 [string]$taskId = NoDefault
 
-[OpenApiParameterComponent(In = 'Query', Description = 'Duration (seconds) for the long-running operation', Example = 2, Minimum = 1)]
-[ValidateRange(1, 3600)]
-[int]$seconds = NoDefault
+
 
 # Schema components (reusable)
 [OpenApiSchemaComponent(RequiredProperties = ('success', 'message'))]
@@ -233,8 +231,9 @@ function StartOperation {
     [OpenApiPath(HttpVerb = 'post', Pattern = '/api/operation/start', Tags = 'Operations')]
     [OpenApiResponse(StatusCode = '200', Description = 'Operation started', SchemaRef = 'OperationStartResult', ContentType = 'application/json')]
     param(
-        [OpenApiParameterRef(ReferenceId = 'seconds')]
-        [int]$seconds = 2
+        [OpenApiParameter(In = 'Query', Deprecated = $true, Description = 'Duration (seconds) for the long-running operation', Example = 10, Minimum = 1)]
+        [ValidateRange(1, 3600)]
+        [int]$seconds = 20
     )
 
     if ($seconds -lt 1) { $seconds = 2 }

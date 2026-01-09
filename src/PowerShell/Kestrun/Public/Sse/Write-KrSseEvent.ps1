@@ -2,8 +2,8 @@
     .SYNOPSIS
         Sends a Server-Sent Event (SSE) to connected clients.
     .DESCRIPTION
-        This function sends a Server-Sent Event (SSE) to connected clients via the ISseBroadcaster service.
-        The event is sent in real-time to all connected clients listening for SSEs.
+        This function writes a Server-Sent Event (SSE) to the current HTTP response stream (per-connection).
+        For server-wide broadcasting to all connected clients, use Send-KrSseBroadcastEvent.
     .PARAMETER Event
         The name of the event.
     .PARAMETER Data
@@ -16,8 +16,7 @@
         Write-KrSseEvent -Level Information -Event "StatusUpdate" -Data "System is operational"
         Sends an SSE with the event name "StatusUpdate" and data "System is operational" at Information level.
     .NOTES
-        This function requires that SSE has been configured on the server using Add-KrSseMiddleware.
-        The ISseBroadcaster service must be registered for this cmdlet to work.
+        Use Start-KrSseResponse before sending events.
 #>
 function Write-KrSseEvent {
     [KestrunRuntimeApi('Route')]

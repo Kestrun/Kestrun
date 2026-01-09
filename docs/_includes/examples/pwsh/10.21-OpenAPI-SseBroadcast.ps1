@@ -1,6 +1,6 @@
 ﻿<#
     Create a broadcast SSE demo server with Kestrun in PowerShell (with OpenAPI).
-    FileName: 15.11-OpenAPI-SseBroadcast.ps1
+    FileName: 10.21-OpenAPI-SseBroadcast.ps1
 
     This demo shows:
     - GET /sse/broadcast : server-side broadcast stream (text/event-stream)

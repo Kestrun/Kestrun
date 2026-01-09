@@ -466,8 +466,48 @@ Common URLs when running examples:
 ### Modeling operations
 
 - Use `[OpenApiPath(...)]` on the route function to describe the operation.
-- Use `[OpenApiResponse(...)]` to describe response status codes and schemas.
+- Use `[OpenApiResponse(...)]` for simple, inline response documentation (status code + schema).
+- Prefer **response components** for reuse across multiple routes (see below).
 - Prefer `[OpenApiRequestBody(...)]` on the *body parameter* (not on the function) when you need request-body metadata.
+
+### Response components (reusable responses)
+
+Kestrun supports **reusable response components** under `components.responses`.
+
+**Defining response components (variable-based):**
+
+```powershell
+[OpenApiSchemaComponent(RequiredProperties = ('code', 'message'))]
+class ErrorResponse {
+  [OpenApiPropertyAttribute(Example = 404)]
+  [int]$code
+
+  [OpenApiPropertyAttribute(Example = 'Not Found')]
+  [string]$message
+}
+
+[OpenApiResponseComponent(Description = 'Resource not found', ContentType = ('application/json', 'application/xml'))]
+[OpenApiResponseHeaderRef(Key = 'X-Correlation-Id', ReferenceId = 'X-Correlation-Id')]
+[OpenApiResponseExampleRef(Key = 'default', ReferenceId = 'NotFoundErrorExample', ContentType = ('application/json', 'application/xml'))]
+[ErrorResponse]$NotFound = NoDefault
+```
+
+**Referencing response components from routes:**
+
+```powershell
+function getThing {
+  [OpenApiPath(HttpVerb = 'get', Pattern = '/things/{id}')]
+  [OpenApiResponse(StatusCode = '200', Description = 'OK', Schema = [object])]
+  [OpenApiResponseRefAttribute(StatusCode = '404', ReferenceId = 'NotFound')]
+  param([int]$id)
+}
+```
+
+**Important rules for response component variables:**
+
+1. **Assignment is REQUIRED**: Every response component variable must have an explicit assignment.
+2. Use `= NoDefault` when you do not want an OpenAPI default value.
+3. `ReferenceId` must match the response component variable name (e.g., `NotFound`).
 
 #### Parameter components (reusable parameters)
 

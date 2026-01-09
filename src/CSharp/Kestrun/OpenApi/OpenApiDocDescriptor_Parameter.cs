@@ -98,42 +98,39 @@ public partial class OpenApiDocDescriptor
     /// <summary>
     /// Processes a parameter component annotation to create or update an OpenAPI parameter.
     /// </summary>
-    /// <param name="variableName">The name of the variable associated with the parameter</param>
     /// <param name="variable">The annotated variable containing metadata about the parameter</param>
-    /// <param name="parameterAnnotation">The parameter component annotation</param>
+    /// <param name="parameterDescriptor">The parameter component annotation</param>
     private void ProcessParameterComponent(
-      string variableName,
       OpenApiComponentAnnotationScanner.AnnotatedVariable variable,
-      OpenApiParameterComponent parameterAnnotation)
+      OpenApiParameterComponent parameterDescriptor)
     {
-        var parameter = GetOrCreateParameterItem(variableName, parameterAnnotation.Inline);
+        var key = parameterDescriptor.Key ?? variable.Name;
+        var parameter = GetOrCreateParameterItem(key, parameterDescriptor.Inline);
 
-        ApplyParameterCommonFields(parameter, variableName, parameterAnnotation);
+        ApplyParameterCommonFields(parameter, parameterDescriptor);
 
         // Explode defaults to true for "form" and "cookie" styles
-        if (parameterAnnotation.Explode || (parameter.Style is ParameterStyle.Form or ParameterStyle.Cookie))
+        if (parameterDescriptor.Explode || (parameter.Style is ParameterStyle.Form or ParameterStyle.Cookie))
         {
             parameter.Explode = true;
         }
-
-        TryApplyVariableTypeSchema(parameter, variable, parameterAnnotation);
+        // Set the parameter name from the variable name
+        parameter.Name = variable.Name;
+        TryApplyVariableTypeSchema(parameter, variable, parameterDescriptor);
     }
 
     /// <summary>
     /// Applies common fields from a parameter component annotation to an OpenAPI parameter.
     /// </summary>
     /// <param name="parameter">The OpenApiParameter to modify</param>
-    /// <param name="variableName">The name of the variable associated with the parameter</param>
     /// <param name="parameterAnnotation">The parameter component annotation</param>
     private static void ApplyParameterCommonFields(
         OpenApiParameter parameter,
-        string variableName,
         OpenApiParameterComponent parameterAnnotation)
     {
         parameter.AllowEmptyValue = parameterAnnotation.AllowEmptyValue;
         parameter.Description = parameterAnnotation.Description;
         parameter.In = parameterAnnotation.In.ToOpenApi();
-        parameter.Name = parameterAnnotation.Name ?? variableName;
         parameter.Style = parameterAnnotation.Style?.ToOpenApi();
         parameter.AllowReserved = parameterAnnotation.AllowReserved;
         parameter.Required = parameterAnnotation.Required;
@@ -441,17 +438,31 @@ public partial class OpenApiDocDescriptor
     /// </summary>
     /// <param name="parameterName">The name of the parameter to retrieve.</param>
     /// <param name="parameter">The retrieved parameter if found; otherwise, null.</param>
+    /// <param name="isInline">Indicates whether the parameter was found in inline components.</param>
     /// <returns>True if the parameter was found; otherwise, false.</returns>
-    private bool TryGetParameterItem(string parameterName, out OpenApiParameter? parameter)
+    private bool TryGetParameterItem(string parameterName, out OpenApiParameter? parameter, out bool isInline)
     {
         if (TryGetInline(name: parameterName, kind: OpenApiComponentKind.Parameters, out parameter))
         {
+            isInline = true;
             return true;
         }
         else if (TryGetComponent(name: parameterName, kind: OpenApiComponentKind.Parameters, out parameter))
         {
+            isInline = false;
             return true;
         }
+        parameter = null;
+        isInline = false;
         return false;
     }
+
+    /// <summary>
+    /// Tries to get a parameter by name from either inline or document components.
+    /// </summary>
+    /// <param name="parameterName">The name of the parameter to retrieve.</param>
+    /// <param name="parameter">The retrieved parameter if found; otherwise, null.</param>
+    /// <returns>True if the parameter was found; otherwise, false.</returns>
+    private bool TryGetParameterItem(string parameterName, out OpenApiParameter? parameter) =>
+    TryGetParameterItem(parameterName, out parameter, out _);
 }

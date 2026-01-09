@@ -5,11 +5,25 @@
 [AttributeUsage(AttributeTargets.Class | AttributeTargets.Struct | AttributeTargets.Property, AllowMultiple = false, Inherited = false)]
 public sealed class OpenApiParameterComponent : OpenApiProperties
 {
-    public OaParameterLocation In { get; set; } = OaParameterLocation.Query;
-    /// <summary>Override the parameter name (default: property name).</summary>
-    public string? Name { get; set; }
-    /// <summary>Override the parameter name (default: property name).</summary>
+    /// <summary>
+    /// Title is not supported for parameter components.
+    /// </summary>
+    [Obsolete("Title is not supported for parameter components.", error: false)]
+    public new string? Title
+    {
+        get => base.Title;
+        set => throw new NotSupportedException("Title is not supported for OpenApiParameterComponent.");
+    }
+
+    /// <summary>
+    /// The local name under components.parameters.
+    /// </summary>
     public string? Key { get; set; }
+
+    /// <summary>
+    /// The location of the parameter.
+    /// </summary>
+    public OaParameterLocation In { get; set; } = OaParameterLocation.Query;
 
     /// <summary>
     /// Whether the parameter is required.

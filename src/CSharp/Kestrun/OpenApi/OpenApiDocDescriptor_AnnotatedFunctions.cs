@@ -304,16 +304,26 @@ public partial class OpenApiDocDescriptor
     /// <param name="value">The string to normalize.</param>
     /// <returns>The normalized string.</returns>
     private static string? NormalizeNewlines(string? value) => value?.Replace("\r\n", "\n");
+
+    /// <summary>
+    /// Applies the OpenApiResponseRef attribute to the function's OpenAPI metadata.
+    /// </summary>
+    ///     <param name="metadata">The OpenAPI metadata to update.</param>
+    /// <param name="attribute">The OpenApiResponseRef attribute containing response reference details.</param>
     private void ApplyResponseRefAttribute(OpenAPIPathMetadata metadata, OpenApiResponseRefAttribute attribute)
     {
         metadata.Responses ??= [];
-        IOpenApiResponse response = attribute.Inline
-            ? GetResponse(attribute.ReferenceId).Clone()
-            : new OpenApiResponseReference(attribute.ReferenceId);
+
+        if (!TryGetResponseItem(attribute.ReferenceId, out var response, out var inline))
+        {
+            throw new InvalidOperationException($"Response component with ID '{attribute.ReferenceId}' not found.");
+        }
+
+        IOpenApiResponse iResponse = attribute.Inline || inline ? response!.Clone() : new OpenApiResponseReference(attribute.ReferenceId);
 
         if (attribute.Description is not null)
         {
-            response.Description = attribute.Description;
+            iResponse.Description = attribute.Description;
         }
 
         if (metadata.Responses.ContainsKey(attribute.StatusCode))
@@ -321,7 +331,7 @@ public partial class OpenApiDocDescriptor
             throw new InvalidOperationException($"Response for status code '{attribute.StatusCode}' is already defined for this operation.");
         }
 
-        metadata.Responses.Add(attribute.StatusCode, response);
+        metadata.Responses.Add(attribute.StatusCode, iResponse);
     }
 
     /// <summary>

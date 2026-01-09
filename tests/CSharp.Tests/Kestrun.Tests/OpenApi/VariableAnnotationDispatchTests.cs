@@ -55,7 +55,7 @@ public class VariableAnnotationDispatchTests
         descriptor.Document.Components ??= new OpenApiComponents();
         descriptor.Document.Components.Parameters ??= new Dictionary<string, IOpenApiParameter>(StringComparer.Ordinal);
 
-        var annotated = new OpenApiComponentAnnotationScanner.AnnotatedVariable
+        var annotated = new OpenApiComponentAnnotationScanner.AnnotatedVariable("limit")
         {
             VariableType = typeof(int),
             InitialValue = 5,
@@ -99,7 +99,7 @@ public class VariableAnnotationDispatchTests
         var descriptor = new OpenApiDocDescriptor(host, "test-doc");
         descriptor.Document.Components ??= new OpenApiComponents();
 
-        var annotated = new OpenApiComponentAnnotationScanner.AnnotatedVariable
+        var annotated = new OpenApiComponentAnnotationScanner.AnnotatedVariable("limit")
         {
             VariableType = typeof(int),
             InitialValue = 5,
@@ -128,7 +128,7 @@ public class VariableAnnotationDispatchTests
         descriptor.Document.Components ??= new OpenApiComponents();
         descriptor.Document.Components.Parameters ??= new Dictionary<string, IOpenApiParameter>(StringComparer.Ordinal);
 
-        var empty = new OpenApiComponentAnnotationScanner.AnnotatedVariable
+        var empty = new OpenApiComponentAnnotationScanner.AnnotatedVariable("ignored")
         {
             VariableType = typeof(string),
             InitialValue = "x",

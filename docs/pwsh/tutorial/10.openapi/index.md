@@ -72,22 +72,22 @@ pwsh .\docs\_includes\examples\pwsh\10.13-OpenAPI-Examples.ps1
 
 ## Key Concepts
 
--   **OpenAPI 3.1 Specification**: Industry-standard API documentation format
--   **Component Schemas**: Reusable data structures defined once and referenced multiple times
--   **RequestBody Components**: Standardized request payloads across endpoints
--   **Parameter Components**: Consistent query string, path, header, and cookie parameters
--   **Response Components**: Uniform response structures for success and error cases
--   **Swagger UI**: Interactive API documentation and testing interface
--   **Code Generation**: Use OpenAPI specs to generate client SDKs
+- **OpenAPI 3.1 Specification**: Industry-standard API documentation format
+- **Component Schemas**: Reusable data structures defined once and referenced multiple times
+- **RequestBody Components**: Standardized request payloads across endpoints
+- **Parameter Components**: Consistent query string, path, header, and cookie parameters
+- **Response Components**: Uniform response structures for success and error cases
+- **Swagger UI**: Interactive API documentation and testing interface
+- **Code Generation**: Use OpenAPI specs to generate client SDKs
 
 ## Documentation Routes
 
 Kestrun provides multiple documentation viewers for your OpenAPI spec:
 
--   **Swagger UI** — Classic, feature-rich interactive documentation
--   **ReDoc** — Clean, responsive documentation layout
--   **Scalar** — Modern, beautiful API explorer
--   **RapidOC** — Fast, performant alternative
--   **Elements** — StopLight Elements API viewer
+- **Swagger UI** — Classic, feature-rich interactive documentation
+- **ReDoc** — Clean, responsive documentation layout
+- **Scalar** — Modern, beautiful API explorer
+- **RapidOC** — Fast, performant alternative
+- **Elements** — StopLight Elements API viewer
 
 Visit `http://localhost:5000/swagger`, `/redoc`, `/scalar`, `/rapidoc`, or `/elements` to view the documentation (paths vary by script).

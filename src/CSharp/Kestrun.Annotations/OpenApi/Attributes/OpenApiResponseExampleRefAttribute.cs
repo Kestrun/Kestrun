@@ -11,7 +11,7 @@ public sealed class OpenApiResponseExampleRefAttribute : KestrunAnnotation, IOpe
     /// <summary>
     /// The HTTP status code for the response.
     /// </summary>
-    public required string StatusCode { get; set; }
+    public string StatusCode { get; set; } = "default";
     /// <summary>Local name under content[contentType].examples</summary>
     public required string Key { get; set; }
 

@@ -7,7 +7,7 @@ nav_order: 130
 # OpenAPI Generation
 
 End-to-end guide for generating and documenting RESTful APIs with [OpenAPI 3.0+ specifications](https://spec.openapis.org/oas/v3.1.0) using Kestrun's PowerShell
-cmdlets and class-based attributes.
+cmdlets and attributes.
 
 Focus areas:
 
@@ -27,7 +27,7 @@ Focus areas:
 |----------------------|--------------------------------------------------------------------------------|
 | **Schema Component** | A PowerShell class decorated with `[OpenApiSchemaComponent]`. Defines data structure. |
 | **Request Body**     | A class decorated with `[OpenApiRequestBodyComponent]`. Defines payload structure. |
-| **Response**         | A class decorated with `[OpenApiResponseComponent]`. Defines response structure. |
+| **Response**         | A variable decorated with `[OpenApiResponseComponent]`. Defines a reusable response entry under `components.responses`. |
 | **Parameter**        | A PowerShell parameter/variable decorated with `[OpenApiParameterComponent]`. Defines reusable parameters. |
 | **Callback**         | An operation-scoped async notification defined under `paths.{path}.{verb}.callbacks` (OpenAPI 3.1). |
 | **Webhook**          | A top-level OpenAPI webhook entry describing an outgoing event notification your API may send to subscribers. |
@@ -468,10 +468,13 @@ function createProduct {
 
 ## 6. Component Responses
 
-Use `[OpenApiResponseComponent]` to define reusable responses.
+Use `[OpenApiResponseComponent]` to define reusable response objects under `components.responses`.
+
+> **Note:** Response components are different from schema components.
+> Use `[OpenApiSchemaComponent]` for reusable payload schemas under `components.schemas`.
 
 ```powershell
-[OpenApiResponseComponent(Description = 'Standard error response')]
+[OpenApiSchemaComponent(RequiredProperties = ('code', 'message'))]
 class ErrorResponse {
     [OpenApiPropertyAttribute(Example = 400)]
     [int]$code
@@ -479,6 +482,15 @@ class ErrorResponse {
     [OpenApiPropertyAttribute(Example = 'Invalid input')]
     [string]$message
 }
+
+[OpenApiSchemaComponent(RequiredProperties = ('id', 'name'))]
+class ProductSchema {
+    [int]$id
+    [string]$name
+}
+
+[OpenApiResponseComponent(Description = 'Not Found', ContentType = ('application/json', 'application/xml'))]
+[ErrorResponse]$NotFound = NoDefault
 ```
 
 ### Usage in Route (Responses)
@@ -486,8 +498,8 @@ class ErrorResponse {
 ```powershell
 function getProduct {
     [OpenApiPath(HttpVerb = 'get', Pattern = '/products/{id}')]
-    [OpenApiResponse(StatusCode = '200', Schema = [ProductSchema])]
-    [OpenApiResponse(StatusCode = '404', Description = 'Not Found', Schema = [ErrorResponse])]
+    [OpenApiResponse(StatusCode = '200', Schema = [ProductSchema], ContentType = ('application/json', 'application/xml'))]
+    [OpenApiResponseRefAttribute(StatusCode = '404', ReferenceId = 'NotFound')]
     param()
 }
 ```

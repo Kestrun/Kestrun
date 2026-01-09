@@ -14,10 +14,15 @@ public static class OpenApiComponentAnnotationScanner
     /// <summary>
     /// Represents a variable discovered in script, along with its OpenAPI annotations and metadata.
     /// </summary>
-    public sealed class AnnotatedVariable
+    public sealed class AnnotatedVariable(string name)
     {
         /// <summary>Annotations attached to the variable.</summary>
         public List<KestrunAnnotation> Annotations { get; } = [];
+
+        /// <summary>
+        /// The variable name.
+        /// </summary>
+        public string Name { get; set; } = name;
 
         /// <summary>The declared variable type if present (e.g. from <c>[int]$x</c> or <c>[int]$x = 1</c>).</summary>
         public Type? VariableType { get; set; }
@@ -669,7 +674,7 @@ public static class OpenApiComponentAnnotationScanner
     {
         if (!variables.TryGetValue(varName, out var entry))
         {
-            entry = new AnnotatedVariable();
+            entry = new AnnotatedVariable(varName);
             variables[varName] = entry;
         }
 
@@ -1377,11 +1382,41 @@ public static class OpenApiComponentAnnotationScanner
 
         var raw = EvaluateArgumentExpression(na.Argument);
         var converted = ConvertToPropertyType(raw, prop.PropertyType);
-        prop.SetValue(annotation, converted);
+        try
+        {
+            // Avoid failing configuration due to a best-effort scan conversion.
+            if (converted is not null)
+            {
+                var targetType = Nullable.GetUnderlyingType(prop.PropertyType) ?? prop.PropertyType;
+                if (!targetType.IsInstanceOfType(converted) && !targetType.IsAssignableFrom(converted.GetType()))
+                {
+                    return;
+                }
+            }
+
+            prop.SetValue(annotation, converted);
+        }
+        catch (Exception ex)
+        {
+            // Log and continue on invalid property sets during best-effort scan.
+            Serilog.Log.Warning(
+                ex,
+                "Failed to set property '{PropertyName}' on annotation '{AnnotationType}' with value expression '{ValueExpression}'",
+                na.ArgumentName,
+                annotation.GetType().Name,
+                na.Argument);
+        }
     }
 
+    /// <summary>
+    /// Evaluates an argument expression AST to a runtime value.
+    /// </summary>
+    /// <param name="expr"> The expression AST to evaluate</param>
+    /// <returns>The evaluated runtime value</returns>
     private static object? EvaluateArgumentExpression(ExpressionAst expr) => expr switch
     {
+        ArrayLiteralAst a => a.Elements.Select(EvaluateArgumentExpression).ToArray(),
+        ParenExpressionAst p => EvaluateParenExpression(p),
         StringConstantExpressionAst s => s.Value,
         ExpandableStringExpressionAst e => e.Value,
         ConstantExpressionAst c => c.Value,
@@ -1391,6 +1426,28 @@ public static class OpenApiComponentAnnotationScanner
         _ => expr.Extent.Text.Trim()
     };
 
+    /// <summary>
+    /// Evaluates a parenthesized expression AST to a runtime value.
+    /// </summary>
+    /// <param name="p">The parenthesized expression AST to evaluate</param>
+    /// <returns>The evaluated runtime value</returns>
+    private static object? EvaluateParenExpression(ParenExpressionAst p)
+    {
+        // Parenthesized values frequently appear in attribute args: ContentType = ('a','b')
+        // In the AST, these often surface as a pipeline containing a CommandExpressionAst.
+        if (p.Pipeline is PipelineAst pipeline && pipeline.PipelineElements is { Count: 1 } elems && elems[0] is CommandExpressionAst ce)
+        {
+            return EvaluateArgumentExpression(ce.Expression);
+        }
+        // Fallback: return the raw text inside the parentheses.
+        return p.Extent.Text.Trim();
+    }
+
+    /// <summary>
+    /// Evaluates a variable expression AST to a runtime value.
+    /// </summary>
+    /// <param name="v">The variable expression AST to evaluate</param>
+    /// <returns>The evaluated runtime value</returns>
     private static object? EvaluateVariableExpression(VariableExpressionAst v)
     {
         var name = v.VariablePath.UserPath;
@@ -1448,6 +1505,12 @@ public static class OpenApiComponentAnnotationScanner
         return p?.GetValue(null);
     }
 
+    /// <summary>
+    /// Converts a raw evaluated value to the specified property type, handling arrays and enums.
+    /// </summary>
+    /// <param name="raw">The raw evaluated value.</param>
+    /// <param name="propertyType">The target property type to convert to.</param>
+    /// <returns>The converted value, or null if conversion is not possible.</returns>
     private static object? ConvertToPropertyType(object? raw, Type propertyType)
     {
         if (raw is null)
@@ -1457,6 +1520,13 @@ public static class OpenApiComponentAnnotationScanner
 
         var targetType = Nullable.GetUnderlyingType(propertyType) ?? propertyType;
 
+        // Arrays (e.g. string[] ContentType)
+        if (targetType.IsArray)
+        {
+            return ConvertArrayValue(raw, targetType);
+        }
+
+        // If already the right type
         if (targetType.IsInstanceOfType(raw))
         {
             return raw;
@@ -1465,31 +1535,161 @@ public static class OpenApiComponentAnnotationScanner
         // Enums
         if (targetType.IsEnum)
         {
-            return raw is string s
-                ? Enum.Parse(targetType, s, ignoreCase: true)
-                : Enum.ToObject(targetType, raw);
+            return ConvertEnumValue(raw, targetType);
         }
 
-        // Booleans can show up as "$true" / "$false" when we fall back to Extent.Text
+        // Boolean strings like "$true" / "$false"
         if (targetType == typeof(bool) && raw is string bs)
         {
-            if (string.Equals(bs, "$true", StringComparison.OrdinalIgnoreCase) || string.Equals(bs, "true", StringComparison.OrdinalIgnoreCase))
+            var boolVal = TryParseBooleanString(bs);
+            if (boolVal.HasValue)
             {
-                return true;
-            }
-            if (string.Equals(bs, "$false", StringComparison.OrdinalIgnoreCase) || string.Equals(bs, "false", StringComparison.OrdinalIgnoreCase))
-            {
-                return false;
+                return boolVal.Value;
             }
         }
 
+        // Fallback: ChangeType or keep raw on failure
+        return ChangeTypeOrRaw(raw, targetType);
+    }
+
+    /// <summary>
+    /// Converts a value to an array of the specified array type, handling string-list parsing,
+    /// IEnumerable conversion, and scalar single-element arrays.
+    /// </summary>
+    /// <param name="raw">The raw value to convert.</param>
+    /// <param name="arrayType">The target array type.</param>
+    /// <returns>The converted array value.</returns>
+    private static object ConvertArrayValue(object raw, Type arrayType)
+    {
+        var elementType = arrayType.GetElementType() ?? typeof(object);
+
+        // If already the right array type, keep it
+        if (arrayType.IsInstanceOfType(raw))
+        {
+            return raw;
+        }
+
+        // Parse string list for string[] scenarios
+        if (raw is string s && elementType == typeof(string))
+        {
+            var parsed = TryParseStringList(s);
+            if (parsed is not null)
+            {
+                return parsed;
+            }
+            // Treat scalar string as single-element array
+            return new[] { s };
+        }
+
+        // IEnumerable -> array (avoid string as IEnumerable<char>)
+        if (raw is IEnumerable enumerable and not string)
+        {
+            return ConvertEnumerableToArray(enumerable, elementType);
+        }
+
+        // Scalar -> single-element array
+        var single = ConvertToPropertyType(raw, elementType);
+        var singleArr = Array.CreateInstance(elementType, 1);
+        singleArr.SetValue(single, 0);
+        return singleArr;
+    }
+
+    /// <summary>
+    /// Attempts to parse a textual list representation such as "('a','b')" or "@('a','b')" into a string array.
+    /// Returns null when the input is not a recognized list format.
+    /// </summary>
+    /// <param name="listText">The input list text.</param>
+    /// <returns>A string array if parsing succeeds; otherwise null.</returns>
+    private static string[]? TryParseStringList(string listText)
+    {
+        var t = listText.Trim();
+        var hasParens = (t.StartsWith("@(", StringComparison.Ordinal) || t.StartsWith('(')) && t.EndsWith(')');
+        if (!hasParens || !t.Contains(',', StringComparison.Ordinal))
+        {
+            return null;
+        }
+
+        var inner = t.StartsWith("@(", StringComparison.Ordinal) ? t[2..^1] : t[1..^1];
+        var parts = inner
+            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Select(p => p.Trim().Trim('\'', '"'))
+            .Where(p => !string.IsNullOrWhiteSpace(p))
+            .ToArray();
+
+        return parts.Length > 0 ? parts : null;
+    }
+
+    /// <summary>
+    /// Converts an IEnumerable to an array of the specified element type, recursively converting each item.
+    /// </summary>
+    /// <param name="enumerable">The enumerable of items.</param>
+    /// <param name="elementType">The target element type.</param>
+    /// <returns>An array instance with converted items.</returns>
+    private static object ConvertEnumerableToArray(IEnumerable enumerable, Type elementType)
+    {
+        var items = new List<object?>();
+        foreach (var item in enumerable)
+        {
+            items.Add(item);
+        }
+
+        var arr = Array.CreateInstance(elementType, items.Count);
+        for (var i = 0; i < items.Count; i++)
+        {
+            var convertedItem = ConvertToPropertyType(items[i], elementType);
+            arr.SetValue(convertedItem, i);
+        }
+        return arr;
+    }
+
+    /// <summary>
+    /// Converts a raw value to the specified enum type.
+    /// </summary>
+    /// <param name="raw">The raw value (string or numeric).</param>
+    /// <param name="enumType">The target enum type.</param>
+    /// <returns>An enum instance parsed from the raw value.</returns>
+    private static object ConvertEnumValue(object raw, Type enumType)
+    {
+        return raw is string s
+            ? Enum.Parse(enumType, s, ignoreCase: true)
+            : Enum.ToObject(enumType, raw);
+    }
+
+    /// <summary>
+    /// Attempts to parse a boolean value from PowerShell-like string tokens ("$true", "$false", "true", "false").
+    /// Returns null if the string is not a recognized boolean token.
+    /// </summary>
+    /// <param name="text">The input text.</param>
+    /// <returns>True/False for recognized tokens; otherwise null.</returns>
+    private static bool? TryParseBooleanString(string text)
+    {
+        if (string.Equals(text, "$true", StringComparison.OrdinalIgnoreCase) || string.Equals(text, "true", StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+        if (string.Equals(text, "$false", StringComparison.OrdinalIgnoreCase) || string.Equals(text, "false", StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+        // Unrecognized token
+        return null;
+    }
+
+    /// <summary>
+    /// Tries to convert a value to the target type using Convert.ChangeType; if conversion fails, returns the original raw value.
+    /// </summary>
+    /// <param name="raw">The raw value.</param>
+    /// <param name="targetType">The target type.</param>
+    /// <returns>The converted value or the original raw value on failure.</returns>
+    private static object ChangeTypeOrRaw(object raw, Type targetType)
+    {
         try
         {
             return Convert.ChangeType(raw, targetType);
         }
         catch
         {
-            // If we can't strongly convert, keep the raw value (often a string) rather than failing the scan.
+            // Best-effort: keep raw rather than failing the scan.
             return raw;
         }
     }

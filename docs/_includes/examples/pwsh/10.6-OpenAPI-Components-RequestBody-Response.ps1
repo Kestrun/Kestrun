@@ -103,19 +103,12 @@ class ErrorDetail {
 )]
 class CreateOrderRequestBody:CreateOrderRequest {}
 
-# OrderResponse: ResponseComponent
-[OpenApiResponseComponent(JoinClassName = '-', Description = 'Order data')]
-class OrderResponseComponent {
-    [OpenApiResponse(Description = 'Order successfully retrieved or created', ContentType = 'application/json')]
-    [OrderResponse]$Default
-}
+# Response components (variable-based)
+[OpenApiResponseComponent(Description = 'Order successfully retrieved or created', ContentType = ('application/json', 'application/xml'))]
+[OrderResponse]$OrderResponseDefault = NoDefault
 
-# ErrorResponse: ResponseComponent (reusable for multiple error codes)
-[OpenApiResponseComponent(JoinClassName = '-', Description = 'Error response')]
-class ErrorResponseComponent {
-    [OpenApiResponse(Description = 'Request validation error', ContentType = 'application/json')]
-    [ErrorDetail]$Default
-}
+[OpenApiResponseComponent(Description = 'Request validation error', ContentType = ('application/json', 'application/xml'))]
+[ErrorDetail]$ErrorResponseDefault = NoDefault
 
 # =========================================================
 #                 ROUTES / OPERATIONS
@@ -141,8 +134,8 @@ Add-KrApiDocumentationRoute -DocumentType Redoc
 #>
 function createOrder {
     [OpenApiPath(HttpVerb = 'post', Pattern = '/orders')]
-    [OpenApiResponse(StatusCode = '201', Description = 'Order created successfully', Schema = [OrderResponse], ContentType = ('application/json', 'application/xml'))]
-    [OpenApiResponse(StatusCode = '400', Description = 'Invalid input', Schema = [ErrorDetail], ContentType = ('application/json', 'application/xml'))]
+    [OpenApiResponseRefAttribute(StatusCode = '201', ReferenceId = 'OrderResponseDefault')]
+    [OpenApiResponseRefAttribute(StatusCode = '400', ReferenceId = 'ErrorResponseDefault')]
     param(
         [OpenApiRequestBody(ContentType = ('application/json', 'application/xml', 'application/x-www-form-urlencoded'))]
         [CreateOrderRequestBody]$body
@@ -200,8 +193,8 @@ function createOrder {
 #>
 function getOrder {
     [OpenApiPath(HttpVerb = 'get', Pattern = '/orders/{orderId}')]
-    [OpenApiResponse(StatusCode = '200', Description = 'Order found', Schema = [OrderResponse], ContentType = ('application/json', 'application/xml'))]
-    [OpenApiResponse(StatusCode = '400', Description = 'Invalid order ID', Schema = [ErrorDetail], ContentType = ('application/json', 'application/xml'))]
+    [OpenApiResponseRefAttribute(StatusCode = '200', ReferenceId = 'OrderResponseDefault')]
+    [OpenApiResponseRefAttribute(StatusCode = '400', ReferenceId = 'ErrorResponseDefault')]
     param(
         [OpenApiParameter(In = [OaParameterLocation]::Path, Required = $true)]
         [Guid]$orderId
@@ -248,8 +241,8 @@ function getOrder {
 #>
 function updateOrder {
     [OpenApiPath(HttpVerb = 'put', Pattern = '/orders/{orderId}')]
-    [OpenApiResponse(StatusCode = '200', Description = 'Order updated successfully', Schema = [OrderResponse], ContentType = ('application/json', 'application/xml'))]
-    [OpenApiResponse(StatusCode = '400', Description = 'Invalid input', Schema = [ErrorDetail], ContentType = ('application/json', 'application/xml'))]
+    [OpenApiResponseRefAttribute(StatusCode = '200', ReferenceId = 'OrderResponseDefault')]
+    [OpenApiResponseRefAttribute(StatusCode = '400', ReferenceId = 'ErrorResponseDefault')]
     param(
         [OpenApiParameter(In = [OaParameterLocation]::Path, Required = $true, Example = 'a54a57ca-36f8-421b-a6b4-2e8f26858a4c')]
         [guid]$orderId,

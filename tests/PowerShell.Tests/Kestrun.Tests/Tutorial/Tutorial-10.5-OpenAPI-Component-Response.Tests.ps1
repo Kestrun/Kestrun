@@ -40,8 +40,8 @@ Describe 'Example 10.5 OpenAPI Component Response' -Tag 'OpenApi', 'Tutorial', '
     It 'Check OpenAPI Responses' {
         $result = Invoke-WebRequest -Uri "$($script:instance.Url)/openapi/v3.1/openapi.json" -SkipCertificateCheck -SkipHttpErrorCheck
         $json = $result.Content | ConvertFrom-Json
-        $json.components.responses.'SuccessResponses-OK' | Should -Not -BeNullOrEmpty
-        $json.components.responses.'ErrorResponses-NotFound' | Should -Not -BeNullOrEmpty
+        $json.components.responses.OK | Should -Not -BeNullOrEmpty
+        $json.components.responses.NotFound | Should -Not -BeNullOrEmpty
     }
 }
 

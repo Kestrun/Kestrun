@@ -9,7 +9,7 @@ public sealed class OpenApiResponseLinkRefAttribute : KestrunAnnotation
     /// <summary>
     /// The HTTP status code for the response.
     /// </summary>
-    public required string StatusCode { get; set; }
+    public string StatusCode { get; set; } = "default";
     public required string Key { get; set; }      // local name under response.links
     public required string ReferenceId { get; set; } // components/links id
 

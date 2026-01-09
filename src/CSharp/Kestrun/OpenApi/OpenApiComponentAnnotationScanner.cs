@@ -1408,6 +1408,11 @@ public static class OpenApiComponentAnnotationScanner
         }
     }
 
+    /// <summary>
+    /// Evaluates an argument expression AST to a runtime value.
+    /// </summary>
+    /// <param name="expr"> The expression AST to evaluate</param>
+    /// <returns>The evaluated runtime value</returns>
     private static object? EvaluateArgumentExpression(ExpressionAst expr) => expr switch
     {
         ArrayLiteralAst a => a.Elements.Select(EvaluateArgumentExpression).ToArray(),
@@ -1421,6 +1426,11 @@ public static class OpenApiComponentAnnotationScanner
         _ => expr.Extent.Text.Trim()
     };
 
+    /// <summary>
+    /// Evaluates a parenthesized expression AST to a runtime value.
+    /// </summary>
+    /// <param name="p">The parenthesized expression AST to evaluate</param>
+    /// <returns>The evaluated runtime value</returns>
     private static object? EvaluateParenExpression(ParenExpressionAst p)
     {
         // Parenthesized values frequently appear in attribute args: ContentType = ('a','b')
@@ -1433,6 +1443,11 @@ public static class OpenApiComponentAnnotationScanner
         return p.Extent.Text.Trim();
     }
 
+    /// <summary>
+    /// Evaluates a variable expression AST to a runtime value.
+    /// </summary>
+    /// <param name="v">The variable expression AST to evaluate</param>
+    /// <returns>The evaluated runtime value</returns>
     private static object? EvaluateVariableExpression(VariableExpressionAst v)
     {
         var name = v.VariablePath.UserPath;

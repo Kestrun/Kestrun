@@ -5,7 +5,7 @@ namespace Kestrun.Utilities;
 /// </summary>
 /// <remarks>
 /// This enum includes standard HTTP methods as well as WebDAV extensions.
-/// It is designed to be extensible for future HTTP methods. 
+/// It is designed to be extensible for future HTTP methods.
 /// The enum values correspond to the HTTP methods as defined in various RFCs:
 /// RFC 4918 - HTTP Extensions for WebDAV
 /// RFC 3744 - WebDAV Access Control Protocol
@@ -21,7 +21,8 @@ namespace Kestrun.Utilities;
 /// RFC 7233 - HTTP/1.1 Range Requests
 /// RFC 7234 - HTTP/1.1 Caching
 /// RFC 7235 - HTTP/1.1 Authentication
-/// </remarks> 
+/// RFC 9535 - QUERY Method for HTTP
+/// </remarks>
 [Flags]
 public enum HttpVerb
 {
@@ -57,95 +58,103 @@ public enum HttpVerb
     /// Represents the HTTP TRACE method.
     /// </summary>
     Trace = 1 << 7,
+    /// <summary>
+    /// Represents the HTTP QUERY method.
+    /// </summary>
+    Query = 1 << 8,
+
+    //*******************
     // WebDAV verbs
+    //*******************
+
     /// <summary>
     /// Represents the HTTP PROPFIND method (WebDAV).
     /// </summary>
-    PropFind = 1 << 8,
+    PropFind = 1 << 9,
     /// <summary>
     /// Represents the HTTP PROPPATCH method (WebDAV).
     /// </summary>
-    PropPatch = 1 << 9,
+    PropPatch = 1 << 10,
     /// <summary>
     /// Represents the HTTP MKCOL method (WebDAV).
     /// </summary>
-    MkCol = 1 << 10,
+    MkCol = 1 << 11,
     /// <summary>
     /// Represents the HTTP COPY method (WebDAV).
     /// </summary>
-    Copy = 1 << 11,
+    Copy = 1 << 12,
     /// <summary>
     /// Represents the HTTP MOVE method (WebDAV).
     /// </summary>
-    Move = 1 << 12,
+    Move = 1 << 13,
     /// <summary>
     /// Represents the HTTP LOCK method (WebDAV).
     /// </summary>
-    Lock = 1 << 13,
+    Lock = 1 << 14,
     /// <summary>
     /// Represents the HTTP UNLOCK method (WebDAV).
     /// </summary>
-    Unlock = 1 << 14,
+    Unlock = 1 << 15,
     /// <summary>
     /// Represents the HTTP REPORT method (WebDAV).
     /// </summary>
-    Report = 1 << 15,
+    Report = 1 << 16,
     /// <summary>
     /// Represents the HTTP ACL method (WebDAV).
     /// </summary>
-    Acl = 1 << 16,
+    Acl = 1 << 17,
     /// <summary>
     /// Represents the HTTP SEARCH method (WebDAV).
     /// </summary>
-    Search = 1 << 17,
+    Search = 1 << 18,
     /// <summary>
     /// Represents the HTTP MERGE method (WebDAV).
     /// </summary>
-    Merge = 1 << 18,
+    Merge = 1 << 19,
     /// <summary>
     /// Represents the HTTP BIND method (WebDAV).
     /// </summary>
-    Bind = 1 << 19,
+    Bind = 1 << 20,
     /// <summary>
     /// Represents the HTTP UNBIND method (WebDAV).
     /// </summary>
-    Unbind = 1 << 20,
+    Unbind = 1 << 21,
     /// <summary>
     /// Represents the HTTP REBIND method (WebDAV).
     /// </summary>
-    Rebind = 1 << 21,
+    Rebind = 1 << 22,
     /// <summary>
     /// Represents the HTTP UPDATE method (WebDAV).
     /// </summary>
-    Update = 1 << 22,
+    Update = 1 << 23,
     /// <summary>
     /// Represents the HTTP VERSION-CONTROL method (WebDAV).
     /// </summary>
-    VersionControl = 1 << 23,
+    VersionControl = 1 << 24,
     /// <summary>
     /// Represents the HTTP CHECKIN method (WebDAV).
     /// </summary>
-    Checkin = 1 << 24,
+    Checkin = 1 << 25,
     /// <summary>
     /// Represents the HTTP CHECKOUT method (WebDAV).
     /// </summary>
-    Checkout = 1 << 25,
+    Checkout = 1 << 26,
     /// <summary>
     /// Represents the HTTP UNCHECKOUT method (WebDAV).
     /// </summary>
-    Uncheckout = 1 << 26,
+    Uncheckout = 1 << 27,
     /// <summary>
     /// Represents the HTTP MKWORKSPACE method (WebDAV).
     /// </summary>
-    MkWorkspace = 1 << 27,
+    MkWorkspace = 1 << 28,
     /// <summary>
     /// Represents the HTTP LABEL method (WebDAV).
     /// </summary>
-    Label = 1 << 28,
+    Label = 1 << 29,
     /// <summary>
     /// Represents the HTTP ORDERPATCH method (WebDAV).
     /// </summary>
-    OrderPatch = 1 << 29
+    OrderPatch = 1 << 30
 }
 
 /// <summary>

@@ -5,12 +5,15 @@
 [AttributeUsage(AttributeTargets.Class | AttributeTargets.Struct | AttributeTargets.Property, AllowMultiple = false, Inherited = false)]
 public sealed class OpenApiParameterComponent : OpenApiProperties
 {
-#pragma warning disable IDE0051
     /// <summary>
-    /// Not used. Hides Title from base class.
+    /// Title is not supported for parameter components.
     /// </summary>
-    private new string? Title { get; set; }
-#pragma warning restore IDE0051
+    [System.Obsolete("Title is not supported for parameter components.", error: false)]
+    public new string? Title
+    {
+        get => base.Title;
+        set => throw new System.NotSupportedException("Title is not supported for OpenApiParameterComponent.");
+    }
 
     /// <summary>
     /// The location of the parameter.

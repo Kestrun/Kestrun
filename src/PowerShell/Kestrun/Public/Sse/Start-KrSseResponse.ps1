@@ -21,6 +21,6 @@ function Start-KrSseResponse {
         $Context.StartSse()
         return
     }
-    # Only works inside a route script block where $Context is available
+
     Write-KrOutsideRouteWarning
 }

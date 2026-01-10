@@ -42,17 +42,17 @@ public partial class OpenApiDocDescriptor
     /// <param name="t">Type to build schema for</param>
     /// <param name="built">Set of types already built to avoid recursion</param>
     /// <returns>OpenApiSchema representing the type</returns>
-    private IOpenApiSchema BuildSchemaForType(Type t, HashSet<Type>? built = null)
+    private OpenApiSchema BuildSchemaForType(Type t, HashSet<Type>? built = null)
     {
         built ??= [];
-
+        OpenApiSchema? schemaParent = null;
         // Handle custom base type derivations first
         if (t.BaseType is not null && t.BaseType != typeof(object))
         {
-            var baseTypeSchema = BuildBaseTypeSchema(t);
-            if (baseTypeSchema is not null)
+            schemaParent = BuildBaseTypeSchema(t);
+            if (schemaParent is not null && schemaParent.AllOf is null)
             {
-                return baseTypeSchema;
+                return schemaParent;
             }
         }
 
@@ -88,7 +88,13 @@ public partial class OpenApiDocDescriptor
 
         // Process properties with default value capture
         ProcessTypeProperties(t, schema, built);
-
+        if (schemaParent is not null && schemaParent.AllOf is not null)
+        {
+            //var baseRef = new OpenApiSchemaReference(t.BaseType!.Name);
+            schemaParent.AllOf.Add(schema);
+            schemaParent.Type = null; // Clear type when using allOf
+            return schemaParent;
+        }
         return schema;
     }
 
@@ -97,7 +103,7 @@ public partial class OpenApiDocDescriptor
     /// </summary>
     ///  <param name="t">Type to build schema for</param>
     /// <returns>OpenApiSchema representing the base type derivation, or null if not applicable</returns>
-    private IOpenApiSchema? BuildBaseTypeSchema(Type t)
+    private OpenApiSchema? BuildBaseTypeSchema(Type t)
     {
         var primitivesAssembly = typeof(OpenApiString).Assembly;
 
@@ -147,21 +153,25 @@ public partial class OpenApiDocDescriptor
     /// <summary>
     /// Builds schema for types with custom base types.
     /// </summary>
-    private IOpenApiSchema BuildCustomBaseTypeSchema(Type t, OaSchemaType? baseTypeName)
+    private OpenApiSchema BuildCustomBaseTypeSchema(Type t, OaSchemaType? baseTypeName)
     {
-        IOpenApiSchema baseSchema = baseTypeName is not null
-            ? new OpenApiSchema { Type = baseTypeName?.ToJsonSchemaType() }
-            : new OpenApiSchemaReference(t.BaseType!.Name);
+        var baseSchema = baseTypeName is not null
+            ? new OpenApiSchema { Type = baseTypeName?.ToJsonSchemaType() } :
+            new OpenApiSchema
+            {
+                //new OpenApiSchemaReference(t.BaseType!.Name);
 
-        var schemaComps = t.GetCustomAttributes<OpenApiProperties>()
-            .Where(schemaComp => schemaComp is not null)
-            .Cast<OpenApiProperties>();
+                AllOf = [new OpenApiSchemaReference(t.BaseType!.Name)]
+            };
+        /*       var schemaComps = t.GetCustomAttributes<OpenApiProperties>()
+                   .Where(schemaComp => schemaComp is not null)
+                   .Cast<OpenApiProperties>();
 
-        foreach (var prop in schemaComps)
-        {
-            return BuildPropertyFromAttribute(prop, baseSchema);
-        }
-
+               foreach (var prop in schemaComps)
+               {
+                   return BuildPropertyFromAttribute(prop, baseSchema);
+               }
+       */
         return baseSchema;
     }
 

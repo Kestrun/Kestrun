@@ -238,7 +238,7 @@ public sealed record KestrunContext
     /// <param name="method">The name of the method to invoke on the client.</param>
     /// <param name="message">The message to broadcast.</param>
     /// <param name="cancellationToken">Optional: Cancellation token.</param>
-    /// <returns></returns>
+    /// <returns>True if the message was broadcast successfully; otherwise, false.</returns>
     public async Task<bool> BroadcastToGroupAsync(string groupName, string method, object? message, CancellationToken cancellationToken = default)
     {
         var svcProvider = HttpContext.RequestServices;
@@ -272,7 +272,7 @@ public sealed record KestrunContext
     /// <param name="groupName">The name of the group to broadcast the message to.</param>
     /// <param name="method">The name of the method to invoke on the client.</param>
     /// <param name="message">The message to broadcast.</param>
-    /// <returns></returns>
+    /// <returns>True if the message was broadcast successfully; otherwise, false.</returns>
     public bool BroadcastToGroup(string groupName, string method, object? message) =>
       BroadcastToGroupAsync(groupName, method, message, default).GetAwaiter().GetResult();
 
@@ -397,11 +397,11 @@ public sealed record KestrunContext
     /// Writes a Server-Sent Event (SSE) to the response stream.
     /// </summary>
     /// <param name="event">The event type</param>
-    /// <param name="data"> </param>
-    /// <param name="id"> </param>
+    /// <param name="data">The data payload of the event</param>
+    /// <param name="id"> The event ID.</param>
     /// <param name="retryMs">Reconnection time in milliseconds</param>
     /// <param name="ct">Cancellation token</param>
-    /// <returns></returns>
+    /// <returns> Task representing the asynchronous write operation.</returns>
     public async Task WriteSseEventAsync(
         string? @event,
         string data,
@@ -446,7 +446,6 @@ public sealed record KestrunContext
     /// <param name="data">The data payload of the event.</param>
     /// <param name="id"> The event ID.</param>
     /// <param name="retryMs">Reconnection time in milliseconds</param>
-    /// <returns></returns>
     public void WriteSseEvent(
       string? @event, string data, string? id = null, int? retryMs = null) =>
         WriteSseEventAsync(@event, data, id, retryMs, CancellationToken.None).GetAwaiter().GetResult();

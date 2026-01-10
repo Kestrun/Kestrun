@@ -155,10 +155,11 @@ function InvokeSseBroadcast {
 
         Write-KrJsonResponse -InputObject $res -StatusCode 200
     } catch {
+        Write-KrLog -Level Error -Exception $_.Exception -Message 'InvokeSseBroadcast failed: {error}' -Values $_.ToString()
+        # Generate error response
         $err = [SseBroadcastErrorResponse]::new()
         $err.ok = $false
-        $err.error = $_.ToString()
-
+        $err.error = 'Broadcast failed. See server logs for details.'
         Write-KrJsonResponse -InputObject $err -StatusCode 500
     }
 }
@@ -199,10 +200,11 @@ function InvokeSseBroadcastProgress {
 
         Write-KrJsonResponse -InputObject $res -StatusCode 200
     } catch {
+        Write-KrLog -Level Error -Exception $_.Exception -Message 'InvokeSseBroadcast failed: {error}' -Values $_.ToString()
+        # Generate error response
         $err = [SseBroadcastErrorResponse]::new()
         $err.ok = $false
-        $err.error = $_.ToString()
-
+        $err.error = 'Broadcast failed. See server logs for details.'
         Write-KrJsonResponse -InputObject $err -StatusCode 500
     }
 }

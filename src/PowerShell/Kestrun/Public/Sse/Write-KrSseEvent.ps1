@@ -38,6 +38,6 @@ function Write-KrSseEvent {
         Write-KrLog -Level Debug -Message "Sse event sent: $Event - $Data"
         return
     }
-    # Only works inside a route script block where $Context is available
+
     Write-KrOutsideRouteWarning
 }

@@ -77,7 +77,12 @@ Add-KrMapRoute -Verbs Post -Pattern '/api/broadcast' {
 
         Write-KrJsonResponse -InputObject @{ ok = $true; event = $eventName; connected = $count } -StatusCode 200
     } catch {
-        Write-KrJsonResponse -InputObject @{ ok = $false; error = $_.ToString() } -StatusCode 500
+        Write-KrLog -Level Error -Exception $_.Exception -Message 'Send-KrSseBroadcastEvent failed: {error}' -Values $_.ToString()
+        # Generate error response
+        $err = [SseBroadcastErrorResponse]::new()
+        $err.ok = $false
+        $err.error = 'Sse Broadcast failed. See server logs for details.'
+        Write-KrJsonResponse -InputObject $err -StatusCode 500
     }
 }
 
@@ -101,7 +106,12 @@ Add-KrMapRoute -Verbs Post -Pattern '/api/broadcast/progress' {
 
         Write-KrJsonResponse -InputObject @{ ok = $true; event = 'progress'; connected = $count } -StatusCode 200
     } catch {
-        Write-KrJsonResponse -InputObject @{ ok = $false; error = $_.ToString() } -StatusCode 500
+        Write-KrLog -Level Error -Exception $_.Exception -Message 'Send-KrSseBroadcastEvent failed: {error}' -Values $_.ToString()
+        # Generate error response
+        $err = [SseBroadcastErrorResponse]::new()
+        $err.ok = $false
+        $err.error = 'Sse Broadcast failed. See server logs for details.'
+        Write-KrJsonResponse -InputObject $err -StatusCode 500
     }
 }
 

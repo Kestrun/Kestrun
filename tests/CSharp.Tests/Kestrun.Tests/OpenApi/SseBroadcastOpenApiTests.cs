@@ -34,8 +34,10 @@ public sealed class SseBroadcastOpenApiTests
 
         _ = host.AddSseBroadcast(path: "/sse/broadcast", keepAliveSeconds: 0);
 
-        Assert.True(host.RegisteredRoutes.ContainsKey(("/sse/broadcast", HttpVerb.Get)));
-        Assert.True(host.RegisteredRoutes[("/sse/broadcast", HttpVerb.Get)].OpenAPI.ContainsKey(HttpVerb.Get));
+        Assert.True(host.RegisteredRoutes.TryGetValue(("/sse/broadcast", HttpVerb.Get), out var options));
+        Assert.NotNull(options);
+        Assert.NotNull(options.OpenAPI);
+        Assert.True(options.OpenAPI.ContainsKey(HttpVerb.Get));
 
         d.GenerateDoc();
 

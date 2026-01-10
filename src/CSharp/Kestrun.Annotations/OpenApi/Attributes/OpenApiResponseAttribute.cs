@@ -25,14 +25,14 @@ public sealed class OpenApiResponseAttribute : KestrunAnnotation, IOpenApiRespon
 
     /// <summary>
     /// Optional CLR type for the response schema.
-    /// When set, this takes precedence over SchemaRef and is
+    /// When set, this takes precedence over Schema and is
     /// mapped via InferPrimitiveSchema / PrimitiveSchemaMap.
     /// </summary>
     public Type? Schema { get; set; }
 
     /// <summary>
     /// Optional CLR type for the response schema items when the response is an array.
-    /// When set, this takes precedence over ItemSchemaRef and is
+    /// When set, this takes precedence over ItemSchema and is
     /// is mapped via InferPrimitiveSchema / PrimitiveSchemaMap.
     /// </summary>
     public Type? SchemaItem { get; set; }

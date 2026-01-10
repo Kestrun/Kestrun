@@ -8,6 +8,8 @@
         The Kestrun server instance. If not provided, the default server is used.
     .PARAMETER Path
         The URL path where the SSE broadcast endpoint will be accessible. Defaults to '/sse/broadcast'.
+    .PARAMETER DocId
+        The OpenAPI document IDs to which the SSE broadcast endpoint should be added. Default is '
     .PARAMETER KeepAliveSeconds
         If greater than 0, sends periodic SSE comments (keep-alives) to keep intermediaries from closing idle connections.
     .PARAMETER OpenApiOperationId
@@ -22,16 +24,8 @@
         Optional OpenAPI response status code override (default: 200).
     .PARAMETER OpenApiResponseDescription
         Optional OpenAPI response description override.
-    .PARAMETER OpenApiContentType
-        Optional OpenAPI content type override (default: text/event-stream).
-    .PARAMETER OpenApiItemSchemaType
+    .PARAMETER ItemSchemaType
         Optional OpenAPI schema type for the stream payload (default: String).
-        This only applies when -OpenApi is not provided.
-    .PARAMETER OpenApiItemSchemaType
-        Optional .NET type for the stream payload (default: String).
-        This only applies when -OpenApi is not provided.
-    .PARAMETER OpenApiItemSchemaFormat
-        Optional OpenAPI schema format for the stream payload (e.g. date-time, uuid).
         This only applies when -OpenApi is not provided.
     .PARAMETER OpenApi
         Full OpenAPI customization object (Kestrun.Hosting.Options.SseBroadcastOpenApiOptions).
@@ -40,8 +34,22 @@
         If specified, returns the modified server instance.
     .EXAMPLE
         Add-KrSseBroadcastMiddleware -Path '/sse/broadcast' -PassThru
+        Adds an SSE broadcast endpoint at '/sse/broadcast' and returns the server instance.
     .EXAMPLE
-        Add-KrSseBroadcastMiddleware -Path '/sse/broadcast' -OpenApiOperationId 'GetSseBroadcast' -OpenApiTags 'SSE' -OpenApiItemSchemaType ([int])
+        $server = New-KrServer -Name 'MyServer'
+        Add-KrSseBroadcastMiddleware -Server $server -Path '/events' -KeepAliveSeconds 30
+        Adds an SSE broadcast endpoint at '/events' with 30-second keep-alives to the specified server.
+    .EXAMPLE
+        Add-KrSseBroadcastMiddleware -OpenApi (New-Object Kestrun.Hosting.Options.SseBroadcastOpenApiOptions -Property @{
+            OperationId = 'SseBroadcast'
+            Summary = 'SSE Broadcast Endpoint'
+            Description = 'Streams server-sent events to connected clients.'
+            Tags = @('SSE', 'Broadcast')
+            StatusCode = '200'
+            ResponseDescription = 'Stream of server-sent events'
+            ItemSchemaType = [MyCustomEventType]
+        })
+        Adds an SSE broadcast endpoint with custom OpenAPI documentation.
     .NOTES
         Call this before Enable-KrConfiguration.
 #>
@@ -103,8 +111,7 @@ function Add-KrSseBroadcastMiddleware {
             $PSBoundParameters.ContainsKey('OpenApiTags') -or
             $PSBoundParameters.ContainsKey('OpenApiStatusCode') -or
             $PSBoundParameters.ContainsKey('OpenApiResponseDescription') -or
-            $PSBoundParameters.ContainsKey('OpenApiContentType') -or
-            $PSBoundParameters.ContainsKey('ItemSchema')
+            $PSBoundParameters.ContainsKey('ItemSchemaType')
 
             if ($hasOpenApiOverrides) {
                 $openApiProps = @{}
@@ -115,9 +122,8 @@ function Add-KrSseBroadcastMiddleware {
                 if ($PSBoundParameters.ContainsKey('OpenApiTags')) { $openApiProps.Tags = $OpenApiTags }
                 if ($PSBoundParameters.ContainsKey('OpenApiStatusCode')) { $openApiProps.StatusCode = $OpenApiStatusCode }
                 if ($PSBoundParameters.ContainsKey('OpenApiResponseDescription')) { $openApiProps.ResponseDescription = $OpenApiResponseDescription }
-                if ($PSBoundParameters.ContainsKey('OpenApiContentType')) { $openApiProps.ContentType = $OpenApiContentType }
 
-                if ($PSBoundParameters.ContainsKey('ItemSchema')) {
+                if ($PSBoundParameters.ContainsKey('ItemSchemaType')) {
                     $openApiProps.ItemSchemaType = $ItemSchemaType
                 }
 

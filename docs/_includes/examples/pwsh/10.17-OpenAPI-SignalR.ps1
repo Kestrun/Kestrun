@@ -148,7 +148,7 @@ function SendPowerShellEvent {
 #>
 function RequestGroupJoin {
     [OpenApiPath(HttpVerb = 'post', Pattern = '/api/group/join/{groupName}', Tags = 'Groups')]
-    [OpenApiResponse(StatusCode = '200', Description = 'Join request sent', SchemaRef = 'GroupResult', ContentType = 'application/json')]
+    [OpenApiResponse(StatusCode = '200', Description = 'Join request sent', Schema = [GroupResult], ContentType = 'application/json')]
     param(
         [OpenApiParameterRef(ReferenceId = 'groupName')]
         [string]$groupName
@@ -175,7 +175,7 @@ function RequestGroupJoin {
 #>
 function RequestGroupLeave {
     [OpenApiPath(HttpVerb = 'post', Pattern = '/api/group/leave/{groupName}', Tags = 'Groups')]
-    [OpenApiResponse(StatusCode = '200', Description = 'Leave request sent', SchemaRef = 'GroupResult', ContentType = 'application/json')]
+    [OpenApiResponse(StatusCode = '200', Description = 'Leave request sent', Schema = [GroupResult], ContentType = 'application/json')]
     param(
         [OpenApiParameterRef(ReferenceId = 'groupName')]
         [string]$groupName
@@ -202,7 +202,7 @@ function RequestGroupLeave {
 #>
 function BroadcastToGroup {
     [OpenApiPath(HttpVerb = 'post', Pattern = '/api/group/broadcast/{groupName}', Tags = 'Groups')]
-    [OpenApiResponse(StatusCode = '200', Description = 'Broadcasted to group', SchemaRef = 'GroupResult', ContentType = 'application/json')]
+    [OpenApiResponse(StatusCode = '200', Description = 'Broadcasted to group', Schema = [GroupResult], ContentType = 'application/json')]
     param(
         [OpenApiParameterRef(ReferenceId = 'groupName')]
         [string]$groupName
@@ -229,7 +229,7 @@ function BroadcastToGroup {
 #>
 function StartOperation {
     [OpenApiPath(HttpVerb = 'post', Pattern = '/api/operation/start', Tags = 'Operations')]
-    [OpenApiResponse(StatusCode = '200', Description = 'Operation started', SchemaRef = 'OperationStartResult', ContentType = 'application/json')]
+    [OpenApiResponse(StatusCode = '200', Description = 'Operation started', Schema = [OperationStartResult], ContentType = 'application/json')]
     param(
         [OpenApiParameter(In = 'Query', Deprecated = $true, Description = 'Duration (seconds) for the long-running operation', Example = 10, Minimum = 1)]
         [ValidateRange(1, 3600)]
@@ -296,7 +296,7 @@ function StartOperation {
 #>
 function GetOperationStatus {
     [OpenApiPath(HttpVerb = 'get', Pattern = '/api/operation/status/{taskId}', Tags = 'Operations')]
-    [OpenApiResponse(StatusCode = '200', Description = 'Operation status', SchemaRef = 'OperationStatusResult', ContentType = 'application/json')]
+    [OpenApiResponse(StatusCode = '200', Description = 'Operation status', Schema = [OperationStatusResult], ContentType = 'application/json')]
     [OpenApiResponse(StatusCode = '404', Description = 'Task not found', Schema = [ApiResult], ContentType = 'application/json')]
     param(
         [OpenApiParameterRef(ReferenceId = 'taskId')]

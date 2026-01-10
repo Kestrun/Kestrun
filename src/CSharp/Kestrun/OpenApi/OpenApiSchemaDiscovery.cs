@@ -21,8 +21,9 @@ public static class OpenApiSchemaDiscovery
             SchemaTypes = GetSchemaTypes(assemblies),
             ResponseTypes = GetTypesWithAttribute(assemblies, typeof(OpenApiResponseComponentAttribute)),
             RequestBodyTypes = GetTypesWithAttribute(assemblies, typeof(OpenApiRequestBodyComponent)),
+    #if EXTENDED_OPENAPI
             HeaderTypes = GetTypesWithAttribute(assemblies, typeof(OpenApiHeaderAttribute)),
-#if EXTENDED_OPENAPI
+
             SecuritySchemeTypes = GetTypesWithAttribute(assemblies, typeof(OpenApiSecuritySchemeComponent)),
             CallbackTypes = GetTypesWithKind(assemblies, OpenApiModelKind.Callback),
             PathItemTypes = GetTypesWithKind(assemblies, OpenApiModelKind.PathItem)

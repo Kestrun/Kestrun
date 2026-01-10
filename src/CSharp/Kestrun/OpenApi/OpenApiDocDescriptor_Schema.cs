@@ -121,7 +121,7 @@ public partial class OpenApiDocDescriptor
         // and then apply any attributes on the derived type.
         if (baseTypeName is not null)
         {
-            return BuildCustomBaseTypeSchema(t, baseTypeName);
+            return new OpenApiSchema { Type = baseTypeName?.ToJsonSchemaType() }; 
         }
 
         // Only treat built-in OpenApi* primitives (and their variants) as raw OpenApi types.
@@ -132,7 +132,7 @@ public partial class OpenApiDocDescriptor
             return BuildOpenApiTypeSchema(t);
         }
         // Fallback to custom base type schema building
-        return BuildCustomBaseTypeSchema(t, baseTypeName);
+        return BuildCustomBaseTypeSchema(t);
     }
 
     /// <summary>
@@ -153,26 +153,12 @@ public partial class OpenApiDocDescriptor
     /// <summary>
     /// Builds schema for types with custom base types.
     /// </summary>
-    private OpenApiSchema BuildCustomBaseTypeSchema(Type t, OaSchemaType? baseTypeName)
+    private OpenApiSchema BuildCustomBaseTypeSchema(Type t)
     {
-        var baseSchema = baseTypeName is not null
-            ? new OpenApiSchema { Type = baseTypeName?.ToJsonSchemaType() } :
-            new OpenApiSchema
-            {
-                //new OpenApiSchemaReference(t.BaseType!.Name);
-
-                AllOf = [new OpenApiSchemaReference(t.BaseType!.Name)]
-            };
-        /*       var schemaComps = t.GetCustomAttributes<OpenApiProperties>()
-                   .Where(schemaComp => schemaComp is not null)
-                   .Cast<OpenApiProperties>();
-
-               foreach (var prop in schemaComps)
-               {
-                   return BuildPropertyFromAttribute(prop, baseSchema);
-               }
-       */
-        return baseSchema;
+        return new OpenApiSchema
+        {
+            AllOf = [new OpenApiSchemaReference(t.BaseType!.Name)]
+        };
     }
 
     /// <summary>

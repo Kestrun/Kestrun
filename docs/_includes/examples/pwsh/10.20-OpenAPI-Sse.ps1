@@ -122,6 +122,7 @@ function GetSseStream {
     try {
         Write-KrSseEvent -Event 'complete' -Data $complete
     } catch {
+        write-KrLog -Level Debug -Message 'SSE write failed on completion (client disconnected?): {Error}' -Values $_ -exception $_.Exception
         # Client may have disconnected; ignore.
     }
 }

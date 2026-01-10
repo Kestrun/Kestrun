@@ -68,13 +68,13 @@ class ApiResult {
     [string]$message
 }
 
-[OpenApiSchemaComponent(RequiredProperties = ('success', 'message', 'groupName'))]
+[OpenApiSchemaComponent(RequiredProperties = (  'groupName'))]
 class GroupResult : ApiResult {
     [OpenApiPropertyAttribute(Example = 'Admins')]
     [string]$groupName
 }
 
-[OpenApiSchemaComponent(RequiredProperties = ('success', 'taskId', 'message'))]
+[OpenApiSchemaComponent(RequiredProperties = ('taskId'))]
 class OperationStartResult : ApiResult {
     [OpenApiPropertyAttribute(Example = '123')]
     [string]$taskId

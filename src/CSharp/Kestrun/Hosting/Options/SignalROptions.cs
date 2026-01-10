@@ -5,7 +5,6 @@ namespace Kestrun.Hosting.Options;
 /// </summary>
 public sealed record SignalROptions
 {
-
     /// <summary>
     /// The path for the SignalR hub endpoint.
     /// </summary>
@@ -20,7 +19,6 @@ public sealed record SignalROptions
     /// Gets a default configuration for the SSE broadcast OpenAPI metadata.
     /// </summary>
     public static SignalROptions Default { get; } = new();
-
 
     /// <summary>
     /// OpenAPI summary for the endpoint.

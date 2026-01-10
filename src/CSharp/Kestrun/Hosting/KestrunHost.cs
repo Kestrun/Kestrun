@@ -1623,7 +1623,6 @@ public partial class KestrunHost : IDisposable
             : options.Path.TrimEnd('/') + "/negotiate";
         if (!options.SkipOpenApi)
         {
-
             var meta = new OpenAPIPathMetadata(pattern: options.Path, mapOptions: routeOptions)
             {
                 Summary = string.IsNullOrWhiteSpace(options.Summary) ? null : options.Summary,
@@ -1663,7 +1662,6 @@ public partial class KestrunHost : IDisposable
                         ["connectOperation"] = "get:" + options.Path,
                         ["transports"] = new JsonArray("websocket", "sse", "longPolling"),
                         ["formats"] = new JsonArray("json"),
-
                     })
                 }
             };
@@ -1724,7 +1722,6 @@ public partial class KestrunHost : IDisposable
                             ["connectOperation"] = "get:" + options.Path,
                             ["transports"] = new JsonArray("websocket", "sse", "longPolling"),
                             ["formats"] = new JsonArray("json"),
-
                         })
                     }
                 };

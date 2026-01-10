@@ -26,7 +26,6 @@ public partial class KestrunHost
     public KestrunHost AddSseBroadcast(string path = "/sse/broadcast", int keepAliveSeconds = 15,
         SseBroadcastOpenApiOptions? openApi = null, string docId = OpenApiDocDescriptor.DefaultDocumentationId)
     {
-
         if (!this.MapExists(path, HttpVerb.Get))
         {
             RegisterSseBroadcastRouteForOpenApi(path, openApi, docId);

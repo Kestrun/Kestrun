@@ -10,10 +10,38 @@
         The URL path where the SSE broadcast endpoint will be accessible. Defaults to '/sse/broadcast'.
     .PARAMETER KeepAliveSeconds
         If greater than 0, sends periodic SSE comments (keep-alives) to keep intermediaries from closing idle connections.
+    .PARAMETER OpenApiOperationId
+        Optional OpenAPI operationId override for the broadcast endpoint.
+    .PARAMETER OpenApiSummary
+        Optional OpenAPI summary override for the broadcast endpoint.
+    .PARAMETER OpenApiDescription
+        Optional OpenAPI description override for the broadcast endpoint.
+    .PARAMETER OpenApiTags
+        Optional OpenAPI tags override for the broadcast endpoint.
+    .PARAMETER OpenApiStatusCode
+        Optional OpenAPI response status code override (default: 200).
+    .PARAMETER OpenApiResponseDescription
+        Optional OpenAPI response description override.
+    .PARAMETER OpenApiContentType
+        Optional OpenAPI content type override (default: text/event-stream).
+    .PARAMETER OpenApiItemSchemaType
+        Optional OpenAPI schema type for the stream payload (default: String).
+        This only applies when -OpenApi is not provided.
+    .PARAMETER OpenApiItemSchemaType
+        Optional .NET type for the stream payload (default: String).
+        This only applies when -OpenApi is not provided.
+    .PARAMETER OpenApiItemSchemaFormat
+        Optional OpenAPI schema format for the stream payload (e.g. date-time, uuid).
+        This only applies when -OpenApi is not provided.
+    .PARAMETER OpenApi
+        Full OpenAPI customization object (Kestrun.Hosting.Options.SseBroadcastOpenApiOptions).
+        When provided, it takes precedence over the individual -OpenApi* parameters.
     .PARAMETER PassThru
         If specified, returns the modified server instance.
     .EXAMPLE
         Add-KrSseBroadcastMiddleware -Path '/sse/broadcast' -PassThru
+    .EXAMPLE
+        Add-KrSseBroadcastMiddleware -Path '/sse/broadcast' -OpenApiOperationId 'GetSseBroadcast' -OpenApiTags 'SSE' -OpenApiItemSchemaType ([int])
     .NOTES
         Call this before Enable-KrConfiguration.
 #>
@@ -27,9 +55,37 @@ function Add-KrSseBroadcastMiddleware {
         [Parameter(Mandatory = $false)]
         [string]$Path = '/sse/broadcast',
 
+        [Parameter()]
+        [string[]]$DocId = [Kestrun.OpenApi.OpenApiDocDescriptor]::DefaultDocumentationIds,
+
         [Parameter(Mandatory = $false)]
         [ValidateRange(0, 3600)]
         [int]$KeepAliveSeconds = 15,
+
+        [Parameter(Mandatory = $false)]
+        [string]$OpenApiOperationId,
+
+        [Parameter(Mandatory = $false)]
+        [string]$OpenApiSummary,
+
+        [Parameter(Mandatory = $false)]
+        [string]$OpenApiDescription,
+
+        [Parameter(Mandatory = $false)]
+        [string[]]$OpenApiTags,
+
+        [Parameter(Mandatory = $false)]
+        [ValidatePattern('^(default|\\d{3})$')]
+        [string]$OpenApiStatusCode,
+
+        [Parameter(Mandatory = $false)]
+        [string]$OpenApiResponseDescription,
+
+        [Parameter(Mandatory = $false)]
+        [object]$ItemSchemaType = [string],
+
+        [Parameter(Mandatory = $false)]
+        [Kestrun.Hosting.Options.SseBroadcastOpenApiOptions]$OpenApi,
 
         [Parameter()]
         [switch]$PassThru
@@ -38,7 +94,38 @@ function Add-KrSseBroadcastMiddleware {
         $Server = Resolve-KestrunServer -Server $Server
     }
     process {
-        [Kestrun.Hosting.KestrunHostSseExtensions]::AddSseBroadcast($Server, $Path, $KeepAliveSeconds) | Out-Null
+        $openApiOptions = $OpenApi
+
+        if ($null -eq $openApiOptions) {
+            $hasOpenApiOverrides = $PSBoundParameters.ContainsKey('OpenApiOperationId') -or
+            $PSBoundParameters.ContainsKey('OpenApiSummary') -or
+            $PSBoundParameters.ContainsKey('OpenApiDescription') -or
+            $PSBoundParameters.ContainsKey('OpenApiTags') -or
+            $PSBoundParameters.ContainsKey('OpenApiStatusCode') -or
+            $PSBoundParameters.ContainsKey('OpenApiResponseDescription') -or
+            $PSBoundParameters.ContainsKey('OpenApiContentType') -or
+            $PSBoundParameters.ContainsKey('ItemSchema')
+
+            if ($hasOpenApiOverrides) {
+                $openApiProps = @{}
+
+                if ($PSBoundParameters.ContainsKey('OpenApiOperationId')) { $openApiProps.OperationId = $OpenApiOperationId }
+                if ($PSBoundParameters.ContainsKey('OpenApiSummary')) { $openApiProps.Summary = $OpenApiSummary }
+                if ($PSBoundParameters.ContainsKey('OpenApiDescription')) { $openApiProps.Description = $OpenApiDescription }
+                if ($PSBoundParameters.ContainsKey('OpenApiTags')) { $openApiProps.Tags = $OpenApiTags }
+                if ($PSBoundParameters.ContainsKey('OpenApiStatusCode')) { $openApiProps.StatusCode = $OpenApiStatusCode }
+                if ($PSBoundParameters.ContainsKey('OpenApiResponseDescription')) { $openApiProps.ResponseDescription = $OpenApiResponseDescription }
+                if ($PSBoundParameters.ContainsKey('OpenApiContentType')) { $openApiProps.ContentType = $OpenApiContentType }
+
+                if ($PSBoundParameters.ContainsKey('ItemSchema')) {
+                    $openApiProps.ItemSchemaType = $ItemSchemaType
+                }
+
+                $openApiOptions = New-Object 'Kestrun.Hosting.Options.SseBroadcastOpenApiOptions' -Property $openApiProps
+            }
+        }
+
+        [Kestrun.Hosting.KestrunHostSseExtensions]::AddSseBroadcast($Server, $Path, $KeepAliveSeconds, $openApiOptions, $DocId) | Out-Null
 
         if ($PassThru.IsPresent) {
             return $Server

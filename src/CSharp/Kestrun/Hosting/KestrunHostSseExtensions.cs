@@ -6,6 +6,7 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.OpenApi;
 using System.Text.Json;
 using System.Threading.Channels;
+using Kestrun.OpenApi;
 
 namespace Kestrun.Hosting;
 
@@ -20,14 +21,22 @@ public static class KestrunHostSseExtensions
     /// <param name="host">The Kestrun host.</param>
     /// <param name="path">The URL path for the SSE broadcast connection endpoint.</param>
     /// <param name="keepAliveSeconds">If greater than 0, sends periodic SSE comments to keep intermediaries from timing out the connection.</param>
+    /// <param name="openApi">Optional OpenAPI customization for the broadcast endpoint route registry entry.</param>
+    /// <param name="docId">The OpenAPI document ID to register the endpoint in.</param>
     /// <returns>The host instance.</returns>
-    public static KestrunHost AddSseBroadcast(this KestrunHost host, string path = "/sse/broadcast", int keepAliveSeconds = 15)
+    public static KestrunHost AddSseBroadcast(this KestrunHost host, string path = "/sse/broadcast", int keepAliveSeconds = 15,
+        SseBroadcastOpenApiOptions? openApi = null, string docId = OpenApiDocDescriptor.DefaultDocumentationId)
     {
         ArgumentNullException.ThrowIfNull(host);
 
         if (!host.MapExists(path, HttpVerb.Get))
         {
-            RegisterSseBroadcastRouteForOpenApi(host, path);
+            RegisterSseBroadcastRouteForOpenApi(host, path, openApi, docId);
+        }
+        else if (openApi is not null)
+        {
+            // Allow callers to override metadata even if another component pre-registered the route.
+            RegisterSseBroadcastRouteForOpenApi(host, path, openApi, docId);
         }
 
         return host
@@ -46,8 +55,13 @@ public static class KestrunHostSseExtensions
     /// </summary>
     /// <param name="host">The Kestrun host.</param>
     /// <param name="path">The broadcast SSE endpoint path.</param>
-    private static void RegisterSseBroadcastRouteForOpenApi(KestrunHost host, string path)
+    /// <param name="openApi">Optional OpenAPI customization.</param>
+    /// <param name="docId">The OpenAPI document ID to register the endpoint in.</param>
+    private static void RegisterSseBroadcastRouteForOpenApi(KestrunHost host, string path, SseBroadcastOpenApiOptions? openApi, string docId = OpenApiDocDescriptor.DefaultDocumentationId)
     {
+        // Ensure the OpenAPI document descriptor exists (SSE broadcast can be configured even when OpenAPI is not).
+        _ = host.GetOrCreateOpenApiDocument(docId);
+
         var routeOptions = new MapRouteOptions
         {
             Pattern = path,
@@ -59,23 +73,29 @@ public static class KestrunHostSseExtensions
             }
         };
 
+        openApi ??= SseBroadcastOpenApiOptions.Default;
+
+        var mediaType = new OpenApiMediaType
+        {
+            ItemSchema = host.OpenApiDocumentDescriptor[docId].InferPrimitiveSchema(openApi.ItemSchemaType)
+        };
+
         var meta = new OpenAPIPathMetadata(pattern: path, mapOptions: routeOptions)
         {
-            OperationId = "GetSseBroadcast",
-            Summary = "Broadcast SSE stream",
-            Description = "Opens a Server-Sent Events (text/event-stream) connection that receives server-side broadcast events.",
-            Tags = ["SSE"],
+            OperationId = string.IsNullOrWhiteSpace(openApi.OperationId) ? null : openApi.OperationId,
+            Summary = string.IsNullOrWhiteSpace(openApi.Summary) ? null : openApi.Summary,
+            Description = string.IsNullOrWhiteSpace(openApi.Description) ? null : openApi.Description,
+            Tags = openApi.Tags?.ToList() ?? [],
             Responses = new OpenApiResponses
             {
-                ["200"] = new OpenApiResponse
+                [openApi.StatusCode] = new OpenApiResponse
                 {
-                    Description = "SSE stream (text/event-stream)",
+                    Description = string.IsNullOrWhiteSpace(openApi.ResponseDescription)
+                        ? "SSE stream (text/event-stream)"
+                        : openApi.ResponseDescription,
                     Content = new Dictionary<string, IOpenApiMediaType>(StringComparer.Ordinal)
                     {
-                        ["text/event-stream"] = new OpenApiMediaType
-                        {
-                            ItemSchema = new OpenApiSchema { Type = JsonSchemaType.String }
-                        }
+                        [openApi.ContentType] = mediaType
                     }
                 }
             }

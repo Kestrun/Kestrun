@@ -519,7 +519,7 @@ public partial class OpenApiDocDescriptor
     /// <param name="type">The .NET type to infer from.</param>
     /// <param name="inline">Indicates if the schema should be inlined.</param>
     /// <returns>The inferred OpenApiSchema.</returns>
-    private IOpenApiSchema InferPrimitiveSchema(Type type, bool inline = false)
+    public IOpenApiSchema InferPrimitiveSchema(Type type, bool inline = false)
     {
         var nullable = false;
         if (type.IsGenericType && type.GetGenericTypeDefinition() == typeof(Nullable<>)

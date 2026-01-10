@@ -24,7 +24,7 @@ New-KrServer -Name 'Kestrun SignalR Demo with OpenAPI'
 Add-KrEndpoint -Port $Port -IPAddress $IPAddress
 
 ## 4. Add SignalR with KestrunHub
-Add-KrSignalRHubMiddleware -Path '/hubs/kestrun'
+Add-KrSignalRHubMiddleware -Path '/hubs/kestrun' -IncludeNegotiateEndpoint
 
 ## 5. Enable Scheduler (must be added before configuration)
 Add-KrScheduling

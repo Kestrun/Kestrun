@@ -27,7 +27,7 @@
     .PARAMETER ItemSchemaType
         Optional OpenAPI schema type for the stream payload (default: String).
         This only applies when -OpenApi is not provided.
-    .PARAMETER OpenApi
+    .PARAMETER Options
         Full OpenAPI customization object (Kestrun.Hosting.Options.SseBroadcastOpenApiOptions).
         When provided, it takes precedence over the individual -OpenApi* parameters.
     .PARAMETER PassThru
@@ -55,7 +55,7 @@
 #>
 function Add-KrSseBroadcastMiddleware {
     [KestrunRuntimeApi('Definition')]
-    [CmdletBinding()]
+    [CmdletBinding(DefaultParameterSetName = 'Items')]
     param(
         [Parameter(ValueFromPipeline)]
         [Kestrun.Hosting.KestrunHost]$Server,
@@ -64,36 +64,36 @@ function Add-KrSseBroadcastMiddleware {
         [string]$Path = '/sse/broadcast',
 
         [Parameter()]
-        [string[]]$DocId = [Kestrun.OpenApi.OpenApiDocDescriptor]::DefaultDocumentationIds,
+        [string]$DocId = [Kestrun.OpenApi.OpenApiDocDescriptor]::DefaultDocumentationIds,
 
-        [Parameter(Mandatory = $false)]
+        [Parameter(Mandatory = $false, ParameterSetName = 'Items')]
         [ValidateRange(0, 3600)]
         [int]$KeepAliveSeconds = 15,
 
-        [Parameter(Mandatory = $false)]
+        [Parameter(Mandatory = $false, ParameterSetName = 'Items')]
         [string]$OpenApiOperationId,
 
-        [Parameter(Mandatory = $false)]
+        [Parameter(Mandatory = $false, ParameterSetName = 'Items')]
         [string]$OpenApiSummary,
 
-        [Parameter(Mandatory = $false)]
+        [Parameter(Mandatory = $false, ParameterSetName = 'Items')]
         [string]$OpenApiDescription,
 
-        [Parameter(Mandatory = $false)]
+        [Parameter(Mandatory = $false, ParameterSetName = 'Items')]
         [string[]]$OpenApiTags,
 
-        [Parameter(Mandatory = $false)]
+        [Parameter(Mandatory = $false, ParameterSetName = 'Items')]
         [ValidatePattern('^(default|\\d{3})$')]
         [string]$OpenApiStatusCode,
 
-        [Parameter(Mandatory = $false)]
+        [Parameter(Mandatory = $false, ParameterSetName = 'Items')]
         [string]$OpenApiResponseDescription,
 
-        [Parameter(Mandatory = $false)]
+        [Parameter(Mandatory = $false, ParameterSetName = 'Items')]
         [object]$ItemSchemaType = [string],
 
-        [Parameter(Mandatory = $false)]
-        [Kestrun.Hosting.Options.SseBroadcastOpenApiOptions]$OpenApi,
+        [Parameter(Mandatory = $true, ParameterSetName = 'Options')]
+        [Kestrun.Hosting.Options.SseBroadcastOpenApiOptions]$Options,
 
         [Parameter()]
         [switch]$PassThru
@@ -102,36 +102,22 @@ function Add-KrSseBroadcastMiddleware {
         $Server = Resolve-KestrunServer -Server $Server
     }
     process {
-        $openApiOptions = $OpenApi
+        if ($PSCmdlet.ParameterSetName -eq 'Items') {
+            $Options = [Kestrun.Hosting.Options.SseBroadcastOpenApiOptions]::new()
 
-        if ($null -eq $openApiOptions) {
-            $hasOpenApiOverrides = $PSBoundParameters.ContainsKey('OpenApiOperationId') -or
-            $PSBoundParameters.ContainsKey('OpenApiSummary') -or
-            $PSBoundParameters.ContainsKey('OpenApiDescription') -or
-            $PSBoundParameters.ContainsKey('OpenApiTags') -or
-            $PSBoundParameters.ContainsKey('OpenApiStatusCode') -or
-            $PSBoundParameters.ContainsKey('OpenApiResponseDescription') -or
-            $PSBoundParameters.ContainsKey('ItemSchemaType')
+            if ($PSBoundParameters.ContainsKey('OpenApiOperationId')) { $Options.OperationId = $OpenApiOperationId }
+            if ($PSBoundParameters.ContainsKey('OpenApiSummary')) { $Options.Summary = $OpenApiSummary }
+            if ($PSBoundParameters.ContainsKey('OpenApiDescription')) { $Options.Description = $OpenApiDescription }
+            if ($PSBoundParameters.ContainsKey('OpenApiTags')) { $Options.Tags = $OpenApiTags }
+            if ($PSBoundParameters.ContainsKey('OpenApiStatusCode')) { $Options.StatusCode = $OpenApiStatusCode }
+            if ($PSBoundParameters.ContainsKey('OpenApiResponseDescription')) { $Options.ResponseDescription = $OpenApiResponseDescription }
 
-            if ($hasOpenApiOverrides) {
-                $openApiProps = @{}
-
-                if ($PSBoundParameters.ContainsKey('OpenApiOperationId')) { $openApiProps.OperationId = $OpenApiOperationId }
-                if ($PSBoundParameters.ContainsKey('OpenApiSummary')) { $openApiProps.Summary = $OpenApiSummary }
-                if ($PSBoundParameters.ContainsKey('OpenApiDescription')) { $openApiProps.Description = $OpenApiDescription }
-                if ($PSBoundParameters.ContainsKey('OpenApiTags')) { $openApiProps.Tags = $OpenApiTags }
-                if ($PSBoundParameters.ContainsKey('OpenApiStatusCode')) { $openApiProps.StatusCode = $OpenApiStatusCode }
-                if ($PSBoundParameters.ContainsKey('OpenApiResponseDescription')) { $openApiProps.ResponseDescription = $OpenApiResponseDescription }
-
-                if ($PSBoundParameters.ContainsKey('ItemSchemaType')) {
-                    $openApiProps.ItemSchemaType = $ItemSchemaType
-                }
-
-                $openApiOptions = New-Object 'Kestrun.Hosting.Options.SseBroadcastOpenApiOptions' -Property $openApiProps
+            if ($PSBoundParameters.ContainsKey('ItemSchemaType')) {
+                $Options.ItemSchemaType = $ItemSchemaType
             }
         }
 
-        [Kestrun.Hosting.KestrunHostSseExtensions]::AddSseBroadcast($Server, $Path, $KeepAliveSeconds, $openApiOptions, $DocId) | Out-Null
+        $Server.AddSseBroadcast($Path, $KeepAliveSeconds, $Options, $DocId) | Out-Null
 
         if ($PassThru.IsPresent) {
             return $Server

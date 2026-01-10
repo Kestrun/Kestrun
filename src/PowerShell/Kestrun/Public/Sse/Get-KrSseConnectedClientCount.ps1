@@ -21,6 +21,6 @@ function Get-KrSseConnectedClientCount {
             $Server = Resolve-KestrunServer -Server $Server
         }
 
-        return [Kestrun.Hosting.KestrunHostSseExtensions]::GetSseConnectedClientCount($Server)
+        return $Server.GetSseConnectedClientCount()
     }
 }

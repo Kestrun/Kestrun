@@ -26,6 +26,8 @@ using Microsoft.AspNetCore.Antiforgery;
 using Kestrun.Callback;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using Microsoft.OpenApi;
+using System.Text.Json.Nodes;
 
 namespace Kestrun.Hosting;
 
@@ -1597,10 +1599,143 @@ public partial class KestrunHost : IDisposable
     /// Adds a SignalR hub to the application at the specified path.
     /// </summary>
     /// <typeparam name="T">The type of the SignalR hub.</typeparam>
-    /// <param name="path">The path at which to map the SignalR hub.</param>
+    /// <param name="options">The options for configuring the SignalR hub.</param>
     /// <returns>The current KestrunHost instance.</returns>
-    public KestrunHost AddSignalR<T>(string path) where T : Hub
+    public KestrunHost AddSignalR<T>(SignalROptions options) where T : Hub
     {
+        // Register OpenAPI document and metadata for the SignalR hub
+        options ??= SignalROptions.Default;
+
+        _ = GetOrCreateOpenApiDocument(options.DocId);
+
+        var routeOptions = new MapRouteOptions
+        {
+            Pattern = options.Path,
+            HttpVerbs = [HttpVerb.Get],
+            ScriptCode = new LanguageOptions
+            {
+                Language = ScriptLanguage.Native,
+                Code = string.Empty
+            }
+        };
+        var negotiatePath = options.Path.EndsWith("/negotiate", StringComparison.OrdinalIgnoreCase)
+            ? options.Path
+            : options.Path.TrimEnd('/') + "/negotiate";
+        if (!options.SkipOpenApi)
+        {
+
+            var meta = new OpenAPIPathMetadata(pattern: options.Path, mapOptions: routeOptions)
+            {
+                Summary = string.IsNullOrWhiteSpace(options.Summary) ? null : options.Summary,
+                Description = string.IsNullOrWhiteSpace(options.Description) ? null : options.Description,
+                Tags = options.Tags?.ToList() ?? [],
+                Responses = new OpenApiResponses
+                {
+                    ["101"] = new OpenApiResponse
+                    {
+                        Description = "Switching Protocols (WebSocket upgrade)"
+                    },
+                    ["401"] = new OpenApiResponse
+                    {
+                        Description = "Unauthorized"
+                    },
+                    ["403"] = new OpenApiResponse
+                    {
+                        Description = "Forbidden"
+                    },
+                    ["404"] = new OpenApiResponse
+                    {
+                        Description = "Not Found"
+                    },
+                    ["500"] = new OpenApiResponse
+                    {
+                        Description = "Internal Server Error"
+                    }
+                },
+                Extensions = new Dictionary<string, IOpenApiExtension>
+                {
+                    ["x-signalr-role"] = new JsonNodeExtension(JsonValue.Create("connect")),
+                    ["x-signalr"] = new JsonNodeExtension(new JsonObject
+                    {
+                        ["hub"] = options.HubName,
+                        ["path"] = options.Path,
+                        ["negotiatePath"] = negotiatePath,
+                        ["connectOperation"] = "get:" + options.Path,
+                        ["transports"] = new JsonArray("websocket", "sse", "longPolling"),
+                        ["formats"] = new JsonArray("json"),
+
+                    })
+                }
+            };
+            routeOptions.OpenAPI[HttpVerb.Get] = meta;
+        }
+        _registeredRoutes[(options.Path, HttpVerb.Get)] = routeOptions;
+
+        if (options.IncludeNegotiateEndpoint)
+        {
+            var negotiateRouteOptions = new MapRouteOptions
+            {
+                Pattern = negotiatePath,
+                HttpVerbs = [HttpVerb.Post],
+                ScriptCode = new LanguageOptions
+                {
+                    Language = ScriptLanguage.Native,
+                    Code = string.Empty
+                }
+            };
+            if (!options.SkipOpenApi)
+            {
+                var negotiateMeta = new OpenAPIPathMetadata(pattern: negotiatePath, mapOptions: negotiateRouteOptions)
+                {
+                    Summary = "SignalR negotiate endpoint",
+                    Description = "Negotiates connection parameters for a SignalR client before establishing the transport.",
+                    Tags = options.Tags?.ToList() ?? [],
+                    Responses = new OpenApiResponses
+                    {
+                        ["200"] = new OpenApiResponse
+                        {
+                            Description = "Successful negotiation"
+                        },
+                        ["401"] = new OpenApiResponse
+                        {
+                            Description = "Unauthorized"
+                        },
+                        ["403"] = new OpenApiResponse
+                        {
+                            Description = "Forbidden"
+                        },
+                        ["404"] = new OpenApiResponse
+                        {
+                            Description = "Not Found"
+                        },
+                        ["500"] = new OpenApiResponse
+                        {
+                            Description = "Internal Server Error"
+                        }
+                    },
+                    Extensions = new Dictionary<string, IOpenApiExtension>
+                    {
+                        ["x-signalr-role"] = new JsonNodeExtension(JsonValue.Create("negotiate")),
+                        ["x-signalr"] = new JsonNodeExtension(new JsonObject
+                        {
+                            ["hub"] = options.HubName,
+                            ["path"] = options.Path,
+                            ["negotiatePath"] = negotiatePath,
+                            ["connectOperation"] = "get:" + options.Path,
+                            ["transports"] = new JsonArray("websocket", "sse", "longPolling"),
+                            ["formats"] = new JsonArray("json"),
+
+                        })
+                    }
+                };
+                negotiateRouteOptions.OpenAPI[HttpVerb.Post] = negotiateMeta;
+            }
+            _registeredRoutes[(negotiatePath, HttpVerb.Post)] = negotiateRouteOptions;
+        }
+        if (Logger.IsEnabled(LogEventLevel.Debug))
+        {
+            Logger.Debug("Adding SignalR hub of type {HubType} at path: {Path}", typeof(T).FullName, options.Path);
+        }
         return AddService(s =>
         {
             _ = s.AddSignalR().AddJsonProtocol(opts =>
@@ -1615,15 +1750,15 @@ public partial class KestrunHost : IDisposable
                 _ = s.AddSingleton<SignalR.IConnectionTracker, SignalR.InMemoryConnectionTracker>();
             }
         })
-        .Use(app => ((IEndpointRouteBuilder)app).MapHub<T>(path));
+        .Use(app => ((IEndpointRouteBuilder)app).MapHub<T>(options.Path));
     }
 
     /// <summary>
     /// Adds the default SignalR hub (KestrunHub) to the application at the specified path.
     /// </summary>
-    /// <param name="path">The path at which to map the SignalR hub.</param>
+    /// <param name="options">The options for configuring the SignalR hub.</param>
     /// <returns></returns>
-    public KestrunHost AddSignalR(string path) => AddSignalR<SignalR.KestrunHub>(path);
+    public KestrunHost AddSignalR(SignalROptions options) => AddSignalR<SignalR.KestrunHub>(options);
 
     /*
         // ④ gRPC

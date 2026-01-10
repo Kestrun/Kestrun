@@ -52,8 +52,7 @@ function Send-KrSseBroadcastEvent {
                 return
             }
 
-            $task = [Kestrun.Hosting.KestrunHostSseExtensions]::BroadcastSseEventAsync(
-                $Server,
+            $task = $Server.BroadcastSseEventAsync(
                 $Event,
                 $Data,
                 $Id,

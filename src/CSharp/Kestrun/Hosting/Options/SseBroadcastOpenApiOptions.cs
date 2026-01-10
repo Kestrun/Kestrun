@@ -54,5 +54,4 @@ public sealed record SseBroadcastOpenApiOptions
     /// Optional OpenAPI schema format for the stream payload (e.g. "uuid", "date-time").
     /// </summary>
     public string? ItemSchemaFormat { get; init; }
-
 }

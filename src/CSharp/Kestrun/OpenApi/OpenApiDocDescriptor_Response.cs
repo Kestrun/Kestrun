@@ -82,7 +82,6 @@ public partial class OpenApiDocDescriptor
         return propertySchema;
     }
 
-
     private void ApplySchemaToContentTypes(OpenApiResponseAttribute resp, OpenApiResponse response, IOpenApiSchema? schema)
     {
         if (schema is not null && resp.ContentType is { Length: > 0 })

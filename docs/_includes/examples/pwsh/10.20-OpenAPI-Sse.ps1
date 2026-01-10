@@ -73,7 +73,7 @@ Add-KrHtmlTemplateRoute -Pattern '/' -HtmlTemplatePath 'Assets/wwwroot/sse.html'
 #>
 function GetSseStream {
     [OpenApiPath(HttpVerb = 'get', Pattern = '/sse', Tags = 'SSE')]
-    [OpenApiResponse(StatusCode = '200', Description = 'SSE stream (text/event-stream)', Schema = [string], ContentType = 'text/event-stream')]
+    [OpenApiResponse(StatusCode = '200', Description = 'SSE stream (text/event-stream)', SchemaItem = [string], ContentType = 'text/event-stream')]
     param(
         [OpenApiParameterRef(ReferenceId = 'count')]
         [int]$count,

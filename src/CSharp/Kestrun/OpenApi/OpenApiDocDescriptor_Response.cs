@@ -73,28 +73,13 @@ public partial class OpenApiDocDescriptor
         {
             return InferPrimitiveSchema(resp.Schema, inline: resp.Inline);
         }
-
-        // 2) Explicit Component reference
-        if (resp.SchemaRef is not null)
+        if (resp.SchemaItem is not null)
         {
-            return ResolveSchemaRef(resp.SchemaRef, resp.Inline);
-        }
-
-        // 3) Fallback to property schema reference if available
-        if (propertySchema is OpenApiSchemaReference refSchema && refSchema.Reference.Id is not null)
-        {
-            return ResolveSchemaRef(refSchema.Reference.Id, resp.Inline);
+            return InferPrimitiveSchema(resp.SchemaItem, inline: resp.Inline);
         }
 
         // 4) Fallback to existing property schema (primitive/concrete)
         return propertySchema;
-    }
-
-    private IOpenApiSchema ResolveSchemaRef(string refId, bool inline)
-    {
-        return inline
-            ? CloneSchemaOrThrow(refId)
-            : new OpenApiSchemaReference(refId);
     }
 
     private void ApplySchemaToContentTypes(OpenApiResponseAttribute resp, OpenApiResponse response, IOpenApiSchema? schema)
@@ -106,7 +91,14 @@ public partial class OpenApiDocDescriptor
                 var media = GetOrAddMediaType(response, ct);
                 if (media is OpenApiMediaType mediaType)
                 {
-                    mediaType.Schema = schema;
+                    if (resp.SchemaItem != null)
+                    {
+                        mediaType.ItemSchema = schema;
+                    }
+                    else
+                    {
+                        mediaType.Schema = schema;
+                    }
                 }
             }
         }
@@ -289,7 +281,7 @@ public partial class OpenApiDocDescriptor
 
     private void ProcessResponseComponent(
       OpenApiComponentAnnotationScanner.AnnotatedVariable variable,
-      OpenApiResponseComponent responseDescriptor)
+      OpenApiResponseComponentAttribute responseDescriptor)
     {
         var response = GetOrCreateResponseItem(variable.Name, responseDescriptor.Inline);
 

@@ -62,7 +62,7 @@ public class VariableAnnotationDispatchTests
             NoDefault = false
         };
 
-        annotated.Annotations.Add(new OpenApiParameterComponent
+        annotated.Annotations.Add(new OpenApiParameterComponentAttribute
         {
             In = OaParameterLocation.Query,
             Required = false
@@ -107,7 +107,7 @@ public class VariableAnnotationDispatchTests
         };
 
         annotated.Annotations.Add(new InternalPowershellAttribute { MinRange = "1" });
-        annotated.Annotations.Add(new OpenApiParameterComponent { In = OaParameterLocation.Query });
+        annotated.Annotations.Add(new OpenApiParameterComponentAttribute { In = OaParameterLocation.Query });
 
         var dict = new Dictionary<string, OpenApiComponentAnnotationScanner.AnnotatedVariable>(StringComparer.Ordinal)
         {

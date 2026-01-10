@@ -173,7 +173,7 @@ function getPartnerInventory {
 #>
 function createOrder {
     [OpenApiPath(HttpVerb = 'Post', Pattern = '/orders', Tags = 'orders', CorsPolicy = 'AdminWrite')]
-    [OpenApiResponse(StatusCode = '201', Description = 'Order created', SchemaRef = 'Order', ContentType = 'application/json')]
+    [OpenApiResponse(StatusCode = '201', Description = 'Order created', Schema = [Order], ContentType = 'application/json')]
     [OpenApiResponse(StatusCode = '400', Description = 'Invalid request')]
     param(
         [OpenApiRequestBody(Required = $true, ContentType = ('application/json'))]

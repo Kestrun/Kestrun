@@ -107,4 +107,9 @@ public record OpenAPIPathMetadata : OpenAPICommonMetadata
     /// Indicates whether the callback should be inlined within the parent OpenAPI document.
     /// </summary>
     public bool Inline { get; set; }
+
+    /// <summary>
+    /// A map of custom extensions for the OpenAPI object.
+    /// </summary>
+    public IDictionary<string, IOpenApiExtension>? Extensions { get; set; }
 }

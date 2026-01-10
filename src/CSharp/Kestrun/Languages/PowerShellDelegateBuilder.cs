@@ -67,6 +67,18 @@ internal static class PowerShellDelegateBuilder
                 {
                     return;
                 }
+
+                // Some endpoints (e.g., SSE streaming) write directly to the HttpResponse and
+                // intentionally start the response early. In that case, applying KestrunResponse
+                // would attempt to set headers/status again and throw.
+                if (context.Response.HasStarted)
+                {
+                    if (log.IsEnabled(LogEventLevel.Verbose))
+                    {
+                        log.Verbose("HttpResponse has already started; skipping KestrunResponse.ApplyTo().");
+                    }
+                    return;
+                }
                 if (log.IsEnabled(LogEventLevel.Verbose))
                 {
                     log.Verbose("No redirect detected; applying response to HttpResponse...");

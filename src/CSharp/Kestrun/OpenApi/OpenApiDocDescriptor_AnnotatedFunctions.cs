@@ -138,11 +138,11 @@ public partial class OpenApiDocDescriptor
             }
             catch (InvalidOperationException ex)
             {
-                Host.Logger.Error("Error processing OpenApiPath attribute on function '{funcName}': {message}", func.Name, ex.Message);
+                Host.Logger.Error(ex, "Error processing OpenApiPath attribute on function '{funcName}': {message}", func.Name, ex.Message);
             }
             catch (Exception ex)
             {
-                Host.Logger.Error("Error processing OpenApiPath attribute on function '{funcName}': {message}", func.Name, ex.Message);
+                Host.Logger.Error(ex, "Error processing OpenApiPath attribute on function '{funcName}': {message}", func.Name, ex.Message);
             }
         }
 
@@ -189,7 +189,6 @@ public partial class OpenApiDocDescriptor
         metadata.Deprecated |= oaPath.Deprecated;
         // Apply document ID if specified
         metadata.DocumentId = oaPath.DocumentId;
-
         switch (oaPath)
         {
             case OpenApiPathAttribute oaPathConcrete:

@@ -102,7 +102,7 @@ public partial class OpenApiDocDescriptor
     /// <param name="parameterDescriptor">The parameter component annotation</param>
     private void ProcessParameterComponent(
       OpenApiComponentAnnotationScanner.AnnotatedVariable variable,
-      OpenApiParameterComponent parameterDescriptor)
+      OpenApiParameterComponentAttribute parameterDescriptor)
     {
         var key = parameterDescriptor.Key ?? variable.Name;
         var parameter = GetOrCreateParameterItem(key, parameterDescriptor.Inline);
@@ -126,7 +126,7 @@ public partial class OpenApiDocDescriptor
     /// <param name="parameterAnnotation">The parameter component annotation</param>
     private static void ApplyParameterCommonFields(
         OpenApiParameter parameter,
-        OpenApiParameterComponent parameterAnnotation)
+        OpenApiParameterComponentAttribute parameterAnnotation)
     {
         parameter.AllowEmptyValue = parameterAnnotation.AllowEmptyValue;
         parameter.Description = parameterAnnotation.Description;
@@ -147,7 +147,7 @@ public partial class OpenApiDocDescriptor
     private void TryApplyVariableTypeSchema(
          OpenApiParameter parameter,
        OpenApiComponentAnnotationScanner.AnnotatedVariable variable,
-        OpenApiParameterComponent parameterAnnotation)
+        OpenApiParameterComponentAttribute parameterAnnotation)
     {
         if (variable.VariableType is null)
         {

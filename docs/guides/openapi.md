@@ -623,7 +623,7 @@ Defines possible responses. Can reference a class type directly or a component n
 [OpenApiResponse(StatusCode = '200', Schema = [User])]
 
 # Reference by Component Name (String)
-[OpenApiResponse(StatusCode = '400', SchemaRef = 'ErrorResponse')]
+[OpenApiResponse(StatusCode = '400', Schema = "ErrorResponse")]
 
 # Inline Description
 [OpenApiResponse(StatusCode = '204', Description = 'No Content')]
@@ -985,7 +985,7 @@ Access the UI at `/swagger`, `/redoc`, etc., and the raw JSON at `/openapi/v3.1/
 | **`[OpenApiResponseExampleRef]`** | Method | `StatusCode`, `Key`, `ReferenceId`, `ContentType`, `Inline` |
 | **`[OpenApiParameterExampleRef]`** | Parameter | `Key`, `ReferenceId`, `Inline` |
 | **`[OpenApiPath]`** | Method | `HttpVerb`, `Pattern`, `Summary`, `Description`, `Tags`, `OperationId`, `Deprecated`, `CorsPolicy` |
-| **`[OpenApiResponse]`** | Method | `StatusCode`, `Description`, `Schema` (Type), `SchemaRef` (String), `ContentType`, `Key`, `Inline` |
+| **`[OpenApiResponse]`** | Method | `StatusCode`, `Description`, `Schema` (Type \| String), `ContentType`, `Key`, `Inline` |
 | **`[OpenApiRequestBody]`** | Parameter | `Description`, `ContentType`, `Required`, `Example`, `Inline` |
 | **`[OpenApiCallback]`** | Method | `Expression`, `HttpVerb`, `Pattern`, `Inline` |
 | **`[OpenApiCallbackRef]`** | Method | `Key`, `ReferenceId`, `Inline` |

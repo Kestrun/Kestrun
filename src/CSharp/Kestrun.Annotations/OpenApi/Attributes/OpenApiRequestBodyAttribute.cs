@@ -21,9 +21,10 @@ public sealed class OpenApiRequestBodyAttribute : KestrunAnnotation
     public object? Example { get; set; }
 
     /// <summary>
-    /// When true, emit an inline schema object instead of a $ref. If SchemaRef is provided and
-    /// a matching schema exists in components, that schema will be embedded; otherwise the generator
-    /// will try to infer an inline schema when possible.
+    /// When true, the generator will emit an inline schema object for the request body instead
+    /// of a <c>$ref</c> to <c>components.schemas</c>. This applies whether the schema is resolved
+    /// from a CLR type or from a string-based schema reference; in both cases the resolved schema
+    /// will be inlined where supported.
     /// </summary>
     public bool Inline { get; set; }
 }

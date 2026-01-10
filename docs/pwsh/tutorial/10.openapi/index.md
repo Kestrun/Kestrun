@@ -30,6 +30,9 @@ Browse the step-by-step guides below to learn OpenAPI features in Kestrun:
 15. **[Redocly Museum API](./15.Museum-API.md)** — Full implementation of the Redocly Museum API
 16. **[Multiple OpenAPI Documents](./18.Multi-Document-OpenAPI.md)** — Serve multiple OpenAPI documents (default + webhook) from one server
 17. **[Product Search with HTTP QUERY](./19.Product-Search-Query.md)** — OpenAPI 3.2 QUERY method with request body search filters
+18. **[SSE (OpenAPI)](./20.Sse.md)** — Document a `text/event-stream` SSE endpoint
+19. **[SSE Broadcast (OpenAPI)](./21.Sse-Broadcast.md)** — Document broadcast SSE + a trigger API
+20. **[SignalR (OpenAPI)](./22.SignalR.md)** — Document SignalR-adjacent HTTP routes with OpenAPI
 
 ## Quick start: run the samples
 

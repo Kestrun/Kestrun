@@ -11,7 +11,9 @@ param(
 Initialize-KrRoot -Path $PSScriptRoot
 
 ## 1. Logging
-New-KrLogger | Add-KrSinkConsole | Register-KrLogger -Name 'SignalRDemo' -SetAsDefault
+New-KrLogger |
+    Set-KrLoggerLevel -Value Debug |
+    Add-KrSinkConsole | Register-KrLogger -Name 'SignalRDemo' -SetAsDefault
 
 ## 2. Create Server
 New-KrServer -Name 'Kestrun SignalR Demo'
@@ -39,8 +41,10 @@ Add-KrHtmlTemplateRoute -Pattern '/' -HtmlTemplatePath 'Assets/wwwroot/signal-r.
 # Route to broadcast logs via PowerShell
 Add-KrMapRoute -Verbs Get -Pattern '/api/ps/log/{level}' {
     $level = Get-KrRequestRouteParam -Name 'level'
-    Write-KrLog -Level $level -Message "Test $level message from PowerShell at $(Get-Date -Format 'HH:mm:ss')"
-    Send-KrSignalRLog -Level $level -Message "Test $level message from PowerShell at $(Get-Date -Format 'HH:mm:ss')"
+
+    $timestamp = (Get-Date -Format 'HH:mm:ss')
+    Write-KrLog -Level $level -Message "Test $level message from PowerShell at $timestamp"
+    Send-KrSignalRLog -Level $level -Message "Test $level message from PowerShell at $timestamp"
     Write-KrTextResponse -InputObject "Broadcasted $level log message from PowerShell" -StatusCode 200
 }
 
@@ -112,15 +116,15 @@ Add-KrMapRoute -Verbs Post -Pattern '/api/operation/start' {
     $seconds = Get-KrRequestQuery -Name 'seconds' -AsInt
     if ($seconds -le 0) { $seconds = 2 }
 
-    Write-KrLog -Level Information -Message $message
+    Write-KrLog -Level Information -Message 'Starting long operation for {seconds} seconds' -Values $seconds
 
     $id = New-KrTask -ScriptBlock {
         for ($i = 1; $i -le $seconds; $i++) {
             Start-Sleep -Milliseconds 1000
 
             $TaskProgress.StatusMessage = "Sleeping ($i/$seconds)"
-            $TaskProgress.PercentComplete = ($i * 100/$seconds)
-            Write-KrLog -Level Information -Message 'Operation {TaskId} progress: {i}/{seconds} {PercentComplete}%' -Values $TaskId, $i,$seconds,$TaskProgress.PercentComplete
+            $TaskProgress.PercentComplete = ($i * 100 / $seconds)
+            Write-KrLog -Level Information -Message 'Operation {TaskId} progress: {i}/{seconds} {PercentComplete}%' -Values $TaskId, $i, $seconds, $TaskProgress.PercentComplete
             $message = @{
                 TaskId = $TaskId
                 Progress = $TaskProgress.PercentComplete
@@ -159,7 +163,7 @@ Add-KrMapRoute -Verbs Post -Pattern '/api/operation/start' {
     Set-KrTaskName -Id $id -Name "LongOperation-$id" -Description $message
 
     Write-KrLog -Level Information -Message 'Long operation started: {id}' -Values $id
-    Write-KrLog -Level Information -Message 'Long operation task created: {id}' -Values $id
+    
     Write-KrJsonResponse -InputObject @{
         Success = $true
         TaskId = $id

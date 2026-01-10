@@ -78,18 +78,40 @@ function NoDefault {
         }
     }
 
+    switch ($attrib.Attribute.TypeName.name) {
+        'ValidateSet' {
+            $defaultNull = ($attrib.Attribute.Extent.Text -replace ".*ValidateSet\(|['\)]", '').Split(',')[0].Trim()
+            $attrib = $attrib.Child
+            break
+        }
+        'ValidateRange' {
+            $defaultNull = ($attrib.Attribute.Extent.Text -replace '.*ValidateRange\(|[\]]', '').Split(',')[0].Trim()
+            $attrib = $attrib.Child
+            break
+        }
+        { $_ -in 'ValidateNotNull', 'ValidateNotNullOrWhiteSpace', 'ValidateNotNullOrEmpty' } {
+            $defaultNull = '__FAKE_NULL__'
+            $attrib = $attrib.Child
+            break
+        }
+        default { $defaultNull = $null }
+    }
+
     $t = $attrib.StaticType
 
     # Nullable<T> => return $null
     if ($t.IsGenericType -and $t.GetGenericTypeDefinition() -eq [Nullable`1]) {
-        return $null
+        return $defaultNull
     }
 
     # Reference types => return $null
     if (-not $t.IsValueType) {
-        return $null
+        return $defaultNull
     }
-
+    # Nullable reference types => return $null
+    if ($null -ne $defaultNull) {
+        return $defaultNull
+    }
     # Non-nullable value types => return a sentinel you can detect later
     switch ($t.FullName) {
         'System.DateTime' { return [datetime]::MinValue }

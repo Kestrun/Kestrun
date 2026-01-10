@@ -24,16 +24,6 @@ public sealed class OpenApiResponseAttribute : KestrunAnnotation, IOpenApiRespon
     public string? Description { get; set; }
 
     /// <summary>
-    /// Optional reference to a predefined schema (e.g., "UserInfoResponse").
-    /// </summary>
-    public string? SchemaRef { get; set; }
-
-    /// <summary>
-    /// The schema defining the type used for the items in an array media type. This property is only applicable for OAS 3.2.0 and later.
-    /// </summary>
-    public string? ItemSchemaRef { get; set; }
-
-    /// <summary>
     /// Optional CLR type for the response schema.
     /// When set, this takes precedence over SchemaRef and is
     /// mapped via InferPrimitiveSchema / PrimitiveSchemaMap.

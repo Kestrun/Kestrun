@@ -141,7 +141,7 @@ public static class OpenApiJsonNodeFactory
         }
 
         var type = value.GetType();
-                // Skip null property values to avoid serializing them in the OpenAPI document.
+        // Skip null property values to avoid serializing them in the OpenAPI document.
         // Avoid reflecting on common framework types
         if (ShouldFallbackToString(type))
         {

@@ -99,7 +99,8 @@ function getOrders {
     Write-KrJsonResponse -InputObject @{ orders = @('order-1001', 'order-2002') }
 }
 
-<#.SYNOPSIS
+<#
+.SYNOPSIS
     Retrieves the health status of the service.
 .DESCRIPTION
     This endpoint returns a simple health status payload.

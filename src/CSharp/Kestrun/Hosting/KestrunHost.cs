@@ -402,28 +402,44 @@ public partial class KestrunHost : IDisposable
     /// <summary>
     /// Gets the OpenAPI document descriptor for the specified document ID.
     /// </summary>
-    /// <param name="docId">The ID of the OpenAPI document.</param>
+    /// <param name="apiDocId">The ID of the OpenAPI document.</param>
     /// <returns>The OpenAPI document descriptor.</returns>
-    public OpenApiDocDescriptor GetOrCreateOpenApiDocument(string docId)
+    public OpenApiDocDescriptor GetOrCreateOpenApiDocument(string apiDocId)
     {
-        if (string.IsNullOrWhiteSpace(docId))
+        if (string.IsNullOrWhiteSpace(apiDocId))
         {
-            throw new ArgumentException("Document ID cannot be null or whitespace.", nameof(docId));
+            throw new ArgumentException("Document ID cannot be null or whitespace.", nameof(apiDocId));
         }
         // Check if descriptor already exists
-        if (OpenApiDocumentDescriptor.TryGetValue(docId, out var descriptor))
+        if (OpenApiDocumentDescriptor.TryGetValue(apiDocId, out var descriptor))
         {
             if (Logger.IsEnabled(LogEventLevel.Debug))
             {
-                Logger.Debug("OpenAPI document descriptor for ID '{DocId}' already exists. Returning existing descriptor.", docId);
+                Logger.Debug("OpenAPI document descriptor for ID '{DocId}' already exists. Returning existing descriptor.", apiDocId);
             }
         }
         else
         {
-            descriptor = new OpenApiDocDescriptor(this, docId);
-            OpenApiDocumentDescriptor[docId] = descriptor;
+            descriptor = new OpenApiDocDescriptor(this, apiDocId);
+            OpenApiDocumentDescriptor[apiDocId] = descriptor;
         }
         return descriptor;
+    }
+
+    /// <summary>
+    /// Gets the list of OpenAPI document descriptors for the specified document IDs.
+    /// </summary>
+    /// <param name="openApiDocIds"> The array of OpenAPI document IDs.</param>
+    /// <returns>A list of OpenApiDocDescriptor objects corresponding to the provided document IDs.</returns>
+    public List<OpenApiDocDescriptor> GetOrCreateOpenApiDocument(string[] openApiDocIds)
+    {
+        var list = new List<OpenApiDocDescriptor>();
+        foreach (var apiDocId in openApiDocIds)
+        {
+
+            list.Add(GetOrCreateOpenApiDocument(apiDocId));
+        }
+        return list;
     }
 
     /// <summary>
@@ -1606,7 +1622,7 @@ public partial class KestrunHost : IDisposable
         // Register OpenAPI document and metadata for the SignalR hub
         options ??= SignalROptions.Default;
 
-        _ = GetOrCreateOpenApiDocument(options.DocId);
+        var apiDocDescriptors = GetOrCreateOpenApiDocument(options.DocId);
 
         var routeOptions = new MapRouteOptions
         {
@@ -1623,8 +1639,22 @@ public partial class KestrunHost : IDisposable
             : options.Path.TrimEnd('/') + "/negotiate";
         if (!options.SkipOpenApi)
         {
+
+            if (Logger.IsEnabled(LogEventLevel.Debug))
+            {
+                Logger.Debug("Adding OpenAPI metadata for SignalR hub at path: {Path}", options.Path);
+            }
+            if (options.Tags.Contains(SignalROptions.DefaultTag))
+            {
+                foreach (var defTag in apiDocDescriptors)
+                {
+                    //Todo : add Tag
+                }
+
+            }
             var meta = new OpenAPIPathMetadata(pattern: options.Path, mapOptions: routeOptions)
             {
+                DocumentId = options.DocId,
                 Summary = string.IsNullOrWhiteSpace(options.Summary) ? null : options.Summary,
                 Description = string.IsNullOrWhiteSpace(options.Description) ? null : options.Description,
                 Tags = options.Tags?.ToList() ?? [],

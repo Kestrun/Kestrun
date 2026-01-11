@@ -13,8 +13,11 @@
     .PARAMETER retryMs
         Optional: The retry interval in milliseconds.
     .EXAMPLE
-        Write-KrSseEvent -Level Information -Event "StatusUpdate" -Data "System is operational"
-        Sends an SSE with the event name "StatusUpdate" and data "System is operational" at Information level.
+        Write-KrSseEvent -Event 'message' -Data 'Hello, SSE!'
+        Sends an SSE with event name 'message' and data 'Hello, SSE!'.
+    .EXAMPLE
+        Write-KrSseEvent -Event 'update' -Data '{"status":"ok"}' -id '123' -retryMs 5000
+        Sends an SSE with event name 'update', JSON data, event ID '123', and a retry interval of 5000 milliseconds
     .NOTES
         Use Start-KrSseResponse before sending events.
 #>

@@ -9,7 +9,7 @@
     .PARAMETER Path
         The URL path where the SSE broadcast endpoint will be accessible. Defaults to '/sse/broadcast'.
     .PARAMETER DocId
-        The OpenAPI document IDs to which the SSE broadcast endpoint should be added. Default is '
+        The OpenAPI document IDs to which the SSE broadcast endpoint should be added. Default is 'Default'.
     .PARAMETER KeepAliveSeconds
         If greater than 0, sends periodic SSE comments (keep-alives) to keep intermediaries from closing idle connections.
     .PARAMETER OpenApiOperationId

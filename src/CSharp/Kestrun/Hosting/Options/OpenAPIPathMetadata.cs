@@ -26,6 +26,12 @@ public record OpenAPIPathMetadata : OpenAPICommonMetadata
         : base(mapOptions)
     {
     }
+
+    /// <summary>
+    /// The IDs of the OpenAPI documents this metadata belongs to.
+    /// If empty, it belongs to all documents.
+    /// </summary>
+    public List<string> DocumentIds { get; set; } = [];
     /// <summary>
     /// The unique operation ID for the route in OpenAPI documentation.
     /// </summary>

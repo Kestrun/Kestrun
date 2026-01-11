@@ -55,6 +55,7 @@ public sealed class InMemorySseBroadcaster(Serilog.ILogger logger) : ISseBroadca
         }
 
         var payload = SseEventFormatter.Format(eventName, data, id, retryMs);
+        var failedClientIds = new List<string>();
 
         foreach (var kvp in _clients)
         {
@@ -65,8 +66,13 @@ public sealed class InMemorySseBroadcaster(Serilog.ILogger logger) : ISseBroadca
 
             if (!kvp.Value.Writer.TryWrite(payload))
             {
-                RemoveClient(kvp.Key);
+                failedClientIds.Add(kvp.Key);
             }
+        }
+
+        foreach (var clientId in failedClientIds)
+        {
+            RemoveClient(clientId);
         }
 
         return ValueTask.CompletedTask;

@@ -85,7 +85,7 @@ public partial class OpenApiDocDescriptor
     /// Removes a tag by instance. Returns true if removed.
     /// </summary>
     public bool RemoveTag(OpenApiTag tag) =>
-    Document.Tags is not null && Document.Tags.Remove(tag);
+        Document.Tags is not null && Document.Tags.Remove(tag);
 
     /// <summary>
     /// Gets or creates a tag item in the OpenAPI document by name.

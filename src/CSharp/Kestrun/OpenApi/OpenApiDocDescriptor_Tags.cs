@@ -54,32 +54,20 @@ public partial class OpenApiDocDescriptor
         {
             tag.Kind = kind;
         }
-        if (extensions is not null && extensions.Count > 0)
+
+        var normalizedExtensions = NormalizeExtensions(extensions);
+        if (normalizedExtensions is not null)
         {
-            tag.Extensions ??= new Dictionary<string, IOpenApiExtension>(StringComparer.Ordinal);
-
-            foreach (DictionaryEntry entry in extensions)
+            if (tag.Extensions is null)
             {
-                var rawKey = entry.Key?.ToString();
-                if (string.IsNullOrWhiteSpace(rawKey))
+                tag.Extensions = normalizedExtensions;
+            }
+            else
+            {
+                foreach (var kvp in normalizedExtensions)
                 {
-                    continue;
+                    tag.Extensions[kvp.Key] = kvp.Value;
                 }
-
-                // Enforce OpenAPI extension naming
-                var key = rawKey.StartsWith("x-", StringComparison.OrdinalIgnoreCase)
-                    ? rawKey
-                    : "x-" + rawKey;
-
-                var node = OpenApiJsonNodeFactory.FromObject(entry.Value);
-
-                // If you want to skip null-valued extensions:
-                if (node is null)
-                {
-                    continue;
-                }
-
-                tag.Extensions[key] = new JsonNodeExtension(node);
             }
         }
 
@@ -149,6 +137,46 @@ public partial class OpenApiDocDescriptor
     }
 
     /// <summary>
+    /// Normalizes OpenAPI extensions by enforcing x- prefix and converting values to JsonNode extensions.
+    /// </summary>
+    /// <param name="extensions">The raw extensions dictionary to normalize.</param>
+    /// <returns>A normalized dictionary of OpenAPI extensions, or null if no valid extensions exist.</returns>
+    private static Dictionary<string, IOpenApiExtension>? NormalizeExtensions(IDictionary? extensions)
+    {
+        if (extensions is null || extensions.Count == 0)
+        {
+            return null;
+        }
+
+        Dictionary<string, IOpenApiExtension>? result = null;
+
+        foreach (DictionaryEntry entry in extensions)
+        {
+            var rawKey = entry.Key?.ToString();
+            if (string.IsNullOrWhiteSpace(rawKey))
+            {
+                continue;
+            }
+
+            // Enforce OpenAPI extension naming
+            var key = rawKey.StartsWith("x-", StringComparison.OrdinalIgnoreCase)
+                ? rawKey
+                : "x-" + rawKey;
+
+            var node = OpenApiJsonNodeFactory.FromObject(entry.Value);
+            if (node is null)
+            {
+                continue;
+            }
+
+            result ??= new Dictionary<string, IOpenApiExtension>(StringComparer.Ordinal);
+            result[key] = new JsonNodeExtension(node);
+        }
+
+        return result;
+    }
+
+    /// <summary>
     /// Creates an OpenApiExternalDocs object with optional extensions.
     /// </summary>
     /// <param name="url">The URL for the external documentation.</param>
@@ -164,35 +192,9 @@ public partial class OpenApiDocDescriptor
         var docs = new OpenApiExternalDocs
         {
             Url = url,
-            Description = description
+            Description = description,
+            Extensions = NormalizeExtensions(extensions)
         };
-
-        if (extensions is not null && extensions.Count > 0)
-        {
-            docs.Extensions = new Dictionary<string, IOpenApiExtension>(StringComparer.Ordinal);
-
-            foreach (DictionaryEntry entry in extensions)
-            {
-                var rawKey = entry.Key?.ToString();
-                if (string.IsNullOrWhiteSpace(rawKey))
-                {
-                    continue;
-                }
-
-                // Enforce OpenAPI extension naming
-                var key = rawKey.StartsWith("x-", StringComparison.OrdinalIgnoreCase)
-                    ? rawKey
-                    : "x-" + rawKey;
-
-                var node = OpenApiJsonNodeFactory.FromObject(entry.Value);
-                if (node is null)
-                {
-                    continue;
-                }
-
-                docs.Extensions[key] = new JsonNodeExtension(node);
-            }
-        }
 
         return docs;
     }

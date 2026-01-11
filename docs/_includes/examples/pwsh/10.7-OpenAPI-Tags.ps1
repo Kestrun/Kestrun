@@ -17,7 +17,7 @@ New-KrLogger |
     Register-KrLogger -Name 'console' -SetAsDefault | Out-Null
 
 # Create server instance
-$srv = New-KrServer -Name 'OpenAPI Tags Demo'
+New-KrServer -Name 'OpenAPI Tags Demo'
 
 # Configure endpoint
 Add-KrEndpoint -Port $Port -IPAddress $IPAddress
@@ -39,7 +39,13 @@ Add-KrApiDocumentationRoute -DocumentType Swagger
 Add-KrApiDocumentationRoute -DocumentType Redoc
 Add-KrOpenApiRoute
 
-# Route function demonstrating multiple tag assignment and tag-based organization
+<#
+.SYNOPSIS
+    Retrieves a list of demo orders.
+.DESCRIPTION
+    This endpoint returns a simple list of order identifiers.
+    It is tagged with 'orders' and 'operations' for categorization.
+#>
 function getOrders {
     [OpenApiPath(HttpVerb = 'get', Pattern = '/orders', Summary = 'List demo orders', Description = 'Returns a simple list of order identifiers.', Tags = ('orders', 'operations'))]
     [OpenApiResponse(StatusCode = '200', Description = 'List of orders', ContentType = 'application/json')]
@@ -47,7 +53,12 @@ function getOrders {
     Write-KrJsonResponse -InputObject @{ orders = @('order-1001', 'order-2002') }
 }
 
-# Route function demonstrating multiple tag assignment
+<#.SYNOPSIS
+    Retrieves the health status of the service.
+.DESCRIPTION
+    This endpoint returns a simple health status payload.
+    It is tagged with 'health' and 'operations' for categorization.
+#>
 function getHealth {
     [OpenApiPath(HttpVerb = 'get', Pattern = '/health', Summary = 'Service health', Description = 'Returns a simple health status payload.', Tags = ('health', 'operations'))]
     [OpenApiResponse(StatusCode = '200', Description = 'Health status', ContentType = 'application/json')]
@@ -60,6 +71,5 @@ Build-KrOpenApiDocument
 Test-KrOpenApiDocument
 
 # Start the server and keep logs open until exit
-Start-KrServer -Server $srv -CloseLogsOnExit
-Start-KrServer -Server $srv -CloseLogsOnExit
+Start-KrServer -CloseLogsOnExit
 

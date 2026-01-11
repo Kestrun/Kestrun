@@ -72,7 +72,7 @@ function Add-KrOpenApiTag {
         foreach ($doc in $DocId) {
             $docDescriptor = $Server.GetOrCreateOpenApiDocument($doc)
 
-            # Add the tag to the document
+            $null = $docDescriptor.AddTag($Name, $Description, $Summary, $Parent, $Kind, $ExternalDocs, $Extensions)
             $null = $docDescriptor.AddTag($Name, $Description, $Summary, $Parent, $Kind, $ExternalDocs, $Extensions) | Out-Null
         }
     }

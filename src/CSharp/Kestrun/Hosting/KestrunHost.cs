@@ -1117,7 +1117,12 @@ public partial class KestrunHost : IDisposable
                 ConfigureHttpsAdapter(serverOptions);
                 BindListeners(serverOptions);
             });
-
+            // Generate OpenAPI components after runspace is ready
+            foreach (var v in OpenApiDocumentDescriptor.Values)
+            {
+                v.GenerateComponents();
+            }
+            // Log configured endpoints after building
             LogConfiguredEndpoints();
 
             // Register default probes after endpoints are logged but before marking configured

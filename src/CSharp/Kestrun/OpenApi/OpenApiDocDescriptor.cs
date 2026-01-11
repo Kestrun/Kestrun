@@ -248,7 +248,7 @@ public partial class OpenApiDocDescriptor
     public void GenerateDoc()
     {
         // First, generate components
-        GenerateComponents();
+        //GenerateComponents();
 
         // Then, generate webhooks
         BuildWebhooks(WebHook);

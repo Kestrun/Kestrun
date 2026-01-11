@@ -124,8 +124,6 @@ public partial class OpenApiDocDescriptor
     /// <summary>
     /// Normalizes a raw extensions dictionary into OpenAPI extensions.
     /// </summary>
-    /// <param name="name">The name of the tag to retrieve.</param>
-    /// <param name="tag">The retrieved OpenApiTag if found; otherwise, null.</param>
     /// <param name="extensions">The raw extensions dictionary to normalize.</param>
     /// <returns>A normalized dictionary of OpenAPI extensions, or null if no valid extensions exist.</returns>
     private static Dictionary<string, IOpenApiExtension>? NormalizeExtensions(IDictionary? extensions)

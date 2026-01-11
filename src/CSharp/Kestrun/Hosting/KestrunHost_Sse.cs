@@ -22,14 +22,18 @@ public partial class KestrunHost
     public KestrunHost AddSseBroadcast(SseBroadcastOptions options)
     {
         // Allow callers to override metadata even if another component pre-registered the route.
-        RegisterSseBroadcastRouteForOpenApi(options);
+        //    RegisterSseBroadcastRouteForOpenApi(options);
 
         return AddService(services =>
             {
                 services.TryAddSingleton(_ => Logger);
                 services.TryAddSingleton<ISseBroadcaster, InMemorySseBroadcaster>();
             })
-            .Use(app => ((IEndpointRouteBuilder)app).MapGet(options.Path, httpContext => HandleSseBroadcastConnectAsync(httpContext, options.KeepAliveSeconds)));
+            .Use(app =>
+            {
+                RegisterSseBroadcastRouteForOpenApi(options);
+                _ = ((IEndpointRouteBuilder)app).MapGet(options.Path, httpContext => HandleSseBroadcastConnectAsync(httpContext, options.KeepAliveSeconds));
+            });
     }
 
     /// <summary>

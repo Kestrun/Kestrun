@@ -135,78 +135,142 @@ public static class OpenApiJsonNodeFactory
     /// <returns>A JsonNode representing the object.</returns>
     private static JsonNode FromPocoOrString(object value)
     {
-        // If it's a PowerShell object with properties, serialize those rather than reflection on the proxy type
-        if (value is PSObject pso)
+        if (TryConvertPsObjectProperties(value, out var psObject))
         {
-            var obj = new JsonObject();
-            foreach (var prop in pso.Properties)
-            {
-                // skip nulls; optional: skip script methods etc.
-                var v = prop.Value;
-                if (v is null)
-                {
-                    continue;
-                }
-
-                obj[prop.Name] = FromObject(v);
-            }
-            // If it had no properties, fall back
-            if (obj.Count > 0)
-            {
-                return obj;
-            }
+            return psObject;
         }
 
-        var t = value.GetType();
+        var type = value.GetType();
 
         // Avoid reflecting on common framework types
-        if (t.IsPrimitive || t == typeof(string) || typeof(IEnumerable).IsAssignableFrom(t))
+        if (ShouldFallbackToString(type))
         {
             return JsonValue.Create(value.ToString() ?? string.Empty);
         }
 
-        // Try POCO public instance readable props
-        var props = t.GetProperties(BindingFlags.Public | BindingFlags.Instance);
-        if (props.Length > 0)
+        if (TryConvertPublicProperties(value, type, out var poco))
         {
-            var obj = new JsonObject();
-
-            foreach (var p in props)
-            {
-                if (!p.CanRead)
-                {
-                    continue;
-                }
-
-                // avoid indexers
-                if (p.GetIndexParameters().Length != 0)
-                {
-                    continue;
-                }
-
-                object? v;
-                try
-                {
-                    v = p.GetValue(value);
-                }
-                catch
-                {
-                    continue;
-                }
-
-                if (v is null)
-                {
-                    continue;
-                }
-
-                obj[p.Name] = FromObject(v);
-            }
-
-            if (obj.Count > 0)
-            {
-                return obj;
-            }
+            return poco;
         }
+        // Fallback to string representation
         return JsonValue.Create(value.ToString() ?? string.Empty);
+    }
+
+    /// <summary>
+    /// Attempts to serialize a PowerShell object using its dynamic properties.
+    /// </summary>
+    /// <param name="value">The input value to inspect.</param>
+    /// <param name="node">A JsonObject containing serialized PowerShell properties when successful.</param>
+    /// <returns>True when properties were found and serialized; otherwise false.</returns>
+    private static bool TryConvertPsObjectProperties(object value, out JsonNode node)
+    {
+        node = null!;
+
+        // If it's a PowerShell object with properties, serialize those rather than reflection on the proxy type.
+        if (value is not PSObject pso)
+        {
+            return false;
+        }
+
+        var obj = new JsonObject();
+        foreach (var prop in pso.Properties)
+        {
+            var v = prop.Value;
+            if (v is null)
+            {
+                continue;
+            }
+
+            obj[prop.Name] = FromObject(v);
+        }
+
+        if (obj.Count == 0)
+        {
+            return false;
+        }
+
+        node = obj;
+        return true;
+    }
+
+    /// <summary>
+    /// Determines whether an object of the specified type should be represented as a string
+    /// instead of reflecting public properties.
+    /// </summary>
+    /// <param name="type">The type to inspect.</param>
+    /// <returns>True when the type should be treated as a scalar/string; otherwise false.</returns>
+    private static bool ShouldFallbackToString(Type type) =>
+        type.IsPrimitive || type == typeof(string) || typeof(IEnumerable).IsAssignableFrom(type);
+
+    /// <summary>
+    /// Attempts to serialize a POCO by reflecting its public, readable, non-indexer instance properties.
+    /// </summary>
+    /// <param name="value">The object instance to read properties from.</param>
+    /// <param name="type">The runtime type of <paramref name="value"/>.</param>
+    /// <param name="node">A JsonObject when at least one property was serialized.</param>
+    /// <returns>True when properties were found and serialized; otherwise false.</returns>
+    private static bool TryConvertPublicProperties(object value, Type type, out JsonNode node)
+    {
+        node = null!;
+
+        var props = type.GetProperties(BindingFlags.Public | BindingFlags.Instance);
+        if (props.Length == 0)
+        {
+            return false;
+        }
+
+        var obj = new JsonObject();
+        foreach (var p in props)
+        {
+            if (!IsReadableNonIndexer(p))
+            {
+                continue;
+            }
+
+            if (!TryGetPropertyValue(p, value, out var v) || v is null)
+            {
+                continue;
+            }
+
+            obj[p.Name] = FromObject(v);
+        }
+
+        if (obj.Count == 0)
+        {
+            return false;
+        }
+
+        node = obj;
+        return true;
+    }
+
+    /// <summary>
+    /// Checks whether a property is readable and not an indexer.
+    /// </summary>
+    /// <param name="property">The property to check.</param>
+    /// <returns>True when the property can be read and has no index parameters.</returns>
+    private static bool IsReadableNonIndexer(PropertyInfo property) =>
+        property.CanRead && property.GetIndexParameters().Length == 0;
+
+    /// <summary>
+    /// Attempts to read a property value and safely handles reflection exceptions.
+    /// </summary>
+    /// <param name="property">The property to read.</param>
+    /// <param name="instance">The instance to read the value from.</param>
+    /// <param name="value">The retrieved value, or null if not available.</param>
+    /// <returns>True when the value was retrieved successfully; otherwise false.</returns>
+    private static bool TryGetPropertyValue(PropertyInfo property, object instance, out object? value)
+    {
+        value = null;
+
+        try
+        {
+            value = property.GetValue(instance);
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
     }
 }

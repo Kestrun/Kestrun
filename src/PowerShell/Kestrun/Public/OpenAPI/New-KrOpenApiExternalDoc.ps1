@@ -3,10 +3,10 @@
     Creates a new OpenAPI External Documentation object.
 .DESCRIPTION
     This function creates a new OpenAPI External Documentation object using the provided parameters.
-.PARAMETER Description
-    A description of the external documentation.
 .PARAMETER Url
     A URI to the external documentation.
+.PARAMETER Description
+    A description of the external documentation.
 .PARAMETER Extensions
     A collection of OpenAPI extensions to add to the external documentation.
 .EXAMPLE
@@ -29,10 +29,12 @@ function New-KrOpenApiExternalDoc {
     [KestrunRuntimeApi('Definition')]
     param(
         [Parameter(Mandatory = $true)]
-        [string]$Description,
-        [Parameter(Mandatory = $true)]
         [Uri]$Url,
-        [Parameter()]
+
+        [Parameter(Mandatory = $false)]
+        [string]$Description,
+
+        [Parameter(Mandatory = $false)]
         [System.Collections.Specialized.OrderedDictionary]$Extensions
     )
     # Create and add the external documentation

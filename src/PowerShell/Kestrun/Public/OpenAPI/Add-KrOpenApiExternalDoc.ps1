@@ -8,10 +8,10 @@
     If not specified, the function will attempt to resolve the current server context.
 .PARAMETER DocId
     An array of OpenAPI document IDs to which the external documentation will be added. Default is 'default'.
-.PARAMETER Description
-    A description of the external documentation.
 .PARAMETER Url
     A URI to the external documentation.
+.PARAMETER Description
+    A description of the external documentation.
 .PARAMETER Extensions
     A collection of OpenAPI extensions to add to the external documentation.
 .EXAMPLE
@@ -40,10 +40,13 @@ function Add-KrOpenApiExternalDoc {
         [Kestrun.Hosting.KestrunHost]$Server,
         [Parameter()]
         [string[]]$DocId = [Kestrun.OpenApi.OpenApiDocDescriptor]::DefaultDocumentationIds,
-        [Parameter(Mandatory = $true)]
-        [string]$Description,
+
         [Parameter(Mandatory = $true)]
         [Uri]$Url,
+
+        [Parameter(Mandatory = $false)]
+        [string]$Description,
+
         [Parameter()]
         [System.Collections.Specialized.OrderedDictionary]$Extensions
     )

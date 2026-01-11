@@ -41,6 +41,7 @@ function Add-KrOpenApiTag {
         [Kestrun.Hosting.KestrunHost]$Server,
         [Parameter()]
         [string[]]$DocId = [Kestrun.OpenApi.OpenApiDocDescriptor]::DefaultDocumentationIds,
+
         [Parameter(Mandatory = $true)]
         [string]$Name,
 

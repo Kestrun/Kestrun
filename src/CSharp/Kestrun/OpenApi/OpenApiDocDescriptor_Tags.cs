@@ -55,21 +55,7 @@ public partial class OpenApiDocDescriptor
             tag.Kind = kind;
         }
 
-        var normalizedExtensions = NormalizeExtensions(extensions);
-        if (normalizedExtensions is not null)
-        {
-            if (tag.Extensions is null)
-            {
-                tag.Extensions = normalizedExtensions;
-            }
-            else
-            {
-                foreach (var kvp in normalizedExtensions)
-                {
-                    tag.Extensions[kvp.Key] = kvp.Value;
-                }
-            }
-        }
+        tag.Extensions = NormalizeExtensions(extensions);
 
         return tag;
     }

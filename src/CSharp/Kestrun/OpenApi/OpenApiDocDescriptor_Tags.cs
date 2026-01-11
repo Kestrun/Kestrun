@@ -161,7 +161,6 @@ public partial class OpenApiDocDescriptor
         string? description = null,
         IDictionary? extensions = null)
     {
-
         var docs = new OpenApiExternalDocs
         {
             Url = url,
@@ -217,5 +216,4 @@ public partial class OpenApiDocDescriptor
         // Reuse the other overload
         return CreateExternalDocs(new Uri(url, UriKind.RelativeOrAbsolute), description, extensions);
     }
-
 }

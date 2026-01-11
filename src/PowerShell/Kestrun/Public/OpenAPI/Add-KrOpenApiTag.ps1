@@ -73,7 +73,6 @@ function Add-KrOpenApiTag {
             $docDescriptor = $Server.GetOrCreateOpenApiDocument($doc)
 
             $null = $docDescriptor.AddTag($Name, $Description, $Summary, $Parent, $Kind, $ExternalDocs, $Extensions)
-            $null = $docDescriptor.AddTag($Name, $Description, $Summary, $Parent, $Kind, $ExternalDocs, $Extensions) | Out-Null
         }
     }
 }

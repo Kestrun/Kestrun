@@ -71,7 +71,6 @@ public static class OpenApiJsonNodeFactory
         {
             return null;
         }
-
         // PowerShell wraps lots of values in PSObject
         if (value is PSObject pso)
         {

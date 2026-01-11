@@ -31,6 +31,7 @@ Focus areas:
 | **Parameter**        | A PowerShell parameter/variable decorated with `[OpenApiParameterComponent]`. Defines reusable parameters. |
 | **Callback**         | An operation-scoped async notification defined under `paths.{path}.{verb}.callbacks` (OpenAPI 3.1). |
 | **Webhook**          | A top-level OpenAPI webhook entry describing an outgoing event notification your API may send to subscribers. |
+| **Tag**              | A tag entry under `tags[]` used to group operations (OpenAPI 3.2 supports `parent`, `kind`, and tag-level `externalDocs`). |
 | **Property Attribute**| `[OpenApiPropertyAttribute]` on class properties defines validation, examples, and descriptions. |
 | **Route Attribute**  | `[OpenApiPath]` on functions defines the HTTP method and route pattern. |
 | **Callback Attribute**| `[OpenApiCallback]` / `[OpenApiCallbackRef]` on functions describe callback requests the API may send as part of an operation. |
@@ -590,9 +591,22 @@ $serverVars = New-KrOpenApiServerVariable -Name 'env' -Default 'dev' -Enum @('de
 Add-KrOpenApiServer -Url 'https://{env}.api.example.com' -Description 'Environment-specific endpoint' -Variables $serverVars
 Add-KrOpenApiServer -Url '/' -Description 'Self'
 
-# Tags (Grouping)
-Add-KrOpenApiTag -Name 'Users' -Description 'User management'
-Add-KrOpenApiTag -Name 'Products' -Description 'Product catalog'
+# External documentation (document-level)
+# Use Add-KrOpenApiExternalDoc to attach externalDocs to the OpenAPI document itself.
+$apiPortalExtensions = [ordered]@{ 'x-docType' = 'portal'; 'audience' = 'internal'; 'owner' = 'api-platform' }
+Add-KrOpenApiExternalDoc -Description 'API portal' -Url 'https://example.com/api-portal' -Extensions $apiPortalExtensions
+
+# Tags (OpenAPI 3.2 hierarchical tags)
+# - Use -Parent/-Kind to build a hierarchy.
+# - Use -Extensions for tag-level `x-*` extensions (keys are normalized to `x-` when missing).
+# - For tag-level externalDocs, create the object with New-KrOpenApiExternalDoc and pass it to Add-KrOpenApiTag -ExternalDocs.
+# - To add extensions to a tag's externalDocs, pass `-Extensions` to `New-KrOpenApiExternalDoc`.
+
+$ordersExternalDocs = New-KrOpenApiExternalDoc -Description 'Order docs' -Url 'https://example.com/orders' -Extensions ([ordered]@{ 'x-docType' = 'reference'; 'audience' = 'public' })
+
+Add-KrOpenApiTag -Name 'operations' -Description 'Common operational endpoints' -Kind 'category' -Extensions ([ordered]@{ 'x-displayName' = 'Operations' })
+Add-KrOpenApiTag -Name 'orders' -Description 'Order operations' -Parent 'operations' -Kind 'resource' -ExternalDocs $ordersExternalDocs -Extensions ([ordered]@{ 'x-owner' = 'commerce-team' })
+Add-KrOpenApiTag -Name 'orders.read' -Description 'Read-only order operations' -Parent 'orders' -Kind 'operation'
 ```
 
 ---
@@ -1038,7 +1052,7 @@ These properties are available on `[OpenApiSchemaComponent]`, `[OpenApiPropertyA
 | **Webhooks** | ✅ Supported | Use `[OpenApiWebhook]` on functions (top-level `webhooks` in OpenAPI 3.1) |
 | **Callbacks** | ✅ Supported | Use `[OpenApiCallback]` + `[OpenApiCallbackRef]` (operation-scoped `callbacks`) |
 | **Links** | ✅ Supported | Use `New-KrOpenApiLink` + `Add-KrOpenApiComponent`, then reference via `OpenApiResponseLinkRef` |
-| **Extensions (x-*)** | ❌ Planned | Not yet implemented |
+| **Extensions (x-*)** | 🚧 Partial | Supported for `tags[]` and `externalDocs` (document-level and tag-level); other extension points may be added later |
 
 ---
 

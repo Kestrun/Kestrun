@@ -59,7 +59,6 @@ public partial class OpenApiDocDescriptor
 
         return tag;
     }
-                // Skip null-valued extensions as they should not be serialized in the OpenAPI document.
     /// <summary>
     /// Adds a tag only if it doesn't already exist (by comparer). Returns true if added.
     /// </summary>

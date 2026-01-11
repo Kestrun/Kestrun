@@ -436,7 +436,6 @@ public partial class KestrunHost : IDisposable
         var list = new List<OpenApiDocDescriptor>();
         foreach (var apiDocId in openApiDocIds)
         {
-
             list.Add(GetOrCreateOpenApiDocument(apiDocId));
         }
         return list;
@@ -1639,7 +1638,6 @@ public partial class KestrunHost : IDisposable
             : options.Path.TrimEnd('/') + "/negotiate";
         if (!options.SkipOpenApi)
         {
-
             if (Logger.IsEnabled(LogEventLevel.Debug))
             {
                 Logger.Debug("Adding OpenAPI metadata for SignalR hub at path: {Path}", options.Path);
@@ -1650,7 +1648,6 @@ public partial class KestrunHost : IDisposable
                 {
                     //Todo : add Tag
                 }
-
             }
             var meta = new OpenAPIPathMetadata(pattern: options.Path, mapOptions: routeOptions)
             {

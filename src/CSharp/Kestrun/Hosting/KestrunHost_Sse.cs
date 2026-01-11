@@ -6,7 +6,6 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.OpenApi;
 using System.Text.Json;
 using System.Threading.Channels;
-using Kestrun.OpenApi;
 
 namespace Kestrun.Hosting;
 
@@ -18,30 +17,19 @@ public partial class KestrunHost
     /// <summary>
     /// Adds an SSE broadcast endpoint that keeps a connection open and streams broadcast events.
     /// </summary>
-    /// <param name="path">The URL path for the SSE broadcast connection endpoint.</param>
-    /// <param name="keepAliveSeconds">If greater than 0, sends periodic SSE comments to keep intermediaries from timing out the connection.</param>
-    /// <param name="openApi">Optional OpenAPI customization for the broadcast endpoint route registry entry.</param>
-    /// <param name="docId">The OpenAPI document ID to register the endpoint in.</param>
+    /// <param name="options">Optional OpenAPI customization for the broadcast endpoint route registry entry.</param>
     /// <returns>The host instance.</returns>
-    public KestrunHost AddSseBroadcast(string path = "/sse/broadcast", int keepAliveSeconds = 15,
-        SseBroadcastOpenApiOptions? openApi = null, string docId = OpenApiDocDescriptor.DefaultDocumentationId)
+    public KestrunHost AddSseBroadcast(SseBroadcastOptions options)
     {
-        if (!this.MapExists(path, HttpVerb.Get))
-        {
-            RegisterSseBroadcastRouteForOpenApi(path, openApi, docId);
-        }
-        else if (openApi is not null)
-        {
-            // Allow callers to override metadata even if another component pre-registered the route.
-            RegisterSseBroadcastRouteForOpenApi(path, openApi, docId);
-        }
+        // Allow callers to override metadata even if another component pre-registered the route.
+        RegisterSseBroadcastRouteForOpenApi(options);
 
         return AddService(services =>
             {
                 services.TryAddSingleton(_ => Logger);
                 services.TryAddSingleton<ISseBroadcaster, InMemorySseBroadcaster>();
             })
-            .Use(app => ((IEndpointRouteBuilder)app).MapGet(path, httpContext => HandleSseBroadcastConnectAsync(httpContext, keepAliveSeconds)));
+            .Use(app => ((IEndpointRouteBuilder)app).MapGet(options.Path, httpContext => HandleSseBroadcastConnectAsync(httpContext, options.KeepAliveSeconds)));
     }
 
     /// <summary>
@@ -49,18 +37,15 @@ public partial class KestrunHost
     /// This allows the OpenAPI generator to include the endpoint even though it is mapped directly
     /// through ASP.NET Core endpoint routing (not via <c>AddMapRoute</c>).
     /// </summary>
-    /// <param name="path">The broadcast SSE endpoint path.</param>
-    /// <param name="openApi">Optional OpenAPI customization.</param>
-    /// <param name="docId">The OpenAPI document ID to register the endpoint in.</param>
-    private void RegisterSseBroadcastRouteForOpenApi(string path, SseBroadcastOpenApiOptions? openApi, string docId = OpenApiDocDescriptor.DefaultDocumentationId)
+    /// <param name="options">Optional OpenAPI customization.</param>
+    private void RegisterSseBroadcastRouteForOpenApi(SseBroadcastOptions? options)
     {
-        openApi ??= SseBroadcastOpenApiOptions.Default;
+        options ??= SseBroadcastOptions.Default;
         // Ensure the OpenAPI document descriptor exists (SSE broadcast can be configured even when OpenAPI is not).
-        _ = GetOrCreateOpenApiDocument(docId);
-
+        var docs = GetOrCreateOpenApiDocument(options.DocId);
         var routeOptions = new MapRouteOptions
         {
-            Pattern = path,
+            Pattern = options.Path,
             HttpVerbs = [HttpVerb.Get],
             ScriptCode = new LanguageOptions
             {
@@ -69,34 +54,37 @@ public partial class KestrunHost
             }
         };
 
-        var mediaType = new OpenApiMediaType
+        if (!options.SkipOpenApi)
         {
-            ItemSchema = OpenApiDocumentDescriptor[docId].InferPrimitiveSchema(openApi.ItemSchemaType)
-        };
-
-        var meta = new OpenAPIPathMetadata(pattern: path, mapOptions: routeOptions)
-        {
-            OperationId = string.IsNullOrWhiteSpace(openApi.OperationId) ? null : openApi.OperationId,
-            Summary = string.IsNullOrWhiteSpace(openApi.Summary) ? null : openApi.Summary,
-            Description = string.IsNullOrWhiteSpace(openApi.Description) ? null : openApi.Description,
-            Tags = openApi.Tags?.ToList() ?? [],
-            Responses = new OpenApiResponses
+            var mediaType = new OpenApiMediaType
             {
-                [openApi.StatusCode] = new OpenApiResponse
+                ItemSchema = docs[0].InferPrimitiveSchema(options.ItemSchemaType)
+            };
+
+            var meta = new OpenAPIPathMetadata(pattern: options.Path, mapOptions: routeOptions)
+            {
+                OperationId = string.IsNullOrWhiteSpace(options.OperationId) ? null : options.OperationId,
+                Summary = string.IsNullOrWhiteSpace(options.Summary) ? null : options.Summary,
+                Description = string.IsNullOrWhiteSpace(options.Description) ? null : options.Description,
+                Tags = options.Tags?.ToList() ?? [],
+                Responses = new OpenApiResponses
                 {
-                    Description = string.IsNullOrWhiteSpace(openApi.ResponseDescription)
-                        ? "SSE stream (text/event-stream)"
-                        : openApi.ResponseDescription,
-                    Content = new Dictionary<string, IOpenApiMediaType>(StringComparer.Ordinal)
+                    [options.StatusCode] = new OpenApiResponse
                     {
-                        [openApi.ContentType] = mediaType
+                        Description = string.IsNullOrWhiteSpace(options.ResponseDescription)
+                            ? "SSE stream (text/event-stream)"
+                            : options.ResponseDescription,
+                        Content = new Dictionary<string, IOpenApiMediaType>(StringComparer.Ordinal)
+                        {
+                            [options.ContentType] = mediaType
+                        }
                     }
                 }
-            }
-        };
+            };
 
-        routeOptions.OpenAPI[HttpVerb.Get] = meta;
-        _registeredRoutes[(path, HttpVerb.Get)] = routeOptions;
+            routeOptions.OpenAPI[HttpVerb.Get] = meta;
+        }
+        _registeredRoutes[(options.Path, HttpVerb.Get)] = routeOptions;
     }
 
     /// <summary>

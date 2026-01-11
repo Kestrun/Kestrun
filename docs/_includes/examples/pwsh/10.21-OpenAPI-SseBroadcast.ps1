@@ -97,7 +97,7 @@ class OperationProgressEvent {
 Add-KrSseBroadcastMiddleware -Path '/sse/broadcast' -KeepAliveSeconds 15
 
 # 2) Progress broadcast SSE stream (OpenAPI payload schema: OperationProgressEvent)
-Add-KrSseBroadcastMiddleware -Path '/sse/broadcast/progress' -KeepAliveSeconds 15 -OpenApiItemSchemaType ([OperationProgressEvent])
+Add-KrSseBroadcastMiddleware -Path '/sse/broadcast/progress' -KeepAliveSeconds 15 -ItemSchemaType ([OperationProgressEvent])
 # =========================================================
 
 ## Enable Configuration

@@ -70,7 +70,7 @@ public sealed class SseBroadcastOpenApiTests
         _ = host.AddSseBroadcast(
             path: "/sse/broadcast",
             keepAliveSeconds: 0,
-            openApi: new Kestrun.Hosting.Options.SseBroadcastOpenApiOptions
+            openApi: new Kestrun.Hosting.Options.SseBroadcastOptions
             {
                 OperationId = "GetSseBroadcast_Custom",
                 Summary = "Custom summary",

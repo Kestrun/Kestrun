@@ -44,7 +44,7 @@ function Add-KrSignalRHubMiddleware {
 
         [Parameter(Mandatory = $false, ParameterSetName = 'Items')]
         [Parameter(Mandatory = $false, ParameterSetName = 'ItemsSkipOpenApi')]
-        [string]$Path = '/hubs/kestrun',
+        [string]$Path,
 
         [Parameter(Mandatory = $false, ParameterSetName = 'Items')]
         [Parameter(Mandatory = $false, ParameterSetName = 'ItemsSkipOpenApi')]
@@ -83,7 +83,7 @@ function Add-KrSignalRHubMiddleware {
         if ($PSCmdlet.ParameterSetName -eq 'Items') {
             $Options = [Kestrun.Hosting.Options.SignalROptions]::new()
             if ( $SkipOpenApi.IsPresent ) {
-                $Options.$SkipOpenApi = $true
+                $Options.SkipOpenApi = $true
             }
 
             if ($PSBoundParameters.ContainsKey('Summary')) { $Options.Summary = $Summary }
@@ -93,7 +93,7 @@ function Add-KrSignalRHubMiddleware {
             # Set the documentation IDs for the SignalR hub
             $Options.DocId = $DocId
             # Set the path for the SignalR hub
-            $Options.Path = $Path
+            if ($PSBoundParameters.ContainsKey('Path')) { $Options.Path = $Path }
             $Options.IncludeNegotiateEndpoint = $IncludeNegotiateEndpoint.IsPresent
         }
         $server.AddSignalR($Options) | Out-Null

@@ -517,6 +517,7 @@ Test-KrOpenApiDocument -Document $doc
 Common URLs when running examples:
 
 - OpenAPI JSON: `/openapi/v3.1/openapi.json`
+- OpenAPI JSON (3.2): `/openapi/v3.2/openapi.json`
 - Swagger UI: `/swagger`
 - ReDoc: `/redoc`
 
@@ -532,6 +533,32 @@ Common URLs when running examples:
 - Use `Add-KrOpenApiServer -Url` to populate `servers[]`.
 - For templated servers (`https://{env}.api.example.com`), use variables via `New-KrOpenApiServerVariable` and pass them to `Add-KrOpenApiServer -Variables`.
 - Keep server variables consistent across v3.0/v3.1/v3.2 documents when examples/tests validate all versions.
+
+### Tags and external docs (OpenAPI 3.2)
+
+- Prefer `Add-KrOpenApiTag` for tag definitions under `tags[]`.
+- For OpenAPI 3.2 hierarchical tags, use `-Parent` and `-Kind`.
+- Use `-Extensions` to add `x-*` fields to tags (keys are normalized to the required `x-` prefix when missing).
+- For **document-level** external documentation, use `Add-KrOpenApiExternalDoc` and pass `-Extensions` when needed.
+- For **tag-level** external documentation with extensions, create the object via `New-KrOpenApiExternalDoc -Extensions $extensions` and pass it via `Add-KrOpenApiTag -ExternalDocs`.
+
+Example pattern (hierarchy + extensions):
+
+```powershell
+$tagExt = [ordered]@{ 'x-displayName' = 'Orders'; 'owner' = 'commerce-team' }
+$docsExt = [ordered]@{ 'x-docType' = 'reference'; 'audience' = 'public' }
+
+$ordersDocs = New-KrOpenApiExternalDoc -Url 'https://example.com/orders' -Description 'Order docs' -Extensions $docsExt
+
+Add-KrOpenApiTag -Name 'operations' -Kind 'category'
+Add-KrOpenApiTag -Name 'orders' -Parent 'operations' -Kind 'resource' -ExternalDocs $ordersDocs -Extensions $tagExt
+Add-KrOpenApiTag -Name 'orders.read' -Parent 'orders' -Kind 'operation'
+
+function listOrders {
+  [OpenApiPath(HttpVerb = 'get', Pattern = '/orders', Tags = ('orders.read', 'orders', 'operations'))]
+  param()
+}
+```
 
 ### Modeling operations
 

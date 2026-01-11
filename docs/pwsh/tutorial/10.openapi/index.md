@@ -75,7 +75,7 @@ pwsh .\docs\_includes\examples\pwsh\10.13-OpenAPI-Examples.ps1
 
 ## Key Concepts
 
-- **OpenAPI 3.1 Specification**: Industry-standard API documentation format
+- **OpenAPI 3.0+ Specifications (including 3.2)**: Industry-standard API documentation format
 - **Component Schemas**: Reusable data structures defined once and referenced multiple times
 - **RequestBody Components**: Standardized request payloads across endpoints
 - **Parameter Components**: Consistent query string, path, header, and cookie parameters

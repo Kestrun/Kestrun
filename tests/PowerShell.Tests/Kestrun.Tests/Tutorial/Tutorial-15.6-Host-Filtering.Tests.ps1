@@ -1,8 +1,10 @@
 param()
+BeforeAll {
+    . (Join-Path $PSScriptRoot '..\PesterHelpers.ps1')
+}
 
 Describe 'Example 15.6-Host-Filtering' -Tag 'Tutorial', 'Middleware', 'HostFiltering' {
     BeforeAll {
-        . (Join-Path $PSScriptRoot '..\PesterHelpers.ps1')
         $script:instance = Start-ExampleScript -Name '15.6-HostFiltering.ps1'
     }
     AfterAll {

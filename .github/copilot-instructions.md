@@ -50,6 +50,13 @@ Invoke-Build SyncPowerShellDll     # Copies from bin/ to src/PowerShell/Kestrun/
 - Use `run_task` tool with IDs like `"build MultiRoutes"`, `"build Authentication"`
 - All tasks use `dotnet build` with solution-relative paths
 
+#### Task Argument Binding (PowerShell)
+- `New-KrTask -Arguments @{ ... }` injects values into the task runspace as **PowerShell variables** (e.g. `@{ seconds = 10 }` becomes `$seconds`), not as positional args.
+- Avoid `param(...)` at the top of `-ScriptBlock` when relying on `-Arguments`, because `param()` binds from `$args` and can shadow the injected variables (leading to tasks that end immediately).
+- Preferred pattern:
+  - Reference injected variables directly inside the scriptblock (`$seconds`, `$name`, …)
+  - Or explicitly read from a variable you set via `-Arguments`.
+
 ### Testing Strategy
 ```powershell
 # C# tests via xUnit
@@ -100,6 +107,69 @@ Thread-safe global variables across runspaces and languages:
 Set-KrSharedState -Name 'Visits' -Value @{Count = 0}
 # Available in all routes as $Visits
 ```
+
+### 5. SSE (Server-Sent Events)
+
+Kestrun supports **per-connection SSE** and **server-wide broadcast SSE**.
+
+**Per-connection SSE (a route owns the stream):**
+
+```powershell
+Add-KrMapRoute -Verbs Get -Pattern '/sse' {
+  Start-KrSseResponse
+  Write-KrSseEvent -Event 'connected' -Data '{"ok":true}' -retryMs 2000
+  Write-KrSseEvent -Event 'tick' -Data '{"i":1}' -id '1'
+}
+```
+
+- Use `Start-KrSseResponse` to set `Content-Type: text/event-stream` and disable buffering.
+- Use `Write-KrSseEvent` to emit `event:`, `data:`, optional `id:` and `retry:`.
+
+**Broadcast SSE (server keeps connections; you broadcast events):**
+
+```powershell
+# Keep a broadcast SSE connection open
+Add-KrSseBroadcastMiddleware -Path '/sse/broadcast' -KeepAliveSeconds 15
+
+# From any route, broadcast to all connected clients
+Send-KrSseBroadcastEvent -Event 'message' -Data '{"text":"hello"}'
+```
+
+- Broadcast SSE uses `Add-KrSseBroadcastMiddleware` + `Send-KrSseBroadcastEvent`.
+- Prefer JSON strings for `-Data` (e.g. `ConvertTo-Json -Compress`) to keep SSE payload predictable.
+
+**OpenAPI for SSE:**
+
+- Document SSE responses as `ContentType = 'text/event-stream'` with a `string` schema.
+- If the SSE endpoint is mapped internally (not via `Add-KrMapRoute`), ensure the endpoint is also present in the host route registry so it appears in generated OpenAPI.
+
+### 6. SignalR
+
+SignalR is Kestrun's **real-time, bidirectional** option (WebSockets + fallbacks).
+
+```powershell
+Add-KrSignalRHubMiddleware -Path '/hubs/kestrun'
+
+# Broadcast messages/events
+Send-KrSignalRLog -Level 'Information' -Message 'Hello'
+Send-KrSignalREvent -EventName 'PowerShellEvent' -Data @{ ts = (Get-Date) }
+
+# Group targeting
+Send-KrSignalRGroupMessage -GroupName 'Admins' -Method 'ReceiveGroupMessage' -Message @{ text = 'Hi Admins' }
+```
+
+- Use `Add-KrSignalRHubMiddleware` to expose the hub path.
+- Use `Send-KrSignalR*` cmdlets for broadcasting and group targeting.
+
+**OpenAPI for SignalR-adjacent routes:**
+
+- The hub itself is not a classic REST route, but the HTTP endpoints that *trigger* SignalR broadcasts should be documented normally with OpenAPI attributes.
+
+**Testing guidance (PowerShell):**
+
+- Prefer Pester tutorial tests that start scripts via `Start-ExampleScript` (see `tests/PowerShell.Tests/Kestrun.Tests/PesterHelpers.ps1`).
+- For SSE routes, keep tests bounded by using small `count` / `intervalMs` values or by testing broadcast APIs instead of holding open infinite streams.
+- For SignalR, validate hub-adjacent HTTP routes and (when needed) use the existing SignalR test helpers in the Pester harness.
 
 ## Critical Integration Points
 
@@ -447,6 +517,7 @@ Test-KrOpenApiDocument -Document $doc
 Common URLs when running examples:
 
 - OpenAPI JSON: `/openapi/v3.1/openapi.json`
+- OpenAPI JSON (3.2): `/openapi/v3.2/openapi.json`
 - Swagger UI: `/swagger`
 - ReDoc: `/redoc`
 
@@ -462,6 +533,32 @@ Common URLs when running examples:
 - Use `Add-KrOpenApiServer -Url` to populate `servers[]`.
 - For templated servers (`https://{env}.api.example.com`), use variables via `New-KrOpenApiServerVariable` and pass them to `Add-KrOpenApiServer -Variables`.
 - Keep server variables consistent across v3.0/v3.1/v3.2 documents when examples/tests validate all versions.
+
+### Tags and external docs (OpenAPI 3.2)
+
+- Prefer `Add-KrOpenApiTag` for tag definitions under `tags[]`.
+- For OpenAPI 3.2 hierarchical tags, use `-Parent` and `-Kind`.
+- Use `-Extensions` to add `x-*` fields to tags (keys are normalized to the required `x-` prefix when missing).
+- For **document-level** external documentation, use `Add-KrOpenApiExternalDoc` and pass `-Extensions` when needed.
+- For **tag-level** external documentation with extensions, create the object via `New-KrOpenApiExternalDoc -Extensions $extensions` and pass it via `Add-KrOpenApiTag -ExternalDocs`.
+
+Example pattern (hierarchy + extensions):
+
+```powershell
+$tagExt = [ordered]@{ 'x-displayName' = 'Orders'; 'owner' = 'commerce-team' }
+$docsExt = [ordered]@{ 'x-docType' = 'reference'; 'audience' = 'public' }
+
+$ordersDocs = New-KrOpenApiExternalDoc -Url 'https://example.com/orders' -Description 'Order docs' -Extensions $docsExt
+
+Add-KrOpenApiTag -Name 'operations' -Kind 'category'
+Add-KrOpenApiTag -Name 'orders' -Parent 'operations' -Kind 'resource' -ExternalDocs $ordersDocs -Extensions $tagExt
+Add-KrOpenApiTag -Name 'orders.read' -Parent 'orders' -Kind 'operation'
+
+function listOrders {
+  [OpenApiPath(HttpVerb = 'get', Pattern = '/orders', Tags = ('orders.read', 'orders', 'operations'))]
+  param()
+}
+```
 
 ### Modeling operations
 

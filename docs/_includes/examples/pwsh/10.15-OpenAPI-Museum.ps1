@@ -515,7 +515,7 @@ function getMuseumHours {
 #>
     [OpenApiPath(HttpVerb = 'get', Pattern = '/museum-hours', Tags = 'Operations')]
 
-    [OpenApiResponse(StatusCode = '200', SchemaRef = 'GetMuseumHoursResponse' , Description = 'Success')]
+    [OpenApiResponse(StatusCode = '200', Schema = [GetMuseumHoursResponse] , Description = 'Success')]
     [OpenApiResponseExampleRef(StatusCode = '200', Key = 'default_example', ReferenceId = 'GetMuseumHoursResponseExample')]
     [OpenApiResponse(StatusCode = '400', Description = 'Bad request')]
     [OpenApiResponse(StatusCode = '404', Description = 'Not found')]
@@ -559,7 +559,7 @@ function createSpecialEvent {
     [OpenApiPath(HttpVerb = 'post', Pattern = '/special-events', Tags = 'Events')]
     # TODO: museum.yml sets security: [] here (no auth); add per-operation override when supported.
 
-    [OpenApiResponse(StatusCode = '201', Description = 'Created.', SchemaRef = 'SpecialEventResponse')]
+    [OpenApiResponse(StatusCode = '201', Description = 'Created.', Schema = [SpecialEventResponse])]
     [OpenApiResponseExampleRef(StatusCode = '201', Key = 'default_example', ReferenceId = 'CreateSpecialEventResponseExample')]
     [OpenApiResponse(StatusCode = '400', Description = 'Bad request')]
     [OpenApiResponse(StatusCode = '404', Description = 'Not found')]
@@ -603,7 +603,7 @@ function listSpecialEvents {
     [OpenApiPath(HttpVerb = 'get', Pattern = '/special-events', Tags = 'Events')]
     # TODO: museum.yml sets security: [] here (no auth); add per-operation override when supported.
 
-    [OpenApiResponse(StatusCode = '200', SchemaRef = 'ListSpecialEventsResponse' , Description = 'Success')]
+    [OpenApiResponse(StatusCode = '200', Schema = [ListSpecialEventsResponse] , Description = 'Success')]
     [OpenApiResponseExampleRef(StatusCode = '200', Key = 'default_example', ReferenceId = 'ListSpecialEventsResponseExample')]
     [OpenApiResponse(StatusCode = '400', Description = 'Bad request')]
     [OpenApiResponse(StatusCode = '404', Description = 'Not found')]
@@ -655,7 +655,7 @@ function getSpecialEvent {
 #>
     [OpenApiPath(HttpVerb = 'get', Pattern = '/special-events/{eventId}', Tags = 'Events')]
 
-    [OpenApiResponse(StatusCode = '200', Description = 'Success', SchemaRef = 'SpecialEventResponse')]
+    [OpenApiResponse(StatusCode = '200', Description = 'Success', Schema = [SpecialEventResponse])]
     [OpenApiResponseExampleRef(StatusCode = '200', Key = 'default_example', ReferenceId = 'GetSpecialEventResponseExample')]
     [OpenApiResponse(StatusCode = '400', Description = 'Bad request')]
     [OpenApiResponse(StatusCode = '404', Description = 'Not found')]
@@ -756,7 +756,7 @@ function buyMuseumTickets {
 #>
     [OpenApiPath(HttpVerb = 'post', Pattern = '/tickets', Tags = 'Tickets')]
 
-    [OpenApiResponse(StatusCode = '200', Description = 'Success', SchemaRef = 'BuyMuseumTicketsResponse')]
+    [OpenApiResponse(StatusCode = '200', Description = 'Success', Schema = [BuyMuseumTicketsResponse])]
     [OpenApiResponseExampleRef(StatusCode = '200', Key = 'general_entry', ReferenceId = 'BuyGeneralTicketsResponseExample')]
     [OpenApiResponseExampleRef(StatusCode = '200', Key = 'event_entry', ReferenceId = 'BuyEventTicketsResponseExample')]
     [OpenApiResponse(StatusCode = '400', Description = 'Bad request')]
@@ -809,7 +809,7 @@ function getTicketCode {
     [OpenApiPath(HttpVerb = 'get', Pattern = '/tickets/{ticketId}/qr', Tags = 'Tickets')]
 
     [OpenApiResponse(StatusCode = '200', Description = 'Scannable event ticket in image format',
-        SchemaRef = 'GetTicketCodeResponse',
+        Schema = [GetTicketCodeResponse],
         ContentType = 'image/png')]
     [OpenApiResponse(StatusCode = '400', Description = 'Bad request')]
     [OpenApiResponse(StatusCode = '404', Description = 'Not found')]

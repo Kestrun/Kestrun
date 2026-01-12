@@ -31,8 +31,21 @@ public partial class OpenApiDocDescriptor
         ApplyParameters(op, meta);
         ApplyCallbacks(op, meta);
         ApplySecurity(op, meta);
-
+        ApplyExtensions(op, meta);
         return op;
+    }
+    /// <summary>
+    /// Applies extension information from metadata to the OpenApiOperation.
+    /// </summary>
+    /// <param name="op">The OpenApiOperation to modify.</param>
+    /// <param name="meta">The OpenAPIPathMetadata containing extension information.</param>
+    private static void ApplyExtensions(OpenApiOperation op, OpenAPIPathMetadata meta)
+    {
+        if (meta.Extensions is null || meta.Extensions.Count == 0)
+        {
+            return;
+        }
+        op.Extensions = meta.Extensions;
     }
 
     /// <summary>

@@ -22,6 +22,7 @@ Deeper, cross-cutting subjects (logging, deployment, performance, etc.).
 | [OpenID Connect](./oidc) | Configure OIDC (Authorization Code + PKCE), claims, and logout |
 | [OAuth 2.0](./oauth2) | Configure OAuth2 providers (e.g., GitHub) and protect routes |
 | [OpenAPI Generation](./openapi) | Generate and document APIs with OpenAPI 3.0+ specifications |
+| [Real-time (SSE & SignalR)](./realtime) | Stream events via SSE or build interactive apps with SignalR |
 | [Scheduling](./scheduling) | Background jobs via intervals and CRON (PS & C#) |
 | [Sessions](./sessions) | Cookie-based per-client state across requests |
 | [Tasks](./tasks) | On-demand background work with progress and results |

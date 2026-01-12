@@ -515,7 +515,7 @@ public partial class OpenApiDocDescriptor
     /// <param name="type">The .NET type to infer from.</param>
     /// <param name="inline">Indicates if the schema should be inlined.</param>
     /// <returns>The inferred OpenApiSchema.</returns>
-    private IOpenApiSchema InferPrimitiveSchema(Type type, bool inline = false)
+    public IOpenApiSchema InferPrimitiveSchema(Type type, bool inline = false)
     {
         var nullable = false;
         if (type.IsGenericType && type.GetGenericTypeDefinition() == typeof(Nullable<>)
@@ -707,7 +707,7 @@ public partial class OpenApiDocDescriptor
         {
             schema.Title = properties.Title;
         }
-        if (properties is not OpenApiParameterComponent && properties.Description is not null)
+        if (properties is not OpenApiParameterComponentAttribute && properties.Description is not null)
         {
             schema.Description = properties.Description;
         }
@@ -839,7 +839,7 @@ public partial class OpenApiDocDescriptor
         schema.WriteOnly = properties.WriteOnly;
         schema.AdditionalPropertiesAllowed = properties.AdditionalPropertiesAllowed;
         schema.UnevaluatedProperties = properties.UnevaluatedProperties;
-        if (properties is not OpenApiParameterComponent)
+        if (properties is not OpenApiParameterComponentAttribute)
         {
             schema.Deprecated = properties.Deprecated;
         }
@@ -851,7 +851,7 @@ public partial class OpenApiDocDescriptor
         {
             schema.Default = ToNode(properties.Default);
         }
-        if (properties.Example is not null && properties is not OpenApiParameterComponent)
+        if (properties.Example is not null && properties is not OpenApiParameterComponentAttribute)
         {
             schema.Example = ToNode(properties.Example);
         }

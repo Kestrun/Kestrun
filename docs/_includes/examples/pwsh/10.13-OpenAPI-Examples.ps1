@@ -184,7 +184,7 @@ function getMuseumHours {
         Shows response example via OpenApiResponseExampleRef (components/examples).
     #>
     [OpenApiPath(HttpVerb = 'get', Pattern = '/museum-hours')]
-    [OpenApiResponse(StatusCode = '200', SchemaRef = 'GetMuseumHoursResponse', Description = 'Success', ContentType = 'application/json')]
+    [OpenApiResponse(StatusCode = '200', Schema = [GetMuseumHoursResponse], Description = 'Success', ContentType = 'application/json')]
     [OpenApiResponseExampleRef(StatusCode = '200', Key = 'default_example', ReferenceId = 'GetMuseumHoursResponseExample')]
     param()
 

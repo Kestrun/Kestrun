@@ -1,9 +1,12 @@
 param()
+BeforeAll {
+    . (Join-Path $PSScriptRoot '..\PesterHelpers.ps1')
+}
+
 
 Describe 'CORS Multi-Policy Multi-API' -Tag 'Tutorial', 'Slow' {
 
     BeforeAll {
-        . (Join-Path $PSScriptRoot '..\PesterHelpers.ps1')
         $script:instance = Start-ExampleScript -Name '15.8-Cors-Multipolicy.ps1'
 
         # Pick origins:

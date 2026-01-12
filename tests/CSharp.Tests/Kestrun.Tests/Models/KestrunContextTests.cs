@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using Kestrun.Models;
 using Kestrun.Hosting;
+using Kestrun.Utilities;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.Routing;
@@ -15,6 +16,12 @@ public class KestrunContextTests
     {
         var host = new KestrunHost("Tests", AppContext.BaseDirectory);
 
+        return NewContext(host, http);
+    }
+
+    private static KestrunContext NewContext(KestrunHost host, DefaultHttpContext http)
+    {
+
         if (string.IsNullOrWhiteSpace(http.Request.Method))
         {
             http.Request.Method = "GET";
@@ -24,6 +31,49 @@ public class KestrunContextTests
         http.SetEndpoint(new RouteEndpoint(_ => Task.CompletedTask, RoutePatternFactory.Parse(http.Request.Path.HasValue ? http.Request.Path.Value : "/"), 0, EndpointMetadataCollection.Empty, "TestEndpoint"));
 
         return new KestrunContext(host, http);
+    }
+
+    [Fact]
+    [Trait("Category", "Hosting")]
+    public void Constructor_WhenNoEndpoint_FallsBackToRootPattern()
+    {
+        var host = new KestrunHost("Tests", AppContext.BaseDirectory);
+        var http = new DefaultHttpContext();
+        http.Request.Method = "POST";
+        http.Request.Path = "/api/anything";
+
+        // Intentionally do NOT set an endpoint.
+        var ctx = new KestrunContext(host, http);
+
+        Assert.Equal("/", ctx.MapRouteOptions.Pattern);
+        Assert.Contains(HttpVerb.Post, ctx.MapRouteOptions.HttpVerbs);
+    }
+
+    [Fact]
+    [Trait("Category", "Hosting")]
+    public void Constructor_WhenRouteRegistered_UsesRegisteredMapRouteOptions()
+    {
+        var host = new KestrunHost("Tests", AppContext.BaseDirectory);
+
+        var registered = new Kestrun.Hosting.Options.MapRouteOptions
+        {
+            Pattern = "/api/registered",
+            HttpVerbs = [HttpVerb.Get]
+        };
+        host.RegisteredRoutes[("/api/registered", HttpVerb.Get)] = registered;
+
+        var http = new DefaultHttpContext();
+        http.Request.Method = "GET";
+        http.Request.Path = "/api/registered";
+        http.SetEndpoint(new RouteEndpoint(
+            _ => Task.CompletedTask,
+            RoutePatternFactory.Parse("/api/registered"),
+            order: 0,
+            metadata: EndpointMetadataCollection.Empty,
+            displayName: "TestEndpoint"));
+
+        var ctx = NewContext(host, http);
+        Assert.Same(registered, ctx.MapRouteOptions);
     }
 
     [Fact]

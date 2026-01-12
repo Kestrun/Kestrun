@@ -5,7 +5,6 @@ namespace Kestrun.Hosting.Options;
 /// </summary>
 public sealed record SseBroadcastOptions
 {
-
     /// <summary>
     /// The default path for the SSE broadcast endpoint.
     /// </summary>
@@ -110,5 +109,4 @@ public sealed record SseBroadcastOptions
     /// If true, the OpenAPI documentation for this endpoint will be skipped.
     /// </summary>
     public bool SkipOpenApi { get; set; }
-
 }

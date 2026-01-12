@@ -31,13 +31,18 @@ public sealed class SseBroadcastOpenApiTests
                 Summary = "Alice payload",
                 Value = OpenApiDocDescriptor.ToNode(new { Name = "Alice" })
             });
+        Kestrun.Hosting.Options.SseBroadcastOptions options = new()
+        {
+            Path = "/sse/broadcast",
+            KeepAliveSeconds = 0
+        };
 
-        _ = host.AddSseBroadcast(path: "/sse/broadcast", keepAliveSeconds: 0);
+        _ = host.AddSseBroadcast(options);
 
-        Assert.True(host.RegisteredRoutes.TryGetValue(("/sse/broadcast", HttpVerb.Get), out var options));
-        Assert.NotNull(options);
-        Assert.NotNull(options.OpenAPI);
-        Assert.True(options.OpenAPI.ContainsKey(HttpVerb.Get));
+        Assert.True(host.RegisteredRoutes.TryGetValue(("/sse/broadcast", HttpVerb.Get), out var routeOptions));
+        Assert.NotNull(routeOptions);
+        Assert.NotNull(routeOptions.OpenAPI);
+        Assert.True(routeOptions.OpenAPI.ContainsKey(HttpVerb.Get));
 
         d.GenerateDoc();
 
@@ -66,18 +71,17 @@ public sealed class SseBroadcastOpenApiTests
                 Summary = "Alice payload",
                 Value = OpenApiDocDescriptor.ToNode(new { Name = "Alice" })
             });
-
-        _ = host.AddSseBroadcast(
-            path: "/sse/broadcast",
-            keepAliveSeconds: 0,
-            openApi: new Kestrun.Hosting.Options.SseBroadcastOptions
-            {
-                OperationId = "GetSseBroadcast_Custom",
-                Summary = "Custom summary",
-                Description = "Custom description",
-                Tags = ["SSE", "Custom"],
-                ItemSchemaType = typeof(int)
-            });
+        Kestrun.Hosting.Options.SseBroadcastOptions options = new()
+        {
+            Path = "/sse/broadcast",
+            KeepAliveSeconds = 0,
+            OperationId = "GetSseBroadcast_Custom",
+            Summary = "Custom summary",
+            Description = "Custom description",
+            Tags = ["SSE", "Custom"],
+            ItemSchemaType = typeof(int)
+        };
+        _ = host.AddSseBroadcast(options);
 
         d.GenerateDoc();
         var json = d.ToJson(OpenApiSpecVersion.OpenApi3_1);

@@ -21,8 +21,9 @@ public partial class KestrunHost
     /// <returns>The host instance.</returns>
     public KestrunHost AddSseBroadcast(SseBroadcastOptions options)
     {
-        // Allow callers to override metadata even if another component pre-registered the route.
-        //    RegisterSseBroadcastRouteForOpenApi(options);
+        // Register immediately so OpenAPI generation and callers can see the route metadata
+        // without requiring Build()/Use() to have executed.
+        RegisterSseBroadcastRouteForOpenApi(options);
 
         return AddService(services =>
             {
@@ -31,7 +32,6 @@ public partial class KestrunHost
             })
             .Use(app =>
             {
-                RegisterSseBroadcastRouteForOpenApi(options);
                 _ = ((IEndpointRouteBuilder)app).MapGet(options.Path, httpContext => HandleSseBroadcastConnectAsync(httpContext, options.KeepAliveSeconds));
             });
     }

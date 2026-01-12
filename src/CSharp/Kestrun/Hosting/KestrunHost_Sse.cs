@@ -214,7 +214,7 @@ public partial class KestrunHost
     /// <param name="httpContext">HTTP context.</param>
     /// <param name="reader">Channel reader.</param>
     /// <param name="keepAliveSeconds">Keep-alive interval in seconds.</param>
-    private async Task PumpSseAsync(HttpContext httpContext, ChannelReader<string> reader, int keepAliveSeconds)
+    private static async Task PumpSseAsync(HttpContext httpContext, ChannelReader<string> reader, int keepAliveSeconds)
     {
         var ct = httpContext.RequestAborted;
         var keepAliveTask = keepAliveSeconds > 0

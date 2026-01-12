@@ -1701,6 +1701,7 @@ public partial class KestrunHost : IDisposable
                     AddSignalRTag(defTag);
                 }
             }
+            // Create OpenAPI metadata for the SignalR hub endpoint
             var meta = new OpenAPIPathMetadata(pattern: options.Path, mapOptions: routeOptions)
             {
                 DocumentId = options.DocId,

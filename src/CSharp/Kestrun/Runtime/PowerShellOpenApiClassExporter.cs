@@ -644,13 +644,13 @@ public static class PowerShellOpenApiClassExporter
 
         // If the property type is itself one of the OpenAPI component classes,
         // use its *simple* name (Pet, User, Tag, Category, etc.)
-        if (componentSet.Contains(t))
+        if (componentSet.Contains(t) || t.FullName is null)
         {
             return t.Name;
         }
 
         // Fallback for other reference types (you can change to t.Name if you prefer)
-        return t.FullName ?? t.Name;
+        return t.FullName;
     }
 
     /// <summary>

@@ -1,4 +1,4 @@
-﻿<#
+<#
     Create an SSE demo server with Kestrun in PowerShell.
     FileName: 15.9-Sse.ps1
 

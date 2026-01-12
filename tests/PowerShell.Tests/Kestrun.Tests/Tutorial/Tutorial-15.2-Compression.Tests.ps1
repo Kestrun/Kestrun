@@ -1,7 +1,10 @@
 param()
+BeforeAll {
+    . (Join-Path $PSScriptRoot '..\PesterHelpers.ps1')
+}
 
 Describe 'Example 15.2-Compression' -Tag 'Tutorial', 'Middleware', 'Compression' {
-    BeforeAll { . (Join-Path $PSScriptRoot '..\PesterHelpers.ps1'); $script:instance = Start-ExampleScript -Name '15.2-Compression.ps1' }
+    BeforeAll { $script:instance = Start-ExampleScript -Name '15.2-Compression.ps1' }
     AfterAll { if ($script:instance) { Stop-ExampleScript -Instance $script:instance } }
 
     It 'All main routes respond 200 without compression header' {
@@ -51,4 +54,4 @@ Describe 'Example 15.2-Compression' -Tag 'Tutorial', 'Middleware', 'Compression'
         ($probe.GzipLength -ge $probe.RawLength) | Should -BeTrue -Because 'No compression expected so compressed request size should not shrink'
     }
 }
- 
+

@@ -1,4 +1,4 @@
-﻿<#
+<#
     Create an SSE demo server with Kestrun in PowerShell (with OpenAPI).
     FileName: 10.20-OpenAPI-Sse.ps1
 

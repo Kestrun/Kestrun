@@ -1,4 +1,4 @@
-﻿<#
+<#
     .SYNOPSIS
         Adds an SSE broadcast endpoint to the server.
     .DESCRIPTION

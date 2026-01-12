@@ -1,8 +1,10 @@
-﻿param()
+param()
+BeforeAll {
+    . (Join-Path $PSScriptRoot '..\PesterHelpers.ps1')
+}
 
 Describe 'Tutorial 15.10 - SSE Broadcast (PowerShell)' -Tag 'Tutorial' {
     BeforeAll {
-        . (Join-Path $PSScriptRoot '..\PesterHelpers.ps1')
         $script:instance = Start-ExampleScript -Name '15.10-SseBroadcast.ps1'
     }
 

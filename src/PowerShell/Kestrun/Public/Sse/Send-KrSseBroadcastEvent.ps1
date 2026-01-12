@@ -1,4 +1,4 @@
-﻿<#
+<#
     .SYNOPSIS
         Broadcasts an SSE event to all connected SSE broadcast clients.
     .DESCRIPTION

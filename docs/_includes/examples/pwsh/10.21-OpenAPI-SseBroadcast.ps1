@@ -1,4 +1,4 @@
-﻿<#
+<#
     Create a broadcast SSE demo server with Kestrun in PowerShell (with OpenAPI).
     FileName: 10.21-OpenAPI-SseBroadcast.ps1
 

@@ -1,4 +1,4 @@
-﻿<#
+<#
     .SYNOPSIS
         Gets the number of connected SSE broadcast clients.
     .DESCRIPTION

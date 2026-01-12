@@ -1,4 +1,4 @@
-﻿param()
+param()
 
 Describe 'Tutorial 10.17 - OpenAPI SignalR (PowerShell)' -Tag 'Tutorial' {
     BeforeAll {

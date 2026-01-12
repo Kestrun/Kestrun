@@ -1,4 +1,4 @@
-﻿<#
+<#
     Create a broadcast SSE demo server with Kestrun in PowerShell.
     FileName: 15.10-SseBroadcast.ps1
 
@@ -29,30 +29,14 @@ New-KrServer -Name 'Kestrun SSE Broadcast Demo'
 
 Add-KrEndpoint -Port $Port -IPAddress $IPAddress
 
-[OpenApiSchemaComponent(Description = 'Operation progress SSE event payload')]
-class OperationProgressEvent {
-    [OpenApiProperty(Description = 'Task identifier')]
-    [string]$taskId
-
-    [OpenApiProperty(Description = 'Progress percent', Format = 'double')]
-    [double]$progress
-
-    [OpenApiProperty(Description = 'Human status message')]
-    [string]$status
-
-    [OpenApiProperty(Description = 'State text')]
-    [string]$state
-
-    [OpenApiProperty(Description = 'UTC timestamp', Format = 'date-time')]
-    [datetime]$ts
-}
+ 
 
 # Add the broadcast SSE endpoints (implemented in C#; keeps connections open)
 # 1) Default broadcast SSE stream (schema defaults to string in OpenAPI)
 Add-KrSseBroadcastMiddleware -Path '/sse/broadcast' -KeepAliveSeconds 15
 
 # 2) Progress broadcast SSE stream (OpenAPI payload schema: OperationProgressEvent)
-Add-KrSseBroadcastMiddleware -Path '/sse/broadcast/progress' -KeepAliveSeconds 15 -ItemSchemaType ([OperationProgressEvent])
+Add-KrSseBroadcastMiddleware -Path '/sse/broadcast/progress' -KeepAliveSeconds 15
 
 
 Enable-KrConfiguration

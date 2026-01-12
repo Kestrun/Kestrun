@@ -1,4 +1,4 @@
-﻿param()
+param()
 
 Describe 'Tutorial 10.20 - OpenAPI SSE (PowerShell)' -Tag 'Tutorial' {
     BeforeAll {

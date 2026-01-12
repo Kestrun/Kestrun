@@ -17,7 +17,7 @@ New-KrLogger | Add-KrSinkConsole |
     Set-KrLoggerLevel -Value Debug |
     Register-KrLogger -Name 'console' -SetAsDefault
 
-$srv = New-KrServer -Name 'E-Commerce Webhook API' -PassThru
+New-KrServer -Name 'E-Commerce Webhook API'
 
 Add-KrEndpoint -Port $Port -IPAddress $IPAddress
 
@@ -405,4 +405,4 @@ Test-KrOpenApiDocument
 #                      RUN SERVER
 # =========================================================
 
-Start-KrServer -Server $srv -CloseLogsOnExit
+Start-KrServer -CloseLogsOnExit

@@ -19,7 +19,7 @@ if (-not (Get-Module Kestrun)) { Import-Module Kestrun }
 New-KrLogger | Add-KrSinkConsole |
     Set-KrLoggerLevel -Value Debug |
     Register-KrLogger -Name 'console' -SetAsDefault
-$srv = New-KrServer -Name 'Swagger Petstore - OpenAPI 3.1' -PassThru
+New-KrServer -Name 'Swagger Petstore - OpenAPI 3.1'
 Add-KrEndpoint -Port $Port -IPAddress $IPAddress
 # =========================================================
 #                 TOP-LEVEL OPENAPI (3.0.4)
@@ -699,6 +699,6 @@ Test-KrOpenApiDocument
 #region RUN SERVER
 # Optional: run server (your call, you deliciously decisive creature)
 
-Start-KrServer -Server $srv -CloseLogsOnExit
+Start-KrServer -CloseLogsOnExit
 #endregion
 #endregion

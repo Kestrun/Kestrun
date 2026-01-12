@@ -17,7 +17,7 @@ New-KrLogger |
     Register-KrLogger -Name 'console' -SetAsDefault | Out-Null
 
 # Create server instance
-$srv = New-KrServer -Name 'OpenAPI Document Info Demo'
+New-KrServer -Name 'OpenAPI Document Info Demo'
 
 # Configure endpoint
 Add-KrEndpoint -Port $Port -IPAddress $IPAddress
@@ -77,5 +77,4 @@ Build-KrOpenApiDocument
 Test-KrOpenApiDocument
 
 # Start the server and keep logs open until exit
-Start-KrServer -Server $srv -CloseLogsOnExit
-
+Start-KrServer -CloseLogsOnExit

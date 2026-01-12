@@ -16,7 +16,7 @@ New-KrLogger | Add-KrSinkConsole |
     Set-KrLoggerLevel -Value Debug |
     Register-KrLogger -Name 'console' -SetAsDefault
 
-$srv = New-KrServer -Name 'OpenAPI Hello World' -PassThru
+New-KrServer -Name 'OpenAPI Hello World'
 
 Add-KrEndpoint -Port $Port -IPAddress $IPAddress
 # =========================================================
@@ -78,4 +78,4 @@ Add-KrOpenApiRoute -DocumentId 'WebHookDoc' # Default pattern '/openapi/{version
 #                      RUN SERVER
 # =========================================================
 
-Start-KrServer -Server $srv -CloseLogsOnExit
+Start-KrServer -CloseLogsOnExit

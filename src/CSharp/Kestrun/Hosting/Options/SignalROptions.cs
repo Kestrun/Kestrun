@@ -1,7 +1,7 @@
 namespace Kestrun.Hosting.Options;
 
 /// <summary>
-/// Customization options for the OpenAPI metadata generated for the SSE broadcast endpoint.
+/// Customization options for the OpenAPI metadata generated for the SignalR hub endpoint.
 /// </summary>
 public sealed record SignalROptions
 {
@@ -35,12 +35,12 @@ public sealed record SignalROptions
     public string Path { get; set; } = DefaultPath;
 
     /// <summary>
-    /// Customization options for the OpenAPI metadata generated for the SSE broadcast endpoint.
+    /// Customization options for the OpenAPI metadata generated for the SignalR hub endpoint.
     /// </summary>
     public string[] DocId { get; set; } = OpenApi.OpenApiDocDescriptor.DefaultDocumentationIds;
 
     /// <summary>
-    /// Gets a default configuration for the SSE broadcast OpenAPI metadata.
+    /// Gets a default configuration for the SignalR hub OpenAPI metadata.
     /// </summary>
     public static SignalROptions Default { get; } = new();
 

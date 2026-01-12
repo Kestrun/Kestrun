@@ -1659,6 +1659,208 @@ public partial class KestrunHost : IDisposable
     }
 
     /// <summary>
+    /// Computes the SignalR negotiate endpoint path based on the hub path.
+    /// </summary>
+    /// <param name="hubPath">The hub route path.</param>
+    /// <returns>The negotiate path for the hub.</returns>
+    private static string GetSignalRNegotiatePath(string hubPath)
+        => hubPath.EndsWith("/negotiate", StringComparison.OrdinalIgnoreCase)
+            ? hubPath
+            : hubPath.TrimEnd('/') + "/negotiate";
+
+    /// <summary>
+    /// Creates a native route registration with no script body.
+    /// </summary>
+    /// <param name="pattern">The route pattern.</param>
+    /// <param name="verb">The HTTP verb for the route.</param>
+    /// <returns>A configured <see cref="MapRouteOptions"/> instance.</returns>
+    private static MapRouteOptions CreateNativeRouteOptions(string pattern, HttpVerb verb)
+        => new()
+        {
+            Pattern = pattern,
+            HttpVerbs = [verb],
+            ScriptCode = new LanguageOptions
+            {
+                Language = ScriptLanguage.Native,
+                Code = string.Empty
+            }
+        };
+
+    /// <summary>
+    /// Registers a route in the internal route registry.
+    /// </summary>
+    /// <param name="pattern">The route pattern.</param>
+    /// <param name="verb">The HTTP verb.</param>
+    /// <param name="routeOptions">The route options.</param>
+    private void RegisterRoute(string pattern, HttpVerb verb, MapRouteOptions routeOptions)
+        => _registeredRoutes[(pattern, verb)] = routeOptions;
+
+    /// <summary>
+    /// Ensures the default OpenAPI tags for real-time and SignalR are present when the caller uses default tagging.
+    /// </summary>
+    /// <param name="options">SignalR configuration options.</param>
+    /// <param name="apiDocDescriptors">OpenAPI document descriptors to update.</param>
+    private static void EnsureDefaultSignalRTags(SignalROptions options, IEnumerable<OpenApiDocDescriptor> apiDocDescriptors)
+    {
+        if (options.Tags?.Contains(SignalROptions.DefaultTag) != true)
+        {
+            return;
+        }
+
+        foreach (var defTag in apiDocDescriptors)
+        {
+            AddRealTimeTag(defTag);
+            AddSignalRTag(defTag);
+        }
+    }
+
+    /// <summary>
+    /// Creates the common OpenAPI response set for the SignalR hub connect endpoint.
+    /// </summary>
+    /// <returns>The OpenAPI responses collection.</returns>
+    private static OpenApiResponses CreateSignalRHubResponses()
+        => new()
+        {
+            ["101"] = new OpenApiResponse { Description = "Switching Protocols (WebSocket upgrade)" },
+            ["401"] = new OpenApiResponse { Description = "Unauthorized" },
+            ["403"] = new OpenApiResponse { Description = "Forbidden" },
+            ["404"] = new OpenApiResponse { Description = "Not Found" },
+            ["500"] = new OpenApiResponse { Description = "Internal Server Error" }
+        };
+
+    /// <summary>
+    /// Creates the common OpenAPI response set for the SignalR negotiate endpoint.
+    /// </summary>
+    /// <returns>The OpenAPI responses collection.</returns>
+    private static OpenApiResponses CreateSignalRNegotiateResponses()
+        => new()
+        {
+            ["200"] = new OpenApiResponse { Description = "Successful negotiation" },
+            ["401"] = new OpenApiResponse { Description = "Unauthorized" },
+            ["403"] = new OpenApiResponse { Description = "Forbidden" },
+            ["404"] = new OpenApiResponse { Description = "Not Found" },
+            ["500"] = new OpenApiResponse { Description = "Internal Server Error" }
+        };
+
+    /// <summary>
+    /// Builds the OpenAPI extensions for SignalR endpoints.
+    /// </summary>
+    /// <param name="options">SignalR configuration options.</param>
+    /// <param name="negotiatePath">The negotiate endpoint path.</param>
+    /// <param name="role">The SignalR endpoint role (e.g., connect, negotiate).</param>
+    /// <returns>Extensions dictionary for OpenAPI metadata.</returns>
+    private static Dictionary<string, IOpenApiExtension> CreateSignalRExtensions(SignalROptions options, string negotiatePath, string role)
+        => new()
+        {
+            ["x-signalr-role"] = new JsonNodeExtension(JsonValue.Create(role)),
+            ["x-signalr"] = new JsonNodeExtension(new JsonObject
+            {
+                ["hub"] = options.HubName,
+                ["path"] = options.Path,
+                ["negotiatePath"] = negotiatePath,
+                ["connectOperation"] = "get:" + options.Path,
+                ["transports"] = new JsonArray("websocket", "sse", "longPolling"),
+                ["formats"] = new JsonArray("json"),
+            })
+        };
+
+    /// <summary>
+    /// Adds OpenAPI metadata to the hub connect route, if OpenAPI is enabled.
+    /// </summary>
+    /// <param name="options">SignalR configuration options.</param>
+    /// <param name="apiDocDescriptors">OpenAPI document descriptors for tag registration.</param>
+    /// <param name="routeOptions">The route options to enrich with OpenAPI metadata.</param>
+    /// <param name="negotiatePath">The computed negotiate endpoint path.</param>
+    private void TryAddSignalRHubOpenApiMetadata(
+        SignalROptions options,
+        IEnumerable<OpenApiDocDescriptor> apiDocDescriptors,
+        MapRouteOptions routeOptions,
+        string negotiatePath)
+    {
+        if (options.SkipOpenApi)
+        {
+            return;
+        }
+
+        if (Logger.IsEnabled(LogEventLevel.Debug))
+        {
+            Logger.Debug("Adding OpenAPI metadata for SignalR hub at path: {Path}", options.Path);
+        }
+
+        EnsureDefaultSignalRTags(options, apiDocDescriptors);
+
+        var meta = new OpenAPIPathMetadata(pattern: options.Path, mapOptions: routeOptions)
+        {
+            DocumentId = options.DocId,
+            Summary = string.IsNullOrWhiteSpace(options.Summary) ? null : options.Summary,
+            Description = string.IsNullOrWhiteSpace(options.Description) ? null : options.Description,
+            Tags = options.Tags?.ToList() ?? [],
+            Responses = CreateSignalRHubResponses(),
+            Extensions = CreateSignalRExtensions(options, negotiatePath, role: "connect")
+        };
+
+        routeOptions.OpenAPI[HttpVerb.Get] = meta;
+    }
+
+    /// <summary>
+    /// Adds OpenAPI metadata to the negotiate route, if OpenAPI is enabled.
+    /// </summary>
+    /// <param name="options">SignalR configuration options.</param>
+    /// <param name="negotiateRouteOptions">The negotiate route options to enrich with OpenAPI metadata.</param>
+    /// <param name="negotiatePath">The negotiate endpoint path.</param>
+    private static void TryAddSignalRNegotiateOpenApiMetadata(
+        SignalROptions options,
+        MapRouteOptions negotiateRouteOptions,
+        string negotiatePath)
+    {
+        if (options.SkipOpenApi)
+        {
+            return;
+        }
+
+        var negotiateMeta = new OpenAPIPathMetadata(pattern: negotiatePath, mapOptions: negotiateRouteOptions)
+        {
+            Summary = "SignalR negotiate endpoint",
+            Description = "Negotiates connection parameters for a SignalR client before establishing the transport.",
+            Tags = options.Tags?.ToList() ?? [],
+            Responses = CreateSignalRNegotiateResponses(),
+            Extensions = CreateSignalRExtensions(options, negotiatePath, role: "negotiate")
+        };
+
+        negotiateRouteOptions.OpenAPI[HttpVerb.Post] = negotiateMeta;
+    }
+
+    /// <summary>
+    /// Registers SignalR services and JSON protocol configuration.
+    /// </summary>
+    /// <typeparam name="THub">The hub type being registered.</typeparam>
+    /// <param name="services">The service collection to configure.</param>
+    private static void ConfigureSignalRServices<THub>(IServiceCollection services) where THub : Hub
+    {
+        _ = services.AddSignalR().AddJsonProtocol(opts =>
+        {
+            // Avoid failures when payloads contain cycles; our sanitizer should prevent most, this is a safety net.
+            opts.PayloadSerializerOptions.ReferenceHandler = ReferenceHandler.IgnoreCycles;
+        });
+
+        // Register IRealtimeBroadcaster as singleton if it's the KestrunHub
+        if (typeof(THub) == typeof(SignalR.KestrunHub))
+        {
+            _ = services.AddSingleton<SignalR.IRealtimeBroadcaster, SignalR.RealtimeBroadcaster>();
+            _ = services.AddSingleton<SignalR.IConnectionTracker, SignalR.InMemoryConnectionTracker>();
+        }
+    }
+
+    /// <summary>
+    /// Maps the SignalR hub to the application's endpoint route builder.
+    /// </summary>
+    /// <typeparam name="THub">The hub type being mapped.</typeparam>
+    /// <param name="app">The application builder.</param>
+    /// <param name="path">The hub path.</param>
+    private static void MapSignalRHub<THub>(IApplicationBuilder app, string path) where THub : Hub
+        => ((IEndpointRouteBuilder)app).MapHub<THub>(path);
+
+    /// <summary>
     /// Adds a SignalR hub to the application at the specified path.
     /// </summary>
     /// <typeparam name="T">The type of the SignalR hub.</typeparam>
@@ -1666,168 +1868,29 @@ public partial class KestrunHost : IDisposable
     /// <returns>The current KestrunHost instance.</returns>
     public KestrunHost AddSignalR<T>(SignalROptions options) where T : Hub
     {
-        // Register OpenAPI document and metadata for the SignalR hub
         options ??= SignalROptions.Default;
 
         var apiDocDescriptors = GetOrCreateOpenApiDocument(options.DocId);
+        var negotiatePath = GetSignalRNegotiatePath(options.Path);
 
-        var routeOptions = new MapRouteOptions
-        {
-            Pattern = options.Path,
-            HttpVerbs = [HttpVerb.Get],
-            ScriptCode = new LanguageOptions
-            {
-                Language = ScriptLanguage.Native,
-                Code = string.Empty
-            }
-        };
-        var negotiatePath = options.Path.EndsWith("/negotiate", StringComparison.OrdinalIgnoreCase)
-            ? options.Path
-            : options.Path.TrimEnd('/') + "/negotiate";
-        if (!options.SkipOpenApi)
-        {
-            if (Logger.IsEnabled(LogEventLevel.Debug))
-            {
-                Logger.Debug("Adding OpenAPI metadata for SignalR hub at path: {Path}", options.Path);
-            }
-            // Add default tags if using default tag
-            if (options.Tags.Contains(SignalROptions.DefaultTag))
-            {
-                foreach (var defTag in apiDocDescriptors)
-                {
-                    // Ensure default tags are present
-                    AddRealTimeTag(defTag);
-                    // Ensure SignalR tag is present
-                    AddSignalRTag(defTag);
-                }
-            }
-            // Create OpenAPI metadata for the SignalR hub endpoint
-            var meta = new OpenAPIPathMetadata(pattern: options.Path, mapOptions: routeOptions)
-            {
-                DocumentId = options.DocId,
-                Summary = string.IsNullOrWhiteSpace(options.Summary) ? null : options.Summary,
-                Description = string.IsNullOrWhiteSpace(options.Description) ? null : options.Description,
-                Tags = options.Tags?.ToList() ?? [],
-                Responses = new OpenApiResponses
-                {
-                    ["101"] = new OpenApiResponse
-                    {
-                        Description = "Switching Protocols (WebSocket upgrade)"
-                    },
-                    ["401"] = new OpenApiResponse
-                    {
-                        Description = "Unauthorized"
-                    },
-                    ["403"] = new OpenApiResponse
-                    {
-                        Description = "Forbidden"
-                    },
-                    ["404"] = new OpenApiResponse
-                    {
-                        Description = "Not Found"
-                    },
-                    ["500"] = new OpenApiResponse
-                    {
-                        Description = "Internal Server Error"
-                    }
-                },
-                Extensions = new Dictionary<string, IOpenApiExtension>
-                {
-                    ["x-signalr-role"] = new JsonNodeExtension(JsonValue.Create("connect")),
-                    ["x-signalr"] = new JsonNodeExtension(new JsonObject
-                    {
-                        ["hub"] = options.HubName,
-                        ["path"] = options.Path,
-                        ["negotiatePath"] = negotiatePath,
-                        ["connectOperation"] = "get:" + options.Path,
-                        ["transports"] = new JsonArray("websocket", "sse", "longPolling"),
-                        ["formats"] = new JsonArray("json"),
-                    })
-                }
-            };
-            routeOptions.OpenAPI[HttpVerb.Get] = meta;
-        }
-        _registeredRoutes[(options.Path, HttpVerb.Get)] = routeOptions;
+        var routeOptions = CreateNativeRouteOptions(options.Path, HttpVerb.Get);
+        TryAddSignalRHubOpenApiMetadata(options, apiDocDescriptors, routeOptions, negotiatePath);
+        RegisterRoute(options.Path, HttpVerb.Get, routeOptions);
 
         if (options.IncludeNegotiateEndpoint)
         {
-            var negotiateRouteOptions = new MapRouteOptions
-            {
-                Pattern = negotiatePath,
-                HttpVerbs = [HttpVerb.Post],
-                ScriptCode = new LanguageOptions
-                {
-                    Language = ScriptLanguage.Native,
-                    Code = string.Empty
-                }
-            };
-            if (!options.SkipOpenApi)
-            {
-                var negotiateMeta = new OpenAPIPathMetadata(pattern: negotiatePath, mapOptions: negotiateRouteOptions)
-                {
-                    Summary = "SignalR negotiate endpoint",
-                    Description = "Negotiates connection parameters for a SignalR client before establishing the transport.",
-                    Tags = options.Tags?.ToList() ?? [],
-                    Responses = new OpenApiResponses
-                    {
-                        ["200"] = new OpenApiResponse
-                        {
-                            Description = "Successful negotiation"
-                        },
-                        ["401"] = new OpenApiResponse
-                        {
-                            Description = "Unauthorized"
-                        },
-                        ["403"] = new OpenApiResponse
-                        {
-                            Description = "Forbidden"
-                        },
-                        ["404"] = new OpenApiResponse
-                        {
-                            Description = "Not Found"
-                        },
-                        ["500"] = new OpenApiResponse
-                        {
-                            Description = "Internal Server Error"
-                        }
-                    },
-                    Extensions = new Dictionary<string, IOpenApiExtension>
-                    {
-                        ["x-signalr-role"] = new JsonNodeExtension(JsonValue.Create("negotiate")),
-                        ["x-signalr"] = new JsonNodeExtension(new JsonObject
-                        {
-                            ["hub"] = options.HubName,
-                            ["path"] = options.Path,
-                            ["negotiatePath"] = negotiatePath,
-                            ["connectOperation"] = "get:" + options.Path,
-                            ["transports"] = new JsonArray("websocket", "sse", "longPolling"),
-                            ["formats"] = new JsonArray("json"),
-                        })
-                    }
-                };
-                negotiateRouteOptions.OpenAPI[HttpVerb.Post] = negotiateMeta;
-            }
-            _registeredRoutes[(negotiatePath, HttpVerb.Post)] = negotiateRouteOptions;
+            var negotiateRouteOptions = CreateNativeRouteOptions(negotiatePath, HttpVerb.Post);
+            TryAddSignalRNegotiateOpenApiMetadata(options, negotiateRouteOptions, negotiatePath);
+            RegisterRoute(negotiatePath, HttpVerb.Post, negotiateRouteOptions);
         }
+
         if (Logger.IsEnabled(LogEventLevel.Debug))
         {
             Logger.Debug("Adding SignalR hub of type {HubType} at path: {Path}", typeof(T).FullName, options.Path);
         }
-        return AddService(s =>
-        {
-            _ = s.AddSignalR().AddJsonProtocol(opts =>
-            {
-                // Avoid failures when payloads contain cycles; our sanitizer should prevent most, this is a safety net.
-                opts.PayloadSerializerOptions.ReferenceHandler = ReferenceHandler.IgnoreCycles;
-            });
-            // Register IRealtimeBroadcaster as singleton if it's the KestrunHub
-            if (typeof(T) == typeof(SignalR.KestrunHub))
-            {
-                _ = s.AddSingleton<SignalR.IRealtimeBroadcaster, SignalR.RealtimeBroadcaster>();
-                _ = s.AddSingleton<SignalR.IConnectionTracker, SignalR.InMemoryConnectionTracker>();
-            }
-        })
-        .Use(app => ((IEndpointRouteBuilder)app).MapHub<T>(options.Path));
+
+        return AddService(ConfigureSignalRServices<T>)
+            .Use(app => MapSignalRHub<T>(app, options.Path));
     }
 
     /// <summary>

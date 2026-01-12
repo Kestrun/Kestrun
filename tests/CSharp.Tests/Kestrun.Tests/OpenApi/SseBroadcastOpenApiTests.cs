@@ -39,6 +39,10 @@ public sealed class SseBroadcastOpenApiTests
 
         _ = host.AddSseBroadcast(options);
 
+        // SSE broadcast route metadata is registered during app pipeline construction.
+        // Build the host so the OpenAPI route registry entry is available.
+        _ = host.Build();
+
         Assert.True(host.RegisteredRoutes.TryGetValue(("/sse/broadcast", HttpVerb.Get), out var routeOptions));
         Assert.NotNull(routeOptions);
         Assert.NotNull(routeOptions.OpenAPI);
@@ -82,6 +86,9 @@ public sealed class SseBroadcastOpenApiTests
             ItemSchemaType = typeof(int)
         };
         _ = host.AddSseBroadcast(options);
+
+        // SSE broadcast route metadata is registered during app pipeline construction.
+        _ = host.Build();
 
         d.GenerateDoc();
         var json = d.ToJson(OpenApiSpecVersion.OpenApi3_1);

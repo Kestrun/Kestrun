@@ -76,6 +76,7 @@ public partial class OpenApiDocDescriptor
     /// Indicates whether the OpenAPI document has been generated at least once.
     /// </summary>
     public bool HasBeenGenerated { get; private set; }
+
     /// <summary>
     /// Generates an OpenAPI document from the provided schema types.
     /// </summary>
@@ -247,9 +248,6 @@ public partial class OpenApiDocDescriptor
     /// <remarks>This method sets HasBeenGenerated to true after generation.</remarks>
     public void GenerateDoc()
     {
-        // First, generate components
-        //GenerateComponents();
-
         // Then, generate webhooks
         BuildWebhooks(WebHook);
 

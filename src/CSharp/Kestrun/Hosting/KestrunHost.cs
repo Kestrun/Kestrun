@@ -381,8 +381,6 @@ public partial class KestrunHost : IDisposable
             _ = o.ShutdownTimeout = TimeSpan.FromSeconds(5);
         });
 
-
-
         // Enable Serilog for the host
         _ = Builder.Host.UseSerilog();
 

@@ -2,6 +2,7 @@ using Kestrun.Hosting;
 using Kestrun.Hosting.Options;
 using Kestrun.Scripting;
 using Kestrun.Claims;
+using Kestrun.OpenApi;
 using Microsoft.AspNetCore.Http;
 using Microsoft.IdentityModel.Tokens;
 using Xunit;
@@ -13,6 +14,21 @@ namespace KestrunTests.Hosting;
 [Collection("SharedStateSerial")]
 public class KestrunHostMapExtensionsTests
 {
+
+    private static void EnsureUserExExample(KestrunHost host)
+    {
+        // Some OpenAPI component tests declare ExampleRef attributes (e.g., ReferenceId="UserEx").
+        // When EnableConfiguration triggers OpenAPI component auto-discovery, those references must be resolvable.
+        var descriptor = host.GetOrCreateOpenApiDocument(OpenApiDocDescriptor.DefaultDocumentationId);
+        descriptor.AddComponentExample(
+            "UserEx",
+            new Microsoft.OpenApi.OpenApiExample
+            {
+                Summary = "User example",
+                Description = "Example used by xUnit tests",
+                Value = OpenApiDocDescriptor.ToNode(new { Name = "Alice", Age = 42 })
+            });
+    }
 
 
     [Fact]
@@ -99,6 +115,7 @@ public class KestrunHostMapExtensionsTests
         var host = new KestrunHost("TestApp", AppContext.BaseDirectory);
         // Ensure auth services exist so HasAuthScheme can resolve provider
         _ = host.AddBasicAuthentication("InitAuth", "Init Basic Authentication", _ => { });
+        EnsureUserExExample(host);
         host.EnableConfiguration();
 
         var options = new MapRouteOptions
@@ -124,6 +141,7 @@ public class KestrunHostMapExtensionsTests
 
         // Register a basic auth scheme
         _ = host.AddBasicAuthentication("BasicX", "BasicX Basic Authentication", _ => { });
+        EnsureUserExExample(host);
         host.EnableConfiguration();
 
         var options = new MapRouteOptions
@@ -201,6 +219,7 @@ public class KestrunHostMapExtensionsTests
             TokenValidationParameters = tvp,
             ClaimPolicy = cfg
         });
+        EnsureUserExExample(host);
         host.EnableConfiguration();
 
         var options = new MapRouteOptions

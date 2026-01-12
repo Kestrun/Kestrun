@@ -1,6 +1,10 @@
 param()
+BeforeAll {
+    . (Join-Path $PSScriptRoot '..\PesterHelpers.ps1')
+}
+
 Describe 'Example 15.3-Https-Redirection' -Tag 'Tutorial', 'Middleware', 'Https' {
-    BeforeAll { . (Join-Path $PSScriptRoot '..\PesterHelpers.ps1'); $script:instance = Start-ExampleScript -Name '15.3-Https-Redirection.ps1' }
+    BeforeAll { $script:instance = Start-ExampleScript -Name '15.3-Https-Redirection.ps1' }
     AfterAll { if ($script:instance) { Stop-ExampleScript -Instance $script:instance } }
 
     It 'Redirects HTTP to HTTPS with expected status code' {

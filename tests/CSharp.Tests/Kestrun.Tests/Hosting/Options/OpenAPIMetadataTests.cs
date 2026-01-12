@@ -60,8 +60,10 @@ public class OpenAPIMetadataTests
     [Trait("Category", "Hosting")]
     public void RecordEquality_SameValues_ReturnsTrue()
     {
-        // Share the same Tags reference to ensure record equality
+        // Record equality for reference types (List/Dictionary/etc) uses their Equals implementation.
+        // For List<T> this is reference equality, so we normalize by sharing references.
         var sharedTags = new List<string>();
+        var sharedDocumentIds = new List<string>();
         var mapOptions = new MapRouteOptions();
 
         var metadata1 = new OpenAPIPathMetadata(pattern: "/test", mapOptions: mapOptions)
@@ -71,7 +73,12 @@ public class OpenAPIMetadataTests
             // Normalize properties that would otherwise differ by reference
             Servers = null,
             Parameters = null,
+            DocumentIds = sharedDocumentIds,
             Tags = sharedTags,
+            Callbacks = null,
+            SecuritySchemes = null,
+            Extensions = null,
+            RequestBody = null,
             Responses = null
         };
         var metadata2 = new OpenAPIPathMetadata(pattern: "/test", mapOptions: mapOptions)
@@ -80,7 +87,12 @@ public class OpenAPIMetadataTests
             OperationId = "Op1",
             Servers = null,
             Parameters = null,
+            DocumentIds = sharedDocumentIds,
             Tags = sharedTags,
+            Callbacks = null,
+            SecuritySchemes = null,
+            Extensions = null,
+            RequestBody = null,
             Responses = null
         };
 

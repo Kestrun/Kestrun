@@ -112,10 +112,6 @@ function Enable-KrConfiguration {
             Write-Host 'Kestrun server configuration enabled successfully.'
             Write-Host "Server Name: $($Server.Options.ApplicationName)"
         }
-        # Generate OpenAPI components for all documents
-        foreach ( $doc in $Server.OpenApiDocumentDescriptor.Values ) {
-            $doc.GenerateComponents()
-        }
 
         if ($PassThru.IsPresent) {
             # if the PassThru switch is specified, return the modified server instance

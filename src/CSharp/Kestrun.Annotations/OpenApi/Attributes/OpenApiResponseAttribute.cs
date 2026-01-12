@@ -24,16 +24,18 @@ public sealed class OpenApiResponseAttribute : KestrunAnnotation, IOpenApiRespon
     public string? Description { get; set; }
 
     /// <summary>
-    /// Optional reference to a predefined schema (e.g., "UserInfoResponse").
-    /// </summary>
-    public string? SchemaRef { get; set; }
-
-    /// <summary>
     /// Optional CLR type for the response schema.
-    /// When set, this takes precedence over SchemaRef and is
+    /// When set, this takes precedence over Schema and is
     /// mapped via InferPrimitiveSchema / PrimitiveSchemaMap.
     /// </summary>
     public Type? Schema { get; set; }
+
+    /// <summary>
+    /// Optional CLR type for the response schema items when the response is an array.
+    /// When set, this takes precedence over ItemSchema and is
+    /// is mapped via InferPrimitiveSchema / PrimitiveSchemaMap.
+    /// </summary>
+    public Type? SchemaItem { get; set; }
 
     /// <summary>
     /// MIME type of the response payload (default: "application/json").

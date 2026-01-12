@@ -99,7 +99,7 @@ public class OpenApiComponentAnnotationScannerTests
             Assert.NotNull(ok);
             Assert.NotEmpty(ok.Annotations);
 
-            var responseComponent = ok.Annotations.OfType<OpenApiResponseComponent>().Single();
+            var responseComponent = ok.Annotations.OfType<OpenApiResponseComponentAttribute>().Single();
             Assert.Equal(new[] { "application/json", "application/xml" }, responseComponent.ContentType);
         }
         finally

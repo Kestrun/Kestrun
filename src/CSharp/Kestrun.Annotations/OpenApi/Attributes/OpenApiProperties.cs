@@ -80,7 +80,6 @@ public abstract class OpenApiProperties : KestrunAnnotation
 
     // ---- Array typing ----
     /// <summary>Items type by OpenAPI reference (e.g., "#/components/schemas/Address").</summary>
-    public string? ItemsRef { get; set; }
     /// <summary>Items type by .NET type for code-first generators.</summary>
     public Type? ItemsType { get; set; }
 

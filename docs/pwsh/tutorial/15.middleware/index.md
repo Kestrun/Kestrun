@@ -25,6 +25,7 @@ Core goals:
 | Logging | Sinks / enrichment | See Logging section |
 | AuthN/Z | Schemes & policies | See Authentication section |
 | Sessions | Session state | New – see Sessions chapter |
+| Event streaming | SSE + Broadcast SSE | See [SSE](./9.Sse) and [SSE Broadcast](./10.SseBroadcast) |
 | Security | Host Filtering | [Tutorial](./6.Host-Filtering) |
 | Upcoming | Rate Limiting | Planned |
 | Upcoming | Compression | Planned |

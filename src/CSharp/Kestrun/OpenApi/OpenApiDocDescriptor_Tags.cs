@@ -122,8 +122,19 @@ public partial class OpenApiDocDescriptor
     }
 
     /// <summary>
-    /// <param name="name">The name of the tag to retrieve.</param>
-    /// <param name="tag">The retrieved OpenApiTag if found; otherwise, null.</param>
+    /// Determines whether the OpenAPI document contains a tag with the specified name.
+    /// </summary>
+    /// <param name="name">The name of the tag to check for existence.</param>
+    /// <returns>True if the tag exists; otherwise, false.</returns>
+    public bool ContainsTag(string name)
+    {
+        return Document.Tags?.Any(t =>
+            string.Equals(t.Name, name, StringComparison.Ordinal)) ?? false;
+    }
+
+    /// <summary>
+    /// Normalizes a raw extensions dictionary into OpenAPI extensions.
+    /// </summary>
     /// <param name="extensions">The raw extensions dictionary to normalize.</param>
     /// <returns>A normalized dictionary of OpenAPI extensions, or null if no valid extensions exist.</returns>
     private static Dictionary<string, IOpenApiExtension>? NormalizeExtensions(IDictionary? extensions)

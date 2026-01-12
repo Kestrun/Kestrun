@@ -33,7 +33,10 @@ public partial class KestrunHost
             .Use(app =>
             {
                 RegisterSseBroadcastRouteForOpenApi(options);
-                _ = ((IEndpointRouteBuilder)app).MapGet(options.Path, httpContext => HandleSseBroadcastConnectAsync(httpContext, options.KeepAliveSeconds));
+                _ = ((IEndpointRouteBuilder)app).MapGet(
+                    options.Path,
+                    (HttpContext httpContext, IHostApplicationLifetime lifetime) =>
+                        HandleSseBroadcastConnectAsync(httpContext, options.KeepAliveSeconds, lifetime));
             });
     }
 
@@ -184,12 +187,20 @@ public partial class KestrunHost
     /// </summary>
     /// <param name="httpContext">ASP.NET Core HTTP context.</param>
     /// <param name="keepAliveSeconds">Keep-alive interval in seconds.</param>
-    private async Task HandleSseBroadcastConnectAsync(HttpContext httpContext, int keepAliveSeconds)
+    /// <param name="lifetime">Host application lifetime.</param>
+    private async Task HandleSseBroadcastConnectAsync(HttpContext httpContext, int keepAliveSeconds,
+    IHostApplicationLifetime lifetime)
     {
+        // Link request cancellation with application stopping to ensure graceful shutdown.
+        using var linked = CancellationTokenSource.CreateLinkedTokenSource(
+            httpContext.RequestAborted,
+            lifetime.ApplicationStopping);
+        var ct = linked.Token;
+        // Set SSE response headers
         if (httpContext.RequestServices.GetService(typeof(ISseBroadcaster)) is not ISseBroadcaster broadcaster)
         {
             httpContext.Response.StatusCode = StatusCodes.Status500InternalServerError;
-            await httpContext.Response.WriteAsync("SSE broadcaster is not configured.", httpContext.RequestAborted).ConfigureAwait(false);
+            await httpContext.Response.WriteAsync("SSE broadcaster is not configured.", ct).ConfigureAwait(false);
             return;
         }
 
@@ -204,8 +215,8 @@ public partial class KestrunHost
             serverTime = DateTimeOffset.UtcNow
         });
 
-        await ctx.WriteSseEventAsync("connected", connectedJson, id: null, retryMs: 2000, ct: httpContext.RequestAborted).ConfigureAwait(false);
-        await PumpSseAsync(httpContext, subscription.Reader, keepAliveSeconds).ConfigureAwait(false);
+        await ctx.WriteSseEventAsync("connected", connectedJson, id: null, retryMs: 2000, ct: ct).ConfigureAwait(false);
+        await PumpSseAsync(httpContext, subscription.Reader, keepAliveSeconds, ct).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -214,9 +225,9 @@ public partial class KestrunHost
     /// <param name="httpContext">HTTP context.</param>
     /// <param name="reader">Channel reader.</param>
     /// <param name="keepAliveSeconds">Keep-alive interval in seconds.</param>
-    private static async Task PumpSseAsync(HttpContext httpContext, ChannelReader<string> reader, int keepAliveSeconds)
+    /// <param name="ct">Cancellation token.</param>
+    private static async Task PumpSseAsync(HttpContext httpContext, ChannelReader<string> reader, int keepAliveSeconds, CancellationToken ct)
     {
-        var ct = httpContext.RequestAborted;
         var keepAliveTask = keepAliveSeconds > 0
             ? Task.Delay(TimeSpan.FromSeconds(keepAliveSeconds), ct)
             : null;

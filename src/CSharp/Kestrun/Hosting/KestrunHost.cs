@@ -375,6 +375,14 @@ public partial class KestrunHost : IDisposable
             // creation does not fail.
             Builder = WebApplication.CreateBuilder(CreateWebAppOptions(AppContext.BaseDirectory));
         }
+        // ✅ add here, after Builder is definitely assigned
+        _ = Builder.Services.Configure<HostOptions>(o =>
+        {
+            _ = o.ShutdownTimeout = TimeSpan.FromSeconds(5);
+        });
+
+
+
         // Enable Serilog for the host
         _ = Builder.Host.UseSerilog();
 
@@ -1261,6 +1269,24 @@ public partial class KestrunHost : IDisposable
     {
         _app = Builder.Build();
         Logger.Information("Application built successfully.");
+
+        // 🔔 SignalR shutdown notification
+        _ = _app.Lifetime.ApplicationStopping.Register(() =>
+        {
+            try
+            {
+                using var scope = _app.Services.CreateScope();
+                var hub = scope.ServiceProvider.GetRequiredService<IHubContext<SignalR.KestrunHub>>();
+
+                _ = hub.Clients.All.SendAsync(
+                    "serverShutdown",
+                    "Server stopping");
+            }
+            catch (Exception ex)
+            {
+                Logger.Debug(ex, "Failed to send SignalR shutdown notification.");
+            }
+        });
     }
 
     /// <summary>
@@ -1837,7 +1863,12 @@ public partial class KestrunHost : IDisposable
     /// <param name="services">The service collection to configure.</param>
     private static void ConfigureSignalRServices<THub>(IServiceCollection services) where THub : Hub
     {
-        _ = services.AddSignalR().AddJsonProtocol(opts =>
+        _ = services.AddSignalR(o =>
+        {
+            o.HandshakeTimeout = TimeSpan.FromSeconds(5);
+            o.KeepAliveInterval = TimeSpan.FromSeconds(2);
+            o.ClientTimeoutInterval = TimeSpan.FromSeconds(10);
+        }).AddJsonProtocol(opts =>
         {
             // Avoid failures when payloads contain cycles; our sanitizer should prevent most, this is a safety net.
             opts.PayloadSerializerOptions.ReferenceHandler = ReferenceHandler.IgnoreCycles;

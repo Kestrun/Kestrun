@@ -20,7 +20,7 @@ New-KrLogger | Add-KrSinkConsole |
     Set-KrLoggerLevel -Value Debug |
     Register-KrLogger -Name 'console' -SetAsDefault
 
-$srv = New-KrServer -Name 'OpenAPI Component Links' -PassThru
+New-KrServer -Name 'OpenAPI Component Links'
 Add-KrEndpoint -Port $Port -IPAddress $IPAddress
 
 # =========================================================
@@ -278,5 +278,4 @@ Test-KrOpenApiDocument
 #                      RUN SERVER
 # =========================================================
 
-Start-KrServer -Server $srv -CloseLogsOnExit
-
+Start-KrServer -CloseLogsOnExit

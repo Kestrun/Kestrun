@@ -46,7 +46,7 @@ $logger = New-KrLogger |
 # Seed a global counter (Visits) — injected as $Visits in every runspace
 Set-KrSharedState -Name 'Visits' -Value @{Count = 0 }
 # Create the server
-$server = New-KrServer -Name 'Kestrun HtmlTemplate' -Logger $logger -PassThru
+New-KrServer -Name 'Kestrun HtmlTemplate'
 
 # Listen on port 5000 (HTTP)
 Add-KrEndpoint -Port 5000 -PassThru |
@@ -63,6 +63,5 @@ Add-KrMapRoute -Verbs Get -Pattern '/visit' -ScriptBlock {
     Write-KrTextResponse -InputObject "Incremented to $($Visits.Count)" -StatusCode 200
 }
 
-
 # Start the server (blocking)
-Start-KrServer -Server $server
+Start-KrServer -CloseLogsOnExit

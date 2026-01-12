@@ -14,23 +14,23 @@ public sealed class LanguageRuntimePipelineTests
     public async Task UseLanguageRuntime_AppliesBranchOnlyWhenMetadataMatches()
     {
         var builder = WebApplication.CreateBuilder();
-        builder.WebHost.UseTestServer();
+        _ = builder.WebHost.UseTestServer();
 
         var app = builder.Build();
 
-        app.UseLanguageRuntime(ScriptLanguage.PowerShell, branch =>
+        _ = app.UseLanguageRuntime(ScriptLanguage.PowerShell, branch =>
         {
-            branch.Use(async (ctx, next) =>
+            _ = branch.Use(async (ctx, next) =>
             {
                 ctx.Response.Headers["X-Lang"] = "PowerShell";
                 await next(ctx);
             });
         });
 
-        app.MapGet("/ps", () => Results.Text("ok"))
+        _ = app.MapGet("/ps", () => Results.Text("ok"))
             .WithLanguage(ScriptLanguage.PowerShell);
 
-        app.MapGet("/cs", () => Results.Text("ok"))
+        _ = app.MapGet("/cs", () => Results.Text("ok"))
             .WithLanguage(ScriptLanguage.CSharp);
 
         await app.StartAsync();
@@ -49,11 +49,11 @@ public sealed class LanguageRuntimePipelineTests
     public async Task WithLanguage_AddsScriptLanguageAttributeMetadata()
     {
         var builder = WebApplication.CreateBuilder();
-        builder.WebHost.UseTestServer();
+        _ = builder.WebHost.UseTestServer();
 
         var app = builder.Build();
 
-        app.MapGet("/ps", () => Results.Text("ok"))
+        _ = app.MapGet("/ps", () => Results.Text("ok"))
             .WithLanguage(ScriptLanguage.PowerShell);
 
         await app.StartAsync();
@@ -74,13 +74,13 @@ public sealed class LanguageRuntimePipelineTests
     public async Task UseLanguageRuntime_WhenNoEndpointMetadata_DoesNotApplyBranch()
     {
         var builder = WebApplication.CreateBuilder();
-        builder.WebHost.UseTestServer();
+        _ = builder.WebHost.UseTestServer();
 
         var app = builder.Build();
 
-        app.UseLanguageRuntime(ScriptLanguage.PowerShell, branch =>
+        _ = app.UseLanguageRuntime(ScriptLanguage.PowerShell, branch =>
         {
-            branch.Use(async (ctx, next) =>
+            _ = branch.Use(async (ctx, next) =>
             {
                 ctx.Response.Headers["X-Lang"] = "PowerShell";
                 await next(ctx);
@@ -88,7 +88,7 @@ public sealed class LanguageRuntimePipelineTests
         });
 
         // No WithLanguage metadata
-        app.MapGet("/plain", () => Results.Text("ok"));
+        _ = app.MapGet("/plain", () => Results.Text("ok"));
 
         await app.StartAsync();
         var client = app.GetTestClient();

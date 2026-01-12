@@ -55,7 +55,7 @@ public sealed class KestrunContextBroadcastTests
     public async Task BroadcastLogAsync_BroadcasterRegistered_CallsServiceAndReturnsTrue()
     {
         var mock = new Mock<IRealtimeBroadcaster>(MockBehavior.Strict);
-        mock.Setup(b => b.BroadcastLogAsync("Information", "hello", It.IsAny<CancellationToken>()))
+        _ = mock.Setup(b => b.BroadcastLogAsync("Information", "hello", It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
 
         var sp = new ServiceCollection()
@@ -74,7 +74,7 @@ public sealed class KestrunContextBroadcastTests
     public async Task BroadcastLogAsync_BroadcasterThrows_ReturnsFalse()
     {
         var mock = new Mock<IRealtimeBroadcaster>(MockBehavior.Strict);
-        mock.Setup(b => b.BroadcastLogAsync("Information", "boom", It.IsAny<CancellationToken>()))
+        _ = mock.Setup(b => b.BroadcastLogAsync("Information", "boom", It.IsAny<CancellationToken>()))
             .ThrowsAsync(new InvalidOperationException("fail"));
 
         var sp = new ServiceCollection()
@@ -95,7 +95,7 @@ public sealed class KestrunContextBroadcastTests
         var payload = new { a = 1 };
 
         var mock = new Mock<IRealtimeBroadcaster>(MockBehavior.Strict);
-        mock.Setup(b => b.BroadcastEventAsync("evt", payload, It.IsAny<CancellationToken>()))
+        _ = mock.Setup(b => b.BroadcastEventAsync("evt", payload, It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
 
         var sp = new ServiceCollection()
@@ -116,7 +116,7 @@ public sealed class KestrunContextBroadcastTests
         var payload = new { a = 1 };
 
         var mock = new Mock<IRealtimeBroadcaster>(MockBehavior.Strict);
-        mock.Setup(b => b.BroadcastToGroupAsync("group", "method", payload, It.IsAny<CancellationToken>()))
+        _ = mock.Setup(b => b.BroadcastToGroupAsync("group", "method", payload, It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
 
         var sp = new ServiceCollection()

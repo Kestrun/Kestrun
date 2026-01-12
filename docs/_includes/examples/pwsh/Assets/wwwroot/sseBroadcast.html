@@ -90,6 +90,29 @@
             border-radius: 999px;
             background: #eef2ff;
         }
+
+        #streamPath {
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 3px;
+        }
+
+        #message {
+            padding: 8px;
+            margin-right: 10px;
+            border: 1px solid #ddd;
+            border-radius: 3px;
+            width: 320px;
+            max-width: 100%;
+        }
+
+        #progress {
+            width: 90px;
+        }
+
+        .margin-left-10 {
+            margin-left: 10px;
+        }
     </style>
 </head>
 
@@ -106,7 +129,7 @@
 
         <div class="input-group">
             <label for="streamPath">SSE stream</label>
-            <select id="streamPath" style="padding: 8px; border: 1px solid #ddd; border-radius: 3px;">
+            <select id="streamPath">
                 <option value="/sse/broadcast">/sse/broadcast (default)</option>
                 <option value="/sse/broadcast/progress">/sse/broadcast/progress (progress schema)</option>
             </select>
@@ -127,15 +150,15 @@
         <div class="input-group">
             <label for="taskId">Task</label>
             <input id="taskId" value="task-1" />
-            <label for="progress" style="margin-left: 10px;">Progress</label>
-            <input id="progress" type="number" min="0" max="100" value="10" style="width: 90px;" />
+            <label for="progress" class="margin-left-10">Progress</label>
+            <input id="progress" type="number" min="0" max="100" value="10" />
             <button id="btnSendProgress" disabled>Broadcast Progress</button>
         </div>
 
         <div class="input-group">
             <label for="state">State</label>
             <input id="state" value="running" />
-            <label for="statusMsg" style="margin-left: 10px;">Status</label>
+            <label for="statusMsg" class="margin-left-10">Status</label>
             <input id="statusMsg" value="Working..." />
         </div>
         <p class="status-text">Status: <span id="statusText">disconnected</span></p>

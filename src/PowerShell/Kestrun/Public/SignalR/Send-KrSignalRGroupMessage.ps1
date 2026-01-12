@@ -42,7 +42,7 @@ function Send-KrSignalRGroupMessage {
     process {
         try {
             if ($null -ne $Context) {
-                if ($Context.BroadcastToGroup($GroupName, $Method, $Message, [System.Threading.CancellationToken]::None)) {
+                if ($Context.BroadcastToGroup($GroupName, $Method, $Message)) {
                     Write-KrLog -Level Debug -Message "Broadcasted to group '$GroupName' via method '$Method': $Message"
                     return
                 } else {

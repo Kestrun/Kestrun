@@ -378,4 +378,3 @@ Write-Host '📍 Navigate to http://localhost:5000 to see the demo' -ForegroundC
 Write-Host '🔌 SignalR Hub available at: http://localhost:5000/hubs/kestrun' -ForegroundColor Cyan
 
 Start-KrServer -CloseLogsOnExit
-

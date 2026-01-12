@@ -1618,6 +1618,47 @@ public partial class KestrunHost : IDisposable
     }
 
     /// <summary>
+    /// Adds the Realtime tag to the OpenAPI document if not already present.
+    /// </summary>
+    /// <param name="defTag"> OpenAPI document descriptor to which the Realtime tag will be added.</param>
+    private static void AddRealTimeTag(OpenApiDocDescriptor defTag)
+    {
+        // Add Realtime default tag if not present
+        if (!defTag.ContainsTag("Realtime"))
+        {
+            _ = defTag.AddTag(name: "Realtime",
+                summary: "Real-time communication",
+                description: "Protocols and endpoints for real-time, push-based communication such as SignalR and Server-Sent Events.",
+                kind: "nav",
+                externalDocs: new OpenApiExternalDocs
+                {
+                    Description = "Real-time communication overview",
+                    Url = new Uri("https://learn.microsoft.com/aspnet/core/signalr/")
+                });
+        }
+    }
+
+    /// <summary>
+    /// Adds the SignalR tag to the OpenAPI document if not already present.
+    /// </summary>
+    /// <param name="defTag"> OpenAPI document descriptor to which the SignalR tag will be added.</param>
+    private static void AddSignalRTag(OpenApiDocDescriptor defTag)
+    {
+        if (!defTag.ContainsTag(SignalROptions.DefaultTag))
+        {
+            _ = defTag.AddTag(name: SignalROptions.DefaultTag,
+                 description: "SignalR hubs providing real-time, bidirectional communication over persistent connections.",
+                 summary: "SignalR hubs",
+                 parent: "Realtime",
+                  externalDocs: new OpenApiExternalDocs
+                  {
+                      Description = "ASP.NET Core SignalR documentation",
+                      Url = new Uri("https://learn.microsoft.com/aspnet/core/signalr/introduction")
+                  });
+        }
+    }
+
+    /// <summary>
     /// Adds a SignalR hub to the application at the specified path.
     /// </summary>
     /// <typeparam name="T">The type of the SignalR hub.</typeparam>
@@ -1649,11 +1690,15 @@ public partial class KestrunHost : IDisposable
             {
                 Logger.Debug("Adding OpenAPI metadata for SignalR hub at path: {Path}", options.Path);
             }
+            // Add default tags if using default tag
             if (options.Tags.Contains(SignalROptions.DefaultTag))
             {
                 foreach (var defTag in apiDocDescriptors)
                 {
-                    //Todo : add Tag
+                    // Ensure default tags are present
+                    AddRealTimeTag(defTag);
+                    // Ensure SignalR tag is present
+                    AddSignalRTag(defTag);
                 }
             }
             var meta = new OpenAPIPathMetadata(pattern: options.Path, mapOptions: routeOptions)

@@ -6,6 +6,7 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.OpenApi;
 using System.Text.Json;
 using System.Threading.Channels;
+using Kestrun.OpenApi;
 
 namespace Kestrun.Hosting;
 
@@ -37,16 +38,36 @@ public partial class KestrunHost
     }
 
     /// <summary>
+    /// Adds the SSE tag to the OpenAPI document if not already present.
+    /// </summary>
+    /// <param name="defTag">OpenAPI document descriptor to which the tag should be added.</param>
+    private static void AddSseTag(OpenApiDocDescriptor defTag)
+    {
+        if (!defTag.ContainsTag(SseBroadcastOptions.DefaultTag))
+        {
+            _ = defTag.AddTag(name: SseBroadcastOptions.DefaultTag,
+                 description: "Endpoints that stream server-to-client events using text/event-stream.",
+                 summary: "Server-Sent Events",
+                 parent: "Realtime",
+                  externalDocs: new OpenApiExternalDocs
+                  {
+                      Description = "Server-Sent Events (MDN)",
+                      Url = new Uri("https://developer.mozilla.org/en-US/docs/Web/API/Server-sent_events")
+                  });
+        }
+    }
+
+    /// <summary>
     /// Registers the broadcast SSE endpoint in the host's route registry with OpenAPI metadata.
     /// This allows the OpenAPI generator to include the endpoint even though it is mapped directly
     /// through ASP.NET Core endpoint routing (not via <c>AddMapRoute</c>).
     /// </summary>
     /// <param name="options">Optional OpenAPI customization.</param>
-    private void RegisterSseBroadcastRouteForOpenApi(SseBroadcastOptions? options)
+    private void RegisterSseBroadcastRouteForOpenApi(SseBroadcastOptions options)
     {
         options ??= SseBroadcastOptions.Default;
         // Ensure the OpenAPI document descriptor exists (SSE broadcast can be configured even when OpenAPI is not).
-        var docs = GetOrCreateOpenApiDocument(options.DocId);
+        var apiDocDescriptors = GetOrCreateOpenApiDocument(options.DocId);
         var routeOptions = new MapRouteOptions
         {
             Pattern = options.Path,
@@ -62,7 +83,7 @@ public partial class KestrunHost
         {
             var mediaType = new OpenApiMediaType
             {
-                ItemSchema = docs[0].InferPrimitiveSchema(options.ItemSchemaType)
+                ItemSchema = apiDocDescriptors[0].InferPrimitiveSchema(options.ItemSchemaType)
             };
 
             var meta = new OpenAPIPathMetadata(pattern: options.Path, mapOptions: routeOptions)
@@ -70,7 +91,7 @@ public partial class KestrunHost
                 OperationId = string.IsNullOrWhiteSpace(options.OperationId) ? null : options.OperationId,
                 Summary = string.IsNullOrWhiteSpace(options.Summary) ? null : options.Summary,
                 Description = string.IsNullOrWhiteSpace(options.Description) ? null : options.Description,
-                Tags = options.Tags?.ToList() ?? [],
+                Tags = [.. options.Tags],
                 Responses = new OpenApiResponses
                 {
                     [options.StatusCode] = new OpenApiResponse
@@ -85,6 +106,15 @@ public partial class KestrunHost
                     }
                 }
             };
+            if (options.Tags.Contains(SseBroadcastOptions.DefaultTag))
+            {
+                foreach (var defTag in apiDocDescriptors)
+                {
+                    // Ensure default tags are present
+                    AddRealTimeTag(defTag);
+                    AddSseTag(defTag);
+                }
+            }
 
             routeOptions.OpenAPI[HttpVerb.Get] = meta;
         }
@@ -238,7 +268,7 @@ public partial class KestrunHost
     /// <param name="httpContext">HTTP context.</param>
     /// <param name="payload">Pre-formatted payload.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    private async Task WritePayloadAsync(HttpContext httpContext, string payload, CancellationToken cancellationToken)
+    private static async Task WritePayloadAsync(HttpContext httpContext, string payload, CancellationToken cancellationToken)
     {
         await httpContext.Response.WriteAsync(payload, cancellationToken).ConfigureAwait(false);
         await httpContext.Response.Body.FlushAsync(cancellationToken).ConfigureAwait(false);

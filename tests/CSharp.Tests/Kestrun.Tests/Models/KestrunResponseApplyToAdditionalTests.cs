@@ -1,5 +1,4 @@
 using Kestrun.Callback;
-using Kestrun.Models;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Net.Http.Headers;
 using Microsoft.Extensions.DependencyInjection;
@@ -38,11 +37,11 @@ public partial class KestrunResponseTests
         var ctx = TestRequestFactory.CreateContext();
         var res = ctx.Response;
 
-        res.Cookies = new List<string>
-        {
+        res.Cookies =
+        [
             "a=b; Path=/; HttpOnly",
             "c=d; Path=/"
-        };
+        ];
 
         await res.WriteTextResponseAsync("ok", StatusCodes.Status200OK, "text/plain");
 
@@ -120,14 +119,14 @@ public partial class KestrunResponseTests
             UrlTemplate: "https://example.invalid/callback",
             Method: HttpMethod.Post,
             OperationId: "op",
-            PathParams: Array.Empty<CallbackParamPlan>(),
+            PathParams: [],
             Body: null);
 
         res.CallbackPlan.Add(new CallBackExecutionPlan(
             CallbackId: "cb",
             Plan: callbackPlan,
             BodyParameterName: null,
-            Parameters: new Dictionary<string, object?>()));
+            Parameters: []));
 
         await res.WriteTextResponseAsync("hello", StatusCodes.Status200OK, "text/plain");
 

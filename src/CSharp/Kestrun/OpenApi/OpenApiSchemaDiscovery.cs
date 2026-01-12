@@ -17,13 +17,12 @@ public static class OpenApiSchemaDiscovery
         var assemblies = GetRelevantAssemblies();
         return new OpenApiComponentSet
         {
-            ParameterTypes = GetTypesWithAttribute(assemblies, typeof(OpenApiParameterComponentAttribute)),
             SchemaTypes = GetSchemaTypes(assemblies),
-            ResponseTypes = GetTypesWithAttribute(assemblies, typeof(OpenApiResponseComponentAttribute)),
             RequestBodyTypes = GetTypesWithAttribute(assemblies, typeof(OpenApiRequestBodyComponent)),
-    #if EXTENDED_OPENAPI
+#if EXTENDED_OPENAPI
+            ResponseTypes = GetTypesWithAttribute(assemblies, typeof(OpenApiResponseComponentAttribute)),
+            ParameterTypes = GetTypesWithAttribute(assemblies, typeof(OpenApiParameterComponentAttribute)),
             HeaderTypes = GetTypesWithAttribute(assemblies, typeof(OpenApiHeaderAttribute)),
-
             SecuritySchemeTypes = GetTypesWithAttribute(assemblies, typeof(OpenApiSecuritySchemeComponent)),
             CallbackTypes = GetTypesWithKind(assemblies, OpenApiModelKind.Callback),
             PathItemTypes = GetTypesWithKind(assemblies, OpenApiModelKind.PathItem)

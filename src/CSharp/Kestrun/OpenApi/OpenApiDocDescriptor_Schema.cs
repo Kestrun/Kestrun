@@ -45,19 +45,30 @@ public partial class OpenApiDocDescriptor
     private IOpenApiSchema BuildSchemaForType(Type t, HashSet<Type>? built = null)
     {
         built ??= [];
+        OpenApiSchema schema;
         OpenApiSchema? schemaParent = null;
-        // Handle custom base type derivations first
-        if (t.BaseType is not null && t.BaseType != typeof(object))
+        if (PrimitiveSchemaMap.TryGetValue(t, out var getSchema))
         {
-            var baseSchema = BuildBaseTypeSchema(t);
-            if (baseSchema is not null && (baseSchema.AllOf is null || baseSchema is OpenApiSchemaReference))
+            schema = getSchema();
+            // Apply type-level attributes
+            ApplyTypeAttributes(t, schema);
+            return schema;
+        }
+        else
+        {
+            schema = new OpenApiSchema();
+            // Handle custom base type derivations first
+            if (t.BaseType is not null && t.BaseType != typeof(object))
             {
-                return baseSchema;
+                var baseSchema = BuildBaseTypeSchema(t);
+                if (baseSchema is not null && (baseSchema.AllOf is null || baseSchema is OpenApiSchemaReference))
+                {
+                    return baseSchema;
+                }
+                schemaParent = baseSchema as OpenApiSchema;
             }
-            schemaParent = baseSchema as OpenApiSchema;
         }
 
-        var schema = new OpenApiSchema();
         var declaredPropsCount =
            t.GetProperties(BindingFlags.Public | BindingFlags.Instance)
             .Count(p => p.DeclaringType == t);
@@ -112,7 +123,7 @@ public partial class OpenApiDocDescriptor
     {
         if (PrimitiveSchemaMap.TryGetValue(t.BaseType!, out var value))
         {
-            return new OpenApiSchema { Type = value().Type, Format = value().Format ?? null };
+            return value();
         }
 
         var primitivesAssembly = typeof(OpenApiString).Assembly;

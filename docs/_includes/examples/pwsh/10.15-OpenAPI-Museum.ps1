@@ -171,9 +171,8 @@ class EventDescription:OpenApiString {}
     Format = 'float', Example = 25)]
 class EventPrice:OpenApiNumber {}
 
-[OpenApiSchemaComponent(
-    Format = 'date', Example = '2023-10-29')]
-class Date:OpenApiString {}
+[OpenApiSchemaComponent( Example = '2023-10-29')]
+class Date:OpenApiDate {}
 
 [OpenApiSchemaComponent( Description = 'List of planned dates for the special event',
     Array = $true)]

@@ -38,6 +38,31 @@ enum HeadColorType {
     Brown
     Blonde
 }
+
+[OpenApiSchemaComponent( Description = 'Daily operating hours for the museum.',
+    RequiredProperties = ('date', 'timeOpen', 'timeClose'))]
+class MuseumDailyHours {
+    [OpenApiProperty(Description = 'Date the operating hours apply to.', Example = '2024-12-31')]
+    [Date]$date
+
+    [OpenApiProperty(Description = 'Time the museum opens on a specific date. Uses 24 hour time format (`HH:mm`).', Example = '09:00')]
+    [ValidatePattern('^([01]\d|2[0-3]):([0-5]\d)$')]
+    [string]$timeOpen
+
+    [OpenApiProperty(Description = 'Time the museum closes on a specific date. Uses 24 hour time format (`HH:mm`).', Example = '18:00')]
+    [ValidatePattern('^([01]\d|2[0-3]):([0-5]\d)$')]
+    [string]$timeClose
+}
+
+[OpenApiSchemaComponent(
+    Description = 'List of museum operating hours for consecutive days.',
+    Array = $true
+)]
+class GetMuseumHoursResponse:MuseumDailyHours {}
+
+[OpenApiSchemaComponent( Example = '2023-10-29')]
+class Date:OpenApiDate {}
+
 [OpenApiSchemaComponent(RequiredProperties = ('age', 'gender'))]
 class PersonalityTrait {
 
@@ -91,6 +116,22 @@ class UserResponse:CreateUserRequest {
     [string]$createdAt
 }
 
+#[OpenApiSchemaComponent(Description = 'List of user object',    Array = $true)]
+#class UserArray:CreateUserRequest {}
+
+[OpenApiSchemaComponent(Description = 'List of user object',RequiredProperties = ('contractId'), Array = $true)]
+class UserArray2:CreateUserRequest {
+    [OpenApiPropertyAttribute(Description = 'The contract identifier', Example = 'a54a57ca-36f8-421b-a6b4-2e8f26858a4c')]
+    [OpenApiUuid]$contractId
+}
+
+[OpenApiRequestBodyComponent(Description = 'List of user object', Required = $true, ContentType = 'application/json' , Array = $true)]
+class UserArrayRequest:CreateUserRequest {}
+[OpenApiRequestBodyComponent(Description = 'List of user object', Required = $true, ContentType = 'application/json' , Array = $true)]
+class UserArrayRequest2:CreateUserRequest {
+    [OpenApiPropertyAttribute(Description = 'The contract identifier', Example = 'a54a57ca-36f8-421b-a6b4-2e8f26858a4c')]
+    [OpenApiUuid]$contractId
+}
 <#
 [OpenApiSchemaComponent(Description = 'List of user responses', Array = $true)]
 class UserResponseArray:UserResponse {}

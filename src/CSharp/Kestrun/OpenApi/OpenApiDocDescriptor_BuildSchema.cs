@@ -54,6 +54,7 @@ public partial class OpenApiDocDescriptor
         {
             schema = BuildArraySchema(pt, p, built);
         }
+        // Complex type
         else
         {
             schema = BuildComplexTypeSchema(pt, p, built);

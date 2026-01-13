@@ -42,25 +42,30 @@ public partial class OpenApiDocDescriptor
     /// <param name="t">Type to build schema for</param>
     /// <param name="built">Set of types already built to avoid recursion</param>
     /// <returns>OpenApiSchema representing the type</returns>
-    private OpenApiSchema BuildSchemaForType(Type t, HashSet<Type>? built = null)
+    private IOpenApiSchema BuildSchemaForType(Type t, HashSet<Type>? built = null)
     {
         built ??= [];
         OpenApiSchema? schemaParent = null;
         // Handle custom base type derivations first
         if (t.BaseType is not null && t.BaseType != typeof(object))
         {
-            schemaParent = BuildBaseTypeSchema(t);
-            if (schemaParent is not null && schemaParent.AllOf is null)
+            var baseSchema = BuildBaseTypeSchema(t);
+            if (baseSchema is not null && (baseSchema.AllOf is null || baseSchema is OpenApiSchemaReference))
             {
-                return schemaParent;
+                return baseSchema;
             }
+            schemaParent = baseSchema as OpenApiSchema;
         }
 
-        var schema = new OpenApiSchema
+        var schema = new OpenApiSchema();
+        var declaredPropsCount =
+           t.GetProperties(BindingFlags.Public | BindingFlags.Instance)
+            .Count(p => p.DeclaringType == t);
+        if (declaredPropsCount > 0)
         {
-            Type = JsonSchemaType.Object,
-            Properties = new Dictionary<string, IOpenApiSchema>(StringComparer.Ordinal)
-        };
+            schema.Type = JsonSchemaType.Object;
+            schema.Properties = new Dictionary<string, IOpenApiSchema>(StringComparer.Ordinal);
+        }
 
         // Prevent infinite recursion
         if (built.Contains(t))
@@ -69,6 +74,9 @@ public partial class OpenApiDocDescriptor
         }
 
         _ = built.Add(t);
+
+        // Apply type-level attributes
+        ApplyTypeAttributes(t, schema);
 
         // Handle enum types
         if (t.IsEnum)
@@ -82,9 +90,6 @@ public partial class OpenApiDocDescriptor
         {
             return schema;
         }
-
-        // Apply type-level attributes
-        ApplyTypeAttributes(t, schema);
 
         // Process properties with default value capture
         ProcessTypeProperties(t, schema, built);
@@ -103,26 +108,14 @@ public partial class OpenApiDocDescriptor
     /// </summary>
     ///  <param name="t">Type to build schema for</param>
     /// <returns>OpenApiSchema representing the base type derivation, or null if not applicable</returns>
-    private OpenApiSchema? BuildBaseTypeSchema(Type t)
+    private static IOpenApiSchema? BuildBaseTypeSchema(Type t)
     {
-        var primitivesAssembly = typeof(OpenApiString).Assembly;
-
-        // Determine if the base type is a known OpenAPI primitive type
-        OaSchemaType? baseTypeName = t.BaseType switch
+        if (PrimitiveSchemaMap.TryGetValue(t.BaseType!, out var value))
         {
-            Type bt when bt == typeof(OpenApiString) => OaSchemaType.String,
-            Type bt when bt == typeof(OpenApiInteger) => OaSchemaType.Integer,
-            Type bt when bt == typeof(OpenApiNumber) => OaSchemaType.Number,
-            Type bt when bt == typeof(OpenApiBoolean) => OaSchemaType.Boolean,
-            _ => null
-        };
-
-        // If a type derives from one of our OpenApi* primitives, treat it as that primitive schema
-        // and then apply any attributes on the derived type.
-        if (baseTypeName is not null)
-        {
-            return new OpenApiSchema { Type = baseTypeName?.ToJsonSchemaType() }; 
+            return new OpenApiSchema { Type = value().Type, Format = value().Format ?? null };
         }
+
+        var primitivesAssembly = typeof(OpenApiString).Assembly;
 
         // Only treat built-in OpenApi* primitives (and their variants) as raw OpenApi types.
         // User-defined schema components (including array wrappers like EventDates : Date)
@@ -153,8 +146,18 @@ public partial class OpenApiDocDescriptor
     /// <summary>
     /// Builds schema for types with custom base types.
     /// </summary>
-    private OpenApiSchema BuildCustomBaseTypeSchema(Type t)
+    ///
+    private static IOpenApiSchema BuildCustomBaseTypeSchema(Type t)
     {
+        var attributes = t.CustomAttributes.ToArray();
+        var declaredPropsCount =
+            t.GetProperties(BindingFlags.Public | BindingFlags.Instance)
+             .Count(p => p.DeclaringType == t);
+        if (declaredPropsCount == 0 && attributes.Length == 1 && attributes[0].NamedArguments.Count == 0)
+        {
+            // If the derived type has AdditionalProperties, we can't use allOf
+            return new OpenApiSchemaReference(t.BaseType!.Name);
+        }
         return new OpenApiSchema
         {
             AllOf = [new OpenApiSchemaReference(t.BaseType!.Name)]
@@ -218,7 +221,8 @@ public partial class OpenApiDocDescriptor
     {
         var instance = TryCreateTypeInstance(t);
 
-        foreach (var prop in t.GetProperties(BindingFlags.Public | BindingFlags.Instance))
+        foreach (var prop in t.GetProperties(BindingFlags.Public | BindingFlags.Instance)
+                      .Where(p => p.DeclaringType == t))
         {
             var propSchema = BuildPropertySchema(prop, built);
             CapturePropertyDefault(instance, prop, propSchema);
@@ -557,7 +561,7 @@ public partial class OpenApiDocDescriptor
         var typeName = type.Name[..^2];
         if (ComponentSchemasExists(typeName))
         {
-            IOpenApiSchema? items = inline ? GetSchema(typeName).Clone() : new OpenApiSchemaReference(typeName);
+            var items = inline ? GetSchema(typeName).Clone() : new OpenApiSchemaReference(typeName);
             return new OpenApiSchema { Type = JsonSchemaType.Array, Items = items };
         }
 

@@ -7,13 +7,13 @@ namespace Kestrun.OpenApi;
 /// </summary>
 public partial class OpenApiDocDescriptor
 {
-    private OpenApiSchema GetSchema(string id)
+    private IOpenApiSchema GetSchema(string id)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(id);
         // Look up schema in components
         return Document.Components?.Schemas is { } schemas
                && schemas.TryGetValue(id, out var p)
-               && p is OpenApiSchema op
+               && p is IOpenApiSchema op
             ? op
             : throw new InvalidOperationException($"Schema '{id}' not found.");
     }

@@ -14,7 +14,7 @@ public static class OpenApiJsonNodeFactory
     /// </summary>
     /// <param name="value">The .NET object to convert.</param>
     /// <returns>A JsonNode representation of the object.</returns>
-    public static JsonNode? FromObject(object? value)
+    public static JsonNode? ToNode(object? value)
     {
         value = Unwrap(value);
         if (value is null) { return null; }
@@ -106,7 +106,7 @@ public static class OpenApiJsonNodeFactory
                 continue;
             }
 
-            obj[k] = FromObject(de.Value);
+            obj[k] = ToNode(de.Value);
         }
 
         return obj;
@@ -122,7 +122,7 @@ public static class OpenApiJsonNodeFactory
         var arr = new JsonArray();
         foreach (var item in en)
         {
-            arr.Add(FromObject(item));
+            arr.Add(ToNode(item));
         }
         return arr;
     }
@@ -180,7 +180,7 @@ public static class OpenApiJsonNodeFactory
                 continue;
             }
 
-            obj[prop.Name] = FromObject(v);
+            obj[prop.Name] = ToNode(v);
         }
 
         if (obj.Count == 0)
@@ -231,7 +231,7 @@ public static class OpenApiJsonNodeFactory
                 continue;
             }
 
-            obj[p.Name] = FromObject(v);
+            obj[p.Name] = ToNode(v);
         }
 
         if (obj.Count == 0)

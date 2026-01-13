@@ -210,7 +210,7 @@ public partial class OpenApiDocDescriptor
             // Try to set default value from the variable initial value if not already set
             if (!variable.NoDefault)
             {
-                schema.Default = OpenApiJsonNodeFactory.FromObject(variable.InitialValue);
+                schema.Default = OpenApiJsonNodeFactory.ToNode(variable.InitialValue);
             }
         }
 

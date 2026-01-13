@@ -22,14 +22,14 @@ public sealed class SseBroadcastOpenApiTests
             new OpenApiExample
             {
                 Summary = "User example",
-                Value = OpenApiDocDescriptor.ToNode(new { Name = "Alice", Age = 42 })
+                Value = OpenApiJsonNodeFactory.ToNode(new { Name = "Alice", Age = 42 })
             });
         d.AddComponentExample(
             "AlicePayload",
             new OpenApiExample
             {
                 Summary = "Alice payload",
-                Value = OpenApiDocDescriptor.ToNode(new { Name = "Alice" })
+                Value = OpenApiJsonNodeFactory.ToNode(new { Name = "Alice" })
             });
         Kestrun.Hosting.Options.SseBroadcastOptions options = new()
         {
@@ -66,14 +66,14 @@ public sealed class SseBroadcastOpenApiTests
             new OpenApiExample
             {
                 Summary = "User example",
-                Value = OpenApiDocDescriptor.ToNode(new { Name = "Alice", Age = 42 })
+                Value = OpenApiJsonNodeFactory.ToNode(new { Name = "Alice", Age = 42 })
             });
         d.AddComponentExample(
             "AlicePayload",
             new OpenApiExample
             {
                 Summary = "Alice payload",
-                Value = OpenApiDocDescriptor.ToNode(new { Name = "Alice" })
+                Value = OpenApiJsonNodeFactory.ToNode(new { Name = "Alice" })
             });
         Kestrun.Hosting.Options.SseBroadcastOptions options = new()
         {

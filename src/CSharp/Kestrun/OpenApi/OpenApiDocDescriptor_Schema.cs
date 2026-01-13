@@ -131,13 +131,6 @@ public partial class OpenApiDocDescriptor
             RegisterEnumSchema(t);
             return schema;
         }
-
-        // Early return for primitive types
-        if (IsPrimitiveLike(t))
-        {
-            return schema;
-        }
-
         // Process properties with default value capture
         ProcessTypeProperties(t, schema, built);
         if (schemaParent is not null)
@@ -189,20 +182,21 @@ public partial class OpenApiDocDescriptor
         return BuildCustomBaseTypeSchema(t);
     }
 
+    /*
     /// <summary>
-    /// Builds schema for types implementing IOpenApiType.
-    /// </summary>
-    private static OpenApiSchema? BuildOpenApiTypeSchema(Type t)
-    {
-        var attr = GetSchemaIdentity(t);
-        return attr is not null
-            ? new OpenApiSchema
-            {
-                Type = attr.Type.ToJsonSchemaType(),
-                Format = attr.Format
-            }
-            : null;
-    }
+     /// Builds schema for types implementing IOpenApiType.
+     /// </summary>
+     private static OpenApiSchema? BuildOpenApiTypeSchema(Type t)
+     {
+         var attr = GetSchemaIdentity(t);
+         return attr is not null
+             ? new OpenApiSchema
+             {
+                 Type = attr.Type.ToJsonSchemaType(),
+                 Format = attr.Format
+             }
+             : null;
+     }*/
 
     /// <summary>
     /// Builds schema for types with custom base types.
@@ -254,22 +248,6 @@ public partial class OpenApiDocDescriptor
     }
 
     /// <summary>
-    /// Builds a property schema from an OpenApiProperties attribute.
-    /// </summary>
-    /// <param name="prop">The OpenApiProperties attribute.</param>
-    /// <param name="baseSchema">The base schema to apply the attribute to.</param>
-    /// <returns>The constructed property schema.</returns>
-    private static IOpenApiSchema BuildPropertyFromAttribute(OpenApiProperties prop, IOpenApiSchema baseSchema)
-    {
-        var schema = prop.Array
-            ? new OpenApiSchema { Type = JsonSchemaType.Array, Items = baseSchema }
-            : baseSchema;
-
-        ApplySchemaAttr(prop, schema);
-        return schema;
-    }
-
-    /// <summary>
     /// Registers an enum type schema in the document components.
     /// </summary>
     private void RegisterEnumSchema(Type enumType)
@@ -297,7 +275,7 @@ public partial class OpenApiDocDescriptor
             if (attr is OpenApiSchemaComponent schemaAttribute && schemaAttribute.Examples is not null)
             {
                 schema.Examples ??= [];
-                var node = ToNode(schemaAttribute.Examples);
+                var node = OpenApiJsonNodeFactory.ToNode(schemaAttribute.Examples);
                 if (node is not null)
                 {
                     schema.Examples.Add(node);
@@ -361,7 +339,7 @@ public partial class OpenApiDocDescriptor
             var value = prop.GetValue(instance);
             if (!IsIntrinsicDefault(value, prop.PropertyType))
             {
-                concrete.Default = ToNode(value);
+                concrete.Default = OpenApiJsonNodeFactory.ToNode(value);
             }
         }
         catch
@@ -779,16 +757,16 @@ public partial class OpenApiDocDescriptor
     {
         if (properties.Default is not null)
         {
-            schema.Default = ToNode(properties.Default);
+            schema.Default = OpenApiJsonNodeFactory.ToNode(properties.Default);
         }
         if (properties.Example is not null && properties is not OpenApiParameterComponentAttribute)
         {
-            schema.Example = ToNode(properties.Example);
+            schema.Example = OpenApiJsonNodeFactory.ToNode(properties.Example);
         }
 
         if (properties.Enum is { Length: > 0 })
         {
-            schema.Enum = [.. properties.Enum.Select(ToNode).OfType<JsonNode>()];
+            schema.Enum = [.. properties.Enum.Select(OpenApiJsonNodeFactory.ToNode).OfType<JsonNode>()];
         }
 
         if (properties.RequiredProperties is { Length: > 0 })
@@ -823,109 +801,5 @@ public partial class OpenApiDocDescriptor
         // attach such metadata to the component target instead if you need it.
     }
 
-    /// <summary>
-    /// Determines if a type is considered primitive-like for schema generation.
-    /// </summary>
-    /// <param name="t">The type to check.</param>
-    /// <returns>True if the type is considered primitive-like; otherwise, false.</returns>
-    private static bool IsPrimitiveLike(Type t)
-        => t.IsPrimitive || t == typeof(string) || t == typeof(decimal) || t == typeof(DateTime) ||
-        t == typeof(Guid) || t == typeof(object) ||
-        t == typeof(OpenApiString) || t == typeof(OpenApiInteger) ||
-        t == typeof(OpenApiNumber) || t == typeof(OpenApiBoolean);
-
     #endregion
-
-    /// <summary>
-    /// Converts a .NET object to a JsonNode representation.
-    /// </summary>
-    /// <param name="value">The .NET object to convert.</param>
-    /// <returns>A JsonNode representing the object, or null if the object is null.</returns>
-    public static JsonNode? ToNode(object? value)
-    {
-        if (value is null)
-        {
-            return null;
-        }
-
-        // handle common types
-        return value switch
-        {
-            bool b => JsonValue.Create(b),
-            string s => JsonValue.Create(s),
-            sbyte or byte or short or ushort or int or uint or long or ulong => JsonValue.Create(Convert.ToInt64(value)),
-            float or double or decimal => JsonValue.Create(Convert.ToDouble(value)),
-            DateTime dt => JsonValue.Create(dt.ToString("o")),
-            Guid g => JsonValue.Create(g.ToString()),
-            // Hashtable/IDictionary -> JsonObject
-            System.Collections.IDictionary dict => ToJsonObject(dict),
-            // Generic enumerable -> JsonArray
-            IEnumerable<object?> seq => new JsonArray([.. seq.Select(ToNode)]),
-            // Non-generic enumerable -> JsonArray
-            System.Collections.IEnumerable en when value is not string => ToJsonArray(en),
-            _ => ToNodeFromPocoOrString(value)
-        };
-    }
-
-    private static JsonObject ToJsonObject(System.Collections.IDictionary dict)
-    {
-        var obj = new JsonObject();
-        foreach (System.Collections.DictionaryEntry de in dict)
-        {
-            if (de.Key is null) { continue; }
-            var k = de.Key.ToString() ?? string.Empty;
-            obj[k] = ToNode(de.Value);
-        }
-        return obj;
-    }
-
-    private static JsonArray ToJsonArray(System.Collections.IEnumerable en)
-    {
-        var arr = new JsonArray();
-        foreach (var item in en)
-        {
-            arr.Add(ToNode(item));
-        }
-        return arr;
-    }
-
-    private static JsonNode ToNodeFromPocoOrString(object value)
-    {
-        // Try POCO reflection
-        var t = value.GetType();
-        // Ignore types that are clearly not POCOs
-        if (!t.IsPrimitive && t != typeof(string) && !typeof(System.Collections.IEnumerable).IsAssignableFrom(t))
-        {
-            var props = t.GetProperties(BindingFlags.Public | BindingFlags.Instance);
-            if (props.Length > 0)
-            {
-                var obj = new JsonObject();
-                foreach (var p in props)
-                {
-                    if (!p.CanRead) { continue; }
-                    var v = p.GetValue(value);
-                    if (v is null) { continue; }
-                    obj[p.Name] = ToNode(v);
-                }
-                return obj;
-            }
-        }
-        // Fallback
-        return JsonValue.Create(value?.ToString() ?? string.Empty);
-    }
-
-    /// <summary>
-    /// Ensures that a schema component exists for a complex .NET type.
-    /// </summary>
-    /// <param name="complexType">The complex .NET type.</param>
-    private void EnsureSchemaComponent(Type complexType)
-    {
-        if (Document.Components?.Schemas != null && Document.Components.Schemas.ContainsKey(complexType.Name))
-        {
-            return;
-        }
-
-        var temp = new HashSet<Type>();
-        BuildSchema(complexType, temp);
-    }
 }

@@ -38,7 +38,7 @@ try {
     exit 1
 }
 
-$logger = New-KrLogger |
+New-KrLogger |
     Set-KrLoggerLevel -Value Debug |
     Add-KrSinkFile -Path '.\logs\HtmlTemplate.log' -RollingInterval Hour |
     Add-KrSinkConsole |

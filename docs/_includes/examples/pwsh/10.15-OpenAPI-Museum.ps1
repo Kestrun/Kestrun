@@ -220,9 +220,8 @@ class BuyMuseumTicketsResponse {
 }
 
 [OpenApiSchemaComponent(
-    Description = 'An image of a ticket with a QR code used for museum or event entry.',
-    Type = 'string', Format = 'binary' )]
-class GetTicketCodeResponse {
+    Description = 'An image of a ticket with a QR code used for museum or event entry.' )]
+class GetTicketCodeResponse:OpenApiBinary {
 }
 
 #region Examples

@@ -132,7 +132,7 @@ class UserArrayRequest2:CreateUserRequest {
     [OpenApiPropertyAttribute(Description = 'The contract identifier', Example = 'a54a57ca-36f8-421b-a6b4-2e8f26858a4c')]
     [OpenApiUuid]$contractId
 }
-<#
+
 [OpenApiSchemaComponent(Description = 'List of user responses', Array = $true)]
 class UserResponseArray:UserResponse {}
 
@@ -154,7 +154,7 @@ class EventPrice:OpenApiNumber {}
 
 [OpenApiSchemaComponent(Description = 'Prices for special event tickets', Array = $true)]
 class EventPrices:EventPrice {}
-#>
+
 # =========================================================
 #                 ROUTES / OPERATIONS
 # =========================================================

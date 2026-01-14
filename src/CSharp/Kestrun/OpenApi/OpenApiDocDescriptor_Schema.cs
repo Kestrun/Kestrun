@@ -320,34 +320,9 @@ public partial class OpenApiDocDescriptor
             return value();
         }
 
-        //   var primitivesAssembly = typeof(OpenApiString).Assembly;
-
-        // Only treat built-in OpenApi* primitives (and their variants) as raw OpenApi types.
-        // User-defined schema components (including array wrappers like EventDates : Date)
-        // should fall through to BuildCustomBaseTypeSchema so we can emit $ref + array items.
-        //  if (t.Assembly == primitivesAssembly && typeof(IOpenApiType).IsAssignableFrom(t))
-        //  {
-        //       return BuildOpenApiTypeSchema(t);
-        //  }
         // Fallback to custom base type schema building
         return BuildCustomBaseTypeSchema(t);
     }
-
-    /*
-    /// <summary>
-     /// Builds schema for types implementing IOpenApiType.
-     /// </summary>
-     private static OpenApiSchema? BuildOpenApiTypeSchema(Type t)
-     {
-         var attr = GetSchemaIdentity(t);
-         return attr is not null
-             ? new OpenApiSchema
-             {
-                 Type = attr.Type.ToJsonSchemaType(),
-                 Format = attr.Format
-             }
-             : null;
-     }*/
 
     /// <summary>
     /// Builds schema for types with custom base types.

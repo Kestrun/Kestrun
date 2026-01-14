@@ -42,6 +42,8 @@ public partial class OpenApiDocDescriptor
             pt = underlying;
         }
         IOpenApiSchema schema;
+#pragma warning disable IDE0045
+        // Convert to conditional expression
         if (PrimitiveSchemaMap.TryGetValue(pt, out var getSchema))
         {
             schema = getSchema();
@@ -57,6 +59,8 @@ public partial class OpenApiDocDescriptor
                 // Complex type
                 : BuildComplexTypeSchema(pt, p, built);
         }
+#pragma warning restore IDE0045
+        // Convert to conditional expression
         // Apply nullable flag if needed
         if (allowNull && schema is OpenApiSchema s)
         {

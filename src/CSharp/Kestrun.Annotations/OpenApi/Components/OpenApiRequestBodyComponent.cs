@@ -5,7 +5,6 @@
 [AttributeUsage(AttributeTargets.Class, AllowMultiple = false, Inherited = false)]
 public sealed class OpenApiRequestBodyComponentAttribute : OpenApiProperties
 {
-
     /// <summary>
     /// Description of the request body.
     /// </summary>

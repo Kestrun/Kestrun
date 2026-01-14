@@ -254,7 +254,6 @@ public partial class OpenApiDocDescriptor
         }
     }
 
-
     /// <summary>
     /// Iterates the request body's content media types and adds the example reference to each concrete media type.
     /// </summary>

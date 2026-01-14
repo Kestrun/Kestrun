@@ -136,8 +136,6 @@ public partial class OpenApiDocDescriptor
             : (IOpenApiExample)example.Clone();
     }
 
-
-
     #region Request Body Component Processing
     /// <summary>
     /// Processes a request body component annotation to create or update an OpenAPI request body.
@@ -169,8 +167,6 @@ public partial class OpenApiDocDescriptor
 
         requestBody.Required = requestBodyAnnotation.Required;
     }
-
-
 
     /// <summary>
     /// Tries to apply the variable type schema to an OpenAPI request body.
@@ -212,9 +208,7 @@ public partial class OpenApiDocDescriptor
         {
             requestBody.Content[ct] = new OpenApiMediaType { Schema = iSchema };
         }
-
     }
-
 
     /// <summary>
     /// Processes a request body example reference annotation to add an example to an OpenAPI request body.

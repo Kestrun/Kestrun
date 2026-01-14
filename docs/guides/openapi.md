@@ -500,7 +500,8 @@ components:
         $ref: "#/components/schemas/Date"
 ```
 
-> **Tip:** If you don’t need a reusable component (no `$ref`), use native types directly (e.g. `[datetime]`, `[datetime[]]`) and set `Format`/`Example` on the property with `[OpenApiProperty]`.
+> **Tip:** If you don’t need a reusable component (no `$ref`), use native types directly (e.g. `[datetime]`, `[datetime[]]`)
+and set `Format`/`Example` on the property with `[OpenApiProperty]`.
 
 ### 4.5 Schema patterns ("permutations") and their OpenAPI output
 

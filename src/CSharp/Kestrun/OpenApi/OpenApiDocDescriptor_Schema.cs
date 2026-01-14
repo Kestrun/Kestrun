@@ -114,7 +114,7 @@ public partial class OpenApiDocDescriptor
         resolved = null!;
         schemaParent = null;
 
-        if (t.BaseType is null || t.BaseType == typeof(object))
+        if (!HasComposableBaseType(t))
         {
             return false;
         }
@@ -125,52 +125,132 @@ public partial class OpenApiDocDescriptor
             return false;
         }
 
-        // If the base schema is a simple schema or a reference, return early.
-        if ((baseSchema.AllOf is null && baseSchema.Type != JsonSchemaType.Array) || baseSchema is OpenApiSchemaReference)
+        if (TryResolveSimpleOrReferenceBaseSchema(t, baseSchema, out resolved))
         {
-            if (baseSchema is OpenApiSchema oschema)
-            {
-                ApplyTypeAttributes(t, oschema);
-                resolved = oschema;
-                return true;
-            }
-
-            resolved = baseSchema;
             return true;
         }
 
-        // Special handling for array wrapper types where the array items are themselves composed via allOf.
-        if (baseSchema is OpenApiSchema arraySchema && arraySchema.Type == JsonSchemaType.Array && arraySchema.Items is not null)
+        if (baseSchema is OpenApiSchema arraySchema && TryResolveArrayWrapperDerivedSchema(t, built, arraySchema, out resolved))
         {
-            ApplyTypeAttributes(t, arraySchema);
-            if (arraySchema.Items is OpenApiSchema itemSchema)
-            {
-                // Preserve existing behavior (type-level attributes applied twice in this branch).
-                ApplyTypeAttributes(t, arraySchema);
-                if (itemSchema.AllOf is null)
-                {
-                    resolved = arraySchema;
-                    return true;
-                }
-
-                var additional = new OpenApiSchema
-                {
-                    Type = JsonSchemaType.Object,
-                    Properties = new Dictionary<string, IOpenApiSchema>(StringComparer.Ordinal)
-                };
-                ProcessTypeProperties(t, additional, built);
-                itemSchema.AllOf.Add(additional);
-                resolved = arraySchema;
-                return true;
-            }
-
-            resolved = arraySchema;
             return true;
         }
 
         // Defer composition until after properties are processed.
         schemaParent = baseSchema as OpenApiSchema;
         return false;
+    }
+
+    /// <summary>
+    /// Determines whether a type has a base type that can participate in schema composition.
+    /// </summary>
+    /// <param name="t">The type being processed.</param>
+    /// <returns><c>true</c> if the type derives from something other than <see cref="object"/>; otherwise <c>false</c>.</returns>
+    private static bool HasComposableBaseType(Type t)
+        => t.BaseType is not null && t.BaseType != typeof(object);
+
+    /// <summary>
+    /// Attempts to resolve a derived type immediately when its base schema is a simple schema or a reference.
+    /// </summary>
+    /// <param name="derivedType">The derived type being processed.</param>
+    /// <param name="baseSchema">The schema resolved from the base type.</param>
+    /// <param name="resolved">The resolved schema to return.</param>
+    /// <returns><c>true</c> if the schema was resolved immediately; otherwise <c>false</c>.</returns>
+    private bool TryResolveSimpleOrReferenceBaseSchema(
+        Type derivedType,
+        IOpenApiSchema baseSchema,
+        out IOpenApiSchema resolved)
+    {
+        resolved = null!;
+
+        if (!IsSimpleSchemaOrReference(baseSchema))
+        {
+            return false;
+        }
+
+        if (baseSchema is OpenApiSchema openApiSchema)
+        {
+            ApplyTypeAttributes(derivedType, openApiSchema);
+            resolved = openApiSchema;
+            return true;
+        }
+
+        resolved = baseSchema;
+        return true;
+    }
+
+    /// <summary>
+    /// Determines whether a schema represents a "simple" base schema (not composed via <c>allOf</c>)
+    /// or a schema reference.
+    /// </summary>
+    /// <param name="schema">The schema to check.</param>
+    /// <returns><c>true</c> if the schema is simple or a reference; otherwise <c>false</c>.</returns>
+    private static bool IsSimpleSchemaOrReference(IOpenApiSchema schema)
+    {
+        return schema is OpenApiSchemaReference
+            || (schema.AllOf is null && schema.Type != JsonSchemaType.Array);
+    }
+
+    /// <summary>
+    /// Resolves the special case where a derived type represents an array wrapper and the array items
+    /// may themselves be composed via <c>allOf</c>.
+    /// </summary>
+    /// <param name="derivedType">The derived type being processed.</param>
+    /// <param name="built">The recursion guard set passed through schema-building.</param>
+    /// <param name="arraySchema">The schema resolved from the base type.</param>
+    /// <param name="resolved">The resolved schema to return.</param>
+    /// <returns><c>true</c> if handled; otherwise <c>false</c>.</returns>
+    private bool TryResolveArrayWrapperDerivedSchema(
+        Type derivedType,
+        HashSet<Type> built,
+        OpenApiSchema arraySchema,
+        out IOpenApiSchema resolved)
+    {
+        resolved = null!;
+
+        if (arraySchema.Type != JsonSchemaType.Array || arraySchema.Items is null)
+        {
+            return false;
+        }
+
+        ApplyTypeAttributes(derivedType, arraySchema);
+
+        if (arraySchema.Items is not OpenApiSchema itemSchema)
+        {
+            resolved = arraySchema;
+            return true;
+        }
+
+        // Preserve existing behavior (type-level attributes applied twice in this branch).
+        ApplyTypeAttributes(derivedType, arraySchema);
+
+        if (itemSchema.AllOf is null)
+        {
+            resolved = arraySchema;
+            return true;
+        }
+
+        var additional = CreateAllOfAdditionalObjectSchema(derivedType, built);
+        itemSchema.AllOf.Add(additional);
+        resolved = arraySchema;
+        return true;
+    }
+
+    /// <summary>
+    /// Creates the additional object schema appended to an existing <c>allOf</c> list for a derived type.
+    /// </summary>
+    /// <param name="t">The derived type whose properties should be added.</param>
+    /// <param name="built">The recursion guard set passed through schema-building.</param>
+    /// <returns>An <see cref="OpenApiSchema"/> containing only properties declared on <paramref name="t"/>.</returns>
+    private OpenApiSchema CreateAllOfAdditionalObjectSchema(Type t, HashSet<Type> built)
+    {
+        var additional = new OpenApiSchema
+        {
+            Type = JsonSchemaType.Object,
+            Properties = new Dictionary<string, IOpenApiSchema>(StringComparer.Ordinal)
+        };
+
+        ProcessTypeProperties(t, additional, built);
+        return additional;
     }
 
     /// <summary>

@@ -26,12 +26,13 @@ It combines the performance of C# with the flexibility of PowerShell, making it 
 ## Highlights
 
 - **PowerShell-first routing** — author endpoints with `Add-KrMapRoute` or Razor+PS hybrids.
-- **Auth built-ins** — JWT, API keys, Kerberos, client certs.
+- **Auth built-ins** — JWT bearer, API keys, Basic, Windows/Negotiate, client certs.
 - **Razor + PS** — serve `.cshtml` with `.ps1` backers.
 - **Scheduling** — PowerShell and C# jobs with cron-like control.
 - **Logging** — Serilog, syslog, REST; structured logs galore.
-- **OpenAPI** — generate specs, validate I/O.
-- **WebDAV, SMTP/FTP** — expand beyond HTTP when you want to get naughty.
+- **OpenAPI** — generate specs and serve interactive docs (Swagger UI / ReDoc / Scalar / RapiDoc / Elements).
+- **Realtime** — SSE and SignalR support for push-style apps.
+- **Extended HTTP verbs** — includes WebDAV methods and HTTP `QUERY` (OpenAPI 3.2+) when you need a body-based search.
 
 ## Quick links
 

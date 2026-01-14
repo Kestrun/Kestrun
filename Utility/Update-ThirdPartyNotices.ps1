@@ -54,7 +54,6 @@ try {
                 $_
             }
         }
-
 } finally {
     if ($null -ne $prevRollForward) {
         $env:DOTNET_ROLL_FORWARD = $prevRollForward

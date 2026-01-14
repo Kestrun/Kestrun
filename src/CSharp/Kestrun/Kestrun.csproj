@@ -93,7 +93,7 @@
         <PackageProjectUrl>https://github.com/kestrun/Kestrun</PackageProjectUrl>
         <PackageIcon>Assets\kestrun_128x128.png</PackageIcon>
         <PackageTags>Kestrun web framework</PackageTags>
-        <Copyright>Copyright © 2025 Kestrun Team</Copyright>
+        <Copyright>Copyright © 2025–2026 Kestrun Team</Copyright>
 
         <!-- Include README in NuGet package -->
         <PackageReadmeFile>README.md</PackageReadmeFile>

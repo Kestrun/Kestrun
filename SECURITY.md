@@ -2,14 +2,14 @@
 
 ## Supported Versions
 
-Kestrun is currently in **alpha** (v1.0.0-alpha.4).
+Kestrun is currently in **beta** (v1.0.0-beta3).
 During this stage, only the latest pre-release version is supported.
-Older alpha builds are not maintained or patched.
+Older beta builds are not maintained or patched.
 
 | Version         | Supported          |
 | --------------- | ------------------ |
-| 1.0.0-alpha.4   | :white_check_mark: |
-| < 1.0.0-alpha.3 | :x:                |
+| 1.0.0-beta3   | :white_check_mark: |
+| < 1.0.0-beta3 | :x:                |
 
 ## Reporting a Vulnerability
 

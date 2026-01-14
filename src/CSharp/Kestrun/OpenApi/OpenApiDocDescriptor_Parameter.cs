@@ -234,7 +234,7 @@ public partial class OpenApiDocDescriptor
     /// <param name="exampleRef">The example reference attribute.</param>
     /// <param name="variableName">The variable name used for error messages.</param>
     /// <exception cref="InvalidOperationException">Thrown when encountering a media type reference or an unknown media type.</exception>
-    private void AddExamplesToContentMediaTypes(OpenApiParameter parameter, OpenApiParameterExampleRefAttribute exampleRef, string variableName)
+    private void AddExamplesToContentMediaTypes(OpenApiParameter parameter, IOpenApiExampleAttribute exampleRef, string variableName)
     {
         foreach (var iMediaType in parameter.Content!.Values)
         {
@@ -254,6 +254,44 @@ public partial class OpenApiDocDescriptor
         }
     }
 
+
+    /// <summary>
+    /// Iterates the request body's content media types and adds the example reference to each concrete media type.
+    /// </summary>
+    /// <param name="requestBody">The OpenAPI request body with content.</param>
+    /// <param name="exampleRef">The example reference attribute.</param>
+    /// <param name="variableName">The variable name used for error messages.</param>
+    /// <exception cref="InvalidOperationException">Thrown when encountering a media type reference or an unknown media type.</exception>
+    private void AddExamplesToContentMediaTypes(OpenApiRequestBody requestBody, IOpenApiExampleAttribute exampleRef, string variableName)
+    {
+        foreach (var iMediaType in requestBody.Content!.Values)
+        {
+            try
+            {
+                if (iMediaType is OpenApiMediaType mediaType)
+                {
+                    mediaType.Examples ??= new Dictionary<string, IOpenApiExample>(StringComparer.Ordinal);
+                    if (!TryAddExample(mediaType.Examples, exampleRef))
+                    {
+                        throw new InvalidOperationException($"Failed to add example reference '{exampleRef.ReferenceId}' to media type in request body '{variableName}'.");
+                    }
+                    continue;
+                }
+
+                if (iMediaType is OpenApiMediaTypeReference)
+                {
+                    throw new InvalidOperationException($"Cannot add example reference to media type reference in request body '{variableName}'.");
+                }
+
+                throw new InvalidOperationException($"Unknown media type in request body '{variableName}'.");
+            }
+            catch (Exception ex)
+            {
+                Host.Logger.Error("Error adding example reference to request body {variableName}: {ex.Message}", variableName, ex.Message);
+            }
+        }
+    }
+
     /// <summary>
     /// Processes a PowerShell attribute to add validation constraints to an OpenAPI parameter.
     /// </summary>
@@ -262,24 +300,51 @@ public partial class OpenApiDocDescriptor
     /// <exception cref="InvalidOperationException">Thrown if the parameter does not have a schema or content defined before adding the PowerShell property.</exception>
     private void ProcessPowerShellAttribute(string variableName, InternalPowershellAttribute powershellAttribute)
     {
-        if (!TryGetParameterItem(variableName, out var parameter))
+        if (TryGetParameterItem(variableName, out var parameter))
         {
-            throw new InvalidOperationException($"Parameter '{variableName}' not found when trying to add example reference.");
-        }
+            if (parameter is null || (parameter.Schema is null && parameter.Content is null))
+            {
+                throw new InvalidOperationException($"Parameter '{variableName}' must have a schema or content defined before adding the powershell property.");
+            }
 
-        if (parameter is null || (parameter.Schema is null && parameter.Content is null))
-        {
-            throw new InvalidOperationException($"Parameter '{variableName}' must have a schema or content defined before adding the powershell property.");
-        }
+            if (parameter.Content is not null)
+            {
+                foreach (var mediaType in parameter.Content.Values)
+                {
+                    if (mediaType.Schema is not OpenApiSchema mSchema)
+                    {
+                        Host.Logger.Warning($"Powershell attribute processing is not supported for parameter '{variableName}' with non-concrete schema.");
+                        continue;
+                    }
 
-        if (parameter.Content is not null)
-        {
-            Host.Logger.Warning($"Powershell attribute processing is not supported for parameter '{variableName}' with content.");
+                    ApplyPowerShellAttributesToSchema(mSchema, powershellAttribute);
+                }
+                return;
+            }
+            var schema = (OpenApiSchema)parameter.Schema!;
+            ApplyPowerShellAttributesToSchema(schema, powershellAttribute);
             return;
         }
 
-        var schema = (OpenApiSchema)parameter.Schema!;
-        ApplyPowerShellAttributesToSchema(schema, powershellAttribute);
+        if (TryGetRequestBodyItem(variableName, out var requestBody))
+        {
+            if (requestBody is null || requestBody.Content is null)
+            {
+                throw new InvalidOperationException($"RequestBody '{variableName}' must have a content defined before adding the powershell property.");
+            }
+            foreach (var mediaType in requestBody.Content.Values)
+            {
+                if (mediaType.Schema is not OpenApiSchema schema)
+                {
+                    Host.Logger.Warning($"Powershell attribute processing is not supported for request body '{variableName}' with non-concrete schema.");
+                    continue;
+                }
+
+                ApplyPowerShellAttributesToSchema(schema, powershellAttribute);
+            }
+            return;
+        }
+        Host.Logger.Error("Parameter or RequestBody '{variableName}' not found when trying to add PowerShell attribute.", variableName);
     }
 
     /// <summary>

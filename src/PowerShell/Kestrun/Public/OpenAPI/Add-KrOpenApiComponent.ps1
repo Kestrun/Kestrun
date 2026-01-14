@@ -56,6 +56,9 @@ function Add-KrOpenApiComponent {
         $Server = Resolve-KestrunServer -Server $Server
     }
     process {
+        if ($Server.IsConfigured) {
+            throw [System.InvalidOperationException]::new('The Kestrun server configuration is already set. Please add components before enabling the server configuration.')
+        }
         # Add the server to the specified OpenAPI documents
         foreach ($doc in $DocId) {
             $docDescriptor = $Server.GetOrCreateOpenApiDocument($doc)

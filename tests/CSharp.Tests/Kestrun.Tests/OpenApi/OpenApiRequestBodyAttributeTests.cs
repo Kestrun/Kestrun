@@ -19,14 +19,14 @@ public class OpenApiRequestBodyAttributeTests
 
 
 
-    [OpenApiRequestBodyComponent(Key = "UserBody", Description = "User body", ContentType = ["application/json"], Required = true, Example = "AlicePayload")]
+    [OpenApiRequestBodyComponentAttribute(Key = "UserBody", Description = "User body", ContentType = ["application/json"], Required = true, Example = "AlicePayload")]
     private class RequestBodyHolderBasic
     {
         [OpenApiProperty(Description = "Username", Nullable = false)]
         public string Name { get; set; } = "Alice";
     }
 
-    [OpenApiRequestBodyComponent(Key = "UserBodyWithExamples", Description = "User body with examples", ContentType = ["application/json"], Required = false)]
+    [OpenApiRequestBodyComponentAttribute(Key = "UserBodyWithExamples", Description = "User body with examples", ContentType = ["application/json"], Required = false)]
     [OpenApiExampleRef(Key = "exClone", ReferenceId = "UserEx", ContentType = ["application/json"], Inline = true)]
     [OpenApiExampleRef(Key = "exRef", ReferenceId = "UserEx", ContentType = ["application/json"], Inline = false)]
     private class RequestBodyHolderWithExamples

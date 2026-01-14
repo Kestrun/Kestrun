@@ -626,7 +626,7 @@ public partial class OpenApiDocDescriptor
     /// Thrown when the ReferenceId is not specified and the parameter type is 'object',
     /// or when the ReferenceId does not match the parameter type name.
     /// </exception>
-    private static string ResolveRequestBodyReferenceId(OpenApiRequestBodyRefAttribute attribute, ParameterMetadata paramInfo)
+    private string ResolveRequestBodyReferenceId(OpenApiRequestBodyRefAttribute attribute, ParameterMetadata paramInfo)
     {
         if (string.IsNullOrWhiteSpace(attribute.ReferenceId))
         {
@@ -639,6 +639,28 @@ public partial class OpenApiDocDescriptor
         }
         else if (paramInfo.ParameterType.Name != "Object" && attribute.ReferenceId != paramInfo.ParameterType.Name)
         {
+            if (TryGetRequestBodyItem(attribute.ReferenceId, out var requestBody, out _))
+            {
+                if (requestBody is not null && requestBody.Content is not null && requestBody.Content.Count > 0)
+                {
+                    var content = requestBody.Content.First().Value;
+                    if (content.Schema is not null)
+                    {
+                        if (content.Schema is OpenApiSchemaReference schemaRef && schemaRef.Reference.Id == paramInfo.ParameterType.Name)
+                        {
+                            return attribute.ReferenceId;
+                        }
+                        else if (content.Schema is OpenApiSchema schema && PrimitiveSchemaMap.TryGetValue(paramInfo.ParameterType, out var valueType))
+                        {
+                            var v = valueType();
+                            if (schema.Format == v.Format && schema.Type == v.Type)
+                            {
+                                return attribute.ReferenceId;
+                            }
+                        }
+                    }
+                }
+            }
             throw new InvalidOperationException($"ReferenceId '{attribute.ReferenceId}' is different from parameter type name '{paramInfo.ParameterType.Name}'.");
         }
 

@@ -162,9 +162,14 @@ public partial class OpenApiDocDescriptor
                 case OpenApiParameterComponentAttribute paramComponent:
                     ProcessParameterComponent(variable, paramComponent);
                     break;
-
-                case OpenApiParameterExampleRefAttribute exampleRef:
-                    ProcessParameterExampleRef(variable.Name, exampleRef);
+                case OpenApiRequestBodyComponentAttribute requestBodyComponent:
+                    ProcessRequestBodyComponent(variable, requestBodyComponent);
+                    break;
+                case OpenApiParameterExampleRefAttribute parameterExampleRef:
+                    ProcessParameterExampleRef(variable.Name, parameterExampleRef);
+                    break;
+                case OpenApiRequestBodyExampleRefAttribute requestBodyExampleRef:
+                    ProcessRequestBodyExampleRef(variable.Name, requestBodyExampleRef);
                     break;
                 case InternalPowershellAttribute powershellAttribute:
                     // Process PowerShell attribute to modify the schema

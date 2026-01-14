@@ -16,6 +16,16 @@ public sealed class OpenApiParameterComponentAttribute : OpenApiProperties
     }
 
     /// <summary>
+    /// Description of the parameter.
+    /// </summary>
+    public new string? Description { get; set; }
+
+    /// <summary>
+    /// Indicates whether the parameter is deprecated.
+    /// </summary>
+    public new bool Deprecated { get; set; }
+
+    /// <summary>
     /// The local name under components.parameters.
     /// </summary>
     public string? Key { get; set; }

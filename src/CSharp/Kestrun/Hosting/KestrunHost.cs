@@ -1274,11 +1274,17 @@ public partial class KestrunHost : IDisposable
             try
             {
                 using var scope = _app.Services.CreateScope();
-                var hub = scope.ServiceProvider.GetRequiredService<IHubContext<SignalR.KestrunHub>>();
 
-                _ = hub.Clients.All.SendAsync(
-                    "serverShutdown",
-                    "Server stopping");
+                var isService = scope.ServiceProvider.GetService<IServiceProviderIsService>();
+                if (isService?.IsService(typeof(IHubContext<SignalR.KestrunHub>)) != true)
+                {
+                    Logger.Debug("SignalR hub context not available. Skipping shutdown notification.");
+                    return;
+                }
+
+                var hub = scope.ServiceProvider.GetRequiredService<IHubContext<SignalR.KestrunHub>>();
+                _ = hub.Clients.All.SendAsync("serverShutdown", "Server stopping");
+                Logger.Information("Sent SignalR shutdown notification to clients.");
             }
             catch (Exception ex)
             {

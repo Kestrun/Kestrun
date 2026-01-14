@@ -50,6 +50,12 @@ Get-ChildItem -Path $scan -Recurse -Filter *.md | ForEach-Object {
     $name = $_.Name
     $text = Get-Content -Path $itemPath -Raw
 
+    # Normalize content across platforms/editors (BOM + CRLF) so section checks are stable.
+    if ($text -and $text.StartsWith([char]0xFEFF)) {
+        $text = $text.Substring(1)
+    }
+    $text = $text -replace "`r`n", "`n"
+
     # Skip index pages from strict checks
     if ($name -ieq 'index.md') { return }
 
@@ -76,10 +82,14 @@ Get-ChildItem -Path $scan -Recurse -Filter *.md | ForEach-Object {
     }
 
     # Ensure required sections exist
-    foreach ($hdr in '## Full source', '## Step-by-step', '## Try it', '## Troubleshooting', '## References', '### Previous / Next
-
-{: .fs-4 .fw-500}') {
+    foreach ($hdr in '## Full source', '## Step-by-step', '## Try it', '## Troubleshooting', '## References') {
         if ($text -notmatch [regex]::Escape($hdr)) { $failures += "[Section] $rel missing '$hdr'" }
+    }
+
+    # Required footer navigation block (allow CRLF/LF and harmless whitespace variance)
+    $previousNextPattern = '(?s)###\s+Previous\s*/\s*Next\s*\n\s*\n\s*\{:\s*\.fs-4\s*\.fw-500\s*\}'
+    if ($text -notmatch $previousNextPattern) {
+        $failures += "[Section] $rel missing '### Previous / Next\n\n{: .fs-4 .fw-500}'"
     }
 
     # Include directive present

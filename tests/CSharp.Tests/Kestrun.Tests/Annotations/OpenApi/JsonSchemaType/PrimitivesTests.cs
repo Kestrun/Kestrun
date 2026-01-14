@@ -7,7 +7,7 @@ namespace KestrunTests.Annotations.OpenApi.JsonSchemaType;
 
 public class PrimitivesTests
 {
-    private sealed class NullableStringValue(string? value) : OpenApiValue<string?>(value) { }
+    private sealed class NullableStringValue(string? value) : OpenApiScalar<string?>(value) { }
 
     [Fact]
     public void OpenApiString_DefaultCtor_IsEmpty_AndRawValueMatches()

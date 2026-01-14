@@ -159,7 +159,7 @@ public partial class OpenApiDocDescriptor
                 ? rawKey
                 : "x-" + rawKey;
 
-            var node = OpenApiJsonNodeFactory.FromObject(entry.Value);
+            var node = OpenApiJsonNodeFactory.ToNode(entry.Value);
             if (node is null)
             {
                 continue;

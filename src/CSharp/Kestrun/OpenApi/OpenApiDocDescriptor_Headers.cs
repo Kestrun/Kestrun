@@ -50,7 +50,7 @@ public partial class OpenApiDocDescriptor
             Style = style,
             Explode = explode,
             AllowReserved = allowReserved,
-            Example = OpenApiJsonNodeFactory.FromObject(example)
+            Example = OpenApiJsonNodeFactory.ToNode(example)
         };
 
         ApplyHeaderSchema(header, schema);

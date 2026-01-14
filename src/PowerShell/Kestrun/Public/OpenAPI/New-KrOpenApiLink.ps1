@@ -77,7 +77,7 @@ function New-KrOpenApiLink {
             $rbWrapper.Expression = [Microsoft.OpenApi.RuntimeExpression]::Build($RequestBody)
             $link.RequestBody = $rbWrapper
         } elseif ($RequestBody -isnot [string]) {
-            $rbWrapper.Any = [Kestrun.OpenApi.OpenApiJsonNodeFactory]::FromObject($RequestBody)
+            $rbWrapper.Any = [Kestrun.OpenApi.OpenApiJsonNodeFactory]::ToNode($RequestBody)
             $link.RequestBody = $rbWrapper
         }
     }
@@ -93,7 +93,7 @@ function New-KrOpenApiLink {
             if ($value -is [string]) {
                 $pWrapper.Expression = [Microsoft.OpenApi.RuntimeExpression]::Build($value)
             } else {
-                $pWrapper.Any = [Kestrun.OpenApi.OpenApiJsonNodeFactory]::FromObject($value)
+                $pWrapper.Any = [Kestrun.OpenApi.OpenApiJsonNodeFactory]::ToNode($value)
             }
 
             $link.Parameters[$key] = $pWrapper
@@ -102,4 +102,3 @@ function New-KrOpenApiLink {
 
     return $link
 }
-

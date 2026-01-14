@@ -1285,8 +1285,7 @@
               "type": "array",
               "items": {
                 "$ref": "#/components/schemas/User"
-              },
-              "description": "List of user object"
+              }
             }
           }
         },
@@ -1297,19 +1296,16 @@
         "content": {
           "application/json": {
             "schema": {
-              "description": "Pet object that needs to be added to the store",
               "$ref": "#/components/schemas/Pet"
             }
           },
           "application/xml": {
             "schema": {
-              "description": "Pet object that needs to be added to the store",
               "$ref": "#/components/schemas/Pet"
             }
           },
           "application/x-www-form-urlencoded": {
             "schema": {
-              "description": "Pet object that needs to be added to the store",
               "$ref": "#/components/schemas/Pet"
             }
           }

@@ -26,7 +26,7 @@ public class KestrunHostMapExtensionsTests
             {
                 Summary = "User example",
                 Description = "Example used by xUnit tests",
-                Value = OpenApiDocDescriptor.ToNode(new { Name = "Alice", Age = 42 })
+                Value = OpenApiJsonNodeFactory.ToNode(new { Name = "Alice", Age = 42 })
             });
     }
 

@@ -619,8 +619,9 @@ public static class PowerShellOpenApiClassExporter
         }
 
         // OpenAPI primitive wrappers (PowerShell-friendly):
-        // Many schemas are represented as classes deriving from OpenApiValue<T>
-        // (e.g. OpenApiString/OpenApiNumber/OpenApiBoolean/OpenApiInteger, OpenApiDate, etc.).
+        // Many schemas are represented as classes deriving from OpenApiScalar<T> (new)
+        // or the legacy OpenApiValue<T> (older builds).
+        // Examples: OpenApiString/OpenApiNumber/OpenApiBoolean/OpenApiInteger, OpenApiDate, etc.
         // When such a schema is referenced as a property type, we want the *real*
         // PowerShell primitive type constraint (string/double/bool/long) rather than
         // the wrapper class name.
@@ -644,13 +645,13 @@ public static class PowerShellOpenApiClassExporter
 
         // If the property type is itself one of the OpenAPI component classes,
         // use its *simple* name (Pet, User, Tag, Category, etc.)
-        if (componentSet.Contains(t))
+        if (componentSet.Contains(t) || t.FullName is null)
         {
             return t.Name;
         }
 
         // Fallback for other reference types (you can change to t.Name if you prefer)
-        return t.FullName ?? t.Name;
+        return t.FullName;
     }
 
     /// <summary>
@@ -723,8 +724,9 @@ public static class PowerShellOpenApiClassExporter
     {
         underlyingType = null;
 
-        // Walk base types looking for OpenApiValue<T> (by name to avoid hard coupling).
-        // OpenApiValue<T> lives in Kestrun.Annotations and is in the global namespace.
+        // Walk base types looking for OpenApiScalar<T> (preferred) or OpenApiValue<T> (legacy)
+        // by name to avoid hard coupling.
+        // OpenApiScalar<T> lives in Kestrun.Annotations and is in the global namespace.
         var current = t;
 
         while (current is not null && current != typeof(object))
@@ -732,7 +734,8 @@ public static class PowerShellOpenApiClassExporter
             if (current.IsGenericType)
             {
                 var def = current.GetGenericTypeDefinition();
-                if (string.Equals(def.Name, "OpenApiValue`1", StringComparison.Ordinal))
+                if (string.Equals(def.Name, "OpenApiScalar`1", StringComparison.Ordinal) ||
+                    string.Equals(def.Name, "OpenApiValue`1", StringComparison.Ordinal))
                 {
                     underlyingType = current.GetGenericArguments()[0];
                     return true;

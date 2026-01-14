@@ -145,9 +145,9 @@ public sealed class OpenApiDocDescriptorInlineAndPrivateHelpersTests
             OperationId = "op",
             Parameters = new Dictionary<string, RuntimeExpressionAnyWrapper>
             {
-                ["id"] = new RuntimeExpressionAnyWrapper { Any = OpenApiJsonNodeFactory.FromObject("abc") }
+                ["id"] = new RuntimeExpressionAnyWrapper { Any = OpenApiJsonNodeFactory.ToNode("abc") }
             },
-            RequestBody = new RuntimeExpressionAnyWrapper { Any = OpenApiJsonNodeFactory.FromObject(new { x = 1 }) }
+            RequestBody = new RuntimeExpressionAnyWrapper { Any = OpenApiJsonNodeFactory.ToNode(new { x = 1 }) }
         });
 
         Assert.True(d.TryGetInline<OpenApiLink>("lnkInline", OpenApiComponentKind.Links, out var inlineLnk));
@@ -180,9 +180,9 @@ public sealed class OpenApiDocDescriptorInlineAndPrivateHelpersTests
             OperationId = "op",
             Parameters = new Dictionary<string, RuntimeExpressionAnyWrapper>
             {
-                ["id"] = new RuntimeExpressionAnyWrapper { Any = OpenApiJsonNodeFactory.FromObject("abc") }
+                ["id"] = new RuntimeExpressionAnyWrapper { Any = OpenApiJsonNodeFactory.ToNode("abc") }
             },
-            RequestBody = new RuntimeExpressionAnyWrapper { Any = OpenApiJsonNodeFactory.FromObject(new { x = 1 }) }
+            RequestBody = new RuntimeExpressionAnyWrapper { Any = OpenApiJsonNodeFactory.ToNode(new { x = 1 }) }
         });
 
         var links = new Dictionary<string, IOpenApiLink>(StringComparer.Ordinal);

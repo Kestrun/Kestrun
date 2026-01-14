@@ -74,7 +74,7 @@ public class OpenApiRequestBodyAttributeTests
             {
                 Summary = "User example",
                 Description = "Example used by tests",
-                Value = OpenApiDocDescriptor.ToNode(new { Name = "Alice", Age = 42 })
+                Value = OpenApiJsonNodeFactory.ToNode(new { Name = "Alice", Age = 42 })
             });
 
         var set = new OpenApiComponentSet

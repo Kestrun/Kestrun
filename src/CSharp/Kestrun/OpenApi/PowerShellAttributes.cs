@@ -108,7 +108,7 @@ internal static class PowerShellAttributes
         if (validValues is not null)
         {
             var list = new List<JsonNode>();
-            foreach (var node in validValues.Select(OpenApiDocDescriptor.ToNode))
+            foreach (var node in validValues.Select(OpenApiJsonNodeFactory.ToNode))
             {
                 if (node is not null)
                 {

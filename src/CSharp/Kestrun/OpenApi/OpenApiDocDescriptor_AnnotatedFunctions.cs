@@ -509,7 +509,7 @@ public partial class OpenApiDocDescriptor
             var defaultValue = func.GetDefaultParameterValue(paramInfo.Name);
             if (defaultValue is not null)
             {
-                schema.Default = ToNode(defaultValue);
+                schema.Default = OpenApiJsonNodeFactory.ToNode(defaultValue);
             }
         }
 
@@ -905,7 +905,7 @@ public partial class OpenApiDocDescriptor
                 // Example
                 if (request.Example is not null)
                 {
-                    mediaType.Example = ToNode(request.Example);
+                    mediaType.Example = OpenApiJsonNodeFactory.ToNode(request.Example);
                 }
                 // Schema
                 mediaType.Schema = schema;

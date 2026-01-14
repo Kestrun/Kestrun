@@ -4,7 +4,7 @@ using System.Net;
 using System.Net.Sockets;
 using System.Xml;
 
-public interface IOpenApiType
+public interface IOpenApiScalar
 {
     object? RawValue { get; }
 }
@@ -12,7 +12,7 @@ public interface IOpenApiType
 /// <summary>
 /// Generic strongly-typed OpenAPI wrapper that is PowerShell-friendly.
 /// </summary>
-public abstract class OpenApiValue<T>(T value) : IOpenApiType
+public abstract class OpenApiScalar<T>(T value) : IOpenApiScalar
 {
     public T Value { get; } = value;
 
@@ -29,7 +29,7 @@ public abstract class OpenApiValue<T>(T value) : IOpenApiType
 /// <summary>OpenAPI string primitive type.</summary>
 /// <param name="value">The string value.</param>
 [OpenApiSchemaComponent(Type = OaSchemaType.String)]
-public class OpenApiString(string value) : OpenApiValue<string>(value)
+public class OpenApiString(string value) : OpenApiScalar<string>(value)
 {
     public OpenApiString() : this(string.Empty) { }
 
@@ -109,7 +109,7 @@ public class OpenApiEmail(string value) : OpenApiString(value)
 /// </summary>
 /// <param name="value">The binary byte array value.</param>
 [OpenApiSchemaComponent(Type = OaSchemaType.String, Format = "binary")]
-public class OpenApiBinary(byte[] value) : OpenApiValue<byte[]>(value)
+public class OpenApiBinary(byte[] value) : OpenApiScalar<byte[]>(value)
 {
     public OpenApiBinary() : this([]) { }
 
@@ -228,7 +228,7 @@ public class OpenApiUrl(string value) : OpenApiString(value)
 /// </summary>
 /// <param name="value">The byte array value.</param>
 [OpenApiSchemaComponent(Type = OaSchemaType.String, Format = "byte")]
-public class OpenApiByte(byte[] value) : OpenApiValue<byte[]>(value)
+public class OpenApiByte(byte[] value) : OpenApiScalar<byte[]>(value)
 {
     public OpenApiByte() : this([]) { }
 
@@ -327,7 +327,7 @@ public class OpenApiYaml(string value) : OpenApiString(value)
 /// </summary>
 /// <param name="value">The integer value.</param>
 [OpenApiSchemaComponent(Type = OaSchemaType.Integer)]
-public class OpenApiInteger(long value) : OpenApiValue<long>(value)
+public class OpenApiInteger(long value) : OpenApiScalar<long>(value)
 {
     public OpenApiInteger() : this(0) { }
 
@@ -347,7 +347,7 @@ public class OpenApiInteger(long value) : OpenApiValue<long>(value)
 /// </summary>
 /// <param name="value">The int32 value.</param>
 [OpenApiSchemaComponent(Type = OaSchemaType.Integer, Format = "int32")]
-public class OpenApiInt32(int value) : OpenApiValue<int>(value)
+public class OpenApiInt32(int value) : OpenApiScalar<int>(value)
 {
     public OpenApiInt32() : this(0) { }
 
@@ -367,7 +367,7 @@ public class OpenApiInt32(int value) : OpenApiValue<int>(value)
 /// </summary>
 /// <param name="value">The int64 value.</param>
 [OpenApiSchemaComponent(Type = OaSchemaType.Integer, Format = "int64")]
-public class OpenApiInt64(long value) : OpenApiValue<long>(value)
+public class OpenApiInt64(long value) : OpenApiScalar<long>(value)
 {
     public OpenApiInt64() : this(0) { }
 
@@ -387,7 +387,7 @@ public class OpenApiInt64(long value) : OpenApiValue<long>(value)
 /// </summary>
 /// <param name="value">The number value.</param>
 [OpenApiSchemaComponent(Type = OaSchemaType.Number)]
-public class OpenApiNumber(double value) : OpenApiValue<double>(value)
+public class OpenApiNumber(double value) : OpenApiScalar<double>(value)
 {
     public OpenApiNumber() : this(0d) { }
 
@@ -407,7 +407,7 @@ public class OpenApiNumber(double value) : OpenApiValue<double>(value)
 /// </summary>
 /// <param name="value">The float value.</param>
 [OpenApiSchemaComponent(Type = OaSchemaType.Number, Format = "float")]
-public class OpenApiFloat(float value) : OpenApiValue<float>(value)
+public class OpenApiFloat(float value) : OpenApiScalar<float>(value)
 {
     public OpenApiFloat() : this(0f) { }
 
@@ -427,7 +427,7 @@ public class OpenApiFloat(float value) : OpenApiValue<float>(value)
 /// </summary>
 /// <param name="value">The double value.</param>
 [OpenApiSchemaComponent(Type = OaSchemaType.Number, Format = "double")]
-public class OpenApiDouble(double value) : OpenApiValue<double>(value)
+public class OpenApiDouble(double value) : OpenApiScalar<double>(value)
 {
     public OpenApiDouble() : this(0d) { }
 
@@ -447,7 +447,7 @@ public class OpenApiDouble(double value) : OpenApiValue<double>(value)
 /// </summary>
 /// <param name="value">The boolean value.</param>
 [OpenApiSchemaComponent(Type = OaSchemaType.Boolean)]
-public class OpenApiBoolean(bool value) : OpenApiValue<bool>(value)
+public class OpenApiBoolean(bool value) : OpenApiScalar<bool>(value)
 {
     public OpenApiBoolean() : this(false) { }
 

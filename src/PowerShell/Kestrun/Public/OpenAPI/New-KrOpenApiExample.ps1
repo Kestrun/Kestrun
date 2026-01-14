@@ -73,11 +73,11 @@ function New-KrOpenApiExample {
     switch ($PSCmdlet.ParameterSetName) {
         'Value' {
             # Convert using your C# helper
-            $example.Value = [Kestrun.OpenApi.OpenApiJsonNodeFactory]::FromObject($Value)
+            $example.Value = [Kestrun.OpenApi.OpenApiJsonNodeFactory]::ToNode($Value)
         }
 
         'DataValue' {
-            $example.DataValue = [Kestrun.OpenApi.OpenApiJsonNodeFactory]::FromObject($DataValue)
+            $example.DataValue = [Kestrun.OpenApi.OpenApiJsonNodeFactory]::ToNode($DataValue)
             if (-not ([string]::IsNullOrWhiteSpace($SerializedValue))) {
                 $example.SerializedValue = $SerializedValue
             }
@@ -88,4 +88,3 @@ function New-KrOpenApiExample {
     }
     return $example
 }
-

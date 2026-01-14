@@ -17,7 +17,10 @@ public partial class OpenApiDocDescriptor
         {
             if (!ComponentSchemasExists(t.Name))
             {
-                Document.Components.Schemas[t.Name] = BuildSchemaForType(t, built);
+                if (!PrimitiveSchemaMap.ContainsKey(t))
+                {
+                    Document.Components.Schemas[t.Name] = BuildSchemaForType(t, built);
+                }
             }
         }
     }
@@ -38,22 +41,33 @@ public partial class OpenApiDocDescriptor
             allowNull = true;
             pt = underlying;
         }
-
-        // Determine schema type and build accordingly
-        var schema = (!IsPrimitiveLike(pt) && !pt.IsEnum && !pt.IsArray)
-            ? BuildComplexTypeSchema(pt, p, built)
-            : pt.IsEnum
-                ? BuildEnumSchema(pt, p)
-                : pt.IsArray
-                    ? BuildArraySchema(pt, p, built)
-                    : BuildPrimitiveSchema(pt, p);
-
+        IOpenApiSchema schema;
+#pragma warning disable IDE0045
+        // Convert to conditional expression
+        if (PrimitiveSchemaMap.TryGetValue(pt, out var getSchema))
+        {
+            schema = getSchema();
+        }
+        else if (pt.IsEnum)
+        {
+            schema = BuildEnumSchema(pt, p);
+        }
+        else
+        {
+            schema = pt.IsArray
+                ? BuildArraySchema(pt, p, built)
+                // Complex type
+                : BuildComplexTypeSchema(pt, p, built);
+        }
+#pragma warning restore IDE0045
+        // Convert to conditional expression
         // Apply nullable flag if needed
         if (allowNull && schema is OpenApiSchema s)
         {
             s.Type |= JsonSchemaType.Null;
         }
-
+        ApplySchemaAttr(p.GetCustomAttribute<OpenApiProperties>(), schema);
+        PowerShellAttributes.ApplyPowerShellAttributes(p, schema);
         return schema;
     }
 
@@ -104,16 +118,22 @@ public partial class OpenApiDocDescriptor
         var item = pt.GetElementType()!;
         IOpenApiSchema itemSchema;
 
-        if (!IsPrimitiveLike(item) && !item.IsEnum)
+        if (PrimitiveSchemaMap.TryGetValue(item, out var getSchema))
         {
-            BuildSchema(item, built); // ensure component exists
-            itemSchema = new OpenApiSchemaReference(item.Name);
+            itemSchema = getSchema();
         }
         else
         {
-            itemSchema = InferPrimitiveSchema(item);
+            if (!item.IsEnum)
+            {
+                BuildSchema(item, built); // ensure component exists
+                itemSchema = new OpenApiSchemaReference(item.Name);
+            }
+            else
+            {
+                itemSchema = BuildEnumSchema(item, p);
+            }
         }
-
         var s = new OpenApiSchema
         {
             Type = JsonSchemaType.Array,

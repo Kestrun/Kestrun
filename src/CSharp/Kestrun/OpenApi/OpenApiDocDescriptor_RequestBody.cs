@@ -65,7 +65,7 @@ public partial class OpenApiDocDescriptor
         var mediaType = new OpenApiMediaType { Schema = schema };
         if (bodyAttribute.Example is not null)
         {
-            mediaType.Example = ToNode(bodyAttribute.Example);
+            mediaType.Example = OpenApiJsonNodeFactory.ToNode(bodyAttribute.Example);
         }
 
         foreach (var ct in bodyAttribute.ContentType)

@@ -51,7 +51,7 @@ Get-ChildItem -Path $scan -Recurse -Filter *.md | ForEach-Object {
     $text = Get-Content -Path $itemPath -Raw
 
     # Normalize content across platforms/editors (BOM + CRLF) so section checks are stable.
-    if ($text.Length -gt 0 -and $text[0] -eq [char]0xFEFF) {
+    if ($text -and $text.StartsWith([char]0xFEFF)) {
         $text = $text.Substring(1)
     }
     $text = $text -replace "`r`n", "`n"

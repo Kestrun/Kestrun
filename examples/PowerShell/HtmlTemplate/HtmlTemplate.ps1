@@ -42,7 +42,7 @@ New-KrLogger |
     Set-KrLoggerLevel -Value Debug |
     Add-KrSinkFile -Path '.\logs\HtmlTemplate.log' -RollingInterval Hour |
     Add-KrSinkConsole |
-    Register-KrLogger -Name 'DefaultLogger' -PassThru -SetAsDefault
+    Register-KrLogger -Name 'DefaultLogger' -SetAsDefault
 # Seed a global counter (Visits) — injected as $Visits in every runspace
 Set-KrSharedState -Name 'Visits' -Value @{Count = 0 }
 # Create the server

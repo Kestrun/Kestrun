@@ -53,7 +53,7 @@ public static class OpenApiSchemaDiscovery
                     t.IsDefined(typeof(OpenApiSchemaComponent), true) &&
                     // Exclude built-in OpenApi* primitives from auto-discovered components,
                     // but keep user-defined schema components that inherit those primitives.
-                    !(t.Assembly == primitivesAssembly && typeof(IOpenApiType).IsAssignableFrom(t)))];
+                    !(t.Assembly == primitivesAssembly && typeof(IOpenApiScalar).IsAssignableFrom(t)))];
     }
 
 #if EXTENDED_OPENAPI

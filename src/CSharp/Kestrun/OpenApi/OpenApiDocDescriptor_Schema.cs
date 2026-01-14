@@ -56,7 +56,6 @@ public partial class OpenApiDocDescriptor
         }
         else
         {
-
             // Handle custom base type derivations first
             if (t.BaseType is not null && t.BaseType != typeof(object))
             {

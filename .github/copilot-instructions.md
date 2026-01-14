@@ -727,29 +727,36 @@ To register reusable schemas under `components.schemas`, decorate PowerShell cla
 
 If you reference a type in request/response and it is not showing up in `components.schemas`, it usually means the class was not marked as a schema component.
 
-### Primitive schema types (OpenApiString / OpenApiNumber / ...)
+### OpenAPI scalars (OpenApiUuid / OpenApiDate / ...)
 
-Kestrun includes OpenAPI **primitive wrapper types** that are treated as primitives by the generator:
+Kestrun includes OpenAPI **scalar wrapper types** (implemented in `OpenApiScalars.cs`) that are treated as primitives by the generator.
+They provide a PowerShell-friendly way to model primitives with consistent OpenAPI `type` + `format`.
+
+Common scalar types:
 
 - `OpenApiString`
-- `OpenApiInteger`
-- `OpenApiNumber`
+- `OpenApiUuid` (`string` + `uuid`)
+- `OpenApiDate` (`string` + `date`)
+- `OpenApiDateTime` (`string` + `date-time`)
+- `OpenApiEmail` (`string` + `email`)
+- `OpenApiInt32` / `OpenApiInt64`
+- `OpenApiNumber` / `OpenApiFloat` / `OpenApiDouble`
 - `OpenApiBoolean`
 
-Use these wrappers as a base class to create **reusable primitive schema components**.
+Use these scalars directly as property types, or alias them into **named schema components** so other schemas can `$ref` them.
 
-#### When to use native types vs primitive components
+#### When to use native types vs scalar aliases
 
 - Use native types (`[string]`, `[int]`, `[datetime]`, etc.) when you just need an inline primitive schema.
-- Use a derived OpenApi primitive component when you need a named reusable schema under `components.schemas` and `$ref` references.
+- Use a scalar alias (a derived class marked with `[OpenApiSchemaComponent]`) when you need a named reusable schema under `components.schemas` and `$ref` references.
 
-#### Pattern: define a reusable primitive component
+#### Pattern: define a reusable scalar alias component
 
-Define a PowerShell class that inherits from an OpenApi primitive wrapper and decorate it with `[OpenApiSchemaComponent]`:
+Define a PowerShell class that inherits from an OpenApi scalar wrapper and decorate it with `[OpenApiSchemaComponent]`:
 
 ```powershell
-[OpenApiSchemaComponent(Format = 'date', Example = '2023-10-29')]
-class Date : OpenApiString {}
+[OpenApiSchemaComponent(Example = '2023-10-29')]
+class Date : OpenApiDate {}
 ```
 
 Then use it as a property type anywhere you want `$ref`:
@@ -778,6 +785,33 @@ class EventDates : Date {}
 - If you want a `date` (not `date-time`) field represented via `$ref`, use a component like `[Date]` rather than `[datetime]`.
 - Put `Format`/`Example`/`Enum` on the **component** (`[OpenApiSchemaComponent(...)]`) so you don't have to repeat metadata on every property.
 - If a derived primitive component is missing from `components.schemas`, first verify it has `[OpenApiSchemaComponent]`.
+
+### Request bodies: prefer typed, fall back to OpenApiRequestBodyRef
+
+Kestrun prefers request-body components automatically when the parameter type matches a `components.requestBodies` entry.
+However, in PowerShell examples/tests, **script-defined types may not be visible in per-request runspaces**, so the runtime parameter should sometimes be `[object]`.
+
+Preferred patterns:
+
+```powershell
+# Typed (preferred when the type is resolvable at runtime)
+function createThing {
+  [OpenApiPath(HttpVerb = 'post', Pattern = '/things')]
+  param(
+    [OpenApiRequestBody(ContentType = 'application/json')]
+    [CreateThingRequest]$Body
+  )
+}
+
+# Explicit reference (use when parameter is [object])
+function createThing {
+  [OpenApiPath(HttpVerb = 'post', Pattern = '/things')]
+  param(
+    [OpenApiRequestBodyRef(ReferenceId = 'CreateThingRequest', Required = $true)]
+    [object]$Body
+  )
+}
+```
 
 ### Callbacks vs webhooks
 

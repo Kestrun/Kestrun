@@ -77,7 +77,11 @@ pwsh .\docs\_includes\examples\pwsh\10.13-OpenAPI-Examples.ps1
 
 - **OpenAPI 3.0+ Specifications (including 3.2)**: Industry-standard API documentation format
 - **Component Schemas**: Reusable data structures defined once and referenced multiple times
+- **OpenAPI scalars**: Use `OpenApiUuid`, `OpenApiDate`, `OpenApiDateTime`, etc. to model primitives with consistent OpenAPI `type` + `format`
+(often via scalar aliases like `class Date : OpenApiDate {}`).
 - **RequestBody Components**: Standardized request payloads across endpoints
+- **RequestBody references**: Use `[OpenApiRequestBodyRef]` when you want to reference a requestBody component but keep the runtime parameter as `[object]`
+(helpful when script-defined types aren’t visible in per-request runspaces).
 - **Parameter Components**: Consistent query string, path, header, and cookie parameters
 - **Response Components**: Uniform response structures for success and error cases
 - **Swagger UI**: Interactive API documentation and testing interface

@@ -50,14 +50,12 @@ public partial class OpenApiDocDescriptor
         {
             schema = BuildEnumSchema(pt, p);
         }
-        else if (pt.IsArray)
-        {
-            schema = BuildArraySchema(pt, p, built);
-        }
-        // Complex type
         else
         {
-            schema = BuildComplexTypeSchema(pt, p, built);
+            schema = pt.IsArray
+                ? BuildArraySchema(pt, p, built)
+                // Complex type
+                : BuildComplexTypeSchema(pt, p, built);
         }
         // Apply nullable flag if needed
         if (allowNull && schema is OpenApiSchema s)

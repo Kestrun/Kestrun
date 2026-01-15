@@ -2,7 +2,7 @@
     .SYNOPSIS
         Writes an object to the HTTP response body as JSON.
     .DESCRIPTION
-        Serializes the provided object to JSON using Newtonsoft.Json and writes it
+        Serializes the provided object to JSON using System.Text.Json and writes it
         to the current HTTP response. The caller can specify the HTTP status code,
         serialization depth and formatting options.
     .PARAMETER InputObject

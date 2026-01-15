@@ -79,12 +79,7 @@ public class PSObjectTypeConverter(bool omitNullValues = false, bool useFlowStyl
             return false;
         }
 
-        if (baseObj is IDictionary)
-        {
-            return true;
-        }
-
-        return baseObj is PSCustomObject;
+        return baseObj is IDictionary ? true : baseObj is PSCustomObject;
     }
 
     private static void SerializeNonDictionary(PSObject psObj, ObjectSerializer serializer)

@@ -34283,7 +34283,7 @@ Reads the HTML file at "C:\path\to\template.html", merges in the variables, and 
       <command:noun>KrJsonResponse</command:noun>
     </command:details>
     <maml:description>
-      <maml:para>Serializes the provided object to JSON using Newtonsoft.Json and writes it to the current HTTP response. The caller can specify the HTTP status code, serialization depth and formatting options.</maml:para>
+      <maml:para>Serializes the provided object to JSON using System.Text.Json and writes it to the current HTTP response. The caller can specify the HTTP status code, serialization depth and formatting options.</maml:para>
     </maml:description>
     <command:syntax>
       <command:syntaxItem>

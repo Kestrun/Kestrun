@@ -2,6 +2,7 @@ using Kestrun.Models;
 using Microsoft.AspNetCore.Http;
 using Serilog;
 using System.Text;
+using System.Management.Automation;
 using Xunit;
 
 namespace KestrunTests.Models;
@@ -122,6 +123,36 @@ public partial class KestrunResponseTests
         res.WriteJsonResponse(new { a = 1 });
         Assert.Contains("\"a\": 1", res.Body as string);
         Assert.Contains("application/json", res.ContentType);
+    }
+
+    [Fact]
+    [Trait("Category", "Models")]
+    public void WriteJsonResponse_Sanitizes_PSObject_Wrapped_Objects()
+    {
+        var res = NewRes();
+
+        var payload = new PSObject();
+        payload.TypeNames.Insert(0, "System.Management.Automation.PSCustomObject");
+        payload.Properties.Add(new PSNoteProperty("id", 101L));
+        payload.Properties.Add(new PSNoteProperty("name", "Laptop Pro"));
+
+        var response = new Dictionary<string, object?>
+        {
+            ["page"] = 1,
+            ["items"] = new[] { payload }
+        };
+
+        res.WriteJsonResponse(response);
+
+        var body = Assert.IsType<string>(res.Body);
+        Assert.Contains("\"page\": 1", body);
+        Assert.Contains("\"id\":", body, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("101", body);
+        Assert.Contains("\"name\":", body, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("Laptop Pro", body);
+        Assert.DoesNotContain("\"members\"", body);
+        Assert.DoesNotContain("\"properties\"", body);
+        Assert.DoesNotContain("\"methods\"", body);
     }
 
     [Fact]

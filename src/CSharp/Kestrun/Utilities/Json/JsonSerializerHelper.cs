@@ -31,5 +31,11 @@ public static class JsonSerializerHelper
     /// <param name="json"> The JSON string to deserialize. </param>
     /// <param name="type"> The type to which the JSON string should be deserialized. </param>
     /// <returns> The deserialized object. </returns>
-    public static object FromJson(string json, Type type) => JsonSerializer.Deserialize(json, type, Options)!;
+    public static object FromJson(string json, Type type)
+    {
+        ArgumentNullException.ThrowIfNull(type);
+
+        var result = JsonSerializer.Deserialize(json, type, Options);
+        return result is null ? throw new JsonException($"Deserialization of type '{type}' from JSON failed.") : result;
+    }
 }

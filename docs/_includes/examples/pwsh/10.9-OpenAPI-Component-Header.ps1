@@ -79,17 +79,28 @@ $Users = [hashtable]::Synchronized(@{})
 $UserCounters = [hashtable]::Synchronized(@{ NextUserId = 0 })
 $ThrottleCounters = [hashtable]::Synchronized(@{})  # key: ip string, value: count
 
-function New-DemoCorrelationId {
-    [Guid]::NewGuid().ToString()
-}
-
+# =========================================================
+#                 HELPERS (THROTTLING)
+# =========================================================
+<#
+.SYNOPSIS
+    Gets a client key for throttling (based on IP address).
+.OUTPUTS
+    [string] The client key.
+#>
 function Get-ClientKey {
     $ip = $Context.Connection.RemoteIpAddress
     if ($null -eq $ip) { return 'unknown' }
     return $ip.ToString()
 }
 
-function Should-Throttle {
+<#
+.SYNOPSIS
+    Determines if the current request should be throttled.
+.OUTPUTS
+    [bool] True if the request should be throttled; otherwise, false.
+#>
+function ShouldThrottle {
     # Demo throttle: allow first 3 requests per client, then return 429.
     $key = Get-ClientKey
 
@@ -121,8 +132,6 @@ function Set-DemoOperationalHeaders {
     $Context.Response.Headers['X-RateLimit-Reset'] = "$ResetSeconds"
 }
 
-# =========================================================
-Enable-KrConfiguration
 
 # =========================================================
 #                 COMPONENT HEADERS (reusable)
@@ -163,14 +172,19 @@ New-KrOpenApiHeader -Description 'Seconds until the window resets.' -Schema ([in
 
 # Retry-After for 429 Too Many Requests
 New-KrOpenApiHeader -Description 'Seconds to wait before retrying the request.' -Schema ([int]) | Add-KrOpenApiComponent -Name 'Retry-After'
+
+# =========================================================
+#                 ENABLE SERVER + OPENAPI
+# =========================================================
+Enable-KrConfiguration
+
+Add-KrApiDocumentationRoute -DocumentType Swagger
+Add-KrApiDocumentationRoute -DocumentType Redoc
+
 # =========================================================
 #                 ROUTES / OPERATIONS
 # =========================================================
 
-
-
-Add-KrApiDocumentationRoute -DocumentType Swagger
-Add-KrApiDocumentationRoute -DocumentType Redoc
 <#
 .SYNOPSIS
     Create a new user.
@@ -202,10 +216,10 @@ function createUser {
         [CreateUserRequest]$body
     )
 
-    $correlationId = New-DemoCorrelationId
+    $correlationId = [Guid]::NewGuid().ToString()
     Set-DemoOperationalHeaders -Limit 3 -Remaining 1 -ResetSeconds 60 -CorrelationId $correlationId
 
-    if (Should-Throttle) {
+    if (ShouldThrottle) {
         $Context.Response.Headers['Retry-After'] = '30'
         Write-KrJsonResponse @{ error = 'Too many requests'; retryAfterSeconds = 30 } -StatusCode 429
         return
@@ -240,7 +254,6 @@ function createUser {
     Write-KrResponse $user -StatusCode 201
 }
 
-# GET endpoint: Return a user by ID as UserResponse
 <#
 .SYNOPSIS
     Get user by ID.
@@ -268,10 +281,10 @@ function getUser {
         [int]$userId
     )
 
-    $correlationId = New-DemoCorrelationId
+    $correlationId = [Guid]::NewGuid().ToString()
     Set-DemoOperationalHeaders -Limit 3 -Remaining 1 -ResetSeconds 60 -CorrelationId $correlationId
 
-    if (Should-Throttle) {
+    if (ShouldThrottle) {
         $Context.Response.Headers['Retry-After'] = '30'
         Write-KrJsonResponse @{ error = 'Too many requests'; retryAfterSeconds = 30 } -StatusCode 429
         return
@@ -297,6 +310,14 @@ function getUser {
     Write-KrResponse $found -StatusCode 200
 }
 
+<#
+.SYNOPSIS
+    Delete user by ID.
+.DESCRIPTION
+    Deletes a user resource by its identifier.
+.PARAMETER userId
+    The user ID to delete
+#>
 function deleteUser {
     [OpenApiPath(HttpVerb = 'delete', Pattern = '/users/{userId}', Tags = 'Users')]
     [OpenApiResponse(StatusCode = '204', Description = 'Deleted')]
@@ -311,7 +332,7 @@ function deleteUser {
         [int]$userId
     )
 
-    $correlationId = New-DemoCorrelationId
+    $correlationId = [Guid]::NewGuid().ToString()
     Set-DemoOperationalHeaders -Limit 3 -Remaining 1 -ResetSeconds 60 -CorrelationId $correlationId
 
     $removed = $false
@@ -340,7 +361,12 @@ function deleteUser {
 Add-KrOpenApiRoute
 
 Build-KrOpenApiDocument
-Test-KrOpenApiDocument
+# Test and log OpenAPI document validation result
+if (Test-KrOpenApiDocument) {
+    Write-KrLog -Level Information -Message 'OpenAPI document built and validated successfully.'
+} else {
+    Write-KrLog -Level Error -Message 'OpenAPI document validation failed.'
+}
 
 # =========================================================
 #                      RUN SERVER

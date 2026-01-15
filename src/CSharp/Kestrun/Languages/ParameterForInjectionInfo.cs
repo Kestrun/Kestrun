@@ -119,7 +119,6 @@ public class ParameterForInjectionInfo : ParameterForInjectionInfoBase
         {
             var parType = (param.Type is null) ? param.ParameterType.GetType().FullName : param.Type.ToString();
             logger.Debug("Injecting parameter '{Name}' of type '{Type}' from '{In}'.", name, parType, param.In);
-
         }
 
         object? converted;
@@ -132,13 +131,6 @@ public class ParameterForInjectionInfo : ParameterForInjectionInfoBase
         if (converted is not null && converted is string rawString && param.Type == null && param.ParameterType != null &&
             param.ParameterType != typeof(string))
         {
-            //if (param.ContentTypes.Count > 0)
-            //{
-            // No value found, and parameter has content types defined - likely a body parameter
-            // with no value provided. Try to convert the body based on content type.
-
-         //   var rawString = converted as string ?? "";
-
             if (param.ContentTypes.Any(ct =>
                  ct.StartsWith("application/json", StringComparison.OrdinalIgnoreCase)))
             {
@@ -185,6 +177,13 @@ public class ParameterForInjectionInfo : ParameterForInjectionInfoBase
         }
     }
 
+    /// <summary>
+    /// Retrieves and converts the parameter value from the HTTP context.
+    /// </summary>
+    /// <param name="context">The current HTTP context.</param>
+    /// <param name="param">The parameter information.</param>
+    /// <param name="shouldLog">Indicates whether logging should be performed.</param>
+    /// <returns>The converted parameter value.</returns>
     private static object? GetParameterValueFromContext(KestrunContext context, ParameterForInjectionInfo param, out bool shouldLog)
     {
         shouldLog = true;

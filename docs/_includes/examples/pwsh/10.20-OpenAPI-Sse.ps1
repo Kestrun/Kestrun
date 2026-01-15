@@ -1,4 +1,4 @@
-<#
+﻿<#
     Create an SSE demo server with Kestrun in PowerShell (with OpenAPI).
     FileName: 10.20-OpenAPI-Sse.ps1
 
@@ -134,7 +134,12 @@ function GetSseStream {
 Add-KrOpenApiRoute  # Default pattern '/openapi/{version}/openapi.{format}'
 
 Build-KrOpenApiDocument
-Test-KrOpenApiDocument
+# Test and log OpenAPI document validation result
+if (Test-KrOpenApiDocument) {
+    Write-KrLog -Level Information -Message 'OpenAPI document built and validated successfully.'
+} else {
+    Write-KrLog -Level Error -Message 'OpenAPI document validation failed.'
+}
 
 ## 7. Start Server
 

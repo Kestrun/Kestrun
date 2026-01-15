@@ -57,7 +57,8 @@ function Add-KrOpenApiComponent {
     }
     process {
         if ($Server.IsConfigured) {
-            throw [System.InvalidOperationException]::new('The Kestrun server configuration is already set. Please add components before enabling the server configuration.')
+            Write-KrError -ErrorMessage 'The Kestrun server configuration is already set. Please add components before enabling the server configuration.'
+            return
         }
         # Add the server to the specified OpenAPI documents
         foreach ($doc in $DocId) {
@@ -70,10 +71,7 @@ function Add-KrOpenApiComponent {
             } elseif ($Component -is [Microsoft.OpenApi.OpenApiHeader]) {
                 $docDescriptor.AddComponentHeader($Name, $Component, $IfExists)
             } else {
-                throw  [System.ArgumentException]::new(
-                    "Unsupported component type: $($Component.GetType().FullName). Supported types are OpenApiExample, OpenApiLink, and OpenApiHeader..",
-                    'Component'
-                )
+                Write-KrError -ErrorMessage "OpenApi $($doc): Unsupported component type: $($Component.GetType().FullName). Supported types are OpenApiExample, OpenApiLink, and OpenApiHeader." -Terminate
             }
         }
     }

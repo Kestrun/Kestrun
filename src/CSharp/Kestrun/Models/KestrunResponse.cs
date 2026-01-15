@@ -3,6 +3,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.Xml.Linq;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using Kestrun.Utilities.Json;
 using Microsoft.AspNetCore.StaticFiles;
 using System.Text;
 using Serilog;
@@ -379,7 +380,8 @@ public class KestrunResponse
 
         ArgumentNullException.ThrowIfNull(serializerOptions);
 
-        Body = await Task.Run(() => JsonSerializer.Serialize(inputObject, serializerOptions));
+        var sanitizedPayload = PayloadSanitizer.Sanitize(inputObject);
+        Body = await Task.Run(() => JsonSerializer.Serialize(sanitizedPayload, serializerOptions));
         ContentType = string.IsNullOrEmpty(contentType) ? $"application/json; charset={Encoding.WebName}" : contentType;
         StatusCode = statusCode;
     }

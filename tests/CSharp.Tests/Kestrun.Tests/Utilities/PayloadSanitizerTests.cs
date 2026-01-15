@@ -82,4 +82,45 @@ public class PayloadSanitizerTests
             Assert.False(dict.ContainsKey(s));
         }
     }
+
+    private sealed class DemoProduct
+    {
+        public long Id { get; set; }
+        public string Name { get; set; } = string.Empty;
+        public double Price { get; set; }
+        public int Stock { get; set; }
+    }
+
+    [Fact]
+    public void PSObject_Wrapped_ClrObject_Unwraps_To_BaseObject()
+    {
+        var product = new DemoProduct { Id = 101, Name = "Laptop Pro", Price = 1299.99, Stock = 4 };
+        var pso = new PSObject(product);
+
+        var sanitized = PayloadSanitizer.Sanitize(pso);
+
+        var unwrapped = Assert.IsType<DemoProduct>(sanitized);
+        Assert.Equal(101, unwrapped.Id);
+        Assert.Equal("Laptop Pro", unwrapped.Name);
+    }
+
+    [Fact]
+    public void Enumerable_Of_PSObject_Wrapped_ClrObjects_Unwraps_To_List_Of_BaseObjects()
+    {
+        var p1 = new PSObject(new DemoProduct { Id = 101, Name = "Laptop Pro", Price = 1299.99, Stock = 4 });
+        var p2 = new PSObject(new DemoProduct { Id = 102, Name = "Laptop Air", Price = 999.00, Stock = 0 });
+
+        var sanitized = PayloadSanitizer.Sanitize(new[] { p1, p2 });
+
+        var list = Assert.IsType<List<object?>>(sanitized);
+        Assert.Equal(2, list.Count);
+        _ = Assert.IsType<DemoProduct>(list[0]);
+        _ = Assert.IsType<DemoProduct>(list[1]);
+
+        var json = JsonSerializer.Serialize(list, new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase });
+        Assert.Contains("\"id\":101", json, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("\"members\"", json);
+        Assert.DoesNotContain("\"properties\"", json);
+        Assert.DoesNotContain("\"methods\"", json);
+    }
 }

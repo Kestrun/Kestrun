@@ -32,21 +32,21 @@ license Type:MS-PL OR Apache-2.0
 
 ####################################################################################################
 Package:Microsoft.AspNetCore.Authentication.Certificate
-Version:8.0.22
+Version:8.0.23
 project URL:https://asp.net/
 Description:ASP.NET Core middleware that enables an application to support certificate authentication.
 
-This package was built from the source code at https://github.com/dotnet/aspnetcore/tree/ee417479933278bb5aadc5944706a96b5ef74a5d
+This package was built from the source code at https://github.com/dotnet/aspnetcore/tree/568fff703254def7dcd35fda9892bf702d4c81d3
 licenseUrl:https://licenses.nuget.org/MIT
 license Type:MIT
 
 ####################################################################################################
 Package:Microsoft.AspNetCore.Authentication.Certificate
-Version:9.0.11
+Version:9.0.12
 project URL:https://asp.net/
 Description:ASP.NET Core middleware that enables an application to support certificate authentication.
 
-This package was built from the source code at https://github.com/dotnet/aspnetcore/tree/d3aba8fe1a0d0f5c145506f292b72ea9d28406fc
+This package was built from the source code at https://github.com/dotnet/aspnetcore/tree/f736effe82a61eb6f5eba46e4173eae3b7d3dffd
 licenseUrl:https://licenses.nuget.org/MIT
 license Type:MIT
 
@@ -62,21 +62,21 @@ license Type:MIT
 
 ####################################################################################################
 Package:Microsoft.AspNetCore.Authentication.JwtBearer
-Version:8.0.22
+Version:8.0.23
 project URL:https://asp.net/
 Description:ASP.NET Core middleware that enables an application to receive an OpenID Connect bearer token.
 
-This package was built from the source code at https://github.com/dotnet/aspnetcore/tree/ee417479933278bb5aadc5944706a96b5ef74a5d
+This package was built from the source code at https://github.com/dotnet/aspnetcore/tree/568fff703254def7dcd35fda9892bf702d4c81d3
 licenseUrl:https://licenses.nuget.org/MIT
 license Type:MIT
 
 ####################################################################################################
 Package:Microsoft.AspNetCore.Authentication.JwtBearer
-Version:9.0.11
+Version:9.0.12
 project URL:https://asp.net/
 Description:ASP.NET Core middleware that enables an application to receive an OpenID Connect bearer token.
 
-This package was built from the source code at https://github.com/dotnet/aspnetcore/tree/d3aba8fe1a0d0f5c145506f292b72ea9d28406fc
+This package was built from the source code at https://github.com/dotnet/aspnetcore/tree/f736effe82a61eb6f5eba46e4173eae3b7d3dffd
 licenseUrl:https://licenses.nuget.org/MIT
 license Type:MIT
 
@@ -92,21 +92,21 @@ license Type:MIT
 
 ####################################################################################################
 Package:Microsoft.AspNetCore.Authentication.Negotiate
-Version:8.0.22
+Version:8.0.23
 project URL:https://asp.net/
 Description:ASP.NET Core authentication handler used to authenticate requests using Negotiate, Kerberos, or NTLM.
 
-This package was built from the source code at https://github.com/dotnet/aspnetcore/tree/ee417479933278bb5aadc5944706a96b5ef74a5d
+This package was built from the source code at https://github.com/dotnet/aspnetcore/tree/568fff703254def7dcd35fda9892bf702d4c81d3
 licenseUrl:https://licenses.nuget.org/MIT
 license Type:MIT
 
 ####################################################################################################
 Package:Microsoft.AspNetCore.Authentication.Negotiate
-Version:9.0.11
+Version:9.0.12
 project URL:https://asp.net/
 Description:ASP.NET Core authentication handler used to authenticate requests using Negotiate, Kerberos, or NTLM.
 
-This package was built from the source code at https://github.com/dotnet/aspnetcore/tree/d3aba8fe1a0d0f5c145506f292b72ea9d28406fc
+This package was built from the source code at https://github.com/dotnet/aspnetcore/tree/f736effe82a61eb6f5eba46e4173eae3b7d3dffd
 licenseUrl:https://licenses.nuget.org/MIT
 license Type:MIT
 
@@ -122,21 +122,21 @@ license Type:MIT
 
 ####################################################################################################
 Package:Microsoft.AspNetCore.Authentication.OpenIdConnect
-Version:8.0.22
+Version:8.0.23
 project URL:https://asp.net/
 Description:ASP.NET Core middleware that enables an application to support the OpenID Connect authentication workflow.
 
-This package was built from the source code at https://github.com/dotnet/aspnetcore/tree/ee417479933278bb5aadc5944706a96b5ef74a5d
+This package was built from the source code at https://github.com/dotnet/aspnetcore/tree/568fff703254def7dcd35fda9892bf702d4c81d3
 licenseUrl:https://licenses.nuget.org/MIT
 license Type:MIT
 
 ####################################################################################################
 Package:Microsoft.AspNetCore.Authentication.OpenIdConnect
-Version:9.0.11
+Version:9.0.12
 project URL:https://asp.net/
 Description:ASP.NET Core middleware that enables an application to support the OpenID Connect authentication workflow.
 
-This package was built from the source code at https://github.com/dotnet/aspnetcore/tree/d3aba8fe1a0d0f5c145506f292b72ea9d28406fc
+This package was built from the source code at https://github.com/dotnet/aspnetcore/tree/f736effe82a61eb6f5eba46e4173eae3b7d3dffd
 licenseUrl:https://licenses.nuget.org/MIT
 license Type:MIT
 
@@ -152,21 +152,21 @@ license Type:MIT
 
 ####################################################################################################
 Package:Microsoft.AspNetCore.Mvc.Razor.RuntimeCompilation
-Version:8.0.22
+Version:8.0.23
 project URL:https://asp.net/
 Description:Runtime compilation support for Razor views and Razor Pages in ASP.NET Core MVC.
 
-This package was built from the source code at https://github.com/dotnet/aspnetcore/tree/ee417479933278bb5aadc5944706a96b5ef74a5d
+This package was built from the source code at https://github.com/dotnet/aspnetcore/tree/568fff703254def7dcd35fda9892bf702d4c81d3
 licenseUrl:https://licenses.nuget.org/MIT
 license Type:MIT
 
 ####################################################################################################
 Package:Microsoft.AspNetCore.Mvc.Razor.RuntimeCompilation
-Version:9.0.11
+Version:9.0.12
 project URL:https://asp.net/
 Description:Runtime compilation support for Razor views and Razor Pages in ASP.NET Core MVC.
 
-This package was built from the source code at https://github.com/dotnet/aspnetcore/tree/d3aba8fe1a0d0f5c145506f292b72ea9d28406fc
+This package was built from the source code at https://github.com/dotnet/aspnetcore/tree/f736effe82a61eb6f5eba46e4173eae3b7d3dffd
 licenseUrl:https://licenses.nuget.org/MIT
 license Type:MIT
 
@@ -463,21 +463,21 @@ license Type:MIT
 
 ####################################################################################################
 Package:Microsoft.Extensions.Caching.SqlServer
-Version:8.0.22
+Version:8.0.23
 project URL:https://asp.net/
 Description:Distributed cache implementation of Microsoft.Extensions.Caching.Distributed.IDistributedCache using Microsoft SQL Server.
 
-This package was built from the source code at https://github.com/dotnet/aspnetcore/tree/ee417479933278bb5aadc5944706a96b5ef74a5d
+This package was built from the source code at https://github.com/dotnet/aspnetcore/tree/568fff703254def7dcd35fda9892bf702d4c81d3
 licenseUrl:https://licenses.nuget.org/MIT
 license Type:MIT
 
 ####################################################################################################
 Package:Microsoft.Extensions.Caching.SqlServer
-Version:9.0.11
+Version:9.0.12
 project URL:https://asp.net/
 Description:Distributed cache implementation of Microsoft.Extensions.Caching.Distributed.IDistributedCache using Microsoft SQL Server.
 
-This package was built from the source code at https://github.com/dotnet/aspnetcore/tree/d3aba8fe1a0d0f5c145506f292b72ea9d28406fc
+This package was built from the source code at https://github.com/dotnet/aspnetcore/tree/f736effe82a61eb6f5eba46e4173eae3b7d3dffd
 licenseUrl:https://licenses.nuget.org/MIT
 license Type:MIT
 
@@ -493,21 +493,21 @@ license Type:MIT
 
 ####################################################################################################
 Package:Microsoft.Extensions.Caching.StackExchangeRedis
-Version:8.0.22
+Version:8.0.23
 project URL:https://asp.net/
 Description:Distributed cache implementation of Microsoft.Extensions.Caching.Distributed.IDistributedCache using Redis.
 
-This package was built from the source code at https://github.com/dotnet/aspnetcore/tree/ee417479933278bb5aadc5944706a96b5ef74a5d
+This package was built from the source code at https://github.com/dotnet/aspnetcore/tree/568fff703254def7dcd35fda9892bf702d4c81d3
 licenseUrl:https://licenses.nuget.org/MIT
 license Type:MIT
 
 ####################################################################################################
 Package:Microsoft.Extensions.Caching.StackExchangeRedis
-Version:9.0.11
+Version:9.0.12
 project URL:https://asp.net/
 Description:Distributed cache implementation of Microsoft.Extensions.Caching.Distributed.IDistributedCache using Redis.
 
-This package was built from the source code at https://github.com/dotnet/aspnetcore/tree/d3aba8fe1a0d0f5c145506f292b72ea9d28406fc
+This package was built from the source code at https://github.com/dotnet/aspnetcore/tree/f736effe82a61eb6f5eba46e4173eae3b7d3dffd
 licenseUrl:https://licenses.nuget.org/MIT
 license Type:MIT
 
@@ -568,14 +568,6 @@ project URL:https://www.mongodb.com/docs/drivers/csharp/
 Description:MongoDB's Official Bson Library.
 licenseUrl:https://licenses.nuget.org/Apache-2.0
 license Type:Apache-2.0
-
-####################################################################################################
-Package:Newtonsoft.Json
-Version:13.0.4
-project URL:https://www.newtonsoft.com/json
-Description:Json.NET is a popular high-performance JSON framework for .NET
-licenseUrl:https://licenses.nuget.org/MIT
-license Type:MIT
 
 ####################################################################################################
 Package:PeterO.Cbor

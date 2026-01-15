@@ -1,8 +1,8 @@
 
 using System.Diagnostics.CodeAnalysis;
 using System.Xml.Linq;
-using Newtonsoft.Json;
-using Newtonsoft.Json.Serialization;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.StaticFiles;
 using System.Text;
 using Serilog;
@@ -358,26 +358,28 @@ public class KestrunResponse
     /// Writes a JSON response using the specified input object and serializer settings.
     /// </summary>
     /// <param name="inputObject">The object to be converted to JSON.</param>
-    /// <param name="serializerSettings">The settings to use for JSON serialization.</param>
+    /// <param name="serializerOptions">The options to use for JSON serialization.</param>
     /// <param name="statusCode">The HTTP status code for the response.</param>
     /// <param name="contentType">The MIME type of the response content.</param>
-    public void WriteJsonResponse(object? inputObject, JsonSerializerSettings serializerSettings, int statusCode = StatusCodes.Status200OK, string? contentType = null) => WriteJsonResponseAsync(inputObject, serializerSettings, statusCode, contentType).GetAwaiter().GetResult();
+    public void WriteJsonResponse(object? inputObject, JsonSerializerOptions serializerOptions, int statusCode = StatusCodes.Status200OK, string? contentType = null) => WriteJsonResponseAsync(inputObject, serializerOptions, statusCode, contentType).GetAwaiter().GetResult();
 
     /// <summary>
     /// Asynchronously writes a JSON response using the specified input object and serializer settings.
     /// </summary>
     /// <param name="inputObject">The object to be converted to JSON.</param>
-    /// <param name="serializerSettings">The settings to use for JSON serialization.</param>
+    /// <param name="serializerOptions">The options to use for JSON serialization.</param>
     /// <param name="statusCode">The HTTP status code for the response.</param>
     /// <param name="contentType">The MIME type of the response content.</param>
-    public async Task WriteJsonResponseAsync(object? inputObject, JsonSerializerSettings serializerSettings, int statusCode = StatusCodes.Status200OK, string? contentType = null)
+    public async Task WriteJsonResponseAsync(object? inputObject, JsonSerializerOptions serializerOptions, int statusCode = StatusCodes.Status200OK, string? contentType = null)
     {
         if (Log.IsEnabled(LogEventLevel.Debug))
         {
             Log.Debug("Writing JSON response (async), StatusCode={StatusCode}, ContentType={ContentType}", statusCode, contentType);
         }
 
-        Body = await Task.Run(() => JsonConvert.SerializeObject(inputObject, serializerSettings));
+        ArgumentNullException.ThrowIfNull(serializerOptions);
+
+        Body = await Task.Run(() => JsonSerializer.Serialize(inputObject, serializerOptions));
         ContentType = string.IsNullOrEmpty(contentType) ? $"application/json; charset={Encoding.WebName}" : contentType;
         StatusCode = statusCode;
     }
@@ -407,16 +409,17 @@ public class KestrunResponse
                 statusCode, contentType, depth, compress);
         }
 
-        var serializerSettings = new JsonSerializerSettings
+        var serializerOptions = new JsonSerializerOptions
         {
-            Formatting = compress ? Formatting.None : Formatting.Indented,
-            ContractResolver = new CamelCasePropertyNamesContractResolver(),
-            ReferenceLoopHandling = ReferenceLoopHandling.Ignore,
-            NullValueHandling = NullValueHandling.Ignore,
-            DefaultValueHandling = DefaultValueHandling.Ignore,
+            WriteIndented = !compress,
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+            DictionaryKeyPolicy = JsonNamingPolicy.CamelCase,
+            ReferenceHandler = ReferenceHandler.IgnoreCycles,
+            DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingDefault,
             MaxDepth = depth
         };
-        await WriteJsonResponseAsync(inputObject, serializerSettings: serializerSettings, statusCode: statusCode, contentType: contentType);
+
+        await WriteJsonResponseAsync(inputObject, serializerOptions: serializerOptions, statusCode: statusCode, contentType: contentType);
     }
     /// <summary>
     /// Writes a CBOR response (binary, efficient, not human-readable).

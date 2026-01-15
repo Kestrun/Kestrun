@@ -198,14 +198,20 @@ $Products[3] = [ProductItem]@{ id = 3; name = 'Keyboard'; category = 'accessorie
 $Products[4] = [ProductItem]@{ id = 4; name = 'Monitor'; category = 'electronics'; price = 299.99; tags = @('4k') }
 $Products[5] = [ProductItem]@{ id = 5; name = 'Desk Lamp'; category = 'office'; price = 49.99; tags = @('led') }
 
+# ========================================================
+Enable-KrConfiguration
+
+# =========================================================
+#                OPENAPI DOC ROUTE / BUILD
+# =========================================================
+
+Add-KrOpenApiRoute
+Add-KrApiDocumentationRoute -DocumentType Swagger
+Add-KrApiDocumentationRoute -DocumentType Redoc
+
 # =========================================================
 #                 ROUTES / OPERATIONS
 # =========================================================
-
-Enable-KrConfiguration
-
-Add-KrApiDocumentationRoute -DocumentType Swagger
-Add-KrApiDocumentationRoute -DocumentType Redoc
 
 <#
 .SYNOPSIS
@@ -264,6 +270,7 @@ function listProducts {
     if (-not [string]::IsNullOrWhiteSpace($correlationId)) {
         $Context.Response.Headers['correlationId'] = $correlationId
     }
+    Expand-KrObject -InputObject $myCategory -Label 'My Category Parameter'
     write-KrLog -Level Debug -Message 'TenantId: {tenantId}' -Values $tenantId
     Expand-KrObject -InputObject $clientContext -Label 'Client Context'
     # Read shared store
@@ -329,7 +336,7 @@ function listProducts {
 .PARAMETER productId
     Product id (path parameter component).
 #>
-<#
+
 function getProduct {
     [OpenApiPath(HttpVerb = 'get', Pattern = '/v1/products/{productId}', Summary = 'Get product')]
     [OpenApiResponse(StatusCode = '200', Description = 'The product', Schema = [ProductItem], ContentType = ('application/json', 'application/xml'))]
@@ -348,7 +355,7 @@ function getProduct {
     if (-not [string]::IsNullOrWhiteSpace($correlationId)) {
         $Context.Response.Headers['correlationId'] = $correlationId
     }
-
+    Write-KrLog -Level Debug -Message 'TenantId: {tenantId}' -Values $tenantId
     $item = NoDefault
     if (-not $Products.TryGetValue($productId, [ref]$item)) {
         Write-KrResponse ([ErrorResponse]@{ message = 'Product not found' }) -StatusCode 404
@@ -357,7 +364,7 @@ function getProduct {
 
     Write-KrResponse $item -StatusCode 200
 }
-#>
+
 <#
 .SYNOPSIS
     Create a product.
@@ -368,7 +375,7 @@ function getProduct {
 .PARAMETER dryRun
     If true, validates the request but does not persist.
 #>
-<#
+
 function createProduct {
     [OpenApiPath(HttpVerb = 'post', Pattern = '/v1/products', Summary = 'Create product')]
     [OpenApiResponse(StatusCode = '201', Description = 'Created product', Schema = [ProductItem], ContentType = ('application/json', 'application/xml'))]
@@ -429,7 +436,7 @@ function createProduct {
 
     Write-KrResponse $created -StatusCode 201
 }
-#>
+
 <#
 .SYNOPSIS
     List categories.
@@ -438,7 +445,6 @@ function createProduct {
 .PARAMETER includeCounts
     When true, include counts per category.
 #>
-<#
 function listCategories {
     [OpenApiPath(HttpVerb = 'get', Pattern = '/v1/categories', Summary = 'List categories')]
     [OpenApiResponse(StatusCode = '200', Description = 'Category list', Schema = [CategoryListResponse], ContentType = ('application/json', 'application/xml'))]
@@ -466,12 +472,6 @@ function listCategories {
 
     Write-KrResponse ([CategoryListResponse]@{ items = $items }) -StatusCode 200
 }
-#>
-# =========================================================
-#                OPENAPI DOC ROUTE / BUILD
-# =========================================================
-
-Add-KrOpenApiRoute
 
 # =========================================================
 #                      RUN SERVER

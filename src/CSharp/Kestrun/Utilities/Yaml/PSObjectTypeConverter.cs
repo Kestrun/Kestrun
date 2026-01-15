@@ -74,12 +74,7 @@ public class PSObjectTypeConverter(bool omitNullValues = false, bool useFlowStyl
     private static bool IsDictionaryLike(PSObject psObj)
     {
         var baseObj = psObj.BaseObject;
-        if (baseObj is null)
-        {
-            return false;
-        }
-
-        return baseObj is IDictionary ? true : baseObj is PSCustomObject;
+        return baseObj is not null && (baseObj is IDictionary || baseObj is PSCustomObject);
     }
 
     private static void SerializeNonDictionary(PSObject psObj, ObjectSerializer serializer)

@@ -34,8 +34,8 @@ public class PSObjectTypeConverter(bool omitNullValues = false, bool useFlowStyl
     {
         // We don't really need to do any custom deserialization.
         var deserialized = rootDeserializer(typeof(IDictionary<string, object>)) as IDictionary;
-        // Wrap the result in a PSObject so we never return null; if deserialized is null, the PSObject's BaseObject will be null.
-        return new PSObject(deserialized);
+        // PSObject(object) does not accept null, so ensure we never pass null.
+        return PSObject.AsPSObject(deserialized ?? new Hashtable());
     }
 
     /// <summary>
@@ -79,9 +79,12 @@ public class PSObjectTypeConverter(bool omitNullValues = false, bool useFlowStyl
             return false;
         }
 
-        var t = baseObj.GetType();
-        return typeof(IDictionary).IsAssignableFrom(t) ||
-           psObj.TypeNames.Contains("System.Management.Automation.PSCustomObject");
+        if (baseObj is IDictionary)
+        {
+            return true;
+        }
+
+        return baseObj is PSCustomObject;
     }
 
     private static void SerializeNonDictionary(PSObject psObj, ObjectSerializer serializer)

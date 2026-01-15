@@ -34,7 +34,7 @@ public class PSObjectTypeConverter(bool omitNullValues = false, bool useFlowStyl
     {
         // We don't really need to do any custom deserialization.
         var deserialized = rootDeserializer(typeof(IDictionary<string, object>)) as IDictionary;
-        // PSObject(object) does not accept null, so ensure we never pass null.
+        // Use PSObject.AsPSObject to avoid wrapping an already wrapped PSObject and to safely handle null values.
         return PSObject.AsPSObject(deserialized ?? new Hashtable());
     }
 

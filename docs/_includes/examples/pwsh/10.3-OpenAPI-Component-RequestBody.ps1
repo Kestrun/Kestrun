@@ -63,8 +63,7 @@ class Product {
 [OpenApiRequestBodyComponent(
     Description = 'Product creation payload. Supports JSON and form data.',
     Required = $true,
-    ContentType = ('application/json', 'application/x-www-form-urlencoded')
-)]
+    ContentType = ('application/json', 'application/x-www-form-urlencoded', 'application/xml', 'application/yaml'))]
 [Product]$CreateProductRequest
 
 # UpdateProductRequest: RequestBody component that wraps UpdateProduct schema

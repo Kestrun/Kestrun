@@ -543,10 +543,14 @@ public partial class OpenApiDocDescriptor
         metadata.Parameters ??= [];
         routeOptions.ScriptCode.Parameters ??= [];
 
-        var componentParameter = GetParameter(attribute.ReferenceId);
+        if (!TryGetParameterItem(attribute.ReferenceId, out var componentParameter, out var isInline) ||
+             componentParameter is null)
+        {
+            throw new InvalidOperationException($"Parameter component with ID '{attribute.ReferenceId}' not found.");
+        }
         IOpenApiParameter parameter;
 
-        if (attribute.Inline)
+        if (attribute.Inline || isInline)
         {
             parameter = componentParameter.Clone();
             if (componentParameter.Name != paramInfo.Name)

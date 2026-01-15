@@ -131,6 +131,8 @@ New-KrOpenApiExample -Summary 'Sort by price example' -Value 'price' |
     Add-KrOpenApiInline -Name 'SortByPriceExample'
 
 # Query params (create)
+[OpenApiParameterComponent(In = 'Header', Description = 'Filter by category item')]
+[CategoryItem]$myCategory = NoDefault
 
 # Header params
 [OpenApiParameterComponent(In = 'Header', Description = 'Correlation id for tracing a request through logs.')]
@@ -181,6 +183,7 @@ New-KrOpenApiExample -Summary 'Sort by price example' -Value 'price' |
 [OpenApiParameterComponent(In = 'Query', Description = 'Include per-category product counts.', Example = $true)]
 [bool]$includeCounts = $true
 
+
 # =========================================================
 #                 SHARED IN-MEMORY STORE
 # =========================================================
@@ -227,6 +230,10 @@ function listProducts {
     [OpenApiResponse(StatusCode = '200', Description = 'List of products', Schema = [ProductListResponse], ContentType = ('application/json', 'application/xml'))]
     [OpenApiResponse(StatusCode = '400', Description = 'Invalid parameters')]
     param(
+
+        [OpenApiParameterRef(ReferenceId = 'myCategory')]
+        [CategoryItem]$myCategory,
+
         [OpenApiParameterRef(ReferenceId = 'correlationId')]
         [string]$correlationId,
 
@@ -254,7 +261,6 @@ function listProducts {
         [OpenApiParameterRef(ReferenceId = 'maxPrice')]
         [double]$maxPrice
     )
-
     if (-not [string]::IsNullOrWhiteSpace($correlationId)) {
         $Context.Response.Headers['correlationId'] = $correlationId
     }
@@ -323,6 +329,7 @@ function listProducts {
 .PARAMETER productId
     Product id (path parameter component).
 #>
+<#
 function getProduct {
     [OpenApiPath(HttpVerb = 'get', Pattern = '/v1/products/{productId}', Summary = 'Get product')]
     [OpenApiResponse(StatusCode = '200', Description = 'The product', Schema = [ProductItem], ContentType = ('application/json', 'application/xml'))]
@@ -350,7 +357,7 @@ function getProduct {
 
     Write-KrResponse $item -StatusCode 200
 }
-
+#>
 <#
 .SYNOPSIS
     Create a product.
@@ -361,6 +368,7 @@ function getProduct {
 .PARAMETER dryRun
     If true, validates the request but does not persist.
 #>
+<#
 function createProduct {
     [OpenApiPath(HttpVerb = 'post', Pattern = '/v1/products', Summary = 'Create product')]
     [OpenApiResponse(StatusCode = '201', Description = 'Created product', Schema = [ProductItem], ContentType = ('application/json', 'application/xml'))]
@@ -421,7 +429,7 @@ function createProduct {
 
     Write-KrResponse $created -StatusCode 201
 }
-
+#>
 <#
 .SYNOPSIS
     List categories.
@@ -430,6 +438,7 @@ function createProduct {
 .PARAMETER includeCounts
     When true, include counts per category.
 #>
+<#
 function listCategories {
     [OpenApiPath(HttpVerb = 'get', Pattern = '/v1/categories', Summary = 'List categories')]
     [OpenApiResponse(StatusCode = '200', Description = 'Category list', Schema = [CategoryListResponse], ContentType = ('application/json', 'application/xml'))]
@@ -457,7 +466,7 @@ function listCategories {
 
     Write-KrResponse ([CategoryListResponse]@{ items = $items }) -StatusCode 200
 }
-
+#>
 # =========================================================
 #                OPENAPI DOC ROUTE / BUILD
 # =========================================================

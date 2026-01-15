@@ -166,16 +166,21 @@ public partial class OpenApiDocDescriptor
                 schema.Default = OpenApiJsonNodeFactory.ToNode(variable.InitialValue);
             }
         }
-
-        // Either Schema OR Content, depending on ContentType
-        if (string.IsNullOrWhiteSpace(parameterAnnotation.ContentType))
+        if ((PrimitiveSchemaMap.ContainsKey(variable.VariableType) &&
+              // Either Schema OR Content, depending on ContentType
+              string.IsNullOrWhiteSpace(parameterAnnotation.ContentType)) ||
+             ((parameter.In == ParameterLocation.Query || parameter.In == ParameterLocation.Cookie) &&
+              parameter.Style == ParameterStyle.Form))
         {
             parameter.Schema = iSchema;
             return;
         }
+        var contentType = string.IsNullOrWhiteSpace(parameterAnnotation.ContentType)
+              ? "application/json"
+              : parameterAnnotation.ContentType;
         // Use Content
         parameter.Content ??= new Dictionary<string, IOpenApiMediaType>(StringComparer.Ordinal);
-        parameter.Content[parameterAnnotation.ContentType] = new OpenApiMediaType { Schema = iSchema };
+        parameter.Content[contentType] = new OpenApiMediaType { Schema = iSchema };
     }
 
     /// <summary>

@@ -38,4 +38,18 @@ public abstract class ParameterForInjectionInfoBase(string name, Type parameterT
     /// Indicates whether the parameter is from the request body.
     /// </summary>
     public bool IsRequestBody => In is null;
+    /// <summary>
+    /// Content types associated with the parameter.
+    /// </summary>
+    public List<string> ContentTypes { get; init; } = [];
+
+    /// <summary>
+    /// The style of the parameter.
+    /// </summary>
+    public ParameterStyle? Style { get; init; }
+
+    /// <summary>
+    /// Indicates whether the parameter should be exploded.
+    /// </summary>
+    public bool Explode { get; init; }
 }

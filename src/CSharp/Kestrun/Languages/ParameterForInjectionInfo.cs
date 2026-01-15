@@ -35,6 +35,18 @@ public class ParameterForInjectionInfo : ParameterForInjectionInfoBase
         Type = parameter.Schema?.Type;
         DefaultValue = parameter.Schema?.Default;
         In = parameter.In;
+        if (parameter.Content is not null)
+        {
+            foreach (var key in parameter.Content.Keys)
+            {
+                ContentTypes.Add(key);
+            }
+        }
+        else
+        {
+            Explode = parameter.Explode;
+            Style = parameter.Style;
+        }
     }
     /// <summary>
     /// Constructs a ParameterForInjectionInfo from an OpenApiRequestBody.
@@ -57,6 +69,13 @@ public class ParameterForInjectionInfo : ParameterForInjectionInfoBase
             DefaultValue = sch.Default;
         }
         In = null;
+        if (requestBody.Content is not null)
+        {
+            foreach (var key in requestBody.Content.Keys)
+            {
+                ContentTypes.Add(key);
+            }
+        }
     }
 
     /// <summary>
@@ -98,7 +117,9 @@ public class ParameterForInjectionInfo : ParameterForInjectionInfoBase
 
         if (logger.IsEnabled(Serilog.Events.LogEventLevel.Debug))
         {
-            logger.Debug("Injecting parameter '{Name}' of type '{Type}' from '{In}'.", name, param.Type, param.In);
+            var parType = (param.Type is null) ? param.ParameterType.GetType().FullName : param.Type.ToString();
+            logger.Debug("Injecting parameter '{Name}' of type '{Type}' from '{In}'.", name, parType, param.In);
+
         }
 
         object? converted;
@@ -108,6 +129,46 @@ public class ParameterForInjectionInfo : ParameterForInjectionInfoBase
             ? ConvertFormToValue(context.Request.Form, param)
             : GetParameterValueFromContext(context, param, out shouldLog);
 
+        if (converted is not null && converted is string rawString && param.Type == null && param.ParameterType != null &&
+            param.ParameterType != typeof(string))
+        {
+            //if (param.ContentTypes.Count > 0)
+            //{
+            // No value found, and parameter has content types defined - likely a body parameter
+            // with no value provided. Try to convert the body based on content type.
+
+         //   var rawString = converted as string ?? "";
+
+            if (param.ContentTypes.Any(ct =>
+                 ct.StartsWith("application/json", StringComparison.OrdinalIgnoreCase)))
+            {
+                converted = ConvertJsonToHashtable(rawString);
+            }
+            else if (param.ContentTypes.Any(ct =>
+                ct.StartsWith("application/yaml", StringComparison.OrdinalIgnoreCase)))
+            {
+                converted = ConvertYamlToHashtable(rawString);
+            }
+            else if (param.ContentTypes.Any(ct =>
+                  ct.StartsWith("application/xml", StringComparison.OrdinalIgnoreCase)))
+            {
+                converted = ConvertXmlToHashtable(rawString);
+            }
+            else if (param.ContentTypes.Any(ct =>
+                 ct.StartsWith("application/x-www-form-urlencoded", StringComparison.OrdinalIgnoreCase)))
+            {
+                converted = ConvertFormToHashtable(context.Request.Form);
+            }
+            else if (param.Style == ParameterStyle.Form && param.Explode)
+            {
+                // For 'form' style with 'explode', convert to hashtable
+                converted = ConvertFormToHashtable(context.Request.Form);
+            }
+            else
+            {
+                context.Logger.WarningSanitized("Unable to convert body parameter '{Name}' with content types: {ContentTypes}. Using raw string value.", name, param.ContentTypes);
+            }
+        }
         if (shouldLog && logger.IsEnabled(Serilog.Events.LogEventLevel.Debug))
         {
             logger.DebugSanitized("Adding parameter '{Name}': {ConvertedValue}", name, converted);
@@ -243,8 +304,9 @@ public class ParameterForInjectionInfo : ParameterForInjectionInfoBase
             JsonSchemaType.Number => double.TryParse(singleValue, out var d) ? (double?)d : null,
             JsonSchemaType.Boolean => bool.TryParse(singleValue, out var b) ? (bool?)b : null,
             JsonSchemaType.Array => multiValue ?? (singleValue is not null ? new[] { singleValue } : null), // keep your existing behaviour for query/header multi-values
-            JsonSchemaType.Object =>
-                ConvertBodyBasedOnContentType(context, singleValue ?? ""),
+            JsonSchemaType.Object => param.IsRequestBody
+                                    ? ConvertBodyBasedOnContentType(context, singleValue ?? "", param)
+                                    : singleValue,
             JsonSchemaType.String => singleValue,
             _ => singleValue,
         };
@@ -252,9 +314,41 @@ public class ParameterForInjectionInfo : ParameterForInjectionInfoBase
     //todo: test Yaml and XML bodies
     private static object? ConvertBodyBasedOnContentType(
        KestrunContext context,
-       string rawBodyString)
+       string rawBodyString, ParameterForInjectionInfo param)
     {
+        var lenient = param.ContentTypes.Count == 1;
         var contentType = context.Request.ContentType?.ToLowerInvariant() ?? "";
+        if (string.IsNullOrWhiteSpace(contentType))
+        {
+            if (lenient)
+            {
+                // Try to infer content type
+                if (param.ContentTypes[0].StartsWith("application/json", StringComparison.OrdinalIgnoreCase))
+                {
+                    return ConvertJsonToHashtable(rawBodyString);
+                }
+                else if (param.ContentTypes[0].StartsWith("application/xml", StringComparison.OrdinalIgnoreCase))
+                {
+                    return ConvertXmlToHashtable(rawBodyString);
+                }
+                else if (param.ContentTypes[0].StartsWith("application/yaml", StringComparison.OrdinalIgnoreCase))
+                {
+                    return ConvertYamlToHashtable(rawBodyString);
+                }
+                else if (param.ContentTypes[0].StartsWith("application/x-www-form-urlencoded", StringComparison.OrdinalIgnoreCase))
+                {
+                    return ConvertFormToHashtable(context.Request.Form);
+                }
+                else
+                {
+                    return rawBodyString; // fallback
+                }
+            }
+            else
+            {
+                throw new InvalidOperationException("Content-Type header is missing; cannot convert body to object.");
+            }
+        }
 
         if (contentType.Contains("json"))
         {

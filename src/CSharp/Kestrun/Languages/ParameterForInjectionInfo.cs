@@ -183,54 +183,114 @@ public class ParameterForInjectionInfo : ParameterForInjectionInfoBase
         var logger = context.Host.Logger;
         var name = param.Name;
 
-        if (logger.IsEnabled(Serilog.Events.LogEventLevel.Debug))
-        {
-            // (Tiny bugfix: ParameterType.GetType() would always be RuntimeType.)
-            var parType = param.Type?.ToString() ?? param.ParameterType?.FullName ?? "<unknown>";
-            logger.Debug("Injecting parameter '{Name}' of type '{Type}' from '{In}'.", name, parType, param.In);
-        }
+        LogInjectingParameter(logger, param);
 
-        var shouldLog = true;
+        var converted = GetConvertedParameterValue(context, param, out var shouldLog);
+        converted = ConvertBodyParameterIfNeeded(context, param, converted);
 
-        var converted =
-            context.Request.Form is not null && context.Request.HasFormContentType
-                ? ConvertFormToValue(context.Request.Form, param)
-                : GetParameterValueFromContext(context, param, out shouldLog);
-
-        if (ShouldConvertBody(param, converted))
-        {
-            var rawString = (string)converted!;
-            var bodyObj = TryConvertBodyByContentType(context, param, rawString);
-
-            if (bodyObj is not null)
-            {
-                converted = bodyObj;
-            }
-            else
-            {
-                context.Logger.WarningSanitized(
-                    "Unable to convert body parameter '{Name}' with content types: {ContentTypes}. Using raw string value.",
-                    name,
-                    param.ContentTypes);
-            }
-        }
-
-        if (shouldLog && logger.IsEnabled(Serilog.Events.LogEventLevel.Debug))
-        {
-            logger.DebugSanitized("Adding parameter '{Name}': {ConvertedValue}", name, converted);
-        }
+        LogAddingParameter(logger, name, converted, shouldLog);
 
         _ = ps.AddParameter(name, converted);
+        StoreResolvedParameter(context, param, name, converted);
+    }
 
-        var resolved = new ParameterForInjectionResolved(param, converted);
+    /// <summary>
+    /// Logs the injection of a parameter when debug logging is enabled.
+    /// </summary>
+    /// <param name="logger">The host logger.</param>
+    /// <param name="param">The parameter being injected.</param>
+    private static void LogInjectingParameter(Serilog.ILogger logger, ParameterForInjectionInfo param)
+    {
+        if (!logger.IsEnabled(Serilog.Events.LogEventLevel.Debug))
+        {
+            return;
+        }
+
+        // (Tiny bugfix: ParameterType.GetType() would always be RuntimeType.)
+        var parType = param.Type?.ToString() ?? param.ParameterType?.FullName ?? "<unknown>";
+        logger.Debug("Injecting parameter '{Name}' of type '{Type}' from '{In}'.", param.Name, parType, param.In);
+    }
+
+    /// <summary>
+    /// Gets the converted parameter value from the current request context.
+    /// </summary>
+    /// <param name="context">The current Kestrun context.</param>
+    /// <param name="param">The parameter metadata.</param>
+    /// <param name="shouldLog">Whether the value should be logged.</param>
+    /// <returns>The converted parameter value.</returns>
+    private static object? GetConvertedParameterValue(KestrunContext context, ParameterForInjectionInfo param, out bool shouldLog)
+    {
+        shouldLog = true;
+
+        return context.Request.Form is not null && context.Request.HasFormContentType
+            ? ConvertFormToValue(context.Request.Form, param)
+            : GetParameterValueFromContext(context, param, out shouldLog);
+    }
+
+    /// <summary>
+    /// Converts a request-body parameter from a raw string to a structured object when possible.
+    /// </summary>
+    /// <param name="context">The current Kestrun context.</param>
+    /// <param name="param">The parameter metadata.</param>
+    /// <param name="converted">The current converted value.</param>
+    /// <returns>The updated value, possibly converted to an object/hashtable.</returns>
+    private static object? ConvertBodyParameterIfNeeded(KestrunContext context, ParameterForInjectionInfo param, object? converted)
+    {
+        if (!ShouldConvertBody(param, converted))
+        {
+            return converted;
+        }
+
+        var rawString = (string)converted!;
+        var bodyObj = TryConvertBodyByContentType(context, param, rawString);
+
+        if (bodyObj is not null)
+        {
+            return bodyObj;
+        }
+
+        context.Logger.WarningSanitized(
+            "Unable to convert body parameter '{Name}' with content types: {ContentTypes}. Using raw string value.",
+            param.Name,
+            param.ContentTypes);
+
+        return converted;
+    }
+
+    /// <summary>
+    /// Logs the addition of a parameter to the PowerShell invocation when requested and debug logging is enabled.
+    /// </summary>
+    /// <param name="logger">The host logger.</param>
+    /// <param name="name">The parameter name.</param>
+    /// <param name="value">The value to be added.</param>
+    /// <param name="shouldLog">Whether logging should be performed.</param>
+    private static void LogAddingParameter(Serilog.ILogger logger, string name, object? value, bool shouldLog)
+    {
+        if (!shouldLog || !logger.IsEnabled(Serilog.Events.LogEventLevel.Debug))
+        {
+            return;
+        }
+
+        logger.DebugSanitized("Adding parameter '{Name}': {ConvertedValue}", name, value);
+    }
+
+    /// <summary>
+    /// Stores the resolved parameter on the request context, either as the request body or a named parameter.
+    /// </summary>
+    /// <param name="context">The current Kestrun context.</param>
+    /// <param name="param">The parameter metadata.</param>
+    /// <param name="name">The parameter name.</param>
+    /// <param name="value">The resolved value.</param>
+    private static void StoreResolvedParameter(KestrunContext context, ParameterForInjectionInfo param, string name, object? value)
+    {
+        var resolved = new ParameterForInjectionResolved(param, value);
         if (param.IsRequestBody)
         {
             context.Parameters.Body = resolved;
+            return;
         }
-        else
-        {
-            context.Parameters.Parameters[name] = resolved;
-        }
+
+        context.Parameters.Parameters[name] = resolved;
     }
 
     /// <summary>

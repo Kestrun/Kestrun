@@ -158,9 +158,6 @@ public partial class OpenApiDocDescriptor
         return prim;
     }
 
-
-
-
     /// <summary>
     /// Gets or creates an OpenAPI schema item in either inline or document components.
     /// </summary>

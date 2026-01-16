@@ -755,7 +755,6 @@ public static partial class KestrunHostMapExtensions
         {
             _ = map.WithMetadata(new DefaultResponseContentType(options.DefaultResponseContentType));
         }
-
     }
     /// <summary>
     /// Applies short-circuiting behavior to the route.

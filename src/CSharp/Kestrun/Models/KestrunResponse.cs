@@ -447,7 +447,6 @@ public class KestrunResponse
     /// <param name="contentType">The MIME type of the response content.</param>
     public void WriteBsonResponse(object? inputObject, int statusCode = StatusCodes.Status200OK, string? contentType = null) => WriteBsonResponseAsync(inputObject, statusCode, contentType).GetAwaiter().GetResult();
 
-
     /// <summary>
     /// Writes a response with the specified input object and HTTP status code.
     /// Chooses the response format based on the Accept header or defaults to text/plain.

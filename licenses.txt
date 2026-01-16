@@ -563,7 +563,7 @@ license Type:MIT
 
 ####################################################################################################
 Package:MongoDB.Bson
-Version:3.5.2
+Version:3.6.0
 project URL:https://www.mongodb.com/docs/drivers/csharp/
 Description:MongoDB's Official Bson Library.
 licenseUrl:https://licenses.nuget.org/Apache-2.0

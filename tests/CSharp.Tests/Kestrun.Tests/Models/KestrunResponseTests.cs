@@ -42,6 +42,48 @@ public partial class KestrunResponseTests
 
     [Fact]
     [Trait("Category", "Models")]
+    public async Task WriteResponse_Chooses_Highest_QValue_From_Accept()
+    {
+        var ctx = MakeCtx("application/xml;q=0.1, application/json;q=0.9");
+        var res = ctx.Response;
+
+        await res.WriteResponseAsync(new { Name = "alice" }, StatusCodes.Status200OK);
+
+        Assert.Contains("application/json", res.ContentType);
+        var strBody = Assert.IsType<string>(res.Body);
+        Assert.Contains("alice", strBody);
+    }
+
+    [Fact]
+    [Trait("Category", "Models")]
+    public async Task WriteResponse_Treats_VendorPlusJson_As_Json()
+    {
+        var ctx = MakeCtx("application/vnd.foo+json");
+        var res = ctx.Response;
+
+        await res.WriteResponseAsync(new { Name = "alice" }, StatusCodes.Status200OK);
+
+        Assert.Contains("application/json", res.ContentType);
+        var strBody = Assert.IsType<string>(res.Body);
+        Assert.Contains("alice", strBody);
+    }
+
+    [Fact]
+    [Trait("Category", "Models")]
+    public async Task WriteResponse_Wildcard_Accept_FallsBack_To_TextPlain()
+    {
+        var ctx = MakeCtx("*/*");
+        var res = ctx.Response;
+
+        await res.WriteResponseAsync(new { Name = "alice" }, StatusCodes.Status200OK);
+
+        Assert.Contains("text/plain", res.ContentType);
+        var strBody = Assert.IsType<string>(res.Body);
+        Assert.Contains("alice", strBody);
+    }
+
+    [Fact]
+    [Trait("Category", "Models")]
     public async Task ApplyTo_Sets_ContentDisposition_With_FileName()
     {
         var ctx = MakeCtx();
@@ -744,6 +786,21 @@ public partial class KestrunResponseTests
         var bytes = Assert.IsType<byte[]>(res.Body);
         Assert.NotEmpty(bytes);
         Assert.Equal("application/bson", res.ContentType);
+    }
+
+    [Fact]
+    [Trait("Category", "Models")]
+    public async Task WriteResponse_Chooses_Csv_For_Accept()
+    {
+        var ctx = MakeCtx("text/csv");
+        var res = ctx.Response;
+
+        await res.WriteResponseAsync(new[] { new Person { Name = "alice", Age = 42 } }, StatusCodes.Status200OK);
+
+        Assert.Contains("text/csv", res.ContentType);
+        var body = Assert.IsType<string>(res.Body);
+        Assert.Contains("Name,Age", body.Replace("\r\n", "\n"));
+        Assert.Contains("alice,42", body.Replace("\r\n", "\n"));
     }
 
     [Fact]

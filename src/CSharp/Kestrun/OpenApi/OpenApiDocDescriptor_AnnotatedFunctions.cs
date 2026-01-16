@@ -643,32 +643,44 @@ public partial class OpenApiDocDescriptor
         }
         else if (paramInfo.ParameterType.Name != "Object" && attribute.ReferenceId != paramInfo.ParameterType.Name)
         {
-            if (TryGetRequestBodyItem(attribute.ReferenceId, out var requestBody, out _))
+            return FindReferenceIdForParameter(attribute.ReferenceId, paramInfo);
+        }
+        // Return the reference ID as is
+        return attribute.ReferenceId;
+    }
+
+    /// <summary>
+    /// Finds and validates the reference ID for a request body parameter.
+    /// </summary>
+    /// <param name="referenceId">The reference ID to validate.</param>
+    /// <param name="paramInfo">The parameter metadata.</param>
+    /// <returns>The validated reference ID.</returns>
+    /// <exception cref="InvalidOperationException">Thrown when the reference ID does not match the parameter type name.</exception>
+    private string FindReferenceIdForParameter(string referenceId, ParameterMetadata paramInfo)
+    {
+        if (TryGetRequestBodyItem(referenceId, out var requestBody, out _))
+        {
+            if (requestBody is not null && requestBody.Content is not null && requestBody.Content.Count > 0)
             {
-                if (requestBody is not null && requestBody.Content is not null && requestBody.Content.Count > 0)
+                var content = requestBody.Content.First().Value;
+                if (content.Schema is not null)
                 {
-                    var content = requestBody.Content.First().Value;
-                    if (content.Schema is not null)
+                    if (content.Schema is OpenApiSchemaReference schemaRef && schemaRef.Reference.Id == paramInfo.ParameterType.Name)
                     {
-                        if (content.Schema is OpenApiSchemaReference schemaRef && schemaRef.Reference.Id == paramInfo.ParameterType.Name)
+                        return referenceId;
+                    }
+                    else if (content.Schema is OpenApiSchema schema && PrimitiveSchemaMap.TryGetValue(paramInfo.ParameterType, out var valueType))
+                    {
+                        var v = valueType();
+                        if (schema.Format == v.Format && schema.Type == v.Type)
                         {
-                            return attribute.ReferenceId;
-                        }
-                        else if (content.Schema is OpenApiSchema schema && PrimitiveSchemaMap.TryGetValue(paramInfo.ParameterType, out var valueType))
-                        {
-                            var v = valueType();
-                            if (schema.Format == v.Format && schema.Type == v.Type)
-                            {
-                                return attribute.ReferenceId;
-                            }
+                            return referenceId;
                         }
                     }
                 }
             }
-            throw new InvalidOperationException($"ReferenceId '{attribute.ReferenceId}' is different from parameter type name '{paramInfo.ParameterType.Name}'.");
         }
-
-        return attribute.ReferenceId;
+        throw new InvalidOperationException($"ReferenceId '{referenceId}' is different from parameter type name '{paramInfo.ParameterType.Name}'.");
     }
 
     /// <summary>

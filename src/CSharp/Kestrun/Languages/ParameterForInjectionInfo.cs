@@ -1,12 +1,18 @@
 
 using System.Collections;
+using System.Globalization;
 using System.Management.Automation;
 using System.Text.Json;
 using System.Xml.Linq;
+using CsvHelper;
+using CsvHelper.Configuration;
 using Kestrun.Logging;
 using Kestrun.Models;
 using Microsoft.Extensions.Primitives;
 using Microsoft.OpenApi;
+using MongoDB.Bson;
+using MongoDB.Bson.Serialization;
+using PeterO.Cbor;
 using YamlDotNet.Serialization;
 using YamlDotNet.Serialization.NamingConventions;
 
@@ -147,8 +153,24 @@ public class ParameterForInjectionInfo : ParameterForInjectionInfoBase
                 converted = ConvertXmlToHashtable(rawString);
             }
             else if (param.ContentTypes.Any(ct =>
-                 ct.StartsWith("application/x-www-form-urlencoded", StringComparison.OrdinalIgnoreCase)))
+                 ct.StartsWith("application/bson", StringComparison.OrdinalIgnoreCase)))
             {
+                converted = ConvertBsonToHashtable(rawString);
+            }
+            else if (param.ContentTypes.Any(ct =>
+                 ct.StartsWith("application/cbor", StringComparison.OrdinalIgnoreCase)))
+            {
+                converted = ConvertCborToHashtable(rawString);
+            }
+            else if (param.ContentTypes.Any(ct =>
+                 ct.StartsWith("text/csv", StringComparison.OrdinalIgnoreCase)))
+            {
+                converted = ConvertCsvToHashtable(rawString);
+            }
+            else if (param.ContentTypes.Any(ct =>
+                 ct.StartsWith("application/x-www-form-urlencoded", StringComparison.OrdinalIgnoreCase)) && param.Explode)
+            {
+                // For 'form' style with 'explode', convert to hashtable
                 converted = ConvertFormToHashtable(context.Request.Form);
             }
             else if (param.Style == ParameterStyle.Form && param.Explode)
@@ -338,6 +360,18 @@ public class ParameterForInjectionInfo : ParameterForInjectionInfoBase
                 {
                     return ConvertFormToHashtable(context.Request.Form);
                 }
+                else if (param.ContentTypes[0].StartsWith("application/bson", StringComparison.OrdinalIgnoreCase))
+                {
+                    return ConvertBsonToHashtable(rawBodyString);
+                }
+                else if (param.ContentTypes[0].StartsWith("application/cbor", StringComparison.OrdinalIgnoreCase))
+                {
+                    return ConvertCborToHashtable(rawBodyString);
+                }
+                else if (param.ContentTypes[0].StartsWith("text/csv", StringComparison.OrdinalIgnoreCase))
+                {
+                    return ConvertCsvToHashtable(rawBodyString);
+                }
                 else
                 {
                     return rawBodyString; // fallback
@@ -362,6 +396,21 @@ public class ParameterForInjectionInfo : ParameterForInjectionInfoBase
         if (contentType.Contains("xml"))
         {
             return ConvertXmlToHashtable(rawBodyString);
+        }
+
+        if (contentType.Contains("bson"))
+        {
+            return ConvertBsonToHashtable(rawBodyString);
+        }
+
+        if (contentType.Contains("cbor"))
+        {
+            return ConvertCborToHashtable(rawBodyString);
+        }
+
+        if (contentType.Contains("csv"))
+        {
+            return ConvertCsvToHashtable(rawBodyString);
         }
 
         if (contentType.Contains("application/x-www-form-urlencoded"))
@@ -527,5 +576,294 @@ public class ParameterForInjectionInfo : ParameterForInjectionInfoBase
         return param.Type is JsonSchemaType.Integer or JsonSchemaType.Number or JsonSchemaType.Boolean or JsonSchemaType.Array or JsonSchemaType.String
             ? form.Count == 1 ? form.First().Key : null
             : ConvertFormToHashtable(form);
+    }
+
+    private static object? ConvertBsonToHashtable(string bson)
+    {
+        if (string.IsNullOrWhiteSpace(bson))
+        {
+            return null;
+        }
+
+        var bytes = DecodeBodyStringToBytes(bson);
+        if (bytes is null || bytes.Length == 0)
+        {
+            return null;
+        }
+
+        var doc = BsonSerializer.Deserialize<BsonDocument>(bytes);
+        return BsonValueToClr(doc);
+    }
+
+    private static object? BsonValueToClr(BsonValue value)
+    {
+        return value is null || value.IsBsonNull
+            ? null
+            : value.BsonType switch
+            {
+                BsonType.Document => BsonDocumentToHashtable(value.AsBsonDocument),
+                BsonType.Array => BsonArrayToClrArray(value.AsBsonArray),
+                BsonType.Boolean => value.AsBoolean,
+                BsonType.Int32 => value.AsInt32,
+                BsonType.Int64 => value.AsInt64,
+                BsonType.Double => value.AsDouble,
+                BsonType.Decimal128 => value.AsDecimal,
+                BsonType.String => value.AsString,
+                BsonType.DateTime => value.ToUniversalTime(),
+                BsonType.ObjectId => value.AsObjectId.ToString(),
+                BsonType.Binary => value.AsBsonBinaryData.Bytes,
+                BsonType.Null => null,
+                _ => value.ToString(),
+            };
+    }
+
+    private static Hashtable BsonDocumentToHashtable(BsonDocument doc)
+    {
+        var ht = new Hashtable(StringComparer.OrdinalIgnoreCase);
+        foreach (var element in doc.Elements)
+        {
+            ht[element.Name] = BsonValueToClr(element.Value);
+        }
+
+        return ht;
+    }
+
+    private static object?[] BsonArrayToClrArray(BsonArray arr)
+    {
+        var list = new object?[arr.Count];
+        for (var i = 0; i < arr.Count; i++)
+        {
+            list[i] = BsonValueToClr(arr[i]);
+        }
+
+        return list;
+    }
+
+    private static object? ConvertCborToHashtable(string cbor)
+    {
+        if (string.IsNullOrWhiteSpace(cbor))
+        {
+            return null;
+        }
+
+        var bytes = DecodeBodyStringToBytes(cbor);
+        if (bytes is null || bytes.Length == 0)
+        {
+            return null;
+        }
+
+        var obj = CBORObject.DecodeFromBytes(bytes);
+        return CborToClr(obj);
+    }
+
+    private static object? CborToClr(CBORObject obj)
+    {
+        if (obj is null)
+        {
+            return null;
+        }
+
+        if (obj.IsNull)
+        {
+            return null;
+        }
+
+        if (obj.Type == CBORType.Map)
+        {
+            var ht = new Hashtable(StringComparer.OrdinalIgnoreCase);
+            foreach (var key in obj.Keys)
+            {
+                var keyString = key?.ToString() ?? string.Empty;
+                ht[keyString] = CborToClr(obj[key]);
+            }
+
+            return ht;
+        }
+
+        if (obj.Type == CBORType.Array)
+        {
+            var list = new object?[obj.Count];
+            for (var i = 0; i < obj.Count; i++)
+            {
+                list[i] = CborToClr(obj[i]);
+            }
+
+            return list;
+        }
+
+        // Scalar conversions
+        if (obj.IsNumber)
+        {
+            // Prefer integral if representable; else double/decimal as available.
+            var number = obj.AsNumber();
+            if (number.CanFitInInt64())
+            {
+                return number.ToInt64Checked();
+            }
+
+            if (number.CanFitInDouble())
+            {
+                return obj.ToObject(typeof(double));
+            }
+
+            // For extremely large/precise numbers, keep a string representation.
+            return number.ToString();
+        }
+
+        if (obj.Type == CBORType.Boolean)
+        {
+            return obj.AsBoolean();
+        }
+
+        if (obj.Type == CBORType.ByteString)
+        {
+            return obj.GetByteString();
+        }
+
+        // TextString, SimpleValue, etc.
+        return obj.Type switch
+        {
+            CBORType.TextString => obj.AsString(),
+            CBORType.SimpleValue => obj.ToString(),
+            _ => obj.ToString(),
+        };
+    }
+
+    private static object? ConvertCsvToHashtable(string csv)
+    {
+        if (string.IsNullOrWhiteSpace(csv))
+        {
+            return null;
+        }
+
+        using var reader = new StringReader(csv);
+        var config = new CsvConfiguration(CultureInfo.InvariantCulture)
+        {
+            HasHeaderRecord = true,
+            BadDataFound = null,
+            MissingFieldFound = null,
+            HeaderValidated = null,
+            IgnoreBlankLines = true,
+            TrimOptions = TrimOptions.Trim,
+        };
+
+        using var csvReader = new CsvReader(reader, config);
+        var records = new List<Hashtable>();
+
+        foreach (var rec in csvReader.GetRecords<dynamic>())
+        {
+            if (rec is not IDictionary<string, object?> dict)
+            {
+                continue;
+            }
+
+            var ht = new Hashtable(StringComparer.OrdinalIgnoreCase);
+            foreach (var kvp in dict)
+            {
+                ht[kvp.Key] = kvp.Value;
+            }
+
+            records.Add(ht);
+        }
+
+        return records.Count == 0
+            ? null
+            : (records.Count == 1 ? records[0] : records.Cast<object?>().ToArray());
+    }
+
+    private static byte[]? DecodeBodyStringToBytes(string body)
+    {
+        if (string.IsNullOrWhiteSpace(body))
+        {
+            return null;
+        }
+
+        var trimmed = body.Trim();
+        if (trimmed.StartsWith("base64:", StringComparison.OrdinalIgnoreCase))
+        {
+            trimmed = trimmed["base64:".Length..].Trim();
+        }
+
+        if (TryDecodeBase64(trimmed, out var base64Bytes))
+        {
+            return base64Bytes;
+        }
+
+        if (TryDecodeHex(trimmed, out var hexBytes))
+        {
+            return hexBytes;
+        }
+
+        // Fallback: interpret as UTF-8 text (best-effort).
+        return System.Text.Encoding.UTF8.GetBytes(trimmed);
+    }
+
+    private static bool TryDecodeBase64(string input, out byte[] bytes)
+    {
+        bytes = [];
+
+        // Quick reject for non-base64 strings.
+        if (input.Length < 4 || (input.Length % 4) != 0)
+        {
+            return false;
+        }
+
+        // Avoid throwing on clearly non-base64 content.
+        for (var i = 0; i < input.Length; i++)
+        {
+            var c = input[i];
+            var isValid =
+                c is (>= 'A' and <= 'Z') or (>= 'a' and <= 'z') or (>= '0' and <= '9') or '+' or '/' or '=' or '\r' or '\n';
+
+            if (!isValid)
+            {
+                return false;
+            }
+        }
+
+        try
+        {
+            bytes = Convert.FromBase64String(input);
+            return true;
+        }
+        catch (FormatException)
+        {
+            return false;
+        }
+    }
+
+    private static bool TryDecodeHex(string input, out byte[] bytes)
+    {
+        bytes = [];
+        var s = input.Trim();
+
+        if (s.StartsWith("0x", StringComparison.OrdinalIgnoreCase))
+        {
+            s = s[2..];
+        }
+
+        if (s.Length < 2 || (s.Length % 2) != 0)
+        {
+            return false;
+        }
+
+        for (var i = 0; i < s.Length; i++)
+        {
+            var c = s[i];
+            var isHex = c is (>= '0' and <= '9') or (>= 'a' and <= 'f') or (>= 'A' and <= 'F');
+
+            if (!isHex)
+            {
+                return false;
+            }
+        }
+
+        bytes = new byte[s.Length / 2];
+        for (var i = 0; i < bytes.Length; i++)
+        {
+            bytes[i] = Convert.ToByte(s.Substring(i * 2, 2), 16);
+        }
+
+        return true;
     }
 }

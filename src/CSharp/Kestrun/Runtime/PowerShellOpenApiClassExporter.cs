@@ -636,60 +636,95 @@ public static class PowerShellOpenApiClassExporter
     /// <returns></returns>
     private static string ToPowerShellTypeName(Type t, HashSet<Type> componentSet, bool collapseToUnderlyingPrimitives)
     {
-        // Nullable<T>
-        if (Nullable.GetUnderlyingType(t) is Type underlying)
-        {
-            return $"Nullable[{ToPowerShellTypeName(underlying, componentSet, collapseToUnderlyingPrimitives)}]";
-        }
-
-        // OpenAPI schema component array wrappers
-        if (ResolveElementArrayType(t, componentSet, collapseToUnderlyingPrimitives) is string arrayTypeName)
-        {
-            return arrayTypeName;
-        }
-
-        // OpenAPI primitive wrappers (PowerShell-friendly):
-        // Many schemas are represented as classes deriving from OpenApiScalar<T> (new)
-        // or the legacy OpenApiValue<T> (older builds).
-        // Examples: OpenApiString/OpenApiNumber/OpenApiBoolean/OpenApiInteger, OpenApiDate, etc.
-        // When such a schema is referenced as a property type, we want the *real*
-        // PowerShell primitive type constraint (string/double/bool/long) rather than
-        // the wrapper class name.
-        if (collapseToUnderlyingPrimitives && TryGetOpenApiValueUnderlyingType(t, out var openApiValueUnderlying) && openApiValueUnderlying is not null)
-        {
-            return ToPowerShellTypeName(openApiValueUnderlying, componentSet, collapseToUnderlyingPrimitives);
-        }
-
-        // Enums: use the simple name so PowerShell can resolve the type constraint
-        // against the enum definition we emit into the exported script.
-        if (t.IsEnum)
-        {
-            return t.Name;
-        }
-
-        // Primitive mappings
-        if (ResolvePrimitiveTypeName(t) is string primitiveName)
-        {
-            return primitiveName;
-        }
-
-        // Arrays
-        if (t.IsArray)
-        {
-            var element = ToPowerShellTypeName(t.GetElementType()!, componentSet, collapseToUnderlyingPrimitives);
-            return $"{element}[]";
-        }
-
-        // If the property type is itself one of the OpenAPI component classes,
-        // use its *simple* name (Pet, User, Tag, Category, etc.)
-        if (componentSet.Contains(t) || t.FullName is null)
-        {
-            return t.Name;
-        }
-
-        // Fallback for other reference types (you can change to t.Name if you prefer)
-        return t.FullName;
+        return GetNullableTypeName(t, componentSet, collapseToUnderlyingPrimitives)
+            ?? GetOpenApiArrayWrapperTypeName(t, componentSet, collapseToUnderlyingPrimitives)
+            ?? GetCollapsedOpenApiPrimitiveTypeName(t, componentSet, collapseToUnderlyingPrimitives)
+            ?? GetEnumTypeName(t)
+            ?? GetPrimitiveTypeName(t)
+            ?? GetArrayTypeName(t, componentSet, collapseToUnderlyingPrimitives)
+            ?? FormatComponentOrFallbackName(t, componentSet);
     }
+
+    /// <summary>
+    /// Produces a PowerShell nullable type constraint (e.g. <c>Nullable[int]</c>) when the input is a <c>Nullable&lt;T&gt;</c>.
+    /// </summary>
+    /// <param name="t">The CLR type to inspect.</param>
+    /// <param name="componentSet">The set of known OpenAPI component types.</param>
+    /// <param name="collapseToUnderlyingPrimitives">Whether OpenAPI primitive wrapper types should be collapsed to primitives.</param>
+    /// <returns>The nullable type name, or <c>null</c> when <paramref name="t"/> is not nullable.</returns>
+    private static string? GetNullableTypeName(Type t, HashSet<Type> componentSet, bool collapseToUnderlyingPrimitives)
+    {
+        return Nullable.GetUnderlyingType(t) is Type underlying
+            ? $"Nullable[{ToPowerShellTypeName(underlying, componentSet, collapseToUnderlyingPrimitives)}]"
+            : null;
+    }
+
+    /// <summary>
+    /// Produces an element-array type constraint for OpenAPI schema component array wrapper types when appropriate.
+    /// </summary>
+    /// <param name="t">The CLR type to inspect.</param>
+    /// <param name="componentSet">The set of known OpenAPI component types.</param>
+    /// <param name="collapseToUnderlyingPrimitives">Whether OpenAPI primitive wrapper types should be collapsed to primitives.</param>
+    /// <returns>The array wrapper type name, or <c>null</c> when <paramref name="t"/> is not an OpenAPI array wrapper type.</returns>
+    private static string? GetOpenApiArrayWrapperTypeName(Type t, HashSet<Type> componentSet, bool collapseToUnderlyingPrimitives)
+        => ResolveElementArrayType(t, componentSet, collapseToUnderlyingPrimitives);
+
+    /// <summary>
+    /// Produces the underlying primitive PowerShell type name for OpenAPI primitive wrapper types (e.g. OpenApiString/OpenApiDate).
+    /// </summary>
+    /// <param name="t">The CLR type to inspect.</param>
+    /// <param name="componentSet">The set of known OpenAPI component types.</param>
+    /// <param name="collapseToUnderlyingPrimitives">Whether collapsing is enabled.</param>
+    /// <returns>The primitive name, or <c>null</c> when <paramref name="t"/> is not an OpenAPI wrapper type (or collapsing is disabled).</returns>
+    /// <remarks>
+    /// When <paramref name="collapseToUnderlyingPrimitives"/> is <c>true</c
+    /// >, types derived from OpenApiValue&lt;T&gt; are emitted as their underlying primitive (e.g., string/double/bool/long).
+    /// </remarks>
+    private static string? GetCollapsedOpenApiPrimitiveTypeName(Type t, HashSet<Type> componentSet, bool collapseToUnderlyingPrimitives)
+        => collapseToUnderlyingPrimitives
+           && TryGetOpenApiValueUnderlyingType(t, out var underlying)
+           && underlying is not null
+            ? ToPowerShellTypeName(underlying, componentSet, collapseToUnderlyingPrimitives)
+            : null;
+
+    /// <summary>
+    /// Produces the simple name for enum types so PowerShell can bind against the emitted enum definition.
+    /// </summary>
+    /// <param name="t">The CLR type to inspect.</param>
+    /// <returns>The enum name, or <c>null</c> when <paramref name="t"/> is not an enum.</returns>
+    private static string? GetEnumTypeName(Type t)
+        => t.IsEnum ? t.Name : null;
+
+    /// <summary>
+    /// Produces the PowerShell type name for well-known CLR primitives.
+    /// </summary>
+    /// <param name="t">The CLR type to inspect.</param>
+    /// <returns>The primitive name, or <c>null</c> when no primitive mapping exists.</returns>
+    private static string? GetPrimitiveTypeName(Type t)
+        => ResolvePrimitiveTypeName(t);
+
+    /// <summary>
+    /// Produces a PowerShell element-array type constraint (e.g. <c>string[]</c>) for CLR array types.
+    /// </summary>
+    /// <param name="t">The CLR type to inspect.</param>
+    /// <param name="componentSet">The set of known OpenAPI component types.</param>
+    /// <param name="collapseToUnderlyingPrimitives">Whether OpenAPI primitive wrapper types should be collapsed to primitives.</param>
+    /// <returns>The formatted array name, or <c>null</c> when <paramref name="t"/> is not an array.</returns>
+    private static string? GetArrayTypeName(Type t, HashSet<Type> componentSet, bool collapseToUnderlyingPrimitives)
+        => t.IsArray && t.GetElementType() is Type elementType
+            ? $"{ToPowerShellTypeName(elementType, componentSet, collapseToUnderlyingPrimitives)}[]"
+            : null;
+
+    /// <summary>
+    /// Formats a component type as its simple name or falls back to full name for other reference types.
+    /// </summary>
+    /// <param name="t">The CLR type to format.</param>
+    /// <param name="componentSet">The set of known OpenAPI component types.</param>
+    /// <returns>A PowerShell-friendly type name.</returns>
+    private static string FormatComponentOrFallbackName(Type t, HashSet<Type> componentSet)
+        => componentSet.Contains(t) || t.FullName is null
+            ? t.Name
+            : t.FullName;
 
     /// <summary>
     /// Collects enums referenced by component properties so they can be emitted before class definitions.

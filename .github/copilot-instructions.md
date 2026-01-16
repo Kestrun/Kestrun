@@ -786,6 +786,31 @@ class EventDates : Date {}
 - Put `Format`/`Example`/`Enum` on the **component** (`[OpenApiSchemaComponent(...)]`) so you don't have to repeat metadata on every property.
 - If a derived primitive component is missing from `components.schemas`, first verify it has `[OpenApiSchemaComponent]`.
 
+### Request body components (reusable requestBodies)
+
+Kestrun supports **request body components** under `components.requestBodies`.
+
+- Declare them on **PowerShell variables/properties**, not on classes.
+- The component name defaults to the **variable name**; override with `Key = '...'` on `[OpenApiRequestBodyComponent]`.
+- If you don't want an OpenAPI `schema.default` emitted for the body schema, assign `= NoDefault` (recommended for most request bodies).
+
+Example:
+
+```powershell
+[OpenApiSchemaComponent(RequiredProperties = ('name', 'price'))]
+class CreateProductRequest {
+  [string]$name
+  [double]$price
+}
+
+[OpenApiRequestBodyComponent(
+  Description = 'Product creation payload',
+  Required = $true,
+  ContentType = ('application/json', 'application/xml')
+)]
+[CreateProductRequest]$CreateProductRequest = NoDefault
+```
+
 ### Request bodies: prefer typed, fall back to OpenApiRequestBodyRef
 
 Kestrun prefers request-body components automatically when the parameter type matches a `components.requestBodies` entry.

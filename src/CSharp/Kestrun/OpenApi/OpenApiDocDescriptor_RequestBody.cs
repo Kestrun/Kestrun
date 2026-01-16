@@ -110,7 +110,7 @@ public partial class OpenApiDocDescriptor
         {
             throw new InvalidOperationException($"Request body '{variableName}' not found when trying to add example reference.");
         }
-//todo: validate schema/content presence
+        //todo: validate schema/content presence
         if (requestBody!.Content is null)
         {
             AddExampleToRequestBodyExamples(requestBody, exampleRef);

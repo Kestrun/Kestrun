@@ -53,6 +53,11 @@ public class KestrunResponse
     /// Gets the associated KestrunContext for this response.
     /// </summary>
     public required KestrunContext KrContext { get; init; }
+
+    /// <summary>
+    /// Gets the KestrunHost associated with this response.
+    /// </summary>
+    public Hosting.KestrunHost Host => KrContext.Host;
     /// <summary>
     /// A set of MIME types that are considered text-based for response content.
     /// </summary>
@@ -442,6 +447,15 @@ public class KestrunResponse
     /// <param name="contentType">The MIME type of the response content.</param>
     public void WriteBsonResponse(object? inputObject, int statusCode = StatusCodes.Status200OK, string? contentType = null) => WriteBsonResponseAsync(inputObject, statusCode, contentType).GetAwaiter().GetResult();
 
+
+    /// <summary>
+    /// Writes a response with the specified input object and HTTP status code.
+    /// Chooses the response format based on the Accept header or defaults to text/plain.
+    /// </summary>
+    /// <param name="inputObject">The object to be sent in the response body.</param>
+    /// <param name="statusCode">The HTTP status code for the response.</param>
+    public void WriteResponse(object? inputObject, int statusCode = StatusCodes.Status200OK) => WriteResponseAsync(inputObject, statusCode).GetAwaiter().GetResult();
+
     /// <summary>
     /// Asynchronously writes a response with the specified input object and HTTP status code.
     /// Chooses the response format based on the Accept header or defaults to text/plain.
@@ -457,97 +471,84 @@ public class KestrunResponse
         }
 
         Body = inputObject;
-
-        // Pick best media type from Accept, default to text/plain
-        var selected = SelectResponseMediaType(Request?.Headers[HeaderNames.Accept]);
-
-        if (Log.IsEnabled(LogEventLevel.Verbose))
+        try
         {
-            Log.Verbose("Selected response media type={MediaType}", selected);
-        }
+            string? acceptHeader = null;
+            _ = Request?.Headers.TryGetValue(HeaderNames.Accept, out acceptHeader);
+            // Pick best media type from Accept, default to text/plain
+            var selected = SelectResponseMediaType(acceptHeader, defaultType: KrContext.MapRouteOptions.DefaultResponseContentType);
 
-        // Dispatch based on selected media type
-        await WriteByMediaTypeAsync(selected, inputObject, statusCode);
+            if (selected is null)
+            {
+                statusCode = StatusCodes.Status406NotAcceptable;
+                await WriteErrorResponseAsync("No acceptable media type found.", statusCode);
+                return;
+            }
+
+            if (Log.IsEnabled(LogEventLevel.Verbose))
+            {
+                Log.Verbose("Selected response media type={MediaType}", selected);
+            }
+
+            // Dispatch based on selected media type
+            await WriteByMediaTypeAsync(selected, inputObject, statusCode);
+        }
+        catch (Exception ex)
+        {
+            Log.Error("Error in WriteResponseAsync: {Message}", ex.Message);
+            await WriteErrorResponseAsync($"Internal server error: {ex.Message}", StatusCodes.Status500InternalServerError);
+        }
     }
 
     /// <summary>
-    /// Selects the appropriate response media type based on the Accept header.
+    /// Selects the most appropriate response media type based on the Accept header.
     /// </summary>
-    /// <param name="acceptHeader">The value of the Accept header from the HTTP request.</param>
-    /// <returns>The selected media type as a string.</returns>
-    private static string SelectResponseMediaType(string? acceptHeader)
+    /// <param name="acceptHeader">The value of the Accept header from the request.</param>
+    /// <param name="defaultType">The default media type to use if no match is found. Defaults to "text/plain".</param>
+    /// <returns>The selected media type for the response.</returns>
+    private static string? SelectResponseMediaType(string? acceptHeader, string? defaultType = "text/plain")
     {
-        const string defaultType = "text/plain";
-
         if (string.IsNullOrWhiteSpace(acceptHeader))
         {
             return defaultType;
         }
 
-        // Parse Accept: honors q-values and handles parameters
-        var acceptValues = MediaTypeHeaderValue.ParseList(acceptHeader.Split(','))
+        var acceptValues = MediaTypeHeaderValue
+            .ParseList(acceptHeader.Split(','))
             .OrderByDescending(v => v.Quality ?? 1.0);
 
         foreach (var v in acceptValues)
         {
-            if (!v.MediaType.HasValue)
+            var mediaType = GetMediaTypeOrNull(v);
+            if (mediaType is null)
             {
                 continue;
             }
 
-            var mediaType = v.MediaType.Value;
-            if (string.IsNullOrWhiteSpace(mediaType))
+            var mapped = MediaTypeHelper.Canonicalize(mediaType);
+            if (mapped is not null)
             {
-                continue;
-            }
-
-            // normalize to lower
-            mediaType = mediaType.Trim().ToLowerInvariant();
-
-            // common wildcards
-            if (mediaType is "*/*" or "text/*")
-            {
-                return defaultType;
-            }
-
-            // treat vendor+json as json
-            if (mediaType == "application/json" || mediaType.EndsWith("+json"))
-            {
-                return "application/json";
-            }
-
-            if (mediaType is "application/yaml" or "application/x-yaml" or "text/yaml")
-            {
-                return "application/yaml";
-            }
-
-            if (mediaType is "application/xml" or "text/xml")
-            {
-                return "application/xml";
-            }
-
-            if (mediaType == "application/bson")
-            {
-                return "application/bson";
-            }
-
-            if (mediaType == "application/cbor")
-            {
-                return "application/cbor";
-            }
-
-            if (mediaType == "text/csv")
-            {
-                return "text/csv";
-            }
-
-            if (mediaType == "application/x-www-form-urlencoded")
-            {
-                return "application/x-www-form-urlencoded";
+                return mapped;
             }
         }
 
         return defaultType;
+    }
+
+    /// <summary>
+    /// Gets the media type from the MediaTypeHeaderValue or null if not present.
+    /// </summary>
+    /// <param name="v"> The MediaTypeHeaderValue instance to extract the media type from.</param>
+    /// <returns>The media type as a string if present; otherwise, null.</returns>
+    private static string? GetMediaTypeOrNull(MediaTypeHeaderValue v)
+    {
+        if (!v.MediaType.HasValue)
+        {
+            return null;
+        }
+
+        var s = v.MediaType.Value.Trim();
+        return s.Length == 0 ? null : s;
     }
 
     /// <summary>
@@ -574,14 +575,6 @@ public class KestrunResponse
             _ => WriteTextResponseAsync(inputObject?.ToString() ?? string.Empty, statusCode),
         };
     }
-
-    /// <summary>
-    /// Writes a response with the specified input object and HTTP status code.
-    /// Chooses the response format based on the Accept header or defaults to text/plain.
-    /// </summary>
-    /// <param name="inputObject">The object to be sent in the response body.</param>
-    /// <param name="statusCode">The HTTP status code for the response.</param>
-    public void WriteResponse(object? inputObject, int statusCode = StatusCodes.Status200OK) => WriteResponseAsync(inputObject, statusCode).GetAwaiter().GetResult();
 
     /// <summary>
     /// Writes a CSV response with the specified input object, status code, content type, and optional CsvConfiguration.

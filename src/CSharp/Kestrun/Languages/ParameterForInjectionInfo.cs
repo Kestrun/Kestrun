@@ -8,6 +8,7 @@ using CsvHelper;
 using CsvHelper.Configuration;
 using Kestrun.Logging;
 using Kestrun.Models;
+using Kestrun.Utilities;
 using Microsoft.Extensions.Primitives;
 using Microsoft.OpenApi;
 using MongoDB.Bson;
@@ -332,95 +333,68 @@ public class ParameterForInjectionInfo : ParameterForInjectionInfoBase
             _ => singleValue,
         };
     }
-    //todo: test Yaml and XML bodies
+
+    /// <summary>
+    /// Converts the request body based on the Content-Type header.
+    /// </summary>
+    /// <param name="context">The current Kestrun context.</param>
+    /// <param name="rawBodyString">The raw body string from the request.</param>
+    /// <param name="param">The parameter information.</param>
+    /// <returns>The converted body object.</returns>
+    /// <exception cref="InvalidOperationException">Thrown when the Content-Type header is missing and cannot convert body to object.</exception>
     private static object? ConvertBodyBasedOnContentType(
-       KestrunContext context,
-       string rawBodyString, ParameterForInjectionInfo param)
+        KestrunContext context,
+        string rawBodyString,
+        ParameterForInjectionInfo param)
     {
         var lenient = param.ContentTypes.Count == 1;
-        var contentType = context.Request.ContentType?.ToLowerInvariant() ?? "";
-        if (string.IsNullOrWhiteSpace(contentType))
+
+        var requestMediaType = MediaTypeHelper.Canonicalize(context.Request.ContentType);
+
+        if (string.IsNullOrEmpty(requestMediaType))
         {
-            if (lenient)
+            if (!lenient)
             {
-                // Try to infer content type
-                if (param.ContentTypes[0].StartsWith("application/json", StringComparison.OrdinalIgnoreCase))
-                {
-                    return ConvertJsonToHashtable(rawBodyString);
-                }
-                else if (param.ContentTypes[0].StartsWith("application/xml", StringComparison.OrdinalIgnoreCase))
-                {
-                    return ConvertXmlToHashtable(rawBodyString);
-                }
-                else if (param.ContentTypes[0].StartsWith("application/yaml", StringComparison.OrdinalIgnoreCase))
-                {
-                    return ConvertYamlToHashtable(rawBodyString);
-                }
-                else if (param.ContentTypes[0].StartsWith("application/x-www-form-urlencoded", StringComparison.OrdinalIgnoreCase))
-                {
-                    return ConvertFormToHashtable(context.Request.Form);
-                }
-                else if (param.ContentTypes[0].StartsWith("application/bson", StringComparison.OrdinalIgnoreCase))
-                {
-                    return ConvertBsonToHashtable(rawBodyString);
-                }
-                else if (param.ContentTypes[0].StartsWith("application/cbor", StringComparison.OrdinalIgnoreCase))
-                {
-                    return ConvertCborToHashtable(rawBodyString);
-                }
-                else if (param.ContentTypes[0].StartsWith("text/csv", StringComparison.OrdinalIgnoreCase))
-                {
-                    return ConvertCsvToHashtable(rawBodyString);
-                }
-                else
-                {
-                    return rawBodyString; // fallback
-                }
+                throw new InvalidOperationException(
+                    "Content-Type header is missing; cannot convert body to object.");
             }
-            else
-            {
-                throw new InvalidOperationException("Content-Type header is missing; cannot convert body to object.");
-            }
+
+            var inferred = MediaTypeHelper.Canonicalize(param.ContentTypes[0]);
+            return ConvertByCanonicalMediaType(inferred, context, rawBodyString);
         }
 
-        if (contentType.Contains("json"))
-        {
-            return ConvertJsonToHashtable(rawBodyString);
-        }
-
-        if (contentType.Contains("yaml") || contentType.Contains("yml"))
-        {
-            return ConvertYamlToHashtable(rawBodyString);
-        }
-
-        if (contentType.Contains("xml"))
-        {
-            return ConvertXmlToHashtable(rawBodyString);
-        }
-
-        if (contentType.Contains("bson"))
-        {
-            return ConvertBsonToHashtable(rawBodyString);
-        }
-
-        if (contentType.Contains("cbor"))
-        {
-            return ConvertCborToHashtable(rawBodyString);
-        }
-
-        if (contentType.Contains("csv"))
-        {
-            return ConvertCsvToHashtable(rawBodyString);
-        }
-
-        if (contentType.Contains("application/x-www-form-urlencoded"))
-        {
-            return ConvertFormToHashtable(context.Request.Form);
-        }
-
-        return rawBodyString; // fallback
+        return ConvertByCanonicalMediaType(requestMediaType, context, rawBodyString);
     }
 
+    /// <summary>
+    /// Converts the body string to an object based on the canonical media type.
+    /// </summary>
+    /// <param name="canonicalMediaType">   The canonical media type of the request body.</param>
+    /// <param name="context"> The current Kestrun context.</param>
+    /// <param name="rawBodyString"> The raw body string from the request.</param>
+    /// <returns> The converted body object.</returns>
+    private static object? ConvertByCanonicalMediaType(
+        string canonicalMediaType,
+        KestrunContext context,
+        string rawBodyString)
+    {
+        return canonicalMediaType switch
+        {
+            "application/json" => ConvertJsonToHashtable(rawBodyString),
+            "application/yaml" => ConvertYamlToHashtable(rawBodyString),
+            "application/xml" => ConvertXmlToHashtable(rawBodyString),
+            "application/bson" => ConvertBsonToHashtable(rawBodyString),
+            "application/cbor" => ConvertCborToHashtable(rawBodyString),
+            "text/csv" => ConvertCsvToHashtable(rawBodyString),
+            "application/x-www-form-urlencoded" =>
+                ConvertFormToHashtable(context.Request.Form),
+            _ => rawBodyString,
+        };
+    }
+
+    /// <summary>
+    /// CBOR deserializer instance.
+    /// </summary>
     private static readonly IDeserializer YamlDeserializer =
     new DeserializerBuilder()
         .WithNamingConvention(CamelCaseNamingConvention.Instance)
@@ -656,46 +630,70 @@ public class ParameterForInjectionInfo : ParameterForInjectionInfoBase
         return CborToClr(obj);
     }
 
+    /// <summary>
+    /// Converts a CBORObject to a CLR object (Hashtable, array, or scalar).
+    /// </summary>
+    /// <param name="obj">The CBORObject to convert.</param>
+    /// <returns>A CLR object representation of the CBORObject.</returns>
     private static object? CborToClr(CBORObject obj)
     {
-        if (obj is null)
+        if (obj is null || obj.IsNull)
         {
             return null;
         }
 
-        if (obj.IsNull)
+        return obj.Type switch
         {
-            return null;
+            CBORType.Map => ConvertCborMapToHashtable(obj),
+            CBORType.Array => ConvertCborArrayToClrArray(obj),
+            _ => ConvertCborScalarToClr(obj),
+        };
+    }
+
+    /// <summary>
+    /// Converts a CBOR map into a CLR <see cref="Hashtable"/>.
+    /// </summary>
+    /// <param name="map">The CBOR object expected to be of type <see cref="CBORType.Map"/>.</param>
+    /// <returns>A case-insensitive hashtable representing the map.</returns>
+    private static Hashtable ConvertCborMapToHashtable(CBORObject map)
+    {
+        var ht = new Hashtable(StringComparer.OrdinalIgnoreCase);
+        foreach (var key in map.Keys)
+        {
+            var keyString = GetCborMapKeyString(key);
+            ht[keyString] = CborToClr(map[key]);
         }
 
-        if (obj.Type == CBORType.Map)
-        {
-            var ht = new Hashtable(StringComparer.OrdinalIgnoreCase);
-            foreach (var key in obj.Keys)
-            {
-                var keyString = key?.ToString() ?? string.Empty;
-                ht[keyString] = CborToClr(obj[key]);
-            }
+        return ht;
+    }
 
-            return ht;
+    /// <summary>
+    /// Converts a CBOR array into a CLR object array.
+    /// </summary>
+    /// <param name="array">The CBOR object expected to be of type <see cref="CBORType.Array"/>.</param>
+    /// <returns>An array of converted elements.</returns>
+    private static object?[] ConvertCborArrayToClrArray(CBORObject array)
+    {
+        var list = new object?[array.Count];
+        for (var i = 0; i < array.Count; i++)
+        {
+            list[i] = CborToClr(array[i]);
         }
 
-        if (obj.Type == CBORType.Array)
-        {
-            var list = new object?[obj.Count];
-            for (var i = 0; i < obj.Count; i++)
-            {
-                list[i] = CborToClr(obj[i]);
-            }
+        return list;
+    }
 
-            return list;
-        }
-
-        // Scalar conversions
-        if (obj.IsNumber)
+    /// <summary>
+    /// Converts a CBOR scalar value (number, string, boolean, byte string, etc.) into a CLR value.
+    /// </summary>
+    /// <param name="scalar">The CBOR scalar to convert.</param>
+    /// <returns>The converted CLR value.</returns>
+    private static object? ConvertCborScalarToClr(CBORObject scalar)
+    {
+        if (scalar.IsNumber)
         {
             // Prefer integral if representable; else double/decimal as available.
-            var number = obj.AsNumber();
+            var number = scalar.AsNumber();
             if (number.CanFitInInt64())
             {
                 return number.ToInt64Checked();
@@ -703,32 +701,49 @@ public class ParameterForInjectionInfo : ParameterForInjectionInfoBase
 
             if (number.CanFitInDouble())
             {
-                return obj.ToObject(typeof(double));
+                return scalar.ToObject<double>();
             }
 
             // For extremely large/precise numbers, keep a string representation.
             return number.ToString();
         }
 
-        if (obj.Type == CBORType.Boolean)
+        if (scalar.Type == CBORType.Boolean)
         {
-            return obj.AsBoolean();
+            return scalar.AsBoolean();
         }
 
-        if (obj.Type == CBORType.ByteString)
+        if (scalar.Type == CBORType.ByteString)
         {
-            return obj.GetByteString();
+            return scalar.GetByteString();
         }
 
         // TextString, SimpleValue, etc.
-        return obj.Type switch
+        return scalar.Type switch
         {
-            CBORType.TextString => obj.AsString(),
-            CBORType.SimpleValue => obj.ToString(),
-            _ => obj.ToString(),
+            CBORType.TextString => scalar.AsString(),
+            CBORType.SimpleValue => scalar.ToString(),
+            _ => scalar.ToString(),
         };
     }
 
+    /// <summary>
+    /// Converts a CBOR map key into a CLR string key.
+    /// </summary>
+    /// <param name="key">The CBOR key object.</param>
+    /// <returns>A best-effort string representation of the key.</returns>
+    private static string GetCborMapKeyString(CBORObject? key)
+    {
+        return key is not null && key.Type == CBORType.TextString
+            ? key.AsString()
+            : (key?.ToString() ?? string.Empty);
+    }
+
+    /// <summary>
+    /// Converts a CSV string to a hashtable or array of hashtables.
+    /// </summary>
+    /// <param name="csv">The CSV string to convert.</param>
+    /// <returns>A hashtable if one record is present, an array of hashtables if multiple records are present, or null if no records are found.</returns>
     private static object? ConvertCsvToHashtable(string csv)
     {
         if (string.IsNullOrWhiteSpace(csv))

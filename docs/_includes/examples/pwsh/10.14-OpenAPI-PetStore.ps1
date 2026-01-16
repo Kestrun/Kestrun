@@ -155,13 +155,13 @@ class Inventory {
 # =========================================================
 
 # RequestBody: UserArray
-[OpenApiRequestBodyComponent(Description = 'List of user object', Required = $true, ContentType = 'application/json' , Array = $true)]
-class UserArray:User {}
+[OpenApiRequestBodyComponent(Description = 'List of user object', Required = $true, ContentType = 'application/json')]
+[User[]]$UserArray
 
 # RequestBody: PetBody
 [OpenApiRequestBodyComponent(Description = 'Pet object that needs to be added to the store', Required = $true,
     ContentType = ('application/json', 'application/xml', 'application/x-www-form-urlencoded'))]
-class PetBody:Pet {}
+[Pet]$PetBody
 #endregion
 
 #region COMPONENT PARAMETERS

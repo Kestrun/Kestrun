@@ -101,7 +101,7 @@ class ErrorDetail {
     Required = $true,
     ContentType = 'application/json'
 )]
-class CreateOrderRequestBody:CreateOrderRequest {}
+[CreateOrderRequest]$CreateOrderRequestBody
 
 # Response components (variable-based)
 [OpenApiResponseComponent(Description = 'Order successfully retrieved or created', ContentType = ('application/json', 'application/xml'))]
@@ -137,8 +137,8 @@ function createOrder {
     [OpenApiResponseRefAttribute(StatusCode = '201', ReferenceId = 'OrderResponseDefault')]
     [OpenApiResponseRefAttribute(StatusCode = '400', ReferenceId = 'ErrorResponseDefault')]
     param(
-        [OpenApiRequestBody(ContentType = ('application/json', 'application/xml', 'application/x-www-form-urlencoded'))]
-        [CreateOrderRequestBody]$body
+        [OpenApiRequestBodyRef(ReferenceId = 'CreateOrderRequestBody')]
+        [CreateOrderRequest]$body
     )
 
     # Validate required fields
@@ -247,7 +247,7 @@ function updateOrder {
         [OpenApiParameter(In = [OaParameterLocation]::Path, Required = $true, Example = 'a54a57ca-36f8-421b-a6b4-2e8f26858a4c')]
         [guid]$orderId,
         [OpenApiRequestBody(ContentType = ('application/json', 'application/xml', 'application/x-www-form-urlencoded'))]
-        [CreateOrderRequestBody]$body
+        [CreateOrderRequest]$body
     )
 
     # Validate quantity if provided

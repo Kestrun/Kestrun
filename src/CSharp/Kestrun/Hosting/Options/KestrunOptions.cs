@@ -13,6 +13,11 @@ namespace Kestrun.Hosting.Options;
 public class KestrunOptions
 {
     /// <summary>
+    /// Default media type value for responses.
+    /// </summary>
+    private const string DefaultResponseMediaTypeValue = "text/plain";
+
+    /// <summary>
     /// Gets or sets the Kestrel server options.
     /// </summary>
     public KestrelServerOptions ServerOptions { get; set; }
@@ -70,6 +75,11 @@ public class KestrunOptions
     /// Gets or sets the Named Pipe transport options.
     /// </summary>
     public NamedPipeTransportOptions? NamedPipeOptions { get; set; }
+
+    /// <summary>
+    /// Gets or sets the default media type to use for responses when no Accept header is provided.
+    /// </summary>
+    public string? DefaultResponseMediaType { get; set; } = DefaultResponseMediaTypeValue;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="KestrunOptions"/> class with default values.

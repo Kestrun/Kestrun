@@ -1,8 +1,8 @@
 /// <summary>
-/// Specifies metadata for an OpenAPI Header object. Can be applied to classes
-/// to contribute entries under components.headers.
+/// Specifies metadata for an OpenAPI Header object. Can be applied to parameters
+/// to contribute entries under components.requestBodies.
 /// </summary>
-[AttributeUsage(AttributeTargets.Class, AllowMultiple = false, Inherited = false)]
+[AttributeUsage(AttributeTargets.Parameter, AllowMultiple = false, Inherited = false)]
 public sealed class OpenApiRequestBodyComponentAttribute : OpenApiProperties
 {
     /// <summary>

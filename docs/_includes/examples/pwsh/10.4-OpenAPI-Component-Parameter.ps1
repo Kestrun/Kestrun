@@ -470,6 +470,8 @@ function listCategories {
         }
     }
 
+    Expand-KrObject -InputObject $items -Label 'Category Items'
+
     Write-KrResponse ([CategoryListResponse]@{ items = $items }) -StatusCode 200
 }
 

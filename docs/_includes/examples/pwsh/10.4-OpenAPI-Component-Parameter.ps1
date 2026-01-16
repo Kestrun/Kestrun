@@ -356,6 +356,7 @@ function getProduct {
         $Context.Response.Headers['correlationId'] = $correlationId
     }
     Write-KrLog -Level Debug -Message 'TenantId: {tenantId}' -Values $tenantId
+    # Read shared store
     $item = $null
     if (-not $Products.TryGetValue($productId, [ref]$item)) {
         Write-KrResponse ([ErrorResponse]@{ message = 'Product not found' }) -StatusCode 404
@@ -412,7 +413,7 @@ function createProduct {
 
     if ($dryRun) {
         $preview = [ProductItem]@{
-            id = 1
+            id = 0
             name = $body.name
             category = $body.category
             price = $body.price

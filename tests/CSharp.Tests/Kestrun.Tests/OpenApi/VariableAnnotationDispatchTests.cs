@@ -120,9 +120,10 @@ public class VariableAnnotationDispatchTests
         InvokeProcessVariableAnnotations(descriptor, dict);
 
         Assert.NotNull(descriptor.Document.Components.Parameters);
-        Assert.True(descriptor.Document.Components.Parameters.ContainsKey("limit"));
 
-        var param = Assert.IsType<OpenApiParameter>(descriptor.Document.Components.Parameters["limit"]);
+        Assert.True(descriptor.Document.Components.Parameters.TryGetValue("limit", out var limitParam));
+
+        var param = Assert.IsType<OpenApiParameter>(limitParam);
         var schema = Assert.IsType<OpenApiSchema>(param.Schema);
         Assert.Null(schema.Minimum);
     }

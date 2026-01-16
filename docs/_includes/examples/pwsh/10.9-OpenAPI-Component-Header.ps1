@@ -100,7 +100,7 @@ function Get-ClientKey {
 .OUTPUTS
     [bool] True if the request should be throttled; otherwise, false.
 #>
-function ShouldThrottle {
+function Test-Throttle {
     # Demo throttle: allow first 3 requests per client, then return 429.
     $key = Get-ClientKey
 
@@ -219,7 +219,7 @@ function createUser {
     $correlationId = [Guid]::NewGuid().ToString()
     Set-DemoOperationalHeaders -Limit 3 -Remaining 1 -ResetSeconds 60 -CorrelationId $correlationId
 
-    if (ShouldThrottle) {
+    if (Test-Throttle) {
         $Context.Response.Headers['Retry-After'] = '30'
         Write-KrJsonResponse @{ error = 'Too many requests'; retryAfterSeconds = 30 } -StatusCode 429
         return
@@ -284,7 +284,7 @@ function getUser {
     $correlationId = [Guid]::NewGuid().ToString()
     Set-DemoOperationalHeaders -Limit 3 -Remaining 1 -ResetSeconds 60 -CorrelationId $correlationId
 
-    if (ShouldThrottle) {
+    if (Test-Throttle) {
         $Context.Response.Headers['Retry-After'] = '30'
         Write-KrJsonResponse @{ error = 'Too many requests'; retryAfterSeconds = 30 } -StatusCode 429
         return

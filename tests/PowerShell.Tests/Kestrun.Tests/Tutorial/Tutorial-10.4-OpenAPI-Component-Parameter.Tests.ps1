@@ -63,7 +63,7 @@ Describe 'Example 10.4 OpenAPI Component Parameter' -Tag 'OpenApi', 'Tutorial', 
         $result = Invoke-WebRequest -Uri "$($script:instance.Url)/v1/products?dryRun=true" -Method Post -ContentType 'application/json' -Body $body -SkipCertificateCheck -SkipHttpErrorCheck
         $result.StatusCode | Should -Be 201
         $json = $result.Content | ConvertFrom-Json
-        $json.id | Should -Be 1
+        $json.id | Should -Be 0
         $json.name | Should -Be 'USB-C Dock'
     }
 
@@ -148,4 +148,3 @@ Describe 'Example 10.4 OpenAPI Component Parameter' -Tag 'OpenApi', 'Tutorial', 
         $actualNormalized | Should -Be $expectedNormalized
     }
 }
-

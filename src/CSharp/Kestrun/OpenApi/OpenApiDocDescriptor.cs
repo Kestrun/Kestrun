@@ -86,7 +86,6 @@ public partial class OpenApiDocDescriptor
     {
         Document.Components ??= new OpenApiComponents();
         ProcessComponentTypes(components.SchemaTypes, () => Document.Components.Schemas ??= new Dictionary<string, IOpenApiSchema>(StringComparer.Ordinal), t => BuildSchema(t));
-        ProcessComponentTypes(components.RequestBodyTypes, () => Document.Components.RequestBodies ??= new Dictionary<string, IOpenApiRequestBody>(StringComparer.Ordinal), BuildRequestBodies);
     }
 
     /// <summary>

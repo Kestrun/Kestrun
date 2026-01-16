@@ -1,4 +1,3 @@
-
 using System.Collections;
 using System.Globalization;
 using System.Management.Automation;
@@ -440,13 +439,13 @@ public class ParameterForInjectionInfo : ParameterForInjectionInfoBase
         string rawBodyString,
         ParameterForInjectionInfo param)
     {
-        var lenient = param.ContentTypes.Count == 1;
+        var isSingleContentType = param.ContentTypes.Count == 1;
 
         var requestMediaType = MediaTypeHelper.Canonicalize(context.Request.ContentType);
 
         if (string.IsNullOrEmpty(requestMediaType))
         {
-            if (!lenient)
+            if (!isSingleContentType)
             {
                 throw new InvalidOperationException(
                     "Content-Type header is missing; cannot convert body to object.");
@@ -966,7 +965,7 @@ public class ParameterForInjectionInfo : ParameterForInjectionInfoBase
         bytes = new byte[s.Length / 2];
         for (var i = 0; i < bytes.Length; i++)
         {
-            bytes[i] = Convert.ToByte(s.Substring(i * 2, 2), 16);
+            bytes[i] = byte.Parse(s.AsSpan(i * 2, 2), NumberStyles.HexNumber, CultureInfo.InvariantCulture);
         }
 
         return true;

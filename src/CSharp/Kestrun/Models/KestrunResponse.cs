@@ -504,7 +504,11 @@ public class KestrunResponse
     /// </summary>
     /// <param name="acceptHeader">The value of the Accept header from the request.</param>
     /// <param name="defaultType">The default media type to use if no match is found. Defaults to "text/plain".</param>
-    /// <returns>The selected media type for the response.</returns>
+    /// <returns>The selected media type as a string.</returns>
+    /// <remarks>
+    /// This method parses the Accept header, orders the media types by quality factor,
+    /// and selects the first supported media type. If none are supported, it returns the default type.
+    /// </remarks>
     private static string? SelectResponseMediaType(string? acceptHeader, string? defaultType = "text/plain")
     {
         if (string.IsNullOrWhiteSpace(acceptHeader))

@@ -590,8 +590,7 @@ public static class PowerShellOpenApiClassExporter
         return t.GetCustomAttributes(inherit: true)
                 .Select(a => a.GetType().Name)
                 .Any(n =>
-                    n.Contains("OpenApiSchemaComponent", StringComparison.OrdinalIgnoreCase) ||
-                    n.Contains("OpenApiRequestBodyComponent", StringComparison.OrdinalIgnoreCase));
+                    n.Contains("OpenApiSchemaComponent", StringComparison.OrdinalIgnoreCase));
     }
 
     /// <summary>

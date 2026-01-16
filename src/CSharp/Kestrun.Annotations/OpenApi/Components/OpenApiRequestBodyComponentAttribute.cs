@@ -1,5 +1,5 @@
 /// <summary>
-/// Specifies metadata for an OpenAPI Header object. Can be applied to parameters
+/// Specifies metadata for an OpenAPI request body component. This attribute can be applied to method parameters
 /// to contribute entries under components.requestBodies.
 /// </summary>
 [AttributeUsage(AttributeTargets.Parameter, AllowMultiple = false, Inherited = false)]

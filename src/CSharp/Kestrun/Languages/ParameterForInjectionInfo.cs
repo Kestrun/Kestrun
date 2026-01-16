@@ -112,6 +112,67 @@ public class ParameterForInjectionInfo : ParameterForInjectionInfoBase
     }
 
     /// <summary>
+    /// Mapping of content types to body conversion functions.
+    /// </summary>
+    private static readonly IReadOnlyDictionary<string, Func<KestrunContext, string, object?>> BodyConverters =
+        new Dictionary<string, Func<KestrunContext, string, object?>>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["application/json"] = (_, raw) => ConvertJsonToHashtable(raw),
+            ["application/yaml"] = (_, raw) => ConvertYamlToHashtable(raw),
+            ["application/xml"] = (_, raw) => ConvertXmlToHashtable(raw),
+            ["application/bson"] = (_, raw) => ConvertBsonToHashtable(raw),
+            ["application/cbor"] = (_, raw) => ConvertCborToHashtable(raw),
+            ["text/csv"] = (_, raw) => ConvertCsvToHashtable(raw),
+
+            // This one typically needs the request form, not the raw string.
+            ["application/x-www-form-urlencoded"] = (ctx, _) => ConvertFormToHashtable(ctx.Request.Form),
+        };
+
+    /// <summary>
+    /// Determines whether the body parameter should be converted based on its type information.
+    /// </summary>
+    /// <param name="param">The parameter information.</param>
+    /// <param name="converted">The converted object.</param>
+    /// <returns>True if the body should be converted; otherwise, false.</returns>
+    private static bool ShouldConvertBody(ParameterForInjectionInfo param, object? converted) =>
+    converted is string && param.Type is null && param.ParameterType is not null && param.ParameterType != typeof(string);
+
+    /// <summary>
+    /// Tries to convert the body parameter based on the content types specified.
+    /// </summary>
+    /// <param name="context">The current Kestrun context.</param>
+    /// <param name="param">The parameter information.</param>
+    /// <param name="rawString">The raw body string.</param>
+    private static object? TryConvertBodyByContentType(KestrunContext context, ParameterForInjectionInfo param, string rawString)
+    {
+        // Collect canonical content types once
+        var canonicalTypes = param.ContentTypes
+            .Select(MediaTypeHelper.Canonicalize)
+            .Where(ct => !string.IsNullOrWhiteSpace(ct))
+            .Distinct(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var ct in canonicalTypes)
+        {
+            if (BodyConverters.TryGetValue(ct, out var converter))
+            {
+                // Special-case: form-url-encoded conversion only makes sense with explode/form style.
+                if (ct.Equals("application/x-www-form-urlencoded", StringComparison.OrdinalIgnoreCase) &&
+                    !(param.Explode || param.Style == ParameterStyle.Form))
+                {
+                    continue;
+                }
+
+                return converter(context, rawString);
+            }
+        }
+
+        // If it's "form" style explode, you can still treat it as a hashtable even without explicit content-type.
+        return param.Style == ParameterStyle.Form && param.Explode && context.Request.Form is not null
+            ? ConvertFormToHashtable(context.Request.Form)
+            : (object?)null;
+    }
+
+    /// <summary>
     /// Injects a single parameter into the PowerShell instance based on its location and type.
     /// </summary>
     /// <param name="context">The current Kestrun context.</param>
@@ -124,79 +185,51 @@ public class ParameterForInjectionInfo : ParameterForInjectionInfoBase
 
         if (logger.IsEnabled(Serilog.Events.LogEventLevel.Debug))
         {
-            var parType = (param.Type is null) ? param.ParameterType.GetType().FullName : param.Type.ToString();
+            // (Tiny bugfix: ParameterType.GetType() would always be RuntimeType.)
+            var parType = param.Type?.ToString() ?? param.ParameterType?.FullName ?? "<unknown>";
             logger.Debug("Injecting parameter '{Name}' of type '{Type}' from '{In}'.", name, parType, param.In);
         }
 
-        object? converted;
         var shouldLog = true;
 
-        converted = context.Request.Form is not null && context.Request.HasFormContentType
-            ? ConvertFormToValue(context.Request.Form, param)
-            : GetParameterValueFromContext(context, param, out shouldLog);
+        var converted =
+            context.Request.Form is not null && context.Request.HasFormContentType
+                ? ConvertFormToValue(context.Request.Form, param)
+                : GetParameterValueFromContext(context, param, out shouldLog);
 
-        if (converted is not null && converted is string rawString && param.Type == null && param.ParameterType != null &&
-            param.ParameterType != typeof(string))
+        if (ShouldConvertBody(param, converted))
         {
-            if (param.ContentTypes.Any(ct =>
-                 ct.StartsWith("application/json", StringComparison.OrdinalIgnoreCase)))
+            var rawString = (string)converted!;
+            var bodyObj = TryConvertBodyByContentType(context, param, rawString);
+
+            if (bodyObj is not null)
             {
-                converted = ConvertJsonToHashtable(rawString);
-            }
-            else if (param.ContentTypes.Any(ct =>
-                ct.StartsWith("application/yaml", StringComparison.OrdinalIgnoreCase)))
-            {
-                converted = ConvertYamlToHashtable(rawString);
-            }
-            else if (param.ContentTypes.Any(ct =>
-                  ct.StartsWith("application/xml", StringComparison.OrdinalIgnoreCase)))
-            {
-                converted = ConvertXmlToHashtable(rawString);
-            }
-            else if (param.ContentTypes.Any(ct =>
-                 ct.StartsWith("application/bson", StringComparison.OrdinalIgnoreCase)))
-            {
-                converted = ConvertBsonToHashtable(rawString);
-            }
-            else if (param.ContentTypes.Any(ct =>
-                 ct.StartsWith("application/cbor", StringComparison.OrdinalIgnoreCase)))
-            {
-                converted = ConvertCborToHashtable(rawString);
-            }
-            else if (param.ContentTypes.Any(ct =>
-                 ct.StartsWith("text/csv", StringComparison.OrdinalIgnoreCase)))
-            {
-                converted = ConvertCsvToHashtable(rawString);
-            }
-            else if (param.ContentTypes.Any(ct =>
-                 ct.StartsWith("application/x-www-form-urlencoded", StringComparison.OrdinalIgnoreCase)) && param.Explode)
-            {
-                // For 'form' style with 'explode', convert to hashtable
-                converted = ConvertFormToHashtable(context.Request.Form);
-            }
-            else if (param.Style == ParameterStyle.Form && param.Explode)
-            {
-                // For 'form' style with 'explode', convert to hashtable
-                converted = ConvertFormToHashtable(context.Request.Form);
+                converted = bodyObj;
             }
             else
             {
-                context.Logger.WarningSanitized("Unable to convert body parameter '{Name}' with content types: {ContentTypes}. Using raw string value.", name, param.ContentTypes);
+                context.Logger.WarningSanitized(
+                    "Unable to convert body parameter '{Name}' with content types: {ContentTypes}. Using raw string value.",
+                    name,
+                    param.ContentTypes);
             }
         }
+
         if (shouldLog && logger.IsEnabled(Serilog.Events.LogEventLevel.Debug))
         {
             logger.DebugSanitized("Adding parameter '{Name}': {ConvertedValue}", name, converted);
         }
 
         _ = ps.AddParameter(name, converted);
+
+        var resolved = new ParameterForInjectionResolved(param, converted);
         if (param.IsRequestBody)
         {
-            context.Parameters.Body = new ParameterForInjectionResolved(param, converted);
+            context.Parameters.Body = resolved;
         }
         else
         {
-            context.Parameters.Parameters[name] = new ParameterForInjectionResolved(param, converted);
+            context.Parameters.Parameters[name] = resolved;
         }
     }
 
@@ -637,17 +670,14 @@ public class ParameterForInjectionInfo : ParameterForInjectionInfoBase
     /// <returns>A CLR object representation of the CBORObject.</returns>
     private static object? CborToClr(CBORObject obj)
     {
-        if (obj is null || obj.IsNull)
-        {
-            return null;
-        }
-
-        return obj.Type switch
-        {
-            CBORType.Map => ConvertCborMapToHashtable(obj),
-            CBORType.Array => ConvertCborArrayToClrArray(obj),
-            _ => ConvertCborScalarToClr(obj),
-        };
+        return obj is null || obj.IsNull
+            ? null
+            : obj.Type switch
+            {
+                CBORType.Map => ConvertCborMapToHashtable(obj),
+                CBORType.Array => ConvertCborArrayToClrArray(obj),
+                _ => ConvertCborScalarToClr(obj),
+            };
     }
 
     /// <summary>

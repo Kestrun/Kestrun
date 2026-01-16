@@ -102,28 +102,38 @@ public static class PowerShellOpenApiClassExporter
 
         if (hasCallbacks)
         {
-            _ = sb.AppendLine("# ================================================");
-            _ = sb.AppendLine("#   Kestrun User Callback Functions");
-            _ = sb.AppendLine("# ================================================");
-            _ = sb.AppendLine();
-
-            foreach (var kvp in userCallbacks!.OrderBy(k => k.Key, StringComparer.OrdinalIgnoreCase))
-            {
-                var name = kvp.Key;
-                var definition = kvp.Value ?? string.Empty;
-
-                // Emit a standardized callback function wrapper:
-                // - keeps parameter type constraints
-                // - strips OpenAPI/Parameter attributes
-                // - builds $params and calls $Context.Response.AddCallbackParameters(...)
-                var functionScript = BuildCallbackFunctionStub(name, definition);
-                var normalized = NormalizeBlankLines(functionScript);
-                _ = sb.AppendLine(normalized);
-                _ = sb.AppendLine();
-            }
+            AppendCallback(sb, userCallbacks);
         }
         // 4. Write to temp script file
         return WriteOpenApiTempScript(sb.ToString());
+    }
+
+    /// <summary>
+    /// Appends user-defined callback functions to the PowerShell script.
+    /// </summary>
+    /// <param name="sb"> The StringBuilder to append the callback functions to. </param>
+    /// <param name="userCallbacks"> The dictionary of user-defined callback functions, where the key is the function name and the value is the function definition. </param>
+    private static void AppendCallback(StringBuilder sb, Dictionary<string, string>? userCallbacks)
+    {
+        _ = sb.AppendLine("# ================================================");
+        _ = sb.AppendLine("#   Kestrun User Callback Functions");
+        _ = sb.AppendLine("# ================================================");
+        _ = sb.AppendLine();
+
+        foreach (var kvp in userCallbacks!.OrderBy(k => k.Key, StringComparer.OrdinalIgnoreCase))
+        {
+            var name = kvp.Key;
+            var definition = kvp.Value ?? string.Empty;
+
+            // Emit a standardized callback function wrapper:
+            // - keeps parameter type constraints
+            // - strips OpenAPI/Parameter attributes
+            // - builds $params and calls $Context.Response.AddCallbackParameters(...)
+            var functionScript = BuildCallbackFunctionStub(name, definition);
+            var normalized = NormalizeBlankLines(functionScript);
+            _ = sb.AppendLine(normalized);
+            _ = sb.AppendLine();
+        }
     }
 
     /// <summary>

@@ -88,7 +88,6 @@ public partial class OpenApiDocDescriptor
     private bool ComponentPathItemsExists(string id) =>
         Document.Components?.PathItems?.ContainsKey(id) == true;
 
-
     /// <summary>
     /// Normalizes a raw extensions dictionary into OpenAPI extensions.
     /// </summary>

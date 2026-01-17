@@ -56,16 +56,16 @@ Add-KrOpenApiTag -Name 'Events' -Description 'Special events hosted by the Museu
 Add-KrOpenApiTag -Name 'Tickets' -Description 'Museum tickets for general entrance or special events.' -Parent 'Purchases' -Extensions ([ordered]@{ 'x-displayName' = 'Buy tickets' })
 #endregion
 #region Extensions
-$extensions = @{
-    "x-tagGroups" = @(
-    [ordered]@{
-    'name' = 'Plan your visit'
-    'tags' = @('Operations', 'Events')
-    }
-    [ordered]@{
-    'name' = 'Purchases'
-    'tags' = @('Tickets')
-    })
+$extensions = [ordered]@{
+    'x-tagGroups' = @(
+        [ordered]@{
+            'name' = 'Plan your visit'
+            'tags' = @('Operations', 'Events')
+        }
+        [ordered]@{
+            'name' = 'Purchases'
+            'tags' = @('Tickets')
+        })
 }
 Add-KrOpenApiExtension -Extensions $extensions
 #endregion

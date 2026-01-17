@@ -33,15 +33,10 @@ public sealed class OpenApiExtensionAttribute : KestrunAnnotation
             return;
         }
 
-        if (IsValidJson(value))
-        {
-            Json = value;
-        }
-        else
-        {
-            // Treat as string literal
-            Json = JsonSerializer.Serialize(value);
-        }
+        // Treat as string literal when not valid JSON
+        Json = IsValidJson(value)
+            ? value
+            : JsonSerializer.Serialize(value);
     }
 
     /// <summary>

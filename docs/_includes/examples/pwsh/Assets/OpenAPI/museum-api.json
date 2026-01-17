@@ -2,10 +2,14 @@
   "openapi": "3.1.2",
   "info": {
     "title": "Redocly Museum API",
-    "description": "Imaginary, but delightful Museum API for interacting with museum services and information. Built with love by Redocly.",
+    "description": "An imaginary, but delightful Museum API for interacting with museum services and information. Built with love by Redocly.",
     "contact": {
       "url": "https://redocly.com/docs/cli/",
-      "email": "team@redocly.com"
+      "email": "team@redocly.com",
+      "x-logo": {
+        "url": "https://redocly.github.io/redoc/museum-logo.png",
+        "altText": "Museum logo"
+      }
     },
     "license": {
       "name": "MIT",
@@ -124,7 +128,7 @@
         "operationId": "listSpecialEvents",
         "parameters": [
           {
-            "name": "startDate",
+            "name": "StartDate",
             "in": "query",
             "description": "The starting date to retrieve future special events from. Defaults to today's date.",
             "schema": {
@@ -317,13 +321,13 @@
         "operationId": "getMuseumHours",
         "parameters": [
           {
-            "$ref": "#/components/parameters/startDate"
+            "$ref": "#/components/parameters/StartDate"
           },
           {
-            "$ref": "#/components/parameters/paginationPage"
+            "$ref": "#/components/parameters/PaginationPage"
           },
           {
-            "$ref": "#/components/parameters/paginationLimit"
+            "$ref": "#/components/parameters/PaginationLimit"
           }
         ],
         "responses": {
@@ -687,8 +691,8 @@
       }
     },
     "parameters": {
-      "paginationLimit": {
-        "name": "paginationLimit",
+      "PaginationLimit": {
+        "name": "PaginationLimit",
         "in": "query",
         "description": "The number of days per page.",
         "schema": {
@@ -696,8 +700,8 @@
           "format": "int32"
         }
       },
-      "paginationPage": {
-        "name": "paginationPage",
+      "PaginationPage": {
+        "name": "PaginationPage",
         "in": "query",
         "description": "The page number to retrieve.",
         "schema": {
@@ -705,8 +709,8 @@
           "format": "int32"
         }
       },
-      "startDate": {
-        "name": "startDate",
+      "StartDate": {
+        "name": "StartDate",
         "in": "query",
         "description": "The starting date to retrieve future operating hours from. Defaults to today's date.",
         "schema": {
@@ -728,7 +732,7 @@
       "endDate": {
         "name": "endDate",
         "in": "query",
-        "description": "The end of a date range to retrieve special events for. Defaults to 7 days after startDate.",
+        "description": "The end of a date range to retrieve special events for. Defaults to 7 days after StartDate.",
         "schema": {
           "type": "string",
           "format": "date"

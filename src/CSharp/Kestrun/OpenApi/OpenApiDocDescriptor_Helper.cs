@@ -1,3 +1,4 @@
+using System.Collections;
 using Microsoft.OpenApi;
 
 namespace Kestrun.OpenApi;
@@ -86,4 +87,44 @@ public partial class OpenApiDocDescriptor
         Document.Components?.Links?.ContainsKey(id) == true;
     private bool ComponentPathItemsExists(string id) =>
         Document.Components?.PathItems?.ContainsKey(id) == true;
+
+    /// <summary>
+    /// Normalizes a raw extensions dictionary into OpenAPI extensions.
+    /// </summary>
+    /// <param name="extensions">The raw extensions dictionary to normalize.</param>
+    /// <returns>A normalized dictionary of OpenAPI extensions, or null if no valid extensions exist.</returns>
+    private static Dictionary<string, IOpenApiExtension>? NormalizeExtensions(IDictionary? extensions)
+    {
+        if (extensions is null || extensions.Count == 0)
+        {
+            return null;
+        }
+
+        Dictionary<string, IOpenApiExtension>? result = null;
+
+        foreach (DictionaryEntry entry in extensions)
+        {
+            var rawKey = entry.Key?.ToString();
+            if (string.IsNullOrWhiteSpace(rawKey))
+            {
+                continue;
+            }
+
+            // Enforce OpenAPI extension naming
+            var key = rawKey.StartsWith("x-", StringComparison.OrdinalIgnoreCase)
+                ? rawKey
+                : "x-" + rawKey;
+
+            var node = OpenApiJsonNodeFactory.ToNode(entry.Value);
+            if (node is null)
+            {
+                continue;
+            }
+
+            result ??= new Dictionary<string, IOpenApiExtension>(StringComparer.Ordinal);
+            result[key] = new JsonNodeExtension(node);
+        }
+
+        return result;
+    }
 }

@@ -860,7 +860,14 @@ Configure the top-level API information.
 Add-KrOpenApiInfo -Title 'My API' -Version '1.0.0' -Description 'API Description'
 
 # Contact & License
-Add-KrOpenApiContact -Name 'Support' -Email 'help@example.com'
+Add-KrOpenApiContact -Name 'Support' -Email 'help@example.com' -Extensions ([ordered]@{
+  # Vendor extensions are normalized to the required `x-` prefix when missing.
+  'x-contact-department' = 'Developer Relations'
+  'x-logo' = [ordered]@{
+    url = 'https://example.com/logo.png'
+    altText = 'Company logo'
+  }
+})
 
 # License can be expressed either as a URL (common) or an SPDX identifier (OpenAPI 3.1/3.2)
 Add-KrOpenApiLicense -Name 'MIT' -Url 'https://opensource.org/licenses/MIT'

@@ -7,6 +7,53 @@ namespace Kestrun.OpenApi;
 public partial class OpenApiDocDescriptor
 {
     /// <summary>
+    /// Merges OpenApiProperties with OpenApiXmlAttribute if present.
+    /// </summary>
+    /// <param name="prop">The property to extract attributes from.</param>
+    /// <returns>Merged OpenApiProperties with XML metadata applied.</returns>
+    private static OpenApiProperties? MergeXmlAttributes(PropertyInfo prop)
+    {
+        var properties = prop.GetCustomAttribute<OpenApiProperties>();
+        var xmlAttr = prop.GetCustomAttribute<OpenApiXmlAttribute>();
+
+        if (xmlAttr == null)
+        {
+            return properties;
+        }
+
+        // If no OpenApiProperties, create a new one to hold XML data
+        properties ??= new OpenApiPropertyAttribute();
+
+        // Merge XML attribute properties into OpenApiProperties
+        if (!string.IsNullOrWhiteSpace(xmlAttr.Name))
+        {
+            properties.XmlName = xmlAttr.Name;
+        }
+
+        if (!string.IsNullOrWhiteSpace(xmlAttr.Namespace))
+        {
+            properties.XmlNamespace = xmlAttr.Namespace;
+        }
+
+        if (!string.IsNullOrWhiteSpace(xmlAttr.Prefix))
+        {
+            properties.XmlPrefix = xmlAttr.Prefix;
+        }
+
+        if (xmlAttr.Attribute)
+        {
+            properties.XmlAttribute = true;
+        }
+
+        if (xmlAttr.Wrapped)
+        {
+            properties.XmlWrapped = true;
+        }
+
+        return properties;
+    }
+
+    /// <summary>
     /// Builds and adds the schema for a given type to the document components.
     /// </summary>
     /// <param name="t">The type to build the schema for.</param>
@@ -66,7 +113,7 @@ public partial class OpenApiDocDescriptor
         {
             s.Type |= JsonSchemaType.Null;
         }
-        ApplySchemaAttr(p.GetCustomAttribute<OpenApiProperties>(), schema);
+        ApplySchemaAttr(MergeXmlAttributes(p), schema);
         PowerShellAttributes.ApplyPowerShellAttributes(p, schema);
         return schema;
     }
@@ -82,7 +129,7 @@ public partial class OpenApiDocDescriptor
     {
         BuildSchema(pt, built); // ensure component exists
         var refSchema = new OpenApiSchemaReference(pt.Name);
-        ApplySchemaAttr(p.GetCustomAttribute<OpenApiProperties>(), refSchema);
+        ApplySchemaAttr(MergeXmlAttributes(p), refSchema);
         return refSchema;
     }
 
@@ -101,7 +148,7 @@ public partial class OpenApiDocDescriptor
         };
         var attrs = p.GetCustomAttributes<OpenApiPropertyAttribute>(inherit: false).ToArray();
         var a = MergeSchemaAttributes(attrs);
-        ApplySchemaAttr(a, s);
+        ApplySchemaAttr(MergeXmlAttributes(p) ?? a, s);
         PowerShellAttributes.ApplyPowerShellAttributes(p, s);
         return s;
     }
@@ -139,7 +186,7 @@ public partial class OpenApiDocDescriptor
             Type = JsonSchemaType.Array,
             Items = itemSchema
         };
-        ApplySchemaAttr(p.GetCustomAttribute<OpenApiProperties>(), s);
+        ApplySchemaAttr(MergeXmlAttributes(p), s);
         PowerShellAttributes.ApplyPowerShellAttributes(p, s);
         return s;
     }
@@ -153,7 +200,7 @@ public partial class OpenApiDocDescriptor
     private IOpenApiSchema BuildPrimitiveSchema(Type pt, PropertyInfo p)
     {
         var prim = InferPrimitiveSchema(pt);
-        ApplySchemaAttr(p.GetCustomAttribute<OpenApiProperties>(), prim);
+        ApplySchemaAttr(MergeXmlAttributes(p), prim);
         PowerShellAttributes.ApplyPowerShellAttributes(p, prim);
         return prim;
     }

@@ -726,6 +726,7 @@ public partial class OpenApiDocDescriptor
         ApplyCollectionConstraints(properties, schema);
         ApplyFlags(properties, schema);
         ApplyExamplesAndDefaults(properties, schema);
+        ApplyXmlMetadata(properties, schema);
     }
 
     /// <summary>
@@ -899,6 +900,68 @@ public partial class OpenApiDocDescriptor
             foreach (var r in properties.RequiredProperties)
             {
                 _ = schema.Required.Add(r);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Applies XML metadata to an OpenApiSchema.
+    /// </summary>
+    /// <param name="properties">The OpenApiProperties containing XML attributes to apply.</param>
+    /// <param name="schema">The OpenApiSchema to apply XML metadata to.</param>
+    private static void ApplyXmlMetadata(OpenApiProperties properties, OpenApiSchema schema)
+    {
+        // Check if any XML properties are set
+        var hasXmlMetadata = !string.IsNullOrWhiteSpace(properties.XmlName) ||
+                             !string.IsNullOrWhiteSpace(properties.XmlNamespace) ||
+                             !string.IsNullOrWhiteSpace(properties.XmlPrefix) ||
+                             properties.XmlAttribute ||
+                             properties.XmlWrapped;
+
+        if (!hasXmlMetadata)
+        {
+            return;
+        }
+
+        // Create XML object if it doesn't exist
+        if (schema.Xml == null)
+        {
+            schema.Xml = new Microsoft.OpenApi.OpenApiXml();
+        }
+
+        // Apply standard XML properties (supported by Microsoft.OpenApi 3.1.2)
+        if (!string.IsNullOrWhiteSpace(properties.XmlName))
+        {
+            schema.Xml.Name = properties.XmlName;
+        }
+
+        if (!string.IsNullOrWhiteSpace(properties.XmlNamespace))
+        {
+            schema.Xml.Namespace = new Uri(properties.XmlNamespace);
+        }
+
+        if (!string.IsNullOrWhiteSpace(properties.XmlPrefix))
+        {
+            schema.Xml.Prefix = properties.XmlPrefix;
+        }
+
+        // Store Attribute and Wrapped as extension data until Microsoft.OpenApi supports OpenAPI 3.2
+        // Note: OpenAPI 3.2 spec adds these properties to the XML object
+        if (properties.XmlAttribute || properties.XmlWrapped)
+        {
+            if (schema.Xml.Extensions == null)
+            {
+                schema.Xml.Extensions = new Dictionary<string, Microsoft.OpenApi.IOpenApiExtension>(StringComparer.Ordinal);
+            }
+            
+            if (properties.XmlAttribute)
+            {
+                schema.Xml.Extensions["x-attribute"] = new JsonNodeExtension(JsonValue.Create(true));
+            }
+
+            if (properties.XmlWrapped)
+            {
+                schema.Xml.Extensions["x-wrapped"] = new JsonNodeExtension(JsonValue.Create(true));
             }
         }
     }

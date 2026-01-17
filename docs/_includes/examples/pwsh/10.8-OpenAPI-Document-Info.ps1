@@ -31,8 +31,8 @@ Add-KrOpenApiContact -Name 'API Support' -Email 'support@example.com' -Url 'http
         'x-contact-department' = 'Developer Relations'
         'x-contact-hours' = '9am-5pm PST'
         'x-logo' = [ordered]@{
-            'url' = 'https://redocly.github.io/redoc/museum-logo.png'
-            'altText' = 'Museum logo'
+            'url' = 'https://www.kestrun.dev/assets/kestrun_abstract_transparent.png'
+            'altText' = 'Kestrun logo'
         }
     })
 Add-KrOpenApiLicense -Name 'Apache 2.0' -Identifier 'Apache-2.0'

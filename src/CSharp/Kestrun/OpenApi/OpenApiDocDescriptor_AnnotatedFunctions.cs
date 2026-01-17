@@ -166,10 +166,14 @@ public partial class OpenApiDocDescriptor
             Host.Logger.Debug("Applying OpenApiExtension '{extensionName}' to function metadata", extensionAttr.Name);
         }
         openApiMetadata.Extensions ??= [];
-        // Parse string into a JsonNode tree.
-        var node = JsonNode.Parse(extensionAttr.Json)
-            ?? throw new InvalidOperationException($"OpenApiExtension '{extensionAttr.Name}' JSON parsed to null.");
 
+        // Parse string into a JsonNode tree.
+        var node = JsonNode.Parse(extensionAttr.Json);
+        if (node is null)
+        {
+            Host.Logger.Error("Error parsing OpenAPI extension '{extensionName}': JSON is null", extensionAttr.Name);
+            return;
+        }
         openApiMetadata.Extensions[extensionAttr.Name] = new JsonNodeExtension(node);
     }
 

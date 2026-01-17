@@ -1,4 +1,5 @@
 using System.Collections;
+using Kestrun.Logging;
 using Microsoft.OpenApi;
 
 namespace Kestrun.OpenApi;
@@ -118,14 +119,14 @@ public partial class OpenApiDocDescriptor
             }
             else
             {
-                Host.Logger.Warning("OpenAPI extension '{rawKey}' is invalid. Extension names must start with 'x-'.", rawKey);
+                Host.Logger.WarningSanitized("OpenAPI extension '{rawKey}' is invalid. Extension names must start with 'x-'.", rawKey);
                 continue;
             }
 
             var node = OpenApiJsonNodeFactory.ToNode(entry.Value);
             if (node is null)
             {
-                Host.Logger.Warning("OpenAPI extension '{key}' has a null value and will be skipped.", key);
+                Host.Logger.WarningSanitized("OpenAPI extension '{key}' has a null value and will be skipped.", key);
                 continue;
             }
 

@@ -65,26 +65,26 @@ public partial class OpenApiDocDescriptor
             string? email = null,
             IDictionary? extensions = null)
     {
-        var docs = new OpenApiContact
+        var contact = new OpenApiContact
         {
             Extensions = NormalizeExtensions(extensions)
         };
 
         if (url != null)
         {
-            docs.Url = url;
+            contact.Url = url;
         }
 
         if (!string.IsNullOrEmpty(name))
         {
-            docs.Name = name;
+            contact.Name = name;
         }
 
         if (!string.IsNullOrEmpty(email))
         {
-            docs.Email = email;
+            contact.Email = email;
         }
 
-        return docs;
+        return contact;
     }
 }

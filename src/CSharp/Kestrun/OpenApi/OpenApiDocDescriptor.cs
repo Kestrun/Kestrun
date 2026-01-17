@@ -324,5 +324,4 @@ public partial class OpenApiDocDescriptor
             Document.Extensions[kvp.Key] = kvp.Value;
         }
     }
-
 }

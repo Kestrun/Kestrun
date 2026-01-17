@@ -716,22 +716,22 @@ public partial class OpenApiDocDescriptor
     /// <exception cref="InvalidOperationException">Thrown when the reference ID does not match the parameter type name.</exception>
     private string FindReferenceIdForParameter(string referenceId, ParameterMetadata paramInfo)
     {
-#pragma warning disable IDE0046 // Convert to conditional expression
+        // Ensure the reference ID exists and has a schema
         if (!TryGetFirstRequestBodySchema(referenceId, out var schema))
         {
             throw new InvalidOperationException(
                 $"Request body component with ReferenceId '{referenceId}' was not found or does not define a schema.");
         }
-
+        // Validate that the schema matches the parameter type
         if (!IsRequestBodySchemaMatchForParameter(schema, paramInfo.ParameterType))
         {
             throw new InvalidOperationException(
                 $"Schema for request body component '{referenceId}' does not match parameter type '{paramInfo.ParameterType.Name}'.");
         }
-
+        // return the validated reference ID
         return referenceId;
-#pragma warning restore IDE0046 // Convert to conditional expression
     }
+
     /// <summary>
     /// Attempts to retrieve the first schema defined on a request body component.
     /// </summary>

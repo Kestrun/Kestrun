@@ -677,8 +677,8 @@ public static class PowerShellOpenApiClassExporter
     /// <param name="collapseToUnderlyingPrimitives">Whether collapsing is enabled.</param>
     /// <returns>The primitive name, or <c>null</c> when <paramref name="t"/> is not an OpenAPI wrapper type (or collapsing is disabled).</returns>
     /// <remarks>
-    /// When <paramref name="collapseToUnderlyingPrimitives"/> is <c>true</c
-    /// >, types derived from OpenApiValue&lt;T&gt; are emitted as their underlying primitive (e.g., string/double/bool/long).
+    /// When <paramref name="collapseToUnderlyingPrimitives"/> is <c>true</c>,
+    /// types derived from OpenApiValue&lt;T&gt; are emitted as their underlying primitive (e.g., string/double/bool/long).
     /// </remarks>
     private static string? GetCollapsedOpenApiPrimitiveTypeName(Type t, HashSet<Type> componentSet, bool collapseToUnderlyingPrimitives)
         => collapseToUnderlyingPrimitives

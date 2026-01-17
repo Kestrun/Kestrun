@@ -149,7 +149,7 @@ public class ParameterForInjectionInfo : ParameterForInjectionInfoBase
             .Select(MediaTypeHelper.Canonicalize)
             .Where(ct => !string.IsNullOrWhiteSpace(ct))
             .Distinct(StringComparer.OrdinalIgnoreCase);
-
+        // Try each content type in order
         foreach (var ct in canonicalTypes)
         {
             if (BodyConverters.TryGetValue(ct, out var converter))
@@ -160,7 +160,7 @@ public class ParameterForInjectionInfo : ParameterForInjectionInfoBase
                 {
                     continue;
                 }
-
+                // Use the converter
                 return converter(context, rawString);
             }
         }
@@ -205,7 +205,7 @@ public class ParameterForInjectionInfo : ParameterForInjectionInfoBase
             return;
         }
 
-        // (Tiny bugfix: ParameterType.GetType() would always be RuntimeType.)
+        // Prefer the OpenAPI type name when available; fall back to the CLR type name for logging.
         var parType = param.Type?.ToString() ?? param.ParameterType?.FullName ?? "<unknown>";
         logger.Debug("Injecting parameter '{Name}' of type '{Type}' from '{In}'.", param.Name, parType, param.In);
     }

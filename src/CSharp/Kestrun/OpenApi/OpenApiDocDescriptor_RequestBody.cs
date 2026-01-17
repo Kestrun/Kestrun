@@ -63,8 +63,8 @@ public partial class OpenApiDocDescriptor
     /// <param name="variable">The annotated variable containing metadata about the request body</param>
     /// <param name="requestBodyAnnotation">The request body component annotation</param>
     private void TryApplyVariableTypeSchema(
-         OpenApiRequestBody requestBody,
-       OpenApiComponentAnnotationScanner.AnnotatedVariable variable,
+        OpenApiRequestBody requestBody,
+        OpenApiComponentAnnotationScanner.AnnotatedVariable variable,
         OpenApiRequestBodyComponentAttribute requestBodyAnnotation)
     {
         if (variable.VariableType is null)
@@ -74,7 +74,6 @@ public partial class OpenApiDocDescriptor
         var iSchema = InferPrimitiveSchema(variable.VariableType);
         if (iSchema is OpenApiSchema schema)
         {
-            //Todo: add powershell attribute support
             //PowerShellAttributes.ApplyPowerShellAttributes(variable.PropertyInfo, schema);
             // Apply any schema attributes from the request body annotation
             ApplyConcreteSchemaAttributes(requestBodyAnnotation, schema);
@@ -110,30 +109,9 @@ public partial class OpenApiDocDescriptor
         {
             throw new InvalidOperationException($"Request body '{variableName}' not found when trying to add example reference.");
         }
-        //todo: validate schema/content presence
-        if (requestBody!.Content is null)
+        if (requestBody is not null && requestBody.Content is not null)
         {
-            AddExampleToRequestBodyExamples(requestBody, exampleRef);
-            return;
-        }
-
-        AddExamplesToContentMediaTypes(requestBody, exampleRef, variableName);
-    }
-
-    /// <summary>
-    /// Ensures the request body Examples dictionary exists and attempts to add the example reference.
-    /// </summary>
-    /// <param name="requestBody">The OpenAPI request body to modify.</param>
-    /// <param name="exampleRef">The example reference attribute.</param>
-    private void AddExampleToRequestBodyExamples(OpenApiRequestBody requestBody, OpenApiRequestBodyExampleRefAttribute exampleRef)
-    {
-        foreach (var mediaType in requestBody.Content!.Values)
-        {
-            if (mediaType is OpenApiMediaType concreteMedia)
-            {
-                concreteMedia.Examples ??= new Dictionary<string, IOpenApiExample>(StringComparer.Ordinal);
-                _ = TryAddExample(concreteMedia.Examples, exampleRef);
-            }
+            AddExamplesToContentMediaTypes(requestBody, exampleRef, variableName);
         }
     }
     #endregion

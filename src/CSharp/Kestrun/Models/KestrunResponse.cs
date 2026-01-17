@@ -515,26 +515,25 @@ public class KestrunResponse
         {
             return defaultType;
         }
-
+        // Parse and order by quality factor (q=)
         var acceptValues = MediaTypeHeaderValue
             .ParseList(acceptHeader.Split(','))
             .OrderByDescending(v => v.Quality ?? 1.0);
-
+        // Try to find a supported media type
         foreach (var v in acceptValues)
         {
             var mediaType = GetMediaTypeOrNull(v);
-            if (mediaType is null)
+            if (mediaType is not null)
             {
-                continue;
-            }
-
-            var mapped = MediaTypeHelper.Canonicalize(mediaType);
-            if (mapped is not null)
-            {
-                return mapped;
+                // Map to canonical media type if needed
+                var mapped = MediaTypeHelper.Canonicalize(mediaType);
+                if (mapped is not null)
+                {
+                    return mapped;
+                }
             }
         }
-
+        // No supported media type found; return default
         return defaultType;
     }
 
@@ -549,8 +548,9 @@ public class KestrunResponse
         {
             return null;
         }
-
+        // Trim whitespace
         var s = v.MediaType.Value.Trim();
+        // Return null for empty strings
         return s.Length == 0 ? null : s;
     }
 

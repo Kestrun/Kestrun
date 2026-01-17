@@ -48,7 +48,7 @@ function Add-KrOpenApiExtension {
         $Server = Resolve-KestrunServer -Server $Server
     }
     process {
-        # Add the server to the specified OpenAPI documents
+        # Add the extension to the specified OpenAPI documents
         foreach ($doc in $DocId) {
             $docDescriptor = $Server.GetOrCreateOpenApiDocument($doc)
             $docDescriptor.AddOpenApiExtension($Extensions)

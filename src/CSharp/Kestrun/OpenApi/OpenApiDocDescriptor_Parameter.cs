@@ -166,16 +166,21 @@ public partial class OpenApiDocDescriptor
                 schema.Default = OpenApiJsonNodeFactory.ToNode(variable.InitialValue);
             }
         }
-
-        // Either Schema OR Content, depending on ContentType
-        if (string.IsNullOrWhiteSpace(parameterAnnotation.ContentType))
+        // Decide whether to use Schema or Content based on type and parameter location
+        if ((PrimitiveSchemaMap.ContainsKey(variable.VariableType) &&
+              string.IsNullOrWhiteSpace(parameterAnnotation.ContentType)) ||
+             ((parameter.In == ParameterLocation.Query || parameter.In == ParameterLocation.Cookie) &&
+              parameter.Style == ParameterStyle.Form))
         {
             parameter.Schema = iSchema;
             return;
         }
+        var contentType = string.IsNullOrWhiteSpace(parameterAnnotation.ContentType)
+              ? "application/json"
+              : parameterAnnotation.ContentType;
         // Use Content
         parameter.Content ??= new Dictionary<string, IOpenApiMediaType>(StringComparer.Ordinal);
-        parameter.Content[parameterAnnotation.ContentType] = new OpenApiMediaType { Schema = iSchema };
+        parameter.Content[contentType] = new OpenApiMediaType { Schema = iSchema };
     }
 
     /// <summary>
@@ -234,7 +239,7 @@ public partial class OpenApiDocDescriptor
     /// <param name="exampleRef">The example reference attribute.</param>
     /// <param name="variableName">The variable name used for error messages.</param>
     /// <exception cref="InvalidOperationException">Thrown when encountering a media type reference or an unknown media type.</exception>
-    private void AddExamplesToContentMediaTypes(OpenApiParameter parameter, OpenApiParameterExampleRefAttribute exampleRef, string variableName)
+    private void AddExamplesToContentMediaTypes(OpenApiParameter parameter, IOpenApiExampleAttribute exampleRef, string variableName)
     {
         foreach (var iMediaType in parameter.Content!.Values)
         {
@@ -255,6 +260,43 @@ public partial class OpenApiDocDescriptor
     }
 
     /// <summary>
+    /// Iterates the request body's content media types and adds the example reference to each concrete media type.
+    /// </summary>
+    /// <param name="requestBody">The OpenAPI request body with content.</param>
+    /// <param name="exampleRef">The example reference attribute.</param>
+    /// <param name="variableName">The variable name used for error messages.</param>
+    /// <exception cref="InvalidOperationException">Thrown when encountering a media type reference or an unknown media type.</exception>
+    private void AddExamplesToContentMediaTypes(OpenApiRequestBody requestBody, IOpenApiExampleAttribute exampleRef, string variableName)
+    {
+        foreach (var iMediaType in requestBody.Content!.Values)
+        {
+            try
+            {
+                if (iMediaType is OpenApiMediaType mediaType)
+                {
+                    mediaType.Examples ??= new Dictionary<string, IOpenApiExample>(StringComparer.Ordinal);
+                    if (!TryAddExample(mediaType.Examples, exampleRef))
+                    {
+                        throw new InvalidOperationException($"Failed to add example reference '{exampleRef.ReferenceId}' to media type in request body '{variableName}'.");
+                    }
+                    continue;
+                }
+
+                if (iMediaType is OpenApiMediaTypeReference)
+                {
+                    throw new InvalidOperationException($"Cannot add example reference to media type reference in request body '{variableName}'.");
+                }
+
+                throw new InvalidOperationException($"Unknown media type in request body '{variableName}'.");
+            }
+            catch (Exception ex)
+            {
+                Host.Logger.Error("Error adding example reference to request body {variableName}: {ex.Message}", variableName, ex.Message);
+            }
+        }
+    }
+
+    /// <summary>
     /// Processes a PowerShell attribute to add validation constraints to an OpenAPI parameter.
     /// </summary>
     /// <param name="variableName">The name of the variable associated with the parameter</param>
@@ -262,24 +304,110 @@ public partial class OpenApiDocDescriptor
     /// <exception cref="InvalidOperationException">Thrown if the parameter does not have a schema or content defined before adding the PowerShell property.</exception>
     private void ProcessPowerShellAttribute(string variableName, InternalPowershellAttribute powershellAttribute)
     {
-        if (!TryGetParameterItem(variableName, out var parameter))
+        if (TryGetParameterItem(variableName, out var parameter))
         {
-            throw new InvalidOperationException($"Parameter '{variableName}' not found when trying to add example reference.");
+            ValidateParameterHasSchemaOrContentForPowerShell(variableName, parameter);
+            ApplyPowerShellAttributeToParameter(variableName, parameter!, powershellAttribute);
+            return;
         }
 
+        if (TryGetRequestBodyItem(variableName, out var requestBody))
+        {
+            ApplyPowerShellAttributeToRequestBody(variableName, requestBody, powershellAttribute);
+            return;
+        }
+        Host.Logger.Error("Parameter or RequestBody '{variableName}' not found when trying to add PowerShell attribute.", variableName);
+    }
+
+    /// <summary>
+    /// Validates that the parameter exists and has either Schema or Content defined for PowerShell attribute processing.
+    /// </summary>
+    /// <param name="variableName">The variable name associated with the parameter.</param>
+    /// <param name="parameter">The parameter to validate.</param>
+    /// <exception cref="InvalidOperationException">Thrown if the parameter is null or lacks both Schema and Content.</exception>
+    private static void ValidateParameterHasSchemaOrContentForPowerShell(string variableName, OpenApiParameter? parameter)
+    {
         if (parameter is null || (parameter.Schema is null && parameter.Content is null))
         {
-            throw new InvalidOperationException($"Parameter '{variableName}' must have a schema or content defined before adding the powershell property.");
+            throw new InvalidOperationException(
+                $"Parameter '{variableName}' must have a schema or content defined before adding the powershell property.");
         }
+    }
 
+    /// <summary>
+    /// Applies a PowerShell attribute to a parameter schema or to all content media-type schemas.
+    /// </summary>
+    /// <param name="variableName">The variable name associated with the parameter.</param>
+    /// <param name="parameter">The target parameter.</param>
+    /// <param name="powershellAttribute">The PowerShell attribute containing validation constraints.</param>
+    private void ApplyPowerShellAttributeToParameter(
+        string variableName,
+        OpenApiParameter parameter,
+        InternalPowershellAttribute powershellAttribute)
+    {
         if (parameter.Content is not null)
         {
-            Host.Logger.Warning($"Powershell attribute processing is not supported for parameter '{variableName}' with content.");
+            ApplyPowerShellAttributeToMediaTypeSchemas(
+                variableName,
+                parameter.Content.Values,
+                powershellAttribute,
+                subject: "parameter");
             return;
         }
 
         var schema = (OpenApiSchema)parameter.Schema!;
         ApplyPowerShellAttributesToSchema(schema, powershellAttribute);
+    }
+
+    /// <summary>
+    /// Applies a PowerShell attribute to all request body content media-type schemas.
+    /// </summary>
+    /// <param name="variableName">The variable name associated with the request body.</param>
+    /// <param name="requestBody">The request body to update.</param>
+    /// <param name="powershellAttribute">The PowerShell attribute containing validation constraints.</param>
+    /// <exception cref="InvalidOperationException">Thrown if the request body is null or has no content.</exception>
+    private void ApplyPowerShellAttributeToRequestBody(
+        string variableName,
+        OpenApiRequestBody? requestBody,
+        InternalPowershellAttribute powershellAttribute)
+    {
+        if (requestBody?.Content is null)
+        {
+            throw new InvalidOperationException(
+                $"RequestBody '{variableName}' must have a content defined before adding the powershell property.");
+        }
+
+        ApplyPowerShellAttributeToMediaTypeSchemas(
+            variableName,
+            requestBody.Content.Values,
+            powershellAttribute,
+            subject: "request body");
+    }
+
+    /// <summary>
+    /// Applies a PowerShell attribute to each concrete OpenAPI media type schema.
+    /// </summary>
+    /// <param name="variableName">The variable name used for warning messages.</param>
+    /// <param name="mediaTypes">The media types to inspect.</param>
+    /// <param name="powershellAttribute">The PowerShell attribute containing validation constraints.</param>
+    /// <param name="subject">The subject used in warning messages (e.g. "parameter" or "request body").</param>
+    private void ApplyPowerShellAttributeToMediaTypeSchemas(
+        string variableName,
+        IEnumerable<IOpenApiMediaType> mediaTypes,
+        InternalPowershellAttribute powershellAttribute,
+        string subject)
+    {
+        foreach (var mediaType in mediaTypes)
+        {
+            if (mediaType.Schema is not OpenApiSchema schema)
+            {
+                Host.Logger.Warning(
+                    $"Powershell attribute processing is not supported for {subject} '{variableName}' with non-concrete schema.");
+                continue;
+            }
+
+            ApplyPowerShellAttributesToSchema(schema, powershellAttribute);
+        }
     }
 
     /// <summary>

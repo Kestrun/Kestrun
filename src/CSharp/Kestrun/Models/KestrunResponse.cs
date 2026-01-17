@@ -53,6 +53,11 @@ public class KestrunResponse
     /// Gets the associated KestrunContext for this response.
     /// </summary>
     public required KestrunContext KrContext { get; init; }
+
+    /// <summary>
+    /// Gets the KestrunHost associated with this response.
+    /// </summary>
+    public Hosting.KestrunHost Host => KrContext.Host;
     /// <summary>
     /// A set of MIME types that are considered text-based for response content.
     /// </summary>
@@ -171,40 +176,6 @@ public class KestrunResponse
     /// <param name="key">The name of the header to retrieve.</param>
     /// <returns>The value of the header if found; otherwise, null.</returns>
     public string? GetHeader(string key) => Headers.TryGetValue(key, out var value) ? value : null;
-
-    /// <summary>
-    /// Determines the appropriate content type for the response based on the provided content type and default type.
-    /// </summary>
-    /// <param name="contentType">The initial content type to consider.</param>
-    /// <param name="defaultType">The default content type to use if none is provided or found.</param>
-    /// <returns>The determined content type to use for the response.</returns>
-    private string DetermineContentType(string? contentType, string? defaultType = null)
-    {
-        if (string.IsNullOrWhiteSpace(contentType))
-        {
-            if (Request.Headers.TryGetValue("Accept", out var acceptHeader))
-            {
-                contentType = acceptHeader.ToLowerInvariant();
-            }
-            else
-            {
-                if (string.IsNullOrWhiteSpace(defaultType))
-                {
-                    var dft = Context.GetEndpoint()?
-                    .Metadata
-                    .FirstOrDefault(m => m is DefaultResponseContentType)
-                    as DefaultResponseContentType;
-                    contentType = dft?.ContentType ?? "text/html";
-                }
-                else
-                {
-                    contentType = defaultType;
-                }
-            }
-        }
-
-        return contentType;
-    }
 
     /// <summary>
     /// Determines whether the specified content type is text-based or supports a charset.
@@ -417,7 +388,7 @@ public class KestrunResponse
             PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
             DictionaryKeyPolicy = JsonNamingPolicy.CamelCase,
             ReferenceHandler = ReferenceHandler.IgnoreCycles,
-            DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingDefault,
+            DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
             MaxDepth = depth
         };
 
@@ -477,11 +448,20 @@ public class KestrunResponse
     public void WriteBsonResponse(object? inputObject, int statusCode = StatusCodes.Status200OK, string? contentType = null) => WriteBsonResponseAsync(inputObject, statusCode, contentType).GetAwaiter().GetResult();
 
     /// <summary>
+    /// Writes a response with the specified input object and HTTP status code.
+    /// Chooses the response format based on the Accept header or defaults to text/plain.
+    /// </summary>
+    /// <param name="inputObject">The object to be sent in the response body.</param>
+    /// <param name="statusCode">The HTTP status code for the response.</param>
+    public void WriteResponse(object? inputObject, int statusCode = StatusCodes.Status200OK) => WriteResponseAsync(inputObject, statusCode).GetAwaiter().GetResult();
+
+    /// <summary>
     /// Asynchronously writes a response with the specified input object and HTTP status code.
     /// Chooses the response format based on the Accept header or defaults to text/plain.
     /// </summary>
     /// <param name="inputObject">The object to be sent in the response body.</param>
     /// <param name="statusCode">The HTTP status code for the response.</param>
+    /// <returns>A task that represents the asynchronous write operation.</returns>
     public async Task WriteResponseAsync(object? inputObject, int statusCode = StatusCodes.Status200OK)
     {
         if (Log.IsEnabled(LogEventLevel.Debug))
@@ -490,57 +470,114 @@ public class KestrunResponse
         }
 
         Body = inputObject;
-        ContentType = DetermineContentType(contentType: string.Empty); // Ensure ContentType is set based on Accept header
-        if (ContentType.Contains(','))
+        try
         {
-            var ContentTypes = ContentType.Split(','); // Take the first type only
-            ContentType = "application/json"; // fallback
-            foreach (var ct in ContentTypes)
+            string? acceptHeader = null;
+            _ = Request?.Headers.TryGetValue(HeaderNames.Accept, out acceptHeader);
+            // Pick best media type from Accept, default to text/plain
+            var selected = SelectResponseMediaType(acceptHeader, defaultType: KrContext.MapRouteOptions.DefaultResponseContentType);
+
+            if (selected is null)
             {
-                if (ct.Contains("json") || ct.Contains("xml") || ct.Contains("yaml") || ct.Contains("yml"))
-                {
-                    if (Log.IsEnabled(LogEventLevel.Verbose))
-                    {
-                        Log.Verbose("Multiple content types in Accept header, selecting {ContentType}", ct);
-                    }
-                    ContentType = ct;
-                    break;
-                }
+                statusCode = StatusCodes.Status406NotAcceptable;
+                await WriteErrorResponseAsync("No acceptable media type found.", statusCode);
+                return;
             }
+
+            if (Log.IsEnabled(LogEventLevel.Verbose))
+            {
+                Log.Verbose("Selected response media type={MediaType}", selected);
+            }
+
+            // Dispatch based on selected media type
+            await WriteByMediaTypeAsync(selected, inputObject, statusCode);
         }
-        if (Log.IsEnabled(LogEventLevel.Verbose))
+        catch (Exception ex)
         {
-            Log.Verbose("Determined ContentType={ContentType}", ContentType);
-        }
-        if (ContentType.Contains("json"))
-        {
-            await WriteJsonResponseAsync(inputObject: inputObject, statusCode: statusCode, contentType: ContentType);
-        }
-        else if (ContentType.Contains("yaml") || ContentType.Contains("yml"))
-        {
-            await WriteYamlResponseAsync(inputObject: inputObject, statusCode: statusCode, contentType: ContentType);
-        }
-        else if (ContentType.Contains("xml"))
-        {
-            await WriteXmlResponseAsync(inputObject: inputObject, statusCode: statusCode, contentType: ContentType);
-        }
-        else if (ContentType.Contains("application/x-www-form-urlencoded"))
-        {
-            await WriteFormUrlEncodedResponseAsync(inputObject: inputObject, statusCode: statusCode);
-        }
-        else
-        {
-            await WriteTextResponseAsync(inputObject: inputObject?.ToString() ?? string.Empty, statusCode: statusCode);
+            Log.Error("Error in WriteResponseAsync: {Message}", ex.Message);
+            await WriteErrorResponseAsync($"Internal server error: {ex.Message}", StatusCodes.Status500InternalServerError);
         }
     }
 
     /// <summary>
-    /// Writes a response with the specified input object and HTTP status code.
-    /// Chooses the response format based on the Accept header or defaults to text/plain.
+    /// Selects the most appropriate response media type based on the Accept header.
     /// </summary>
-    /// <param name="inputObject">The object to be sent in the response body.</param>
+    /// <param name="acceptHeader">The value of the Accept header from the request.</param>
+    /// <param name="defaultType">The default media type to use if no match is found. Defaults to "text/plain".</param>
+    /// <returns>The selected media type as a string.</returns>
+    /// <remarks>
+    /// This method parses the Accept header, orders the media types by quality factor,
+    /// and selects the first supported media type. If none are supported, it returns the default type.
+    /// </remarks>
+    private static string? SelectResponseMediaType(string? acceptHeader, string? defaultType = "text/plain")
+    {
+        if (string.IsNullOrWhiteSpace(acceptHeader))
+        {
+            return defaultType;
+        }
+        // Parse and order by quality factor (q=)
+        var acceptValues = MediaTypeHeaderValue
+            .ParseList(acceptHeader.Split(','))
+            .OrderByDescending(v => v.Quality ?? 1.0);
+        // Try to find a supported media type
+        foreach (var v in acceptValues)
+        {
+            var mediaType = GetMediaTypeOrNull(v);
+            if (mediaType is not null)
+            {
+                // Map to canonical media type if needed
+                var mapped = MediaTypeHelper.Canonicalize(mediaType);
+                if (mapped is not null)
+                {
+                    return mapped;
+                }
+            }
+        }
+        // No supported media type found; return default
+        return defaultType;
+    }
+
+    /// <summary>
+    /// Gets the media type from the MediaTypeHeaderValue or null if not present.
+    /// </summary>
+    /// <param name="v"> The MediaTypeHeaderValue instance to extract the media type from.</param>
+    /// <returns>The media type as a string if present; otherwise, null.</returns>
+    private static string? GetMediaTypeOrNull(MediaTypeHeaderValue v)
+    {
+        if (!v.MediaType.HasValue)
+        {
+            return null;
+        }
+        // Trim whitespace
+        var s = v.MediaType.Value.Trim();
+        // Return null for empty strings
+        return s.Length == 0 ? null : s;
+    }
+
+    /// <summary>
+    /// Writes a response based on the specified media type.
+    /// </summary>
+    /// <param name="mediaType">The media type to use for the response.</param>
+    /// <param name="inputObject">The object to be written in the response body.</param>
     /// <param name="statusCode">The HTTP status code for the response.</param>
-    public void WriteResponse(object? inputObject, int statusCode = StatusCodes.Status200OK) => WriteResponseAsync(inputObject, statusCode).GetAwaiter().GetResult();
+    /// <returns>A Task representing the asynchronous operation.</returns>
+    private Task WriteByMediaTypeAsync(string mediaType, object? inputObject, int statusCode)
+    {
+        // If you want, set Response.ContentType here once, centrally.
+        ContentType = mediaType;
+
+        return mediaType switch
+        {
+            "application/json" => WriteJsonResponseAsync(inputObject, statusCode, mediaType),
+            "application/yaml" => WriteYamlResponseAsync(inputObject, statusCode, mediaType),
+            "application/xml" => WriteXmlResponseAsync(inputObject, statusCode, mediaType),
+            "application/bson" => WriteBsonResponseAsync(inputObject, statusCode, mediaType),
+            "application/cbor" => WriteCborResponseAsync(inputObject, statusCode, mediaType),
+            "text/csv" => WriteCsvResponseAsync(inputObject, statusCode, mediaType),
+            "application/x-www-form-urlencoded" => WriteFormUrlEncodedResponseAsync(inputObject, statusCode),
+            _ => WriteTextResponseAsync(inputObject?.ToString() ?? string.Empty, statusCode),
+        };
+    }
 
     /// <summary>
     /// Writes a CSV response with the specified input object, status code, content type, and optional CsvConfiguration.

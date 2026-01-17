@@ -606,18 +606,16 @@ public partial class OpenApiDocDescriptor
     /// <returns>The inferred OpenApiSchema.</returns>
     private IOpenApiSchema InferPowerShellClassSchema(Type type, bool inline)
     {
-        var schema = GetSchema(type.Name);
-
-        if (inline)
+        if (TryGetSchemaItem(type.Name, out var schema, out var isInline))
         {
-            if (schema is OpenApiSchema concreteSchema)
+            if (inline || isInline)
             {
-                return concreteSchema.Clone();
+                if (schema is OpenApiSchema concreteSchema)
+                {
+                    return concreteSchema.Clone();
+                }
             }
-        }
-        else
-        {
-            if (schema is not null)
+            else
             {
                 return new OpenApiSchemaReference(type.Name);
             }

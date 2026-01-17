@@ -86,7 +86,6 @@ public partial class OpenApiDocDescriptor
     {
         Document.Components ??= new OpenApiComponents();
         ProcessComponentTypes(components.SchemaTypes, () => Document.Components.Schemas ??= new Dictionary<string, IOpenApiSchema>(StringComparer.Ordinal), t => BuildSchema(t));
-        ProcessComponentTypes(components.RequestBodyTypes, () => Document.Components.RequestBodies ??= new Dictionary<string, IOpenApiRequestBody>(StringComparer.Ordinal), BuildRequestBodies);
     }
 
     /// <summary>
@@ -162,9 +161,14 @@ public partial class OpenApiDocDescriptor
                 case OpenApiParameterComponentAttribute paramComponent:
                     ProcessParameterComponent(variable, paramComponent);
                     break;
-
-                case OpenApiParameterExampleRefAttribute exampleRef:
-                    ProcessParameterExampleRef(variable.Name, exampleRef);
+                case OpenApiRequestBodyComponentAttribute requestBodyComponent:
+                    ProcessRequestBodyComponent(variable, requestBodyComponent);
+                    break;
+                case OpenApiParameterExampleRefAttribute parameterExampleRef:
+                    ProcessParameterExampleRef(variable.Name, parameterExampleRef);
+                    break;
+                case OpenApiRequestBodyExampleRefAttribute requestBodyExampleRef:
+                    ProcessRequestBodyExampleRef(variable.Name, requestBodyExampleRef);
                     break;
                 case InternalPowershellAttribute powershellAttribute:
                     // Process PowerShell attribute to modify the schema

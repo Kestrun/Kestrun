@@ -8,6 +8,8 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.AspNetCore.Routing.Patterns;
 using Microsoft.OpenApi;
+using MongoDB.Bson;
+using PeterO.Cbor;
 using Xunit;
 
 namespace KestrunTests.Languages;
@@ -307,5 +309,177 @@ public class ParameterForInjectionInfoTests
         var ht = Assert.IsType<Hashtable>(bodyResolved.Value);
         Assert.Equal("1", ht["a"]);
         Assert.Equal("test", ht["b"]);
+    }
+
+    [Fact]
+    [Trait("Category", "Languages")]
+    public void InjectParameters_RequestBodyJson_WhenContentTypeMissing_InferFromOpenApiContentType()
+    {
+        var metadata = new ParameterMetadata("body", typeof(object));
+        var requestBody = new OpenApiRequestBody
+        {
+            Content = new Dictionary<string, IOpenApiMediaType>
+            {
+                ["application/json"] = new OpenApiMediaType
+                {
+                    Schema = new OpenApiSchema { Type = JsonSchemaType.Object }
+                }
+            }
+        };
+        var p = new ParameterForInjectionInfo(metadata, requestBody);
+
+        var jsonBody = JsonSerializer.Serialize(new { a = 1, b = "x" });
+        var ctx = CreateContextWithEndpointParameters(
+            [p],
+            method: "POST",
+            path: "/",
+            body: jsonBody);
+
+        using var ps = PowerShell.Create();
+        _ = ps.AddCommand("Write-Output");
+
+        ParameterForInjectionInfo.InjectParameters(ctx, ps);
+
+        var bodyResolved = Assert.IsType<ParameterForInjectionResolved>(ctx.Parameters.Body);
+        var ht = Assert.IsType<Hashtable>(bodyResolved.Value);
+        Assert.Equal(1L, Convert.ToInt64(ht["a"]));
+        Assert.Equal("x", ht["b"]);
+    }
+
+    [Fact]
+    [Trait("Category", "Languages")]
+    public void InjectParameters_RequestBodyBson_Base64_ConvertsToHashtable()
+    {
+        var metadata = new ParameterMetadata("body", typeof(object));
+        var requestBody = new OpenApiRequestBody
+        {
+            Content = new Dictionary<string, IOpenApiMediaType>
+            {
+                ["application/bson"] = new OpenApiMediaType
+                {
+                    Schema = new OpenApiSchema { Type = JsonSchemaType.Object }
+                }
+            }
+        };
+        var p = new ParameterForInjectionInfo(metadata, requestBody);
+
+        var doc = new BsonDocument { { "a", 1 }, { "b", "x" } };
+        var bytes = doc.ToBson();
+        var base64Body = "base64:" + Convert.ToBase64String(bytes);
+
+        var ctx = CreateContextWithEndpointParameters(
+            [p],
+            method: "POST",
+            path: "/",
+            body: base64Body,
+            configureContext: http => http.Request.ContentType = "application/bson");
+
+        using var ps = PowerShell.Create();
+        _ = ps.AddCommand("Write-Output");
+
+        ParameterForInjectionInfo.InjectParameters(ctx, ps);
+
+        var bodyResolved = Assert.IsType<ParameterForInjectionResolved>(ctx.Parameters.Body);
+        var ht = Assert.IsType<Hashtable>(bodyResolved.Value);
+        Assert.Equal(1, Convert.ToInt32(ht["a"]));
+        Assert.Equal("x", ht["b"]);
+    }
+
+    [Fact]
+    [Trait("Category", "Languages")]
+    public void InjectParameters_RequestBodyCbor_Base64_ConvertsToHashtable()
+    {
+        var metadata = new ParameterMetadata("body", typeof(object));
+        var requestBody = new OpenApiRequestBody
+        {
+            Content = new Dictionary<string, IOpenApiMediaType>
+            {
+                ["application/cbor"] = new OpenApiMediaType
+                {
+                    Schema = new OpenApiSchema { Type = JsonSchemaType.Object }
+                }
+            }
+        };
+        var p = new ParameterForInjectionInfo(metadata, requestBody);
+
+        var payload = new Dictionary<string, object?> { ["a"] = 1, ["b"] = "x" };
+        var bytes = CBORObject.FromObject(payload).EncodeToBytes();
+        var base64Body = "base64:" + Convert.ToBase64String(bytes);
+
+        var ctx = CreateContextWithEndpointParameters(
+            [p],
+            method: "POST",
+            path: "/",
+            body: base64Body,
+            configureContext: http => http.Request.ContentType = "application/cbor");
+
+        using var ps = PowerShell.Create();
+        _ = ps.AddCommand("Write-Output");
+
+        ParameterForInjectionInfo.InjectParameters(ctx, ps);
+
+        var bodyResolved = Assert.IsType<ParameterForInjectionResolved>(ctx.Parameters.Body);
+        var ht = Assert.IsType<Hashtable>(bodyResolved.Value);
+        Assert.Equal(1, Convert.ToInt32(ht["a"]));
+        Assert.Equal("x", ht["b"]);
+    }
+
+    [Fact]
+    [Trait("Category", "Languages")]
+    public void InjectParameters_RequestBodyCsv_ConvertsToHashtableOrArray()
+    {
+        var metadata = new ParameterMetadata("body", typeof(object));
+        var requestBody = new OpenApiRequestBody
+        {
+            Content = new Dictionary<string, IOpenApiMediaType>
+            {
+                ["text/csv"] = new OpenApiMediaType
+                {
+                    Schema = new OpenApiSchema { Type = JsonSchemaType.Object }
+                }
+            }
+        };
+        var p = new ParameterForInjectionInfo(metadata, requestBody);
+
+        var ctxSingle = CreateContextWithEndpointParameters(
+            [p],
+            method: "POST",
+            path: "/",
+            body: "a,b\n1,x\n",
+            configureContext: http => http.Request.ContentType = "text/csv");
+
+        using (var ps = PowerShell.Create())
+        {
+            _ = ps.AddCommand("Write-Output");
+            ParameterForInjectionInfo.InjectParameters(ctxSingle, ps);
+        }
+
+        var bodyResolved = Assert.IsType<ParameterForInjectionResolved>(ctxSingle.Parameters.Body);
+        var ht = Assert.IsType<Hashtable>(bodyResolved.Value);
+        Assert.Equal("1", ht["a"]);
+        Assert.Equal("x", ht["b"]);
+
+        var ctxMulti = CreateContextWithEndpointParameters(
+            [p],
+            method: "POST",
+            path: "/",
+            body: "a,b\n1,x\n2,y\n",
+            configureContext: http => http.Request.ContentType = "text/csv");
+
+        using (var ps = PowerShell.Create())
+        {
+            _ = ps.AddCommand("Write-Output");
+            ParameterForInjectionInfo.InjectParameters(ctxMulti, ps);
+        }
+
+        bodyResolved = Assert.IsType<ParameterForInjectionResolved>(ctxMulti.Parameters.Body);
+        var arr = Assert.IsType<object?[]>(bodyResolved.Value);
+        Assert.Equal(2, arr.Length);
+        var row0 = Assert.IsType<Hashtable>(arr[0]);
+        var row1 = Assert.IsType<Hashtable>(arr[1]);
+        Assert.Equal("1", row0["a"]);
+        Assert.Equal("x", row0["b"]);
+        Assert.Equal("2", row1["a"]);
+        Assert.Equal("y", row1["b"]);
     }
 }

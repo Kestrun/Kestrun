@@ -63,18 +63,11 @@ class Product {
 [OpenApiRequestBodyComponent(
     Description = 'Product creation payload. Supports JSON and form data.',
     Required = $true,
-    ContentType = ('application/json', 'application/x-www-form-urlencoded')
-)]
-class CreateProductRequest:Product {
-}
+    ContentType = ('application/json', 'application/x-www-form-urlencoded', 'application/xml', 'application/yaml'))]
+[Product]$CreateProductRequest
 
 # UpdateProductRequest: RequestBody component that wraps UpdateProduct schema
-[OpenApiRequestBodyComponent(
-    Description = 'Product update payload.',
-    Required = $true,
-    ContentType = 'application/json',
-    RequiredProperties = ('productName', 'price')
-)]
+[OpenApiSchemaComponent(RequiredProperties = ('productName', 'price'))]
 class UpdateProductRequest {
     [OpenApiPropertyAttribute(Description = 'Product name', Example = 'Laptop Pro')]
     [string]$productName
@@ -89,6 +82,27 @@ class UpdateProductRequest {
     [int]$stock
 }
 
+
+[OpenApiRequestBodyComponent(    Description = 'Product update payload.', Required = $true, ContentType = 'application/json')]
+[OpenApiRequestBodyExampleRef(Key = 'general_entry', ReferenceId = 'BuyGeneralTicketsRequestExample', ContentType = 'application/json')]
+[UpdateProductRequest]$UpdateProductRequest
+
+
+# --- Component examples (stored under components/examples) ---
+New-KrOpenApiExample -Summary 'General entry ticket' -Value ([ordered]@{
+        ticketType = 'general'
+        ticketDate = '2023-09-07'
+        email = 'todd@example.com'
+    }) | Add-KrOpenApiComponent -Name 'BuyGeneralTicketsRequestExample'
+
+
+
+[OpenApiRequestBodyComponent( Description = 'A simple string payload.', Required = $true, ContentType = 'application/json')]
+[ValidateLength(4, 100)]
+[OpenApiString]$SimpleStringRequestBody
+
+[OpenApiRequestBodyComponent( Description = 'A simple date payload.', Required = $true, ContentType = 'application/json')]
+[OpenApiDate]$SimpleDateRequestBody
 # =========================================================
 #                 ROUTES / OPERATIONS
 # =========================================================
@@ -97,6 +111,7 @@ Enable-KrConfiguration
 
 Add-KrApiDocumentationRoute -DocumentType Swagger
 Add-KrApiDocumentationRoute -DocumentType Redoc
+
 
 <#
 .SYNOPSIS
@@ -112,7 +127,7 @@ function createProduct {
     [OpenApiResponse(StatusCode = '400', Description = 'Invalid input')]
     param(
         [OpenApiRequestBodyRef(ReferenceId = 'CreateProductRequest')]
-        [CreateProductRequest]$body
+        [Product]$body
     )
 
     if (-not $body.productName -or -not $body.price) {

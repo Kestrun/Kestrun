@@ -11,7 +11,8 @@ cmdlets and attributes.
 
 Focus areas:
 
-- **Class-based Components**: Define schemas, request bodies, and responses using PowerShell classes.
+- **Class-based Components**: Define reusable schemas using PowerShell classes.
+- **Variable-based Components**: Define reusable request bodies and responses using annotated PowerShell variables.
 - **Attributes**: Decorate classes and properties with `[OpenApiSchemaComponent]`, `[OpenApiPropertyAttribute]`, etc.
 - **Scalars**: Use `OpenApi*` scalar wrapper types (`OpenApiUuid`, `OpenApiDate`, etc.) to model primitives with consistent `type`/`format`.
 - **Document Metadata**: Configure title, version, contact, license, and servers.
@@ -27,7 +28,7 @@ Focus areas:
 | Concept              | Description                                                                    |
 |----------------------|--------------------------------------------------------------------------------|
 | **Schema Component** | A PowerShell class decorated with `[OpenApiSchemaComponent]`. Defines data structure. |
-| **Request Body**     | A class decorated with `[OpenApiRequestBodyComponent]`. Defines payload structure. |
+| **Request Body**     | A PowerShell variable decorated with `[OpenApiRequestBodyComponent]`. Defines a reusable payload entry under `components.requestBodies`. |
 | **Response**         | A variable decorated with `[OpenApiResponseComponent]`. Defines a reusable response entry under `components.responses`. |
 | **Parameter**        | A PowerShell parameter/variable decorated with `[OpenApiParameterComponent]`. Defines reusable parameters. |
 | **Scalar**           | An `OpenApi*` wrapper type (e.g., `OpenApiUuid`, `OpenApiDate`) that maps to an OpenAPI primitive `type` + `format`; often aliased into a named schema component for `$ref` reuse. |
@@ -708,13 +709,16 @@ class ProductSchema {
     [double]$price
 }
 
-# Define the Request Body Component
+# Define a schema type for the create operation (optional but common)
+class CreateProductRequest : ProductSchema {}
+
+# Define the Request Body Component (reusable entry under components.requestBodies)
 [OpenApiRequestBodyComponent(
     Description = 'Product creation payload',
     Required = $true,
     ContentType = ('application/json', 'application/xml')
 )]
-class CreateProductRequest : ProductSchema {}
+[CreateProductRequest]$CreateProductRequest
 ```
 
 ### Usage in Route (Request Bodies)
@@ -1282,7 +1286,7 @@ Access the UI at `/swagger`, `/redoc`, etc., and the raw JSON at `/openapi/v3.1/
 | Attribute | Target | Key Properties |
 | :--- | :--- | :--- |
 | **`[OpenApiSchemaComponent]`** | Class | `Key`, `Examples`, `RequiredProperties`, `Description`, `Array`, `Type`, `Format`, `Example` |
-| **`[OpenApiRequestBodyComponent]`** | Class | `Key`, `ContentType`, `Required`, `Description`, `Array`, `Type`, `Format` |
+| **`[OpenApiRequestBodyComponent]`** | Variable | `Key`, `ContentType`, `Required`, `Description`, `Inline`, `Array`, `Type`, `Format` |
 | **`[OpenApiResponseComponent]`** | Class | `Description`, `JoinClassName` |
 | **`[OpenApiParameterComponent]`** | Parameter | `In`, `Description`, `Required`, `ContentType`, `Example`, `Minimum`, `Maximum`, `Default` |
 | **`[OpenApiHeaderComponent]`** | Class | `Description`, `JoinClassName` |
@@ -1337,7 +1341,7 @@ These properties are available on `[OpenApiSchemaComponent]`, `[OpenApiPropertyA
 | Feature | Status | Notes |
 | :--- | :--- | :--- |
 | **Schemas** | ✅ Supported | Use `[OpenApiSchemaComponent]` classes |
-| **Request Bodies** | ✅ Supported | Use `[OpenApiRequestBodyComponent]` classes |
+| **Request Bodies** | ✅ Supported | Use `[OpenApiRequestBodyComponent]` variables |
 | **Responses** | ✅ Supported | Use `[OpenApiResponseComponent]` classes |
 | **Parameters** | ✅ Supported | Define components with `[OpenApiParameterComponent]`, reference via `[OpenApiParameterRef]` |
 | **Headers** | ✅ Supported | Use `New-KrOpenApiHeader` + `Add-KrOpenApiComponent`, then reference via `OpenApiResponseHeaderRef` |

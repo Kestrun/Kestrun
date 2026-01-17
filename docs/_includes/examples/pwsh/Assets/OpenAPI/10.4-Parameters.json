@@ -72,6 +72,9 @@
         "operationId": "listProducts",
         "parameters": [
           {
+            "$ref": "#/components/parameters/myCategory"
+          },
+          {
             "$ref": "#/components/parameters/correlationId"
           },
           {
@@ -390,6 +393,18 @@
       }
     },
     "parameters": {
+      "myCategory": {
+        "name": "myCategory",
+        "in": "header",
+        "description": "Filter by category item",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/CategoryItem"
+            }
+          }
+        }
+      },
       "correlationId": {
         "name": "correlationId",
         "in": "header",

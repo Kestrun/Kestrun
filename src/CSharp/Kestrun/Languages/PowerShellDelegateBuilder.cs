@@ -90,6 +90,18 @@ internal static class PowerShellDelegateBuilder
             {
                 // client disconnected – nothing to send
             }
+            catch (ParameterBindingException pbaex)
+            {
+                var fqid = pbaex.ErrorRecord?.FullyQualifiedErrorId;
+                var cat = pbaex.ErrorRecord?.CategoryInfo?.Category;
+                // Log parameter binding errors with preview of code
+                log.Error("PowerShell parameter binding error ({Category}/{FQID}) - {Preview}",
+                    cat, fqid, code[..Math.Min(40, code.Length)]);
+                // Return 400 Bad Request for parameter binding errors
+                context.Response.StatusCode = StatusCodes.Status400BadRequest;
+                context.Response.ContentType = "text/plain; charset=utf-8";
+                await context.Response.WriteAsync("Invalid request parameters.");
+            }
             catch (Exception ex)
             {
                 // If we have exception options, set a 500 status code and generic message.

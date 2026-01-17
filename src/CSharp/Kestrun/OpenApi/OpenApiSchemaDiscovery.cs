@@ -18,7 +18,7 @@ public static class OpenApiSchemaDiscovery
         return new OpenApiComponentSet
         {
             SchemaTypes = GetSchemaTypes(assemblies),
-            RequestBodyTypes = GetTypesWithAttribute(assemblies, typeof(OpenApiRequestBodyComponent)),
+            RequestBodyTypes = GetTypesWithAttribute(assemblies, typeof(OpenApiRequestBodyComponentAttribute)),
 #if EXTENDED_OPENAPI
             ResponseTypes = GetTypesWithAttribute(assemblies, typeof(OpenApiResponseComponentAttribute)),
             ParameterTypes = GetTypesWithAttribute(assemblies, typeof(OpenApiParameterComponentAttribute)),

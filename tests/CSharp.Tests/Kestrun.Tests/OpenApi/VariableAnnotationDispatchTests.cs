@@ -93,11 +93,12 @@ public class VariableAnnotationDispatchTests
 
     [Fact]
     [Trait("Category", "OpenAPI")]
-    public void DispatchComponentAnnotations_ThrowsIfPowerShellAttributeAppearsBeforeParameterComponent()
+    public void ProcessVariableAnnotations_DoesNotThrowWhenPowerShellAttributeAppearsBeforeParameterComponent()
     {
         using var host = new KestrunHost("Tests", Logger);
         var descriptor = new OpenApiDocDescriptor(host, "test-doc");
         descriptor.Document.Components ??= new OpenApiComponents();
+        descriptor.Document.Components.Parameters ??= new Dictionary<string, IOpenApiParameter>(StringComparer.Ordinal);
 
         var annotated = new OpenApiComponentAnnotationScanner.AnnotatedVariable("limit")
         {
@@ -114,9 +115,17 @@ public class VariableAnnotationDispatchTests
             ["limit"] = annotated
         };
 
-        var ex = Assert.Throws<TargetInvocationException>(() => InvokeProcessVariableAnnotations(descriptor, dict));
-        Assert.NotNull(ex.InnerException);
-        _ = Assert.IsType<InvalidOperationException>(ex.InnerException);
+        // Current behavior: standalone PowerShell constraints that appear before the parameter component
+        // are ignored (they have nothing to attach to) and no exception is thrown.
+        InvokeProcessVariableAnnotations(descriptor, dict);
+
+        Assert.NotNull(descriptor.Document.Components.Parameters);
+
+        Assert.True(descriptor.Document.Components.Parameters.TryGetValue("limit", out var limitParam));
+
+        var param = Assert.IsType<OpenApiParameter>(limitParam);
+        var schema = Assert.IsType<OpenApiSchema>(param.Schema);
+        Assert.Null(schema.Minimum);
     }
 
     [Fact]

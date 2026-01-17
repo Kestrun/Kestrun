@@ -112,10 +112,10 @@ public partial class OpenApiDocDescriptor
                         ApplyResponseRefAttribute(openApiMetadata, responseRef);
                         break;
                     case OpenApiResponseAttribute responseAttr:
-                        ApplyResponseAttribute(openApiMetadata, responseAttr);
+                        ApplyResponseAttribute(openApiMetadata, responseAttr, routeOptions);
                         break;
                     case OpenApiResponseExampleRefAttribute responseAttr:
-                        ApplyResponseAttribute(openApiMetadata, responseAttr);
+                        ApplyResponseAttribute(openApiMetadata, responseAttr, routeOptions);
                         break;
                     case OpenApiResponseLinkRefAttribute linkRefAttr:
                         ApplyResponseLinkAttribute(openApiMetadata, linkRefAttr);
@@ -338,14 +338,72 @@ public partial class OpenApiDocDescriptor
     /// </summary>
     /// <param name="metadata">The OpenAPI metadata to update.</param>
     /// <param name="attribute">The OpenApiResponse attribute containing response details.</param>
-    private void ApplyResponseAttribute(OpenAPIPathMetadata metadata, IOpenApiResponseAttribute attribute)
+    /// <param name="routeOptions">The route options to update.</param>
+    private void ApplyResponseAttribute(OpenAPIPathMetadata metadata, IOpenApiResponseAttribute attribute, MapRouteOptions routeOptions)
     {
         metadata.Responses ??= [];
         var response = metadata.Responses.TryGetValue(attribute.StatusCode, out var value) ? value as OpenApiResponse : new OpenApiResponse();
         if (response is not null && CreateResponseFromAttribute(attribute, response))
         {
             _ = metadata.Responses.TryAdd(attribute.StatusCode, response);
+            if (routeOptions.DefaultResponseContentType is null)
+            {
+                var defaultStatusCode = SelectDefaultSuccessResponse(metadata.Responses);
+                if (defaultStatusCode is not null && metadata.Responses.TryGetValue(defaultStatusCode, out var defaultResponse) &&
+                    defaultResponse.Content is not null && defaultResponse.Content.Count > 0)
+                {
+                    routeOptions.DefaultResponseContentType =
+                        defaultResponse.Content.Keys.First();
+                }
+            }
         }
+    }
+
+    /// <summary>
+    /// Selects the default success response (2xx) from the given OpenApiResponses.
+    /// </summary>
+    /// <param name="responses">The collection of OpenApiResponses to select from.</param>
+    /// <returns>The status code of the default success response, or null if none found.</returns>
+    private static string? SelectDefaultSuccessResponse(OpenApiResponses responses)
+    {
+        return responses
+            .Select(kvp => new
+            {
+                StatusCode = kvp.Key,
+                Code = TryParseStatusCode(kvp.Key),
+                Response = kvp.Value
+            })
+            .Where(x =>
+                x.Code is >= 200 and < 300 &&
+                HasContent(x.Response))
+            .OrderBy(x => x.Code)
+            .Select(x => x.StatusCode)
+            .FirstOrDefault();
+    }
+
+    /// <summary>
+    /// Tries to parse the given status code string into an integer.
+    /// </summary>
+    /// <param name="statusCode">The status code as a string.</param>
+    /// <returns>The parsed integer status code, or -1 if parsing fails.</returns>
+    private static int TryParseStatusCode(string statusCode)
+        => int.TryParse(statusCode, out var code) ? code : -1;
+
+    /// <summary>
+    /// Determines if the given response has content defined.
+    /// </summary>
+    /// <param name="response">The OpenAPI response to check for content.</param>
+    /// <returns>True if the response has content; otherwise, false.</returns>
+    private static bool HasContent(IOpenApiResponse response)
+    {
+        // If your concrete type is OpenApiResponse (common), this is the easiest path:
+        if (response is OpenApiResponse r)
+        {
+            return r.Content is not null && r.Content.Count > 0;
+        }
+
+        // Otherwise, we can't reliably know. Be conservative:
+        return false;
     }
 
     /// <summary>
@@ -543,10 +601,14 @@ public partial class OpenApiDocDescriptor
         metadata.Parameters ??= [];
         routeOptions.ScriptCode.Parameters ??= [];
 
-        var componentParameter = GetParameter(attribute.ReferenceId);
+        if (!TryGetParameterItem(attribute.ReferenceId, out var componentParameter, out var isInline) ||
+             componentParameter is null)
+        {
+            throw new InvalidOperationException($"Parameter component with ID '{attribute.ReferenceId}' not found.");
+        }
         IOpenApiParameter parameter;
 
-        if (attribute.Inline)
+        if (attribute.Inline || isInline)
         {
             parameter = componentParameter.Clone();
             if (componentParameter.Name != paramInfo.Name)
@@ -626,7 +688,7 @@ public partial class OpenApiDocDescriptor
     /// Thrown when the ReferenceId is not specified and the parameter type is 'object',
     /// or when the ReferenceId does not match the parameter type name.
     /// </exception>
-    private static string ResolveRequestBodyReferenceId(OpenApiRequestBodyRefAttribute attribute, ParameterMetadata paramInfo)
+    private string ResolveRequestBodyReferenceId(OpenApiRequestBodyRefAttribute attribute, ParameterMetadata paramInfo)
     {
         if (string.IsNullOrWhiteSpace(attribute.ReferenceId))
         {
@@ -639,10 +701,81 @@ public partial class OpenApiDocDescriptor
         }
         else if (paramInfo.ParameterType.Name != "Object" && attribute.ReferenceId != paramInfo.ParameterType.Name)
         {
-            throw new InvalidOperationException($"ReferenceId '{attribute.ReferenceId}' is different from parameter type name '{paramInfo.ParameterType.Name}'.");
+            return FindReferenceIdForParameter(attribute.ReferenceId, paramInfo);
+        }
+        // Return the reference ID as is
+        return attribute.ReferenceId;
+    }
+
+    /// <summary>
+    /// Finds and validates the reference ID for a request body parameter.
+    /// </summary>
+    /// <param name="referenceId">The reference ID to validate.</param>
+    /// <param name="paramInfo">The parameter metadata.</param>
+    /// <returns>The validated reference ID.</returns>
+    /// <exception cref="InvalidOperationException">Thrown when the reference ID does not match the parameter type name.</exception>
+    private string FindReferenceIdForParameter(string referenceId, ParameterMetadata paramInfo)
+    {
+        // Ensure the reference ID exists and has a schema
+        if (!TryGetFirstRequestBodySchema(referenceId, out var schema))
+        {
+            throw new InvalidOperationException(
+                $"Request body component with ReferenceId '{referenceId}' was not found or does not define a schema.");
+        }
+        // Validate that the schema matches the parameter type
+        if (!IsRequestBodySchemaMatchForParameter(schema, paramInfo.ParameterType))
+        {
+            throw new InvalidOperationException(
+                $"Schema for request body component '{referenceId}' does not match parameter type '{paramInfo.ParameterType.Name}'.");
+        }
+        // return the validated reference ID
+        return referenceId;
+    }
+
+    /// <summary>
+    /// Attempts to retrieve the first schema defined on a request body component.
+    /// </summary>
+    /// <param name="referenceId">The request body component reference ID.</param>
+    /// <param name="schema">The extracted schema when available.</param>
+    /// <returns><see langword="true"/> if a non-null schema is found; otherwise <see langword="false"/>.</returns>
+    private bool TryGetFirstRequestBodySchema(string referenceId, out IOpenApiSchema schema)
+    {
+        schema = null!;
+
+        if (!TryGetRequestBodyItem(referenceId, out var requestBody, out _))
+        {
+            return false;
         }
 
-        return attribute.ReferenceId;
+        if (requestBody?.Content is null || requestBody.Content.Count == 0)
+        {
+            return false;
+        }
+
+        schema = requestBody.Content.First().Value.Schema!;
+        return schema is not null;
+    }
+
+    /// <summary>
+    /// Determines whether a request-body schema matches a given CLR parameter type.
+    /// </summary>
+    /// <param name="schema">The schema declared for the request body.</param>
+    /// <param name="parameterType">The CLR parameter type being validated.</param>
+    /// <returns><see langword="true"/> if the schema matches the parameter type; otherwise <see langword="false"/>.</returns>
+    private static bool IsRequestBodySchemaMatchForParameter(IOpenApiSchema schema, Type parameterType)
+    {
+        if (schema is OpenApiSchemaReference schemaRef)
+        {
+            return schemaRef.Reference.Id == parameterType.Name;
+        }
+
+        if (schema is OpenApiSchema inlineSchema && PrimitiveSchemaMap.TryGetValue(parameterType, out var valueType))
+        {
+            var expected = valueType();
+            return inlineSchema.Format == expected.Format && inlineSchema.Type == expected.Type;
+        }
+
+        return false;
     }
 
     /// <summary>

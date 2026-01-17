@@ -157,4 +157,72 @@ public partial class OpenApiDocDescriptor
         PowerShellAttributes.ApplyPowerShellAttributes(p, prim);
         return prim;
     }
+
+    /// <summary>
+    /// Gets or creates an OpenAPI schema item in either inline or document components.
+    /// </summary>
+    /// <param name="schemaName">The name of the schema.</param>
+    /// <param name="inline">Whether to use inline components or document components.</param>
+    /// <returns>The OpenApiSchema item.</returns>
+    private OpenApiSchema GetOrCreateSchemaItem(string schemaName, bool inline)
+    {
+        IDictionary<string, IOpenApiSchema> schema;
+        // Determine whether to use inline components or document components
+        if (inline)
+        {
+            // Use inline components
+            InlineComponents.Schemas ??= new Dictionary<string, IOpenApiSchema>(StringComparer.Ordinal);
+            schema = InlineComponents.Schemas;
+        }
+        else
+        {
+            // Use document components
+            Document.Components ??= new OpenApiComponents();
+            Document.Components.Schemas ??= new Dictionary<string, IOpenApiSchema>(StringComparer.Ordinal);
+            schema = Document.Components.Schemas;
+        }
+        // Retrieve or create the request body item
+        if (!schema.TryGetValue(schemaName, out var openApiSchemaItem) || openApiSchemaItem is null)
+        {
+            // Create a new OpenApiSchema if it doesn't exist
+            openApiSchemaItem = new OpenApiSchema();
+            schema[schemaName] = openApiSchemaItem;
+        }
+        // return the request body item
+        return (OpenApiSchema)openApiSchemaItem;
+    }
+
+    /// <summary>
+    /// Tries to get a schema by name from either inline or document components.
+    /// </summary>
+    /// <param name="schemaName">The name of the schema to retrieve.</param>
+    /// <param name="schema">The retrieved schema if found; otherwise, null.</param>
+    /// <param name="isInline">Indicates whether the schema was found in inline components.</param>
+    /// <returns>True if the schema was found; otherwise, false.</returns>
+    private bool TryGetSchemaItem(string schemaName, out OpenApiSchema? schema, out bool isInline)
+    {
+        if (TryGetInline(name: schemaName, kind: OpenApiComponentKind.Schemas, out schema))
+        {
+            isInline = true;
+            return true;
+        }
+        else if (TryGetComponent(name: schemaName, kind: OpenApiComponentKind.Schemas, out schema))
+        {
+            isInline = false;
+            return true;
+        }
+        schema = null;
+        isInline = false;
+        return false;
+    }
+
+    /// <summary>
+    /// Tries to get a schema by name from either inline or document components.
+    /// </summary>
+    /// <param name="schemaName">The name of the schema to retrieve.</param>
+    /// <param name="schema">The retrieved schema if found; otherwise, null.</param>
+    /// <returns>True if the schema was found; otherwise, false.</returns>
+    private bool TryGetSchemaItem(string schemaName, out OpenApiSchema? schema) =>
+    TryGetSchemaItem(schemaName, out schema, out _);
 }
+

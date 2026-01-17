@@ -131,6 +131,8 @@ New-KrOpenApiExample -Summary 'Sort by price example' -Value 'price' |
     Add-KrOpenApiInline -Name 'SortByPriceExample'
 
 # Query params (create)
+[OpenApiParameterComponent(In = 'Header', Description = 'Filter by category item')]
+[CategoryItem]$myCategory = NoDefault
 
 # Header params
 [OpenApiParameterComponent(In = 'Header', Description = 'Correlation id for tracing a request through logs.')]
@@ -181,6 +183,7 @@ New-KrOpenApiExample -Summary 'Sort by price example' -Value 'price' |
 [OpenApiParameterComponent(In = 'Query', Description = 'Include per-category product counts.', Example = $true)]
 [bool]$includeCounts = $true
 
+
 # =========================================================
 #                 SHARED IN-MEMORY STORE
 # =========================================================
@@ -195,14 +198,20 @@ $Products[3] = [ProductItem]@{ id = 3; name = 'Keyboard'; category = 'accessorie
 $Products[4] = [ProductItem]@{ id = 4; name = 'Monitor'; category = 'electronics'; price = 299.99; tags = @('4k') }
 $Products[5] = [ProductItem]@{ id = 5; name = 'Desk Lamp'; category = 'office'; price = 49.99; tags = @('led') }
 
+# ========================================================
+Enable-KrConfiguration
+
+# =========================================================
+#                OPENAPI DOC ROUTE / BUILD
+# =========================================================
+
+Add-KrOpenApiRoute
+Add-KrApiDocumentationRoute -DocumentType Swagger
+Add-KrApiDocumentationRoute -DocumentType Redoc
+
 # =========================================================
 #                 ROUTES / OPERATIONS
 # =========================================================
-
-Enable-KrConfiguration
-
-Add-KrApiDocumentationRoute -DocumentType Swagger
-Add-KrApiDocumentationRoute -DocumentType Redoc
 
 <#
 .SYNOPSIS
@@ -227,6 +236,10 @@ function listProducts {
     [OpenApiResponse(StatusCode = '200', Description = 'List of products', Schema = [ProductListResponse], ContentType = ('application/json', 'application/xml'))]
     [OpenApiResponse(StatusCode = '400', Description = 'Invalid parameters')]
     param(
+
+        [OpenApiParameterRef(ReferenceId = 'myCategory')]
+        [CategoryItem]$myCategory,
+
         [OpenApiParameterRef(ReferenceId = 'correlationId')]
         [string]$correlationId,
 
@@ -254,10 +267,10 @@ function listProducts {
         [OpenApiParameterRef(ReferenceId = 'maxPrice')]
         [double]$maxPrice
     )
-
     if (-not [string]::IsNullOrWhiteSpace($correlationId)) {
         $Context.Response.Headers['correlationId'] = $correlationId
     }
+    Expand-KrObject -InputObject $myCategory -Label 'My Category Parameter'
     write-KrLog -Level Debug -Message 'TenantId: {tenantId}' -Values $tenantId
     Expand-KrObject -InputObject $clientContext -Label 'Client Context'
     # Read shared store
@@ -323,6 +336,7 @@ function listProducts {
 .PARAMETER productId
     Product id (path parameter component).
 #>
+
 function getProduct {
     [OpenApiPath(HttpVerb = 'get', Pattern = '/v1/products/{productId}', Summary = 'Get product')]
     [OpenApiResponse(StatusCode = '200', Description = 'The product', Schema = [ProductItem], ContentType = ('application/json', 'application/xml'))]
@@ -341,8 +355,9 @@ function getProduct {
     if (-not [string]::IsNullOrWhiteSpace($correlationId)) {
         $Context.Response.Headers['correlationId'] = $correlationId
     }
-
-    $item = NoDefault
+    Write-KrLog -Level Debug -Message 'TenantId: {tenantId}' -Values $tenantId
+    # Read shared store
+    $item = $null
     if (-not $Products.TryGetValue($productId, [ref]$item)) {
         Write-KrResponse ([ErrorResponse]@{ message = 'Product not found' }) -StatusCode 404
         return
@@ -361,6 +376,7 @@ function getProduct {
 .PARAMETER dryRun
     If true, validates the request but does not persist.
 #>
+
 function createProduct {
     [OpenApiPath(HttpVerb = 'post', Pattern = '/v1/products', Summary = 'Create product')]
     [OpenApiResponse(StatusCode = '201', Description = 'Created product', Schema = [ProductItem], ContentType = ('application/json', 'application/xml'))]
@@ -455,14 +471,10 @@ function listCategories {
         }
     }
 
+    Expand-KrObject -InputObject $items -Label 'Category Items'
+
     Write-KrResponse ([CategoryListResponse]@{ items = $items }) -StatusCode 200
 }
-
-# =========================================================
-#                OPENAPI DOC ROUTE / BUILD
-# =========================================================
-
-Add-KrOpenApiRoute
 
 # =========================================================
 #                      RUN SERVER

@@ -144,11 +144,6 @@ class LineItem {
 class LineItemList : LineItem {}
 
 [OpenApiSchemaComponent(Description = 'Ticket purchase request.', RequiredProperties = ('customer', 'items', 'visitDates'))]
-[OpenApiRequestBodyComponent(
-    Description = 'Ticket purchase request payload.',
-    Required = $true,
-    ContentType = ('application/json', 'application/xml', 'application/yaml', 'application/x-www-form-urlencoded')
-)]
 class PurchaseRequest {
     [OpenApiProperty(Description = 'Customer details.')]
     [Person]$customer
@@ -236,6 +231,7 @@ function listEmployees {
 }
 
 # POST endpoint: Purchase tickets (nested objects + array wrappers)
+
 <#
 .SYNOPSIS
     Purchase tickets.
@@ -249,8 +245,12 @@ function purchaseTickets {
     [OpenApiResponse(StatusCode = '201', Description = 'Created', Schema = [PurchaseResponse], ContentType = ('application/json', 'application/xml', 'application/yaml'))]
     [OpenApiResponse(StatusCode = '400', Description = 'Invalid input', Schema = [ErrorResponse], ContentType = ('application/json', 'application/xml', 'application/yaml'))]
     param(
-        [OpenApiRequestBodyRef(ReferenceId = 'PurchaseRequest')]
-        $body
+        [OpenApiRequestBody(
+            Description = 'Ticket purchase request payload.',
+            Required = $true,
+            ContentType = ('application/json', 'application/xml', 'application/yaml', 'application/x-www-form-urlencoded')
+        )]
+        [PurchaseRequest]$body
     )
 
     if ($null -eq $body -or $null -eq $body.customer -or -not $body.customer.email) {
@@ -287,7 +287,12 @@ function purchaseTickets {
 Add-KrOpenApiRoute
 
 Build-KrOpenApiDocument
-Test-KrOpenApiDocument
+# Test and log OpenAPI document validation result
+if (Test-KrOpenApiDocument) {
+    Write-KrLog -Level Information -Message 'OpenAPI document built and validated successfully.'
+} else {
+    Write-KrLog -Level Error -Message 'OpenAPI document validation failed.'
+}
 
 # =========================================================
 #                      RUN SERVER

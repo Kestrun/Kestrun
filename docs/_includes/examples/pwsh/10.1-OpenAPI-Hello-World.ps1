@@ -21,8 +21,6 @@ Add-KrOpenApiInfo -Title 'Hello World API' `
     -Description 'A simple OpenAPI 3.1 example with a single endpoint.'
 
 Add-KrOpenApiContact -Email 'support@example.com'
-# Add Server info
-Add-KrOpenApiServer -Url "http://$($IPAddress):$Port" -Description 'Local Server'
 
 # =========================================================
 #                 ROUTES / OPERATIONS

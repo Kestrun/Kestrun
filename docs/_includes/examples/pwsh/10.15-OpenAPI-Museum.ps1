@@ -57,7 +57,7 @@ Add-KrOpenApiTag -Name 'Tickets' -Description 'Museum tickets for general entran
 #endregion
 #region Extensions
 $extensions = @{
-    "x-tagGroups" = [ordered]@(
+    "x-tagGroups" = @(
     [ordered]@{
     'name' = 'Plan your visit'
     'tags' = @('Operations', 'Events')

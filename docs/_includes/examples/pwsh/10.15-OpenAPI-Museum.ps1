@@ -28,9 +28,17 @@ Add-KrEndpoint -Port $Port -IPAddress $IPAddress
 
 Add-KrOpenApiInfo -Title 'Redocly Museum API' `
     -Version '1.1.1' `
-    -Description 'Imaginary, but delightful Museum API for interacting with museum services and information. Built with love by Redocly.'
+    -Description 'An imaginary, but delightful Museum API for interacting with museum services and information. Built with love by Redocly.'
 
-Add-KrOpenApiContact -Email 'team@redocly.com' -Url 'https://redocly.com/docs/cli/'
+Add-KrOpenApiContact -Email 'team@redocly.com' -Url 'https://redocly.com/docs/cli/' -Extensions (
+    [ordered]@{
+        'x-logo' = [ordered]@{
+            'url' = 'https://redocly.github.io/redoc/museum-logo.png'
+            'altText' = 'Museum logo'
+        }
+    })
+
+
 Add-KrOpenApiLicense -Name 'MIT' -Url 'https://opensource.org/license/mit/'
 
 # TODO: info.x-logo is not modeled yet (url + altText). Add an extension attribute when available.
@@ -438,21 +446,21 @@ New-KrOpenApiExample -Summary 'Get hours response' -Value $museumHoursValue |
 
 [OpenApiParameterComponent(In = 'Query',
     Description = 'The number of days per page.')]
-[int]$paginationLimit = NoDefault
+[int]$PaginationLimit = NoDefault
 
 [OpenApiParameterComponent(In = 'Query', Description = 'The page number to retrieve.')]
-[int]$paginationPage = NoDefault
+[int]$PaginationPage = NoDefault
 
 [OpenApiParameterComponent(In = 'Query',
     Description = "The starting date to retrieve future operating hours from. Defaults to today's date." )]
-[OpenApiDate]$startDate = NoDefault
+[OpenApiDate]$StartDate = NoDefault
 
 [OpenApiParameterComponent(In = 'Path', Required = $true,
     Description = 'An identifier for a special event.', Example = 'dad4bce8-f5cb-4078-a211-995864315e39')]
 [guid]$eventId = NoDefault
 
 [OpenApiParameterComponent(In = 'Query',
-    Description = 'The end of a date range to retrieve special events for. Defaults to 7 days after startDate.')]
+    Description = 'The end of a date range to retrieve special events for. Defaults to 7 days after StartDate.')]
 [OpenApiDate]$endDate = NoDefault
 
 [OpenApiParameterComponent(In = 'Path', Required = $true,
@@ -512,7 +520,6 @@ function getMuseumHours {
     Get upcoming museum operating hours.
 #>
     [OpenApiPath(HttpVerb = 'get', Pattern = '/museum-hours', Tags = 'Operations')]
-
     [OpenApiResponse(StatusCode = '200', Schema = [GetMuseumHoursResponse] , Description = 'Success')]
     [OpenApiResponseExampleRef(StatusCode = '200', Key = 'default_example', ReferenceId = 'GetMuseumHoursResponseExample')]
     [OpenApiResponse(StatusCode = '400', Description = 'Bad request')]
@@ -520,22 +527,22 @@ function getMuseumHours {
     # TODO: 400/404 responses are inline in museum.yml; you could introduce response components and use OpenApiResponseRefAttribute.
 
     param(
-        [OpenApiParameterRef(ReferenceId = 'startDate')]
-        [datetime]$startDate,
+        [OpenApiParameterRef(ReferenceId = 'StartDate')]
+        [datetime]$StartDate,
 
-        [OpenApiParameterRef(ReferenceId = 'paginationPage')]
-        [int]$paginationPage = 1,
+        [OpenApiParameterRef(ReferenceId = 'PaginationPage')]
+        [int]$PaginationPage = 1,
 
-        [OpenApiParameterRef(ReferenceId = 'paginationLimit')]
-        [int]$paginationLimit = 10
+        [OpenApiParameterRef(ReferenceId = 'PaginationLimit')]
+        [int]$PaginationLimit = 10
     )
 
-    Write-Host "getMuseumHours called startDate='$startDate' page='$paginationPage' limit='$paginationLimit'"
+    Write-Host "getMuseumHours called StartDate='$StartDate' page='$PaginationPage' limit='$PaginationLimit'"
 
     # Dummy payload approximating GetMuseumHoursResponse: a plain array of MuseumDailyHours objects.
     $hours = @(
         [MuseumDailyHours]@{
-            date = $(if ($startDate) { $startDate } else { (Get-Date).ToString('yyyy-MM-dd') })
+            date = $(if ($StartDate) { $StartDate } else { (Get-Date).ToString('yyyy-MM-dd') })
             timeOpen = '09:00'
             timeClose = '18:00'
         }
@@ -589,7 +596,7 @@ function listSpecialEvents {
     List special events.
 .DESCRIPTION
     Return a list of upcoming special events at the museum.
-.PARAMETER startDate
+.PARAMETER StartDate
     The starting date to retrieve future special events from. Defaults to today's date.
 .PARAMETER endDate
     The ending date to retrieve future special events up to. Defaults to no end date.
@@ -609,7 +616,7 @@ function listSpecialEvents {
     param(
         [OpenApiParameter( In = [OaParameterLocation]::Query, Example = '2023-02-23')]
 
-        [DateTime]$startDate,
+        [DateTime]$StartDate,
 
         [OpenApiParameter( In = [OaParameterLocation]::Query, Example = '2023-04-18')]
         [DateTime]$endDate,
@@ -622,7 +629,7 @@ function listSpecialEvents {
         [int]$limit = 10
     )
 
-    Write-Host "listSpecialEvents called startDate='$startDate' endDate='$endDate' page='$page' limit='$limit'"
+    Write-Host "listSpecialEvents called StartDate='$StartDate' endDate='$endDate' page='$page' limit='$limit'"
     $specialEvent = [SpecialEventResponse]::new()
     $specialEvent.eventId = [Guid]::NewGuid().ToString()
     $specialEvent.name = 'Sample Event'

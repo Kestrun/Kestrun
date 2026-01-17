@@ -26,7 +26,15 @@ Add-KrEndpoint -Port $Port -IPAddress $IPAddress
 Add-KrOpenApiInfo -Title 'Document Info API' -Version '1.0.0' -Description 'Shows how to populate document metadata.' -Summary 'Document metadata demo' -TermsOfService 'https://example.com/terms'
 
 # Add contact and license information
-Add-KrOpenApiContact -Name 'API Support' -Email 'support@example.com' -Url 'https://example.com/support'
+Add-KrOpenApiContact -Name 'API Support' -Email 'support@example.com' -Url 'https://example.com/support' `
+    -Extensions ([ordered]@{
+        'x-contact-department' = 'Developer Relations'
+        'x-contact-hours' = '9am-5pm PST'
+        'x-logo' = [ordered]@{
+            'url' = 'https://redocly.github.io/redoc/museum-logo.png'
+            'altText' = 'Museum logo'
+        }
+    })
 Add-KrOpenApiLicense -Name 'Apache 2.0' -Identifier 'Apache-2.0'
 
 # Configure server endpoints with optional environment variable substitution

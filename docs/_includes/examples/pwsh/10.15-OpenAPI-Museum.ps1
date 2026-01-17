@@ -41,7 +41,7 @@ Add-KrOpenApiContact -Email 'team@redocly.com' -Url 'https://redocly.com/docs/cl
 
 Add-KrOpenApiLicense -Name 'MIT' -Url 'https://opensource.org/license/mit/'
 
-# Note: contact/logo metadata is expressed via `info.contact` vendor extensions (e.g. `x-logo`).
+# Note: contact/logo metadata is expressed via `info.contact` vendor extensions (e.g. `x-logo`) using the -Extensions parameter as shown above.
 
 # Tags
 Add-KrOpenApiTag -Name 'Operations' -Description 'Operational information about the museum.'  # x-displayName: About the museum

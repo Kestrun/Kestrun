@@ -55,7 +55,7 @@ public partial class OpenApiDocDescriptor
             tag.Kind = kind;
         }
 
-        tag.Extensions = NormalizeExtensions(extensions);
+        tag.Extensions = BuildExtensions(extensions);
 
         return tag;
     }

@@ -352,6 +352,11 @@
           "404": {
             "description": "Not found"
           }
+        },
+        "x-badges": {
+          "name": "Beta",
+          "position": "before",
+          "color": "purple"
         }
       }
     },
@@ -1036,16 +1041,47 @@
   },
   "tags": [
     {
+      "name": "Plan your visit",
+      "description": "Group for visit planning endpoints.",
+      "x-oas-kind": "nav"
+    },
+    {
+      "name": "Purchases",
+      "description": "Group for purchase-related endpoints.",
+      "x-oas-kind": "nav"
+    },
+    {
       "name": "Operations",
-      "description": "Operational information about the museum."
+      "description": "Operational information about the museum.",
+      "x-oas-parent": "Plan your visit",
+      "x-displayName": "About the museum"
     },
     {
       "name": "Events",
-      "description": "Special events hosted by the Museum."
+      "description": "Special events hosted by the Museum.",
+      "x-oas-parent": "Plan your visit",
+      "x-displayName": "Upcoming events"
     },
     {
       "name": "Tickets",
-      "description": "Museum tickets for general entrance or special events."
+      "description": "Museum tickets for general entrance or special events.",
+      "x-oas-parent": "Purchases",
+      "x-displayName": "Buy tickets"
+    }
+  ],
+  "x-tagGroups": [
+    {
+      "tags": [
+        "Operations",
+        "Events"
+      ],
+      "name": "Plan your visit"
+    },
+    {
+      "tags": [
+        "Tickets"
+      ],
+      "name": "Purchases"
     }
   ]
 }

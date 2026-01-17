@@ -16,7 +16,7 @@ public partial class OpenApiDocDescriptor
     /// <param name="extensions">Optional extensions for the external documentation.</param>
     /// <returns>An OpenApiExternalDocs object.</returns>
     /// <exception cref="ArgumentException">Thrown when the URL is null, empty, or whitespace.</exception>
-    public static OpenApiExternalDocs CreateExternalDocs(
+    public OpenApiExternalDocs CreateExternalDocs(
         Uri url,
         string? description = null,
         IDictionary? extensions = null)
@@ -25,7 +25,7 @@ public partial class OpenApiDocDescriptor
         {
             Url = url,
             Description = description,
-            Extensions = NormalizeExtensions(extensions)
+            Extensions = BuildExtensions(extensions)
         };
 
         return docs;
@@ -38,7 +38,7 @@ public partial class OpenApiDocDescriptor
     /// <param name="extensions">Optional extensions for the external documentation.</param>
     /// <returns>An OpenApiExternalDocs object.</returns>
     /// <exception cref="ArgumentException">Thrown when the URL is null, empty, or whitespace.</exception>
-    public static OpenApiExternalDocs CreateExternalDocs(
+    public OpenApiExternalDocs CreateExternalDocs(
             string url,
             string? description = null,
             IDictionary? extensions = null)
@@ -59,7 +59,7 @@ public partial class OpenApiDocDescriptor
     /// <param name="email">The email address of the contact person or organization.</param>
     /// <param name="extensions">Optional extensions for the contact information.</param>
     /// <returns>An OpenApiContact object.</returns>
-    public static OpenApiContact CreateInfoContact(
+    public OpenApiContact CreateInfoContact(
             string? name = null,
             Uri? url = null,
             string? email = null,
@@ -67,7 +67,7 @@ public partial class OpenApiDocDescriptor
     {
         var contact = new OpenApiContact
         {
-            Extensions = NormalizeExtensions(extensions)
+            Extensions = BuildExtensions(extensions)
         };
 
         if (url != null)

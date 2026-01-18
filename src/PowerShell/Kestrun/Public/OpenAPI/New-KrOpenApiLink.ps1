@@ -68,9 +68,6 @@ function New-KrOpenApiLink {
     begin {
         # Ensure the server instance is resolved
         $Server = Resolve-KestrunServer -Server $Server
-        if ($PSCmdlet.ParameterSetName -eq 'Schema' -and $null -ne $Schema) {
-            $Schema = Resolve-KrSchemaTypeLiteral -Schema $Schema
-        }
     }
     process {
         # Create header for the specified OpenAPI document

@@ -158,7 +158,6 @@ public partial class OpenApiDocDescriptor
     /// </summary>
     /// <param name="openApiMetadata">The OpenAPI metadata to which the extension will be applied.</param>
     /// <param name="extensionAttr">The OpenApiExtension attribute containing the extension data.</param>
-    /// <exception cref="InvalidOperationException">Thrown when the extension JSON is invalid or cannot be parsed.</exception>
     private void ApplyExtensionAttribute(OpenAPIPathMetadata openApiMetadata, OpenApiExtensionAttribute extensionAttr)
     {
         if (Host.Logger.IsEnabled(Serilog.Events.LogEventLevel.Debug))

@@ -1071,17 +1071,17 @@
   ],
   "x-tagGroups": [
     {
+      "name": "Plan your visit",
       "tags": [
         "Operations",
         "Events"
-      ],
-      "name": "Plan your visit"
+      ]
     },
     {
+      "name": "Purchases",
       "tags": [
         "Tickets"
-      ],
-      "name": "Purchases"
+      ]
     }
   ]
 }

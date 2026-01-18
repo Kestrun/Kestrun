@@ -6,8 +6,6 @@
 .PARAMETER Server
     The Kestrun server instance to which the OpenAPI external documentation will be associated.
     If not specified, the function will attempt to resolve the current server context.
-.PARAMETER DocId
-    An array of OpenAPI document IDs to which the external documentation will be associated. Default is 'default'.
 .PARAMETER Url
     A URI to the external documentation.
 .PARAMETER Description
@@ -36,9 +34,6 @@ function New-KrOpenApiExternalDoc {
         [Parameter(Mandatory = $false, ValueFromPipeline = $true)]
         [Kestrun.Hosting.KestrunHost]$Server,
 
-        [Parameter()]
-        [string[]]$DocId = [Kestrun.OpenApi.OpenApiDocDescriptor]::DefaultDocumentationIds,
-
         [Parameter(Mandatory = $true)]
         [Uri]$Url,
 
@@ -54,8 +49,9 @@ function New-KrOpenApiExternalDoc {
     }
     process {
         # Create external documentation for the specified OpenAPI document
-        $targetDocId = $DocId[0]
-        $docDescriptor = $Server.GetOrCreateOpenApiDocument($targetDocId)
-        return $docDescriptor.CreateExternalDocs($Url, $Description, $Extensions)
+        if ($Server.OpenApiDocumentDescriptor.Count -gt 0 ) {
+            $docDescriptor = $Server.DefaultOpenApiDocumentDescriptor
+            return $docDescriptor.CreateExternalDocs($Url, $Description, $Extensions)
+        }
     }
 }

@@ -75,7 +75,7 @@ function New-KrOpenApiExample {
         $Server = Resolve-KestrunServer -Server $Server
     }
     process {
-        # Create header for the specified OpenAPI document
+        # Create example for the specified OpenAPI document
         if ($Server.OpenApiDocumentDescriptor.Count -gt 0 ) {
             $docDescriptor = $Server.DefaultOpenApiDocumentDescriptor
 

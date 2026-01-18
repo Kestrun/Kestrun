@@ -68,7 +68,7 @@ public class OpenApiSchemaMethodsTests
 
     [Fact]
     [Trait("Category", "OpenAPI")]
-    public void BuildPropertySchema_EnumType_ReturnsEnumSchema()
+    public void BuildPropertySchema_EnumType_ReturnsSchemaReference()
     {
         // Arrange
         var property = typeof(TestClassWithProperties).GetProperty(nameof(TestClassWithProperties.Status))!;
@@ -77,11 +77,17 @@ public class OpenApiSchemaMethodsTests
         // Act
         var schema = InvokeBuildPropertySchema(property, built);
 
-        // Assert
-        var concreteSchema = Assert.IsAssignableFrom<OpenApiSchema>(schema);
-        Assert.Equal(JsonSchemaType.String, concreteSchema.Type);
-        Assert.NotNull(concreteSchema.Enum);
-        Assert.NotEmpty(concreteSchema.Enum);
+        // Assert - enums are now treated as schema components and referenced
+        var reference = Assert.IsAssignableFrom<OpenApiSchemaReference>(schema);
+        Assert.Equal("TestStatus", reference.Reference.Id);
+        
+        // Verify the enum component was registered in the document
+        Assert.True(_descriptor.Document.Components!.Schemas!.ContainsKey("TestStatus"));
+        var enumSchema = _descriptor.Document.Components.Schemas["TestStatus"] as OpenApiSchema;
+        Assert.NotNull(enumSchema);
+        Assert.Equal(JsonSchemaType.String, enumSchema.Type);
+        Assert.NotNull(enumSchema.Enum);
+        Assert.NotEmpty(enumSchema.Enum);
     }
 
     [Fact]
@@ -361,23 +367,28 @@ public class OpenApiSchemaMethodsTests
 
     #endregion
 
-    #region BuildEnumSchema Tests
+    #region RegisterEnumSchema Tests
 
     [Fact]
     [Trait("Category", "OpenAPI")]
-    public void BuildEnumSchema_CreatesSchemaWithEnumValues()
+    public void RegisterEnumSchema_RegistersEnumAsSchemaComponent()
     {
         // Arrange
-        var property = typeof(TestClassWithProperties).GetProperty(nameof(TestClassWithProperties.Status))!;
+        var enumType = typeof(TestStatus);
 
         // Act
-        var schema = InvokeBuildEnumSchema(typeof(TestStatus), property);
+        InvokeRegisterEnumSchema(enumType);
 
-        // Assert
+        // Assert - enum should be registered as a reusable component schema
+        Assert.True(_descriptor.Document.Components!.Schemas!.ContainsKey(enumType.Name));
+        var schema = _descriptor.Document.Components.Schemas[enumType.Name] as OpenApiSchema;
         Assert.NotNull(schema);
         Assert.Equal(JsonSchemaType.String, schema.Type);
         Assert.NotNull(schema.Enum);
         Assert.Equal(3, schema.Enum.Count);
+        Assert.Contains(schema.Enum, e => e?.GetValue<string>() == "None");
+        Assert.Contains(schema.Enum, e => e?.GetValue<string>() == "Active");
+        Assert.Contains(schema.Enum, e => e?.GetValue<string>() == "Inactive");
     }
 
     #endregion
@@ -423,7 +434,7 @@ public class OpenApiSchemaMethodsTests
 
     [Fact]
     [Trait("Category", "OpenAPI")]
-    public void BuildArraySchema_EnumElementType_ReturnsArraySchemaWithEnumItems()
+    public void BuildArraySchema_EnumElementType_ReturnsArraySchemaWithRefItems()
     {
         // Arrange
         var property = typeof(TestClassWithProperties).GetProperty(nameof(TestClassWithProperties.Statuses))!;
@@ -432,12 +443,19 @@ public class OpenApiSchemaMethodsTests
         // Act
         var schema = InvokeBuildArraySchema(property.PropertyType, property, built);
 
-        // Assert
+        // Assert - enum arrays now use schema references for items
         Assert.NotNull(schema);
         Assert.Equal(JsonSchemaType.Array, schema.Type);
         Assert.NotNull(schema.Items);
-        var items = Assert.IsAssignableFrom<OpenApiSchema>(schema.Items);
-        Assert.NotNull(items.Enum);
+        var itemsRef = Assert.IsAssignableFrom<OpenApiSchemaReference>(schema.Items);
+        Assert.Equal("TestStatus", itemsRef.Reference.Id);
+        
+        // Verify the enum component was registered in the document
+        Assert.True(_descriptor.Document.Components!.Schemas!.ContainsKey("TestStatus"));
+        var enumSchema = _descriptor.Document.Components.Schemas["TestStatus"] as OpenApiSchema;
+        Assert.NotNull(enumSchema);
+        Assert.Equal(JsonSchemaType.String, enumSchema.Type);
+        Assert.NotNull(enumSchema.Enum);
     }
 
     #endregion
@@ -536,15 +554,6 @@ public class OpenApiSchemaMethodsTests
 
         object?[] parameters = [value, declaredType];
         return (bool)method.Invoke(null, parameters)!;
-    }
-
-    private static OpenApiSchema InvokeBuildEnumSchema(Type pt, PropertyInfo p)
-    {
-        var method = typeof(OpenApiDocDescriptor)
-            .GetMethod("BuildEnumSchema", BindingFlags.NonPublic | BindingFlags.Static)!;
-
-        object[] parameters = [pt, p];
-        return (OpenApiSchema)method.Invoke(null, parameters)!;
     }
 
     private OpenApiSchema InvokeBuildArraySchema(Type pt, PropertyInfo p, HashSet<Type> built)

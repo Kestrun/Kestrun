@@ -70,8 +70,7 @@ public partial class OpenApiDocDescriptor
 
         if (t.IsEnum)
         {
-            RegisterEnumSchema(t);
-            return schema;
+            return RegisterEnumSchema(t);
         }
         // Extensions
         ProcessExtensions(t, schema);
@@ -399,16 +398,21 @@ public partial class OpenApiDocDescriptor
     /// <summary>
     /// Registers an enum type schema in the document components.
     /// </summary>
-    private void RegisterEnumSchema(Type enumType)
+    /// <returns>The registered enum schema.</returns>
+    private OpenApiSchema RegisterEnumSchema(Type enumType)
     {
+        var enumSchema = new OpenApiSchema
+        {
+            Type = JsonSchemaType.String,
+            Enum = [.. enumType.GetEnumNames().Select(n => (JsonNode)n)]
+        };
+        
         if (Document.Components?.Schemas is not null)
         {
-            Document.Components.Schemas[enumType.Name] = new OpenApiSchema
-            {
-                Type = JsonSchemaType.String,
-                Enum = [.. enumType.GetEnumNames().Select(n => (JsonNode)n)]
-            };
+            Document.Components.Schemas[enumType.Name] = enumSchema;
         }
+        
+        return enumSchema;
     }
 
     /// <summary>

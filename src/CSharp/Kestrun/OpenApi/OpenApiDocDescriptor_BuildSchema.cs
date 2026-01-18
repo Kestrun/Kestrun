@@ -48,16 +48,14 @@ public partial class OpenApiDocDescriptor
         {
             schema = getSchema();
         }
-        else if (pt.IsEnum)
+        else if (pt.IsArray)
         {
-            schema = BuildEnumSchema(pt, p);
+            schema = BuildArraySchema(pt, p, built);
         }
         else
         {
-            schema = pt.IsArray
-                ? BuildArraySchema(pt, p, built)
-                // Complex type
-                : BuildComplexTypeSchema(pt, p, built);
+            // Treat enums and complex types the same: register as component and reference
+            schema = BuildComplexTypeSchema(pt, p, built);
         }
 #pragma warning restore IDE0045
         // Convert to conditional expression
@@ -124,15 +122,9 @@ public partial class OpenApiDocDescriptor
         }
         else
         {
-            if (!item.IsEnum)
-            {
-                BuildSchema(item, built); // ensure component exists
-                itemSchema = new OpenApiSchemaReference(item.Name);
-            }
-            else
-            {
-                itemSchema = BuildEnumSchema(item, p);
-            }
+            // Treat enums and complex types the same: register as component and reference
+            BuildSchema(item, built); // ensure component exists
+            itemSchema = new OpenApiSchemaReference(item.Name);
         }
         var s = new OpenApiSchema
         {

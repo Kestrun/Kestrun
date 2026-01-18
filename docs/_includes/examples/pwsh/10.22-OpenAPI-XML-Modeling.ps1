@@ -73,7 +73,6 @@ Enable-KrConfiguration
 Add-KrApiDocumentationRoute -DocumentType Swagger
 Add-KrApiDocumentationRoute -DocumentType Redoc
 
-# GET endpoint: Return a product by ID
 <#
 .SYNOPSIS
     Get product by ID.
@@ -81,6 +80,8 @@ Add-KrApiDocumentationRoute -DocumentType Redoc
     Returns a product with XML-specific serialization.
 .PARAMETER id
     Product identifier.
+.NOTES
+    GET endpoint: Return a product by ID
 #>
 function getProduct {
     [OpenApiPath(HttpVerb = 'get', Pattern = '/products/{id}')]
@@ -115,7 +116,6 @@ function getProduct {
     Write-KrResponse $product -StatusCode 200
 }
 
-# POST endpoint: Create a new product
 <#
 .SYNOPSIS
     Create a new product.
@@ -123,6 +123,8 @@ function getProduct {
     Accepts a product payload and returns the created product.
 .PARAMETER body
     Product data.
+.NOTES
+    POST endpoint: Create a new product
 #>
 function createProduct {
     [OpenApiPath(HttpVerb = 'post', Pattern = '/products')]

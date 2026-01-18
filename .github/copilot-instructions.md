@@ -538,15 +538,44 @@ Common URLs when running examples:
 
 - Prefer `Add-KrOpenApiTag` for tag definitions under `tags[]`.
 - For OpenAPI 3.2 hierarchical tags, use `-Parent` and `-Kind`.
-- Use `-Extensions` to add `x-*` fields to tags (keys are normalized to the required `x-` prefix when missing).
+- Use `-Extensions` to add `x-*` fields to tags (extension keys **must** start with `x-`; invalid keys are skipped with a warning).
 - For **document-level** external documentation, use `Add-KrOpenApiExternalDoc` and pass `-Extensions` when needed.
 - For **tag-level** external documentation with extensions, create the object via `New-KrOpenApiExternalDoc -Extensions $extensions` and pass it via `Add-KrOpenApiTag -ExternalDocs`.
+
+### Vendor extensions (x-*)
+
+Kestrun supports OpenAPI vendor extensions (`x-*`) in multiple places.
+
+- **Rule**: extension keys must start with `x-` (OpenAPI requirement). Keys without `x-` are ignored (warning logged).
+- **Null values**: null extension values are skipped.
+
+**Document-level extensions** (top-level `x-*` fields):
+
+```powershell
+$extensions = [ordered]@{
+  'x-tagGroups' = @(
+    @{ name = 'Common'; tags = @('operations') },
+    @{ name = 'Commerce'; tags = @('orders', 'orders.read') }
+  )
+}
+Add-KrOpenApiExtension -Extensions $extensions
+```
+
+**Operation-level extensions** (adds `x-*` fields on the OpenAPI operation):
+
+```powershell
+function getMuseumHours {
+  [OpenApiPath(HttpVerb = 'get', Pattern = '/museum-hours', Tags = 'operations')]
+  [OpenApiExtension('x-badges', '{"name":"Beta","position":"before","color":"purple"}')]
+  param()
+}
+```
 
 Example pattern (hierarchy + extensions):
 
 ```powershell
-$tagExt = [ordered]@{ 'x-displayName' = 'Orders'; 'owner' = 'commerce-team' }
-$docsExt = [ordered]@{ 'x-docType' = 'reference'; 'audience' = 'public' }
+$tagExt = [ordered]@{ 'x-displayName' = 'Orders'; 'x-owner' = 'commerce-team' }
+$docsExt = [ordered]@{ 'x-docType' = 'reference'; 'x-audience' = 'public' }
 
 $ordersDocs = New-KrOpenApiExternalDoc -Url 'https://example.com/orders' -Description 'Order docs' -Extensions $docsExt
 

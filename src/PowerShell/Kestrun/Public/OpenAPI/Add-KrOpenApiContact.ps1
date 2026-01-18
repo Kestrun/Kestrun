@@ -31,7 +31,7 @@
         'x-timezone' = 'PST'
     }
     Add-KrOpenApiContact -Name "Tech Support" -Email "techsupport@example.com" -Extensions $extensions
-    Adds contact information with the specified name, email, and extensions to the default OpenAPI document
+    Adds contact information with the specified name, email, and extensions to the default OpenAPI document.
 .NOTES
     This cmdlet is part of the OpenAPI module.
 #>
@@ -54,7 +54,7 @@ function Add-KrOpenApiContact {
         [string]$Email,
 
         [Parameter()]
-        [System.Collections.Specialized.OrderedDictionary]$Extensions = $null
+        [System.Collections.IDictionary]$Extensions = $null
     )
     begin {
         # Ensure the server instance is resolved
@@ -68,7 +68,7 @@ function Add-KrOpenApiContact {
                 # Initialize the Info object if null
                 $docDescriptor.Document.Info = [Microsoft.OpenApi.OpenApiInfo]::new()
             }
-            $docDescriptor.Document.Info.Contact = [Kestrun.OpenApi.OpenApiDocDescriptor]::CreateInfoContact($Name, $Url, $Email, $Extensions)
+            $docDescriptor.Document.Info.Contact = $docDescriptor.CreateInfoContact($Name, $Url, $Email, $Extensions)
         }
     }
 }

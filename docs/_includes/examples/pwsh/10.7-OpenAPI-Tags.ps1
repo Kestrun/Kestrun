@@ -31,14 +31,14 @@ Add-KrOpenApiInfo -Title 'Tags Demo API' -Version '1.0.0' -Description 'Demonstr
 $opsTagExtensions = [ordered]@{
     'x-displayName' = 'Operations'
     'x-sortOrder' = 1
-    'icon' = 'tools'
+    'x-icon' = 'tools'
 }
 
 $ordersTagExtensions = [ordered]@{
     'x-displayName' = 'Orders'
     'x-sortOrder' = 10
     'x-owner' = 'commerce-team'
-    'releaseStage' = 'beta'
+    'x-releaseStage' = 'beta'
 }
 
 $healthTagExtensions = [ordered]@{
@@ -49,14 +49,14 @@ $healthTagExtensions = [ordered]@{
 
 $ordersExternalDocsExtensions = [ordered]@{
     'x-docType' = 'reference'
-    'audience' = 'public'
+    'x-audience' = 'public'
 }
 
 $ordersExternalDocs = New-KrOpenApiExternalDoc -Description 'Order docs' -Url 'https://example.com/orders' -Extensions $ordersExternalDocsExtensions
 
 $apiPortalExtensions = [ordered]@{
     'x-docType' = 'portal'
-    'audience' = 'internal'
+    'x-audience' = 'internal'
     'x-owner' = 'api-platform'
 }
 

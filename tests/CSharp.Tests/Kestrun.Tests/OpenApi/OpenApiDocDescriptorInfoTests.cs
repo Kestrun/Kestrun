@@ -21,18 +21,18 @@ public sealed class OpenApiDocDescriptorInfoTests
 
         var extensions = new Hashtable
         {
-            ["contact-department"] = "Developer Relations",
+            ["x-contact-department"] = "Developer Relations",
             ["x-contact-hours"] = "9am-5pm PST",
             ["x-logo"] = new Hashtable
             {
                 ["url"] = "https://redocly.github.io/redoc/museum-logo.png",
                 ["altText"] = "Museum logo",
             },
-            ["nullValue"] = null,
+            ["x-nullValue"] = null,
             [" "] = "ignored",
         };
 
-        var contact = OpenApiDocDescriptor.CreateInfoContact(
+        var contact = d.CreateInfoContact(
             name: "API Support",
             url: new Uri("https://example.com/support", UriKind.Absolute),
             email: "support@example.com",

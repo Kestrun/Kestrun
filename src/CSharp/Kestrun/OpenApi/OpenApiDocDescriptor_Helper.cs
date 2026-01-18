@@ -1,4 +1,5 @@
 using System.Collections;
+using Kestrun.Logging;
 using Microsoft.OpenApi;
 
 namespace Kestrun.OpenApi;
@@ -93,7 +94,8 @@ public partial class OpenApiDocDescriptor
     /// </summary>
     /// <param name="extensions">The raw extensions dictionary to normalize.</param>
     /// <returns>A normalized dictionary of OpenAPI extensions, or null if no valid extensions exist.</returns>
-    private static Dictionary<string, IOpenApiExtension>? NormalizeExtensions(IDictionary? extensions)
+    private Dictionary<string, IOpenApiExtension>? BuildExtensions(
+    IDictionary? extensions)
     {
         if (extensions is null || extensions.Count == 0)
         {
@@ -110,14 +112,21 @@ public partial class OpenApiDocDescriptor
                 continue;
             }
 
-            // Enforce OpenAPI extension naming
-            var key = rawKey.StartsWith("x-", StringComparison.OrdinalIgnoreCase)
-                ? rawKey
-                : "x-" + rawKey;
+            string key;
+            if (rawKey.StartsWith("x-", StringComparison.Ordinal))
+            {
+                key = rawKey;
+            }
+            else
+            {
+                Host.Logger.WarningSanitized("OpenAPI extension '{rawKey}' is invalid. Extension names must start with 'x-'.", rawKey);
+                continue;
+            }
 
             var node = OpenApiJsonNodeFactory.ToNode(entry.Value);
             if (node is null)
             {
+                Host.Logger.WarningSanitized("OpenAPI extension '{key}' has a null value and will be skipped.", key);
                 continue;
             }
 

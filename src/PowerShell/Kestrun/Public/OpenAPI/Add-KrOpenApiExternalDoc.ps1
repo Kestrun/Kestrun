@@ -55,10 +55,10 @@ function Add-KrOpenApiExternalDoc {
         $Server = Resolve-KestrunServer -Server $Server
     }
     process {
-        # Add the server to the specified OpenAPI documents
+        # Add the external documentation to the specified OpenAPI documents
         foreach ($doc in $DocId) {
             $docDescriptor = $Server.GetOrCreateOpenApiDocument($doc)
-            $docDescriptor.Document.ExternalDocs = [Kestrun.OpenApi.OpenApiDocDescriptor]::CreateExternalDocs($Url, $Description, $Extensions)
+            $docDescriptor.Document.ExternalDocs = $docDescriptor.CreateExternalDocs($Url, $Description, $Extensions)
         }
     }
 }

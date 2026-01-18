@@ -25,7 +25,7 @@ Add-KrEndpoint -Port $Port -IPAddress $IPAddress
 # =========================================================
 #                 TOP-LEVEL OPENAPI (3.1.0)
 # =========================================================
-
+#region Info
 Add-KrOpenApiInfo -Title 'Redocly Museum API' `
     -Version '1.1.1' `
     -Description 'An imaginary, but delightful Museum API for interacting with museum services and information. Built with love by Redocly.'
@@ -42,14 +42,34 @@ Add-KrOpenApiContact -Email 'team@redocly.com' -Url 'https://redocly.com/docs/cl
 Add-KrOpenApiLicense -Name 'MIT' -Url 'https://opensource.org/license/mit/'
 
 # Note: contact/logo metadata is expressed via `info.contact` vendor extensions (e.g. `x-logo`) using the -Extensions parameter as shown above.
-
+#endregion
+#region Tags
+# =========================================================
+#                      TAG DEFINITIONS
+# =========================================================
 # Tags
-Add-KrOpenApiTag -Name 'Operations' -Description 'Operational information about the museum.'  # x-displayName: About the museum
-Add-KrOpenApiTag -Name 'Events' -Description 'Special events hosted by the Museum.'      # x-displayName: Upcoming events
-Add-KrOpenApiTag -Name 'Tickets' -Description 'Museum tickets for general entrance or special events.' # x-displayName: Buy tickets
+Add-KrOpenApiTag -Name 'Plan your visit' -Description 'Group for visit planning endpoints.' -Kind 'nav'
+Add-KrOpenApiTag -Name 'Purchases' -Description 'Group for purchase-related endpoints.' -Kind 'nav'
 
-# TODO: x-tagGroups (Plan your visit / Purchases) not modeled yet. Add tag-group extension support later.
-
+Add-KrOpenApiTag -Name 'Operations' -Description 'Operational information about the museum.' -Parent 'Plan your visit' -Extensions @{ 'x-displayName' = 'About the museum' }
+Add-KrOpenApiTag -Name 'Events' -Description 'Special events hosted by the Museum.' -Parent 'Plan your visit' -Extensions ([ordered]@{ 'x-displayName' = 'Upcoming events' })
+Add-KrOpenApiTag -Name 'Tickets' -Description 'Museum tickets for general entrance or special events.' -Parent 'Purchases' -Extensions ([ordered]@{ 'x-displayName' = 'Buy tickets' })
+#endregion
+#region Extensions
+$extensions = [ordered]@{
+    'x-tagGroups' = @(
+        [ordered]@{
+            'name' = 'Plan your visit'
+            'tags' = @('Operations', 'Events')
+        }
+        [ordered]@{
+            'name' = 'Purchases'
+            'tags' = @('Tickets')
+        })
+}
+Add-KrOpenApiExtension -Extensions $extensions
+#endregion
+#region Components
 # =========================================================
 #                      COMPONENT SCHEMAS
 # =========================================================
@@ -231,7 +251,7 @@ class BuyMuseumTicketsResponse {
     Description = 'An image of a ticket with a QR code used for museum or event entry.' )]
 class GetTicketCodeResponse:OpenApiBinary {
 }
-
+#endregion
 #region Examples
 # =========================================================
 #                 COMPONENT EXAMPLES
@@ -511,15 +531,16 @@ Add-KrApiDocumentationRoute -DocumentType Elements
 # GET /museum-hours
 # --------------------------------------
 
-
-function getMuseumHours {
-    <#
+<#
 .SYNOPSIS
     Get museum hours.
 .DESCRIPTION
     Get upcoming museum operating hours.
 #>
+function getMuseumHours {
+
     [OpenApiPath(HttpVerb = 'get', Pattern = '/museum-hours', Tags = 'Operations')]
+    [OpenApiExtension('x-badges', '{"name":"Beta","position":"before","color":"purple"}')]
     [OpenApiResponse(StatusCode = '200', Schema = [GetMuseumHoursResponse] , Description = 'Success')]
     [OpenApiResponseExampleRef(StatusCode = '200', Key = 'default_example', ReferenceId = 'GetMuseumHoursResponseExample')]
     [OpenApiResponse(StatusCode = '400', Description = 'Bad request')]

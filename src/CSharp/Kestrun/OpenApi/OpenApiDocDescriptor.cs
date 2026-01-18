@@ -4,6 +4,7 @@ using Microsoft.OpenApi.Reader;
 using System.Text;
 using Kestrun.Hosting.Options;
 using Kestrun.Utilities;
+using System.Collections;
 
 namespace Kestrun.OpenApi;
 
@@ -300,5 +301,27 @@ public partial class OpenApiDocDescriptor
         var w = new OpenApiYamlWriter(sw);
         Document.SerializeAs(version, w);
         return sw.ToString();
+    }
+
+    /// <summary>
+    /// Creates an OpenAPI extension in the document from the provided extensions dictionary.
+    /// </summary>
+    /// <param name="extensions">A dictionary containing the extensions.</param>
+    /// <exception cref="ArgumentException">Thrown when the specified extension name is not found in the provided extensions dictionary.</exception>
+    public void AddOpenApiExtension(IDictionary? extensions)
+    {
+        var built = BuildExtensions(extensions);
+
+        if (built is null)
+        {
+            return;
+        }
+
+        Document.Extensions ??= new Dictionary<string, IOpenApiExtension>(StringComparer.Ordinal);
+
+        foreach (var kvp in built)
+        {
+            Document.Extensions[kvp.Key] = kvp.Value;
+        }
     }
 }

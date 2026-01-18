@@ -861,7 +861,8 @@ Add-KrOpenApiInfo -Title 'My API' -Version '1.0.0' -Description 'API Description
 
 # Contact & License
 Add-KrOpenApiContact -Name 'Support' -Email 'help@example.com' -Extensions ([ordered]@{
-  # Vendor extensions are normalized to the required `x-` prefix when missing.
+  # Vendor extension keys must start with `x-`.
+  # Keys that do not start with `x-` are skipped (a warning is logged).
   'x-contact-department' = 'Developer Relations'
   'x-logo' = [ordered]@{
     url = 'https://example.com/logo.png'
@@ -884,21 +885,42 @@ Add-KrOpenApiServer -Url '/' -Description 'Self'
 
 # External documentation (document-level)
 # Use Add-KrOpenApiExternalDoc to attach externalDocs to the OpenAPI document itself.
-$apiPortalExtensions = [ordered]@{ 'x-docType' = 'portal'; 'audience' = 'internal'; 'owner' = 'api-platform' }
+$apiPortalExtensions = [ordered]@{ 'x-docType' = 'portal'; 'x-audience' = 'internal'; 'x-owner' = 'api-platform' }
 Add-KrOpenApiExternalDoc -Description 'API portal' -Url 'https://example.com/api-portal' -Extensions $apiPortalExtensions
 
 # Tags (OpenAPI 3.2 hierarchical tags)
 # - Use -Parent/-Kind to build a hierarchy.
-# - Use -Extensions for tag-level `x-*` extensions (keys are normalized to `x-` when missing).
+# - Use -Extensions for tag-level `x-*` extensions (keys must start with `x-`).
 # - For tag-level externalDocs, create the object with New-KrOpenApiExternalDoc and pass it to Add-KrOpenApiTag -ExternalDocs.
 # - To add extensions to a tag's externalDocs, pass `-Extensions` to `New-KrOpenApiExternalDoc`.
 
-$ordersExternalDocs = New-KrOpenApiExternalDoc -Description 'Order docs' -Url 'https://example.com/orders' -Extensions ([ordered]@{ 'x-docType' = 'reference'; 'audience' = 'public' })
+$ordersExternalDocs = New-KrOpenApiExternalDoc -Description 'Order docs' -Url 'https://example.com/orders' -Extensions ([ordered]@{ 'x-docType' = 'reference'; 'x-audience' = 'public' })
 
 Add-KrOpenApiTag -Name 'operations' -Description 'Common operational endpoints' -Kind 'category' -Extensions ([ordered]@{ 'x-displayName' = 'Operations' })
 Add-KrOpenApiTag -Name 'orders' -Description 'Order operations' -Parent 'operations' -Kind 'resource' -ExternalDocs $ordersExternalDocs -Extensions ([ordered]@{ 'x-owner' = 'commerce-team' })
 Add-KrOpenApiTag -Name 'orders.read' -Description 'Read-only order operations' -Parent 'orders' -Kind 'operation'
+
+# Document-level extensions (top-level `x-*` fields)
+Add-KrOpenApiExtension -Extensions ([ordered]@{
+  'x-tagGroups' = @(
+    @{ name = 'Common'; tags = @('operations') },
+    @{ name = 'Commerce'; tags = @('orders', 'orders.read') }
+  )
+})
+
+# Operation-level extensions (add `x-*` fields on a route operation)
+function getMuseumHours {
+  [OpenApiPath(HttpVerb = 'get', Pattern = '/museum-hours', Tags = 'operations')]
+  [OpenApiExtension('x-badges', '{"name":"Beta","position":"before","color":"purple"}')]
+  param()
+}
 ```
+
+### Vendor Extensions (x-*) rules
+
+- Extension keys must start with `x-`.
+- Keys that do not start with `x-` are ignored (a warning is logged).
+- Null extension values are skipped.
 
 ---
 
@@ -1358,7 +1380,7 @@ These properties are available on `[OpenApiSchemaComponent]`, `[OpenApiPropertyA
 | **Webhooks** | ✅ Supported | Use `[OpenApiWebhook]` on functions (top-level `webhooks` in OpenAPI 3.1) |
 | **Callbacks** | ✅ Supported | Use `[OpenApiCallback]` + `[OpenApiCallbackRef]` (operation-scoped `callbacks`) |
 | **Links** | ✅ Supported | Use `New-KrOpenApiLink` + `Add-KrOpenApiComponent`, then reference via `OpenApiResponseLinkRef` |
-| **Extensions (x-*)** | 🚧 Partial | Supported for `tags[]` and `externalDocs` (document-level and tag-level); other extension points may be added later |
+| **Extensions (x-*)** | 🚧 Partial | Supported for document-level `x-*` via `Add-KrOpenApiExtension`, tag/externalDocs `-Extensions`, and operation-level extensions via `[OpenApiExtension]` |
 
 ---
 

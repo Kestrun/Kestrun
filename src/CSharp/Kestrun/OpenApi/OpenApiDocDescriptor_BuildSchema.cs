@@ -85,26 +85,6 @@ public partial class OpenApiDocDescriptor
     }
 
     /// <summary>
-    /// Builds the schema for an enum property.
-    /// </summary>
-    /// <param name="pt">The property type.</param>
-    /// <param name="p">The property info.</param>
-    /// <returns>The constructed OpenAPI schema for the enum property.</returns>
-    private static OpenApiSchema BuildEnumSchema(Type pt, PropertyInfo p)
-    {
-        var s = new OpenApiSchema
-        {
-            Type = JsonSchemaType.String,
-            Enum = [.. pt.GetEnumNames().Select(n => (JsonNode)n)]
-        };
-        var attrs = p.GetCustomAttributes<OpenApiPropertyAttribute>(inherit: false).ToArray();
-        var a = MergeSchemaAttributes(attrs);
-        ApplySchemaAttr(a, s);
-        PowerShellAttributes.ApplyPowerShellAttributes(p, s);
-        return s;
-    }
-
-    /// <summary>
     /// Builds the schema for an array property.
     /// </summary>
     /// <param name="pt">The property type.</param>

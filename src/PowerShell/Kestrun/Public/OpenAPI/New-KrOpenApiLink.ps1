@@ -70,7 +70,7 @@ function New-KrOpenApiLink {
         $Server = Resolve-KestrunServer -Server $Server
     }
     process {
-        # Create header for the specified OpenAPI document
+        # Create link for the specified OpenAPI document
         if ($Server.OpenApiDocumentDescriptor.Count -gt 0 ) {
             $docDescriptor = $Server.DefaultOpenApiDocumentDescriptor
             $link = $docDescriptor.NewOpenApiLink(

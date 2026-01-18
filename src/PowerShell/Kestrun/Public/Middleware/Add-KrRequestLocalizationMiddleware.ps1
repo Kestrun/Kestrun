@@ -110,19 +110,22 @@ function Add-KrRequestLocalizationMiddleware {
                     $Options.SupportedUICultures.Add([System.Globalization.CultureInfo]::new($culture))
                 }
             } else {
-                # Default to same as SupportedCultures
-                $Options.SupportedUICultures = $Options.SupportedCultures
+                # Create a copy of SupportedCultures
+                $Options.SupportedUICultures = [System.Collections.Generic.List[System.Globalization.CultureInfo]]::new()
+                foreach ($culture in $Options.SupportedCultures) {
+                    $Options.SupportedUICultures.Add($culture)
+                }
             }
 
             # Set fallback options
-            if ($PSBoundParameters.ContainsKey('FallBackToParentCultures')) {
-                $Options.FallBackToParentCultures = $FallBackToParentCultures.IsPresent
+            if ($FallBackToParentCultures.IsPresent) {
+                $Options.FallBackToParentCultures = $true
             }
-            if ($PSBoundParameters.ContainsKey('FallBackToParentUICultures')) {
-                $Options.FallBackToParentUICultures = $FallBackToParentUICultures.IsPresent
+            if ($FallBackToParentUICultures.IsPresent) {
+                $Options.FallBackToParentUICultures = $true
             }
-            if ($PSBoundParameters.ContainsKey('ApplyCurrentCultureToResponseHeaders')) {
-                $Options.ApplyCurrentCultureToResponseHeaders = $ApplyCurrentCultureToResponseHeaders.IsPresent
+            if ($ApplyCurrentCultureToResponseHeaders.IsPresent) {
+                $Options.ApplyCurrentCultureToResponseHeaders = $true
             }
         }
 

@@ -420,20 +420,6 @@ public static class KestrunHttpMiddlewareExtensions
             return host.AddRequestLocalization();   // fallback to parameterless overload
         }
 
-        _ = host.AddService(services =>
-        {
-            _ = services.Configure<RequestLocalizationOptions>(o =>
-            {
-                o.DefaultRequestCulture = opts.DefaultRequestCulture;
-                o.SupportedCultures = opts.SupportedCultures;
-                o.SupportedUICultures = opts.SupportedUICultures;
-                o.RequestCultureProviders = opts.RequestCultureProviders;
-                o.FallBackToParentCultures = opts.FallBackToParentCultures;
-                o.FallBackToParentUICultures = opts.FallBackToParentUICultures;
-                o.ApplyCurrentCultureToResponseHeaders = opts.ApplyCurrentCultureToResponseHeaders;
-            });
-        });
-
         return host.Use(app => app.UseRequestLocalization(opts));
     }
 

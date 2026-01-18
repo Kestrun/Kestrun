@@ -109,10 +109,10 @@ public class OpenApiXmlAttributeTests
         var idSchema = (OpenApiSchema)idProp;
         Assert.NotNull(idSchema.Xml);
         Assert.NotNull(idSchema.Xml.Extensions);
-        Assert.True(idSchema.Xml.Extensions.ContainsKey("x-attribute"));
+        Assert.True(idSchema.Xml.Extensions.TryGetValue("x-attribute", out var extension));
         
         // Verify the extension value is true
-        var ext = idSchema.Xml.Extensions["x-attribute"] as JsonNodeExtension;
+        var ext = extension as JsonNodeExtension;
         Assert.NotNull(ext);
     }
 
@@ -134,10 +134,10 @@ public class OpenApiXmlAttributeTests
         var itemsSchema = (OpenApiSchema)itemsProp;
         Assert.NotNull(itemsSchema.Xml);
         Assert.NotNull(itemsSchema.Xml.Extensions);
-        Assert.True(itemsSchema.Xml.Extensions.ContainsKey("x-wrapped"));
+        Assert.True(itemsSchema.Xml.Extensions.TryGetValue("x-wrapped", out var extension));
         
         // Verify the extension value is true
-        var ext = itemsSchema.Xml.Extensions["x-wrapped"] as JsonNodeExtension;
+        var ext = extension as JsonNodeExtension;
         Assert.NotNull(ext);
     }
 

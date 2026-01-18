@@ -922,6 +922,101 @@ function getMuseumHours {
 - Keys that do not start with `x-` are ignored (a warning is logged).
 - Null extension values are skipped.
 
+### Vendor Extensions (x-*) usage
+
+Vendor extensions are the standard OpenAPI way to attach extra, non-standard metadata.
+Kestrun supports extensions at multiple levels; the extension key/value is emitted directly into the generated OpenAPI JSON.
+
+> **Tip:** Prefer a single extension root like `x-kestrun-demo` (an object) rather than many unrelated `x-*` keys.
+
+#### Document-level extensions
+
+Use `Add-KrOpenApiExtension` for top-level `x-*` fields:
+
+```powershell
+$extensions = [ordered]@{
+  'x-tagGroups' = @(
+    @{ name = 'Common'; tags = @('operations') },
+    @{ name = 'Commerce'; tags = @('orders', 'orders.read') }
+  )
+}
+Add-KrOpenApiExtension -Extensions $extensions
+```
+
+Emits: `x-*` at the document root.
+
+#### Operation-level extensions
+
+Use `[OpenApiExtension('x-...', '<json>')]` on a route function:
+
+```powershell
+function getMuseumHours {
+  [OpenApiPath(HttpVerb = 'get', Pattern = '/museum-hours')]
+  [OpenApiExtension('x-badges', '{"name":"Beta","position":"before","color":"purple"}')]
+  param()
+}
+```
+
+Emits: `paths['/museum-hours'].get.x-*` (or the appropriate verb).
+
+#### Component-level extensions
+
+Kestrun supports `x-*` extensions on common component types:
+
+- **Schema components**: `[OpenApiExtension]` on `[OpenApiSchemaComponent]` classes → `components.schemas.<name>.x-*`
+- **Parameter components**: `[OpenApiExtension]` on `[OpenApiParameterComponent]` variables → `components.parameters.<name>.x-*`
+- **Request body components**: `[OpenApiExtension]` on `[OpenApiRequestBodyComponent]` variables → `components.requestBodies.<name>.x-*`
+- **Response components**: `[OpenApiExtension]` on `[OpenApiResponseComponent]` variables → `components.responses.<name>.x-*`
+- **Header components**: `New-KrOpenApiHeader -Extensions` → `components.headers.<name>.x-*`
+- **Link components**: `New-KrOpenApiLink -Extensions` → `components.links.<name>.x-*`
+- **Example components**: `New-KrOpenApiExample -Extensions` → `components.examples.<name>.x-*`
+
+Examples:
+
+```powershell
+# Schema component
+[OpenApiSchemaComponent()]
+[OpenApiExtension('x-kestrun-demo', '{"containsPii":true,"owner":"platform"}')]
+class Address {}
+
+# Parameter component
+[OpenApiParameterComponent(In = 'Header', Description = 'Correlation id')]
+[OpenApiExtension('x-kestrun-demo', '{"kind":"trace","format":"uuid"}')]
+[string]$correlationId = NoDefault
+
+# Request body component
+[OpenApiRequestBodyComponent(Description = 'Order creation payload', Required = $true, ContentType = 'application/json')]
+[OpenApiExtension('x-kestrun-demo', '{"domain":"orders","containsPii":true}')]
+[CreateOrderRequest]$CreateOrderRequestBody = NoDefault
+
+# Response component
+[OpenApiResponseComponent(Description = 'Resource not found', ContentType = ('application/json', 'application/xml'))]
+[OpenApiExtension('x-kestrun-demo', '{"kind":"error","retryable":false}')]
+[ErrorResponse]$NotFound = NoDefault
+
+# Header component
+$headerExt = [ordered]@{ 'x-kestrun-demo' = @{ unit = 'unix-seconds'; source = 'gateway' } }
+$XRateLimitResetHeader = New-KrOpenApiHeader -Schema ([OpenApiInt64]::new()) -Description 'Rate limit reset time' -Extensions $headerExt
+
+# Link component
+$linkExt = [ordered]@{ 'x-kestrun-demo' = @{ kind = 'follow-up'; auth = 'required' } }
+$GetUserLink = New-KrOpenApiLink -OperationId 'getUser' -Description 'Fetch the user' -Extensions $linkExt
+
+# Example component
+$exExt = [ordered]@{ 'x-kestrun-demo' = @{ purpose = 'docs'; stability = 'stable' } }
+$GetMuseumHoursResponseExternalExample = New-KrOpenApiExample -ExternalValue 'https://example.com/openapi/examples/museum-hours.json' -Extensions $exExt
+```
+
+For runnable samples + tests, see:
+
+- `docs/_includes/examples/pwsh/10.2-OpenAPI-Component-Schema.ps1`
+- `docs/_includes/examples/pwsh/10.4-OpenAPI-Component-Parameter.ps1`
+- `docs/_includes/examples/pwsh/10.5-OpenAPI-Component-Response.ps1`
+- `docs/_includes/examples/pwsh/10.6-OpenAPI-Components-RequestBody-Response.ps1`
+- `docs/_includes/examples/pwsh/10.9-OpenAPI-Component-Header.ps1`
+- `docs/_includes/examples/pwsh/10.10-OpenAPI-Component-Link.ps1`
+- `docs/_includes/examples/pwsh/10.13-OpenAPI-Examples.ps1`
+
 ---
 
 ## 9. Route Definitions
@@ -1371,7 +1466,7 @@ These properties are available on `[OpenApiSchemaComponent]`, `[OpenApiPropertyA
 | :--- | :--- | :--- |
 | **Schemas** | ✅ Supported | Use `[OpenApiSchemaComponent]` classes |
 | **Request Bodies** | ✅ Supported | Use `[OpenApiRequestBodyComponent]` variables |
-| **Responses** | ✅ Supported | Use `[OpenApiResponseComponent]` classes |
+| **Responses** | ✅ Supported | Use `[OpenApiResponseComponent]` variables |
 | **Parameters** | ✅ Supported | Define components with `[OpenApiParameterComponent]`, reference via `[OpenApiParameterRef]` |
 | **Headers** | ✅ Supported | Use `New-KrOpenApiHeader` + `Add-KrOpenApiComponent`, then reference via `OpenApiResponseHeaderRef` |
 | **Examples** | ✅ Supported | Use `New-KrOpenApiExample` + `Add-KrOpenApiComponent`, then reference via `OpenApiResponseExampleRef` / `OpenApiRequestBodyExampleRef` / `OpenApiParameterExampleRef` |
@@ -1380,7 +1475,7 @@ These properties are available on `[OpenApiSchemaComponent]`, `[OpenApiPropertyA
 | **Webhooks** | ✅ Supported | Use `[OpenApiWebhook]` on functions (top-level `webhooks` in OpenAPI 3.1) |
 | **Callbacks** | ✅ Supported | Use `[OpenApiCallback]` + `[OpenApiCallbackRef]` (operation-scoped `callbacks`) |
 | **Links** | ✅ Supported | Use `New-KrOpenApiLink` + `Add-KrOpenApiComponent`, then reference via `OpenApiResponseLinkRef` |
-| **Extensions (x-*)** | 🚧 Partial | Supported for document-level `x-*` via `Add-KrOpenApiExtension`, tag/externalDocs `-Extensions`, and operation-level extensions via `[OpenApiExtension]` |
+| **Extensions (x-*)** | ✅ Supported | Supported for document-level `Add-KrOpenApiExtension`, operation-level `[OpenApiExtension]`, and component-level extensions (schemas/parameters/requestBodies/responses plus header/link/example `-Extensions`) |
 
 ---
 

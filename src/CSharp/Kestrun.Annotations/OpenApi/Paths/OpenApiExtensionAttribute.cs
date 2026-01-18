@@ -4,18 +4,28 @@ using System.Text.Json;
 /// <summary>
 /// Attribute to specify OpenAPI vendor extensions (x-*) on an API operation.
 /// </summary>
-[AttributeUsage(AttributeTargets.Method, Inherited = false, AllowMultiple = true)]
+[AttributeUsage(AttributeTargets.Method | AttributeTargets.Class, Inherited = false, AllowMultiple = true)]
 public sealed class OpenApiExtensionAttribute : KestrunAnnotation
 {
     /// <summary>
     /// The extension name. Must start with "x-".
     /// </summary>
-    public string Name { get; }
+    public string Name { get; set; }
 
     /// <summary>
     /// Raw JSON value for the extension.
     /// </summary>
-    public string Json { get; }
+    public string Json { get; set; }
+
+    /// <summary>
+    /// Creates an OpenAPI extension with no value.
+    /// </summary>
+    public OpenApiExtensionAttribute()
+    {
+        // Default constructor
+        Name = string.Empty;
+        Json = "null";
+    }
 
     /// <summary>
     /// Creates an OpenAPI extension.

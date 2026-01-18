@@ -1080,18 +1080,31 @@ public static class OpenApiComponentAnnotationScanner
         {
             return null;
         }
+        var activatedInstance = Activator.CreateInstance(annotationType);
 
-        if (Activator.CreateInstance(annotationType) is not KestrunAnnotation instance)
+        if (activatedInstance is not KestrunAnnotation instance)
         {
             return null;
         }
-
-        // Apply named arguments as property setters.
-        foreach (var na in attr.NamedArguments ?? Enumerable.Empty<NamedAttributeArgumentAst>())
+        if (activatedInstance is OpenApiExtensionAttribute)
         {
-            ApplyNamedArgument(instance, na);
-        }
+            var par1 = attr.PositionalArguments.ElementAtOrDefault(0)?.Extent.Text.Trim('\'');
+            var par2 = attr.PositionalArguments.ElementAtOrDefault(1)?.Extent.Text.Trim('\'');
+            if (par1 is null || par2 is null)
+            {
+                return null;
+            }
 
+            instance = new OpenApiExtensionAttribute(par1, par2);
+        }
+        else
+        {
+            // Apply named arguments as property setters.
+            foreach (var na in attr.NamedArguments ?? Enumerable.Empty<NamedAttributeArgumentAst>())
+            {
+                ApplyNamedArgument(instance, na);
+            }
+        }
         // If the annotation supports a component-name argument, apply a default when not specified.
         // This preserves the previous behavior where the variable name becomes the component key.
         ApplyDefaultComponentName(instance, defaultComponentName, componentNameArgument);

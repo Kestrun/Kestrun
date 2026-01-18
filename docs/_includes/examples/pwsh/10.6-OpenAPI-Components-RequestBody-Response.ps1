@@ -101,13 +101,16 @@ class ErrorDetail {
     Required = $true,
     ContentType = 'application/json'
 )]
-[CreateOrderRequest]$CreateOrderRequestBody
+[OpenApiExtension('x-kestrun-demo', '{"stability":"beta","containsPii":true,"piiFields":["customerEmail"],"domain":"orders","kind":"request"}')]
+[CreateOrderRequest]$CreateOrderRequestBody = NoDefault
 
 # Response components (variable-based)
 [OpenApiResponseComponent(Description = 'Order successfully retrieved or created', ContentType = ('application/json', 'application/xml'))]
+[OpenApiExtension('x-kestrun-demo', '{"stability":"stable","domain":"orders","kind":"success"}')]
 [OrderResponse]$OrderResponseDefault = NoDefault
 
 [OpenApiResponseComponent(Description = 'Request validation error', ContentType = ('application/json', 'application/xml'))]
+[OpenApiExtension('x-kestrun-demo', '{"stability":"stable","domain":"orders","kind":"error","retryable":false}')]
 [ErrorDetail]$ErrorResponseDefault = NoDefault
 
 # =========================================================

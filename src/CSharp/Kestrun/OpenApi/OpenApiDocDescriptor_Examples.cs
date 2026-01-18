@@ -1,3 +1,4 @@
+using System.Collections;
 using Microsoft.OpenApi;
 
 namespace Kestrun.OpenApi;
@@ -56,5 +57,114 @@ public partial class OpenApiDocDescriptor
             throw new InvalidOperationException($"Inline example component with ID '{attribute.ReferenceId}' not found.");
         }
         return false;
+    }
+
+    /// <summary>
+    /// Creates a new OpenApiExample object.
+    /// </summary>
+    /// <param name="summary">Creates a new OpenApiExample object.</param>
+    /// <param name="description">The description of the example.</param>
+    /// <param name="extensions">The extensions for the example.</param>
+    /// <returns>A new instance of OpenApiExample.</returns>
+    private OpenApiExample NewOpenApiExample(
+               string summary,
+               string? description,
+               IDictionary? extensions)
+    {
+
+        var example = new OpenApiExample
+        {
+            Summary = summary
+        };
+
+        if (!string.IsNullOrWhiteSpace(description))
+        {
+            example.Description = description;
+        }
+        // Extensions
+        example.Extensions = BuildExtensions(extensions);
+
+        return example;
+    }
+
+    /// <summary>
+    /// Creates a new OpenApiExample object.
+    /// </summary>
+    /// <param name="summary">Creates a new OpenApiExample object.</param>
+    /// <param name="description">The description of the example.</param>
+    /// <param name="value">The value of the example.</param>
+    /// <param name="extensions">The extensions for the example.</param>
+    /// <returns>A new instance of OpenApiExample.</returns>
+    public OpenApiExample NewOpenApiExample(
+           string summary,
+           string? description,
+           object? value,
+           IDictionary? extensions)
+    {
+        var example = NewOpenApiExample(
+               summary: summary,
+               description: description,
+               extensions: extensions);
+
+        // AllowNull: treat null as null JsonNode
+        example.Value = OpenApiJsonNodeFactory.ToNode(value);
+        // return example
+        return example;
+    }
+
+    /// <summary>
+    /// Creates a new OpenApiExample object. Using ExternalValue
+    /// </summary>
+    /// <param name="summary">Creates a new OpenApiExample object.</param>
+    /// <param name="description">The description of the example.</param>
+    /// <param name="externalValue">The external value of the example.</param>
+    /// <param name="extensions">The extensions for the example.</param>
+    /// <returns>A new instance of OpenApiExample.</returns>
+    public OpenApiExample NewOpenApiExternalExample(
+               string summary,
+               string? description,
+               string? externalValue,
+               IDictionary? extensions)
+    {
+        var example = NewOpenApiExample(
+                summary: summary,
+                description: description,
+                extensions: extensions);
+
+        example.ExternalValue = externalValue;
+
+        // return example
+        return example;
+    }
+
+    /// <summary>
+    /// Creates a new OpenApiExample object.
+    /// </summary>
+    /// <param name="summary">Creates a new OpenApiExample object.</param>
+    /// <param name="description">The description of the example.</param>
+    /// <param name="dataValue">The data value of the example.</param>
+    /// <param name="serializedValue">The serialized value of the example.</param>
+    /// <param name="extensions">The extensions for the example.</param>
+    /// <returns>A new instance of OpenApiExample.</returns>
+    public OpenApiExample NewOpenApiExample(
+               string summary,
+               string? description,
+               object? dataValue,
+               string? serializedValue,
+               IDictionary? extensions)
+    {
+        var example = NewOpenApiExample(
+               summary: summary,
+               description: description,
+               extensions: extensions);
+
+        example.DataValue = OpenApiJsonNodeFactory.ToNode(dataValue);
+        if (!string.IsNullOrWhiteSpace(serializedValue))
+        {
+            example.SerializedValue = serializedValue;
+        }
+
+        // return example
+        return example;
     }
 }

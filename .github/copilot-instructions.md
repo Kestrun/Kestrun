@@ -67,6 +67,12 @@ Invoke-Build Test-Pester
 ```
 If the test only involves C# code, you can use `dotnet test` for faster execution.
 
+> **Note (PowerShell tests):** For focused runs of individual Pester tests, prefer `Invoke-Pester` directly (rather than VS Code's test integration), e.g.:
+>
+> ```powershell
+> Invoke-Pester -Path .\tests\PowerShell.Tests\Kestrun.Tests\Tutorial\Tutorial-*.Tests.ps1
+> ```
+
 ## Project-Specific Conventions
 
 ### 1. PowerShell Cmdlet Patterns
@@ -549,6 +555,20 @@ Kestrun supports OpenAPI vendor extensions (`x-*`) in multiple places.
 - **Rule**: extension keys must start with `x-` (OpenAPI requirement). Keys without `x-` are ignored (warning logged).
 - **Null values**: null extension values are skipped.
 
+**Recommended pattern**: use a single root extension like `x-kestrun-demo` with a small, stable object payload (avoid timestamps/guids when tests assert values).
+
+```powershell
+$demoExt = [ordered]@{
+  'x-kestrun-demo' = [ordered]@{
+    kind = 'trace'
+    domain = 'orders'
+    stability = 'beta'
+    containsPii = $true
+    retryable = $false
+  }
+}
+```
+
 **Document-level extensions** (top-level `x-*` fields):
 
 ```powershell
@@ -570,6 +590,69 @@ function getMuseumHours {
   param()
 }
 ```
+
+**Component-level extensions** (adds `x-*` fields on OpenAPI components):
+
+- **Schema components**: use `[OpenApiExtension(...)]` on classes decorated with `[OpenApiSchemaComponent]`.
+- **Parameter components**: use `[OpenApiExtension(...)]` on variables decorated with `[OpenApiParameterComponent]` (emits fields under `components.parameters.*.x-*`).
+- **Request body components**: use `[OpenApiExtension(...)]` on variables decorated with `[OpenApiRequestBodyComponent]` (emits fields under `components.requestBodies.*.x-*`).
+- **Response components**: use `[OpenApiExtension(...)]` on variables decorated with `[OpenApiResponseComponent]` (emits fields under `components.responses.*.x-*`).
+- **Header components**: use `New-KrOpenApiHeader -Extensions` (emits fields under `components.headers.*.x-*`).
+- **Link components**: use `New-KrOpenApiLink -Extensions` (emits fields under `components.links.*.x-*`).
+- **Example components**: use `New-KrOpenApiExample -Extensions` (emits fields under `components.examples.*.x-*`).
+
+```powershell
+# Schema component (components.schemas.Address.x-*)
+[OpenApiSchemaComponent(RequiredProperties = ('street', 'city'))]
+[OpenApiExtension('x-badges', '[{"name":"Beta"},{"name":"PII"}]')]
+[OpenApiExtension('x-kestrun-demo', '{"containsPii":true,"owner":"platform"}')]
+class Address {
+  [string]$street
+  [string]$city
+}
+
+# Parameter component (components.parameters.correlationId.x-*)
+[OpenApiParameterComponent(In = 'Header', Description = 'Correlation id for request tracing')]
+[OpenApiExtension('x-kestrun-demo', '{"kind":"trace","format":"uuid"}')]
+[string]$correlationId = NoDefault
+
+# Request body component (components.requestBodies.CreateOrderRequestBody.x-*)
+[OpenApiRequestBodyComponent(Description = 'Order creation payload', Required = $true, ContentType = 'application/json')]
+[OpenApiExtension('x-kestrun-demo', '{"domain":"orders","containsPii":true}')]
+[object]$CreateOrderRequestBody = NoDefault
+
+# Response component (components.responses.NotFound.x-*)
+[OpenApiResponseComponent(Description = 'Resource not found', ContentType = ('application/json', 'application/xml'))]
+[OpenApiExtension('x-kestrun-demo', '{"kind":"error","retryable":false}')]
+[object]$NotFound = NoDefault
+
+# Header component (components.headers.X-RateLimit-Reset.x-*)
+$headerExt = [ordered]@{
+  'x-kestrun-demo' = @{ unit = 'unix-seconds'; source = 'gateway' }
+}
+$XRateLimitResetHeader = New-KrOpenApiHeader -Schema ([OpenApiInt64]::new()) -Description 'Rate limit reset time' -Extensions $headerExt
+
+# Link component (components.links.GetUserLink.x-*)
+$linkExt = [ordered]@{ 'x-kestrun-demo' = @{ kind = 'follow-up'; auth = 'required' } }
+$GetUserLink = New-KrOpenApiLink -OperationId 'getUser' -Description 'Fetch the user' -Extensions $linkExt
+
+# Example component (components.examples.GetMuseumHoursResponseExternalExample.x-*)
+$exExt = [ordered]@{ 'x-kestrun-demo' = @{ purpose = 'docs'; stability = 'stable' } }
+$GetMuseumHoursResponseExternalExample = New-KrOpenApiExample -ExternalValue 'https://example.com/openapi/examples/museum-hours.json' -Extensions $exExt
+
+# DataValue/SerializedValue examples:
+# - Use -DataValue/-SerializedValue when you want to preserve the original source representation.
+# - In OpenAPI 3.1, these may appear in the JSON as x-oai-dataValue / x-oai-serializedValue.
+```
+
+Tutorial references (working examples + matching Pester tests):
+- Headers: `docs/_includes/examples/pwsh/10.9-OpenAPI-Component-Header.ps1`
+- Links: `docs/_includes/examples/pwsh/10.10-OpenAPI-Component-Link.ps1`
+- Examples: `docs/_includes/examples/pwsh/10.13-OpenAPI-Examples.ps1`
+- Schemas: `docs/_includes/examples/pwsh/10.2-OpenAPI-Component-Schema.ps1`
+- Parameters: `docs/_includes/examples/pwsh/10.4-OpenAPI-Component-Parameter.ps1`
+- Responses: `docs/_includes/examples/pwsh/10.5-OpenAPI-Component-Response.ps1`
+- Request bodies + responses: `docs/_includes/examples/pwsh/10.6-OpenAPI-Components-RequestBody-Response.ps1`
 
 Example pattern (hierarchy + extensions):
 

@@ -130,6 +130,7 @@ New-KrOpenApiLink -OperationId 'deleteArticle' -Description 'Delete the returned
 [OpenApiResponseHeaderRef(Key = 'X-Correlation-Id', ReferenceId = 'X-Correlation-Id')]
 [OpenApiResponseLinkRef(Key = 'get', ReferenceId = 'GetArticleLink')]
 [OpenApiResponseLinkRef(Key = 'delete', ReferenceId = 'DeleteArticleLink')]
+[OpenApiExtension('x-kestrun-demo', '{"stability":"beta","audience":"public","headers":["X-Correlation-Id"],"links":["get","delete"],"kind":"success"}')]
 [SuccessResponse]$OK = NoDefault
 
 [OpenApiResponseComponent(Description = 'Resource created successfully', ContentType = ('application/json', 'application/xml'))]

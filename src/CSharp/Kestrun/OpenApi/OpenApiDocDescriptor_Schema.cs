@@ -73,9 +73,32 @@ public partial class OpenApiDocDescriptor
             RegisterEnumSchema(t);
             return schema;
         }
-
+        // Extensions
+        ProcessExtensions(t, schema);
+        // Properties
         ProcessTypeProperties(t, schema, built);
+        // Return composed schema if applicable
         return ComposeWithParentSchema(schemaParent, schema);
+    }
+
+    /// <summary>
+    /// Processes OpenAPI extensions defined on a type and adds them to the schema.
+    /// </summary>
+    /// <param name="t">The type being processed.</param>
+    /// <param name="schema"></param>
+    private static void ProcessExtensions(Type t, OpenApiSchema schema)
+    {
+        foreach (var attr in t.GetCustomAttributes<OpenApiExtensionAttribute>(inherit: false))
+        {
+            schema.Extensions ??= new Dictionary<string, IOpenApiExtension>(StringComparer.Ordinal);
+            // Parse string into a JsonNode tree.
+            var node = JsonNode.Parse(attr.Json);
+            if (node is null)
+            {
+                continue;
+            }
+            schema.Extensions[attr.Name] = new JsonNodeExtension(node);
+        }
     }
 
     /// <summary>

@@ -1,3 +1,4 @@
+using System.Collections;
 using Kestrun.Hosting.Options;
 using Microsoft.OpenApi;
 
@@ -44,6 +45,12 @@ public partial class OpenApiDocDescriptor
         return false;
     }
 
+    /// <summary>
+    /// Applies an OpenApiResponseLinkRefAttribute to the specified OpenAPI path metadata.
+    /// </summary>
+    /// <param name="metadata">The OpenAPI path metadata to which the link attribute will be applied.</param>
+    /// <param name="attribute">The OpenApiResponseLinkRefAttribute to apply.</param>
+    /// <exception cref="InvalidOperationException">Thrown when the attribute is missing required properties.</exception>
     private void ApplyResponseLinkAttribute(OpenAPIPathMetadata metadata, OpenApiResponseLinkRefAttribute attribute)
     {
         if (attribute.StatusCode is null)
@@ -62,6 +69,12 @@ public partial class OpenApiDocDescriptor
         }
     }
 
+    /// <summary>
+    /// Applies an OpenApiResponseLinkRefAttribute to the specified OpenAPI response.
+    /// </summary>
+    /// <param name="attribute">The OpenApiResponseLinkRefAttribute to apply.</param>
+    /// <param name="response">The OpenAPI response to which the link attribute will be applied.</param>
+    /// <returns>True if the link was successfully applied; otherwise, false.</returns>
     private bool ApplyLinkRefAttribute(OpenApiResponseLinkRefAttribute attribute, OpenApiResponse response)
     {
         response.Links ??= new Dictionary<string, IOpenApiLink>();
@@ -69,5 +82,113 @@ public partial class OpenApiDocDescriptor
         _ = TryAddLink(response.Links, attribute);
 
         return true;
+    }
+
+    /// <summary>
+    /// Creates a new OpenApiLink instance based on the provided parameters.
+    /// </summary>
+    /// <param name="operationRef">Operation reference string.</param>
+    /// <param name="operationId">Operation identifier string.</param>
+    /// <param name="description">Description of the link.</param>
+    /// <param name="server">Server object associated with the link.</param>
+    /// <param name="parameters">Parameters dictionary for the link.</param>
+    /// <param name="requestBody">Request body object or expression.</param>
+    /// <param name="extensions">Extensions dictionary for the link.</param>
+    /// <returns>Newly created OpenApiLink instance.</returns>
+    /// <exception cref="ArgumentException">Thrown when both operationRef and operationId are provided.</exception>
+    public OpenApiLink NewOpenApiLink(
+           string? operationRef,
+           string? operationId,
+           string? description,
+           OpenApiServer? server,
+           IDictionary? parameters,
+           object? requestBody,
+           IDictionary? extensions)
+    {
+        // Match your PS safety rule
+        if (!string.IsNullOrWhiteSpace(operationRef) && !string.IsNullOrWhiteSpace(operationId))
+        {
+            throw new ArgumentException("OperationId and OperationRef are mutually exclusive in an OpenAPI Link.");
+        }
+
+        var link = new OpenApiLink();
+
+        if (!string.IsNullOrWhiteSpace(description))
+        {
+            link.Description = description;
+        }
+
+        if (server is not null)
+        {
+            link.Server = server;
+        }
+
+        if (!string.IsNullOrWhiteSpace(operationRef))
+        {
+            link.OperationRef = operationRef;
+        }
+        else if (!string.IsNullOrWhiteSpace(operationId))
+        {
+            link.OperationId = operationId;
+        }
+        else
+        {
+            // Should be prevented by parameter sets, but keep it robust.
+            throw new ArgumentException("Either OperationRef or OperationId must be provided.");
+        }
+
+        // RequestBody: runtime expression string OR literal object
+        if (requestBody is not null)
+        {
+            var rbWrapper = new RuntimeExpressionAnyWrapper();
+
+            if (requestBody is string s && !string.IsNullOrWhiteSpace(s))
+            {
+                rbWrapper.Expression = RuntimeExpression.Build(s);
+                link.RequestBody = rbWrapper;
+            }
+            else if (requestBody is not string)
+            {
+                rbWrapper.Any = OpenApiJsonNodeFactory.ToNode(requestBody);
+                link.RequestBody = rbWrapper;
+            }
+        }
+
+        // Parameters
+        if (parameters is not null && parameters.Count > 0)
+        {
+            link.Parameters ??= new Dictionary<string, RuntimeExpressionAnyWrapper>(StringComparer.Ordinal);
+
+            foreach (DictionaryEntry entry in parameters)
+            {
+                if (entry.Key is null)
+                {
+                    continue;
+                }
+
+                var key = entry.Key.ToString() ?? string.Empty;
+                if (key.Length == 0)
+                {
+                    continue;
+                }
+
+                var value = entry.Value;
+                var pWrapper = new RuntimeExpressionAnyWrapper();
+
+                if (value is string expr)
+                {
+                    pWrapper.Expression = RuntimeExpression.Build(expr);
+                }
+                else
+                {
+                    pWrapper.Any = OpenApiJsonNodeFactory.ToNode(value);
+                }
+
+                link.Parameters[key] = pWrapper;
+            }
+        }
+        // Extensions
+        link.Extensions = BuildExtensions(extensions);
+        return link;
     }
 }

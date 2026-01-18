@@ -132,10 +132,12 @@ New-KrOpenApiExample -Summary 'Sort by price example' -Value 'price' |
 
 # Query params (create)
 [OpenApiParameterComponent(In = 'Header', Description = 'Filter by category item')]
+[OpenApiExtension('x-kestrun-demo', '{"kind":"catalog-context","stability":"experimental","source":"client","contentType":"application/json"}')]
 [CategoryItem]$myCategory = NoDefault
 
 # Header params
 [OpenApiParameterComponent(In = 'Header', Description = 'Correlation id for tracing a request through logs.')]
+[OpenApiExtension('x-kestrun-demo', '{"kind":"trace","format":"uuid","propagatesTo":["logs","downstream"],"recommended":true}')]
 [OpenApiParameterExampleRef(Key = 'default', ReferenceId = 'CorrelationIdExample')]
 [string]$correlationId = NoDefault
 

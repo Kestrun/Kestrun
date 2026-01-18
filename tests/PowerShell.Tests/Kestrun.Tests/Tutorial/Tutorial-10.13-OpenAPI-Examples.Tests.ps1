@@ -144,8 +144,21 @@ email: todd@example.com
 
         # Component examples exist
         $doc.components.examples.BuyGeneralTicketsRequestExample | Should -Not -BeNullOrEmpty
+        $doc.components.examples.BuyGeneralTicketsRequestDataValueExample | Should -Not -BeNullOrEmpty
         $doc.components.examples.BuyGeneralTicketsResponseExample | Should -Not -BeNullOrEmpty
         $doc.components.examples.GetMuseumHoursResponseExample | Should -Not -BeNullOrEmpty
+        $doc.components.examples.GetMuseumHoursResponseExternalExample | Should -Not -BeNullOrEmpty
+
+        # Vendor extensions are present (example components)
+        $doc.components.examples.BuyGeneralTicketsRequestExample.'x-kestrun-demo'.scenario | Should -Be 'buy-ticket'
+        $doc.components.examples.BuyGeneralTicketsResponseExample.'x-kestrun-demo'.statusCode | Should -Be 201
+
+        # OpenAPI 3.1: dataValue/serializedValue are emitted as x-oai-* extensions
+        $doc.components.examples.BuyGeneralTicketsRequestDataValueExample.PSObject.Properties['x-oai-dataValue'] | Should -Not -BeNullOrEmpty
+        $doc.components.examples.BuyGeneralTicketsRequestDataValueExample.PSObject.Properties['x-oai-serializedValue'] | Should -Not -BeNullOrEmpty
+
+        # External examples use externalValue
+        $doc.components.examples.GetMuseumHoursResponseExternalExample.externalValue | Should -Be 'https://example.com/openapi/examples/museum-hours.json'
 
         $postTicket = $doc.paths.'/tickets'.post
 
@@ -162,6 +175,7 @@ email: todd@example.com
 
             # Request example ref exists for each content type
             $postTicket.requestBody.content.$ct.examples.general_entry.'$ref' | Should -Be '#/components/examples/BuyGeneralTicketsRequestExample'
+            $postTicket.requestBody.content.$ct.examples.general_entry_dataValue.'$ref' | Should -Be '#/components/examples/BuyGeneralTicketsRequestDataValueExample'
 
             # Response content types exist
             $postTicket.responses.'201'.content.$ct | Should -Not -BeNullOrEmpty
@@ -171,8 +185,11 @@ email: todd@example.com
         }
 
         # Response example ref on GET /museum-hours (200)
-        $hoursRef = $doc.paths.'/museum-hours'.get.responses.'200'.content.'application/json'.examples.default_example.'$ref'
-        $hoursRef | Should -Be '#/components/examples/GetMuseumHoursResponseExample'
+        $hoursDefaultRef = $doc.paths.'/museum-hours'.get.responses.'200'.content.'application/json'.examples.default_example.'$ref'
+        $hoursDefaultRef | Should -Be '#/components/examples/GetMuseumHoursResponseExample'
+
+        $hoursExternalRef = $doc.paths.'/museum-hours'.get.responses.'200'.content.'application/json'.examples.external_example.'$ref'
+        $hoursExternalRef | Should -Be '#/components/examples/GetMuseumHoursResponseExternalExample'
     }
 
     It 'OpenAPI inlines parameter examples for ticketDate (no $ref)' {

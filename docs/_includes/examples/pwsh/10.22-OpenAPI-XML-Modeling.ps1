@@ -96,12 +96,7 @@ function getProduct {
         ContentType = ('application/json', 'application/xml')
     )]
     param(
-        [OpenApiParameter(
-            In = 'path',
-            Description = 'Product identifier',
-            Required = $true,
-            Schema = [int]
-        )]
+        [OpenApiParameter(In = 'path', Description = 'Product identifier', Required = $true)]
         [int]$id
     )
 

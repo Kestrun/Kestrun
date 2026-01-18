@@ -55,68 +55,47 @@ Add-KrRequestLocalizationMiddleware `
 # Enable configuration
 Enable-KrConfiguration
 
-# Localized greetings
-$greetings = @{
-    'en-US' = @{
-        Welcome = 'Welcome to Kestrun!'
-        CurrentCulture = 'Current culture'
-        Instructions = 'To change language, use one of these methods:'
-        Method1 = 'Query string: ?culture=fr-FR'
-        Method2 = 'Cookie: .AspNetCore.Culture=c=fr-FR|uic=fr-FR'
-        Method3 = 'Accept-Language header: Accept-Language: fr-FR'
-    }
-    'fr-FR' = @{
-        Welcome = 'Bienvenue à Kestrun!'
-        CurrentCulture = 'Culture actuelle'
-        Instructions = 'Pour changer de langue, utilisez l''une de ces méthodes:'
-        Method1 = 'Chaîne de requête: ?culture=fr-FR'
-        Method2 = 'Cookie: .AspNetCore.Culture=c=fr-FR|uic=fr-FR'
-        Method3 = 'En-tête Accept-Language: Accept-Language: fr-FR'
-    }
-    'es-ES' = @{
-        Welcome = '¡Bienvenido a Kestrun!'
-        CurrentCulture = 'Cultura actual'
-        Instructions = 'Para cambiar el idioma, use uno de estos métodos:'
-        Method1 = 'Cadena de consulta: ?culture=es-ES'
-        Method2 = 'Cookie: .AspNetCore.Culture=c=es-ES|uic=es-ES'
-        Method3 = 'Encabezado Accept-Language: Accept-Language: es-ES'
-    }
-    'de-DE' = @{
-        Welcome = 'Willkommen bei Kestrun!'
-        CurrentCulture = 'Aktuelle Kultur'
-        Instructions = 'Um die Sprache zu ändern, verwenden Sie eine dieser Methoden:'
-        Method1 = 'Abfragezeichenfolge: ?culture=de-DE'
-        Method2 = 'Cookie: .AspNetCore.Culture=c=de-DE|uic=de-DE'
-        Method3 = 'Accept-Language-Header: Accept-Language: de-DE'
-    }
-    'ja-JP' = @{
-        Welcome = 'Kestrunへようこそ！'
-        CurrentCulture = '現在のカルチャ'
-        Instructions = '言語を変更するには、次のいずれかの方法を使用してください：'
-        Method1 = 'クエリ文字列: ?culture=ja-JP'
-        Method2 = 'クッキー: .AspNetCore.Culture=c=ja-JP|uic=ja-JP'
-        Method3 = 'Accept-Languageヘッダー: Accept-Language: ja-JP'
-    }
-}
-
-Set-KrSharedState -Name 'Greetings' -Value $greetings
-
-# Main route - displays localized content
-Add-KrMapRoute -Verbs Get -Pattern '/' -ScriptBlock {
-    # Get the current culture from the request
-    $culture = [System.Globalization.CultureInfo]::CurrentCulture.Name
+# Helper function to load localized strings from .psd1 files
+function Get-LocalizedStrings {
+    param([string]$Culture)
     
-    # Fall back to parent culture if exact match not found
-    if (-not $Greetings.ContainsKey($culture)) {
-        $parentCulture = [System.Globalization.CultureInfo]::CurrentCulture.Parent.Name
-        if ($Greetings.ContainsKey($parentCulture)) {
-            $culture = $parentCulture
-        } else {
-            $culture = 'en-US'
+    $localePath = Join-Path $ScriptPath "locales\$Culture.psd1"
+    
+    # Check if culture-specific file exists
+    if (Test-Path $localePath) {
+        return Import-PowerShellDataFile -Path $localePath
+    }
+    
+    # Try parent culture (e.g., 'en' from 'en-GB')
+    if ($Culture.Contains('-')) {
+        $parentCulture = $Culture.Split('-')[0]
+        $parentPath = Join-Path $ScriptPath "locales\$parentCulture.psd1"
+        if (Test-Path $parentPath) {
+            return Import-PowerShellDataFile -Path $parentPath
         }
     }
     
-    $messages = $Greetings[$culture]
+    # Fall back to default (en-US)
+    $defaultPath = Join-Path $ScriptPath "locales\en-US.psd1"
+    if (Test-Path $defaultPath) {
+        return Import-PowerShellDataFile -Path $defaultPath
+    }
+    
+    # If all else fails, return empty hashtable
+    return @{}
+}
+
+# Main route - displays localized content
+Add-KrMapRoute -Verbs Get -Pattern '/' -ScriptBlock {
+    # Get the current culture from request context (set by middleware)
+    # Preferred method: Use CurrentUICulture
+    $culture = [System.Globalization.CultureInfo]::CurrentUICulture.Name
+    
+    # Alternative: Read from HttpContext.Items (fallback)
+    # $culture = $Context.Items['KrCulture']
+    
+    # Load localized strings from .psd1 file
+    $messages = Get-LocalizedStrings -Culture $culture
     
     $html = @"
 <!DOCTYPE html>
@@ -197,7 +176,7 @@ Add-KrMapRoute -Verbs Get -Pattern '/' -ScriptBlock {
             <li>3. $($messages.Method3)</li>
         </ul>
         <div class="languages">
-            <h3>Quick Links:</h3>
+            <h3>$($messages.QuickLinks)</h3>
             <a href="/?culture=en-US" class="language-btn">English 🇺🇸</a>
             <a href="/?culture=fr-FR" class="language-btn">Français 🇫🇷</a>
             <a href="/?culture=es-ES" class="language-btn">Español 🇪🇸</a>
@@ -214,9 +193,15 @@ Add-KrMapRoute -Verbs Get -Pattern '/' -ScriptBlock {
 
 # API route - returns current culture information as JSON
 Add-KrMapRoute -Verbs Get -Pattern '/api/culture' -ScriptBlock {
+    # Get culture from request context (set by middleware)
+    $currentCulture = [System.Globalization.CultureInfo]::CurrentCulture.Name
+    $currentUICulture = [System.Globalization.CultureInfo]::CurrentUICulture.Name
+    
+    # Also available as: $Context.Items['KrCulture']
+    
     $cultureInfo = @{
-        CurrentCulture = [System.Globalization.CultureInfo]::CurrentCulture.Name
-        CurrentUICulture = [System.Globalization.CultureInfo]::CurrentUICulture.Name
+        CurrentCulture = $currentCulture
+        CurrentUICulture = $currentUICulture
         DisplayName = [System.Globalization.CultureInfo]::CurrentCulture.DisplayName
         NativeName = [System.Globalization.CultureInfo]::CurrentCulture.NativeName
         EnglishName = [System.Globalization.CultureInfo]::CurrentCulture.EnglishName
@@ -228,6 +213,8 @@ Add-KrMapRoute -Verbs Get -Pattern '/api/culture' -ScriptBlock {
             CurrencySymbol = [System.Globalization.CultureInfo]::CurrentCulture.NumberFormat.CurrencySymbol
         }
         Timestamp = Get-Date -Format 'o'
+        # Show where culture was read from
+        HttpContextItemsValue = $Context.Items['KrCulture']
     }
     
     Write-KrJsonResponse -InputObject $cultureInfo -StatusCode 200

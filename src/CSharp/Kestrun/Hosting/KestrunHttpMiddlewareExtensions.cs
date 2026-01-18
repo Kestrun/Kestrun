@@ -1,4 +1,5 @@
 using Kestrun.Middleware;
+using Kestrun.Localization;
 using Microsoft.AspNetCore.ResponseCaching;
 using Microsoft.AspNetCore.ResponseCompression;
 using Microsoft.Net.Http.Headers;
@@ -403,7 +404,9 @@ public static class KestrunHttpMiddlewareExtensions
     }
 
     /// <summary>
-    /// Adds request localization middleware using the specified <see cref="RequestLocalizationOptions"/>.
+    /// Adds Kestrun request localization middleware using the specified <see cref="RequestLocalizationOptions"/>.
+    /// This middleware determines the culture once per request and stores it in HttpContext.Items["KrCulture"]
+    /// for PowerShell handlers to access. It also sets CultureInfo.CurrentCulture and CurrentUICulture.
     /// </summary>
     /// <param name="host">The KestrunHost instance to configure.</param>
     /// <param name="opts">The request localization options.</param>
@@ -412,7 +415,7 @@ public static class KestrunHttpMiddlewareExtensions
     {
         if (host.Logger.IsEnabled(LogEventLevel.Debug))
         {
-            host.Logger.Debug("Adding request localization with configuration: {@Config}", opts);
+            host.Logger.Debug("Adding Kestrun request localization middleware with configuration: {@Config}", opts);
         }
 
         if (opts == null)
@@ -420,11 +423,13 @@ public static class KestrunHttpMiddlewareExtensions
             return host.AddRequestLocalization();   // fallback to parameterless overload
         }
 
-        return host.Use(app => app.UseRequestLocalization(opts));
+        return host.Use(app => app.UseMiddleware<KestrunRequestLocalizationMiddleware>(opts, host.Logger));
     }
 
     /// <summary>
-    /// Adds request localization middleware using the specified configuration delegate.
+    /// Adds Kestrun request localization middleware using the specified configuration delegate.
+    /// This middleware determines the culture once per request and stores it in HttpContext.Items["KrCulture"]
+    /// for PowerShell handlers to access. It also sets CultureInfo.CurrentCulture and CurrentUICulture.
     /// </summary>
     /// <param name="host">The KestrunHost instance to configure.</param>
     /// <param name="cfg">The configuration delegate for request localization options.</param>
@@ -433,7 +438,7 @@ public static class KestrunHttpMiddlewareExtensions
     {
         if (host.Logger.IsEnabled(LogEventLevel.Debug))
         {
-            host.Logger.Debug("Adding request localization with configuration: {HasConfig}", cfg != null);
+            host.Logger.Debug("Adding Kestrun request localization middleware with configuration: {HasConfig}", cfg != null);
         }
 
         var options = new RequestLocalizationOptions();
@@ -443,13 +448,7 @@ public static class KestrunHttpMiddlewareExtensions
             cfg(options);
         }
 
-        // Register the request localization service
-        _ = host.AddService(services =>
-        {
-            _ = services.Configure<RequestLocalizationOptions>(cfg ?? (_ => { }));
-        });
-
-        // Apply the middleware
-        return host.Use(app => app.UseRequestLocalization(options));
+        // Apply the custom Kestrun middleware
+        return host.Use(app => app.UseMiddleware<KestrunRequestLocalizationMiddleware>(options, host.Logger));
     }
 }

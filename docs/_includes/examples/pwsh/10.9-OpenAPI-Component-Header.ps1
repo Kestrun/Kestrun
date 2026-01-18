@@ -82,6 +82,7 @@ $ThrottleCounters = [hashtable]::Synchronized(@{})  # key: ip string, value: cou
 # =========================================================
 #                 HELPERS (THROTTLING)
 # =========================================================
+
 <#
 .SYNOPSIS
     Gets a client key for throttling (based on IP address).
@@ -114,7 +115,21 @@ function Test-Throttle {
     }
 }
 
-function Set-DemoOperationalHeaders {
+<#
+.SYNOPSIS
+    Sets operational headers for the response.
+.PARAMETER Limit
+    The rate limit value.
+.PARAMETER Remaining
+    The remaining requests value.
+.PARAMETER ResetSeconds
+    The reset time in seconds.
+.PARAMETER CorrelationId
+    The correlation ID value.
+.OUTPUTS
+    None
+#>
+function Add-DemoOperationalHeader {
     param(
         [Parameter(Mandatory)]
         [int]$Limit,
@@ -166,9 +181,27 @@ New-KrOpenApiHeader `
     Add-KrOpenApiComponent -Name 'ETag'
 
 # Simple rate limit headers (demo)
-New-KrOpenApiHeader -Description 'Maximum requests allowed in the current window.' -Schema ([int]) | Add-KrOpenApiComponent -Name 'X-RateLimit-Limit'
-New-KrOpenApiHeader -Description 'Remaining requests in the current window.' -Schema ([int]) | Add-KrOpenApiComponent -Name 'X-RateLimit-Remaining'
-New-KrOpenApiHeader -Description 'Seconds until the window resets.' -Schema ([int]) | Add-KrOpenApiComponent -Name 'X-RateLimit-Reset'
+New-KrOpenApiHeader -Description 'Maximum requests allowed in the current window.' -Schema ([int]) |
+    Add-KrOpenApiComponent -Name 'X-RateLimit-Limit'
+
+New-KrOpenApiHeader -Description 'Remaining requests in the current window.' -Schema ([int]) `
+    -Extensions ([ordered]@{
+        'x-kestrun-demo' = [ordered]@{
+            exampleRemaining = 1
+            computedPer = 'client-ip'
+            windowSeconds = 60
+        }
+    }) |
+    Add-KrOpenApiComponent -Name 'X-RateLimit-Remaining'
+
+New-KrOpenApiHeader -Description 'Seconds until the window resets.' -Schema ([int]) `
+    -Extensions ([ordered]@{
+        'x-kestrun-demo' = [ordered]@{
+            resetSeconds = 60
+            correlationIdExample = '7b2a8e5d-0d7c-4f0a-9b3c-3f9d0b8ad7b1'
+        }
+    }) |
+    Add-KrOpenApiComponent -Name 'X-RateLimit-Reset'
 
 # Retry-After for 429 Too Many Requests
 New-KrOpenApiHeader -Description 'Seconds to wait before retrying the request.' -Schema ([int]) | Add-KrOpenApiComponent -Name 'Retry-After'
@@ -217,7 +250,7 @@ function createUser {
     )
 
     $correlationId = [Guid]::NewGuid().ToString()
-    Set-DemoOperationalHeaders -Limit 3 -Remaining 1 -ResetSeconds 60 -CorrelationId $correlationId
+    Add-DemoOperationalHeader -Limit 3 -Remaining 1 -ResetSeconds 60 -CorrelationId $correlationId
 
     if (Test-Throttle) {
         $Context.Response.Headers['Retry-After'] = '30'
@@ -282,7 +315,7 @@ function getUser {
     )
 
     $correlationId = [Guid]::NewGuid().ToString()
-    Set-DemoOperationalHeaders -Limit 3 -Remaining 1 -ResetSeconds 60 -CorrelationId $correlationId
+    Add-DemoOperationalHeader -Limit 3 -Remaining 1 -ResetSeconds 60 -CorrelationId $correlationId
 
     if (Test-Throttle) {
         $Context.Response.Headers['Retry-After'] = '30'
@@ -333,7 +366,7 @@ function deleteUser {
     )
 
     $correlationId = [Guid]::NewGuid().ToString()
-    Set-DemoOperationalHeaders -Limit 3 -Remaining 1 -ResetSeconds 60 -CorrelationId $correlationId
+    Add-DemoOperationalHeader -Limit 3 -Remaining 1 -ResetSeconds 60 -CorrelationId $correlationId
 
     $removed = $false
     [System.Threading.Monitor]::Enter($Users.SyncRoot)

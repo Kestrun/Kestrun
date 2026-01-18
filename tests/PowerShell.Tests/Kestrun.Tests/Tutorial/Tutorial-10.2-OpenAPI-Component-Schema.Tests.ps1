@@ -79,6 +79,15 @@ Describe 'Example 10.2 OpenAPI Component Schema' -Tag 'OpenApi', 'Tutorial', 'Sl
         $json.components.schemas.PurchaseRequest.required | Should -Contain 'visitDates'
         $json.components.schemas.PurchaseResponse | Should -Not -BeNullOrEmpty
 
+        # Schema vendor extensions (x-*)
+        $json.components.schemas.Address | Should -Not -BeNullOrEmpty
+        $json.components.schemas.Address.'x-badges' | Should -Not -BeNullOrEmpty
+        $json.components.schemas.Address.'x-badges'[0].name | Should -Be 'Beta'
+        $json.components.schemas.Address.'x-badges'[1].name | Should -Be 'PII'
+        $json.components.schemas.Address.'x-kestrun-demo'.owner | Should -Be 'docs'
+        $json.components.schemas.Address.'x-kestrun-demo'.stability | Should -Be 'beta'
+        $json.components.schemas.Address.'x-kestrun-demo'.containsPii | Should -BeTrue
+
         $json.paths.'/employees'.get | Should -Not -BeNullOrEmpty
         $json.paths.'/tickets/purchase'.post | Should -Not -BeNullOrEmpty
     }

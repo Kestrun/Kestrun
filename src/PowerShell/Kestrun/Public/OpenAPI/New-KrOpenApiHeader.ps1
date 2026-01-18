@@ -4,9 +4,7 @@
 .DESCRIPTION
     This cmdlet creates a new OpenAPI Header object that can be used in OpenAPI specifications.
 .PARAMETER Server
-    The Kestrun server instance to use.
-.PARAMETER DocId
-    The documentation IDs to which this header will be associated.
+    The Kestrun server instance to use. If not specified, the default server instance is used.
 .PARAMETER Description
     A brief description of the header.
 .PARAMETER Required
@@ -22,13 +20,17 @@
 .PARAMETER Style
     The style of the header (e.g., simple, matrix, label, etc.).
 .PARAMETER Example
-    An example value for the header.
+    A single example of the header value.
 .PARAMETER Examples
-    A hashtable of example values for the header.
+    A dictionary of multiple examples for the header.
 .PARAMETER Schema
-    The schema type for the header. (Parameter set 'Schema')
+    The schema defining the type of the header value. This can be a .NET type literal (e.g., [string], [int], etc.).
 .PARAMETER Content
-    A hashtable of content media types for the header. (OpenAPi3.2 and above) (Parameter set 'Content')
+    A dictionary representing the content of the header, mapping media types to OpenAPI MediaType objects.
+.PARAMETER Extensions
+    A dictionary of OpenAPI extensions to add to the header.
+.OUTPUTS
+    Microsoft.OpenApi.OpenApiHeader object.
 .EXAMPLE
     $header = New-KrOpenApiHeader -Description "Custom Header" -Required -Schema [string]
     This example creates a new OpenAPI Header object with a description, marks it as required, and sets its schema to string.
@@ -61,9 +63,6 @@ function New-KrOpenApiHeader {
         [Kestrun.Hosting.KestrunHost]$Server,
 
         [Parameter()]
-        [string[]]$DocId = [Kestrun.OpenApi.OpenApiDocDescriptor]::DefaultDocumentationIds,
-
-        [Parameter()]
         [string]$Description,
 
         [Parameter()]
@@ -94,7 +93,10 @@ function New-KrOpenApiHeader {
         [object]$Schema,
 
         [Parameter(ParameterSetName = 'Content')]
-        [hashtable]$Content
+        [System.Collections.IDictionary]$Content,
+
+        [Parameter()]
+        [System.Collections.IDictionary]$Extensions
     )
     begin {
         # Ensure the server instance is resolved
@@ -104,9 +106,9 @@ function New-KrOpenApiHeader {
         }
     }
     process {
-        # Create a new OpenAPI header for the specified document(s) and return it
-        foreach ($doc in $DocId) {
-            $docDescriptor = $Server.GetOrCreateOpenApiDocument($doc)
+        # Create header for the specified OpenAPI document
+        if ($Server.OpenApiDocumentDescriptor.Count -gt 0 ) {
+            $docDescriptor = $Server.DefaultOpenApiDocumentDescriptor
             $header = $docDescriptor.NewOpenApiHeader(
                 $Description,
                 $Required.IsPresent,
@@ -118,7 +120,8 @@ function New-KrOpenApiHeader {
                 $Example,
                 $Examples,
                 $Schema,
-                $Content
+                $Content,
+                $Extensions
             )
             return $header
         }

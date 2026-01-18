@@ -18,8 +18,8 @@ public static class OpenApiSchemaDiscovery
         return new OpenApiComponentSet
         {
             SchemaTypes = GetSchemaTypes(assemblies),
-            RequestBodyTypes = GetTypesWithAttribute(assemblies, typeof(OpenApiRequestBodyComponentAttribute)),
 #if EXTENDED_OPENAPI
+            RequestBodyTypes = GetTypesWithAttribute(assemblies, typeof(OpenApiRequestBodyComponentAttribute)),
             ResponseTypes = GetTypesWithAttribute(assemblies, typeof(OpenApiResponseComponentAttribute)),
             ParameterTypes = GetTypesWithAttribute(assemblies, typeof(OpenApiParameterComponentAttribute)),
             HeaderTypes = GetTypesWithAttribute(assemblies, typeof(OpenApiHeaderAttribute)),
@@ -38,12 +38,6 @@ public static class OpenApiSchemaDiscovery
                         a.FullName.StartsWith("Kestrun")))];
     }
 
-    private static Type[] GetTypesWithAttribute(System.Reflection.Assembly[] assemblies, Type attributeType)
-    {
-        return [.. assemblies.SelectMany(asm => asm.GetTypes())
-            .Where(t => t.IsClass && !t.IsAbstract && t.IsDefined(attributeType, true))];
-    }
-
     private static Type[] GetSchemaTypes(System.Reflection.Assembly[] assemblies)
     {
         var primitivesAssembly = typeof(OpenApiString).Assembly;
@@ -57,6 +51,12 @@ public static class OpenApiSchemaDiscovery
     }
 
 #if EXTENDED_OPENAPI
+
+   private static Type[] GetTypesWithAttribute(System.Reflection.Assembly[] assemblies, Type attributeType)
+    {
+        return [.. assemblies.SelectMany(asm => asm.GetTypes())
+            .Where(t => t.IsClass && !t.IsAbstract && t.IsDefined(attributeType, true))];
+    }
     private static Type[] GetTypesWithKind(System.Reflection.Assembly[] assemblies, OpenApiModelKind kind)
     {
         return [.. assemblies.SelectMany(asm => asm.GetTypes())

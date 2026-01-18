@@ -5,6 +5,7 @@ using Microsoft.Net.Http.Headers;
 using Serilog.Events;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.AspNetCore.HttpsPolicy;
+using Microsoft.AspNetCore.Localization;
 
 namespace Kestrun.Hosting;
 
@@ -399,5 +400,70 @@ public static class KestrunHttpMiddlewareExtensions
         });
 
         return host.Use(app => app.UseHsts());
+    }
+
+    /// <summary>
+    /// Adds request localization middleware using the specified <see cref="RequestLocalizationOptions"/>.
+    /// </summary>
+    /// <param name="host">The KestrunHost instance to configure.</param>
+    /// <param name="opts">The request localization options.</param>
+    /// <returns>The updated KestrunHost instance.</returns>
+    public static KestrunHost AddRequestLocalization(this KestrunHost host, RequestLocalizationOptions opts)
+    {
+        if (host.Logger.IsEnabled(LogEventLevel.Debug))
+        {
+            host.Logger.Debug("Adding request localization with configuration: {@Config}", opts);
+        }
+
+        if (opts == null)
+        {
+            return host.AddRequestLocalization();   // fallback to parameterless overload
+        }
+
+        _ = host.AddService(services =>
+        {
+            _ = services.Configure<RequestLocalizationOptions>(o =>
+            {
+                o.DefaultRequestCulture = opts.DefaultRequestCulture;
+                o.SupportedCultures = opts.SupportedCultures;
+                o.SupportedUICultures = opts.SupportedUICultures;
+                o.RequestCultureProviders = opts.RequestCultureProviders;
+                o.FallBackToParentCultures = opts.FallBackToParentCultures;
+                o.FallBackToParentUICultures = opts.FallBackToParentUICultures;
+                o.ApplyCurrentCultureToResponseHeaders = opts.ApplyCurrentCultureToResponseHeaders;
+            });
+        });
+
+        return host.Use(app => app.UseRequestLocalization(opts));
+    }
+
+    /// <summary>
+    /// Adds request localization middleware using the specified configuration delegate.
+    /// </summary>
+    /// <param name="host">The KestrunHost instance to configure.</param>
+    /// <param name="cfg">The configuration delegate for request localization options.</param>
+    /// <returns>The updated KestrunHost instance.</returns>
+    public static KestrunHost AddRequestLocalization(this KestrunHost host, Action<RequestLocalizationOptions>? cfg = null)
+    {
+        if (host.Logger.IsEnabled(LogEventLevel.Debug))
+        {
+            host.Logger.Debug("Adding request localization with configuration: {HasConfig}", cfg != null);
+        }
+
+        var options = new RequestLocalizationOptions();
+        
+        if (cfg != null)
+        {
+            cfg(options);
+        }
+
+        // Register the request localization service
+        _ = host.AddService(services =>
+        {
+            _ = services.Configure<RequestLocalizationOptions>(cfg ?? (_ => { }));
+        });
+
+        // Apply the middleware
+        return host.Use(app => app.UseRequestLocalization(options));
     }
 }

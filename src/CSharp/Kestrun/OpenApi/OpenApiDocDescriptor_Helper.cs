@@ -113,7 +113,7 @@ public partial class OpenApiDocDescriptor
             }
 
             string key;
-            if (rawKey.StartsWith("x-", StringComparison.OrdinalIgnoreCase))
+            if (rawKey.StartsWith("x-", StringComparison.Ordinal))
             {
                 key = rawKey;
             }

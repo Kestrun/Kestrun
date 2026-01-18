@@ -52,6 +52,8 @@ function New-KrOpenApiExternalDoc {
         if ($Server.OpenApiDocumentDescriptor.Count -gt 0 ) {
             $docDescriptor = $Server.DefaultOpenApiDocumentDescriptor
             return $docDescriptor.CreateExternalDocs($Url, $Description, $Extensions)
+        } else {
+            Write-KrLog -Level Warning 'New-KrOpenApiExternalDoc: No OpenAPI documents exist on the server.Create an OpenAPI document before adding external documentation.'
         }
     }
 }

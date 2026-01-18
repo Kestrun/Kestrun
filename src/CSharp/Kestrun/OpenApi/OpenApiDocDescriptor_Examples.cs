@@ -71,7 +71,6 @@ public partial class OpenApiDocDescriptor
                string? description,
                IDictionary? extensions)
     {
-
         var example = new OpenApiExample
         {
             Summary = summary

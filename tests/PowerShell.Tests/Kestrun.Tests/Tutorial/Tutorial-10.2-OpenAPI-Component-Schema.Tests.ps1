@@ -88,6 +88,17 @@ Describe 'Example 10.2 OpenAPI Component Schema' -Tag 'OpenApi', 'Tutorial', 'Sl
         $json.components.schemas.Address.'x-kestrun-demo'.stability | Should -Be 'beta'
         $json.components.schemas.Address.'x-kestrun-demo'.containsPii | Should -BeTrue
 
+        # Enum schema component validation
+        $json.components.schemas.TicketType | Should -Not -BeNullOrEmpty
+        $json.components.schemas.TicketType.type | Should -Be 'string'
+        $json.components.schemas.TicketType.enum | Should -Not -BeNullOrEmpty
+        $json.components.schemas.TicketType.enum | Should -Contain 'general'
+        $json.components.schemas.TicketType.enum | Should -Contain 'event'
+        
+        # Verify LineItem.ticketType uses $ref to TicketType enum
+        $json.components.schemas.LineItem | Should -Not -BeNullOrEmpty
+        $json.components.schemas.LineItem.properties.ticketType.'$ref' | Should -Be '#/components/schemas/TicketType'
+
         $json.paths.'/employees'.get | Should -Not -BeNullOrEmpty
         $json.paths.'/tickets/purchase'.post | Should -Not -BeNullOrEmpty
     }

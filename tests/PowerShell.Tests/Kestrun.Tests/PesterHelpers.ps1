@@ -330,7 +330,7 @@ Start-KrServer
 
     return [pscustomobject]@{
         Name = $Name
-        BaseName = (-not [string]::IsNullOrWhiteSpace($Name))? (Get-Item $Name).BaseName: 'ScriptBlock'
+        BaseName = (-not [string]::IsNullOrWhiteSpace($Name))? [System.IO.Path]::GetFileNameWithoutExtension($Name): 'ScriptBlock'
         Url = ('{0}://{1}:{2}' -f ($usesHttps ? 'https' : 'http'), $serverIp, $Port)
         Host = $serverIp
         Port = $Port

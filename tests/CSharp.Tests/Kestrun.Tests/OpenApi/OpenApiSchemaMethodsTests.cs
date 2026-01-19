@@ -92,6 +92,34 @@ public class OpenApiSchemaMethodsTests
 
     [Fact]
     [Trait("Category", "OpenAPI")]
+    public void BuildPropertySchema_NullableEnumType_ReturnsAnyOfWithNull()
+    {
+        // Arrange
+        var property = typeof(TestClassWithProperties).GetProperty(nameof(TestClassWithProperties.NullableStatus))!;
+        var built = new HashSet<Type>();
+
+        // Act
+        var schema = InvokeBuildPropertySchema(property, built);
+
+        // Assert - nullable enums should be wrapped in anyOf with null
+        var concreteSchema = Assert.IsAssignableFrom<OpenApiSchema>(schema);
+        Assert.NotNull(concreteSchema.AnyOf);
+        Assert.Equal(2, concreteSchema.AnyOf.Count);
+        
+        // First item should be a reference to the enum
+        var enumRef = Assert.IsAssignableFrom<OpenApiSchemaReference>(concreteSchema.AnyOf[0]);
+        Assert.Equal("TestStatus", enumRef.Reference.Id);
+        
+        // Second item should be a null schema
+        var nullSchema = Assert.IsAssignableFrom<OpenApiSchema>(concreteSchema.AnyOf[1]);
+        Assert.Equal(JsonSchemaType.Null, nullSchema.Type);
+        
+        // Verify the enum component was registered in the document
+        Assert.True(_descriptor.Document.Components!.Schemas!.ContainsKey("TestStatus"));
+    }
+
+    [Fact]
+    [Trait("Category", "OpenAPI")]
     public void BuildPropertySchema_ArrayType_ReturnsArraySchema()
     {
         // Arrange
@@ -607,6 +635,7 @@ public class TestClassWithProperties
     public string Name { get; set; } = "test";
     public int? NullableInt { get; set; }
     public TestStatus Status { get; set; }
+    public TestStatus? NullableStatus { get; set; }
     public string[] Tags { get; set; } = [];
     public Address Address { get; set; } = new();
     public Address[] Addresses { get; set; } = [];

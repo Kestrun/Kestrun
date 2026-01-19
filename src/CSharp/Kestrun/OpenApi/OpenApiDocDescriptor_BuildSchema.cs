@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Reflection;
 using System.Text.Json.Nodes;
 using Microsoft.OpenApi;
@@ -60,9 +61,25 @@ public partial class OpenApiDocDescriptor
 #pragma warning restore IDE0045
         // Convert to conditional expression
         // Apply nullable flag if needed
-        if (allowNull && schema is OpenApiSchema s)
+        if (allowNull)
         {
-            s.Type |= JsonSchemaType.Null;
+            if (schema is OpenApiSchema s)
+            {
+                // For inline schemas, add null type directly
+                s.Type |= JsonSchemaType.Null;
+            }
+            else if (schema is OpenApiSchemaReference refSchema)
+            {
+                // For $ref schemas (enums/complex types), wrap in anyOf with null
+                schema = new OpenApiSchema
+                {
+                    AnyOf = new List<IOpenApiSchema>
+                    {
+                        refSchema,
+                        new OpenApiSchema { Type = JsonSchemaType.Null }
+                    }
+                };
+            }
         }
         ApplySchemaAttr(p.GetCustomAttribute<OpenApiProperties>(), schema);
         PowerShellAttributes.ApplyPowerShellAttributes(p, schema);

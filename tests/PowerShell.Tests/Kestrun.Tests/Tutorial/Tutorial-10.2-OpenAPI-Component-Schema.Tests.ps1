@@ -31,7 +31,8 @@ Describe 'Example 10.2 OpenAPI Component Schema' -Tag 'OpenApi', 'Tutorial', 'Sl
             note = 'Please email the receipt.'
         } | ConvertTo-Json -Depth 10
 
-        $result = Invoke-WebRequest -Uri "$($script:instance.Url)/tickets/purchase" -Method Post -Body $body -ContentType 'application/json' -Headers @{ Accept = 'application/json' } -SkipCertificateCheck -SkipHttpErrorCheck
+        $result = Invoke-WebRequest -Uri "$($script:instance.Url)/tickets/purchase" -Method Post `
+            -Body $body -ContentType 'application/json' -Headers @{ Accept = 'application/json' } -SkipCertificateCheck -SkipHttpErrorCheck
         $result.StatusCode | Should -Be 201
         $json = $result.Content | ConvertFrom-Json
         $json.ticketId | Should -Not -BeNullOrEmpty
@@ -53,7 +54,8 @@ Describe 'Example 10.2 OpenAPI Component Schema' -Tag 'OpenApi', 'Tutorial', 'Sl
             visitDates = @('2026-01-14')
         } | ConvertTo-Json -Depth 10
 
-        $result = Invoke-WebRequest -Uri "$($script:instance.Url)/tickets/purchase" -Method Post -Body $body -ContentType 'application/json' -Headers @{ Accept = 'application/json' } -SkipCertificateCheck -SkipHttpErrorCheck
+        $result = Invoke-WebRequest -Uri "$($script:instance.Url)/tickets/purchase" -Method Post `
+            -Body $body -ContentType 'application/json' -Headers @{ Accept = 'application/json' } -SkipCertificateCheck -SkipHttpErrorCheck
         $result.StatusCode | Should -Be 400
         $json = $result.Content | ConvertFrom-Json
         $json.code | Should -Be 400
@@ -94,12 +96,26 @@ Describe 'Example 10.2 OpenAPI Component Schema' -Tag 'OpenApi', 'Tutorial', 'Sl
         $json.components.schemas.TicketType.enum | Should -Not -BeNullOrEmpty
         $json.components.schemas.TicketType.enum | Should -Contain 'general'
         $json.components.schemas.TicketType.enum | Should -Contain 'event'
-        
+
         # Verify LineItem.ticketType uses $ref to TicketType enum
         $json.components.schemas.LineItem | Should -Not -BeNullOrEmpty
         $json.components.schemas.LineItem.properties.ticketType.'$ref' | Should -Be '#/components/schemas/TicketType'
 
         $json.paths.'/employees'.get | Should -Not -BeNullOrEmpty
         $json.paths.'/tickets/purchase'.post | Should -Not -BeNullOrEmpty
+    }
+
+    It 'OpenAPI output matches 10.2 fixture JSON' {
+        $result = Invoke-WebRequest -Uri "$($script:instance.Url)/openapi/v3.1/openapi.json" -SkipCertificateCheck -SkipHttpErrorCheck
+        $result.StatusCode | Should -Be 200
+
+        $actualNormalized = Get-NormalizedJson $result.Content
+        $expectedPath = Join-Path -Path (Get-TutorialExamplesDirectory) -ChildPath 'Assets' `
+            -AdditionalChildPath 'OpenAPI', "$($script:instance.BaseName).json"
+
+        $expectedContent = Get-Content -Path $expectedPath -Raw
+        $expectedNormalized = Get-NormalizedJson $expectedContent
+
+        $actualNormalized | Should -Be $expectedNormalized
     }
 }

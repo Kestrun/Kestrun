@@ -406,12 +406,10 @@ public partial class OpenApiDocDescriptor
             Type = JsonSchemaType.String,
             Enum = [.. enumType.GetEnumNames().Select(n => (JsonNode)n)]
         };
-        
         if (Document.Components?.Schemas is not null)
         {
             Document.Components.Schemas[enumType.Name] = enumSchema;
         }
-        
         return enumSchema;
     }
 

@@ -193,12 +193,15 @@ Enable-KrConfiguration
 Add-KrApiDocumentationRoute -DocumentType Swagger
 Add-KrApiDocumentationRoute -DocumentType Redoc
 
-# GET endpoint: Return a list of employees (array component)
+
 <#
 .SYNOPSIS
     List employees.
 .DESCRIPTION
     Returns an array of employee records.
+.NOTES
+    Demonstrates reusable component schemas and array wrappers.
+    GET endpoint: Return a list of employees (array component)
 #>
 function listEmployees {
     [OpenApiPath(HttpVerb = 'get', Pattern = '/employees')]
@@ -232,8 +235,6 @@ function listEmployees {
     Write-KrResponse $employees -StatusCode 200
 }
 
-# POST endpoint: Purchase tickets (nested objects + array wrappers)
-
 <#
 .SYNOPSIS
     Purchase tickets.
@@ -241,6 +242,9 @@ function listEmployees {
     Accepts a purchase request and returns a purchase confirmation.
 .PARAMETER body
     Ticket purchase request payload.
+.NOTES
+    Demonstrates nested object graphs and array wrappers.
+    POST endpoint: Accept a purchase request and return a purchase response
 #>
 function purchaseTickets {
     [OpenApiPath(HttpVerb = 'post', Pattern = '/tickets/purchase')]

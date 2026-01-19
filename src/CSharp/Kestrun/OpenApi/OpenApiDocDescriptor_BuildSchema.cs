@@ -1,5 +1,4 @@
 using System.Reflection;
-using System.Text.Json.Nodes;
 using Microsoft.OpenApi;
 
 namespace Kestrun.OpenApi;
@@ -48,23 +47,37 @@ public partial class OpenApiDocDescriptor
         {
             schema = getSchema();
         }
-        else if (pt.IsEnum)
+        else if (pt.IsArray)
         {
-            schema = BuildEnumSchema(pt, p);
+            schema = BuildArraySchema(pt, p, built);
         }
         else
         {
-            schema = pt.IsArray
-                ? BuildArraySchema(pt, p, built)
-                // Complex type
-                : BuildComplexTypeSchema(pt, p, built);
+            // Treat enums and complex types the same: register as component and reference
+            schema = BuildComplexTypeSchema(pt, built);
         }
 #pragma warning restore IDE0045
         // Convert to conditional expression
         // Apply nullable flag if needed
-        if (allowNull && schema is OpenApiSchema s)
+        if (allowNull)
         {
-            s.Type |= JsonSchemaType.Null;
+            if (schema is OpenApiSchema s)
+            {
+                // For inline schemas, add null type directly
+                s.Type |= JsonSchemaType.Null;
+            }
+            else if (schema is OpenApiSchemaReference refSchema)
+            {
+                // For $ref schemas (enums/complex types), wrap in anyOf with null
+                schema = new OpenApiSchema
+                {
+                    AnyOf =
+                    [
+                        refSchema,
+                        new OpenApiSchema { Type = JsonSchemaType.Null }
+                    ]
+                };
+            }
         }
         ApplySchemaAttr(p.GetCustomAttribute<OpenApiProperties>(), schema);
         PowerShellAttributes.ApplyPowerShellAttributes(p, schema);
@@ -75,35 +88,13 @@ public partial class OpenApiDocDescriptor
     /// Builds the schema for a complex type property.
     /// </summary>
     /// <param name="pt">The property type.</param>
-    /// <param name="p">The property info.</param>
     /// <param name="built">The set of already built types to avoid recursion.</param>
     /// <returns>The constructed OpenAPI schema for the complex type property.</returns>
-    private OpenApiSchemaReference BuildComplexTypeSchema(Type pt, PropertyInfo p, HashSet<Type> built)
+    private OpenApiSchemaReference BuildComplexTypeSchema(Type pt, HashSet<Type> built)
     {
         BuildSchema(pt, built); // ensure component exists
         var refSchema = new OpenApiSchemaReference(pt.Name);
-        ApplySchemaAttr(p.GetCustomAttribute<OpenApiProperties>(), refSchema);
         return refSchema;
-    }
-
-    /// <summary>
-    /// Builds the schema for an enum property.
-    /// </summary>
-    /// <param name="pt">The property type.</param>
-    /// <param name="p">The property info.</param>
-    /// <returns>The constructed OpenAPI schema for the enum property.</returns>
-    private static OpenApiSchema BuildEnumSchema(Type pt, PropertyInfo p)
-    {
-        var s = new OpenApiSchema
-        {
-            Type = JsonSchemaType.String,
-            Enum = [.. pt.GetEnumNames().Select(n => (JsonNode)n)]
-        };
-        var attrs = p.GetCustomAttributes<OpenApiPropertyAttribute>(inherit: false).ToArray();
-        var a = MergeSchemaAttributes(attrs);
-        ApplySchemaAttr(a, s);
-        PowerShellAttributes.ApplyPowerShellAttributes(p, s);
-        return s;
     }
 
     /// <summary>
@@ -124,15 +115,9 @@ public partial class OpenApiDocDescriptor
         }
         else
         {
-            if (!item.IsEnum)
-            {
-                BuildSchema(item, built); // ensure component exists
-                itemSchema = new OpenApiSchemaReference(item.Name);
-            }
-            else
-            {
-                itemSchema = BuildEnumSchema(item, p);
-            }
+            // Treat enums and complex types the same: register as component and reference
+            BuildSchema(item, built); // ensure component exists
+            itemSchema = new OpenApiSchemaReference(item.Name);
         }
         var s = new OpenApiSchema
         {

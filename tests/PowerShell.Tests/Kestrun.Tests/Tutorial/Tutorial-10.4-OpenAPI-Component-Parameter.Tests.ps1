@@ -149,8 +149,8 @@ Describe 'Example 10.4 OpenAPI Component Parameter' -Tag 'OpenApi', 'Tutorial', 
         $result.StatusCode | Should -Be 200
 
         $actualNormalized = Get-NormalizedJson $result.Content
-        $expectedPath = Join-Path -Path (Get-TutorialExamplesDirectory) -ChildPath 'Assets' -AdditionalChildPath 'OpenAPI', '10.4-Parameters.json'
-
+        $expectedPath = Join-Path -Path (Get-TutorialExamplesDirectory) -ChildPath 'Assets' `
+            -AdditionalChildPath 'OpenAPI', "$($script:instance.BaseName).json"
         $expectedContent = Get-Content -Path $expectedPath -Raw
         $expectedNormalized = Get-NormalizedJson $expectedContent
 

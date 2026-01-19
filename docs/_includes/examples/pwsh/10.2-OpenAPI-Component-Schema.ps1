@@ -156,6 +156,9 @@ class PurchaseRequest {
     [OpenApiProperty(Description = 'Dates the tickets are valid for.')]
     [Dates]$visitDates
 
+    [OpenApiProperty(Description = 'Optional preferred ticket type (nullable enum - produces anyOf with null).', Example = 'general')]
+    [Nullable[TicketType]]$preferredTicketType
+
     [OpenApiProperty(Description = 'Optional note attached to the purchase.', Example = 'Please email the receipt.')]
     [string]$note
 }

@@ -101,6 +101,19 @@ Describe 'Example 10.2 OpenAPI Component Schema' -Tag 'OpenApi', 'Tutorial', 'Sl
         $json.components.schemas.LineItem | Should -Not -BeNullOrEmpty
         $json.components.schemas.LineItem.properties.ticketType.'$ref' | Should -Be '#/components/schemas/TicketType'
 
+        # Verify PurchaseRequest.preferredTicketType uses anyOf for nullable enum
+        $json.components.schemas.PurchaseRequest | Should -Not -BeNullOrEmpty
+        $json.components.schemas.PurchaseRequest.properties.preferredTicketType | Should -Not -BeNullOrEmpty
+        # Nullable enum should produce anyOf with $ref and null
+        $json.components.schemas.PurchaseRequest.properties.preferredTicketType.anyOf | Should -Not -BeNullOrEmpty
+        $json.components.schemas.PurchaseRequest.properties.preferredTicketType.anyOf.Count | Should -Be 2
+        # First item should be the enum reference
+        $json.components.schemas.PurchaseRequest.properties.preferredTicketType.anyOf[0].'$ref' | Should -Be '#/components/schemas/TicketType'
+        # Second item should be null type
+        $json.components.schemas.PurchaseRequest.properties.preferredTicketType.anyOf[1].type | Should -Be 'null'
+        # Verify it's not in required properties (nullable/optional)
+        $json.components.schemas.PurchaseRequest.required | Should -Not -Contain 'preferredTicketType'
+
         $json.paths.'/employees'.get | Should -Not -BeNullOrEmpty
         $json.paths.'/tickets/purchase'.post | Should -Not -BeNullOrEmpty
     }

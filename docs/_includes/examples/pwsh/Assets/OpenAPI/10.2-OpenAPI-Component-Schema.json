@@ -369,6 +369,18 @@
             "description": "Dates the tickets are valid for.",
             "$ref": "#/components/schemas/Dates"
           },
+          "preferredTicketType": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TicketType"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Optional preferred ticket type (nullable enum - produces anyOf with null).",
+            "example": "general"
+          },
           "note": {
             "type": "string",
             "description": "Optional note attached to the purchase.",

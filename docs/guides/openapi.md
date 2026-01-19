@@ -549,9 +549,11 @@ components:
         email: { type: string }
 ```
 
-#### 4.5.3 Enums (ValidateSet vs enum)
+#### 4.5.3 Enums (ValidateSet vs PowerShell enum)
 
-`[ValidateSet(...)]` on a string property becomes an OpenAPI `enum`:
+**ValidateSet inline enums:**
+
+`[ValidateSet(...)]` on a string property becomes an inline OpenAPI `enum`:
 
 ```powershell
 [OpenApiSchemaComponent()]
@@ -572,7 +574,9 @@ components:
           enum: [placed, approved, delivered]
 ```
 
-PowerShell `enum` properties become an OpenAPI enum as well:
+**PowerShell enum as reusable schema component:**
+
+PowerShell `enum` types are automatically registered as **reusable schema components** under `components.schemas` and referenced via `$ref`:
 
 ```powershell
 enum TicketType { general; event }
@@ -586,13 +590,50 @@ class Ticket {
 ```yaml
 components:
   schemas:
+    TicketType:
+      type: string
+      enum: [general, event]
     Ticket:
       type: object
       properties:
         type:
-          type: string
-          enum: [general, event]
+          $ref: '#/components/schemas/TicketType'
 ```
+
+This approach:
+- **Eliminates duplication** when the same enum is used in multiple properties or schemas
+- **Improves code generation** — tools generate a single enum type instead of duplicates
+- **Follows OpenAPI best practices** for reusable enums
+
+**Enum arrays:**
+
+When an enum is used in an array, the array items reference the enum component:
+
+```powershell
+enum TicketType { general; event }
+
+[OpenApiSchemaComponent()]
+class Reservation {
+    [TicketType[]]$ticketTypes
+}
+```
+
+```yaml
+components:
+  schemas:
+    TicketType:
+      type: string
+      enum: [general, event]
+    Reservation:
+      type: object
+      properties:
+        ticketTypes:
+          type: array
+          items:
+            $ref: '#/components/schemas/TicketType'
+```
+
+> **Tip:** Use PowerShell `enum` types for values that should be reused across your API. Use `[ValidateSet(...)]` for one-off property constraints that won't be shared.
 
 #### 4.5.4 Arrays (property-level)
 

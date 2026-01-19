@@ -94,7 +94,7 @@ public class OpenApiXmlAttributeTests
     [Fact]
     [Trait("Category", "OpenAPI")]
     [Trait("Category", "XML")]
-    public void AppliesXmlAttributeFlagAsExtension()
+    public void AppliesXmlAttributeFlag()
     {
         // Arrange & Act
         var schema = InvokeBuildSchemaForType(typeof(ProductWithXmlAttribute));
@@ -109,7 +109,7 @@ public class OpenApiXmlAttributeTests
         var idSchema = (OpenApiSchema)idProp;
         Assert.NotNull(idSchema.Xml);
         Assert.NotNull(idSchema.Xml.Extensions);
-        Assert.True(idSchema.Xml.Extensions.TryGetValue("x-attribute", out var extension));
+        Assert.True(idSchema.Xml.Extensions.TryGetValue("attribute", out var extension));
         
         // Verify the extension value is true
         var ext = extension as JsonNodeExtension;
@@ -119,7 +119,7 @@ public class OpenApiXmlAttributeTests
     [Fact]
     [Trait("Category", "OpenAPI")]
     [Trait("Category", "XML")]
-    public void AppliesXmlWrappedFlagAsExtension()
+    public void AppliesXmlWrappedFlag()
     {
         // Arrange & Act
         var schema = InvokeBuildSchemaForType(typeof(ProductWithXmlWrapped));
@@ -134,7 +134,7 @@ public class OpenApiXmlAttributeTests
         var itemsSchema = (OpenApiSchema)itemsProp;
         Assert.NotNull(itemsSchema.Xml);
         Assert.NotNull(itemsSchema.Xml.Extensions);
-        Assert.True(itemsSchema.Xml.Extensions.TryGetValue("x-wrapped", out var extension));
+        Assert.True(itemsSchema.Xml.Extensions.TryGetValue("wrapped", out var extension));
         
         // Verify the extension value is true
         var ext = extension as JsonNodeExtension;
@@ -159,7 +159,7 @@ public class OpenApiXmlAttributeTests
         var idSchema = (OpenApiSchema)idProp;
         Assert.NotNull(idSchema.Xml);
         Assert.Equal("ProductID", idSchema.Xml.Name);
-        Assert.True(idSchema.Xml.Extensions?.ContainsKey("x-attribute"));
+        Assert.True(idSchema.Xml.Extensions?.ContainsKey("attribute"));
     }
 
     // Helper to invoke the private BuildSchemaForType method

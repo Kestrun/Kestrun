@@ -99,11 +99,8 @@ Describe 'Example 10.22 OpenAPI XML Modeling' -Tag 'OpenApi', 'Tutorial', 'Slow'
         $idProp | Should -Not -BeNullOrEmpty
         $idProp.xml | Should -Not -BeNullOrEmpty
         $idProp.xml.name | Should -Be 'id'
-        # Attribute flag stored as extension in OpenAPI 3.1.2 (x-attribute)
-        # Extensions may be present depending on serialization
-        if ($idProp.xml.PSObject.Properties['extensions']) {
-            $idProp.xml.extensions | Should -Not -BeNullOrEmpty
-        }
+        # Attribute is a standard OpenAPI XML property
+        $idProp.xml.attribute | Should -Be $true
         
         # Check XML metadata for Name (custom element name)
         $nameProp = $json.components.schemas.Product.properties.Name
@@ -124,11 +121,8 @@ Describe 'Example 10.22 OpenAPI XML Modeling' -Tag 'OpenApi', 'Tutorial', 'Slow'
         $itemsProp | Should -Not -BeNullOrEmpty
         $itemsProp.xml | Should -Not -BeNullOrEmpty
         $itemsProp.xml.name | Should -Be 'Item'
-        # Wrapped flag stored as extension in OpenAPI 3.1.2 (x-wrapped)
-        # Extensions may be present depending on serialization
-        if ($itemsProp.xml.PSObject.Properties['extensions']) {
-            $itemsProp.xml.extensions | Should -Not -BeNullOrEmpty
-        }
+        # Wrapped is a standard OpenAPI XML property
+        $itemsProp.xml.wrapped | Should -Be $true
 
         # Check endpoints exist
         $json.paths.'/products/{id}'.get | Should -Not -BeNullOrEmpty

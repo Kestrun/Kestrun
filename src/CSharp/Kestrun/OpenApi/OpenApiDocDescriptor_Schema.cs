@@ -945,8 +945,9 @@ public partial class OpenApiDocDescriptor
             schema.Xml.Prefix = properties.XmlPrefix;
         }
 
-        // Store Attribute and Wrapped as extension data until Microsoft.OpenApi supports OpenAPI 3.2
-        // Note: OpenAPI 3.2 spec adds these properties to the XML object
+        // Store Attribute and Wrapped as standard OpenAPI XML properties
+        // Note: Microsoft.OpenApi 3.1.2 doesn't have these as direct properties,
+        // so we store them as extensions using the standard OpenAPI property names
         if (properties.XmlAttribute || properties.XmlWrapped)
         {
             if (schema.Xml.Extensions == null)
@@ -956,12 +957,12 @@ public partial class OpenApiDocDescriptor
             
             if (properties.XmlAttribute)
             {
-                schema.Xml.Extensions["x-attribute"] = new JsonNodeExtension(JsonValue.Create(true));
+                schema.Xml.Extensions["attribute"] = new JsonNodeExtension(JsonValue.Create(true));
             }
 
             if (properties.XmlWrapped)
             {
-                schema.Xml.Extensions["x-wrapped"] = new JsonNodeExtension(JsonValue.Create(true));
+                schema.Xml.Extensions["wrapped"] = new JsonNodeExtension(JsonValue.Create(true));
             }
         }
     }

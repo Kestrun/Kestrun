@@ -80,7 +80,7 @@ public class OpenApiSchemaMethodsTests
         // Assert - enums are now treated as schema components and referenced
         var reference = Assert.IsAssignableFrom<OpenApiSchemaReference>(schema);
         Assert.Equal("TestStatus", reference.Reference.Id);
-        
+
         // Verify the enum component was registered in the document
         Assert.True(_descriptor.Document.Components!.Schemas!.ContainsKey("TestStatus"));
         var enumSchema = _descriptor.Document.Components.Schemas["TestStatus"] as OpenApiSchema;
@@ -105,15 +105,15 @@ public class OpenApiSchemaMethodsTests
         var concreteSchema = Assert.IsAssignableFrom<OpenApiSchema>(schema);
         Assert.NotNull(concreteSchema.AnyOf);
         Assert.Equal(2, concreteSchema.AnyOf.Count);
-        
+
         // First item should be a reference to the enum
         var enumRef = Assert.IsAssignableFrom<OpenApiSchemaReference>(concreteSchema.AnyOf[0]);
         Assert.Equal("TestStatus", enumRef.Reference.Id);
-        
+
         // Second item should be a null schema
         var nullSchema = Assert.IsAssignableFrom<OpenApiSchema>(concreteSchema.AnyOf[1]);
         Assert.Equal(JsonSchemaType.Null, nullSchema.Type);
-        
+
         // Verify the enum component was registered in the document
         Assert.True(_descriptor.Document.Components!.Schemas!.ContainsKey("TestStatus"));
     }
@@ -477,7 +477,7 @@ public class OpenApiSchemaMethodsTests
         Assert.NotNull(schema.Items);
         var itemsRef = Assert.IsAssignableFrom<OpenApiSchemaReference>(schema.Items);
         Assert.Equal("TestStatus", itemsRef.Reference.Id);
-        
+
         // Verify the enum component was registered in the document
         Assert.True(_descriptor.Document.Components!.Schemas!.ContainsKey("TestStatus"));
         var enumSchema = _descriptor.Document.Components.Schemas["TestStatus"] as OpenApiSchema;
@@ -517,7 +517,7 @@ public class OpenApiSchemaMethodsTests
         var built = new HashSet<Type>();
 
         // Act
-        var schema = InvokeBuildComplexTypeSchema(property.PropertyType, property, built);
+        var schema = InvokeBuildComplexTypeSchema(property.PropertyType, built);
 
         // Assert
         var refSchema = Assert.IsAssignableFrom<OpenApiSchemaReference>(schema);
@@ -602,12 +602,12 @@ public class OpenApiSchemaMethodsTests
         _ = method.Invoke(_descriptor, parameters);
     }
 
-    private OpenApiSchemaReference InvokeBuildComplexTypeSchema(Type pt, PropertyInfo p, HashSet<Type> built)
+    private OpenApiSchemaReference InvokeBuildComplexTypeSchema(Type pt, HashSet<Type> built)
     {
         var method = typeof(OpenApiDocDescriptor)
             .GetMethod("BuildComplexTypeSchema", BindingFlags.NonPublic | BindingFlags.Instance)!;
 
-        object[] parameters = [pt, p, built];
+        object[] parameters = [pt, built];
         return (OpenApiSchemaReference)method.Invoke(_descriptor, parameters)!;
     }
 

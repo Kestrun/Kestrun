@@ -99,8 +99,8 @@ Describe 'Example 10.22 OpenAPI XML Modeling' -Tag 'OpenApi', 'Tutorial', 'Slow'
         $idProp | Should -Not -BeNullOrEmpty
         $idProp.xml | Should -Not -BeNullOrEmpty
         $idProp.xml.name | Should -Be 'id'
-        # Attribute is a standard OpenAPI XML property
-        $idProp.xml.attribute | Should -Be $true
+        # NodeType is the OpenAPI 3.2 standard for XML node type
+        $idProp.xml.nodeType | Should -Be 'attribute'
         
         # Check XML metadata for Name (custom element name)
         $nameProp = $json.components.schemas.Product.properties.Name
@@ -121,8 +121,8 @@ Describe 'Example 10.22 OpenAPI XML Modeling' -Tag 'OpenApi', 'Tutorial', 'Slow'
         $itemsProp | Should -Not -BeNullOrEmpty
         $itemsProp.xml | Should -Not -BeNullOrEmpty
         $itemsProp.xml.name | Should -Be 'Item'
-        # Wrapped is a standard OpenAPI XML property
-        $itemsProp.xml.wrapped | Should -Be $true
+        # NodeType is the OpenAPI 3.2 standard for XML node type (element for wrapped arrays)
+        $itemsProp.xml.nodeType | Should -Be 'element'
 
         # Check endpoints exist
         $json.paths.'/products/{id}'.get | Should -Not -BeNullOrEmpty

@@ -280,6 +280,88 @@ public static class XmlHelper
     }
 
     /// <summary>
+    /// Converts an <see cref="XElement"/> into a <see cref="Hashtable"/>, optionally using OpenAPI XML metadata hashtable (from PowerShell class metadata) to guide the conversion.
+    /// </summary>
+    /// <param name="element">The XML element to convert.</param>
+    /// <param name="xmlMetadata">Optional OpenAPI XML metadata hashtable (as returned by GetOpenApiXmlMetadata()). Should contain 'ClassName', 'ClassXml', and 'Properties' keys.</param>
+    /// <returns>A Hashtable representation of the XML element.</returns>
+    public static Hashtable ToHashtable(XElement element, Hashtable? xmlMetadata)
+    {
+        if (xmlMetadata == null)
+        {
+            return ToHashtableInternal(element, null, new Dictionary<string, Microsoft.OpenApi.OpenApiXml>());
+        }
+
+        // Convert hashtable metadata to OpenApiXml object for class-level metadata
+        Microsoft.OpenApi.OpenApiXml? classXml = null;
+        if (xmlMetadata["ClassXml"] is Hashtable classXmlHash)
+        {
+            classXml = HashtableToOpenApiXml(classXmlHash);
+        }
+
+        // Convert property metadata hashtables to OpenApiXml objects
+        var propertyModels = new Dictionary<string, Microsoft.OpenApi.OpenApiXml>();
+        if (xmlMetadata["Properties"] is Hashtable propsHash)
+        {
+            foreach (DictionaryEntry entry in propsHash)
+            {
+                if (entry.Key is string propName && entry.Value is Hashtable propXmlHash)
+                {
+                    var propXml = HashtableToOpenApiXml(propXmlHash);
+                    if (propXml != null)
+                    {
+                        propertyModels[propName] = propXml;
+                    }
+                }
+            }
+        }
+
+        return ToHashtableInternal(element, classXml, propertyModels);
+    }
+
+    /// <summary>
+    /// Converts a hashtable representation of OpenAPI XML metadata to an OpenApiXml object.
+    /// </summary>
+    /// <param name="hash">Hashtable containing Name, Namespace, Prefix, Attribute, and/or Wrapped keys.</param>
+    /// <returns>An OpenApiXml object with the specified properties, or null if the hashtable is empty/invalid.</returns>
+    private static Microsoft.OpenApi.OpenApiXml? HashtableToOpenApiXml(Hashtable hash)
+    {
+        if (hash == null || hash.Count == 0)
+        {
+            return null;
+        }
+
+        var xml = new Microsoft.OpenApi.OpenApiXml();
+        
+        if (hash["Name"] is string name)
+        {
+            xml.Name = name;
+        }
+        
+        if (hash["Namespace"] is string ns && !string.IsNullOrWhiteSpace(ns))
+        {
+            xml.Namespace = new Uri(ns);
+        }
+        
+        if (hash["Prefix"] is string prefix)
+        {
+            xml.Prefix = prefix;
+        }
+        
+        if (hash["Attribute"] is bool isAttribute && isAttribute)
+        {
+            xml.NodeType = Microsoft.OpenApi.OpenApiXmlNodeType.Attribute;
+        }
+        
+        if (hash["Wrapped"] is bool isWrapped && isWrapped)
+        {
+            xml.NodeType = Microsoft.OpenApi.OpenApiXmlNodeType.Element;
+        }
+        
+        return xml;
+    }
+
+    /// <summary>
     /// Internal recursive method to convert an <see cref="XElement"/> into a <see cref="Hashtable"/> with OpenAPI XML model support.
     /// </summary>
     /// <param name="element">The XML element to convert.</param>

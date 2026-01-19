@@ -108,12 +108,7 @@ public class OpenApiXmlAttributeTests
         Assert.IsType<OpenApiSchema>(idProp);
         var idSchema = (OpenApiSchema)idProp;
         Assert.NotNull(idSchema.Xml);
-        Assert.NotNull(idSchema.Xml.Extensions);
-        Assert.True(idSchema.Xml.Extensions.TryGetValue("attribute", out var extension));
-        
-        // Verify the extension value is true
-        var ext = extension as JsonNodeExtension;
-        Assert.NotNull(ext);
+        Assert.Equal(Microsoft.OpenApi.OpenApiXmlNodeType.Attribute, idSchema.Xml.NodeType);
     }
 
     [Fact]
@@ -133,12 +128,7 @@ public class OpenApiXmlAttributeTests
         Assert.IsType<OpenApiSchema>(itemsProp);
         var itemsSchema = (OpenApiSchema)itemsProp;
         Assert.NotNull(itemsSchema.Xml);
-        Assert.NotNull(itemsSchema.Xml.Extensions);
-        Assert.True(itemsSchema.Xml.Extensions.TryGetValue("wrapped", out var extension));
-        
-        // Verify the extension value is true
-        var ext = extension as JsonNodeExtension;
-        Assert.NotNull(ext);
+        Assert.Equal(Microsoft.OpenApi.OpenApiXmlNodeType.Element, itemsSchema.Xml.NodeType);
     }
 
     [Fact]
@@ -159,7 +149,7 @@ public class OpenApiXmlAttributeTests
         var idSchema = (OpenApiSchema)idProp;
         Assert.NotNull(idSchema.Xml);
         Assert.Equal("ProductID", idSchema.Xml.Name);
-        Assert.True(idSchema.Xml.Extensions?.ContainsKey("attribute"));
+        Assert.Equal(Microsoft.OpenApi.OpenApiXmlNodeType.Attribute, idSchema.Xml.NodeType);
     }
 
     // Helper to invoke the private BuildSchemaForType method

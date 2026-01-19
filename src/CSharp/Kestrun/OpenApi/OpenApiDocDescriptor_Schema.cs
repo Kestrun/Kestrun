@@ -945,25 +945,15 @@ public partial class OpenApiDocDescriptor
             schema.Xml.Prefix = properties.XmlPrefix;
         }
 
-        // Store Attribute and Wrapped as standard OpenAPI XML properties
-        // Note: Microsoft.OpenApi 3.1.2 doesn't have these as direct properties,
-        // so we store them as extensions using the standard OpenAPI property names
-        if (properties.XmlAttribute || properties.XmlWrapped)
+        // Set NodeType based on XmlAttribute and XmlWrapped properties
+        // OpenAPI 3.2 uses NodeType to specify attribute vs element vs text nodes
+        if (properties.XmlAttribute)
         {
-            if (schema.Xml.Extensions == null)
-            {
-                schema.Xml.Extensions = new Dictionary<string, Microsoft.OpenApi.IOpenApiExtension>(StringComparer.Ordinal);
-            }
-            
-            if (properties.XmlAttribute)
-            {
-                schema.Xml.Extensions["attribute"] = new JsonNodeExtension(JsonValue.Create(true));
-            }
-
-            if (properties.XmlWrapped)
-            {
-                schema.Xml.Extensions["wrapped"] = new JsonNodeExtension(JsonValue.Create(true));
-            }
+            schema.Xml.NodeType = Microsoft.OpenApi.OpenApiXmlNodeType.Attribute;
+        }
+        else if (properties.XmlWrapped)
+        {
+            schema.Xml.NodeType = Microsoft.OpenApi.OpenApiXmlNodeType.Element;
         }
     }
 

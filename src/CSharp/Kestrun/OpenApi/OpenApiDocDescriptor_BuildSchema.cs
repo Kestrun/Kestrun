@@ -97,7 +97,7 @@ public partial class OpenApiDocDescriptor
     {
         BuildSchema(pt, built); // ensure component exists
         var refSchema = new OpenApiSchemaReference(pt.Name);
-        ApplySchemaAttr(p.GetCustomAttribute<OpenApiProperties>(), refSchema);
+        // Don't apply attributes here - they will be applied to the parent schema in BuildPropertySchema
         return refSchema;
     }
 

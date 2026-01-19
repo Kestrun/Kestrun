@@ -601,6 +601,7 @@ components:
 ```
 
 This approach:
+
 - **Eliminates duplication** when the same enum is used in multiple properties or schemas
 - **Improves code generation** — tools generate a single enum type instead of duplicates
 - **Follows OpenAPI best practices** for reusable enums
@@ -633,7 +634,8 @@ components:
             $ref: '#/components/schemas/TicketType'
 ```
 
-> **Tip:** Use PowerShell `enum` types for values that should be reused across your API. Use `[ValidateSet(...)]` for one-off property constraints that won't be shared.
+> **Tip:** Use PowerShell `enum` types for values that should be reused across your API.
+Use `[ValidateSet(...)]` for one-off property constraints that won't be shared.
 
 #### 4.5.4 Arrays (property-level)
 

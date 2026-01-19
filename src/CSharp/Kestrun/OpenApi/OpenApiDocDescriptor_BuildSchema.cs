@@ -1,6 +1,4 @@
-using System.Collections.Generic;
 using System.Reflection;
-using System.Text.Json.Nodes;
 using Microsoft.OpenApi;
 
 namespace Kestrun.OpenApi;
@@ -56,7 +54,7 @@ public partial class OpenApiDocDescriptor
         else
         {
             // Treat enums and complex types the same: register as component and reference
-            schema = BuildComplexTypeSchema(pt, p, built);
+            schema = BuildComplexTypeSchema(pt, built);
         }
 #pragma warning restore IDE0045
         // Convert to conditional expression
@@ -73,11 +71,11 @@ public partial class OpenApiDocDescriptor
                 // For $ref schemas (enums/complex types), wrap in anyOf with null
                 schema = new OpenApiSchema
                 {
-                    AnyOf = new List<IOpenApiSchema>
-                    {
+                    AnyOf =
+                    [
                         refSchema,
                         new OpenApiSchema { Type = JsonSchemaType.Null }
-                    }
+                    ]
                 };
             }
         }
@@ -90,14 +88,12 @@ public partial class OpenApiDocDescriptor
     /// Builds the schema for a complex type property.
     /// </summary>
     /// <param name="pt">The property type.</param>
-    /// <param name="p">The property info.</param>
     /// <param name="built">The set of already built types to avoid recursion.</param>
     /// <returns>The constructed OpenAPI schema for the complex type property.</returns>
-    private OpenApiSchemaReference BuildComplexTypeSchema(Type pt, PropertyInfo p, HashSet<Type> built)
+    private OpenApiSchemaReference BuildComplexTypeSchema(Type pt, HashSet<Type> built)
     {
         BuildSchema(pt, built); // ensure component exists
         var refSchema = new OpenApiSchemaReference(pt.Name);
-        // Don't apply attributes here - they will be applied to the parent schema in BuildPropertySchema
         return refSchema;
     }
 

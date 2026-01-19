@@ -69,7 +69,11 @@ enum TicketType {
 
 [OpenApiSchemaComponent(Description = 'Postal address.', RequiredProperties = ('street', 'city', 'postalCode'))]
 [OpenApiExtension('x-badges', '[{"name":"Beta","position":"before","color":"purple"},{"name":"PII","position":"after","color":"orange"}]')]
-[OpenApiExtension('x-kestrun-demo', '{"owner":"docs","stability":"beta","domain":"profiles","containsPii":true,"notes":["Schema-level vendor extensions are emitted under components.schemas.<Name>","This schema also uses a regex ValidatePattern for postalCode"]}')]
+[OpenApiExtension('x-kestrun-demo',
+    '{"owner":"docs","stability":"beta","domain":"profiles","containsPii":true,
+"notes":["Schema-level vendor extensions are emitted under components.schemas.<Name>",
+"This schema also uses a regex ValidatePattern for postalCode"]}'
+)]
 class Address {
     [OpenApiProperty(Description = 'Street line.', Example = '1 Museum Way')]
     [string]$street

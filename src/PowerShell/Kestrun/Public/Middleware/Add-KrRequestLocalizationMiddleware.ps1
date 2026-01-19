@@ -17,7 +17,7 @@
         The Kestrun server instance to which the request localization middleware will be added.
         If not specified, the cmdlet will attempt to use the current server context.
     .PARAMETER Options
-        A Microsoft.AspNetCore.Localization.RequestLocalizationOptions object that defines
+        A Microsoft.AspNetCore.Builder.RequestLocalizationOptions object that defines
         the configuration options for the request localization middleware. If this parameter
         is provided, it takes precedence over the individual configuration parameters.
     .PARAMETER DefaultCulture
@@ -53,7 +53,7 @@
         Add-KrRequestLocalizationMiddleware -DefaultCulture "en-US" -SupportedCultures @("en-US", "de-DE") -FallBackToParentCultures -PassThru
         Adds request localization with fallback to parent cultures and returns the server instance.
     .EXAMPLE
-        $options = [Microsoft.AspNetCore.Localization.RequestLocalizationOptions]::new()
+        $options = [Microsoft.AspNetCore.Builder.RequestLocalizationOptions]::new()
         $options.DefaultRequestCulture = [Microsoft.AspNetCore.Localization.RequestCulture]::new("en-US")
         $options.SupportedCultures = @([System.Globalization.CultureInfo]::new("en-US"), [System.Globalization.CultureInfo]::new("fr-FR"))
         $options.SupportedUICultures = $options.SupportedCultures
@@ -82,7 +82,7 @@ function Add-KrRequestLocalizationMiddleware {
         [Kestrun.Hosting.KestrunHost]$Server,
 
         [Parameter(Mandatory = $true, ParameterSetName = 'Options')]
-        [Microsoft.AspNetCore.Localization.RequestLocalizationOptions]$Options,
+        [Microsoft.AspNetCore.Builder.RequestLocalizationOptions]$Options,
 
         [Parameter(ParameterSetName = 'Items')]
         [string] $DefaultCulture = 'en-US',
@@ -112,7 +112,7 @@ function Add-KrRequestLocalizationMiddleware {
     process {
         if ($PSCmdlet.ParameterSetName -eq 'Items') {
             # Create options from individual parameters
-            $Options = [Microsoft.AspNetCore.Localization.RequestLocalizationOptions]::new()
+            $Options = [Microsoft.AspNetCore.Builder.RequestLocalizationOptions]::new()
             
             # Set default request culture
             $Options.DefaultRequestCulture = [Microsoft.AspNetCore.Localization.RequestCulture]::new($DefaultCulture)

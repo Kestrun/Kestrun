@@ -1,6 +1,7 @@
 using System.Collections;
 using System.Reflection;
 using System.Xml.Linq;
+using Microsoft.OpenApi;
 
 namespace Kestrun.Utilities;
 
@@ -271,19 +272,47 @@ public static class XmlHelper
     /// Attributes are stored as keys prefixed with "@", xsi:nil="true" becomes <c>null</c>.
     /// </summary>
     /// <param name="element">The XML element to convert.</param>
+    /// <param name="xmlModel">Optional OpenAPI XML model metadata to guide the conversion. When provided, respects OpenAPI 3.2 XML modeling rules for attributes, namespaces, and wrapped arrays.</param>
     /// <returns>A Hashtable representation of the XML element.</returns>
-    public static Hashtable ToHashtable(XElement element)
+    public static Hashtable ToHashtable(XElement element, Microsoft.OpenApi.OpenApiXml? xmlModel = null)
+    {
+        return ToHashtableInternal(element, xmlModel, new Dictionary<string, Microsoft.OpenApi.OpenApiXml>());
+    }
+
+    /// <summary>
+    /// Internal recursive method to convert an <see cref="XElement"/> into a <see cref="Hashtable"/> with OpenAPI XML model support.
+    /// </summary>
+    /// <param name="element">The XML element to convert.</param>
+    /// <param name="xmlModel">OpenAPI XML model metadata for the current element.</param>
+    /// <param name="propertyModels">Dictionary of property-specific XML models for child elements.</param>
+    /// <returns>A Hashtable representation of the XML element.</returns>
+    private static Hashtable ToHashtableInternal(XElement element, Microsoft.OpenApi.OpenApiXml? xmlModel, Dictionary<string, Microsoft.OpenApi.OpenApiXml> propertyModels)
     {
         var table = new Hashtable();
 
-        // Handle attributes (as @AttributeName)
+        // Determine the effective element name (considering OpenAPI Name override)
+        var elementName = xmlModel?.Name ?? element.Name.LocalName;
+
+        // Handle attributes (as @AttributeName or as properties based on OpenAPI model)
         foreach (var attr in element.Attributes())
         {
             if (attr.Name.NamespaceName == xsi.NamespaceName && attr.Name.LocalName == "nil" && attr.Value == "true")
             {
-                return new Hashtable { [element.Name.LocalName] = null };
+                return new Hashtable { [elementName] = null };
             }
-            table["@" + attr.Name.LocalName] = attr.Value;
+
+            // Check if this attribute corresponds to a property marked with Attribute=true in OpenAPI model
+            var attrKey = FindPropertyKeyForAttribute(attr.Name.LocalName, propertyModels);
+            if (attrKey != null)
+            {
+                // Store as property name (without @ prefix) when guided by OpenAPI model
+                table[attrKey] = attr.Value;
+            }
+            else
+            {
+                // Store with @ prefix for standard XML attributes
+                table["@" + attr.Name.LocalName] = attr.Value;
+            }
         }
 
         // If element has no children → treat as value
@@ -291,7 +320,7 @@ public static class XmlHelper
         {
             if (!string.IsNullOrWhiteSpace(element.Value))
             {
-                table[element.Name.LocalName] = element.Value;
+                table[elementName] = element.Value;
             }
             return table;
         }
@@ -301,7 +330,17 @@ public static class XmlHelper
         foreach (var child in element.Elements())
         {
             var childKey = child.Name.LocalName;
-            var childValue = ToHashtable(child);
+            
+            // Check if this child has OpenAPI XML model metadata
+            Microsoft.OpenApi.OpenApiXml? childModel = null;
+            if (propertyModels.TryGetValue(childKey, out var model))
+            {
+                childModel = model;
+                // Use the property name from the model if available
+                childKey = model.Name ?? childKey;
+            }
+
+            var childValue = ToHashtableInternal(child, childModel, new Dictionary<string, Microsoft.OpenApi.OpenApiXml>());
 
             if (childMap.ContainsKey(childKey))
             {
@@ -325,7 +364,31 @@ public static class XmlHelper
             }
         }
 
-        table[element.Name.LocalName] = childMap;
+        table[elementName] = childMap;
         return table;
+    }
+
+    /// <summary>
+    /// Finds the property key that corresponds to an XML attribute based on OpenAPI XML models.
+    /// </summary>
+    /// <param name="attributeName">The XML attribute name.</param>
+    /// <param name="propertyModels">Dictionary of property-specific XML models.</param>
+    /// <returns>The property key if found; otherwise, null.</returns>
+    private static string? FindPropertyKeyForAttribute(string attributeName, Dictionary<string, Microsoft.OpenApi.OpenApiXml> propertyModels)
+    {
+        foreach (var kvp in propertyModels)
+        {
+            var model = kvp.Value;
+            // Check if this property is marked as an attribute and matches the name
+            if (model.NodeType == Microsoft.OpenApi.OpenApiXmlNodeType.Attribute)
+            {
+                var expectedName = model.Name ?? kvp.Key;
+                if (string.Equals(expectedName, attributeName, StringComparison.OrdinalIgnoreCase))
+                {
+                    return kvp.Key; // Return the original property name
+                }
+            }
+        }
+        return null;
     }
 }

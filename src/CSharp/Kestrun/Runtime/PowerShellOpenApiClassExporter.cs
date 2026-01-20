@@ -640,7 +640,7 @@ public static class PowerShellOpenApiClassExporter
     {
         _ = sb.AppendLine();
         _ = sb.AppendLine("    # Static method to get OpenApiXml metadata for this class");
-        _ = sb.AppendLine("    static [hashtable] GetOpenApiXmlMetadata() {");
+        _ = sb.AppendLine("    static [hashtable] GetXmlMetadata() {");
         _ = sb.AppendLine("        $metadata = @{");
         _ = sb.AppendLine("            ClassName = '" + type.Name + "'");
 

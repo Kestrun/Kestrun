@@ -55,6 +55,10 @@ public static class XmlHelper
 
         // At this point value is non-null complex/reference or value-type object requiring reflection.
         var type = value!.GetType();
+        
+        // Check if the type has a static GetXmlMetadata method for OpenAPI XML modeling
+        var xmlMetadata = TryGetXmlMetadata(type);
+        
         var needsCycleTracking = !type.IsValueType;
         if (needsCycleTracking && !EnterCycle(value, ref visited, out var cycleElem))
         {
@@ -63,7 +67,7 @@ public static class XmlHelper
 
         try
         {
-            return ObjectToXml(name, value, depth, visited);
+            return ObjectToXml(name, value, depth, visited, xmlMetadata);
         }
         finally
         {
@@ -215,10 +219,33 @@ public static class XmlHelper
     /// <param name="value">Object instance to serialize.</param>
     /// <param name="depth">Current recursion depth (guarded).</param>
     /// <param name="visited">Per-call set used for cycle detection.</param>
-    private static XElement ObjectToXml(string name, object value, int depth, HashSet<object>? visited)
+    /// <param name="xmlMetadata">Optional OpenAPI XML metadata hashtable retrieved from GetXmlMetadata() static method.</param>
+    private static XElement ObjectToXml(string name, object value, int depth, HashSet<object>? visited, Hashtable? xmlMetadata)
     {
-        var objElem = new XElement(name);
+        // Use class-level XML name if available
+        var elementName = name;
+        if (xmlMetadata?["ClassXml"] is Hashtable classXmlHash && classXmlHash["Name"] is string className)
+        {
+            elementName = className;
+        }
+        
+        var objElem = new XElement(elementName);
         var type = value.GetType();
+        
+        // Build property metadata lookup
+        Dictionary<string, Hashtable>? propertyMetadata = null;
+        if (xmlMetadata?["Properties"] is Hashtable propsHash)
+        {
+            propertyMetadata = new Dictionary<string, Hashtable>();
+            foreach (DictionaryEntry entry in propsHash)
+            {
+                if (entry.Key is string propName && entry.Value is Hashtable propMeta)
+                {
+                    propertyMetadata[propName] = propMeta;
+                }
+            }
+        }
+        
         foreach (var prop in type.GetProperties(BindingFlags.Public | BindingFlags.Instance))
         {
             if (prop.GetIndexParameters().Length > 0)
@@ -234,10 +261,52 @@ public static class XmlHelper
             {
                 continue; // skip unreadable props
             }
-            var childName = SanitizeName(prop.Name);
+            
+            // Check if property has OpenAPI XML metadata
+            var propName = prop.Name;
+            var childName = SanitizeName(propName);
+            
+            if (propertyMetadata != null && propertyMetadata.TryGetValue(propName, out var propXml))
+            {
+                // Use custom element name if specified
+                if (propXml["Name"] is string customName)
+                {
+                    childName = customName;
+                }
+                
+                // Check if this property should be an XML attribute
+                if (propXml["Attribute"] is bool isAttribute && isAttribute && propVal != null)
+                {
+                    objElem.Add(new XAttribute(childName, propVal));
+                    continue; // Don't add as child element
+                }
+            }
+            
             objElem.Add(ToXmlInternal(childName, propVal, depth + 1, visited));
         }
         return objElem;
+    }
+    
+    /// <summary>
+    /// Attempts to retrieve OpenAPI XML metadata from a type's static GetXmlMetadata() method.
+    /// </summary>
+    /// <param name="type">The type to check for metadata.</param>
+    /// <returns>A Hashtable containing XML metadata, or null if the method doesn't exist.</returns>
+    private static Hashtable? TryGetXmlMetadata(Type type)
+    {
+        try
+        {
+            var method = type.GetMethod("GetXmlMetadata", BindingFlags.Public | BindingFlags.Static);
+            if (method != null && method.ReturnType == typeof(Hashtable) && method.GetParameters().Length == 0)
+            {
+                return method.Invoke(null, null) as Hashtable;
+            }
+        }
+        catch
+        {
+            // Ignore exceptions when retrieving metadata
+        }
+        return null;
     }
 
     private static string SanitizeName(string raw)
@@ -267,22 +336,14 @@ public static class XmlHelper
     }
 
     /// <summary>
-    /// Converts an <see cref="XElement"/> into a <see cref="Hashtable"/>.
-    /// Nested elements become nested Hashtables; repeated elements become lists.
-    /// Attributes are stored as keys prefixed with "@", xsi:nil="true" becomes <c>null</c>.
-    /// </summary>
-    /// <param name="element">The XML element to convert.</param>
-    /// <param name="xmlModel">Optional OpenAPI XML model metadata to guide the conversion. When provided, respects OpenAPI 3.2 XML modeling rules for attributes, namespaces, and wrapped arrays.</param>
-    /// <returns>A Hashtable representation of the XML element.</returns>
-    public static Hashtable ToHashtable(XElement element, Microsoft.OpenApi.OpenApiXml? xmlModel = null) => ToHashtableInternal(element, xmlModel, []);
-
-    /// <summary>
     /// Converts an <see cref="XElement"/> into a <see cref="Hashtable"/>, optionally using OpenAPI XML metadata hashtable (from PowerShell class metadata) to guide the conversion.
+    /// Nested elements become nested Hashtables; repeated elements become lists.
+    /// Attributes are stored as keys prefixed with "@" unless guided by OpenAPI metadata, xsi:nil="true" becomes <c>null</c>.
     /// </summary>
     /// <param name="element">The XML element to convert.</param>
     /// <param name="xmlMetadata">Optional OpenAPI XML metadata hashtable (as returned by GetOpenApiXmlMetadata()). Should contain 'ClassName', 'ClassXml', and 'Properties' keys.</param>
     /// <returns>A Hashtable representation of the XML element.</returns>
-    public static Hashtable ToHashtable(XElement element, Hashtable? xmlMetadata)
+    public static Hashtable ToHashtable(XElement element, Hashtable? xmlMetadata = null)
     {
         if (xmlMetadata == null)
         {

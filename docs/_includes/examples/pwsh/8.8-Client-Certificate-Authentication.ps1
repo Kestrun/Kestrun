@@ -140,7 +140,7 @@ Add-KrMapRoute -Verbs Get -Pattern '/info' -ScriptBlock {
 # 11. Start server (Ctrl+C to stop)
 Write-Host "`nServer starting on https://localhost:$Port"
 Write-Host "Test the secured endpoint with:"
-Write-Host "  `$cert = Import-PfxCertificate -FilePath '$clientCertPath' -Password (ConvertTo-SecureString 'test' -AsPlainText -Force) -CertStoreLocation 'Cert:\CurrentUser\My'"
+Write-Host "  `$cert = Import-KrCertificate -FilePath '$clientCertPath' -Password (ConvertTo-SecureString 'test' -AsPlainText -Force)"
 Write-Host "  Invoke-RestMethod -Uri 'https://localhost:$Port/secure/cert/hello' -Certificate `$cert -SkipCertificateCheck"
 Write-Host "`nPress Ctrl+C to stop"
 

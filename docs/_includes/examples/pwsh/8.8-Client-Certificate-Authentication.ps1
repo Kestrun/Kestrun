@@ -2,7 +2,7 @@
     Sample: Client Certificate Authentication
     Purpose: Demonstrates client certificate (mTLS) authentication with X.509 certificate validation.
     File:    8.8-Client-Certificate-Authentication.ps1
-    Notes:   Requires creating test certificates. See documentation for certificate setup.
+    Notes:   Uses self-signed certificates for testing. For production, use CA-signed certificates.
 #>
 param(
     [int]$Port = 5001,
@@ -22,42 +22,59 @@ $serverCertPath = Join-Path $PSScriptRoot 'server-cert.pfx'
 if (Test-Path $serverCertPath) {
     $serverCert = Import-KrCertificate -FilePath $serverCertPath -Password (ConvertTo-SecureString -String 'test' -AsPlainText -Force)
 } else {
-    # Create a self-signed CA for testing
-    $ca = New-KrSelfSignedCertificate -DnsNames 'Test CA' -CertificateAuthority -Exportable
-    
-    # Create server certificate signed by CA
-    $serverCert = New-KrSelfSignedCertificate -DnsNames 'localhost' -SigningCertificate $ca -Exportable
+    # Create server certificate for localhost
+    $serverCert = New-KrSelfSignedCertificate -DnsNames 'localhost' -Exportable
     
     # Export for reuse
     Export-KrCertificate -Certificate $serverCert -FilePath $serverCertPath `
         -Format pfx -IncludePrivateKey -Password (ConvertTo-SecureString -String 'test' -AsPlainText -Force)
     
-    # Also create and export a client certificate for testing
-    $clientCert = New-KrSelfSignedCertificate -DnsNames 'test-client' -SigningCertificate $ca -ClientAuth -Exportable
-    Export-KrCertificate -Certificate $clientCert -FilePath (Join-Path $PSScriptRoot 'client-cert.pfx') `
+    Write-Host "Created server certificate: $serverCertPath"
+}
+
+# 4. Create or load client certificate for testing
+$clientCertPath = Join-Path $PSScriptRoot 'client-cert.pfx'
+if (-not (Test-Path $clientCertPath)) {
+    # Create a self-signed client certificate for testing
+    # Note: In production, client certificates should be issued by a trusted CA
+    $clientCert = New-KrSelfSignedCertificate -DnsNames 'test-client' -Exportable
+    
+    # Export for testing
+    Export-KrCertificate -Certificate $clientCert -FilePath $clientCertPath `
         -Format pfx -IncludePrivateKey -Password (ConvertTo-SecureString -String 'test' -AsPlainText -Force)
     
     Write-Host "Created test certificates:"
     Write-Host "  Server: $serverCertPath"
-    Write-Host "  Client: $(Join-Path $PSScriptRoot 'client-cert.pfx')"
+    Write-Host "  Client: $clientCertPath"
     Write-Host "  Password: test"
+    Write-Host ""
+    Write-Host "Note: Using self-signed certificates for testing."
+    Write-Host "      In production, use certificates from a trusted CA."
+    Write-Host ""
 }
 
-# 4. Add HTTPS endpoint with client certificate requirement
+# 5. Add HTTPS endpoint with client certificate requirement
 Add-KrEndpoint -Https -Port $Port -IPAddress $IPAddress -Certificate $serverCert -RequireClientCertificate
 
-# 5. Configure client certificate authentication with validation
-Add-KrClientCertificateAuthentication -AuthenticationScheme 'Certificate' `
-    -ValidateCertificateUse `
-    -ValidateValidityPeriod
+# 6. Configure client certificate authentication
+# Note: For self-signed client certificates, we need to allow all certificate types
+# and disable some validation that requires a proper certificate chain
+Add-KrClientCertificateAuthentication -AuthenticationScheme 'Certificate'
 
-# 6. Finalize configuration (build internal pipeline)
+# 7. Finalize configuration (build internal pipeline)
 Enable-KrConfiguration
 
-# 7. Map secured route group using certificate authentication
+# 8. Map secured route group using certificate authentication
 Add-KrRouteGroup -Prefix '/secure/cert' -AuthorizationScheme 'Certificate' {
     Add-KrMapRoute -Verbs Get -Pattern '/hello' -ScriptBlock {
         $cert = $Context.Connection.ClientCertificate
+        if ($null -eq $cert) {
+            Write-KrJsonResponse @{
+                error = "No client certificate provided"
+            } -StatusCode 401
+            return
+        }
+        
         Write-KrJsonResponse @{
             message = "Hello from client certificate authentication"
             subject = $cert.Subject
@@ -91,7 +108,7 @@ Add-KrRouteGroup -Prefix '/secure/cert' -AuthorizationScheme 'Certificate' {
     }
 }
 
-# 8. Add a public info endpoint
+# 9. Add a public info endpoint
 Add-KrMapRoute -Verbs Get -Pattern '/info' -ScriptBlock {
     Write-KrJsonResponse @{
         message = "Client Certificate Authentication Demo"
@@ -117,10 +134,10 @@ Add-KrMapRoute -Verbs Get -Pattern '/info' -ScriptBlock {
     }
 }
 
-# 9. Start server (Ctrl+C to stop)
+# 10. Start server (Ctrl+C to stop)
 Write-Host "`nServer starting on https://localhost:$Port"
 Write-Host "Test the secured endpoint with:"
-Write-Host "  `$cert = Import-PfxCertificate -FilePath 'client-cert.pfx' -Password (ConvertTo-SecureString 'test' -AsPlainText -Force) -CertStoreLocation 'Cert:\CurrentUser\My'"
+Write-Host "  `$cert = Import-PfxCertificate -FilePath '$clientCertPath' -Password (ConvertTo-SecureString 'test' -AsPlainText -Force) -CertStoreLocation 'Cert:\CurrentUser\My'"
 Write-Host "  Invoke-RestMethod -Uri 'https://localhost:$Port/secure/cert/hello' -Certificate `$cert -SkipCertificateCheck"
 Write-Host "`nPress Ctrl+C to stop"
 

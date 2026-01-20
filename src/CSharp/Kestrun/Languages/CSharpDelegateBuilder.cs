@@ -76,9 +76,10 @@ internal static class CSharpDelegateBuilder
     {
         return async ctx =>
         {
+            var isDebugEnabled = host.Logger.IsEnabled(LogEventLevel.Debug);
             try
             {
-                if (host.Logger.IsEnabled(LogEventLevel.Debug))
+                if (isDebugEnabled)
                 {
                     host.Logger.DebugSanitized("Preparing execution for C# script at {Path}", ctx.Request.Path);
                 }
@@ -86,13 +87,13 @@ internal static class CSharpDelegateBuilder
                 var (Globals, Response, Context) = await DelegateBuilder.PrepareExecutionAsync(host, ctx, args).ConfigureAwait(false);
 
                 // Execute the script with the current context and shared state
-                if (host.Logger.IsEnabled(LogEventLevel.Debug))
+                if (isDebugEnabled)
                 {
                     host.Logger.DebugSanitized("Executing C# script for {Path}", ctx.Request.Path);
                 }
 
                 _ = await script.RunAsync(Globals).ConfigureAwait(false);
-                if (host.Logger.IsEnabled(LogEventLevel.Debug))
+                if (isDebugEnabled)
                 {
                     host.Logger.DebugSanitized("C# script executed successfully for {Path}", ctx.Request.Path);
                 }

@@ -586,38 +586,38 @@ public static class XmlHelper
         var childMap = new Hashtable();
         foreach (var child in element.Elements())
         {
-            var childKey = child.Name.LocalName;
+            var childLocalName = child.Name.LocalName;
 
-            // Check if this child has OpenAPI XML model metadata
-            Microsoft.OpenApi.OpenApiXml? childModel = null;
-            if (propertyModels.TryGetValue(childKey, out var model))
-            {
-                childModel = model;
-                // Use the property name from the model if available
-                childKey = model.Name ?? childKey;
-            }
+            // Map the XML element name back to the *property key* (like attributes do) so callers can bind
+            // the resulting hashtable to CLR/PowerShell classes.
+            var childPropertyKey = FindPropertyKeyForElement(childLocalName, propertyModels);
+            var childModel = childPropertyKey != null ? propertyModels[childPropertyKey] : null;
+            var childElementName = childModel?.Name ?? childLocalName;
 
             var childValue = ToHashtableInternal(child, childModel, []);
+            var valueToStore = childValue[childElementName];
 
-            if (childMap.ContainsKey(childKey))
+            var keyToStore = childPropertyKey ?? childElementName;
+
+            if (childMap.ContainsKey(keyToStore))
             {
                 // Already exists → convert to List (allowing null values)
-                if (childMap[childKey] is List<object?> list)
+                if (childMap[keyToStore] is List<object?> list)
                 {
-                    list.Add(childValue[childKey]);
+                    list.Add(valueToStore);
                 }
                 else
                 {
-                    childMap[childKey] = new List<object?>
+                    childMap[keyToStore] = new List<object?>
                     {
-                        childMap[childKey],
-                        childValue[childKey]
+                        childMap[keyToStore],
+                        valueToStore
                     };
                 }
             }
             else
             {
-                childMap[childKey] = childValue[childKey];
+                childMap[keyToStore] = valueToStore;
             }
         }
 
@@ -646,6 +646,37 @@ public static class XmlHelper
                 }
             }
         }
+        return null;
+    }
+
+    /// <summary>
+    /// Finds the property key that corresponds to an XML element name based on OpenAPI XML models.
+    /// </summary>
+    /// <param name="elementName">The XML element local name.</param>
+    /// <param name="propertyModels">Dictionary of property-specific XML models.</param>
+    /// <returns>The property key if found; otherwise, null.</returns>
+    private static string? FindPropertyKeyForElement(string elementName, Dictionary<string, Microsoft.OpenApi.OpenApiXml> propertyModels)
+    {
+        // Fast path: property name matches element name.
+        foreach (var kvp in propertyModels)
+        {
+            if (string.Equals(kvp.Key, elementName, StringComparison.OrdinalIgnoreCase))
+            {
+                return kvp.Key;
+            }
+        }
+
+        // Match using model.Name override.
+        foreach (var kvp in propertyModels)
+        {
+            var model = kvp.Value;
+            var expectedName = model.Name ?? kvp.Key;
+            if (string.Equals(expectedName, elementName, StringComparison.OrdinalIgnoreCase))
+            {
+                return kvp.Key;
+            }
+        }
+
         return null;
     }
 }

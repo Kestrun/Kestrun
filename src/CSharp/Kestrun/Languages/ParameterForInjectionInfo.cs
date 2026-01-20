@@ -1,6 +1,7 @@
 using System.Collections;
 using System.Globalization;
 using System.Management.Automation;
+using System.Reflection;
 using System.Text.Json;
 using System.Xml.Linq;
 using CsvHelper;
@@ -118,7 +119,7 @@ public class ParameterForInjectionInfo : ParameterForInjectionInfoBase
         {
             ["application/json"] = (_, raw) => ConvertJsonToHashtable(raw),
             ["application/yaml"] = (_, raw) => ConvertYamlToHashtable(raw),
-            ["application/xml"] = (_, raw) => ConvertXmlToHashtable(raw),
+            // XML conversion needs to consider OpenAPI XML modeling; handled in the callers that have ParameterType.
             ["application/bson"] = (_, raw) => ConvertBsonToHashtable(raw),
             ["application/cbor"] = (_, raw) => ConvertCborToHashtable(raw),
             ["text/csv"] = (_, raw) => ConvertCsvToHashtable(raw),
@@ -152,6 +153,11 @@ public class ParameterForInjectionInfo : ParameterForInjectionInfoBase
         // Try each content type in order
         foreach (var ct in canonicalTypes)
         {
+            if (ct.Equals("application/xml", StringComparison.OrdinalIgnoreCase))
+            {
+                return ConvertXmlBodyToParameterType(rawString, param.ParameterType);
+            }
+
             if (BodyConverters.TryGetValue(ct, out var converter))
             {
                 // Special-case: form-url-encoded conversion only makes sense with explode/form style.
@@ -452,10 +458,10 @@ public class ParameterForInjectionInfo : ParameterForInjectionInfoBase
             }
 
             var inferred = MediaTypeHelper.Canonicalize(param.ContentTypes[0]);
-            return ConvertByCanonicalMediaType(inferred, context, rawBodyString);
+            return ConvertByCanonicalMediaType(inferred, context, rawBodyString, param);
         }
 
-        return ConvertByCanonicalMediaType(requestMediaType, context, rawBodyString);
+        return ConvertByCanonicalMediaType(requestMediaType, context, rawBodyString, param);
     }
 
     /// <summary>
@@ -464,17 +470,19 @@ public class ParameterForInjectionInfo : ParameterForInjectionInfoBase
     /// <param name="canonicalMediaType">   The canonical media type of the request body.</param>
     /// <param name="context"> The current Kestrun context.</param>
     /// <param name="rawBodyString"> The raw body string from the request.</param>
+    /// <param name="param">The parameter information.</param>
     /// <returns> The converted body object.</returns>
     private static object? ConvertByCanonicalMediaType(
         string canonicalMediaType,
         KestrunContext context,
-        string rawBodyString)
+        string rawBodyString,
+        ParameterForInjectionInfo param)
     {
         return canonicalMediaType switch
         {
             "application/json" => ConvertJsonToHashtable(rawBodyString),
             "application/yaml" => ConvertYamlToHashtable(rawBodyString),
-            "application/xml" => ConvertXmlToHashtable(rawBodyString),
+            "application/xml" => ConvertXmlBodyToParameterType(rawBodyString, param.ParameterType),
             "application/bson" => ConvertBsonToHashtable(rawBodyString),
             "application/cbor" => ConvertCborToHashtable(rawBodyString),
             "text/csv" => ConvertCsvToHashtable(rawBodyString),
@@ -550,61 +558,347 @@ public class ParameterForInjectionInfo : ParameterForInjectionInfoBase
         return [.. list];
     }
 
-    /*private static object? ConvertXmlToHashtable(string xml)
+    private const int MaxObjectBindingDepth = 32;
+
+    private static object? ConvertXmlBodyToParameterType(string xml, Type parameterType)
     {
         if (string.IsNullOrWhiteSpace(xml))
         {
             return null;
         }
 
-        var root = XElement.Parse(xml);
-        return XElementToClr(root);
-    }*/
+        XElement root;
+        try
+        {
+            root = XElement.Parse(xml);
+        }
+        catch
+        {
+            return null;
+        }
 
-    private static object? XElementToClr(XElement element)
+        // If the parameter expects a string, don't attempt to parse.
+        if (parameterType == typeof(string))
+        {
+            return xml;
+        }
+
+        var xmlMetadata = TryGetXmlMetadata(parameterType);
+        var wrapped = XmlHelper.ToHashtable(root, xmlMetadata);
+
+        // Normalize from XmlHelper's { RootName = { ... } } shape into the element map itself.
+        var rootMap = ExtractRootMapForBinding(wrapped, root.Name.LocalName);
+        if (rootMap is null)
+        {
+            return null;
+        }
+
+        NormalizeWrappedArrays(rootMap, xmlMetadata);
+
+        // If the script parameter is untyped or expects a hashtable, return the hashtable.
+        return parameterType == typeof(object) || typeof(IDictionary).IsAssignableFrom(parameterType)
+            ? rootMap
+            : ConvertHashtableToObject(rootMap, parameterType, depth: 0);
+    }
+
+    private static Hashtable? TryGetXmlMetadata(Type type)
     {
-        // If element has no children and no attributes → return primitive string
-        if (!element.HasElements && !element.HasAttributes)
+        try
         {
-            var trimmed = element.Value?.Trim();
-            return string.IsNullOrWhiteSpace(trimmed) ? null : trimmed;
-        }
-
-        var ht = new Hashtable(StringComparer.OrdinalIgnoreCase);
-
-        // Attributes as @name entries
-        foreach (var attr in element.Attributes())
-        {
-            ht["@" + attr.Name.LocalName] = attr.Value;
-        }
-
-        // Children
-        var childGroups = element.Elements().GroupBy(e => e.Name.LocalName);
-
-        foreach (var group in childGroups)
-        {
-            var key = group.Key;
-            var items = group.ToList();
-
-            if (items.Count == 1)
+            var prop = type.GetProperty("XmlMetadata", BindingFlags.Public | BindingFlags.Static);
+            if (prop != null
+                && typeof(Hashtable).IsAssignableFrom(prop.PropertyType)
+                && prop.GetIndexParameters().Length == 0)
             {
-                // Single element → convert directly
-                ht[key] = XElementToClr(items[0]);
+                return prop.GetValue(null) as Hashtable;
             }
-            else
+
+            var field = type.GetField("XmlMetadata", BindingFlags.Public | BindingFlags.Static);
+            if (field != null && typeof(Hashtable).IsAssignableFrom(field.FieldType))
             {
-                // Multiple elements with same name → array
-                var arr = new object?[items.Count];
-                for (var i = 0; i < items.Count; i++)
+                return field.GetValue(null) as Hashtable;
+            }
+        }
+        catch
+        {
+            // Best-effort: ignore and fall back to non-metadata parsing.
+        }
+
+        return null;
+    }
+
+    private static Hashtable? ExtractRootMapForBinding(Hashtable wrapped, string rootLocalName)
+    {
+        // XmlHelper.ToHashtable returns { rootName = childMap } plus any mapped attributes at the same level.
+        if (!TryGetHashtableValue(wrapped, rootLocalName, out var rootObj))
+        {
+            // Fallback: if there's exactly one entry and it's a hashtable, use it.
+            if (wrapped.Count == 1)
+            {
+                var only = wrapped.Values.Cast<object?>().FirstOrDefault();
+                return only as Hashtable;
+            }
+            return wrapped;
+        }
+
+        if (rootObj is not Hashtable rootMap)
+        {
+            return null;
+        }
+
+        // Merge any sibling keys (e.g., metadata-guided attributes) into the root map.
+        foreach (DictionaryEntry entry in wrapped)
+        {
+            if (entry.Key is not string key)
+            {
+                continue;
+            }
+
+            if (string.Equals(key, rootLocalName, StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            rootMap[key] = entry.Value;
+        }
+
+        return rootMap;
+    }
+
+    private static void NormalizeWrappedArrays(Hashtable rootMap, Hashtable? xmlMetadata)
+    {
+        if (xmlMetadata?[$"Properties"] is not Hashtable propsHash)
+        {
+            return;
+        }
+
+        foreach (DictionaryEntry entry in propsHash)
+        {
+            if (entry.Key is not string propertyName || entry.Value is not Hashtable propMeta)
+            {
+                continue;
+            }
+
+            if (propMeta["Wrapped"] is not bool wrapped || !wrapped)
+            {
+                continue;
+            }
+
+            var xmlName = propMeta["Name"] as string ?? propertyName;
+
+            if (!TryGetHashtableValue(rootMap, propertyName, out var raw) && !TryGetHashtableValue(rootMap, xmlName, out raw))
+            {
+                continue;
+            }
+
+            if (raw is not Hashtable wrapper)
+            {
+                continue;
+            }
+
+            object? unwrapped = null;
+            if (TryGetHashtableValue(wrapper, "Item", out var itemValue))
+            {
+                unwrapped = itemValue;
+            }
+            else if (wrapper.Count == 1)
+            {
+                unwrapped = wrapper.Values.Cast<object?>().FirstOrDefault();
+            }
+
+            if (unwrapped is not null)
+            {
+                rootMap[propertyName] = unwrapped;
+            }
+        }
+    }
+
+    private static object? ConvertHashtableToObject(Hashtable data, Type targetType, int depth)
+    {
+        if (depth >= MaxObjectBindingDepth)
+        {
+            return null;
+        }
+
+        var instance = Activator.CreateInstance(targetType);
+        if (instance is null)
+        {
+            return null;
+        }
+
+        var props = targetType
+            .GetProperties(BindingFlags.Public | BindingFlags.Instance)
+            .Where(p => p.CanWrite && p.SetMethod is not null)
+            .ToDictionary(p => p.Name, StringComparer.OrdinalIgnoreCase);
+
+        var fields = targetType
+            .GetFields(BindingFlags.Public | BindingFlags.Instance)
+            .ToDictionary(f => f.Name, StringComparer.OrdinalIgnoreCase);
+
+        foreach (DictionaryEntry entry in data)
+        {
+            if (entry.Key is not string rawKey)
+            {
+                continue;
+            }
+
+            var key = rawKey.StartsWith('@') ? rawKey[1..] : rawKey;
+
+            if (props.TryGetValue(key, out var prop))
+            {
+                var converted = ConvertToTargetType(entry.Value, prop.PropertyType, depth + 1);
+                prop.SetValue(instance, converted);
+                continue;
+            }
+
+            if (fields.TryGetValue(key, out var field))
+            {
+                var converted = ConvertToTargetType(entry.Value, field.FieldType, depth + 1);
+                field.SetValue(instance, converted);
+            }
+        }
+
+        return instance;
+    }
+
+    private static object? ConvertToTargetType(object? value, Type targetType, int depth)
+    {
+        if (value is null)
+        {
+            return null;
+        }
+
+        var nullable = Nullable.GetUnderlyingType(targetType);
+        if (nullable is not null)
+        {
+            targetType = nullable;
+        }
+
+        if (targetType.IsInstanceOfType(value))
+        {
+            return value;
+        }
+
+        // Hashtable → complex object
+        if (value is Hashtable ht)
+        {
+            return typeof(IDictionary).IsAssignableFrom(targetType)
+                ? ht
+                : ConvertHashtableToObject(ht, targetType, depth);
+        }
+
+        // List/array → array/collection
+        if (value is List<object?> list)
+        {
+            return ConvertEnumerableToTargetType(list, targetType, depth);
+        }
+        if (value is object?[] arr)
+        {
+            return ConvertEnumerableToTargetType(arr, targetType, depth);
+        }
+
+        // Scalar conversion
+        var str = value as string ?? Convert.ToString(value, CultureInfo.InvariantCulture);
+
+        if (targetType == typeof(string))
+        {
+            return str;
+        }
+        if (targetType == typeof(int) && int.TryParse(str, NumberStyles.Integer, CultureInfo.InvariantCulture, out var i))
+        {
+            return i;
+        }
+        if (targetType == typeof(long) && long.TryParse(str, NumberStyles.Integer, CultureInfo.InvariantCulture, out var l))
+        {
+            return l;
+        }
+        if (targetType == typeof(double) && double.TryParse(str, NumberStyles.Float, CultureInfo.InvariantCulture, out var d))
+        {
+            return d;
+        }
+        if (targetType == typeof(decimal) && decimal.TryParse(str, NumberStyles.Float, CultureInfo.InvariantCulture, out var dec))
+        {
+            return dec;
+        }
+        if (targetType == typeof(bool) && bool.TryParse(str, out var b))
+        {
+            return b;
+        }
+        if (targetType.IsEnum && str is not null)
+        {
+            try
+            {
+                return Enum.Parse(targetType, str, ignoreCase: true);
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        try
+        {
+            return Convert.ChangeType(value, targetType, CultureInfo.InvariantCulture);
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private static object? ConvertEnumerableToTargetType(IEnumerable enumerable, Type targetType, int depth)
+    {
+        if (targetType.IsArray)
+        {
+            var elementType = targetType.GetElementType() ?? typeof(object);
+            var items = new List<object?>();
+            foreach (var item in enumerable)
+            {
+                items.Add(ConvertToTargetType(item, elementType, depth + 1));
+            }
+
+            var arr = Array.CreateInstance(elementType, items.Count);
+            for (var i = 0; i < items.Count; i++)
+            {
+                arr.SetValue(items[i], i);
+            }
+
+            return arr;
+        }
+
+        // Default to List<T> for generic IEnumerable targets.
+        if (targetType.IsGenericType)
+        {
+            var genDef = targetType.GetGenericTypeDefinition();
+            if (genDef == typeof(List<>) || genDef == typeof(IList<>) || genDef == typeof(IEnumerable<>))
+            {
+                var elementType = targetType.GetGenericArguments()[0];
+                var listType = typeof(List<>).MakeGenericType(elementType);
+                var list = (IList)Activator.CreateInstance(listType)!;
+                foreach (var item in enumerable)
                 {
-                    arr[i] = XElementToClr(items[i]);
+                    _ = list.Add(ConvertToTargetType(item, elementType, depth + 1));
                 }
-
-                ht[key] = arr;
+                return list;
             }
         }
 
-        return ht;
+        return null;
+    }
+
+    private static bool TryGetHashtableValue(Hashtable table, string key, out object? value)
+    {
+        foreach (DictionaryEntry entry in table)
+        {
+            if (entry.Key is string s && string.Equals(s, key, StringComparison.OrdinalIgnoreCase))
+            {
+                value = entry.Value;
+                return true;
+            }
+        }
+
+        value = null;
+        return false;
     }
 
     /// <summary>

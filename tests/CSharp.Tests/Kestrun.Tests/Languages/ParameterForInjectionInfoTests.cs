@@ -16,6 +16,45 @@ namespace KestrunTests.Languages;
 
 public class ParameterForInjectionInfoTests
 {
+    private sealed class ProductXmlModel
+    {
+        public int Id { get; set; }
+
+        public string? Name { get; set; }
+
+        public decimal Price { get; set; }
+
+        public string[]? Item { get; set; }
+
+        public static Hashtable XmlMetadata => new(StringComparer.OrdinalIgnoreCase)
+        {
+            ["ClassName"] = "Product",
+            ["ClassXml"] = new Hashtable(StringComparer.OrdinalIgnoreCase)
+            {
+                ["Name"] = "Product",
+            },
+            ["Properties"] = new Hashtable(StringComparer.OrdinalIgnoreCase)
+            {
+                ["Id"] = new Hashtable(StringComparer.OrdinalIgnoreCase)
+                {
+                    ["Name"] = "id",
+                    ["Attribute"] = true,
+                },
+                ["Price"] = new Hashtable(StringComparer.OrdinalIgnoreCase)
+                {
+                    ["Name"] = "Price",
+                    ["Namespace"] = "http://example.com/pricing",
+                    ["Prefix"] = "price",
+                },
+                ["Item"] = new Hashtable(StringComparer.OrdinalIgnoreCase)
+                {
+                    ["Name"] = "Item",
+                    ["Wrapped"] = true,
+                },
+            },
+        };
+    }
+
     private static KestrunContext CreateContextWithEndpointParameters(
         List<ParameterForInjectionInfo> parameters,
         string method = "GET",
@@ -309,6 +348,55 @@ public class ParameterForInjectionInfoTests
         var ht = Assert.IsType<Hashtable>(bodyResolved.Value);
         Assert.Equal("1", ht["a"]);
         Assert.Equal("test", ht["b"]);
+    }
+
+    [Fact]
+    [Trait("Category", "Languages")]
+    public void InjectParameters_RequestBodyXml_WithXmlMetadata_ConvertsToTypedModel()
+    {
+        var metadata = new ParameterMetadata("body", typeof(ProductXmlModel));
+        var requestBody = new OpenApiRequestBody
+        {
+            Content = new Dictionary<string, IOpenApiMediaType>
+            {
+                ["application/xml"] = new OpenApiMediaType
+                {
+                    Schema = new OpenApiSchema { Type = JsonSchemaType.Object }
+                }
+            }
+        };
+        var p = new ParameterForInjectionInfo(metadata, requestBody);
+
+        var xmlBody = """
+<Product id=\"22\" xmlns:price=\"http://example.com/pricing\">
+  <Name>My Product</Name>
+  <price:Price>11.95</price:Price>
+  <Item>
+    <Item>Item1</Item>
+    <Item>Item2</Item>
+  </Item>
+</Product>
+""";
+
+        var ctx = CreateContextWithEndpointParameters(
+            [p],
+            method: "POST",
+            path: "/",
+            body: xmlBody,
+            configureContext: http => http.Request.ContentType = "application/xml");
+
+        using var ps = PowerShell.Create();
+        _ = ps.AddCommand("Write-Output");
+
+        ParameterForInjectionInfo.InjectParameters(ctx, ps);
+
+        var bodyResolved = Assert.IsType<ParameterForInjectionResolved>(ctx.Parameters.Body);
+        var model = Assert.IsType<ProductXmlModel>(bodyResolved.Value);
+
+        Assert.Equal(22, model.Id);
+        Assert.Equal("My Product", model.Name);
+        Assert.Equal(11.95m, model.Price);
+        Assert.Equal(new[] { "Item1", "Item2" }, model.Item);
     }
 
     [Fact]

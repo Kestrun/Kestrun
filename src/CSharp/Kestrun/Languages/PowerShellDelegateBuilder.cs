@@ -12,6 +12,13 @@ internal static class PowerShellDelegateBuilder
     public const string PS_INSTANCE_KEY = "PS_INSTANCE";
     public const string KR_CONTEXT_KEY = "KR_CONTEXT";
 
+    /// <summary>
+    /// Builds a RequestDelegate that executes the given PowerShell script code.
+    /// </summary>
+    /// <param name="host">The Kestrun host instance.</param>
+    /// <param name="code">The PowerShell script code to execute.</param>
+    /// <param name="arguments">Arguments to inject as variables into the script.</param>
+    /// <returns>A delegate that handles HTTP requests.</returns>
     internal static RequestDelegate Build(KestrunHost host, string code, Dictionary<string, object?>? arguments)
     {
         var log = host.Logger;
@@ -20,9 +27,22 @@ internal static class PowerShellDelegateBuilder
         {
             log.Debug("Building PowerShell delegate, script length={Length}", code.Length);
         }
+        // Build and return the execution delegate
+        return BuildExecutionDelegate(host, code, arguments);
+    }
 
+    /// <summary>
+    /// Builds the execution delegate that runs the PowerShell script.
+    /// </summary>
+    /// <param name="host">The Kestrun host instance.</param>
+    /// <param name="code">The PowerShell script code to execute.</param>
+    /// <param name="arguments">Arguments to inject as variables into the script.</param>
+    /// <returns>A delegate that handles HTTP requests.</returns>
+    private static RequestDelegate BuildExecutionDelegate(KestrunHost host, string code, Dictionary<string, object?>? arguments)
+    {
         return async context =>
         {
+            var log = host.Logger;
             // Log invocation
             if (log.IsEnabled(LogEventLevel.Debug))
             {

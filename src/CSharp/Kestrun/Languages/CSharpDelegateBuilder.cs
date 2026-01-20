@@ -63,7 +63,18 @@ internal static class CSharpDelegateBuilder
             host.Logger.Debug("C# delegate built successfully, script length={Length}, imports={ImportsCount}, refs={RefsCount}, lang={Lang}",
                 code?.Length, extraImports?.Length ?? 0, extraRefs?.Length ?? 0, languageVersion);
         }
+        return BuildExecutionDelegate(host, script, args);
+    }
 
+    /// <summary>
+    /// Builds the execution delegate for the compiled C# script.
+    /// </summary>
+    /// <param name="host">The Kestrun host instance.</param>
+    /// <param name="script">The compiled C# script.</param>
+    /// <param name="args">Arguments to inject as variables into the script.</param>
+    /// <returns>A delegate that handles HTTP requests.</returns>
+    private static RequestDelegate BuildExecutionDelegate(KestrunHost host, Script<object> script, Dictionary<string, object?>? args)
+    {
         return async ctx =>
         {
             try

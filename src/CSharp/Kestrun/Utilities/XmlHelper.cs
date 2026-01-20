@@ -767,45 +767,111 @@ public static class XmlHelper
     /// <returns>A Hashtable representation of the XML element.</returns>
     private static Hashtable ToHashtableInternal(XElement element, Microsoft.OpenApi.OpenApiXml? xmlModel, Dictionary<string, Microsoft.OpenApi.OpenApiXml> propertyModels)
     {
-        var table = new Hashtable();
+        var elementName = GetEffectiveElementName(element, xmlModel);
 
-        // Determine the effective element name (considering OpenAPI Name override)
-        var elementName = xmlModel?.Name ?? element.Name.LocalName;
-
-        // Handle attributes (as @AttributeName or as properties based on OpenAPI model)
-        foreach (var attr in element.Attributes())
+        if (TryConvertNilElement(element, elementName, out var nilResult))
         {
-            if (attr.Name.NamespaceName == xsi.NamespaceName && attr.Name.LocalName == "nil" && attr.Value == "true")
-            {
-                return new Hashtable { [elementName] = null };
-            }
-
-            // Check if this attribute corresponds to a property marked with Attribute=true in OpenAPI model
-            var attrKey = FindPropertyKeyForAttribute(attr.Name.LocalName, propertyModels);
-            if (attrKey != null)
-            {
-                // Store as property name (without @ prefix) when guided by OpenAPI model
-                table[attrKey] = attr.Value;
-            }
-            else
-            {
-                // Store with @ prefix for standard XML attributes
-                table["@" + attr.Name.LocalName] = attr.Value;
-            }
+            return nilResult;
         }
 
-        // If element has no children → treat as value
-        if (!element.HasElements)
+        var table = new Hashtable();
+        AddAttributesToTable(element, table, propertyModels);
+
+        if (TryAddLeafValue(element, elementName, table))
         {
-            if (!string.IsNullOrWhiteSpace(element.Value))
-            {
-                table[elementName] = element.Value;
-            }
             return table;
         }
 
-        // Otherwise recurse into children
+        table[elementName] = ConvertChildElements(element, propertyModels);
+        return table;
+    }
+
+    /// <summary>
+    /// Gets the effective name for an element, honoring OpenAPI <c>xml.name</c> overrides.
+    /// </summary>
+    /// <param name="element">The element whose name is being resolved.</param>
+    /// <param name="xmlModel">The OpenAPI XML model for the current element.</param>
+    /// <returns>The resolved element name.</returns>
+    private static string GetEffectiveElementName(XElement element, Microsoft.OpenApi.OpenApiXml? xmlModel)
+        => xmlModel?.Name ?? element.Name.LocalName;
+
+    /// <summary>
+    /// Detects <c>xsi:nil="true"</c> and returns the null-valued hashtable representation.
+    /// </summary>
+    /// <param name="element">The element to inspect for <c>xsi:nil</c>.</param>
+    /// <param name="elementName">The effective element name to use as the hashtable key.</param>
+    /// <param name="result">The null-valued hashtable when <c>xsi:nil</c> is present; otherwise a default value.</param>
+    /// <returns><c>true</c> when <c>xsi:nil="true"</c> is present; otherwise <c>false</c>.</returns>
+    private static bool TryConvertNilElement(XElement element, string elementName, out Hashtable result)
+    {
+        foreach (var attr in element.Attributes())
+        {
+            if (attr.Name.NamespaceName == xsi.NamespaceName
+                && attr.Name.LocalName == "nil"
+                && string.Equals(attr.Value, "true", StringComparison.OrdinalIgnoreCase))
+            {
+                result = new Hashtable { [elementName] = null };
+                return true;
+            }
+        }
+
+        result = default!;
+        return false;
+    }
+
+    /// <summary>
+    /// Adds element attributes to the target hashtable, honoring OpenAPI <c>xml.attribute</c> mappings.
+    /// </summary>
+    /// <param name="element">The element whose attributes are being read.</param>
+    /// <param name="table">The hashtable to populate.</param>
+    /// <param name="propertyModels">Property-level OpenAPI XML models used to map attribute names to property keys.</param>
+    private static void AddAttributesToTable(XElement element, Hashtable table, Dictionary<string, Microsoft.OpenApi.OpenApiXml> propertyModels)
+    {
+        foreach (var attr in element.Attributes())
+        {
+            var attrKey = FindPropertyKeyForAttribute(attr.Name.LocalName, propertyModels);
+            if (attrKey is not null)
+            {
+                table[attrKey] = attr.Value;
+                continue;
+            }
+
+            table["@" + attr.Name.LocalName] = attr.Value;
+        }
+    }
+
+    /// <summary>
+    /// Converts a leaf element (no child elements) by storing its string value under the effective element name.
+    /// </summary>
+    /// <param name="element">The element to evaluate.</param>
+    /// <param name="elementName">The effective element name.</param>
+    /// <param name="table">The hashtable to populate.</param>
+    /// <returns><c>true</c> when the element is a leaf; otherwise <c>false</c>.</returns>
+    private static bool TryAddLeafValue(XElement element, string elementName, Hashtable table)
+    {
+        if (element.HasElements)
+        {
+            return false;
+        }
+
+        if (!string.IsNullOrWhiteSpace(element.Value))
+        {
+            table[elementName] = element.Value;
+        }
+
+        return true;
+    }
+
+    /// <summary>
+    /// Converts child elements into a nested hashtable, merging repeated keys into a list.
+    /// </summary>
+    /// <param name="element">The parent element whose children are being converted.</param>
+    /// <param name="propertyModels">Property-level OpenAPI XML models used to map element names to property keys.</param>
+    /// <returns>A hashtable of child values.</returns>
+    private static Hashtable ConvertChildElements(XElement element, Dictionary<string, Microsoft.OpenApi.OpenApiXml> propertyModels)
+    {
         var childMap = new Hashtable();
+
         foreach (var child in element.Elements())
         {
             var childLocalName = child.Name.LocalName;
@@ -820,31 +886,37 @@ public static class XmlHelper
             var valueToStore = childValue[childElementName];
 
             var keyToStore = childPropertyKey ?? childElementName;
-
-            if (childMap.ContainsKey(keyToStore))
-            {
-                // Already exists → convert to List (allowing null values)
-                if (childMap[keyToStore] is List<object?> list)
-                {
-                    list.Add(valueToStore);
-                }
-                else
-                {
-                    childMap[keyToStore] = new List<object?>
-                    {
-                        childMap[keyToStore],
-                        valueToStore
-                    };
-                }
-            }
-            else
-            {
-                childMap[keyToStore] = valueToStore;
-            }
+            AddOrAppendChildValue(childMap, keyToStore, valueToStore);
         }
 
-        table[elementName] = childMap;
-        return table;
+        return childMap;
+    }
+
+    /// <summary>
+    /// Adds a child value to the map, converting repeated keys into a list (allowing null values).
+    /// </summary>
+    /// <param name="childMap">Target map of child values.</param>
+    /// <param name="key">Key to store under.</param>
+    /// <param name="value">Value to store.</param>
+    private static void AddOrAppendChildValue(Hashtable childMap, string key, object? value)
+    {
+        if (!childMap.ContainsKey(key))
+        {
+            childMap[key] = value;
+            return;
+        }
+
+        if (childMap[key] is List<object?> list)
+        {
+            list.Add(value);
+            return;
+        }
+
+        childMap[key] = new List<object?>
+        {
+            childMap[key],
+            value
+        };
     }
 
     /// <summary>

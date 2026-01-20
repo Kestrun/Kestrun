@@ -624,25 +624,28 @@ public static class PowerShellOpenApiClassExporter
             _ = sb.AppendLine($"    [{psType}]${p.Name}");
         }
 
-        // Add static method to retrieve OpenApiXml metadata for this class
-        AppendOpenApiXmlMetadataMethod(type, props, sb);
+        // Add static XML metadata to guide XmlHelper without requiring PowerShell method invocation
+        AppendOpenApiXmlMetadataProperty(type, props, sb);
 
         _ = sb.AppendLine("}");
     }
 
     /// <summary>
-    /// Appends a static method that returns the OpenApiXml metadata for the class and its properties.
+    /// Appends a static hashtable property containing OpenApiXml metadata for the class and its properties.
     /// </summary>
+    /// <remarks>
+    /// This is emitted as a static property (not a PowerShell class method) so that C# reflection can read the
+    /// metadata without requiring a PowerShell execution context bound to the current thread.
+    /// </remarks>
     /// <param name="type">The type to extract OpenApiXml metadata from.</param>
     /// <param name="props">The properties of the type.</param>
     /// <param name="sb">The StringBuilder to append to.</param>
-    private static void AppendOpenApiXmlMetadataMethod(Type type, PropertyInfo[] props, StringBuilder sb)
+    private static void AppendOpenApiXmlMetadataProperty(Type type, PropertyInfo[] props, StringBuilder sb)
     {
         _ = sb.AppendLine();
-        _ = sb.AppendLine("    # Static method to get OpenApiXml metadata for this class");
-        _ = sb.AppendLine("    static [hashtable] GetXmlMetadata() {");
-        _ = sb.AppendLine("        $metadata = @{");
-        _ = sb.AppendLine("            ClassName = '" + type.Name + "'");
+        _ = sb.AppendLine("    # Static OpenApiXml metadata for this class");
+        _ = sb.AppendLine("    static [hashtable] $XmlMetadata = @{");
+        _ = sb.AppendLine("        ClassName = '" + type.Name + "'");
 
         // Get class-level OpenApiXml attribute
         var classXmlAttr = type.GetCustomAttributes(inherit: false)
@@ -653,16 +656,16 @@ public static class PowerShellOpenApiClassExporter
             var classXml = BuildXmlMetadataHashtable(classXmlAttr, indent: 12);
             if (!string.IsNullOrWhiteSpace(classXml))
             {
-                _ = sb.AppendLine("            ClassXml = @{");
+                _ = sb.AppendLine("        ClassXml = @{");
                 _ = sb.AppendLine(classXml);
-                _ = sb.AppendLine("            }");
+                _ = sb.AppendLine("        }");
             }
         }
 
         // Get property-level OpenApiXml attributes
         if (props.Length > 0)
         {
-            _ = sb.AppendLine("            Properties = @{");
+            _ = sb.AppendLine("        Properties = @{");
             var hasAnyPropertyXml = false;
 
             foreach (var prop in props)
@@ -672,27 +675,25 @@ public static class PowerShellOpenApiClassExporter
 
                 if (propXmlAttr != null)
                 {
-                    var propXml = BuildXmlMetadataHashtable(propXmlAttr, indent: 20);
+                    var propXml = BuildXmlMetadataHashtable(propXmlAttr, indent: 16);
                     if (!string.IsNullOrWhiteSpace(propXml))
                     {
                         hasAnyPropertyXml = true;
-                        _ = sb.AppendLine($"                '{prop.Name}' = @{{");
+                        _ = sb.AppendLine($"            '{prop.Name}' = @{{");
                         _ = sb.AppendLine(propXml);
-                        _ = sb.AppendLine("                }");
+                        _ = sb.AppendLine("            }");
                     }
                 }
             }
 
             if (!hasAnyPropertyXml)
             {
-                _ = sb.AppendLine("                # No property-level XML metadata");
+                _ = sb.AppendLine("            # No property-level XML metadata");
             }
 
-            _ = sb.AppendLine("            }");
+            _ = sb.AppendLine("        }");
         }
 
-        _ = sb.AppendLine("        }");
-        _ = sb.AppendLine("        return $metadata");
         _ = sb.AppendLine("    }");
     }
 

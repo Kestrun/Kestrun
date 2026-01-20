@@ -253,6 +253,10 @@ public class PowerShellOpenApiClassExporterTests
         Assert.Contains("class Owner {", content);
         Assert.Contains("[string]$Name", content);
 
+        // OpenApiXml metadata should be emitted as a static hashtable property (not as a method)
+        Assert.Contains("static [hashtable] $XmlMetadata = @{", content);
+        Assert.DoesNotContain("GetXmlMetadata", content);
+
         // PetBase inheritance and int property mapping
         Assert.Contains("class PetBase {", content);
         Assert.Contains("[int]$Id", content);

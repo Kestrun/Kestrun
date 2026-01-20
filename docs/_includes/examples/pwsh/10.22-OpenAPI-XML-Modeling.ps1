@@ -106,11 +106,11 @@ function getProduct {
         return
     }
 
-    $product = @{
+    $product = [Product]@{
         Id = $id
         Name = "Sample Product $id"
         Price = [decimal](19.99 + ($id * 0.50))
-        Items = @("Item1", "Item2", "Item3")
+        Items = @('Item1', 'Item2', 'Item3')
     }
 
     Write-KrResponse $product -StatusCode 200

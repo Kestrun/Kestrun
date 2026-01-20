@@ -2,6 +2,7 @@ using System.Collections;
 using System.Reflection;
 using System.Xml.Linq;
 using Microsoft.OpenApi;
+using Serilog;
 
 namespace Kestrun.Utilities;
 
@@ -55,10 +56,10 @@ public static class XmlHelper
 
         // At this point value is non-null complex/reference or value-type object requiring reflection.
         var type = value!.GetType();
-        
-        // Check if the type has a static GetXmlMetadata method for OpenAPI XML modeling
+
+        // Check if the type has OpenAPI XML metadata (via a static XmlMetadata hashtable)
         var xmlMetadata = TryGetXmlMetadata(type);
-        
+
         var needsCycleTracking = !type.IsValueType;
         if (needsCycleTracking && !EnterCycle(value, ref visited, out var cycleElem))
         {
@@ -219,7 +220,7 @@ public static class XmlHelper
     /// <param name="value">Object instance to serialize.</param>
     /// <param name="depth">Current recursion depth (guarded).</param>
     /// <param name="visited">Per-call set used for cycle detection.</param>
-    /// <param name="xmlMetadata">Optional OpenAPI XML metadata hashtable retrieved from GetXmlMetadata() static method.</param>
+    /// <param name="xmlMetadata">Optional OpenAPI XML metadata hashtable (typically from a static XmlMetadata property).</param>
     private static XElement ObjectToXml(string name, object value, int depth, HashSet<object>? visited, Hashtable? xmlMetadata)
     {
         // Use class-level XML name if available
@@ -228,10 +229,10 @@ public static class XmlHelper
         {
             elementName = className;
         }
-        
+
         var objElem = new XElement(elementName);
         var type = value.GetType();
-        
+
         // Build property metadata lookup
         Dictionary<string, Hashtable>? propertyMetadata = null;
         if (xmlMetadata?["Properties"] is Hashtable propsHash)
@@ -245,7 +246,7 @@ public static class XmlHelper
                 }
             }
         }
-        
+
         foreach (var prop in type.GetProperties(BindingFlags.Public | BindingFlags.Instance))
         {
             if (prop.GetIndexParameters().Length > 0)
@@ -261,11 +262,11 @@ public static class XmlHelper
             {
                 continue; // skip unreadable props
             }
-            
+
             // Check if property has OpenAPI XML metadata
             var propName = prop.Name;
             var childName = SanitizeName(propName);
-            
+
             if (propertyMetadata != null && propertyMetadata.TryGetValue(propName, out var propXml))
             {
                 // Use custom element name if specified
@@ -273,7 +274,7 @@ public static class XmlHelper
                 {
                     childName = customName;
                 }
-                
+
                 // Check if this property should be an XML attribute
                 if (propXml["Attribute"] is bool isAttribute && isAttribute && propVal != null)
                 {
@@ -281,30 +282,54 @@ public static class XmlHelper
                     continue; // Don't add as child element
                 }
             }
-            
+
             objElem.Add(ToXmlInternal(childName, propVal, depth + 1, visited));
         }
         return objElem;
     }
-    
+
     /// <summary>
-    /// Attempts to retrieve OpenAPI XML metadata from a type's static GetXmlMetadata() method.
+    /// Attempts to retrieve OpenAPI XML metadata from a type.
     /// </summary>
     /// <param name="type">The type to check for metadata.</param>
-    /// <returns>A Hashtable containing XML metadata, or null if the method doesn't exist.</returns>
+    /// <returns>A Hashtable containing XML metadata, or null if none is available.</returns>
     private static Hashtable? TryGetXmlMetadata(Type type)
     {
         try
         {
+            // Preferred: a static hashtable property/field (safe to read via reflection).
+            // PowerShell class *methods* require an engine context on the current thread and may throw when invoked
+            // from C# (even if the type was defined in a runspace).
+            var prop = type.GetProperty("XmlMetadata", BindingFlags.Public | BindingFlags.Static);
+            if (prop != null
+                && typeof(Hashtable).IsAssignableFrom(prop.PropertyType)
+                && prop.GetIndexParameters().Length == 0)
+            {
+                return prop.GetValue(null) as Hashtable;
+            }
+
+            var field = type.GetField("XmlMetadata", BindingFlags.Public | BindingFlags.Static);
+            if (field != null && typeof(Hashtable).IsAssignableFrom(field.FieldType))
+            {
+                return field.GetValue(null) as Hashtable;
+            }
+
+            // Back-compat: older generated PowerShell OpenAPI classes exposed GetXmlMetadata().
+            // Avoid invoking methods on dynamic (PowerShell-generated) assemblies.
+            if (type.Assembly.IsDynamic)
+            {
+                return null;
+            }
+
             var method = type.GetMethod("GetXmlMetadata", BindingFlags.Public | BindingFlags.Static);
             if (method != null && method.ReturnType == typeof(Hashtable) && method.GetParameters().Length == 0)
             {
                 return method.Invoke(null, null) as Hashtable;
             }
         }
-        catch
+        catch (Exception ex)
         {
-            // Ignore exceptions when retrieving metadata
+            Log.Logger.Error(ex, "Error retrieving XML metadata for type {TypeName}", type.FullName);
         }
         return null;
     }

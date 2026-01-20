@@ -28,16 +28,6 @@
         If specified, validates that the certificate is within its validity period.
     .PARAMETER RevocationMode
         The revocation mode to use when validating certificates (NoCheck, Online, Offline).
-    .PARAMETER IssueClaimsScriptBlock
-        A script block that contains the logic for issuing claims from the certificate.
-    .PARAMETER IssueClaimsCode
-        C# or VBNet code that contains the logic for issuing claims from the certificate.
-    .PARAMETER IssueClaimsCodeLanguage
-        The scripting language of the code used for issuing claims.
-    .PARAMETER IssueClaimsCodeFilePath
-        Path to a file containing the code that contains the logic for issuing claims from the certificate.
-    .PARAMETER ClaimPolicyConfig
-        Configuration for claim policies to apply during authentication.
     .PARAMETER Logger
         A logger to use for logging authentication events.
     .PARAMETER PassThru
@@ -82,51 +72,19 @@ function Add-KrClientCertificateAuthentication {
         [Kestrun.Authentication.ClientCertificateAuthenticationOptions]$Options,
 
         [Parameter(ParameterSetName = 'v1')]
-        [Parameter(ParameterSetName = 'v1_i1')]
-        [Parameter(ParameterSetName = 'v1_i2')]
-        [Parameter(ParameterSetName = 'v1_i3')]
         [Microsoft.AspNetCore.Authentication.Certificate.CertificateTypes]$AllowedCertificateTypes,
 
         [Parameter(ParameterSetName = 'v1')]
-        [Parameter(ParameterSetName = 'v1_i1')]
-        [Parameter(ParameterSetName = 'v1_i2')]
-        [Parameter(ParameterSetName = 'v1_i3')]
         [switch]$ValidateCertificateUse,
 
         [Parameter(ParameterSetName = 'v1')]
-        [Parameter(ParameterSetName = 'v1_i1')]
-        [Parameter(ParameterSetName = 'v1_i2')]
-        [Parameter(ParameterSetName = 'v1_i3')]
         [switch]$ValidateValidityPeriod,
 
         [Parameter(ParameterSetName = 'v1')]
-        [Parameter(ParameterSetName = 'v1_i1')]
-        [Parameter(ParameterSetName = 'v1_i2')]
-        [Parameter(ParameterSetName = 'v1_i3')]
         [System.Security.Cryptography.X509Certificates.X509RevocationMode]$RevocationMode,
 
         [Parameter(ParameterSetName = 'v1')]
-        [Parameter(ParameterSetName = 'v1_i1')]
-        [Parameter(ParameterSetName = 'v1_i2')]
-        [Parameter(ParameterSetName = 'v1_i3')]
         [Serilog.ILogger]$Logger,
-
-        [Parameter(ParameterSetName = 'v1_i1')]
-        [Parameter(ParameterSetName = 'v1_i2')]
-        [Parameter(ParameterSetName = 'v1_i3')]
-        [Kestrun.Claims.ClaimPolicyConfig]$ClaimPolicyConfig,
-
-        [Parameter(Mandatory = $true, ParameterSetName = 'v1_i1')]
-        [scriptblock]$IssueClaimsScriptBlock,
-
-        [Parameter(Mandatory = $true, ParameterSetName = 'v1_i2')]
-        [string]$IssueClaimsCode,
-
-        [Parameter(ParameterSetName = 'v1_i2')]
-        [Kestrun.Scripting.ScriptLanguage]$IssueClaimsCodeLanguage = [Kestrun.Scripting.ScriptLanguage]::CSharp,
-
-        [Parameter(Mandatory = $true, ParameterSetName = 'v1_i3')]
-        [string]$IssueClaimsCodeFilePath,
 
         [Parameter()]
         [switch]$PassThru
@@ -158,44 +116,6 @@ function Add-KrClientCertificateAuthentication {
             # Configure logger
             if ($null -ne $Logger) {
                 $Options.Logger = $Logger
-            }
-
-            # Configure claim policy
-            if ($null -ne $ClaimPolicyConfig) {
-                $Options.ClaimPolicyConfig = $ClaimPolicyConfig
-            }
-
-            # Configure claims issuer if provided
-            if ($PSCmdlet.ParameterSetName.contains('_')) {
-                $Options.IssueClaimsCodeSettings = [Kestrun.Authentication.AuthenticationCodeSettings]::new()
-
-                if ($null -ne $IssueClaimsScriptBlock) {
-                    $Options.IssueClaimsCodeSettings.Code = $IssueClaimsScriptBlock.ToString()
-                    $Options.IssueClaimsCodeSettings.Language = [Kestrun.Scripting.ScriptLanguage]::PowerShell
-                } elseif (-not [string]::IsNullOrWhiteSpace($IssueClaimsCode)) {
-                    $Options.IssueClaimsCodeSettings.Code = $IssueClaimsCode
-                    $Options.IssueClaimsCodeSettings.Language = $IssueClaimsCodeLanguage
-                } elseif (-not [string]::IsNullOrWhiteSpace($IssueClaimsCodeFilePath)) {
-                    if (-not (Test-Path -Path $IssueClaimsCodeFilePath)) {
-                        throw "The specified code file path does not exist: $IssueClaimsCodeFilePath"
-                    }
-                    $extension = Split-Path -Path $IssueClaimsCodeFilePath -Extension
-                    switch ($extension) {
-                        '.ps1' {
-                            $Options.IssueClaimsCodeSettings.Language = [Kestrun.Scripting.ScriptLanguage]::PowerShell
-                        }
-                        '.cs' {
-                            $Options.IssueClaimsCodeSettings.Language = [Kestrun.Scripting.ScriptLanguage]::CSharp
-                        }
-                        '.vb' {
-                            $Options.IssueClaimsCodeSettings.Language = [Kestrun.Scripting.ScriptLanguage]::VisualBasic
-                        }
-                        default {
-                            throw "Unsupported '$extension' code file extension."
-                        }
-                    }
-                    $Options.IssueClaimsCodeSettings.Code = Get-Content -Path $IssueClaimsCodeFilePath -Raw
-                }
             }
 
             # Set OpenApi documentation IDs

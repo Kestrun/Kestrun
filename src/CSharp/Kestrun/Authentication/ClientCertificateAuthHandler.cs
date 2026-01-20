@@ -4,16 +4,15 @@ using Kestrun.Hosting;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Certificate;
 using Microsoft.Extensions.Options;
+using System.Security.Claims;
 
 namespace Kestrun.Authentication;
 
 /// <summary>
 /// Handles Client Certificate Authentication for HTTP requests.
 /// </summary>
-public class ClientCertificateAuthHandler : CertificateAuthenticationHandler, IAuthHandler
+public class ClientCertificateAuthHandler : AuthenticationHandler<ClientCertificateAuthenticationOptions>, IAuthHandler
 {
-    private readonly ClientCertificateAuthenticationOptions _certOptions;
-
     /// <summary>
     /// The Kestrun host instance.
     /// </summary>
@@ -35,7 +34,6 @@ public class ClientCertificateAuthHandler : CertificateAuthenticationHandler, IA
     {
         ArgumentNullException.ThrowIfNull(host);
         Host = host;
-        _certOptions = options.CurrentValue;
 
         if (Host.Logger.IsEnabled(Serilog.Events.LogEventLevel.Debug))
         {
@@ -51,35 +49,65 @@ public class ClientCertificateAuthHandler : CertificateAuthenticationHandler, IA
     {
         try
         {
-            // Call the base implementation which handles certificate validation
-            var result = await base.HandleAuthenticateAsync();
+            // Get the client certificate
+            var clientCertificate = await Context.Connection.GetClientCertificateAsync();
 
-            if (!result.Succeeded)
+            if (clientCertificate == null)
             {
-                return result;
+                Host.Logger.Warning("No client certificate provided");
+                return AuthenticateResult.NoResult();
             }
 
-            // If we have a custom claims issuer, add those claims
-            if (_certOptions.IssueClaims != null && result.Principal?.Identity?.IsAuthenticated == true)
+            // Validate the certificate using built-in validation
+            var certificateValidator = new CertificateValidator(Options);
+            var validationResult = await certificateValidator.ValidateAsync(clientCertificate);
+
+            if (!validationResult.Success)
             {
-                var clientCert = await Context.Connection.GetClientCertificateAsync();
-                if (clientCert != null)
+                Host.Logger.Warning("Certificate validation failed: {Reason}", validationResult.FailureMessage);
+                return AuthenticateResult.Fail(validationResult.FailureMessage ?? "Certificate validation failed");
+            }
+
+            // Build the claims identity
+            var claims = new List<Claim>
+            {
+                new Claim(ClaimTypes.NameIdentifier, clientCertificate.Subject, ClaimValueTypes.String, Options.ClaimsIssuer),
+                new Claim(ClaimTypes.Name, clientCertificate.Subject, ClaimValueTypes.String, Options.ClaimsIssuer)
+            };
+
+            // Add thumbprint as a claim
+            claims.Add(new Claim("thumbprint", clientCertificate.Thumbprint, ClaimValueTypes.String, Options.ClaimsIssuer));
+
+            // Add issuer and serial number
+            claims.Add(new Claim("issuer", clientCertificate.Issuer, ClaimValueTypes.String, Options.ClaimsIssuer));
+            claims.Add(new Claim("serialnumber", clientCertificate.SerialNumber ?? string.Empty, ClaimValueTypes.String, Options.ClaimsIssuer));
+
+            // Create identity and principal
+            var identity = new ClaimsIdentity(claims, Scheme.Name);
+            var principal = new ClaimsPrincipal(identity);
+
+            // Invoke the OnAuthenticationSucceeded event if configured
+            if (Options.Events is CertificateAuthenticationEvents certEvents)
+            {
+                var certValidatedContext = new CertificateValidatedContext(Context, Scheme, Options)
                 {
-                    var additionalClaims = await _certOptions.IssueClaims(Context, clientCert);
-                    if (additionalClaims != null && additionalClaims.Any())
-                    {
-                        var identity = result.Principal.Identities.First();
-                        identity.AddClaims(additionalClaims);
+                    Principal = principal
+                };
 
-                        var newPrincipal = new System.Security.Claims.ClaimsPrincipal(identity);
-                        var newTicket = new AuthenticationTicket(newPrincipal, result.Properties, Scheme.Name);
-                        return AuthenticateResult.Success(newTicket);
-                    }
+                await certEvents.CertificateValidated(certValidatedContext);
+
+                if (certValidatedContext.Result != null)
+                {
+                    return certValidatedContext.Result;
                 }
+
+                principal = certValidatedContext.Principal ?? principal;
             }
 
-            Host.Logger.Information("Client certificate authentication succeeded");
-            return result;
+            Host.Logger.Information("Client certificate authentication succeeded for subject: {Subject}", clientCertificate.Subject);
+
+            var ticket = new AuthenticationTicket(principal, Scheme.Name);
+            return AuthenticateResult.Success(ticket);
         }
         catch (Exception ex)
         {
@@ -109,102 +137,94 @@ public class ClientCertificateAuthHandler : CertificateAuthenticationHandler, IA
     }
 
     /// <summary>
-    /// Builds a PowerShell-based claims issuer function.
+    /// Helper class to validate X509 certificates.
     /// </summary>
-    /// <param name="host">The Kestrun host instance.</param>
-    /// <param name="settings">The authentication code settings containing the PowerShell script.</param>
-    /// <returns>A function that issues claims using the provided PowerShell script.</returns>
-    public static Func<HttpContext, X509Certificate2, Task<IEnumerable<System.Security.Claims.Claim>>> BuildPsClaimsIssuer(
-        KestrunHost host,
-        AuthenticationCodeSettings settings)
+    private class CertificateValidator(ClientCertificateAuthenticationOptions options)
     {
-        if (host.Logger.IsEnabled(Serilog.Events.LogEventLevel.Debug))
-        {
-            host.Logger.Debug("BuildPsClaimsIssuer settings: {Settings}", settings);
-        }
+        private readonly ClientCertificateAuthenticationOptions _options = options;
 
-        return async (ctx, cert) =>
+        public Task<(bool Success, string? FailureMessage)> ValidateAsync(X509Certificate2 certificate)
         {
-            var claims = await IAuthHandler.IssuePowerShellClaimsAsync(
-                settings.Code,
-                ctx,
-                new Dictionary<string, object?>
+            // Check allowed certificate types
+            if (_options.AllowedCertificateTypes != CertificateTypes.All)
+            {
+                var isSelfSigned = certificate.Subject == certificate.Issuer;
+                var isAllowed = _options.AllowedCertificateTypes switch
                 {
-                    { "certificate", cert },
-                    { "thumbprint", cert.Thumbprint },
-                    { "subject", cert.Subject },
-                    { "issuer", cert.Issuer }
-                },
-                host.Logger);
-            return claims;
-        };
-    }
+                    CertificateTypes.Chained => !isSelfSigned,
+                    CertificateTypes.SelfSigned => isSelfSigned,
+                    _ => true
+                };
 
-    /// <summary>
-    /// Builds a C#-based claims issuer function.
-    /// </summary>
-    /// <param name="host">The Kestrun host instance.</param>
-    /// <param name="settings">The authentication code settings containing the C# script.</param>
-    /// <returns>A function that issues claims using the provided C# script.</returns>
-    public static Func<HttpContext, X509Certificate2, Task<IEnumerable<System.Security.Claims.Claim>>> BuildCsClaimsIssuer(
-        KestrunHost host,
-        AuthenticationCodeSettings settings)
-    {
-        if (host.Logger.IsEnabled(Serilog.Events.LogEventLevel.Debug))
-        {
-            host.Logger.Debug("BuildCsClaimsIssuer settings: {Settings}", settings);
-        }
+                if (!isAllowed)
+                {
+                    return Task.FromResult<(bool Success, string? FailureMessage)>((false, $"Certificate type not allowed: {(isSelfSigned ? "SelfSigned" : "Chained")}"));
+                }
+            }
 
-        var core = IAuthHandler.BuildCsClaimsIssuer(
-            host,
-            settings,
-            ("certificate", typeof(X509Certificate2)),
-            ("thumbprint", string.Empty),
-            ("subject", string.Empty),
-            ("issuer", string.Empty)
-        ) ?? throw new InvalidOperationException("Failed to build C# claims issuer delegate from provided settings.");
-
-        return (ctx, cert) =>
-            core(ctx, new Dictionary<string, object?>
+            // Check validity period
+            if (_options.ValidateValidityPeriod)
             {
-                ["certificate"] = cert,
-                ["thumbprint"] = cert.Thumbprint,
-                ["subject"] = cert.Subject,
-                ["issuer"] = cert.Issuer
-            });
-    }
+                var now = DateTime.UtcNow;
+                if (certificate.NotBefore > now || certificate.NotAfter < now)
+                {
+                    return Task.FromResult<(bool Success, string? FailureMessage)>((false, "Certificate is not within its validity period"));
+                }
+            }
 
-    /// <summary>
-    /// Builds a VB.NET-based claims issuer function.
-    /// </summary>
-    /// <param name="host">The Kestrun host instance.</param>
-    /// <param name="settings">The authentication code settings containing the VB.NET script.</param>
-    /// <returns>A function that issues claims using the provided VB.NET script.</returns>
-    public static Func<HttpContext, X509Certificate2, Task<IEnumerable<System.Security.Claims.Claim>>> BuildVBNetClaimsIssuer(
-        KestrunHost host,
-        AuthenticationCodeSettings settings)
-    {
-        if (host.Logger.IsEnabled(Serilog.Events.LogEventLevel.Debug))
-        {
-            host.Logger.Debug("BuildVBNetClaimsIssuer settings: {Settings}", settings);
-        }
-
-        var core = IAuthHandler.BuildVBNetClaimsIssuer(
-            host,
-            settings,
-            ("certificate", typeof(X509Certificate2)),
-            ("thumbprint", string.Empty),
-            ("subject", string.Empty),
-            ("issuer", string.Empty)
-        ) ?? throw new InvalidOperationException("Failed to build VB.NET claims issuer delegate from provided settings.");
-
-        return (ctx, cert) =>
-            core(ctx, new Dictionary<string, object?>
+            // Check certificate use
+            if (_options.ValidateCertificateUse)
             {
-                ["certificate"] = cert,
-                ["thumbprint"] = cert.Thumbprint,
-                ["subject"] = cert.Subject,
-                ["issuer"] = cert.Issuer
-            });
+                var hasClientAuth = false;
+                foreach (var extension in certificate.Extensions)
+                {
+                    if (extension is X509EnhancedKeyUsageExtension eku)
+                    {
+                        foreach (var oid in eku.EnhancedKeyUsages)
+                        {
+                            // 1.3.6.1.5.5.7.3.2 is Client Authentication
+                            if (oid.Value == "1.3.6.1.5.5.7.3.2")
+                            {
+                                hasClientAuth = true;
+                                break;
+                            }
+                        }
+                    }
+                }
+
+                if (!hasClientAuth)
+                {
+                    return Task.FromResult<(bool Success, string? FailureMessage)>((false, "Certificate does not have Client Authentication usage"));
+                }
+            }
+
+            // Check revocation if needed
+            if (_options.RevocationMode != X509RevocationMode.NoCheck)
+            {
+                using var chain = new X509Chain
+                {
+                    ChainPolicy =
+                    {
+                        RevocationMode = _options.RevocationMode,
+                        RevocationFlag = _options.RevocationFlag
+                    }
+                };
+
+                if (_options.CustomTrustStore != null)
+                {
+                    chain.ChainPolicy.CustomTrustStore.AddRange(_options.CustomTrustStore);
+                    chain.ChainPolicy.TrustMode = X509ChainTrustMode.CustomRootTrust;
+                }
+
+                var isValid = chain.Build(certificate);
+                if (!isValid)
+                {
+                    var errors = string.Join(", ", chain.ChainStatus.Select(s => s.StatusInformation));
+                    return Task.FromResult<(bool Success, string? FailureMessage)>((false, $"Certificate chain validation failed: {errors}"));
+                }
+            }
+
+            return Task.FromResult<(bool Success, string? FailureMessage)>((true, null));
+        }
     }
 }

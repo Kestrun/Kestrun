@@ -145,15 +145,6 @@ Describe 'Example 10.4 OpenAPI Component Parameter' -Tag 'OpenApi', 'Tutorial', 
     }
 
     It 'OpenAPI output matches 10.4 fixture JSON' {
-        $result = Invoke-WebRequest -Uri "$($script:instance.Url)/openapi/v3.1/openapi.json" -SkipCertificateCheck -SkipHttpErrorCheck
-        $result.StatusCode | Should -Be 200
-
-        $actualNormalized = Get-NormalizedJson $result.Content
-        $expectedPath = Join-Path -Path (Get-TutorialExamplesDirectory) -ChildPath 'Assets' `
-            -AdditionalChildPath 'OpenAPI', "$($script:instance.BaseName).json"
-        $expectedContent = Get-Content -Path $expectedPath -Raw
-        $expectedNormalized = Get-NormalizedJson $expectedContent
-
-        $actualNormalized | Should -Be $expectedNormalized
+        Test-OpenApiDocumentMatchesExpected -Instance $script:instance
     }
 }

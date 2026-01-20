@@ -145,4 +145,8 @@ Describe 'Example 10.11 Component Callback' -Tag 'Tutorial', 'OpenApi', 'Slow' {
         $stdout | Should -Match 'Received reservation callback'
         $stdout | Should -Match 'Received shipping order callback'
     }
+
+    It 'OpenAPI output matches 10.11 fixture JSON' {
+        Test-OpenApiDocumentMatchesExpected -Instance $script:instance
+    }
 }

@@ -116,5 +116,9 @@ Describe 'Example 10.9 Component Header' -Tag 'Tutorial', 'OpenApi', 'Slow' {
         $redoc.StatusCode | Should -Be 200
         $redoc.Content | Should -BeLike '*Redoc*'
     }
+
+     It 'OpenAPI output matches 10.9 fixture JSON' {
+        Test-OpenApiDocumentMatchesExpected -Instance $script:instance
+    }
 }
 

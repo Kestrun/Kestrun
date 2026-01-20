@@ -2288,3 +2288,39 @@ function Get-CallbackRequestSchemaRefs {
 
     return $refs
 }
+
+<#
+.SYNOPSIS
+    Test that the OpenAPI document from the instance matches the expected document.
+.DESCRIPTION
+    This function retrieves the OpenAPI document from the specified instance URL and compares it
+    to an expected OpenAPI document stored in the Assets/OpenAPI directory. It normalizes both
+    documents before comparison to ensure consistent formatting.
+.PARAMETER Instance
+    The instance object containing the URL and BaseName properties.
+.PARAMETER Version
+    The OpenAPI version to retrieve (default is 'v3.1').
+.NOTES
+    The expected OpenAPI document should be located at:
+    Assets/OpenAPI/{Instance.BaseName}.json
+#>
+function Test-OpenApiDocumentMatchesExpected {
+    param(
+        [Parameter(Mandatory)]
+        [Pscustomobject]$Instance,
+        [Parameter()]
+        [string]$Version = 'v3.1'
+    )
+
+    $result = Invoke-WebRequest -Uri "$($Instance.Url)/openapi/$Version/openapi.json" -SkipCertificateCheck -SkipHttpErrorCheck
+    $result.StatusCode | Should -Be 200
+
+    $actualNormalized = Get-NormalizedJson $result.Content
+    $expectedPath = Join-Path -Path (Get-TutorialExamplesDirectory) -ChildPath 'Assets' `
+        -AdditionalChildPath 'OpenAPI', $Version, "$($Instance.BaseName).json"
+
+    $expectedContent = Get-Content -Path $expectedPath -Raw
+    $expectedNormalized = Get-NormalizedJson $expectedContent
+
+    $actualNormalized | Should -Be $expectedNormalized
+}

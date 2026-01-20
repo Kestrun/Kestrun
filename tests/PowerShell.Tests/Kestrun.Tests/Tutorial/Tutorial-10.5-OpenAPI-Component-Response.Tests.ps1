@@ -54,5 +54,9 @@ Describe 'Example 10.5 OpenAPI Component Response' -Tag 'OpenApi', 'Tutorial', '
         $json.components.responses.OK.'x-kestrun-demo'.links | Should -Contain 'get'
         $json.components.responses.OK.'x-kestrun-demo'.links | Should -Contain 'delete'
     }
+
+    It 'OpenAPI output matches 10.5 fixture JSON' {
+        Test-OpenApiDocumentMatchesExpected -Instance $script:instance
+    }
 }
 

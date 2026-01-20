@@ -129,5 +129,9 @@ Describe 'Example 10.10 Component Link' -Tag 'Tutorial', 'OpenApi', 'Slow' {
         $redoc.StatusCode | Should -Be 200
         $redoc.Content | Should -BeLike '*Redoc*'
     }
+
+    It 'OpenAPI output matches 10.10 fixture JSON' {
+        Test-OpenApiDocumentMatchesExpected -Instance $script:instance
+    }
 }
 

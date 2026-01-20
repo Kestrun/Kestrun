@@ -517,7 +517,7 @@ public class OpenApiSchemaMethodsTests
         var built = new HashSet<Type>();
 
         // Act
-        var schema = InvokeBuildComplexTypeSchema(property.PropertyType, built);
+        var schema = InvokeBuildComplexTypeSchema(property.PropertyType, property, built);
 
         // Assert
         var refSchema = Assert.IsAssignableFrom<OpenApiSchemaReference>(schema);
@@ -602,12 +602,12 @@ public class OpenApiSchemaMethodsTests
         _ = method.Invoke(_descriptor, parameters);
     }
 
-    private OpenApiSchemaReference InvokeBuildComplexTypeSchema(Type pt, HashSet<Type> built)
+    private OpenApiSchemaReference InvokeBuildComplexTypeSchema(Type pt, PropertyInfo p, HashSet<Type> built)
     {
         var method = typeof(OpenApiDocDescriptor)
             .GetMethod("BuildComplexTypeSchema", BindingFlags.NonPublic | BindingFlags.Instance)!;
 
-        object[] parameters = [pt, built];
+        object[] parameters = [pt, p, built];
         return (OpenApiSchemaReference)method.Invoke(_descriptor, parameters)!;
     }
 

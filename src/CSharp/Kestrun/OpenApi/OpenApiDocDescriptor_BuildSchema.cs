@@ -116,12 +116,14 @@ public partial class OpenApiDocDescriptor
             }
             else if (schema is OpenApiSchemaReference refSchema)
             {
+                var modifiedRefSchema = refSchema.Clone();
+                modifiedRefSchema.Description = null; // clear description to avoid duplication
                 // For $ref schemas (enums/complex types), wrap in anyOf with null
                 schema = new OpenApiSchema
                 {
                     AnyOf =
                     [
-                        refSchema,
+                        modifiedRefSchema,
                         new OpenApiSchema { Type = JsonSchemaType.Null }
                     ]
                 };

@@ -224,35 +224,11 @@ public static class XmlHelper
     /// <param name="xmlMetadata">Optional OpenAPI XML metadata hashtable (typically from a static XmlMetadata property).</param>
     private static XElement ObjectToXml(string name, object value, int depth, HashSet<object>? visited, Hashtable? xmlMetadata)
     {
-        // Use class-level XML name if available
-        var elementName = name;
-        if (xmlMetadata?["ClassXml"] is Hashtable classXmlHash && classXmlHash["Name"] is string className)
-        {
-            elementName = className;
-        }
-        else if (xmlMetadata?["ClassName"] is string fallbackClassName && !string.IsNullOrWhiteSpace(fallbackClassName))
-        {
-            // When responses are written with the default root ("Response"), prefer the model's class name.
-            // This aligns runtime XML output with OpenAPI schema component names.
-            elementName = fallbackClassName;
-        }
-
+        var elementName = ResolveObjectElementName(name, xmlMetadata);
         var objElem = new XElement(elementName);
         var type = value.GetType();
 
-        // Build property metadata lookup
-        Dictionary<string, Hashtable>? propertyMetadata = null;
-        if (xmlMetadata?["Properties"] is Hashtable propsHash)
-        {
-            propertyMetadata = [];
-            foreach (DictionaryEntry entry in propsHash)
-            {
-                if (entry.Key is string propName && entry.Value is Hashtable propMeta)
-                {
-                    propertyMetadata[propName] = propMeta;
-                }
-            }
-        }
+        var propertyMetadata = BuildPropertyMetadataLookup(xmlMetadata);
 
         foreach (var prop in type.GetProperties(BindingFlags.Public | BindingFlags.Instance))
         {
@@ -260,12 +236,7 @@ public static class XmlHelper
             {
                 continue; // skip indexers
             }
-            object? propVal;
-            try
-            {
-                propVal = prop.GetValue(value);
-            }
-            catch
+            if (!TryGetPropertyValue(prop, value, out var propVal))
             {
                 continue; // skip unreadable props
             }
@@ -276,43 +247,130 @@ public static class XmlHelper
 
             if (propertyMetadata != null && propertyMetadata.TryGetValue(propName, out var propXml))
             {
-                // Use custom element name if specified
-                if (propXml["Name"] is string customName)
-                {
-                    childName = customName;
-                }
-
-                // Check if this property should be an XML attribute
-                if (propXml["Attribute"] is bool isAttribute && isAttribute && propVal != null)
-                {
-                    objElem.Add(new XAttribute(childName, propVal));
-                    continue; // Don't add as child element
-                }
-
-                // Special handling for array/list properties when XML metadata is present.
-                // - If Wrapped=true, we add a wrapper element and put items under it.
-                // - If Wrapped=false, we emit repeated sibling elements for each item.
-                if (propVal is IEnumerable enumerable and not string)
-                {
-                    var wrapped = propXml["Wrapped"] is bool w && w;
-                    var nsUri = propXml["Namespace"] as string;
-                    var prefix = propXml["Prefix"] as string;
-                    AppendEnumerableProperty(objElem, childName, enumerable, wrapped, nsUri, prefix, depth + 1, visited);
-                    continue;
-                }
-
-                // Apply namespace/prefix to the element representing this property (non-attribute, non-collection).
-                var nsUriForElement = propXml["Namespace"] as string;
-                var prefixForElement = propXml["Prefix"] as string;
-                var childElem = ToXmlInternal(childName, propVal, depth + 1, visited);
-                ApplyNamespaceAndPrefix(childElem, nsUriForElement, prefixForElement);
-                objElem.Add(childElem);
+                AddPropertyWithMetadata(objElem, propName, propVal, propXml, depth, visited);
                 continue;
             }
 
             objElem.Add(ToXmlInternal(childName, propVal, depth + 1, visited));
         }
         return objElem;
+    }
+
+    /// <summary>
+    /// Resolves the element name used when serializing an object instance.
+    /// </summary>
+    /// <param name="defaultName">Default element name (typically the requested root name).</param>
+    /// <param name="xmlMetadata">Optional OpenAPI XML metadata hashtable.</param>
+    /// <returns>The resolved element name.</returns>
+    private static string ResolveObjectElementName(string defaultName, Hashtable? xmlMetadata)
+    {
+        // Use class-level XML name if available.
+        if (xmlMetadata?["ClassXml"] is Hashtable classXmlHash && classXmlHash["Name"] is string className)
+        {
+            return className;
+        }
+
+        if (xmlMetadata?["ClassName"] is string fallbackClassName && !string.IsNullOrWhiteSpace(fallbackClassName))
+        {
+            // When responses are written with the default root ("Response"), prefer the model's class name.
+            // This aligns runtime XML output with OpenAPI schema component names.
+            return fallbackClassName;
+        }
+
+        return defaultName;
+    }
+
+    /// <summary>
+    /// Builds a property metadata lookup from a metadata hashtable.
+    /// </summary>
+    /// <param name="xmlMetadata">Optional OpenAPI XML metadata hashtable.</param>
+    /// <returns>
+    /// A dictionary mapping CLR property names to per-property metadata, or <c>null</c> when no property metadata is available.
+    /// </returns>
+    private static Dictionary<string, Hashtable>? BuildPropertyMetadataLookup(Hashtable? xmlMetadata)
+    {
+        if (xmlMetadata?["Properties"] is not Hashtable propsHash)
+        {
+            return null;
+        }
+
+        var propertyMetadata = new Dictionary<string, Hashtable>(StringComparer.OrdinalIgnoreCase);
+        foreach (DictionaryEntry entry in propsHash)
+        {
+            if (entry.Key is string propName && entry.Value is Hashtable propMeta)
+            {
+                propertyMetadata[propName] = propMeta;
+            }
+        }
+
+        return propertyMetadata;
+    }
+
+    /// <summary>
+    /// Attempts to read a property value via reflection.
+    /// </summary>
+    /// <param name="prop">Property info.</param>
+    /// <param name="instance">Object instance.</param>
+    /// <param name="value">Property value when readable.</param>
+    /// <returns><c>true</c> when the property value was read; otherwise <c>false</c>.</returns>
+    private static bool TryGetPropertyValue(PropertyInfo prop, object instance, out object? value)
+    {
+        try
+        {
+            value = prop.GetValue(instance);
+            return true;
+        }
+        catch
+        {
+            value = null;
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Adds a property to an object element using OpenAPI XML metadata rules.
+    /// </summary>
+    /// <param name="parent">Parent element representing the object.</param>
+    /// <param name="propName">CLR property name.</param>
+    /// <param name="propVal">Property value.</param>
+    /// <param name="propXml">OpenAPI XML metadata hashtable for the property.</param>
+    /// <param name="depth">Current recursion depth.</param>
+    /// <param name="visited">Per-call set used for cycle detection.</param>
+    private static void AddPropertyWithMetadata(XElement parent, string propName, object? propVal, Hashtable propXml, int depth, HashSet<object>? visited)
+    {
+        var childName = SanitizeName(propName);
+
+        // Use custom element name if specified.
+        if (propXml["Name"] is string customName)
+        {
+            childName = customName;
+        }
+
+        // Check if this property should be an XML attribute.
+        if (propXml["Attribute"] is bool isAttribute && isAttribute && propVal != null)
+        {
+            parent.Add(new XAttribute(childName, propVal));
+            return;
+        }
+
+        // Special handling for array/list properties when XML metadata is present.
+        // - If Wrapped=true, add a wrapper element and put items under it.
+        // - If Wrapped=false, emit repeated sibling elements for each item.
+        if (propVal is IEnumerable enumerable and not string)
+        {
+            var wrapped = propXml["Wrapped"] is bool w && w;
+            var nsUri = propXml["Namespace"] as string;
+            var prefix = propXml["Prefix"] as string;
+            AppendEnumerableProperty(parent, childName, enumerable, wrapped, nsUri, prefix, depth + 1, visited);
+            return;
+        }
+
+        // Apply namespace/prefix to the element representing this property (non-attribute, non-collection).
+        var nsUriForElement = propXml["Namespace"] as string;
+        var prefixForElement = propXml["Prefix"] as string;
+        var childElem = ToXmlInternal(childName, propVal, depth + 1, visited);
+        ApplyNamespaceAndPrefix(childElem, nsUriForElement, prefixForElement);
+        parent.Add(childElem);
     }
 
     /// <summary>
@@ -539,94 +597,8 @@ public static class XmlHelper
     /// <returns>An XmlMetadata hashtable, or <c>null</c> when the type has no XML annotations.</returns>
     private static Hashtable? BuildXmlMetadataFromAttributes(Type type)
     {
-        static object? FindOpenApiXmlAttribute(ICustomAttributeProvider provider)
-        {
-            return provider
-                .GetCustomAttributes(inherit: false)
-                .FirstOrDefault(a => a?.GetType().Name == "OpenApiXmlAttribute");
-        }
-
-        static string? GetStringProperty(object attr, string propName)
-        {
-            return attr.GetType().GetProperty(propName, BindingFlags.Public | BindingFlags.Instance)?.GetValue(attr) as string;
-        }
-
-        static bool GetBoolProperty(object attr, string propName)
-        {
-            var value = attr.GetType().GetProperty(propName, BindingFlags.Public | BindingFlags.Instance)?.GetValue(attr);
-            return value is bool b && b;
-        }
-
-        static Hashtable BuildEntryFromAttribute(object xmlAttr)
-        {
-            var entry = new Hashtable(StringComparer.OrdinalIgnoreCase);
-
-            var name = GetStringProperty(xmlAttr, "Name");
-            if (!string.IsNullOrWhiteSpace(name))
-            {
-                entry["Name"] = name;
-            }
-
-            var ns = GetStringProperty(xmlAttr, "Namespace");
-            if (!string.IsNullOrWhiteSpace(ns))
-            {
-                entry["Namespace"] = ns;
-            }
-
-            var prefix = GetStringProperty(xmlAttr, "Prefix");
-            if (!string.IsNullOrWhiteSpace(prefix))
-            {
-                entry["Prefix"] = prefix;
-            }
-
-            if (GetBoolProperty(xmlAttr, "Attribute"))
-            {
-                entry["Attribute"] = true;
-            }
-
-            if (GetBoolProperty(xmlAttr, "Wrapped"))
-            {
-                entry["Wrapped"] = true;
-            }
-
-            return entry;
-        }
-
         var classXmlAttr = FindOpenApiXmlAttribute(type);
-
-        var propsHash = new Hashtable(StringComparer.OrdinalIgnoreCase);
-
-        foreach (var prop in type.GetProperties(BindingFlags.Public | BindingFlags.Instance))
-        {
-            var xmlAttr = FindOpenApiXmlAttribute(prop);
-            if (xmlAttr is null)
-            {
-                continue;
-            }
-
-            var entry = BuildEntryFromAttribute(xmlAttr);
-
-            if (entry.Count > 0)
-            {
-                propsHash[prop.Name] = entry;
-            }
-        }
-
-        foreach (var field in type.GetFields(BindingFlags.Public | BindingFlags.Instance))
-        {
-            var xmlAttr = FindOpenApiXmlAttribute(field);
-            if (xmlAttr is null)
-            {
-                continue;
-            }
-
-            var entry = BuildEntryFromAttribute(xmlAttr);
-
-            if (entry.Count > 0)
-            {
-                propsHash[field.Name] = entry;
-            }
-        }
+        var propsHash = BuildOpenApiXmlMemberMetadata(type);
 
         if (classXmlAttr is null && propsHash.Count == 0)
         {
@@ -641,18 +613,7 @@ public static class XmlHelper
 
         if (classXmlAttr is not null)
         {
-            var classXml = new Hashtable(StringComparer.OrdinalIgnoreCase);
-
-            var classEntry = BuildEntryFromAttribute(classXmlAttr);
-            foreach (DictionaryEntry entry in classEntry)
-            {
-                classXml[entry.Key] = entry.Value;
-            }
-
-            // Class-level metadata should not include member-only flags.
-            classXml.Remove("Attribute");
-            classXml.Remove("Wrapped");
-
+            var classXml = BuildOpenApiXmlClassMetadata(classXmlAttr);
             if (classXml.Count > 0)
             {
                 meta["ClassXml"] = classXml;
@@ -662,6 +623,142 @@ public static class XmlHelper
         return meta;
     }
 
+    /// <summary>
+    /// Finds an <c>OpenApiXmlAttribute</c>-like attribute on the provided member or type.
+    /// </summary>
+    /// <param name="provider">The attribute provider to inspect.</param>
+    /// <returns>The attribute instance when present; otherwise <c>null</c>.</returns>
+    private static object? FindOpenApiXmlAttribute(ICustomAttributeProvider provider)
+    {
+        return provider
+            .GetCustomAttributes(inherit: false)
+            .FirstOrDefault(a => a?.GetType().Name == "OpenApiXmlAttribute");
+    }
+
+    /// <summary>
+    /// Reads a string-valued property from an attribute instance by reflection.
+    /// </summary>
+    /// <param name="attr">Attribute instance.</param>
+    /// <param name="propName">Property name to read.</param>
+    /// <returns>The string value when present; otherwise <c>null</c>.</returns>
+    private static string? GetStringProperty(object attr, string propName)
+        => attr.GetType().GetProperty(propName, BindingFlags.Public | BindingFlags.Instance)?.GetValue(attr) as string;
+
+    /// <summary>
+    /// Reads a bool-valued property from an attribute instance by reflection.
+    /// </summary>
+    /// <param name="attr">Attribute instance.</param>
+    /// <param name="propName">Property name to read.</param>
+    /// <returns><c>true</c> when the property exists and evaluates to true; otherwise <c>false</c>.</returns>
+    private static bool GetBoolProperty(object attr, string propName)
+    {
+        var value = attr.GetType().GetProperty(propName, BindingFlags.Public | BindingFlags.Instance)?.GetValue(attr);
+        return value is bool b && b;
+    }
+
+    /// <summary>
+    /// Builds a metadata entry hashtable from an <c>OpenApiXmlAttribute</c>-like attribute instance.
+    /// </summary>
+    /// <param name="xmlAttr">Attribute instance.</param>
+    /// <returns>A hashtable containing any provided XML metadata fields.</returns>
+    private static Hashtable BuildEntryFromAttribute(object xmlAttr)
+    {
+        var entry = new Hashtable(StringComparer.OrdinalIgnoreCase);
+
+        var name = GetStringProperty(xmlAttr, "Name");
+        if (!string.IsNullOrWhiteSpace(name))
+        {
+            entry["Name"] = name;
+        }
+
+        var ns = GetStringProperty(xmlAttr, "Namespace");
+        if (!string.IsNullOrWhiteSpace(ns))
+        {
+            entry["Namespace"] = ns;
+        }
+
+        var prefix = GetStringProperty(xmlAttr, "Prefix");
+        if (!string.IsNullOrWhiteSpace(prefix))
+        {
+            entry["Prefix"] = prefix;
+        }
+
+        if (GetBoolProperty(xmlAttr, "Attribute"))
+        {
+            entry["Attribute"] = true;
+        }
+
+        if (GetBoolProperty(xmlAttr, "Wrapped"))
+        {
+            entry["Wrapped"] = true;
+        }
+
+        return entry;
+    }
+
+    /// <summary>
+    /// Builds a property/field metadata hashtable by scanning public instance members for XML attributes.
+    /// </summary>
+    /// <param name="type">Type to scan.</param>
+    /// <returns>A hashtable mapping member names to per-member metadata entries.</returns>
+    private static Hashtable BuildOpenApiXmlMemberMetadata(Type type)
+    {
+        var propsHash = new Hashtable(StringComparer.OrdinalIgnoreCase);
+        PopulateMemberMetadata(type.GetProperties(BindingFlags.Public | BindingFlags.Instance), propsHash);
+        PopulateMemberMetadata(type.GetFields(BindingFlags.Public | BindingFlags.Instance), propsHash);
+        return propsHash;
+    }
+
+    /// <summary>
+    /// Populates a metadata hashtable by scanning members for XML attribute annotations.
+    /// </summary>
+    /// <param name="members">Members to scan.</param>
+    /// <param name="propsHash">Target metadata hashtable to populate.</param>
+    private static void PopulateMemberMetadata(IEnumerable<MemberInfo> members, Hashtable propsHash)
+    {
+        foreach (var member in members)
+        {
+            var xmlAttr = FindOpenApiXmlAttribute(member);
+            if (xmlAttr is null)
+            {
+                continue;
+            }
+
+            var entry = BuildEntryFromAttribute(xmlAttr);
+            if (entry.Count > 0)
+            {
+                propsHash[member.Name] = entry;
+            }
+        }
+    }
+
+    /// <summary>
+    /// Builds class-level XML metadata from an <c>OpenApiXmlAttribute</c>-like attribute instance.
+    /// </summary>
+    /// <param name="classXmlAttr">Class-level XML attribute instance.</param>
+    /// <returns>A hashtable with class-level XML metadata.</returns>
+    private static Hashtable BuildOpenApiXmlClassMetadata(object classXmlAttr)
+    {
+        var classXml = new Hashtable(StringComparer.OrdinalIgnoreCase);
+
+        var classEntry = BuildEntryFromAttribute(classXmlAttr);
+        foreach (DictionaryEntry entry in classEntry)
+        {
+            classXml[entry.Key] = entry.Value;
+        }
+
+        // Class-level metadata should not include member-only flags.
+        classXml.Remove("Attribute");
+        classXml.Remove("Wrapped");
+
+        return classXml;
+    }
+
+    /// <summary>
+    /// Sanitizes a raw string to be a valid XML element name by replacing invalid characters with underscores.
+    /// </summary>
+    /// <param name="raw">The raw string to sanitize.</param>
+    /// <returns>A sanitized XML element name.</returns>
     private static string SanitizeName(string raw)
     {
         if (string.IsNullOrWhiteSpace(raw))

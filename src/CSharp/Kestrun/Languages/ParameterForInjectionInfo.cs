@@ -954,40 +954,9 @@ public class ParameterForInjectionInfo : ParameterForInjectionInfoBase
     /// <returns><c>true</c> when converted; otherwise <c>false</c>.</returns>
     private static bool TryConvertScalarByType(string? str, Type targetType, out object? converted)
     {
-        if (targetType == typeof(string))
+        if (TryConvertPrimitiveScalar(str, targetType, out converted))
         {
-            converted = str;
             return true;
-        }
-
-        if (targetType == typeof(int))
-        {
-            converted = TryParseInt32(str);
-            return converted is not null;
-        }
-
-        if (targetType == typeof(long))
-        {
-            converted = TryParseInt64(str);
-            return converted is not null;
-        }
-
-        if (targetType == typeof(double))
-        {
-            converted = TryParseDouble(str);
-            return converted is not null;
-        }
-
-        if (targetType == typeof(decimal))
-        {
-            converted = TryParseDecimal(str);
-            return converted is not null;
-        }
-
-        if (targetType == typeof(bool))
-        {
-            converted = TryParseBoolean(str);
-            return converted is not null;
         }
 
         if (targetType.IsEnum)
@@ -998,6 +967,41 @@ public class ParameterForInjectionInfo : ParameterForInjectionInfoBase
 
         converted = null;
         return false;
+    }
+
+    /// <summary>
+    /// Attempts to convert a scalar string representation into a primitive CLR type.
+    /// </summary>
+    /// <param name="str">String representation of the value.</param>
+    /// <param name="targetType">Target type.</param>
+    /// <param name="converted">Converted result.</param>
+    /// <returns><c>true</c> when converted; otherwise <c>false</c>.</returns>
+    private static bool TryConvertPrimitiveScalar(string? str, Type targetType, out object? converted)
+    {
+        switch (System.Type.GetTypeCode(targetType))
+        {
+            case TypeCode.String:
+                converted = str;
+                return true;
+            case TypeCode.Int32:
+                converted = TryParseInt32(str);
+                return converted is not null;
+            case TypeCode.Int64:
+                converted = TryParseInt64(str);
+                return converted is not null;
+            case TypeCode.Double:
+                converted = TryParseDouble(str);
+                return converted is not null;
+            case TypeCode.Decimal:
+                converted = TryParseDecimal(str);
+                return converted is not null;
+            case TypeCode.Boolean:
+                converted = TryParseBoolean(str);
+                return converted is not null;
+            default:
+                converted = null;
+                return false;
+        }
     }
 
     /// <summary>

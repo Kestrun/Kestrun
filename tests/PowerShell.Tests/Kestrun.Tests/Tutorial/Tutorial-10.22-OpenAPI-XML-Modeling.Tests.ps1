@@ -171,8 +171,8 @@ Describe 'Example 10.22 OpenAPI XML Modeling' -Tag 'OpenApi', 'Tutorial', 'Slow'
         $json.paths.'/products/{id}'.get | Should -Not -BeNullOrEmpty
         $json.paths.'/products'.post | Should -Not -BeNullOrEmpty
     }
-}
 
-It 'OpenAPI output matches 10.22 fixture JSON' {
-    Test-OpenApiDocumentMatchesExpected -Instance $script:instance
+    It 'OpenAPI output matches 10.22 fixture JSON' {
+        Test-OpenApiDocumentMatchesExpected -Instance $script:instance
+    }
 }

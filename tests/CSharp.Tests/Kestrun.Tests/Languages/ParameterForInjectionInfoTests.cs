@@ -20,12 +20,16 @@ public class ParameterForInjectionInfoTests
 {
     private sealed class ProductXmlModel
     {
+        [OpenApiXml(Name = "id", Attribute = true)]
         public int Id { get; set; }
 
+        [OpenApiXml(Name = "ProductName")]
         public string? Name { get; set; }
 
+        [OpenApiXml(Name = "Price", Namespace = "http://example.com/pricing", Prefix = "price")]
         public decimal Price { get; set; }
 
+        [OpenApiXml(Name = "Item", Wrapped = true)]
         public string[]? Items { get; set; }
     }
 

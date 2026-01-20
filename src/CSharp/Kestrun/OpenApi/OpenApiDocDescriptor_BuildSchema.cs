@@ -102,7 +102,7 @@ public partial class OpenApiDocDescriptor
         else
         {
             // Treat enums and complex types the same: register as component and reference
-            schema = BuildComplexTypeSchema(pt, built);
+            schema = BuildComplexTypeSchema(pt, p, built);
         }
 #pragma warning restore IDE0045
         // Convert to conditional expression

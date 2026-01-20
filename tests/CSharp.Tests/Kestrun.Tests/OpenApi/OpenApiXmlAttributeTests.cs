@@ -6,7 +6,6 @@ using Serilog;
 using Serilog.Core;
 using Serilog.Events;
 using Xunit;
-using System.Text.Json.Nodes;
 
 namespace KestrunTests.OpenApi;
 
@@ -40,11 +39,11 @@ public class OpenApiXmlAttributeTests
 
         // Assert
         Assert.NotNull(schema);
-        Assert.IsType<OpenApiSchema>(schema);
+        _ = Assert.IsType<OpenApiSchema>(schema);
         var concreteSchema = (OpenApiSchema)schema;
         var idProp = concreteSchema.Properties?["Id"];
         Assert.NotNull(idProp);
-        Assert.IsType<OpenApiSchema>(idProp);
+        _ = Assert.IsType<OpenApiSchema>(idProp);
         var idSchema = (OpenApiSchema)idProp;
         Assert.NotNull(idSchema.Xml);
         Assert.Equal("product-id", idSchema.Xml.Name);
@@ -60,11 +59,11 @@ public class OpenApiXmlAttributeTests
 
         // Assert
         Assert.NotNull(schema);
-        Assert.IsType<OpenApiSchema>(schema);
+        _ = Assert.IsType<OpenApiSchema>(schema);
         var concreteSchema = (OpenApiSchema)schema;
         var itemsProp = concreteSchema.Properties?["Items"];
         Assert.NotNull(itemsProp);
-        Assert.IsType<OpenApiSchema>(itemsProp);
+        _ = Assert.IsType<OpenApiSchema>(itemsProp);
         var itemsSchema = (OpenApiSchema)itemsProp;
         Assert.NotNull(itemsSchema.Xml);
         Assert.NotNull(itemsSchema.Xml.Namespace);
@@ -81,11 +80,11 @@ public class OpenApiXmlAttributeTests
 
         // Assert
         Assert.NotNull(schema);
-        Assert.IsType<OpenApiSchema>(schema);
+        _ = Assert.IsType<OpenApiSchema>(schema);
         var concreteSchema = (OpenApiSchema)schema;
         var nameProp = concreteSchema.Properties?["Name"];
         Assert.NotNull(nameProp);
-        Assert.IsType<OpenApiSchema>(nameProp);
+        _ = Assert.IsType<OpenApiSchema>(nameProp);
         var nameSchema = (OpenApiSchema)nameProp;
         Assert.NotNull(nameSchema.Xml);
         Assert.Equal("prod", nameSchema.Xml.Prefix);
@@ -101,14 +100,14 @@ public class OpenApiXmlAttributeTests
 
         // Assert
         Assert.NotNull(schema);
-        Assert.IsType<OpenApiSchema>(schema);
+        _ = Assert.IsType<OpenApiSchema>(schema);
         var concreteSchema = (OpenApiSchema)schema;
         var idProp = concreteSchema.Properties?["Id"];
         Assert.NotNull(idProp);
-        Assert.IsType<OpenApiSchema>(idProp);
+        _ = Assert.IsType<OpenApiSchema>(idProp);
         var idSchema = (OpenApiSchema)idProp;
         Assert.NotNull(idSchema.Xml);
-        Assert.Equal(Microsoft.OpenApi.OpenApiXmlNodeType.Attribute, idSchema.Xml.NodeType);
+        Assert.Equal(OpenApiXmlNodeType.Attribute, idSchema.Xml.NodeType);
     }
 
     [Fact]
@@ -121,14 +120,14 @@ public class OpenApiXmlAttributeTests
 
         // Assert
         Assert.NotNull(schema);
-        Assert.IsType<OpenApiSchema>(schema);
+        _ = Assert.IsType<OpenApiSchema>(schema);
         var concreteSchema = (OpenApiSchema)schema;
         var itemsProp = concreteSchema.Properties?["Items"];
         Assert.NotNull(itemsProp);
-        Assert.IsType<OpenApiSchema>(itemsProp);
+        _ = Assert.IsType<OpenApiSchema>(itemsProp);
         var itemsSchema = (OpenApiSchema)itemsProp;
         Assert.NotNull(itemsSchema.Xml);
-        Assert.Equal(Microsoft.OpenApi.OpenApiXmlNodeType.Element, itemsSchema.Xml.NodeType);
+        Assert.Equal(OpenApiXmlNodeType.Element, itemsSchema.Xml.NodeType);
     }
 
     [Fact]
@@ -141,15 +140,15 @@ public class OpenApiXmlAttributeTests
 
         // Assert
         Assert.NotNull(schema);
-        Assert.IsType<OpenApiSchema>(schema);
+        _ = Assert.IsType<OpenApiSchema>(schema);
         var concreteSchema = (OpenApiSchema)schema;
         var idProp = concreteSchema.Properties?["Id"];
         Assert.NotNull(idProp);
-        Assert.IsType<OpenApiSchema>(idProp);
+        _ = Assert.IsType<OpenApiSchema>(idProp);
         var idSchema = (OpenApiSchema)idProp;
         Assert.NotNull(idSchema.Xml);
         Assert.Equal("ProductID", idSchema.Xml.Name);
-        Assert.Equal(Microsoft.OpenApi.OpenApiXmlNodeType.Attribute, idSchema.Xml.NodeType);
+        Assert.Equal(OpenApiXmlNodeType.Attribute, idSchema.Xml.NodeType);
     }
 
     // Helper to invoke the private BuildSchemaForType method
@@ -159,7 +158,7 @@ public class OpenApiXmlAttributeTests
             BindingFlags.NonPublic | BindingFlags.Instance);
         Assert.NotNull(method);
 
-        return (IOpenApiSchema)method.Invoke(_descriptor, new object?[] { type, null })!;
+        return (IOpenApiSchema)method.Invoke(_descriptor, [type, null])!;
     }
 
     #region Test Model Classes
@@ -173,7 +172,7 @@ public class OpenApiXmlAttributeTests
     private class ProductWithXmlNamespace
     {
         [OpenApiXml(Namespace = "http://example.com/items")]
-        public string[] Items { get; set; } = Array.Empty<string>();
+        public string[] Items { get; set; } = [];
     }
 
     private class ProductWithXmlPrefix
@@ -191,7 +190,7 @@ public class OpenApiXmlAttributeTests
     private class ProductWithXmlWrapped
     {
         [OpenApiXml(Wrapped = true)]
-        public string[] Items { get; set; } = Array.Empty<string>();
+        public string[] Items { get; set; } = [];
     }
 
     private class ProductWithCombinedXml

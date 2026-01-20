@@ -1,6 +1,5 @@
 using Kestrun.Utilities;
 using System.Collections;
-using System.Linq;
 using System.Xml.Linq;
 using Xunit;
 
@@ -126,7 +125,7 @@ public class XmlHelperTests
         // Wrapped array should appear as <Item><Item>..</Item></Item>
         var wrapper = elem.Element("Item");
         Assert.NotNull(wrapper);
-        Assert.Equal(new[] { "Item1", "Item2", "Item3" }, wrapper!.Elements("Item").Select(e => e.Value).ToArray());
+        Assert.Equal(new[] { "Item1", "Item2", "Item3" }, [.. wrapper!.Elements("Item").Select(e => e.Value)]);
     }
 
 

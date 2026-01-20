@@ -33,7 +33,6 @@ Webhooks allow your subscribers to receive real-time notifications when events o
 '@
 
 Add-KrOpenApiContact -Email 'api-support@example.com' -Name 'API Support Team'
-Add-KrOpenApiServer -Url "http://$($IPAddress):$Port" -Description 'Local Development Server'
 
 # =========================================================
 #              WEBHOOK SCHEMAS (COMPONENTS)

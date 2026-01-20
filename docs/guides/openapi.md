@@ -549,9 +549,11 @@ components:
         email: { type: string }
 ```
 
-#### 4.5.3 Enums (ValidateSet vs enum)
+#### 4.5.3 Enums (ValidateSet vs PowerShell enum)
 
-`[ValidateSet(...)]` on a string property becomes an OpenAPI `enum`:
+**ValidateSet inline enums:**
+
+`[ValidateSet(...)]` on a string property becomes an inline OpenAPI `enum`:
 
 ```powershell
 [OpenApiSchemaComponent()]
@@ -572,7 +574,9 @@ components:
           enum: [placed, approved, delivered]
 ```
 
-PowerShell `enum` properties become an OpenAPI enum as well:
+**PowerShell enum as reusable schema component:**
+
+PowerShell `enum` types are automatically registered as **reusable schema components** under `components.schemas` and referenced via `$ref`:
 
 ```powershell
 enum TicketType { general; event }
@@ -586,13 +590,52 @@ class Ticket {
 ```yaml
 components:
   schemas:
+    TicketType:
+      type: string
+      enum: [general, event]
     Ticket:
       type: object
       properties:
         type:
-          type: string
-          enum: [general, event]
+          $ref: '#/components/schemas/TicketType'
 ```
+
+This approach:
+
+- **Eliminates duplication** when the same enum is used in multiple properties or schemas
+- **Improves code generation** — tools generate a single enum type instead of duplicates
+- **Follows OpenAPI best practices** for reusable enums
+
+**Enum arrays:**
+
+When an enum is used in an array, the array items reference the enum component:
+
+```powershell
+enum TicketType { general; event }
+
+[OpenApiSchemaComponent()]
+class Reservation {
+    [TicketType[]]$ticketTypes
+}
+```
+
+```yaml
+components:
+  schemas:
+    TicketType:
+      type: string
+      enum: [general, event]
+    Reservation:
+      type: object
+      properties:
+        ticketTypes:
+          type: array
+          items:
+            $ref: '#/components/schemas/TicketType'
+```
+
+> **Tip:** Use PowerShell `enum` types for values that should be reused across your API.
+Use `[ValidateSet(...)]` for one-off property constraints that won't be shared.
 
 #### 4.5.4 Arrays (property-level)
 
@@ -694,6 +737,66 @@ components:
           cat: "#/components/schemas/Cat"
           dog: "#/components/schemas/Dog"
 ```
+
+---
+
+### 4.6 XML Modeling (OpenApiXml)
+
+Kestrun supports **OpenAPI 3.2 XML modeling** via the `OpenApiXml` attribute.
+
+The XML metadata is used in two places:
+
+1. **OpenAPI generation**: the attributes populate the OpenAPI `schema.xml` metadata.
+2. **Runtime XML conversion**: the same metadata is applied to **serialize and deserialize XML**.
+
+That means any object/class annotated with `OpenApiXml` can be:
+
+- **Written as modeled XML** (outbound) when the response is XML.
+- **Read from modeled XML** (inbound) when `Content-Type: application/xml`.
+
+Supported options include:
+
+- `Name`: override the element/attribute name.
+- `Attribute`: model a property as an XML attribute.
+- `Namespace` / `Prefix`: add a namespace and preferred prefix.
+- `Wrapped`: model arrays with a wrapper element.
+
+Example (PowerShell):
+
+```powershell
+[OpenApiSchemaComponent(RequiredProperties = ('Id', 'Name', 'Price'))]
+[OpenApiXml(Name = 'Product')]
+class Product {
+    [OpenApiXml(Name = 'id', Attribute = $true)]
+    [int]$Id
+
+    [OpenApiXml(Name = 'ProductName')]
+    [string]$Name
+
+    [OpenApiXml(Name = 'Price', Namespace = 'http://example.com/pricing', Prefix = 'price')]
+    [double]$Price
+
+    [OpenApiXml(Name = 'Item', Wrapped = $true)]
+    [string[]]$Items
+}
+
+function createProduct {
+    [OpenApiPath(HttpVerb = 'post', Pattern = '/products')]
+    [OpenApiResponse(StatusCode = '201', Schema = [Product], ContentType = ('application/json', 'application/xml'))]
+    param(
+        [OpenApiRequestBody(ContentType = 'application/xml')]
+        [Product]$Body
+    )
+
+    # $Body is populated from XML using the OpenApiXml mapping.
+    Write-KrResponse -InputObject $Body -StatusCode 201
+}
+```
+
+> **Note:** PowerShell script-defined classes are dynamic per runspace.
+> Kestrun handles this by parsing XML using the OpenApiXml mapping and letting PowerShell bind/convert in the active request runspace.
+
+See the runnable tutorial: [docs/pwsh/tutorial/10.openapi/23.XML-Modeling.md](/pwsh/tutorial/10.openapi/23.XML-Modeling)
 
 ---
 

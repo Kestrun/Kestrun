@@ -624,8 +624,138 @@ public static class PowerShellOpenApiClassExporter
             _ = sb.AppendLine($"    [{psType}]${p.Name}");
         }
 
+        // Add static XML metadata to guide XmlHelper without requiring PowerShell method invocation
+        AppendOpenApiXmlMetadataProperty(type, props, sb);
+
         _ = sb.AppendLine("}");
     }
+
+    /// <summary>
+    /// Appends a static hashtable property containing OpenApiXml metadata for the class and its properties.
+    /// </summary>
+    /// <remarks>
+    /// This is emitted as a static property (not a PowerShell class method) so that C# reflection can read the
+    /// metadata without requiring a PowerShell execution context bound to the current thread.
+    /// </remarks>
+    /// <param name="type">The type to extract OpenApiXml metadata from.</param>
+    /// <param name="props">The properties of the type.</param>
+    /// <param name="sb">The StringBuilder to append to.</param>
+    private static void AppendOpenApiXmlMetadataProperty(Type type, PropertyInfo[] props, StringBuilder sb)
+    {
+        _ = sb.AppendLine();
+        _ = sb.AppendLine("    # Static OpenApiXml metadata for this class");
+        _ = sb.AppendLine("    static [hashtable] $XmlMetadata = @{");
+        _ = sb.AppendLine("        ClassName = '" + type.Name + "'");
+
+        // Get class-level OpenApiXml attribute
+        var classXmlAttr = type.GetCustomAttributes(inherit: false)
+            .FirstOrDefault(a => a.GetType().Name == "OpenApiXmlAttribute");
+
+        if (classXmlAttr != null)
+        {
+            var classXml = BuildXmlMetadataHashtable(classXmlAttr, indent: 12);
+            if (!string.IsNullOrWhiteSpace(classXml))
+            {
+                _ = sb.AppendLine("        ClassXml = @{");
+                _ = sb.AppendLine(classXml);
+                _ = sb.AppendLine("        }");
+            }
+        }
+
+        // Get property-level OpenApiXml attributes
+        if (props.Length > 0)
+        {
+            _ = sb.AppendLine("        Properties = @{");
+            var hasAnyPropertyXml = false;
+
+            foreach (var prop in props)
+            {
+                var propXmlAttr = prop.GetCustomAttributes(inherit: false)
+                    .FirstOrDefault(a => a.GetType().Name == "OpenApiXmlAttribute");
+
+                if (propXmlAttr != null)
+                {
+                    var propXml = BuildXmlMetadataHashtable(propXmlAttr, indent: 16);
+                    if (!string.IsNullOrWhiteSpace(propXml))
+                    {
+                        hasAnyPropertyXml = true;
+                        _ = sb.AppendLine($"            '{prop.Name}' = @{{");
+                        _ = sb.AppendLine(propXml);
+                        _ = sb.AppendLine("            }");
+                    }
+                }
+            }
+
+            if (!hasAnyPropertyXml)
+            {
+                _ = sb.AppendLine("            # No property-level XML metadata");
+            }
+
+            _ = sb.AppendLine("        }");
+        }
+
+        _ = sb.AppendLine("    }");
+    }
+
+    /// <summary>
+    /// Builds a PowerShell hashtable representation of OpenApiXml attribute properties.
+    /// </summary>
+    /// <param name="xmlAttr">The OpenApiXml attribute instance.</param>
+    /// <param name="indent">Number of spaces to indent.</param>
+    /// <returns>PowerShell hashtable string representation.</returns>
+    private static string BuildXmlMetadataHashtable(object xmlAttr, int indent)
+    {
+        var attrType = xmlAttr.GetType();
+        var sb = new StringBuilder();
+        var indentStr = new string(' ', indent);
+
+        // Extract properties using reflection
+        var nameProp = attrType.GetProperty("Name");
+        var namespaceProp = attrType.GetProperty("Namespace");
+        var prefixProp = attrType.GetProperty("Prefix");
+        var attributeProp = attrType.GetProperty("Attribute");
+        var wrappedProp = attrType.GetProperty("Wrapped");
+
+        var name = nameProp?.GetValue(xmlAttr) as string;
+        var ns = namespaceProp?.GetValue(xmlAttr) as string;
+        var prefix = prefixProp?.GetValue(xmlAttr) as string;
+        var isAttribute = attributeProp?.GetValue(xmlAttr) is bool b && b;
+        var isWrapped = wrappedProp?.GetValue(xmlAttr) is bool w && w;
+
+        if (!string.IsNullOrWhiteSpace(name))
+        {
+            _ = sb.AppendLine($"{indentStr}Name = '{EscapePowerShellString(name)}'");
+        }
+
+        if (!string.IsNullOrWhiteSpace(ns))
+        {
+            _ = sb.AppendLine($"{indentStr}Namespace = '{EscapePowerShellString(ns)}'");
+        }
+
+        if (!string.IsNullOrWhiteSpace(prefix))
+        {
+            _ = sb.AppendLine($"{indentStr}Prefix = '{EscapePowerShellString(prefix)}'");
+        }
+
+        if (isAttribute)
+        {
+            _ = sb.AppendLine($"{indentStr}Attribute = $true");
+        }
+
+        if (isWrapped)
+        {
+            _ = sb.AppendLine($"{indentStr}Wrapped = $true");
+        }
+
+        return sb.ToString().TrimEnd();
+    }
+
+    /// <summary>
+    /// Escapes single quotes in a string for PowerShell string literals.
+    /// </summary>
+    /// <param name="str">The string to escape.</param>
+    /// <returns>Escaped string safe for PowerShell single-quoted strings.</returns>
+    private static string EscapePowerShellString(string str) => str.Replace("'", "''");
 
     /// <summary>
     /// Converts a .NET type to a PowerShell type name.

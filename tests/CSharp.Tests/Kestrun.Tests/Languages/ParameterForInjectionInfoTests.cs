@@ -2,6 +2,8 @@ using System.Collections;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Management.Automation;
+using System.Xml;
+using System.Xml.Linq;
 using Kestrun.Languages;
 using Kestrun.Models;
 using Microsoft.AspNetCore.Http;
@@ -16,6 +18,21 @@ namespace KestrunTests.Languages;
 
 public class ParameterForInjectionInfoTests
 {
+    private sealed class ProductXmlModel
+    {
+        [OpenApiXml(Name = "id", Attribute = true)]
+        public int Id { get; set; }
+
+        [OpenApiXml(Name = "ProductName")]
+        public string? Name { get; set; }
+
+        [OpenApiXml(Name = "Price", Namespace = "http://example.com/pricing", Prefix = "price")]
+        public decimal Price { get; set; }
+
+        [OpenApiXml(Name = "Item", Wrapped = true)]
+        public string[]? Items { get; set; }
+    }
+
     private static KestrunContext CreateContextWithEndpointParameters(
         List<ParameterForInjectionInfo> parameters,
         string method = "GET",
@@ -309,6 +326,114 @@ public class ParameterForInjectionInfoTests
         var ht = Assert.IsType<Hashtable>(bodyResolved.Value);
         Assert.Equal("1", ht["a"]);
         Assert.Equal("test", ht["b"]);
+    }
+
+    [Fact]
+    [Trait("Category", "Languages")]
+    public void InjectParameters_RequestBodyXml_WithXmlMetadata_ConvertsToTypedModel()
+    {
+        var metadata = new ParameterMetadata("body", typeof(ProductXmlModel));
+        var requestBody = new OpenApiRequestBody
+        {
+            Content = new Dictionary<string, IOpenApiMediaType>
+            {
+                ["application/xml"] = new OpenApiMediaType
+                {
+                    Schema = new OpenApiSchema { Type = JsonSchemaType.Object }
+                }
+            }
+        };
+        var p = new ParameterForInjectionInfo(metadata, requestBody);
+
+        var xmlBody = """
+<?xml version="1.0" encoding="UTF-8"?>
+<Product id="123">
+    <ProductName>Widget</ProductName>
+    <price:Price xmlns:price="http://example.com/pricing">19.99</price:Price>
+    <Item>
+        <Item>Item1</Item>
+        <Item>Item2</Item>
+        <Item>Item3</Item>
+    </Item>
+</Product>
+""";
+
+        // Sanity: ensure the XML conversion method itself can create the model.
+        var convertMethod = typeof(ParameterForInjectionInfo)
+            .GetMethod("ConvertXmlBodyToParameterType", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
+        Assert.NotNull(convertMethod);
+        var direct = convertMethod.Invoke(null, [xmlBody, typeof(ProductXmlModel)]);
+        _ = Assert.IsType<ProductXmlModel>(direct);
+
+        var ctx = CreateContextWithEndpointParameters(
+            [p],
+            method: "POST",
+            path: "/",
+            body: xmlBody,
+            configureContext: http => http.Request.ContentType = "application/xml");
+
+        Assert.False(string.IsNullOrWhiteSpace(ctx.Request.Body));
+
+        using var ps = PowerShell.Create();
+        _ = ps.AddCommand("Write-Output");
+
+        ParameterForInjectionInfo.InjectParameters(ctx, ps);
+
+        var bodyResolved = Assert.IsType<ParameterForInjectionResolved>(ctx.Parameters.Body);
+        var model = Assert.IsType<ProductXmlModel>(bodyResolved.Value);
+
+        Assert.Equal(123, model.Id);
+        Assert.Equal("Widget", model.Name);
+        Assert.Equal(19.99m, model.Price);
+        Assert.Equal(new[] { "Item1", "Item2", "Item3" }, model.Items);
+    }
+
+    [Fact]
+    [Trait("Category", "Languages")]
+    public void XmlPayload_WithDeclaration_CanBeParsed()
+    {
+        var xmlBody = """
+<?xml version="1.0" encoding="UTF-8"?>
+<Product id="123">
+  <ProductName>Widget</ProductName>
+  <price:Price xmlns:price="http://example.com/pricing">19.99</price:Price>
+  <Item>
+    <Item>Item1</Item>
+    <Item>Item2</Item>
+    <Item>Item3</Item>
+  </Item>
+</Product>
+""";
+
+        var cleaned = xmlBody.TrimStart('\uFEFF', '\u200B', '\u0000', ' ', '\t', '\r', '\n');
+        if (cleaned.StartsWith("<?xml", StringComparison.OrdinalIgnoreCase))
+        {
+            var endDecl = cleaned.IndexOf("?>", StringComparison.Ordinal);
+            if (endDecl >= 0)
+            {
+                cleaned = cleaned[(endDecl + 2)..].TrimStart();
+            }
+        }
+
+        XDocument doc;
+        try
+        {
+            doc = XDocument.Parse(cleaned);
+        }
+        catch
+        {
+            var settings = new XmlReaderSettings
+            {
+                DtdProcessing = DtdProcessing.Prohibit,
+                XmlResolver = null,
+            };
+
+            using var reader = XmlReader.Create(new StringReader(cleaned), settings);
+            doc = XDocument.Load(reader);
+        }
+
+        Assert.NotNull(doc.Root);
+        Assert.Equal("Product", doc.Root.Name.LocalName);
     }
 
     [Fact]

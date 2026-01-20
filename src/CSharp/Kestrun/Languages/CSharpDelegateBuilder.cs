@@ -12,7 +12,6 @@ using Kestrun.Hosting;
 
 namespace Kestrun.Languages;
 
-
 internal static class CSharpDelegateBuilder
 {
     /// <summary>
@@ -63,12 +62,24 @@ internal static class CSharpDelegateBuilder
             host.Logger.Debug("C# delegate built successfully, script length={Length}, imports={ImportsCount}, refs={RefsCount}, lang={Lang}",
                 code?.Length, extraImports?.Length ?? 0, extraRefs?.Length ?? 0, languageVersion);
         }
+        return BuildExecutionDelegate(host, script, args);
+    }
 
+    /// <summary>
+    /// Builds the execution delegate for the compiled C# script.
+    /// </summary>
+    /// <param name="host">The Kestrun host instance.</param>
+    /// <param name="script">The compiled C# script.</param>
+    /// <param name="args">Arguments to inject as variables into the script.</param>
+    /// <returns>A delegate that handles HTTP requests.</returns>
+    private static RequestDelegate BuildExecutionDelegate(KestrunHost host, Script<object> script, Dictionary<string, object?>? args)
+    {
         return async ctx =>
         {
+            var isDebugEnabled = host.Logger.IsEnabled(LogEventLevel.Debug);
             try
             {
-                if (host.Logger.IsEnabled(LogEventLevel.Debug))
+                if (isDebugEnabled)
                 {
                     host.Logger.DebugSanitized("Preparing execution for C# script at {Path}", ctx.Request.Path);
                 }
@@ -76,13 +87,13 @@ internal static class CSharpDelegateBuilder
                 var (Globals, Response, Context) = await DelegateBuilder.PrepareExecutionAsync(host, ctx, args).ConfigureAwait(false);
 
                 // Execute the script with the current context and shared state
-                if (host.Logger.IsEnabled(LogEventLevel.Debug))
+                if (isDebugEnabled)
                 {
                     host.Logger.DebugSanitized("Executing C# script for {Path}", ctx.Request.Path);
                 }
 
                 _ = await script.RunAsync(Globals).ConfigureAwait(false);
-                if (host.Logger.IsEnabled(LogEventLevel.Debug))
+                if (isDebugEnabled)
                 {
                     host.Logger.DebugSanitized("C# script executed successfully for {Path}", ctx.Request.Path);
                 }

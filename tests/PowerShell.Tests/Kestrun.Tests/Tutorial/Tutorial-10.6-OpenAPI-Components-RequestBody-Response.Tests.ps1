@@ -52,5 +52,8 @@ Describe 'Example 10.6 OpenAPI Components RequestBody & Response' -Tag 'OpenApi'
         $json.components.responses.ErrorResponseDefault.'x-kestrun-demo'.kind | Should -Be 'error'
         $json.components.responses.ErrorResponseDefault.'x-kestrun-demo'.retryable | Should -BeFalse
     }
-}
 
+    It 'OpenAPI output matches 10.6 fixture JSON' {
+        Test-OpenApiDocumentMatchesExpected -Instance $script:instance
+    }
+}

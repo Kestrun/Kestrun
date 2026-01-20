@@ -672,6 +672,74 @@ function listOrders {
 }
 ```
 
+### PowerShell Enums as Reusable Schema Components
+
+PowerShell `enum` types are automatically registered as **reusable schema components** under `components.schemas` and referenced via `$ref`.
+
+**Example:**
+
+```powershell
+enum TicketType {
+    general
+    event
+}
+
+[OpenApiSchemaComponent()]
+class LineItem {
+    [TicketType]$ticketType
+    [int]$quantity
+}
+```
+
+**Generated OpenAPI:**
+
+```yaml
+components:
+  schemas:
+    TicketType:
+      type: string
+      enum: [general, event]
+    LineItem:
+      type: object
+      properties:
+        ticketType:
+          $ref: '#/components/schemas/TicketType'
+        quantity:
+          type: integer
+```
+
+**Enum arrays:**
+
+When an enum is used in an array, the array items reference the enum component:
+
+```powershell
+[OpenApiSchemaComponent()]
+class Reservation {
+    [TicketType[]]$ticketTypes
+}
+```
+
+```yaml
+components:
+  schemas:
+    Reservation:
+      type: object
+      properties:
+        ticketTypes:
+          type: array
+          items:
+            $ref: '#/components/schemas/TicketType'
+```
+
+**Benefits:**
+- **Eliminates duplication** when the same enum is used in multiple properties or schemas
+- **Improves code generation** — tools generate a single enum type instead of duplicates
+- **Follows OpenAPI best practices** for reusable enums
+
+**When to use PowerShell enum vs ValidateSet:**
+- Use PowerShell `enum` types for values that should be **reused across your API**
+- Use `[ValidateSet('value1', 'value2')]` for **one-off property constraints** that won't be shared
+
 ### Modeling operations
 
 - Use `[OpenApiPath(...)]` on the route function to describe the operation.

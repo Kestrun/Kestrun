@@ -70,8 +70,7 @@ public partial class OpenApiDocDescriptor
 
         if (t.IsEnum)
         {
-            RegisterEnumSchema(t);
-            return schema;
+            return RegisterEnumSchema(t);
         }
         // Extensions
         ProcessExtensions(t, schema);
@@ -399,16 +398,19 @@ public partial class OpenApiDocDescriptor
     /// <summary>
     /// Registers an enum type schema in the document components.
     /// </summary>
-    private void RegisterEnumSchema(Type enumType)
+    /// <returns>The registered enum schema.</returns>
+    private OpenApiSchema RegisterEnumSchema(Type enumType)
     {
+        var enumSchema = new OpenApiSchema
+        {
+            Type = JsonSchemaType.String,
+            Enum = [.. enumType.GetEnumNames().Select(n => (JsonNode)n)]
+        };
         if (Document.Components?.Schemas is not null)
         {
-            Document.Components.Schemas[enumType.Name] = new OpenApiSchema
-            {
-                Type = JsonSchemaType.String,
-                Enum = [.. enumType.GetEnumNames().Select(n => (JsonNode)n)]
-            };
+            Document.Components.Schemas[enumType.Name] = enumSchema;
         }
+        return enumSchema;
     }
 
     /// <summary>
@@ -749,6 +751,7 @@ public partial class OpenApiDocDescriptor
         ApplyCollectionConstraints(properties, schema);
         ApplyFlags(properties, schema);
         ApplyExamplesAndDefaults(properties, schema);
+        ApplyXmlMetadata(properties, schema);
     }
 
     /// <summary>
@@ -923,6 +926,56 @@ public partial class OpenApiDocDescriptor
             {
                 _ = schema.Required.Add(r);
             }
+        }
+    }
+
+    /// <summary>
+    /// Applies XML metadata to an OpenApiSchema.
+    /// </summary>
+    /// <param name="properties">The OpenApiProperties containing XML attributes to apply.</param>
+    /// <param name="schema">The OpenApiSchema to apply XML metadata to.</param>
+    private static void ApplyXmlMetadata(OpenApiProperties properties, OpenApiSchema schema)
+    {
+        // Check if any XML properties are set
+        var hasXmlMetadata = !string.IsNullOrWhiteSpace(properties.XmlName) ||
+                             !string.IsNullOrWhiteSpace(properties.XmlNamespace) ||
+                             !string.IsNullOrWhiteSpace(properties.XmlPrefix) ||
+                             properties.XmlAttribute ||
+                             properties.XmlWrapped;
+
+        if (!hasXmlMetadata)
+        {
+            return;
+        }
+
+        // Create XML object if it doesn't exist
+        schema.Xml ??= new Microsoft.OpenApi.OpenApiXml();
+
+        // Apply standard XML properties (supported by Microsoft.OpenApi 3.1.2)
+        if (!string.IsNullOrWhiteSpace(properties.XmlName))
+        {
+            schema.Xml.Name = properties.XmlName;
+        }
+
+        if (!string.IsNullOrWhiteSpace(properties.XmlNamespace))
+        {
+            schema.Xml.Namespace = new Uri(properties.XmlNamespace);
+        }
+
+        if (!string.IsNullOrWhiteSpace(properties.XmlPrefix))
+        {
+            schema.Xml.Prefix = properties.XmlPrefix;
+        }
+
+        // Set NodeType based on XmlAttribute and XmlWrapped properties
+        // OpenAPI 3.2 uses NodeType to specify attribute vs element vs text nodes
+        if (properties.XmlAttribute)
+        {
+            schema.Xml.NodeType = OpenApiXmlNodeType.Attribute;
+        }
+        else if (properties.XmlWrapped)
+        {
+            schema.Xml.NodeType = OpenApiXmlNodeType.Element;
         }
     }
 

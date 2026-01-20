@@ -1,0 +1,73 @@
+{
+  "openapi": "3.1.2",
+  "info": {
+    "title": "Document Info API",
+    "description": "Shows how to populate document metadata.",
+    "termsOfService": "https://example.com/terms",
+    "contact": {
+      "name": "API Support",
+      "url": "https://example.com/support",
+      "email": "support@example.com",
+      "x-contact-department": "Developer Relations",
+      "x-contact-hours": "9am-5pm PST",
+      "x-logo": {
+        "url": "https://www.kestrun.dev/assets/kestrun_abstract_transparent.png",
+        "altText": "Kestrun logo"
+      }
+    },
+    "license": {
+      "name": "Apache 2.0",
+      "identifier": "Apache-2.0"
+    },
+    "version": "1.0.0",
+    "summary": "Document metadata demo"
+  },
+  "servers": [
+    {
+      "url": "https://{env}.api.example.com",
+      "description": "Environment-specific endpoint",
+      "variables": {
+        "env": {
+          "default": "dev",
+          "description": "Deployment environment",
+          "enum": [
+            "dev",
+            "staging",
+            "prod"
+          ]
+        }
+      }
+    },
+    {
+      "url": "https://api.example.com",
+      "description": "Production"
+    },
+    {
+      "url": "https://staging-api.example.com",
+      "description": "Staging"
+    },
+    {
+      "url": "/",
+      "description": "Self"
+    }
+  ],
+  "paths": {
+    "/info": {
+      "get": {
+        "summary": "Get API document info.",
+        "description": "Returns OpenAPI document metadata as a JSON payload, demonstrating\naccess to the configured document information.",
+        "operationId": "getApiInfo",
+        "responses": {
+          "default": {
+            "description": "Returns document metadata sample"
+          }
+        }
+      }
+    }
+  },
+  "components": { },
+  "externalDocs": {
+    "description": "Full API guide",
+    "url": "https://example.com/api-guide"
+  }
+}

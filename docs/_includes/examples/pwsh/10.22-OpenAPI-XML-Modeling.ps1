@@ -148,6 +148,8 @@ function createProduct {
         [Product]$body
     )
 
+    Expand-KrObject -InputObject $body -Label 'Received Product'
+
     if ($null -eq $body -or -not $body.Name) {
         Write-KrResponse @{ error = 'Name is required' } -StatusCode 400
         return

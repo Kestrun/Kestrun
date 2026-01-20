@@ -1,5 +1,6 @@
 using Kestrun.Utilities;
 using System.Collections;
+using System.Linq;
 using System.Xml.Linq;
 using Xunit;
 
@@ -55,6 +56,77 @@ public class XmlHelperTests
         var sample = new Sample();
         var elem = XmlHelper.ToXml("Sample", sample);
         Assert.Equal("Foo", elem.Element("Name")?.Value);
+    }
+
+    private sealed class ProductWithXmlMetadata
+    {
+        public int Id { get; set; }
+        public string Name { get; set; } = string.Empty;
+        public decimal Price { get; set; }
+        public string[] Items { get; set; } = [];
+
+        public static Hashtable XmlMetadata { get; } = new()
+        {
+            ["ClassName"] = "Product",
+            ["Properties"] = new Hashtable
+            {
+                ["Id"] = new Hashtable
+                {
+                    ["Name"] = "id",
+                    ["Attribute"] = true,
+                },
+                ["Name"] = new Hashtable
+                {
+                    ["Name"] = "ProductName",
+                },
+                ["Price"] = new Hashtable
+                {
+                    ["Name"] = "Price",
+                    ["Namespace"] = "http://example.com/pricing",
+                    ["Prefix"] = "price",
+                },
+                ["Items"] = new Hashtable
+                {
+                    ["Name"] = "Item",
+                    ["Wrapped"] = true,
+                },
+            },
+        };
+    }
+
+    [Fact]
+    [Trait("Category", "Utilities")]
+    public void ToXml_HonorsXmlMetadata_ForRootAttributeNamespaceAndWrappedArray()
+    {
+        var product = new ProductWithXmlMetadata
+        {
+            Id = 22,
+            Name = "Sample Product 22",
+            Price = 30.99m,
+            Items = ["Item1", "Item2", "Item3"],
+        };
+
+        // Root is passed as "Response" by default in KestrunResponse.WriteXmlResponse.
+        // XmlHelper should prefer the model ClassName when XmlMetadata is present.
+        var elem = XmlHelper.ToXml("Response", product);
+
+        Assert.Equal("Product", elem.Name.LocalName);
+        Assert.Equal("22", elem.Attribute("id")?.Value);
+        Assert.Equal("Sample Product 22", elem.Element("ProductName")?.Value);
+
+        // Namespace + prefix should be applied to <price:Price xmlns:price="...">...
+        var priceNs = XNamespace.Get("http://example.com/pricing");
+        var priceElem = elem.Element(priceNs + "Price");
+        Assert.NotNull(priceElem);
+
+        var xml = elem.ToString(SaveOptions.DisableFormatting);
+        Assert.Contains("price:Price", xml);
+        Assert.Contains("xmlns:price=\"http://example.com/pricing\"", xml);
+
+        // Wrapped array should appear as <Item><Item>..</Item></Item>
+        var wrapper = elem.Element("Item");
+        Assert.NotNull(wrapper);
+        Assert.Equal(new[] { "Item1", "Item2", "Item3" }, wrapper!.Elements("Item").Select(e => e.Value).ToArray());
     }
 
 

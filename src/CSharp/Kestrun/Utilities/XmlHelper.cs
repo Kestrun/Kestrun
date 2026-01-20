@@ -229,6 +229,12 @@ public static class XmlHelper
         {
             elementName = className;
         }
+        else if (xmlMetadata?["ClassName"] is string fallbackClassName && !string.IsNullOrWhiteSpace(fallbackClassName))
+        {
+            // When responses are written with the default root ("Response"), prefer the model's class name.
+            // This aligns runtime XML output with OpenAPI schema component names.
+            elementName = fallbackClassName;
+        }
 
         var objElem = new XElement(elementName);
         var type = value.GetType();
@@ -237,7 +243,7 @@ public static class XmlHelper
         Dictionary<string, Hashtable>? propertyMetadata = null;
         if (xmlMetadata?["Properties"] is Hashtable propsHash)
         {
-            propertyMetadata = new Dictionary<string, Hashtable>();
+            propertyMetadata = [];
             foreach (DictionaryEntry entry in propsHash)
             {
                 if (entry.Key is string propName && entry.Value is Hashtable propMeta)
@@ -281,11 +287,97 @@ public static class XmlHelper
                     objElem.Add(new XAttribute(childName, propVal));
                     continue; // Don't add as child element
                 }
+
+                // Special handling for array/list properties when XML metadata is present.
+                // - If Wrapped=true, we add a wrapper element and put items under it.
+                // - If Wrapped=false, we emit repeated sibling elements for each item.
+                if (propVal is IEnumerable enumerable and not string)
+                {
+                    var wrapped = propXml["Wrapped"] is bool w && w;
+                    var nsUri = propXml["Namespace"] as string;
+                    var prefix = propXml["Prefix"] as string;
+                    AppendEnumerableProperty(objElem, childName, enumerable, wrapped, nsUri, prefix, depth + 1, visited);
+                    continue;
+                }
+
+                // Apply namespace/prefix to the element representing this property (non-attribute, non-collection).
+                var nsUriForElement = propXml["Namespace"] as string;
+                var prefixForElement = propXml["Prefix"] as string;
+                var childElem = ToXmlInternal(childName, propVal, depth + 1, visited);
+                ApplyNamespaceAndPrefix(childElem, nsUriForElement, prefixForElement);
+                objElem.Add(childElem);
+                continue;
             }
 
             objElem.Add(ToXmlInternal(childName, propVal, depth + 1, visited));
         }
         return objElem;
+    }
+
+    /// <summary>
+    /// Appends an enumerable property to an existing element, honoring OpenAPI XML metadata options.
+    /// </summary>
+    /// <param name="parent">Parent element to append to.</param>
+    /// <param name="itemName">Element name to use for items (and wrapper when <paramref name="wrapped"/> is true).</param>
+    /// <param name="enumerable">Enumerable to serialize.</param>
+    /// <param name="wrapped">If true, wrap items in a container element.</param>
+    /// <param name="nsUri">Optional namespace URI for the element(s).</param>
+    /// <param name="prefix">Optional prefix to declare for <paramref name="nsUri"/>.</param>
+    /// <param name="depth">Current recursion depth.</param>
+    /// <param name="visited">Per-call set used for cycle detection.</param>
+    private static void AppendEnumerableProperty(XElement parent, string itemName, IEnumerable enumerable, bool wrapped, string? nsUri, string? prefix, int depth, HashSet<object>? visited)
+    {
+        if (wrapped)
+        {
+            var wrapper = new XElement(itemName);
+            ApplyNamespaceAndPrefix(wrapper, nsUri, prefix);
+            foreach (var item in enumerable)
+            {
+                var itemElem = ToXmlInternal(itemName, item, depth + 1, visited);
+                ApplyNamespaceAndPrefix(itemElem, nsUri, prefix);
+                wrapper.Add(itemElem);
+            }
+            parent.Add(wrapper);
+            return;
+        }
+
+        foreach (var item in enumerable)
+        {
+            var itemElem = ToXmlInternal(itemName, item, depth + 1, visited);
+            ApplyNamespaceAndPrefix(itemElem, nsUri, prefix);
+            parent.Add(itemElem);
+        }
+    }
+
+    /// <summary>
+    /// Applies namespace and prefix settings to an element, ensuring the requested prefix is declared.
+    /// </summary>
+    /// <param name="element">The element to update.</param>
+    /// <param name="nsUri">Namespace URI to apply.</param>
+    /// <param name="prefix">Prefix to declare for the namespace.</param>
+    private static void ApplyNamespaceAndPrefix(XElement element, string? nsUri, string? prefix)
+    {
+        if (string.IsNullOrWhiteSpace(nsUri))
+        {
+            return;
+        }
+
+        var ns = XNamespace.Get(nsUri);
+        element.Name = ns + element.Name.LocalName;
+
+        if (string.IsNullOrWhiteSpace(prefix))
+        {
+            return;
+        }
+
+        // Ensure xmlns:prefix="nsUri" is present so the serializer can use the desired prefix.
+        // Avoid adding duplicates if the declaration already exists.
+        var xmlnsName = XNamespace.Xmlns + prefix;
+        var existing = element.Attribute(xmlnsName);
+        if (existing == null)
+        {
+            element.Add(new XAttribute(xmlnsName, nsUri));
+        }
     }
 
     /// <summary>
@@ -372,7 +464,7 @@ public static class XmlHelper
     {
         if (xmlMetadata == null)
         {
-            return ToHashtableInternal(element, null, new Dictionary<string, Microsoft.OpenApi.OpenApiXml>());
+            return ToHashtableInternal(element, null, []);
         }
 
         // Convert hashtable metadata to OpenApiXml object for class-level metadata
@@ -505,7 +597,7 @@ public static class XmlHelper
                 childKey = model.Name ?? childKey;
             }
 
-            var childValue = ToHashtableInternal(child, childModel, new Dictionary<string, Microsoft.OpenApi.OpenApiXml>());
+            var childValue = ToHashtableInternal(child, childModel, []);
 
             if (childMap.ContainsKey(childKey))
             {

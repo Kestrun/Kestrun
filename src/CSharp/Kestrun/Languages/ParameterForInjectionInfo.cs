@@ -550,7 +550,7 @@ public class ParameterForInjectionInfo : ParameterForInjectionInfoBase
         return [.. list];
     }
 
-    private static object? ConvertXmlToHashtable(string xml)
+    /*private static object? ConvertXmlToHashtable(string xml)
     {
         if (string.IsNullOrWhiteSpace(xml))
         {
@@ -559,7 +559,7 @@ public class ParameterForInjectionInfo : ParameterForInjectionInfoBase
 
         var root = XElement.Parse(xml);
         return XElementToClr(root);
-    }
+    }*/
 
     private static object? XElementToClr(XElement element)
     {

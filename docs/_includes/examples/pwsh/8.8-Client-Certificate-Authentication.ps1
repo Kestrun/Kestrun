@@ -53,18 +53,21 @@ if (-not (Test-Path $clientCertPath)) {
     Write-Host ""
 }
 
-# 5. Add HTTPS endpoint with client certificate requirement
-Add-KrEndpoint -Https -Port $Port -IPAddress $IPAddress -Certificate $serverCert -RequireClientCertificate
+# 5. Configure HTTPS to require client certificates
+Set-KrServerHttpsOptions -ClientCertificateMode RequireCertificate
 
-# 6. Configure client certificate authentication
+# 6. Add HTTPS endpoint
+Add-KrEndpoint -Port $Port -IPAddress $IPAddress -X509Certificate $serverCert
+
+# 7. Configure client certificate authentication
 # Note: For self-signed client certificates, we need to allow all certificate types
 # and disable some validation that requires a proper certificate chain
 Add-KrClientCertificateAuthentication -AuthenticationScheme 'Certificate'
 
-# 7. Finalize configuration (build internal pipeline)
+# 8. Finalize configuration (build internal pipeline)
 Enable-KrConfiguration
 
-# 8. Map secured route group using certificate authentication
+# 9. Map secured route group using certificate authentication
 Add-KrRouteGroup -Prefix '/secure/cert' -AuthorizationScheme 'Certificate' {
     Add-KrMapRoute -Verbs Get -Pattern '/hello' -ScriptBlock {
         $cert = $Context.Connection.ClientCertificate
@@ -108,7 +111,7 @@ Add-KrRouteGroup -Prefix '/secure/cert' -AuthorizationScheme 'Certificate' {
     }
 }
 
-# 9. Add a public info endpoint
+# 10. Add a public info endpoint
 Add-KrMapRoute -Verbs Get -Pattern '/info' -ScriptBlock {
     Write-KrJsonResponse @{
         message = "Client Certificate Authentication Demo"
@@ -134,7 +137,7 @@ Add-KrMapRoute -Verbs Get -Pattern '/info' -ScriptBlock {
     }
 }
 
-# 10. Start server (Ctrl+C to stop)
+# 11. Start server (Ctrl+C to stop)
 Write-Host "`nServer starting on https://localhost:$Port"
 Write-Host "Test the secured endpoint with:"
 Write-Host "  `$cert = Import-PfxCertificate -FilePath '$clientCertPath' -Password (ConvertTo-SecureString 'test' -AsPlainText -Force) -CertStoreLocation 'Cert:\CurrentUser\My'"

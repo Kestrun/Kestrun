@@ -12,7 +12,6 @@ using Kestrun.Hosting;
 
 namespace Kestrun.Languages;
 
-
 internal static class CSharpDelegateBuilder
 {
     /// <summary>

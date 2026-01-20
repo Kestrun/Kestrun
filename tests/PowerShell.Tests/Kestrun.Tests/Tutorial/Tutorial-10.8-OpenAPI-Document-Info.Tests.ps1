@@ -147,5 +147,9 @@ Describe 'Example 10.8 OpenAPI Document Info' -Tag 'OpenApi', 'Tutorial', 'Slow'
         $envServer.variables.env.enum | Should -Contain 'prod'
         $envServer.variables.env.description | Should -Be 'Deployment environment'
     }
+
+     It 'OpenAPI output matches 10.8 fixture JSON' {
+        Test-OpenApiDocumentMatchesExpected -Instance $script:instance
+    }
 }
 

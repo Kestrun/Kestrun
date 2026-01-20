@@ -168,7 +168,7 @@ public partial class OpenApiDocDescriptor
     }
 
     /// <summary>
-    /// Merges custom fields like XmlName.
+    /// Merges custom fields like XML metadata.
     /// </summary>
     /// <param name="merged">The merged OpenApiPropertyAttribute to update.</param>
     /// <param name="attr">The OpenApiPropertyAttribute to merge from.</param>
@@ -178,6 +178,19 @@ public partial class OpenApiDocDescriptor
         {
             merged.XmlName = attr.XmlName;
         }
+
+        if (!string.IsNullOrWhiteSpace(attr.XmlNamespace))
+        {
+            merged.XmlNamespace = attr.XmlNamespace;
+        }
+
+        if (!string.IsNullOrWhiteSpace(attr.XmlPrefix))
+        {
+            merged.XmlPrefix = attr.XmlPrefix;
+        }
+
+        merged.XmlAttribute |= attr.XmlAttribute;
+        merged.XmlWrapped |= attr.XmlWrapped;
     }
     #endregion
 }

@@ -1,0 +1,480 @@
+{
+  "openapi": "3.1.2",
+  "info": {
+    "title": "E-Commerce Webhook API",
+    "description": "E-Commerce API demonstrating webhook notifications for orders, payments, and inventory events.\nWebhooks allow your subscribers to receive real-time notifications when events occur in your system.",
+    "contact": {
+      "name": "API Support Team",
+      "email": "api-support@example.com"
+    },
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/api/webhooks/info": {
+      "get": {
+        "summary": "Get Webhook Documentation",
+        "description": "Returns information about available webhooks and how to subscribe.",
+        "operationId": "getWebhookInfo",
+        "responses": {
+          "200": {
+            "description": "Ok"
+          },
+          "default": {
+            "description": "Unexpected error"
+          }
+        }
+      }
+    },
+    "/api/orders/simulate": {
+      "post": {
+        "summary": "Simulate Order Creation",
+        "description": "Creates a test order and demonstrates what webhook payload would be sent.\nIn a real system, this would trigger the webhook to all registered subscribers.",
+        "operationId": "simulateOrderCreation",
+        "responses": {
+          "200": {
+            "description": "Ok"
+          },
+          "default": {
+            "description": "Unexpected error"
+          }
+        }
+      }
+    },
+    "/api/payments/simulate": {
+      "post": {
+        "summary": "Simulate Payment Event",
+        "description": "Creates a test payment event and shows the webhook payload structure.",
+        "operationId": "simulatePaymentEvent",
+        "responses": {
+          "200": {
+            "description": "Ok"
+          },
+          "default": {
+            "description": "Unexpected error"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "OrderItem": {
+        "required": [
+          "product_id",
+          "product_name",
+          "quantity",
+          "unit_price"
+        ],
+        "type": "object",
+        "properties": {
+          "product_id": {
+            "type": "string",
+            "description": "Product identifier",
+            "example": "PROD-001"
+          },
+          "product_name": {
+            "type": "string",
+            "description": "Product name",
+            "example": "Wireless Headphones"
+          },
+          "quantity": {
+            "type": "integer",
+            "description": "Quantity ordered",
+            "format": "int32",
+            "example": "1"
+          },
+          "unit_price": {
+            "type": "number",
+            "description": "Price per unit",
+            "format": "decimal",
+            "example": "79.99"
+          }
+        },
+        "description": "Individual item in an order."
+      },
+      "OrderData": {
+        "required": [
+          "order_id",
+          "customer_id",
+          "status",
+          "total_amount",
+          "currency",
+          "items"
+        ],
+        "type": "object",
+        "properties": {
+          "order_id": {
+            "type": "string",
+            "description": "Unique order identifier",
+            "example": "ORD-abc12345"
+          },
+          "customer_id": {
+            "type": "string",
+            "description": "Customer identifier",
+            "example": "CUST-12345"
+          },
+          "status": {
+            "enum": [
+              "pending",
+              "processing",
+              "shipped",
+              "delivered",
+              "cancelled",
+              "refunded"
+            ],
+            "type": "string",
+            "description": "Current order status",
+            "example": "pending"
+          },
+          "total_amount": {
+            "type": "number",
+            "description": "Total order amount",
+            "format": "decimal",
+            "example": "129.99"
+          },
+          "currency": {
+            "type": "string",
+            "description": "Currency code",
+            "example": "USD"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/OrderItem"
+            },
+            "description": "List of items in the order"
+          }
+        },
+        "description": "Order details for webhook events."
+      },
+      "OrderEventPayload": {
+        "required": [
+          "event_id",
+          "event_type",
+          "timestamp",
+          "data"
+        ],
+        "type": "object",
+        "properties": {
+          "event_id": {
+            "type": "string",
+            "description": "Unique identifier for this event",
+            "format": "uuid"
+          },
+          "event_type": {
+            "type": "string",
+            "description": "Type of order event",
+            "example": "order.created"
+          },
+          "timestamp": {
+            "type": "string",
+            "description": "When the event occurred",
+            "format": "date-time"
+          },
+          "data": {
+            "description": "Order data payload",
+            "$ref": "#/components/schemas/OrderData"
+          }
+        },
+        "description": "Webhook payload for order-related events."
+      },
+      "PaymentData": {
+        "required": [
+          "payment_id",
+          "order_id",
+          "customer_id",
+          "amount",
+          "currency",
+          "status",
+          "payment_method",
+          "transaction_id"
+        ],
+        "type": "object",
+        "properties": {
+          "payment_id": {
+            "type": "string",
+            "description": "Unique payment identifier",
+            "example": "PAY-xyz98765"
+          },
+          "order_id": {
+            "type": "string",
+            "description": "Associated order identifier",
+            "example": "ORD-abc12345"
+          },
+          "customer_id": {
+            "type": "string",
+            "description": "Customer identifier",
+            "example": "CUST-12345"
+          },
+          "amount": {
+            "type": "number",
+            "description": "Payment amount",
+            "format": "decimal",
+            "example": "129.99"
+          },
+          "currency": {
+            "type": "string",
+            "description": "Currency code",
+            "example": "USD"
+          },
+          "status": {
+            "enum": [
+              "pending",
+              "completed",
+              "failed",
+              "refunded"
+            ],
+            "type": "string",
+            "description": "Payment status",
+            "example": "completed"
+          },
+          "payment_method": {
+            "type": "string",
+            "description": "Payment method used",
+            "example": "credit_card"
+          },
+          "transaction_id": {
+            "type": "string",
+            "description": "Transaction ID from payment processor",
+            "example": "TXN-1a2b3c4d"
+          }
+        },
+        "description": "Payment transaction details for webhook events."
+      },
+      "PaymentEventPayload": {
+        "required": [
+          "event_id",
+          "event_type",
+          "timestamp",
+          "data"
+        ],
+        "type": "object",
+        "properties": {
+          "event_id": {
+            "type": "string",
+            "description": "Unique identifier for this event",
+            "format": "uuid"
+          },
+          "event_type": {
+            "type": "string",
+            "description": "Type of payment event",
+            "example": "payment.completed"
+          },
+          "timestamp": {
+            "type": "string",
+            "description": "When the event occurred",
+            "format": "date-time"
+          },
+          "data": {
+            "description": "Payment data payload",
+            "$ref": "#/components/schemas/PaymentData"
+          }
+        },
+        "description": "Webhook payload for payment-related events."
+      },
+      "InventoryData": {
+        "required": [
+          "product_id",
+          "product_name",
+          "sku",
+          "current_stock",
+          "threshold"
+        ],
+        "type": "object",
+        "properties": {
+          "product_id": {
+            "type": "string",
+            "description": "Product identifier",
+            "example": "PROD-001"
+          },
+          "product_name": {
+            "type": "string",
+            "description": "Product name",
+            "example": "Wireless Headphones"
+          },
+          "sku": {
+            "type": "string",
+            "description": "Stock keeping unit",
+            "example": "WH-BLK-001"
+          },
+          "current_stock": {
+            "type": "integer",
+            "description": "Current stock level",
+            "format": "int32",
+            "example": "5"
+          },
+          "threshold": {
+            "type": "integer",
+            "description": "Low stock threshold",
+            "format": "int32",
+            "example": "10"
+          },
+          "warehouse_location": {
+            "type": "string",
+            "description": "Warehouse location",
+            "example": "Warehouse A, Aisle 3, Shelf 2"
+          }
+        },
+        "description": "Inventory level details for webhook events."
+      },
+      "InventoryEventPayload": {
+        "required": [
+          "event_id",
+          "event_type",
+          "timestamp",
+          "data"
+        ],
+        "type": "object",
+        "properties": {
+          "event_id": {
+            "type": "string",
+            "description": "Unique identifier for this event",
+            "format": "uuid"
+          },
+          "event_type": {
+            "type": "string",
+            "description": "Type of inventory event",
+            "example": "inventory.low_stock"
+          },
+          "timestamp": {
+            "type": "string",
+            "description": "When the event occurred",
+            "format": "date-time"
+          },
+          "data": {
+            "description": "Inventory data payload",
+            "$ref": "#/components/schemas/InventoryData"
+          }
+        },
+        "description": "Webhook payload for inventory-related events."
+      }
+    }
+  },
+  "webhooks": {
+    "/webhooks/inventory.low_stock": {
+      "post": {
+        "summary": "Inventory Low Stock Alert Webhook",
+        "description": "Notifies subscribers when product inventory falls below the configured threshold.\nAllows automated reordering or stock management workflows.",
+        "operationId": "inventoryLowStockWebhook",
+        "requestBody": {
+          "description": "Low stock alert event payload",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/InventoryEventPayload"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Ok"
+          },
+          "default": {
+            "description": "Unexpected error"
+          }
+        }
+      }
+    },
+    "/webhooks/order.created": {
+      "post": {
+        "summary": "Order Created Webhook",
+        "description": "Notifies subscribers when a new order is created in the system.\nSubscribers should implement this endpoint to receive order creation events.",
+        "operationId": "orderCreatedWebhook",
+        "requestBody": {
+          "description": "Order creation event payload",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OrderEventPayload"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Ok"
+          },
+          "default": {
+            "description": "Unexpected error"
+          }
+        }
+      }
+    },
+    "/webhooks/order.status_updated": {
+      "post": {
+        "summary": "Order Status Updated Webhook",
+        "description": "Notifies subscribers when an order status changes (e.g., shipped, delivered, cancelled).\nCommon statuses: pending, processing, shipped, delivered, cancelled, refunded.",
+        "operationId": "orderStatusUpdatedWebhook",
+        "requestBody": {
+          "description": "Order status update event payload",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OrderEventPayload"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Ok"
+          },
+          "default": {
+            "description": "Unexpected error"
+          }
+        }
+      }
+    },
+    "/webhooks/payment.completed": {
+      "post": {
+        "summary": "Payment Completed Webhook",
+        "description": "Notifies subscribers when a payment transaction is successfully completed.\nThis event is triggered after payment authorization and capture.",
+        "operationId": "paymentCompletedWebhook",
+        "requestBody": {
+          "description": "Payment completion event payload",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PaymentEventPayload"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Ok"
+          },
+          "default": {
+            "description": "Unexpected error"
+          }
+        }
+      }
+    },
+    "/webhooks/payment.failed": {
+      "post": {
+        "summary": "Payment Failed Webhook",
+        "description": "Notifies subscribers when a payment transaction fails.\nIncludes failure reason and recommended next steps.",
+        "operationId": "paymentFailedWebhook",
+        "requestBody": {
+          "description": "Payment failure event payload",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PaymentEventPayload"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Ok"
+          },
+          "default": {
+            "description": "Unexpected error"
+          }
+        }
+      }
+    }
+  }
+}

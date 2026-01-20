@@ -215,4 +215,8 @@ email: todd@example.com
         $doc.components.examples.PSObject.Properties['NextSaturdayParameter'] | Should -BeNullOrEmpty
         $doc.components.examples.PSObject.Properties['NextSundayParameter'] | Should -BeNullOrEmpty
     }
+
+    It 'OpenAPI output matches 10.13 fixture JSON' {
+        Test-OpenApiDocumentMatchesExpected -Instance $script:instance
+    }
 }

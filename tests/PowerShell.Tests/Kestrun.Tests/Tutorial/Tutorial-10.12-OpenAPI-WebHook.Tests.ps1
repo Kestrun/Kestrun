@@ -101,5 +101,9 @@ Describe 'Example 10.12 WebHook' -Tag 'Tutorial', 'OpenApi', 'Slow' {
         $doc.paths.'/api/payments/simulate'.post | Should -Not -BeNullOrEmpty
         $doc.paths.'/api/webhooks/info'.get | Should -Not -BeNullOrEmpty
     }
+    
+    It 'OpenAPI output matches 10.12 fixture JSON' {
+        Test-OpenApiDocumentMatchesExpected -Instance $script:instance
+    }
 }
 

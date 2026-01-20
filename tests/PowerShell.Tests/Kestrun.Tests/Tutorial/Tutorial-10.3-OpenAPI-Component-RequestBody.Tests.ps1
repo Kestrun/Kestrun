@@ -38,17 +38,9 @@ Describe 'Example 10.3 OpenAPI Component RequestBody' -Tag 'OpenApi', 'Tutorial'
         $json.components.requestBodies.CreateProductRequest | Should -Not -BeNullOrEmpty
         $json.components.requestBodies.UpdateProductRequest | Should -Not -BeNullOrEmpty
     }
+
     It 'OpenAPI output matches 10.3 fixture JSON' {
-        $result = Invoke-WebRequest -Uri "$($script:instance.Url)/openapi/v3.1/openapi.json" -SkipCertificateCheck -SkipHttpErrorCheck
-        $result.StatusCode | Should -Be 200
-
-        $actualNormalized = Get-NormalizedJson $result.Content
-        $expectedPath = Join-Path -Path (Get-TutorialExamplesDirectory) -ChildPath 'Assets' `
-            -AdditionalChildPath 'OpenAPI', "$($script:instance.BaseName).json"
-        $expectedContent = Get-Content -Path $expectedPath -Raw
-        $expectedNormalized = Get-NormalizedJson $expectedContent
-
-        $actualNormalized | Should -Be $expectedNormalized
+        Test-OpenApiDocumentMatchesExpected -Instance $script:instance
     }
 }
 

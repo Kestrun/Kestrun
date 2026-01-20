@@ -1,10 +1,58 @@
 using System.Reflection;
+using System.Text.Json.Nodes;
 using Microsoft.OpenApi;
 
 namespace Kestrun.OpenApi;
 
 public partial class OpenApiDocDescriptor
 {
+    /// <summary>
+    /// Merges OpenApiProperties with OpenApiXmlAttribute if present.
+    /// </summary>
+    /// <param name="prop">The property to extract attributes from.</param>
+    /// <returns>Merged OpenApiProperties with XML metadata applied.</returns>
+    private static OpenApiProperties? MergeXmlAttributes(PropertyInfo prop)
+    {
+        var properties = prop.GetCustomAttribute<OpenApiProperties>();
+        var xmlAttr = prop.GetCustomAttribute<OpenApiXmlAttribute>();
+
+        if (xmlAttr == null)
+        {
+            return properties;
+        }
+
+        // If no OpenApiProperties, create a new one to hold XML data
+        properties ??= new OpenApiPropertyAttribute();
+
+        // Merge XML attribute properties into OpenApiProperties
+        if (!string.IsNullOrWhiteSpace(xmlAttr.Name))
+        {
+            properties.XmlName = xmlAttr.Name;
+        }
+
+        if (!string.IsNullOrWhiteSpace(xmlAttr.Namespace))
+        {
+            properties.XmlNamespace = xmlAttr.Namespace;
+        }
+
+        if (!string.IsNullOrWhiteSpace(xmlAttr.Prefix))
+        {
+            properties.XmlPrefix = xmlAttr.Prefix;
+        }
+
+        if (xmlAttr.Attribute)
+        {
+            properties.XmlAttribute = true;
+        }
+
+        if (xmlAttr.Wrapped)
+        {
+            properties.XmlWrapped = true;
+        }
+
+        return properties;
+    }
+
     /// <summary>
     /// Builds and adds the schema for a given type to the document components.
     /// </summary>
@@ -54,7 +102,7 @@ public partial class OpenApiDocDescriptor
         else
         {
             // Treat enums and complex types the same: register as component and reference
-            schema = BuildComplexTypeSchema(pt, built);
+            schema = BuildComplexTypeSchema(pt, p, built);
         }
 #pragma warning restore IDE0045
         // Convert to conditional expression
@@ -68,18 +116,20 @@ public partial class OpenApiDocDescriptor
             }
             else if (schema is OpenApiSchemaReference refSchema)
             {
+                var modifiedRefSchema = refSchema.Clone();
+                modifiedRefSchema.Description = null; // clear description to avoid duplication
                 // For $ref schemas (enums/complex types), wrap in anyOf with null
                 schema = new OpenApiSchema
                 {
                     AnyOf =
                     [
-                        refSchema,
+                        modifiedRefSchema,
                         new OpenApiSchema { Type = JsonSchemaType.Null }
                     ]
                 };
             }
         }
-        ApplySchemaAttr(p.GetCustomAttribute<OpenApiProperties>(), schema);
+        ApplySchemaAttr(MergeXmlAttributes(p), schema);
         PowerShellAttributes.ApplyPowerShellAttributes(p, schema);
         return schema;
     }
@@ -88,13 +138,35 @@ public partial class OpenApiDocDescriptor
     /// Builds the schema for a complex type property.
     /// </summary>
     /// <param name="pt">The property type.</param>
+    /// <param name="p">The property info.</param>
     /// <param name="built">The set of already built types to avoid recursion.</param>
     /// <returns>The constructed OpenAPI schema for the complex type property.</returns>
-    private OpenApiSchemaReference BuildComplexTypeSchema(Type pt, HashSet<Type> built)
+    private OpenApiSchemaReference BuildComplexTypeSchema(Type pt, PropertyInfo p, HashSet<Type> built)
     {
         BuildSchema(pt, built); // ensure component exists
         var refSchema = new OpenApiSchemaReference(pt.Name);
+        ApplySchemaAttr(MergeXmlAttributes(p), refSchema);
         return refSchema;
+    }
+
+    /// <summary>
+    /// Builds the schema for an enum property.
+    /// </summary>
+    /// <param name="pt">The property type.</param>
+    /// <param name="p">The property info.</param>
+    /// <returns>The constructed OpenAPI schema for the enum property.</returns>
+    private static OpenApiSchema BuildEnumSchema(Type pt, PropertyInfo p)
+    {
+        var s = new OpenApiSchema
+        {
+            Type = JsonSchemaType.String,
+            Enum = [.. pt.GetEnumNames().Select(n => (JsonNode)n)]
+        };
+        var attrs = p.GetCustomAttributes<OpenApiPropertyAttribute>(inherit: false).ToArray();
+        var a = MergeSchemaAttributes(attrs);
+        ApplySchemaAttr(MergeXmlAttributes(p) ?? a, s);
+        PowerShellAttributes.ApplyPowerShellAttributes(p, s);
+        return s;
     }
 
     /// <summary>
@@ -124,7 +196,7 @@ public partial class OpenApiDocDescriptor
             Type = JsonSchemaType.Array,
             Items = itemSchema
         };
-        ApplySchemaAttr(p.GetCustomAttribute<OpenApiProperties>(), s);
+        ApplySchemaAttr(MergeXmlAttributes(p), s);
         PowerShellAttributes.ApplyPowerShellAttributes(p, s);
         return s;
     }
@@ -138,7 +210,7 @@ public partial class OpenApiDocDescriptor
     private IOpenApiSchema BuildPrimitiveSchema(Type pt, PropertyInfo p)
     {
         var prim = InferPrimitiveSchema(pt);
-        ApplySchemaAttr(p.GetCustomAttribute<OpenApiProperties>(), prim);
+        ApplySchemaAttr(MergeXmlAttributes(p), prim);
         PowerShellAttributes.ApplyPowerShellAttributes(p, prim);
         return prim;
     }

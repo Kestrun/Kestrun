@@ -740,6 +740,66 @@ components:
 
 ---
 
+### 4.6 XML Modeling (OpenApiXml)
+
+Kestrun supports **OpenAPI 3.2 XML modeling** via the `OpenApiXml` attribute.
+
+The XML metadata is used in two places:
+
+1. **OpenAPI generation**: the attributes populate the OpenAPI `schema.xml` metadata.
+2. **Runtime XML conversion**: the same metadata is applied to **serialize and deserialize XML**.
+
+That means any object/class annotated with `OpenApiXml` can be:
+
+- **Written as modeled XML** (outbound) when the response is XML.
+- **Read from modeled XML** (inbound) when `Content-Type: application/xml`.
+
+Supported options include:
+
+- `Name`: override the element/attribute name.
+- `Attribute`: model a property as an XML attribute.
+- `Namespace` / `Prefix`: add a namespace and preferred prefix.
+- `Wrapped`: model arrays with a wrapper element.
+
+Example (PowerShell):
+
+```powershell
+[OpenApiSchemaComponent(RequiredProperties = ('Id', 'Name', 'Price'))]
+[OpenApiXml(Name = 'Product')]
+class Product {
+    [OpenApiXml(Name = 'id', Attribute = $true)]
+    [int]$Id
+
+    [OpenApiXml(Name = 'ProductName')]
+    [string]$Name
+
+    [OpenApiXml(Name = 'Price', Namespace = 'http://example.com/pricing', Prefix = 'price')]
+    [double]$Price
+
+    [OpenApiXml(Name = 'Item', Wrapped = $true)]
+    [string[]]$Items
+}
+
+function createProduct {
+    [OpenApiPath(HttpVerb = 'post', Pattern = '/products')]
+    [OpenApiResponse(StatusCode = '201', Schema = [Product], ContentType = ('application/json', 'application/xml'))]
+    param(
+        [OpenApiRequestBody(ContentType = 'application/xml')]
+        [Product]$Body
+    )
+
+    # $Body is populated from XML using the OpenApiXml mapping.
+    Write-KrResponse -InputObject $Body -StatusCode 201
+}
+```
+
+> **Note:** PowerShell script-defined classes are dynamic per runspace.
+> Kestrun handles this by parsing XML using the OpenApiXml mapping and letting PowerShell bind/convert in the active request runspace.
+
+See the runnable tutorial: [docs/pwsh/tutorial/10.openapi/23.XML-Modeling.md](/pwsh/tutorial/10.openapi/23.XML-Modeling)
+
+---
+
 ## 5. Component Request Bodies
 
 Use `[OpenApiRequestBodyComponent]` to define reusable request payloads. You can inherit from existing schemas to avoid duplication.

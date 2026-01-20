@@ -38,5 +38,9 @@ Describe 'Example 10.3 OpenAPI Component RequestBody' -Tag 'OpenApi', 'Tutorial'
         $json.components.requestBodies.CreateProductRequest | Should -Not -BeNullOrEmpty
         $json.components.requestBodies.UpdateProductRequest | Should -Not -BeNullOrEmpty
     }
+
+    It 'OpenAPI output matches 10.3 fixture JSON' {
+        Test-OpenApiDocumentMatchesExpected -Instance $script:instance
+    }
 }
 

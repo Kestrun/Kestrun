@@ -20,36 +20,63 @@ New-KrLogger | Add-KrSinkConsole |
     Set-KrLoggerLevel -Value Debug |
     Register-KrLogger -Name 'console' -SetAsDefault
 
-$srv = New-KrServer -Name 'Redocly Museum API' -PassThru
+New-KrServer -Name 'Redocly Museum API'
 Add-KrEndpoint -Port $Port -IPAddress $IPAddress
 # =========================================================
 #                 TOP-LEVEL OPENAPI (3.1.0)
 # =========================================================
-
+#region Info
 Add-KrOpenApiInfo -Title 'Redocly Museum API' `
     -Version '1.1.1' `
-    -Description 'Imaginary, but delightful Museum API for interacting with museum services and information. Built with love by Redocly.'
+    -Description 'An imaginary, but delightful Museum API for interacting with museum services and information. Built with love by Redocly.'
 
-Add-KrOpenApiContact -Email 'team@redocly.com' -Url 'https://redocly.com/docs/cli/'
+Add-KrOpenApiContact -Email 'team@redocly.com' -Url 'https://redocly.com/docs/cli/' -Extensions (
+    [ordered]@{
+        'x-logo' = [ordered]@{
+            'url' = 'https://redocly.github.io/redoc/museum-logo.png'
+            'altText' = 'Museum logo'
+        }
+    })
+
+
 Add-KrOpenApiLicense -Name 'MIT' -Url 'https://opensource.org/license/mit/'
-Add-KrOpenApiServer -Url 'https://api.fake-museum-example.com/v1'
 
-# TODO: info.x-logo is not modeled yet (url + altText). Add an extension attribute when available.
-
+# Note: contact/logo metadata is expressed via `info.contact` vendor extensions (e.g. `x-logo`) using the -Extensions parameter as shown above.
+#endregion
+#region Tags
+# =========================================================
+#                      TAG DEFINITIONS
+# =========================================================
 # Tags
-Add-KrOpenApiTag -Name 'Operations' -Description 'Operational information about the museum.'  # x-displayName: About the museum
-Add-KrOpenApiTag -Name 'Events' -Description 'Special events hosted by the Museum.'      # x-displayName: Upcoming events
-Add-KrOpenApiTag -Name 'Tickets' -Description 'Museum tickets for general entrance or special events.' # x-displayName: Buy tickets
+Add-KrOpenApiTag -Name 'Plan your visit' -Description 'Group for visit planning endpoints.' -Kind 'nav'
+Add-KrOpenApiTag -Name 'Purchases' -Description 'Group for purchase-related endpoints.' -Kind 'nav'
 
-# TODO: x-tagGroups (Plan your visit / Purchases) not modeled yet. Add tag-group extension support later.
-
+Add-KrOpenApiTag -Name 'Operations' -Description 'Operational information about the museum.' -Parent 'Plan your visit' -Extensions @{ 'x-displayName' = 'About the museum' }
+Add-KrOpenApiTag -Name 'Events' -Description 'Special events hosted by the Museum.' -Parent 'Plan your visit' -Extensions ([ordered]@{ 'x-displayName' = 'Upcoming events' })
+Add-KrOpenApiTag -Name 'Tickets' -Description 'Museum tickets for general entrance or special events.' -Parent 'Purchases' -Extensions ([ordered]@{ 'x-displayName' = 'Buy tickets' })
+#endregion
+#region Extensions
+$extensions = [ordered]@{
+    'x-tagGroups' = @(
+        [ordered]@{
+            'name' = 'Plan your visit'
+            'tags' = @('Operations', 'Events')
+        }
+        [ordered]@{
+            'name' = 'Purchases'
+            'tags' = @('Tickets')
+        })
+}
+Add-KrOpenApiExtension -Extensions $extensions
+#endregion
+#region Components
 # =========================================================
 #                      COMPONENT SCHEMAS
 # =========================================================
 
 
 [OpenApiSchemaComponent( Description = 'Daily operating hours for the museum.',
-    Required = ('date', 'timeOpen', 'timeClose'))]
+    RequiredProperties = ('date', 'timeOpen', 'timeClose'))]
 class MuseumDailyHours {
     [OpenApiProperty(Description = 'Date the operating hours apply to.', Example = '2024-12-31')]
     [Date]$date
@@ -72,7 +99,7 @@ class GetMuseumHoursResponse:MuseumDailyHours {}
 
 [OpenApiSchemaComponent(
     Description = 'Request payload for creating new special events at the museum.',
-    Required = ('name', 'location', 'eventDescription', 'dates', 'price')
+    RequiredProperties = ('name', 'location', 'eventDescription', 'dates', 'price')
 )]
 class CreateSpecialEventRequest {
     [EventName]$name
@@ -96,7 +123,7 @@ class UpdateSpecialEventRequest {
 
 
 [OpenApiSchemaComponent(  Description = 'Information about a special event.',
-    Required = ('eventId', 'name', 'location', 'eventDescription', 'dates', 'price')
+    RequiredProperties = ('eventId', 'name', 'location', 'eventDescription', 'dates', 'price')
 )]
 class SpecialEventResponse {
     [EventId]$eventId
@@ -133,48 +160,47 @@ class ListSpecialEventsResponse:SpecialEventResponse {}
 [OpenApiSchemaComponent(
     Description = 'Type of ticket being purchased. Use `general` for regular entry and `event` for special events.',
     Enum = ('event', 'general'), Example = 'event')]
-class TicketType:OaString {}
+class TicketType:OpenApiString {}
 
 [OpenApiSchemaComponent(
     Description = 'Unique identifier for museum ticket. Generated when purchased.',
     Format = 'uuid', Example = 'a54a57ca-36f8-421b-a6b4-2e8f26858a4c')]
-class TicketId:OaString {}
+class TicketId:OpenApiString {}
 
 [OpenApiSchemaComponent(
     Description = 'Confirmation message after a ticket purchase.',
     Example = 'Museum general entry ticket purchased')]
-class TicketMessage:OaString {}
+class TicketMessage:OpenApiString {}
 
 [OpenApiSchemaComponent(
     Description = 'Unique confirmation code used to verify ticket purchase.',
     Example = 'ticket-event-a98c8f-7eb12')]
-class TicketConfirmation:OaString {}
+class TicketConfirmation:OpenApiString {}
 
 [OpenApiSchemaComponent(Description = 'Identifier for a special event.',
     Format = 'uuid', Example = '3be6453c-03eb-4357-ae5a-984a0e574a54'
 )]
-class eventId:OaString {}
+class eventId:OpenApiString {}
 
 [OpenApiSchemaComponent(Description = 'Name of the special event',
     Example = 'Pirate Coding Workshop'
 )]
-class EventName:OaString {}
+class EventName:OpenApiString {}
 
 [OpenApiSchemaComponent(Description = 'Location where the special event is held.',
     Example = 'Computer Room')]
-class EventLocation :OaString {}
+class EventLocation :OpenApiString {}
 
 [OpenApiSchemaComponent(Description = 'Description of the special event',
     Example = 'Captain Blackbeard shares his love of the C...language. And possibly Arrrrr (R lang).')]
-class EventDescription:OaString {}
+class EventDescription:OpenApiString {}
 
 [OpenApiSchemaComponent(Description = 'Price of a ticket for the special event',
-    format = 'float', Example = 25)]
-class EventPrice:OaNumber {}
+    Format = 'float', Example = 25)]
+class EventPrice:OpenApiNumber {}
 
-[OpenApiSchemaComponent(
-    Format = 'date', Example = '2023-10-29')]
-class Date:OaString {}
+[OpenApiSchemaComponent( Example = '2023-10-29')]
+class Date:OpenApiDate {}
 
 [OpenApiSchemaComponent( Description = 'List of planned dates for the special event',
     Array = $true)]
@@ -182,21 +208,21 @@ class EventDates:Date {}
 
 [OpenApiSchemaComponent(Description = 'Email address for ticket purchaser.',
     Format = 'email', Example = 'museum-lover@example.com')]
-class Email :OaString {}
+class Email :OpenApiString {}
 
 [OpenApiSchemaComponent(Description = 'Phone number for the ticket purchaser (optional).',
     Example = '+1(234)-567-8910')]
-class Phone :OaString {}
+class Phone :OpenApiString {}
 
 [OpenApiSchemaComponent(Description = 'Request payload used for purchasing museum tickets.',
-    Required = ('ticketType', 'ticketDate', 'email'))]
+    RequiredProperties = ('ticketType', 'ticketDate', 'email'))]
 class BuyMuseumTicketsRequest {
     [TicketType]$ticketType
 
     [OpenApiProperty(Format = 'uuid', Description = "Unique identifier for a special event. Required if purchasing tickets for the museum's special events.")]
     [EventId]$eventId
 
-    [OpenApiProperty(Format = 'date', Description = 'Date that the ticket is valid for.')]
+    [OpenApiProperty(Description = 'Date that the ticket is valid for.')]
     [Date]$ticketDate
 
     [OpenApiProperty(Format = 'email')]
@@ -205,9 +231,8 @@ class BuyMuseumTicketsRequest {
     [Phone]$phone
 }
 
-
 [OpenApiSchemaComponent(Description = 'Details for a museum ticket after a successful purchase.',
-    Required = ('message', 'ticketId', 'ticketType', 'ticketDate', 'confirmationCode'))]
+    RequiredProperties = ('message', 'ticketId', 'ticketType', 'ticketDate', 'confirmationCode'))]
 class BuyMuseumTicketsResponse {
     [TicketMessage]$message
     [EventName]$eventName
@@ -222,13 +247,11 @@ class BuyMuseumTicketsResponse {
     [TicketConfirmation]$confirmationCode
 }
 
-
 [OpenApiSchemaComponent(
-    Description = 'An image of a ticket with a QR code used for museum or event entry.',
-    Type = 'string', Format = 'binary' )]
-class GetTicketCodeResponse {
+    Description = 'An image of a ticket with a QR code used for museum or event entry.' )]
+class GetTicketCodeResponse:OpenApiBinary {
 }
-
+#endregion
 #region Examples
 # =========================================================
 #                 COMPONENT EXAMPLES
@@ -440,33 +463,30 @@ New-KrOpenApiExample -Summary 'Get hours response' -Value $museumHoursValue |
 # These model components.parameters from museum.yml.
 # NOTE: we approximate with a class + property decorated as a parameter.
 #       The ReferenceId used by OpenApiParameterRefAttribute matches the class name.
-[OpenApiParameterComponent()]
-class MuseumParameters {
-    [OpenApiParameter(In = [OaParameterLocation]::Query,
-        Description = 'The number of days per page.')]
-    [int]$paginationLimit
 
-    [OpenApiParameter(In = [OaParameterLocation]::Query,
-        Description = 'The page number to retrieve.')]
-    [int]$paginationPage
+[OpenApiParameterComponent(In = 'Query',
+    Description = 'The number of days per page.')]
+[int]$PaginationLimit = NoDefault
 
-    [OpenApiParameter(In = [OaParameterLocation]::Query,
-        Description = "The starting date to retrieve future operating hours from. Defaults to today's date.")]
-    [datetime]$startDate
+[OpenApiParameterComponent(In = 'Query', Description = 'The page number to retrieve.')]
+[int]$PaginationPage = NoDefault
 
-    [OpenApiParameter(In = [OaParameterLocation]::Path, Required = $true,
-        Description = 'An identifier for a special event.', Example = 'dad4bce8-f5cb-4078-a211-995864315e39')]
-    [guid]$eventId
+[OpenApiParameterComponent(In = 'Query',
+    Description = "The starting date to retrieve future operating hours from. Defaults to today's date." )]
+[OpenApiDate]$StartDate = NoDefault
 
-    [OpenApiParameter(In = [OaParameterLocation]::Query,
-        Description = 'The end of a date range to retrieve special events for. Defaults to 7 days after startDate.')]
-    [OpenApiProperty(Format = 'date')]
-    [string]$endDate
+[OpenApiParameterComponent(In = 'Path', Required = $true,
+    Description = 'An identifier for a special event.', Example = 'dad4bce8-f5cb-4078-a211-995864315e39')]
+[guid]$eventId = NoDefault
 
-    [OpenApiParameter(In = [OaParameterLocation]::Path, Required = $true,
-        Description = 'An identifier for a ticket to a museum event. Used to generate ticket image.')]
-    [Guid]$ticketId
-}
+[OpenApiParameterComponent(In = 'Query',
+    Description = 'The end of a date range to retrieve special events for. Defaults to 7 days after StartDate.')]
+[OpenApiDate]$endDate = NoDefault
+
+[OpenApiParameterComponent(In = 'Path', Required = $true,
+    Description = 'An identifier for a ticket to a museum event. Used to generate ticket image.')]
+[Guid]$ticketId = NoDefault
+
 
 #endregion
 # =========================================================
@@ -511,45 +531,45 @@ Add-KrApiDocumentationRoute -DocumentType Elements
 # GET /museum-hours
 # --------------------------------------
 
-
-function getMuseumHours {
-    <#
+<#
 .SYNOPSIS
     Get museum hours.
 .DESCRIPTION
     Get upcoming museum operating hours.
 #>
-    [OpenApiPath(HttpVerb = 'get', Pattern = '/museum-hours', Tags = 'Operations')]
+function getMuseumHours {
 
-    [OpenApiResponse(StatusCode = '200', SchemaRef = 'GetMuseumHoursResponse' , Description = 'Success')]
+    [OpenApiPath(HttpVerb = 'get', Pattern = '/museum-hours', Tags = 'Operations')]
+    [OpenApiExtension('x-badges', '{"name":"Beta","position":"before","color":"purple"}')]
+    [OpenApiResponse(StatusCode = '200', Schema = [GetMuseumHoursResponse] , Description = 'Success')]
     [OpenApiResponseExampleRef(StatusCode = '200', Key = 'default_example', ReferenceId = 'GetMuseumHoursResponseExample')]
     [OpenApiResponse(StatusCode = '400', Description = 'Bad request')]
     [OpenApiResponse(StatusCode = '404', Description = 'Not found')]
     # TODO: 400/404 responses are inline in museum.yml; you could introduce response components and use OpenApiResponseRefAttribute.
 
     param(
-        [OpenApiParameterRef(ReferenceId = 'startDate')]
-        [datetime]$startDate,
+        [OpenApiParameterRef(ReferenceId = 'StartDate')]
+        [datetime]$StartDate,
 
-        [OpenApiParameterRef(ReferenceId = 'paginationPage')]
-        [int]$paginationPage = 1,
+        [OpenApiParameterRef(ReferenceId = 'PaginationPage')]
+        [int]$PaginationPage = 1,
 
-        [OpenApiParameterRef(ReferenceId = 'paginationLimit')]
-        [int]$paginationLimit = 10
+        [OpenApiParameterRef(ReferenceId = 'PaginationLimit')]
+        [int]$PaginationLimit = 10
     )
 
-    Write-Host "getMuseumHours called startDate='$startDate' page='$paginationPage' limit='$paginationLimit'"
+    Write-Host "getMuseumHours called StartDate='$StartDate' page='$PaginationPage' limit='$PaginationLimit'"
 
-    # Dummy payload approximating GetMuseumHoursResponse (wrapped object with items[]).
+    # Dummy payload approximating GetMuseumHoursResponse: a plain array of MuseumDailyHours objects.
     $hours = @(
         [MuseumDailyHours]@{
-            date = (if ($startDate) { $startDate } else { (Get-Date).ToString('yyyy-MM-dd') })
+            date = $(if ($StartDate) { $StartDate } else { (Get-Date).ToString('yyyy-MM-dd') })
             timeOpen = '09:00'
             timeClose = '18:00'
         }
     )
-    $resp = [GetMuseumHoursResponse]::new()
-    $resp.items = $hours
+    $resp = @()
+    $resp += $hours
     Write-KrJsonResponse $resp -StatusCode 200
 }
 
@@ -565,7 +585,7 @@ function createSpecialEvent {
     [OpenApiPath(HttpVerb = 'post', Pattern = '/special-events', Tags = 'Events')]
     # TODO: museum.yml sets security: [] here (no auth); add per-operation override when supported.
 
-    [OpenApiResponse(StatusCode = '201', Description = 'Created.', SchemaRef = 'SpecialEventResponse')]
+    [OpenApiResponse(StatusCode = '201', Description = 'Created.', Schema = [SpecialEventResponse])]
     [OpenApiResponseExampleRef(StatusCode = '201', Key = 'default_example', ReferenceId = 'CreateSpecialEventResponseExample')]
     [OpenApiResponse(StatusCode = '400', Description = 'Bad request')]
     [OpenApiResponse(StatusCode = '404', Description = 'Not found')]
@@ -597,7 +617,7 @@ function listSpecialEvents {
     List special events.
 .DESCRIPTION
     Return a list of upcoming special events at the museum.
-.PARAMETER startDate
+.PARAMETER StartDate
     The starting date to retrieve future special events from. Defaults to today's date.
 .PARAMETER endDate
     The ending date to retrieve future special events up to. Defaults to no end date.
@@ -609,7 +629,7 @@ function listSpecialEvents {
     [OpenApiPath(HttpVerb = 'get', Pattern = '/special-events', Tags = 'Events')]
     # TODO: museum.yml sets security: [] here (no auth); add per-operation override when supported.
 
-    [OpenApiResponse(StatusCode = '200', SchemaRef = 'ListSpecialEventsResponse' , Description = 'Success')]
+    [OpenApiResponse(StatusCode = '200', Schema = [ListSpecialEventsResponse] , Description = 'Success')]
     [OpenApiResponseExampleRef(StatusCode = '200', Key = 'default_example', ReferenceId = 'ListSpecialEventsResponseExample')]
     [OpenApiResponse(StatusCode = '400', Description = 'Bad request')]
     [OpenApiResponse(StatusCode = '404', Description = 'Not found')]
@@ -617,7 +637,7 @@ function listSpecialEvents {
     param(
         [OpenApiParameter( In = [OaParameterLocation]::Query, Example = '2023-02-23')]
 
-        [DateTime]$startDate,
+        [DateTime]$StartDate,
 
         [OpenApiParameter( In = [OaParameterLocation]::Query, Example = '2023-04-18')]
         [DateTime]$endDate,
@@ -630,7 +650,7 @@ function listSpecialEvents {
         [int]$limit = 10
     )
 
-    Write-Host "listSpecialEvents called startDate='$startDate' endDate='$endDate' page='$page' limit='$limit'"
+    Write-Host "listSpecialEvents called StartDate='$StartDate' endDate='$endDate' page='$page' limit='$limit'"
     $specialEvent = [SpecialEventResponse]::new()
     $specialEvent.eventId = [Guid]::NewGuid().ToString()
     $specialEvent.name = 'Sample Event'
@@ -661,7 +681,7 @@ function getSpecialEvent {
 #>
     [OpenApiPath(HttpVerb = 'get', Pattern = '/special-events/{eventId}', Tags = 'Events')]
 
-    [OpenApiResponse(StatusCode = '200', Description = 'Success', SchemaRef = 'SpecialEventResponse')]
+    [OpenApiResponse(StatusCode = '200', Description = 'Success', Schema = [SpecialEventResponse])]
     [OpenApiResponseExampleRef(StatusCode = '200', Key = 'default_example', ReferenceId = 'GetSpecialEventResponseExample')]
     [OpenApiResponse(StatusCode = '400', Description = 'Bad request')]
     [OpenApiResponse(StatusCode = '404', Description = 'Not found')]
@@ -762,7 +782,7 @@ function buyMuseumTickets {
 #>
     [OpenApiPath(HttpVerb = 'post', Pattern = '/tickets', Tags = 'Tickets')]
 
-    [OpenApiResponse(StatusCode = '200', Description = 'Success', SchemaRef = 'BuyMuseumTicketsResponse')]
+    [OpenApiResponse(StatusCode = '200', Description = 'Success', Schema = [BuyMuseumTicketsResponse])]
     [OpenApiResponseExampleRef(StatusCode = '200', Key = 'general_entry', ReferenceId = 'BuyGeneralTicketsResponseExample')]
     [OpenApiResponseExampleRef(StatusCode = '200', Key = 'event_entry', ReferenceId = 'BuyEventTicketsResponseExample')]
     [OpenApiResponse(StatusCode = '400', Description = 'Bad request')]
@@ -815,7 +835,7 @@ function getTicketCode {
     [OpenApiPath(HttpVerb = 'get', Pattern = '/tickets/{ticketId}/qr', Tags = 'Tickets')]
 
     [OpenApiResponse(StatusCode = '200', Description = 'Scannable event ticket in image format',
-        SchemaRef = 'GetTicketCodeResponse',
+        Schema = [GetTicketCodeResponse],
         ContentType = 'image/png')]
     [OpenApiResponse(StatusCode = '400', Description = 'Bad request')]
     [OpenApiResponse(StatusCode = '404', Description = 'Not found')]
@@ -839,9 +859,14 @@ function getTicketCode {
 Add-KrOpenApiRoute  # Default pattern '/openapi/{version}/openapi.{format}'
 
 Build-KrOpenApiDocument
-Test-KrOpenApiDocument
+# Test and log OpenAPI document validation result
+if (Test-KrOpenApiDocument) {
+    Write-KrLog -Level Information -Message 'OpenAPI document built and validated successfully.'
+} else {
+    Write-KrLog -Level Error -Message 'OpenAPI document validation failed.'
+}
 
 # =========================================================
 #                      RUN SERVER
 # =========================================================
-Start-KrServer -Server $srv -CloseLogsOnExit
+Start-KrServer -CloseLogsOnExit

@@ -4,29 +4,43 @@
 .DESCRIPTION
     This function creates a new OpenAPI Link object that can be used to define relationships between operations
     in an OpenAPI specification. Links allow you to specify how the output of one operation can be used as input to another operation.
+.PARAMETER Server
+    The Kestrun server instance to which the OpenAPI link will be associated.
+    If not specified, the function will attempt to resolve the current server context.
 .PARAMETER OperationRef
     A reference to an existing operation in the OpenAPI specification using a JSON Reference.
 .PARAMETER OperationId
     The operationId of an existing operation in the OpenAPI specification.
 .PARAMETER Description
     A description of the link.
-.PARAMETER Server
+.PARAMETER OpenApiServer
     An OpenAPI Server object that specifies the server to be used for the linked operation.
 .PARAMETER Parameters
     A hashtable mapping parameter names to runtime expressions or literal objects that define the parameters for the linked operation.
 .PARAMETER RequestBody
     A runtime expression or literal object that defines the request body for the linked operation.
+.PARAMETER Extensions
+    A collection of OpenAPI extensions to add to the link.
 .EXAMPLE
     $link = New-KrOpenApiLink -OperationId "getUser" -Description "Link to get user details" -Parameters @{ "userId" = "$response.body#/id" }
     This link creates a new OpenAPI Link object that links to the "getUser" operation, with a description and parameters.
+.EXAMPLE
+    $link = New-KrOpenApiLink -OperationRef "#/paths/~1users~1{userId}/get" -Description "Link to get user details"
+    This link creates a new OpenAPI Link object that links to the operation referenced by the provided JSON Reference, with a description.
+.OUTPUTS
+    Microsoft.OpenApi.OpenApiLink object.
 .NOTES
     This function is part of the Kestrun PowerShell module for working with OpenAPI specifications.
 #>
 function New-KrOpenApiLink {
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseShouldProcessForStateChangingFunctions', '')]
     [KestrunRuntimeApi('Definition')]
+    [OutputType([Microsoft.OpenApi.OpenApiLink])]
     [CmdletBinding(DefaultParameterSetName = 'ByOperationId')]
     param(
+        [Parameter(Mandatory = $false, ValueFromPipeline = $true)]
+        [Kestrun.Hosting.KestrunHost]$Server,
+
         [Parameter(Mandatory = $true, ParameterSetName = 'ByOperationRef')]
         [ValidateNotNullOrEmpty()]
         [string]$OperationRef,
@@ -39,67 +53,35 @@ function New-KrOpenApiLink {
         [string]$Description,
 
         [Parameter()]
-        # Accept a prebuilt OpenAPI server (use New-KrOpenApiServer)
-        [Microsoft.OpenApi.OpenApiServer] $Server,
+        [Microsoft.OpenApi.OpenApiServer]$OpenApiServer,
 
-        # Hashtable: name -> string(runtime expression) OR literal object
-        [hashtable]$Parameters,
+        [Parameter()]
+        [System.Collections.IDictionary]$Parameters,
 
-        # ✅ Support string(runtime expression) OR literal object (hashtable/array/etc.)
-        [object] $RequestBody
+        [Parameter()]
+        [object] $RequestBody,
+
+        [Parameter()]
+        [System.Collections.IDictionary]$Extensions
     )
 
-    # Extra safety: parameter sets should prevent this, but keep it robust.
-    if (-not [string]::IsNullOrWhiteSpace($OperationId) -and -not [string]::IsNullOrWhiteSpace($OperationRef)) {
-        throw 'OperationId and OperationRef are mutually exclusive in an OpenAPI Link.'
+    begin {
+        # Ensure the server instance is resolved
+        $Server = Resolve-KestrunServer -Server $Server
     }
-
-    $link = [Microsoft.OpenApi.OpenApiLink]::new()
-
-    if (-not [string]::IsNullOrWhiteSpace($Description)) {
-        $link.Description = $Description
-    }
-
-    if ($null -ne $Server) {
-        $link.Server = $Server
-    }
-
-    switch ($PSCmdlet.ParameterSetName) {
-        'ByOperationRef' { $link.OperationRef = $OperationRef }
-        'ByOperationId' { $link.OperationId = $OperationId }
-    }
-
-    # RequestBody: runtime expression string OR literal object
-    if ($null -ne $RequestBody) {
-        $rbWrapper = [Microsoft.OpenApi.RuntimeExpressionAnyWrapper]::new()
-
-        if ($RequestBody -is [string] -and -not [string]::IsNullOrWhiteSpace($RequestBody)) {
-            $rbWrapper.Expression = [Microsoft.OpenApi.RuntimeExpression]::Build($RequestBody)
-            $link.RequestBody = $rbWrapper
-        } elseif ($RequestBody -isnot [string]) {
-            $rbWrapper.Any = [Kestrun.OpenApi.OpenApiJsonNodeFactory]::FromObject($RequestBody)
-            $link.RequestBody = $rbWrapper
+    process {
+        # Create link for the specified OpenAPI document
+        if ($Server.OpenApiDocumentDescriptor.Count -gt 0 ) {
+            $docDescriptor = $Server.DefaultOpenApiDocumentDescriptor
+            $link = $docDescriptor.NewOpenApiLink(
+                $OperationRef,
+                $OperationId,
+                $Description,
+                $OpenApiServer,
+                $Parameters,
+                $RequestBody,
+                $Extensions)
+            return $link
         }
     }
-
-    # Parameters
-    if ($null -ne $Parameters -and $Parameters.Count -gt 0) {
-        $link.Parameters ??= [System.Collections.Generic.Dictionary[string, Microsoft.OpenApi.RuntimeExpressionAnyWrapper]]::new()
-
-        foreach ($key in $Parameters.Keys) {
-            $value = $Parameters[$key]
-            $pWrapper = [Microsoft.OpenApi.RuntimeExpressionAnyWrapper]::new()
-
-            if ($value -is [string]) {
-                $pWrapper.Expression = [Microsoft.OpenApi.RuntimeExpression]::Build($value)
-            } else {
-                $pWrapper.Any = [Kestrun.OpenApi.OpenApiJsonNodeFactory]::FromObject($value)
-            }
-
-            $link.Parameters[$key] = $pWrapper
-        }
-    }
-
-    return $link
 }
-

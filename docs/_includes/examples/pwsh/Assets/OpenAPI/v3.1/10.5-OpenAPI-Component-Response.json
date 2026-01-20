@@ -1,0 +1,485 @@
+{
+  "openapi": "3.1.2",
+  "info": {
+    "title": "Response Component API",
+    "description": "Demonstrates reusable response components.",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/articles": {
+      "post": {
+        "summary": "Create a new article.",
+        "description": "Creates a new article and returns success response or error.",
+        "operationId": "createArticle",
+        "requestBody": {
+          "description": "Article data (title and content required)",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Article"
+              }
+            },
+            "application/xml": {
+              "schema": {
+                "$ref": "#/components/schemas/Article"
+              }
+            },
+            "application/x-www-form-urlencoded": {
+              "schema": {
+                "$ref": "#/components/schemas/Article"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "$ref": "#/components/responses/Created"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          }
+        }
+      }
+    },
+    "/articles/{articleId}": {
+      "delete": {
+        "operationId": "deleteArticle",
+        "parameters": [
+          {
+            "name": "articleId",
+            "in": "path",
+            "description": "Article ID to delete",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/OK"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      },
+      "get": {
+        "summary": "Get article by ID.",
+        "description": "Retrieves a single article. Returns Article on success or ErrorResponse on failure.",
+        "operationId": "getArticle",
+        "parameters": [
+          {
+            "name": "articleId",
+            "in": "path",
+            "description": "Article ID to retrieve",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Article retrieved successfully",
+            "headers": {
+              "X-Correlation-Id": {
+                "$ref": "#/components/headers/X-Correlation-Id"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Article"
+                }
+              },
+              "application/xml": {
+                "schema": {
+                  "$ref": "#/components/schemas/Article"
+                }
+              }
+            },
+            "links": {
+              "delete": {
+                "$ref": "#/components/links/DeleteArticleLink"
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/ArticleResponsesNotFound"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "ErrorResponse": {
+        "required": [
+          "statusCode",
+          "message"
+        ],
+        "type": "object",
+        "properties": {
+          "statusCode": {
+            "type": "integer",
+            "description": "HTTP status code",
+            "format": "int32",
+            "example": 400
+          },
+          "message": {
+            "type": "string",
+            "description": "Error message",
+            "example": "Invalid request"
+          },
+          "code": {
+            "type": "string",
+            "description": "Error code identifier",
+            "example": "INVALID_INPUT"
+          },
+          "details": {
+            "type": "string",
+            "description": "Additional error details"
+          }
+        }
+      },
+      "Article": {
+        "required": [
+          "id",
+          "title",
+          "content"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "description": "Article ID",
+            "format": "int64",
+            "example": 1
+          },
+          "title": {
+            "type": "string",
+            "description": "Article title",
+            "example": "Getting Started with OpenAPI"
+          },
+          "content": {
+            "type": "string",
+            "description": "Article content",
+            "example": "This article covers..."
+          },
+          "publishedAt": {
+            "type": "string",
+            "description": "Publication date",
+            "format": "date",
+            "example": "2025-01-15"
+          },
+          "author": {
+            "type": "string",
+            "description": "Author name",
+            "example": "John Doe"
+          }
+        }
+      },
+      "SuccessResponse": {
+        "required": [
+          "id",
+          "message",
+          "timestamp"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "description": "Operation ID",
+            "format": "int64"
+          },
+          "message": {
+            "type": "string",
+            "description": "Success message",
+            "example": "Resource created successfully"
+          },
+          "timestamp": {
+            "type": "string",
+            "description": "Operation timestamp",
+            "format": "date-time"
+          }
+        }
+      }
+    },
+    "responses": {
+      "OK": {
+        "description": "Operation completed successfully",
+        "headers": {
+          "X-Correlation-Id": {
+            "$ref": "#/components/headers/X-Correlation-Id"
+          }
+        },
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/SuccessResponse"
+            }
+          },
+          "application/xml": {
+            "schema": {
+              "$ref": "#/components/schemas/SuccessResponse"
+            }
+          }
+        },
+        "links": {
+          "get": {
+            "$ref": "#/components/links/GetArticleLink"
+          },
+          "delete": {
+            "$ref": "#/components/links/DeleteArticleLink"
+          }
+        },
+        "x-kestrun-demo": {
+          "stability": "beta",
+          "audience": "public",
+          "headers": [
+            "X-Correlation-Id"
+          ],
+          "links": [
+            "get",
+            "delete"
+          ],
+          "kind": "success"
+        }
+      },
+      "Created": {
+        "description": "Resource created successfully",
+        "headers": {
+          "X-Correlation-Id": {
+            "$ref": "#/components/headers/X-Correlation-Id"
+          }
+        },
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/SuccessResponse"
+            },
+            "examples": {
+              "default": {
+                "$ref": "#/components/examples/ArticleCreatedResponseExample"
+              }
+            }
+          },
+          "application/xml": {
+            "schema": {
+              "$ref": "#/components/schemas/SuccessResponse"
+            },
+            "examples": {
+              "default": {
+                "$ref": "#/components/examples/ArticleCreatedResponseExample"
+              }
+            }
+          }
+        },
+        "links": {
+          "get": {
+            "$ref": "#/components/links/GetArticleLink"
+          },
+          "delete": {
+            "$ref": "#/components/links/DeleteArticleLink"
+          }
+        }
+      },
+      "BadRequest": {
+        "description": "Bad request - validation failed",
+        "headers": {
+          "X-Correlation-Id": {
+            "$ref": "#/components/headers/X-Correlation-Id"
+          }
+        },
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            },
+            "examples": {
+              "default": {
+                "$ref": "#/components/examples/BadRequestErrorExample"
+              }
+            }
+          },
+          "application/xml": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            },
+            "examples": {
+              "default": {
+                "$ref": "#/components/examples/BadRequestErrorExample"
+              }
+            }
+          }
+        }
+      },
+      "NotFound": {
+        "description": "Resource not found",
+        "headers": {
+          "X-Correlation-Id": {
+            "$ref": "#/components/headers/X-Correlation-Id"
+          }
+        },
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            },
+            "examples": {
+              "default": {
+                "$ref": "#/components/examples/NotFoundErrorExample"
+              }
+            }
+          },
+          "application/xml": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            },
+            "examples": {
+              "default": {
+                "$ref": "#/components/examples/NotFoundErrorExample"
+              }
+            }
+          }
+        }
+      },
+      "ArticleResponsesNotFound": {
+        "description": "Article not found",
+        "headers": {
+          "X-Correlation-Id": {
+            "$ref": "#/components/headers/X-Correlation-Id"
+          }
+        },
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            },
+            "examples": {
+              "default": {
+                "$ref": "#/components/examples/NotFoundErrorExample"
+              }
+            }
+          },
+          "application/xml": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            },
+            "examples": {
+              "default": {
+                "$ref": "#/components/examples/NotFoundErrorExample"
+              }
+            }
+          }
+        }
+      },
+      "objectResponse": {
+        "description": "Generic object response",
+        "headers": {
+          "X-Correlation-Id": {
+            "$ref": "#/components/headers/X-Correlation-Id"
+          }
+        }
+      },
+      "intResponse": {
+        "description": "A generic integer response",
+        "headers": {
+          "X-Correlation-Id": {
+            "$ref": "#/components/headers/X-Correlation-Id"
+          }
+        },
+        "content": {
+          "application/json": {
+            "schema": {
+              "type": "integer",
+              "description": "A generic integer response",
+              "format": "int32"
+            }
+          },
+          "application/xml": {
+            "schema": {
+              "type": "integer",
+              "description": "A generic integer response",
+              "format": "int32"
+            }
+          }
+        }
+      }
+    },
+    "examples": {
+      "ArticleCreatedResponseExample": {
+        "summary": "Article created response",
+        "value": {
+          "id": 1,
+          "message": "Article created successfully",
+          "timestamp": "2026-01-08T00:00:00Z"
+        }
+      },
+      "BadRequestErrorExample": {
+        "summary": "Bad request error",
+        "value": {
+          "statusCode": 400,
+          "message": "Validation failed",
+          "code": "VALIDATION_ERROR",
+          "details": "title and content are required"
+        }
+      },
+      "NotFoundErrorExample": {
+        "summary": "Not found error",
+        "value": {
+          "statusCode": 404,
+          "message": "Article not found",
+          "code": "NOT_FOUND",
+          "details": "No article exists with id 404"
+        }
+      }
+    },
+    "headers": {
+      "X-Correlation-Id": {
+        "description": "Correlation id for tracing the request across services.",
+        "required": true,
+        "schema": {
+          "type": "string"
+        },
+        "examples": {
+          "uuid": {
+            "summary": "Correlation id",
+            "value": "7b2a8e5d-0d7c-4f0a-9b3c-3f9d0b8ad7b1"
+          }
+        }
+      }
+    },
+    "links": {
+      "GetArticleLink": {
+        "operationId": "getArticle",
+        "parameters": {
+          "articleId": "$response.body#/id"
+        },
+        "description": "Get the returned/created article."
+      },
+      "DeleteArticleLink": {
+        "operationId": "deleteArticle",
+        "parameters": {
+          "articleId": "$response.body#/id"
+        },
+        "description": "Delete the returned/created article."
+      }
+    }
+  },
+  "tags": [
+    {
+      "name": "Articles",
+      "description": "Article CRUD operations."
+    }
+  ]
+}

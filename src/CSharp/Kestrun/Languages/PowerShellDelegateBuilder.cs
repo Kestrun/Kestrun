@@ -11,7 +11,6 @@ internal static class PowerShellDelegateBuilder
 {
     public const string PS_INSTANCE_KEY = "PS_INSTANCE";
     public const string KR_CONTEXT_KEY = "KR_CONTEXT";
-
     internal static RequestDelegate Build(KestrunHost host, string code, Dictionary<string, object?>? arguments)
     {
         var log = host.Logger;
@@ -21,86 +20,125 @@ internal static class PowerShellDelegateBuilder
             log.Debug("Building PowerShell delegate, script length={Length}", code.Length);
         }
 
-        return async context =>
+        return context => ExecutePowerShellRequestAsync(context, log, code, arguments);
+    }
+
+    /// <summary>
+    /// Executes the PowerShell request pipeline and applies the resulting response.
+    /// </summary>
+    /// <param name="context">Current HTTP context.</param>
+    /// <param name="log">Logger instance.</param>
+    /// <param name="code">PowerShell script code.</param>
+    /// <param name="arguments">Arguments to inject as variables into the script.</param>
+    private static async Task ExecutePowerShellRequestAsync(
+        HttpContext context,
+        Serilog.ILogger log,
+        string code,
+        Dictionary<string, object?>? arguments)
+    {
+        var isLogVerbose = log.IsEnabled(LogEventLevel.Verbose);
+        // Log invocation
+        if (log.IsEnabled(LogEventLevel.Debug))
         {
-            // Log invocation
-            if (log.IsEnabled(LogEventLevel.Debug))
+            log.DebugSanitized("PS delegate invoked for {Path}", context.Request.Path);
+        }
+
+        // Prepare for execution
+        KestrunContext? krContext = null;
+        // Get the PowerShell instance from the context (set by middleware)
+        var ps = GetPowerShellFromContext(context, log);
+
+        // Ensure the runspace pool is open before executing the script
+        try
+        {
+            PowerShellExecutionHelpers.SetVariables(ps, arguments, log);
+            if (isLogVerbose)
             {
-                log.DebugSanitized("PS delegate invoked for {Path}", context.Request.Path);
+                log.Verbose("Setting PowerShell variables for Request and Response in the runspace.");
             }
-            // Prepare for execution
-            KestrunContext? krContext = null;
-            // Get the PowerShell instance from the context (set by middleware)
-            var ps = GetPowerShellFromContext(context, log);
+            krContext = GetKestrunContext(context);
 
-            // Ensure the runspace pool is open before executing the script
-            try
+            PowerShellExecutionHelpers.AddScript(ps, code);
+
+            // Extract and add parameters for injection
+            ParameterForInjectionInfo.InjectParameters(krContext, ps);
+
+            // Execute the script
+            if (isLogVerbose)
             {
-                PowerShellExecutionHelpers.SetVariables(ps, arguments, log);
-                if (log.IsEnabled(LogEventLevel.Verbose))
-                {
-                    log.Verbose("Setting PowerShell variables for Request and Response in the runspace.");
-                }
-                krContext = GetKestrunContext(context);
-
-                PowerShellExecutionHelpers.AddScript(ps, code);
-
-                // Extract and add parameters for injection
-                ParameterForInjectionInfo.InjectParameters(krContext, ps);
-
-                // Execute the script
-                if (log.IsEnabled(LogEventLevel.Verbose))
-                {
-                    log.Verbose("Invoking PowerShell script...");
-                }
-                var psResults = await ps.InvokeAsync(log, context.RequestAborted).ConfigureAwait(false);
-                LogTopResults(log, psResults);
-
-                if (await HandleErrorsIfAnyAsync(context, ps).ConfigureAwait(false))
-                {
-                    return;
-                }
-
-                LogSideChannelMessagesIfAny(log, ps);
-
-                if (HandleRedirectIfAny(context, krContext, log))
-                {
-                    return;
-                }
-                if (log.IsEnabled(LogEventLevel.Verbose))
-                {
-                    log.Verbose("No redirect detected; applying response to HttpResponse...");
-                }
-                await ApplyResponseAsync(context, krContext).ConfigureAwait(false);
+                log.Verbose("Invoking PowerShell script...");
             }
-            // optional: catch client cancellation to avoid noisy logs
-            catch (OperationCanceledException) when (context.RequestAborted.IsCancellationRequested)
+            var psResults = await ps.InvokeAsync(log, context.RequestAborted).ConfigureAwait(false);
+            LogTopResults(log, psResults);
+
+            if (await HandleErrorsIfAnyAsync(context, ps).ConfigureAwait(false))
             {
-                // client disconnected – nothing to send
+                return;
             }
-            catch (Exception ex)
+
+            LogSideChannelMessagesIfAny(log, ps);
+
+            if (HandleRedirectIfAny(context, krContext, log))
             {
-                // If we have exception options, set a 500 status code and generic message.
-                // Otherwise rethrow to let higher-level middleware handle it (e.g., Developer Exception Page
-                if (krContext?.Host?.ExceptionOptions is null)
-                { // Log and handle script errors
-                    log.Error(ex, "PowerShell script failed - {Preview}", code[..Math.Min(40, code.Length)]);
-                    context.Response.StatusCode = 500; // Internal Server Error
-                    context.Response.ContentType = "text/plain; charset=utf-8";
-                    await context.Response.WriteAsync("An error occurred while processing your request.");
-                }
-                else
+                return;
+            }
+
+            // Some endpoints (e.g., SSE streaming) write directly to the HttpResponse and
+            // intentionally start the response early. In that case, applying KestrunResponse
+            // would attempt to set headers/status again and throw.
+            if (context.Response.HasStarted)
+            {
+                if (isLogVerbose)
                 {
-                    // re-throw to let higher-level middleware handle it (e.g., Developer Exception Page)
-                    throw;
+                    log.Verbose("HttpResponse has already started; skipping KestrunResponse.ApplyTo().");
                 }
+                return;
             }
-            finally
+            if (isLogVerbose)
             {
-                // Do not call Response.CompleteAsync here; leaving the response open allows
-                // downstream middleware like StatusCodePages to generate a body for status-only responses.
+                log.Verbose("No redirect detected; applying response to HttpResponse...");
             }
-        };
+            await ApplyResponseAsync(context, krContext).ConfigureAwait(false);
+        }
+        // optional: catch client cancellation to avoid noisy logs
+        catch (OperationCanceledException) when (context.RequestAborted.IsCancellationRequested)
+        {
+            // client disconnected – nothing to send
+        }
+        catch (ParameterBindingException pbaex)
+        {
+            var fqid = pbaex.ErrorRecord?.FullyQualifiedErrorId;
+            var cat = pbaex.ErrorRecord?.CategoryInfo?.Category;
+            // Log parameter binding errors with preview of code
+            log.Error("PowerShell parameter binding error ({Category}/{FQID}) - {Preview}",
+                cat, fqid, code[..Math.Min(40, code.Length)]);
+            // Return 400 Bad Request for parameter binding errors
+            context.Response.StatusCode = StatusCodes.Status400BadRequest;
+            context.Response.ContentType = "text/plain; charset=utf-8";
+            await context.Response.WriteAsync("Invalid request parameters.");
+        }
+        catch (Exception ex)
+        {
+            // If we have exception options, set a 500 status code and generic message.
+            // Otherwise rethrow to let higher-level middleware handle it (e.g., Developer Exception Page
+            if (krContext?.Host?.ExceptionOptions is null)
+            { // Log and handle script errors
+                log.Error(ex, "PowerShell script failed - {Preview}", code[..Math.Min(40, code.Length)]);
+                context.Response.StatusCode = 500; // Internal Server Error
+                context.Response.ContentType = "text/plain; charset=utf-8";
+                await context.Response.WriteAsync("An error occurred while processing your request.");
+            }
+            else
+            {
+                // re-throw to let higher-level middleware handle it (e.g., Developer Exception Page)
+                throw;
+            }
+        }
+        finally
+        {
+            // Do not call Response.CompleteAsync here; leaving the response open allows
+            // downstream middleware like StatusCodePages to generate a body for status-only responses.
+        }
     }
 
     /// <summary>

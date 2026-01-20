@@ -1,4 +1,3 @@
-using Kestrun.Models;
 using Microsoft.AspNetCore.Http;
 using Moq;
 using Serilog;
@@ -13,6 +12,7 @@ public class DelegateBuilderTests
         var http = new DefaultHttpContext();
         http.Request.Method = "GET";
         http.Request.Path = "/test";
+        TestRequestFactory.EnsureRoutedHttpContext(http);
         var log = new Mock<ILogger>(MockBehavior.Loose).Object;
         return (http, log);
     }
@@ -39,8 +39,9 @@ public class DelegateBuilderTests
     public async Task ApplyResponseAsync_UsesRedirect_WhenSet()
     {
         var (http, log) = MakeCtx();
-        var req = TestRequestFactory.Create();
-        var kr = new KestrunResponse(req);
+        var krCtx = TestRequestFactory.CreateContext();
+        _ = krCtx.Request;
+        var kr = krCtx.Response;
         kr.WriteRedirectResponse("/elsewhere");
 
         await DelegateBuilder.ApplyResponseAsync(http, kr, log);

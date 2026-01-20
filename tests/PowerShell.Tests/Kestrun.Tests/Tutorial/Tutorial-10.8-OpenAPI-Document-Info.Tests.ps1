@@ -41,6 +41,11 @@ Describe 'Example 10.8 OpenAPI Document Info' -Tag 'OpenApi', 'Tutorial', 'Slow'
         $info.contact.name | Should -Be 'API Support'
         $info.contact.email | Should -Be 'support@example.com'
 
+        $info.contact.'x-contact-department' | Should -Be 'Developer Relations'
+        $info.contact.'x-contact-hours' | Should -Be '9am-5pm PST'
+        $info.contact.'x-logo'.url | Should -Be 'https://www.kestrun.dev/assets/kestrun_abstract_transparent.png'
+        $info.contact.'x-logo'.altText | Should -Be 'Kestrun logo'
+
         $info.license.name | Should -Be 'Apache 2.0'
         $info.license.ContainsKey('identifier') | Should -BeFalse
         $info.license.ContainsKey('url') | Should -BeFalse
@@ -75,6 +80,11 @@ Describe 'Example 10.8 OpenAPI Document Info' -Tag 'OpenApi', 'Tutorial', 'Slow'
 
         $info.contact.name | Should -Be 'API Support'
         $info.contact.email | Should -Be 'support@example.com'
+
+        $info.contact.'x-contact-department' | Should -Be 'Developer Relations'
+        $info.contact.'x-contact-hours' | Should -Be '9am-5pm PST'
+        $info.contact.'x-logo'.url | Should -Be 'https://www.kestrun.dev/assets/kestrun_abstract_transparent.png'
+        $info.contact.'x-logo'.altText | Should -Be 'Kestrun logo'
 
         $info.license.name | Should -Be 'Apache 2.0'
         $info.license.identifier | Should -Be 'Apache-2.0'
@@ -111,6 +121,11 @@ Describe 'Example 10.8 OpenAPI Document Info' -Tag 'OpenApi', 'Tutorial', 'Slow'
         $info.contact.name | Should -Be 'API Support'
         $info.contact.email | Should -Be 'support@example.com'
 
+        $info.contact.'x-contact-department' | Should -Be 'Developer Relations'
+        $info.contact.'x-contact-hours' | Should -Be '9am-5pm PST'
+        $info.contact.'x-logo'.url | Should -Be 'https://www.kestrun.dev/assets/kestrun_abstract_transparent.png'
+        $info.contact.'x-logo'.altText | Should -Be 'Kestrun logo'
+
         $info.license.name | Should -Be 'Apache 2.0'
         $info.license.identifier | Should -Be 'Apache-2.0'
         $info.license.ContainsKey('url') | Should -BeFalse
@@ -131,6 +146,10 @@ Describe 'Example 10.8 OpenAPI Document Info' -Tag 'OpenApi', 'Tutorial', 'Slow'
         $envServer.variables.env.enum | Should -Contain 'staging'
         $envServer.variables.env.enum | Should -Contain 'prod'
         $envServer.variables.env.description | Should -Be 'Deployment environment'
+    }
+
+     It 'OpenAPI output matches 10.8 fixture JSON' {
+        Test-OpenApiDocumentMatchesExpected -Instance $script:instance
     }
 }
 

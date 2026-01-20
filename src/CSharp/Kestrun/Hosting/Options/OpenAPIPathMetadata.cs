@@ -12,17 +12,26 @@ public record OpenAPIPathMetadata : OpenAPICommonMetadata
     /// Initializes a new instance of the <see cref="OpenAPIPathMetadata"/> class with the specified pattern.
     /// </summary>
     /// <param name="pattern">The route pattern.</param>
-    public OpenAPIPathMetadata(string pattern)
-        : base(pattern)
+    /// <param name="mapOptions">The route mapping options.</param>
+    public OpenAPIPathMetadata(string pattern, MapRouteOptions mapOptions)
+        : base(pattern, mapOptions)
     {
     }
 
     /// <summary>
     /// Initializes a new instance of the <see cref="OpenAPIPathMetadata"/> class.
     /// </summary>
-    public OpenAPIPathMetadata()
+    /// <param name="mapOptions">The route mapping options.</param>
+    public OpenAPIPathMetadata(MapRouteOptions mapOptions)
+        : base(mapOptions)
     {
     }
+
+    /// <summary>
+    /// The IDs of the OpenAPI documents this metadata belongs to.
+    /// If empty, it belongs to all documents.
+    /// </summary>
+    public List<string> DocumentIds { get; set; } = [];
     /// <summary>
     /// The unique operation ID for the route in OpenAPI documentation.
     /// </summary>
@@ -104,4 +113,9 @@ public record OpenAPIPathMetadata : OpenAPICommonMetadata
     /// Indicates whether the callback should be inlined within the parent OpenAPI document.
     /// </summary>
     public bool Inline { get; set; }
+
+    /// <summary>
+    /// A map of custom extensions for the OpenAPI object.
+    /// </summary>
+    public Dictionary<string, IOpenApiExtension>? Extensions { get; set; }
 }

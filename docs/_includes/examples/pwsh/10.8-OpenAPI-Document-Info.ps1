@@ -17,7 +17,7 @@ New-KrLogger |
     Register-KrLogger -Name 'console' -SetAsDefault | Out-Null
 
 # Create server instance
-$srv = New-KrServer -Name 'OpenAPI Document Info Demo'
+New-KrServer -Name 'OpenAPI Document Info Demo'
 
 # Configure endpoint
 Add-KrEndpoint -Port $Port -IPAddress $IPAddress
@@ -26,7 +26,15 @@ Add-KrEndpoint -Port $Port -IPAddress $IPAddress
 Add-KrOpenApiInfo -Title 'Document Info API' -Version '1.0.0' -Description 'Shows how to populate document metadata.' -Summary 'Document metadata demo' -TermsOfService 'https://example.com/terms'
 
 # Add contact and license information
-Add-KrOpenApiContact -Name 'API Support' -Email 'support@example.com' -Url 'https://example.com/support'
+Add-KrOpenApiContact -Name 'API Support' -Email 'support@example.com' -Url 'https://example.com/support' `
+    -Extensions ([ordered]@{
+        'x-contact-department' = 'Developer Relations'
+        'x-contact-hours' = '9am-5pm PST'
+        'x-logo' = [ordered]@{
+            'url' = 'https://www.kestrun.dev/assets/kestrun_abstract_transparent.png'
+            'altText' = 'Kestrun logo'
+        }
+    })
 Add-KrOpenApiLicense -Name 'Apache 2.0' -Identifier 'Apache-2.0'
 
 # Configure server endpoints with optional environment variable substitution
@@ -74,8 +82,12 @@ function getApiInfo {
 
 # Build and validate the OpenAPI specification
 Build-KrOpenApiDocument
-Test-KrOpenApiDocument
+# Test and log OpenAPI document validation result
+if (Test-KrOpenApiDocument) {
+    Write-KrLog -Level Information -Message 'OpenAPI document built and validated successfully.'
+} else {
+    Write-KrLog -Level Error -Message 'OpenAPI document validation failed.'
+}
 
 # Start the server and keep logs open until exit
-Start-KrServer -Server $srv -CloseLogsOnExit
-
+Start-KrServer -CloseLogsOnExit

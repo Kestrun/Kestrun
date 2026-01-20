@@ -65,6 +65,21 @@ Describe 'Example 10.9 Component Header' -Tag 'Tutorial', 'OpenApi', 'Slow' {
         $json.components.headers.'Retry-After' | Should -Not -BeNullOrEmpty
     }
 
+    It 'OpenAPI header components include vendor extensions (x-*)' {
+        $result = Invoke-WebRequest -Uri "$($script:instance.Url)/openapi/v3.1/openapi.json" -SkipCertificateCheck -SkipHttpErrorCheck
+        $result.StatusCode | Should -Be 200
+        $json = $result.Content | ConvertFrom-Json
+
+        $remaining = $json.components.headers.'X-RateLimit-Remaining'
+        $remaining.'x-kestrun-demo'.exampleRemaining | Should -Be 1
+        $remaining.'x-kestrun-demo'.computedPer | Should -Be 'client-ip'
+        $remaining.'x-kestrun-demo'.windowSeconds | Should -Be 60
+
+        $reset = $json.components.headers.'X-RateLimit-Reset'
+        $reset.'x-kestrun-demo'.resetSeconds | Should -Be 60
+        $reset.'x-kestrun-demo'.correlationIdExample | Should -BeLike '????????-????-????-????-????????????'
+    }
+
     It 'OpenAPI document applies response headers via $ref and inline definitions' {
         $result = Invoke-WebRequest -Uri "$($script:instance.Url)/openapi/v3.1/openapi.json" -SkipCertificateCheck -SkipHttpErrorCheck
         $result.StatusCode | Should -Be 200
@@ -100,6 +115,10 @@ Describe 'Example 10.9 Component Header' -Tag 'Tutorial', 'OpenApi', 'Slow' {
         $redoc = Invoke-WebRequest -Uri "$($script:instance.Url)/docs/redoc" -SkipCertificateCheck -SkipHttpErrorCheck
         $redoc.StatusCode | Should -Be 200
         $redoc.Content | Should -BeLike '*Redoc*'
+    }
+
+     It 'OpenAPI output matches 10.9 fixture JSON' {
+        Test-OpenApiDocumentMatchesExpected -Instance $script:instance
     }
 }
 

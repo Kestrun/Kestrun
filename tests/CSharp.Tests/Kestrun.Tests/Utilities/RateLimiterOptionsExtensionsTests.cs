@@ -1,5 +1,6 @@
 using System.Reflection;
 using Kestrun.Utilities;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.RateLimiting;
 using Xunit;
 
@@ -161,4 +162,169 @@ public class RateLimiterOptionsExtensionsTests
             Assert.True(true);
         }
     }
+
+    #region CopyFrom - Scalar Properties Tests
+
+    [Fact]
+    [Trait("Category", "Utilities")]
+    public void CopyFrom_CopiesRejectionStatusCode()
+    {
+        // Arrange
+        var target = new RateLimiterOptions();
+        var source = new RateLimiterOptions { RejectionStatusCode = 503 };
+
+        // Act
+        target.CopyFrom(source);
+
+        // Assert
+        Assert.Equal(503, target.RejectionStatusCode);
+    }
+
+    [Fact]
+    [Trait("Category", "Utilities")]
+    public void CopyFrom_CopiesOnRejectedHandler()
+    {
+        // Arrange
+        var target = new RateLimiterOptions();
+        var source = new RateLimiterOptions();
+
+        Func<OnRejectedContext, CancellationToken, ValueTask> onRejected = async (context, ct) =>
+        {
+            // Custom rejection handler
+            context.HttpContext.Response.StatusCode = StatusCodes.Status429TooManyRequests;
+            await context.HttpContext.Response.CompleteAsync();
+        };
+
+        source.OnRejected = onRejected;
+
+        // Act
+        target.CopyFrom(source);
+
+        // Assert
+        Assert.NotNull(target.OnRejected);
+        Assert.Same(onRejected, target.OnRejected);
+    }
+
+    [Fact]
+    [Trait("Category", "Utilities")]
+    public void CopyFrom_WithNullOnRejected_AllowsNullCopy()
+    {
+        // Arrange
+        var target = new RateLimiterOptions();
+        var source = new RateLimiterOptions
+        {
+            OnRejected = null
+        };
+
+        // Act & Assert - Should not throw when OnRejected is null
+        target.CopyFrom(source);
+        Assert.Null(target.OnRejected);
+    }
+
+    #endregion
+
+    #region CopyFrom - Complex Scenarios
+
+    [Fact]
+    [Trait("Category", "Utilities")]
+    public void CopyFrom_CopiesAllPropertiesAndPolicies()
+    {
+        // Arrange
+        var target = new RateLimiterOptions();
+        var source = new RateLimiterOptions
+        {
+            RejectionStatusCode = 503
+        };
+
+        Func<OnRejectedContext, CancellationToken, ValueTask> onRejected = async (context, ct) =>
+        {
+            context.HttpContext.Response.StatusCode = StatusCodes.Status503ServiceUnavailable;
+            await context.HttpContext.Response.CompleteAsync();
+        };
+        source.OnRejected = onRejected;
+
+        // Act
+        target.CopyFrom(source);
+
+        // Assert - verify all properties were copied
+        Assert.Equal(503, target.RejectionStatusCode);
+        Assert.NotNull(target.OnRejected);
+        Assert.Same(onRejected, target.OnRejected);
+    }
+
+    [Fact]
+    [Trait("Category", "Utilities")]
+    public void CopyFrom_PreservesExistingTargetProperties()
+    {
+        // Arrange
+        var target = new RateLimiterOptions
+        {
+            RejectionStatusCode = 400
+        };
+
+        var source = new RateLimiterOptions
+        {
+            RejectionStatusCode = 429
+        };
+
+        // Act
+        target.CopyFrom(source);
+
+        // Assert - source properties should override target
+        Assert.Equal(429, target.RejectionStatusCode);
+    }
+
+    #endregion
+
+    #region GetAddPolicyMethod - Reflection Validation Tests
+
+    [Fact]
+    [Trait("Category", "Utilities")]
+    public void GetAddPolicyMethod_DirectPolicySignatureExists()
+    {
+        // Verify that AddPolicy(string, IRateLimiterPolicy<HttpContext>) method exists
+        var addPolicyMethods = typeof(RateLimiterOptions)
+            .GetMethods()
+            .Where(m => m.Name == "AddPolicy")
+            .ToList();
+
+        Assert.NotEmpty(addPolicyMethods);
+
+        var directPolicyMethod = addPolicyMethods.FirstOrDefault(m =>
+        {
+            var parameters = m.GetParameters();
+            return parameters.Length == 2 &&
+                   parameters[0].ParameterType == typeof(string) &&
+                   parameters[1].ParameterType.IsGenericType &&
+                   parameters[1].ParameterType.GetGenericTypeDefinition().Name.Contains("IRateLimiterPolicy");
+        });
+
+        Assert.NotNull(directPolicyMethod);
+    }
+
+    [Fact]
+    [Trait("Category", "Utilities")]
+    public void GetAddPolicyMethod_FactoryDelegateSignatureExists()
+    {
+        // Verify that AddPolicy(string, Func<IServiceProvider, IRateLimiterPolicy<HttpContext>>) method exists
+        var addPolicyMethods = typeof(RateLimiterOptions)
+            .GetMethods()
+            .Where(m => m.Name == "AddPolicy")
+            .ToList();
+
+        Assert.NotEmpty(addPolicyMethods);
+
+        var factoryMethod = addPolicyMethods.FirstOrDefault(m =>
+        {
+            var parameters = m.GetParameters();
+            return parameters.Length == 2 &&
+                   parameters[0].ParameterType == typeof(string) &&
+                   parameters[1].ParameterType.IsGenericType &&
+                   parameters[1].ParameterType.GetGenericTypeDefinition() == typeof(Func<,>);
+        });
+
+        Assert.NotNull(factoryMethod);
+    }
+
+    #endregion
 }

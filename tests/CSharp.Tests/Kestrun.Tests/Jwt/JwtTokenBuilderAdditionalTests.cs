@@ -8,7 +8,7 @@ using Xunit;
 
 namespace KestrunTests.Jwt;
 
-public class JwtTokenBuilderAdditionalTests
+public partial class JwtTokenBuilderTests
 {
     private static string MakeHex(int bytes, byte value = 0x11)
         => Convert.ToHexString([.. Enumerable.Repeat(value, bytes).Select(b => b)]);
@@ -126,5 +126,54 @@ public class JwtTokenBuilderAdditionalTests
         _ = builder.AppendLine(Convert.ToBase64String(rsa.ExportRSAPrivateKey(), Base64FormattingOptions.InsertLineBreaks));
         _ = builder.AppendLine("-----END RSA PRIVATE KEY-----");
         return builder.ToString();
+    }
+
+    [Fact]
+    [Trait("Category", "Jwt")]
+    public void SignWithJwkJson_Empty_Throws()
+    {
+        var b = JwtTokenBuilder.New();
+        _ = Assert.Throws<ArgumentNullException>(() => b.SignWithJwkJson(""));
+        _ = Assert.Throws<ArgumentNullException>(() => b.SignWithJwkJson("   "));
+    }
+
+    [Fact]
+    [Trait("Category", "Jwt")]
+    public void EncryptWithJwkJson_Empty_Throws()
+    {
+        var b = JwtTokenBuilder.New();
+        _ = Assert.Throws<ArgumentException>(() => b.EncryptWithJwkJson(""));
+        _ = Assert.Throws<ArgumentException>(() => b.EncryptWithJwkJson("   "));
+    }
+
+    [Fact]
+    [Trait("Category", "Jwt")]
+    public void EncryptWithJwkPath_Empty_Throws()
+    {
+        var b = JwtTokenBuilder.New();
+        _ = Assert.Throws<ArgumentException>(() => b.EncryptWithJwkPath(""));
+        _ = Assert.Throws<ArgumentException>(() => b.EncryptWithJwkPath("   "));
+    }
+
+    [Fact]
+    [Trait("Category", "Jwt")]
+    public void CloneBuilder_CopiesClaimsAndIssuerAndAudience()
+    {
+        var secret = Base64UrlEncoder.Encode([.. Enumerable.Repeat((byte)0x77, 32)]);
+        var b = JwtTokenBuilder.New()
+            .WithIssuer("iss")
+            .WithAudience("aud")
+            .WithSubject("sub")
+            .AddClaim("role", "admin")
+            .SignWithSecret(secret);
+
+        var clone = b.CloneBuilder();
+        var res = clone.Build().Token();
+        var p = JwtInspector.ReadAllParameters(res);
+
+        Assert.Equal("iss", p.Issuer);
+        Assert.Contains("aud", p.Audiences);
+        Assert.Equal("sub", p.Subject);
+        Assert.Equal("admin", p.Claims["role"]);
     }
 }

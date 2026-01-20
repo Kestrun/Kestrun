@@ -19,7 +19,7 @@ if (-not (Get-Module Kestrun)) { Import-Module Kestrun }
 New-KrLogger | Add-KrSinkConsole |
     Set-KrLoggerLevel -Value Debug |
     Register-KrLogger -Name 'console' -SetAsDefault
-$srv = New-KrServer -Name 'Swagger Petstore - OpenAPI 3.1' -PassThru
+New-KrServer -Name 'Swagger Petstore - OpenAPI 3.1'
 Add-KrEndpoint -Port $Port -IPAddress $IPAddress
 # =========================================================
 #                 TOP-LEVEL OPENAPI (3.0.4)
@@ -93,7 +93,7 @@ class ApiResponse {
 }
 
 # Error
-[OpenApiSchemaComponent(Required = ('code', 'message'))]
+[OpenApiSchemaComponent(RequiredProperties = ('code', 'message'))]
 class Error {
     [string]$code
     [string]$message
@@ -117,7 +117,7 @@ class Error {
 .PARAMETER status
     Pet status in the store
 #>
-[OpenApiSchemaComponent(Required = ('name', 'photoUrls'))]
+[OpenApiSchemaComponent(RequiredProperties = ('name', 'photoUrls'))]
 class Pet {
     [long]$id
     [string]$name
@@ -155,13 +155,13 @@ class Inventory {
 # =========================================================
 
 # RequestBody: UserArray
-[OpenApiRequestBodyComponent(Description = 'List of user object', IsRequired = $true, ContentType = 'application/json' , Array = $true)]
-class UserArray:User {}
+[OpenApiRequestBodyComponent(Description = 'List of user object', Required = $true, ContentType = 'application/json')]
+[User[]]$UserArray
 
 # RequestBody: PetBody
-[OpenApiRequestBodyComponent(Description = 'Pet object that needs to be added to the store', IsRequired = $true,
+[OpenApiRequestBodyComponent(Description = 'Pet object that needs to be added to the store', Required = $true,
     ContentType = ('application/json', 'application/xml', 'application/x-www-form-urlencoded'))]
-class PetBody:Pet {}
+[Pet]$PetBody
 #endregion
 
 #region COMPONENT PARAMETERS
@@ -175,12 +175,8 @@ class PetBody:Pet {}
 # COMPONENT: RESPONSES
 # =========================
 
-[OpenApiResponseComponent( )]
-class ResponseDefault {
-
-    [OpenApiResponse(Description = 'Unexpected error', ContentType = 'application/json')]
-    [Error]$Default
-}
+[OpenApiResponseComponent(Description = 'Unexpected error', ContentType = 'application/json')]
+[Error]$Default = NoDefault
 
 
 #endregion
@@ -334,7 +330,7 @@ function findPetsByTags {
 #>
 function getPetById {
     [OpenApiPath(HttpVerb = 'Get' , Pattern = '/pet/{petId}', Tags = 'pet')]
-    [OpenApiResponse(StatusCode = '200' , Description = 'Successful operation', SchemaRef = 'Pet' )]
+    [OpenApiResponse(StatusCode = '200' , Description = 'Successful operation', Schema = [Pet] )]
     [OpenApiResponse( StatusCode = '400' , Description = 'Invalid ID supplied')]
     [OpenApiResponse( StatusCode = '404' , Description = 'Pet not found')]
     [OpenApiResponseRef( StatusCode = 'default' , ReferenceId = 'Default', Inline = $true )]
@@ -421,7 +417,7 @@ function deletePet {
 #>
 function uploadFile {
     [OpenApiPath(HttpVerb = 'Post' , Pattern = '/pet/{petId}/uploadImage', Tags = 'pet')]
-    [OpenApiResponse( StatusCode = '200' , Description = 'Successful operation', SchemaRef = 'ApiResponse', ContentType = ('application/json'))]
+    [OpenApiResponse( StatusCode = '200' , Description = 'Successful operation', Schema = [ApiResponse], ContentType = ('application/json'))]
     [OpenApiResponseRef( StatusCode = 'default' , ReferenceId = 'Default', Inline = $true )]
     [OpenApiAuthorization( Scheme = 'petstore_auth' , Policies = 'write:pets, read:pets' )]
     param(
@@ -448,7 +444,7 @@ function uploadFile {
 #>
 function getInventory {
     [OpenApiPath(HttpVerb = 'Get' , Pattern = '/store/inventory', Tags = 'store')]
-    [OpenApiResponse(StatusCode = '200' , Description = 'Successful operation', SchemaRef = 'Inventory', Inline = $true )]
+    [OpenApiResponse(StatusCode = '200' , Description = 'Successful operation', Schema = [Inventory], Inline = $true )]
     [OpenApiResponseRef( StatusCode = 'default' , ReferenceId = 'Default', Inline = $true )]
     [OpenApiAuthorization( Scheme = 'api_key')]
     param()
@@ -466,7 +462,7 @@ function getInventory {
 #>
 function placeOrder {
     [OpenApiPath(HttpVerb = 'Post' , Pattern = '/store/order', Tags = 'store')]
-    [OpenApiResponse(StatusCode = '200' , Description = 'Successful operation', SchemaRef = 'Order' )]
+    [OpenApiResponse(StatusCode = '200' , Description = 'Successful operation', Schema = [Order] )]
     [OpenApiResponse(StatusCode = '400' , Description = 'Invalid input' )]
     [OpenApiResponse(StatusCode = '422' , Description = 'Validation Exception' )]
     [OpenApiResponseRef( StatusCode = 'default' , ReferenceId = 'Default', Inline = $true )]
@@ -489,7 +485,7 @@ function placeOrder {
 #>
 function getOrderById {
     [OpenApiPath(HttpVerb = 'get' , Pattern = '/store/order/{orderId}', Tags = 'store')]
-    [OpenApiResponse(StatusCode = '200' , Description = 'Successful operation', SchemaRef = 'Order', ContentType = ('application/json', 'application/xml'))]
+    [OpenApiResponse(StatusCode = '200' , Description = 'Successful operation', Schema = [Order], ContentType = ('application/json', 'application/xml'))]
     [OpenApiResponse(StatusCode = '400' , Description = 'Invalid ID supplied' )]
     [OpenApiResponse(StatusCode = '404' , Description = 'Order not found' )]
     [OpenApiResponseRef( StatusCode = 'default' , ReferenceId = 'Default', Inline = $true )]
@@ -537,7 +533,7 @@ function deleteOrder {
 #>
 function createUser {
     [OpenApiPath(HttpVerb = 'post' , Pattern = '/user', Tags = 'user' )]
-    [OpenApiResponse(StatusCode = '200' , Description = 'Successful operation', SchemaRef = 'User', ContentType = ('application/json', 'application/xml'))]
+    [OpenApiResponse(StatusCode = '200' , Description = 'Successful operation', Schema = [User], ContentType = ('application/json', 'application/xml'))]
     [OpenApiResponseRef( StatusCode = 'default' , ReferenceId = 'Default', Inline = $true )]
 
     param(
@@ -558,7 +554,7 @@ function createUser {
 #>
 function createUsersWithListInput {
     [OpenApiPath(HttpVerb = 'post' , Pattern = '/user/createWithList', Tags = 'user' )]
-    [OpenApiResponse(StatusCode = '200' , Description = 'Successful operation', SchemaRef = 'User', ContentType = ('application/json', 'application/xml'))]
+    [OpenApiResponse(StatusCode = '200' , Description = 'Successful operation', Schema = [User], ContentType = ('application/json', 'application/xml'))]
     [OpenApiResponseRef( StatusCode = 'default' , ReferenceId = 'Default', Inline = $true )]
 
     param(
@@ -624,7 +620,7 @@ function logoutUser {
 #>
 function getUserByName {
     [OpenApiPath(HttpVerb = 'get' , Pattern = '/user/{username}', Tags = 'user')]
-    [OpenApiResponse(StatusCode = '200' , Description = 'Successful operation', SchemaRef = 'User', ContentType = ('application/json', 'application/xml'))]
+    [OpenApiResponse(StatusCode = '200' , Description = 'Successful operation', Schema = [User], ContentType = ('application/json', 'application/xml'))]
     [OpenApiResponse(StatusCode = '400' , Description = 'Invalid username supplied')]
     [OpenApiResponse(StatusCode = '404' , Description = 'User not found')]
     [OpenApiResponseRef( StatusCode = 'default' , ReferenceId = 'Default', Inline = $true )]
@@ -703,6 +699,6 @@ Test-KrOpenApiDocument
 #region RUN SERVER
 # Optional: run server (your call, you deliciously decisive creature)
 
-Start-KrServer -Server $srv -CloseLogsOnExit
+Start-KrServer -CloseLogsOnExit
 #endregion
 #endregion

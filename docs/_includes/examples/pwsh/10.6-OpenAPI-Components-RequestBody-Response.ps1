@@ -16,7 +16,7 @@ New-KrLogger | Add-KrSinkConsole |
     Set-KrLoggerLevel -Value Debug |
     Register-KrLogger -Name 'console' -SetAsDefault
 
-$srv = New-KrServer -Name 'OpenAPI RequestBody & Response Components' -PassThru
+New-KrServer -Name 'OpenAPI RequestBody & Response Components'
 Add-KrEndpoint -Port $Port -IPAddress $IPAddress
 # =========================================================
 #                 TOP-LEVEL OPENAPI
@@ -34,7 +34,7 @@ Add-KrOpenApiTag -Name 'orders' -Description 'Order management operations'
 # =========================================================
 
 # Request schema for creating an order
-[OpenApiSchemaComponent(Required = ('productId', 'quantity'))]
+[OpenApiSchemaComponent(RequiredProperties = ('productId', 'quantity'))]
 class CreateOrderRequest {
     [OpenApiPropertyAttribute(Description = 'Product ID', Example = 1)]
     [long]$productId
@@ -50,7 +50,7 @@ class CreateOrderRequest {
 }
 
 # Response schema for order data
-[OpenApiSchemaComponent(Required = ('orderId', 'productId', 'quantity', 'status', 'totalPrice'))]
+[OpenApiSchemaComponent(RequiredProperties = ('orderId', 'productId', 'quantity', 'status', 'totalPrice'))]
 class OrderResponse {
     [OpenApiPropertyAttribute(Description = 'Order ID', Example = 'a54a57ca-36f8-421b-a6b4-2e8f26858a4c')]
     [Guid]$orderId
@@ -76,7 +76,7 @@ class OrderResponse {
 }
 
 # Error response schema
-[OpenApiSchemaComponent(Required = ('code', 'message'))]
+[OpenApiSchemaComponent(RequiredProperties = ('code', 'message'))]
 class ErrorDetail {
     [OpenApiPropertyAttribute(Description = 'Error code', Example = 'INVALID_QUANTITY')]
     [string]$code
@@ -98,24 +98,20 @@ class ErrorDetail {
 # CreateOrderRequest: RequestBody component
 [OpenApiRequestBodyComponent(
     Description = 'Order creation payload',
-    IsRequired = $true,
+    Required = $true,
     ContentType = 'application/json'
 )]
-class CreateOrderRequestBody:CreateOrderRequest {}
+[OpenApiExtension('x-kestrun-demo', '{"stability":"beta","containsPii":true,"piiFields":["customerEmail"],"domain":"orders","kind":"request"}')]
+[CreateOrderRequest]$CreateOrderRequestBody = NoDefault
 
-# OrderResponse: ResponseComponent
-[OpenApiResponseComponent(JoinClassName = '-', Description = 'Order data')]
-class OrderResponseComponent {
-    [OpenApiResponse(Description = 'Order successfully retrieved or created', ContentType = 'application/json')]
-    [OrderResponse]$Default
-}
+# Response components (variable-based)
+[OpenApiResponseComponent(Description = 'Order successfully retrieved or created', ContentType = ('application/json', 'application/xml'))]
+[OpenApiExtension('x-kestrun-demo', '{"stability":"stable","domain":"orders","kind":"success"}')]
+[OrderResponse]$OrderResponseDefault = NoDefault
 
-# ErrorResponse: ResponseComponent (reusable for multiple error codes)
-[OpenApiResponseComponent(JoinClassName = '-', Description = 'Error response')]
-class ErrorResponseComponent {
-    [OpenApiResponse(Description = 'Request validation error', ContentType = 'application/json')]
-    [ErrorDetail]$Default
-}
+[OpenApiResponseComponent(Description = 'Request validation error', ContentType = ('application/json', 'application/xml'))]
+[OpenApiExtension('x-kestrun-demo', '{"stability":"stable","domain":"orders","kind":"error","retryable":false}')]
+[ErrorDetail]$ErrorResponseDefault = NoDefault
 
 # =========================================================
 #                 ROUTES / OPERATIONS
@@ -141,11 +137,11 @@ Add-KrApiDocumentationRoute -DocumentType Redoc
 #>
 function createOrder {
     [OpenApiPath(HttpVerb = 'post', Pattern = '/orders')]
-    [OpenApiResponse(StatusCode = '201', Description = 'Order created successfully', Schema = [OrderResponse], ContentType = ('application/json', 'application/xml'))]
-    [OpenApiResponse(StatusCode = '400', Description = 'Invalid input', Schema = [ErrorDetail], ContentType = ('application/json', 'application/xml'))]
+    [OpenApiResponseRefAttribute(StatusCode = '201', ReferenceId = 'OrderResponseDefault')]
+    [OpenApiResponseRefAttribute(StatusCode = '400', ReferenceId = 'ErrorResponseDefault')]
     param(
-        [OpenApiRequestBody(ContentType = ('application/json', 'application/xml', 'application/x-www-form-urlencoded'))]
-        [CreateOrderRequestBody]$body
+        [OpenApiRequestBodyRef(ReferenceId = 'CreateOrderRequestBody')]
+        [CreateOrderRequest]$body
     )
 
     # Validate required fields
@@ -200,8 +196,8 @@ function createOrder {
 #>
 function getOrder {
     [OpenApiPath(HttpVerb = 'get', Pattern = '/orders/{orderId}')]
-    [OpenApiResponse(StatusCode = '200', Description = 'Order found', Schema = [OrderResponse], ContentType = ('application/json', 'application/xml'))]
-    [OpenApiResponse(StatusCode = '400', Description = 'Invalid order ID', Schema = [ErrorDetail], ContentType = ('application/json', 'application/xml'))]
+    [OpenApiResponseRefAttribute(StatusCode = '200', ReferenceId = 'OrderResponseDefault')]
+    [OpenApiResponseRefAttribute(StatusCode = '400', ReferenceId = 'ErrorResponseDefault')]
     param(
         [OpenApiParameter(In = [OaParameterLocation]::Path, Required = $true)]
         [Guid]$orderId
@@ -248,13 +244,13 @@ function getOrder {
 #>
 function updateOrder {
     [OpenApiPath(HttpVerb = 'put', Pattern = '/orders/{orderId}')]
-    [OpenApiResponse(StatusCode = '200', Description = 'Order updated successfully', Schema = [OrderResponse], ContentType = ('application/json', 'application/xml'))]
-    [OpenApiResponse(StatusCode = '400', Description = 'Invalid input', Schema = [ErrorDetail], ContentType = ('application/json', 'application/xml'))]
+    [OpenApiResponseRefAttribute(StatusCode = '200', ReferenceId = 'OrderResponseDefault')]
+    [OpenApiResponseRefAttribute(StatusCode = '400', ReferenceId = 'ErrorResponseDefault')]
     param(
         [OpenApiParameter(In = [OaParameterLocation]::Path, Required = $true, Example = 'a54a57ca-36f8-421b-a6b4-2e8f26858a4c')]
         [guid]$orderId,
         [OpenApiRequestBody(ContentType = ('application/json', 'application/xml', 'application/x-www-form-urlencoded'))]
-        [CreateOrderRequestBody]$body
+        [CreateOrderRequest]$body
     )
 
     # Validate quantity if provided
@@ -291,11 +287,15 @@ function updateOrder {
 Add-KrOpenApiRoute
 
 Build-KrOpenApiDocument
-Test-KrOpenApiDocument
+# Test and log OpenAPI document validation result
+if (Test-KrOpenApiDocument) {
+    Write-KrLog -Level Information -Message 'OpenAPI document built and validated successfully.'
+} else {
+    Write-KrLog -Level Error -Message 'OpenAPI document validation failed.'
+}
 
 # =========================================================
 #                      RUN SERVER
 # =========================================================
 
-Start-KrServer -Server $srv -CloseLogsOnExit
-
+Start-KrServer -CloseLogsOnExit

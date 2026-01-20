@@ -17,12 +17,12 @@ public static class OpenApiSchemaDiscovery
         var assemblies = GetRelevantAssemblies();
         return new OpenApiComponentSet
         {
-            ParameterTypes = GetTypesWithAttribute(assemblies, typeof(OpenApiParameterComponent)),
             SchemaTypes = GetSchemaTypes(assemblies),
-            ResponseTypes = GetTypesWithAttribute(assemblies, typeof(OpenApiResponseComponent)),
-            RequestBodyTypes = GetTypesWithAttribute(assemblies, typeof(OpenApiRequestBodyComponent)),
-            HeaderTypes = GetTypesWithAttribute(assemblies, typeof(OpenApiHeaderAttribute)),
 #if EXTENDED_OPENAPI
+            RequestBodyTypes = GetTypesWithAttribute(assemblies, typeof(OpenApiRequestBodyComponentAttribute)),
+            ResponseTypes = GetTypesWithAttribute(assemblies, typeof(OpenApiResponseComponentAttribute)),
+            ParameterTypes = GetTypesWithAttribute(assemblies, typeof(OpenApiParameterComponentAttribute)),
+            HeaderTypes = GetTypesWithAttribute(assemblies, typeof(OpenApiHeaderAttribute)),
             SecuritySchemeTypes = GetTypesWithAttribute(assemblies, typeof(OpenApiSecuritySchemeComponent)),
             CallbackTypes = GetTypesWithKind(assemblies, OpenApiModelKind.Callback),
             PathItemTypes = GetTypesWithKind(assemblies, OpenApiModelKind.PathItem)
@@ -38,21 +38,25 @@ public static class OpenApiSchemaDiscovery
                         a.FullName.StartsWith("Kestrun")))];
     }
 
-    private static Type[] GetTypesWithAttribute(System.Reflection.Assembly[] assemblies, Type attributeType)
+    private static Type[] GetSchemaTypes(System.Reflection.Assembly[] assemblies)
+    {
+        var primitivesAssembly = typeof(OpenApiString).Assembly;
+
+        return [.. assemblies.SelectMany(asm => asm.GetTypes())
+            .Where(t => t.IsClass && !t.IsAbstract &&
+                    t.IsDefined(typeof(OpenApiSchemaComponent), true) &&
+                    // Exclude built-in OpenApi* primitives from auto-discovered components,
+                    // but keep user-defined schema components that inherit those primitives.
+                    !(t.Assembly == primitivesAssembly && typeof(IOpenApiScalar).IsAssignableFrom(t)))];
+    }
+
+#if EXTENDED_OPENAPI
+
+   private static Type[] GetTypesWithAttribute(System.Reflection.Assembly[] assemblies, Type attributeType)
     {
         return [.. assemblies.SelectMany(asm => asm.GetTypes())
             .Where(t => t.IsClass && !t.IsAbstract && t.IsDefined(attributeType, true))];
     }
-
-    private static Type[] GetSchemaTypes(System.Reflection.Assembly[] assemblies)
-    {
-        return [.. assemblies.SelectMany(asm => asm.GetTypes())
-            .Where(t => t.IsClass && !t.IsAbstract &&
-                    !typeof(IOpenApiType).IsAssignableFrom(t) &&
-                    t.IsDefined(typeof(OpenApiSchemaComponent), true))];
-    }
-
-#if EXTENDED_OPENAPI
     private static Type[] GetTypesWithKind(System.Reflection.Assembly[] assemblies, OpenApiModelKind kind)
     {
         return [.. assemblies.SelectMany(asm => asm.GetTypes())

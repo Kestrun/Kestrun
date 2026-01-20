@@ -11,11 +11,29 @@ namespace Kestrun.OpenApi;
 public partial class OpenApiDocDescriptor
 {
     #region Schemas
-    private static OpenApiPropertyAttribute? GetSchemaIdentity(Type t)
+    private static OpenApiProperties? GetSchemaIdentity(Type t)
     {
-        // inherit:true already climbs the chain until it finds the first one
-        var attrs = (OpenApiPropertyAttribute[])t.GetCustomAttributes(typeof(OpenApiPropertyAttribute), inherit: true);
-        return attrs.Length > 0 ? attrs[0] : null;
+        // Prefer OpenApiPropertyAttribute (it supports operation/property-level overrides),
+        // but fall back to any OpenApiProperties-derived attribute (e.g., OpenApiSchemaComponent).
+        var propAttrs = (OpenApiPropertyAttribute[])t.GetCustomAttributes(typeof(OpenApiPropertyAttribute), inherit: true);
+        if (propAttrs.Length > 0)
+        {
+            return propAttrs[0];
+        }
+
+        // Note: OpenApiSchemaComponent is Inherited=false, so inherit:true won't climb.
+        // We walk the base chain manually to allow schemas deriving from OpenApi* primitives
+        // (or from a base schema component) to inherit the underlying identity.
+        for (var current = t; current is not null && current != typeof(object); current = current.BaseType)
+        {
+            var schemaAttrs = current.GetCustomAttributes(inherit: false).OfType<OpenApiProperties>().ToArray();
+            if (schemaAttrs.Length > 0)
+            {
+                return schemaAttrs[0];
+            }
+        }
+
+        return null;
     }
 
     /// <summary>
@@ -28,23 +46,19 @@ public partial class OpenApiDocDescriptor
     {
         built ??= [];
 
-        // Handle custom base type derivations first
-        if (t.BaseType is not null && t.BaseType != typeof(object))
+        if (TryBuildPrimitiveSchema(t, out var primitiveSchema))
         {
-            var baseTypeSchema = BuildBaseTypeSchema(t);
-            if (baseTypeSchema is not null)
-            {
-                return baseTypeSchema;
-            }
+            ApplyTypeAttributes(t, primitiveSchema);
+            return primitiveSchema;
         }
 
-        var schema = new OpenApiSchema
+        if (TryBuildDerivedSchemaFromBaseType(t, built, out var derivedSchema, out var schemaParent))
         {
-            Type = JsonSchemaType.Object,
-            Properties = new Dictionary<string, IOpenApiSchema>(StringComparer.Ordinal)
-        };
+            return derivedSchema;
+        }
 
-        // Prevent infinite recursion
+        var schema = CreateSchemaForDeclaredProperties(t);
+
         if (built.Contains(t))
         {
             return schema;
@@ -52,24 +66,266 @@ public partial class OpenApiDocDescriptor
 
         _ = built.Add(t);
 
-        // Handle enum types
-        if (t.IsEnum)
-        {
-            RegisterEnumSchema(t);
-            return schema;
-        }
-
-        // Early return for primitive types
-        if (IsPrimitiveLike(t))
-        {
-            return schema;
-        }
-
-        // Apply type-level attributes
         ApplyTypeAttributes(t, schema);
 
-        // Process properties with default value capture
+        if (t.IsEnum)
+        {
+            return RegisterEnumSchema(t);
+        }
+        // Extensions
+        ProcessExtensions(t, schema);
+        // Properties
         ProcessTypeProperties(t, schema, built);
+        // Return composed schema if applicable
+        return ComposeWithParentSchema(schemaParent, schema);
+    }
+
+    /// <summary>
+    /// Processes OpenAPI extensions defined on a type and adds them to the schema.
+    /// </summary>
+    /// <param name="t">The type being processed.</param>
+    /// <param name="schema"></param>
+    private static void ProcessExtensions(Type t, OpenApiSchema schema)
+    {
+        foreach (var attr in t.GetCustomAttributes<OpenApiExtensionAttribute>(inherit: false))
+        {
+            schema.Extensions ??= new Dictionary<string, IOpenApiExtension>(StringComparer.Ordinal);
+            // Parse string into a JsonNode tree.
+            var node = JsonNode.Parse(attr.Json);
+            if (node is null)
+            {
+                continue;
+            }
+            schema.Extensions[attr.Name] = new JsonNodeExtension(node);
+        }
+    }
+
+    /// <summary>
+    /// Attempts to create a schema for types mapped as OpenAPI primitives/scalars.
+    /// </summary>
+    /// <param name="t">The CLR type to map.</param>
+    /// <param name="schema">The created primitive schema.</param>
+    /// <returns><c>true</c> if the type was mapped as a primitive/scalar; otherwise, <c>false</c>.</returns>
+    private static bool TryBuildPrimitiveSchema(Type t, out OpenApiSchema schema)
+    {
+        if (PrimitiveSchemaMap.TryGetValue(t, out var getSchema))
+        {
+            schema = getSchema();
+            return true;
+        }
+
+        schema = null!;
+        return false;
+    }
+
+    /// <summary>
+    /// Attempts to resolve schema generation for types that derive from another schema component.
+    /// This covers array-wrappers and inheritance composition via <c>allOf</c>.
+    /// </summary>
+    /// <param name="t">The derived type being processed.</param>
+    /// <param name="built">The recursion guard set passed through schema-building.</param>
+    /// <param name="resolved">The resolved schema to return if handled.</param>
+    /// <param name="schemaParent">The parent schema, if composition should be applied later.</param>
+    /// <returns><c>true</c> if schema generation was fully handled and <paramref name="resolved"/> is set.</returns>
+    private bool TryBuildDerivedSchemaFromBaseType(
+        Type t,
+        HashSet<Type> built,
+        out IOpenApiSchema resolved,
+        out OpenApiSchema? schemaParent)
+    {
+        resolved = null!;
+        schemaParent = null;
+
+        if (!HasComposableBaseType(t))
+        {
+            return false;
+        }
+
+        var baseSchema = BuildBaseTypeSchema(t);
+        if (baseSchema is null)
+        {
+            return false;
+        }
+
+        if (TryResolveSimpleOrReferenceBaseSchema(t, baseSchema, out resolved))
+        {
+            return true;
+        }
+
+        if (baseSchema is OpenApiSchema arraySchema && TryResolveArrayWrapperDerivedSchema(t, built, arraySchema, out resolved))
+        {
+            return true;
+        }
+
+        // Defer composition until after properties are processed.
+        schemaParent = baseSchema as OpenApiSchema;
+        return false;
+    }
+
+    /// <summary>
+    /// Determines whether a type has a base type that can participate in schema composition.
+    /// </summary>
+    /// <param name="t">The type being processed.</param>
+    /// <returns><c>true</c> if the type derives from something other than <see cref="object"/>; otherwise <c>false</c>.</returns>
+    private static bool HasComposableBaseType(Type t)
+        => t.BaseType is not null && t.BaseType != typeof(object);
+
+    /// <summary>
+    /// Attempts to resolve a derived type immediately when its base schema is a simple schema or a reference.
+    /// </summary>
+    /// <param name="derivedType">The derived type being processed.</param>
+    /// <param name="baseSchema">The schema resolved from the base type.</param>
+    /// <param name="resolved">The resolved schema to return.</param>
+    /// <returns><c>true</c> if the schema was resolved immediately; otherwise <c>false</c>.</returns>
+    private bool TryResolveSimpleOrReferenceBaseSchema(
+        Type derivedType,
+        IOpenApiSchema baseSchema,
+        out IOpenApiSchema resolved)
+    {
+        resolved = null!;
+
+        if (!IsSimpleSchemaOrReference(baseSchema))
+        {
+            return false;
+        }
+
+        if (baseSchema is OpenApiSchema openApiSchema)
+        {
+            ApplyTypeAttributes(derivedType, openApiSchema);
+            resolved = openApiSchema;
+            return true;
+        }
+
+        resolved = baseSchema;
+        return true;
+    }
+
+    /// <summary>
+    /// Determines whether a schema represents a "simple" base schema (not composed via <c>allOf</c>)
+    /// or a schema reference.
+    /// </summary>
+    /// <param name="schema">The schema to check.</param>
+    /// <returns><c>true</c> if the schema is simple or a reference; otherwise <c>false</c>.</returns>
+    private static bool IsSimpleSchemaOrReference(IOpenApiSchema schema)
+    {
+        return schema is OpenApiSchemaReference
+            || (schema.AllOf is null && schema.Type != JsonSchemaType.Array);
+    }
+
+    /// <summary>
+    /// Resolves the special case where a derived type represents an array wrapper and the array items
+    /// may themselves be composed via <c>allOf</c>.
+    /// </summary>
+    /// <param name="derivedType">The derived type being processed.</param>
+    /// <param name="built">The recursion guard set passed through schema-building.</param>
+    /// <param name="arraySchema">The schema resolved from the base type.</param>
+    /// <param name="resolved">The resolved schema to return.</param>
+    /// <returns><c>true</c> if handled; otherwise <c>false</c>.</returns>
+    private bool TryResolveArrayWrapperDerivedSchema(
+        Type derivedType,
+        HashSet<Type> built,
+        OpenApiSchema arraySchema,
+        out IOpenApiSchema resolved)
+    {
+        resolved = null!;
+
+        if (arraySchema.Type != JsonSchemaType.Array || arraySchema.Items is null)
+        {
+            return false;
+        }
+
+        ApplyTypeAttributes(derivedType, arraySchema);
+
+        if (arraySchema.Items is not OpenApiSchema itemSchema)
+        {
+            resolved = arraySchema;
+            return true;
+        }
+
+        // Preserve existing behavior (type-level attributes applied twice in this branch).
+        ApplyTypeAttributes(derivedType, arraySchema);
+
+        if (itemSchema.AllOf is null)
+        {
+            resolved = arraySchema;
+            return true;
+        }
+
+        var additional = CreateAllOfAdditionalObjectSchema(derivedType, built);
+        itemSchema.AllOf.Add(additional);
+        resolved = arraySchema;
+        return true;
+    }
+
+    /// <summary>
+    /// Creates the additional object schema appended to an existing <c>allOf</c> list for a derived type.
+    /// </summary>
+    /// <param name="t">The derived type whose properties should be added.</param>
+    /// <param name="built">The recursion guard set passed through schema-building.</param>
+    /// <returns>An <see cref="OpenApiSchema"/> containing only properties declared on <paramref name="t"/>.</returns>
+    private OpenApiSchema CreateAllOfAdditionalObjectSchema(Type t, HashSet<Type> built)
+    {
+        var additional = new OpenApiSchema
+        {
+            Type = JsonSchemaType.Object,
+            Properties = new Dictionary<string, IOpenApiSchema>(StringComparer.Ordinal)
+        };
+
+        ProcessTypeProperties(t, additional, built);
+        return additional;
+    }
+
+    /// <summary>
+    /// Creates the base schema instance for a type, initializing object properties only when
+    /// the type declares at least one public instance property.
+    /// </summary>
+    /// <param name="t">The CLR type being processed.</param>
+    /// <returns>An <see cref="OpenApiSchema"/> ready for property population.</returns>
+    private static OpenApiSchema CreateSchemaForDeclaredProperties(Type t)
+    {
+        var schema = new OpenApiSchema();
+        var declaredPropsCount =
+            t.GetProperties(BindingFlags.Public | BindingFlags.Instance)
+             .Count(p => p.DeclaringType == t);
+
+        if (declaredPropsCount > 0)
+        {
+            schema.Type = JsonSchemaType.Object;
+            schema.Properties = new Dictionary<string, IOpenApiSchema>(StringComparer.Ordinal);
+        }
+
+        return schema;
+    }
+
+    /// <summary>
+    /// Composes a child schema into a parent schema when inheritance composition is active.
+    /// </summary>
+    /// <param name="schemaParent">The parent schema built from the base type (if any).</param>
+    /// <param name="schema">The derived schema with properties populated.</param>
+    /// <returns>The composed schema to return from schema generation.</returns>
+    private static IOpenApiSchema ComposeWithParentSchema(OpenApiSchema? schemaParent, OpenApiSchema schema)
+    {
+        if (schemaParent is null)
+        {
+            return schema;
+        }
+
+        if (schemaParent.AllOf is not null)
+        {
+            schemaParent.AllOf.Add(schema);
+            schemaParent.Type = null; // Clear type when using allOf
+            return schemaParent;
+        }
+
+        if (schemaParent.Type == JsonSchemaType.Array)
+        {
+            if (schemaParent.Items is OpenApiSchema items && items.AllOf is not null)
+            {
+                items.AllOf.Add(schema);
+            }
+
+            return schemaParent;
+        }
 
         return schema;
     }
@@ -79,88 +335,82 @@ public partial class OpenApiDocDescriptor
     /// </summary>
     ///  <param name="t">Type to build schema for</param>
     /// <returns>OpenApiSchema representing the base type derivation, or null if not applicable</returns>
-    private IOpenApiSchema? BuildBaseTypeSchema(Type t)
+    private static IOpenApiSchema? BuildBaseTypeSchema(Type t)
     {
-        // Determine if the base type is a known OpenAPI primitive type
-        OaSchemaType? baseTypeName = t.BaseType switch
+        if (PrimitiveSchemaMap.TryGetValue(t.BaseType!, out var value))
         {
-            Type bt when bt == typeof(OaString) => OaSchemaType.String,
-            Type bt when bt == typeof(OaInteger) => OaSchemaType.Integer,
-            Type bt when bt == typeof(OaNumber) => OaSchemaType.Number,
-            Type bt when bt == typeof(OaBoolean) => OaSchemaType.Boolean,
-            _ => null
-        };
-
-        if (typeof(IOpenApiType).IsAssignableFrom(t))
-        {
-            return BuildOpenApiTypeSchema(t);
+            return value();
         }
-        // Fallback to custom base type schema building
-        return BuildCustomBaseTypeSchema(t, baseTypeName);
-    }
 
-    /// <summary>
-    /// Builds schema for types implementing IOpenApiType.
-    /// </summary>
-    private static OpenApiSchema? BuildOpenApiTypeSchema(Type t)
-    {
-        var attr = GetSchemaIdentity(t);
-        return attr is not null
-            ? new OpenApiSchema
-            {
-                Type = attr.Type.ToJsonSchemaType(),
-                Format = attr.Format
-            }
-            : null;
+        // Fallback to custom base type schema building
+        return BuildCustomBaseTypeSchema(t);
     }
 
     /// <summary>
     /// Builds schema for types with custom base types.
     /// </summary>
-    private IOpenApiSchema BuildCustomBaseTypeSchema(Type t, OaSchemaType? baseTypeName)
+    /// <param name="t">Type to build schema for</param>
+    /// <returns>OpenApiSchema representing the custom base type derivation</returns>
+    private static IOpenApiSchema BuildCustomBaseTypeSchema(Type t)
     {
-        IOpenApiSchema baseSchema = baseTypeName is not null
-            ? new OpenApiSchema { Type = baseTypeName?.ToJsonSchemaType() }
-            : new OpenApiSchemaReference(t.BaseType!.Name);
+        var attributes = t.CustomAttributes.ToArray();
+        // Count declared properties
+        var declaredPropsCount =
+            t.GetProperties(BindingFlags.Public | BindingFlags.Instance)
+             .Count(p => p.DeclaringType == t);
 
-        var schemaComps = t.GetCustomAttributes<OpenApiProperties>()
-            .Where(schemaComp => schemaComp is not null)
-            .Cast<OpenApiProperties>();
-
-        foreach (var prop in schemaComps)
+        // Check for the special case where the derived type only adds array semantics
+        var hasArray =
+            attributes.Length > 0 &&
+            attributes[0].NamedArguments.Any(na =>
+                na.MemberName == "Array" &&
+                na.TypedValue.ArgumentType == typeof(bool) &&
+                na.TypedValue.Value is bool b && b);
+        // If so, we can represent this as a simple reference to the base type
+        if (declaredPropsCount == 0 && attributes.Length == 1)
         {
-            return BuildPropertyFromAttribute(prop, baseSchema);
+            if (hasArray)
+            {
+                return new OpenApiSchema
+                {
+                    Type = JsonSchemaType.Array,
+                    Items = new OpenApiSchemaReference(t.BaseType!.Name)
+                };
+            }
+            // If the derived type has AdditionalProperties, we can't use allOf
+            return new OpenApiSchemaReference(t.BaseType!.Name);
         }
-
-        return baseSchema;
-    }
-
-    /// <summary>
-    /// Builds a property schema from an OpenApiProperties attribute.
-    /// </summary>
-    private static IOpenApiSchema BuildPropertyFromAttribute(OpenApiProperties prop, IOpenApiSchema baseSchema)
-    {
-        var schema = prop.Array
-            ? new OpenApiSchema { Type = JsonSchemaType.Array, Items = baseSchema }
-            : baseSchema;
-
-        ApplySchemaAttr(prop, schema);
-        return schema;
+        // Otherwise, build an allOf schema referencing the base type
+        var schema = new OpenApiSchema
+        {
+            AllOf = [new OpenApiSchemaReference(t.BaseType!.Name)]
+        };
+        // Apply array semantics if specified
+        return hasArray
+            ? new OpenApiSchema
+            {
+                Type = JsonSchemaType.Array,
+                Items = schema
+            }
+            : schema;
     }
 
     /// <summary>
     /// Registers an enum type schema in the document components.
     /// </summary>
-    private void RegisterEnumSchema(Type enumType)
+    /// <returns>The registered enum schema.</returns>
+    private OpenApiSchema RegisterEnumSchema(Type enumType)
     {
+        var enumSchema = new OpenApiSchema
+        {
+            Type = JsonSchemaType.String,
+            Enum = [.. enumType.GetEnumNames().Select(n => (JsonNode)n)]
+        };
         if (Document.Components?.Schemas is not null)
         {
-            Document.Components.Schemas[enumType.Name] = new OpenApiSchema
-            {
-                Type = JsonSchemaType.String,
-                Enum = [.. enumType.GetEnumNames().Select(n => (JsonNode)n)]
-            };
+            Document.Components.Schemas[enumType.Name] = enumSchema;
         }
+        return enumSchema;
     }
 
     /// <summary>
@@ -176,7 +426,7 @@ public partial class OpenApiDocDescriptor
             if (attr is OpenApiSchemaComponent schemaAttribute && schemaAttribute.Examples is not null)
             {
                 schema.Examples ??= [];
-                var node = ToNode(schemaAttribute.Examples);
+                var node = OpenApiJsonNodeFactory.ToNode(schemaAttribute.Examples);
                 if (node is not null)
                 {
                     schema.Examples.Add(node);
@@ -192,7 +442,8 @@ public partial class OpenApiDocDescriptor
     {
         var instance = TryCreateTypeInstance(t);
 
-        foreach (var prop in t.GetProperties(BindingFlags.Public | BindingFlags.Instance))
+        foreach (var prop in t.GetProperties(BindingFlags.Public | BindingFlags.Instance)
+                      .Where(p => p.DeclaringType == t))
         {
             var propSchema = BuildPropertySchema(prop, built);
             CapturePropertyDefault(instance, prop, propSchema);
@@ -239,7 +490,7 @@ public partial class OpenApiDocDescriptor
             var value = prop.GetValue(instance);
             if (!IsIntrinsicDefault(value, prop.PropertyType))
             {
-                concrete.Default = ToNode(value);
+                concrete.Default = OpenApiJsonNodeFactory.ToNode(value);
             }
         }
         catch
@@ -303,176 +554,18 @@ public partial class OpenApiDocDescriptor
     }
 
     /// <summary>
-    /// Merges multiple OpenApiPropertyAttribute instances into one.
+    /// Makes an OpenApiSchema nullable if specified.
     /// </summary>
-    /// <param name="attrs">An array of OpenApiPropertyAttribute instances to merge.</param>
-    /// <returns>A single OpenApiPropertyAttribute instance representing the merged attributes.</returns>
-    private static OpenApiPropertyAttribute? MergeSchemaAttributes(OpenApiPropertyAttribute[] attrs)
+    /// <param name="schema">The OpenApiSchema to modify.</param>
+    /// <param name="isNullable">Indicates whether the schema should be nullable.</param>
+    /// <returns>The modified OpenApiSchema.</returns>
+    private static OpenApiSchema MakeNullable(OpenApiSchema schema, bool isNullable)
     {
-        if (attrs == null || attrs.Length == 0)
+        if (isNullable)
         {
-            return null;
+            schema.Type |= JsonSchemaType.Null;
         }
-
-        if (attrs.Length == 1)
-        {
-            return attrs[0];
-        }
-
-        var m = new OpenApiPropertyAttribute();
-
-        foreach (var a in attrs)
-        {
-            MergeStringProperties(m, a);
-            MergeEnumAndCollections(m, a);
-            MergeNumericProperties(m, a);
-            MergeBooleanProperties(m, a);
-            MergeTypeAndRequired(m, a);
-            MergeCustomFields(m, a);
-        }
-
-        return m;
-    }
-
-    /// <summary>
-    /// Merges string properties where the last non-empty value wins.
-    /// </summary>
-    /// <param name="merged">The merged OpenApiPropertyAttribute to update.</param>
-    /// <param name="attr">The OpenApiPropertyAttribute to merge from.</param>
-    private static void MergeStringProperties(OpenApiPropertyAttribute merged, OpenApiPropertyAttribute attr)
-    {
-        if (!string.IsNullOrWhiteSpace(attr.Title))
-        {
-            merged.Title = attr.Title;
-        }
-
-        if (!string.IsNullOrWhiteSpace(attr.Description))
-        {
-            merged.Description = attr.Description;
-        }
-
-        if (!string.IsNullOrWhiteSpace(attr.Format))
-        {
-            merged.Format = attr.Format;
-        }
-
-        if (!string.IsNullOrWhiteSpace(attr.Pattern))
-        {
-            merged.Pattern = attr.Pattern;
-        }
-
-        if (!string.IsNullOrWhiteSpace(attr.Maximum))
-        {
-            merged.Maximum = attr.Maximum;
-        }
-
-        if (!string.IsNullOrWhiteSpace(attr.Minimum))
-        {
-            merged.Minimum = attr.Minimum;
-        }
-    }
-
-    /// <summary>
-    /// Merges enum and collection properties.
-    /// </summary>
-    /// <param name="merged">The merged OpenApiPropertyAttribute to update.</param>
-    /// <param name="attr">The OpenApiPropertyAttribute to merge from.</param>
-    private static void MergeEnumAndCollections(OpenApiPropertyAttribute merged, OpenApiPropertyAttribute attr)
-    {
-        if (attr.Enum is { Length: > 0 })
-        {
-            merged.Enum = [.. merged.Enum ?? [], .. attr.Enum];
-        }
-
-        if (attr.Default is not null)
-        {
-            merged.Default = attr.Default;
-        }
-
-        if (attr.Example is not null)
-        {
-            merged.Example = attr.Example;
-        }
-    }
-
-    /// <summary>
-    /// Merges numeric properties where values >= 0 are considered explicitly set.
-    /// </summary>
-    /// <param name="merged">The merged OpenApiPropertyAttribute to update.</param>
-    /// <param name="attr">The OpenApiPropertyAttribute to merge from.</param>
-    private static void MergeNumericProperties(OpenApiPropertyAttribute merged, OpenApiPropertyAttribute attr)
-    {
-        if (attr.MaxLength >= 0)
-        {
-            merged.MaxLength = attr.MaxLength;
-        }
-
-        if (attr.MinLength >= 0)
-        {
-            merged.MinLength = attr.MinLength;
-        }
-
-        if (attr.MaxItems >= 0)
-        {
-            merged.MaxItems = attr.MaxItems;
-        }
-
-        if (attr.MinItems >= 0)
-        {
-            merged.MinItems = attr.MinItems;
-        }
-
-        if (attr.MultipleOf is not null)
-        {
-            merged.MultipleOf = attr.MultipleOf;
-        }
-    }
-
-    /// <summary>
-    /// Merges boolean properties using OR logic.
-    /// </summary>
-    /// <param name="merged">The merged OpenApiPropertyAttribute to update.</param>
-    /// <param name="attr">The OpenApiPropertyAttribute to merge from.</param>
-    private static void MergeBooleanProperties(OpenApiPropertyAttribute merged, OpenApiPropertyAttribute attr)
-    {
-        merged.Nullable |= attr.Nullable;
-        merged.ReadOnly |= attr.ReadOnly;
-        merged.WriteOnly |= attr.WriteOnly;
-        merged.Deprecated |= attr.Deprecated;
-        merged.UniqueItems |= attr.UniqueItems;
-        merged.ExclusiveMaximum |= attr.ExclusiveMaximum;
-        merged.ExclusiveMinimum |= attr.ExclusiveMinimum;
-    }
-
-    /// <summary>
-    /// Merges type and required properties.
-    /// </summary>
-    /// <param name="merged">The merged OpenApiPropertyAttribute to update.</param>
-    /// <param name="attr">The OpenApiPropertyAttribute to merge from.</param>
-    private static void MergeTypeAndRequired(OpenApiPropertyAttribute merged, OpenApiPropertyAttribute attr)
-    {
-        if (attr.Type != OaSchemaType.None)
-        {
-            merged.Type = attr.Type;
-        }
-
-        if (attr.Required is { Length: > 0 })
-        {
-            merged.Required = [.. (merged.Required ?? []).Concat(attr.Required).Distinct()];
-        }
-    }
-
-    /// <summary>
-    /// Merges custom fields like XmlName.
-    /// </summary>
-    /// <param name="merged">The merged OpenApiPropertyAttribute to update.</param>
-    /// <param name="attr">The OpenApiPropertyAttribute to merge from.</param>
-    private static void MergeCustomFields(OpenApiPropertyAttribute merged, OpenApiPropertyAttribute attr)
-    {
-        if (!string.IsNullOrWhiteSpace(attr.XmlName))
-        {
-            merged.XmlName = attr.XmlName;
-        }
+        return schema;
     }
 
     /// <summary>
@@ -481,12 +574,19 @@ public partial class OpenApiDocDescriptor
     /// <param name="type">The .NET type to infer from.</param>
     /// <param name="inline">Indicates if the schema should be inlined.</param>
     /// <returns>The inferred OpenApiSchema.</returns>
-    private IOpenApiSchema InferPrimitiveSchema(Type type, bool inline = false)
+    public IOpenApiSchema InferPrimitiveSchema(Type type, bool inline = false)
     {
+        var nullable = false;
+        if (type.IsGenericType && type.GetGenericTypeDefinition() == typeof(Nullable<>)
+            && type.GetGenericArguments().Length == 1)
+        {
+            type = type.GetGenericArguments()[0];
+            nullable = true;
+        }
         // Direct type mappings
         if (PrimitiveSchemaMap.TryGetValue(type, out var schemaFactory))
         {
-            return schemaFactory();
+            return MakeNullable(schemaFactory(), nullable);
         }
 
         // Array type handling
@@ -516,7 +616,7 @@ public partial class OpenApiDocDescriptor
         var typeName = type.Name[..^2];
         if (ComponentSchemasExists(typeName))
         {
-            IOpenApiSchema? items = inline ? GetSchema(typeName).Clone() : new OpenApiSchemaReference(typeName);
+            var items = inline ? GetSchema(typeName).Clone() : new OpenApiSchemaReference(typeName);
             return new OpenApiSchema { Type = JsonSchemaType.Array, Items = items };
         }
 
@@ -531,18 +631,16 @@ public partial class OpenApiDocDescriptor
     /// <returns>The inferred OpenApiSchema.</returns>
     private IOpenApiSchema InferPowerShellClassSchema(Type type, bool inline)
     {
-        var schema = GetSchema(type.Name);
-
-        if (inline)
+        if (TryGetSchemaItem(type.Name, out var schema, out var isInline))
         {
-            if (schema is OpenApiSchema concreteSchema)
+            if (inline || isInline)
             {
-                return concreteSchema.Clone();
+                if (schema is OpenApiSchema concreteSchema)
+                {
+                    return concreteSchema.Clone();
+                }
             }
-        }
-        else
-        {
-            if (schema is not null)
+            else
             {
                 return new OpenApiSchemaReference(type.Name);
             }
@@ -584,11 +682,6 @@ public partial class OpenApiDocDescriptor
         [typeof(float)] = () => new OpenApiSchema { Type = JsonSchemaType.Number, Format = "float" },
         [typeof(double)] = () => new OpenApiSchema { Type = JsonSchemaType.Number, Format = "double" },
         [typeof(decimal)] = () => new OpenApiSchema { Type = JsonSchemaType.Number, Format = "decimal" },
-        [typeof(OaString)] = () => new OpenApiSchema { Type = JsonSchemaType.String },
-        [typeof(OaInteger)] = () => new OpenApiSchema { Type = JsonSchemaType.Integer },
-        [typeof(OaNumber)] = () => new OpenApiSchema { Type = JsonSchemaType.Number },
-        [typeof(OaBoolean)] = () => new OpenApiSchema { Type = JsonSchemaType.Boolean },
-
         [typeof(OpenApiString)] = () => new OpenApiSchema { Type = JsonSchemaType.String },
         [typeof(OpenApiUuid)] = () => new OpenApiSchema { Type = JsonSchemaType.String, Format = "uuid" },
         [typeof(OpenApiDate)] = () => new OpenApiSchema { Type = JsonSchemaType.String, Format = "date" },
@@ -658,6 +751,7 @@ public partial class OpenApiDocDescriptor
         ApplyCollectionConstraints(properties, schema);
         ApplyFlags(properties, schema);
         ApplyExamplesAndDefaults(properties, schema);
+        ApplyXmlMetadata(properties, schema);
     }
 
     /// <summary>
@@ -671,8 +765,7 @@ public partial class OpenApiDocDescriptor
         {
             schema.Title = properties.Title;
         }
-
-        if (properties.Description is not null)
+        if (properties is not OpenApiParameterComponentAttribute && properties.Description is not null)
         {
             schema.Description = properties.Description;
         }
@@ -802,35 +895,87 @@ public partial class OpenApiDocDescriptor
     {
         schema.ReadOnly = properties.ReadOnly;
         schema.WriteOnly = properties.WriteOnly;
-        schema.Deprecated = properties.Deprecated;
         schema.AdditionalPropertiesAllowed = properties.AdditionalPropertiesAllowed;
         schema.UnevaluatedProperties = properties.UnevaluatedProperties;
+        if (properties is not OpenApiParameterComponentAttribute)
+        {
+            schema.Deprecated = properties.Deprecated;
+        }
     }
 
     private static void ApplyExamplesAndDefaults(OpenApiProperties properties, OpenApiSchema schema)
     {
         if (properties.Default is not null)
         {
-            schema.Default = ToNode(properties.Default);
+            schema.Default = OpenApiJsonNodeFactory.ToNode(properties.Default);
         }
-
-        if (properties.Example is not null)
+        if (properties.Example is not null && properties is not OpenApiParameterComponentAttribute)
         {
-            schema.Example = ToNode(properties.Example);
+            schema.Example = OpenApiJsonNodeFactory.ToNode(properties.Example);
         }
 
         if (properties.Enum is { Length: > 0 })
         {
-            schema.Enum = [.. properties.Enum.Select(ToNode).OfType<JsonNode>()];
+            schema.Enum = [.. properties.Enum.Select(OpenApiJsonNodeFactory.ToNode).OfType<JsonNode>()];
         }
 
-        if (properties.Required is { Length: > 0 })
+        if (properties.RequiredProperties is { Length: > 0 })
         {
             schema.Required ??= new HashSet<string>(StringComparer.Ordinal);
-            foreach (var r in properties.Required)
+            foreach (var r in properties.RequiredProperties)
             {
                 _ = schema.Required.Add(r);
             }
+        }
+    }
+
+    /// <summary>
+    /// Applies XML metadata to an OpenApiSchema.
+    /// </summary>
+    /// <param name="properties">The OpenApiProperties containing XML attributes to apply.</param>
+    /// <param name="schema">The OpenApiSchema to apply XML metadata to.</param>
+    private static void ApplyXmlMetadata(OpenApiProperties properties, OpenApiSchema schema)
+    {
+        // Check if any XML properties are set
+        var hasXmlMetadata = !string.IsNullOrWhiteSpace(properties.XmlName) ||
+                             !string.IsNullOrWhiteSpace(properties.XmlNamespace) ||
+                             !string.IsNullOrWhiteSpace(properties.XmlPrefix) ||
+                             properties.XmlAttribute ||
+                             properties.XmlWrapped;
+
+        if (!hasXmlMetadata)
+        {
+            return;
+        }
+
+        // Create XML object if it doesn't exist
+        schema.Xml ??= new Microsoft.OpenApi.OpenApiXml();
+
+        // Apply standard XML properties (supported by Microsoft.OpenApi 3.1.2)
+        if (!string.IsNullOrWhiteSpace(properties.XmlName))
+        {
+            schema.Xml.Name = properties.XmlName;
+        }
+
+        if (!string.IsNullOrWhiteSpace(properties.XmlNamespace))
+        {
+            schema.Xml.Namespace = new Uri(properties.XmlNamespace);
+        }
+
+        if (!string.IsNullOrWhiteSpace(properties.XmlPrefix))
+        {
+            schema.Xml.Prefix = properties.XmlPrefix;
+        }
+
+        // Set NodeType based on XmlAttribute and XmlWrapped properties
+        // OpenAPI 3.2 uses NodeType to specify attribute vs element vs text nodes
+        if (properties.XmlAttribute)
+        {
+            schema.Xml.NodeType = OpenApiXmlNodeType.Attribute;
+        }
+        else if (properties.XmlWrapped)
+        {
+            schema.Xml.NodeType = OpenApiXmlNodeType.Element;
         }
     }
 
@@ -856,108 +1001,5 @@ public partial class OpenApiDocDescriptor
         // attach such metadata to the component target instead if you need it.
     }
 
-    /// <summary>
-    /// Determines if a type is considered primitive-like for schema generation.
-    /// </summary>
-    /// <param name="t">The type to check.</param>
-    /// <returns>True if the type is considered primitive-like; otherwise, false.</returns>
-    private static bool IsPrimitiveLike(Type t)
-        => t.IsPrimitive || t == typeof(string) || t == typeof(decimal) || t == typeof(DateTime) ||
-        t == typeof(Guid) || t == typeof(object) || t == typeof(OaString) || t == typeof(OaInteger) ||
-         t == typeof(OaNumber) || t == typeof(OaBoolean);
-
     #endregion
-
-    /// <summary>
-    /// Converts a .NET object to a JsonNode representation.
-    /// </summary>
-    /// <param name="value">The .NET object to convert.</param>
-    /// <returns>A JsonNode representing the object, or null if the object is null.</returns>
-    public static JsonNode? ToNode(object? value)
-    {
-        if (value is null)
-        {
-            return null;
-        }
-
-        // handle common types
-        return value switch
-        {
-            bool b => JsonValue.Create(b),
-            string s => JsonValue.Create(s),
-            sbyte or byte or short or ushort or int or uint or long or ulong => JsonValue.Create(Convert.ToInt64(value)),
-            float or double or decimal => JsonValue.Create(Convert.ToDouble(value)),
-            DateTime dt => JsonValue.Create(dt.ToString("o")),
-            Guid g => JsonValue.Create(g.ToString()),
-            // Hashtable/IDictionary -> JsonObject
-            System.Collections.IDictionary dict => ToJsonObject(dict),
-            // Generic enumerable -> JsonArray
-            IEnumerable<object?> seq => new JsonArray([.. seq.Select(ToNode)]),
-            // Non-generic enumerable -> JsonArray
-            System.Collections.IEnumerable en when value is not string => ToJsonArray(en),
-            _ => ToNodeFromPocoOrString(value)
-        };
-    }
-
-    private static JsonObject ToJsonObject(System.Collections.IDictionary dict)
-    {
-        var obj = new JsonObject();
-        foreach (System.Collections.DictionaryEntry de in dict)
-        {
-            if (de.Key is null) { continue; }
-            var k = de.Key.ToString() ?? string.Empty;
-            obj[k] = ToNode(de.Value);
-        }
-        return obj;
-    }
-
-    private static JsonArray ToJsonArray(System.Collections.IEnumerable en)
-    {
-        var arr = new JsonArray();
-        foreach (var item in en)
-        {
-            arr.Add(ToNode(item));
-        }
-        return arr;
-    }
-
-    private static JsonNode ToNodeFromPocoOrString(object value)
-    {
-        // Try POCO reflection
-        var t = value.GetType();
-        // Ignore types that are clearly not POCOs
-        if (!t.IsPrimitive && t != typeof(string) && !typeof(System.Collections.IEnumerable).IsAssignableFrom(t))
-        {
-            var props = t.GetProperties(BindingFlags.Public | BindingFlags.Instance);
-            if (props.Length > 0)
-            {
-                var obj = new JsonObject();
-                foreach (var p in props)
-                {
-                    if (!p.CanRead) { continue; }
-                    var v = p.GetValue(value);
-                    if (v is null) { continue; }
-                    obj[p.Name] = ToNode(v);
-                }
-                return obj;
-            }
-        }
-        // Fallback
-        return JsonValue.Create(value?.ToString() ?? string.Empty);
-    }
-
-    /// <summary>
-    /// Ensures that a schema component exists for a complex .NET type.
-    /// </summary>
-    /// <param name="complexType">The complex .NET type.</param>
-    private void EnsureSchemaComponent(Type complexType)
-    {
-        if (Document.Components?.Schemas != null && Document.Components.Schemas.ContainsKey(complexType.Name))
-        {
-            return;
-        }
-
-        var temp = new HashSet<Type>();
-        BuildSchema(complexType, temp);
-    }
 }

@@ -39,6 +39,18 @@ public class YamlEmittersAndConvertersTests
     }
 
     [Fact]
+    public void IDictionaryTypeConverter_Unwraps_PSObject_BaseObject()
+    {
+        var dict = new Hashtable
+        {
+            ["x"] = PSObject.AsPSObject(5),
+        };
+
+        var yamlKeepNulls = Serialize(dict, SerializationOptions.EmitDefaults);
+        Assert.Contains("x: 5", yamlKeepNulls);
+    }
+
+    [Fact]
     public void PSObjectTypeConverter_Serializes_Simple_And_FlowStyle()
     {
         var o = new PSObject();
@@ -54,6 +66,25 @@ public class YamlEmittersAndConvertersTests
         // Flow style output is fully compact (e.g., {Name:alice,Age:30})
         var compact = flat.Replace(" ", "");
         Assert.Contains("{Name:alice,Age:30}", compact);
+    }
+
+    [Fact]
+    public void PSObjectTypeConverter_Serializes_BaseObject_When_Not_DictionaryLike()
+    {
+        var yaml = Serialize(PSObject.AsPSObject(123), SerializationOptions.EmitDefaults);
+        Assert.Contains("123", yaml);
+    }
+
+    [Fact]
+    public void PSObjectTypeConverter_Unwraps_Nested_PSObject_BaseObject_In_Properties()
+    {
+        var o = new PSObject();
+        o.Properties.Add(new PSNoteProperty("n", PSObject.AsPSObject(7)));
+        o.Properties.Add(new PSNoteProperty("empty", string.Empty));
+
+        var yaml = Serialize(o, SerializationOptions.EmitDefaults);
+        Assert.Contains("\"n\": 7", yaml);
+        Assert.Contains("empty: \"\"", yaml);
     }
 
     [Fact]
@@ -96,5 +127,14 @@ public class YamlEmittersAndConvertersTests
         {
             Assert.Contains($"x: \"{input}\"", yaml);
         }
+    }
+
+    [Fact]
+    public void StringQuotingEmitter_Uses_Literal_For_Newlines()
+    {
+        var yaml = Serialize(new { x = "a\nb" }, SerializationOptions.EmitDefaults);
+        var flat = yaml.Replace("\r\n", "\n");
+        Assert.Contains("x: |", flat);
+        Assert.Contains("\n  a\n  b", flat);
     }
 }

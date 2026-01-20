@@ -1,36 +1,59 @@
 <#
 .SYNOPSIS
-    Creates a new OpenAPI external documentation object.
+    Creates a new OpenAPI External Documentation object.
 .DESCRIPTION
-    This function creates a new OpenAPI external documentation object using the provided parameters.
-.PARAMETER Description
-    A description of the external documentation.
+    This function creates a new OpenAPI External Documentation object using the provided parameters.
+.PARAMETER Server
+    The Kestrun server instance to which the OpenAPI external documentation will be associated.
+    If not specified, the function will attempt to resolve the current server context.
 .PARAMETER Url
     A URI to the external documentation.
+.PARAMETER Description
+    A description of the external documentation.
+.PARAMETER Extensions
+    A collection of OpenAPI extensions to add to the external documentation.
 .EXAMPLE
-    $externalDocs = New-KrOpenApiExternalDoc -Description 'Find out more about our API here.' -Url 'https://example.com/api-docs'
-.OUTPUTS
-    Microsoft.OpenApi.OpenApiExternalDocs
+    # Create external documentation
+    $externalDoc = New-KrOpenApiExternalDoc -Description 'Find out more about our API here.' -Url 'https://example.com/api-docs'
+    Creates an external documentation object with the specified description and URL.
+.EXAMPLE
+    # Create external documentation with extensions
+    $extensions = [ordered]@{
+        'x-doc-type' = 'comprehensive'
+        'x-contact' = 'Admin Team'
+    }
+    $externalDoc = New-KrOpenApiExternalDoc -Description 'Comprehensive API docs' -Url 'https://example.com/full-api-docs' -Extensions $extensions
+    Creates an external documentation object with the specified description, URL, and extensions.
 .NOTES
     This cmdlet is part of the OpenAPI module.
 #>
 function New-KrOpenApiExternalDoc {
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseShouldProcessForStateChangingFunctions', '')]
     [KestrunRuntimeApi('Definition')]
-    [OutputType([Microsoft.OpenApi.OpenApiExternalDocs])]
     param(
-        [Parameter()]
-        [string]$Description,
+        [Parameter(Mandatory = $false, ValueFromPipeline = $true)]
+        [Kestrun.Hosting.KestrunHost]$Server,
+
         [Parameter(Mandatory = $true)]
-        [Uri]$Url
+        [Uri]$Url,
+
+        [Parameter(Mandatory = $false)]
+        [string]$Description,
+
+        [Parameter(Mandatory = $false)]
+        [System.Collections.IDictionary]$Extensions
     )
-
-    $externalDocs = [Microsoft.OpenApi.OpenApiExternalDocs]::new()
-
-    if ($PsBoundParameters.ContainsKey('Description')) {
-        $externalDocs.Description = $Description
+    begin {
+        # Ensure the server instance is resolved
+        $Server = Resolve-KestrunServer -Server $Server
     }
-    $externalDocs.Url = $Url
-
-    return $externalDocs
+    process {
+        # Create external documentation for the specified OpenAPI document
+        if ($Server.OpenApiDocumentDescriptor.Count -gt 0 ) {
+            $docDescriptor = $Server.DefaultOpenApiDocumentDescriptor
+            return $docDescriptor.CreateExternalDocs($Url, $Description, $Extensions)
+        } else {
+            Write-KrLog -Level Warning 'New-KrOpenApiExternalDoc: No OpenAPI documents exist on the server.Create an OpenAPI document before adding external documentation.'
+        }
+    }
 }

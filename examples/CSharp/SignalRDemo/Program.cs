@@ -33,7 +33,7 @@ server.ConfigureListener(
 );
 
 // 3. Add SignalR with KestrunHub
-server.AddSignalR<KestrunHub>("/runtime");
+server.AddSignalR<KestrunHub>(new Kestrun.Hosting.Options.SignalROptions() { Path = "/runtime" });
 
 // 4. Add PowerShell runtime
 server.AddPowerShellRuntime();

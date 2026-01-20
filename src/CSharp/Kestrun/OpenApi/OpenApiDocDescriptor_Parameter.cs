@@ -1,5 +1,3 @@
-using System.Reflection;
-using System.Text.Json.Nodes;
 using Microsoft.OpenApi;
 
 namespace Kestrun.OpenApi;
@@ -9,321 +7,6 @@ namespace Kestrun.OpenApi;
 /// </summary>
 public partial class OpenApiDocDescriptor
 {
-    /// <summary>
-    /// Builds OpenAPI parameters from a given type's properties.
-    /// </summary>
-    /// <param name="t">The type to build parameters from.</param>
-    /// <exception cref="InvalidOperationException">Thrown when the type has multiple [OpenApiResponseComponent] attributes.</exception>
-    private void BuildParameters(Type t)
-    {
-        Document.Components!.Parameters ??= new Dictionary<string, IOpenApiParameter>(StringComparer.Ordinal);
-
-        var (defaultDescription, joinClassName) = GetClassLevelMetadata(t);
-        const BindingFlags flags = BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly;
-
-        foreach (var p in t.GetProperties(flags))
-        {
-            ProcessPropertyForParameter(p, t, defaultDescription, joinClassName);
-        }
-    }
-
-    /// <summary>
-    /// Retrieves class-level OpenAPI metadata from the given type.
-    /// </summary>
-    /// <param name="t">The type to retrieve metadata from.</param>
-    /// <returns>A tuple containing the description and join class name, if any.</returns>
-    private static (string? Description, string? JoinClassName) GetClassLevelMetadata(Type t)
-    {
-        string? description = null;
-        string? joinClassName = null;
-
-        var classAttrs = t.GetCustomAttributes(inherit: false)
-            .Where(a => a.GetType().Name == nameof(OpenApiParameterComponent))
-            .Cast<object>()
-            .ToArray();
-
-        if (classAttrs.Length > 1)
-        {
-            throw new InvalidOperationException($"Type '{t.FullName}' has multiple [OpenApiParameterComponent] attributes. Only one is allowed per class.");
-        }
-
-        if (classAttrs.Length == 1 && classAttrs[0] is OpenApiParameterComponent attr)
-        {
-            if (!string.IsNullOrEmpty(attr.Description))
-            {
-                description = attr.Description;
-            }
-            if (!string.IsNullOrEmpty(attr.JoinClassName))
-            {
-                joinClassName = t.FullName + attr.JoinClassName;
-            }
-        }
-
-        return (description, joinClassName);
-    }
-
-    /// <summary>
-    /// Processes a property to create and register an OpenAPI parameter if applicable.
-    /// </summary>
-    /// <param name="p">The PropertyInfo representing the property.</param>
-    /// <param name="t">The type that declares the property.</param>
-    /// <param name="defaultDescription">A default description to apply if the parameter's description is not set.</param>
-    /// <param name="joinClassName">An optional string to join with the class name for unique key generation.</param>
-    private void ProcessPropertyForParameter(PropertyInfo p, Type t, string? defaultDescription, string? joinClassName)
-    {
-        var parameter = new OpenApiParameter();
-        var attrs = GetParameterAttributes(p);
-
-        if (attrs.Length == 0)
-        {
-            return;
-        }
-
-        var (hasResponseDef, customName) = ApplyParameterAttributes(parameter, attrs);
-
-        if (hasResponseDef)
-        {
-            FinalizeAndRegisterParameter(parameter, p, t, customName, defaultDescription, joinClassName);
-        }
-    }
-
-    /// <summary>
-    /// Retrieves parameter-related attributes from a property.
-    /// </summary>
-    /// <param name="p">The PropertyInfo representing the property.</param>
-    /// <returns>An array of KestrunAnnotation attributes related to parameters.</returns>
-    private static KestrunAnnotation[] GetParameterAttributes(PropertyInfo p)
-    {
-        return
-        [
-            .. p.GetCustomAttributes(inherit: false)
-             .Where(a => a.GetType().Name is
-                 nameof(OpenApiParameterAttribute) or
-                 nameof(OpenApiPropertyAttribute) or
-                 nameof(OpenApiExampleRefAttribute)
-             )
-             .Cast<KestrunAnnotation>()
-        ];
-    }
-
-    /// <summary>
-    /// Applies parameter-related attributes to the given OpenApiParameter.
-    /// </summary>
-    /// <param name="parameter">The OpenApiParameter to apply attributes to.</param>
-    /// <param name="attrs">An array of KestrunAnnotation attributes to apply.</param>
-    /// <returns>A tuple indicating if a response definition was found and a custom name, if any.</returns>
-    private (bool HasResponseDef, string CustomName) ApplyParameterAttributes(OpenApiParameter parameter, KestrunAnnotation[] attrs)
-    {
-        var hasResponseDef = false;
-        var customName = string.Empty;
-
-        foreach (var a in attrs)
-        {
-            if (a is OpenApiParameterAttribute oaRa && !string.IsNullOrWhiteSpace(oaRa.Key))
-            {
-                customName = oaRa.Key;
-            }
-
-            if (CreateParameterFromAttribute(a, parameter))
-            {
-                hasResponseDef = true;
-            }
-        }
-        return (hasResponseDef, customName);
-    }
-
-    /// <summary>
-    /// Finalizes and registers the OpenAPI parameter in the document components.
-    /// </summary>
-    /// <param name="parameter">The OpenApiParameter to finalize and register.</param>
-    /// <param name="p">The PropertyInfo representing the property.</param>
-    /// <param name="t">The type that declares the property.</param>
-    /// <param name="customName">A custom name for the parameter, if specified.</param>
-    /// <param name="defaultDescription">A default description to apply if the parameter's description is not set.</param>
-    /// <param name="joinClassName">An optional string to join with the class name for unique key generation.</param>
-    private void FinalizeAndRegisterParameter(OpenApiParameter parameter, PropertyInfo p, Type t, string customName, string? defaultDescription, string? joinClassName)
-    {
-        var tname = string.IsNullOrWhiteSpace(customName) ? p.Name : customName;
-        var key = joinClassName is not null ? $"{joinClassName}{tname}" : tname;
-
-        if (string.IsNullOrWhiteSpace(parameter.Name))
-        {
-            parameter.Name = tname;
-        }
-        if (parameter.Description is null && defaultDescription is not null)
-        {
-            parameter.Description = defaultDescription;
-        }
-
-        Document.Components!.Parameters![key] = parameter;
-
-        var schemaAttr = (OpenApiPropertyAttribute?)p.GetCustomAttributes(inherit: false)
-                          .LastOrDefault(a => a.GetType().Name == nameof(OpenApiPropertyAttribute));
-
-        parameter.Schema = CreatePropertySchema(schemaAttr, t, p);
-    }
-
-    /// <summary>
-    /// Creates an OpenAPI schema for a property based on its type and any associated OpenApiPropertyAttribute.
-    /// </summary>
-    /// <param name="schemaAttr">The OpenApiPropertyAttribute associated with the property, if any.</param>
-    /// <param name="t">The type that declares the property.</param>
-    /// <param name="p">The PropertyInfo representing the property.</param>
-    /// <returns>An IOpenApiSchema representing the property's schema.</returns>
-    private IOpenApiSchema CreatePropertySchema(OpenApiPropertyAttribute? schemaAttr, Type t, PropertyInfo p)
-    {
-        var pt = p.PropertyType;
-        var allowNull = false;
-        var underlying = Nullable.GetUnderlyingType(pt);
-        if (underlying != null)
-        {
-            allowNull = true;
-            pt = underlying;
-        }
-        // enums first
-        if (pt.IsEnum)
-        {
-            return CreateEnumSchema(pt, schemaAttr, allowNull);
-        }
-        // check for array after enum to handle enum arrays
-        if (pt.IsArray)
-        {
-            return CreateArraySchema(pt, p, schemaAttr, allowNull);
-        }
-        // complex types
-        if (!IsPrimitiveLike(pt))
-        {
-            return CreateComplexSchema(pt, schemaAttr);
-        }
-        // primitive types
-        return CreatePrimitiveSchema(pt, t, p, schemaAttr, allowNull);
-    }
-
-    /// <summary>
-    /// Creates an OpenAPI schema for an enum property.
-    /// </summary>
-    /// <param name="pt">The enum type of the property</param>
-    /// <param name="schemaAttr">Optional OpenApiPropertyAttribute for the property</param>
-    /// <param name="allowNull">Indicates if the property allows null values</param>
-    /// <returns>An IOpenApiSchema representing the enum property</returns>
-    private static IOpenApiSchema CreateEnumSchema(Type pt, OpenApiPropertyAttribute? schemaAttr, bool allowNull)
-    {
-        var s = new OpenApiSchema
-        {
-            Type = JsonSchemaType.String,
-            Enum = [.. pt.GetEnumNames().Select(n => (JsonNode)n)]
-        };
-        ApplySchemaAttr(schemaAttr, s);
-        if (allowNull)
-        {
-            s.Type |= JsonSchemaType.Null;
-        }
-        return s;
-    }
-
-    /// <summary>
-    /// Creates an OpenAPI schema for an array property.
-    /// </summary>
-    /// <param name="pt">The array type of the property</param>
-    /// <param name="p">The PropertyInfo representing the property</param>
-    /// <param name="schemaAttr">Optional OpenApiPropertyAttribute for the property</param>
-    /// <param name="allowNull">Indicates if the property allows null values</param>
-    /// <returns>An IOpenApiSchema representing the array property</returns>
-    private IOpenApiSchema CreateArraySchema(Type pt, PropertyInfo p, OpenApiPropertyAttribute? schemaAttr, bool allowNull)
-    {
-        var elem = pt.GetElementType()!;
-        IOpenApiSchema itemSchema;
-        if (!IsPrimitiveLike(elem) && !elem.IsEnum)
-        {
-            // ensure a component schema exists for the complex element and $ref it
-            EnsureSchemaComponent(elem);
-            itemSchema = new OpenApiSchemaReference(elem.Name);
-        }
-        else
-        {
-            itemSchema = elem.IsEnum
-                ? new OpenApiSchema
-                {
-                    Type = JsonSchemaType.String,
-                    Enum = [.. elem.GetEnumNames().Select(n => (JsonNode)n)]
-                }
-                : InferPrimitiveSchema(elem);
-        }
-
-        var s = new OpenApiSchema { Type = JsonSchemaType.Array, Items = itemSchema };
-        ApplySchemaAttr(schemaAttr, s);
-        PowerShellAttributes.ApplyPowerShellAttributes(p, s);
-        if (allowNull)
-        {
-            s.Type |= JsonSchemaType.Null;
-        }
-        return s;
-    }
-
-    /// <summary>
-    /// Creates an OpenAPI schema for a complex property.
-    /// </summary>
-    /// <param name="pt">The complex type of the property</param>
-    /// <param name="schemaAttr">Optional OpenApiPropertyAttribute for the property</param>
-    /// <returns>An IOpenApiSchema representing the complex property</returns>
-    private IOpenApiSchema CreateComplexSchema(Type pt, OpenApiPropertyAttribute? schemaAttr)
-    {
-        EnsureSchemaComponent(pt);
-        var r = new OpenApiSchemaReference(pt.Name);
-        ApplySchemaAttr(schemaAttr, r);
-        return r;
-    }
-
-    /// <summary>
-    /// Creates an OpenAPI schema for a primitive property.
-    /// </summary>
-    /// <param name="pt">The primitive type of the property</param>
-    /// <param name="t">The containing type</param>
-    /// <param name="p">The PropertyInfo representing the property</param>
-    /// <param name="schemaAttr">Optional OpenApiPropertyAttribute for the property</param>
-    /// <param name="allowNull">Indicates if the property allows null values</param>
-    /// <returns>An IOpenApiSchema representing the primitive property</returns>
-    private IOpenApiSchema CreatePrimitiveSchema(Type pt, Type t, PropertyInfo p, OpenApiPropertyAttribute? schemaAttr, bool allowNull)
-    {
-        var s = InferPrimitiveSchema(pt);
-        ApplySchemaAttr(schemaAttr, s);
-        PowerShellAttributes.ApplyPowerShellAttributes(p, s);
-        // If no explicit default provided via schema attribute, try to pull default from property value
-        if (s is OpenApiSchema sc && sc.Default is null)
-        {
-            TryApplyDefaultValue(t, p, sc);
-
-            if (allowNull)
-            {
-                sc.Type |= JsonSchemaType.Null;
-            }
-        }
-        return s;
-    }
-
-    /// <summary>
-    /// Tries to apply the default value of a property to the given OpenApiSchema.
-    /// </summary>
-    /// <param name="t">Type containing the property</param>
-    /// <param name="p">PropertyInfo of the property</param>
-    /// <param name="sc">OpenApiSchema to apply the default value to</param>
-    private static void TryApplyDefaultValue(Type t, PropertyInfo p, OpenApiSchema sc)
-    {
-        try
-        {
-            var inst = Activator.CreateInstance(t);
-            if (inst != null)
-            {
-                var val = p.GetValue(inst);
-                if (!IsIntrinsicDefault(val, p.PropertyType))
-                {
-                    sc.Default = ToNode(val);
-                }
-            }
-        }
-        catch { }
-    }
-
     /// <summary>
     /// Creates an OpenAPI parameter from a given attribute.
     /// </summary>
@@ -381,7 +64,7 @@ public partial class OpenApiDocDescriptor
         }
         if (param.Example is not null)
         {
-            parameter.Example = ToNode(param.Example);
+            parameter.Example = OpenApiJsonNodeFactory.ToNode(param.Example);
         }
     }
 
@@ -410,4 +93,504 @@ public partial class OpenApiDocDescriptor
             parameter.Examples[exRef.Key] = new OpenApiExampleReference(exRef.ReferenceId);
         }
     }
+
+    #region Parameter Component Processing
+    /// <summary>
+    /// Processes a parameter component annotation to create or update an OpenAPI parameter.
+    /// </summary>
+    /// <param name="variable">The annotated variable containing metadata about the parameter</param>
+    /// <param name="parameterDescriptor">The parameter component annotation</param>
+    private void ProcessParameterComponent(
+      OpenApiComponentAnnotationScanner.AnnotatedVariable variable,
+      OpenApiParameterComponentAttribute parameterDescriptor)
+    {
+        var key = parameterDescriptor.Key ?? variable.Name;
+        var parameter = GetOrCreateParameterItem(key, parameterDescriptor.Inline);
+
+        ApplyParameterCommonFields(parameter, parameterDescriptor);
+
+        // Explode defaults to true for "form" and "cookie" styles
+        if (parameterDescriptor.Explode || (parameter.Style is ParameterStyle.Form or ParameterStyle.Cookie))
+        {
+            parameter.Explode = true;
+        }
+        // Set the parameter name from the variable name
+        parameter.Name = variable.Name;
+        TryApplyVariableTypeSchema(parameter, variable, parameterDescriptor);
+    }
+
+    /// <summary>
+    /// Applies common fields from a parameter component annotation to an OpenAPI parameter.
+    /// </summary>
+    /// <param name="parameter">The OpenApiParameter to modify</param>
+    /// <param name="parameterAnnotation">The parameter component annotation</param>
+    private static void ApplyParameterCommonFields(
+        OpenApiParameter parameter,
+        OpenApiParameterComponentAttribute parameterAnnotation)
+    {
+        parameter.AllowEmptyValue = parameterAnnotation.AllowEmptyValue;
+        parameter.Description = parameterAnnotation.Description;
+        parameter.In = parameterAnnotation.In.ToOpenApi();
+        parameter.Style = parameterAnnotation.Style?.ToOpenApi();
+        parameter.AllowReserved = parameterAnnotation.AllowReserved;
+        parameter.Required = parameterAnnotation.Required;
+        parameter.Example = OpenApiJsonNodeFactory.ToNode(parameterAnnotation.Example);
+        parameter.Deprecated = parameterAnnotation.Deprecated;
+    }
+
+    /// <summary>
+    /// Tries to apply the variable type schema to an OpenAPI parameter.
+    /// </summary>
+    /// <param name="parameter">The OpenApiParameter to modify</param>
+    /// <param name="variable">The annotated variable containing metadata about the parameter</param>
+    /// <param name="parameterAnnotation">The parameter component annotation</param>
+    private void TryApplyVariableTypeSchema(
+         OpenApiParameter parameter,
+       OpenApiComponentAnnotationScanner.AnnotatedVariable variable,
+        OpenApiParameterComponentAttribute parameterAnnotation)
+    {
+        if (variable.VariableType is null)
+        {
+            return;
+        }
+        var iSchema = InferPrimitiveSchema(variable.VariableType);
+        if (iSchema is OpenApiSchema schema)
+        {
+            //Todo: add powershell attribute support
+            //PowerShellAttributes.ApplyPowerShellAttributes(variable.PropertyInfo, schema);
+            // Apply any schema attributes from the parameter annotation
+            ApplyConcreteSchemaAttributes(parameterAnnotation, schema);
+            // Try to set default value from the variable initial value if not already set
+            if (!variable.NoDefault)
+            {
+                schema.Default = OpenApiJsonNodeFactory.ToNode(variable.InitialValue);
+            }
+        }
+        // Decide whether to use Schema or Content based on type and parameter location
+        if ((PrimitiveSchemaMap.ContainsKey(variable.VariableType) &&
+              string.IsNullOrWhiteSpace(parameterAnnotation.ContentType)) ||
+             ((parameter.In == ParameterLocation.Query || parameter.In == ParameterLocation.Cookie) &&
+              parameter.Style == ParameterStyle.Form))
+        {
+            parameter.Schema = iSchema;
+            return;
+        }
+        var contentType = string.IsNullOrWhiteSpace(parameterAnnotation.ContentType)
+              ? "application/json"
+              : parameterAnnotation.ContentType;
+        // Use Content
+        parameter.Content ??= new Dictionary<string, IOpenApiMediaType>(StringComparer.Ordinal);
+        parameter.Content[contentType] = new OpenApiMediaType { Schema = iSchema };
+    }
+
+    /// <summary>
+    /// Processes a parameter example reference annotation to add an example to an OpenAPI parameter.
+    /// </summary>
+    /// <param name="variableName">The name of the variable associated with the parameter.</param>
+    /// <param name="exampleRef">The example reference attribute.</param>
+    /// <exception cref="InvalidOperationException">Thrown when the parameter does not exist, lacks schema/content, or media types are unsupported.</exception>
+    private void ProcessParameterExampleRef(string variableName, OpenApiParameterExampleRefAttribute exampleRef)
+    {
+        if (!TryGetParameterItem(variableName, out var parameter))
+        {
+            throw new InvalidOperationException($"Parameter '{variableName}' not found when trying to add example reference.");
+        }
+
+        ValidateParameterHasSchemaOrContent(variableName, parameter);
+
+        if (parameter!.Content is null)
+        {
+            AddExampleToParameterExamples(parameter, exampleRef);
+            return;
+        }
+
+        AddExamplesToContentMediaTypes(parameter, exampleRef, variableName);
+    }
+
+    /// <summary>
+    /// Validates that the parameter exists and has either Schema or Content defined.
+    /// </summary>
+    /// <param name="variableName">The variable name associated with the parameter.</param>
+    /// <param name="parameter">The parameter to validate.</param>
+    /// <exception cref="InvalidOperationException">Thrown if the parameter is null or lacks both Schema and Content.</exception>
+    private static void ValidateParameterHasSchemaOrContent(string variableName, OpenApiParameter? parameter)
+    {
+        if (parameter is null || (parameter.Schema is null && parameter.Content is null))
+        {
+            throw new InvalidOperationException($"Parameter '{variableName}' must have a schema or content defined before adding an example.");
+        }
+    }
+
+    /// <summary>
+    /// Ensures the parameter Examples dictionary exists and attempts to add the example reference.
+    /// </summary>
+    /// <param name="parameter">The OpenAPI parameter to modify.</param>
+    /// <param name="exampleRef">The example reference attribute.</param>
+    private void AddExampleToParameterExamples(OpenApiParameter parameter, OpenApiParameterExampleRefAttribute exampleRef)
+    {
+        parameter.Examples ??= new Dictionary<string, IOpenApiExample>(StringComparer.Ordinal);
+        _ = TryAddExample(parameter.Examples, exampleRef);
+    }
+
+    /// <summary>
+    /// Iterates the parameter's content media types and adds the example reference to each concrete media type.
+    /// </summary>
+    /// <param name="parameter">The OpenAPI parameter with content.</param>
+    /// <param name="exampleRef">The example reference attribute.</param>
+    /// <param name="variableName">The variable name used for error messages.</param>
+    /// <exception cref="InvalidOperationException">Thrown when encountering a media type reference or an unknown media type.</exception>
+    private void AddExamplesToContentMediaTypes(OpenApiParameter parameter, IOpenApiExampleAttribute exampleRef, string variableName)
+    {
+        foreach (var iMediaType in parameter.Content!.Values)
+        {
+            if (iMediaType is OpenApiMediaType mediaType)
+            {
+                mediaType.Examples ??= new Dictionary<string, IOpenApiExample>(StringComparer.Ordinal);
+                _ = TryAddExample(mediaType.Examples, exampleRef);
+                continue;
+            }
+
+            if (iMediaType is OpenApiMediaTypeReference)
+            {
+                throw new InvalidOperationException($"Cannot add example reference to media type reference in parameter '{variableName}'.");
+            }
+
+            throw new InvalidOperationException($"Unknown media type in parameter '{variableName}'.");
+        }
+    }
+
+    /// <summary>
+    /// Iterates the request body's content media types and adds the example reference to each concrete media type.
+    /// </summary>
+    /// <param name="requestBody">The OpenAPI request body with content.</param>
+    /// <param name="exampleRef">The example reference attribute.</param>
+    /// <param name="variableName">The variable name used for error messages.</param>
+    /// <exception cref="InvalidOperationException">Thrown when encountering a media type reference or an unknown media type.</exception>
+    private void AddExamplesToContentMediaTypes(OpenApiRequestBody requestBody, IOpenApiExampleAttribute exampleRef, string variableName)
+    {
+        foreach (var iMediaType in requestBody.Content!.Values)
+        {
+            try
+            {
+                if (iMediaType is OpenApiMediaType mediaType)
+                {
+                    mediaType.Examples ??= new Dictionary<string, IOpenApiExample>(StringComparer.Ordinal);
+                    if (!TryAddExample(mediaType.Examples, exampleRef))
+                    {
+                        throw new InvalidOperationException($"Failed to add example reference '{exampleRef.ReferenceId}' to media type in request body '{variableName}'.");
+                    }
+                    continue;
+                }
+
+                if (iMediaType is OpenApiMediaTypeReference)
+                {
+                    throw new InvalidOperationException($"Cannot add example reference to media type reference in request body '{variableName}'.");
+                }
+
+                throw new InvalidOperationException($"Unknown media type in request body '{variableName}'.");
+            }
+            catch (Exception ex)
+            {
+                Host.Logger.Error("Error adding example reference to request body {variableName}: {ex.Message}", variableName, ex.Message);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Processes a PowerShell attribute to add validation constraints to an OpenAPI parameter.
+    /// </summary>
+    /// <param name="variableName">The name of the variable associated with the parameter</param>
+    /// <param name="powershellAttribute">The PowerShell attribute containing validation constraints</param>
+    /// <exception cref="InvalidOperationException">Thrown if the parameter does not have a schema or content defined before adding the PowerShell property.</exception>
+    private void ProcessPowerShellAttribute(string variableName, InternalPowershellAttribute powershellAttribute)
+    {
+        if (TryGetParameterItem(variableName, out var parameter))
+        {
+            ValidateParameterHasSchemaOrContentForPowerShell(variableName, parameter);
+            ApplyPowerShellAttributeToParameter(variableName, parameter!, powershellAttribute);
+            return;
+        }
+
+        if (TryGetRequestBodyItem(variableName, out var requestBody))
+        {
+            ApplyPowerShellAttributeToRequestBody(variableName, requestBody, powershellAttribute);
+            return;
+        }
+        Host.Logger.Error("Parameter or RequestBody '{variableName}' not found when trying to add PowerShell attribute.", variableName);
+    }
+
+    /// <summary>
+    /// Validates that the parameter exists and has either Schema or Content defined for PowerShell attribute processing.
+    /// </summary>
+    /// <param name="variableName">The variable name associated with the parameter.</param>
+    /// <param name="parameter">The parameter to validate.</param>
+    /// <exception cref="InvalidOperationException">Thrown if the parameter is null or lacks both Schema and Content.</exception>
+    private static void ValidateParameterHasSchemaOrContentForPowerShell(string variableName, OpenApiParameter? parameter)
+    {
+        if (parameter is null || (parameter.Schema is null && parameter.Content is null))
+        {
+            throw new InvalidOperationException(
+                $"Parameter '{variableName}' must have a schema or content defined before adding the powershell property.");
+        }
+    }
+
+    /// <summary>
+    /// Applies a PowerShell attribute to a parameter schema or to all content media-type schemas.
+    /// </summary>
+    /// <param name="variableName">The variable name associated with the parameter.</param>
+    /// <param name="parameter">The target parameter.</param>
+    /// <param name="powershellAttribute">The PowerShell attribute containing validation constraints.</param>
+    private void ApplyPowerShellAttributeToParameter(
+        string variableName,
+        OpenApiParameter parameter,
+        InternalPowershellAttribute powershellAttribute)
+    {
+        if (parameter.Content is not null)
+        {
+            ApplyPowerShellAttributeToMediaTypeSchemas(
+                variableName,
+                parameter.Content.Values,
+                powershellAttribute,
+                subject: "parameter");
+            return;
+        }
+
+        var schema = (OpenApiSchema)parameter.Schema!;
+        ApplyPowerShellAttributesToSchema(schema, powershellAttribute);
+    }
+
+    /// <summary>
+    /// Applies a PowerShell attribute to all request body content media-type schemas.
+    /// </summary>
+    /// <param name="variableName">The variable name associated with the request body.</param>
+    /// <param name="requestBody">The request body to update.</param>
+    /// <param name="powershellAttribute">The PowerShell attribute containing validation constraints.</param>
+    /// <exception cref="InvalidOperationException">Thrown if the request body is null or has no content.</exception>
+    private void ApplyPowerShellAttributeToRequestBody(
+        string variableName,
+        OpenApiRequestBody? requestBody,
+        InternalPowershellAttribute powershellAttribute)
+    {
+        if (requestBody?.Content is null)
+        {
+            throw new InvalidOperationException(
+                $"RequestBody '{variableName}' must have a content defined before adding the powershell property.");
+        }
+
+        ApplyPowerShellAttributeToMediaTypeSchemas(
+            variableName,
+            requestBody.Content.Values,
+            powershellAttribute,
+            subject: "request body");
+    }
+
+    /// <summary>
+    /// Applies a PowerShell attribute to each concrete OpenAPI media type schema.
+    /// </summary>
+    /// <param name="variableName">The variable name used for warning messages.</param>
+    /// <param name="mediaTypes">The media types to inspect.</param>
+    /// <param name="powershellAttribute">The PowerShell attribute containing validation constraints.</param>
+    /// <param name="subject">The subject used in warning messages (e.g. "parameter" or "request body").</param>
+    private void ApplyPowerShellAttributeToMediaTypeSchemas(
+        string variableName,
+        IEnumerable<IOpenApiMediaType> mediaTypes,
+        InternalPowershellAttribute powershellAttribute,
+        string subject)
+    {
+        foreach (var mediaType in mediaTypes)
+        {
+            if (mediaType.Schema is not OpenApiSchema schema)
+            {
+                Host.Logger.Warning(
+                    $"Powershell attribute processing is not supported for {subject} '{variableName}' with non-concrete schema.");
+                continue;
+            }
+
+            ApplyPowerShellAttributesToSchema(schema, powershellAttribute);
+        }
+    }
+
+    /// <summary>
+    /// Applies PowerShell validation attributes to an OpenAPI schema.
+    /// </summary>
+    /// <param name="schema">The OpenAPI schema to modify.</param>
+    /// <param name="powershellAttribute">The PowerShell attribute containing validation constraints.</param>
+    private static void ApplyPowerShellAttributesToSchema(OpenApiSchema schema, InternalPowershellAttribute powershellAttribute)
+    {
+        ApplyItemConstraints(schema, powershellAttribute);
+        ApplyRangeConstraints(schema, powershellAttribute);
+        ApplyLengthConstraints(schema, powershellAttribute);
+        ApplyPatternConstraints(schema, powershellAttribute);
+        ApplyAllowedValuesConstraints(schema, powershellAttribute);
+        ApplyNullabilityConstraints(schema, powershellAttribute);
+    }
+
+    /// <summary>
+    /// Applies item count constraints (MinItems, MaxItems) to a schema.
+    /// </summary>
+    /// <param name="schema">The schema to modify.</param>
+    /// <param name="powershellAttribute">The PowerShell attribute containing constraints.</param>
+    private static void ApplyItemConstraints(OpenApiSchema schema, InternalPowershellAttribute powershellAttribute)
+    {
+        if (powershellAttribute.MaxItems.HasValue)
+        {
+            schema.MaxItems = powershellAttribute.MaxItems;
+        }
+        if (powershellAttribute.MinItems.HasValue)
+        {
+            schema.MinItems = powershellAttribute.MinItems;
+        }
+    }
+
+    /// <summary>
+    /// Applies range constraints (Minimum, Maximum) to a schema.
+    /// </summary>
+    /// <param name="schema">The schema to modify.</param>
+    /// <param name="powershellAttribute">The PowerShell attribute containing constraints.</param>
+    private static void ApplyRangeConstraints(OpenApiSchema schema, InternalPowershellAttribute powershellAttribute)
+    {
+        if (!string.IsNullOrEmpty(powershellAttribute.MinRange))
+        {
+            schema.Minimum = powershellAttribute.MinRange;
+        }
+        if (!string.IsNullOrEmpty(powershellAttribute.MaxRange))
+        {
+            schema.Maximum = powershellAttribute.MaxRange;
+        }
+    }
+
+    /// <summary>
+    /// Applies length constraints (MinLength, MaxLength) to a schema.
+    /// </summary>
+    /// <param name="schema">The schema to modify.</param>
+    /// <param name="powershellAttribute">The PowerShell attribute containing constraints.</param>
+    private static void ApplyLengthConstraints(OpenApiSchema schema, InternalPowershellAttribute powershellAttribute)
+    {
+        if (powershellAttribute.MinLength.HasValue)
+        {
+            schema.MinLength = powershellAttribute.MinLength;
+        }
+        if (powershellAttribute.MaxLength.HasValue)
+        {
+            schema.MaxLength = powershellAttribute.MaxLength;
+        }
+    }
+
+    /// <summary>
+    /// Applies pattern constraints (regex) to a schema.
+    /// </summary>
+    /// <param name="schema">The schema to modify.</param>
+    /// <param name="powershellAttribute">The PowerShell attribute containing constraints.</param>
+    private static void ApplyPatternConstraints(OpenApiSchema schema, InternalPowershellAttribute powershellAttribute)
+    {
+        if (!string.IsNullOrEmpty(powershellAttribute.RegexPattern))
+        {
+            schema.Pattern = powershellAttribute.RegexPattern;
+        }
+    }
+
+    /// <summary>
+    /// Applies allowed values (enum) constraints to a schema.
+    /// </summary>
+    /// <param name="schema">The schema to modify.</param>
+    /// <param name="powershellAttribute">The PowerShell attribute containing constraints.</param>
+    private static void ApplyAllowedValuesConstraints(OpenApiSchema schema, InternalPowershellAttribute powershellAttribute)
+    {
+        if (powershellAttribute.AllowedValues is not null && powershellAttribute.AllowedValues.Count > 0)
+        {
+            _ = PowerShellAttributes.ApplyValidateSetAttribute(powershellAttribute.AllowedValues, schema);
+        }
+    }
+
+    /// <summary>
+    /// Applies nullability constraints (ValidateNotNull, ValidateNotNullOrEmpty, ValidateNotNullOrWhiteSpace) to a schema.
+    /// </summary>
+    /// <param name="schema">The schema to modify.</param>
+    /// <param name="powershellAttribute">The PowerShell attribute containing constraints.</param>
+    private static void ApplyNullabilityConstraints(OpenApiSchema schema, InternalPowershellAttribute powershellAttribute)
+    {
+        if (powershellAttribute.ValidateNotNullOrEmptyAttribute is not null)
+        {
+            _ = PowerShellAttributes.ApplyNotNullOrEmpty(schema);
+        }
+
+        if (powershellAttribute.ValidateNotNullAttribute is not null)
+        {
+            _ = PowerShellAttributes.ApplyNotNull(schema);
+        }
+
+        if (powershellAttribute.ValidateNotNullOrWhiteSpaceAttribute is not null)
+        {
+            _ = PowerShellAttributes.ApplyNotNullOrWhiteSpace(schema);
+        }
+    }
+
+    #endregion
+
+    /// <summary>
+    /// Gets or creates an OpenAPI parameter item in either inline or document components.
+    /// </summary>
+    /// <param name="parameterName">The name of the parameter.</param>
+    /// <param name="inline">Whether to use inline components or document components.</param>
+    /// <returns>The OpenApiParameter item.</returns>
+    private OpenApiParameter GetOrCreateParameterItem(string parameterName, bool inline)
+    {
+        IDictionary<string, IOpenApiParameter> parameters;
+        // Determine whether to use inline components or document components
+        if (inline)
+        {
+            // Use inline components
+            InlineComponents.Parameters ??= new Dictionary<string, IOpenApiParameter>(StringComparer.Ordinal);
+            parameters = InlineComponents.Parameters;
+        }
+        else
+        {
+            // Use document components
+            Document.Components ??= new OpenApiComponents();
+            Document.Components.Parameters ??= new Dictionary<string, IOpenApiParameter>(StringComparer.Ordinal);
+            parameters = Document.Components.Parameters;
+        }
+        // Retrieve or create the parameter item
+        if (!parameters.TryGetValue(parameterName, out var parameterInterface) || parameterInterface is null)
+        {
+            // Create a new OpenApiParameter if it doesn't exist
+            parameterInterface = new OpenApiParameter();
+            parameters[parameterName] = parameterInterface;
+        }
+        // return the parameter item
+        return (OpenApiParameter)parameterInterface;
+    }
+
+    /// <summary>
+    /// Tries to get a parameter by name from either inline or document components.
+    /// </summary>
+    /// <param name="parameterName">The name of the parameter to retrieve.</param>
+    /// <param name="parameter">The retrieved parameter if found; otherwise, null.</param>
+    /// <param name="isInline">Indicates whether the parameter was found in inline components.</param>
+    /// <returns>True if the parameter was found; otherwise, false.</returns>
+    private bool TryGetParameterItem(string parameterName, out OpenApiParameter? parameter, out bool isInline)
+    {
+        if (TryGetInline(name: parameterName, kind: OpenApiComponentKind.Parameters, out parameter))
+        {
+            isInline = true;
+            return true;
+        }
+        else if (TryGetComponent(name: parameterName, kind: OpenApiComponentKind.Parameters, out parameter))
+        {
+            isInline = false;
+            return true;
+        }
+        parameter = null;
+        isInline = false;
+        return false;
+    }
+
+    /// <summary>
+    /// Tries to get a parameter by name from either inline or document components.
+    /// </summary>
+    /// <param name="parameterName">The name of the parameter to retrieve.</param>
+    /// <param name="parameter">The retrieved parameter if found; otherwise, null.</param>
+    /// <returns>True if the parameter was found; otherwise, false.</returns>
+    private bool TryGetParameterItem(string parameterName, out OpenApiParameter? parameter) =>
+    TryGetParameterItem(parameterName, out parameter, out _);
 }

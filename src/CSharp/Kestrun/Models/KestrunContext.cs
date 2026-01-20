@@ -2,7 +2,9 @@
 
 using System.Collections;
 using System.Security.Claims;
+using Kestrun.Hosting.Options;
 using Kestrun.SignalR;
+using Kestrun.Utilities;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Http.Features;
 
@@ -19,28 +21,6 @@ public sealed record KestrunContext
     /// It initializes the KestrunRequest and KestrunResponse based on the provided HttpContext
     /// </summary>
     /// <param name="host">The Kestrun host.</param>
-    /// <param name="request">The Kestrun request.</param>
-    /// <param name="response">The Kestrun response.</param>
-    /// <param name="httpContext">The associated HTTP context.</param>
-    public KestrunContext(Hosting.KestrunHost host, KestrunRequest request, KestrunResponse response, HttpContext httpContext)
-    {
-        ArgumentNullException.ThrowIfNull(host);
-        ArgumentNullException.ThrowIfNull(request);
-        ArgumentNullException.ThrowIfNull(response);
-        ArgumentNullException.ThrowIfNull(httpContext);
-
-        Host = host;
-        Request = request;
-        Response = response;
-        HttpContext = httpContext;
-    }
-
-    /// <summary>
-    /// Initializes a new instance of the <see cref="KestrunContext"/> class.
-    /// This constructor is used when creating a new KestrunContext from an existing HTTP context.
-    /// It initializes the KestrunRequest and KestrunResponse based on the provided HttpContext
-    /// </summary>
-    /// <param name="host">The Kestrun host.</param>
     /// <param name="httpContext">The associated HTTP context.</param>
     public KestrunContext(Hosting.KestrunHost host, HttpContext httpContext)
     {
@@ -49,15 +29,49 @@ public sealed record KestrunContext
 
         Host = host;
         HttpContext = httpContext;
-
+        // Initialize TraceIdentifier, Request, and Response
+        TraceIdentifier = HttpContext.TraceIdentifier;
         Request = KestrunRequest.NewRequestSync(HttpContext);
-        Response = new KestrunResponse(Request);
+
+        // Ensure contexts created via this constructor always have a valid response.
+        Response = new KestrunResponse(this, 8192);
+        // Routing metadata may not always be available (e.g., middleware/tests/exception handlers).
+        // Fall back to the request path if no RouteEndpoint is present.
+        var routeEndpoint = Request.HttpContext.GetEndpoint() as RouteEndpoint;
+
+        var pattern = routeEndpoint?.RoutePattern.RawText;
+
+        if (string.IsNullOrWhiteSpace(pattern))
+        {
+            pattern = "/";
+        }
+
+        var verb = string.IsNullOrWhiteSpace(Request.Method)
+            ? HttpVerb.Get
+            : HttpVerbExtensions.FromMethodString(Request.Method);
+
+        if (!Host.RegisteredRoutes.TryGetValue((pattern, verb), out var options))
+        {
+            // default options
+            options = new MapRouteOptions()
+            {
+                Pattern = pattern,
+                HttpVerbs = [verb]
+            };
+        }
+
+        MapRouteOptions = options;
     }
 
     /// <summary>
     /// The Kestrun host associated with this context.
     /// </summary>
     public Hosting.KestrunHost Host { get; init; }
+
+    /// <summary>
+    /// The logger associated with the Kestrun host.
+    /// </summary>
+    public Serilog.ILogger Logger => Host.Logger;
     /// <summary>
     /// The Kestrun request associated with this context.
     /// </summary>
@@ -65,11 +79,16 @@ public sealed record KestrunContext
     /// <summary>
     /// The Kestrun response associated with this context.
     /// </summary>
-    public KestrunResponse Response { get; init; }
+    public KestrunResponse Response { get; private set; }
     /// <summary>
     /// The ASP.NET Core HTTP context associated with this Kestrun context.
     /// </summary>
     public HttpContext HttpContext { get; init; }
+
+    /// <summary>
+    /// Gets the route options associated with this response.
+    /// </summary>
+    public MapRouteOptions MapRouteOptions { get; init; }
     /// <summary>
     /// Returns the ASP.NET Core session if the Session middleware is active; otherwise null.
     /// </summary>
@@ -109,11 +128,20 @@ public sealed record KestrunContext
     public ConnectionInfo Connection => HttpContext.Connection;
 
     /// <summary>
+    /// Gets the trace identifier for the current HTTP context.
+    /// </summary>
+    public string TraceIdentifier { get; init; }
+
+    /// <summary>
+    /// A dictionary to hold  parameters passed by user for use within the KestrunContext.
+    /// </summary>
+    public ResolvedRequestParameters Parameters { get; internal set; } = new ResolvedRequestParameters();
+
+    /// <summary>
     /// Returns a string representation of the KestrunContext, including path, user, and session status.
     /// </summary>
     public override string ToString()
         => $"KestrunContext{{ Host={Host}, Path={HttpContext.Request.Path}, User={User?.Identity?.Name ?? "<anon>"}, HasSession={HasSession} }}";
-
 
     /// <summary>
     /// Asynchronously broadcasts a log message to all connected SignalR clients using the IRealtimeBroadcaster service.
@@ -128,23 +156,23 @@ public sealed record KestrunContext
 
         if (svcProvider == null)
         {
-            Host.Logger.Warning("No service provider available to resolve IRealtimeBroadcaster.");
+            Logger.Warning("No service provider available to resolve IRealtimeBroadcaster.");
             return false;
         }
         if (svcProvider.GetService(typeof(IRealtimeBroadcaster)) is not IRealtimeBroadcaster broadcaster)
         {
-            Host.Logger.Warning("IRealtimeBroadcaster service is not registered. Make sure SignalR is configured with KestrunHub.");
+            Logger.Warning("IRealtimeBroadcaster service is not registered. Make sure SignalR is configured with KestrunHub.");
             return false;
         }
         try
         {
             await broadcaster.BroadcastLogAsync(level, message, cancellationToken);
-            Host.Logger.Debug("Broadcasted log message via SignalR: {Level} - {Message}", level, message);
+            Logger.Debug("Broadcasted log message via SignalR: {Level} - {Message}", level, message);
             return true;
         }
         catch (Exception ex)
         {
-            Host.Logger.Error(ex, "Failed to broadcast log message: {Level} - {Message}", level, message);
+            Logger.Error(ex, "Failed to broadcast log message: {Level} - {Message}", level, message);
             return false;
         }
     }
@@ -159,7 +187,6 @@ public sealed record KestrunContext
     public bool BroadcastLog(string level, string message, CancellationToken cancellationToken = default) =>
         BroadcastLogAsync(level, message, cancellationToken).GetAwaiter().GetResult();
 
-
     /// <summary>
     /// Asynchronously broadcasts a custom event to all connected SignalR clients using the IRealtimeBroadcaster service.
     /// </summary>
@@ -173,23 +200,23 @@ public sealed record KestrunContext
 
         if (svcProvider == null)
         {
-            Host.Logger.Warning("No service provider available to resolve IRealtimeBroadcaster.");
+            Logger.Warning("No service provider available to resolve IRealtimeBroadcaster.");
             return false;
         }
         if (svcProvider.GetService(typeof(IRealtimeBroadcaster)) is not IRealtimeBroadcaster broadcaster)
         {
-            Host.Logger.Warning("IRealtimeBroadcaster service is not registered. Make sure SignalR is configured with KestrunHub.");
+            Logger.Warning("IRealtimeBroadcaster service is not registered. Make sure SignalR is configured with KestrunHub.");
             return false;
         }
         try
         {
             await broadcaster.BroadcastEventAsync(eventName, data, cancellationToken);
-            Host.Logger.Debug("Broadcasted event via SignalR: {EventName} - {Data}", eventName, data);
+            Logger.Debug("Broadcasted event via SignalR: {EventName} - {Data}", eventName, data);
             return true;
         }
         catch (Exception ex)
         {
-            Host.Logger.Error(ex, "Failed to broadcast event: {EventName} - {Data}", eventName, data);
+            Logger.Error(ex, "Failed to broadcast event: {EventName} - {Data}", eventName, data);
             return false;
         }
     }
@@ -204,7 +231,6 @@ public sealed record KestrunContext
     public bool BroadcastEvent(string eventName, object? data, CancellationToken cancellationToken = default) =>
       BroadcastEventAsync(eventName, data, cancellationToken).GetAwaiter().GetResult();
 
-
     /// <summary>
     /// Asynchronously broadcasts a message to a specific group of SignalR clients using the IRealtimeBroadcaster service.
     /// </summary>
@@ -212,30 +238,30 @@ public sealed record KestrunContext
     /// <param name="method">The name of the method to invoke on the client.</param>
     /// <param name="message">The message to broadcast.</param>
     /// <param name="cancellationToken">Optional: Cancellation token.</param>
-    /// <returns></returns>
+    /// <returns>True if the message was broadcast successfully; otherwise, false.</returns>
     public async Task<bool> BroadcastToGroupAsync(string groupName, string method, object? message, CancellationToken cancellationToken = default)
     {
         var svcProvider = HttpContext.RequestServices;
 
         if (svcProvider == null)
         {
-            Host.Logger.Warning("No service provider available to resolve IRealtimeBroadcaster.");
+            Logger.Warning("No service provider available to resolve IRealtimeBroadcaster.");
             return false;
         }
         if (svcProvider.GetService(typeof(IRealtimeBroadcaster)) is not IRealtimeBroadcaster broadcaster)
         {
-            Host.Logger.Warning("IRealtimeBroadcaster service is not registered. Make sure SignalR is configured with KestrunHub.");
+            Logger.Warning("IRealtimeBroadcaster service is not registered. Make sure SignalR is configured with KestrunHub.");
             return false;
         }
         try
         {
             await broadcaster.BroadcastToGroupAsync(groupName, method, message, cancellationToken);
-            Host.Logger.Debug("Broadcasted log message to group via SignalR: {GroupName} - {Method} - {Message}", groupName, method, message);
+            Logger.Debug("Broadcasted log message to group via SignalR: {GroupName} - {Method} - {Message}", groupName, method, message);
             return true;
         }
         catch (Exception ex)
         {
-            Host.Logger.Error(ex, "Failed to broadcast log message: {GroupName} - {Method} - {Message}", groupName, method, message);
+            Logger.Error(ex, "Failed to broadcast log message: {GroupName} - {Method} - {Message}", groupName, method, message);
             return false;
         }
     }
@@ -246,10 +272,9 @@ public sealed record KestrunContext
     /// <param name="groupName">The name of the group to broadcast the message to.</param>
     /// <param name="method">The name of the method to invoke on the client.</param>
     /// <param name="message">The message to broadcast.</param>
-    /// <param name="cancellationToken">Optional: Cancellation token.</param>
-    /// <returns></returns>
-    public bool BroadcastToGroup(string groupName, string method, object? message, CancellationToken cancellationToken = default) =>
-      BroadcastToGroupAsync(groupName, method, message, cancellationToken).GetAwaiter().GetResult();
+    /// <returns>True if the message was broadcast successfully; otherwise, false.</returns>
+    public bool BroadcastToGroup(string groupName, string method, object? message) =>
+      BroadcastToGroupAsync(groupName, method, message, default).GetAwaiter().GetResult();
 
     /// <summary>
     /// Synchronous wrapper for HttpContext.ChallengeAsync.
@@ -356,4 +381,74 @@ public sealed record KestrunContext
         // Call SignOut with the constructed AuthenticationProperties
         SignOut(scheme, authProps);
     }
+    #region Sse Helpers
+    /// <summary>
+    /// Starts a Server-Sent Events (SSE) response by setting the appropriate headers.
+    /// </summary>
+    public void StartSse()
+    {
+        HttpContext.Response.Headers.CacheControl = "no-cache";
+        HttpContext.Response.Headers.Connection = "keep-alive";
+        HttpContext.Response.Headers["X-Accel-Buffering"] = "no"; // helps with nginx
+        HttpContext.Response.ContentType = "text/event-stream";
+    }
+
+    /// <summary>
+    /// Writes a Server-Sent Event (SSE) to the response stream.
+    /// </summary>
+    /// <param name="event">The event type</param>
+    /// <param name="data">The data payload of the event</param>
+    /// <param name="id"> The event ID.</param>
+    /// <param name="retryMs">Reconnection time in milliseconds</param>
+    /// <param name="ct">Cancellation token</param>
+    /// <returns> Task representing the asynchronous write operation.</returns>
+    public async Task WriteSseEventAsync(
+        string? @event,
+        string data,
+        string? id = null,
+        int? retryMs = null,
+        CancellationToken ct = default)
+    {
+        // SSE fields are line based
+        if (retryMs is not null)
+        {
+            await HttpContext.Response.WriteAsync($"retry: {retryMs}\n", ct);
+        }
+
+        if (id is not null)
+        {
+            await HttpContext.Response.WriteAsync($"id: {id}\n", ct);
+        }
+
+        if (!string.IsNullOrWhiteSpace(@event))
+        {
+            await HttpContext.Response.WriteAsync($"event: {@event}\n", ct);
+        }
+
+        // data can be multi-line; each line must be prefixed with "data: "
+        using (var sr = new StringReader(data))
+        {
+            string? line;
+            while ((line = sr.ReadLine()) is not null)
+            {
+                await HttpContext.Response.WriteAsync($"data: {line}\n", ct);
+            }
+        }
+
+        await HttpContext.Response.WriteAsync("\n", ct);          // end of event
+        await HttpContext.Response.Body.FlushAsync(ct);          // important!
+    }
+
+    /// <summary>
+    /// Synchronous wrapper for WriteSseEventAsync.
+    /// </summary>
+    /// <param name="event">The name of the event.</param>
+    /// <param name="data">The data payload of the event.</param>
+    /// <param name="id"> The event ID.</param>
+    /// <param name="retryMs">Reconnection time in milliseconds</param>
+    public void WriteSseEvent(
+      string? @event, string data, string? id = null, int? retryMs = null) =>
+        WriteSseEventAsync(@event, data, id, retryMs, CancellationToken.None).GetAwaiter().GetResult();
+
+    #endregion
 }

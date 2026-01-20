@@ -1,0 +1,288 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Kestrun SSE Broadcast Demo</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+        }
+
+        h1 {
+            color: #333;
+        }
+
+        code {
+            background: #f5f5f5;
+            padding: 2px 6px;
+            border-radius: 4px;
+        }
+
+        button {
+            padding: 10px 20px;
+            margin: 5px;
+            cursor: pointer;
+        }
+
+        .feature-section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            background: #f8f9fa;
+        }
+
+        .input-group {
+            margin: 10px 0;
+        }
+
+        .input-group input {
+            padding: 8px;
+            margin-right: 10px;
+            border: 1px solid #ddd;
+            border-radius: 3px;
+            width: 320px;
+            max-width: 100%;
+        }
+
+        .status-text {
+            font-size: 0.9em;
+            color: #666;
+        }
+
+        #messages {
+            border: 1px solid #ddd;
+            padding: 10px;
+            min-height: 300px;
+            max-height: 500px;
+            overflow-y: auto;
+            background: #f9f9f9;
+            white-space: pre-wrap;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+        }
+
+        .log-entry {
+            margin: 5px 0;
+            padding: 5px;
+            border-left: 3px solid #ccc;
+        }
+
+        .log-Information {
+            border-left-color: #2196F3;
+        }
+
+        .log-Warning {
+            border-left-color: #FF9800;
+        }
+
+        .log-Error {
+            border-left-color: #F44336;
+        }
+
+        .pill {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 999px;
+            background: #eef2ff;
+        }
+
+        #streamPath {
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 3px;
+        }
+
+        #message {
+            padding: 8px;
+            margin-right: 10px;
+            border: 1px solid #ddd;
+            border-radius: 3px;
+            width: 320px;
+            max-width: 100%;
+        }
+
+        #progress {
+            width: 90px;
+        }
+
+        .margin-left-10 {
+            margin-left: 10px;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>🚀 Kestrun SSE Broadcast Demo (PowerShell)</h1>
+    <p>
+        Connect to <code>/sse/broadcast</code> or <code>/sse/broadcast/progress</code> and broadcast via
+        <code>/api/broadcast</code> or <code>/api/broadcast/progress</code>.
+        <span class="pill" id="status">disconnected</span>
+    </p>
+
+    <div class="feature-section">
+        <h3>Controls</h3>
+
+        <div class="input-group">
+            <label for="streamPath">SSE stream</label>
+            <select id="streamPath">
+                <option value="/sse/broadcast">/sse/broadcast (default)</option>
+                <option value="/sse/broadcast/progress">/sse/broadcast/progress (progress schema)</option>
+            </select>
+        </div>
+
+        <div class="input-group">
+            <button id="btnConnect">Connect</button>
+            <button id="btnDisconnect" disabled>Disconnect</button>
+            <button id="btnPing" disabled>Broadcast Ping</button>
+        </div>
+
+        <div class="input-group">
+            <label for="message">Message</label>
+            <input id="message" value="Hello everyone" />
+            <button id="btnSend" disabled>Broadcast Message</button>
+        </div>
+
+        <div class="input-group">
+            <label for="taskId">Task</label>
+            <input id="taskId" value="task-1" />
+            <label for="progress" class="margin-left-10">Progress</label>
+            <input id="progress" type="number" min="0" max="100" value="10" />
+            <button id="btnSendProgress" disabled>Broadcast Progress</button>
+        </div>
+
+        <div class="input-group">
+            <label for="state">State</label>
+            <input id="state" value="running" />
+            <label for="statusMsg" class="margin-left-10">Status</label>
+            <input id="statusMsg" value="Working..." />
+        </div>
+        <p class="status-text">Status: <span id="statusText">disconnected</span></p>
+    </div>
+
+    <h2>Events</h2>
+    <div id="messages"></div>
+
+    <script>
+        const messagesDiv = document.getElementById('messages');
+        const statusEl = document.getElementById('status');
+        const statusTextEl = document.getElementById('statusText');
+        const btnConnect = document.getElementById('btnConnect');
+        const btnDisconnect = document.getElementById('btnDisconnect');
+        const btnPing = document.getElementById('btnPing');
+        const btnSend = document.getElementById('btnSend');
+        const btnSendProgress = document.getElementById('btnSendProgress');
+        const msgEl = document.getElementById('message');
+        const streamPathEl = document.getElementById('streamPath');
+        const taskIdEl = document.getElementById('taskId');
+        const progressEl = document.getElementById('progress');
+        const stateEl = document.getElementById('state');
+        const statusMsgEl = document.getElementById('statusMsg');
+
+        let es = null;
+
+        function addMessage(message, cssClass = "log-entry log-Information") {
+            const entry = document.createElement('div');
+            entry.className = cssClass;
+            entry.textContent = message;
+            messagesDiv.appendChild(entry);
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        }
+
+        const append = (line) => addMessage(line, "log-entry log-Information");
+
+        function setConnected(connected) {
+            statusEl.textContent = connected ? 'connected' : 'disconnected';
+            statusTextEl.textContent = statusEl.textContent;
+            btnConnect.disabled = connected;
+            btnDisconnect.disabled = !connected;
+            btnPing.disabled = !connected;
+            btnSend.disabled = !connected;
+            btnSendProgress.disabled = !connected;
+        }
+
+        function connect() {
+            if (es) return;
+            const streamPath = streamPathEl.value || '/sse/broadcast';
+            append(`Connecting to ${streamPath} ...`);
+            es = new EventSource(streamPath);
+
+            es.onopen = () => {
+                append('SSE connected');
+                setConnected(true);
+            };
+
+            es.addEventListener('connected', (evt) => {
+                append(`connected: ${evt.data}`);
+            });
+
+            es.addEventListener('ping', (evt) => {
+                append(`ping: ${evt.data}`);
+            });
+
+            es.addEventListener('message', (evt) => {
+                append(`message: ${evt.data}`);
+            });
+
+            es.addEventListener('progress', (evt) => {
+                append(`progress: ${evt.data}`);
+            });
+
+            es.onerror = () => {
+                addMessage('SSE error (stream closed?)', "log-entry log-Warning");
+                disconnect();
+            };
+        }
+
+        function disconnect() {
+            if (es) {
+                es.close();
+                es = null;
+            }
+            setConnected(false);
+            append('SSE disconnected');
+        }
+
+        async function broadcast(eventName, data) {
+            const res = await fetch('/api/broadcast', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ event: eventName, data })
+            });
+            const txt = await res.text();
+            addMessage(`broadcast response (${res.status}): ${txt}`, res.ok ? "log-entry log-Information" : "log-entry log-Error");
+        }
+
+        async function broadcastProgress() {
+            const body = {
+                taskId: taskIdEl.value || 'task-1',
+                progress: Number(progressEl.value ?? 0),
+                status: statusMsgEl.value || 'Working...',
+                state: stateEl.value || 'running',
+                ts: new Date().toISOString()
+            };
+
+            const res = await fetch('/api/broadcast/progress', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body)
+            });
+            const txt = await res.text();
+            addMessage(`progress broadcast response (${res.status}): ${txt}`, res.ok ? "log-entry log-Information" : "log-entry log-Error");
+        }
+
+        btnConnect.addEventListener('click', connect);
+        btnDisconnect.addEventListener('click', disconnect);
+        btnPing.addEventListener('click', () => broadcast('ping', { ts: new Date().toISOString() }));
+        btnSend.addEventListener('click', () => broadcast('message', { text: msgEl.value, ts: new Date().toISOString() }));
+        btnSendProgress.addEventListener('click', broadcastProgress);
+
+        setConnected(false);
+    </script>
+</body>
+
+</html>

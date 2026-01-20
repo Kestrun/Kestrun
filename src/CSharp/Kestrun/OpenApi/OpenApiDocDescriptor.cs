@@ -4,6 +4,8 @@ using Microsoft.OpenApi.Reader;
 using System.Text;
 using Kestrun.Hosting.Options;
 using Kestrun.Utilities;
+using System.Collections;
+using System.Text.Json.Nodes;
 
 namespace Kestrun.OpenApi;
 
@@ -76,6 +78,7 @@ public partial class OpenApiDocDescriptor
     /// Indicates whether the OpenAPI document has been generated at least once.
     /// </summary>
     public bool HasBeenGenerated { get; private set; }
+
     /// <summary>
     /// Generates an OpenAPI document from the provided schema types.
     /// </summary>
@@ -85,12 +88,6 @@ public partial class OpenApiDocDescriptor
     {
         Document.Components ??= new OpenApiComponents();
         ProcessComponentTypes(components.SchemaTypes, () => Document.Components.Schemas ??= new Dictionary<string, IOpenApiSchema>(StringComparer.Ordinal), t => BuildSchema(t));
-        ProcessComponentTypes(components.ParameterTypes, () => Document.Components.Parameters ??= new Dictionary<string, IOpenApiParameter>(StringComparer.Ordinal), BuildParameters);
-#if EXTENDED_OPENAPI
-        ProcessComponentTypes(components.CallbackTypes, () => Document.Components.Callbacks ??= new Dictionary<string, IOpenApiCallback>(StringComparer.Ordinal), BuildCallbacks);
-#endif
-        ProcessComponentTypes(components.ResponseTypes, () => Document.Components.Responses ??= new Dictionary<string, IOpenApiResponse>(StringComparer.Ordinal), BuildResponses);
-        ProcessComponentTypes(components.RequestBodyTypes, () => Document.Components.RequestBodies ??= new Dictionary<string, IOpenApiRequestBody>(StringComparer.Ordinal), BuildRequestBodies);
     }
 
     /// <summary>
@@ -121,20 +118,190 @@ public partial class OpenApiDocDescriptor
     /// </summary>
     public void GenerateComponents()
     {
+        // Auto-discover OpenAPI component types
         var components = OpenApiSchemaDiscovery.GetOpenApiTypesAuto();
+
+        // Generate components from the discovered types
         GenerateComponents(components);
+
+        // Process variable annotations from the host
+        ProcessVariableAnnotations(Host.ComponentAnnotations);
+    }
+
+    /// <summary>
+    /// Processes variable annotations to build OpenAPI components.
+    /// </summary>
+    /// <param name="annotations">A dictionary of variable names to their annotated variables.</param>
+    private void ProcessVariableAnnotations(Dictionary<string, OpenApiComponentAnnotationScanner.AnnotatedVariable>? annotations)
+    {
+        if (annotations is null || annotations.Count == 0)
+        {
+            Host.Logger.Warning("No OpenAPI component annotations were found in the host.");
+            return;
+        }
+        foreach (var variable in annotations.Values)
+        {
+            if (variable?.Annotations is null || variable.Annotations.Count == 0)
+            {
+                continue;
+            }
+
+            DispatchComponentAnnotations(variable);
+        }
+    }
+
+    /// <summary>
+    /// Dispatches component annotations for a given variable.
+    /// </summary>
+    /// <param name="variable">The annotated variable containing annotations.</param>
+    private void DispatchComponentAnnotations(OpenApiComponentAnnotationScanner.AnnotatedVariable variable)
+    {
+        foreach (var annotation in variable.Annotations)
+        {
+            switch (annotation)
+            {
+                case OpenApiParameterComponentAttribute paramComponent:
+                    ProcessParameterComponent(variable, paramComponent);
+                    break;
+                case OpenApiRequestBodyComponentAttribute requestBodyComponent:
+                    ProcessRequestBodyComponent(variable, requestBodyComponent);
+                    break;
+                case OpenApiParameterExampleRefAttribute parameterExampleRef:
+                    ProcessParameterExampleRef(variable.Name, parameterExampleRef);
+                    break;
+                case OpenApiRequestBodyExampleRefAttribute requestBodyExampleRef:
+                    ProcessRequestBodyExampleRef(variable.Name, requestBodyExampleRef);
+                    break;
+                case OpenApiExtensionAttribute extensionAttribute:
+                    ProcessVariableExtension(variable, extensionAttribute);
+                    break;
+                case InternalPowershellAttribute powershellAttribute:
+                    // Process PowerShell attribute to modify the schema
+                    ProcessPowerShellAttribute(variable.Name, powershellAttribute);
+                    break;
+                case OpenApiResponseComponentAttribute responseComponent:
+                    ProcessResponseComponent(variable, responseComponent);
+                    break;
+                case OpenApiResponseHeaderRefAttribute headerRef:
+                    ProcessResponseHeaderRef(variable.Name, headerRef);
+                    break;
+                case OpenApiResponseLinkRefAttribute linkRef:
+                    ProcessResponseLinkRef(variable.Name, linkRef);
+                    break;
+                case OpenApiResponseExampleRefAttribute exampleRef:
+                    ProcessResponseExampleRef(variable.Name, exampleRef);
+                    break;
+                default:
+                    break;
+            }
+        }
+    }
+
+    /// <summary>
+    /// Processes an OpenAPI extension annotation for a given variable.
+    /// </summary>
+    /// <param name="variable"> The annotated variable containing annotations.</param>
+    /// <param name="extensionAttribute"> The OpenAPI extension attribute to process.</param>
+    private void ProcessVariableExtension(OpenApiComponentAnnotationScanner.AnnotatedVariable variable, OpenApiExtensionAttribute extensionAttribute)
+    {
+        var extensions = new Dictionary<string, IOpenApiExtension>(StringComparer.Ordinal);
+
+        if (Host.Logger.IsEnabled(Serilog.Events.LogEventLevel.Debug))
+        {
+            Host.Logger.Debug("Applying OpenApiExtension '{extensionName}' to function metadata", extensionAttribute.Name);
+        }
+        // Parse string into a JsonNode tree.
+        var node = JsonNode.Parse(extensionAttribute.Json);
+        if (node is null)
+        {
+            Host.Logger.Error("Error parsing OpenAPI extension '{extensionName}': JSON is null", extensionAttribute.Name);
+            return;
+        }
+        extensions[extensionAttribute.Name] = new JsonNodeExtension(node);
+        if (variable.Annotations.Any(a => a is OpenApiParameterComponentAttribute))
+        {
+            var param = GetOrCreateParameterItem(variable.Name, false);
+            param.Extensions = extensions;
+        }
+        else if (variable.Annotations.Any(a => a is OpenApiRequestBodyComponentAttribute))
+        {
+            var requestBody = GetOrCreateRequestBodyItem(variable.Name, false);
+            requestBody.Extensions = extensions;
+        }
+        else if (variable.Annotations.Any(a => a is OpenApiResponseComponentAttribute))
+        {
+            var response = GetOrCreateResponseItem(variable.Name, false);
+            response.Extensions = extensions;
+        }
+        else
+        {
+            Host.Logger.Error("OpenApiExtension '{extensionName}' could not be applied: no matching component found for variable '{variableName}'", extensionAttribute.Name, variable.Name);
+            return;
+        }
+    }
+
+    /// <summary>
+    /// Tries to apply the variable type schema to the given OpenAPI response.
+    /// </summary>
+    /// <param name="response"> The OpenAPI response to apply the schema to.</param>
+    /// <param name="variable"> The annotated variable containing annotations.</param>
+    /// <param name="responseDescriptor"> The response component attribute describing the response.</param>
+    /// <exception cref="InvalidOperationException"> Thrown if the response component does not specify any ContentType.</exception>
+    private void TryApplyVariableTypeSchema(
+        OpenApiResponse response,
+        OpenApiComponentAnnotationScanner.AnnotatedVariable variable,
+        OpenApiResponseComponentAttribute responseDescriptor)
+    {
+        if (variable.VariableType is null)
+        {
+            return;
+        }
+        var iSchema = InferPrimitiveSchema(variable.VariableType);
+        if (iSchema is OpenApiSchema schema)
+        {
+            // Apply any schema attributes from the parameter annotation
+            ApplyConcreteSchemaAttributes(responseDescriptor, schema);
+            // Try to set default value from the variable initial value if not already set
+            if (!variable.NoDefault)
+            {
+                schema.Default = OpenApiJsonNodeFactory.ToNode(variable.InitialValue);
+            }
+        }
+
+        // Either Schema OR Content, depending on ContentType
+        if (responseDescriptor.ContentType.Length == 0)
+        {
+            throw new InvalidOperationException($"Response component '{variable.Name}' must specify at least one ContentType.");
+        }
+        // Use Content
+        response.Content ??= new Dictionary<string, IOpenApiMediaType>(StringComparer.Ordinal);
+        foreach (var contentType in responseDescriptor.ContentType)
+        {
+            response.Content[contentType] = new OpenApiMediaType { Schema = iSchema };
+        }
+    }
+
+    private static void ApplyResponseCommonFields(
+        OpenApiResponse response,
+        OpenApiResponseComponentAttribute responseDescriptor)
+    {
+        if (responseDescriptor.Summary is not null)
+        {
+            response.Summary = responseDescriptor.Summary;
+        }
+        if (responseDescriptor.Description is not null)
+        {
+            response.Description = responseDescriptor.Description;
+        }
     }
 
     /// <summary>
     /// Generates the OpenAPI document by processing components and building paths and webhooks.
     /// </summary>
     /// <remarks>BuildCallbacks is already handled elsewhere.</remarks>
-    /// <remarks>This method sets HasBeenGenerated to true after generation.</remarks> 
+    /// <remarks>This method sets HasBeenGenerated to true after generation.</remarks>
     public void GenerateDoc()
     {
-        // First, generate components
-        GenerateComponents();
-
         // Then, generate webhooks
         BuildWebhooks(WebHook);
 
@@ -183,5 +350,27 @@ public partial class OpenApiDocDescriptor
         var w = new OpenApiYamlWriter(sw);
         Document.SerializeAs(version, w);
         return sw.ToString();
+    }
+
+    /// <summary>
+    /// Creates an OpenAPI extension in the document from the provided extensions dictionary.
+    /// </summary>
+    /// <param name="extensions">A dictionary containing the extensions.</param>
+    /// <exception cref="ArgumentException">Thrown when the specified extension name is not found in the provided extensions dictionary.</exception>
+    public void AddOpenApiExtension(IDictionary? extensions)
+    {
+        var built = BuildExtensions(extensions);
+
+        if (built is null)
+        {
+            return;
+        }
+
+        Document.Extensions ??= new Dictionary<string, IOpenApiExtension>(StringComparer.Ordinal);
+
+        foreach (var kvp in built)
+        {
+            Document.Extensions[kvp.Key] = kvp.Value;
+        }
     }
 }

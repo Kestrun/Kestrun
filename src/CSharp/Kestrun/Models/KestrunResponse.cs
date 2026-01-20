@@ -1,7 +1,9 @@
 
+using System.Diagnostics.CodeAnalysis;
 using System.Xml.Linq;
-using Newtonsoft.Json;
-using Newtonsoft.Json.Serialization;
+using System.Text.Json;
+using System.Text.Json.Serialization;
+using Kestrun.Utilities.Json;
 using Microsoft.AspNetCore.StaticFiles;
 using System.Text;
 using Serilog;
@@ -20,6 +22,7 @@ using System.Reflection;
 using Microsoft.Net.Http.Headers;
 using Kestrun.Utilities.Yaml;
 using Kestrun.Hosting.Options;
+using Kestrun.Callback;
 
 namespace Kestrun.Models;
 
@@ -29,10 +32,32 @@ namespace Kestrun.Models;
 /// <remarks>
 /// Initializes a new instance of the <see cref="KestrunResponse"/> class with the specified request and optional body async threshold.
 /// </remarks>
-/// <param name="request">The associated <see cref="KestrunRequest"/> for this response.</param>
-/// <param name="bodyAsyncThreshold">The threshold in bytes for using async body write operations. Defaults to 8192.</param>
-public class KestrunResponse(KestrunRequest request, int bodyAsyncThreshold = 8192)
+public class KestrunResponse
 {
+    /// <summary>
+    /// Flag indicating whether callbacks have already been enqueued.
+    /// </summary>
+    internal int CallbacksEnqueuedFlag; // 0 = no, 1 = yes
+
+    /// <summary>
+    ///     Gets the list of callback requests associated with this response.
+    /// </summary>
+    public List<CallBackExecutionPlan> CallbackPlan { get; } = [];
+
+    private Serilog.ILogger Logger => KrContext.Host.Logger;
+    /// <summary>
+    /// Gets the route options associated with this response.
+    /// </summary>
+    public MapRouteOptions MapRouteOptions => KrContext.MapRouteOptions;
+    /// <summary>
+    /// Gets the associated KestrunContext for this response.
+    /// </summary>
+    public required KestrunContext KrContext { get; init; }
+
+    /// <summary>
+    /// Gets the KestrunHost associated with this response.
+    /// </summary>
+    public Hosting.KestrunHost Host => KrContext.Host;
     /// <summary>
     /// A set of MIME types that are considered text-based for response content.
     /// </summary>
@@ -49,13 +74,28 @@ public class KestrunResponse(KestrunRequest request, int bodyAsyncThreshold = 81
     };
 
     /// <summary>
+    /// Initializes a new instance of the <see cref="KestrunResponse"/> class.
+    /// </summary>
+    /// <param name="krContext">The associated <see cref="KestrunContext"/> for this response.</param>
+    /// <param name="bodyAsyncThreshold">The threshold in bytes for using async body write operations. Defaults to 8192.</param>
+    [SetsRequiredMembers]
+    public KestrunResponse(KestrunContext krContext, int bodyAsyncThreshold = 8192)
+    {
+        KrContext = krContext;
+        BodyAsyncThreshold = bodyAsyncThreshold;
+        Request = KrContext.Request ?? throw new ArgumentNullException(nameof(KrContext));
+        AcceptCharset = KrContext.Request.Headers.TryGetValue("Accept-Charset", out var value) ? Encoding.GetEncoding(value) : Encoding.UTF8; // Default to UTF-8 if null
+        StatusCode = KrContext.HttpContext.Response.StatusCode;
+    }
+
+    /// <summary>
     /// Gets the <see cref="HttpContext"/> associated with the response.
     /// </summary>
-    public HttpContext Context => Request.HttpContext;
+    public HttpContext Context => KrContext.HttpContext;
     /// <summary>
     /// Gets or sets the HTTP status code for the response.
     /// </summary>
-    public int StatusCode { get; set; } = request.HttpContext.Response.StatusCode;
+    public int StatusCode { get; set; }
     /// <summary>
     /// Gets or sets the collection of HTTP headers for the response.
     /// </summary>
@@ -89,17 +129,17 @@ public class KestrunResponse(KestrunRequest request, int bodyAsyncThreshold = 81
     /// <summary>
     /// Gets the associated KestrunRequest for this response.
     /// </summary>
-    public KestrunRequest Request { get; private set; } = request ?? throw new ArgumentNullException(nameof(request));
+    public required KestrunRequest Request { get; init; }
 
     /// <summary>
     /// Global text encoding for all responses. Defaults to UTF-8.
     /// </summary>
-    public Encoding AcceptCharset { get; private set; } = request.Headers.TryGetValue("Accept-Charset", out var value) ? Encoding.GetEncoding(value) : Encoding.UTF8; // Default to UTF-8 if null
+    public required Encoding AcceptCharset { get; init; }
 
     /// <summary>
     /// If the response body is larger than this threshold (in bytes), async write will be used.
     /// </summary>
-    public int BodyAsyncThreshold { get; set; } = bodyAsyncThreshold;
+    public required int BodyAsyncThreshold { get; init; }
 
     /// <summary>
     /// Cache-Control header value for the response.
@@ -136,40 +176,6 @@ public class KestrunResponse(KestrunRequest request, int bodyAsyncThreshold = 81
     /// <param name="key">The name of the header to retrieve.</param>
     /// <returns>The value of the header if found; otherwise, null.</returns>
     public string? GetHeader(string key) => Headers.TryGetValue(key, out var value) ? value : null;
-
-    /// <summary>
-    /// Determines the appropriate content type for the response based on the provided content type and default type.
-    /// </summary>
-    /// <param name="contentType">The initial content type to consider.</param>
-    /// <param name="defaultType">The default content type to use if none is provided or found.</param>
-    /// <returns>The determined content type to use for the response.</returns>
-    private string DetermineContentType(string? contentType, string? defaultType = null)
-    {
-        if (string.IsNullOrWhiteSpace(contentType))
-        {
-            if (Request.Headers.TryGetValue("Accept", out var acceptHeader))
-            {
-                contentType = acceptHeader.ToLowerInvariant();
-            }
-            else
-            {
-                if (string.IsNullOrWhiteSpace(defaultType))
-                {
-                    var dft = Context.GetEndpoint()?
-                    .Metadata
-                    .FirstOrDefault(m => m is DefaultResponseContentType)
-                    as DefaultResponseContentType;
-                    contentType = dft?.ContentType ?? "text/html";
-                }
-                else
-                {
-                    contentType = defaultType;
-                }
-            }
-        }
-
-        return contentType;
-    }
 
     /// <summary>
     /// Determines whether the specified content type is text-based or supports a charset.
@@ -209,6 +215,34 @@ public class KestrunResponse(KestrunRequest request, int bodyAsyncThreshold = 81
 
         // Common application types where charset makes sense
         return TextBasedMimeTypes.Contains(type);
+    }
+    /// <summary>
+    /// Adds callback parameters for the specified callback ID, body, and parameters.
+    /// </summary>
+    /// <param name="callbackId">The identifier for the callback</param>
+    /// <param name="bodyParameterName">The name of the body parameter, if any</param>
+    /// <param name="parameters">The parameters for the callback</param>
+    public void AddCallbackParameters(string callbackId, string? bodyParameterName, Dictionary<string, object?> parameters)
+    {
+        if (MapRouteOptions.CallbackPlan is null || MapRouteOptions.CallbackPlan.Count == 0)
+        {
+            return;
+        }
+        var plan = MapRouteOptions.CallbackPlan.FirstOrDefault(p => p.CallbackId == callbackId);
+        if (plan is null)
+        {
+            Logger.Warning("CallbackPlan '{id}' not found.", callbackId);
+            return;
+        }
+        // Create a new execution plan
+        var newExecutionPlan = new CallBackExecutionPlan(
+            CallbackId: callbackId,
+            Plan: plan,
+            BodyParameterName: bodyParameterName,
+            Parameters: parameters
+        );
+
+        CallbackPlan.Add(newExecutionPlan);
     }
     #endregion
 
@@ -296,26 +330,29 @@ public class KestrunResponse(KestrunRequest request, int bodyAsyncThreshold = 81
     /// Writes a JSON response using the specified input object and serializer settings.
     /// </summary>
     /// <param name="inputObject">The object to be converted to JSON.</param>
-    /// <param name="serializerSettings">The settings to use for JSON serialization.</param>
+    /// <param name="serializerOptions">The options to use for JSON serialization.</param>
     /// <param name="statusCode">The HTTP status code for the response.</param>
     /// <param name="contentType">The MIME type of the response content.</param>
-    public void WriteJsonResponse(object? inputObject, JsonSerializerSettings serializerSettings, int statusCode = StatusCodes.Status200OK, string? contentType = null) => WriteJsonResponseAsync(inputObject, serializerSettings, statusCode, contentType).GetAwaiter().GetResult();
+    public void WriteJsonResponse(object? inputObject, JsonSerializerOptions serializerOptions, int statusCode = StatusCodes.Status200OK, string? contentType = null) => WriteJsonResponseAsync(inputObject, serializerOptions, statusCode, contentType).GetAwaiter().GetResult();
 
     /// <summary>
     /// Asynchronously writes a JSON response using the specified input object and serializer settings.
     /// </summary>
     /// <param name="inputObject">The object to be converted to JSON.</param>
-    /// <param name="serializerSettings">The settings to use for JSON serialization.</param>
+    /// <param name="serializerOptions">The options to use for JSON serialization.</param>
     /// <param name="statusCode">The HTTP status code for the response.</param>
     /// <param name="contentType">The MIME type of the response content.</param>
-    public async Task WriteJsonResponseAsync(object? inputObject, JsonSerializerSettings serializerSettings, int statusCode = StatusCodes.Status200OK, string? contentType = null)
+    public async Task WriteJsonResponseAsync(object? inputObject, JsonSerializerOptions serializerOptions, int statusCode = StatusCodes.Status200OK, string? contentType = null)
     {
         if (Log.IsEnabled(LogEventLevel.Debug))
         {
             Log.Debug("Writing JSON response (async), StatusCode={StatusCode}, ContentType={ContentType}", statusCode, contentType);
         }
 
-        Body = await Task.Run(() => JsonConvert.SerializeObject(inputObject, serializerSettings));
+        ArgumentNullException.ThrowIfNull(serializerOptions);
+
+        var sanitizedPayload = PayloadSanitizer.Sanitize(inputObject);
+        Body = await Task.Run(() => JsonSerializer.Serialize(sanitizedPayload, serializerOptions));
         ContentType = string.IsNullOrEmpty(contentType) ? $"application/json; charset={Encoding.WebName}" : contentType;
         StatusCode = statusCode;
     }
@@ -345,16 +382,17 @@ public class KestrunResponse(KestrunRequest request, int bodyAsyncThreshold = 81
                 statusCode, contentType, depth, compress);
         }
 
-        var serializerSettings = new JsonSerializerSettings
+        var serializerOptions = new JsonSerializerOptions
         {
-            Formatting = compress ? Formatting.None : Formatting.Indented,
-            ContractResolver = new CamelCasePropertyNamesContractResolver(),
-            ReferenceLoopHandling = ReferenceLoopHandling.Ignore,
-            NullValueHandling = NullValueHandling.Ignore,
-            DefaultValueHandling = DefaultValueHandling.Ignore,
+            WriteIndented = !compress,
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+            DictionaryKeyPolicy = JsonNamingPolicy.CamelCase,
+            ReferenceHandler = ReferenceHandler.IgnoreCycles,
+            DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
             MaxDepth = depth
         };
-        await WriteJsonResponseAsync(inputObject, serializerSettings: serializerSettings, statusCode: statusCode, contentType: contentType);
+
+        await WriteJsonResponseAsync(inputObject, serializerOptions: serializerOptions, statusCode: statusCode, contentType: contentType);
     }
     /// <summary>
     /// Writes a CBOR response (binary, efficient, not human-readable).
@@ -410,11 +448,20 @@ public class KestrunResponse(KestrunRequest request, int bodyAsyncThreshold = 81
     public void WriteBsonResponse(object? inputObject, int statusCode = StatusCodes.Status200OK, string? contentType = null) => WriteBsonResponseAsync(inputObject, statusCode, contentType).GetAwaiter().GetResult();
 
     /// <summary>
+    /// Writes a response with the specified input object and HTTP status code.
+    /// Chooses the response format based on the Accept header or defaults to text/plain.
+    /// </summary>
+    /// <param name="inputObject">The object to be sent in the response body.</param>
+    /// <param name="statusCode">The HTTP status code for the response.</param>
+    public void WriteResponse(object? inputObject, int statusCode = StatusCodes.Status200OK) => WriteResponseAsync(inputObject, statusCode).GetAwaiter().GetResult();
+
+    /// <summary>
     /// Asynchronously writes a response with the specified input object and HTTP status code.
     /// Chooses the response format based on the Accept header or defaults to text/plain.
     /// </summary>
     /// <param name="inputObject">The object to be sent in the response body.</param>
     /// <param name="statusCode">The HTTP status code for the response.</param>
+    /// <returns>A task that represents the asynchronous write operation.</returns>
     public async Task WriteResponseAsync(object? inputObject, int statusCode = StatusCodes.Status200OK)
     {
         if (Log.IsEnabled(LogEventLevel.Debug))
@@ -423,57 +470,114 @@ public class KestrunResponse(KestrunRequest request, int bodyAsyncThreshold = 81
         }
 
         Body = inputObject;
-        ContentType = DetermineContentType(contentType: string.Empty); // Ensure ContentType is set based on Accept header
-        if (ContentType.Contains(','))
+        try
         {
-            var ContentTypes = ContentType.Split(','); // Take the first type only
-            ContentType = "application/json"; // fallback
-            foreach (var ct in ContentTypes)
+            string? acceptHeader = null;
+            _ = Request?.Headers.TryGetValue(HeaderNames.Accept, out acceptHeader);
+            // Pick best media type from Accept, default to text/plain
+            var selected = SelectResponseMediaType(acceptHeader, defaultType: KrContext.MapRouteOptions.DefaultResponseContentType);
+
+            if (selected is null)
             {
-                if (ct.Contains("json") || ct.Contains("xml") || ct.Contains("yaml") || ct.Contains("yml"))
-                {
-                    if (Log.IsEnabled(LogEventLevel.Verbose))
-                    {
-                        Log.Verbose("Multiple content types in Accept header, selecting {ContentType}", ct);
-                    }
-                    ContentType = ct;
-                    break;
-                }
+                statusCode = StatusCodes.Status406NotAcceptable;
+                await WriteErrorResponseAsync("No acceptable media type found.", statusCode);
+                return;
             }
+
+            if (Log.IsEnabled(LogEventLevel.Verbose))
+            {
+                Log.Verbose("Selected response media type={MediaType}", selected);
+            }
+
+            // Dispatch based on selected media type
+            await WriteByMediaTypeAsync(selected, inputObject, statusCode);
         }
-        if (Log.IsEnabled(LogEventLevel.Verbose))
+        catch (Exception ex)
         {
-            Log.Verbose("Determined ContentType={ContentType}", ContentType);
-        }
-        if (ContentType.Contains("json"))
-        {
-            await WriteJsonResponseAsync(inputObject: inputObject, statusCode: statusCode, contentType: ContentType);
-        }
-        else if (ContentType.Contains("yaml") || ContentType.Contains("yml"))
-        {
-            await WriteYamlResponseAsync(inputObject: inputObject, statusCode: statusCode, contentType: ContentType);
-        }
-        else if (ContentType.Contains("xml"))
-        {
-            await WriteXmlResponseAsync(inputObject: inputObject, statusCode: statusCode, contentType: ContentType);
-        }
-        else if (ContentType.Contains("application/x-www-form-urlencoded"))
-        {
-            await WriteFormUrlEncodedResponseAsync(inputObject: inputObject, statusCode: statusCode);
-        }
-        else
-        {
-            await WriteTextResponseAsync(inputObject: inputObject?.ToString() ?? string.Empty, statusCode: statusCode);
+            Log.Error("Error in WriteResponseAsync: {Message}", ex.Message);
+            await WriteErrorResponseAsync($"Internal server error: {ex.Message}", StatusCodes.Status500InternalServerError);
         }
     }
 
     /// <summary>
-    /// Writes a response with the specified input object and HTTP status code.
-    /// Chooses the response format based on the Accept header or defaults to text/plain.
+    /// Selects the most appropriate response media type based on the Accept header.
     /// </summary>
-    /// <param name="inputObject">The object to be sent in the response body.</param>
+    /// <param name="acceptHeader">The value of the Accept header from the request.</param>
+    /// <param name="defaultType">The default media type to use if no match is found. Defaults to "text/plain".</param>
+    /// <returns>The selected media type as a string.</returns>
+    /// <remarks>
+    /// This method parses the Accept header, orders the media types by quality factor,
+    /// and selects the first supported media type. If none are supported, it returns the default type.
+    /// </remarks>
+    private static string? SelectResponseMediaType(string? acceptHeader, string? defaultType = "text/plain")
+    {
+        if (string.IsNullOrWhiteSpace(acceptHeader))
+        {
+            return defaultType;
+        }
+        // Parse and order by quality factor (q=)
+        var acceptValues = MediaTypeHeaderValue
+            .ParseList(acceptHeader.Split(','))
+            .OrderByDescending(v => v.Quality ?? 1.0);
+        // Try to find a supported media type
+        foreach (var v in acceptValues)
+        {
+            var mediaType = GetMediaTypeOrNull(v);
+            if (mediaType is not null)
+            {
+                // Map to canonical media type if needed
+                var mapped = MediaTypeHelper.Canonicalize(mediaType);
+                if (mapped is not null)
+                {
+                    return mapped;
+                }
+            }
+        }
+        // No supported media type found; return default
+        return defaultType;
+    }
+
+    /// <summary>
+    /// Gets the media type from the MediaTypeHeaderValue or null if not present.
+    /// </summary>
+    /// <param name="v"> The MediaTypeHeaderValue instance to extract the media type from.</param>
+    /// <returns>The media type as a string if present; otherwise, null.</returns>
+    private static string? GetMediaTypeOrNull(MediaTypeHeaderValue v)
+    {
+        if (!v.MediaType.HasValue)
+        {
+            return null;
+        }
+        // Trim whitespace
+        var s = v.MediaType.Value.Trim();
+        // Return null for empty strings
+        return s.Length == 0 ? null : s;
+    }
+
+    /// <summary>
+    /// Writes a response based on the specified media type.
+    /// </summary>
+    /// <param name="mediaType">The media type to use for the response.</param>
+    /// <param name="inputObject">The object to be written in the response body.</param>
     /// <param name="statusCode">The HTTP status code for the response.</param>
-    public void WriteResponse(object? inputObject, int statusCode = StatusCodes.Status200OK) => WriteResponseAsync(inputObject, statusCode).GetAwaiter().GetResult();
+    /// <returns>A Task representing the asynchronous operation.</returns>
+    private Task WriteByMediaTypeAsync(string mediaType, object? inputObject, int statusCode)
+    {
+        // If you want, set Response.ContentType here once, centrally.
+        ContentType = mediaType;
+
+        return mediaType switch
+        {
+            "application/json" => WriteJsonResponseAsync(inputObject, statusCode, mediaType),
+            "application/yaml" => WriteYamlResponseAsync(inputObject, statusCode, mediaType),
+            "application/xml" => WriteXmlResponseAsync(inputObject, statusCode, mediaType),
+            "application/bson" => WriteBsonResponseAsync(inputObject, statusCode, mediaType),
+            "application/cbor" => WriteCborResponseAsync(inputObject, statusCode, mediaType),
+            "text/csv" => WriteCsvResponseAsync(inputObject, statusCode, mediaType),
+            "application/x-www-form-urlencoded" => WriteFormUrlEncodedResponseAsync(inputObject, statusCode),
+            _ => WriteTextResponseAsync(inputObject?.ToString() ?? string.Empty, statusCode),
+        };
+    }
 
     /// <summary>
     /// Writes a CSV response with the specified input object, status code, content type, and optional CsvConfiguration.
@@ -1207,6 +1311,7 @@ public class KestrunResponse(KestrunRequest request, int bodyAsyncThreshold = 81
     #endregion
 
     #region Apply to HttpResponse
+
     /// <summary>
     /// Applies the current KestrunResponse to the specified HttpResponse, setting status, headers, cookies, and writing the body.
     /// </summary>
@@ -1239,6 +1344,9 @@ public class KestrunResponse(KestrunRequest request, int bodyAsyncThreshold = 81
             EnsureStatus(response);
             ApplyHeadersAndCookies(response);
             ApplyCachingHeaders(response);
+
+            await TryEnqueueCallbacks();
+
             if (Body is not null)
             {
                 EnsureContentType(response);
@@ -1261,6 +1369,69 @@ public class KestrunResponse(KestrunRequest request, int bodyAsyncThreshold = 81
             Console.WriteLine($"Error applying response: {ex.Message}");
             // Optionally, you can log the exception or handle it as needed
             throw;
+        }
+    }
+
+    /// <summary>
+    /// Attempts to enqueue any registered callback requests using the ICallbackDispatcher service.
+    /// </summary>
+    private async ValueTask TryEnqueueCallbacks()
+    {
+        if (CallbackPlan.Count == 0)
+        {
+            return;
+        }
+
+        // Prevent multiple enqueues
+        if (Interlocked.Exchange(ref CallbacksEnqueuedFlag, 1) == 1)
+        {
+            return;
+        }
+
+        var log = KrContext.Host.Logger;
+        if (log.IsEnabled(LogEventLevel.Information))
+        {
+            log.Information("Enqueuing {Count} callbacks for dispatch.", CallbackPlan.Count);
+        }
+
+        try
+        {
+            var httpCtx = KrContext.HttpContext;
+
+            // Resolve DI services while request is alive
+            var dispatcher = httpCtx.RequestServices.GetService<ICallbackDispatcher>();
+            if (dispatcher is null)
+            {
+                log.Warning("Callbacks present but no ICallbackDispatcher registered. Count={Count}", CallbackPlan.Count);
+                return;
+            }
+
+            var urlResolver = httpCtx.RequestServices.GetRequiredService<ICallbackUrlResolver>();
+            var serializer = httpCtx.RequestServices.GetRequiredService<ICallbackBodySerializer>();
+            var options = httpCtx.RequestServices.GetService<CallbackDispatchOptions>() ?? new CallbackDispatchOptions();
+
+            foreach (var plan in CallbackPlan)
+            {
+                try
+                {
+                    var req = CallbackRequestFactory.FromPlan(plan, KrContext, urlResolver, serializer, options);
+
+                    if (log.IsEnabled(LogEventLevel.Debug))
+                    {
+                        log.Debug("Enqueue callback. CallbackId={CallbackId} Url={Url}", req.CallbackId, req.TargetUrl);
+                    }
+
+                    await dispatcher.EnqueueAsync(req, CancellationToken.None).ConfigureAwait(false);
+                }
+                catch (Exception ex)
+                {
+                    log.Error(ex, "Failed to enqueue callback. CallbackId={CallbackId}", plan.CallbackId);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            log.Error(ex, "Unexpected error while scheduling callbacks.");
         }
     }
 

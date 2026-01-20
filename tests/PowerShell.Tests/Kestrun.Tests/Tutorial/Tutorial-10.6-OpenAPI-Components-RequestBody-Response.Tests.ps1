@@ -1,7 +1,10 @@
 param()
+BeforeAll {
+    . (Join-Path $PSScriptRoot '..\PesterHelpers.ps1')
+}
+
 Describe 'Example 10.6 OpenAPI Components RequestBody & Response' -Tag 'OpenApi', 'Tutorial', 'Slow' {
     BeforeAll {
-        . (Join-Path $PSScriptRoot '..\PesterHelpers.ps1');
         $script:instance = Start-ExampleScript -Name '10.6-OpenAPI-Components-RequestBody-Response.ps1'
     }
     AfterAll { if ($script:instance) { Stop-ExampleScript -Instance $script:instance } }
@@ -33,7 +36,24 @@ Describe 'Example 10.6 OpenAPI Components RequestBody & Response' -Tag 'OpenApi'
         $result = Invoke-WebRequest -Uri "$($script:instance.Url)/openapi/v3.1/openapi.json" -SkipCertificateCheck -SkipHttpErrorCheck
         $json = $result.Content | ConvertFrom-Json
         $json.components.requestBodies.CreateOrderRequestBody | Should -Not -BeNullOrEmpty
-        $json.components.responses.'OrderResponseComponent-Default' | Should -Not -BeNullOrEmpty
+        $json.components.responses.OrderResponseDefault | Should -Not -BeNullOrEmpty
+    }
+
+    It 'Check OpenAPI Component Extensions' {
+        $result = Invoke-WebRequest -Uri "$($script:instance.Url)/openapi/v3.1/openapi.json" -SkipCertificateCheck -SkipHttpErrorCheck
+        $json = $result.Content | ConvertFrom-Json
+
+        $json.components.requestBodies.CreateOrderRequestBody.'x-kestrun-demo'.kind | Should -Be 'request'
+        $json.components.requestBodies.CreateOrderRequestBody.'x-kestrun-demo'.containsPii | Should -BeTrue
+
+        $json.components.responses.OrderResponseDefault.'x-kestrun-demo'.domain | Should -Be 'orders'
+        $json.components.responses.OrderResponseDefault.'x-kestrun-demo'.kind | Should -Be 'success'
+
+        $json.components.responses.ErrorResponseDefault.'x-kestrun-demo'.kind | Should -Be 'error'
+        $json.components.responses.ErrorResponseDefault.'x-kestrun-demo'.retryable | Should -BeFalse
+    }
+
+    It 'OpenAPI output matches 10.6 fixture JSON' {
+        Test-OpenApiDocumentMatchesExpected -Instance $script:instance
     }
 }
-

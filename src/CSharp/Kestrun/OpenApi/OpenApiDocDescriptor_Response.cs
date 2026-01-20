@@ -1,5 +1,3 @@
-using System.Reflection;
-using System.Text.Json.Nodes;
 using Microsoft.OpenApi;
 
 namespace Kestrun.OpenApi;
@@ -9,227 +7,6 @@ namespace Kestrun.OpenApi;
 /// </summary>
 public partial class OpenApiDocDescriptor
 {
-    /// <summary>
-    /// Builds response components from the specified type.
-    /// </summary>
-    /// <param name="t">The type to build responses for.</param>
-    private void BuildResponses(Type t)
-    {
-        // Ensure Responses dictionary exists
-        Document.Components!.Responses ??= new Dictionary<string, IOpenApiResponse>(StringComparer.Ordinal);
-
-        var (defaultDescription, joinClassName) = GetClassLevelResponseMetadata(t);
-        const BindingFlags flags = BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly;
-
-        foreach (var p in t.GetProperties(flags))
-        {
-            ProcessPropertyForResponse(p, defaultDescription, joinClassName);
-        }
-    }
-
-    private static (string? Description, string? JoinClassName) GetClassLevelResponseMetadata(Type t)
-    {
-        string? description = null;
-        string? joinClassName = null;
-
-        var classAttrs = t.GetCustomAttributes(inherit: false)
-            .Where(a => a.GetType().Name == nameof(OpenApiResponseComponent))
-            .Cast<object>()
-            .ToArray();
-
-        if (classAttrs.Length > 1)
-        {
-            throw new InvalidOperationException($"Type '{t.FullName}' has multiple [OpenApiResponseComponent] attributes. Only one is allowed per class.");
-        }
-
-        if (classAttrs.Length == 1 && classAttrs[0] is OpenApiResponseComponent attr)
-        {
-            if (!string.IsNullOrEmpty(attr.Description))
-            {
-                description = attr.Description;
-            }
-            if (!string.IsNullOrEmpty(attr.JoinClassName))
-            {
-                joinClassName = t.FullName + attr.JoinClassName;
-            }
-        }
-
-        return (description, joinClassName);
-    }
-
-    private void ProcessPropertyForResponse(PropertyInfo p, string? defaultDescription, string? joinClassName)
-    {
-        var attrs = GetPropertyResponseAttributes(p);
-        if (attrs.Length == 0)
-        {
-            return;
-        }
-
-        var response = new OpenApiResponse();
-        var (hasResponseDef, customName) = ApplyPropertyAttributesToResponse(p, attrs, response);
-
-        if (hasResponseDef)
-        {
-            RegisterResponse(response, p, customName, defaultDescription, joinClassName);
-        }
-    }
-
-    private static object[] GetPropertyResponseAttributes(PropertyInfo p)
-    {
-        return [.. p.GetCustomAttributes(inherit: false)
-             .Where(a => a.GetType().Name is
-                 nameof(OpenApiResponseAttribute) or
-                 nameof(OpenApiLinkRefAttribute) or
-                 nameof(OpenApiHeaderRefAttribute) or
-                 nameof(OpenApiExampleRefAttribute)
-             )
-             .Cast<object>()];
-    }
-
-    private (bool HasResponseDef, string CustomName) ApplyPropertyAttributesToResponse(PropertyInfo p, object[] attrs, OpenApiResponse response)
-    {
-        var hasResponseDef = false;
-        var customName = string.Empty;
-
-        foreach (var a in attrs)
-        {
-            if (a is OpenApiResponseAttribute oaRa && !string.IsNullOrWhiteSpace(oaRa.Key))
-            {
-                customName = oaRa.Key;
-            }
-
-            var schema = GetAttributeValue(p);
-            if (CreateResponseFromAttribute(a, response, schema))
-            {
-                hasResponseDef = true;
-            }
-        }
-        return (hasResponseDef, customName);
-    }
-
-    private void RegisterResponse(OpenApiResponse response, PropertyInfo p, string customName, string? defaultDescription, string? joinClassName)
-    {
-        var tname = string.IsNullOrWhiteSpace(customName) ? p.Name : customName;
-        var key = joinClassName is not null ? $"{joinClassName}{tname}" : tname;
-
-        if (response.Description is null && defaultDescription is not null)
-        {
-            response.Description = defaultDescription;
-        }
-
-        Document.Components!.Responses![key] = response;
-    }
-
-    /// <summary>
-    /// Gets the OpenAPI schema for a property based on its attributes and type.
-    /// </summary>
-    /// <param name="p"> The property info to get the schema for.</param>
-    /// <returns> The OpenAPI schema for the property.</returns>
-    private IOpenApiSchema GetAttributeValue(PropertyInfo p)
-    {
-        var pt = p.PropertyType;
-        var allowNull = false;
-        var underlying = Nullable.GetUnderlyingType(pt);
-        if (underlying != null)
-        {
-            allowNull = true;
-            pt = underlying;
-        }
-        // enum type
-        if (pt.IsEnum)
-        {
-            return GetEnumSchema(p, pt, allowNull);
-        }
-        // array type
-        if (pt.IsArray)
-        {
-            return GetArraySchema(p, pt, allowNull);
-        }
-        // complex type
-        if (!IsPrimitiveLike(pt))
-        {
-            return GetComplexSchema(pt);
-        }
-        // primitive type
-        return GetPrimitiveSchema(p, pt, allowNull);
-    }
-
-    /// <summary>
-    /// Creates an OpenAPI schema for an enum property.
-    /// </summary>
-    /// <param name="p"> The property info.</param>
-    /// <param name="pt"> The property type.</param>
-    /// <param name="allowNull"> Indicates if null is allowed.</param>
-    /// <returns> The OpenAPI schema.</returns>
-    private static IOpenApiSchema GetEnumSchema(PropertyInfo p, Type pt, bool allowNull)
-    {
-        var schema = new OpenApiSchema
-        {
-            Type = JsonSchemaType.String,
-            Enum = [.. pt.GetEnumNames().Select(n => (JsonNode)n)]
-        };
-        var propAttrs = p.GetCustomAttributes<OpenApiPropertyAttribute>(inherit: false).ToArray();
-        var a = MergeSchemaAttributes(propAttrs);
-        ApplySchemaAttr(a, schema);
-        PowerShellAttributes.ApplyPowerShellAttributes(p, schema);
-        if (allowNull)
-        {
-            schema.Type |= JsonSchemaType.Null;
-        }
-        return schema;
-    }
-
-    private IOpenApiSchema GetArraySchema(PropertyInfo p, Type pt, bool allowNull)
-    {
-        var item = pt.GetElementType()!;
-        IOpenApiSchema itemSchema;
-
-        if (!IsPrimitiveLike(item) && !item.IsEnum)
-        {
-            // then reference it
-            itemSchema = new OpenApiSchemaReference(item.Name);
-        }
-        else
-        {
-            itemSchema = InferPrimitiveSchema(item);
-        }
-        var schema = new OpenApiSchema
-        {
-            // then build the array schema
-            Type = JsonSchemaType.Array,
-            Items = itemSchema
-        };
-        ApplySchemaAttr(p.GetCustomAttribute<OpenApiPropertyAttribute>(), schema);
-        PowerShellAttributes.ApplyPowerShellAttributes(p, schema);
-        if (allowNull)
-        {
-            schema.Type |= JsonSchemaType.Null;
-        }
-        return schema;
-    }
-
-    private IOpenApiSchema GetComplexSchema(Type pt)
-    {
-        EnsureSchemaComponent(pt);
-        return new OpenApiSchemaReference(pt.Name);
-    }
-
-    private IOpenApiSchema GetPrimitiveSchema(PropertyInfo p, Type pt, bool allowNull)
-    {
-        var sc = InferPrimitiveSchema(pt);
-        if (sc is OpenApiSchema schema)
-        {
-            ApplySchemaAttr(p.GetCustomAttribute<OpenApiPropertyAttribute>(), schema);
-            PowerShellAttributes.ApplyPowerShellAttributes(p, schema);
-            if (allowNull)
-            {
-                schema.Type |= JsonSchemaType.Null;
-            }
-            return schema;
-        }
-        return sc;
-    }
-
     /// <summary>
     /// Gets the name override from an attribute, if present.
     /// </summary>
@@ -296,28 +73,13 @@ public partial class OpenApiDocDescriptor
         {
             return InferPrimitiveSchema(resp.Schema, inline: resp.Inline);
         }
-
-        // 2) Explicit Component reference
-        if (resp.SchemaRef is not null)
+        if (resp.SchemaItem is not null)
         {
-            return ResolveSchemaRef(resp.SchemaRef, resp.Inline);
-        }
-
-        // 3) Fallback to property schema reference if available
-        if (propertySchema is OpenApiSchemaReference refSchema && refSchema.Reference.Id is not null)
-        {
-            return ResolveSchemaRef(refSchema.Reference.Id, resp.Inline);
+            return InferPrimitiveSchema(resp.SchemaItem, inline: resp.Inline);
         }
 
         // 4) Fallback to existing property schema (primitive/concrete)
         return propertySchema;
-    }
-
-    private IOpenApiSchema ResolveSchemaRef(string refId, bool inline)
-    {
-        return inline
-            ? CloneSchemaOrThrow(refId)
-            : new OpenApiSchemaReference(refId);
     }
 
     private void ApplySchemaToContentTypes(OpenApiResponseAttribute resp, OpenApiResponse response, IOpenApiSchema? schema)
@@ -329,7 +91,14 @@ public partial class OpenApiDocDescriptor
                 var media = GetOrAddMediaType(response, ct);
                 if (media is OpenApiMediaType mediaType)
                 {
-                    mediaType.Schema = schema;
+                    if (resp.SchemaItem != null)
+                    {
+                        mediaType.ItemSchema = schema;
+                    }
+                    else
+                    {
+                        mediaType.Schema = schema;
+                    }
                 }
             }
         }
@@ -370,12 +139,6 @@ public partial class OpenApiDocDescriptor
         // add header to response
         return response.Headers.TryAdd(href.Key, header);
     }
-
-    /* private static bool ApplyLinkRefAttribute(OpenApiLinkRefAttribute lref, OpenApiResponse response)
-     {
-         (response.Links ??= new Dictionary<string, IOpenApiLink>(StringComparer.Ordinal))[lref.Key] = new OpenApiLinkReference(lref.ReferenceId);
-         return true;
-     }*/
 
     /// <summary>
     /// Applies an example reference attribute to an OpenAPI response.
@@ -441,7 +204,7 @@ public partial class OpenApiDocDescriptor
     /// <param name="resp">The OpenAPI response object.</param>
     /// <param name="contentType">The content type for the media type.</param>
     /// <returns>The media type associated with the specified content type.</returns>
-    private IOpenApiMediaType GetOrAddMediaType(OpenApiResponse resp, string contentType)
+    private static IOpenApiMediaType GetOrAddMediaType(OpenApiResponse resp, string contentType)
     {
         resp.Content ??= new Dictionary<string, IOpenApiMediaType>(StringComparer.Ordinal);
         if (!resp.Content.TryGetValue(contentType, out var media))
@@ -464,4 +227,132 @@ public partial class OpenApiDocDescriptor
         throw new InvalidOperationException(
             $"Schema reference '{refId}' cannot be embedded because it was not found in components.");
     }
+
+    private void ProcessResponseExampleRef(string name, OpenApiResponseExampleRefAttribute attribute)
+    {
+        if (attribute.StatusCode != "default")
+        {
+            throw new InvalidOperationException("Response example references cannot have a status code.");
+        }
+        if (attribute.Key is null)
+        {
+            throw new InvalidOperationException("Response example attributes must have a Key specified to define the example name under response.examples.");
+        }
+        if (!TryGetResponseItem(name, out var response))
+        {
+            throw new InvalidOperationException($"response '{name}' not found when trying to add to response.");
+        }
+        _ = CreateResponseFromAttribute(attribute, response);
+    }
+
+    private void ProcessResponseLinkRef(string name, OpenApiResponseLinkRefAttribute attribute)
+    {
+        if (attribute.StatusCode != "default")
+        {
+            throw new InvalidOperationException("Response link references cannot have a status code.");
+        }
+        if (attribute.Key is null)
+        {
+            throw new InvalidOperationException("Response link attributes must have a Key specified to define the link name under response.links.");
+        }
+        if (!TryGetResponseItem(name, out var response))
+        {
+            throw new InvalidOperationException($"response '{name}' not found when trying to add to response.");
+        }
+        _ = CreateResponseFromAttribute(attribute, response);
+    }
+
+    private void ProcessResponseHeaderRef(string name, OpenApiResponseHeaderRefAttribute attribute)
+    {
+        if (attribute.StatusCode != "default")
+        {
+            throw new InvalidOperationException("Response header references cannot have a status code.");
+        }
+        if (attribute.Key is null)
+        {
+            throw new InvalidOperationException("Response header attributes must have a Key specified to define the header name under response.headers.");
+        }
+        if (!TryGetResponseItem(name, out var response))
+        {
+            throw new InvalidOperationException($"response '{name}' not found when trying to add to response.");
+        }
+        _ = CreateResponseFromAttribute(attribute, response);
+    }
+
+    private void ProcessResponseComponent(
+      OpenApiComponentAnnotationScanner.AnnotatedVariable variable,
+      OpenApiResponseComponentAttribute responseDescriptor)
+    {
+        var response = GetOrCreateResponseItem(variable.Name, responseDescriptor.Inline);
+
+        ApplyResponseCommonFields(response, responseDescriptor);
+
+        TryApplyVariableTypeSchema(response, variable, responseDescriptor);
+    }
+
+    #region Response Item Helpers
+
+    private OpenApiResponse GetOrCreateResponseItem(string responseName, bool inline)
+    {
+        IDictionary<string, IOpenApiResponse> responses;
+        // Determine whether to use inline components or document components
+        if (inline)
+        {
+            // Use inline components
+            InlineComponents.Responses ??= new Dictionary<string, IOpenApiResponse>(StringComparer.Ordinal);
+            responses = InlineComponents.Responses;
+        }
+        else
+        {
+            // Use document components
+            Document.Components ??= new OpenApiComponents();
+            Document.Components.Responses ??= new Dictionary<string, IOpenApiResponse>(StringComparer.Ordinal);
+            responses = Document.Components.Responses;
+        }
+        // Retrieve or create the response item
+        if (!responses.TryGetValue(responseName, out var responseInterface) || responseInterface is null)
+        {
+            // Create a new OpenApiResponse if it doesn't exist
+            responseInterface = new OpenApiResponse();
+            responses[responseName] = responseInterface;
+        }
+        // return the response item
+        return (OpenApiResponse)responseInterface;
+    }
+
+    /// <summary>
+    /// Tries to get a response item by name from either inline or document components.
+    /// </summary>
+    /// <param name="responseName"> The name of the response item to retrieve.</param>
+    /// <param name="response">The retrieved OpenApiResponse if found; otherwise, null.</param>
+    /// <param name="isInline">Indicates whether the response was found in inline components.</param>
+    /// <returns>True if the response item was found; otherwise, false.</returns>
+    private bool TryGetResponseItem(string responseName, out OpenApiResponse? response, out bool isInline)
+    {
+        // First, check inline components
+        if (TryGetInline(name: responseName, kind: OpenApiComponentKind.Responses, out response))
+        {
+            isInline = true;
+            return true;
+        }
+        // Next, check document components
+        else if (TryGetComponent(name: responseName, kind: OpenApiComponentKind.Responses, out response))
+        {
+            isInline = false;
+            return true;
+        }
+        response = null;
+        isInline = false;
+        return false;
+    }
+    /// <summary>
+    /// Tries to get a response item by name from document components only.
+    /// </summary>
+    /// <param name="responseName"> The name of the response item to retrieve.</param>
+    /// <param name="response"> The retrieved OpenApiResponse if found; otherwise, null.</param>
+    /// <returns>True if the response item was found; otherwise, false.</returns>
+    private bool TryGetResponseItem(string responseName, out OpenApiResponse? response) =>
+    TryGetResponseItem(responseName, out response, out _);
+
+    #endregion
 }

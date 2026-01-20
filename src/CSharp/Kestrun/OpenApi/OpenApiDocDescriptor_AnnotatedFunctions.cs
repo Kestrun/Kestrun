@@ -1,6 +1,7 @@
 using System.Management.Automation;
 using System.Management.Automation.Internal;
 using System.Management.Automation.Language;
+using System.Text.Json.Nodes;
 using Kestrun.Hosting;
 using Kestrun.Hosting.Options;
 using Kestrun.Languages;
@@ -58,9 +59,10 @@ public partial class OpenApiDocDescriptor
             {
                 return;
             }
-
-            var openApiMetadata = new OpenAPIPathMetadata();
+            // Create route options and OpenAPI metadata
             var routeOptions = new MapRouteOptions();
+            var openApiMetadata = new OpenAPIPathMetadata(mapOptions: routeOptions);
+            // Process attributes to populate route options and OpenAPI metadata
             var parsedVerb = ProcessFunctionAttributes(func, help!, attrs, routeOptions, openApiMetadata);
 
             ProcessParameters(func, help!, routeOptions, openApiMetadata);
@@ -107,14 +109,17 @@ public partial class OpenApiDocDescriptor
                     case OpenApiCallbackAttribute callbackOperation:
                         parsedVerb = ApplyPathAttribute(func, help, routeOptions, openApiMetadata, parsedVerb, callbackOperation);
                         break;
+                    case OpenApiExtensionAttribute extensionAttr:
+                        ApplyExtensionAttribute(openApiMetadata, extensionAttr);
+                        break;
                     case OpenApiResponseRefAttribute responseRef:
                         ApplyResponseRefAttribute(openApiMetadata, responseRef);
                         break;
                     case OpenApiResponseAttribute responseAttr:
-                        ApplyResponseAttribute(openApiMetadata, responseAttr);
+                        ApplyResponseAttribute(openApiMetadata, responseAttr, routeOptions);
                         break;
                     case OpenApiResponseExampleRefAttribute responseAttr:
-                        ApplyResponseAttribute(openApiMetadata, responseAttr);
+                        ApplyResponseAttribute(openApiMetadata, responseAttr, routeOptions);
                         break;
                     case OpenApiResponseLinkRefAttribute linkRefAttr:
                         ApplyResponseLinkAttribute(openApiMetadata, linkRefAttr);
@@ -137,15 +142,38 @@ public partial class OpenApiDocDescriptor
             }
             catch (InvalidOperationException ex)
             {
-                Host.Logger.Error("Error processing OpenApiPath attribute on function '{funcName}': {message}", func.Name, ex.Message);
+                Host.Logger.Error(ex, "Error processing OpenApiPath attribute on function '{funcName}': {message}", func.Name, ex.Message);
             }
             catch (Exception ex)
             {
-                Host.Logger.Error("Error processing OpenApiPath attribute on function '{funcName}': {message}", func.Name, ex.Message);
+                Host.Logger.Error(ex, "Error processing OpenApiPath attribute on function '{funcName}': {message}", func.Name, ex.Message);
             }
         }
 
         return parsedVerb;
+    }
+
+    /// <summary>
+    /// Applies the OpenApiExtension attribute to the function's OpenAPI metadata.
+    /// </summary>
+    /// <param name="openApiMetadata">The OpenAPI metadata to which the extension will be applied.</param>
+    /// <param name="extensionAttr">The OpenApiExtension attribute containing the extension data.</param>
+    private void ApplyExtensionAttribute(OpenAPIPathMetadata openApiMetadata, OpenApiExtensionAttribute extensionAttr)
+    {
+        if (Host.Logger.IsEnabled(Serilog.Events.LogEventLevel.Debug))
+        {
+            Host.Logger.Debug("Applying OpenApiExtension '{extensionName}' to function metadata", extensionAttr.Name);
+        }
+        openApiMetadata.Extensions ??= [];
+
+        // Parse string into a JsonNode tree.
+        var node = JsonNode.Parse(extensionAttr.Json);
+        if (node is null)
+        {
+            Host.Logger.Error("Error parsing OpenAPI extension '{extensionName}': JSON is null", extensionAttr.Name);
+            return;
+        }
+        openApiMetadata.Extensions[extensionAttr.Name] = new JsonNodeExtension(node);
     }
 
     /// <summary>
@@ -188,7 +216,6 @@ public partial class OpenApiDocDescriptor
         metadata.Deprecated |= oaPath.Deprecated;
         // Apply document ID if specified
         metadata.DocumentId = oaPath.DocumentId;
-
         switch (oaPath)
         {
             case OpenApiPathAttribute oaPathConcrete:
@@ -303,16 +330,26 @@ public partial class OpenApiDocDescriptor
     /// <param name="value">The string to normalize.</param>
     /// <returns>The normalized string.</returns>
     private static string? NormalizeNewlines(string? value) => value?.Replace("\r\n", "\n");
+
+    /// <summary>
+    /// Applies the OpenApiResponseRef attribute to the function's OpenAPI metadata.
+    /// </summary>
+    ///     <param name="metadata">The OpenAPI metadata to update.</param>
+    /// <param name="attribute">The OpenApiResponseRef attribute containing response reference details.</param>
     private void ApplyResponseRefAttribute(OpenAPIPathMetadata metadata, OpenApiResponseRefAttribute attribute)
     {
         metadata.Responses ??= [];
-        IOpenApiResponse response = attribute.Inline
-            ? GetResponse(attribute.ReferenceId).Clone()
-            : new OpenApiResponseReference(attribute.ReferenceId);
+
+        if (!TryGetResponseItem(attribute.ReferenceId, out var response, out var inline))
+        {
+            throw new InvalidOperationException($"Response component with ID '{attribute.ReferenceId}' not found.");
+        }
+
+        IOpenApiResponse iResponse = attribute.Inline || inline ? response!.Clone() : new OpenApiResponseReference(attribute.ReferenceId);
 
         if (attribute.Description is not null)
         {
-            response.Description = attribute.Description;
+            iResponse.Description = attribute.Description;
         }
 
         if (metadata.Responses.ContainsKey(attribute.StatusCode))
@@ -320,7 +357,7 @@ public partial class OpenApiDocDescriptor
             throw new InvalidOperationException($"Response for status code '{attribute.StatusCode}' is already defined for this operation.");
         }
 
-        metadata.Responses.Add(attribute.StatusCode, response);
+        metadata.Responses.Add(attribute.StatusCode, iResponse);
     }
 
     /// <summary>
@@ -328,14 +365,72 @@ public partial class OpenApiDocDescriptor
     /// </summary>
     /// <param name="metadata">The OpenAPI metadata to update.</param>
     /// <param name="attribute">The OpenApiResponse attribute containing response details.</param>
-    private void ApplyResponseAttribute(OpenAPIPathMetadata metadata, IOpenApiResponseAttribute attribute)
+    /// <param name="routeOptions">The route options to update.</param>
+    private void ApplyResponseAttribute(OpenAPIPathMetadata metadata, IOpenApiResponseAttribute attribute, MapRouteOptions routeOptions)
     {
         metadata.Responses ??= [];
         var response = metadata.Responses.TryGetValue(attribute.StatusCode, out var value) ? value as OpenApiResponse : new OpenApiResponse();
         if (response is not null && CreateResponseFromAttribute(attribute, response))
         {
             _ = metadata.Responses.TryAdd(attribute.StatusCode, response);
+            if (routeOptions.DefaultResponseContentType is null)
+            {
+                var defaultStatusCode = SelectDefaultSuccessResponse(metadata.Responses);
+                if (defaultStatusCode is not null && metadata.Responses.TryGetValue(defaultStatusCode, out var defaultResponse) &&
+                    defaultResponse.Content is not null && defaultResponse.Content.Count > 0)
+                {
+                    routeOptions.DefaultResponseContentType =
+                        defaultResponse.Content.Keys.First();
+                }
+            }
         }
+    }
+
+    /// <summary>
+    /// Selects the default success response (2xx) from the given OpenApiResponses.
+    /// </summary>
+    /// <param name="responses">The collection of OpenApiResponses to select from.</param>
+    /// <returns>The status code of the default success response, or null if none found.</returns>
+    private static string? SelectDefaultSuccessResponse(OpenApiResponses responses)
+    {
+        return responses
+            .Select(kvp => new
+            {
+                StatusCode = kvp.Key,
+                Code = TryParseStatusCode(kvp.Key),
+                Response = kvp.Value
+            })
+            .Where(x =>
+                x.Code is >= 200 and < 300 &&
+                HasContent(x.Response))
+            .OrderBy(x => x.Code)
+            .Select(x => x.StatusCode)
+            .FirstOrDefault();
+    }
+
+    /// <summary>
+    /// Tries to parse the given status code string into an integer.
+    /// </summary>
+    /// <param name="statusCode">The status code as a string.</param>
+    /// <returns>The parsed integer status code, or -1 if parsing fails.</returns>
+    private static int TryParseStatusCode(string statusCode)
+        => int.TryParse(statusCode, out var code) ? code : -1;
+
+    /// <summary>
+    /// Determines if the given response has content defined.
+    /// </summary>
+    /// <param name="response">The OpenAPI response to check for content.</param>
+    /// <returns>True if the response has content; otherwise, false.</returns>
+    private static bool HasContent(IOpenApiResponse response)
+    {
+        // If your concrete type is OpenApiResponse (common), this is the easiest path:
+        if (response is OpenApiResponse r)
+        {
+            return r.Content is not null && r.Content.Count > 0;
+        }
+
+        // Otherwise, we can't reliably know. Be conservative:
+        return false;
     }
 
     /// <summary>
@@ -499,7 +594,7 @@ public partial class OpenApiDocDescriptor
             var defaultValue = func.GetDefaultParameterValue(paramInfo.Name);
             if (defaultValue is not null)
             {
-                schema.Default = ToNode(defaultValue);
+                schema.Default = OpenApiJsonNodeFactory.ToNode(defaultValue);
             }
         }
 
@@ -533,10 +628,14 @@ public partial class OpenApiDocDescriptor
         metadata.Parameters ??= [];
         routeOptions.ScriptCode.Parameters ??= [];
 
-        var componentParameter = GetParameter(attribute.ReferenceId);
+        if (!TryGetParameterItem(attribute.ReferenceId, out var componentParameter, out var isInline) ||
+             componentParameter is null)
+        {
+            throw new InvalidOperationException($"Parameter component with ID '{attribute.ReferenceId}' not found.");
+        }
         IOpenApiParameter parameter;
 
-        if (attribute.Inline)
+        if (attribute.Inline || isInline)
         {
             parameter = componentParameter.Clone();
             if (componentParameter.Name != paramInfo.Name)
@@ -616,7 +715,7 @@ public partial class OpenApiDocDescriptor
     /// Thrown when the ReferenceId is not specified and the parameter type is 'object',
     /// or when the ReferenceId does not match the parameter type name.
     /// </exception>
-    private static string ResolveRequestBodyReferenceId(OpenApiRequestBodyRefAttribute attribute, ParameterMetadata paramInfo)
+    private string ResolveRequestBodyReferenceId(OpenApiRequestBodyRefAttribute attribute, ParameterMetadata paramInfo)
     {
         if (string.IsNullOrWhiteSpace(attribute.ReferenceId))
         {
@@ -629,10 +728,81 @@ public partial class OpenApiDocDescriptor
         }
         else if (paramInfo.ParameterType.Name != "Object" && attribute.ReferenceId != paramInfo.ParameterType.Name)
         {
-            throw new InvalidOperationException($"ReferenceId '{attribute.ReferenceId}' is different from parameter type name '{paramInfo.ParameterType.Name}'.");
+            return FindReferenceIdForParameter(attribute.ReferenceId, paramInfo);
+        }
+        // Return the reference ID as is
+        return attribute.ReferenceId;
+    }
+
+    /// <summary>
+    /// Finds and validates the reference ID for a request body parameter.
+    /// </summary>
+    /// <param name="referenceId">The reference ID to validate.</param>
+    /// <param name="paramInfo">The parameter metadata.</param>
+    /// <returns>The validated reference ID.</returns>
+    /// <exception cref="InvalidOperationException">Thrown when the reference ID does not match the parameter type name.</exception>
+    private string FindReferenceIdForParameter(string referenceId, ParameterMetadata paramInfo)
+    {
+        // Ensure the reference ID exists and has a schema
+        if (!TryGetFirstRequestBodySchema(referenceId, out var schema))
+        {
+            throw new InvalidOperationException(
+                $"Request body component with ReferenceId '{referenceId}' was not found or does not define a schema.");
+        }
+        // Validate that the schema matches the parameter type
+        if (!IsRequestBodySchemaMatchForParameter(schema, paramInfo.ParameterType))
+        {
+            throw new InvalidOperationException(
+                $"Schema for request body component '{referenceId}' does not match parameter type '{paramInfo.ParameterType.Name}'.");
+        }
+        // return the validated reference ID
+        return referenceId;
+    }
+
+    /// <summary>
+    /// Attempts to retrieve the first schema defined on a request body component.
+    /// </summary>
+    /// <param name="referenceId">The request body component reference ID.</param>
+    /// <param name="schema">The extracted schema when available.</param>
+    /// <returns><see langword="true"/> if a non-null schema is found; otherwise <see langword="false"/>.</returns>
+    private bool TryGetFirstRequestBodySchema(string referenceId, out IOpenApiSchema schema)
+    {
+        schema = null!;
+
+        if (!TryGetRequestBodyItem(referenceId, out var requestBody, out _))
+        {
+            return false;
         }
 
-        return attribute.ReferenceId;
+        if (requestBody?.Content is null || requestBody.Content.Count == 0)
+        {
+            return false;
+        }
+
+        schema = requestBody.Content.First().Value.Schema!;
+        return schema is not null;
+    }
+
+    /// <summary>
+    /// Determines whether a request-body schema matches a given CLR parameter type.
+    /// </summary>
+    /// <param name="schema">The schema declared for the request body.</param>
+    /// <param name="parameterType">The CLR parameter type being validated.</param>
+    /// <returns><see langword="true"/> if the schema matches the parameter type; otherwise <see langword="false"/>.</returns>
+    private static bool IsRequestBodySchemaMatchForParameter(IOpenApiSchema schema, Type parameterType)
+    {
+        if (schema is OpenApiSchemaReference schemaRef)
+        {
+            return schemaRef.Reference.Id == parameterType.Name;
+        }
+
+        if (schema is OpenApiSchema inlineSchema && PrimitiveSchemaMap.TryGetValue(parameterType, out var valueType))
+        {
+            var expected = valueType();
+            return inlineSchema.Format == expected.Format && inlineSchema.Type == expected.Type;
+        }
+
+        return false;
     }
 
     /// <summary>
@@ -895,7 +1065,7 @@ public partial class OpenApiDocDescriptor
                 // Example
                 if (request.Example is not null)
                 {
-                    mediaType.Example = ToNode(request.Example);
+                    mediaType.Example = OpenApiJsonNodeFactory.ToNode(request.Example);
                 }
                 // Schema
                 mediaType.Schema = schema;

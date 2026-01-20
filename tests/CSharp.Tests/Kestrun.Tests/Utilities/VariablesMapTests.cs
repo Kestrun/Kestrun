@@ -13,21 +13,12 @@ public class VariablesMapTests
         var http = new DefaultHttpContext();
         http.Request.Method = "GET";
         http.Request.Path = "/hello";
+        TestRequestFactory.EnsureRoutedHttpContext(http);
         http.Features.Set<ISessionFeature>(new SessionFeature { Session = new DummySession() });
         http.Request.Headers.UserAgent = "xunit";
 
-        var req = TestRequestFactory.Create(
-            method: http.Request.Method,
-            path: http.Request.Path,
-            headers: new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
-            {
-                ["User-Agent"] = "xunit"
-            },
-            body: string.Empty
-        );
-        var resp = new KestrunResponse(req);
         var host = new Kestrun.Hosting.KestrunHost("Tests", Serilog.Log.Logger);
-        var ctx = new KestrunContext(host, req, resp, http);
+        var ctx = new KestrunContext(host, http);
         return (ctx, http);
     }
 

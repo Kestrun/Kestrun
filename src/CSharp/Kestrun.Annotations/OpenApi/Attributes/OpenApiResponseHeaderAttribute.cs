@@ -6,7 +6,7 @@
 public sealed class OpenApiResponseHeaderAttribute : KestrunAnnotation, IOpenApiResponseHeaderAttribute
 {
     /// <inheritdoc/>
-    public required string StatusCode { get; set; }
+    public string StatusCode { get; set; } = "default";
 
     /// <summary>Optional component key override. If omitted, generator will use class/member naming rules.</summary>
     public required string Key { get; set; }

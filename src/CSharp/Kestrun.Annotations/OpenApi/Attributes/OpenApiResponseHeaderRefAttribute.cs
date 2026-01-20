@@ -2,7 +2,7 @@
 public sealed class OpenApiResponseHeaderRefAttribute : KestrunAnnotation, IOpenApiResponseHeaderAttribute
 {
     /// <inheritdoc/>
-    public required string StatusCode { get; set; }
+    public string StatusCode { get; set; } = "default";
 
     /// <summary>
     /// The local name under components.headers.

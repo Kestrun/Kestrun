@@ -1,0 +1,360 @@
+{
+  "openapi": "3.1.2",
+  "info": {
+    "title": "Component Headers API",
+    "description": "Demonstrates reusable response header components (correlation, location, etag, rate-limit, retry-after) and inline headers.",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/users": {
+      "post": {
+        "tags": [
+          "Users"
+        ],
+        "summary": "Create a new user.",
+        "description": "Accepts user information and returns the created user with an assigned ID.",
+        "operationId": "createUser",
+        "requestBody": {
+          "description": "User creation request payload",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateUserRequest"
+              }
+            },
+            "application/xml": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateUserRequest"
+              }
+            },
+            "application/yaml": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateUserRequest"
+              }
+            },
+            "application/x-www-form-urlencoded": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateUserRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "headers": {
+              "X-Correlation-Id": {
+                "$ref": "#/components/headers/X-Correlation-Id"
+              },
+              "Location": {
+                "$ref": "#/components/headers/Location"
+              },
+              "ETag": {
+                "$ref": "#/components/headers/ETag"
+              },
+              "X-RateLimit-Limit": {
+                "$ref": "#/components/headers/X-RateLimit-Limit"
+              },
+              "X-RateLimit-Remaining": {
+                "$ref": "#/components/headers/X-RateLimit-Remaining"
+              },
+              "X-RateLimit-Reset": {
+                "$ref": "#/components/headers/X-RateLimit-Reset"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "headers": {
+              "X-Error-Code": {
+                "description": "Machine-readable error code.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests",
+            "headers": {
+              "Retry-After": {
+                "$ref": "#/components/headers/Retry-After"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/users/{userId}": {
+      "delete": {
+        "tags": [
+          "Users"
+        ],
+        "summary": "Delete user by ID.",
+        "description": "Deletes a user resource by its identifier.",
+        "operationId": "deleteUser",
+        "parameters": [
+          {
+            "name": "userId",
+            "in": "path",
+            "description": "The user ID to delete",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Deleted",
+            "headers": {
+              "X-Correlation-Id": {
+                "$ref": "#/components/headers/X-Correlation-Id"
+              },
+              "X-RateLimit-Limit": {
+                "$ref": "#/components/headers/X-RateLimit-Limit"
+              },
+              "X-RateLimit-Remaining": {
+                "$ref": "#/components/headers/X-RateLimit-Remaining"
+              },
+              "X-RateLimit-Reset": {
+                "$ref": "#/components/headers/X-RateLimit-Reset"
+              }
+            }
+          },
+          "404": {
+            "description": "User not found"
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "Users"
+        ],
+        "summary": "Get user by ID.",
+        "description": "Retrieves a user resource by its identifier.",
+        "operationId": "getUser",
+        "parameters": [
+          {
+            "name": "userId",
+            "in": "path",
+            "description": "The user ID to retrieve",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Found",
+            "headers": {
+              "X-Correlation-Id": {
+                "$ref": "#/components/headers/X-Correlation-Id"
+              },
+              "ETag": {
+                "$ref": "#/components/headers/ETag"
+              },
+              "X-RateLimit-Limit": {
+                "$ref": "#/components/headers/X-RateLimit-Limit"
+              },
+              "X-RateLimit-Remaining": {
+                "$ref": "#/components/headers/X-RateLimit-Remaining"
+              },
+              "X-RateLimit-Reset": {
+                "$ref": "#/components/headers/X-RateLimit-Reset"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "User not found",
+            "headers": {
+              "X-Error-Code": {
+                "description": "Machine-readable error code.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests",
+            "headers": {
+              "Retry-After": {
+                "$ref": "#/components/headers/Retry-After"
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "CreateUserRequest": {
+        "required": [
+          "firstName",
+          "lastName",
+          "email"
+        ],
+        "type": "object",
+        "properties": {
+          "firstName": {
+            "type": "string",
+            "description": "First name",
+            "example": "Jane"
+          },
+          "lastName": {
+            "type": "string",
+            "description": "Last name",
+            "example": "Doe"
+          },
+          "email": {
+            "type": "string",
+            "description": "Email address",
+            "format": "email",
+            "example": "jane.doe@example.com"
+          }
+        },
+        "description": "Create user request"
+      },
+      "UserResponse": {
+        "required": [
+          "id",
+          "firstName",
+          "lastName",
+          "email",
+          "updatedAt"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "description": "Unique user identifier",
+            "format": "int64",
+            "example": 1
+          },
+          "firstName": {
+            "type": "string",
+            "description": "First name",
+            "example": "Jane"
+          },
+          "lastName": {
+            "type": "string",
+            "description": "Last name",
+            "example": "Doe"
+          },
+          "email": {
+            "type": "string",
+            "description": "Email address",
+            "format": "email",
+            "example": "jane.doe@example.com"
+          },
+          "updatedAt": {
+            "type": "string",
+            "description": "ISO 8601 update timestamp",
+            "format": "date-time"
+          }
+        },
+        "description": "User resource"
+      }
+    },
+    "headers": {
+      "X-Correlation-Id": {
+        "description": "Correlation id for tracing the request across services.",
+        "required": true,
+        "schema": {
+          "type": "string"
+        },
+        "examples": {
+          "uuid": {
+            "summary": "Correlation id",
+            "value": "7b2a8e5d-0d7c-4f0a-9b3c-3f9d0b8ad7b1"
+          }
+        }
+      },
+      "Location": {
+        "description": "Canonical URI of the created resource.",
+        "required": true,
+        "schema": {
+          "type": "string"
+        }
+      },
+      "ETag": {
+        "description": "Entity tag representing the current version of the resource.",
+        "schema": {
+          "type": "string"
+        },
+        "examples": {
+          "weak": {
+            "summary": "Weak ETag",
+            "value": "W/\"user-1-v3\""
+          }
+        }
+      },
+      "X-RateLimit-Limit": {
+        "description": "Maximum requests allowed in the current window.",
+        "schema": {
+          "type": "integer",
+          "format": "int32"
+        }
+      },
+      "X-RateLimit-Remaining": {
+        "description": "Remaining requests in the current window.",
+        "schema": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "x-kestrun-demo": {
+          "exampleRemaining": 1,
+          "computedPer": "client-ip",
+          "windowSeconds": 60
+        }
+      },
+      "X-RateLimit-Reset": {
+        "description": "Seconds until the window resets.",
+        "schema": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "x-kestrun-demo": {
+          "resetSeconds": 60,
+          "correlationIdExample": "7b2a8e5d-0d7c-4f0a-9b3c-3f9d0b8ad7b1"
+        }
+      },
+      "Retry-After": {
+        "description": "Seconds to wait before retrying the request.",
+        "schema": {
+          "type": "integer",
+          "format": "int32"
+        }
+      }
+    }
+  },
+  "tags": [
+    {
+      "name": "Users",
+      "description": "User CRUD operations."
+    },
+    {
+      "name": "Operational",
+      "description": "Operational behaviors (rate limit / retry)."
+    }
+  ]
+}

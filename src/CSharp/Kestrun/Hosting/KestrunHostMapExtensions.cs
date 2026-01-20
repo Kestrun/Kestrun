@@ -120,11 +120,9 @@ public static partial class KestrunHostMapExtensions
                      return; // already responded 400
                  }
              }
-             var req = await KestrunRequest.NewRequest(context);
-             var res = new KestrunResponse(req);
-             KestrunContext kestrunContext = new(host, req, res, context);
+             var kestrunContext = new KestrunContext(host, context);
              await handler(kestrunContext);
-             await res.ApplyTo(context.Response);
+             await kestrunContext.Response.ApplyTo(context.Response);
          });
 
         host.AddMapOptions(map, options);
@@ -752,7 +750,11 @@ public static partial class KestrunHostMapExtensions
 
         host.Logger.Verbose("Adding metadata to route: {Pattern}", options.Pattern);
         _ = map.WithMetadata(options.ScriptCode.Parameters);
-        _ = map.WithMetadata(new DefaultResponseContentType(options.DefaultResponseContentType));
+        options.DefaultResponseContentType ??= host.Options.DefaultResponseMediaType;
+        if (!string.IsNullOrWhiteSpace(options.DefaultResponseContentType))
+        {
+            _ = map.WithMetadata(new DefaultResponseContentType(options.DefaultResponseContentType));
+        }
     }
     /// <summary>
     /// Applies short-circuiting behavior to the route.

@@ -1,0 +1,602 @@
+{
+  "openapi": "3.1.2",
+  "info": {
+    "title": "Parameter Component API",
+    "description": "Mini product catalog API demonstrating reusable OpenAPI parameter components.",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/v1/products": {
+      "post": {
+        "summary": "Create product",
+        "description": "Validates and creates a product in the in-memory catalog.",
+        "operationId": "createProduct",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/correlationId"
+          },
+          {
+            "$ref": "#/components/parameters/tenantId"
+          },
+          {
+            "$ref": "#/components/parameters/dryRun"
+          }
+        ],
+        "requestBody": {
+          "description": "Product create request",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateProductRequest"
+              },
+              "examples": {
+                "default": {
+                  "$ref": "#/components/examples/CreateProductRequestExample"
+                }
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Created product",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProductItem"
+                }
+              },
+              "application/xml": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProductItem"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "summary": "List products",
+        "description": "Retrieves a paginated list of products with optional filtering and sorting.",
+        "operationId": "listProducts",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/myCategory"
+          },
+          {
+            "$ref": "#/components/parameters/correlationId"
+          },
+          {
+            "$ref": "#/components/parameters/clientContext"
+          },
+          {
+            "$ref": "#/components/parameters/tenantId"
+          },
+          {
+            "$ref": "#/components/parameters/page"
+          },
+          {
+            "$ref": "#/components/parameters/limit"
+          },
+          {
+            "$ref": "#/components/parameters/sortBy"
+          },
+          {
+            "$ref": "#/components/parameters/category"
+          },
+          {
+            "$ref": "#/components/parameters/minPrice"
+          },
+          {
+            "$ref": "#/components/parameters/maxPrice"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of products",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProductListResponse"
+                }
+              },
+              "application/xml": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProductListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid parameters"
+          }
+        }
+      }
+    },
+    "/v1/products/{productId}": {
+      "get": {
+        "summary": "Get product",
+        "description": "Retrieves a single product from the in-memory catalog.",
+        "operationId": "getProduct",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/correlationId"
+          },
+          {
+            "$ref": "#/components/parameters/tenantId"
+          },
+          {
+            "$ref": "#/components/parameters/productId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The product",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProductItem"
+                }
+              },
+              "application/xml": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProductItem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/categories": {
+      "get": {
+        "summary": "List categories",
+        "description": "Lists distinct categories from the current catalog.",
+        "operationId": "listCategories",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/correlationId"
+          },
+          {
+            "$ref": "#/components/parameters/includeCounts"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Category list",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CategoryListResponse"
+                }
+              },
+              "application/xml": {
+                "schema": {
+                  "$ref": "#/components/schemas/CategoryListResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "CreateProductRequest": {
+        "required": [
+          "name",
+          "category",
+          "price"
+        ],
+        "type": "object",
+        "properties": {
+          "name": {
+            "minLength": 1,
+            "type": "string",
+            "description": "Product name",
+            "example": "USB-C Dock"
+          },
+          "category": {
+            "enum": [
+              "electronics",
+              "office",
+              "accessories",
+              "other"
+            ],
+            "type": "string",
+            "description": "Product category",
+            "example": "electronics"
+          },
+          "price": {
+            "minimum": 0.01,
+            "type": "number",
+            "description": "Unit price",
+            "format": "double",
+            "example": 159.99
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Optional tags",
+            "example": [
+              "usb-c",
+              "dock"
+            ]
+          }
+        }
+      },
+      "ProductItem": {
+        "required": [
+          "id",
+          "name",
+          "category",
+          "price"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "description": "Product ID",
+            "format": "int64",
+            "example": 1
+          },
+          "name": {
+            "type": "string",
+            "description": "Product name",
+            "example": "Laptop"
+          },
+          "category": {
+            "type": "string",
+            "description": "Product category",
+            "example": "electronics"
+          },
+          "price": {
+            "type": "number",
+            "description": "Product price",
+            "format": "double",
+            "example": 999.99
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Product tags",
+            "example": [
+              "work",
+              "portable"
+            ]
+          }
+        }
+      },
+      "ProductListResponse": {
+        "type": "object",
+        "properties": {
+          "page": {
+            "minimum": 1,
+            "type": "integer",
+            "description": "Current page number",
+            "format": "int32",
+            "example": 1
+          },
+          "limit": {
+            "maximum": 100,
+            "minimum": 1,
+            "type": "integer",
+            "description": "Items per page",
+            "format": "int32",
+            "example": 20
+          },
+          "total": {
+            "type": "integer",
+            "description": "Total number of items matching the filters",
+            "format": "int32",
+            "example": 5
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ProductItem"
+            },
+            "description": "List of products"
+          }
+        }
+      },
+      "ErrorResponse": {
+        "required": [
+          "message"
+        ],
+        "type": "object",
+        "properties": {
+          "message": {
+            "type": "string",
+            "description": "Human-readable error message",
+            "example": "Product not found"
+          }
+        }
+      },
+      "ClientContext": {
+        "type": "object",
+        "properties": {
+          "app": {
+            "type": "string",
+            "description": "Client application name",
+            "example": "docs-sample"
+          },
+          "version": {
+            "type": "string",
+            "description": "Client app version",
+            "example": "1.2.3"
+          },
+          "locale": {
+            "type": "string",
+            "description": "Locale / language hint",
+            "example": "en-US"
+          }
+        }
+      },
+      "CategoryItem": {
+        "required": [
+          "name"
+        ],
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Category name",
+            "example": "electronics"
+          },
+          "count": {
+            "minimum": 0,
+            "type": "integer",
+            "description": "Number of products in this category",
+            "format": "int32",
+            "example": 3
+          }
+        }
+      },
+      "CategoryListResponse": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CategoryItem"
+            },
+            "description": "List of categories"
+          }
+        }
+      }
+    },
+    "parameters": {
+      "myCategory": {
+        "name": "myCategory",
+        "in": "header",
+        "description": "Filter by category item",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/CategoryItem"
+            }
+          }
+        },
+        "x-kestrun-demo": {
+          "kind": "catalog-context",
+          "stability": "experimental",
+          "source": "client",
+          "contentType": "application/json"
+        }
+      },
+      "correlationId": {
+        "name": "correlationId",
+        "in": "header",
+        "description": "Correlation id for tracing a request through logs.",
+        "schema": {
+          "type": "string"
+        },
+        "examples": {
+          "default": {
+            "summary": "Correlation id example",
+            "value": "2f2d68c2-9b7a-4b5c-8b1d-0fdff2a4b9a3"
+          }
+        },
+        "x-kestrun-demo": {
+          "kind": "trace",
+          "format": "uuid",
+          "propagatesTo": [
+            "logs",
+            "downstream"
+          ],
+          "recommended": true
+        }
+      },
+      "clientContext": {
+        "name": "clientContext",
+        "in": "header",
+        "description": "Optional client context as a JSON header.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ClientContext"
+            },
+            "examples": {
+              "example": {
+                "$ref": "#/components/examples/ClientContextExample"
+              }
+            }
+          }
+        }
+      },
+      "tenantId": {
+        "name": "tenantId",
+        "in": "cookie",
+        "description": "Tenant identifier (multi-tenant demo).",
+        "schema": {
+          "type": "string"
+        },
+        "example": "demo"
+      },
+      "productId": {
+        "name": "productId",
+        "in": "path",
+        "description": "Product id.",
+        "required": true,
+        "schema": {
+          "minimum": 1,
+          "type": "integer",
+          "format": "int64"
+        },
+        "example": 1
+      },
+      "page": {
+        "name": "page",
+        "in": "query",
+        "description": "Page number",
+        "schema": {
+          "maximum": 1000,
+          "minimum": 0,
+          "type": "integer",
+          "format": "int32",
+          "default": 1
+        },
+        "example": 1
+      },
+      "limit": {
+        "name": "limit",
+        "in": "query",
+        "description": "Items per page",
+        "schema": {
+          "maximum": 100,
+          "minimum": 1,
+          "type": "integer",
+          "format": "int32",
+          "default": 20
+        },
+        "example": 20
+      },
+      "sortBy": {
+        "name": "sortBy",
+        "in": "query",
+        "description": "Sort field (name, price)",
+        "schema": {
+          "enum": [
+            "name",
+            "price"
+          ],
+          "type": "string",
+          "default": "name"
+        },
+        "example": "price",
+        "examples": {
+          "price": {
+            "summary": "Sort by price example",
+            "value": "price"
+          }
+        }
+      },
+      "category": {
+        "name": "category",
+        "in": "query",
+        "description": "Filter by category",
+        "schema": {
+          "enum": [
+            "electronics",
+            "office",
+            "accessories",
+            "other"
+          ],
+          "type": "string"
+        },
+        "example": "electronics"
+      },
+      "minPrice": {
+        "name": "minPrice",
+        "in": "query",
+        "description": "Filter by minimum price",
+        "schema": {
+          "minimum": 0,
+          "type": "number",
+          "format": "double"
+        },
+        "example": 100
+      },
+      "maxPrice": {
+        "name": "maxPrice",
+        "in": "query",
+        "description": "Filter by maximum price",
+        "schema": {
+          "minimum": 0,
+          "type": "number",
+          "format": "double"
+        },
+        "example": 5000
+      },
+      "dryRun": {
+        "name": "dryRun",
+        "in": "query",
+        "description": "Validate request only (does not persist).",
+        "schema": {
+          "type": "boolean",
+          "default": false
+        },
+        "example": false
+      },
+      "includeCounts": {
+        "name": "includeCounts",
+        "in": "query",
+        "description": "Include per-category product counts.",
+        "schema": {
+          "type": "boolean",
+          "default": true
+        },
+        "example": true
+      }
+    },
+    "examples": {
+      "ClientContextExample": {
+        "summary": "Client context example",
+        "value": {
+          "app": "docs-sample",
+          "version": "1.2.3",
+          "locale": "en-US"
+        }
+      },
+      "CreateProductRequestExample": {
+        "summary": "Create product example",
+        "value": {
+          "name": "USB-C Dock",
+          "category": "electronics",
+          "price": 159.99,
+          "tags": [
+            "usb-c",
+            "dock"
+          ]
+        }
+      }
+    }
+  }
+}

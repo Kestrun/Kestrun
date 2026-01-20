@@ -60,38 +60,55 @@ You can find guides, API references, and usage examples to help you get started 
   Routes can be backed by PowerShell scripts with isolated, pooled **runspaces** and dynamic
   `$Context.Request` / `$Context.Response` variables.
 
-- **🧠 Multi-language script routing**
-  Register HTTP routes using:
-  - 🐚 PowerShell
-  **For Building:**
+- **🧠 Multi-language route execution**
+  Register endpoints backed by PowerShell, C# (Roslyn scripting), VB.NET (Roslyn scripting), or native C# handlers.
+  (F# / Python / JavaScript exist as language identifiers, but scripting for them is not enabled yet.)
 
-  - [.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8.0) **AND**
+- **🔐 Authentication built-ins**
+  JWT bearer, API keys, Basic, Windows/Negotiate, and client certificate authentication.
 
-    [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0)
-    (solution multi-targets net8.0 + net10.0; net9.0 available via `-Frameworks` parameter)
-  - **PowerShell 7.4+** (7.4 / 7.5 run on .NET 8; 7.6 preview runs on .NET 10)
+- **📘 OpenAPI + interactive docs**
+  Generate OpenAPI (v3.0 / v3.1 / v3.2) and serve docs UIs (Swagger UI / ReDoc / Scalar / RapiDoc / Elements).
 
-  **Invoke-Build** and **Pester** PowerShell modules:
+- **🔁 Realtime**
+  Server-Sent Events (SSE) and SignalR support.
 
-  ```powershell
-  Install-PSResource -Name 'InvokeBuild','Pester' -Scope CurrentUser
-  ```
+- **🛡️ Middleware & extensibility**
+  Add middleware for antiforgery, CORS, compression, caching, sessions, status code pages, exception handling, static files, gRPC, and more.
 
-  **For Runtime (Run Only):**
+- **⚡ Task Scheduling & Background Jobs**
+  Cron-based scheduling (Cronos) with PowerShell, C#, and VB.NET jobs.
 
-  If you're only *running* Kestrun apps (not building from source), install the ASP.NET Core Runtime
-  matching the PowerShell version you are using:
+## Requirements
 
-  | PowerShell Version | Install (Run-only) | Rationale |
-  |--------------------|--------------------|-----------|
-  | 7.4 / 7.5 | [.NET 8 ASP.NET Core Runtime](https://dotnet.microsoft.com/download/dotnet/8.0) | Bundles Microsoft.NETCore.App + Microsoft.AspNetCore.App 8.x |
-  | 7.6 (preview) | [.NET 10 ASP.NET Core Runtime](https://dotnet.microsoft.com/download/dotnet/10.0) | Preview runtime aligning with PS 7.6 build |
+**For Building:**
 
-  Installing the **.NET SDK** already gives you the corresponding runtimes. For run-only scenarios the
-  **ASP.NET Core Runtime** alone is sufficient (it includes the base .NET runtime).
+- [.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8.0) **AND**
+  [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0)
+  (solution multi-targets net8.0 + net10.0; net9.0 available via `-Frameworks` parameter)
+- **PowerShell 7.4+** (7.4 / 7.5 run on .NET 8; 7.6 preview runs on .NET 10)
 
-  Download PowerShell from the official
-  [PowerShell Releases](https://github.com/PowerShell/PowerShell/releases).
+**Invoke-Build** and **Pester** PowerShell modules:
+
+```powershell
+Install-PSResource -Name 'InvokeBuild','Pester' -Scope CurrentUser
+```
+
+**For Runtime (Run Only):**
+
+If you're only *running* Kestrun apps (not building from source), install the ASP.NET Core Runtime
+matching the PowerShell version you are using:
+
+| PowerShell Version | Install (Run-only) | Rationale |
+|--------------------|--------------------|-----------|
+| 7.4 / 7.5 | [.NET 8 ASP.NET Core Runtime](https://dotnet.microsoft.com/download/dotnet/8.0) | Bundles Microsoft.NETCore.App + Microsoft.AspNetCore.App 8.x |
+| 7.6 (preview) | [.NET 10 ASP.NET Core Runtime](https://dotnet.microsoft.com/download/dotnet/10.0) | Preview runtime aligning with PS 7.6 build |
+
+Installing the **.NET SDK** already gives you the corresponding runtimes. For run-only scenarios the
+**ASP.NET Core Runtime** alone is sufficient (it includes the base .NET runtime).
+
+Download PowerShell from the official
+[PowerShell Releases](https://github.com/PowerShell/PowerShell/releases).
 
 ### Verify installation
 

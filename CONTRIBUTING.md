@@ -17,7 +17,7 @@ you’re in the right place. 💫
 ## 🧰 Prerequisites
 
 - **PowerShell 7.4 or greater**
-- **.NET SDK** (8 or 9 recommended)
+- **.NET SDK** (net sdk 10.x required for building C# components)
 - **Invoke-Build** and **Pester** (installed via `Install-PSResource`)
 
 Install the PowerShell build/test tooling:

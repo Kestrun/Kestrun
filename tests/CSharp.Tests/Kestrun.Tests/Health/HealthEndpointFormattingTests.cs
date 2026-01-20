@@ -1,5 +1,4 @@
 using Kestrun.Health;
-using Kestrun.Models;
 using Xunit;
 
 namespace KestrunTests.Health;
@@ -16,8 +15,8 @@ public class HealthEndpointFormattingTests
             logger: Serilog.Log.Logger,
             ct: CancellationToken.None);
 
-        var req = TestRequestFactory.Create(headers: new Dictionary<string, string> { { "Accept", "application/json" } });
-        var res = new KestrunResponse(req);
+        var krCtx = TestRequestFactory.CreateContext(headers: new Dictionary<string, string> { { "Accept", "application/json" } });
+        var res = krCtx.Response;
         await res.WriteJsonResponseAsync(report, depth: 10, compress: compress, statusCode: 200, contentType: "application/json");
         return Assert.IsType<string>(res.Body);
     }

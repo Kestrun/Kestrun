@@ -23,6 +23,7 @@ public class VBNetDelegateBuilderTests
         var http = new DefaultHttpContext();
         http.Request.Method = "GET";
         http.Request.Path = "/";
+        TestRequestFactory.EnsureRoutedHttpContext(http);
 
         await del(http);
 

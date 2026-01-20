@@ -9,7 +9,7 @@ New-KrLogger | Add-KrSinkConsole |
     Set-KrLoggerLevel -Value Debug |
     Register-KrLogger -Name 'console' -SetAsDefault
 
-$srv = New-KrServer -Name 'OpenAPI Hello World' -PassThru
+New-KrServer -Name 'OpenAPI Hello World'
 
 Add-KrEndpoint -Port $Port -IPAddress $IPAddress
 # =========================================================
@@ -21,8 +21,6 @@ Add-KrOpenApiInfo -Title 'Hello World API' `
     -Description 'A simple OpenAPI 3.1 example with a single endpoint.'
 
 Add-KrOpenApiContact -Email 'support@example.com'
-# Add Server info
-#Add-KrOpenApiServer -Url "http://$($IPAddress):$Port" -Description 'Local Server'
 
 # =========================================================
 #                 ROUTES / OPERATIONS
@@ -57,4 +55,4 @@ Add-KrOpenApiRoute  # Default pattern '/openapi/{version}/openapi.{format}'
 #                      RUN SERVER
 # =========================================================
 
-Start-KrServer -Server $srv -CloseLogsOnExit
+Start-KrServer -CloseLogsOnExit

@@ -7,6 +7,53 @@ namespace Kestrun.OpenApi;
 public partial class OpenApiDocDescriptor
 {
     /// <summary>
+    /// Merges OpenApiProperties with OpenApiXmlAttribute if present.
+    /// </summary>
+    /// <param name="prop">The property to extract attributes from.</param>
+    /// <returns>Merged OpenApiProperties with XML metadata applied.</returns>
+    private static OpenApiProperties? MergeXmlAttributes(PropertyInfo prop)
+    {
+        var properties = prop.GetCustomAttribute<OpenApiProperties>();
+        var xmlAttr = prop.GetCustomAttribute<OpenApiXmlAttribute>();
+
+        if (xmlAttr == null)
+        {
+            return properties;
+        }
+
+        // If no OpenApiProperties, create a new one to hold XML data
+        properties ??= new OpenApiPropertyAttribute();
+
+        // Merge XML attribute properties into OpenApiProperties
+        if (!string.IsNullOrWhiteSpace(xmlAttr.Name))
+        {
+            properties.XmlName = xmlAttr.Name;
+        }
+
+        if (!string.IsNullOrWhiteSpace(xmlAttr.Namespace))
+        {
+            properties.XmlNamespace = xmlAttr.Namespace;
+        }
+
+        if (!string.IsNullOrWhiteSpace(xmlAttr.Prefix))
+        {
+            properties.XmlPrefix = xmlAttr.Prefix;
+        }
+
+        if (xmlAttr.Attribute)
+        {
+            properties.XmlAttribute = true;
+        }
+
+        if (xmlAttr.Wrapped)
+        {
+            properties.XmlWrapped = true;
+        }
+
+        return properties;
+    }
+
+    /// <summary>
     /// Builds and adds the schema for a given type to the document components.
     /// </summary>
     /// <param name="t">The type to build the schema for.</param>
@@ -17,7 +64,10 @@ public partial class OpenApiDocDescriptor
         {
             if (!ComponentSchemasExists(t.Name))
             {
-                Document.Components.Schemas[t.Name] = BuildSchemaForType(t, built);
+                if (!PrimitiveSchemaMap.ContainsKey(t))
+                {
+                    Document.Components.Schemas[t.Name] = BuildSchemaForType(t, built);
+                }
             }
         }
     }
@@ -38,22 +88,49 @@ public partial class OpenApiDocDescriptor
             allowNull = true;
             pt = underlying;
         }
-
-        // Determine schema type and build accordingly
-        var schema = (!IsPrimitiveLike(pt) && !pt.IsEnum && !pt.IsArray)
-            ? BuildComplexTypeSchema(pt, p, built)
-            : pt.IsEnum
-                ? BuildEnumSchema(pt, p)
-                : pt.IsArray
-                    ? BuildArraySchema(pt, p, built)
-                    : BuildPrimitiveSchema(pt, p);
-
-        // Apply nullable flag if needed
-        if (allowNull && schema is OpenApiSchema s)
+        IOpenApiSchema schema;
+#pragma warning disable IDE0045
+        // Convert to conditional expression
+        if (PrimitiveSchemaMap.TryGetValue(pt, out var getSchema))
         {
-            s.Type |= JsonSchemaType.Null;
+            schema = getSchema();
         }
-
+        else if (pt.IsArray)
+        {
+            schema = BuildArraySchema(pt, p, built);
+        }
+        else
+        {
+            // Treat enums and complex types the same: register as component and reference
+            schema = BuildComplexTypeSchema(pt, p, built);
+        }
+#pragma warning restore IDE0045
+        // Convert to conditional expression
+        // Apply nullable flag if needed
+        if (allowNull)
+        {
+            if (schema is OpenApiSchema s)
+            {
+                // For inline schemas, add null type directly
+                s.Type |= JsonSchemaType.Null;
+            }
+            else if (schema is OpenApiSchemaReference refSchema)
+            {
+                var modifiedRefSchema = refSchema.Clone();
+                modifiedRefSchema.Description = null; // clear description to avoid duplication
+                // For $ref schemas (enums/complex types), wrap in anyOf with null
+                schema = new OpenApiSchema
+                {
+                    AnyOf =
+                    [
+                        modifiedRefSchema,
+                        new OpenApiSchema { Type = JsonSchemaType.Null }
+                    ]
+                };
+            }
+        }
+        ApplySchemaAttr(MergeXmlAttributes(p), schema);
+        PowerShellAttributes.ApplyPowerShellAttributes(p, schema);
         return schema;
     }
 
@@ -68,7 +145,7 @@ public partial class OpenApiDocDescriptor
     {
         BuildSchema(pt, built); // ensure component exists
         var refSchema = new OpenApiSchemaReference(pt.Name);
-        ApplySchemaAttr(p.GetCustomAttribute<OpenApiProperties>(), refSchema);
+        ApplySchemaAttr(MergeXmlAttributes(p), refSchema);
         return refSchema;
     }
 
@@ -87,7 +164,7 @@ public partial class OpenApiDocDescriptor
         };
         var attrs = p.GetCustomAttributes<OpenApiPropertyAttribute>(inherit: false).ToArray();
         var a = MergeSchemaAttributes(attrs);
-        ApplySchemaAttr(a, s);
+        ApplySchemaAttr(MergeXmlAttributes(p) ?? a, s);
         PowerShellAttributes.ApplyPowerShellAttributes(p, s);
         return s;
     }
@@ -104,22 +181,22 @@ public partial class OpenApiDocDescriptor
         var item = pt.GetElementType()!;
         IOpenApiSchema itemSchema;
 
-        if (!IsPrimitiveLike(item) && !item.IsEnum)
+        if (PrimitiveSchemaMap.TryGetValue(item, out var getSchema))
         {
-            BuildSchema(item, built); // ensure component exists
-            itemSchema = new OpenApiSchemaReference(item.Name);
+            itemSchema = getSchema();
         }
         else
         {
-            itemSchema = InferPrimitiveSchema(item);
+            // Treat enums and complex types the same: register as component and reference
+            BuildSchema(item, built); // ensure component exists
+            itemSchema = new OpenApiSchemaReference(item.Name);
         }
-
         var s = new OpenApiSchema
         {
             Type = JsonSchemaType.Array,
             Items = itemSchema
         };
-        ApplySchemaAttr(p.GetCustomAttribute<OpenApiProperties>(), s);
+        ApplySchemaAttr(MergeXmlAttributes(p), s);
         PowerShellAttributes.ApplyPowerShellAttributes(p, s);
         return s;
     }
@@ -133,8 +210,76 @@ public partial class OpenApiDocDescriptor
     private IOpenApiSchema BuildPrimitiveSchema(Type pt, PropertyInfo p)
     {
         var prim = InferPrimitiveSchema(pt);
-        ApplySchemaAttr(p.GetCustomAttribute<OpenApiProperties>(), prim);
+        ApplySchemaAttr(MergeXmlAttributes(p), prim);
         PowerShellAttributes.ApplyPowerShellAttributes(p, prim);
         return prim;
     }
+
+    /// <summary>
+    /// Gets or creates an OpenAPI schema item in either inline or document components.
+    /// </summary>
+    /// <param name="schemaName">The name of the schema.</param>
+    /// <param name="inline">Whether to use inline components or document components.</param>
+    /// <returns>The OpenApiSchema item.</returns>
+    private OpenApiSchema GetOrCreateSchemaItem(string schemaName, bool inline)
+    {
+        IDictionary<string, IOpenApiSchema> schema;
+        // Determine whether to use inline components or document components
+        if (inline)
+        {
+            // Use inline components
+            InlineComponents.Schemas ??= new Dictionary<string, IOpenApiSchema>(StringComparer.Ordinal);
+            schema = InlineComponents.Schemas;
+        }
+        else
+        {
+            // Use document components
+            Document.Components ??= new OpenApiComponents();
+            Document.Components.Schemas ??= new Dictionary<string, IOpenApiSchema>(StringComparer.Ordinal);
+            schema = Document.Components.Schemas;
+        }
+        // Retrieve or create the request body item
+        if (!schema.TryGetValue(schemaName, out var openApiSchemaItem) || openApiSchemaItem is null)
+        {
+            // Create a new OpenApiSchema if it doesn't exist
+            openApiSchemaItem = new OpenApiSchema();
+            schema[schemaName] = openApiSchemaItem;
+        }
+        // return the request body item
+        return (OpenApiSchema)openApiSchemaItem;
+    }
+
+    /// <summary>
+    /// Tries to get a schema by name from either inline or document components.
+    /// </summary>
+    /// <param name="schemaName">The name of the schema to retrieve.</param>
+    /// <param name="schema">The retrieved schema if found; otherwise, null.</param>
+    /// <param name="isInline">Indicates whether the schema was found in inline components.</param>
+    /// <returns>True if the schema was found; otherwise, false.</returns>
+    private bool TryGetSchemaItem(string schemaName, out OpenApiSchema? schema, out bool isInline)
+    {
+        if (TryGetInline(name: schemaName, kind: OpenApiComponentKind.Schemas, out schema))
+        {
+            isInline = true;
+            return true;
+        }
+        else if (TryGetComponent(name: schemaName, kind: OpenApiComponentKind.Schemas, out schema))
+        {
+            isInline = false;
+            return true;
+        }
+        schema = null;
+        isInline = false;
+        return false;
+    }
+
+    /// <summary>
+    /// Tries to get a schema by name from either inline or document components.
+    /// </summary>
+    /// <param name="schemaName">The name of the schema to retrieve.</param>
+    /// <param name="schema">The retrieved schema if found; otherwise, null.</param>
+    /// <returns>True if the schema was found; otherwise, false.</returns>
+    private bool TryGetSchemaItem(string schemaName, out OpenApiSchema? schema) =>
+    TryGetSchemaItem(schemaName, out schema, out _);
 }
+

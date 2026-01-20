@@ -76,6 +76,28 @@ Describe 'Example 10.10 Component Link' -Tag 'Tutorial', 'OpenApi', 'Slow' {
         $json.components.links.DeleteUserLink.parameters.userId | Should -Be '$response.body#/id'
     }
 
+    It 'OpenAPI link components include vendor extensions (x-*)' {
+        $result = Invoke-WebRequest -Uri "$($script:instance.Url)/openapi/v3.1/openapi.json" -SkipCertificateCheck -SkipHttpErrorCheck
+        $result.StatusCode | Should -Be 200
+        $json = $result.Content | ConvertFrom-Json
+
+        $getLink = $json.components.links.GetUserLink
+        $getLink.'x-kestrun-demo'.relation | Should -Be 'get'
+        $getLink.'x-kestrun-demo'.targetOperation | Should -Be 'getUser'
+        $getLink.'x-kestrun-demo'.parameterSource | Should -Be '$response.body#/id'
+
+        $updateLink = $json.components.links.UpdateUserLink
+        $updateLink.'x-kestrun-demo'.relation | Should -Be 'update'
+        $updateLink.'x-kestrun-demo'.targetOperation | Should -Be 'updateUser'
+        $updateLink.'x-kestrun-demo'.parameterSource | Should -Be '$response.body#/id'
+        $updateLink.'x-kestrun-demo'.requestBodySource | Should -Be '$response.body#/user'
+
+        $deleteLink = $json.components.links.DeleteUserLink
+        $deleteLink.'x-kestrun-demo'.relation | Should -Be 'delete'
+        $deleteLink.'x-kestrun-demo'.targetOperation | Should -Be 'deleteUser'
+        $deleteLink.'x-kestrun-demo'.parameterSource | Should -Be '$response.body#/id'
+    }
+
     It 'OpenAPI document applies links to responses via $ref' {
         $result = Invoke-WebRequest -Uri "$($script:instance.Url)/openapi/v3.1/openapi.json" -SkipCertificateCheck -SkipHttpErrorCheck
         $result.StatusCode | Should -Be 200
@@ -106,6 +128,10 @@ Describe 'Example 10.10 Component Link' -Tag 'Tutorial', 'OpenApi', 'Slow' {
         $redoc = Invoke-WebRequest -Uri "$($script:instance.Url)/docs/redoc" -SkipCertificateCheck -SkipHttpErrorCheck
         $redoc.StatusCode | Should -Be 200
         $redoc.Content | Should -BeLike '*Redoc*'
+    }
+
+    It 'OpenAPI output matches 10.10 fixture JSON' {
+        Test-OpenApiDocumentMatchesExpected -Instance $script:instance
     }
 }
 

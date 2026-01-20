@@ -17,7 +17,7 @@ New-KrLogger | Add-KrSinkConsole |
     Set-KrLoggerLevel -Value Debug |
     Register-KrLogger -Name 'console' -SetAsDefault
 
-$srv = New-KrServer -Name 'E-Commerce Webhook API' -PassThru
+New-KrServer -Name 'E-Commerce Webhook API'
 
 Add-KrEndpoint -Port $Port -IPAddress $IPAddress
 
@@ -33,7 +33,6 @@ Webhooks allow your subscribers to receive real-time notifications when events o
 '@
 
 Add-KrOpenApiContact -Email 'api-support@example.com' -Name 'API Support Team'
-Add-KrOpenApiServer -Url "http://$($IPAddress):$Port" -Description 'Local Development Server'
 
 # =========================================================
 #              WEBHOOK SCHEMAS (COMPONENTS)
@@ -42,7 +41,7 @@ Add-KrOpenApiServer -Url "http://$($IPAddress):$Port" -Description 'Local Develo
 # Order Event Payload
 [OpenApiSchemaComponent(
     Description = 'Webhook payload for order-related events.',
-    Required = ('event_id', 'event_type', 'timestamp', 'data')
+    RequiredProperties = ('event_id', 'event_type', 'timestamp', 'data')
 )]
 class OrderEventPayload {
     [OpenApiProperty(Description = 'Unique identifier for this event', Format = 'uuid')]
@@ -60,7 +59,7 @@ class OrderEventPayload {
 
 [OpenApiSchemaComponent(
     Description = 'Order details for webhook events.',
-    Required = ('order_id', 'customer_id', 'status', 'total_amount', 'currency', 'items')
+    RequiredProperties = ('order_id', 'customer_id', 'status', 'total_amount', 'currency', 'items')
 )]
 class OrderData {
     [OpenApiProperty(Description = 'Unique order identifier', Example = 'ORD-abc12345')]
@@ -85,7 +84,7 @@ class OrderData {
 
 [OpenApiSchemaComponent(
     Description = 'Individual item in an order.',
-    Required = ('product_id', 'product_name', 'quantity', 'unit_price')
+    RequiredProperties = ('product_id', 'product_name', 'quantity', 'unit_price')
 )]
 class OrderItem {
     [OpenApiProperty(Description = 'Product identifier', Example = 'PROD-001')]
@@ -104,7 +103,7 @@ class OrderItem {
 # Payment Event Payload
 [OpenApiSchemaComponent(
     Description = 'Webhook payload for payment-related events.',
-    Required = ('event_id', 'event_type', 'timestamp', 'data')
+    RequiredProperties = ('event_id', 'event_type', 'timestamp', 'data')
 )]
 class PaymentEventPayload {
     [OpenApiProperty(Description = 'Unique identifier for this event', Format = 'uuid')]
@@ -122,7 +121,7 @@ class PaymentEventPayload {
 
 [OpenApiSchemaComponent(
     Description = 'Payment transaction details for webhook events.',
-    Required = ('payment_id', 'order_id', 'customer_id', 'amount', 'currency', 'status', 'payment_method', 'transaction_id')
+    RequiredProperties = ('payment_id', 'order_id', 'customer_id', 'amount', 'currency', 'status', 'payment_method', 'transaction_id')
 )]
 class PaymentData {
     [OpenApiProperty(Description = 'Unique payment identifier', Example = 'PAY-xyz98765')]
@@ -154,7 +153,7 @@ class PaymentData {
 # Inventory Event Payload
 [OpenApiSchemaComponent(
     Description = 'Webhook payload for inventory-related events.',
-    Required = ('event_id', 'event_type', 'timestamp', 'data')
+    RequiredProperties = ('event_id', 'event_type', 'timestamp', 'data')
 )]
 class InventoryEventPayload {
     [OpenApiProperty(Description = 'Unique identifier for this event', Format = 'uuid')]
@@ -172,7 +171,7 @@ class InventoryEventPayload {
 
 [OpenApiSchemaComponent(
     Description = 'Inventory level details for webhook events.',
-    Required = ('product_id', 'product_name', 'sku', 'current_stock', 'threshold')
+    RequiredProperties = ('product_id', 'product_name', 'sku', 'current_stock', 'threshold')
 )]
 class InventoryData {
     [OpenApiProperty(Description = 'Product identifier', Example = 'PROD-001')]
@@ -399,10 +398,15 @@ function getWebhookInfo {
 Add-KrOpenApiRoute
 
 Build-KrOpenApiDocument
-Test-KrOpenApiDocument
+# Test and log OpenAPI document validation result
+if (Test-KrOpenApiDocument) {
+    Write-KrLog -Level Information -Message 'OpenAPI document built and validated successfully.'
+} else {
+    Write-KrLog -Level Error -Message 'OpenAPI document validation failed.'
+}
 
 # =========================================================
 #                      RUN SERVER
 # =========================================================
 
-Start-KrServer -Server $srv -CloseLogsOnExit
+Start-KrServer -CloseLogsOnExit

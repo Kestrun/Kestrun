@@ -17,7 +17,7 @@ New-KrLogger | Add-KrSinkConsole |
     Set-KrLoggerLevel -Value Debug |
     Register-KrLogger -Name 'console' -SetAsDefault
 
-$srv = New-KrServer -Name 'OpenAPI Hello World' -PassThru
+New-KrServer -Name 'OpenAPI Hello World'
 
 Add-KrEndpoint -Port $Port -IPAddress $IPAddress
 # =========================================================
@@ -29,14 +29,17 @@ Add-KrOpenApiInfo -Title 'Hello World API' `
     -Description 'Demonstrates OpenAPI callbacks (async notifications) using component references and inline callbacks.'
 
 Add-KrOpenApiContact -Email 'support@example.com'
+
+# Enable Kestrun callback automation middleware
+Add-KrAddCallbacksAutomation
+
 # Add Server info
-Add-KrOpenApiServer -Url "http://localhost:$Port" -Description 'Local Server'
+#Add-KrOpenApiServer -Url "http://$IPAddress:$Port" -Description 'Local Server'
 
 # =========================================================
 #                 COMPONENT SCHEMAS
 # =========================================================
-
-[OpenApiSchemaComponent(Description = 'Callback URLs supplied by the client for async notifications.', Required = ('status', 'reservation', 'shippingOrder'))]
+[OpenApiSchemaComponent(Description = 'Callback URLs supplied by the client for async notifications.', RequiredProperties = ('status', 'reservation', 'shippingOrder'))]
 class CallbackUrls {
     [OpenApiPropertyAttribute(Description = 'Callback URL for payment status updates.', Format = 'uri', Example = 'https://client.example.com/callbacks/payment-status')]
     [string]$status
@@ -48,7 +51,7 @@ class CallbackUrls {
     [string]$shippingOrder
 }
 
-[OpenApiSchemaComponent(Description = 'Request payload to create a payment. Includes callback URLs for async updates.', Required = ('amount', 'currency', 'callbackUrls'))]
+[OpenApiSchemaComponent(Description = 'Request payload to create a payment. Includes callback URLs for async updates.', RequiredProperties = ('amount', 'currency', 'callbackUrls'))]
 class CreatePaymentRequest {
     [OpenApiPropertyAttribute(Description = 'Payment amount', Example = 129.99, Minimum = 0)]
     [double]$amount
@@ -60,7 +63,7 @@ class CreatePaymentRequest {
     [CallbackUrls]$callbackUrls
 }
 
-[OpenApiSchemaComponent(Description = 'Response returned after creating a payment.', Required = ('paymentId', 'status'))]
+[OpenApiSchemaComponent(Description = 'Response returned after creating a payment.', RequiredProperties = ('paymentId', 'status'))]
 class CreatePaymentResponse {
     [OpenApiPropertyAttribute(Description = 'Payment identifier', Example = 'PAY-12345678')]
     [string]$paymentId
@@ -70,7 +73,7 @@ class CreatePaymentResponse {
     [string]$status
 }
 
-[OpenApiSchemaComponent(Description = 'Callback event payload for payment status changes.', Required = ('eventId', 'timestamp', 'paymentId', 'status'))]
+[OpenApiSchemaComponent(Description = 'Callback event payload for payment status changes.', RequiredProperties = ('eventId', 'timestamp', 'paymentId', 'status'))]
 class PaymentStatusChangedEvent {
     [OpenApiPropertyAttribute(Description = 'Event identifier', Format = 'uuid')]
     [string]$eventId
@@ -86,7 +89,7 @@ class PaymentStatusChangedEvent {
     [string]$status
 }
 
-[OpenApiSchemaComponent(Description = 'Callback event payload for reservation creation.', Required = ('eventId', 'timestamp', 'orderId', 'reservationId'))]
+[OpenApiSchemaComponent(Description = 'Callback event payload for reservation creation.', RequiredProperties = ('eventId', 'timestamp', 'orderId', 'reservationId'))]
 class ReservationCreatedEvent {
     [OpenApiPropertyAttribute(Description = 'Event identifier', Format = 'uuid')]
     [string]$eventId
@@ -101,7 +104,7 @@ class ReservationCreatedEvent {
     [string]$reservationId
 }
 
-[OpenApiSchemaComponent(Description = 'Callback event payload for shipping order creation.', Required = ('eventId', 'timestamp', 'orderId', 'shippingOrderId'))]
+[OpenApiSchemaComponent(Description = 'Callback event payload for shipping order creation.', RequiredProperties = ('eventId', 'timestamp', 'orderId', 'shippingOrderId'))]
 class ShippingOrderCreatedEvent {
     [OpenApiPropertyAttribute(Description = 'Event identifier', Format = 'uuid')]
     [string]$eventId
@@ -115,15 +118,6 @@ class ShippingOrderCreatedEvent {
     [OpenApiPropertyAttribute(Description = 'Shipping order identifier', Example = 'SHP-12345678')]
     [string]$shippingOrderId
 }
-
-
-# =========================================================
-#                 ENABLE KR CONFIGURATION
-# =========================================================
-Enable-KrConfiguration
-
-Add-KrApiDocumentationRoute -DocumentType Swagger
-Add-KrApiDocumentationRoute -DocumentType Redoc
 
 # =========================================================
 #                 CALLBACKS COMPONENTS
@@ -154,7 +148,6 @@ function paymentStatusCallback {
         [PaymentStatusChangedEvent]$Body
     )
 }
-
 
 <#
 .SYNOPSIS
@@ -207,6 +200,17 @@ function shippingOrderCallback {
 }
 
 # =========================================================
+#                 ENABLE KR CONFIGURATION
+# =========================================================
+Enable-KrConfiguration
+
+Add-KrApiDocumentationRoute -DocumentType Swagger
+Add-KrApiDocumentationRoute -DocumentType Redoc
+Add-KrApiDocumentationRoute -DocumentType Scalar
+Add-KrApiDocumentationRoute -DocumentType Rapidoc
+Add-KrApiDocumentationRoute -DocumentType Elements
+
+# =========================================================
 #                 ROUTES / OPERATIONS
 # =========================================================
 
@@ -227,6 +231,9 @@ function createPayment {
     [OpenApiCallbackRef(Key = 'reservation', ReferenceId = 'reservationCallback')]
     [OpenApiCallbackRef(Key = 'shippingOrder', ReferenceId = 'shippingOrderCallback')]
     param(
+
+        [OpenApiParameter(In = 'query', Required = $true)]
+        [string]$orderId = 'ord-12345678',
         [OpenApiRequestBody(ContentType = 'application/json')]
         [CreatePaymentRequest]$body
     )
@@ -235,6 +242,41 @@ function createPayment {
         Write-KrJsonResponse @{ error = 'amount, currency, and callbackUrls are required' } -StatusCode 400
         return
     }
+
+    $paymentId = 'PAY-' + ([guid]::NewGuid().ToString('N').Substring(0, 8))
+    Write-Host "PaymentId: $paymentId OrderId: $orderId"
+    # Create callback events payloads
+    $shippingOrderEvent = [ShippingOrderCreatedEvent]@{
+        eventId = [guid]::NewGuid().ToString()
+        timestamp = (Get-Date).ToUniversalTime()
+        orderId = $orderId
+        shippingOrderId = 'SHP-' + ([guid]::NewGuid().ToString('N').Substring(0, 8))
+    }
+    # Create callback event payloads
+    $reservationEvent = [ReservationCreatedEvent]@{
+        eventId = [guid]::NewGuid().ToString()
+        timestamp = (Get-Date).ToUniversalTime()
+        orderId = $orderId
+        reservationId = 'RSV-' + ([guid]::NewGuid().ToString('N').Substring(0, 8))
+    }
+    # Payment callback event payload
+    $paymentStatusChangedEvent = [PaymentStatusChangedEvent]@{
+        eventId = [guid]::NewGuid().ToString()
+        timestamp = (Get-Date).ToUniversalTime()
+        paymentId = $paymentId
+        status = 'authorized'
+    }
+
+    Expand-KrObject $shippingOrderEvent -Label 'ShippingOrderCreatedEvent'
+    Expand-KrObject $reservationEvent -Label 'ReservationCreatedEvent'
+    Expand-KrObject $paymentStatusChangedEvent -Label 'PaymentStatusChangedEvent'
+
+    shippingOrderCallback -OrderId $orderId -Body $shippingOrderEvent
+    reservationCallback -OrderId $orderId -Body $reservationEvent
+
+    paymentStatusCallback -PaymentId $paymentId -Body $paymentStatusChangedEvent
+    Write-Host "Created payment for Amount: $($body.amount) $($body.currency)"
+
 
     $paymentId = 'PAY-' + ([guid]::NewGuid().ToString('N').Substring(0, 8))
     Write-KrJsonResponse ([ordered]@{
@@ -267,6 +309,82 @@ function getPayment {
 }
 
 
+<#
+.SYNOPSIS
+    Payment Status Callback Receiver
+.DESCRIPTION
+    Endpoint to receive payment status change callbacks.
+.PARAMETER paymentId
+    The ID of the payment.
+.PARAMETER Body
+    The callback event payload.
+#>
+function paymentstatus {
+    [OpenApiPath(HttpVerb = 'post', Pattern = '/callbacks/payment-status/v1/payments/{paymentId}/status')]
+    [OpenApiResponse(StatusCode = '204', Description = 'Accepted')]
+    param(
+        [OpenApiParameter(In = 'path', Required = $true)]
+        [string]$paymentId,
+        [OpenApiRequestBody(ContentType = 'application/json')]
+        [PaymentStatusChangedEvent]$Body
+    )
+
+    Write-Host "Received payment status callback for PaymentId: $paymentId, Status: $($Body.status)"
+    Expand-KrObject $Body
+    Write-KrStatusResponse -StatusCode 204
+}
+
+
+<#
+.SYNOPSIS
+    Reservation Callback Receiver
+.DESCRIPTION
+    Endpoint to receive reservation callbacks.
+.PARAMETER orderId
+    The ID of the order.
+.PARAMETER Body
+    The callback event payload.
+#>
+function reservation {
+    [OpenApiPath(HttpVerb = 'post', Pattern = '/callbacks/reservation/v1/orders/{orderId}/reservation')]
+    [OpenApiResponse(StatusCode = '204', Description = 'Accepted')]
+    param(
+        [OpenApiParameter(In = 'path', Required = $true)]
+        [string]$orderId,
+        [OpenApiRequestBody(ContentType = 'application/json')]
+        [ReservationCreatedEvent]$Body
+    )
+
+    Write-Host "Received reservation callback for OrderId: $orderId, Status: $($Body.status)"
+    Expand-KrObject $Body
+    Write-KrStatusResponse -StatusCode 204
+}
+
+
+<#
+.SYNOPSIS
+    Shipping Order Callback Receiver
+.DESCRIPTION
+    Endpoint to receive shipping order callbacks.
+.PARAMETER orderId
+    The ID of the order.
+.PARAMETER Body
+    The callback event payload.
+#>
+function shippingorder {
+    [OpenApiPath(HttpVerb = 'post', Pattern = '/callbacks/shipping-order/v1/orders/{orderId}/shippingOrder')]
+    [OpenApiResponse(StatusCode = '204', Description = 'Accepted')]
+    param(
+        [OpenApiParameter(In = 'path', Required = $true)]
+        [string]$orderId,
+        [OpenApiRequestBody(ContentType = 'application/json')]
+        [ShippingOrderCreatedEvent]$Body
+    )
+
+    Write-Host "Received shipping order callback for OrderId: $orderId, Status: $($Body.status)"
+    Expand-KrObject $Body
+    Write-KrStatusResponse -StatusCode 204
+}
 # =========================================================
 #                OPENAPI DOC ROUTE / BUILD
 # =========================================================
@@ -280,4 +398,4 @@ Test-KrOpenApiDocument
 #                      RUN SERVER
 # =========================================================
 
-Start-KrServer -Server $srv -CloseLogsOnExit
+Start-KrServer -CloseLogsOnExit

@@ -16,7 +16,7 @@ New-KrLogger | Add-KrSinkConsole |
     Set-KrLoggerLevel -Value Debug |
     Register-KrLogger -Name 'console' -SetAsDefault
 
-$srv = New-KrServer -Name 'OpenAPI RequestBody Component' -PassThru
+New-KrServer -Name 'OpenAPI RequestBody Component'
 
 Add-KrEndpoint -Port $Port -IPAddress $IPAddress
 # =========================================================
@@ -31,7 +31,7 @@ Add-KrOpenApiInfo -Title 'RequestBody Component API' `
 #                      COMPONENT SCHEMAS
 # =========================================================
 
-[OpenApiSchemaComponent(Required = ('productName', 'price'))]
+[OpenApiSchemaComponent(RequiredProperties = ('productName', 'price'))]
 class Product {
     [OpenApiPropertyAttribute(Description = 'Unique product identifier', Format = 'int64', Example = 1)]
     [long]$id
@@ -62,19 +62,12 @@ class Product {
 # CreateProductRequest: RequestBody component that wraps Product schema
 [OpenApiRequestBodyComponent(
     Description = 'Product creation payload. Supports JSON and form data.',
-    IsRequired = $true,
-    ContentType = ('application/json', 'application/x-www-form-urlencoded')
-)]
-class CreateProductRequest:Product {
-}
+    Required = $true,
+    ContentType = ('application/json', 'application/x-www-form-urlencoded', 'application/xml', 'application/yaml'))]
+[Product]$CreateProductRequest
 
 # UpdateProductRequest: RequestBody component that wraps UpdateProduct schema
-[OpenApiRequestBodyComponent(
-    Description = 'Product update payload.',
-    IsRequired = $true,
-    ContentType = 'application/json',
-    Required = ('productName', 'price')
-)]
+[OpenApiSchemaComponent(RequiredProperties = ('productName', 'price'))]
 class UpdateProductRequest {
     [OpenApiPropertyAttribute(Description = 'Product name', Example = 'Laptop Pro')]
     [string]$productName
@@ -89,6 +82,27 @@ class UpdateProductRequest {
     [int]$stock
 }
 
+
+[OpenApiRequestBodyComponent(    Description = 'Product update payload.', Required = $true, ContentType = 'application/json')]
+[OpenApiRequestBodyExampleRef(Key = 'general_entry', ReferenceId = 'BuyGeneralTicketsRequestExample', ContentType = 'application/json')]
+[UpdateProductRequest]$UpdateProductRequest
+
+
+# --- Component examples (stored under components/examples) ---
+New-KrOpenApiExample -Summary 'General entry ticket' -Value ([ordered]@{
+        ticketType = 'general'
+        ticketDate = '2023-09-07'
+        email = 'todd@example.com'
+    }) | Add-KrOpenApiComponent -Name 'BuyGeneralTicketsRequestExample'
+
+
+
+[OpenApiRequestBodyComponent( Description = 'A simple string payload.', Required = $true, ContentType = 'application/json')]
+[ValidateLength(4, 100)]
+[OpenApiString]$SimpleStringRequestBody
+
+[OpenApiRequestBodyComponent( Description = 'A simple date payload.', Required = $true, ContentType = 'application/json')]
+[OpenApiDate]$SimpleDateRequestBody
 # =========================================================
 #                 ROUTES / OPERATIONS
 # =========================================================
@@ -97,6 +111,7 @@ Enable-KrConfiguration
 
 Add-KrApiDocumentationRoute -DocumentType Swagger
 Add-KrApiDocumentationRoute -DocumentType Redoc
+
 
 <#
 .SYNOPSIS
@@ -112,7 +127,7 @@ function createProduct {
     [OpenApiResponse(StatusCode = '400', Description = 'Invalid input')]
     param(
         [OpenApiRequestBodyRef(ReferenceId = 'CreateProductRequest')]
-        [CreateProductRequest]$body
+        [Product]$body
     )
 
     if (-not $body.productName -or -not $body.price) {
@@ -178,12 +193,16 @@ function updateProduct {
 Add-KrOpenApiRoute
 
 Build-KrOpenApiDocument
-Test-KrOpenApiDocument
+# Test and log OpenAPI document validation result
+if (Test-KrOpenApiDocument) {
+    Write-KrLog -Level Information -Message 'OpenAPI document built and validated successfully.'
+} else {
+    Write-KrLog -Level Error -Message 'OpenAPI document validation failed.'
+}
 
 # =========================================================
 #                      RUN SERVER
 # =========================================================
 
 
-Start-KrServer -Server $srv -CloseLogsOnExit
-
+Start-KrServer -CloseLogsOnExit

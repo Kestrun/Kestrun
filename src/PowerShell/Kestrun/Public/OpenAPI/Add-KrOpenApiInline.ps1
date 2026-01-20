@@ -48,6 +48,10 @@ function Add-KrOpenApiInline {
         $Server = Resolve-KestrunServer -Server $Server
     }
     process {
+        if ($Server.IsConfigured) {
+            Write-KrError -ErrorMessage 'The Kestrun server configuration is already set. Please add components before enabling the server configuration.'
+            return
+        }
         # Add the server to the specified OpenAPI documents
         foreach ($doc in $DocId) {
             $docDescriptor = $Server.GetOrCreateOpenApiDocument($doc)

@@ -21,7 +21,7 @@ internal static class PowerShellAttributes
 
             ValidateLengthAttribute a => ApplyValidateLengthAttribute(a, schema),
 
-            ValidateSetAttribute a => ApplyValidateSetAttribute(a, schema),
+            ValidateSetAttribute a => ApplyValidateSetAttribute(a.ValidValues, schema),
 
             ValidatePatternAttribute a => ApplyValidatePatternAttribute(a, schema),
 
@@ -100,16 +100,15 @@ internal static class PowerShellAttributes
     /// <summary>
     /// Applies a ValidateSetAttribute to an OpenApiSchema.
     /// </summary>
-    /// <param name="attr">The ValidateSetAttribute to apply.</param>
+    /// <param name="validValues">The list of valid values to apply.</param>
     /// <param name="sc">The OpenApiSchema to modify.</param>
     /// <returns>Returns always null.</returns>
-    private static object? ApplyValidateSetAttribute(ValidateSetAttribute attr, OpenApiSchema sc)
+    internal static object? ApplyValidateSetAttribute(IList<string> validValues, OpenApiSchema sc)
     {
-        var vals = attr.ValidValues;
-        if (vals is not null)
+        if (validValues is not null)
         {
             var list = new List<JsonNode>();
-            foreach (var node in vals.Select(OpenApiDocDescriptor.ToNode))
+            foreach (var node in validValues.Select(OpenApiJsonNodeFactory.ToNode))
             {
                 if (node is not null)
                 {
@@ -167,7 +166,7 @@ internal static class PowerShellAttributes
     /// </summary>
     /// <param name="sc">The OpenApiSchema to modify.</param>
     /// <returns>Returns always null.</returns>
-    private static object? ApplyNotNullOrEmpty(OpenApiSchema sc)
+    internal static object? ApplyNotNullOrEmpty(OpenApiSchema sc)
     {
         // string → minLength >= 1
         if (sc.Type == JsonSchemaType.String && (sc.MinLength is null or < 1))
@@ -189,7 +188,7 @@ internal static class PowerShellAttributes
     /// </summary>
     /// <param name="sc">The OpenApiSchema to modify.</param>
     /// <returns>Returns always null.</returns>
-    private static object? ApplyNotNullOrWhiteSpace(OpenApiSchema sc)
+    internal static object? ApplyNotNullOrWhiteSpace(OpenApiSchema sc)
     {
         if (sc.Type == JsonSchemaType.String)
         {
@@ -211,5 +210,5 @@ internal static class PowerShellAttributes
     /// </summary>
     /// <param name="schema">The OpenApiSchema to modify.</param>
     /// <returns>Returns always null.</returns>
-    private static object? ApplyNotNull(OpenApiSchema schema) => ApplyNotNullOrEmpty(schema);
+    internal static object? ApplyNotNull(OpenApiSchema schema) => ApplyNotNullOrEmpty(schema);
 }

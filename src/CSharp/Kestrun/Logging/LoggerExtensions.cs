@@ -64,6 +64,41 @@ public static class LoggerExtensions
     }
 
     /// <summary>
+    /// Writes a sanitized warning log event, removing control characters from string property values.
+    /// </summary>
+    /// <param name="log">The Serilog logger instance.</param>
+    /// <param name="exception">The exception to log.</param>
+    /// <param name="messageTemplate">The message template.</param>
+    /// <param name="propertyValues">The property values for the message template.</param>
+    public static void WarningSanitized(this Serilog.ILogger log, Exception exception, string messageTemplate, params object?[] propertyValues)
+    {
+        if (!log.IsEnabled(LogEventLevel.Warning))
+        {
+            return;
+        }
+
+        var sanitized = propertyValues.Select(SanitizeObject).ToArray();
+        log.Warning(exception, messageTemplate, sanitized);
+    }
+
+    /// <summary>
+    /// Writes a sanitized warning log event, removing control characters from string property values.
+    /// </summary>
+    /// <param name="log">The Serilog logger instance.</param>
+    /// <param name="messageTemplate">The message template.</param>
+    /// <param name="propertyValues">The property values for the message template.</param>
+    public static void WarningSanitized(this Serilog.ILogger log, string messageTemplate, params object?[] propertyValues)
+    {
+        if (!log.IsEnabled(LogEventLevel.Warning))
+        {
+            return;
+        }
+
+        var sanitized = propertyValues.Select(SanitizeObject).ToArray();
+        log.Warning(messageTemplate, sanitized);
+    }
+
+    /// <summary>
     /// Sanitizes an object by stripping control characters if it's a string.
     /// </summary>
     /// <param name="o">The object to sanitize.</param>

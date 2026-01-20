@@ -10,14 +10,27 @@
     An array of OpenAPI document IDs to which the tag will be added. Default is 'default'.
 .PARAMETER Name
     The name of the tag.
+.PARAMETER Summary
+    A short summary of the tag.
 .PARAMETER Description
     A description of the tag.
+.PARAMETER Parent
+    The name of the parent tag, if this tag is a sub-tag.
+.PARAMETER Kind
+    A machine-readable string to categorize what sort of tag it is.
 .PARAMETER ExternalDocs
     An OpenAPI External Documentation object associated with the tag.
+.PARAMETER Extensions
+    A collection of OpenAPI extensions to add to the tag.
 .EXAMPLE
     # Add a tag to the default document
     Add-KrOpenApiTag -Name 'MyTag' -Description 'This is my tag.' `
         -ExternalDocs (New-KrOpenApiExternalDoc -Description 'More info' -Url 'https://example.com/tag-info')
+    Adds a tag named 'MyTag' with a description and external documentation link to the default OpenAPI document.
+.EXAMPLE
+    # Add a tag to multiple documents
+    Add-KrOpenApiTag -DocId @('Default', 'v2') -Name 'MultiDocTag' -Summary 'Tag for multiple docs'
+    Adds a tag named 'MultiDocTag' with a summary to both the 'Default' and 'v2' OpenAPI documents.
 .NOTES
     This cmdlet is part of the OpenAPI module.
 #>
@@ -28,12 +41,27 @@ function Add-KrOpenApiTag {
         [Kestrun.Hosting.KestrunHost]$Server,
         [Parameter()]
         [string[]]$DocId = [Kestrun.OpenApi.OpenApiDocDescriptor]::DefaultDocumentationIds,
+
         [Parameter(Mandatory = $true)]
         [string]$Name,
+
+        [Parameter()]
+        [string]$Summary,
+
         [Parameter()]
         [string]$Description,
+
         [Parameter()]
-        [Microsoft.OpenApi.OpenApiExternalDocs]$ExternalDocs
+        [string]$Parent,
+
+        [Parameter()]
+        [string]$Kind,
+
+        [Parameter()]
+        [Microsoft.OpenApi.OpenApiExternalDocs]$ExternalDocs,
+
+        [Parameter()]
+        [System.Collections.IDictionary]$Extensions
     )
     begin {
         # Ensure the server instance is resolved
@@ -43,19 +71,8 @@ function Add-KrOpenApiTag {
         # Add the server to the specified OpenAPI documents
         foreach ($doc in $DocId) {
             $docDescriptor = $Server.GetOrCreateOpenApiDocument($doc)
-            if ($null -eq $docDescriptor.Document.Tags) {
-                # Initialize the Tags collection if null
-                $docDescriptor.Document.Tags = [System.Collections.Generic.HashSet[Microsoft.OpenApi.OpenApiTag]]::new()
-            }
-            $tag = [Microsoft.OpenApi.OpenApiTag]::new()
-            $tag.Name = $Name
-            if ($PsBoundParameters.ContainsKey('Description')) {
-                $tag.Description = $Description
-            }
-            if ($PsBoundParameters.ContainsKey('ExternalDocs')) {
-                $tag.ExternalDocs = $ExternalDocs
-            }
-            $docDescriptor.Document.Tags.Add($tag) | Out-Null
+
+            $null = $docDescriptor.AddTag($Name, $Description, $Summary, $Parent, $Kind, $ExternalDocs, $Extensions)
         }
     }
 }

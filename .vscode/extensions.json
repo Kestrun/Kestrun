@@ -4,6 +4,7 @@
     "pspester.pester-test", // Pester Tests (native Testing UI)
     "ms-dotnettools.csharp", // C# language support
     "ms-dotnettools.csdevkit", // C# Dev Kit (Solution view, richer C# experience)
-    "esbenp.prettier-vscode"  // Prettier code formatter for JSON, YAML, Markdown, etc.
+    "esbenp.prettier-vscode",  // Prettier code formatter for JSON, YAML, Markdown, etc.
+    "DavidAnson.vscode-markdownlint" // Markdown linting and formatting
   ]
 }

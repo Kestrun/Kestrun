@@ -11,6 +11,43 @@ param(
     [IPAddress]$IPAddress = [IPAddress]::Loopback
 )
 
+# =========================================================
+#                  HELPERS (DATES)
+# =========================================================
+
+<#
+.SYNOPSIS
+    Converts a DateTime to an ISO 8601 date string (YYYY-MM-DD).
+.PARAMETER Date
+    The DateTime to convert.
+.OUTPUTS
+    [string] The ISO 8601 date string.
+#>
+function Convert-ToIsoDate {
+    param([datetime]$Date)
+    $Date.ToString('yyyy-MM-dd')
+}
+
+<#
+.SYNOPSIS
+    Gets the next occurrence of the specified day of the week.
+.PARAMETER Day
+    The day of the week to find the next occurrence for.
+.OUTPUTS
+    [datetime] The date of the next occurrence of the specified day of the week.
+#>
+function Get-NextDayOfWeek {
+    param([System.DayOfWeek]$Day)
+    $now = Get-Date
+    $delta = (([int]$Day - [int]$now.DayOfWeek) + 7) % 7
+    if ($delta -eq 0) { $delta = 7 } # force next, not today
+    $now.AddDays($delta)
+}
+
+# =========================================================
+#                  SETUP SERVER + OPENAPI
+# =========================================================
+
 if (-not (Get-Module Kestrun)) { Import-Module Kestrun }
 
 # --- Logging / Server ---
@@ -33,7 +70,7 @@ Add-KrOpenApiInfo -Title 'Examples API' `
 #                      SCHEMAS (small)
 # =========================================================
 
-[OpenApiSchemaComponent(Description = 'Ticket purchase request.', Required = ('ticketType', 'ticketDate', 'email'))]
+[OpenApiSchemaComponent(Description = 'Ticket purchase request.', RequiredProperties = ('ticketType', 'ticketDate', 'email'))]
 class BuyTicketRequest {
     [OpenApiProperty(Description = 'Ticket type', Example = 'general')]
     [string]$ticketType
@@ -45,7 +82,7 @@ class BuyTicketRequest {
     [string]$email
 }
 
-[OpenApiSchemaComponent(Description = 'Ticket purchase response.', Required = ('message', 'ticketId', 'ticketType', 'ticketDate', 'confirmationCode'))]
+[OpenApiSchemaComponent(Description = 'Ticket purchase response.', RequiredProperties = ('message', 'ticketId', 'ticketType', 'ticketDate', 'confirmationCode'))]
 class BuyTicketResponse {
     [OpenApiProperty(Example = 'Museum general entry ticket purchased')]
     [string]$message
@@ -63,7 +100,7 @@ class BuyTicketResponse {
     [string]$confirmationCode
 }
 
-[OpenApiSchemaComponent(Description = 'Museum daily hours', Required = ('date', 'timeOpen', 'timeClose'))]
+[OpenApiSchemaComponent(Description = 'Museum daily hours', RequiredProperties = ('date', 'timeOpen', 'timeClose'))]
 class MuseumDailyHours {
     [OpenApiProperty(Format = 'date', Example = '2023-09-11')]
     [string]$date
@@ -79,34 +116,6 @@ class MuseumDailyHours {
 class GetMuseumHoursResponse : MuseumDailyHours {}
 
 # =========================================================
-#               OPENAPI EXAMPLES (components + inline)
-# =========================================================
-Enable-KrConfiguration
-Add-KrApiDocumentationRoute -DocumentType Swagger -OpenApiEndpoint '/openapi/v3.1/openapi.json'
-Add-KrApiDocumentationRoute -DocumentType Redoc -OpenApiEndpoint '/openapi/v3.1/openapi.json'
-Add-KrApiDocumentationRoute -DocumentType Elements -OpenApiEndpoint '/openapi/v3.1/openapi.json'
-Add-KrApiDocumentationRoute -DocumentType Rapidoc -OpenApiEndpoint '/openapi/v3.1/openapi.json'
-Add-KrApiDocumentationRoute -DocumentType Scalar -OpenApiEndpoint '/openapi/v3.1/openapi.json'
-
-# =========================================================
-#                  HELPERS (DATES)
-# =========================================================
-
-function Convert-ToIsoDate {
-    param([datetime]$Date)
-    $Date.ToString('yyyy-MM-dd')
-}
-
-function Get-NextDayOfWeek {
-    param([System.DayOfWeek]$Day)
-    $now = Get-Date
-    $delta = (([int]$Day - [int]$now.DayOfWeek) + 7) % 7
-    if ($delta -eq 0) { $delta = 7 } # force next, not today
-    $now.AddDays($delta)
-}
-
-
-# =========================================================
 #                 EXAMPLES (components vs inline)
 # =========================================================
 
@@ -115,7 +124,30 @@ New-KrOpenApiExample -Summary 'General entry ticket' -Value ([ordered]@{
         ticketType = 'general'
         ticketDate = '2023-09-07'
         email = 'todd@example.com'
+    }) -Extensions ([ordered]@{
+        'x-kestrun-demo' = [ordered]@{
+            scenario = 'buy-ticket'
+            payloadKind = 'request'
+            preferredContentTypes = @('application/json', 'application/xml', 'application/yaml', 'application/x-www-form-urlencoded')
+        }
     }) | Add-KrOpenApiComponent -Name 'BuyGeneralTicketsRequestExample'
+
+$buyTicketRequestDataValue = [ordered]@{
+    ticketType = 'general'
+    ticketDate = '2023-09-07'
+    email = 'todd@example.com'
+}
+New-KrOpenApiExample -Summary 'General entry ticket (dataValue)' `
+    -Description 'Same payload as the request example, using the OpenAPI 3.2 dataValue field (3.1 emits x-oai-dataValue).' `
+    -DataValue $buyTicketRequestDataValue `
+    -SerializedValue '{"ticketType":"general","ticketDate":"2023-09-07","email":"todd@example.com"}' `
+    -Extensions ([ordered]@{
+        'x-kestrun-demo' = [ordered]@{
+            scenario = 'buy-ticket'
+            payloadKind = 'request'
+            openApiField = 'dataValue'
+        }
+    }) | Add-KrOpenApiComponent -Name 'BuyGeneralTicketsRequestDataValueExample'
 
 New-KrOpenApiExample -Summary 'General entry ticket purchased' -Value ([ordered]@{
         message = 'Museum general entry ticket purchased'
@@ -123,13 +155,36 @@ New-KrOpenApiExample -Summary 'General entry ticket purchased' -Value ([ordered]
         ticketType = 'general'
         ticketDate = '2023-09-07'
         confirmationCode = 'ticket-general-e5e5c6-dce78'
+    }) -Extensions ([ordered]@{
+        'x-kestrun-demo' = [ordered]@{
+            scenario = 'buy-ticket'
+            payloadKind = 'response'
+            statusCode = 201
+        }
     }) | Add-KrOpenApiComponent -Name 'BuyGeneralTicketsResponseExample'
 
 New-KrOpenApiExample -Summary 'Get hours response' -Value @(
     [ordered]@{ date = '2023-09-11'; timeOpen = '09:00'; timeClose = '18:00' }
     [ordered]@{ date = '2023-09-12'; timeOpen = '09:00'; timeClose = '18:00' }
     [ordered]@{ date = '2023-09-13'; timeOpen = '09:00'; timeClose = '18:00' }
-) | Add-KrOpenApiComponent -Name 'GetMuseumHoursResponseExample'
+) -Extensions ([ordered]@{
+        'x-kestrun-demo' = [ordered]@{
+            scenario = 'museum-hours'
+            payloadKind = 'response'
+            statusCode = 200
+        }
+    }) | Add-KrOpenApiComponent -Name 'GetMuseumHoursResponseExample'
+
+New-KrOpenApiExample -Summary 'Get hours response (external)' `
+    -Description 'Demonstrates externalValue (a URL to a literal example payload).' `
+    -ExternalValue 'https://example.com/openapi/examples/museum-hours.json' `
+    -Extensions ([ordered]@{
+        'x-kestrun-demo' = [ordered]@{
+            scenario = 'museum-hours'
+            payloadKind = 'response'
+            openApiField = 'externalValue'
+        }
+    }) | Add-KrOpenApiComponent -Name 'GetMuseumHoursResponseExternalExample'
 
 # --- Inline examples (stored in Kestrun inline store; copied inline when applied) ---
 New-KrOpenApiExample -Summary 'Common today ticket date' -Value (Convert-ToIsoDate (Get-Date)) |
@@ -140,6 +195,18 @@ New-KrOpenApiExample -Summary 'Common next Saturday ticket date' -Value (Convert
 
 New-KrOpenApiExample -Summary 'Common next Sunday ticket date' -Value (Convert-ToIsoDate (Get-NextDayOfWeek Sunday)) |
     Add-KrOpenApiInline -Name 'NextSundayParameter'
+# =========================================================
+#                 OPENAPI DOC ROUTE / BUILD
+# =========================================================
+Enable-KrConfiguration
+Add-KrApiDocumentationRoute -DocumentType Swagger -OpenApiEndpoint '/openapi/v3.1/openapi.json'
+Add-KrApiDocumentationRoute -DocumentType Redoc -OpenApiEndpoint '/openapi/v3.1/openapi.json'
+Add-KrApiDocumentationRoute -DocumentType Elements -OpenApiEndpoint '/openapi/v3.1/openapi.json'
+Add-KrApiDocumentationRoute -DocumentType Rapidoc -OpenApiEndpoint '/openapi/v3.1/openapi.json'
+Add-KrApiDocumentationRoute -DocumentType Scalar -OpenApiEndpoint '/openapi/v3.1/openapi.json'
+
+
+
 
 # =========================================================
 #                 ROUTES / OPERATIONS (attribute wiring)
@@ -163,6 +230,8 @@ function buyTicket {
             ContentType = ('application/json', 'application/xml', 'application/x-www-form-urlencoded', 'application/yaml') )]
         [OpenApiRequestBodyExampleRef(Key = 'general_entry', ReferenceId = 'BuyGeneralTicketsRequestExample' ,
             ContentType = ('application/json', 'application/xml', 'application/x-www-form-urlencoded', 'application/yaml'))]
+        [OpenApiRequestBodyExampleRef(Key = 'general_entry_dataValue', ReferenceId = 'BuyGeneralTicketsRequestDataValueExample' ,
+            ContentType = ('application/json', 'application/xml', 'application/x-www-form-urlencoded', 'application/yaml'))]
         [BuyTicketRequest]$Body
     )
 
@@ -184,8 +253,9 @@ function getMuseumHours {
         Shows response example via OpenApiResponseExampleRef (components/examples).
     #>
     [OpenApiPath(HttpVerb = 'get', Pattern = '/museum-hours')]
-    [OpenApiResponse(StatusCode = '200', SchemaRef = 'GetMuseumHoursResponse', Description = 'Success', ContentType = 'application/json')]
+    [OpenApiResponse(StatusCode = '200', Schema = [GetMuseumHoursResponse], Description = 'Success', ContentType = 'application/json')]
     [OpenApiResponseExampleRef(StatusCode = '200', Key = 'default_example', ReferenceId = 'GetMuseumHoursResponseExample')]
+    [OpenApiResponseExampleRef(StatusCode = '200', Key = 'external_example', ReferenceId = 'GetMuseumHoursResponseExternalExample')]
     param()
 
     $resp = @(

@@ -23,6 +23,7 @@ public partial class OpenApiDocDescriptor
     /// <param name="examples">A collection of examples for the header.</param>
     /// <param name="schema">The schema of the header.</param>
     /// <param name="content">The content of the header.</param>
+    /// <param name="extensions">A collection of extensions for the header.</param>
     /// <returns>A new instance of OpenApiHeader with the specified properties.</returns>
     /// <exception cref="InvalidOperationException">Thrown when header examples keys or values are invalid.</exception>
     public OpenApiHeader NewOpenApiHeader(
@@ -36,7 +37,9 @@ public partial class OpenApiDocDescriptor
         object? example = null,
         Hashtable? examples = null,
         Type? schema = null,
-        Hashtable? content = null)
+        IDictionary? content = null,
+        IDictionary? extensions = null
+        )
     {
         schema = ResolveHeaderSchema(schema, content);
         ThrowIfBothSchemaAndContentProvided(schema, content);
@@ -50,13 +53,13 @@ public partial class OpenApiDocDescriptor
             Style = style,
             Explode = explode,
             AllowReserved = allowReserved,
-            Example = OpenApiJsonNodeFactory.FromObject(example)
+            Example = OpenApiJsonNodeFactory.ToNode(example)
         };
 
         ApplyHeaderSchema(header, schema);
         ApplyHeaderExamples(header, examples);
         ApplyHeaderContent(header, content);
-
+        header.Extensions = BuildExtensions(extensions);
         return header;
     }
 
@@ -66,7 +69,7 @@ public partial class OpenApiDocDescriptor
     /// <param name="schema">The schema of the header.</param>
     /// <param name="content">The content of the header.</param>
     /// <returns>The resolved schema type.</returns>
-    private static Type? ResolveHeaderSchema(Type? schema, Hashtable? content)
+    private static Type? ResolveHeaderSchema(Type? schema, IDictionary? content)
     {
         return schema is null && content is null
             ? typeof(string)
@@ -79,7 +82,7 @@ public partial class OpenApiDocDescriptor
     /// <param name="schema">The schema of the header.</param>
     /// <param name="content">The content of the header.</param>
     /// <exception cref="InvalidOperationException">Thrown when both schema and content are provided.</exception>
-    private static void ThrowIfBothSchemaAndContentProvided(Type? schema, Hashtable? content)
+    private static void ThrowIfBothSchemaAndContentProvided(Type? schema, IDictionary? content)
     {
         if (schema is not null && content is not null)
         {
@@ -169,7 +172,7 @@ public partial class OpenApiDocDescriptor
     /// <param name="header">The OpenApiHeader to which content will be applied.</param>
     /// <param name="content">A hashtable representing the content to apply.</param>
     /// <exception cref="InvalidOperationException">Thrown when content keys are not valid media type strings.</exception>
-    private void ApplyHeaderContent(OpenApiHeader header, Hashtable? content)
+    private void ApplyHeaderContent(OpenApiHeader header, IDictionary? content)
     {
         // Header content (media type map) from PowerShell hashtable
         if (content is null || content.Count == 0)
@@ -288,10 +291,29 @@ public partial class OpenApiDocDescriptor
             IOpenApiHeader oaHeader = attribute.Inline ? header!.Clone() : new OpenApiHeaderReference(attribute.ReferenceId);
             return headers.TryAdd(attribute.Key, oaHeader);
         }
-        else
+        else if (attribute.Inline)
         {
-            throw new InvalidOperationException(
-                $"Header with ReferenceId '{attribute.ReferenceId}' not found in components or inline components.");
+            throw new InvalidOperationException($"Inline header component with ID '{attribute.ReferenceId}' not found.");
         }
+        return false;
+    }
+
+    /// <summary>
+    /// Tries to get an OpenApiHeader item from inline or main components.
+    /// </summary>
+    /// <param name="headerName"> The name of the header to retrieve. </param>
+    /// <param name="header"> The retrieved OpenApiHeader if found; otherwise, null. </param>
+    /// <returns> True if the header was found; otherwise, false. </returns>
+    private bool TryGetHeaderItem(string headerName, out OpenApiHeader? header)
+    {
+        if (TryGetInline(name: headerName, kind: OpenApiComponentKind.Headers, out header))
+        {
+            return true;
+        }
+        else if (TryGetComponent(name: headerName, kind: OpenApiComponentKind.Headers, out header))
+        {
+            return true;
+        }
+        return false;
     }
 }

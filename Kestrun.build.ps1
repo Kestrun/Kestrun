@@ -544,7 +544,7 @@ Add-BuildTask 'Clean-LargeFile' {
 
 Add-BuildTask 'ThirdPartyNotices' {
     Write-Host '📄 Updating third-party notices...'
-    & .\Utility\Update-ThirdPartyNotices.ps1 -Project '.\src\CSharp\Kestrun\Kestrun.csproj' -Path '.\THIRD-PARTY-NOTICES.md' -Version (Get-Version -FileVersion $FileVersion)
+    & .\Utility\Update-ThirdPartyNotices.ps1 -Project '.\src\CSharp\Kestrun\Kestrun.csproj' -Path '.\THIRD-PARTY-NOTICES.md' -FileVersion $FileVersion
 }
 
 Add-BuildTask All 'Clean', 'Restore', 'Build', 'Test'

@@ -14,9 +14,24 @@
     The URL of the contact person/organization.
 .PARAMETER Email
     The email address of the contact person/organization.
+.PARAMETER Extensions
+    A collection of OpenAPI extensions to add to the contact information.
 .EXAMPLE
     # Add contact information to the default document
     Add-KrOpenApiContact -Name "John Doe" -Url "https://johndoe.com" -Email "john.doe@example.com"
+    Adds contact information with the specified name, URL, and email to the default OpenAPI document.
+.EXAMPLE
+    # Add contact information to multiple documents
+    Add-KrOpenApiContact -DocId @('Default', 'v2') -Name "API Support" -Email "support@example.com"
+    Adds contact information with the specified name and email to both the 'Default' and 'v2' OpenAPI documents.
+.EXAMPLE
+    # Add contact information with extensions
+    $extensions = [ordered]@{
+        'x-contact-type' = 'technical'
+        'x-timezone' = 'PST'
+    }
+    Add-KrOpenApiContact -Name "Tech Support" -Email "techsupport@example.com" -Extensions $extensions
+    Adds contact information with the specified name, email, and extensions to the default OpenAPI document.
 .NOTES
     This cmdlet is part of the OpenAPI module.
 #>
@@ -25,14 +40,21 @@ function Add-KrOpenApiContact {
     param(
         [Parameter(Mandatory = $false, ValueFromPipeline = $true)]
         [Kestrun.Hosting.KestrunHost]$Server,
+
         [Parameter()]
         [string[]]$DocId = [Kestrun.OpenApi.OpenApiDocDescriptor]::DefaultDocumentationIds,
+
         [Parameter()]
         [string]$Name,
+
         [Parameter()]
         [Uri]$Url,
+
         [Parameter()]
-        [string]$Email
+        [string]$Email,
+
+        [Parameter()]
+        [System.Collections.IDictionary]$Extensions = $null
     )
     begin {
         # Ensure the server instance is resolved
@@ -46,19 +68,7 @@ function Add-KrOpenApiContact {
                 # Initialize the Info object if null
                 $docDescriptor.Document.Info = [Microsoft.OpenApi.OpenApiInfo]::new()
             }
-            if ($null -eq $docDescriptor.Document.Info.Contact) {
-                # Initialize the Contact object if null
-                $docDescriptor.Document.Info.Contact = [Microsoft.OpenApi.OpenApiContact]::new()
-            }
-            if ($PsBoundParameters.ContainsKey('Name')) {
-                $docDescriptor.Document.Info.Contact.Name = $Name
-            }
-            if ($PsBoundParameters.ContainsKey('Url')) {
-                $docDescriptor.Document.Info.Contact.Url = $Url
-            }
-            if ($PsBoundParameters.ContainsKey('Email')) {
-                $docDescriptor.Document.Info.Contact.Email = $Email
-            }
+            $docDescriptor.Document.Info.Contact = $docDescriptor.CreateInfoContact($Name, $Url, $Email, $Extensions)
         }
     }
 }

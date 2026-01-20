@@ -42,28 +42,15 @@ function Enable-KrConfiguration {
         $Server = Resolve-KestrunServer -Server $Server
     }
     process {
-        $Variables = Get-KrAssignedVariable -FromParent -ResolveValues -IncludeSetVariable
+        # Collect assigned variables from the parent scope, resolving their values
+        $variables = Get-KrAssignedVariable -FromParent -ResolveValues -IncludeSetVariable -ExcludeVariables $ExcludeVariables -OutputStructure StringObjectMap -WithoutAttributesOnly
 
-        # Build user variable map as before
-        $vars = [System.Collections.Generic.Dictionary[string, object]]::new()
-        foreach ($v in $Variables) {
-            if ($ExcludeVariables -notcontains $v.Name) {
-                $null = $Server.SharedState.Set($v.Name, $v.Value, $true)
-            }
-        }
-        Write-KrLog -Level Debug -Logger $Server.Logger -Message 'Collected {VarCount} user-defined variables for server configuration.' -Values $vars.Count
-        $callerPath = $null
-        $selfPath = $PSCommandPath
-        foreach ($f in Get-PSCallStack) {
-            $p = $f.InvocationInfo.ScriptName
-            if ($p) {
-                $rp = $null
-                try { $tmp = Resolve-Path -LiteralPath $p -ErrorAction Stop; $rp = $tmp.ProviderPath } catch { Write-Debug "Failed to resolve path '$p': $_" }
-                if ($rp -and (!$selfPath -or $rp -ne (Resolve-Path -LiteralPath $selfPath).ProviderPath)) {
-                    $callerPath = $rp
-                    break
-                }
-            }
+        Write-KrLog -Level Debug -Logger $Server.Logger -Message 'Collected {VarCount} user-defined variables for server configuration.' -Values $variables.Count
+
+        # AUTO: determine caller script path to filter session-defined functions
+        $callerPath = [Kestrun.KestrunHostManager]::EntryScriptPath
+        if ([string]::IsNullOrEmpty($callerPath)) {
+            throw 'KestrunHostManager is not properly initialized. EntryScriptPath is not set.'
         }
         # AUTO: collect session-defined functions present now
         $fx = @( Get-Command -CommandType Function | Where-Object { -not $_.Module } )
@@ -86,25 +73,44 @@ function Enable-KrConfiguration {
         }
 
         # Create a dictionary of function names to their definitions
+        # NOTE: exclude OpenAPI metadata functions (OpenApiPath/OpenApiWebhook/OpenApiCallback)
+        # from the general function map; they are handled separately.
         $fxMap = $null
         if ($fx -and $fx.Count -gt 0) {
+            $fxUser = @($fx | Where-Object { -not (Test-KrFunctionHasAttribute -Command $_ -AttributeNameRegex 'OpenApi(Path|Webhook|Callback)') })
             $fxMap = [System.Collections.Generic.Dictionary[string, string]]::new([System.StringComparer]::OrdinalIgnoreCase)
-            foreach ($f in $fx) { $fxMap[$f.Name] = $f.Definition }
+            foreach ($f in $fxUser) { $fxMap[$f.Name] = $f.Definition }
         }
-        Write-KrLog -Level Debug -Logger $Server.Logger -Message 'Enabling Kestrun server configuration with {VarCount} variables and {FuncCount} functions.' -Values $vars.Count, ($fxMap?.Count ?? 0)
+
+        # Create a dictionary of OpenAPI callback function names to their definitions
+        $fxCallBack = $null
+        if ($fx -and $fx.Count -gt 0) {
+            $cb = @($fx | Where-Object { Test-KrFunctionHasAttribute -Command $_ -AttributeNameRegex 'OpenApiCallback' })
+            if ($cb -and $cb.Count -gt 0) {
+                $fxCallBack = [System.Collections.Generic.Dictionary[string, string]]::new([System.StringComparer]::OrdinalIgnoreCase)
+                foreach ($f in $cb) { $fxCallBack[$f.Name] = $f.Definition }
+            }
+        }
+
+        if ($Server.Logger -and $Server.Logger.IsEnabled([Serilog.Events.LogEventLevel]::Debug)) {
+            $callbackNames = @()
+            if ($fxCallBack) {
+                $callbackNames = @($fxCallBack.Keys)
+                [System.Array]::Sort($callbackNames, [System.StringComparer]::OrdinalIgnoreCase)
+            }
+            Write-KrLog -Level Debug -Logger $Server.Logger -Message 'Detected {CallbackCount} OpenAPI callback function(s): {CallbackNames}' -Values ($callbackNames.Count), ($callbackNames -join ', ')
+        }
+
+        Write-KrLog -Level Debug -Logger $Server.Logger -Message 'Enabling Kestrun server configuration with {VarCount} variables and {FuncCount} functions.' -Values $variables.Count, ($fxMap?.Count ?? 0)
         # Apply the configuration to the server
         # Set the user-defined variables in the server configuration
-        $Server.EnableConfiguration($vars, $fxMap) | Out-Null
+        $Server.EnableConfiguration($variables, $fxMap, $fxCallBack) | Out-Null
 
         Write-KrLog -Level Information -Logger $Server.Logger -Message 'Kestrun server configuration enabled successfully.'
 
         if (-not $Quiet.IsPresent) {
             Write-Host 'Kestrun server configuration enabled successfully.'
             Write-Host "Server Name: $($Server.Options.ApplicationName)"
-        }
-        # Generate OpenAPI components for all documents
-        foreach ( $doc in $Server.OpenApiDocumentDescriptor.Values ) {
-            $doc.GenerateComponents()
         }
 
         if ($PassThru.IsPresent) {

@@ -1,3 +1,4 @@
+using System.Collections;
 using Microsoft.OpenApi;
 
 namespace Kestrun.OpenApi;
@@ -32,8 +33,14 @@ public partial class OpenApiDocDescriptor
     /// <param name="attribute">The example attribute containing reference details.</param>
     /// <returns>True if the example was added successfully; otherwise, false.</returns>
     /// <exception cref="InvalidOperationException"></exception>
-    private bool TryAddExample(IDictionary<string, IOpenApiExample> examples, IOpenApiExampleAttribute attribute)
+    private bool TryAddExample(IDictionary<string, IOpenApiExample>? examples, IOpenApiExampleAttribute attribute)
     {
+        // If no examples dictionary, cannot add
+        if (examples is null)
+        {
+            return false;
+        }
+        // Try to get the example from inline components first
         if (TryGetInline(name: attribute.ReferenceId, kind: OpenApiComponentKind.Examples, out OpenApiExample? example))
         {
             // If InlineComponents, clone the example
@@ -45,10 +52,118 @@ public partial class OpenApiDocDescriptor
             IOpenApiExample oaExample = attribute.Inline ? example!.Clone() : new OpenApiExampleReference(attribute.ReferenceId);
             return examples.TryAdd(attribute.Key, oaExample);
         }
-        else
+        else if (attribute.Inline)
         {
-            throw new InvalidOperationException(
-                $"Example with ReferenceId '{attribute.ReferenceId}' not found in components or inline components.");
+            throw new InvalidOperationException($"Inline example component with ID '{attribute.ReferenceId}' not found.");
         }
+        return false;
+    }
+
+    /// <summary>
+    /// Creates a new OpenApiExample object.
+    /// </summary>
+    /// <param name="summary">Creates a new OpenApiExample object.</param>
+    /// <param name="description">The description of the example.</param>
+    /// <param name="extensions">The extensions for the example.</param>
+    /// <returns>A new instance of OpenApiExample.</returns>
+    private OpenApiExample NewOpenApiExample(
+               string summary,
+               string? description,
+               IDictionary? extensions)
+    {
+        var example = new OpenApiExample
+        {
+            Summary = summary
+        };
+
+        if (!string.IsNullOrWhiteSpace(description))
+        {
+            example.Description = description;
+        }
+        // Extensions
+        example.Extensions = BuildExtensions(extensions);
+
+        return example;
+    }
+
+    /// <summary>
+    /// Creates a new OpenApiExample object.
+    /// </summary>
+    /// <param name="summary">Creates a new OpenApiExample object.</param>
+    /// <param name="description">The description of the example.</param>
+    /// <param name="value">The value of the example.</param>
+    /// <param name="extensions">The extensions for the example.</param>
+    /// <returns>A new instance of OpenApiExample.</returns>
+    public OpenApiExample NewOpenApiExample(
+           string summary,
+           string? description,
+           object? value,
+           IDictionary? extensions)
+    {
+        var example = NewOpenApiExample(
+               summary: summary,
+               description: description,
+               extensions: extensions);
+
+        // AllowNull: treat null as null JsonNode
+        example.Value = OpenApiJsonNodeFactory.ToNode(value);
+        // return example
+        return example;
+    }
+
+    /// <summary>
+    /// Creates a new OpenApiExample object. Using ExternalValue
+    /// </summary>
+    /// <param name="summary">Creates a new OpenApiExample object.</param>
+    /// <param name="description">The description of the example.</param>
+    /// <param name="externalValue">The external value of the example.</param>
+    /// <param name="extensions">The extensions for the example.</param>
+    /// <returns>A new instance of OpenApiExample.</returns>
+    public OpenApiExample NewOpenApiExternalExample(
+               string summary,
+               string? description,
+               string? externalValue,
+               IDictionary? extensions)
+    {
+        var example = NewOpenApiExample(
+                summary: summary,
+                description: description,
+                extensions: extensions);
+
+        example.ExternalValue = externalValue;
+
+        // return example
+        return example;
+    }
+
+    /// <summary>
+    /// Creates a new OpenApiExample object.
+    /// </summary>
+    /// <param name="summary">Creates a new OpenApiExample object.</param>
+    /// <param name="description">The description of the example.</param>
+    /// <param name="dataValue">The data value of the example.</param>
+    /// <param name="serializedValue">The serialized value of the example.</param>
+    /// <param name="extensions">The extensions for the example.</param>
+    /// <returns>A new instance of OpenApiExample.</returns>
+    public OpenApiExample NewOpenApiExample(
+               string summary,
+               string? description,
+               object? dataValue,
+               string? serializedValue,
+               IDictionary? extensions)
+    {
+        var example = NewOpenApiExample(
+               summary: summary,
+               description: description,
+               extensions: extensions);
+
+        example.DataValue = OpenApiJsonNodeFactory.ToNode(dataValue);
+        if (!string.IsNullOrWhiteSpace(serializedValue))
+        {
+            example.SerializedValue = serializedValue;
+        }
+
+        // return example
+        return example;
     }
 }

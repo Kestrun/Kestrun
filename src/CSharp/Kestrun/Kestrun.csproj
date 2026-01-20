@@ -93,7 +93,7 @@
         <PackageProjectUrl>https://github.com/kestrun/Kestrun</PackageProjectUrl>
         <PackageIcon>Assets\kestrun_128x128.png</PackageIcon>
         <PackageTags>Kestrun web framework</PackageTags>
-        <Copyright>Copyright © 2025 Kestrun Team</Copyright>
+        <Copyright>Copyright © 2025–2026 Kestrun Team</Copyright>
 
         <!-- Include README in NuGet package -->
         <PackageReadmeFile>README.md</PackageReadmeFile>
@@ -137,17 +137,17 @@
 
 
         <!-- Microsoft.AspNetCore -->
-        <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="8.0.22" />
-        <PackageReference Include="Microsoft.AspNetCore.Authentication.Certificate" Version="8.0.22" />
-        <PackageReference Include="Microsoft.AspNetCore.Authentication.OpenIdConnect" Version="8.0.22" />
-        <PackageReference Include="Microsoft.AspNetCore.Mvc.Razor.RuntimeCompilation" Version="8.0.22" />
-        <PackageReference Include="Microsoft.AspNetCore.Authentication.Negotiate" Version="8.0.22" />
+        <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="8.0.23" />
+        <PackageReference Include="Microsoft.AspNetCore.Authentication.Certificate" Version="8.0.23" />
+        <PackageReference Include="Microsoft.AspNetCore.Authentication.OpenIdConnect" Version="8.0.23" />
+        <PackageReference Include="Microsoft.AspNetCore.Mvc.Razor.RuntimeCompilation" Version="8.0.23" />
+        <PackageReference Include="Microsoft.AspNetCore.Authentication.Negotiate" Version="8.0.23" />
         <!-- Serilog -->
         <PackageReference Include="Serilog.Sinks.Http" Version="9.1.0" />
 
         <!-- Caching -->
-        <PackageReference Include="Microsoft.Extensions.Caching.SqlServer" Version="8.0.22" />
-        <PackageReference Include="Microsoft.Extensions.Caching.StackExchangeRedis" Version="8.0.22" />
+        <PackageReference Include="Microsoft.Extensions.Caching.SqlServer" Version="8.0.23" />
+        <PackageReference Include="Microsoft.Extensions.Caching.StackExchangeRedis" Version="8.0.23" />
         <!-- Scripting Engines -->
         <PackageReference Include="Microsoft.PowerShell.SDK" Version="7.4.13" />
 
@@ -167,18 +167,17 @@
         <PackageReference Include="Serilog.AspNetCore" Version="9.0.0" />
 
         <!-- Microsoft.AspNetCore -->
-        <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="9.0.11" />
-        <PackageReference Include="Microsoft.AspNetCore.Authentication.Certificate" Version="9.0.11" />
-        <PackageReference Include="Microsoft.AspNetCore.Authentication.OpenIdConnect" Version="9.0.11" />
-        <PackageReference Include="Microsoft.AspNetCore.Mvc.Razor.RuntimeCompilation" Version="9.0.11" />
-        <PackageReference Include="Microsoft.AspNetCore.Authentication.Negotiate" Version="9.0.11" />
-
+        <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="9.0.12" />
+        <PackageReference Include="Microsoft.AspNetCore.Authentication.Certificate" Version="9.0.12" />
+        <PackageReference Include="Microsoft.AspNetCore.Authentication.OpenIdConnect" Version="9.0.12" />
+        <PackageReference Include="Microsoft.AspNetCore.Mvc.Razor.RuntimeCompilation" Version="9.0.12" />
+        <PackageReference Include="Microsoft.AspNetCore.Authentication.Negotiate" Version="9.0.12" />
         <!-- Serilog -->
-        <PackageReference Include="Serilog.Sinks.Http" Version="9.2.0" />
+        <PackageReference Include="Serilog.Sinks.Http" Version="9.2.1" />
 
         <!-- Caching -->
-        <PackageReference Include="Microsoft.Extensions.Caching.SqlServer" Version="9.0.11" />
-        <PackageReference Include="Microsoft.Extensions.Caching.StackExchangeRedis" Version="9.0.11" />
+        <PackageReference Include="Microsoft.Extensions.Caching.SqlServer" Version="9.0.12" />
+        <PackageReference Include="Microsoft.Extensions.Caching.StackExchangeRedis" Version="9.0.12" />
         <!-- Scripting Engines -->
         <PackageReference Include="Microsoft.PowerShell.SDK" Version="7.5.4" />
 
@@ -207,7 +206,7 @@
         <PackageReference Include="Microsoft.AspNetCore.Authentication.Negotiate" Version="10.0.0" />
 
         <!-- Serilog -->
-        <PackageReference Include="Serilog.Sinks.Http" Version="9.2.0" />
+        <PackageReference Include="Serilog.Sinks.Http" Version="9.2.1" />
 
         <!-- Caching -->
         <PackageReference Include="Microsoft.Extensions.Caching.SqlServer" Version="10.0.1" />
@@ -260,13 +259,12 @@
     -->
 
         <!-- Utilities -->
-        <PackageReference Include="Microsoft.OpenApi" Version="3.1.1" />
+        <PackageReference Include="Microsoft.OpenApi" Version="3.2.0" />
 
         <PackageReference Include="CsvHelper" Version="33.1.0" />
         <PackageReference Include="Cronos" Version="0.11.1" />
         <PackageReference Include="PeterO.Cbor" Version="4.5.5" />
-        <PackageReference Include="MongoDB.Bson" Version="3.5.2" />
-        <PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
+        <PackageReference Include="MongoDB.Bson" Version="3.6.0" />
         <PackageReference Include="YamlDotNet" Version="16.3.0" />
         <PackageReference Include="BouncyCastle.Cryptography" Version="2.6.2" />
         <!-- Source Link for debugging

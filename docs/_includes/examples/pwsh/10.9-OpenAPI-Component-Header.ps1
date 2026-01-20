@@ -20,7 +20,7 @@ New-KrLogger | Add-KrSinkConsole |
     Set-KrLoggerLevel -Value Debug |
     Register-KrLogger -Name 'console' -SetAsDefault
 
-$srv = New-KrServer -Name 'OpenAPI Component Headers' -PassThru
+New-KrServer -Name 'OpenAPI Component Headers'
 
 Add-KrEndpoint -Port $Port -IPAddress $IPAddress
 
@@ -39,7 +39,7 @@ Add-KrOpenApiTag -Name 'Operational' -Description 'Operational behaviors (rate l
 #                      COMPONENT SCHEMAS
 # =========================================================
 
-[OpenApiSchemaComponent(Description = 'Create user request', Required = ('firstName', 'lastName', 'email'))]
+[OpenApiSchemaComponent(Description = 'Create user request', RequiredProperties = ('firstName', 'lastName', 'email'))]
 class CreateUserRequest {
     [OpenApiPropertyAttribute(Description = 'First name', Example = 'Jane')]
     [string]$firstName
@@ -51,7 +51,7 @@ class CreateUserRequest {
     [string]$email
 }
 
-[OpenApiSchemaComponent(Description = 'User resource', Required = ('id', 'firstName', 'lastName', 'email', 'updatedAt'))]
+[OpenApiSchemaComponent(Description = 'User resource', RequiredProperties = ('id', 'firstName', 'lastName', 'email', 'updatedAt'))]
 class UserResponse {
     [OpenApiPropertyAttribute(Description = 'Unique user identifier', Format = 'int64', Example = 1)]
     [long]$id
@@ -79,17 +79,29 @@ $Users = [hashtable]::Synchronized(@{})
 $UserCounters = [hashtable]::Synchronized(@{ NextUserId = 0 })
 $ThrottleCounters = [hashtable]::Synchronized(@{})  # key: ip string, value: count
 
-function New-DemoCorrelationId {
-    [Guid]::NewGuid().ToString()
-}
+# =========================================================
+#                 HELPERS (THROTTLING)
+# =========================================================
 
+<#
+.SYNOPSIS
+    Gets a client key for throttling (based on IP address).
+.OUTPUTS
+    [string] The client key.
+#>
 function Get-ClientKey {
     $ip = $Context.Connection.RemoteIpAddress
     if ($null -eq $ip) { return 'unknown' }
     return $ip.ToString()
 }
 
-function Should-Throttle {
+<#
+.SYNOPSIS
+    Determines if the current request should be throttled.
+.OUTPUTS
+    [bool] True if the request should be throttled; otherwise, false.
+#>
+function Test-Throttle {
     # Demo throttle: allow first 3 requests per client, then return 429.
     $key = Get-ClientKey
 
@@ -103,7 +115,21 @@ function Should-Throttle {
     }
 }
 
-function Set-DemoOperationalHeaders {
+<#
+.SYNOPSIS
+    Sets operational headers for the response.
+.PARAMETER Limit
+    The rate limit value.
+.PARAMETER Remaining
+    The remaining requests value.
+.PARAMETER ResetSeconds
+    The reset time in seconds.
+.PARAMETER CorrelationId
+    The correlation ID value.
+.OUTPUTS
+    None
+#>
+function Add-DemoOperationalHeader {
     param(
         [Parameter(Mandatory)]
         [int]$Limit,
@@ -121,8 +147,6 @@ function Set-DemoOperationalHeaders {
     $Context.Response.Headers['X-RateLimit-Reset'] = "$ResetSeconds"
 }
 
-# =========================================================
-Enable-KrConfiguration
 
 # =========================================================
 #                 COMPONENT HEADERS (reusable)
@@ -157,20 +181,43 @@ New-KrOpenApiHeader `
     Add-KrOpenApiComponent -Name 'ETag'
 
 # Simple rate limit headers (demo)
-New-KrOpenApiHeader -Description 'Maximum requests allowed in the current window.' -Schema ([int]) | Add-KrOpenApiComponent -Name 'X-RateLimit-Limit'
-New-KrOpenApiHeader -Description 'Remaining requests in the current window.' -Schema ([int]) | Add-KrOpenApiComponent -Name 'X-RateLimit-Remaining'
-New-KrOpenApiHeader -Description 'Seconds until the window resets.' -Schema ([int]) | Add-KrOpenApiComponent -Name 'X-RateLimit-Reset'
+New-KrOpenApiHeader -Description 'Maximum requests allowed in the current window.' -Schema ([int]) |
+    Add-KrOpenApiComponent -Name 'X-RateLimit-Limit'
+
+New-KrOpenApiHeader -Description 'Remaining requests in the current window.' -Schema ([int]) `
+    -Extensions ([ordered]@{
+        'x-kestrun-demo' = [ordered]@{
+            exampleRemaining = 1
+            computedPer = 'client-ip'
+            windowSeconds = 60
+        }
+    }) |
+    Add-KrOpenApiComponent -Name 'X-RateLimit-Remaining'
+
+New-KrOpenApiHeader -Description 'Seconds until the window resets.' -Schema ([int]) `
+    -Extensions ([ordered]@{
+        'x-kestrun-demo' = [ordered]@{
+            resetSeconds = 60
+            correlationIdExample = '7b2a8e5d-0d7c-4f0a-9b3c-3f9d0b8ad7b1'
+        }
+    }) |
+    Add-KrOpenApiComponent -Name 'X-RateLimit-Reset'
 
 # Retry-After for 429 Too Many Requests
 New-KrOpenApiHeader -Description 'Seconds to wait before retrying the request.' -Schema ([int]) | Add-KrOpenApiComponent -Name 'Retry-After'
+
+# =========================================================
+#                 ENABLE SERVER + OPENAPI
+# =========================================================
+Enable-KrConfiguration
+
+Add-KrApiDocumentationRoute -DocumentType Swagger
+Add-KrApiDocumentationRoute -DocumentType Redoc
+
 # =========================================================
 #                 ROUTES / OPERATIONS
 # =========================================================
 
-
-
-Add-KrApiDocumentationRoute -DocumentType Swagger
-Add-KrApiDocumentationRoute -DocumentType Redoc
 <#
 .SYNOPSIS
     Create a new user.
@@ -202,10 +249,10 @@ function createUser {
         [CreateUserRequest]$body
     )
 
-    $correlationId = New-DemoCorrelationId
-    Set-DemoOperationalHeaders -Limit 3 -Remaining 1 -ResetSeconds 60 -CorrelationId $correlationId
+    $correlationId = [Guid]::NewGuid().ToString()
+    Add-DemoOperationalHeader -Limit 3 -Remaining 1 -ResetSeconds 60 -CorrelationId $correlationId
 
-    if (Should-Throttle) {
+    if (Test-Throttle) {
         $Context.Response.Headers['Retry-After'] = '30'
         Write-KrJsonResponse @{ error = 'Too many requests'; retryAfterSeconds = 30 } -StatusCode 429
         return
@@ -240,7 +287,6 @@ function createUser {
     Write-KrResponse $user -StatusCode 201
 }
 
-# GET endpoint: Return a user by ID as UserResponse
 <#
 .SYNOPSIS
     Get user by ID.
@@ -268,10 +314,10 @@ function getUser {
         [int]$userId
     )
 
-    $correlationId = New-DemoCorrelationId
-    Set-DemoOperationalHeaders -Limit 3 -Remaining 1 -ResetSeconds 60 -CorrelationId $correlationId
+    $correlationId = [Guid]::NewGuid().ToString()
+    Add-DemoOperationalHeader -Limit 3 -Remaining 1 -ResetSeconds 60 -CorrelationId $correlationId
 
-    if (Should-Throttle) {
+    if (Test-Throttle) {
         $Context.Response.Headers['Retry-After'] = '30'
         Write-KrJsonResponse @{ error = 'Too many requests'; retryAfterSeconds = 30 } -StatusCode 429
         return
@@ -297,6 +343,14 @@ function getUser {
     Write-KrResponse $found -StatusCode 200
 }
 
+<#
+.SYNOPSIS
+    Delete user by ID.
+.DESCRIPTION
+    Deletes a user resource by its identifier.
+.PARAMETER userId
+    The user ID to delete
+#>
 function deleteUser {
     [OpenApiPath(HttpVerb = 'delete', Pattern = '/users/{userId}', Tags = 'Users')]
     [OpenApiResponse(StatusCode = '204', Description = 'Deleted')]
@@ -311,8 +365,8 @@ function deleteUser {
         [int]$userId
     )
 
-    $correlationId = New-DemoCorrelationId
-    Set-DemoOperationalHeaders -Limit 3 -Remaining 1 -ResetSeconds 60 -CorrelationId $correlationId
+    $correlationId = [Guid]::NewGuid().ToString()
+    Add-DemoOperationalHeader -Limit 3 -Remaining 1 -ResetSeconds 60 -CorrelationId $correlationId
 
     $removed = $false
     [System.Threading.Monitor]::Enter($Users.SyncRoot)
@@ -340,12 +394,16 @@ function deleteUser {
 Add-KrOpenApiRoute
 
 Build-KrOpenApiDocument
-Test-KrOpenApiDocument
+# Test and log OpenAPI document validation result
+if (Test-KrOpenApiDocument) {
+    Write-KrLog -Level Information -Message 'OpenAPI document built and validated successfully.'
+} else {
+    Write-KrLog -Level Error -Message 'OpenAPI document validation failed.'
+}
 
 # =========================================================
 #                      RUN SERVER
 # =========================================================
 
 
-Start-KrServer -Server $srv -CloseLogsOnExit
-
+Start-KrServer -CloseLogsOnExit

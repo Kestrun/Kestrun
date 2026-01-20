@@ -3,6 +3,8 @@
     Creates a new OpenAPI Component Example object.
 .DESCRIPTION
     This cmdlet creates a new OpenAPI Component Example object that can be used in OpenAPI specifications.
+.PARAMETER Server
+    The Kestrun server instance to use. If not specified, the default server instance is used.
 .PARAMETER Summary
     A short summary of what the example is about.
 .PARAMETER Description
@@ -15,6 +17,10 @@
     The actual example payload as an OpenAPI 3.2 native field. In OpenAPI 3.1, it serializes as x-oai-dataValue.
 .PARAMETER SerializedValue
     The serialized representation of the DataValue. In OpenAPI 3.1, it serializes as x-oai-serializedValue.
+.PARAMETER Extensions
+    A dictionary of OpenAPI extensions to add to the example.
+.OUTPUTS
+    Microsoft.OpenApi.OpenApiExample object.
 .EXAMPLE
     $example = New-KrOpenApiExample -Summary "User Example" -Description "An example of a user object." -Value @{ id = 1; name = "John Doe" }
     This example creates a new OpenAPI Component Example with a summary, description, and a value.
@@ -37,6 +43,9 @@ function New-KrOpenApiExample {
     [CmdletBinding(DefaultParameterSetName = 'Value')]
     [OutputType([Microsoft.OpenApi.OpenApiExample])]
     param(
+        [Parameter(Mandatory = $false, ValueFromPipeline = $true)]
+        [Kestrun.Hosting.KestrunHost]$Server,
+
         [Parameter(Mandatory = $true)]
         [string]$Summary,
 
@@ -55,37 +64,50 @@ function New-KrOpenApiExample {
         [object] $DataValue,
 
         [Parameter(ParameterSetName = 'DataValue')]
-        [string] $SerializedValue
+        [string] $SerializedValue,
+
+        [Parameter()]
+        [System.Collections.IDictionary]$Extensions
     )
 
-    # Create a new OpenApiExample object
-    $example = [Microsoft.OpenApi.OpenApiExample]::new()
-
-    # Set Summary and Description if provided
-    if (-not ([string]::IsNullOrWhiteSpace($Summary))) {
-        $example.Summary = $Summary
+    begin {
+        # Ensure the server instance is resolved
+        $Server = Resolve-KestrunServer -Server $Server
     }
+    process {
+        # Create example for the specified OpenAPI document
+        if ($Server.OpenApiDocumentDescriptor.Count -gt 0 ) {
+            $docDescriptor = $Server.DefaultOpenApiDocumentDescriptor
 
-    if (-not ([string]::IsNullOrWhiteSpace($Description))) {
-        $example.Description = $Description
-    }
-    # Set the appropriate value based on the parameter set
-    switch ($PSCmdlet.ParameterSetName) {
-        'Value' {
-            # Convert using your C# helper
-            $example.Value = [Kestrun.OpenApi.OpenApiJsonNodeFactory]::FromObject($Value)
-        }
-
-        'DataValue' {
-            $example.DataValue = [Kestrun.OpenApi.OpenApiJsonNodeFactory]::FromObject($DataValue)
-            if (-not ([string]::IsNullOrWhiteSpace($SerializedValue))) {
-                $example.SerializedValue = $SerializedValue
+            $example = switch ($PSCmdlet.ParameterSetName) {
+                'Value' {
+                    $docDescriptor.NewOpenApiExample(
+                        $Summary,
+                        $Description,
+                        $Value,
+                        $Extensions
+                    )
+                }
+                'DataValue' {
+                    $docDescriptor.NewOpenApiExample(
+                        $Summary,
+                        $Description,
+                        $DataValue,
+                        $SerializedValue,
+                        $Extensions
+                    )
+                }
+                'ExternalValue' {
+                    $docDescriptor.NewOpenApiExternalExample(
+                        $Summary,
+                        $Description,
+                        $ExternalValue,
+                        $Extensions
+                    )
+                }
             }
-        }
-        'ExternalValue' {
-            $example.ExternalValue = $ExternalValue
+
+            return $example
         }
     }
-    return $example
 }
-

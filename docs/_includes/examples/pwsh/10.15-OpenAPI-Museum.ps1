@@ -25,23 +25,51 @@ Add-KrEndpoint -Port $Port -IPAddress $IPAddress
 # =========================================================
 #                 TOP-LEVEL OPENAPI (3.1.0)
 # =========================================================
-
+#region Info
 Add-KrOpenApiInfo -Title 'Redocly Museum API' `
     -Version '1.1.1' `
-    -Description 'Imaginary, but delightful Museum API for interacting with museum services and information. Built with love by Redocly.'
+    -Description 'An imaginary, but delightful Museum API for interacting with museum services and information. Built with love by Redocly.'
 
-Add-KrOpenApiContact -Email 'team@redocly.com' -Url 'https://redocly.com/docs/cli/'
+Add-KrOpenApiContact -Email 'team@redocly.com' -Url 'https://redocly.com/docs/cli/' -Extensions (
+    [ordered]@{
+        'x-logo' = [ordered]@{
+            'url' = 'https://redocly.github.io/redoc/museum-logo.png'
+            'altText' = 'Museum logo'
+        }
+    })
+
+
 Add-KrOpenApiLicense -Name 'MIT' -Url 'https://opensource.org/license/mit/'
 
-# TODO: info.x-logo is not modeled yet (url + altText). Add an extension attribute when available.
-
+# Note: contact/logo metadata is expressed via `info.contact` vendor extensions (e.g. `x-logo`) using the -Extensions parameter as shown above.
+#endregion
+#region Tags
+# =========================================================
+#                      TAG DEFINITIONS
+# =========================================================
 # Tags
-Add-KrOpenApiTag -Name 'Operations' -Description 'Operational information about the museum.'  # x-displayName: About the museum
-Add-KrOpenApiTag -Name 'Events' -Description 'Special events hosted by the Museum.'      # x-displayName: Upcoming events
-Add-KrOpenApiTag -Name 'Tickets' -Description 'Museum tickets for general entrance or special events.' # x-displayName: Buy tickets
+Add-KrOpenApiTag -Name 'Plan your visit' -Description 'Group for visit planning endpoints.' -Kind 'nav'
+Add-KrOpenApiTag -Name 'Purchases' -Description 'Group for purchase-related endpoints.' -Kind 'nav'
 
-# TODO: x-tagGroups (Plan your visit / Purchases) not modeled yet. Add tag-group extension support later.
-
+Add-KrOpenApiTag -Name 'Operations' -Description 'Operational information about the museum.' -Parent 'Plan your visit' -Extensions @{ 'x-displayName' = 'About the museum' }
+Add-KrOpenApiTag -Name 'Events' -Description 'Special events hosted by the Museum.' -Parent 'Plan your visit' -Extensions ([ordered]@{ 'x-displayName' = 'Upcoming events' })
+Add-KrOpenApiTag -Name 'Tickets' -Description 'Museum tickets for general entrance or special events.' -Parent 'Purchases' -Extensions ([ordered]@{ 'x-displayName' = 'Buy tickets' })
+#endregion
+#region Extensions
+$extensions = [ordered]@{
+    'x-tagGroups' = @(
+        [ordered]@{
+            'name' = 'Plan your visit'
+            'tags' = @('Operations', 'Events')
+        }
+        [ordered]@{
+            'name' = 'Purchases'
+            'tags' = @('Tickets')
+        })
+}
+Add-KrOpenApiExtension -Extensions $extensions
+#endregion
+#region Components
 # =========================================================
 #                      COMPONENT SCHEMAS
 # =========================================================
@@ -223,7 +251,7 @@ class BuyMuseumTicketsResponse {
     Description = 'An image of a ticket with a QR code used for museum or event entry.' )]
 class GetTicketCodeResponse:OpenApiBinary {
 }
-
+#endregion
 #region Examples
 # =========================================================
 #                 COMPONENT EXAMPLES
@@ -438,21 +466,21 @@ New-KrOpenApiExample -Summary 'Get hours response' -Value $museumHoursValue |
 
 [OpenApiParameterComponent(In = 'Query',
     Description = 'The number of days per page.')]
-[int]$paginationLimit = NoDefault
+[int]$PaginationLimit = NoDefault
 
 [OpenApiParameterComponent(In = 'Query', Description = 'The page number to retrieve.')]
-[int]$paginationPage = NoDefault
+[int]$PaginationPage = NoDefault
 
 [OpenApiParameterComponent(In = 'Query',
     Description = "The starting date to retrieve future operating hours from. Defaults to today's date." )]
-[OpenApiDate]$startDate = NoDefault
+[OpenApiDate]$StartDate = NoDefault
 
 [OpenApiParameterComponent(In = 'Path', Required = $true,
     Description = 'An identifier for a special event.', Example = 'dad4bce8-f5cb-4078-a211-995864315e39')]
 [guid]$eventId = NoDefault
 
 [OpenApiParameterComponent(In = 'Query',
-    Description = 'The end of a date range to retrieve special events for. Defaults to 7 days after startDate.')]
+    Description = 'The end of a date range to retrieve special events for. Defaults to 7 days after StartDate.')]
 [OpenApiDate]$endDate = NoDefault
 
 [OpenApiParameterComponent(In = 'Path', Required = $true,
@@ -503,16 +531,16 @@ Add-KrApiDocumentationRoute -DocumentType Elements
 # GET /museum-hours
 # --------------------------------------
 
-
-function getMuseumHours {
-    <#
+<#
 .SYNOPSIS
     Get museum hours.
 .DESCRIPTION
     Get upcoming museum operating hours.
 #>
-    [OpenApiPath(HttpVerb = 'get', Pattern = '/museum-hours', Tags = 'Operations')]
+function getMuseumHours {
 
+    [OpenApiPath(HttpVerb = 'get', Pattern = '/museum-hours', Tags = 'Operations')]
+    [OpenApiExtension('x-badges', '{"name":"Beta","position":"before","color":"purple"}')]
     [OpenApiResponse(StatusCode = '200', Schema = [GetMuseumHoursResponse] , Description = 'Success')]
     [OpenApiResponseExampleRef(StatusCode = '200', Key = 'default_example', ReferenceId = 'GetMuseumHoursResponseExample')]
     [OpenApiResponse(StatusCode = '400', Description = 'Bad request')]
@@ -520,22 +548,22 @@ function getMuseumHours {
     # TODO: 400/404 responses are inline in museum.yml; you could introduce response components and use OpenApiResponseRefAttribute.
 
     param(
-        [OpenApiParameterRef(ReferenceId = 'startDate')]
-        [datetime]$startDate,
+        [OpenApiParameterRef(ReferenceId = 'StartDate')]
+        [datetime]$StartDate,
 
-        [OpenApiParameterRef(ReferenceId = 'paginationPage')]
-        [int]$paginationPage = 1,
+        [OpenApiParameterRef(ReferenceId = 'PaginationPage')]
+        [int]$PaginationPage = 1,
 
-        [OpenApiParameterRef(ReferenceId = 'paginationLimit')]
-        [int]$paginationLimit = 10
+        [OpenApiParameterRef(ReferenceId = 'PaginationLimit')]
+        [int]$PaginationLimit = 10
     )
 
-    Write-Host "getMuseumHours called startDate='$startDate' page='$paginationPage' limit='$paginationLimit'"
+    Write-Host "getMuseumHours called StartDate='$StartDate' page='$PaginationPage' limit='$PaginationLimit'"
 
     # Dummy payload approximating GetMuseumHoursResponse: a plain array of MuseumDailyHours objects.
     $hours = @(
         [MuseumDailyHours]@{
-            date = $(if ($startDate) { $startDate } else { (Get-Date).ToString('yyyy-MM-dd') })
+            date = $(if ($StartDate) { $StartDate } else { (Get-Date).ToString('yyyy-MM-dd') })
             timeOpen = '09:00'
             timeClose = '18:00'
         }
@@ -589,7 +617,7 @@ function listSpecialEvents {
     List special events.
 .DESCRIPTION
     Return a list of upcoming special events at the museum.
-.PARAMETER startDate
+.PARAMETER StartDate
     The starting date to retrieve future special events from. Defaults to today's date.
 .PARAMETER endDate
     The ending date to retrieve future special events up to. Defaults to no end date.
@@ -609,7 +637,7 @@ function listSpecialEvents {
     param(
         [OpenApiParameter( In = [OaParameterLocation]::Query, Example = '2023-02-23')]
 
-        [DateTime]$startDate,
+        [DateTime]$StartDate,
 
         [OpenApiParameter( In = [OaParameterLocation]::Query, Example = '2023-04-18')]
         [DateTime]$endDate,
@@ -622,7 +650,7 @@ function listSpecialEvents {
         [int]$limit = 10
     )
 
-    Write-Host "listSpecialEvents called startDate='$startDate' endDate='$endDate' page='$page' limit='$limit'"
+    Write-Host "listSpecialEvents called StartDate='$StartDate' endDate='$endDate' page='$page' limit='$limit'"
     $specialEvent = [SpecialEventResponse]::new()
     $specialEvent.eventId = [Guid]::NewGuid().ToString()
     $specialEvent.name = 'Sample Event'

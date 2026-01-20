@@ -269,8 +269,6 @@ Start-KrServer
         Environment = $environment
     }
 
-
-
     # Prevent spawned process from inheriting the test runner's console window on Windows (avoids unwanted UI popups during automated tests)
     if ($IsWindows) { $param.WindowStyle = 'Hidden' }
     # Start the process
@@ -332,6 +330,7 @@ Start-KrServer
 
     return [pscustomobject]@{
         Name = $Name
+        BaseName = (-not [string]::IsNullOrWhiteSpace($Name))? [System.IO.Path]::GetFileNameWithoutExtension($Name): 'ScriptBlock'
         Url = ('{0}://{1}:{2}' -f ($usesHttps ? 'https' : 'http'), $serverIp, $Port)
         Host = $serverIp
         Port = $Port

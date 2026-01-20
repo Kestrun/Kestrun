@@ -124,7 +124,30 @@ New-KrOpenApiExample -Summary 'General entry ticket' -Value ([ordered]@{
         ticketType = 'general'
         ticketDate = '2023-09-07'
         email = 'todd@example.com'
+    }) -Extensions ([ordered]@{
+        'x-kestrun-demo' = [ordered]@{
+            scenario = 'buy-ticket'
+            payloadKind = 'request'
+            preferredContentTypes = @('application/json', 'application/xml', 'application/yaml', 'application/x-www-form-urlencoded')
+        }
     }) | Add-KrOpenApiComponent -Name 'BuyGeneralTicketsRequestExample'
+
+$buyTicketRequestDataValue = [ordered]@{
+    ticketType = 'general'
+    ticketDate = '2023-09-07'
+    email = 'todd@example.com'
+}
+New-KrOpenApiExample -Summary 'General entry ticket (dataValue)' `
+    -Description 'Same payload as the request example, using the OpenAPI 3.2 dataValue field (3.1 emits x-oai-dataValue).' `
+    -DataValue $buyTicketRequestDataValue `
+    -SerializedValue '{"ticketType":"general","ticketDate":"2023-09-07","email":"todd@example.com"}' `
+    -Extensions ([ordered]@{
+        'x-kestrun-demo' = [ordered]@{
+            scenario = 'buy-ticket'
+            payloadKind = 'request'
+            openApiField = 'dataValue'
+        }
+    }) | Add-KrOpenApiComponent -Name 'BuyGeneralTicketsRequestDataValueExample'
 
 New-KrOpenApiExample -Summary 'General entry ticket purchased' -Value ([ordered]@{
         message = 'Museum general entry ticket purchased'
@@ -132,13 +155,36 @@ New-KrOpenApiExample -Summary 'General entry ticket purchased' -Value ([ordered]
         ticketType = 'general'
         ticketDate = '2023-09-07'
         confirmationCode = 'ticket-general-e5e5c6-dce78'
+    }) -Extensions ([ordered]@{
+        'x-kestrun-demo' = [ordered]@{
+            scenario = 'buy-ticket'
+            payloadKind = 'response'
+            statusCode = 201
+        }
     }) | Add-KrOpenApiComponent -Name 'BuyGeneralTicketsResponseExample'
 
 New-KrOpenApiExample -Summary 'Get hours response' -Value @(
     [ordered]@{ date = '2023-09-11'; timeOpen = '09:00'; timeClose = '18:00' }
     [ordered]@{ date = '2023-09-12'; timeOpen = '09:00'; timeClose = '18:00' }
     [ordered]@{ date = '2023-09-13'; timeOpen = '09:00'; timeClose = '18:00' }
-) | Add-KrOpenApiComponent -Name 'GetMuseumHoursResponseExample'
+) -Extensions ([ordered]@{
+        'x-kestrun-demo' = [ordered]@{
+            scenario = 'museum-hours'
+            payloadKind = 'response'
+            statusCode = 200
+        }
+    }) | Add-KrOpenApiComponent -Name 'GetMuseumHoursResponseExample'
+
+New-KrOpenApiExample -Summary 'Get hours response (external)' `
+    -Description 'Demonstrates externalValue (a URL to a literal example payload).' `
+    -ExternalValue 'https://example.com/openapi/examples/museum-hours.json' `
+    -Extensions ([ordered]@{
+        'x-kestrun-demo' = [ordered]@{
+            scenario = 'museum-hours'
+            payloadKind = 'response'
+            openApiField = 'externalValue'
+        }
+    }) | Add-KrOpenApiComponent -Name 'GetMuseumHoursResponseExternalExample'
 
 # --- Inline examples (stored in Kestrun inline store; copied inline when applied) ---
 New-KrOpenApiExample -Summary 'Common today ticket date' -Value (Convert-ToIsoDate (Get-Date)) |
@@ -184,6 +230,8 @@ function buyTicket {
             ContentType = ('application/json', 'application/xml', 'application/x-www-form-urlencoded', 'application/yaml') )]
         [OpenApiRequestBodyExampleRef(Key = 'general_entry', ReferenceId = 'BuyGeneralTicketsRequestExample' ,
             ContentType = ('application/json', 'application/xml', 'application/x-www-form-urlencoded', 'application/yaml'))]
+        [OpenApiRequestBodyExampleRef(Key = 'general_entry_dataValue', ReferenceId = 'BuyGeneralTicketsRequestDataValueExample' ,
+            ContentType = ('application/json', 'application/xml', 'application/x-www-form-urlencoded', 'application/yaml'))]
         [BuyTicketRequest]$Body
     )
 
@@ -207,6 +255,7 @@ function getMuseumHours {
     [OpenApiPath(HttpVerb = 'get', Pattern = '/museum-hours')]
     [OpenApiResponse(StatusCode = '200', Schema = [GetMuseumHoursResponse], Description = 'Success', ContentType = 'application/json')]
     [OpenApiResponseExampleRef(StatusCode = '200', Key = 'default_example', ReferenceId = 'GetMuseumHoursResponseExample')]
+    [OpenApiResponseExampleRef(StatusCode = '200', Key = 'external_example', ReferenceId = 'GetMuseumHoursResponseExternalExample')]
     param()
 
     $resp = @(

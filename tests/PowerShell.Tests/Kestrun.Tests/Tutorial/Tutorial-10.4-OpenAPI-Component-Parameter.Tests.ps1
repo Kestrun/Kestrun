@@ -54,10 +54,10 @@ Describe 'Example 10.4 OpenAPI Component Parameter' -Tag 'OpenApi', 'Tutorial', 
 
     It 'Create Product (POST DryRun)' {
         $body = @{
-            name     = 'USB-C Dock'
+            name = 'USB-C Dock'
             category = 'electronics'
-            price    = 159.99
-            tags     = @('usb-c', 'dock')
+            price = 159.99
+            tags = @('usb-c', 'dock')
         } | ConvertTo-Json -Compress
 
         $result = Invoke-WebRequest -Uri "$($script:instance.Url)/v1/products?dryRun=true" -Method Post -ContentType 'application/json' -Body $body -SkipCertificateCheck -SkipHttpErrorCheck
@@ -69,9 +69,9 @@ Describe 'Example 10.4 OpenAPI Component Parameter' -Tag 'OpenApi', 'Tutorial', 
 
     It 'Create Product (POST Invalid Body)' {
         $body = @{
-            name     = ''
+            name = ''
             category = 'electronics'
-            price    = 159.99
+            price = 159.99
         } | ConvertTo-Json -Compress
 
         $result = Invoke-WebRequest -Uri "$($script:instance.Url)/v1/products?dryRun=true" -Method Post -ContentType 'application/json' -Body $body -SkipCertificateCheck -SkipHttpErrorCheck
@@ -118,6 +118,15 @@ Describe 'Example 10.4 OpenAPI Component Parameter' -Tag 'OpenApi', 'Tutorial', 
         $json.components.parameters.limit | Should -Not -BeNullOrEmpty
     }
 
+    It 'Check OpenAPI Parameter Extensions' {
+        $result = Invoke-WebRequest -Uri "$($script:instance.Url)/openapi/v3.1/openapi.json" -SkipCertificateCheck -SkipHttpErrorCheck
+        $json = $result.Content | ConvertFrom-Json
+
+        $json.components.parameters.myCategory.'x-kestrun-demo'.kind | Should -Be 'catalog-context'
+        $json.components.parameters.correlationId.'x-kestrun-demo'.kind | Should -Be 'trace'
+        $json.components.parameters.correlationId.'x-kestrun-demo'.format | Should -Be 'uuid'
+    }
+
     It 'OpenAPI includes all example paths' {
         $result = Invoke-WebRequest -Uri "$($script:instance.Url)/openapi/v3.1/openapi.json" -SkipCertificateCheck -SkipHttpErrorCheck
         $result.StatusCode | Should -Be 200
@@ -140,8 +149,8 @@ Describe 'Example 10.4 OpenAPI Component Parameter' -Tag 'OpenApi', 'Tutorial', 
         $result.StatusCode | Should -Be 200
 
         $actualNormalized = Get-NormalizedJson $result.Content
-        $expectedPath = Join-Path -Path (Get-TutorialExamplesDirectory) -ChildPath 'Assets' -AdditionalChildPath 'OpenAPI', '10.4-Parameters.json'
-
+        $expectedPath = Join-Path -Path (Get-TutorialExamplesDirectory) -ChildPath 'Assets' `
+            -AdditionalChildPath 'OpenAPI', "$($script:instance.BaseName).json"
         $expectedContent = Get-Content -Path $expectedPath -Raw
         $expectedNormalized = Get-NormalizedJson $expectedContent
 

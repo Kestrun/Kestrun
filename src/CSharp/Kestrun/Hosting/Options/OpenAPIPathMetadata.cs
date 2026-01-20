@@ -117,5 +117,5 @@ public record OpenAPIPathMetadata : OpenAPICommonMetadata
     /// <summary>
     /// A map of custom extensions for the OpenAPI object.
     /// </summary>
-    public IDictionary<string, IOpenApiExtension>? Extensions { get; set; }
+    public Dictionary<string, IOpenApiExtension>? Extensions { get; set; }
 }

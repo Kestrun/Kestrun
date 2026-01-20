@@ -70,12 +70,34 @@ public partial class OpenApiDocDescriptor
 
         if (t.IsEnum)
         {
-            RegisterEnumSchema(t);
-            return schema;
+            return RegisterEnumSchema(t);
         }
-
+        // Extensions
+        ProcessExtensions(t, schema);
+        // Properties
         ProcessTypeProperties(t, schema, built);
+        // Return composed schema if applicable
         return ComposeWithParentSchema(schemaParent, schema);
+    }
+
+    /// <summary>
+    /// Processes OpenAPI extensions defined on a type and adds them to the schema.
+    /// </summary>
+    /// <param name="t">The type being processed.</param>
+    /// <param name="schema"></param>
+    private static void ProcessExtensions(Type t, OpenApiSchema schema)
+    {
+        foreach (var attr in t.GetCustomAttributes<OpenApiExtensionAttribute>(inherit: false))
+        {
+            schema.Extensions ??= new Dictionary<string, IOpenApiExtension>(StringComparer.Ordinal);
+            // Parse string into a JsonNode tree.
+            var node = JsonNode.Parse(attr.Json);
+            if (node is null)
+            {
+                continue;
+            }
+            schema.Extensions[attr.Name] = new JsonNodeExtension(node);
+        }
     }
 
     /// <summary>
@@ -376,16 +398,19 @@ public partial class OpenApiDocDescriptor
     /// <summary>
     /// Registers an enum type schema in the document components.
     /// </summary>
-    private void RegisterEnumSchema(Type enumType)
+    /// <returns>The registered enum schema.</returns>
+    private OpenApiSchema RegisterEnumSchema(Type enumType)
     {
+        var enumSchema = new OpenApiSchema
+        {
+            Type = JsonSchemaType.String,
+            Enum = [.. enumType.GetEnumNames().Select(n => (JsonNode)n)]
+        };
         if (Document.Components?.Schemas is not null)
         {
-            Document.Components.Schemas[enumType.Name] = new OpenApiSchema
-            {
-                Type = JsonSchemaType.String,
-                Enum = [.. enumType.GetEnumNames().Select(n => (JsonNode)n)]
-            };
+            Document.Components.Schemas[enumType.Name] = enumSchema;
         }
+        return enumSchema;
     }
 
     /// <summary>

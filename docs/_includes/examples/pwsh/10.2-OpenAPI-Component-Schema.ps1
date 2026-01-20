@@ -68,6 +68,12 @@ enum TicketType {
 }
 
 [OpenApiSchemaComponent(Description = 'Postal address.', RequiredProperties = ('street', 'city', 'postalCode'))]
+[OpenApiExtension('x-badges', '[{"name":"Beta","position":"before","color":"purple"},{"name":"PII","position":"after","color":"orange"}]')]
+[OpenApiExtension('x-kestrun-demo',
+    '{"owner":"docs","stability":"beta","domain":"profiles","containsPii":true,
+"notes":["Schema-level vendor extensions are emitted under components.schemas.<Name>",
+"This schema also uses a regex ValidatePattern for postalCode"]}'
+)]
 class Address {
     [OpenApiProperty(Description = 'Street line.', Example = '1 Museum Way')]
     [string]$street
@@ -154,6 +160,9 @@ class PurchaseRequest {
     [OpenApiProperty(Description = 'Dates the tickets are valid for.')]
     [Dates]$visitDates
 
+    [OpenApiProperty(Description = 'Optional preferred ticket type (nullable enum - produces anyOf with null).', Example = 'general')]
+    [Nullable[TicketType]]$preferredTicketType
+
     [OpenApiProperty(Description = 'Optional note attached to the purchase.', Example = 'Please email the receipt.')]
     [string]$note
 }
@@ -191,12 +200,15 @@ Enable-KrConfiguration
 Add-KrApiDocumentationRoute -DocumentType Swagger
 Add-KrApiDocumentationRoute -DocumentType Redoc
 
-# GET endpoint: Return a list of employees (array component)
+
 <#
 .SYNOPSIS
     List employees.
 .DESCRIPTION
     Returns an array of employee records.
+.NOTES
+    Demonstrates reusable component schemas and array wrappers.
+    GET endpoint: Return a list of employees (array component)
 #>
 function listEmployees {
     [OpenApiPath(HttpVerb = 'get', Pattern = '/employees')]
@@ -230,8 +242,6 @@ function listEmployees {
     Write-KrResponse $employees -StatusCode 200
 }
 
-# POST endpoint: Purchase tickets (nested objects + array wrappers)
-
 <#
 .SYNOPSIS
     Purchase tickets.
@@ -239,6 +249,9 @@ function listEmployees {
     Accepts a purchase request and returns a purchase confirmation.
 .PARAMETER body
     Ticket purchase request payload.
+.NOTES
+    Demonstrates nested object graphs and array wrappers.
+    POST endpoint: Accept a purchase request and return a purchase response
 #>
 function purchaseTickets {
     [OpenApiPath(HttpVerb = 'post', Pattern = '/tickets/purchase')]

@@ -3,6 +3,9 @@
     Creates a new OpenAPI External Documentation object.
 .DESCRIPTION
     This function creates a new OpenAPI External Documentation object using the provided parameters.
+.PARAMETER Server
+    The Kestrun server instance to which the OpenAPI external documentation will be associated.
+    If not specified, the function will attempt to resolve the current server context.
 .PARAMETER Url
     A URI to the external documentation.
 .PARAMETER Description
@@ -28,6 +31,9 @@ function New-KrOpenApiExternalDoc {
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseShouldProcessForStateChangingFunctions', '')]
     [KestrunRuntimeApi('Definition')]
     param(
+        [Parameter(Mandatory = $false, ValueFromPipeline = $true)]
+        [Kestrun.Hosting.KestrunHost]$Server,
+
         [Parameter(Mandatory = $true)]
         [Uri]$Url,
 
@@ -35,8 +41,19 @@ function New-KrOpenApiExternalDoc {
         [string]$Description,
 
         [Parameter(Mandatory = $false)]
-        [System.Collections.Specialized.OrderedDictionary]$Extensions
+        [System.Collections.IDictionary]$Extensions
     )
-    # Create and add the external documentation
-    return [Kestrun.OpenApi.OpenApiDocDescriptor]::CreateExternalDocs($Url, $Description, $Extensions)
+    begin {
+        # Ensure the server instance is resolved
+        $Server = Resolve-KestrunServer -Server $Server
+    }
+    process {
+        # Create external documentation for the specified OpenAPI document
+        if ($Server.OpenApiDocumentDescriptor.Count -gt 0 ) {
+            $docDescriptor = $Server.DefaultOpenApiDocumentDescriptor
+            return $docDescriptor.CreateExternalDocs($Url, $Description, $Extensions)
+        } else {
+            Write-KrLog -Level Warning 'New-KrOpenApiExternalDoc: No OpenAPI documents exist on the server.Create an OpenAPI document before adding external documentation.'
+        }
+    }
 }

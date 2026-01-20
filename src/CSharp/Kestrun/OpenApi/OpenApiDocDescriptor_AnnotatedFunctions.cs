@@ -1,6 +1,7 @@
 using System.Management.Automation;
 using System.Management.Automation.Internal;
 using System.Management.Automation.Language;
+using System.Text.Json.Nodes;
 using Kestrun.Hosting;
 using Kestrun.Hosting.Options;
 using Kestrun.Languages;
@@ -108,6 +109,9 @@ public partial class OpenApiDocDescriptor
                     case OpenApiCallbackAttribute callbackOperation:
                         parsedVerb = ApplyPathAttribute(func, help, routeOptions, openApiMetadata, parsedVerb, callbackOperation);
                         break;
+                    case OpenApiExtensionAttribute extensionAttr:
+                        ApplyExtensionAttribute(openApiMetadata, extensionAttr);
+                        break;
                     case OpenApiResponseRefAttribute responseRef:
                         ApplyResponseRefAttribute(openApiMetadata, responseRef);
                         break;
@@ -147,6 +151,29 @@ public partial class OpenApiDocDescriptor
         }
 
         return parsedVerb;
+    }
+
+    /// <summary>
+    /// Applies the OpenApiExtension attribute to the function's OpenAPI metadata.
+    /// </summary>
+    /// <param name="openApiMetadata">The OpenAPI metadata to which the extension will be applied.</param>
+    /// <param name="extensionAttr">The OpenApiExtension attribute containing the extension data.</param>
+    private void ApplyExtensionAttribute(OpenAPIPathMetadata openApiMetadata, OpenApiExtensionAttribute extensionAttr)
+    {
+        if (Host.Logger.IsEnabled(Serilog.Events.LogEventLevel.Debug))
+        {
+            Host.Logger.Debug("Applying OpenApiExtension '{extensionName}' to function metadata", extensionAttr.Name);
+        }
+        openApiMetadata.Extensions ??= [];
+
+        // Parse string into a JsonNode tree.
+        var node = JsonNode.Parse(extensionAttr.Json);
+        if (node is null)
+        {
+            Host.Logger.Error("Error parsing OpenAPI extension '{extensionName}': JSON is null", extensionAttr.Name);
+            return;
+        }
+        openApiMetadata.Extensions[extensionAttr.Name] = new JsonNodeExtension(node);
     }
 
     /// <summary>

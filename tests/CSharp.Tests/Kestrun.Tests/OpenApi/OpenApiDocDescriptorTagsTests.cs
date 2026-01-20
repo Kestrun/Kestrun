@@ -72,22 +72,22 @@ public sealed class OpenApiDocDescriptorTagsTests
 
         var docsExtensions = new Hashtable
         {
-            ["audience"] = "public",
+            ["x-audience"] = "public",
             ["x-docType"] = "reference",
-            ["nullValue"] = null,
+            ["x-nullValue"] = null,
         };
 
-        var extDocs = OpenApiDocDescriptor.CreateExternalDocs(
+        var extDocs = d.CreateExternalDocs(
             new Uri("https://example.com/orders", UriKind.Absolute),
             description: "Order docs",
             extensions: docsExtensions);
 
         var tagExtensions = new Hashtable
         {
-            ["displayName"] = "Orders",
+            ["x-displayName"] = "Orders",
             ["x-sortOrder"] = 10,
-            ["icon"] = "box",
-            ["nullValue"] = null,
+            ["x-icon"] = "box",
+            ["x-nullValue"] = null,
             [""] = "ignored",
         };
 
@@ -166,21 +166,29 @@ public sealed class OpenApiDocDescriptorTagsTests
     }
 
     [Fact]
-    public void CreateExternalDocs_StringOverload_ThrowsOnWhitespace() =>
-        _ = Assert.Throws<ArgumentException>(() => OpenApiDocDescriptor.CreateExternalDocs(" ", description: "desc"));
+    public void CreateExternalDocs_StringOverload_ThrowsOnWhitespace()
+    {
+        using var host = new KestrunHost("Tests", Log.Logger);
+        var d = new OpenApiDocDescriptor(host, OpenApiDocDescriptor.DefaultDocumentationId);
+
+        _ = Assert.Throws<ArgumentException>(() => d.CreateExternalDocs(" ", description: "desc"));
+    }
 
     [Fact]
     public void CreateExternalDocs_UriOverload_NormalizesExtensions_AndSkipsNullValues()
     {
+        using var host = new KestrunHost("Tests", Log.Logger);
+        var d = new OpenApiDocDescriptor(host, OpenApiDocDescriptor.DefaultDocumentationId);
+
         var extensions = new Hashtable
         {
-            ["audience"] = "public",
+            ["x-audience"] = "public",
             ["x-docType"] = "reference",
-            ["nullValue"] = null,
+            ["x-nullValue"] = null,
             [" "] = "ignored",
         };
 
-        var docs = OpenApiDocDescriptor.CreateExternalDocs(
+        var docs = d.CreateExternalDocs(
             new Uri("https://example.com", UriKind.Absolute),
             description: "Example",
             extensions: extensions);

@@ -95,23 +95,37 @@ public partial class OpenApiDocDescriptor
         {
             schema = getSchema();
         }
-        else if (pt.IsEnum)
+        else if (pt.IsArray)
         {
-            schema = BuildEnumSchema(pt, p);
+            schema = BuildArraySchema(pt, p, built);
         }
         else
         {
-            schema = pt.IsArray
-                ? BuildArraySchema(pt, p, built)
-                // Complex type
-                : BuildComplexTypeSchema(pt, p, built);
+            // Treat enums and complex types the same: register as component and reference
+            schema = BuildComplexTypeSchema(pt, built);
         }
 #pragma warning restore IDE0045
         // Convert to conditional expression
         // Apply nullable flag if needed
-        if (allowNull && schema is OpenApiSchema s)
+        if (allowNull)
         {
-            s.Type |= JsonSchemaType.Null;
+            if (schema is OpenApiSchema s)
+            {
+                // For inline schemas, add null type directly
+                s.Type |= JsonSchemaType.Null;
+            }
+            else if (schema is OpenApiSchemaReference refSchema)
+            {
+                // For $ref schemas (enums/complex types), wrap in anyOf with null
+                schema = new OpenApiSchema
+                {
+                    AnyOf =
+                    [
+                        refSchema,
+                        new OpenApiSchema { Type = JsonSchemaType.Null }
+                    ]
+                };
+            }
         }
         ApplySchemaAttr(MergeXmlAttributes(p), schema);
         PowerShellAttributes.ApplyPowerShellAttributes(p, schema);
@@ -171,15 +185,9 @@ public partial class OpenApiDocDescriptor
         }
         else
         {
-            if (!item.IsEnum)
-            {
-                BuildSchema(item, built); // ensure component exists
-                itemSchema = new OpenApiSchemaReference(item.Name);
-            }
-            else
-            {
-                itemSchema = BuildEnumSchema(item, p);
-            }
+            // Treat enums and complex types the same: register as component and reference
+            BuildSchema(item, built); // ensure component exists
+            itemSchema = new OpenApiSchemaReference(item.Name);
         }
         var s = new OpenApiSchema
         {

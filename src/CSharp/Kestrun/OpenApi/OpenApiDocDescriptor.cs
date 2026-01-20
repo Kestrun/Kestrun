@@ -4,6 +4,8 @@ using Microsoft.OpenApi.Reader;
 using System.Text;
 using Kestrun.Hosting.Options;
 using Kestrun.Utilities;
+using System.Collections;
+using System.Text.Json.Nodes;
 
 namespace Kestrun.OpenApi;
 
@@ -170,6 +172,9 @@ public partial class OpenApiDocDescriptor
                 case OpenApiRequestBodyExampleRefAttribute requestBodyExampleRef:
                     ProcessRequestBodyExampleRef(variable.Name, requestBodyExampleRef);
                     break;
+                case OpenApiExtensionAttribute extensionAttribute:
+                    ProcessVariableExtension(variable, extensionAttribute);
+                    break;
                 case InternalPowershellAttribute powershellAttribute:
                     // Process PowerShell attribute to modify the schema
                     ProcessPowerShellAttribute(variable.Name, powershellAttribute);
@@ -186,17 +191,62 @@ public partial class OpenApiDocDescriptor
                 case OpenApiResponseExampleRefAttribute exampleRef:
                     ProcessResponseExampleRef(variable.Name, exampleRef);
                     break;
-                // future:
-                // case OpenApiHeaderComponent header:
-                //     ProcessHeaderComponent(variableName, variable, header);
-                //     break;
-
                 default:
                     break;
             }
         }
     }
 
+    /// <summary>
+    /// Processes an OpenAPI extension annotation for a given variable.
+    /// </summary>
+    /// <param name="variable"> The annotated variable containing annotations.</param>
+    /// <param name="extensionAttribute"> The OpenAPI extension attribute to process.</param>
+    private void ProcessVariableExtension(OpenApiComponentAnnotationScanner.AnnotatedVariable variable, OpenApiExtensionAttribute extensionAttribute)
+    {
+        var extensions = new Dictionary<string, IOpenApiExtension>(StringComparer.Ordinal);
+
+        if (Host.Logger.IsEnabled(Serilog.Events.LogEventLevel.Debug))
+        {
+            Host.Logger.Debug("Applying OpenApiExtension '{extensionName}' to function metadata", extensionAttribute.Name);
+        }
+        // Parse string into a JsonNode tree.
+        var node = JsonNode.Parse(extensionAttribute.Json);
+        if (node is null)
+        {
+            Host.Logger.Error("Error parsing OpenAPI extension '{extensionName}': JSON is null", extensionAttribute.Name);
+            return;
+        }
+        extensions[extensionAttribute.Name] = new JsonNodeExtension(node);
+        if (variable.Annotations.Any(a => a is OpenApiParameterComponentAttribute))
+        {
+            var param = GetOrCreateParameterItem(variable.Name, false);
+            param.Extensions = extensions;
+        }
+        else if (variable.Annotations.Any(a => a is OpenApiRequestBodyComponentAttribute))
+        {
+            var requestBody = GetOrCreateRequestBodyItem(variable.Name, false);
+            requestBody.Extensions = extensions;
+        }
+        else if (variable.Annotations.Any(a => a is OpenApiResponseComponentAttribute))
+        {
+            var response = GetOrCreateResponseItem(variable.Name, false);
+            response.Extensions = extensions;
+        }
+        else
+        {
+            Host.Logger.Error("OpenApiExtension '{extensionName}' could not be applied: no matching component found for variable '{variableName}'", extensionAttribute.Name, variable.Name);
+            return;
+        }
+    }
+
+    /// <summary>
+    /// Tries to apply the variable type schema to the given OpenAPI response.
+    /// </summary>
+    /// <param name="response"> The OpenAPI response to apply the schema to.</param>
+    /// <param name="variable"> The annotated variable containing annotations.</param>
+    /// <param name="responseDescriptor"> The response component attribute describing the response.</param>
+    /// <exception cref="InvalidOperationException"> Thrown if the response component does not specify any ContentType.</exception>
     private void TryApplyVariableTypeSchema(
         OpenApiResponse response,
         OpenApiComponentAnnotationScanner.AnnotatedVariable variable,
@@ -300,5 +350,27 @@ public partial class OpenApiDocDescriptor
         var w = new OpenApiYamlWriter(sw);
         Document.SerializeAs(version, w);
         return sw.ToString();
+    }
+
+    /// <summary>
+    /// Creates an OpenAPI extension in the document from the provided extensions dictionary.
+    /// </summary>
+    /// <param name="extensions">A dictionary containing the extensions.</param>
+    /// <exception cref="ArgumentException">Thrown when the specified extension name is not found in the provided extensions dictionary.</exception>
+    public void AddOpenApiExtension(IDictionary? extensions)
+    {
+        var built = BuildExtensions(extensions);
+
+        if (built is null)
+        {
+            return;
+        }
+
+        Document.Extensions ??= new Dictionary<string, IOpenApiExtension>(StringComparer.Ordinal);
+
+        foreach (var kvp in built)
+        {
+            Document.Extensions[kvp.Key] = kvp.Value;
+        }
     }
 }

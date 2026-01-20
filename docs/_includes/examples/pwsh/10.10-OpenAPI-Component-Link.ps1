@@ -40,18 +40,43 @@ Add-KrOpenApiTag -Name 'Users' -Description 'User-related endpoints.'
 
 # Link component: use id from response body to fetch the user resource.
 New-KrOpenApiLink -OperationId 'getUser' -Description 'Get the created/returned user.' `
-    -Parameters @{ userId = '$response.body#/id' } |
+    -Parameters @{ userId = '$response.body#/id' } `
+    -Extensions ([ordered]@{
+        'x-kestrun-demo' = [ordered]@{
+            relation = 'get'
+            targetOperation = 'getUser'
+            parameterSource = '$response.body#/id'
+            note = 'Demonstrates runtime expressions inside reusable link components.'
+        }
+    }) |
     Add-KrOpenApiComponent -Name 'GetUserLink'
 
 # Link component: use id from response body and pass the nested user object as request body.
 New-KrOpenApiLink -OperationId 'updateUser' -Description 'Update the created/returned user.' `
     -Parameters @{ userId = '$response.body#/id' } `
-    -RequestBody '$response.body#/user' |
+    -RequestBody '$response.body#/user' `
+    -Extensions ([ordered]@{
+        'x-kestrun-demo' = [ordered]@{
+            relation = 'update'
+            targetOperation = 'updateUser'
+            parameterSource = '$response.body#/id'
+            requestBodySource = '$response.body#/user'
+            note = 'Shows requestBody mapping via runtime expression.'
+        }
+    }) |
     Add-KrOpenApiComponent -Name 'UpdateUserLink'
 
 # Link component: use id from response body to delete the user resource.
 New-KrOpenApiLink -OperationId 'deleteUser' -Description 'Delete the created/returned user.' `
-    -Parameters @{ userId = '$response.body#/id' } |
+    -Parameters @{ userId = '$response.body#/id' } `
+    -Extensions ([ordered]@{
+        'x-kestrun-demo' = [ordered]@{
+            relation = 'delete'
+            targetOperation = 'deleteUser'
+            parameterSource = '$response.body#/id'
+            note = 'Links let clients discover follow-up operations after a response.'
+        }
+    }) |
     Add-KrOpenApiComponent -Name 'DeleteUserLink'
 
 # =========================================================

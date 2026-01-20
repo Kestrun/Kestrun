@@ -61,7 +61,7 @@ function Add-KrOpenApiTag {
         [Microsoft.OpenApi.OpenApiExternalDocs]$ExternalDocs,
 
         [Parameter()]
-        [System.Collections.Specialized.OrderedDictionary]$Extensions
+        [System.Collections.IDictionary]$Extensions
     )
     begin {
         # Ensure the server instance is resolved

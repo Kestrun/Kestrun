@@ -643,11 +643,11 @@ public static class PowerShellOpenApiClassExporter
         _ = sb.AppendLine("    static [hashtable] GetOpenApiXmlMetadata() {");
         _ = sb.AppendLine("        $metadata = @{");
         _ = sb.AppendLine("            ClassName = '" + type.Name + "'");
-        
+
         // Get class-level OpenApiXml attribute
         var classXmlAttr = type.GetCustomAttributes(inherit: false)
             .FirstOrDefault(a => a.GetType().Name == "OpenApiXmlAttribute");
-        
+
         if (classXmlAttr != null)
         {
             var classXml = BuildXmlMetadataHashtable(classXmlAttr, indent: 12);
@@ -658,18 +658,18 @@ public static class PowerShellOpenApiClassExporter
                 _ = sb.AppendLine("            }");
             }
         }
-        
+
         // Get property-level OpenApiXml attributes
         if (props.Length > 0)
         {
             _ = sb.AppendLine("            Properties = @{");
             var hasAnyPropertyXml = false;
-            
+
             foreach (var prop in props)
             {
                 var propXmlAttr = prop.GetCustomAttributes(inherit: false)
                     .FirstOrDefault(a => a.GetType().Name == "OpenApiXmlAttribute");
-                    
+
                 if (propXmlAttr != null)
                 {
                     var propXml = BuildXmlMetadataHashtable(propXmlAttr, indent: 20);
@@ -682,15 +682,15 @@ public static class PowerShellOpenApiClassExporter
                     }
                 }
             }
-            
+
             if (!hasAnyPropertyXml)
             {
                 _ = sb.AppendLine("                # No property-level XML metadata");
             }
-            
+
             _ = sb.AppendLine("            }");
         }
-        
+
         _ = sb.AppendLine("        }");
         _ = sb.AppendLine("        return $metadata");
         _ = sb.AppendLine("    }");
@@ -707,45 +707,45 @@ public static class PowerShellOpenApiClassExporter
         var attrType = xmlAttr.GetType();
         var sb = new StringBuilder();
         var indentStr = new string(' ', indent);
-        
+
         // Extract properties using reflection
         var nameProp = attrType.GetProperty("Name");
         var namespaceProp = attrType.GetProperty("Namespace");
         var prefixProp = attrType.GetProperty("Prefix");
         var attributeProp = attrType.GetProperty("Attribute");
         var wrappedProp = attrType.GetProperty("Wrapped");
-        
+
         var name = nameProp?.GetValue(xmlAttr) as string;
         var ns = namespaceProp?.GetValue(xmlAttr) as string;
         var prefix = prefixProp?.GetValue(xmlAttr) as string;
         var isAttribute = attributeProp?.GetValue(xmlAttr) is bool b && b;
         var isWrapped = wrappedProp?.GetValue(xmlAttr) is bool w && w;
-        
+
         if (!string.IsNullOrWhiteSpace(name))
         {
             _ = sb.AppendLine($"{indentStr}Name = '{EscapePowerShellString(name)}'");
         }
-        
+
         if (!string.IsNullOrWhiteSpace(ns))
         {
             _ = sb.AppendLine($"{indentStr}Namespace = '{EscapePowerShellString(ns)}'");
         }
-        
+
         if (!string.IsNullOrWhiteSpace(prefix))
         {
             _ = sb.AppendLine($"{indentStr}Prefix = '{EscapePowerShellString(prefix)}'");
         }
-        
+
         if (isAttribute)
         {
             _ = sb.AppendLine($"{indentStr}Attribute = $true");
         }
-        
+
         if (isWrapped)
         {
             _ = sb.AppendLine($"{indentStr}Wrapped = $true");
         }
-        
+
         return sb.ToString().TrimEnd();
     }
 
@@ -754,10 +754,7 @@ public static class PowerShellOpenApiClassExporter
     /// </summary>
     /// <param name="str">The string to escape.</param>
     /// <returns>Escaped string safe for PowerShell single-quoted strings.</returns>
-    private static string EscapePowerShellString(string str)
-    {
-        return str.Replace("'", "''");
-    }
+    private static string EscapePowerShellString(string str) => str.Replace("'", "''");
 
     /// <summary>
     /// Converts a .NET type to a PowerShell type name.

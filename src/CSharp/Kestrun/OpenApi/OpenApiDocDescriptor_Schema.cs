@@ -924,10 +924,7 @@ public partial class OpenApiDocDescriptor
         }
 
         // Create XML object if it doesn't exist
-        if (schema.Xml == null)
-        {
-            schema.Xml = new Microsoft.OpenApi.OpenApiXml();
-        }
+        schema.Xml ??= new Microsoft.OpenApi.OpenApiXml();
 
         // Apply standard XML properties (supported by Microsoft.OpenApi 3.1.2)
         if (!string.IsNullOrWhiteSpace(properties.XmlName))
@@ -949,11 +946,11 @@ public partial class OpenApiDocDescriptor
         // OpenAPI 3.2 uses NodeType to specify attribute vs element vs text nodes
         if (properties.XmlAttribute)
         {
-            schema.Xml.NodeType = Microsoft.OpenApi.OpenApiXmlNodeType.Attribute;
+            schema.Xml.NodeType = OpenApiXmlNodeType.Attribute;
         }
         else if (properties.XmlWrapped)
         {
-            schema.Xml.NodeType = Microsoft.OpenApi.OpenApiXmlNodeType.Element;
+            schema.Xml.NodeType = OpenApiXmlNodeType.Element;
         }
     }
 

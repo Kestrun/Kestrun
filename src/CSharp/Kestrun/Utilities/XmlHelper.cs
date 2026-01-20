@@ -274,10 +274,7 @@ public static class XmlHelper
     /// <param name="element">The XML element to convert.</param>
     /// <param name="xmlModel">Optional OpenAPI XML model metadata to guide the conversion. When provided, respects OpenAPI 3.2 XML modeling rules for attributes, namespaces, and wrapped arrays.</param>
     /// <returns>A Hashtable representation of the XML element.</returns>
-    public static Hashtable ToHashtable(XElement element, Microsoft.OpenApi.OpenApiXml? xmlModel = null)
-    {
-        return ToHashtableInternal(element, xmlModel, new Dictionary<string, Microsoft.OpenApi.OpenApiXml>());
-    }
+    public static Hashtable ToHashtable(XElement element, Microsoft.OpenApi.OpenApiXml? xmlModel = null) => ToHashtableInternal(element, xmlModel, []);
 
     /// <summary>
     /// Converts an <see cref="XElement"/> into a <see cref="Hashtable"/>, optionally using OpenAPI XML metadata hashtable (from PowerShell class metadata) to guide the conversion.
@@ -332,32 +329,32 @@ public static class XmlHelper
         }
 
         var xml = new Microsoft.OpenApi.OpenApiXml();
-        
+
         if (hash["Name"] is string name)
         {
             xml.Name = name;
         }
-        
+
         if (hash["Namespace"] is string ns && !string.IsNullOrWhiteSpace(ns))
         {
             xml.Namespace = new Uri(ns);
         }
-        
+
         if (hash["Prefix"] is string prefix)
         {
             xml.Prefix = prefix;
         }
-        
+
         if (hash["Attribute"] is bool isAttribute && isAttribute)
         {
-            xml.NodeType = Microsoft.OpenApi.OpenApiXmlNodeType.Attribute;
+            xml.NodeType = OpenApiXmlNodeType.Attribute;
         }
-        
+
         if (hash["Wrapped"] is bool isWrapped && isWrapped)
         {
-            xml.NodeType = Microsoft.OpenApi.OpenApiXmlNodeType.Element;
+            xml.NodeType = OpenApiXmlNodeType.Element;
         }
-        
+
         return xml;
     }
 
@@ -412,7 +409,7 @@ public static class XmlHelper
         foreach (var child in element.Elements())
         {
             var childKey = child.Name.LocalName;
-            
+
             // Check if this child has OpenAPI XML model metadata
             Microsoft.OpenApi.OpenApiXml? childModel = null;
             if (propertyModels.TryGetValue(childKey, out var model))
@@ -462,7 +459,7 @@ public static class XmlHelper
         {
             var model = kvp.Value;
             // Check if this property is marked as an attribute and matches the name
-            if (model.NodeType == Microsoft.OpenApi.OpenApiXmlNodeType.Attribute)
+            if (model.NodeType == OpenApiXmlNodeType.Attribute)
             {
                 var expectedName = model.Name ?? kvp.Key;
                 if (string.Equals(expectedName, attributeName, StringComparison.OrdinalIgnoreCase))

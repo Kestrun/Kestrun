@@ -204,7 +204,7 @@ function listEmployees {
     param()
 
     $employees = @(
-        @{
+        [EmployeeResponse]@{
             employeeId = 'a54a57ca-36f8-421b-a6b4-2e8f26858a4c'
             createdAt = (Get-Date).ToUniversalTime().ToString('o')
             firstName = 'Avery'
@@ -215,7 +215,7 @@ function listEmployees {
             roles = @('guide')
             address = @{ street = '1 Museum Way'; city = 'Seattle'; postalCode = '98101' }
         },
-        @{
+        [EmployeeResponse]@{
             employeeId = '3d8f5c2c-6e3c-4a7a-8f79-1f2a4b1c9a10'
             createdAt = (Get-Date).AddDays(-7).ToUniversalTime().ToString('o')
             firstName = 'Jordan'

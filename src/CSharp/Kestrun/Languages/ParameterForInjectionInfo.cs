@@ -682,52 +682,123 @@ public class ParameterForInjectionInfo : ParameterForInjectionInfoBase
         return rootMap;
     }
 
+    /// <summary>
+    /// Normalizes wrapped arrays in the root map based on XML metadata.
+    /// </summary>
+    /// <param name="rootMap">The root hashtable map.</param>
+    /// <param name="xmlMetadata">The XML metadata hashtable.</param>
     private static void NormalizeWrappedArrays(Hashtable rootMap, Hashtable? xmlMetadata)
     {
-        if (xmlMetadata?[$"Properties"] is not Hashtable propsHash)
+        if (!TryGetXmlMetadataProperties(xmlMetadata, out var propsHash))
         {
             return;
         }
 
         foreach (DictionaryEntry entry in propsHash)
         {
-            if (entry.Key is not string propertyName || entry.Value is not Hashtable propMeta)
+            if (!TryGetWrappedArrayMetadata(entry, out var propertyName, out var xmlName))
             {
                 continue;
             }
 
-            if (propMeta["Wrapped"] is not bool wrapped || !wrapped)
+            if (!TryGetWrapperHashtable(rootMap, propertyName, xmlName, out var wrapper))
             {
                 continue;
             }
 
-            var xmlName = propMeta["Name"] as string ?? propertyName;
-
-            if (!TryGetHashtableValue(rootMap, propertyName, out var raw) && !TryGetHashtableValue(rootMap, xmlName, out raw))
-            {
-                continue;
-            }
-
-            if (raw is not Hashtable wrapper)
-            {
-                continue;
-            }
-
-            object? unwrapped = null;
-            if (TryGetHashtableValue(wrapper, "Item", out var itemValue))
-            {
-                unwrapped = itemValue;
-            }
-            else if (wrapper.Count == 1)
-            {
-                unwrapped = wrapper.Values.Cast<object?>().FirstOrDefault();
-            }
-
+            var unwrapped = TryUnwrapWrapper(wrapper);
             if (unwrapped is not null)
             {
                 rootMap[propertyName] = unwrapped;
             }
         }
+    }
+
+    /// <summary>
+    /// Attempts to retrieve the <c>Properties</c> hashtable from XML metadata.
+    /// </summary>
+    /// <param name="xmlMetadata">XML metadata hashtable.</param>
+    /// <param name="properties">The properties hashtable when present.</param>
+    /// <returns><c>true</c> when the properties hashtable exists; otherwise <c>false</c>.</returns>
+    private static bool TryGetXmlMetadataProperties(Hashtable? xmlMetadata, out Hashtable properties)
+    {
+        if (xmlMetadata?["Properties"] is Hashtable propsHash)
+        {
+            properties = propsHash;
+            return true;
+        }
+
+        properties = default!;
+        return false;
+    }
+
+    /// <summary>
+    /// Extracts metadata for a wrapped array property from a single <see cref="DictionaryEntry"/>.
+    /// </summary>
+    /// <param name="entry">Entry from <c>xmlMetadata.Properties</c>.</param>
+    /// <param name="propertyName">The CLR property name.</param>
+    /// <param name="xmlName">The XML element name (or the CLR name when not overridden).</param>
+    /// <returns><c>true</c> when the entry describes a wrapped property; otherwise <c>false</c>.</returns>
+    private static bool TryGetWrappedArrayMetadata(DictionaryEntry entry, out string propertyName, out string xmlName)
+    {
+        if (entry.Key is not string propName || entry.Value is not Hashtable propMeta)
+        {
+            propertyName = default!;
+            xmlName = default!;
+            return false;
+        }
+
+        if (propMeta["Wrapped"] is not bool wrapped || !wrapped)
+        {
+            propertyName = default!;
+            xmlName = default!;
+            return false;
+        }
+
+        propertyName = propName;
+        xmlName = propMeta["Name"] as string ?? propName;
+        return true;
+    }
+
+    /// <summary>
+    /// Attempts to find a wrapper hashtable for a wrapped array property in the root map.
+    /// </summary>
+    /// <param name="rootMap">The root map produced by XML parsing.</param>
+    /// <param name="propertyName">CLR property name to search.</param>
+    /// <param name="xmlName">XML element name to search (fallback).</param>
+    /// <param name="wrapper">The wrapper hashtable if found.</param>
+    /// <returns><c>true</c> when a wrapper hashtable is found; otherwise <c>false</c>.</returns>
+    private static bool TryGetWrapperHashtable(Hashtable rootMap, string propertyName, string xmlName, out Hashtable wrapper)
+    {
+        if (!TryGetHashtableValue(rootMap, propertyName, out var raw)
+            && !TryGetHashtableValue(rootMap, xmlName, out raw))
+        {
+            wrapper = default!;
+            return false;
+        }
+
+        if (raw is Hashtable wrapperHash)
+        {
+            wrapper = wrapperHash;
+            return true;
+        }
+
+        wrapper = default!;
+        return false;
+    }
+
+    /// <summary>
+    /// Unwraps a wrapper hashtable into an item list/value when possible.
+    /// </summary>
+    /// <param name="wrapper">Wrapper hashtable.</param>
+    /// <returns>The unwrapped value, or <c>null</c> if it cannot be unwrapped.</returns>
+    private static object? TryUnwrapWrapper(Hashtable wrapper)
+    {
+        return TryGetHashtableValue(wrapper, "Item", out var itemValue)
+            ? itemValue
+            : wrapper.Count == 1
+                ? wrapper.Values.Cast<object?>().FirstOrDefault()
+                : null;
     }
 
     private static object? ConvertHashtableToObject(Hashtable data, Type targetType, int depth)
@@ -778,6 +849,13 @@ public class ParameterForInjectionInfo : ParameterForInjectionInfoBase
         return instance;
     }
 
+    /// <summary>
+    /// Converts a value to the specified target type, handling complex objects and collections.
+    /// </summary>
+    /// <param name="value">The value to convert.</param>
+    /// <param name="targetType">The target type to convert to.</param>
+    /// <param name="depth">The current recursion depth.</param>
+    /// <returns>The converted value, or null if conversion is not possible.</returns>
     private static object? ConvertToTargetType(object? value, Type targetType, int depth)
     {
         if (value is null)
@@ -785,74 +863,214 @@ public class ParameterForInjectionInfo : ParameterForInjectionInfoBase
             return null;
         }
 
-        var nullable = Nullable.GetUnderlyingType(targetType);
-        if (nullable is not null)
+        targetType = UnwrapNullableTargetType(targetType);
+
+        return targetType.IsInstanceOfType(value)
+            ? value
+            : TryConvertHashtableValue(value, targetType, depth, out var convertedFromHashtable)
+                ? convertedFromHashtable
+                : TryConvertListOrArrayValue(value, targetType, depth, out var convertedFromEnumerable)
+                    ? convertedFromEnumerable
+                    : ConvertScalarValue(value, targetType);
+    }
+
+    /// <summary>
+    /// Unwraps a nullable target type to its underlying non-nullable type.
+    /// </summary>
+    /// <param name="targetType">The target type.</param>
+    /// <returns>The underlying non-nullable type, or the original type when not nullable.</returns>
+    private static Type UnwrapNullableTargetType(Type targetType)
+        => Nullable.GetUnderlyingType(targetType) ?? targetType;
+
+    /// <summary>
+    /// Converts a hashtable value into the target type when applicable.
+    /// </summary>
+    /// <param name="value">Value to convert.</param>
+    /// <param name="targetType">Target type.</param>
+    /// <param name="depth">Current recursion depth.</param>
+    /// <param name="converted">Converted result.</param>
+    /// <returns><c>true</c> when the value was handled; otherwise <c>false</c>.</returns>
+    private static bool TryConvertHashtableValue(object value, Type targetType, int depth, out object? converted)
+    {
+        if (value is not Hashtable ht)
         {
-            targetType = nullable;
+            converted = null;
+            return false;
         }
 
-        if (targetType.IsInstanceOfType(value))
-        {
-            return value;
-        }
+        converted = typeof(IDictionary).IsAssignableFrom(targetType)
+            ? ht
+            : ConvertHashtableToObject(ht, targetType, depth);
+        return true;
+    }
 
-        // Hashtable → complex object
-        if (value is Hashtable ht)
-        {
-            return typeof(IDictionary).IsAssignableFrom(targetType)
-                ? ht
-                : ConvertHashtableToObject(ht, targetType, depth);
-        }
-
-        // List/array → array/collection
+    /// <summary>
+    /// Converts list/array values into the target type when applicable.
+    /// </summary>
+    /// <param name="value">Value to convert.</param>
+    /// <param name="targetType">Target type.</param>
+    /// <param name="depth">Current recursion depth.</param>
+    /// <param name="converted">Converted result.</param>
+    /// <returns><c>true</c> when the value was handled; otherwise <c>false</c>.</returns>
+    private static bool TryConvertListOrArrayValue(object value, Type targetType, int depth, out object? converted)
+    {
         if (value is List<object?> list)
         {
-            return ConvertEnumerableToTargetType(list, targetType, depth);
+            converted = ConvertEnumerableToTargetType(list, targetType, depth);
+            return true;
         }
+
         if (value is object?[] arr)
         {
-            return ConvertEnumerableToTargetType(arr, targetType, depth);
+            converted = ConvertEnumerableToTargetType(arr, targetType, depth);
+            return true;
         }
 
-        // Scalar conversion
+        converted = null;
+        return false;
+    }
+
+    /// <summary>
+    /// Converts a scalar (non-hashtable, non-collection) value into the target type.
+    /// </summary>
+    /// <param name="value">Scalar value to convert.</param>
+    /// <param name="targetType">Target type.</param>
+    /// <returns>The converted value, or <c>null</c> when conversion fails.</returns>
+    private static object? ConvertScalarValue(object value, Type targetType)
+    {
         var str = value as string ?? Convert.ToString(value, CultureInfo.InvariantCulture);
 
+        return TryConvertScalarByType(str, targetType, out var converted)
+            ? converted
+            : TryChangeType(value, targetType);
+    }
+
+    /// <summary>
+    /// Attempts to convert a scalar string representation to common primitive target types.
+    /// </summary>
+    /// <param name="str">String representation of the value.</param>
+    /// <param name="targetType">Target type.</param>
+    /// <param name="converted">Converted result.</param>
+    /// <returns><c>true</c> when converted; otherwise <c>false</c>.</returns>
+    private static bool TryConvertScalarByType(string? str, Type targetType, out object? converted)
+    {
         if (targetType == typeof(string))
         {
-            return str;
-        }
-        if (targetType == typeof(int) && int.TryParse(str, NumberStyles.Integer, CultureInfo.InvariantCulture, out var i))
-        {
-            return i;
-        }
-        if (targetType == typeof(long) && long.TryParse(str, NumberStyles.Integer, CultureInfo.InvariantCulture, out var l))
-        {
-            return l;
-        }
-        if (targetType == typeof(double) && double.TryParse(str, NumberStyles.Float, CultureInfo.InvariantCulture, out var d))
-        {
-            return d;
-        }
-        if (targetType == typeof(decimal) && decimal.TryParse(str, NumberStyles.Float, CultureInfo.InvariantCulture, out var dec))
-        {
-            return dec;
-        }
-        if (targetType == typeof(bool) && bool.TryParse(str, out var b))
-        {
-            return b;
-        }
-        if (targetType.IsEnum && str is not null)
-        {
-            try
-            {
-                return Enum.Parse(targetType, str, ignoreCase: true);
-            }
-            catch
-            {
-                return null;
-            }
+            converted = str;
+            return true;
         }
 
+        if (targetType == typeof(int))
+        {
+            converted = TryParseInt32(str);
+            return converted is not null;
+        }
+
+        if (targetType == typeof(long))
+        {
+            converted = TryParseInt64(str);
+            return converted is not null;
+        }
+
+        if (targetType == typeof(double))
+        {
+            converted = TryParseDouble(str);
+            return converted is not null;
+        }
+
+        if (targetType == typeof(decimal))
+        {
+            converted = TryParseDecimal(str);
+            return converted is not null;
+        }
+
+        if (targetType == typeof(bool))
+        {
+            converted = TryParseBoolean(str);
+            return converted is not null;
+        }
+
+        if (targetType.IsEnum)
+        {
+            converted = TryParseEnum(targetType, str);
+            return converted is not null;
+        }
+
+        converted = null;
+        return false;
+    }
+
+    /// <summary>
+    /// Attempts to parse an <see cref="int"/> from a string.
+    /// </summary>
+    /// <param name="str">String representation.</param>
+    /// <returns>The parsed value, or <c>null</c> when parsing fails.</returns>
+    private static int? TryParseInt32(string? str)
+        => int.TryParse(str, NumberStyles.Integer, CultureInfo.InvariantCulture, out var i) ? i : null;
+
+    /// <summary>
+    /// Attempts to parse a <see cref="long"/> from a string.
+    /// </summary>
+    /// <param name="str">String representation.</param>
+    /// <returns>The parsed value, or <c>null</c> when parsing fails.</returns>
+    private static long? TryParseInt64(string? str)
+        => long.TryParse(str, NumberStyles.Integer, CultureInfo.InvariantCulture, out var l) ? l : null;
+
+    /// <summary>
+    /// Attempts to parse a <see cref="double"/> from a string.
+    /// </summary>
+    /// <param name="str">String representation.</param>
+    /// <returns>The parsed value, or <c>null</c> when parsing fails.</returns>
+    private static double? TryParseDouble(string? str)
+        => double.TryParse(str, NumberStyles.Float, CultureInfo.InvariantCulture, out var d) ? d : null;
+
+    /// <summary>
+    /// Attempts to parse a <see cref="decimal"/> from a string.
+    /// </summary>
+    /// <param name="str">String representation.</param>
+    /// <returns>The parsed value, or <c>null</c> when parsing fails.</returns>
+    private static decimal? TryParseDecimal(string? str)
+        => decimal.TryParse(str, NumberStyles.Float, CultureInfo.InvariantCulture, out var dec) ? dec : null;
+
+    /// <summary>
+    /// Attempts to parse a <see cref="bool"/> from a string.
+    /// </summary>
+    /// <param name="str">String representation.</param>
+    /// <returns>The parsed value, or <c>null</c> when parsing fails.</returns>
+    private static bool? TryParseBoolean(string? str)
+        => bool.TryParse(str, out var b) ? b : null;
+
+    /// <summary>
+    /// Attempts to parse an enum value from a string.
+    /// </summary>
+    /// <param name="targetType">Enum type.</param>
+    /// <param name="str">String representation.</param>
+    /// <returns>The parsed enum value, or <c>null</c> when parsing fails.</returns>
+    private static object? TryParseEnum(Type targetType, string? str)
+    {
+        if (str is null)
+        {
+            return null;
+        }
+
+        try
+        {
+            return Enum.Parse(targetType, str, ignoreCase: true);
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Attempts a generic scalar conversion via <see cref="Convert.ChangeType(object, Type, IFormatProvider)"/>.
+    /// </summary>
+    /// <param name="value">Source value.</param>
+    /// <param name="targetType">Target type.</param>
+    /// <returns>The converted value, or <c>null</c> when conversion fails.</returns>
+    private static object? TryChangeType(object value, Type targetType)
+    {
         try
         {
             return Convert.ChangeType(value, targetType, CultureInfo.InvariantCulture);

@@ -1,7 +1,12 @@
 param()
+BeforeAll {
+    . (Join-Path $PSScriptRoot '..\PesterHelpers.ps1')
+}
+
 Describe 'Example 10.1 OpenAPI Hello World' -Tag 'OpenApi', 'Tutorial', 'Slow' {
-    BeforeAll { . (Join-Path $PSScriptRoot '..\PesterHelpers.ps1');
-        $script:instance = Start-ExampleScript -Name '10.1-OpenAPI-Hello-World.ps1' }
+    BeforeAll {
+        $script:instance = Start-ExampleScript -Name '10.1-OpenAPI-Hello-World.ps1'
+    }
     AfterAll { if ($script:instance) { Stop-ExampleScript -Instance $script:instance } }
 
     It 'Get greeting' {
@@ -31,4 +36,3 @@ Describe 'Example 10.1 OpenAPI Hello World' -Tag 'OpenApi', 'Tutorial', 'Slow' {
         $result.Content | Should -BeLike '*Redoc*'
     }
 }
-

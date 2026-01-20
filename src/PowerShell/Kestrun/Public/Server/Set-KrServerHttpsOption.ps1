@@ -83,18 +83,16 @@ function Set-KrServerHttpsOptions {
             if ($null -ne $ClientCertificateMode) {
                 $options.ClientCertificateMode = $ClientCertificateMode
             }
-            if ($CheckCertificateRevocation.IsPresent) {
-                $Options.CheckCertificateRevocation = $true
-            }
             if ($null -ne $ServerCertificate) {
                 $Options.ServerCertificate = $ServerCertificate
             }
             if ($null -ne $ServerCertificateChain) {
                 $Options.ServerCertificateChain = $ServerCertificateChain
             }
-            if ($null -ne $HandshakeTimeout) {
+            if ($HandshakeTimeout -gt 0) {
                 $Options.HandshakeTimeout = [System.TimeSpan]::FromSeconds($HandshakeTimeout)
             }
+            $Options.CheckCertificateRevocation = $CheckCertificateRevocation.IsPresent
         }
 
         $Server.Options.HttpsConnectionAdapter = $Options
@@ -105,4 +103,3 @@ function Set-KrServerHttpsOptions {
         }
     }
 }
-

@@ -1,17 +1,20 @@
 param()
+BeforeAll {
+    . (Join-Path $PSScriptRoot '..\PesterHelpers.ps1')
+}
+
 Describe 'Example 8.8 Client Certificate Authentication' -Tag 'Tutorial', 'Slow' {
     BeforeAll {
-        . (Join-Path $PSScriptRoot '..\PesterHelpers.ps1')
-        
+
         # Start the tutorial script
         $script:instance = Start-ExampleScript -Name '8.8-Client-Certificate-Authentication.ps1'
-        
+
         # Wait a moment for server to fully initialize
         Start-Sleep -Seconds 2
-        
+
         # Import the client certificate that was created by the script
         $clientCertPath = Join-Path (Split-Path $script:instance.ScriptPath -Parent) 'client-cert.pfx'
-        
+
         if (Test-Path $clientCertPath) {
             $password = ConvertTo-SecureString -String 'test' -AsPlainText -Force
             $script:clientCert = Import-PfxCertificate -FilePath $clientCertPath `
@@ -20,7 +23,7 @@ Describe 'Example 8.8 Client Certificate Authentication' -Tag 'Tutorial', 'Slow'
                 -Exportable
         }
     }
-    
+
     AfterAll {
         # Clean up imported certificate
         if ($script:clientCert) {
@@ -30,7 +33,7 @@ Describe 'Example 8.8 Client Certificate Authentication' -Tag 'Tutorial', 'Slow'
                 # Ignore cleanup errors
             }
         }
-        
+
         # Stop the server
         if ($script:instance) {
             Stop-ExampleScript -Instance $script:instance
@@ -55,7 +58,7 @@ Describe 'Example 8.8 Client Certificate Authentication' -Tag 'Tutorial', 'Slow'
         $result = Invoke-RestMethod -Uri "$($script:instance.Url)/secure/cert/hello" `
             -Certificate $script:clientCert `
             -SkipCertificateCheck
-        
+
         $result.message | Should -Be 'Hello from client certificate authentication'
         $result.subject | Should -Not -BeNullOrEmpty
         $result.issuer | Should -Not -BeNullOrEmpty
@@ -68,19 +71,19 @@ Describe 'Example 8.8 Client Certificate Authentication' -Tag 'Tutorial', 'Slow'
         $result = Invoke-RestMethod -Uri "$($script:instance.Url)/secure/cert/info" `
             -Certificate $script:clientCert `
             -SkipCertificateCheck
-        
+
         $result.isAuthenticated | Should -Be $true
         $result.authenticationType | Should -Be 'Certificate'
         $result.name | Should -Not -BeNullOrEmpty
         $result.claims | Should -Not -BeNullOrEmpty
         $result.claims.Count | Should -BeGreaterThan 0
-        
+
         # Verify certificate information
         $result.certificate.thumbprint | Should -Be $script:clientCert.Thumbprint
         $result.certificate.subject | Should -Not -BeNullOrEmpty
         $result.certificate.issuer | Should -Not -BeNullOrEmpty
         $result.certificate.serialNumber | Should -Not -BeNullOrEmpty
-        
+
         # Verify expected claims are present
         $claimTypes = $result.claims | ForEach-Object { $_.type }
         $claimTypes | Should -Contain 'http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name'

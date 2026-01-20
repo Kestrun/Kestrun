@@ -5,7 +5,7 @@
     Notes:   Uses self-signed certificates for testing. For production, use CA-signed certificates.
 #>
 param(
-    [int]$Port = 5001,
+    [int]$Port = 5000,
     [IPAddress]$IPAddress = [IPAddress]::Loopback
 )
 
@@ -24,11 +24,11 @@ if (Test-Path $serverCertPath) {
 } else {
     # Create server certificate for localhost
     $serverCert = New-KrSelfSignedCertificate -DnsNames 'localhost' -Exportable
-    
+
     # Export for reuse
     Export-KrCertificate -Certificate $serverCert -FilePath $serverCertPath `
         -Format pfx -IncludePrivateKey -Password (ConvertTo-SecureString -String 'test' -AsPlainText -Force)
-    
+
     Write-Host "Created server certificate: $serverCertPath"
 }
 
@@ -38,11 +38,11 @@ if (-not (Test-Path $clientCertPath)) {
     # Create a self-signed client certificate for testing
     # Note: In production, client certificates should be issued by a trusted CA
     $clientCert = New-KrSelfSignedCertificate -DnsNames 'test-client' -Exportable
-    
+
     # Export for testing
     Export-KrCertificate -Certificate $clientCert -FilePath $clientCertPath `
         -Format pfx -IncludePrivateKey -Password (ConvertTo-SecureString -String 'test' -AsPlainText -Force)
-    
+
     Write-Host "Created test certificates:"
     Write-Host "  Server: $serverCertPath"
     Write-Host "  Client: $clientCertPath"
@@ -77,7 +77,7 @@ Add-KrRouteGroup -Prefix '/secure/cert' -AuthorizationScheme 'Certificate' {
             } -StatusCode 401
             return
         }
-        
+
         Write-KrJsonResponse @{
             message = "Hello from client certificate authentication"
             subject = $cert.Subject
@@ -87,7 +87,7 @@ Add-KrRouteGroup -Prefix '/secure/cert' -AuthorizationScheme 'Certificate' {
             validTo = $cert.NotAfter.ToString('o')
         }
     }
-    
+
     Add-KrMapRoute -Verbs Get -Pattern '/info' -ScriptBlock {
         $cert = $Context.Connection.ClientCertificate
         $claims = $Context.User.Claims | ForEach-Object {

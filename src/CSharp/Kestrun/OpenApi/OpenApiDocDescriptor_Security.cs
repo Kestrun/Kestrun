@@ -24,9 +24,37 @@ public partial class OpenApiDocDescriptor
             OAuth2Options oauth2Options => GetSecurityScheme(oauth2Options),
             OidcOptions oidcOptions => GetSecurityScheme(oidcOptions),
             WindowsAuthOptions windowsOptions => GetSecurityScheme(windowsOptions),
+            ClientCertificateAuthenticationOptions clientCertificateOptions => GetSecurityScheme(clientCertificateOptions),
             _ => throw new NotSupportedException($"Unsupported authentication options type: {options.GetType().FullName}"),
         };
         AddSecurityComponent(scheme: scheme, globalScheme: options.GlobalScheme, securityScheme: securityScheme);
+    }
+
+    /// <summary>
+    /// Gets the OpenAPI security scheme for mutual TLS (client certificate) authentication.
+    /// </summary>
+    /// <param name="options">The client certificate authentication options.</param>
+    /// <returns>The OpenAPI security scheme for mutual TLS authentication.</returns>
+    private static OpenApiSecurityScheme GetSecurityScheme(ClientCertificateAuthenticationOptions options)
+    {
+        var tempDisclaimer = "Mutual TLS (client certificate) authentication. Requires mutual TLS (client certificate authentication) at the transport layer." +
+             "This is NOT a header-based auth scheme; it is documented here because OpenAPI 3.1 mutualTLS " +
+             "is not currently supported by Microsoft.OpenApi.";
+        return new OpenApiSecurityScheme
+        {
+            // Placeholder only — there is no native mutualTLS type in Microsoft.OpenApi today.
+            Type = SecuritySchemeType.ApiKey,
+            Name = "mTLS",
+            In = ParameterLocation.Header,
+            Description = string.IsNullOrEmpty(options.Description) ? tempDisclaimer : options.Description + '\n' + tempDisclaimer,
+
+            Deprecated = options.Deprecated,
+            Extensions = new Dictionary<string, IOpenApiExtension>
+            {
+                ["x-mtls"] = new JsonNodeExtension(true),
+                ["x-transport-auth"] = new JsonNodeExtension("mutualTLS")
+            }
+        };
     }
 
     /// <summary>

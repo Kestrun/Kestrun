@@ -390,74 +390,14 @@ public static class XmlHelper
     {
         try
         {
-            static bool LooksLikeXmlMetadata(Hashtable ht)
-            {
-                return ht.Count > 0
-                    && (ht.ContainsKey("ClassXml") || ht.ContainsKey("ClassName"))
-                    && ht.ContainsKey("Properties");
-            }
-
-            static Hashtable? AsMetadataHashtable(object? value)
-            {
-                if (value is Hashtable ht)
-                {
-                    return LooksLikeXmlMetadata(ht) ? ht : null;
-                }
-
-                if (value is IDictionary dict)
-                {
-                    var copied = new Hashtable(StringComparer.OrdinalIgnoreCase);
-                    foreach (DictionaryEntry entry in dict)
-                    {
-                        if (entry.Key is string k)
-                        {
-                            copied[k] = entry.Value;
-                        }
-                    }
-                    return LooksLikeXmlMetadata(copied) ? copied : null;
-                }
-
-                return null;
-            }
-
-            static bool NameMatchesXmlMetadata(string name)
-            {
-                var normalized = name.TrimStart('$');
-                return string.Equals(normalized, "XmlMetadata", StringComparison.OrdinalIgnoreCase);
-            }
-
             // Preferred: a static hashtable property/field (safe to read via reflection).
             // PowerShell class *methods* require an engine context on the current thread and may throw when invoked
             // from C# (even if the type was defined in a runspace).
             var flags = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static | BindingFlags.FlattenHierarchy;
 
-            foreach (var prop in type.GetProperties(flags))
+            foreach (var value in EnumerateStaticMemberValues(type, flags, onlyNamedXmlMetadata: true))
             {
-                if (!NameMatchesXmlMetadata(prop.Name))
-                {
-                    continue;
-                }
-
-                if (prop.GetIndexParameters().Length != 0)
-                {
-                    continue;
-                }
-
-                var byName = AsMetadataHashtable(prop.GetValue(null));
-                if (byName is not null)
-                {
-                    return byName;
-                }
-            }
-
-            foreach (var field in type.GetFields(flags))
-            {
-                if (!NameMatchesXmlMetadata(field.Name))
-                {
-                    continue;
-                }
-
-                var byName = AsMetadataHashtable(field.GetValue(null));
+                var byName = AsMetadataHashtable(value);
                 if (byName is not null)
                 {
                     return byName;
@@ -465,23 +405,9 @@ public static class XmlHelper
             }
 
             // Fallback: scan static members and return the first value that looks like XML metadata.
-            foreach (var prop in type.GetProperties(flags))
+            foreach (var value in EnumerateStaticMemberValues(type, flags, onlyNamedXmlMetadata: false))
             {
-                if (prop.GetIndexParameters().Length != 0)
-                {
-                    continue;
-                }
-
-                var candidate = AsMetadataHashtable(prop.GetValue(null));
-                if (candidate is not null)
-                {
-                    return candidate;
-                }
-            }
-
-            foreach (var field in type.GetFields(flags))
-            {
-                var candidate = AsMetadataHashtable(field.GetValue(null));
+                var candidate = AsMetadataHashtable(value);
                 if (candidate is not null)
                 {
                     return candidate;
@@ -493,6 +419,94 @@ public static class XmlHelper
             Log.Logger.Error(ex, "Error retrieving XML metadata for type {TypeName}", type.FullName);
         }
         return null;
+    }
+
+    /// <summary>
+    /// Enumerates values of static properties and fields on a type.
+    /// </summary>
+    /// <param name="type">Type to reflect.</param>
+    /// <param name="flags">Binding flags used for reflection.</param>
+    /// <param name="onlyNamedXmlMetadata">
+    /// When <c>true</c>, only members named <c>XmlMetadata</c> (ignoring case and an optional leading <c>$</c>) are returned.
+    /// </param>
+    /// <returns>An enumerable of static member values (may include nulls).</returns>
+    private static IEnumerable<object?> EnumerateStaticMemberValues(Type type, BindingFlags flags, bool onlyNamedXmlMetadata)
+    {
+        foreach (var prop in type.GetProperties(flags))
+        {
+            if (onlyNamedXmlMetadata && !NameMatchesXmlMetadata(prop.Name))
+            {
+                continue;
+            }
+
+            if (prop.GetIndexParameters().Length != 0)
+            {
+                continue;
+            }
+
+            yield return prop.GetValue(null);
+        }
+
+        foreach (var field in type.GetFields(flags))
+        {
+            if (onlyNamedXmlMetadata && !NameMatchesXmlMetadata(field.Name))
+            {
+                continue;
+            }
+
+            yield return field.GetValue(null);
+        }
+    }
+
+    /// <summary>
+    /// Determines whether a hashtable resembles the expected XML metadata shape.
+    /// </summary>
+    /// <param name="ht">Hashtable to inspect.</param>
+    /// <returns><c>true</c> if the hashtable has the expected keys; otherwise <c>false</c>.</returns>
+    private static bool LooksLikeXmlMetadata(Hashtable ht)
+    {
+        return ht.Count > 0
+            && (ht.ContainsKey("ClassXml") || ht.ContainsKey("ClassName"))
+            && ht.ContainsKey("Properties");
+    }
+
+    /// <summary>
+    /// Attempts to normalize an object into an XML metadata hashtable.
+    /// </summary>
+    /// <param name="value">Candidate value (hashtable or dictionary).</param>
+    /// <returns>A metadata hashtable when the candidate matches; otherwise <c>null</c>.</returns>
+    private static Hashtable? AsMetadataHashtable(object? value)
+    {
+        if (value is Hashtable ht)
+        {
+            return LooksLikeXmlMetadata(ht) ? ht : null;
+        }
+
+        if (value is IDictionary dict)
+        {
+            var copied = new Hashtable(StringComparer.OrdinalIgnoreCase);
+            foreach (DictionaryEntry entry in dict)
+            {
+                if (entry.Key is string k)
+                {
+                    copied[k] = entry.Value;
+                }
+            }
+            return LooksLikeXmlMetadata(copied) ? copied : null;
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// Checks whether a reflected member name corresponds to an <c>XmlMetadata</c> property/field.
+    /// </summary>
+    /// <param name="name">Member name.</param>
+    /// <returns><c>true</c> when the name matches; otherwise <c>false</c>.</returns>
+    private static bool NameMatchesXmlMetadata(string name)
+    {
+        var normalized = name.TrimStart('$');
+        return string.Equals(normalized, "XmlMetadata", StringComparison.OrdinalIgnoreCase);
     }
 
     /// <summary>
@@ -723,39 +737,77 @@ public static class XmlHelper
     /// <returns>An OpenApiXml object with the specified properties, or null if the hashtable is empty/invalid.</returns>
     private static Microsoft.OpenApi.OpenApiXml? HashtableToOpenApiXml(Hashtable hash)
     {
-        if (hash == null || hash.Count == 0)
+        ArgumentNullException.ThrowIfNull(hash);
+
+        if (hash.Count == 0)
         {
             return null;
         }
 
         var xml = new Microsoft.OpenApi.OpenApiXml();
+        ApplyOpenApiXmlName(hash, xml);
+        ApplyOpenApiXmlNamespace(hash, xml);
+        ApplyOpenApiXmlPrefix(hash, xml);
+        ApplyOpenApiXmlNodeType(hash, xml);
+        return xml;
+    }
 
+    /// <summary>
+    /// Applies the OpenAPI XML <c>name</c> value from a metadata hashtable.
+    /// </summary>
+    /// <param name="hash">Metadata hashtable.</param>
+    /// <param name="xml">Target OpenAPI XML object.</param>
+    private static void ApplyOpenApiXmlName(Hashtable hash, Microsoft.OpenApi.OpenApiXml xml)
+    {
         if (hash["Name"] is string name)
         {
             xml.Name = name;
         }
+    }
 
+    /// <summary>
+    /// Applies the OpenAPI XML <c>namespace</c> value from a metadata hashtable.
+    /// </summary>
+    /// <param name="hash">Metadata hashtable.</param>
+    /// <param name="xml">Target OpenAPI XML object.</param>
+    private static void ApplyOpenApiXmlNamespace(Hashtable hash, Microsoft.OpenApi.OpenApiXml xml)
+    {
         if (hash["Namespace"] is string ns && !string.IsNullOrWhiteSpace(ns))
         {
             xml.Namespace = new Uri(ns);
         }
+    }
 
+    /// <summary>
+    /// Applies the OpenAPI XML <c>prefix</c> value from a metadata hashtable.
+    /// </summary>
+    /// <param name="hash">Metadata hashtable.</param>
+    /// <param name="xml">Target OpenAPI XML object.</param>
+    private static void ApplyOpenApiXmlPrefix(Hashtable hash, Microsoft.OpenApi.OpenApiXml xml)
+    {
         if (hash["Prefix"] is string prefix)
         {
             xml.Prefix = prefix;
         }
+    }
 
+    /// <summary>
+    /// Applies the OpenAPI XML node type (<c>attribute</c> vs element) based on metadata flags.
+    /// </summary>
+    /// <param name="hash">Metadata hashtable.</param>
+    /// <param name="xml">Target OpenAPI XML object.</param>
+    private static void ApplyOpenApiXmlNodeType(Hashtable hash, Microsoft.OpenApi.OpenApiXml xml)
+    {
         if (hash["Attribute"] is bool isAttribute && isAttribute)
         {
             xml.NodeType = OpenApiXmlNodeType.Attribute;
+            return;
         }
 
         if (hash["Wrapped"] is bool isWrapped && isWrapped)
         {
             xml.NodeType = OpenApiXmlNodeType.Element;
         }
-
-        return xml;
     }
 
     /// <summary>

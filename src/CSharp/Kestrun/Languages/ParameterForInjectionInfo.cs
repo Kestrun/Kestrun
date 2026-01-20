@@ -3,6 +3,7 @@ using System.Globalization;
 using System.Management.Automation;
 using System.Reflection;
 using System.Text.Json;
+using System.Xml;
 using System.Xml.Linq;
 using CsvHelper;
 using CsvHelper.Configuration;
@@ -211,9 +212,14 @@ public class ParameterForInjectionInfo : ParameterForInjectionInfoBase
             return;
         }
 
-        // Prefer the OpenAPI type name when available; fall back to the CLR type name for logging.
-        var parType = param.Type?.ToString() ?? param.ParameterType?.FullName ?? "<unknown>";
-        logger.Debug("Injecting parameter '{Name}' of type '{Type}' from '{In}'.", param.Name, parType, param.In);
+        var schemaType = param.Type?.ToString() ?? "<none>";
+        var clrType = param.ParameterType?.FullName ?? "<unknown>";
+        logger.Debug(
+            "Injecting parameter '{Name}' schemaType='{SchemaType}' clrType='{ClrType}' from '{In}'.",
+            param.Name,
+            schemaType,
+            clrType,
+            param.In);
     }
 
     /// <summary>
@@ -276,7 +282,8 @@ public class ParameterForInjectionInfo : ParameterForInjectionInfoBase
             return;
         }
 
-        logger.DebugSanitized("Adding parameter '{Name}': {ConvertedValue}", name, value);
+        var valueType = value?.GetType().FullName ?? "<null>";
+        logger.DebugSanitized("Adding parameter '{Name}' ({ValueType}): {ConvertedValue}", name, valueType, value);
     }
 
     /// <summary>
@@ -570,7 +577,37 @@ public class ParameterForInjectionInfo : ParameterForInjectionInfoBase
         XElement root;
         try
         {
-            root = XElement.Parse(xml);
+            // Clients often include an XML declaration with an encoding (e.g. UTF-8). When parsing from a .NET
+            // string (already decoded), some parsers can reject mismatched/pointless encoding declarations.
+            // Strip the declaration if present.
+            var cleaned = xml.TrimStart('\uFEFF', '\u200B', '\u0000', ' ', '\t', '\r', '\n');
+            if (cleaned.StartsWith("<?xml", StringComparison.OrdinalIgnoreCase))
+            {
+                var endDecl = cleaned.IndexOf("?>", StringComparison.Ordinal);
+                if (endDecl >= 0)
+                {
+                    cleaned = cleaned[(endDecl + 2)..].TrimStart();
+                }
+            }
+
+            XDocument doc;
+            try
+            {
+                doc = XDocument.Parse(cleaned);
+            }
+            catch
+            {
+                var settings = new XmlReaderSettings
+                {
+                    DtdProcessing = DtdProcessing.Prohibit,
+                    XmlResolver = null,
+                };
+
+                using var reader = XmlReader.Create(new StringReader(cleaned), settings);
+                doc = XDocument.Load(reader);
+            }
+
+            root = doc.Root ?? throw new InvalidOperationException("XML document has no root element.");
         }
         catch
         {
@@ -583,7 +620,7 @@ public class ParameterForInjectionInfo : ParameterForInjectionInfoBase
             return xml;
         }
 
-        var xmlMetadata = TryGetXmlMetadata(parameterType);
+        var xmlMetadata = XmlHelper.GetOpenApiXmlMetadataForType(parameterType);
         var wrapped = XmlHelper.ToHashtable(root, xmlMetadata);
 
         // Normalize from XmlHelper's { RootName = { ... } } shape into the element map itself.
@@ -595,36 +632,16 @@ public class ParameterForInjectionInfo : ParameterForInjectionInfoBase
 
         NormalizeWrappedArrays(rootMap, xmlMetadata);
 
-        // If the script parameter is untyped or expects a hashtable, return the hashtable.
-        return parameterType == typeof(object) || typeof(IDictionary).IsAssignableFrom(parameterType)
-            ? rootMap
-            : ConvertHashtableToObject(rootMap, parameterType, depth: 0);
-    }
-
-    private static Hashtable? TryGetXmlMetadata(Type type)
-    {
-        try
+        // For PowerShell script classes, the runtime may produce a new (dynamic) type in the request runspace.
+        // Creating an instance here (using a Type captured during route registration) can produce a type-identity
+        // mismatch at parameter-binding time ("cannot convert Product to Product").
+        // Returning a hashtable lets PowerShell perform the conversion to the *current* runspace type.
+        if (parameterType == typeof(object) || typeof(IDictionary).IsAssignableFrom(parameterType) || parameterType.Assembly.IsDynamic)
         {
-            var prop = type.GetProperty("XmlMetadata", BindingFlags.Public | BindingFlags.Static);
-            if (prop != null
-                && typeof(Hashtable).IsAssignableFrom(prop.PropertyType)
-                && prop.GetIndexParameters().Length == 0)
-            {
-                return prop.GetValue(null) as Hashtable;
-            }
-
-            var field = type.GetField("XmlMetadata", BindingFlags.Public | BindingFlags.Static);
-            if (field != null && typeof(Hashtable).IsAssignableFrom(field.FieldType))
-            {
-                return field.GetValue(null) as Hashtable;
-            }
+            return rootMap;
         }
-        catch
-        {
-            // Best-effort: ignore and fall back to non-metadata parsing.
-        }
-
-        return null;
+        // Otherwise, attempt to convert to the target type.
+        return ConvertHashtableToObject(rootMap, parameterType, depth: 0);
     }
 
     private static Hashtable? ExtractRootMapForBinding(Hashtable wrapped, string rootLocalName)
@@ -720,7 +737,7 @@ public class ParameterForInjectionInfo : ParameterForInjectionInfoBase
             return null;
         }
 
-        var instance = Activator.CreateInstance(targetType);
+        var instance = Activator.CreateInstance(targetType, nonPublic: true);
         if (instance is null)
         {
             return null;

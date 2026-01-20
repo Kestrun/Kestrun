@@ -22,27 +22,29 @@ Describe 'Example 10.22 OpenAPI XML Modeling' -Tag 'OpenApi', 'Tutorial', 'Slow'
     It 'Get Product (GET XML)' {
         $result = Invoke-WebRequest -Uri "$($script:instance.Url)/products/10" -Headers @{ Accept = 'application/xml' } -SkipCertificateCheck -SkipHttpErrorCheck
         $result.StatusCode | Should -Be 200
-        
+
         # Parse XML response
         [xml]$xml = $result.Content
         $xml | Should -Not -BeNullOrEmpty
-        
+
         # Get the root element (might be Product, Response, or other)
         $root = $xml.DocumentElement
         $root | Should -Not -BeNullOrEmpty
-        
+
         # Check that Id is an attribute (XML attribute metadata should apply)
         $root.id | Should -Be '10'
-        
-        # Check element names (Name or ProductName depending on serialization)
-        # The OpenApiXml attribute specifies ProductName, but actual serialization may vary
-        $nameValue = if ($root.PSObject.Properties['ProductName']) { $root.ProductName } else { $root.Name }
-        $nameValue | Should -Match 'Sample Product'
-        $root.Price | Should -Not -BeNullOrEmpty
-        
-        # Check array items (Items should be wrapped, containing Item elements)
-        $root.Items | Should -Not -BeNullOrEmpty
-        $root.Items.Item.Count | Should -Be 3
+
+        # Name element is modeled as <ProductName>
+        $root.ProductName | Should -Match 'Sample Product'
+
+        # Price element is modeled as a namespaced <price:Price>
+        $priceText = ($root.SelectSingleNode("*[local-name()='Price']").InnerText)
+        $priceText | Should -Not -BeNullOrEmpty
+        [double]$priceText | Should -BeGreaterThan 0
+
+        # Items are modeled as wrapped under <Item> and each item is also <Item>
+        $itemNodes = $root.SelectNodes("./*[local-name()='Item']/*[local-name()='Item']")
+        $itemNodes.Count | Should -Be 3
     }
 
     It 'Get Product Not Found (GET)' {
@@ -69,6 +71,37 @@ Describe 'Example 10.22 OpenAPI XML Modeling' -Tag 'OpenApi', 'Tutorial', 'Slow'
         $json.Items.Count | Should -Be 2
     }
 
+    It 'Create Product (POST XML - modeled)' {
+        $xmlBody = @'
+<?xml version="1.0" encoding="UTF-8"?>
+<Product id="123">
+    <ProductName>Widget</ProductName>
+    <price:Price xmlns:price="http://example.com/pricing">19.99</price:Price>
+    <Item>
+        <Item>Item1</Item>
+        <Item>Item2</Item>
+        <Item>Item3</Item>
+    </Item>
+</Product>
+'@
+
+        $result = Invoke-WebRequest -Uri "$($script:instance.Url)/products" -Method Post -Body $xmlBody -ContentType 'application/xml' -Headers @{ Accept = 'application/json' } -SkipCertificateCheck -SkipHttpErrorCheck
+        $result.StatusCode | Should -Be 201
+
+        $json = $result.Content | ConvertFrom-Json
+        $json | Should -Not -BeNullOrEmpty
+
+        # Server assigns a random ID; ensure it is present.
+        $json.Id | Should -BeGreaterThan 0
+        $json.Name | Should -Be 'Widget'
+        $json.Price | Should -Be 19.99
+        $json.Items | Should -Not -BeNullOrEmpty
+        $json.Items.Count | Should -Be 3
+        $json.Items | Should -Contain 'Item1'
+        $json.Items | Should -Contain 'Item2'
+        $json.Items | Should -Contain 'Item3'
+    }
+
     It 'Create Product Invalid (POST)' {
         $body = @{
             Id = 123
@@ -88,7 +121,7 @@ Describe 'Example 10.22 OpenAPI XML Modeling' -Tag 'OpenApi', 'Tutorial', 'Slow'
 
         # Check Product schema exists
         $json.components.schemas.Product | Should -Not -BeNullOrEmpty
-        
+
         # Check required properties
         $json.components.schemas.Product.required | Should -Contain 'Id'
         $json.components.schemas.Product.required | Should -Contain 'Name'
@@ -106,7 +139,7 @@ Describe 'Example 10.22 OpenAPI XML Modeling' -Tag 'OpenApi', 'Tutorial', 'Slow'
         } elseif ($idProp.xml.PSObject.Properties['attribute']) {
             $idProp.xml.attribute | Should -Be $true
         }
-        
+
         # Check XML metadata for Name (custom element name)
         $nameProp = $json.components.schemas.Product.properties.Name
         $nameProp | Should -Not -BeNullOrEmpty

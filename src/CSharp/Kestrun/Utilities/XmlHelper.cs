@@ -57,8 +57,9 @@ public static class XmlHelper
         // At this point value is non-null complex/reference or value-type object requiring reflection.
         var type = value!.GetType();
 
-        // Check if the type has OpenAPI XML metadata (via a static XmlMetadata hashtable)
-        var xmlMetadata = TryGetXmlMetadata(type);
+        // Check if the type has OpenAPI XML metadata.
+        // Prefer a static XmlMetadata hashtable, otherwise build it from OpenApiXmlAttribute annotations.
+        var xmlMetadata = GetOpenApiXmlMetadataForType(type);
 
         var needsCycleTracking = !type.IsValueType;
         if (needsCycleTracking && !EnterCycle(value, ref visited, out var cycleElem))
@@ -389,34 +390,102 @@ public static class XmlHelper
     {
         try
         {
-            // Preferred: a static hashtable property/field (safe to read via reflection).
-            // PowerShell class *methods* require an engine context on the current thread and may throw when invoked
-            // from C# (even if the type was defined in a runspace).
-            var prop = type.GetProperty("XmlMetadata", BindingFlags.Public | BindingFlags.Static);
-            if (prop != null
-                && typeof(Hashtable).IsAssignableFrom(prop.PropertyType)
-                && prop.GetIndexParameters().Length == 0)
+            static bool LooksLikeXmlMetadata(Hashtable ht)
             {
-                return prop.GetValue(null) as Hashtable;
+                return ht.Count > 0
+                    && (ht.ContainsKey("ClassXml") || ht.ContainsKey("ClassName"))
+                    && ht.ContainsKey("Properties");
             }
 
-            var field = type.GetField("XmlMetadata", BindingFlags.Public | BindingFlags.Static);
-            if (field != null && typeof(Hashtable).IsAssignableFrom(field.FieldType))
+            static Hashtable? AsMetadataHashtable(object? value)
             {
-                return field.GetValue(null) as Hashtable;
-            }
+                if (value is Hashtable ht)
+                {
+                    return LooksLikeXmlMetadata(ht) ? ht : null;
+                }
 
-            // Back-compat: older generated PowerShell OpenAPI classes exposed GetXmlMetadata().
-            // Avoid invoking methods on dynamic (PowerShell-generated) assemblies.
-            if (type.Assembly.IsDynamic)
-            {
+                if (value is IDictionary dict)
+                {
+                    var copied = new Hashtable(StringComparer.OrdinalIgnoreCase);
+                    foreach (DictionaryEntry entry in dict)
+                    {
+                        if (entry.Key is string k)
+                        {
+                            copied[k] = entry.Value;
+                        }
+                    }
+                    return LooksLikeXmlMetadata(copied) ? copied : null;
+                }
+
                 return null;
             }
 
-            var method = type.GetMethod("GetXmlMetadata", BindingFlags.Public | BindingFlags.Static);
-            if (method != null && method.ReturnType == typeof(Hashtable) && method.GetParameters().Length == 0)
+            static bool NameMatchesXmlMetadata(string name)
             {
-                return method.Invoke(null, null) as Hashtable;
+                var normalized = name.TrimStart('$');
+                return string.Equals(normalized, "XmlMetadata", StringComparison.OrdinalIgnoreCase);
+            }
+
+            // Preferred: a static hashtable property/field (safe to read via reflection).
+            // PowerShell class *methods* require an engine context on the current thread and may throw when invoked
+            // from C# (even if the type was defined in a runspace).
+            var flags = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static | BindingFlags.FlattenHierarchy;
+
+            foreach (var prop in type.GetProperties(flags))
+            {
+                if (!NameMatchesXmlMetadata(prop.Name))
+                {
+                    continue;
+                }
+
+                if (prop.GetIndexParameters().Length != 0)
+                {
+                    continue;
+                }
+
+                var byName = AsMetadataHashtable(prop.GetValue(null));
+                if (byName is not null)
+                {
+                    return byName;
+                }
+            }
+
+            foreach (var field in type.GetFields(flags))
+            {
+                if (!NameMatchesXmlMetadata(field.Name))
+                {
+                    continue;
+                }
+
+                var byName = AsMetadataHashtable(field.GetValue(null));
+                if (byName is not null)
+                {
+                    return byName;
+                }
+            }
+
+            // Fallback: scan static members and return the first value that looks like XML metadata.
+            foreach (var prop in type.GetProperties(flags))
+            {
+                if (prop.GetIndexParameters().Length != 0)
+                {
+                    continue;
+                }
+
+                var candidate = AsMetadataHashtable(prop.GetValue(null));
+                if (candidate is not null)
+                {
+                    return candidate;
+                }
+            }
+
+            foreach (var field in type.GetFields(flags))
+            {
+                var candidate = AsMetadataHashtable(field.GetValue(null));
+                if (candidate is not null)
+                {
+                    return candidate;
+                }
             }
         }
         catch (Exception ex)
@@ -424,6 +493,159 @@ public static class XmlHelper
             Log.Logger.Error(ex, "Error retrieving XML metadata for type {TypeName}", type.FullName);
         }
         return null;
+    }
+
+    /// <summary>
+    /// Gets OpenAPI XML metadata for a CLR type.
+    /// </summary>
+    /// <param name="type">The type to inspect.</param>
+    /// <returns>
+    /// A hashtable containing XML metadata (ClassName/ClassXml/Properties), or <c>null</c> when the type has no XML annotations.
+    /// </returns>
+    internal static Hashtable? GetOpenApiXmlMetadataForType(Type type)
+    {
+        ArgumentNullException.ThrowIfNull(type);
+
+        // First, try the static hashtable member (used by generated classes).
+        var fromStatic = TryGetXmlMetadata(type);
+        if (fromStatic is not null)
+        {
+            return fromStatic;
+        }
+
+        // Next, build metadata from attributes on the type (used by user-defined PowerShell classes).
+        return BuildXmlMetadataFromAttributes(type);
+    }
+
+    /// <summary>
+    /// Builds an XmlMetadata hashtable from <see cref="OpenApiXmlAttribute"/> annotations on a type and its members.
+    /// This supports user-defined PowerShell classes that are not rewritten by the exporter.
+    /// </summary>
+    /// <param name="type">The annotated type.</param>
+    /// <returns>An XmlMetadata hashtable, or <c>null</c> when the type has no XML annotations.</returns>
+    private static Hashtable? BuildXmlMetadataFromAttributes(Type type)
+    {
+        static object? FindOpenApiXmlAttribute(ICustomAttributeProvider provider)
+        {
+            return provider
+                .GetCustomAttributes(inherit: false)
+                .FirstOrDefault(a => a?.GetType().Name == "OpenApiXmlAttribute");
+        }
+
+        static string? GetStringProperty(object attr, string propName)
+        {
+            return attr.GetType().GetProperty(propName, BindingFlags.Public | BindingFlags.Instance)?.GetValue(attr) as string;
+        }
+
+        static bool GetBoolProperty(object attr, string propName)
+        {
+            var value = attr.GetType().GetProperty(propName, BindingFlags.Public | BindingFlags.Instance)?.GetValue(attr);
+            return value is bool b && b;
+        }
+
+        static Hashtable BuildEntryFromAttribute(object xmlAttr)
+        {
+            var entry = new Hashtable(StringComparer.OrdinalIgnoreCase);
+
+            var name = GetStringProperty(xmlAttr, "Name");
+            if (!string.IsNullOrWhiteSpace(name))
+            {
+                entry["Name"] = name;
+            }
+
+            var ns = GetStringProperty(xmlAttr, "Namespace");
+            if (!string.IsNullOrWhiteSpace(ns))
+            {
+                entry["Namespace"] = ns;
+            }
+
+            var prefix = GetStringProperty(xmlAttr, "Prefix");
+            if (!string.IsNullOrWhiteSpace(prefix))
+            {
+                entry["Prefix"] = prefix;
+            }
+
+            if (GetBoolProperty(xmlAttr, "Attribute"))
+            {
+                entry["Attribute"] = true;
+            }
+
+            if (GetBoolProperty(xmlAttr, "Wrapped"))
+            {
+                entry["Wrapped"] = true;
+            }
+
+            return entry;
+        }
+
+        var classXmlAttr = FindOpenApiXmlAttribute(type);
+
+        var propsHash = new Hashtable(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var prop in type.GetProperties(BindingFlags.Public | BindingFlags.Instance))
+        {
+            var xmlAttr = FindOpenApiXmlAttribute(prop);
+            if (xmlAttr is null)
+            {
+                continue;
+            }
+
+            var entry = BuildEntryFromAttribute(xmlAttr);
+
+            if (entry.Count > 0)
+            {
+                propsHash[prop.Name] = entry;
+            }
+        }
+
+        foreach (var field in type.GetFields(BindingFlags.Public | BindingFlags.Instance))
+        {
+            var xmlAttr = FindOpenApiXmlAttribute(field);
+            if (xmlAttr is null)
+            {
+                continue;
+            }
+
+            var entry = BuildEntryFromAttribute(xmlAttr);
+
+            if (entry.Count > 0)
+            {
+                propsHash[field.Name] = entry;
+            }
+        }
+
+        if (classXmlAttr is null && propsHash.Count == 0)
+        {
+            return null;
+        }
+
+        var meta = new Hashtable(StringComparer.OrdinalIgnoreCase)
+        {
+            ["ClassName"] = type.Name,
+            ["Properties"] = propsHash,
+        };
+
+        if (classXmlAttr is not null)
+        {
+            var classXml = new Hashtable(StringComparer.OrdinalIgnoreCase);
+
+            var classEntry = BuildEntryFromAttribute(classXmlAttr);
+            foreach (DictionaryEntry entry in classEntry)
+            {
+                classXml[entry.Key] = entry.Value;
+            }
+
+            // Class-level metadata should not include member-only flags.
+            classXml.Remove("Attribute");
+            classXml.Remove("Wrapped");
+
+            if (classXml.Count > 0)
+            {
+                meta["ClassXml"] = classXml;
+            }
+        }
+
+        return meta;
     }
 
     private static string SanitizeName(string raw)

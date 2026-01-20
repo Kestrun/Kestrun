@@ -94,9 +94,20 @@ internal static class PowerShellDelegateBuilder
             {
                 var fqid = pbaex.ErrorRecord?.FullyQualifiedErrorId;
                 var cat = pbaex.ErrorRecord?.CategoryInfo?.Category;
+                var errMsg = pbaex.ErrorRecord?.Exception?.Message ?? pbaex.Message;
+                var errRecordText = pbaex.ErrorRecord?.ToString();
                 // Log parameter binding errors with preview of code
-                log.Error("PowerShell parameter binding error ({Category}/{FQID}) - {Preview}",
-                    cat, fqid, code[..Math.Min(40, code.Length)]);
+                log.Error(
+                    "PowerShell parameter binding error ({Category}/{FQID}) - {Message} - {Preview}",
+                    cat,
+                    fqid,
+                    errMsg,
+                    code[..Math.Min(80, code.Length)]);
+
+                if (!string.IsNullOrWhiteSpace(errRecordText) && log.IsEnabled(LogEventLevel.Debug))
+                {
+                    log.Debug("PowerShell parameter binding error record: {ErrorRecord}", errRecordText);
+                }
                 // Return 400 Bad Request for parameter binding errors
                 context.Response.StatusCode = StatusCodes.Status400BadRequest;
                 context.Response.ContentType = "text/plain; charset=utf-8";

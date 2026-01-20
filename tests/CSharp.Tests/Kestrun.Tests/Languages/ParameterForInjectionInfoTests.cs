@@ -2,6 +2,8 @@ using System.Collections;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Management.Automation;
+using System.Xml;
+using System.Xml.Linq;
 using Kestrun.Languages;
 using Kestrun.Models;
 using Microsoft.AspNetCore.Http;
@@ -24,35 +26,7 @@ public class ParameterForInjectionInfoTests
 
         public decimal Price { get; set; }
 
-        public string[]? Item { get; set; }
-
-        public static Hashtable XmlMetadata => new(StringComparer.OrdinalIgnoreCase)
-        {
-            ["ClassName"] = "Product",
-            ["ClassXml"] = new Hashtable(StringComparer.OrdinalIgnoreCase)
-            {
-                ["Name"] = "Product",
-            },
-            ["Properties"] = new Hashtable(StringComparer.OrdinalIgnoreCase)
-            {
-                ["Id"] = new Hashtable(StringComparer.OrdinalIgnoreCase)
-                {
-                    ["Name"] = "id",
-                    ["Attribute"] = true,
-                },
-                ["Price"] = new Hashtable(StringComparer.OrdinalIgnoreCase)
-                {
-                    ["Name"] = "Price",
-                    ["Namespace"] = "http://example.com/pricing",
-                    ["Prefix"] = "price",
-                },
-                ["Item"] = new Hashtable(StringComparer.OrdinalIgnoreCase)
-                {
-                    ["Name"] = "Item",
-                    ["Wrapped"] = true,
-                },
-            },
-        };
+        public string[]? Items { get; set; }
     }
 
     private static KestrunContext CreateContextWithEndpointParameters(
@@ -368,15 +342,24 @@ public class ParameterForInjectionInfoTests
         var p = new ParameterForInjectionInfo(metadata, requestBody);
 
         var xmlBody = """
-<Product id=\"22\" xmlns:price=\"http://example.com/pricing\">
-  <Name>My Product</Name>
-  <price:Price>11.95</price:Price>
-  <Item>
-    <Item>Item1</Item>
-    <Item>Item2</Item>
-  </Item>
+<?xml version="1.0" encoding="UTF-8"?>
+<Product id="123">
+    <ProductName>Widget</ProductName>
+    <price:Price xmlns:price="http://example.com/pricing">19.99</price:Price>
+    <Item>
+        <Item>Item1</Item>
+        <Item>Item2</Item>
+        <Item>Item3</Item>
+    </Item>
 </Product>
 """;
+
+        // Sanity: ensure the XML conversion method itself can create the model.
+        var convertMethod = typeof(ParameterForInjectionInfo)
+            .GetMethod("ConvertXmlBodyToParameterType", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
+        Assert.NotNull(convertMethod);
+        var direct = convertMethod.Invoke(null, [xmlBody, typeof(ProductXmlModel)]);
+        _ = Assert.IsType<ProductXmlModel>(direct);
 
         var ctx = CreateContextWithEndpointParameters(
             [p],
@@ -384,6 +367,8 @@ public class ParameterForInjectionInfoTests
             path: "/",
             body: xmlBody,
             configureContext: http => http.Request.ContentType = "application/xml");
+
+        Assert.False(string.IsNullOrWhiteSpace(ctx.Request.Body));
 
         using var ps = PowerShell.Create();
         _ = ps.AddCommand("Write-Output");
@@ -393,10 +378,58 @@ public class ParameterForInjectionInfoTests
         var bodyResolved = Assert.IsType<ParameterForInjectionResolved>(ctx.Parameters.Body);
         var model = Assert.IsType<ProductXmlModel>(bodyResolved.Value);
 
-        Assert.Equal(22, model.Id);
-        Assert.Equal("My Product", model.Name);
-        Assert.Equal(11.95m, model.Price);
-        Assert.Equal(new[] { "Item1", "Item2" }, model.Item);
+        Assert.Equal(123, model.Id);
+        Assert.Equal("Widget", model.Name);
+        Assert.Equal(19.99m, model.Price);
+        Assert.Equal(new[] { "Item1", "Item2", "Item3" }, model.Items);
+    }
+
+    [Fact]
+    [Trait("Category", "Languages")]
+    public void XmlPayload_WithDeclaration_CanBeParsed()
+    {
+        var xmlBody = """
+<?xml version="1.0" encoding="UTF-8"?>
+<Product id="123">
+  <ProductName>Widget</ProductName>
+  <price:Price xmlns:price="http://example.com/pricing">19.99</price:Price>
+  <Item>
+    <Item>Item1</Item>
+    <Item>Item2</Item>
+    <Item>Item3</Item>
+  </Item>
+</Product>
+""";
+
+        var cleaned = xmlBody.TrimStart('\uFEFF', '\u200B', '\u0000', ' ', '\t', '\r', '\n');
+        if (cleaned.StartsWith("<?xml", StringComparison.OrdinalIgnoreCase))
+        {
+            var endDecl = cleaned.IndexOf("?>", StringComparison.Ordinal);
+            if (endDecl >= 0)
+            {
+                cleaned = cleaned[(endDecl + 2)..].TrimStart();
+            }
+        }
+
+        XDocument doc;
+        try
+        {
+            doc = XDocument.Parse(cleaned);
+        }
+        catch
+        {
+            var settings = new XmlReaderSettings
+            {
+                DtdProcessing = DtdProcessing.Prohibit,
+                XmlResolver = null,
+            };
+
+            using var reader = XmlReader.Create(new StringReader(cleaned), settings);
+            doc = XDocument.Load(reader);
+        }
+
+        Assert.NotNull(doc.Root);
+        Assert.Equal("Product", doc.Root.Name.LocalName);
     }
 
     [Fact]

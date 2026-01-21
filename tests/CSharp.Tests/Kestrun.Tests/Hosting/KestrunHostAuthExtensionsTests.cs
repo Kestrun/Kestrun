@@ -19,6 +19,30 @@ public class KestrunHostAuthExtensionsTests
 {
     [Fact]
     [Trait("Category", "Hosting")]
+    public void ClientCertificate_Adds_Scheme_And_RegistryEntry()
+    {
+        var host = new KestrunHost("TestApp");
+
+        _ = host.AddClientCertificateAuthentication(
+            scheme: "CertificateX",
+            displayName: "Client Certificate Authentication",
+            configure: _ => { });
+
+        _ = host.Build();
+
+        Assert.True(host.HasAuthScheme("CertificateX"));
+        Assert.True(host.RegisteredAuthentications.Exists("CertificateX", AuthenticationType.Certificate));
+
+        Assert.True(host.RegisteredAuthentications.TryGet<ClientCertificateAuthenticationOptions>(
+            "CertificateX",
+            AuthenticationType.Certificate,
+            out var opts));
+        Assert.NotNull(opts);
+        Assert.Equal(host, opts!.Host);
+    }
+
+    [Fact]
+    [Trait("Category", "Hosting")]
     public async Task JwtBearer_Adds_Scheme_And_Policies()
     {
         var host = new KestrunHost("TestApp");

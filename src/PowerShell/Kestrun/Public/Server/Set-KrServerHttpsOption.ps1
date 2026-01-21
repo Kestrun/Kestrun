@@ -105,32 +105,11 @@ function Set-KrServerHttpsOptions {
     begin {
         # Ensure the server instance is resolved
         $Server = Resolve-KestrunServer -Server $Server
-
-        function Resolve-ClientCertValidationLanguageFromPath {
-            [CmdletBinding()]
-            param(
-                [Parameter(Mandatory)]
-                [string]$Path
-            )
-
-            $ext = [System.IO.Path]::GetExtension($Path)
-            if ([string]::IsNullOrWhiteSpace($ext)) {
-                throw "Unable to infer client certificate validation language: '$Path' has no extension. Use a .cs/.csx or .vb file."
-            }
-
-            switch ($ext.ToLowerInvariant()) {
-                '.cs' { return [Kestrun.Scripting.ScriptLanguage]::CSharp }
-                '.csx' { return [Kestrun.Scripting.ScriptLanguage]::CSharp }
-                '.vb' { return [Kestrun.Scripting.ScriptLanguage]::VBNet }
-                default {
-                    throw "Unsupported client certificate validation code file extension '$ext'. Supported: .cs, .csx, .vb."
-                }
-            }
-        }
     }
     process {
 
-        if ($PSBoundParameters.ContainsKey('ClientCertificateValidation') -and ($PSBoundParameters.ContainsKey('ClientCertificateValidationCode') -or $PSBoundParameters.ContainsKey('ClientCertificateValidationCodePath'))) {
+        if ($PSBoundParameters.ContainsKey('ClientCertificateValidation') -and
+            ($PSBoundParameters.ContainsKey('ClientCertificateValidationCode') -or $PSBoundParameters.ContainsKey('ClientCertificateValidationCodePath'))) {
             throw 'Provide either -ClientCertificateValidation (delegate) or -ClientCertificateValidationCode/-ClientCertificateValidationCodePath, not both.'
         }
 
@@ -160,7 +139,7 @@ function Set-KrServerHttpsOptions {
             if ($PSBoundParameters.ContainsKey('ClientCertificateValidationCodePath')) {
                 $resolvedPath = Resolve-Path -LiteralPath $ClientCertificateValidationCodePath -ErrorAction Stop
                 $codeFromFile = Get-Content -LiteralPath $resolvedPath.Path -Raw -ErrorAction Stop
-                $lang = Resolve-ClientCertValidationLanguageFromPath -Path $resolvedPath.Path
+                $lang = Resolve-KrCodeLanguageFromPath -Path $resolvedPath.Path
                 $ClientCertificateValidation = [Kestrun.Certificates.ClientCertificateValidationCompiler]::Compile($Server, $codeFromFile, $lang)
             }
 

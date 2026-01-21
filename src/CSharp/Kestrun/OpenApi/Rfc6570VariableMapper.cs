@@ -21,14 +21,31 @@ public static partial class Rfc6570VariableMapper
     /// True if variable assignments were successfully built; false if the context or template is invalid.
     /// </returns>
     /// <remarks>
-    /// This method supports:
+    /// <para>
+    /// This method supports OpenAPI 3.2 path expressions with RFC 6570 URI Template syntax:
+    /// </para>
     /// <list type="bullet">
     /// <item><description>Simple parameters: {id} maps to route value "id"</description></item>
     /// <item><description>Reserved operator: {+path} maps to route value "path" (multi-segment)</description></item>
     /// <item><description>Regex constraints: {userId:[0-9]+} maps to route value "userId"</description></item>
     /// </list>
+    /// <para>
     /// The method extracts parameter names from the OpenAPI template and looks them up in the
     /// ASP.NET Core route values (HttpContext.Request.RouteValues).
+    /// </para>
+    /// <example>
+    /// <code>
+    /// // Given an ASP.NET route that matched "/api/v1/users/42"
+    /// // with route values: { "version" = "1", "userId" = "42" }
+    /// 
+    /// var template = "/api/v{version:[0-9]+}/users/{userId}";
+    /// if (Rfc6570VariableMapper.TryBuildRfc6570Variables(context, template, out var vars))
+    /// {
+    ///     // vars contains: { "version" = "1", "userId" = "42" }
+    ///     // These can be used to expand RFC 6570 templates in links, callbacks, etc.
+    /// }
+    /// </code>
+    /// </example>
     /// </remarks>
     public static bool TryBuildRfc6570Variables(
         HttpContext context,

@@ -291,7 +291,7 @@
         </ItemGroup>
         <Copy SourceFiles="@(PowerShellModuleFiles)" DestinationFiles="@(PowerShellModuleFiles->'$(ProjectRoot)\publish\%(RecursiveDir)%(Filename)%(Extension)')" SkipUnchangedFiles="true" />
 
-        <!-- Copy Release DLLs to $(ProjectRoot)publish\lib -->
+        <!-- Copy Release DLLs to $(ProjectRoot)\publish\lib -->
         <ItemGroup>
             <ReleaseLibFiles Include="$(OutputPath)*.*" />
         </ItemGroup>

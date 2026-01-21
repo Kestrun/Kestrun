@@ -56,16 +56,39 @@ if (-not (Test-Path $clientCertPath)) {
 
 # 5. Configure HTTPS to require client certificates
 # NOTE: This callback is invoked on Kestrel threadpool threads during TLS handshake.
-# It must be a pure .NET delegate (not a PowerShell scriptblock), otherwise you'll
-# get "There is no Runspace available" errors.
-$clientCertValidation = [System.Func[
-    System.Security.Cryptography.X509Certificates.X509Certificate2,
-    System.Security.Cryptography.X509Certificates.X509Chain,
-    System.Net.Security.SslPolicyErrors,
-    bool
-]] [Kestrun.Certificates.ClientCertificateValidationCallbacks]::AllowMissingOrSelfSignedForDevelopment
+# It must be pure .NET (not a PowerShell scriptblock), otherwise you'll get
+# "There is no Runspace available" errors.
+#
+# This example demonstrates compiling a C# snippet with Roslyn into the TLS callback delegate.
+$clientCertValidationCode = @'
+// certificate: X509Certificate2
+// chain: X509Chain
+// sslPolicyErrors: SslPolicyErrors
 
-Set-KrServerHttpsOptions -ClientCertificateMode AllowCertificate -ClientCertificateValidation $clientCertValidation
+// AllowCertificate mode: permit connections without a client certificate.
+if (certificate is null)
+{
+    return true;
+}
+
+// Accept valid chains.
+if (sslPolicyErrors == SslPolicyErrors.None)
+{
+    return true;
+}
+
+// Dev-friendly: allow self-signed / untrusted chains.
+return sslPolicyErrors == SslPolicyErrors.RemoteCertificateChainErrors;
+'@
+
+Set-KrServerHttpsOptions -ClientCertificateMode AllowCertificate `
+    -ClientCertificateValidationLanguage CSharp `
+    -ClientCertificateValidationCode $clientCertValidationCode
+
+# Note: You can also use a built-in .NET callback instead of compiling code:
+# Set-KrServerHttpsOptions -ClientCertificateMode AllowCertificate -ClientCertificateValidation ([Kestrun.Certificates.ClientCertificateValidationCallbacks]::AllowMissingOrSelfSignedForDevelopment)
+#
+# Tip: If you prefer storing the snippet in a file, use -ClientCertificateValidationCodePath with a .cs/.csx or .vb file.
 
 # 6. Add HTTPS endpoint
 Add-KrEndpoint -Port $Port -IPAddress $IPAddress -X509Certificate $serverCert

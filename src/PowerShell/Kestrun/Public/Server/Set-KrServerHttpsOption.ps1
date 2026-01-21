@@ -12,6 +12,20 @@ server instance, including SSL protocols, client certificate modes, and server c
     Specifies the SSL protocols to be used for HTTPS connections. This parameter is optional and can be set to a specific protocol or left unset to use defaults.
 .PARAMETER ClientCertificateMode
     Specifies the client certificate mode for HTTPS connections. This parameter is optional and can be set to a specific mode or left unset to use defaults.
+.PARAMETER ClientCertificateValidation
+    A .NET delegate invoked by Kestrel during the TLS handshake to validate the presented client certificate.
+    The delegate signature is:
+    Func[X509Certificate2, X509Chain, SslPolicyErrors, bool].
+    Note: This delegate runs on Kestrel TLS threads (no PowerShell runspace), so it must be pure .NET, fast, and thread-safe.
+.PARAMETER ClientCertificateValidationCode
+    A C# or VB.NET method-body snippet that will be compiled with Roslyn into the TLS client certificate validation delegate.
+    The generated method signature is:
+      bool Validate(X509Certificate2 certificate, X509Chain chain, SslPolicyErrors sslPolicyErrors)
+.PARAMETER ClientCertificateValidationCodePath
+    Path to a .cs/.csx or .vb file containing a method-body snippet that will be compiled with Roslyn into the TLS client certificate validation delegate.
+    The language is inferred from the file extension.
+.PARAMETER ClientCertificateValidationLanguage
+    The language used for -ClientCertificateValidationCode. Valid values are CSharp and VBNet.
 .PARAMETER CheckCertificateRevocation
     If specified, enables certificate revocation checking for HTTPS connections. This parameter is optional and can be left unset to use defaults.
 .PARAMETER ServerCertificate
@@ -42,7 +56,7 @@ server instance, including SSL protocols, client certificate modes, and server c
     This command sets the handshake timeout for the specified Kestrun server instance to 30 seconds.
 .NOTES
     This function is designed to be used in the context of a Kestrun server setup and allows for flexible configuration of HTTPS options.
-    $ClientCertificateValidation, $ServerCertificateSelector, and $OnAuthenticate are currently not implemented in this cmdlet but can be added in future versions for more advanced scenarios.
+    TLS callbacks (like client certificate validation) execute during the TLS handshake and must not rely on PowerShell runspaces.
 #>
 function Set-KrServerHttpsOptions {
     [KestrunRuntimeApi('Definition')]
@@ -55,6 +69,19 @@ function Set-KrServerHttpsOptions {
         [Microsoft.AspNetCore.Server.Kestrel.Https.HttpsConnectionAdapterOptions]$Options,
         [Parameter( ParameterSetName = 'Items')]
         [System.Security.Authentication.SslProtocols]$SslProtocols,
+
+        [Parameter(ParameterSetName = 'Items')]
+        [ValidateNotNullOrEmpty()]
+        [string]$ClientCertificateValidationCode,
+
+        [Parameter(ParameterSetName = 'Items')]
+        [ValidateNotNullOrEmpty()]
+        [string]$ClientCertificateValidationCodePath,
+
+        [Parameter(ParameterSetName = 'Items')]
+        [ValidateNotNullOrEmpty()]
+        [ValidateSet('CSharp', 'VBNet')]
+        [string]$ClientCertificateValidationLanguage = 'CSharp',
         [Parameter( ParameterSetName = 'Items')]
         [Microsoft.AspNetCore.Server.Kestrel.Https.ClientCertificateMode]$ClientCertificateMode,
         [Parameter( ParameterSetName = 'Items')]
@@ -78,8 +105,42 @@ function Set-KrServerHttpsOptions {
     begin {
         # Ensure the server instance is resolved
         $Server = Resolve-KestrunServer -Server $Server
+
+        function Resolve-ClientCertValidationLanguageFromPath {
+            [CmdletBinding()]
+            param(
+                [Parameter(Mandatory)]
+                [string]$Path
+            )
+
+            $ext = [System.IO.Path]::GetExtension($Path)
+            if ([string]::IsNullOrWhiteSpace($ext)) {
+                throw "Unable to infer client certificate validation language: '$Path' has no extension. Use a .cs/.csx or .vb file."
+            }
+
+            switch ($ext.ToLowerInvariant()) {
+                '.cs' { return [Kestrun.Scripting.ScriptLanguage]::CSharp }
+                '.csx' { return [Kestrun.Scripting.ScriptLanguage]::CSharp }
+                '.vb' { return [Kestrun.Scripting.ScriptLanguage]::VBNet }
+                default {
+                    throw "Unsupported client certificate validation code file extension '$ext'. Supported: .cs, .csx, .vb."
+                }
+            }
+        }
     }
     process {
+
+        if ($PSBoundParameters.ContainsKey('ClientCertificateValidation') -and ($PSBoundParameters.ContainsKey('ClientCertificateValidationCode') -or $PSBoundParameters.ContainsKey('ClientCertificateValidationCodePath'))) {
+            throw 'Provide either -ClientCertificateValidation (delegate) or -ClientCertificateValidationCode/-ClientCertificateValidationCodePath, not both.'
+        }
+
+        if ($PSBoundParameters.ContainsKey('ClientCertificateValidationCode') -and $PSBoundParameters.ContainsKey('ClientCertificateValidationCodePath')) {
+            throw 'Provide either -ClientCertificateValidationCode or -ClientCertificateValidationCodePath, not both.'
+        }
+
+        if ($PSBoundParameters.ContainsKey('ClientCertificateValidationCodePath') -and $PSBoundParameters.ContainsKey('ClientCertificateValidationLanguage')) {
+            throw 'Do not specify -ClientCertificateValidationLanguage when using -ClientCertificateValidationCodePath. The language is inferred from the file extension.'
+        }
 
         if ($PSCmdlet.ParameterSetName -eq 'Items') {
 
@@ -90,6 +151,19 @@ function Set-KrServerHttpsOptions {
             if ($null -ne $ClientCertificateMode) {
                 $options.ClientCertificateMode = $ClientCertificateMode
             }
+
+            if ($PSBoundParameters.ContainsKey('ClientCertificateValidationCode')) {
+                $lang = [Kestrun.Scripting.ScriptLanguage]::$ClientCertificateValidationLanguage
+                $ClientCertificateValidation = [Kestrun.Certificates.ClientCertificateValidationCompiler]::Compile($Server, $ClientCertificateValidationCode, $lang)
+            }
+
+            if ($PSBoundParameters.ContainsKey('ClientCertificateValidationCodePath')) {
+                $resolvedPath = Resolve-Path -LiteralPath $ClientCertificateValidationCodePath -ErrorAction Stop
+                $codeFromFile = Get-Content -LiteralPath $resolvedPath.Path -Raw -ErrorAction Stop
+                $lang = Resolve-ClientCertValidationLanguageFromPath -Path $resolvedPath.Path
+                $ClientCertificateValidation = [Kestrun.Certificates.ClientCertificateValidationCompiler]::Compile($Server, $codeFromFile, $lang)
+            }
+
             if ($null -ne $ClientCertificateValidation) {
                 $options.ClientCertificateValidation = $ClientCertificateValidation
             }

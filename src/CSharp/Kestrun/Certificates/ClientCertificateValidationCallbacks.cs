@@ -69,11 +69,6 @@ public static class ClientCertificateValidationCallbacks
         _ = chain;
 
         // When ClientCertificateMode is AllowCertificate, clients may connect without presenting a certificate.
-        if (certificate is null)
-        {
-            return true;
-        }
-
-        return sslPolicyErrors == SslPolicyErrors.None ? true : sslPolicyErrors == SslPolicyErrors.RemoteCertificateChainErrors;
+        return certificate is null || sslPolicyErrors == SslPolicyErrors.None || sslPolicyErrors == SslPolicyErrors.RemoteCertificateChainErrors;
     }
 }

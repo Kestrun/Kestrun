@@ -1,6 +1,7 @@
 using System.Reflection;
 using System.Text.Json.Nodes;
 using Microsoft.OpenApi;
+using OpenApiXmlModel = Microsoft.OpenApi.OpenApiXml;
 using Kestrun.Runtime;
 
 namespace Kestrun.OpenApi;
@@ -949,7 +950,7 @@ public partial class OpenApiDocDescriptor
         }
 
         // Create XML object if it doesn't exist
-        schema.Xml ??= new Microsoft.OpenApi.OpenApiXml();
+        schema.Xml ??= new OpenApiXmlModel();
 
         // Apply standard XML properties (supported by Microsoft.OpenApi 3.1.2)
         if (!string.IsNullOrWhiteSpace(properties.XmlName))

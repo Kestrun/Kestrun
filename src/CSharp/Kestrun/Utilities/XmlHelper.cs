@@ -1,7 +1,9 @@
 using System.Collections;
 using System.Reflection;
+using System.Runtime.CompilerServices;
 using System.Xml.Linq;
 using Microsoft.OpenApi;
+using OpenApiXmlModel = Microsoft.OpenApi.OpenApiXml;
 using Serilog;
 
 namespace Kestrun.Utilities;
@@ -782,7 +784,7 @@ public static class XmlHelper
     {
         public static readonly ReferenceEqualityComparer Instance = new();
         public new bool Equals(object? x, object? y) => ReferenceEquals(x, y);
-        public int GetHashCode(object obj) => System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(obj);
+        public int GetHashCode(object obj) => RuntimeHelpers.GetHashCode(obj);
     }
 
     /// <summary>
@@ -801,14 +803,14 @@ public static class XmlHelper
         }
 
         // Convert hashtable metadata to OpenApiXml object for class-level metadata
-        Microsoft.OpenApi.OpenApiXml? classXml = null;
+        OpenApiXmlModel? classXml = null;
         if (xmlMetadata["ClassXml"] is Hashtable classXmlHash)
         {
             classXml = HashtableToOpenApiXml(classXmlHash);
         }
 
         // Convert property metadata hashtables to OpenApiXml objects
-        var propertyModels = new Dictionary<string, Microsoft.OpenApi.OpenApiXml>();
+        var propertyModels = new Dictionary<string, OpenApiXmlModel>();
         if (xmlMetadata["Properties"] is Hashtable propsHash)
         {
             foreach (DictionaryEntry entry in propsHash)
@@ -832,7 +834,7 @@ public static class XmlHelper
     /// </summary>
     /// <param name="hash">Hashtable containing Name, Namespace, Prefix, Attribute, and/or Wrapped keys.</param>
     /// <returns>An OpenApiXml object with the specified properties, or null if the hashtable is empty/invalid.</returns>
-    private static Microsoft.OpenApi.OpenApiXml? HashtableToOpenApiXml(Hashtable hash)
+    private static OpenApiXmlModel? HashtableToOpenApiXml(Hashtable hash)
     {
         ArgumentNullException.ThrowIfNull(hash);
 
@@ -841,7 +843,7 @@ public static class XmlHelper
             return null;
         }
 
-        var xml = new Microsoft.OpenApi.OpenApiXml();
+        var xml = new OpenApiXmlModel();
         ApplyOpenApiXmlName(hash, xml);
         ApplyOpenApiXmlNamespace(hash, xml);
         ApplyOpenApiXmlPrefix(hash, xml);
@@ -854,7 +856,7 @@ public static class XmlHelper
     /// </summary>
     /// <param name="hash">Metadata hashtable.</param>
     /// <param name="xml">Target OpenAPI XML object.</param>
-    private static void ApplyOpenApiXmlName(Hashtable hash, Microsoft.OpenApi.OpenApiXml xml)
+    private static void ApplyOpenApiXmlName(Hashtable hash, OpenApiXmlModel xml)
     {
         if (hash["Name"] is string name)
         {
@@ -867,7 +869,7 @@ public static class XmlHelper
     /// </summary>
     /// <param name="hash">Metadata hashtable.</param>
     /// <param name="xml">Target OpenAPI XML object.</param>
-    private static void ApplyOpenApiXmlNamespace(Hashtable hash, Microsoft.OpenApi.OpenApiXml xml)
+    private static void ApplyOpenApiXmlNamespace(Hashtable hash, OpenApiXmlModel xml)
     {
         if (hash["Namespace"] is string ns && !string.IsNullOrWhiteSpace(ns))
         {
@@ -880,7 +882,7 @@ public static class XmlHelper
     /// </summary>
     /// <param name="hash">Metadata hashtable.</param>
     /// <param name="xml">Target OpenAPI XML object.</param>
-    private static void ApplyOpenApiXmlPrefix(Hashtable hash, Microsoft.OpenApi.OpenApiXml xml)
+    private static void ApplyOpenApiXmlPrefix(Hashtable hash, OpenApiXmlModel xml)
     {
         if (hash["Prefix"] is string prefix)
         {
@@ -893,7 +895,7 @@ public static class XmlHelper
     /// </summary>
     /// <param name="hash">Metadata hashtable.</param>
     /// <param name="xml">Target OpenAPI XML object.</param>
-    private static void ApplyOpenApiXmlNodeType(Hashtable hash, Microsoft.OpenApi.OpenApiXml xml)
+    private static void ApplyOpenApiXmlNodeType(Hashtable hash, OpenApiXmlModel xml)
     {
         if (hash["Attribute"] is bool isAttribute && isAttribute)
         {
@@ -914,7 +916,7 @@ public static class XmlHelper
     /// <param name="xmlModel">OpenAPI XML model metadata for the current element.</param>
     /// <param name="propertyModels">Dictionary of property-specific XML models for child elements.</param>
     /// <returns>A Hashtable representation of the XML element.</returns>
-    private static Hashtable ToHashtableInternal(XElement element, Microsoft.OpenApi.OpenApiXml? xmlModel, Dictionary<string, Microsoft.OpenApi.OpenApiXml> propertyModels)
+    private static Hashtable ToHashtableInternal(XElement element, OpenApiXmlModel? xmlModel, Dictionary<string, OpenApiXmlModel> propertyModels)
     {
         var elementName = GetEffectiveElementName(element, xmlModel);
 
@@ -941,7 +943,7 @@ public static class XmlHelper
     /// <param name="element">The element whose name is being resolved.</param>
     /// <param name="xmlModel">The OpenAPI XML model for the current element.</param>
     /// <returns>The resolved element name.</returns>
-    private static string GetEffectiveElementName(XElement element, Microsoft.OpenApi.OpenApiXml? xmlModel)
+    private static string GetEffectiveElementName(XElement element, OpenApiXmlModel? xmlModel)
         => xmlModel?.Name ?? element.Name.LocalName;
 
     /// <summary>
@@ -974,7 +976,7 @@ public static class XmlHelper
     /// <param name="element">The element whose attributes are being read.</param>
     /// <param name="table">The hashtable to populate.</param>
     /// <param name="propertyModels">Property-level OpenAPI XML models used to map attribute names to property keys.</param>
-    private static void AddAttributesToTable(XElement element, Hashtable table, Dictionary<string, Microsoft.OpenApi.OpenApiXml> propertyModels)
+    private static void AddAttributesToTable(XElement element, Hashtable table, Dictionary<string, OpenApiXmlModel> propertyModels)
     {
         foreach (var attr in element.Attributes())
         {
@@ -1017,7 +1019,7 @@ public static class XmlHelper
     /// <param name="element">The parent element whose children are being converted.</param>
     /// <param name="propertyModels">Property-level OpenAPI XML models used to map element names to property keys.</param>
     /// <returns>A hashtable of child values.</returns>
-    private static Hashtable ConvertChildElements(XElement element, Dictionary<string, Microsoft.OpenApi.OpenApiXml> propertyModels)
+    private static Hashtable ConvertChildElements(XElement element, Dictionary<string, OpenApiXmlModel> propertyModels)
     {
         var childMap = new Hashtable();
 
@@ -1074,7 +1076,7 @@ public static class XmlHelper
     /// <param name="attributeName">The XML attribute name.</param>
     /// <param name="propertyModels">Dictionary of property-specific XML models.</param>
     /// <returns>The property key if found; otherwise, null.</returns>
-    private static string? FindPropertyKeyForAttribute(string attributeName, Dictionary<string, Microsoft.OpenApi.OpenApiXml> propertyModels)
+    private static string? FindPropertyKeyForAttribute(string attributeName, Dictionary<string, OpenApiXmlModel> propertyModels)
     {
         foreach (var kvp in propertyModels)
         {
@@ -1098,7 +1100,7 @@ public static class XmlHelper
     /// <param name="elementName">The XML element local name.</param>
     /// <param name="propertyModels">Dictionary of property-specific XML models.</param>
     /// <returns>The property key if found; otherwise, null.</returns>
-    private static string? FindPropertyKeyForElement(string elementName, Dictionary<string, Microsoft.OpenApi.OpenApiXml> propertyModels)
+    private static string? FindPropertyKeyForElement(string elementName, Dictionary<string, OpenApiXmlModel> propertyModels)
     {
         // Fast path: property name matches element name.
         foreach (var kvp in propertyModels)

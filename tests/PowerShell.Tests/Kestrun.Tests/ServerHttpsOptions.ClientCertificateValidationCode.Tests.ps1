@@ -1,4 +1,4 @@
-﻿param()
+param()
 
 Describe 'Set-KrServerHttpsOptions -ClientCertificateValidationCode' {
     BeforeAll {

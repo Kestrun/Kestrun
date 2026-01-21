@@ -74,11 +74,6 @@ public static class ClientCertificateValidationCallbacks
             return true;
         }
 
-        if (sslPolicyErrors == SslPolicyErrors.None)
-        {
-            return true;
-        }
-
-        return sslPolicyErrors == SslPolicyErrors.RemoteCertificateChainErrors;
+        return sslPolicyErrors == SslPolicyErrors.None ? true : sslPolicyErrors == SslPolicyErrors.RemoteCertificateChainErrors;
     }
 }

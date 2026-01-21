@@ -21,7 +21,7 @@ public sealed class ClientCertificateValidationCompilerTests
     [Fact]
     public void Compile_Throws_WhenHostIsNull()
     {
-        Assert.Throws<ArgumentNullException>(() =>
+        _ = Assert.Throws<ArgumentNullException>(() =>
             ClientCertificateValidationCompiler.Compile(null!, "return true; // host-null", ScriptLanguage.CSharp));
     }
 
@@ -43,7 +43,7 @@ public sealed class ClientCertificateValidationCompilerTests
     {
         using var host = new KestrunHost("Tests", Log.Logger);
 
-        Assert.Throws<NotSupportedException>(() =>
+        _ = Assert.Throws<NotSupportedException>(() =>
             ClientCertificateValidationCompiler.Compile(host, "return true; // unsupported-lang", ScriptLanguage.PowerShell));
     }
 

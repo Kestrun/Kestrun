@@ -1,4 +1,4 @@
-﻿<#
+<#
 .SYNOPSIS
     Resolves the scripting language from the file extension of the provided path.
 .DESCRIPTION

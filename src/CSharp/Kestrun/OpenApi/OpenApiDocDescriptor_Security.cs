@@ -37,23 +37,11 @@ public partial class OpenApiDocDescriptor
     /// <returns>The OpenAPI security scheme for mutual TLS authentication.</returns>
     private static OpenApiSecurityScheme GetSecurityScheme(ClientCertificateAuthenticationOptions options)
     {
-        var tempDisclaimer = "Mutual TLS (client certificate) authentication. Requires mutual TLS (client certificate authentication) at the transport layer." +
-             "This is NOT a header-based auth scheme; it is documented here because OpenAPI 3.1 mutualTLS " +
-             "is not currently supported by Microsoft.OpenApi.";
         return new OpenApiSecurityScheme
         {
-            // Placeholder only — there is no native mutualTLS type in Microsoft.OpenApi today.
-            Type = SecuritySchemeType.ApiKey,
-            Name = "mTLS",
-            In = ParameterLocation.Header,
-            Description = string.IsNullOrEmpty(options.Description) ? tempDisclaimer : options.Description + '\n' + tempDisclaimer,
-
-            Deprecated = options.Deprecated,
-            Extensions = new Dictionary<string, IOpenApiExtension>
-            {
-                ["x-mtls"] = new JsonNodeExtension(true),
-                ["x-transport-auth"] = new JsonNodeExtension("mutualTLS")
-            }
+            Type = SecuritySchemeType.MutualTLS,
+            Description = options.Description ?? options.DisplayName,
+            Deprecated = options.Deprecated
         };
     }
 

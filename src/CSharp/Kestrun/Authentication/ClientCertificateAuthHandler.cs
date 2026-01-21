@@ -243,6 +243,19 @@ public class ClientCertificateAuthHandler : AuthenticationHandler<ClientCertific
         /// <returns>Success when valid or revocation checking is disabled; otherwise a failure with a message.</returns>
         private (bool Success, string? FailureMessage) ValidateRevocation(X509Certificate2 certificate)
         {
+            var isSelfSigned = string.Equals(certificate.Subject, certificate.Issuer, StringComparison.Ordinal);
+            var hasCustomTrustStore = _options.CustomTrustStore is { Count: > 0 };
+
+            // If self-signed certificates are explicitly allowed and the caller did not supply a trust store,
+            // treat the certificate as valid at the authentication layer.
+            // (Chain building for self-signed end-entity certs is platform-dependent and commonly fails.)
+            if (isSelfSigned && !hasCustomTrustStore &&
+                (_options.AllowedCertificateTypes == CertificateTypes.SelfSigned ||
+                 _options.AllowedCertificateTypes == CertificateTypes.All))
+            {
+                return (true, null);
+            }
+
             using var chain = new X509Chain
             {
                 ChainPolicy =
@@ -252,7 +265,7 @@ public class ClientCertificateAuthHandler : AuthenticationHandler<ClientCertific
                 }
             };
 
-            if (_options.CustomTrustStore != null)
+            if (hasCustomTrustStore)
             {
                 chain.ChainPolicy.CustomTrustStore.AddRange(_options.CustomTrustStore);
                 chain.ChainPolicy.TrustMode = X509ChainTrustMode.CustomRootTrust;

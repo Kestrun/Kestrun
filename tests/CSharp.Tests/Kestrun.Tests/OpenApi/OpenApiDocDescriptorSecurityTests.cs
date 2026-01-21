@@ -10,7 +10,7 @@ namespace KestrunTests.OpenApi;
 public sealed class OpenApiDocDescriptorSecurityTests
 {
     [Fact]
-    public void ApplySecurityScheme_AddsClientCertificateScheme_WithVendorExtensions()
+    public void ApplySecurityScheme_AddsClientCertificateScheme()
     {
         using var host = new KestrunHost("Tests", Log.Logger);
         var descriptor = new OpenApiDocDescriptor(host, OpenApiDocDescriptor.DefaultDocumentationId);
@@ -29,14 +29,12 @@ public sealed class OpenApiDocDescriptorSecurityTests
         Assert.True(descriptor.Document.Components.SecuritySchemes.TryGetValue("Certificate", out var scheme));
         Assert.NotNull(scheme);
 
-        Assert.Equal(SecuritySchemeType.ApiKey, scheme.Type);
-        Assert.Equal("mTLS", scheme.Name);
-        Assert.Equal(ParameterLocation.Header, scheme.In);
+        // Newer Microsoft.OpenApi versions model client certificate auth as 'mutualTLS'
+        // (rather than an ApiKey/header scheme).
+        Assert.Equal(SecuritySchemeType.MutualTLS, scheme.Type);
 
-        Assert.NotNull(scheme.Extensions);
-        Assert.True(scheme.Extensions.ContainsKey("x-mtls"));
-        Assert.True(scheme.Extensions.ContainsKey("x-transport-auth"));
-        Assert.Contains("Mutual TLS", scheme.Description ?? string.Empty, StringComparison.OrdinalIgnoreCase);
+        // Kestrun no longer emits vendor extensions for the mutualTLS scheme.
+        Assert.True(scheme.Extensions is null || scheme.Extensions.Count == 0);
     }
 
     [Fact]

@@ -4,6 +4,7 @@
     File:    8.8-Client-Certificate-Authentication.ps1
     Notes:   Uses self-signed certificates for testing. For production, use CA-signed certificates.
 #>
+[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidUsingConvertToSecureStringWithPlainText', '')]
 param(
     [int]$Port = 5000,
     [IPAddress]$IPAddress = [IPAddress]::Loopback
@@ -17,12 +18,18 @@ New-KrLogger |
 
 # 2. Create server host
 New-KrServer -Name 'Client Certificate Auth Demo'
+# Set certs directory
+$certPath = Join-Path -Path $PSScriptRoot -ChildPath 'certs'
+$basename = [System.IO.Path]::GetFileNameWithoutExtension($PSCommandPath)
 
 # 3. Create or load server certificate for HTTPS
-$serverCertPath = Join-Path $PSScriptRoot 'server-cert.pfx'
+$serverCertPath = Join-Path -Path $certPath -ChildPath "$basename-server-cert.pfx"
 if (Test-Path $serverCertPath) {
     $serverCert = Import-KrCertificate -FilePath $serverCertPath -Password (ConvertTo-SecureString -String 'test' -AsPlainText -Force)
 } else {
+    if (-not (Test-Path -Path $certPath  )) {
+        New-Item -ItemType Directory -Path $certPath | Out-Null
+    }
     # Create server certificate for localhost
     $serverCert = New-KrSelfSignedCertificate -DnsNames 'localhost' -Exportable
 
@@ -34,7 +41,7 @@ if (Test-Path $serverCertPath) {
 }
 
 # 4. Create or load client certificate for testing
-$clientCertPath = Join-Path $PSScriptRoot 'client-cert.pfx'
+$clientCertPath = Join-Path -Path $certPath -ChildPath "$basename-client-cert.pfx"
 if (-not (Test-Path $clientCertPath)) {
     # Create a self-signed client certificate for testing
     # Note: In production, client certificates should be issued by a trusted CA
@@ -53,6 +60,10 @@ if (-not (Test-Path $clientCertPath)) {
     Write-Host '      In production, use certificates from a trusted CA.'
     Write-Host ''
 }
+
+# Import the client certificate so we can trust it for authentication.
+# (The client will present this cert during TLS; the authentication layer still validates an X509Chain.)
+$clientCertForTrust = Import-KrCertificate -FilePath $clientCertPath -Password (ConvertTo-SecureString -String 'test' -AsPlainText -Force)
 
 # 5. Configure HTTPS to require client certificates
 # NOTE: This callback is invoked on Kestrel threadpool threads during TLS handshake.
@@ -96,7 +107,15 @@ Add-KrEndpoint -Port $Port -IPAddress $IPAddress -X509Certificate $serverCert
 # 7. Configure client certificate authentication
 # Note: For self-signed client certificates, we need to allow all certificate types
 # and disable some validation that requires a proper certificate chain
-Add-KrClientCertificateAuthentication -AuthenticationScheme 'Certificate' -AllowedCertificateTypes All -RevocationMode NoCheck
+$authOptions = [Kestrun.Authentication.ClientCertificateAuthenticationOptions]::new()
+$authOptions.AllowedCertificateTypes = [Microsoft.AspNetCore.Authentication.Certificate.CertificateTypes]::All
+$authOptions.RevocationMode = [System.Security.Cryptography.X509Certificates.X509RevocationMode]::NoCheck
+
+# Trust the self-signed client certificate as a root for chain building.
+$authOptions.CustomTrustStore = [System.Security.Cryptography.X509Certificates.X509Certificate2Collection]::new()
+$null = $authOptions.CustomTrustStore.Add($clientCertForTrust)
+
+Add-KrClientCertificateAuthentication -AuthenticationScheme 'Certificate' -Options $authOptions
 
 # 8. Finalize configuration (build internal pipeline)
 Enable-KrConfiguration

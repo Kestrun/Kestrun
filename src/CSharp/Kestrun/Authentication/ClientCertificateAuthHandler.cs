@@ -243,11 +243,6 @@ public class ClientCertificateAuthHandler : AuthenticationHandler<ClientCertific
         /// <returns>Success when valid or revocation checking is disabled; otherwise a failure with a message.</returns>
         private (bool Success, string? FailureMessage) ValidateRevocation(X509Certificate2 certificate)
         {
-            if (_options.RevocationMode == X509RevocationMode.NoCheck)
-            {
-                return (true, null);
-            }
-
             using var chain = new X509Chain
             {
                 ChainPolicy =
@@ -268,7 +263,12 @@ public class ClientCertificateAuthHandler : AuthenticationHandler<ClientCertific
                 return (true, null);
             }
 
-            var errors = string.Join(", ", chain.ChainStatus.Select(s => s.StatusInformation));
+            var errors = string.Join(", ", chain.ChainStatus.Select(s =>
+            {
+                var info = s.StatusInformation?.Trim();
+                return string.IsNullOrEmpty(info) ? s.Status.ToString() : info;
+            }));
+
             return (false, $"Certificate chain validation failed: {errors}");
         }
 

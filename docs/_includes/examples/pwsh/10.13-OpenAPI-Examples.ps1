@@ -28,6 +28,15 @@ function Convert-ToIsoDate {
     $Date.ToString('yyyy-MM-dd')
 }
 
+
+<#.SYNOPSIS
+    Gets a specific day in ISO date format.
+.OUTPUTS
+    [datetime] The specified date.
+#>
+function Get-ADayInIsoDate {
+    [DateTime]::ParseExact('20260829', 'yyyyMMdd', [System.Globalization.CultureInfo]::InvariantCulture)
+}
 <#
 .SYNOPSIS
     Gets the next occurrence of the specified day of the week.
@@ -38,7 +47,7 @@ function Convert-ToIsoDate {
 #>
 function Get-NextDayOfWeek {
     param([System.DayOfWeek]$Day)
-    $now = Get-Date
+    $now = Get-ADayInIsoDate
     $delta = (([int]$Day - [int]$now.DayOfWeek) + 7) % 7
     if ($delta -eq 0) { $delta = 7 } # force next, not today
     $now.AddDays($delta)
@@ -187,7 +196,7 @@ New-KrOpenApiExample -Summary 'Get hours response (external)' `
     }) | Add-KrOpenApiComponent -Name 'GetMuseumHoursResponseExternalExample'
 
 # --- Inline examples (stored in Kestrun inline store; copied inline when applied) ---
-New-KrOpenApiExample -Summary 'Common today ticket date' -Value (Convert-ToIsoDate (Get-Date)) |
+New-KrOpenApiExample -Summary 'Common today ticket date' -Value (Convert-ToIsoDate (Get-ADayInIsoDate)) |
     Add-KrOpenApiInline -Name 'TodayParameter'
 
 New-KrOpenApiExample -Summary 'Common next Saturday ticket date' -Value (Convert-ToIsoDate (Get-NextDayOfWeek Saturday)) |

@@ -1,7 +1,11 @@
+[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidUsingConvertToSecureStringWithPlainText', '')]
 param()
+BeforeAll {
+    . (Join-Path $PSScriptRoot '..\PesterHelpers.ps1')
+}
+
 Describe 'Example 8.8 Client Certificate Authentication' -Tag 'Tutorial', 'Slow' {
     BeforeAll {
-        . (Join-Path $PSScriptRoot '..\PesterHelpers.ps1')
 
         # Start the tutorial script
         $script:instance = Start-ExampleScript -Name '8.8-Client-Certificate-Authentication.ps1'
@@ -9,13 +13,25 @@ Describe 'Example 8.8 Client Certificate Authentication' -Tag 'Tutorial', 'Slow'
         # Wait a moment for server to fully initialize
         Start-Sleep -Seconds 2
 
-        # Import the client certificate that was created by the script
-        $clientCertPath = Join-Path (Split-Path $script:instance.TempPath -Parent) 'client-cert.pfx'
+        # Import the client certificate that was created by the running script.
+        # Start-ExampleScript executes a temp-copied script, so $PSCommandPath (and the basename used
+        # for output files) is randomized. Locate the generated PFX instead of guessing its name.
+        $runRoot = Split-Path -Parent $script:instance.TempPath
+        $certDir = Join-Path -Path $runRoot -ChildPath 'certs'
+        $clientPfx = Get-ChildItem -Path $certDir -Filter '*-client-cert.pfx' -ErrorAction SilentlyContinue |
+            Sort-Object -Property LastWriteTime -Descending |
+            Select-Object -First 1
 
-        if (Test-Path $clientCertPath) {
-            $password = ConvertTo-SecureString -String 'test' -AsPlainText -Force
-            # Use Import-KrCertificate for cross-platform compatibility (doesn't require certificate store)
-            $script:clientCert = Import-KrCertificate -FilePath $clientCertPath -Password $password
+        if (-not $clientPfx) {
+            throw "Client certificate PFX not found under: $certDir"
+        }
+
+        $password = ConvertTo-SecureString -String 'test' -AsPlainText -Force
+        # Use Import-KrCertificate for cross-platform compatibility (doesn't require certificate store)
+        $script:clientCert = Import-KrCertificate -FilePath $clientPfx.FullName -Password $password
+
+        if (-not $script:clientCert.HasPrivateKey) {
+            throw "Imported client certificate does not include a private key: $($clientPfx.FullName)"
         }
     }
 
@@ -40,7 +56,7 @@ Describe 'Example 8.8 Client Certificate Authentication' -Tag 'Tutorial', 'Slow'
         } | Should -Throw
     }
 
-    It 'Authenticates with valid client certificate at /secure/cert/hello' -Skip:(-not $script:clientCert) {
+    It 'Authenticates with valid client certificate at /secure/cert/hello' {
         $result = Invoke-RestMethod -Uri "$($script:instance.Url)/secure/cert/hello" `
             -Certificate $script:clientCert `
             -SkipCertificateCheck
@@ -53,7 +69,7 @@ Describe 'Example 8.8 Client Certificate Authentication' -Tag 'Tutorial', 'Slow'
         $result.validTo | Should -Not -BeNullOrEmpty
     }
 
-    It 'Returns detailed authentication info at /secure/cert/info' -Skip:(-not $script:clientCert) {
+    It 'Returns detailed authentication info at /secure/cert/info' {
         $result = Invoke-RestMethod -Uri "$($script:instance.Url)/secure/cert/info" `
             -Certificate $script:clientCert `
             -SkipCertificateCheck

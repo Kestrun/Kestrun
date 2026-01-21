@@ -17,7 +17,7 @@ public sealed class OpenApiDocDescriptorAnnotatedFunctionsExtensionsTests
 
         Assert.NotNull(method);
 
-        method.Invoke(descriptor, [metadata, attribute]);
+        _ = method.Invoke(descriptor, [metadata, attribute]);
     }
 
     [Fact]
@@ -27,7 +27,7 @@ public sealed class OpenApiDocDescriptorAnnotatedFunctionsExtensionsTests
         var descriptor = new OpenApiDocDescriptor(host, OpenApiDocDescriptor.DefaultDocumentationId);
 
         var metadata = new OpenAPIPathMetadata(mapOptions: new MapRouteOptions());
-        var attr = new OpenApiExtensionAttribute("x-badges", "{\"name\":\"Beta\",\"position\":\"before\",\"color\":\"purple\"}");
+        var attr = new OpenApiExtensionAttribute("x-badges", /*lang=json,strict*/ "{\"name\":\"Beta\",\"position\":\"before\",\"color\":\"purple\"}");
 
         InvokeApplyExtensionAttribute(descriptor, metadata, attr);
 
@@ -61,7 +61,7 @@ public sealed class OpenApiDocDescriptorAnnotatedFunctionsExtensionsTests
         var descriptor = new OpenApiDocDescriptor(host, OpenApiDocDescriptor.DefaultDocumentationId);
 
         var metadata = new OpenAPIPathMetadata(mapOptions: new MapRouteOptions());
-        var attr = new OpenApiExtensionAttribute("x-nullValue", (string)null!);
+        var attr = new OpenApiExtensionAttribute("x-nullValue", null!);
 
         InvokeApplyExtensionAttribute(descriptor, metadata, attr);
 

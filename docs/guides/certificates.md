@@ -18,7 +18,7 @@ These tools support cross-platform scenarios (Windows, Linux, macOS) and are ess
 - **JWK**: JSON Web Key, a JSON format for representing cryptographic keys (used in OIDC, OAuth2, JWT, JWKS endpoints).
 - **CSR**: Certificate Signing Request, used to request a certificate from a CA.
 
-> See also: [OIDC guide](/guides/oidc) and [OAuth2 guide](/guides/oauth2) for JWK and client assertion usage.
+> See also: [OIDC guide](/guides/authentication/oidc) and [OAuth2 guide](/guides/authentication/oauth2) for JWK and client assertion usage.
 
 ---
 
@@ -151,7 +151,7 @@ $csrResult.PrivateKey | Set-Content './private.key'
   - [ConvertFrom-KrJwkJsonToCertificate](/pwsh/cmdlets/ConvertFrom-KrJwkJsonToCertificate)
   - [New-KrPrivateKeyJwt](/pwsh/cmdlets/New-KrPrivateKeyJwt)
 - Tutorials: [Certificates](/pwsh/tutorial/6.certificates/index)
-- Guides: [OIDC](/guides/oidc), [OAuth2](/guides/oauth2)
+- Guides: [OIDC](/guides/authentication/oidc), [OAuth2](/guides/authentication/oauth2)
 
 ---
 

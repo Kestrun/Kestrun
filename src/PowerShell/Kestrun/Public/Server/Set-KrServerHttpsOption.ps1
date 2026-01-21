@@ -58,6 +58,13 @@ function Set-KrServerHttpsOptions {
         [Parameter( ParameterSetName = 'Items')]
         [Microsoft.AspNetCore.Server.Kestrel.Https.ClientCertificateMode]$ClientCertificateMode,
         [Parameter( ParameterSetName = 'Items')]
+        [System.Func[
+        System.Security.Cryptography.X509Certificates.X509Certificate2,
+        System.Security.Cryptography.X509Certificates.X509Chain,
+        System.Net.Security.SslPolicyErrors,
+        bool
+        ]]$ClientCertificateValidation,
+        [Parameter( ParameterSetName = 'Items')]
         [switch]$CheckCertificateRevocation,
         [Parameter( ParameterSetName = 'Items')]
         [System.Security.Cryptography.X509Certificates.X509Certificate2]$ServerCertificate,
@@ -82,6 +89,9 @@ function Set-KrServerHttpsOptions {
             }
             if ($null -ne $ClientCertificateMode) {
                 $options.ClientCertificateMode = $ClientCertificateMode
+            }
+            if ($null -ne $ClientCertificateValidation) {
+                $options.ClientCertificateValidation = $ClientCertificateValidation
             }
             if ($null -ne $ServerCertificate) {
                 $Options.ServerCertificate = $ServerCertificate

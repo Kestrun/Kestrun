@@ -40,8 +40,7 @@ public partial class OpenApiDocDescriptor
         return new OpenApiSecurityScheme
         {
             Type = SecuritySchemeType.MutualTLS,
-            Name = options.DisplayName ?? "Mutual TLS Authentication",
-            Description = options.Description,
+            Description = options.Description ?? options.DisplayName,
             Deprecated = options.Deprecated
         };
     }

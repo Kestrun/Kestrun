@@ -7,7 +7,6 @@ using Kestrun.Hosting;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Certificate;
 using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Http.Features;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -53,25 +52,25 @@ public class ClientCertificateAuthHandlerTest
         var handler = new ClientCertificateAuthHandler(host, optMonitor, loggerFactory, encoder);
         var scheme = new AuthenticationScheme("Certificate", "Certificate", typeof(ClientCertificateAuthHandler));
         var ctx = context ?? new DefaultHttpContext();
-        
+
         // Mock the certificate on the connection
         if (certificate != null)
         {
             var connectionMock = new Mock<ConnectionInfo>();
-            connectionMock.Setup(c => c.GetClientCertificateAsync(default))
+            _ = connectionMock.Setup(c => c.GetClientCertificateAsync(default))
                 .ReturnsAsync(certificate);
-            
+
             var contextMock = new Mock<HttpContext>();
-            contextMock.Setup(c => c.Connection).Returns(connectionMock.Object);
-            contextMock.Setup(c => c.RequestServices).Returns(ctx.RequestServices);
-            contextMock.Setup(c => c.Items).Returns(ctx.Items);
-            contextMock.Setup(c => c.Request).Returns(ctx.Request);
-            contextMock.Setup(c => c.Response).Returns(ctx.Response);
-            contextMock.Setup(c => c.User).Returns(ctx.User);
-            
+            _ = contextMock.Setup(c => c.Connection).Returns(connectionMock.Object);
+            _ = contextMock.Setup(c => c.RequestServices).Returns(ctx.RequestServices);
+            _ = contextMock.Setup(c => c.Items).Returns(ctx.Items);
+            _ = contextMock.Setup(c => c.Request).Returns(ctx.Request);
+            _ = contextMock.Setup(c => c.Response).Returns(ctx.Response);
+            _ = contextMock.Setup(c => c.User).Returns(ctx.User);
+
             ctx = contextMock.Object;
         }
-        
+
         if (ctx.RequestServices is null)
         {
             var services = new ServiceCollection()
@@ -79,7 +78,7 @@ public class ClientCertificateAuthHandlerTest
                 .BuildServiceProvider();
             ctx.RequestServices = services;
         }
-        
+
         handler.InitializeAsync(scheme, ctx).GetAwaiter().GetResult();
         return handler;
     }
@@ -102,10 +101,9 @@ public class ClientCertificateAuthHandlerTest
         {
             request.CertificateExtensions.Add(
                 new X509EnhancedKeyUsageExtension(
-                    new OidCollection
-                    {
+                    [
                         new Oid("1.3.6.1.5.5.7.3.2") // Client Authentication
-                    },
+                    ],
                     false));
         }
 

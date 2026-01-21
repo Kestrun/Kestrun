@@ -18,9 +18,7 @@ Deeper, cross-cutting subjects (logging, deployment, performance, etc.).
 | [HSTS & HTTPS Redirection](./hsts) | Secure transport policies and automatic redirection |
 | [Forwarded Headers](./forwardedheaders) | Honor X-Forwarded-* from proxies for correct scheme/host/IP |
 | [CORS](./cors) | Cross-origin policies and browser preflight behavior |
-| [JWT Tokens](./jwt) | Build, issue, validate, and renew JSON Web Tokens |
-| [OpenID Connect](./oidc) | Configure OIDC (Authorization Code + PKCE), claims, and logout |
-| [OAuth 2.0](./oauth2) | Configure OAuth2 providers (e.g., GitHub) and protect routes |
+| [Authentication](./authentication) | JWT, OAuth 2.0, OpenID Connect (OIDC), and client certificates (mTLS) |
 | [OpenAPI Generation](./openapi) | Generate and document APIs with OpenAPI 3.0+ specifications |
 | [Real-time (SSE & SignalR)](./realtime) | Stream events via SSE or build interactive apps with SignalR |
 | [Scheduling](./scheduling) | Background jobs via intervals and CRON (PS & C#) |

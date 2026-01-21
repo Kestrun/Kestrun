@@ -148,7 +148,7 @@ public class ClientCertificateAuthenticationOptionsTest
             Description = "Test Description",
             Deprecated = true,
             GlobalScheme = true,
-            DocumentationId = new[] { "doc1", "doc2" }
+            DocumentationId = ["doc1", "doc2"]
         };
         var target = new ClientCertificateAuthenticationOptions();
 

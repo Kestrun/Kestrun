@@ -1,7 +1,8 @@
 ---
 title: OAuth 2.0
-parent: Guides
-nav_order: 110
+parent: Authentication
+grand_parent: Guides
+nav_order: 30
 ---
 
 # OAuth 2.0
@@ -298,3 +299,7 @@ Tokens:
   - [PKCE (RFC 7636)](https://www.rfc-editor.org/rfc/rfc7636)
   - [OAuth 2.1 (draft)](https://oauth.net/2.1/)
   - [OWASP OAuth 2.0 Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/OAuth2_Cheat_Sheet.html)
+
+---
+
+Return to the [Authentication index](./index).

@@ -733,6 +733,102 @@ public static class KestrunHostAuthnExtensions
             (Action<WindowsAuthOptions>?)null);
 
     #endregion
+
+    #region Client Certificate Authentication
+
+    /// <summary>
+    /// Adds Client Certificate Authentication to the Kestrun host.
+    /// <para>Use this for authenticating clients using X.509 certificates.</para>
+    /// </summary>
+    /// <param name="host">The Kestrun host instance.</param>
+    /// <param name="scheme">The authentication scheme name (default is "Certificate").</param>
+    /// <param name="displayName">The display name for the authentication scheme.</param>
+    /// <param name="configure">Optional configuration for ClientCertificateAuthenticationOptions.</param>
+    /// <returns>The configured KestrunHost instance.</returns>
+    public static KestrunHost AddClientCertificateAuthentication(
+        this KestrunHost host,
+        string scheme = AuthenticationDefaults.CertificateSchemeName,
+        string? displayName = AuthenticationDefaults.CertificateDisplayName,
+        Action<ClientCertificateAuthenticationOptions>? configure = null)
+    {
+        // Build a prototype options instance (single source of truth)
+        var prototype = new ClientCertificateAuthenticationOptions { Host = host };
+
+        // Let the caller mutate the prototype
+        configure?.Invoke(prototype);
+
+        ConfigureOpenApi(host, scheme, prototype);
+
+        // Register in host for introspection
+        _ = host.RegisteredAuthentications.Register(scheme, AuthenticationType.Certificate, prototype);
+
+        return host.AddAuthentication(
+            defaultScheme: scheme,
+            buildSchemes: ab =>
+            {
+                _ = ab.AddScheme<ClientCertificateAuthenticationOptions, ClientCertificateAuthHandler>(
+                    authenticationScheme: scheme,
+                    displayName: displayName,
+                    configureOptions: opts =>
+                    {
+                        // Copy from the prototype into the runtime instance
+                        prototype.ApplyTo(opts);
+
+                        host.Logger.Debug("Configured Client Certificate Authentication using scheme {Scheme}", scheme);
+                    });
+            }
+        );
+    }
+
+    /// <summary>
+    /// Adds Client Certificate Authentication to the Kestrun host using the provided options object.
+    /// </summary>
+    /// <param name="host">The Kestrun host instance.</param>
+    /// <param name="scheme">The authentication scheme name (default is "Certificate").</param>
+    /// <param name="displayName">The display name for the authentication scheme.</param>
+    /// <param name="configure">The ClientCertificateAuthenticationOptions object to configure the authentication.</param>
+    /// <returns>The configured KestrunHost instance.</returns>
+    public static KestrunHost AddClientCertificateAuthentication(
+        this KestrunHost host,
+        string scheme,
+        string? displayName,
+        ClientCertificateAuthenticationOptions configure)
+    {
+        if (host.Logger.IsEnabled(LogEventLevel.Debug))
+        {
+            host.Logger.Debug("Adding Client Certificate Authentication with scheme: {Scheme}", scheme);
+        }
+
+        // Ensure the scheme is not null
+        ArgumentNullException.ThrowIfNull(host);
+        ArgumentNullException.ThrowIfNull(scheme);
+        ArgumentNullException.ThrowIfNull(configure);
+
+        // Ensure host is set
+        if (configure.Host != host)
+        {
+            configure.Host = host;
+        }
+
+        return host.AddClientCertificateAuthentication(
+            scheme: scheme,
+            displayName: displayName,
+            configure: configure.ApplyTo
+        );
+    }
+
+    /// <summary>
+    /// Adds Client Certificate Authentication to the Kestrun host with default settings.
+    /// </summary>
+    /// <param name="host">The Kestrun host instance.</param>
+    /// <returns>The configured KestrunHost instance.</returns>
+    public static KestrunHost AddClientCertificateAuthentication(this KestrunHost host) =>
+        host.AddClientCertificateAuthentication(
+            AuthenticationDefaults.CertificateSchemeName,
+            AuthenticationDefaults.CertificateDisplayName,
+            (Action<ClientCertificateAuthenticationOptions>?)null);
+
+    #endregion
     #region API Key Authentication
     /// <summary>
     /// Adds API Key Authentication to the Kestrun host.

@@ -1,7 +1,8 @@
 ---
 title: JWT Tokens
-parent: Guides
-nav_order: 90
+parent: Authentication
+grand_parent: Guides
+nav_order: 20
 ---
 
 # JSON Web Tokens (JWT)
@@ -301,4 +302,4 @@ Notes:
 
 ---
 
-Return to the [Guides index](./index).
+Return to the [Authentication index](./index).

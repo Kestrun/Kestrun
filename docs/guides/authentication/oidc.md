@@ -1,7 +1,8 @@
 ---
 title: OpenID Connect (OIDC)
-parent: Guides
-nav_order: 120
+parent: Authentication
+grand_parent: Guides
+nav_order: 40
 ---
 
 # OpenID Connect (OIDC)
@@ -217,3 +218,7 @@ Start-KrServer -CloseLogsOnExit
 - Specs:
   - [OpenID Connect Core](https://openid.net/specs/openid-connect-core-1_0.html)
   - [OAuth 2.0 RFC 6749](https://www.rfc-editor.org/rfc/rfc6749)
+
+---
+
+Return to the [Authentication index](./index).

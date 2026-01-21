@@ -111,4 +111,14 @@ public static class AuthenticationDefaults
     /// Default display name for Windows authentication.
     /// </summary>
     public const string WindowsDisplayName = "Windows Authentication";
+
+    /// <summary>
+    /// Client Certificate authentication scheme name.
+    /// </summary>
+    public const string CertificateSchemeName = "Certificate";
+
+    /// <summary>
+    /// Default display name for Client Certificate authentication.
+    /// </summary>
+    public const string CertificateDisplayName = "Client Certificate Authentication";
 }

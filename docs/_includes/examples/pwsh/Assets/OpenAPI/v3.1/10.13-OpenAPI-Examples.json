@@ -161,15 +161,15 @@
             "examples": {
               "nextSunday": {
                 "summary": "Common next Sunday ticket date",
-                "value": "2026-01-25"
+                "value": "2026-08-30"
               },
               "nextSaturday": {
                 "summary": "Common next Saturday ticket date",
-                "value": "2026-01-24"
+                "value": "2026-09-05"
               },
               "today": {
                 "summary": "Common today ticket date",
-                "value": "2026-01-20"
+                "value": "2026-08-29"
               }
             }
           }

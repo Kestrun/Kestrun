@@ -36,5 +36,10 @@ public enum AuthenticationType
     /// <summary>
     /// Windows authentication.
     /// </summary>
-    Windows
+    Windows,
+
+    /// <summary>
+    /// Client Certificate authentication.
+    /// </summary>
+    Certificate
 }

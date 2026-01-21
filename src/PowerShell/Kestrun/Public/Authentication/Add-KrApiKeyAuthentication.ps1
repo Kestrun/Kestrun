@@ -179,23 +179,8 @@ function Add-KrApiKeyAuthentication {
                     if (-not (Test-Path -Path $CodeFilePath)) {
                         throw "The specified code file path does not exist: $CodeFilePath"
                     }
-
-                    $extension = [System.IO.Path]::GetExtension($CodeFilePath)
-
-                    switch ($extension.ToLowerInvariant()) {
-                        '.ps1' {
-                            $Options.ValidateCodeSettings.Language = [Kestrun.Scripting.ScriptLanguage]::PowerShell
-                        }
-                        '.cs' {
-                            $Options.ValidateCodeSettings.Language = [Kestrun.Scripting.ScriptLanguage]::CSharp
-                        }
-                        '.vb' {
-                            $Options.ValidateCodeSettings.Language = [Kestrun.Scripting.ScriptLanguage]::VisualBasic
-                        }
-                        default {
-                            throw "Unsupported '$extension' code file extension for validation."
-                        }
-                    }
+                    # Infer language from file extension
+                    $Options.ValidateCodeSettings.Language = Resolve-KrCodeLanguageFromPath -Path $CodeFilePath
 
                     $Options.ValidateCodeSettings.Code = Get-Content -Path $CodeFilePath -Raw
                 }

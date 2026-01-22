@@ -4,7 +4,7 @@
     File:    10.23-OpenAPI-Path-Template-Mapping.ps1
     Notes:   - Shows how route parameters are extracted and mapped to RFC 6570 variables
              - Demonstrates simple parameters, reserved operators, and explode (multi-segment)
-             - Uses Rfc6570VariableMapper helper for callback/link template expansion
+             - Demonstrates how mapped variables can drive callback/link template expansion
 #>
 
 param(

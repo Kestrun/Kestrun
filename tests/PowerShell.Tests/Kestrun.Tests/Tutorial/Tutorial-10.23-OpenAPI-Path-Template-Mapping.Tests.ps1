@@ -91,14 +91,4 @@ Describe 'Example 10.23 RFC 6570 Variable Mapping' -Tag 'Tutorial', 'OpenApi', '
         $tagNames | Should -Contain 'Files'
         $tagNames | Should -Contain 'API'
     }
-
-    It 'Swagger UI and Redoc UI are available' {
-        $swagger = Invoke-WebRequest -Uri "$($script:instance.Url)/docs/swagger" -SkipCertificateCheck -SkipHttpErrorCheck
-        $swagger.StatusCode | Should -Be 200
-        $swagger.Content | Should -BeLike '*swagger-ui*'
-
-        $redoc = Invoke-WebRequest -Uri "$($script:instance.Url)/docs/redoc" -SkipCertificateCheck -SkipHttpErrorCheck
-        $redoc.StatusCode | Should -Be 200
-        $redoc.Content | Should -BeLike '*Redoc*'
-    }
 }

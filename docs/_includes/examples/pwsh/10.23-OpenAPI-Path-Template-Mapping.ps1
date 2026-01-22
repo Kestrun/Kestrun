@@ -1,7 +1,7 @@
-<#
-    Sample: OpenAPI 3.2 RFC 6570 Variable Mapping
-    Purpose: Demonstrate RFC 6570 URI Template variable mapping from ASP.NET Core route values
-    File:    10.23-OpenAPI-VariableMapping.ps1
+﻿<#
+    Sample: OpenAPI 3.2 RFC 6570 Path Template Mapping
+    Purpose: Demonstrate RFC 6570 URI Template mapping from ASP.NET Core route values
+    File:    10.23-OpenAPI-Path-Template-Mapping.ps1
     Notes:   - Shows how route parameters are extracted and mapped to RFC 6570 variables
              - Demonstrates simple parameters, reserved operators, and explode (multi-segment)
              - Uses Rfc6570VariableMapper helper for callback/link template expansion
@@ -80,11 +80,24 @@ class VariableMapping {
 #       SIMPLE PARAMETER EXTRACTION
 # =========================================================
 
+<#
+.SYNOPSIS
+    Get user by ID.
+.DESCRIPTION
+    Returns a user with the specified ID.
+.PARAMETER userId
+    User identifier.
+.NOTES
+    GET endpoint: Return a user by ID
+#>
 function getUser {
     [OpenApiPath(HttpVerb = 'get', Pattern = '/users/{userId}', Tags = 'Users')]
     [OpenApiResponse(StatusCode = '200', Description = 'User found', Schema = [User])]
     [OpenApiResponse(StatusCode = '404', Description = 'User not found')]
-    param()
+    param(
+        [openApiParameter(In = 'path', Required = $true)]
+        [string]$userId
+    )
 
     $userId = Get-KrRequestRouteParam -Name 'userId'
 
@@ -95,13 +108,28 @@ function getUser {
     } -StatusCode 200
 }
 
+<#
+.SYNOPSIS
+    Get user by ID with API version.
+.DESCRIPTION
+    Returns a user with the specified API version extracted from the path.
+.PARAMETER version
+    API version.
+.PARAMETER userId
+    User identifier.
+.NOTES
+    GET endpoint: Return a user by ID with versioning
+#>
 function getApiUser {
     [OpenApiPath(HttpVerb = 'get', Pattern = '/api/v{version}/users/{userId}', Tags = 'API')]
     [OpenApiResponse(StatusCode = '200', Description = 'User found with version info', Schema = [User])]
-    param()
+    param(
+        [openApiParameter(In = 'path', Required = $true)]
+        [string]$version,
 
-    $version = Get-KrRequestRouteParam -Name 'version'
-    $userId = Get-KrRequestRouteParam -Name 'userId'
+        [openApiParameter(In = 'path', Required = $true)]
+        [string]$userId
+    )
 
     Write-KrJsonResponse @{
         id = [int]$userId
@@ -119,12 +147,15 @@ function getFile {
     [OpenApiPath(HttpVerb = 'get', Pattern = '/files/{+path}', Tags = 'Files')]
     [OpenApiResponse(StatusCode = '200', Description = 'File metadata', Schema = [FileInfo])]
     [OpenApiResponse(StatusCode = '404', Description = 'File not found')]
-    param()
+    param(
+        [openApiParameter(In = 'path', Description = 'File path', Required = $true)]
+        [string]$path
+    )
 
-    $filePath = Get-KrRequestRouteParam -Name 'path'
+    #  $filePath = Get-KrRequestRouteParam -Name 'path'
 
     Write-KrJsonResponse @{
-        path = $filePath
+        path = $path
         size = 1024
         contentType = 'application/octet-stream'
     } -StatusCode 200
@@ -134,10 +165,28 @@ function getFile {
 #       VARIABLE MAPPING INTROSPECTION
 # =========================================================
 
+<#
+.SYNOPSIS
+    Get variable mapping details.
+.DESCRIPTION
+    Returns details about variable mapping for a given template and ID.
+.PARAMETER template
+    Template name.
+.PARAMETER id
+    Identifier.
+.NOTES
+    GET endpoint: Return variable mapping details
+#>
 function getVariableMapping {
     [OpenApiPath(HttpVerb = 'get', Pattern = '/mapping/{template}/{id}', Tags = 'API')]
     [OpenApiResponse(StatusCode = '200', Description = 'Variable mapping details', Schema = [VariableMapping])]
-    param()
+    param(
+        [openApiParameter(In = 'path', Required = $true)]
+        [string]$template,
+
+        [openApiParameter(In = 'path', Required = $true)]
+        [string]$id
+    )
 
     $template = Get-KrRequestRouteParam -Name 'template'
     $id = Get-KrRequestRouteParam -Name 'id'
@@ -159,24 +208,11 @@ function getVariableMapping {
 # =========================================================
 #                     BUILD & START
 # =========================================================
-# Runtime route: catch-all so ASP.NET can populate RouteValues['path'] with slashes.
-# OpenAPI uses RFC6570 multi-segment semantics via {+path}.
-Add-KrMapRoute -Verbs Get -Pattern '/files/{*path}' -ScriptBlock {
-    $filePath = Get-KrRequestRouteParam -Name 'path'
-
-    Write-KrJsonResponse @{
-        path = $filePath
-        size = 1024
-        contentType = 'application/octet-stream'
-    } -StatusCode 200
-}
-
 Enable-KrConfiguration
 
-Add-KrOpenApiRoute
+Add-KrOpenApiRoute -SpecVersion OpenApi3_2
 Build-KrOpenApiDocument
 
-Add-KrApiDocumentationRoute -DocumentType Swagger -OpenApiEndpoint '/openapi/v3.1/openapi.yaml'
 Add-KrApiDocumentationRoute -DocumentType Redoc -OpenApiEndpoint '/openapi/v3.2/openapi.yaml'
 Add-KrApiDocumentationRoute -DocumentType Elements -OpenApiEndpoint '/openapi/v3.2/openapi.yaml'
 Add-KrApiDocumentationRoute -DocumentType Scalar -OpenApiEndpoint '/openapi/v3.2/openapi.yaml'

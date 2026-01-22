@@ -5,7 +5,7 @@ BeforeAll {
 
 Describe 'Example 10.23 RFC 6570 Variable Mapping' -Tag 'Tutorial', 'OpenApi', 'Slow' {
     BeforeAll {
-        $script:instance = Start-ExampleScript -Name '10.23-OpenAPI-VariableMapping.ps1'
+        $script:instance = Start-ExampleScript -Name '10.23-OpenAPI-Path-Template-Mapping.ps1'
     }
 
     AfterAll {

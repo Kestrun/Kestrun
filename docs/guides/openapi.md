@@ -1405,7 +1405,7 @@ At runtime, ASP.NET Core typically needs a **catch-all** route parameter to matc
 
 ```text
 OpenAPI 3.2 template:  /files/{+path}
-ASP.NET Core route:    /files/{*path}
+ASP.NET Core route:    /files/{**path}
 ```
 
 Kestrun maps the captured ASP.NET Core route values to RFC6570 variables using these rules:

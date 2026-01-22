@@ -1,6 +1,5 @@
 using Kestrun.OpenApi;
 using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Routing;
 using Xunit;
 
 namespace KestrunTests.OpenApi;
@@ -92,7 +91,7 @@ public sealed class Rfc6570VariableMapperTests
 
         Assert.True(result);
         Assert.Null(error);
-        Assert.Single(variables);
+        _ = Assert.Single(variables);
         Assert.Equal("123", variables["id"]);
     }
 
@@ -135,7 +134,7 @@ public sealed class Rfc6570VariableMapperTests
 
         Assert.True(result);
         Assert.Null(error);
-        Assert.Single(variables);
+        _ = Assert.Single(variables);
         Assert.Equal("folder/subfolder/file.txt", variables["path"]);
     }
 
@@ -155,7 +154,7 @@ public sealed class Rfc6570VariableMapperTests
 
         Assert.True(result);
         Assert.Null(error);
-        Assert.Single(variables);
+        _ = Assert.Single(variables);
         Assert.Equal("a/b", variables["path"]);
     }
 
@@ -175,7 +174,7 @@ public sealed class Rfc6570VariableMapperTests
 
         Assert.True(result);
         Assert.Null(error);
-        Assert.Single(variables);
+        _ = Assert.Single(variables);
         Assert.Equal("a/b/c.txt", variables["path"]);
     }
 
@@ -195,7 +194,7 @@ public sealed class Rfc6570VariableMapperTests
 
         Assert.True(result);
         Assert.Null(error);
-        Assert.Single(variables);
+        _ = Assert.Single(variables);
         Assert.Equal("a/b", variables["path"]);
     }
 
@@ -244,7 +243,7 @@ public sealed class Rfc6570VariableMapperTests
 
         Assert.True(result);
         Assert.Null(error);
-        Assert.Single(variables);
+        _ = Assert.Single(variables);
         Assert.Equal("42", variables["userId"]);
     }
 
@@ -261,7 +260,7 @@ public sealed class Rfc6570VariableMapperTests
 
         Assert.True(result);
         Assert.Null(error);
-        Assert.Single(variables);
+        _ = Assert.Single(variables);
         Assert.Equal("42", variables["id"]);
     }
 
@@ -299,7 +298,7 @@ public sealed class Rfc6570VariableMapperTests
 
         Assert.True(result);
         Assert.Null(error);
-        Assert.Single(variables);
+        _ = Assert.Single(variables);
         Assert.Equal("123", variables["id"]);
     }
 

@@ -1,5 +1,4 @@
 using System.Globalization;
-using Microsoft.AspNetCore.Http;
 
 namespace Kestrun.OpenApi;
 
@@ -52,8 +51,6 @@ public static partial class Rfc6570VariableMapper
         out string? error)
     {
         variables = new Dictionary<string, object>(StringComparer.OrdinalIgnoreCase);
-        error = null;
-
         if (context is null)
         {
             error = "HttpContext is null.";
@@ -190,7 +187,7 @@ public static partial class Rfc6570VariableMapper
             var isReserved = inner[0] == '+';
             if (isReserved)
             {
-                inner = inner.Substring(1);
+                inner = inner[1..];
                 if (inner.Length == 0)
                 {
                     error = "Reserved RFC6570 expression '{+}' is not valid.";
@@ -201,7 +198,7 @@ public static partial class Rfc6570VariableMapper
             var isExplode = inner.EndsWith('*');
             if (isExplode)
             {
-                inner = inner.Substring(0, inner.Length - 1);
+                inner = inner[..^1];
                 if (inner.Length == 0)
                 {
                     error = "Explode RFC6570 expression '{*}' is not valid.";

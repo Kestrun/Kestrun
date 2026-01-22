@@ -1384,6 +1384,38 @@ const response = await fetch('http://api.example.com/products/search?page=1&page
 
 Use `QUERY` when you have complex search filters that don't fit cleanly in query parameters but want GET-like semantics (safe, repeatable, semantically correct).
 
+### 9.4.2 RFC 6570 Path Expressions (OpenAPI 3.2)
+
+In OpenAPI 3.2, path templates are **RFC 6570 URI templates**. This affects how routes are documented and how
+Kestrun maps ASP.NET Core route values into the OpenAPI document.
+
+Kestrun supports a strict subset of RFC 6570 path expressions for **variable mapping**:
+
+- `{var}` — single path segment
+- `{+var}` — reserved expansion (can represent multiple segments)
+- `{var*}` — explode (can represent multiple segments)
+
+> **Note:** ASP.NET Core inline constraints like `{id:int}` or `{id:[0-9]+}` are **not** part of RFC 6570 and are
+> not valid in OpenAPI 3.2 path templates. Kestrun rejects colon-based patterns when parsing RFC6570 templates.
+
+#### Multi-segment variables: OpenAPI vs runtime routing
+
+OpenAPI 3.2 uses `{+path}` / `{path*}` to express that a variable can cover multiple path segments.
+At runtime, ASP.NET Core typically needs a **catch-all** route parameter to match those requests:
+
+```text
+OpenAPI 3.2 template:  /files/{+path}
+ASP.NET Core route:    /files/{*path}
+```
+
+Kestrun maps the captured ASP.NET Core route values to RFC6570 variables using these rules:
+
+- Missing route values cause mapping to fail.
+- `{var}` rejects values containing `/`.
+- `{+var}` and `{var*}` accept multi-segment values; a leading `/` (from a catch-all) is trimmed before assignment.
+
+See the runnable tutorial: [docs/pwsh/tutorial/10.openapi/24.RFC6570-Variable-Mapping.md](/pwsh/tutorial/10.openapi/24.RFC6570-Variable-Mapping)
+
 ---
 
 ### 9.6 Headers (Reusable Response Headers)

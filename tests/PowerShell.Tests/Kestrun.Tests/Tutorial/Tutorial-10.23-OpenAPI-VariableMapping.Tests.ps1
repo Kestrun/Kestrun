@@ -21,7 +21,7 @@ Describe 'Example 10.23 RFC 6570 Variable Mapping' -Tag 'Tutorial', 'OpenApi', '
         $json.email | Should -Be 'user42@example.com'
     }
 
-    It 'Regex constraint parameters work' {
+    It 'Versioned path parameters work' {
         $result = Invoke-WebRequest -Uri "$($script:instance.Url)/api/v1/users/123" -Method Get -SkipCertificateCheck -SkipHttpErrorCheck
         $result.StatusCode | Should -Be 200
         $json = $result.Content | ConvertFrom-Json
@@ -42,7 +42,7 @@ Describe 'Example 10.23 RFC 6570 Variable Mapping' -Tag 'Tutorial', 'OpenApi', '
         $result = Invoke-WebRequest -Uri "$($script:instance.Url)/mapping/mytemplate/999" -Method Get -SkipCertificateCheck -SkipHttpErrorCheck
         $result.StatusCode | Should -Be 200
         $json = $result.Content | ConvertFrom-Json
-        $json.template | Should -Be '/mapping/{template}/{id:[0-9]+}'
+        $json.template | Should -Be '/mapping/{template}/{id}'
         $json.variables.template | Should -Be 'mytemplate'
         $json.variables.id | Should -Be '999'
         $json.rfc6570Compliant | Should -Be $true
@@ -51,20 +51,16 @@ Describe 'Example 10.23 RFC 6570 Variable Mapping' -Tag 'Tutorial', 'OpenApi', '
     It 'OpenAPI document contains RFC 6570 path expressions' {
         $result = Invoke-WebRequest -Uri "$($script:instance.Url)/openapi/v3.2/openapi.json" -SkipCertificateCheck -SkipHttpErrorCheck
         $result.StatusCode | Should -Be 200
-        $json = $result.Content | ConvertFrom-Json
+        $json = $result.Content | ConvertFrom-Json -AsHashtable
 
         # Simple parameter
-        $json.paths.'/users/{userId}' | Should -Not -BeNullOrEmpty
-        
-        # Regex constraints (may be shown as ASP.NET or RFC 6570 format depending on implementation)
-        # Check if either format exists
-        $hasRegexPath = ($null -ne $json.paths.'/api/v{version:[0-9]+}/users/{userId:[0-9]+}') -or 
-                        ($null -ne $json.paths.'/api/v{version}/users/{userId}')
-        $hasRegexPath | Should -Be $true
-        
+        $json.paths['/users/{userId}'] | Should -Not -BeNullOrEmpty
+
+        # RFC6570-style variables (no ':' constraints)
+        $json.paths['/api/v{version}/users/{userId}'] | Should -Not -BeNullOrEmpty
+
         # Reserved operator (multi-segment)
-        $hasMultiSegment = ($null -ne $json.paths.'/files/{+path}') -or 
-                           ($null -ne $json.paths.'/files/{path}')
+        $hasMultiSegment = $json.paths.ContainsKey('/files/{+path}') -or $json.paths.ContainsKey('/files/{path}')
         $hasMultiSegment | Should -Be $true
     }
 

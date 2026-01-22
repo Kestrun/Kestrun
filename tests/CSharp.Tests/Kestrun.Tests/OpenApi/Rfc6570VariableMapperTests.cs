@@ -16,7 +16,7 @@ public sealed class Rfc6570VariableMapperTests
     private static HttpContext CreateContextWithRouteValues(Dictionary<string, object?>? routeValues = null)
     {
         var context = new DefaultHttpContext();
-        
+
         if (routeValues != null)
         {
             foreach (var kvp in routeValues)
@@ -24,88 +24,74 @@ public sealed class Rfc6570VariableMapperTests
                 context.Request.RouteValues[kvp.Key] = kvp.Value;
             }
         }
-        
+
         return context;
     }
 
     [Fact]
-    public void TryBuildRfc6570Variables_WithNullContext_ReturnsFalse()
+    public void TryBuildRfc6570Variables_WithNullContext_ReturnsFalseAndError()
     {
-        // Arrange
         HttpContext? context = null;
-        var template = "/users/{id}";
 
-        // Act
-        var result = Rfc6570VariableMapper.TryBuildRfc6570Variables(context!, template, out var variables);
+        var result = Rfc6570VariableMapper.TryBuildRfc6570Variables(
+            context!,
+            "/users/{id}",
+            out var variables,
+            out var error);
 
-        // Assert
         Assert.False(result);
+        Assert.NotNull(error);
+        Assert.Empty(variables);
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("   ")]
+    public void TryBuildRfc6570Variables_WithInvalidTemplate_ReturnsFalseAndError(string? template)
+    {
+        var context = CreateContextWithRouteValues();
+
+        var result = Rfc6570VariableMapper.TryBuildRfc6570Variables(
+            context,
+            template!,
+            out var variables,
+            out var error);
+
+        Assert.False(result);
+        Assert.NotNull(error);
         Assert.Empty(variables);
     }
 
     [Fact]
-    public void TryBuildRfc6570Variables_WithNullTemplate_ReturnsFalse()
+    public void TryBuildRfc6570Variables_TemplateWithNoParameters_ReturnsTrueEmptyDict()
     {
-        // Arrange
         var context = CreateContextWithRouteValues();
-        string? template = null;
 
-        // Act
-        var result = Rfc6570VariableMapper.TryBuildRfc6570Variables(context, template!, out var variables);
+        var result = Rfc6570VariableMapper.TryBuildRfc6570Variables(
+            context,
+            "/api/status",
+            out var variables,
+            out var error);
 
-        // Assert
-        Assert.False(result);
-        Assert.Empty(variables);
-    }
-
-    [Fact]
-    public void TryBuildRfc6570Variables_WithEmptyTemplate_ReturnsFalse()
-    {
-        // Arrange
-        var context = CreateContextWithRouteValues();
-        var template = "";
-
-        // Act
-        var result = Rfc6570VariableMapper.TryBuildRfc6570Variables(context, template, out var variables);
-
-        // Assert
-        Assert.False(result);
-        Assert.Empty(variables);
-    }
-
-    [Fact]
-    public void TryBuildRfc6570Variables_WithNoRouteValues_ReturnsTrue()
-    {
-        // Arrange
-        var context = CreateContextWithRouteValues();
-        var template = "/users/{id}";
-
-        // Act
-        var result = Rfc6570VariableMapper.TryBuildRfc6570Variables(context, template, out var variables);
-
-        // Assert
         Assert.True(result);
-        Assert.Single(variables);
-        Assert.True(variables.ContainsKey("id"));
-        Assert.Null(variables["id"]);
+        Assert.Null(error);
+        Assert.Empty(variables);
     }
 
     [Fact]
     public void TryBuildRfc6570Variables_SimpleParameter_ExtractsValue()
     {
-        // Arrange
-        var routeValues = new Dictionary<string, object?>
-        {
-            ["id"] = "123"
-        };
-        var context = CreateContextWithRouteValues(routeValues);
-        var template = "/users/{id}";
+        var context = CreateContextWithRouteValues(new Dictionary<string, object?> { ["id"] = "123" });
 
-        // Act
-        var result = Rfc6570VariableMapper.TryBuildRfc6570Variables(context, template, out var variables);
+        var result = Rfc6570VariableMapper.TryBuildRfc6570Variables(
+            context,
+            "/users/{id}",
+            out var variables,
+            out var error);
 
-        // Assert
         Assert.True(result);
+        Assert.Null(error);
         Assert.Single(variables);
         Assert.Equal("123", variables["id"]);
     }
@@ -113,251 +99,249 @@ public sealed class Rfc6570VariableMapperTests
     [Fact]
     public void TryBuildRfc6570Variables_MultipleParameters_ExtractsAllValues()
     {
-        // Arrange
         var routeValues = new Dictionary<string, object?>
         {
             ["userId"] = "42",
-            ["orderId"] = "999"
+            ["orderId"] = "999",
         };
         var context = CreateContextWithRouteValues(routeValues);
-        var template = "/users/{userId}/orders/{orderId}";
 
-        // Act
-        var result = Rfc6570VariableMapper.TryBuildRfc6570Variables(context, template, out var variables);
+        var result = Rfc6570VariableMapper.TryBuildRfc6570Variables(
+            context,
+            "/users/{userId}/orders/{orderId}",
+            out var variables,
+            out var error);
 
-        // Assert
         Assert.True(result);
+        Assert.Null(error);
         Assert.Equal(2, variables.Count);
         Assert.Equal("42", variables["userId"]);
         Assert.Equal("999", variables["orderId"]);
     }
 
     [Fact]
-    public void TryBuildRfc6570Variables_ReservedOperator_ExtractsValue()
+    public void TryBuildRfc6570Variables_ReservedOperator_AllowsMultiSegmentValue()
     {
-        // Arrange - {+path} is RFC 6570 reserved operator for multi-segment paths
-        var routeValues = new Dictionary<string, object?>
+        var context = CreateContextWithRouteValues(new Dictionary<string, object?>
         {
-            ["path"] = "folder/subfolder/file.txt"
-        };
-        var context = CreateContextWithRouteValues(routeValues);
-        var template = "/files/{+path}";
+            ["path"] = "folder/subfolder/file.txt",
+        });
 
-        // Act
-        var result = Rfc6570VariableMapper.TryBuildRfc6570Variables(context, template, out var variables);
+        var result = Rfc6570VariableMapper.TryBuildRfc6570Variables(
+            context,
+            "/files/{+path}",
+            out var variables,
+            out var error);
 
-        // Assert
         Assert.True(result);
+        Assert.Null(error);
         Assert.Single(variables);
         Assert.Equal("folder/subfolder/file.txt", variables["path"]);
     }
 
     [Fact]
-    public void TryBuildRfc6570Variables_RegexConstraint_ExtractsValue()
+    public void TryBuildRfc6570Variables_ReservedOperator_LeadingSlashIsTrimmed()
     {
-        // Arrange - {userId:[0-9]+} is a regex-constrained parameter
-        var routeValues = new Dictionary<string, object?>
+        var context = CreateContextWithRouteValues(new Dictionary<string, object?>
         {
-            ["userId"] = "12345"
-        };
-        var context = CreateContextWithRouteValues(routeValues);
-        var template = "/users/{userId:[0-9]+}";
+            ["path"] = "/a/b",
+        });
 
-        // Act
-        var result = Rfc6570VariableMapper.TryBuildRfc6570Variables(context, template, out var variables);
+        var result = Rfc6570VariableMapper.TryBuildRfc6570Variables(
+            context,
+            "/files/{+path}",
+            out var variables,
+            out var error);
 
-        // Assert
         Assert.True(result);
+        Assert.Null(error);
         Assert.Single(variables);
-        Assert.Equal("12345", variables["userId"]);
+        Assert.Equal("a/b", variables["path"]);
     }
 
     [Fact]
-    public void TryBuildRfc6570Variables_ComplexTemplate_ExtractsAllValues()
+    public void TryBuildRfc6570Variables_ExplodeModifier_AllowsMultiSegmentValue()
     {
-        // Arrange - Mix of simple, reserved operator, and regex constraints
-        var routeValues = new Dictionary<string, object?>
+        var context = CreateContextWithRouteValues(new Dictionary<string, object?>
         {
-            ["version"] = "1",
-            ["userId"] = "42",
-            ["path"] = "documents/report.pdf"
-        };
-        var context = CreateContextWithRouteValues(routeValues);
-        var template = "/api/v{version:[0-9]+}/users/{userId}/files/{+path}";
+            ["path"] = "a/b/c.txt",
+        });
 
-        // Act
-        var result = Rfc6570VariableMapper.TryBuildRfc6570Variables(context, template, out var variables);
+        var result = Rfc6570VariableMapper.TryBuildRfc6570Variables(
+            context,
+            "/files/{path*}",
+            out var variables,
+            out var error);
 
-        // Assert
         Assert.True(result);
-        Assert.Equal(3, variables.Count);
-        Assert.Equal("1", variables["version"]);
+        Assert.Null(error);
+        Assert.Single(variables);
+        Assert.Equal("a/b/c.txt", variables["path"]);
+    }
+
+    [Fact]
+    public void TryBuildRfc6570Variables_ExplodeModifier_LeadingSlashIsTrimmed()
+    {
+        var context = CreateContextWithRouteValues(new Dictionary<string, object?>
+        {
+            ["path"] = "/a/b",
+        });
+
+        var result = Rfc6570VariableMapper.TryBuildRfc6570Variables(
+            context,
+            "/files/{path*}",
+            out var variables,
+            out var error);
+
+        Assert.True(result);
+        Assert.Null(error);
+        Assert.Single(variables);
+        Assert.Equal("a/b", variables["path"]);
+    }
+
+    [Fact]
+    public void TryBuildRfc6570Variables_MissingRouteValue_ReturnsFalseAndError()
+    {
+        var context = CreateContextWithRouteValues(new Dictionary<string, object?> { ["id"] = "123" });
+
+        var result = Rfc6570VariableMapper.TryBuildRfc6570Variables(
+            context,
+            "/users/{id}/profile/{name}",
+            out var variables,
+            out var error);
+
+        Assert.False(result);
+        Assert.NotNull(error);
+        Assert.Empty(variables);
+    }
+
+    [Fact]
+    public void TryBuildRfc6570Variables_SlashInNonMultiSegmentValue_ReturnsFalseAndError()
+    {
+        var context = CreateContextWithRouteValues(new Dictionary<string, object?> { ["id"] = "a/b" });
+
+        var result = Rfc6570VariableMapper.TryBuildRfc6570Variables(
+            context,
+            "/users/{id}",
+            out var variables,
+            out var error);
+
+        Assert.False(result);
+        Assert.NotNull(error);
+        Assert.Empty(variables);
+    }
+
+    [Fact]
+    public void TryBuildRfc6570Variables_CaseInsensitiveRouteKeys_AreResolved()
+    {
+        var context = CreateContextWithRouteValues(new Dictionary<string, object?> { ["UserId"] = "42" });
+
+        var result = Rfc6570VariableMapper.TryBuildRfc6570Variables(
+            context,
+            "/users/{userId}",
+            out var variables,
+            out var error);
+
+        Assert.True(result);
+        Assert.Null(error);
+        Assert.Single(variables);
         Assert.Equal("42", variables["userId"]);
-        Assert.Equal("documents/report.pdf", variables["path"]);
     }
 
     [Fact]
-    public void TryBuildRfc6570Variables_MissingRouteValue_SetsNull()
+    public void TryBuildRfc6570Variables_NumericRouteValue_IsConvertedToInvariantString()
     {
-        // Arrange - Route has 'id' but template expects both 'id' and 'name'
-        var routeValues = new Dictionary<string, object?>
-        {
-            ["id"] = "123"
-        };
-        var context = CreateContextWithRouteValues(routeValues);
-        var template = "/users/{id}/profile/{name}";
+        var context = CreateContextWithRouteValues(new Dictionary<string, object?> { ["id"] = 42 });
 
-        // Act
-        var result = Rfc6570VariableMapper.TryBuildRfc6570Variables(context, template, out var variables);
+        var result = Rfc6570VariableMapper.TryBuildRfc6570Variables(
+            context,
+            "/users/{id}",
+            out var variables,
+            out var error);
 
-        // Assert
         Assert.True(result);
-        Assert.Equal(2, variables.Count);
-        Assert.Equal("123", variables["id"]);
-        Assert.Null(variables["name"]);
-    }
-
-    [Fact]
-    public void TryBuildRfc6570Variables_CaseInsensitiveParameterNames()
-    {
-        // Arrange - Route values may have different casing
-        var routeValues = new Dictionary<string, object?>
-        {
-            ["UserId"] = "42"  // Capital U
-        };
-        var context = CreateContextWithRouteValues(routeValues);
-        var template = "/users/{userId}";  // lowercase u
-
-        // Act
-        var result = Rfc6570VariableMapper.TryBuildRfc6570Variables(context, template, out var variables);
-
-        // Assert
-        Assert.True(result);
+        Assert.Null(error);
         Assert.Single(variables);
-        Assert.Equal("42", variables["userId"]);
+        Assert.Equal("42", variables["id"]);
     }
 
     [Fact]
-    public void TryBuildRfc6570Variables_NumericRouteValue_PreservesType()
+    public void TryBuildRfc6570Variables_NullRouteValue_IsRejected()
     {
-        // Arrange - Some route values might be numeric types
-        var routeValues = new Dictionary<string, object?>
-        {
-            ["id"] = 42  // Integer, not string
-        };
-        var context = CreateContextWithRouteValues(routeValues);
-        var template = "/users/{id}";
+        var context = CreateContextWithRouteValues(new Dictionary<string, object?> { ["id"] = null });
 
-        // Act
-        var result = Rfc6570VariableMapper.TryBuildRfc6570Variables(context, template, out var variables);
+        var result = Rfc6570VariableMapper.TryBuildRfc6570Variables(
+            context,
+            "/users/{id}",
+            out var variables,
+            out var error);
 
-        // Assert
-        Assert.True(result);
-        Assert.Single(variables);
-        Assert.Equal(42, variables["id"]);
-    }
-
-    [Fact]
-    public void TryBuildRfc6570Variables_NullRouteValue_PreservesNull()
-    {
-        // Arrange
-        var routeValues = new Dictionary<string, object?>
-        {
-            ["id"] = null
-        };
-        var context = CreateContextWithRouteValues(routeValues);
-        var template = "/users/{id}";
-
-        // Act
-        var result = Rfc6570VariableMapper.TryBuildRfc6570Variables(context, template, out var variables);
-
-        // Assert
-        Assert.True(result);
-        Assert.Single(variables);
-        Assert.Null(variables["id"]);
-    }
-
-    [Fact]
-    public void TryBuildRfc6570Variables_TemplateWithNoParameters_ReturnsEmptyDict()
-    {
-        // Arrange
-        var context = CreateContextWithRouteValues();
-        var template = "/api/status";
-
-        // Act
-        var result = Rfc6570VariableMapper.TryBuildRfc6570Variables(context, template, out var variables);
-
-        // Assert
-        Assert.True(result);
+        Assert.False(result);
+        Assert.NotNull(error);
         Assert.Empty(variables);
     }
 
     [Fact]
     public void TryBuildRfc6570Variables_ExtraRouteValues_AreIgnored()
     {
-        // Arrange - Context has more route values than template needs
         var routeValues = new Dictionary<string, object?>
         {
             ["id"] = "123",
             ["extraParam"] = "ignored",
-            ["anotherParam"] = "also-ignored"
         };
         var context = CreateContextWithRouteValues(routeValues);
-        var template = "/users/{id}";
 
-        // Act
-        var result = Rfc6570VariableMapper.TryBuildRfc6570Variables(context, template, out var variables);
+        var result = Rfc6570VariableMapper.TryBuildRfc6570Variables(
+            context,
+            "/users/{id}",
+            out var variables,
+            out var error);
 
-        // Assert
         Assert.True(result);
+        Assert.Null(error);
         Assert.Single(variables);
         Assert.Equal("123", variables["id"]);
     }
 
-    [Fact]
-    public void TryBuildRfc6570Variables_ComplexRegexConstraint_ExtractsParameterName()
+    [Theory]
+    [InlineData("/users/{id:[0-9]+}")]
+    [InlineData("/api/v{version:.*}")]
+    public void TryBuildRfc6570Variables_ColonSyntax_IsRejected(string template)
     {
-        // Arrange - More complex regex with character classes
-        var routeValues = new Dictionary<string, object?>
+        var context = CreateContextWithRouteValues(new Dictionary<string, object?>
         {
-            ["slug"] = "my-blog-post"
-        };
-        var context = CreateContextWithRouteValues(routeValues);
-        var template = "/blog/{slug:[a-z0-9-]+}";
+            ["id"] = "123",
+            ["version"] = "1",
+        });
 
-        // Act
-        var result = Rfc6570VariableMapper.TryBuildRfc6570Variables(context, template, out var variables);
+        var result = Rfc6570VariableMapper.TryBuildRfc6570Variables(
+            context,
+            template,
+            out var variables,
+            out var error);
 
-        // Assert
-        Assert.True(result);
-        Assert.Single(variables);
-        Assert.Equal("my-blog-post", variables["slug"]);
+        Assert.False(result);
+        Assert.NotNull(error);
+        Assert.Empty(variables);
     }
 
-    [Theory]
-    [InlineData("/users/{id}", "id")]
-    [InlineData("/files/{+path}", "path")]
-    [InlineData("/api/v{version:[0-9]+}", "version")]
-    [InlineData("/posts/{slug:[a-z-]+}", "slug")]
-    [InlineData("/items/{itemId:[0-9a-f]{8}}", "itemId")]
-    public void TryBuildRfc6570Variables_VariousTemplateFormats_ExtractsCorrectParameterName(
-        string template,
-        string expectedParamName)
+    [Fact]
+    public void TryBuildRfc6570Variables_MultipleVarsInOneExpression_IsRejected()
     {
-        // Arrange
-        var routeValues = new Dictionary<string, object?>
+        var context = CreateContextWithRouteValues(new Dictionary<string, object?>
         {
-            [expectedParamName] = "test-value"
-        };
-        var context = CreateContextWithRouteValues(routeValues);
+            ["a"] = "1",
+            ["b"] = "2",
+        });
 
-        // Act
-        var result = Rfc6570VariableMapper.TryBuildRfc6570Variables(context, template, out var variables);
+        var result = Rfc6570VariableMapper.TryBuildRfc6570Variables(
+            context,
+            "/x/{a,b}",
+            out var variables,
+            out var error);
 
-        // Assert
-        Assert.True(result);
-        Assert.Single(variables);
-        Assert.True(variables.ContainsKey(expectedParamName));
-        Assert.Equal("test-value", variables[expectedParamName]);
+        Assert.False(result);
+        Assert.NotNull(error);
+        Assert.Empty(variables);
     }
 }

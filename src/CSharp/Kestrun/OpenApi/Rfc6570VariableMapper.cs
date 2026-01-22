@@ -72,36 +72,10 @@ public static partial class Rfc6570VariableMapper
 
         foreach (var seg in segments)
         {
-            if (!routeValues.TryGetValue(seg.Name, out var rawValue) || rawValue is null)
+            if (!TryBuildSegmentValue(routeValues, seg, openApiPathTemplate, out var stringValue, out error))
             {
-                error = $"Missing required route value '{seg.Name}' for OpenAPI template '{openApiPathTemplate}'.";
                 variables.Clear();
                 return false;
-            }
-
-            if (!TryConvertRouteValueToInvariantString(rawValue, out var stringValue))
-            {
-                error = $"Route value '{seg.Name}' could not be converted to a string.";
-                variables.Clear();
-                return false;
-            }
-
-            if (seg.IsMultiSegment)
-            {
-                // Normalize: trim a single leading '/', preserve embedded '/'
-                if (stringValue.Length > 0 && stringValue[0] == '/')
-                {
-                    stringValue = stringValue.TrimStart('/');
-                }
-            }
-            else
-            {
-                if (stringValue.Contains('/', StringComparison.Ordinal))
-                {
-                    error = $"Route value '{seg.Name}' contains '/', but template '{seg.Name}' is not multi-segment.";
-                    variables.Clear();
-                    return false;
-                }
             }
 
             variables[seg.Name] = stringValue;
@@ -109,6 +83,59 @@ public static partial class Rfc6570VariableMapper
 
         return true;
     }
+
+    /// <summary>
+    /// Attempts to read, convert, and normalize a route value for a template variable.
+    /// </summary>
+    /// <param name="routeValues">The ASP.NET Core route values.</param>
+    /// <param name="segment">The parsed RFC 6570 variable segment.</param>
+    /// <param name="openApiPathTemplate">The OpenAPI 3.2 RFC 6570 path template.</param>
+    /// <param name="stringValue">The resulting invariant string value.</param>
+    /// <param name="error">Error details on failure.</param>
+    /// <returns>True if the variable value was produced; otherwise false.</returns>
+    private static bool TryBuildSegmentValue(
+        RouteValueDictionary routeValues,
+        VarSegment segment,
+        string openApiPathTemplate,
+        out string stringValue,
+        out string? error)
+    {
+        if (!routeValues.TryGetValue(segment.Name, out var rawValue) || rawValue is null)
+        {
+            error = $"Missing required route value '{segment.Name}' for OpenAPI template '{openApiPathTemplate}'.";
+            stringValue = string.Empty;
+            return false;
+        }
+
+        if (!TryConvertRouteValueToInvariantString(rawValue, out stringValue))
+        {
+            error = $"Route value '{segment.Name}' could not be converted to a string.";
+            stringValue = string.Empty;
+            return false;
+        }
+
+        if (segment.IsMultiSegment)
+        {
+            stringValue = NormalizeMultiSegmentValue(stringValue);
+        }
+        else if (stringValue.Contains('/', StringComparison.Ordinal))
+        {
+            error = $"Route value '{segment.Name}' contains '/', but template '{segment.Name}' is not multi-segment.";
+            stringValue = string.Empty;
+            return false;
+        }
+
+        error = null;
+        return true;
+    }
+
+    /// <summary>
+    /// Normalizes a multi-segment variable by trimming a leading '/' while preserving embedded '/'.
+    /// </summary>
+    /// <param name="value">The raw route value.</param>
+    /// <returns>The normalized value.</returns>
+    private static string NormalizeMultiSegmentValue(string value) =>
+        value.Length > 0 && value[0] == '/' ? value.TrimStart('/') : value;
 
     /// <summary>
     /// Backwards-compatible overload that discards detailed error information.

@@ -424,8 +424,9 @@ public static partial class KestrunHostMapExtensions
             await compiled(ctx);
         }
 
+        var mapPattern = NormalizeCatchAllPattern(routeOptions.Pattern!);
         string[] methods = [.. routeOptions.HttpVerbs.Select(v => v.ToMethodString())];
-        var map = host.App!.MapMethods(routeOptions.Pattern!, methods, handler).WithLanguage(routeOptions.ScriptCode.Language);
+        var map = host.App!.MapMethods(mapPattern, methods, handler).WithLanguage(routeOptions.ScriptCode.Language);
 
         if (host.Logger.IsEnabled(LogEventLevel.Debug))
         {
@@ -442,10 +443,10 @@ public static partial class KestrunHostMapExtensions
                 ApplyOpenApiMetadata(host, map, value);
             }
             // Register the route to prevent duplicates
-            host._registeredRoutes[(routeOptions.Pattern!, method)] = routeOptions;
+            host._registeredRoutes[(mapPattern, method)] = routeOptions;
         }
 
-        host.Logger.Information("Added route: {Pattern} with methods: {Methods}", routeOptions.Pattern, string.Join(", ", methods));
+        host.Logger.Information("Added route: {Pattern} with methods: {Methods}", mapPattern, string.Join(", ", methods));
         return map;
     }
 
@@ -1249,9 +1250,10 @@ public static partial class KestrunHostMapExtensions
     /// <returns>True if the route exists; otherwise, false.</returns>
     public static bool MapExists(this KestrunHost host, string pattern, IEnumerable<HttpVerb> verbs)
     {
+        var normalizedPattern = NormalizeCatchAllPattern(pattern);
         var methodSet = verbs.Select(v => v.ToMethodString()).ToHashSet(StringComparer.OrdinalIgnoreCase);
         return host._registeredRoutes.Keys
-            .Where(k => string.Equals(k.Pattern, pattern, StringComparison.OrdinalIgnoreCase))
+            .Where(k => string.Equals(k.Pattern, normalizedPattern, StringComparison.OrdinalIgnoreCase))
             .Any(k => methodSet.Contains(k.Method.ToMethodString()));
     }
 
@@ -1262,8 +1264,11 @@ public static partial class KestrunHostMapExtensions
     /// <param name="pattern">The route pattern to check.</param>
     /// <param name="verb">The optional HTTP method to check for the route.</param>
     /// <returns>True if the route exists; otherwise, false.</returns>
-    public static bool MapExists(this KestrunHost host, string pattern, HttpVerb verb) =>
-        host._registeredRoutes.ContainsKey((pattern, verb));
+    public static bool MapExists(this KestrunHost host, string pattern, HttpVerb verb)
+    {
+        var normalizedPattern = NormalizeCatchAllPattern(pattern);
+        return host._registeredRoutes.ContainsKey((normalizedPattern, verb));
+    }
 
     /// <summary>
     /// Retrieves the <see cref="MapRouteOptions"/> associated with a given route pattern and HTTP verb, if registered.
@@ -1290,9 +1295,22 @@ public static partial class KestrunHostMapExtensions
     /// </example>
     public static MapRouteOptions? GetMapRouteOptions(this KestrunHost host, string pattern, HttpVerb verb)
     {
-        return host._registeredRoutes.TryGetValue((pattern, verb), out var options)
+        var normalizedPattern = NormalizeCatchAllPattern(pattern);
+        return host._registeredRoutes.TryGetValue((normalizedPattern, verb), out var options)
             ? options
             : null;
+    }
+
+    /// <summary>
+    /// Normalizes catch-all parameters that use "{**name}" into "{*name}" for ASP.NET Core routing.
+    /// </summary>
+    /// <param name="pattern">The route pattern to normalize.</param>
+    /// <returns>The normalized route pattern.</returns>
+    private static string NormalizeCatchAllPattern(string pattern)
+    {
+        return string.IsNullOrWhiteSpace(pattern)
+            ? pattern
+            : pattern.Replace("{**", "{*", StringComparison.Ordinal);
     }
 
     /// <summary>

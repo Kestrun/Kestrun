@@ -18,30 +18,64 @@ public partial class OpenApiDocDescriptor
         }
         Document.Paths = [];
 
-        var groups = routes
-            .GroupBy(kvp => kvp.Key.Pattern, StringComparer.Ordinal)
-            .Where(g => !string.IsNullOrWhiteSpace(g.Key))
-            .Where(g => g.Any(kvp => kvp.Value?.OpenAPI?.Count > 0));
+        var groups = CreateOpenApiRouteEntries(routes)
+            .GroupBy(entry => entry.Pattern, StringComparer.Ordinal)
+            .Where(g => !string.IsNullOrWhiteSpace(g.Key));
 
         foreach (var grp in groups)
         {
-            ProcessRouteGroup(grp);
+            ProcessOpenApiRouteGroup(grp);
         }
     }
 
     /// <summary>
-    /// Processes a group of routes sharing the same pattern to build the corresponding OpenAPI path item.
+    /// Flattens registered routes into OpenAPI entries using the OpenAPI metadata pattern.
     /// </summary>
-    /// <param name="grp">The group of routes sharing the same pattern. </param>
-    private void ProcessRouteGroup(IGrouping<string, KeyValuePair<(string Pattern, HttpVerb Method), MapRouteOptions>> grp)
+    /// <param name="routes">The registered routes.</param>
+    /// <returns>The OpenAPI route entries.</returns>
+    private static IEnumerable<OpenApiRouteEntry> CreateOpenApiRouteEntries(
+        Dictionary<(string Pattern, HttpVerb Method), MapRouteOptions> routes)
+    {
+        foreach (var kvp in routes)
+        {
+            var map = kvp.Value;
+            if (map is null || map.OpenAPI.Count == 0)
+            {
+                continue;
+            }
+
+            foreach (var metaKvp in map.OpenAPI)
+            {
+                var meta = metaKvp.Value;
+                var pattern = meta.Pattern;
+                if (string.IsNullOrWhiteSpace(pattern))
+                {
+                    pattern = kvp.Key.Pattern;
+                }
+
+                if (string.IsNullOrWhiteSpace(pattern))
+                {
+                    continue;
+                }
+
+                yield return new OpenApiRouteEntry(pattern, metaKvp.Key, map, meta);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Processes a group of routes sharing the same OpenAPI pattern to build the corresponding OpenAPI path item.
+    /// </summary>
+    /// <param name="grp">The group of routes sharing the same OpenAPI pattern.</param>
+    private void ProcessOpenApiRouteGroup(IGrouping<string, OpenApiRouteEntry> grp)
     {
         var pattern = grp.Key;
         var pathItem = GetOrCreatePathItem(pattern);
         OpenAPICommonMetadata? pathMeta = null;
 
-        foreach (var kvp in grp)
+        foreach (var entry in grp)
         {
-            pathMeta = ProcessRouteOperation(kvp, pathItem, pathMeta);
+            pathMeta = ProcessOpenApiRouteEntry(entry, pathItem, pathMeta);
         }
 
         if (pathMeta is not null)
@@ -66,16 +100,19 @@ public partial class OpenApiDocDescriptor
     }
 
     /// <summary>
-    /// Processes a single route operation and adds it to the OpenApiPathItem.
+    /// Processes a single OpenAPI route entry and adds it to the OpenApiPathItem.
     /// </summary>
-    /// <param name="kvp">The key-value pair representing the route pattern, HTTP method, and route options.</param>
+    /// <param name="entry">The OpenAPI route entry.</param>
     /// <param name="pathItem">The OpenApiPathItem to which the operation will be added.</param>
     /// <param name="currentPathMeta">The current path-level OpenAPI metadata.</param>
     /// <returns>The updated path-level OpenAPI metadata.</returns>
-    private OpenAPICommonMetadata? ProcessRouteOperation(KeyValuePair<(string Pattern, HttpVerb Method), MapRouteOptions> kvp, OpenApiPathItem pathItem, OpenAPICommonMetadata? currentPathMeta)
+    private OpenAPICommonMetadata? ProcessOpenApiRouteEntry(
+        OpenApiRouteEntry entry,
+        OpenApiPathItem pathItem,
+        OpenAPICommonMetadata? currentPathMeta)
     {
-        var method = kvp.Key.Method;
-        var map = kvp.Value;
+        var method = entry.Method;
+        var map = entry.Map;
 
         if (map is null || map.OpenAPI.Count == 0)
         {
@@ -87,7 +124,8 @@ public partial class OpenApiDocDescriptor
             currentPathMeta = map.PathLevelOpenAPIMetadata;
         }
 
-        if (map.OpenAPI.TryGetValue(method, out var meta) && meta.Enabled)
+        var meta = entry.Metadata;
+        if (meta.Enabled)
         {
             if (meta.DocumentId is not null && !meta.DocumentId.Contains(DocumentId))
             {
@@ -99,6 +137,19 @@ public partial class OpenApiDocDescriptor
 
         return currentPathMeta;
     }
+
+    /// <summary>
+    /// Represents a flattened OpenAPI route entry derived from registered routes.
+    /// </summary>
+    /// <param name="Pattern">The OpenAPI pattern.</param>
+    /// <param name="Method">The HTTP verb.</param>
+    /// <param name="Map">The map route options.</param>
+    /// <param name="Metadata">The OpenAPI metadata.</param>
+    private sealed record OpenApiRouteEntry(
+        string Pattern,
+        HttpVerb Method,
+        MapRouteOptions Map,
+        OpenAPIPathMetadata Metadata);
 
     /// <summary>
     /// Applies path-level OpenAPI metadata to the given OpenApiPathItem.

@@ -33,6 +33,8 @@ Browse the step-by-step guides below to learn OpenAPI features in Kestrun:
 18. **[SSE (OpenAPI)](./20.Sse.md)** — Document a `text/event-stream` SSE endpoint
 19. **[SSE Broadcast (OpenAPI)](./21.Sse-Broadcast.md)** — Document broadcast SSE + a trigger API
 20. **[SignalR (OpenAPI)](./22.SignalR.md)** — Document SignalR-adjacent HTTP routes with OpenAPI
+21. **[XML Modeling](./23.XML-Modeling.md)** — OpenAPI 3.2 XML metadata (`OpenApiXml`) for schemas
+22. **[RFC 6570 Variable Mapping](./24.RFC6570-Variable-Mapping.md)** — RFC6570 path expressions (`{+path}`) mapped from ASP.NET route values
 
 ## Quick start: run the samples
 

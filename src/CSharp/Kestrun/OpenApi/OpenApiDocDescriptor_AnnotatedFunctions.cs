@@ -206,8 +206,22 @@ public partial class OpenApiDocDescriptor
         {
             throw new InvalidOperationException("OpenApiPath attribute must specify a non-empty Pattern property.");
         }
+        var openApiPattern = pattern;
+        var routePattern = pattern;
+        if (oaPath is OpenApiPathAttribute)
+        {
+            if (!Rfc6570PathTemplateMapper.TryMapToKestrelRoute(pattern, out var mapping, out var error))
+            {
+                throw new InvalidOperationException($"OpenApiPath pattern '{pattern}' is invalid: {error}");
+            }
+
+            openApiPattern = mapping.OpenApiPattern;
+            routePattern = mapping.KestrelPattern;
+            AddQueryParametersFromTemplate(metadata, mapping.QueryParameters);
+        }
+
         // Apply pattern, summary, description, tags
-        routeOptions.Pattern = pattern;
+        routeOptions.Pattern = routePattern;
         metadata.Summary = ChooseFirstNonEmpty(oaPath.Summary, help.GetSynopsis());
         metadata.Description = ChooseFirstNonEmpty(oaPath.Description, help.GetDescription());
         metadata.Tags = [.. oaPath.Tags];
@@ -219,7 +233,7 @@ public partial class OpenApiDocDescriptor
         switch (oaPath)
         {
             case OpenApiPathAttribute oaPathConcrete:
-                ApplyPathLikePath(func, routeOptions, metadata, oaPathConcrete, pattern);
+                ApplyPathLikePath(func, routeOptions, metadata, oaPathConcrete, openApiPattern);
                 break;
             case OpenApiWebhookAttribute oaWebhook:
                 ApplyPathLikeWebhook(func, metadata, oaWebhook, pattern);
@@ -239,15 +253,15 @@ public partial class OpenApiDocDescriptor
     /// <param name="routeOptions">The route options to configure.</param>
     /// <param name="metadata">The OpenAPI metadata to populate.</param>
     /// <param name="oaPath">The OpenApiPath attribute instance.</param>
-    /// <param name="pattern">The route pattern.</param>
+    /// <param name="openApiPattern">The OpenAPI path pattern.</param>
     private static void ApplyPathLikePath(
         FunctionInfo func,
         MapRouteOptions routeOptions,
         OpenAPIPathMetadata metadata,
         OpenApiPathAttribute oaPath,
-        string pattern)
+        string openApiPattern)
     {
-        metadata.Pattern = pattern;
+        metadata.Pattern = openApiPattern;
         metadata.PathLikeKind = OpenApiPathLikeKind.Path;
         if (!string.IsNullOrWhiteSpace(oaPath.CorsPolicy))
         {
@@ -258,6 +272,38 @@ public partial class OpenApiDocDescriptor
         metadata.OperationId = oaPath.OperationId is null
             ? func.Name
             : string.IsNullOrWhiteSpace(oaPath.OperationId) ? metadata.OperationId : oaPath.OperationId;
+    }
+
+    /// <summary>
+    /// Adds query parameters inferred from RFC6570 query expressions.
+    /// </summary>
+    /// <param name="metadata">The OpenAPI metadata to update.</param>
+    /// <param name="queryParameterNames">The query parameter names to add.</param>
+    private static void AddQueryParametersFromTemplate(
+        OpenAPIPathMetadata metadata,
+        IReadOnlyList<string> queryParameterNames)
+    {
+        if (queryParameterNames.Count == 0)
+        {
+            return;
+        }
+
+        metadata.Parameters ??= [];
+        foreach (var name in queryParameterNames.Distinct(StringComparer.OrdinalIgnoreCase))
+        {
+            if (metadata.Parameters.Any(p => string.Equals(p.Name, name, StringComparison.OrdinalIgnoreCase)))
+            {
+                continue;
+            }
+
+            metadata.Parameters.Add(new OpenApiParameter
+            {
+                Name = name,
+                In = ParameterLocation.Query,
+                Required = false,
+                Schema = new OpenApiSchema { Type = JsonSchemaType.String },
+            });
+        }
     }
     /// <summary>
     /// Applies the OpenApiWebhook attribute to the function's OpenAPI metadata.
@@ -605,6 +651,7 @@ public partial class OpenApiDocDescriptor
             PowerShellAttributes.ApplyPowerShellAttribute(attr, (OpenApiSchema)parameter.Schema);
         }
 
+        RemoveExistingParameter(metadata, paramInfo.Name);
         metadata.Parameters.Add(parameter);
         routeOptions.ScriptCode.Parameters.Add(new ParameterForInjectionInfo(paramInfo, parameter));
     }
@@ -651,6 +698,7 @@ public partial class OpenApiDocDescriptor
         }
 
         routeOptions.ScriptCode.Parameters.Add(new ParameterForInjectionInfo(paramInfo, componentParameter));
+        RemoveExistingParameter(metadata, paramInfo.Name);
         metadata.Parameters.Add(parameter);
     }
 
@@ -676,6 +724,27 @@ public partial class OpenApiDocDescriptor
             opp.Examples ??= new Dictionary<string, IOpenApiExample>();
             // Clone or reference the example
             _ = TryAddExample(opp.Examples, attribute);
+        }
+    }
+
+    /// <summary>
+    /// Removes any existing parameter with the specified name from the OpenAPI metadata.
+    /// </summary>
+    /// <param name="metadata">The OpenAPI metadata.</param>
+    /// <param name="name">The parameter name to remove.</param>
+    private static void RemoveExistingParameter(OpenAPIPathMetadata metadata, string name)
+    {
+        if (metadata.Parameters is null)
+        {
+            return;
+        }
+
+        for (var i = metadata.Parameters.Count - 1; i >= 0; i--)
+        {
+            if (string.Equals(metadata.Parameters[i].Name, name, StringComparison.OrdinalIgnoreCase))
+            {
+                metadata.Parameters.RemoveAt(i);
+            }
         }
     }
 

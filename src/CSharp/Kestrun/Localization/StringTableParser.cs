@@ -56,7 +56,7 @@ public static class StringTableParser
                 continue;
             }
 
-            if (trimmed.StartsWith("#", StringComparison.Ordinal) ||
+            if (trimmed.StartsWith('#') ||
                 trimmed.StartsWith("//", StringComparison.Ordinal))
             {
                 continue;

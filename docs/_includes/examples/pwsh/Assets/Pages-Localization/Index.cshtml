@@ -1,0 +1,11 @@
+@page
+@model Kestrun.Razor.PwshKestrunModel
+@{
+    ViewData["Title"] = "Localization";
+    dynamic d = Model.Data ?? new { Title = "Localized", Message = "Hello", Save = "Save", Culture = "" };
+}
+
+<h1>@d.Title</h1>
+<p class="muted">Culture: @d.Culture</p>
+<p>@d.Message</p>
+<button>@d.Save</button>

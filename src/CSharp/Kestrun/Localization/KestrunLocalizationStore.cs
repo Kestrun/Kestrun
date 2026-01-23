@@ -75,7 +75,10 @@ public sealed class KestrunLocalizationStore
     {
         return string.IsNullOrWhiteSpace(resolvedCulture)
             ? EmptyStrings
-            : cache.GetOrAdd(resolvedCulture, LoadStringsForCulture);
+            : (IsCultureAvailable(resolvedCulture) ||
+               string.Equals(resolvedCulture, defaultCulture, StringComparison.OrdinalIgnoreCase)
+                ? cache.GetOrAdd(resolvedCulture, LoadStringsForCulture)
+                : EmptyStrings);
     }
 
     private sealed class CompositeStringTable : IReadOnlyDictionary<string, string>

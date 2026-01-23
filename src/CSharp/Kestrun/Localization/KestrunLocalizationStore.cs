@@ -86,7 +86,7 @@ public sealed class KestrunLocalizationStore
         public CompositeStringTable(KestrunLocalizationStore store, string? requestedCulture)
         {
             _store = store ?? throw new ArgumentNullException(nameof(store));
-            _candidates = new List<string>();
+            _candidates = [];
 
             // Build candidate list from requested culture up the parent chain
             var baseCandidates = _store.BuildCultureCandidates(requestedCulture);
@@ -106,18 +106,7 @@ public sealed class KestrunLocalizationStore
             }
         }
 
-        public string this[string key]
-        {
-            get
-            {
-                if (TryGetValue(key, out var value))
-                {
-                    return value!;
-                }
-
-                throw new KeyNotFoundException(key);
-            }
-        }
+        public string this[string key] => TryGetValue(key, out var value) ? value : throw new KeyNotFoundException(key);
 
         public IEnumerable<string> Keys
         {
@@ -129,7 +118,10 @@ public sealed class KestrunLocalizationStore
                     var dict = _store._cache.GetOrAdd(candidate, _store.LoadStringsForCulture);
                     foreach (var k in dict.Keys)
                     {
-                        if (set.Add(k)) yield return k;
+                        if (set.Add(k))
+                        {
+                            yield return k;
+                        }
                     }
                 }
             }

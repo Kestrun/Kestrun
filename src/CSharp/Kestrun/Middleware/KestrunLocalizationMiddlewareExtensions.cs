@@ -1,9 +1,5 @@
 using Kestrun.Hosting;
 using Kestrun.Localization;
-using Microsoft.AspNetCore.Builder;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 
 namespace Kestrun.Middleware;
@@ -39,10 +35,7 @@ public static class KestrunLocalizationMiddlewareExtensions
         try
         {
             var host = services.GetService<KestrunHost>();
-            if (host is not null)
-            {
-                host.LocalizationStore = store;
-            }
+            _ = (host?.LocalizationStore = store);
         }
         catch
         {

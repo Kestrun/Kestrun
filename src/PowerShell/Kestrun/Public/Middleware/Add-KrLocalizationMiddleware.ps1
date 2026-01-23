@@ -47,8 +47,12 @@ function Add-KrLocalizationMiddleware {
         [Kestrun.Localization.KestrunLocalizationOptions]$Options,
 
         [Parameter(ParameterSetName = 'Items')]
-        [ValidatePattern('^[a-zA-Z]{2}(-[a-zA-Z]{2})?$')]
+        [ValidateScript({
+                try { [void][System.Globalization.CultureInfo]::GetCultureInfo($_); $true }
+                catch { throw "Invalid culture name '$_'. Use a valid BCP 47 / .NET culture (e.g. en-US, zh-Hans, sr-Latn-RS, es-419)." }
+            })]
         [string]$DefaultCulture = 'en-US',
+
 
         [Parameter(ParameterSetName = 'Items')]
         [string]$ResourcesBasePath = 'i18n',

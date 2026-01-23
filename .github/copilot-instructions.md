@@ -243,8 +243,8 @@ File: `./strings/fr-FR.psd1`
 The middleware resolves the request culture from (in priority order):
 
 1. Query parameter: `?lang=fr-CA`
-2. `Accept-Language` header (first culture with highest quality)
-3. Cookie: `lang=fr-CA`
+2. Cookie: `lang=fr-CA`
+3. `Accept-Language` header (first culture with highest quality)
 4. Server default (specified in `-DefaultCulture`)
 
 #### Per-Key Fallback Behavior

@@ -112,7 +112,7 @@ Describe 'Tutorial 21.1 - Localization' -Tag 'Tutorial', 'Localization' {
     }
 
       It 'returns Canadian French strings via Accept-Language header' {
-        $url = "$($script:instance.Url)/hello "
+        $url = "$($script:instance.Url)/hello"
         $params = @{ Uri = $url; TimeoutSec = 10; Headers = @{ Accept = 'application/json'; 'Accept-Language' = 'fr-CA' } }
         if ($script:instance.Https) { $params.SkipCertificateCheck = $true }
         $resp = Invoke-RestMethod @params

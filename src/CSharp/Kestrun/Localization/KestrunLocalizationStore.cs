@@ -49,7 +49,7 @@ public sealed class KestrunLocalizationStore
     /// <summary>
     /// Gets the set of available cultures discovered at startup (read-only).
     /// </summary>
-    public IReadOnlyCollection<string> AvailableCultures => _availableCultures;
+    public IReadOnlyCollection<string> AvailableCultures => [.. _availableCultures];
 
     /// <summary>
     /// Resolves the requested culture to the closest available culture or the default culture.
@@ -152,19 +152,26 @@ public sealed class KestrunLocalizationStore
 
         System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => GetEnumerator();
 
+        /// <summary>
+        /// Tries to get the localized value for the specified key using culture fallback.
+        /// </summary>
+        /// <param name="key">The key to look up.</param>
+        /// <param name="value">The localized value if found; otherwise, an empty string.</param>
+        /// <returns>True if the key was found; otherwise, false.</returns>
         public bool TryGetValue(string key, out string value)
         {
             foreach (var candidate in _candidates)
             {
                 var dict = _store._cache.GetOrAdd(candidate, _store.LoadStringsForCulture);
-                if (dict != null && dict.ContainsKey(key))
+
+                if (dict.TryGetValue(key, out var v))
                 {
-                    value = dict[key];
+                    value = v;
                     return true;
                 }
             }
 
-            value = default!;
+            value = string.Empty; // or throw / fallback marker
             return false;
         }
     }

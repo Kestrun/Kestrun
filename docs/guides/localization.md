@@ -7,18 +7,30 @@ nav_order: 50
 
 # Localization in Kestrun
 
-This guide explains how request-localized string tables work in Kestrun, how to author PowerShell `.psd1` string tables, configure the middleware, how culture resolution and resource fallback operate, and how to access localized strings and formatting from PowerShell runspaces and Razor pages.
+This guide explains how request-localized string tables work in Kestrun, how to author
+PowerShell `.psd1` string tables, configure the middleware, how culture resolution and
+resource fallback operate, and how to access localized strings and formatting from
+PowerShell runspaces and Razor pages.
 
-**Key Concepts**
+## Key Concepts
 
-- **Resources:**: Place string tables under a per-culture folder inside a resources root (for example `Assets/i18n/en-US/strings.psd1`).
-- **.psd1 format:**: Use a PowerShell hashtable literal wrapped in `@{ ... }`. Values may be nested hashtables for grouping (e.g. `Labels = @{ Save = 'Save' }`). Quoted keys and values are supported.
-- **Request culture vs resource culture:**: Kestrun preserves the requested culture (used for formatting) while resolving which resource culture to use for string lookup (allows falling back to a related resource when an exact folder isn't present).
-- **Injection:**: `Context.Culture` and `Context.LocalizedStrings` (preferred) are available in PowerShell runspaces and Razor pages. `Context.Strings` remains an alias for compatibility. A `Localizer` variable is also injected for convenience.
+- **Resources**: Place string tables under a per-culture folder inside a resources root
+  (for example `Assets/i18n/en-US/strings.psd1`).
+- **.psd1 format**: Use a PowerShell hashtable literal wrapped in `@{ ... }`. Values may
+  be nested hashtables for grouping (e.g. `Labels = @{ Save = 'Save' }`). Quoted keys
+  and values are supported.
+- **Request culture vs resource culture**: Kestrun preserves the requested culture (used
+  for formatting) while resolving which resource culture to use for string lookup (allows
+  falling back to a related resource when an exact folder isn't present).
+- **Injection**: `Context.Culture` and `Context.LocalizedStrings` (preferred) are available
+  in PowerShell runspaces and Razor pages. `Context.Strings` remains an alias for
+  compatibility. A `Localizer` variable is also injected for convenience.
 
-**External reference (canonical culture tags)**
+## External reference (canonical culture tags)
 
-- **BCP 47 (IETF language tags):**: Use standard tags like `en-US`, `fr-FR`, `it-CH`. See the canonical specification at <https://www.rfc-editor.org/info/bcp47> for guidance and tag syntax.
+- **BCP 47 (IETF language tags)**: Use standard tags like `en-US`, `fr-FR`, `it-CH`.
+  See the canonical specification at <https://www.rfc-editor.org/info/bcp47> for guidance
+  and tag syntax.
 
 Getting started
 
@@ -52,8 +64,8 @@ Add-KrLocalizationMiddleware -ResourcesBasePath './Assets/i18n'
 Culture resolution order (request-level)
 
 - Query parameter: `?lang=<tag>` (highest precedence)
-- `Accept-Language` header
 - Cookie named `lang`
+- `Accept-Language` header
 - Default server culture (fallback)
 
 Resource culture resolution (string lookup)
@@ -65,7 +77,9 @@ Resource culture resolution (string lookup)
 
 Notes on formatting and runspaces
 
-- Kestrun sets `System.Globalization.CultureInfo.CurrentCulture` and `CurrentUICulture` inside route and Razor runspaces so standard formatting (dates, numbers, currency) respects the requested culture.
+- Kestrun sets `System.Globalization.CultureInfo.CurrentCulture` and `CurrentUICulture`
+  inside route and Razor runspaces so standard formatting (dates, numbers, currency)
+  respects the requested culture.
 - The request-level culture is available as `Context.Culture` (string) and can be used to create a `CultureInfo` in scripts:
 
 ```powershell
@@ -96,7 +110,7 @@ See examples
 - [Localization example script](../_includes/examples/pwsh/21.1-Localization.ps1)
 - [Razor localization example](../_includes/examples/pwsh/21.2-Razor-Localization.ps1)
 
-**Related pages**
+## Related pages
 
 - Guide: [Localization Guide](../guides/localization.md)
 

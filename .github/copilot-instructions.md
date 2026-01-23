@@ -323,10 +323,10 @@ The `Localizer` respects the request culture and performs per-key fallback using
 
 #### Discovering Loaded Cultures
 
-Use `Get-KrLocalizationCultures` to enumerate all cultures that have been loaded from the string table directory:
+Use `Get-KrLocalizationCulture` to enumerate all cultures that have been loaded from the string table directory:
 
 ```powershell
-$cultures = Get-KrLocalizationCultures
+$cultures = Get-KrLocalizationCulture
 # Returns: [string[]] e.g., @('en-US', 'fr-FR', 'fr-CA', 'de-DE')
 
 foreach ($culture in $cultures) {

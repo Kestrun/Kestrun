@@ -40,7 +40,7 @@ Add-KrMapRoute -Verbs Get -Pattern '/hello' -ScriptBlock {
 }
 
 Add-KrMapRoute -Verbs Get -Pattern '/cultures' -ScriptBlock {
-    $cultures = Get-KrLocalizationCultures | Sort-Object Name | ForEach-Object { $_.Name }
+    $cultures = Get-KrLocalizationCulture | Sort-Object Name | ForEach-Object { $_.Name }
     Write-KrJsonResponse -InputObject @{ cultures = $cultures } -StatusCode 200
 }
 

@@ -90,13 +90,25 @@ public sealed class KestrunLocalizationStore
 
             // Build candidate list from requested culture up the parent chain
             var baseCandidates = _store.BuildCultureCandidates(requestedCulture);
-            _candidates.AddRange(baseCandidates);
+            if (baseCandidates.Count > 0)
+            {
+                _candidates.Add(baseCandidates[0]);
+            }
 
-            // Add the specific-culture sibling fallback if present
+            // Add the specific-culture sibling fallback before walking the parent chain
             var specific = GetSpecificCultureFallback(requestedCulture);
             if (!string.IsNullOrWhiteSpace(specific) && !_candidates.Contains(specific, StringComparer.OrdinalIgnoreCase))
             {
                 _candidates.Add(specific);
+            }
+
+            for (var i = 1; i < baseCandidates.Count; i++)
+            {
+                var candidate = baseCandidates[i];
+                if (!_candidates.Contains(candidate, StringComparer.OrdinalIgnoreCase))
+                {
+                    _candidates.Add(candidate);
+                }
             }
 
             // Finally add the default culture as last resort (if not already present)

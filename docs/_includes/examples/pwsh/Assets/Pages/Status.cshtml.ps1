@@ -2,7 +2,6 @@
 param()
 
 $req = $Context.Request
-expand-krobject -InputObject $req
 $ip = $Context.Connection.RemoteIpAddress
 
 # Show a small, readable subset

@@ -96,6 +96,12 @@ public sealed class KestrunRequestCultureMiddleware(
         return false;
     }
 
+    /// <summary>
+    /// Tries to resolve the culture from the Accept-Language header.
+    /// </summary>
+    /// <param name="headers">The request headers.</param>
+    /// <param name="culture">The resolved culture, if any.</param>
+    /// <returns>True if a culture was resolved; otherwise, false.</returns>
     private bool TryGetAcceptLanguageCulture(IHeaderDictionary headers, out string? culture)
     {
         if (!headers.TryGetValue("Accept-Language", out var values))
@@ -111,6 +117,17 @@ public sealed class KestrunRequestCultureMiddleware(
             return false;
         }
 
+        return TrySelectBestAcceptLanguageCandidate(header, out culture);
+    }
+
+    /// <summary>
+    /// Selects the best Accept-Language candidate from a raw header value.
+    /// </summary>
+    /// <param name="header">The raw Accept-Language header string.</param>
+    /// <param name="culture">The best candidate culture (language range), if any.</param>
+    /// <returns>True if a candidate was selected; otherwise, false.</returns>
+    private static bool TrySelectBestAcceptLanguageCandidate(string header, out string? culture)
+    {
         // Select the highest-quality culture token as the requested culture (do not resolve here).
         // Example: "en-US;q=0.1, fr-FR;q=0.9" should prefer "fr-FR".
         string? bestCandidate = null;
@@ -119,46 +136,7 @@ public sealed class KestrunRequestCultureMiddleware(
         var tokens = header.Split(',', StringSplitOptions.RemoveEmptyEntries);
         for (var i = 0; i < tokens.Length; i++)
         {
-            var segment = tokens[i].Trim();
-            if (segment.Length == 0)
-            {
-                continue;
-            }
-
-            var parts = segment.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-            if (parts.Length == 0)
-            {
-                continue;
-            }
-
-            var candidate = parts[0];
-            if (string.IsNullOrWhiteSpace(candidate) || candidate == "*")
-            {
-                continue;
-            }
-
-            var quality = 1.0;
-            for (var p = 1; p < parts.Length; p++)
-            {
-                var parameter = parts[p];
-                if (!parameter.StartsWith("q=", StringComparison.OrdinalIgnoreCase))
-                {
-                    continue;
-                }
-
-                if (double.TryParse(
-                        parameter.AsSpan(2),
-                        NumberStyles.AllowDecimalPoint,
-                        CultureInfo.InvariantCulture,
-                        out var parsedQuality))
-                {
-                    quality = parsedQuality;
-                }
-
-                break;
-            }
-
-            if (quality is < 0.0 or > 1.0)
+            if (!TryParseAcceptLanguageToken(tokens[i], out var candidate, out var quality))
             {
                 continue;
             }
@@ -181,6 +159,83 @@ public sealed class KestrunRequestCultureMiddleware(
         return false;
     }
 
+    /// <summary>
+    /// Parses a single Accept-Language token (language-range plus optional parameters).
+    /// </summary>
+    /// <param name="token">A token from the Accept-Language header (e.g. "fr-FR;q=0.9").</param>
+    /// <param name="candidate">The parsed language-range candidate.</param>
+    /// <param name="quality">The parsed q-value (defaults to 1.0 if not specified).</param>
+    /// <returns>True if the token produced a usable candidate; otherwise, false.</returns>
+    private static bool TryParseAcceptLanguageToken(string token, out string candidate, out double quality)
+    {
+        candidate = string.Empty;
+        quality = 1.0;
+
+        var segment = token.Trim();
+        if (segment.Length == 0)
+        {
+            return false;
+        }
+
+        var parts = segment.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        if (parts.Length == 0)
+        {
+            return false;
+        }
+
+        var parsedCandidate = parts[0];
+        if (string.IsNullOrWhiteSpace(parsedCandidate) || parsedCandidate == "*")
+        {
+            return false;
+        }
+
+        if (!TryParseQualityParameter(parts, out var parsedQuality))
+        {
+            return false;
+        }
+
+        candidate = parsedCandidate;
+        quality = parsedQuality;
+        return true;
+    }
+
+    /// <summary>
+    /// Parses the q-value parameter from an Accept-Language token's parameters.
+    /// </summary>
+    /// <param name="parts">Token parts split by ';' where index 0 is the language-range.</param>
+    /// <param name="quality">The parsed q-value, defaulting to 1.0.</param>
+    /// <returns>True if the q-value is within [0,1]; otherwise, false.</returns>
+    private static bool TryParseQualityParameter(string[] parts, out double quality)
+    {
+        quality = 1.0;
+
+        for (var p = 1; p < parts.Length; p++)
+        {
+            var parameter = parts[p];
+            if (!parameter.StartsWith("q=", StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            if (double.TryParse(
+                    parameter.AsSpan(2),
+                    NumberStyles.AllowDecimalPoint,
+                    CultureInfo.InvariantCulture,
+                    out var parsedQuality))
+            {
+                quality = parsedQuality;
+            }
+
+            break;
+        }
+
+        return quality is >= 0.0 and <= 1.0;
+    }
+
+    /// <summary>
+    /// Applies the specified culture to the current thread.
+    /// </summary>
+    /// <param name="resolvedCulture">The culture name to apply.</param>
     private static void ApplyCulture(string resolvedCulture)
     {
         if (string.IsNullOrWhiteSpace(resolvedCulture))
@@ -200,6 +255,11 @@ public sealed class KestrunRequestCultureMiddleware(
         }
     }
 
+    /// <summary>
+    /// Normalizes and validates a culture name.
+    /// </summary>
+    /// <param name="culture">The culture name to normalize.</param>
+    /// <returns>The normalized culture name, or null if invalid.</returns>
     private static string? NormalizeCultureName(string? culture)
     {
         if (string.IsNullOrWhiteSpace(culture))

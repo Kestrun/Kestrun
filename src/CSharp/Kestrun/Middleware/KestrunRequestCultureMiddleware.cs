@@ -32,8 +32,15 @@ public sealed class KestrunRequestCultureMiddleware(
         // Resolve which resource culture to use for string table lookup (may be a fallback
         // such as using 'it-IT' resources for a requested 'it-CH'). Keep the original
         // requested culture so formatting (dates/currency) uses the exact requested culture.
+        // Obtain a strings table that performs per-key fallback across candidate cultures
+        // based on the original requested culture. This ensures that missing keys in a
+        // specific culture (e.g., fr-CA) can fall back to a related resource (e.g., fr-FR)
+        // while preserving the requested culture for formatting.
+        var strings = _store.GetStringsForCulture(requestedCulture);
+
+        // Resolve which resource culture was chosen for logging/diagnostics; this may be
+        // different from the requested culture (it's the resolved culture folder).
         var resourceCulture = _store.ResolveCulture(requestedCulture);
-        var strings = _store.GetStringsForResolvedCulture(resourceCulture);
 
         // Expose the request culture (preferred) to the pipeline; if none was requested,
         // fall back to the resolved resource culture or the configured default.

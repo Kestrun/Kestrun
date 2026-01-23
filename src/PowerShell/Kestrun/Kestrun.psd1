@@ -85,7 +85,7 @@
         'Add-KrHsts', 'Add-KrHtmlTemplateRoute', 'Add-KrHttpsRedirection',
         'Add-KrJWTAudience', 'Add-KrJWTBearerAuthentication', 'Add-KrJWTClaim',
         'Add-KrJWTHeader', 'Add-KrJWTIssuer', 'Add-KrJWTSubject',
-        'Add-KrListenUnixSocket', 'Add-KrLocalizationMiddleware', 'Add-KrMapRoute',
+        'Add-KrListenUnixSocket', 'Add-KrLocalizationMiddleware', 'Add-KrMapRoute', 'Get-KrLocalizationCultures',
         'Add-KrNamedPipeListener', 'Add-KrOAuth2Authentication', 'Add-KrOpenApiComponent',
         'Add-KrOpenApiContact', 'Add-KrOpenApiExtension', 'Add-KrOpenApiExternalDoc',
         'Add-KrOpenApiInfo', 'Add-KrOpenApiInline', 'Add-KrOpenApiLicense',

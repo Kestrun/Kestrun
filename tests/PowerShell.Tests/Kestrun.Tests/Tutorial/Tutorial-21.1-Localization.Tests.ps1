@@ -110,4 +110,21 @@ Describe 'Tutorial 21.1 - Localization' -Tag 'Tutorial', 'Localization' {
         $expectedCalendar = $ci.Calendar.GetType().Name
         $resp.calendarName | Should -Be $expectedCalendar
     }
+
+      It 'returns Canadian French strings via Accept-Language header' {
+        $url = "$($script:instance.Url)/hello "
+        $params = @{ Uri = $url; TimeoutSec = 10; Headers = @{ Accept = 'application/json'; 'Accept-Language' = 'fr-CA' } }
+        if ($script:instance.Https) { $params.SkipCertificateCheck = $true }
+        $resp = Invoke-RestMethod @params
+        $resp.culture | Should -Be 'fr-CA'
+        $resp.hello | Should -Be 'Bonjour du Canada !'
+        $resp.save | Should -Be 'Enregistrer'
+        $ci = [System.Globalization.CultureInfo]::new($resp.culture)
+        $expectedDate = (Get-Date).ToString('D', $ci)
+        $expectedCurrency = (1234.56).ToString('C', $ci)
+        $resp.dateSample | Should -Be $expectedDate
+        $resp.currencySample | Should -Be $expectedCurrency
+        $expectedCalendar = $ci.Calendar.GetType().Name
+        $resp.calendarName | Should -Be $expectedCalendar
+    }
 }

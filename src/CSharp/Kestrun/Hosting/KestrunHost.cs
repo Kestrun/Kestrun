@@ -12,6 +12,7 @@ using Microsoft.AspNetCore.SignalR;
 using Kestrun.Scheduling;
 using Kestrun.Middleware;
 using Kestrun.Scripting;
+using Kestrun.Localization;
 using Kestrun.Hosting.Options;
 using System.Runtime.InteropServices;
 using Microsoft.PowerShell;
@@ -213,6 +214,12 @@ public partial class KestrunHost : IDisposable
     /// Gets the shared state manager for managing shared data across requests and sessions.
     /// </summary>
     public bool PowershellMiddlewareEnabled { get; set; } = false;
+
+    /// <summary>
+    /// The localization store used by this host when `UseKestrunLocalization` is configured.
+    /// May be null if localization middleware was not added.
+    /// </summary>
+    public KestrunLocalizationStore? LocalizationStore { get; internal set; }
 
     /// <summary>
     /// Gets or sets a value indicating whether this instance is the default Kestrun host.

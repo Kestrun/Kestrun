@@ -47,6 +47,11 @@ public sealed class KestrunLocalizationStore
     }
 
     /// <summary>
+    /// Gets the set of available cultures discovered at startup (read-only).
+    /// </summary>
+    public IReadOnlyCollection<string> AvailableCultures => _availableCultures;
+
+    /// <summary>
     /// Resolves the requested culture to the closest available culture or the default culture.
     /// </summary>
     /// <param name="requestedCulture">The requested culture name.</param>
@@ -59,11 +64,7 @@ public sealed class KestrunLocalizationStore
     /// </summary>
     /// <param name="requestedCulture">The requested culture name.</param>
     /// <returns>A dictionary of localized strings.</returns>
-    public IReadOnlyDictionary<string, string> GetStringsForCulture(string? requestedCulture)
-    {
-        var resolved = ResolveCulture(requestedCulture);
-        return GetStringsForResolvedCulture(resolved);
-    }
+    public IReadOnlyDictionary<string, string> GetStringsForCulture(string? requestedCulture) => new CompositeStringTable(this, requestedCulture);
 
     /// <summary>
     /// Gets the localized strings for the already-resolved culture.
@@ -75,6 +76,105 @@ public sealed class KestrunLocalizationStore
         return string.IsNullOrWhiteSpace(resolvedCulture)
             ? EmptyStrings
             : _cache.GetOrAdd(resolvedCulture, LoadStringsForCulture);
+    }
+
+    private sealed class CompositeStringTable : IReadOnlyDictionary<string, string>
+    {
+        private readonly KestrunLocalizationStore _store;
+        private readonly List<string> _candidates;
+
+        public CompositeStringTable(KestrunLocalizationStore store, string? requestedCulture)
+        {
+            _store = store ?? throw new ArgumentNullException(nameof(store));
+            _candidates = new List<string>();
+
+            // Build candidate list from requested culture up the parent chain
+            var baseCandidates = _store.BuildCultureCandidates(requestedCulture);
+            _candidates.AddRange(baseCandidates);
+
+            // Add the specific-culture sibling fallback if present
+            var specific = GetSpecificCultureFallback(requestedCulture);
+            if (!string.IsNullOrWhiteSpace(specific) && !_candidates.Contains(specific, StringComparer.OrdinalIgnoreCase))
+            {
+                _candidates.Add(specific);
+            }
+
+            // Finally add the default culture as last resort (if not already present)
+            if (!string.IsNullOrWhiteSpace(_store._defaultCulture) && !_candidates.Contains(_store._defaultCulture, StringComparer.OrdinalIgnoreCase))
+            {
+                _candidates.Add(_store._defaultCulture);
+            }
+        }
+
+        public string this[string key]
+        {
+            get
+            {
+                if (TryGetValue(key, out var value))
+                {
+                    return value!;
+                }
+
+                throw new KeyNotFoundException(key);
+            }
+        }
+
+        public IEnumerable<string> Keys
+        {
+            get
+            {
+                var set = new HashSet<string>(StringComparer.Ordinal);
+                foreach (var candidate in _candidates)
+                {
+                    var dict = _store._cache.GetOrAdd(candidate, _store.LoadStringsForCulture);
+                    foreach (var k in dict.Keys)
+                    {
+                        if (set.Add(k)) yield return k;
+                    }
+                }
+            }
+        }
+
+        public IEnumerable<string> Values
+        {
+            get
+            {
+                foreach (var key in Keys)
+                {
+                    yield return this[key];
+                }
+            }
+        }
+
+        public int Count => Keys.Count();
+
+        public bool ContainsKey(string key) => TryGetValue(key, out _);
+
+        public IEnumerator<KeyValuePair<string, string>> GetEnumerator()
+        {
+            foreach (var key in Keys)
+            {
+                yield return new KeyValuePair<string, string>(key, this[key]);
+            }
+        }
+
+        System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => GetEnumerator();
+
+        public bool TryGetValue(string key, out string value)
+        {
+            foreach (var candidate in _candidates)
+            {
+                var dict = _store._cache.GetOrAdd(candidate, _store.LoadStringsForCulture);
+                if (dict != null && dict.ContainsKey(key))
+                {
+                    value = dict[key];
+                    return true;
+                }
+            }
+
+            value = default!;
+            return false;
+        }
     }
 
     /// <summary>

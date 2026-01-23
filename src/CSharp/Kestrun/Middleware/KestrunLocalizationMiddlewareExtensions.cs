@@ -1,3 +1,4 @@
+using Kestrun.Hosting;
 using Kestrun.Localization;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.DependencyInjection;
@@ -33,6 +34,20 @@ public static class KestrunLocalizationMiddlewareExtensions
         var logger = loggerFactory?.CreateLogger<KestrunLocalizationStore>() ?? NullLogger<KestrunLocalizationStore>.Instance;
 
         var store = new KestrunLocalizationStore(options, contentRoot, logger);
+        // If a KestrunHost is available via DI, capture the store on the host so tools
+        // and PowerShell helpers can inspect runtime-loaded cultures.
+        try
+        {
+            var host = services.GetService<KestrunHost>();
+            if (host is not null)
+            {
+                host.LocalizationStore = store;
+            }
+        }
+        catch
+        {
+            // Ignore any errors when host isn't available in this context.
+        }
         return app.UseMiddleware<KestrunRequestCultureMiddleware>(store, options);
     }
 }

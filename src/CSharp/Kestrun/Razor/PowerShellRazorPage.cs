@@ -1,4 +1,3 @@
-using System.Collections.Generic;
 using System.Management.Automation;
 using Kestrun.Scripting;
 using Kestrun.Models;
@@ -330,14 +329,9 @@ public static class PowerShellRazorPage
 
         if (!context.Items.ContainsKey(LocalizerItemKey))
         {
-            if (context.Items.TryGetValue(StringsItemKey, out var strings) && strings is IReadOnlyDictionary<string, string> localizedStrings)
-            {
-                context.Items[LocalizerItemKey] = localizedStrings;
-            }
-            else
-            {
-                context.Items[LocalizerItemKey] = krContext.LocalizedStrings;
-            }
+            context.Items[LocalizerItemKey] = context.Items.TryGetValue(StringsItemKey, out var strings) && strings is IReadOnlyDictionary<string, string> localizedStrings
+                ? localizedStrings
+                : krContext.LocalizedStrings;
         }
 
         var ss = ps.Runspace.SessionStateProxy;

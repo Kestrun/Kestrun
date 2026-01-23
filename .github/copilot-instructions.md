@@ -280,9 +280,9 @@ Add-KrMapRoute -Verbs Get -Pattern '/api/welcome' {
 
 ```powershell
 Add-KrMapRoute -Verbs Get -Pattern '/api/nav' {
-    # $Context.LocalizedStrings is a hashtable with nested support
-    $nav = $Context.LocalizedStrings.Navigation
-    Write-KrJsonResponse $nav
+    # $Context.LocalizedStrings is an IReadOnlyDictionary<string,string> with dot-delimited keys (e.g. 'Navigation.Home')
+    $navHome = $Context.LocalizedStrings['Navigation.Home']
+    Write-KrJsonResponse @{ Home = $navHome }
 }
 ```
 
@@ -327,10 +327,10 @@ Use `Get-KrLocalizationCulture` to enumerate all cultures that have been loaded 
 
 ```powershell
 $cultures = Get-KrLocalizationCulture
-# Returns: [string[]] e.g., @('en-US', 'fr-FR', 'fr-CA', 'de-DE')
+# Each item has a Name property, e.g., 'en-US', 'fr-FR', 'fr-CA', 'de-DE'
 
 foreach ($culture in $cultures) {
-    Write-Host "Loaded culture: $culture"
+    Write-Host "Loaded culture: $($culture.Name)"
 }
 ```
 

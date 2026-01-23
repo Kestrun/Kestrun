@@ -1,7 +1,8 @@
 using System.Text.Json;
 using Kestrun.Localization;
-using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Logging.Abstractions;
+using Serilog;
+using Serilog.Core;
+using Serilog.Events;
 using Xunit;
 
 namespace KestrunTests.Localization;
@@ -24,7 +25,7 @@ public class KestrunLocalizationStoreTests
                 ResourcesBasePath = "i18n"
             };
 
-            var store = new KestrunLocalizationStore(options, temp.FullName, NullLogger<KestrunLocalizationStore>.Instance);
+            var store = new KestrunLocalizationStore(options, temp.FullName, Logger.None);
 
             Assert.Equal("it", store.ResolveCulture("it-CH"));
             Assert.Equal("en-US", store.ResolveCulture("fr-FR"));
@@ -51,7 +52,7 @@ public class KestrunLocalizationStoreTests
                 ResourcesBasePath = "i18n"
             };
 
-            var store = new KestrunLocalizationStore(options, temp.FullName, NullLogger<KestrunLocalizationStore>.Instance);
+            var store = new KestrunLocalizationStore(options, temp.FullName, Logger.None);
 
             var strings = store.GetStringsForCulture("fr-FR");
             Assert.Empty(strings);
@@ -78,7 +79,7 @@ public class KestrunLocalizationStoreTests
                 ResourcesBasePath = "i18n"
             };
 
-            var store = new KestrunLocalizationStore(options, temp.FullName, NullLogger<KestrunLocalizationStore>.Instance);
+            var store = new KestrunLocalizationStore(options, temp.FullName, Logger.None);
 
             var strings = store.GetStringsForCulture("en-US");
             Assert.Equal("Hello", strings["Hello"]);
@@ -97,7 +98,12 @@ public class KestrunLocalizationStoreTests
         var temp = Directory.CreateTempSubdirectory();
         try
         {
-            var logger = new TestLogger<KestrunLocalizationStore>();
+            var sink = new CollectingSink();
+            using var logger = new LoggerConfiguration()
+                .MinimumLevel.Debug()
+                .WriteTo.Sink(sink)
+                .CreateLogger();
+
             var options = new KestrunLocalizationOptions
             {
                 DefaultCulture = "en-US",
@@ -111,7 +117,9 @@ public class KestrunLocalizationStoreTests
             var strings = store.GetStringsForCulture("en-US");
             _ = strings.TryGetValue("Hello", out _);
 
-            Assert.Contains(logger.Entries, entry => entry.Level == LogLevel.Error && entry.Message.Contains("Localization file missing", StringComparison.Ordinal));
+            Assert.Contains(
+                sink.Events,
+                e => e.Level == LogEventLevel.Debug && e.RenderMessage().Contains("Localization file missing", StringComparison.Ordinal));
         }
         finally
         {
@@ -138,25 +146,13 @@ public class KestrunLocalizationStoreTests
         }));
     }
 
-    private sealed class TestLogger<T> : ILogger<T>
+    private sealed class CollectingSink : ILogEventSink
     {
-        public List<(LogLevel Level, string Message)> Entries { get; } = [];
+        public List<LogEvent> Events { get; } = [];
 
-        public IDisposable BeginScope<TState>(TState state) where TState : notnull => NullScope.Instance;
-
-        public bool IsEnabled(LogLevel logLevel) => true;
-
-        public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception,
-            Func<TState, Exception?, string> formatter) =>
-            Entries.Add((logLevel, formatter(state, exception)));
-
-        private sealed class NullScope : IDisposable
+        public void Emit(LogEvent logEvent)
         {
-            public static readonly NullScope Instance = new();
-
-            public void Dispose()
-            {
-            }
+            Events.Add(logEvent);
         }
     }
 }

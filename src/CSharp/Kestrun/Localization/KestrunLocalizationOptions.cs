@@ -38,10 +38,10 @@ public sealed class KestrunLocalizationOptions
     /// <summary>
     /// Gets or sets a value indicating whether query string resolution is enabled. Default is true.
     /// </summary>
-    public bool EnableQuery { get; set; } = true;
+    public bool EnableQuery { get; set; }
 
     /// <summary>
     /// Gets or sets a value indicating whether cookie resolution is enabled. Default is true.
     /// </summary>
-    public bool EnableCookie { get; set; } = true;
+    public bool EnableCookie { get; set; }
 }

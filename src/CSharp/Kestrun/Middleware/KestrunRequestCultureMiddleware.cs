@@ -161,9 +161,21 @@ public sealed class KestrunRequestCultureMiddleware(
             return null;
         }
 
+        var candidate = culture.Trim().Replace('_', '-');
+        if (string.IsNullOrWhiteSpace(candidate))
+        {
+            return null;
+        }
+
         try
         {
-            return CultureInfo.GetCultureInfo(culture).Name;
+            var normalized = CultureInfo.GetCultureInfo(candidate).Name;
+
+            // Treat inputs that normalize by truncation or otherwise changing the tag (beyond casing)
+            // as invalid. Example: 'not-a-culture' normalizing to 'not'.
+            return string.Equals(normalized, candidate, StringComparison.OrdinalIgnoreCase)
+                ? normalized
+                : null;
         }
         catch (CultureNotFoundException)
         {

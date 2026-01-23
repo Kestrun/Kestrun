@@ -1,6 +1,5 @@
 using Kestrun.Hosting;
 using Kestrun.Localization;
-using Microsoft.Extensions.Logging.Abstractions;
 
 namespace Kestrun.Middleware;
 
@@ -26,10 +25,7 @@ public static class KestrunLocalizationMiddlewareExtensions
         var env = services.GetService<IHostEnvironment>();
         var contentRoot = env?.ContentRootPath ?? Directory.GetCurrentDirectory();
 
-        var loggerFactory = services.GetService<ILoggerFactory>();
-        var logger = loggerFactory?.CreateLogger<KestrunLocalizationStore>() ?? NullLogger<KestrunLocalizationStore>.Instance;
-
-        var store = new KestrunLocalizationStore(options, contentRoot, logger);
+        var store = new KestrunLocalizationStore(options, contentRoot, Serilog.Log.Logger);
         // If a KestrunHost is available via DI, capture the store on the host so tools
         // and PowerShell helpers can inspect runtime-loaded cultures.
         try

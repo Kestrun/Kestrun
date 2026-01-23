@@ -93,6 +93,15 @@ function Add-KrLocalizationMiddleware {
             if ($PSBoundParameters.ContainsKey('DisableAcceptLanguage')) { $Options.EnableAcceptLanguage = -not $DisableAcceptLanguage.IsPresent }
             if ($PSBoundParameters.ContainsKey('EnableQuery')) { $Options.EnableQuery = $EnableQuery.IsPresent }
             if ($PSBoundParameters.ContainsKey('EnableCookie')) { $Options.EnableCookie = $EnableCookie.IsPresent }
+        } else {
+            if ($null -eq $Options) {
+                throw 'Options cannot be null.'
+            }
+            try {
+                [void][System.Globalization.CultureInfo]::GetCultureInfo($Options.DefaultCulture)
+            } catch {
+                throw "Invalid culture name '$($Options.DefaultCulture)'. Use a valid BCP 47 / .NET culture (e.g. en-US, zh-Hans, sr-Latn-RS, es-419)."
+            }
         }
 
         [Kestrun.Hosting.KestrunLocalizationExtensions]::AddLocalization($Server, $Options) | Out-Null

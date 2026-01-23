@@ -39,6 +39,11 @@ Add-KrMapRoute -Verbs Get -Pattern '/hello' -ScriptBlock {
     Write-KrJsonResponse -InputObject $payload -StatusCode 200
 }
 
+Add-KrMapRoute -Verbs Get -Pattern '/cultures' -ScriptBlock {
+    $cultures = Get-KrLocalizationCultures | Sort-Object Name | ForEach-Object { $_.Name }
+    Write-KrJsonResponse -InputObject @{ cultures = $cultures } -StatusCode 200
+}
+
 Enable-KrConfiguration
 
 Start-KrServer

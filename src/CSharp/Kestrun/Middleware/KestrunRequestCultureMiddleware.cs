@@ -27,7 +27,7 @@ public sealed class KestrunRequestCultureMiddleware(
     {
         ArgumentNullException.ThrowIfNull(context);
 
-        var requestedCulture = ResolveRequestedCulture(context);
+        var requestedCulture = NormalizeCultureName(ResolveRequestedCulture(context));
 
         // Resolve which resource culture to use for string table lookup (may be a fallback
         // such as using 'it-IT' resources for a requested 'it-CH'). Keep the original
@@ -50,7 +50,7 @@ public sealed class KestrunRequestCultureMiddleware(
 
         context.Items[CultureItemKey] = contextCulture;
         context.Items[StringsItemKey] = strings;
-        context.Items[LocalizerItemKey] = _store;
+        context.Items[LocalizerItemKey] = strings;
 
         ApplyCulture(contextCulture);
 
@@ -151,6 +151,23 @@ public sealed class KestrunRequestCultureMiddleware(
         catch (CultureNotFoundException)
         {
             // Ignore invalid cultures to avoid breaking the request pipeline.
+        }
+    }
+
+    private static string? NormalizeCultureName(string? culture)
+    {
+        if (string.IsNullOrWhiteSpace(culture))
+        {
+            return null;
+        }
+
+        try
+        {
+            return CultureInfo.GetCultureInfo(culture).Name;
+        }
+        catch (CultureNotFoundException)
+        {
+            return null;
         }
     }
 }

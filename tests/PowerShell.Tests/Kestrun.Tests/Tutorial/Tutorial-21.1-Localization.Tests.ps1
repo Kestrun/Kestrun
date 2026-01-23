@@ -10,6 +10,19 @@ Describe 'Tutorial 21.1 - Localization' -Tag 'Tutorial', 'Localization' {
         if ($script:instance) { Stop-ExampleScript -Instance $script:instance }
     }
 
+    It 'returns available localization cultures' {
+        $url = "$($script:instance.Url)/cultures"
+        $params = @{ Uri = $url; TimeoutSec = 10; Headers = @{ Accept = 'application/json' } }
+        if ($script:instance.Https) { $params.SkipCertificateCheck = $true }
+        $resp = Invoke-RestMethod @params
+        $resp.cultures | Should -Contain 'en-US'
+        $resp.cultures | Should -Contain 'fr-FR'
+        $resp.cultures | Should -Contain 'fr-CA'
+        $resp.cultures | Should -Contain 'it-IT'
+        $resp.cultures | Should -Contain 'es-ES'
+        $resp.cultures | Should -Contain 'de-DE'
+    }
+
     It 'returns Italian strings via query culture' {
         $url = "$($script:instance.Url)/hello?lang=it-IT"
         $params = @{ Uri = $url; TimeoutSec = 10; Headers = @{ Accept = 'application/json' } }

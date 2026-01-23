@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Management.Automation;
 using Kestrun.Scripting;
 using Kestrun.Models;
@@ -32,6 +33,8 @@ namespace Kestrun.Razor;
 public static class PowerShellRazorPage
 {
     private const string MODEL_KEY = "PageModel";
+    private const string StringsItemKey = "KrStrings";
+    private const string LocalizerItemKey = "KrLocalizer";
 
     /// <summary>
     /// Enables <c>.cshtml</c> + <c>.cshtml.ps1</c> pairs.
@@ -325,6 +328,18 @@ public static class PowerShellRazorPage
         var krContext = new KestrunContext(host, context);
         context.Items[PowerShellDelegateBuilder.KR_CONTEXT_KEY] = krContext;
 
+        if (!context.Items.ContainsKey(LocalizerItemKey))
+        {
+            if (context.Items.TryGetValue(StringsItemKey, out var strings) && strings is IReadOnlyDictionary<string, string> localizedStrings)
+            {
+                context.Items[LocalizerItemKey] = localizedStrings;
+            }
+            else
+            {
+                context.Items[LocalizerItemKey] = krContext.LocalizedStrings;
+            }
+        }
+
         var ss = ps.Runspace.SessionStateProxy;
         ss.SetVariable("Context", krContext);
         if (context.Items.TryGetValue("KrLocalizer", out var localizer))
@@ -437,4 +452,3 @@ public static class PowerShellRazorPage
         ps.Dispose();
     }
 }
-

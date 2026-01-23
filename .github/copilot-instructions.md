@@ -338,7 +338,7 @@ foreach ($culture in $cultures) {
 }
 ```
 
-This helper queries the running host's localization store and returns only cultures with .psd1 files that were successfully parsed.
+This helper queries the running host's localization store and returns cultures whose string table files were discovered on disk under the configured resources path (for example, `.psd1` or `.json` files).
 
 #### String Table File Rules
 

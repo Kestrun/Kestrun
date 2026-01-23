@@ -19,8 +19,8 @@
         Query string key used to request a culture. Default is 'lang'.
     .PARAMETER CookieName
         Cookie name used to request a culture. Default is 'lang'.
-    .PARAMETER EnableAcceptLanguage
-        Enables Accept-Language header resolution when specified.
+    .PARAMETER  DisableAcceptLanguage
+        Disables Accept-Language header resolution when specified.
     .PARAMETER EnableQuery
         Enables query string resolution when specified.
     .PARAMETER EnableCookie

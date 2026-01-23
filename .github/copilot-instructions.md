@@ -306,20 +306,24 @@ The middleware also sets `CurrentCulture` and `CurrentUICulture` inside the runs
 
 #### Accessing Strings in Razor Views
 
-In `.cshtml` files, use the **injected `Localizer` helper**:
+In `.cshtml` files, access the per-request localizer from `HttpContext.Items` (the middleware stores it under `KrLocalizer`, and `KrStrings` is an alias):
 
 ```html
-<h1>@Localizer["Title"]</h1>
+@{
+  var localizer = (System.Collections.Generic.IReadOnlyDictionary<string, string>)Context.Items["KrLocalizer"];
+}
+
+<h1>@localizer["Title"]</h1>
 
 <nav>
-    <a href="/">@Localizer["Navigation.Home"]</a>
-    <a href="/about">@Localizer["Navigation.About"]</a>
+  <a href="/">@localizer["Navigation.Home"]</a>
+  <a href="/about">@localizer["Navigation.About"]</a>
 </nav>
 
-<button type="submit">@Localizer["Labels.Save"]</button>
+<button type="submit">@localizer["Labels.Save"]</button>
 ```
 
-The `Localizer` respects the request culture and performs per-key fallback using the same logic as PowerShell routes.
+This dictionary respects the request culture and performs per-key fallback using the same logic as PowerShell routes.
 
 #### Discovering Loaded Cultures
 

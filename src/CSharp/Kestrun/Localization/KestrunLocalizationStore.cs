@@ -127,6 +127,11 @@ public sealed class KestrunLocalizationStore
                 var set = new HashSet<string>(StringComparer.Ordinal);
                 foreach (var candidate in _candidates)
                 {
+                    if (!IsUsableCandidate(candidate))
+                    {
+                        continue;
+                    }
+
                     var dict = _store.cache.GetOrAdd(candidate, _store.LoadStringsForCulture);
                     foreach (var k in dict.Keys)
                     {
@@ -174,6 +179,11 @@ public sealed class KestrunLocalizationStore
         {
             foreach (var candidate in _candidates)
             {
+                if (!IsUsableCandidate(candidate))
+                {
+                    continue;
+                }
+
                 var dict = _store.cache.GetOrAdd(candidate, _store.LoadStringsForCulture);
 
                 if (dict.TryGetValue(key, out var v))
@@ -185,6 +195,14 @@ public sealed class KestrunLocalizationStore
 
             value = string.Empty; // or throw / fallback marker
             return false;
+        }
+
+        private bool IsUsableCandidate(string candidate)
+        {
+            // Prevent unbounded cache growth from arbitrary culture tags.
+            // Only cache/load cultures that were discovered as available, plus the configured default.
+            return _store.IsCultureAvailable(candidate) ||
+                   string.Equals(candidate, _store.defaultCulture, StringComparison.OrdinalIgnoreCase);
         }
     }
 

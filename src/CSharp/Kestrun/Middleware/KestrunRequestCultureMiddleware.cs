@@ -111,23 +111,69 @@ public sealed class KestrunRequestCultureMiddleware(
             return false;
         }
 
-        // Prefer the first language token as the requested culture (do not resolve here).
-        foreach (var token in header.Split(',', StringSplitOptions.RemoveEmptyEntries))
+        // Select the highest-quality culture token as the requested culture (do not resolve here).
+        // Example: "en-US;q=0.1, fr-FR;q=0.9" should prefer "fr-FR".
+        string? bestCandidate = null;
+        var bestQuality = -1.0;
+
+        var tokens = header.Split(',', StringSplitOptions.RemoveEmptyEntries);
+        for (var i = 0; i < tokens.Length; i++)
         {
-            var segment = token.Trim();
+            var segment = tokens[i].Trim();
             if (segment.Length == 0)
             {
                 continue;
             }
 
-            var separatorIndex = segment.IndexOf(';');
-            var candidate = separatorIndex >= 0 ? segment[..separatorIndex].Trim() : segment;
-            if (string.IsNullOrWhiteSpace(candidate))
+            var parts = segment.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+            if (parts.Length == 0)
             {
                 continue;
             }
 
-            culture = candidate;
+            var candidate = parts[0];
+            if (string.IsNullOrWhiteSpace(candidate) || candidate == "*")
+            {
+                continue;
+            }
+
+            var quality = 1.0;
+            for (var p = 1; p < parts.Length; p++)
+            {
+                var parameter = parts[p];
+                if (!parameter.StartsWith("q=", StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                if (double.TryParse(
+                        parameter.AsSpan(2),
+                        NumberStyles.AllowDecimalPoint,
+                        CultureInfo.InvariantCulture,
+                        out var parsedQuality))
+                {
+                    quality = parsedQuality;
+                }
+
+                break;
+            }
+
+            if (quality is < 0.0 or > 1.0)
+            {
+                continue;
+            }
+
+            // For ties, keep the first token in header order.
+            if (quality > bestQuality)
+            {
+                bestQuality = quality;
+                bestCandidate = candidate;
+            }
+        }
+
+        if (!string.IsNullOrWhiteSpace(bestCandidate))
+        {
+            culture = bestCandidate;
             return true;
         }
 

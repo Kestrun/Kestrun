@@ -27,7 +27,7 @@ PowerShell runspaces and Razor pages.
   falling back to a related resource when an exact folder isn't present).
 - **Injection**: `Context.Culture` and `Context.LocalizedStrings` (preferred) are available
   in PowerShell runspaces and Razor pages. `Context.Strings` remains an alias for
-  compatibility. A `Localizer` variable is also injected for convenience.
+  compatibility. In PowerShell runspaces, a `Localizer` variable is also injected for convenience.
 
 ## External references
 
@@ -117,7 +117,16 @@ $now.ToString('D', $ci)
 ## Accessing localized strings
 
 - PowerShell: use `Get-KrLocalizedString -Key 'Labels.Save' -Default 'Save'` inside a route script or any injected runspace.
-- Razor pages: `Context.LocalizedStrings['Hello']` or use the injected `Localizer` helper.
+- Razor pages: access the per-request dictionary via `HttpContext.Items["KrLocalizer"]` (or the `KrStrings` alias).
+
+```cshtml
+@{
+  var localizer = (System.Collections.Generic.IReadOnlyDictionary<string, string>)Context.Items["KrLocalizer"];
+}
+
+<h1>@localizer["Hello"]</h1>
+<button type="submit">@localizer["Labels.Save"]</button>
+```
 
 ## Authoring tips
 

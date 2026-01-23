@@ -62,6 +62,57 @@ public class KestrunRequestCultureMiddlewareTests
 
     [Fact]
     [Trait("Category", "Localization")]
+    public async Task Middleware_Uses_AcceptLanguage_Quality_Weights()
+    {
+        var temp = Directory.CreateTempSubdirectory();
+        try
+        {
+            WriteStringTable(temp.FullName, "i18n", "en-US", "@{\nHello = \"Hello\"\n}");
+            WriteStringTable(temp.FullName, "i18n", "fr-FR", "@{\nHello = \"Bonjour\"\n}");
+
+            var builder = WebApplication.CreateBuilder(new WebApplicationOptions
+            {
+                ContentRootPath = temp.FullName
+            });
+            _ = builder.WebHost.UseTestServer();
+
+            var app = builder.Build();
+
+            var options = new KestrunLocalizationOptions
+            {
+                DefaultCulture = "en-US",
+                ResourcesBasePath = "i18n"
+            };
+
+            _ = app.UseKestrunLocalization(options);
+
+            _ = app.MapGet("/hello", (HttpContext ctx) =>
+            {
+                var culture = ctx.Items["KrCulture"] as string;
+                var hello = ctx.Items["KrStrings"] is IReadOnlyDictionary<string, string> strings &&
+                            strings.TryGetValue("Hello", out var value)
+                    ? value
+                    : string.Empty;
+                return Results.Text($"{culture}:{hello}");
+            });
+
+            await app.StartAsync();
+            var client = app.GetTestClient();
+            _ = client.DefaultRequestHeaders.TryAddWithoutValidation("Accept-Language", "en-US;q=0.1, fr-FR;q=0.9");
+
+            var response = await client.GetStringAsync("/hello");
+            Assert.Equal("fr-FR:Bonjour", response);
+
+            await app.StopAsync();
+        }
+        finally
+        {
+            temp.Delete(recursive: true);
+        }
+    }
+
+    [Fact]
+    [Trait("Category", "Localization")]
     public async Task Middleware_Falls_Back_When_Culture_Is_Invalid()
     {
         var temp = Directory.CreateTempSubdirectory();

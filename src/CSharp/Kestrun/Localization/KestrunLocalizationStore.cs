@@ -11,12 +11,12 @@ public sealed class KestrunLocalizationStore
     private static readonly IReadOnlyDictionary<string, string> EmptyStrings =
         new Dictionary<string, string>(StringComparer.Ordinal);
 
-    private readonly KestrunLocalizationOptions _options;
-    private readonly ILogger _logger;
-    private readonly string _resourcesRoot;
-    private readonly ConcurrentDictionary<string, IReadOnlyDictionary<string, string>> _cache;
-    private readonly HashSet<string> _availableCultures;
-    private readonly string _defaultCulture;
+    private readonly KestrunLocalizationOptions options;
+    private readonly Serilog.ILogger logger;
+    private readonly string resourcesRoot;
+    private readonly ConcurrentDictionary<string, IReadOnlyDictionary<string, string>> cache;
+    private readonly HashSet<string> availableCultures;
+    private readonly string defaultCulture;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="KestrunLocalizationStore"/> class.
@@ -27,21 +27,21 @@ public sealed class KestrunLocalizationStore
     public KestrunLocalizationStore(
         KestrunLocalizationOptions options,
         string contentRootPath,
-        ILogger<KestrunLocalizationStore> logger)
+        Serilog.ILogger logger)
     {
         ArgumentNullException.ThrowIfNull(options);
         ArgumentNullException.ThrowIfNull(contentRootPath);
         ArgumentNullException.ThrowIfNull(logger);
 
-        _options = options;
-        _logger = logger;
-        _cache = new ConcurrentDictionary<string, IReadOnlyDictionary<string, string>>(StringComparer.OrdinalIgnoreCase);
-        _availableCultures = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        _defaultCulture = NormalizeCulture(options.DefaultCulture) ?? options.DefaultCulture;
+        this.options = options;
+        this.logger = logger;
+        cache = new ConcurrentDictionary<string, IReadOnlyDictionary<string, string>>(StringComparer.OrdinalIgnoreCase);
+        availableCultures = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        defaultCulture = NormalizeCulture(options.DefaultCulture) ?? options.DefaultCulture;
 
-        _resourcesRoot = Path.IsPathRooted(_options.ResourcesBasePath)
-            ? _options.ResourcesBasePath
-            : Path.Combine(contentRootPath, _options.ResourcesBasePath);
+        resourcesRoot = Path.IsPathRooted(this.options.ResourcesBasePath)
+            ? this.options.ResourcesBasePath
+            : Path.Combine(contentRootPath, this.options.ResourcesBasePath);
 
         DiscoverAvailableCultures();
     }
@@ -49,7 +49,7 @@ public sealed class KestrunLocalizationStore
     /// <summary>
     /// Gets the set of available cultures discovered at startup (read-only).
     /// </summary>
-    public IReadOnlyCollection<string> AvailableCultures => [.. _availableCultures];
+    public IReadOnlyCollection<string> AvailableCultures => [.. availableCultures];
 
     /// <summary>
     /// Resolves the requested culture to the closest available culture or the default culture.
@@ -57,7 +57,7 @@ public sealed class KestrunLocalizationStore
     /// <param name="requestedCulture">The requested culture name.</param>
     /// <returns>The resolved culture name.</returns>
     public string ResolveCulture(string? requestedCulture) =>
-        ResolveCulture(requestedCulture, allowDefaultFallback: true) ?? _defaultCulture;
+        ResolveCulture(requestedCulture, allowDefaultFallback: true) ?? defaultCulture;
 
     /// <summary>
     /// Gets the localized strings for the requested culture with fallback resolution.
@@ -75,7 +75,7 @@ public sealed class KestrunLocalizationStore
     {
         return string.IsNullOrWhiteSpace(resolvedCulture)
             ? EmptyStrings
-            : _cache.GetOrAdd(resolvedCulture, LoadStringsForCulture);
+            : cache.GetOrAdd(resolvedCulture, LoadStringsForCulture);
     }
 
     private sealed class CompositeStringTable : IReadOnlyDictionary<string, string>
@@ -112,9 +112,9 @@ public sealed class KestrunLocalizationStore
             }
 
             // Finally add the default culture as last resort (if not already present)
-            if (!string.IsNullOrWhiteSpace(_store._defaultCulture) && !_candidates.Contains(_store._defaultCulture, StringComparer.OrdinalIgnoreCase))
+            if (!string.IsNullOrWhiteSpace(_store.defaultCulture) && !_candidates.Contains(_store.defaultCulture, StringComparer.OrdinalIgnoreCase))
             {
-                _candidates.Add(_store._defaultCulture);
+                _candidates.Add(_store.defaultCulture);
             }
         }
 
@@ -127,7 +127,7 @@ public sealed class KestrunLocalizationStore
                 var set = new HashSet<string>(StringComparer.Ordinal);
                 foreach (var candidate in _candidates)
                 {
-                    var dict = _store._cache.GetOrAdd(candidate, _store.LoadStringsForCulture);
+                    var dict = _store.cache.GetOrAdd(candidate, _store.LoadStringsForCulture);
                     foreach (var k in dict.Keys)
                     {
                         if (set.Add(k))
@@ -174,7 +174,7 @@ public sealed class KestrunLocalizationStore
         {
             foreach (var candidate in _candidates)
             {
-                var dict = _store._cache.GetOrAdd(candidate, _store.LoadStringsForCulture);
+                var dict = _store.cache.GetOrAdd(candidate, _store.LoadStringsForCulture);
 
                 if (dict.TryGetValue(key, out var v))
                 {
@@ -198,20 +198,32 @@ public sealed class KestrunLocalizationStore
     {
         var candidates = BuildCultureCandidates(requestedCulture);
 
-        foreach (var candidate in candidates)
+        // Prefer an exact match for the requested culture first (typically the first candidate).
+        if (candidates.Count > 0 && IsCultureAvailable(candidates[0]))
         {
+            return candidates[0];
+        }
+
+        // Then attempt a sibling-specific fallback (e.g., fr-FR when resolving fr-CA) before walking parents.
+        var specificFallback = GetSpecificCultureFallback(requestedCulture);
+        if (specificFallback is not null && IsCultureAvailable(specificFallback))
+        {
+            return specificFallback;
+        }
+
+        // Finally, walk the remaining candidates (typically the parent chain).
+        for (var i = 1; i < candidates.Count; i++)
+        {
+            var candidate = candidates[i];
             if (IsCultureAvailable(candidate))
             {
                 return candidate;
             }
         }
 
-        var specificFallback = GetSpecificCultureFallback(requestedCulture);
-        return specificFallback is not null && IsCultureAvailable(specificFallback)
-            ? specificFallback
-            : allowDefaultFallback
-                ? _defaultCulture
-                : null;
+        return allowDefaultFallback
+            ? defaultCulture
+            : null;
     }
 
     private IReadOnlyList<string> BuildCultureCandidates(string? requestedCulture)
@@ -269,13 +281,16 @@ public sealed class KestrunLocalizationStore
 
     private void DiscoverAvailableCultures()
     {
-        if (!Directory.Exists(_resourcesRoot))
+        if (!Directory.Exists(resourcesRoot))
         {
-            _logger.LogDebug("Localization base path '{BasePath}' does not exist.", _resourcesRoot);
+            if (logger.IsEnabled(Serilog.Events.LogEventLevel.Debug))
+            {
+                logger.Debug("Localization resources root '{BasePath}' does not exist; no cultures discovered.", resourcesRoot);
+            }
             return;
         }
 
-        foreach (var dir in Directory.GetDirectories(_resourcesRoot))
+        foreach (var dir in Directory.GetDirectories(resourcesRoot))
         {
             var name = Path.GetFileName(dir);
             if (string.IsNullOrWhiteSpace(name))
@@ -283,17 +298,20 @@ public sealed class KestrunLocalizationStore
                 continue;
             }
 
-            var filePath = Path.Combine(dir, _options.FileName);
+            var filePath = Path.Combine(dir, options.FileName);
             if (File.Exists(filePath) || HasJsonFallback(filePath))
             {
-                _ = _availableCultures.Add(name);
+                _ = availableCultures.Add(name);
             }
         }
 
-        _logger.LogDebug("Discovered {Count} localization cultures in {BasePath}.", _availableCultures.Count, _resourcesRoot);
+        if (logger.IsEnabled(Serilog.Events.LogEventLevel.Debug))
+        {
+            logger.Debug("Discovered {Count} localization cultures in {BasePath}.", availableCultures.Count, resourcesRoot);
+        }
     }
 
-    private bool IsCultureAvailable(string culture) => _availableCultures.Contains(culture);
+    private bool IsCultureAvailable(string culture) => availableCultures.Contains(culture);
 
     private static bool HasJsonFallback(string filePath)
     {
@@ -309,7 +327,7 @@ public sealed class KestrunLocalizationStore
 
     private IReadOnlyDictionary<string, string> LoadStringsForCulture(string culture)
     {
-        var filePath = Path.Combine(_resourcesRoot, culture, _options.FileName);
+        var filePath = Path.Combine(resourcesRoot, culture, options.FileName);
         var extension = Path.GetExtension(filePath);
         var primaryPath = filePath;
         var jsonFallbackPath = string.Equals(extension, ".psd1", StringComparison.OrdinalIgnoreCase)
@@ -322,12 +340,14 @@ public sealed class KestrunLocalizationStore
             {
                 return LoadJsonStrings(jsonFallbackPath);
             }
-
-            _logger.LogError(
-                "Localization file missing for culture '{Culture}'. Tried '{PrimaryPath}'{JsonPathMessage}.",
-                culture,
-                primaryPath,
-                jsonFallbackPath is null ? string.Empty : $" and '{jsonFallbackPath}'");
+            if (logger.IsEnabled(Serilog.Events.LogEventLevel.Debug))
+            {
+                logger.Debug(
+                    "Localization file missing for culture '{Culture}'. Tried '{PrimaryPath}'{JsonPathMessage}.",
+                    culture,
+                    primaryPath,
+                    jsonFallbackPath is null ? string.Empty : $" and '{jsonFallbackPath}'");
+            }
             return EmptyStrings;
         }
 
@@ -344,7 +364,7 @@ public sealed class KestrunLocalizationStore
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Failed to parse localization file '{Path}'.", path);
+            logger.Warning(ex, "Failed to parse localization file '{Path}'.", path);
             return EmptyStrings;
         }
     }
@@ -357,7 +377,7 @@ public sealed class KestrunLocalizationStore
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Failed to parse localization JSON file '{Path}'.", path);
+            logger.Warning(ex, "Failed to parse localization JSON file '{Path}'.", path);
             return EmptyStrings;
         }
     }

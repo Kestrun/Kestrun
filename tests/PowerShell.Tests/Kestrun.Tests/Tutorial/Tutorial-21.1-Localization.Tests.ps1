@@ -19,7 +19,7 @@ Describe 'Tutorial 21.1 - Localization' -Tag 'Tutorial', 'Localization' {
         $resp.hello | Should -Be 'Ciao'
         $resp.save | Should -Be 'Salva'
         $ci = [System.Globalization.CultureInfo]::new($resp.culture)
-        $expectedDate = (Get-Date).ToString('D', $ci)
+        $expectedDate = ( [DateTime]::ParseExact('20260829', 'yyyyMMdd', [System.Globalization.CultureInfo]::InvariantCulture) ).ToString('D', $ci)
         $expectedCurrency = (1234.56).ToString('C', $ci)
         $resp.dateSample | Should -Be $expectedDate
         $resp.currencySample | Should -Be $expectedCurrency
@@ -35,7 +35,7 @@ Describe 'Tutorial 21.1 - Localization' -Tag 'Tutorial', 'Localization' {
         $resp.culture | Should -Be 'en-US'
         $resp.hello | Should -Be 'Hello'
         $ci = [System.Globalization.CultureInfo]::new($resp.culture)
-        $expectedDate = (Get-Date).ToString('D', $ci)
+        $expectedDate = ( [DateTime]::ParseExact('20260829', 'yyyyMMdd', [System.Globalization.CultureInfo]::InvariantCulture) ).ToString('D', $ci)
         $expectedCurrency = (1234.56).ToString('C', $ci)
         $resp.dateSample | Should -Be $expectedDate
         $resp.currencySample | Should -Be $expectedCurrency
@@ -52,7 +52,7 @@ Describe 'Tutorial 21.1 - Localization' -Tag 'Tutorial', 'Localization' {
         $resp.hello | Should -Be 'Bonjour'
         $resp.save | Should -Be 'Enregistrer'
         $ci = [System.Globalization.CultureInfo]::new($resp.culture)
-        $expectedDate = (Get-Date).ToString('D', $ci)
+        $expectedDate = ( [DateTime]::ParseExact('20260829', 'yyyyMMdd', [System.Globalization.CultureInfo]::InvariantCulture) ).ToString('D', $ci)
         $expectedCurrency = (1234.56).ToString('C', $ci)
         $resp.dateSample | Should -Be $expectedDate
         $resp.currencySample | Should -Be $expectedCurrency
@@ -69,7 +69,7 @@ Describe 'Tutorial 21.1 - Localization' -Tag 'Tutorial', 'Localization' {
         $resp.hello | Should -Be 'Hola'
         $resp.save | Should -Be 'Guardar'
         $ci = [System.Globalization.CultureInfo]::new($resp.culture)
-        $expectedDate = (Get-Date).ToString('D', $ci)
+        $expectedDate = ( [DateTime]::ParseExact('20260829', 'yyyyMMdd', [System.Globalization.CultureInfo]::InvariantCulture) ).ToString('D', $ci)
         $expectedCurrency = (1234.56).ToString('C', $ci)
         $resp.dateSample | Should -Be $expectedDate
         $resp.currencySample | Should -Be $expectedCurrency
@@ -86,7 +86,7 @@ Describe 'Tutorial 21.1 - Localization' -Tag 'Tutorial', 'Localization' {
         $resp.hello | Should -Be 'Hallo'
         $resp.save | Should -Be 'Speichern'
         $ci = [System.Globalization.CultureInfo]::new($resp.culture)
-        $expectedDate = (Get-Date).ToString('D', $ci)
+        $expectedDate = ( [DateTime]::ParseExact('20260829', 'yyyyMMdd', [System.Globalization.CultureInfo]::InvariantCulture) ).ToString('D', $ci)
         $expectedCurrency = (1234.56).ToString('C', $ci)
         $resp.dateSample | Should -Be $expectedDate
         $resp.currencySample | Should -Be $expectedCurrency
@@ -103,7 +103,7 @@ Describe 'Tutorial 21.1 - Localization' -Tag 'Tutorial', 'Localization' {
         $resp.hello | Should -Be 'Ciao'
         $resp.save | Should -Be 'Salva'
         $ci = [System.Globalization.CultureInfo]::new($resp.culture)
-        $expectedDate = (Get-Date).ToString('D', $ci)
+        $expectedDate = ( [DateTime]::ParseExact('20260829', 'yyyyMMdd', [System.Globalization.CultureInfo]::InvariantCulture) ).ToString('D', $ci)
         $expectedCurrency = (1234.56).ToString('C', $ci)
         $resp.dateSample | Should -Be $expectedDate
         $resp.currencySample | Should -Be $expectedCurrency
@@ -111,7 +111,7 @@ Describe 'Tutorial 21.1 - Localization' -Tag 'Tutorial', 'Localization' {
         $resp.calendarName | Should -Be $expectedCalendar
     }
 
-      It 'returns Canadian French strings via Accept-Language header' {
+    It 'returns Canadian French strings via Accept-Language header' {
         $url = "$($script:instance.Url)/hello"
         $params = @{ Uri = $url; TimeoutSec = 10; Headers = @{ Accept = 'application/json'; 'Accept-Language' = 'fr-CA' } }
         if ($script:instance.Https) { $params.SkipCertificateCheck = $true }
@@ -120,7 +120,7 @@ Describe 'Tutorial 21.1 - Localization' -Tag 'Tutorial', 'Localization' {
         $resp.hello | Should -Be 'Bonjour du Canada !'
         $resp.save | Should -Be 'Enregistrer'
         $ci = [System.Globalization.CultureInfo]::new($resp.culture)
-        $expectedDate = (Get-Date).ToString('D', $ci)
+        $expectedDate = ( [DateTime]::ParseExact('20260829', 'yyyyMMdd', [System.Globalization.CultureInfo]::InvariantCulture) ).ToString('D', $ci)
         $expectedCurrency = (1234.56).ToString('C', $ci)
         $resp.dateSample | Should -Be $expectedDate
         $resp.currencySample | Should -Be $expectedCurrency

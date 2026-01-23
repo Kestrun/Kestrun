@@ -24,7 +24,7 @@ Add-KrLocalizationMiddleware -ResourcesBasePath './Assets/i18n'
 Add-KrMapRoute -Verbs Get -Pattern '/hello' -ScriptBlock {
     Expand-KrObject -InputObject $Context.Culture -Label 'Current Culture'
     $culture = [System.Globalization.CultureInfo]::CurrentCulture
-    $now = Get-Date
+    $now = [DateTime]::ParseExact('20260829', 'yyyyMMdd', [System.Globalization.CultureInfo]::InvariantCulture)
     $payload = [ordered]@{
         culture = $Context.Culture
         hello = Get-KrLocalizedString -Key 'Hello' -Default 'Hello'

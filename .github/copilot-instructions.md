@@ -186,15 +186,18 @@ Kestrun supports **PowerShell-style .psd1 string tables** (with optional `.json`
 **Enable the middleware:**
 
 ```powershell
-Add-KrLocalizationMiddleware -Path './strings' -DefaultCulture 'en-US'
+Add-KrLocalizationMiddleware -ResourcesBasePath './i18n' -DefaultCulture 'en-US'
 ```
 
-- `-Path`: Directory containing .psd1 string table files (one per culture, e.g., `en-US.psd1`, `fr-FR.psd1`)
+- `-ResourcesBasePath`: Directory containing one subfolder per culture (e.g., `i18n/en-US/`, `i18n/fr-FR/`).
+  - Each culture folder contains the localization file (default: `Messages.psd1`).
+  - JSON fallback: if `Messages.psd1` is missing, Kestrun tries `Messages.json` in the same folder.
 - `-DefaultCulture`: Fallback when no culture is detected in request
+- `-FileName` (optional): Overrides the localization filename (default: `Messages.psd1`).
 
 **Create string tables (.psd1 format):**
 
-File: `./strings/en-US.psd1`
+File: `./i18n/en-US/Messages.psd1`
 
 ```powershell
 @{
@@ -216,7 +219,7 @@ File: `./strings/en-US.psd1`
 }
 ```
 
-File: `./strings/fr-FR.psd1`
+File: `./i18n/fr-FR/Messages.psd1`
 
 ```powershell
 @{
@@ -251,16 +254,16 @@ The middleware resolves the request culture from (in priority order):
 
 When a request comes in for a culture (e.g., `fr-CA`), Kestrun searches for each string individually across:
 
-1. Specific culture (`fr-CA.psd1`)
-2. Sibling language (`fr-FR.psd1`) — checked before parent chain
-3. Parent culture chain (`fr.psd1`)
-4. Default culture (`en-US.psd1`)
+1. Specific culture (`i18n/fr-CA/Messages.psd1`)
+2. Sibling language (`i18n/fr-FR/Messages.psd1`) — checked before parent chain
+3. Parent culture chain (`i18n/fr/Messages.psd1`)
+4. Default culture (`i18n/en-US/Messages.psd1`)
 
-**Example:** If `fr-CA.psd1` has `Messages.Welcome` but is missing `Labels.Save`, a request for `?lang=fr-CA` will:
+**Example:** If `i18n/fr-CA/Messages.psd1` has `Messages.Welcome` but is missing `Labels.Save`, a request for `?lang=fr-CA` will:
 - Use French-Canadian `Messages.Welcome`
-- Fall back to French-France `Labels.Save` (from `fr-FR.psd1`) if available
-- Or fall back to French `Labels.Save` (from `fr.psd1`)
-- Or use English `Labels.Save` (from `en-US.psd1`)
+- Fall back to French-France `Labels.Save` (from `i18n/fr-FR/Messages.psd1`) if available
+- Or fall back to French `Labels.Save` (from `i18n/fr/Messages.psd1`)
+- Or use English `Labels.Save` (from `i18n/en-US/Messages.psd1`)
 
 #### Accessing Strings in PowerShell Routes
 
@@ -287,12 +290,13 @@ Add-KrMapRoute -Verbs Get -Pattern '/api/nav' {
 
 ```powershell
 Add-KrMapRoute -Verbs Get -Pattern '/api/locale' {
-    # $Context.Culture is a [CultureInfo] instance set by middleware
+    # $Context.Culture is a culture name string (e.g., 'fr-FR')
+    $ci = [System.Globalization.CultureInfo]::GetCultureInfo($Context.Culture)
     $info = @{
-        Name = $Context.Culture.Name
-        DisplayName = $Context.Culture.DisplayName
-        DateFormat = $Context.Culture.DateTimeFormat.ShortDatePattern
-        CurrencySymbol = $Context.Culture.NumberFormat.CurrencySymbol
+        Name = $ci.Name
+        DisplayName = $ci.DisplayName
+        DateFormat = $ci.DateTimeFormat.ShortDatePattern
+        CurrencySymbol = $ci.NumberFormat.CurrencySymbol
     }
     Write-KrJsonResponse $info
 }
@@ -322,7 +326,7 @@ The `Localizer` respects the request culture and performs per-key fallback using
 Use `Get-KrLocalizationCultures` to enumerate all cultures that have been loaded from the string table directory:
 
 ```powershell
-$cultures = Get-KrLocalizationCultures
+$cultures = Get-KrLocalizationCultures -ResourcesBasePath './i18n'
 # Returns: [string[]] e.g., @('en-US', 'fr-FR', 'fr-CA', 'de-DE')
 
 foreach ($culture in $cultures) {
@@ -337,7 +341,8 @@ This helper queries the running host's localization store and returns only cultu
 - **Encoding**: UTF-8 without BOM (use `Remove-BomFromScripts` if needed)
 - **Format**: `.psd1` PowerShell hashtable or `.json` object with nested properties
 - **Nesting**: Supported up to any depth (e.g., `Navigation.Main.Home`)
-- **Naming**: Culture code per file (e.g., `en-US.psd1`, `fr-FR.psd1`)
+- **Naming**: Culture code per folder under `-ResourcesBasePath` (e.g., `i18n/en-US/`, `i18n/fr-FR/`)
+  - Default filename is `Messages.psd1` (or `Messages.json` fallback) per culture folder
   - Use BCP 47 format ([RFC 5646](https://tools.ietf.org/html/rfc5646)): language-region (e.g., `en`, `en-US`, `fr-CA`, `zh-Hans`)
 
 #### Example: Multi-Culture Formatting
@@ -359,7 +364,7 @@ Add-KrMapRoute -Verbs Get -Pattern '/api/museum-info' {
 ```
 
 For a request with `?lang=fr-FR`, this will:
-- Use French title from `fr-FR.psd1`
+- Use French title from `i18n/fr-FR/Messages.psd1`
 - Format the date in French format (e.g., "29 octobre 2023")
 - Format currency with Euro symbol (€)
 

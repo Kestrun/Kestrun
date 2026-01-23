@@ -164,10 +164,6 @@ public static class StatusCodePageExtensions
             httpContext.Items[PowerShellDelegateBuilder.KR_CONTEXT_KEY] = kr;
             var ss = ps.Runspace.SessionStateProxy;
             ss.SetVariable("Context", kr);
-            if (httpContext.Items.TryGetValue("KrLocalizer", out var localizer))
-            {
-                ss.SetVariable("Localizer", localizer);
-            }
 
             try
             {

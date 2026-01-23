@@ -103,7 +103,7 @@ Authoring tips
 Troubleshooting
 
 - If formatting seems wrong, confirm `Context.Culture` matches the requested tag and examine the runspace prelude that sets `CurrentCulture`.
-- Use logging to inspect which resource folder was selected (middleware logs resource culture resolution decisions at Information level).
+- Use logging to inspect which resource folder was selected; the localization middleware also emits warnings when resource files are missing.  
 
 See examples
 
@@ -113,5 +113,3 @@ See examples
 ## Related pages
 
 - Guide: [Localization Guide](../guides/localization.md)
-
-If you want, I can add a small helper script that validates your `Assets/i18n` tree and lists discovered cultures.

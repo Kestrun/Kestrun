@@ -25,18 +25,22 @@ public static class KestrunLocalizationMiddlewareExtensions
         var env = services.GetService<IHostEnvironment>();
         var contentRoot = env?.ContentRootPath ?? Directory.GetCurrentDirectory();
 
-        var store = new KestrunLocalizationStore(options, contentRoot, Serilog.Log.Logger);
-        // If a KestrunHost is available via DI, capture the store on the host so tools
-        // and PowerShell helpers can inspect runtime-loaded cultures.
+        KestrunHost? host = null;
         try
         {
-            var host = services.GetService<KestrunHost>();
-            _ = (host?.LocalizationStore = store);
+            host = services.GetService<KestrunHost>();
         }
         catch
         {
             // Ignore any errors when host isn't available in this context.
         }
+
+        var logger = host?.Logger ?? Serilog.Log.Logger;
+        var store = new KestrunLocalizationStore(options, contentRoot, logger);
+
+        // If a KestrunHost is available via DI, capture the store on the host so tools
+        // and PowerShell helpers can inspect runtime-loaded cultures.
+        _ = (host?.LocalizationStore = store);
         return app.UseMiddleware<KestrunRequestCultureMiddleware>(store, options);
     }
 }

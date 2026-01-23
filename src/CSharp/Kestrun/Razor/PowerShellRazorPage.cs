@@ -1,9 +1,12 @@
 using System.Management.Automation;
 using Kestrun.Scripting;
+using Kestrun.Models;
+using Kestrun.Languages;
 using Kestrun.Utilities;
 using Serilog;
 using Serilog.Events;
 using Kestrun.Logging;
+using Kestrun.Hosting;
 
 namespace Kestrun.Razor;
 
@@ -155,7 +158,7 @@ public static class PowerShellRazorPage
         try
         {
             ps = CreatePowerShell(pool);
-            PrepareSession(ps, context);
+            PrepareSession(ps, context, pool.Host);
             await AddScriptFromFileAsync(ps, psFilePath, context.RequestAborted);
             LogExecution(psFilePath);
 
@@ -239,10 +242,10 @@ public static class PowerShellRazorPage
         {
             if (Log.IsEnabled(LogEventLevel.Debug))
             {
-                Log.Debug("Request path is empty, skipping PowerShell Razor Page processing");
+                Log.Debug("Request path is empty, defaulting to Index for PowerShell Razor Page processing");
             }
 
-            return null;
+            relPath = "Index";
         }
         relPath = relPath.Replace('/', Path.DirectorySeparatorChar);
         if (Log.IsEnabled(LogEventLevel.Debug))
@@ -316,10 +319,18 @@ public static class PowerShellRazorPage
     /// </summary>
     /// <param name="ps">The PowerShell instance.</param>
     /// <param name="context">The HTTP context.</param>
-    private static void PrepareSession(PowerShell ps, HttpContext context)
+    /// <param name="host">The Kestrun host.</param>
+    private static void PrepareSession(PowerShell ps, HttpContext context, KestrunHost host)
     {
+        var krContext = new KestrunContext(host, context);
+        context.Items[PowerShellDelegateBuilder.KR_CONTEXT_KEY] = krContext;
+
         var ss = ps.Runspace.SessionStateProxy;
-        ss.SetVariable("Context", context);
+        ss.SetVariable("Context", krContext);
+        if (context.Items.TryGetValue("KrLocalizer", out var localizer))
+        {
+            ss.SetVariable("Localizer", localizer);
+        }
         ss.SetVariable("Model", null);
     }
 

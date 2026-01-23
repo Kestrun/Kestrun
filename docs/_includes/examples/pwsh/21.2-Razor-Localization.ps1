@@ -21,7 +21,7 @@ Add-KrEndpoint -Port $Port -IPAddress $IPAddress
 
 Add-KrLocalizationMiddleware -ResourcesBasePath './Assets/i18n' -SupportedCultures @('en-US', 'it-IT', 'fr-FR', 'es-ES', 'de-DE')
 
-Add-KrPowerShellRazorPagesRuntime -RootPath './Assets/Pages-Localization' #-PathPrefix '/ui'
+Add-KrPowerShellRazorPagesRuntime -RootPath './Assets/Pages-Localization' -PathPrefix '/ui'
 
 Enable-KrConfiguration
 

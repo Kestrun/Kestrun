@@ -22,6 +22,7 @@ Add-KrEndpoint -Port $Port -IPAddress $IPAddress
 Add-KrLocalizationMiddleware -ResourcesBasePath './Assets/i18n' -SupportedCultures @('en-US', 'it-IT', 'fr-FR', 'es-ES', 'de-DE')
 
 Add-KrMapRoute -Verbs Get -Pattern '/hello' -ScriptBlock {
+    Expand-KrObject -InputObject $Context.Culture -Label 'Current Culture'
     $payload = [ordered]@{
         culture = $Context.Culture
         hello   = Get-KrString -Key 'Hello' -Default 'Hello'

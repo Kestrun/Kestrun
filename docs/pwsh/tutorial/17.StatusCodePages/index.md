@@ -12,10 +12,10 @@ custom content formats, redirects, and re-execution.
 
 ## Chapters
 
-- [Default Status Code Pages](./1.Default-Status-Code-Pages.md)
-- [Custom Options](./2.Custom-Options.md)
-- [Custom Handler (PowerShell)](./3.Custom-Handler-PowerShell.md)
-- [Custom Handler (C# Inline)](./4.Custom-Handler-CSharp-Inline.md)
-- [Content Format](./5.Content-Format.md)
-- [Redirects](./6.Redirects.md)
-- [Re-execute](./7.Re-execute.md)
+- [Default Status Code Pages](./1.Default-Status-Code-Pages)
+- [Custom Options](./2.Custom-Options)
+- [Custom Handler (PowerShell)](./3.Custom-Handler-PowerShell)
+- [Custom Handler (C# Inline)](./4.Custom-Handler-CSharp-Inline)
+- [Content Format](./5.Content-Format)
+- [Redirects](./6.Redirects)
+- [Re-execute](./7.Re-execute)

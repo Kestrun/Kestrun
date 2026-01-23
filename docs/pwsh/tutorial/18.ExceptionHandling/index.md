@@ -12,8 +12,8 @@ or default RFC 7807 ProblemDetails JSON.
 
 ## Chapters
 
-- [Re-execute to Path](./1.ExceptionHandlingPath.md)
-- [VB.NET Handler](./2.VBNet-Handler.md)
-- [C# Inline Handler](./3.CSharp-Inline.md)
-- [ProblemDetails Fallback](./4.ProblemDetails.md)
-- [Developer Exception Page](./5.Developer-Exception-Page.md)
+- [Re-execute to Path](./1.ExceptionHandlingPath)
+- [VB.NET Handler](./2.VBNet-Handler)
+- [C# Inline Handler](./3.CSharp-Inline)
+- [ProblemDetails Fallback](./4.ProblemDetails)
+- [Developer Exception Page](./5.Developer-Exception-Page)

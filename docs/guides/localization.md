@@ -8,17 +8,20 @@ nav_order: 50
 # Localization in Kestrun
 
 This guide explains how request-localized string tables work in Kestrun, how to author
-PowerShell `.psd1` string tables, configure the middleware, how culture resolution and
+PowerShell `.psd1` or JSON string tables, configure the middleware, how culture resolution and
 resource fallback operate, and how to access localized strings and formatting from
 PowerShell runspaces and Razor pages.
 
 ## Key Concepts
 
 - **Resources**: Place string tables under a per-culture folder inside a resources root
-  (for example `Assets/i18n/en-US/strings.psd1`).
+  (for example `Assets/i18n/en-US/strings.psd1` or `Assets/i18n/en-US/strings.json`).
 - **.psd1 format**: Use a PowerShell hashtable literal wrapped in `@{ ... }`. Values may
   be nested hashtables for grouping (e.g. `Labels = @{ Save = 'Save' }`). Quoted keys
   and values are supported.
+- **.json format**: Use a JSON object with nested objects to represent grouped keys.
+- **Format fallback**: If the `.psd1` file is missing, Kestrun tries a JSON file with the
+  same base name in the same culture folder.
 - **Request culture vs resource culture**: Kestrun preserves the requested culture (used
   for formatting) while resolving which resource culture to use for string lookup (allows
   falling back to a related resource when an exact folder isn't present).
@@ -37,7 +40,7 @@ Getting started
 - Create a resources folder in your example or app: `Assets/i18n/`
 - Add one subfolder per culture you want to provide resources for, for example:
 
-  - `Assets/i18n/en-US/strings.psd1`
+  - `Assets/i18n/en-US/strings.psd1` (or `strings.json`)
   - `Assets/i18n/fr-FR/strings.psd1`
   - `Assets/i18n/it-IT/strings.psd1`
 
@@ -50,6 +53,18 @@ Sample `strings.psd1` (PowerShell hashtable)
         Save = 'Save'
         Cancel = 'Cancel'
     }
+}
+```
+
+Sample `strings.json`
+
+```json
+{
+  "Hello": "Hello",
+  "Labels": {
+    "Save": "Save",
+    "Cancel": "Cancel"
+  }
 }
 ```
 
@@ -70,10 +85,11 @@ Culture resolution order (request-level)
 
 Resource culture resolution (string lookup)
 
-- Kestrun resolves the resource culture separately from the requested culture:
-  1. Look for an exact match folder (e.g. `it-CH`).
-  2. If not found, try a language-specific sibling fallback (e.g. `it-IT`) when available.
-  3. Fallback up the parent chain (e.g. `fr-CA` → `fr`), then default resources.
+- Kestrun resolves each string key individually using the following fallback order:
+  1. Requested culture (e.g. `fr-CA.psd1`)
+  2. Language-specific sibling fallback (e.g. `fr-FR.psd1`) when available
+  3. Parent culture chain (e.g. `fr-CA` → `fr.psd1`)
+  4. Default culture (e.g. `en-US.psd1`)
 
 Notes on formatting and runspaces
 
@@ -96,14 +112,14 @@ Accessing localized strings
 
 Authoring tips
 
-- Prefer keys with grouping (e.g. `Labels.Save`) and nested hashtables in `.psd1` for maintainability.
+- Prefer keys with grouping (e.g. `Labels.Save`) and nested objects/hashtables in `.json`/`.psd1` for maintainability.
 - Keep culture folders minimal: put only strings that differ from the default; missing keys fall back to the next candidate culture.
 - Avoid dotted keys with literal dots in the key names (use nested hashtables instead).
 
 Troubleshooting
 
 - If formatting seems wrong, confirm `Context.Culture` matches the requested tag and examine the runspace prelude that sets `CurrentCulture`.
-- Use logging to inspect which resource folder was selected; the localization middleware also emits warnings when resource files are missing.  
+- Use logging to inspect which resource folder was selected; the localization middleware also emits warnings when resource files are missing.
 
 See examples
 

@@ -179,7 +179,7 @@ Send-KrSignalRGroupMessage -GroupName 'Admins' -Method 'ReceiveGroupMessage' -Me
 
 ### 7. Localization (Request-Based Culture & String Tables)
 
-Kestrun supports **PowerShell-style .psd1 string tables** with automatic request-based culture resolution and per-key fallback across culture hierarchies.
+Kestrun supports **PowerShell-style .psd1 string tables** (with optional `.json` fallback) with automatic request-based culture resolution and per-key fallback across culture hierarchies.
 
 #### Setting Up Localization
 
@@ -252,14 +252,14 @@ The middleware resolves the request culture from (in priority order):
 When a request comes in for a culture (e.g., `fr-CA`), Kestrun searches for each string individually across:
 
 1. Specific culture (`fr-CA.psd1`)
-2. Parent culture chain (`fr.psd1`)
-3. Sibling language (`fr-FR.psd1`)
+2. Sibling language (`fr-FR.psd1`) — checked before parent chain
+3. Parent culture chain (`fr.psd1`)
 4. Default culture (`en-US.psd1`)
 
 **Example:** If `fr-CA.psd1` has `Messages.Welcome` but is missing `Labels.Save`, a request for `?lang=fr-CA` will:
 - Use French-Canadian `Messages.Welcome`
-- Fall back to French `Labels.Save` (from `fr.psd1`)
-- Or fall back to `Labels.Save` from `fr-FR.psd1` if `fr.psd1` doesn't exist
+- Fall back to French-France `Labels.Save` (from `fr-FR.psd1`) if available
+- Or fall back to French `Labels.Save` (from `fr.psd1`)
 - Or use English `Labels.Save` (from `en-US.psd1`)
 
 #### Accessing Strings in PowerShell Routes
@@ -335,7 +335,7 @@ This helper queries the running host's localization store and returns only cultu
 #### String Table File Rules
 
 - **Encoding**: UTF-8 without BOM (use `Remove-BomFromScripts` if needed)
-- **Format**: Valid PowerShell hashtable syntax (quoted keys and values)
+- **Format**: `.psd1` PowerShell hashtable or `.json` object with nested properties
 - **Nesting**: Supported up to any depth (e.g., `Navigation.Main.Home`)
 - **Naming**: Culture code per file (e.g., `en-US.psd1`, `fr-FR.psd1`)
   - Use BCP 47 format ([RFC 5646](https://tools.ietf.org/html/rfc5646)): language-region (e.g., `en`, `en-US`, `fr-CA`, `zh-Hans`)

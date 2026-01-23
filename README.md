@@ -73,6 +73,10 @@ You can find guides, API references, and usage examples to help you get started 
 - **🔁 Realtime**
   Server-Sent Events (SSE) and SignalR support.
 
+- **🌍 Localization**
+  Request-based culture resolution with PowerShell `.psd1` or JSON string tables, per-key fallback across culture hierarchies,
+  and seamless integration with PowerShell routes and Razor pages.
+
 - **🛡️ Middleware & extensibility**
   Add middleware for antiforgery, CORS, compression, caching, sessions, status code pages, exception handling, static files, gRPC, and more.
 

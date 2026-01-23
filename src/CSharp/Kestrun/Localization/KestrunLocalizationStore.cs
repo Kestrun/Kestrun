@@ -284,7 +284,7 @@ public sealed class KestrunLocalizationStore
             }
 
             var filePath = Path.Combine(dir, _options.FileName);
-            if (File.Exists(filePath))
+            if (File.Exists(filePath) || HasJsonFallback(filePath))
             {
                 _ = _availableCultures.Add(name);
             }
@@ -295,25 +295,69 @@ public sealed class KestrunLocalizationStore
 
     private bool IsCultureAvailable(string culture) => _availableCultures.Contains(culture);
 
+    private static bool HasJsonFallback(string filePath)
+    {
+        var extension = Path.GetExtension(filePath);
+        if (!string.Equals(extension, ".psd1", StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        var jsonPath = Path.ChangeExtension(filePath, ".json");
+        return File.Exists(jsonPath);
+    }
+
     private IReadOnlyDictionary<string, string> LoadStringsForCulture(string culture)
     {
         var filePath = Path.Combine(_resourcesRoot, culture, _options.FileName);
-        if (!File.Exists(filePath))
+        var extension = Path.GetExtension(filePath);
+        var primaryPath = filePath;
+        var jsonFallbackPath = string.Equals(extension, ".psd1", StringComparison.OrdinalIgnoreCase)
+            ? Path.ChangeExtension(filePath, ".json")
+            : null;
+
+        if (!File.Exists(primaryPath))
         {
-            _logger.LogWarning(
-                "Localization file missing for culture '{Culture}' at '{Path}'.",
+            if (!string.IsNullOrWhiteSpace(jsonFallbackPath) && File.Exists(jsonFallbackPath))
+            {
+                return LoadJsonStrings(jsonFallbackPath);
+            }
+
+            _logger.LogError(
+                "Localization file missing for culture '{Culture}'. Tried '{PrimaryPath}'{JsonPathMessage}.",
                 culture,
-                filePath);
+                primaryPath,
+                jsonFallbackPath is null ? string.Empty : $" and '{jsonFallbackPath}'");
             return EmptyStrings;
         }
 
+        return string.Equals(extension, ".json", StringComparison.OrdinalIgnoreCase)
+            ? LoadJsonStrings(primaryPath)
+            : LoadPsStringTable(primaryPath);
+    }
+
+    private IReadOnlyDictionary<string, string> LoadPsStringTable(string path)
+    {
         try
         {
-            return StringTableParser.ParseFile(filePath);
+            return StringTableParser.ParseFile(path);
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Failed to parse localization file '{Path}'.", filePath);
+            _logger.LogWarning(ex, "Failed to parse localization file '{Path}'.", path);
+            return EmptyStrings;
+        }
+    }
+
+    private IReadOnlyDictionary<string, string> LoadJsonStrings(string path)
+    {
+        try
+        {
+            return StringTableParser.ParseJsonFile(path);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to parse localization JSON file '{Path}'.", path);
             return EmptyStrings;
         }
     }

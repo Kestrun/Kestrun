@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Kestrun.Localization;
 using Xunit;
 
@@ -39,6 +40,41 @@ public class StringTableParserTests
             Assert.Equal("Save", map["Labels.Save"]);
             Assert.Equal("Cancel", map["Labels.Cancel"]);
             Assert.Equal(5, map.Count);
+        }
+        finally
+        {
+            temp.Delete(recursive: true);
+        }
+    }
+
+    [Fact]
+    [Trait("Category", "Localization")]
+    public void ParseJsonFile_Flattens_Nested_Objects()
+    {
+        var temp = Directory.CreateTempSubdirectory();
+        try
+        {
+            var path = Path.Combine(temp.FullName, "Messages.json");
+            var payload = new
+            {
+                Hello = "Hello",
+                Labels = new
+                {
+                    Save = "Save",
+                    Cancel = "Cancel"
+                }
+            };
+            File.WriteAllText(path, JsonSerializer.Serialize(payload, new JsonSerializerOptions
+            {
+                WriteIndented = true
+            }));
+
+            var map = StringTableParser.ParseJsonFile(path);
+
+            Assert.Equal("Hello", map["Hello"]);
+            Assert.Equal("Save", map["Labels.Save"]);
+            Assert.Equal("Cancel", map["Labels.Cancel"]);
+            Assert.Equal(3, map.Count);
         }
         finally
         {

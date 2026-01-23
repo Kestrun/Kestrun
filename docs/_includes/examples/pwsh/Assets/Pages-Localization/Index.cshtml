@@ -2,10 +2,12 @@
 @model Kestrun.Razor.PwshKestrunModel
 @{
     ViewData["Title"] = "Localization";
-    dynamic d = Model.Data ?? new { Title = "Localized", Message = "Hello", Save = "Save", Culture = "" };
+    dynamic d = Model.Data ?? new { Title = "Localized", Message = "Hello", Save = "Save", Culture = "", DateSample = "", CurrencySample = "" };
 }
 
 <h1>@d.Title</h1>
 <p class="muted">Culture: @d.Culture</p>
+<p class="muted">Date: @d.DateSample</p>
+<p class="muted">Amount: @d.CurrencySample</p>
 <p>@d.Message</p>
 <button>@d.Save</button>

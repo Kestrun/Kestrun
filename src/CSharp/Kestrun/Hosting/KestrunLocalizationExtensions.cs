@@ -1,5 +1,4 @@
 using Kestrun.Localization;
-using System;
 using Kestrun.Middleware;
 
 namespace Kestrun.Hosting;

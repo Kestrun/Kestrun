@@ -19,7 +19,7 @@ New-KrServer -Name 'Razor Localization Demo'
 
 Add-KrEndpoint -Port $Port -IPAddress $IPAddress
 
-Add-KrLocalizationMiddleware -ResourcesBasePath './Assets/i18n' -SupportedCultures @('en-US', 'it-IT', 'fr-FR', 'es-ES', 'de-DE')
+Add-KrLocalizationMiddleware -ResourcesBasePath './Assets/i18n'
 
 Add-KrPowerShellRazorPagesRuntime -RootPath './Assets/Pages-Localization' -PathPrefix '/ui'
 

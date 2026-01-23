@@ -16,7 +16,6 @@ public sealed class KestrunLocalizationStore
     private readonly string _resourcesRoot;
     private readonly ConcurrentDictionary<string, IReadOnlyDictionary<string, string>> _cache;
     private readonly HashSet<string> _availableCultures;
-    private readonly HashSet<string>? _supportedCultures;
     private readonly string _defaultCulture;
 
     /// <summary>
@@ -39,18 +38,6 @@ public sealed class KestrunLocalizationStore
         _cache = new ConcurrentDictionary<string, IReadOnlyDictionary<string, string>>(StringComparer.OrdinalIgnoreCase);
         _availableCultures = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         _defaultCulture = NormalizeCulture(options.DefaultCulture) ?? options.DefaultCulture;
-
-        _supportedCultures = options.SupportedCultures is { Length: > 0 }
-            ? new HashSet<string>(options.SupportedCultures.Where(static c => !string.IsNullOrWhiteSpace(c)), StringComparer.OrdinalIgnoreCase)
-            : null;
-
-        if (_supportedCultures is not null && !_supportedCultures.Contains(_defaultCulture))
-        {
-            _logger.LogWarning(
-                "Default culture '{DefaultCulture}' is not in SupportedCultures. Adding it for fallback resolution.",
-                _defaultCulture);
-            _ = _supportedCultures.Add(_defaultCulture);
-        }
 
         _resourcesRoot = Path.IsPathRooted(_options.ResourcesBasePath)
             ? _options.ResourcesBasePath
@@ -98,27 +85,25 @@ public sealed class KestrunLocalizationStore
 
     internal string? ResolveCulture(string? requestedCulture, bool allowDefaultFallback)
     {
-        var candidates = BuildCultureCandidates(requestedCulture, includeDefault: allowDefaultFallback);
+        var candidates = BuildCultureCandidates(requestedCulture);
 
         foreach (var candidate in candidates)
         {
-            if (!IsCultureAllowed(candidate))
-            {
-                continue;
-            }
-
             if (IsCultureAvailable(candidate))
             {
                 return candidate;
             }
         }
 
-        return allowDefaultFallback && IsCultureAllowed(_defaultCulture)
-            ? _defaultCulture
-            : null;
+        var specificFallback = GetSpecificCultureFallback(requestedCulture);
+        return specificFallback is not null && IsCultureAvailable(specificFallback)
+            ? specificFallback
+            : allowDefaultFallback
+                ? _defaultCulture
+                : null;
     }
 
-    private IReadOnlyList<string> BuildCultureCandidates(string? requestedCulture, bool includeDefault)
+    private IReadOnlyList<string> BuildCultureCandidates(string? requestedCulture)
     {
         var list = new List<string>();
         var normalized = NormalizeCulture(requestedCulture);
@@ -132,12 +117,43 @@ public sealed class KestrunLocalizationStore
             }
         }
 
-        if (includeDefault && IsCultureAllowed(_defaultCulture))
+        return list;
+    }
+
+    private static string? GetSpecificCultureFallback(string? requestedCulture)
+    {
+        if (string.IsNullOrWhiteSpace(requestedCulture))
         {
-            list.Add(_defaultCulture);
+            return null;
         }
 
-        return list;
+        CultureInfo culture;
+        try
+        {
+            culture = CultureInfo.GetCultureInfo(requestedCulture);
+        }
+        catch (CultureNotFoundException)
+        {
+            return null;
+        }
+
+        var neutral = culture.IsNeutralCulture ? culture : culture.Parent;
+        if (neutral is null || string.IsNullOrWhiteSpace(neutral.Name))
+        {
+            return null;
+        }
+
+        try
+        {
+            var specific = CultureInfo.CreateSpecificCulture(neutral.Name).Name;
+            return string.Equals(specific, culture.Name, StringComparison.OrdinalIgnoreCase)
+                ? null
+                : specific;
+        }
+        catch (CultureNotFoundException)
+        {
+            return null;
+        }
     }
 
     private void DiscoverAvailableCultures()
@@ -167,8 +183,6 @@ public sealed class KestrunLocalizationStore
     }
 
     private bool IsCultureAvailable(string culture) => _availableCultures.Contains(culture);
-
-    private bool IsCultureAllowed(string culture) => _supportedCultures == null || _supportedCultures.Contains(culture);
 
     private IReadOnlyDictionary<string, string> LoadStringsForCulture(string culture)
     {

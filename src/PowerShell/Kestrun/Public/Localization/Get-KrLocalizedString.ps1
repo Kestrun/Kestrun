@@ -9,13 +9,13 @@
     .PARAMETER Default
         Optional default value to return when the key is not present.
     .EXAMPLE
-        Get-KrString -Key 'Labels.Save'
+        Get-KrLocalizedString -Key 'Labels.Save'
     .EXAMPLE
-        Get-KrString -Key 'Labels.Save' -Default 'Save'
+        Get-KrLocalizedString -Key 'Labels.Save' -Default 'Save'
     .OUTPUTS
         System.String
 #>
-function Get-KrString {
+function Get-KrLocalizedString {
     [KestrunRuntimeApi('Route')]
     [CmdletBinding()]
     [OutputType([string])]
@@ -27,15 +27,25 @@ function Get-KrString {
         [string]$Default
     )
 
-    if ($null -eq $Context -or $null -eq $Context.Strings) {
+    $strings = $null
+    if ($null -ne $Context) {
+        $localizedProp = $Context.PSObject.Properties['LocalizedStrings']
+        if ($null -ne $localizedProp) {
+            $strings = $localizedProp.Value
+        } elseif ($Context.PSObject.Properties['Strings']) {
+            $strings = $Context.Strings
+        }
+    }
+
+    if ($null -eq $strings) {
         if ($PSBoundParameters.ContainsKey('Default')) {
             return $Default
         }
         return $null
     }
 
-    if ($Context.Strings.ContainsKey($Key)) {
-        return $Context.Strings[$Key]
+    if ($strings.ContainsKey($Key)) {
+        return $strings[$Key]
     }
 
     if ($PSBoundParameters.ContainsKey('Default')) {

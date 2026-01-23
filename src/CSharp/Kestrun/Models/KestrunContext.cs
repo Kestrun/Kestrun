@@ -1,7 +1,6 @@
 
 
 using System.Collections;
-using System.Collections.Generic;
 using System.Globalization;
 using System.Security.Claims;
 using Kestrun.Hosting.Options;
@@ -132,10 +131,15 @@ public sealed record KestrunContext
     /// <summary>
     /// Gets the localized string table for the resolved culture when localization middleware is enabled.
     /// </summary>
-    public IReadOnlyDictionary<string, string> Strings =>
+    public IReadOnlyDictionary<string, string> LocalizedStrings =>
         HttpContext.Items.TryGetValue("KrStrings", out var value) && value is IReadOnlyDictionary<string, string> strings
             ? strings
             : EmptyStrings;
+
+    /// <summary>
+    /// Gets the localized string table for the resolved culture when localization middleware is enabled.
+    /// </summary>
+    public IReadOnlyDictionary<string, string> Strings => LocalizedStrings;
 
     /// <summary>
     /// Gets the user associated with the current HTTP context.

@@ -327,6 +327,11 @@ public static class PowerShellRazorPage
 
         var ss = ps.Runspace.SessionStateProxy;
         ss.SetVariable("Context", krContext);
+        if (context.Items.TryGetValue("KrLocalizer", out var localizer))
+        {
+            ss.SetVariable("Localizer", localizer);
+        }
+        PowerShellExecutionHelpers.AddCulturePrelude(ps, krContext.Culture, host.Logger);
         ss.SetVariable("Model", null);
     }
 

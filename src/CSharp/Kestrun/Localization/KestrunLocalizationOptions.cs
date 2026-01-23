@@ -11,11 +11,6 @@ public sealed class KestrunLocalizationOptions
     public string DefaultCulture { get; set; } = "en-US";
 
     /// <summary>
-    /// Gets or sets the list of supported cultures. When set, only these cultures are allowed.
-    /// </summary>
-    public string[]? SupportedCultures { get; set; }
-
-    /// <summary>
     /// Gets or sets the base path for localization resources. Default is "i18n".
     /// </summary>
     public string ResourcesBasePath { get; set; } = "i18n";

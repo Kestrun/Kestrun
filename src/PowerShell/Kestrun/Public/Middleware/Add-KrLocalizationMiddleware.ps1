@@ -4,15 +4,13 @@
     .DESCRIPTION
         Enables PowerShell-style localization using string table files (Messages.psd1).
         The middleware resolves the culture once per request and exposes localized strings via
-        Context.Strings and the Localizer variable in route runspaces.
+        Context.LocalizedStrings (alias: Context.Strings) and the Localizer variable in route runspaces.
     .PARAMETER Server
         The Kestrun server instance to configure.
     .PARAMETER Options
         A Kestrun.Localization.KestrunLocalizationOptions instance. Overrides individual parameters.
     .PARAMETER DefaultCulture
         Default culture used when no match is found. Default is 'en-US'.
-    .PARAMETER SupportedCultures
-        Optional list of supported cultures. If provided, only these cultures are used for resolution.
     .PARAMETER ResourcesBasePath
         Base path for localization resources. Default is 'i18n'.
     .PARAMETER FileName
@@ -30,7 +28,7 @@
     .PARAMETER PassThru
         Returns the server instance for chaining.
     .EXAMPLE
-        Add-KrLocalizationMiddleware -ResourcesBasePath './Assets/i18n' -SupportedCultures @('en-US','it-IT')
+        Add-KrLocalizationMiddleware -ResourcesBasePath './Assets/i18n'
     .EXAMPLE
         $opts = [Kestrun.Localization.KestrunLocalizationOptions]::new()
         $opts.DefaultCulture = 'en-US'
@@ -51,10 +49,6 @@ function Add-KrLocalizationMiddleware {
         [Parameter(ParameterSetName = 'Items')]
         [ValidatePattern('^[a-zA-Z]{2}(-[a-zA-Z]{2})?$')]
         [string]$DefaultCulture = 'en-US',
-
-        [Parameter(ParameterSetName = 'Items')]
-        [ValidatePattern('^[a-zA-Z]{2}(-[a-zA-Z]{2})?$')]
-        [string[]]$SupportedCultures,
 
         [Parameter(ParameterSetName = 'Items')]
         [string]$ResourcesBasePath = 'i18n',
@@ -92,7 +86,6 @@ function Add-KrLocalizationMiddleware {
             $Options.QueryKey = $QueryKey
             $Options.CookieName = $CookieName
 
-            if ($PSBoundParameters.ContainsKey('SupportedCultures')) { $Options.SupportedCultures = $SupportedCultures }
             if ($PSBoundParameters.ContainsKey('DisableAcceptLanguage')) { $Options.EnableAcceptLanguage = -not $DisableAcceptLanguage.IsPresent }
             if ($PSBoundParameters.ContainsKey('EnableQuery')) { $Options.EnableQuery = $EnableQuery.IsPresent }
             if ($PSBoundParameters.ContainsKey('EnableCookie')) { $Options.EnableCookie = $EnableCookie.IsPresent }

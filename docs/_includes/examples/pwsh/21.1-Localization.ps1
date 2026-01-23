@@ -19,15 +19,21 @@ New-KrServer -Name 'Localization Demo'
 
 Add-KrEndpoint -Port $Port -IPAddress $IPAddress
 
-Add-KrLocalizationMiddleware -ResourcesBasePath './Assets/i18n' -SupportedCultures @('en-US', 'it-IT', 'fr-FR', 'es-ES', 'de-DE')
+Add-KrLocalizationMiddleware -ResourcesBasePath './Assets/i18n'
 
 Add-KrMapRoute -Verbs Get -Pattern '/hello' -ScriptBlock {
     Expand-KrObject -InputObject $Context.Culture -Label 'Current Culture'
+    $culture = [System.Globalization.CultureInfo]::CurrentCulture
+    $now = Get-Date
     $payload = [ordered]@{
         culture = $Context.Culture
-        hello   = Get-KrString -Key 'Hello' -Default 'Hello'
-        save    = Get-KrString -Key 'Labels.Save' -Default 'Save'
-        cancel  = Get-KrString -Key 'Labels.Cancel' -Default 'Cancel'
+        hello = Get-KrLocalizedString -Key 'Hello' -Default 'Hello'
+        save = Get-KrLocalizedString -Key 'Labels.Save' -Default 'Save'
+        cancel = Get-KrLocalizedString -Key 'Labels.Cancel' -Default 'Cancel'
+        dateSample = $now.ToString('D', $culture)
+        currencySample = 1234.56.ToString('C', $culture)
+        calendar = [System.Globalization.CultureInfo]::GetCultureInfo($Context.Culture).Calendar
+        calendarName = [System.Globalization.CultureInfo]::GetCultureInfo($Context.Culture).Calendar.GetType().Name
     }
 
     Write-KrJsonResponse -InputObject $payload -StatusCode 200

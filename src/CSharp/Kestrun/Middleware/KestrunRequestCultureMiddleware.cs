@@ -28,14 +28,24 @@ public sealed class KestrunRequestCultureMiddleware(
         ArgumentNullException.ThrowIfNull(context);
 
         var requestedCulture = ResolveRequestedCulture(context);
-        var resolvedCulture = _store.ResolveCulture(requestedCulture);
-        var strings = _store.GetStringsForResolvedCulture(resolvedCulture);
 
-        context.Items[CultureItemKey] = resolvedCulture;
+        // Resolve which resource culture to use for string table lookup (may be a fallback
+        // such as using 'it-IT' resources for a requested 'it-CH'). Keep the original
+        // requested culture so formatting (dates/currency) uses the exact requested culture.
+        var resourceCulture = _store.ResolveCulture(requestedCulture);
+        var strings = _store.GetStringsForResolvedCulture(resourceCulture);
+
+        // Expose the request culture (preferred) to the pipeline; if none was requested,
+        // fall back to the resolved resource culture or the configured default.
+        var contextCulture = !string.IsNullOrWhiteSpace(requestedCulture)
+            ? requestedCulture
+            : (!string.IsNullOrWhiteSpace(resourceCulture) ? resourceCulture : _options.DefaultCulture);
+
+        context.Items[CultureItemKey] = contextCulture;
         context.Items[StringsItemKey] = strings;
         context.Items[LocalizerItemKey] = _store;
 
-        ApplyCulture(resolvedCulture);
+        ApplyCulture(contextCulture);
 
         await _next(context);
     }
@@ -94,6 +104,7 @@ public sealed class KestrunRequestCultureMiddleware(
             return false;
         }
 
+        // Prefer the first language token as the requested culture (do not resolve here).
         foreach (var token in header.Split(',', StringSplitOptions.RemoveEmptyEntries))
         {
             var segment = token.Trim();
@@ -109,12 +120,8 @@ public sealed class KestrunRequestCultureMiddleware(
                 continue;
             }
 
-            var resolved = _store.ResolveCulture(candidate, allowDefaultFallback: false);
-            if (!string.IsNullOrWhiteSpace(resolved))
-            {
-                culture = resolved;
-                return true;
-            }
+            culture = candidate;
+            return true;
         }
 
         culture = null;

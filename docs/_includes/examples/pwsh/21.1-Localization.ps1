@@ -19,7 +19,7 @@ New-KrServer -Name 'Localization Demo'
 
 Add-KrEndpoint -Port $Port -IPAddress $IPAddress
 
-Add-KrLocalizationMiddleware -ResourcesBasePath './Assets/i18n'
+Add-KrLocalizationMiddleware -ResourcesBasePath './Assets/i18n' -EnableQuery -EnableCookie
 
 Add-KrMapRoute -Verbs Get -Pattern '/hello' -ScriptBlock {
     Expand-KrObject -InputObject $Context.Culture -Label 'Current Culture'

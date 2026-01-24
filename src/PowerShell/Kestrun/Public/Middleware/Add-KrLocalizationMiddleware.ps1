@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Adds localization middleware to the Kestrun server.
 .DESCRIPTION
@@ -118,7 +118,7 @@ function Add-KrLocalizationMiddleware {
             }
         }
 
-        [Kestrun.Hosting.KestrunLocalizationExtensions]::AddLocalization($Server, $Options) | Out-Null
+        $Server.AddLocalization($Options) | Out-Null
 
         if ($PassThru.IsPresent) { return $Server }
     }

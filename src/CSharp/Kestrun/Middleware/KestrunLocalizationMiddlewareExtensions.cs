@@ -42,10 +42,17 @@ public static class KestrunLocalizationMiddlewareExtensions
         // Set the default thread culture if specified in options.
         if (options.SetDefaultThreadCulture && !string.IsNullOrWhiteSpace(options.DefaultCulture))
         {
-            var ci = CultureInfo.GetCultureInfo(options.DefaultCulture);
-            CultureInfo.DefaultThreadCurrentCulture = ci;
-            CultureInfo.DefaultThreadCurrentUICulture = ci;
-            logger.Information("Default thread culture set to {Culture}", ci.Name);
+            try
+            {
+                var ci = CultureInfo.GetCultureInfo(options.DefaultCulture);
+                CultureInfo.DefaultThreadCurrentCulture = ci;
+                CultureInfo.DefaultThreadCurrentUICulture = ci;
+                logger.Information("Default thread culture set to {Culture}", ci.Name);
+            }
+            catch (CultureNotFoundException)
+            {
+                logger.Warning("The specified default culture '{Culture}' is not valid.", options.DefaultCulture);
+            }
         }
 
         // If a KestrunHost is available via DI, capture the store on the host so tools
